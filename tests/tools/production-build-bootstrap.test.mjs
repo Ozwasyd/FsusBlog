@@ -129,7 +129,10 @@ test('acceptance bootstrap materializes verified domains into its current run-bo
 test('CI bootstrap source keeps backend-only consumers free of frontend startup and forbids rebuild fallback', () =>
 {
     const source = fs.readFileSync(path.join(root, 'tools/bootstrap-acceptance-env.sh'), 'utf8');
-    assert.match(source, /CiProductionHasDomain frontend-dist[\s\S]*runtimeApplications\+=\(release-preview EnsureReleasePreview debug-frontend EnsureDebugFrontend\)/u);
+    assert.match(source, /FSUSBLOG_BOOTSTRAP_RUNTIME_SCOPE:-all/u);
+    assert.match(source, /all \| backend-only/u);
+    assert.match(source, /BootstrapNeedsFrontendRuntime\(\)[\s\S]*CiProductionHasDomain frontend-dist/u);
+    assert.match(source, /BootstrapNeedsFrontendRuntime[\s\S]*runtimeApplications\+=\(release-preview EnsureReleasePreview debug-frontend EnsureDebugFrontend\)/u);
     assert.match(source, /FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT[\s\S]*vite preview/u);
     assert.match(source, /runtimeArgs="-c \$runtimeConfiguration --no-build --no-restore"/u);
     assert.match(source, /local -x PublicAot__SsrClientRoot="\$PUBLIC_AOT_SSR_CLIENT_ROOT"/u);

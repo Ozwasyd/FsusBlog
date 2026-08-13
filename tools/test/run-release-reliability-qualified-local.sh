@@ -352,8 +352,13 @@ NODE
 }
 InvokeQualifiedAcceptanceBootstrap() {
     local bootstrapPath="${1:?bootstrap path is required}"
+    local -a runtimeScope=()
+    if ((runtime_admission_only == 1)); then
+        runtimeScope=(FSUSBLOG_BOOTSTRAP_RUNTIME_SCOPE=backend-only)
+    fi
     BuildQualifiedBootstrapFixtureEnvironment
     env "${qualified_bootstrap_fixture_environment[@]}" \
+        "${runtimeScope[@]}" \
         FSUSBLOG_RUNTIME_NO_BUILD=1 FSUSBLOG_RUNTIME_CONFIGURATION=Release \
         "$bootstrapPath"
 }
@@ -529,16 +534,18 @@ docker network connect --alias postgres "$backend_network" "$postgres_container_
 docker network connect --alias redis "$backend_network" "$redis_container_id"
 image_id="$(docker image inspect --format '{{.Id}}' "$image")"
 managed_pid_file="$root/.tmp/acceptance/${namespace}/backend.pid"
-managed_dev_pid_file="$root/.tmp/acceptance/${namespace}/dev-server.pid"
-managed_preview_pid_file="$root/.tmp/acceptance/${namespace}/preview.pid"
 host_backend_pid="$(cat "$managed_pid_file")"
-debug_frontend_pid="$(cat "$managed_dev_pid_file")"
-release_preview_pid="$(cat "$managed_preview_pid_file")"
 ManagedBackendOwned || { printf '%s\n' 'host bootstrap backend identity mismatch' >&2; exit 1; }
-ManagedRuntimeOwned "$managed_dev_pid_file" "$debug_frontend_pid" debug-frontend \
-    || { printf '%s\n' 'host bootstrap debug frontend identity mismatch' >&2; exit 1; }
-ManagedRuntimeOwned "$managed_preview_pid_file" "$release_preview_pid" release-preview \
-    || { printf '%s\n' 'host bootstrap release preview identity mismatch' >&2; exit 1; }
+if ((runtime_admission_only == 0)); then
+    managed_dev_pid_file="$root/.tmp/acceptance/${namespace}/dev-server.pid"
+    managed_preview_pid_file="$root/.tmp/acceptance/${namespace}/preview.pid"
+    debug_frontend_pid="$(cat "$managed_dev_pid_file")"
+    release_preview_pid="$(cat "$managed_preview_pid_file")"
+    ManagedRuntimeOwned "$managed_dev_pid_file" "$debug_frontend_pid" debug-frontend \
+        || { printf '%s\n' 'host bootstrap debug frontend identity mismatch' >&2; exit 1; }
+    ManagedRuntimeOwned "$managed_preview_pid_file" "$release_preview_pid" release-preview \
+        || { printf '%s\n' 'host bootstrap release preview identity mismatch' >&2; exit 1; }
+fi
 StopManagedBackend || { printf '%s\n' 'host bootstrap backend could not be stopped through its owned process group' >&2; exit 1; }
 host_backend_pid=""
 backend_container="fsusblog-test-app-${namespace}"

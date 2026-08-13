@@ -292,6 +292,14 @@ test('qualified local wrapper exposes one bounded runtime-admission-only exit', 
     const branchEnd = source.indexOf('    exit 0\nfi', branch)
         + '    exit 0\nfi'.length;
     assert.match(source, /--runtime-admission-only/u);
+    assert.match(
+        source,
+        /if \(\(runtime_admission_only == 1\)\); then[\s\S]*runtimeScope=\(FSUSBLOG_BOOTSTRAP_RUNTIME_SCOPE=backend-only\)/u
+    );
+    assert.match(
+        source,
+        /if \(\(runtime_admission_only == 0\)\); then[\s\S]*ManagedRuntimeOwned "\$managed_dev_pid_file"[\s\S]*ManagedRuntimeOwned "\$managed_preview_pid_file"/u
+    );
     assert.ok(branch >= 0 && branchEnd > branch && branchEnd < scenarioRunner);
     const bounded = source.slice(branch, branchEnd);
     assert.match(bounded, /runtime-admission-candidate\.json/u);

@@ -1329,7 +1329,7 @@ test('acceptance bootstrap starts independent services within dynamic CPU and me
     assert.match(source, /resolveManifestChildEnvironment/u);
     assert.match(source, /capacity update workers=\$workerCap->\$nextWorkerCap active=\$active/u);
     assert.match(source, /RunBootstrapParallel 'database services'[\s\S]*?postgres EnsurePostgres[\s\S]*?redis EnsureRedis/u);
-    assert.match(source, /PrepareReleasePreviewBundle[\s\S]*?local -a runtimeApplications=\(debug-backend EnsureBackend\)[\s\S]*?runtimeApplications\+=\(release-preview EnsureReleasePreview debug-frontend EnsureDebugFrontend\)[\s\S]*?RunBootstrapParallel 'runtime applications'/u);
+    assert.match(source, /BootstrapNeedsFrontendRuntime[\s\S]*?PrepareReleasePreviewBundle[\s\S]*?local -a runtimeApplications=\(debug-backend EnsureBackend\)[\s\S]*?BootstrapNeedsFrontendRuntime[\s\S]*?runtimeApplications\+=\(release-preview EnsureReleasePreview debug-frontend EnsureDebugFrontend\)[\s\S]*?RunBootstrapParallel 'runtime applications'/u);
     assert.match(source, /InvokeFixtureOrchestrator/u);
     assert.match(source, /tools\/test-fixtures\/cli\.mjs/u);
     assert.doesNotMatch(source, /PrepareAuthFixturesOnce|PreparePublicFixturesOnce|PrepareRuntimeFixturesOnce|PrepareFixtures\s*\(/u);

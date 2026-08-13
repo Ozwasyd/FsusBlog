@@ -59,6 +59,18 @@ PORT_LEASE_TERMINAL_RECEIPT_FILE="${FSUSBLOG_PORT_LEASE_TERMINAL_RECEIPT_FILE:-$
 PORT_LEASE_DAEMON_LOG="$TMP_DIR/port-lease-daemon.log"
 PORT_LEASE_DAEMON_PID=""
 PORT_LEASED_ROLES=""
+BOOTSTRAP_RUNTIME_SCOPE="${FSUSBLOG_BOOTSTRAP_RUNTIME_SCOPE:-all}"
+case "$BOOTSTRAP_RUNTIME_SCOPE" in
+    all | backend-only) ;;
+    *)
+        printf '[acceptance:bootstrap] unsupported runtime scope: %s\n' "$BOOTSTRAP_RUNTIME_SCOPE" >&2
+        exit 2
+        ;;
+esac
+
+BootstrapNeedsFrontendRuntime() {
+    [[ "$BOOTSTRAP_RUNTIME_SCOPE" == "all" ]] && CiProductionHasDomain frontend-dist
+}
 
 PortLeaseCli() {
     "${FSUSBLOG_NODE:-node}" "$PORT_LEASE_SCRIPT" "$@"
@@ -2626,13 +2638,13 @@ Main() {
         Log 'postgres and redis ready'
         return
     fi
-    if CiProductionHasDomain frontend-dist; then
+    if BootstrapNeedsFrontendRuntime; then
         AllocateReadinessDeadline 'release bundle preparation'
         PrepareReleasePreviewBundle "$READINESS_DEADLINE_AT_MS"
     fi
     AllocateReadinessDeadline 'runtime applications'
     local -a runtimeApplications=(debug-backend EnsureBackend)
-    if CiProductionHasDomain frontend-dist; then
+    if BootstrapNeedsFrontendRuntime; then
         runtimeApplications+=(release-preview EnsureReleasePreview debug-frontend EnsureDebugFrontend)
     fi
     RunBootstrapParallel 'runtime applications' "$READINESS_DEADLINE_AT_MS" "${runtimeApplications[@]}"
@@ -2643,7 +2655,7 @@ Main() {
         Log "materialized local fixture business epoch after runtime readiness: $FSUSBLOG_TEST_BUSINESS_EPOCH_UTC"
     fi
     InvokeFixtureOrchestrator
-    if CiProductionHasDomain frontend-dist; then
+    if BootstrapNeedsFrontendRuntime; then
         # Process startup already proved the immutable frontend entry. Before
         # publishing runtime readiness, require the ordinary proxied route so
         # public SSR/AOT warmup cannot be hidden by the static bootstrap proof.
