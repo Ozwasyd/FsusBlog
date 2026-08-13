@@ -227,38 +227,6 @@ internal static class PublicAotHtmlResponseNegotiation
         return best > 0 && !variant.Bytes.IsEmpty;
     }
 
-    internal static bool MatchesIfNoneMatch(StringValues ifNoneMatch, string etag)
-    {
-        if (string.IsNullOrWhiteSpace(etag) || ifNoneMatch.Count == 0)
-        {
-            return false;
-        }
-
-        for (int i = 0; i < ifNoneMatch.Count; i++)
-        {
-            ReadOnlySpan<char> header = (ifNoneMatch[i] ?? string.Empty).AsSpan();
-            while (true)
-            {
-                int comma = header.IndexOf(',');
-                ReadOnlySpan<char> candidate = (comma >= 0 ? header[..comma] : header).Trim();
-                if (candidate.Equals("*", StringComparison.Ordinal)
-                    || candidate.Equals(etag.AsSpan(), StringComparison.Ordinal))
-                {
-                    return true;
-                }
-
-                if (comma < 0)
-                {
-                    break;
-                }
-
-                header = header[(comma + 1)..];
-            }
-        }
-
-        return false;
-    }
-
     private readonly record struct HtmlEncodingQuality(double Identity, double Gzip, double Brotli);
 
     private static HtmlEncodingQuality ParseAcceptEncoding(StringValues values)

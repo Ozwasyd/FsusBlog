@@ -488,7 +488,7 @@ internal static partial class PublicWebRuntime
         CachedDynamicManifest cached = s_dynamicManifestCache.GetOrAdd(cacheKey, _ => BuildDynamicManifest(seo));
         ctx.Response.Headers["Cache-Control"] = "no-cache";
         ctx.Response.Headers["ETag"] = cached.Etag;
-        if (ctx.Request.Headers.IfNoneMatch.Any(value => string.Equals(value, cached.Etag, StringComparison.Ordinal)))
+        if (HttpEntityTagPreconditions.MatchesIfNoneMatch(ctx.Request.Headers.IfNoneMatch, cached.Etag))
         {
             ctx.Response.StatusCode = StatusCodes.Status304NotModified;
             ctx.Response.ContentLength = 0;
@@ -948,7 +948,7 @@ internal static partial class PublicWebRuntime
             response.Headers.Remove("ETag");
         }
 
-        if (PublicAotHtmlResponseNegotiation.MatchesIfNoneMatch(ctx.Request.Headers.IfNoneMatch, variant.ETag))
+        if (HttpEntityTagPreconditions.MatchesIfNoneMatch(ctx.Request.Headers.IfNoneMatch, variant.ETag))
         {
             response.StatusCode = StatusCodes.Status304NotModified;
             response.ContentLength = 0;

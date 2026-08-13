@@ -1,3 +1,4 @@
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.Testing;
@@ -73,7 +74,7 @@ public static class PublicAotEndpoints
             context.Response.Headers["X-Fsus-Public-Aot-Renderer-Version"] = snapshot.RendererVersion;
             context.Response.Headers["X-Fsus-Public-Aot-Frontend-Asset-Version"] = snapshot.FrontendAssetVersion;
 
-            if (RequestEntityTagMatches(context.Request.Headers.IfNoneMatch, entityTag))
+            if (HttpEntityTagPreconditions.MatchesIfNoneMatch(context.Request.Headers.IfNoneMatch, entityTag))
             {
                 return Results.StatusCode(StatusCodes.Status304NotModified);
             }
@@ -225,12 +226,6 @@ public static class PublicAotEndpoints
 
         return false;
     }
-
-    private static bool RequestEntityTagMatches(StringValues ifNoneMatch, string entityTag)
-        => !StringValues.IsNullOrEmpty(ifNoneMatch) &&
-            ifNoneMatch
-                .SelectMany(static value => (value ?? string.Empty).Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
-                .Any(candidate => string.Equals(candidate, entityTag, StringComparison.Ordinal));
 
     private static bool IsManifestRequestAuthorized(HttpContext context, IConfiguration configuration, IWebHostEnvironment environment)
     {
