@@ -128,9 +128,23 @@ test('one matrix lane owns local and hosted production image smoke', () =>
         workflow,
         /profile: \$\{\{ fromJSON\(github\.event_name == 'schedule' && '\["throughput-musl","throughput-glibc"\]'/u
     );
+    assert.match(
+        workflow,
+        /production-image-smoke:[\s\S]*FSUSBLOG_LOCAL_FSUSUI_ROOT: \$\{\{ github\.workspace \}\}\/\.tmp\/local-fsusui/u
+    );
+    assert.match(
+        workflow,
+        /production-image-smoke:[\s\S]*ref: \$\{\{ steps\.fsusui-baseline\.outputs\.commit \}\}/u
+    );
+    assert.match(
+        workflow,
+        /production-image-smoke:[\s\S]*corepack pnpm --dir "\$FSUSBLOG_LOCAL_FSUSUI_ROOT" run build:theme/u
+    );
     assert.match(workflow, /\.\/tools\/test\.sh ci-tier production-image-smoke --no-deps/u);
     assert.match(lane, /check-production-compose-environment\.mjs/u);
     assert.match(lane, /check-production-gateway-config\.sh/u);
+    assert.match(lane, /export FSUSBLOG_USE_LOCAL_FSUSUI=1/u);
+    assert.match(lane, /local-fsusui-identity\.mjs" --verify/u);
     assert.match(lane, /RUN_ID="\$BASE_RUN_ID"/u);
     assert.match(lane, /IMAGE_TAG="fsusblog-production-smoke:\$\{RUN_ID\}-\$\{PROFILE_ID\}"/u);
     assert.doesNotMatch(lane, /RUN_ID="\$\{BASE_RUN_ID\}-\$\{PROFILE_ID\}"/u);

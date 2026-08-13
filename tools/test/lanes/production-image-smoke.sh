@@ -4,6 +4,15 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 PROFILE_ID="${FSUSBLOG_RUNTIME_PROFILE_ID:-throughput-musl}"
 BASE_RUN_ID="${FSUSBLOG_TEST_RUN_ID:-production-image-smoke-$(git -C "$ROOT_DIR" rev-parse --short=12 HEAD)}"
+export FSUSBLOG_USE_LOCAL_FSUSUI=1
+if [[ -z "${FSUSBLOG_LOCAL_FSUSUI_ROOT:-}" ]]; then
+    export FSUSBLOG_LOCAL_FSUSUI_ROOT
+    FSUSBLOG_LOCAL_FSUSUI_ROOT="$(
+        node "$ROOT_DIR/src/frontend/scripts/fsusui-root.mjs" \
+            --repository-root "$ROOT_DIR"
+    )"
+fi
+node "$ROOT_DIR/tests/browser-diagnostics/local-fsusui-identity.mjs" --verify
 
 case "$PROFILE_ID" in
     throughput-musl | throughput-glibc) ;;
