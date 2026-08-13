@@ -1,9 +1,9 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:ae88eda048e77c0491d8f5a9c544ce155a213c17437440d08cc46c439f9a3483",
-    "sourceStateSha256": "ae88eda048e77c0491d8f5a9c544ce155a213c17437440d08cc46c439f9a3483",
+    "generatedFrom": "source-state:27fc8e74f7ed22708f092eb548fb2780cab5b81af131167ef6689773a92c5137",
+    "sourceStateSha256": "27fc8e74f7ed22708f092eb548fb2780cab5b81af131167ef6689773a92c5137",
     "configurationSha256": "aa1eb8b9803748da07ffbcda4a9bf08f6dc69cf2a24828d2ad14bae5f97ffdf4",
-    "violationCount": 272330,
+    "violationCount": 271890,
     "fileCount": 1506,
     "files": [
         {
@@ -9446,15 +9446,10 @@
         },
         {
             "path": "tests/frontend/checks/static/check-radius-scale-contract.mjs",
-            "sourceSha256": "e346dfb03ffef5a70bc15898966e7d896a6106df054b8d471feeb134a8767493",
-            "violationCount": 112,
-            "violationDigest": "973a4d60650da9bdcf24e2fd3b9386820fb5f3812532eaa8aba553e0bd518096",
-            "rules": {
-                "eslint/@stylistic/brace-style": 19,
-                "eslint/@stylistic/indent": 59,
-                "eslint/@stylistic/semi": 33,
-                "eslint/curly": 1
-            }
+            "sourceSha256": "684f71ca4da5d265e3af0a124f5855406c99a55137324ad932054cc6fcb121b9",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/frontend/checks/static/check-result-boundaries.mjs",
@@ -12172,24 +12167,19 @@
         },
         {
             "path": "tests/tools/run-once-process-identity.test.mjs",
-            "sourceSha256": "573e8e1f4bf39f7d97c7c0de783fbd8ca277f22b0145d742f836ca247f860da6",
-            "violationCount": 265,
-            "violationDigest": "2702ad18583f61ce461de69cb09ddfcdc4d898018c0f48f6f0b74eee55fbc3f6",
+            "sourceSha256": "a89c9302573c03ff166b066e39f7567ddf1501b1818cd4fa706cd90f18eb77e3",
+            "violationCount": 2,
+            "violationDigest": "851ac49186671d0ef8ac6aa3eb2fb5332d717dd3b54b4a4d600e14eaa2b6e420",
             "rules": {
-                "eslint/@stylistic/brace-style": 29,
-                "eslint/@stylistic/semi": 226,
-                "eslint/curly": 8,
                 "eslint/import-x/no-relative-parent-imports": 2
             }
         },
         {
             "path": "tests/tools/run-once.test.mjs",
-            "sourceSha256": "938132e2e4df78b442482e56e5fc591047762615ba46add84962de335ea1e800",
-            "violationCount": 62,
-            "violationDigest": "58d176aab8dcf7c2dbd9e2d98b30d8809d467beae01fae9a62e70f84a248f978",
+            "sourceSha256": "b52485ff415d6b332747c3d0e58d8088637c0756ba365497ac36d64070c40762",
+            "violationCount": 3,
+            "violationDigest": "ab18338a98fc6158dded6f0082fb97c9cd8700c9b6e665767a762a66354f17de",
             "rules": {
-                "eslint/@stylistic/brace-style": 4,
-                "eslint/@stylistic/semi": 55,
                 "eslint/import-x/no-relative-parent-imports": 3
             }
         },
@@ -12711,7 +12701,7 @@
         },
         {
             "path": "tests/tools/xunit-roslyn-adapter.test.mjs",
-            "sourceSha256": "b8ef8b065a0127e62ef68bc73b8c36c303bdf4903a116f877e0cdef05dfebcf2",
+            "sourceSha256": "4cc0fe8188d352d1c3c9a1f72f51978efb6b40b97e1c922775c925f349f97a00",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -17547,13 +17537,10 @@
         },
         {
             "path": "tools/test/run-once.mjs",
-            "sourceSha256": "4c4fef0120bd0ed86b6db4c87f0e9d28f25761dececfd78fd2cb5120a4d869a2",
-            "violationCount": 6,
-            "violationDigest": "29f12f774ad73f1e8f228998692a0fa80bbb1385f9d43bc8acbef5956f7bf877",
-            "rules": {
-                "eslint/no-unused-vars": 4,
-                "eslint/preserve-caught-error": 2
-            }
+            "sourceSha256": "883a361e670d8a6a46224142a97ee3058d4766981879f4ee399b2e3945f22fdf",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test/run-release-mutation-parity-build.mjs",
