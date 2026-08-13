@@ -886,7 +886,7 @@ tiers:
       executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
-      exclusiveResources: [static-web-assets]
+      exclusiveResources: [static-web-assets, source-transform-pressure]
       phase: 1
       cost: medium
       resourceClass: cpu
@@ -949,14 +949,15 @@ tiers:
       outputReceiptSchema: fsusblog.ci.job-result.v1
       executionDependsOn: [behavior-doc-static-admission]
       services: []
-      parallelizable: true
-      exclusiveResources: [frontend-vitest-unit]
+      parallelizable: false
+      exclusiveResources: [source-transform-pressure]
       phase: 1
       cost: high
       resourceClass: cpu
       cpuWeight: 3
       memoryWeight: 3
       minCpuUnits: 1
+      maxParallel: 1
       executionKey: frontend-unit-tests
       executionVariant: ordinary
       cacheInputs:
@@ -1145,7 +1146,7 @@ tiers:
       executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
-      exclusiveResources: [frontend-vitest-unit]
+      exclusiveResources: [source-transform-pressure]
       phase: 1
       cost: high
       resourceClass: cpu
@@ -1361,7 +1362,7 @@ tiers:
       executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
-      exclusiveResources: [static-web-assets]
+      exclusiveResources: [static-web-assets, source-transform-pressure]
       phase: 1
       cost: high
       resourceClass: cpu
@@ -2727,14 +2728,15 @@ tiers:
       command: tools/coverage/collect-frontend-coverage.sh
       executionDependsOn: [behavior-doc-static-admission]
       services: []
-      parallelizable: true
-      exclusiveResources: [frontend-vitest-unit]
+      parallelizable: false
+      exclusiveResources: [source-transform-pressure]
       phase: 1
       cost: high
       resourceClass: io
       cpuWeight: 4
       memoryWeight: 4
       minCpuUnits: 1
+      maxParallel: 1
       executionKey: frontend-unit-tests
       executionVariant: coverage
       cacheInputs:

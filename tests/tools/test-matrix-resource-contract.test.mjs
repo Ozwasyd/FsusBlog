@@ -43,11 +43,23 @@ test('backend discovery and coverage share one instrumentation exclusion', () =>
     }
 });
 
-test('ordinary, coverage, and runtime Vitest executions share one transform exclusion', () =>
+test('build and frontend test transforms share one host-pressure exclusion', () =>
 {
-    for (const id of ['frontend-unit-shard', 'coverage-frontend', 'frontend-runtime-contracts'])
+    for (const id of [
+        'backend-build-governance',
+        'frontend-build',
+        'frontend-unit-shard',
+        'coverage-frontend',
+        'frontend-runtime-contracts'
+    ])
     {
-        assert.ok(requireTier(id).exclusiveResources.includes('frontend-vitest-unit'), id);
+        assert.ok(requireTier(id).exclusiveResources.includes('source-transform-pressure'), id);
+    }
+    for (const id of ['frontend-unit-shard', 'coverage-frontend'])
+    {
+        const tier = requireTier(id);
+        assert.equal(tier.parallelizable, false, id);
+        assert.equal(tier.maxParallel, 1, id);
     }
 });
 
