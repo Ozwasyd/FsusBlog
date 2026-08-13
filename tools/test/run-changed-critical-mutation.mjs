@@ -1,13 +1,27 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
 import {
+    copyFileSync,
+    lstatSync,
     mkdirSync,
+    mkdtempSync,
+    readlinkSync,
     readFileSync,
     readdirSync,
+    rmSync,
     renameSync,
+    symlinkSync,
     writeFileSync
 } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import {
+    dirname,
+    relative,
+    resolve,
+    sep
+} from 'node:path';
+import {
+    tmpdir
+} from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -117,6 +131,188 @@ function findTraceLog(physicalOutput)
     return traceFiles[0];
 }
 
+function runRequired(command, args, options)
+{
+    const result = spawnSync(command, args, options);
+    if (result.status !== 0)
+    {
+        const detail = result.stderr?.toString().trim() || result.stdout?.toString().trim();
+        throw new Error(
+            `${command} ${args.join(' ')} failed with exit code ${result.status}`
+            + (detail ? `: ${detail}` : '')
+        );
+    }
+    return result;
+}
+
+function copyUntrackedSource(root, sandboxRoot)
+{
+    const result = runRequired(
+        'git',
+        ['ls-files', '--others', '--exclude-standard', '-z'],
+        { cwd: root, encoding: 'buffer', maxBuffer: 64 * 1024 * 1024 }
+    );
+    const paths = result.stdout.toString().split('\0').filter(Boolean);
+    for (const path of paths)
+    {
+        const source = resolve(root, path);
+        const destination = resolve(sandboxRoot, path);
+        mkdirSync(dirname(destination), { recursive: true });
+        const stat = lstatSync(source);
+        if (stat.isSymbolicLink())
+        {
+            symlinkSync(readlinkSync(source), destination);
+            continue;
+        }
+        if (!stat.isFile())
+        {
+            throw new Error(`untracked mutation input must be a file or symlink: ${path}`);
+        }
+        copyFileSync(source, destination);
+    }
+}
+
+function walkCsharpFiles(directory)
+{
+    const files = [];
+    for (const entry of readdirSync(directory, { withFileTypes: true }))
+    {
+        const path = resolve(directory, entry.name);
+        if (entry.isDirectory())
+        {
+            files.push(...walkCsharpFiles(path));
+        }
+        else if (entry.isFile() && entry.name.endsWith('.cs'))
+        {
+            files.push(path);
+        }
+    }
+    return files;
+}
+
+/**
+ * Stryker.NET applies its mutate file filter after it has generated and
+ * compiled mutants for the whole project. Build a disposable source mirror
+ * and mark non-selected C# files as generated there so physical mutation is
+ * exact without changing the repository or removing compile dependencies.
+ */
+export function prepareChangedCriticalMutationSandbox({
+    root,
+    sourceState,
+    sourceProject,
+    mutateFiles
+})
+{
+    const currentCommit = runRequired(
+        'git',
+        ['rev-parse', 'HEAD'],
+        { cwd: root, encoding: 'utf8' }
+    ).stdout.trim();
+    if (currentCommit !== sourceState.commit)
+    {
+        throw new Error(
+            `mutation source commit drifted: selection=${sourceState.commit} current=${currentCommit}`
+        );
+    }
+
+    const sandboxRoot = mkdtempSync(resolve(tmpdir(), 'fsusblog-changed-critical-'));
+    try
+    {
+        const archivePath = resolve(sandboxRoot, 'source.tar');
+        runRequired(
+            'git',
+            ['archive', '--format=tar', '--output', archivePath, sourceState.commit],
+            { cwd: root, encoding: 'buffer', maxBuffer: 128 * 1024 * 1024 }
+        );
+        runRequired(
+            'tar',
+            ['-xf', archivePath, '-C', sandboxRoot],
+            { cwd: root, encoding: 'buffer', maxBuffer: 128 * 1024 * 1024 }
+        );
+        rmSync(archivePath);
+
+        const worktreePatch = runRequired(
+            'git',
+            ['diff', '--binary', '--full-index', sourceState.commit, '--'],
+            { cwd: root, encoding: 'buffer', maxBuffer: 128 * 1024 * 1024 }
+        ).stdout;
+        if (worktreePatch.length > 0)
+        {
+            runRequired(
+                'git',
+                ['apply', '--binary', '--whitespace=nowarn', '-'],
+                {
+                    cwd: sandboxRoot,
+                    input: worktreePatch,
+                    encoding: 'buffer',
+                    maxBuffer: 128 * 1024 * 1024
+                }
+            );
+        }
+        copyUntrackedSource(root, sandboxRoot);
+
+        const projectRoot = resolve(sandboxRoot, sourceProject);
+        const selected = new Set(mutateFiles);
+        const discovered = walkCsharpFiles(projectRoot)
+            .map((path) => relative(projectRoot, path).split(sep).join('/'))
+            .sort();
+        const missing = [...selected].filter((path) => !discovered.includes(path));
+        if (missing.length > 0)
+        {
+            throw new Error(
+                `mutation sandbox is missing selected source file(s): ${missing.join(', ')}`
+            );
+        }
+        const suppressed = discovered.filter((path) => !selected.has(path));
+        for (const path of suppressed)
+        {
+            const absolutePath = resolve(projectRoot, path);
+            const source = readFileSync(absolutePath, 'utf8');
+            if (!source.startsWith('// <auto-generated'))
+            {
+                writeFileSync(
+                    absolutePath,
+                    `// <auto-generated />\n#nullable enable\n${source}`
+                );
+            }
+        }
+        return {
+            root: sandboxRoot,
+            projectRoot,
+            selected: [...selected].sort(),
+            suppressed
+        };
+    }
+    catch (error)
+    {
+        rmSync(sandboxRoot, { recursive: true, force: true });
+        throw error;
+    }
+}
+
+export function verifyChangedCriticalMutationTrace({
+    rawTrace,
+    sandboxProjectRoot,
+    mutateFiles
+})
+{
+    const visited = [...rawTrace.toString().matchAll(/\bMutating "([^"]+\.cs)"/gu)]
+        .map((match) => relative(sandboxProjectRoot, match[1]).split(sep).join('/'))
+        .sort();
+    const expected = [...mutateFiles].sort();
+    if (
+        visited.length !== expected.length
+        || visited.some((path, index) => path !== expected[index])
+    )
+    {
+        throw new Error(
+            'Stryker physical mutation scope did not match the owner-derived closure: '
+            + `expected=${JSON.stringify(expected)} actual=${JSON.stringify(visited)}`
+        );
+    }
+    return visited;
+}
+
 function runPhysicalMutations({ selection, toolPolicy, runDirectory, root, physicalRuns })
 {
     const restore = spawnSync(
@@ -139,39 +335,68 @@ function runPhysicalMutations({ selection, toolPolicy, runDirectory, root, physi
         );
         const configPath = resolve(runDirectory, 'configs', `${runName}.json`);
         writeJsonAtomic(configPath, config);
-        const result = spawnSync(
-            'dotnet',
-            [
-                'tool',
-                'run',
-                'dotnet-stryker',
-                '--config-file',
-                configPath,
-                '--output',
-                physicalOutput,
-                '--log-to-file',
-                '--verbosity',
-                'trace'
-            ], {
-                cwd: resolve(root, closure.sourceProject),
-                stdio: 'inherit',
-                env: { ...process.env, FSUSBLOG_MUTATION_BUILD: '1' }
-            }
-        );
-        if (result.status !== 0)
-        {
-            return result;
-        }
-        physicalRuns.push({
+        const sandbox = prepareChangedCriticalMutationSandbox({
+            root,
+            sourceState: selection.sourceState,
             sourceProject: closure.sourceProject,
-            config,
-            configPath,
-            reportPath: resolve(
-                physicalOutput,
-                'reports/changed-critical-mutation.json'
-            ),
-            tracePath: findTraceLog(physicalOutput)
+            mutateFiles: closure.mutateFiles
         });
+        let result;
+        try
+        {
+            result = spawnSync(
+                'dotnet',
+                [
+                    'tool',
+                    'run',
+                    'dotnet-stryker',
+                    '--config-file',
+                    configPath,
+                    '--output',
+                    physicalOutput,
+                    '--log-to-file',
+                    '--verbosity',
+                    'trace'
+                ], {
+                    cwd: sandbox.projectRoot,
+                    stdio: 'inherit',
+                    env: { ...process.env, FSUSBLOG_MUTATION_BUILD: '1' }
+                }
+            );
+            if (result.status !== 0)
+            {
+                return result;
+            }
+            const tracePath = findTraceLog(physicalOutput);
+            const rawTrace = readFileSync(tracePath);
+            verifyChangedCriticalMutationTrace({
+                rawTrace,
+                sandboxProjectRoot: sandbox.projectRoot,
+                mutateFiles: closure.mutateFiles
+            });
+            writeJsonAtomic(resolve(runDirectory, 'configs', `${runName}-physical-scope.json`), {
+                schema: 'fsusblog.changed-critical-mutation-physical-scope.v1',
+                sourceState: selection.sourceState,
+                sourceProject: closure.sourceProject,
+                mutateFiles: sandbox.selected,
+                suppressedSourceFileCount: sandbox.suppressed.length,
+                traceVerified: true
+            });
+            physicalRuns.push({
+                sourceProject: closure.sourceProject,
+                config,
+                configPath,
+                reportPath: resolve(
+                    physicalOutput,
+                    'reports/changed-critical-mutation.json'
+                ),
+                tracePath
+            });
+        }
+        finally
+        {
+            rmSync(sandbox.root, { recursive: true, force: true });
+        }
     }
     return { status: 0 };
 }

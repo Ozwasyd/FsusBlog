@@ -1210,6 +1210,18 @@ pre-runtime receipt 校验成功后才可启动。Production profile 的五分�
 是 observe-only 优化目标，不得覆盖 matrix tier 的 fault ceiling 变成短超时
 kill switch。
 
+`backend-mutation-changed-critical` 的 physical Stryker 执行使用绑定同一
+source commit 与 worktree fingerprint 的一次性源码镜像。因为 Stryker.NET
+在应用 `mutate` filter 前会先对整个 project 生成并编译 mutants，镜像只在
+非 owner-derived C# 文件首行添加标准 generated marker，并显式恢复 project
+原本启用的 nullable context；这些文件仍以原始源码参与真实
+project/test-project 编译，但不会进入 mutation orchestration。
+owner-derived 文件保持逐字节不变，运行结束后 trace 必须证明实际 `Mutating`
+文件集合与 selection closure 完全相等，并写入 physical-scope receipt；任何
+缺失、额外文件、source commit 漂移或镜像准备失败都 fail closed。镜像不作为
+缓存、兼容路径或测试替身，成功、失败后均删除，权威 report/trace 仍只写入
+matrix 声明的 `.tmp/mutation/changed-critical/<run-id>`。
+
 
 ## 测试洁净性约定
 
