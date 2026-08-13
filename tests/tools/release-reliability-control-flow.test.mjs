@@ -205,7 +205,7 @@ test('runtime-admission receipts are ignored by the locator and rejected by the 
     const receiptFile = path.join(repositoryRoot, relative);
     fs.mkdirSync(path.dirname(receiptFile), { recursive: true });
     fs.writeFileSync(receiptFile, `${JSON.stringify({
-        schema: 'fsusblog.release-reliability.runtime-admission.v1',
+        schema: 'fsusblog.release-reliability.runtime-admission.v2',
         artifactKind: 'receipt',
         status: 'passed',
         qualificationEligible: false,

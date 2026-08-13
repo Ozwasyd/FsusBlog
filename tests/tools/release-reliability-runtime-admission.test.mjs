@@ -160,9 +160,7 @@ function fixtureAuthority()
 function cleanupOwnership()
 {
     const processes = [
-        ['backend', 'backend.pid', 101],
-        ['debug-frontend', 'dev-server.pid', 102],
-        ['release-preview', 'preview.pid', 103]
+        ['backend', 'backend.pid', 101]
     ].map(([role, file, pid]) => ({
         kind: 'process',
         role,
@@ -319,7 +317,7 @@ test('runtime admission candidate is independently sealed and ineligible', (cont
     const fixture = createFixture(context);
     assert.equal(
         releaseReliabilityRuntimeAdmissionSchema,
-        'fsusblog.release-reliability.runtime-admission.v1'
+        'fsusblog.release-reliability.runtime-admission.v2'
     );
     assert.equal(fixture.candidate.schema, releaseReliabilityRuntimeAdmissionSchema);
     assert.equal(fixture.candidate.artifactKind, 'candidate');

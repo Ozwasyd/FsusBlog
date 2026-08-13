@@ -1037,11 +1037,13 @@ tools/operations/check-release-evidence-manifest.mjs --require-ok
   AEDS v2 header/payload/CRC 结论。它在 scenario runner 前退出，只生成
   `.tmp/release-reliability/<invocation>/runtime-admission-candidate.json` 与
   `runtime-admission-receipt.json`，schema 固定为
-  `fsusblog.release-reliability.runtime-admission.v1` 且
+  `fsusblog.release-reliability.runtime-admission.v2` 且
   `qualificationEligible=false`；不会生成或聚合 exact-seven candidate。wrapper
   必须先移除 EXIT trap、调用既有 `CleanupQualifiedRuntimeResources 0`，再由
-  admission owner 证明记录的 container/network/process/file identity 全部消失，
-  才能 finalize pass receipt。wrapper 的 process ownership 只复核 task-owned
+  admission owner 证明记录的 container/network/process/file identity 全部消失。
+  该 receipt 只记录该模式实际启动的 backend managed process；不会虚构
+  `debug-frontend` 或 `release-preview` identity；全部消失后才能 finalize pass
+  receipt。wrapper 的 process ownership 只复核 task-owned
   PID/identity 文件和 `/proc/<pid>/stat` 的 start-time、PGID、session，不读取
   process args 或 environment。cleanup 失败或仍有资源时没有 pass receipt；该
   receipt 也不会被 qualified locator 发现，且不能交给 release-final verifier

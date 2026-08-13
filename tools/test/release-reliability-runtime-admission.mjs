@@ -22,7 +22,7 @@ import {
 } from './release-reliability-receipt.mjs';
 
 export const releaseReliabilityRuntimeAdmissionSchema =
-    'fsusblog.release-reliability.runtime-admission.v1';
+    'fsusblog.release-reliability.runtime-admission.v2';
 
 const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const runtimeSmokeSchema = 'fsusblog.release-reliability-runtime-smoke.v1';
@@ -565,21 +565,7 @@ function collectCleanupOwnership(repositoryRoot, {
 })
 {
     const managed = [
-        collectManagedProcess(repositoryRoot, namespace, runId, 'backend', 'backend.pid'),
-        collectManagedProcess(
-            repositoryRoot,
-            namespace,
-            runId,
-            'debug-frontend',
-            'dev-server.pid'
-        ),
-        collectManagedProcess(
-            repositoryRoot,
-            namespace,
-            runId,
-            'release-preview',
-            'preview.pid'
-        )
+        collectManagedProcess(repositoryRoot, namespace, runId, 'backend', 'backend.pid')
     ];
     return {
         owner: 'CleanupQualifiedRuntimeResources',
@@ -670,9 +656,7 @@ function validateCleanup(cleanup, {
         throw new Error('runtime cleanup network identity mismatch');
     }
     const expectedProcesses = [
-        ['backend', 'backend.pid'],
-        ['debug-frontend', 'dev-server.pid'],
-        ['release-preview', 'preview.pid']
+        ['backend', 'backend.pid']
     ];
     if (!Array.isArray(cleanup.resources.processes)
         || cleanup.resources.processes.length !== expectedProcesses.length)
