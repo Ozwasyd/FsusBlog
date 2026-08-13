@@ -8578,6 +8578,144 @@
         "x-fsus-source-identity": "HTTP: GET /api/binary/author/ops/dangerous-operations/policy"
       }
     },
+    "/api/binary/author/ops/fonts/activations": {
+      "get": {
+        "operationId": "binary_get_author_ops_fonts_activations",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "/author/ops/fonts/activations",
+        "responses": {
+          "200": {
+            "description": "FontAdminSnapshot AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "FontAdminSnapshot",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-permission": "system.config",
+        "x-fsus-source-identity": "HTTP: GET /api/binary/author/ops/fonts/activations => ListActivationsAsync"
+      }
+    },
+    "/api/binary/author/ops/fonts/registry": {
+      "get": {
+        "operationId": "binary_get_author_ops_fonts_registry",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "/author/ops/fonts/registry",
+        "responses": {
+          "200": {
+            "description": "FontAdminSnapshot AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "FontAdminSnapshot",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-permission": "system.config",
+        "x-fsus-source-identity": "HTTP: GET /api/binary/author/ops/fonts/registry => ListFontsAsync"
+      }
+    },
+    "/api/binary/author/ops/fonts/registry/{fontId}": {
+      "get": {
+        "operationId": "binary_get_author_ops_fonts_registry_fontId",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "/author/ops/fonts/registry/{fontId}",
+        "responses": {
+          "200": {
+            "description": "FontAdminSnapshot AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "FontAdminSnapshot",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-permission": "system.config",
+        "x-fsus-source-identity": "HTTP: GET /api/binary/author/ops/fonts/registry/{fontId} => GetFontAsync"
+      }
+    },
     "/api/binary/author/ops/health": {
       "get": {
         "operationId": "binary_get_author_ops_health",
@@ -8622,6 +8760,236 @@
         "x-fsus-rate-limit": "fixed_ip",
         "x-fsus-permission": "audit.read",
         "x-fsus-source-identity": "HTTP: GET /api/binary/author/ops/health"
+      }
+    },
+    "/api/binary/author/ops/themes/activations": {
+      "get": {
+        "operationId": "binary_get_author_ops_themes_activations",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "/author/ops/themes/activations",
+        "responses": {
+          "200": {
+            "description": "ThemeAdminSnapshot AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "ThemeAdminSnapshot",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-permission": "system.config",
+        "x-fsus-source-identity": "HTTP: GET /api/binary/author/ops/themes/activations => ListActivationsAsync"
+      }
+    },
+    "/api/binary/author/ops/themes/activations/{scope}": {
+      "get": {
+        "operationId": "binary_get_author_ops_themes_activations_scope",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "/author/ops/themes/activations/{scope}",
+        "responses": {
+          "200": {
+            "description": "ThemeAdminSnapshot AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "ThemeAdminSnapshot",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-permission": "system.config",
+        "x-fsus-source-identity": "HTTP: GET /api/binary/author/ops/themes/activations/{scope} => GetActivationAsync"
+      }
+    },
+    "/api/binary/author/ops/themes/activations/{scope}/history": {
+      "get": {
+        "operationId": "binary_get_author_ops_themes_activations_scope_history",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "/author/ops/themes/activations/{scope}/history",
+        "responses": {
+          "200": {
+            "description": "ThemeAdminSnapshot AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "ThemeAdminSnapshot",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-permission": "system.config",
+        "x-fsus-source-identity": "HTTP: GET /api/binary/author/ops/themes/activations/{scope}/history => GetActivationHistoryAsync"
+      }
+    },
+    "/api/binary/author/ops/themes/registry": {
+      "get": {
+        "operationId": "binary_get_author_ops_themes_registry",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "/author/ops/themes/registry",
+        "responses": {
+          "200": {
+            "description": "ThemeAdminSnapshot AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "ThemeAdminSnapshot",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-permission": "system.config",
+        "x-fsus-source-identity": "HTTP: GET /api/binary/author/ops/themes/registry => ListRegistryAsync"
+      }
+    },
+    "/api/binary/author/ops/themes/registry/{themeId}": {
+      "get": {
+        "operationId": "binary_get_author_ops_themes_registry_themeId",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "/author/ops/themes/registry/{themeId}",
+        "responses": {
+          "200": {
+            "description": "ThemeAdminSnapshot AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "ThemeAdminSnapshot",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-permission": "system.config",
+        "x-fsus-source-identity": "HTTP: GET /api/binary/author/ops/themes/registry/{themeId} => GetThemeAsync"
       }
     },
     "/api/binary/author/plugins": {
@@ -12024,5 +12392,5 @@
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json",
     "endpointContracts": "src/shared/Contracts/Validation/aeds-endpoint-contracts.json"
   },
-  "x-fsus-observation-digest": "04ecaaeaf581def85c8979fc0e61b9ea0c9991165d3edeac44a42711c14b57d7"
+  "x-fsus-observation-digest": "63e97e8cefbcec8d36aea0eb2edbea8d330ec78655500a386a4a2fff54c57928"
 }

@@ -54,6 +54,8 @@ public static class EndpointContractApplication
         WebApplication app = builder.Build();
         app.MapBinaryEndpoints();
         app.MapAuthoringEndpoints();
+        app.MapFontAdminEndpoints();
+        app.MapThemeAdminEndpoints();
         app.MapSecurityEndpoints();
         return app;
     }
@@ -181,6 +183,16 @@ public sealed class EndpointSecurityTestServerOptions
     }
 
     public bool MapAuthoringEndpoints
+    {
+        get; init;
+    }
+
+    public bool MapFontAdminEndpoints
+    {
+        get; init;
+    }
+
+    public bool MapThemeAdminEndpoints
     {
         get; init;
     }
@@ -561,6 +573,14 @@ public sealed class EndpointSecurityTestServer : IDisposable
         if (options.MapAuthoringEndpoints)
         {
             app.MapAuthoringEndpoints();
+        }
+        if (options.MapFontAdminEndpoints)
+        {
+            app.MapFontAdminEndpoints();
+        }
+        if (options.MapThemeAdminEndpoints)
+        {
+            app.MapThemeAdminEndpoints();
         }
         app.StartAsync().GetAwaiter().GetResult();
 

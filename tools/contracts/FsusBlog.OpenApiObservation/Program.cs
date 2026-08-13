@@ -217,11 +217,11 @@ internal static class OpenApiObservationHost
         builder.Services.RemoveAll<IHostedService>();
 
         WebApplication app = builder.Build();
-        // AEDS binary contract surface: MapBinary + Authoring + Security.
-        // Font/Theme admin endpoints intentionally return JSON Results.Ok and are
-        // outside the AEDS OpenAPI observation set.
+        // Complete AEDS binary contract surface.
         app.MapBinaryEndpoints();
         app.MapAuthoringEndpoints();
+        app.MapFontAdminEndpoints();
+        app.MapThemeAdminEndpoints();
         app.MapSecurityEndpoints();
         return app;
     }

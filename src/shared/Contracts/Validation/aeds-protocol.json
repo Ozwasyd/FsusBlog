@@ -991,6 +991,14 @@
             "value": 242
         },
         {
+            "name": "FontAdminSnapshot",
+            "value": 243
+        },
+        {
+            "name": "ThemeAdminSnapshot",
+            "value": 244
+        },
+        {
             "name": "ApiError",
             "value": 251
         }

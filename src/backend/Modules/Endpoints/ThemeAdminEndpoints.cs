@@ -1,4 +1,6 @@
+using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Themes;
 
 using Microsoft.AspNetCore.Mvc;
@@ -24,11 +26,12 @@ public static class ThemeAdminEndpoints
     }
 
     private static async Task<IResult> ListRegistryAsync(
+        IAedsEncoder aeds,
         [FromServices] IThemeRegistry registry,
         CancellationToken cancellationToken)
     {
         IReadOnlyList<ThemeRegistrySnapshot> installed = await registry.ListThemesAsync(cancellationToken);
-        return Results.Ok(installed.Select(t => new
+        return AedsJsonResults.Ok(aeds, AedsFrameType.ThemeAdminSnapshot, installed.Select(t => new
         {
             themeId = t.Manifest.Id,
             t.Manifest.Name,
@@ -47,18 +50,15 @@ public static class ThemeAdminEndpoints
 
     private static async Task<IResult> GetThemeAsync(
         string themeId,
+        IAedsEncoder aeds,
         [FromServices] IThemeRegistry registry,
         CancellationToken cancellationToken)
     {
         ThemeRegistrySnapshot? theme = await registry.GetThemeAsync(themeId, cancellationToken);
         if (theme is null)
-            return Results.NotFound(new
-            {
-                error = "theme_not_found",
-                themeId
-            });
+            return AedsJsonResults.NotFound(aeds, "theme_not_found");
 
-        return Results.Ok(new
+        return AedsJsonResults.Ok(aeds, AedsFrameType.ThemeAdminSnapshot, new
         {
             themeId = theme.Manifest.Id,
             theme.Manifest.Name,
@@ -82,11 +82,12 @@ public static class ThemeAdminEndpoints
     }
 
     private static async Task<IResult> ListActivationsAsync(
+        IAedsEncoder aeds,
         [FromServices] IThemeRegistry registry,
         CancellationToken cancellationToken)
     {
         IReadOnlyList<ThemeActivationSnapshot> activations = await registry.ListActivationsAsync(cancellationToken);
-        return Results.Ok(activations.Select(a => new
+        return AedsJsonResults.Ok(aeds, AedsFrameType.ThemeAdminSnapshot, activations.Select(a => new
         {
             scope = a.Scope.Value,
             a.ActiveThemeId,
@@ -100,19 +101,20 @@ public static class ThemeAdminEndpoints
 
     private static async Task<IResult> GetActivationAsync(
         string scope,
+        IAedsEncoder aeds,
         [FromServices] IThemeRegistry registry,
         CancellationToken cancellationToken)
     {
         ThemeActivationScope parsedScope = ThemeActivationScope.Parse(scope);
         ThemeActivationSnapshot? activation = await registry.GetActivationAsync(parsedScope, cancellationToken);
         if (activation is null)
-            return Results.Ok(new
+            return AedsJsonResults.Ok(aeds, AedsFrameType.ThemeAdminSnapshot, new
             {
                 scope = parsedScope.Value,
                 activeThemeId = (string?)null
             });
 
-        return Results.Ok(new
+        return AedsJsonResults.Ok(aeds, AedsFrameType.ThemeAdminSnapshot, new
         {
             scope = activation.Scope.Value,
             activation.ActiveThemeId,
@@ -126,13 +128,14 @@ public static class ThemeAdminEndpoints
 
     private static async Task<IResult> GetActivationHistoryAsync(
         string scope,
+        IAedsEncoder aeds,
         [FromServices] IThemeRegistry registry,
         CancellationToken cancellationToken)
     {
         ThemeActivationScope parsedScope = ThemeActivationScope.Parse(scope);
         IReadOnlyList<ThemeActivationHistorySnapshot> history =
             await registry.GetActivationHistoryAsync(parsedScope, cancellationToken);
-        return Results.Ok(history.Select(h => new
+        return AedsJsonResults.Ok(aeds, AedsFrameType.ThemeAdminSnapshot, history.Select(h => new
         {
             h.Id,
             scope = h.Scope.Value,

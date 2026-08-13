@@ -239,5 +239,7 @@ public enum AedsFrameType : ushort
     EmptySuccess = 240,
     MutationId = 241,
     UserLocalePreferenceUpdateRequest = 242,
+    FontAdminSnapshot = 243,
+    ThemeAdminSnapshot = 244,
     ApiError = 251
 }

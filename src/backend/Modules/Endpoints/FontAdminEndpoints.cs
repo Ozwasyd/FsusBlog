@@ -1,5 +1,7 @@
+using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Fonts;
+using FsusBlog.Server.Infrastructure.Results;
 
 using Microsoft.AspNetCore.Mvc;
 
@@ -22,11 +24,12 @@ public static class FontAdminEndpoints
     }
 
     private static async Task<IResult> ListFontsAsync(
+        IAedsEncoder aeds,
         [FromServices] IFontRegistry registry,
         CancellationToken cancellationToken)
     {
         FontRegistrySnapshot snapshot = await registry.ReadAsync(cancellationToken);
-        return Results.Ok(snapshot.Fonts.Select(f => new
+        return AedsJsonResults.Ok(aeds, AedsFrameType.FontAdminSnapshot, snapshot.Fonts.Select(f => new
         {
             fontId = f.Id,
             f.Name,
@@ -46,6 +49,7 @@ public static class FontAdminEndpoints
 
     private static async Task<IResult> GetFontAsync(
         string fontId,
+        IAedsEncoder aeds,
         [FromServices] IFontRegistry registry,
         CancellationToken cancellationToken)
     {
@@ -53,13 +57,9 @@ public static class FontAdminEndpoints
         FontRegistryEntry? font = snapshot.Fonts.FirstOrDefault(
             f => string.Equals(f.Id, fontId, StringComparison.Ordinal));
         if (font is null)
-            return Results.NotFound(new
-            {
-                error = "font_not_found",
-                fontId
-            });
+            return AedsJsonResults.NotFound(aeds, "font_not_found");
 
-        return Results.Ok(new
+        return AedsJsonResults.Ok(aeds, AedsFrameType.FontAdminSnapshot, new
         {
             fontId = font.Id,
             font.Name,
@@ -90,11 +90,12 @@ public static class FontAdminEndpoints
     }
 
     private static async Task<IResult> ListActivationsAsync(
+        IAedsEncoder aeds,
         [FromServices] IFontRegistry registry,
         CancellationToken cancellationToken)
     {
         FontRegistrySnapshot snapshot = await registry.ReadAsync(cancellationToken);
-        return Results.Ok(snapshot.Activations.Select(a => new
+        return AedsJsonResults.Ok(aeds, AedsFrameType.FontAdminSnapshot, snapshot.Activations.Select(a => new
         {
             a.Scope,
             a.UiFontId,

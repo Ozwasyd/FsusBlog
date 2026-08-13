@@ -887,10 +887,82 @@
     },
     {
       "method": "GET",
+      "path": "/api/binary/author/ops/fonts/activations",
+      "operationId": "binary_get_author_ops_fonts_activations",
+      "requestFrame": null,
+      "responseFrame": "FontAdminSnapshot",
+      "errorFrame": "ApiError",
+      "successStatus": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/binary/author/ops/fonts/registry",
+      "operationId": "binary_get_author_ops_fonts_registry",
+      "requestFrame": null,
+      "responseFrame": "FontAdminSnapshot",
+      "errorFrame": "ApiError",
+      "successStatus": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/binary/author/ops/fonts/registry/{fontId}",
+      "operationId": "binary_get_author_ops_fonts_registry_fontId",
+      "requestFrame": null,
+      "responseFrame": "FontAdminSnapshot",
+      "errorFrame": "ApiError",
+      "successStatus": 200
+    },
+    {
+      "method": "GET",
       "path": "/api/binary/author/ops/health",
       "operationId": "binary_get_author_ops_health",
       "requestFrame": null,
       "responseFrame": "OpsHealth",
+      "errorFrame": "ApiError",
+      "successStatus": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/binary/author/ops/themes/activations",
+      "operationId": "binary_get_author_ops_themes_activations",
+      "requestFrame": null,
+      "responseFrame": "ThemeAdminSnapshot",
+      "errorFrame": "ApiError",
+      "successStatus": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/binary/author/ops/themes/activations/{scope}",
+      "operationId": "binary_get_author_ops_themes_activations_scope",
+      "requestFrame": null,
+      "responseFrame": "ThemeAdminSnapshot",
+      "errorFrame": "ApiError",
+      "successStatus": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/binary/author/ops/themes/activations/{scope}/history",
+      "operationId": "binary_get_author_ops_themes_activations_scope_history",
+      "requestFrame": null,
+      "responseFrame": "ThemeAdminSnapshot",
+      "errorFrame": "ApiError",
+      "successStatus": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/binary/author/ops/themes/registry",
+      "operationId": "binary_get_author_ops_themes_registry",
+      "requestFrame": null,
+      "responseFrame": "ThemeAdminSnapshot",
+      "errorFrame": "ApiError",
+      "successStatus": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/binary/author/ops/themes/registry/{themeId}",
+      "operationId": "binary_get_author_ops_themes_registry_themeId",
+      "requestFrame": null,
+      "responseFrame": "ThemeAdminSnapshot",
       "errorFrame": "ApiError",
       "successStatus": 200
     },

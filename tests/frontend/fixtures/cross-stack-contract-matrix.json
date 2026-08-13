@@ -2171,6 +2171,62 @@
         {
           "auth": "admin",
           "method": "GET",
+          "path": "/author/ops/fonts/activations",
+          "responseFrame": "FontAdminSnapshot",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/ops/fonts/registry",
+          "responseFrame": "FontAdminSnapshot",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/ops/fonts/registry/{fontId}",
+          "responseFrame": "FontAdminSnapshot",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/ops/themes/activations",
+          "responseFrame": "ThemeAdminSnapshot",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/ops/themes/activations/{scope}",
+          "responseFrame": "ThemeAdminSnapshot",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/ops/themes/activations/{scope}/history",
+          "responseFrame": "ThemeAdminSnapshot",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/ops/themes/registry",
+          "responseFrame": "ThemeAdminSnapshot",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/ops/themes/registry/{themeId}",
+          "responseFrame": "ThemeAdminSnapshot",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
           "path": "/author/cache/diagnostics",
           "responseFrame": "CacheDiagnostics",
           "rateLimit": "fixed_ip"

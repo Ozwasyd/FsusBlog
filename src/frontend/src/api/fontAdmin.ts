@@ -43,16 +43,27 @@ export interface FontActivationItem {
     updatedAt: string
 }
 
-import { getBinary } from './binaryClient'
+import { FrameType } from '@wasm/protocol/frame';
 
-export function getFontRegistry(): Promise<FontRegistryItem[]> {
-    return getBinary('/api/binary/author/ops/fonts/registry')
+import { requestAuthoringBinary } from './authoring';
+
+import type { ApiRequestConfig } from './requestConfig';
+
+export function getFontRegistry(config?: ApiRequestConfig): Promise<FontRegistryItem[]>
+{
+    return requestAuthoringBinary<FontRegistryItem[]>('/ops/fonts/registry', FrameType.FontAdminSnapshot, config);
 }
 
-export function getFontDetail(fontId: string): Promise<FontDetail> {
-    return getBinary(`/api/binary/author/ops/fonts/registry/${encodeURIComponent(fontId)}`)
+export function getFontDetail(fontId: string, config?: ApiRequestConfig): Promise<FontDetail>
+{
+    return requestAuthoringBinary<FontDetail>(
+        `/ops/fonts/registry/${encodeURIComponent(fontId)}`,
+        FrameType.FontAdminSnapshot,
+        config
+    );
 }
 
-export function getFontActivations(): Promise<FontActivationItem[]> {
-    return getBinary('/api/binary/author/ops/fonts/activations')
+export function getFontActivations(config?: ApiRequestConfig): Promise<FontActivationItem[]>
+{
+    return requestAuthoringBinary<FontActivationItem[]>('/ops/fonts/activations', FrameType.FontAdminSnapshot, config);
 }

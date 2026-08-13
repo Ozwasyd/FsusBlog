@@ -50,24 +50,45 @@ export interface ThemeActivationHistoryItem {
     activatedBy: string
 }
 
-import { getBinary } from './binaryClient'
+import { FrameType } from '@wasm/protocol/frame';
 
-export function getThemeRegistry(): Promise<ThemeRegistryItem[]> {
-    return getBinary('/api/binary/author/ops/themes/registry')
+import { requestAuthoringBinary } from './authoring';
+
+import type { ApiRequestConfig } from './requestConfig';
+
+export function getThemeRegistry(config?: ApiRequestConfig): Promise<ThemeRegistryItem[]>
+{
+    return requestAuthoringBinary<ThemeRegistryItem[]>('/ops/themes/registry', FrameType.ThemeAdminSnapshot, config);
 }
 
-export function getThemeDetail(themeId: string): Promise<ThemeDetail> {
-    return getBinary(`/api/binary/author/ops/themes/registry/${encodeURIComponent(themeId)}`)
+export function getThemeDetail(themeId: string, config?: ApiRequestConfig): Promise<ThemeDetail>
+{
+    return requestAuthoringBinary<ThemeDetail>(
+        `/ops/themes/registry/${encodeURIComponent(themeId)}`,
+        FrameType.ThemeAdminSnapshot,
+        config
+    );
 }
 
-export function getThemeActivations(): Promise<ThemeActivationItem[]> {
-    return getBinary('/api/binary/author/ops/themes/activations')
+export function getThemeActivations(config?: ApiRequestConfig): Promise<ThemeActivationItem[]>
+{
+    return requestAuthoringBinary<ThemeActivationItem[]>('/ops/themes/activations', FrameType.ThemeAdminSnapshot, config);
 }
 
-export function getThemeActivation(scope: string): Promise<ThemeActivationItem> {
-    return getBinary(`/api/binary/author/ops/themes/activations/${encodeURIComponent(scope)}`)
+export function getThemeActivation(scope: string, config?: ApiRequestConfig): Promise<ThemeActivationItem>
+{
+    return requestAuthoringBinary<ThemeActivationItem>(
+        `/ops/themes/activations/${encodeURIComponent(scope)}`,
+        FrameType.ThemeAdminSnapshot,
+        config
+    );
 }
 
-export function getThemeActivationHistory(scope: string): Promise<ThemeActivationHistoryItem[]> {
-    return getBinary(`/api/binary/author/ops/themes/activations/${encodeURIComponent(scope)}/history`)
+export function getThemeActivationHistory(scope: string, config?: ApiRequestConfig): Promise<ThemeActivationHistoryItem[]>
+{
+    return requestAuthoringBinary<ThemeActivationHistoryItem[]>(
+        `/ops/themes/activations/${encodeURIComponent(scope)}/history`,
+        FrameType.ThemeAdminSnapshot,
+        config
+    );
 }

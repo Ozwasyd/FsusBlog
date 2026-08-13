@@ -170,16 +170,20 @@ ${knownCases.join('\n')}
 `
 }
 
-function renderTsFrame() {
-  const lines = []
-  for (const frame of frameTypes) {
-    if (frame.comment) {
-      lines.push(`  // ${frame.comment}`)
+function renderTsFrame()
+{
+    const lines = [];
+    for (const frame of frameTypes)
+    {
+        if (frame.comment)
+        {
+            lines.push(`    // ${frame.comment}`);
+        }
+        lines.push(`    ${frame.name}: ${frame.value},`);
     }
-    lines.push(`  ${frame.name}: ${frame.value},`)
-  }
+    lines[lines.length - 1] = lines[lines.length - 1].replace(/,$/, '');
 
-  return `// ${generatedNotice}\n\nexport const FrameType = {\n${lines.join('\n')}\n} as const;\n\nexport type FrameType = typeof FrameType[keyof typeof FrameType];\n\nexport const AEDS_HEADER_LENGTH = ${manifest.header.size};\nexport const AEDS_MAGIC = ${manifest.header.magic};\nexport const AEDS_VERSION = ${manifest.header.version};\n\nexport const PUBLIC_SEO_FRAME_TYPES = new Set<FrameType>([\n  FrameType.ArticleList,\n  FrameType.ArticleDetail,\n  FrameType.ArticleFeatured\n]);\n\nexport function isPublicSeoFrameType(frameType: FrameType | undefined): boolean {\n  return frameType !== undefined && PUBLIC_SEO_FRAME_TYPES.has(frameType);\n}\n`
+    return `// ${generatedNotice}\n\nexport const FrameType = {\n${lines.join('\n')}\n} as const;\n\nexport type FrameType = typeof FrameType[keyof typeof FrameType];\n\nexport const AEDS_HEADER_LENGTH = ${manifest.header.size};\nexport const AEDS_MAGIC = ${manifest.header.magic};\nexport const AEDS_VERSION = ${manifest.header.version};\n\nexport const PUBLIC_SEO_FRAME_TYPES = new Set<FrameType>([\n    FrameType.ArticleList,\n    FrameType.ArticleDetail,\n    FrameType.ArticleFeatured\n]);\n\nexport function isPublicSeoFrameType(frameType: FrameType | undefined): boolean\n{\n    return frameType !== undefined && PUBLIC_SEO_FRAME_TYPES.has(frameType);\n}\n`;
 }
 
 const outputs = [
