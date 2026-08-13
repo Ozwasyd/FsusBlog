@@ -36,8 +36,6 @@ exec "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mj
     --path tools/test/run-once.mjs \
     --path .github/workflows \
     --output "${FSUSBLOG_RELEASE_EVIDENCE_DIR:-.tmp/release-evidence}/test-plan.json" \
-    --output "$DOCS_EVIDENCE_DIR/fast-backend-matrix.json" \
-    --output "$DOCS_EVIDENCE_DIR/fast-frontend-unit-matrix.json" \
     --output "$DOCS_EVIDENCE_DIR/browser-contract-matrix.json" \
     --test-id matrix-validate \
     --test-id matrix-preflight \

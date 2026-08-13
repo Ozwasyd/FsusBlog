@@ -71,8 +71,6 @@ jobs:
                       .tmp/release-evidence/test-plan.json
                       .tmp/release-evidence/test-inventory.json
                       .tmp/docs/browser-contract-matrix.json
-                      .tmp/docs/fast-backend-matrix.json
-                      .tmp/docs/fast-frontend-unit-matrix.json
                       .tmp/docs/generated-testing-docs.json
                       docs/testing.generated.md
 

@@ -4797,8 +4797,7 @@ function printCiJobPlan(matrix, jobId)
     console.log('');
     for (const tier of tiers)
     {
-        const shard = tier.shardable ? ` --shard 1/${tier.defaultShards}` : '';
-        console.log(`- ${tier.id}: ${tierReproductionCommand(tier, { noDeps: true })}${shard}`);
+        console.log(`- ${tier.id}: ${tierReproductionCommand(tier, { noDeps: true })}`);
         console.log(`  matrix command: ${tier.command}`);
     }
 }
@@ -5089,30 +5088,11 @@ function parseAggregateOptions(args)
 function generatedMatrixSummaryIds(matrix, jobId)
 {
     const tiers = resolveLogicalTierResources(effectiveCiJobTiers(matrix, jobId));
-    const shardSummaryIds = [];
-    const unshardedTierSummaryIds = [];
-    for (const tier of tiers)
-    {
-        const totalShards = tier.shardable ? Number(tier.defaultShards) || 1 : 1;
-        if (totalShards <= 1)
-        {
-            unshardedTierSummaryIds.push(`${jobId}-${tier.id}`);
-            continue;
-        }
-        for (let index = 1; index <= totalShards; index += 1)
-        {
-            shardSummaryIds.push(`${jobId}-${shardId(index, totalShards)}`);
-        }
-    }
     if (new Set(['fast-backend', 'fast-frontend-unit']).has(jobId))
     {
         return ciJobSchedulerMode(tiers) === 'parallel'
-            ? [...shardSummaryIds, ...unshardedTierSummaryIds]
+            ? tiers.map((tier) => `${jobId}-${tier.id}`)
             : [jobId];
-    }
-    if (shardSummaryIds.length > 0)
-    {
-        return shardSummaryIds;
     }
     return [jobId];
 }

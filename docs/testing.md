@@ -294,6 +294,12 @@ Article content 与 Article Rights canonical hash 测试按 [canonical hash test
 
 前端 fast gate 拆成独立 tier：`frontend-build`、`frontend-unit-shard`、`frontend-property-model-perf`、`frontend-runtime-contracts`、`frontend-static-governance`、`frontend-fast-summary`。`frontend-build` 只运行一次并上传 `src/frontend/dist/**` 与 `.tmp/frontend/frontend-build.json`；普通 Vitest unit 由 `coverage-frontend` 以同一 `executionKey` 覆盖执行一次，原 `frontend-unit-shard` 仅保留为无 coverage 的调试入口；property/model/perf 继续由独立 tier 执行，不会被 coverage 替代。`frontend-runtime-contracts` 单独覆盖 worker/a11y/binary/runtime/wasm checks；`frontend-static-governance` 单独覆盖前端静态治理，并把 `check-gate-integrity`、`check-test-matrix` 这类全局 static governance 留给 `static-governance` job，避免重复。
 
+`fast-frontend-unit` 在 GitHub Actions 与本地都只运行同一个 resource-aware
+`ci-job` DAG；不会再生成或上传一套未被 workflow 执行的 shard matrix。该 DAG
+中的 `frontend-unit-shard` 按未分片入口执行，四个有效 tier 合并到同一个
+`fast-frontend-unit` job summary；`--shard i/n` 只用于下列显式诊断命令，不参与
+fast-summary 的权威 artifact 合同。
+
 前端 blocking-prebuild 会在编译前执行 C# entrypoint ownership gate：`src/frontend/` 下禁止 C# source，其他 C# source 必须由最近的 `.csproj` 或完整 file-based app 声明拥有；generator 不得写死 `/tmp`/`/var/tmp`，生成 AEDS frame fixture 必须有唯一 generator、manifest 与稳定 `generate`/`check` 命令。`static-governance` 运行同一组负向 fixtures，确保一次扫描保留全部违规。完整 contract 见 [`testing/issue-1174-csharp-entrypoint-ownership.md`](testing/issue-1174-csharp-entrypoint-ownership.md)。
 
 本地复现命令：
@@ -311,7 +317,15 @@ node tools/run-test-matrix.mjs aggregate fast-summary --dry-run
 
 `--shard i/n` 会注入 `FSUSBLOG_TEST_SHARD_INDEX/TOTAL`，`RunFrontendUnitShardLane()` 将其转换成 Vitest `--shard=i/n`，只传给普通 `test:unit:fast` 调试入口。Vitest worker 数按 CPU、空闲内存和 load 动态计算，所有入口固定 `bail=0`，不接受最大失败数覆盖，以便单次运行收集完整失败集。每个 config 同时输出独立 JSON/JUnit 耗时报告。build、property/model/perf、runtime-contracts、static-governance 不随 unit 重复执行。
 
-每个有效子 tier 都由 `run-test-matrix` 写入独立 `.tmp/release-evidence/jobs/<job-tier>.json` job summary。CI artifacts 为 `frontend-build`、一个包含 coverage 与 property/model/perf 的 `fast-frontend-unit`、`frontend-runtime-contracts`、`frontend-static-governance`；`fast-summary` 下载这些 artifacts 和 `fast-static-governance`/`fast-backend` 后运行 artifact-only aggregate。matrix validator 会拒绝缺少任一 frontend fast 子 tier、coverage 替代范围越界、或 `fast` 继续依赖旧 monolithic `frontend-fast`。
+并行 CI job 的有效子 tier 由 `run-test-matrix` 写入独立
+`.tmp/release-evidence/jobs/<job-tier>.json` summary；串行
+`fast-frontend-unit` 将四个 tier 合并到单一 job summary。CI artifacts 为
+`frontend-build`、一个包含 unit、coverage、property/model/perf 与 viewport
+governance 的 `fast-frontend-unit`、`frontend-runtime-contracts`、
+`frontend-static-governance`；`fast-summary` 下载这些 artifacts 和
+`fast-static-governance`/`fast-backend` 后运行 artifact-only aggregate。matrix
+validator 会拒绝缺少任一 frontend fast 子 tier、coverage 替代范围越界、或
+`fast` 继续依赖旧 monolithic `frontend-fast`。
 
 矩阵的 `executionMode` 是可执行证据契约：`execute` 只能启动 physical producer；`projection` 只能按 catalog 消费 canonical producer receipt；`summary` 只能消费结构化 receipt 并写出声明的 receipt。`summary` 必须声明 machine-readable `commandKind`、`summaryInputs`、`outputReceiptSchema`；使用 `node tools/run-test-matrix.mjs aggregate <authority>` 时，`<authority>` 必须在 `aggregateAuthorities` 中显式声明，精确解析到非排除 summary tier、dependency jobs 与 artifact/receipt inputs。`aggregate --dry-run` 和 `validate` 复用同一 planner，因此不存在、被 `manualOnly`/`localOnly`/`nightlyOnly` 过滤为空、或误把 tier ID 当 CI job 的 target 都会在静态校验时 fail closed；aggregate 本身不启动底层 producer。
 

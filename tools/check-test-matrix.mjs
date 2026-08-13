@@ -594,8 +594,6 @@ run(['plan', 'production']);
         process.exit(1);
     }
 }
-run(['ci-job-matrix', 'fast-backend', '--out', docsEvidence('fast-backend-matrix.json')]);
-run(['ci-job-matrix', 'fast-frontend-unit', '--out', docsEvidence('fast-frontend-unit-matrix.json')]);
 run(['ci-job-matrix', 'browser-contract', '--out', docsEvidence('browser-contract-matrix.json')]);
 for (const tierId of [
     'frontend-build',
@@ -610,30 +608,6 @@ for (const tierId of [
         'tests/matrix.yml',
         `id: ${tierId}\n`,
         `frontend fast split must declare ${tierId}`
-    );
-}
-{
-    const matrix = readJsonFile(docsEvidence('fast-frontend-unit-matrix.json')).matrix;
-    const shardCount = matrix.resource_resolution.defaultShards;
-    const tierIds = matrix.include.map((entry) => entry.tier).sort();
-    const expectedTierIds = [
-        'coverage-frontend',
-        'frontend-property-model-perf',
-        ...Array.from({ length: shardCount }, () => 'frontend-unit-shard'),
-        'ux-viewport-plan-progress'
-    ].sort();
-    requireCondition(
-        JSON.stringify(tierIds) === JSON.stringify(expectedTierIds),
-        'fast-frontend-unit effective plan must retain ordinary unit, coverage, property/model/perf and viewport governance when cross-tier coverage prevents safe superseding'
-    );
-    requireCondition(
-        matrix.include.every((entry) => entry.tier === 'frontend-unit-shard'
-            ? shardCount > 1
-        ? Array.from({ length: shardCount }, (_, index) => `${index + 1}/${shardCount}`).includes(entry.shard)
-          && new RegExp(`^fast-frontend-unit-\\d-of-${shardCount}$`).test(entry.artifact_name)
-        : entry.shard === '' && entry.artifact_name === 'fast-frontend-unit-frontend-unit-shard'
-            : entry.shard === '' && entry.artifact_name === `fast-frontend-unit-${entry.tier}`),
-        'fast-frontend-unit tiers must preserve machine-resolved unit shards and independently attributable non-unit artifacts'
     );
 }
 {
@@ -657,15 +631,9 @@ for (const tierId of [
 run(['aggregate', 'fast-summary', '--dry-run', '--out', docsEvidence('fast-summary-aggregate-plan.json')]);
 {
     const aggregatePlan = readJsonFile(docsEvidence('fast-summary-aggregate-plan.json'));
-    const frontendMatrix = readJsonFile(docsEvidence('fast-frontend-unit-matrix.json')).matrix;
-    const shardCount = frontendMatrix.resource_resolution.defaultShards;
     for (const summaryId of [
         'frontend-build',
-        ...(shardCount > 1
-            ? Array.from({ length: shardCount }, (_, index) => `fast-frontend-unit-${index + 1}-of-${shardCount}`)
-            : ['fast-frontend-unit-frontend-unit-shard']),
-        'fast-frontend-unit-coverage-frontend',
-        'fast-frontend-unit-frontend-property-model-perf',
+        'fast-frontend-unit',
         'fast-backend-coverage-backend',
         'frontend-runtime-contracts',
         'frontend-static-governance'
@@ -689,12 +657,12 @@ run(['ci-tier', 'backend-fast', '--plan-only']);
 {
     const frontendPlan = output(['ci-job', 'fast-frontend-unit', '--plan-only']);
     process.stdout.write(frontendPlan);
-    const shardCount = readJsonFile(docsEvidence('fast-frontend-unit-matrix.json')).matrix.resource_resolution.defaultShards;
-    if (!frontendPlan.includes(`./tools/test.sh ci-tier frontend-unit-shard --no-deps --shard 1/${shardCount}`)
+    if (!frontendPlan.includes('./tools/test.sh ci-tier frontend-unit-shard --no-deps')
       || !frontendPlan.includes('./tools/test.sh ci-tier coverage-frontend --no-deps')
-      || !frontendPlan.includes('./tools/test.sh ci-tier frontend-property-model-perf --no-deps'))
+      || !frontendPlan.includes('./tools/test.sh ci-tier frontend-property-model-perf --no-deps')
+      || frontendPlan.includes('--shard'))
     {
-        console.error('[test-matrix] fast-frontend-unit plan must retain ordinary unit, coverage and special suites');
+        console.error('[test-matrix] fast-frontend-unit plan must match the unsharded scheduled CI DAG');
         process.exit(1);
     }
 }
