@@ -1364,6 +1364,9 @@ test('acceptance service ports use sealed role leases below the kernel ephemeral
     }
     assert.match(source, /PORT_LEASE_SCRIPT=.*production-fresh-port-lease\.mjs/u);
     assert.match(source, /\$PORT_LEASE_SCRIPT" serve/u);
+    assert.match(source, /all\)[\s\S]*BOOTSTRAP_PORT_LEASE_ROLES='postgres,redis,debug-backend,debug-frontend,release-preview'/u);
+    assert.match(source, /backend-only\)[\s\S]*BOOTSTRAP_PORT_LEASE_ROLES='postgres,redis,debug-backend'/u);
+    assert.match(source, /for role in \$\{BOOTSTRAP_PORT_LEASE_ROLES\/\/,\/ \}; do/u);
     assert.match(source, /PortLeaseCli verify --manifest/u);
     assert.match(source, /PortLeaseCli release-before-bind/u);
     assert.match(source, /PortLeaseCli complete-handoff/u);

@@ -61,7 +61,12 @@ PORT_LEASE_DAEMON_PID=""
 PORT_LEASED_ROLES=""
 BOOTSTRAP_RUNTIME_SCOPE="${FSUSBLOG_BOOTSTRAP_RUNTIME_SCOPE:-all}"
 case "$BOOTSTRAP_RUNTIME_SCOPE" in
-    all | backend-only) ;;
+    all)
+        BOOTSTRAP_PORT_LEASE_ROLES='postgres,redis,debug-backend,debug-frontend,release-preview'
+        ;;
+    backend-only)
+        BOOTSTRAP_PORT_LEASE_ROLES='postgres,redis,debug-backend'
+        ;;
     *)
         printf '[acceptance:bootstrap] unsupported runtime scope: %s\n' "$BOOTSTRAP_RUNTIME_SCOPE" >&2
         exit 2
@@ -253,7 +258,7 @@ StartPortLeaseReservationDaemon() {
 
 AssignPortsFromLeaseManifest() {
     local role port portVar
-    for role in postgres redis debug-backend debug-frontend release-preview; do
+    for role in ${BOOTSTRAP_PORT_LEASE_ROLES//,/ }; do
         port="$(PortLeaseCli get-port --manifest "$PORT_LEASE_MANIFEST_FILE" --role "$role" 2>/dev/null || true)"
         if [[ -z "$port" ]] || ! [[ "$port" =~ ^[0-9]+$ ]]; then
             printf '[acceptance:bootstrap] port lease role %s did not resolve a port\n' "$role" >&2
@@ -268,6 +273,11 @@ AssignPortsFromLeaseManifest() {
 AcquireProductionFreshPortLeases() {
     # 1) Explicit reattach: env file (or caller) references an active sealed lease set.
     if [[ -n "${FSUSBLOG_PORT_LEASED_ROLES:-}" ]]; then
+        if [[ "$FSUSBLOG_PORT_LEASED_ROLES" != "$BOOTSTRAP_PORT_LEASE_ROLES" ]]; then
+            printf '[acceptance:bootstrap] port lease roles %s do not match runtime scope %s roles %s\n' \
+                "$FSUSBLOG_PORT_LEASED_ROLES" "$BOOTSTRAP_RUNTIME_SCOPE" "$BOOTSTRAP_PORT_LEASE_ROLES" >&2
+            return 1
+        fi
         if [[ -n "${FSUSBLOG_PORT_LEASE_DAEMON_PID:-}" ]] &&
             kill -0 "$FSUSBLOG_PORT_LEASE_DAEMON_PID" >/dev/null 2>&1 &&
             [[ -S "$PORT_LEASE_CONTROL_SOCKET" ]] &&
@@ -324,7 +334,8 @@ AcquireProductionFreshPortLeases() {
         fi
         local manifestRoles
         manifestRoles="$(PortLeaseCli roles --manifest "$PORT_LEASE_MANIFEST_FILE" 2>/dev/null || true)"
-        if [[ -z "$manifestRoles" ]] || ! VerifyLeasePortsMatchManifest "$manifestRoles"; then
+        if [[ "$manifestRoles" != "$BOOTSTRAP_PORT_LEASE_ROLES" ]] ||
+            ! VerifyLeasePortsMatchManifest "$manifestRoles"; then
             printf '[acceptance:bootstrap] existing port lease manifest is inconsistent with env ports; refusing reuse\n' >&2
             return 1
         fi
@@ -343,7 +354,7 @@ AcquireProductionFreshPortLeases() {
     local role portVar
     local missingRoles=""
     local pinArgs=""
-    for role in postgres redis debug-backend debug-frontend release-preview; do
+    for role in ${BOOTSTRAP_PORT_LEASE_ROLES//,/ }; do
         portVar="$(ProductionFreshPortVariable "$role")"
         if [[ -z "${!portVar:-}" ]]; then
             missingRoles="${missingRoles:+$missingRoles,}$role"
@@ -356,7 +367,7 @@ AcquireProductionFreshPortLeases() {
         # already has a live listener (legacy env reuse); otherwise the daemon must
         # reserve the exact ports to close the probe-to-bind race.
         local allBound=1
-        for role in postgres redis debug-backend debug-frontend release-preview; do
+        for role in ${BOOTSTRAP_PORT_LEASE_ROLES//,/ }; do
             portVar="$(ProductionFreshPortVariable "$role")"
             if ! PortLeasePortIsBound "${!portVar}"; then
                 allBound=0
@@ -370,10 +381,10 @@ AcquireProductionFreshPortLeases() {
             return 0
         fi
     fi
-    if ! StartPortLeaseReservationDaemon 'postgres,redis,debug-backend,debug-frontend,release-preview' "$pinArgs"; then
+    if ! StartPortLeaseReservationDaemon "$BOOTSTRAP_PORT_LEASE_ROLES" "$pinArgs"; then
         return 1
     fi
-    PORT_LEASED_ROLES='postgres,redis,debug-backend,debug-frontend,release-preview'
+    PORT_LEASED_ROLES="$BOOTSTRAP_PORT_LEASE_ROLES"
     AssignPortsFromLeaseManifest
 }
 
@@ -409,6 +420,10 @@ if [[ "${FSUSBLOG_BOOTSTRAP_SOURCE_ONLY:-0}" == "1" ]]; then
     DEBUG_FRONTEND_PORT="${FSUSBLOG_DEBUG_FRONTEND_PORT:-26000}"
     RELEASE_PREVIEW_PORT="${FSUSBLOG_RELEASE_PREVIEW_PORT:-28000}"
 else
+    if [[ "$BOOTSTRAP_RUNTIME_SCOPE" == "backend-only" ]]; then
+        DEBUG_FRONTEND_PORT="${FSUSBLOG_DEBUG_FRONTEND_PORT:-26000}"
+        RELEASE_PREVIEW_PORT="${FSUSBLOG_RELEASE_PREVIEW_PORT:-28000}"
+    fi
     AcquireProductionFreshPortLeases
 fi
 
@@ -2716,7 +2731,8 @@ Main() {
     WaitForBinaryUrl 'pow challenge probe' "$DEBUG_BACKEND_URL/api/binary/auth/pow-challenge" "$EXECUTION_DEADLINE_AT_MS"
     if [[ "${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" != "1" &&
         -n "${FSUSBLOG_TEST_RUN_ID:-}" &&
-        -n "${FSUSBLOG_PHYSICAL_BUNDLE_ID:-}" ]]; then
+        -n "${FSUSBLOG_PHYSICAL_BUNDLE_ID:-}" ]] &&
+        BootstrapNeedsFrontendRuntime; then
         FSUSBLOG_RESIDENT_BACKEND_PID="$(FindPortPid "$DEBUG_BACKEND_PORT")" \
         FSUSBLOG_RESIDENT_FRONTEND_PID="$(FindPortPid "$DEBUG_FRONTEND_PORT")" \
         FSUSBLOG_RESIDENT_PREVIEW_PID="$(FindPortPid "$RELEASE_PREVIEW_PORT")" \

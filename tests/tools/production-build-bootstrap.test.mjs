@@ -130,8 +130,11 @@ test('CI bootstrap source keeps backend-only consumers free of frontend startup 
 {
     const source = fs.readFileSync(path.join(root, 'tools/bootstrap-acceptance-env.sh'), 'utf8');
     assert.match(source, /FSUSBLOG_BOOTSTRAP_RUNTIME_SCOPE:-all/u);
-    assert.match(source, /all \| backend-only/u);
+    assert.match(source, /case "\$BOOTSTRAP_RUNTIME_SCOPE" in[\s\S]*all\)[\s\S]*backend-only\)/u);
     assert.match(source, /BootstrapNeedsFrontendRuntime\(\)[\s\S]*CiProductionHasDomain frontend-dist/u);
+    assert.match(source, /backend-only\)[\s\S]*BOOTSTRAP_PORT_LEASE_ROLES='postgres,redis,debug-backend'/u);
+    assert.match(source, /StartPortLeaseReservationDaemon "\$BOOTSTRAP_PORT_LEASE_ROLES"/u);
+    assert.match(source, /FSUSBLOG_PORT_LEASED_ROLES" != "\$BOOTSTRAP_PORT_LEASE_ROLES"/u);
     assert.match(source, /BootstrapNeedsFrontendRuntime[\s\S]*runtimeApplications\+=\(release-preview EnsureReleasePreview debug-frontend EnsureDebugFrontend\)/u);
     assert.match(source, /FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT[\s\S]*vite preview/u);
     assert.match(source, /runtimeArgs="-c \$runtimeConfiguration --no-build --no-restore"/u);
