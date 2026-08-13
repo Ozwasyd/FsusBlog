@@ -2,6 +2,14 @@
   "schema": "fsusblog.test-retention-replacements.v1",
   "deletedTests": [
     {
+      "id": "vitest:tests/frontend/e2e/public-article-reading-layout.spec.ts#viewport-width-px-theme-zoom-100-keeps-no-media-article--a355cf7b44",
+      "path": "tests/frontend/e2e/public-article-reading-layout.spec.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/e2e/public-article-reading-layout.spec.ts#viewport-width-px-theme-zoom-100-keeps-named-reading-lin-b8dc9269c1"
+      ],
+      "reason": "The surviving 20-tuple Playwright test now reads the no-media rectangle in the same fixture navigation and preserves both content-edge assertions together with every existing geometry, overflow, API-isolation, and runtime-error oracle."
+    },
+    {
       "id": "node-script:tests/frontend/fixtures/ux-viewport-legacy/runtime/tests/frontend/support/fixture-paths.mjs",
       "path": "tests/frontend/fixtures/ux-viewport-legacy/runtime/tests/frontend/support/fixture-paths.mjs",
       "replacementTestIds": [
