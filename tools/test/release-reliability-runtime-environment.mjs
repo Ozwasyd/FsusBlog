@@ -17,6 +17,7 @@ const readableFields = new Map([
 ]);
 const staticAuditedContainerOverrides = Object.freeze({
     FSUSBLOG_DATA_ROOT: '/app/data',
+    FSUSBLOG_RELEASE_DERIVED_ROOT: '/app/release-derived',
     PublicAot__SsrClientRoot: '/app/wwwroot',
     ASPNETCORE_URLS: 'http://0.0.0.0:8080',
     AllowedHosts: '127.0.0.1;localhost',
@@ -41,7 +42,8 @@ const dynamicAuditedContainerOverrideKeys = Object.freeze([
 // the runtime image container, so it must not leak into the projected env file.
 const hostOnlyRuntimeBookkeepingKeys = Object.freeze([
     'FSUSBLOG_PORT_LEASED_ROLES',
-    'FSUSBLOG_PORT_LEASE_DAEMON_PID'
+    'FSUSBLOG_PORT_LEASE_DAEMON_PID',
+    'FSUSBLOG_PUBLIC_ID_PROJECTION_FILE'
 ]);
 export const releaseReliabilityAuditedContainerOverrideKeys = Object.freeze([
     ...Object.keys(staticAuditedContainerOverrides),

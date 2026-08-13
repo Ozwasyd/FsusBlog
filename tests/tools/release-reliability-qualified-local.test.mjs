@@ -500,6 +500,8 @@ test('qualified container environment projection is strict, private, atomic, and
     const retainedValue = 'literal value = "quoted" $(must-not-run)';
     const environmentFile = writeRuntimeEnvironment(fixtureRoot, namespace, {
         FSUSBLOG_DATA_ROOT: '/host/run-bound/data',
+        FSUSBLOG_RELEASE_DERIVED_ROOT: '/host/run-bound/release-derived',
+        FSUSBLOG_PUBLIC_ID_PROJECTION_FILE: '/host/run-bound/public-content-projection.json',
         PublicAot__SsrClientRoot: '/host/run-bound/frontend/dist',
         ConnectionStrings__DefaultConnection: 'Host=127.0.0.1;Port=20001',
         ConnectionStrings__Redis: '127.0.0.1:22001',
@@ -539,6 +541,8 @@ test('qualified container environment projection is strict, private, atomic, and
     assert.deepEqual(projectedKeys, [...projectedKeys].sort());
     assert.equal(projectedEnvironment.CORS_ALLOWED_HOSTS, retainedValue);
     assert.equal(projectedEnvironment.RedisOptions__InstanceName, 'FsusBlog_qualified-container_');
+    assert.equal(projectedEnvironment.FSUSBLOG_RELEASE_DERIVED_ROOT, undefined);
+    assert.equal(projectedEnvironment.FSUSBLOG_PUBLIC_ID_PROJECTION_FILE, undefined);
     assert.deepEqual(
         projectedKeys.filter((key) => releaseReliabilityAuditedContainerOverrideKeys.includes(key)),
         []
@@ -1174,9 +1178,11 @@ test('qualified final container overrides host-bound runtime paths with a UID-ow
     assert.match(invocation, /--tmpfs \/app\/data:uid=1654,gid=1654,mode=0700/u);
     assert.match(invocation, /--tmpfs \/app\/\.upload-sessions:uid=1654,gid=1654,mode=0700/u);
     assert.match(invocation, /--tmpfs \/app\/runtime-cache:uid=1654,gid=1654,mode=0700/u);
-    assert.equal(invocation.match(/--tmpfs /gu)?.length, 3, 'only audited instance-scoped paths may be writable tmpfs mounts');
+    assert.match(invocation, /--tmpfs \/app\/release-derived:uid=1654,gid=1654,mode=0700/u);
+    assert.equal(invocation.match(/--tmpfs /gu)?.length, 4, 'only audited runtime-scoped paths may be writable tmpfs mounts');
     assert.doesNotMatch(invocation, /--tmpfs \/app(?::|\s)/u);
     assert.match(invocation, /-e FSUSBLOG_DATA_ROOT=\/app\/data/u);
+    assert.match(invocation, /-e FSUSBLOG_RELEASE_DERIVED_ROOT=\/app\/release-derived/u);
     assert.match(invocation, /-e PublicAot__SsrClientRoot=\/app\/wwwroot/u);
     assert.match(invocation, /-e ASPNETCORE_URLS=http:\/\/0\.0\.0\.0:8080/u);
     assert.match(invocation, /-e "AllowedHosts=127\.0\.0\.1;localhost"/u);
