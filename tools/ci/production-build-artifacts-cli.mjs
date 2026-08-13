@@ -9,6 +9,7 @@ import {
     createProductionBuildReceipt,
     materializeProductionBuildDomains,
     registerProductionBuildConsumer,
+    releaseProductionBuildMaterialization,
     releaseProductionBuildConsumer,
     verifyProductionBuildReceipt
 } from './production-build-artifacts.mjs';
@@ -235,6 +236,19 @@ try
         writeEvidence(options.evidence, lease);
         process.stdout.write(`${JSON.stringify(lease, null, 2)}\n`);
     }
+    else if (command === 'release-materialization')
+    {
+        const result = releaseProductionBuildMaterialization({
+            root,
+            artifactRoot,
+            runId: options.consumer_run_id,
+            consumerId: options.consumer_id,
+            buildRunId: options.build_run_id,
+            reason: options.reason
+        });
+        writeEvidence(options.evidence, result);
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    }
     else if (command === 'gc')
     {
         const result = collectProductionBuildArtifactStore({
@@ -246,7 +260,7 @@ try
     }
     else
     {
-        throw new Error('usage: production-build-artifacts-cli.mjs <create|verify|materialize|acquire|release|gc> [options]');
+        throw new Error('usage: production-build-artifacts-cli.mjs <create|verify|materialize|acquire|release|release-materialization|gc> [options]');
     }
 }
 catch (error)

@@ -871,6 +871,85 @@ export function releaseProductionBuildConsumer({
     return released;
 }
 
+export function releaseProductionBuildMaterialization({
+    root,
+    artifactRoot,
+    runId,
+    consumerId,
+    buildRunId,
+    reason = 'completed',
+    remove = (target) => fs.rmSync(target, { recursive: true, force: false, maxRetries: 2 })
+})
+{
+    const repositoryRoot = fs.realpathSync(path.resolve(root));
+    const buildBase = path.join(repositoryRoot, '.tmp/build');
+    const normalizedRunId = String(runId ?? '').trim();
+    const normalizedBuildRunId = String(buildRunId ?? '').trim();
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(normalizedRunId)
+        || normalizedBuildRunId !== `${normalizedRunId}-acceptance`)
+    {
+        throw new Error('consumer materialization requires the exact acceptance build run identity');
+    }
+    const target = path.resolve(buildBase, normalizedBuildRunId);
+    if (path.dirname(target) !== buildBase || path.basename(target) !== normalizedBuildRunId)
+    {
+        throw new Error('consumer materialization root escapes the managed build directory');
+    }
+    const leaseFile = consumerLeaseFile({ artifactRoot, runId, consumerId });
+    if (!fs.existsSync(leaseFile))
+    {
+        throw new Error('cannot release a missing production build consumer lease');
+    }
+    const lease = JSON.parse(fs.readFileSync(leaseFile, 'utf8'));
+    if (lease.schema !== productionBuildLifecycleSchema
+        || lease.artifactRoot !== path.resolve(artifactRoot)
+        || lease.runId !== runId
+        || lease.consumerId !== consumerId
+        || lease.status !== 'active')
+    {
+        throw new Error('production build consumer lease is not the expected active identity');
+    }
+    if (fs.existsSync(target))
+    {
+        const metadata = fs.lstatSync(target);
+        if (!metadata.isDirectory() || metadata.isSymbolicLink())
+        {
+            throw new Error('consumer materialization root is not a regular directory');
+        }
+        for (const forbidden of ['layout.json', '.active.json', '.reclaim.json'])
+        {
+            if (fs.existsSync(path.join(target, forbidden)))
+            {
+                throw new Error(`consumer materialization root contains managed owner state: ${forbidden}`);
+            }
+        }
+        const allowedEntries = new Set(['dotnet', 'frontend', 'generated', 'runtime', 'wasm']);
+        const unexpected = fs.readdirSync(target)
+            .filter((entry) => !allowedEntries.has(entry));
+        if (unexpected.length > 0)
+        {
+            throw new Error(
+                `consumer materialization root contains unexpected entries: ${unexpected.sort().join(', ')}`
+            );
+        }
+        remove(target);
+        if (fs.existsSync(target))
+        {
+            throw new Error('consumer materialization root still exists after cleanup');
+        }
+    }
+    return {
+        buildRunId: normalizedBuildRunId,
+        buildRoot: target,
+        lease: releaseProductionBuildConsumer({
+            artifactRoot,
+            runId,
+            consumerId,
+            reason
+        })
+    };
+}
+
 function activeConsumerLeases(artifactRoot)
 {
     const root = path.join(lifecycleRoot(artifactRoot), 'consumers');

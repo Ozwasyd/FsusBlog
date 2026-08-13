@@ -11,6 +11,7 @@ import {
     materializeProductionBuildDomains,
     productionBuildReceiptSchema,
     registerProductionBuildConsumer,
+    releaseProductionBuildMaterialization,
     releaseProductionBuildConsumer,
     verifyProductionBuildReceipt
 } from '../../tools/ci/production-build-artifacts.mjs';
@@ -333,6 +334,53 @@ test('failed materialization releases its active consumer lease for cancel-safe 
     ));
     assert.equal(lease.status, 'released');
     assert.equal(lease.releaseReason, 'materialization-failed');
+});
+
+test('qualified consumer cleanup removes only its exact materialization before releasing the lease', t =>
+{
+    const value = fixture(t);
+    create(value);
+    const runId = 'qualified-run';
+    const consumerId = 'qualified-namespace';
+    const buildRunId = `${runId}-acceptance`;
+    const buildRoot = path.join(value.root, '.tmp/build', buildRunId);
+    registerProductionBuildConsumer({
+        artifactRoot: value.artifactRoot,
+        runId,
+        consumerId
+    });
+    fs.mkdirSync(path.join(buildRoot, 'frontend'), { recursive: true });
+    fs.writeFileSync(path.join(buildRoot, 'frontend/index.html'), 'materialized');
+
+    const result = releaseProductionBuildMaterialization({
+        root: value.root,
+        artifactRoot: value.artifactRoot,
+        runId,
+        consumerId,
+        buildRunId
+    });
+    assert.equal(fs.existsSync(buildRoot), false);
+    assert.equal(result.lease.status, 'released');
+    assert.equal(result.lease.releaseReason, 'completed');
+
+    registerProductionBuildConsumer({
+        artifactRoot: value.artifactRoot,
+        runId,
+        consumerId: 'tamper'
+    });
+    fs.mkdirSync(buildRoot, { recursive: true });
+    fs.writeFileSync(path.join(buildRoot, 'layout.json'), '{}');
+    assert.throws(
+        () => releaseProductionBuildMaterialization({
+            root: value.root,
+            artifactRoot: value.artifactRoot,
+            runId,
+            consumerId: 'tamper',
+            buildRunId
+        }),
+        /managed owner state/u
+    );
+    assert.equal(fs.existsSync(buildRoot), true);
 });
 
 test('active consumer leases protect sealed artifacts across resume and cancel while stale artifacts are collected', t =>

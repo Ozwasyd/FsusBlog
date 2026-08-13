@@ -1045,7 +1045,10 @@ tools/operations/check-release-evidence-manifest.mjs --require-ok
   `debug-frontend` 或 `release-preview` identity；全部消失后才能 finalize pass
   receipt。wrapper 的 process ownership 只复核 task-owned
   PID/identity 文件和 `/proc/<pid>/stat` 的 start-time、PGID、session，不读取
-  process args 或 environment。cleanup 失败或仍有资源时没有 pass receipt；该
+  process args 或 environment。cleanup 还必须先删除精确的
+  `<run-id>-acceptance` materialization root，再释放同 run/namespace 的 production
+  artifact consumer lease；root 含 producer owner state、未知顶层条目或未能删除时
+  均 fail closed。cleanup 失败或仍有资源时没有 pass receipt；该
   receipt 也不会被 qualified locator 发现，且不能交给 release-final verifier
   充当 qualification。
 - Reliability final binding：finalizer 只在 canonical

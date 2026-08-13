@@ -1109,7 +1109,7 @@ test('qualified local wrapper binds bootstrap to the freshly completed productio
     const digestRead = source.indexOf('build_receipt_digest="$(node - "$root/$FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT/receipt.json"');
     const digestExport = source.indexOf('export FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST="$build_receipt_digest"');
     const imageBuild = source.indexOf('FSUSBLOG_FINAL_LOCAL_ONLY=1 FSUSBLOG_FINAL_IMAGE_TAG="$image"');
-    const consumerEnvironment = source.indexOf('ImportProductionBuildEnvironment "${run_id}-acceptance"');
+    const consumerEnvironment = source.indexOf('ImportProductionBuildEnvironment "$qualified_consumer_build_run_id"');
     const bootstrap = source.indexOf('"$root/tools/bootstrap-acceptance-env.sh"');
     assert.ok(producer >= 0 && producer < digestRead, 'receipt digest must be read after the production build completes');
     assert.ok(digestRead < digestExport && digestExport < bootstrap, 'fresh receipt digest must be exported before bootstrap');
@@ -1122,6 +1122,14 @@ test('qualified local wrapper binds bootstrap to the freshly completed productio
     assert.match(source, /FSUSBLOG_CI_PRODUCTION_PRODUCER_RUN_ID="\$run_id"/u);
     assert.match(source, /FSUSBLOG_CI_PRODUCTION_PRODUCER_RUN_ATTEMPT="1"/u);
     assert.match(source, /FSUSBLOG_CI_PRODUCTION_PRODUCER_JOB="production-build-artifacts"/u);
+    assert.match(
+        source,
+        /qualified_consumer_build_run_id="\$\{run_id\}-acceptance"[\s\S]*ImportProductionBuildEnvironment "\$qualified_consumer_build_run_id"/u
+    );
+    assert.match(
+        source,
+        /release-materialization[\s\S]*--consumer-run-id "\$run_id"[\s\S]*--consumer-id "\$namespace"[\s\S]*--build-run-id "\$qualified_consumer_build_run_id"/u
+    );
     assert.match(source, /receipt\.producer\) !== JSON\.stringify\(expectedProducer\)/u);
     assert.match(source, /candidate_receipt="\.tmp\/release-reliability\/\$\{invocation_id\}\/candidate-receipt\.json"/u);
     assert.match(source, /verified_attestation="\.tmp\/release-reliability\/\$\{invocation_id\}\/verified-attestation\.json"/u);

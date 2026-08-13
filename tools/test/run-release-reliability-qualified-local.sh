@@ -18,6 +18,7 @@ debug_frontend_pid=""
 release_preview_pid=""
 test_resource=""
 runtime_admission_only=0
+qualified_consumer_build_run_id=""
 declare -a qualified_bootstrap_fixture_environment=()
 ValidateUserSystemdCarrier() {
     local runtimeDirectory="${1:-}"
@@ -279,6 +280,18 @@ CleanupQualifiedRuntimeResources() {
     if [[ -n "$container_env_file" ]]; then
         rm -f -- "$container_env_file"
     fi
+    if [[ -n "$qualified_consumer_build_run_id" ]]; then
+        node "$root/tools/ci/production-build-artifacts-cli.mjs" release-materialization \
+            --root "$root" \
+            --artifact-root "$FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT" \
+            --consumer-run-id "$run_id" \
+            --consumer-id "$namespace" \
+            --build-run-id "$qualified_consumer_build_run_id" \
+            --reason qualified-runtime-cleanup \
+            --evidence "$root/.tmp/release-evidence/jobs/ci-build-materialization-cleanup-${namespace}.json" \
+            >/dev/null || cleanupStatus=1
+        qualified_consumer_build_run_id=""
+    fi
     set -e
     return "$cleanupStatus"
 }
@@ -503,7 +516,8 @@ NODE
 export FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST="$build_receipt_digest"
 if [[ -z "${GITHUB_PACKAGES_TOKEN:-}" ]] && command -v gh >/dev/null 2>&1; then export GITHUB_PACKAGES_TOKEN="$(gh auth token)"; fi
 FSUSBLOG_FINAL_LOCAL_ONLY=1 FSUSBLOG_FINAL_IMAGE_TAG="$image" "$root/tools/build-final-image.sh"
-ImportProductionBuildEnvironment "${run_id}-acceptance"
+qualified_consumer_build_run_id="${run_id}-acceptance"
+ImportProductionBuildEnvironment "$qualified_consumer_build_run_id"
 InvokeQualifiedAcceptanceBootstrap "$root/tools/bootstrap-acceptance-env.sh"
 fixture_config=".tmp/env/${namespace}.env"
 runtime_environment_tool="$root/tools/test/release-reliability-runtime-environment.mjs"
