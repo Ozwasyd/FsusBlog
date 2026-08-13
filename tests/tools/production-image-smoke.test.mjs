@@ -163,6 +163,18 @@ test('one matrix lane owns local and hosted production image smoke', () =>
     );
 });
 
+test('musl images exclude the glibc-only managed MCL asset', () =>
+{
+    const dockerfile = fs.readFileSync(
+        path.join(root, 'ops/docker/FsusBlog.Server.Dockerfile'),
+        'utf8'
+    );
+    assert.match(
+        dockerfile,
+        /if \[ "\$TARGET_RUNTIME" = "linux-musl-x64" \]; then[\s\S]*rm -f \/app\/publish\/libmcl\.so[\s\S]*test ! -e \/app\/publish\/libmcl\.so/u
+    );
+});
+
 test('runtime admission proves clean SIGTERM before its configured grace', () =>
 {
     const wrapper = fs.readFileSync(

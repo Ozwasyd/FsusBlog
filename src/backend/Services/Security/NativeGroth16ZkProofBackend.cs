@@ -251,6 +251,10 @@ internal sealed unsafe class NativeGroth16VerifierLibrary : INativeGroth16Verifi
 
         if (string.Equals(options.LibraryPath, NativeGroth16ZkProofBackendOptions.ManagedMclLibraryPath, StringComparison.Ordinal))
         {
+            if (!ManagedMclRuntimeCompatibility.IsSupported(RuntimeInformation.RuntimeIdentifier))
+            {
+                return UnavailableNativeGroth16VerifierLibrary.Instance;
+            }
             return MclGroth16VerifierLibrary.Create();
         }
 
@@ -296,6 +300,13 @@ internal sealed unsafe class NativeGroth16VerifierLibrary : INativeGroth16Verifi
             NativeLibrary.Free(_libraryHandle);
         }
     }
+}
+
+internal static class ManagedMclRuntimeCompatibility
+{
+    public static bool IsSupported(string? runtimeIdentifier)
+        => !string.IsNullOrWhiteSpace(runtimeIdentifier) &&
+            !runtimeIdentifier.Contains("musl", StringComparison.OrdinalIgnoreCase);
 }
 
 internal sealed unsafe class MclGroth16VerifierLibrary : INativeGroth16VerifierLibrary

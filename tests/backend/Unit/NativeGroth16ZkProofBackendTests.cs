@@ -50,6 +50,17 @@ public sealed class NativeGroth16ZkProofBackendTests
         Assert.Equal("backend_unavailable", result.Reason);
     }
 
+    [Theory]
+    [InlineData("linux-musl-x64", false)]
+    [InlineData("linux-musl-arm64", false)]
+    [InlineData("linux-x64", true)]
+    [InlineData("linux-arm64", true)]
+    [InlineData("", false)]
+    public void ManagedMclRuntimeCompatibility_RejectsUnsupportedMuslAssets(
+        string runtimeIdentifier,
+        bool expected)
+        => Assert.Equal(expected, ManagedMclRuntimeCompatibility.IsSupported(runtimeIdentifier));
+
     [Fact]
     public async Task NativeGroth16ZkProofBackend_VerifyingKeyHashMismatchIsUnavailable()
     {

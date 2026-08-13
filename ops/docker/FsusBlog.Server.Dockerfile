@@ -231,6 +231,11 @@ RUN sh -lc 'for i in 1 2 3; do dotnet publish "./FsusBlog.Server.csproj" \
     /p:ServerGarbageCollection="$SERVER_GC" \
     /p:PublishReadyToRun="$PUBLISH_READY_TO_RUN" \
     /p:ReadyToRunUseCrossgen2="$PUBLISH_READY_TO_RUN" && exit 0; echo "dotnet publish retry $i failed"; sleep 5; done; exit 1'
+RUN sh -lc 'set -eu; \
+  if [ "$TARGET_RUNTIME" = "linux-musl-x64" ]; then \
+    rm -f /app/publish/libmcl.so; \
+    test ! -e /app/publish/libmcl.so; \
+  fi'
 
 ARG ZK_NATIVE_ARTIFACT_DIR=build/artifacts/native-zk
 RUN sh -lc 'set -eu; \
