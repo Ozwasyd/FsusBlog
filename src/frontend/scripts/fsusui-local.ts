@@ -4,6 +4,7 @@ import { fileURLToPath, URL } from 'node:url'
 import { resolveLocalFsusUiRepositoryRoot } from './fsusui-root.mjs'
 
 export const FSUSUI_PACKAGE_ID = '@ozwasyd/element-plus'
+export const FSUSUI_BASE_STYLE_ID = '@fsusblog/fsusui-base-style.scss'
 
 type AliasEntry = {
   find: string | RegExp
@@ -24,11 +25,10 @@ const requiredWasmAssets = [
 const requiredThemeCssAssets = [
   'index.css',
   'el-public-shell-critical.css',
-  // el-fsus-theme.css is required since src/assets/public-shell-critical.css
-  // and src/assets/main.css both @import '@ozwasyd/element-plus/dist/el-fsus-theme.css'
-  // (the new per-component CSS bundle for product-level overrides — see
-  // FsusUI theme-chalk gulpfile). Without this entry the alias falls back
-  // to the npm dist path, which doesn't exist pre-publish and 404s in dev.
+  // el-fsus-theme.css is required by the public critical bundle and the
+  // full-app base -> theme -> Blog stylesheet loading boundary. Without this
+  // entry the alias falls back to the npm dist path, which doesn't exist
+  // pre-publish and 404s in dev.
   'el-fsus-theme.css',
 ]
 const publicShellMotionCssAssets = [
@@ -61,6 +61,10 @@ const hasLocalThemeCssAssets = (root: string | null) => {
   }
 
   const themeDist = path.join(root, 'vue', 'packages', 'theme-chalk', 'dist')
+  const themeSource = path.join(root, 'vue', 'packages', 'theme-chalk', 'src', 'index.scss')
+  if (!fs.existsSync(themeSource)) {
+    return false
+  }
   if (!requiredThemeCssAssets.every((fileName) => fs.existsSync(path.join(themeDist, fileName)))) {
     return false
   }
@@ -98,6 +102,10 @@ export function createFsusUiAliases(localFsusUiRoot: string | null): AliasEntry[
   if (!localFsusUiRoot) {
     return [
       { find: /^element-plus$/, replacement: FSUSUI_PACKAGE_ID },
+      {
+        find: FSUSUI_BASE_STYLE_ID,
+        replacement: `${toVitePath(packagedFsusUiRoot)}/dist/index.css`,
+      },
     ]
   }
 
@@ -111,6 +119,13 @@ export function createFsusUiAliases(localFsusUiRoot: string | null): AliasEntry[
   const localThemeDist = `${root}/vue/packages/theme-chalk/dist`
 
   return [
+    {
+      // Local production and diagnostics compile the pinned source directly.
+      // This rejects malformed generated CSS instead of silently concatenating
+      // an invalid dist fragment with the following application stylesheet.
+      find: FSUSUI_BASE_STYLE_ID,
+      replacement: `${root}/vue/packages/theme-chalk/src/index.scss`,
+    },
     { find: /^@ozwasyd\/element-plus$/, replacement: `${packageRoot}/index.ts` },
     { find: /^element-plus$/, replacement: `${packageRoot}/index.ts` },
     { find: /^@ozwasyd\/element-plus\/icons-vue$/, replacement: `${packageRoot}/icons-vue.ts` },
@@ -136,9 +151,9 @@ export function createFsusUiAliases(localFsusUiRoot: string | null): AliasEntry[
     {
       // fsus-theme.scss was extracted out of dist/index.css (see FsusUI
       // theme-chalk/src/index.scss) so product-level overrides no longer
-      // collide with element-plus base rules by cascade order. Consumers
-      // (public-shell-critical.css, main.css) now @import this file
-      // explicitly AFTER any base CSS they want to override.
+      // collide with element-plus base rules by cascade order. The public
+      // critical bundle imports it after its component CSS; fullApp.ts loads
+      // it after dist/index.css and before Blog-owned overrides.
       find: /^@ozwasyd\/element-plus\/dist\/el-fsus-theme\.css$/,
       replacement: localThemeCssReady
         ? `${localThemeDist}/el-fsus-theme.css`

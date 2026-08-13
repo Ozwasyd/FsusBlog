@@ -40,7 +40,12 @@ import { abortPublicShellLifetime } from '@/bootstrap/publicShellLifetime'
 import { markStartup, measureStartup } from '@/bootstrap/startupProfiler'
 import { authBroadcastRuntime } from '@/services/authBroadcastRuntime'
 import { authSessionRuntime } from '@/services/authSessionRuntime'
-import '@/assets/main.css'
+
+// Keep each stylesheet as an independent production asset while preserving the
+// base -> product theme -> Blog override cascade before this module resolves.
+await import('@fsusblog/fsusui-base-style.scss')
+await import('@ozwasyd/element-plus/dist/el-fsus-theme.css')
+await import('@/assets/main.css')
 
 export type BootstrapFullAppOptions = {
   hydrate?: boolean

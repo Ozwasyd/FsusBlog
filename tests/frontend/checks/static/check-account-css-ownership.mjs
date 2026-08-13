@@ -56,6 +56,7 @@ const identityPath = 'src/frontend/src/assets/account-identity.css';
 const adminPath = 'src/frontend/src/assets/admin-workspace.css';
 const legacyPath = 'src/frontend/src/assets/account-shell.css';
 const mainPath = 'src/frontend/src/assets/main.css';
+const fullAppPath = 'src/frontend/src/bootstrap/fullApp.ts';
 const layoutPath = 'src/frontend/src/layouts/AccountLayout.vue';
 const routeFramePath = 'src/frontend/src/layouts/AccountRouteFrame.vue';
 const identityFramePath = 'src/frontend/src/layouts/AccountIdentityFrame.vue';
@@ -68,6 +69,7 @@ const base = read(basePath);
 const identity = read(identityPath);
 const admin = read(adminPath);
 const main = read(mainPath);
+const fullApp = read(fullAppPath);
 const layout = read(layoutPath);
 const routeFrame = read(routeFramePath);
 const identityFrame = read(identityFramePath);
@@ -90,6 +92,14 @@ for (const importToken of [
     expectIncludes(mainPath, main, importToken, `missing production import ${importToken}`);
 }
 expectNotMatches(mainPath, main, /account-shell\.css/u, 'legacy stylesheet must have no production import');
+expectNotMatches(mainPath, main, /@ozwasyd\/element-plus\/dist\/(?:index|el-fsus-theme)\.css/u,
+    'FsusUI base/theme styles must retain independent production asset boundaries');
+expectMatches(
+    fullAppPath,
+    fullApp,
+    /await import\('@fsusblog\/fsusui-base-style\.scss'\)\s+await import\('@ozwasyd\/element-plus\/dist\/el-fsus-theme\.css'\)\s+await import\('@\/assets\/main\.css'\)/u,
+    'full app styles must load in base -> product theme -> Blog override order'
+);
 
 expectNotMatches(basePath, base, /\.(?:admin-|dashboard-|workbench-|identity-page-shell)/u,
     'base layer must not own identity or admin page composition');
