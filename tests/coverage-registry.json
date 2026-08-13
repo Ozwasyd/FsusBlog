@@ -64,6 +64,80 @@
             ]
         },
         {
+            "id": "production-final-image-runtime-smoke",
+            "description": "The production Dockerfile builds the same final image used by deployment and admits that immutable image through the qualified local runtime probe without publishing it.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "ops/docker/FsusBlog.Server.Dockerfile",
+                "tools/build-final-image.sh",
+                "tools/test/lanes/production-image-smoke.sh",
+                "tools/test/probe-release-reliability-runtime-smoke.mjs",
+                "tools/test/run-release-reliability-qualified-local.sh",
+                "tests/tools/production-image-smoke.test.mjs"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "The production image lane must fail when the final Dockerfile cannot build, the built image identity diverges from the candidate source, runtime admission does not exercise the immutable local image, or verification attempts to publish an image.",
+            "minimumRequirement": "One matrix-owned lane must build the final musl image with the production builder, preserve source and image identity through runtime admission, probe a binary AEDS v2 endpoint, and retain local-only registry behavior.",
+            "tierIds": [
+                "production-image-smoke"
+            ]
+        },
+        {
+            "id": "production-compose-environment-contract",
+            "description": "Every production Compose environment input is documented and classified as a non-empty repository default or an explicit deploy-time requirement.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                ".env.production.example",
+                "ops/docker/docker-compose.production.yml",
+                "tools/deployment/check-production-compose-environment.mjs",
+                "tests/tools/production-image-smoke.test.mjs"
+            ],
+            "assertionType": "contract",
+            "failClosedRule": "The production image lane must fail when Compose references an undocumented variable, a required deploy-time value is presented as a usable default, or a repository-owned default is empty or inconsistent with its documentation.",
+            "minimumRequirement": "The executable contract must enumerate every production Compose variable, reject missing and duplicate classifications, and prove that all required values fail closed before image runtime admission.",
+            "tierIds": [
+                "production-image-smoke"
+            ]
+        },
+        {
+            "id": "production-gateway-syntax",
+            "description": "The production OpenResty gateway configuration is admitted by a pinned syntax-check image before the application image can pass deployment verification.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "ops/gateway/production-openresty.conf",
+                "tools/deployment/check-production-gateway-config.sh",
+                "tests/tools/production-image-smoke.test.mjs"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "The production image lane must fail when the gateway configuration is incomplete, cannot be parsed by the pinned OpenResty runtime, or loses the expected production include and proxy boundaries.",
+            "minimumRequirement": "The matrix-owned image lane must execute the pinned OpenResty syntax check against the tracked production configuration without substituting a host-only parser.",
+            "tierIds": [
+                "production-image-smoke"
+            ]
+        },
+        {
+            "id": "production-container-graceful-shutdown",
+            "description": "The final production container accepts SIGTERM and exits cleanly before the configured Compose stop grace expires.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "ops/docker/docker-compose.production.yml",
+                "tools/test/lanes/production-image-smoke.sh",
+                "tools/test/probe-release-reliability-runtime-smoke.mjs",
+                "tools/test/run-release-reliability-qualified-local.sh",
+                "tests/tools/production-image-smoke.test.mjs"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "The production image lane must fail when runtime admission omits SIGTERM, accepts a forced kill, exceeds the configured stop grace, or cannot bind the shutdown receipt to the tested image and run.",
+            "minimumRequirement": "The qualified runtime probe must send SIGTERM to the tested final container, observe a clean exit within the production stop grace, and preserve run-bound evidence for the exact image identity.",
+            "tierIds": [
+                "production-image-smoke"
+            ]
+        },
+        {
             "id": "operations-layout-governance",
             "description": "Operational templates use one owned ops hierarchy, deployment policy remains under config/deployment, executable workflows remain under tools, and the unsupported historical local proxy cannot return.",
             "owner": "ServerContractAgent",

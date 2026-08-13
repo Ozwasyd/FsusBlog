@@ -1410,6 +1410,21 @@
             ]
         },
         {
+            "consumerId": "matrix:production-image-smoke",
+            "executionClass": "runtime",
+            "source": "tools/test/lanes/production-image-smoke.sh",
+            "requiredBusinessFact": "none",
+            "implicitSource": "tests/matrix.yml tier production-image-smoke; command tools/test/lanes/production-image-smoke.sh",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "profileId": "none",
+            "profileIds": [
+                "none"
+            ],
+            "requiredCapabilities": [],
+            "requiredVariantIds": [],
+            "producerOwners": []
+        },
+        {
             "consumerId": "matrix:production-xss-fast",
             "executionClass": "browser",
             "source": "tools/test/lanes/production-xss-fast.sh",

@@ -1794,6 +1794,17 @@
             ]
         },
         {
+            "file": "tests/tools/production-image-smoke.test.mjs",
+            "owner": "matrix:production-image-smoke",
+            "executionCategory": "matrix-tier",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/production-resource-enforcement.test.mjs",
             "owner": "repository-governance:test-asset-behavior",
             "executionCategory": "repository-governance",

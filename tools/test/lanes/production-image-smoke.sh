@@ -20,6 +20,7 @@ esac
 RUN_ID="$BASE_RUN_ID"
 IMAGE_TAG="fsusblog-production-smoke:${RUN_ID}-${PROFILE_ID}"
 
+node --test "$ROOT_DIR/tests/tools/production-image-smoke.test.mjs"
 node "$ROOT_DIR/tools/deployment/check-production-compose-environment.mjs"
 bash "$ROOT_DIR/tools/deployment/check-production-gateway-config.sh"
 

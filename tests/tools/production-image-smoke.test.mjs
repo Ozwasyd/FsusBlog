@@ -111,6 +111,10 @@ test('one matrix lane owns local and hosted production image smoke', () =>
         path.join(root, 'tools/test/run-release-reliability-qualified-local.sh'),
         'utf8'
     );
+    const dockerfile = fs.readFileSync(
+        path.join(root, 'ops/docker/FsusBlog.Server.Dockerfile'),
+        'utf8'
+    );
     const tier = matrix.slice(
         matrix.indexOf('    - id: production-image-smoke'),
         matrix.indexOf('    - id: frontend-build')
@@ -135,6 +139,14 @@ test('one matrix lane owns local and hosted production image smoke', () =>
     assert.match(lane, /run-release-reliability-qualified-local\.sh" \\\s*\n\s*--runtime-admission-only/u);
     assert.match(wrapper, /FSUSBLOG_FINAL_LOCAL_ONLY=1[\s\S]*tools\/build-final-image\.sh/u);
     assert.doesNotMatch(lane, /\bdocker push\b|FSUSBLOG_FINAL_PUSH=1/u);
+    assert.doesNotMatch(
+        dockerfile,
+        /COPY src\/frontend\/scripts\/fsusui-root\.mjs \/src\/frontend\/scripts\/fsusui-root\.mjs/u
+    );
+    assert.match(
+        dockerfile,
+        /test ! -e \/src\/frontend[\s\S]*ln -s \/app \/src\/frontend[\s\S]*test -x \/src\/frontend\/node_modules\/\.bin\/vue-tsc/u
+    );
 });
 
 test('runtime admission proves clean SIGTERM before its configured grace', () =>

@@ -739,6 +739,14 @@
             "fixtureMutatorAllowed": true
         },
         {
+            "tierId": "production-image-smoke",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
             "tierId": "production-xss-fast",
             "executionClass": "browser",
             "fixtureProfile": "production-xss",
@@ -1123,5 +1131,5 @@
             "fixtureMutatorAllowed": false
         }
     ],
-    "digest": "sha256:83abd528a949931c58edc91a8827405985e9d6da435761c2fd40247ad23266d5"
+    "digest": "sha256:0520c14bdaa4d09ccfbe3ddb9350914e483758f2e8389e0c27a82249057ee71f"
 }

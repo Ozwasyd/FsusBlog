@@ -276,7 +276,6 @@ WORKDIR /app
 
 COPY src/frontend/package*.json ./
 COPY tools/frontend/ /tools/frontend/
-COPY src/frontend/scripts/fsusui-root.mjs /src/frontend/scripts/fsusui-root.mjs
 COPY tools/security/comment-privacy-build-contract.mjs /tools/security/comment-privacy-build-contract.mjs
 COPY tools/test-matrix/ /tools/test-matrix/
 
@@ -314,7 +313,11 @@ COPY --from=fsusui /vue/packages /opt/fsusui/vue/packages
 RUN ln -s /app/node_modules /opt/fsusui/node_modules
 COPY src/frontend/ ./
 COPY src/shared/ /src/shared/
-RUN mkdir -p /src && ln -sfn /app /src/frontend
+RUN mkdir -p /src && \
+    test ! -e /src/frontend && \
+    ln -s /app /src/frontend && \
+    test -f /src/frontend/src/assets/public-shell-foundation.css && \
+    test -x /src/frontend/node_modules/.bin/vue-tsc
 COPY build/artifacts/wasm-release/ ./public/wasm/
 
 RUN test -f public/wasm/SHA256SUMS && (cd public/wasm && sha256sum -c SHA256SUMS)
