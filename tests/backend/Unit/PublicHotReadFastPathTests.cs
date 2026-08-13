@@ -5,6 +5,7 @@ using System.Threading.RateLimiting;
 
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -312,11 +313,12 @@ public sealed class PublicHotReadFastPathTests
     [Fact]
     public void IfNoneMatchCommonAndFallbackCases_MatchExpectedEtags()
     {
-        Assert.False(PublicHotReadFastPath.MatchesIfNoneMatchForTests(StringValues.Empty, "\"detail\""));
-        Assert.True(PublicHotReadFastPath.MatchesIfNoneMatchForTests(new StringValues("\"detail\""), "\"detail\""));
-        Assert.False(PublicHotReadFastPath.MatchesIfNoneMatchForTests(new StringValues("\"other\""), "\"detail\""));
-        Assert.True(PublicHotReadFastPath.MatchesIfNoneMatchForTests(new StringValues("*"), "\"detail\""));
-        Assert.True(PublicHotReadFastPath.MatchesIfNoneMatchForTests(new StringValues("\"other\", \"detail\""), "\"detail\""));
+        Assert.False(HttpEntityTagPreconditions.MatchesIfNoneMatch(StringValues.Empty, "\"detail\""));
+        Assert.True(HttpEntityTagPreconditions.MatchesIfNoneMatch(new StringValues("\"detail\""), "\"detail\""));
+        Assert.True(HttpEntityTagPreconditions.MatchesIfNoneMatch(new StringValues("W/\"detail\""), "\"detail\""));
+        Assert.False(HttpEntityTagPreconditions.MatchesIfNoneMatch(new StringValues("\"other\""), "\"detail\""));
+        Assert.True(HttpEntityTagPreconditions.MatchesIfNoneMatch(new StringValues("*"), "\"detail\""));
+        Assert.True(HttpEntityTagPreconditions.MatchesIfNoneMatch(new StringValues("\"other\", \"detail\""), "\"detail\""));
     }
 
     [Fact]
@@ -1743,13 +1745,13 @@ public sealed class PublicHotReadFastPathTests
 
         _ = PublicHotReadFastPath.TrySelectBinaryVariantForTests(acceptEncoding, artifact, out _);
         _ = PublicHotReadFastPath.AcceptsArtifactForTests(accept, html: false);
-        _ = PublicHotReadFastPath.MatchesIfNoneMatchForTests(ifNoneMatch, "\"detail\"");
+        _ = HttpEntityTagPreconditions.MatchesIfNoneMatch(ifNoneMatch, "\"detail\"");
         _ = PublicHotReadFastPath.TryClassifyRouteForTests(Route, out _);
         for (int i = 0; i < 1000; i++)
         {
             _ = PublicHotReadFastPath.TrySelectBinaryVariantForTests(acceptEncoding, artifact, out _);
             _ = PublicHotReadFastPath.AcceptsArtifactForTests(accept, html: false);
-            _ = PublicHotReadFastPath.MatchesIfNoneMatchForTests(ifNoneMatch, "\"detail\"");
+            _ = HttpEntityTagPreconditions.MatchesIfNoneMatch(ifNoneMatch, "\"detail\"");
             _ = PublicHotReadFastPath.TryClassifyRouteForTests(Route, out _);
         }
 
@@ -1760,7 +1762,7 @@ public sealed class PublicHotReadFastPathTests
             ok &= PublicHotReadFastPath.TrySelectBinaryVariantForTests(acceptEncoding, artifact, out PublicBinaryArtifactVariant variant)
                 && variant.ContentEncoding == "br"
                 && PublicHotReadFastPath.AcceptsArtifactForTests(accept, html: false)
-                && PublicHotReadFastPath.MatchesIfNoneMatchForTests(ifNoneMatch, "\"detail\"")
+                && HttpEntityTagPreconditions.MatchesIfNoneMatch(ifNoneMatch, "\"detail\"")
                 && PublicHotReadFastPath.TryClassifyRouteForTests(Route, out PublicHotReadRoute parsed)
                 && parsed.ListKey.Equals(new PublicListKey(PublicListKind.Home, 0, 1, 10));
         }
@@ -1781,13 +1783,13 @@ public sealed class PublicHotReadFastPathTests
 
         _ = PublicHotReadFastPath.TrySelectBinaryVariantForTests(acceptEncoding, artifact, out _);
         _ = PublicHotReadFastPath.AcceptsArtifactForTests(accept, html: false);
-        _ = PublicHotReadFastPath.MatchesIfNoneMatchForTests(ifNoneMatch, "\"detail\"");
+        _ = HttpEntityTagPreconditions.MatchesIfNoneMatch(ifNoneMatch, "\"detail\"");
         _ = PublicHotReadFastPath.TryClassifyRouteForTests(Route, out _);
         for (int i = 0; i < 1000; i++)
         {
             _ = PublicHotReadFastPath.TrySelectBinaryVariantForTests(acceptEncoding, artifact, out _);
             _ = PublicHotReadFastPath.AcceptsArtifactForTests(accept, html: false);
-            _ = PublicHotReadFastPath.MatchesIfNoneMatchForTests(ifNoneMatch, "\"detail\"");
+            _ = HttpEntityTagPreconditions.MatchesIfNoneMatch(ifNoneMatch, "\"detail\"");
             _ = PublicHotReadFastPath.TryClassifyRouteForTests(Route, out _);
         }
 
@@ -1798,7 +1800,7 @@ public sealed class PublicHotReadFastPathTests
             ok &= PublicHotReadFastPath.TrySelectBinaryVariantForTests(acceptEncoding, artifact, out PublicBinaryArtifactVariant variant)
                 && variant.ContentEncoding == "br"
                 && PublicHotReadFastPath.AcceptsArtifactForTests(accept, html: false)
-                && PublicHotReadFastPath.MatchesIfNoneMatchForTests(ifNoneMatch, "\"detail\"")
+                && HttpEntityTagPreconditions.MatchesIfNoneMatch(ifNoneMatch, "\"detail\"")
                 && PublicHotReadFastPath.TryClassifyRouteForTests(Route, out PublicHotReadRoute parsed)
                 && parsed.Kind == PublicHotReadRouteKind.ArticleDetail
                 && parsed.ArticleId == 42;

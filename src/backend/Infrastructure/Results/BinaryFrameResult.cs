@@ -3,8 +3,7 @@ using System.Buffers;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Server.Infrastructure.Binary;
-
-using Microsoft.Extensions.Primitives;
+using FsusBlog.Server.Infrastructure.Helpers;
 
 namespace FsusBlog.Server.Infrastructure.Results;
 
@@ -123,7 +122,9 @@ public sealed class BinaryPreencodedFrameResult : IResult
 
             httpContext.Response.Headers["X-Fsus-Frame-Version"] = AedsFrameHeader.CurrentVersion.ToString();
             ApplyMetadata(httpContext.Response, _metadata);
-            if (MatchesIfNoneMatch(httpContext.Request.Headers.IfNoneMatch, _metadata?.ETag))
+            if (HttpEntityTagPreconditions.MatchesIfNoneMatch(
+                    httpContext.Request.Headers.IfNoneMatch,
+                    _metadata?.ETag))
             {
                 httpContext.Response.StatusCode = StatusCodes.Status304NotModified;
                 httpContext.Response.ContentLength = 0;
@@ -177,35 +178,4 @@ public sealed class BinaryPreencodedFrameResult : IResult
         }
     }
 
-    private static bool MatchesIfNoneMatch(StringValues values, string? etag)
-    {
-        if (string.IsNullOrWhiteSpace(etag) || values.Count == 0)
-        {
-            return false;
-        }
-
-        for (int i = 0; i < values.Count; i++)
-        {
-            ReadOnlySpan<char> header = (values[i] ?? string.Empty).AsSpan();
-            while (true)
-            {
-                int comma = header.IndexOf(',');
-                ReadOnlySpan<char> candidate = (comma >= 0 ? header[..comma] : header).Trim();
-                if (candidate.Equals("*", StringComparison.Ordinal)
-                    || candidate.Equals(etag.AsSpan(), StringComparison.Ordinal))
-                {
-                    return true;
-                }
-
-                if (comma < 0)
-                {
-                    break;
-                }
-
-                header = header[(comma + 1)..];
-            }
-        }
-
-        return false;
-    }
 }

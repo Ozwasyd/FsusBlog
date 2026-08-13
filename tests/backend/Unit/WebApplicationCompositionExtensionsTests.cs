@@ -642,7 +642,7 @@ public sealed class WebApplicationCompositionExtensionsTests
             minPrecompressedHtmlBytes: 1);
         var entry = CreateAotEntry(html, artifact);
         DefaultHttpContext context = CreateAotContext("gzip;q=1, identity;q=0");
-        context.Request.Headers.IfNoneMatch = artifact.GzipETag;
+        context.Request.Headers.IfNoneMatch = $"W/{artifact.GzipETag}";
 
         await PublicWebRuntime.WritePublicAotHtmlEntryForTestsAsync(context, CreateTestEnv(), entry);
 
@@ -866,7 +866,7 @@ public sealed class WebApplicationCompositionExtensionsTests
         Assert.StartsWith("\"manifest-", firstEtag, StringComparison.Ordinal);
         Assert.True(first.Response.Body.Length > 0);
 
-        DefaultHttpContext second = CreateManifestContext(firstEtag);
+        DefaultHttpContext second = CreateManifestContext($"W/{firstEtag}");
 
         await PublicWebRuntime.WriteDynamicManifestForTestsAsync(second, seo);
 
