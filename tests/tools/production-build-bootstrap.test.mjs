@@ -23,6 +23,56 @@ function write(rootDirectory, relative, content)
     fs.writeFileSync(file, content);
 }
 
+function releasePreparedPortLease(namespace, envFile)
+{
+    if (!fs.existsSync(envFile))
+    {
+        return;
+    }
+    const environment = Object.fromEntries(
+        fs.readFileSync(envFile, 'utf8')
+            .split('\n')
+            .filter(Boolean)
+            .map(line =>
+            {
+                const separator = line.indexOf('=');
+                return [line.slice(0, separator), line.slice(separator + 1)];
+            })
+    );
+    const daemonPid = Number(environment.FSUSBLOG_PORT_LEASE_DAEMON_PID);
+    if (!Number.isInteger(daemonPid) || daemonPid < 1)
+    {
+        return;
+    }
+    const acceptanceRoot = path.join(root, '.tmp/acceptance', namespace);
+    const result = spawnSync(process.execPath, [
+        path.join(root, 'tools/test-matrix/production-fresh-port-lease.mjs'),
+        'release-all',
+        '--manifest', path.join(acceptanceRoot, 'port-leases.json'),
+        '--token-file', path.join(acceptanceRoot, 'port-lease.token'),
+        '--reason', 'production-build-bootstrap-test-cleanup'
+    ], { cwd: root, encoding: 'utf8' });
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    const deadline = Date.now() + 2_000;
+    while (Date.now() < deadline)
+    {
+        try
+        {
+            process.kill(daemonPid, 0);
+            Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);
+        }
+        catch (error)
+        {
+            if (error?.code === 'ESRCH')
+            {
+                return;
+            }
+            throw error;
+        }
+    }
+    assert.fail(`prepared port lease daemon ${daemonPid} did not exit`);
+}
+
 test('acceptance bootstrap materializes verified domains into its current run-bound roots and forces no-build', t =>
 {
     const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-ci-bootstrap-artifact-'));
@@ -32,6 +82,7 @@ test('acceptance bootstrap materializes verified domains into its current run-bo
     const evidenceFile = path.join(root, '.tmp/release-evidence/jobs', `ci-build-materialization-${namespace}.json`);
     t.after(() =>
     {
+        releasePreparedPortLease(namespace, envFile);
         fs.rmSync(temporary, { recursive: true, force: true });
         fs.rmSync(`${temporary}.state`, { recursive: true, force: true });
         fs.rmSync(targetRoot, { recursive: true, force: true });
