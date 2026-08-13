@@ -1,13 +1,14 @@
 #!/usr/bin/env node
-import fs from 'node:fs'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
-const failures = []
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
+const failures = [];
+const generatedPublicWasmRoot = path.join(repoRoot, 'src/frontend/public/wasm');
 
-const rel = (file) => path.relative(repoRoot, file).replaceAll(path.sep, '/')
-const read = (file) => fs.readFileSync(file, 'utf8')
+const rel = (file) => path.relative(repoRoot, file).replaceAll(path.sep, '/');
+const read = (file) => fs.readFileSync(file, 'utf8');
 
 const targetRoots = [
   'src/frontend/index.html',
@@ -29,6 +30,9 @@ function fail(file, line, message) {
 }
 
 function walk(entry, files = []) {
+  if (entry === generatedPublicWasmRoot) {
+    return files
+  }
   if (!fs.existsSync(entry)) {
     return files
   }

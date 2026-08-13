@@ -3,29 +3,30 @@ import {
   readdirSync,
   readFileSync,
   statSync
-} from 'node:fs'
+} from 'node:fs';
 import {
   dirname,
   extname,
   join,
   relative,
   resolve
-} from 'node:path'
-import { fileURLToPath } from 'node:url'
+} from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
-const frontendRoot = join(repoRoot, 'src/frontend')
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
+const frontendRoot = join(repoRoot, 'src/frontend');
 const sourceRoots = [
   join(frontendRoot, 'src'),
   join(frontendRoot, 'wasm/security'),
   join(frontendRoot, 'wasm/web')
-]
-const moduleExtensions = new Set(['.js', '.jsx', '.mjs', '.ts', '.tsx', '.vue'])
-const resolutionExtensions = [...moduleExtensions, '.json']
+];
+const moduleExtensions = new Set(['.js', '.jsx', '.mjs', '.ts', '.tsx', '.vue']);
+const resolutionExtensions = [...moduleExtensions, '.json'];
 
 const declaredRuntimeEntries = [
   'src/main.ts',
   'src/bootstrap/preTheme.ts',
+  'src/bootstrap/publicBootKernel.ts',
   'src/public-renderers/renderPublicPage.ts'
 ]
 
@@ -37,7 +38,12 @@ const pendingRuntimeIntegrations = new Map([
   ['src/components/security/FsusPasskeyStepUpChallenge.vue', '#1274'],
   ['src/components/admin/AdminFilterGroup.vue', '#1083'],
   ['src/performance/browserTaskScheduler.ts', '#1083'],
+  ['src/services/themeAssetRuntime.ts', '#138'],
   ['src/views/user/Profile.vue', '#1083'],
+])
+
+const generatedGovernanceModules = new Set([
+  'src/contracts/behaviorContractCatalog.ts'
 ])
 
 function toFrontendPath(filePath) {
@@ -72,6 +78,7 @@ const productionModules = sourceRoots
   .flatMap(walkFiles)
   .filter(isProductionModule)
   .map((filePath) => resolve(filePath))
+  .filter((filePath) => !generatedGovernanceModules.has(toFrontendPath(filePath)))
   .sort()
 
 const productionModuleSet = new Set(productionModules)

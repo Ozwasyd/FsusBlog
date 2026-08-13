@@ -679,7 +679,7 @@ onBeforeUnmount(() =>
 
 .locale-selector__spinner
  {
-    animation: locale-selector-spin 0.8s linear infinite;
+    animation: blog-motion-locale-selector-spin 0.8s linear infinite;
 }
 
 .locale-selector__error
@@ -751,14 +751,6 @@ onBeforeUnmount(() =>
  {
     min-width: 0;
     overflow-wrap: anywhere;
-}
-
-@keyframes locale-selector-spin
- {
-    to
- {
-        transform: rotate(360deg);
-    }
 }
 
 @media (forced-colors: active)

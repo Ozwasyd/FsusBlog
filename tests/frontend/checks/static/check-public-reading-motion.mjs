@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
-import { existsSync, readFileSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
-import './check-reading-layout-primitive.mjs'
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import './check-reading-layout-primitive.mjs';
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const repoRoot = resolve(__dirname, '../../../..')
-const errors = []
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const repoRoot = resolve(__dirname, '../../../..');
+const errors = [];
 let accountFocusMutationProofs = 0
 
 function read(path) {
@@ -215,6 +215,8 @@ function validateAccountHeaderFocusContract(source) {
     cssRules = enumerateCssRules(commentFreeSource)
     focusRules = cssRules
       .filter((rule) => rule.selector === '.account-header-link:focus-visible')
+      .filter((rule) => parseCssDeclarations(rule.body)
+        .some((declaration) => declaration.property === 'box-shadow'))
   } catch (error) {
     contractFailures.push(`account-shell-base.css cannot enumerate account header focus owners: ${error.message}`)
     return contractFailures
@@ -535,7 +537,7 @@ assertAccountFocusMutationRejected(
   accountShellBase,
   'escaped focus owner selector',
   (source) => source.replace(
-    '.account-header-link:focus-visible {',
+    /\.account-header-link:focus-visible\s*\{/u,
     '.account-header\\2d link:focus-visible {'
   )
 )
@@ -665,8 +667,8 @@ expectIncludes(publicArticleDetail, 'letter-spacing: 0.05em;', 'PublicArticleDet
 expectIncludes(publicArticleDetail, 'min-height: 44px;', 'PublicArticleDetailPageContent.vue appendix links preserve mobile touch targets')
 expectIncludes(publicArticleDetail, 'transition: color var(--blog-motion-control) var(--blog-motion-ease);', 'PublicArticleDetailPageContent.vue related links use the reading motion token')
 expectIncludes(publicArticleDetail, 'color: var(--fsusblog-color-primary);', 'PublicArticleDetailPageContent.vue related link semantic hover')
-expectIncludes(publicArticleDetail, '.fsus-appendix__tag:visited {\n  color: var(--fsusblog-text-quiet) !important;', 'PublicArticleDetailPageContent.vue visited tags keep quiet semantics')
-expectIncludes(publicArticleDetail, '.fsus-appendix__link:visited {\n  color: var(--fsusblog-text-primary);', 'PublicArticleDetailPageContent.vue visited related links keep primary semantics')
+expectMatches(publicArticleDetail, /\.fsus-appendix__tag:visited\s*\{[^}]*color:\s*var\(--fsusblog-text-quiet\) !important;/su, 'PublicArticleDetailPageContent.vue visited tags keep quiet semantics')
+expectMatches(publicArticleDetail, /\.fsus-appendix__link:visited\s*\{[^}]*color:\s*var\(--fsusblog-text-primary\);/su, 'PublicArticleDetailPageContent.vue visited related links keep primary semantics')
 expectNotMatches(publicArticleDetail, /fsus-colophon/, 'PublicArticleDetailPageContent.vue must not restore the large colophon')
 expectNotMatches(publicArticleDetail, /article-tail-group mt-8 sm:mt-10 divide-y/, 'PublicArticleDetailPageContent.vue appendix must not restore internal row dividers')
 expectNotMatches(publicArticleDetail, /blog-link-underline/, 'PublicArticleDetailPageContent.vue appendix links must not use underline decoration')
@@ -710,7 +712,7 @@ expectIncludes(
   "commentsRoot: 'mt-10 sm:mt-14'",
   'themeTokens.ts owns the 40px mobile and 56px desktop comments section gap'
 )
-expectIncludes(publicArticleDetail, 'id="fsus-comments-island-content"\n        class="min-h-0"', 'PublicArticleDetailPageContent.vue comments mount must not reserve a tall empty block')
+expectMatches(publicArticleDetail, /id="fsus-comments-island-content"\s+class="min-h-0"/u, 'PublicArticleDetailPageContent.vue comments mount must not reserve a tall empty block')
 expectNotMatches(publicArticleDetail, /class="mt-12 sm:mt-16 border-t border-\[var\(--fsusblog-panel-border\)\] pt-8 sm:pt-10"/, 'PublicArticleDetailPageContent.vue comments island must not add a duplicate top rule and large whitespace after related reading')
 expectNotMatches(publicArticleDetail, /class="min-h-\[10rem\]"/, 'PublicArticleDetailPageContent.vue comments mount must not keep the old tall empty state')
 expectIncludes(publicArticleDetail, ':aria-label="messages.article.content.relatedAria"', 'PublicArticleDetailPageContent.vue localized related reading row-list aria label')

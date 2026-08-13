@@ -9,7 +9,7 @@ import {
     parseMigrationPlaceholder,
     validateLeafValue,
     validateLocaleMessages
-} from '@/locales/validator'
+} from '../../support/locales/validator'
 
 const loadValidationTree = async (locale: SupportedLocale): Promise<Record<string, unknown>> => {
     const entries = await Promise.all(LOCALE_DOMAINS.map(async (domain) => {

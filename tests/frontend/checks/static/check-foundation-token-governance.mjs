@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { readdirSync, readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { readdirSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 const repoRoot = resolve(process.cwd(), '../..')
 const errors = []
@@ -83,7 +83,7 @@ for (const [path, source] of [
   [publicShellPath, publicShell]
 ]) {
   expectIncludes(path, source, '--bg: #F7F7F8;', '--bg light token')
-  expectIncludes(path, source, '--surface: #FFFFFF;', '--surface light token')
+  expectIncludes(path, source, path === publicShellPath ? '--surface: #FFF;' : '--surface: #FFFFFF;', '--surface light token')
   expectIncludes(path, source, '--text: #0F0F11;', '--text light token')
   expectIncludes(path, source, '--border: #E4E4E7;', '--border light token')
   expectIncludes(path, source, '--accent: #2A599C;', '--accent light token')

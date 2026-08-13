@@ -1,6 +1,6 @@
-import { createApp, defineAsyncComponent, defineComponent, Fragment, h, type Component, type VNode } from 'vue'
-import { createPinia } from 'pinia'
-import { createHead } from '@unhead/vue/client'
+import { createApp, defineAsyncComponent, defineComponent, Fragment, h, type Component, type VNode } from 'vue';
+import { createPinia } from 'pinia';
+import { createHead } from '@unhead/vue/client';
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import App from '@/App.vue'
 import { createAppRouter } from '@/router'

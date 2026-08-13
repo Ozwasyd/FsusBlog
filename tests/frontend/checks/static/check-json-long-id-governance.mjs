@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import { readFileSync, readdirSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { readFileSync, readdirSync } from 'node:fs';
+import { resolve } from 'node:path';
 
-const repoRoot = resolve(import.meta.dirname, '../../../..')
+const repoRoot = resolve(import.meta.dirname, '../../../..');
 
 function read(path) {
   return readFileSync(resolve(repoRoot, path), 'utf8')
@@ -27,27 +27,28 @@ const auditQuery = read('src/backend/Infrastructure/Audit/AuditQueryService.cs')
 
 for (const token of [
   'id: string',
-  'createdByAdminPrincipalId: string',
-  'export async function getArticleRevision(\n  articleId: number,\n  revisionId: string',
-  'export async function rollbackArticleRevision(\n  articleId: number,\n  revisionId: string',
-  'export async function verifyAuditLog(id: string'
+  'createdByAdminPrincipalId: string'
 ]) {
   assert(authoringApi.includes(token), `frontend authoring API long id boundary missing: ${token}`)
 }
 
-assert(
-  /export async function getAuditLogDetail\(\s*id: string/.test(authoringApi),
-  'frontend authoring API long id boundary missing: export async function getAuditLogDetail(id: string'
-)
-
-for (const forbidden of [
-  'createdByAdminPrincipalId: number',
-  'export async function getArticleRevision(\n  articleId: number,\n  revisionId: number',
-  'export async function rollbackArticleRevision(\n  articleId: number,\n  revisionId: number',
-  'export async function getAuditLogDetail(id: number',
-  'export async function verifyAuditLog(id: number'
+for (const [signature, label] of [
+  [/export async function getArticleRevision\(\s*articleId:\s*number,\s*revisionId:\s*string/u, 'getArticleRevision(articleId: number, revisionId: string)'],
+  [/export async function rollbackArticleRevision\(\s*articleId:\s*number,\s*revisionId:\s*string/u, 'rollbackArticleRevision(articleId: number, revisionId: string)'],
+  [/export async function getAuditLogDetail\(\s*id:\s*string/u, 'getAuditLogDetail(id: string)'],
+  [/export async function verifyAuditLog\(\s*id:\s*string/u, 'verifyAuditLog(id: string)']
 ]) {
-  assert(!authoringApi.includes(forbidden), `frontend authoring API must not expose long id as number: ${forbidden}`)
+  assert(signature.test(authoringApi), `frontend authoring API long id boundary missing: ${label}`)
+}
+
+for (const [signature, label] of [
+  [/createdByAdminPrincipalId:\s*number/u, 'createdByAdminPrincipalId: number'],
+  [/export async function getArticleRevision\(\s*articleId:\s*number,\s*revisionId:\s*number/u, 'getArticleRevision(articleId: number, revisionId: number)'],
+  [/export async function rollbackArticleRevision\(\s*articleId:\s*number,\s*revisionId:\s*number/u, 'rollbackArticleRevision(articleId: number, revisionId: number)'],
+  [/export async function getAuditLogDetail\(\s*id:\s*number/u, 'getAuditLogDetail(id: number)'],
+  [/export async function verifyAuditLog\(\s*id:\s*number/u, 'verifyAuditLog(id: number)']
+]) {
+  assert(!signature.test(authoringApi), `frontend authoring API must not expose long id as number: ${label}`)
 }
 
 for (const token of [

@@ -1,6 +1,5 @@
-import { PLURAL_CATEGORIES } from './keys'
-import { isSupportedLocale } from './localeCatalog'
-import type { PluralCategory } from './keys'
+import { PLURAL_CATEGORIES, type PluralCategory } from '@/locales/keys'
+import { isSupportedLocale } from '@/locales/localeCatalog'
 
 export const MIGRATION_PLACEHOLDER_PREFIX = '__FSUSBLOG_TRANSLATION_PENDING__:'
 

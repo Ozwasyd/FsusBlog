@@ -19,6 +19,7 @@ const adminAccountRoots = [
 
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json');
 const adminInlineEmptyStatePath = path.join(sourceRoot, 'components/admin/AdminInlineEmptyState.vue');
+const adminWorkspacePath = path.join(sourceRoot, 'assets/admin-workspace.css');
 const contractPath = path.join(repoRoot, 'tests/frontend/fixtures/admin-inline-empty-state-contract.json');
 const browserCorrectnessPath = path.join(repoRoot, 'tests/frontend/e2e/admin-inline-empty-state.spec.ts');
 const visualDiagnosticPath = path.join(repoRoot, 'tests/frontend/e2e/visual/admin-inline-empty-state.spec.ts');
@@ -176,6 +177,7 @@ for (const file of adminAccountRoots.flatMap((dir) => walk(dir)))
 }
 
 const adminInlineEmptyState = read(adminInlineEmptyStatePath);
+const adminWorkspace = read(adminWorkspacePath);
 const contract = JSON.parse(read(contractPath));
 const insetCustomProperty = contract.insetCustomProperty;
 const consumerFiles = walk(sourceRoot).filter((file) => (
@@ -273,13 +275,13 @@ if (!adminInlineEmptyState.includes('props.description || props.content'))
 {
     fail(adminInlineEmptyStatePath, 1, 'AdminInlineEmptyState must support content fallback for existing admin callers');
 }
-if (!new RegExp(`\\.admin-inline-empty-state\\s*\\{[^}]*${insetCustomProperty}:\\s*var\\(--fsus-space-5\\);[^}]*padding:\\s*var\\(${insetCustomProperty}\\);`, 's').test(adminInlineEmptyState))
+if (!new RegExp(`\\.admin-workspace-frame \\.admin-inline-empty-state\\s*\\{[^}]*${insetCustomProperty}:\\s*var\\(--fsus-space-5\\);[^}]*padding:\\s*var\\(${insetCustomProperty}\\);`, 's').test(adminWorkspace))
 {
-    fail(adminInlineEmptyStatePath, 1, 'AdminInlineEmptyState must consume its canonical desktop inset custom property');
+    fail(adminWorkspacePath, 1, 'admin workspace must consume the canonical desktop empty-state inset custom property');
 }
-if (!new RegExp(`@media\\s*\\(width <= 639px\\)\\s*\\{[\\s\\S]*?\\.admin-inline-empty-state\\s*\\{[^}]*${insetCustomProperty}:\\s*var\\(--fsus-space-4\\);`, 's').test(adminInlineEmptyState))
+if (!new RegExp(`@media\\s*\\(width <= 639px\\)\\s*\\{[\\s\\S]*?\\.admin-workspace-frame \\.admin-inline-empty-state\\s*\\{[^}]*${insetCustomProperty}:\\s*var\\(--fsus-space-4\\);`, 's').test(adminWorkspace))
 {
-    fail(adminInlineEmptyStatePath, 1, 'AdminInlineEmptyState must adapt the canonical inset property for mobile');
+    fail(adminWorkspacePath, 1, 'admin workspace must adapt the canonical empty-state inset property for mobile');
 }
 
 for (const file of consumerFiles)

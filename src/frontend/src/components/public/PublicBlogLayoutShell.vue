@@ -146,11 +146,16 @@ import { publicShellRuntimeAuthState } from '@/public-renderers/publicShellRunti
 import type { PublicActiveNav,
               PublicShellAuthAction,
               PublicShellSearchAction } from '@/public-renderers/publicShellState';
-import { normalizePublicSiteDescription } from '@/public-renderers/publicSiteIdentity';
+import {
+    normalizePublicSiteDescription
+} from '@/public-renderers/publicSiteIdentity';
 import {
     createPublicSiteIdentity,
     providePublicSiteIdentity
 } from '@/public-renderers/publicSiteIdentityContext';
+import {
+    PUBLIC_SITE_IDENTITY_DEFAULTS
+} from '@/public-renderers/publicSiteIdentityDefaults';
 
 const { messages } = useI18nText();
 const layoutCopy = computed(() => messages.value.public.shell);
@@ -158,8 +163,8 @@ const PUBLIC_MOBILE_NAV_MODE = FSUSBLOG_PUBLIC_MOBILE_NAV_MODE;
 
 const SHELL_DEFAULTS = {
     hydrationKind: null,
-    siteTitle: "Fsu's Blog",
-    siteDescription: '工程记录、性能实验、UI 系统与 FsusBlog 构建过程。',
+    siteTitle: PUBLIC_SITE_IDENTITY_DEFAULTS.siteTitle,
+    siteDescription: PUBLIC_SITE_IDENTITY_DEFAULTS.siteDescription,
     activeNav: 'none',
     authAction: 'login',
     authHref: '/login',
@@ -205,8 +210,8 @@ const props = withDefaults(
     }>(),
     {
         hydrationKind: null,
-        siteTitle: "Fsu's Blog",
-        siteDescription: '工程记录、性能实验、UI 系统与 FsusBlog 构建过程。',
+        siteTitle: PUBLIC_SITE_IDENTITY_DEFAULTS.siteTitle,
+        siteDescription: PUBLIC_SITE_IDENTITY_DEFAULTS.siteDescription,
         siteLogoUrl: '',
         siteLogoDarkUrl: '',
         siteWordmarkUrl: '',

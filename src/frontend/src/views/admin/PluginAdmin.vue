@@ -150,7 +150,7 @@
               </FsusUiSettingsSection>
 
               <FsusUiSettingsSection class="mt-8" title="Hook 注册" id="plugin-hooks">
-                <el-table :data="detail.manifest.hooks" empty-text="未声明 Hook">
+                <el-table :data="detail.manifest.hooks">
                   <el-table-column prop="name" label="Hook" min-width="190" />
                   <el-table-column prop="scope" label="范围" width="125" />
                   <el-table-column prop="failPolicy" label="失败策略" width="130" />
@@ -158,6 +158,12 @@
                   <el-table-column label="幂等" width="75">
                     <template #default="{ row }">{{ row.idempotent ? '是' : '否' }}</template>
                   </el-table-column>
+                                    <template #empty>
+                                        <AdminInlineEmptyState
+                                            title="未声明 Hook"
+                                            description="此插件没有注册可执行 Hook。"
+                                        />
+                                    </template>
                 </el-table>
               </FsusUiSettingsSection>
             </el-tab-pane>
@@ -227,7 +233,7 @@
                     {{ detail.metrics.averageDurationMilliseconds.toFixed(2) }} ms
                   </FsusUiKeyValueItem>
                 </FsusUiKeyValueGrid>
-                <el-table class="mt-5" :data="detail.recentExecutions" empty-text="该插件尚未产生执行记录">
+                <el-table class="mt-5" :data="detail.recentExecutions">
                   <el-table-column prop="hookName" label="Hook" min-width="180" />
                   <el-table-column prop="nodeId" label="节点" min-width="120" />
                   <el-table-column label="结果" width="90">
@@ -237,15 +243,27 @@
                     <template #default="{ row }">{{ row.durationMilliseconds.toFixed(2) }} ms</template>
                   </el-table-column>
                   <el-table-column prop="traceId" label="Trace" min-width="170" />
+                                    <template #empty>
+                                        <AdminInlineEmptyState
+                                            title="暂无执行记录"
+                                            description="该插件尚未产生执行记录。"
+                                        />
+                                    </template>
                 </el-table>
               </FsusUiSettingsSection>
 
               <FsusUiSettingsSection class="mt-8" title="最近错误" id="plugin-errors">
-                <el-table :data="detail.recentErrors" empty-text="该插件尚未产生错误记录">
+                <el-table :data="detail.recentErrors">
                   <el-table-column prop="createdAtUtc" label="时间" min-width="170" />
                   <el-table-column prop="code" label="错误码" min-width="180" />
                   <el-table-column prop="hookName" label="Hook" min-width="160" />
                   <el-table-column prop="nodeId" label="节点" min-width="120" />
+                                    <template #empty>
+                                        <AdminInlineEmptyState
+                                            title="暂无错误记录"
+                                            description="该插件尚未产生错误记录。"
+                                        />
+                                    </template>
                 </el-table>
               </FsusUiSettingsSection>
             </el-tab-pane>
@@ -253,12 +271,18 @@
             <el-tab-pane label="日志" name="logs">
               <FsusUiSettingsSection title="插件日志" id="plugin-logs">
                 <p class="plugin-admin-hint">每个插件每节点最多保留最近 200 条，避免日志刷爆。</p>
-                <el-table :data="detail.recentLogs" empty-text="该插件尚未产生日志条目">
+                <el-table :data="detail.recentLogs">
                   <el-table-column prop="createdAtUtc" label="时间" min-width="170" />
                   <el-table-column prop="level" label="级别" width="90" />
                   <el-table-column prop="hookName" label="Hook" min-width="150" />
                   <el-table-column prop="nodeId" label="节点" min-width="120" />
                   <el-table-column prop="message" label="消息" min-width="240" />
+                                    <template #empty>
+                                        <AdminInlineEmptyState
+                                            title="插件暂无日志"
+                                            description="该插件尚未产生日志条目。"
+                                        />
+                                    </template>
                 </el-table>
               </FsusUiSettingsSection>
             </el-tab-pane>
@@ -272,7 +296,7 @@
                   title="当前未证明所有目标节点一致"
                   description="not-reported 表示该节点尚未向当前控制面提交插件运行态，不能视为已加载。"
                 />
-                <el-table class="mt-5" :data="detail.nodes" empty-text="没有节点">
+                <el-table class="mt-5" :data="detail.nodes">
                   <el-table-column prop="nodeId" label="节点" min-width="150" />
                   <el-table-column prop="memberStatus" label="成员状态" width="120" />
                   <el-table-column prop="runtimeState" label="运行态" width="130" />
@@ -282,6 +306,12 @@
                     </template>
                   </el-table-column>
                   <el-table-column prop="lastErrorCode" label="最近错误" min-width="160" />
+                                    <template #empty>
+                                        <AdminInlineEmptyState
+                                            title="暂无节点"
+                                            description="当前没有节点上报插件运行状态。"
+                                        />
+                                    </template>
                 </el-table>
               </FsusUiSettingsSection>
             </el-tab-pane>
@@ -307,6 +337,7 @@ import {
   type PluginAdminMutation,
   type PluginAdminOverview
 } from '@/api/authoring'
+import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue';
 import { ensureAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import {
   FsusUiKeyValueGrid,
