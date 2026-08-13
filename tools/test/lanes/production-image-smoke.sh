@@ -17,8 +17,8 @@ esac
     exit 1
 }
 
-RUN_ID="${BASE_RUN_ID}-${PROFILE_ID}"
-IMAGE_TAG="fsusblog-production-smoke:${RUN_ID}"
+RUN_ID="$BASE_RUN_ID"
+IMAGE_TAG="fsusblog-production-smoke:${RUN_ID}-${PROFILE_ID}"
 
 node "$ROOT_DIR/tools/deployment/check-production-compose-environment.mjs"
 bash "$ROOT_DIR/tools/deployment/check-production-gateway-config.sh"
@@ -26,7 +26,7 @@ bash "$ROOT_DIR/tools/deployment/check-production-gateway-config.sh"
 export FSUSBLOG_RELEASE_RUN_ID="$RUN_ID"
 export FSUSBLOG_RELEASE_RUNTIME_IMAGE="$IMAGE_TAG"
 export FSUSBLOG_RUNTIME_PROFILE_ID="$PROFILE_ID"
-export FSUSBLOG_TEST_NAMESPACE="production-image-smoke-${RUN_ID}"
+export FSUSBLOG_TEST_NAMESPACE="${FSUSBLOG_TEST_NAMESPACE:-production-image-smoke-${RUN_ID}-${PROFILE_ID}}"
 
 exec "$ROOT_DIR/tools/test/run-release-reliability-qualified-local.sh" \
     --runtime-admission-only
