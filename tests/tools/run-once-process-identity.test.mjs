@@ -126,14 +126,20 @@ test('macOS collector uses microsecond start identity and full-width space-safe 
     const requestedFields = []
     const execute = (command, args) => {
         if (command === '/usr/bin/python3') {
-            requestedFields.push('proc-start')
-            return '1785060062:123456\n'
+            if (args[1].includes('proc_pidinfo')) {
+                requestedFields.push('proc-start')
+                return '1785060062:123456\n'
+            }
+            if (args[1].includes('proc_pidpath')) {
+                requestedFields.push('proc-path')
+                return `${executable}\n`
+            }
+            throw new Error('unexpected macOS libproc script')
         }
         if (args[0] === '-axo') return '200 200\n201 200\n'
         assert.equal(args[0], '-ww')
         const field = args[2]
         requestedFields.push(field)
-        if (field === 'comm=') return `${executable}\n`
         if (field === 'command=') return `"${executable}" "argument with spaces"\n`
         if (args[0] === '-o' && args[1] === 'pgid=') return '200\n'
         throw new Error(`unexpected ps field: ${field}`)
@@ -142,7 +148,7 @@ test('macOS collector uses microsecond start identity and full-width space-safe 
     assert.equal(identity.status, 'verified')
     assert.equal(identity.processStartIdentity, 'darwin:1785060062:123456')
     assert.equal(identity.executablePath, executable)
-    assert.deepEqual(requestedFields, ['proc-start', 'comm=', 'command='])
+    assert.deepEqual(requestedFields, ['proc-start', 'proc-path', 'command='])
 })
 
 test('macOS identity distinguishes same-second PID reuse and never accepts truncated or unavailable identity', (t) => {
@@ -153,9 +159,12 @@ test('macOS identity distinguishes same-second PID reuse and never accepts trunc
         collectProcessIdentity(200, {
             platform: 'darwin',
             execute(command, args) {
-                if (command === '/usr/bin/python3') return `${startIdentity}\n`
+                if (command === '/usr/bin/python3') {
+                    if (args[1].includes('proc_pidinfo')) return `${startIdentity}\n`
+                    if (args[1].includes('proc_pidpath')) return `${executable}\n`
+                    throw new Error('unexpected macOS libproc script')
+                }
                 const field = args[2]
-                if (field === 'comm=') return `${executable}\n`
                 if (field === 'command=') return `${executable} ${'x'.repeat(512)}${commandSuffix}\n`
                 throw new Error('unexpected macOS collector command')
             }
