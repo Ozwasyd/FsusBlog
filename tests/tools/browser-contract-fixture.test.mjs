@@ -1164,13 +1164,14 @@ test('provider timeout terminates the complete stubborn process group within the
         sourceState: harness.sourceState,
         build: harness.build
     });
-    const pids = await waitForJson(pidFile);
     let failure;
-    await assert.rejects(preparation, (error) =>
+    const rejected = assert.rejects(preparation, (error) =>
     {
         failure = error;
         return /timed out/iu.test(error.message);
     });
+    const pids = await waitForJson(pidFile);
+    await rejected;
     assert.equal(failure.fixtureLifecycle.error.failureClass, 'infra');
     assert.ok(Date.now() - startedAt < 3_000, 'provider timeout exceeded the bounded TERM-to-KILL budget');
     await Promise.all([
@@ -1185,27 +1186,43 @@ test('delayed provider KILL reaps an owned grandchild after its parent exits on 
 {
     const harness = await createHarness(context);
     const pidFile = path.join(harness.root, 'term-exit-provider-pids.json');
-    harness.env.FAKE_PROVIDER_TERM_EXIT_OPERATION = 'createPublishedArticle';
+    const providerFile = path.join(harness.root, 'term-exit-provider.sh');
+    await writeFile(providerFile, `#!/bin/sh
+"${process.execPath}" -e "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)" </dev/null >/dev/null 2>&1 &
+grandchild=$!
+printf '{"provider":%s,"grandchild":%s}\\n' "$$" "$grandchild" > "$FAKE_PROVIDER_PID_FILE"
+trap 'exit 143' TERM
+while :; do
+  wait "$grandchild"
+done
+`);
+    await chmod(providerFile, 0o700);
+    harness.env.FSUSBLOG_BROWSER_CONTRACT_FIXTURE_PROVIDER = providerFile;
     harness.env.FAKE_PROVIDER_PID_FILE = pidFile;
     harness.env.FSUSBLOG_BROWSER_CONTRACT_PROVIDER_TIMEOUT_MS = '150';
-    const preparation = prepareBrowserContractFixture({
+    const identity = resolveBrowserContractRunIdentity({
+        env: harness.env,
+        repoRoot: harness.root,
+        sourceState: harness.sourceState
+    });
+    const api = createBrowserContractFixtureApi({
+        identity,
         env: harness.env,
         repoRoot: harness.root,
         sourceState: harness.sourceState,
         build: harness.build
     });
-    const pids = await waitForJson(pidFile);
     let failure;
-    await assert.rejects(preparation, (error) =>
+    const rejected = assert.rejects(api.createPublishedArticle(), (error) =>
     {
         failure = error;
         return /timed out/iu.test(error.message);
     });
+    const pids = await waitForJson(pidFile);
+    await rejected;
     await Promise.all([
         waitForProcessExit(pids.provider),
         waitForProcessExit(pids.grandchild)
     ]);
-    assert.equal(failure.fixtureLifecycle.error.failureClass, 'infra');
-    assert.equal(failure.cleanup.status, 'success');
-    assertCleanupResources(failure.cleanup);
+    assert.equal(failure.failureClass, 'infra');
 });

@@ -18,6 +18,11 @@ import {
 import { fixtureSessionSearchPathSql } from '../frontend/support/session-fixtures.mjs'
 import { createProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs'
 
+const {
+    defaultTimeoutPolicyDigest,
+    qualificationTemporalContext
+} = await import(new URL('../../tools/test/temporal-context.mjs', import.meta.url));
+
 const root = path.resolve(import.meta.dirname, '../..')
 const source = {
   commit: 'a'.repeat(40),
@@ -32,6 +37,16 @@ const localFsusUi = {
   commit: 'd'.repeat(40),
   contentDigest: `sha256:${'e'.repeat(64)}`
 }
+const sourceAdmissionTemporalContext = qualificationTemporalContext({
+    sourceCommit: source.commit,
+    sourceFingerprint: `sha256:${source.worktreeFingerprint}`,
+    producerId: 'comment-moderation',
+    schedulerRunId: 'browser-contract-source-test',
+    businessEpochUtc: '2024-02-29T23:59:59.000Z',
+    locale: 'en-US',
+    uiLocale: 'en-US',
+    timeoutPolicyDigest: defaultTimeoutPolicyDigest()
+});
 
 test('dedicated Browser Contract bootstrap cannot publish scheduler resident leases', () => {
   const bootstrap = fs.readFileSync(path.join(root, 'tools/bootstrap-acceptance-env.sh'), 'utf8')
@@ -47,19 +62,27 @@ test('dedicated Browser Contract bootstrap cannot publish scheduler resident lea
   assert.match(publishGate, /FSUSBLOG_PHYSICAL_BUNDLE_ID:-/u)
 })
 
-function sourceAdmissionEnvironment(outputRoot, overrides = {}) {
-  const env = {
-    ...process.env,
-    FSUSBLOG_PLAYWRIGHT_SESSION_MODE: 'browser-contract',
-    FSUSBLOG_BROWSER_CONTRACT_OUTPUT: outputRoot,
-    FSUSBLOG_BROWSER_CONTRACT_RECEIPT: path.join(outputRoot, 'receipt.json'),
-    FSUSBLOG_BROWSER_CONTRACT_BUILD_RECEIPT: path.join(outputRoot, 'missing-build-receipt.json'),
-    ...overrides
-  }
-  for (const key of ['FSUSBLOG_TEST_SOURCE_COMMIT', 'FSUSBLOG_TEST_SOURCE_FINGERPRINT']) {
-    if (env[key] === undefined) delete env[key]
-  }
-  return env
+function sourceAdmissionEnvironment(outputRoot, overrides = {})
+{
+    const env = {
+        ...process.env,
+        FSUSBLOG_PLAYWRIGHT_SESSION_MODE: 'browser-contract',
+        FSUSBLOG_BROWSER_CONTRACT_OUTPUT: outputRoot,
+        FSUSBLOG_BROWSER_CONTRACT_RECEIPT: path.join(outputRoot, 'receipt.json'),
+        FSUSBLOG_BROWSER_CONTRACT_BUILD_RECEIPT: path.join(outputRoot, 'missing-build-receipt.json'),
+        FSUSBLOG_TEMPORAL_CONTEXT_JSON: JSON.stringify(sourceAdmissionTemporalContext),
+        FSUSBLOG_TEMPORAL_CONTEXT_FILE: '',
+        TZ: 'UTC',
+        ...overrides
+    };
+    for (const key of ['FSUSBLOG_TEST_SOURCE_COMMIT', 'FSUSBLOG_TEST_SOURCE_FINGERPRINT'])
+    {
+        if (env[key] === undefined)
+        {
+            delete env[key];
+        }
+    }
+    return env;
 }
 
 function createFixtureBuildReceipt(context, sourceState) {
