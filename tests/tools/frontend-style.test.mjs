@@ -455,6 +455,49 @@ test('frontend style governance baseline updates preserve paths and reject viola
     });
 });
 
+test('frontend style governance partial baseline updates retain unselected existing debt', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const debtPath = 'tools/legacy/retained-tool.mjs';
+        const cleanPath = 'tools/sample/selected-clean-tool.mjs';
+        writeFixture(fixtureRoot, debtPath, `export function retained_name(value) {
+  return value
+}
+`);
+        writeFixture(fixtureRoot, cleanPath, `export function readValue(value)
+{
+    return value;
+}
+`);
+        const initial = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.equal(initial.status, 0, output(initial));
+        const baselinePath = path.join(fixtureRoot, sourcePolicy.baseline);
+        const before = JSON.parse(readFileSync(baselinePath, 'utf8'));
+        const retainedBefore = before.files.find((entry) => entry.path === debtPath);
+        assert.ok(retainedBefore);
+
+        writeFixture(fixtureRoot, cleanPath, `export function readValue(value)
+{
+    return value + 1;
+}
+`);
+        const partial = runChecker(fixtureRoot, [
+            '--mode', 'full',
+            '--update-baseline',
+            '--file', cleanPath
+        ]);
+        assert.equal(partial.status, 0, output(partial));
+        const after = JSON.parse(readFileSync(baselinePath, 'utf8'));
+        assert.notEqual(after.sourceStateSha256, before.sourceStateSha256);
+        assert.deepEqual(
+            after.files.find((entry) => entry.path === debtPath),
+            retainedBefore
+        );
+        assert.equal(after.violationCount, before.violationCount);
+    });
+});
+
 test('frontend style governance baseline updates reject equal-count violation identity replacement', () =>
 {
     withFixture((fixtureRoot) =>

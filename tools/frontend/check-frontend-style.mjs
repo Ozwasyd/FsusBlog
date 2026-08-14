@@ -610,6 +610,11 @@ function writeBaseline(violations, selectedFiles, args)
                 continue;
             }
             const absolute = path.join(root, destination);
+            if (!selected.has(destination) && fs.existsSync(absolute))
+            {
+                nextFiles.push(prior);
+                continue;
+            }
             if (selected.has(destination) && fs.existsSync(absolute))
             {
                 nextFiles.push({
