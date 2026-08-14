@@ -9,6 +9,7 @@ using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.Storage;
+using FsusBlog.Server.Tests.Fixtures;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
 
@@ -26,9 +27,22 @@ using Xunit.Abstractions;
 
 namespace FsusBlog.Server.Tests;
 
-public sealed class PublicAotFileShellCacheTests(ITestOutputHelper output)
+[Collection(nameof(EnvironmentVariableCollection))]
+public sealed class PublicAotFileShellCacheTests : IDisposable
 {
     private const string TestReleaseId = "20260721000000-cafebabe0001";
+    private readonly ITestOutputHelper _output;
+    private readonly ScopedEnvironmentVariables _releaseEnvironment = new(
+        ["FSUSBLOG_RELEASE_DERIVED_ROOT", "FSUSBLOG_RELEASE_ID"]);
+
+    public PublicAotFileShellCacheTests(ITestOutputHelper output)
+    {
+        _output = output;
+        _releaseEnvironment.Set("FSUSBLOG_RELEASE_DERIVED_ROOT", null);
+        _releaseEnvironment.Set("FSUSBLOG_RELEASE_ID", null);
+    }
+
+    public void Dispose() => _releaseEnvironment.Dispose();
 
     [Fact]
     public void SerializeEntryBytes_RoundTripsEntry()
@@ -348,7 +362,7 @@ public sealed class PublicAotFileShellCacheTests(ITestOutputHelper output)
             TimeProvider.System);
         bool stagingRemoved = !File.Exists(journal.GetStagingPath(journal.GetArtifactId(CacheKey)));
         Assert.True(stagingRemoved);
-        output.WriteLine(
+        _output.WriteLine(
             "public-aot-crash-recovery-receipt {0}",
             JsonSerializer.Serialize(new
             {

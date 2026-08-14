@@ -5,6 +5,7 @@ using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Server.Tests.Fixtures;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -17,8 +18,21 @@ using Microsoft.Extensions.Options;
 using NSubstitute;
 namespace FsusBlog.Server.Tests;
 
-public sealed class LifecycleHostedBootstrapServiceTests
+[Collection(nameof(EnvironmentVariableCollection))]
+public sealed class LifecycleHostedBootstrapServiceTests : IDisposable
 {
+    private readonly ScopedEnvironmentVariables _releaseEnvironment = new(
+        ["FSUSBLOG_RELEASE_DERIVED_ROOT", "FSUSBLOG_RELEASE_ID", "FSUSBLOG_RELEASE_SLOT"]);
+
+    public LifecycleHostedBootstrapServiceTests()
+    {
+        _releaseEnvironment.Set("FSUSBLOG_RELEASE_DERIVED_ROOT", null);
+        _releaseEnvironment.Set("FSUSBLOG_RELEASE_ID", null);
+        _releaseEnvironment.Set("FSUSBLOG_RELEASE_SLOT", null);
+    }
+
+    public void Dispose() => _releaseEnvironment.Dispose();
+
     [Fact]
     public async Task StartAsync_DoesNotClearAotDiskCache_WhenOptionDisabled()
     {
