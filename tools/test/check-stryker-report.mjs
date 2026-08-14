@@ -11,11 +11,11 @@ const knownStatuses = ['CompileError', 'Ignored', 'Killed', 'NoCoverage', 'Survi
 const executedStatuses = new Set(['Killed', 'Survived', 'Timeout']);
 const terminalStatuses = new Set(knownStatuses);
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
-const supportedStrykerNetVersion = '4.14.2';
+const supportedStrykerNetVersion = '4.16.0';
 
-// Reviewed against dotnet-stryker@4.14.2.
-// Source revision: cc7fdf3433025a4b63c2c091c07b2177d117359e.
-function strykerNet4142OperatorAllowlist()
+// Reviewed against dotnet-stryker@4.16.0.
+// Source revision: f9109e24c615a7030a3b33e5532c665c974e4ec5.
+function strykerNet4160OperatorAllowlist()
 {
     const operators = new Set([
         'Arithmetic mutation',
@@ -202,7 +202,7 @@ function strykerNet4142OperatorAllowlist()
     return operators;
 }
 
-const supportedStrykerNetOperators = strykerNet4142OperatorAllowlist();
+const supportedStrykerNetOperators = strykerNet4160OperatorAllowlist();
 
 function sha256(value)
 {

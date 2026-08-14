@@ -621,7 +621,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
         using ServiceProvider provider = BuildWorkerServices(connectionString, invalidations);
         var worker = new CommentMutationOutboxWorker(provider.GetRequiredService<IServiceScopeFactory>(),
             Substitute.For<IBackgroundWorkerLease>(), new CommentMutationOutboxRuntimeState(), TimeProvider.System,
-            new ConfigurationBuilder().Build(), NullLogger<CommentMutationOutboxWorker>.Instance);
+            CreateSlowExecutionLeaseConfiguration(), NullLogger<CommentMutationOutboxWorker>.Instance);
 
         Assert.Equal(0, await worker.ProcessPendingAsync(CancellationToken.None));
         await invalidations.DidNotReceiveWithAnyArgs().InvalidateCommentMutationAsync(default, default);
