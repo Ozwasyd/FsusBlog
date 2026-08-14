@@ -217,4 +217,25 @@ public sealed class AuthoringNativeAedsEndpointTests
         Assert.Equal(AedsFrameType.ArticleResponsibilityRequest, responsibilityRoute.RequestFrame);
         Assert.Equal(AedsFrameType.ArticleResponsibilityResponse, responsibilityRoute.ResponseFrame);
     }
+
+    [Theory]
+    [InlineData("/ops/fonts/activations", AedsFrameType.FontAdminSnapshot)]
+    [InlineData("/ops/fonts/registry", AedsFrameType.FontAdminSnapshot)]
+    [InlineData("/ops/fonts/registry/google-sans", AedsFrameType.FontAdminSnapshot)]
+    [InlineData("/ops/themes/activations", AedsFrameType.ThemeAdminSnapshot)]
+    [InlineData("/ops/themes/activations/global", AedsFrameType.ThemeAdminSnapshot)]
+    [InlineData("/ops/themes/activations/global/history", AedsFrameType.ThemeAdminSnapshot)]
+    [InlineData("/ops/themes/registry", AedsFrameType.ThemeAdminSnapshot)]
+    [InlineData("/ops/themes/registry/fsus-default", AedsFrameType.ThemeAdminSnapshot)]
+    public void TryResolveRoute_KnowsFontAndThemeAdminRoutes(
+        string path,
+        AedsFrameType expectedResponseFrame)
+    {
+        Assert.True(AuthoringEndpoints.TryResolveRoute(
+            HttpMethods.Get,
+            new PathString(path),
+            out AuthoringEndpoints.AuthoringAedsRoute route));
+        Assert.Null(route.RequestFrame);
+        Assert.Equal(expectedResponseFrame, route.ResponseFrame);
+    }
 }

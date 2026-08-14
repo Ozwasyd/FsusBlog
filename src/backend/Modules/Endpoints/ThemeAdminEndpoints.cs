@@ -13,7 +13,7 @@ public static class ThemeAdminEndpoints
         this IEndpointRouteBuilder app)
     {
         RouteGroupBuilder group = app.MapGroup("/api/binary/author/ops/themes")
-            .WithTags("ThemeAdmin")
+            .WithTags("Authoring", "ThemeAdmin")
             .RequireAdminPermission(AdminPermissions.SystemConfig)
             .RequireRateLimiting("fixed_ip");
 

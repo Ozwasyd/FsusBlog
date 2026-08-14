@@ -249,6 +249,16 @@ public static partial class AuthoringEndpoints
             return Found(null, AedsFrameType.BackupStatus, out route);
         if (HttpMethods.IsGet(method) && segments is ["ops", "dangerous-operations", "policy"])
             return Found(null, AedsFrameType.DangerousOperationPolicy, out route);
+        if (HttpMethods.IsGet(method) && segments is ["ops", "fonts", ("activations" or "registry")])
+            return Found(null, AedsFrameType.FontAdminSnapshot, out route);
+        if (HttpMethods.IsGet(method) && segments is ["ops", "fonts", "registry", _])
+            return Found(null, AedsFrameType.FontAdminSnapshot, out route);
+        if (HttpMethods.IsGet(method) && segments is ["ops", "themes", ("activations" or "registry")])
+            return Found(null, AedsFrameType.ThemeAdminSnapshot, out route);
+        if (HttpMethods.IsGet(method) && segments is ["ops", "themes", ("activations" or "registry"), _])
+            return Found(null, AedsFrameType.ThemeAdminSnapshot, out route);
+        if (HttpMethods.IsGet(method) && segments is ["ops", "themes", "activations", _, "history"])
+            return Found(null, AedsFrameType.ThemeAdminSnapshot, out route);
         if (HttpMethods.IsGet(method) && segments is ["cache", "diagnostics"])
             return Found(null, AedsFrameType.CacheDiagnostics, out route);
         if (HttpMethods.IsPost(method) && segments is ["cache", "actions"])

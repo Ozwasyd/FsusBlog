@@ -13,7 +13,7 @@ public static class FontAdminEndpoints
         this IEndpointRouteBuilder app)
     {
         RouteGroupBuilder group = app.MapGroup("/api/binary/author/ops/fonts")
-            .WithTags("FontAdmin")
+            .WithTags("Authoring", "FontAdmin")
             .RequireAdminPermission(AdminPermissions.SystemConfig)
             .RequireRateLimiting("fixed_ip");
 
