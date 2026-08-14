@@ -299,6 +299,10 @@ public sealed class PublicHotArtifactUpdateQueue
             Volatile.Write(ref _lastActivitySnapshot, snapshot);
             return snapshot;
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             var snapshot = new PublicHotActivitySnapshot(
