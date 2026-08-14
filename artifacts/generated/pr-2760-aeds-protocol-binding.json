@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/frontend/generate-aeds-protocol.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+            "sha256": "9a6e9a382c2a0882dae9871466a52109cfdf73469976e210302bf0e5726a4f94"
+        }
+    ]
+}

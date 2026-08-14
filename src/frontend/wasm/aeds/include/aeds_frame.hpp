@@ -300,7 +300,19 @@ enum class FrameType : std::uint16_t
 
 [[nodiscard]] constexpr bool IsKnownFrameType(std::uint16_t raw) noexcept
 {
-    if (raw >= static_cast<std::uint16_t>(FrameType::EmptySuccess)
+    if (raw >= static_cast<std::uint16_t>(FrameType::Unknown)
+        && raw <= static_cast<std::uint16_t>(FrameType::PageContentUpdateRequest))
+    {
+        return true;
+    }
+
+    if (raw >= static_cast<std::uint16_t>(FrameType::AuthDeleteAccountRequest)
+        && raw <= static_cast<std::uint16_t>(FrameType::AnonymousCredentialRootSnapshot))
+    {
+        return true;
+    }
+
+    if (raw >= static_cast<std::uint16_t>(FrameType::AnonymousCommentCreateRequest)
         && raw <= static_cast<std::uint16_t>(FrameType::ThemeAdminSnapshot))
     {
         return true;
@@ -308,237 +320,9 @@ enum class FrameType : std::uint16_t
 
     switch (static_cast<FrameType>(raw))
     {
-        case FrameType::Unknown:
-        case FrameType::ArticleList:
-        case FrameType::ArticleDetail:
-        case FrameType::ArticleHot:
-        case FrameType::ArticleSearch:
-        case FrameType::CommentArticleCursor:
-        case FrameType::CommentUserCursor:
-        case FrameType::AdminStats:
-        case FrameType::CommentThreadReplyCursor:
-        case FrameType::CategoryList:
-        case FrameType::TagList:
-        case FrameType::RecentCommentStats:
-        case FrameType::RegionStats:
-        case FrameType::SeoConfig:
-        case FrameType::PageContent:
-        case FrameType::ArticleFeatured:
-        case FrameType::TrashClearResponse:
-        case FrameType::AdminUserList:
-        case FrameType::AuthLoginFlow:
-        case FrameType::CurrentUserSnapshot:
-        case FrameType::UploadInit:
-        case FrameType::UploadStatus:
-        case FrameType::UploadPartAck:
-        case FrameType::UploadComplete:
-        case FrameType::UploadPartMap:
-        case FrameType::AuthSessionList:
-        case FrameType::SiteComplianceConfig:
-        case FrameType::ArticleRelatedReading:
-        case FrameType::HumanReadChallengeResponse:
-        case FrameType::HumanReadSubmitResponse:
-        case FrameType::PowChallenge:
-        case FrameType::UploadInitRequest:
-        case FrameType::UploadCompleteRequest:
-        case FrameType::CategoryWriteRequest:
-        case FrameType::TagWriteRequest:
-        case FrameType::SeoConfigUpdateRequest:
-        case FrameType::PageContentUpdateRequest:
         case FrameType::FileDeleteRequest:
         case FrameType::AdminChangeUserStatusRequest:
         case FrameType::ArticleWriteRequest:
-        case FrameType::AuthDeleteAccountRequest:
-        case FrameType::MfaSetupStart:
-        case FrameType::MfaSetupVerify:
-        case FrameType::MfaProfile:
-        case FrameType::MfaChallengeResult:
-        case FrameType::MfaSetupVerifyRequest:
-        case FrameType::MfaPasswordProofRequest:
-        case FrameType::MfaChallengeStartRequest:
-        case FrameType::MfaChallengeVerifyRequest:
-        case FrameType::ConversationList:
-        case FrameType::ConversationDetail:
-        case FrameType::ConversationMessage:
-        case FrameType::ConversationCreateRequest:
-        case FrameType::ConversationReplyRequest:
-        case FrameType::ConversationStatusRequest:
-        case FrameType::SystemMessageRequest:
-        case FrameType::PasskeyRegisterBegin:
-        case FrameType::PasskeyLoginBegin:
-        case FrameType::PasskeyCredentialList:
-        case FrameType::PasskeyRegisterCompleteRequest:
-        case FrameType::PasskeyLoginCompleteRequest:
-        case FrameType::PasskeyCredentialFriendlyNameUpdateRequest:
-        case FrameType::NotificationEvent:
-        case FrameType::NotificationHeartbeat:
-        case FrameType::PublicAotBootstrap:
-        case FrameType::SiteComplianceConfigUpdateRequest:
-        case FrameType::HumanReadChallengeRequest:
-        case FrameType::HumanReadSubmitRequest:
-        case FrameType::RumMetricBatchRequest:
-        case FrameType::RumMetricIngestResponse:
-        case FrameType::AuthorDraftSaveRequest:
-        case FrameType::ArticlePreviewRequest:
-        case FrameType::PrepublishCheckRequest:
-        case FrameType::AiAssistRequest:
-        case FrameType::AdminCacheActionRequest:
-        case FrameType::IntegrityFixRequest:
-        case FrameType::ModerationRuntimeGlobalStateRequest:
-        case FrameType::ModerationRuntimeRegionStateRequest:
-        case FrameType::ModerationDictionaryStateRequest:
-        case FrameType::ModerationEffectivePolicyPreviewRequest:
-        case FrameType::ModerationModelRuntimeRequest:
-        case FrameType::ModerationReplayPreviewRequest:
-        case FrameType::CommentModerationRequest:
-        case FrameType::CommentModerationBulkRequest:
-        case FrameType::ContentImportRequest:
-        case FrameType::AuthorDraftResponse:
-        case FrameType::AuthorDraftDiscardResponse:
-        case FrameType::ArticlePreviewResponse:
-        case FrameType::PrepublishCheckResponse:
-        case FrameType::AiAssistResponse:
-        case FrameType::AssetLibraryList:
-        case FrameType::AssetCleanupResponse:
-        case FrameType::AuthorTaxonomyCategoryList:
-        case FrameType::AuthorTaxonomyTagList:
-        case FrameType::AuthorAnalytics:
-        case FrameType::AuditLogList:
-        case FrameType::AuditLogSummary:
-        case FrameType::AuditLogDetail:
-        case FrameType::AuditTamperVerifyResponse:
-        case FrameType::OpsHealth:
-        case FrameType::BackupStatus:
-        case FrameType::DangerousOperationPolicy:
-        case FrameType::CacheDiagnostics:
-        case FrameType::AdminCacheActionResponse:
-        case FrameType::IntegrityReport:
-        case FrameType::IntegrityFixPreview:
-        case FrameType::IntegrityFixResponse:
-        case FrameType::CommentModerationQueue:
-        case FrameType::CommentModerationBulkResponse:
-        case FrameType::CommentModerationResult:
-        case FrameType::ContentExport:
-        case FrameType::ContentBackupExport:
-        case FrameType::ContentImportResponse:
-        case FrameType::ArticleRevisionList:
-        case FrameType::ArticleRevisionDetail:
-        case FrameType::ArticleRevisionRollbackResponse:
-        case FrameType::ModerationOverview:
-        case FrameType::ModerationDictionarySnapshot:
-        case FrameType::ModerationDictionaryReloadResponse:
-        case FrameType::ModerationRuntimeStatus:
-        case FrameType::ModerationRegionList:
-        case FrameType::ModerationRegionGroupList:
-        case FrameType::ModerationPolicyTemplateList:
-        case FrameType::ModerationEffectivePolicy:
-        case FrameType::RegionPolicySummaryList:
-        case FrameType::ModerationModelStatus:
-        case FrameType::ModerationReplayPreview:
-        case FrameType::AntiCrawlerOptionsUpdateRequest:
-        case FrameType::SecurityRiskResetRequest:
-        case FrameType::AntiCrawlerRuleRequest:
-        case FrameType::AntiCrawlerListEntryRequest:
-        case FrameType::AntiCrawlerSimulationRequest:
-        case FrameType::PowOptionsUpdateRequest:
-        case FrameType::SecurityOverview:
-        case FrameType::AntiCrawlerOverview:
-        case FrameType::AntiCrawlerPolicySnapshot:
-        case FrameType::CrawlerRangesAdminStatus:
-        case FrameType::CrawlerRangeSyncResponse:
-        case FrameType::SecurityRiskEventList:
-        case FrameType::SecurityRiskSnapshotList:
-        case FrameType::SecurityRiskResetResponse:
-        case FrameType::AntiCrawlerRuleList:
-        case FrameType::AntiCrawlerRuleResponse:
-        case FrameType::AntiCrawlerRuleDeleteResponse:
-        case FrameType::AntiCrawlerListEntryList:
-        case FrameType::AntiCrawlerListEntryResponse:
-        case FrameType::AntiCrawlerListEntryDeleteResponse:
-        case FrameType::AntiCrawlerSimulationResult:
-        case FrameType::PowOverview:
-        case FrameType::PowPolicySnapshot:
-        case FrameType::SiteSubscriptionRequest:
-        case FrameType::SiteSubscriptionResponse:
-        case FrameType::RecoveryKeyCreateResponse:
-        case FrameType::RecoveryKeyVerifyRequest:
-        case FrameType::RecoveryKeyVerifyResponse:
-        case FrameType::RecoveryKeySessionRequest:
-        case FrameType::IdentityAccountSnapshot:
-        case FrameType::CommentPolicySnapshot:
-        case FrameType::CommentPolicyUpdateRequest:
-        case FrameType::CommentCreateV2Request:
-        case FrameType::CommentAuthorView:
-        case FrameType::AnonymousGovernanceActionRequest:
-        case FrameType::AnonymousGovernanceActionResponse:
-        case FrameType::AdminSessionList:
-        case FrameType::SecurityChallengeAssignment:
-        case FrameType::SecurityChallengeEnvelope:
-        case FrameType::SecurityChallengeIssueRequest:
-        case FrameType::SecurityChallengeVerifyRequest:
-        case FrameType::SecurityChallengeIssueResponse:
-        case FrameType::SecurityChallengeVerifyResponse:
-        case FrameType::Reserved177:
-        case FrameType::Reserved178:
-        case FrameType::AnonymousCredentialRootSnapshot:
-        case FrameType::AnonymousCommentCreateRequest:
-        case FrameType::AnonymousPrivacyStateSnapshot:
-        case FrameType::PerceptionSealedChallengeV2:
-        case FrameType::PerceptionSealedResultV2:
-        case FrameType::RetiredCredentialSpecificRevocationRequest:
-        case FrameType::RetiredCredentialSpecificRevocationResponse:
-        case FrameType::AdminPrincipalSnapshot:
-        case FrameType::AuthAnonymousBootstrapRequest:
-        case FrameType::AuthUpdatePublicHandleRequest:
-        case FrameType::ArticleResponsibilityRequest:
-        case FrameType::ArticleResponsibilityResponse:
-        case FrameType::BlindCredentialIssuerMetadata:
-        case FrameType::BlindCredentialIssueRequest:
-        case FrameType::BlindCredentialIssueResponse:
-        case FrameType::AnonymousCredentialRevocationSnapshot:
-        case FrameType::AnonymousCredentialRevocationDelta:
-        case FrameType::AnonymousCommentTicketRequest:
-        case FrameType::AnonymousCommentTicketResponse:
-        case FrameType::SecurityChallengeCancelRequest:
-        case FrameType::ConversationReadRequest:
-        case FrameType::AccountConversationReplyRequest:
-        case FrameType::ConversationDetailV2:
-        case FrameType::ConversationDetailV3:
-        case FrameType::CommentCreateResult:
-        case FrameType::AdminConversationList:
-        case FrameType::AdminConversationDetail:
-        case FrameType::CommentTreeRootCursor:
-        case FrameType::CommentChildCursor:
-        case FrameType::CommentPermalinkContext:
-        case FrameType::ConversationStatusMutationResult:
-        case FrameType::PasskeySignalState:
-        case FrameType::ArticleRevisionRollbackRequest:
-        case FrameType::AnonymousCommentCreateResult:
-        case FrameType::CommentManagementChallengeRequest:
-        case FrameType::CommentManagementChallengeResponse:
-        case FrameType::CommentAuthorEditRequest:
-        case FrameType::CommentAuthorMutationResult:
-        case FrameType::CommentAuthorStatusRequest:
-        case FrameType::CommentAuthorStatusResult:
-        case FrameType::CommentAuthorAppealRequest:
-        case FrameType::CommentRevisionList:
-        case FrameType::CommentReportRequest:
-        case FrameType::CommentReportResult:
-        case FrameType::CommentModerationTimeline:
-        case FrameType::CommentAppealDecisionRequest:
-        case FrameType::CommentAppealDecisionResult:
-        case FrameType::ArticleResponsibilityHistory:
-        case FrameType::CommentModerationClaimRequest:
-        case FrameType::CommentModerationClaimMutationRequest:
-        case FrameType::CommentModerationClaimResponse:
-        case FrameType::PluginPackageInstallRequest:
-        case FrameType::PluginAdminSnapshot:
-        case FrameType::PluginAdminMutationRequest:
-        case FrameType::ClusterRuntimeSnapshot:
-        case FrameType::ClusterNodeStateRequest:
-        case FrameType::ClusterSchedulerStateRequest:
-        case FrameType::ClusterLeaseReleaseRequest:
-        case FrameType::UserLocalePreference:
         case FrameType::ApiError:
             return true;
         default:

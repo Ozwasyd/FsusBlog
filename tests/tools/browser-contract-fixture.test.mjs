@@ -1156,7 +1156,7 @@ test('provider timeout terminates the complete stubborn process group within the
     const pidFile = path.join(harness.root, 'stubborn-provider-pids.json');
     harness.env.FAKE_PROVIDER_STUBBORN_OPERATION = 'createPublishedArticle';
     harness.env.FAKE_PROVIDER_PID_FILE = pidFile;
-    harness.env.FSUSBLOG_BROWSER_CONTRACT_PROVIDER_TIMEOUT_MS = '150';
+    harness.env.FSUSBLOG_BROWSER_CONTRACT_PROVIDER_TIMEOUT_MS = '500';
     const startedAt = Date.now();
     const preparation = prepareBrowserContractFixture({
         env: harness.env,
@@ -1199,7 +1199,7 @@ done
     await chmod(providerFile, 0o700);
     harness.env.FSUSBLOG_BROWSER_CONTRACT_FIXTURE_PROVIDER = providerFile;
     harness.env.FAKE_PROVIDER_PID_FILE = pidFile;
-    harness.env.FSUSBLOG_BROWSER_CONTRACT_PROVIDER_TIMEOUT_MS = '150';
+    harness.env.FSUSBLOG_BROWSER_CONTRACT_PROVIDER_TIMEOUT_MS = '500';
     const identity = resolveBrowserContractRunIdentity({
         env: harness.env,
         repoRoot: harness.root,

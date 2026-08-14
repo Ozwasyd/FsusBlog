@@ -1,9 +1,9 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:f572d8cecad874eff1727bb1e18a15640600cdba19cdcbd0b5a72893a8ff0df7",
-    "sourceStateSha256": "f572d8cecad874eff1727bb1e18a15640600cdba19cdcbd0b5a72893a8ff0df7",
+    "generatedFrom": "source-state:66837071abd780a18d6848391434cee7c7da8bd3f51281ed5a6161d8f31de186",
+    "sourceStateSha256": "66837071abd780a18d6848391434cee7c7da8bd3f51281ed5a6161d8f31de186",
     "configurationSha256": "e3a79045dfe354dc9d2900f417ae23109197247f8ebc00b499aeddd82ba215a4",
-    "violationCount": 269842,
+    "violationCount": 269679,
     "fileCount": 1504,
     "files": [
         {
@@ -10296,7 +10296,7 @@
         },
         {
             "path": "tests/tools/browser-contract-fixture.test.mjs",
-            "sourceSha256": "ceb5aa49543f7ddb4cb940116c422e64969269523ae69aa2fe6e45b6f5d6a531",
+            "sourceSha256": "daef90bc094b7980d0d506abdbe0588caf546065814aedc2a1c0b1976509a4e2",
             "violationCount": 3,
             "violationDigest": "abbb9bf9a28f050aca6976db0852a45d5d8d918b2efbbfa7c68756f3d1f0a7f5",
             "rules": {
@@ -14500,15 +14500,10 @@
         },
         {
             "path": "tools/frontend/generate-aeds-protocol.mjs",
-            "sourceSha256": "dde913f8dce0d4844ec02acbdc47f565188fc6fd4f2818dbac8752daa4235f95",
-            "violationCount": 163,
-            "violationDigest": "84a8074f4d5c4734050ab561164eadcc08108c5e9c6e974394d962a7dc036a4d",
-            "rules": {
-                "eslint/@stylistic/brace-style": 29,
-                "eslint/@stylistic/indent": 77,
-                "eslint/@stylistic/semi": 56,
-                "eslint/curly": 1
-            }
+            "sourceSha256": "2ec4df3688b4e74c56910e4b3c50f0182c6443c517e987005864fbc1272d34ee",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/frontend/generate-public-page-manifest.mjs",
