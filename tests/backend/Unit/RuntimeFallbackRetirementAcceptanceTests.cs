@@ -177,7 +177,7 @@ public sealed class RuntimeFallbackRetirementAcceptanceTests
     public void MilestoneManifest_RecordsCodeRetirementWithoutInventingExternalVerification()
     {
         IConfiguration manifest = new ConfigurationBuilder()
-            .SetBasePath(BackendTestPaths.FromRoot("tests", "backend"))
+            .SetBasePath(BackendTestPaths.FromRoot("tests", "evidence", "backend"))
             .AddJsonFile("runtime-fallback-milestones.json", optional: false, reloadOnChange: false)
             .Build();
 
