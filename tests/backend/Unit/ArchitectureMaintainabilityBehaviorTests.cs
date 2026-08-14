@@ -209,7 +209,7 @@ public sealed partial class ArchitectureMaintainabilityBehaviorTests
             .OrderBy(static endpoint => endpoint.RoutePattern.RawText, StringComparer.Ordinal)
             .ToArray();
 
-        Assert.Equal(72, endpoints.Length);
+        Assert.Equal(80, endpoints.Length);
         foreach (RouteEndpoint endpoint in endpoints)
         {
             string rawPath = Assert.IsType<string>(endpoint.RoutePattern.RawText);
