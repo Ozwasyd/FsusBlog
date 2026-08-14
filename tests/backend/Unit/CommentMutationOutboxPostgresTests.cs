@@ -128,7 +128,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
             Substitute.For<IBackgroundWorkerLease>(),
             state,
             TimeProvider.System,
-            new ConfigurationBuilder().Build(),
+            CreateSlowExecutionLeaseConfiguration(),
             NullLogger<CommentMutationOutboxWorker>.Instance);
 
         Assert.Equal(0, await worker.ProcessPendingAsync(CancellationToken.None));
@@ -508,7 +508,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
         using ServiceProvider provider = BuildWorkerServices(connectionString, invalidations);
         var worker = new CommentMutationOutboxWorker(provider.GetRequiredService<IServiceScopeFactory>(),
             Substitute.For<IBackgroundWorkerLease>(), new CommentMutationOutboxRuntimeState(), TimeProvider.System,
-            new ConfigurationBuilder().Build(), NullLogger<CommentMutationOutboxWorker>.Instance);
+            CreateSlowExecutionLeaseConfiguration(), NullLogger<CommentMutationOutboxWorker>.Instance);
 
         Assert.Equal(1, await worker.ProcessPendingAsync(CancellationToken.None));
         await invalidations.Received(1).InvalidateCommentMutationAsync(Arg.Any<CommentCacheInvalidationScope?>(), Arg.Any<CancellationToken>());
@@ -1024,6 +1024,12 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
         services.AddSingleton(Substitute.For<ICommentNotificationService>());
         return services.BuildServiceProvider();
     }
+
+    private static IConfiguration CreateSlowExecutionLeaseConfiguration()
+        => new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["CommentMutationOutbox:ClaimLeaseSeconds"] = "300"
+        }).Build();
 
     private async Task<string> CreateDatabaseAsync()
     {

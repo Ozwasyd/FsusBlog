@@ -274,6 +274,9 @@ test('generated config uses binding-derived test filter and owner-derived mutate
 
 test('tool policy requires one canonical positive Stryker runner count', () =>
 {
+    assert.deepEqual(toolPolicy.executionLimits, {
+        maxConcurrentTestRunners: 1
+    });
     assert.throws(
         () => validateToolPolicy({
             ...toolPolicy,
@@ -283,6 +286,16 @@ test('tool policy requires one canonical positive Stryker runner count', () =>
             }
         }),
         /maxConcurrentTestRunners must be a positive integer/u
+    );
+    assert.throws(
+        () => validateToolPolicy({
+            ...toolPolicy,
+            executionLimits: {
+                ...toolPolicy.executionLimits,
+                timeoutMs: 600_000
+            }
+        }),
+        /execution limits must use only maxConcurrentTestRunners/u
     );
 });
 

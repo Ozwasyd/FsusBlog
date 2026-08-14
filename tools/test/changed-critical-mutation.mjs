@@ -95,6 +95,14 @@ export function validateToolPolicy(toolPolicy)
     {
         throw new Error('tool policy maxConcurrentTestRunners must be a positive integer');
     }
+    const executionLimitKeys = Object.keys(toolPolicy.executionLimits).sort();
+    if (
+        executionLimitKeys.length !== 1
+        || executionLimitKeys[0] !== 'maxConcurrentTestRunners'
+    )
+    {
+        throw new Error('changed-critical execution limits must use only maxConcurrentTestRunners');
+    }
     return toolPolicy;
 }
 

@@ -20,7 +20,6 @@
         "src/core"
     ],
     "executionLimits": {
-        "maxConcurrentTestRunners": 1,
-        "timeoutMs": 600000
+        "maxConcurrentTestRunners": 1
     }
 }
