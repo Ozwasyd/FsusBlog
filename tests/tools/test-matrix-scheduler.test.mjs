@@ -4735,6 +4735,84 @@ test('ci-pr-smart executes selected tiers through one asynchronous DAG run', () 
     assert.ok(events.indexOf('start:smart-b') < firstEnd);
 });
 
+test('ci-pr-smart honors an explicit global max-parallel limit', () =>
+{
+    const temp = createTempDir('scheduler-ci-pr-smart-max-parallel');
+    const runner = createRunnerFixture(temp);
+    const marker = path.join(temp, 'events.txt');
+    const changedFiles = path.join(temp, 'changed.txt');
+    const matrix = path.join(temp, 'matrix.yml');
+    fs.writeFileSync(changedFiles, '');
+    const scriptFor = (id) =>
+    {
+        const script = path.join(temp, `${id}.mjs`);
+        fs.writeFileSync(script, [
+            "import fs from 'node:fs'",
+            `fs.appendFileSync(${JSON.stringify(marker)}, ${JSON.stringify(`start:${id}\n`)})`,
+            'await new Promise((resolve) => setTimeout(resolve, 100))',
+            `fs.appendFileSync(${JSON.stringify(marker)}, ${JSON.stringify(`end:${id}\n`)})`
+        ].join('\n'));
+        return script;
+    };
+    const tierLines = (id) => [
+        `  - id: ${id}`,
+        `    command: ${JSON.stringify(`${process.execPath} ${scriptFor(id)}`)}`,
+        '    executionDependsOn: []',
+        '    services: []',
+        '    parallelizable: true',
+        '    exclusiveResources: []',
+        '    phase: 1',
+        '    resourceClass: cpu',
+        '    maxParallel: 2',
+        '    cpuUnits: 0.1',
+        '    memoryGiB: 0.01',
+        '    cacheInputs: []',
+        `    executionKey: ${id}`,
+        '    executionVariant: ordinary',
+        '    coverage: []',
+        '    requiresPlaywright: none',
+        '    artifacts: []',
+        '    evidence: []',
+        `    ciJob: ${id}`,
+        '    localOnly: false',
+        '    nightlyOnly: false',
+        '    requiredFor: fast',
+        '    smartGateMode: always'
+    ];
+    fs.writeFileSync(matrix, [
+        'version: fsusblog-test-matrix-v2',
+        'tiers:',
+        ...tierLines('smart-a'),
+        ...tierLines('smart-b')
+    ].join('\n'));
+
+    const result = spawnSync(process.execPath, [
+        runner,
+        'ci-pr-smart',
+        '--changed-files',
+        changedFiles,
+        '--max-parallel',
+        '1'
+    ], {
+        cwd: temp,
+        env: {
+            ...process.env,
+            FSUSBLOG_MATRIX_FILE: matrix,
+            FSUSBLOG_TEST_SOURCE_COMMIT: '1'.repeat(40),
+            FSUSBLOG_TEST_SOURCE_FINGERPRINT: `sha256:${'2'.repeat(64)}`
+        },
+        encoding: 'utf8'
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const events = fs.readFileSync(marker, 'utf8').trim().split('\n');
+    assert.equal(events.length, 4);
+    assert.match(events[0], /^start:smart-[ab]$/u);
+    assert.equal(events[1], events[0].replace('start:', 'end:'));
+    assert.match(events[2], /^start:smart-[ab]$/u);
+    assert.equal(events[3], events[2].replace('start:', 'end:'));
+    assert.notEqual(events[0], events[2]);
+});
+
 test('resident leases stay in admission accounting, hand off once, and release capacity only after exit', async () =>
 {
     const { runDag } = await loadScheduler();

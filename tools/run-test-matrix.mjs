@@ -5493,7 +5493,8 @@ function parsePrSmartGateOptions(args)
         changedFilesFile: null,
         baseRef: process.env.FSUSBLOG_BASE_REF ?? process.env.GITHUB_BASE_REF ?? 'origin/master',
         eventName: process.env.GITHUB_EVENT_NAME ?? 'local',
-        full: process.env.FSUSBLOG_SMART_GATE_FULL === '1'
+        full: process.env.FSUSBLOG_SMART_GATE_FULL === '1',
+        maxParallel: null
     };
     for (let index = 0; index < args.length; index += 1)
     {
@@ -5546,10 +5547,23 @@ function parsePrSmartGateOptions(args)
         {
             options.planOnly = true;
         }
+        else if (arg === '--max-parallel')
+        {
+            options.maxParallel = Number(args[++index]);
+        }
+        else if (arg.startsWith('--max-parallel='))
+        {
+            options.maxParallel = Number(arg.slice('--max-parallel='.length));
+        }
         else
         {
             throw new Error(`unknown PR smart gate option: ${arg}`);
         }
+    }
+    if (options.maxParallel !== null
+      && (!Number.isInteger(options.maxParallel) || options.maxParallel < 1))
+    {
+        throw new Error('--max-parallel must be a positive integer');
     }
     return options;
 }
@@ -6007,7 +6021,7 @@ async function ciPrSmart(matrix, args)
                     currentRunPreexecutedTierBindings,
                     supersedesUniverse: matrix.tiers,
                     coverageRegistry: loadCoverageRegistry().entries,
-                    maxParallel: systemResources.availableCpuUnits,
+                    maxParallel: options.maxParallel ?? systemResources.availableCpuUnits,
                     systemResources,
                     teeOutput: true,
                     beforeTierStart()
@@ -6293,7 +6307,7 @@ function usage()
   node tools/run-test-matrix.mjs ci-production [--plan-only] [--fresh|--resume] [--max-parallel n]
   node tools/run-test-matrix.mjs ci-release-final [--plan-only] [--fresh|--resume] [--max-parallel n]
   node tools/run-test-matrix.mjs ci-pr-plan [--changed-files file] [--base-ref ref] [--out .tmp/pr-plan.json] [--github-output file]
-  node tools/run-test-matrix.mjs ci-pr-smart [--changed-files file] [--base-ref ref] [--full] [--plan-only]
+  node tools/run-test-matrix.mjs ci-pr-smart [--changed-files file] [--base-ref ref] [--full] [--plan-only] [--max-parallel n]
   node tools/run-test-matrix.mjs ci-plan [--format github-actions] [--out .tmp/ci-plan.json]
   node tools/run-test-matrix.mjs evidence-plan [--out .tmp/release-evidence/test-plan.json]
 
