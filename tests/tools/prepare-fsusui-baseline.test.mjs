@@ -5,7 +5,7 @@ import {
     fsusUiPreparationCommands
 } from '../../tools/test/prepare-fsusui-baseline.mjs';
 
-test('FsusUI preparation keeps install scripts disabled and explicitly builds producer stubs before theme output', () =>
+test('FsusUI preparation keeps install scripts disabled and explicitly builds every consumed output', () =>
 {
     const root = '/tmp/fsusui-pinned-baseline';
     assert.deepEqual(fsusUiPreparationCommands(root), [
@@ -19,6 +19,7 @@ test('FsusUI preparation keeps install scripts disabled and explicitly builds pr
             '--ignore-scripts'
         ],
         ['corepack', 'pnpm', '--dir', root, 'run', 'stub'],
+        ['corepack', 'pnpm', '--dir', root, 'run', 'ensure:wasm'],
         ['corepack', 'pnpm', '--dir', root, 'run', 'build:theme']
     ]);
 });

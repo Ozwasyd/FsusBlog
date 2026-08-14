@@ -46,6 +46,7 @@ export function fsusUiPreparationCommands(root)
     return [
         ['corepack', 'pnpm', '--dir', root, 'install', '--frozen-lockfile', '--ignore-scripts'],
         ['corepack', 'pnpm', '--dir', root, 'run', 'stub'],
+        ['corepack', 'pnpm', '--dir', root, 'run', 'ensure:wasm'],
         ['corepack', 'pnpm', '--dir', root, 'run', 'build:theme']
     ];
 }
