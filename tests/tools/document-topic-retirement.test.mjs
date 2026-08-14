@@ -77,7 +77,7 @@ test('per-pass release notes without executed audit evidence are not retained as
         assert.equal(policy.documents.some((entry) => entry.path === discarded), false);
         assert.equal(policy.legacyNamingCompatibility.some((entry) => entry.path === discarded), false);
     }
-    const evidence = JSON.parse(Read('tests/backend/runtime-fallback-evidence.json'));
+    const evidence = JSON.parse(Read('tests/evidence/backend/runtime-fallback-evidence.json'));
     assert.equal(evidence.schema, 'fsusblog.runtime-fallback-evidence.v2');
     assert.equal(evidence.productionAudit, undefined);
     assert.equal(evidence.deliveryConstraint, undefined);
@@ -85,7 +85,7 @@ test('per-pass release notes without executed audit evidence are not retained as
     assert.equal(evidence.centralGovernanceReadback, undefined);
     assert.equal(evidence.verification, undefined);
 
-    const identityEvidence = JSON.parse(Read('tests/backend/legacy-identity-retirement-evidence.json'));
+    const identityEvidence = JSON.parse(Read('tests/evidence/backend/legacy-identity-retirement-evidence.json'));
     assert.equal(identityEvidence.schema, 'fsusblog.identity-retirement-evidence.v2');
     assert.equal(identityEvidence.retiredSurfaceInspection, undefined);
     assert.equal(identityEvidence.centralGovernanceFilesModified, undefined);
@@ -99,8 +99,8 @@ test('current documentation and governance fixtures do not depend on retired pat
     const repositoryFiles = [
         ...policy.documents.filter((entry) => entry.status === 'current').map((entry) => entry.path),
         'docs/planning/dead-code-audit-index.json',
-        'tests/backend/legacy-identity-retirement-evidence.json',
-        'tests/backend/runtime-fallback-evidence.json',
+        'tests/evidence/backend/legacy-identity-retirement-evidence.json',
+        'tests/evidence/backend/runtime-fallback-evidence.json',
         'tests/coverage-registry.json',
         'tests/matrix.yml',
         'tests/test-asset-semantic-renames.json'

@@ -76,7 +76,7 @@ fi
 
 UNIT_WITH_INTEGRATION_TRAIT="$(
     rg -n '\[Trait\("Category", "Integration"\)\]' "$TEST_DIR/Unit" --glob '*.cs' |
-        grep -vE '/(DevSeedSqlContractTests|SubscriptionEndpointsContractTests)\.cs:' || true
+        grep -vE '/(DevSeedSqlContractTests|SpaAssetManifestServiceTests|SubscriptionEndpointsContractTests)\.cs:' || true
 )"
 
 if [[ -n "$UNIT_WITH_INTEGRATION_TRAIT" ]]; then

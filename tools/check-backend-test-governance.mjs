@@ -13,7 +13,7 @@ const pathGovernanceFixtureDirectory = 'tests/backend/Fixtures/backend-test-path
 const environmentVariableGovernanceFixtureDirectory = 'tests/backend/Fixtures/environment-variable-governance';
 const environmentVariableCollectionPath = 'tests/backend/Fixtures/EnvironmentVariableCollection.cs';
 const approvedEnvironmentVariableMutationFiles = new Set([
-    'tests/backend/Fixtures/ScopedEnvironmentVariables.cs'
+    'tests/backend/Helpers/ScopedEnvironmentVariables.cs'
 ]);
 const backendPathGovernanceAllowedFiles = new Set([
     'tests/backend/Unit/TestInfrastructure/BackendTestPaths.cs',
@@ -263,7 +263,7 @@ function scanEnvironmentVariableMutations(relativePath, source)
     for (const match of masked.matchAll(classPattern))
     {
         const declarationRemainder = masked.slice(match.index + match[0].length);
-        const openingOffset = declarationRemainder.search(/[\{;]/u);
+        const openingOffset = declarationRemainder.search(/[{;]/u);
         if (openingOffset < 0)
         {
             continue;

@@ -43,7 +43,7 @@
             ],
             "evidencePaths": [
                 "tests/backend/Unit/AuthCookieExpiryFlowTests.cs",
-                "tests/backend/auth-cookie-expiry-governance-handoff.json"
+                "tests/evidence/backend/auth-cookie-expiry-governance-handoff.json"
             ]
         },
         {

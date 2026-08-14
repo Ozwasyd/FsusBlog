@@ -425,7 +425,7 @@ onMounted(loadSnapshot);
 .cluster-runtime-primary
  {
     color: var(--fsusblog-text-primary);
-    font-weight: 600;
+    font-weight: 700;
 }
 
 .cluster-runtime-secondary
@@ -439,7 +439,7 @@ onMounted(loadSnapshot);
  {
     margin: var(--fsus-space-4) 0 0;
     color: var(--fsusblog-color-warning);
-    font-size: 13px;
+    font-size: 14px;
 }
 
 @media (width >= 1200px)

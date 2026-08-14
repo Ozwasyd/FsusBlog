@@ -35,6 +35,29 @@ const RECORD_KEYS = new Set([
     'storedBytes'
 ]);
 
+type ArticleRecoveryJournalErrorCode =
+  | 'article_recovery_payload_oversize'
+  | 'article_recovery_compression_unavailable'
+  | 'article_recovery_decompression_unavailable'
+  | 'article_recovery_payload_integrity_mismatch'
+  | 'article_recovery_indexeddb_request_failed'
+  | 'article_recovery_indexeddb_transaction_failed'
+  | 'article_recovery_indexeddb_transaction_aborted'
+  | 'article_recovery_indexeddb_open_failed'
+  | 'article_recovery_indexeddb_open_blocked';
+
+class ArticleRecoveryJournalError extends Error
+{
+    readonly code: ArticleRecoveryJournalErrorCode;
+
+    constructor(code: ArticleRecoveryJournalErrorCode, options?: ErrorOptions)
+    {
+        super(code, options);
+        this.name = 'ArticleRecoveryJournalError';
+        this.code = code;
+    }
+}
+
 export type ArticleRecoveryJournalWriteStatus =
   | 'stored'
   | 'unavailable'
@@ -193,7 +216,7 @@ async function readBoundedByteStream(
             if (totalBytes > maxBytes)
             {
                 await reader.cancel('article_recovery_payload_oversize');
-                throw new Error('article_recovery_payload_oversize');
+                throw new ArticleRecoveryJournalError('article_recovery_payload_oversize');
             }
             chunks.push(chunk);
         }
@@ -217,7 +240,7 @@ async function compressArticleRecoveryContent(content: string): Promise<Uint8Arr
 {
     if (typeof globalThis.CompressionStream !== 'function')
     {
-        throw new Error('article_recovery_compression_unavailable');
+        throw new ArticleRecoveryJournalError('article_recovery_compression_unavailable');
     }
     const source = new TextEncoder().encode(content);
     const stream = new Blob([Uint8Array.from(source).buffer])
@@ -230,7 +253,7 @@ async function decompressArticleRecoveryContent(payload: Uint8Array): Promise<st
 {
     if (typeof globalThis.DecompressionStream !== 'function')
     {
-        throw new Error('article_recovery_decompression_unavailable');
+        throw new ArticleRecoveryJournalError('article_recovery_decompression_unavailable');
     }
     const stream = new Blob([Uint8Array.from(payload).buffer])
         .stream()
@@ -423,7 +446,7 @@ async function hydrateStoredRecord(
     const sourceHash = await articleRecoverySourceHash(content);
     if (contentBytes !== stored.contentBytes || sourceHash !== stored.sourceHash)
     {
-        throw new Error('article_recovery_payload_integrity_mismatch');
+        throw new ArticleRecoveryJournalError('article_recovery_payload_integrity_mismatch');
     }
     return {
         id: stored.id,
@@ -450,7 +473,8 @@ function requestResult<T>(request: IDBRequest<T>): Promise<T>
     return new Promise<T>((resolve, reject) =>
     {
         request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error ?? new Error('article_recovery_indexeddb_request_failed'));
+        request.onerror = () => reject(request.error
+            ?? new ArticleRecoveryJournalError('article_recovery_indexeddb_request_failed'));
     });
 }
 
@@ -459,8 +483,10 @@ function transactionDone(transaction: IDBTransaction): Promise<void>
     return new Promise<void>((resolve, reject) =>
     {
         transaction.oncomplete = () => resolve();
-        transaction.onerror = () => reject(transaction.error ?? new Error('article_recovery_indexeddb_transaction_failed'));
-        transaction.onabort = () => reject(transaction.error ?? new Error('article_recovery_indexeddb_transaction_aborted'));
+        transaction.onerror = () => reject(transaction.error
+            ?? new ArticleRecoveryJournalError('article_recovery_indexeddb_transaction_failed'));
+        transaction.onabort = () => reject(transaction.error
+            ?? new ArticleRecoveryJournalError('article_recovery_indexeddb_transaction_aborted'));
     });
 }
 
@@ -477,7 +503,9 @@ function openDatabase(indexedDB: IDBFactory): Promise<IDBDatabase>
         {
             reject(error instanceof Error
                 ? error
-                : new Error('article_recovery_indexeddb_open_failed', { cause: error }));
+                : new ArticleRecoveryJournalError(
+                    'article_recovery_indexeddb_open_failed',
+                    { cause: error }));
             return;
         }
         request.onupgradeneeded = () =>
@@ -494,8 +522,10 @@ function openDatabase(indexedDB: IDBFactory): Promise<IDBDatabase>
             database.onversionchange = () => database.close();
             resolve(database);
         };
-        request.onerror = () => reject(request.error ?? new Error('article_recovery_indexeddb_open_failed'));
-        request.onblocked = () => reject(new Error('article_recovery_indexeddb_open_blocked'));
+        request.onerror = () => reject(request.error
+            ?? new ArticleRecoveryJournalError('article_recovery_indexeddb_open_failed'));
+        request.onblocked = () => reject(
+            new ArticleRecoveryJournalError('article_recovery_indexeddb_open_blocked'));
     });
 }
 

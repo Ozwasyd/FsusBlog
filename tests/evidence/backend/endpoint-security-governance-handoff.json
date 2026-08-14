@@ -33,7 +33,7 @@
                 "tests/backend/Unit/AuthRiskControlEndpointContractTests.cs",
                 "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
                 "tests/backend/Unit/BackendApiIntegrationContractTests.cs",
-                "tests/backend/endpoint-security-evidence.json",
+                "tests/evidence/backend/endpoint-security-evidence.json",
                 "tests/backend/issue-1038-retention-replacements.json"
             ]
         },

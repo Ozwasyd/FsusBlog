@@ -150,7 +150,7 @@
                 "tests/backend/Unit/UserServiceValidationTests.cs",
                 "tests/backend/Unit/RecoveryKeyServiceBehaviorTests.cs",
                 "tests/backend/Integration/UserSessionRevocationIntegrationTests.cs",
-                "tests/backend/user-session-revocation-evidence.json"
+                "tests/evidence/backend/user-session-revocation-evidence.json"
             ]
         },
         {

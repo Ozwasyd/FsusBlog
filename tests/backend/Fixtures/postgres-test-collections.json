@@ -10,8 +10,8 @@
           "class": "SchemaMigrationIntegrationTests"
         },
         {
-          "path": "Integration/ThemeRegistryPostgresTests.cs",
-          "class": "ThemeRegistryPostgresTests"
+          "path": "Integration/ThemeRegistryPostgresIntegrationTests.cs",
+          "class": "ThemeRegistryPostgresIntegrationTests"
         },
         {
           "path": "Integration/ArticleListKeysetPaginationIntegrationTests.cs",

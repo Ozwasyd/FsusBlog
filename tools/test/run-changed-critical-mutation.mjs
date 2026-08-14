@@ -14,14 +14,14 @@ import {
     writeFileSync
 } from 'node:fs';
 import {
+    tmpdir
+} from 'node:os';
+import {
     dirname,
     relative,
     resolve,
     sep
 } from 'node:path';
-import {
-    tmpdir
-} from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 import {

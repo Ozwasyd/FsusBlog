@@ -32,7 +32,7 @@
                 "tests/backend/Unit/SecurityHardening",
                 "security/policies/backend-source-policy.json",
                 "tests/tools/security-source-analyzer.test.mjs",
-                "tests/backend/security-hardening-evidence.json",
+                "tests/evidence/backend/security-hardening-evidence.json",
                 "tests/backend/issue-1037-retention-replacements.json"
             ],
             "failClosedRule": "Reject missing behavior suites, missing positive/negative Roslyn fixture coverage, incomplete 19-ID replacement mapping, or any repository analyzer diagnostic."
@@ -45,7 +45,7 @@
                 {
                     "tierId": "backend-unit",
                     "appendCoverage": true,
-                    "appendEvidencePath": "tests/backend/security-hardening-evidence.json"
+                    "appendEvidencePath": "tests/evidence/backend/security-hardening-evidence.json"
                 },
                 {
                     "tierId": "static-governance",
@@ -60,7 +60,7 @@
                 {
                     "tierId": "production",
                     "appendCoverage": true,
-                    "appendEvidencePath": "tests/backend/security-hardening-evidence.json"
+                    "appendEvidencePath": "tests/evidence/backend/security-hardening-evidence.json"
                 }
             ]
         },
@@ -75,7 +75,7 @@
                 "UploadBoundaryTests"
             ],
             "evidencePaths": [
-                "tests/backend/security-hardening-evidence.json",
+                "tests/evidence/backend/security-hardening-evidence.json",
                 "tests/backend/issue-1037-retention-replacements.json"
             ]
         },

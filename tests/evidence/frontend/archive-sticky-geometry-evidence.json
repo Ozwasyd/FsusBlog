@@ -94,7 +94,7 @@
     },
     "handoff": {
         "documentation": "docs/frontend/public-shell-ownership.md",
-        "centralGovernance": "tests/frontend/archive-sticky-geometry-governance-handoff.json"
+        "centralGovernance": "tests/evidence/frontend/archive-sticky-geometry-governance-handoff.json"
     },
     "verification": {
         "commandsExecuted": [],

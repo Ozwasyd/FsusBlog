@@ -55,6 +55,11 @@
             "name": "Comment",
             "value": 9,
             "outputCacheTag": "Comment"
+        },
+        {
+            "name": "Theme",
+            "value": 10,
+            "outputCacheTag": "Theme"
         }
     ],
     "policies": [

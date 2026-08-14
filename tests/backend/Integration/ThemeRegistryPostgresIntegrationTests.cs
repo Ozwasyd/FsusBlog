@@ -13,7 +13,7 @@ namespace FsusBlog.Server.Tests.Integration;
 [Trait("Category", "Integration")]
 [Trait("Dependency", "Docker")]
 [Collection(nameof(SchemaMigrationPostgresCollectionA))]
-public sealed class ThemeRegistryPostgresTests(PostgresSchemaMigrationFixture fixture)
+public sealed class ThemeRegistryPostgresIntegrationTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
     public async Task Registry_PersistsLifecycleConfigActivationAndAssetsAtomically()

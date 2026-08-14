@@ -17,12 +17,12 @@ const repoRoot = path.resolve(process.env.FSUSBLOG_INTERNAL_SELECTOR_ROOT ?? def
 const registryPath = path.resolve(
     repoRoot,
     process.env.FSUSBLOG_INTERNAL_SELECTOR_REGISTRY
-    ?? 'tests/frontend/internal-selector-registry.json'
+    ?? 'tests/evidence/frontend/internal-selector-registry.json'
 );
 const evidencePath = path.resolve(
     repoRoot,
     process.env.FSUSBLOG_INTERNAL_SELECTOR_EVIDENCE
-    ?? 'tests/frontend/internal-selector-migration-evidence.json'
+    ?? 'tests/evidence/frontend/internal-selector-migration-evidence.json'
 );
 const sourceRoot = path.join(repoRoot, 'src/frontend/src');
 const sourceExtensions = new Set(['.css', '.scss', '.vue']);

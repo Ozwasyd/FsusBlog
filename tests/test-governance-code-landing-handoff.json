@@ -152,8 +152,8 @@
                 "tests/backend/Fixtures/security-source-analysis",
                 "tests/tools/security-source-analyzer.test.mjs",
                 "tests/backend/issue-1037-retention-replacements.json",
-                "tests/backend/security-hardening-evidence.json",
-                "tests/backend/security-hardening-governance-handoff.json",
+                "tests/evidence/backend/security-hardening-evidence.json",
+                "tests/evidence/backend/security-hardening-governance-handoff.json",
                 "docs/testing/security-hardening-boundary-replacements.md",
                 "docs/testing/security-hardening-source-policy.md"
             ],
@@ -179,8 +179,8 @@
                 "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
                 "tests/backend/Unit/BackendApiIntegrationContractTests.cs",
                 "tests/backend/issue-1038-retention-replacements.json",
-                "tests/backend/endpoint-security-evidence.json",
-                "tests/backend/endpoint-security-governance-handoff.json",
+                "tests/evidence/backend/endpoint-security-evidence.json",
+                "tests/evidence/backend/endpoint-security-governance-handoff.json",
                 "docs/testing/issue-1038-endpoint-security-contract-replacements.md"
             ],
             "expectedDeletedTestIds": 40,

@@ -14,6 +14,7 @@ import {
     releaseProductionBuildMaterialization,
     releaseProductionBuildConsumer,
     verifyProductionBuildReceipt
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This lane directly tests its production-build owner module.
 } from '../../tools/ci/production-build-artifacts.mjs';
 
 const sourceState = {

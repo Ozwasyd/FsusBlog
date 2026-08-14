@@ -41,7 +41,7 @@ a running multi-node process to the in-memory `single` authority.
 
 ## Upload session expiration cleanup
 
-Upload-session cleanup only enumerates the expiration-bucket index; it does not sweep every directory below the session root. If an old orphan is found, quarantine or remove that exact path through an operator-reviewed maintenance action and repair the missing index producer. The cleanup worker may be paused without restarting request-serving nodes, but the unbounded root sweep must not be restored. Production closeout keeps the release-cycle and read-only residual-scan evidence in `tests/backend/runtime-fallback-milestones.json`; absent external observations remain `deferred-unverified`.
+Upload-session cleanup only enumerates the expiration-bucket index; it does not sweep every directory below the session root. If an old orphan is found, quarantine or remove that exact path through an operator-reviewed maintenance action and repair the missing index producer. The cleanup worker may be paused without restarting request-serving nodes, but the unbounded root sweep must not be restored. Production closeout keeps the release-cycle and read-only residual-scan evidence in `tests/evidence/backend/runtime-fallback-milestones.json`; absent external observations remain `deferred-unverified`.
 
 ## Release Gate
 
@@ -443,7 +443,7 @@ Online changes follow [Online Database Migration Protocol](online-database-migra
 
 ### Retired runtime fallback milestones
 
-The operator evidence map for upload-session root sweep, subscription HMAC cutover, article-content finalize, plain-cookie read removal, AOT sidecar hash, and one-time artifact-clear migration is `tests/backend/runtime-fallback-milestones.json`. Each item links its focused runtime test and records external release/migration/count observations separately from repository facts. The current rules live in this runbook, `docs/security.md`, `docs/database-migration.md`, and `docs/architecture/public-aot-artifact-storage-boundary.md`; no issue-level summary or per-pass release note is an authority.
+The operator evidence map for upload-session root sweep, subscription HMAC cutover, article-content finalize, plain-cookie read removal, AOT sidecar hash, and one-time artifact-clear migration is `tests/evidence/backend/runtime-fallback-milestones.json`. Each item links its focused runtime test and records external release/migration/count observations separately from repository facts. The current rules live in this runbook, `docs/security.md`, `docs/database-migration.md`, and `docs/architecture/public-aot-artifact-storage-boundary.md`; no issue-level summary or per-pass release note is an authority.
 
 Run the focused retirement owner during unified validation, but keep absent production observations `deferred-unverified`. No local source scan or historical GitHub claim may stand in for current release IDs, migration-history rows, exact database counts, or deployed-control absence. Roll back by selecting the previous compatible image/database pair or pausing the affected external action; do not restore any retired request-time fallback.
 

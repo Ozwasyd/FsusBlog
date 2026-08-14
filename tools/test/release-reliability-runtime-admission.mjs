@@ -1452,7 +1452,8 @@ export function finalizeRuntimeAdmissionReceipt({
             throw new Error(
                 `runtime admission receipt verification failed and the pass receipt could not be removed: ${
                     error instanceof Error ? error.message : String(error)
-                }`
+                }`,
+                { cause: error }
             );
         }
         throw error;

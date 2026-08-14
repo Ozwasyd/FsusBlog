@@ -76,23 +76,23 @@
     "renames": [
         {
             "from": "tests/backend/issue-1013-runtime-fallback-evidence.json",
-            "to": "tests/backend/runtime-fallback-evidence.json"
+            "to": "tests/evidence/backend/runtime-fallback-evidence.json"
         },
         {
             "from": "tests/backend/issue-1013-runtime-fallback-milestones.json",
-            "to": "tests/backend/runtime-fallback-milestones.json"
+            "to": "tests/evidence/backend/runtime-fallback-milestones.json"
         },
         {
             "from": "tests/backend/issue-1014-identity-retirement-evidence.json",
-            "to": "tests/backend/legacy-identity-retirement-evidence.json"
+            "to": "tests/evidence/backend/legacy-identity-retirement-evidence.json"
         },
         {
             "from": "tests/backend/issue-1028-online-migration-evidence.json",
-            "to": "tests/backend/online-schema-migration-evidence.json"
+            "to": "tests/evidence/backend/online-schema-migration-evidence.json"
         },
         {
             "from": "tests/backend/issue-1029-storage-lifecycle-evidence.json",
-            "to": "tests/backend/storage-lifecycle-evidence.json"
+            "to": "tests/evidence/backend/storage-lifecycle-evidence.json"
         },
         {
             "from": "tests/backend/issue-1030-implementation-evidence.json",
@@ -100,43 +100,43 @@
         },
         {
             "from": "tests/backend/issue-1037-central-handoff.json",
-            "to": "tests/backend/security-hardening-governance-handoff.json"
+            "to": "tests/evidence/backend/security-hardening-governance-handoff.json"
         },
         {
             "from": "tests/backend/issue-1037-security-hardening-evidence.json",
-            "to": "tests/backend/security-hardening-evidence.json"
+            "to": "tests/evidence/backend/security-hardening-evidence.json"
         },
         {
             "from": "tests/backend/issue-1038-endpoint-security-evidence.json",
-            "to": "tests/backend/endpoint-security-evidence.json"
+            "to": "tests/evidence/backend/endpoint-security-evidence.json"
         },
         {
             "from": "tests/backend/issue-1038-governance-handoff.json",
-            "to": "tests/backend/endpoint-security-governance-handoff.json"
+            "to": "tests/evidence/backend/endpoint-security-governance-handoff.json"
         },
         {
             "from": "tests/backend/issue-1050-cleanup-human-read.md",
-            "to": "tests/backend/cleanup-worker-human-read-behavior.md"
+            "to": "tests/evidence/backend/cleanup-worker-human-read-behavior.md"
         },
         {
             "from": "tests/backend/issue-1052-user-session-revocation-evidence.json",
-            "to": "tests/backend/user-session-revocation-evidence.json"
+            "to": "tests/evidence/backend/user-session-revocation-evidence.json"
         },
         {
             "from": "tests/backend/issue-1053-auth-cookie-expiry-evidence.json",
-            "to": "tests/backend/auth-cookie-expiry-evidence.json"
+            "to": "tests/evidence/backend/auth-cookie-expiry-evidence.json"
         },
         {
             "from": "tests/backend/issue-1053-central-handoff.json",
-            "to": "tests/backend/auth-cookie-expiry-governance-handoff.json"
+            "to": "tests/evidence/backend/auth-cookie-expiry-governance-handoff.json"
         },
         {
             "from": "tests/backend/issue-1054-recovery-passkey-completion-evidence.json",
-            "to": "tests/backend/recovery-passkey-completion-evidence.json"
+            "to": "tests/evidence/backend/recovery-passkey-completion-evidence.json"
         },
         {
             "from": "tests/backend/issue-1055-rate-limiter-rejection-sampler-evidence.json",
-            "to": "tests/backend/rate-limiter-rejection-sampler-evidence.json"
+            "to": "tests/evidence/backend/rate-limiter-rejection-sampler-evidence.json"
         },
         {
             "from": "tests/fixtures/issue-1160-native-tooling-style/invalid/CMakeLists.txt",
@@ -188,11 +188,11 @@
         },
         {
             "from": "tests/frontend/issue-1017-archive-sticky-evidence.json",
-            "to": "tests/frontend/archive-sticky-geometry-evidence.json"
+            "to": "tests/evidence/frontend/archive-sticky-geometry-evidence.json"
         },
         {
             "from": "tests/frontend/issue-1017-governance-handoff.json",
-            "to": "tests/frontend/archive-sticky-geometry-governance-handoff.json"
+            "to": "tests/evidence/frontend/archive-sticky-geometry-governance-handoff.json"
         },
         {
             "from": "tests/issue-1015-dead-code-audit-evidence.json",

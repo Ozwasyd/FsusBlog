@@ -507,8 +507,8 @@ onBeforeUnmount(() =>
     justify-content: flex-start;
     min-width: 44px;
     padding-inline: var(--fsus-space-3, 0.75rem);
-    font-size: 13px;
-    font-weight: 600;
+    font-size: 14px;
+    font-weight: 700;
 }
 
 .locale-selector__trigger:hover,
@@ -640,8 +640,8 @@ onBeforeUnmount(() =>
 
 .locale-selector__item-native
  {
-    font-size: 0.875rem;
-    font-weight: 600;
+    font-size: 14px;
+    font-weight: 700;
     line-height: 1.35;
     overflow-wrap: anywhere;
     white-space: normal;
@@ -649,7 +649,7 @@ onBeforeUnmount(() =>
 
 .locale-selector__item-english
  {
-    font-size: 0.75rem;
+    font-size: 12px;
     font-weight: 500;
     line-height: 1.35;
     color: var(--fsusblog-text-muted);
@@ -704,7 +704,7 @@ onBeforeUnmount(() =>
  {
     margin: 0;
     color: var(--fsusblog-text-secondary);
-    font-size: 0.75rem;
+    font-size: 12px;
     font-weight: 500;
     line-height: 1.4;
 }
@@ -724,7 +724,7 @@ onBeforeUnmount(() =>
     color: var(--fsusblog-color-primary);
     cursor: pointer;
     font: inherit;
-    font-size: 0.75rem;
+    font-size: 12px;
     font-weight: 700;
 }
 

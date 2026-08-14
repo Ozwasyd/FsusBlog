@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import {
     mkdirSync,
     mkdtempSync,
@@ -221,7 +220,8 @@ test('unrelated changes produce empty selection and never start Stryker', () =>
         selection,
         spawnStryker: () =>
         {
-            starts += 1; return { status: 0 };
+            starts += 1;
+            return { status: 0 };
         }
     });
 

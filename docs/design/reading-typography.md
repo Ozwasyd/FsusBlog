@@ -8,11 +8,11 @@
 - `reading`：列表摘要使用 14/16px、400、1.7；长文正文与引用使用 16px/400/1.8。Markdown paragraph 只有一条权威规则。
 - `metadata`：日期、分类、状态、阅读量和动作使用 12px 或 14px，不能用装饰性微缩文字承载信息。信息文本消费达到 AA 的 muted/tertiary；decorative token 只用于点和 marker。
 
-AOT emergency、hydration 与 SPA takeover 使用同一 reading role、行高和 metadata 档位。Markdown blockquote 继承正文排版，不另行缩小；账户导航、task controls 和其他非阅读文本由 FsusUI 及对应 task 领域文档拥有。
+CSS `font-size` 小字号只写 `12px`、`14px` 或 `16px`；`AccountNavigationPanel.vue` 的导航层级是唯一例外。AOT emergency、hydration 与 SPA takeover 使用同一 reading role、行高和 metadata 档位。Markdown blockquote 继承 16px，不另行缩小；账户导航、task controls 和其他非阅读文本由 FsusUI 及对应 task 领域文档拥有。
 
 ## 加载字重
 
-Reading renderer 只使用 font loader 已确认存在的正文、强调和标题字重，不依赖浏览器合成缺失字重。弱层级用语义颜色表达；正文、metadata/操作强调与标题分别选择已加载的 reading role。通用字体与组件排版权威仍在当前 FsusUI 基线。
+Reading renderer 只允许真实加载的 `400`、`500`、`700`，对应 `font-normal`、`font-medium`、`font-bold`；不得依赖浏览器合成缺失的粗体或细体。弱层级用语义颜色表达；正文、metadata/操作强调与标题分别选择已加载的 reading role。通用字体与组件排版权威仍在当前 FsusUI 基线。
 
 `ArticleCommentComposer` 的身份标签、badge、toggle、draft、empty preview、feedback 与 metrics 使用 700；desktop TOC title 使用 700；blockquote 不声明局部字重，继承 Markdown 根的 400。
 

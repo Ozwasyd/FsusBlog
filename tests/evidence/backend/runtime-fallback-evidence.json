@@ -6,7 +6,7 @@
     ],
     "status": "runtime-retired-external-milestones-deferred",
     "testOwner": "tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs",
-    "milestoneManifest": "tests/backend/runtime-fallback-milestones.json",
+    "milestoneManifest": "tests/evidence/backend/runtime-fallback-milestones.json",
     "canonicalDocuments": [
         "docs/operations.md",
         "docs/security.md",

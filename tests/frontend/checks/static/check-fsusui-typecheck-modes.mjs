@@ -26,6 +26,10 @@ function resolveLocalFsusUiRoot(args)
 {
     return execFileSync(process.execPath, [localResolverPath, ...args], {
         encoding: 'utf8',
+        env: {
+            ...process.env,
+            FSUSBLOG_LOCAL_FSUSUI_ROOT: ''
+        },
         stdio: ['ignore', 'pipe', 'pipe']
     }).trim();
 }

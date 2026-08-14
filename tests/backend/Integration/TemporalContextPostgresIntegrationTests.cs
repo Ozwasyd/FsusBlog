@@ -6,6 +6,7 @@ using Npgsql;
 namespace FsusBlog.Server.Tests.Integration;
 
 [Collection(nameof(SchemaMigrationPostgresCollectionA))]
+[Trait("Category", "Integration")]
 public sealed class TemporalContextPostgresIntegrationTests(
     PostgresSchemaMigrationFixture fixture)
 {

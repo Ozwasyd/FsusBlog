@@ -172,8 +172,8 @@
                 "tests/backend/Unit/AuthCookieExpiryFlowTests.cs",
                 "tests/backend/Unit/JwtHelperTests.cs",
                 "tests/backend/Unit/UserServiceValidationTests.cs",
-                "tests/backend/auth-cookie-expiry-evidence.json",
-                "tests/backend/auth-cookie-expiry-governance-handoff.json"
+                "tests/evidence/backend/auth-cookie-expiry-evidence.json",
+                "tests/evidence/backend/auth-cookie-expiry-governance-handoff.json"
             ]
         },
         {
@@ -190,12 +190,12 @@
             ],
             "evidencePaths": [
                 "tests/backend/Unit/AuthCookieExpiryFlowTests.cs",
-                "tests/backend/auth-cookie-expiry-governance-handoff.json"
+                "tests/evidence/backend/auth-cookie-expiry-governance-handoff.json"
             ]
         }
     ],
     "centralGovernanceHandoff": {
-        "path": "tests/backend/auth-cookie-expiry-governance-handoff.json",
+        "path": "tests/evidence/backend/auth-cookie-expiry-governance-handoff.json",
         "status": "central-files-integrated-validation-not-run"
     },
     "verification": {

@@ -7,7 +7,7 @@ running tests, builds, linters, restores, syntax checks, or profilers.
 ## Evidence contract
 
 The machine-readable plan is
-`tests/backend/rate-limiter-rejection-sampler-evidence.json`. A fresh
+`tests/evidence/backend/rate-limiter-rejection-sampler-evidence.json`. A fresh
 verification must preserve all of the following:
 
 1. the matched and unmatched 10,000-path cases retain exactly two buckets and
@@ -79,6 +79,6 @@ When capacity pressure is active:
 The main thread owns `tests/coverage-registry.json`, `tests/matrix.yml`,
 `tests/backend/Fixtures/backend-test-requirements.json`, and
 `tools/test/lanes/static-governance.sh`. Exact deferred edits are in
-`tests/backend/rate-limiter-rejection-sampler-evidence.json`.
+`tests/evidence/backend/rate-limiter-rejection-sampler-evidence.json`.
 No new static source checker is required: #1055 is proved by executable behavior
 and pressure tests, so `static-governance.sh` should remain unchanged.

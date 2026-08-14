@@ -59,9 +59,9 @@ verify 同一路由保留 RiskControl 后接 PoW 的两段顺序。中央 covera
 ## 文档与证据清单
 
 - 本文：设计、行为矩阵、风险与回退。
-- `tests/backend/endpoint-security-evidence.json`：机器可读实现与 mutation 计划。
+- `tests/evidence/backend/endpoint-security-evidence.json`：机器可读实现与 mutation 计划。
 - `tests/backend/issue-1038-retention-replacements.json`：逐 test ID 替换关系。
-- `tests/backend/endpoint-security-governance-handoff.json`：Auth 冲突文件与四个中央治理文件交接。
+- `tests/evidence/backend/endpoint-security-governance-handoff.json`：Auth 冲突文件与四个中央治理文件交接。
 
 公开路由、请求/响应字段和错误语义没有变化，因此 `docs/api/design.md`、`docs/api/contracts.md`、
 `docs/api/quick-reference.md` 与 `docs/api/schemas-and-errors.md` 不需要为本 issue 修改。

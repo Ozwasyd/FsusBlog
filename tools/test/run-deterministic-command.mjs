@@ -205,7 +205,17 @@ function publishRunnerTemporalArtifacts({ context, result, key })
 
 async function spawnCommand(command, cwd, signal)
 {
-    return await runPhysicalExecution({ command, cwd, signal });
+    return await runPhysicalExecution({
+        command,
+        cwd,
+        env: {
+            ...process.env,
+            DOTNET_CLI_USE_MSBUILD_SERVER: '0',
+            MSBUILDDISABLENODEREUSE: '1',
+            UseSharedCompilation: 'false'
+        },
+        signal
+    });
 }
 
 async function main(argv)

@@ -16,7 +16,7 @@ Run the backend contract:
 ```bash
 dotnet build tests/backend/FsusBlog.Server.Tests.csproj --no-restore -p:TreatWarningsAsErrors=true
 dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-build --no-restore \
-  --filter "FullyQualifiedName~ThemeInfrastructureTests|FullyQualifiedName~ThemeRegistryPostgresTests"
+  --filter "FullyQualifiedName~ThemeInfrastructureTests|FullyQualifiedName~ThemeRegistryPostgresIntegrationTests"
 ```
 
 Run the browserless frontend contract through the local sibling FsusUI alias:

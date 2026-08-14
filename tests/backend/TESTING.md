@@ -8,6 +8,9 @@
     - Pure tests only.
     - No Docker, no external services, no random ports, no long-lived background resources.
     - Files must use `*Tests.cs`.
+    - A method that runs a sealed build/SQL contract fixture may carry the
+      `Integration` trait only when `tools/check-test-hygiene.sh` names its
+      exact owner file; the rest of that class remains in the unit lane.
 - `Integration/`
     - Real PostgreSQL / Docker / external dependency tests.
     - Files must use `*IntegrationTests.cs`.
@@ -27,6 +30,8 @@ The project root may only contain:
 - `TESTING.md`
 
 All test classes must live under `Unit/` or `Integration/`.
+Backend machine evidence and governance handoffs live outside the test project
+under `tests/evidence/backend/`.
 
 ## Execution Contract
 

@@ -1,6 +1,6 @@
 # Internal selector governance
 
-`tests/frontend/internal-selector-registry.json` 是生产前端 `:deep()` 与直接
+`tests/evidence/frontend/internal-selector-registry.json` 是生产前端 `:deep()` 与直接
 `.el-*` override 的机器可读事实源。`check:internal-selector-governance` 在本地读取
 源码与 registry，不依赖 GitHub API、CI 或网络。
 
@@ -41,7 +41,7 @@ entry 同样失败。PublicShell 和 ThemeModeToggle 内部 selector 永远不�
 4/6/10/12/24px opt-in。
 
 本轮基线、逐 surface 降幅及真实浏览器证据状态记录在
-`tests/frontend/internal-selector-migration-evidence.json`。字段为 `null` 或明确写
+`tests/evidence/frontend/internal-selector-migration-evidence.json`。字段为 `null` 或明确写
 `pending` 的场景尚未通过，不得在 issue 或 release evidence 中解释为绿色。
 `check:fsusui-boundary` 同时拒绝脚本中的 FsusUI internal DOM 查询；表单错误聚焦等
 行为必须使用 `aria-invalid` 或 consumer 自有的稳定 data hook。

@@ -142,7 +142,7 @@
                 "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs",
                 "tests/backend/Unit/ProductionHealthTests.cs",
                 "tests/tools/online-schema-migration-wrapper.test.mjs",
-                "tests/backend/online-schema-migration-evidence.json"
+                "tests/evidence/backend/online-schema-migration-evidence.json"
             ],
             "failClosedRule": "Reject startup mutation, unclassified descriptors, unsafe Expand, non-resumable Backfill, ungated Contract, history/checksum drift, or wrapper contract drift."
         },
@@ -154,7 +154,7 @@
                 {
                     "tierId": "backend-unit",
                     "appendCoverage": true,
-                    "appendEvidencePath": "tests/backend/online-schema-migration-evidence.json"
+                    "appendEvidencePath": "tests/evidence/backend/online-schema-migration-evidence.json"
                 },
                 {
                     "tierId": "integration",
@@ -185,7 +185,7 @@
                 "tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs",
                 "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs",
                 "tests/backend/Unit/ProductionHealthTests.cs",
-                "tests/backend/online-schema-migration-evidence.json"
+                "tests/evidence/backend/online-schema-migration-evidence.json"
             ]
         }
     ],

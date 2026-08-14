@@ -514,13 +514,11 @@ export function selectChangedCriticalMutation({
 
     for (const [changedPath, bindings] of pathToBehaviors)
     {
-        let hasMutationRequired = false;
         for (const binding of bindings)
         {
             const contract = contractsById.get(binding.behaviorId);
             if (contract?.mutationPolicy?.mutationRequired === true && contract.status === 'active')
             {
-                hasMutationRequired = true;
                 if (!selectedBehaviors.has(binding.behaviorId))
                 {
                     selectedBehaviors.set(binding.behaviorId, {

@@ -39,7 +39,7 @@
                 "src/frontend/src/components/public/pages/PublicArchivePageContent.vue",
                 "tests/frontend/checks/static/check-visual-density-governance.mjs",
                 "tests/frontend/e2e/acceptance/archive-sticky-geometry.spec.ts",
-                "tests/frontend/archive-sticky-geometry-evidence.json"
+                "tests/evidence/frontend/archive-sticky-geometry-evidence.json"
             ]
         },
         {

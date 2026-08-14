@@ -35,7 +35,7 @@ if (localeCodes.length === 0 || localeDomains.length === 0) {
 }
 const localeDomainChunkPattern = new RegExp(
     `[\\\\/]src[\\\\/]locales[\\\\/](${localeCodes.map(escapeRegExp).join('|')})`
-    + `[\\\\/](${localeDomains.map(escapeRegExp).join('|')})\\.ts$`,
+    + `[\\\\/](${localeDomains.map(escapeRegExp).join('|')})\\.ts(?:\\?.*)?$`,
     'u'
 )
 
@@ -218,6 +218,31 @@ function resolveManualChunk(id: string): string | undefined {
 
     return undefined
 }
+
+const manualChunkNames = [
+    'route-admin-article',
+    'route-admin-moderation',
+    'route-admin-security',
+    'route-admin-users',
+    'route-admin-ops',
+    'route-admin-dashboard',
+    'route-admin-content',
+    'route-admin-messages',
+    'route-user',
+    'route-admin',
+    'route-error',
+    'route-auth',
+    'public-route-core',
+    'public-page-runtime',
+    'markdown-runtime',
+    'full-app-core',
+    'vendor-element-plus',
+    'vendor-echarts',
+    'vendor-progress',
+    'vendor-runtime',
+    'vendor-vueuse',
+    'vendor-vue'
+] as const
 
 function shouldIgnoreBuildWarning(warning: { message?: string; id?: string }): boolean {
     if (
@@ -946,20 +971,24 @@ export default defineConfig(({ command, mode }) => {
                                         priority: 70,
                                         minSize: 4096
                                     },
-                                    {
-                                        name(moduleId: string) {
-                                            return resolveLocaleDomainChunk(moduleId) ?? null
-                                        },
-                                        priority: 20,
-                                        minSize: 0
-                                    },
-                                    {
-                                        name(moduleId: string) {
-                                            return resolveManualChunk(moduleId) ?? null
-                                        },
+                                    ...localeCodes.flatMap((locale) =>
+                                        localeDomains.map((domain) => {
+                                            const name = `locale-${locale}-${domain}`
+                                            return {
+                                                name,
+                                                test: (moduleId: string) =>
+                                                    resolveLocaleDomainChunk(moduleId) === name,
+                                                priority: 20,
+                                                minSize: 0
+                                            }
+                                        })),
+                                    ...manualChunkNames.map((name) => ({
+                                        name,
+                                        test: (moduleId: string) =>
+                                            resolveManualChunk(moduleId) === name,
                                         priority: 10,
                                         minSize: 4096
-                                    }
+                                    }))
                                 ]
                             }
                         }

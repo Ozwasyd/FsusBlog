@@ -89,7 +89,7 @@
             ],
             "evidencePaths": [
                 "tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs",
-                "tests/backend/rate-limiter-rejection-sampler-evidence.json",
+                "tests/evidence/backend/rate-limiter-rejection-sampler-evidence.json",
                 "benchmarks/core/RateLimiterRejectionSamplerBenchmarks.cs"
             ]
         },

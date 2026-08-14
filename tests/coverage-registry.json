@@ -3070,8 +3070,8 @@
             "risk": "high",
             "evidencePaths": [
                 "tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs",
-                "tests/backend/runtime-fallback-milestones.json",
-                "tests/backend/runtime-fallback-evidence.json"
+                "tests/evidence/backend/runtime-fallback-milestones.json",
+                "tests/evidence/backend/runtime-fallback-evidence.json"
             ],
             "assertionType": "integration",
             "failClosedRule": "Reject restoration of a retired fallback or any completed external milestone that lacks an exact run id, count and history artifact.",
@@ -3096,7 +3096,7 @@
                 "tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs",
                 "tests/backend/Unit/JwtHelperTests.cs",
                 "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
-                "tests/backend/legacy-identity-retirement-evidence.json",
+                "tests/evidence/backend/legacy-identity-retirement-evidence.json",
                 "docs/security.md",
                 "docs/database-migration.md",
                 "docs/architecture.md",
@@ -3156,7 +3156,7 @@
                 "tests/frontend/checks/static/check-visual-density-governance.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/e2e/acceptance/archive-sticky-geometry.spec.ts",
-                "tests/frontend/archive-sticky-geometry-evidence.json"
+                "tests/evidence/frontend/archive-sticky-geometry-evidence.json"
             ],
             "assertionType": "browser",
             "failClosedRule": "Reject guessed offsets, hidden current-year sections, generic sticky selectors, broken hash clearance or a sticky heading that does not settle against the measured header.",
@@ -3401,7 +3401,7 @@
                 "src/backend/Infrastructure/SchemaMigration/DestructiveMigrationProofs.cs",
                 "docs/schema-migrations/destructive-rollback-window-proofs.json",
                 "docs/schema-migrations/destructive-rollback-window.md",
-                "tests/backend/online-schema-migration-evidence.json"
+                "tests/evidence/backend/online-schema-migration-evidence.json"
             ],
             "assertionType": "integration",
             "failClosedRule": "Reject startup mutation, unclassified descriptors, unsafe Expand, non-resumable Backfill, ungated Contract, a destructive step without descriptor-matched source/window proof, history drift or wrapper contract drift.",
@@ -3472,7 +3472,7 @@
                 "tests/frontend/unit/wasmReleaseAssets.test.ts",
                 "tests/frontend/unit/releaseStorage.test.ts",
                 "tests/frontend/unit/bootstrap/bootstrapImportRecovery.test.ts",
-                "tests/backend/storage-lifecycle-evidence.json",
+                "tests/evidence/backend/storage-lifecycle-evidence.json",
                 "docs/architecture/release-storage-lifecycle.md"
             ],
             "assertionType": "integration",
@@ -3612,7 +3612,7 @@
                 "tests/backend/Unit/SecurityHardening",
                 "security/policies/backend-source-policy.json",
                 "tests/tools/security-source-analyzer.test.mjs",
-                "tests/backend/security-hardening-evidence.json",
+                "tests/evidence/backend/security-hardening-evidence.json",
                 "tests/test-retention-replacements.json"
             ],
             "assertionType": "integration",
@@ -3635,7 +3635,7 @@
                 "tests/backend/Unit/AuthRiskControlEndpointContractTests.cs",
                 "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
                 "tests/backend/Unit/BackendApiIntegrationContractTests.cs",
-                "tests/backend/endpoint-security-evidence.json",
+                "tests/evidence/backend/endpoint-security-evidence.json",
                 "tests/test-retention-replacements.json"
             ],
             "assertionType": "integration",
@@ -4103,7 +4103,7 @@
                 "tests/tools/fixtures/test-suite-convergence/backend-source-lock-negative.fixture.cs.txt",
                 "tests/matrix.yml",
                 "tests/test-retention-replacements.json",
-                "tests/backend/cleanup-worker-human-read-behavior.md",
+                "tests/evidence/backend/cleanup-worker-human-read-behavior.md",
                 ".tmp/release-evidence/test-suite-convergence.json"
             ],
             "assertionType": "integration",
@@ -4127,7 +4127,7 @@
                 "tests/backend/Unit/UserServiceValidationTests.cs",
                 "tests/backend/Unit/RecoveryKeyServiceBehaviorTests.cs",
                 "tests/backend/Integration/UserSessionRevocationIntegrationTests.cs",
-                "tests/backend/user-session-revocation-evidence.json",
+                "tests/evidence/backend/user-session-revocation-evidence.json",
                 "docs/user-session-revocation.md"
             ],
             "assertionType": "integration",
@@ -4153,8 +4153,8 @@
                 "tests/backend/Unit/AuthCookieServiceSecurityTests.cs",
                 "tests/backend/Unit/JwtHelperTests.cs",
                 "tests/backend/Unit/UserServiceValidationTests.cs",
-                "tests/backend/auth-cookie-expiry-evidence.json",
-                "tests/backend/auth-cookie-expiry-governance-handoff.json"
+                "tests/evidence/backend/auth-cookie-expiry-evidence.json",
+                "tests/evidence/backend/auth-cookie-expiry-governance-handoff.json"
             ],
             "assertionType": "integration",
             "failClosedRule": "Reject a cookie expiry later than JWT exp, a cookie-local duration snapshot, JWT reparsing in the cookie service, or a reloadable issuance change that is not carried to the HTTP handoff.",
@@ -4173,7 +4173,7 @@
                 "tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs",
                 "tests/backend/Unit/RecoveryPasskeyCompletionEndpointTests.cs",
                 "tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs",
-                "tests/backend/recovery-passkey-completion-evidence.json"
+                "tests/evidence/backend/recovery-passkey-completion-evidence.json"
             ],
             "assertionType": "integration",
             "failClosedRule": "Reject pre-validation session consumption, partial credential commits, duplicate logical completion, different-request replay success, raw recovery token persistence or loss of legacy pending-envelope compatibility.",
@@ -4192,7 +4192,7 @@
             "risk": "critical",
             "evidencePaths": [
                 "tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs",
-                "tests/backend/rate-limiter-rejection-sampler-evidence.json",
+                "tests/evidence/backend/rate-limiter-rejection-sampler-evidence.json",
                 "tests/test-retention-replacements.json",
                 "benchmarks/core/RateLimiterRejectionSamplerBenchmarks.cs"
             ],
