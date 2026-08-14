@@ -698,6 +698,8 @@ function produceBehaviorMutationQualification(options)
         const rawReport = fs.readFileSync(physicalRun.reportPath);
         const rawTrace = fs.readFileSync(physicalRun.tracePath);
         return {
+            runKey: physicalRun.runKey,
+            behaviors: physicalRun.behaviors,
             sourceProject: physicalRun.sourceProject,
             config: physicalRun.config,
             rawConfig,
@@ -713,8 +715,10 @@ function produceBehaviorMutationQualification(options)
         };
     });
     writeJsonAtomic(runManifestPath, {
-        schema: 'fsusblog.changed-critical-mutation-run-manifest.v1',
+        schema: 'fsusblog.changed-critical-mutation-run-manifest.v2',
         runs: authorityRuns.map((physicalRun) => ({
+            runKey: physicalRun.runKey,
+            behaviors: physicalRun.behaviors,
             sourceProject: physicalRun.sourceProject,
             config: physicalRun.paths.config,
             report: physicalRun.paths.report,

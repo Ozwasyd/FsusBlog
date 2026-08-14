@@ -118,29 +118,33 @@ export function createChangedCriticalMutationAuthority({
         'selection bytes'
     );
     assertEqual(selection.toolPolicy.sha256, sha256(rawCatalog), 'catalog digest');
-    if (!Array.isArray(runs) || runs.length !== selection.projectClosures.length)
+    if (!Array.isArray(runs) || runs.length !== selection.executionClosures.length)
     {
-        throw new Error('authority requires one physical mutation run per source-project closure');
+        throw new Error('authority requires one physical mutation run per execution closure');
     }
 
     const runAuthorities = runs.map((run) =>
     {
-        const closure = selection.projectClosures.find(
-            ({ sourceProject }) => sourceProject === run.sourceProject
+        const closure = selection.executionClosures.find(
+            ({ runKey }) => runKey === run.runKey
         );
         if (!closure)
         {
-            throw new Error(`unexpected mutation source project ${run.sourceProject}`);
+            throw new Error(`unexpected mutation execution closure ${run.runKey}`);
+        }
+        if (closure.sourceProject !== run.sourceProject)
+        {
+            throw new Error(`mutation execution closure ${run.runKey} source project mismatch`);
         }
         assertEqual(
             canonicalJson(run.config['stryker-config'].mutate),
             canonicalJson(closure.mutateFiles),
-            `${run.sourceProject} mutate scope`
+            `${run.runKey} mutate scope`
         );
         assertEqual(
             run.config['stryker-config']['test-case-filter'],
             closure.testFilter,
-            `${run.sourceProject} test filter`
+            `${run.runKey} test filter`
         );
         const scopedReport = scopeMutationReport(
             run.report,
@@ -159,7 +163,7 @@ export function createChangedCriticalMutationAuthority({
             rawConfig: run.rawConfig,
             configPath: run.paths.config,
             tierId: 'backend-mutation-changed-critical',
-            runId: `${runId}:${run.sourceProject}`,
+            runId: `${runId}:${run.runKey}`,
             sourceState: selection.sourceState,
             generatedAt,
             repositoryRoot,
@@ -168,10 +172,12 @@ export function createChangedCriticalMutationAuthority({
         if (authority.executedMutants === 0)
         {
             throw new Error(
-                `non-empty critical closure executed zero mutants for ${run.sourceProject}`
+                `non-empty critical closure executed zero mutants for ${run.runKey}`
             );
         }
         return {
+            runKey: run.runKey,
+            behaviors: closure.behaviors,
             sourceProject: run.sourceProject,
             config: {
                 path: run.paths.config,
@@ -205,7 +211,7 @@ export function createChangedCriticalMutationAuthority({
             inventoryDigest: authority.inventoryDigest,
             executionMatrixDigest: authority.executionMatrixDigest
         };
-    }).sort((left, right) => left.sourceProject.localeCompare(right.sourceProject));
+    }).sort((left, right) => left.runKey.localeCompare(right.runKey));
 
     const statuses = Object.fromEntries(knownStatuses().map((status) => [
         status,
@@ -224,7 +230,7 @@ export function createChangedCriticalMutationAuthority({
         .sort((left, right) => left.localeCompare(right));
 
     return {
-        schema: 'fsusblog.changed-critical-mutation-authority.v1',
+        schema: 'fsusblog.changed-critical-mutation-authority.v2',
         evidenceClass: 'source-level',
         status: 'success',
         runId,
@@ -241,7 +247,11 @@ export function createChangedCriticalMutationAuthority({
             version: catalog.version
         },
         generatedConfigDigest: sha256(canonicalJson(
-            runAuthorities.map(({ sourceProject, config }) => ({ sourceProject, ...config }))
+            runAuthorities.map(({ runKey, sourceProject, config }) => ({
+                runKey,
+                sourceProject,
+                ...config
+            }))
         )),
         mutateFiles: selection.mutateFiles,
         testFilter: selection.testFilter,
@@ -272,19 +282,22 @@ export function createChangedCriticalMutationAuthority({
         executionMatrixDigest: sha256(canonicalJson(executionMatrix(combinedInventory))),
         physicalRuns: runAuthorities,
         rawReportDigest: sha256(canonicalJson(
-            runAuthorities.map(({ sourceProject, rawReport }) => ({
+            runAuthorities.map(({ runKey, sourceProject, rawReport }) => ({
+                runKey,
                 sourceProject,
                 ...rawReport
             }))
         )),
         rawTraceDigest: sha256(canonicalJson(
-            runAuthorities.map(({ sourceProject, rawTrace }) => ({
+            runAuthorities.map(({ runKey, sourceProject, rawTrace }) => ({
+                runKey,
                 sourceProject,
                 ...rawTrace
             }))
         )),
         traceBatchDigest: sha256(canonicalJson(
-            runAuthorities.map(({ sourceProject, traceExecution }) => ({
+            runAuthorities.map(({ runKey, sourceProject, traceExecution }) => ({
+                runKey,
                 sourceProject,
                 batchDigest: traceExecution.batchDigest
             }))
@@ -309,7 +322,7 @@ export function validateChangedCriticalMutationAuthority({
 })
 {
     if (
-        authority?.schema !== 'fsusblog.changed-critical-mutation-authority.v1'
+        authority?.schema !== 'fsusblog.changed-critical-mutation-authority.v2'
         || authority.status !== 'success'
     )
     {

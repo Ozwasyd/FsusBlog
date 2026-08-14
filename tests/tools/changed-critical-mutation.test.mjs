@@ -204,6 +204,54 @@ test('cross-behavior selection is deterministic and de-duplicated', () =>
     ]);
 });
 
+test('same-project behaviors become separate binding-derived execution closures', () =>
+{
+    const ownerReceipt = makeOwnerReceipt();
+    ownerReceipt.bindings = ownerReceipt.bindings.map((binding) =>
+        binding.behaviorId === 'binary-api-aeds-contract'
+            ? {
+                ...binding,
+                sourcePath: 'src/backend/Infrastructure/Binary/BinaryEnvelopePolicy.cs',
+                symbol: 'BinaryEnvelopePolicy'
+            }
+            : binding);
+    const selection = selectChangedCriticalMutation({
+        toolPolicy,
+        rawToolPolicy,
+        changedPaths: [
+            'src/backend/Infrastructure/Auth/AccountSubjectHasher.cs',
+            'src/backend/Infrastructure/Binary/BinaryEnvelopePolicy.cs'
+        ],
+        sourceState,
+        ownerReceipt,
+        behaviorCatalog: makeBehaviorCatalog(),
+        testBindingScan: makeTestBindingScan()
+    });
+
+    assert.deepEqual(
+        selection.executionClosures.map(({ runKey, sourceProject, mutateFiles, testFilters }) => ({
+            runKey,
+            sourceProject,
+            mutateFiles,
+            testFilters
+        })),
+        [
+            {
+                runKey: 'authentication-session-permission--src-backend',
+                sourceProject: 'src/backend',
+                mutateFiles: ['Infrastructure/Auth/AccountSubjectHasher.cs'],
+                testFilters: ['AccountSubjectHasherMutationTests', 'AuthCookieServiceSecurityTests']
+            },
+            {
+                runKey: 'binary-api-aeds-contract--src-backend',
+                sourceProject: 'src/backend',
+                mutateFiles: ['Infrastructure/Binary/BinaryEnvelopePolicy.cs'],
+                testFilters: ['ArticleRightsCanonicalHashTests']
+            }
+        ]
+    );
+});
+
 test('non-mutation-required behavior change produces empty selection', () =>
 {
     const selection = select(['tools/governance/check-code-intent.mjs']);

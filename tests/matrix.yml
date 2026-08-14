@@ -9089,7 +9089,7 @@ tiers:
           ]
       services: []
       parallelizable: false
-      serialReason: one generated closure owns the repository Stryker process and run-bound authority
+      serialReason: one lane serially executes behavior-owner closures and owns the run-bound Stryker authority
       exclusiveResources: [stryker]
       phase: 1
       cost: high

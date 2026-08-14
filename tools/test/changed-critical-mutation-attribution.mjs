@@ -430,7 +430,7 @@ export function attachExpectedTestEvidence({ attributions, selection })
  */
 export function expectedAttributionMutantIdsByBehavior(selection, authority)
 {
-    const closures = selection?.projectClosures ?? [];
+    const closures = selection?.executionClosures ?? [];
     const sourceProjectFor = (sourceFile) =>
     {
         const closure = closures.find((entry) =>

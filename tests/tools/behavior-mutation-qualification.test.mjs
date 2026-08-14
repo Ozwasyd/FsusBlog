@@ -119,7 +119,7 @@ function ownerReceiptFixture()
 }
 
 /**
- * Build physical Stryker report/trace/config fixtures for every source-project
+ * Build physical Stryker report/trace/config fixtures for every execution
  * closure of a selection. Returns run records in the shape consumed by
  * `createChangedCriticalMutationAuthority`.
  */
@@ -193,9 +193,9 @@ function buildPhysicalRuns({
 
     const runs = [];
     let index = 0;
-    for (const closure of selection.projectClosures)
+    for (const closure of selection.executionClosures)
     {
-        const config = createChangedCriticalStrykerConfig(selection, toolPolicy, closure.sourceProject);
+        const config = createChangedCriticalStrykerConfig(selection, toolPolicy, closure.runKey);
         const rawConfig = Buffer.from(JSON.stringify(config));
         const files = {};
         const testFiles = {};
@@ -247,9 +247,9 @@ function buildPhysicalRuns({
         const rawReport = Buffer.from(JSON.stringify(report));
 
         const reportName = 'changed-critical-mutation';
-        const physicalDir = path.join(baseDir, 'physical', closure.sourceProject.replaceAll('/', '-'));
+        const physicalDir = path.join(baseDir, 'physical', closure.runKey);
         const reportAbsolutePath = path.join(physicalDir, 'reports', `${reportName}.json`);
-        const configPath = path.join(baseDir, 'configs', `${closure.sourceProject.replaceAll('/', '-')}.json`);
+        const configPath = path.join(baseDir, 'configs', `${closure.runKey}.json`);
         const tracePath = path.join(physicalDir, 'logs', 'log-fixture.txt');
         const lines = [
             '2026-08-08T00:59:59.0000000Z  [DBG] Stryker starting, version: "4.16.0" (f9109e24)',
@@ -283,6 +283,8 @@ function buildPhysicalRuns({
         fs.writeFileSync(reportAbsolutePath, rawReport);
         fs.writeFileSync(tracePath, rawTrace);
         runs.push({
+            runKey: closure.runKey,
+            behaviors: closure.behaviors,
             sourceProject: closure.sourceProject,
             config,
             rawConfig,

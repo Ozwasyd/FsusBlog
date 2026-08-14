@@ -163,7 +163,7 @@ function collectRequiredBehaviorEntries({
 
 /**
  * Shared downstream builder: owner entries → test filters → mutate files →
- * source-project closures → sealed selection.
+ * behavior-owner execution closures → sealed selection.
  */
 function finalizeBehaviorSelection({
     toolPolicy,
@@ -253,36 +253,73 @@ function finalizeBehaviorSelection({
         behaviors.flatMap((b) => b.testFilters)
     )].sort().map((cls) => `FullyQualifiedName~${cls}`).join('|');
 
-    // Source project closures.
+    // Physical execution closures partition every selected source file by
+    // source project and its exact behavior-owner set. This keeps a file in
+    // exactly one Stryker run while preventing unrelated behaviors/tests from
+    // sharing one heavily instrumented assembly.
     const sourceProjects = [...new Set(
         mutateFiles
             .map((file) => resolveChangedCriticalSourceProject(file, toolPolicy.sourceProjects))
     )].sort();
-    const projectClosures = sourceProjects.map((sourceProject) =>
+    const executionClosureGroups = new Map();
+    for (const sourceProject of sourceProjects)
     {
-        const projectBehaviors = behaviors.filter((b) =>
-            b.mutateFiles.some((f) => f.startsWith(`${sourceProject}/`)));
-        const projectMutateFiles = [...new Set(
-            projectBehaviors.flatMap((b) =>
-                b.mutateFiles
-                    .filter((f) => f.startsWith(`${sourceProject}/`))
-                    .map((f) => f.slice(sourceProject.length + 1))
-            )
-        )].sort();
-        const projectTestFilters = [...new Set(
-            projectBehaviors.flatMap((b) => b.testFilters)
-        )].sort();
-        return {
-            sourceProject,
-            behaviors: projectBehaviors.map(({ behaviorId, risk }) => ({ behaviorId, risk })),
-            mutateFiles: projectMutateFiles,
-            testFilters: projectTestFilters,
-            testFilter: projectTestFilters.map((cls) => `FullyQualifiedName~${cls}`).join('|')
-        };
-    });
+        const files = mutateFiles.filter((file) => file.startsWith(`${sourceProject}/`));
+        for (const file of files)
+        {
+            const behaviorIds = behaviors
+                .filter((behavior) => behavior.mutateFiles.includes(file))
+                .map((behavior) => behavior.behaviorId)
+                .sort();
+            if (behaviorIds.length === 0)
+            {
+                throw new Error(`selected mutate file has no behavior owner: ${file}`);
+            }
+            const ownershipKey = behaviorIds.join('+');
+            const runKey = `${ownershipKey}--${sourceProject.replaceAll('/', '-')}`;
+            if (!executionClosureGroups.has(runKey))
+            {
+                executionClosureGroups.set(runKey, {
+                    runKey,
+                    sourceProject,
+                    behaviorIds,
+                    mutateFiles: []
+                });
+            }
+            executionClosureGroups.get(runKey).mutateFiles.push(
+                file.slice(sourceProject.length + 1)
+            );
+        }
+    }
+    const executionClosures = [...executionClosureGroups.values()]
+        .map((closure) =>
+        {
+            const closureBehaviors = behaviors.filter((behavior) =>
+                closure.behaviorIds.includes(behavior.behaviorId));
+            const testFilters = [...new Set(
+                closureBehaviors.flatMap((behavior) => behavior.testFilters)
+            )].sort();
+            return {
+                runKey: closure.runKey,
+                sourceProject: closure.sourceProject,
+                behaviors: closureBehaviors.map(({ behaviorId, risk }) => ({ behaviorId, risk })),
+                mutateFiles: [...new Set(closure.mutateFiles)].sort(),
+                testFilters,
+                testFilter: testFilters.map((cls) => `FullyQualifiedName~${cls}`).join('|')
+            };
+        })
+        .sort((left, right) => left.runKey.localeCompare(right.runKey));
+
+    for (const closure of executionClosures)
+    {
+        if (closure.testFilters.length === 0)
+        {
+            throw new Error(`execution closure ${closure.runKey} has no binding-derived tests`);
+        }
+    }
 
     const base = {
-        schema: 'fsusblog.changed-critical-mutation-selection.v2',
+        schema: 'fsusblog.changed-critical-mutation-selection.v3',
         status: behaviors.length === 0 ? 'empty' : 'selected',
         scope,
         sourceState: normalizedSourceState,
@@ -299,7 +336,7 @@ function finalizeBehaviorSelection({
         behaviors,
         mutateFiles,
         testFilter,
-        projectClosures,
+        executionClosures,
         reasons: behaviors.flatMap((b) => b.reasons).sort()
     };
     return {
@@ -552,18 +589,18 @@ export function selectChangedCriticalMutation({
     });
 }
 
-export function createChangedCriticalStrykerConfig(selection, toolPolicy, sourceProject = null)
+export function createChangedCriticalStrykerConfig(selection, toolPolicy, runKey = null)
 {
     if (selection.status !== 'selected' || selection.mutateFiles.length === 0 || !selection.testFilter)
     {
         throw new Error('cannot generate Stryker config for an empty critical closure');
     }
     validateToolPolicy(toolPolicy);
-    const selectedProject = sourceProject ?? selection.projectClosures[0]?.sourceProject;
-    const closure = selection.projectClosures.find((entry) => entry.sourceProject === selectedProject);
+    const selectedRun = runKey ?? selection.executionClosures[0]?.runKey;
+    const closure = selection.executionClosures.find((entry) => entry.runKey === selectedRun);
     if (!closure)
     {
-        throw new Error(`selection has no source-project closure for ${selectedProject}`);
+        throw new Error(`selection has no execution closure for ${selectedRun}`);
     }
     return {
         'stryker-config': {

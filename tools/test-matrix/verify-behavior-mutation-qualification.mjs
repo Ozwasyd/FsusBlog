@@ -535,7 +535,7 @@ export function verifyBehaviorMutationQualification(options)
     const authority = loadJson(repositoryRootValue, options.authority, 'mutation authority', errors);
     if (authority)
     {
-        if (authority.schema !== 'fsusblog.changed-critical-mutation-authority.v1')
+        if (authority.schema !== 'fsusblog.changed-critical-mutation-authority.v2')
         {
             errors.push('mutation authority schema mismatch');
         }
@@ -567,20 +567,24 @@ export function verifyBehaviorMutationQualification(options)
                 const absolute = path.resolve(repositoryRootValue, entry?.path ?? '');
                 if (!fs.existsSync(absolute))
                 {
-                    errors.push(`${run.sourceProject} ${kind} file missing: ${entry?.path ?? '<missing>'}`);
+                    errors.push(`${run.runKey} ${kind} file missing: ${entry?.path ?? '<missing>'}`);
                     continue;
                 }
                 const actual = sha256(fs.readFileSync(absolute));
                 if (bare(actual) !== bare(entry?.sha256))
                 {
-                    errors.push(`${run.sourceProject} ${kind} file tamper: digest mismatch on ${entry?.path}`);
+                    errors.push(`${run.runKey} ${kind} file tamper: digest mismatch on ${entry?.path}`);
                 }
             }
         }
         const digestRuns = (kind) => canonicalJson(
             (authority.physicalRuns ?? [])
-                .map(({ sourceProject, ...run }) => ({ sourceProject, ...run[kind] }))
-                .sort((left, right) => left.sourceProject.localeCompare(right.sourceProject))
+                .map(({ runKey, sourceProject, ...run }) => ({
+                    runKey,
+                    sourceProject,
+                    ...run[kind]
+                }))
+                .sort((left, right) => left.runKey.localeCompare(right.runKey))
         );
         if (receipt)
         {

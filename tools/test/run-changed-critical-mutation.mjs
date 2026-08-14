@@ -324,14 +324,14 @@ function runPhysicalMutations({ selection, toolPolicy, runDirectory, root, physi
     {
         return restore;
     }
-    for (const closure of selection.projectClosures)
+    for (const closure of selection.executionClosures)
     {
-        const runName = closure.sourceProject.replaceAll('/', '-');
+        const runName = closure.runKey;
         const physicalOutput = resolve(runDirectory, 'physical', runName);
         const config = createChangedCriticalStrykerConfig(
             selection,
             toolPolicy,
-            closure.sourceProject
+            closure.runKey
         );
         const configPath = resolve(runDirectory, 'configs', `${runName}.json`);
         writeJsonAtomic(configPath, config);
@@ -375,14 +375,18 @@ function runPhysicalMutations({ selection, toolPolicy, runDirectory, root, physi
                 mutateFiles: closure.mutateFiles
             });
             writeJsonAtomic(resolve(runDirectory, 'configs', `${runName}-physical-scope.json`), {
-                schema: 'fsusblog.changed-critical-mutation-physical-scope.v1',
+                schema: 'fsusblog.changed-critical-mutation-physical-scope.v2',
                 sourceState: selection.sourceState,
+                runKey: closure.runKey,
+                behaviors: closure.behaviors,
                 sourceProject: closure.sourceProject,
                 mutateFiles: sandbox.selected,
                 suppressedSourceFileCount: sandbox.suppressed.length,
                 traceVerified: true
             });
             physicalRuns.push({
+                runKey: closure.runKey,
+                behaviors: closure.behaviors,
                 sourceProject: closure.sourceProject,
                 config,
                 configPath,
@@ -487,6 +491,8 @@ function main()
         const rawReport = readFileSync(physical.reportPath);
         const rawTrace = readFileSync(physical.tracePath);
         return {
+            runKey: physical.runKey,
+            behaviors: physical.behaviors,
             sourceProject: physical.sourceProject,
             config: physical.config,
             rawConfig,
@@ -503,8 +509,10 @@ function main()
     });
     const runManifestPath = resolve(runDirectory, 'run-manifest.json');
     writeJsonAtomic(runManifestPath, {
-        schema: 'fsusblog.changed-critical-mutation-run-manifest.v1',
+        schema: 'fsusblog.changed-critical-mutation-run-manifest.v2',
         runs: authorityRuns.map((physical) => ({
+            runKey: physical.runKey,
+            behaviors: physical.behaviors,
             sourceProject: physical.sourceProject,
             config: physical.paths.config,
             report: physical.paths.report,
