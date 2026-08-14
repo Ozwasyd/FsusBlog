@@ -412,8 +412,7 @@ jobs:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
                   receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-            - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" install --frozen-lockfile --ignore-scripts
-            - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" run build:theme
+            - run: node tools/test/prepare-fsusui-baseline.mjs
             - run: ./tools/test.sh ci-tier production-image-smoke --no-deps
               env:
                   FSUSBLOG_RUNTIME_PROFILE_ID: ${{ matrix.profile }}
@@ -586,8 +585,7 @@ jobs:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
                   receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-            - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" install --frozen-lockfile --ignore-scripts
-            - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" run build:theme
+            - run: node tools/test/prepare-fsusui-baseline.mjs
             - run: ./tools/test.sh ci-tier frontend-build --no-deps
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
               if: always()
@@ -630,8 +628,7 @@ jobs:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
                   receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-            - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" install --frozen-lockfile --ignore-scripts
-            - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" run build:theme
+            - run: node tools/test/prepare-fsusui-baseline.mjs
             - run: ./tools/test.sh ci-job fast-frontend-unit --fresh
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
               if: always()
@@ -683,8 +680,7 @@ jobs:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
                   receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-            - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" install --frozen-lockfile --ignore-scripts
-            - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" run build:theme
+            - run: node tools/test/prepare-fsusui-baseline.mjs
             - run: ./tools/test.sh ci-tier frontend-runtime-contracts --no-deps
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
               if: always()
@@ -729,8 +725,7 @@ jobs:
                   name: frontend-build
                   path: .
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-            - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" install --frozen-lockfile --ignore-scripts
-            - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" run build:theme
+            - run: node tools/test/prepare-fsusui-baseline.mjs
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix tools/frontend/style-toolchain ci --ignore-scripts --no-audit --progress=false
             - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - run: ./tools/test.sh ci-tier frontend-static-governance --no-deps
@@ -1243,8 +1238,7 @@ jobs:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
                   receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-            - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" install --frozen-lockfile --ignore-scripts
-            - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" run build:theme
+            - run: node tools/test/prepare-fsusui-baseline.mjs
             - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
               with:
                   path: ~/.cache/ms-playwright

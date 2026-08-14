@@ -105,8 +105,14 @@ test('workflow exports and checks out the exact pinned FsusUI identity', () =>
     assert.match(workflow, /ref: \$\{\{ steps\.fsusui-baseline\.outputs\.commit \}\}/u);
     assert.match(workflow, /node tools\/test\/fsusui-baseline\.mjs --github-output "\$GITHUB_OUTPUT"/u);
     assert.match(workflow, /repository: Ozwasyd\/FsusUI[\s\S]*?token: \$\{\{ secrets\.GITHUB_PACKAGES_TOKEN \|\| github\.token \}\}[\s\S]*?persist-credentials: false/u);
+    assert.match(workflow, /node tools\/test\/prepare-fsusui-baseline\.mjs/u);
     assert.match(workflow, /node tests\/browser-diagnostics\/local-fsusui-identity\.mjs/u);
     assert.match(qualityGate, /repository: Ozwasyd\/FsusUI[\s\S]*?token: \$\{\{ secrets\.GITHUB_PACKAGES_TOKEN \|\| github\.token \}\}[\s\S]*?persist-credentials: false/u);
+    assert.match(qualityGate, /node tools\/test\/prepare-fsusui-baseline\.mjs/u);
+    assert.doesNotMatch(
+        `${workflow}\n${qualityGate}`,
+        /corepack pnpm --dir "\$FSUSBLOG_LOCAL_FSUSUI_ROOT" run build:theme/u
+    );
 });
 
 test('local FsusUI identity is stable, path-independent and binds source plus generated theme dist', (t) =>

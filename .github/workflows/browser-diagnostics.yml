@@ -127,8 +127,7 @@ jobs:
                   path: ~/.nuget/packages
                   key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-            - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" install --frozen-lockfile --ignore-scripts
-            - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" run build:theme
+            - run: node tools/test/prepare-fsusui-baseline.mjs
             - name: Verify pinned local FsusUI evidence identity
               run: node tests/browser-diagnostics/local-fsusui-identity.mjs
             - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4

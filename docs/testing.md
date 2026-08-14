@@ -12,7 +12,10 @@ FsusBlog 采用机器可读测试 DAG。`tests/matrix.yml` 是唯一测试拓扑
 FsusBlog 后由 `tools/test/fsusui-baseline.mjs` 导出该 SHA，不得保留 workflow-local
 pin、环境默认 pin 或 package-only 测试 fallback。每个 frontend lane 在执行前都通过
 Git common directory 解析 local source，并复用同一 identity verifier 检查 clean
-worktree、完整 commit 与生成后的 theme dist。
+worktree、完整 commit 与生成后的 theme dist。CI 与本地准备 pinned checkout 时统一
+调用 `tools/test/prepare-fsusui-baseline.mjs`：保持 dependency lifecycle scripts
+关闭，显式生成 workspace producer stubs 后再构建 theme，不得直接调用
+`build:theme` 或依赖隐式 `postinstall` 形成第二套准备顺序。
 
 `behavior-doc-static-admission` 是所有候选测试、构建、服务、容器和浏览器之前唯一且无条件的 BehaviorDoc 静态准入节点。它使用 `executionClass: static-governance`、`fixtureProfile: none`，不启动数据库、runtime、Vitest 或 Playwright；节点依次复用 BehaviorCatalog、DocClaim schema/parser、ImplementationOwner、当前 extractor registry、generated section checker、prose verifier 和 staleness mutation fixtures 的既有 authority。四个 compiled-assembly extractor 只消费本轮 content-addressed minimal contract build 的精确 receipt，禁止读取 ambient `bin/obj`。同一 source/worktree/toolchain 的并发准入通过原子 owner lock 选出唯一 publisher，在 per-run staging 完整构建后原子发布；后继 run 只有在 receipt、source closure、project 和 observation digest 全部重验通过后才可复用，损坏或遗留 cache 必须重建。任一 missing、duplicate、stale、warning、partial 或 source/build identity 漂移都直接失败。
 

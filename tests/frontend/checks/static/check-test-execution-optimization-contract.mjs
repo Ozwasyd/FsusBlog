@@ -470,8 +470,7 @@ for (const [job, nextJob] of [
             'node tools/test/fsusui-baseline.mjs --github-output "$GITHUB_OUTPUT"',
             'repository: Ozwasyd/FsusUI',
             'ref: ${{ steps.fsusui-baseline.outputs.commit }}',
-            'corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" install --frozen-lockfile --ignore-scripts',
-            'corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" run build:theme'
+            'node tools/test/prepare-fsusui-baseline.mjs'
         ]
     );
 }
@@ -485,10 +484,15 @@ requireSectionIncludes(
         'node tools/test/fsusui-baseline.mjs --github-output "$GITHUB_OUTPUT"',
         'repository: Ozwasyd/FsusUI',
         'ref: ${{ steps.fsusui-baseline.outputs.commit }}',
-        'corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" install --frozen-lockfile --ignore-scripts',
-        'corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" run build:theme'
+        'node tools/test/prepare-fsusui-baseline.mjs'
     ]
 );
+requireIncludes('tools/test/prepare-fsusui-baseline.mjs', [
+    "'install', '--frozen-lockfile', '--ignore-scripts'",
+    "'run', 'stub'",
+    "'run', 'build:theme'",
+    'resolveLocalFsusUiIdentity'
+]);
 if (read('tools/coverage/collect-frontend-coverage.sh').includes(
     'FSUSBLOG_USE_LOCAL_FSUSUI="${FSUSBLOG_USE_LOCAL_FSUSUI:-0}"'
 ))

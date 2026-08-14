@@ -138,7 +138,7 @@ test('one matrix lane owns local and hosted production image smoke', () =>
     );
     assert.match(
         workflow,
-        /production-image-smoke:[\s\S]*corepack pnpm --dir "\$FSUSBLOG_LOCAL_FSUSUI_ROOT" run build:theme/u
+        /production-image-smoke:[\s\S]*node tools\/test\/prepare-fsusui-baseline\.mjs/u
     );
     assert.match(workflow, /\.\/tools\/test\.sh ci-tier production-image-smoke --no-deps/u);
     assert.match(lane, /check-production-compose-environment\.mjs/u);
