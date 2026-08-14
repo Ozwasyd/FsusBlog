@@ -465,12 +465,14 @@ function StripCommentsAndStrings(source)
         .replace(/\/\*[\s\S]*?\*\//gu, ' ')
         .replace(/(^|[^:])\/\/.*$/gmu, '$1')
         .replace(/#[^!].*$/gmu, '')
+        .replace(/\/(?:\\.|[^/\\\n])+\/[dgimsuvy]*/gu, '//')
         .replace(/'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`/gu, '""');
 }
 
 export function MeasureComplexity(file, source, context = {})
 {
     const stripped = StripCommentsAndStrings(source);
+    const shellSource = file.endsWith('.sh');
     const lines = source.split(/\r?\n/u);
     const codeLines = stripped.split(/\r?\n/u).filter((line) => line.trim()).length;
     const typeCount = stripped.split(/\r?\n/u).filter((line) =>
@@ -493,6 +495,19 @@ export function MeasureComplexity(file, source, context = {})
     {
         const branchCount = (line.match(/\b(?:if|else\s+if|for|foreach|while|case|catch)\b/gu) ?? []).length;
         cognitiveComplexity += branchCount * (1 + nesting);
+        if (shellSource)
+        {
+            if (/^\s*(?:function\s+)?[A-Za-z_][A-Za-z0-9_]*\s*\(\)\s*\{\s*$/u.test(line))
+            {
+                nesting += 1;
+                maxNestingDepth = Math.max(maxNestingDepth, nesting);
+            }
+            else if (/^\s*\}\s*$/u.test(line))
+            {
+                nesting = Math.max(0, nesting - 1);
+            }
+            continue;
+        }
         for (const character of line)
         {
             if (character === '{')

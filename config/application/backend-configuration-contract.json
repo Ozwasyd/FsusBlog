@@ -7239,7 +7239,8 @@
         "tools/deployment/slot-status.sh",
         "tools/deployment/slot-stop.sh",
         "tools/deployment/zero-downtime-rehearsal.sh",
-        "tools/deployment/zero-downtime-topology.sh"
+        "tools/deployment/zero-downtime-topology.sh",
+        "tools/deployment/check-production-gateway-config.sh"
       ],
       "deprecation": null
     },
@@ -7519,6 +7520,7 @@
         "ASPNETCORE_ENVIRONMENT"
       ],
       "sources": [
+        ".env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -7769,6 +7771,7 @@
         "FSUSBLOG_DEPLOYMENT_MODE"
       ],
       "sources": [
+        ".env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -7915,6 +7918,17 @@
       "deprecation": null
     },
     {
+      "name": "FSUSBLOG_GATEWAY_CONFIG_UNDER_TEST",
+      "category": "tooling-only",
+      "owner": "release-lifecycle",
+      "secret": false,
+      "mapsTo": [],
+      "sources": [
+        "tools/deployment/check-production-gateway-config.sh"
+      ],
+      "deprecation": null
+    },
+    {
       "name": "FSUSBLOG_GATEWAY_EVIDENCE_DIR",
       "category": "deployment-control",
       "owner": "release-lifecycle",
@@ -7964,6 +7978,17 @@
         "tools/deployment/gateway-switch.sh",
         "tools/deployment/release-rollout-recovery.sh",
         "tools/deployment/release-rollout.sh"
+      ],
+      "deprecation": null
+    },
+    {
+      "name": "FSUSBLOG_GATEWAY_SYNTAX_IMAGE",
+      "category": "tooling-only",
+      "owner": "release-lifecycle",
+      "secret": false,
+      "mapsTo": [],
+      "sources": [
+        "tools/deployment/check-production-gateway-config.sh"
       ],
       "deprecation": null
     },
@@ -8849,6 +8874,7 @@
         "SchemaMigration:QualificationEnabled"
       ],
       "sources": [
+        ".env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -8909,6 +8935,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
+        ".env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -8920,6 +8947,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
+        ".env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -8931,6 +8959,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
+        ".env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -8942,6 +8971,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
+        ".env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -8987,6 +9017,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
+        ".env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -8998,6 +9029,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
+        ".env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -9009,6 +9041,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
+        ".env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -9044,6 +9077,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
+        ".env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -9295,6 +9329,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
+        ".env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -9410,7 +9445,8 @@
         "Jwt:KeyVersion"
       ],
       "sources": [
-        ".env.production.example"
+        ".env.production.example",
+        "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
     },
@@ -9423,7 +9459,8 @@
         "Jwt:RotationWindowDays"
       ],
       "sources": [
-        ".env.production.example"
+        ".env.production.example",
+        "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
     },
@@ -9436,7 +9473,8 @@
         "Jwt:SecretKey"
       ],
       "sources": [
-        ".env.production.example"
+        ".env.production.example",
+        "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
     },

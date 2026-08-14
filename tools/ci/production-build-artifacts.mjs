@@ -37,7 +37,8 @@ function compareArtifactPaths(left, right)
 
 function contentDigest(value)
 {
-    const { contentDigest: _ignored, ...content } = value;
+    const content = { ...value };
+    delete content.contentDigest;
     return sha256Buffer(JSON.stringify(canonicalize(content)));
 }
 
@@ -53,6 +54,14 @@ function chmodReadOnly(file)
 {
     const mode = fs.statSync(file).mode & 0o777;
     fs.chmodSync(file, mode & ~0o222);
+}
+
+function invariant(condition, message)
+{
+    if (!condition)
+    {
+        throw new Error(message);
+    }
 }
 
 function normalizeRelative(value, label)
@@ -885,58 +894,48 @@ export function releaseProductionBuildMaterialization({
     const buildBase = path.join(repositoryRoot, '.tmp/build');
     const normalizedRunId = String(runId ?? '').trim();
     const normalizedBuildRunId = String(buildRunId ?? '').trim();
-    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(normalizedRunId)
-        || normalizedBuildRunId !== `${normalizedRunId}-acceptance`)
-    {
-        throw new Error('consumer materialization requires the exact acceptance build run identity');
-    }
+    invariant(
+        /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(normalizedRunId)
+            && normalizedBuildRunId === `${normalizedRunId}-acceptance`,
+        'consumer materialization requires the exact acceptance build run identity');
     const target = path.resolve(buildBase, normalizedBuildRunId);
-    if (path.dirname(target) !== buildBase || path.basename(target) !== normalizedBuildRunId)
-    {
-        throw new Error('consumer materialization root escapes the managed build directory');
-    }
+    invariant(
+        path.dirname(target) === buildBase && path.basename(target) === normalizedBuildRunId,
+        'consumer materialization root escapes the managed build directory');
     const leaseFile = consumerLeaseFile({ artifactRoot, runId, consumerId });
-    if (!fs.existsSync(leaseFile))
-    {
-        throw new Error('cannot release a missing production build consumer lease');
-    }
+    invariant(
+        fs.existsSync(leaseFile),
+        'cannot release a missing production build consumer lease');
     const lease = JSON.parse(fs.readFileSync(leaseFile, 'utf8'));
-    if (lease.schema !== productionBuildLifecycleSchema
-        || lease.artifactRoot !== path.resolve(artifactRoot)
-        || lease.runId !== runId
-        || lease.consumerId !== consumerId
-        || lease.status !== 'active')
-    {
-        throw new Error('production build consumer lease is not the expected active identity');
-    }
+    invariant(
+        lease.schema === productionBuildLifecycleSchema
+            && lease.artifactRoot === path.resolve(artifactRoot)
+            && lease.runId === runId
+            && lease.consumerId === consumerId
+            && lease.status === 'active',
+        'production build consumer lease is not the expected active identity');
     if (fs.existsSync(target))
     {
         const metadata = fs.lstatSync(target);
-        if (!metadata.isDirectory() || metadata.isSymbolicLink())
-        {
-            throw new Error('consumer materialization root is not a regular directory');
-        }
+        invariant(
+            metadata.isDirectory() && !metadata.isSymbolicLink(),
+            'consumer materialization root is not a regular directory');
         for (const forbidden of ['layout.json', '.active.json', '.reclaim.json'])
         {
-            if (fs.existsSync(path.join(target, forbidden)))
-            {
-                throw new Error(`consumer materialization root contains managed owner state: ${forbidden}`);
-            }
+            invariant(
+                !fs.existsSync(path.join(target, forbidden)),
+                `consumer materialization root contains managed owner state: ${forbidden}`);
         }
         const allowedEntries = new Set(['dotnet', 'frontend', 'generated', 'runtime', 'wasm']);
         const unexpected = fs.readdirSync(target)
             .filter((entry) => !allowedEntries.has(entry));
-        if (unexpected.length > 0)
-        {
-            throw new Error(
-                `consumer materialization root contains unexpected entries: ${unexpected.sort().join(', ')}`
-            );
-        }
+        invariant(
+            unexpected.length === 0,
+            `consumer materialization root contains unexpected entries: ${unexpected.sort().join(', ')}`);
         remove(target);
-        if (fs.existsSync(target))
-        {
-            throw new Error('consumer materialization root still exists after cleanup');
-        }
+        invariant(
+            !fs.existsSync(target),
+            'consumer materialization root still exists after cleanup');
     }
     return {
         buildRunId: normalizedBuildRunId,

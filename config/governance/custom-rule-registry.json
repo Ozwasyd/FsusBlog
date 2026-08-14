@@ -3,7 +3,7 @@
     "generatedBy": "tools/governance/check-rule-platform.mjs --write-registry",
     "inventory": {
         "packageScriptCount": 214,
-        "implementationCount": 392
+        "implementationCount": 395
     },
     "rules": [
         {
@@ -12256,6 +12256,65 @@
             "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
         },
         {
+            "id": "Implementation.ToolsDeploymentCheckProductionComposeEnvironmentMjs",
+            "externalId": "tools/deployment/check-production-compose-environment.mjs",
+            "symbol": "CheckToolsDeploymentCheckProductionComposeEnvironment",
+            "owner": "ReleaseEngineeringOwner",
+            "category": "release-evidence",
+            "engine": "text",
+            "sourceScopes": [
+                "tools/deployment/check-production-compose-environment.mjs",
+                ".github/**",
+                "ops/**",
+                "tools/**",
+                "tests/tools/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/deployment/check-production-compose-environment.mjs",
+                "executionKey": "governance:file:tools/deployment/check-production-compose-environment.mjs",
+                "receiptCompatible": true
+            },
+            "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
+        },
+        {
+            "id": "Implementation.ToolsDeploymentCheckProductionGatewayConfigSh",
+            "externalId": "tools/deployment/check-production-gateway-config.sh",
+            "symbol": "CheckToolsDeploymentCheckProductionGatewayConfig",
+            "owner": "ReleaseEngineeringOwner",
+            "category": "release-evidence",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tools/deployment/check-production-gateway-config.sh",
+                ".github/**",
+                "ops/**",
+                "tools/**",
+                "tests/tools/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/deployment/check-production-gateway-config.sh",
+                "executionKey": "governance:file:tools/deployment/check-production-gateway-config.sh",
+                "receiptCompatible": true
+            }
+        },
+        {
             "id": "Implementation.ToolsDocsCheckAuthoritativeDevelopmentDocsMjs",
             "externalId": "tools/docs/check-authoritative-development-docs.mjs",
             "symbol": "CheckToolsDocsCheckAuthoritativeDevelopmentDocs",
@@ -16478,6 +16537,34 @@
                 "mode": "delegated-implementation",
                 "implementation": "tools/test/lanes/production-correctness-receipt.sh",
                 "executionKey": "governance:file:tools/test/lanes/production-correctness-receipt.sh",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Implementation.ToolsTestLanesProductionImageSmokeSh",
+            "externalId": "tools/test/lanes/production-image-smoke.sh",
+            "symbol": "CheckToolsTestLanesProductionImageSmoke",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tools/test/lanes/production-image-smoke.sh",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/test/lanes/production-image-smoke.sh",
+                "executionKey": "governance:file:tools/test/lanes/production-image-smoke.sh",
                 "receiptCompatible": true
             }
         },

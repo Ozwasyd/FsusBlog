@@ -1,9 +1,9 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:83a02e9bc584bf9a9f19b7798334efa04cc716864d2e08f9af24ce97a2a59c2b",
-    "sourceStateSha256": "83a02e9bc584bf9a9f19b7798334efa04cc716864d2e08f9af24ce97a2a59c2b",
+    "generatedFrom": "source-state:f572d8cecad874eff1727bb1e18a15640600cdba19cdcbd0b5a72893a8ff0df7",
+    "sourceStateSha256": "f572d8cecad874eff1727bb1e18a15640600cdba19cdcbd0b5a72893a8ff0df7",
     "configurationSha256": "e3a79045dfe354dc9d2900f417ae23109197247f8ebc00b499aeddd82ba215a4",
-    "violationCount": 269983,
+    "violationCount": 269842,
     "fileCount": 1504,
     "files": [
         {
@@ -1521,14 +1521,10 @@
         },
         {
             "path": "src/frontend/src/components/admin/article/articleEditorAccessibility.ts",
-            "sourceSha256": "3ce59110a20918164feb6d1a7f97ff82d59a24e233f527fad20b5390ded12a2e",
-            "violationCount": 31,
-            "violationDigest": "4a28a3612d5daac844e3070351feb243fe4d9caa2183236f75aba1cfa0455a7e",
-            "rules": {
-                "eslint/@stylistic/brace-style": 5,
-                "eslint/@stylistic/indent": 16,
-                "eslint/@stylistic/semi": 10
-            }
+            "sourceSha256": "350683bc0abb073a5025497175da63fa462f1ffcc43ea65c34901ec6fcd777db",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "src/frontend/src/components/admin/comment-moderation/CommentModerationAdvancedFilters.vue",
@@ -2094,7 +2090,7 @@
         },
         {
             "path": "src/frontend/src/components/public/PublicBlogLayoutShell.vue",
-            "sourceSha256": "f46cc0d38f66e5a80306b6fccb028e0fbc9ac706061a3f556c59a1f0969a0d02",
+            "sourceSha256": "f4ed5e549330319d2c5acab34f1d9a3579fc90af85f54155dfdb9ae0b9509f8e",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -5361,15 +5357,10 @@
         },
         {
             "path": "src/frontend/src/public-renderers/publicShellState.ts",
-            "sourceSha256": "8b2d127a895a1897b1ce7dcb87c1d474945b5aeab75db4348a0a0ba7f69185da",
-            "violationCount": 55,
-            "violationDigest": "b464cc8b8c589646cac26e0f5573f230820e8818d829228ebfdf190bb2474a91",
-            "rules": {
-                "eslint/@stylistic/brace-style": 1,
-                "eslint/@stylistic/indent": 32,
-                "eslint/@stylistic/member-delimiter-style": 14,
-                "eslint/@stylistic/semi": 8
-            }
+            "sourceSha256": "2f7b6324a2d5617e96a8003e5b3f5945b43ab17abf153130698d63154126c0b3",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "src/frontend/src/public-renderers/publicShellViewState.ts",
@@ -5400,17 +5391,10 @@
         },
         {
             "path": "src/frontend/src/public-renderers/publicSiteIdentityContext.ts",
-            "sourceSha256": "c03f460a9fc9cf27d5c3b97f7902551f63a80c9e27dc1aa538baba5672546f07",
-            "violationCount": 53,
-            "violationDigest": "16e01a9efb58e56ad69829be3d0a6c5e4fb047145eeb1a20a28557447e4f8998",
-            "rules": {
-                "eslint/@stylistic/brace-style": 5,
-                "eslint/@stylistic/indent": 25,
-                "eslint/@stylistic/member-delimiter-style": 7,
-                "eslint/@stylistic/semi": 12,
-                "eslint/@typescript-eslint/prefer-nullish-coalescing": 3,
-                "eslint/import-x/order": 1
-            }
+            "sourceSha256": "163a7901a3a9016e024176a6dc3287f0304a05007815996aff87ede62066d578",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "src/frontend/src/public-renderers/publicSiteIdentityDefaults.ts",
@@ -6870,7 +6854,7 @@
         },
         {
             "path": "src/frontend/src/views/admin/PluginAdmin.vue",
-            "sourceSha256": "fd0808468d8437688da2ab3a534d1e832f3717a97697db2ff47d0566e6a0889a",
+            "sourceSha256": "eb657c6e2e1205e32e32c019f88c3e42c8da4e12bdd4519f89649afc2b279a76",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -8722,7 +8706,7 @@
         },
         {
             "path": "tests/frontend/checks/static/check-article-editor-workspace-governance.mjs",
-            "sourceSha256": "fe9109e6d239f44baf17f5f2894a5a93c16ee7f22e9bb2ff06eb7bc8ef3df9a3",
+            "sourceSha256": "2d0d575f665e176aa61435e66c8dad29d8b72a1c0871416673dc7e1654452cf6",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -10142,12 +10126,10 @@
         },
         {
             "path": "tests/tools/backend-configuration-contract.test.mjs",
-            "sourceSha256": "495ac6f3f0e2352d9c6d30db42089a1f9124d1d197e58d186a9d88021147f156",
-            "violationCount": 1,
-            "violationDigest": "345ff18214c6039cf181ffb41bec3a9d722707302b79b5568b7262c787661edb",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "f858ff41b3a5fd53e43a33368ff966a4181210f45ae0784503521eecd3156929",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/backend-coverage-collector-layout.test.mjs",
@@ -12893,12 +12875,10 @@
         },
         {
             "path": "tools/ci/production-build-artifacts.mjs",
-            "sourceSha256": "5b1f63a3018d85fcd4590ecdd77e58d7575f155a65bcf4c741a77176828bef52",
-            "violationCount": 1,
-            "violationDigest": "e006d2f5b6fed8a6f625f205c1e25381df7b2d45b3f4108f6ca0d69e915ef3ea",
-            "rules": {
-                "eslint/no-unused-vars": 1
-            }
+            "sourceSha256": "de01ff659eb508f17ae5ef1e23f780e506d2279d53ba8149f33a725418db1f4a",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/ci/run-flaky-governed.mjs",

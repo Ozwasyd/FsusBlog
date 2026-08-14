@@ -1254,23 +1254,28 @@ test('qualified final topology owns one bridge, waits for native health, and cle
 test('qualified local wrapper captures bounded crash diagnostics before removing only its owned failed backend container', () =>
 {
     const source = fs.readFileSync(wrapper, 'utf8');
+    const containerLifecycle = fs.readFileSync(
+        path.join(root, 'tools/test/qualified-runtime-container-lifecycle.sh'),
+        'utf8'
+    );
     const cleanup = source.indexOf('CleanupQualifiedRuntimeResources()');
     const capture = source.indexOf('CaptureOwnedBackendCrashDiagnostics "$backend_container_id"');
     const remove = source.indexOf('RemoveOwnedContainer "$backend_container_id"');
     assert.ok(cleanup >= 0 && capture > cleanup && remove > capture, 'crash diagnostics must precede backend removal');
-    assert.match(source, /\[\[ "\$binding" == "\$containerId\|\$run_id\|\$namespace" \]\]/u);
-    assert.match(source, /\[\[ "\$exitCode" != "0" \]\] \|\| return 0/u);
-    assert.match(source, /\.tmp\/release-reliability\/\$\{run_id\}\/crash-diagnostics/u);
-    assert.match(source, /docker inspect --format '\{\{json \.State\}\}'/u);
-    assert.match(source, /docker logs --tail 200/u);
-    assert.match(source, /\/app\/runtime-cache\/coredump\.1\.crashreport\.json/u);
-    assert.match(source, /\/app\/runtime-cache\/createdump\.log/u);
-    assert.match(source, /bytes > 1048576/u);
-    assert.match(source, /logBytes <= 1048576/u);
-    assert.match(source, /umask 077/u);
-    assert.match(source, /chmod 700/u);
-    assert.doesNotMatch(source, /docker cp[^\n]*\/app\/runtime-cache\/\./u);
-    assert.doesNotMatch(source, /docker cp[^\n]*coredump/u);
+    assert.match(source, /source "\$root\/tools\/test\/qualified-runtime-container-lifecycle\.sh"/u);
+    assert.match(containerLifecycle, /\[\[ "\$binding" == "\$containerId\|\$run_id\|\$namespace" \]\]/u);
+    assert.match(containerLifecycle, /\[\[ "\$exitCode" != "0" \]\] \|\| return 0/u);
+    assert.match(containerLifecycle, /\.tmp\/release-reliability\/\$\{run_id\}\/crash-diagnostics/u);
+    assert.match(containerLifecycle, /docker inspect --format '\{\{json \.State\}\}'/u);
+    assert.match(containerLifecycle, /docker logs --tail 200/u);
+    assert.match(containerLifecycle, /\/app\/runtime-cache\/coredump\.1\.crashreport\.json/u);
+    assert.match(containerLifecycle, /\/app\/runtime-cache\/createdump\.log/u);
+    assert.match(containerLifecycle, /bytes > 1048576/u);
+    assert.match(containerLifecycle, /logBytes <= 1048576/u);
+    assert.match(containerLifecycle, /umask 077/u);
+    assert.match(containerLifecycle, /chmod 700/u);
+    assert.doesNotMatch(containerLifecycle, /docker cp[^\n]*\/app\/runtime-cache\/\./u);
+    assert.doesNotMatch(containerLifecycle, /docker cp[^\n]*coredump/u);
 });
 
 test('qualified local production environment export is exact factory parity and preserves literal values', (context) =>

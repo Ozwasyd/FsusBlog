@@ -127,7 +127,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 
-import type { SiteComplianceConfigPublic } from '@/api/system';
 import LocaleSelectorRuntimeAdapter from '@/components/i18n/LocaleSelectorRuntimeAdapter.vue';
 import PublicComplianceFooter from '@/components/public/PublicComplianceFooter.vue';
 import { usePublicStickyGeometry } from '@/components/public/usePublicStickyGeometry';
@@ -142,38 +141,28 @@ import {
     PUBLIC_FIXED_PATHS,
     PUBLIC_ROUTE_PATHS
 } from '@/public-renderers/publicRoutePaths';
-import { publicShellRuntimeAuthState } from '@/public-renderers/publicShellRuntimeState';
-import type { PublicActiveNav,
-              PublicShellAuthAction,
-              PublicShellSearchAction } from '@/public-renderers/publicShellState';
 import {
-    normalizePublicSiteDescription
-} from '@/public-renderers/publicSiteIdentity';
+    PUBLIC_SHELL_DEFAULTS,
+    publicShellRuntimeAuthState,
+    type PublicActiveNav,
+    type PublicShellAuthAction,
+    type PublicShellSearchAction
+} from '@/public-renderers/publicShellState';
 import {
     createPublicSiteIdentity,
-    providePublicSiteIdentity
+    normalizePublicSiteDescription,
+    providePublicSiteIdentity,
+    PUBLIC_SITE_IDENTITY_DEFAULTS,
+    type SiteComplianceConfigPublic
 } from '@/public-renderers/publicSiteIdentityContext';
-import {
-    PUBLIC_SITE_IDENTITY_DEFAULTS
-} from '@/public-renderers/publicSiteIdentityDefaults';
 
 const { messages } = useI18nText();
 const layoutCopy = computed(() => messages.value.public.shell);
 const PUBLIC_MOBILE_NAV_MODE = FSUSBLOG_PUBLIC_MOBILE_NAV_MODE;
 
 const SHELL_DEFAULTS = {
-    hydrationKind: null,
-    siteTitle: PUBLIC_SITE_IDENTITY_DEFAULTS.siteTitle,
-    siteDescription: PUBLIC_SITE_IDENTITY_DEFAULTS.siteDescription,
-    activeNav: 'none',
-    authAction: 'login',
-    authHref: '/login',
-    searchAction: 'search',
-    initialSearchQuery: '',
-    spaSearch: false,
-    spaNavigation: false,
-    compliance: null,
-    renderYear: null
+    ...PUBLIC_SHELL_DEFAULTS,
+    spaNavigation: false
 } satisfies {
     hydrationKind: string | null;
     siteTitle: string;

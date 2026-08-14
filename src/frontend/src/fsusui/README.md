@@ -58,6 +58,8 @@ Direct `@ozwasyd/element-plus` imports outside `fsusui/` need a narrow reason:
 
 - type-only form/upload contracts in composables, such as `FormInstance` and `UploadRequestOptions`;
 - the existing app-shell and article motion integration in `App.vue`, `bootstrap/fullApp.ts`, `ArticleImageLightbox.vue`, `useArticleImageLightbox.ts` and `useCodeBlockCopy.ts`;
+- the full-app bootstrap's direct `el-fsus-theme.css` side-effect import, which
+  preserves the audited base -> product theme -> Blog override asset order;
 - the legacy V2 perception runtime in `securityPerceptionChallengeFlow.ts` while it remains in the repository; V3 and component code use `fsusui/perceptionCharacterChallenge.ts`;
 - the existing markdown editor package component in `MarkdownTextEditor.vue`;
 - tests and fixtures that intentionally assert or violate the boundary.

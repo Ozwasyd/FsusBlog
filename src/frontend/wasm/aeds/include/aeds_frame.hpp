@@ -300,6 +300,12 @@ enum class FrameType : std::uint16_t
 
 [[nodiscard]] constexpr bool IsKnownFrameType(std::uint16_t raw) noexcept
 {
+    if (raw >= static_cast<std::uint16_t>(FrameType::EmptySuccess)
+        && raw <= static_cast<std::uint16_t>(FrameType::ThemeAdminSnapshot))
+    {
+        return true;
+    }
+
     switch (static_cast<FrameType>(raw))
     {
         case FrameType::Unknown:
@@ -533,11 +539,6 @@ enum class FrameType : std::uint16_t
         case FrameType::ClusterSchedulerStateRequest:
         case FrameType::ClusterLeaseReleaseRequest:
         case FrameType::UserLocalePreference:
-        case FrameType::EmptySuccess:
-        case FrameType::MutationId:
-        case FrameType::UserLocalePreferenceUpdateRequest:
-        case FrameType::FontAdminSnapshot:
-        case FrameType::ThemeAdminSnapshot:
         case FrameType::ApiError:
             return true;
         default:

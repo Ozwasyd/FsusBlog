@@ -181,13 +181,18 @@ test('runtime admission proves clean SIGTERM before its configured grace', () =>
         path.join(root, 'tools/test/run-release-reliability-qualified-local.sh'),
         'utf8'
     );
+    const containerLifecycle = fs.readFileSync(
+        path.join(root, 'tools/test/qualified-runtime-container-lifecycle.sh'),
+        'utf8'
+    );
     const runtimeBranch = wrapper.lastIndexOf('if ((runtime_admission_only == 1)); then');
     const branchEnd = wrapper.indexOf('\nfi', runtimeBranch);
     const bounded = wrapper.slice(runtimeBranch, branchEnd);
-    assert.match(wrapper, /StopOwnedBackendGracefully\(\)/u);
-    assert.match(wrapper, /docker stop --time "\$graceSeconds"/u);
-    assert.match(wrapper, /signal: 'SIGTERM'/u);
-    assert.match(wrapper, /elapsedMs.*graceSeconds \* 1000/su);
+    assert.match(wrapper, /source "\$root\/tools\/test\/qualified-runtime-container-lifecycle\.sh"/u);
+    assert.match(containerLifecycle, /StopOwnedBackendGracefully\(\)/u);
+    assert.match(containerLifecycle, /docker stop --time "\$graceSeconds"/u);
+    assert.match(containerLifecycle, /signal: 'SIGTERM'/u);
+    assert.match(containerLifecycle, /elapsedMs.*graceSeconds \* 1000/su);
     assert.match(bounded, /StopOwnedBackendGracefully/u);
     assert.ok(
         wrapper.indexOf('ValidateUserSystemdCarrier "${XDG_RUNTIME_DIR:-}"', branchEnd)

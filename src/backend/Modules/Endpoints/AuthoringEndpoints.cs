@@ -26,6 +26,19 @@ namespace FsusBlog.Server.Modules.Endpoints;
 
 public static partial class AuthoringEndpoints
 {
+    private static readonly IReadOnlyDictionary<(string Root, string Owner, string Collection, int Length, string Tail), AedsFrameType>
+        s_adminSnapshotFrames = new Dictionary<(string, string, string, int, string), AedsFrameType>
+        {
+            [("ops", "fonts", "activations", 3, "")] = AedsFrameType.FontAdminSnapshot,
+            [("ops", "fonts", "registry", 3, "")] = AedsFrameType.FontAdminSnapshot,
+            [("ops", "fonts", "registry", 4, "")] = AedsFrameType.FontAdminSnapshot,
+            [("ops", "themes", "activations", 3, "")] = AedsFrameType.ThemeAdminSnapshot,
+            [("ops", "themes", "activations", 4, "")] = AedsFrameType.ThemeAdminSnapshot,
+            [("ops", "themes", "activations", 5, "history")] = AedsFrameType.ThemeAdminSnapshot,
+            [("ops", "themes", "registry", 3, "")] = AedsFrameType.ThemeAdminSnapshot,
+            [("ops", "themes", "registry", 4, "")] = AedsFrameType.ThemeAdminSnapshot
+        };
+
     private const string AdminSensitiveAction = "admin-sensitive";
     private const string MfaProofHeader = "X-Fsus-Mfa-Proof";
     private const string BinaryPrefix = "/api/binary/author";
@@ -249,18 +262,10 @@ public static partial class AuthoringEndpoints
             return Found(null, AedsFrameType.BackupStatus, out route);
         if (HttpMethods.IsGet(method) && segments is ["ops", "dangerous-operations", "policy"])
             return Found(null, AedsFrameType.DangerousOperationPolicy, out route);
-        if (HttpMethods.IsGet(method) && segments is ["ops", "fonts", ("activations" or "registry")])
-            return Found(null, AedsFrameType.FontAdminSnapshot, out route);
-        if (HttpMethods.IsGet(method) && segments is ["ops", "fonts", "registry", _])
-            return Found(null, AedsFrameType.FontAdminSnapshot, out route);
-        if (HttpMethods.IsGet(method) && segments is ["ops", "themes", ("activations" or "registry")])
-            return Found(null, AedsFrameType.ThemeAdminSnapshot, out route);
-        if (HttpMethods.IsGet(method) && segments is ["ops", "themes", ("activations" or "registry"), _])
-            return Found(null, AedsFrameType.ThemeAdminSnapshot, out route);
-        if (HttpMethods.IsGet(method) && segments is ["ops", "themes", "activations", _, "history"])
-            return Found(null, AedsFrameType.ThemeAdminSnapshot, out route);
-        if (HttpMethods.IsGet(method) && segments is ["cache", "diagnostics"])
-            return Found(null, AedsFrameType.CacheDiagnostics, out route);
+        AedsFrameType? operationalSnapshot = ResolveAdminSnapshotFrame(segments);
+        if (operationalSnapshot is not null
+            || (HttpMethods.IsGet(method) && segments is ["cache", "diagnostics"]))
+            return Found(null, operationalSnapshot ?? AedsFrameType.CacheDiagnostics, out route);
         if (HttpMethods.IsPost(method) && segments is ["cache", "actions"])
             return Found(AedsFrameType.AdminCacheActionRequest, AedsFrameType.AdminCacheActionResponse, out route);
         if (HttpMethods.IsGet(method) && segments is ["integrity"])
@@ -287,6 +292,17 @@ public static partial class AuthoringEndpoints
             return Found(AedsFrameType.ClusterLeaseReleaseRequest, AedsFrameType.ClusterRuntimeSnapshot, out route);
 
         return false;
+    }
+
+    private static AedsFrameType? ResolveAdminSnapshotFrame(string[] segments)
+    {
+        var key = (
+            segments.ElementAtOrDefault(0) ?? "",
+            segments.ElementAtOrDefault(1) ?? "",
+            segments.ElementAtOrDefault(2) ?? "",
+            segments.Length,
+            segments.ElementAtOrDefault(4) ?? "");
+        return s_adminSnapshotFrames.TryGetValue(key, out AedsFrameType frame) ? frame : null;
     }
 
     private static bool Found(AedsFrameType? requestFrame, AedsFrameType responseFrame, out AuthoringAedsRoute route)

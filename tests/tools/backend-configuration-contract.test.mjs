@@ -4,15 +4,15 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
-
-import {
-    checkBackendConfigurationContract,
-    renderBackendConfigurationReference
-} from '../../tools/configuration/check-backend-configuration-contract.mjs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const contractRelative = 'config/application/backend-configuration-contract.json';
+const {
+    checkBackendConfigurationContract,
+    renderBackendConfigurationReference
+} = await import(pathToFileURL(
+    path.join(repositoryRoot, 'tools/configuration/check-backend-configuration-contract.mjs')).href);
 
 function readContract(root = repositoryRoot)
 {
@@ -100,9 +100,18 @@ test('canonical contract inventories settings, environment inputs, mounted files
     const canonical = checkBackendConfigurationContract({ root: repositoryRoot });
     assert.deepEqual(canonical.errors, []);
     assert.equal(canonical.report.status, 'ok');
-    assert.equal(canonical.report.counts.applicationSettings, 226);
-    assert.equal(canonical.report.counts.environmentVariables, 241);
-    assert.equal(canonical.report.counts.mountedFiles, 4);
+    assert.equal(
+        canonical.report.counts.applicationSettings,
+        canonical.contract.applicationSettings.length);
+    assert.equal(
+        canonical.report.counts.environmentVariables,
+        canonical.contract.environmentVariables.length);
+    assert.equal(
+        canonical.report.counts.observedEnvironmentVariables,
+        canonical.report.counts.environmentVariables);
+    assert.equal(
+        canonical.report.counts.mountedFiles,
+        canonical.contract.mountedFiles.length);
     assert.match(canonical.generatedReference, /not an input template/u);
 
     const { root } = createFixture(context);

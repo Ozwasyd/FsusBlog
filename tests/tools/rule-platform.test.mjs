@@ -140,6 +140,35 @@ test('complexity type count excludes inline type-only imports', () =>
     assert.equal(metrics.typeCount, 3);
 });
 
+test('complexity nesting ignores braces inside JavaScript regular expressions', () =>
+{
+    const metrics = MeasureComplexity(
+        'tests/tools/example.test.mjs',
+        `test('workflow contract', () =>
+{
+    assert.match(source, /profile: \\\${\\{ fromJSON\\(github\\.event_name \\}\\}/u);
+});`);
+
+    assert.equal(metrics.maxNestingDepth, 1);
+});
+
+test('shell complexity nesting follows functions instead of parameter expansions and heredocs', () =>
+{
+    const metrics = MeasureComplexity(
+        'tools/example.sh',
+        `Run() {
+    local value=\${SOURCE:-default}
+    node <<'NODE'
+if (value) {
+    consume({ value })
+}
+NODE
+}
+`);
+
+    assert.equal(metrics.maxNestingDepth, 1);
+});
+
 test('new or significantly growing excess fails while legacy excess remains observe-only', () =>
 {
     const sample = MeasureComplexity('src/backend/Services/Example.cs', 'public class Example { }');

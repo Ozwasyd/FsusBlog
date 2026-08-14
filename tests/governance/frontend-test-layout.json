@@ -42,11 +42,7 @@
             "roots": [],
             "files": [
                 "tests/frontend/README.md",
-                "tests/frontend/package.json",
-                "tests/evidence/frontend/archive-sticky-geometry-evidence.json",
-                "tests/evidence/frontend/archive-sticky-geometry-governance-handoff.json",
-                "tests/evidence/frontend/internal-selector-migration-evidence.json",
-                "tests/evidence/frontend/internal-selector-registry.json"
+                "tests/frontend/package.json"
             ]
         }
     },

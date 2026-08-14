@@ -26,7 +26,10 @@ const programmaticApis = new Set(['ElMessage', 'ElMessageBox', 'ElNotification',
 const warnings = [];
 const allowedRuntimeImports = new Map([
     ['src/frontend/src/App.vue', new Set(['@ozwasyd/element-plus/motion'])],
-    ['src/frontend/src/bootstrap/fullApp.ts', new Set(['@ozwasyd/element-plus/motion'])],
+    ['src/frontend/src/bootstrap/fullApp.ts', new Set([
+        '@ozwasyd/element-plus/dist/el-fsus-theme.css',
+        '@ozwasyd/element-plus/motion'
+    ])],
     ['src/frontend/src/components/article/ArticleImageLightbox.vue', new Set(['@ozwasyd/element-plus/motion'])],
     ['src/frontend/src/components/ui/MarkdownTextEditor.vue', new Set(['@ozwasyd/element-plus'])],
     ['src/frontend/src/composables/article/useArticleImageLightbox.ts', new Set(['@ozwasyd/element-plus/motion'])],

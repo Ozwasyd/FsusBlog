@@ -281,12 +281,16 @@ for (const token of [
         fail(markdownEditorPath, 1, `Article editor responsive command contract is missing ${token}`);
     }
 }
-for (const token of ['.el-form-item.is-error', 'target.focus({ preventScroll: true })', "block: 'center'"])
+for (const token of ['[aria-invalid="true"]', 'target.focus({ preventScroll: true })', "block: 'center'"])
 {
     if (!accessibility.includes(token))
     {
         fail(accessibilityPath, 1, `Article editor validation focus contract is missing ${token}`);
     }
+}
+if (/\.el-[a-z0-9_-]+/iu.test(accessibility))
+{
+    fail(accessibilityPath, 1, 'Article editor validation focus must not depend on FsusUI internal selectors');
 }
 for (const token of [
     'type="textarea"',

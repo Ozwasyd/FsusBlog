@@ -11,7 +11,6 @@ using System.Text;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Bootstrap;
-using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
@@ -592,7 +591,7 @@ public static partial class PublicHotReadFastPath
             response.Headers["ETag"] = html.ETag;
         }
         WriteDiagnosticHeaders(response, options, snapshot.Version, "html", routeKey);
-        if (HttpEntityTagPreconditions.MatchesIfNoneMatch(ctx.Request.Headers.IfNoneMatch, html.ETag))
+        if (Helpers.HttpEntityTagPreconditions.MatchesIfNoneMatch(ctx.Request.Headers.IfNoneMatch, html.ETag))
         {
             response.StatusCode = StatusCodes.Status304NotModified;
             response.ContentLength = 0;
@@ -749,7 +748,7 @@ public static partial class PublicHotReadFastPath
             ? "identity"
             : variant.ContentEncoding;
         WriteDiagnosticHeaders(response, options, artifact.Version, artifactKind, artifactKey);
-        if (HttpEntityTagPreconditions.MatchesIfNoneMatch(ctx.Request.Headers.IfNoneMatch, variant.ETag))
+        if (Helpers.HttpEntityTagPreconditions.MatchesIfNoneMatch(ctx.Request.Headers.IfNoneMatch, variant.ETag))
         {
             response.StatusCode = StatusCodes.Status304NotModified;
             response.ContentLength = 0;
