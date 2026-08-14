@@ -13,6 +13,7 @@ import {
 } from '../../tools/test/frontend-render-structure-receipts.mjs';
 import { buildLocalStaticManifest } from '../../tools/test/local-static-governance.mjs';
 import { loadCommandGroup } from '../../tools/test-matrix/command-groups.mjs';
+import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs';
 
 const identity = {
     runId: 'production-run-1',
@@ -93,6 +94,18 @@ test('frontend-render-structure lane is a receipt join and never invokes either 
     assert.match(lane, /join-frontend-render-structure-receipts\.mjs/u);
     assert.doesNotMatch(lane, /npm .*check:dom-depth-static/u);
     assert.doesNotMatch(lane, /npm .*check:markdown-render-budget/u);
+});
+
+test('frontend-render-structure owns only its joined summary', () =>
+{
+    const root = path.resolve(new URL('../..', import.meta.url).pathname);
+    const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
+    const tier = matrix.tiers.find((entry) => entry.id === 'frontend-render-structure');
+    assert.deepEqual(tier.artifacts, [
+        '.tmp/release-evidence/frontend-render-structure-summary.json'
+    ]);
+    assert.ok(tier.evidence.includes('.tmp/frontend/receipts/dom-depth-static.json'));
+    assert.ok(tier.evidence.includes('.tmp/frontend/receipts/markdown-render-budget.json'));
 });
 
 test('local production plan physically owns each structure producer exactly once', () =>

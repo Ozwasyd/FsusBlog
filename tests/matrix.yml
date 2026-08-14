@@ -4588,10 +4588,6 @@ tiers:
       coverage: [dom-depth-static, markdown-render-budget]
       artifacts:
           [
-              .tmp/frontend/markdown-render-budget.json,
-              .tmp/frontend/dom-depth-static.json,
-              .tmp/frontend/receipts/markdown-render-budget.json,
-              .tmp/frontend/receipts/dom-depth-static.json,
               .tmp/release-evidence/frontend-render-structure-summary.json,
           ]
       evidence:
