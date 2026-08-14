@@ -1,5 +1,7 @@
 import { createApp, nextTick } from 'vue'
 
+import '@fsusblog/fsusui-base-style.scss'
+import '@ozwasyd/element-plus/dist/el-fsus-theme.css'
 import '@/assets/main.css'
 import { encodeAedsFrame } from '@/api/binaryFrame'
 import type { OpsHealthResponse } from '@/api/authoring'
