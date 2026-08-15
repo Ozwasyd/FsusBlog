@@ -3,6 +3,7 @@ using System.Text.Json;
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Services;
+using FsusBlog.Shared.Contracts.Governance;
 
 namespace FsusBlog.Server.Tests;
 
@@ -11,6 +12,7 @@ public sealed class ArticlePublicationTransitionTests
     private static readonly DateTime s_now = new(2026, 7, 19, 8, 0, 0, DateTimeKind.Utc);
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     public void CreatePlan_NewScheduledArticle_StoresScheduledDeadline()
     {
         DateTime dueAt = s_now.AddHours(2);
@@ -28,6 +30,7 @@ public sealed class ArticlePublicationTransitionTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     public void CreatePlan_PublishedArticleScheduledRevision_PreservesCurrentPublicState()
     {
         DateTime dueAt = s_now.AddHours(2);
@@ -45,6 +48,7 @@ public sealed class ArticlePublicationTransitionTests
     }
 
     [Theory]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     [InlineData(ArticleStatus.Published, true, false)]
     [InlineData(ArticleStatus.Archived, false, true)]
     [InlineData(ArticleStatus.Draft, false, false)]
@@ -66,6 +70,7 @@ public sealed class ArticlePublicationTransitionTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     public void CreatePlan_PastScheduledDeadline_IsRejected()
     {
         ArticleStatusTransitionValidationException error = Assert.Throws<ArticleStatusTransitionValidationException>(
@@ -108,6 +113,7 @@ public sealed class ArticlePublicationTransitionTests
     };
 
     [Theory]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     [MemberData(nameof(CompleteStateMatrix))]
     public void ValidateTransition_CoversCompleteStateMatrix(
         ArticleStatus source,
@@ -141,6 +147,7 @@ public sealed class ArticlePublicationTransitionTests
     }
 
     [Theory]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     [InlineData(-1)]
     [InlineData(5)]
     [InlineData(int.MaxValue)]
@@ -153,6 +160,7 @@ public sealed class ArticlePublicationTransitionTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     public void ValidateTarget_MissingScheduledTimestamp_IsRejectedWithStableCode()
     {
         ArticleStatusTransitionValidation validation = Assert.IsType<ArticleStatusTransitionValidation>(
@@ -162,6 +170,7 @@ public sealed class ArticlePublicationTransitionTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     public void ValidateTarget_TimestampOnNonScheduledState_IsRejectedWithStableCode()
     {
         ArticleStatusTransitionValidation validation = Assert.IsType<ArticleStatusTransitionValidation>(
@@ -174,6 +183,7 @@ public sealed class ArticlePublicationTransitionTests
     }
 
     [Theory]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     [InlineData(ArticleStatusTransitionOperation.Rollback, ArticleStatus.Draft, ArticleStatus.Published, true)]
     [InlineData(ArticleStatusTransitionOperation.Rollback, ArticleStatus.Draft, ArticleStatus.Draft, true)]
     [InlineData(ArticleStatusTransitionOperation.Rollback, ArticleStatus.Published, ArticleStatus.Archived, true)]
@@ -200,6 +210,7 @@ public sealed class ArticlePublicationTransitionTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     public void BuildOutboxPayload_BindsExactRevisionAndPublication()
     {
         var version = new ArticleVersionCoordinates(801, 7, 901, 1001, 1201, 4);

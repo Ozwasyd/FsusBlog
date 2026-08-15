@@ -7,7 +7,7 @@
  * authority (raw report/trace identities), owner receipt, #2185 test
  * bindings, BehaviorCatalog, test plan and #2186 behavior-test evidence, then
  * independently re-derives:
- *   - the C# implementation-owner closure (fact-extractor registry + catalog);
+ *   - the reviewed C# runtime-kernel owner closure;
  *   - the exact mutation selection (selector closure digest);
  *   - binding digests and source identity;
  *   - raw result digests from the actual raw report/trace files;
@@ -45,9 +45,7 @@ import {
 import { digestValue as receiptDigestValue } from '../test/mutation-evidence-receipt.mjs';
 
 import {
-    deriveBehaviorMutationOwners,
-    loadBehaviorMutationOwnerCatalog,
-    loadFactExtractorRegistry
+    deriveBehaviorMutationOwners
 } from './behavior-mutation-owner.mjs';
 import {
     produceBehaviorMutationQualificationCommand,
@@ -151,7 +149,6 @@ export function verifyBehaviorMutationQualification(options)
         testBindings: options.testBindings ?? null,
         testPlan: options.testPlan ?? null,
         behaviorTestEvidence: options.behaviorTestEvidence ?? null,
-        factExtractorRegistry: options.factExtractorRegistry ?? null,
         ownerCatalog: options.ownerCatalog ?? null,
         repositoryRoot: options.repositoryRoot ?? null
     });
@@ -429,25 +426,19 @@ export function verifyBehaviorMutationQualification(options)
         }
     }
 
-    const factExtractorRegistry = loadJson(
-        repositoryRootValue,
-        options.factExtractorRegistry ?? 'config/contracts/behavior-fact-extractors.json',
-        'fact extractor registry',
-        errors
-    );
     const ownerCatalog = loadJson(
         repositoryRootValue,
-        options.ownerCatalog ?? 'config/testing/mutation/behavior-mutation-owners.v1.json',
+        options.ownerCatalog ?? 'config/testing/mutation/behavior-mutation-owners.v2.json',
         'mutation owner catalog',
         errors
     );
     let implementationOwnerClosure = null;
-    if (behaviorCatalog && factExtractorRegistry && ownerCatalog)
+    if (behaviorCatalog && ownerCatalog)
     {
         const derived = deriveBehaviorMutationOwners({
             behaviorCatalog,
-            factExtractorRegistry,
             ownerCatalog,
+            sourceProjects: toolPolicy?.sourceProjects,
             repositoryRoot: repositoryRootValue,
             worktreeDigest: options.worktreeFingerprint
         });
@@ -760,7 +751,6 @@ function parseArgs(argv)
         ownerReceipt: null,
         testBindings: null,
         behaviorCatalog: null,
-        factExtractorRegistry: null,
         ownerCatalog: null,
         catalog: null,
         testPlan: null,
@@ -781,7 +771,6 @@ function parseArgs(argv)
         ['--owner-receipt', 'ownerReceipt'],
         ['--test-bindings', 'testBindings'],
         ['--behavior-catalog', 'behaviorCatalog'],
-        ['--fact-extractor-registry', 'factExtractorRegistry'],
         ['--owner-catalog', 'ownerCatalog'],
         ['--catalog', 'catalog'],
         ['--test-plan', 'testPlan'],
@@ -837,7 +826,6 @@ Options:
   --run-id <id>                    Expected current-run identity (required)
   --scope <pr|release>             Expected receipt scope (for canonical command)
   --behavior-catalog <path>        BehaviorCatalog (default repo path)
-  --fact-extractor-registry <path> Fact-extractor registry (default repo path)
   --owner-catalog <path>           Mutation-owner catalog (default repo path)
   --catalog <path>                 Changed-critical tool policy (default repo path)
   --repository-root <path>         Repository root for fixtures

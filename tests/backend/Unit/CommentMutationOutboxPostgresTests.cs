@@ -68,6 +68,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     public async Task DeliveryCheckpoint_RejectsDuplicateEventConsumerPair()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -93,6 +94,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     public async Task Worker_ReclaimsExpiredLeaseRetriesTemporaryFailureAndSkipsCompletedConsumerOnDuplicate()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -183,6 +185,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     public async Task Worker_ClaimsEachBatchEventWithIndependentOwnerBoundLease()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -240,6 +243,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     public async Task Worker_OverProductionLease_RenewsEveryBatchEventBeforeItStartsProcessing()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -290,6 +294,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     public async Task Worker_OwnershipChecksBeforeFirstHeartbeatDoNotRenewLeaseMetrics()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -338,6 +343,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     public async Task Worker_ClaimLostAfterConsumer_DoesNotRunNextConsumerOrOverwriteNewOwner()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -394,6 +400,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     public async Task Worker_HeartbeatZeroRowStopsSideEffectsBeforeLeaseSafetyMarginExpires()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -443,6 +450,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     public async Task Worker_HeartbeatDatabaseExceptionStopsSideEffectsBeforeLeaseSafetyMarginExpires()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -491,6 +499,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     public async Task Worker_AtomicallyReservesExpiredDeliveryBeforeCacheVersionSideEffect()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -534,6 +543,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     public async Task Worker_ActiveForeignDeliveryReservationFailsClosedWithoutCacheSideEffect()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -576,6 +586,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     public async Task Worker_TwoConcurrentWorkersExecuteSameConsumerSideEffectExactlyOnce()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -610,6 +621,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     public async Task Worker_CompletedDeliveryWithoutMatchingDigestDoesNotExecuteOrProcessEvent()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -642,6 +654,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     public async Task Worker_TerminalDeliveryFailurePreventsEventCompletion()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -675,6 +688,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     public async Task Worker_CancellationStopsHeartbeatAndOldTokenCannotReleaseNewClaim()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -747,6 +761,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     public async Task Worker_MarkFailedClaimLossPreservesReplacementOwnerAndIsNotCountedAsFailed()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -796,6 +811,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     public async Task Worker_MarkProcessedClaimLossPreservesReplacementOwnerAndDoesNotIncrementProcessed()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -834,6 +850,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     public async Task Worker_MarkProcessedRejectsMissingRequiredConsumerReceiptWithoutIncrementingMetric()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -869,6 +886,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     public async Task Worker_MarkProcessedRejectsNonEmptyTamperedRequiredConsumerDigestWithoutIncrementingMetrics()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -912,6 +930,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     public async Task Worker_CancellationReleaseClaimLossPreservesReplacementOwnerExactlyOnce()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -970,6 +989,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     public async Task Worker_HeartbeatAndConsumerClaimLossAreRecordedOnceWithoutRenewalRaces()
     {
         string connectionString = await CreateDatabaseAsync();

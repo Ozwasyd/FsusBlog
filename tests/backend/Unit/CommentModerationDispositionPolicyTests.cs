@@ -1,6 +1,7 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Services.Moderation;
+using FsusBlog.Shared.Contracts.Governance;
 
 using Microsoft.Extensions.Configuration;
 namespace FsusBlog.Server.Tests.Unit;
@@ -8,6 +9,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class CommentModerationDispositionPolicyTests
 {
     [Theory]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
     [InlineData(CommentModerationStatus.Pending, CommentModerationStatus.Pending, false)]
     [InlineData(CommentModerationStatus.Pending, CommentModerationStatus.Approved, true)]
     [InlineData(CommentModerationStatus.Pending, CommentModerationStatus.Rejected, true)]

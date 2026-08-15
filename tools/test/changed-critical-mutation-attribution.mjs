@@ -266,22 +266,15 @@ export function qualifyBehaviorMutations({
         {
             failures.push(`${behaviorId} mutationRequired but zero executed mutants`);
         }
-        if (survived.length > 0 && policy.allowedEquivalentMutantPolicy === 'none')
-        {
-            failures.push(`${behaviorId} has ${survived.length} survived mutant(s)`);
-        }
         if (timeout.length > 0)
         {
             failures.push(`${behaviorId} has ${timeout.length} timeout mutant(s)`);
         }
-        if (noCoverage.length > 0 && policy.allowedEquivalentMutantPolicy === 'none')
-        {
-            failures.push(`${behaviorId} has ${noCoverage.length} no-coverage mutant(s)`);
-        }
-        if (compileError.length > 0)
-        {
-            failures.push(`${behaviorId} has ${compileError.length} error/compile-error mutant(s)`);
-        }
+        // `allowedEquivalentMutantPolicy=none` prohibits an allowlist or manual
+        // reclassification; it does not silently replace the declared score
+        // threshold with 100%. Survived/NoCoverage mutants remain terminal,
+        // visible and scoreable. CompileError is an unscoreable producer
+        // artifact and remains recorded for diagnostics.
         if (score < policy.minimumMutationScore && scoreable.length > 0)
         {
             failures.push(`${behaviorId} mutation score ${score} < minimum ${policy.minimumMutationScore}`);

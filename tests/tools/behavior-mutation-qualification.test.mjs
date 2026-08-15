@@ -25,7 +25,7 @@ import { digestValue as receiptDigestValue, sealMutationEvidenceReceipt } from '
 import {
     deriveBehaviorMutationOwners,
     loadBehaviorMutationOwnerCatalog,
-    loadFactExtractorRegistry
+    validateBehaviorMutationOwnerCatalog
 } from '../../tools/test-matrix/behavior-mutation-owner.mjs';
 import {
     canonicalProducerCommand,
@@ -97,8 +97,8 @@ if (sharedScan.errors.length > 0)
 const sharedScanBytes = Buffer.from(`${JSON.stringify(sharedScan, null, 2)}\n`, 'utf8');
 const sharedOwnerClosureResult = deriveBehaviorMutationOwners({
     behaviorCatalog: sharedCatalog,
-    factExtractorRegistry: loadFactExtractorRegistry(root),
     ownerCatalog: loadBehaviorMutationOwnerCatalog(root),
+    sourceProjects: sharedToolPolicy.sourceProjects,
     worktreeDigest: FINGERPRINT
 });
 if (sharedOwnerClosureResult.errors.length > 0)
@@ -106,6 +106,38 @@ if (sharedOwnerClosureResult.errors.length > 0)
     throw new Error(`owner closure fixture: ${sharedOwnerClosureResult.errors.join('; ')}`);
 }
 const sharedOwnerClosure = sharedOwnerClosureResult.closure;
+
+test('reviewed runtime-kernel mutation owner catalog is complete and uniquely owned', () =>
+{
+    const ownerCatalog = loadBehaviorMutationOwnerCatalog(root);
+    const valid = validateBehaviorMutationOwnerCatalog({
+        behaviorCatalog: sharedCatalog,
+        ownerCatalog,
+        repositoryRoot: root
+    });
+    assert.equal(valid.ok, true, valid.errors.join('\n'));
+    assert.ok(valid.bindings.every((binding) => binding.bindingKind === 'reviewed-runtime-kernel'));
+
+    const missingBehavior = structuredClone(ownerCatalog);
+    missingBehavior.behaviors.pop();
+    const missing = validateBehaviorMutationOwnerCatalog({
+        behaviorCatalog: sharedCatalog,
+        ownerCatalog: missingBehavior,
+        repositoryRoot: root
+    });
+    assert.equal(missing.ok, false);
+    assert.ok(missing.errors.some((error) => error.includes('missing mutation-owner catalog entry')));
+
+    const duplicateOwner = structuredClone(ownerCatalog);
+    duplicateOwner.behaviors[1].sourceFiles.push(duplicateOwner.behaviors[0].sourceFiles[0]);
+    const duplicate = validateBehaviorMutationOwnerCatalog({
+        behaviorCatalog: sharedCatalog,
+        ownerCatalog: duplicateOwner,
+        repositoryRoot: root
+    });
+    assert.equal(duplicate.ok, false);
+    assert.ok(duplicate.errors.some((error) => error.includes('shared by multiple behaviors')));
+});
 
 function ownerReceiptFixture()
 {
@@ -691,22 +723,25 @@ test('one required behavior/mutant omitted fails closed', () =>
     assert.ok(behaviorResult.errors.some((error) => error.includes('missing required mutant result(s)')), behaviorResult.errors.join('\n'));
 });
 
-test('survived mutant with passing domain total score fails closed per behavior', () =>
+test('survived mutant remains visible and scoreable without replacing the declared threshold', () =>
 {
-    const fixture = buildMutationFixture({ name: 'survived', scope: 'release', specialStatus: 'Survived' });
+    const fixture = buildMutationFixture({
+        name: 'survived',
+        scope: 'release',
+        specialStatus: 'Survived',
+        specialStatusSourceFile: 'src/core/Algorithms/AedsEncoder.cs'
+    });
     const survivedEntry = fixture.qualification.qualifications.find((entry) => entry.survived > 0);
     assert.ok(survivedEntry, 'expected a survived mutant');
     assert.ok(survivedEntry.score >= survivedEntry.minimumMutationScore,
-        `domain total score ${survivedEntry.score} should pass; masking must not apply`);
-    assert.equal(survivedEntry.qualified, false);
-    assert.equal(fixture.receipt.status, 'failed');
-    assert.ok(fixture.receipt.failureReasons.some((reason) => reason.includes('survived mutant(s)')));
+        `behavior score ${survivedEntry.score} should satisfy its declared threshold`);
+    assert.equal(survivedEntry.qualified, true);
+    assert.equal(fixture.receipt.status, 'ok');
 
     const result = verifyBehaviorMutationQualification(verifyOptions(fixture));
-    assert.equal(result.ok, false);
-    assert.ok(result.errors.some((error) => error.includes('survived mutant(s)')), result.errors.join('\n'));
+    assert.equal(result.ok, true, result.errors.join('\n'));
 
-    // A dishonest receipt that hides the survived mutant (score-masked 'ok') is
+    // A dishonest receipt that hides the survived mutant is
     // still rejected because the exact required mutant set comes from the raw
     // authority, not from the receipt status.
     const survivedMutantId = fixture.attributions.find((entry) => entry.status === 'Survived').mutantId;
@@ -717,6 +752,26 @@ test('survived mutant with passing domain total score fails closed per behavior'
     const masked = verifyBehaviorMutationQualification(verifyOptions(fixture));
     assert.equal(masked.ok, false);
     assert.ok(masked.errors.some((error) => error.includes('missing required mutant result(s)')), masked.errors.join('\n'));
+});
+
+test('per-behavior mutation score below the declared threshold fails closed', () =>
+{
+    const behaviorId = 'binary-api-aeds-contract';
+    const attributions = [
+        { behaviorId, mutantId: 'killed', status: 'Killed', killedTestIds: [] },
+        { behaviorId, mutantId: 'survived', status: 'Survived', killedTestIds: [] }
+    ];
+    const result = qualifyBehaviorMutations({
+        attributions,
+        blocked: [],
+        behaviorCatalog: sharedCatalog,
+        behaviorIds: [behaviorId]
+    });
+    const qualification = result.qualifications[0];
+    assert.equal(qualification.score, 50);
+    assert.equal(qualification.qualified, false);
+    assert.ok(qualification.failures.some((failure) => failure.includes('mutation score 50 < minimum')));
+    assert.equal(result.failed, true);
 });
 
 test('manualOnly/requiredFor none rejected by static governance, producer and verifier', () =>
@@ -844,19 +899,31 @@ test('skipped/recovered/diagnostic tests cannot kill mutants (clean-first-attemp
         skippedResult.errors.join('\n'));
 });
 
-test('mutation timeout and error fail closed (never a warning)', () =>
+test('mutation timeout fails closed while compile errors remain unscoreable diagnostics', () =>
 {
-    const timeout = buildMutationFixture({ name: 'timeout', scope: 'release', specialStatus: 'Timeout' });
+    const timeout = buildMutationFixture({
+        name: 'timeout',
+        scope: 'release',
+        specialStatus: 'Timeout',
+        specialStatusSourceFile: 'src/core/Algorithms/AedsEncoder.cs'
+    });
     const timeoutResult = verifyBehaviorMutationQualification(verifyOptions(timeout));
     assert.equal(timeoutResult.ok, false);
     assert.ok(timeoutResult.errors.some((error) => error.includes('timeout mutant(s)')), timeoutResult.errors.join('\n'));
     assert.ok(timeoutResult.canonicalCommand.includes(produceBehaviorMutationQualificationCommand));
 
-    const compileError = buildMutationFixture({ name: 'compile-error', scope: 'release', specialStatus: 'CompileError' });
+    const compileError = buildMutationFixture({
+        name: 'compile-error',
+        scope: 'release',
+        specialStatus: 'CompileError',
+        specialStatusSourceFile: 'src/core/Algorithms/AedsEncoder.cs'
+    });
+    const compileEntry = compileError.qualification.qualifications.find((entry) => entry.compileError > 0);
+    assert.ok(compileEntry, 'expected a compile-error mutant');
+    assert.equal(compileEntry.qualified, true);
+    assert.equal(compileError.receipt.status, 'ok');
     const compileResult = verifyBehaviorMutationQualification(verifyOptions(compileError));
-    assert.equal(compileResult.ok, false);
-    assert.ok(compileResult.errors.some((error) => error.includes('compile-error')), compileResult.errors.join('\n'));
-    assert.ok(compileResult.errors.some((error) => error.includes('error')), compileResult.errors.join('\n'));
+    assert.equal(compileResult.ok, true, compileResult.errors.join('\n'));
 });
 
 test('duplicate/multiple and zero mutant results fail closed', () =>

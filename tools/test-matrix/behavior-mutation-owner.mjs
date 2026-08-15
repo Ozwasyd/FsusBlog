@@ -3,11 +3,12 @@
  *
  * The exact mutants for a required release behavior are derived from the
  * machine-readable BehaviorCatalog + reviewed mutation-owner catalog
- * (config/testing/mutation/behavior-mutation-owners.v1.json). The catalog is
- * cross-validated against the fact-extractor registry consumedInputs and the
- * reviewed AEDS critical slice, so registry/source drift fails closed instead
- * of silently changing the required mutant closure. Each source file is owned
- * by exactly one behavior so every Stryker mutant attributes uniquely.
+ * (config/testing/mutation/behavior-mutation-owners.v2.json). The catalog
+ * selects reviewed executable runtime kernels independently from BehaviorDoc
+ * fact-extractor inputs: those inputs also include DTOs, declarative catalogs
+ * and broad hosting files that are observation dependencies but not useful
+ * mutation targets. Each selected source file is owned by exactly one behavior
+ * so every Stryker mutant attributes uniquely.
  */
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
@@ -22,9 +23,8 @@ import {
 import { resolveWorktreeDigest } from '../contracts/behavior-owner-binding.mjs';
 
 export const behaviorMutationOwnerSchema = 'fsusblog.behavior-mutation-owner-closure.v1';
-export const behaviorMutationOwnerCatalogSchema = 'fsusblog.behavior-mutation-owners.v1';
-export const defaultOwnerCatalogRelative = 'config/testing/mutation/behavior-mutation-owners.v1.json';
-export const defaultFactExtractorRegistryRelative = 'config/contracts/behavior-fact-extractors.json';
+export const behaviorMutationOwnerCatalogSchema = 'fsusblog.behavior-mutation-owners.v2';
+export const defaultOwnerCatalogRelative = 'config/testing/mutation/behavior-mutation-owners.v2.json';
 
 const digestPattern = /^[a-f0-9]{64}$/u;
 
@@ -71,30 +71,11 @@ function symbolFromPath(sourcePath)
     return base.replace(/\.cs$/u, '');
 }
 
-function csharpClosureFromRegistry(extractor, sourceProjects)
-{
-    return (extractor?.consumedInputs ?? [])
-        .map((input) => normalize(input))
-        .filter((input) => input.endsWith('.cs'))
-        .filter((input) => sourceProjectFor(input, sourceProjects) !== null)
-        .sort((left, right) => left.localeCompare(right));
-}
-
 export function loadBehaviorMutationOwnerCatalog(repositoryRoot = defaultRoot)
 {
     return JSON.parse(
         readFileSync(
             path.join(repositoryRoot, defaultOwnerCatalogRelative),
-            'utf8'
-        )
-    );
-}
-
-export function loadFactExtractorRegistry(repositoryRoot = defaultRoot)
-{
-    return JSON.parse(
-        readFileSync(
-            path.join(repositoryRoot, defaultFactExtractorRegistryRelative),
             'utf8'
         )
     );
@@ -106,21 +87,18 @@ export function loadBehaviorCatalog(repositoryRoot = defaultRoot)
 }
 
 /**
- * Validate the reviewed per-behavior mutation owner catalog against the
- * BehaviorCatalog, fact-extractor registry and reviewed AEDS critical slice.
+ * Validate the reviewed per-behavior runtime mutation kernels against the
+ * BehaviorCatalog and reviewed AEDS critical slice.
  *
  * Fail-closed rules (delivery items 1, 11):
  *   - every active mutation-required behavior has exactly one catalog entry;
  *   - every source file exists, is .cs and lives under a mutation source project;
  *   - every source file is owned by exactly one behavior (unique attribution);
- *   - every C# registry input under a mutation source project is covered by the
- *     union of catalog entries (registry drift fails closed);
  *   - binary-api-aeds-contract must cover the reviewed AEDS critical slice
  *     source regions (AedsEncoder.cs) from critical.json/release-parity-subset.json.
  */
 export function validateBehaviorMutationOwnerCatalog({
     behaviorCatalog,
-    factExtractorRegistry,
     ownerCatalog,
     sourceProjects = ['src/backend', 'src/core'],
     repositoryRoot = defaultRoot,
@@ -222,38 +200,6 @@ export function validateBehaviorMutationOwnerCatalog({
         }
     }
 
-    // Registry coverage: every C# consumed input under a source project must be
-    // owned by exactly one catalog behavior. Registry drift fails closed.
-    if (factExtractorRegistry && Array.isArray(factExtractorRegistry.extractors))
-    {
-        const extractorById = new Map(
-            factExtractorRegistry.extractors
-                .filter((entry) => entry && typeof entry.id === 'string')
-                .map((entry) => [entry.id, entry])
-        );
-        for (const behaviorId of requiredBehaviors)
-        {
-            const contract = (behaviorCatalog?.contracts ?? []).find((entry) => entry.id === behaviorId);
-            const extractor = contract?.factExtractorId
-                ? extractorById.get(contract.factExtractorId)
-                : null;
-            if (!extractor)
-            {
-                errors.push(`${behaviorId} has no fact-extractor registry entry`);
-                continue;
-            }
-            for (const file of csharpClosureFromRegistry(extractor, sourceProjects))
-            {
-                if (!ownerByFile.has(file))
-                {
-                    errors.push(
-                        `${behaviorId} fact-extractor registry C# input is not covered by the mutation-owner catalog: ${file}`
-                    );
-                }
-            }
-        }
-    }
-
     // Reviewed AEDS critical slice coverage for binary-api-aeds-contract.
     for (const file of [...new Set(reviewedSliceSourceFiles.map(normalize))])
     {
@@ -297,7 +243,7 @@ export function validateBehaviorMutationOwnerCatalog({
                     language: 'csharp',
                     sourcePath,
                     symbol: symbolFromPath(sourcePath),
-                    bindingKind: 'fact-extractor-consumed',
+                    bindingKind: 'reviewed-runtime-kernel',
                     sourceDigest,
                     catalogDigest,
                     worktreeDigest: null,
@@ -324,7 +270,6 @@ export function validateBehaviorMutationOwnerCatalog({
  */
 export function deriveBehaviorMutationOwners({
     behaviorCatalog,
-    factExtractorRegistry,
     ownerCatalog,
     sourceProjects = ['src/backend', 'src/core'],
     repositoryRoot = defaultRoot,
@@ -334,7 +279,6 @@ export function deriveBehaviorMutationOwners({
 {
     const validated = validateBehaviorMutationOwnerCatalog({
         behaviorCatalog,
-        factExtractorRegistry,
         ownerCatalog,
         sourceProjects,
         repositoryRoot,

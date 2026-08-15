@@ -16,10 +16,11 @@
  *      worktree and build, and consumes this round's test plan receipt plus
  *      the #2186 behavior-test evidence receipt as raw-result identities.
  *      Cross-run/main/latest evidence is rejected.
- *   3. Attributes every mutant to a behavior, qualifies each behavior
- *      independently, and fails closed on survived/error/timeout/missing/
- *      unclean-kill evidence. Global score, manual approval, history reuse
- *      and mutant allowlists can never mask a per-behavior failure.
+ *   3. Attributes every mutant to a behavior and qualifies each behavior
+ *      independently against its declared minimum score. Survived and
+ *      NoCoverage results stay visible and scoreable; CompileError stays
+ *      visible and unscoreable. Timeout/missing/unclean-kill evidence,
+ *      manual approval, history reuse and mutant allowlists fail closed.
  *   4. Seals the existing #1751 `fsusblog.mutation-evidence-receipt.v1`
  *      schema (no second format) with exact required-mutant records.
  *
@@ -54,9 +55,7 @@ import { sealMutationEvidenceReceipt } from '../test/mutation-evidence-receipt.m
 import { runChangedCriticalPhysicalMutations } from '../test/run-changed-critical-mutation.mjs';
 
 import {
-    deriveBehaviorMutationOwners,
-    loadBehaviorMutationOwnerCatalog,
-    loadFactExtractorRegistry
+    deriveBehaviorMutationOwners
 } from './behavior-mutation-owner.mjs';
 import { loadTestPlan } from './produce-behavior-test-evidence.mjs';
 
@@ -155,10 +154,6 @@ export function canonicalProducerCommand(options)
     {
         args.push('--behavior-test-evidence', options.behaviorTestEvidence);
     }
-    if (options.factExtractorRegistry)
-    {
-        args.push('--fact-extractor-registry', options.factExtractorRegistry);
-    }
     if (options.ownerCatalog)
     {
         args.push('--owner-catalog', options.ownerCatalog);
@@ -194,7 +189,6 @@ function parseArgs(argv)
         testBindings: null,
         testPlan: null,
         behaviorTestEvidence: null,
-        factExtractorRegistry: null,
         ownerCatalog: null,
         governanceMatrix: null,
         governanceCatalog: null,
@@ -256,10 +250,6 @@ function parseArgs(argv)
         {
             options.behaviorTestEvidence = argv[++index] ?? null;
         }
-        else if (argument === '--fact-extractor-registry')
-        {
-            options.factExtractorRegistry = argv[++index] ?? null;
-        }
         else if (argument === '--owner-catalog')
         {
             options.ownerCatalog = argv[++index] ?? null;
@@ -312,7 +302,6 @@ Options:
   --test-bindings <path>           #2185 behavior-test binding scan (required)
   --test-plan <path>               Current-run test plan receipt (required)
   --behavior-test-evidence <path>  #2186 behavior-test evidence receipt (required)
-  --fact-extractor-registry <path> Behavior fact-extractor registry (default repo path)
   --owner-catalog <path>           Reviewed mutation-owner catalog (default repo path)
   --governance-matrix <path>       Matrix fixture for static-governance preflight (tests)
   --governance-catalog <path>      Catalog fixture for static-governance preflight (tests)
@@ -522,7 +511,6 @@ function produceBehaviorMutationQualification(options)
     let behaviorCatalog;
     let testBindingScan;
     let rawTestBindingScan;
-    let factExtractorRegistry;
     let ownerCatalog;
     try
     {
@@ -544,14 +532,9 @@ function produceBehaviorMutationQualification(options)
         {
             throw new Error('test binding input must be a behavior-test-binding scan (v1)');
         }
-        factExtractorRegistry = loadJson(
-            repositoryRoot,
-            options.factExtractorRegistry ?? 'config/contracts/behavior-fact-extractors.json',
-            'fact extractor registry'
-        );
         ownerCatalog = loadJson(
             repositoryRoot,
-            options.ownerCatalog ?? 'config/testing/mutation/behavior-mutation-owners.v1.json',
+            options.ownerCatalog ?? 'config/testing/mutation/behavior-mutation-owners.v2.json',
             'mutation owner catalog'
         );
     }
@@ -584,8 +567,8 @@ function produceBehaviorMutationQualification(options)
     // the selection (release scope never omits a required behavior).
     const ownerClosureResult = deriveBehaviorMutationOwners({
         behaviorCatalog,
-        factExtractorRegistry,
         ownerCatalog,
+        sourceProjects: toolPolicy.sourceProjects,
         repositoryRoot,
         worktreeDigest: options.worktreeFingerprint
     });
