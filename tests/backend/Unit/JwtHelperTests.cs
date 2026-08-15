@@ -8,6 +8,7 @@ using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Tests.Fixtures;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Shared.Contracts.Governance;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
@@ -374,6 +375,7 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Mutation)]
     public void GenerateAdminAccessToken_OmitsRoleClaimAndCarriesAdminPrincipalClaims()
     {
         var helper = CreateHelper();

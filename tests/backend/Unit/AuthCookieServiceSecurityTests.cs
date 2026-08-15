@@ -5,6 +5,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Shared.Contracts.Governance;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -16,6 +17,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AuthCookieServiceSecurityTests
 {
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Mutation)]
     public void SetTokenCookies_Production_UsesHostPrefixedSecureHttpOnlyStrictCookies()
     {
         var service = new AuthCookieService(CreateConfiguration());
