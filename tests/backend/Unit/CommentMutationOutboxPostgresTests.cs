@@ -22,6 +22,66 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
+    public void PersistenceEntities_DefaultToCanonicalEmptyValues()
+    {
+        var outboxEvent = new CommentMutationOutboxEvent();
+        var delivery = new CommentMutationOutboxDelivery();
+
+        Assert.Equal(string.Empty, outboxEvent.EventType);
+        Assert.Equal("{}", outboxEvent.PayloadJson);
+        Assert.Equal(string.Empty, delivery.ConsumerName);
+    }
+
+    [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Mutation)]
+    public void RequiredConsumers_ExactlyMatchEveryEventType()
+    {
+        Assert.Equal(
+            [
+                CommentMutationOutboxConsumers.ModelModeration,
+                CommentMutationOutboxConsumers.CacheVersion,
+                CommentMutationOutboxConsumers.RealtimeStream,
+                CommentMutationOutboxConsumers.AuditProjection
+            ],
+            CommentMutationOutboxConsumers.RequiredFor(CommentMutationEventTypes.Created));
+        Assert.Equal(
+            [
+                CommentMutationOutboxConsumers.CacheVersion,
+                CommentMutationOutboxConsumers.RealtimeStream,
+                CommentMutationOutboxConsumers.AuditProjection,
+                CommentMutationOutboxConsumers.SiteNotification
+            ],
+            CommentMutationOutboxConsumers.RequiredFor(CommentMutationEventTypes.ModerationChanged));
+        Assert.Equal(
+            [
+                CommentMutationOutboxConsumers.CacheVersion,
+                CommentMutationOutboxConsumers.RealtimeStream,
+                CommentMutationOutboxConsumers.AuditProjection,
+                CommentMutationOutboxConsumers.SiteNotification
+            ],
+            CommentMutationOutboxConsumers.RequiredFor(CommentMutationEventTypes.Deleted));
+        Assert.Equal(
+            [
+                CommentMutationOutboxConsumers.CacheVersion,
+                CommentMutationOutboxConsumers.RealtimeStream,
+                CommentMutationOutboxConsumers.AuditProjection
+            ],
+            CommentMutationOutboxConsumers.RequiredFor(CommentMutationEventTypes.Edited));
+        Assert.Equal(
+            [
+                CommentMutationOutboxConsumers.CacheVersion,
+                CommentMutationOutboxConsumers.RealtimeStream,
+                CommentMutationOutboxConsumers.AuditProjection
+            ],
+            CommentMutationOutboxConsumers.RequiredFor(CommentMutationEventTypes.VisibilityChanged));
+        Assert.Equal(
+            [CommentMutationOutboxConsumers.SiteNotification],
+            CommentMutationOutboxConsumers.RequiredFor(CommentMutationEventTypes.ReplyNotificationRequested));
+        Assert.Empty(CommentMutationOutboxConsumers.RequiredFor("CommentUnknown"));
+    }
+
+    [Fact]
     [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "transactional-rollback-boundary")]
     public async Task AuthoritativeMutationAndOutbox_RollBackTogetherAtCrashBoundary()
     {
