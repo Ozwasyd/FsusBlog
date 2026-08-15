@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 import { root, loadCatalog, catalogRelative } from '../contracts/behavior-contract-catalog.mjs';
 import {
+    canonicalObservationTestId,
     joinBehaviorTestEvidence,
     resolveWorktreeDigest,
     scanBehaviorTestBindings,
@@ -328,7 +329,7 @@ export function extraExecutedTestIdsFor(executedTestIds, plannedTestIds, planned
     const extra = [];
     for (const testId of executedTestIds)
     {
-        if (plannedTestIds.has(testId))
+        if (plannedTestIds.has(canonicalObservationTestId(testId)))
         {
             continue;
         }

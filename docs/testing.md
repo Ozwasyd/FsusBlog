@@ -1170,7 +1170,11 @@ executed test set 必须与 plan 的 bound closure exact 匹配：缺 bound test
 （plan 遗漏或本轮未执行）失败，**额外 executed test（计划外/超出
 closure）同样失败**。shard 遗漏、duplicate testId、多跑、result
 missing、failed/cancelled/timeout、binding drift 与 framework adapter
-mismatch 全部 fail closed。
+mismatch 全部 fail closed。xUnit `[Theory]` 仍保留每个参数 data row 的
+物理 observation 和 outcome，但 join 时把 `Class#Method(arguments)`
+归并到唯一的正式方法级 `Class#Method` binding；任一 row 非 passed
+都会使该方法证据失败，参数化显示名不能被误判成计划外测试或用单个
+passing row 掩盖失败 row。
 
 ### evidenceStage 代理
 

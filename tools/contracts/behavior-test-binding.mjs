@@ -27,6 +27,21 @@ export const attributeName = 'CoversBehavior';
 export const helperName = 'behaviorTest';
 export const realConcurrencyHarness = concurrencyHarnessId;
 
+/**
+ * Map one physical framework observation to its formal binding identity.
+ *
+ * xUnit emits one TRX test ID per Theory data row by appending a parenthesized
+ * argument display to the method name. Source bindings intentionally remain
+ * method-level, so every row must join to that one method without discarding
+ * the physical row outcomes.
+ */
+export function canonicalObservationTestId(testId)
+{
+    const value = String(testId ?? '');
+    const theory = /^(xunit-trx:[^#]+#[^(]+)\(.*\)$/u.exec(value);
+    return theory?.[1] ?? value;
+}
+
 const testRoots = ['tests'];
 const nestedSkipSegments = new Set([
     'node_modules',
@@ -937,7 +952,8 @@ export function joinBehaviorTestEvidence({
     let sourceState = null;
     let sourceClosureDigest = null;
     const rawDigests = [];
-    const observationByTestId = new Map();
+    const observationsByTestId = new Map();
+    const rawObservationByTestId = new Map();
 
     for (const artifact of artifacts)
     {
@@ -962,20 +978,26 @@ export function joinBehaviorTestEvidence({
         rawDigests.push(artifact.producer.digest);
         for (const observation of artifact.observations)
         {
-            if (observationByTestId.has(observation.testId))
+            if (rawObservationByTestId.has(observation.testId))
             {
-                const previous = observationByTestId.get(observation.testId);
+                const previous = rawObservationByTestId.get(observation.testId);
                 if (previous.outcome !== observation.outcome)
                 {
                     errors.push(`canonicalTestId ${observation.testId} has conflicting outcomes in this round`);
                 }
             }
-            observationByTestId.set(observation.testId, observation);
+            rawObservationByTestId.set(observation.testId, observation);
+            const canonicalTestId = canonicalObservationTestId(observation.testId);
+            if (!observationsByTestId.has(canonicalTestId))
+            {
+                observationsByTestId.set(canonicalTestId, []);
+            }
+            observationsByTestId.get(canonicalTestId).push(observation);
         }
     }
 
     // Identity drift: observations that match no binding with a renamed residue fully-qualified form.
-    for (const [testId] of observationByTestId)
+    for (const [testId] of observationsByTestId)
     {
     // only care when we have bindings for same path patterns — checked via coverage missing/executed
         void testId;
@@ -984,16 +1006,31 @@ export function joinBehaviorTestEvidence({
     const evidence = [];
     for (const binding of scan.bindings)
     {
-        const observation = observationByTestId.get(binding.canonicalTestId);
+        const aggregate = (candidates) =>
+        {
+            if (!Array.isArray(candidates) || candidates.length === 0)
+            {
+                return null;
+            }
+            const nonPassing = candidates.find((candidate) => candidate.outcome !== 'passed');
+            return {
+                ...candidates[0],
+                physicalTestId: candidates[0].testId,
+                testId: binding.canonicalTestId,
+                outcome: nonPassing?.outcome ?? 'passed'
+            };
+        };
+        const candidates = observationsByTestId.get(binding.canonicalTestId) ?? [];
+        const observation = aggregate(candidates);
         // Also accept vitest observation IDs that use report-relative file paths equal to sourcePath.
         let matched = observation;
         if (!matched && binding.framework === 'vitest')
         {
-            for (const [testId, candidate] of observationByTestId)
+            for (const [testId, fallbackCandidates] of observationsByTestId)
             {
                 if (testId.endsWith(`#${binding.fullyQualifiedName}`) && testId.startsWith('vitest:'))
                 {
-                    matched = candidate;
+                    matched = aggregate(fallbackCandidates);
                     break;
                 }
             }
@@ -1020,14 +1057,16 @@ export function joinBehaviorTestEvidence({
             run: matched?.run ?? run ?? { id: 'missing', attemptKind: 'primary', evidenceClass: 'missing' },
             sourceState: matched?.sourceState ?? sourceState ?? { commit: '0'.repeat(40), worktreeFingerprint: `sha256:${'0'.repeat(64)}` },
             sourceClosureDigest: matched?.sourceClosureDigest ?? sourceClosureDigest ?? `sha256:${'0'.repeat(64)}`,
-            rawResultDigest: matched ? artifacts.find((artifact) => artifact.observations.some((entry) => entry.testId === matched.testId))?.producer.digest ?? `sha256:${'0'.repeat(64)}` : `sha256:${'0'.repeat(64)}`
+            rawResultDigest: matched ? artifacts.find((artifact) => artifact.observations.some(
+                (entry) => entry.testId === matched.physicalTestId
+            ))?.producer.digest ?? `sha256:${'0'.repeat(64)}` : `sha256:${'0'.repeat(64)}`
         });
     }
 
     // Stale fully-qualified identity: observation test IDs that look like renamed leftovers of bound methods.
     for (const binding of scan.bindings)
     {
-        for (const [testId] of observationByTestId)
+        for (const [testId] of observationsByTestId)
         {
             if (testId === binding.canonicalTestId)
             {

@@ -1656,6 +1656,8 @@ tiers:
           - tests/backend/Unit/TaxonomyProjectionTests.cs
           - tests/backend/Unit/ArticleStatusProjectionTests.cs
           - tests/backend/Unit/ArticleProjectionTests.cs
+          - tests/backend/Unit/ArticlePublicationTransitionTests.cs
+          - tests/backend/Unit/CommentModerationDispositionPolicyTests.cs
           - tests/backend/Unit/ArticleCoreQueryCacheBehaviorTests.cs
           - tests/backend/Unit/PublicAotBinaryPayloadTests.cs
           - tests/backend/Unit/AedsFrameNamingTests.cs

@@ -7,10 +7,17 @@ import path from 'node:path';
 import { describe, test } from 'node:test';
 
 import { root } from '../../tools/contracts/behavior-contract-catalog.mjs';
-import { scanBehaviorTestBindings } from '../../tools/contracts/behavior-test-binding.mjs';
-import { produceBehaviorTestEvidence } from '../../tools/test-matrix/produce-behavior-test-evidence.mjs';
+import {
+    joinBehaviorTestEvidence,
+    scanBehaviorTestBindings
+} from '../../tools/contracts/behavior-test-binding.mjs';
+import {
+    extraExecutedTestIdsFor,
+    produceBehaviorTestEvidence
+} from '../../tools/test-matrix/produce-behavior-test-evidence.mjs';
 import { validateJsonSchema } from '../../tools/test-matrix/schema-validator/validate.mjs';
 import { createObservationArtifact } from '../../tools/test-observations/ledger.mjs';
+import { canonicalize } from '../../tools/test-observations/source-identity.mjs';
 import { observationArtifactSchema } from '../../tools/test-observations/validation.mjs';
 
 const producerCli = path.join(root, 'tools/test-matrix/produce-behavior-test-evidence.mjs');
@@ -863,6 +870,84 @@ test('producer fails closed on extra executed tests beyond the plan closure (ove
         });
         assert.ok(errors.some((e) => e.includes('extra executed test(s) beyond plan closure')),
             'a test executed outside the planned closure must fail closed');
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('xUnit Theory rows join to one method binding and remain inside the exact plan', () =>
+{
+    const directory = tempDir();
+    try
+    {
+        const canonicalTestId = 'xunit-trx:TheoryContractTests#CoversEveryCase';
+        const artifact = makeObservationArtifact({
+            repositoryRoot: directory,
+            suite: 'TheoryContractTests',
+            framework: 'xunit-trx',
+            fileName: 'theory.trx',
+            testCases: [
+                { testId: `${canonicalTestId}(value: 1)` },
+                { testId: `${canonicalTestId}(value: 2)` }
+            ]
+        });
+        for (const observation of artifact.observations)
+        {
+            observation.producer = {
+                reference: artifact.producer.reference,
+                digest: artifact.producer.digest
+            };
+        }
+        const artifactPayload = structuredClone(artifact);
+        delete artifactPayload.contentDigest;
+        artifact.contentDigest = sha256(JSON.stringify(canonicalize(artifactPayload)));
+        const catalog = {
+            contracts: [{
+                id: 'binary-api-aeds-contract',
+                status: 'active',
+                requiredTestKinds: ['mutation']
+            }]
+        };
+        const scan = {
+            catalogDigest: 'a'.repeat(64),
+            worktreeDigest: 'b'.repeat(64),
+            errors: [],
+            bindings: [{
+                behaviorId: 'binary-api-aeds-contract',
+                testKind: 'mutation',
+                canonicalTestId,
+                framework: 'xunit-trx',
+                sourcePath: 'tests/backend/Unit/TheoryContractTests.cs',
+                fullyQualifiedName: 'FsusBlog.Tests.TheoryContractTests.CoversEveryCase',
+                invariantIds: [],
+                reasonId: null,
+                concurrencyHarness: null,
+                bindingKind: 'attribute',
+                line: 10
+            }]
+        };
+        const receipt = joinBehaviorTestEvidence({
+            repositoryRoot: directory,
+            catalog,
+            bindingsScan: scan,
+            observations: [artifact],
+            evidenceRoot: directory,
+            worktreeDigest: scan.worktreeDigest
+        });
+        assert.deepEqual(receipt.errors, []);
+        assert.equal(receipt.evidence[0].canonicalTestId, canonicalTestId);
+        assert.equal(receipt.evidence[0].executed, true);
+        assert.equal(receipt.evidence[0].outcome, 'passed');
+        assert.deepEqual(
+            extraExecutedTestIdsFor(
+                artifact.observations.map((observation) => observation.testId),
+                new Set([canonicalTestId]),
+                new Set(['tests/backend/Unit/TheoryContractTests.cs'])
+            ),
+            []
+        );
     }
     finally
     {
