@@ -244,7 +244,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
-    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Mutation)]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Mutation)]
     public void ValidateCore_RejectsDuplicateWeakOrUnboundedPreviousJwtKey()
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>

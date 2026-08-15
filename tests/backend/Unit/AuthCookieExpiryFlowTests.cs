@@ -28,6 +28,7 @@ using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Shared.Contracts.Governance;
 using FsusBlog.Shared.Contracts.Outputs;
 
 using Microsoft.AspNetCore.Builder;
@@ -64,6 +65,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
     [InlineData(AuthExpiryFlow.AdminLogin)]
     [InlineData(AuthExpiryFlow.LocalAuthFixture)]
     [Trait("Category", "SecurityStateMachine")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Mutation)]
     public async Task MappedAuthFlows_EmitExactIssuedAccessTokenExpiry(AuthExpiryFlow flow)
     {
         using HttpResponseMessage response = await fixture.SendSuccessAsync(flow);

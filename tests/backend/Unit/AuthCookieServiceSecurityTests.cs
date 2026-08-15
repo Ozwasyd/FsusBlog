@@ -144,6 +144,113 @@ public sealed class AuthCookieServiceSecurityTests
     }
 
     [Fact]
+    public void SetAccessTokenCookie_UsesEnvironmentNamespaceAndExactExpiry()
+    {
+        DateTimeOffset expiry = DateTimeOffset.UtcNow.AddMinutes(15);
+        var production = new AuthCookieService(CreateConfiguration());
+        var productionContext = new DefaultHttpContext();
+        production.SetAccessTokenCookie(productionContext, ProductionEnv(), "production-access", expiry);
+
+        var development = new AuthCookieService(CreateConfiguration(new Dictionary<string, string?>
+        {
+            ["AuthCookies:AllowInsecureTransportCookies"] = "true"
+        }));
+        var developmentContext = new DefaultHttpContext();
+        development.SetAccessTokenCookie(developmentContext, DevelopmentEnv(), "development-access", expiry);
+
+        Assert.Equal(
+            expiry.ToUnixTimeSeconds(),
+            ReadCookieExpiry(productionContext, "__Host-AccessToken").ToUnixTimeSeconds());
+        Assert.Equal(
+            expiry.ToUnixTimeSeconds(),
+            ReadCookieExpiry(developmentContext, "AccessToken").ToUnixTimeSeconds());
+        AssertProductionCookieAttributes(Assert.Single(ReadSetCookieHeaders(productionContext)));
+        Assert.DoesNotContain("; secure", Assert.Single(ReadSetCookieHeaders(developmentContext)), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void SetAdminSessionCookies_UsesEnvironmentNamespaceAndIndependentExpiries()
+    {
+        DateTimeOffset accessExpiry = DateTimeOffset.UtcNow.AddMinutes(15);
+        DateTime sessionExpiry = DateTime.UtcNow.AddHours(8);
+        var production = new AuthCookieService(CreateConfiguration());
+        var productionContext = new DefaultHttpContext();
+        production.SetAdminSessionCookies(
+            productionContext,
+            ProductionEnv(),
+            "production-admin",
+            accessExpiry,
+            "production-session",
+            sessionExpiry);
+
+        var development = new AuthCookieService(CreateConfiguration(new Dictionary<string, string?>
+        {
+            ["AuthCookies:AllowInsecureTransportCookies"] = "true"
+        }));
+        var developmentContext = new DefaultHttpContext();
+        development.SetAdminSessionCookies(
+            developmentContext,
+            DevelopmentEnv(),
+            "development-admin",
+            accessExpiry,
+            "development-session",
+            sessionExpiry);
+
+        Assert.Equal(
+            accessExpiry.ToUnixTimeSeconds(),
+            ReadCookieExpiry(productionContext, "__Host-AdminAccessToken").ToUnixTimeSeconds());
+        Assert.Equal(
+            new DateTimeOffset(sessionExpiry).ToUnixTimeSeconds(),
+            ReadCookieExpiry(productionContext, "__Host-AdminSessionId").ToUnixTimeSeconds());
+        Assert.Equal(
+            accessExpiry.ToUnixTimeSeconds(),
+            ReadCookieExpiry(developmentContext, "AdminAccessToken").ToUnixTimeSeconds());
+        Assert.Equal(
+            new DateTimeOffset(sessionExpiry).ToUnixTimeSeconds(),
+            ReadCookieExpiry(developmentContext, "AdminSessionId").ToUnixTimeSeconds());
+    }
+
+    [Fact]
+    public void EnrollmentCookie_UsesScopedNamespaceReadAndClearContract()
+    {
+        DateTime expiry = DateTime.UtcNow.AddMinutes(10);
+        var production = new AuthCookieService(CreateConfiguration());
+        var productionContext = new DefaultHttpContext();
+        production.SetEnrollmentCookie(productionContext, ProductionEnv(), "production-enrollment", expiry);
+
+        string productionCookie = Assert.Single(ReadSetCookieHeaders(productionContext));
+        Assert.StartsWith("__Host-EnrollmentToken=production-enrollment", productionCookie, StringComparison.Ordinal);
+        Assert.Contains("; path=/api/binary/auth/enrollment", productionCookie, StringComparison.OrdinalIgnoreCase);
+        AssertProductionCookieAttributes(productionCookie);
+
+        var development = new AuthCookieService(CreateConfiguration(new Dictionary<string, string?>
+        {
+            ["AuthCookies:AllowInsecureTransportCookies"] = "true"
+        }));
+        var developmentContext = new DefaultHttpContext();
+        development.SetEnrollmentCookie(developmentContext, DevelopmentEnv(), "development-enrollment", expiry);
+        Assert.StartsWith(
+            "EnrollmentToken=development-enrollment",
+            Assert.Single(ReadSetCookieHeaders(developmentContext)),
+            StringComparison.Ordinal);
+
+        var readContext = new DefaultHttpContext();
+        readContext.Request.Headers.Cookie = "__Host-EnrollmentToken=host-value; EnrollmentToken=plain-value";
+        Assert.Equal("host-value", production.ReadEnrollmentToken(readContext));
+
+        var clearContext = new DefaultHttpContext();
+        production.ClearEnrollmentCookie(clearContext);
+        string[] clearedCookies = ReadSetCookieHeaders(clearContext);
+        Assert.Contains(clearedCookies, static cookie =>
+            cookie.StartsWith("EnrollmentToken=", StringComparison.Ordinal) &&
+            cookie.Contains("path=/api/binary/auth/enrollment", StringComparison.OrdinalIgnoreCase));
+        AssertHostPrefixedDeleteCookieAttributes(
+            clearedCookies,
+            "__Host-EnrollmentToken",
+            "/api/binary/auth/enrollment");
+    }
+
+    [Fact]
     public void ClearTokenCookies_DeletesPlainAndHostPrefixedCookies()
     {
         var service = new AuthCookieService(CreateConfiguration());
@@ -160,7 +267,11 @@ public sealed class AuthCookieServiceSecurityTests
             "SessionId",
             "__Host-AccessToken",
             "__Host-RefreshToken",
-            "__Host-SessionId"
+            "__Host-SessionId",
+            "AdminAccessToken",
+            "AdminSessionId",
+            "__Host-AdminAccessToken",
+            "__Host-AdminSessionId"
         })
         {
             Assert.Contains(setCookies, cookie => cookie.StartsWith(cookieName + "=", StringComparison.Ordinal));
@@ -195,6 +306,8 @@ public sealed class AuthCookieServiceSecurityTests
         AssertHostPrefixedDeleteCookieAttributes(setCookies, "__Host-AccessToken");
         AssertHostPrefixedDeleteCookieAttributes(setCookies, "__Host-RefreshToken");
         AssertHostPrefixedDeleteCookieAttributes(setCookies, "__Host-SessionId");
+        AssertHostPrefixedDeleteCookieAttributes(setCookies, "__Host-AdminAccessToken");
+        AssertHostPrefixedDeleteCookieAttributes(setCookies, "__Host-AdminSessionId");
     }
 
     [Fact]
@@ -337,7 +450,10 @@ public sealed class AuthCookieServiceSecurityTests
         Assert.DoesNotContain("; domain=", cookie, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static void AssertHostPrefixedDeleteCookieAttributes(string[] setCookies, string cookieName)
+    private static void AssertHostPrefixedDeleteCookieAttributes(
+        string[] setCookies,
+        string cookieName,
+        string path = "/")
     {
         string cookie = Assert.Single(setCookies, cookie => cookie.StartsWith(cookieName + "=", StringComparison.Ordinal));
         string value = cookie[(cookieName.Length + 1)..].Split(';', 2, StringSplitOptions.None)[0];
@@ -352,7 +468,7 @@ public sealed class AuthCookieServiceSecurityTests
                 "R",
                 CultureInfo.InvariantCulture,
                 DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal) < DateTimeOffset.UtcNow);
-        Assert.Contains("; path=/", cookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains($"; path={path}", cookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("; secure", cookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("; httponly", cookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("; samesite=strict", cookie, StringComparison.OrdinalIgnoreCase);
