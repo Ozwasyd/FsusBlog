@@ -409,9 +409,12 @@
         {
             "id": "behavior-mutation-owner-catalog",
             "owner": "backend-test-governance",
-            "canonicalPath": "config/testing/mutation/behavior-mutation-owners.v2.json",
+            "canonicalPath": "config/testing/mutation/behavior-mutation-owners.v3.json",
             "pathType": "file",
             "purpose": "Canonical behavior mutation owner mapping consumed by changed-critical qualification.",
+            "rejectedPaths": [
+                "config/testing/mutation/behavior-mutation-owners.v2.json"
+            ],
             "consumers": [
                 "tools/test-matrix/behavior-mutation-owner.mjs",
                 "tools/test-matrix/produce-behavior-mutation-qualification.mjs",

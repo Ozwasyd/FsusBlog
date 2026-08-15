@@ -534,7 +534,7 @@ function produceBehaviorMutationQualification(options)
         }
         ownerCatalog = loadJson(
             repositoryRoot,
-            options.ownerCatalog ?? 'config/testing/mutation/behavior-mutation-owners.v2.json',
+            options.ownerCatalog ?? 'config/testing/mutation/behavior-mutation-owners.v3.json',
             'mutation owner catalog'
         );
     }

@@ -428,7 +428,7 @@ export function verifyBehaviorMutationQualification(options)
 
     const ownerCatalog = loadJson(
         repositoryRootValue,
-        options.ownerCatalog ?? 'config/testing/mutation/behavior-mutation-owners.v2.json',
+        options.ownerCatalog ?? 'config/testing/mutation/behavior-mutation-owners.v3.json',
         'mutation owner catalog',
         errors
     );
@@ -526,7 +526,7 @@ export function verifyBehaviorMutationQualification(options)
     const authority = loadJson(repositoryRootValue, options.authority, 'mutation authority', errors);
     if (authority)
     {
-        if (authority.schema !== 'fsusblog.changed-critical-mutation-authority.v2')
+        if (authority.schema !== 'fsusblog.changed-critical-mutation-authority.v3')
         {
             errors.push('mutation authority schema mismatch');
         }

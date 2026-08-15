@@ -375,12 +375,13 @@ function runPhysicalMutations({ selection, toolPolicy, runDirectory, root, physi
                 mutateFiles: closure.mutateFiles
             });
             writeJsonAtomic(resolve(runDirectory, 'configs', `${runName}-physical-scope.json`), {
-                schema: 'fsusblog.changed-critical-mutation-physical-scope.v2',
+                schema: 'fsusblog.changed-critical-mutation-physical-scope.v3',
                 sourceState: selection.sourceState,
                 runKey: closure.runKey,
                 behaviors: closure.behaviors,
                 sourceProject: closure.sourceProject,
                 mutateFiles: sandbox.selected,
+                mutatePatterns: closure.mutatePatterns,
                 suppressedSourceFileCount: sandbox.suppressed.length,
                 traceVerified: true
             });

@@ -638,6 +638,20 @@ test('actual mutated source must match configuration', () =>
     assert.throws(() => authority(wrongFile), /outside configured mutate scope/u);
 });
 
+test('actual mutants must remain inside configured end-exclusive line regions', () =>
+{
+    const regionalConfig = structuredClone(config);
+    regionalConfig['stryker-config'].mutate = ['Algorithms/AedsEncoder.cs{1..3}'];
+    assert.doesNotThrow(() => authority(report([
+        mutant({ line: 1 }),
+        mutant({ line: 2, replacement: 'return value - 2;' })
+    ]), regionalConfig));
+    assert.throws(
+        () => authority(report([mutant({ line: 3 })]), regionalConfig),
+        /outside configured mutate scope/u
+    );
+});
+
 test('report validation retains the executed-mutant gate', () =>
 {
     assert.throws(

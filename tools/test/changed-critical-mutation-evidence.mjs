@@ -138,7 +138,7 @@ export function createChangedCriticalMutationAuthority({
         }
         assertEqual(
             canonicalJson(run.config['stryker-config'].mutate),
-            canonicalJson(closure.mutateFiles),
+            canonicalJson(closure.mutatePatterns),
             `${run.runKey} mutate scope`
         );
         assertEqual(
@@ -193,6 +193,7 @@ export function createChangedCriticalMutationAuthority({
             },
             traceExecution: authority.traceExecution,
             mutateFiles: closure.mutateFiles,
+            mutatePatterns: closure.mutatePatterns,
             testFilter: closure.testFilter,
             executed: authority.executedMutants,
             statuses: authority.statuses,
@@ -230,7 +231,7 @@ export function createChangedCriticalMutationAuthority({
         .sort((left, right) => left.localeCompare(right));
 
     return {
-        schema: 'fsusblog.changed-critical-mutation-authority.v2',
+        schema: 'fsusblog.changed-critical-mutation-authority.v3',
         evidenceClass: 'source-level',
         status: 'success',
         runId,
@@ -254,6 +255,7 @@ export function createChangedCriticalMutationAuthority({
             }))
         )),
         mutateFiles: selection.mutateFiles,
+        mutateTargets: selection.mutateTargets,
         testFilter: selection.testFilter,
         behaviors: selection.behaviors.map(({ behaviorId, risk }) => ({ behaviorId, risk })),
         mutants: {
@@ -322,7 +324,7 @@ export function validateChangedCriticalMutationAuthority({
 })
 {
     if (
-        authority?.schema !== 'fsusblog.changed-critical-mutation-authority.v2'
+        authority?.schema !== 'fsusblog.changed-critical-mutation-authority.v3'
         || authority.status !== 'success'
     )
     {
@@ -341,6 +343,11 @@ export function validateChangedCriticalMutationAuthority({
         canonicalJson(authority.mutateFiles),
         canonicalJson(selection.mutateFiles),
         'mutate file list'
+    );
+    assertEqual(
+        canonicalJson(authority.mutateTargets),
+        canonicalJson(selection.mutateTargets),
+        'mutate target list'
     );
     assertEqual(authority.testFilter, selection.testFilter, 'test filter');
 

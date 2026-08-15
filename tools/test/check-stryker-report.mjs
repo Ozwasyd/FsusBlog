@@ -409,6 +409,43 @@ function globMatches(pattern, input)
     return new RegExp(`^${escaped}$`, 'u').test(input);
 }
 
+function parseMutationScopePattern(pattern)
+{
+    const regions = [...pattern.matchAll(/\{(?<start>\d+)\.\.(?<end>\d+)\}/gu)]
+        .map(({ groups }) => ({
+            startLine: Number(groups.start),
+            endLineExclusive: Number(groups.end)
+        }));
+    const filePattern = pattern.replaceAll(/\{\d+\.\.\d+\}/gu, '');
+    if (
+        filePattern.includes('{')
+        || filePattern.includes('}')
+        || regions.some(({ startLine, endLineExclusive }) =>
+            !Number.isSafeInteger(startLine)
+            || !Number.isSafeInteger(endLineExclusive)
+            || startLine < 1
+            || endLineExclusive <= startLine)
+    )
+    {
+        throw new Error(`configured mutate scope has invalid line regions: ${pattern}`);
+    }
+    return { filePattern, regions };
+}
+
+function scopePatternMatchesMutant(pattern, scopedFile, mutant)
+{
+    const parsed = parseMutationScopePattern(pattern);
+    if (!globMatches(parsed.filePattern, scopedFile))
+    {
+        return false;
+    }
+    return parsed.regions.length === 0 || parsed.regions.some(
+        ({ startLine, endLineExclusive }) =>
+            mutant.startLine >= startLine
+            && mutant.endLine < endLineExclusive
+    );
+}
+
 function configuredTestFilterMatches(testCaseFilter, fullyQualifiedName)
 {
     const filters = testCaseFilter.split('|').map((entry) => entry.trim());
@@ -1080,9 +1117,11 @@ function validateScope(scope, inventory, sourceRoot)
         const scopedFile = normalizedRoot && file.startsWith(normalizedRoot)
             ? file.slice(normalizedRoot.length)
             : file;
-        if (!scope.some((pattern) => globMatches(pattern, scopedFile)))
+        const fileMutants = inventory.filter(({ sourceFile }) => sourceFile === file);
+        if (fileMutants.some((mutant) =>
+            !scope.some((pattern) => scopePatternMatchesMutant(pattern, scopedFile, mutant))))
         {
-            throw new Error(`actual mutated source file ${file} is outside configured mutate scope`);
+            throw new Error(`actual mutant in source file ${file} is outside configured mutate scope`);
         }
     }
     for (const pattern of scope)
@@ -1092,7 +1131,9 @@ function validateScope(scope, inventory, sourceRoot)
             const scopedFile = normalizedRoot && file.startsWith(normalizedRoot)
                 ? file.slice(normalizedRoot.length)
                 : file;
-            return globMatches(pattern, scopedFile);
+            return inventory
+                .filter(({ sourceFile }) => sourceFile === file)
+                .some((mutant) => scopePatternMatchesMutant(pattern, scopedFile, mutant));
         }))
         {
             throw new Error(`configured mutate scope ${pattern} has no actual mutant source file`);

@@ -3,12 +3,12 @@
  *
  * The exact mutants for a required release behavior are derived from the
  * machine-readable BehaviorCatalog + reviewed mutation-owner catalog
- * (config/testing/mutation/behavior-mutation-owners.v2.json). The catalog
+ * (config/testing/mutation/behavior-mutation-owners.v3.json). The catalog
  * selects reviewed executable runtime kernels independently from BehaviorDoc
  * fact-extractor inputs: those inputs also include DTOs, declarative catalogs
  * and broad hosting files that are observation dependencies but not useful
- * mutation targets. Each selected source file is owned by exactly one behavior
- * so every Stryker mutant attributes uniquely.
+ * mutation targets. Each selected source kernel is owned by exactly one
+ * behavior so every Stryker mutant attributes uniquely.
  */
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
@@ -22,9 +22,9 @@ import {
 } from '../contracts/behavior-contract-catalog.mjs';
 import { resolveWorktreeDigest } from '../contracts/behavior-owner-binding.mjs';
 
-export const behaviorMutationOwnerSchema = 'fsusblog.behavior-mutation-owner-closure.v1';
-export const behaviorMutationOwnerCatalogSchema = 'fsusblog.behavior-mutation-owners.v2';
-export const defaultOwnerCatalogRelative = 'config/testing/mutation/behavior-mutation-owners.v2.json';
+export const behaviorMutationOwnerSchema = 'fsusblog.behavior-mutation-owner-closure.v2';
+export const behaviorMutationOwnerCatalogSchema = 'fsusblog.behavior-mutation-owners.v3';
+export const defaultOwnerCatalogRelative = 'config/testing/mutation/behavior-mutation-owners.v3.json';
 
 const digestPattern = /^[a-f0-9]{64}$/u;
 
@@ -71,6 +71,85 @@ function symbolFromPath(sourcePath)
     return base.replace(/\.cs$/u, '');
 }
 
+function normalizeMutationScope(scope, sourcePath, sourceLineCount, errors, behaviorId)
+{
+    if (!scope || typeof scope !== 'object' || Array.isArray(scope))
+    {
+        errors.push(`${behaviorId} owner kernel requires mutationScope: ${sourcePath}`);
+        return null;
+    }
+    if (scope.kind === 'whole-file')
+    {
+        if (Object.keys(scope).some((key) => key !== 'kind'))
+        {
+            errors.push(`${behaviorId} whole-file mutationScope accepts only kind: ${sourcePath}`);
+            return null;
+        }
+        return { kind: 'whole-file' };
+    }
+    if (scope.kind !== 'line-regions')
+    {
+        errors.push(`${behaviorId} mutationScope kind must be whole-file or line-regions: ${sourcePath}`);
+        return null;
+    }
+    if (
+        Object.keys(scope).some((key) => !['kind', 'regions'].includes(key))
+        || !Array.isArray(scope.regions)
+        || scope.regions.length === 0
+    )
+    {
+        errors.push(`${behaviorId} line-regions mutationScope requires only non-empty regions[]: ${sourcePath}`);
+        return null;
+    }
+    const regions = [];
+    let previousEnd = 0;
+    for (const [index, region] of scope.regions.entries())
+    {
+        if (
+            !region
+            || typeof region !== 'object'
+            || Array.isArray(region)
+            || Object.keys(region).sort().join(',') !== 'endLineExclusive,startLine'
+            || !Number.isSafeInteger(region.startLine)
+            || !Number.isSafeInteger(region.endLineExclusive)
+            || region.startLine < 1
+            || region.endLineExclusive <= region.startLine
+            || region.endLineExclusive > sourceLineCount + 1
+        )
+        {
+            errors.push(
+                `${behaviorId} mutation region ${index} is invalid or outside ${sourcePath} `
+                + `(lineCount=${sourceLineCount})`
+            );
+            continue;
+        }
+        if (region.startLine < previousEnd)
+        {
+            errors.push(`${behaviorId} mutation regions must be sorted and non-overlapping: ${sourcePath}`);
+            continue;
+        }
+        regions.push({
+            startLine: region.startLine,
+            endLineExclusive: region.endLineExclusive
+        });
+        previousEnd = region.endLineExclusive;
+    }
+    return regions.length === scope.regions.length
+        ? { kind: 'line-regions', regions }
+        : null;
+}
+
+function mutationPattern(sourcePath, mutationScope)
+{
+    if (mutationScope.kind === 'whole-file')
+    {
+        return sourcePath;
+    }
+    return sourcePath + mutationScope.regions
+        .map(({ startLine, endLineExclusive }) => `{${startLine}..${endLineExclusive}}`)
+        .join('');
+}
+
 export function loadBehaviorMutationOwnerCatalog(repositoryRoot = defaultRoot)
 {
     return JSON.parse(
@@ -92,8 +171,9 @@ export function loadBehaviorCatalog(repositoryRoot = defaultRoot)
  *
  * Fail-closed rules (delivery items 1, 11):
  *   - every active mutation-required behavior has exactly one catalog entry;
- *   - every source file exists, is .cs and lives under a mutation source project;
+ *   - every source kernel exists, is .cs and lives under a mutation source project;
  *   - every source file is owned by exactly one behavior (unique attribution);
+ *   - line regions are ordered, non-overlapping and within current source bounds;
  *   - binary-api-aeds-contract must cover the reviewed AEDS critical slice
  *     source regions (AedsEncoder.cs) from critical.json/release-parity-subset.json.
  */
@@ -114,6 +194,13 @@ export function validateBehaviorMutationOwnerCatalog({
             bindings: []
         };
     }
+    if (
+        ownerCatalog.version !== 3
+        || Object.keys(ownerCatalog).sort().join(',') !== 'behaviors,description,schema,version'
+    )
+    {
+        errors.push('owner catalog v3 requires only schema, version, description and behaviors');
+    }
     if (!Array.isArray(ownerCatalog.behaviors))
     {
         return { ok: false, errors: ['owner catalog must declare behaviors[]'], bindings: [] };
@@ -133,9 +220,18 @@ export function validateBehaviorMutationOwnerCatalog({
             errors.push('owner catalog entry requires behaviorId');
             continue;
         }
-        if (!Array.isArray(entry.sourceFiles) || entry.sourceFiles.length === 0)
+        if (
+            Object.keys(entry).sort().join(',') !== 'behaviorId,provenance,sourceKernels'
+            || typeof entry.provenance !== 'string'
+            || entry.provenance.length === 0
+        )
         {
-            errors.push(`${entry.behaviorId} owner catalog entry requires non-empty sourceFiles[]`);
+            errors.push(`${entry.behaviorId} owner catalog entry requires only behaviorId, provenance and sourceKernels`);
+            continue;
+        }
+        if (!Array.isArray(entry.sourceKernels) || entry.sourceKernels.length === 0)
+        {
+            errors.push(`${entry.behaviorId} owner catalog entry requires non-empty sourceKernels[]`);
             continue;
         }
         if (entryByBehavior.has(entry.behaviorId))
@@ -163,6 +259,7 @@ export function validateBehaviorMutationOwnerCatalog({
 
     // File existence + source-project eligibility + unique ownership.
     const ownerByFile = new Map();
+    const normalizedKernelsByBehavior = new Map();
     for (const behaviorId of requiredBehaviors)
     {
         const entry = entryByBehavior.get(behaviorId);
@@ -170,9 +267,21 @@ export function validateBehaviorMutationOwnerCatalog({
         {
             continue;
         }
-        for (const rawPath of entry.sourceFiles)
+        const normalizedKernels = [];
+        const seenEntryPaths = new Set();
+        for (const kernel of entry.sourceKernels)
         {
-            const sourcePath = normalize(rawPath);
+            if (
+                !kernel
+                || typeof kernel !== 'object'
+                || Array.isArray(kernel)
+                || Object.keys(kernel).sort().join(',') !== 'mutationScope,sourcePath'
+            )
+            {
+                errors.push(`${behaviorId} owner kernel requires only sourcePath and mutationScope`);
+                continue;
+            }
+            const sourcePath = normalize(kernel.sourcePath);
             if (!sourcePath.endsWith('.cs'))
             {
                 errors.push(`${behaviorId} owner source must be a C# file: ${sourcePath}`);
@@ -189,6 +298,12 @@ export function validateBehaviorMutationOwnerCatalog({
                 errors.push(`${behaviorId} owner source does not exist: ${sourcePath}`);
                 continue;
             }
+            if (seenEntryPaths.has(sourcePath))
+            {
+                errors.push(`${behaviorId} owner source is duplicated: ${sourcePath}`);
+                continue;
+            }
+            seenEntryPaths.add(sourcePath);
             if (ownerByFile.has(sourcePath) && ownerByFile.get(sourcePath) !== behaviorId)
             {
                 errors.push(
@@ -197,7 +312,25 @@ export function validateBehaviorMutationOwnerCatalog({
                 continue;
             }
             ownerByFile.set(sourcePath, behaviorId);
+            const source = readFileSync(absolute, 'utf8');
+            const sourceLineCount = source.split(/\r?\n/u).length;
+            const mutationScope = normalizeMutationScope(
+                kernel.mutationScope,
+                sourcePath,
+                sourceLineCount,
+                errors,
+                behaviorId
+            );
+            if (mutationScope)
+            {
+                normalizedKernels.push({
+                    sourcePath,
+                    mutationScope,
+                    mutationPattern: mutationPattern(sourcePath, mutationScope)
+                });
+            }
         }
+        normalizedKernelsByBehavior.set(behaviorId, normalizedKernels);
     }
 
     // Reviewed AEDS critical slice coverage for binary-api-aeds-contract.
@@ -225,8 +358,10 @@ export function validateBehaviorMutationOwnerCatalog({
             {
                 continue;
             }
-            for (const sourcePath of [...new Set(entry.sourceFiles.map(normalize))].sort())
+            for (const kernel of (normalizedKernelsByBehavior.get(behaviorId) ?? [])
+                .sort((left, right) => left.sourcePath.localeCompare(right.sourcePath)))
             {
+                const { sourcePath, mutationScope } = kernel;
                 if (!ownerByFile.has(sourcePath) || ownerByFile.get(sourcePath) !== behaviorId)
                 {
                     continue;
@@ -244,6 +379,8 @@ export function validateBehaviorMutationOwnerCatalog({
                     sourcePath,
                     symbol: symbolFromPath(sourcePath),
                     bindingKind: 'reviewed-runtime-kernel',
+                    mutationScope,
+                    mutationPattern: kernel.mutationPattern,
                     sourceDigest,
                     catalogDigest,
                     worktreeDigest: null,
@@ -328,6 +465,8 @@ export function sealBehaviorMutationOwnerClosure(report)
                 sourcePath: binding.sourcePath,
                 symbol: binding.symbol,
                 bindingKind: binding.bindingKind,
+                mutationScope: binding.mutationScope,
+                mutationPattern: binding.mutationPattern,
                 sourceDigest: binding.sourceDigest,
                 catalogDigest: binding.catalogDigest ?? report.catalogDigest,
                 worktreeDigest: binding.worktreeDigest ?? report.worktreeDigest,

@@ -93,7 +93,9 @@ function makeOwnerReceipt()
                 language: 'csharp',
                 sourcePath: 'src/backend/Infrastructure/Auth/AccountSubjectHasher.cs',
                 symbol: 'AccountSubjectHasher',
-                bindingKind: 'attribute',
+                bindingKind: 'reviewed-runtime-kernel',
+                mutationScope: { kind: 'whole-file' },
+                mutationPattern: 'src/backend/Infrastructure/Auth/AccountSubjectHasher.cs',
                 status: 'ok'
             },
             {
@@ -101,7 +103,9 @@ function makeOwnerReceipt()
                 language: 'csharp',
                 sourcePath: 'src/core/Integrity/ArticleRightsCanonicalHashV1.cs',
                 symbol: 'ArticleRightsCanonicalHashV1',
-                bindingKind: 'attribute',
+                bindingKind: 'reviewed-runtime-kernel',
+                mutationScope: { kind: 'whole-file' },
+                mutationPattern: 'src/core/Integrity/ArticleRightsCanonicalHashV1.cs',
                 status: 'ok'
             },
             {
@@ -217,7 +221,8 @@ test('same-project behaviors become separate binding-derived execution closures'
             ? {
                 ...binding,
                 sourcePath: 'src/backend/Infrastructure/Binary/BinaryEnvelopePolicy.cs',
-                symbol: 'BinaryEnvelopePolicy'
+                symbol: 'BinaryEnvelopePolicy',
+                mutationPattern: 'src/backend/Infrastructure/Binary/BinaryEnvelopePolicy.cs'
             }
             : binding);
     const selection = selectChangedCriticalMutation({
@@ -510,7 +515,7 @@ test('ambiguous multi-owner file reports blocked mutants', () =>
     assert.equal(blocked[0].reason, 'ambiguous-owner-boundary');
 });
 
-test('per-behavior qualification fails on survived mutants regardless of domain score', () =>
+test('per-behavior qualification keeps survived mutants scoreable and enforces the declared threshold', () =>
 {
     const attributions = [
         { mutantId: 'm1', behaviorId: 'binary-api-aeds-contract', status: 'Killed', sourcePath: 'a.cs', symbol: 'A', mutator: 'Arith', coveredTestIds: ['t1'], killedTestIds: ['t1'] },
@@ -529,7 +534,7 @@ test('per-behavior qualification fails on survived mutants regardless of domain 
     const auth = qualifications.find((q) => q.behaviorId === 'authentication-session-permission');
     assert.equal(aeds.qualified, false);
     assert.equal(aeds.survived, 1);
-    assert.ok(aeds.failures.some((f) => /survived/u.test(f)));
+    assert.ok(aeds.failures.some((f) => /mutation score 66\.67 < minimum 70/u.test(f)));
     assert.equal(auth.qualified, true);
 });
 

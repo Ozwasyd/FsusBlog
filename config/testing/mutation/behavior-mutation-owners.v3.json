@@ -1,0 +1,141 @@
+{
+    "schema": "fsusblog.behavior-mutation-owners.v3",
+    "version": 3,
+    "description": "Reviewed per-behavior C# runtime mutation kernels for the four mutation-required release behaviors. Each kernel declares either the whole source file or exact end-exclusive line regions. Region ownership is intentionally independent from BehaviorDoc fact-extractor consumedInputs: compiled observation dependencies include DTOs, declarative catalogs and broad hosting files that are not executable mutation targets. Every selected kernel is covered by the binding-owned test class for its behavior, and exact disjoint source ownership keeps every Stryker mutant attributable to one behavior.",
+    "behaviors": [
+        {
+            "behaviorId": "binary-api-aeds-contract",
+            "provenance": "BinaryTransportHotPathContractTests plus config/testing/mutation/critical.json and release-parity-subset.json; reviewed AEDS v2 encode/decode and request-binding kernels",
+            "sourceKernels": [
+                {
+                    "sourcePath": "src/backend/Infrastructure/Binary/BinaryEnvelopePolicy.cs",
+                    "mutationScope": {
+                        "kind": "whole-file"
+                    }
+                },
+                {
+                    "sourcePath": "src/backend/Infrastructure/Binary/BinaryRequestBinder.cs",
+                    "mutationScope": {
+                        "kind": "whole-file"
+                    }
+                },
+                {
+                    "sourcePath": "src/core/Algorithms/AedsCrc16.cs",
+                    "mutationScope": {
+                        "kind": "whole-file"
+                    }
+                },
+                {
+                    "sourcePath": "src/core/Algorithms/AedsDecoderValidator.cs",
+                    "mutationScope": {
+                        "kind": "whole-file"
+                    }
+                },
+                {
+                    "sourcePath": "src/core/Algorithms/AedsEncoder.cs",
+                    "mutationScope": {
+                        "kind": "whole-file"
+                    }
+                },
+                {
+                    "sourcePath": "src/core/Algorithms/AedsFrameType.cs",
+                    "mutationScope": {
+                        "kind": "whole-file"
+                    }
+                }
+            ]
+        },
+        {
+            "behaviorId": "authentication-session-permission",
+            "provenance": "UserSessionJwtAuthenticationTests; reviewed JWT validation, cookie isolation and admin-permission kernels",
+            "sourceKernels": [
+                {
+                    "sourcePath": "src/backend/Infrastructure/Auth/AdminPermissions.cs",
+                    "mutationScope": {
+                        "kind": "whole-file"
+                    }
+                },
+                {
+                    "sourcePath": "src/backend/Infrastructure/Auth/AuthCookieService.cs",
+                    "mutationScope": {
+                        "kind": "whole-file"
+                    }
+                },
+                {
+                    "sourcePath": "src/backend/Infrastructure/Helpers/JwtHelper.cs",
+                    "mutationScope": {
+                        "kind": "whole-file"
+                    }
+                }
+            ]
+        },
+        {
+            "behaviorId": "configuration-error-security-policy",
+            "provenance": "ProductionStartupValidatorTests; reviewed production configuration fail-closed kernel",
+            "sourceKernels": [
+                {
+                    "sourcePath": "src/backend/Infrastructure/Operations/ProductionStartupValidator.cs",
+                    "mutationScope": {
+                        "kind": "whole-file"
+                    }
+                }
+            ]
+        },
+        {
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "provenance": "ArticlePublicationTransitionTests, CommentModerationDispositionPolicyTests and CommentMutationOutboxPostgresTests; reviewed lifecycle transition and owner-bound outbox kernels",
+            "sourceKernels": [
+                {
+                    "sourcePath": "src/backend/Entities/CommentMutationOutbox.cs",
+                    "mutationScope": {
+                        "kind": "whole-file"
+                    }
+                },
+                {
+                    "sourcePath": "src/backend/Services/Background/CommentMutationOutboxWorker.cs",
+                    "mutationScope": {
+                        "kind": "line-regions",
+                        "regions": [
+                            {
+                                "startLine": 130,
+                                "endLineExclusive": 250
+                            },
+                            {
+                                "startLine": 491,
+                                "endLineExclusive": 740
+                            },
+                            {
+                                "startLine": 771,
+                                "endLineExclusive": 884
+                            },
+                            {
+                                "startLine": 888,
+                                "endLineExclusive": 1039
+                            },
+                            {
+                                "startLine": 1062,
+                                "endLineExclusive": 1079
+                            },
+                            {
+                                "startLine": 1085,
+                                "endLineExclusive": 1179
+                            }
+                        ]
+                    }
+                },
+                {
+                    "sourcePath": "src/backend/Services/Moderation/CommentModerationTransitions.cs",
+                    "mutationScope": {
+                        "kind": "whole-file"
+                    }
+                },
+                {
+                    "sourcePath": "src/core/Services/Articles/ArticleStatusTransitionPolicy.cs",
+                    "mutationScope": {
+                        "kind": "whole-file"
+                    }
+                }
+            ]
+        }
+    ]
+}

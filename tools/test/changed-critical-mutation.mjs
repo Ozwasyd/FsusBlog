@@ -127,7 +127,12 @@ function sourceOwnerBindings(ownerReceipt, implementationOwnerClosure, behaviorI
 function isMutationEligibleOwner(binding, sourceProjects)
 {
     const sourcePath = String(binding?.sourcePath ?? '').replaceAll('\\', '/');
-    if (!sourcePath.endsWith('.cs'))
+    if (
+        binding?.bindingKind !== 'reviewed-runtime-kernel'
+        || !sourcePath.endsWith('.cs')
+        || typeof binding?.mutationPattern !== 'string'
+        || binding.mutationPattern.length === 0
+    )
     {
         return false;
     }
@@ -210,26 +215,21 @@ function finalizeBehaviorSelection({
             const filterExpression = testFilters
                 .map((cls) => `FullyQualifiedName~${cls}`)
                 .join('|');
-            const mutateFiles = [...new Set(
-                entry.owners
-                    .map((o) => String(o.sourcePath).replaceAll('\\', '/'))
-                    .filter((sourcePath) =>
-                    {
-                        if (!sourcePath.endsWith('.cs'))
-                        {
-                            return false;
-                        }
-                        try
-                        {
-                            resolveChangedCriticalSourceProject(sourcePath, toolPolicy.sourceProjects);
-                            return true;
-                        }
-                        catch
-                        {
-                            return false;
-                        }
-                    })
-            )].sort();
+            const mutateTargets = entry.owners
+                .filter((owner) => isMutationEligibleOwner(owner, toolPolicy.sourceProjects))
+                .map((owner) => ({
+                    sourcePath: String(owner.sourcePath).replaceAll('\\', '/'),
+                    mutationPattern: String(owner.mutationPattern).replaceAll('\\', '/'),
+                    mutationScope: owner.mutationScope
+                }))
+                .filter((target, index, targets) =>
+                    targets.findIndex((candidate) =>
+                        candidate.sourcePath === target.sourcePath
+                        && candidate.mutationPattern === target.mutationPattern) === index)
+                .sort((left, right) =>
+                    `${left.sourcePath}\0${left.mutationPattern}`
+                        .localeCompare(`${right.sourcePath}\0${right.mutationPattern}`));
+            const mutateFiles = [...new Set(mutateTargets.map(({ sourcePath }) => sourcePath))].sort();
             return {
                 behaviorId: entry.behaviorId,
                 risk: entry.contract.risk,
@@ -238,9 +238,13 @@ function finalizeBehaviorSelection({
                 owners: entry.owners.map((o) => ({
                     sourcePath: String(o.sourcePath).replaceAll('\\', '/'),
                     symbol: o.symbol,
-                    language: o.language
+                    language: o.language,
+                    bindingKind: o.bindingKind ?? null,
+                    mutationScope: o.mutationScope ?? null,
+                    mutationPattern: o.mutationPattern ?? null
                 })),
                 mutateFiles,
+                mutateTargets,
                 testBindings: behaviorTestBindings.map((b) => ({
                     canonicalTestId: b.canonicalTestId,
                     fullyQualifiedName: b.fullyQualifiedName,
@@ -253,6 +257,15 @@ function finalizeBehaviorSelection({
         .sort((left, right) => left.behaviorId.localeCompare(right.behaviorId));
 
     const mutateFiles = [...new Set(behaviors.flatMap((b) => b.mutateFiles))].sort();
+    const mutateTargets = behaviors
+        .flatMap((behavior) => behavior.mutateTargets)
+        .filter((target, index, targets) =>
+            targets.findIndex((candidate) =>
+                candidate.sourcePath === target.sourcePath
+                && candidate.mutationPattern === target.mutationPattern) === index)
+        .sort((left, right) =>
+            `${left.sourcePath}\0${left.mutationPattern}`
+                .localeCompare(`${right.sourcePath}\0${right.mutationPattern}`));
     const testFilter = [...new Set(
         behaviors.flatMap((b) => b.testFilters)
     )].sort().map((cls) => `FullyQualifiedName~${cls}`).join('|');
@@ -287,11 +300,20 @@ function finalizeBehaviorSelection({
                     runKey,
                     sourceProject,
                     behaviorIds,
-                    mutateFiles: []
+                    mutateFiles: [],
+                    mutatePatterns: []
                 });
             }
             executionClosureGroups.get(runKey).mutateFiles.push(
                 file.slice(sourceProject.length + 1)
+            );
+            const target = mutateTargets.find(({ sourcePath }) => sourcePath === file);
+            if (!target)
+            {
+                throw new Error(`selected mutate file has no reviewed mutation target: ${file}`);
+            }
+            executionClosureGroups.get(runKey).mutatePatterns.push(
+                target.mutationPattern.slice(sourceProject.length + 1)
             );
         }
     }
@@ -308,6 +330,7 @@ function finalizeBehaviorSelection({
                 sourceProject: closure.sourceProject,
                 behaviors: closureBehaviors.map(({ behaviorId, risk }) => ({ behaviorId, risk })),
                 mutateFiles: [...new Set(closure.mutateFiles)].sort(),
+                mutatePatterns: [...new Set(closure.mutatePatterns)].sort(),
                 testFilters,
                 testFilter: testFilters.map((cls) => `FullyQualifiedName~${cls}`).join('|')
             };
@@ -323,7 +346,7 @@ function finalizeBehaviorSelection({
     }
 
     const base = {
-        schema: 'fsusblog.changed-critical-mutation-selection.v3',
+        schema: 'fsusblog.changed-critical-mutation-selection.v4',
         status: behaviors.length === 0 ? 'empty' : 'selected',
         scope,
         sourceState: normalizedSourceState,
@@ -339,6 +362,7 @@ function finalizeBehaviorSelection({
         changedPaths: uniquePaths,
         behaviors,
         mutateFiles,
+        mutateTargets,
         testFilter,
         executionClosures,
         reasons: behaviors.flatMap((b) => b.reasons).sort()
@@ -515,6 +539,7 @@ export function selectChangedCriticalMutation({
             rawToolPolicy,
             sourceState: normalizedSourceState,
             ownerReceipt,
+            implementationOwnerClosure,
             behaviorCatalog,
             testBindingScan,
             rawTestBindingScan,
@@ -565,12 +590,15 @@ export function selectChangedCriticalMutation({
                     selectedBehaviors.set(binding.behaviorId, {
                         behaviorId: binding.behaviorId,
                         contract,
-                        owners: [],
+                        owners: sourceOwnerBindings(
+                            ownerReceipt,
+                            implementationOwnerClosure,
+                            binding.behaviorId
+                        ),
                         reasons: []
                     });
                 }
                 const entry = selectedBehaviors.get(binding.behaviorId);
-                entry.owners.push(binding);
                 entry.reasons.push(`changed:${changedPath}`);
             }
         }
@@ -618,7 +646,7 @@ export function createChangedCriticalStrykerConfig(selection, toolPolicy, runKey
             concurrency: toolPolicy.executionLimits.maxConcurrentTestRunners,
             reporters: ['progress', 'html', 'json'],
             'report-file-name': 'changed-critical-mutation',
-            mutate: closure.mutateFiles,
+            mutate: closure.mutatePatterns,
             'ignore-methods': toolPolicy.defaults.ignoreMethods
         }
     };

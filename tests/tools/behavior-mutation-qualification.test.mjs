@@ -117,6 +117,10 @@ test('reviewed runtime-kernel mutation owner catalog is complete and uniquely ow
     });
     assert.equal(valid.ok, true, valid.errors.join('\n'));
     assert.ok(valid.bindings.every((binding) => binding.bindingKind === 'reviewed-runtime-kernel'));
+    assert.ok(valid.bindings.every((binding) => typeof binding.mutationPattern === 'string'));
+    assert.ok(valid.bindings.some((binding) =>
+        binding.mutationScope.kind === 'line-regions'
+        && binding.mutationPattern.includes('{130..250}')));
 
     const missingBehavior = structuredClone(ownerCatalog);
     missingBehavior.behaviors.pop();
@@ -129,7 +133,7 @@ test('reviewed runtime-kernel mutation owner catalog is complete and uniquely ow
     assert.ok(missing.errors.some((error) => error.includes('missing mutation-owner catalog entry')));
 
     const duplicateOwner = structuredClone(ownerCatalog);
-    duplicateOwner.behaviors[1].sourceFiles.push(duplicateOwner.behaviors[0].sourceFiles[0]);
+    duplicateOwner.behaviors[1].sourceKernels.push(duplicateOwner.behaviors[0].sourceKernels[0]);
     const duplicate = validateBehaviorMutationOwnerCatalog({
         behaviorCatalog: sharedCatalog,
         ownerCatalog: duplicateOwner,
@@ -137,6 +141,33 @@ test('reviewed runtime-kernel mutation owner catalog is complete and uniquely ow
     });
     assert.equal(duplicate.ok, false);
     assert.ok(duplicate.errors.some((error) => error.includes('shared by multiple behaviors')));
+
+    const overlappingRegions = structuredClone(ownerCatalog);
+    const regionalKernel = overlappingRegions.behaviors
+        .flatMap((behavior) => behavior.sourceKernels)
+        .find((kernel) => kernel.mutationScope.kind === 'line-regions');
+    regionalKernel.mutationScope.regions[1].startLine =
+        regionalKernel.mutationScope.regions[0].endLineExclusive - 1;
+    const overlapping = validateBehaviorMutationOwnerCatalog({
+        behaviorCatalog: sharedCatalog,
+        ownerCatalog: overlappingRegions,
+        repositoryRoot: root
+    });
+    assert.equal(overlapping.ok, false);
+    assert.ok(overlapping.errors.some((error) => error.includes('sorted and non-overlapping')));
+
+    const retiredFileOnly = structuredClone(ownerCatalog);
+    retiredFileOnly.behaviors[0].sourceFiles =
+        retiredFileOnly.behaviors[0].sourceKernels.map(({ sourcePath }) => sourcePath);
+    delete retiredFileOnly.behaviors[0].sourceKernels;
+    const retired = validateBehaviorMutationOwnerCatalog({
+        behaviorCatalog: sharedCatalog,
+        ownerCatalog: retiredFileOnly,
+        repositoryRoot: root
+    });
+    assert.equal(retired.ok, false);
+    assert.ok(retired.errors.some((error) =>
+        error.includes('requires only behaviorId, provenance and sourceKernels')));
 });
 
 function ownerReceiptFixture()
@@ -209,7 +240,7 @@ function buildPhysicalRuns({
         }
     }
 
-    function mutantFor(behaviorId, index)
+    function mutantFor(behaviorId, index, line)
     {
         const test = (testFilesByBehavior.get(behaviorId) ?? [])[0];
         return {
@@ -217,7 +248,7 @@ function buildPhysicalRuns({
             status: 'Killed',
             mutatorName: 'Boolean mutation',
             replacement: 'return value != 1;',
-            location: { start: { line: 1, column: 1 }, end: { line: 1, column: 18 } },
+            location: { start: { line, column: 1 }, end: { line, column: 18 } },
             coveredBy: test ? [test.id] : [],
             killedBy: test ? [test.id] : []
         };
@@ -241,7 +272,10 @@ function buildPhysicalRuns({
         && (specialStatusSourceFile
             ? fullPath === specialStatusSourceFile
             : index === 0);
-            const mutant = mutantFor(behaviorIds[0], index);
+            const mutationPattern = closure.mutatePatterns.find((pattern) =>
+                pattern.replaceAll(/\{\d+\.\.\d+\}/gu, '') === relativeFile);
+            const firstRegionStart = Number(mutationPattern?.match(/\{(?<line>\d+)\.\.\d+\}/u)?.groups?.line ?? 1);
+            const mutant = mutantFor(behaviorIds[0], index, firstRegionStart);
             if (isSpecial)
             {
                 mutant.status = specialStatus;
@@ -258,7 +292,10 @@ function buildPhysicalRuns({
             mutantsByRaw.push({ rawMutantId: mutant.id, status: mutant.status });
             files[relativeFile] = {
                 language: 'cs',
-                source: 'return value + 1;\nreturn value + 2;\nreturn value + 3;',
+                source: Array.from(
+                    { length: Math.max(3, firstRegionStart) },
+                    (_, lineIndex) => `return value + ${lineIndex + 1};`
+                ).join('\n'),
                 mutants: [mutant]
             };
         }
