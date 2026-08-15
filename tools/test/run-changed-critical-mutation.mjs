@@ -302,8 +302,11 @@ export function isolateReviewedMutationRegions(source, sourcePath, mutationScope
                 `reviewed mutation region requires a blank guard before line ${endLineExclusive}: ${sourcePath}`
             );
         }
-        lines[restoreIndex] = '// Stryker restore all: reviewed runtime kernel begins';
-        lines[disableIndex] = '// Stryker disable all: reviewed runtime kernel ends';
+        const regionIndent = lines[startLine - 1].match(/^\s*/u)?.[0] ?? '';
+        lines[restoreIndex] =
+            `${regionIndent}// Stryker restore all: reviewed runtime kernel begins`;
+        lines[disableIndex] =
+            `${regionIndent}// Stryker disable all: reviewed runtime kernel ends`;
         directiveLines.push(startLine - 1, disableIndex + 1);
         previousEnd = endLineExclusive;
     }

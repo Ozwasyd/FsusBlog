@@ -504,11 +504,12 @@ public sealed class CommentMutationOutboxWorker(
         ConsumerReservation reservation = await ReserveDeliveryAsync(db, item, claim, consumer, cancellationToken).ConfigureAwait(false);
         if (reservation == ConsumerReservation.Completed)
         {
-            CommentMutationOutboxDelivery completed = await db.Queryable<CommentMutationOutboxDelivery>()
-                .Where(row => row.OutboxEventId == item.Id && row.ConsumerName == consumer)
-                .SingleAsync()
-                .ConfigureAwait(false);
-            if (!string.Equals(completed.ResultDigest, resultDigest, StringComparison.Ordinal))
+            List<string> completedDigests = await db.Ado.SqlQueryAsync<string>(
+                "SELECT result_digest FROM comment_mutation_outbox_delivery WHERE outbox_event_id = @OutboxId AND consumer_name = @Consumer AND status = 'completed';",
+                new SugarParameter("@OutboxId", item.Id),
+                new SugarParameter("@Consumer", consumer));
+            string? completedDigest = completedDigests.SingleOrDefault();
+            if (!string.Equals(completedDigest, resultDigest, StringComparison.Ordinal))
             {
                 await MarkCompletedDeliveryIntegrityFailureAsync(db, item.Id, claim, consumer).ConfigureAwait(false);
                 throw new CommentMutationOutboxTerminalDeliveryException($"comment_outbox_delivery_result_digest_invalid:{consumer}");

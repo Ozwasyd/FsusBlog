@@ -471,10 +471,10 @@ test('regional sandbox isolation preserves line numbers and disables unreviewed 
     assert.equal(isolated.source.split('\n').length, source.split('\n').length);
     assert.equal(lines[0], '// Stryker disable all: outside reviewed runtime kernel');
     assert.equal(lines[2], 'using System;');
-    assert.equal(lines[7], '// Stryker restore all: reviewed runtime kernel begins');
-    assert.equal(lines[10], '// Stryker disable all: reviewed runtime kernel ends');
-    assert.equal(lines[12], '// Stryker restore all: reviewed runtime kernel begins');
-    assert.equal(lines[14], '// Stryker disable all: reviewed runtime kernel ends');
+    assert.equal(lines[7], '    // Stryker restore all: reviewed runtime kernel begins');
+    assert.equal(lines[10], '    // Stryker disable all: reviewed runtime kernel ends');
+    assert.equal(lines[12], '    // Stryker restore all: reviewed runtime kernel begins');
+    assert.equal(lines[14], '    // Stryker disable all: reviewed runtime kernel ends');
     assert.equal(lines[11], '    private int Unreviewed() => 2;');
     assert.deepEqual(isolated.directiveLines, [1, 8, 11, 13, 15]);
 });
