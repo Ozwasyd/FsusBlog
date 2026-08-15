@@ -25,6 +25,7 @@ import {
 } from '../../tools/test/mutation-evidence-receipt.mjs';
 import {
     executeChangedCriticalSelection,
+    isolateReviewedMutationRegions,
     prepareChangedCriticalMutationSandbox,
     verifyChangedCriticalMutationTrace
 } from '../../tools/test/run-changed-critical-mutation.mjs';
@@ -396,7 +397,16 @@ test('physical mutation sandbox preserves selected inputs and marks only non-sel
                 worktreeFingerprint: 'a'.repeat(64)
             },
             sourceProject: 'src/backend',
-            mutateFiles: ['Selected.cs', 'Untracked.cs']
+            mutateTargets: [
+                {
+                    sourcePath: 'Selected.cs',
+                    mutationScope: { kind: 'whole-file' }
+                },
+                {
+                    sourcePath: 'Untracked.cs',
+                    mutationScope: { kind: 'whole-file' }
+                }
+            ]
         });
 
         assert.equal(
@@ -422,6 +432,66 @@ test('physical mutation sandbox preserves selected inputs and marks only non-sel
         }
         rmSync(repository, { recursive: true, force: true });
     }
+});
+
+test('regional sandbox isolation preserves line numbers and disables unreviewed instrumentation', () =>
+{
+    const source = [
+        'using System;',
+        'using System.Collections.Generic;',
+        '',
+        'namespace Example;',
+        '',
+        'internal sealed class Sample',
+        '{',
+        '',
+        '    internal int First(bool enabled)',
+        '        => enabled ? 1 : 0;',
+        '',
+        '    private int Unreviewed() => 2;',
+        '',
+        '    internal int Second() => 3;',
+        '',
+        '}',
+        ''
+    ].join('\n');
+    const isolated = isolateReviewedMutationRegions(
+        source,
+        'Sample.cs',
+        {
+            kind: 'line-regions',
+            regions: [
+                { startLine: 9, endLineExclusive: 12 },
+                { startLine: 14, endLineExclusive: 16 }
+            ]
+        }
+    );
+    const lines = isolated.source.split('\n');
+
+    assert.equal(isolated.source.split('\n').length, source.split('\n').length);
+    assert.equal(lines[0], '// Stryker disable all: outside reviewed runtime kernel');
+    assert.equal(lines[2], 'using System;');
+    assert.equal(lines[7], '// Stryker restore all: reviewed runtime kernel begins');
+    assert.equal(lines[10], '// Stryker disable all: reviewed runtime kernel ends');
+    assert.equal(lines[12], '// Stryker restore all: reviewed runtime kernel begins');
+    assert.equal(lines[14], '// Stryker disable all: reviewed runtime kernel ends');
+    assert.equal(lines[11], '    private int Unreviewed() => 2;');
+    assert.deepEqual(isolated.directiveLines, [1, 8, 11, 13, 15]);
+});
+
+test('regional sandbox isolation fails closed without blank boundary guards', () =>
+{
+    assert.throws(
+        () => isolateReviewedMutationRegions(
+            'using System;\nnamespace Example;\ninternal int Value => 1;\n',
+            'Sample.cs',
+            {
+                kind: 'line-regions',
+                regions: [{ startLine: 3, endLineExclusive: 4 }]
+            }
+        ),
+        /blank pre-namespace guard line|blank guard before line/u
+    );
 });
 
 test('physical trace must prove the exact owner-derived mutation file closure', () =>

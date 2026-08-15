@@ -187,7 +187,7 @@ mutation 使用仓库锁定的 Stryker.NET `4.16.0`。该版本继承 4.15.0 的
 
 `backend-mutation-changed-critical` 已收敛为自动、按 behavior、逐 mutant 的 per-behavior mutation qualification producer：`tests/matrix.yml` tier 声明 `cadence: pr`、`requiredFor: production`，不再允许 `manualOnly`、`requiredFor: none` 或 `release-manual`。版本化 `config/testing/mutation/changed-critical-domains.v1.json` 声明 mutation domain 的 repo-root source patterns、test owners、risk 和 mutation policy；`config/testing/mutation/behavior-mutation-owners.v3.json` 独立声明经过审阅的可执行 runtime kernel，并以 `whole-file` 或 end-exclusive `line-regions` 固定实际 Stryker scope，不再把同时包含 DTO、声明式 catalog、宽泛 hosting 依赖或同文件内的非核心 side-effect adapter 直接当作 mutation target。v2 file-only catalog 已一次性退役，producer 与 verifier 不提供旧路径或旧 schema fallback。`scope=release` 必须运行四个 required release behaviors（binary-api-aeds-contract、authentication-session-permission、configuration-error-security-policy、article-comment-lifecycle-outbox）的全部 required critical mutants，零 manual-only/changed-only 遗漏；`scope=pr` 按 changed closure 选择受影响 behaviors，但 docs、binding receipt、BehaviorCatalog、mutation tooling、governance checker 与 matrix 等 governance-sensitive 路径变化时仍触发完整 required closure，不能以 source implementation 未改为由跳过。selector 输入 changed paths、source commit 与 worktree fingerprint，从 BehaviorCatalog、#2185 behavior-test bindings 与 reviewed implementation-owner kernel 派生 exact mutant patterns/test commands，计算 closure digest；无相关关键变更时只写结构化 empty selection/run evidence，不创建 Stryker 物理进程。
 
-changed-critical 先按相同的 behavior-owner 集合与 source project 对 selected reviewed kernel 做唯一分区，生成 `executionClosures`；同一 source kernel 恰好进入一个 physical run，每个 run 只加载该 owner 集合从 BehaviorTestBinding 派生的 tests。selection、generated Stryker config、physical-scope receipt 与最终 authority 同时绑定 source file 和 exact mutation pattern，不能把 region contract 降格成仅文件名证据。禁止把同一 source project 的无关 behaviors/tests 或 reviewed region 之外的同文件代码合并进全量插桩程序集，因为 coverage capture 中的无关资源或时序失败会被后续 mutant run 误记为 killed。v3 tool policy 固定 `coverageAnalysis=perTestInIsolation`，使每个绑定测试在独立 test run 中采集 mutant coverage；PostgreSQL、后台 worker 或租约测试不得共享 `perTest` coverage session，也不得以 `off` 跳过 coverage attribution。Stryker 内部 runner 数量只读取同一 tool policy 的 `executionLimits.maxConcurrentTestRunners`，本地与 CI 生成完全相同的 `coverage-analysis`、`concurrency` 与 region scope。当前固定为单 runner：单个 execution closure 仍可能包含真实 PostgreSQL 与租约时序契约，跨 testhost 并行会制造相同的错误归因；不得依赖 Stryker 的宿主默认并发，也不得通过环境变量建立第二套本地矩阵。
+changed-critical 先按相同的 behavior-owner 集合与 source project 对 selected reviewed kernel 做唯一分区，生成 `executionClosures`；同一 source kernel 恰好进入一个 physical run，每个 run 只加载该 owner 集合从 BehaviorTestBinding 派生的 tests。selection、generated Stryker config、physical-scope receipt 与最终 authority 同时绑定 source file 和 exact mutation pattern，不能把 region contract 降格成仅文件名证据。一次性源码镜像对 `line-regions` 文件使用保持行号不变的 Stryker `disable all` / `restore all` guards，使 mutate filter 生效前也只有 reviewed regions 进入 instrumentation；guard 必须复用 region 边界的空行，不能移动被审阅代码或改变 report location。禁止把同一 source project 的无关 behaviors/tests 或 reviewed region 之外的同文件代码合并进全量插桩程序集，因为 coverage capture 中的无关资源或时序失败会被后续 mutant run 误记为 killed。v3 tool policy 固定 `coverageAnalysis=perTestInIsolation`，使每个绑定测试在独立 test run 中采集 mutant coverage；PostgreSQL、后台 worker 或租约测试不得共享 `perTest` coverage session，也不得以 `off` 跳过 coverage attribution。Stryker 内部 runner 数量只读取同一 tool policy 的 `executionLimits.maxConcurrentTestRunners`，本地与 CI 生成完全相同的 `coverage-analysis`、`concurrency` 与 region scope。当前固定为单 runner：单个 execution closure 仍可能包含真实 PostgreSQL 与租约时序契约，跨 testhost 并行会制造相同的错误归因；不得依赖 Stryker 的宿主默认并发，也不得通过环境变量建立第二套本地矩阵。
 changed-critical 的整体 fault ceiling 只由 `tests/matrix.yml` 的 `timeoutMinutes` 声明并同时供本地与 CI 调度器消费；tool policy 不再保留未被 physical runner 消费的第二套 timeout 字段。
 
 所有 Stryker authority 都绑定实际 semantic mutant inventory，而非仅保存 count 或 raw report digest。每个 canonical mutant ID 只由 repository-relative source file、完整 source digest、operator、精确位置、original/replacement digest 稳定派生；source digest 必须覆盖 report 中未 trim、未规范化换行的完整 source string，original 必须直接按同一 string 的原始 `LF` / `CRLF` offset 切片，replacement digest 必须区分空字符串、空白和非空文本。缺失或非 string replacement 与合法空 replacement 是不同状态。operator 必须命中从仓库锁定的 Stryker.NET `4.16.0` producer 源码审阅出的有限 allowlist，verbose trace 也必须包含唯一且完全匹配的 `Stryker starting, version: "4.16.0"` 记录；producer 版本或 operator 未知时 fail closed。Stryker raw mutant ID 仅作为同一物理 run 的 report-to-trace join key，绝不能把数组下标或 raw ID 当作 canonical identity。authority 的 `plannedMutantIds`、`executedMutantIds` 与各 terminal status 集合必须排序、唯一且互斥；每个 planned mutant 恰好进入一个 terminal 集合。`inventoryDigest` 绑定完整 inventory，`executionMatrixDigest` 绑定 mutant-to-status/test execution matrix，因此 report 数组重排不改变语义 digest，而相同 count/score 的不同 mutant、source、replacement 或 test relationship 必然改变 digest。
@@ -1226,11 +1226,15 @@ source commit 与 worktree fingerprint 的一次性源码镜像。因为 Stryker
 非 owner-derived C# 文件首行添加标准 generated marker，并显式恢复 project
 原本启用的 nullable context；这些文件仍以原始源码参与真实
 project/test-project 编译，但不会进入 mutation orchestration。
-owner-derived 文件保持逐字节不变，运行结束后 trace 必须证明实际 `Mutating`
-文件集合与 selection closure 完全相等，并写入 physical-scope receipt；任何
-缺失、额外文件、source commit 漂移或镜像准备失败都 fail closed。镜像不作为
-缓存、兼容路径或测试替身，成功、失败后均删除，权威 report/trace 仍只写入
-matrix 声明的 `.tmp/mutation/changed-critical/<run-id>`。
+`whole-file` owner-derived 文件保持逐字节不变；`line-regions` 文件仅在
+原有空白 guard 行写入行号稳定的 Stryker disable/restore directives，并把
+一条 leading using directive 搬到 pre-namespace 空行以建立首个 disable
+边界。v4 physical-scope receipt 绑定每个文件的 reviewed scope、directive
+行号和 region 数量。运行结束后 trace 必须证明实际 `Mutating` 文件集合与
+selection closure 完全相等；任何非空 boundary、行数变化、缺失或额外文件、
+source commit 漂移或镜像准备失败都 fail closed。镜像不作为缓存、兼容路径
+或测试替身，成功、失败后均删除，权威 report/trace 仍只写入 matrix 声明的
+`.tmp/mutation/changed-critical/<run-id>`。
 
 
 ## 测试洁净性约定

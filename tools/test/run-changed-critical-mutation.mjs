@@ -190,17 +190,148 @@ function walkCsharpFiles(directory)
     return files;
 }
 
+function installInitialStrykerDisable(lines, sourcePath, firstRegionStartLine)
+{
+    const namespaceLine = lines.findIndex((line, index) =>
+        index + 1 < firstRegionStartLine
+        && /^\s*(?:file\s+)?namespace\s+/u.test(line));
+    if (namespaceLine < 0)
+    {
+        throw new Error(
+            `regional mutation source requires a namespace before its first region: ${sourcePath}`
+        );
+    }
+    const usingLine = lines.findIndex((line, index) =>
+        index < namespaceLine && /^\s*(?:global\s+)?using\s+.+;\s*$/u.test(line));
+    if (usingLine < 0)
+    {
+        throw new Error(
+            `regional mutation source requires a movable leading using directive: ${sourcePath}`
+        );
+    }
+    let relocationLine = -1;
+    for (let index = namespaceLine - 1; index > usingLine; index -= 1)
+    {
+        if (/^\s*$/u.test(lines[index]))
+        {
+            relocationLine = index;
+            break;
+        }
+    }
+    if (relocationLine < 0)
+    {
+        throw new Error(
+            `regional mutation source requires a blank pre-namespace guard line: ${sourcePath}`
+        );
+    }
+    const usingDirective = lines[usingLine];
+    lines[usingLine] = '// Stryker disable all: outside reviewed runtime kernel';
+    lines[relocationLine] = usingDirective;
+    return usingLine + 1;
+}
+
+export function isolateReviewedMutationRegions(source, sourcePath, mutationScope)
+{
+    if (mutationScope?.kind === 'whole-file')
+    {
+        return {
+            source,
+            regionCount: 0,
+            directiveLines: []
+        };
+    }
+    if (
+        mutationScope?.kind !== 'line-regions'
+        || !Array.isArray(mutationScope.regions)
+        || mutationScope.regions.length === 0
+    )
+    {
+        throw new Error(`mutation sandbox requires an explicit reviewed scope: ${sourcePath}`);
+    }
+    if (source.includes('\r'))
+    {
+        throw new Error(`regional mutation source must use LF line endings: ${sourcePath}`);
+    }
+    const hasFinalNewline = source.endsWith('\n');
+    const lines = source.split('\n');
+    if (hasFinalNewline)
+    {
+        lines.pop();
+    }
+    const originalLineCount = lines.length;
+    const directiveLines = [];
+    directiveLines.push(installInitialStrykerDisable(
+        lines,
+        sourcePath,
+        mutationScope.regions[0].startLine
+    ));
+
+    let previousEnd = 0;
+    for (const [index, region] of mutationScope.regions.entries())
+    {
+        const { startLine, endLineExclusive } = region ?? {};
+        if (
+            !Number.isSafeInteger(startLine)
+            || !Number.isSafeInteger(endLineExclusive)
+            || startLine < 2
+            || endLineExclusive <= startLine
+            || endLineExclusive > originalLineCount
+            || startLine < previousEnd
+        )
+        {
+            throw new Error(
+                `mutation sandbox received invalid regional scope ${index} for ${sourcePath}`
+            );
+        }
+        const restoreIndex = startLine - 2;
+        const firstExcludedIndex = endLineExclusive - 1;
+        const lastIncludedIndex = endLineExclusive - 2;
+        const disableIndex = firstExcludedIndex < lines.length
+            && /^\s*$/u.test(lines[firstExcludedIndex])
+            ? firstExcludedIndex
+            : lastIncludedIndex;
+        if (!/^\s*$/u.test(lines[restoreIndex]))
+        {
+            throw new Error(
+                `reviewed mutation region requires a blank guard before line ${startLine}: ${sourcePath}`
+            );
+        }
+        if (!/^\s*$/u.test(lines[disableIndex]))
+        {
+            throw new Error(
+                `reviewed mutation region requires a blank guard before line ${endLineExclusive}: ${sourcePath}`
+            );
+        }
+        lines[restoreIndex] = '// Stryker restore all: reviewed runtime kernel begins';
+        lines[disableIndex] = '// Stryker disable all: reviewed runtime kernel ends';
+        directiveLines.push(startLine - 1, disableIndex + 1);
+        previousEnd = endLineExclusive;
+    }
+    const isolated = `${lines.join('\n')}${hasFinalNewline ? '\n' : ''}`;
+    if (isolated.split('\n').length !== source.split('\n').length)
+    {
+        throw new Error(`regional mutation isolation changed line count: ${sourcePath}`);
+    }
+    return {
+        source: isolated,
+        regionCount: mutationScope.regions.length,
+        directiveLines
+    };
+}
+
 /**
  * Stryker.NET applies its mutate file filter after it has generated and
- * compiled mutants for the whole project. Build a disposable source mirror
- * and mark non-selected C# files as generated there so physical mutation is
- * exact without changing the repository or removing compile dependencies.
+ * compiled mutants for the whole project and whole selected file. Build a
+ * disposable source mirror, mark non-selected C# files as generated and add
+ * line-preserving Stryker disable/restore guards around reviewed regions.
+ * This keeps unreviewed same-file code out of the instrumented assembly
+ * without changing repository sources or removing compile dependencies.
  */
 export function prepareChangedCriticalMutationSandbox({
     root,
     sourceState,
     sourceProject,
-    mutateFiles
+    mutateTargets
 })
 {
     const currentCommit = runRequired(
@@ -252,7 +383,18 @@ export function prepareChangedCriticalMutationSandbox({
         copyUntrackedSource(root, sandboxRoot);
 
         const projectRoot = resolve(sandboxRoot, sourceProject);
-        const selected = new Set(mutateFiles);
+        const selected = new Set(mutateTargets.map(({ sourcePath }) => sourcePath));
+        if (
+            selected.size !== mutateTargets.length
+            || mutateTargets.some(({ sourcePath, mutationScope }) =>
+                typeof sourcePath !== 'string'
+                || sourcePath.length === 0
+                || !mutationScope
+                || !['whole-file', 'line-regions'].includes(mutationScope.kind))
+        )
+        {
+            throw new Error('mutation sandbox requires unique explicit mutate targets');
+        }
         const discovered = walkCsharpFiles(projectRoot)
             .map((path) => relative(projectRoot, path).split(sep).join('/'))
             .sort();
@@ -276,11 +418,34 @@ export function prepareChangedCriticalMutationSandbox({
                 );
             }
         }
+        const reviewedRegionIsolation = [];
+        for (const { sourcePath, mutationScope } of mutateTargets)
+        {
+            const absolutePath = resolve(projectRoot, sourcePath);
+            const isolated = isolateReviewedMutationRegions(
+                readFileSync(absolutePath, 'utf8'),
+                sourcePath,
+                mutationScope
+            );
+            if (isolated.source !== readFileSync(absolutePath, 'utf8'))
+            {
+                writeFileSync(absolutePath, isolated.source);
+            }
+            reviewedRegionIsolation.push({
+                sourcePath,
+                mutationScope,
+                regionCount: isolated.regionCount,
+                directiveLines: isolated.directiveLines
+            });
+        }
         return {
             root: sandboxRoot,
             projectRoot,
             selected: [...selected].sort(),
-            suppressed
+            suppressed,
+            reviewedRegionIsolation: reviewedRegionIsolation.sort(
+                (left, right) => left.sourcePath.localeCompare(right.sourcePath)
+            )
         };
     }
     catch (error)
@@ -339,7 +504,23 @@ function runPhysicalMutations({ selection, toolPolicy, runDirectory, root, physi
             root,
             sourceState: selection.sourceState,
             sourceProject: closure.sourceProject,
-            mutateFiles: closure.mutateFiles
+            mutateTargets: closure.mutateFiles.map((sourcePath) =>
+            {
+                const repositoryPath = `${closure.sourceProject}/${sourcePath}`;
+                const target = selection.mutateTargets.find(
+                    (candidate) => candidate.sourcePath === repositoryPath
+                );
+                if (!target)
+                {
+                    throw new Error(
+                        `execution closure is missing reviewed mutation scope: ${repositoryPath}`
+                    );
+                }
+                return {
+                    sourcePath,
+                    mutationScope: target.mutationScope
+                };
+            })
         });
         let result;
         try
@@ -375,7 +556,7 @@ function runPhysicalMutations({ selection, toolPolicy, runDirectory, root, physi
                 mutateFiles: closure.mutateFiles
             });
             writeJsonAtomic(resolve(runDirectory, 'configs', `${runName}-physical-scope.json`), {
-                schema: 'fsusblog.changed-critical-mutation-physical-scope.v3',
+                schema: 'fsusblog.changed-critical-mutation-physical-scope.v4',
                 sourceState: selection.sourceState,
                 runKey: closure.runKey,
                 behaviors: closure.behaviors,
@@ -383,6 +564,7 @@ function runPhysicalMutations({ selection, toolPolicy, runDirectory, root, physi
                 mutateFiles: sandbox.selected,
                 mutatePatterns: closure.mutatePatterns,
                 suppressedSourceFileCount: sandbox.suppressed.length,
+                reviewedRegionIsolation: sandbox.reviewedRegionIsolation,
                 traceVerified: true
             });
             physicalRuns.push({
