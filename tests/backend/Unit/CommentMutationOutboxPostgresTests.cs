@@ -157,7 +157,19 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
             Assert.Equal(CommentMutationOutboxDeliveryStatus.Completed, checkpoint.Status);
             Assert.Equal(2, checkpoint.AttemptCount);
             duplicate.Ado.ExecuteCommand(
-                "UPDATE comment_mutation_outbox SET status = 'pending', next_attempt_at = @Now, processed_at_utc = NULL WHERE id = @Id;",
+                """
+                UPDATE comment_mutation_outbox
+                SET status = 'pending',
+                    next_attempt_at = @Now,
+                    processed_at_utc = NULL,
+                    claim_token = NULL,
+                    claimed_by = NULL,
+                    claimed_at = NULL,
+                    lease_expires_at = NULL,
+                    last_heartbeat_at = NULL,
+                    last_error = NULL
+                WHERE id = @Id;
+                """,
                 new SugarParameter("@Now", DateTime.UtcNow.AddMinutes(-1)),
                 new SugarParameter("@Id", processed.Id));
         }
