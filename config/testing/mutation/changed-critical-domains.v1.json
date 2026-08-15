@@ -1,10 +1,11 @@
 {
-    "schema": "fsusblog.changed-critical-mutation-tool-policy.v2",
-    "version": 2,
+    "schema": "fsusblog.changed-critical-mutation-tool-policy.v3",
+    "version": 3,
     "description": "Tool policy only. Mutate targets derive from ImplementationOwner receipt; test filters derive from BehaviorTestBinding receipt. No hand-written source-pattern-to-test-owner mappings.",
     "defaults": {
         "configuration": "Debug",
         "mutationLevel": "Complete",
+        "coverageAnalysis": "perTestInIsolation",
         "thresholds": {
             "high": 85,
             "low": 70,

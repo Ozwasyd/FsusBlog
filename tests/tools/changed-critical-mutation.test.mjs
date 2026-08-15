@@ -164,13 +164,18 @@ function select(changedPaths)
     });
 }
 
-test('tool policy validates schema v2 and rejects old v1 catalog', () =>
+test('tool policy validates schema v3 and rejects the retired v2 catalog', () =>
 {
     assert.doesNotThrow(() => validateToolPolicy(toolPolicy));
-    assert.throws(
-        () => validateToolPolicy({ schema: 'fsusblog.changed-critical-mutation-catalog.v1', version: 1 }),
-        /schema v2/u
-    );
+    assert.throws(() => validateToolPolicy({
+        ...toolPolicy,
+        schema: 'fsusblog.changed-critical-mutation-tool-policy.v2',
+        version: 2
+    }), /schema v3/u);
+    assert.throws(() => validateToolPolicy({
+        ...toolPolicy,
+        defaults: { ...toolPolicy.defaults, coverageAnalysis: 'perTest' }
+    }), /perTestInIsolation coverageAnalysis/u);
 });
 
 test('single-behavior change selects only its owner mutate file and binding-derived test filter', () =>
@@ -315,6 +320,7 @@ test('generated config uses binding-derived test filter and owner-derived mutate
     assert.deepEqual(generated['stryker-config']['test-projects'], ['../../tests/backend/FsusBlog.Server.Tests.csproj']);
     assert.deepEqual(generated['stryker-config'].mutate, ['Integrity/ArticleRightsCanonicalHashV1.cs']);
     assert.match(generated['stryker-config']['test-case-filter'], /ArticleRightsCanonicalHashTests/u);
+    assert.equal(generated['stryker-config']['coverage-analysis'], 'perTestInIsolation');
     assert.deepEqual(generated['stryker-config'].thresholds, { high: 85, low: 70, break: 70 });
     assert.equal(generated['stryker-config']['break-on-initial-test-failure'], true);
     assert.equal(generated['stryker-config'].concurrency, 1);

@@ -29,7 +29,7 @@ import {
     resolveChangedCriticalSourceProject
 } from './changed-critical-mutation-support.mjs';
 
-const TOOL_POLICY_SCHEMA = 'fsusblog.changed-critical-mutation-tool-policy.v2';
+const TOOL_POLICY_SCHEMA = 'fsusblog.changed-critical-mutation-tool-policy.v3';
 
 /**
  * Governance-sensitive paths that always trigger the full required-behavior
@@ -69,20 +69,24 @@ export const GOVERNANCE_SENSITIVE_PATH_PATTERNS = Object.freeze([
 
 export function validateToolPolicy(toolPolicy)
 {
-    if (toolPolicy?.schema !== TOOL_POLICY_SCHEMA || toolPolicy.version !== 2)
+    if (toolPolicy?.schema !== TOOL_POLICY_SCHEMA || toolPolicy.version !== 3)
     {
-        throw new Error('changed-critical mutation tool policy must use schema v2');
+        throw new Error('changed-critical mutation tool policy must use schema v3');
     }
     const defaults = toolPolicy.defaults;
     if (
         !defaults?.configuration
     || !defaults?.mutationLevel
+    || defaults?.coverageAnalysis !== 'perTestInIsolation'
     || !Number.isFinite(defaults?.thresholds?.high)
     || !Number.isFinite(defaults?.thresholds?.low)
     || !Number.isFinite(defaults?.thresholds?.break)
     )
     {
-        throw new Error('tool policy defaults must declare configuration, mutationLevel, and thresholds');
+        throw new Error(
+            'tool policy defaults must declare configuration, mutationLevel, '
+            + 'perTestInIsolation coverageAnalysis, and thresholds'
+        );
     }
     if (!Array.isArray(toolPolicy.sourceProjects) || toolPolicy.sourceProjects.length === 0)
     {
@@ -608,6 +612,7 @@ export function createChangedCriticalStrykerConfig(selection, toolPolicy, runKey
             configuration: toolPolicy.defaults.configuration,
             'test-case-filter': closure.testFilter,
             'mutation-level': toolPolicy.defaults.mutationLevel,
+            'coverage-analysis': toolPolicy.defaults.coverageAnalysis,
             thresholds: toolPolicy.defaults.thresholds,
             'break-on-initial-test-failure': true,
             concurrency: toolPolicy.executionLimits.maxConcurrentTestRunners,
