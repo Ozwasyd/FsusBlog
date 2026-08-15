@@ -61,7 +61,7 @@ test('accepts the checked-in PostgreSQL collection manifest', () =>
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /collections=2/u);
     assert.match(result.stdout, /SchemaMigrationPostgresCollectionA:215/u);
-    assert.match(result.stdout, /SchemaMigrationPostgresCollectionB:338/u);
+    assert.match(result.stdout, /SchemaMigrationPostgresCollectionB:340/u);
 });
 
 test('rejects a fixture-backed test class that is absent from the manifest', () =>
