@@ -162,30 +162,57 @@ public sealed class AccountSubjectHashProjectionTests
         Type type = typeof(RuntimeMetadataBenchmarkFixture);
         RuntimeMetadataInspection.ClearCacheEntriesForType(type);
         _ = RuntimeMetadataInspection.DescribeTypeUncachedForBenchmark(type);
-        _ = RuntimeMetadataInspection.DescribeType(type);
+        string firstCached = RuntimeMetadataInspection.DescribeType(type);
+        string secondCached = RuntimeMetadataInspection.DescribeType(type);
+        Assert.Same(firstCached, secondCached);
 
         const int Iterations = 256;
-        var uncached = Stopwatch.StartNew();
-        for (int index = 0; index < Iterations; index++)
+        const int SampleCount = 7;
+        long[] uncachedSamples = new long[SampleCount];
+        long[] cachedSamples = new long[SampleCount];
+        for (int sample = 0; sample < SampleCount; sample++)
         {
-            GC.KeepAlive(RuntimeMetadataInspection.DescribeTypeUncachedForBenchmark(type));
+            if (sample % 2 == 0)
+            {
+                cachedSamples[sample] = MeasureRepeated(Iterations, () => RuntimeMetadataInspection.DescribeType(type));
+                uncachedSamples[sample] = MeasureRepeated(
+                    Iterations,
+                    () => RuntimeMetadataInspection.DescribeTypeUncachedForBenchmark(type));
+            }
+            else
+            {
+                uncachedSamples[sample] = MeasureRepeated(
+                    Iterations,
+                    () => RuntimeMetadataInspection.DescribeTypeUncachedForBenchmark(type));
+                cachedSamples[sample] = MeasureRepeated(Iterations, () => RuntimeMetadataInspection.DescribeType(type));
+            }
         }
-        uncached.Stop();
 
-        var cached = Stopwatch.StartNew();
-        for (int index = 0; index < Iterations; index++)
-        {
-            GC.KeepAlive(RuntimeMetadataInspection.DescribeType(type));
-        }
-        cached.Stop();
-
-        double speedup = (double)uncached.ElapsedTicks / Math.Max(1, cached.ElapsedTicks);
+        Array.Sort(uncachedSamples);
+        Array.Sort(cachedSamples);
+        long uncachedMedian = uncachedSamples[SampleCount / 2];
+        long cachedMedian = cachedSamples[SampleCount / 2];
+        double speedup = (double)uncachedMedian / Math.Max(1, cachedMedian);
         Console.WriteLine(
-            $"[runtime-metadata-cache-benchmark] iterations={Iterations} uncachedMs={uncached.Elapsed.TotalMilliseconds:F3} cachedMs={cached.Elapsed.TotalMilliseconds:F3} speedup={speedup:F2}x");
+            $"[runtime-metadata-cache-benchmark] samples={SampleCount} iterations={Iterations} uncachedMedianMs={ToMilliseconds(uncachedMedian):F3} cachedMedianMs={ToMilliseconds(cachedMedian):F3} speedup={speedup:F2}x");
         Assert.True(
-            cached.ElapsedTicks * 2 < uncached.ElapsedTicks,
-            $"Expected cached metadata description to be at least 2x faster; uncached={uncached.Elapsed.TotalMilliseconds:F3}ms cached={cached.Elapsed.TotalMilliseconds:F3}ms.");
+            cachedMedian * 2 < uncachedMedian,
+            $"Expected cached metadata description to be at least 2x faster; uncachedMedian={ToMilliseconds(uncachedMedian):F3}ms cachedMedian={ToMilliseconds(cachedMedian):F3}ms.");
     }
+
+    private static long MeasureRepeated(int iterations, Func<string> operation)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        for (int index = 0; index < iterations; index++)
+        {
+            GC.KeepAlive(operation());
+        }
+        stopwatch.Stop();
+        return stopwatch.ElapsedTicks;
+    }
+
+    private static double ToMilliseconds(long stopwatchTicks)
+        => stopwatchTicks * 1000d / Stopwatch.Frequency;
 
     private static class RuntimeMetadataCacheFixture
     {
