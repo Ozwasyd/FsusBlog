@@ -85,6 +85,7 @@ test.describe('public article reading layout production fixture', () => {
             }
             return {
               content: rect('[data-reading-case="content-reference"]'),
+              noMedia: rect('[data-reading-case="no-media"]'),
               figure: rect('[data-reading-case="figure"]'),
               bleed: [
                 rect('[data-reading-case="cover"]'),
@@ -108,35 +109,6 @@ test.describe('public article reading layout production fixture', () => {
           }
           expect(Math.abs(geometry.wideCaption.left - geometry.content.left)).toBeLessThanOrEqual(tolerance)
           expect(Math.abs(geometry.wideCaption.right - geometry.content.right)).toBeLessThanOrEqual(tolerance)
-          expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.viewportWidth + tolerance)
-          expect(diagnostics.apiRequestCount()).toBe(0)
-          expect(diagnostics.runtimeErrors).toEqual([])
-        })
-
-        test(`${viewport.width}px ${theme} ${zoom * 100}% keeps no-media article on content lines`, async ({ page }) => {
-          await page.setViewportSize(viewport)
-          const diagnostics = await openFixture(page, theme)
-          await page.evaluate((nextZoom) => {
-            document.documentElement.style.zoom = String(nextZoom)
-          }, zoom)
-
-          const geometry = await page.evaluate(() => {
-            const box = (selector: string) => {
-              const element = document.querySelector<HTMLElement>(selector)
-              if (!element) throw new Error(`missing geometry target: ${selector}`)
-              return element.getBoundingClientRect()
-            }
-            const content = box('[data-reading-case="content-reference"]')
-            const noMedia = box('[data-reading-case="no-media"]')
-            return {
-              content: { left: content.left, right: content.right },
-              noMedia: { left: noMedia.left, right: noMedia.right },
-              viewportWidth: document.documentElement.clientWidth,
-              scrollWidth: document.documentElement.scrollWidth
-            }
-          })
-
-          const tolerance = contract.edgeTolerancePx
           expect(Math.abs(geometry.noMedia.left - geometry.content.left)).toBeLessThanOrEqual(tolerance)
           expect(Math.abs(geometry.noMedia.right - geometry.content.right)).toBeLessThanOrEqual(tolerance)
           expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.viewportWidth + tolerance)

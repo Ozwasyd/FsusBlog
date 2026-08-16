@@ -11597,6 +11597,14 @@
         "xunit:tests/backend/Unit/ZkProofVerifierTests.cs#ZkProofVerifierTests.ZkAnonymousProofService_RejectsMissingPublicInputFieldsBeforeVerifier"
       ],
       "reason": "The original ZK assertion now maps to the exact fail-closed, DI, metadata, bounds, timeout, privacy-log, or backend-call behavior that preserves it."
+    },
+    {
+      "id": "vitest:tests/frontend/e2e/public-article-reading-layout.spec.ts#viewport-width-px-theme-zoom-100-keeps-no-media-article--a355cf7b44",
+      "path": "tests/frontend/e2e/public-article-reading-layout.spec.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/e2e/public-article-reading-layout.spec.ts#viewport-width-px-theme-zoom-100-keeps-named-reading-lin-b8dc9269c1"
+      ],
+      "reason": "The duplicate no-media geometry case is merged into the surviving named-reading-lines case, which now asserts the no-media left and right edges against the content-reference edges with the same edgeTolerancePx; no viewport, theme, zoom, horizontal-overflow, API-isolation, or runtime-error oracle is removed."
     }
   ],
   "assertionReplacements": [
