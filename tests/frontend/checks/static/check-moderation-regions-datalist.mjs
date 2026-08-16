@@ -23,6 +23,10 @@ if (!source.includes('FsusUiDataList'))
 {
     fail('ModerationRegions must render FsusUiDataList');
 }
+if (source.includes('<el-data-list'))
+{
+    fail('ModerationRegions must not render raw Element Plus <el-data-list>');
+}
 if (/:deep\(\.el-data-list__/u.test(source))
 {
     fail('ModerationRegions must not use :deep() on Element Plus DataList internals');

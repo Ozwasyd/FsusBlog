@@ -4826,6 +4826,14 @@
       "reason": "source assertion removed while direct behavior tests remain in the file or its static owner"
     },
     {
+      "id": "vitest:tests/frontend/unit/view-contracts/moderationRegionsDataListOwnership.test.ts#renders-a-navigation-variant-datalist-with-fsusui-contra-bbd89166e7",
+      "path": "tests/frontend/unit/view-contracts/moderationRegionsDataListOwnership.test.ts",
+      "replacementTestIds": [
+        "node-script:tests/frontend/checks/static/check-moderation-regions-datalist.mjs"
+      ],
+      "reason": "The source-read Vitest test is replaced by the matrix-owned static checker that enforces the same DataList ownership, navigation/summary variants, CSS tokens, :deep() rejection, and raw <el-data-list> rejection."
+    },
+    {
       "id": "vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#does-not-shrink-public-taxonomy-touch-targets-at-the-wid-9f3672172a",
       "path": "tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts",
       "replacementTestIds": [
