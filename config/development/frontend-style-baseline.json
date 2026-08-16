@@ -1,8 +1,8 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:ae88eda048e77c0491d8f5a9c544ce155a213c17437440d08cc46c439f9a3483",
-    "sourceStateSha256": "ae88eda048e77c0491d8f5a9c544ce155a213c17437440d08cc46c439f9a3483",
-    "configurationSha256": "aa1eb8b9803748da07ffbcda4a9bf08f6dc69cf2a24828d2ad14bae5f97ffdf4",
+    "generatedFrom": "source-state:091c2a061293ac647254d47825a342f6566c18e12dd22334305b8281b89b26d0",
+    "sourceStateSha256": "091c2a061293ac647254d47825a342f6566c18e12dd22334305b8281b89b26d0",
+    "configurationSha256": "fda688589efd0b5831bf46ee0dfeb91a2c83e2382bded6a306412f88df98f87e",
     "violationCount": 272330,
     "fileCount": 1506,
     "files": [
@@ -9201,7 +9201,7 @@
         },
         {
             "path": "tests/frontend/checks/static/check-moderation-regions-datalist.mjs",
-            "sourceSha256": "fc4de2dc7e8395b96c3ce81a32cc874ada879243b698115e4c02177562ed84a5",
+            "sourceSha256": "75b493879278e685364aaa3ebc866bc5af8091e7985dca3278641cc7320f592a",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -12711,7 +12711,7 @@
         },
         {
             "path": "tests/tools/xunit-roslyn-adapter.test.mjs",
-            "sourceSha256": "b8ef8b065a0127e62ef68bc73b8c36c303bdf4903a116f877e0cdef05dfebcf2",
+            "sourceSha256": "4cc0fe8188d352d1c3c9a1f72f51978efb6b40b97e1c922775c925f349f97a00",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
