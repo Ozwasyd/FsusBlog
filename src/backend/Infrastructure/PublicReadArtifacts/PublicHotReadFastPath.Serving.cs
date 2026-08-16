@@ -11,6 +11,7 @@ using System.Text;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
@@ -591,7 +592,7 @@ public static partial class PublicHotReadFastPath
             response.Headers["ETag"] = html.ETag;
         }
         WriteDiagnosticHeaders(response, options, snapshot.Version, "html", routeKey);
-        if (MatchesIfNoneMatch(ctx.Request, html.ETag))
+        if (HttpEntityTagPreconditions.MatchesIfNoneMatch(ctx.Request.Headers.IfNoneMatch, html.ETag))
         {
             response.StatusCode = StatusCodes.Status304NotModified;
             response.ContentLength = 0;
@@ -748,7 +749,7 @@ public static partial class PublicHotReadFastPath
             ? "identity"
             : variant.ContentEncoding;
         WriteDiagnosticHeaders(response, options, artifact.Version, artifactKind, artifactKey);
-        if (MatchesIfNoneMatch(ctx.Request, variant.ETag))
+        if (HttpEntityTagPreconditions.MatchesIfNoneMatch(ctx.Request.Headers.IfNoneMatch, variant.ETag))
         {
             response.StatusCode = StatusCodes.Status304NotModified;
             response.ContentLength = 0;
@@ -1029,73 +1030,6 @@ public static partial class PublicHotReadFastPath
         }
 
         return 1;
-    }
-
-    private static bool MatchesIfNoneMatch(HttpRequest request, string etag)
-        => MatchesIfNoneMatch(request.Headers.IfNoneMatch, etag);
-
-    internal static bool MatchesIfNoneMatchForTests(StringValues ifNoneMatch, string etag)
-        => MatchesIfNoneMatch(ifNoneMatch, etag);
-
-    private static bool MatchesIfNoneMatch(StringValues values, string etag)
-    {
-        if (string.IsNullOrWhiteSpace(etag))
-        {
-            return false;
-        }
-
-        if (TryMatchesIfNoneMatchCommon(values, etag, out bool matched))
-        {
-            return matched;
-        }
-
-        for (int i = 0; i < values.Count; i++)
-        {
-            ReadOnlySpan<char> header = (values[i] ?? string.Empty).AsSpan();
-            while (true)
-            {
-                int comma = header.IndexOf(',');
-                ReadOnlySpan<char> candidate = (comma >= 0 ? header[..comma] : header).Trim();
-                if (candidate.Equals("*", StringComparison.Ordinal)
-                    || candidate.Equals(etag.AsSpan(), StringComparison.Ordinal))
-                {
-                    return true;
-                }
-
-                if (comma < 0)
-                {
-                    break;
-                }
-
-                header = header[(comma + 1)..];
-            }
-        }
-
-        return false;
-    }
-
-    private static bool TryMatchesIfNoneMatchCommon(StringValues values, string etag, out bool matched)
-    {
-        matched = false;
-        if (values.Count == 0)
-        {
-            return true;
-        }
-
-        if (values.Count != 1)
-        {
-            return false;
-        }
-
-        ReadOnlySpan<char> header = (values[0] ?? string.Empty).AsSpan().Trim();
-        if (header.IndexOf(',') >= 0)
-        {
-            return false;
-        }
-
-        matched = header.Equals("*", StringComparison.Ordinal)
-            || header.Equals(etag.AsSpan(), StringComparison.Ordinal);
-        return true;
     }
 
 }

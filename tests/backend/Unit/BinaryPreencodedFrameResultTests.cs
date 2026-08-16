@@ -15,6 +15,7 @@ public sealed class BinaryPreencodedFrameResultTests
     [Theory]
     [InlineData(ETag)]
     [InlineData("\"other\", \"frame-etag\"")]
+    [InlineData("W/\"frame-etag\"")]
     [InlineData("*")]
     public async Task MatchingIfNoneMatch_Returns304WithoutBody(string ifNoneMatch)
     {
@@ -34,7 +35,7 @@ public sealed class BinaryPreencodedFrameResultTests
 
     [Theory]
     [InlineData("\"other\"")]
-    [InlineData("W/\"frame-etag\"")]
+    [InlineData("\"frame-etagged\"")]
     public async Task NonMatchingIfNoneMatch_Returns200WithFullFrame(string ifNoneMatch)
     {
         byte[] frame = CreateFrame([4, 5, 6]);
