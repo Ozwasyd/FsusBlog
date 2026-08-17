@@ -184,7 +184,10 @@ export default defineConfig({
   globalSetup: '../../tests/frontend/support/playwright/global-setup.ts',
   timeout: resolveTestTimeoutMs(),
   expect: {
-    timeout: 15_000
+    timeout: 15_000,
+    toHaveScreenshot: {
+      pathTemplate: '{snapshotDir}/{testFileDir}/{testFileName}-snapshots/{arg}-chromium-linux{ext}'
+    }
   },
   reporter: 'list',
   outputDir,

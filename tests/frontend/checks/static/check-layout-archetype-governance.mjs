@@ -254,6 +254,18 @@ if (!read('tests/matrix.yml').includes('id: "layout-archetype-governance"'))
     fail('tests/matrix.yml: frontend static lane must run layout archetype governance');
 }
 
+// #2733 — visual snapshots must retain the stable chromium-linux engine suffix only.
+// The chrome-linux variants are historical artifacts with no incremental signal; committing
+// a new one silently doubles the maintenance surface, so fail closed on any re-introduction.
+const visualSnapshotRoot = resolve(root, 'tests/frontend/e2e/visual');
+for (const absolute of walk(visualSnapshotRoot))
+{
+    if (absolute.endsWith('-chrome-linux.png'))
+    {
+        fail(`${relative(root, absolute).replaceAll('\\', '/')}: chrome-linux snapshot is forbidden; retain chromium-linux only`);
+    }
+}
+
 if (errors.length > 0)
 {
     console.error(errors.map((error) => `[layout-archetype-governance] ${error}`).join('\n'));
