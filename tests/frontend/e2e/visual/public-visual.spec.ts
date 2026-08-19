@@ -11,6 +11,7 @@ import {
   assertTouchTargetSize,
   assertUxViewportMediaMode,
   expectStableScreenshot,
+  fixtures,
   openThemedAuditedPage,
   resetUxViewportMediaMode,
   settlePage,
@@ -23,8 +24,8 @@ import {
 } from '../../support/playwright/layoutArchetypeMatrix'
 
 const archetypeFixtures = {
-  articleId: process.env.FSUSBLOG_VISUAL_ARTICLE_ID || '1',
-  searchKeyword: process.env.FSUSBLOG_VISUAL_SEARCH_KEYWORD || 'test'
+  articleId: process.env.FSUSBLOG_VISUAL_ARTICLE_ID || fixtures.articleId,
+  searchKeyword: process.env.FSUSBLOG_VISUAL_SEARCH_KEYWORD || fixtures.searchKeyword
 }
 const routes = PUBLIC_LAYOUT_ARCHETYPES.map((archetype) => ({
   ...archetype,

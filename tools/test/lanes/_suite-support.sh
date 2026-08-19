@@ -1935,6 +1935,7 @@ RunVisualPublicOnly() {
     Log "tier=visual-public | public screenshot checks"
     export FSUSBLOG_PLAYWRIGHT_CONFIG="${FSUSBLOG_PLAYWRIGHT_CONFIG:-playwright.diagnostics.config.ts}"
     export FSUSBLOG_PLAYWRIGHT_LOCALE="${FSUSBLOG_PLAYWRIGHT_LOCALE:-zh-CN}"
+    export FSUSBLOG_PLAYWRIGHT_TEST_TIMEOUT_MS="${FSUSBLOG_PLAYWRIGHT_TEST_TIMEOUT_MS:-360000}"
     ConfigureVisualPlaywrightLane visual-public
     ConfigurePlaywrightWorkers visual-public FSUSBLOG_VISUAL_PUBLIC_WORKERS
     RequireDebugStack
@@ -1951,6 +1952,7 @@ RunVisualConsoleOnly() {
     Log "tier=visual-console | console screenshot checks"
     export FSUSBLOG_PLAYWRIGHT_CONFIG="${FSUSBLOG_PLAYWRIGHT_CONFIG:-playwright.diagnostics.config.ts}"
     export FSUSBLOG_PLAYWRIGHT_LOCALE="${FSUSBLOG_PLAYWRIGHT_LOCALE:-zh-CN}"
+    export FSUSBLOG_PLAYWRIGHT_TEST_TIMEOUT_MS="${FSUSBLOG_PLAYWRIGHT_TEST_TIMEOUT_MS:-360000}"
     ConfigureVisualPlaywrightLane visual-console
     ConfigurePlaywrightWorkers visual-console FSUSBLOG_CONSOLE_VISUAL_WORKERS
     export FSUSBLOG_TEST_SESSION_ISOLATION="${FSUSBLOG_TEST_SESSION_ISOLATION:-1}"

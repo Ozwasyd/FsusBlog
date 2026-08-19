@@ -85,10 +85,15 @@ const mountProbe = () => {
   }
 }
 
-const dashboardActions = (workbench: ReturnType<typeof useAdminDashboardWorkbench>) => [
-  ...workbench.pendingActions.value,
-  ...(workbench.writeAction.value ? [workbench.writeAction.value] : [])
-]
+const dashboardActions = (workbench: ReturnType<typeof useAdminDashboardWorkbench>) => {
+  const pending = workbench.pendingActions.value
+  const write = workbench.writeAction.value
+  if (!write || pending.some((action) => action.key === 'write')) {
+    return pending
+  }
+
+  return [...pending, write]
+}
 
 beforeEach(() => {
   mocks.getCacheDiagnostics.mockReset().mockResolvedValue(healthyCacheDiagnostics())

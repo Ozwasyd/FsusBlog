@@ -4,6 +4,7 @@ import '@/assets/main.css'
 import AdminDashboardTaskWorkbench from '@/components/admin/AdminDashboardTaskWorkbench.vue'
 import AccountNavigationPanel from '@/components/account/AccountNavigationPanel.vue'
 import { getAccountNavGroups } from '@/layouts/accountNav'
+import { activateLocaleRuntime } from '@/locales'
 import {
   createAdminDashboardLedger,
   createAdminDashboardSystemStatus,
@@ -21,7 +22,10 @@ const changesMode = params.get('changes') === 'many' ? 'many' : 'none'
 const systemMode = params.get('system') === 'attention' ? 'attention' : 'healthy'
 const theme = params.get('theme') === 'dark' ? 'dark' : 'light'
 const hasWorkload = workload !== 'zero'
+const locale = 'zh-CN'
 
+await activateLocaleRuntime(locale, ['common', 'layout', 'admin'])
+document.documentElement.lang = locale
 document.documentElement.classList.toggle('dark', theme === 'dark')
 document.documentElement.dataset.themeMode = theme
 document.documentElement.dataset.themeResolved = theme
