@@ -266,6 +266,16 @@ for (const absolute of walk(visualSnapshotRoot))
     }
 }
 
+const playwrightConfig = read('src/frontend/playwright.config.ts');
+if (!playwrightConfig.includes("from '../../tests/frontend/support/playwright/screenshotPathTemplate.mjs'"))
+{
+    fail('src/frontend/playwright.config.ts must import the shipped screenshot path template');
+}
+if (!playwrightConfig.includes('pathTemplate: playwrightScreenshotPathTemplate'))
+{
+    fail('src/frontend/playwright.config.ts must pin toHaveScreenshot.pathTemplate to playwrightScreenshotPathTemplate');
+}
+
 if (errors.length > 0)
 {
     console.error(errors.map((error) => `[layout-archetype-governance] ${error}`).join('\n'));

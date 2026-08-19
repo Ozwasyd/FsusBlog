@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { defineConfig, type BrowserName } from '@playwright/test'
+import { playwrightScreenshotPathTemplate } from '../../tests/frontend/support/playwright/screenshotPathTemplate.mjs'
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_PUBLIC_BASE_URL || 'http://127.0.0.1:3000'
 const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url))
@@ -186,7 +187,7 @@ export default defineConfig({
   expect: {
     timeout: 15_000,
     toHaveScreenshot: {
-      pathTemplate: '{snapshotDir}/{testFileDir}/{testFileName}-snapshots/{arg}-chromium-linux{ext}'
+      pathTemplate: playwrightScreenshotPathTemplate
     }
   },
   reporter: 'list',
