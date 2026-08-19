@@ -547,7 +547,7 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in {
 :where(#app, #fsus-aot-shell) .fsus-comment__action:focus-visible,
 :where(#app, #fsus-aot-shell) .fsus-comments-empty__btn:focus-visible
 {
-    outline: 2px solid var(--fsusblog-color-focus-ring);
+    outline: 2px solid var(--accent);
     outline-offset: -2px;
 }
 
