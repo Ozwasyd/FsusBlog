@@ -1933,6 +1933,8 @@ RunVisualOnly() {
 
 RunVisualPublicOnly() {
     Log "tier=visual-public | public screenshot checks"
+    export FSUSBLOG_PLAYWRIGHT_CONFIG="${FSUSBLOG_PLAYWRIGHT_CONFIG:-playwright.diagnostics.config.ts}"
+    export FSUSBLOG_PLAYWRIGHT_LOCALE="${FSUSBLOG_PLAYWRIGHT_LOCALE:-zh-CN}"
     ConfigureVisualPlaywrightLane visual-public
     ConfigurePlaywrightWorkers visual-public FSUSBLOG_VISUAL_PUBLIC_WORKERS
     RequireDebugStack
@@ -1947,6 +1949,8 @@ RunVisualPublicOnly() {
 
 RunVisualConsoleOnly() {
     Log "tier=visual-console | console screenshot checks"
+    export FSUSBLOG_PLAYWRIGHT_CONFIG="${FSUSBLOG_PLAYWRIGHT_CONFIG:-playwright.diagnostics.config.ts}"
+    export FSUSBLOG_PLAYWRIGHT_LOCALE="${FSUSBLOG_PLAYWRIGHT_LOCALE:-zh-CN}"
     ConfigureVisualPlaywrightLane visual-console
     ConfigurePlaywrightWorkers visual-console FSUSBLOG_CONSOLE_VISUAL_WORKERS
     export FSUSBLOG_TEST_SESSION_ISOLATION="${FSUSBLOG_TEST_SESSION_ISOLATION:-1}"

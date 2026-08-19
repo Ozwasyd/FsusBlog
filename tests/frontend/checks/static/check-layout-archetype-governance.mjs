@@ -275,6 +275,24 @@ if (!playwrightConfig.includes('pathTemplate: playwrightScreenshotPathTemplate')
 {
     fail('src/frontend/playwright.config.ts must pin toHaveScreenshot.pathTemplate to playwrightScreenshotPathTemplate');
 }
+const diagnosticsConfig = read('src/frontend/playwright.diagnostics.config.ts');
+if (!diagnosticsConfig.includes("from '../../tests/frontend/support/playwright/screenshotPathTemplate.mjs'"))
+{
+    fail('src/frontend/playwright.diagnostics.config.ts must import the shipped screenshot path template');
+}
+if (!diagnosticsConfig.includes('pathTemplate: playwrightScreenshotPathTemplate'))
+{
+    fail('src/frontend/playwright.diagnostics.config.ts must pin toHaveScreenshot.pathTemplate to playwrightScreenshotPathTemplate');
+}
+const suiteSupport = read('tools/test/lanes/_suite-support.sh');
+if (!suiteSupport.includes('FSUSBLOG_PLAYWRIGHT_CONFIG:-playwright.diagnostics.config.ts'))
+{
+    fail('visual-public lane must default FSUSBLOG_PLAYWRIGHT_CONFIG to playwright.diagnostics.config.ts');
+}
+if (!suiteSupport.includes('FSUSBLOG_PLAYWRIGHT_LOCALE:-zh-CN'))
+{
+    fail('visual lanes must default FSUSBLOG_PLAYWRIGHT_LOCALE to zh-CN');
+}
 
 if (errors.length > 0)
 {

@@ -146,7 +146,7 @@ async function inspectHeader(page, width, route, theme, authMode) {
     const mobileThemeButton = document.querySelector('.el-theme-mode-toggle--mobile .el-theme-mode-toggle__menu-button')
     const desktopActions = document.querySelector('.el-public-shell__actions')
     const desktopNav = document.querySelector('.el-public-shell__desktop-nav')
-    const desktopSearchTrigger = document.querySelector('.public-chrome-search__trigger')
+    const desktopSearchTrigger = document.querySelector('.el-public-shell__desktop-search-trigger, .public-chrome-search__trigger')
     const authLink = document.querySelector('.el-public-shell__auth-link')
     const mobileAuthLink = document.querySelector('.el-public-shell__auth-link--mobile')
     const colophon = document.querySelector('.public-colophon')
@@ -211,7 +211,7 @@ async function inspectHeader(page, width, route, theme, authMode) {
       desktopNavDisplay: getDisplay(desktopNav),
       desktopSearchWidth: getWidth(desktopSearchTrigger),
       desktopSearchExpanded: desktopSearchTrigger?.getAttribute('aria-expanded') ?? '',
-      hasPersistentDesktopInput: Boolean(document.querySelector('.public-chrome-search--desktop input')),
+      hasPersistentDesktopInput: Boolean(document.querySelector('.el-public-shell__desktop-search-panel:not(.is-csp-hidden) input, .public-chrome-search--desktop input')),
       innerBox: getBox(document.querySelector('.el-public-shell__inner')),
       primaryBox: getBox(document.querySelector('.el-public-shell__primary-row')),
       brandBox: getBox(document.querySelector('.el-public-shell__brand')),
@@ -424,11 +424,11 @@ async function inspectHeader(page, width, route, theme, authMode) {
       )
     }
 
-    await page.click('.public-chrome-search__trigger')
-    await page.waitForSelector('.public-chrome-search__panel input', { state: 'visible', timeout: 5000 })
+    await page.click('.el-public-shell__desktop-search-trigger, .public-chrome-search__trigger')
+    await page.waitForSelector('.el-public-shell__desktop-search-panel input, .public-chrome-search__panel input', { state: 'visible', timeout: 5000 })
     const desktopSearchState = await page.evaluate(() => {
-      const trigger = document.querySelector('.public-chrome-search__trigger')
-      const input = document.querySelector('.public-chrome-search__panel input')
+      const trigger = document.querySelector('.el-public-shell__desktop-search-trigger, .public-chrome-search__trigger')
+      const input = document.querySelector('.el-public-shell__desktop-search-panel input.el-input__inner, .public-chrome-search__panel input')
       return {
         expanded: trigger?.getAttribute('aria-expanded') ?? '',
         activeInput: document.activeElement === input,
@@ -436,9 +436,9 @@ async function inspectHeader(page, width, route, theme, authMode) {
     })
     assert(desktopSearchState.expanded === 'true', `${label}: desktop search did not expand`)
     assert(desktopSearchState.activeInput, `${label}: desktop search input not focused`)
-    await page.press('.public-chrome-search__panel input', 'Escape')
+    await page.press('.el-public-shell__desktop-search-panel input.el-input__inner, .public-chrome-search__panel input', 'Escape')
     const desktopFocusRestored = await page.evaluate(() => {
-      const trigger = document.querySelector('.public-chrome-search__trigger')
+      const trigger = document.querySelector('.el-public-shell__desktop-search-trigger, .public-chrome-search__trigger')
       return trigger?.getAttribute('aria-expanded') === 'false' && document.activeElement === trigger
     })
     assert(desktopFocusRestored, `${label}: desktop Escape did not restore search trigger focus`)
@@ -460,6 +460,7 @@ async function main() {
       for (const authMode of activeAuthModes) {
         const context = await browser.newContext({
           baseURL: baseUrl,
+          locale: process.env.FSUSBLOG_PLAYWRIGHT_LOCALE || 'zh-CN',
           colorScheme: theme.colorScheme,
           viewport: { width: 1024, height: 900 },
         })

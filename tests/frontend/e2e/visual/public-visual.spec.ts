@@ -14,7 +14,8 @@ import {
   openThemedAuditedPage,
   resetUxViewportMediaMode,
   settlePage,
-  waitForAppReady
+  waitForAppReady,
+  waitForPublicHydration
 } from '../../support/playwright/acceptance-shared'
 import {
   PUBLIC_LAYOUT_ARCHETYPES,
@@ -46,7 +47,7 @@ const semanticColors = {
   light: {
     primary: 'rgb(15, 15, 17)',
     tertiary: 'rgb(113, 113, 122)',
-    quiet: 'rgb(161, 161, 170)',
+    quiet: 'rgb(113, 113, 122)',
     border: 'rgb(228, 228, 231)',
     accent: 'rgb(42, 89, 156)',
     raised: 'rgb(247, 247, 248)'
@@ -207,21 +208,23 @@ async function assertEditorialPublicChrome(page: Page, viewportWidth: number): P
   await expect(colophon.locator('.public-colophon__primary a[href="/feed/rss.xml"]')).toHaveCount(1)
 
   if (viewportWidth >= 768) {
-    const search = page.locator('.public-chrome-search--desktop')
-    const trigger = search.locator('.public-chrome-search__trigger')
+    const trigger = page.locator('.el-public-shell__desktop-search-trigger')
+    const searchPanel = page.locator('.el-public-shell__desktop-search-panel')
     await expect(trigger).toHaveAttribute('href', '/search')
     await expect(trigger).toHaveAttribute('aria-label', /搜索/u)
     await expect(trigger).toHaveAttribute('aria-expanded', 'false')
-    await expect(search.locator('input')).toHaveCount(0)
+    await expect(searchPanel).toBeHidden()
     await expect(page.locator('.el-theme-mode-toggle--desktop .el-theme-mode-toggle__menu-button')).toBeVisible()
 
     await trigger.click()
-    const input = search.locator('input').first()
+    const input = searchPanel.locator('input.el-input__inner').first()
     await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    await expect(searchPanel).toBeVisible()
     await expect(input).toBeVisible()
     await expect(input).toBeFocused()
     await input.press('Escape')
     await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    await expect(searchPanel).toBeHidden()
     await expect(trigger).toBeFocused()
     return
   }
@@ -246,19 +249,22 @@ async function assertEditorialPublicChrome(page: Page, viewportWidth: number): P
   await expect(mobileSearchRow).toBeHidden()
   await expect(page.locator('.public-mobile-nav-menu')).toHaveCount(0)
   await expect(menu).toHaveCount(1)
-  await expect(menuPanel).toHaveCount(1)
-  await expect(menuPanel.locator('.el-public-shell__mobile-nav-link')).toHaveCount(3)
-  await expect(menuPanel.locator('.el-theme-mode-toggle')).toHaveCount(1)
-  await expect(menuPanel.locator('.el-public-shell__auth-link')).toHaveCount(1)
   await expect(menuTrigger).toHaveAttribute('aria-expanded', 'false')
+  await expect(menuPanel).toBeHidden()
   await menuTrigger.click()
   await expect(menuTrigger).toHaveAttribute('aria-expanded', 'true')
   await expect(menuPanel).toBeVisible()
+  await expect(menuPanel.locator('.el-public-shell__mobile-nav-link')).toHaveCount(3)
+  await expect(menuPanel.locator('.el-theme-mode-toggle')).toHaveCount(1)
+  await expect(menuPanel.locator('.el-public-shell__auth-link')).toHaveCount(1)
   await expect(mobileTheme).toBeVisible()
   await expect(mobileAuth).toBeVisible()
   await expect(menuPanel.locator('.el-public-shell__mobile-nav-link[aria-current="page"]')).toHaveCount(1)
   await menuTrigger.press('Escape')
   await expect(menuTrigger).toHaveAttribute('aria-expanded', 'false')
+  await expect(menu).not.toHaveAttribute('open')
+  await expect(menu).not.toHaveClass(/\bis-closing\b/)
+  await expect(menuPanel).toBeHidden()
   await expect(menuTrigger).toBeFocused()
 
   await searchTrigger.click()
@@ -288,6 +294,10 @@ for (const viewport of viewports) {
           try {
             await session.page.goto(route.path, { waitUntil: 'domcontentloaded' })
             await waitForAppReady(session.page, WARMUP_TIMEOUT_MS)
+            if (route.label !== 'public-search'
+              && await session.page.locator('#fsus-aot-shell').count()) {
+              await waitForPublicHydration(session.page, WARMUP_TIMEOUT_MS)
+            }
             await settlePage(session.page)
 
             const primary = session.page.locator(route.primary).first()
