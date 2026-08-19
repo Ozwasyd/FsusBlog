@@ -179,7 +179,7 @@ for (const fixtureCase of cases) {
       }
 
       if (fixtureCase.changes === 'none') {
-        await expect(page.getByText('暂无可显示的最近变更。')).toBeVisible()
+        await expect(page.getByText('最近变更中暂无新记录。')).toBeVisible()
       } else {
         await expect(page.locator('.dashboard-change-row')).toHaveCount(4)
       }

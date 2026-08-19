@@ -876,7 +876,12 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
             process.exit(0);
         }
         const result = produceBehaviorMutationQualification(options);
-        if (result.errors.length > 0 || !result.receipt)
+        if (result.empty && result.errors.length === 0)
+        {
+            console.log('[produce-behavior-mutation-qualification] empty closure (unrelated PR change)');
+            console.log(`  selection=${result.selectionPath}`);
+        }
+        else if (result.errors.length > 0 || !result.receipt)
         {
             console.error('[produce-behavior-mutation-qualification] FAILED');
             console.error(`  canonical command: ${result.canonicalCommand}`);
@@ -885,11 +890,6 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
                 console.error(`  ${error}`);
             }
             process.exitCode = 1;
-        }
-        else if (result.empty)
-        {
-            console.log('[produce-behavior-mutation-qualification] empty closure (unrelated PR change)');
-            console.log(`  selection=${result.selectionPath}`);
         }
         else
         {

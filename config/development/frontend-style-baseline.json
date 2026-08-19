@@ -1,9 +1,9 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:ae88eda048e77c0491d8f5a9c544ce155a213c17437440d08cc46c439f9a3483",
-    "sourceStateSha256": "ae88eda048e77c0491d8f5a9c544ce155a213c17437440d08cc46c439f9a3483",
+    "generatedFrom": "source-state:0457566cf633f81292a280962f431318585bcd9c2619435eb13b2a951167fa8d",
+    "sourceStateSha256": "0457566cf633f81292a280962f431318585bcd9c2619435eb13b2a951167fa8d",
     "configurationSha256": "aa1eb8b9803748da07ffbcda4a9bf08f6dc69cf2a24828d2ad14bae5f97ffdf4",
-    "violationCount": 272330,
+    "violationCount": 271237,
     "fileCount": 1506,
     "files": [
         {
@@ -766,7 +766,7 @@
         },
         {
             "path": "src/frontend/src/assets/public-page.css",
-            "sourceSha256": "0b8b84efebc760a6ddc25038be0e7b1ef7f42a8e6d7a85997365a4e7b68729ff",
+            "sourceSha256": "cba452b71829a5d8ff606705216d117a5379d066f493ab61a00e082d41ffbb55",
             "violationCount": 432,
             "violationDigest": "3a809888c56629ec5c3d5cf41e8428f05749332f68dadc8222bafcb983dbf058",
             "rules": {
@@ -793,7 +793,7 @@
         },
         {
             "path": "src/frontend/src/assets/public-shell-foundation.css",
-            "sourceSha256": "2880430a4f904a875f41ff2cb6ec572dc9aa5a9f4d7247a8e2a27fbdd1057ff6",
+            "sourceSha256": "86eb1c0cf280ff2bb6c1ed62ead99899878506ac00249956e6e24d294fd3f5b3",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -2100,7 +2100,7 @@
         },
         {
             "path": "src/frontend/src/components/public/PublicArticleList.vue",
-            "sourceSha256": "f709c4db40fa8e012704cd320c4dbf88c876d7921756411633bbac3cb2d45eff",
+            "sourceSha256": "48fbdee92e5879947b8f35f728e8c58c911a633ed1c588b9d2efb1b103d73542",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -2190,7 +2190,7 @@
         },
         {
             "path": "src/frontend/src/components/public/pages/PublicArticleDetailPageContent.vue",
-            "sourceSha256": "8665ddbf738d7c05b6f0c580eb6a155c70c6841d157f5da80592fbda9637b58f",
+            "sourceSha256": "691d923efc8eb3233b58ea528bff211004bf62306bd80e785f17370249b3c1b7",
             "violationCount": 1,
             "violationDigest": "f330c8ccab2c1d4affabca4f6fd9fb8f2707bf6a9911f8a34b0d28a56a016b42",
             "rules": {
@@ -2881,16 +2881,10 @@
         },
         {
             "path": "src/frontend/src/composables/useAdminDashboardWorkbench.ts",
-            "sourceSha256": "00d4d027e8a001b0538664bc5ecfd499ca0f1404bf240e613b656d0916f22384",
-            "violationCount": 383,
-            "violationDigest": "bf396dfe1723ef9a136e0a0cca552c688f8b8971430635d538c82e7711422383",
-            "rules": {
-                "eslint/@stylistic/brace-style": 18,
-                "eslint/@stylistic/indent": 244,
-                "eslint/@stylistic/semi": 113,
-                "eslint/curly": 7,
-                "eslint/import-x/order": 1
-            }
+            "sourceSha256": "6f355cc49090206d3edb2eb36d4111463530001a51493b9369befe6dc72c4a80",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "src/frontend/src/composables/useAdminMessageCenter.ts",
@@ -8167,8 +8161,8 @@
         },
         {
             "path": "tests/frontend/checks/public/check-public-header-material.mjs",
-            "sourceSha256": "01dad8c1336c83f1d9f52e79275a44caf5d34b7f75f461a7a1e2b9ed1766a37d",
-            "violationCount": 785,
+            "sourceSha256": "e4b49165a13d8aecab236b32c02d1c3e04b81a1c9bff40e6692da55cd82580e3",
+            "violationCount": 75,
             "violationDigest": "a6a0bc5e0f87f6804c18c3ec209d38ef881c5da331ae9b176b9a3bcd6311c87d",
             "rules": {
                 "eslint/@stylistic/brace-style": 54,
@@ -16459,7 +16453,7 @@
         },
         {
             "path": "tools/test-matrix/produce-behavior-mutation-qualification.mjs",
-            "sourceSha256": "d3d55ea7a2b9c159567cdb3d2e53ab7d6415030474f8668ec6a4937515fe8aaf",
+            "sourceSha256": "a93d3c446fdcffeea7d5aa72ed6728d42b920a514803321381ffd4732307d08f",
             "violationCount": 13,
             "violationDigest": "1fe80c579cc18f7d324d8c7633fb3019f6be6c4c6e37791eab21251e9fc389ef",
             "rules": {

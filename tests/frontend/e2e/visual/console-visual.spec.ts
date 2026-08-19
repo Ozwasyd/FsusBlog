@@ -98,8 +98,8 @@ async function assertAccountHeaderMenuContract(page: Page, label: string): Promi
 for (const viewport of viewports) {
   for (const theme of themes) {
     test.describe(`console visual (${viewport.name}, ${theme})`, () => {
-      test.use({ viewport: viewport.size })
       test.describe.configure({ timeout: 360_000 })
+      test.use({ viewport: viewport.size })
 
       test('user profile and inbox stay aligned', async ({ browser }) => {
         userStorageStatePromise ??= captureStorageState(browser, userName, userPassword, '/user/profile')
@@ -193,7 +193,7 @@ for (const viewport of viewports) {
             }
 
             if (route.label === 'manage-write') {
-              const titleInput = session.page.getByPlaceholder('在此键入博文标题...')
+              const titleInput = session.page.getByPlaceholder('写下文章标题')
               await assertElementHitTarget(session.page, titleInput, 'article title input')
             }
 

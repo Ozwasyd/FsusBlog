@@ -254,6 +254,46 @@ if (!read('tests/matrix.yml').includes('id: "layout-archetype-governance"'))
     fail('tests/matrix.yml: frontend static lane must run layout archetype governance');
 }
 
+// #2733 — visual snapshots must retain the stable chromium-linux engine suffix only.
+// The chrome-linux variants are historical artifacts with no incremental signal; committing
+// a new one silently doubles the maintenance surface, so fail closed on any re-introduction.
+const visualSnapshotRoot = resolve(root, 'tests/frontend/e2e/visual');
+for (const absolute of walk(visualSnapshotRoot))
+{
+    if (absolute.endsWith('-chrome-linux.png'))
+    {
+        fail(`${relative(root, absolute).replaceAll('\\', '/')}: chrome-linux snapshot is forbidden; retain chromium-linux only`);
+    }
+}
+
+const playwrightConfig = read('src/frontend/playwright.config.ts');
+if (!playwrightConfig.includes("from '../../tests/frontend/support/playwright/screenshotPathTemplate.mjs'"))
+{
+    fail('src/frontend/playwright.config.ts must import the shipped screenshot path template');
+}
+if (!playwrightConfig.includes('pathTemplate: playwrightScreenshotPathTemplate'))
+{
+    fail('src/frontend/playwright.config.ts must pin toHaveScreenshot.pathTemplate to playwrightScreenshotPathTemplate');
+}
+const diagnosticsConfig = read('src/frontend/playwright.diagnostics.config.ts');
+if (!diagnosticsConfig.includes("from '../../tests/frontend/support/playwright/screenshotPathTemplate.mjs'"))
+{
+    fail('src/frontend/playwright.diagnostics.config.ts must import the shipped screenshot path template');
+}
+if (!diagnosticsConfig.includes('pathTemplate: playwrightScreenshotPathTemplate'))
+{
+    fail('src/frontend/playwright.diagnostics.config.ts must pin toHaveScreenshot.pathTemplate to playwrightScreenshotPathTemplate');
+}
+const suiteSupport = read('tools/test/lanes/_suite-support.sh');
+if (!suiteSupport.includes('FSUSBLOG_PLAYWRIGHT_CONFIG:-playwright.diagnostics.config.ts'))
+{
+    fail('visual-public lane must default FSUSBLOG_PLAYWRIGHT_CONFIG to playwright.diagnostics.config.ts');
+}
+if (!suiteSupport.includes('FSUSBLOG_PLAYWRIGHT_LOCALE:-zh-CN'))
+{
+    fail('visual lanes must default FSUSBLOG_PLAYWRIGHT_LOCALE to zh-CN');
+}
+
 if (errors.length > 0)
 {
     console.error(errors.map((error) => `[layout-archetype-governance] ${error}`).join('\n'));

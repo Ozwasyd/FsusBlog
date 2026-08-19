@@ -1,5 +1,6 @@
 import path from 'node:path'
 import { defineConfig } from '@playwright/test'
+import { playwrightScreenshotPathTemplate } from '../../tests/frontend/support/playwright/screenshotPathTemplate.mjs'
 
 function positiveInteger(value: string | undefined, label: string, fallback: number): number {
   if (value === undefined || value.trim() === '') return fallback
@@ -35,13 +36,22 @@ export default defineConfig({
   workers,
   retries: 0,
   timeout,
-  expect: { timeout: 15_000 },
+  expect: {
+    timeout: 15_000,
+    toHaveScreenshot: {
+      pathTemplate: playwrightScreenshotPathTemplate
+    }
+  },
   reporter: 'list',
   outputDir: path.resolve(process.cwd(), process.env.PLAYWRIGHT_OUTPUT_DIR || 'test-results/playwright/browser-diagnostics'),
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_PUBLIC_BASE_URL || 'http://127.0.0.1:3000',
+    ...(process.env.FSUSBLOG_PLAYWRIGHT_LOCALE
+      ? { locale: process.env.FSUSBLOG_PLAYWRIGHT_LOCALE }
+      : {}),
     headless: true,
     ignoreHTTPSErrors: true,
+    serviceWorkers: 'block',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'off',

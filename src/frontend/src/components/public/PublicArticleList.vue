@@ -41,13 +41,13 @@
                 >{{ item.meta.categoryName }}</span>
                 <span
                     v-if="item.tags.length"
-                    :class="`${themeTokens.articleList.metaSeparator} hidden sm:inline`"
+                    :class="`${themeTokens.articleList.metaSeparator} hidden min-[900px]:inline`"
                     aria-hidden="true"
                 >{{ publicPeriodMotif.metadata.glyph }}</span>
                 <span
                     v-for="tag in item.tags"
                     :key="tag.label"
-                    :class="tag.hiddenOnMobile ? 'hidden sm:inline-flex' : 'inline-flex'"
+                    :class="'hidden min-[900px]:inline-flex'"
                 >
                     <a
                         :href="tag.href"

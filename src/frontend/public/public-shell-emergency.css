@@ -111,6 +111,15 @@ html[data-theme-resolved='dark']
     justify-content: center;
 }
 
+@media (width <= 767px)
+{
+    #fsus-aot-shell [data-public-shell-header] a[data-public-nav]
+    {
+        min-inline-size: var(--fsus-public-shell-mobile-action-height, 2.75rem);
+        min-block-size: var(--fsus-public-shell-mobile-action-height, 2.75rem);
+    }
+}
+
 #fsus-aot-shell .mono-link,
 #fsus-aot-shell .active-link
  {
