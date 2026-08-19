@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:f7989e3bb42e0d6ad26b1b7f4a3aa1e1627df055a4ea2d9e234ad67368f41f4a",
-    "sourceStateSha256": "f7989e3bb42e0d6ad26b1b7f4a3aa1e1627df055a4ea2d9e234ad67368f41f4a",
+    "generatedFrom": "source-state:a4cd34a4f3f2133839cb7ce2e32bc55a9fee2c893c0a456cb56114e068ff32a5",
+    "sourceStateSha256": "a4cd34a4f3f2133839cb7ce2e32bc55a9fee2c893c0a456cb56114e068ff32a5",
     "configurationSha256": "aa1eb8b9803748da07ffbcda4a9bf08f6dc69cf2a24828d2ad14bae5f97ffdf4",
     "violationCount": 272330,
     "fileCount": 1506,
@@ -766,7 +766,7 @@
         },
         {
             "path": "src/frontend/src/assets/public-page.css",
-            "sourceSha256": "0b8b84efebc760a6ddc25038be0e7b1ef7f42a8e6d7a85997365a4e7b68729ff",
+            "sourceSha256": "73d7eb29854037669e7042ae7e292ebc83cc46fe1a43595cef6f0a932d3aae56",
             "violationCount": 432,
             "violationDigest": "3a809888c56629ec5c3d5cf41e8428f05749332f68dadc8222bafcb983dbf058",
             "rules": {

@@ -54,6 +54,10 @@
   --el-text-color-secondary: var(--text-secondary);
   --el-text-color-placeholder: var(--text-muted);
   --fsusblog-color-primary: var(--fsus-color-action-primary, var(--accent, LinkText));
+  --fsusblog-header-bg: var(--el-bg-color);
+  --fsusblog-header-border: var(--el-border-color-lighter);
+  --fsusblog-backdrop-blur-soft: 0px;
+  --fsusblog-backdrop-saturate: 100%;
   --fsusblog-color-surface: var(--surface);
   --fsusblog-color-surface-soft: var(--surface-subtle);
   --fsusblog-color-surface-muted: var(--surface-subtle);
@@ -187,6 +191,10 @@ html[data-theme-resolved='dark']
   --el-text-color-secondary: var(--text-secondary);
   --el-text-color-placeholder: var(--text-muted);
   --fsusblog-color-primary: var(--fsus-color-action-primary, var(--accent, LinkText));
+  --fsusblog-header-bg: var(--el-bg-color);
+  --fsusblog-header-border: var(--el-border-color-lighter);
+  --fsusblog-backdrop-blur-soft: 0px;
+  --fsusblog-backdrop-saturate: 100%;
   --fsusblog-color-surface: var(--surface);
   --fsusblog-color-surface-soft: var(--surface-subtle);
   --fsusblog-color-surface-muted: var(--surface-subtle);
@@ -505,6 +513,53 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in {
 .fsus-public-takeover-snapshot__clone {
   pointer-events: none;
   transform-origin: top left;
+}
+
+/* AOT HTML keeps SSR scoped hashes; client SFC CSS cannot paint it. */
+:where(#app, #fsus-aot-shell) [data-article-rights-notice],
+:where(#app, #fsus-aot-shell) .fsus-appendix__copyright
+{
+    color: var(--fsusblog-text-tertiary);
+}
+
+:where(#app, #fsus-aot-shell) .fsus-appendix__meta,
+:where(#app, #fsus-aot-shell) .fsus-comment__time,
+:where(#app, #fsus-aot-shell) .fsus-comments-empty__text
+{
+    color: var(--fsusblog-text-quiet);
+}
+
+:where(#app, #fsus-aot-shell) .fsus-appendix__link,
+:where(#app, #fsus-aot-shell) .fsus-comment,
+:where(#app, #fsus-aot-shell) .comment-markdown-renderer
+{
+    color: var(--fsusblog-text-primary);
+}
+
+:where(#app, #fsus-aot-shell) .fsus-appendix__link:hover,
+:where(#app, #fsus-aot-shell) .fsus-comment__action:hover,
+:where(#app, #fsus-aot-shell) .fsus-comments-empty__btn:hover
+{
+    color: var(--accent);
+}
+
+:where(#app, #fsus-aot-shell) .fsus-appendix__link:focus-visible,
+:where(#app, #fsus-aot-shell) .fsus-comment__action:focus-visible,
+:where(#app, #fsus-aot-shell) .fsus-comments-empty__btn:focus-visible
+{
+    outline: 2px solid var(--fsusblog-color-focus-ring);
+    outline-offset: -2px;
+}
+
+:where(#app, #fsus-aot-shell) [data-article-verification-link]
+{
+    display: inline-flex;
+    min-width: 44px;
+    min-height: 44px;
+    max-width: 100%;
+    box-sizing: border-box;
+    align-items: center;
+    padding-inline: 4px;
 }
 
 .fsusblog-skeleton-surface {
