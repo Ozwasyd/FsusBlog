@@ -494,6 +494,11 @@ function validLockObservation(receipt, ownerSnapshotDigest, nowMs)
     );
 }
 
+function isRunOnceLockLifecycleDirectory(name)
+{
+    return /^[a-f0-9]{64}\.lock(?:$|\.(?:release|reclaimed)-[a-z0-9-]+)$/u.test(name);
+}
+
 async function observeUnverifiableLock(lockDirectory, ownerFile, graceMs, nowMs)
 {
     const observationFile = path.join(lockDirectory, 'owner-observation.json');
@@ -1192,7 +1197,7 @@ async function summarizeRunBoundExecutions(root, runId, {
                 for (const entry of await readdir(current, { withFileTypes: true }))
                 {
                     const child = path.join(current, entry.name);
-                    if (entry.isDirectory() && !entry.name.endsWith('.lock'))
+                    if (entry.isDirectory() && !isRunOnceLockLifecycleDirectory(entry.name))
                     {
                         await visit(child);
                     }
