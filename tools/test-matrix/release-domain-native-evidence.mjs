@@ -26,11 +26,11 @@ export function validateNativeAssertionEvidence({
 })
 {
     const root = path.resolve(repositoryRoot);
-    const paths = sortedUnique(
+    let paths = sortedUnique(
         sourceArtifactPaths,
         `${entry.id}.sourceArtifactPaths`
     );
-    const documents = paths.map((relative) => ({
+    let documents = paths.map((relative) => ({
         path: safeRelativePath(relative, `${entry.id}.sourceArtifactPaths`),
         value: readJsonArtifact(root, relative)
     }));
@@ -39,11 +39,14 @@ export function validateNativeAssertionEvidence({
     if (selector.kind === 'vitest-file' || selector.kind === 'vitest-file-set')
     {
         const runSlug = identitySlug(runId);
-        if (paths.some((relative) => !relative.split('/').some((segment) =>
-            segment === runSlug || segment.endsWith(`-${runSlug}`))))
+        const boundPaths = paths.filter((relative) => relative.split('/').some((segment) =>
+            segment === runSlug || segment.endsWith(`-${runSlug}`)));
+        if (boundPaths.length === 0)
         {
             throw new Error(`${entry.id} Vitest source artifact is not bound to the current run`);
         }
+        paths = boundPaths;
+        documents = documents.filter((document) => boundPaths.includes(document.path));
         const targets =
             selector.kind === 'vitest-file' ? [selector.file] : selector.files;
         const usedPaths = new Set();

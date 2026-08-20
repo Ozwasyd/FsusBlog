@@ -579,6 +579,54 @@ test('browser diagnostics all-of evidence rejects missing, extra, failed and tam
     }
 });
 
+test('frontend-unit-shard ignores coverage Vitest JSON that is not bound to the current run', () =>
+{
+    const fixture = nativeExecutionFixture();
+    try
+    {
+        const coveragePath = path.join(
+            fixture.directory,
+            '.tmp/test-results/vitest/coverage/unsharded.json'
+        );
+        fs.mkdirSync(path.dirname(coveragePath), { recursive: true });
+        fs.copyFileSync(
+            path.join(
+                fixture.directory,
+                '.tmp/test-results/vitest/frontend-unit-shard-release-run/unsharded.json'
+            ),
+            coveragePath
+        );
+        const report = runTool(fixture, [
+            'tools/test/write-release-domain-assertion-report.mjs',
+            '--root', fixture.directory,
+            '--producer', 'frontend-unit-shard',
+            '--ledger', 'ledger.json',
+            '--catalog-directory', 'catalogs'
+        ]);
+        assert.equal(report.status, 0, report.stderr);
+        const value = JSON.parse(fs.readFileSync(
+            path.join(
+                fixture.directory,
+                '.tmp/test-results/release-domain-assertions/frontend-unit-shard/release-run.json'
+            ),
+            'utf8'
+        ));
+        assert.equal(
+            value.sourceArtifacts.every((artifact) =>
+                artifact.path.includes('frontend-unit-shard-release-run')),
+            true
+        );
+        assert.equal(
+            value.sourceArtifacts.some((artifact) => artifact.path.includes('/coverage/')),
+            false
+        );
+    }
+    finally
+    {
+        fs.rmSync(fixture.directory, { recursive: true, force: true });
+    }
+});
+
 test('nested live-grant assertions reject deleted, extra, duplicate and failed execution IDs', () =>
 {
     const fixture = nativeExecutionFixture();
