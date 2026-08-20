@@ -1145,7 +1145,7 @@ tiers:
       executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
-      exclusiveResources: []
+      exclusiveResources: [frontend-vitest-unit]
       phase: 1
       cost: high
       resourceClass: cpu
@@ -8033,7 +8033,7 @@ tiers:
       executionDependsOn: [validate-matrix]
       services: []
       parallelizable: true
-      exclusiveResources: [backend-build-output]
+      exclusiveResources: [static-web-assets]
       phase: 1
       cost: high
       resourceClass: cpu

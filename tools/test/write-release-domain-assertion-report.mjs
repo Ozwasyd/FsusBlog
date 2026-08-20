@@ -140,7 +140,7 @@ try {
     const documents = collectStructuredDocuments(root);
     const assertions = entries.map((entry) => {
         const paths = sourceArtifactPaths(root, entry, documents);
-        validateNativeAssertionEvidence({
+        const validatedPaths = validateNativeAssertionEvidence({
             repositoryRoot: root,
             entry,
             sourceArtifactPaths: paths,
@@ -156,7 +156,7 @@ try {
             outcome: 'Passed',
             sourceTestIds: entry.sourceTestIds,
             producerEvidenceDigest: evidenceSelectorDigest(entry.producerEvidence),
-            sourceArtifactPaths: paths
+            sourceArtifactPaths: validatedPaths
         };
     });
     const referencedSourcePaths = [];
