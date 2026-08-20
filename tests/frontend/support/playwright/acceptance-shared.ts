@@ -227,6 +227,40 @@ function nextAcceptanceId(scope: string): string {
     .slice(0, 96)
 }
 
+function resolvePlaywrightBusinessEpochUtc(): string | undefined {
+  const fromEnv = process.env.FSUSBLOG_TEST_BUSINESS_EPOCH_UTC?.trim()
+  if (fromEnv) {
+    return fromEnv
+  }
+
+  const rawContext = process.env.FSUSBLOG_TEMPORAL_CONTEXT_JSON?.trim()
+  if (!rawContext) {
+    return undefined
+  }
+
+  try {
+    const parsed = JSON.parse(rawContext) as { businessEpochUtc?: unknown }
+    const epoch = typeof parsed.businessEpochUtc === 'string' ? parsed.businessEpochUtc.trim() : ''
+    return epoch || undefined
+  } catch {
+    return undefined
+  }
+}
+
+async function applyPlaywrightBusinessClock(page: Page): Promise<void> {
+  const businessEpochUtc = resolvePlaywrightBusinessEpochUtc()
+  if (!businessEpochUtc) {
+    return
+  }
+
+  const businessEpochMs = Date.parse(businessEpochUtc)
+  if (!Number.isFinite(businessEpochMs)) {
+    throw new Error('Playwright business epoch must be a parseable RFC3339 UTC instant')
+  }
+
+  await page.clock.setFixedTime(businessEpochMs)
+}
+
 function withAcceptanceContextOptions(
   options: BrowserContextOptions = {},
   testSession?: string
@@ -562,6 +596,7 @@ export async function openThemedAuditedContext(
     context,
     newPage: async () => {
       const page = await context.newPage()
+      await applyPlaywrightBusinessClock(page)
       return {
         page,
         audit: attachRuntimeAudit(page),
