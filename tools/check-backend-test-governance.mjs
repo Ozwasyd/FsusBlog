@@ -15,6 +15,10 @@ const environmentVariableCollectionPath = 'tests/backend/Fixtures/EnvironmentVar
 const approvedEnvironmentVariableMutationFiles = new Set([
     'tests/backend/Fixtures/ScopedEnvironmentVariables.cs'
 ]);
+const unifiedCacheTestsPath = 'tests/backend/Unit/UnifiedCacheTests.cs';
+const removeManyOwnerMethod = 'RemoveManyAsync_DeletesRedisKeysAndRegistryMembersAtomically';
+const removeManyWrapperMethod = 'RemoveManyAsync_SourceUsesSingleLuaScriptForDeleteAndRegistryRemoval';
+const removeByPrefixSiblingWrapper = 'RemoveByPrefix_SourceUsesPagedSetScanInsteadOfSetMembers';
 const backendPathGovernanceAllowedFiles = new Set([
     'tests/backend/Unit/TestInfrastructure/BackendTestPaths.cs',
     'tests/backend/Unit/TestInfrastructure/BackendTestPathsTests.cs'
@@ -428,6 +432,101 @@ function verifyEnvironmentVariableGovernance()
     }
 }
 
+function extractFactMethods(source)
+{
+    const masked = maskCSharpTrivia(source);
+    const methods = [];
+    const pattern = /\[\s*Fact(?:\s*\([^)]*\))?\s*\]\s*(?:public\s+)?(?:async\s+)?(?:Task|void)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(/gu;
+    for (const match of masked.matchAll(pattern))
+    {
+        const remainder = masked.slice(match.index + match[0].length);
+        const bodyOpen = remainder.search(/\{/u);
+        if (bodyOpen < 0)
+        {
+            methods.push({ name: match[1], body: '' });
+            continue;
+        }
+
+        let depth = 0;
+        let end = bodyOpen;
+        for (; end < remainder.length; end += 1)
+        {
+            if (remainder[end] === '{')
+            {
+                depth += 1;
+            }
+            else if (remainder[end] === '}')
+            {
+                depth -= 1;
+                if (depth === 0)
+                {
+                    end += 1;
+                    break;
+                }
+            }
+        }
+        methods.push({ name: match[1], body: remainder.slice(bodyOpen + 1, end - 1) });
+    }
+    return methods;
+}
+
+function inspectRemoveManyWrapperContract(source)
+{
+    const facts = extractFactMethods(source);
+    const ownerCall = new RegExp(`^await\\s+${removeManyOwnerMethod}\\s*\\(\\s*\\)\\s*;$`, 'u');
+    return {
+        owners: facts.filter((entry) => entry.name === removeManyOwnerMethod),
+        wrappers: facts.filter((entry) => entry.name === removeManyWrapperMethod),
+        forwarders: facts.filter((entry) => (
+            entry.name !== removeManyOwnerMethod
+            && ownerCall.test(entry.body.replace(/\s+/gu, ' ').trim())
+        )),
+        identifierPresent: new RegExp(`\\b${removeManyWrapperMethod}\\b`, 'u').test(source)
+    };
+}
+
+function verifyRemoveManyWrapperDeleted()
+{
+    requireFile(unifiedCacheTestsPath);
+    const source = readFileSync(resolve(root, unifiedCacheTestsPath), 'utf8');
+    const live = inspectRemoveManyWrapperContract(source);
+    if (live.owners.length !== 1)
+    {
+        fail(`${unifiedCacheTestsPath} must keep exactly one [Fact] ${removeManyOwnerMethod}`);
+    }
+    if (live.wrappers.length > 0 || live.identifierPresent)
+    {
+        fail(`${unifiedCacheTestsPath} must not keep ${removeManyWrapperMethod} as a test, skip, helper, or alias`);
+    }
+    if (live.forwarders.length > 0)
+    {
+        fail(`${unifiedCacheTestsPath} must not keep a [Fact] that only awaits ${removeManyOwnerMethod}`);
+    }
+    if (!source.includes(removeByPrefixSiblingWrapper))
+    {
+        fail(`${unifiedCacheTestsPath} must keep ${removeByPrefixSiblingWrapper}`);
+    }
+
+    const legalSibling = [
+        `[Fact] public async Task ${removeManyOwnerMethod}() { Assert.True(true); }`,
+        `[Fact] public async Task ${removeByPrefixSiblingWrapper}() { await RemoveByPrefixMany_SourceGroupsByPolicyAndScansRegistryOnce(); }`
+    ].join('\n');
+    const illegalWrapper = [
+        legalSibling,
+        `[Fact] public async Task ${removeManyWrapperMethod}() { await ${removeManyOwnerMethod}(); }`
+    ].join('\n');
+    const legal = inspectRemoveManyWrapperContract(legalSibling);
+    const illegal = inspectRemoveManyWrapperContract(illegalWrapper);
+    if (legal.owners.length !== 1 || legal.wrappers.length !== 0 || legal.forwarders.length !== 0 || legal.identifierPresent)
+    {
+        fail('remove-many wrapper scanner must accept the owner plus the unrelated RemoveByPrefix wrapper');
+    }
+    if (illegal.wrappers.length !== 1 || illegal.forwarders.length !== 1 || !illegal.identifierPresent)
+    {
+        fail('remove-many wrapper scanner must reject a [Fact] that only awaits the owner');
+    }
+}
+
 function extractAedsEnumValues()
 {
     const source = readFileSync(resolve(root, 'src/core/Algorithms/AedsFrameType.cs'), 'utf8');
@@ -730,6 +829,7 @@ for (const path of [
 
 verifyBackendTestPathGovernance();
 verifyEnvironmentVariableGovernance();
+verifyRemoveManyWrapperDeleted();
 
 if (errors.length > 0)
 {
