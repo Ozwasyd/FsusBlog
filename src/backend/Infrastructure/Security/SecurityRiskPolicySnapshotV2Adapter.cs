@@ -18,40 +18,57 @@ public static class SecurityRiskPolicySnapshotV2Adapter
     /// <summary>Builds the versioned perception-sealed policy matrix from legacy anti-crawler and proof-of-work settings.</summary>
     /// <param name="antiCrawler">The authoritative legacy anti-crawler snapshot.</param>
     /// <param name="pow">An optional proof-of-work snapshot used to derive the proof subsystem mode.</param>
+    /// <param name="perceptionCharacterV3Enabled">
+    /// Whether the runtime has registered the perception-character v3 provider.
+    /// Disabled runtimes derive an executable proof-of-work fallback instead.
+    /// </param>
     /// <returns>A versioned action and subsystem policy snapshot.</returns>
-    public static SecurityRiskPolicySnapshotV2 FromLegacy(AntiCrawlerPolicySnapshot antiCrawler, PowPolicySnapshot? pow = null)
+    public static SecurityRiskPolicySnapshotV2 FromLegacy(
+        AntiCrawlerPolicySnapshot antiCrawler,
+        PowPolicySnapshot? pow = null,
+        bool perceptionCharacterV3Enabled = true)
     {
         ArgumentNullException.ThrowIfNull(antiCrawler);
 
         AntiCrawlerPolicyOptions options = antiCrawler.Options;
+        string characterChallengeKind = perceptionCharacterV3Enabled
+            ? CharacterV3ChallengeKind
+            : Sha256PowV1ChallengeKind;
+        string recoveryChallengeReason = perceptionCharacterV3Enabled
+            ? "recovery_key_mandatory_character"
+            : "recovery_key_mandatory_pow_fallback";
         var defaultPolicy = CreatePerceptionSealedV2Policy(
             DefaultActionName,
             SecurityRiskPolicyOutcomes.HardChallenge,
             [MicroInteractionV2ChallengeKind],
             4,
             "perception_sealed_v2_micro_interaction",
-            anonymousWriteAllowed: false);
+            anonymousWriteAllowed: false,
+            characterChallengeKind);
         var publicReadPolicy = CreatePerceptionSealedV2Policy(
             RiskActionNames.PublicRead,
             SecurityRiskPolicyOutcomes.Throttle,
             [],
             0,
             "perception_sealed_v2_public_read_throttle",
-            anonymousWriteAllowed: true);
+            anonymousWriteAllowed: true,
+            characterChallengeKind);
         var commentCreatePolicy = CreatePerceptionSealedV2Policy(
             RiskActionNames.CommentCreate,
             SecurityRiskPolicyOutcomes.Queue,
             [],
             0,
             "perception_sealed_v2_comment_queue",
-            anonymousWriteAllowed: false);
+            anonymousWriteAllowed: false,
+            characterChallengeKind);
         var authLoginPolicy = CreatePerceptionSealedV2Policy(
             RiskActionNames.AuthLogin,
             SecurityRiskPolicyOutcomes.Throttle,
             [],
             0,
             "perception_sealed_v2_auth_throttle",
-            anonymousWriteAllowed: false);
+            anonymousWriteAllowed: false,
+            characterChallengeKind);
         var recoveryKeyVerifyPolicy = CreatePerceptionSealedV2Policy(
             RiskActionNames.RecoveryKeyVerify,
             SecurityRiskPolicyOutcomes.Throttle,
@@ -59,13 +76,14 @@ public static class SecurityRiskPolicySnapshotV2Adapter
             0,
             "perception_sealed_v2_recovery_throttle",
             anonymousWriteAllowed: false,
+            characterChallengeKind,
             lowBand: new SecurityRiskDecisionBand(
                 SecurityRiskPolicyOutcomes.Challenge,
                 0,
                 19,
-                [CharacterV3ChallengeKind],
+                [characterChallengeKind],
                 1,
-                "recovery_key_mandatory_character"));
+                recoveryChallengeReason));
         var notificationSubscribePolicy = CreatePerceptionSealedV2Policy(
             RiskActionNames.NotificationSubscribe,
             SecurityRiskPolicyOutcomes.HardChallenge,
@@ -73,20 +91,24 @@ public static class SecurityRiskPolicySnapshotV2Adapter
             4,
             "perception_sealed_v2_notification_pospace",
             anonymousWriteAllowed: true,
+            Sha256PowV1ChallengeKind,
+            hardChallengeKinds: [Argon2idPoSpaceV1ChallengeKind],
             lowBand: new SecurityRiskDecisionBand(
                 SecurityRiskPolicyOutcomes.Challenge,
                 0,
                 19,
                 [Sha256PowV1ChallengeKind],
                 1,
-                "notification_subscribe_mandatory_pow"));
+                "notification_subscribe_mandatory_pow"),
+            characterChallengeReason: "notification_subscribe_headless_pow");
         var adminSecurityWritePolicy = CreatePerceptionSealedV2Policy(
             RiskActionNames.AdminSecurityWrite,
             SecurityRiskPolicyOutcomes.HardChallenge,
             [AdminPasskeyStepUpV1ChallengeKind],
             4,
             "perception_sealed_v2_admin_step_up",
-            anonymousWriteAllowed: true);
+            anonymousWriteAllowed: true,
+            characterChallengeKind);
         var actionOverrides = new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
         {
             [RiskActionNames.PublicRead] = publicReadPolicy with
@@ -160,8 +182,20 @@ public static class SecurityRiskPolicySnapshotV2Adapter
         int band80EscalationLevel,
         string band80Reason,
         bool anonymousWriteAllowed,
-        SecurityRiskDecisionBand? lowBand = null)
-        => new(
+        string characterChallengeKind,
+        IReadOnlyList<string>? hardChallengeKinds = null,
+        SecurityRiskDecisionBand? lowBand = null,
+        string? characterChallengeReason = null)
+    {
+        string resolvedCharacterChallengeReason = characterChallengeReason ?? (string.Equals(
+            characterChallengeKind,
+            CharacterV3ChallengeKind,
+            StringComparison.Ordinal)
+            ? "perception_character_v3"
+            : "perception_character_v3_disabled_pow_fallback");
+        IReadOnlyList<string> resolvedHardChallengeKinds = hardChallengeKinds
+            ?? [LocalizationV2ChallengeKind, Sha256PowV1ChallengeKind];
+        return new(
             actionName,
             BuildPerceptionSealedV2Thresholds(),
             Sha256PowV1ChallengeKind,
@@ -169,19 +203,20 @@ public static class SecurityRiskPolicySnapshotV2Adapter
             null,
             anonymousWriteAllowed)
         {
-            HardChallengeKinds = [LocalizationV2ChallengeKind, Sha256PowV1ChallengeKind],
+            HardChallengeKinds = resolvedHardChallengeKinds,
             HardChallengeEscalationLevel = 3,
             DecisionMatrix = PerceptionSealedV2Matrix,
             DecisionBands =
             [
                 lowBand ?? new SecurityRiskDecisionBand(SecurityRiskPolicyOutcomes.Allow, 0, 19, [], 0, "perception_sealed_v2_allow"),
                 new SecurityRiskDecisionBand(SecurityRiskPolicyOutcomes.Challenge, 20, 39, [Sha256PowV1ChallengeKind], 1, "perception_sealed_v2_pow"),
-                new SecurityRiskDecisionBand(SecurityRiskPolicyOutcomes.Challenge, 40, 59, [CharacterV3ChallengeKind], 2, "perception_character_v3"),
-                new SecurityRiskDecisionBand(SecurityRiskPolicyOutcomes.HardChallenge, 60, 79, [LocalizationV2ChallengeKind, Sha256PowV1ChallengeKind], 3, "perception_sealed_v2_localization_pow"),
+                new SecurityRiskDecisionBand(SecurityRiskPolicyOutcomes.Challenge, 40, 59, [characterChallengeKind], 2, resolvedCharacterChallengeReason),
+                new SecurityRiskDecisionBand(SecurityRiskPolicyOutcomes.HardChallenge, 60, 79, resolvedHardChallengeKinds, 3, "perception_sealed_v2_localization_pow"),
                 new SecurityRiskDecisionBand(band80Outcome, 80, 89, band80ChallengeKinds, band80EscalationLevel, band80Reason),
                 new SecurityRiskDecisionBand(SecurityRiskPolicyOutcomes.Block, 90, 1000, [], 0, "perception_sealed_v2_block")
             ]
         };
+    }
 
     private static SecurityRiskActionThresholds BuildPerceptionSealedV2Thresholds()
         => new(

@@ -952,6 +952,119 @@ public sealed class ProductionHealthTests
         Assert.False(ProductionReadinessProbe.ChallengeProviderRegistryReady([pow], noncanonical));
     }
 
+    [Fact]
+    public void ChallengeProviderRegistryReady_DefaultPolicyMatchesCharacterProviderRegistration()
+    {
+        string[] providersWithoutCharacter =
+        [
+            SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Sha256PowV1),
+            SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Argon2IdPoSpaceV1),
+            SecurityChallengeContracts.ToWireName(SecurityChallengeKind.HumanReadProofV1),
+            SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PasskeyStepUpV1),
+            SecurityChallengeContracts.ToWireName(SecurityChallengeKind.AdminPasskeyStepUpV1),
+            SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionLocalizationV2),
+            SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionMicroInteractionV2)
+        ];
+        var disabled = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var enabled = new SecurityAdminPolicyService(
+            new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Security:PerceptionCharacterV3:Enabled"] = SecuritySystemModes.Enforce
+                })
+                .Build());
+
+        Assert.True(ProductionReadinessProbe.ChallengeProviderRegistryReady(
+            providersWithoutCharacter,
+            disabled.CurrentRiskPolicyV2));
+        Assert.False(ProductionReadinessProbe.ChallengeProviderRegistryReady(
+            providersWithoutCharacter,
+            enabled.CurrentRiskPolicyV2));
+        string[] providersWithCharacter =
+        [
+            .. providersWithoutCharacter,
+            SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionCharacterV3)
+        ];
+        foreach (SecurityRiskActionPolicy action in enabled.CurrentRiskPolicyV2.ActionOverrides.Values
+            .Prepend(enabled.CurrentRiskPolicyV2.DefaultAction))
+        {
+            Assert.True(
+                ProductionReadinessProbe.ChallengeProviderRegistryReady(
+                    providersWithCharacter,
+                    enabled.CurrentRiskPolicyV2 with
+                    {
+                        DefaultAction = action,
+                        ActionOverrides = new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
+                    }),
+                action.ActionName);
+        }
+
+        Assert.True(ProductionReadinessProbe.ChallengeProviderRegistryReady(
+            providersWithCharacter,
+            enabled.CurrentRiskPolicyV2));
+    }
+
+    [Fact]
+    public void ChallengeProviderRegistryReady_DisabledCharacterPolicyRemainsExecutableAcrossPolicyLifecycle()
+    {
+        string[] providersWithoutCharacter =
+        [
+            SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Sha256PowV1),
+            SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Argon2IdPoSpaceV1),
+            SecurityChallengeContracts.ToWireName(SecurityChallengeKind.HumanReadProofV1),
+            SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PasskeyStepUpV1),
+            SecurityChallengeContracts.ToWireName(SecurityChallengeKind.AdminPasskeyStepUpV1),
+            SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionLocalizationV2),
+            SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionMicroInteractionV2)
+        ];
+        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+
+        AssertExecutable(service.CurrentRiskPolicyV2);
+        service.UpdateRiskControlPolicy(
+            new RiskControlPolicyUpdateRequest(
+                SecuritySystemModes.Observe,
+                PoSpaceV1Enabled: false,
+                PublicReadChallengeEnabled: true,
+                CommentRiskControlEnabled: true,
+                AuthRiskControlEnabled: true,
+                StrictRiskMultiplierPercent: 125,
+                Reason: "lifecycle-test"),
+            "test");
+        AssertExecutable(service.CurrentRiskPolicyV2);
+        service.RollbackRiskControlPolicy("test");
+        AssertExecutable(service.CurrentRiskPolicyV2);
+        service.UpdatePerceptionSealedV2Policy(
+            new PerceptionSealedV2PolicyUpdateRequest(
+                Enabled: true,
+                LocalizationEnabled: true,
+                MicroInteractionEnabled: true,
+                PoSpaceFallbackEnabled: false,
+                EarlyRejectThreshold: 85,
+                MaxAttempts: 4,
+                MinSolveDurationMs: 1000,
+                MaxSolveDurationMs: 45000,
+                Reason: "lifecycle-test"),
+            "test");
+        AssertExecutable(service.CurrentRiskPolicyV2);
+        service.RollbackPerceptionSealedV2Policy("test");
+        AssertExecutable(service.CurrentRiskPolicyV2);
+
+        void AssertExecutable(SecurityRiskPolicySnapshotV2 policy)
+        {
+            Assert.True(ProductionReadinessProbe.ChallengeProviderRegistryReady(
+                providersWithoutCharacter,
+                policy));
+            Assert.DoesNotContain(
+                policy.ActionOverrides.Values.Prepend(policy.DefaultAction)
+                    .SelectMany(static action => action.DecisionBands)
+                    .SelectMany(static band => band.ChallengeKinds),
+                static kind => string.Equals(
+                    kind,
+                    SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionCharacterV3),
+                    StringComparison.Ordinal));
+        }
+    }
+
     private sealed class TestWebHostEnvironment(string root, string environmentName) : IWebHostEnvironment
     {
         public string ApplicationName { get; set; } = "FsusBlog.Server";

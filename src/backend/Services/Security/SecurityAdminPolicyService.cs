@@ -13,6 +13,7 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
     private readonly object _gate = new();
     private readonly IConfiguration _configuration;
     private readonly ISecurityRandomSource _randomSource;
+    private readonly bool _perceptionCharacterV3Enabled;
     private AntiCrawlerPolicySnapshot _currentAntiCrawler;
     private AntiCrawlerPolicySnapshot? _previousAntiCrawler;
     private PowPolicySnapshot _currentPow;
@@ -34,6 +35,10 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
     {
         _configuration = configuration;
         _randomSource = randomSource ?? CryptographicSecurityRandomSource.Instance;
+        _perceptionCharacterV3Enabled = SecuritySystemModes.IsEnforcing(
+            SecuritySystemModes.Normalize(
+                configuration["Security:PerceptionCharacterV3:Enabled"]
+                ?? SecuritySystemModes.Disabled));
         DateTimeOffset now = DateTimeOffset.UtcNow;
         _currentAntiCrawler = new AntiCrawlerPolicySnapshot(
             CreateSnapshotId("anti-crawler", now),
@@ -56,7 +61,10 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
             null,
             BuildDefaultPerceptionV2Options(configuration));
         _currentRiskPolicy = ApplyRiskControlConfigurationFallbacks(
-            SecurityRiskPolicySnapshotV2Adapter.FromLegacy(_currentAntiCrawler, _currentPow),
+            SecurityRiskPolicySnapshotV2Adapter.FromLegacy(
+                _currentAntiCrawler,
+                _currentPow,
+                _perceptionCharacterV3Enabled),
             configuration,
             now);
         _currentRiskPolicy = ApplyPerceptionV2Projection(_currentRiskPolicy, _currentPerceptionV2, now);
@@ -85,7 +93,10 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
         {
             AntiCrawlerPolicySnapshot current = Current;
             SecurityRiskPolicySnapshot legacy = SecurityRiskPolicySnapshotV2Adapter.ToLegacy(
-                SecurityRiskPolicySnapshotV2Adapter.FromLegacy(current, CurrentPow));
+                SecurityRiskPolicySnapshotV2Adapter.FromLegacy(
+                    current,
+                    CurrentPow,
+                    _perceptionCharacterV3Enabled));
             return legacy with
             {
                 RiskScoringEnabled = current.Options.RiskScoringEnabled
@@ -328,7 +339,9 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
         }
     }
 
-    internal static void ValidateChallengePolicy(SecurityRiskPolicySnapshotV2 snapshot)
+    internal static void ValidateChallengePolicy(
+        SecurityRiskPolicySnapshotV2 snapshot,
+        bool perceptionCharacterV3Enabled = true)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
 
@@ -336,12 +349,12 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
         foreach (SecurityRiskActionPolicy action in actions)
         {
             IReadOnlyList<string> baseChallenge = [action.ChallengeKind];
-            ValidateChallengeSet(baseChallenge, action);
+            ValidateChallengeSet(baseChallenge, action, perceptionCharacterV3Enabled);
 
             IReadOnlyList<string> hardChallenge = action.HardChallengeKinds.Count > 0
                 ? action.HardChallengeKinds
                 : baseChallenge;
-            ValidateChallengeSet(hardChallenge, action);
+            ValidateChallengeSet(hardChallenge, action, perceptionCharacterV3Enabled);
 
             foreach (SecurityRiskDecisionBand band in action.DecisionBands)
             {
@@ -355,14 +368,15 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
                     : band.Outcome == SecurityRiskPolicyOutcomes.HardChallenge
                         ? hardChallenge
                         : baseChallenge;
-                ValidateChallengeSet(bandChallenge, action);
+                ValidateChallengeSet(bandChallenge, action, perceptionCharacterV3Enabled);
             }
         }
     }
 
     private static void ValidateChallengeSet(
         IReadOnlyList<string> requiredKinds,
-        SecurityRiskActionPolicy action)
+        SecurityRiskActionPolicy action,
+        bool perceptionCharacterV3Enabled)
     {
         if (requiredKinds.Count is <= 0 or > SecurityChallengeContracts.MaxAssignmentsPerEnvelope)
         {
@@ -397,11 +411,20 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
                     "snapshot");
             }
 
+            if (parsed == SecurityChallengeKind.PerceptionCharacterV3
+                && !perceptionCharacterV3Enabled)
+            {
+                throw new ArgumentException(
+                    $"challenge_provider_disabled: action '{action.ActionName}' cannot use '{wireName}' while its runtime provider is disabled.",
+                    "snapshot");
+            }
+
             SecurityChallengeCapabilityResolution capability = SecurityChallengeCapabilityCatalog.Resolve(
                 parsed,
                 action.ActionName,
                 SecurityChallengeCapabilityCatalog.ResolveMode(action.ActionName));
-            if (!capability.PolicyEligible)
+            if (!capability.PolicyEligible
+                && !RiskActionRegistry.UsesSpecializedStepUp(action.ActionName, parsed))
             {
                 throw new ArgumentException(
                     $"challenge_capability_unavailable: action '{action.ActionName}' cannot use '{wireName}': {capability.UnavailableReason}.",
@@ -454,7 +477,7 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
 
     public void ApplyRiskControlPolicySnapshot(SecurityRiskPolicySnapshotV2 snapshot)
     {
-        ValidateChallengePolicy(snapshot);
+        ValidateChallengePolicy(snapshot, _perceptionCharacterV3Enabled);
         lock (_gate)
         {
             _previousRiskPolicy = _currentRiskPolicy;
@@ -481,7 +504,10 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
         }
 
         SecurityRiskPolicySnapshotV2 snapshot = ApplyRiskControlConfigurationFallbacks(
-            SecurityRiskPolicySnapshotV2Adapter.FromLegacy(_currentAntiCrawler, _currentPow),
+            SecurityRiskPolicySnapshotV2Adapter.FromLegacy(
+                _currentAntiCrawler,
+                _currentPow,
+                _perceptionCharacterV3Enabled),
             _configuration,
             updatedAtUtc);
         Volatile.Write(ref _currentRiskPolicy, ApplyPerceptionV2Projection(snapshot, _currentPerceptionV2, updatedAtUtc));

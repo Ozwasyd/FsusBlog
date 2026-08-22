@@ -93,7 +93,7 @@ public sealed class SecurityChallengeCapabilityCatalogTests
     [Fact]
     public void PolicyService_AcceptsOrderedTwoMemberAndSingleMemberSnapshots()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CreateCharacterProviderEnabledConfiguration());
         string characterChallenge = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionCharacterV3);
         string poSpace = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Argon2IdPoSpaceV1);
 
@@ -109,7 +109,7 @@ public sealed class SecurityChallengeCapabilityCatalogTests
     [Fact]
     public void PolicyService_RejectsSnapshotWhenAnyOrderedMemberIsUnavailable()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CreateCharacterProviderEnabledConfiguration());
         string characterChallenge = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionCharacterV3);
         string unavailable = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.AdminPasskeyStepUpV1);
 
@@ -122,7 +122,7 @@ public sealed class SecurityChallengeCapabilityCatalogTests
     [Fact]
     public void PolicyService_RejectsDuplicateOverLimitAndNoncanonicalSets()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CreateCharacterProviderEnabledConfiguration());
         string characterChallenge = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionCharacterV3);
 
         ArgumentException duplicate = Assert.Throws<ArgumentException>(() =>
@@ -137,6 +137,27 @@ public sealed class SecurityChallengeCapabilityCatalogTests
         Assert.Contains("challenge_set_count_invalid", overLimit.Message, StringComparison.Ordinal);
         Assert.Contains("challenge_kind_noncanonical", noncanonical.Message, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void PolicyService_RejectsCharacterSnapshotWhenRuntimeProviderIsDisabled()
+    {
+        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        string characterChallenge = SecurityChallengeContracts.ToWireName(
+            SecurityChallengeKind.PerceptionCharacterV3);
+
+        ArgumentException error = Assert.Throws<ArgumentException>(() =>
+            service.ApplyRiskControlPolicySnapshot(CreateRiskPolicy([characterChallenge])));
+
+        Assert.Contains("challenge_provider_disabled", error.Message, StringComparison.Ordinal);
+    }
+
+    private static IConfiguration CreateCharacterProviderEnabledConfiguration()
+        => new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Security:PerceptionCharacterV3:Enabled"] = SecuritySystemModes.Enforce
+            })
+            .Build();
 
     private static SecurityRiskPolicySnapshotV2 CreateRiskPolicy(
         IReadOnlyList<string> challengeKinds,

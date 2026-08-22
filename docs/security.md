@@ -124,6 +124,8 @@ pool manifest v1 只增加旧 runtime 可忽略的非秘密 additive `artifactBy
 
 运行时紧急停止使用 reload-capable `Security:PerceptionCharacterV3:Resources:AllocationsEnabled=false`，下一次 planner decision 即按 action table queue/fail closed，无需重启。恢复前必须确认 active generation 未 revoked/corrupted、inventory 和 rolling budget 健康；该开关不能重新激活 retired generation。公开 read、notification stream 和 binary frame contract 不变，既有 challenge 只允许 verify/cancel 到期 drain，不回退在线渲染。
 
+启动级 `Security:PerceptionCharacterV3:Enabled=disabled` 不注册 v3 provider；由 legacy 配置派生的默认 RiskControl policy 因而把 v3 decision band 收敛为已注册的 canonical `sha256PowV1`，避免生成不可执行 assignment。显式导入仍引用 `perceptionCharacterV3` 的 policy 会 fail closed 拒绝，而不是静默改写管理员 policy；启用 v3 时，provider、pool/startup gate 与 v3 policy 必须同时成立。
+
 ## 防爬虫闭环
 
 `ShieldMiddleware` 在常规 endpoint 前分类处理请求；精确的 search crawler / social-preview family 必须先于通用 `bot|spider|crawler` unknown-bot 关键词判断：

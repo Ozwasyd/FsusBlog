@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Shared.Contracts.Security;
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -52,6 +53,20 @@ public sealed class RiskActionRegistryTests
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => RiskActionRegistry.Default.CreateMetadata(RiskActionNames.PublicRead));
 
         Assert.Contains("routeKey", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UsesSpecializedStepUp_AcceptsOnlyAdminPasskeyForAdminSecurityWrite()
+    {
+        Assert.True(RiskActionRegistry.UsesSpecializedStepUp(
+            RiskActionNames.AdminSecurityWrite,
+            SecurityChallengeKind.AdminPasskeyStepUpV1));
+        Assert.False(RiskActionRegistry.UsesSpecializedStepUp(
+            RiskActionNames.CommentCreate,
+            SecurityChallengeKind.AdminPasskeyStepUpV1));
+        Assert.False(RiskActionRegistry.UsesSpecializedStepUp(
+            RiskActionNames.AdminSecurityWrite,
+            SecurityChallengeKind.PasskeyStepUpV1));
     }
 
     [Fact]
