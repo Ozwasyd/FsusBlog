@@ -11166,6 +11166,14 @@
       "reason": "Success and conflict behavior now execute the Lua guard and prove that L1 is populated only after an accepted version transition."
     },
     {
+      "id": "xunit:tests/backend/Unit/UnifiedCacheTests.cs#UnifiedCacheTests.RemoveManyAsync_SourceUsesSingleLuaScriptForDeleteAndRegistryRemoval",
+      "path": "tests/backend/Unit/UnifiedCacheTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/UnifiedCacheTests.cs#UnifiedCacheTests.RemoveManyAsync_DeletesRedisKeysAndRegistryMembersAtomically"
+      ],
+      "reason": "The owner test already executes the atomic Lua DEL/SREM contract, registry and cache keys, memory removal, and stepwise Redis prohibition; the wrapper only awaited that owner."
+    },
+    {
       "id": "xunit:tests/backend/Unit/UploadSessionCleanupQueueTests.cs#UploadSessionCleanupQueueTests.SourceUsesWaitModeAndRetriesOverflowAfterCleanup",
       "path": "tests/backend/Unit/UploadSessionCleanupQueueTests.cs",
       "replacementTestIds": [

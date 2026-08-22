@@ -308,12 +308,6 @@ public sealed class UnifiedCacheTests
     }
 
     [Fact]
-    public async Task RemoveManyAsync_SourceUsesSingleLuaScriptForDeleteAndRegistryRemoval()
-    {
-        await RemoveManyAsync_DeletesRedisKeysAndRegistryMembersAtomically();
-    }
-
-    [Fact]
     public async Task RemoveByPrefixMany_SourceGroupsByPolicyAndScansRegistryOnce()
     {
         using var memory = new RemoveTrackingMemoryCache();
