@@ -506,6 +506,9 @@ test('qualified container environment projection is strict, private, atomic, and
         ConnectionStrings__Redis: '127.0.0.1:22001',
         RedisOptions__Configuration: '127.0.0.1:22001',
         RedisOptions__InstanceName: 'FsusBlog_qualified-container_',
+        HumanReadProof__SigningKey: 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=',
+        HumanReadProof__Dedup__CurrentKey: 'ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8=',
+        ReadAnalyticsPrivacy__NoiseKey: 'QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl8=',
         CORS_ALLOWED_HOSTS: retainedValue
     });
     const validInput = fs.readFileSync(environmentFile, 'utf8');
@@ -540,6 +543,10 @@ test('qualified container environment projection is strict, private, atomic, and
     assert.deepEqual(projectedKeys, [...projectedKeys].sort());
     assert.equal(projectedEnvironment.CORS_ALLOWED_HOSTS, retainedValue);
     assert.equal(projectedEnvironment.RedisOptions__InstanceName, 'FsusBlog_qualified-container_');
+    assert.equal(
+        projectedEnvironment.ReadAnalyticsPrivacy__NoiseKey,
+        'QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl8='
+    );
     assert.deepEqual(
         projectedKeys.filter((key) => releaseReliabilityAuditedContainerOverrideKeys.includes(key)),
         []

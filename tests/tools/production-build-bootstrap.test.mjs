@@ -115,6 +115,26 @@ test('acceptance bootstrap materializes verified domains into its current run-bo
         runtimeEnvironment,
         /^PublicAot__SsrWorkerScript=\.\/server\/server-public-ssr\.bundle\.mjs$/mu
     );
+    const acceptanceKeys = [
+        'HumanReadProof__SigningKey',
+        'HumanReadProof__Dedup__CurrentKey',
+        'ReadAnalyticsPrivacy__NoiseKey'
+    ].map((key) =>
+    {
+        const value = runtimeEnvironment.match(new RegExp(`^${key}=(.+)$`, 'mu'))?.[1];
+        assert.ok(value, `${key} must be present in the private runtime environment`);
+        assert.equal(Buffer.from(value, 'base64').byteLength, 32);
+        return value;
+    });
+    assert.equal(new Set(acceptanceKeys).size, acceptanceKeys.length);
+    assert.deepEqual(
+        acceptanceKeys.filter((value) => [
+            'YGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn8=',
+            'gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp8=',
+            'oKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr8='
+        ].includes(value)),
+        []
+    );
     const evidence = JSON.parse(fs.readFileSync(evidenceFile, 'utf8'));
     assert.equal(evidence.status, 'success');
     assert.equal(evidence.consumerLease.status, 'active');
