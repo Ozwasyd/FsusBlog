@@ -667,6 +667,76 @@ public sealed class PublicHotDeliveryTests
     }
 
     [Fact]
+    public async Task QueueRestart_RestoresOnlyDurablyPublishedGeneration()
+    {
+        var state = new InMemoryPublicHotArtifactDeliveryStateStore();
+        PublicHotArtifactObligation created = await state.MergeAsync(
+            new(null, "startup", PublicHotArtifactDirtyReason.Content, null, 0,
+                PublicHotArtifactDeliveryClass.FullRebuildMarker),
+            CancellationToken.None);
+        PublicHotArtifactObligation claim = (await state.ClaimEligibleAsync(
+            DateTimeOffset.UtcNow,
+            CancellationToken.None))!;
+        Assert.True(await state.CompletePublishedAsync(
+            created.ObligationId,
+            claim.AttemptNumber,
+            created.TargetGeneration,
+            CancellationToken.None));
+
+        var restarted = CreateQueue(1, state, state);
+        await restarted.RestorePublishedGenerationAsync(CancellationToken.None);
+
+        PublicHotActivitySnapshot snapshot = await restarted.CreateActivitySnapshotAsync(
+            CancellationToken.None);
+        Assert.Equal(created.TargetGeneration, snapshot.PublishedGeneration);
+        Assert.Equal(created.TargetGeneration, snapshot.CurrentTargetGeneration);
+    }
+
+    [Fact]
+    public async Task QueueRestart_DoesNotRestorePendingGeneration()
+    {
+        var state = new InMemoryPublicHotArtifactDeliveryStateStore();
+        PublicHotArtifactObligation pending = await state.MergeAsync(
+            new(null, "startup", PublicHotArtifactDirtyReason.Content, null, 0,
+                PublicHotArtifactDeliveryClass.FullRebuildMarker),
+            CancellationToken.None);
+        var restarted = CreateQueue(1, state, state);
+
+        await restarted.RestorePublishedGenerationAsync(CancellationToken.None);
+
+        PublicHotActivitySnapshot snapshot = await restarted.CreateActivitySnapshotAsync(
+            CancellationToken.None);
+        Assert.Equal(0, snapshot.PublishedGeneration);
+        Assert.Equal(pending.TargetGeneration, snapshot.CurrentTargetGeneration);
+    }
+
+    [Fact]
+    public async Task QueueRestart_DurableGenerationCannotRegressNewerLocalWatermark()
+    {
+        var state = new InMemoryPublicHotArtifactDeliveryStateStore();
+        PublicHotArtifactObligation created = await state.MergeAsync(
+            new(null, "startup", PublicHotArtifactDirtyReason.Content, null, 0,
+                PublicHotArtifactDeliveryClass.FullRebuildMarker),
+            CancellationToken.None);
+        PublicHotArtifactObligation claim = (await state.ClaimEligibleAsync(
+            DateTimeOffset.UtcNow,
+            CancellationToken.None))!;
+        Assert.True(await state.CompletePublishedAsync(
+            created.ObligationId,
+            claim.AttemptNumber,
+            created.TargetGeneration,
+            CancellationToken.None));
+        var queue = CreateQueue(1, state, state);
+        queue.RecordPublishedGeneration(created.TargetGeneration + 5);
+
+        await queue.RestorePublishedGenerationAsync(CancellationToken.None);
+
+        PublicHotActivitySnapshot snapshot = await queue.CreateActivitySnapshotAsync(
+            CancellationToken.None);
+        Assert.Equal(created.TargetGeneration + 5, snapshot.PublishedGeneration);
+    }
+
+    [Fact]
     public async Task PublishFailure_LeavesRetryableDurableObligation()
     {
         var state = new InMemoryPublicHotArtifactDeliveryStateStore();
@@ -1094,4 +1164,3 @@ public sealed class PublicHotDeliveryTests
         public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
     }
 }
-
