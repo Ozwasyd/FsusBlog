@@ -17,6 +17,7 @@ const readableFields = new Map([
 ]);
 const staticAuditedContainerOverrides = Object.freeze({
     FSUSBLOG_DATA_ROOT: '/app/data',
+    FSUSBLOG_RELEASE_DERIVED_ROOT: '/app/release-derived',
     PublicAot__SsrClientRoot: '/app/wwwroot',
     ASPNETCORE_URLS: 'http://0.0.0.0:8080',
     AllowedHosts: '127.0.0.1;localhost',

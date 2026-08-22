@@ -500,6 +500,7 @@ test('qualified container environment projection is strict, private, atomic, and
     const retainedValue = 'literal value = "quoted" $(must-not-run)';
     const environmentFile = writeRuntimeEnvironment(fixtureRoot, namespace, {
         FSUSBLOG_DATA_ROOT: '/host/run-bound/data',
+        FSUSBLOG_RELEASE_DERIVED_ROOT: '/host/run-bound/release-derived',
         PublicAot__SsrClientRoot: '/host/run-bound/frontend/dist',
         ConnectionStrings__DefaultConnection: 'Host=127.0.0.1;Port=20001',
         ConnectionStrings__Redis: '127.0.0.1:22001',
@@ -559,6 +560,7 @@ test('qualified container environment projection is strict, private, atomic, and
         sourceCommit: 'a'.repeat(40),
         sourceFingerprint: 'b'.repeat(64)
     });
+    assert.equal(overrides.FSUSBLOG_RELEASE_DERIVED_ROOT, '/app/release-derived');
     const imageEnvironment = {
         DOTNET_RUNNING_IN_CONTAINER: 'true',
         ASPNETCORE_URLS: 'http://image-default:8080'
@@ -1177,6 +1179,7 @@ test('qualified final container overrides host-bound runtime paths with a UID-ow
     assert.equal(invocation.match(/--tmpfs /gu)?.length, 3, 'only audited instance-scoped paths may be writable tmpfs mounts');
     assert.doesNotMatch(invocation, /--tmpfs \/app(?::|\s)/u);
     assert.match(invocation, /-e FSUSBLOG_DATA_ROOT=\/app\/data/u);
+    assert.match(invocation, /-e FSUSBLOG_RELEASE_DERIVED_ROOT=\/app\/release-derived/u);
     assert.match(invocation, /-e PublicAot__SsrClientRoot=\/app\/wwwroot/u);
     assert.match(invocation, /-e ASPNETCORE_URLS=http:\/\/0\.0\.0\.0:8080/u);
     assert.match(invocation, /-e "AllowedHosts=127\.0\.0\.1;localhost"/u);

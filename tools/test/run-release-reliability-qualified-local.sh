@@ -495,7 +495,8 @@ backend_container_id="$(docker run -d --name "$backend_container" --network "$ba
     --tmpfs /app/data:uid=1654,gid=1654,mode=0700 \
     --tmpfs /app/.upload-sessions:uid=1654,gid=1654,mode=0700 \
     --tmpfs /app/runtime-cache:uid=1654,gid=1654,mode=0700 \
-    -e FSUSBLOG_DATA_ROOT=/app/data -e PublicAot__SsrClientRoot=/app/wwwroot \
+    -e FSUSBLOG_DATA_ROOT=/app/data -e FSUSBLOG_RELEASE_DERIVED_ROOT=/app/release-derived \
+    -e PublicAot__SsrClientRoot=/app/wwwroot \
     -e ASPNETCORE_URLS=http://0.0.0.0:8080 -e "AllowedHosts=127.0.0.1;localhost" \
     -e "ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=fsusblog;Username=fsusblog;Password=fsusblog_dev;Include Error Detail=true" \
     -e "ConnectionStrings__Redis=redis:6379,abortConnect=false,connectTimeout=10000" \
