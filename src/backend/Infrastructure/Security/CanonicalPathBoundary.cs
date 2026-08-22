@@ -90,10 +90,6 @@ internal static class CanonicalPathBoundary
 
                     physicalCursor = Path.GetFullPath(resolved.FullName);
                 }
-                else if (entry.Exists)
-                {
-                    physicalCursor = Path.GetFullPath(entry.FullName);
-                }
                 else
                 {
                     physicalCursor = Path.GetFullPath(Path.Combine(physicalCursor, segment));
@@ -152,4 +148,3 @@ internal static class CanonicalPathBoundary
             (!relative.StartsWith("..", StringComparison.Ordinal) && !Path.IsPathRooted(relative));
     }
 }
-
