@@ -342,12 +342,18 @@ public sealed class SearchIndexServiceTests
     [Fact]
     public void TokenizeForTests_PunctuationOnly_ProducesTokens()
     {
-        // The tokenizer does not strip all punctuation; some symbols generate hash tokens
         string lexiconRoot = CreateLexiconRoot(coreEntries: []);
-        var tokens = SearchIndexService.TokenizeForTests(lexiconRoot, "!@#$%^&*(),.;:?");
-        // Just verify it runs without throwing; we do not assert empty because some
-        // punctuation chars are tokenized by the underlying segmenter
-        Assert.NotNull(tokens);
+        SearchIndexService.SearchTokenDebugView[] tokens = SearchIndexService.TokenizeForTests(
+            lexiconRoot,
+            "!@#$%^&*(),.;:?");
+        SearchIndexService.SearchTokenDebugView[] expected =
+        [
+            new(450_942_853u, 450_942_853u, "450942853", 0u, 1u, false, true),
+            new(91_771_610u, 91_771_610u, "91771610", 1u, 1u, false, true)
+        ];
+
+        Assert.NotEmpty(tokens);
+        Assert.Equal(expected, tokens);
     }
 
     [Fact]
