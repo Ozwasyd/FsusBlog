@@ -63,7 +63,10 @@ test('runtime environment parser preserves non-shell values and binds all URLs t
             FSUSBLOG_TEST_CLUSTER_BOOTSTRAP: 'none',
             FSUSBLOG_TEST_CLUSTER_FIXTURES: '',
             FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME: '0',
-            FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID: ''
+            FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID: '',
+            HumanReadProof__SigningKey: 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=',
+            HumanReadProof__Dedup__CurrentKey: 'ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8=',
+            ReadAnalyticsPrivacy__NoiseKey: 'QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl8='
         })),
         'runtime-focused-1'
     );
@@ -75,6 +78,10 @@ test('runtime environment parser preserves non-shell values and binds all URLs t
     assert.equal(environment.FSUSBLOG_TEST_RUN_ID, 'production-2026-07-21_23-10-14-563-1341343');
     assert.equal(environment.FSUSBLOG_PHYSICAL_BUNDLE_ID, 'runtime-browser');
     assert.equal(environment.FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME, '0');
+    assert.equal(
+        environment.HumanReadProof__Dedup__CurrentKey,
+        'ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8='
+    );
     assert.equal(
         environment.ConnectionStrings__DefaultConnection,
         'Host=127.0.0.1;Port=24501;Password=value=with=equals'
