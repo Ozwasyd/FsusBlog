@@ -59,7 +59,17 @@ function frontendStageCopiesRepositoryFile(copies, file)
                 return false;
             }
             const relative = normalized.slice(root.length + 1);
-            return path.posix.normalize(path.posix.join(destination, relative)) === expectedDestination;
+            const copiedDestination = path.posix.normalize(path.posix.join(destination, relative));
+            if (copiedDestination === expectedDestination)
+            {
+                return true;
+            }
+            return root === 'src/frontend'
+                && destination === './'
+                && copiedDestination === relative
+                && dockerfile.includes(
+                    'RUN mkdir -p /src && ln -s /app /src/frontend && test "$(readlink /src/frontend)" = /app'
+                );
         }
         return normalized === source && path.posix.normalize(destination) === expectedDestination;
     });
@@ -242,6 +252,24 @@ test('frontend Docker stage copies the complete static module and child-script c
     {
         assert.ok(visited.has(childScript), `frontend build does not audit child script ${childScript}`);
     }
+});
+
+test('frontend Docker stage materializes /src/frontend as the exact /app alias after copying source', () =>
+{
+    const stageStart = dockerfile.indexOf('FROM node-runtime-musl AS frontend-build');
+    const stageEnd = dockerfile.indexOf('FROM base AS final');
+    const frontendStage = dockerfile.slice(stageStart, stageEnd);
+    const sourceCopy = frontendStage.indexOf('COPY src/frontend/ ./');
+    const sourceAlias = frontendStage.indexOf(
+        'RUN mkdir -p /src && ln -s /app /src/frontend && test "$(readlink /src/frontend)" = /app'
+    );
+    assert.ok(sourceCopy >= 0, 'frontend stage must copy the complete frontend source');
+    assert.ok(sourceAlias > sourceCopy, 'frontend source must be copied before creating its absolute alias');
+    assert.doesNotMatch(
+        frontendStage.slice(0, sourceAlias),
+        /^COPY\s+\S+\s+\/src\/frontend(?:\/\S*)?\s*$/gmu,
+        'a COPY destination must not materialize /src/frontend before the alias is created'
+    );
 });
 
 test('Docker restore layer copies the recursive backend ProjectReference closure before restore', () =>
