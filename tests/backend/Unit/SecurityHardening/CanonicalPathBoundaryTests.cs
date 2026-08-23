@@ -75,6 +75,72 @@ public sealed class CanonicalPathBoundaryTests
     }
 
     [Fact]
+    public void TryResolveCandidate_ResolvesExistingPathInsideSymbolicLinkRoot()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var sandbox = PathSandbox.Create();
+        string physicalRoot = Path.Combine(sandbox.Root, "physical");
+        string directory = Path.Combine(physicalRoot, "nested");
+        Directory.CreateDirectory(directory);
+        string expected = Path.Combine(directory, "payload.aeds");
+        File.WriteAllBytes(expected, [1, 2, 3]);
+        string rootLink = Path.Combine(sandbox.Root, "root-link");
+        Directory.CreateSymbolicLink(rootLink, physicalRoot);
+
+        bool relativeResolved = CanonicalPathBoundary.TryResolveRelative(
+            rootLink,
+            "nested/payload.aeds",
+            out string relativePath);
+        bool candidateResolved = CanonicalPathBoundary.TryResolveCandidate(
+            rootLink,
+            Path.Combine(rootLink, "nested", "payload.aeds"),
+            out string candidatePath);
+
+        Assert.True(relativeResolved);
+        Assert.Equal(Path.GetFullPath(expected), relativePath);
+        Assert.True(candidateResolved);
+        Assert.Equal(Path.GetFullPath(expected), candidatePath);
+    }
+
+    [Fact]
+    public void TryResolveCandidate_RejectsEscapingChildSymbolicLinkInsideSymbolicLinkRoot()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var sandbox = PathSandbox.Create();
+        string physicalRoot = Path.Combine(sandbox.Root, "physical");
+        Directory.CreateDirectory(physicalRoot);
+        string outside = Path.Combine(sandbox.Root, "outside");
+        Directory.CreateDirectory(outside);
+        File.WriteAllText(Path.Combine(outside, "secret.txt"), "secret");
+        string childLink = Path.Combine(physicalRoot, "linked");
+        Directory.CreateSymbolicLink(childLink, outside);
+        string rootLink = Path.Combine(sandbox.Root, "root-link");
+        Directory.CreateSymbolicLink(rootLink, physicalRoot);
+
+        bool relativeResolved = CanonicalPathBoundary.TryResolveRelative(
+            rootLink,
+            "linked/secret.txt",
+            out string relativePath);
+        bool candidateResolved = CanonicalPathBoundary.TryResolveCandidate(
+            rootLink,
+            Path.Combine(rootLink, "linked", "secret.txt"),
+            out string candidatePath);
+
+        Assert.False(relativeResolved);
+        Assert.Equal(string.Empty, relativePath);
+        Assert.False(candidateResolved);
+        Assert.Equal(string.Empty, candidatePath);
+    }
+
+    [Fact]
     public void TryResolveRelative_RejectsSymbolicLinkThatEscapesPhysicalRoot()
     {
         if (OperatingSystem.IsWindows())
