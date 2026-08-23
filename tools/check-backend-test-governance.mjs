@@ -30,7 +30,10 @@ const factWrapperContracts = [
         'UserService_RecoveryCodeConsumptionUsesHashCompareAndSwap'],
     ['tests/backend/Unit/WebApplicationCompositionExtensionsTests.cs',
         ['PublicAotHtmlFastPath_PrefersBrotliVariantAndWritesPreencodedBytes', 'PublicAotHtmlFastPath_ProbeCapturesBytesLatencyAndAllocationShape'],
-        'PublicAotHtmlFastPath_SourceAvoidsStringContentAndPerRequestUtf8Encode']
+        'PublicAotHtmlFastPath_SourceAvoidsStringContentAndPerRequestUtf8Encode'],
+    ['tests/backend/Unit/WebApplicationCompositionExtensionsTests.cs',
+        ['DynamicManifest_ReturnsNotModifiedForMatchingEtagAndChangesEtagWhenSeoChanges'],
+        'DynamicManifest_SourceUsesDerivedBytesCacheAndConditionalEtag']
 ];
 const backendPathGovernanceAllowedFiles = new Set([
     'tests/backend/Unit/TestInfrastructure/BackendTestPaths.cs',
