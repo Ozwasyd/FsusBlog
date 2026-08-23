@@ -568,6 +568,8 @@ test('qualified container environment projection is strict, private, atomic, and
         sourceFingerprint: 'b'.repeat(64)
     });
     assert.equal(overrides.FSUSBLOG_RELEASE_DERIVED_ROOT, '/app/release-derived');
+    assert.equal(overrides.AllowedHosts, 'localhost;*');
+    assert.deepEqual(overrides.AllowedHosts.split(';'), ['localhost', '*']);
     const imageEnvironment = {
         DOTNET_RUNNING_IN_CONTAINER: 'true',
         ASPNETCORE_URLS: 'http://image-default:8080'
@@ -1189,7 +1191,9 @@ test('qualified final container overrides host-bound runtime paths with a UID-ow
     assert.match(invocation, /-e FSUSBLOG_RELEASE_DERIVED_ROOT=\/app\/release-derived/u);
     assert.match(invocation, /-e PublicAot__SsrClientRoot=\/app\/wwwroot/u);
     assert.match(invocation, /-e ASPNETCORE_URLS=http:\/\/0\.0\.0\.0:8080/u);
-    assert.match(invocation, /-e "AllowedHosts=127\.0\.0\.1;localhost"/u);
+    assert.match(invocation, /-e "AllowedHosts=localhost;\*"/u);
+    assert.doesNotMatch(invocation, /AllowedHosts=\*/u);
+    assert.doesNotMatch(invocation, /AllowedHosts=127\.0\.0\.1/u);
     assert.match(invocation, /Host=postgres;Port=5432;Database=fsusblog/u);
     assert.equal(
         invocation.match(/redis:6379,abortConnect=false,connectTimeout=10000/gu)?.length,
