@@ -141,6 +141,26 @@
             "reason": "The canonical final-image projection and its sole shell executor must change atomically for the same caller-visible process environment keys."
         },
         {
+            "id": "acceptance-secret-runtime-environment",
+            "authorityExceptionId": "environment-variable",
+            "paths": [
+                "tools/bootstrap-acceptance-env.sh",
+                "tools/test/bundles/runtime-environment.mjs"
+            ],
+            "externalPattern": "^[A-Z][A-Z0-9_]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "FSUSBLOG_ACCEPTANCE_SECRET",
+                "internal": "acceptanceSecret"
+            },
+            "negative": {
+                "external": "FSUSBLOG_ACCEPTANCE_SECRET",
+                "internal": "FSUSBLOG_ACCEPTANCE_SECRET"
+            },
+            "reason": "The acceptance bootstrap secret producer and its sole runtime collector must change atomically for the same run-bound process environment keys."
+        },
+        {
             "id": "dotnet-configuration-environment",
             "authorityExceptionId": "environment-variable",
             "paths": [
