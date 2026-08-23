@@ -832,12 +832,6 @@ public sealed class WebApplicationCompositionExtensionsTests
     }
 
     [Fact]
-    public async Task DynamicManifest_SourceUsesDerivedBytesCacheAndConditionalEtag()
-    {
-        await DynamicManifest_ReturnsNotModifiedForMatchingEtagAndChangesEtagWhenSeoChanges();
-    }
-
-    [Fact]
     public async Task DynamicManifest_ReturnsNotModifiedForMatchingEtagAndChangesEtagWhenSeoChanges()
     {
         var seo = new SeoConfigReadModel
