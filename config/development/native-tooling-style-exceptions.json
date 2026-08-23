@@ -141,6 +141,33 @@
             "reason": "The canonical final-image projection and its sole shell executor must change atomically for the same caller-visible process environment keys."
         },
         {
+            "id": "production-image-verification-contract",
+            "authorityExceptionId": "environment-variable",
+            "paths": [
+                ".github/workflows/production-image-verification.yml",
+                "config/deployment/production-compose-environment.json",
+                "config/governance/complexity-exemptions.json",
+                "config/governance/custom-rule-registry.json",
+                "tests/governance/operations-layout.json",
+                "tools/deployment/check-production-compose-environment.mjs",
+                "tools/deployment/check-production-openresty-config.sh",
+                "tools/deployment/verify-container-termination.mjs",
+                "tools/test/run-release-reliability-qualified-local.sh"
+            ],
+            "externalPattern": "^[A-Z][A-Z0-9_]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "FSUSBLOG_TEST_PROFILE",
+                "internal": "testProfile"
+            },
+            "negative": {
+                "external": "FSUSBLOG_TEST_PROFILE",
+                "internal": "FSUSBLOG_TEST_PROFILE"
+            },
+            "reason": "The production-image workflow, deploy contract, runtime probes and their governance registrations must change atomically for the same caller-visible environment and orchestration keys."
+        },
+        {
             "id": "acceptance-secret-runtime-environment",
             "authorityExceptionId": "environment-variable",
             "paths": [
