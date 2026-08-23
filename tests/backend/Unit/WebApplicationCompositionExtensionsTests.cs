@@ -901,12 +901,6 @@ public sealed class WebApplicationCompositionExtensionsTests
     }
 
     [Fact]
-    public async Task ImmutableStaticAssets_KeepLongCacheWithoutValidators()
-    {
-        await ImmutableSearchShardKeepsLongCacheAndRemovesValidators();
-    }
-
-    [Fact]
     public async Task ImmutableSearchShardKeepsLongCacheAndRemovesValidators()
     {
         using var site = StaticAssetTestSite.Create();
