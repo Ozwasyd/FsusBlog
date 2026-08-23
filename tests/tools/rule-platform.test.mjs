@@ -75,15 +75,35 @@ test('changed-file selection includes dependency closure and unsafe rules', () =
     assert.deepEqual(SelectAffectedRules(rules, ['src/example.ts']).map((rule) => rule.id), ['Dependency', 'Affected', 'Always']);
 });
 
-test('shared inventory and content cache build and read each source once', () =>
+test('shared inventory and content cache build and read each source once', (t) =>
 {
-    const inventory = new RepositoryInventory(repositoryRoot, policy.inventory.ignoredPaths);
+    const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-rule-inventory-cache-'));
+    t.after(() => fs.rmSync(temporaryRoot, { recursive: true, force: true }));
+    execFileSync('git', ['init', '-q'], { cwd: temporaryRoot });
+    const firstFile = 'first-source.mjs';
+    const secondFile = 'second-source.mjs';
+    const initialContent = 'export const state = \"initial\";\n';
+    const changedContent = 'export const state = \"changed\";\n';
+    const secondContent = 'export const state = \"second\";\n';
+    fs.writeFileSync(path.join(temporaryRoot, firstFile), initialContent);
+    fs.writeFileSync(path.join(temporaryRoot, secondFile), secondContent);
+    execFileSync('git', ['add', '--', firstFile, secondFile], { cwd: temporaryRoot });
+
+    const inventory = new RepositoryInventory(temporaryRoot);
     const files = inventory.Files();
     assert.equal(inventory.Files(), files);
-    const file = 'config/governance/complexity-policy.json';
-    assert.equal(inventory.Read(file), inventory.Read(file));
+    assert.deepEqual(files, [firstFile, secondFile]);
+    const firstRead = inventory.Read(firstFile);
+    assert.equal(firstRead, initialContent);
+    fs.writeFileSync(path.join(temporaryRoot, firstFile), changedContent);
+    assert.equal(fs.readFileSync(path.join(temporaryRoot, firstFile), 'utf8'), changedContent);
+    const secondRead = inventory.Read(firstFile);
+    assert.equal(secondRead, firstRead);
     assert.equal(inventory.stats.inventoryBuilds, 1);
     assert.equal(inventory.stats.contentReads, 1);
+    assert.equal(inventory.stats.contentCacheHits, 1);
+    assert.equal(inventory.Read(secondFile), secondContent);
+    assert.equal(inventory.stats.contentReads, 2);
     assert.equal(inventory.stats.contentCacheHits, 1);
 });
 
