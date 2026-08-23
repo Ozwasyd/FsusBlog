@@ -121,6 +121,26 @@
             "reason": "Exported shell variables retain process-level spelling; local aliases use camelCase."
         },
         {
+            "id": "release-reliability-runtime-environment",
+            "authorityExceptionId": "environment-variable",
+            "paths": [
+                "tools/test/release-reliability-runtime-environment.mjs",
+                "tools/test/run-release-reliability-qualified-local.sh"
+            ],
+            "externalPattern": "^[A-Z][A-Z0-9_]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "FSUSBLOG_RELEASE_DERIVED_ROOT",
+                "internal": "releaseDerivedRoot"
+            },
+            "negative": {
+                "external": "FSUSBLOG_RELEASE_DERIVED_ROOT",
+                "internal": "FSUSBLOG_RELEASE_DERIVED_ROOT"
+            },
+            "reason": "The canonical final-image projection and its sole shell executor must change atomically for the same caller-visible process environment keys."
+        },
+        {
             "id": "dotnet-configuration-environment",
             "authorityExceptionId": "environment-variable",
             "paths": [

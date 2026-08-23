@@ -80,6 +80,9 @@ function pullRequestBody({
     summary = null,
     claim = 'none',
     actor = 'none',
+    externalExceptionId = 'c-abi-wasm-export',
+    externalExceptionPaths = 'src/frontend/wasm/aeds/src/exports.cpp',
+    externalExceptionReason = 'preserve the caller-visible C ABI spelling',
     contractImpact = publicContract ? 'compatible' : 'none'
 } = {}) {
     const behavior = ['feat', 'fix', 'perf', 'security', 'revert'].includes(type)
@@ -130,9 +133,9 @@ Closes #1163
 
 ## External Naming Exception
 
-- Exception ID: ${externalNaming ? 'c-abi-wasm-export' : 'none'}
-- Affected paths: ${externalNaming ? 'src/frontend/wasm/aeds/src/exports.cpp' : 'none'}
-- Reason: ${externalNaming ? 'preserve the caller-visible C ABI spelling' : 'none'}
+- Exception ID: ${externalNaming ? externalExceptionId : 'none'}
+- Affected paths: ${externalNaming ? externalExceptionPaths : 'none'}
+- Reason: ${externalNaming ? externalExceptionReason : 'none'}
 
 ## Documentation / Intent
 
@@ -555,6 +558,44 @@ test('external naming exception binds a trusted registry ID to changed paths', (
         authorityRoot: root
     })
     assert.ok(partialBinding.some((error) => error.includes('exactly match all changed registered naming surfaces')))
+})
+
+test('runtime environment exception atomically binds the canonical projection and shell executor', () => {
+    const title = 'fix(test): map final-image release root'
+    const changedFiles = [
+        'tools/test/release-reliability-runtime-environment.mjs',
+        'tools/test/run-release-reliability-qualified-local.sh'
+    ]
+    const body = pullRequestBody({
+        type: 'fix',
+        externalNaming: true,
+        audience: 'internal',
+        category: 'Internal/Tooling',
+        summary: 'map final-image release root',
+        externalExceptionId: 'release-reliability-runtime-environment',
+        externalExceptionPaths: changedFiles.join(', '),
+        externalExceptionReason: 'keep the same caller-visible process environment keys atomic across their canonical projection and sole shell executor'
+    })
+    assert.deepEqual(validatePrContract({
+        title,
+        body,
+        labels: ['release-note:internal'],
+        actor: 'maintainer',
+        changedFiles,
+        root,
+        authorityRoot: root
+    }), [])
+
+    const expanded = validatePrContract({
+        title,
+        body,
+        labels: ['release-note:internal'],
+        actor: 'maintainer',
+        changedFiles: [...changedFiles, 'tools/test/another-runtime-owner.mjs'],
+        root,
+        authorityRoot: root
+    })
+    assert.ok(expanded.some((error) => error.includes('exactly match all changed registered naming surfaces')))
 })
 
 test('performance claim binds one perf commit and the exact evidence blobs', () => {
