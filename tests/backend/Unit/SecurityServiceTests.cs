@@ -5,6 +5,7 @@ using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Services.Security;
 
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -354,60 +355,51 @@ public class ModernAcAutomatonTests
 
 public class CrawlerDetectorServiceTests
 {
+    public static TheoryData<string, string, string> InvalidOrUnverifiedInputCases
+    {
+        get
+        {
+            var cases = new TheoryData<string, string, string>
+            {
+                { "empty-ip", "", "Googlebot/2.1" },
+                { "empty-user-agent", "66.249.64.1", "" },
+                { "too-long-ip", new string('1', 65), "Googlebot/2.1" },
+                { "invalid-ip", "not.an.ip", "Googlebot/2.1" },
+                { "googlebot-without-cidr", "66.249.64.1", "Mozilla/5.0 (compatible; Googlebot/2.1)" },
+                { "unknown-bot", "1.2.3.4", "SomeOtherBot/1.0" }
+            };
+            if (cases.Count != 6)
+            {
+                throw new InvalidOperationException("The crawler negative-input inventory must contain exactly six cases.");
+            }
+
+            return cases;
+        }
+    }
+
     private static CrawlerDetectorService CreateService()
     {
         var cache = new MemoryCache(new MemoryCacheOptions());
         return new CrawlerDetectorService(NullLogger<CrawlerDetectorService>.Instance, cache);
     }
 
-    [Fact]
-    public async Task IsVerifiedCrawler_EmptyIp_ReturnsFalse()
+    [Theory]
+    [MemberData(nameof(InvalidOrUnverifiedInputCases))]
+    public async Task IsVerifiedCrawler_InvalidOrUnverifiedInput_ReturnsFalse(
+        string caseName,
+        string ip,
+        string userAgent)
     {
-        var svc = CreateService();
-        bool result = await svc.IsVerifiedCrawlerAsync("", "Googlebot/2.1");
-        Assert.False(result);
-    }
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var logger = new CapturingLogger<CrawlerDetectorService>();
+        var svc = new CrawlerDetectorService(logger, cache);
 
-    [Fact]
-    public async Task IsVerifiedCrawler_EmptyUserAgent_ReturnsFalse()
-    {
-        var svc = CreateService();
-        bool result = await svc.IsVerifiedCrawlerAsync("66.249.64.1", "");
-        Assert.False(result);
-    }
+        bool result = await svc.IsVerifiedCrawlerAsync(ip, userAgent);
 
-    [Fact]
-    public async Task IsVerifiedCrawler_TooLongIp_ReturnsFalse()
-    {
-        var svc = CreateService();
-        string longIp = new('1', 65);
-        bool result = await svc.IsVerifiedCrawlerAsync(longIp, "Googlebot/2.1");
-        Assert.False(result);
-    }
-
-    [Fact]
-    public async Task IsVerifiedCrawler_InvalidIp_ReturnsFalse()
-    {
-        var svc = CreateService();
-        bool result = await svc.IsVerifiedCrawlerAsync("not.an.ip", "Googlebot/2.1");
-        Assert.False(result);
-    }
-
-    [Fact]
-    public async Task IsVerifiedCrawler_GooglebotWithoutCidr_ReturnsFalse()
-    {
-        var svc = CreateService();
-        // No CIDR loaded, so even a Googlebot IP will fail the tree match
-        bool result = await svc.IsVerifiedCrawlerAsync("66.249.64.1", "Mozilla/5.0 (compatible; Googlebot/2.1)");
-        Assert.False(result);
-    }
-
-    [Fact]
-    public async Task IsVerifiedCrawler_UnknownBot_ReturnsFalse()
-    {
-        var svc = CreateService();
-        bool result = await svc.IsVerifiedCrawlerAsync("1.2.3.4", "SomeOtherBot/1.0");
-        Assert.False(result);
+        Assert.False(result, $"Crawler negative-input case '{caseName}' was accepted.");
+        Assert.Equal(CrawlerRangeStatus.Empty, svc.GetRangeStatus());
+        Assert.Equal(0, cache.Count);
+        Assert.DoesNotContain(logger.Levels, static level => level >= LogLevel.Warning);
     }
 
     [Fact]
@@ -468,5 +460,22 @@ public class CrawlerDetectorServiceTests
         Assert.False(await svc.IsVerifiedCrawlerAsync("198.51.100.1", GooglebotUserAgent));
         Assert.False(await svc.IsVerifiedCrawlerAsync("203.0.113.1", GooglebotUserAgent));
         Assert.False(await svc.IsVerifiedCrawlerAsync("40.77.0.1", BingbotUserAgent));
+    }
+
+    private sealed class CapturingLogger<T> : ILogger<T>
+    {
+        public List<LogLevel> Levels { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+            => Levels.Add(logLevel);
     }
 }
