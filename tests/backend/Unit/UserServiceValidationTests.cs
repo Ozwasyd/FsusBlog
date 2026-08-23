@@ -591,12 +591,6 @@ public class UserServiceValidationTests
     }
 
     [Fact]
-    public async Task UserService_RecoveryCodeConsumptionUsesHashCompareAndSwap()
-    {
-        await VerifyMfaOrRecoveryCodeAsync_RecoveryCodeCasConflictReturnsFalse();
-    }
-
-    [Fact]
     public async Task UserService_TotpVerificationConsumesStepWithCompareAndSwap()
     {
         var db = Substitute.For<ISqlSugarClient>();
