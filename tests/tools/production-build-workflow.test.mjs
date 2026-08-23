@@ -6,8 +6,17 @@ import { spawnSync } from 'node:child_process'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
+import {
+  checkProductionComposeEnvironment,
+  parseComposeDurationSeconds
+} from '../../tools/deployment/check-production-compose-environment.mjs'
+import {
+  validateStoppedContainerState
+} from '../../tools/deployment/verify-container-termination.mjs'
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const workflowFile = path.join(root, '.github/workflows/quality-gate.yml')
+const productionImageWorkflowFile = path.join(root, '.github/workflows/production-image-verification.yml')
 const actionFile = path.join(root, '.github/actions/consume-production-build/action.yml')
 const producerLaneFile = path.join(root, 'tools/test/lanes/production-build-artifacts.sh');
 
@@ -171,4 +180,191 @@ test('smart gate selects producer exactly when an immutable build consumer is se
     /selected runtime\/browser job requires/u
   )
   assert.match(docsOnlyResult.githubOutput, /production_build_domains=backend-runtime\n/u)
+})
+
+test('production image workflow covers Docker changes and schedules both production base families', () => {
+  const workflow = fs.readFileSync(productionImageWorkflowFile, 'utf8')
+  const imageJob = jobSource(workflow, 'final-image')
+  for (const pathFilter of [
+    'ops/docker/**',
+    'ops/gateway/**',
+    'ops/docker/FsusBlog.Server.Dockerfile'
+  ]) {
+    if (pathFilter.endsWith('Dockerfile')) {
+      assert.ok(workflow.includes('ops/docker/**'), pathFilter)
+    } else {
+      assert.ok(workflow.includes(`- ${pathFilter}`), pathFilter)
+    }
+  }
+  assert.match(workflow, /schedule:\s*\n\s*- cron: "[^"]+"/u)
+  assert.match(
+    imageJob,
+    /github\.event_name == 'pull_request'[\s\S]*throughput-musl[\s\S]*throughput-glibc/u
+  )
+  assert.match(imageJob, /FSUSBLOG_RUNTIME_PROFILE_ID: \$\{\{ matrix\.runtime-profile \}\}/u)
+  assert.match(imageJob, /FSUSBLOG_USE_LOCAL_FSUSUI: "1"/u)
+  assert.match(imageJob, /FSUSBLOG_LOCAL_FSUSUI_ROOT: \$\{\{ github\.workspace \}\}\/\.tmp\/fsusui-source/u)
+  assert.match(imageJob, /repository: Ozwasyd\/FsusUI/u)
+  assert.match(imageJob, /node tools\/test\/fsusui-baseline\.mjs --github-output "\$GITHUB_OUTPUT"/u)
+  assert.match(imageJob, /ref: \$\{\{ steps\.fsusui-baseline\.outputs\.commit \}\}/u)
+  assert.match(imageJob, /path: \.tmp\/fsusui-source/u)
+  assert.match(imageJob, /node-version: 24\.x/u)
+  assert.match(imageJob, /npm --prefix src\/frontend ci --ignore-scripts --no-audit/u)
+  assert.match(imageJob, /--target fsusui-build-tools/u)
+  assert.match(imageJob, /corepack pnpm@10\.33\.0 install --frozen-lockfile --ignore-scripts/u)
+  assert.match(imageJob, /corepack pnpm@10\.33\.0 --dir vue\/internal\/build-utils run stub/u)
+  assert.match(imageJob, /corepack pnpm@10\.33\.0 run build:theme/u)
+  assert.match(imageJob, /corepack pnpm@10\.33\.0 run ensure:wasm/u)
+  assert.match(imageJob, /"\$FSUSBLOG_FSUSUI_BUILD_TOOLS_IMAGE"[\s\S]*bash -c/u)
+  assert.match(imageJob, /node tests\/browser-diagnostics\/local-fsusui-identity\.mjs/u)
+  assert.match(
+    imageJob,
+    /tools\/test\/run-release-reliability-qualified-local\.sh --runtime-admission-only/u
+  )
+  assert.doesNotMatch(workflow, /docker push|FSUSBLOG_FINAL_PUSH/u)
+})
+
+test('production image workflow reuses the production builder and proves health, article AEDS, and SIGTERM', () => {
+  const wrapper = fs.readFileSync(
+    path.join(root, 'tools/test/run-release-reliability-qualified-local.sh'),
+    'utf8'
+  )
+  const routeCatalog = JSON.parse(fs.readFileSync(
+    path.join(root, 'config/testing/runtime-http-route-contracts.json'),
+    'utf8'
+  ))
+  const runtimeRoutes = routeCatalog.producers['runtime-load-soak']
+    .map(routeId => routeCatalog.routes.find(route => route.routeId === routeId))
+
+  assert.match(
+    wrapper,
+    /FSUSBLOG_FINAL_LOCAL_ONLY=1 FSUSBLOG_FINAL_IMAGE_TAG="\$image" "\$root\/tools\/build-final-image\.sh"/u
+  )
+  assert.match(wrapper, /runtime_health_status[\s\S]*healthy\)/u)
+  assert.ok(runtimeRoutes.some(route => route.pathTemplate.startsWith('/api/binary/article/')))
+  assert.ok(runtimeRoutes
+    .filter(route => route.pathTemplate.startsWith('/api/binary/article/'))
+    .every(route => Number.isInteger(route.expectedAedsFrameType)))
+  assert.match(
+    wrapper,
+    /verify-container-termination\.mjs" "\$backend_container_id" "\$run_id" "\$namespace" "\$invocation_id"/u
+  )
+  assert.match(
+    wrapper,
+    /if \(\(runtime_admission_only == 1\)\); then[\s\S]*exit 0\nfi\ncurrent_uid="\$\(id -u\)"\nValidateUserSystemdCarrier/u
+  )
+
+  const gateway = fs.readFileSync(
+    path.join(root, 'tools/deployment/check-production-openresty-config.sh'),
+    'utf8'
+  )
+  assert.match(gateway, /openresty\/openresty@sha256:[0-9a-f]{64}/u)
+  assert.match(gateway, /ops\/gateway\/production-openresty\.conf/u)
+  assert.match(gateway, /--entrypoint openresty[\s\S]*-t[\s\S]*-c \/etc\/openresty\/nginx\.conf/u)
+
+  const dockerfile = fs.readFileSync(
+    path.join(root, 'ops/docker/FsusBlog.Server.Dockerfile'),
+    'utf8'
+  )
+  assert.match(
+    dockerfile,
+    /FROM emscripten\/emsdk:6\.0\.0@sha256:[0-9a-f]{64} AS fsusui-build-tools/u
+  )
+  assert.match(
+    dockerfile,
+    /COPY --from=node-runtime-glibc \/usr\/local\/lib\/node_modules\/corepack \/usr\/local\/lib\/node_modules\/corepack/u
+  )
+  assert.match(
+    dockerfile,
+    /ln -sfn \.\.\/lib\/node_modules\/corepack\/dist\/corepack\.js \/usr\/local\/bin\/corepack/u
+  )
+  assert.match(dockerfile, /corepack prepare pnpm@10\.33\.0 --activate/u)
+  assert.match(dockerfile, /FROM fsusui-build-tools AS wasm-builder/u)
+})
+
+test('production Compose environment contract documents the exact current 60-variable inventory', () => {
+  const report = checkProductionComposeEnvironment({ root })
+  assert.deepEqual(report.errors, [])
+  assert.equal(report.variableCount, 60)
+  assert.equal(report.stopGracePeriodSeconds, 60)
+  assert.equal(parseComposeDurationSeconds('60s'), 60)
+  assert.equal(parseComposeDurationSeconds('2m'), 120)
+  assert.throws(() => parseComposeDurationSeconds('0s'), /positive integer/u)
+  assert.throws(() => parseComposeDurationSeconds('1.5m'), /positive integer/u)
+})
+
+test('production Compose environment contract fails closed on drift and empty documentation', t => {
+  const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-production-compose-contract-'))
+  t.after(() => fs.rmSync(fixtureRoot, { recursive: true, force: true }))
+  fs.mkdirSync(path.join(fixtureRoot, 'config/deployment'), { recursive: true })
+  fs.mkdirSync(path.join(fixtureRoot, 'ops/docker'), { recursive: true })
+  const contract = JSON.parse(fs.readFileSync(
+    path.join(root, 'config/deployment/production-compose-environment.json'),
+    'utf8'
+  ))
+  fs.copyFileSync(
+    path.join(root, contract.composePath),
+    path.join(fixtureRoot, contract.composePath)
+  )
+  delete contract.variables.DB_NAME
+  contract.variables.DB_PASSWORD.expectedValue = ''
+  fs.writeFileSync(
+    path.join(fixtureRoot, 'config/deployment/production-compose-environment.json'),
+    `${JSON.stringify(contract, null, 4)}\n`
+  )
+
+  const report = checkProductionComposeEnvironment({ root: fixtureRoot })
+  assert.ok(report.errors.some(error => error.includes('undocumented Compose variable: DB_NAME')))
+  assert.ok(report.errors.some(error => error.includes('DB_PASSWORD.expectedValue')))
+  assert.ok(report.errors.some(error => error.includes('variableCount')))
+})
+
+test('SIGTERM observation accepts only a clean zero exit before the Compose deadline', () => {
+  const containerId = 'a'.repeat(64)
+  const runId = 'production-image-1'
+  const namespace = 'production-image-namespace'
+  const stopped = {
+    Id: containerId,
+    Config: {
+      Labels: {
+        'io.fsusblog.test.run-id': runId,
+        'io.fsusblog.test.namespace': namespace
+      }
+    },
+    State: {
+      Running: false,
+      ExitCode: 0,
+      OOMKilled: false,
+      Error: '',
+      FinishedAt: '2026-08-23T08:30:00.000Z'
+    }
+  }
+  const options = {
+    containerId,
+    runId,
+    namespace,
+    elapsedMilliseconds: 1250,
+    stopGracePeriodSeconds: 60
+  }
+
+  assert.deepEqual(validateStoppedContainerState(stopped, options), {
+    exitCode: 0,
+    oomKilled: false,
+    error: '',
+    finishedAtUtc: '2026-08-23T08:30:00.000Z'
+  })
+  assert.throws(
+    () => validateStoppedContainerState({
+      ...stopped,
+      State: { ...stopped.State, ExitCode: 137 }
+    }, options),
+    /did not exit cleanly/u
+  )
+  assert.throws(
+    () => validateStoppedContainerState(stopped, {
+      ...options,
+      elapsedMilliseconds: 60_000
+    }),
+    /did not exit cleanly/u
+  )
 })

@@ -3,7 +3,7 @@
     "generatedBy": "tools/governance/check-rule-platform.mjs --write-registry",
     "inventory": {
         "packageScriptCount": 214,
-        "implementationCount": 392
+        "implementationCount": 394
     },
     "rules": [
         {
@@ -12254,6 +12254,64 @@
                 "receiptCompatible": true
             },
             "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
+        },
+        {
+            "id": "Implementation.ToolsDeploymentCheckProductionComposeEnvironmentMjs",
+            "externalId": "tools/deployment/check-production-compose-environment.mjs",
+            "symbol": "CheckToolsDeploymentCheckProductionComposeEnvironment",
+            "owner": "ReleaseEngineeringOwner",
+            "category": "release-evidence",
+            "engine": "parser",
+            "sourceScopes": [
+                "tools/deployment/check-production-compose-environment.mjs",
+                ".github/**",
+                "ops/**",
+                "tools/**",
+                "tests/tools/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/deployment/check-production-compose-environment.mjs",
+                "executionKey": "governance:file:tools/deployment/check-production-compose-environment.mjs",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Implementation.ToolsDeploymentCheckProductionOpenrestyConfigSh",
+            "externalId": "tools/deployment/check-production-openresty-config.sh",
+            "symbol": "CheckToolsDeploymentCheckProductionOpenrestyConfig",
+            "owner": "ReleaseEngineeringOwner",
+            "category": "release-evidence",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tools/deployment/check-production-openresty-config.sh",
+                ".github/**",
+                "ops/**",
+                "tools/**",
+                "tests/tools/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/deployment/check-production-openresty-config.sh",
+                "executionKey": "governance:file:tools/deployment/check-production-openresty-config.sh",
+                "receiptCompatible": true
+            }
         },
         {
             "id": "Implementation.ToolsDocsCheckAuthoritativeDevelopmentDocsMjs",

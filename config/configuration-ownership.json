@@ -369,6 +369,17 @@
             ]
         },
         {
+            "id": "production-compose-environment-contract",
+            "owner": "operations-deployment",
+            "canonicalPath": "config/deployment/production-compose-environment.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/deployment/check-production-compose-environment.mjs",
+                "tools/test/run-release-reliability-qualified-local.sh"
+            ],
+            "validationCommand": "node tools/deployment/check-production-compose-environment.mjs"
+        },
+        {
             "id": "moderation-policy-tree",
             "owner": "backend-moderation",
             "canonicalPath": "config/moderation",

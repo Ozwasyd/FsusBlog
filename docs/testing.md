@@ -1034,9 +1034,14 @@ tools/operations/check-release-evidence-manifest.mjs --require-ok
   PostgreSQL/Redis/backend bridge topology、transaction fixture producer，以及固定
   60 秒窗口内由 `runtime-load-soak` 拥有的六条 canonical binary route smoke；
   每条证据记录 method/path/status/content type、`X-Fsus-*`、body bytes 和完整
-  AEDS v2 header/payload/CRC 结论。它在 scenario runner 前退出，只生成
-  `.tmp/release-reliability/<invocation>/runtime-admission-candidate.json` 与
-  `runtime-admission-receipt.json`，schema 固定为
+  AEDS v2 header/payload/CRC 结论。创建 admission candidate 后，该模式还从
+  `config/deployment/production-compose-environment.json` 读取实际
+  `stop_grace_period`，对已 healthy 的 final-image container 发送真实 SIGTERM，
+  并要求在 deadline 前以 exit code 0、非 OOM、无 runtime error 退出；观测写入
+  同一 invocation 下的 `production-image-termination.json`。它在 scenario
+  runner 前退出，并在同一目录生成 `runtime-admission-candidate.json`、
+  `runtime-admission-receipt.json` 与该 termination observation；admission
+  schema 固定为
   `fsusblog.release-reliability.runtime-admission.v1` 且
   `qualificationEligible=false`；不会生成或聚合 exact-seven candidate。wrapper
   必须先移除 EXIT trap、调用既有 `CleanupQualifiedRuntimeResources 0`，再由
