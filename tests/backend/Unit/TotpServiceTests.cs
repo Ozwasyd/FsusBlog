@@ -21,6 +21,24 @@ public class TotpServiceTests
     private static string RfcBase32TestSecret
         => string.Concat("GEZDGNBVGY3TQOJQ", "GEZDGNBVGY3TQOJQ");
 
+    public static TheoryData<string, string> BlankSecretCases
+    {
+        get
+        {
+            var cases = new TheoryData<string, string>
+            {
+                { "empty", "" },
+                { "whitespace", "   " }
+            };
+            if (cases.Count != 2)
+            {
+                throw new InvalidOperationException("The blank TOTP secret inventory must contain exactly two cases.");
+            }
+
+            return cases;
+        }
+    }
+
     public static TheoryData<string, string> MalformedCodeCases
     {
         get
@@ -206,20 +224,13 @@ public class TotpServiceTests
         Assert.False(result);
     }
 
-    [Fact]
-    public void VerifyCode_EmptySecret_ReturnsFalse()
+    [Theory]
+    [MemberData(nameof(BlankSecretCases))]
+    public void VerifyCode_BlankSecret_ReturnsFalse(string caseName, string secret)
     {
         var svc = MakeService();
-        var result = svc.VerifyCode("", "123456");
-        Assert.False(result);
-    }
-
-    [Fact]
-    public void VerifyCode_WhitespaceSecret_ReturnsFalse()
-    {
-        var svc = MakeService();
-        var result = svc.VerifyCode("   ", "123456");
-        Assert.False(result);
+        var result = svc.VerifyCode(secret, "123456");
+        Assert.False(result, $"Blank TOTP secret case '{caseName}' was accepted.");
     }
 
     [Fact]
