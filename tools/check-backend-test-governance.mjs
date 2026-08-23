@@ -33,7 +33,10 @@ const factWrapperContracts = [
         'PublicAotHtmlFastPath_SourceAvoidsStringContentAndPerRequestUtf8Encode'],
     ['tests/backend/Unit/WebApplicationCompositionExtensionsTests.cs',
         ['DynamicManifest_ReturnsNotModifiedForMatchingEtagAndChangesEtagWhenSeoChanges'],
-        'DynamicManifest_SourceUsesDerivedBytesCacheAndConditionalEtag']
+        'DynamicManifest_SourceUsesDerivedBytesCacheAndConditionalEtag'],
+    ['tests/backend/Unit/WebApplicationCompositionExtensionsTests.cs',
+        ['ImmutableSearchShardKeepsLongCacheAndRemovesValidators'],
+        'ImmutableStaticAssets_KeepLongCacheWithoutValidators']
 ];
 const backendPathGovernanceAllowedFiles = new Set([
     'tests/backend/Unit/TestInfrastructure/BackendTestPaths.cs',
