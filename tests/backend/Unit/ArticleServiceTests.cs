@@ -84,12 +84,47 @@ public sealed class ArticleServiceTests
     }
 
     [Fact]
-    public void AttachTagsForTests_EmptyItems_NoException()
+    public void AttachTagsForTests_EmptyItems_LeavesInputsUnchanged()
     {
-        Exception? error = Record.Exception(
-            () => ArticleService.AttachTagsForTests([], new Dictionary<int, List<TagReadModel>>()));
+        var items = new List<ArticleListItemReadModel>();
+        List<ArticleListItemReadModel> originalItems = items;
+        var primaryTag = new TagReadModel { Id = 7, Name = "backend" };
+        var secondaryTag = new TagReadModel { Id = 11, Name = "protocol" };
+        var tertiaryTag = new TagReadModel { Id = 13, Name = "testing" };
+        List<TagReadModel> primaryTags = [primaryTag, secondaryTag];
+        List<TagReadModel> secondaryTags = [tertiaryTag];
+        var tagMap = new Dictionary<int, List<TagReadModel>>
+        {
+            [42] = primaryTags,
+            [9] = secondaryTags
+        };
+        int[] expectedKeys = [.. tagMap.Keys];
+        (int Id, string Name) primarySnapshot = (primaryTag.Id, primaryTag.Name);
+        (int Id, string Name) secondarySnapshot = (secondaryTag.Id, secondaryTag.Name);
+        (int Id, string Name) tertiarySnapshot = (tertiaryTag.Id, tertiaryTag.Name);
 
-        Assert.Null(error);
+        ArticleService.AttachTagsForTests(items, tagMap);
+
+        Assert.Same(originalItems, items);
+        Assert.Empty(items);
+        Assert.Equal(expectedKeys, tagMap.Keys);
+        Assert.Same(primaryTags, tagMap[42]);
+        Assert.Same(secondaryTags, tagMap[9]);
+        Assert.Collection(
+            primaryTags,
+            tag =>
+            {
+                Assert.Same(primaryTag, tag);
+                Assert.Equal(primarySnapshot, (tag.Id, tag.Name));
+            },
+            tag =>
+            {
+                Assert.Same(secondaryTag, tag);
+                Assert.Equal(secondarySnapshot, (tag.Id, tag.Name));
+            });
+        TagReadModel remainingTag = Assert.Single(secondaryTags);
+        Assert.Same(tertiaryTag, remainingTag);
+        Assert.Equal(tertiarySnapshot, (remainingTag.Id, remainingTag.Name));
     }
 
     [Fact]
