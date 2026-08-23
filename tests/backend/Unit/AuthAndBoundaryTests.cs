@@ -147,14 +147,84 @@ public class BoundaryExecutorTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_Throws_DoesNotRethrow()
+    public async Task ExecuteAsync_Throws_LogsOnceAndDoesNotRethrow()
     {
+        const string Operation = "boundary-sentinel-operation";
+        var logger = new CapturingLogger();
+        var sentinel = new InvalidOperationException("sentinel-exception-text");
+        int actionCount = 0;
+
         Exception? error = await Record.ExceptionAsync(
             () => BoundaryExecutor.ExecuteAsync(
-                () => Task.FromException(new Exception("swallowed")),
-                s_logger,
-                "op"));
+                () =>
+                {
+                    actionCount++;
+                    return Task.FromException(sentinel);
+                },
+                logger,
+                Operation));
 
         Assert.Null(error);
+        Assert.Equal(1, actionCount);
+
+        LogEntry entry = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Warning, entry.Level);
+        Assert.Same(sentinel, entry.Exception);
+        Assert.Equal($"Boundary execution failed: {Operation}", entry.FormattedMessage);
+        Assert.DoesNotContain(sentinel.Message, entry.FormattedMessage, StringComparison.Ordinal);
+        Assert.Equal(2, entry.State.Count);
+        Assert.Contains(entry.State, property =>
+            property.Key == "Operation" && Equals(property.Value, Operation));
+        Assert.Contains(entry.State, property =>
+            property.Key == "{OriginalFormat}" &&
+            Equals(property.Value, "Boundary execution failed: {Operation}"));
     }
+
+    [Fact]
+    public async Task ExecuteAsync_OperationCanceled_RethrowsWithoutErrorLog()
+    {
+        var logger = new CapturingLogger();
+        var cancellation = new OperationCanceledException("sentinel-cancellation");
+        int actionCount = 0;
+
+        OperationCanceledException propagated = await Assert.ThrowsAsync<OperationCanceledException>(
+            () => BoundaryExecutor.ExecuteAsync(
+                () =>
+                {
+                    actionCount++;
+                    return Task.FromException(cancellation);
+                },
+                logger,
+                "boundary-cancel-operation"));
+
+        Assert.Same(cancellation, propagated);
+        Assert.Equal(1, actionCount);
+        Assert.Empty(logger.Entries);
+    }
+
+    private sealed class CapturingLogger : ILogger
+    {
+        public List<LogEntry> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            var structuredState = Assert.IsAssignableFrom<IReadOnlyList<KeyValuePair<string, object?>>>(state);
+            Entries.Add(new LogEntry(logLevel, exception, formatter(state, exception), [.. structuredState]));
+        }
+    }
+
+    private sealed record LogEntry(
+        LogLevel Level,
+        Exception? Exception,
+        string FormattedMessage,
+        IReadOnlyList<KeyValuePair<string, object?>> State);
 }
