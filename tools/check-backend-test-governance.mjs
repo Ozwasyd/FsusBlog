@@ -30,6 +30,11 @@ const factWrapperContracts = [
         'tests/backend/Unit/UserServiceValidationTests.cs',
         'StartMfaSetupAsync_UsesAtomicMfaProfileUpsert',
         'UserService_MfaProfileUpsertUsesSingleConflictSafeStatement'
+    ],
+    [
+        'tests/backend/Unit/UserServiceValidationTests.cs',
+        'VerifyMfaOrRecoveryCodeAsync_RecoveryCodeCasConflictReturnsFalse',
+        'UserService_RecoveryCodeConsumptionUsesHashCompareAndSwap'
     ]
 ];
 const backendPathGovernanceAllowedFiles = new Set([
