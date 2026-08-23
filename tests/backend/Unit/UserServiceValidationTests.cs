@@ -550,12 +550,6 @@ public class UserServiceValidationTests
     }
 
     [Fact]
-    public async Task UserService_MfaProfileUpsertUsesSingleConflictSafeStatement()
-    {
-        await StartMfaSetupAsync_UsesAtomicMfaProfileUpsert();
-    }
-
-    [Fact]
     public async Task VerifyMfaOrRecoveryCodeAsync_RecoveryCodeCasConflictReturnsFalse()
     {
         var db = Substitute.For<ISqlSugarClient>();
