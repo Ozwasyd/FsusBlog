@@ -241,26 +241,6 @@ public sealed class PublicHotArtifactUpdateQueue
         }
     }
 
-    internal async Task RestorePublishedGenerationAsync(CancellationToken cancellationToken)
-    {
-        if (_obligations is null)
-        {
-            return;
-        }
-
-        PublicHotArtifactObligation? obligation = await _obligations
-            .GetActiveAsync(cancellationToken)
-            .ConfigureAwait(false);
-        if (obligation is
-            {
-                State: PublicHotArtifactObligationState.Published,
-                PublishedGeneration: > 0
-            })
-        {
-            RecordPublishedGeneration(obligation.PublishedGeneration);
-        }
-    }
-
     /// <summary>
     /// The single atomic PublicHot activity snapshot used by release drain, runtime
     /// health and readiness. Every owner is read in this one method; any exception
@@ -418,7 +398,6 @@ public sealed class PublicHotArtifactUpdateWorker(
         if (queue.Obligations is { } obligations)
         {
             await obligations.RecoverInterruptedAsync(DateTimeOffset.UtcNow, stoppingToken).ConfigureAwait(false);
-            await queue.RestorePublishedGenerationAsync(stoppingToken).ConfigureAwait(false);
             await ProcessDurableAsync(stoppingToken, scheduleRetry: true).ConfigureAwait(false);
         }
         PublicHotArtifactUpdate? recovery = await queue.LoadRecoveryUpdateAsync(stoppingToken).ConfigureAwait(false);
