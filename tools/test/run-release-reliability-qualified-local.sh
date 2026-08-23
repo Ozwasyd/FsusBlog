@@ -576,13 +576,9 @@ if [[ -z "$invocation_id" ]]; then
     invocation_id="$(node -e 'process.stdout.write(require("node:crypto").randomUUID())')"
     export FSUSBLOG_RELEASE_INVOCATION_ID="$invocation_id"
 fi
-current_uid="$(id -u)"
-ValidateUserSystemdCarrier "${XDG_RUNTIME_DIR:-}" "$current_uid"
 if ((runtime_admission_only == 1)); then
     runtime_admission_candidate=".tmp/release-reliability/${invocation_id}/runtime-admission-candidate.json"
-    runtime_admission_receipt=".tmp/release-reliability/${invocation_id}/runtime-admission-receipt.json"
-    runtime_admission_tool="$root/tools/test/release-reliability-runtime-admission.mjs"
-    node "$runtime_admission_tool" create --root "$root" \
+    node "$root/tools/test/release-reliability-runtime-admission.mjs" create --root "$root" \
         --candidate "$runtime_admission_candidate" \
         --source-commit "$source_commit" \
         --source-fingerprint "$source_fingerprint" \
@@ -598,18 +594,21 @@ if ((runtime_admission_only == 1)); then
         --deadline-seconds 60 \
         --attempt-count "$runtime_smoke_attempt_count" \
         --elapsed-seconds "$runtime_smoke_elapsed_seconds"
+    node "$root/tools/deployment/verify-container-termination.mjs" "$backend_container_id" "$run_id" "$namespace" "$invocation_id"
     trap - EXIT
     if ! CleanupQualifiedRuntimeResources 0; then
         printf '%s\n' 'runtime admission cleanup failed; pass receipt was not created' >&2
         exit 1
     fi
-    node "$runtime_admission_tool" finalize --root "$root" \
+    node "$root/tools/test/release-reliability-runtime-admission.mjs" finalize --root "$root" \
         --candidate "$runtime_admission_candidate" \
-        --receipt "$runtime_admission_receipt"
-    node "$runtime_admission_tool" verify --root "$root" \
-        --receipt "$runtime_admission_receipt"
+        --receipt ".tmp/release-reliability/${invocation_id}/runtime-admission-receipt.json"
+    node "$root/tools/test/release-reliability-runtime-admission.mjs" verify --root "$root" \
+        --receipt ".tmp/release-reliability/${invocation_id}/runtime-admission-receipt.json"
     exit 0
 fi
+current_uid="$(id -u)"
+ValidateUserSystemdCarrier "${XDG_RUNTIME_DIR:-}" "$current_uid"
 qualified_executor_environment=(
     "HOME=$HOME"
     "PATH=$PATH"

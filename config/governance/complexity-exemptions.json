@@ -32,14 +32,6 @@
             "expires": "2026-09-22",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2792",
             "sourceFingerprint": "sha256:dd4897e71d8668cde55125b8dfb32b0c26fbccf10ee18b0995e29f6d6ef15fb8"
-        },
-        {
-            "file": "tools/test/run-release-reliability-qualified-local.sh",
-            "owner": "ServerContractAgent:release-reliability",
-            "reason": "Temporary bounded bridge while final-image topology setup and runtime admission orchestration are split without weakening owned cleanup",
-            "expires": "2026-09-22",
-            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2792",
-            "sourceFingerprint": "sha256:4e45cc664eb75424990a991b1f4e3b09ba22e2a54e12461cef60cc5e899ab6a7"
         }
     ]
 }

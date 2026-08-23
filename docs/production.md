@@ -333,7 +333,36 @@ backup/forward-fix based.
 
 Do not use `.env.production.example` directly to start production. It is only safe as the source for a private operator-owned `.env.production` and for `docker compose config` structure checks.
 
+`config/deployment/production-compose-environment.json` is the complete
+machine-readable inventory for every `${...}` interpolation in
+`ops/docker/docker-compose.production.yml`. The current Compose surface contains
+60 unique variables: each is bound to its actual non-empty Compose default,
+explicitly classified as `must-set-at-deploy`, or, only where empty has defined
+semantics, classified as `optional-empty`. The contract also records whether the
+release pipeline or the private operator environment owns the value and documents
+the deployable value shape. Validate inventory, defaults, documentation and the
+effective stop-grace duration together:
+
+```bash
+node tools/deployment/check-production-compose-environment.mjs
+```
+
 The compose file binds Kestrel to `127.0.0.1:${FSUSBLOG_SLOT_PORT}:8080`, resolved to blue `8081` or green `8082` by the slot scripts. Do not use `8081:8080`, `8082:8080` or any wildcard host binding; only the host gateway owns the public entrypoint.
+
+`.github/workflows/production-image-verification.yml` is the non-publishing image
+verification lane. Pull requests touching `ops/docker/**` or `ops/gateway/**` build
+the musl final image through `tools/build-final-image.sh`; scheduled and manual runs
+build both `throughput-musl` and `throughput-glibc`. Each image must pass its native
+Docker HEALTHCHECK, the canonical AEDS v2 runtime smoke including
+`/api/binary/article/*`, and a real SIGTERM stop with exit code zero before the
+Compose `stop_grace_period`. The companion contract job validates this environment
+inventory and runs `openresty -t` against the complete
+`ops/gateway/production-openresty.conf` using an immutable OpenResty image. The lane
+resolves the public FsusUI build source from
+`config/testing/fsusui-baseline.json`, builds its locked theme and WASM artifacts
+with the Dockerfile's immutable `fsusui-build-tools` stage, and passes the clean
+checkout through the source-bound `local-git-alias` input. It sets local-only
+image output and never pushes a registry artifact.
 
 ## Health Checks
 

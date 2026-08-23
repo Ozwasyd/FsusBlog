@@ -18,6 +18,7 @@
         "ops/gateway/development-machine-nginx.conf",
         "ops/gateway/production-openresty.conf",
         "ops/gateway/zero-downtime-openresty.conf.template",
+        "config/deployment/production-compose-environment.json",
         "ops/privacy/ip-anonymization-inventory.example.json",
         "ops/privacy/ip-anonymization-lifecycle.example.json",
         "config/deployment/zero-downtime-resource-policy.json"

@@ -85,10 +85,8 @@ FROM base-${RUNTIME_BASE_FLAVOR} AS base
 # 阶段 1.5：受控 wasm 工件构建
 # 只用于导出受信 wasm artifact，不进入 final build 运行时链路。
 ## =========================================================================
-FROM emscripten/emsdk:6.0.0@sha256:9eed2e47b4206928b22f99d2917013ad5462d777bb24cb546a652729896badd8 AS wasm-builder
-ARG VCPKG_COMMIT
+FROM emscripten/emsdk:6.0.0@sha256:9eed2e47b4206928b22f99d2917013ad5462d777bb24cb546a652729896badd8 AS fsusui-build-tools
 ARG NODE_VERSION
-WORKDIR /work
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -105,8 +103,17 @@ RUN apt-get update && \
       zip && \
     rm -rf /var/lib/apt/lists/*
 COPY --from=node-runtime-glibc /usr/local/bin/node /usr/local/bin/node
+COPY --from=node-runtime-glibc /usr/local/lib/node_modules/corepack /usr/local/lib/node_modules/corepack
 ENV PATH="/usr/local/bin:${PATH}"
-RUN test "$(node --version)" = "v${NODE_VERSION}"
+RUN ln -sfn ../lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepack && \
+    test "$(node --version)" = "v${NODE_VERSION}" && \
+    corepack enable && \
+    corepack prepare pnpm@10.33.0 --activate && \
+    test "$(pnpm --version)" = "10.33.0"
+
+FROM fsusui-build-tools AS wasm-builder
+ARG VCPKG_COMMIT
+WORKDIR /work
 
 RUN git clone https://github.com/microsoft/vcpkg.git /opt/vcpkg && \
     cd /opt/vcpkg && \

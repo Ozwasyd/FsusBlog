@@ -1,0 +1,328 @@
+{
+    "schema": "fsusblog.production-compose-environment.v1",
+    "composePath": "ops/docker/docker-compose.production.yml",
+    "variableCount": 60,
+    "variables": {
+        "ACTIVE_RELEASE_FENCE_REFRESH_INTERVAL_MS": {
+            "requirement": "must-set-at-deploy",
+            "source": "operator-env",
+            "expectedValue": "Positive refresh interval in milliseconds; production baseline is 5000."
+        },
+        "ACTIVE_RELEASE_FENCE_STALE_THRESHOLD_SECONDS": {
+            "requirement": "must-set-at-deploy",
+            "source": "operator-env",
+            "expectedValue": "Positive hard-stale threshold in seconds; production baseline is 30."
+        },
+        "APP_ALLOWED_HOSTS": {
+            "requirement": "must-set-at-deploy",
+            "source": "operator-env",
+            "expectedValue": "Semicolon-delimited public host names with no wildcard."
+        },
+        "CORS_ALLOWED_HOSTS": {
+            "requirement": "must-set-at-deploy",
+            "source": "operator-env",
+            "expectedValue": "Comma-delimited HTTPS origins allowed by production CORS."
+        },
+        "DB_NAME": {
+            "requirement": "must-set-at-deploy",
+            "source": "operator-env",
+            "expectedValue": "Existing production PostgreSQL database name."
+        },
+        "DB_PASSWORD": {
+            "requirement": "must-set-at-deploy",
+            "source": "operator-env",
+            "expectedValue": "Non-placeholder production PostgreSQL password."
+        },
+        "DB_USER": {
+            "requirement": "must-set-at-deploy",
+            "source": "operator-env",
+            "expectedValue": "Production PostgreSQL login with the application privilege set."
+        },
+        "EXTERNAL_DB_HOST": {
+            "requirement": "must-set-at-deploy",
+            "source": "operator-env",
+            "expectedValue": "Reachable PostgreSQL host or exact Docker network alias."
+        },
+        "EXTERNAL_REDIS_HOST": {
+            "requirement": "must-set-at-deploy",
+            "source": "operator-env",
+            "expectedValue": "Reachable Redis host or exact Docker network alias."
+        },
+        "FIDO2_SERVER_DOMAIN": {
+            "requirement": "must-set-at-deploy",
+            "source": "operator-env",
+            "expectedValue": "Registrable production host matching SITE_BASEURL."
+        },
+        "FIDO2_SERVER_NAME": {
+            "requirement": "defaulted",
+            "source": "compose-default",
+            "defaultValue": "FsusBlog",
+            "expectedValue": "Human-readable production relying-party name."
+        },
+        "FSUSBLOG_ANONYMOUS_IDENTITY_MODE": {
+            "requirement": "defaulted",
+            "source": "compose-default",
+            "defaultValue": "1",
+            "expectedValue": "Enabled anonymous identity and admin-principal plane."
+        },
+        "FSUSBLOG_ASPNETCORE_ENVIRONMENT": {
+            "requirement": "defaulted",
+            "source": "compose-default",
+            "defaultValue": "Production",
+            "expectedValue": "Production; non-production values are not deployable."
+        },
+        "FSUSBLOG_COMMIT_SHA": {
+            "requirement": "must-set-at-deploy",
+            "source": "release-pipeline",
+            "expectedValue": "Full lowercase 40-character commit from the validated release manifest."
+        },
+        "FSUSBLOG_COMPOSE_PROJECT_NAME": {
+            "requirement": "must-set-at-deploy",
+            "source": "release-pipeline",
+            "expectedValue": "Unique slot-scoped Compose project name."
+        },
+        "FSUSBLOG_CONTAINER_NAME": {
+            "requirement": "must-set-at-deploy",
+            "source": "release-pipeline",
+            "expectedValue": "Slot-specific container name, normally fsus-app-blue or fsus-app-green."
+        },
+        "FSUSBLOG_DEPLOYMENT_GENERATION": {
+            "requirement": "must-set-at-deploy",
+            "source": "release-pipeline",
+            "expectedValue": "Positive monotonic runtime generation reserved for this container start."
+        },
+        "FSUSBLOG_DEPLOYMENT_MODE": {
+            "requirement": "defaulted",
+            "source": "compose-default",
+            "defaultValue": "candidate",
+            "expectedValue": "candidate until the release lifecycle activates the slot."
+        },
+        "FSUSBLOG_DEPLOYMENT_NOTIFICATION_DRILL_ENABLED": {
+            "requirement": "defaulted",
+            "source": "compose-default",
+            "defaultValue": "false",
+            "expectedValue": "false for ordinary production slots; enabled only by a controlled release drill."
+        },
+        "FSUSBLOG_DRAIN_TIMEOUT_SECONDS": {
+            "requirement": "defaulted",
+            "source": "compose-default",
+            "defaultValue": "45",
+            "expectedValue": "Positive application drain deadline shorter than FSUSBLOG_STOP_GRACE_PERIOD."
+        },
+        "FSUSBLOG_IMAGE_DIGEST": {
+            "requirement": "must-set-at-deploy",
+            "source": "release-pipeline",
+            "expectedValue": "Lowercase sha256 digest from the validated release manifest."
+        },
+        "FSUSBLOG_IMAGE_REF": {
+            "requirement": "must-set-at-deploy",
+            "source": "release-pipeline",
+            "expectedValue": "Immutable lowercase repository@sha256 image reference from the release manifest."
+        },
+        "FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE": {
+            "requirement": "must-set-at-deploy",
+            "source": "release-pipeline",
+            "expectedValue": "Exact currently active N-1 release identifier."
+        },
+        "FSUSBLOG_RELEASE_ASSET_STORE": {
+            "requirement": "must-set-at-deploy",
+            "source": "operator-env",
+            "expectedValue": "Absolute host path to the append-only release asset store."
+        },
+        "FSUSBLOG_RELEASE_CREATED_AT_UTC": {
+            "requirement": "must-set-at-deploy",
+            "source": "release-pipeline",
+            "expectedValue": "Canonical UTC creation timestamp from the validated release manifest."
+        },
+        "FSUSBLOG_RELEASE_ID": {
+            "requirement": "must-set-at-deploy",
+            "source": "release-pipeline",
+            "expectedValue": "Canonical releaseId from the validated release manifest."
+        },
+        "FSUSBLOG_RELEASE_MANIFEST_HOST_PATH": {
+            "requirement": "must-set-at-deploy",
+            "source": "release-pipeline",
+            "expectedValue": "Absolute host path to the already validated immutable release manifest."
+        },
+        "FSUSBLOG_RELEASE_SLOT": {
+            "requirement": "must-set-at-deploy",
+            "source": "release-pipeline",
+            "expectedValue": "blue or green slot identity matching the deployment plan."
+        },
+        "FSUSBLOG_SCHEMA_QUALIFICATION_ENABLED": {
+            "requirement": "defaulted",
+            "source": "compose-default",
+            "defaultValue": "false",
+            "expectedValue": "false in ordinary production; qualification routes belong only to the isolated Test rehearsal."
+        },
+        "FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME": {
+            "requirement": "must-set-at-deploy",
+            "source": "operator-env",
+            "expectedValue": "Existing shared Docker volume containing the production DataProtection key ring."
+        },
+        "FSUSBLOG_SHARED_PUBLIC_ASSETS_VOLUME": {
+            "requirement": "must-set-at-deploy",
+            "source": "operator-env",
+            "expectedValue": "Existing migrated shared public-assets Docker volume."
+        },
+        "FSUSBLOG_SHARED_RELEASE_DERIVED_VOLUME": {
+            "requirement": "defaulted",
+            "source": "compose-default",
+            "defaultValue": "fsusblog-release-derived",
+            "expectedValue": "Shared Docker volume for release-derived artifacts."
+        },
+        "FSUSBLOG_SLOT_AOT_CACHE_VOLUME": {
+            "requirement": "must-set-at-deploy",
+            "source": "release-pipeline",
+            "expectedValue": "Slot-specific Docker volume for Public AOT cache artifacts."
+        },
+        "FSUSBLOG_SLOT_CPU_LIMIT": {
+            "requirement": "defaulted",
+            "source": "compose-default",
+            "defaultValue": "2.00",
+            "expectedValue": "Positive CPU limit sized for the selected host profile."
+        },
+        "FSUSBLOG_SLOT_CPU_RESERVATION": {
+            "requirement": "defaulted",
+            "source": "compose-default",
+            "defaultValue": "0.50",
+            "expectedValue": "Positive CPU reservation no greater than the slot CPU limit."
+        },
+        "FSUSBLOG_SLOT_DATA_VOLUME": {
+            "requirement": "must-set-at-deploy",
+            "source": "release-pipeline",
+            "expectedValue": "Slot-specific Docker volume for application data."
+        },
+        "FSUSBLOG_SLOT_LOGS_VOLUME": {
+            "requirement": "must-set-at-deploy",
+            "source": "release-pipeline",
+            "expectedValue": "Slot-specific Docker volume for application logs."
+        },
+        "FSUSBLOG_SLOT_MEMORY_LIMIT": {
+            "requirement": "defaulted",
+            "source": "compose-default",
+            "defaultValue": "2048M",
+            "expectedValue": "Positive memory limit sized for the selected host profile."
+        },
+        "FSUSBLOG_SLOT_MEMORY_RESERVATION": {
+            "requirement": "defaulted",
+            "source": "compose-default",
+            "defaultValue": "512M",
+            "expectedValue": "Positive memory reservation no greater than the slot memory limit."
+        },
+        "FSUSBLOG_SLOT_PORT": {
+            "requirement": "must-set-at-deploy",
+            "source": "release-pipeline",
+            "expectedValue": "Loopback host port 8081 for blue or 8082 for green."
+        },
+        "FSUSBLOG_STOP_GRACE_PERIOD": {
+            "requirement": "defaulted",
+            "source": "compose-default",
+            "defaultValue": "60s",
+            "expectedValue": "Compose duration greater than FSUSBLOG_DRAIN_TIMEOUT_SECONDS."
+        },
+        "FSUSBLOG_ZK_BLIND_ISSUER_ENABLED": {
+            "requirement": "defaulted",
+            "source": "compose-default",
+            "defaultValue": "true",
+            "expectedValue": "true for the production RFC 9474 blind issuer."
+        },
+        "FSUSBLOG_ZK_CONFIG_DIR": {
+            "requirement": "must-set-at-deploy",
+            "source": "operator-env",
+            "expectedValue": "Absolute host directory containing the reviewed non-secret ZK configuration."
+        },
+        "FSUSBLOG_ZK_CREDENTIAL_READY": {
+            "requirement": "defaulted",
+            "source": "compose-default",
+            "defaultValue": "true",
+            "expectedValue": "true only when production credential bootstrap evidence is ready."
+        },
+        "FSUSBLOG_ZK_GROTH16_VERIFYING_KEY": {
+            "requirement": "must-set-at-deploy",
+            "source": "operator-env",
+            "expectedValue": "Container path to the production Groth16 verifying key under /app/config/zk."
+        },
+        "FSUSBLOG_ZK_ISSUER_PRIVATE_KEY": {
+            "requirement": "must-set-at-deploy",
+            "source": "operator-env",
+            "expectedValue": "Container path to the production blind-issuer private key under /app/secrets/zk."
+        },
+        "FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_HASH": {
+            "requirement": "must-set-at-deploy",
+            "source": "operator-env",
+            "expectedValue": "Lowercase 64-hex SHA-256 of the production issuer public key."
+        },
+        "FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_ID": {
+            "requirement": "must-set-at-deploy",
+            "source": "operator-env",
+            "expectedValue": "Stable production issuer public-key identifier."
+        },
+        "FSUSBLOG_ZK_NATIVE_VERIFIER_LIB": {
+            "requirement": "defaulted",
+            "source": "compose-default",
+            "defaultValue": "managed:mcl",
+            "expectedValue": "Approved production verifier backend library identity."
+        },
+        "FSUSBLOG_ZK_PROD_ENABLED": {
+            "requirement": "defaulted",
+            "source": "compose-default",
+            "defaultValue": "true",
+            "expectedValue": "true; missing ZK material remains fail-closed."
+        },
+        "FSUSBLOG_ZK_SECRET_DIR": {
+            "requirement": "must-set-at-deploy",
+            "source": "operator-env",
+            "expectedValue": "Absolute host directory containing production ZK secret material."
+        },
+        "FSUSBLOG_ZK_TRUSTED_SETUP_MANIFEST": {
+            "requirement": "must-set-at-deploy",
+            "source": "operator-env",
+            "expectedValue": "Container path to the reviewed trusted-setup manifest under /app/config/zk."
+        },
+        "FSUSBLOG_ZK_TRUSTED_SETUP_VERIFIED": {
+            "requirement": "defaulted",
+            "source": "compose-default",
+            "defaultValue": "true",
+            "expectedValue": "true only after the mounted trusted setup passes its independent verification."
+        },
+        "FSUSBLOG_ZK_VERIFIER_ENABLED": {
+            "requirement": "defaulted",
+            "source": "compose-default",
+            "defaultValue": "true",
+            "expectedValue": "true for the production Groth16 verifier."
+        },
+        "FSUSBLOG_ZK_VERIFYING_KEY_HASH": {
+            "requirement": "must-set-at-deploy",
+            "source": "operator-env",
+            "expectedValue": "Lowercase 64-hex SHA-256 bound to the mounted production verifying key."
+        },
+        "FSUSBLOG_ZK_VERIFYING_KEY_MANIFEST": {
+            "requirement": "must-set-at-deploy",
+            "source": "operator-env",
+            "expectedValue": "Container path to the reviewed verifying-key manifest under /app/config/zk."
+        },
+        "REDIS_PASSWORD": {
+            "requirement": "must-set-at-deploy",
+            "source": "operator-env",
+            "expectedValue": "Non-placeholder production Redis password."
+        },
+        "REVERSE_PROXY_KNOWN_NETWORKS": {
+            "requirement": "optional-empty",
+            "source": "compose-default",
+            "defaultValue": "",
+            "expectedValue": "Empty for a same-host gateway, otherwise exact private gateway CIDR values."
+        },
+        "REVERSE_PROXY_KNOWN_PROXIES": {
+            "requirement": "defaulted",
+            "source": "compose-default",
+            "defaultValue": "127.0.0.1",
+            "expectedValue": "Exact trusted proxy addresses; never a wildcard."
+        },
+        "SITE_BASEURL": {
+            "requirement": "must-set-at-deploy",
+            "source": "operator-env",
+            "expectedValue": "Canonical HTTPS public origin with no path component."
+        }
+    }
+}
