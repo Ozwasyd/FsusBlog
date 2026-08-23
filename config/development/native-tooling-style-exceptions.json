@@ -161,6 +161,29 @@
             "reason": "The acceptance bootstrap secret producer and its sole runtime collector must change atomically for the same run-bound process environment keys."
         },
         {
+            "id": "risk-policy-provider-consistency",
+            "authorityExceptionId": "environment-variable",
+            "paths": [
+                "docs/security.md",
+                "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+                "src/backend/Infrastructure/Security/RiskActionRegistry.cs",
+                "src/backend/Infrastructure/Security/SecurityRiskPolicySnapshotV2Adapter.cs",
+                "src/backend/Services/Security/SecurityAdminPolicyService.cs"
+            ],
+            "externalPattern": "^[A-Z][A-Z0-9_]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "FSUSBLOG_PERCEPTION_CHARACTER_V3_ENABLED",
+                "internal": "perceptionCharacterV3Enabled"
+            },
+            "negative": {
+                "external": "FSUSBLOG_PERCEPTION_CHARACTER_V3_ENABLED",
+                "internal": "FSUSBLOG_PERCEPTION_CHARACTER_V3_ENABLED"
+            },
+            "reason": "The current security contract and its four runtime policy/provider owners must change atomically for the same caller-visible configuration mapping."
+        },
+        {
             "id": "dotnet-configuration-environment",
             "authorityExceptionId": "environment-variable",
             "paths": [
