@@ -451,10 +451,22 @@ public class CrawlerDetectorServiceTests
     }
 
     [Fact]
-    public void UpdateCidrLists_WithInvalidCidrEntries_SkipsInvalid()
+    public async Task UpdateCidrLists_WithInvalidCidrEntries_SkipsInvalidAndReplacesPreviousSnapshot()
     {
+        const string GooglebotUserAgent = "Mozilla/5.0 (compatible; Googlebot/2.1)";
+        const string BingbotUserAgent = "Mozilla/5.0 (compatible; bingbot/2.0)";
         var svc = CreateService();
-        svc.UpdateCidrLists(["invalid", "", "66.249.64.0/19", "bad/bad"], []);
-        // No exception expected; valid entries still loaded
+        svc.UpdateCidrLists(["66.249.64.0/24"], []);
+        Assert.True(await svc.IsVerifiedCrawlerAsync("66.249.64.1", GooglebotUserAgent));
+
+        svc.UpdateCidrLists(
+            ["", "198.51.100.0", "203.0.113.0/33", "192.0.2.0/24"],
+            ["", "40.77.0.0", "bad/bad"]);
+
+        Assert.True(await svc.IsVerifiedCrawlerAsync("192.0.2.25", GooglebotUserAgent));
+        Assert.False(await svc.IsVerifiedCrawlerAsync("66.249.64.1", GooglebotUserAgent));
+        Assert.False(await svc.IsVerifiedCrawlerAsync("198.51.100.1", GooglebotUserAgent));
+        Assert.False(await svc.IsVerifiedCrawlerAsync("203.0.113.1", GooglebotUserAgent));
+        Assert.False(await svc.IsVerifiedCrawlerAsync("40.77.0.1", BingbotUserAgent));
     }
 }
