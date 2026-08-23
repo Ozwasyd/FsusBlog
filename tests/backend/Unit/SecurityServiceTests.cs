@@ -411,29 +411,34 @@ public class CrawlerDetectorServiceTests
     }
 
     [Fact]
-    public void UpdateCidrLists_WithValidRanges_DoesNotThrow()
-    {
-        var svc = CreateService();
-        // Should not throw even with lots of valid CIDR ranges
-        svc.UpdateCidrLists(["66.249.64.0/19", "66.249.80.0/20"], ["40.77.0.0/17"]);
-    }
-
-    [Fact]
     public async Task IsVerifiedCrawler_GooglebotInRegisteredCidr_ReturnsTrue()
     {
+        const string GooglebotUserAgent = "Mozilla/5.0 (compatible; Googlebot/2.1)";
+        const string BingbotUserAgent = "Mozilla/5.0 (compatible; bingbot/2.0)";
         var svc = CreateService();
-        svc.UpdateCidrLists(["66.249.64.0/19"], []);
-        bool result = await svc.IsVerifiedCrawlerAsync("66.249.64.1", "Mozilla/5.0 (compatible; Googlebot/2.1)");
-        Assert.True(result);
+        svc.UpdateCidrLists(
+            ["66.249.64.0/24", "64.233.160.0/24"],
+            ["40.77.0.0/24"]);
+
+        Assert.True(await svc.IsVerifiedCrawlerAsync("66.249.64.1", GooglebotUserAgent));
+        Assert.True(await svc.IsVerifiedCrawlerAsync("64.233.160.254", GooglebotUserAgent));
+        Assert.False(await svc.IsVerifiedCrawlerAsync("66.249.65.1", GooglebotUserAgent));
+        Assert.False(await svc.IsVerifiedCrawlerAsync("66.249.64.1", BingbotUserAgent));
     }
 
     [Fact]
     public async Task IsVerifiedCrawler_BingbotInRegisteredCidr_ReturnsTrue()
     {
+        const string GooglebotUserAgent = "Mozilla/5.0 (compatible; Googlebot/2.1)";
+        const string BingbotUserAgent = "Mozilla/5.0 (compatible; bingbot/2.0)";
         var svc = CreateService();
-        svc.UpdateCidrLists([], ["40.77.0.0/17"]);
-        bool result = await svc.IsVerifiedCrawlerAsync("40.77.0.1", "Mozilla/5.0 (compatible; bingbot/2.0)");
-        Assert.True(result);
+        svc.UpdateCidrLists(
+            ["66.249.64.0/24"],
+            ["40.77.0.0/24"]);
+
+        Assert.True(await svc.IsVerifiedCrawlerAsync("40.77.0.1", BingbotUserAgent));
+        Assert.False(await svc.IsVerifiedCrawlerAsync("40.77.1.1", BingbotUserAgent));
+        Assert.False(await svc.IsVerifiedCrawlerAsync("40.77.0.1", GooglebotUserAgent));
     }
 
     [Fact]
