@@ -355,12 +355,6 @@ public sealed class UnifiedCacheTests
     }
 
     [Fact]
-    public async Task RemoveByPrefix_SourceUsesPagedSetScanInsteadOfSetMembers()
-    {
-        await RemoveByPrefixMany_SourceGroupsByPolicyAndScansRegistryOnce();
-    }
-
-    [Fact]
     public void CopyRawBytesForTests_ReturnsCallerOwnedCopy()
     {
         byte[] cached = [1, 2, 3];
