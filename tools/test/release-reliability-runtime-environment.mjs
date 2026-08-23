@@ -20,7 +20,7 @@ const staticAuditedContainerOverrides = Object.freeze({
     FSUSBLOG_RELEASE_DERIVED_ROOT: '/app/release-derived',
     PublicAot__SsrClientRoot: '/app/wwwroot',
     ASPNETCORE_URLS: 'http://0.0.0.0:8080',
-    AllowedHosts: '127.0.0.1;localhost',
+    AllowedHosts: 'localhost;*',
     ConnectionStrings__DefaultConnection: 'Host=postgres;Port=5432;Database=fsusblog;Username=fsusblog;Password=fsusblog_dev;Include Error Detail=true',
     ConnectionStrings__Redis: 'redis:6379,abortConnect=false,connectTimeout=10000',
     RedisOptions__Configuration: 'redis:6379,abortConnect=false,connectTimeout=10000',
