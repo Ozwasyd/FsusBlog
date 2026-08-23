@@ -15,11 +15,23 @@ const environmentVariableCollectionPath = 'tests/backend/Fixtures/EnvironmentVar
 const approvedEnvironmentVariableMutationFiles = new Set([
     'tests/backend/Fixtures/ScopedEnvironmentVariables.cs'
 ]);
-const unifiedCacheTestsPath = 'tests/backend/Unit/UnifiedCacheTests.cs';
-const removeManyOwnerMethod = 'RemoveManyAsync_DeletesRedisKeysAndRegistryMembersAtomically';
-const removeManyWrapperMethod = 'RemoveManyAsync_SourceUsesSingleLuaScriptForDeleteAndRegistryRemoval';
-const removeByPrefixOwnerMethod = 'RemoveByPrefixMany_SourceGroupsByPolicyAndScansRegistryOnce';
-const removeByPrefixWrapperMethod = 'RemoveByPrefix_SourceUsesPagedSetScanInsteadOfSetMembers';
+const factWrapperContracts = [
+    [
+        'tests/backend/Unit/UnifiedCacheTests.cs',
+        'RemoveManyAsync_DeletesRedisKeysAndRegistryMembersAtomically',
+        'RemoveManyAsync_SourceUsesSingleLuaScriptForDeleteAndRegistryRemoval'
+    ],
+    [
+        'tests/backend/Unit/UnifiedCacheTests.cs',
+        'RemoveByPrefixMany_SourceGroupsByPolicyAndScansRegistryOnce',
+        'RemoveByPrefix_SourceUsesPagedSetScanInsteadOfSetMembers'
+    ],
+    [
+        'tests/backend/Unit/UserServiceValidationTests.cs',
+        'StartMfaSetupAsync_UsesAtomicMfaProfileUpsert',
+        'UserService_MfaProfileUpsertUsesSingleConflictSafeStatement'
+    ]
+];
 const backendPathGovernanceAllowedFiles = new Set([
     'tests/backend/Unit/TestInfrastructure/BackendTestPaths.cs',
     'tests/backend/Unit/TestInfrastructure/BackendTestPathsTests.cs'
@@ -486,66 +498,54 @@ function inspectFactWrapperContract(source, ownerMethod, wrapperMethod)
     };
 }
 
-function verifyFactWrapperDeleted(source, ownerMethod, wrapperMethod)
+function verifyFactWrapperDeleted(testPath, source, ownerMethod, wrapperMethod)
 {
     const live = inspectFactWrapperContract(source, ownerMethod, wrapperMethod);
     if (live.owners.length !== 1)
     {
-        fail(`${unifiedCacheTestsPath} must keep exactly one [Fact] ${ownerMethod}`);
+        fail(`${testPath} must keep exactly one [Fact] ${ownerMethod}`);
     }
     if (live.wrappers.length > 0 || live.identifierPresent)
     {
-        fail(`${unifiedCacheTestsPath} must not keep ${wrapperMethod} as a test, skip, helper, or alias`);
+        fail(`${testPath} must not keep ${wrapperMethod} as a test, skip, helper, or alias`);
     }
     if (live.forwarders.length > 0)
     {
-        fail(`${unifiedCacheTestsPath} must not keep a [Fact] that only awaits ${ownerMethod}`);
+        fail(`${testPath} must not keep a [Fact] that only awaits ${ownerMethod}`);
     }
 }
 
-function verifyUnifiedCacheWrappersDeleted()
+function verifyFactWrappersDeleted()
 {
-    requireFile(unifiedCacheTestsPath);
-    const source = readFileSync(resolve(root, unifiedCacheTestsPath), 'utf8');
-    verifyFactWrapperDeleted(source, removeManyOwnerMethod, removeManyWrapperMethod);
-    verifyFactWrapperDeleted(source, removeByPrefixOwnerMethod, removeByPrefixWrapperMethod);
-
-    const legalOwners = [
-        `[Fact] public async Task ${removeManyOwnerMethod}() { Assert.True(true); }`,
-        `[Fact] public async Task ${removeByPrefixOwnerMethod}() { Assert.True(true); }`
-    ].join('\n');
-    const illegalRemoveManyWrapper = [
-        legalOwners,
-        `[Fact] public async Task ${removeManyWrapperMethod}() { await ${removeManyOwnerMethod}(); }`
-    ].join('\n');
-    const illegalRemoveByPrefixWrapper = [
-        legalOwners,
-        `[Fact] public async Task ${removeByPrefixWrapperMethod}() { await ${removeByPrefixOwnerMethod}(); }`
-    ].join('\n');
-    const legalRemoveMany = inspectFactWrapperContract(legalOwners, removeManyOwnerMethod, removeManyWrapperMethod);
-    const legalRemoveByPrefix = inspectFactWrapperContract(legalOwners, removeByPrefixOwnerMethod, removeByPrefixWrapperMethod);
-    if (
-        legalRemoveMany.owners.length !== 1
-        || legalRemoveMany.wrappers.length !== 0
-        || legalRemoveMany.forwarders.length !== 0
-        || legalRemoveMany.identifierPresent
-        || legalRemoveByPrefix.owners.length !== 1
-        || legalRemoveByPrefix.wrappers.length !== 0
-        || legalRemoveByPrefix.forwarders.length !== 0
-        || legalRemoveByPrefix.identifierPresent
-    )
+    const sources = new Map();
+    for (const [testPath] of factWrapperContracts)
     {
-        fail('UnifiedCache wrapper scanner must accept both independent owner facts');
+        if (sources.has(testPath))
+        {
+            continue;
+        }
+        requireFile(testPath);
+        sources.set(testPath, readFileSync(resolve(root, testPath), 'utf8'));
     }
-    for (const [ownerMethod, wrapperMethod, fixture] of [
-        [removeManyOwnerMethod, removeManyWrapperMethod, illegalRemoveManyWrapper],
-        [removeByPrefixOwnerMethod, removeByPrefixWrapperMethod, illegalRemoveByPrefixWrapper]
-    ])
+
+    for (const [testPath, ownerMethod, wrapperMethod] of factWrapperContracts)
     {
-        const illegal = inspectFactWrapperContract(fixture, ownerMethod, wrapperMethod);
+        verifyFactWrapperDeleted(testPath, sources.get(testPath), ownerMethod, wrapperMethod);
+        const legalOwner = `[Fact] public async Task ${ownerMethod}() { Assert.True(true); }`;
+        const legal = inspectFactWrapperContract(legalOwner, ownerMethod, wrapperMethod);
+        if (legal.owners.length !== 1 || legal.wrappers.length !== 0 || legal.forwarders.length !== 0 || legal.identifierPresent)
+        {
+            fail(`Fact wrapper scanner must accept the independent owner ${ownerMethod}`);
+        }
+
+        const illegalFixture = [
+            legalOwner,
+            `[Fact] public async Task ${wrapperMethod}() { await ${ownerMethod}(); }`
+        ].join('\n');
+        const illegal = inspectFactWrapperContract(illegalFixture, ownerMethod, wrapperMethod);
         if (illegal.wrappers.length !== 1 || illegal.forwarders.length !== 1 || !illegal.identifierPresent)
         {
-            fail(`UnifiedCache wrapper scanner must reject a [Fact] that only awaits ${ownerMethod}`);
+            fail(`Fact wrapper scanner must reject a [Fact] that only awaits ${ownerMethod}`);
         }
     }
 }
@@ -852,7 +852,7 @@ for (const path of [
 
 verifyBackendTestPathGovernance();
 verifyEnvironmentVariableGovernance();
-verifyUnifiedCacheWrappersDeleted();
+verifyFactWrappersDeleted();
 
 if (errors.length > 0)
 {
