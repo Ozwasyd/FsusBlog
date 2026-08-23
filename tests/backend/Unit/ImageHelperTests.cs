@@ -249,14 +249,60 @@ public sealed class ImageHelperTests
         Assert.Contains("img1.jpg", result);
     }
 
-    [Fact]
-    public void GetFirstIllustration_SupportedExtensions_AllMatch()
+    [Theory]
+    [InlineData("jpg")]
+    [InlineData("jpeg")]
+    [InlineData("png")]
+    [InlineData("gif")]
+    [InlineData("webp")]
+    [InlineData("avif")]
+    [InlineData("svg")]
+    public void GetFirstIllustration_SupportedExtensions_ReturnExactUrl(string extension)
     {
-        foreach (string ext in new[] { "jpg", "jpeg", "png", "gif", "webp", "avif", "svg" })
-        {
-            string content = $"/uploads/illustration/cover.{ext}";
-            string? result = ImageHelper.GetFirstIllustration(content);
-            Assert.NotNull(result);
-        }
+        string expected = $"/uploads/illustration/cover.{extension}";
+        string content = $"noise before {expected}; noise after";
+
+        Assert.Equal(expected, ImageHelper.GetFirstIllustration(content));
+    }
+
+    [Theory]
+    [InlineData("JpG")]
+    [InlineData("WebP")]
+    [InlineData("SVG")]
+    public void GetFirstIllustration_MixedCaseExtensions_PreserveOriginalUrl(string extension)
+    {
+        string expected = $"/uploads/illustration/MixedCaseCover.{extension}";
+
+        Assert.Equal(expected, ImageHelper.GetFirstIllustration($"prefix {expected} suffix"));
+    }
+
+    [Theory]
+    [InlineData("cover.bmp")]
+    [InlineData("cover.tiff")]
+    [InlineData("cover.exe")]
+    [InlineData("cover")]
+    public void GetFirstIllustration_UnsupportedExtensions_ReturnNull(string fileName)
+    {
+        string content = $"/uploads/illustration/{fileName}";
+
+        Assert.Null(ImageHelper.GetFirstIllustration(content));
+    }
+
+    [Fact]
+    public void GetFirstIllustration_UnsupportedBeforeSupported_ReturnsFirstSupportedUrl()
+    {
+        const string Expected = "/uploads/illustration/actual-cover.avif";
+        string content = $"ignored /uploads/illustration/unsupported.bmp then {Expected}";
+
+        Assert.Equal(Expected, ImageHelper.GetFirstIllustration(content));
+    }
+
+    [Fact]
+    public void GetFirstIllustration_AllowedFileNameCharacters_StopAtAdjacentContent()
+    {
+        const string Expected = "/uploads/illustration/cover photo-(draft)[v2].PNG";
+        string content = $"before ({Expected}), next /uploads/illustration/second.jpg.";
+
+        Assert.Equal(Expected, ImageHelper.GetFirstIllustration(content));
     }
 }
