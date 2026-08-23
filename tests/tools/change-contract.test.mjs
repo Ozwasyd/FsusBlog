@@ -598,6 +598,44 @@ test('runtime environment exception atomically binds the canonical projection an
     assert.ok(expanded.some((error) => error.includes('exactly match all changed registered naming surfaces')))
 })
 
+test('acceptance secret exception atomically binds the bootstrap producer and runtime collector', () => {
+    const title = 'fix(test): generate valid acceptance keys'
+    const changedFiles = [
+        'tools/bootstrap-acceptance-env.sh',
+        'tools/test/bundles/runtime-environment.mjs'
+    ]
+    const body = pullRequestBody({
+        type: 'fix',
+        externalNaming: true,
+        audience: 'internal',
+        category: 'Internal/Tooling',
+        summary: 'generate valid acceptance keys',
+        externalExceptionId: 'acceptance-secret-runtime-environment',
+        externalExceptionPaths: changedFiles.join(', '),
+        externalExceptionReason: 'keep the same run-bound secret environment keys atomic across their bootstrap producer and sole runtime collector'
+    })
+    assert.deepEqual(validatePrContract({
+        title,
+        body,
+        labels: ['release-note:internal'],
+        actor: 'maintainer',
+        changedFiles,
+        root,
+        authorityRoot: root
+    }), [])
+
+    const expanded = validatePrContract({
+        title,
+        body,
+        labels: ['release-note:internal'],
+        actor: 'maintainer',
+        changedFiles: [...changedFiles, 'tools/test/another-secret-owner.mjs'],
+        root,
+        authorityRoot: root
+    })
+    assert.ok(expanded.some((error) => error.includes('exactly match all changed registered naming surfaces')))
+})
+
 test('performance claim binds one perf commit and the exact evidence blobs', () => {
     const repository = mkdtempSync(join(tmpdir(), 'fsusblog-performance-pr-'))
     execFileSync('git', ['init', '-q'], { cwd: repository })
