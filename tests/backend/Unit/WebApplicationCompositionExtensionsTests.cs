@@ -739,13 +739,6 @@ public sealed class WebApplicationCompositionExtensionsTests
     }
 
     [Fact]
-    public async Task PublicAotHtmlFastPath_SourceAvoidsStringContentAndPerRequestUtf8Encode()
-    {
-        await PublicAotHtmlFastPath_PrefersBrotliVariantAndWritesPreencodedBytes();
-        await PublicAotHtmlFastPath_ProbeCapturesBytesLatencyAndAllocationShape();
-    }
-
-    [Fact]
     public async Task PublicAotHtmlFastPath_ProbeCapturesBytesLatencyAndAllocationShape()
     {
         string html = string.Concat("<!doctype html><html><body>", string.Concat(Enumerable.Repeat("public-aot-byte-artifact ", 512)), "</body></html>");
