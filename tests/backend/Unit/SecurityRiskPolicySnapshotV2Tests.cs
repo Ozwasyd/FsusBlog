@@ -212,9 +212,12 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
         Assert.Equal("sha256PowV1", low.ChallengeKind);
         Assert.Equal(["sha256PowV1"], low.RequiredChallengeKinds);
         Assert.Equal(SecurityRiskPolicyOutcomes.HardChallenge, high.Outcome);
-        Assert.Equal(["perceptionLocalizationV2", "sha256PowV1"], high.RequiredChallengeKinds);
+        Assert.Equal(["argon2idPoSpaceV1"], high.RequiredChallengeKinds);
         Assert.Equal(SecurityRiskPolicyOutcomes.HardChallenge, critical.Outcome);
         Assert.Equal(["argon2idPoSpaceV1"], critical.RequiredChallengeKinds);
+        Assert.Equal(
+            ["sha256PowV1"],
+            snapshot.Evaluate(RiskActionNames.NotificationSubscribe, 40).RequiredChallengeKinds);
         Assert.True(snapshot.ResolveActionPolicy(RiskActionNames.NotificationSubscribe).AnonymousWriteAllowed);
     }
 
@@ -230,6 +233,26 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
         Assert.Equal("perceptionCharacterV3", decision.ChallengeKind);
         Assert.Equal(["perceptionCharacterV3"], decision.RequiredChallengeKinds);
         Assert.Equal(1, decision.EscalationLevel);
+    }
+
+    [Fact]
+    public void LegacyAdapter_DisabledCharacterProviderUsesCanonicalPowFallback()
+    {
+        SecurityRiskPolicySnapshotV2 snapshot = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(
+            CreateLegacySnapshot(),
+            perceptionCharacterV3Enabled: false);
+
+        Assert.Equal(
+            ["sha256PowV1"],
+            snapshot.Evaluate(RiskActionNames.RecoveryKeyVerify, 0).RequiredChallengeKinds);
+        Assert.Equal(
+            ["sha256PowV1"],
+            snapshot.Evaluate(RiskActionNames.AuthLogin, 40).RequiredChallengeKinds);
+        Assert.DoesNotContain(
+            snapshot.ActionOverrides.Values.Prepend(snapshot.DefaultAction)
+                .SelectMany(static action => action.DecisionBands)
+                .SelectMany(static band => band.ChallengeKinds),
+            static kind => string.Equals(kind, "perceptionCharacterV3", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -281,6 +304,27 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
         Assert.Equal(SecuritySystemModes.Disabled, snapshot.ResolveActionPolicy(RiskActionNames.PublicRead).ModeOverride);
         Assert.Equal(SecuritySystemModes.Disabled, snapshot.ResolveActionPolicy(RiskActionNames.CommentCreate).ModeOverride);
         Assert.Equal(SecuritySystemModes.Disabled, snapshot.ResolveActionPolicy(RiskActionNames.AuthLogin).ModeOverride);
+    }
+
+    [Fact]
+    public void SecurityAdminPolicyService_DerivesOnlyRuntimeEnabledCharacterChallenges()
+    {
+        SecurityAdminPolicyService disabled = new(CreateConfiguration());
+        SecurityAdminPolicyService enabled = new(CreateConfiguration(new Dictionary<string, string?>
+        {
+            ["Security:PerceptionCharacterV3:Enabled"] = SecuritySystemModes.Enforce
+        }));
+
+        Assert.Equal(
+            ["sha256PowV1"],
+            disabled.CurrentRiskPolicyV2
+                .Evaluate(RiskActionNames.RecoveryKeyVerify, 0)
+                .RequiredChallengeKinds);
+        Assert.Equal(
+            ["perceptionCharacterV3"],
+            enabled.CurrentRiskPolicyV2
+                .Evaluate(RiskActionNames.RecoveryKeyVerify, 0)
+                .RequiredChallengeKinds);
     }
 
     [Fact]

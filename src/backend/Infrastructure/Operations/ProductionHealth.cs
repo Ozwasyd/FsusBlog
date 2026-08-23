@@ -929,7 +929,8 @@ public sealed class ProductionReadinessProbe(
                 action.ActionName,
                 SecurityChallengeCapabilityCatalog.ResolveMode(action.ActionName),
                 providerAvailable: true);
-            if (!capability.PolicyEligible)
+            if (!capability.PolicyEligible
+                && !RiskActionRegistry.UsesSpecializedStepUp(action.ActionName, parsed))
             {
                 return false;
             }

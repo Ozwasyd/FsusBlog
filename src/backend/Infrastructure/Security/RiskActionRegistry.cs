@@ -1,3 +1,5 @@
+using FsusBlog.Shared.Contracts.Security;
+
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 
@@ -142,6 +144,14 @@ public sealed class RiskActionRegistry
     /// Gets the validated registry containing the platform's built-in risk actions.
     /// </summary>
     public static RiskActionRegistry Default { get; } = Create(DefaultActions());
+
+    /// <summary>
+    /// Identifies challenge policies completed by an action-specific handoff instead
+    /// of the generic challenge executor and host registry.
+    /// </summary>
+    public static bool UsesSpecializedStepUp(string actionName, SecurityChallengeKind kind)
+        => string.Equals(actionName, RiskActionNames.AdminSecurityWrite, StringComparison.Ordinal)
+            && kind == SecurityChallengeKind.AdminPasskeyStepUpV1;
 
     /// <summary>
     /// Gets the registered action definitions.
