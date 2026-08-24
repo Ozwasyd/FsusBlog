@@ -1533,6 +1533,7 @@ tiers:
           - docs/architecture/release-storage-lifecycle.md
           - tests/backend/Unit/ActiveReleaseFenceContractTests.cs
           - tests/backend/Unit/SecurityHardening
+          - tests/backend/Unit/SecurityHardening/PublicResponseCompressionPolicyTests.cs
           - tests/backend/Unit/EndpointPolicyContractTests.cs
           - tests/backend/Unit/AuthRiskControlEndpointContractTests.cs
           - tests/backend/Unit/AdminPrincipalSecurityContractTests.cs
