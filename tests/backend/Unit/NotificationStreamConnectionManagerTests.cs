@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Collections.Concurrent;
 
 using FsusBlog.Server.Infrastructure.NotificationStream;
@@ -696,17 +697,33 @@ public class SharedNotificationStreamFrameExtendedTests
     }
 
     [Fact]
-    public void Retain_ThenRelease_DoesNotReturnToPool()
+    public void FromOwnedBuffer_RetainDefersPoolReturnUntilFinalRelease()
     {
-        Exception? error = Record.Exception(() =>
-        {
-            var frame = SharedNotificationStreamFrame.FromArray([1, 2, 3]);
-            frame.Retain();  // refcount = 2
-            frame.Release(); // refcount = 1, no return
-            frame.Release(); // refcount = 0, return
-        });
+        var pool = new TrackingArrayPool();
+        byte[] buffer = pool.Rent(3);
+        buffer[0] = 1;
+        buffer[1] = 2;
+        buffer[2] = 3;
+        SharedNotificationStreamFrame frame =
+            SharedNotificationStreamFrame.FromOwnedBuffer(buffer, 3, pool);
 
-        Assert.Null(error);
+        Assert.Equal(1, pool.RentCount);
+        Assert.Equal(3, pool.MinimumLength);
+
+        frame.Retain();
+        frame.Release();
+
+        Assert.Equal(0, pool.ReturnCount);
+        Assert.Equal([1, 2, 3], frame.Memory.ToArray());
+
+        frame.Release();
+
+        Assert.Equal(1, pool.ReturnCount);
+        Assert.Same(buffer, pool.ReturnedBuffer);
+        Assert.True(pool.ClearArray);
+        Assert.All(buffer, static value => Assert.Equal(0, value));
+        Assert.Throws<InvalidOperationException>(() => frame.Release());
+        Assert.Equal(1, pool.ReturnCount);
     }
 
     [Fact]
@@ -727,5 +744,51 @@ public class SharedNotificationStreamFrameExtendedTests
         frame.Release();
 
         Assert.Throws<ObjectDisposedException>(() => frame.Retain());
+    }
+
+    private sealed class TrackingArrayPool : ArrayPool<byte>
+    {
+        public int RentCount
+        {
+            get; private set;
+        }
+
+        public int MinimumLength
+        {
+            get; private set;
+        }
+
+        public int ReturnCount
+        {
+            get; private set;
+        }
+
+        public byte[]? ReturnedBuffer
+        {
+            get; private set;
+        }
+
+        public bool ClearArray
+        {
+            get; private set;
+        }
+
+        public override byte[] Rent(int minimumLength)
+        {
+            RentCount++;
+            MinimumLength = minimumLength;
+            return new byte[Math.Max(1, minimumLength)];
+        }
+
+        public override void Return(byte[] array, bool clearArray = false)
+        {
+            ReturnCount++;
+            ReturnedBuffer = array;
+            ClearArray = clearArray;
+            if (clearArray)
+            {
+                Array.Clear(array);
+            }
+        }
     }
 }
