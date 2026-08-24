@@ -670,7 +670,7 @@
     {
       "id": "BACKEND-AUDIT-GOLDEN",
       "risk": "medium",
-      "coverage": "audit payload stability and no password/token/secret leakage",
+      "coverage": "audit payload stability and no password/token/secret leakage, including one 23-case ZK-sensitive property owner with 16 exact-name and 7 substring diagnostics",
       "evidencePaths": [
         "tests/backend/Unit/AuditLogEventMapperTests.cs",
         "tests/backend/Unit/AuditAndNormalizerTests.cs",

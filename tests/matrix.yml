@@ -1578,6 +1578,7 @@ tiers:
           - docs/testing/issue-1045-anonymous-identity-behavior-handoff.md
           - docs/testing/issue-1046-risk-control-behavior-handoff.md
           - docs/testing/issue-1047-projection-serialization-handoff.md
+          - tests/backend/Unit/AuditLogEventMapperTests.cs
           - tests/backend/Unit/AuditProjectionBehaviorTests.cs
           - tests/backend/Unit/AuditTamperEvidenceBehaviorTests.cs
           - tests/backend/Unit/AuditFallbackWriterBehaviorTests.cs
