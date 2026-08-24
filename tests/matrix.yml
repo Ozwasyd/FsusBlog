@@ -1516,6 +1516,7 @@ tiers:
           - tests/backend/Unit/DeploymentRuntimeStateTests.cs
           - tests/backend/Unit/NotificationStreamBoundaryTests.cs
           - tests/backend/Unit/NotificationStreamConnectionManagerTests.cs
+          - src/backend/Infrastructure/NotificationStream/NotificationStreamConnectionManager.cs
           - src/backend/Infrastructure/NotificationStream/NotificationStreamFrame.cs
           - tests/backend/Unit/OnlineSchemaMigrationPolicyTests.cs
           - tests/backend/Unit/OnlineSchemaMigrationCompatibilityTests.cs
