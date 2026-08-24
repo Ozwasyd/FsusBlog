@@ -785,19 +785,20 @@
         },
         {
             "id": "backend-fault-race-readiness",
-            "description": "Backend Fault Race Readiness is covered by runtime artifacts that exercise the named behavior.",
+            "description": "Backend fault and race readiness combines runtime fault artifacts with executable persistence, crawler-range and notification-stream behavior, including the exact unconfigured 256/257 frame-capacity boundary.",
             "owner": "ServerContractAgent",
             "risk": "high",
             "evidencePaths": [
                 ".tmp/backend-concurrency/summary.json",
                 "tests/backend/Fixtures/backend-test-requirements.json",
+                "tests/backend/Unit/NotificationStreamConnectionManagerTests.cs",
                 "tests/backend/Unit/SecurityChallengePersistenceTests.cs",
                 "tests/backend/Unit/AuthoringUserBanConcurrencyTests.cs",
                 "tests/backend/Unit/CrawlerRangeSyncBehaviorTests.cs"
             ],
             "assertionType": "runtime",
-            "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-            "minimumRequirement": "Runtime summary evidence must include a success or explicit non-success status with concrete measured fields or reasoned unavailable fields.",
+            "failClosedRule": "Reject missing runtime fault evidence, missing executable behavior owners, or a notification-stream default-capacity owner that does not enqueue 256 frames, reject the 257th for the frame budget, and release every transferred retain.",
+            "minimumRequirement": "Runtime summary evidence must retain concrete fault outcomes, while the referenced unit owners must execute real state transitions; the notification-stream owner must use an unconfigured manager and observable queue, close-reason and ownership results.",
             "tierIds": [
                 "backend-concurrency",
                 "backend-unit",
