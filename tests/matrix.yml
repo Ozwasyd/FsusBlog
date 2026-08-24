@@ -6836,6 +6836,7 @@ tiers:
       artifacts: [.tmp/security/perception-v2/pr]
       evidence:
           [
+              tests/security/perception-v2/perception-harness.test.mjs,
               .tmp/security/perception-v2/pr/perception-v2-report.json,
               .tmp/security/perception-v2/pr/perception-v2-report.md,
           ]

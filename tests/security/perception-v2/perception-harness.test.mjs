@@ -9,6 +9,50 @@ import {
     runPerceptionBenchmark
 } from '../../../benchmarks/security/perception-v2/perception-harness.mjs';
 
+const rateFields = [
+  'humanSuccessRate',
+  'botSingleTrySuccessRate',
+  'botThreeAttemptSuccessRate'
+];
+const fourDecimalRoundingTolerance = 1e-4;
+
+function assertProbability(value, label) {
+  assert.equal(Number.isFinite(value), true, `${label} must be finite`);
+  assert.ok(value >= 0 && value <= 1, `${label} must be within [0, 1]`);
+}
+
+function assertGroupRateAggregation(report, expectedSampleCount) {
+  const groupIdentities = new Set();
+  const weightedRateTotals = Object.fromEntries(rateFields.map((field) => [field, 0]));
+  let groupedSampleCount = 0;
+
+  assert.equal(report.totals.sampleCount, expectedSampleCount);
+  for (const field of rateFields) {
+    assertProbability(report.metrics[field], `report.metrics.${field}`);
+  }
+
+  for (const group of report.groups) {
+    const identity = JSON.stringify([group.taskKind, group.family, group.variant]);
+    assert.equal(groupIdentities.has(identity), false, `duplicate group identity: ${identity}`);
+    groupIdentities.add(identity);
+    groupedSampleCount += group.sampleCount;
+
+    for (const field of rateFields) {
+      assertProbability(group[field], `group ${identity}.${field}`);
+      weightedRateTotals[field] += group[field] * group.sampleCount;
+    }
+  }
+
+  assert.equal(groupedSampleCount, report.totals.sampleCount);
+  for (const field of rateFields) {
+    const weightedRate = weightedRateTotals[field] / groupedSampleCount;
+    assert.ok(
+      Math.abs(weightedRate - report.metrics[field]) <= fourDecimalRoundingTolerance,
+      `${field} weighted group rate ${weightedRate} must match global rate ${report.metrics[field]}`
+    );
+  }
+}
+
 test('prompt builder preserves supported-kind goldens and rejects unknown kinds', () =>
 {
     assert.equal(
@@ -58,7 +102,8 @@ test('benchmark report aggregates by task kind, family, and variant without prod
   });
 
   assert.equal(report.profile, 'pr');
-  assert.equal(report.totals.sampleCount, 90);
+  assert.equal(report.status, 'pass');
+  assert.deepEqual(report.failures, []);
   assert.equal(report.environment.productionDatabaseRequired, false);
   assert.ok(report.metrics.issueP99Ms > 0);
     assert.ok(report.metrics.clientRenderP95Ms > 0);
@@ -72,11 +117,58 @@ test('benchmark report aggregates by task kind, family, and variant without prod
     assert.ok(group.family);
     assert.ok(group.variant);
     assert.ok(group.sampleCount > 0);
-    assert.ok(group.humanSuccessRate >= 0);
-    assert.ok(group.botSingleTrySuccessRate >= 0);
-    assert.ok(group.botThreeAttemptSuccessRate >= 0);
     assert.ok(group.medianSolveTimeMs > 0);
   }
+
+  assertGroupRateAggregation(report, 90);
+});
+
+test('group rate aggregation oracle rejects invalid probabilities and denominators', () => {
+  const report = runPerceptionBenchmark({
+    dataset: generateSyntheticDataset({ seed: 521, samples: 90 }),
+    profile: 'pr',
+    generatedAt: '2026-06-19T00:00:00.000Z',
+    thresholds: createDefaultThresholds('pr')
+  });
+
+  for (const invalidRate of [1.01, Number.NaN, Number.POSITIVE_INFINITY, -0.01]) {
+    const invalidGroupReport = structuredClone(report);
+    invalidGroupReport.groups[0].humanSuccessRate = invalidRate;
+    assert.throws(
+      () => assertGroupRateAggregation(invalidGroupReport, 90),
+      /must be (?:finite|within \[0, 1\])/
+    );
+
+    const invalidGlobalReport = structuredClone(report);
+    invalidGlobalReport.metrics.botSingleTrySuccessRate = invalidRate;
+    assert.throws(
+      () => assertGroupRateAggregation(invalidGlobalReport, 90),
+      /must be (?:finite|within \[0, 1\])/
+    );
+  }
+
+  const duplicateIdentityReport = structuredClone(report);
+  duplicateIdentityReport.groups[1].taskKind = duplicateIdentityReport.groups[0].taskKind;
+  duplicateIdentityReport.groups[1].family = duplicateIdentityReport.groups[0].family;
+  duplicateIdentityReport.groups[1].variant = duplicateIdentityReport.groups[0].variant;
+  assert.throws(
+    () => assertGroupRateAggregation(duplicateIdentityReport, 90),
+    /duplicate group identity/
+  );
+
+  const invalidDenominatorReport = structuredClone(report);
+  invalidDenominatorReport.groups[0].sampleCount += 1;
+  assert.throws(
+    () => assertGroupRateAggregation(invalidDenominatorReport, 90),
+    /Expected values to be strictly equal/
+  );
+
+  const invalidAggregateReport = structuredClone(report);
+  invalidAggregateReport.groups[0].botThreeAttemptSuccessRate += 0.01;
+  assert.throws(
+    () => assertGroupRateAggregation(invalidAggregateReport, 90),
+    /weighted group rate/
+  );
 });
 
 test('benchmark produces configurable regression failures when solver success rises', () => {
