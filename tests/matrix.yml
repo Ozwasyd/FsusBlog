@@ -4,7 +4,7 @@ governance:
     retention:
         baseline: tests/test-retention-before.json
         replacementLedger: tests/test-retention-replacements.json
-        postBaselines: [tests/admin-inline-empty-state-retirement-baseline.json, tests/ci-local-matrix-retirement-baseline.json, tests/lightweight-acceptance-baseline.json, tests/service-composition-registration-baseline.json, tests/test-asset-lifecycle-retirement-baseline.json, tests/test-governance-modernization-baseline.json]
+        postBaselines: [tests/admin-inline-empty-state-retirement-baseline.json, tests/ci-local-matrix-retirement-baseline.json, tests/lightweight-acceptance-baseline.json, tests/service-composition-registration-baseline.json, tests/test-asset-lifecycle-retirement-baseline.json, tests/test-governance-modernization-baseline.json, tests/timing-policy-retirement-baseline.json]
         auditOutput: .tmp/release-evidence/test-retention-audit.json
         automaticDeletion: false
     sourceLocking:
@@ -2395,6 +2395,9 @@ tiers:
           - tests/tools/public-aot-warm-evidence.test.mjs
           - tests/tools/release-rollout-bundle.test.mjs
           - tools/deployment/release-resource-probe.mjs
+          - tests/tools/support/timing-policy.mjs
+          - tests/tools/timing-policy.test.mjs
+          - tests/timing-policy-retirement-baseline.json
           - tests/tools/release-rollout-probes.test.mjs
           - tools/deployment/release-traffic-probe.mjs
           - tools/deployment/release-traffic-evidence-verify.mjs
