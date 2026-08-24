@@ -3532,7 +3532,7 @@
         },
         {
             "id": "backend-security-hardening-boundary-and-ast",
-            "description": "Backend security hardening is owned by executable boundary suites and one fixture-backed Roslyn analyzer for canonical paths, input limits, cryptography, disclosure and uploads.",
+            "description": "Backend security hardening is owned by five executable boundary suites, one 15-path fail-closed response-compression TestServer suite and one fixture-backed Roslyn analyzer.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
@@ -3543,8 +3543,8 @@
                 "tests/test-retention-replacements.json"
             ],
             "assertionType": "integration",
-            "failClosedRule": "Reject missing behavior suites, missing positive and negative analyzer fixtures, incomplete 19-ID replacement mapping or any repository analyzer diagnostic.",
-            "minimumRequirement": "Five behavior boundaries and the fixture-backed analyzer must jointly cover canonical paths, limits, cryptography, disclosure and upload policy with all diagnostics retained.",
+            "failClosedRule": "Reject missing behavior suites, missing response-compression path/category evidence, compressed protected or response-sensitive output, missing positive and negative analyzer fixtures, incomplete 19-ID replacement mapping or any repository analyzer diagnostic.",
+            "minimumRequirement": "Five behavior boundaries, the fixture-backed analyzer and one response-compression TestServer owner must jointly cover canonical paths, limits, cryptography, disclosure and upload policy plus 7 protected/personalized/binary and 8 response-header/status/media cases, retaining all diagnostics.",
             "tierIds": [
                 "backend-unit",
                 "static-governance",

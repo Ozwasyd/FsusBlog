@@ -586,7 +586,7 @@
     {
       "id": "BACKEND-SECURITY-MATRIX",
       "risk": "critical",
-      "coverage": "admin-only, binary endpoint auth, banned/deleted, MFA partial token, replay, CORS, oversized bodies, production blank and unverified bot/spider User-Agent rejection responses and risk side effects",
+      "coverage": "admin-only, binary endpoint auth, banned/deleted, MFA partial token, replay, CORS, oversized bodies, production blank and unverified bot/spider User-Agent rejection responses and risk side effects, plus one 15-case TestServer response-compression fail-closed owner with 7 protected/personalized/binary and 8 header/status/media paths",
       "evidencePaths": [
         "tools/security/check-security-matrices.mjs",
         "tests/frontend/checks/security/check-permission-matrix.mjs",
@@ -597,6 +597,7 @@
         "tests/backend/Unit/SecurityHardening/CryptographyBoundaryTests.cs",
         "tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs",
         "tests/backend/Unit/SecurityHardening/UploadBoundaryTests.cs",
+        "tests/backend/Unit/SecurityHardening/PublicResponseCompressionPolicyTests.cs",
         "tests/backend/Unit/EndpointPolicyContractTests.cs",
         "tests/backend/Unit/AuthRiskControlEndpointContractTests.cs",
         "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",

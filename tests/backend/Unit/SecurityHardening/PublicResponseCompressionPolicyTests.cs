@@ -89,20 +89,31 @@ public sealed class PublicResponseCompressionPolicyTests
     }
 
     [Theory]
-    [InlineData("/unmarked")]
-    [InlineData("/account/profile")]
-    [InlineData("/admin/panel")]
-    [InlineData("/auth/login")]
-    [InlineData("/notification")]
-    [InlineData("/binary")]
-    [InlineData("/logged-in")]
-    public async Task TestServer_ProtectedPersonalizedAndBinaryBoundariesNeverCompress(string path)
+    [InlineData("protected-personalized-binary", "/unmarked")]
+    [InlineData("protected-personalized-binary", "/account/profile")]
+    [InlineData("protected-personalized-binary", "/admin/panel")]
+    [InlineData("protected-personalized-binary", "/auth/login")]
+    [InlineData("protected-personalized-binary", "/notification")]
+    [InlineData("protected-personalized-binary", "/binary")]
+    [InlineData("protected-personalized-binary", "/logged-in")]
+    [InlineData("response-header-status-media", "/set-cookie")]
+    [InlineData("response-header-status-media", "/private-cache")]
+    [InlineData("response-header-status-media", "/private-field-cache")]
+    [InlineData("response-header-status-media", "/no-store")]
+    [InlineData("response-header-status-media", "/no-cache-field")]
+    [InlineData("response-header-status-media", "/vary-cookie")]
+    [InlineData("response-header-status-media", "/reflected-error?value=secret")]
+    [InlineData("response-header-status-media", "/html-with-nonce")]
+    public async Task TestServer_FailClosedBoundariesNeverCompress(string boundaryKind, string path)
     {
         await using CompressionTestSite site = await CompressionTestSite.CreateAsync();
 
         using HttpResponseMessage response = await site.SendAsync(path, configure: null);
 
-        Assert.Empty(response.Content.Headers.ContentEncoding);
+        Assert.True(
+            response.Content.Headers.ContentEncoding.Count == 0,
+            $"{boundaryKind}/{path}: expected an identity response but received "
+            + string.Join(", ", response.Content.Headers.ContentEncoding));
     }
 
     [Fact]
@@ -142,24 +153,6 @@ public sealed class PublicResponseCompressionPolicyTests
             method: HttpMethod.Post);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Empty(response.Content.Headers.ContentEncoding);
-    }
-
-    [Theory]
-    [InlineData("/set-cookie")]
-    [InlineData("/private-cache")]
-    [InlineData("/private-field-cache")]
-    [InlineData("/no-store")]
-    [InlineData("/no-cache-field")]
-    [InlineData("/vary-cookie")]
-    [InlineData("/reflected-error?value=secret")]
-    [InlineData("/html-with-nonce")]
-    public async Task TestServer_ResponseHeadersStatusAndMediaTypeFailClosed(string path)
-    {
-        await using CompressionTestSite site = await CompressionTestSite.CreateAsync();
-
-        using HttpResponseMessage response = await site.SendAsync(path, configure: null);
-
         Assert.Empty(response.Content.Headers.ContentEncoding);
     }
 

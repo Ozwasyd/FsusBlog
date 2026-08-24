@@ -10843,6 +10843,22 @@
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
         {
+            "id": "xunit:tests/backend/Unit/SecurityHardening/PublicResponseCompressionPolicyTests.cs#PublicResponseCompressionPolicyTests.TestServer_ProtectedPersonalizedAndBinaryBoundariesNeverCompress",
+            "path": "tests/backend/Unit/SecurityHardening/PublicResponseCompressionPolicyTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/SecurityHardening/PublicResponseCompressionPolicyTests.cs#PublicResponseCompressionPolicyTests.TestServer_FailClosedBoundariesNeverCompress"
+            ],
+            "reason": "The single TestServer Theory preserves all 7 protected, personalized and binary paths under the stable protected-personalized-binary label with path-specific identity-response diagnostics."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/SecurityHardening/PublicResponseCompressionPolicyTests.cs#PublicResponseCompressionPolicyTests.TestServer_ResponseHeadersStatusAndMediaTypeFailClosed",
+            "path": "tests/backend/Unit/SecurityHardening/PublicResponseCompressionPolicyTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/SecurityHardening/PublicResponseCompressionPolicyTests.cs#PublicResponseCompressionPolicyTests.TestServer_FailClosedBoundariesNeverCompress"
+            ],
+            "reason": "The single TestServer Theory preserves all 8 response header, status and media paths under the stable response-header-status-media label with path-specific identity-response diagnostics."
+        },
+        {
             "id": "xunit:tests/backend/Unit/SecurityModerationHotPathContractTests.cs#SecurityModerationHotPathContractTests.ContentFilterReload_AvoidsDictionaryCopyingAndUsesFrozenCategories",
             "path": "tests/backend/Unit/SecurityModerationHotPathContractTests.cs",
             "replacementTestIds": [
