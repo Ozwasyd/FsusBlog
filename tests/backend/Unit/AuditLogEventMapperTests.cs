@@ -183,23 +183,30 @@ public sealed class AuditLogEventMapperTests
     }
 
     [Theory]
-    [InlineData("Proof")]
-    [InlineData("Groth16Proof")]
-    [InlineData("NullifierHash")]
-    [InlineData("Nullifier")]
-    [InlineData("RawNullifier")]
-    [InlineData("CredentialSecret")]
-    [InlineData("CredentialCommitment")]
-    [InlineData("CredentialWitness")]
-    [InlineData("CredentialRequest")]
-    [InlineData("IssuerSignature")]
-    [InlineData("IssuerResponse")]
-    [InlineData("Credential")]
-    [InlineData("UserId")]
-    [InlineData("InternalUserId")]
-    [InlineData("AccountId")]
-    [InlineData("AdminPrincipalId")]
-    public void Map_DropsZkSensitiveAuditContextPropertiesByExactName(string propertyName)
+    [InlineData("exact-name", "Proof")]
+    [InlineData("exact-name", "Groth16Proof")]
+    [InlineData("exact-name", "NullifierHash")]
+    [InlineData("exact-name", "Nullifier")]
+    [InlineData("exact-name", "RawNullifier")]
+    [InlineData("exact-name", "CredentialSecret")]
+    [InlineData("exact-name", "CredentialCommitment")]
+    [InlineData("exact-name", "CredentialWitness")]
+    [InlineData("exact-name", "CredentialRequest")]
+    [InlineData("exact-name", "IssuerSignature")]
+    [InlineData("exact-name", "IssuerResponse")]
+    [InlineData("exact-name", "Credential")]
+    [InlineData("exact-name", "UserId")]
+    [InlineData("exact-name", "InternalUserId")]
+    [InlineData("exact-name", "AccountId")]
+    [InlineData("exact-name", "AdminPrincipalId")]
+    [InlineData("substring", "comment_proof_payload")]
+    [InlineData("substring", "anonymousNullifierValue")]
+    [InlineData("substring", "credential_commitment_hex")]
+    [InlineData("substring", "credential-secret-bytes")]
+    [InlineData("substring", "credential.witness.payload")]
+    [InlineData("substring", "issuer_signature_compact")]
+    [InlineData("substring", "credentialRequestPayload")]
+    public void Map_DropsZkSensitiveAuditContextProperties(string matchKind, string propertyName)
     {
         var mapper = new AuditLogEventMapper();
         LogEvent logEvent = CreateLogEvent(
@@ -214,37 +221,15 @@ public sealed class AuditLogEventMapperTests
 
         Assert.NotNull(record);
         IReadOnlyDictionary<string, object?> context = DecodeContext(record!);
-        Assert.Equal("safe-trace", context["SafeTrace"]);
-        Assert.DoesNotContain(propertyName, context.Keys);
-        Assert.DoesNotContain($"secret-{propertyName}", FlattenContext(context), StringComparer.Ordinal);
-    }
-
-    [Theory]
-    [InlineData("comment_proof_payload")]
-    [InlineData("anonymousNullifierValue")]
-    [InlineData("credential_commitment_hex")]
-    [InlineData("credential-secret-bytes")]
-    [InlineData("credential.witness.payload")]
-    [InlineData("issuer_signature_compact")]
-    [InlineData("credentialRequestPayload")]
-    public void Map_DropsZkSensitiveAuditContextPropertiesBySubstring(string propertyName)
-    {
-        var mapper = new AuditLogEventMapper();
-        LogEvent logEvent = CreateLogEvent(
-            DateTimeOffset.UtcNow,
-            LogEventLevel.Information,
-            "zk audit event",
-            null,
-            new LogEventProperty("SafeTrace", new ScalarValue("safe-trace")),
-            new LogEventProperty(propertyName, new ScalarValue($"secret-{propertyName}")));
-
-        AuditRecord? record = mapper.Map(logEvent);
-
-        Assert.NotNull(record);
-        IReadOnlyDictionary<string, object?> context = DecodeContext(record!);
-        Assert.Equal("safe-trace", context["SafeTrace"]);
-        Assert.DoesNotContain(propertyName, context.Keys);
-        Assert.DoesNotContain($"secret-{propertyName}", FlattenContext(context), StringComparer.Ordinal);
+        Assert.True(
+            string.Equals("safe-trace", context["SafeTrace"] as string, StringComparison.Ordinal),
+            $"{matchKind}/{propertyName}: SafeTrace was not preserved exactly.");
+        Assert.True(
+            !context.ContainsKey(propertyName),
+            $"{matchKind}/{propertyName}: sensitive property key remained in the audit context.");
+        Assert.True(
+            !FlattenContext(context).Contains($"secret-{propertyName}", StringComparer.Ordinal),
+            $"{matchKind}/{propertyName}: sensitive property value remained in the flattened audit context.");
     }
 
     [Fact]

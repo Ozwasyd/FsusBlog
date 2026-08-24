@@ -6715,6 +6715,22 @@
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
         {
+            "id": "xunit:tests/backend/Unit/AuditLogEventMapperTests.cs#AuditLogEventMapperTests.Map_DropsZkSensitiveAuditContextPropertiesByExactName",
+            "path": "tests/backend/Unit/AuditLogEventMapperTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AuditLogEventMapperTests.cs#AuditLogEventMapperTests.Map_DropsZkSensitiveAuditContextProperties"
+            ],
+            "reason": "The single mapper Theory preserves all 16 exact-name cases under the stable exact-name label while retaining exact SafeTrace and sensitive key/value assertions."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AuditLogEventMapperTests.cs#AuditLogEventMapperTests.Map_DropsZkSensitiveAuditContextPropertiesBySubstring",
+            "path": "tests/backend/Unit/AuditLogEventMapperTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AuditLogEventMapperTests.cs#AuditLogEventMapperTests.Map_DropsZkSensitiveAuditContextProperties"
+            ],
+            "reason": "The single mapper Theory preserves all 7 substring cases under the stable substring label while retaining exact SafeTrace and sensitive key/value assertions."
+        },
+        {
             "id": "xunit:tests/backend/Unit/AuditPipelineHotPathContractTests.cs#AuditPipelineHotPathContractTests.AuditContextJsonSerializer_DecodesBinaryPayloadWithoutReflectionJson",
             "path": "tests/backend/Unit/AuditPipelineHotPathContractTests.cs",
             "replacementTestIds": [

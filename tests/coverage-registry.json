@@ -3820,17 +3820,18 @@
         },
         {
             "id": "backend-audit-behavior",
-            "description": "Audit projection, tamper evidence and fallback persistence preserve structured identities, disclosure modes, invariant chains and durable records through failures.",
+            "description": "Audit mapping drops all 23 exact-name and substring ZK-sensitive context properties while retaining safe fields; projection, tamper evidence and fallback persistence preserve structured identities, disclosure modes, invariant chains and durable records through failures.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
+                "tests/backend/Unit/AuditLogEventMapperTests.cs",
                 "tests/backend/Unit/AuditProjectionBehaviorTests.cs",
                 "tests/backend/Unit/AuditTamperEvidenceBehaviorTests.cs",
                 "tests/backend/Unit/AuditFallbackWriterBehaviorTests.cs"
             ],
             "assertionType": "unit",
-            "failClosedRule": "Reject missing durable security events, weak or truncated MACs, culture-dependent chain identities, unintended disclosure or fallback loss after a store failure.",
-            "minimumRequirement": "Projection, tamper and fallback suites must execute canonical serialization, chain verification, disclosure and durable write behavior.",
+            "failClosedRule": "Reject any retained ZK-sensitive property key or value, removed safe trace, missing case category, missing durable security event, weak or truncated MAC, culture-dependent chain identity, unintended disclosure or fallback loss after a store failure.",
+            "minimumRequirement": "The single audit mapper Theory must execute 16 exact-name and 7 substring cases with stable category diagnostics, exact SafeTrace retention and sensitive key/value removal; projection, tamper and fallback suites must execute canonical serialization, chain verification, disclosure and durable write behavior.",
             "tierIds": [
                 "backend-unit",
                 "integration",
