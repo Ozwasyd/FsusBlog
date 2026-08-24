@@ -3435,7 +3435,7 @@
         },
         {
             "id": "atomic-idempotent-upload-commit",
-            "description": "Invalid initialization returns exact validation codes and reasons without creating session, manifest, expiration-index or temporary artifacts; multipart and direct uploads publish complete files atomically, make retries idempotent and clean only leased instance-local temporary candidates.",
+            "description": "Invalid initialization returns exact validation codes and reasons without creating session, manifest, expiration-index or temporary artifacts; valid WebP, JPEG and ICO initialization persists exact normalized session metadata in an isolated storage topology; multipart and direct uploads publish complete files atomically, make retries idempotent and clean only leased instance-local temporary candidates.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
@@ -3444,7 +3444,7 @@
             ],
             "assertionType": "unit",
             "failClosedRule": "Reject partial final files, duplicate commits, cross-instance temporary cleanup, nonexclusive cleanup leases or retention-window violations.",
-            "minimumRequirement": "Executable upload lifecycle tests must cover all five named invalid initialization cases with exact failures and zero filesystem side effects, multipart retry, direct commit, atomic finalization, lease exclusion and exact cleanup candidate selection.",
+            "minimumRequirement": "Executable upload lifecycle tests must cover all five named invalid initialization cases with exact failures and zero filesystem side effects, all three named valid-format cases with exact manifest metadata and isolated storage, multipart retry, direct commit, atomic finalization, lease exclusion and exact cleanup candidate selection.",
             "tierIds": [
                 "backend-unit",
                 "backend-concurrency",

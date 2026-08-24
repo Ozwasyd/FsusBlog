@@ -8436,6 +8436,30 @@
             "reason": "The named zero-total-bytes row preserves the exact validation code and reason while adding zero session, manifest, expiration-index and temporary-file side-effect proof."
         },
         {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.InitUploadAsync_ValidIcoRequest_ReturnsSuccess",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.InitUploadAsync_ValidFormat_CreatesExpectedSession"
+            ],
+            "reason": "The named ico row preserves the valid initialization path while adding exact normalized manifest metadata, storage topology, absence of derived format artifacts and run-owned cleanup proof."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.InitUploadAsync_ValidJpegRequest_ReturnsSuccess",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.InitUploadAsync_ValidFormat_CreatesExpectedSession"
+            ],
+            "reason": "The named jpeg-jpg row preserves the valid initialization path while adding exact normalized manifest metadata, storage topology, absence of derived format artifacts and run-owned cleanup proof."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.InitUploadAsync_ValidWebpRequest_ReturnsSuccess",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.InitUploadAsync_ValidFormat_CreatesExpectedSession"
+            ],
+            "reason": "The named webp row preserves the valid initialization path while adding exact normalized manifest metadata, storage topology, absence of derived format artifacts and run-owned cleanup proof."
+        },
+        {
             "id": "xunit:tests/backend/Unit/FileUploadStorageHardeningContractTests.cs#FileUploadStorageHardeningContractTests.KestrelRequestBodyLimit_CoversDeclaredUploadLimit",
             "path": "tests/backend/Unit/FileUploadStorageHardeningContractTests.cs",
             "replacementTestIds": [

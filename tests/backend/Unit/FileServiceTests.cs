@@ -1265,72 +1265,175 @@ public sealed class FileServiceTests
         }
     }
 
-    [Fact]
-    public async Task InitUploadAsync_ValidWebpRequest_ReturnsSuccess()
+    public static TheoryData<string, string, string, string, string, string, long, int, int>
+        ValidUploadInitFormatCases
     {
-        string root = CreateTempDirectory();
-        try
+        get
         {
-            var svc = CreateService(root);
-            var result = await svc.InitUploadSessionAsync(new UploadInitRequestDto
+            var cases = new TheoryData<string, string, string, string, string, string, long, int, int>
             {
-                FileName = "photo.webp",
-                MimeType = "image/webp",
-                TargetFormat = "webp",
-                TotalBytes = 200,
-                ChunkSize = 200
-            });
-            Assert.True(result.IsSuccess);
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
+                {
+                    "webp",
+                    "photo.webp",
+                    "image/webp",
+                    "webp",
+                    ".webp",
+                    "webp",
+                    200,
+                    200,
+                    64 * 1024
+                },
+                {
+                    "jpeg-jpg",
+                    "photo.jpg",
+                    "image/jpeg",
+                    "jpg",
+                    ".jpg",
+                    "jpg",
+                    200,
+                    200,
+                    64 * 1024
+                },
+                {
+                    "ico",
+                    "favicon.ico",
+                    "image/x-icon",
+                    "ico",
+                    ".ico",
+                    "ico",
+                    200,
+                    200,
+                    64 * 1024
+                }
+            };
+            if (cases.Count != 3)
+            {
+                throw new InvalidOperationException(
+                    "The valid upload initialization format inventory must contain exactly three cases.");
+            }
+
+            return cases;
         }
     }
 
-    [Fact]
-    public async Task InitUploadAsync_ValidJpegRequest_ReturnsSuccess()
+    [Theory]
+    [MemberData(nameof(ValidUploadInitFormatCases))]
+    public async Task InitUploadAsync_ValidFormat_CreatesExpectedSession(
+        string caseName,
+        string fileName,
+        string mimeType,
+        string targetFormat,
+        string expectedExtension,
+        string expectedNormalizedFormat,
+        long totalBytes,
+        int requestedChunkSize,
+        int expectedChunkSize)
     {
         string root = CreateTempDirectory();
         try
         {
-            var svc = CreateService(root);
-            var result = await svc.InitUploadSessionAsync(new UploadInitRequestDto
+            ReleaseStoragePaths storagePaths = CreateStoragePaths(root);
+            var svc = new FileService(storagePaths, NullLogger<FileService>.Instance);
+            Result<UploadInitDto> result = await svc.InitUploadSessionAsync(1, new UploadInitRequestDto
             {
-                FileName = "photo.jpg",
-                MimeType = "image/jpeg",
-                TargetFormat = "jpg",
-                TotalBytes = 200,
-                ChunkSize = 200
+                FileName = fileName,
+                MimeType = mimeType,
+                TargetFormat = targetFormat,
+                TotalBytes = totalBytes,
+                ChunkSize = requestedChunkSize
             });
-            Assert.True(result.IsSuccess);
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
-    }
 
-    [Fact]
-    public async Task InitUploadAsync_ValidIcoRequest_ReturnsSuccess()
-    {
-        string root = CreateTempDirectory();
-        try
-        {
-            var svc = CreateService(root);
-            var result = await svc.InitUploadSessionAsync(new UploadInitRequestDto
-            {
-                FileName = "favicon.ico",
-                MimeType = "image/x-icon",
-                TargetFormat = "ico",
-                TotalBytes = 200,
-                ChunkSize = 200
-            });
-            Assert.True(result.IsSuccess);
+            Assert.True(result.IsSuccess, $"Valid upload case '{caseName}' failed: {result.Error.Message}");
+            UploadInitDto session = Assert.IsType<UploadInitDto>(result.Value);
+            Assert.True(
+                Guid.TryParseExact(session.UploadId, "N", out _)
+                && string.Equals(session.UploadId, session.UploadId.ToLowerInvariant(), StringComparison.Ordinal),
+                $"Valid upload case '{caseName}' returned malformed upload ID '{session.UploadId}'.");
+            Assert.False(
+                string.IsNullOrWhiteSpace(session.UploadToken),
+                $"Valid upload case '{caseName}' returned an empty upload token.");
+            Assert.Equal(expectedExtension, Path.GetExtension(fileName));
+            Assert.Equal(fileName, session.FileName);
+            Assert.Equal(mimeType, session.MimeType);
+            Assert.Equal(expectedNormalizedFormat, session.TargetFormat);
+            Assert.Equal(totalBytes, session.TotalBytes);
+            Assert.Equal(expectedChunkSize, session.ChunkSize);
+            Assert.Equal(1, session.TotalParts);
+
+            string sessionPath = GetSessionPath(root, session.UploadId);
+            string manifestPath = GetManifestPath(root, session.UploadId);
+            Assert.True(
+                Directory.Exists(sessionPath),
+                $"Valid upload case '{caseName}' did not create its session root.");
+            Assert.True(
+                File.Exists(manifestPath),
+                $"Valid upload case '{caseName}' did not persist its manifest.");
+
+            UploadSessionRecord record = await ReadManifestAsync(root, session.UploadId);
+            Assert.Equal(session.UploadId, record.UploadId);
+            Assert.Equal(1, record.OwnerAdminPrincipalId);
+            Assert.Equal(fileName, record.FileName);
+            Assert.Equal(mimeType, record.MimeType);
+            Assert.Equal(expectedNormalizedFormat, record.TargetFormat);
+            Assert.Equal(totalBytes, record.TotalBytes);
+            Assert.Equal(expectedChunkSize, record.ChunkSize);
+            Assert.Equal(1, record.TotalParts);
+            Assert.Null(record.Sha256);
+            Assert.Equal("pending", record.Status);
+            Assert.Equal("upload.tmp", record.WorkingFileName);
+            Assert.Equal(0, record.UploadedBytes);
+            Assert.True(record.UploadedParts is null or { Count: 0 });
+            Assert.Equal(Convert.ToBase64String(new byte[] { 0 }), record.UploadedPartBitmapBase64);
+            Assert.Equal(0, record.ManifestCheckpointPartCount);
+            Assert.Equal(session.ExpiresAt, record.ExpiresAt);
+            Assert.True(record.CreatedAt < record.ExpiresAt);
+
+            string[] sessionRootDirectories = Directory.GetDirectories(storagePaths.UploadSessionRoot)
+                .Select(Path.GetFileName)
+                .Order(StringComparer.Ordinal)
+                .ToArray()!;
+            string[] expectedSessionRootDirectories = new[] { "expires", session.UploadId }
+                .Order(StringComparer.Ordinal)
+                .ToArray();
+            Assert.Equal(expectedSessionRootDirectories, sessionRootDirectories);
+            Assert.Equal(
+                new[] { "expiration.bucket", "manifest.aeds", "parts.bitmap", "upload.tmp" },
+                Directory.GetFiles(sessionPath)
+                    .Select(Path.GetFileName)
+                    .Order(StringComparer.Ordinal)
+                    .ToArray());
+            Assert.Equal(
+                new[] { "parts" },
+                Directory.GetDirectories(sessionPath)
+                    .Select(Path.GetFileName)
+                    .ToArray());
+            Assert.Empty(Directory.GetFileSystemEntries(Path.Combine(sessionPath, "parts")));
+            Assert.Equal(totalBytes, new FileInfo(GetWorkingFilePath(root, session.UploadId)).Length);
+            Assert.Equal(
+                session.ExpiresAt.ToUniversalTime().ToString("yyyyMMddHH", CultureInfo.InvariantCulture),
+                await File.ReadAllTextAsync(Path.Combine(sessionPath, "expiration.bucket")));
+            Assert.Single(GetExpirationIndexFiles(root, session.UploadId));
+
+            string[] formatArtifacts = Directory.GetFileSystemEntries(sessionPath, "*", SearchOption.AllDirectories)
+                .Where(path => new[] { ".webp", ".jpg", ".jpeg", ".ico" }.Contains(
+                    Path.GetExtension(path),
+                    StringComparer.OrdinalIgnoreCase))
+                .ToArray();
+            Assert.True(
+                formatArtifacts.Length == 0,
+                $"Valid upload case '{caseName}' created a format-derived artifact before content upload.");
+            Assert.DoesNotContain(
+                Directory.GetDirectories(sessionPath, "*", SearchOption.AllDirectories),
+                path => Path.HasExtension(path));
         }
         finally
         {
-            Directory.Delete(root, recursive: true);
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+
+            Assert.False(Directory.Exists(root), $"Valid upload case '{caseName}' leaked its temporary root.");
         }
     }
 
