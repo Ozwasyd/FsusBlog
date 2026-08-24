@@ -5,17 +5,17 @@ namespace FsusBlog.Server.Infrastructure.NotificationStream;
 public sealed class SharedNotificationStreamFrame
 {
     private readonly byte[] _buffer;
-    private readonly bool _pooled;
+    private readonly ArrayPool<byte>? _pool;
     // Ownership invariant: a frame starts with one owner. Publishers Retain once per fan-out
     // target, and the target queue must either consume that retain on success or Release it
     // on reject. The pooled buffer is returned only at zero.
     private int _refCount;
 
-    private SharedNotificationStreamFrame(byte[] buffer, int length, bool pooled)
+    private SharedNotificationStreamFrame(byte[] buffer, int length, ArrayPool<byte>? pool)
     {
         _buffer = buffer;
         Length = length;
-        _pooled = pooled;
+        _pool = pool;
         _refCount = 1;
     }
 
@@ -28,9 +28,20 @@ public sealed class SharedNotificationStreamFrame
 
     internal ReadOnlyMemory<byte> BufferMemory => _buffer.AsMemory(0, Length);
 
-    public static SharedNotificationStreamFrame FromOwnedBuffer(byte[] buffer, int length) => new(buffer, length, pooled: true);
+    public static SharedNotificationStreamFrame FromOwnedBuffer(byte[] buffer, int length)
+        => FromOwnedBuffer(buffer, length, ArrayPool<byte>.Shared);
 
-    public static SharedNotificationStreamFrame FromArray(byte[] buffer) => new(buffer, buffer.Length, pooled: false);
+    internal static SharedNotificationStreamFrame FromOwnedBuffer(
+        byte[] buffer,
+        int length,
+        ArrayPool<byte> pool)
+    {
+        ArgumentNullException.ThrowIfNull(pool);
+        return new SharedNotificationStreamFrame(buffer, length, pool);
+    }
+
+    public static SharedNotificationStreamFrame FromArray(byte[] buffer)
+        => new(buffer, buffer.Length, pool: null);
 
     public void Retain()
     {
@@ -62,9 +73,9 @@ public sealed class SharedNotificationStreamFrame
             return;
         }
 
-        if (_pooled)
+        if (_pool is not null)
         {
-            ArrayPool<byte>.Shared.Return(_buffer, clearArray: true);
+            _pool.Return(_buffer, clearArray: true);
         }
     }
 }

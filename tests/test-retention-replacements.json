@@ -11719,6 +11719,14 @@
             "reason": "The weak registration-only default-capacity test is replaced by an unconfigured manager that accepts 256 one-byte frames, rejects the 257th specifically for the frame budget, proves transferred-retain release and drains every queued frame."
         },
         {
+            "id": "xunit:tests/backend/Unit/NotificationStreamConnectionManagerTests.cs#SharedNotificationStreamFrameExtendedTests.Retain_ThenRelease_DoesNotReturnToPool",
+            "path": "tests/backend/Unit/NotificationStreamConnectionManagerTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/NotificationStreamConnectionManagerTests.cs#SharedNotificationStreamFrameExtendedTests.FromOwnedBuffer_RetainDefersPoolReturnUntilFinalRelease"
+            ],
+            "reason": "The zero-oracle FromArray test is replaced by a tracking-pool owner that proves the first release preserves the payload, the final release returns the same buffer exactly once with clearArray=true, and over-release cannot return it twice."
+        },
+        {
             "id": "vitest:tests/frontend/e2e/public-article-reading-layout.spec.ts#viewport-width-px-theme-zoom-100-keeps-no-media-article--a355cf7b44",
             "path": "tests/frontend/e2e/public-article-reading-layout.spec.ts",
             "replacementTestIds": [
