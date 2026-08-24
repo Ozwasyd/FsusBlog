@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Reflection;
+using System.Runtime.Versioning;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -1874,13 +1875,10 @@ public sealed class FileServiceTests
     }
 
     [Fact]
+    [Trait("Platform", "Unix")]
+    [UnsupportedOSPlatform("windows")]
     public async Task DeleteOwnedExpirationIndex_IsExactO1WithoutBucketScan()
     {
-        if (OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
         ResetSessionLocks();
         string root = CreateTempDirectory();
         string expirationRoot = Path.Combine(CreateStoragePaths(root).UploadSessionRoot, "expires");
@@ -1899,7 +1897,9 @@ public sealed class FileServiceTests
             Assert.True(init.IsSuccess, init.Error.Message);
             string uploadId = init.Value!.UploadId;
             string ownerPath = Path.Combine(GetSessionPath(root, uploadId), "expiration.bucket");
+            Assert.True(File.Exists(ownerPath));
             string ownerBucket = (await File.ReadAllTextAsync(ownerPath)).Trim();
+            Assert.Matches("^[0-9]{10}$", ownerBucket);
 
             // Decoy index entries in other buckets must not be required for exact delete.
             string decoyBucket = Path.Combine(expirationRoot, "2099010100");

@@ -1497,16 +1497,21 @@ tiers:
       artifacts:
           [
               .tmp/backend-unit,
+              .tmp/backend-unit/platform-membership-plan.json,
+              .tmp/backend-unit/platform-membership-outcome.json,
               .tmp/test-results/backend/evidence-producers/backend-unit.json,
               .tmp/test-results/backend/integrity-proof-source.json,
           ]
       evidence:
           - .tmp/backend-unit/summary.json
+          - .tmp/backend-unit/platform-membership-plan.json
+          - .tmp/backend-unit/platform-membership-outcome.json
           - .tmp/test-results/backend/evidence-producers/backend-unit.json
           - .tmp/test-results/backend/integrity-proof-source.json
           - tests/backend/Fixtures/backend-test-requirements.json
           - tests/backend/Unit/FileServiceTests.cs
           - tools/test/backend-platform-selection.mjs
+          - tools/test/lanes/_suite-support.sh
           - tools/test/run-backend-production-shards.mjs
           - tools/check-backend-test-governance.mjs
           - tests/tools/backend-production-shards.test.mjs

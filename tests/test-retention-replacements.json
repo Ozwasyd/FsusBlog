@@ -11829,6 +11829,18 @@
                 "Assert.Equal(\"AEDS payload crc mismatch\", result.Error.Message)"
             ],
             "reason": "The same corrupted-payload test now verifies the complete CRC failure contract and is strictly stronger than the former substring assertion."
+        },
+        {
+            "before": "if (OperatingSystem.IsWindows()) { return; }",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.DeleteOwnedExpirationIndex_IsExactO1WithoutBucketScan"
+            ],
+            "after": [
+                "Assert.True(File.Exists(ownerPath))",
+                "Assert.Matches(\"^[0-9]{10}$\", ownerBucket)",
+                "Assert.Throws<UnauthorizedAccessException>(() => Directory.GetDirectories(expirationRoot))"
+            ],
+            "reason": "The exact-delete proof is selected by the canonical Unix plan, and a selected Unix run must make the expiration root non-enumerable instead of returning a fake Passed result."
         }
     ]
 }

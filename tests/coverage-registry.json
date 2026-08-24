@@ -3698,20 +3698,25 @@
         },
         {
             "id": "backend-unix-platform-membership",
-            "description": "Backend xUnit platform traits use one reusable planned-membership authority with Production discovery and fail-closed semantic outcomes.",
+            "description": "Backend xUnit Unix filesystem proofs use one Platform=Unix planned-membership authority across ordinary, CI and Production execution instead of returning Passed on Windows.",
             "owner": "ServerContractAgent",
             "risk": "high",
             "evidencePaths": [
                 "tools/test/backend-platform-selection.mjs",
+                "tools/test/lanes/_suite-support.sh",
                 "tools/test/run-backend-production-shards.mjs",
                 "tools/check-backend-test-governance.mjs",
                 "tests/tools/backend-production-shards.test.mjs",
+                "tests/backend/Unit/FileServiceTests.cs",
                 "tests/backend/Fixtures/platform-runtime-governance/planned-unix-test.fixture.cs.txt",
                 "tests/backend/Fixtures/platform-runtime-governance/missing-platform-trait.fixture.cs.txt",
-                "tests/backend/Fixtures/platform-runtime-governance/runtime-return.fixture.cs.txt"
+                "tests/backend/Fixtures/platform-runtime-governance/runtime-return.fixture.cs.txt",
+                "tests/backend/Fixtures/backend-test-requirements.json",
+                "tests/test-retention-replacements.json",
+                "docs/testing.md"
             ],
             "assertionType": "integration",
-            "failClosedRule": "Reject missing or unknown Platform metadata, Windows execution of Unix-only tests, Linux/macOS omission, raw Passed counters without an executed TRX row, or platform-specific runtime return.",
+            "failClosedRule": "Reject missing or unknown Platform metadata, multiple platform authorities, Windows execution of Unix-only tests, Linux/macOS omission, raw Passed counters without an executed TRX row, platform-specific runtime return, or divergence between ordinary, CI and Production filters.",
             "minimumRequirement": "The canonical plan must preserve VSTest test ID, fully-qualified name, source assembly and planned/not-selected state; Unix outcomes must bind one executed pass/fail row, while Windows must remain not-selected without an assertion-count claim.",
             "tierIds": [
                 "backend-unit"
