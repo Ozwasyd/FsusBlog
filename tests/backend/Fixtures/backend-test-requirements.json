@@ -940,7 +940,7 @@
     {
       "id": "BACKEND-CHAOS-TESTING",
       "risk": "medium",
-      "coverage": "Redis kill/restart, PostgreSQL reset/deadlock, disk full, notification stream slow consumer and exact default 256/257 frame-capacity boundary, clock skew",
+      "coverage": "Redis kill/restart, PostgreSQL reset/deadlock, disk full, notification stream slow consumer, exact default 256/257 frame-capacity boundary and pooled frame final-release ownership, clock skew",
       "evidencePaths": [
         "tests/backend/Fixtures/backend-test-requirements.json",
         "tests/backend/Unit/NotificationStreamConnectionManagerTests.cs",
