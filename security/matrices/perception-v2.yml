@@ -168,7 +168,7 @@ scenarios:
           - .tmp/security/perception-v2-test-matrix.json
 
     - id: PERCEPTION-V2-PERFORMANCE-BUDGETS
-      scenario: issue p99, verify p99, payload size and client render p95 budgets fail CI when exceeded
+      scenario: grouped rates stay bounded and aggregate consistently while issue p99, verify p99, payload size and client render p95 budgets fail CI when exceeded
       owner: ServerContractAgent
       status: automated
       validationClass: provider-only
@@ -183,6 +183,8 @@ scenarios:
               verify-p99,
               payload-size,
               client-render-p95,
+              group-rate-probability-bounds,
+              group-rate-weighted-aggregation,
               budget-ci-fail,
           ]
       code:

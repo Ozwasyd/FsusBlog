@@ -1659,16 +1659,17 @@
         },
         {
             "id": "perception-sealed-v2-redteam-pr",
-            "description": "Perception sealed v2 PR red-team regression is covered by deterministic synthetic solver benchmarks that fail when aggregate bot success rises above configured thresholds.",
+            "description": "Perception sealed v2 PR red-team regression is covered by deterministic synthetic solver benchmarks with finite bounded group/global rates and independently weighted group aggregation.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
+                "tests/security/perception-v2/perception-harness.test.mjs",
                 ".tmp/security/perception-v2/pr/perception-v2-report.json",
                 ".tmp/security/perception-v2/pr/perception-v2-report.md"
             ],
             "assertionType": "perf",
             "failClosedRule": "matrix-validate requires the PR red-team lane to emit JSON and Markdown reports, and the runner exits non-zero when configured solver, render, verify, payload, human-success or solve-time thresholds fail.",
-            "minimumRequirement": "The PR profile must cover localization and micro-interaction samples across family/variant groups without production database input, and must fail closed on significant bot single-try or three-attempt success regressions.",
+            "minimumRequirement": "The PR profile must prove finite [0,1] human/single-try/three-attempt rates for every unique task-kind/family/variant group and global metrics, exact 90-sample group totals, four-decimal weighted aggregation consistency, a passing empty-failure baseline, and fail-closed bot success regressions without production database input.",
             "tierIds": [
                 "perception-v2-redteam-pr"
             ]
