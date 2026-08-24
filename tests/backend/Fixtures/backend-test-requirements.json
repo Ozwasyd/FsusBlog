@@ -825,7 +825,7 @@
     {
       "id": "BACKEND-UPLOAD-ASSETS",
       "risk": "high",
-      "coverage": "MIME mismatch, content sniffing, huge/zero-byte, dedupe, orphan cleanup, path traversal",
+      "coverage": "named invalid initialization matrix with exact validation codes/reasons and zero filesystem side effects, MIME mismatch, content sniffing, huge/zero-byte, dedupe, orphan cleanup, path traversal",
       "evidencePaths": [
         "tests/backend/Unit/FileServiceTests.cs",
         "tests/backend/Unit/ReleaseStorageLifecycleTests.cs",

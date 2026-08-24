@@ -1129,118 +1129,139 @@ public sealed class FileServiceTests
 
     // ── InitUploadSessionAsync – validation guards ─────────────────────────────
 
-    [Fact]
-    public async Task InitUploadAsync_EmptyFileName_ReturnsFail()
+    public static TheoryData<string, string, string, string, long, int, ErrorCode, string>
+        InvalidUploadInitRequestCases
     {
-        string root = CreateTempDirectory();
-        try
+        get
         {
-            var svc = CreateService(root);
-            var result = await svc.InitUploadSessionAsync(new UploadInitRequestDto
+            var cases = new TheoryData<string, string, string, string, long, int, ErrorCode, string>
             {
-                FileName = "   ",
-                MimeType = "image/png",
-                TargetFormat = "png",
-                TotalBytes = 100,
-                ChunkSize = 100
-            });
-            Assert.False(result.IsSuccess);
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
+                {
+                    "blank-file-name",
+                    "   ",
+                    "image/png",
+                    "png",
+                    100,
+                    100,
+                    ErrorCode.Validation,
+                    "文件名不能为空"
+                },
+                {
+                    "zero-total-bytes",
+                    "test.png",
+                    "image/png",
+                    "png",
+                    0,
+                    100,
+                    ErrorCode.Validation,
+                    "图片大小超出限制"
+                },
+                {
+                    "unsupported-mime-format",
+                    "test.exe",
+                    "application/octet-stream",
+                    "exe",
+                    100,
+                    100,
+                    ErrorCode.Validation,
+                    "图片类型不支持"
+                },
+                {
+                    "avif-request",
+                    "photo.avif",
+                    "image/avif",
+                    "avif",
+                    100,
+                    100,
+                    ErrorCode.Validation,
+                    "图片类型不支持"
+                },
+                {
+                    "mismatched-mime-and-format",
+                    "test.png",
+                    "image/jpeg",
+                    "png",
+                    100,
+                    100,
+                    ErrorCode.Validation,
+                    "目标格式与 mimeType 不一致"
+                }
+            };
+            if (cases.Count != 5)
+            {
+                throw new InvalidOperationException(
+                    "The invalid upload initialization inventory must contain exactly five cases.");
+            }
+
+            return cases;
         }
     }
 
-    [Fact]
-    public async Task InitUploadAsync_ZeroTotalBytes_ReturnsFail()
+    [Theory]
+    [MemberData(nameof(InvalidUploadInitRequestCases))]
+    public async Task InitUploadAsync_InvalidRequest_ReturnsExpectedFailure(
+        string caseName,
+        string fileName,
+        string mimeType,
+        string targetFormat,
+        long totalBytes,
+        int chunkSize,
+        ErrorCode expectedErrorCode,
+        string expectedReason)
     {
         string root = CreateTempDirectory();
         try
         {
-            var svc = CreateService(root);
-            var result = await svc.InitUploadSessionAsync(new UploadInitRequestDto
+            ReleaseStoragePaths storagePaths = CreateStoragePaths(root);
+            var svc = new FileService(storagePaths, NullLogger<FileService>.Instance);
+            Result<UploadInitDto> result = await svc.InitUploadSessionAsync(1, new UploadInitRequestDto
             {
-                FileName = "test.png",
-                MimeType = "image/png",
-                TargetFormat = "png",
-                TotalBytes = 0,
-                ChunkSize = 100
+                FileName = fileName,
+                MimeType = mimeType,
+                TargetFormat = targetFormat,
+                TotalBytes = totalBytes,
+                ChunkSize = chunkSize
             });
-            Assert.False(result.IsSuccess);
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
-    }
 
-    [Fact]
-    public async Task InitUploadAsync_UnsupportedMimeType_ReturnsFail()
-    {
-        string root = CreateTempDirectory();
-        try
-        {
-            var svc = CreateService(root);
-            var result = await svc.InitUploadSessionAsync(new UploadInitRequestDto
-            {
-                FileName = "test.exe",
-                MimeType = "application/octet-stream",
-                TargetFormat = "exe",
-                TotalBytes = 100,
-                ChunkSize = 100
-            });
-            Assert.False(result.IsSuccess);
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
-    }
+            Assert.False(result.IsSuccess, $"Invalid upload case '{caseName}' unexpectedly succeeded.");
+            Assert.True(
+                result.Error.Code == expectedErrorCode,
+                $"Invalid upload case '{caseName}' returned {result.Error.Code}, expected {expectedErrorCode}.");
+            Assert.True(
+                string.Equals(result.Error.Message, expectedReason, StringComparison.Ordinal),
+                $"Invalid upload case '{caseName}' returned reason '{result.Error.Message}', expected '{expectedReason}'.");
 
-    [Fact]
-    public async Task InitUploadAsync_AvifRequest_ReturnsFail()
-    {
-        string root = CreateTempDirectory();
-        try
-        {
-            var svc = CreateService(root);
-            var result = await svc.InitUploadSessionAsync(new UploadInitRequestDto
-            {
-                FileName = "photo.avif",
-                MimeType = "image/avif",
-                TargetFormat = "avif",
-                TotalBytes = 100,
-                ChunkSize = 100
-            });
-            Assert.False(result.IsSuccess);
+            string expirationRoot = Path.Combine(storagePaths.UploadSessionRoot, "expires");
+            Assert.True(
+                Directory.Exists(expirationRoot),
+                $"Invalid upload case '{caseName}' removed the fixed expiration-index root.");
+            string[] sessionDirectories = Directory.GetDirectories(storagePaths.UploadSessionRoot)
+                .Where(path => !string.Equals(path, expirationRoot, StringComparison.Ordinal))
+                .ToArray();
+            Assert.True(
+                sessionDirectories.Length == 0,
+                $"Invalid upload case '{caseName}' created a session directory.");
+            Assert.True(
+                Directory.GetDirectories(expirationRoot).Length == 0,
+                $"Invalid upload case '{caseName}' created an expiration-index bucket.");
+            Assert.True(
+                Directory.GetFiles(root, "*", SearchOption.AllDirectories).Length == 0,
+                $"Invalid upload case '{caseName}' created a manifest, expiration index, or temporary file.");
+            Assert.False(
+                Directory.Exists(storagePaths.UploadCommitRoot),
+                $"Invalid upload case '{caseName}' created the upload commit root.");
+            Assert.False(
+                Directory.Exists(storagePaths.TempRoot),
+                $"Invalid upload case '{caseName}' created the temporary root.");
         }
         finally
         {
-            Directory.Delete(root, recursive: true);
-        }
-    }
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
 
-    [Fact]
-    public async Task InitUploadAsync_MismatchedMimeAndFormat_ReturnsFail()
-    {
-        string root = CreateTempDirectory();
-        try
-        {
-            var svc = CreateService(root);
-            var result = await svc.InitUploadSessionAsync(new UploadInitRequestDto
-            {
-                FileName = "test.png",
-                MimeType = "image/jpeg",
-                TargetFormat = "png",
-                TotalBytes = 100,
-                ChunkSize = 100
-            });
-            Assert.False(result.IsSuccess);
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
+            Assert.False(Directory.Exists(root), $"Invalid upload case '{caseName}' leaked its temporary root.");
         }
     }
 
