@@ -161,7 +161,9 @@ public class NotificationStreamConnectionManagerIntegrationTests
         int? queueCapacity = null,
         int? maxGlobalConnections = null,
         int? maxConnectionsPerIp = null,
-        int? maxConnectionsPerAccount = null)
+        int? maxConnectionsPerAccount = null,
+        long? queueByteCapacity = null,
+        int? queueMaximumAgeMs = null)
     {
         var values = new Dictionary<string, string?>();
         if (queueCapacity.HasValue)
@@ -182,6 +184,16 @@ public class NotificationStreamConnectionManagerIntegrationTests
         if (maxConnectionsPerAccount.HasValue)
         {
             values["NotificationStream:MaxConnectionsPerAccount"] = maxConnectionsPerAccount.ToString();
+        }
+
+        if (queueByteCapacity.HasValue)
+        {
+            values["NotificationStream:QueueByteCapacity"] = queueByteCapacity.ToString();
+        }
+
+        if (queueMaximumAgeMs.HasValue)
+        {
+            values["NotificationStream:QueueMaximumAgeMs"] = queueMaximumAgeMs.ToString();
         }
 
         var config = new ConfigurationBuilder()
@@ -579,19 +591,21 @@ public class NotificationStreamConnectionManagerIntegrationTests
     }
 
     [Fact]
-    public void QueueCapacity_TooLow_ClampsTo32()
+    public void QueueCapacity_ConfiguredBelowMinimum_Allows32AndRejects33rdFrame()
     {
-        var mgr = MakeManager(5);
-        var conn = mgr.RegisterConnection("conn1", null, []);
-        Assert.NotNull(conn);
+        AssertConfiguredQueueCapacityBoundary(
+            configuredCapacity: 5,
+            expectedCapacity: 32,
+            connectionId: "minimum-capacity");
     }
 
     [Fact]
-    public void QueueCapacity_TooHigh_ClampsTo4096()
+    public void QueueCapacity_ConfiguredAboveMaximum_Allows4096AndRejects4097thFrame()
     {
-        var mgr = MakeManager(99999);
-        var conn = mgr.RegisterConnection("conn1", null, []);
-        Assert.NotNull(conn);
+        AssertConfiguredQueueCapacityBoundary(
+            configuredCapacity: 99_999,
+            expectedCapacity: 4096,
+            connectionId: "maximum-capacity");
     }
 
     [Fact]
@@ -615,6 +629,77 @@ public class NotificationStreamConnectionManagerIntegrationTests
         connection.AcknowledgeDequeuedFrame();
         dequeued.Release();
         Assert.Throws<InvalidOperationException>(() => queued.Release());
+    }
+
+    private static void AssertConfiguredQueueCapacityBoundary(
+        int configuredCapacity,
+        int expectedCapacity,
+        string connectionId)
+    {
+        NotificationStreamConnectionManager manager = MakeManager(
+            queueCapacity: configuredCapacity,
+            queueByteCapacity: 64L * 1024 * 1024,
+            queueMaximumAgeMs: 300_000);
+        NotificationStreamConnection connection =
+            manager.RegisterConnection(connectionId, null, []);
+
+        try
+        {
+            for (int index = 0; index < expectedCapacity; index++)
+            {
+                SharedNotificationStreamFrame frame =
+                    SharedNotificationStreamFrame.FromArray([(byte)index]);
+                frame.Retain();
+                bool accepted = connection.TryEnqueue(frame);
+                frame.Release();
+
+                Assert.True(
+                    accepted,
+                    $"configured capacity {configuredCapacity} rejected frame {index + 1} before normalized boundary {expectedCapacity}");
+            }
+
+            Assert.Equal(expectedCapacity, connection.QueuedFrameCount);
+            Assert.Equal(expectedCapacity, connection.QueuedBytes);
+            Assert.False(connection.IsClosed);
+
+            SharedNotificationStreamFrame rejected =
+                SharedNotificationStreamFrame.FromArray([0xff]);
+            rejected.Retain();
+            bool overflowAccepted = connection.TryEnqueue(rejected);
+            rejected.Release();
+
+            Assert.False(
+                overflowAccepted,
+                $"configured capacity {configuredCapacity} accepted frame {expectedCapacity + 1} beyond normalized boundary {expectedCapacity}");
+            Assert.Equal(expectedCapacity, connection.QueuedFrameCount);
+            Assert.Equal(expectedCapacity, connection.QueuedBytes);
+            Assert.Equal(1, connection.DroppedCount);
+            Assert.True(connection.IsClosed);
+            Assert.EndsWith(
+                ":connection_frame_budget",
+                connection.CloseInstruction.Reason,
+                StringComparison.Ordinal);
+            Assert.Throws<InvalidOperationException>(() => rejected.Release());
+
+            for (int index = 0; index < expectedCapacity; index++)
+            {
+                Assert.True(connection.Reader.TryRead(out SharedNotificationStreamFrame? dequeued));
+                Assert.Equal((byte)index, dequeued.Memory.Span[0]);
+                connection.AcknowledgeDequeuedFrame();
+                dequeued.Release();
+                Assert.Throws<InvalidOperationException>(() => dequeued.Release());
+            }
+
+            Assert.False(connection.Reader.TryRead(out _));
+            Assert.Equal(0, connection.QueuedFrameCount);
+            Assert.Equal(0, connection.QueuedBytes);
+        }
+        finally
+        {
+            manager.RemoveConnection(connectionId);
+        }
+
+        Assert.Equal(0, manager.ConnectionCount);
     }
 }
 
