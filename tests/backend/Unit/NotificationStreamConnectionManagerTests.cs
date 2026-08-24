@@ -514,11 +514,65 @@ public class NotificationStreamConnectionManagerIntegrationTests
     }
 
     [Fact]
-    public void QueueCapacity_Default_Accepted()
+    public void QueueCapacity_Default_Allows256AndRejects257thFrame()
     {
-        var mgr = MakeManager();
-        var conn = mgr.RegisterConnection("conn1", null, []);
-        Assert.NotNull(conn);
+        const int DefaultQueueCapacity = 256;
+        NotificationStreamConnectionManager manager = MakeManager();
+        NotificationStreamConnection connection = manager.RegisterConnection("default-capacity", null, []);
+
+        try
+        {
+            for (int i = 0; i < DefaultQueueCapacity; i++)
+            {
+                SharedNotificationStreamFrame frame = SharedNotificationStreamFrame.FromArray([(byte)i]);
+                frame.Retain();
+                bool accepted = connection.TryEnqueue(frame);
+                frame.Release();
+
+                Assert.True(accepted, $"default queue rejected frame {i + 1} before its 256-frame boundary");
+            }
+
+            Assert.Equal(DefaultQueueCapacity, connection.QueuedFrameCount);
+            Assert.Equal(DefaultQueueCapacity, connection.QueuedBytes);
+            Assert.False(connection.IsClosed);
+
+            SharedNotificationStreamFrame rejected = SharedNotificationStreamFrame.FromArray([0xff]);
+            rejected.Retain();
+            bool overflowAccepted = connection.TryEnqueue(rejected);
+            rejected.Release();
+
+            Assert.False(overflowAccepted);
+            Assert.Equal(DefaultQueueCapacity, connection.QueuedFrameCount);
+            Assert.Equal(DefaultQueueCapacity, connection.QueuedBytes);
+            Assert.Equal(1, connection.DroppedCount);
+            Assert.True(connection.IsClosed);
+            Assert.EndsWith(":connection_frame_budget", connection.CloseInstruction.Reason, StringComparison.Ordinal);
+            Assert.Throws<InvalidOperationException>(() => rejected.Release());
+
+            for (int i = 0; i < DefaultQueueCapacity; i++)
+            {
+                Assert.True(connection.Reader.TryRead(out SharedNotificationStreamFrame? dequeued));
+                try
+                {
+                    Assert.Equal((byte)i, dequeued.Memory.Span[0]);
+                }
+                finally
+                {
+                    connection.AcknowledgeDequeuedFrame();
+                    dequeued.Release();
+                }
+            }
+
+            Assert.False(connection.Reader.TryRead(out _));
+            Assert.Equal(0, connection.QueuedFrameCount);
+            Assert.Equal(0, connection.QueuedBytes);
+        }
+        finally
+        {
+            manager.RemoveConnection("default-capacity");
+        }
+
+        Assert.Equal(0, manager.ConnectionCount);
     }
 
     [Fact]

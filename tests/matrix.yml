@@ -1515,6 +1515,7 @@ tiers:
           - docs/anonymous-identity-smoke-flow.md
           - tests/backend/Unit/DeploymentRuntimeStateTests.cs
           - tests/backend/Unit/NotificationStreamBoundaryTests.cs
+          - tests/backend/Unit/NotificationStreamConnectionManagerTests.cs
           - tests/backend/Unit/OnlineSchemaMigrationPolicyTests.cs
           - tests/backend/Unit/OnlineSchemaMigrationCompatibilityTests.cs
           - tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs
