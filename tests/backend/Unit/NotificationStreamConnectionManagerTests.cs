@@ -1,5 +1,7 @@
 using System.Buffers;
 using System.Collections.Concurrent;
+using System.Reflection;
+using System.Reflection.Emit;
 
 using FsusBlog.Server.Infrastructure.NotificationStream;
 
@@ -697,6 +699,32 @@ public class SharedNotificationStreamFrameExtendedTests
     }
 
     [Fact]
+    public void FromOwnedBuffer_PublicFactoryBindsSharedPool()
+    {
+        MethodInfo publicFactory = Assert.Single(
+            typeof(SharedNotificationStreamFrame)
+                .GetMethods(BindingFlags.Public | BindingFlags.Static),
+            static method =>
+            {
+                ParameterInfo[] parameters = method.GetParameters();
+                return method.Name == nameof(SharedNotificationStreamFrame.FromOwnedBuffer)
+                    && parameters.Length == 2
+                    && parameters[0].ParameterType == typeof(byte[])
+                    && parameters[1].ParameterType == typeof(int);
+            });
+        MethodInfo sharedGetter = typeof(ArrayPool<byte>)
+            .GetProperty(nameof(ArrayPool<byte>.Shared), BindingFlags.Public | BindingFlags.Static)!
+            .GetMethod!;
+
+        IReadOnlyList<MethodBase> callTargets = ResolveCallTargets(publicFactory);
+
+        Assert.Contains(
+            callTargets,
+            target => target.Module == sharedGetter.Module
+                && target.MetadataToken == sharedGetter.MetadataToken);
+    }
+
+    [Fact]
     public void FromOwnedBuffer_RetainDefersPoolReturnUntilFinalRelease()
     {
         var pool = new TrackingArrayPool();
@@ -790,5 +818,35 @@ public class SharedNotificationStreamFrameExtendedTests
                 Array.Clear(array);
             }
         }
+    }
+
+    private static IReadOnlyList<MethodBase> ResolveCallTargets(MethodInfo method)
+    {
+        byte[] body = method.GetMethodBody()?.GetILAsByteArray()
+            ?? throw new InvalidOperationException("Expected a managed method body.");
+        var targets = new List<MethodBase>();
+        for (int index = 0; index <= body.Length - sizeof(int) - 1; index++)
+        {
+            if (body[index] != (byte)OpCodes.Call.Value)
+            {
+                continue;
+            }
+
+            int token = BitConverter.ToInt32(body, index + 1);
+            try
+            {
+                MethodBase? target = method.Module.ResolveMethod(token);
+                if (target is not null)
+                {
+                    targets.Add(target);
+                }
+            }
+            catch (ArgumentException)
+            {
+                // A metadata token payload can contain the call opcode byte.
+            }
+        }
+
+        return targets;
     }
 }
