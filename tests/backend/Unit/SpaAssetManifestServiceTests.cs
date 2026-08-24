@@ -568,6 +568,8 @@ public sealed class SpaAssetManifestServiceTests
         int loadCount = 0;
         try
         {
+            var timeProvider = new ManualTimeProvider(
+                new DateTimeOffset(2026, 8, 11, 0, 0, 0, TimeSpan.Zero));
             WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
             var service = CreateService(
                 root,
@@ -580,11 +582,16 @@ public sealed class SpaAssetManifestServiceTests
                         loading.Set();
                         releaseLoad.Wait(TimeSpan.FromSeconds(2));
                     }
-                });
+                },
+                timeProvider: timeProvider);
             string readyVersion = service.GetFrontendAssetVersion();
 
-            Thread.Sleep(60);
-            Task<SpaAssetManifestReadiness> reload = Task.Run(service.GetReadiness);
+            timeProvider.Advance(TimeSpan.FromMilliseconds(50));
+            Task<SpaAssetManifestReadiness> reload = Task.Factory.StartNew(
+                service.GetReadiness,
+                CancellationToken.None,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default);
             Assert.True(loading.Wait(TimeSpan.FromSeconds(1)));
 
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
