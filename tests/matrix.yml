@@ -1500,6 +1500,7 @@ tiers:
           - .tmp/test-results/backend/evidence-producers/backend-unit.json
           - .tmp/test-results/backend/integrity-proof-source.json
           - tests/backend/Fixtures/backend-test-requirements.json
+          - tests/backend/Unit/FileServiceTests.cs
           - tests/backend/Unit/FsusHostRuntimeTuningTests.cs
           - tests/backend/Unit/PodBinaryCodecBatchAllocationTests.cs
           - tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs
