@@ -1,0 +1,11 @@
+[Fact]
+[Trait("Platform", "Unix")]
+public void FakeGreen()
+{
+    if (OperatingSystem.IsWindows())
+    {
+        return;
+    }
+
+    Assert.True(true);
+}

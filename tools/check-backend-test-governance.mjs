@@ -11,6 +11,7 @@ const requirementCatalogPath = 'tests/backend/Fixtures/backend-test-requirements
 const aedsCatalogPath = 'tests/backend/Fixtures/aeds-golden-catalog.json';
 const pathGovernanceFixtureDirectory = 'tests/backend/Fixtures/backend-test-path-governance';
 const environmentVariableGovernanceFixtureDirectory = 'tests/backend/Fixtures/environment-variable-governance';
+const platformRuntimeGovernanceFixtureDirectory = 'tests/backend/Fixtures/platform-runtime-governance';
 const environmentVariableCollectionPath = 'tests/backend/Fixtures/EnvironmentVariableCollection.cs';
 const approvedEnvironmentVariableMutationFiles = new Set([
     'tests/backend/Fixtures/ScopedEnvironmentVariables.cs'
@@ -451,6 +452,120 @@ function verifyEnvironmentVariableGovernance()
     }
 }
 
+function scanPlatformSpecificRuntimeReturns(relativePath, source)
+{
+    const masked = maskCSharpTrivia(source);
+    const violations = [];
+    const methodPattern =
+        /((?:\[[^\]\r\n]+\][ \t\r\n]*)+)(?:public\s+)?(?:async\s+)?(?:Task(?:<[^>]+>)?|ValueTask(?:<[^>]+>)?|void)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\([^)]*\)\s*\{/gu;
+    for (const match of masked.matchAll(methodPattern))
+    {
+        const attributes = source.slice(match.index, match.index + match[1].length);
+        const hasPlatformTrait = /\bTrait\s*\(\s*"Platform"\s*,/u.test(attributes);
+        const isDeclaredWindowsUnsupported =
+            /\bUnsupportedOSPlatform\s*\(\s*"windows"\s*\)/iu.test(attributes);
+        if (isDeclaredWindowsUnsupported && !hasPlatformTrait)
+        {
+            violations.push({
+                path: relativePath,
+                line: lineNumberForIndex(source, match.index),
+                rule: 'platform-membership-missing',
+                message: `${match[2]} declares Windows unsupported but has no Platform trait`
+            });
+        }
+        if (!hasPlatformTrait)
+        {
+            continue;
+        }
+        const openingIndex = match.index + match[0].lastIndexOf('{');
+        let depth = 0;
+        let closingIndex = masked.length;
+        for (let index = openingIndex; index < masked.length; index += 1)
+        {
+            if (masked[index] === '{')
+            {
+                depth += 1;
+            }
+            else if (masked[index] === '}')
+            {
+                depth -= 1;
+                if (depth === 0)
+                {
+                    closingIndex = index;
+                    break;
+                }
+            }
+        }
+        const body = masked.slice(openingIndex + 1, closingIndex);
+        const runtimeReturn = /\breturn\b/u.exec(body);
+        if (runtimeReturn)
+        {
+            const index = openingIndex + 1 + runtimeReturn.index;
+            violations.push({
+                path: relativePath,
+                line: lineNumberForIndex(source, index),
+                rule: 'platform-specific-runtime-return',
+                message: `${match[2]} must express platform membership through runner selection, not runtime return`
+            });
+        }
+    }
+    return violations;
+}
+
+function verifyPlatformRuntimeGovernance()
+{
+    const positiveFixture =
+        `${platformRuntimeGovernanceFixtureDirectory}/planned-unix-test.fixture.cs.txt`;
+    const negativeFixture =
+        `${platformRuntimeGovernanceFixtureDirectory}/runtime-return.fixture.cs.txt`;
+    const missingMembershipFixture =
+        `${platformRuntimeGovernanceFixtureDirectory}/missing-platform-trait.fixture.cs.txt`;
+    requireFile(positiveFixture);
+    requireFile(negativeFixture);
+    requireFile(missingMembershipFixture);
+    if (scanPlatformSpecificRuntimeReturns(
+        positiveFixture,
+        readFileSync(resolve(root, positiveFixture), 'utf8')
+    ).length !== 0)
+    {
+        fail('backend platform runtime governance rejected the planned Unix fixture');
+    }
+    const negative = scanPlatformSpecificRuntimeReturns(
+        negativeFixture,
+        readFileSync(resolve(root, negativeFixture), 'utf8')
+    );
+    if (negative.length !== 1 || negative[0].rule !== 'platform-specific-runtime-return')
+    {
+        fail('backend platform runtime governance must reject exactly one runtime-return fixture');
+    }
+    const missingMembership = scanPlatformSpecificRuntimeReturns(
+        missingMembershipFixture,
+        readFileSync(resolve(root, missingMembershipFixture), 'utf8')
+    );
+    if (missingMembership.length !== 1 || missingMembership[0].rule !== 'platform-membership-missing')
+    {
+        fail('backend platform runtime governance must reject exactly one missing-membership fixture');
+    }
+
+    const backendTestFiles = walk(
+        resolve(root, 'tests/backend'),
+        path => path.endsWith('.cs')
+    )
+        .map(path => ({ fullPath: path, relativePath: toRepoPath(path) }))
+        .sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+    for (const { fullPath, relativePath } of backendTestFiles)
+    {
+        const source = readFileSync(fullPath, 'utf8');
+        for (const violation of scanPlatformSpecificRuntimeReturns(relativePath, source))
+        {
+            fail(
+                `backend-platform-runtime-governance ${violation.path}:${violation.line} ` +
+                `${violation.rule}: ${violation.message}`
+            );
+        }
+    }
+}
+
 function extractFactMethods(source)
 {
     const masked = maskCSharpTrivia(source);
@@ -858,6 +973,7 @@ for (const path of [
 
 verifyBackendTestPathGovernance();
 verifyEnvironmentVariableGovernance();
+verifyPlatformRuntimeGovernance();
 verifyFactWrappersDeleted();
 
 if (errors.length > 0)

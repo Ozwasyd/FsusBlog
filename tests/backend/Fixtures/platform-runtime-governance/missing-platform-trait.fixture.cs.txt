@@ -1,0 +1,6 @@
+[Fact]
+[UnsupportedOSPlatform("windows")]
+public void MissingPlatformMembership()
+{
+    Assert.True(true);
+}

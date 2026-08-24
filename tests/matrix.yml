@@ -1440,6 +1440,10 @@ tiers:
               src/core,
               src/shared,
               tests/backend,
+              tests/tools/backend-production-shards.test.mjs,
+              tools/test/backend-platform-selection.mjs,
+              tools/test/run-backend-production-shards.mjs,
+              tools/check-backend-test-governance.mjs,
               tools/test/lanes/backend-unit.sh,
               tools/test/lanes,
           ]
@@ -1489,6 +1493,7 @@ tiers:
           - backend-risk-control-behavior
           - backend-projection-serialization-behavior
           - pod-binary-codec-batch-allocation
+          - backend-unix-platform-membership
       artifacts:
           [
               .tmp/backend-unit,
@@ -1501,6 +1506,13 @@ tiers:
           - .tmp/test-results/backend/integrity-proof-source.json
           - tests/backend/Fixtures/backend-test-requirements.json
           - tests/backend/Unit/FileServiceTests.cs
+          - tools/test/backend-platform-selection.mjs
+          - tools/test/run-backend-production-shards.mjs
+          - tools/check-backend-test-governance.mjs
+          - tests/tools/backend-production-shards.test.mjs
+          - tests/backend/Fixtures/platform-runtime-governance/planned-unix-test.fixture.cs.txt
+          - tests/backend/Fixtures/platform-runtime-governance/missing-platform-trait.fixture.cs.txt
+          - tests/backend/Fixtures/platform-runtime-governance/runtime-return.fixture.cs.txt
           - tests/backend/Unit/FsusHostRuntimeTuningTests.cs
           - tests/backend/Unit/PodBinaryCodecBatchAllocationTests.cs
           - tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs

@@ -4,6 +4,12 @@ import path from 'node:path';
 import test from 'node:test';
 
 import {
+    composeBackendPlatformFilter,
+    parseBackendPlatformTrx,
+    projectBackendPlatformPlan,
+    reconcileBackendPlatformOutcome
+} from '../../tools/test/backend-platform-selection.mjs';
+import {
     aggregateCategoryDiscoveryFailures,
     aggregatePartitionExecutionFailures,
     aggregateProductionDiscoveryFailures,
@@ -25,6 +31,7 @@ import {
     parseTrxExecutionEvidence,
     parseTrxRecords,
     parseTrxTimingEvidence,
+    projectProductionPlatformPlan,
     projectProductionUnionRecords,
     readManifestClassWideProductionExclusions,
     readBackendResourceGrantAfterBenchmark,
@@ -42,6 +49,20 @@ import {
 } from '../../tools/test/run-backend-production-shards.mjs';
 
 const root = path.resolve(import.meta.dirname, '../..');
+const unixPlatformTest = {
+    id: 'unix-id',
+    fullyQualifiedName: 'Example.Tests.Files.ExactDelete',
+    displayName: 'Example.Tests.Files.ExactDelete',
+    source: '/repo/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll',
+    traits: { Platform: ['Unix'] }
+};
+const portablePlatformTest = {
+    id: 'ordinary-id',
+    fullyQualifiedName: 'Example.Tests.Files.Portable',
+    displayName: 'Example.Tests.Files.Portable',
+    source: unixPlatformTest.source,
+    traits: {}
+};
 
 test('backend production discovery normalizes theory cases to one filterable method', () =>
 {
@@ -134,6 +155,182 @@ test('backend authoritative VSTest discovery aligns exactly with the console uni
         ...records,
         { displayName: 'Example.Tests.Integration.Case', traits: { Category: ['Integration', 'Concurrency'] } }
     ]), records);
+});
+
+test('one backend platform authority excludes Unix on Windows and plans it on Linux and macOS', () =>
+{
+    const windows = projectBackendPlatformPlan([unixPlatformTest, portablePlatformTest], 'win32', {
+        baseFilter: 'Category!=Integration',
+        lane: 'backend-unit'
+    });
+    assert.equal(windows.executionFilter, '(Category!=Integration)&Platform!=Unix');
+    assert.equal(windows.plannedTestCaseCount, 1);
+    assert.equal(windows.notSelectedTestCaseCount, 1);
+    assert.deepEqual(windows.platformTests, [{
+        testId: 'unix-id',
+        fullyQualifiedName: unixPlatformTest.fullyQualifiedName,
+        displayName: unixPlatformTest.displayName,
+        source: unixPlatformTest.source,
+        assembly: 'FsusBlog.Server.Tests.dll',
+        platform: 'Unix',
+        result: 'not-selected',
+        reason: 'Platform=Unix is outside the Windows backend plan'
+    }]);
+
+    for (const platform of ['linux', 'darwin'])
+    {
+        const plan = projectBackendPlatformPlan([unixPlatformTest, portablePlatformTest], platform, {
+            baseFilter: 'Category!=Integration',
+            lane: 'backend-unit'
+        });
+        assert.equal(plan.executionFilter, 'Category!=Integration');
+        assert.equal(plan.plannedTestCaseCount, 2);
+        assert.equal(plan.notSelectedTestCaseCount, 0);
+        assert.equal(plan.platformTests[0].result, 'planned');
+    }
+});
+
+test('local, CI and Production filters use the same platform projection', () =>
+{
+    const base = 'Category!=Integration&Category!=Performance';
+    for (const platform of ['win32', 'linux', 'darwin'])
+    {
+        const expected = composeBackendPlatformFilter(base, platform);
+        for (const lane of ['backend-unit', 'ci-fast-backend', 'backend-production'])
+        {
+            assert.equal(projectBackendPlatformPlan(
+                [unixPlatformTest, portablePlatformTest],
+                platform,
+                { baseFilter: base, lane }
+            ).executionFilter, expected);
+        }
+    }
+});
+
+test('platform metadata is closed-world and cannot disappear or be ignored by the runner', () =>
+{
+    assert.throws(
+        () => projectBackendPlatformPlan([{
+            ...unixPlatformTest,
+            traits: { Platform: ['Windows'] }
+        }], 'win32'),
+        /unsupported Platform trait/u
+    );
+    assert.throws(
+        () => projectBackendPlatformPlan([{
+            ...unixPlatformTest,
+            traits: { Platform: ['Unix', 'Unix'] }
+        }], 'linux'),
+        /multiple Platform traits/u
+    );
+    const unixPlan = projectBackendPlatformPlan([unixPlatformTest, portablePlatformTest], 'linux');
+    assert.throws(
+        () => reconcileBackendPlatformOutcome(unixPlan, [{
+            testId: portablePlatformTest.id,
+            testName: portablePlatformTest.displayName,
+            outcome: 'Passed'
+        }]),
+        /did not execute planned test/u
+    );
+    const windowsPlan = projectBackendPlatformPlan([unixPlatformTest, portablePlatformTest], 'win32');
+    assert.throws(
+        () => reconcileBackendPlatformOutcome(windowsPlan, [{
+            testId: unixPlatformTest.id,
+            testName: unixPlatformTest.displayName,
+            outcome: 'Passed'
+        }]),
+        /executed not-selected Unix test/u
+    );
+});
+
+test('semantic outcome records Unix execution and keeps Windows as not-selected without assertion claims', () =>
+{
+    const linux = projectBackendPlatformPlan([unixPlatformTest, portablePlatformTest], 'linux');
+    const outcome = reconcileBackendPlatformOutcome(linux, [{
+        testId: unixPlatformTest.id,
+        testName: unixPlatformTest.displayName,
+        outcome: 'Passed'
+    }, {
+        testId: 'theory-id',
+        testName: 'Example.Tests.Theory(value: 1)',
+        outcome: 'Passed'
+    }, {
+        testId: 'theory-id',
+        testName: 'Example.Tests.Theory(value: 2)',
+        outcome: 'Passed'
+    }]);
+    assert.equal(outcome.platformTests[0].result, 'passed');
+    assert.equal(outcome.platformTests[0].executionEvidenceCount, 1);
+
+    const windows = reconcileBackendPlatformOutcome(
+        projectBackendPlatformPlan([unixPlatformTest, portablePlatformTest], 'win32'),
+        [{
+            testId: portablePlatformTest.id,
+            testName: portablePlatformTest.displayName,
+            outcome: 'Passed'
+        }]
+    );
+    assert.equal(windows.platformTests[0].result, 'not-selected');
+    assert.equal(Object.hasOwn(windows.platformTests[0], 'executionEvidenceCount'), false);
+    assert.equal(Object.hasOwn(windows.platformTests[0], 'assertionCount'), false);
+    assert.throws(
+        () => reconcileBackendPlatformOutcome(linux, [{
+            testId: unixPlatformTest.id,
+            testName: unixPlatformTest.displayName,
+            outcome: 'Passed'
+        }, {
+            testId: unixPlatformTest.id,
+            testName: unixPlatformTest.displayName,
+            outcome: 'Passed'
+        }]),
+        /platform test more than once/u
+    );
+});
+
+test('raw Passed counters without a concrete execution row are rejected', () =>
+{
+    assert.throws(
+        () => parseBackendPlatformTrx(
+            '<TestRun><Results></Results><ResultSummary outcome="Completed">'
+            + '<Counters total="1" executed="1" passed="1" failed="0" />'
+            + '</ResultSummary></TestRun>'
+        ),
+        /without one executed evidence row/u
+    );
+});
+
+test('backend Production union consumes the canonical Unix platform plan', () =>
+{
+    const source = '/repo/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll';
+    const portable = {
+        id: 'portable',
+        fullyQualifiedName: 'Example.Tests.Portable.Case',
+        displayName: 'Example.Tests.Portable.Case',
+        source,
+        traits: {}
+    };
+    const unix = {
+        id: 'unix',
+        fullyQualifiedName: 'Example.Tests.Unix.Case',
+        displayName: 'Example.Tests.Unix.Case',
+        source,
+        traits: { Platform: ['Unix'] }
+    };
+    const integration = {
+        id: 'integration',
+        fullyQualifiedName: 'Example.Tests.Integration.Case',
+        displayName: 'Example.Tests.Integration.Case',
+        source,
+        traits: { Category: ['Integration'], Platform: ['Unix'] }
+    };
+
+    assert.deepEqual(projectProductionUnionRecords([portable, unix, integration], 'win32'), [portable]);
+    assert.deepEqual(projectProductionUnionRecords([portable, unix, integration], 'linux'), [portable, unix]);
+    assert.deepEqual(projectProductionUnionRecords([portable, unix, integration], 'darwin'), [portable, unix]);
+    const windows = projectProductionPlatformPlan([portable, unix, integration], 'win32');
+    assert.equal(windows.executionFilter, '(Category!=Integration&Category!=Performance)&Platform!=Unix');
+    assert.equal(windows.platformTests.length, 1);
+    assert.equal(windows.platformTests[0].result, 'not-selected');
 });
 
 test('backend requirement governance remains exact-once inside the canonical union', () =>
