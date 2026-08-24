@@ -1476,6 +1476,7 @@ tiers:
           - backend-auth-mfa-pow-session-state-machine
           - backend-race-idempotency-model
           - backend-fault-race-readiness
+          - backend-search-index-utf8-scalar-owner
           - backend-audit-behavior
           - backend-operations-readiness-behavior
           - backend-public-aot-artifact-behavior
@@ -1523,6 +1524,10 @@ tiers:
           - tests/backend/Fixtures/platform-runtime-governance/runtime-return.fixture.cs.txt
           - tests/backend/Unit/FsusHostRuntimeTuningTests.cs
           - tests/backend/Unit/PodBinaryCodecBatchAllocationTests.cs
+          - src/backend/Services/SearchIndexService.Dictionary.cs
+          - src/backend/Properties/AssemblyInfo.cs
+          - tests/backend/FsusBlog.Server.Tests.csproj
+          - tests/backend/Unit/SearchIndexServiceTests.cs
           - tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs
           - tests/backend/Unit/UserSecurityStepUpServiceTests.cs
           - tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs
@@ -8977,6 +8982,10 @@ tiers:
       evidence:
           [
               tests/backend/Fixtures/backend-test-requirements.json,
+              src/backend/Services/SearchIndexService.Dictionary.cs,
+              tests/backend/Unit/SearchIndexServiceTests.cs,
+              tools/test/csharp-source-mask.mjs,
+              tools/test/search-index-utf8-scalar-governance.mjs,
               tests/backend/Unit/CoverageScriptContractTests.cs,
               tests/backend/Unit/TestInfrastructure/BackendTestPathsTests.cs,
               tests/tools/backend-trx-contract.test.mjs,
