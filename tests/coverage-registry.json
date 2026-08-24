@@ -3478,7 +3478,7 @@
         },
         {
             "id": "zero-downtime-release-rehearsal",
-            "description": "The release rehearsal seals ordered rollout stages, continuous traffic and resource probes, worker reconciliation, old-asset compatibility, recovery records and an allowlisted immutable evidence bundle.",
+            "description": "The release rehearsal seals ordered rollout stages, one bounded semantic timing policy with independent rollout and rehearsal wiring, continuous traffic and resource probes, worker reconciliation, old-asset compatibility, recovery records and an allowlisted immutable evidence bundle.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
@@ -3496,6 +3496,9 @@
                 "tests/tools/release-rollout-evidence.test.mjs",
                 "tests/tools/release-rollout-bundle.test.mjs",
                 "tools/deployment/release-resource-probe.mjs",
+                "tests/tools/support/timing-policy.mjs",
+                "tests/tools/timing-policy.test.mjs",
+                "tests/timing-policy-retirement-baseline.json",
                 "tests/tools/release-rollout-probes.test.mjs",
                 "tools/deployment/release-traffic-probe.mjs",
                 "tools/deployment/release-traffic-evidence-verify.mjs",
@@ -3521,8 +3524,8 @@
                 "tests/fixtures/deployment/zero-downtime-rehearsal-plan.template.json"
             ],
             "assertionType": "integration",
-            "failClosedRule": "Reject missing or reordered stages, artifact drift, truncated probe errors, unsigned traffic or browser bindings, synthetic worker results, stale coordination signals, migration qualification drift, old-asset 404s or an unrecognized bundle artifact.",
-            "minimumRequirement": "Independent Node and browser owners must cover stage sealing, bundle allowlisting, twelve traffic classes and signed sessions, notification resync, resource budgets, normal and forced-source reconciliation, ten-case online migration qualification and N-1 Service Worker asset compatibility.",
+            "failClosedRule": "Reject duplicated or bypassed semantic timing formulas, missing or reordered stages, artifact drift, truncated probe errors, unsigned traffic or browser bindings, synthetic worker results, stale coordination signals, migration qualification drift, old-asset 404s or an unrecognized bundle artifact.",
+            "minimumRequirement": "One shared pure-function test must own bounded semantic scaling while independent rollout and rehearsal tests own their timing wiring; the remaining Node and browser owners must cover stage sealing, bundle allowlisting, twelve traffic classes and signed sessions, notification resync, resource budgets, normal and forced-source reconciliation, ten-case online migration qualification and N-1 Service Worker asset compatibility.",
             "tierIds": [
                 "static-governance",
                 "release",

@@ -773,11 +773,14 @@
     {
       "id": "BACKEND-ZERO-DOWNTIME-REHEARSAL",
       "risk": "critical",
-      "coverage": "ordered rollout sealing, signed continuous traffic, notification resync, normal and destructive worker reconciliation, browser-bound N-1 assets, online migration qualification and late interruption recovery",
+      "coverage": "ordered rollout sealing, shared bounded semantic timing policy with rollout/rehearsal wiring, signed continuous traffic, notification resync, normal and destructive worker reconciliation, browser-bound N-1 assets, online migration qualification and late interruption recovery",
       "evidencePaths": [
         "tests/tools/release-rollout-state.test.mjs",
         "tests/tools/release-rollout-evidence.test.mjs",
         "tests/tools/release-rollout-bundle.test.mjs",
+        "tests/tools/support/timing-policy.mjs",
+        "tests/tools/timing-policy.test.mjs",
+        "tests/timing-policy-retirement-baseline.json",
         "tests/tools/release-rollout-probes.test.mjs",
         "tests/tools/release-traffic-probe-session.test.mjs",
         "tests/fixtures/deployment/release-traffic-session-scenario.json",

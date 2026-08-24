@@ -11749,6 +11749,24 @@
                 "vitest:tests/frontend/e2e/public-article-reading-layout.spec.ts#viewport-width-px-theme-zoom-100-keeps-named-reading-lin-b8dc9269c1"
             ],
             "reason": "The duplicate no-media geometry case is merged into the surviving named-reading-lines case, which now asserts the no-media left and right edges against the content-reference edges with the same edgeTolerancePx; no viewport, theme, zoom, horizontal-overflow, API-isolation, or runtime-error oracle is removed."
+        },
+        {
+            "id": "node-test:tests/tools/release-rollout-probes.test.mjs#semantic-probe-latency-adapts-to-pressure-without-growin-e356870d9f",
+            "path": "tests/tools/release-rollout-probes.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/timing-policy.test.mjs#bounded-semantic-scale-owns-clamp-monotonicity-and-finit-cdc408c1bb",
+                "node-test:tests/tools/release-rollout-probes.test.mjs#rollout-timing-wires-shared-semantic-scale-to-latency-an-6f1b94b09b"
+            ],
+            "reason": "The shared pure-function owner retains the bounded scale mathematics, while the rollout-specific replacement proves semantic latency fields consume that policy and request/child timeouts retain the full pressure multiplier."
+        },
+        {
+            "id": "node-test:tests/tools/zero-downtime-rehearsal.test.mjs#semantic-rehearsal-delays-stay-pressure-aware-without-co-47f685ac22",
+            "path": "tests/tools/zero-downtime-rehearsal.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/timing-policy.test.mjs#bounded-semantic-scale-owns-clamp-monotonicity-and-finit-cdc408c1bb",
+                "node-test:tests/tools/zero-downtime-rehearsal.test.mjs#rehearsal-timing-wires-shared-semantic-scale-to-delays-a-40aa2212c4"
+            ],
+            "reason": "The shared pure-function owner retains the bounded scale mathematics, while the rehearsal-specific replacement proves semantic delays consume that policy and coordination, worker, migration and rehearsal waits retain their full-scale caps and units."
         }
     ],
     "assertionReplacements": [

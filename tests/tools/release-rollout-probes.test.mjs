@@ -12,6 +12,7 @@ import {
   startRolloutStage,
   writeRolloutStateAtomic
 } from '../../tools/deployment/release-rollout-lib.mjs'
+import { boundedSemanticScale } from './support/timing-policy.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const trafficProbe = path.join(root, 'tools/deployment/release-traffic-probe.mjs')
@@ -28,20 +29,7 @@ function positiveNumber(value) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null
 }
 
-function boundedSemanticScale(pressureScale) {
-  const pressure = Math.max(1, pressureScale)
-  return 1 + ((pressure - 1) / (2 * pressure))
-}
-
-function machineTiming() {
-  const hostCpu = Math.max(1, os.availableParallelism?.() ?? os.cpus().length)
-  const grantedCpu = Math.min(
-    hostCpu,
-    positiveNumber(process.env.FSUSBLOG_STEP_CPU_BUDGET)
-      ?? positiveNumber(process.env.FSUSBLOG_BUNDLE_CPU_BUDGET)
-      ?? hostCpu
-  )
-  const load1 = Math.max(0, os.loadavg()[0] ?? 0)
+function resolveRolloutMachineTiming({ hostCpu, grantedCpu, load1 }) {
   const pressureScale = Math.max(1, hostCpu / grantedCpu, (load1 + 1) / grantedCpu)
   const wait = milliseconds => Math.ceil(milliseconds * pressureScale)
   const semanticWait = milliseconds => Math.ceil(milliseconds * boundedSemanticScale(pressureScale))
@@ -54,15 +42,28 @@ function machineTiming() {
   }
 }
 
-test('semantic probe latency adapts to pressure without growing linearly with machine wait budgets', () => {
-  const idleScale = boundedSemanticScale(1)
-  const constrainedScale = boundedSemanticScale(2)
-  const saturatedScale = boundedSemanticScale(Number.MAX_SAFE_INTEGER)
+function machineTiming() {
+  const hostCpu = Math.max(1, os.availableParallelism?.() ?? os.cpus().length)
+  const grantedCpu = Math.min(
+    hostCpu,
+    positiveNumber(process.env.FSUSBLOG_STEP_CPU_BUDGET)
+      ?? positiveNumber(process.env.FSUSBLOG_BUNDLE_CPU_BUDGET)
+      ?? hostCpu
+  )
+  const load1 = Math.max(0, os.loadavg()[0] ?? 0)
+  return resolveRolloutMachineTiming({ hostCpu, grantedCpu, load1 })
+}
 
-  assert.equal(idleScale, 1)
-  assert.ok(constrainedScale > idleScale)
-  assert.ok(saturatedScale > constrainedScale)
-  assert.ok(saturatedScale <= 1.5)
+test('rollout timing wires shared semantic scale to latency and full pressure to timeouts', () => {
+  const timing = resolveRolloutMachineTiming({ hostCpu: 8, grantedCpu: 2, load1: 0 })
+
+  assert.deepEqual(timing, {
+    requestTimeoutMs: 4_000,
+    trafficChildTimeoutMs: 80_000,
+    resourceChildTimeoutMs: 40_000,
+    baselineLatencyMs: 14,
+    overlapLatencyMs: 344
+  })
 })
 
 function createFixture(t, name) {

@@ -4293,6 +4293,22 @@
             }
         },
         {
+            "file": "tests/tools/timing-policy.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "perf"
+            ],
+            "staticGovernance": {
+                "id": "timing-policy",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
+        },
+        {
             "file": "tests/tools/theme-css-safety-evidence.test.mjs",
             "owner": "manual-diagnostic:tests/tools/theme-css-safety-evidence.test.mjs",
             "executionCategory": "manual-diagnostic",

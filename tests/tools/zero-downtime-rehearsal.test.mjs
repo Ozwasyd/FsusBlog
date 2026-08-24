@@ -14,6 +14,7 @@ import {
   materializeFaultPlan,
   resolveRehearsalPlan
 } from '../../tools/deployment/zero-downtime-rehearsal-plan.mjs'
+import { boundedSemanticScale } from './support/timing-policy.mjs'
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const orchestratorSource = path.join(repositoryRoot, 'tools/deployment/zero-downtime-rehearsal.sh');
@@ -47,20 +48,7 @@ function positiveNumber(value) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null
 }
 
-function boundedSemanticScale(pressureScale) {
-  const pressure = Math.max(1, pressureScale)
-  return 1 + ((pressure - 1) / (2 * pressure))
-}
-
-function machineTiming() {
-  const hostCpu = Math.max(1, os.availableParallelism?.() ?? os.cpus().length)
-  const grantedCpu = Math.min(
-    hostCpu,
-    positiveNumber(process.env.FSUSBLOG_STEP_CPU_BUDGET)
-      ?? positiveNumber(process.env.FSUSBLOG_BUNDLE_CPU_BUDGET)
-      ?? hostCpu
-  )
-  const load1 = Math.max(0, os.loadavg()[0] ?? 0)
+function resolveRehearsalMachineTiming({ hostCpu, grantedCpu, load1 }) {
   const pressureScale = Math.max(1, hostCpu / grantedCpu, (load1 + 1) / grantedCpu)
   const wait = milliseconds => Math.ceil(milliseconds * pressureScale)
   const semanticWait = milliseconds => Math.ceil(milliseconds * boundedSemanticScale(pressureScale))
@@ -79,6 +67,18 @@ function machineTiming() {
   }
 }
 
+function machineTiming() {
+  const hostCpu = Math.max(1, os.availableParallelism?.() ?? os.cpus().length)
+  const grantedCpu = Math.min(
+    hostCpu,
+    positiveNumber(process.env.FSUSBLOG_STEP_CPU_BUDGET)
+      ?? positiveNumber(process.env.FSUSBLOG_BUNDLE_CPU_BUDGET)
+      ?? hostCpu
+  )
+  const load1 = Math.max(0, os.loadavg()[0] ?? 0)
+  return resolveRehearsalMachineTiming({ hostCpu, grantedCpu, load1 })
+}
+
 const fixtureShard = String(process.env.FSUSBLOG_ZDT_FIXTURE_SHARD ?? '').trim()
 const fixtureShardIds = new Set([
   '',
@@ -94,15 +94,18 @@ if (!fixtureShardIds.has(fixtureShard)) {
 }
 const runsFixtureShard = id => !fixtureShard || fixtureShard === id
 
-if (runsFixtureShard('base')) test('semantic rehearsal delays stay pressure-aware without consuming the full machine wait multiplier', () => {
-  const idleScale = boundedSemanticScale(1)
-  const constrainedScale = boundedSemanticScale(2)
-  const saturatedScale = boundedSemanticScale(Number.MAX_SAFE_INTEGER)
+if (runsFixtureShard('base')) test('rehearsal timing wires shared semantic scale to delays and preserves wait caps', () => {
+  const timing = resolveRehearsalMachineTiming({ hostCpu: 8, grantedCpu: 2, load1: 0 })
 
-  assert.equal(idleScale, 1)
-  assert.ok(constrainedScale > idleScale)
-  assert.ok(saturatedScale > constrainedScale)
-  assert.ok(saturatedScale <= 1.5)
+  assert.deepEqual(timing, {
+    stageDelayMs: 110,
+    activeFenceDelayMs: 2_063,
+    coordinationTimeoutMs: 40_000,
+    workerTimeoutSeconds: 120,
+    hostInterruptionTimeoutSeconds: 40,
+    migrationTimeoutSeconds: 240,
+    rehearsalTimeoutMs: 480_000
+  })
 })
 
 if (runsFixtureShard('base')) test('plan resolution is local-only, private-file-only and materializes exact isolated fault cases', (t) => {
