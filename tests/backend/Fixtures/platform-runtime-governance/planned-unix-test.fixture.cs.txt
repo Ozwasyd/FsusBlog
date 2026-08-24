@@ -1,0 +1,7 @@
+[Fact]
+[Trait("Platform", "Unix")]
+public async Task ExactDelete()
+{
+    await ExecuteAsync();
+    Assert.True(true);
+}

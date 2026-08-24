@@ -12,6 +12,12 @@ import {
   readVstestDiscoveryDiagnostic
 } from './vstest-discovery-diagnostic.mjs'
 import {
+  composeBackendPlatformFilter,
+  projectBackendPlatformPlan,
+  reconcileBackendPlatformOutcome,
+  selectBackendPlatformRecords
+} from './backend-platform-selection.mjs'
+import {
   cleanupOrphanDotnetBuildServers,
   selectOrphanDotnetBuildServers
 } from '../test-matrix/dotnet-build-server-cleanup.mjs'
@@ -63,7 +69,8 @@ const productionDotnet = productionBuildLayout
 const testAssembly = productionDotnet
   ? path.relative(root, productionDotnet.testDll).replaceAll(path.sep, '/')
   : 'tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll'
-const productionFilter = 'Category!=Integration&Category!=Performance'
+const productionBaseFilter = 'Category!=Integration&Category!=Performance'
+const productionFilter = composeBackendPlatformFilter(productionBaseFilter)
 const projectedCategories = [
   'ApiIntegration',
   'SecurityStateMachine',
@@ -861,7 +868,7 @@ export function alignAuthoritativeDiscovery(testNames, records) {
   return records
 }
 
-export function projectProductionUnionRecords(records) {
+function projectProductionBaseUnionRecords(records) {
   if (!Array.isArray(records) || records.length === 0) {
     throw new Error('backend production union projection requires authoritative VSTest records')
   }
@@ -871,6 +878,17 @@ export function projectProductionUnionRecords(records) {
     throw new Error('backend production union trait projection must include tests and exclude Integration/Performance tests')
   }
   return included
+}
+
+export function projectProductionPlatformPlan(records, runtimePlatform = process.platform) {
+  return projectBackendPlatformPlan(projectProductionBaseUnionRecords(records), runtimePlatform, {
+    baseFilter: productionBaseFilter,
+    lane: 'backend-production'
+  })
+}
+
+export function projectProductionUnionRecords(records, runtimePlatform = process.platform) {
+  return selectBackendPlatformRecords(projectProductionBaseUnionRecords(records), runtimePlatform)
 }
 
 export function validateExactProductionUnion(testNames, recordGroups, { authoritativeRecords = null } = {}) {
@@ -2321,7 +2339,9 @@ async function runBackendProductionShardsCore({
   const mainFilter = productionFilter
   const mainTrxFile = path.join(testResultsRoot, 'main-coverage.trx')
   const mainCoverageRoot = path.join(coverageRoot, 'main')
+  const discoveryRoot = path.join(testResultsRoot, 'discovery')
   fs.mkdirSync(mainCoverageRoot, { recursive: true })
+  fs.mkdirSync(discoveryRoot, { recursive: true })
   for (const staleEvidence of [
     process.env.FSUSBLOG_PERCEPTION_RUNTIME_EVIDENCE_FILE ?? path.join(root, '.tmp/security/perception-v2-e2e-runtime.json'),
     process.env.FSUSBLOG_PERCEPTION_MATRIX_SUMMARY_FILE ?? path.join(root, '.tmp/security/perception-v2-test-matrix.json'),
@@ -2336,8 +2356,34 @@ async function runBackendProductionShardsCore({
     mainDatabaseNamespace
   )
   let mainResult
+  let productionDiscovery
+  let discoveryDiagnostic
+  let platformPlan
+  let authoritativeRecords
+  let testNames
   let removedOwnedContainers = []
   try {
+    productionDiscovery = await runDotnet([
+      'vstest', testAssembly,
+      '--ListTests',
+      `--Diag:${path.join(discoveryRoot, 'union.txt')}`
+    ], { capture: true, env: backendPartitionEnvironment(process.env, {
+      processors: 1,
+      memoryGiB: parallelism.memoryGiB,
+      namespace: `${mainDatabaseNamespace}-discovery`
+    }) })
+    if (discoveryResultFailed(productionDiscovery)) {
+      throw new Error(`backend production discovery failed: ${discoveryFailureDetail(productionDiscovery)}`)
+    }
+    const allTestNames = parseListedTests(productionDiscovery.stdout)
+    discoveryDiagnostic = readVstestDiscoveryDiagnostic(discoveryRoot, {
+      expectedSource: path.resolve(root, testAssembly)
+    })
+    const allAuthoritativeRecords = alignAuthoritativeDiscovery(allTestNames, discoveryDiagnostic.records)
+    platformPlan = projectProductionPlatformPlan(allAuthoritativeRecords)
+    authoritativeRecords = projectProductionUnionRecords(allAuthoritativeRecords)
+    testNames = authoritativeRecords.map((record) => record.displayName)
+
     mainResult = await runDotnet([
       'test', project, '-c', 'Release', '--no-build', '--no-restore', '-v', 'minimal',
       '--filter', mainFilter,
@@ -2377,7 +2423,6 @@ async function runBackendProductionShardsCore({
   if (executionIds.size !== mainRecords.length) {
     throw new Error('backend production TRX partitions repeat a stable test ID')
   }
-  const testNames = mainRecords.map((record) => record.testName)
   const postgresManifest = JSON.parse(fs.readFileSync(
     path.join(root, 'tests/backend/Fixtures/postgres-test-collections.json'),
     'utf8'
@@ -2395,7 +2440,10 @@ async function runBackendProductionShardsCore({
   })
   const { partitionCount } = partitioning
   const plan = buildShardPlan(testNames, partitionCount, Array.from({ length: partitionCount }, () => 1))
-  const validation = validateExactProductionUnion(testNames, [mainRecords])
+  const validation = validateExactProductionUnion(testNames, [mainRecords], {
+    authoritativeRecords
+  })
+  const platformOutcome = reconcileBackendPlatformOutcome(platformPlan, mainRecords)
   const summary = {
     schema: 'fsusblog.backend-production-shards.v2',
     status: 'success',
@@ -2452,14 +2500,15 @@ async function runBackendProductionShardsCore({
     discovery: {
       testCaseCount: testNames.length,
       testMethodCount: new Set(testNames.map(normalizeListedTestName)).size,
-      durationMs: 0,
-      wallDurationMs: 0,
-      branchCount: 0,
-      maxParallel: 0,
-      processorsPerBranch: 0,
-      executionIntegrated: true,
+      durationMs: productionDiscovery.durationMs,
+      wallDurationMs: productionDiscovery.durationMs,
+      branchCount: 1,
+      maxParallel: 1,
+      processorsPerBranch: 1,
+      executionIntegrated: false,
+      diagnostic: path.relative(root, discoveryDiagnostic.file).replaceAll(path.sep, '/'),
       authoritativeTraitSource: {
-        protocol: 'VSTest TRX ResultSummary/Counters plus complementary production filters',
+        protocol: 'VSTest TestDiscovery diagnostic IDs and traits',
         trxDigests: [mainTrxFile].map((file) => `sha256:${sha256(fs.readFileSync(file))}`),
         productionTestCaseCount: testNames.length,
         mainTestCaseCount: mainEvidence.counters.executed,
@@ -2467,6 +2516,8 @@ async function runBackendProductionShardsCore({
         selectedTestIdCount: executionIds.size
       }
     },
+    platformMembership: platformPlan,
+    platformOutcome,
     execution: {
       ...validation,
       mainTestCaseCount: mainRecords.length,
@@ -2573,6 +2624,7 @@ async function runExpandableBackendProductionShards({
       expectedSource: path.resolve(root, testAssembly)
     })
     const allAuthoritativeRecords = alignAuthoritativeDiscovery(allTestNames, diagnostic.records)
+    const platformPlan = projectProductionPlatformPlan(allAuthoritativeRecords)
     const authoritativeRecords = projectProductionUnionRecords(allAuthoritativeRecords)
     const testNames = authoritativeRecords.map((record) => record.displayName)
     const mainTestNames = testNames
@@ -2757,6 +2809,7 @@ async function runExpandableBackendProductionShards({
     const validation = validateExactProductionUnion(testNames, recordsByShard, {
       authoritativeRecords
     })
+    const platformOutcome = reconcileBackendPlatformOutcome(platformPlan, mainRecords)
     const rolling = outcomes.rollingExecution
     const slots = rolling.slots
     const summary = {
@@ -2823,6 +2876,8 @@ async function runExpandableBackendProductionShards({
           selectedTestIdCount: new Set(authoritativeRecords.map((record) => record.id)).size
         }
       },
+      platformMembership: platformPlan,
+      platformOutcome,
       execution: {
         ...validation,
         mainTestCaseCount: mainRecords.length,

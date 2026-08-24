@@ -3697,6 +3697,27 @@
             ]
         },
         {
+            "id": "backend-unix-platform-membership",
+            "description": "Backend xUnit platform traits use one reusable planned-membership authority with Production discovery and fail-closed semantic outcomes.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "tools/test/backend-platform-selection.mjs",
+                "tools/test/run-backend-production-shards.mjs",
+                "tools/check-backend-test-governance.mjs",
+                "tests/tools/backend-production-shards.test.mjs",
+                "tests/backend/Fixtures/platform-runtime-governance/planned-unix-test.fixture.cs.txt",
+                "tests/backend/Fixtures/platform-runtime-governance/missing-platform-trait.fixture.cs.txt",
+                "tests/backend/Fixtures/platform-runtime-governance/runtime-return.fixture.cs.txt"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Reject missing or unknown Platform metadata, Windows execution of Unix-only tests, Linux/macOS omission, raw Passed counters without an executed TRX row, or platform-specific runtime return.",
+            "minimumRequirement": "The canonical plan must preserve VSTest test ID, fully-qualified name, source assembly and planned/not-selected state; Unix outcomes must bind one executed pass/fail row, while Windows must remain not-selected without an assertion-count claim.",
+            "tierIds": [
+                "backend-unit"
+            ]
+        },
+        {
             "id": "backend-passkey-behavior-governance",
             "description": "Passkey coverage preserves cache policy, anonymous-safe metadata, stored random-handle ownership, atomic per-account registration capacity, entity mapping, AEDS round trips and the explicit WebAuthn counter state machine without constructor or private SQL source locks.",
             "owner": "ServerContractAgent",
