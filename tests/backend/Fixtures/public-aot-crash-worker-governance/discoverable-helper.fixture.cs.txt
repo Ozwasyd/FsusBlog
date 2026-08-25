@@ -1,0 +1,6 @@
+internal sealed class PublicAotCrashWorkerTests
+{
+    [Fact]
+    public Task ExecuteAsync()
+        => Task.CompletedTask;
+}

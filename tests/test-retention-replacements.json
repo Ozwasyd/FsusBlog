@@ -11775,6 +11775,18 @@
                 "xunit:tests/backend/Unit/WebApplicationCompositionExtensionsTests.cs#FsusBlog.Server.Tests.WebApplicationCompositionExtensionsTests.PublicAotHtmlFastPath_PreencodedVariantsHaveExpectedByteShape#case-0000"
             ],
             "reason": "The renamed owner removes tautological allocation and latency sampling while strengthening the retained contract to exact identity, Brotli and gzip bytes, encoding, ETag and Content-Length."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/PublicAotFileShellCacheTests.cs#FsusBlog.Server.Tests.PublicAotFileShellCacheTests.Recovery_RealProcessCrashWorker#case-0000",
+            "path": "tests/backend/Unit/PublicAotFileShellCacheTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/PublicAotFileShellCacheTests.cs#FsusBlog.Server.Tests.PublicAotFileShellCacheTests.Recovery_RealProcessCrashAtDurableState_RestartsIdempotently#case-0000",
+                "xunit:tests/backend/Unit/PublicAotFileShellCacheTests.cs#FsusBlog.Server.Tests.PublicAotFileShellCacheTests.Recovery_RealProcessCrashAtDurableState_RestartsIdempotently#case-0001",
+                "xunit:tests/backend/Unit/PublicAotFileShellCacheTests.cs#FsusBlog.Server.Tests.PublicAotFileShellCacheTests.Recovery_RealProcessCrashAtDurableState_RestartsIdempotently#case-0002",
+                "xunit:tests/backend/Unit/PublicAotFileShellCacheTests.cs#FsusBlog.Server.Tests.PublicAotFileShellCacheTests.Recovery_RealProcessCrashAtDurableState_RestartsIdempotently#case-0003",
+                "xunit:tests/backend/Unit/PublicAotFileShellCacheTests.cs#FsusBlog.Server.Tests.PublicAotFileShellCacheTests.Recovery_RealProcessCrashAtDurableState_RestartsIdempotently#case-0004"
+            ],
+            "reason": "The empty Passed crash-worker Fact is removed from xUnit discovery. Its five durable-state cases remain in the sole parent Theory, which now launches the argument-closed command worker, binds fresh child executable/assembly/command/PID/state/root/output evidence, observes the requested durable-state marker and performs two idempotent recovery passes."
         }
     ],
     "assertionReplacements": [

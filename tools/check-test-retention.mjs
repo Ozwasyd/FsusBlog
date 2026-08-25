@@ -513,7 +513,7 @@ function validateTrackedBeforeSnapshot()
         matrix: 'tests/matrix.yml',
         coverageRegistry: 'tests/coverage-registry.json',
         requirementCatalog: 'tests/backend/Fixtures/backend-test-requirements.json',
-        optimizationCoverageBaseline: 'tests/test-optimization-coverage-baseline.json'
+        optimizationCoverageBaseline: 'tests/test-coverage-retention-baseline.json'
     };
     for (const [id, sourcePath] of Object.entries(sources))
     {

@@ -1,0 +1,12 @@
+internal sealed class CrashWorkerTests
+{
+    [Fact]
+    public void Execute()
+    {
+        string? root = Environment.GetEnvironmentVariable("FSUSBLOG_PUBLIC_AOT_CRASH_TEST_ROOT");
+        if (string.IsNullOrWhiteSpace(root))
+        {
+            return;
+        }
+    }
+}

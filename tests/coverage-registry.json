@@ -3387,7 +3387,7 @@
         },
         {
             "id": "blue-green-release-storage-lifecycle",
-            "description": "Release storage separates shared durable data from instance-local temporaries and release-addressed derived and immutable assets across blue and green generations.",
+            "description": "Release storage separates shared durable data from instance-local temporaries and release-addressed derived and immutable assets across blue and green generations; Public AOT process-crash recovery is owned by one five-state parent Theory and a non-discoverable command worker.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
@@ -3396,6 +3396,10 @@
                 "src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs",
                 "tests/backend/Unit/ReleaseStorageLifecycleTests.cs",
                 "tests/backend/Unit/PublicAotFileShellCacheTests.cs",
+                "tests/backend/Helpers/TestInfrastructure/PublicAotCrashWorkerProgram.cs",
+                "tests/backend/FsusBlog.Server.Tests.csproj",
+                "tests/backend/Fixtures/public-aot-crash-worker-governance",
+                "tools/check-backend-test-governance.mjs",
                 "tests/tools/release-storage-lifecycle.test.mjs",
                 "tests/frontend/unit/wasmReleaseAssets.test.ts",
                 "tests/frontend/unit/releaseStorage.test.ts",
@@ -3404,8 +3408,8 @@
                 "docs/architecture/release-storage-lifecycle.md"
             ],
             "assertionType": "integration",
-            "failClosedRule": "Reject cross-instance temp reuse, mutable active-release paths, missing retained releases, unsafe garbage collection, browser URLs that lose immutable release identity, publication lock timeout mutation, conflicting generation reuse, wrong-release reactivation, or a compatibility manifest projected before its complete generation.",
-            "minimumRequirement": "Backend, Node and frontend owners must cover path classification, retention, garbage collection, release URLs and blue-green compatibility without clearing the active release; production Search and PublicAOT writers must additionally prove cross-process serialization, complete commit-last Search generations, independent per-artifact PublicAOT pointers and retained rollback reactivation.",
+            "failClosedRule": "Reject cross-instance temp reuse, mutable active-release paths, missing retained releases, unsafe garbage collection, browser URLs that lose immutable release identity, publication lock timeout mutation, conflicting generation reuse, wrong-release reactivation, a compatibility manifest projected before its complete generation, a discoverable Public AOT crash helper, missing or duplicate worker arguments, root escape, stale child identity/output, missing durable-state observation, child timeout or normal completion.",
+            "minimumRequirement": "Backend, Node and frontend owners must cover path classification, retention, garbage collection, release URLs and blue-green compatibility without clearing the active release; production Search and PublicAOT writers must additionally prove cross-process serialization, complete commit-last Search generations, independent per-artifact PublicAOT pointers and retained rollback reactivation. The sole Public AOT crash parent Theory must execute Staged, ArtifactCommitted, RegistryCommitted, PointerAdvanced and Complete through the repository-owned command worker, reconcile child executable/assembly/command/PID/state/root/output evidence, and recover twice idempotently.",
             "tierIds": [
                 "backend-unit",
                 "frontend-unit-shard",

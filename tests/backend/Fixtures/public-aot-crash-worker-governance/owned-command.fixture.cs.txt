@@ -1,0 +1,5 @@
+internal static class PublicAotCrashWorkerProgram
+{
+    public static Task<int> Main(string[] args)
+        => Task.FromResult(args.Length == 0 ? 64 : 70);
+}
