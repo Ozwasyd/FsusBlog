@@ -1943,13 +1943,11 @@ public sealed class FileServiceTests(ITestOutputHelper output)
     [InlineData("expired-part-map")]
     [InlineData("expired-part")]
     [InlineData("expired-token")]
+    [Trait("Platform", "Unix")]
+    [Trait("PlatformEvidence", "UnixRequestPath")]
+    [UnsupportedOSPlatform("windows")]
     public async Task UploadRequestPaths_DoNotEnumerateExpirationIndexRoot(string operation)
     {
-        if (OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
         ResetSessionLocks();
         string root = CreateTempDirectory();
         string expirationRoot = Path.Combine(CreateStoragePaths(root).UploadSessionRoot, "expires");
@@ -1995,9 +1993,11 @@ public sealed class FileServiceTests(ITestOutputHelper output)
             File.SetUnixFileMode(
                 expirationRoot,
                 UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
-            Assert.Throws<UnauthorizedAccessException>(() => Directory.GetDirectories(expirationRoot));
+            _ = Assert.Throws<UnauthorizedAccessException>(
+                () => Directory.GetDirectories(expirationRoot));
+            const bool EnumerationDenied = true;
 
-            bool expectedOutcome = operation switch
+            bool requestContractSatisfied = operation switch
             {
                 "complete" => (await service.CompleteUploadAsync(uploadId, sha256)).IsSuccess,
                 "abort" => (await service.AbortUploadAsync(uploadId)).IsSuccess,
@@ -2013,9 +2013,12 @@ public sealed class FileServiceTests(ITestOutputHelper output)
                 _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, null)
             };
 
-            Assert.True(expectedOutcome);
+            Assert.True(requestContractSatisfied);
             File.SetUnixFileMode(expirationRoot, originalMode.Value);
             originalMode = null;
+            bool sessionPresent = Directory.Exists(GetSessionPath(root, uploadId));
+            int expirationIndexEntryCount = GetExpirationIndexFiles(root, uploadId).Length;
+            object runtimeEvidence;
             if (operation == "complete")
             {
                 UploadSessionRecord completed = await ReadManifestAsync(root, uploadId);
@@ -2032,20 +2035,72 @@ public sealed class FileServiceTests(ITestOutputHelper output)
                         UploadToken = "wrong-token"
                     }, sha256);
 
-                Assert.Equal("completed", completed.Status);
-                Assert.Equal(1, completed.OwnerAdminPrincipalId);
-                Assert.Equal(SHA256.HashSizeInBytes, completed.UploadTokenSha256.Length);
-                Assert.True(retry.IsSuccess);
-                Assert.Equal(ErrorCode.NotFound, wrongOwner.Error.Code);
-                Assert.Equal(ErrorCode.NotFound, wrongToken.Error.Code);
-                Assert.True(Directory.Exists(GetSessionPath(root, uploadId)));
-                Assert.Single(GetExpirationIndexFiles(root, uploadId));
+                bool manifestCompleted = completed.Status == "completed";
+                bool ownerPreserved = completed.OwnerAdminPrincipalId == 1;
+                bool tokenDigestPresent =
+                    completed.UploadTokenSha256.Length == SHA256.HashSizeInBytes;
+                bool retryAccepted = retry.IsSuccess;
+                bool wrongOwnerRejected = wrongOwner.Error.Code == ErrorCode.NotFound;
+                bool wrongTokenRejected = wrongToken.Error.Code == ErrorCode.NotFound;
+
+                Assert.True(manifestCompleted);
+                Assert.True(ownerPreserved);
+                Assert.True(tokenDigestPresent);
+                Assert.True(retryAccepted);
+                Assert.True(wrongOwnerRejected);
+                Assert.True(wrongTokenRejected);
+                Assert.True(sessionPresent);
+                Assert.Equal(1, expirationIndexEntryCount);
+
+                runtimeEvidence = new
+                {
+                    schema = "fsusblog.backend-platform-unix-request-path-evidence.v1",
+                    evidenceContract = "unix-request-path",
+                    fullyQualifiedName =
+                        $"{typeof(FileServiceTests).FullName}.{nameof(UploadRequestPaths_DoNotEnumerateExpirationIndexRoot)}",
+                    operation,
+                    enumerationDenied = EnumerationDenied,
+                    requestContractSatisfied,
+                    requestOutcome = "succeeded",
+                    sessionPresent,
+                    expirationIndexEntryCount,
+                    completeContract = new
+                    {
+                        manifestCompleted,
+                        ownerPreserved,
+                        tokenDigestPresent,
+                        retryAccepted,
+                        wrongOwnerRejected,
+                        wrongTokenRejected
+                    }
+                };
             }
             else
             {
-                Assert.False(Directory.Exists(GetSessionPath(root, uploadId)));
-                Assert.Empty(GetExpirationIndexFiles(root, uploadId));
+                bool cleanupCompleted = !sessionPresent && expirationIndexEntryCount == 0;
+                Assert.False(sessionPresent);
+                Assert.Equal(0, expirationIndexEntryCount);
+                Assert.True(cleanupCompleted);
+
+                runtimeEvidence = new
+                {
+                    schema = "fsusblog.backend-platform-unix-request-path-evidence.v1",
+                    evidenceContract = "unix-request-path",
+                    fullyQualifiedName =
+                        $"{typeof(FileServiceTests).FullName}.{nameof(UploadRequestPaths_DoNotEnumerateExpirationIndexRoot)}",
+                    operation,
+                    enumerationDenied = EnumerationDenied,
+                    requestContractSatisfied,
+                    requestOutcome = operation == "abort" ? "succeeded" : "expired-rejected",
+                    sessionPresent,
+                    expirationIndexEntryCount,
+                    cleanupCompleted
+                };
             }
+
+            output.WriteLine(
+                "backend-platform-runtime-evidence {0}",
+                JsonSerializer.Serialize(runtimeEvidence));
         }
         finally
         {

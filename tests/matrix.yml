@@ -1518,6 +1518,7 @@ tiers:
           - tests/backend/Fixtures/platform-runtime-governance/planned-unix-test.fixture.cs.txt
           - tests/backend/Fixtures/platform-runtime-governance/missing-platform-trait.fixture.cs.txt
           - tests/backend/Fixtures/platform-runtime-governance/missing-platform-evidence-trait.fixture.cs.txt
+          - tests/backend/Fixtures/platform-runtime-governance/platform-evidence-without-platform.fixture.cs.txt
           - tests/backend/Fixtures/platform-runtime-governance/runtime-return.fixture.cs.txt
           - tests/backend/Unit/FsusHostRuntimeTuningTests.cs
           - tests/backend/Unit/PodBinaryCodecBatchAllocationTests.cs
