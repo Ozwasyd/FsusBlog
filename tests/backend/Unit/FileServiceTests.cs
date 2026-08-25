@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Runtime.Versioning;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Observability;
@@ -17,10 +18,13 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+
+using Xunit.Abstractions;
+
 namespace FsusBlog.Server.Tests;
 
 [Collection(FileServiceTestCollection.Name)]
-public sealed class FileServiceTests
+public sealed class FileServiceTests(ITestOutputHelper output)
 {
     public static IEnumerable<object[]> InvalidUploadIds()
     {
@@ -2104,31 +2108,94 @@ public sealed class FileServiceTests
     }
 
     [Fact]
+    [Trait("Platform", "Unix")]
+    [Trait("PlatformEvidence", "UnixMode")]
+    [UnsupportedOSPlatform("windows")]
     public void UploadSessionRoot_IsPrivateOnUnix()
     {
-        if (OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
         string root = CreateTempDirectory();
         try
         {
-            _ = CreateService(root);
-            UnixFileMode mode = File.GetUnixFileMode(CreateStoragePaths(root).UploadSessionRoot);
+            const UnixFileMode PrivateMode =
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
+            const UnixFileMode OverbroadMode =
+                PrivateMode |
+                UnixFileMode.GroupRead | UnixFileMode.GroupWrite | UnixFileMode.GroupExecute |
+                UnixFileMode.OtherRead | UnixFileMode.OtherWrite | UnixFileMode.OtherExecute;
+            ReleaseStoragePaths storagePaths = CreateStoragePaths(root);
 
+            Assert.False(Directory.Exists(storagePaths.UploadSessionRoot));
+            _ = CreateService(root);
+            UnixFileMode freshMode = File.GetUnixFileMode(storagePaths.UploadSessionRoot);
+            Assert.Equal(PrivateMode, freshMode);
+
+            File.SetUnixFileMode(storagePaths.UploadSessionRoot, OverbroadMode);
+            UnixFileMode widenedMode = File.GetUnixFileMode(storagePaths.UploadSessionRoot);
+            Assert.Equal(OverbroadMode, widenedMode);
+
+            _ = CreateService(root);
+            UnixFileMode mode = File.GetUnixFileMode(storagePaths.UploadSessionRoot);
+
+            Assert.Equal(PrivateMode, mode);
             Assert.False(mode.HasFlag(UnixFileMode.GroupRead));
             Assert.False(mode.HasFlag(UnixFileMode.GroupWrite));
             Assert.False(mode.HasFlag(UnixFileMode.GroupExecute));
             Assert.False(mode.HasFlag(UnixFileMode.OtherRead));
             Assert.False(mode.HasFlag(UnixFileMode.OtherWrite));
             Assert.False(mode.HasFlag(UnixFileMode.OtherExecute));
+
+            string artifactPath = Path.Combine(storagePaths.UploadSessionRoot, "owner-usability.probe");
+            const string ArtifactContents = "session-owner-readable";
+            File.WriteAllText(artifactPath, ArtifactContents);
+            bool artifactCreated = File.Exists(artifactPath);
+            Assert.True(artifactCreated);
+            bool artifactRead = File.ReadAllText(artifactPath) == ArtifactContents;
+            Assert.True(artifactRead);
+            File.Delete(artifactPath);
+            bool artifactDeleted = !File.Exists(artifactPath);
+            Assert.True(artifactDeleted);
+
+            output.WriteLine(
+                "backend-platform-runtime-evidence {0}",
+                JsonSerializer.Serialize(new
+                {
+                    schema = "fsusblog.backend-platform-unix-mode-evidence.v1",
+                    evidenceContract = "unix-mode",
+                    fullyQualifiedName =
+                        $"{typeof(FileServiceTests).FullName}.{nameof(UploadSessionRoot_IsPrivateOnUnix)}",
+                    freshModeOctal = FormatUnixMode(freshMode),
+                    widenedExistingModeOctal = FormatUnixMode(widenedMode),
+                    effectiveModeOctal = FormatUnixMode(mode),
+                    assertions = new
+                    {
+                        groupReadDenied = !mode.HasFlag(UnixFileMode.GroupRead),
+                        groupWriteDenied = !mode.HasFlag(UnixFileMode.GroupWrite),
+                        groupExecuteDenied = !mode.HasFlag(UnixFileMode.GroupExecute),
+                        otherReadDenied = !mode.HasFlag(UnixFileMode.OtherRead),
+                        otherWriteDenied = !mode.HasFlag(UnixFileMode.OtherWrite),
+                        otherExecuteDenied = !mode.HasFlag(UnixFileMode.OtherExecute)
+                    },
+                    ownerArtifact = new
+                    {
+                        created = artifactCreated,
+                        read = artifactRead,
+                        deleted = artifactDeleted
+                    },
+                    existingRoot = new
+                    {
+                        overbroadModeApplied = widenedMode == OverbroadMode,
+                        converged = mode == PrivateMode
+                    }
+                }));
         }
         finally
         {
             Directory.Delete(root, recursive: true);
         }
     }
+
+    private static string FormatUnixMode(UnixFileMode mode)
+        => Convert.ToString((int)mode, 8).PadLeft(4, '0');
 
     private static FormFile CreateFormFile(byte[] payload, string name)
     {
