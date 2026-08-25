@@ -558,8 +558,21 @@ test('capture contracts keep shards temporary and release verification explicit'
         'utf8'
     );
     const releaseEvidence = fs.readFileSync(path.join(root, 'tools/release/public-preview-release-evidence.mjs'), 'utf8');
+    const captureBody = specification.slice(
+        specification.indexOf('async function captureRouteScreenshot'),
+        specification.indexOf('async function waitForManualRouteContentReady')
+    );
     assert.match(specification, /manual screenshot shards cannot write docs assets/u);
     assert.match(specification, /public-preview docs capture requires the complete unfiltered registry/u);
+    assert.equal(
+        (captureBody.match(/normalizeDynamicEvidenceForScreenshot\(page\)/gu) ?? []).length,
+        2,
+        'final screenshot frame must be normalized again after the warm-up capture'
+    );
+    assert.match(
+        captureBody,
+        /await page\.screenshot\(screenshotOptions\)[\s\S]*?await normalizeDynamicEvidenceForScreenshot\(page\)[\s\S]*?const screenshot = await page\.screenshot\(screenshotOptions\)/u
+    );
     assert.doesNotMatch(
         specification,
         /process\.cwd\(\).*config\/docs\/public-preview-screenshots/u

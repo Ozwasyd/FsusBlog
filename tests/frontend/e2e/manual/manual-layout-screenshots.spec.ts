@@ -202,6 +202,10 @@ async function captureRouteScreenshot(page: Page, route: ManualRoute, viewport: 
   }
   await page.screenshot(screenshotOptions)
   await waitForScreenshotPaintStability(page)
+  // The warm-up full-page capture may activate lazy public islands that rewrite
+  // relative-time text. Re-normalize the final frame after those writes settle.
+  await normalizeDynamicEvidenceForScreenshot(page)
+  await waitForScreenshotPaintStability(page)
   const screenshot = await page.screenshot(screenshotOptions)
 
   await mkdir(path.dirname(outputPath), { recursive: true })

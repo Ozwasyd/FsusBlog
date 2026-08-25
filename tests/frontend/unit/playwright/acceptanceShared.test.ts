@@ -85,10 +85,18 @@ describe('playwright acceptance shared helper', () => {
   })
 
   it('normalizes screenshot evidence without changing unrelated route counters', () => {
-    const operationsEvidence = '检查时间：7/23/2026, 3:53:05 AM；队列 0 / 1；detail=queued=1, dropped=0'
+    const operationsEvidence = '检查时间：7/23/2026, 3:53:05 AM；最近更新 08/25 13:04；队列 0 / 1；detail=queued=1, dropped=0'
     expect(normalizeDynamicScreenshotText(operationsEvidence, '/user/manage/ops')).toBe(
-      '检查时间：1/1/2026, 12:00:00 AM；队列 0 / 0；detail=queued=0, dropped=0'
+      '检查时间：1/1/2026, 12:00:00 AM；最近更新 01/01 12:00；队列 0 / 0；detail=queued=0, dropped=0'
     )
+    expect(normalizeDynamicScreenshotText(
+      'fxpc:public-preview-docs-1883356:public-preview-docs-1883:published:primary',
+      '/article/1'
+    )).toBe('fixture:public-preview:published:primary')
+    expect(normalizeDynamicScreenshotText(
+      'Published刚刚 · Updateda minute ago · 3 hours ago · 4 分钟前',
+      '/article/1'
+    )).toBe('Published2026-01-01 · Updated2026-01-01 · 2026-01-01 · 2026-01-01')
     expect(normalizeDynamicScreenshotText('分页 2 / 7', '/user/manage/comments')).toBe('分页 2 / 7')
   })
 

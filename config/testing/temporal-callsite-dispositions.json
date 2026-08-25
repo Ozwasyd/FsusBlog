@@ -36,7 +36,8 @@
         "tools/data-scale/seed.sh",
         "tools/data-scale/cleanup.sh",
         "tools/data-scale/probe.sh",
-        "tests/frontend/support/session-fixtures.mjs"
+        "tests/frontend/support/session-fixtures.mjs",
+        "tests/frontend/support/playwright/acceptance-shared.ts"
     ],
     "entries": [
         {
@@ -778,6 +779,71 @@
             "disposition": "artifact-metadata",
             "ingress": "artifact-only",
             "owner": "auth-session",
+            "semanticEffect": "excluded"
+        },
+        {
+            "callSiteId": "acceptance-shared.human-read-proof.defer",
+            "path": "tests/frontend/support/playwright/acceptance-shared.ts",
+            "symbol": "createAuditedContext",
+            "sourceAnchor": "      if (!markHumanReadProofSuppressed()) {\n        setTimeout(markHumanReadProofSuppressed, 0)\n      }",
+            "api": "setTimeout",
+            "clockKind": "monotonic-measurement",
+            "authorityKind": "runtime-monotonic",
+            "disposition": "monotonic-measurement",
+            "ingress": "runtime-monotonic",
+            "owner": "browser-contract",
+            "semanticEffect": "excluded"
+        },
+        {
+            "callSiteId": "acceptance-shared.notification-stream.defer",
+            "path": "tests/frontend/support/playwright/acceptance-shared.ts",
+            "symbol": "createAuditedContext",
+            "sourceAnchor": "      if (!markNotificationStreamSuppressed()) {\n        setTimeout(markNotificationStreamSuppressed, 0)\n      }",
+            "api": "setTimeout",
+            "clockKind": "monotonic-measurement",
+            "authorityKind": "runtime-monotonic",
+            "disposition": "monotonic-measurement",
+            "ingress": "runtime-monotonic",
+            "owner": "browser-contract",
+            "semanticEffect": "excluded"
+        },
+        {
+            "callSiteId": "acceptance-shared.theme.defer",
+            "path": "tests/frontend/support/playwright/acceptance-shared.ts",
+            "symbol": "createAuditedContext",
+            "sourceAnchor": "    if (!applyTheme()) {\n      setTimeout(applyTheme, 0)\n    }",
+            "api": "setTimeout",
+            "clockKind": "monotonic-measurement",
+            "authorityKind": "runtime-monotonic",
+            "disposition": "monotonic-measurement",
+            "ingress": "runtime-monotonic",
+            "owner": "browser-contract",
+            "semanticEffect": "excluded"
+        },
+        {
+            "callSiteId": "acceptance-shared.monotonic-clock",
+            "path": "tests/frontend/support/playwright/acceptance-shared.ts",
+            "symbol": "acceptanceMonotonicNow",
+            "sourceAnchor": "function acceptanceMonotonicNow(): number {\n  return performance.now()\n}",
+            "api": "performance.now",
+            "clockKind": "monotonic-measurement",
+            "authorityKind": "runtime-monotonic",
+            "disposition": "monotonic-measurement",
+            "ingress": "runtime-monotonic",
+            "owner": "browser-contract",
+            "semanticEffect": "excluded"
+        },
+        {
+            "callSiteId": "acceptance-shared.pow.event-loop-yield",
+            "path": "tests/frontend/support/playwright/acceptance-shared.ts",
+            "symbol": "yieldToAcceptanceEventLoop",
+            "sourceAnchor": "  return new Promise((resolve) => setTimeout(resolve, 0))",
+            "api": "setTimeout",
+            "clockKind": "monotonic-measurement",
+            "authorityKind": "runtime-monotonic",
+            "disposition": "monotonic-measurement",
+            "ingress": "runtime-monotonic",
+            "owner": "browser-contract",
             "semanticEffect": "excluded"
         }
     ]

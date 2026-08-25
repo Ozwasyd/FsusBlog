@@ -56,11 +56,15 @@ function resolveRehearsalMachineTiming({ hostCpu, grantedCpu, load1 }) {
   return {
     stageDelayMs: semanticWait(80),
     activeFenceDelayMs: semanticWait(1_500),
-    coordinationTimeoutMs: Math.min(900_000, wait(10_000)),
+    // The production worker drill has 30-second minimum probe windows and a
+    // 300-second coordination window. Preserve the smaller test bound, but do
+    // not let scheduler pressure reduce it below the shortest real probe.
+    coordinationTimeoutMs: Math.min(900_000, wait(30_000)),
     // Worker qualification starts several process groups and a local observer
     // service. Keep enough base headroom for load that rises after this single
-    // startup-time pressure sample; the machine grant still scales the value.
-    workerTimeoutSeconds: Math.min(1_800, seconds(30)),
+    // startup-time pressure sample while leaving the outer rehearsal a separate
+    // cleanup window; the machine grant still scales the value.
+    workerTimeoutSeconds: Math.min(1_800, seconds(90)),
     hostInterruptionTimeoutSeconds: Math.min(300, seconds(10)),
     migrationTimeoutSeconds: Math.min(1_800, seconds(60)),
     rehearsalTimeoutMs: wait(120_000)
@@ -100,8 +104,8 @@ if (runsFixtureShard('base')) test('rehearsal timing wires shared semantic scale
   assert.deepEqual(timing, {
     stageDelayMs: 110,
     activeFenceDelayMs: 2_063,
-    coordinationTimeoutMs: 40_000,
-    workerTimeoutSeconds: 120,
+    coordinationTimeoutMs: 120_000,
+    workerTimeoutSeconds: 360,
     hostInterruptionTimeoutSeconds: 40,
     migrationTimeoutSeconds: 240,
     rehearsalTimeoutMs: 480_000
@@ -599,7 +603,15 @@ else if (action === 'observer-service') {
     status: 'listening',
     address: { host: '127.0.0.1', port: 19031 }
   }) + '\n')
-  await delay(60_000)
+  await new Promise(resolve => {
+    const keepAlive = setInterval(() => {}, 60_000)
+    const stop = () => {
+      clearInterval(keepAlive)
+      resolve()
+    }
+    process.once('SIGTERM', stop)
+    process.once('SIGINT', stop)
+  })
 }
 else if (action === 'worker-reconciliation') workerReconciliation(argv)
 else if (action === 'migration-qualification') migrationQualification(argv)

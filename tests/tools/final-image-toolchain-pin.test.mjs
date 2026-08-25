@@ -197,7 +197,13 @@ test('final Dockerfile pins musl and glibc .NET and Node images to one patch set
         dockerfile.indexOf('FROM emscripten/emsdk:'),
         dockerfile.indexOf('FROM scratch AS wasm-artifact')
     );
-    assert.match(wasmBuilder, /COPY --from=node-runtime-glibc \/usr\/local\/bin\/node \/usr\/local\/bin\/node\s+ENV PATH="\/usr\/local\/bin:\$\{PATH\}"\s+RUN test "\$\(node --version\)" = "v\$\{NODE_VERSION\}"/u);
+    assert.match(wasmBuilder, /COPY --from=node-runtime-glibc \/usr\/local\/bin\/node \/usr\/local\/bin\/node/u);
+    assert.match(wasmBuilder, /COPY --from=node-runtime-glibc \/usr\/local\/lib\/node_modules\/corepack \/usr\/local\/lib\/node_modules\/corepack/u);
+    assert.match(wasmBuilder, /ln -sfn \.\.\/lib\/node_modules\/corepack\/dist\/corepack\.js \/usr\/local\/bin\/corepack/u);
+    assert.match(wasmBuilder, /test "\$\(node --version\)" = "v\$\{NODE_VERSION\}"/u);
+    assert.match(wasmBuilder, /corepack enable/u);
+    assert.match(wasmBuilder, /corepack prepare pnpm@10\.33\.0 --activate/u);
+    assert.match(wasmBuilder, /test "\$\(pnpm --version\)" = "10\.33\.0"/u);
     for (const label of [
         'io.fsusblog.runtime.dotnet-version',
         'io.fsusblog.build.dotnet-sdk-version',

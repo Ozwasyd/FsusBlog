@@ -35,11 +35,11 @@ function ledger(entries)
 test('repository temporal ledger has finite closure over real correctness producers', () =>
 {
     assert.deepEqual(verifyRepositoryWallClockGovernance(), {
-        callSiteCount: 57,
+        callSiteCount: 62,
         mixedClockCount: 0,
         pendingCount: 0,
         unknownCount: 0,
-        governedSourceCount: 35
+        governedSourceCount: 36
     });
 });
 

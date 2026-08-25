@@ -1,0 +1,12 @@
+{
+  "schema": "fsusblog.generated-output-binding.v1",
+  "sources": [
+    "config/application/backend-configuration-contract.json"
+  ],
+  "outputs": [
+    {
+      "path": "docs/configuration/backend-configuration-reference.generated.md",
+      "sha256": "4560a019c6ff5b07692196f783b981ad69e8614cbf405cb4031a458290d7164c"
+    }
+  ]
+}
