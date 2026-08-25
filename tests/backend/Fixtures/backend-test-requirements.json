@@ -147,6 +147,7 @@
         "BACKEND-RISKCONTROL-TEST-MATRIX",
         "BACKEND-PERCEPTION-V2-TEST-MATRIX",
         "BACKEND-PRIVACY-ZK-COMMENT-GATE",
+        "BACKEND-PLATFORM-MEMBERSHIP",
         "BACKEND-RELEASE-IDENTITY",
         "BACKEND-BLUE-GREEN-SLOTS",
         "BACKEND-ATOMIC-GATEWAY-SWITCH",
@@ -158,6 +159,8 @@
         "tests/backend/Unit/CoverageScriptContractTests.cs",
         "tests/backend/Unit/TestInfrastructure/BackendTestPathsTests.cs",
         "tests/tools/backend-trx-contract.test.mjs",
+        "tests/tools/backend-production-shards.test.mjs",
+        "tools/test/backend-platform-selection.mjs",
         "tests/test-retention-replacements.json",
         "tests/backend/Unit/ReleaseIdentityTests.cs",
         "tests/tools/release-manifest.test.mjs",
@@ -836,6 +839,22 @@
         "tests/backend/Unit/SecurityHardening/UploadBoundaryTests.cs",
         "tests/backend/Unit/UploadSessionCleanupQueueBehaviorTests.cs",
         "tests/backend/Unit/UploadSessionCleanupWorkerBehaviorTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-PLATFORM-MEMBERSHIP",
+      "risk": "high",
+      "coverage": "one Platform=Unix authority projects ordinary, CI and Production planned membership; Windows records not-selected while Linux/macOS require executed pass/fail evidence; platform-specific runtime returns fail governance",
+      "evidencePaths": [
+        "tools/test/backend-platform-selection.mjs",
+        "tools/test/lanes/_suite-support.sh",
+        "tools/test/run-backend-production-shards.mjs",
+        "tools/check-backend-test-governance.mjs",
+        "tests/tools/backend-production-shards.test.mjs",
+        "tests/backend/Unit/FileServiceTests.cs",
+        "tests/backend/Fixtures/platform-runtime-governance/planned-unix-test.fixture.cs.txt",
+        "tests/backend/Fixtures/platform-runtime-governance/missing-platform-trait.fixture.cs.txt",
+        "tests/backend/Fixtures/platform-runtime-governance/runtime-return.fixture.cs.txt"
       ]
     },
     {
