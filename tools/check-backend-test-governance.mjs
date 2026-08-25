@@ -465,7 +465,7 @@ function scanPlatformSpecificRuntimeReturns(relativePath, source)
         const hasAnyPlatformEvidenceTrait =
             /\bTrait\s*\(\s*"PlatformEvidence"\s*,/u.test(attributes);
         const hasSupportedPlatformEvidenceTrait =
-            /\bTrait\s*\(\s*"PlatformEvidence"\s*,\s*"(?:UnixMode|UnixRequestPath)"\s*\)/u
+            /\bTrait\s*\(\s*"PlatformEvidence"\s*,\s*"(?:UnixMode|UnixRequestPath|UnixSymlinkBoundary)"\s*\)/u
                 .test(attributes);
         const isDeclaredWindowsUnsupported =
             /\bUnsupportedOSPlatform\s*\(\s*"windows"\s*\)/iu.test(attributes);

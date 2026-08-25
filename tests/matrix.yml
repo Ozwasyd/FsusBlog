@@ -1510,6 +1510,7 @@ tiers:
           - .tmp/test-results/backend/integrity-proof-source.json
           - tests/backend/Fixtures/backend-test-requirements.json
           - tests/backend/Unit/FileServiceTests.cs
+          - tests/backend/Unit/SecurityHardening/CanonicalPathBoundaryTests.cs
           - tools/test/backend-platform-selection.mjs
           - tools/test/lanes/_suite-support.sh
           - tools/test/run-backend-production-shards.mjs

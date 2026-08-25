@@ -188,6 +188,68 @@ function unixRequestPathTrx(
     ].join('');
 }
 
+const unixSymlinkBoundaryPlatformTest = {
+    ...unixPlatformTest,
+    id: 'unix-symlink-boundary-id',
+    fullyQualifiedName:
+        'Example.Tests.Security.CanonicalPathBoundaryTests.TryResolveRelative_RejectsSymbolicLinkThatEscapesPhysicalRoot',
+    displayName:
+        'Example.Tests.Security.CanonicalPathBoundaryTests.TryResolveRelative_RejectsSymbolicLinkThatEscapesPhysicalRoot',
+    traits: {
+        Platform: ['Unix'],
+        PlatformEvidence: ['UnixSymlinkBoundary']
+    }
+};
+const unixSymlinkBoundaryRuntimeEvidence = {
+    schema: 'fsusblog.backend-platform-unix-symlink-boundary-evidence.v1',
+    evidenceContract: 'unix-symlink-boundary',
+    fullyQualifiedName: unixSymlinkBoundaryPlatformTest.fullyQualifiedName,
+    root: {
+        identity: '1'.repeat(64),
+        exists: true
+    },
+    escapeLink: {
+        identity: '2'.repeat(64),
+        targetIdentity: '3'.repeat(64),
+        exists: true,
+        targetExists: true,
+        targetOutsideRoot: true,
+        targetMatchesExpected: true
+    },
+    rejection: {
+        resolved: false,
+        pathEmpty: true
+    },
+    positiveControl: {
+        rootIdentity: '4'.repeat(64),
+        linkIdentity: '5'.repeat(64),
+        targetIdentity: '6'.repeat(64),
+        rootExists: true,
+        linkExists: true,
+        targetExists: true,
+        targetMatchesExpected: true,
+        resolved: true,
+        resolvedInsideRoot: true,
+        resolvedPathMatchesExpected: true
+    },
+    cleanupCompleted: true
+};
+
+function unixSymlinkBoundaryTrx(runtimeEvidence = unixSymlinkBoundaryRuntimeEvidence)
+{
+    return [
+        '<TestRun><Results>',
+        `<UnitTestResult testId="${unixSymlinkBoundaryPlatformTest.id}" `,
+        `testName="${unixSymlinkBoundaryPlatformTest.displayName}" outcome="Passed">`,
+        '<Output><StdOut>backend-platform-runtime-evidence ',
+        JSON.stringify(runtimeEvidence),
+        '</StdOut></Output></UnitTestResult>',
+        '</Results><ResultSummary outcome="Completed">',
+        '<Counters total="1" executed="1" passed="1" failed="0" />',
+        '</ResultSummary></TestRun>'
+    ].join('');
+}
+
 test('backend production discovery normalizes theory cases to one filterable method', () =>
 {
     assert.equal(normalizeListedTestName('Example.Tests.Rule(value: "a")'), 'Example.Tests.Rule');
@@ -640,6 +702,119 @@ test('Unix request-path evidence rejects incomplete case sets and invalid per-ca
         }]),
         /passed without required runtime evidence/u
     );
+});
+
+test('Unix symlink-boundary evidence binds physical escape denial and an internal-link positive control', () =>
+{
+    const plan = projectBackendPlatformPlan([unixSymlinkBoundaryPlatformTest], 'linux', {
+        baseFilter: 'Category!=Integration',
+        lane: 'backend-unit'
+    });
+    assert.equal(plan.platformTests[0].evidenceContract, 'unix-symlink-boundary');
+    assert.equal(plan.platformTests[0].source, unixSymlinkBoundaryPlatformTest.source);
+    assert.equal(plan.platformTests[0].assembly, 'FsusBlog.Server.Tests.dll');
+
+    const ordinary = reconcileBackendPlatformOutcome(
+        plan,
+        parseBackendPlatformTrx(unixSymlinkBoundaryTrx())
+    );
+    assert.deepEqual(ordinary.platformTests[0].evidence, unixSymlinkBoundaryRuntimeEvidence);
+
+    const production = reconcileBackendPlatformOutcome(
+        projectProductionPlatformPlan([
+            unixSymlinkBoundaryPlatformTest,
+            {
+                ...portablePlatformTest,
+                id: 'unix-symlink-boundary-integration',
+                displayName: 'Example.Tests.Security.ExcludedIntegration',
+                traits: { Category: ['Integration'] }
+            }
+        ], 'linux'),
+        parseTrxRecords(unixSymlinkBoundaryTrx())
+    );
+    assert.deepEqual(production.platformTests[0].evidence, unixSymlinkBoundaryRuntimeEvidence);
+
+    const windows = projectBackendPlatformPlan([unixSymlinkBoundaryPlatformTest], 'win32');
+    assert.equal(windows.platformTests[0].result, 'not-selected');
+    assert.equal(windows.platformTests[0].evidenceContract, 'unix-symlink-boundary');
+    assert.equal(Object.hasOwn(windows.platformTests[0], 'evidence'), false);
+});
+
+test('Unix symlink-boundary evidence rejects missing execution facts, wrong relationships, and stale identities', () =>
+{
+    const plan = projectBackendPlatformPlan([unixSymlinkBoundaryPlatformTest], 'linux');
+    assert.throws(
+        () => reconcileBackendPlatformOutcome(plan, [{
+            testId: unixSymlinkBoundaryPlatformTest.id,
+            testName: unixSymlinkBoundaryPlatformTest.displayName,
+            outcome: 'Passed'
+        }]),
+        /passed without required runtime evidence/u
+    );
+    for (const invalid of [
+        {
+            ...unixSymlinkBoundaryRuntimeEvidence,
+            escapeLink: {
+                ...unixSymlinkBoundaryRuntimeEvidence.escapeLink,
+                exists: false
+            }
+        },
+        {
+            ...unixSymlinkBoundaryRuntimeEvidence,
+            escapeLink: {
+                ...unixSymlinkBoundaryRuntimeEvidence.escapeLink,
+                targetOutsideRoot: false
+            }
+        },
+        {
+            ...unixSymlinkBoundaryRuntimeEvidence,
+            escapeLink: {
+                ...unixSymlinkBoundaryRuntimeEvidence.escapeLink,
+                targetMatchesExpected: false
+            }
+        },
+        {
+            ...unixSymlinkBoundaryRuntimeEvidence,
+            rejection: {
+                resolved: true,
+                pathEmpty: false
+            }
+        },
+        {
+            ...unixSymlinkBoundaryRuntimeEvidence,
+            positiveControl: {
+                ...unixSymlinkBoundaryRuntimeEvidence.positiveControl,
+                resolvedInsideRoot: false
+            }
+        },
+        {
+            ...unixSymlinkBoundaryRuntimeEvidence,
+            cleanupCompleted: false
+        },
+        {
+            ...unixSymlinkBoundaryRuntimeEvidence,
+            root: {
+                ...unixSymlinkBoundaryRuntimeEvidence.root,
+                identity: unixSymlinkBoundaryRuntimeEvidence.escapeLink.targetIdentity
+            }
+        },
+        {
+            ...unixSymlinkBoundaryRuntimeEvidence,
+            root: {
+                ...unixSymlinkBoundaryRuntimeEvidence.root,
+                identity: 'not-a-digest'
+            }
+        }
+    ])
+    {
+        assert.throws(
+            () => reconcileBackendPlatformOutcome(
+                plan,
+                parseBackendPlatformTrx(unixSymlinkBoundaryTrx(invalid))
+            ),
+            /backend Unix symlink-boundary evidence/u
+        );
+    }
 });
 
 test('raw Passed counters without a concrete execution row are rejected', () =>

@@ -3698,7 +3698,7 @@
         },
         {
             "id": "backend-unix-platform-membership",
-            "description": "Backend xUnit Unix filesystem proofs use one Platform=Unix planned-membership authority across ordinary, CI and Production execution instead of returning Passed on Windows, with typed runtime receipts for actual Unix mode and request-path proofs.",
+            "description": "Backend xUnit Unix filesystem proofs use one Platform=Unix planned-membership authority across ordinary, CI and Production execution instead of returning Passed on Windows, with typed runtime receipts for actual Unix mode, request-path and physical symlink-boundary proofs.",
             "owner": "ServerContractAgent",
             "risk": "high",
             "evidencePaths": [
@@ -3708,6 +3708,7 @@
                 "tools/check-backend-test-governance.mjs",
                 "tests/tools/backend-production-shards.test.mjs",
                 "tests/backend/Unit/FileServiceTests.cs",
+                "tests/backend/Unit/SecurityHardening/CanonicalPathBoundaryTests.cs",
                 "tests/backend/Fixtures/platform-runtime-governance/planned-unix-test.fixture.cs.txt",
                 "tests/backend/Fixtures/platform-runtime-governance/missing-platform-trait.fixture.cs.txt",
                 "tests/backend/Fixtures/platform-runtime-governance/missing-platform-evidence-trait.fixture.cs.txt",
@@ -3718,8 +3719,8 @@
                 "docs/testing.md"
             ],
             "assertionType": "integration",
-            "failClosedRule": "Reject missing or unknown Platform/PlatformEvidence metadata, multiple platform authorities, Windows execution of Unix-only tests, Linux/macOS omission, raw Passed counters without an executed TRX row, a passed UnixMode or UnixRequestPath test without one valid runtime receipt, open group/other bits, unusable owner artifacts, failed existing-root convergence, an incomplete six-operation request set, enumerable expiration root, false request contract, incorrect complete/cleanup postconditions, platform-specific runtime return, or divergence between ordinary, CI and Production filters.",
-            "minimumRequirement": "The canonical plan must preserve VSTest test ID, fully-qualified name, display name, source assembly, evidence contract and planned/not-selected state; Unix outcomes must bind one executed pass/fail row; UnixMode passes must bind actual fresh/widened/effective mode plus six deny and owner-usability assertions; UnixRequestPath passes must bind the exact complete, abort, expired-status, expired-part-map, expired-part and expired-token identities to enumeration denial, public request outcome, session/index state and complete or cleanup postconditions; Windows must remain not-selected without an assertion-count claim.",
+            "failClosedRule": "Reject missing or unknown Platform/PlatformEvidence metadata, multiple platform authorities, Windows execution of Unix-only tests, Linux/macOS omission, raw Passed counters without an executed TRX row, a passed UnixMode, UnixRequestPath or UnixSymlinkBoundary test without one valid runtime receipt, open group/other bits, unusable owner artifacts, failed existing-root convergence, an incomplete six-operation request set, enumerable expiration root, false request contract, incorrect complete/cleanup postconditions, missing or mismatched symlink identities, a non-escaping target, accepted physical escape, rejected inside-root control, incomplete link cleanup, platform-specific runtime return, or divergence between ordinary, CI and Production filters.",
+            "minimumRequirement": "The canonical plan must preserve VSTest test ID, fully-qualified name, display name, source assembly, evidence contract and planned/not-selected state; Unix outcomes must bind one executed pass/fail row; UnixMode passes must bind actual fresh/widened/effective mode plus six deny and owner-usability assertions; UnixRequestPath passes must bind the exact complete, abort, expired-status, expired-part-map, expired-part and expired-token identities to enumeration denial, public request outcome, session/index state and complete or cleanup postconditions; UnixSymlinkBoundary must bind distinct root/link/target identities, real outside-root rejection with empty output, an inside-root positive control and cleanup; Windows must remain not-selected without an assertion-count claim.",
             "tierIds": [
                 "backend-unit"
             ]

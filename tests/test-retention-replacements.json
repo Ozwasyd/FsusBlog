@@ -11843,7 +11843,8 @@
             "replacementTestIds": [
                 "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.DeleteOwnedExpirationIndex_IsExactO1WithoutBucketScan",
                 "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.UploadSessionRoot_IsPrivateOnUnix",
-                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.UploadRequestPaths_DoNotEnumerateExpirationIndexRoot"
+                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.UploadRequestPaths_DoNotEnumerateExpirationIndexRoot",
+                "xunit:tests/backend/Unit/SecurityHardening/CanonicalPathBoundaryTests.cs#CanonicalPathBoundaryTests.TryResolveRelative_RejectsSymbolicLinkThatEscapesPhysicalRoot"
             ],
             "after": [
                 "Assert.True(File.Exists(ownerPath))",
@@ -11872,9 +11873,19 @@
                 "Assert.False(sessionPresent)",
                 "Assert.Equal(1, expirationIndexEntryCount)",
                 "Assert.Equal(0, expirationIndexEntryCount)",
-                "Assert.True(cleanupCompleted)"
+                "Assert.True(cleanupCompleted)",
+                "Assert.True(escapeRootExists)",
+                "Assert.True(outsideTargetExists)",
+                "Assert.True(escapeLinkExists)",
+                "Assert.True(escapeTargetMatchesExpected)",
+                "Assert.True(escapeTargetOutsideRoot)",
+                "Assert.False(escapeResolved)",
+                "Assert.Equal(string.Empty, escapePath)",
+                "Assert.True(positiveResolved)",
+                "Assert.Equal(Path.GetFullPath(positiveSecret), positivePath)",
+                "Assert.True(positiveResolvedInsideRoot)"
             ],
-            "reason": "All three Unix filesystem proofs are selected by the canonical platform plan instead of returning fake Passed results: exact-delete proves the expiration root is non-enumerable; upload-root records actual 0700 mode, convergence from an overbroad existing root, six group/other deny assertions and owner artifact usability; the six request-path cases additionally bind real complete, abort and expired public operations to enumeration denial and exact session/index postconditions."
+            "reason": "All four Unix filesystem proof owners are selected by the canonical platform plan instead of returning fake Passed results: exact-delete proves the expiration root is non-enumerable; upload-root records actual 0700 mode, convergence from an overbroad existing root, six group/other deny assertions and owner artifact usability; the six request-path cases bind real complete, abort and expired public operations to exact postconditions; and the canonical path owner binds a real outside-root symlink rejection, an inside-root positive control and cleanup."
         }
     ]
 }
