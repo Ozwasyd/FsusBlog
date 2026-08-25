@@ -13,6 +13,7 @@ import {
 } from './vstest-discovery-diagnostic.mjs'
 import {
   composeBackendPlatformFilter,
+  parseBackendPlatformResultRows,
   projectBackendPlatformPlan,
   reconcileBackendPlatformOutcome,
   selectBackendPlatformRecords
@@ -1386,11 +1387,7 @@ function trxAttribute(raw, name) {
 }
 
 export function parseTrxRecords(xml) {
-  return [...String(xml).matchAll(/<UnitTestResult\b([^>]*)>/gu)].map((match) => ({
-    testId: trxAttribute(match[1], 'testId'),
-    testName: trxAttribute(match[1], 'testName'),
-    outcome: trxAttribute(match[1], 'outcome')
-  })).filter((record) => record.testName)
+  return parseBackendPlatformResultRows(xml).filter((record) => record.testName)
 }
 
 export function parseTrxTimingEvidence(xml) {

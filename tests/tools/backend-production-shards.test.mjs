@@ -63,6 +63,56 @@ const portablePlatformTest = {
     source: unixPlatformTest.source,
     traits: {}
 };
+const unixModePlatformTest = {
+    ...unixPlatformTest,
+    id: 'unix-mode-id',
+    fullyQualifiedName: 'Example.Tests.Files.UploadSessionRoot_IsPrivateOnUnix',
+    displayName: 'Example.Tests.Files.UploadSessionRoot_IsPrivateOnUnix',
+    traits: {
+        Platform: ['Unix'],
+        PlatformEvidence: ['UnixMode']
+    }
+};
+const unixModeRuntimeEvidence = {
+    schema: 'fsusblog.backend-platform-unix-mode-evidence.v1',
+    evidenceContract: 'unix-mode',
+    fullyQualifiedName: unixModePlatformTest.fullyQualifiedName,
+    freshModeOctal: '0700',
+    widenedExistingModeOctal: '0777',
+    effectiveModeOctal: '0700',
+    assertions: {
+        groupReadDenied: true,
+        groupWriteDenied: true,
+        groupExecuteDenied: true,
+        otherReadDenied: true,
+        otherWriteDenied: true,
+        otherExecuteDenied: true
+    },
+    ownerArtifact: {
+        created: true,
+        read: true,
+        deleted: true
+    },
+    existingRoot: {
+        overbroadModeApplied: true,
+        converged: true
+    }
+};
+
+function unixModeTrx(runtimeEvidence = unixModeRuntimeEvidence)
+{
+    return [
+        '<TestRun><Results>',
+        `<UnitTestResult testId="${unixModePlatformTest.id}" `,
+        `testName="${unixModePlatformTest.displayName}" outcome="Passed">`,
+        '<Output><StdOut>backend-platform-runtime-evidence ',
+        JSON.stringify(runtimeEvidence),
+        '</StdOut></Output></UnitTestResult>',
+        '</Results><ResultSummary outcome="Completed">',
+        '<Counters total="1" executed="1" passed="1" failed="0" />',
+        '</ResultSummary></TestRun>'
+    ].join('');
+}
 
 test('backend production discovery normalizes theory cases to one filterable method', () =>
 {
@@ -223,6 +273,20 @@ test('platform metadata is closed-world and cannot disappear or be ignored by th
         }], 'linux'),
         /multiple Platform traits/u
     );
+    assert.throws(
+        () => projectBackendPlatformPlan([{
+            ...unixPlatformTest,
+            traits: { Platform: ['Unix'], PlatformEvidence: ['Unknown'] }
+        }], 'linux'),
+        /unsupported PlatformEvidence trait/u
+    );
+    assert.throws(
+        () => projectBackendPlatformPlan([{
+            ...portablePlatformTest,
+            traits: { PlatformEvidence: ['UnixMode'] }
+        }], 'linux'),
+        /PlatformEvidence without Platform=Unix/u
+    );
     const unixPlan = projectBackendPlatformPlan([unixPlatformTest, portablePlatformTest], 'linux');
     assert.throws(
         () => reconcileBackendPlatformOutcome(unixPlan, [{
@@ -285,6 +349,93 @@ test('semantic outcome records Unix execution and keeps Windows as not-selected 
         }]),
         /platform test more than once/u
     );
+});
+
+test('Unix mode evidence binds actual permissions and owner usability to ordinary and Production outcomes', () =>
+{
+    const plan = projectBackendPlatformPlan([unixModePlatformTest], 'linux', {
+        baseFilter: 'Category!=Integration',
+        lane: 'backend-unit'
+    });
+    assert.equal(plan.platformTests[0].evidenceContract, 'unix-mode');
+
+    const ordinaryRecords = parseBackendPlatformTrx(unixModeTrx());
+    const ordinary = reconcileBackendPlatformOutcome(plan, ordinaryRecords);
+    assert.deepEqual(ordinary.platformTests[0].evidence, unixModeRuntimeEvidence);
+
+    const productionRecords = parseTrxRecords(unixModeTrx());
+    const production = reconcileBackendPlatformOutcome(
+        projectProductionPlatformPlan([
+            unixModePlatformTest,
+            {
+                ...portablePlatformTest,
+                traits: { Category: ['Integration'] }
+            }
+        ], 'linux'),
+        productionRecords
+    );
+    assert.deepEqual(production.platformTests[0].evidence, unixModeRuntimeEvidence);
+
+    const windows = projectBackendPlatformPlan([unixModePlatformTest], 'win32');
+    assert.equal(windows.platformTests[0].result, 'not-selected');
+    assert.equal(windows.platformTests[0].evidenceContract, 'unix-mode');
+    assert.equal(Object.hasOwn(windows.platformTests[0], 'evidence'), false);
+});
+
+test('Unix mode evidence fails closed for missing receipts, open bits, unusable owners, and duplicates', () =>
+{
+    const plan = projectBackendPlatformPlan([unixModePlatformTest], 'linux');
+    assert.throws(
+        () => reconcileBackendPlatformOutcome(plan, [{
+            testId: unixModePlatformTest.id,
+            testName: unixModePlatformTest.displayName,
+            outcome: 'Passed'
+        }]),
+        /passed without required runtime evidence/u
+    );
+    for (const invalid of [
+        {
+            ...unixModeRuntimeEvidence,
+            effectiveModeOctal: '0770'
+        },
+        {
+            ...unixModeRuntimeEvidence,
+            ownerArtifact: {
+                ...unixModeRuntimeEvidence.ownerArtifact,
+                read: false
+            }
+        },
+        {
+            ...unixModeRuntimeEvidence,
+            existingRoot: {
+                ...unixModeRuntimeEvidence.existingRoot,
+                converged: false
+            }
+        }
+    ])
+    {
+        assert.throws(
+            () => reconcileBackendPlatformOutcome(plan, parseBackendPlatformTrx(unixModeTrx(invalid))),
+            /backend Unix mode evidence/u
+        );
+    }
+    assert.throws(
+        () => parseBackendPlatformTrx(
+            unixModeTrx().replace(
+                '</StdOut>',
+                `\nbackend-platform-runtime-evidence ${JSON.stringify(unixModeRuntimeEvidence)}</StdOut>`
+            )
+        ),
+        /multiple runtime evidence receipts/u
+    );
+
+    const failed = reconcileBackendPlatformOutcome(plan, [{
+        testId: unixModePlatformTest.id,
+        testName: unixModePlatformTest.displayName,
+        outcome: 'Failed'
+    }]);
+    assert.equal(failed.platformTests[0].result, 'failed');
+    assert.equal(Object.hasOwn(failed.platformTests[0], 'evidence'), false);
 });
 
 test('raw Passed counters without a concrete execution row are rejected', () =>
