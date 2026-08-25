@@ -56,7 +56,10 @@ function resolveRehearsalMachineTiming({ hostCpu, grantedCpu, load1 }) {
   return {
     stageDelayMs: semanticWait(80),
     activeFenceDelayMs: semanticWait(1_500),
-    coordinationTimeoutMs: Math.min(900_000, wait(10_000)),
+    // The production worker drill has 30-second minimum probe windows and a
+    // 300-second coordination window. Preserve the smaller test bound, but do
+    // not let scheduler pressure reduce it below the shortest real probe.
+    coordinationTimeoutMs: Math.min(900_000, wait(30_000)),
     // Worker qualification starts several process groups and a local observer
     // service. Keep enough base headroom for load that rises after this single
     // startup-time pressure sample while leaving the outer rehearsal a separate
@@ -101,7 +104,7 @@ if (runsFixtureShard('base')) test('rehearsal timing wires shared semantic scale
   assert.deepEqual(timing, {
     stageDelayMs: 110,
     activeFenceDelayMs: 2_063,
-    coordinationTimeoutMs: 40_000,
+    coordinationTimeoutMs: 120_000,
     workerTimeoutSeconds: 360,
     hostInterruptionTimeoutSeconds: 40,
     migrationTimeoutSeconds: 240,
