@@ -1552,6 +1552,9 @@ tiers:
           - tests/backend/Fixtures/schema-ddl-provider-snapshots.json
           - tests/backend/Unit/ReleaseStorageLifecycleTests.cs
           - tests/backend/Unit/PublicAotFileShellCacheTests.cs
+          - tests/backend/Helpers/TestInfrastructure/PublicAotCrashWorkerProgram.cs
+          - tests/backend/FsusBlog.Server.Tests.csproj
+          - tests/backend/Fixtures/public-aot-crash-worker-governance
           - tests/backend/storage-lifecycle-evidence.json
           - docs/architecture/release-storage-lifecycle.md
           - tests/backend/Unit/ActiveReleaseFenceContractTests.cs
@@ -2388,6 +2391,9 @@ tiers:
           - src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs
           - tests/backend/Unit/ReleaseStorageLifecycleTests.cs
           - tests/backend/Unit/PublicAotFileShellCacheTests.cs
+          - tests/backend/Helpers/TestInfrastructure/PublicAotCrashWorkerProgram.cs
+          - tests/backend/FsusBlog.Server.Tests.csproj
+          - tests/backend/Fixtures/public-aot-crash-worker-governance
           - tests/backend/storage-lifecycle-evidence.json
           - docs/architecture/release-storage-lifecycle.md
           - tests/tools/online-schema-migration-wrapper.test.mjs
@@ -3299,6 +3305,9 @@ tiers:
           - .tmp/release-evidence/public-hydration-matrix-summary.json
           - tests/backend/Unit/ReleaseStorageLifecycleTests.cs
           - tests/backend/Unit/PublicAotFileShellCacheTests.cs
+          - tests/backend/Helpers/TestInfrastructure/PublicAotCrashWorkerProgram.cs
+          - tests/backend/FsusBlog.Server.Tests.csproj
+          - tests/backend/Fixtures/public-aot-crash-worker-governance
           - tests/backend/storage-lifecycle-evidence.json
           - docs/architecture/release-storage-lifecycle.md
           - tests/tools/release-storage-lifecycle.test.mjs
@@ -8508,6 +8517,9 @@ tiers:
           - tests/backend/Unit/DeploymentRuntimeStateTests.cs
           - tests/backend/Unit/ReleaseStorageLifecycleTests.cs
           - tests/backend/Unit/PublicAotFileShellCacheTests.cs
+          - tests/backend/Helpers/TestInfrastructure/PublicAotCrashWorkerProgram.cs
+          - tests/backend/FsusBlog.Server.Tests.csproj
+          - tests/backend/Fixtures/public-aot-crash-worker-governance
           - tests/backend/storage-lifecycle-evidence.json
           - docs/architecture/release-storage-lifecycle.md
           - tests/tools/release-storage-lifecycle.test.mjs

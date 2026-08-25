@@ -12,6 +12,8 @@ const aedsCatalogPath = 'tests/backend/Fixtures/aeds-golden-catalog.json';
 const pathGovernanceFixtureDirectory = 'tests/backend/Fixtures/backend-test-path-governance';
 const environmentVariableGovernanceFixtureDirectory = 'tests/backend/Fixtures/environment-variable-governance';
 const platformRuntimeGovernanceFixtureDirectory = 'tests/backend/Fixtures/platform-runtime-governance';
+const publicAotCrashWorkerGovernanceFixtureDirectory =
+    'tests/backend/Fixtures/public-aot-crash-worker-governance';
 const environmentVariableCollectionPath = 'tests/backend/Fixtures/EnvironmentVariableCollection.cs';
 const approvedEnvironmentVariableMutationFiles = new Set([
     'tests/backend/Fixtures/ScopedEnvironmentVariables.cs'
@@ -633,6 +635,151 @@ function verifyPlatformRuntimeGovernance()
     }
 }
 
+function scanPublicAotCrashWorkerGovernance(relativePath, source)
+{
+    const masked = maskCSharpTrivia(source);
+    const violations = [];
+    if (
+        /\b(?:class|record)\s+PublicAotCrashWorker[A-Za-z0-9_]*\b/u.test(masked) &&
+        /\[\s*(?:Fact|Theory)(?:\s*\([^)]*\))?\s*\]/u.test(masked)
+    )
+    {
+        violations.push({
+            path: relativePath,
+            line: lineNumberForIndex(source, source.search(/\[\s*(?:Fact|Theory)/u)),
+            rule: 'discoverable-worker-helper',
+            message: 'the Public AOT crash worker helper must not carry xUnit test attributes'
+        });
+    }
+    const oldWorkerIndex = source.indexOf('Recovery_RealProcessCrashWorker');
+    if (oldWorkerIndex >= 0)
+    {
+        violations.push({
+            path: relativePath,
+            line: lineNumberForIndex(source, oldWorkerIndex),
+            rule: 'legacy-worker-test-id',
+            message: 'the retired Public AOT crash worker test ID must not reappear'
+        });
+    }
+    const legacyEnvironmentIndex = source.search(
+        /FSUSBLOG_PUBLIC_AOT_CRASH_TEST_(?:ROOT|STATE)/u
+    );
+    if (legacyEnvironmentIndex >= 0)
+    {
+        violations.push({
+            path: relativePath,
+            line: lineNumberForIndex(source, legacyEnvironmentIndex),
+            rule: 'legacy-worker-environment',
+            message: 'the retired Public AOT crash worker environment contract must not reappear'
+        });
+    }
+    const methodPattern =
+        /((?:\[[^\]\r\n]+\][ \t\r\n]*)+)(?:public\s+)?(?:async\s+)?(?:Task(?:<[^>]+>)?|ValueTask(?:<[^>]+>)?|void)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\([^)]*\)\s*\{/gu;
+    for (const match of masked.matchAll(methodPattern))
+    {
+        const attributes = source.slice(match.index, match.index + match[1].length);
+        if (!/\b(?:Fact|Theory)\b/u.test(attributes))
+        {
+            continue;
+        }
+        const openingIndex = match.index + match[0].lastIndexOf('{');
+        let depth = 0;
+        let closingIndex = masked.length;
+        for (let index = openingIndex; index < masked.length; index += 1)
+        {
+            if (masked[index] === '{')
+            {
+                depth += 1;
+            }
+            else if (masked[index] === '}')
+            {
+                depth -= 1;
+                if (depth === 0)
+                {
+                    closingIndex = index;
+                    break;
+                }
+            }
+        }
+        const body = masked.slice(openingIndex + 1, closingIndex);
+        const bodySource = source.slice(openingIndex + 1, closingIndex);
+        if (
+            /FSUSBLOG_PUBLIC_AOT_CRASH_TEST_(?:ROOT|STATE)/u.test(bodySource) &&
+            /\breturn\s*;/u.test(body)
+        )
+        {
+            violations.push({
+                path: relativePath,
+                line: lineNumberForIndex(source, match.index),
+                rule: 'worker-environment-return',
+                message: `${match[2]} must not report Passed after a missing worker environment input`
+            });
+        }
+    }
+    return violations;
+}
+
+function verifyPublicAotCrashWorkerGovernance()
+{
+    const positiveFixture =
+        `${publicAotCrashWorkerGovernanceFixtureDirectory}/owned-command.fixture.cs.txt`;
+    const discoverableFixture =
+        `${publicAotCrashWorkerGovernanceFixtureDirectory}/discoverable-helper.fixture.cs.txt`;
+    const environmentReturnFixture =
+        `${publicAotCrashWorkerGovernanceFixtureDirectory}/environment-return.fixture.cs.txt`;
+    requireFile(positiveFixture);
+    requireFile(discoverableFixture);
+    requireFile(environmentReturnFixture);
+    if (scanPublicAotCrashWorkerGovernance(
+        positiveFixture,
+        readFileSync(resolve(root, positiveFixture), 'utf8')
+    ).length !== 0)
+    {
+        fail('backend Public AOT crash-worker governance rejected the owned command fixture');
+    }
+    const discoverable = scanPublicAotCrashWorkerGovernance(
+        discoverableFixture,
+        readFileSync(resolve(root, discoverableFixture), 'utf8')
+    );
+    if (
+        discoverable.length !== 1 ||
+        discoverable[0].rule !== 'discoverable-worker-helper'
+    )
+    {
+        fail('backend Public AOT crash-worker governance must reject a discoverable helper');
+    }
+    const environmentReturn = scanPublicAotCrashWorkerGovernance(
+        environmentReturnFixture,
+        readFileSync(resolve(root, environmentReturnFixture), 'utf8')
+    );
+    if (
+        environmentReturn.length !== 2 ||
+        !environmentReturn.some(violation => violation.rule === 'legacy-worker-environment') ||
+        !environmentReturn.some(violation => violation.rule === 'worker-environment-return')
+    )
+    {
+        fail('backend Public AOT crash-worker governance must reject an environment-driven empty Passed');
+    }
+
+    const backendTestFiles = walk(
+        resolve(root, 'tests/backend'),
+        path => path.endsWith('.cs')
+    )
+        .map(path => ({ fullPath: path, relativePath: toRepoPath(path) }))
+        .sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+    for (const { fullPath, relativePath } of backendTestFiles)
+    {
+        const source = readFileSync(fullPath, 'utf8');
+        for (const violation of scanPublicAotCrashWorkerGovernance(relativePath, source))
+        {
+            fail(
+                `backend-public-aot-crash-worker-governance ${violation.path}:${violation.line} ` +
+                `${violation.rule}: ${violation.message}`
+            );
+        }
+    }
+}
+
 function extractFactMethods(source)
 {
     const masked = maskCSharpTrivia(source);
@@ -1041,6 +1188,7 @@ for (const path of [
 verifyBackendTestPathGovernance();
 verifyEnvironmentVariableGovernance();
 verifyPlatformRuntimeGovernance();
+verifyPublicAotCrashWorkerGovernance();
 verifyFactWrappersDeleted();
 
 if (errors.length > 0)

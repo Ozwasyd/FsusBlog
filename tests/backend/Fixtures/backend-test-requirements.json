@@ -715,7 +715,7 @@
     {
       "id": "BACKEND-BLUE-GREEN-SLOTS",
       "risk": "critical",
-      "coverage": "single-host blue/green Compose isolation, loopback ports, resource preflight, idempotent start/stop, active-slot protection, durable state and candidate failure containment",
+      "coverage": "single-host blue/green Compose isolation, loopback ports, resource preflight, idempotent start/stop, active-slot protection, durable state and candidate failure containment; Public AOT process-crash recovery has one five-state parent Theory and one non-discoverable, argument-closed command worker with child identity, state, root and output receipts",
       "evidencePaths": [
         "tests/tools/deployment-slots.test.mjs",
         "tools/deployment/slot-start.sh",
@@ -735,6 +735,10 @@
         "tests/backend/online-schema-migration-evidence.json",
         "tests/backend/Unit/ReleaseStorageLifecycleTests.cs",
         "tests/backend/Unit/PublicAotFileShellCacheTests.cs",
+        "tests/backend/Helpers/TestInfrastructure/PublicAotCrashWorkerProgram.cs",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "tests/backend/Fixtures/public-aot-crash-worker-governance",
+        "tools/check-backend-test-governance.mjs",
         "src/backend/Infrastructure/Storage/ReleaseDerivedArtifactPublisher.cs",
         "src/backend/Services/SearchIndexService.cs",
         "src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs",

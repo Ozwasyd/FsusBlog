@@ -17,6 +17,9 @@
     - Shared `*Fixture.cs`, `*Collection.cs`, and stable test sample files (`.sql`, `.json`, `.txt`).
 - `Helpers/`
     - Shared fakes, builders, assertions, and test-only utilities.
+    - `PublicAotCrashWorkerProgram` is the sole non-xUnit child command. The test
+      assembly is executable only for this argument-closed worker; ordinary
+      correctness remains owned by the parent five-state Theory.
 
 ## Root Directory Contract
 

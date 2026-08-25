@@ -320,41 +320,99 @@ public sealed class PublicAotFileShellCacheTests(ITestOutputHelper output)
     {
         PublicAotArtifactCommitState crashState = Enum.Parse<PublicAotArtifactCommitState>(crashStateValue);
         using var temp = new TempDirectory();
-        const string CacheKey = "public:aot:v2:doc:2:article:process-crash:iv:17";
-        using var process = Process.Start(CreateCrashWorkerStartInfo(temp.Root, crashState));
-        Assert.NotNull(process);
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        await process.WaitForExitAsync(timeout.Token);
-        string childOutput = string.Concat(
-            await process.StandardOutput.ReadToEndAsync(timeout.Token),
-            "\n",
-            await process.StandardError.ReadToEndAsync(timeout.Token));
-        Assert.NotEqual(0, process.ExitCode);
+        string workerRoot = Path.Combine(temp.Root, "worker-root");
+        Directory.CreateDirectory(workerRoot);
+        string dotnetHostPath = PublicAotCrashWorkerProgram.ResolveDotNetHostPath();
+        string assemblyPath = typeof(PublicAotFileShellCacheTests).Assembly.Location;
+        var request = new PublicAotCrashWorkerRequest(
+            temp.Root,
+            workerRoot,
+            crashState,
+            Guid.NewGuid(),
+            Environment.ProcessId);
+        CrashWorkerProcessResult child = await RunCrashWorkerProcessAsync(
+            PublicAotCrashWorkerProgram.CreateStartInfo(dotnetHostPath, assemblyPath, request),
+            TimeSpan.FromSeconds(30));
+        Assert.NotEqual(0, child.ExitCode);
+        PublicAotCrashWorkerEvidence childEvidence =
+            PublicAotCrashWorkerProgram.ParseAndValidateEvidence(
+                child.StandardOutput,
+                child.StandardError,
+                request,
+                child.ProcessId,
+                dotnetHostPath,
+                assemblyPath);
+        if (crashState == PublicAotArtifactCommitState.Staged)
+        {
+            await AssertCrashWorkerRejectsInvalidInputsAsync(
+                temp.Root,
+                dotnetHostPath,
+                assemblyPath);
+            Assert.Throws<InvalidDataException>(
+                () => PublicAotCrashWorkerProgram.ParseAndValidateEvidence(
+                    child.StandardOutput,
+                    child.StandardError,
+                    request with
+                    {
+                        InvocationId = Guid.NewGuid()
+                    },
+                    child.ProcessId,
+                    dotnetHostPath,
+                    assemblyPath));
+            string staleRoot = Path.Combine(temp.Root, "stale-root");
+            Directory.CreateDirectory(staleRoot);
+            Assert.Throws<InvalidDataException>(
+                () => PublicAotCrashWorkerProgram.ParseAndValidateEvidence(
+                    child.StandardOutput,
+                    child.StandardError,
+                    request with
+                    {
+                        CacheRoot = staleRoot
+                    },
+                    child.ProcessId,
+                    dotnetHostPath,
+                    assemblyPath));
+        }
 
-        PublicAotFileShellCache cache = BuildJournalCache(temp.Root);
+        PublicAotFileShellCache cache = PublicAotCrashWorkerProgram.BuildCache(workerRoot);
         bool readableBeforeRecovery =
-            await cache.TryGetEntryAsync(CacheKey, "frontend-v2") is not null;
+            await cache.TryGetEntryAsync(
+                PublicAotCrashWorkerProgram.CacheKey,
+                PublicAotCrashWorkerProgram.FrontendAssetVersion) is not null;
         Assert.Equal(
             crashState == PublicAotArtifactCommitState.Complete,
             readableBeforeRecovery);
         await cache.RecoverArtifactTransactionsAsync(CancellationToken.None);
         await cache.RecoverArtifactTransactionsAsync(CancellationToken.None);
 
-        PublicAotCacheEntry? recovered = await cache.TryGetEntryAsync(CacheKey, "frontend-v2");
+        PublicAotCacheEntry? recovered = await cache.TryGetEntryAsync(
+            PublicAotCrashWorkerProgram.CacheKey,
+            PublicAotCrashWorkerProgram.FrontendAssetVersion);
         Assert.NotNull(recovered);
-        Assert.Equal("<main>process crash</main>", recovered.Value);
+        Assert.Equal(PublicAotCrashWorkerProgram.ExpectedValue, recovered.Value);
         var journal = new PublicAotArtifactCommitJournal(
-            ResolveTestCacheRoot(temp.Root, Environments.Development),
+            ResolveTestCacheRoot(workerRoot, Environments.Development),
             TimeProvider.System);
-        bool stagingRemoved = !File.Exists(journal.GetStagingPath(journal.GetArtifactId(CacheKey)));
+        bool stagingRemoved = !File.Exists(
+            journal.GetStagingPath(journal.GetArtifactId(PublicAotCrashWorkerProgram.CacheKey)));
         Assert.True(stagingRemoved);
+        string childOutput = string.Concat(child.StandardOutput, "\n", child.StandardError);
         output.WriteLine(
             "public-aot-crash-recovery-receipt {0}",
             JsonSerializer.Serialize(new
             {
-                schema = "fsusblog.public-aot-crash-recovery-test-receipt.v1",
+                schema = "fsusblog.public-aot-crash-recovery-test-receipt.v2",
                 crashState = crashStateValue,
-                childExitCode = process.ExitCode,
+                childInvocationIdentity = childEvidence.InvocationIdentity,
+                childProcessId = child.ProcessId,
+                parentProcessId = childEvidence.ParentProcessId,
+                childExecutableIdentity = childEvidence.ExecutableIdentity,
+                childAssemblyIdentity = childEvidence.AssemblyIdentity,
+                childCommandIdentity = childEvidence.CommandIdentity,
+                sandboxRootIdentity = childEvidence.SandboxRootIdentity,
+                cacheRootIdentity = childEvidence.CacheRootIdentity,
+                durableStateObserved = childEvidence.CrashState,
+                childExitCode = child.ExitCode,
                 childOutputSha256 = Convert.ToHexStringLower(
                     SHA256.HashData(Encoding.UTF8.GetBytes(childOutput))),
                 readableBeforeRecovery,
@@ -362,37 +420,6 @@ public sealed class PublicAotFileShellCacheTests(ITestOutputHelper output)
                 recovered = true,
                 stagingRemoved
             }));
-    }
-
-    [Fact]
-    public async Task Recovery_RealProcessCrashWorker()
-    {
-        string? root = Environment.GetEnvironmentVariable("FSUSBLOG_PUBLIC_AOT_CRASH_TEST_ROOT");
-        string? stateValue = Environment.GetEnvironmentVariable("FSUSBLOG_PUBLIC_AOT_CRASH_TEST_STATE");
-        if (string.IsNullOrWhiteSpace(root)
-            || !Enum.TryParse(stateValue, ignoreCase: false, out PublicAotArtifactCommitState crashState))
-        {
-            return;
-        }
-
-        PublicAotFileShellCache cache = BuildJournalCache(
-            root,
-            (state, _) =>
-            {
-                if (state == crashState)
-                {
-                    Process.GetCurrentProcess().Kill();
-                }
-
-                return Task.CompletedTask;
-            });
-        PublicAotCacheEntry entry = CreateEntry(
-            "public:aot:v2:doc:2:article:process-crash:iv:17") with
-        {
-            Value = "<main>process crash</main>"
-        };
-        await cache.SetAsync(entry);
-        Assert.Fail("The crash worker reached the end of SetAsync.");
     }
 
     [Fact]
@@ -1491,48 +1518,122 @@ public sealed class PublicAotFileShellCacheTests(ITestOutputHelper output)
     {
     }
 
-    private static ProcessStartInfo CreateCrashWorkerStartInfo(
-        string root,
-        PublicAotArtifactCommitState crashState)
+    private sealed record CrashWorkerProcessResult(
+        int ProcessId,
+        int ExitCode,
+        string StandardOutput,
+        string StandardError);
+
+    private static async Task AssertCrashWorkerRejectsInvalidInputsAsync(
+        string sandboxRoot,
+        string dotnetHostPath,
+        string assemblyPath)
     {
-        string assemblyPath = typeof(PublicAotFileShellCacheTests).Assembly.Location;
-        var startInfo = new ProcessStartInfo(
-            "dotnet",
-            $"vstest \"{assemblyPath}\" --Tests:{typeof(PublicAotFileShellCacheTests).FullName}.Recovery_RealProcessCrashWorker")
+        string validRoot = Path.Combine(sandboxRoot, "invalid-input-root");
+        Directory.CreateDirectory(validRoot);
+        using var outside = new TempDirectory();
+        var request = new PublicAotCrashWorkerRequest(
+            sandboxRoot,
+            validRoot,
+            PublicAotArtifactCommitState.Staged,
+            Guid.NewGuid(),
+            Environment.ProcessId);
+        IReadOnlyList<string> valid = PublicAotCrashWorkerProgram.CreateArguments(request);
+        var cases = new (string ErrorCode, IReadOnlyList<string> Arguments)[]
         {
-            RedirectStandardError = true,
-            RedirectStandardOutput = true,
-            UseShellExecute = false
+            ("missing-argument", RemoveArgument(valid, "--cache-root")),
+            ("missing-argument", RemoveArgument(valid, "--state")),
+            ("unknown-state", ReplaceArgument(valid, "--state", "UnknownState")),
+            ("cache-root-escape", ReplaceArgument(valid, "--cache-root", outside.Root)),
+            ("duplicate-argument", [.. valid, "--state", nameof(PublicAotArtifactCommitState.Staged)])
         };
-        startInfo.Environment["FSUSBLOG_PUBLIC_AOT_CRASH_TEST_ROOT"] = root;
-        startInfo.Environment["FSUSBLOG_PUBLIC_AOT_CRASH_TEST_STATE"] = crashState.ToString();
-        return startInfo;
+
+        foreach ((string errorCode, IReadOnlyList<string> arguments) in cases)
+        {
+            CrashWorkerProcessResult result = await RunCrashWorkerProcessAsync(
+                PublicAotCrashWorkerProgram.CreateStartInfo(
+                    dotnetHostPath,
+                    assemblyPath,
+                    arguments),
+                TimeSpan.FromSeconds(10));
+            Assert.Equal(PublicAotCrashWorkerProgram.InvalidArgumentsExitCode, result.ExitCode);
+            Assert.Contains(
+                $"{PublicAotCrashWorkerProgram.FailurePrefix}{errorCode}",
+                result.StandardError,
+                StringComparison.Ordinal);
+            Assert.DoesNotContain(
+                PublicAotCrashWorkerProgram.HandshakePrefix,
+                result.StandardOutput,
+                StringComparison.Ordinal);
+        }
     }
 
-    private static PublicAotFileShellCache BuildJournalCache(
-        string root,
-        Func<PublicAotArtifactCommitState, CancellationToken, Task>? observer = null)
+    private static IReadOnlyList<string> RemoveArgument(
+        IReadOnlyList<string> arguments,
+        string name)
     {
-        IDatabase database = Substitute.For<IDatabase>();
-        var subscriber = Substitute.For<ISubscriber>();
-        var redis = Substitute.For<IConnectionMultiplexer>();
-        redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(database);
-        redis.GetSubscriber(Arg.Any<object?>()).Returns(subscriber);
-        database.SetAddAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<CommandFlags>())
-            .Returns(Task.FromResult(true));
-        database.SetRemoveAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue[]>(), Arg.Any<CommandFlags>())
-            .Returns(call => Task.FromResult((long)call.ArgAt<RedisValue[]>(1).Length));
-        subscriber.PublishAsync(Arg.Any<RedisChannel>(), Arg.Any<RedisValue>(), Arg.Any<CommandFlags>())
-            .Returns(Task.FromResult(1L));
-        return new PublicAotFileShellCache(
-            new TestWebHostEnvironment(root, Environments.Development),
-            redis,
-            NullLogger<PublicAotFileShellCache>.Instance,
-            derivedPublisher: null,
-            configuration: null,
-            timeProvider: null,
-            publicArtifactStorage: null,
-            observer);
+        var result = new List<string>(arguments.Count - 2);
+        for (int index = 0; index < arguments.Count; index += 2)
+        {
+            if (!string.Equals(arguments[index], name, StringComparison.Ordinal))
+            {
+                result.Add(arguments[index]);
+                result.Add(arguments[index + 1]);
+            }
+        }
+
+        return result;
+    }
+
+    private static IReadOnlyList<string> ReplaceArgument(
+        IReadOnlyList<string> arguments,
+        string name,
+        string value)
+    {
+        string[] result = [.. arguments];
+        int index = Array.IndexOf(result, name);
+        Assert.True(index >= 0 && index + 1 < result.Length);
+        result[index + 1] = value;
+        return result;
+    }
+
+    private static async Task<CrashWorkerProcessResult> RunCrashWorkerProcessAsync(
+        ProcessStartInfo startInfo,
+        TimeSpan timeout)
+    {
+        using Process process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException("The Public AOT crash worker process did not start.");
+        Task<string> standardOutput = process.StandardOutput.ReadToEndAsync();
+        Task<string> standardError = process.StandardError.ReadToEndAsync();
+        try
+        {
+            await process.WaitForExitAsync().WaitAsync(timeout);
+        }
+        catch (TimeoutException exception)
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+                await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            throw new TimeoutException(
+                $"The Public AOT crash worker timed out; childPid={process.Id}; terminated={process.HasExited}.",
+                exception);
+        }
+        finally
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+        }
+
+        return new(
+            process.Id,
+            process.ExitCode,
+            await standardOutput,
+            await standardError);
     }
 
     private static PublicAotArtifactPointer SealPointerForTest(PublicAotArtifactPointer pointer)
