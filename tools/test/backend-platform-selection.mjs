@@ -10,6 +10,13 @@ export const backendPlatformTrait = Object.freeze({
   name: 'Platform',
   unix: 'Unix'
 })
+export const backendPlatformEvidenceTrait = Object.freeze({
+  name: 'PlatformEvidence',
+  unixMode: 'UnixMode'
+})
+
+const runtimeEvidencePrefix = 'backend-platform-runtime-evidence '
+const unixModeEvidenceSchema = 'fsusblog.backend-platform-unix-mode-evidence.v1'
 
 function requiredText(value, label) {
   const result = String(value ?? '').trim()
@@ -49,6 +56,33 @@ function platformValues(record) {
   return values
 }
 
+function platformEvidenceValues(record) {
+  const values = record?.traits?.[backendPlatformEvidenceTrait.name] ?? []
+  if (!Array.isArray(values)) {
+    throw new Error(
+      `backend platform evidence traits must be an array for ${record?.fullyQualifiedName ?? '<missing>'}`
+    )
+  }
+  if (values.length > 1) {
+    throw new Error(
+      `backend test has multiple PlatformEvidence traits: ${record?.fullyQualifiedName ?? '<missing>'}`
+    )
+  }
+  if (values.some((value) => value !== backendPlatformEvidenceTrait.unixMode)) {
+    throw new Error(
+      `backend test has unsupported PlatformEvidence trait ${values.join(',') || '<empty>'}: `
+      + `${record?.fullyQualifiedName ?? '<missing>'}`
+    )
+  }
+  if (values.length === 1 && !platformValues(record).includes(backendPlatformTrait.unix)) {
+    throw new Error(
+      `backend test declares PlatformEvidence without Platform=Unix: `
+      + `${record?.fullyQualifiedName ?? '<missing>'}`
+    )
+  }
+  return values
+}
+
 export function selectBackendPlatformRecords(records, runtimePlatform = process.platform) {
   if (!Array.isArray(records) || records.length === 0) {
     throw new Error('backend platform selection requires authoritative discovered records')
@@ -56,6 +90,7 @@ export function selectBackendPlatformRecords(records, runtimePlatform = process.
   const platform = normalizeBackendRuntimePlatform(runtimePlatform)
   return records.filter((record) => {
     const values = platformValues(record)
+    platformEvidenceValues(record)
     return values.length === 0 || platform !== 'windows'
   })
 }
@@ -65,6 +100,7 @@ function platformEvidenceRecord(record, result, reason = null) {
   const fullyQualifiedName = requiredText(record?.fullyQualifiedName, 'backend platform fully-qualified test name')
   const displayName = requiredText(record?.displayName, 'backend platform display name')
   const source = path.resolve(requiredText(record?.source, 'backend platform test source'))
+  const evidenceValues = platformEvidenceValues(record)
   return {
     testId: id,
     fullyQualifiedName,
@@ -73,6 +109,7 @@ function platformEvidenceRecord(record, result, reason = null) {
     assembly: path.basename(source),
     platform: backendPlatformTrait.unix,
     result,
+    ...(evidenceValues.length === 1 ? { evidenceContract: 'unix-mode' } : {}),
     ...(reason ? { reason } : {})
   }
 }
@@ -96,6 +133,7 @@ export function projectBackendPlatformPlan(
     if (seenIds.has(id)) throw new Error(`backend platform discovery repeated test ID ${id}`)
     seenIds.add(id)
     const values = platformValues(record)
+    platformEvidenceValues(record)
     const selected = selectedIds.has(id)
     if (selected) plannedTestCaseCount += 1
     else notSelectedTestCaseCount += 1
@@ -136,13 +174,46 @@ function trxAttribute(raw, name) {
   return match ? decodeXml(match[1]) : ''
 }
 
+function parseRuntimeEvidence(body) {
+  const lines = [...String(body).matchAll(/<StdOut>([\s\S]*?)<\/StdOut>/gu)]
+    .flatMap((match) => decodeXml(match[1]).split(/\r?\n/gu))
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith(runtimeEvidencePrefix))
+  if (lines.length > 1) {
+    throw new Error('backend platform TRX contains multiple runtime evidence receipts for one test')
+  }
+  if (lines.length === 0) return null
+  try {
+    const value = JSON.parse(lines[0].slice(runtimeEvidencePrefix.length))
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      throw new Error('receipt must be an object')
+    }
+    return value
+  } catch (error) {
+    throw new Error(
+      `backend platform TRX contains invalid runtime evidence JSON: `
+      + `${error instanceof Error ? error.message : String(error)}`
+    )
+  }
+}
+
+export function parseBackendPlatformResultRows(xml) {
+  return [...String(xml).matchAll(
+    /<UnitTestResult\b([^>]*?)(?:\/>|>([\s\S]*?)<\/UnitTestResult>)/gu
+  )].map((match) => {
+    const runtimeEvidence = parseRuntimeEvidence(match[2] ?? '')
+    return {
+      testId: trxAttribute(match[1], 'testId'),
+      testName: trxAttribute(match[1], 'testName'),
+      outcome: trxAttribute(match[1], 'outcome'),
+      ...(runtimeEvidence ? { runtimeEvidence } : {})
+    }
+  })
+}
+
 export function parseBackendPlatformTrx(xml) {
   const text = String(xml)
-  const results = [...text.matchAll(/<UnitTestResult\b([^>]*)>/gu)].map((match) => ({
-    testId: trxAttribute(match[1], 'testId'),
-    testName: trxAttribute(match[1], 'testName'),
-    outcome: trxAttribute(match[1], 'outcome')
-  }))
+  const results = parseBackendPlatformResultRows(text)
   const counters = [...text.matchAll(/<Counters\b([^>]*)>/gu)]
   if (counters.length !== 1) throw new Error('backend platform outcome requires one TRX counter set')
   const total = Number(trxAttribute(counters[0][1], 'total'))
@@ -155,6 +226,40 @@ export function parseBackendPlatformTrx(xml) {
     throw new Error('backend platform TRX contains an incomplete result record')
   }
   return results
+}
+
+function requireTrueRecord(record, keys, label) {
+  if (!record || typeof record !== 'object' || Array.isArray(record)
+    || keys.some((key) => record[key] !== true)) {
+    throw new Error(`backend Unix mode evidence requires true ${label}: ${keys.join(',')}`)
+  }
+}
+
+function validateUnixModeEvidence(value, test) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+    || value.schema !== unixModeEvidenceSchema
+    || value.evidenceContract !== 'unix-mode') {
+    throw new Error(`backend Unix mode evidence schema is invalid for ${test.fullyQualifiedName}`)
+  }
+  if (value.fullyQualifiedName !== test.fullyQualifiedName) {
+    throw new Error(`backend Unix mode evidence test identity is invalid for ${test.fullyQualifiedName}`)
+  }
+  if (value.freshModeOctal !== '0700'
+    || value.widenedExistingModeOctal !== '0777'
+    || value.effectiveModeOctal !== '0700') {
+    throw new Error(`backend Unix mode evidence has invalid mode values for ${test.fullyQualifiedName}`)
+  }
+  requireTrueRecord(value.assertions, [
+    'groupReadDenied',
+    'groupWriteDenied',
+    'groupExecuteDenied',
+    'otherReadDenied',
+    'otherWriteDenied',
+    'otherExecuteDenied'
+  ], 'group/other deny assertions')
+  requireTrueRecord(value.ownerArtifact, ['created', 'read', 'deleted'], 'owner artifact assertions')
+  requireTrueRecord(value.existingRoot, ['overbroadModeApplied', 'converged'], 'existing-root assertions')
+  return value
 }
 
 export function reconcileBackendPlatformOutcome(plan, results) {
@@ -187,11 +292,23 @@ export function reconcileBackendPlatformOutcome(plan, results) {
     if (result.outcome !== 'Passed' && result.outcome !== 'Failed') {
       throw new Error(`Unix backend platform test has non-semantic outcome ${result.outcome}`)
     }
+    let evidence = null
+    if (test.evidenceContract === 'unix-mode') {
+      if (result.outcome === 'Passed' && !result.runtimeEvidence) {
+        throw new Error(
+          `Unix backend platform test passed without required runtime evidence: ${test.fullyQualifiedName}`
+        )
+      }
+      if (result.runtimeEvidence) {
+        evidence = validateUnixModeEvidence(result.runtimeEvidence, test)
+      }
+    }
     return {
       ...test,
       result: result.outcome.toLowerCase(),
       rawOutcome: result.outcome,
-      executionEvidenceCount: 1
+      executionEvidenceCount: 1,
+      ...(evidence ? { evidence } : {})
     }
   })
   return {
