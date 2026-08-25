@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.issue-acceptance-baseline.v1",
+    "issue": 2749,
+    "sourceCommit": "d275672abdf982e7ab74bb26c42ca59c691adb1c",
+    "expectedRecords": 1,
+    "expectedMigrated": 1,
+    "records": [
+        {
+            "id": "vitest:tests/frontend/unit/view-contracts/moderationRegionsDataListOwnership.test.ts#renders-a-navigation-variant-datalist-with-fsusui-contra-bbd89166e7",
+            "path": "tests/frontend/unit/view-contracts/moderationRegionsDataListOwnership.test.ts",
+            "disposition": "migrated"
+        }
+    ]
+}
