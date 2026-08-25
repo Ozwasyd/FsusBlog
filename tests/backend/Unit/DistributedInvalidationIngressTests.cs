@@ -324,6 +324,9 @@ public sealed class DistributedInvalidationIngressTests
     {
         var ledger = Substitute.For<IDistributedInvalidationDeliveryLedger>();
         DistributedInvalidationEvent pending = CreateEvent("restart-event");
+        int pendingReadCount = 0;
+        int claimAttemptCount = 0;
+        int successfulClaimCount = 0;
         ledger.RecoverInterruptedAsync(
                 Arg.Any<string>(),
                 Arg.Any<string>(),
@@ -333,7 +336,11 @@ public sealed class DistributedInvalidationIngressTests
                 Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<IReadOnlyList<DistributedInvalidationEvent>>([pending]));
+            .Returns(_ =>
+            {
+                Interlocked.Increment(ref pendingReadCount);
+                return Task.FromResult<IReadOnlyList<DistributedInvalidationEvent>>([pending]);
+            });
         ledger.ReadPendingInboxSnapshotAsync(
                 Arg.Any<string>(),
                 Arg.Any<string>(),
@@ -352,7 +359,11 @@ public sealed class DistributedInvalidationIngressTests
                 Arg.Any<DistributedInvalidationEvent>(),
                 Arg.Any<string>(),
                 Arg.Any<CancellationToken>())
-            .Returns(true);
+            .Returns(_ =>
+            {
+                Interlocked.Increment(ref claimAttemptCount);
+                return Interlocked.CompareExchange(ref successfulClaimCount, 1, 0) == 0;
+            });
         ledger.RecordApplyAsync(
                 Arg.Any<DistributedInvalidationEvent>(),
                 Arg.Any<string>(),
@@ -366,9 +377,21 @@ public sealed class DistributedInvalidationIngressTests
         using BusHarness harness = CreateBusHarness(ledger, transport, new RecordingLocalApplier());
         await harness.Bus.StartAsync(CancellationToken.None);
         await EventuallyAsync(() => harness.Applier.ApplyCount == 1);
+        await EventuallyAsync(() => Volatile.Read(ref pendingReadCount) >= 2);
         await harness.Bus.StopAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(2));
 
         Assert.Equal(1, harness.Applier.ApplyCount);
+        Assert.True(Volatile.Read(ref claimAttemptCount) >= 2);
+        Assert.Equal(1, Volatile.Read(ref successfulClaimCount));
+        await ledger.Received(1).RecordApplyAsync(
+            Arg.Is<DistributedInvalidationEvent>(value =>
+                value.EventId == pending.EventId
+                && value.ReplayIdentity == pending.ReplayIdentity),
+            "node-b",
+            DistributedInvalidationInboxApplyState.Applied,
+            null,
+            1,
+            Arg.Any<CancellationToken>());
         Assert.Equal(0, transport.YieldedItems);
         Assert.Equal(1, harness.Ingress.Snapshot().PendingInboxCount);
     }
