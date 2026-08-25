@@ -13,12 +13,14 @@ export const backendPlatformTrait = Object.freeze({
 export const backendPlatformEvidenceTrait = Object.freeze({
   name: 'PlatformEvidence',
   unixMode: 'UnixMode',
-  unixRequestPath: 'UnixRequestPath'
+  unixRequestPath: 'UnixRequestPath',
+  unixSymlinkBoundary: 'UnixSymlinkBoundary'
 })
 
 const runtimeEvidencePrefix = 'backend-platform-runtime-evidence '
 const unixModeEvidenceSchema = 'fsusblog.backend-platform-unix-mode-evidence.v1'
 const unixRequestPathEvidenceSchema = 'fsusblog.backend-platform-unix-request-path-evidence.v1'
+const unixSymlinkBoundaryEvidenceSchema = 'fsusblog.backend-platform-unix-symlink-boundary-evidence.v1'
 const unixRequestPathOperations = Object.freeze([
   'complete',
   'abort',
@@ -80,7 +82,8 @@ function platformEvidenceValues(record) {
   }
   if (values.some((value) => ![
     backendPlatformEvidenceTrait.unixMode,
-    backendPlatformEvidenceTrait.unixRequestPath
+    backendPlatformEvidenceTrait.unixRequestPath,
+    backendPlatformEvidenceTrait.unixSymlinkBoundary
   ].includes(value))) {
     throw new Error(
       `backend test has unsupported PlatformEvidence trait ${values.join(',') || '<empty>'}: `
@@ -159,7 +162,9 @@ function platformEvidenceRecord(record, result, reason = null) {
     ? 'unix-mode'
     : evidenceValues[0] === backendPlatformEvidenceTrait.unixRequestPath
       ? 'unix-request-path'
-      : null
+      : evidenceValues[0] === backendPlatformEvidenceTrait.unixSymlinkBoundary
+        ? 'unix-symlink-boundary'
+        : null
   return {
     testId: id,
     fullyQualifiedName,
@@ -356,6 +361,62 @@ function validateUnixRequestPathEvidence(value, test) {
   return value
 }
 
+function requireSha256(value, label) {
+  const digest = requiredText(value, label)
+  if (!/^[0-9a-f]{64}$/u.test(digest)) {
+    throw new Error(`backend Unix symlink-boundary evidence requires SHA-256 ${label}`)
+  }
+  return digest
+}
+
+function validateUnixSymlinkBoundaryEvidence(value, test) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+    || value.schema !== unixSymlinkBoundaryEvidenceSchema
+    || value.evidenceContract !== 'unix-symlink-boundary') {
+    throw new Error(`backend Unix symlink-boundary evidence schema is invalid for ${test.fullyQualifiedName}`)
+  }
+  if (value.fullyQualifiedName !== test.fullyQualifiedName) {
+    throw new Error(`backend Unix symlink-boundary evidence test identity is invalid for ${test.fullyQualifiedName}`)
+  }
+  requireTrueRecord(value.root, ['exists'], 'physical root assertions', 'Unix symlink-boundary')
+  requireTrueRecord(value.escapeLink, [
+    'exists',
+    'targetExists',
+    'targetOutsideRoot',
+    'targetMatchesExpected'
+  ], 'escape-link assertions', 'Unix symlink-boundary')
+  if (value.rejection?.resolved !== false || value.rejection?.pathEmpty !== true) {
+    throw new Error(`backend Unix symlink-boundary evidence did not reject the physical escape for ${test.fullyQualifiedName}`)
+  }
+  requireTrueRecord(value.positiveControl, [
+    'rootExists',
+    'linkExists',
+    'targetExists',
+    'targetMatchesExpected',
+    'resolved',
+    'resolvedInsideRoot',
+    'resolvedPathMatchesExpected'
+  ], 'positive-control assertions', 'Unix symlink-boundary')
+  if (value.cleanupCompleted !== true) {
+    throw new Error(`backend Unix symlink-boundary evidence requires completed link cleanup for ${test.fullyQualifiedName}`)
+  }
+  const escapeIdentities = [
+    requireSha256(value.root.identity, 'root identity'),
+    requireSha256(value.escapeLink.identity, 'escape link identity'),
+    requireSha256(value.escapeLink.targetIdentity, 'escape target identity')
+  ]
+  const positiveIdentities = [
+    requireSha256(value.positiveControl.rootIdentity, 'positive root identity'),
+    requireSha256(value.positiveControl.linkIdentity, 'positive link identity'),
+    requireSha256(value.positiveControl.targetIdentity, 'positive target identity')
+  ]
+  if (new Set(escapeIdentities).size !== escapeIdentities.length
+    || new Set(positiveIdentities).size !== positiveIdentities.length) {
+    throw new Error(`backend Unix symlink-boundary evidence identities are not distinct for ${test.fullyQualifiedName}`)
+  }
+  return value
+}
+
 export function reconcileBackendPlatformOutcome(plan, results) {
   if (plan?.schema !== 'fsusblog.backend-platform-plan.v1') {
     throw new Error('backend platform outcome requires a canonical platform plan')
@@ -407,6 +468,15 @@ export function reconcileBackendPlatformOutcome(plan, results) {
       }
       if (result.runtimeEvidence) {
         evidence = validateUnixRequestPathEvidence(result.runtimeEvidence, test)
+      }
+    } else if (test.evidenceContract === 'unix-symlink-boundary') {
+      if (result.outcome === 'Passed' && !result.runtimeEvidence) {
+        throw new Error(
+          `Unix backend platform test passed without required runtime evidence: ${test.fullyQualifiedName}`
+        )
+      }
+      if (result.runtimeEvidence) {
+        evidence = validateUnixSymlinkBoundaryEvidence(result.runtimeEvidence, test)
       }
     }
     return {
