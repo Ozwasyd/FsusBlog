@@ -1017,13 +1017,70 @@ RunBackendBuildGovernanceLane() {
     WriteBackendSplitSummary backend-build-governance governance-and-debug-build
 }
 
+BackendPlatformPlanFile() {
+    local lane
+    lane="$(NamespaceSlug "${1:-backend}")"
+    printf '%s/.tmp/%s/platform-membership-plan.json' "$ROOT_DIR" "$lane"
+}
+
+BackendPlatformOutcomeFile() {
+    local lane
+    lane="$(NamespaceSlug "${1:-backend}")"
+    printf '%s/.tmp/%s/platform-membership-outcome.json' "$ROOT_DIR" "$lane"
+}
+
+PrepareBackendPlatformPlan() {
+    local lane="$1"
+    local baseFilter="$2"
+    local configuration outputDirectory testAssembly diagnosticRoot planFile runtimePlatform
+    configuration="$(BackendTestConfiguration)"
+    EnsureBackendFilteredBuild
+    outputDirectory="$(BackendTestRuntimeOutputDirectory)"
+    testAssembly="$outputDirectory/FsusBlog.Server.Tests.dll"
+    diagnosticRoot="$ROOT_DIR/.tmp/$lane/platform-discovery"
+    planFile="$(BackendPlatformPlanFile "$lane")"
+    runtimePlatform="$("${FSUSBLOG_NODE:-node}" -p 'process.platform')"
+    rm -rf "$diagnosticRoot"
+    rm -f "$planFile" "$(BackendPlatformOutcomeFile "$lane")"
+    mkdir -p "$diagnosticRoot"
+    Log "backend platform discovery: lane=$lane platform=$runtimePlatform"
+    "$BUILD_ENV_RUNNER" dotnet vstest "$testAssembly" \
+        --ListTests \
+        "--TestCaseFilter:$baseFilter" \
+        "--Diag:$diagnosticRoot/union.txt" \
+        >"$diagnosticRoot/stdout.txt"
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/backend-platform-selection.mjs" plan \
+        --platform "$runtimePlatform" \
+        --base "$baseFilter" \
+        --lane "$lane" \
+        --diagnostic-root "$diagnosticRoot" \
+        --source "$testAssembly" \
+        --out "$planFile"
+}
+
+FinalizeBackendPlatformOutcome() {
+    local lane="$1"
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/backend-platform-selection.mjs" outcome \
+        --plan "$(BackendPlatformPlanFile "$lane")" \
+        --trx "$(BackendTrxFile "$lane")" \
+        --out "$(BackendPlatformOutcomeFile "$lane")"
+}
+
 RunBackendUnitLane() {
     if [[ "${FSUSBLOG_TEST_SELECTION:-}" == "affected" ]]; then
         Log "backend-unit selection=affected"
         Run "$ROOT_DIR/tools/dotnet-affected-tests.sh"
     else
+        local platformFilter status=0
         Log "backend-unit selection=full reason=${FSUSBLOG_TEST_SELECTION:-unset}"
-        RunBackendDotnetFilterOnly "$BACKEND_ORDINARY_TEST_FILTER" backend-unit
+        PrepareBackendPlatformPlan backend-unit "$BACKEND_ORDINARY_TEST_FILTER"
+        platformFilter="$("${FSUSBLOG_NODE:-node}" -p \
+            "require('$(BackendPlatformPlanFile backend-unit)').executionFilter")"
+        RunBackendDotnetFilterOnly "$platformFilter" backend-unit || status=$?
+        FinalizeBackendPlatformOutcome backend-unit || status=$?
+        if ((status != 0)); then
+            return "$status"
+        fi
     fi
     WriteBackendSplitSummary backend-unit "${FSUSBLOG_TEST_SELECTION:-full}"
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/produce-integrity-proof-evidence.mjs" \
