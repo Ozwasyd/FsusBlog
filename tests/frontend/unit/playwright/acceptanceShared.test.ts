@@ -93,6 +93,10 @@ describe('playwright acceptance shared helper', () => {
       'fxpc:public-preview-docs-1883356:public-preview-docs-1883:published:primary',
       '/article/1'
     )).toBe('fixture:public-preview:published:primary')
+    expect(normalizeDynamicScreenshotText(
+      'Published刚刚 · Updateda minute ago · 3 hours ago · 4 分钟前',
+      '/article/1'
+    )).toBe('Published2026-01-01 · Updated2026-01-01 · 2026-01-01 · 2026-01-01')
     expect(normalizeDynamicScreenshotText('分页 2 / 7', '/user/manage/comments')).toBe('分页 2 / 7')
   })
 
