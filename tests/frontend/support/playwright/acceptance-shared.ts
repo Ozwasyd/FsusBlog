@@ -2701,9 +2701,11 @@ type DynamicScreenshotTextRule = Readonly<{
 
 export const DYNAMIC_SCREENSHOT_TEXT_RULES: readonly DynamicScreenshotTextRule[] = [
   { pattern: String.raw`\b\d{1,2}\/\d{1,2}\/\d{4},\s+\d{1,2}:\d{2}:\d{2}\s+(?:AM|PM)\b`, flags: 'gu', replacement: '1/1/2026, 12:00:00 AM' },
+  { pattern: String.raw`\b\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2}\b`, flags: 'gu', replacement: '01/01 12:00' },
   { pattern: String.raw`\b\d{4}-\d{2}-\d{2}\b`, flags: 'gu', replacement: '2026-01-01' },
   { pattern: String.raw`\b\d{4}年\d{1,2}月\d{1,2}日\b`, flags: 'gu', replacement: '2026年1月1日' },
   { pattern: String.raw`\b\d+\s*小时前\b`, flags: 'gu', replacement: '2 小时前' },
+  { pattern: String.raw`\bfxpc:public-preview-docs-\d+:public-preview-docs-\d+:`, flags: 'gu', replacement: 'fixture:public-preview:' },
   { pattern: String.raw`\/home\/[^\s]+\/\.tmp\/data\/public-preview-docs-[A-Za-z0-9_.-]+\/backups`, flags: 'gu', replacement: '/workspace/.tmp/data/public-preview-docs-stable/backups' },
   { pathname: '/user/manage/ops', pattern: String.raw`\b\d+\s+\/\s+\d+\b`, flags: 'gu', replacement: '0 / 0' },
   { pathname: '/user/manage/ops', pattern: String.raw`\bqueued=\d+\b`, flags: 'gu', replacement: 'queued=0' }
