@@ -83,7 +83,7 @@ test('quality publication rejects a stable but failed machine report', () => {
   assert.throws(() => writePublicPreviewQualityManifest(directory, commit, root, path.join(directory, 'quality.json')), /publication is fail/u)
 })
 
-test('quality comparison augments existing release evidence and rejects mismatched manifests', () => {
+test('quality comparison excludes source identity from reproducible content and rejects quality drift', () => {
   const committed = mkdtempSync(path.join(tmpdir(), 'fsus-public-preview-quality-committed-'))
   const captured = mkdtempSync(path.join(tmpdir(), 'fsus-public-preview-quality-captured-'))
   seed(committed)
@@ -91,7 +91,7 @@ test('quality comparison augments existing release evidence and rejects mismatch
   const committedManifest = path.join(committed, 'quality.json')
   const capturedManifest = path.join(captured, 'quality.json')
   writePublicPreviewQualityManifest(committed, commit, root, committedManifest)
-  writePublicPreviewQualityManifest(captured, commit, root, capturedManifest)
+  writePublicPreviewQualityManifest(captured, 'b'.repeat(40), root, capturedManifest)
   const evidence = path.join(captured, 'release-evidence.json')
   writeFileSync(evidence, JSON.stringify({ schema: 'fsusblog.public-preview-screenshot-verification.v1', status: 'ok' }))
   const result = comparePublicPreviewQualityManifests(capturedManifest, committedManifest, evidence, root)
@@ -100,7 +100,7 @@ test('quality comparison augments existing release evidence and rejects mismatch
   assert.equal(result.evidence.quality.schema, 'fsusblog.public-preview-quality-manifest.v1')
 
   const tampered = JSON.parse(readFileSync(capturedManifest, 'utf8'))
-  tampered.sourceCommit = 'b'.repeat(40)
+  tampered.screenshots[Object.keys(tampered.screenshots)[0]].reviewer.reasons.push('unexpected drift')
   writeFileSync(capturedManifest, JSON.stringify(tampered))
   const mismatch = comparePublicPreviewQualityManifests(capturedManifest, committedManifest, evidence, root)
   assert.match(mismatch.errors.join('; '), /differs/u)

@@ -31,6 +31,11 @@ function digest(value) {
   return crypto.createHash('sha256').update(value).digest('hex')
 }
 
+function reproducibleManifestDigest(file) {
+  const { sourceCommit: _sourceCommit, ...manifest } = readJson(file)
+  return digest(stableJson(manifest))
+}
+
 function qualityPolicyDigest(registry) {
   return digest(stableJson({ policy: registry.qualityPolicy, scenarios: registry.qualityScenarios }))
 }
@@ -113,7 +118,7 @@ export function comparePublicPreviewQualityManifests(actualFile, committedFile, 
     ...validatePublicPreviewQualityManifest(committedFile, rootDirectory).map((error) => `committed: ${error}`)
   ]
   if (fs.existsSync(actualFile) && fs.existsSync(committedFile)
-      && digest(fs.readFileSync(actualFile)) !== digest(fs.readFileSync(committedFile))) {
+      && reproducibleManifestDigest(actualFile) !== reproducibleManifestDigest(committedFile)) {
     errors.push('captured public-preview quality manifest differs from committed quality manifest')
   }
   const evidence = fs.existsSync(evidenceFile) ? readJson(evidenceFile) : {}
