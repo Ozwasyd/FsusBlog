@@ -1,8 +1,8 @@
 {
     "schema": "fsusblog.public-preview-screenshot-manifest.v1",
-    "visualInputDigest": "289cc7e519d10ca800642abc3a4a93fbdedb501845a0ea8cc5c629183dfeabd1",
+    "visualInputDigest": "40c05862bd1a7389a2541cfbc8ad85fada327b8f027a608a52f6d994c3750b2f",
     "visualInputCategories": {
-        "capture": "fd4a56dbb701b417a7e4dc9a87ddc2405e8b127e3462c686463e67b99b412302",
+        "capture": "a4079781fcbea24346dcc5a0f973b0c469f3af3931ba50e0f04011e71bf85687",
         "dependencies": "a5aac433ea810f0b0515adc6af5c8200a99700f87c5f6044fa087f9b77dbb989",
         "fixtures": "ddf7728633b744303c7b63c116efebed44995624f2b7dc14bcb663d3f37f1814",
         "localization": "f500d16441e4cb0921916f7a7fc0a25f7c988b01d271eb70bee6ef065d2c50ad",
@@ -24,10 +24,10 @@
             "viewport": "desktop",
             "theme": "light",
             "scope": "admin",
-            "sourceCommit": "4332ffb39096c26642a209d3fb078537b9aeb5ba",
-            "releaseId": "20260825132825-4332ffb39096",
-            "frontendBuildIdentity": "4332ffb39096c26642a209d3fb078537b9aeb5ba:src/frontend",
-            "backendBuildIdentity": "4332ffb39096c26642a209d3fb078537b9aeb5ba:src/backend",
+            "sourceCommit": "04d91d09ad73b43c8d4efd187586770a36e8edac",
+            "releaseId": "20260825135811-04d91d09ad73",
+            "frontendBuildIdentity": "04d91d09ad73b43c8d4efd187586770a36e8edac:src/frontend",
+            "backendBuildIdentity": "04d91d09ad73b43c8d4efd187586770a36e8edac:src/backend",
             "fixtureDigest": "ddf7728633b744303c7b63c116efebed44995624f2b7dc14bcb663d3f37f1814",
             "captureConfigurationDigest": "e46afd8e9dc0c489b71936190b410454ef9f31788d8280e4784b9311b694fcf5",
             "fsusUi": {
@@ -36,7 +36,7 @@
                 "lockDigest": "9160eda59f2ebd9e27701d9df9718ccb7b327ceb83d418310ef542b1651451d7",
                 "clean": true
             },
-            "visualInputDigest": "289cc7e519d10ca800642abc3a4a93fbdedb501845a0ea8cc5c629183dfeabd1",
+            "visualInputDigest": "40c05862bd1a7389a2541cfbc8ad85fada327b8f027a608a52f6d994c3750b2f",
             "pngSha256": "05d90321f33b11a041d4e352e5cf05cd2745d2058debaa97c11f163a10212430"
         },
         {
@@ -46,10 +46,10 @@
             "viewport": "desktop",
             "theme": "light",
             "scope": "anonymous",
-            "sourceCommit": "4332ffb39096c26642a209d3fb078537b9aeb5ba",
-            "releaseId": "20260825132825-4332ffb39096",
-            "frontendBuildIdentity": "4332ffb39096c26642a209d3fb078537b9aeb5ba:src/frontend",
-            "backendBuildIdentity": "4332ffb39096c26642a209d3fb078537b9aeb5ba:src/backend",
+            "sourceCommit": "04d91d09ad73b43c8d4efd187586770a36e8edac",
+            "releaseId": "20260825135811-04d91d09ad73",
+            "frontendBuildIdentity": "04d91d09ad73b43c8d4efd187586770a36e8edac:src/frontend",
+            "backendBuildIdentity": "04d91d09ad73b43c8d4efd187586770a36e8edac:src/backend",
             "fixtureDigest": "ddf7728633b744303c7b63c116efebed44995624f2b7dc14bcb663d3f37f1814",
             "captureConfigurationDigest": "e46afd8e9dc0c489b71936190b410454ef9f31788d8280e4784b9311b694fcf5",
             "fsusUi": {
@@ -58,8 +58,8 @@
                 "lockDigest": "9160eda59f2ebd9e27701d9df9718ccb7b327ceb83d418310ef542b1651451d7",
                 "clean": true
             },
-            "visualInputDigest": "289cc7e519d10ca800642abc3a4a93fbdedb501845a0ea8cc5c629183dfeabd1",
-            "pngSha256": "8a33952689677778396dea32c6642bbd9ea4596a66f4245b9b195c59257dacdc"
+            "visualInputDigest": "40c05862bd1a7389a2541cfbc8ad85fada327b8f027a608a52f6d994c3750b2f",
+            "pngSha256": "e36722f494b0bbdf10c29b3ed26d19fcb04f53ada3d01e7d607236d6b97a073e"
         },
         {
             "id": "article-detail-mobile-light",
@@ -68,10 +68,10 @@
             "viewport": "mobile",
             "theme": "light",
             "scope": "anonymous",
-            "sourceCommit": "4332ffb39096c26642a209d3fb078537b9aeb5ba",
-            "releaseId": "20260825132825-4332ffb39096",
-            "frontendBuildIdentity": "4332ffb39096c26642a209d3fb078537b9aeb5ba:src/frontend",
-            "backendBuildIdentity": "4332ffb39096c26642a209d3fb078537b9aeb5ba:src/backend",
+            "sourceCommit": "04d91d09ad73b43c8d4efd187586770a36e8edac",
+            "releaseId": "20260825135811-04d91d09ad73",
+            "frontendBuildIdentity": "04d91d09ad73b43c8d4efd187586770a36e8edac:src/frontend",
+            "backendBuildIdentity": "04d91d09ad73b43c8d4efd187586770a36e8edac:src/backend",
             "fixtureDigest": "ddf7728633b744303c7b63c116efebed44995624f2b7dc14bcb663d3f37f1814",
             "captureConfigurationDigest": "e46afd8e9dc0c489b71936190b410454ef9f31788d8280e4784b9311b694fcf5",
             "fsusUi": {
@@ -80,8 +80,8 @@
                 "lockDigest": "9160eda59f2ebd9e27701d9df9718ccb7b327ceb83d418310ef542b1651451d7",
                 "clean": true
             },
-            "visualInputDigest": "289cc7e519d10ca800642abc3a4a93fbdedb501845a0ea8cc5c629183dfeabd1",
-            "pngSha256": "0c4975c4ab909f91e2c041fb986a53cfbd5734c7b47eac3cd633aea0ca86e800"
+            "visualInputDigest": "40c05862bd1a7389a2541cfbc8ad85fada327b8f027a608a52f6d994c3750b2f",
+            "pngSha256": "77de8a3793bd5f9d934f83003c1a9a1bf87fbad30841be0edfad470cd7ef2f5c"
         },
         {
             "id": "article-editor-desktop-light",
@@ -90,10 +90,10 @@
             "viewport": "desktop",
             "theme": "light",
             "scope": "admin",
-            "sourceCommit": "4332ffb39096c26642a209d3fb078537b9aeb5ba",
-            "releaseId": "20260825132825-4332ffb39096",
-            "frontendBuildIdentity": "4332ffb39096c26642a209d3fb078537b9aeb5ba:src/frontend",
-            "backendBuildIdentity": "4332ffb39096c26642a209d3fb078537b9aeb5ba:src/backend",
+            "sourceCommit": "04d91d09ad73b43c8d4efd187586770a36e8edac",
+            "releaseId": "20260825135811-04d91d09ad73",
+            "frontendBuildIdentity": "04d91d09ad73b43c8d4efd187586770a36e8edac:src/frontend",
+            "backendBuildIdentity": "04d91d09ad73b43c8d4efd187586770a36e8edac:src/backend",
             "fixtureDigest": "ddf7728633b744303c7b63c116efebed44995624f2b7dc14bcb663d3f37f1814",
             "captureConfigurationDigest": "e46afd8e9dc0c489b71936190b410454ef9f31788d8280e4784b9311b694fcf5",
             "fsusUi": {
@@ -102,7 +102,7 @@
                 "lockDigest": "9160eda59f2ebd9e27701d9df9718ccb7b327ceb83d418310ef542b1651451d7",
                 "clean": true
             },
-            "visualInputDigest": "289cc7e519d10ca800642abc3a4a93fbdedb501845a0ea8cc5c629183dfeabd1",
+            "visualInputDigest": "40c05862bd1a7389a2541cfbc8ad85fada327b8f027a608a52f6d994c3750b2f",
             "pngSha256": "f482ff726a041133ec97ddecbe9f985f8fceaa9ec8e95c5c632806ad1bab5aa5"
         },
         {
@@ -112,10 +112,10 @@
             "viewport": "desktop",
             "theme": "light",
             "scope": "admin",
-            "sourceCommit": "4332ffb39096c26642a209d3fb078537b9aeb5ba",
-            "releaseId": "20260825132825-4332ffb39096",
-            "frontendBuildIdentity": "4332ffb39096c26642a209d3fb078537b9aeb5ba:src/frontend",
-            "backendBuildIdentity": "4332ffb39096c26642a209d3fb078537b9aeb5ba:src/backend",
+            "sourceCommit": "04d91d09ad73b43c8d4efd187586770a36e8edac",
+            "releaseId": "20260825135811-04d91d09ad73",
+            "frontendBuildIdentity": "04d91d09ad73b43c8d4efd187586770a36e8edac:src/frontend",
+            "backendBuildIdentity": "04d91d09ad73b43c8d4efd187586770a36e8edac:src/backend",
             "fixtureDigest": "ddf7728633b744303c7b63c116efebed44995624f2b7dc14bcb663d3f37f1814",
             "captureConfigurationDigest": "e46afd8e9dc0c489b71936190b410454ef9f31788d8280e4784b9311b694fcf5",
             "fsusUi": {
@@ -124,7 +124,7 @@
                 "lockDigest": "9160eda59f2ebd9e27701d9df9718ccb7b327ceb83d418310ef542b1651451d7",
                 "clean": true
             },
-            "visualInputDigest": "289cc7e519d10ca800642abc3a4a93fbdedb501845a0ea8cc5c629183dfeabd1",
+            "visualInputDigest": "40c05862bd1a7389a2541cfbc8ad85fada327b8f027a608a52f6d994c3750b2f",
             "pngSha256": "4a5d8b07091abc03de5f661f7d66cc03ade5ddc9911f0038c8b851e42e3e5f28"
         },
         {
@@ -134,10 +134,10 @@
             "viewport": "desktop",
             "theme": "light",
             "scope": "admin",
-            "sourceCommit": "4332ffb39096c26642a209d3fb078537b9aeb5ba",
-            "releaseId": "20260825132825-4332ffb39096",
-            "frontendBuildIdentity": "4332ffb39096c26642a209d3fb078537b9aeb5ba:src/frontend",
-            "backendBuildIdentity": "4332ffb39096c26642a209d3fb078537b9aeb5ba:src/backend",
+            "sourceCommit": "04d91d09ad73b43c8d4efd187586770a36e8edac",
+            "releaseId": "20260825135811-04d91d09ad73",
+            "frontendBuildIdentity": "04d91d09ad73b43c8d4efd187586770a36e8edac:src/frontend",
+            "backendBuildIdentity": "04d91d09ad73b43c8d4efd187586770a36e8edac:src/backend",
             "fixtureDigest": "ddf7728633b744303c7b63c116efebed44995624f2b7dc14bcb663d3f37f1814",
             "captureConfigurationDigest": "e46afd8e9dc0c489b71936190b410454ef9f31788d8280e4784b9311b694fcf5",
             "fsusUi": {
@@ -146,7 +146,7 @@
                 "lockDigest": "9160eda59f2ebd9e27701d9df9718ccb7b327ceb83d418310ef542b1651451d7",
                 "clean": true
             },
-            "visualInputDigest": "289cc7e519d10ca800642abc3a4a93fbdedb501845a0ea8cc5c629183dfeabd1",
+            "visualInputDigest": "40c05862bd1a7389a2541cfbc8ad85fada327b8f027a608a52f6d994c3750b2f",
             "pngSha256": "b7bdf8e1515077a0c540eb72ad6daafd1756c846799546ee953b1e9553abafae"
         },
         {
@@ -156,10 +156,10 @@
             "viewport": "desktop",
             "theme": "dark",
             "scope": "anonymous",
-            "sourceCommit": "4332ffb39096c26642a209d3fb078537b9aeb5ba",
-            "releaseId": "20260825132825-4332ffb39096",
-            "frontendBuildIdentity": "4332ffb39096c26642a209d3fb078537b9aeb5ba:src/frontend",
-            "backendBuildIdentity": "4332ffb39096c26642a209d3fb078537b9aeb5ba:src/backend",
+            "sourceCommit": "04d91d09ad73b43c8d4efd187586770a36e8edac",
+            "releaseId": "20260825135811-04d91d09ad73",
+            "frontendBuildIdentity": "04d91d09ad73b43c8d4efd187586770a36e8edac:src/frontend",
+            "backendBuildIdentity": "04d91d09ad73b43c8d4efd187586770a36e8edac:src/backend",
             "fixtureDigest": "ddf7728633b744303c7b63c116efebed44995624f2b7dc14bcb663d3f37f1814",
             "captureConfigurationDigest": "e46afd8e9dc0c489b71936190b410454ef9f31788d8280e4784b9311b694fcf5",
             "fsusUi": {
@@ -168,8 +168,8 @@
                 "lockDigest": "9160eda59f2ebd9e27701d9df9718ccb7b327ceb83d418310ef542b1651451d7",
                 "clean": true
             },
-            "visualInputDigest": "289cc7e519d10ca800642abc3a4a93fbdedb501845a0ea8cc5c629183dfeabd1",
-            "pngSha256": "85d0f7066de1e8d9a5684e5bcf004c2f6f977224e97c597d5b43a748dbc01564"
+            "visualInputDigest": "40c05862bd1a7389a2541cfbc8ad85fada327b8f027a608a52f6d994c3750b2f",
+            "pngSha256": "565362749e79d314f25176e69adbbda8bf2275fed008c54068922cbc44f45c72"
         },
         {
             "id": "public-home-desktop-light",
@@ -178,10 +178,10 @@
             "viewport": "desktop",
             "theme": "light",
             "scope": "anonymous",
-            "sourceCommit": "4332ffb39096c26642a209d3fb078537b9aeb5ba",
-            "releaseId": "20260825132825-4332ffb39096",
-            "frontendBuildIdentity": "4332ffb39096c26642a209d3fb078537b9aeb5ba:src/frontend",
-            "backendBuildIdentity": "4332ffb39096c26642a209d3fb078537b9aeb5ba:src/backend",
+            "sourceCommit": "04d91d09ad73b43c8d4efd187586770a36e8edac",
+            "releaseId": "20260825135811-04d91d09ad73",
+            "frontendBuildIdentity": "04d91d09ad73b43c8d4efd187586770a36e8edac:src/frontend",
+            "backendBuildIdentity": "04d91d09ad73b43c8d4efd187586770a36e8edac:src/backend",
             "fixtureDigest": "ddf7728633b744303c7b63c116efebed44995624f2b7dc14bcb663d3f37f1814",
             "captureConfigurationDigest": "e46afd8e9dc0c489b71936190b410454ef9f31788d8280e4784b9311b694fcf5",
             "fsusUi": {
@@ -190,8 +190,8 @@
                 "lockDigest": "9160eda59f2ebd9e27701d9df9718ccb7b327ceb83d418310ef542b1651451d7",
                 "clean": true
             },
-            "visualInputDigest": "289cc7e519d10ca800642abc3a4a93fbdedb501845a0ea8cc5c629183dfeabd1",
-            "pngSha256": "5a36a57c196a4edcdf669c4e34b16964fa5732b24746b04510ee08ce59c203c3"
+            "visualInputDigest": "40c05862bd1a7389a2541cfbc8ad85fada327b8f027a608a52f6d994c3750b2f",
+            "pngSha256": "ed691f0b821cd063f68ac8b9052d3de99fa9a18ffab7f17b4c72d783f394ee41"
         },
         {
             "id": "security-console-desktop-light",
@@ -200,10 +200,10 @@
             "viewport": "desktop",
             "theme": "light",
             "scope": "admin",
-            "sourceCommit": "4332ffb39096c26642a209d3fb078537b9aeb5ba",
-            "releaseId": "20260825132825-4332ffb39096",
-            "frontendBuildIdentity": "4332ffb39096c26642a209d3fb078537b9aeb5ba:src/frontend",
-            "backendBuildIdentity": "4332ffb39096c26642a209d3fb078537b9aeb5ba:src/backend",
+            "sourceCommit": "04d91d09ad73b43c8d4efd187586770a36e8edac",
+            "releaseId": "20260825135811-04d91d09ad73",
+            "frontendBuildIdentity": "04d91d09ad73b43c8d4efd187586770a36e8edac:src/frontend",
+            "backendBuildIdentity": "04d91d09ad73b43c8d4efd187586770a36e8edac:src/backend",
             "fixtureDigest": "ddf7728633b744303c7b63c116efebed44995624f2b7dc14bcb663d3f37f1814",
             "captureConfigurationDigest": "e46afd8e9dc0c489b71936190b410454ef9f31788d8280e4784b9311b694fcf5",
             "fsusUi": {
@@ -212,7 +212,7 @@
                 "lockDigest": "9160eda59f2ebd9e27701d9df9718ccb7b327ceb83d418310ef542b1651451d7",
                 "clean": true
             },
-            "visualInputDigest": "289cc7e519d10ca800642abc3a4a93fbdedb501845a0ea8cc5c629183dfeabd1",
+            "visualInputDigest": "40c05862bd1a7389a2541cfbc8ad85fada327b8f027a608a52f6d994c3750b2f",
             "pngSha256": "c49a7453b9d2ad6a6d67ea4e9d85839bcab6aa7a51aaa0c02b6845d8ae3231ea"
         }
     ]
