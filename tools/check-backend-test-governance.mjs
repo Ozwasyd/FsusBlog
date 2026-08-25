@@ -30,7 +30,7 @@ const factWrapperContracts = [
         ['VerifyMfaOrRecoveryCodeAsync_RecoveryCodeCasConflictReturnsFalse'],
         'UserService_RecoveryCodeConsumptionUsesHashCompareAndSwap'],
     ['tests/backend/Unit/WebApplicationCompositionExtensionsTests.cs',
-        ['PublicAotHtmlFastPath_PrefersBrotliVariantAndWritesPreencodedBytes', 'PublicAotHtmlFastPath_ProbeCapturesBytesLatencyAndAllocationShape'],
+        ['PublicAotHtmlFastPath_PrefersBrotliVariantAndWritesPreencodedBytes', 'PublicAotHtmlFastPath_PreencodedVariantsHaveExpectedByteShape'],
         'PublicAotHtmlFastPath_SourceAvoidsStringContentAndPerRequestUtf8Encode'],
     ['tests/backend/Unit/WebApplicationCompositionExtensionsTests.cs',
         ['DynamicManifest_ReturnsNotModifiedForMatchingEtagAndChangesEtagWhenSeoChanges'],

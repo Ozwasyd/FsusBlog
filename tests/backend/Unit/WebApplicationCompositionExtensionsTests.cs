@@ -1,5 +1,4 @@
 using System.Buffers;
-using System.Diagnostics;
 using System.Reflection;
 using System.Text;
 
@@ -739,7 +738,7 @@ public sealed class WebApplicationCompositionExtensionsTests
     }
 
     [Fact]
-    public async Task PublicAotHtmlFastPath_ProbeCapturesBytesLatencyAndAllocationShape()
+    public async Task PublicAotHtmlFastPath_PreencodedVariantsHaveExpectedByteShape()
     {
         string html = string.Concat("<!doctype html><html><body>", string.Concat(Enumerable.Repeat("public-aot-byte-artifact ", 512)), "</body></html>");
         PublicAotHtmlArtifact artifact = PublicAotHtmlArtifactFactory.FromHtml(
@@ -756,32 +755,11 @@ public sealed class WebApplicationCompositionExtensionsTests
         DefaultHttpContext gzip = CreateAotContext("gzip;q=1, identity;q=0");
         await PublicWebRuntime.WritePublicAotHtmlEntryForTestsAsync(gzip, CreateTestEnv(), entry);
 
-        long identityBytes = identity.Response.Body.Length;
-        long brotliBytes = brotli.Response.Body.Length;
-        long gzipBytes = gzip.Response.Body.Length;
-        Assert.Equal(artifact.Utf8Bytes.Length, identityBytes);
-        Assert.Equal(artifact.BrotliBytes.Length, brotliBytes);
-        Assert.Equal(artifact.GzipBytes.Length, gzipBytes);
-        Assert.True(brotliBytes < identityBytes);
-        Assert.True(gzipBytes < identityBytes);
-
-        const int Samples = 32;
-        long[] elapsedTicks = new long[Samples];
-        long allocBefore = GC.GetTotalAllocatedBytes(precise: true);
-        long totalBytes = 0;
-        for (int i = 0; i < Samples; i++)
-        {
-            DefaultHttpContext context = CreateAotContext("br, gzip");
-            long started = Stopwatch.GetTimestamp();
-            await PublicWebRuntime.WritePublicAotHtmlEntryForTestsAsync(context, CreateTestEnv(), entry);
-            elapsedTicks[i] = Stopwatch.GetTimestamp() - started;
-            totalBytes += context.Response.Body.Length;
-        }
-
-        long allocAfter = GC.GetTotalAllocatedBytes(precise: true);
-        Assert.True(allocAfter >= allocBefore);
-        Assert.True(PercentileTicks(elapsedTicks, 99) >= 0);
-        Assert.Equal(artifact.BrotliBytes.Length * Samples, totalBytes);
+        AssertPreencodedVariant(identity, string.Empty, artifact.ETag, artifact.Utf8Bytes);
+        AssertPreencodedVariant(brotli, "br", artifact.BrotliETag, artifact.BrotliBytes);
+        AssertPreencodedVariant(gzip, "gzip", artifact.GzipETag, artifact.GzipBytes);
+        Assert.True(brotli.Response.Body.Length < identity.Response.Body.Length);
+        Assert.True(gzip.Response.Body.Length < identity.Response.Body.Length);
     }
 
     [Fact]
@@ -1017,11 +995,18 @@ public sealed class WebApplicationCompositionExtensionsTests
         return writer.WrittenSpan.ToArray();
     }
 
-    private static long PercentileTicks(long[] values, int percentile)
+    private static void AssertPreencodedVariant(
+        DefaultHttpContext context,
+        string expectedEncoding,
+        string expectedETag,
+        ReadOnlyMemory<byte> expectedBytes)
     {
-        Array.Sort(values);
-        int index = (int)Math.Ceiling(values.Length * (percentile / 100d)) - 1;
-        return values[Math.Clamp(index, 0, values.Length - 1)];
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.Equal(expectedEncoding, context.Response.Headers.ContentEncoding.ToString());
+        Assert.Equal("Accept-Encoding, Accept-Language, Cookie", context.Response.Headers.Vary.ToString());
+        Assert.Equal(expectedETag, context.Response.Headers.ETag.ToString());
+        Assert.Equal(expectedBytes.Length, context.Response.ContentLength);
+        Assert.Equal(expectedBytes.ToArray(), ((MemoryStream)context.Response.Body).ToArray());
     }
 
     private sealed class StaticAssetTestSite : IDisposable

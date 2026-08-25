@@ -1,0 +1,17 @@
+{
+    "schema": "fsusblog.issue-acceptance-baseline.v1",
+    "issue": 2591,
+    "sourceCommit": "7c40c3dafd3fb22b0c2be9cb805755506174b502",
+    "expectedRecords": 1,
+    "expectedMigrated": 1,
+    "records": [
+        {
+            "id": "xunit:tests/backend/Unit/WebApplicationCompositionExtensionsTests.cs#FsusBlog.Server.Tests.WebApplicationCompositionExtensionsTests.PublicAotHtmlFastPath_ProbeCapturesBytesLatencyAndAllocationShape",
+            "path": "tests/backend/Unit/WebApplicationCompositionExtensionsTests.cs",
+            "assertionTargets": [
+                "behavior:exact pre-materialized identity Brotli and gzip bytes and headers"
+            ],
+            "disposition": "migrated"
+        }
+    ]
+}

@@ -38,7 +38,7 @@ This document closes the public performance batch tracked by #166. Runtime work 
 
 Dynamic SPA fallback HTML contains a per-response CSP nonce, so it deliberately uses identity encoding and does not emit `Vary: Accept-Encoding`. This keeps the nonce out of a compression oracle while preserving runtime head injection, accurate `Content-Length`, and body-free `HEAD` responses. A client that explicitly forbids identity receives `406` instead of a compressed nonce-bearing document.
 
-Compression remains available only for pre-materialized PublicAOT artifacts that contain no per-request secret. `WebApplicationCompositionExtensionsTests` verifies that their Brotli and gzip variants are smaller than identity bytes and that the emitted bytes match the precomputed artifact variants exactly.
+Compression remains available only for pre-materialized PublicAOT artifacts that contain no per-request secret. The `backend-unit` xUnit result for `PublicAotHtmlFastPath_PreencodedVariantsHaveExpectedByteShape` verifies that identity, Brotli, and gzip responses select the exact precomputed bytes, `Content-Encoding`, ETag, and `Content-Length`, and that both compressed variants are smaller than identity. This behavior contract makes no latency or allocation claim; Public AOT performance claims require the existing BenchmarkDotNet evidence and budget checker.
 
 ## Gates
 
