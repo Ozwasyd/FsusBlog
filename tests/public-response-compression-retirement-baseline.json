@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.issue-acceptance-baseline.v1",
+    "issue": 2576,
+    "sourceCommit": "74feff0d3e4fc101116bfaf4c438861d89b5d0d2",
+    "expectedRecords": 2,
+    "expectedMigrated": 2,
+    "records": [
+        {
+            "id": "xunit:tests/backend/Unit/SecurityHardening/PublicResponseCompressionPolicyTests.cs#PublicResponseCompressionPolicyTests.TestServer_ProtectedPersonalizedAndBinaryBoundariesNeverCompress",
+            "path": "tests/backend/Unit/SecurityHardening/PublicResponseCompressionPolicyTests.cs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/SecurityHardening/PublicResponseCompressionPolicyTests.cs#PublicResponseCompressionPolicyTests.TestServer_ResponseHeadersStatusAndMediaTypeFailClosed",
+            "path": "tests/backend/Unit/SecurityHardening/PublicResponseCompressionPolicyTests.cs",
+            "disposition": "migrated"
+        }
+    ]
+}
