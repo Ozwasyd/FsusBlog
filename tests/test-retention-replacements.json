@@ -11833,14 +11833,27 @@
         {
             "before": "if (OperatingSystem.IsWindows()) { return; }",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.DeleteOwnedExpirationIndex_IsExactO1WithoutBucketScan"
+                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.DeleteOwnedExpirationIndex_IsExactO1WithoutBucketScan",
+                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.UploadSessionRoot_IsPrivateOnUnix"
             ],
             "after": [
                 "Assert.True(File.Exists(ownerPath))",
                 "Assert.Matches(\"^[0-9]{10}$\", ownerBucket)",
-                "Assert.Throws<UnauthorizedAccessException>(() => Directory.GetDirectories(expirationRoot))"
+                "Assert.Throws<UnauthorizedAccessException>(() => Directory.GetDirectories(expirationRoot))",
+                "Assert.Equal(PrivateMode, freshMode)",
+                "Assert.Equal(OverbroadMode, widenedMode)",
+                "Assert.Equal(PrivateMode, mode)",
+                "Assert.False(mode.HasFlag(UnixFileMode.GroupRead))",
+                "Assert.False(mode.HasFlag(UnixFileMode.GroupWrite))",
+                "Assert.False(mode.HasFlag(UnixFileMode.GroupExecute))",
+                "Assert.False(mode.HasFlag(UnixFileMode.OtherRead))",
+                "Assert.False(mode.HasFlag(UnixFileMode.OtherWrite))",
+                "Assert.False(mode.HasFlag(UnixFileMode.OtherExecute))",
+                "Assert.True(artifactCreated)",
+                "Assert.True(artifactRead)",
+                "Assert.True(artifactDeleted)"
             ],
-            "reason": "The exact-delete proof is selected by the canonical Unix plan, and a selected Unix run must make the expiration root non-enumerable instead of returning a fake Passed result."
+            "reason": "Both Unix filesystem proofs are selected by the canonical platform plan instead of returning fake Passed results: exact-delete proves the expiration root is non-enumerable, while upload-root records actual 0700 mode, convergence from an overbroad existing root, six group/other deny assertions, and owner artifact usability."
         }
     ]
 }

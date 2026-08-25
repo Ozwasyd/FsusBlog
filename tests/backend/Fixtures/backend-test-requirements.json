@@ -844,7 +844,7 @@
     {
       "id": "BACKEND-PLATFORM-MEMBERSHIP",
       "risk": "high",
-      "coverage": "one Platform=Unix authority projects ordinary, CI and Production planned membership; Windows records not-selected while Linux/macOS require executed pass/fail evidence; platform-specific runtime returns fail governance",
+      "coverage": "one Platform=Unix authority projects ordinary, CI and Production planned membership; Windows records not-selected while Linux/macOS require executed pass/fail evidence; UnixMode receipts bind actual 0700 mode, six group/other deny assertions, owner artifact usability and overbroad existing-root convergence; platform-specific runtime returns or unbound runtime evidence fail governance",
       "evidencePaths": [
         "tools/test/backend-platform-selection.mjs",
         "tools/test/lanes/_suite-support.sh",
@@ -854,6 +854,7 @@
         "tests/backend/Unit/FileServiceTests.cs",
         "tests/backend/Fixtures/platform-runtime-governance/planned-unix-test.fixture.cs.txt",
         "tests/backend/Fixtures/platform-runtime-governance/missing-platform-trait.fixture.cs.txt",
+        "tests/backend/Fixtures/platform-runtime-governance/missing-platform-evidence-trait.fixture.cs.txt",
         "tests/backend/Fixtures/platform-runtime-governance/runtime-return.fixture.cs.txt"
       ]
     },
