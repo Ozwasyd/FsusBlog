@@ -114,6 +114,80 @@ function unixModeTrx(runtimeEvidence = unixModeRuntimeEvidence)
     ].join('');
 }
 
+const unixRequestPathOperations = [
+    'complete',
+    'abort',
+    'expired-status',
+    'expired-part-map',
+    'expired-part',
+    'expired-token'
+];
+const unixRequestPathPlatformTests = unixRequestPathOperations.map((operation, index) => ({
+    ...unixPlatformTest,
+    id: `unix-request-path-${index}`,
+    fullyQualifiedName: 'Example.Tests.Files.UploadRequestPaths_DoNotEnumerateExpirationIndexRoot',
+    displayName:
+        `Example.Tests.Files.UploadRequestPaths_DoNotEnumerateExpirationIndexRoot(operation: "${operation}")`,
+    traits: {
+        Platform: ['Unix'],
+        PlatformEvidence: ['UnixRequestPath']
+    }
+}));
+
+function unixRequestPathEvidence(operation)
+{
+    const complete = operation === 'complete';
+    return {
+        schema: 'fsusblog.backend-platform-unix-request-path-evidence.v1',
+        evidenceContract: 'unix-request-path',
+        fullyQualifiedName: unixRequestPathPlatformTests[0].fullyQualifiedName,
+        operation,
+        enumerationDenied: true,
+        requestContractSatisfied: true,
+        requestOutcome: complete || operation === 'abort' ? 'succeeded' : 'expired-rejected',
+        sessionPresent: complete,
+        expirationIndexEntryCount: complete ? 1 : 0,
+        ...(complete
+            ? {
+                completeContract: {
+                    manifestCompleted: true,
+                    ownerPreserved: true,
+                    tokenDigestPresent: true,
+                    retryAccepted: true,
+                    wrongOwnerRejected: true,
+                    wrongTokenRejected: true
+                }
+            }
+            : { cleanupCompleted: true })
+    };
+}
+
+function unixRequestPathTrx(
+    records = unixRequestPathPlatformTests,
+    evidenceFor = (operation) => unixRequestPathEvidence(operation)
+)
+{
+    const results = records.map((record) =>
+    {
+        const operation = record.displayName.match(/\(operation: "([^"]+)"\)$/u)?.[1];
+        const testName = record.displayName.replaceAll('"', '&quot;');
+        return [
+            `<UnitTestResult testId="${record.id}" `,
+            `testName="${testName}" outcome="Passed">`,
+            '<Output><StdOut>backend-platform-runtime-evidence ',
+            JSON.stringify(evidenceFor(operation)),
+            '</StdOut></Output></UnitTestResult>'
+        ].join('');
+    }).join('');
+    return [
+        `<TestRun><Results>${results}</Results>`,
+        '<ResultSummary outcome="Completed">',
+        `<Counters total="${records.length}" executed="${records.length}" `,
+        `passed="${records.length}" failed="0" />`,
+        '</ResultSummary></TestRun>'
+    ].join('');
+}
+
 test('backend production discovery normalizes theory cases to one filterable method', () =>
 {
     assert.equal(normalizeListedTestName('Example.Tests.Rule(value: "a")'), 'Example.Tests.Rule');
@@ -436,6 +510,136 @@ test('Unix mode evidence fails closed for missing receipts, open bits, unusable 
     }]);
     assert.equal(failed.platformTests[0].result, 'failed');
     assert.equal(Object.hasOwn(failed.platformTests[0], 'evidence'), false);
+});
+
+test('Unix request-path evidence preserves six case identities across ordinary, Production, and Windows', () =>
+{
+    const plan = projectBackendPlatformPlan(unixRequestPathPlatformTests, 'linux', {
+        baseFilter: 'Category!=Integration',
+        lane: 'backend-unit'
+    });
+    assert.equal(plan.plannedTestCaseCount, 6);
+    assert.deepEqual(
+        plan.platformTests.map((record) => record.operation),
+        unixRequestPathOperations
+    );
+    assert.equal(new Set(plan.platformTests.map((record) => record.testId)).size, 6);
+    assert.ok(plan.platformTests.every((record) => record.evidenceContract === 'unix-request-path'));
+
+    const ordinary = reconcileBackendPlatformOutcome(
+        plan,
+        parseBackendPlatformTrx(unixRequestPathTrx())
+    );
+    assert.deepEqual(
+        ordinary.platformTests.map((record) => record.evidence.operation),
+        unixRequestPathOperations
+    );
+    assert.ok(ordinary.platformTests.every((record) => record.executionEvidenceCount === 1));
+
+    const production = reconcileBackendPlatformOutcome(
+        projectProductionPlatformPlan([
+            ...unixRequestPathPlatformTests,
+            {
+                ...portablePlatformTest,
+                id: 'unix-request-path-integration',
+                displayName: 'Example.Tests.Files.ExcludedIntegration',
+                traits: { Category: ['Integration'] }
+            }
+        ], 'linux'),
+        parseTrxRecords(unixRequestPathTrx())
+    );
+    assert.deepEqual(
+        production.platformTests.map((record) => record.evidence.operation),
+        unixRequestPathOperations
+    );
+
+    const windows = projectBackendPlatformPlan(unixRequestPathPlatformTests, 'win32');
+    assert.equal(windows.notSelectedTestCaseCount, 6);
+    assert.ok(windows.platformTests.every((record) =>
+        record.result === 'not-selected' &&
+        record.evidenceContract === 'unix-request-path' &&
+        !Object.hasOwn(record, 'evidence')
+    ));
+});
+
+test('Unix request-path evidence rejects incomplete case sets and invalid per-case receipts', () =>
+{
+    assert.throws(
+        () => projectBackendPlatformPlan(unixRequestPathPlatformTests.slice(0, -1), 'linux'),
+        /requires exact operations/u
+    );
+    assert.throws(
+        () => projectBackendPlatformPlan([
+            ...unixRequestPathPlatformTests,
+            {
+                ...unixRequestPathPlatformTests[0],
+                id: 'duplicate-complete'
+            }
+        ], 'linux'),
+        /requires exact operations/u
+    );
+    assert.throws(
+        () => projectBackendPlatformPlan([
+            ...unixRequestPathPlatformTests.slice(0, -1),
+            {
+                ...unixRequestPathPlatformTests.at(-1),
+                displayName:
+                    'Example.Tests.Files.UploadRequestPaths_DoNotEnumerateExpirationIndexRoot(operation: "unknown")'
+            }
+        ], 'linux'),
+        /unknown operation/u
+    );
+
+    const plan = projectBackendPlatformPlan(unixRequestPathPlatformTests, 'linux');
+    assert.throws(
+        () => reconcileBackendPlatformOutcome(
+            plan,
+            parseBackendPlatformTrx(unixRequestPathTrx(unixRequestPathPlatformTests.slice(0, -1)))
+        ),
+        /did not execute planned test/u
+    );
+    const mismatchedDisplay = parseBackendPlatformTrx(unixRequestPathTrx());
+    mismatchedDisplay[0].testName = unixRequestPathPlatformTests[1].displayName;
+    assert.throws(
+        () => reconcileBackendPlatformOutcome(plan, mismatchedDisplay),
+        /display identity is invalid/u
+    );
+    for (const invalid of [
+        (evidence) => ({ ...evidence, enumerationDenied: false }),
+        (evidence) => ({ ...evidence, operation: 'abort' }),
+        (evidence) => ({ ...evidence, sessionPresent: false }),
+        (evidence) => ({
+            ...evidence,
+            completeContract: {
+                ...evidence.completeContract,
+                retryAccepted: false
+            }
+        })
+    ])
+    {
+        assert.throws(
+            () => reconcileBackendPlatformOutcome(
+                plan,
+                parseBackendPlatformTrx(unixRequestPathTrx(
+                    unixRequestPathPlatformTests,
+                    (operation) =>
+                    {
+                        const evidence = unixRequestPathEvidence(operation);
+                        return operation === 'complete' ? invalid(evidence) : evidence;
+                    }
+                ))
+            ),
+            /backend Unix request-path evidence/u
+        );
+    }
+    assert.throws(
+        () => reconcileBackendPlatformOutcome(plan, [{
+            testId: unixRequestPathPlatformTests[0].id,
+            testName: unixRequestPathPlatformTests[0].displayName,
+            outcome: 'Passed'
+        }]),
+        /passed without required runtime evidence/u
+    );
 });
 
 test('raw Passed counters without a concrete execution row are rejected', () =>

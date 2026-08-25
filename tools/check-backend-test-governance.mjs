@@ -462,10 +462,11 @@ function scanPlatformSpecificRuntimeReturns(relativePath, source)
     {
         const attributes = source.slice(match.index, match.index + match[1].length);
         const hasPlatformTrait = /\bTrait\s*\(\s*"Platform"\s*,/u.test(attributes);
-        const hasPlatformEvidenceTrait =
-            /\bTrait\s*\(\s*"PlatformEvidence"\s*,\s*"UnixMode"\s*\)/u.test(attributes);
         const hasAnyPlatformEvidenceTrait =
             /\bTrait\s*\(\s*"PlatformEvidence"\s*,/u.test(attributes);
+        const hasSupportedPlatformEvidenceTrait =
+            /\bTrait\s*\(\s*"PlatformEvidence"\s*,\s*"(?:UnixMode|UnixRequestPath)"\s*\)/u
+                .test(attributes);
         const isDeclaredWindowsUnsupported =
             /\bUnsupportedOSPlatform\s*\(\s*"windows"\s*\)/iu.test(attributes);
         if (isDeclaredWindowsUnsupported && !hasPlatformTrait)
@@ -475,6 +476,24 @@ function scanPlatformSpecificRuntimeReturns(relativePath, source)
                 line: lineNumberForIndex(source, match.index),
                 rule: 'platform-membership-missing',
                 message: `${match[2]} declares Windows unsupported but has no Platform trait`
+            });
+        }
+        if (hasAnyPlatformEvidenceTrait && !hasSupportedPlatformEvidenceTrait)
+        {
+            violations.push({
+                path: relativePath,
+                line: lineNumberForIndex(source, match.index),
+                rule: 'platform-evidence-contract-unsupported',
+                message: `${match[2]} declares an unsupported PlatformEvidence contract`
+            });
+        }
+        if (hasAnyPlatformEvidenceTrait && !hasPlatformTrait)
+        {
+            violations.push({
+                path: relativePath,
+                line: lineNumberForIndex(source, match.index),
+                rule: 'platform-evidence-membership-missing',
+                message: `${match[2]} declares PlatformEvidence without Platform membership`
             });
         }
         if (!hasPlatformTrait)
@@ -502,27 +521,9 @@ function scanPlatformSpecificRuntimeReturns(relativePath, source)
         }
         const body = masked.slice(openingIndex + 1, closingIndex);
         const bodySource = source.slice(openingIndex + 1, closingIndex);
-        if (hasAnyPlatformEvidenceTrait && !hasPlatformEvidenceTrait)
-        {
-            violations.push({
-                path: relativePath,
-                line: lineNumberForIndex(source, match.index),
-                rule: 'platform-evidence-contract-unsupported',
-                message: `${match[2]} declares an unsupported PlatformEvidence contract`
-            });
-        }
-        if (hasPlatformEvidenceTrait && !hasPlatformTrait)
-        {
-            violations.push({
-                path: relativePath,
-                line: lineNumberForIndex(source, match.index),
-                rule: 'platform-evidence-membership-missing',
-                message: `${match[2]} declares PlatformEvidence without Platform membership`
-            });
-        }
         if (
             bodySource.includes('backend-platform-runtime-evidence') &&
-            !hasPlatformEvidenceTrait
+            !hasSupportedPlatformEvidenceTrait
         )
         {
             violations.push({
@@ -557,10 +558,13 @@ function verifyPlatformRuntimeGovernance()
         `${platformRuntimeGovernanceFixtureDirectory}/missing-platform-trait.fixture.cs.txt`;
     const missingEvidenceMembershipFixture =
         `${platformRuntimeGovernanceFixtureDirectory}/missing-platform-evidence-trait.fixture.cs.txt`;
+    const evidenceWithoutPlatformFixture =
+        `${platformRuntimeGovernanceFixtureDirectory}/platform-evidence-without-platform.fixture.cs.txt`;
     requireFile(positiveFixture);
     requireFile(negativeFixture);
     requireFile(missingMembershipFixture);
     requireFile(missingEvidenceMembershipFixture);
+    requireFile(evidenceWithoutPlatformFixture);
     if (scanPlatformSpecificRuntimeReturns(
         positiveFixture,
         readFileSync(resolve(root, positiveFixture), 'utf8')
@@ -594,6 +598,20 @@ function verifyPlatformRuntimeGovernance()
     )
     {
         fail('backend platform runtime governance must reject exactly one missing-evidence-membership fixture');
+    }
+    const evidenceWithoutPlatform = scanPlatformSpecificRuntimeReturns(
+        evidenceWithoutPlatformFixture,
+        readFileSync(resolve(root, evidenceWithoutPlatformFixture), 'utf8')
+    );
+    if (
+        evidenceWithoutPlatform.length !== 2 ||
+        !evidenceWithoutPlatform.some((violation) => violation.rule === 'platform-membership-missing') ||
+        !evidenceWithoutPlatform.some(
+            (violation) => violation.rule === 'platform-evidence-membership-missing'
+        )
+    )
+    {
+        fail('backend platform runtime governance must reject evidence declared without platform membership');
     }
 
     const backendTestFiles = walk(

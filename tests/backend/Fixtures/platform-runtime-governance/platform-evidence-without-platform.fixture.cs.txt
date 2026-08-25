@@ -1,0 +1,8 @@
+[Theory]
+[InlineData("complete")]
+[Trait("PlatformEvidence", "UnixRequestPath")]
+[UnsupportedOSPlatform("windows")]
+public void PlatformEvidenceWithoutPlatform(string operation)
+{
+    Assert.Equal("complete", operation);
+}

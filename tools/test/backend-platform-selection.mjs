@@ -12,11 +12,21 @@ export const backendPlatformTrait = Object.freeze({
 })
 export const backendPlatformEvidenceTrait = Object.freeze({
   name: 'PlatformEvidence',
-  unixMode: 'UnixMode'
+  unixMode: 'UnixMode',
+  unixRequestPath: 'UnixRequestPath'
 })
 
 const runtimeEvidencePrefix = 'backend-platform-runtime-evidence '
 const unixModeEvidenceSchema = 'fsusblog.backend-platform-unix-mode-evidence.v1'
+const unixRequestPathEvidenceSchema = 'fsusblog.backend-platform-unix-request-path-evidence.v1'
+const unixRequestPathOperations = Object.freeze([
+  'complete',
+  'abort',
+  'expired-status',
+  'expired-part-map',
+  'expired-part',
+  'expired-token'
+])
 
 function requiredText(value, label) {
   const result = String(value ?? '').trim()
@@ -68,7 +78,10 @@ function platformEvidenceValues(record) {
       `backend test has multiple PlatformEvidence traits: ${record?.fullyQualifiedName ?? '<missing>'}`
     )
   }
-  if (values.some((value) => value !== backendPlatformEvidenceTrait.unixMode)) {
+  if (values.some((value) => ![
+    backendPlatformEvidenceTrait.unixMode,
+    backendPlatformEvidenceTrait.unixRequestPath
+  ].includes(value))) {
     throw new Error(
       `backend test has unsupported PlatformEvidence trait ${values.join(',') || '<empty>'}: `
       + `${record?.fullyQualifiedName ?? '<missing>'}`
@@ -83,10 +96,51 @@ function platformEvidenceValues(record) {
   return values
 }
 
+function requestPathOperation(record) {
+  const displayName = requiredText(record?.displayName, 'backend platform display name')
+  const match = displayName.match(/\(operation: "([^"]+)"\)$/u)
+  if (!match) {
+    throw new Error(
+      `backend Unix request-path evidence requires a stable operation display name: `
+      + `${record?.fullyQualifiedName ?? '<missing>'}`
+    )
+  }
+  return match[1]
+}
+
+function validateRequestPathDiscovery(records) {
+  const groups = new Map()
+  for (const record of records) {
+    if (!platformEvidenceValues(record).includes(backendPlatformEvidenceTrait.unixRequestPath)) continue
+    const fullyQualifiedName = requiredText(
+      record?.fullyQualifiedName,
+      'backend platform fully-qualified test name'
+    )
+    const operation = requestPathOperation(record)
+    if (!unixRequestPathOperations.includes(operation)) {
+      throw new Error(`backend Unix request-path evidence has unknown operation ${operation}`)
+    }
+    const operations = groups.get(fullyQualifiedName) ?? []
+    operations.push(operation)
+    groups.set(fullyQualifiedName, operations)
+  }
+  for (const [fullyQualifiedName, operations] of groups) {
+    const sorted = [...operations].sort()
+    const expected = [...unixRequestPathOperations].sort()
+    if (sorted.length !== expected.length || sorted.some((operation, index) => operation !== expected[index])) {
+      throw new Error(
+        `backend Unix request-path evidence requires exact operations for ${fullyQualifiedName}: `
+        + `${unixRequestPathOperations.join(',')}`
+      )
+    }
+  }
+}
+
 export function selectBackendPlatformRecords(records, runtimePlatform = process.platform) {
   if (!Array.isArray(records) || records.length === 0) {
     throw new Error('backend platform selection requires authoritative discovered records')
   }
+  validateRequestPathDiscovery(records)
   const platform = normalizeBackendRuntimePlatform(runtimePlatform)
   return records.filter((record) => {
     const values = platformValues(record)
@@ -101,6 +155,11 @@ function platformEvidenceRecord(record, result, reason = null) {
   const displayName = requiredText(record?.displayName, 'backend platform display name')
   const source = path.resolve(requiredText(record?.source, 'backend platform test source'))
   const evidenceValues = platformEvidenceValues(record)
+  const evidenceContract = evidenceValues[0] === backendPlatformEvidenceTrait.unixMode
+    ? 'unix-mode'
+    : evidenceValues[0] === backendPlatformEvidenceTrait.unixRequestPath
+      ? 'unix-request-path'
+      : null
   return {
     testId: id,
     fullyQualifiedName,
@@ -109,7 +168,8 @@ function platformEvidenceRecord(record, result, reason = null) {
     assembly: path.basename(source),
     platform: backendPlatformTrait.unix,
     result,
-    ...(evidenceValues.length === 1 ? { evidenceContract: 'unix-mode' } : {}),
+    ...(evidenceContract ? { evidenceContract } : {}),
+    ...(evidenceContract === 'unix-request-path' ? { operation: requestPathOperation(record) } : {}),
     ...(reason ? { reason } : {})
   }
 }
@@ -228,10 +288,10 @@ export function parseBackendPlatformTrx(xml) {
   return results
 }
 
-function requireTrueRecord(record, keys, label) {
+function requireTrueRecord(record, keys, label, contract = 'Unix mode') {
   if (!record || typeof record !== 'object' || Array.isArray(record)
     || keys.some((key) => record[key] !== true)) {
-    throw new Error(`backend Unix mode evidence requires true ${label}: ${keys.join(',')}`)
+    throw new Error(`backend ${contract} evidence requires true ${label}: ${keys.join(',')}`)
   }
 }
 
@@ -262,6 +322,40 @@ function validateUnixModeEvidence(value, test) {
   return value
 }
 
+function validateUnixRequestPathEvidence(value, test) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+    || value.schema !== unixRequestPathEvidenceSchema
+    || value.evidenceContract !== 'unix-request-path') {
+    throw new Error(`backend Unix request-path evidence schema is invalid for ${test.displayName}`)
+  }
+  if (value.fullyQualifiedName !== test.fullyQualifiedName || value.operation !== test.operation) {
+    throw new Error(`backend Unix request-path evidence identity is invalid for ${test.displayName}`)
+  }
+  if (value.enumerationDenied !== true || value.requestContractSatisfied !== true) {
+    throw new Error(`backend Unix request-path evidence did not prove the request boundary for ${test.displayName}`)
+  }
+  const complete = test.operation === 'complete'
+  const expectedOutcome = complete || test.operation === 'abort' ? 'succeeded' : 'expired-rejected'
+  if (value.requestOutcome !== expectedOutcome
+    || value.sessionPresent !== complete
+    || value.expirationIndexEntryCount !== (complete ? 1 : 0)) {
+    throw new Error(`backend Unix request-path evidence has invalid postconditions for ${test.displayName}`)
+  }
+  if (complete) {
+    requireTrueRecord(value.completeContract, [
+      'manifestCompleted',
+      'ownerPreserved',
+      'tokenDigestPresent',
+      'retryAccepted',
+      'wrongOwnerRejected',
+      'wrongTokenRejected'
+    ], 'complete request-path assertions', 'Unix request-path')
+  } else if (value.cleanupCompleted !== true) {
+    throw new Error(`backend Unix request-path evidence requires completed cleanup for ${test.displayName}`)
+  }
+  return value
+}
+
 export function reconcileBackendPlatformOutcome(plan, results) {
   if (plan?.schema !== 'fsusblog.backend-platform-plan.v1') {
     throw new Error('backend platform outcome requires a canonical platform plan')
@@ -289,6 +383,9 @@ export function reconcileBackendPlatformOutcome(plan, results) {
       throw new Error(`Unix backend plan executed platform test more than once: ${test.fullyQualifiedName}`)
     }
     const [result] = matching
+    if (result.testName !== test.displayName) {
+      throw new Error(`Unix backend platform result display identity is invalid for ${test.displayName}`)
+    }
     if (result.outcome !== 'Passed' && result.outcome !== 'Failed') {
       throw new Error(`Unix backend platform test has non-semantic outcome ${result.outcome}`)
     }
@@ -301,6 +398,15 @@ export function reconcileBackendPlatformOutcome(plan, results) {
       }
       if (result.runtimeEvidence) {
         evidence = validateUnixModeEvidence(result.runtimeEvidence, test)
+      }
+    } else if (test.evidenceContract === 'unix-request-path') {
+      if (result.outcome === 'Passed' && !result.runtimeEvidence) {
+        throw new Error(
+          `Unix backend platform test passed without required runtime evidence: ${test.displayName}`
+        )
+      }
+      if (result.runtimeEvidence) {
+        evidence = validateUnixRequestPathEvidence(result.runtimeEvidence, test)
       }
     }
     return {
