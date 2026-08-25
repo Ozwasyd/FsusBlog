@@ -11767,6 +11767,14 @@
                 "node-test:tests/tools/zero-downtime-rehearsal.test.mjs#rehearsal-timing-wires-shared-semantic-scale-to-delays-a-40aa2212c4"
             ],
             "reason": "The shared pure-function owner retains the bounded scale mathematics, while the rehearsal-specific replacement proves semantic delays consume that policy and coordination, worker, migration and rehearsal waits retain their full-scale caps and units."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/WebApplicationCompositionExtensionsTests.cs#FsusBlog.Server.Tests.WebApplicationCompositionExtensionsTests.PublicAotHtmlFastPath_ProbeCapturesBytesLatencyAndAllocationShape",
+            "path": "tests/backend/Unit/WebApplicationCompositionExtensionsTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/WebApplicationCompositionExtensionsTests.cs#FsusBlog.Server.Tests.WebApplicationCompositionExtensionsTests.PublicAotHtmlFastPath_PreencodedVariantsHaveExpectedByteShape#case-0000"
+            ],
+            "reason": "The renamed owner removes tautological allocation and latency sampling while strengthening the retained contract to exact identity, Brotli and gzip bytes, encoding, ETag and Content-Length."
         }
     ],
     "assertionReplacements": [

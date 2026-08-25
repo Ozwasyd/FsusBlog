@@ -397,7 +397,7 @@
     {
       "id": "BACKEND-WEBAPPLICATIONFACTORY",
       "risk": "high",
-      "coverage": "real ASP.NET Core pipeline, middleware order, filter order, response headers",
+      "coverage": "real ASP.NET Core pipeline, middleware order, filter order, response headers, and exact pre-materialized Public AOT identity/Brotli/gzip response variants",
       "evidencePaths": [
         "tests/backend/Unit/WebApplicationCompositionExtensionsTests.cs",
         "tests/backend/Unit/BackendApiIntegrationContractTests.cs",
@@ -1132,7 +1132,8 @@
       "routePrefixes": ["/api/public", "/internal/public-aot"],
       "requirements": [
         "BACKEND-ENDPOINT-HTTP-PIPELINE",
-        "BACKEND-GOLDEN-GOVERNANCE"
+        "BACKEND-GOLDEN-GOVERNANCE",
+        "BACKEND-WEBAPPLICATIONFACTORY"
       ]
     },
     {

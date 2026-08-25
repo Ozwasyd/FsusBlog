@@ -3895,15 +3895,16 @@
         },
         {
             "id": "backend-public-aot-artifact-behavior",
-            "description": "PublicAOT article artifacts accept only V3 frames, preserve memory and disk TTL semantics, reject legacy payloads and remove only explicitly retired artifacts.",
+            "description": "PublicAOT article artifacts accept only V3 frames, preserve memory and disk TTL semantics, reject legacy payloads and remove only explicitly retired artifacts; pre-materialized HTML responses select exact identity, Brotli and gzip bytes and headers.",
             "owner": "ServerContractAgent",
             "risk": "high",
             "evidencePaths": [
-                "tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs"
+                "tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs",
+                "tests/backend/Unit/WebApplicationCompositionExtensionsTests.cs"
             ],
             "assertionType": "unit",
-            "failClosedRule": "Reject non-V3 or wrong-magic writes, serving expired or legacy frames, clearing current artifacts or benchmark regressions that bypass the artifact hot path.",
-            "minimumRequirement": "The artifact behavior suite must cover V3 write and read, memory TTL, legacy miss and scoped cleanup, with the benchmark lane retaining the hot-path owner.",
+            "failClosedRule": "Reject non-V3 or wrong-magic writes, serving expired or legacy frames, clearing current artifacts, HTML variant bytes or headers that differ from the selected pre-materialized artifact, or benchmark regressions that bypass the artifact hot path.",
+            "minimumRequirement": "The artifact behavior suites must cover V3 write and read, memory TTL, legacy miss and scoped cleanup plus exact identity, Brotli and gzip HTML bytes, encoding, ETag and Content-Length; latency and allocation remain owned only by the benchmark lane.",
             "tierIds": [
                 "backend-unit",
                 "backend-benchmark-regression",

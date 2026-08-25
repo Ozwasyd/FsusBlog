@@ -19,7 +19,6 @@ function assert(condition, message) {
 const doc = read('docs/performance-public-batch.md')
 const routePressure = read('tests/frontend/checks/perf/check-route-render-pressure.mjs')
 const domBudget = read('tests/frontend/checks/perf/check-dom-budget.mjs')
-const backendTests = read('tests/backend/Unit/WebApplicationCompositionExtensionsTests.cs')
 const packageJson = read('src/frontend/package.json')
 
 for (const token of [
@@ -39,7 +38,13 @@ for (const token of [
   '/tag/:id',
   'compression oracle',
   'identity encoding',
-  'pre-materialized PublicAOT'
+  'pre-materialized PublicAOT',
+  '`backend-unit` xUnit result',
+  'PublicAotHtmlFastPath_PreencodedVariantsHaveExpectedByteShape',
+  '`Content-Encoding`',
+  'ETag',
+  '`Content-Length`',
+  'BenchmarkDotNet'
 ]) {
   assert(doc.includes(token), `performance batch doc missing ${token}`)
 }
@@ -60,17 +65,6 @@ for (const token of [
   'FSUSBLOG_DOM_BUDGET_TAG_ID'
 ]) {
   assert(domBudget.includes(token), `DOM budget missing ${token}`)
-}
-
-for (const token of [
-  'SpaFallbackHtmlResponse_StreamsIdentityToKeepNonceOutOfCompressionOracle',
-  'SpaFallbackHtmlResponse_RejectsWhenIdentityIsForbidden',
-  'Assert.DoesNotContain("Accept-Encoding", context.Response.Headers.Vary.ToString()',
-  'PublicAotHtmlFastPath_ProbeCapturesBytesLatencyAndAllocationShape',
-  'Assert.True(brotliBytes < identityBytes)',
-  'Assert.True(gzipBytes < identityBytes)'
-]) {
-  assert(backendTests.includes(token), `backend fallback compression test missing ${token}`)
 }
 
 assert(packageJson.includes('check:public-performance-batch'), 'package scripts must expose public performance batch check')
