@@ -7226,6 +7226,7 @@
       "mapsTo": [],
       "sources": [
         "tools/deploy-production.sh",
+        "tools/deployment/check-production-openresty-config.sh",
         "tools/deployment/deployment-control.sh",
         "tools/deployment/gateway-recover.sh",
         "tools/deployment/gateway-rollback.sh",
@@ -9761,6 +9762,17 @@
       "mapsTo": [],
       "sources": [
         "tools/deployment/deployment-control.sh"
+      ],
+      "deprecation": null
+    },
+    {
+      "name": "TMPDIR",
+      "category": "tooling-only",
+      "owner": "development-tooling",
+      "secret": false,
+      "mapsTo": [],
+      "sources": [
+        "tools/deployment/check-production-openresty-config.sh"
       ],
       "deprecation": null
     },

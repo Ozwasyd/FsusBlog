@@ -101,7 +101,7 @@ test('canonical contract inventories settings, environment inputs, mounted files
     assert.deepEqual(canonical.errors, []);
     assert.equal(canonical.report.status, 'ok');
     assert.equal(canonical.report.counts.applicationSettings, 226);
-    assert.equal(canonical.report.counts.environmentVariables, 241);
+    assert.equal(canonical.report.counts.environmentVariables, 242);
     assert.equal(canonical.report.counts.mountedFiles, 4);
     assert.match(canonical.generatedReference, /not an input template/u);
 

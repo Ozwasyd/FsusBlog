@@ -220,9 +220,13 @@ let acceptanceNodePowModulePromise: Promise<AcceptancePowRuntimeModule | null> |
 let acceptanceContextCounter = 0
 let acceptanceDeviceFingerprintCounter = 0
 
+function acceptanceMonotonicNow(): number {
+  return performance.now()
+}
+
 function nextAcceptanceId(scope: string): string {
   const workerIndex = process.env.TEST_PARALLEL_INDEX || process.env.TEST_WORKER_INDEX || '0'
-  return `${scope}-${workerIndex}-${process.pid}-${Date.now().toString(36)}-${++acceptanceDeviceFingerprintCounter}`
+  return `${scope}-${workerIndex}-${process.pid}-${++acceptanceDeviceFingerprintCounter}`
     .replace(/[^a-z0-9-]+/gi, '-')
     .slice(0, 96)
 }
@@ -648,13 +652,14 @@ export async function prewarmDevRuntime(
     for (const path of paths) {
       const checkpoint = session.audit.checkpoint()
       try {
-        const deadlineAtMs = Date.now() + WARMUP_TIMEOUT_MS
+        const deadlineAtMs = acceptanceMonotonicNow() + WARMUP_TIMEOUT_MS
         await navigateThroughRetryablePublicAot({
           navigate: async () => await session.page.goto(path, { waitUntil: 'domcontentloaded' }),
           sleep: async (delayMs: number) => await delay(delayMs),
-          deadlineAtMs
+          deadlineAtMs,
+          now: acceptanceMonotonicNow
         })
-        await waitForAppReady(session.page, Math.max(1, deadlineAtMs - Date.now()))
+        await waitForAppReady(session.page, Math.max(1, deadlineAtMs - acceptanceMonotonicNow()))
       } catch (error) {
         let readiness: unknown
         try {
@@ -868,7 +873,7 @@ function hasLeadingDifficulty(hash: Buffer, difficulty: number): boolean {
 function solvePowNonce(salt: string, browserFp: string, difficulty: number, deadlineMs = Number.POSITIVE_INFINITY): string {
   let nonce = 0
   while (true) {
-    if ((nonce & 0x0fff) === 0 && Date.now() > deadlineMs) {
+    if ((nonce & 0x0fff) === 0 && acceptanceMonotonicNow() > deadlineMs) {
       throw new Error(`acceptance node pow solver timed out for difficulty ${difficulty}`)
     }
 
@@ -930,7 +935,7 @@ function readAcceptanceCString(module: AcceptancePowRuntimeModule, ptr: number, 
 }
 
 function resolveAcceptancePowDeadline(timeoutMs: number): number {
-  return Date.now() + Math.max(1000, timeoutMs - 250)
+  return acceptanceMonotonicNow() + Math.max(1000, timeoutMs - 250)
 }
 
 function yieldToAcceptanceEventLoop(): Promise<void> {
@@ -954,7 +959,7 @@ async function solvePowNonceOptimized(salt: string, browserFp: string, difficult
 
   try {
     let startNonce = 0
-    while (Date.now() <= deadlineMs) {
+    while (acceptanceMonotonicNow() <= deadlineMs) {
       const remainingNonceSpace = 0x1_0000_0000 - startNonce
       const attempts = Math.min(acceptanceNodePowBatchSize, remainingNonceSpace)
       const resultLength = module._solve_pow_limited_c(saltPtr, fpPtr, difficulty, startNonce, attempts, outputPtr, 2048)

@@ -6,7 +6,7 @@
 ASP.NET Core precedence remains: base appsettings < Production overlay < environment/Compose < explicit command line.
 
 - Application settings: 226
-- Tracked environment variables: 241
+- Tracked environment variables: 242
 - Mounted file classes: 4
 
 ## Application settings
@@ -276,7 +276,7 @@ ASP.NET Core precedence remains: base appsettings < Production overlay < environ
 | `APP_ALLOWED_HOSTS` | deployment-control | hosting | `AllowedHosts` | no | `.env.example`, `.env.production.example`, `ops/docker/docker-compose.production.yml` |
 | `ASPNETCORE_ENVIRONMENT` | application-configuration | release-lifecycle | `ASPNETCORE_ENVIRONMENT` | no | `ops/docker/docker-compose.development-backend.yml`, `ops/docker/docker-compose.production.yml`, `tools/deployment/rehearsal-schema-qualification-probe.mjs`, `tools/deployment/release-rollout.sh` |
 | `BASH_REMATCH` | tooling-only | development-tooling | None | no | `tools/deployment/slot-common.sh` |
-| `BASH_SOURCE` | tooling-only | development-tooling | None | no | `tools/deploy-production.sh`, `tools/deployment/deployment-control.sh`, `tools/deployment/gateway-recover.sh`, `tools/deployment/gateway-rollback.sh`, `tools/deployment/gateway-switch.sh`, `tools/deployment/release-rollout-recovery.sh`, `tools/deployment/release-rollout.sh`, `tools/deployment/slot-common.sh`, `tools/deployment/slot-inspect.sh`, `tools/deployment/slot-preflight.sh`, `tools/deployment/slot-start.sh`, `tools/deployment/slot-status.sh`, `tools/deployment/slot-stop.sh`, `tools/deployment/zero-downtime-rehearsal.sh`, `tools/deployment/zero-downtime-topology.sh` |
+| `BASH_SOURCE` | tooling-only | development-tooling | None | no | `tools/deploy-production.sh`, `tools/deployment/check-production-openresty-config.sh`, `tools/deployment/deployment-control.sh`, `tools/deployment/gateway-recover.sh`, `tools/deployment/gateway-rollback.sh`, `tools/deployment/gateway-switch.sh`, `tools/deployment/release-rollout-recovery.sh`, `tools/deployment/release-rollout.sh`, `tools/deployment/slot-common.sh`, `tools/deployment/slot-inspect.sh`, `tools/deployment/slot-preflight.sh`, `tools/deployment/slot-start.sh`, `tools/deployment/slot-status.sh`, `tools/deployment/slot-stop.sh`, `tools/deployment/zero-downtime-rehearsal.sh`, `tools/deployment/zero-downtime-topology.sh` |
 | `CHALLENGE_KIND_TARGET_MAP` | deployment-control | security | None | no | `tools/deployment/release-rollout.sh` |
 | `COMPlus_DbgEnableMiniDump` | tooling-only | development-tooling | None | no | `ops/docker/docker-compose.production.yml` |
 | `ConnectionStrings__DefaultConnection` | application-configuration | release-lifecycle | `ConnectionStrings:DefaultConnection` | no | `ops/docker/docker-compose.development-backend.yml`, `ops/docker/docker-compose.production.yml` |
@@ -483,6 +483,7 @@ ASP.NET Core precedence remains: base appsettings < Production overlay < environ
 | `SITE_BASEURL` | deployment-control | public-origin | `Fido2:Origins`, `Seo:BaseUrl` | no | `.env.example`, `.env.production.example`, `ops/docker/docker-compose.production.yml` |
 | `TARGET_RELEASE` | tooling-only | development-tooling | None | no | `tools/deployment/release-rollout.sh` |
 | `TIMEOUT_SECONDS` | tooling-only | development-tooling | None | no | `tools/deployment/deployment-control.sh` |
+| `TMPDIR` | tooling-only | development-tooling | None | no | `tools/deployment/check-production-openresty-config.sh` |
 | `TRANSITION_KIND` | tooling-only | development-tooling | None | no | `tools/deployment/gateway-switch.sh` |
 | `WORKER_OBSERVER_SERVICE_ROOT` | tooling-only | development-tooling | None | no | `tools/deployment/zero-downtime-rehearsal.sh` |
 

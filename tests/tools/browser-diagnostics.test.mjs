@@ -189,7 +189,15 @@ test('ordinary correctness excludes browser-only suites and diagnostics owns the
   assert.doesNotMatch(qualityGate, /^  (?:visual-public|visual-console|visual|ux-viewport-smoke|ux-viewport-visual|ux-viewport-boundaries|cross-browser-smoke):/mu)
   assert.doesNotMatch(qualityGate, /browser-performance-regression\.sh/u)
   assert.doesNotMatch(qualityGate, /playwright\.diagnostics\.config\.ts/u)
-  assert.doesNotMatch(read('tools/test/lanes/_suite-support.sh'), /playwright\.diagnostics\.config\.ts/u)
+  const suiteSupport = read('tools/test/lanes/_suite-support.sh')
+  const diagnosticsConfigExports = [...suiteSupport.matchAll(/playwright\.diagnostics\.config\.ts/gu)]
+  assert.equal(diagnosticsConfigExports.length, 2)
+  for (const owner of ['RunVisualPublicOnly', 'RunVisualConsoleOnly']) {
+    const start = suiteSupport.indexOf(`${owner}()`)
+    const end = suiteSupport.indexOf('\n}\n', start)
+    assert.ok(start >= 0 && end > start, `missing ${owner} shell owner`)
+    assert.match(suiteSupport.slice(start, end), /playwright\.diagnostics\.config\.ts/u)
+  }
   for (const diagnosticLane of [
     'visual-public-playwright.sh',
     'visual-console-playwright.sh',
