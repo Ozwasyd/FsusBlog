@@ -10,6 +10,7 @@ const categories = new Set([
     'real-subprocess-lifecycle',
     'exclusive-resource-destructive-rehearsal'
 ]);
+const pureFileHostCount = 2;
 const behaviorTestRuntimeRegistrationPath = 'tools/contracts/behavior-test.mjs';
 
 function assertUnique(values, message)
@@ -119,12 +120,25 @@ export function buildStaticGovernanceExecutionPlan(registry)
         }
     }
 
+    const pureFileHostByCheckId = new Map(
+        registry.checks
+            .filter((check) => check.category === 'pure-file-validation')
+            .toSorted((left, right) => left.id.localeCompare(right.id))
+            .map((check, index) => [
+                check.id,
+                `${check.physicalOwner}:${index % pureFileHostCount}`
+            ])
+    );
     const grouped = new Map();
     for (const check of registry.checks)
     {
         const isolated = check.category === 'real-subprocess-lifecycle'
       || check.category === 'exclusive-resource-destructive-rehearsal';
-        const hostId = isolated ? `${check.physicalOwner}:${check.id}` : check.physicalOwner;
+        const hostId = check.category === 'pure-file-validation'
+            ? pureFileHostByCheckId.get(check.id)
+            : isolated
+                ? `${check.physicalOwner}:${check.id}`
+                : check.physicalOwner;
         const current = grouped.get(hostId) ?? {
             id: hostId,
             category: check.category,

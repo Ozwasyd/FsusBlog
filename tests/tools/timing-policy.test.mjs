@@ -31,6 +31,7 @@ test('bounded semantic scale owns clamp, monotonicity and finite upper-bound pol
 
 test('deployment timing callers import the shared policy without local formula copies', () => {
   const callers = [
+    'tests/tools/deployment-slots.test.mjs',
     'tests/tools/release-rollout-probes.test.mjs',
     'tests/tools/zero-downtime-rehearsal.test.mjs'
   ]
