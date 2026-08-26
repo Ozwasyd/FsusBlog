@@ -20,6 +20,7 @@ import {
 import { createReleaseManifest, writeReleaseManifestAtomic } from '../../tools/release/release-manifest.mjs'
 import { createSpaManifestDescriptor } from '../../tools/storage/create-spa-manifest-descriptor.mjs'
 import { materializeReleaseAssets } from '../../tools/storage/release-assets.mjs'
+import { boundedSemanticScale } from './support/timing-policy.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 const commitSha = '0123456789abcdef0123456789abcdef01234567';
@@ -28,6 +29,16 @@ const blueRelease = '20260711010101-0123456789ab';
 const greenRelease = '20260711020202-fedcba987654';
 const blueDigest = `sha256:${'a'.repeat(64)}`;
 const greenDigest = `sha256:${'e'.repeat(64)}`;
+const hostCpu = Math.max(1, os.availableParallelism?.() ?? os.cpus().length)
+const configuredCpu = Number(
+  process.env.FSUSBLOG_STEP_CPU_BUDGET
+    ?? process.env.FSUSBLOG_BUNDLE_CPU_BUDGET
+)
+const grantedCpu = Number.isFinite(configuredCpu) && configuredCpu > 0
+  ? Math.min(hostCpu, configuredCpu)
+  : hostCpu
+const pressureScale = Math.max(1, hostCpu / grantedCpu, (os.loadavg()[0] + 1) / grantedCpu)
+const slotScriptTimeoutMs = Math.ceil(20_000 * boundedSemanticScale(pressureScale))
 
 function releaseInput(releaseId, imageDigest)
 {
@@ -501,7 +512,7 @@ function runSlot(fixture, script, args, overrides = {}) {
   return spawnSync('bash', [path.join(root, 'tools/deployment', script), ...resolvedArgs], {
     cwd: root,
     encoding: 'utf8',
-    timeout: 20_000,
+    timeout: slotScriptTimeoutMs,
     env: { ...fixture.environment, ...overrides }
   })
 }

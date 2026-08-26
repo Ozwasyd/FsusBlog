@@ -24,10 +24,27 @@ test('lifecycle registry assigns every migrated static check to one physical own
     const registry = loadStaticGovernanceRegistry(registryFile, root);
     const plan = buildStaticGovernanceExecutionPlan(registry);
     const owned = plan.hosts.flatMap((host) => host.checks.map((check) => check.id));
+    const pureFileHosts = plan.hosts
+        .filter((host) => host.category === 'pure-file-validation');
 
     assert.equal(new Set(owned).size, registry.checks.length);
     assert.deepEqual(owned.toSorted(), registry.checks.map((check) => check.id).toSorted());
-    assert.ok(plan.hosts.filter((host) => host.category === 'pure-file-validation').length <= 2);
+    assert.equal(pureFileHosts.length, 2);
+    assert.ok(
+        Math.abs(pureFileHosts[0].checks.length - pureFileHosts[1].checks.length) <= 1
+    );
+
+    const reversed = buildStaticGovernanceExecutionPlan({
+        ...registry,
+        checks: registry.checks.toReversed()
+    });
+    const hostByCheckId = (executionPlan) => new Map(
+        executionPlan.hosts.flatMap((host) => host.checks.map((check) => [check.id, host.id]))
+    );
+    assert.deepEqual(
+        [...hostByCheckId(reversed)].toSorted(),
+        [...hostByCheckId(plan)].toSorted()
+    );
 });
 
 test('temporary repository cases share a host but retain unique roots and outputs', () =>
