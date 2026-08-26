@@ -531,12 +531,28 @@ test('PID start identity mismatch prevents any signal from being sent', async ()
             forceTerminationMs: fastPolicy.forceTerminationMs
                 + (2 * fastPolicy.pipeCloseTimeoutMs)
         };
-        const cleanup = terminatePhysicalExecutionAuthoritySync({
+        let cleanup = terminatePhysicalExecutionAuthoritySync({
             authority,
             reason: 'PID mismatch negative-test cleanup',
             policy: cleanupPolicy,
             expectedIdentities
         });
+        if (!cleanup.terminated && cleanup.postObservation === 'members-remain')
+        {
+            const reaped = await Promise.all(expectedIdentities.map(
+                (identity) => waitForProcessAbsence(
+                    identity.pid,
+                    cleanupPolicy.forceTerminationMs
+                )
+            ));
+            assert.ok(reaped.every(Boolean), cleanup.reason);
+            cleanup = terminatePhysicalExecutionAuthoritySync({
+                authority,
+                reason: 'PID mismatch negative-test cleanup after child reap',
+                policy: cleanupPolicy,
+                expectedIdentities
+            });
+        }
         assert.equal(cleanup.terminated, true, cleanup.reason);
         assert.equal(cleanup.postObservation, 'zero-members');
         for (const identity of expectedIdentities)
