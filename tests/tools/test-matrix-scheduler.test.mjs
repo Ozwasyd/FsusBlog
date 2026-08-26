@@ -2908,6 +2908,7 @@ test('bundle timeout kills a pipe-holding grandchild and still collects independ
     const { runDag } = await loadScheduler();
     const temp = createTempDir('scheduler-bundle-timeout-tree');
     const pidFile = path.join(temp, 'grandchild.pid');
+    const identityReadyMarker = path.join(temp, 'independent.identity-ready');
     const grandchildFile = path.join(temp, 'grandchild.sh');
     const parentFile = path.join(temp, 'parent.sh');
     const failFile = path.join(temp, 'fail.mjs');
@@ -2916,7 +2917,10 @@ while true; do printf 'holding-pipe\n'; sleep 0.025; done`);
     fs.writeFileSync(parentFile, String.raw`set -euo pipefail
 /bin/bash ${JSON.stringify(grandchildFile)} &
 child=$!; printf '%s\n' "$child" > ${JSON.stringify(pidFile)}; wait "$child"`);
-    fs.writeFileSync(failFile, 'setTimeout(() => process.exit(7), 50)\n');
+    fs.writeFileSync(failFile, String.raw`import fs from 'node:fs'
+import { setTimeout as delay } from 'node:timers/promises'
+while (!fs.existsSync(${JSON.stringify(identityReadyMarker)})) await delay(10)
+process.exit(7)`);
 
     t.after(() =>
     {
@@ -2945,7 +2949,7 @@ child=$!; printf '%s\n' "$child" > ${JSON.stringify(pidFile)}; wait "$child"`);
                 budgetMs: 150
             }),
             tier('independent-failure', {
-                command: `${JSON.stringify(process.execPath)} ${JSON.stringify(failFile)}`
+                command: `${JSON.stringify(process.execPath)} ${JSON.stringify(failFile)}`, budgetMs: 1_500
             })
         ],
         root: temp,
@@ -2955,6 +2959,7 @@ child=$!; printf '%s\n' "$child" > ${JSON.stringify(pidFile)}; wait "$child"`);
         collectFailures: true,
         terminationGraceMs: 75,
         systemResources: { cpuCount: 8, availableMemoryGiB: 8, load1: 0 },
+        onTierStart: (startedTier) => startedTier.id === 'independent-failure' && fs.writeFileSync(identityReadyMarker, 'verified'),
         snapshotWorktree: stableSnapshot
     });
     const elapsedMs = Date.now() - startedAt;
