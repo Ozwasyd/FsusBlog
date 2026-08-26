@@ -59,6 +59,7 @@ export const admin = {
         mfa: 'Второй фактор',
         dashboard: 'Панель управления',
         articles: 'Статьи',
+        canvas: 'Холст',
         trash: 'Корзина',
         categories: 'Категории',
         tags: 'Теги',

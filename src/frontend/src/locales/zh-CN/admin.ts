@@ -56,6 +56,7 @@ export const admin = {
         mfa: '二次验证',
         dashboard: '仪表盘',
         articles: '文章',
+        canvas: '画布',
         trash: '回收站',
         categories: '分类',
         tags: '标签',

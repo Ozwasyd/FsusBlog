@@ -59,6 +59,7 @@ export const admin = {
         mfa: 'Verificação em duas etapas',
         dashboard: 'Painel',
         articles: 'Artigos',
+        canvas: 'Tela',
         trash: 'Lixeira',
         categories: 'Categorias',
         tags: 'Tags',

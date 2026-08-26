@@ -117,6 +117,8 @@ export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
                     { path: 'article/edit/:id', name: 'ManageEditArticle', component: () => import('@/views/admin/article/Write.vue'), meta: manageMeta({ titleKey: 'admin.nav.articles', permissions: ['article.write'], pageKind: 'form', routeState: 'memory-only' }) },
                     { path: 'article/list', name: 'ManageArticleList', component: () => import('@/views/admin/article/List.vue'), meta: manageMeta({ titleKey: 'admin.nav.articles', permissions: ['article.write'], pageKind: 'collection' }) },
                     { path: 'article/trash', name: 'ManageArticleTrash', component: () => import('@/views/admin/article/Trash.vue'), meta: manageMeta({ titleKey: 'admin.nav.trash', permissions: ['article.write'], pageKind: 'collection' }) },
+                    { path: 'canvas', name: 'ManageCanvas', component: () => import('@/views/admin/canvas/AuthoringCanvasView.vue'), meta: manageMeta({ titleKey: 'admin.nav.canvas', permissions: ['article.write'], pageKind: 'console' }) },
+                    { path: 'canvas/:id', name: 'ManageCanvasDetail', component: () => import('@/views/admin/canvas/AuthoringCanvasView.vue'), meta: manageMeta({ titleKey: 'admin.nav.canvas', permissions: ['article.write'], pageKind: 'console', routeState: 'memory-only' }) },
                     {
                         path: 'security',
                         component: () => import('@/views/admin/security/SecurityLayout.vue'),

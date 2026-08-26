@@ -59,6 +59,7 @@ export const admin = {
         mfa: '2차 인증',
         dashboard: '대시보드',
         articles: '게시물',
+        canvas: '캔버스',
         trash: '휴지통',
         categories: '카테고리',
         tags: '태그',

@@ -59,6 +59,7 @@ export const admin = {
         mfa: 'Segundo factor',
         dashboard: 'Panel de control',
         articles: 'Artículos',
+        canvas: 'Lienzo',
         trash: 'Papelera',
         categories: 'Categorías',
         tags: 'Etiquetas',

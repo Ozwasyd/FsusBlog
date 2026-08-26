@@ -59,6 +59,7 @@ export const admin = {
         mfa: 'Second factor',
         dashboard: 'Dashboard',
         articles: 'Posts',
+        canvas: 'Canvas',
         trash: 'Trash',
         categories: 'Categories',
         tags: 'Tags',

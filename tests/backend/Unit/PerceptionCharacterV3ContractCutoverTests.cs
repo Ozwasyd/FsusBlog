@@ -12,12 +12,12 @@ using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Security;
 
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 using NSubstitute;
 

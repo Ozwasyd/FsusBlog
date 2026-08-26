@@ -59,6 +59,7 @@ export const admin = {
         mfa: 'Double authentification',
         dashboard: 'Tableau de bord',
         articles: 'Articles',
+        canvas: 'Canevas',
         trash: 'Corbeille',
         categories: 'Catégories',
         tags: 'Étiquettes',

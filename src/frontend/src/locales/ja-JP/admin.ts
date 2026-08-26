@@ -59,6 +59,7 @@ export const admin = {
         mfa: '二要素認証',
         dashboard: 'ダッシュボード',
         articles: '記事',
+        canvas: 'キャンバス',
         trash: 'ゴミ箱',
         categories: 'カテゴリ',
         tags: 'タグ',
