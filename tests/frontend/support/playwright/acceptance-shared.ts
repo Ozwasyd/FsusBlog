@@ -2499,6 +2499,96 @@ export async function assertOverlayActionsReachable(
   }
 }
 
+/** Lightbox figure and image must be visible, with positive geometry within safe viewport bounds. */
+export async function assertLightboxMediaGeometry(
+  page: Page,
+  root: Locator,
+  profile: UxSafeAreaProfile,
+  label = 'lightbox media'
+): Promise<void> {
+  const figure = root.locator('.article-image-lightbox__figure')
+  const img = figure.locator('img')
+  await expect(figure, `${label} figure must be visible`).toBeVisible()
+  await expect(img, `${label} image must be visible`).toBeVisible()
+
+  const tolerance = UX_SAFE_AREA_GEOMETRY_TOLERANCE
+  const viewport = page.viewportSize()
+  expect(viewport, `${label} viewport size`).not.toBeNull()
+  if (!viewport) return
+
+  const mediaMetrics = await root.evaluate((element) => {
+    const fig = element.querySelector('.article-image-lightbox__figure') as HTMLElement | null
+    const image = element.querySelector('.article-image-lightbox__figure img') as HTMLImageElement | null
+    const figRect = fig?.getBoundingClientRect()
+    const imgRect = image?.getBoundingClientRect()
+    const style = getComputedStyle(element)
+    return {
+      paddingTop: Number.parseFloat(style.paddingTop) || 0,
+      paddingRight: Number.parseFloat(style.paddingRight) || 0,
+      paddingBottom: Number.parseFloat(style.paddingBottom) || 0,
+      paddingLeft: Number.parseFloat(style.paddingLeft) || 0,
+      figRect: figRect ? {
+        top: figRect.top,
+        right: figRect.right,
+        bottom: figRect.bottom,
+        left: figRect.left,
+        width: figRect.width,
+        height: figRect.height
+      } : null,
+      imgRect: imgRect ? {
+        top: imgRect.top,
+        right: imgRect.right,
+        bottom: imgRect.bottom,
+        left: imgRect.left,
+        width: imgRect.width,
+        height: imgRect.height
+      } : null
+    }
+  })
+
+  expect(mediaMetrics.figRect, `${label} figure rect`).not.toBeNull()
+  expect(mediaMetrics.imgRect, `${label} img rect`).not.toBeNull()
+  if (!mediaMetrics.figRect || !mediaMetrics.imgRect) return
+
+  expect(mediaMetrics.figRect.width, `${label} figure width`).toBeGreaterThan(0)
+  expect(mediaMetrics.figRect.height, `${label} figure height`).toBeGreaterThan(0)
+  expect(mediaMetrics.imgRect.width, `${label} img width`).toBeGreaterThan(0)
+  expect(mediaMetrics.imgRect.height, `${label} img height`).toBeGreaterThan(0)
+
+  // Ensure image does not overflow outside viewport
+  expect(mediaMetrics.imgRect.left, `${label} img left`).toBeGreaterThanOrEqual(-tolerance)
+  expect(mediaMetrics.imgRect.top, `${label} img top`).toBeGreaterThanOrEqual(-tolerance)
+  expect(mediaMetrics.imgRect.right, `${label} img right`).toBeLessThanOrEqual(viewport.width + tolerance)
+  expect(mediaMetrics.imgRect.bottom, `${label} img bottom`).toBeLessThanOrEqual(viewport.height + tolerance)
+
+  // Ensure padding respects safe-area insets (computed from tokens)
+  expect(mediaMetrics.paddingTop, `${label} padding top`).toBeGreaterThanOrEqual(profile.insets.top - tolerance)
+  expect(mediaMetrics.paddingRight, `${label} padding right`).toBeGreaterThanOrEqual(profile.insets.right - tolerance)
+  expect(mediaMetrics.paddingBottom, `${label} padding bottom`).toBeGreaterThanOrEqual(profile.insets.bottom - tolerance)
+  expect(mediaMetrics.paddingLeft, `${label} padding left`).toBeGreaterThanOrEqual(profile.insets.left - tolerance)
+
+  // Test active image navigation if next button is present
+  const nextButton = root.locator('.article-image-lightbox__nav--next')
+  if (await nextButton.count() && await nextButton.isVisible()) {
+    const srcBefore = await img.getAttribute('src')
+    await nextButton.click()
+    await expect(img, `${label} image after next`).toBeVisible()
+    const nextImgBox = await img.boundingBox()
+    expect(nextImgBox, `${label} img box after next`).not.toBeNull()
+    if (nextImgBox) {
+      expect(nextImgBox.width).toBeGreaterThan(0)
+      expect(nextImgBox.height).toBeGreaterThan(0)
+    }
+    const prevButton = root.locator('.article-image-lightbox__nav--prev')
+    if (await prevButton.count() && await prevButton.isVisible()) {
+      await prevButton.click()
+      await expect(img, `${label} image after prev`).toBeVisible()
+      const srcRestored = await img.getAttribute('src')
+      expect(srcRestored, `${label} image restored after prev`).toBe(srcBefore)
+    }
+  }
+}
+
 /** Body must not leak uncontrolled horizontal overflow under a safe-area profile. */
 export async function assertNoBodyOverflowLeak(page: Page, label = 'body overflow'): Promise<void> {
   const tolerance = UX_SAFE_AREA_GEOMETRY_TOLERANCE

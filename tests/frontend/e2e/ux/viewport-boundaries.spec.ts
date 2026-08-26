@@ -19,6 +19,7 @@ import {
   applyUxViewportMediaMode,
   assertControlsInsideSafeRect,
   assertDocumentViewportMetaContract,
+  assertLightboxMediaGeometry,
   assertNoBodyOverflowLeak,
   assertOverlayActionsReachable,
   assertOverlayCloseRestoresFocusAndScroll,
@@ -902,6 +903,11 @@ async function runUxSafeAreaGroup(
           shortVisual: profile.id === 'short-visual'
         })
       ))
+      if (group.surface!.open === 'article-image-lightbox') {
+        await timing.measure('safe-area.assert-lightbox-media', label, () => (
+          assertLightboxMediaGeometry(pageSession.page, opened.controlRoot, profile, label)
+        ))
+      }
 
       await timing.measure('safe-area.close-surface', label, () => closeOverlayRiskSurface(pageSession.page, group.surface!.open))
       await timing.measure('safe-area.assert-restore', label, () => (
