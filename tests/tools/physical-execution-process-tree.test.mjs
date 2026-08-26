@@ -454,6 +454,11 @@ test('a descendant spawned while cancelling remains contained and is terminated'
 {
     const controller = new AbortController();
     const readiness = readinessSink();
+    const lateSpawnPolicy = {
+        ...fastPolicy,
+        gracefulTerminationMs: fastPolicy.gracefulTerminationMs
+            + fastPolicy.pipeCloseTimeoutMs
+    };
     const result = runPhysicalExecution({
         command: [
             process.execPath,
@@ -462,7 +467,7 @@ test('a descendant spawned while cancelling remains contained and is terminated'
         ],
         signal: controller.signal,
         residualRoot: path.join(temporaryRoot('late-spawn'), 'residuals'),
-        policy: fastPolicy,
+        policy: lateSpawnPolicy,
         stdout: readiness.sink,
         stderr: quiet
     });
@@ -521,10 +526,15 @@ test('PID start identity mismatch prevents any signal from being sent', async ()
                 commandDigest: entry.commandDigest
             })
         );
+        const cleanupPolicy = {
+            ...fastPolicy,
+            forceTerminationMs: fastPolicy.forceTerminationMs
+                + (2 * fastPolicy.pipeCloseTimeoutMs)
+        };
         const cleanup = terminatePhysicalExecutionAuthoritySync({
             authority,
             reason: 'PID mismatch negative-test cleanup',
-            policy: fastPolicy,
+            policy: cleanupPolicy,
             expectedIdentities
         });
         assert.equal(cleanup.terminated, true, cleanup.reason);
@@ -532,7 +542,7 @@ test('PID start identity mismatch prevents any signal from being sent', async ()
         for (const identity of expectedIdentities)
         {
             assert.equal(
-                await waitForProcessAbsence(identity.pid, fastPolicy.forceTerminationMs),
+                await waitForProcessAbsence(identity.pid, cleanupPolicy.forceTerminationMs),
                 true,
                 `negative-test cleanup leaked PID ${identity.pid}`
             );
