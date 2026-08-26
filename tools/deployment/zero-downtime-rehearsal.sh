@@ -26,6 +26,8 @@ COMMAND_JOURNAL=""
 declare -a REQUESTED_MODES=()
 declare -a OVERALL_ERRORS=()
 declare -a ACTIVE_WORKER_OBSERVER_SERVICE_ROOTS=()
+PROCESS_START_ATTEMPTS=600
+PROCESS_START_POLL_SECONDS=0.05
 
 Usage() {
     cat <<'USAGE'
@@ -87,13 +89,13 @@ WorkerObserverServiceProcessMatches() {
 
 WaitForWorkerObserverServiceProcess() {
     local pid="$1" serviceRoot="$2" attempt
-    for attempt in {1..200}; do
+    for ((attempt = 0; attempt < PROCESS_START_ATTEMPTS; attempt += 1)); do
         WorkerObserverServiceProcessIsLive "$pid" || return 1
         if ProcessGroupIsIsolated "$pid" &&
             WorkerObserverServiceProcessMatches "$pid" "$serviceRoot"; then
             return 0
         fi
-        sleep 0.05
+        sleep "$PROCESS_START_POLL_SECONDS"
     done
     return 1
 }
@@ -150,7 +152,7 @@ WorkerObserverServiceStartProcess() {
     local serviceLabel="${serviceRoot##*/}"
     local stdoutFile="$logRoot/$serviceLabel.stdout"
     local stderrFile="$logRoot/$serviceLabel.stderr"
-    local pid
+    local pid attempt
     [[ ! -e "$serviceRoot" && ! -L "$serviceRoot" ]] || return 1
     [[ -f "$servicePlan" && ! -L "$servicePlan" ]] || return 1
     [[ -f "$observerEnvSource" && ! -L "$observerEnvSource" ]] || return 1
@@ -181,7 +183,7 @@ WorkerObserverServiceStartProcess() {
         return 1
     }
     printf '%s\n' "$pid" >"$pidFile"
-    for _ in {1..200}; do
+    for ((attempt = 0; attempt < PROCESS_START_ATTEMPTS; attempt += 1)); do
         if [[ -s "$stdoutFile" ]] &&
             jq -e '.schema == "fsusblog.release-worker-observer-service-response.v1" and .status == "listening"' \
                 "$stdoutFile" >/dev/null 2>&1; then
@@ -189,7 +191,7 @@ WorkerObserverServiceStartProcess() {
             return 0
         fi
         WorkerObserverServiceProcessIsLive "$pid" || break
-        sleep 0.05
+        sleep "$PROCESS_START_POLL_SECONDS"
     done
     WorkerObserverServiceStopProcess "$serviceRoot" 0 >/dev/null 2>&1 || true
     return 1
@@ -573,11 +575,11 @@ ProcessGroupIsIsolated() {
 WaitForIsolatedProcessGroup() {
     local pid="$1" attempt state
     [[ "$pid" =~ ^[0-9]+$ && "$pid" -gt 1 ]] || return 1
-    for attempt in {1..200}; do
+    for ((attempt = 0; attempt < PROCESS_START_ATTEMPTS; attempt += 1)); do
         state="$(ps -o stat= -p "$pid" 2>/dev/null | tr -d '[:space:]')"
         [[ -n "$state" && "$state" != Z* ]] || return 1
         ProcessGroupIsIsolated "$pid" && return 0
-        sleep 0.05
+        sleep "$PROCESS_START_POLL_SECONDS"
     done
     return 1
 }
