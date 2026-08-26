@@ -49,4 +49,54 @@ describe('createFilterPageViewContract', () => {
     expect(view.empty.title).toBe('内容不可用')
     expect(view.empty.description).toBe('刷新后重试。')
   })
+
+  it('forwards description to header contract when provided', () => {
+    const view = createFilterPageViewContract({
+      filterType: PUBLIC_FILTER_TYPE.category,
+      labelText: '分类',
+      currentName: '架构',
+      description: '关于系统架构与设计的深度文章',
+      loadingMeta: false,
+      loadingArticles: false,
+      isPowCalculating: false,
+      hasError: false,
+      isInvalidTarget: false,
+      articles: [],
+      currentPage: 1,
+      totalPages: 1,
+      pageIndicatorText: '1 / 1',
+      canGoPrev: false,
+      canGoNext: false
+    })
+
+    expect(view.header.description).toBe('关于系统架构与设计的深度文章')
+  })
+
+  it('defaults header description to null when omitted or undefined', () => {
+    const view = createView(PUBLIC_FILTER_TYPE.tag, 'TypeScript')
+
+    expect(view.header.description).toBeNull()
+  })
+
+  it('sets header description to null when explicitly null', () => {
+    const view = createFilterPageViewContract({
+      filterType: PUBLIC_FILTER_TYPE.search,
+      labelText: '搜索',
+      currentName: '“Rust”',
+      description: null,
+      loadingMeta: false,
+      loadingArticles: false,
+      isPowCalculating: false,
+      hasError: false,
+      isInvalidTarget: false,
+      articles: [],
+      currentPage: 1,
+      totalPages: 1,
+      pageIndicatorText: '1 / 1',
+      canGoPrev: false,
+      canGoNext: false
+    })
+
+    expect(view.header.description).toBeNull()
+  })
 })
