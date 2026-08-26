@@ -205,8 +205,6 @@ RUN sh -lc 'for i in 1 2 3; do dotnet restore "./src/backend/FsusBlog.Server.csp
 COPY . .
 WORKDIR "/src/src/backend"
 
-RUN sh -lc 'for i in 1 2 3; do dotnet build "./FsusBlog.Server.csproj" -c "$BUILD_CONFIGURATION" -r "$TARGET_RUNTIME" -o /app/build --no-restore && exit 0; echo "dotnet build retry $i failed"; sleep 5; done; exit 1'
-
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
 ARG FSUSBLOG_RELEASE_ID=local-unversioned
@@ -218,7 +216,7 @@ ARG TIERED_PGO=true
 ARG QUICK_JIT_FOR_LOOPS=true
 ARG SERVER_GC=true
 ARG NATIVE_AOT=false
-RUN sh -lc 'for i in 1 2 3; do dotnet publish "./FsusBlog.Server.csproj" \
+RUN dotnet publish "./FsusBlog.Server.csproj" \
     -c "$BUILD_CONFIGURATION" \
     -r "$TARGET_RUNTIME" \
     -o /app/publish \
@@ -237,7 +235,7 @@ RUN sh -lc 'for i in 1 2 3; do dotnet publish "./FsusBlog.Server.csproj" \
     /p:TieredCompilationQuickJitForLoops="$QUICK_JIT_FOR_LOOPS" \
     /p:ServerGarbageCollection="$SERVER_GC" \
     /p:PublishReadyToRun="$PUBLISH_READY_TO_RUN" \
-    /p:ReadyToRunUseCrossgen2="$PUBLISH_READY_TO_RUN" && exit 0; echo "dotnet publish retry $i failed"; sleep 5; done; exit 1'
+    /p:ReadyToRunUseCrossgen2="$PUBLISH_READY_TO_RUN"
 
 ARG ZK_NATIVE_ARTIFACT_DIR=build/artifacts/native-zk
 RUN sh -lc 'set -eu; \
