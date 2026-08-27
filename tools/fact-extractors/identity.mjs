@@ -42,16 +42,20 @@ export function resolveWorktreeFingerprint(repositoryRoot)
         .filter(Boolean)
         .map((relative) => relative.replaceAll(path.sep, '/'))
         .sort();
-    const untrackedBindings = untracked.map((relative) =>
+    const untrackedBindings = untracked.map((file) =>
     {
-        const absolute = path.join(repositoryRoot, relative);
+        const absolute = path.join(repositoryRoot, file);
         if (!existsSync(absolute) || !statSync(absolute).isFile())
         {
-            return { path: relative, digest: digestText('') };
+            return { file, content: '' };
         }
-        return { path: relative, digest: digestBuffer(readFileSync(absolute)) };
+        return { file, content: readFileSync(absolute).toString('base64') };
     });
-    return digestValue({ diff, untrackedBindings });
+    // Replay adapters and the scheduler consume this exact dirty-worktree
+    // projection. Keep BehaviorDoc on the same source-identity authority so a
+    // current-run receipt cannot become incomparable only because one producer
+    // renamed the canonical JSON fields or pre-hashed untracked content.
+    return digestValue({ diff, untracked: untrackedBindings });
 }
 
 export function digestPath(repositoryRoot, relativePath)

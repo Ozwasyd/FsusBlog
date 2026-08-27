@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+import { resolveWorktreeFingerprint } from '../../tools/fact-extractors/identity.mjs';
+import { digestCanonical } from '../../tools/test-fixtures/receipt/canonical.mjs';
 import {
     productionFileArtifactEvidence,
     publishBackendBuildReadyAuthority,
@@ -14,6 +17,31 @@ const sourceState = {
     commit: 'a'.repeat(40),
     worktreeFingerprint: `sha256:${'b'.repeat(64)}`
 };
+
+test('BehaviorDoc and replay producers share the canonical clean-worktree fingerprint', () =>
+{
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-source-identity-'));
+    try
+    {
+        const commands = [
+            ['init', '--quiet'],
+            ['config', 'user.name', 'FsusBlog Test'],
+            ['config', 'user.email', 'test@example.invalid']
+        ];
+        for (const args of commands)
+        {
+            assert.equal(spawnSync('git', args, { cwd: root }).status, 0);
+        }
+        fs.writeFileSync(path.join(root, 'tracked.txt'), 'tracked\n');
+        assert.equal(spawnSync('git', ['add', 'tracked.txt'], { cwd: root }).status, 0);
+        assert.equal(spawnSync('git', ['commit', '--quiet', '-m', 'fixture'], { cwd: root }).status, 0);
+        assert.equal(resolveWorktreeFingerprint(root), digestCanonical({ diff: '', untracked: [] }).slice('sha256:'.length));
+    }
+    finally
+    {
+        fs.rmSync(root, { recursive: true, force: true });
+    }
+});
 
 function fixture()
 {
