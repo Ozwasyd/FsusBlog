@@ -1582,6 +1582,8 @@ export function createReleaseFinalTestEvidenceBinding({
     correctnessReceiptPath,
     browserContractReceipt,
     browserContractReceiptPath,
+    postRuntimeReceipt,
+    postRuntimeReceiptPath,
     releaseDomainProjectionReceipts,
     releaseReliabilityQualifiedReceipt,
     now = () => new Date()
@@ -1642,6 +1644,12 @@ export function createReleaseFinalTestEvidenceBinding({
                 fileDigest: sha256File(browserContractReceiptPath),
                 contentDigest: browserContractReceipt.contentDigest
             },
+            behaviorPostRuntime: {
+                schema: postRuntimeReceipt.schema,
+                path: String(postRuntimeReceiptPath).replaceAll(path.sep, '/'),
+                fileDigest: sha256File(postRuntimeReceiptPath),
+                contentDigest: postRuntimeReceipt.contentDigest
+            },
             releaseReliability: structuredClone(
                 releaseReliabilityQualifiedReceipt
             ),
@@ -1675,7 +1683,7 @@ export function validateReleaseFinalTestEvidenceBinding(binding)
     {
         errors.push('release-final binding source/build identity mismatch');
     }
-    for (const key of ['correctness', 'browserContract'])
+    for (const key of ['correctness', 'browserContract', 'behaviorPostRuntime'])
     {
         if (!isDigest(binding?.receipts?.[key]?.fileDigest))
         {
@@ -1685,6 +1693,11 @@ export function validateReleaseFinalTestEvidenceBinding(binding)
         {
             errors.push(`release-final binding ${key} content digest is invalid`);
         }
+    }
+    if (binding?.receipts?.behaviorPostRuntime?.schema
+        !== 'fsusblog.behavior-evidence-post-runtime-receipt.v1')
+    {
+        errors.push('release-final binding behaviorPostRuntime schema is invalid');
     }
     errors.push(...validateReleaseReliabilityQualifiedBinding(
         binding?.receipts?.releaseReliability,

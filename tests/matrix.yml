@@ -708,6 +708,65 @@ tiers:
       retentionClass: must-keep
       triggerReason: every runtime/browser/production/release candidate requires a source-bound BehaviorGraph pre-runtime evidence receipt joining static admission, current-run test evidence, and per-behavior mutation evidence before any candidate can start
 
+    - id: behavior-evidence-post-runtime
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
+      owner: ServerContractAgent
+      qualificationEligible: true
+      command: bash tools/test/bundles/behavior-evidence-post-runtime.sh
+      outputReceiptSchema: fsusblog.behavior-evidence-post-runtime-receipt.v1
+      executionDependsOn:
+          [behavior-evidence-pre-runtime, browser-contract, production-correctness]
+      requiresEvidenceFrom:
+          [behavior-evidence-pre-runtime, browser-contract, production-correctness]
+      services: []
+      parallelizable: false
+      exclusiveResources: [behavior-evidence-post-runtime]
+      phase: 5
+      cost: low
+      resourceClass: io
+      cpuWeight: 1
+      memoryWeight: 1
+      minCpuUnits: 1
+      maxParallel: 1
+      requiresBootstrap: none
+      requiresNode: true
+      requiresDotnet: false
+      requiresPlaywright: none
+      evidenceClass: correctness
+      cacheProfile: none
+      timeoutMinutes: 5
+      shardable: false
+      defaultShards: 1
+      risk: critical
+      cadence: release-manual
+      requiredFor: release-final
+      coverage: [behavior-evidence-post-runtime]
+      artifacts: [.tmp/behavior-evidence-post-runtime/receipt.json]
+      evidence:
+          [
+              .tmp/behavior-evidence-post-runtime/receipt.json,
+              .tmp/behavior-evidence-pre-runtime/receipt.json,
+              .tmp/browser-contract/receipt.json,
+              .tmp/release-evidence/browserless-correctness-receipt.json,
+              config/contracts/behavior-contracts.json,
+              config/schemas/behavior-evidence-post-runtime-receipt.schema.json,
+              tools/release/release-final-domain-evidence.mjs,
+              tools/test-matrix/behavior-evidence-post-runtime.mjs,
+              tools/test/bundles/behavior-evidence-post-runtime.sh,
+              tests/tools/behavior-evidence-post-runtime.test.mjs,
+              tests/matrix.yml,
+          ]
+      ciJob: release-final
+      localOnly: false
+      nightlyOnly: false
+      manualOnly: true
+      retentionClass: must-keep
+      triggerReason: release-final requires one current-run source/build/candidate-bound join of the verified pre-runtime graph with correctness and browser observations
+
     - id: pr-smart-gate-plan
       executionClass: coordination
       fixtureProfile: none
@@ -8313,6 +8372,7 @@ tiers:
       executionDependsOn: []
       requiresEvidenceFrom:
           [
+              behavior-evidence-post-runtime,
               behavior-evidence-pre-runtime,
               browser-contract,
               coverage-gate-strict,

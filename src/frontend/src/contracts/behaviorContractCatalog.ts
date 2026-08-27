@@ -1,6 +1,6 @@
-// Generated from config/contracts/behavior-contracts.json; digest c7072fcfcb78581416aef93b97c2d1b3ed56b942b5bb732b87f252a8754fa5ab; do not edit by hand.
+// Generated from config/contracts/behavior-contracts.json; digest 6751b721ba30f13ffbc0e290224f8aef1d656684408af6503a618949b56539ee; do not edit by hand.
 
-export const BEHAVIOR_CONTRACT_CATALOG_DIGEST = 'c7072fcfcb78581416aef93b97c2d1b3ed56b942b5bb732b87f252a8754fa5ab' as const
+export const BEHAVIOR_CONTRACT_CATALOG_DIGEST = '6751b721ba30f13ffbc0e290224f8aef1d656684408af6503a618949b56539ee' as const
 export const BEHAVIOR_CONTRACTS = [
   {
     "id": "test-asset-audit-reconciliation",
@@ -21,6 +21,7 @@ export const BEHAVIOR_CONTRACTS = [
       "safety"
     ],
     "releaseQualification": true,
+    "evidenceStage": "pre-runtime",
     "coverageIds": [
       "test-asset-audit-reconciliation"
     ],
@@ -47,6 +48,7 @@ export const BEHAVIOR_CONTRACTS = [
       "safety"
     ],
     "releaseQualification": true,
+    "evidenceStage": "pre-runtime",
     "coverageIds": [
       "code-intent-governance"
     ],
@@ -74,6 +76,7 @@ export const BEHAVIOR_CONTRACTS = [
       "safety"
     ],
     "releaseQualification": true,
+    "evidenceStage": "pre-runtime",
     "coverageIds": [
       "document-lifecycle-governance"
     ],
@@ -100,6 +103,7 @@ export const BEHAVIOR_CONTRACTS = [
       "safety"
     ],
     "releaseQualification": true,
+    "evidenceStage": "pre-runtime",
     "coverageIds": [
       "binary-api-aeds-contract"
     ],
@@ -139,6 +143,11 @@ export const BEHAVIOR_CONTRACTS = [
       "safety"
     ],
     "releaseQualification": true,
+    "evidenceStage": "post-runtime",
+    "runtimeEvidence": {
+      "producerTierId": "production-correctness",
+      "observationSchema": "fsusblog.browserless-correctness-receipt.v1"
+    },
     "coverageIds": [
       "browserless-production-correctness"
     ],
@@ -171,6 +180,7 @@ export const BEHAVIOR_CONTRACTS = [
       "safety"
     ],
     "releaseQualification": true,
+    "evidenceStage": "pre-runtime",
     "coverageIds": [
       "authentication-session-permission"
     ],
@@ -208,6 +218,7 @@ export const BEHAVIOR_CONTRACTS = [
       "operational"
     ],
     "releaseQualification": true,
+    "evidenceStage": "pre-runtime",
     "coverageIds": [
       "configuration-error-security-policy"
     ],
@@ -244,6 +255,7 @@ export const BEHAVIOR_CONTRACTS = [
       "safety"
     ],
     "releaseQualification": true,
+    "evidenceStage": "pre-runtime",
     "coverageIds": [
       "article-comment-lifecycle-outbox"
     ],

@@ -26,7 +26,7 @@ const {
 const contractFile = path.join(root, 'tests/fixtures/test-matrix/execution-dependency-contract.json');
 const evidenceContractFile = path.join(root, 'tests/fixtures/test-matrix/release-final-evidence-contract.json');
 const canonicalEvidenceInputDigest =
-    'sha256:86650b10b178fe0fffb983b8567b30f44f21e77e786f2f693db76d3beeb1f675';
+    'sha256:32c2b69ce5f16d3120e3ccb176ec5a7b88d1b42456e73701a914caa02f9a226e';
 
 function evidenceInputDigest(inputs)
 {
