@@ -1,0 +1,163 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.local/schemas/resolved-temporal-roles.v1.json",
+    "title": "FsusBlog resolved temporal roles",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "contextIdentity",
+        "fixtureIdentity",
+        "catalog",
+        "shape",
+        "projection",
+        "roles",
+        "relations",
+        "clockAdvancePlan",
+        "semanticDigest",
+        "contentDigest"
+    ],
+    "properties": {
+        "schema": { "const": "fsusblog.resolved-temporal-roles.v1" },
+        "contextIdentity": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["sourceCommit", "sourceFingerprint", "producerId", "schedulerRunId", "businessEpochUtc", "contextDigest"],
+            "properties": {
+                "sourceCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+                "sourceFingerprint": { "$ref": "#/$defs/digest" },
+                "producerId": { "$ref": "#/$defs/id" },
+                "schedulerRunId": { "type": "string", "minLength": 1 },
+                "businessEpochUtc": { "$ref": "#/$defs/instant" },
+                "contextDigest": { "$ref": "#/$defs/digest" }
+            }
+        },
+        "fixtureIdentity": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["producerId", "runId", "namespace", "fixtureId"],
+            "properties": {
+                "producerId": { "$ref": "#/$defs/id" },
+                "runId": { "type": "string", "minLength": 1 },
+                "namespace": { "type": "string", "minLength": 1 },
+                "fixtureId": { "$ref": "#/$defs/id" },
+                "planDigest": { "$ref": "#/$defs/digest" }
+            }
+        },
+        "catalog": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["schema", "digest"],
+            "properties": {
+                "schema": { "const": "fsusblog.temporal-shape-catalog.v1" },
+                "digest": { "$ref": "#/$defs/digest" }
+            }
+        },
+        "shape": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "digest", "timezoneCaseId", "cultureCaseId"],
+            "properties": {
+                "id": { "$ref": "#/$defs/id" },
+                "digest": { "$ref": "#/$defs/digest" },
+                "timezoneCaseId": { "$ref": "#/$defs/id" },
+                "cultureCaseId": { "$ref": "#/$defs/id" }
+            }
+        },
+        "projection": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["timezone", "locale", "backendCulture", "calendar", "precision", "rounding"],
+            "properties": {
+                "timezone": { "type": "string", "minLength": 1 },
+                "locale": { "type": "string", "minLength": 1 },
+                "backendCulture": { "type": "string", "minLength": 1 },
+                "calendar": { "type": "string", "minLength": 1 },
+                "precision": { "const": "millisecond" },
+                "rounding": { "const": "none" }
+            }
+        },
+        "roles": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": { "$ref": "#/$defs/role" }
+        },
+        "relations": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/relation" }
+        },
+        "clockAdvancePlan": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": { "$ref": "#/$defs/advance" }
+        },
+        "semanticDigest": { "$ref": "#/$defs/digest" },
+        "contentDigest": { "$ref": "#/$defs/digest" }
+    },
+    "$defs": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$" },
+        "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "instant": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$" },
+        "local": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["calendar", "day", "fractionalSecond", "hour", "minute", "month", "second", "timeZoneOffset", "year"],
+            "properties": {
+                "calendar": { "type": "string" },
+                "day": { "type": "string" },
+                "fractionalSecond": { "type": "string" },
+                "hour": { "type": "string" },
+                "minute": { "type": "string" },
+                "month": { "type": "string" },
+                "second": { "type": "string" },
+                "timeZoneOffset": { "type": "string" },
+                "year": { "type": "string" }
+            }
+        },
+        "role": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["roleId", "owner", "clockKind", "semanticEffect", "instantUtc", "epochMilliseconds", "precision", "sourceOffsetMilliseconds", "timezone", "culture", "localRepresentation", "expectedBusinessState", "digest"],
+            "properties": {
+                "roleId": { "$ref": "#/$defs/id" },
+                "owner": { "$ref": "#/$defs/id" },
+                "clockKind": { "const": "business-wall" },
+                "semanticEffect": { "const": "included" },
+                "instantUtc": { "$ref": "#/$defs/instant" },
+                "epochMilliseconds": { "type": "integer" },
+                "precision": { "const": "millisecond" },
+                "sourceOffsetMilliseconds": { "type": "integer" },
+                "timezone": { "type": "string", "minLength": 1 },
+                "culture": { "type": "string", "minLength": 1 },
+                "localRepresentation": { "$ref": "#/$defs/local" },
+                "expectedBusinessState": { "$ref": "#/$defs/id" },
+                "digest": { "$ref": "#/$defs/digest" }
+            }
+        },
+        "relation": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "kind", "roleIds", "operators", "tieBreakerId", "verified"],
+            "properties": {
+                "id": { "$ref": "#/$defs/id" },
+                "kind": { "enum": ["ordered-chain", "same-instant", "occurred-arrival", "metadata-exclusion"] },
+                "roleIds": { "type": "array", "items": { "$ref": "#/$defs/id" } },
+                "operators": { "type": "array", "items": { "enum": ["<", "<="] } },
+                "tieBreakerId": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+                "verified": { "const": true }
+            }
+        },
+        "advance": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["fromOffsetMilliseconds", "toOffsetMilliseconds", "advanceByMilliseconds", "clockKind", "monotonicClockEffect"],
+            "properties": {
+                "fromOffsetMilliseconds": { "type": "integer", "minimum": 0 },
+                "toOffsetMilliseconds": { "type": "integer", "minimum": 1 },
+                "advanceByMilliseconds": { "type": "integer", "minimum": 1 },
+                "clockKind": { "const": "business-wall" },
+                "monotonicClockEffect": { "const": "none" }
+            }
+        }
+    }
+}
