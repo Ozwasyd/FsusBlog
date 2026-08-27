@@ -876,17 +876,17 @@
         },
         {
             "tierId": "release-load-burst",
-            "executionClass": "runtime",
+            "executionClass": "benchmark",
             "fixtureProfile": "none",
-            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileReason": "none-benchmark",
             "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
             "fixtureMutatorAllowed": false
         },
         {
             "tierId": "release-load-peak",
-            "executionClass": "runtime",
+            "executionClass": "benchmark",
             "fixtureProfile": "none",
-            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileReason": "none-benchmark",
             "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
             "fixtureMutatorAllowed": false
         },
@@ -1123,5 +1123,5 @@
             "fixtureMutatorAllowed": false
         }
     ],
-    "digest": "sha256:83abd528a949931c58edc91a8827405985e9d6da435761c2fd40247ad23266d5"
+    "digest": "sha256:d499b062d8e736697fc87e193b806c4f5ee41d05d517ed25214243117a30b57f"
 }
