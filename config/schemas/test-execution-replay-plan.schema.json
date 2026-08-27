@@ -1,0 +1,350 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.local/schemas/test-execution-replay-plan.v1.json",
+    "title": "FsusBlog framework-neutral test execution replay plan",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "source",
+        "producer",
+        "run",
+        "rootSeed",
+        "entropySources",
+        "randomStreams",
+        "testEnumerationOrder",
+        "orderPolicy",
+        "shards",
+        "shardPolicy",
+        "workers",
+        "frameworkModes",
+        "schedulerReadyPolicy",
+        "command",
+        "enumerationDigest",
+        "shardDigest",
+        "planDigest"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.test-execution-replay-plan.v1"
+        },
+        "source": {
+            "$ref": "#/$defs/source"
+        },
+        "producer": {
+            "$ref": "#/$defs/producer"
+        },
+        "run": {
+            "$ref": "#/$defs/run"
+        },
+        "rootSeed": {
+            "$ref": "#/$defs/seed"
+        },
+        "entropySources": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1,
+            "items": {
+                "$ref": "#/$defs/rootSeedSource"
+            }
+        },
+        "randomStreams": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/randomStream"
+            }
+        },
+        "testEnumerationOrder": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+                "$ref": "#/$defs/testId"
+            }
+        },
+        "orderPolicy": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "kind",
+                "caseSensitivity"
+            ],
+            "properties": {
+                "kind": {
+                    "const": "canonical-utf8-bytewise"
+                },
+                "caseSensitivity": {
+                    "const": "sensitive"
+                }
+            }
+        },
+        "shards": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "$ref": "#/$defs/shard"
+            }
+        },
+        "shardPolicy": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "kind",
+                "shardCount",
+                "emptyShards"
+            ],
+            "properties": {
+                "kind": {
+                    "const": "contiguous-balanced"
+                },
+                "shardCount": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "emptyShards": {
+                    "enum": [
+                        "allow",
+                        "forbid"
+                    ]
+                }
+            }
+        },
+        "workers": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "ids",
+                "assignmentPolicy"
+            ],
+            "properties": {
+                "ids": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "$ref": "#/$defs/stableId"
+                    }
+                },
+                "assignmentPolicy": {
+                    "const": "framework-owned-after-seal"
+                }
+            }
+        },
+        "frameworkModes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "name",
+                    "value"
+                ],
+                "properties": {
+                    "name": {
+                        "$ref": "#/$defs/stableId"
+                    },
+                    "value": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            }
+        },
+        "schedulerReadyPolicy": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "kind",
+                "dynamicReassignment"
+            ],
+            "properties": {
+                "kind": {
+                    "const": "sealed-shard-order"
+                },
+                "dynamicReassignment": {
+                    "const": false
+                }
+            }
+        },
+        "command": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "executable",
+                "args",
+                "environmentDigest",
+                "digest"
+            ],
+            "properties": {
+                "executable": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "args": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "environmentDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "digest": {
+                    "$ref": "#/$defs/digest"
+                }
+            }
+        },
+        "enumerationDigest": {
+            "$ref": "#/$defs/digest"
+        },
+        "shardDigest": {
+            "$ref": "#/$defs/digest"
+        },
+        "planDigest": {
+            "$ref": "#/$defs/digest"
+        }
+    },
+    "$defs": {
+        "digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "seed": {
+            "type": "string",
+            "pattern": "^seed256:[0-9a-f]{64}$"
+        },
+        "stableId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9.-]*$"
+        },
+        "testId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*:[^#?]+#[^?]+(?:\\?case=(?:parameterized|property|fuzz):.+)?$"
+        },
+        "source": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "commit",
+                "worktreeFingerprint"
+            ],
+            "properties": {
+                "commit": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
+                },
+                "worktreeFingerprint": {
+                    "$ref": "#/$defs/digest"
+                }
+            }
+        },
+        "producer": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "framework"
+            ],
+            "properties": {
+                "id": {
+                    "$ref": "#/$defs/stableId"
+                },
+                "framework": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]*$"
+                }
+            }
+        },
+        "run": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "mode"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "mode": {
+                    "enum": [
+                        "qualification",
+                        "diagnostic"
+                    ]
+                }
+            }
+        },
+        "rootSeedSource": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "kind",
+                "source"
+            ],
+            "properties": {
+                "id": {
+                    "const": "root-seed"
+                },
+                "kind": {
+                    "const": "root-seed"
+                },
+                "source": {
+                    "enum": [
+                        "cli",
+                        "plan",
+                        "generated-diagnostic"
+                    ]
+                }
+            }
+        },
+        "randomStream": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "version",
+                "producerId",
+                "streamId",
+                "consumerTestId",
+                "seed"
+            ],
+            "properties": {
+                "version": {
+                    "const": "v1"
+                },
+                "producerId": {
+                    "$ref": "#/$defs/stableId"
+                },
+                "streamId": {
+                    "$ref": "#/$defs/stableId"
+                },
+                "consumerTestId": {
+                    "$ref": "#/$defs/testId"
+                },
+                "seed": {
+                    "$ref": "#/$defs/seed"
+                }
+            }
+        },
+        "shard": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "testIds"
+            ],
+            "properties": {
+                "id": {
+                    "$ref": "#/$defs/stableId"
+                },
+                "testIds": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                        "$ref": "#/$defs/testId"
+                    }
+                }
+            }
+        }
+    }
+}
