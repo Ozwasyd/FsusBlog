@@ -8,6 +8,8 @@ using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
+using FsusBlog.Server.Modules.Endpoints;
+using FsusBlog.Server.Services.Fixtures;
 using FsusBlog.Server.Services.Security;
 
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -85,6 +87,10 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddSingleton<IAnonymousCredentialRootWriter>(sp => sp.GetRequiredService<AnonymousCredentialRootLifecycleService>());
         services.AddSingleton<IAnonymousCredentialRevocationService>(sp => sp.GetRequiredService<AnonymousCredentialRootLifecycleService>());
         services.AddScoped<ICommentAnonymousNullifierService, CommentAnonymousNullifierService>();
+        if (configuration.GetValue<bool>(LocalSecurityFixtureEndpoints.AllowLocalSecurityFixtureConfigurationKey))
+        {
+            services.AddScoped<ISecurityFixtureCompositionRoot, SecurityFixtureCompositionRoot>();
+        }
         services.AddSingleton<ICommentAnonymousDisplayNameGenerator, CommentAnonymousDisplayNameGenerator>();
         services.AddScoped<ICommentActorResolver, CommentActorResolver>();
         services.AddScoped<ITotpService, TotpService>();

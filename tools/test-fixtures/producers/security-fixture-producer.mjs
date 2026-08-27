@@ -295,13 +295,73 @@ function requireDomainAdapter(value, family)
     return value;
 }
 
+function createHttpSecurityFixturePorts(context)
+{
+    const baseUrl = String(
+        context.handles?.baseUrl
+        ?? context.handles?.debugBackendUrl
+        ?? process.env.FSUSBLOG_BASE_URL
+        ?? process.env.FSUSBLOG_DEBUG_BACKEND_URL
+        ?? ''
+    ).replace(/\/+$/u, '');
+    const secret = String(
+        context.handles?.localSecurityFixtureSecret
+        ?? process.env.FSUSBLOG_LOCAL_SECURITY_FIXTURE_SECRET
+        ?? ''
+    );
+    if (!baseUrl || !secret)
+    {
+        throw new Error('security fixture requires backend URL and explicit local security fixture secret');
+    }
+
+    async function invoke(action, document, signal)
+    {
+        const response = await fetch(`${baseUrl}/__local/security-fixture/${action}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+                'X-Fsus-Local-Security-Fixture-Secret': secret,
+                'X-Fsus-Test-Run-Id': String(context.runIdentity ?? ''),
+                'X-Fsus-Test-Namespace': String(context.namespace ?? ''),
+                'X-Fsus-Test-Profile-Id': String(context.profileIdentity?.profileId ?? '')
+            },
+            body: JSON.stringify(document),
+            signal
+        });
+        const text = await response.text();
+        let payload = null;
+        try
+        {
+            payload = text ? JSON.parse(text) : null;
+        }
+        catch
+        {
+            payload = null;
+        }
+        if (!response.ok)
+        {
+            throw new Error(`security fixture ${action} failed (${response.status}): ${payload?.detail ?? text}`);
+        }
+        return payload;
+    }
+
+    const adapter = Object.freeze({
+        apply: (fragment, signal) => invoke('apply', fragment, signal),
+        observe: (fragment, signal) => invoke('observe', fragment, signal),
+        cleanup: (plan, signal) => invoke('cleanup', plan, signal),
+        observeCleanup: (plan, signal) => invoke('observe-cleanup', plan, signal)
+    });
+    return Object.freeze({
+        riskPowRateLimit: adapter,
+        ban: adapter,
+        credential: adapter
+    });
+}
+
 function familyAdapters(context)
 {
-    const input = context.handles?.securityFixturePorts;
-    if (!input || typeof input !== 'object')
-    {
-        throw new Error('security fixture production-semantic ports are required');
-    }
+    const input = context.handles?.securityFixturePorts ?? createHttpSecurityFixturePorts(context);
     return Object.freeze({
         'risk-pow-rate-limit': requireDomainAdapter(input.riskPowRateLimit, 'risk-pow-rate-limit'),
         ban: requireDomainAdapter(input.ban, 'ban'),

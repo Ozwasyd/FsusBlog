@@ -47,7 +47,7 @@ CPU、Node process 与 connection setup 只用于性能观察，绝不参与 cor
 - `tests/matrix.yml` 声明执行 DAG、资源和 artifact；
 - `tests/test-retention-replacements.json` 记录删除或合并时的 replacement 证明。
 
-数据库 fixture 必须保留生产字段语义、约束和安全版本。例如 recovery-key limiter 由对应 service/contract tests 证明 attempt/window/lockout；subscription fixture 保留 `user_id`、`public_handle`、`hash_version` 和 proof 校验；demo seed 只能生成开发数据且不能绕过 production schema。静态文本检查不能替代事务、并发、幂等、迁移失败或 `WebApplicationFactory` 行为测试。
+数据库 fixture 必须保留生产字段语义、约束和安全版本。例如 recovery-key limiter 由对应 service/contract tests 证明 attempt/window/lockout；subscription fixture 保留 `user_id`、`public_handle`、`hash_version` 和 proof 校验；demo seed 只能生成开发数据且不能绕过 production schema。security-state fixture 只通过 Development/Test composition root 调用 production risk、blacklist、credential、nullifier、issuance audit 和 cache ports；每次请求绑定 exact run、namespace、profile 与 semantic temporal context，以私有 owner ledger 做 independent observation、partial-failure recovery 和 exact cleanup，禁止阈值覆盖、Redis scan/flush 或 global reset。静态文本检查不能替代事务、并发、幂等、迁移失败或 `WebApplicationFactory` 行为测试。
 
 测试删除或合并时，先在 retention ledger 中给出仍存活的 replacement IDs，再更新 requirement、coverage 与 matrix。没有等价可执行断言时不得用文档、fixture 文件存在性或历史 evidence 替代测试。
 

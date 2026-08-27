@@ -79,7 +79,23 @@
             "reason": "Temporary bounded bridge while the new security producer contract and three production-semantic family lifecycles are split after consumer cutover",
             "expires": "2026-09-22",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2156",
-            "sourceFingerprint": "sha256:5beae943c5bc42d69abf345a3b009488efab2e42110b9a8dccb4783e49d78af1"
+            "sourceFingerprint": "sha256:4d2e5980efbdb7478be532db7ea3c4c9f3d469aadd216ecfd0b6698c89d994cf"
+        },
+        {
+            "file": "src/backend/Services/Fixtures/SecurityFixtureCompositionRoot.cs",
+            "owner": "TestInfrastructureAgent:security-fixtures",
+            "reason": "Temporary bounded composition root while the three production security family lifecycles are split into dedicated internal services after fixture cutover",
+            "expires": "2026-09-22",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2156",
+            "sourceFingerprint": "sha256:fb9e2a6f3dc4d6b3f4865383242a235e903b1fd5a9ec77c3538ffe448f7cac15"
+        },
+        {
+            "file": "tests/backend/Integration/SecurityFixtureCompositionRootIntegrationTests.cs",
+            "owner": "TestInfrastructureAgent:security-fixtures",
+            "reason": "Temporary end-to-end acceptance harness while PostgreSQL and Redis family scenarios are split after the composition root contract stabilizes",
+            "expires": "2026-09-22",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2156",
+            "sourceFingerprint": "sha256:84e493313651ca44c9c6a2ba3bf0c781aed37f4aef482014b44314938330b8ee"
         },
         {
             "file": "tools/test/temporal-role-resolver.mjs",

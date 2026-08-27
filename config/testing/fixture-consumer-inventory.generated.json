@@ -2312,6 +2312,14 @@
         },
         {
             "producerId": "security-state",
+            "source": "src/backend/Modules/Endpoints/LocalSecurityFixtureEndpoints.cs"
+        },
+        {
+            "producerId": "security-state",
+            "source": "src/backend/Services/Fixtures/SecurityFixtureCompositionRoot.cs"
+        },
+        {
+            "producerId": "security-state",
             "source": "tools/test-fixtures/producers/security-fixture-producer.mjs"
         }
     ]
