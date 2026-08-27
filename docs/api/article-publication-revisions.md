@@ -14,18 +14,57 @@
 
 ## 状态转换
 
+<!-- fsus-doc-claim
+claimId: content.article-transitions
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.article-transitions
+render: transition-table
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN content.article-transitions -->
+| From | To | Guard |
+| --- | --- | --- |
+| Archived | Archived | Create |
+| Archived | Archived | Rollback |
+| Archived | Archived | Update |
+| Archived | Draft | Rollback |
+| Archived | Draft | Update |
+| Archived | Published | Rollback |
+| Archived | Published | Update |
+| Archived | Scheduled | Update |
+| Deleted | Published | Restore |
+| Draft | Archived | Rollback |
+| Draft | Archived | Update |
+| Draft | Draft | Create |
+| Draft | Draft | Rollback |
+| Draft | Draft | Update |
+| Draft | Published | Rollback |
+| Draft | Published | Update |
+| Draft | Scheduled | Update |
+| Published | Archived | Rollback |
+| Published | Archived | Update |
+| Published | Draft | Rollback |
+| Published | Draft | Update |
+| Published | Published | Create |
+| Published | Published | Rollback |
+| Published | Published | ScheduledPublish |
+| Published | Published | Update |
+| Published | Scheduled | Update |
+| Scheduled | Archived | Rollback |
+| Scheduled | Archived | Update |
+| Scheduled | Draft | Rollback |
+| Scheduled | Draft | Update |
+| Scheduled | Published | Rollback |
+| Scheduled | Published | ScheduledPublish |
+| Scheduled | Published | Update |
+| Scheduled | Scheduled | Create |
+| Scheduled | Scheduled | Update |
+<!-- FSUSBLOG-GENERATED:END content.article-transitions -->
+
 所有写入经 `ArticlePublicationTransitionWriter` 收口：
 
-普通创建/更新的状态矩阵如下；`✓` 表示允许，`—` 表示拒绝。`Deleted → Published`
-仅代表专用 restore 操作，普通 update 不得使用该边。
-
-| 源状态 ↓ / 目标状态 → | `Draft` | `Scheduled` | `Published` | `Archived` | `Deleted` |
-|---|---:|---:|---:|---:|---:|
-| `Draft` | ✓ | ✓ | ✓ | ✓ | — |
-| `Scheduled` | ✓ | ✓ | ✓ | ✓ | — |
-| `Published` | ✓ | ✓ | ✓ | ✓ | — |
-| `Archived` | ✓ | ✓ | ✓ | ✓ | — |
-| `Deleted` | — | — | restore only | — | — |
+上表是普通创建/更新、scheduled publish、rollback 与 restore 的唯一状态边投影；
+`Deleted → Published` 只能由表中的 `Restore` guard 产生，不能被普通 update 解释。
 
 `Scheduled` 必须携带严格晚于服务端当前 UTC 时间的 `scheduledPublishAt`；其它目标状态
 不得携带该字段。未定义枚举、缺失/过期计划时间、非法转换和直接写 `Deleted` 都返回

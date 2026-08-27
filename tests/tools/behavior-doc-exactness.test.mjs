@@ -165,3 +165,60 @@ test('auth/security exactness rejects missing claims, duplicate ownership, stale
     rmSync(value.repositoryRoot, { recursive: true, force: true })
   }
 })
+
+test('content exactness closes article, comment, privacy, outbox, and notification ownership without a document allowlist', () =>
+{
+  const value = fixture()
+  try
+  {
+    mkdirSync(path.join(value.repositoryRoot, 'docs/api'), { recursive: true })
+    writeFileSync(path.join(value.repositoryRoot, 'docs/api/article-publication-revisions.md'), '# Article publication\n')
+    const contract = value.catalog.contracts[0]
+    contract.id = 'article-comment-lifecycle-outbox'
+    contract.domain = 'content'
+    contract.factExtractorId = 'content-extractor'
+    contract.documents = ['docs/api/article-publication-revisions.md']
+    value.catalog.domains = ['content']
+    value.catalog.extractors = [{ id: 'content-extractor', path: 'tools/content.mjs' }]
+    value.lifecycle.documents = [{
+      path: 'docs/api/article-publication-revisions.md',
+      status: 'current',
+      owner: 'backend'
+    }]
+    const declaration = value.claimReceipt.claims[0].declaration
+    declaration.claimId = 'content.article-transitions'
+    declaration.behaviorId = contract.id
+    declaration.generatedSectionId = 'content.article-transitions'
+    const location = value.claimReceipt.claims[0].location
+    location.documentPath = 'docs/api/article-publication-revisions.md'
+    const section = value.sectionCatalog.sections[0]
+    section.sectionId = 'content.article-transitions'
+    section.documentPath = location.documentPath
+    section.extractorId = 'content-extractor'
+    section.behaviorId = contract.id
+    section.factPath = 'facts.article.transitions'
+    value.observation = buildReceipt({
+      extractorId: 'content-extractor',
+      behaviorIds: [contract.id],
+      sourceCommit: SHA,
+      worktreeFingerprint: DIGEST,
+      extractorDigest: DIGEST,
+      registryDigest: DIGEST,
+      consumedInputDigests: [{ path: 'tools/content.mjs', digest: DIGEST }],
+      observations: { facts: { 'article.transitions': ['Draft->Published'] } },
+      status: 'ok'
+    })
+    const receipt = build(value, {
+      domains: ['content'],
+      scopeId: 'article-comment-privacy-outbox-notification'
+    })
+    validateBehaviorDocExactnessReceipt(receipt)
+    assert.deepEqual(receipt.domains, ['content'])
+    assert.equal(receipt.rows[0].currentAuthority, 'docs/api/article-publication-revisions.md')
+    assert.equal(receipt.counts.missing, 0)
+  }
+  finally
+  {
+    rmSync(value.repositoryRoot, { recursive: true, force: true })
+  }
+})

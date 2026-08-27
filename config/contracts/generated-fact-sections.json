@@ -52,6 +52,16 @@
       "factPath": "facts.error-codes.public",
       "orderPolicy": "ordinal",
       "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "content.article-transitions",
+      "documentPath": "docs/api/article-publication-revisions.md",
+      "renderer": "transition-table",
+      "extractorId": "content-lifecycle-fact-extractor",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "factPath": "facts.article.lifecycle.allowed-transitions",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
     }
   ]
 }
