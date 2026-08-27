@@ -1,0 +1,183 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.local/schemas/test-execution-envelope-receipt.schema.json",
+    "title": "FsusBlog Test Execution Envelope Receipt",
+    "type": "object",
+    "required": [
+        "schema",
+        "plan",
+        "actual",
+        "verdict",
+        "mismatchPaths",
+        "envelopeDigest",
+        "receiptDigest"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.test-execution-envelope-receipt.v1"
+        },
+        "plan": {
+            "$ref": "#/$defs/envelope"
+        },
+        "actual": {
+            "$ref": "#/$defs/envelope"
+        },
+        "verdict": {
+            "enum": ["pass", "fail"]
+        },
+        "mismatchPaths": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+                "type": "string",
+                "pattern": "^/"
+            }
+        },
+        "envelopeDigest": {
+            "$ref": "#/$defs/digest"
+        },
+        "receiptDigest": {
+            "$ref": "#/$defs/digest"
+        }
+    },
+    "$defs": {
+        "digest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "nullableString": {
+            "type": ["string", "null"]
+        },
+        "envelope": {
+            "type": "object",
+            "required": [
+                "schema",
+                "policyVersion",
+                "policyDigest",
+                "catalogDigest",
+                "schemaIdentity",
+                "producerId",
+                "schedulerRunId",
+                "attemptId",
+                "sourceCommit",
+                "sourceFingerprint",
+                "worktreeFingerprint",
+                "platform",
+                "architecture",
+                "kernel",
+                "libc",
+                "containerRuntime",
+                "cgroupLimits",
+                "cpuModel",
+                "cpuCount",
+                "memoryLimit",
+                "processEnvAllowlist",
+                "processEnvValuesDigest",
+                "pathEntries",
+                "resolvedExecutables",
+                "umask",
+                "homeDirectoryPolicy",
+                "temporaryDirectoryPolicy",
+                "workingDirectory",
+                "filesystemCaseSensitivity",
+                "nodeVersion",
+                "npmVersion",
+                "dotnetSdkVersion",
+                "dotnetRuntimeVersion",
+                "msbuildVersion",
+                "cmakeVersion",
+                "ninjaVersion",
+                "compilerVersion",
+                "playwrightVersion",
+                "browserName",
+                "browserVersion",
+                "browserRevision",
+                "browserExecutableDigest",
+                "browserLaunchArgs",
+                "deviceScaleFactor",
+                "renderingMode",
+                "colorScheme",
+                "gpuMode",
+                "browserRenderingObservation",
+                "postgresVersion",
+                "postgresImageDigest",
+                "redisVersion",
+                "redisImageDigest",
+                "dockerVersion",
+                "serviceTopology",
+                "networkPolicy",
+                "externalEndpoints",
+                "fontSetDigest",
+                "localeDataDigest",
+                "notApplicableFields",
+                "fragmentDigests",
+                "envelopeDigest"
+            ],
+            "properties": {
+                "schema": { "const": "fsusblog.test-execution-envelope.v1" },
+                "policyVersion": { "const": 1 },
+                "policyDigest": { "$ref": "#/$defs/digest" },
+                "catalogDigest": { "$ref": "#/$defs/digest" },
+                "schemaIdentity": { "$ref": "#/$defs/digest" },
+                "producerId": { "type": "string", "minLength": 1 },
+                "schedulerRunId": { "type": "string", "minLength": 1 },
+                "attemptId": { "type": "string", "minLength": 1 },
+                "sourceCommit": { "type": "string", "minLength": 1 },
+                "sourceFingerprint": { "$ref": "#/$defs/digest" },
+                "worktreeFingerprint": { "$ref": "#/$defs/digest" },
+                "platform": { "type": "string", "minLength": 1 },
+                "architecture": { "type": "string", "minLength": 1 },
+                "kernel": { "type": "string", "minLength": 1 },
+                "libc": { "$ref": "#/$defs/nullableString" },
+                "containerRuntime": { "type": ["object", "null"] },
+                "cgroupLimits": { "type": "object" },
+                "cpuModel": { "type": "string", "minLength": 1 },
+                "cpuCount": { "type": "integer", "minimum": 1 },
+                "memoryLimit": { "type": "integer", "minimum": 1 },
+                "processEnvAllowlist": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+                "processEnvValuesDigest": { "$ref": "#/$defs/digest" },
+                "pathEntries": { "type": "array" },
+                "resolvedExecutables": { "type": "array", "minItems": 1 },
+                "umask": { "type": "string", "pattern": "^[0-7]{4}$" },
+                "homeDirectoryPolicy": { "type": "object" },
+                "temporaryDirectoryPolicy": { "type": "object" },
+                "workingDirectory": { "type": "string", "minLength": 1 },
+                "filesystemCaseSensitivity": { "enum": ["sensitive", "insensitive"] },
+                "nodeVersion": { "$ref": "#/$defs/nullableString" },
+                "npmVersion": { "$ref": "#/$defs/nullableString" },
+                "dotnetSdkVersion": { "$ref": "#/$defs/nullableString" },
+                "dotnetRuntimeVersion": { "$ref": "#/$defs/nullableString" },
+                "msbuildVersion": { "$ref": "#/$defs/nullableString" },
+                "cmakeVersion": { "$ref": "#/$defs/nullableString" },
+                "ninjaVersion": { "$ref": "#/$defs/nullableString" },
+                "compilerVersion": { "$ref": "#/$defs/nullableString" },
+                "playwrightVersion": { "$ref": "#/$defs/nullableString" },
+                "browserName": { "$ref": "#/$defs/nullableString" },
+                "browserVersion": { "$ref": "#/$defs/nullableString" },
+                "browserRevision": { "$ref": "#/$defs/nullableString" },
+                "browserExecutableDigest": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+                "browserLaunchArgs": { "type": "array", "items": { "type": "string" } },
+                "deviceScaleFactor": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+                "renderingMode": { "$ref": "#/$defs/nullableString" },
+                "colorScheme": { "$ref": "#/$defs/nullableString" },
+                "gpuMode": { "$ref": "#/$defs/nullableString" },
+                "browserRenderingObservation": { "type": ["object", "null"] },
+                "postgresVersion": { "$ref": "#/$defs/nullableString" },
+                "postgresImageDigest": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+                "redisVersion": { "$ref": "#/$defs/nullableString" },
+                "redisImageDigest": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+                "dockerVersion": { "$ref": "#/$defs/nullableString" },
+                "serviceTopology": { "type": "array" },
+                "networkPolicy": { "type": "object" },
+                "externalEndpoints": { "type": "array" },
+                "fontSetDigest": { "$ref": "#/$defs/digest" },
+                "localeDataDigest": { "$ref": "#/$defs/digest" },
+                "notApplicableFields": { "type": "object" },
+                "fragmentDigests": { "type": "object" },
+                "envelopeDigest": { "$ref": "#/$defs/digest" }
+            },
+            "additionalProperties": false
+        }
+    },
+    "additionalProperties": false
+}
