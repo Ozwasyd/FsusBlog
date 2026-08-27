@@ -18,30 +18,51 @@
         "shapes"
     ],
     "properties": {
-        "schema": { "const": "fsusblog.temporal-shape-catalog.v1" },
+        "schema": {
+            "const": "fsusblog.temporal-shape-catalog.v1"
+        },
         "baseEpochAuthority": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["source", "representation"],
+            "required": [
+                "source",
+                "representation"
+            ],
             "properties": {
-                "source": { "const": "temporalContext.businessEpochUtc" },
-                "representation": { "const": "relative-offsets-only" }
+                "source": {
+                    "const": "temporalContext.businessEpochUtc"
+                },
+                "representation": {
+                    "const": "relative-offsets-only"
+                }
             }
         },
         "precisionPolicy": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["unit", "rounding", "loss"],
+            "required": [
+                "unit",
+                "rounding",
+                "loss"
+            ],
             "properties": {
-                "unit": { "const": "millisecond" },
-                "rounding": { "const": "none" },
-                "loss": { "const": "reject" }
+                "unit": {
+                    "const": "millisecond"
+                },
+                "rounding": {
+                    "const": "none"
+                },
+                "loss": {
+                    "const": "reject"
+                }
             }
         },
         "roleOwners": {
             "type": "array",
             "minItems": 1,
-            "items": { "$ref": "#/$defs/idSource" }
+            "items": {
+                "$ref": "#/$defs/idSource"
+            }
         },
         "roleRegistry": {
             "type": "array",
@@ -49,13 +70,35 @@
             "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["id", "domain", "owner", "clockKind", "semanticEffect"],
+                "required": [
+                    "id",
+                    "domain",
+                    "owner",
+                    "clockKind",
+                    "semanticEffect"
+                ],
                 "properties": {
-                    "id": { "$ref": "#/$defs/id" },
-                    "domain": { "$ref": "#/$defs/id" },
-                    "owner": { "$ref": "#/$defs/id" },
-                    "clockKind": { "enum": ["business-wall", "artifact-metadata"] },
-                    "semanticEffect": { "enum": ["included", "excluded"] }
+                    "id": {
+                        "$ref": "#/$defs/id"
+                    },
+                    "domain": {
+                        "$ref": "#/$defs/id"
+                    },
+                    "owner": {
+                        "$ref": "#/$defs/id"
+                    },
+                    "clockKind": {
+                        "enum": [
+                            "business-wall",
+                            "artifact-metadata"
+                        ]
+                    },
+                    "semanticEffect": {
+                        "enum": [
+                            "included",
+                            "excluded"
+                        ]
+                    }
                 }
             }
         },
@@ -65,10 +108,18 @@
             "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["id", "timezone"],
+                "required": [
+                    "id",
+                    "timezone"
+                ],
                 "properties": {
-                    "id": { "$ref": "#/$defs/id" },
-                    "timezone": { "type": "string", "minLength": 1 }
+                    "id": {
+                        "$ref": "#/$defs/id"
+                    },
+                    "timezone": {
+                        "type": "string",
+                        "minLength": 1
+                    }
                 }
             }
         },
@@ -78,12 +129,28 @@
             "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["id", "locale", "backendCulture", "calendar"],
+                "required": [
+                    "id",
+                    "locale",
+                    "backendCulture",
+                    "calendar"
+                ],
                 "properties": {
-                    "id": { "$ref": "#/$defs/id" },
-                    "locale": { "type": "string", "minLength": 1 },
-                    "backendCulture": { "type": "string", "minLength": 1 },
-                    "calendar": { "type": "string", "minLength": 1 }
+                    "id": {
+                        "$ref": "#/$defs/id"
+                    },
+                    "locale": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "backendCulture": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "calendar": {
+                        "type": "string",
+                        "minLength": 1
+                    }
                 }
             }
         },
@@ -93,11 +160,23 @@
             "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["id", "identity", "source"],
+                "required": [
+                    "id",
+                    "identity",
+                    "source"
+                ],
                 "properties": {
-                    "id": { "$ref": "#/$defs/id" },
-                    "identity": { "type": "string", "minLength": 1 },
-                    "source": { "type": "string", "minLength": 1 }
+                    "id": {
+                        "$ref": "#/$defs/id"
+                    },
+                    "identity": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "source": {
+                        "type": "string",
+                        "minLength": 1
+                    }
                 }
             }
         },
@@ -107,32 +186,58 @@
             "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["id", "kind", "roles"],
+                "required": [
+                    "id",
+                    "kind",
+                    "roles"
+                ],
                 "properties": {
-                    "id": { "$ref": "#/$defs/id" },
-                    "kind": { "enum": ["ordered-chain", "same-instant", "occurred-arrival", "metadata-exclusion"] },
+                    "id": {
+                        "$ref": "#/$defs/id"
+                    },
+                    "kind": {
+                        "enum": [
+                            "ordered-chain",
+                            "same-instant",
+                            "occurred-arrival",
+                            "metadata-exclusion"
+                        ]
+                    },
                     "roles": {
                         "type": "array",
                         "minItems": 1,
-                        "items": { "$ref": "#/$defs/id" }
+                        "items": {
+                            "$ref": "#/$defs/id"
+                        }
                     },
                     "operators": {
                         "type": "array",
-                        "items": { "enum": ["<", "<="] }
+                        "items": {
+                            "enum": [
+                                "<",
+                                "<="
+                            ]
+                        }
                     },
-                    "tieBreakerId": { "$ref": "#/$defs/id" }
+                    "tieBreakerId": {
+                        "$ref": "#/$defs/id"
+                    }
                 }
             }
         },
         "requiredBoundaryTags": {
             "type": "array",
             "minItems": 1,
-            "items": { "$ref": "#/$defs/id" }
+            "items": {
+                "$ref": "#/$defs/id"
+            }
         },
         "shapes": {
             "type": "array",
             "minItems": 1,
-            "items": { "$ref": "#/$defs/shape" }
+            "items": {
+                "$ref": "#/$defs/shape"
+            }
         }
     },
     "$defs": {
@@ -147,46 +252,97 @@
         "idSource": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["id", "source"],
+            "required": [
+                "id",
+                "source"
+            ],
             "properties": {
-                "id": { "$ref": "#/$defs/id" },
-                "source": { "type": "string", "minLength": 1 }
+                "id": {
+                    "$ref": "#/$defs/id"
+                },
+                "source": {
+                    "type": "string",
+                    "minLength": 1
+                }
             }
         },
         "roleBinding": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["roleId", "offsetMilliseconds", "expectedBusinessState"],
+            "required": [
+                "roleId",
+                "offsetMilliseconds",
+                "expectedBusinessState"
+            ],
             "properties": {
-                "roleId": { "$ref": "#/$defs/id" },
-                "offsetMilliseconds": { "type": "integer" },
-                "expectedBusinessState": { "$ref": "#/$defs/id" }
+                "roleId": {
+                    "$ref": "#/$defs/id"
+                },
+                "offsetMilliseconds": {
+                    "type": "integer"
+                },
+                "expectedBusinessState": {
+                    "$ref": "#/$defs/id"
+                }
             }
         },
         "orderingGroup": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["id", "roleIds", "direction"],
+            "required": [
+                "id",
+                "roleIds",
+                "direction"
+            ],
             "properties": {
-                "id": { "$ref": "#/$defs/id" },
+                "id": {
+                    "$ref": "#/$defs/id"
+                },
                 "roleIds": {
                     "type": "array",
                     "minItems": 2,
-                    "items": { "$ref": "#/$defs/id" }
+                    "items": {
+                        "$ref": "#/$defs/id"
+                    }
                 },
-                "direction": { "enum": ["ascending", "descending", "same-instant"] },
-                "tieBreakerId": { "$ref": "#/$defs/id" }
+                "direction": {
+                    "enum": [
+                        "ascending",
+                        "descending",
+                        "same-instant"
+                    ]
+                },
+                "tieBreakerId": {
+                    "$ref": "#/$defs/id"
+                }
             }
         },
         "expiryBoundary": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["id", "subjectRoleId", "referenceRoleId", "relation"],
+            "required": [
+                "id",
+                "subjectRoleId",
+                "referenceRoleId",
+                "relation"
+            ],
             "properties": {
-                "id": { "$ref": "#/$defs/id" },
-                "subjectRoleId": { "$ref": "#/$defs/id" },
-                "referenceRoleId": { "$ref": "#/$defs/id" },
-                "relation": { "enum": ["before", "at", "after"] }
+                "id": {
+                    "$ref": "#/$defs/id"
+                },
+                "subjectRoleId": {
+                    "$ref": "#/$defs/id"
+                },
+                "referenceRoleId": {
+                    "$ref": "#/$defs/id"
+                },
+                "relation": {
+                    "enum": [
+                        "before",
+                        "at",
+                        "after"
+                    ]
+                }
             }
         },
         "shape": {
@@ -207,38 +363,63 @@
                 "contentDigest"
             ],
             "properties": {
-                "id": { "$ref": "#/$defs/id" },
-                "schema": { "const": "fsusblog.temporal-shape.v1" },
-                "baseEpochReference": { "const": "temporalContext.businessEpochUtc" },
-                "timezoneCaseId": { "$ref": "#/$defs/id" },
-                "cultureCaseId": { "$ref": "#/$defs/id" },
+                "id": {
+                    "$ref": "#/$defs/id"
+                },
+                "schema": {
+                    "const": "fsusblog.temporal-shape.v1"
+                },
+                "baseEpochReference": {
+                    "const": "temporalContext.businessEpochUtc"
+                },
+                "timezoneCaseId": {
+                    "$ref": "#/$defs/id"
+                },
+                "cultureCaseId": {
+                    "$ref": "#/$defs/id"
+                },
                 "timestampRoles": {
                     "type": "array",
                     "minItems": 1,
-                    "items": { "$ref": "#/$defs/roleBinding" }
+                    "items": {
+                        "$ref": "#/$defs/roleBinding"
+                    }
                 },
                 "orderingGroups": {
                     "type": "array",
-                    "items": { "$ref": "#/$defs/orderingGroup" }
+                    "items": {
+                        "$ref": "#/$defs/orderingGroup"
+                    }
                 },
                 "expiryBoundaries": {
                     "type": "array",
-                    "items": { "$ref": "#/$defs/expiryBoundary" }
+                    "items": {
+                        "$ref": "#/$defs/expiryBoundary"
+                    }
                 },
                 "expectedBusinessStates": {
                     "type": "object",
                     "minProperties": 1,
-                    "additionalProperties": { "type": "string", "minLength": 1 }
+                    "additionalProperties": {
+                        "type": "string",
+                        "minLength": 1
+                    }
                 },
                 "invariantIds": {
                     "type": "array",
-                    "items": { "$ref": "#/$defs/id" }
+                    "items": {
+                        "$ref": "#/$defs/id"
+                    }
                 },
                 "boundaryTags": {
                     "type": "array",
-                    "items": { "$ref": "#/$defs/id" }
+                    "items": {
+                        "$ref": "#/$defs/id"
+                    }
                 },
-                "contentDigest": { "$ref": "#/$defs/digest" }
+                "contentDigest": {
+                    "$ref": "#/$defs/digest"
+                }
             }
         }
     }
