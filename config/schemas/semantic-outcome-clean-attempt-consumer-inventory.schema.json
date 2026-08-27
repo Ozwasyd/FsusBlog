@@ -1,0 +1,40 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.local/schemas/semantic-outcome-clean-attempt-consumer-inventory.v1.json",
+    "title": "FsusBlog semantic outcome clean attempt consumer inventory",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["schema", "unifiedAttemptVerifier", "candidateVerificationMode", "migrationState", "qualificationEligible", "consumers"],
+    "properties": {
+        "schema": { "const": "fsusblog.semantic-outcome-clean-attempt-consumer-inventory.v1" },
+        "unifiedAttemptVerifier": { "const": "tools/release/clean-first-attempt-verifier.mjs#cleanFirstAttemptVerdict" },
+        "candidateVerificationMode": { "const": "external-owner-only" },
+        "migrationState": { "const": "pending-semantic-candidate-authorities" },
+        "qualificationEligible": { "const": false },
+        "consumers": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "entrypoints", "candidateAuthorityIssue", "candidateProducerId", "candidateSchemaAuthority", "attemptSchema", "aggregateSchema", "outputSchemas", "rawEvidenceAccess", "producerInvocation"],
+                "properties": {
+                    "id": { "enum": ["finalizer", "immutable-build", "release-projection"] },
+                    "entrypoints": { "$ref": "#/$defs/strings" },
+                    "candidateAuthorityIssue": { "enum": [2654, 2655, 2656] },
+                    "candidateProducerId": { "type": "string", "minLength": 1 },
+                    "candidateSchemaAuthority": { "const": "issue:#2020" },
+                    "attemptSchema": { "const": "fsusblog.test-attempt-receipt.v1" },
+                    "aggregateSchema": { "const": "fsusblog.test-attempt-aggregate-receipt.v1" },
+                    "outputSchemas": { "$ref": "#/$defs/strings" },
+                    "rawEvidenceAccess": { "type": "array", "maxItems": 0 },
+                    "producerInvocation": { "type": "null" }
+                }
+            }
+        }
+    },
+    "$defs": {
+        "strings": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+    }
+}

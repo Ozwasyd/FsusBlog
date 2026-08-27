@@ -1,0 +1,36 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.local/schemas/clean-attempt-consumer-inventory.v1.json",
+    "title": "FsusBlog clean attempt consumer inventory",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["schema", "unifiedVerifier", "migrationState", "qualificationEligible", "consumers"],
+    "properties": {
+        "schema": { "const": "fsusblog.clean-attempt-consumer-inventory.v1" },
+        "unifiedVerifier": { "const": "tools/release/clean-first-attempt-verifier.mjs#cleanFirstAttemptVerdict" },
+        "migrationState": { "const": "pending-external-authorities" },
+        "qualificationEligible": { "const": false },
+        "consumers": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "entrypoints", "producerKinds", "attemptSchema", "aggregateSchema", "outputSchemas", "membershipFields"],
+                "properties": {
+                    "id": { "enum": ["browser-contract", "production-correctness", "release-reliability"] },
+                    "entrypoints": { "$ref": "#/$defs/strings" },
+                    "producerKinds": { "$ref": "#/$defs/strings" },
+                    "attemptSchema": { "const": "fsusblog.test-attempt-receipt.v1" },
+                    "aggregateSchema": { "const": "fsusblog.test-attempt-aggregate-receipt.v1" },
+                    "outputSchemas": { "$ref": "#/$defs/strings" },
+                    "membershipFields": { "$ref": "#/$defs/strings" }
+                }
+            }
+        }
+    },
+    "$defs": {
+        "strings": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+    }
+}

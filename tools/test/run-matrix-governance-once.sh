@@ -20,6 +20,8 @@ exec "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mj
     --path config/testing/retry-policy-registry.json \
     --path config/testing/retry-disposition-registry.json \
     --path config/testing/correctness-attempt-producers.json \
+    --path config/testing/clean-attempt-consumers.json \
+    --path config/testing/semantic-outcome-clean-attempt-consumers.json \
     --path config/schemas/runtime-state-domain-catalog.schema.json \
     --path config/schemas/runtime-state-domain-registry.schema.json \
     --path tests/tools \
@@ -40,6 +42,7 @@ exec "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mj
     --path tools/test/attempt-provenance.mjs \
     --path tools/test/hidden-retry-scanner.mjs \
     --path tools/test/check-hidden-retries.mjs \
+    --path tools/test/check-clean-attempt-consumers.mjs \
     --path tools/test/correctness-attempt-producers.mjs \
     --path tools/test/generate-correctness-attempt-producers.mjs \
     --path tools/test/run-once.mjs \
@@ -51,4 +54,4 @@ exec "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mj
     --test-id matrix-validate \
     --test-id matrix-preflight \
     --test-id matrix-evidence-plan \
-    -- bash -c 'node tools/test/check-hidden-retries.mjs && node tools/test/generate-correctness-attempt-producers.mjs --check && node tools/test-matrix/runtime-state-domain-catalog.mjs && node tools/check-test-matrix.mjs'
+    -- bash -c 'node tools/test/check-hidden-retries.mjs && node tools/test/check-clean-attempt-consumers.mjs && node tools/test/generate-correctness-attempt-producers.mjs --check && node tools/test-matrix/runtime-state-domain-catalog.mjs && node tools/check-test-matrix.mjs'
