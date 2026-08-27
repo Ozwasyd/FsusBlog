@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.public-preview-quality-manifest.v1",
     "status": "pass",
-    "sourceCommit": "573746ddcd82399bbec2f41bbbf047f16d792474",
+    "sourceCommit": "b3832ed5d336ca8f7d420b91b60911de9152416d",
     "policyDigest": "115deca3002dfb8b3cf161fc56618d3d7210acdb25f729ab34a79a46928ac793",
     "screenshots": {
         "admin-dashboard-desktop-light": {
