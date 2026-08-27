@@ -79,7 +79,7 @@
             "reason": "Temporary bounded bridge while the new security producer contract and three production-semantic family lifecycles are split after consumer cutover",
             "expires": "2026-09-22",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2156",
-            "sourceFingerprint": "sha256:4d2e5980efbdb7478be532db7ea3c4c9f3d469aadd216ecfd0b6698c89d994cf"
+            "sourceFingerprint": "sha256:cf4eb9c48521e93b136ef99c877263fd5a46f26559ff0c261850891a62b2a838"
         },
         {
             "file": "src/backend/Services/Fixtures/SecurityFixtureCompositionRoot.cs",
@@ -87,7 +87,7 @@
             "reason": "Temporary bounded composition root while the three production security family lifecycles are split into dedicated internal services after fixture cutover",
             "expires": "2026-09-22",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2156",
-            "sourceFingerprint": "sha256:fb9e2a6f3dc4d6b3f4865383242a235e903b1fd5a9ec77c3538ffe448f7cac15"
+            "sourceFingerprint": "sha256:529967d5d67f2e5c797f27c2bc58e67351ae2b6d379b652937b6f3e0a96b9dd5"
         },
         {
             "file": "tests/backend/Integration/SecurityFixtureCompositionRootIntegrationTests.cs",
@@ -95,7 +95,15 @@
             "reason": "Temporary end-to-end acceptance harness while PostgreSQL and Redis family scenarios are split after the composition root contract stabilizes",
             "expires": "2026-09-22",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2156",
-            "sourceFingerprint": "sha256:84e493313651ca44c9c6a2ba3bf0c781aed37f4aef482014b44314938330b8ee"
+            "sourceFingerprint": "sha256:80e7c99119c5018da4bd9346d99d6af8e022f15ec2e844e8feb094bcc1322a0a"
+        },
+        {
+            "file": "tests/tools/security-fixture-profile-e2e.test.mjs",
+            "owner": "TestInfrastructureAgent:security-fixtures",
+            "reason": "Temporary profile acceptance harness while auth allocation and the three security family adapters are split into reusable test owners after cutover",
+            "expires": "2026-09-22",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2156",
+            "sourceFingerprint": "sha256:eff178a3892f5899a3cdf8ed0f8dd5acfaee6bb159ea8512177966e1a5c03d43"
         },
         {
             "file": "tools/test/temporal-role-resolver.mjs",
