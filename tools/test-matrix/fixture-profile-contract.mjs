@@ -35,6 +35,7 @@ export const NON_FIXTURE_EXECUTION_CLASSES = Object.freeze([
 ]);
 
 const COORDINATION_IDS = new Set([
+    'behavior-document-consistency-final',
     'behavior-evidence-post-runtime',
     'backend-qps',
     'changed-code-coverage',

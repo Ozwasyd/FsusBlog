@@ -749,6 +749,64 @@ tiers:
       retentionClass: must-keep
       triggerReason: release-final requires one current-run source/build/candidate-bound join of the verified pre-runtime graph with correctness and browser observations
 
+    - id: behavior-document-consistency-final
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
+      owner: ServerContractAgent
+      qualificationEligible: true
+      command: bash tools/test/bundles/behavior-document-consistency-final.sh
+      outputReceiptSchema: fsusblog.behavior-document-consistency-final-report.v1
+      executionDependsOn: [behavior-evidence-post-runtime]
+      requiresEvidenceFrom:
+          [behavior-doc-static-admission, behavior-evidence-pre-runtime, behavior-evidence-post-runtime]
+      services: []
+      parallelizable: false
+      exclusiveResources: [behavior-document-consistency-final]
+      phase: 5
+      cost: low
+      resourceClass: io
+      cpuWeight: 1
+      memoryWeight: 1
+      minCpuUnits: 1
+      maxParallel: 1
+      requiresBootstrap: none
+      requiresNode: true
+      requiresDotnet: false
+      requiresPlaywright: none
+      evidenceClass: correctness
+      cacheProfile: none
+      timeoutMinutes: 5
+      shardable: false
+      defaultShards: 1
+      risk: critical
+      cadence: release-manual
+      requiredFor: release-final
+      coverage: [behavior-document-consistency-final]
+      artifacts: [.tmp/behavior-document-consistency-final/report.json]
+      evidence:
+          [
+              .tmp/behavior-document-consistency-final/report.json,
+              .tmp/behavior-doc-static-admission,
+              .tmp/behavior-evidence-pre-runtime/receipt.json,
+              .tmp/behavior-evidence-post-runtime/receipt.json,
+              config/contracts/behavior-contracts.json,
+              config/contracts/document-claim-migration-ledger.json,
+              config/schemas/behavior-document-consistency-final-report.schema.json,
+              tools/docs/behavior-document-consistency-final.mjs,
+              tools/test/bundles/behavior-document-consistency-final.sh,
+              tests/tools/behavior-document-consistency-final.test.mjs,
+              tests/matrix.yml,
+          ]
+      ciJob: release-final
+      localOnly: false
+      nightlyOnly: false
+      manualOnly: true
+      retentionClass: must-keep
+      triggerReason: the final deterministic gate aggregates sealed owner/fact/test/doc/mutation/pre/post authorities, rejects legacy residue and DAG cycles, and emits one recomputable report without repairing producers
+
     - id: pr-smart-gate-plan
       executionClass: coordination
       fixtureProfile: none
@@ -8316,6 +8374,7 @@ tiers:
       executionDependsOn: []
       requiresEvidenceFrom:
           [
+              behavior-document-consistency-final,
               behavior-evidence-post-runtime,
               behavior-evidence-pre-runtime,
               browser-contract,

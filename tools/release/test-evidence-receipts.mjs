@@ -1511,6 +1511,8 @@ export function createReleaseFinalTestEvidenceBinding({
     browserContractReceiptPath,
     postRuntimeReceipt,
     postRuntimeReceiptPath,
+    consistencyFinalReport,
+    consistencyFinalReportPath,
     releaseDomainProjectionReceipts,
     releaseReliabilityQualifiedReceipt,
     now = () => new Date()
@@ -1577,6 +1579,12 @@ export function createReleaseFinalTestEvidenceBinding({
                 fileDigest: sha256File(postRuntimeReceiptPath),
                 contentDigest: postRuntimeReceipt.contentDigest
             },
+            behaviorConsistencyFinal: {
+                schema: consistencyFinalReport.schema,
+                path: String(consistencyFinalReportPath).replaceAll(path.sep, '/'),
+                fileDigest: sha256File(consistencyFinalReportPath),
+                contentDigest: consistencyFinalReport.contentDigest
+            },
             releaseReliability: structuredClone(
                 releaseReliabilityQualifiedReceipt
             ),
@@ -1610,7 +1618,7 @@ export function validateReleaseFinalTestEvidenceBinding(binding)
     {
         errors.push('release-final binding source/build identity mismatch');
     }
-    for (const key of ['correctness', 'browserContract', 'behaviorPostRuntime'])
+    for (const key of ['correctness', 'browserContract', 'behaviorPostRuntime', 'behaviorConsistencyFinal'])
     {
         if (!isDigest(binding?.receipts?.[key]?.fileDigest))
         {
@@ -1625,6 +1633,11 @@ export function validateReleaseFinalTestEvidenceBinding(binding)
         !== 'fsusblog.behavior-evidence-post-runtime-receipt.v1')
     {
         errors.push('release-final binding behaviorPostRuntime schema is invalid');
+    }
+    if (binding?.receipts?.behaviorConsistencyFinal?.schema
+        !== 'fsusblog.behavior-document-consistency-final-report.v1')
+    {
+        errors.push('release-final binding behaviorConsistencyFinal schema is invalid');
     }
     errors.push(...validateReleaseReliabilityQualifiedBinding(
         binding?.receipts?.releaseReliability,

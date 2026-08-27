@@ -26,7 +26,7 @@ const {
 const contractFile = path.join(root, 'tests/fixtures/test-matrix/execution-dependency-contract.json');
 const evidenceContractFile = path.join(root, 'tests/fixtures/test-matrix/release-final-evidence-contract.json');
 const canonicalEvidenceInputDigest =
-    'sha256:96752f3f13cfdab00326f2276b61b2f8cf075daa0a77d3ba9545a23447919561';
+    'sha256:fd5f9d29e4665f03154e4b2dc812a564e957c2762470c834b8539f43b95f7eb5';
 
 function evidenceInputDigest(inputs)
 {
@@ -77,12 +77,12 @@ test('independent release-final evidence contract seals the canonical exact set'
     assert.deepEqual(validateCanonicalReleaseFinalEvidenceInputs(canonical), []);
     assert.equal(canonical.schema, 'fsusblog.release-final-evidence-inputs.v1');
     assert.equal(canonical.targetTier, 'release-final');
-    assert.equal(canonical.inputs.length, 20);
+    assert.equal(canonical.inputs.length, 21);
     assert.deepEqual(canonical.inputs, [...canonical.inputs].sort());
     assert.equal(new Set(canonical.inputs).size, canonical.inputs.length);
     assert.deepEqual(contract, buildReleaseFinalEvidenceContract(canonical));
     assert.equal(contract.source, 'tests/fixtures/test-matrix/release-final-evidence-inputs.json');
-    assert.equal(contract.inputCount, 20);
+    assert.equal(contract.inputCount, 21);
     assert.equal(contract.inputDigest, canonicalEvidenceInputDigest);
     assert.equal(evidenceInputDigest(canonical.inputs), canonicalEvidenceInputDigest);
     assert.doesNotMatch(producerSource, /parseMatrix|tests\/matrix\.yml/u);
@@ -191,7 +191,7 @@ test('release-final exact-set binding rejects deletion, replacement, duplication
                 tier.requiresEvidenceFrom.splice(tier.requiresEvidenceFrom.indexOf('browser-contract'), 1);
             },
             diagnostics: [
-                /exactly 20 canonical evidence inputs/u,
+                /exactly 21 canonical evidence inputs/u,
                 /missing canonical evidence inputs: browser-contract/u
             ]
         },
@@ -225,7 +225,7 @@ test('release-final exact-set binding rejects deletion, replacement, duplication
             {
                 tier.requiresEvidenceFrom.push('validate-matrix');
             },
-            diagnostics: [/exactly 20 canonical evidence inputs/u, /unexpected evidence inputs: validate-matrix/u]
+            diagnostics: [/exactly 21 canonical evidence inputs/u, /unexpected evidence inputs: validate-matrix/u]
         }
     ];
 

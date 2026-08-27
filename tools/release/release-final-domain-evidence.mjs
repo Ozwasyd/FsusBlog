@@ -13,6 +13,9 @@ import {
 import {
     validatePostRuntimeReceipt
 } from '../test-matrix/behavior-evidence-post-runtime.mjs';
+import {
+    validateFinalReport
+} from '../docs/behavior-document-consistency-final.mjs';
 
 import { requirePublicPreviewReleaseEvidence } from './public-preview-release-evidence.mjs';
 import {
@@ -45,6 +48,23 @@ export function createReleaseFinalDomainEvidence({
     if (postRuntimeReceipt.sourceIdentity?.commit !== manifest.commitSha)
     {
         throw new Error('post-runtime behavior evidence source commit mismatch');
+    }
+    const consistencyFinalFile = path.resolve(
+        repositoryRoot,
+        process.env.FSUSBLOG_BEHAVIOR_CONSISTENCY_FINAL_REPORT
+            ?? '.tmp/behavior-document-consistency-final/report.json'
+    );
+    if (!fs.existsSync(consistencyFinalFile) || !fs.statSync(consistencyFinalFile).isFile())
+    {
+        throw new Error('behavior/document final consistency report is required at its exact configured path');
+    }
+    const consistencyFinalReport = readEvidenceDocument(consistencyFinalFile);
+    validateFinalReport(consistencyFinalReport);
+    if (consistencyFinalReport.status !== 'ok'
+        || consistencyFinalReport.sourceIdentity?.commit !== manifest.commitSha
+        || consistencyFinalReport.receiptDigests?.postRuntime !== postRuntimeReceipt.contentDigest)
+    {
+        throw new Error('behavior/document final consistency report identity or qualification mismatch');
     }
 
     const correctness = findReceiptFile(
@@ -161,6 +181,8 @@ export function createReleaseFinalDomainEvidence({
             browserContractReceiptPath: browserContract.file,
             postRuntimeReceipt,
             postRuntimeReceiptPath: postRuntimeFile,
+            consistencyFinalReport,
+            consistencyFinalReportPath: consistencyFinalFile,
             releaseDomainProjectionReceipts,
             releaseReliabilityQualifiedReceipt
         }),
