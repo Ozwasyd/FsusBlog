@@ -16,26 +16,50 @@
                 "additionalProperties": false,
                 "required": [
                     "producerId",
+                    "findingId",
                     "location",
                     "ruleId",
                     "classification",
                     "policyId",
                     "action",
                     "owner",
-                    "sourceDigest"
+                    "sourceDigest",
+                    "syntaxDigest"
                 ],
                 "properties": {
                     "producerId": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
-                    "location": { "type": "string", "pattern": "^[^:*?]+:[1-9][0-9]*$" },
+                    "findingId": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+                    "location": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["path", "start", "end"],
+                        "properties": {
+                            "path": { "type": "string", "pattern": "^[^*?]+$" },
+                            "start": { "$ref": "#/$defs/position" },
+                            "end": { "$ref": "#/$defs/position" }
+                        }
+                    },
                     "ruleId": { "type": "string", "pattern": "^retry\\.[a-z0-9.-]+$" },
                     "classification": { "enum": ["correctness", "diagnostic", "restore-transfer", "non-retry"] },
                     "policyId": { "type": ["string", "null"] },
                     "action": { "enum": ["diagnostic-only", "instrument", "remove", "restore-only"] },
                     "owner": { "type": "string", "minLength": 1 },
-                    "sourceDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+                    "sourceDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+                    "syntaxDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
                 }
             }
         },
         "contentDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+    },
+    "$defs": {
+        "position": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["line", "column"],
+            "properties": {
+                "line": { "type": "integer", "minimum": 1 },
+                "column": { "type": "integer", "minimum": 1 }
+            }
+        }
     }
 }
