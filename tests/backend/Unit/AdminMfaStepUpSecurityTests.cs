@@ -166,6 +166,7 @@ public sealed class AdminMfaStepUpSecurityTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public async Task AdminStepUpProof_RejectsMissingProofWithoutCacheLookup()
     {
         IUnifiedCache cache = Substitute.For<IUnifiedCache>();
@@ -177,6 +178,7 @@ public sealed class AdminMfaStepUpSecurityTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task AdminStepUpProof_BindsToAdminPrincipalSessionActionAndConsumesOnce()
     {
         IUnifiedCache cache = Substitute.For<IUnifiedCache>();
@@ -214,6 +216,7 @@ public sealed class AdminMfaStepUpSecurityTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public async Task OrdinaryUserMfaProof_CannotSatisfyAdminStepUp()
     {
         IUnifiedCache cache = Substitute.For<IUnifiedCache>();
@@ -228,6 +231,7 @@ public sealed class AdminMfaStepUpSecurityTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public async Task OrdinaryRiskControlProof_CannotSatisfyAdminStepUp()
     {
         var cache = new DualProofCache();
@@ -246,6 +250,7 @@ public sealed class AdminMfaStepUpSecurityTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public async Task AdminStepUpProof_CannotSatisfyOrdinaryRiskControlChallengeProof()
     {
         var cache = new DualProofCache();
