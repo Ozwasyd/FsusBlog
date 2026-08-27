@@ -652,6 +652,30 @@
             "pathType": "file"
         },
         {
+            "id": "test-execution-replay-plan-schema",
+            "owner": "test-replay-governance",
+            "canonicalPath": "config/schemas/test-execution-replay-plan.schema.json",
+            "pathType": "file",
+            "purpose": "Closed framework-neutral replay plan contract for canonical test identity, entropy streams, order, shards, workers and command binding.",
+            "consumers": [
+                "tools/test/execution-replay-contract.mjs",
+                "tests/tools/execution-replay-contract.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/execution-replay-contract.test.mjs"
+        },
+        {
+            "id": "test-execution-replay-receipt-schema",
+            "owner": "test-replay-governance",
+            "canonicalPath": "config/schemas/test-execution-replay-receipt.schema.json",
+            "pathType": "file",
+            "purpose": "Closed actual replay receipt contract for observed test order, shard and worker membership, entropy streams, admission sequence and process outcome.",
+            "consumers": [
+                "tools/test/execution-replay-contract.mjs",
+                "tests/tools/execution-replay-contract.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/execution-replay-contract.test.mjs"
+        },
+        {
             "id": "behavior-test-evidence-schema",
             "owner": "behavior-test-evidence-binding",
             "canonicalPath": "config/schemas/behavior-test-evidence.schema.json",

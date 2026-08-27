@@ -1,0 +1,300 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.local/schemas/test-execution-replay-receipt.v1.json",
+    "title": "FsusBlog framework-neutral actual test execution replay receipt",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "source",
+        "producer",
+        "run",
+        "planDigest",
+        "rootSeed",
+        "entropySources",
+        "randomStreams",
+        "testIds",
+        "shards",
+        "workers",
+        "admissionSequence",
+        "processOutcome",
+        "receiptDigest"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.test-execution-replay-receipt.v1"
+        },
+        "source": {
+            "$ref": "#/$defs/source"
+        },
+        "producer": {
+            "$ref": "#/$defs/producer"
+        },
+        "run": {
+            "$ref": "#/$defs/run"
+        },
+        "planDigest": {
+            "$ref": "#/$defs/digest"
+        },
+        "rootSeed": {
+            "$ref": "#/$defs/seed"
+        },
+        "entropySources": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1,
+            "items": {
+                "$ref": "#/$defs/rootSeedSource"
+            }
+        },
+        "randomStreams": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/randomStream"
+            }
+        },
+        "testIds": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+                "$ref": "#/$defs/testId"
+            }
+        },
+        "shards": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "$ref": "#/$defs/shard"
+            }
+        },
+        "workers": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "id",
+                    "testIds"
+                ],
+                "properties": {
+                    "id": {
+                        "$ref": "#/$defs/stableId"
+                    },
+                    "testIds": {
+                        "type": "array",
+                        "uniqueItems": true,
+                        "items": {
+                            "$ref": "#/$defs/testId"
+                        }
+                    }
+                }
+            }
+        },
+        "admissionSequence": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "ordinal",
+                    "testId",
+                    "shardId",
+                    "workerId"
+                ],
+                "properties": {
+                    "ordinal": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "testId": {
+                        "$ref": "#/$defs/testId"
+                    },
+                    "shardId": {
+                        "$ref": "#/$defs/stableId"
+                    },
+                    "workerId": {
+                        "$ref": "#/$defs/stableId"
+                    }
+                }
+            }
+        },
+        "processOutcome": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "status",
+                "exitCode",
+                "signal"
+            ],
+            "properties": {
+                "status": {
+                    "enum": [
+                        "passed",
+                        "failed",
+                        "cancelled"
+                    ]
+                },
+                "exitCode": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ]
+                },
+                "signal": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                }
+            }
+        },
+        "receiptDigest": {
+            "$ref": "#/$defs/digest"
+        }
+    },
+    "$defs": {
+        "digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "seed": {
+            "type": "string",
+            "pattern": "^seed256:[0-9a-f]{64}$"
+        },
+        "stableId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9.-]*$"
+        },
+        "testId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*:[^#?]+#[^?]+(?:\\?case=(?:parameterized|property|fuzz):.+)?$"
+        },
+        "source": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "commit",
+                "worktreeFingerprint"
+            ],
+            "properties": {
+                "commit": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
+                },
+                "worktreeFingerprint": {
+                    "$ref": "#/$defs/digest"
+                }
+            }
+        },
+        "producer": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "framework"
+            ],
+            "properties": {
+                "id": {
+                    "$ref": "#/$defs/stableId"
+                },
+                "framework": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]*$"
+                }
+            }
+        },
+        "run": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "mode"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "mode": {
+                    "enum": [
+                        "qualification",
+                        "diagnostic"
+                    ]
+                }
+            }
+        },
+        "rootSeedSource": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "kind",
+                "source"
+            ],
+            "properties": {
+                "id": {
+                    "const": "root-seed"
+                },
+                "kind": {
+                    "const": "root-seed"
+                },
+                "source": {
+                    "enum": [
+                        "cli",
+                        "plan",
+                        "generated-diagnostic"
+                    ]
+                }
+            }
+        },
+        "randomStream": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "version",
+                "producerId",
+                "streamId",
+                "consumerTestId",
+                "seed"
+            ],
+            "properties": {
+                "version": {
+                    "const": "v1"
+                },
+                "producerId": {
+                    "$ref": "#/$defs/stableId"
+                },
+                "streamId": {
+                    "$ref": "#/$defs/stableId"
+                },
+                "consumerTestId": {
+                    "$ref": "#/$defs/testId"
+                },
+                "seed": {
+                    "$ref": "#/$defs/seed"
+                }
+            }
+        },
+        "shard": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "testIds"
+            ],
+            "properties": {
+                "id": {
+                    "$ref": "#/$defs/stableId"
+                },
+                "testIds": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                        "$ref": "#/$defs/testId"
+                    }
+                }
+            }
+        }
+    }
+}
