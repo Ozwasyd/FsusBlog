@@ -87,7 +87,7 @@
             "reason": "Temporary fixture endpoint coverage bridge while composition root tests are split by prepare verify and access-control boundary",
             "expires": "2026-09-27",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2150",
-            "sourceFingerprint": "sha256:c5f26daa8ac95bc4de84d47098fda788318786369b189a70eee50fbd0b14b95b"
+            "sourceFingerprint": "sha256:76a6c6f7829e3b1fe94cc8a6696ed44e61625d97181bec0fd62a529f7adf2962"
         },
         {
             "file": "tests/tools/auth-session-fixture-producer.test.mjs",
@@ -95,7 +95,7 @@
             "reason": "Temporary complete auth matrix coverage bridge while producer tests are split by allocation lifecycle and live ingress contracts",
             "expires": "2026-09-27",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2150",
-            "sourceFingerprint": "sha256:296f5b9fbea89720bb55ef09bf5c902c997a56d2b0a9b11b119796e863b0960a"
+            "sourceFingerprint": "sha256:51d0c626d30c92af0557842f30d57dbdb9613fb2e4371a8c600ebc4995ea313f"
         },
         {
             "file": "tests/tools/fixture-orchestrator.test.mjs",
@@ -111,7 +111,7 @@
             "reason": "Temporary exact-one producer aggregate while deterministic planning validation projection and live composition-root adapters are separated",
             "expires": "2026-09-27",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2150",
-            "sourceFingerprint": "sha256:d69fdc2b2b030829996f5f4dc20fc0a601eb985ed164ef38ae552c5f81d67cce"
+            "sourceFingerprint": "sha256:ee91bccf0251dd0212372cfe28c74c6b7f73c87a4eb958376b8f8d5a8f235f68"
         },
         {
             "file": "tests/backend/Unit/AuthCookieExpiryFlowTests.cs",
