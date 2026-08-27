@@ -36,7 +36,7 @@
     },
     "probe": {
         "path": "tools/test/probe-playwright-dispatch.mjs",
-        "digest": "sha256:9af39fc98f134dc0e0516c1b4d4e371698630feb8f597528305d304e5da08f15",
+        "digest": "sha256:e8bb72d75f5da11bf9e9b11c8dd05fd6debf74f9e0e05fee26e38b3b5254410c",
         "requiredObservations": [
             "reporter-no-pre-dispatch",
             "delay-perturbs-completion-order",
@@ -45,5 +45,5 @@
             "test-list-public-cli"
         ]
     },
-    "contentDigest": "sha256:50bbb262d4b9fee6bee11f05ece18951f3a132a281fc11e822c4d13c2833751b"
+    "contentDigest": "sha256:08d6811bd5560acf210a0f8990f9c5d9fd1752b67b96e184c324642a0f9ebaa2"
 }
