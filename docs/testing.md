@@ -1,5 +1,18 @@
 # 测试策略
 
+## Bounded channel delivery contracts
+
+`config/testing/bounded-channel-delivery-contracts.json` 是生产 C# source 中 bounded channel 的唯一 delivery contract catalog，schema 为 `config/testing/bounded-channel-delivery-contracts.schema.json`。`tools/governance/bounded-channel-contracts.mjs` 会解析 direct factory、包装 factory 与间接 factory owner，并以 `source file + containing type + assigned slot` 形成稳定 discovery key；catalog 与 discovery 必须双向 exact，不能用 wildcard、Markdown inventory 或遗漏项 baseline 放行。
+
+每项 queue 必须声明 `required`、`best-effort`、`coalescible`、`replayable` 之一，并绑定 writer、reader、drain、fallback、failure semantics、evidence、proof test、successor disposition 与 implementation owner。class-specific proof 由 checker fail closed：`required` 需要 durable/replay source，`best-effort` 需要不涉及 security/audit/correctness 的产品证明，`coalescible` 需要 commutative/monotonic proof，`replayable` 需要 executable source/postcondition。`FullMode=Wait` 与 `TryWrite` 并存时必须解释 queue-full disposition。PublicHot 条目只引用 #1629、#1630、#1631，不复制 delivery/recovery/drain 逻辑。
+
+Focused validation：
+
+```bash
+node tools/governance/bounded-channel-contracts.mjs
+node --test tests/tools/bounded-channel-contracts.test.mjs
+```
+
 ## Runtime state-domain catalog
 
 `config/testing/runtime-state-domain-catalog.json` is the sole runtime-state access authority. Domains must come from `config/testing/runtime-state-domain-registry.json`; executable runtime steps declare reads, writes, deletes, invalidations, creates, resets, predecessors, postconditions, and machine-verifiable source/test evidence. Coordination-only steps use `stateAccess: none`. The catalog is exact in both directions against `runtimeSteps()` and its validator runs as matrix governance; neither scheduler, lane scripts, nor documentation may keep a second conflict table. Runtime bundle producers write source/run-bound reset receipts after observing their real postconditions, and every `resetBefore`/`resetAfter` consumer verifies the receipt identity plus observation digests before proceeding.

@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fsus.blog/schemas/testing/bounded-channel-delivery-contracts.schema.json",
+  "title": "FsusBlog bounded channel delivery contracts",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "digest", "queues"],
+  "properties": {
+    "schema": { "const": "fsusblog.bounded-channel-delivery-contracts.v1" },
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "queues": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["queueId", "discoveryKey", "owner", "deliveryClass", "channelBehavior", "writerCallsites", "readerCallsites", "drain", "fallback", "failureSemantics", "evidenceSources", "proofTestIds", "classProof", "disposition", "implementationOwner"],
+        "properties": {
+          "queueId": { "type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$" },
+          "discoveryKey": { "type": "string", "minLength": 1 },
+          "owner": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "file", "type", "slot"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "file": { "type": "string", "pattern": "^src/.+\\.cs$" },
+              "type": { "type": "string", "minLength": 1 },
+              "slot": { "type": "string", "minLength": 1 }
+            }
+          },
+          "deliveryClass": { "enum": ["required", "best-effort", "coalescible", "replayable"] },
+          "channelBehavior": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["fullMode", "writerPrimitive"],
+            "properties": {
+              "fullMode": { "enum": ["Wait", "DropWrite", "DropOldest", "DropNewest"] },
+              "writerPrimitive": { "type": "string", "minLength": 1 },
+              "waitTryWriteDisposition": { "type": "string", "minLength": 1 }
+            }
+          },
+          "writerCallsites": { "$ref": "#/$defs/references" },
+          "readerCallsites": { "$ref": "#/$defs/references" },
+          "drain": { "$ref": "#/$defs/disposition" },
+          "fallback": { "$ref": "#/$defs/disposition" },
+          "failureSemantics": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["closed", "cancellation", "workerFailure", "overflowMarker", "inFlight", "commitPostcondition", "qualificationImpact"],
+            "properties": {
+              "closed": { "type": "string", "minLength": 1 },
+              "cancellation": { "type": "string", "minLength": 1 },
+              "workerFailure": { "type": "string", "minLength": 1 },
+              "overflowMarker": { "type": "string", "minLength": 1 },
+              "inFlight": { "type": "string", "minLength": 1 },
+              "commitPostcondition": { "type": "string", "minLength": 1 },
+              "qualificationImpact": { "type": "string", "minLength": 1 }
+            }
+          },
+          "evidenceSources": { "$ref": "#/$defs/references" },
+          "proofTestIds": { "$ref": "#/$defs/references" },
+          "classProof": { "type": "object", "required": ["kind"] },
+          "disposition": { "type": "string", "minLength": 1 },
+          "implementationOwner": { "type": "string", "minLength": 1 },
+          "authoritativeContracts": { "type": "array", "items": { "type": "string", "format": "uri" }, "uniqueItems": true }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "token"],
+      "properties": {
+        "file": { "type": "string", "minLength": 1 },
+        "token": { "type": "string", "minLength": 1 }
+      }
+    },
+    "references": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/reference" } },
+    "disposition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "rationale", "callsites"],
+      "properties": {
+        "status": { "enum": ["implemented", "not-applicable", "successor-required"] },
+        "rationale": { "type": "string", "minLength": 1 },
+        "callsites": { "type": "array", "items": { "$ref": "#/$defs/reference" } }
+      }
+    }
+  }
+}
