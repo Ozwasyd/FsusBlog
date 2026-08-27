@@ -85,21 +85,23 @@ public sealed class PublicArtifactDigestEntriesTests
     [Fact]
     public void AssetLibraryEntries_ReuseStoredShaAndBuildArticleManifest()
     {
-        var cover = new AssetLibraryItem
+        var cover = new ContentAsset
         {
-            Url = "/uploads/illustration/cover.png",
-            SourceArticleId = 910002,
+            AssetId = Guid.Parse("3f3b2e7a-1d2e-4f8a-9c5b-6a7b8c9d0e1f"),
+            StorageKey = "illustration/cover.png",
+            SizeBytes = 10,
             Sha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         };
-        var legacy = new AssetLibraryItem
+        var legacy = new ContentAsset
         {
-            Url = "/uploads/illustration/legacy.png",
-            SourceArticleId = 910002,
+            AssetId = Guid.Parse("4f3b2e7a-1d2e-4f8a-9c5b-6a7b8c9d0e1f"),
+            StorageKey = "illustration/legacy.png",
+            SizeBytes = 10,
             Sha256 = null
         };
 
-        ArtifactDigestEntry coverDigest = PublicArtifactDigestEntries.FromAssetLibraryItem(cover);
-        ArtifactDigestEntry legacyDigest = PublicArtifactDigestEntries.FromAssetLibraryItem(legacy);
+        ArtifactDigestEntry coverDigest = PublicArtifactDigestEntries.FromContentAsset(cover);
+        ArtifactDigestEntry legacyDigest = PublicArtifactDigestEntries.FromContentAsset(legacy);
         ArtifactDigestEntry manifest = PublicArtifactDigestEntries.ComputeArticleAssetManifest(910002, [legacy, cover]);
 
         Assert.Equal(ArtifactDigestState.Ready, coverDigest.State);

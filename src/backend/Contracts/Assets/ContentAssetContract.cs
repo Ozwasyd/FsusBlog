@@ -2,9 +2,8 @@ namespace FsusBlog.Server.Contracts.Assets;
 
 public enum ContentAssetState
 {
-    Pending = 0,
-    Ready = 1,
-    Failed = 2
+    Active = 0,
+    PendingDelete = 1
 }
 
 public static class ContentAssetSourceKinds
@@ -19,12 +18,11 @@ public static class ContentAssetSourceKinds
 
 public static class ContentAssetStates
 {
-    public const string Pending = "pending";
-    public const string Ready = "ready";
-    public const string Failed = "failed";
+    public const string Active = "active";
+    public const string PendingDelete = "pending_delete";
 
     public static bool IsValid(string? value)
-        => value is Pending or Ready or Failed;
+        => value is Active or PendingDelete;
 }
 
 /// <summary>
@@ -34,12 +32,15 @@ public static class ContentAssetStates
 /// </summary>
 public sealed record AssetRecord(
     AssetId Id,
+    string StorageClass,
     AssetStorageKey StorageKey,
     string MimeType,
+    string Extension,
     long SizeBytes,
     string? Sha256,
     int? WidthPixels,
     int? HeightPixels,
+    long? OwnerAdminPrincipalId,
     ContentAssetState State,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc);
@@ -52,7 +53,9 @@ public sealed record AssetReference(
     AssetId AssetId,
     string SourceKind,
     string SourceKey,
+    int? ArticleId,
     int ReferenceCount,
+    string? AltText,
     DateTimeOffset UpdatedAtUtc)
 {
     public string CompositeKey

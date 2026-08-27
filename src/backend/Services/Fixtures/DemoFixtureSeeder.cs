@@ -927,7 +927,7 @@ public sealed class DemoFixtureSeeder(
             await db.Deleteable<CommentSlowModeState>().Where(item => rows.ArticleIds.Contains(item.ArticleId)).ExecuteCommandAsync(ct).ConfigureAwait(false);
             await db.Deleteable<CommentPolicyAuditEvent>().Where(item => rows.ArticleIds.Contains(item.ArticleId)).ExecuteCommandAsync(ct).ConfigureAwait(false);
             await db.Deleteable<ArticleCommentPolicy>().Where(item => rows.ArticleIds.Contains(item.ArticleId)).ExecuteCommandAsync(ct).ConfigureAwait(false);
-            await db.Deleteable<ArticleAssetReference>().Where(item => item.ArticleId != null && rows.ArticleIds.Contains(item.ArticleId.Value)).ExecuteCommandAsync(ct).ConfigureAwait(false);
+            await db.Deleteable<ContentAssetReference>().Where(item => item.ArticleId != null && rows.ArticleIds.Contains(item.ArticleId.Value)).ExecuteCommandAsync(ct).ConfigureAwait(false);
             await db.Deleteable<ArticlePublicTaxonomyProjection>().Where(item => rows.ArticleIds.Contains(item.ArticleId)).ExecuteCommandAsync(ct).ConfigureAwait(false);
             string articleIdPlaceholders = string.Join(
                 ", ",

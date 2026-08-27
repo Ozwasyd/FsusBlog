@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Data;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 using System.Text.Json;
 
 using FsusBlog.Core.Algorithms;
@@ -17,6 +18,7 @@ using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
+using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services;
@@ -43,6 +45,211 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
 {
     private const string Legacy20260517Fixture = "legacy-20260517-minimal.sql";
     private const string Legacy20260517DumpEnv = "FSUS_LEGACY_20260517_DUMP";
+
+    [Fact]
+    public async Task RunAsync_UpgradesVarcharContentAssetPrototypeAndBackfillsEverySource()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+        string storageRoot = Path.Combine(Path.GetTempPath(), $"fsusblog-content-asset-cutover-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(storageRoot);
+        try
+        {
+            await RunMigrationsAsync(connectionString, storageRoot: storageRoot);
+            ReleaseStoragePaths paths = ReleaseStorageTestPaths.Create(storageRoot);
+            Directory.CreateDirectory(Path.Combine(paths.PublicAssetRoot, "illustration"));
+            byte[] png = CreateContentAssetTestPng();
+            string hash = Convert.ToHexString(SHA256.HashData(png)).ToLowerInvariant();
+            Guid prototypeId = Guid.NewGuid();
+            Guid orphanId = Guid.NewGuid();
+            await File.WriteAllBytesAsync(Path.Combine(paths.PublicAssetRoot, "illustration", "shared.png"), png);
+            await File.WriteAllBytesAsync(Path.Combine(paths.PublicAssetRoot, "illustration", $"{orphanId:N}.png"), png);
+            await File.WriteAllBytesAsync(Path.Combine(paths.PublicAssetRoot, "illustration", "cleanup.png"), png);
+
+            await fixture.ExecuteAsync(connectionString, $"""
+                DELETE FROM {SchemaMigrationRunner.HistoryTableName}
+                WHERE migration_id IN (
+                    '{ContentAssetCutoverMigrationDefinitions.PrototypeShapeMigrationId}',
+                    '{ContentAssetCutoverMigrationDefinitions.MigrationId}');
+
+                DROP TABLE content_asset_cleanup_queue;
+                DROP TABLE content_asset_reference;
+                DROP TABLE content_asset;
+
+                CREATE TABLE content_asset (
+                    asset_id varchar(36) PRIMARY KEY,
+                    storage_class varchar(16) NOT NULL,
+                    storage_key varchar(512) NOT NULL UNIQUE,
+                    mime_type varchar(127) NOT NULL,
+                    extension varchar(16) NOT NULL,
+                    size_bytes bigint NOT NULL,
+                    sha256 varchar(64) NULL,
+                    width_pixels integer NULL,
+                    height_pixels integer NULL,
+                    owner_admin_principal_id bigint NULL,
+                    state varchar(16) NOT NULL,
+                    created_at_utc timestamp NOT NULL,
+                    updated_at_utc timestamp NOT NULL
+                );
+                CREATE TABLE content_asset_reference (
+                    asset_id varchar(36) NOT NULL REFERENCES content_asset(asset_id) ON DELETE CASCADE,
+                    source_kind varchar(16) NOT NULL,
+                    source_key varchar(160) NOT NULL,
+                    article_id integer NULL,
+                    reference_count integer NOT NULL,
+                    alt_text varchar(256) NULL,
+                    updated_at_utc timestamp NOT NULL,
+                    PRIMARY KEY (asset_id, source_kind, source_key)
+                );
+                CREATE TABLE content_asset_cleanup_queue (
+                    asset_id varchar(36) PRIMARY KEY REFERENCES content_asset(asset_id) ON DELETE CASCADE,
+                    not_before_utc timestamp NOT NULL,
+                    attempt_count integer NOT NULL,
+                    last_error varchar(512) NULL,
+                    updated_at_utc timestamp NOT NULL
+                );
+                INSERT INTO content_asset(
+                    asset_id, storage_class, storage_key, mime_type, extension, size_bytes, sha256,
+                    width_pixels, height_pixels, state, created_at_utc, updated_at_utc)
+                VALUES ('{prototypeId:D}', 'public', 'illustration/shared.png', 'image/png', '.png', {png.Length},
+                    '{hash}', 1, 1, 'active', TIMESTAMP '2026-08-01 00:00:00', TIMESTAMP '2026-08-01 00:00:00');
+
+                CREATE TABLE article_asset_cleanup_queue (
+                    normalized_url varchar(512) PRIMARY KEY,
+                    not_before_utc timestamp NOT NULL,
+                    attempt_count integer NOT NULL,
+                    last_error varchar(512) NULL,
+                    updated_at_utc timestamp NOT NULL
+                );
+                INSERT INTO article_asset_cleanup_queue
+                    (normalized_url, not_before_utc, attempt_count, last_error, updated_at_utc)
+                VALUES ('/uploads/illustration/cleanup.png', TIMESTAMP '2026-08-20 00:00:00', 4,
+                    'legacy retry', TIMESTAMP '2026-08-19 00:00:00');
+                CREATE TABLE article_asset_reference (normalized_url varchar(512) NOT NULL);
+                CREATE TABLE asset_library_article_ref (url varchar(512) NOT NULL);
+                CREATE TABLE asset_library_item (url varchar(512) PRIMARY KEY, sha256 varchar(64) NULL);
+                INSERT INTO article_asset_reference(normalized_url)
+                VALUES ('/uploads/illustration/shared.png');
+                INSERT INTO asset_library_article_ref(url)
+                VALUES ('/uploads/illustration/shared.png');
+                INSERT INTO asset_library_item(url, sha256)
+                VALUES ('/uploads/illustration/shared.png', '{hash}');
+
+                INSERT INTO article(id, title, categoryid, views, createtime, metadata_updated_at, status, isdeleted)
+                VALUES (1779001, 'Asset cutover', 0, 0, now(), now(), 2, false);
+                INSERT INTO article_body(article_id, markdown_content, updated_at)
+                VALUES (1779001,
+                    '![first](/uploads/illustration/shared.png) ![second](/uploads/illustration/shared.png)', now());
+                INSERT INTO article_draft(
+                    owner_admin_principal_id, article_id, draft_key, title, categoryid, tag_ids,
+                    markdown_content, status, server_revision, updated_at, created_at)
+                VALUES (44, 1779001, 'asset-cutover', 'Draft', 0, '',
+                    '![draft](/uploads/illustration/shared.png)', 2, 1, now(), now());
+                WITH block AS (
+                    INSERT INTO article_revision_content_block(content_hash, markdown_content, byte_length, created_at)
+                    VALUES ('{new string('a', 64)}', '![revision](/uploads/illustration/shared.png)', 47, now())
+                    RETURNING id
+                )
+                INSERT INTO article_revision(
+                    article_id, revision_no, title, categoryid, tag_ids, content_block_id,
+                    markdown_content, diff_summary, created_by_admin_principal_id, created_at)
+                SELECT 1779001, 1, 'Revision', 0, '', id, '', '', 44, now() FROM block;
+                """);
+
+            await RunMigrationsAsync(connectionString, storageRoot: storageRoot);
+
+            string idType = await fixture.QueryScalarAsync<string>(connectionString, """
+                SELECT udt_name FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'content_asset' AND column_name = 'id';
+                """);
+            Guid reusedId = await fixture.QueryScalarAsync<Guid>(
+                connectionString,
+                "SELECT id FROM content_asset WHERE storage_key = 'illustration/shared.png';");
+            Guid reusedOrphanId = await fixture.QueryScalarAsync<Guid>(
+                connectionString,
+                $"SELECT id FROM content_asset WHERE storage_key = 'illustration/{orphanId:N}.png';");
+            int sourceRows = await fixture.QueryScalarAsync<int>(connectionString, $"""
+                SELECT COUNT(1) FROM content_asset_reference WHERE asset_id = '{prototypeId:D}'::uuid;
+                """);
+            int articleReferenceCount = await fixture.QueryScalarAsync<int>(connectionString, $"""
+                SELECT reference_count FROM content_asset_reference
+                WHERE asset_id = '{prototypeId:D}'::uuid AND source_kind = 'article';
+                """);
+            int cleanupAttempts = await fixture.QueryScalarAsync<int>(connectionString, """
+                SELECT queue.attempt_count
+                FROM content_asset_cleanup_queue queue
+                JOIN content_asset asset ON asset.id = queue.asset_id
+                WHERE asset.storage_key = 'illustration/cleanup.png';
+                """);
+
+            Assert.Equal("uuid", idType);
+            Assert.Equal(prototypeId, reusedId);
+            Assert.Equal(orphanId, reusedOrphanId);
+            Assert.Equal(3, sourceRows);
+            Assert.Equal(2, articleReferenceCount);
+            Assert.Equal(4, cleanupAttempts);
+            Assert.False(await fixture.TableExistsAsync(connectionString, "article_asset_cleanup_queue"));
+            Assert.False(await fixture.TableExistsAsync(connectionString, "article_asset_reference"));
+            Assert.False(await fixture.TableExistsAsync(connectionString, "asset_library_article_ref"));
+            Assert.False(await fixture.TableExistsAsync(connectionString, "asset_library_item"));
+        }
+        finally
+        {
+            Directory.Delete(storageRoot, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RunAsync_ContentAssetBackfillFailureRollsBackAndKeepsLegacyTables(bool hashConflict)
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+        string storageRoot = Path.Combine(Path.GetTempPath(), $"fsusblog-content-asset-rollback-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(storageRoot);
+        try
+        {
+            await RunMigrationsAsync(connectionString, storageRoot: storageRoot);
+            ReleaseStoragePaths paths = ReleaseStorageTestPaths.Create(storageRoot);
+            Directory.CreateDirectory(Path.Combine(paths.PublicAssetRoot, "illustration"));
+            if (hashConflict)
+            {
+                await File.WriteAllBytesAsync(
+                    Path.Combine(paths.PublicAssetRoot, "illustration", "failure.png"),
+                    CreateContentAssetTestPng());
+            }
+
+            await fixture.ExecuteAsync(connectionString, $"""
+                DELETE FROM {SchemaMigrationRunner.HistoryTableName}
+                WHERE migration_id = '{ContentAssetCutoverMigrationDefinitions.MigrationId}';
+                CREATE TABLE asset_library_item (
+                    url varchar(512) PRIMARY KEY,
+                    sha256 varchar(64) NULL
+                );
+                INSERT INTO asset_library_item(url, sha256)
+                VALUES ('/uploads/illustration/failure.png', {(hashConflict ? "'" + new string('0', 64) + "'" : "NULL")});
+                """);
+
+            InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => RunMigrationsAsync(connectionString, storageRoot: storageRoot));
+
+            Assert.Contains(
+                hashConflict ? "hash_conflict:" : "missing_file:",
+                failure.ToString(),
+                StringComparison.Ordinal);
+            Assert.True(await fixture.TableExistsAsync(connectionString, "asset_library_item"));
+            int historyRows = await fixture.QueryScalarAsync<int>(connectionString, $"""
+                SELECT COUNT(1) FROM {SchemaMigrationRunner.HistoryTableName}
+                WHERE migration_id = '{ContentAssetCutoverMigrationDefinitions.MigrationId}';
+                """);
+            Assert.Equal(0, historyRows);
+        }
+        finally
+        {
+            Directory.Delete(storageRoot, recursive: true);
+        }
+    }
 
     [Fact]
     public async Task RunAsync_UpgradesLegacyArticleAndPageContentSchema()
@@ -2483,9 +2690,10 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
 
     private static async Task RunMigrationsAsync(
         string connectionString,
-        ISchemaMigrationRegistry? registry = null)
+        ISchemaMigrationRegistry? registry = null,
+        string? storageRoot = null)
     {
-        await using ServiceProvider provider = BuildProvider(connectionString, registry);
+        await using ServiceProvider provider = BuildProvider(connectionString, registry, storageRoot);
 
         await using AsyncServiceScope scope = provider.CreateAsyncScope();
         ISchemaMigrationRunner runner = scope.ServiceProvider.GetRequiredService<ISchemaMigrationRunner>();
@@ -2690,7 +2898,8 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
 
     private static ServiceProvider BuildProvider(
         string connectionString,
-        ISchemaMigrationRegistry? registry = null)
+        ISchemaMigrationRegistry? registry = null,
+        string? storageRoot = null)
     {
         var services = new ServiceCollection();
         services.AddLogging(builder => builder.ClearProviders());
@@ -2714,6 +2923,10 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         services.AddSingleton<ISchemaModelInspector, SchemaModelInspector>();
         services.AddSingleton<ISchemaMigrationLock, SchemaMigrationLock>();
         services.AddSingleton<IReleaseIdentityProvider>(new ReleaseIdentityProvider(configuration));
+        services.AddSingleton(ReleaseStorageTestPaths.Create(storageRoot ?? Path.Combine(
+            Path.GetTempPath(),
+            "fsusblog-schema-migration-tests",
+            Guid.NewGuid().ToString("N"))));
         services.AddSingleton<IArticleDetailAedsArtifactMaintenanceService, NoopArticleDetailAedsArtifactMaintenanceService>();
         services.AddScoped<ISchemaMigrationRunner, SchemaMigrationRunner>();
         services.AddScoped<IAuditLogStore, AuditLogStore>();
@@ -2733,6 +2946,15 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             .OfType<IDestructiveSchemaMigrationStep>()
             .Max(static step => step.Proof.RollbackWindowEndUtc);
         return new FixedTimeProvider(latestRollbackWindowEnd);
+    }
+
+    private static byte[] CreateContentAssetTestPng()
+    {
+        var bytes = new byte[24];
+        new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }.CopyTo(bytes, 0);
+        BinaryPrimitives.WriteInt32BigEndian(bytes.AsSpan(16, 4), 1);
+        BinaryPrimitives.WriteInt32BigEndian(bytes.AsSpan(20, 4), 1);
+        return bytes;
     }
 
     private sealed record Legacy20260517Counts(

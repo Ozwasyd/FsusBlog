@@ -30,7 +30,8 @@ internal sealed class SchemaMigrationManifest
             SchemaMigrationCatalog20260726.Create(),
             SchemaMigrationCatalog20260727.Create(),
             SchemaMigrationCatalog20260728.Create(),
-            SchemaMigrationCatalog20260809.Create()
+            SchemaMigrationCatalog20260809.Create(),
+            SchemaMigrationCatalog20260826.Create()
         ],
         [
             new SchemaMigrationVersionGap(
@@ -50,7 +51,10 @@ internal sealed class SchemaMigrationManifest
                 new DateOnly(2026, 7, 23)),
             new SchemaMigrationVersionGap(
                 new DateOnly(2026, 7, 29),
-                new DateOnly(2026, 8, 8))
+                new DateOnly(2026, 8, 8)),
+            new SchemaMigrationVersionGap(
+                new DateOnly(2026, 8, 10),
+                new DateOnly(2026, 8, 25))
         ]);
 
     internal IReadOnlyList<SchemaMigrationCatalog> Catalogs

@@ -1339,6 +1339,51 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                     "n_minus_one_read_write"
                 ]));
 
+        result.Add(
+            ContentAssetCutoverMigrationDefinitions.PrototypeShapeMigrationId,
+            new OnlineSchemaMigrationMetadata(
+                ContentAssetCutoverMigrationDefinitions.PrototypeShapeMigrationId,
+                OnlineSchemaMigrationPhase.Contract,
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
+                RequiresExclusiveMode: true,
+                Destructive: true,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.BackupRestore,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.High,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260826-content-asset-uuid-shape"),
+                ContractAfterCoordinate: LegacyCoordinate("20260826-content-asset-id-backfill"),
+                MinimumRetentionWindow: TimeSpan.FromDays(DestructiveMigrationProofs.MinimumRollbackWindowDays),
+                Validators:
+                [
+                    "descriptor_policy",
+                    "content_asset_prototype_uuid_conversion",
+                    "fresh_backup_restore"
+                ]));
+
+        result.Add(
+            ContentAssetCutoverMigrationDefinitions.MigrationId,
+            new OnlineSchemaMigrationMetadata(
+                ContentAssetCutoverMigrationDefinitions.MigrationId,
+                OnlineSchemaMigrationPhase.Contract,
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
+                RequiresExclusiveMode: true,
+                Destructive: true,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.BackupRestore,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.High,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260826-content-asset-id-cutover"),
+                ContractAfterCoordinate: LegacyCoordinate("20260826-content-asset-id-backfill"),
+                MinimumRetentionWindow: TimeSpan.FromDays(DestructiveMigrationProofs.MinimumRollbackWindowDays),
+                Validators:
+                [
+                    "descriptor_policy",
+                    "content_asset_files_verified",
+                    "content_asset_reference_rebuilt",
+                    "fresh_backup_restore"
+                ]));
+
         return new ReadOnlyDictionary<string, OnlineSchemaMigrationMetadata>(result);
     }
 

@@ -248,8 +248,8 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
             typeof(ArticleDraft),
             typeof(ArticleRevision),
             typeof(ArticleRevisionContentBlock),
-            typeof(ArticleAssetReference),
-            typeof(ArticleAssetCleanupQueueItem),
+            typeof(ContentAssetReference),
+            typeof(ContentAssetCleanupQueueItem),
             typeof(ArticleRightsPolicy),
             typeof(ArticleRightsSnapshot),
             typeof(ArticleResponsibilitySnapshot),
@@ -257,7 +257,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
             typeof(ArticleMutationOutboxEvent),
             typeof(ArticleMutationCommand),
             typeof(ArticleViewSeed),
-            typeof(AssetLibraryItem),
+            typeof(ContentAsset),
             typeof(ArticlePublicTaxonomyProjection));
         // Deletion kernel targets additional projection tables that are not always
         // modelled as SqlSugar entities; keep empty shells so DELETE stays valid.
