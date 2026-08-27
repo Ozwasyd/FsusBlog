@@ -284,7 +284,19 @@
                 "docs/api/design.md",
                 "docs/api/contracts.md",
                 "docs/api/article-publication-revisions.md",
-                "docs/moderation.md"
+                "docs/moderation.md",
+                "docs/architecture/article-asset-reference-lifecycle.md",
+                "docs/architecture/article-deletion-lifecycle.md",
+                "docs/architecture/article-mutation-outbox-claim-lease.md",
+                "docs/architecture/article-mutation-outbox-versioning.md",
+                "docs/architecture/article-mutation-side-effect-boundaries.md",
+                "docs/architecture/article-revision-concurrency.md",
+                "docs/architecture/comment-attribution-privacy-boundary.md",
+                "docs/architecture/comment-command-boundary.md",
+                "docs/architecture/comment-moderation-visibility-boundary.md",
+                "docs/architecture/comment-mutation-outbox.md",
+                "docs/architecture/comment-notification-boundary.md",
+                "docs/architecture/comment-query-boundary.md"
             ],
             "mutationPolicy": {
                 "mutationRequired": true,
