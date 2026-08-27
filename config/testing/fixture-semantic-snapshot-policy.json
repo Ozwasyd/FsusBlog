@@ -1,0 +1,25 @@
+{
+    "schema": "fsusblog.fixture-semantic-snapshot-policy.v1",
+    "version": 1,
+    "fieldDispositions": [
+        "diagnostic-volatile",
+        "execution-identity",
+        "location",
+        "secret-redacted",
+        "semantic"
+    ],
+    "recordKinds": [
+        "api-projection",
+        "entity",
+        "file",
+        "outbox",
+        "redis-key",
+        "relation"
+    ],
+    "nonownedSentinelDomains": [
+        "sentinel.dev-data",
+        "sentinel.other-profile"
+    ],
+    "defaultShardSize": 2048,
+    "maximumShardSize": 10000
+}

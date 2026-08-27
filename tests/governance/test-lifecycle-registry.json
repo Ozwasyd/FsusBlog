@@ -1081,6 +1081,17 @@
             ]
         },
         {
+            "file": "tests/tools/fixture-mutation-recovery.test.mjs",
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/mutation-envelope-catalog.test.mjs",
             "owner": "manual-diagnostic:tests/tools/mutation-envelope-catalog.test.mjs",
             "executionCategory": "manual-diagnostic",
