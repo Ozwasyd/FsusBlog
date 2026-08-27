@@ -58,19 +58,45 @@ internal static class AccountProfilePreferenceFixtureCapabilities
 }
 
 internal sealed record AccountFixtureIdentityReference(
-    string SemanticRole,
-    int UserId,
-    string IdentityDigest,
-    string SessionDigest,
-    string Namespace,
+    string Schema,
+    bool Verified,
+    string OwnerProducerId,
+    string ConsumerProducerId,
     string RunId,
-    string Owner,
-    IReadOnlyList<string>? DeviceRoles = null);
+    string Namespace,
+    string ProfileId,
+    string Role,
+    string SemanticRole,
+    string CapabilityId,
+    string PublicId,
+    string FixtureIdentity,
+    string ProducerResultDigest,
+    AccountFixtureIdentityPlanDigests PlanDigests,
+    string Digest)
+{
+    public int UserId
+        => int.TryParse(PublicId, NumberStyles.None, CultureInfo.InvariantCulture, out int value)
+            && value > 0
+                ? value
+                : throw new InvalidOperationException("identity publicId must be a positive account id");
+
+    public IReadOnlyList<string> DeviceRoles
+        => Role == "preference-two-device"
+            ? ["device-a", "device-b"]
+            : ["device-primary"];
+}
+
+internal sealed record AccountFixtureIdentityPlanDigests(
+    string AuthSessionPlanDigest,
+    string CatalogDigest,
+    string FixtureVariantPlanDigest,
+    string ProducerVariantPlanDigest);
 
 internal sealed record AccountProfilePreferenceFixtureRequest(
     IReadOnlyList<string> Capabilities,
     string Namespace,
     string RunId,
+    string ProfileId,
     string Owner,
     IReadOnlyList<AccountFixtureIdentityReference> IdentityReferences,
     JsonElement? TemporalContext = null,
@@ -127,7 +153,7 @@ internal sealed record AccountLocaleDeviceProjection(
 internal sealed record AccountFixtureCleanupState(
     string SemanticRole,
     int UserId,
-    string IdentityDigest,
+    string IdentityReferenceDigest,
     string SecurityStateDigest,
     bool ProfileChanged,
     string? PreviousPublicHandle,
@@ -148,6 +174,7 @@ internal sealed record AccountProfilePreferenceFixtureResult(
     AccountFixtureObservations Observations,
     IReadOnlyList<AccountLocaleDeviceProjection> DeviceProjections,
     IReadOnlyList<AccountFixtureCleanupState> CleanupState,
+    IReadOnlyList<AccountFixtureIdentityReference> IdentityReferences,
     object? TemporalObservation,
     string ContentDigest);
 
@@ -228,6 +255,20 @@ internal sealed class AccountProfilePreferenceFixtureService(
 {
     private const string Strategy = "transaction-fixture";
     private const string ProducerId = "account-profile-preferences";
+    private static readonly string[] s_identityRoles =
+    [
+        "preference-account-device-conflict",
+        "preference-auto",
+        "preference-device-explicit",
+        "preference-fixed-default",
+        "preference-fixed-non-default",
+        "preference-revision-conflict",
+        "preference-two-device",
+        "profile-conflict-challenger",
+        "profile-conflict-owner",
+        "profile-empty",
+        "profile-set"
+    ];
 
     public async Task<AccountProfilePreferenceFixtureResult> PrepareAsync(
         AccountProfilePreferenceFixtureRequest request,
@@ -301,7 +342,7 @@ internal sealed class AccountProfilePreferenceFixtureService(
         if (context.Capabilities.Contains(AccountProfilePreferenceFixtureCapabilities.ProfileSet))
         {
             AccountFixtureIdentityReference identity = context.RequireIdentity("profile-set");
-            string handle = DeriveHandle(request, identity.SemanticRole);
+            string handle = DeriveHandle(request, identity.Role);
             await EnsureProfileAsync(identity, handle, cleanup, cancellationToken).ConfigureAwait(false);
             await ObserveProfileAsync(
                 identity,
@@ -546,7 +587,8 @@ internal sealed class AccountProfilePreferenceFixtureService(
             identities,
             observations,
             projections,
-            cleanup.Values.OrderBy(item => item.SemanticRole, StringComparer.Ordinal).ToArray());
+            cleanup.Values.OrderBy(item => item.SemanticRole, StringComparer.Ordinal).ToArray(),
+            request.IdentityReferences);
         return new AccountProfilePreferenceFixtureResult(
             Strategy,
             ProducerId,
@@ -559,6 +601,7 @@ internal sealed class AccountProfilePreferenceFixtureService(
             observations,
             projections,
             cleanup.Values.OrderBy(item => item.SemanticRole, StringComparer.Ordinal).ToArray(),
+            request.IdentityReferences,
             null,
             digest);
     }
@@ -580,7 +623,8 @@ internal sealed class AccountProfilePreferenceFixtureService(
                     result.EntityIdentities,
                     result.Observations,
                     result.DeviceProjections,
-                    result.CleanupState)
+                    result.CleanupState,
+                    result.IdentityReferences)
                 || result.ProvidedCapabilities.Any(capability =>
                     !AccountProfilePreferenceFixtureCapabilities.All.Contains(capability)))
             {
@@ -770,11 +814,11 @@ internal sealed class AccountProfilePreferenceFixtureService(
         RequireExistingIdentity(before, identity);
         if (before.PublicHandle == publicHandle)
         {
-            cleanup.TryAdd(identity.SemanticRole, CleanupState(identity, before));
+            cleanup.TryAdd(identity.Role, CleanupState(identity, before));
             return;
         }
 
-        cleanup[identity.SemanticRole] = CleanupState(identity, before) with
+        cleanup[identity.Role] = CleanupState(identity, before) with
         {
             ProfileChanged = true
         };
@@ -783,7 +827,7 @@ internal sealed class AccountProfilePreferenceFixtureService(
             .ConfigureAwait(false);
         if (!success)
         {
-            throw new InvalidOperationException($"profile command rejected owned role {identity.SemanticRole}");
+            throw new InvalidOperationException($"profile command rejected owned role {identity.Role}");
         }
     }
 
@@ -803,11 +847,11 @@ internal sealed class AccountProfilePreferenceFixtureService(
             && before.Preference.Mode == mode
             && before.Preference.FixedLocale == fixedLocale)
         {
-            cleanup.TryAdd(identity.SemanticRole, CleanupState(identity, before));
+            cleanup.TryAdd(identity.Role, CleanupState(identity, before));
             return new PreferenceMutation(before, before.Preference);
         }
 
-        cleanup[identity.SemanticRole] = CleanupState(identity, before) with
+        cleanup[identity.Role] = CleanupState(identity, before) with
         {
             PreferenceChanged = true
         };
@@ -819,10 +863,10 @@ internal sealed class AccountProfilePreferenceFixtureService(
         if (!update.Success || !update.Preference.HasValue)
         {
             throw new InvalidOperationException(
-                $"preference command rejected owned role {identity.SemanticRole}: {update.Outcome}");
+                $"preference command rejected owned role {identity.Role}: {update.Outcome}");
         }
 
-        cleanup[identity.SemanticRole] = CleanupState(identity, before) with
+        cleanup[identity.Role] = CleanupState(identity, before) with
         {
             PreferenceChanged = true,
             CommittedPreference = update.Preference
@@ -853,7 +897,7 @@ internal sealed class AccountProfilePreferenceFixtureService(
             || reader.Value.PublicHandle != expectedHandle
             || expectedHandle is not null && ownerCount != 1)
         {
-            throw new InvalidOperationException($"profile postcondition failed for {identity.SemanticRole}");
+            throw new InvalidOperationException($"profile postcondition failed for {identity.Role}");
         }
 
         var fields = new Dictionary<string, object?>(StringComparer.Ordinal)
@@ -862,8 +906,10 @@ internal sealed class AccountProfilePreferenceFixtureService(
             ["revision"] = database.ProfileRevision,
             ["readerMatchesDatabase"] = true,
             ["uniqueOwnerCount"] = ownerCount,
-            ["identityDigest"] = identity.IdentityDigest,
-            ["sessionDigest"] = identity.SessionDigest,
+            ["identityReferenceDigest"] = identity.Digest,
+            ["identityFixtureIdentity"] = identity.FixtureIdentity,
+            ["identityOwnerProducerId"] = identity.OwnerProducerId,
+            ["identitySemanticRole"] = identity.SemanticRole,
             ["securityStateDigest"] = database.SecurityStateDigest,
             ["securityStateUnchanged"] = true,
             ["preferenceMutation"] = false,
@@ -919,7 +965,7 @@ internal sealed class AccountProfilePreferenceFixtureService(
             || !SamePreference(database.Preference, reader)
             || reader.UpdatedAt.ToUniversalTime() != expectedUpdatedAt.UtcDateTime)
         {
-            throw new InvalidOperationException($"preference postcondition failed for {identity.SemanticRole}");
+            throw new InvalidOperationException($"preference postcondition failed for {identity.Role}");
         }
 
         string[] deviceRoles = (identity.DeviceRoles is { Count: > 0 }
@@ -964,8 +1010,10 @@ internal sealed class AccountProfilePreferenceFixtureService(
             ["updatedAt"] = reader.UpdatedAt,
             ["readerMatchesDatabase"] = true,
             ["catalogDigest"] = LocaleCatalog.Digest,
-            ["identityDigest"] = identity.IdentityDigest,
-            ["sessionDigest"] = identity.SessionDigest,
+            ["identityReferenceDigest"] = identity.Digest,
+            ["identityFixtureIdentity"] = identity.FixtureIdentity,
+            ["identityOwnerProducerId"] = identity.OwnerProducerId,
+            ["identitySemanticRole"] = identity.SemanticRole,
             ["securityStateDigest"] = database.SecurityStateDigest,
             ["publicHandleMutation"] = false,
             ["deviceRoles"] = deviceRoles,
@@ -1032,9 +1080,11 @@ internal sealed class AccountProfilePreferenceFixtureService(
         }
         if (!SafeIdentity(request.Namespace)
             || !SafeIdentity(request.RunId)
+            || !SafeIdentity(request.ProfileId)
             || !SafeIdentity(request.Owner))
         {
-            throw new InvalidOperationException("fixture namespace, run, and owner identities are required");
+            throw new InvalidOperationException(
+                "fixture namespace, run, profile, and owner identities are required");
         }
 
         if (request.ResolvedTemporalRoles is not JsonElement
@@ -1059,17 +1109,41 @@ internal sealed class AccountProfilePreferenceFixtureService(
         var identities = new Dictionary<string, AccountFixtureIdentityReference>(StringComparer.Ordinal);
         foreach (AccountFixtureIdentityReference identity in request.IdentityReferences)
         {
-            if (!SafeIdentity(identity.SemanticRole)
-                || identity.UserId <= 0
+            if (identity.Schema != "fsusblog.fixture-identity-prepare-reference.v1"
+                || identity.Verified
+                || identity.OwnerProducerId != "auth-session"
+                || identity.ConsumerProducerId != ProducerId
+                || !SafeIdentity(identity.Role)
+                || !s_identityRoles.Contains(identity.Role, StringComparer.Ordinal)
+                || !SafeIdentity(identity.SemanticRole)
                 || identity.Namespace != request.Namespace
                 || identity.RunId != request.RunId
-                || identity.Owner != request.Owner
-                || !IsSha256(identity.IdentityDigest)
-                || !IsSha256(identity.SessionDigest)
-                || !identities.TryAdd(identity.SemanticRole, identity))
+                || identity.ProfileId != request.ProfileId
+                || identity.CapabilityId != "auth.user.active"
+                || !int.TryParse(
+                    identity.PublicId,
+                    NumberStyles.None,
+                    CultureInfo.InvariantCulture,
+                    out int publicId)
+                || publicId <= 0
+                || !SafeIdentity(identity.FixtureIdentity)
+                || !IsSha256(identity.ProducerResultDigest)
+                || !IsSha256(identity.Digest)
+                || !ValidPlanDigests(identity.PlanDigests)
+                || identity.Digest != ComputeIdentityReferenceDigest(identity)
+                || !identities.TryAdd(identity.Role, identity))
             {
-                throw new InvalidOperationException("identity reference is stale, cross-run, duplicate, or unverified");
+                throw new InvalidOperationException(
+                    "identity prepare reference is stale, cross-run, duplicate, or unverified");
             }
+        }
+        if (identities.Count == 0
+            || identities.Values.Select(static identity => identity.ProducerResultDigest)
+                .Distinct(StringComparer.Ordinal)
+                .Count() != 1)
+        {
+            throw new InvalidOperationException(
+                "identity allocation does not bind one auth-session producer result");
         }
         return new RequestContext(
             capabilities,
@@ -1086,7 +1160,7 @@ internal sealed class AccountProfilePreferenceFixtureService(
     {
         if (!state.Exists)
         {
-            throw new InvalidOperationException($"verified identity role {identity.SemanticRole} does not exist");
+            throw new InvalidOperationException($"provisional identity role {identity.Role} does not exist");
         }
     }
 
@@ -1094,9 +1168,9 @@ internal sealed class AccountProfilePreferenceFixtureService(
         AccountFixtureIdentityReference identity,
         AccountProfilePreferenceObservedState before)
         => new(
-            identity.SemanticRole,
+            identity.Role,
             identity.UserId,
-            identity.IdentityDigest,
+            identity.Digest,
             before.SecurityStateDigest,
             false,
             before.PublicHandle,
@@ -1141,6 +1215,47 @@ internal sealed class AccountProfilePreferenceFixtureService(
     private static bool IsSha256(string value)
         => value.Length == 64 && value.All(char.IsAsciiHexDigit);
 
+    private static bool IsDigestIdentity(string value)
+        => IsSha256(value)
+            || value.Length == 71
+            && value.StartsWith("sha256:", StringComparison.Ordinal)
+            && IsSha256(value[7..]);
+
+    private static bool ValidPlanDigests(AccountFixtureIdentityPlanDigests value)
+        => value is not null
+            && IsDigestIdentity(value.AuthSessionPlanDigest)
+            && IsDigestIdentity(value.CatalogDigest)
+            && IsDigestIdentity(value.FixtureVariantPlanDigest)
+            && IsDigestIdentity(value.ProducerVariantPlanDigest);
+
+    private static string ComputeIdentityReferenceDigest(AccountFixtureIdentityReference identity)
+    {
+        byte[] canonical = JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            schema = identity.Schema,
+            verified = identity.Verified,
+            ownerProducerId = identity.OwnerProducerId,
+            consumerProducerId = identity.ConsumerProducerId,
+            runId = identity.RunId,
+            @namespace = identity.Namespace,
+            profileId = identity.ProfileId,
+            role = identity.Role,
+            semanticRole = identity.SemanticRole,
+            capabilityId = identity.CapabilityId,
+            publicId = identity.PublicId,
+            fixtureIdentity = identity.FixtureIdentity,
+            producerResultDigest = identity.ProducerResultDigest,
+            planDigests = new
+            {
+                authSessionPlanDigest = identity.PlanDigests.AuthSessionPlanDigest,
+                catalogDigest = identity.PlanDigests.CatalogDigest,
+                fixtureVariantPlanDigest = identity.PlanDigests.FixtureVariantPlanDigest,
+                producerVariantPlanDigest = identity.PlanDigests.ProducerVariantPlanDigest
+            }
+        });
+        return Convert.ToHexStringLower(SHA256.HashData(canonical));
+    }
+
     private static string? ReadNullableString(
         IReadOnlyDictionary<string, object?> fields,
         string key)
@@ -1179,7 +1294,8 @@ internal sealed class AccountProfilePreferenceFixtureService(
         IReadOnlyList<AccountFixtureEntityIdentity> identities,
         AccountFixtureObservations observations,
         IReadOnlyList<AccountLocaleDeviceProjection> projections,
-        IReadOnlyList<AccountFixtureCleanupState> cleanupState)
+        IReadOnlyList<AccountFixtureCleanupState> cleanupState,
+        IReadOnlyList<AccountFixtureIdentityReference> identityReferences)
     {
         byte[] canonical = JsonSerializer.SerializeToUtf8Bytes(new
         {
@@ -1194,7 +1310,8 @@ internal sealed class AccountProfilePreferenceFixtureService(
             identities,
             observations,
             projections,
-            cleanupState
+            cleanupState,
+            identityReferences
         });
         return Convert.ToHexStringLower(SHA256.HashData(canonical));
     }
@@ -1234,10 +1351,31 @@ internal sealed class AccountProfilePreferenceFixtureService(
         if (cleanupByUser.Count != result.CleanupState.Count
             || result.CleanupState.Any(item => !SafeIdentity(item.SemanticRole)
                 || item.UserId <= 0
-                || !IsSha256(item.IdentityDigest)
+                || !IsSha256(item.IdentityReferenceDigest)
                 || !IsSha256(item.SecurityStateDigest)))
         {
             throw new InvalidOperationException("fixture cleanup ownership binding is invalid");
+        }
+        Dictionary<int, AccountFixtureIdentityReference> referencesByUser;
+        try
+        {
+            referencesByUser = result.IdentityReferences.ToDictionary(item => item.UserId);
+        }
+        catch (ArgumentException exception)
+        {
+            throw new InvalidOperationException(
+                "fixture identity references contain duplicate accounts",
+                exception);
+        }
+        if (result.CleanupState.Any(item =>
+                !referencesByUser.TryGetValue(item.UserId, out AccountFixtureIdentityReference? reference)
+                || reference.Role != item.SemanticRole
+                || reference.Digest != item.IdentityReferenceDigest
+                || reference.OwnerProducerId != "auth-session"
+                || reference.Verified))
+        {
+            throw new InvalidOperationException(
+                "fixture cleanup is not bound to provisional auth-session references");
         }
 
         foreach (AccountFixtureObservedEntity entity in result.Observations.Database.Entities)
@@ -1249,8 +1387,9 @@ internal sealed class AccountProfilePreferenceFixtureService(
                     out string? expectedPostcondition)
                 || entity.PostconditionId != expectedPostcondition
                 || !cleanupByUser.TryGetValue(userId, out AccountFixtureCleanupState? cleanup)
-                || ReadNullableString(entity.Fields, "identityDigest") != cleanup.IdentityDigest
-                || !IsSha256(ReadNullableString(entity.Fields, "sessionDigest") ?? string.Empty)
+                || ReadNullableString(entity.Fields, "identityReferenceDigest")
+                    != cleanup.IdentityReferenceDigest
+                || ReadNullableString(entity.Fields, "identityOwnerProducerId") != "auth-session"
                 || ReadNullableString(entity.Fields, "securityStateDigest") != cleanup.SecurityStateDigest
                 || !result.EntityIdentities.Any(identity => identity.Kind == entity.Kind
                     && identity.Id == entity.Id

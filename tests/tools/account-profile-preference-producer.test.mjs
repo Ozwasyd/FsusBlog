@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
@@ -51,17 +52,37 @@ function plannedContext({
             }
         }
     );
+    const authResult = {
+        producerId: 'auth-session',
+        producerResultDigest: digest,
+        identityPrepareReferences: references
+    };
     return createProducerContext({
         plan: planned,
         producerId,
         handles: planned.executionIdentity.handles,
         producerOutputs: {
-            'auth-session': {
-                producerId: 'auth-session',
-                postconditions: ['user-active']
-            }
+            'auth-session': authResult
         },
-        temporalContext: temporal
+        temporalContext: temporal,
+        producerReceipts: {
+            'auth-session': {
+                schema: 'fsusblog.fixture-producer-receipt.v1',
+                producerId: 'auth-session',
+                producerReceiptDigest: 'ef'.repeat(32),
+                runId: 'run-1717',
+                namespace: 'profile-preferences',
+                profileId: 'account-profile-preferences',
+                observations: {
+                    database: {
+                        entities: references.map((reference) => ({
+                            semanticRole: reference.semanticRole,
+                            id: reference.publicId
+                        }))
+                    }
+                }
+            }
+        }
     });
 }
 
@@ -80,15 +101,36 @@ function identityReferences()
         'profile-empty',
         'profile-set'
     ];
-    return roles.map((semanticRole, index) => ({
-        semanticRole,
-        userId: index + 100,
-        identityDigest: digest,
-        sessionDigest: 'cd'.repeat(32),
-        deviceRoles: semanticRole === 'preference-two-device'
-            ? ['device-a', 'device-b']
-            : ['device-primary']
-    }));
+    return roles.map((role, index) =>
+    {
+        const value = {
+            schema: 'fsusblog.fixture-identity-prepare-reference.v1',
+            verified: false,
+            ownerProducerId: 'auth-session',
+            consumerProducerId: producerId,
+            runId: 'run-1717',
+            namespace: 'profile-preferences',
+            profileId: 'account-profile-preferences',
+            role,
+            semanticRole: `consumer.${producerId}.${role}`,
+            capabilityId: 'auth.user.active',
+            publicId: String(index + 100),
+            fixtureIdentity: `fxauth-${String(index + 1).padStart(24, '0')}`,
+            producerResultDigest: digest,
+            planDigests: {
+                authSessionPlanDigest: digest,
+                catalogDigest: digest,
+                fixtureVariantPlanDigest: digest,
+                producerVariantPlanDigest: digest
+            }
+        };
+        return { ...value, digest: jsonDigest(value) };
+    });
+}
+
+function jsonDigest(value)
+{
+    return createHash('sha256').update(JSON.stringify(value), 'utf8').digest('hex');
 }
 
 function compositionAdapter()
@@ -143,6 +185,7 @@ function compositionAdapter()
                 },
                 deviceProjections: [],
                 cleanupState: [],
+                identityReferences: request.identityReferences,
                 temporalObservation: null,
                 contentDigest: digest
             };
@@ -160,7 +203,7 @@ function compositionAdapter()
     };
 }
 
-test('producer consumes verified identity refs and emits exact typed live observations', async () =>
+test('producer consumes provisional owned identity refs and emits exact typed live observations', async () =>
 {
     const adapter = compositionAdapter();
     const context = plannedContext({ adapter });
@@ -176,6 +219,8 @@ test('producer consumes verified identity refs and emits exact typed live observ
     assert.equal(result.variantEvidence.variants.length, context.variantPlan.variants.length);
     assert.ok(result.observations.database.entities.every((entity) => entity.owned));
     assert.equal(adapter.calls[0].request.identityReferences.length, 11);
+    assert.ok(adapter.calls[0].request.identityReferences.every((reference) =>
+        reference.ownerProducerId === 'auth-session' && reference.verified === false));
     assert.equal(adapter.calls[0].request.owner, 'fxacct:profile-preferences:run-1717');
     assert.equal(
         adapter.calls[0].request.resolvedTemporalRoles.schema,
@@ -214,17 +259,32 @@ test('producer independently verifies and cleans the exact composition receipt',
     assert.strictEqual(adapter.calls[2].receipt, result.compositionReceipt);
 });
 
+test('producer verification fails closed without the sealed auth ProducerReceipt', async () =>
+{
+    const context = plannedContext();
+    const result = await prepareAccountProfilePreferences(context);
+    const withoutReceipt = {
+        ...context,
+        producerReceipts: Object.freeze({})
+    };
+
+    const verification = await verifyAccountProfilePreferences(withoutReceipt, result);
+
+    assert.equal(verification.ok, false);
+    assert.match(verification.reason, /exact sealed auth-session ProducerReceipt/u);
+});
+
 test('producer fails closed without identity refs or with cross-run refs', async () =>
 {
     await assert.rejects(
         prepareAccountProfilePreferences(plannedContext({ references: [] })),
-        /requires verified auth-session identityReferences/
+        /requires auth-session identityPrepareReferences/
     );
     const crossRun = identityReferences();
     crossRun[0] = { ...crossRun[0], runId: 'other-run' };
     await assert.rejects(
         prepareAccountProfilePreferences(plannedContext({ references: crossRun })),
-        /cross-run or cross-owner/
+        /stale, cross-run, or unverified/
     );
 });
 

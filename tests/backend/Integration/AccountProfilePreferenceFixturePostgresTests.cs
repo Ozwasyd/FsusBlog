@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -58,15 +59,12 @@ public sealed class AccountProfilePreferenceFixturePostgresTests(PostgresSchemaM
                 RegistrationState = AccountRegistrationStates.Active,
                 Status = 0
             }).ExecuteReturnIdentityAsync();
-            identities.Add(new AccountFixtureIdentityReference(
+            identities.Add(IdentityReference(
                 role,
                 userId,
-                Digest($"identity:{role}"),
-                Digest($"session:{role}"),
                 "profile-preference-postgres",
                 "run-1717-postgres",
-                "fxacct:profile-preference-postgres:run-1717-postgres",
-                role == "preference-two-device" ? ["device-a", "device-b"] : ["device-primary"]));
+                "account-profile-preferences"));
         }
 
         ICacheCounterStore counters = Substitute.For<ICacheCounterStore>();
@@ -100,6 +98,7 @@ public sealed class AccountProfilePreferenceFixturePostgresTests(PostgresSchemaM
             AccountProfilePreferenceFixtureCapabilities.All.Order(StringComparer.Ordinal).ToArray(),
             "profile-preference-postgres",
             "run-1717-postgres",
+            "account-profile-preferences",
             "fxacct:profile-preference-postgres:run-1717-postgres",
             identities,
             ResolvedTemporalRoles: TemporalArtifact());
@@ -122,6 +121,65 @@ public sealed class AccountProfilePreferenceFixturePostgresTests(PostgresSchemaM
 
     private static string Digest(string value)
         => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+
+    private static AccountFixtureIdentityReference IdentityReference(
+        string role,
+        int userId,
+        string fixtureNamespace,
+        string runId,
+        string profileId)
+    {
+        var planDigests = new AccountFixtureIdentityPlanDigests(
+            Digest("auth-plan"),
+            Digest("catalog"),
+            Digest("fixture-plan"),
+            Digest("producer-plan"));
+        var reference = new AccountFixtureIdentityReference(
+            "fsusblog.fixture-identity-prepare-reference.v1",
+            false,
+            "auth-session",
+            "account-profile-preferences",
+            runId,
+            fixtureNamespace,
+            profileId,
+            role,
+            $"consumer.account-profile-preferences.{role}",
+            "auth.user.active",
+            userId.ToString(CultureInfo.InvariantCulture),
+            $"fxauth-{Digest($"fixture:{role}")[..24]}",
+            Digest("producer-result"),
+            planDigests,
+            string.Empty);
+        return reference with
+        {
+            Digest = IdentityReferenceDigest(reference)
+        };
+    }
+
+    private static string IdentityReferenceDigest(AccountFixtureIdentityReference identity)
+        => Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            schema = identity.Schema,
+            verified = identity.Verified,
+            ownerProducerId = identity.OwnerProducerId,
+            consumerProducerId = identity.ConsumerProducerId,
+            runId = identity.RunId,
+            @namespace = identity.Namespace,
+            profileId = identity.ProfileId,
+            role = identity.Role,
+            semanticRole = identity.SemanticRole,
+            capabilityId = identity.CapabilityId,
+            publicId = identity.PublicId,
+            fixtureIdentity = identity.FixtureIdentity,
+            producerResultDigest = identity.ProducerResultDigest,
+            planDigests = new
+            {
+                authSessionPlanDigest = identity.PlanDigests.AuthSessionPlanDigest,
+                catalogDigest = identity.PlanDigests.CatalogDigest,
+                fixtureVariantPlanDigest = identity.PlanDigests.FixtureVariantPlanDigest,
+                producerVariantPlanDigest = identity.PlanDigests.ProducerVariantPlanDigest
+            }
+        })));
 
     private static JsonElement TemporalArtifact()
         => JsonSerializer.SerializeToElement(new

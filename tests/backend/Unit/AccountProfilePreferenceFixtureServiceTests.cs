@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -194,6 +195,7 @@ public sealed class AccountProfilePreferenceFixtureServiceTests
     {
         private const string Namespace = "account-profile-test";
         private const string RunId = "run-1717";
+        private const string ProfileId = "account-profile-preferences";
         private const string Owner = "fxacct:account-profile-test:run-1717";
         private int _nextUserId = 100;
 
@@ -358,24 +360,83 @@ public sealed class AccountProfilePreferenceFixtureServiceTests
                     state.PublicHandle = "externalowned";
                     state.InitialPublicHandle = state.PublicHandle;
                 }
-                return new AccountFixtureIdentityReference(
+                return IdentityReference(
                     role,
                     state.UserId,
-                    Digest($"identity:{role}"),
-                    Digest($"session:{role}"),
                     Namespace,
                     RunId,
-                    Owner,
-                    role == "preference-two-device" ? ["device-a", "device-b"] : ["device-primary"]);
+                    ProfileId);
             }).ToArray();
             return new AccountProfilePreferenceFixtureRequest(
                 capabilities,
                 Namespace,
                 RunId,
+                ProfileId,
                 Owner,
                 identities,
                 ResolvedTemporalRoles: TemporalArtifact());
         }
+
+        private static AccountFixtureIdentityReference IdentityReference(
+            string role,
+            int userId,
+            string fixtureNamespace,
+            string runId,
+            string profileId)
+        {
+            string semanticRole = $"consumer.account-profile-preferences.{role}";
+            string fixtureIdentity = $"fxauth-{Digest($"fixture:{role}")[..24]}";
+            var planDigests = new AccountFixtureIdentityPlanDigests(
+                Digest("auth-plan"),
+                Digest("catalog"),
+                Digest("fixture-plan"),
+                Digest("producer-plan"));
+            var reference = new AccountFixtureIdentityReference(
+                "fsusblog.fixture-identity-prepare-reference.v1",
+                false,
+                "auth-session",
+                "account-profile-preferences",
+                runId,
+                fixtureNamespace,
+                profileId,
+                role,
+                semanticRole,
+                "auth.user.active",
+                userId.ToString(CultureInfo.InvariantCulture),
+                fixtureIdentity,
+                Digest("producer-result"),
+                planDigests,
+                string.Empty);
+            return reference with
+            {
+                Digest = IdentityReferenceDigest(reference)
+            };
+        }
+
+        private static string IdentityReferenceDigest(AccountFixtureIdentityReference identity)
+            => Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new
+            {
+                schema = identity.Schema,
+                verified = identity.Verified,
+                ownerProducerId = identity.OwnerProducerId,
+                consumerProducerId = identity.ConsumerProducerId,
+                runId = identity.RunId,
+                @namespace = identity.Namespace,
+                profileId = identity.ProfileId,
+                role = identity.Role,
+                semanticRole = identity.SemanticRole,
+                capabilityId = identity.CapabilityId,
+                publicId = identity.PublicId,
+                fixtureIdentity = identity.FixtureIdentity,
+                producerResultDigest = identity.ProducerResultDigest,
+                planDigests = new
+                {
+                    authSessionPlanDigest = identity.PlanDigests.AuthSessionPlanDigest,
+                    catalogDigest = identity.PlanDigests.CatalogDigest,
+                    fixtureVariantPlanDigest = identity.PlanDigests.FixtureVariantPlanDigest,
+                    producerVariantPlanDigest = identity.PlanDigests.ProducerVariantPlanDigest
+                }
+            })));
 
         private static JsonElement TemporalArtifact()
             => JsonSerializer.SerializeToElement(new

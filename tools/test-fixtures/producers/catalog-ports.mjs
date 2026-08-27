@@ -15,6 +15,7 @@ import {
     runProcess,
     runTemporalProcess
 } from './spawn-helper.mjs';
+import { accountProfilePreferenceIdentityRoleRequests } from './account-profile-preference-producer.mjs';
 
 function catalogProducer(id, catalogs = readFixtureCatalogs())
 {
@@ -535,6 +536,7 @@ export function createAccountProfilePreferencePort(catalogs = readFixtureCatalog
 {
     const producer = catalogProducer('account-profile-preferences', catalogs);
     return basePort(producer, {
+        identityRoleRequests: accountProfilePreferenceIdentityRoleRequests,
         async prepare(context, signal)
         {
             assertNoStrategyEnv();

@@ -8,6 +8,9 @@
  * It never creates users/sessions or writes SQL, Cookie, or localStorage.
  */
 
+import { createHash } from 'node:crypto';
+
+import { projectVerifiedIdentityReferences } from './auth-session-producer.mjs';
 import {
     createTemporalDomainProducerReceipt,
     projectTemporalRolesForBrowser,
@@ -19,6 +22,31 @@ import {
 const producerId = 'account-profile-preferences';
 const strategy = 'transaction-fixture';
 const capabilityPrefixes = Object.freeze(['profile.', 'preferences.']);
+const identityRoles = Object.freeze([
+    'preference-account-device-conflict',
+    'preference-auto',
+    'preference-device-explicit',
+    'preference-fixed-default',
+    'preference-fixed-non-default',
+    'preference-revision-conflict',
+    'preference-two-device',
+    'profile-conflict-challenger',
+    'profile-conflict-owner',
+    'profile-empty',
+    'profile-set'
+]);
+
+export const accountProfilePreferenceIdentityRoleRequests = Object.freeze(identityRoles.map((role) => Object.freeze({
+    ownerProducerId: 'auth-session',
+    consumerProducerId: producerId,
+    role,
+    capabilityId: 'auth.user.active'
+})));
+
+function stableDigest(value)
+{
+    return createHash('sha256').update(JSON.stringify(value), 'utf8').digest('hex');
+}
 
 function assertNoLegacyOverride()
 {
@@ -64,61 +92,98 @@ function safeIdentity(value, label)
 function identityReferences(context)
 {
     const explicit = context.handles?.accountProfilePreferenceIdentityRefs;
-    const consumed = context.producerOutputs?.['auth-session']?.identityReferences;
-    const references = explicit ?? consumed;
+    const authResult = context.producerOutputs?.['auth-session'];
+    const references = explicit ?? authResult?.identityPrepareReferences;
     if (!Array.isArray(references) || references.length === 0)
     {
         throw new Error(
-            'account profile/preference producer requires verified auth-session identityReferences; first-existing-user discovery is forbidden'
+            'account profile/preference producer requires auth-session identityPrepareReferences; first-existing-user discovery is forbidden'
         );
     }
 
     const namespace = safeIdentity(context.namespace, 'fixture namespace');
     const runId = safeIdentity(context.runIdentity, 'fixture run id');
+    const profileId = safeIdentity(context.profileIdentity?.profileId, 'fixture profile id');
     const owner = safeIdentity(
         context.handles?.accountProfilePreferenceOwner
             ?? `fxacct:${namespace}:${runId}`,
         'fixture owner'
     );
     const roles = new Set();
-    const normalized = references.map((reference) =>
+    const publicIds = new Set();
+    const producerResultDigest = String(authResult?.producerResultDigest
+        ?? references[0]?.producerResultDigest
+        ?? '');
+    const normalized = references
+        .filter((reference) => reference?.consumerProducerId === producerId)
+        .map((reference) =>
     {
-        const semanticRole = safeIdentity(reference.semanticRole, 'identity semantic role');
-        if (roles.has(semanticRole))
+        const role = safeIdentity(reference.role, 'identity consumer semantic role');
+        if (roles.has(role))
         {
-            throw new Error(`duplicate auth identity semantic role ${semanticRole}`);
+            throw new Error(`duplicate auth identity consumer role ${role}`);
         }
-        roles.add(semanticRole);
-        const userId = Number(reference.userId);
-        const identityDigest = String(reference.identityDigest ?? '');
-        const sessionDigest = String(reference.sessionDigest ?? '');
-        if (!Number.isSafeInteger(userId) || userId <= 0
-            || !/^[a-f0-9]{64}$/iu.test(identityDigest)
-            || !/^[a-f0-9]{64}$/iu.test(sessionDigest))
+        roles.add(role);
+        const publicId = String(reference.publicId ?? '');
+        const { digest, ...body } = reference;
+        if (reference.schema !== 'fsusblog.fixture-identity-prepare-reference.v1'
+            || reference.verified !== false
+            || reference.ownerProducerId !== 'auth-session'
+            || reference.consumerProducerId !== producerId
+            || reference.namespace !== namespace
+            || reference.runId !== runId
+            || reference.profileId !== profileId
+            || reference.capabilityId !== 'auth.user.active'
+            || reference.producerResultDigest !== producerResultDigest
+            || !/^\d+$/u.test(publicId)
+            || Number(publicId) <= 0
+            || publicIds.has(publicId)
+            || !/^fxauth-[a-f0-9]{24}$/u.test(String(reference.fixtureIdentity ?? ''))
+            || !/^[a-f0-9]{64}$/u.test(String(digest ?? ''))
+            || stableDigest(body) !== digest)
         {
-            throw new Error(`auth identity reference ${semanticRole} is not verified`);
+            throw new Error(`auth identity prepare reference ${role} is stale, cross-run, or unverified`);
         }
-        if (reference.namespace != null && reference.namespace !== namespace
-            || reference.runId != null && reference.runId !== runId
-            || reference.owner != null && reference.owner !== owner)
-        {
-            throw new Error(`auth identity reference ${semanticRole} is cross-run or cross-owner`);
-        }
-        const deviceRoles = reference.deviceRoles == null
-            ? null
-            : [...new Set(reference.deviceRoles.map((role) => safeIdentity(role, 'device semantic role')))].sort();
-        return Object.freeze({
-            semanticRole,
-            userId,
-            identityDigest: identityDigest.toLowerCase(),
-            sessionDigest: sessionDigest.toLowerCase(),
-            namespace,
-            runId,
-            owner,
-            deviceRoles
-        });
+        publicIds.add(publicId);
+        return Object.freeze({ ...reference });
     });
+    if (JSON.stringify([...roles].sort()) !== JSON.stringify([...identityRoles]))
+    {
+        throw new Error('auth-session identity allocation does not exact-match profile consumer roles');
+    }
     return Object.freeze({ owner, references: Object.freeze(normalized) });
+}
+
+function verifyIdentityReferences(context, producerResult)
+{
+    const authResult = context.producerOutputs?.['auth-session'];
+    const authReceipt = context.producerReceipts?.['auth-session'];
+    const verified = projectVerifiedIdentityReferences({
+        producerResult: authResult,
+        producerReceipt: authReceipt,
+        consumerProducerId: producerId
+    });
+    const prepared = producerResult.compositionReceipt?.identityReferences ?? [];
+    if (verified.ownerProducerId !== 'auth-session'
+        || verified.consumerProducerId !== producerId
+        || verified.references.length !== prepared.length)
+    {
+        throw new Error('verified auth-session identity projection does not cover profile prepare refs');
+    }
+    const verifiedByRole = new Map(verified.references.map((reference) => [reference.role, reference]));
+    for (const reference of prepared)
+    {
+        const sealed = verifiedByRole.get(reference.role);
+        if (!sealed
+            || sealed.prepareReferenceDigest !== reference.digest
+            || sealed.publicId !== reference.publicId
+            || sealed.fixtureIdentity !== reference.fixtureIdentity
+            || sealed.ownerProducerId !== reference.ownerProducerId)
+        {
+            throw new Error(`profile identity role ${reference.role} is not sealed by the auth ProducerReceipt`);
+        }
+    }
+    return verified;
 }
 
 function endpointContext(context)
@@ -318,6 +383,7 @@ export async function prepareAccountProfilePreferences(context, signal)
         capabilities,
         namespace: safeIdentity(context.namespace, 'fixture namespace'),
         runId: safeIdentity(context.runIdentity, 'fixture run id'),
+        profileId: safeIdentity(context.profileIdentity?.profileId, 'fixture profile id'),
         owner: identities.owner,
         identityReferences: identities.references,
         temporalContext: context.temporalContext,
@@ -336,6 +402,7 @@ export async function verifyAccountProfilePreferences(context, producerResult, s
     }
     try
     {
+        const verifiedIdentityReferences = verifyIdentityReferences(context, producerResult);
         const verification = await invoke(
             context,
             'verify',
@@ -353,7 +420,8 @@ export async function verifyAccountProfilePreferences(context, producerResult, s
             observations: producerResult.observations,
             databaseObservation: producerResult.databaseObservation,
             cacheObservation: producerResult.cacheObservation,
-            entityIdentities: producerResult.entityIdentities
+            entityIdentities: producerResult.entityIdentities,
+            verifiedIdentityReferences
         };
     }
     catch (error)
