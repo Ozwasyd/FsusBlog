@@ -9,7 +9,8 @@ import { verifyTemporalShapeGovernance } from '../../tools/test/check-temporal-s
 import {
     readTemporalShapeCatalog,
     temporalShapeDigest,
-    validateTemporalShapeCatalog
+    validateTemporalShapeCatalog,
+    verifyAuthSessionPolicyRoles
 } from '../../tools/test/temporal-shape-catalog.mjs';
 import { readTemporalDomainProducerInventory } from '../../tools/test/temporal-role-resolver.mjs';
 
@@ -31,7 +32,7 @@ test('temporal shape catalog is the closed versioned schema and fixed matrix aut
     const state = readTemporalShapeCatalog();
     const schema = JSON.parse(readFile('config/testing/temporal-shape-catalog.schema.json'));
     assert.deepEqual(validateJsonSchema(state.catalog, schema), []);
-    assert.equal(state.roleIds.size, 63);
+    assert.equal(state.roleIds.size, 64);
     assert.equal(state.shapeIds.size, 15);
     assert.deepEqual(
         new Set(state.catalog.requiredBoundaryTags),
@@ -61,6 +62,8 @@ test('semantic role registry covers content session security audit messaging pre
         'session.last-seen',
         'session.idle-expiry',
         'session.absolute-expiry',
+        'session.persistent-idle-expiry',
+        'session.persistent-absolute-expiry',
         'security.risk-occurred',
         'security.risk-expiry',
         'audit.occurred',
@@ -72,6 +75,48 @@ test('semantic role registry covers content session security audit messaging pre
     {
         assert.equal(roles.has(roleId), true, roleId);
     }
+});
+
+test('auth session roles match production standard and remember-me policies', () =>
+{
+    const state = readTemporalShapeCatalog();
+    assert.deepEqual(verifyAuthSessionPolicyRoles(state), {
+        shapeId: 'auth-security-messaging-account-lifecycle',
+        standardIdleMilliseconds: 7 * 86_400_000,
+        standardAbsoluteMilliseconds: 30 * 86_400_000,
+        rememberMeIdleMilliseconds: 30 * 86_400_000,
+        rememberMeAbsoluteMilliseconds: 90 * 86_400_000
+    });
+    const shape = state.catalog.shapes
+        .find((candidate) => candidate.id === 'auth-security-messaging-account-lifecycle');
+    const offsets = new Map(shape.timestampRoles.map((role) => [role.roleId, role.offsetMilliseconds]));
+    assert.equal(offsets.get('session.idle-expiry'), 7 * 86_400_000);
+    assert.equal(offsets.get('session.absolute-expiry'), 30 * 86_400_000);
+    assert.equal(offsets.get('session.persistent-idle-expiry'), 30 * 86_400_000);
+    assert.equal(offsets.get('session.persistent-absolute-expiry'), 90 * 86_400_000);
+});
+
+test('auth session policy drift fails closed before producers resolve roles', () =>
+{
+    const state = readTemporalShapeCatalog();
+    const staleCatalog = clone(state.catalog);
+    const shape = staleCatalog.shapes
+        .find((candidate) => candidate.id === 'auth-security-messaging-account-lifecycle');
+    shape.timestampRoles.find((role) => role.roleId === 'session.idle-expiry').offsetMilliseconds = 2 * 3_600_000;
+    resign(shape);
+    const staleState = validateTemporalShapeCatalog(staleCatalog);
+    assert.throws(
+        () => verifyAuthSessionPolicyRoles(staleState),
+        (error) => error.reasonCode === 'temporal.session-policy-drift'
+    );
+
+    const missingPolicy = readFile('src/backend/Services/UserLoginWorkflowService.cs')
+        .replace('s_rememberMeSessionAbsoluteTtl = TimeSpan.FromDays(90)',
+            's_rememberMeSessionAbsoluteTtl = TimeSpan.FromHours(1)');
+    assert.throws(
+        () => verifyAuthSessionPolicyRoles(state, { loginSource: missingPolicy }),
+        (error) => error.reasonCode === 'temporal.session-policy-drift'
+    );
 });
 
 test('catalog rejects tamper duplicate and unknown role ownership', () =>
@@ -189,6 +234,30 @@ test('static governance rejects a second scenario table private offsets and all-
             /host Date\.now.*private offset arithmetic/u
         );
 
+        const authProducerPath = 'tests/frontend/support/session-fixtures.mjs';
+        const authProducer = readFile(authProducerPath).replace(
+            "rememberMe ? 'session.persistent-absolute-expiry' : 'session.absolute-expiry'",
+            "'session.absolute-expiry'"
+        );
+        assert.throws(
+            () => verifyTemporalShapeGovernance({
+                sourceOverrides: new Map([[authProducerPath, authProducer]])
+            }),
+            /lacks exact remember-me absolute expiry role selection/u
+        );
+
+        const authEndpointPath = 'src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs';
+        const authEndpoint = readFile(authEndpointPath).replace(
+            'RequireInstant("session.persistent-idle-expiry")',
+            'RequireInstant("session.absolute-expiry")'
+        );
+        assert.throws(
+            () => verifyTemporalShapeGovernance({
+                sourceOverrides: new Map([[authEndpointPath, authEndpoint]])
+            }),
+            /remember-me cookie to persistent idle expiry/u
+        );
+
         const catalogState = readTemporalShapeCatalog();
         const collapsed = clone(catalogState.catalog);
         const lifecycle = collapsed.shapes.at(-1);
@@ -216,7 +285,7 @@ test('current temporal domain producers have zero private clock residue', () =>
     assert.deepEqual(result, {
         catalogDigest: result.catalogDigest,
         producerCount: 3,
-        roleCount: 63,
+        roleCount: 64,
         shapeCount: 15,
         secondAuthorityCount: 0,
         residualPrivateClockCount: 0

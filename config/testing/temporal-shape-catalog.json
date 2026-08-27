@@ -59,6 +59,7 @@
         { "id": "session.idle-expiry", "domain": "session", "owner": "identity-fixture", "clockKind": "business-wall", "semanticEffect": "included" },
         { "id": "session.absolute-expiry", "domain": "session", "owner": "identity-fixture", "clockKind": "business-wall", "semanticEffect": "included" },
         { "id": "session.persistent-idle-expiry", "domain": "session", "owner": "identity-fixture", "clockKind": "business-wall", "semanticEffect": "included" },
+        { "id": "session.persistent-absolute-expiry", "domain": "session", "owner": "identity-fixture", "clockKind": "business-wall", "semanticEffect": "included" },
         { "id": "session.admin-standard-idle-expiry", "domain": "session", "owner": "identity-fixture", "clockKind": "business-wall", "semanticEffect": "included" },
         { "id": "session.admin-standard-absolute-expiry", "domain": "session", "owner": "identity-fixture", "clockKind": "business-wall", "semanticEffect": "included" },
         { "id": "session.admin-persistent-idle-expiry", "domain": "session", "owner": "identity-fixture", "clockKind": "business-wall", "semanticEffect": "included" },
@@ -134,6 +135,7 @@
         { "id": "article-metadata-current", "kind": "ordered-chain", "roles": ["article.revision", "article.metadata-updated"], "operators": ["<="] },
         { "id": "comment-lifecycle", "kind": "ordered-chain", "roles": ["comment.created", "comment.edited", "comment.moderated"], "operators": ["<=", "<="] },
         { "id": "session-lifetime", "kind": "ordered-chain", "roles": ["session.authenticated", "session.last-seen", "session.idle-expiry", "session.absolute-expiry"], "operators": ["<=", "<=", "<="] },
+        { "id": "session-persistent-lifetime", "kind": "ordered-chain", "roles": ["session.authenticated", "session.last-seen", "session.persistent-idle-expiry", "session.persistent-absolute-expiry"], "operators": ["<=", "<=", "<="] },
         { "id": "session-auth-identity", "kind": "same-instant", "roles": ["session.authenticated", "session.auth-time", "session.created", "session.refresh-issued"], "tieBreakerId": "message-id-ascending" },
         { "id": "security-risk-lifetime", "kind": "ordered-chain", "roles": ["security.risk-occurred", "security.risk-expiry"], "operators": ["<"] },
         { "id": "security-window", "kind": "ordered-chain", "roles": ["security.pow-window-start", "security.pow-window-end", "security.rate-limit-window-end"], "operators": ["<", "<="] },
@@ -459,10 +461,11 @@
                 { "roleId": "session.last-seen", "offsetMilliseconds": 0, "expectedBusinessState": "active" },
                 { "roleId": "session.access-token-expiry", "offsetMilliseconds": 900000, "expectedBusinessState": "expired" },
                 { "roleId": "session.refresh-rotated", "offsetMilliseconds": 1800000, "expectedBusinessState": "rotated" },
-                { "roleId": "session.idle-expiry", "offsetMilliseconds": 7200000, "expectedBusinessState": "idle-expired" },
+                { "roleId": "session.idle-expiry", "offsetMilliseconds": 604800000, "expectedBusinessState": "standard-idle-expired" },
                 { "roleId": "session.revoked", "offsetMilliseconds": 0, "expectedBusinessState": "revoked" },
-                { "roleId": "session.absolute-expiry", "offsetMilliseconds": 2592000000, "expectedBusinessState": "absolute-expired" },
-                { "roleId": "session.persistent-idle-expiry", "offsetMilliseconds": 2592000000, "expectedBusinessState": "idle-expired" },
+                { "roleId": "session.absolute-expiry", "offsetMilliseconds": 2592000000, "expectedBusinessState": "standard-absolute-expired" },
+                { "roleId": "session.persistent-idle-expiry", "offsetMilliseconds": 2592000000, "expectedBusinessState": "remember-me-idle-expired" },
+                { "roleId": "session.persistent-absolute-expiry", "offsetMilliseconds": 7776000000, "expectedBusinessState": "remember-me-absolute-expired" },
                 { "roleId": "session.admin-standard-idle-expiry", "offsetMilliseconds": 7200000, "expectedBusinessState": "idle-expired" },
                 { "roleId": "session.admin-standard-absolute-expiry", "offsetMilliseconds": 43200000, "expectedBusinessState": "absolute-expired" },
                 { "roleId": "session.admin-persistent-idle-expiry", "offsetMilliseconds": 86400000, "expectedBusinessState": "idle-expired" },
@@ -503,6 +506,7 @@
             ],
             "orderingGroups": [
                 { "id": "session-lifetime-order", "roleIds": ["session.authenticated", "session.last-seen", "session.idle-expiry", "session.absolute-expiry"], "direction": "ascending" },
+                { "id": "session-persistent-lifetime-order", "roleIds": ["session.authenticated", "session.last-seen", "session.persistent-idle-expiry", "session.persistent-absolute-expiry"], "direction": "ascending" },
                 { "id": "session-auth-tie", "roleIds": ["session.authenticated", "session.auth-time", "session.created", "session.refresh-issued"], "direction": "same-instant", "tieBreakerId": "message-id-ascending" },
                 { "id": "message-lifecycle-order", "roleIds": ["message.created", "message.reply-created", "message.read", "message.deleted"], "direction": "ascending" },
                 { "id": "message-tie", "roleIds": ["message.created", "message.thread-order"], "direction": "same-instant", "tieBreakerId": "message-id-ascending" },
@@ -511,6 +515,8 @@
             "expiryBoundaries": [
                 { "id": "session-idle-after-auth", "subjectRoleId": "session.idle-expiry", "referenceRoleId": "session.authenticated", "relation": "after" },
                 { "id": "session-absolute-after-idle", "subjectRoleId": "session.absolute-expiry", "referenceRoleId": "session.idle-expiry", "relation": "after" },
+                { "id": "session-persistent-idle-after-auth", "subjectRoleId": "session.persistent-idle-expiry", "referenceRoleId": "session.authenticated", "relation": "after" },
+                { "id": "session-persistent-absolute-after-idle", "subjectRoleId": "session.persistent-absolute-expiry", "referenceRoleId": "session.persistent-idle-expiry", "relation": "after" },
                 { "id": "credential-expiry-after-issued", "subjectRoleId": "security.credential-expiry", "referenceRoleId": "security.credential-issued", "relation": "after" },
                 { "id": "ban-end-after-start", "subjectRoleId": "security.ban-end", "referenceRoleId": "security.ban-start", "relation": "after" }
             ],
@@ -522,6 +528,7 @@
             },
             "invariantIds": [
                 "session-lifetime",
+                "session-persistent-lifetime",
                 "session-auth-identity",
                 "security-risk-lifetime",
                 "security-window",
@@ -535,7 +542,7 @@
                 "generated-at-excluded"
             ],
             "boundaryTags": [],
-            "contentDigest": "sha256:4c109e29208b3558f9f0633715ec571795220ec3532c79ea72198b25fe30fc0c"
+            "contentDigest": "sha256:699f726eb644f2464b5d37d4f8db403a10789c996a791cc7d3f226c32cb2530e"
         }
     ]
 }
