@@ -26,6 +26,7 @@ const correctnessPrograms = new Set([
     'tools/release/check-release-final.mjs',
     'tools/release/public-preview-release-evidence.mjs',
     'tools/release/test-evidence-receipts-cli.mjs',
+    'tools/run-test-matrix.mjs',
     'tools/test/aggregate-data-scale-evidence.mjs',
     'tools/test/aggregate-performance-evidence.mjs',
     'tools/test/write-release-domain-assertion-report.mjs',

@@ -755,6 +755,31 @@
             "outputBinding": "FSUSBLOG_RELEASE_TEST_EVIDENCE_RECEIPTS_CLI_EVIDENCE_PATH"
         },
         {
+            "consumerId": "evidence-consumer.run-test-matrix",
+            "authorityId": "evidence-consumer.run-test-matrix.current-run",
+            "producerId": "evidence-consumer.run-test-matrix.producer",
+            "receiptSchema": "fsusblog.current-run-evidence-binding.v1",
+            "locatorMode": "explicit-run-path",
+            "requiredIdentityFields": [
+                "attemptId",
+                "candidateIdentity",
+                "schedulerRunId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "requiredDigestFields": [
+                "contentDigest",
+                "producerReceiptDigest"
+            ],
+            "expectedCardinality": "exact-one",
+            "allowedRoots": [
+                ".tmp/downloaded-artifacts",
+                "artifacts/current-run"
+            ],
+            "producerCommand": "node tools/run-test-matrix.mjs --mode ci",
+            "outputBinding": "FSUSBLOG_RUN_TEST_MATRIX_EVIDENCE_PATH"
+        },
+        {
             "consumerId": "evidence-consumer.runtime-profiles.runtime-publish-evidence",
             "authorityId": "evidence-consumer.runtime-profiles.runtime-publish-evidence.current-run",
             "producerId": "evidence-consumer.runtime-profiles.runtime-publish-evidence.producer",
@@ -1335,5 +1360,5 @@
             "outputBinding": "FSUSBLOG_TEST_WRITE_RELEASE_DOMAIN_ASSERTION_REPORT_EVIDENCE_PATH"
         }
     ],
-    "contentDigest": "sha256:d9ffa3ed9b6d28c0e166e218616db3350eb36540f8f3c149481971bea26200f5"
+    "contentDigest": "sha256:1c7fb7feb75871779d8ce603992704d17b403edb92c19aa3850eb68fb2238eef"
 }

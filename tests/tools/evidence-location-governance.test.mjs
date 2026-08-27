@@ -37,6 +37,14 @@ test('scanner covers JS TS C# shell workflow and config selection families', (co
         'src/sample.ts': 'const receipt = findReceiptFile(schema, candidates);',
         'src/Sample.cs': 'var latestReceipt = evidenceReceipts[0];',
         'tools/sample.sh': 'cp .tmp/downloaded-artifacts/receipt.json artifacts/current-run/',
+        'tools/local-priority.mjs': `const evidenceRoots = [
+            '.tmp/release-evidence',
+            '.tmp/downloaded-artifacts'
+        ];`,
+        'tools/downloaded-priority.mjs': `const evidenceRoots = [
+            '.tmp/downloaded-artifacts',
+            '.tmp/release-evidence'
+        ];`,
         '.github/workflows/sample.yml': 'path: .tmp/downloaded-artifacts',
         'config/sample.json': '{ "latest-report.json": true }'
     };
@@ -57,10 +65,16 @@ test('scanner covers JS TS C# shell workflow and config selection families', (co
         'evidence-selection.downloaded-artifacts-scan',
         'evidence-selection.fallback-candidates',
         'evidence-selection.pointer-without-identity',
-        'evidence-selection.explicit-mismatch-fallback'
+        'evidence-selection.explicit-mismatch-fallback',
+        'evidence-selection.local-downloaded-priority'
     ])
     {
         assert(rules.has(rule), `missing scanner rule ${rule}`);
+    }
+    for (const file of ['tools/local-priority.mjs', 'tools/downloaded-priority.mjs'])
+    {
+        assert(scan.findings.some((finding) => finding.file === file
+            && finding.ruleId === 'evidence-selection.local-downloaded-priority'));
     }
     for (const file of Object.keys(fixtures))
     {
@@ -92,6 +106,10 @@ test('generated repository registry and unique ledger match a fresh full-reposit
     assert.deepEqual(registry, generated.registry);
     assert.deepEqual(ledger, generated.ledger);
     verifyEvidenceLocationGovernance({ registry, ledger, scan: generated.scan });
+    const repeated = generateEvidenceLocationGovernance();
+    assert.deepEqual(repeated.scan, generated.scan);
+    assert.deepEqual(repeated.registry, generated.registry);
+    assert.deepEqual(repeated.ledger, generated.ledger);
 });
 
 test('ledger rejects missing duplicate orphan and newly discovered findings', () =>
@@ -141,6 +159,7 @@ test('ledger explicitly covers release final quality gate aggregates flaky publi
             `required consumer ${file} is not classified as correctness selection`);
     }
     assert(ledger.entries.some((entry) => entry.oldSelectionRule === 'evidence-selection.downloaded-artifacts-scan'));
+    assert(ledger.entries.some((entry) => entry.oldSelectionRule === 'evidence-selection.local-downloaded-priority'));
     assert(ledger.entries.some((entry) => entry.oldSelectionRule === 'evidence-selection.schema-search'));
 });
 
@@ -162,4 +181,10 @@ test('false positives and helper calls retain exact rule and actual consumer loc
     assert(indirect.some((finding) => finding.file === 'tools/ci/summarize-quality-gate.mjs'
         && ['loadJobSummaries', 'loadFlakyEvidence'].includes(finding.function)));
     assert(new Set(generated.ledger.entries.map((entry) => entry.classification)).size === 3);
+    assert(generated.ledger.entries.some((entry) => entry.location.startsWith('src/backend/')
+        && entry.classification === 'not-evidence'));
+    const diagnostic = generated.ledger.entries.find((entry) => entry.location.startsWith('tests/browser-diagnostics/run.mjs:'));
+    assert.equal(diagnostic?.classification, 'diagnostic-only');
+    const diagnosticAuthority = generated.registry.entries.find((entry) => entry.consumerId === diagnostic?.consumerId);
+    assert.equal(diagnosticAuthority?.locatorMode, 'content-addressed-reference');
 });

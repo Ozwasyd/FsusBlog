@@ -82,7 +82,8 @@ export const evidenceLocationRules = Object.freeze([
     {
         id: 'evidence-selection.local-downloaded-priority',
         description: 'local and downloaded evidence roots form an ordered priority set',
-        pattern: /(?:release-evidence[^\n]*downloaded-artifacts|downloaded-artifacts[^\n]*release-evidence)/iu
+        pattern: /(?:(?:\.tmp[\\/]release-evidence|releaseEvidenceDir)[\s\S]{0,800}(?:\.tmp[\\/]downloaded-artifacts|downloadedArtifactsDir)|(?:\.tmp[\\/]downloaded-artifacts|downloadedArtifactsDir)[\s\S]{0,800}(?:\.tmp[\\/]release-evidence|releaseEvidenceDir))/iu,
+        windowLines: 8
     }
 ]);
 
@@ -207,8 +208,13 @@ function scanFile(root, file)
             {
                 continue;
             }
-            const match = line.match(rule.pattern);
-            if (!match || (rule.rejectWhen && rule.rejectWhen.test(line)))
+            const candidate = rule.windowLines
+                ? lines.slice(index, index + rule.windowLines).join('\n')
+                : line;
+            const match = candidate.match(rule.pattern);
+            if (!match
+                || (rule.windowLines && (match.index ?? 0) >= line.length)
+                || (rule.rejectWhen && rule.rejectWhen.test(line)))
             {
                 continue;
             }
@@ -217,7 +223,7 @@ function scanFile(root, file)
                 ruleId: rule.id,
                 file,
                 line: index + 1,
-                column: (match.index ?? 0) + 1,
+                column: (match.index ?? 0) < line.length ? (match.index ?? 0) + 1 : 1,
                 function: functions[index],
                 excerpt: line.trim().slice(0, 240),
                 indirectVia: null
