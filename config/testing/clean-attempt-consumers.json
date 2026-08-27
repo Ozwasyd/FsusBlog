@@ -1,8 +1,8 @@
 {
     "schema": "fsusblog.clean-attempt-consumer-inventory.v1",
     "unifiedVerifier": "tools/release/clean-first-attempt-verifier.mjs#cleanFirstAttemptVerdict",
-    "migrationState": "pending-external-authorities",
-    "qualificationEligible": false,
+    "migrationState": "migrated",
+    "qualificationEligible": true,
     "consumers": [
         {
             "id": "browser-contract",

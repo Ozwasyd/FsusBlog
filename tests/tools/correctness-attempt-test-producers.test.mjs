@@ -48,8 +48,9 @@ test('unit, integration, property, model, fuzz and mutation producers are first-
         assert.equal(item.allowedRetries, 0);
         assert.equal(item.frameworkRetrySetting, 0);
         assert.equal(item.firstFailureBlocksQualification, true);
-        assert.equal(item.migrationState, 'pending-external-authorities');
-        assert.equal(item.qualificationEligible, false);
+        assert.equal(item.migrationState, 'migrated');
+        assert.equal(item.qualificationEligible, true);
+        assert.equal(item.attemptAdapter, 'tools/test/attempt-runner.mjs#runProducerAttempts');
     }
 });
 

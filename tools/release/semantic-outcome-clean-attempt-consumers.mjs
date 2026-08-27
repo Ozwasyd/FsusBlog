@@ -54,12 +54,12 @@ export function validateSemanticOutcomeConsumerInventory(inventory)
         || inventory.unifiedAttemptVerifier
             !== 'tools/release/clean-first-attempt-verifier.mjs#cleanFirstAttemptVerdict'
         || inventory.candidateVerificationMode !== 'external-owner-only'
-        || inventory.migrationState !== 'pending-external-authorities'
-        || inventory.qualificationEligible !== false
+        || inventory.migrationState !== 'migrated'
+        || inventory.qualificationEligible !== true
         || !Array.isArray(inventory.consumers)
         || inventory.consumers.length !== expectedAuthorities.size)
     {
-        throw new Error('semantic outcome consumer inventory is not fail-closed');
+        throw new Error('semantic outcome consumer inventory is not migrated to canonical authorities');
     }
     for (const consumer of inventory.consumers)
     {

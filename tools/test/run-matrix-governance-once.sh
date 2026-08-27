@@ -47,6 +47,10 @@ exec "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mj
     --path tools/test/check-hidden-retries.mjs \
     --path tools/test/check-clean-attempt-consumers.mjs \
     --path tools/test/correctness-attempt-producers.mjs \
+    --path tools/test/correctness-attempt-migration.mjs \
+    --path tools/test/attempt-governance-acceptance.mjs \
+    --path tools/test/generate-attempt-governance-acceptance.mjs \
+    --path tools/test/verify-attempt-governance-acceptance.mjs \
     --path tools/test/generate-correctness-attempt-producers.mjs \
     --path tools/test/run-once.mjs \
     --path .github/workflows \

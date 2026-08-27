@@ -39,8 +39,8 @@ test('all build and release producers are first-attempt clean only', () =>
         assert.equal(item.allowedRetries, 0);
         assert.equal(item.firstFailureBlocksQualification, true);
         assert.equal(item.frameworkRetrySetting, 0);
-        assert.equal(item.migrationState, 'pending-external-authorities');
-        assert.equal(item.qualificationEligible, false);
+        assert.equal(item.migrationState, 'migrated');
+        assert.equal(item.qualificationEligible, true);
         assert.deepEqual(item.externalAuthorityKinds, [
             'execution-envelope',
             'replay-plan',

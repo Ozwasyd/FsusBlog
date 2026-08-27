@@ -8,8 +8,8 @@
     "properties": {
         "schema": { "const": "fsusblog.clean-attempt-consumer-inventory.v1" },
         "unifiedVerifier": { "const": "tools/release/clean-first-attempt-verifier.mjs#cleanFirstAttemptVerdict" },
-        "migrationState": { "const": "pending-external-authorities" },
-        "qualificationEligible": { "const": false },
+        "migrationState": { "const": "migrated" },
+        "qualificationEligible": { "const": true },
         "consumers": {
             "type": "array",
             "minItems": 3,

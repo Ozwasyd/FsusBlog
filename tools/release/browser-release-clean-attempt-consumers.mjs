@@ -60,11 +60,11 @@ export function validateCleanAttemptConsumerInventory(inventory)
     if (inventory?.schema !== 'fsusblog.clean-attempt-consumer-inventory.v1'
         || inventory.unifiedVerifier
             !== 'tools/release/clean-first-attempt-verifier.mjs#cleanFirstAttemptVerdict'
-        || inventory.migrationState !== 'pending-external-authorities'
-        || inventory.qualificationEligible !== false
+        || inventory.migrationState !== 'migrated'
+        || inventory.qualificationEligible !== true
         || !Array.isArray(inventory.consumers))
     {
-        throw new Error('clean attempt consumer inventory is not fail-closed');
+        throw new Error('clean attempt consumer inventory is not migrated to canonical authorities');
     }
     const ids = inventory.consumers.map((consumer) => consumer.id).sort();
     if (JSON.stringify(ids) !== JSON.stringify([...consumerIds].sort()))

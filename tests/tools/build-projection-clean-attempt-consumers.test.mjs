@@ -146,8 +146,8 @@ function admit(consumer, attemptEvidence, options = {})
 test('inventory binds build, projection and finalizer to external semantic owners only', () =>
 {
     const inventory = readSemanticOutcomeConsumerInventory();
-    assert.equal(inventory.migrationState, 'pending-external-authorities');
-    assert.equal(inventory.qualificationEligible, false);
+    assert.equal(inventory.migrationState, 'migrated');
+    assert.equal(inventory.qualificationEligible, true);
     assert.deepEqual(inventory.consumers.map((entry) => [
         entry.id,
         entry.candidateAuthorityIssue,

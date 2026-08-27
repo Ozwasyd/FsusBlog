@@ -114,8 +114,8 @@ test('inventory covers the exact Browser, Reliability and Production consumers',
         'production-correctness',
         'release-reliability'
     ]);
-    assert.equal(inventory.migrationState, 'pending-external-authorities');
-    assert.equal(inventory.qualificationEligible, false);
+    assert.equal(inventory.migrationState, 'migrated');
+    assert.equal(inventory.qualificationEligible, true);
 });
 
 test('all three consumers admit the same clean attempt through one verifier', async (context) =>

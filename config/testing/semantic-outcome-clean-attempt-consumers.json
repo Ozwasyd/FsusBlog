@@ -2,8 +2,8 @@
     "schema": "fsusblog.semantic-outcome-clean-attempt-consumer-inventory.v1",
     "unifiedAttemptVerifier": "tools/release/clean-first-attempt-verifier.mjs#cleanFirstAttemptVerdict",
     "candidateVerificationMode": "external-owner-only",
-    "migrationState": "pending-external-authorities",
-    "qualificationEligible": false,
+    "migrationState": "migrated",
+    "qualificationEligible": true,
     "consumers": [
         {
             "id": "finalizer",

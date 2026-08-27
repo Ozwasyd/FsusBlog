@@ -54,7 +54,7 @@ function producerKind(id, domain)
     return 'unit';
 }
 
-function entry({ producerId, sourceAuthority, command, logicalTierIds, owner, physical = false, kindOverride = null })
+function entry({ producerId, sourceAuthority, command, logicalTierIds, owner, physical = false, kindOverride = null, executionProducerId = null })
 {
     const id = producerId.split(':').at(-1);
     const domain = producerDomain(id, { physical });
@@ -70,16 +70,24 @@ function entry({ producerId, sourceAuthority, command, logicalTierIds, owner, ph
         firstFailureBlocksQualification: true,
         frameworkRetrySetting: 0,
         artifactOwner: owner,
-        attemptAdapter: physical
+        executionOwner: physical
             ? 'tools/test/bundles/run-bundle.mjs'
             : 'tools/run-test-matrix.mjs',
-        migrationState: 'pending-external-authorities',
-        qualificationEligible: false,
+        attemptAdapter: 'tools/test/attempt-runner.mjs#runProducerAttempts',
+        migrationState: 'migrated',
+        qualificationEligible: true,
         externalAuthorityKinds: [
             'execution-envelope',
             'replay-plan',
             'temporal-context'
-        ]
+        ],
+        authorityBindings: {
+            executionEnvelope: physical
+                ? 'tools/test/physical-execution-process-tree.mjs#runPhysicalExecution'
+                : `config/testing/test-execution-envelope-applicability.json#producer:${executionProducerId ?? id}`,
+            replayPlan: 'config/testing/replay-qualification-producers.json#contentDigest',
+            temporalContext: 'tools/test/temporal-context.mjs#qualificationTemporalContext'
+        }
     };
 }
 
@@ -143,7 +151,8 @@ function reliabilityEntries(root)
         sourceAuthority: 'config/testing/release-reliability-scenario-catalog.json',
         command: `release reliability scenario ${scenario.id}`,
         logicalTierIds: ['release-reliability-fresh'],
-        owner: 'release-reliability'
+        owner: 'release-reliability',
+        executionProducerId: 'release-reliability-fresh'
     }));
 }
 
@@ -170,6 +179,18 @@ export function buildCorrectnessAttemptProducerInventory(root = defaultRoot)
             'tests/matrix.yml': sha256(fs.readFileSync(matrixFile)),
             'tools/test-matrix/production-fresh-run-bound-outputs.mjs': sha256(fs.readFileSync(
                 path.join(root, 'tools/test-matrix/production-fresh-run-bound-outputs.mjs')
+            )),
+            'config/testing/replay-qualification-producers.json': sha256(fs.readFileSync(
+                path.join(root, 'config/testing/replay-qualification-producers.json')
+            )),
+            'config/testing/test-execution-envelope-applicability.json': sha256(fs.readFileSync(
+                path.join(root, 'config/testing/test-execution-envelope-applicability.json')
+            )),
+            'tools/test/attempt-runner.mjs': sha256(fs.readFileSync(
+                path.join(root, 'tools/test/attempt-runner.mjs')
+            )),
+            'tools/test/temporal-context.mjs': sha256(fs.readFileSync(
+                path.join(root, 'tools/test/temporal-context.mjs')
             ))
         },
         entries
@@ -189,11 +210,20 @@ export function validateCorrectnessAttemptProducerInventory(document, root = def
             || item.allowedRetries !== 0
             || item.firstFailureBlocksQualification !== true
             || item.frameworkRetrySetting !== 0
-            || item.migrationState !== 'pending-external-authorities'
-            || item.qualificationEligible !== false
+            || item.migrationState !== 'migrated'
+            || item.qualificationEligible !== true
             || item.externalAuthorityKinds.join(',') !== 'execution-envelope,replay-plan,temporal-context')
         {
             throw new Error(`${item.producerId} weakens first-attempt correctness policy`);
+        }
+        if (item.attemptAdapter !== 'tools/test/attempt-runner.mjs#runProducerAttempts'
+            || !fs.existsSync(path.join(root, item.executionOwner))
+            || item.authorityBindings.replayPlan
+                !== 'config/testing/replay-qualification-producers.json#contentDigest'
+            || item.authorityBindings.temporalContext
+                !== 'tools/test/temporal-context.mjs#qualificationTemporalContext')
+        {
+            throw new Error(`${item.producerId} is not bound to the canonical attempt authorities`);
         }
     }
     return document;

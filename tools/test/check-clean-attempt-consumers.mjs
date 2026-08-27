@@ -42,8 +42,8 @@ try
         directConsumers: direct.consumers.length,
         semanticConsumers: semantic.consumers.length,
         cohortSlots: 3,
-        migrationState: 'pending-external-authorities',
-        qualificationEligible: false
+        migrationState: 'migrated',
+        qualificationEligible: true
     }, null, 2)}\n`);
 }
 catch (error)

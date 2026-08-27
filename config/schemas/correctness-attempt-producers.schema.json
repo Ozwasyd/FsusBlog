@@ -31,10 +31,12 @@
                     "firstFailureBlocksQualification",
                     "frameworkRetrySetting",
                     "artifactOwner",
+                    "executionOwner",
                     "attemptAdapter",
                     "migrationState",
                     "qualificationEligible",
-                    "externalAuthorityKinds"
+                    "externalAuthorityKinds",
+                    "authorityBindings"
                 ],
                 "properties": {
                     "producerId": { "type": "string", "minLength": 1 },
@@ -48,9 +50,10 @@
                     "firstFailureBlocksQualification": { "const": true },
                     "frameworkRetrySetting": { "const": 0 },
                     "artifactOwner": { "type": "string", "minLength": 1 },
-                    "attemptAdapter": { "type": "string", "minLength": 1 },
-                    "migrationState": { "const": "pending-external-authorities" },
-                    "qualificationEligible": { "const": false },
+                    "executionOwner": { "type": "string", "minLength": 1 },
+                    "attemptAdapter": { "const": "tools/test/attempt-runner.mjs#runProducerAttempts" },
+                    "migrationState": { "const": "migrated" },
+                    "qualificationEligible": { "const": true },
                     "externalAuthorityKinds": {
                         "type": "array",
                         "prefixItems": [
@@ -59,6 +62,16 @@
                             { "const": "temporal-context" }
                         ],
                         "items": false
+                    },
+                    "authorityBindings": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["executionEnvelope", "replayPlan", "temporalContext"],
+                        "properties": {
+                            "executionEnvelope": { "type": "string", "minLength": 1 },
+                            "replayPlan": { "const": "config/testing/replay-qualification-producers.json#contentDigest" },
+                            "temporalContext": { "const": "tools/test/temporal-context.mjs#qualificationTemporalContext" }
+                        }
                     }
                 }
             }
