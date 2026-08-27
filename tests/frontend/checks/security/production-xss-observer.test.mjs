@@ -141,7 +141,7 @@ test('production XSS browser pages bind to the fixture business clock', async ()
     assert.match(source, /entry\.id === 'mxss-resource-code-fence'/u);
     assert.match(source, /entry\.id === 'mxss-url-safe-relative-control'/u);
     assert.match(source, /const surfaceCaseIds = new Set\(surfaceCases\.map\(\(entry\) => entry\.id\)\)/u);
-    assert.match(source, /if \(surfaceCaseIds\.has\(entry\.id\)\) \{/u);
+    assert.match(source, /if \(surfaceCaseIds\.has\(entry\.id\)\)\s*\{/u);
     assert.match(source, /aboutAggregateCase\(aboutCases\)/u);
     assert.match(source, /navigatePublicAot\(aboutPage, `\$\{baseUrl\}\/about`/u);
     assert.match(source, /const aboutReadinessText = aboutCase\.preserve\.text\.at\(-1\)/u);
