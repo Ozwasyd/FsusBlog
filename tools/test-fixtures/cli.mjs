@@ -199,6 +199,20 @@ function buildExecutionIdentity(options)
     };
 }
 
+function buildPrivateRuntimeHandles()
+{
+    const handles = {};
+    if (process.env.FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET)
+    {
+        handles.localAuthFixtureSecret = process.env.FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET;
+    }
+    if (process.env.FSUSBLOG_LOCAL_MESSAGING_FIXTURE_SECRET)
+    {
+        handles.localMessagingFixtureSecret = process.env.FSUSBLOG_LOCAL_MESSAGING_FIXTURE_SECRET;
+    }
+    return Object.freeze(handles);
+}
+
 function comparableExecutionIdentity(value)
 {
     return {
@@ -397,7 +411,7 @@ async function main(argv = process.argv.slice(2))
                 planDocument,
                 ports,
                 controller.signal,
-                { previousFixtureReceipt });
+                { previousFixtureReceipt, handles: buildPrivateRuntimeHandles() });
             if (options.out)
             {
                 writeAuthoritativeOut(options.out, prepareState);
@@ -443,7 +457,9 @@ async function main(argv = process.argv.slice(2))
         }
         const prepareState = readJson(receiptFile);
         const ports = resolvePorts(prepareState.plan ?? prepareState, options);
-        const next = await verify(prepareState, ports);
+        const next = await verify(prepareState, ports, {
+            handles: buildPrivateRuntimeHandles()
+        });
         const out = options.out ?? options['fixture-receipt'];
         if (out)
         {
@@ -546,7 +562,7 @@ async function main(argv = process.argv.slice(2))
                 planDocument,
                 ports,
                 controller.signal,
-                { previousFixtureReceipt });
+                { previousFixtureReceipt, handles: buildPrivateRuntimeHandles() });
             if (prepareOut)
             {
                 writeAuthoritativeOut(prepareOut, prepareState);
@@ -570,7 +586,10 @@ async function main(argv = process.argv.slice(2))
                 return;
             }
 
-            const fixtureReceipt = await verify(prepareState, ports, { signal: controller.signal });
+            const fixtureReceipt = await verify(prepareState, ports, {
+                signal: controller.signal,
+                handles: buildPrivateRuntimeHandles()
+            });
             if (fixtureReceiptOut)
             {
                 writeAuthoritativeOut(fixtureReceiptOut, fixtureReceipt);

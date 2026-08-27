@@ -32,8 +32,9 @@ public sealed record MessagingFixtureIdentityReferences(
     string SecondaryRecipientId,
     string EmptyRecipientId,
     string AdminId,
-    string AdminSessionAuditReference,
-    string SourceReceiptDigest);
+    string AdminActorAuditKey,
+    string IdentityProducerResultDigest,
+    IReadOnlyList<string> PrepareReferenceDigests);
 
 public sealed record MessagingFixturePlan(
     string Schema,
@@ -119,7 +120,8 @@ public sealed record MessagingFixtureResult(
     IReadOnlyList<MessagingFixtureCapabilityProof> CapabilityProofs,
     IReadOnlyList<MessagingFixtureEntityIdentity> EntityIdentities,
     MessagingFixtureObservations Observations,
-    MessagingFixtureCleanupReceipt CleanupReceipt);
+    MessagingFixtureCleanupReceipt CleanupReceipt,
+    object TemporalObservation);
 
 public sealed class MessagingFixtureSeeder(
     IMessageCommandService commands,
@@ -128,6 +130,7 @@ public sealed class MessagingFixtureSeeder(
     MessageCacheService cache,
     NotificationStreamBacklogStore backlog,
     MessageMutationOutboxWorker outboxWorker,
+    TimeProvider timeProvider,
     ISqlSugarClient db) : IMessagingFixtureSeeder
 {
     private const string ProducerId = "account-messaging";
@@ -157,7 +160,7 @@ public sealed class MessagingFixtureSeeder(
         await RequireActiveAccountsAsync([primary, secondary, empty], cancellationToken).ConfigureAwait(false);
         var adminActor = new AdminMessageActor(
             adminId,
-            request.IdentityReferences.AdminSessionAuditReference);
+            request.IdentityReferences.AdminActorAuditKey);
         string owner = BuildOwner(request.Namespace, request.RunId);
 
         var roles = new Dictionary<string, long>(StringComparer.Ordinal);
@@ -616,7 +619,17 @@ public sealed class MessagingFixtureSeeder(
                         new("redis.notification.empty", Hash("empty-stream"), false, emptyStream)
                     ]),
                 new MessagingFixtureCacheObservation(request.Namespace, cacheEntries)),
-            cleanup);
+            cleanup,
+            new
+            {
+                businessEpochUtc = timeProvider.GetUtcNow().ToString(
+                    "yyyy-MM-dd'T'HH:mm:ss.fff'Z'",
+                    CultureInfo.InvariantCulture),
+                observationBoundary = "messaging-fixture-backend-and-postgres-read-model",
+                resolvedTemporalRoleArtifactDigest = request.TemporalRoles
+                    .GetProperty("contentDigest")
+                    .GetString()
+            });
     }
 
     private async Task<ConversationDetailResponse> CreateAdminReplyConversationAsync(
@@ -758,7 +771,11 @@ public sealed class MessagingFixtureSeeder(
             || temporalShapeId.GetString() != "auth-security-messaging-account-lifecycle"
             || !request.TemporalRoles.TryGetProperty("contentDigest", out JsonElement temporalDigest)
             || !StringHasSha256Digest(temporalDigest.GetString())
-            || !StringHasSha256Digest(request.IdentityReferences.SourceReceiptDigest))
+            || !StringHasSha256Digest(request.IdentityReferences.AdminActorAuditKey)
+            || !StringHasHexDigest(request.IdentityReferences.IdentityProducerResultDigest)
+            || request.IdentityReferences.PrepareReferenceDigests is not { Count: 4 }
+            || request.IdentityReferences.PrepareReferenceDigests.Any(static digest => !StringHasHexDigest(digest))
+            || request.IdentityReferences.PrepareReferenceDigests.Distinct(StringComparer.Ordinal).Count() != 4)
         {
             throw new InvalidOperationException("Messaging fixture plan identity or temporal binding is invalid.");
         }
@@ -807,4 +824,8 @@ public sealed class MessagingFixtureSeeder(
     private static bool StringHasSha256Digest(string? value)
         => value is { Length: 71 } && value.StartsWith("sha256:", StringComparison.Ordinal)
             && value.AsSpan(7).IndexOfAnyExcept("0123456789abcdef") < 0;
+
+    private static bool StringHasHexDigest(string? value)
+        => value is { Length: 64 }
+            && value.AsSpan().IndexOfAnyExcept("0123456789abcdef") < 0;
 }

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 import {
@@ -9,6 +10,7 @@ import {
     buildMessagingFixturePlan,
     cleanupAccountMessaging,
     prepareAccountMessaging,
+    resolveMessagingIdentityReferences,
     verifyAccountMessaging
 } from '../../tools/test-fixtures/producers/account-messaging-producer.mjs';
 
@@ -31,33 +33,100 @@ const temporalResolver = Object.freeze({
     resolveTemporalRoles: async () => temporalArtifact,
     verifyResolvedTemporalArtifact: async (artifact) => ({ ok: artifact === temporalArtifact })
 });
-const identityReferences = Object.freeze({
-    schema: 'fsusblog.fixture-identity-references.v1',
-    sourceReceiptDigest: digest('c'),
-    roles: {
-        'primary-recipient': { accountId: 101 },
-        'secondary-recipient': { accountId: 102 },
-        'empty-recipient': { accountId: 103 },
-        admin: { adminId: 7, sessionAuditReference: 'sha256-admin-session-audit' }
-    }
-});
+const stableHexDigest = (value) => createHash('sha256')
+    .update(JSON.stringify(value), 'utf8')
+    .digest('hex');
+
+function authSessionResult(runId = 'message-test-run', namespace = 'message-test-ns')
+{
+    const producerResultDigest = 'c'.repeat(64);
+    const specs = [
+        ['primary-recipient', 'auth.user.active', '101'],
+        ['secondary-recipient', 'auth.user.active', '102'],
+        ['empty-recipient', 'auth.user.active', '103'],
+        ['admin', 'auth.admin.full-permission', '7']
+    ];
+    const identityPrepareReferences = specs.map(([role, capabilityId, publicId]) =>
+    {
+        const body = {
+            schema: 'fsusblog.fixture-identity-prepare-reference.v1',
+            verified: false,
+            ownerProducerId: 'auth-session',
+            consumerProducerId: 'account-messaging',
+            runId,
+            namespace,
+            profileId: 'account-messaging',
+            role,
+            semanticRole: `consumer.account-messaging.${role}`,
+            capabilityId,
+            publicId,
+            fixtureIdentity: `fixture-${role}`,
+            producerResultDigest,
+            planDigests: {
+                authSessionPlanDigest: 'a'.repeat(64),
+                catalogDigest: 'b'.repeat(64),
+                fixtureVariantPlanDigest: 'c'.repeat(64),
+                producerVariantPlanDigest: 'd'.repeat(64)
+            }
+        };
+        return Object.freeze({ ...body, digest: stableHexDigest(body) });
+    });
+    return Object.freeze({
+        producerId: 'auth-session',
+        producerResultDigest,
+        identityPrepareReferences: Object.freeze(identityPrepareReferences)
+    });
+}
+
+function authSessionReceipt(result)
+{
+    return Object.freeze({
+        schema: 'fsusblog.fixture-producer-receipt.v1',
+        producerId: 'auth-session',
+        producerReceiptDigest: `sha256:${'e'.repeat(64)}`,
+        runId: result.identityPrepareReferences[0].runId,
+        namespace: result.identityPrepareReferences[0].namespace,
+        profileId: result.identityPrepareReferences[0].profileId,
+        observations: {
+            database: {
+                entities: result.identityPrepareReferences.map((item) => ({
+                    semanticRole: item.semanticRole,
+                    id: item.publicId
+                }))
+            }
+        }
+    });
+}
 
 function baseContext(adapter)
 {
+    const identityResult = authSessionResult();
     return {
         namespace: 'message-test-ns',
         runIdentity: 'message-test-run',
         plan: {
             capabilities: ['messages.thread', 'notifications.unread']
         },
+        variantPlan: {
+            producerId: 'account-messaging',
+            producerVariantPlanDigest: digest('variant-plan'),
+            variants: [
+                { id: 'canonical.messages.thread', capabilityId: 'messages.thread' },
+                { id: 'canonical.notifications.unread', capabilityId: 'notifications.unread' }
+            ]
+        },
+        profileIdentity: {
+            profileId: 'account-messaging'
+        },
         temporalContext: {
             schema: 'fsusblog.temporal-context.v1',
             digest: digest('d')
         },
         producerOutputs: {
-            'auth-session': {
-                identityReferences
-            }
+            'auth-session': identityResult
+        },
+        producerReceipts: {
+            'auth-session': authSessionReceipt(identityResult)
         },
         handles: {
             accountMessagingAdapter: adapter
@@ -115,14 +184,7 @@ test('account-messaging builds a full deterministic matrix from legacy coarse ca
 {
     const context = baseContext(null);
     const plan = buildMessagingFixturePlan(context, {
-        identityReferences: {
-            primaryRecipientId: '101',
-            secondaryRecipientId: '102',
-            emptyRecipientId: '103',
-            adminId: '7',
-            adminSessionAuditReference: 'sha256-admin-session-audit',
-            sourceReceiptDigest: digest('c')
-        },
+        identityReferences: resolveMessagingIdentityReferences(context),
         temporalRoles: temporalArtifact
     });
     assert.equal(plan.capabilities.length, 13);
@@ -146,11 +208,12 @@ test('account-messaging prepares, independently verifies, and exactly cleans own
     assert.equal(result.capabilities.length, 13);
     assert.equal(result.capabilityProofs.length, 13);
     assert.match(result.contentDigest, /^sha256:[a-f0-9]{64}$/u);
-    assert.deepEqual(await verifyAccountMessaging(context, result), {
-        ok: true,
-        producerId: 'account-messaging',
-        warnings: []
-    });
+    const verification = await verifyAccountMessaging(context, result);
+    assert.equal(verification.ok, true);
+    assert.equal(verification.producerId, 'account-messaging');
+    assert.equal(verification.identitySourceReceiptDigest, `sha256:${'e'.repeat(64)}`);
+    assert.match(verification.identityReferencesDigest, /^[a-f0-9]{64}$/u);
+    assert.deepEqual(verification.warnings, []);
     await cleanupAccountMessaging(context, result);
     assert.deepEqual(cleaned.ownedEntityIds, ['7001', '8001']);
 });
@@ -206,6 +269,9 @@ test('account-messaging reruns idempotently and parallel namespaces clean only r
         });
         context.namespace = `message-test-${suffix}`;
         context.runIdentity = `message-run-${suffix}`;
+        const identityResult = authSessionResult(context.runIdentity, context.namespace);
+        context.producerOutputs['auth-session'] = identityResult;
+        context.producerReceipts['auth-session'] = authSessionReceipt(identityResult);
         return context;
     };
     const contextA = makeContext('a');
@@ -252,12 +318,19 @@ test('account-messaging rejects projection mismatch, payload leaks, and duplicat
     );
 
     const duplicateIdentityContext = baseContext(null);
-    duplicateIdentityContext.producerOutputs['auth-session'].identityReferences = {
-        ...identityReferences,
-        roles: {
-            ...identityReferences.roles,
-            'empty-recipient': { accountId: 101 }
-        }
+    const duplicateResult = duplicateIdentityContext.producerOutputs['auth-session'];
+    duplicateIdentityContext.producerOutputs['auth-session'] = {
+        ...duplicateResult,
+        identityPrepareReferences: duplicateResult.identityPrepareReferences.map((item) =>
+        {
+            if (item.role !== 'empty-recipient')
+            {
+                return item;
+            }
+            const { digest: _digest, ...body } = item;
+            const changed = { ...body, publicId: '101' };
+            return { ...changed, digest: stableHexDigest(changed) };
+        })
     };
     await assert.rejects(
         prepareAccountMessaging(duplicateIdentityContext, undefined, { temporalResolver }),

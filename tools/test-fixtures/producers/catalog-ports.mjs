@@ -481,6 +481,32 @@ export function createAccountMessagingPort(catalogs = readFixtureCatalogs())
 {
     const producer = catalogProducer('account-messaging', catalogs);
     return basePort(producer, {
+        identityRoleRequests: [
+            {
+                ownerProducerId: 'auth-session',
+                consumerProducerId: 'account-messaging',
+                role: 'admin',
+                capabilityId: 'auth.admin.full-permission'
+            },
+            {
+                ownerProducerId: 'auth-session',
+                consumerProducerId: 'account-messaging',
+                role: 'empty-recipient',
+                capabilityId: 'auth.user.active'
+            },
+            {
+                ownerProducerId: 'auth-session',
+                consumerProducerId: 'account-messaging',
+                role: 'primary-recipient',
+                capabilityId: 'auth.user.active'
+            },
+            {
+                ownerProducerId: 'auth-session',
+                consumerProducerId: 'account-messaging',
+                role: 'secondary-recipient',
+                capabilityId: 'auth.user.active'
+            }
+        ],
         async prepare(context, signal)
         {
             requireConsumedProducerOutputs(producer, context);

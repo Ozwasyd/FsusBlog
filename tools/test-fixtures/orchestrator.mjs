@@ -638,7 +638,8 @@ export async function verify(prepareState, injectedVerifiers = {}, {
     catalogs = readFixtureCatalogs(),
     signal = undefined,
     serviceIdentity = null,
-    outputArtifacts = []
+    outputArtifacts = [],
+    handles = null
 } = {})
 {
     if (!prepareState || prepareState.schema !== FIXTURE_PREPARE_STATE_SCHEMA)
@@ -668,6 +669,10 @@ export async function verify(prepareState, injectedVerifiers = {}, {
     const sealedProducerReceipts = [];
     const sealedProducerReceiptsById = {};
     const portPostconditions = [];
+    const verifierHandles = Object.freeze({
+        ...(planDocument.executionIdentity?.handles ?? {}),
+        ...(handles ?? {})
+    });
 
     try
     {
@@ -713,7 +718,7 @@ export async function verify(prepareState, injectedVerifiers = {}, {
                 sourceIdentity: planDocument.executionIdentity?.sourceIdentity,
                 profileIdentity: planDocument.profileIdentity,
                 producerOutputs: prepareState.producerOutputs,
-                handles: planDocument.executionIdentity?.handles,
+                handles: verifierHandles,
                 catalogs,
                 temporalContext: temporalContextForProducer(planDocument, producerId),
                 producerReceipts: sealedProducerReceiptsById

@@ -17,13 +17,15 @@
                 "preferences.locale-fixed"
             ],
             "consumes": [
+                "auth.admin.full-permission",
                 "auth.user.active"
             ],
             "stateDomains": [
                 "fixture.auth-identities",
                 "postgres.auth",
                 "postgres.settings",
-                "redis.notification"
+                "redis.notification",
+                "redis.session"
             ],
             "receiptPostconditions": [
                 "locale-auto",

@@ -461,7 +461,7 @@ test('account-messaging cutover refuses structural preparation without verified 
     });
     await assert.rejects(
         () => port.prepare(context),
-        /requires #1713 verified identity references/u
+        /requires #1713 exact auth-session prepare references/u
     );
 });
 
@@ -513,9 +513,14 @@ test('matrix sealed digests fail closed on catalog drift', () =>
 test('verify and cleanup succeed for prepared mock plan with observations', async () =>
 {
     const planned = plan({ profileId: 'auth-basic', profileSource: 'dev-cli' });
+    const privateHandles = { localAuthFixtureSecret: 'private-runtime-only' };
+    let prepareSecret = null;
+    let verifySecret = null;
     const ports = portsForPlan(planned, {
         'auth-session': {
-            onPrepare: async () => ({
+            onPrepare: async (context) => {
+                prepareSecret = context.handles.localAuthFixtureSecret;
+                return ({
                 ok: true,
                 producerId: 'auth-session',
                 strategy: 'transaction-fixture',
@@ -566,14 +571,24 @@ test('verify and cleanup succeed for prepared mock plan with observations', asyn
                     },
                     cache: { namespace: null, entries: [] }
                 }
-            })
+            });
+            },
+            onVerify: async (context) =>
+            {
+                verifySecret = context.handles.localAuthFixtureSecret;
+                return { ok: true, producerId: 'auth-session' };
+            }
         }
     });
-    const prepared = await prepare(planned, ports);
+    const prepared = await prepare(planned, ports, undefined, { handles: privateHandles });
     assert.equal(prepared.schema, 'fsusblog.fixture-prepare-state.v1');
     assert.equal(prepared.terminalState, 'prepared');
     assert.deepEqual(prepared.producerReceipts, []);
-    const verified = await verify(prepared, ports);
+    assert.equal(prepareSecret, privateHandles.localAuthFixtureSecret);
+    assert.doesNotMatch(JSON.stringify(prepared), /private-runtime-only/u);
+    const verified = await verify(prepared, ports, { handles: privateHandles });
+    assert.equal(verifySecret, privateHandles.localAuthFixtureSecret);
+    assert.doesNotMatch(JSON.stringify(verified), /private-runtime-only/u);
     assert.equal(verified.schema, 'fsusblog.fixture-receipt.v2');
     assert.equal(verified.terminalStatus, 'verified');
     assert.ok(verified.receiptDigest.startsWith('sha256:'));

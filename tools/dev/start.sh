@@ -16,7 +16,7 @@ CLEANUP=0
 
 Usage() {
     cat <<'USAGE'
-Usage: tools/dev/start.sh [--fixture-profile none|demo-public|acceptance-representative] [--no-install] [--cleanup]
+Usage: tools/dev/start.sh [--fixture-profile <catalog-id>] [--no-install] [--cleanup]
 
 Starts the public-preview development stack:
   - PostgreSQL and Redis through ops/development/dependencies.compose.yml
@@ -26,6 +26,7 @@ Starts the public-preview development stack:
 Fixture profile (catalog id; default none):
   none                       Zero business/auth/session/security mutation after schema start.
   demo-public                Apply development demo dataset only.
+  account-messaging          Prepare and verify auth/message/notification fixtures.
   acceptance-representative  Prepare local auth/public representative fixtures.
 
 Options:
@@ -169,6 +170,41 @@ SOURCE_IDENTITY_JSON="$(
 SOURCE_COMMIT="$(node -e 'const p=JSON.parse(process.argv[1]); process.stdout.write(p.commit)' "$SOURCE_IDENTITY_JSON")"
 SOURCE_FINGERPRINT="$(node -e 'const p=JSON.parse(process.argv[1]); process.stdout.write(p.worktreeFingerprint)' "$SOURCE_IDENTITY_JSON")"
 
+if [[ ",${PRODUCER_IDS}," == *",auth-session,"* ]]; then
+    if [[ -z "${FSUSBLOG_TEMPORAL_CONTEXT_JSON:-}" ]]; then
+        FSUSBLOG_TEMPORAL_CONTEXT_JSON="$(
+            SOURCE_COMMIT="$SOURCE_COMMIT" \
+            SOURCE_FINGERPRINT="$SOURCE_FINGERPRINT" \
+            DEV_RUN_ID="$DEV_RUN_ID" \
+            node --input-type=module -e '
+                import {
+                    defaultTimeoutPolicyDigest,
+                    qualificationTemporalContext
+                } from "./tools/test/temporal-context.mjs";
+                process.stdout.write(JSON.stringify(qualificationTemporalContext({
+                    sourceCommit: process.env.SOURCE_COMMIT,
+                    sourceFingerprint: process.env.SOURCE_FINGERPRINT,
+                    producerId: "auth-session",
+                    schedulerRunId: process.env.DEV_RUN_ID,
+                    businessEpochUtc: "2042-05-17T09:30:00.000Z",
+                    locale: "en-US",
+                    uiLocale: "en-US",
+                    timeoutPolicyDigest: defaultTimeoutPolicyDigest()
+                })));
+            '
+        )"
+        export FSUSBLOG_TEMPORAL_CONTEXT_JSON
+    fi
+    export FSUSBLOG_TEST_BUSINESS_EPOCH_UTC="$(
+        node -e 'const value=JSON.parse(process.argv[1]); process.stdout.write(value.businessEpochUtc)' \
+            "$FSUSBLOG_TEMPORAL_CONTEXT_JSON"
+    )"
+    export TZ="$(
+        node -e 'const value=JSON.parse(process.argv[1]); process.stdout.write(value.nodeTimezone)' \
+            "$FSUSBLOG_TEMPORAL_CONTEXT_JSON"
+    )"
+fi
+
 DEMO_TRANSITION_ACTION="none"
 DEMO_TRANSITION_REASON="no-previous-demo-receipt"
 if [[ -f "$DEMO_FIXTURE_RECEIPT" ]]; then
@@ -242,10 +278,12 @@ if [[ "$REQUIRES_LOCAL_AUTH" == "1" ]]; then
     export fsus__allowLocalAuthFixture=true
     LOCAL_AUTH_FIXTURE_SECRET="${FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET:-${fsus__localAuthFixtureSecret:-local-development-auth-fixture-secret-change-before-shared-use-2026}}"
     export fsus__localAuthFixtureSecret="$LOCAL_AUTH_FIXTURE_SECRET"
+    export FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET="$LOCAL_AUTH_FIXTURE_SECRET"
     export VITE_FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET="$LOCAL_AUTH_FIXTURE_SECRET"
 else
     export fsus__allowLocalAuthFixture=false
     unset fsus__localAuthFixtureSecret || true
+    unset FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET || true
     unset VITE_FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET || true
 fi
 
@@ -327,7 +365,8 @@ if [[ "$DEMO_TRANSITION_ACTION" == "cleanup" ]]; then
 fi
 
 echo "[dev-start] invoking unique fixture orchestrator for profile ${PROFILE_ID}..."
-# The none and demo-public profiles publish verified FixtureReceipts. A repeated
+# The none, demo-public, and closed account-messaging profiles publish verified
+# FixtureReceipts. A repeated
 # demo-public run first cleans the exact identities sealed by its prior receipt.
 DEV_FIXTURE_ARGS=(
     run
@@ -353,7 +392,7 @@ if [[ "$PROFILE_ID" == "demo-public" ]]; then
     fi
 fi
 FIXTURE_RECEIPT_PUBLISHED=0
-if [[ "$PROFILE_ID" == "none" || "$PROFILE_ID" == "demo-public" ]]; then
+if [[ "$PROFILE_ID" == "none" || "$PROFILE_ID" == "demo-public" || "$PROFILE_ID" == "account-messaging" ]]; then
     DEV_FIXTURE_ARGS+=(--fixture-receipt "$FIXTURE_RECEIPT")
     FIXTURE_RECEIPT_PUBLISHED=1
 else

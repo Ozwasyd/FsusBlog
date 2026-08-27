@@ -28,10 +28,10 @@
         {
             "id": "account-messaging",
             "capabilities": [
+                "auth.admin.full-permission",
                 "auth.user.active",
                 "messages.thread",
-                "notifications.unread",
-                "preferences.locale-fixed"
+                "notifications.unread"
             ],
             "allowedExecutionClasses": [
                 "browser",

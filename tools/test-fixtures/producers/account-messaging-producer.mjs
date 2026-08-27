@@ -6,6 +6,7 @@ import {
     digestMessagingFixtureValue,
     readMessagingFixtureContract
 } from '../../test/messaging-fixture-contract.mjs';
+import { projectVerifiedIdentityReferences } from './auth-session-producer.mjs';
 
 const PRODUCER_ID = 'account-messaging';
 const STRATEGY = 'transaction-fixture';
@@ -64,29 +65,68 @@ function positiveIdentity(value, label)
 
 export function resolveMessagingIdentityReferences(context)
 {
-    const source = context?.handles?.messagingIdentityReferences
-        ?? context?.producerOutputs?.['auth-session']?.identityReferences
-        ?? null;
-    if (!source || source.schema !== 'fsusblog.fixture-identity-references.v1')
+    const source = context?.producerOutputs?.['auth-session'] ?? null;
+    if (!source
+        || source.producerId !== 'auth-session'
+        || !/^[a-f0-9]{64}$/u.test(String(source.producerResultDigest ?? ''))
+        || !Array.isArray(source.identityPrepareReferences))
     {
-        throw new Error('account-messaging requires #1713 verified identity references');
+        throw new Error('account-messaging requires #1713 exact auth-session prepare references');
     }
-    if (!digestPattern.test(String(source.sourceReceiptDigest ?? '')))
-    {
-        throw new Error('account-messaging identity references are not bound to a verified receipt');
-    }
-    const refs = Object.freeze({
-        primaryRecipientId: positiveIdentity(source.roles?.['primary-recipient']?.accountId, 'primary recipient'),
-        secondaryRecipientId: positiveIdentity(source.roles?.['secondary-recipient']?.accountId, 'secondary recipient'),
-        emptyRecipientId: positiveIdentity(source.roles?.['empty-recipient']?.accountId, 'empty recipient'),
-        adminId: positiveIdentity(source.roles?.admin?.adminId, 'admin principal'),
-        adminSessionAuditReference: String(source.roles?.admin?.sessionAuditReference ?? '').trim(),
-        sourceReceiptDigest: source.sourceReceiptDigest
+    const references = source.identityPrepareReferences
+        .filter((item) => item?.consumerProducerId === PRODUCER_ID);
+    const expected = Object.freeze({
+        'primary-recipient': 'auth.user.active',
+        'secondary-recipient': 'auth.user.active',
+        'empty-recipient': 'auth.user.active',
+        admin: 'auth.admin.full-permission'
     });
-    if (!refs.adminSessionAuditReference || refs.adminSessionAuditReference.length > 128)
+    if (references.length !== Object.keys(expected).length)
     {
-        throw new Error('account-messaging requires a controlled admin session audit reference');
+        throw new Error('account-messaging identity prepare reference roles are missing or orphaned');
     }
+    const byRole = new Map();
+    for (const item of references)
+    {
+        const { digest, ...body } = item ?? {};
+        if (item?.schema !== 'fsusblog.fixture-identity-prepare-reference.v1'
+            || item.verified !== false
+            || item.ownerProducerId !== 'auth-session'
+            || item.runId !== context.runIdentity
+            || item.namespace !== context.namespace
+            || item.profileId !== context.profileIdentity?.profileId
+            || item.capabilityId !== expected[item.role]
+            || item.producerResultDigest !== source.producerResultDigest
+            || !/^[a-f0-9]{64}$/u.test(String(digest ?? ''))
+            || digest !== createHash('sha256').update(JSON.stringify(body), 'utf8').digest('hex')
+            || !String(item.fixtureIdentity ?? '').trim()
+            || byRole.has(item.role))
+        {
+            throw new Error(`account-messaging identity prepare reference ${item?.role ?? '<missing>'} is invalid`);
+        }
+        byRole.set(item.role, item);
+    }
+    if ([...Object.keys(expected)].some((role) => !byRole.has(role)))
+    {
+        throw new Error('account-messaging identity prepare reference roles are not exact');
+    }
+    const primary = byRole.get('primary-recipient');
+    const secondary = byRole.get('secondary-recipient');
+    const empty = byRole.get('empty-recipient');
+    const admin = byRole.get('admin');
+    const refs = Object.freeze({
+        primaryRecipientId: positiveIdentity(primary.publicId, 'primary recipient'),
+        secondaryRecipientId: positiveIdentity(secondary.publicId, 'secondary recipient'),
+        emptyRecipientId: positiveIdentity(empty.publicId, 'empty recipient'),
+        adminId: positiveIdentity(admin.publicId, 'admin principal'),
+        adminActorAuditKey: contentDigest([
+            'account-messaging-admin-actor-v1',
+            admin.fixtureIdentity,
+            admin.digest
+        ].join('\0')),
+        identityProducerResultDigest: source.producerResultDigest,
+        prepareReferenceDigests: Object.freeze(references.map((item) => item.digest).sort())
+    });
     if (new Set([
         refs.primaryRecipientId,
         refs.secondaryRecipientId,
@@ -213,6 +253,40 @@ function normalizeObservations(raw, context)
         }
     }
     return observations;
+}
+
+function bindTypedVariants(context, entityIdentities, observations)
+{
+    const variants = context?.variantPlan?.variants;
+    if (!Array.isArray(variants))
+    {
+        throw new Error('account-messaging requires its sealed typed variant plan');
+    }
+    const byCapability = new Map(variants.map((item) => [item.capabilityId, item.id]));
+    const variantFor = (entity) =>
+    {
+        const capabilityId = entity?.kind === 'notification-cursor'
+            ? 'notifications.unread'
+            : ['message', 'recipient', 'thread'].includes(entity?.kind)
+        ? 'messages.thread'
+        : null;
+        const variantId = capabilityId ? byCapability.get(capabilityId) : null;
+        if (!variantId)
+        {
+            throw new Error(`account-messaging entity ${entity?.kind ?? '<missing>'} has no planned capability variant`);
+        }
+        return Object.freeze({ ...entity, variantId });
+    };
+    return Object.freeze({
+        entityIdentities: Object.freeze(entityIdentities.map(variantFor)),
+        observations: Object.freeze({
+            ...observations,
+            database: Object.freeze({
+                ...observations.database,
+                entities: Object.freeze(observations.database.entities.map(variantFor))
+            })
+        })
+    });
 }
 
 function contentDigest(value)
@@ -342,6 +416,7 @@ export async function prepareAccountMessaging(context, signal, { temporalResolve
     {
         throw new Error('account-messaging did not return receipt-owned entity identities');
     }
+    const typed = bindTypedVariants(context, entityIdentities, observations);
     const result = {
         producerId: PRODUCER_ID,
         strategy: STRATEGY,
@@ -351,21 +426,23 @@ export async function prepareAccountMessaging(context, signal, { temporalResolve
         planDigest: plan.planDigest,
         inventoryDigest: plan.inventoryDigest,
         ownershipDigest: plan.ownershipDigest,
-        identitySourceReceiptDigest: identityReferences.sourceReceiptDigest,
+        identityProducerResultDigest: identityReferences.identityProducerResultDigest,
+        identityPrepareReferenceDigests: identityReferences.prepareReferenceDigests,
         temporalRoleArtifactDigest: temporalRoles.contentDigest,
         capabilities: plan.capabilities,
         capabilityProofs,
-        entityIdentities,
-        observations,
-        databaseObservation: observations.database,
+        entityIdentities: typed.entityIdentities,
+        observations: typed.observations,
+        databaseObservation: typed.observations.database,
         redisObservation: observations.redis,
         cacheObservation: observations.cache,
+        temporalObservation: raw.temporalObservation ?? raw.TemporalObservation ?? null,
         cleanupReceipt: raw.cleanupReceipt,
         contentDigest: contentDigest(JSON.stringify({
             planDigest: plan.planDigest,
             capabilityProofs,
-            entityIdentities,
-            observations,
+            entityIdentities: typed.entityIdentities,
+            observations: typed.observations,
             cleanupReceipt: raw.cleanupReceipt
         })),
         postconditions: []
@@ -382,6 +459,22 @@ export async function verifyAccountMessaging(context, producerResult)
     }
     try
     {
+        const authSessionResult = context.producerOutputs?.['auth-session'];
+        const authSessionReceipt = context.producerReceipts?.['auth-session'];
+        const verifiedIdentities = projectVerifiedIdentityReferences({
+            producerResult: authSessionResult,
+            producerReceipt: authSessionReceipt,
+            consumerProducerId: PRODUCER_ID
+        });
+        const verifiedPrepareDigests = verifiedIdentities.references
+            .map((item) => item.prepareReferenceDigest)
+            .sort();
+        if (producerResult.identityProducerResultDigest !== authSessionResult?.producerResultDigest
+            || JSON.stringify(producerResult.identityPrepareReferenceDigests)
+                !== JSON.stringify(verifiedPrepareDigests))
+        {
+            throw new Error('messaging identity prepare references do not bind the sealed auth-session receipt');
+        }
         const contract = readMessagingFixtureContract();
         if (producerResult.inventoryDigest !== contract.inventoryDigest
             || producerResult.ownershipDigest !== contract.ownershipDigest)
@@ -400,7 +493,13 @@ export async function verifyAccountMessaging(context, producerResult)
                 throw new Error(verification?.reason ?? 'independent adapter verification failed');
             }
         }
-        return { ok: true, producerId: PRODUCER_ID, warnings: [] };
+        return {
+            ok: true,
+            producerId: PRODUCER_ID,
+            identitySourceReceiptDigest: verifiedIdentities.sourceReceiptDigest,
+            identityReferencesDigest: verifiedIdentities.digest,
+            warnings: []
+        };
     }
     catch (error)
     {

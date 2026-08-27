@@ -21,8 +21,14 @@ public sealed class MessagingFixtureTransportContractTests
             "secondaryRecipientId": "102",
             "emptyRecipientId": "103",
             "adminId": "7",
-            "adminSessionAuditReference": "admin-audit-reference",
-            "sourceReceiptDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+            "adminActorAuditKey": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "identityProducerResultDigest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "prepareReferenceDigests": [
+              "1111111111111111111111111111111111111111111111111111111111111111",
+              "2222222222222222222222222222222222222222222222222222222222222222",
+              "3333333333333333333333333333333333333333333333333333333333333333",
+              "4444444444444444444444444444444444444444444444444444444444444444"
+            ]
           },
           "semanticRoles": [],
           "temporalRoles": {
@@ -51,7 +57,7 @@ public sealed class MessagingFixtureTransportContractTests
     }
 
     [Fact]
-    public void MessagingPlan_BindsVerifiedIdentityAndTemporalArtifacts()
+    public void MessagingPlan_BindsPrepareIdentityAndTemporalArtifacts()
     {
         MessagingFixturePlan? plan = JsonSerializer.Deserialize<MessagingFixturePlan>(
             ValidPlan,
