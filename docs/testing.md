@@ -1416,6 +1416,8 @@ generatedSectionId: testing.tiers
 render: enum-set
 -->
 
+Mutation qualification authority 生成的 Stryker config 固定 `concurrency: 1`，避免 Docker/PostgreSQL lease 测试的主机争用被误记为不相干 mutant 的 kill；该 physical topology 由 config digest 与 independent verifier 封存，不得在执行时放宽。
+
 <!-- FSUSBLOG-GENERATED:BEGIN testing.tiers -->
 - `acceptance`
 - `aeds-compression-profile`

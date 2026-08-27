@@ -259,6 +259,7 @@ test('generated config uses binding-derived test filter and owner-derived mutate
     assert.deepEqual(generated['stryker-config']['test-projects'], ['../../tests/backend/FsusBlog.Server.Tests.csproj']);
     assert.deepEqual(generated['stryker-config'].mutate, ['Integrity/ArticleRightsCanonicalHashV1.cs']);
     assert.match(generated['stryker-config']['test-case-filter'], /ArticleRightsCanonicalHashTests/u);
+    assert.equal(generated['stryker-config'].concurrency, 1);
     assert.deepEqual(generated['stryker-config'].thresholds, { high: 85, low: 70, break: 70 });
     assert.equal(generated['stryker-config']['break-on-initial-test-failure'], true);
 });
