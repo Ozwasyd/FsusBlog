@@ -9,8 +9,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const { parseWorkflow, validateBehaviorDocStaticAdmissionTopology } = await import(new URL("../../tools/check-workflow-matrix-sync.mjs", import.meta.url));
 const { hostDeclarations, runMinimalContractBuild } = await import(new URL("../../tools/docs/behavior-doc-minimal-contract-build.mjs", import.meta.url));
-const { behaviorDocAdmissionReceiptSchema, validateBehaviorDocStaticAdmissionReceipt } = await import(new URL("../../tools/docs/behavior-doc-static-admission.mjs", import.meta.url));
+const { behaviorDocAdmissionReceiptSchema, publishFactObservationReceipts, validateBehaviorDocStaticAdmissionReceipt } = await import(new URL("../../tools/docs/behavior-doc-static-admission.mjs", import.meta.url));
 const { digestValue, sealSourceIdentity } = await import(new URL("../../tools/fact-extractors/identity.mjs", import.meta.url));
+const { buildReceipt: buildFactObservationReceipt } = await import(new URL("../../tools/fact-extractors/receipt.mjs", import.meta.url));
 const { loadRegistry } = await import(new URL("../../tools/fact-extractors/registry.mjs", import.meta.url));
 const { establishBehaviorDocAdmission, runLocalProfile } = await import(new URL("../../tools/run-test-matrix.mjs", import.meta.url));
 const { behaviorDocStaticAdmissionTierId, localBehaviorDocCandidateBundleIds, validateBehaviorDocStaticAdmissionMatrix } = await import(new URL("../../tools/test-matrix/behavior-doc-static-admission-contract.mjs", import.meta.url));
@@ -382,6 +383,55 @@ test('sealed receipt rejects every fail-open static result and candidate spawn',
         () => validateBehaviorDocStaticAdmissionReceipt(tampered, expected),
         /content digest mismatch/u
     );
+});
+
+test('fact observations can be published before generated-section admission and remain source-bound', (t) =>
+{
+    const outputDirectory = tempDirectory('behavior-doc-observations');
+    t.after(() => fs.rmSync(outputDirectory, { recursive: true, force: true }));
+    const sourceIdentity = {
+        sourceCommit: 'a'.repeat(40),
+        worktreeFingerprint: 'b'.repeat(64)
+    };
+    const observation = (extractorId, source = sourceIdentity) => buildFactObservationReceipt({
+        extractorId,
+        behaviorIds: ['behavior-contract'],
+        sourceCommit: source.sourceCommit,
+        worktreeFingerprint: source.worktreeFingerprint,
+        extractorDigest: 'c'.repeat(64),
+        registryDigest: 'd'.repeat(64),
+        consumedInputDigests: [{ path: 'source.json', digest: 'e'.repeat(64) }],
+        observations: { state: 'current' },
+        status: 'ok'
+    });
+    const receipts = [observation('first-extractor'), observation('second-extractor')];
+    const files = publishFactObservationReceipts({
+        outputDirectory,
+        receipts,
+        sourceIdentity,
+        repositoryRoot: root
+    });
+    assert.deepEqual(
+        files.map((file) => path.basename(file)),
+        ['first-extractor.json', 'second-extractor.json']
+    );
+    assert.deepEqual(JSON.parse(fs.readFileSync(files[0], 'utf8')), receipts[0]);
+
+    const rejectedDirectory = path.join(outputDirectory, 'rejected');
+    const stale = observation('stale-extractor', {
+        ...sourceIdentity,
+        worktreeFingerprint: 'f'.repeat(64)
+    });
+    assert.throws(
+        () => publishFactObservationReceipts({
+            outputDirectory: rejectedDirectory,
+            receipts: [observation('accepted-first'), stale],
+            sourceIdentity,
+            repositoryRoot: root
+        }),
+        /does not match current worktree/u
+    );
+    assert.equal(fs.existsSync(rejectedDirectory), false);
 });
 
 test('minimal contract build uses only a content-addressed root and never ambient bin output', (t) =>
