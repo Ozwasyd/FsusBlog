@@ -90,6 +90,17 @@ import {
 import { wrapTaskScopedMeasurementCommand } from './measurement-step-command.mjs';
 import { readRuntimeEnvironment } from './runtime-environment.mjs';
 import { writeBundleSummaryAtomically } from './terminal-summary.mjs';
+import {
+    assertRuntimeAuthorityUnchanged,
+    loadRuntimeStateAuthority
+} from '../../test-runtime/catalog.mjs';
+import { createStateConflictPolicy } from '../../test-runtime/state-conflict.mjs';
+import {
+    orderStepsByPlan,
+    runtimeStepCatalogDigest,
+    validateRuntimeSchedulePlan
+} from '../../test-runtime/schedule-plan.mjs';
+import { validateRuntimeExecutionSessionReceipt } from '../../test-runtime/runtime-execution-session.mjs';
 
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -99,6 +110,14 @@ const finalizeExisting = process.argv.includes('--finalize-existing');
 const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
 const profile = matrix.localProfiles?.[profileId];
 const bundle = profile?.bundles?.find((entry) => entry.id === bundleId);
+const runtimeStateAuthority = bundleId === 'runtime-browser'
+    ? loadRuntimeStateAuthority()
+    : null;
+const runtimeStateConflictPolicy = runtimeStateAuthority
+    ? createStateConflictPolicy(runtimeStateAuthority, {
+      assertCurrent: () => assertRuntimeAuthorityUnchanged(runtimeStateAuthority)
+    })
+    : null;
 const matrixTiers = new Map(matrix.tiers.map((tier) => [tier.id, tier]));
 const productionFreshOutputRoot = String(process.env.FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT ?? '').trim();
 const runOutputRoot = productionFreshOutputRoot ? path.resolve(productionFreshOutputRoot) : null;
@@ -278,6 +297,8 @@ let performanceDeadlineEvidence = null;
 let finalizedResourceUtilization = null;
 let frontendPerfAdmissionEvidence = null;
 let schedulerTerminalReceipts = {};
+let runtimeScheduleExecution = null;
+let runtimeScheduleControl = null;
 
 if (!bundleId || !bundle)
 {
@@ -1915,11 +1936,50 @@ function bundleDagCapacityForSteps(steps)
     const stepExclusiveResources = steps.flatMap((entry) => entry.resources?.exclusiveResources ?? []);
     return {
         ...capacity,
+        ...(runtimeScheduleControl
+            ? { maxParallel: Math.min(capacity.maxParallel, runtimeScheduleControl.plan.concurrencyCap) }
+            : {}),
         exclusiveResources: [...new Set([
             ...(capacity.exclusiveResources ?? []),
             ...stepExclusiveResources
-        ])]
+        ])],
+        ...(runtimeStateConflictPolicy ? { stateConflictPolicy: runtimeStateConflictPolicy } : {})
     };
+}
+
+function resolveRuntimeScheduleControl(steps)
+{
+    const planFile = String(process.env.FSUSBLOG_RUNTIME_SCHEDULE_PLAN ?? '').trim();
+    if (!planFile)
+    {
+        return null;
+    }
+    const sessionReceiptFile = String(process.env.FSUSBLOG_RUNTIME_SESSION_RECEIPT ?? '').trim();
+    if (!sessionReceiptFile)
+    {
+        throw new Error('explicit runtime schedule requires a sealed RuntimeExecutionSession receipt');
+    }
+    const plan = JSON.parse(fs.readFileSync(path.resolve(planFile), 'utf8'));
+    const sessionReceipt = JSON.parse(fs.readFileSync(path.resolve(sessionReceiptFile), 'utf8'));
+    validateRuntimeExecutionSessionReceipt(sessionReceipt);
+    if (sessionReceipt.identity.runId !== schedulerRunId()
+      || sessionReceipt.identity.sourceCommit !== process.env.FSUSBLOG_TEST_SOURCE_COMMIT
+      || sessionReceipt.identity.sourceFingerprint !== process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT)
+    {
+        throw new Error('runtime schedule session receipt is stale for the current scheduler source/run');
+    }
+    validateRuntimeSchedulePlan(plan, {
+        steps,
+        allowedCaps: [...new Set([1, Math.min(2, bundleDagCapacity().maxParallel), bundleDagCapacity().maxParallel])],
+        expected: {
+            runtimeStepCatalogDigest: runtimeStepCatalogDigest(steps),
+            stateCatalogDigest: runtimeStateAuthority.catalogDigest,
+            clockDigest: sessionReceipt.identity.clockDigest,
+            replayDigest: sessionReceipt.identity.replayDigest,
+            envelopeDigest: sessionReceipt.identity.envelopeDigest
+        }
+    });
+    return { plan, sessionReceipt, planFile: path.resolve(planFile), sessionReceiptFile: path.resolve(sessionReceiptFile) };
 }
 
 function bundleDeadlineMs()
@@ -3460,12 +3520,40 @@ async function run()
     }
     else
     {
-        const steps = bundleId === 'runtime-browser' ? runtimeSteps() : performanceSteps();
+        const canonicalSteps = bundleId === 'runtime-browser' ? runtimeSteps() : performanceSteps();
+        runtimeScheduleControl = bundleId === 'runtime-browser'
+            ? resolveRuntimeScheduleControl(canonicalSteps)
+            : null;
+        const steps = runtimeScheduleControl
+            ? orderStepsByPlan(canonicalSteps, runtimeScheduleControl.plan)
+            : canonicalSteps;
+        const actualStepOrder = [];
         await executeBundleStepDag(
             steps,
             () => bundleDagCapacityForSteps(steps),
-      bundleId === 'runtime-browser' ? executeRuntimeStep : executePerformanceStep
+      bundleId === 'runtime-browser'
+          ? async (step) =>
+          {
+              actualStepOrder.push(step.id);
+              return executeRuntimeStep(step);
+          }
+          : executePerformanceStep
         );
+        if (runtimeScheduleControl)
+        {
+            if (JSON.stringify(actualStepOrder) !== JSON.stringify(runtimeScheduleControl.plan.orderedStepIds))
+            {
+                throw new Error('explicit runtime schedule planned/actual order mismatch');
+            }
+            runtimeScheduleExecution = {
+                schema: 'fsusblog.runtime-schedule-execution.v1',
+                planId: runtimeScheduleControl.plan.planId,
+                planDigest: runtimeScheduleControl.plan.contentDigest,
+                sessionId: runtimeScheduleControl.sessionReceipt.identity.sessionId,
+                concurrencyCap: runtimeScheduleControl.plan.concurrencyCap,
+                actualStepOrder
+            };
+        }
     }
 
     if (!finalizeExisting)
@@ -3583,6 +3671,7 @@ async function run()
         schedulerTerminalReceipts,
         schedulerTerminalReceiptIds: Object.keys(schedulerTerminalReceipts),
         schedulerTerminalReceiptRequired: true,
+        ...(runtimeScheduleExecution ? { runtimeScheduleExecution } : {}),
         members,
         generatedAt: new Date().toISOString()
     };

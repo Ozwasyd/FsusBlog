@@ -1,0 +1,105 @@
+# Runtime state isolation and order equivalence
+
+Production runtime correctness uses one state-access authority:
+`config/testing/runtime-state-domain-catalog.json`, backed by
+`runtime-state-domain-registry.json`. The registry also binds every domain to
+exactly one observer implementation. Scheduler code, lane scripts and fixtures
+must not keep another domain, conflict or observer table.
+
+## Execution sessions
+
+`RuntimeExecutionSession` creates a distinct current-run/current-attempt root
+and mutable handle for every required domain. Its identity includes run,
+attempt, session, source/worktree, sealed build, fixture, execution envelope,
+clock, replay and state-catalog digests. A domain adapter must implement clone,
+reset, readiness and cleanup, and every returned handle must name the current
+run, attempt, session and domain. Missing isolation, shared namespaces,
+cross-attempt receipts and root reuse fail before runtime work begins.
+
+The lifecycle journal is append-only. Creation, reset, cancellation, failure
+and cleanup do not overwrite an earlier session or delete retained evidence.
+The mutable root may be cleaned by its owner, while the lifecycle evidence is
+preserved for qualification.
+
+## Snapshots and observers
+
+`tools/test-runtime/state-snapshot.mjs` defines the fragment and aggregate
+protocol. Snapshots are required at `before-runtime`, before and after every
+mutating step, and `after-runtime`. A fragment binds the complete execution
+identity, domain, observer/version, boundary and semantic digest. The aggregate
+contains content-addressed fragment references instead of copying payloads.
+
+Canonical values distinguish null from absence, reject undefined and
+non-finite values, sort object fields, and require each domain observer to
+provide its own stable record order. PID, ephemeral ports, inode, mtime, host
+paths and wall-clock collection timestamps remain diagnostic metadata. A field
+that changes business meaning must instead be normalized through the sealed
+clock, replay or domain contract.
+
+The exact observer owners are declared by the registry and implemented under
+`tools/test-fixtures/observers/`:
+
+- PostgreSQL and Redis observers consume current-session readonly ports,
+  canonicalize complete declared rows/keys, and bind TTL to the fixed clock.
+- File-tree, auth/browser state and object-storage observers accept sealed
+  session handles only. They reject path escapes, shared namespaces, partial
+  pagination and unobservable state. Secrets use a protected, domain-separated
+  HMAC fingerprint; plaintext and fingerprint keys never enter receipts.
+- AOT generation, resolved configuration and runtime topology observers compare
+  planned and actual identities exactly. They do not select `latest`, read
+  ambient environment defaults, scan the host, repair state, restart services
+  or use tag/name/PID/port-only truth.
+
+Every observer reports side-effect counters. Any write, token refresh, repair,
+lifecycle transition or topology mutation makes the observation terminally
+invalid.
+
+## Conflict admission and reset barriers
+
+The production runtime DAG calls the pure `stateConflict(A, B)` evaluator
+before resource admission. A mutation overlapping any access, an exclusive
+domain overlap, generation invalidation overlap, or topology mutation overlap
+blocks admission. Two writers may overlap only when both catalog entries name
+the same proof and that proof is verified. The wait record includes blocker
+step, domain, access modes, rule, proof and catalog digest.
+
+State admission adds to dependency, CPU, memory, exclusive/countable resource
+and service admission. It never replaces them and does not introduce a global
+runtime lock. Catalog drift or an unknown step fails the run.
+
+A `resetBefore` or `resetAfter` command holds only its catalog-derived affected
+domains. Exit code zero is necessary but insufficient: the reset owner captures
+before/after fragments and verifies every affected-domain postcondition before
+atomically publishing the receipt and new generation. Failure, timeout,
+cancellation, observer error, stale evidence or a mismatched postcondition
+keeps the barrier closed. A retry is a new attempt and cannot hide the first
+failure.
+
+## Schedule qualification
+
+The required matrix contains canonical, fully serial, reverse-ready and five
+fixed-seed dependency-valid shuffled plans. It exercises concurrency caps one,
+two and the machine-allowed maximum. A semantically duplicate serial/cap plan
+retains its identity and a deduplication proof. Every executable plan creates a
+new session from the same immutable source, build, fixture, clock, replay,
+envelope and catalog identities.
+
+Qualification compares exact executed step and assertion IDs, structured
+outcomes, postconditions, terminal class and final semantic digest. The first
+difference fails as `runtime-state-order-dependent`; retry, skip and diagnostic
+downgrade are forbidden. At least one catalog-proven non-conflicting pair must
+overlap with cap greater than one, which rejects global serialization.
+
+The release command is:
+
+```bash
+node tools/test/run-runtime-order-equivalence.mjs \
+  --all-required-schedules \
+  --provider <current-run-production-provider.mjs>
+```
+
+The provider must expose the real production runtime executor and
+`RuntimeExecutionSession` factory. There is no synthetic fallback. Until the
+replay and execution-envelope chains provide current receipts, their digests
+remain mandatory external inputs and qualification fails closed rather than
+inventing local defaults.

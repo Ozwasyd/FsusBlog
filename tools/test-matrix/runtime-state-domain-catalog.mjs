@@ -277,6 +277,13 @@ export function validateRuntimeStateDomainCatalog(catalogPath = path.join(root, 
   if (catalog.schema !== 'fsusblog.runtime-state-domain-catalog.v1') errors.push('invalid catalog schema')
   if (registry.schema !== 'fsusblog.runtime-state-domain-registry.v1' || !sortedUnique(registry.domains)) errors.push('invalid registry')
   const known = new Set(registry.domains)
+  const observerBindings = registry.observerBindings ?? []
+  const observerDomains = observerBindings.map((binding) => binding?.domain)
+  if (observerBindings.length !== registry.domains.length
+    || new Set(observerDomains).size !== observerDomains.length
+    || JSON.stringify([...observerDomains].sort()) !== JSON.stringify(registry.domains)) {
+    errors.push('runtime state-domain observer bindings must be exact in both directions')
+  }
   const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'))
   const canonicalTestIds = new Set()
   const collectTestAuthorities = (value) => {

@@ -677,6 +677,7 @@ function selectWeightedAdmission(ready, capacity, active, freeCpuUnits, freeMemo
     const selected = [];
     const blockedByExclusiveResources = [];
     const blockedByCountedResources = [];
+    const blockedByStateConflicts = [];
     let selectedExecutableCount = 0;
     let minimumCpu = 0;
     let minimumMemoryGiB = 0;
@@ -739,6 +740,28 @@ function selectWeightedAdmission(ready, capacity, active, freeCpuUnits, freeMemo
             });
             continue;
         }
+        if (capacity.stateConflictPolicy)
+        {
+            const candidates = [
+                ...[...active.keys()].map((stepId) => ({ stepId, holderState: 'active' })),
+                ...selected.map((candidate) => ({ stepId: candidate.id, holderState: 'admission-wave' }))
+            ];
+            const blocker = candidates.map((candidate) => ({
+                ...candidate,
+                evaluation: capacity.stateConflictPolicy.evaluate(entry.id, candidate.stepId)
+            })).find((candidate) => candidate.evaluation.conflict === true);
+            if (blocker)
+            {
+                blockedByStateConflicts.push({
+                    stepId: entry.id,
+                    heldBy: blocker.stepId,
+                    holderState: blocker.holderState,
+                    catalogDigest: capacity.stateConflictPolicy.catalogDigest,
+                    conflicts: blocker.evaluation.conflicts
+                });
+                continue;
+            }
+        }
         selected.push(entry);
         selectedExecutableCount += 1;
         minimumCpu += entry.resources.minCpuUnits;
@@ -753,7 +776,7 @@ function selectWeightedAdmission(ready, capacity, active, freeCpuUnits, freeMemo
             countedUsage.set(resource, (countedUsage.get(resource) ?? 0) + amount);
         }
     }
-    return { selected, blockedByExclusiveResources, blockedByCountedResources };
+    return { selected, blockedByExclusiveResources, blockedByCountedResources, blockedByStateConflicts };
 }
 
 /**
@@ -783,6 +806,7 @@ export async function executeWeightedStepDag(steps, capacity, execute)
             memoryGiB: finitePositive(current?.memoryGiB, undefined, 'capacity.memoryGiB'),
             exclusiveResources: current?.exclusiveResources,
             countedResources: normalizeCountedResources(current?.countedResources, 'capacity.countedResources'),
+            stateConflictPolicy: current?.stateConflictPolicy ?? null,
             onWaitState: current?.onWaitState,
             signal: current?.signal
         };
@@ -801,6 +825,7 @@ export async function executeWeightedStepDag(steps, capacity, execute)
     const active = new Map();
     const reportedExclusiveWaits = new Set();
     const reportedCountedWaits = new Set();
+    const reportedStateWaits = new Set();
     let usedCpuUnits = 0;
     let usedMemoryGiB = 0;
 
@@ -877,6 +902,7 @@ export async function executeWeightedStepDag(steps, capacity, execute)
     while ([...states.values()].some((state) => ['pending', 'running'].includes(state)))
     {
         normalizedCapacity = normalizeCapacity();
+        normalizedCapacity.stateConflictPolicy?.assertCurrent?.();
         if (normalizedCapacity.signal?.aborted)
         {
             await Promise.allSettled([...active.values()].map((record) => record.promise));
@@ -939,6 +965,8 @@ export async function executeWeightedStepDag(steps, capacity, execute)
             .map((wait) => [wait.stepId, wait]));
         const countedByStep = new Map(admissionResult.blockedByCountedResources
             .map((wait) => [wait.stepId, wait]));
+        const stateByStep = new Map(admissionResult.blockedByStateConflicts
+            .map((wait) => [wait.stepId, wait]));
         for (const entry of normalized)
         {
             if (states.get(entry.id) !== 'pending')
@@ -973,6 +1001,22 @@ export async function executeWeightedStepDag(steps, capacity, execute)
             {
                 normalizedCapacity.onWaitState?.(entry.id, {
                     countedResources: { [counted.resource]: counted }
+                });
+                continue;
+            }
+            const state = stateByStep.get(entry.id);
+            if (state)
+            {
+                normalizedCapacity.onWaitState?.(entry.id, {
+                    stateConflicts: state.conflicts.map((conflict) => ({
+                        blockerStepId: state.heldBy,
+                        domain: conflict.domain,
+                        rule: conflict.rule,
+                        leftModes: conflict.leftModes,
+                        rightModes: conflict.rightModes,
+                        proof: conflict.proof
+                    })),
+                    catalogDigest: state.catalogDigest
                 });
                 continue;
             }
@@ -1016,6 +1060,23 @@ export async function executeWeightedStepDag(steps, capacity, execute)
         + ` requested=${wait.requested}`
         + ` used=${wait.used}`
         + ` capacity=${wait.capacity}`
+            );
+        }
+        for (const wait of admissionResult.blockedByStateConflicts)
+        {
+            const first = wait.conflicts[0];
+            const key = `${wait.stepId}\0${wait.heldBy}\0${first?.domain}\0${first?.rule}`;
+            if (reportedStateWaits.has(key))
+            {
+                continue;
+            }
+            reportedStateWaits.add(key);
+            console.log(
+                `[bundle-step-dag] wait ${wait.stepId}`
+        + ` stateDomain=${first?.domain ?? 'unknown'}`
+        + ` rule=${first?.rule ?? 'unknown'}`
+        + ` heldBy=${wait.heldBy}`
+        + ` holderState=${wait.holderState}`
             );
         }
 

@@ -8275,6 +8275,7 @@ tiers:
               release-private-preview,
               release-reliability-fresh,
               release-static-asset-digest-coherence,
+              runtime-order-equivalence,
               test-quality-lint,
           ]
       services: []
@@ -8348,6 +8349,59 @@ tiers:
               tests/tools/test-evidence-governance.test.mjs,
               docs/testing/release-domain-projection-ledger.md,
               docs/testing/issue-1151-evidence-governance.md,
+          ]
+      ciJob: release-final
+      localOnly: false
+      nightlyOnly: false
+      manualOnly: true
+
+    - id: runtime-order-equivalence
+      executionClass: runtime
+      fixtureProfile: acceptance-representative
+      fixtureProfileReason: binds-acceptance-representative
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
+      owner: ServerContractAgent
+      command: node tools/test/run-runtime-order-equivalence.mjs --all-required-schedules --output .tmp/release-evidence/runtime-order-equivalence.json
+      executionDependsOn: [production-build-artifacts]
+      services: [postgres, redis, backend, frontend, preview]
+      parallelizable: false
+      serialReason: executes isolated production runtime sessions across the fixed schedule matrix
+      exclusiveResources: [production-correctness]
+      phase: 5
+      cost: very-high
+      resourceClass: io
+      cpuWeight: 1
+      memoryWeight: 1
+      minCpuUnits: 1
+      maxParallel: 1
+      requiresBootstrap: full
+      selfBootstraps: true
+      requiresNode: true
+      requiresDotnet: false
+      requiresPlaywright: none
+      evidenceClass: correctness
+      cacheProfile: none
+      timeoutMinutes: 60
+      shardable: false
+      defaultShards: 1
+      risk: critical
+      cadence: release-manual
+      requiredFor: release-final
+      coverage: [runtime-state-order-equivalence]
+      artifacts: [.tmp/release-evidence/runtime-order-equivalence.json]
+      evidence:
+          [
+              .tmp/release-evidence/runtime-order-equivalence.json,
+              config/testing/runtime-state-domain-catalog.json,
+              config/testing/runtime-state-domain-registry.json,
+              tools/test-runtime,
+              tools/test-fixtures/observers,
+              tools/test/run-runtime-order-equivalence.mjs,
+              tests/tools/runtime-order-equivalence.test.mjs,
+              tests/tools/runtime-state-conflict-scheduler.test.mjs,
+              tests/tools/reset-postcondition-state-barrier.test.mjs,
+              docs/testing/runtime-state-equivalence.md,
           ]
       ciJob: release-final
       localOnly: false

@@ -20,6 +20,7 @@
     "release-private-preview",
     "release-reliability-fresh",
     "release-static-asset-digest-coherence",
+    "runtime-order-equivalence",
     "test-quality-lint"
   ]
 }

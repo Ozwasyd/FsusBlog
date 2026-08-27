@@ -2886,6 +2886,31 @@
             "supersededBy": null
         },
         {
+            "path": "docs/testing/runtime-state-equivalence.md",
+            "status": "current",
+            "owner": "release",
+            "relatedIssues": [
+                1599,
+                1988,
+                1989,
+                1990,
+                1991,
+                1992,
+                1993,
+                1994,
+                1995,
+                1996,
+                2631,
+                2632,
+                2633,
+                2634,
+                2635,
+                2636
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
             "path": "docs/testing/security-hardening-source-policy.md",
             "status": "current",
             "owner": "release",

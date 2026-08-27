@@ -979,6 +979,14 @@
             "fixtureMutatorAllowed": false
         },
         {
+            "tierId": "runtime-order-equivalence",
+            "executionClass": "runtime",
+            "fixtureProfile": "acceptance-representative",
+            "fixtureProfileReason": "binds-acceptance-representative",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
             "tierId": "security",
             "executionClass": "security",
             "fixtureProfile": "auth-security-matrix",
@@ -1123,5 +1131,5 @@
             "fixtureMutatorAllowed": false
         }
     ],
-    "digest": "sha256:83abd528a949931c58edc91a8827405985e9d6da435761c2fd40247ad23266d5"
+    "digest": "sha256:4d10f84cdc89b7e4c9252fa83de60ef92a3fc110ea6c779e4bc6d1385021e6c6"
 }
