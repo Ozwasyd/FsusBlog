@@ -14,6 +14,7 @@ import { consumeResetPostconditionReceipt } from '../test-matrix/reset-postcondi
 import { readRunBoundMarker } from '../test-matrix/run-bound-marker.mjs';
 
 import { loadRuntimeStateAuthority } from './catalog.mjs';
+import { readBehaviorEvidenceReadyAuthority } from './behavior-evidence-ready-authority.mjs';
 import { normalizeRuntimeIdentity, requireDigest, sealDocument, verifySealedDocument } from './contract.mjs';
 import { publishProductionObserverAuthority, readProductionObserverAuthority } from './production-observer-authority.mjs';
 import { createDockerPostgresqlReadonlyPort, createDockerRedisReadonlyPort } from './production-observer-ports.mjs';
@@ -546,6 +547,18 @@ function genericRunBoundCoordination(stepId, identity)
         throw new Error(`unsupported production coordination step ${stepId}`);
     }
     let bindings = null;
+    if (stepId === 'behavior-evidence-ready')
+    {
+        const markerFile = readMarkerFile(identity, stepId);
+        const authority = readBehaviorEvidenceReadyAuthority({
+            root: repositoryRoot,
+            receiptFile: environment.artifacts[0],
+            markerFile,
+            runId: identity.runId,
+            sourceState
+        });
+        return `sha256:${authority.marker.digest}`;
+    }
     if (stepId === 'production-build-artifacts-ready')
     {
         const artifactRoot = path.dirname(environment.artifacts[0]);

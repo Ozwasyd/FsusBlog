@@ -7,6 +7,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { verifyProductionBuildReceipt } from '../ci/production-build-artifacts.mjs';
+import { publishBehaviorEvidenceReadyAuthority } from './behavior-evidence-ready-authority.mjs';
 import {
     bindProductionBuildLayoutSource,
     finalizeProductionBuildLayout,
@@ -221,6 +222,18 @@ async function main()
             'FSUSBLOG_TEST_SOURCE_FINGERPRINT'
         )
     };
+    const behaviorEvidenceReceipt = option('--behavior-evidence-receipt');
+    if (behaviorEvidenceReceipt)
+    {
+        const authority = publishBehaviorEvidenceReadyAuthority({
+            root,
+            receiptFile: path.resolve(root, behaviorEvidenceReceipt),
+            runId,
+            sourceState
+        });
+        console.log(`[runtime-order-authorities] behavior receipt=${path.relative(root, authority.file)}`);
+        return;
+    }
     const build = await produceBuildAuthorities({ runId, attemptId, sourceState });
     console.log(`[runtime-order-authorities] build receipt=${path.relative(root, path.join(build.artifactRoot, 'receipt.json'))}`);
 }
