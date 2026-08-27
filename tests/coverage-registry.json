@@ -1700,7 +1700,7 @@
         },
         {
             "id": "browserless-production-correctness",
-            "description": "Ordinary PR and local production correctness use a transitive browserless matrix closure, while release-final adds exactly one immutable-build-bound Chromium Browser Contract and scheduled/manual diagnostics retain every other real-browser risk.",
+            "description": "Ordinary PR and local production correctness use a transitive browserless matrix closure, while release-final binds immutable browser evidence without scheduling browser work. The browserless contract uniquely owns those closure assertions, and the matrix resource contract uniquely owns classification of every browser-capable tier.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
@@ -1717,8 +1717,8 @@
                 "docs/testing/issue-1150-browserless-ci-topology.md"
             ],
             "assertionType": "static",
-            "failClosedRule": "Matrix validation and workflow synchronization must fail when production-correctness transitively reaches a Playwright tier, a browser-launching tier omits resourceClass=browser, ordinary correctness installs a browser or prepares Playwright sessions, release-final reaches any browser tier other than browser-contract, Browser Contract is sharded/retried/rebuilt, or diagnostics are allowed to affect correctness authority.",
-            "minimumRequirement": "The production-correctness closure must preserve static, frontend/backend unit/property/model, SSR/AOT/HTTP, API/DB/cache integration, resilience, load and release evidence with zero browser launches. Browser-boundary PRs, main pushes and explicit release runs may add one ten-minute, zero-retry, single-Chromium Browser Contract consuming the exact immutable production receipt; all Acceptance, visual, UX, cross-engine, render-pressure, browser resilience, PoW/search/permission/zero-auth probes remain scheduled/manual diagnostics.",
+            "failClosedRule": "The browserless correctness contract must fail when production-correctness transitively reaches a Playwright or browser-resource tier, ordinary correctness installs or prepares a browser, release-final schedules browser work instead of binding immutable evidence, or diagnostics affect correctness authority. Separately, the matrix resource contract must fail when any browser-capable tier omits resourceClass=browser.",
+            "minimumRequirement": "The browserless owner must preserve the production-correctness dependency and release-evidence assertions with zero browser scheduling. The single resource-contract owner must filter every tier whose requiresPlaywright is not none, require that set to be non-empty, and assert resourceClass=browser for each tier with its ID as the failure diagnostic.",
             "tierIds": [
                 "production-correctness"
             ]

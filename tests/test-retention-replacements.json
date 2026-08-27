@@ -11760,6 +11760,14 @@
             "reason": "The shared pure-function owner retains the bounded scale mathematics, while the rollout-specific replacement proves semantic latency fields consume that policy and request/child timeouts retain the full pressure multiplier."
         },
         {
+            "id": "node-test:tests/tools/browserless-correctness-contract.test.mjs#every-browser-capable-tier-declares-the-browser-resource-df63a35678",
+            "path": "tests/tools/browserless-correctness-contract.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-matrix-resource-contract.test.mjs#browser-capable-tiers-cannot-hide-outside-browser-resour-d660ad739f"
+            ],
+            "reason": "The duplicate browserless assertion is removed; the matrix resource contract remains the sole discoverable owner and still checks every browser-capable tier with the tier ID as its diagnostic."
+        },
+        {
             "id": "node-test:tests/tools/zero-downtime-rehearsal.test.mjs#semantic-rehearsal-delays-stay-pressure-aware-without-co-47f685ac22",
             "path": "tests/tools/zero-downtime-rehearsal.test.mjs",
             "replacementTestIds": [
