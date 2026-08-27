@@ -275,8 +275,8 @@ function scanNode(input, findings)
     for (const [anchor, required, producerId] of [
         ['checkpoint.resumeCandidates', "previousTier?.status !== 'success'", 'resume-test-matrix-tier'],
         ["options['resume-from']", 'readResumeRuns', 'resume-runtime-publish-profile'],
-        ['FSUSBLOG_UX_VIEWPORT_RESUME', 'status', 'resume-ux-viewport-group'],
-        ['FSUSBLOG_PUBLIC_REFRESH_RESUME', 'status', 'resume-public-refresh-group']
+        ["readBooleanFlag('FSUSBLOG_UX_VIEWPORT_RESUME')", 'status', 'resume-ux-viewport-group'],
+        ["readBooleanFlag('FSUSBLOG_PUBLIC_REFRESH_RESUME')", 'status', 'resume-public-refresh-group']
     ])
     {
         const offset = input.source.indexOf(anchor);

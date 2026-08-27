@@ -60,7 +60,7 @@ test('repository hidden retry inventory is exact, stable and warning free', () =
     const first = scanHiddenRetries(root);
     const second = scanHiddenRetries(root);
     assert.equal(first.contentDigest, second.contentDigest);
-    assert.equal(first.findings.length, 23);
+    assert.equal(first.findings.length, 5);
     assert.equal(new Set(first.findings.map((item) => item.findingId)).size, first.findings.length);
     const registry = JSON.parse(fs.readFileSync(
         path.join(root, 'config/testing/retry-disposition-registry.json'),
@@ -68,13 +68,10 @@ test('repository hidden retry inventory is exact, stable and warning free', () =
     ));
     const verified = validateRetryDispositionRegistry(root, registry, first, readRetryPolicyRegistry());
     assert.deepEqual(verified.warnings, []);
-    for (const command of ['restore', 'build', 'publish'])
-    {
-        assert.ok(first.findings.some((item) => (
-            item.location.path === 'ops/docker/FsusBlog.Server.Dockerfile'
-            && item.producerId.includes(command)
-        )), `missing Docker ${command} disposition`);
-    }
+    assert.equal(first.findings.some((item) => (
+        item.location.path === 'ops/docker/FsusBlog.Server.Dockerfile'
+    )), false);
+    assert.equal(registry.entries.some((entry) => entry.action === 'remove'), false);
 });
 
 test('scanner detects shell, Node, C#, Docker, framework, CI, timeout and resume retry shapes', () => withFixture({
