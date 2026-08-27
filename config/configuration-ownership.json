@@ -834,6 +834,54 @@
             "status": "manual"
         },
         {
+            "id": "test-quality-policy",
+            "owner": "repository-governance",
+            "canonicalPath": "config/testing/test-quality-policy.json",
+            "pathType": "file",
+            "purpose": "Closed test-quality rule and exact-waiver authority consumed by the canonical case-level oracle policy.",
+            "consumers": [
+                "tools/test-quality/policy.mjs",
+                "tools/ci/check-test-quality.mjs",
+                "tools/check-test-retention.mjs",
+                "tests/tools/test-quality-engine.test.mjs"
+            ],
+            "validationCommand": "node tools/ci/check-test-quality.mjs --self-test && node --test tests/tools/test-quality-engine.test.mjs",
+            "changePolicy": "manual-update-with-test-quality-conformance",
+            "status": "manual"
+        },
+        {
+            "id": "test-quality-module",
+            "owner": "repository-governance",
+            "canonicalPath": "tools/test-quality",
+            "pathType": "directory",
+            "recursive": true,
+            "purpose": "Canonical resolved-oracle facts, case policy, adversarial conformance, sealed quality artifact producer and independent verifier.",
+            "consumers": [
+                "tools/ci/check-test-quality.mjs",
+                "tools/check-test-retention.mjs",
+                "tools/test/lanes/test-quality-lint.sh",
+                "tests/tools/test-quality-engine.test.mjs"
+            ],
+            "validationCommand": "node tools/ci/check-test-quality.mjs --self-test && node --test tests/tools/test-quality-engine.test.mjs",
+            "changePolicy": "manual-update-with-test-quality-conformance",
+            "status": "manual"
+        },
+        {
+            "id": "test-replacement-transaction-module",
+            "owner": "repository-governance",
+            "canonicalPath": "tools/test-replacement",
+            "pathType": "directory",
+            "recursive": true,
+            "purpose": "Atomic test deletion, rename, merge, parameterization, split and support-move planning, verification, application, receipt and rollback authority.",
+            "consumers": [
+                "tools/test-replacement-transaction.mjs",
+                "tests/tools/test-replacement-transaction.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/test-replacement-transaction.test.mjs",
+            "changePolicy": "manual-update-with-atomic-replacement-transaction-tests",
+            "status": "manual"
+        },
+        {
             "id": "xunit-roslyn-adapter-focused-test",
             "owner": "repository-governance",
             "canonicalPath": "tests/tools/xunit-roslyn-adapter.test.mjs",

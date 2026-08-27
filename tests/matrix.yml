@@ -8119,7 +8119,7 @@ tiers:
       minCpuUnits: 1
       requiresBootstrap: none
       requiresNode: true
-      requiresDotnet: false
+      requiresDotnet: true
       requiresPlaywright: none
       cacheProfile: frontend
       timeoutMinutes: 10
@@ -8132,12 +8132,18 @@ tiers:
       artifacts:
           [
               .tmp/release-evidence/test-quality-summary.json,
+              .tmp/release-evidence/test-quality-summary.generated.md,
+              .tmp/release-evidence/test-oracle-facts.json,
+              .tmp/release-evidence/test-quality-conformance.json,
               .tmp/test-results/evidence-producers/test-quality-lint,
               .tmp/test-results/release-domain-assertions/test-quality-lint,
           ]
       evidence:
           [
               .tmp/release-evidence/test-quality-summary.json,
+              .tmp/release-evidence/test-quality-summary.generated.md,
+              .tmp/release-evidence/test-oracle-facts.json,
+              .tmp/release-evidence/test-quality-conformance.json,
               .tmp/test-results/evidence-producers/test-quality-lint,
               .tmp/test-results/release-domain-assertions/test-quality-lint,
           ]

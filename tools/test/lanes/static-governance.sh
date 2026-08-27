@@ -22,6 +22,20 @@ StaticTestLifecycle() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-lifecycle.mjs" --audit-input "$retentionAudit"
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/native-test-governance.mjs"
 }
+StaticTestReplacementDiff() {
+    local base="${FSUSBLOG_TEST_REPLACEMENT_DIFF_BASE:-origin/master}"
+    local transactions=()
+    mapfile -t transactions < <(git -C "$ROOT_DIR" diff --name-only "$base" HEAD -- 'tests/test-replacement-transactions/*.json')
+    if (( ${#transactions[@]} > 1 )); then
+        echo "[test-replacement] multiple current transactions are ambiguous: ${transactions[*]}" >&2
+        return 1
+    fi
+    if (( ${#transactions[@]} == 1 )); then
+        Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test-replacement-transaction.mjs" check-diff "$base" "${transactions[0]}"
+    else
+        Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test-replacement-transaction.mjs" check-diff "$base"
+    fi
+}
 StaticArticleCoreTestApi() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-article-core-test-api.mjs"; }
 StaticBackendGovernance() { RunTier "static-governance" RunBackendTestGovernanceOnly; }
 StaticGateIntegrity() { Run "$ROOT_DIR/tools/check-gate-integrity.sh" --self-test; }
@@ -121,6 +135,7 @@ RunTestAssetGovernancePhase() {
         temporal-producer-bindings StaticTemporalProducerBindings \
         test-asset-audit StaticTestAssetAudit \
         browser-test-migration StaticBrowserTestMigration \
+        test-replacement-diff StaticTestReplacementDiff \
         test-lifecycle StaticTestLifecycle \
         canonical-node-behavior StaticTestAssetBehavior \
         article-core-test-api StaticArticleCoreTestApi \
