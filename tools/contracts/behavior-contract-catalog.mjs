@@ -26,7 +26,7 @@ export const contractFieldKeys = [
     'coverageIds',
     'documents'
 ];
-export const optionalContractFieldKeys = ['mutationPolicy'];
+export const optionalContractFieldKeys = ['evidenceStage', 'runtimeEvidence', 'mutationPolicy'];
 
 const fail = (message) =>
 {
@@ -137,7 +137,7 @@ export function validateCatalog(catalog, repositoryRoot = root)
     {
         exactKeys(contract, [
             ...contractFieldKeys,
-            ...(Object.hasOwn(contract, 'mutationPolicy') ? optionalContractFieldKeys : [])
+            ...optionalContractFieldKeys.filter((field) => Object.hasOwn(contract, field))
         ], `contract ${contract.id ?? '<unknown>'}`);
         if (Object.prototype.hasOwnProperty.call(contract, 'implementationOwners'))
         {
@@ -193,6 +193,25 @@ export function validateCatalog(catalog, repositoryRoot = root)
         if (typeof contract.releaseQualification !== 'boolean')
         {
             fail(`${contract.id} releaseQualification must be boolean`);
+        }
+        const evidenceStage = contract.evidenceStage ?? 'pre-runtime';
+        if (!['pre-runtime', 'post-runtime'].includes(evidenceStage))
+        {
+            fail(`${contract.id} evidenceStage is invalid`);
+        }
+        if (evidenceStage === 'post-runtime')
+        {
+            if (!isPlainObject(contract.runtimeEvidence)
+                || Object.keys(contract.runtimeEvidence).sort().join('\0') !== ['observationSchema', 'producerTierId'].join('\0')
+                || !isId(contract.runtimeEvidence.producerTierId)
+                || !/^fsusblog\.[a-z0-9.-]+\.v[0-9]+$/u.test(contract.runtimeEvidence.observationSchema))
+            {
+                fail(`${contract.id} post-runtime behavior requires one stable runtime evidence producer/schema`);
+            }
+        }
+        else if (Object.hasOwn(contract, 'runtimeEvidence'))
+        {
+            fail(`${contract.id} pre-runtime behavior cannot declare runtimeEvidence`);
         }
         uniqueStrings(contract.coverageIds, `${contract.id}.coverageIds`, { min: 1 });
         if (contract.coverageIds.some((id) => !coverage.has(id)))
@@ -336,12 +355,14 @@ export function validateBehaviorReferences(catalog, repositoryRoot = root)
         'config/schemas/behavior-test-evidence.schema.json',
         'config/schemas/behavior-graph-receipt.schema.json',
         'config/schemas/behavior-evidence-pre-runtime-receipt.schema.json',
+        'config/schemas/behavior-evidence-post-runtime-receipt.schema.json',
         'tests/tools/behavior-contract-catalog.test.mjs',
         'tests/tools/behavior-mutation-qualification.test.mjs',
         'tests/tools/behavior-owner-binding.test.mjs',
         'tests/tools/behavior-test-binding.test.mjs',
         'tests/tools/behavior-graph-join.test.mjs',
         'tests/tools/behavior-evidence-pre-runtime.test.mjs',
+        'tests/tools/behavior-evidence-post-runtime.test.mjs',
         'tests/tools/changed-critical-mutation.test.mjs',
         'tests/tools/doc-claim.test.mjs',
         'tests/tools/behavior-fact-extractors.test.mjs',
@@ -355,6 +376,7 @@ export function validateBehaviorReferences(catalog, repositoryRoot = root)
         'tools/contracts/behavior-test-binding.mjs',
         'tools/contracts/behavior-graph-join.mjs',
         'tools/test-matrix/behavior-evidence-pre-runtime.mjs',
+        'tools/test-matrix/behavior-evidence-post-runtime.mjs',
         'tools/test-matrix/behavior-mutation-owner.mjs',
         'tools/test-matrix/produce-behavior-mutation-qualification.mjs',
         'tools/test-matrix/produce-behavior-test-evidence.mjs',

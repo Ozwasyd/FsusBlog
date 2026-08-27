@@ -217,6 +217,7 @@ render: enum-set
 - `behavior-doc-static-admission->test-quality-lint`
 - `behavior-doc-static-admission->ux-viewport-plan-progress`
 - `behavior-doc-static-admission->wasm-build-artifacts`
+- `behavior-evidence-pre-runtime->behavior-evidence-post-runtime`
 - `behavior-evidence-pre-runtime->bootstrap`
 - `behavior-evidence-pre-runtime->production-correctness`
 - `behavior-test-evidence->backend-mutation-changed-critical`
@@ -250,6 +251,7 @@ render: enum-set
 - `bootstrap->ux-viewport-visual`
 - `bootstrap->visual-console`
 - `bootstrap->visual-public`
+- `browser-contract->behavior-evidence-post-runtime`
 - `browser-diagnostics-manual->browser-diagnostics`
 - `changed-code-coverage->coverage-gate-strict`
 - `coverage-backend->coverage-merge`
@@ -300,6 +302,7 @@ render: enum-set
 - `production-build-artifacts->production-correctness`
 - `production-build-artifacts->production-xss-fast`
 - `production-build-artifacts->production-xss-release`
+- `production-correctness->behavior-evidence-post-runtime`
 - `production-correctness->production`
 - `release->acceptance`
 - `release->browser-diagnostics-manual`

@@ -64,6 +64,7 @@
                 "safety"
             ],
             "releaseQualification": true,
+            "evidenceStage": "pre-runtime",
             "coverageIds": [
                 "test-asset-audit-reconciliation"
             ],
@@ -90,6 +91,7 @@
                 "safety"
             ],
             "releaseQualification": true,
+            "evidenceStage": "pre-runtime",
             "coverageIds": [
                 "code-intent-governance"
             ],
@@ -117,6 +119,7 @@
                 "safety"
             ],
             "releaseQualification": true,
+            "evidenceStage": "pre-runtime",
             "coverageIds": [
                 "document-lifecycle-governance"
             ],
@@ -143,6 +146,7 @@
                 "safety"
             ],
             "releaseQualification": true,
+            "evidenceStage": "pre-runtime",
             "coverageIds": [
                 "binary-api-aeds-contract"
             ],
@@ -182,6 +186,11 @@
                 "safety"
             ],
             "releaseQualification": true,
+            "evidenceStage": "post-runtime",
+            "runtimeEvidence": {
+                "producerTierId": "production-correctness",
+                "observationSchema": "fsusblog.browserless-correctness-receipt.v1"
+            },
             "coverageIds": [
                 "browserless-production-correctness"
             ],
@@ -214,6 +223,7 @@
                 "safety"
             ],
             "releaseQualification": true,
+            "evidenceStage": "pre-runtime",
             "coverageIds": [
                 "authentication-session-permission"
             ],
@@ -251,6 +261,7 @@
                 "operational"
             ],
             "releaseQualification": true,
+            "evidenceStage": "pre-runtime",
             "coverageIds": [
                 "configuration-error-security-policy"
             ],
@@ -287,6 +298,7 @@
                 "safety"
             ],
             "releaseQualification": true,
+            "evidenceStage": "pre-runtime",
             "coverageIds": [
                 "article-comment-lifecycle-outbox"
             ],
