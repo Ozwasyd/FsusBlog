@@ -13,6 +13,7 @@ import {
     resolveTemporalRolesForProducer,
     verifyResolvedTemporalArtifact
 } from '../../test/temporal-role-resolver.mjs';
+import { validateProducerReceipt } from '../receipt/producer-receipt.mjs';
 
 const PRODUCER_ID = 'auth-session';
 const STRATEGY = 'transaction-fixture';
@@ -674,19 +675,30 @@ export function projectVerifiedIdentityReferences({
     {
         throw new Error('verified identity projection requires a stable consumerProducerId');
     }
+    try
+    {
+        validateProducerReceipt(producerReceipt);
+    }
+    catch
+    {
+        throw new Error(
+            'verified identity projection requires the exact sealed auth-session ProducerReceipt'
+        );
+    }
+    const prepareReferences = producerResult?.identityPrepareReferences;
     if (!producerResult || producerResult.producerId !== PRODUCER_ID
-        || !producerReceipt || producerReceipt.schema !== 'fsusblog.fixture-producer-receipt.v1'
         || producerReceipt.producerId !== PRODUCER_ID
-        || !/^[a-f0-9]{64}$/u.test(String(producerReceipt.producerReceiptDigest ?? ''))
-        || producerReceipt.runId !== producerResult.identityPrepareReferences?.[0]?.runId
-        || producerReceipt.namespace !== producerResult.identityPrepareReferences?.[0]?.namespace
-        || producerReceipt.profileId !== producerResult.identityPrepareReferences?.[0]?.profileId)
+        || !Array.isArray(prepareReferences) || prepareReferences.length === 0
+        || !prepareReferences.every((item) =>
+            item.runId === producerReceipt.runId
+            && item.namespace === producerReceipt.namespace
+            && item.profileId === producerReceipt.profileId))
     {
         throw new Error('verified identity projection requires the exact sealed auth-session ProducerReceipt');
     }
     const receiptEntities = new Map((producerReceipt.observations?.database?.entities ?? [])
         .map((item) => [`${item.semanticRole}\0${item.id}`, item]));
-    const references = (producerResult.identityPrepareReferences ?? [])
+    const references = prepareReferences
         .filter((item) => item.consumerProducerId === consumer)
         .map((item) =>
         {

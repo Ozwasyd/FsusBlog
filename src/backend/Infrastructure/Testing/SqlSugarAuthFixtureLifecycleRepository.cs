@@ -1,4 +1,5 @@
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Services.Fixtures;
 
 using SqlSugar;
@@ -73,7 +74,9 @@ public sealed class SqlSugarAuthFixtureLifecycleRepository(
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (user.Id != 0 || string.IsNullOrWhiteSpace(user.PublicHandle) ||
+        if (user.Id != 0 ||
+            user.IdentityKind != AnonymousIdentityRuntime.AnonymousAccountKind ||
+            string.IsNullOrWhiteSpace(user.AccountSubjectHash) ||
             user.Status != 0 || user.DeletedAt.HasValue)
         {
             throw new InvalidOperationException(

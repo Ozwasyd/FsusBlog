@@ -7,6 +7,16 @@ import {
     defaultTimeoutPolicyDigest,
     qualificationTemporalContext
 } from '../../tools/test/temporal-context.mjs';
+import {
+    buildProducerReceipt,
+    digestCanonical
+} from '../../tools/test-fixtures/receipt/index.mjs';
+import {
+    buildFixtureVariantPlan,
+    buildProducerFixtureVariantPlan,
+    fixtureCatalogDigest,
+    readFixtureCatalogs
+} from '../../tools/testing/fixture-catalog.mjs';
 
 import {
     authSessionProducerMeta,
@@ -414,17 +424,61 @@ test('projects only consumer-owned requested refs after the exact ProducerReceip
         capabilityId: 'auth.user.active'
     }]);
     const producerResult = validateAuthSessionResult(plan, resultFor(plan));
-    const producerReceipt = {
-        schema: 'fsusblog.fixture-producer-receipt.v1',
+    const catalogs = readFixtureCatalogs();
+    const fixtureVariantIds = ['canonical.auth.user.active'];
+    const fixtureVariantPlan = buildFixtureVariantPlan(fixtureVariantIds, catalogs);
+    const producerVariantPlan = buildProducerFixtureVariantPlan({
         producerId: 'auth-session',
-        producerReceiptDigest: 'c'.repeat(64),
+        variantIds: fixtureVariantIds,
+        fixtureVariantIds,
+        fixtureVariantPlanDigest: fixtureVariantPlan.variantPlanDigest,
+        catalogs
+    });
+    const databaseObservation = {
+        ...producerResult.observations.database,
+        entities: producerResult.observations.database.entities.map((item) => ({
+            ...item,
+            variantId: fixtureVariantIds[0]
+        }))
+    };
+    const producerReceipt = buildProducerReceipt({
+        producerId: 'auth-session',
+        strategy: 'transaction-fixture',
         runId: plan.runId,
         namespace: plan.namespace,
+        fixtureCatalogDigest: fixtureCatalogDigest(catalogs),
         profileId: plan.profileId,
-        observations: producerResult.observations
+        expandedCapabilityDigest: digestCanonical(['auth.user.active']),
+        fixtureVariantIds,
+        variantPlanDigest: fixtureVariantPlan.variantPlanDigest,
+        producerVariantPlanDigest: producerVariantPlan.producerVariantPlanDigest,
+        producedVariantIds: fixtureVariantIds,
+        providedCapabilities: ['auth.user.active'],
+        ownedStateDomains: catalogs.producer.producers.find(
+            (item) => item.id === 'auth-session'
+        ).stateDomains,
+        entityIdentities: producerResult.entityIdentities.map((item) => ({
+            kind: item.kind,
+            id: item.id,
+            variantId: fixtureVariantIds[0]
+        })),
+        postconditionObservations: [{
+            capabilityId: 'auth.user.active',
+            postconditionId: 'user-active',
+            ok: true
+        }],
+        databaseObservation,
+        catalogs
+    });
+    assert.match(producerReceipt.producerReceiptDigest, /^sha256:[a-f0-9]{64}$/u);
+    const reorderedResult = {
+        ...producerResult,
+        identityPrepareReferences: Object.freeze([
+            ...producerResult.identityPrepareReferences
+        ].reverse())
     };
     const projection = projectVerifiedIdentityReferences({
-        producerResult,
+        producerResult: reorderedResult,
         producerReceipt,
         consumerProducerId: 'message'
     });
@@ -432,12 +486,15 @@ test('projects only consumer-owned requested refs after the exact ProducerReceip
     assert.equal(projection.verified, true);
     assert.equal(projection.references.length, 1);
     assert.equal(projection.references[0].role, 'primary-recipient');
-    assert.equal(projection.references[0].sourceReceiptDigest, 'c'.repeat(64));
+    assert.equal(
+        projection.references[0].sourceReceiptDigest,
+        producerReceipt.producerReceiptDigest
+    );
     assert.equal(projection.references[0].ownerProducerId, 'auth-session');
 
     const tamperedResult = {
-        ...producerResult,
-        identityPrepareReferences: producerResult.identityPrepareReferences.map((item) =>
+        ...reorderedResult,
+        identityPrepareReferences: reorderedResult.identityPrepareReferences.map((item) =>
             item.consumerProducerId === 'message' ? { ...item, publicId: 'tampered' } : item)
     };
     assert.throws(() => projectVerifiedIdentityReferences({
