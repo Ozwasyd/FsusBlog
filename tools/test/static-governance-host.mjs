@@ -54,6 +54,11 @@ function normalizeCheck(check, root)
             throw new Error(`temporary fixture ${check.id} requires a check-scoped output`);
         }
     }
+    if (check.exclusive !== undefined
+        && (check.category !== 'real-subprocess-lifecycle' || check.exclusive !== true))
+    {
+        throw new Error(`static governance check ${check.id} has an invalid exclusive lifecycle declaration`);
+    }
     return { ...check };
 }
 
@@ -118,6 +123,11 @@ export function buildStaticGovernanceExecutionPlan(registry)
         {
             throw new Error(`unknown isolation category for ${check.id}: ${check.category ?? '<missing>'}`);
         }
+        if (check.exclusive !== undefined
+            && (check.category !== 'real-subprocess-lifecycle' || check.exclusive !== true))
+        {
+            throw new Error(`static governance check ${check.id} has an invalid exclusive lifecycle declaration`);
+        }
     }
 
     const pureFileHostByCheckId = new Map(
@@ -144,6 +154,7 @@ export function buildStaticGovernanceExecutionPlan(registry)
             category: check.category,
             checks: [],
             exclusive: check.category === 'exclusive-resource-destructive-rehearsal'
+                || check.exclusive === true
         };
         if (current.category !== check.category)
         {
