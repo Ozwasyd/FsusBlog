@@ -222,3 +222,39 @@ test('content exactness closes article, comment, privacy, outbox, and notificati
     rmSync(value.repositoryRoot, { recursive: true, force: true })
   }
 })
+
+test('protocol/error/release/deployment exactness rejects orphan sections and cross-authority tamper', () =>
+{
+  const value = fixture()
+  try
+  {
+    const orphanSection = structuredClone(value.sectionCatalog.sections[0])
+    orphanSection.sectionId = 'release.orphan'
+    orphanSection.factPath = 'facts.security.permissions'
+    const orphan = build(value, {
+      sectionCatalog: {
+        ...value.sectionCatalog,
+        sections: [...value.sectionCatalog.sections, orphanSection]
+      },
+      scopeId: 'protocol-error-release-deployment'
+    })
+    assert.equal(orphan.status, 'failed')
+    assert.ok(orphan.failureReasons.some((reason) => /extra generated section without claim/u.test(reason)))
+
+    const wrongOwner = structuredClone(value.sectionCatalog)
+    wrongOwner.sections[0].extractorId = 'release-job-name'
+    const conflict = build(value, {
+      sectionCatalog: wrongOwner,
+      scopeId: 'protocol-error-release-deployment'
+    })
+    assert.ok(conflict.failureReasons.some((reason) => /conflicting extractor owner/u.test(reason)))
+
+    const valid = build(value, { scopeId: 'protocol-error-release-deployment' })
+    const tampered = { ...valid, counts: { ...valid.counts, warnings: 1 } }
+    assert.throws(() => validateBehaviorDocExactnessReceipt(tampered), /contentDigest mismatch/u)
+  }
+  finally
+  {
+    rmSync(value.repositoryRoot, { recursive: true, force: true })
+  }
+})

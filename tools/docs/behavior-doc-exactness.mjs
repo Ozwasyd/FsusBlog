@@ -89,6 +89,18 @@ export function buildBehaviorDocExactnessReceipt({
     if (sectionById.has(section.sectionId)) failures.push(`duplicate section ${section.sectionId}`)
     sectionById.set(section.sectionId, section)
   }
+  for (const section of sections)
+  {
+    const owners = claims.filter((claim) => claim.declaration.claimType === 'generated-section'
+      && claim.declaration.generatedSectionId === section.sectionId)
+    if (owners.length === 0) failures.push(`extra generated section without claim ${section.sectionId}`)
+    if (owners.length > 1) failures.push(`duplicate generated claims for section ${section.sectionId}`)
+    const document = lifecycleByPath.get(section.documentPath)
+    if (!document || document.status !== 'current')
+    {
+      failures.push(`generated section ${section.sectionId} is not in a current document`)
+    }
+  }
 
   const rows = []
   for (const contract of contracts)
