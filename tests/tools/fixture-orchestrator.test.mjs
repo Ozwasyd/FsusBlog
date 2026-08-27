@@ -52,6 +52,13 @@ if (String(entry).endsWith('/tests/frontend/support/fixture-paths.mjs')) {
   process.stdout.write(fixtureRoot)
   process.exit(0)
 }
+if (entry === '-e') {
+  const expression = String(args[0] ?? '')
+  process.stdout.write(expression.includes('randomBytes')
+    ? 'dGVzdC1vbmx5LWZpeHR1cmUta2V5LTAwMDE='
+    : '1767225600000')
+  process.exit(0)
+}
 if (!String(entry).endsWith('/tools/test-fixtures/cli.mjs')) fail('unexpected node entry: ' + entry)
 const options = { _: [] }
 for (let index = 0; index < args.length; index += 1) {
@@ -570,13 +577,13 @@ export FSUSBLOG_ACCEPTANCE_ENV_ROOT="$FSUSBLOG_TEST_STUB_ROOT/env"
 export FSUSBLOG_ACCEPTANCE_FIXTURE_ROOT="$FSUSBLOG_TEST_STUB_ROOT/bootstrap-fixtures"
 export FSUSBLOG_TEST_SOURCE_COMMIT=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 export FSUSBLOG_TEST_SOURCE_FINGERPRINT=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+export FSUSBLOG_RELEASE_ID=20260101000000-aaaaaaaaaaaa
 export FSUSBLOG_NODE="$FSUSBLOG_TEST_STUB_NODE"
 source ./tools/bootstrap-acceptance-env.sh
 FIXTURE_PROFILE_ID=acceptance-representative
 FIXTURE_PROFILE_SOURCE=dev-cli
 FIXTURE_PRODUCER_IDS=auth-session
 FIXTURE_REQUIRES_DEMO=0
-FIXTURE_REQUIRES_SECURITY_RESET=0
 InvokeFixtureOrchestrator
 `], {
         cwd: root,

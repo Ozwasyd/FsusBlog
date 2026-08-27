@@ -23,6 +23,5 @@ InvokeLaneFixtureOrchestrator
 RunCollect "pow-runtime" RunInClient npm run check:pow-runtime
 RunCollect "search-runtime" RunInClient npm run check:search-runtime
 RunCollect "zero-auth-probe" RunInClient npm run check:auth-zero-probe
-ResetSecurityRuntimeState "pre diagnostic permission matrix"
 RunCollect "permission-matrix" RunInClient npm run check:security:permissions
 FinishCollect

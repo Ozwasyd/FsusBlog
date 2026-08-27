@@ -72,6 +72,14 @@
             "expires": "2026-09-22",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2792",
             "sourceFingerprint": "sha256:2dc7b06a5c9f63c94f9a02dd6e2f8496e89af0ae7e6e3ea8898b980f5e752031"
+        },
+        {
+            "file": "tools/test-fixtures/producers/security-fixture-producer.mjs",
+            "owner": "TestInfrastructureAgent:security-fixtures",
+            "reason": "Temporary bounded bridge while the new security producer contract and three production-semantic family lifecycles are split after consumer cutover",
+            "expires": "2026-09-22",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2156",
+            "sourceFingerprint": "sha256:f56b252981541da52b0449dc6d1a850f54c6a38bfaa3e6d630a4e8f277c4f5fb"
         }
     ]
 }

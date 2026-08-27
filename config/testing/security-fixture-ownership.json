@@ -1,0 +1,117 @@
+{
+    "schema": "fsusblog.security-fixture-ownership.v1",
+    "producerId": "security-state",
+    "producerPath": "tools/test-fixtures/producers/security-fixture-producer.mjs",
+    "strategy": "transaction-fixture",
+    "cleanupOwner": "fixture-receipt.cleanupContract.receipt-owned-exact",
+    "capabilities": [
+        {
+            "id": "security.audit.active-window",
+            "portFamily": "credential",
+            "postconditionId": "audit-active-window",
+            "profiles": [
+                "security-state-matrix"
+            ]
+        },
+        {
+            "id": "security.clean",
+            "portFamily": "risk-pow-rate-limit",
+            "postconditionId": "security-clean",
+            "profiles": [
+                "security-clean"
+            ]
+        },
+        {
+            "id": "security.credential.active",
+            "portFamily": "credential",
+            "postconditionId": "credential-active",
+            "profiles": [
+                "security-state-matrix"
+            ]
+        },
+        {
+            "id": "security.credential.revoked",
+            "portFamily": "credential",
+            "postconditionId": "credential-revoked",
+            "profiles": [
+                "auth-security-matrix",
+                "security-state-matrix"
+            ]
+        },
+        {
+            "id": "security.issuance.replay-observed",
+            "portFamily": "credential",
+            "postconditionId": "issuance-replay-observed",
+            "profiles": [
+                "security-state-matrix"
+            ]
+        },
+        {
+            "id": "security.nullifier.blocked",
+            "portFamily": "credential",
+            "postconditionId": "nullifier-blocked",
+            "profiles": [
+                "security-state-matrix"
+            ]
+        },
+        {
+            "id": "security.pow.elevated",
+            "portFamily": "risk-pow-rate-limit",
+            "postconditionId": "pow-elevated",
+            "profiles": [
+                "auth-security-matrix",
+                "security-state-matrix"
+            ]
+        },
+        {
+            "id": "security.rate-limit.blocked",
+            "portFamily": "risk-pow-rate-limit",
+            "postconditionId": "rate-limit-blocked",
+            "profiles": [
+                "security-state-matrix"
+            ]
+        },
+        {
+            "id": "security.rate-limit.near-limit",
+            "portFamily": "risk-pow-rate-limit",
+            "postconditionId": "rate-limit-near-limit",
+            "profiles": [
+                "security-state-matrix"
+            ]
+        },
+        {
+            "id": "security.risk.escalated",
+            "portFamily": "risk-pow-rate-limit",
+            "postconditionId": "risk-escalated",
+            "profiles": [
+                "auth-security-matrix",
+                "security-state-matrix"
+            ]
+        },
+        {
+            "id": "security.risk.low",
+            "portFamily": "risk-pow-rate-limit",
+            "postconditionId": "risk-low",
+            "profiles": [
+                "security-state-matrix"
+            ]
+        },
+        {
+            "id": "security.subject.banned",
+            "portFamily": "ban",
+            "postconditionId": "subject-banned",
+            "profiles": [
+                "auth-security-matrix",
+                "security-state-matrix"
+            ]
+        },
+        {
+            "id": "security.subject.unbanned",
+            "portFamily": "ban",
+            "postconditionId": "subject-unbanned",
+            "profiles": [
+                "security-state-matrix"
+            ]
+        }
+    ]
+}

@@ -14658,6 +14658,35 @@
             }
         },
         {
+            "id": "Implementation.ToolsTestCheckSecurityFixtureGovernanceMjs",
+            "externalId": "tools/test/check-security-fixture-governance.mjs",
+            "symbol": "CheckToolsTestCheckSecurityFixtureGovernance",
+            "owner": "SecurityGovernanceOwner",
+            "category": "security-privacy",
+            "engine": "parser",
+            "sourceScopes": [
+                "tools/test/check-security-fixture-governance.mjs",
+                "security/**",
+                "src/backend/**",
+                "src/frontend/src/privacy/**",
+                "tests/security/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/test/check-security-fixture-governance.mjs",
+                "executionKey": "governance:file:tools/test/check-security-fixture-governance.mjs",
+                "receiptCompatible": true
+            }
+        },
+        {
             "id": "Implementation.ToolsTestCheckStrykerReportMjs",
             "externalId": "tools/test/check-stryker-report.mjs",
             "symbol": "CheckToolsTestCheckStrykerReport",
@@ -16851,35 +16880,6 @@
                 "mode": "delegated-implementation",
                 "implementation": "tools/test/lanes/release-resource-budget.sh",
                 "executionKey": "governance:file:tools/test/lanes/release-resource-budget.sh",
-                "receiptCompatible": true
-            }
-        },
-        {
-            "id": "Implementation.ToolsTestLanesResetSecurityRuntimeStateSh",
-            "externalId": "tools/test/lanes/reset-security-runtime-state.sh",
-            "symbol": "CheckToolsTestLanesResetSecurityRuntimeState",
-            "owner": "SecurityGovernanceOwner",
-            "category": "security-privacy",
-            "engine": "runtime",
-            "sourceScopes": [
-                "tools/test/lanes/reset-security-runtime-state.sh",
-                "security/**",
-                "src/backend/**",
-                "src/frontend/src/privacy/**",
-                "tests/security/**"
-            ],
-            "severity": "error",
-            "fixable": false,
-            "changedFileSafe": true,
-            "dependencies": [],
-            "testFixtures": [
-                "tests/tools/rule-platform.test.mjs"
-            ],
-            "documentation": "docs/development/custom-rule-platform.md",
-            "execution": {
-                "mode": "delegated-implementation",
-                "implementation": "tools/test/lanes/reset-security-runtime-state.sh",
-                "executionKey": "governance:file:tools/test/lanes/reset-security-runtime-state.sh",
                 "receiptCompatible": true
             }
         },

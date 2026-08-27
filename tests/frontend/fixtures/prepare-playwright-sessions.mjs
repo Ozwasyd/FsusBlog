@@ -153,17 +153,6 @@ async function runPsql(sql) {
   ]);
 }
 
-async function runRedis(args) {
-  assertSafeFixtureContainer(redisContainer, 'FSUSBLOG_REDIS_CONTAINER');
-  return run('docker', [
-    'exec',
-    '-i',
-    redisContainer,
-    'redis-cli',
-    ...args
-  ]);
-}
-
 async function readPostgresPidSnapshot() {
   assertSafeFixtureContainer(pgContainer, 'FSUSBLOG_PG_CONTAINER');
   const output = await run('docker', [
@@ -208,18 +197,6 @@ END $$;
 `;
 
   await runPsql(sql);
-}
-
-async function cleanupRedis(session) {
-  const pattern = `e2e:${session}:*`;
-  const keys = (await runRedis(['--scan', '--pattern', pattern]))
-    .split(/\r?\n/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-  if (keys.length > 0) {
-    await runRedis(['DEL', ...keys]);
-  }
 }
 
 async function runNodeScript(script, env) {
@@ -267,10 +244,7 @@ async function main() {
 
   await runWithConcurrency(sessions, sessionPrepConcurrency, async (session) => {
     console.log(`[prepare-playwright-sessions] preparing ${session}`);
-    await Promise.all([
-      clonePublicSchema(session),
-      cleanupRedis(session)
-    ]);
+    await clonePublicSchema(session);
 
     const env = {
       FSUSBLOG_BASE_URL: backendBaseUrl,

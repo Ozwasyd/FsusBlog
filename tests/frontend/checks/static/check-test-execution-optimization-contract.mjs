@@ -148,8 +148,7 @@ requireIncludes('tests/frontend/fixtures/prepare-playwright-sessions.mjs', [
     'FSUSBLOG_REDIS_CONTAINER: redisContainer',
     'FSUSBLOG_USER_USERNAME: `binaryuser-${session}`',
     'FSUSBLOG_ADMIN_USERNAME: `binaryadmin-${session}`',
-    'FSUSBLOG_DEVICE_FP: `${session}-playwright`',
-    "assertSafeFixtureContainer(redisContainer, 'FSUSBLOG_REDIS_CONTAINER')"
+    'FSUSBLOG_DEVICE_FP: `${session}-playwright`'
 ]);
 if (read('tests/frontend/fixtures/prepare-playwright-sessions.mjs').includes('spawnSync'))
 {

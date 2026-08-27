@@ -213,7 +213,6 @@ export function plan(profileIdentity, executionIdentity = {}, { catalogs = readF
         requiresPublicFixtures: resolved.requiresPublicFixtures,
         requiresDemoSeed: resolved.requiresDemoSeed,
         requiresSecurityState: resolved.requiresSecurityState,
-        requiresSecurityReset: resolved.requiresSecurityReset,
         terminalState: 'planned'
     });
 }
@@ -802,6 +801,7 @@ export async function verify(prepareState, injectedVerifiers = {}, {
                 databaseObservation: observations.database,
                 redisObservation: observations.redis,
                 cacheObservation: observations.cache,
+                domainObservations: rawResult.domainObservations ?? portVerify?.domainObservations ?? [],
                 temporalBinding,
                 catalogs
             });

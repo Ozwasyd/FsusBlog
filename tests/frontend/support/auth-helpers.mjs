@@ -63,11 +63,6 @@ const nodePowBatchSize = Math.max(
   1,
   Number.parseInt(process.env.FSUSBLOG_NODE_WASM_POW_BATCH_SIZE ?? '262144', 10) || 262144
 );
-const maxDeterministicPowDifficulty = Number.parseInt(process.env.FSUSBLOG_ACCEPTANCE_POW_MAX_DIFFICULTY ?? '20', 10) || 20;
-const deterministicPowChallengeAttempts = Math.max(
-  1,
-  Number.parseInt(process.env.FSUSBLOG_ACCEPTANCE_POW_CHALLENGE_ATTEMPTS ?? '30', 10) || 30
-);
 let nodePowModulePromise = null;
 
 function assert(condition, message) {
@@ -160,10 +155,6 @@ function readCStringFromPowModule(module, ptr, maxLength) {
 
 function resolvePowDeadline(timeoutMs) {
   return Date.now() + Math.max(1000, timeoutMs - 250);
-}
-
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function yieldToNodeEventLoop() {
@@ -317,24 +308,8 @@ export async function fetchChallenge(timeoutMs = requestTimeoutMs) {
   return decodePowChallenge(await response.arrayBuffer());
 }
 
-async function fetchDeterministicChallenge(timeoutMs = requestTimeoutMs) {
-  let lastDifficulty = 'unknown';
-  for (let attempt = 0; attempt < deterministicPowChallengeAttempts; attempt += 1) {
-    const challenge = await fetchChallenge(timeoutMs);
-    const difficulty = Number(challenge.difficulty ?? challenge.Difficulty ?? 999);
-    lastDifficulty = Number.isFinite(difficulty) ? String(difficulty) : 'unknown';
-    if (Number.isFinite(difficulty) && difficulty <= maxDeterministicPowDifficulty) {
-      return challenge;
-    }
-
-    await delay(1000);
-  }
-
-  throw new Error(`pow challenge difficulty did not settle below ${maxDeterministicPowDifficulty}; last=${lastDifficulty}`);
-}
-
 export async function buildPowHeaders(deviceFingerprint, timeoutMs = requestTimeoutMs) {
-  const challenge = await fetchDeterministicChallenge(timeoutMs);
+  const challenge = await fetchChallenge(timeoutMs);
   const salt = challenge.salt ?? challenge.Salt;
   const difficulty = Number(challenge.difficulty ?? challenge.Difficulty ?? 4);
   const timestamp = Number(challenge.timestamp ?? challenge.Timestamp);

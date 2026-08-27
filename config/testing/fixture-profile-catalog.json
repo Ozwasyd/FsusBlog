@@ -60,7 +60,7 @@
         "auth.user.active",
         "security.credential.revoked",
         "security.pow.elevated",
-        "security.risk-escalated",
+        "security.risk.escalated",
         "security.subject.banned",
         "session.multi-device"
       ],
@@ -224,6 +224,45 @@
         "load"
       ],
       "isDestructive": true,
+      "requiresFreshNamespace": true
+    },
+    {
+      "id": "security-clean",
+      "capabilities": [
+        "auth.user.active",
+        "security.clean"
+      ],
+      "allowedExecutionClasses": [
+        "load",
+        "runtime",
+        "security"
+      ],
+      "isDestructive": false,
+      "requiresFreshNamespace": true
+    },
+    {
+      "id": "security-state-matrix",
+      "capabilities": [
+        "auth.user.active",
+        "security.audit.active-window",
+        "security.credential.active",
+        "security.credential.revoked",
+        "security.issuance.replay-observed",
+        "security.nullifier.blocked",
+        "security.pow.elevated",
+        "security.rate-limit.blocked",
+        "security.rate-limit.near-limit",
+        "security.risk.escalated",
+        "security.risk.low",
+        "security.subject.banned",
+        "security.subject.unbanned"
+      ],
+      "allowedExecutionClasses": [
+        "load",
+        "runtime",
+        "security"
+      ],
+      "isDestructive": false,
       "requiresFreshNamespace": true
     }
   ]

@@ -203,13 +203,22 @@
             "strategy": "transaction-fixture",
             "reuseVerifier": "fixture-receipt",
             "implementationPaths": [
-                "tests/frontend/support/session-fixtures.mjs"
+                "tools/test-fixtures/producers/security-fixture-producer.mjs"
             ],
             "provides": [
+                "security.audit.active-window",
+                "security.clean",
+                "security.credential.active",
                 "security.credential.revoked",
+                "security.issuance.replay-observed",
+                "security.nullifier.blocked",
                 "security.pow.elevated",
-                "security.risk-escalated",
-                "security.subject.banned"
+                "security.rate-limit.blocked",
+                "security.rate-limit.near-limit",
+                "security.risk.escalated",
+                "security.risk.low",
+                "security.subject.banned",
+                "security.subject.unbanned"
             ],
             "consumes": [
                 "auth.user.active"
@@ -217,15 +226,27 @@
             "stateDomains": [
                 "fixture.auth-identities",
                 "fixture.security-state",
+                "postgres.audit",
                 "postgres.auth",
+                "postgres.outbox",
                 "postgres.security",
+                "redis.cache.private",
                 "redis.rate-limit"
             ],
             "receiptPostconditions": [
+                "audit-active-window",
+                "credential-active",
                 "credential-revoked",
+                "issuance-replay-observed",
+                "nullifier-blocked",
                 "pow-elevated",
+                "rate-limit-blocked",
+                "rate-limit-near-limit",
                 "risk-escalated",
-                "subject-banned"
+                "risk-low",
+                "security-clean",
+                "subject-banned",
+                "subject-unbanned"
             ]
         }
     ]

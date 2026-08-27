@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 // fixture-catalog: consumer auth-session-runtime auth-basic
 // fixture-catalog: producer auth-session
-// fixture-catalog: producer security-state
 
 import { spawnSync } from 'node:child_process';
-import { createHash, createHmac, randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { chmod, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -40,7 +39,6 @@ const pgDb = process.env.FSUSBLOG_PG_DB || 'fsusblog';
 const testSession = resolveTestSession();
 const playwrightSessionMode = resolvePlaywrightSessionMode();
 const persistAuthFixtures = process.env.FSUSBLOG_PERSIST_AUTH_FIXTURES !== '0';
-const redisContainer = process.env.FSUSBLOG_REDIS_CONTAINER || process.env.FSUSBLOG_REDIS_CONTAINER_NAME || '';
 
 const jwtSecret = process.env.Jwt__SecretKey
   || process.env.JWT_SECRET
@@ -54,10 +52,6 @@ const jwtAudience = process.env.Jwt__Audience
   || process.env.FSUSBLOG_JWT_AUDIENCE
   || 'fsusblog-client';
 const jwtKeyVersion = process.env.Jwt__KeyVersion || '';
-const anonymousCredentialSubjectHashPepper = process.env.AnonymousCredentialIssuer__SubjectHashPepper
-  || process.env.FSUSBLOG_DEV_ANONYMOUS_SUBJECT_HASH_PEPPER
-  || '';
-const resetAnonymousCredentialIssuanceFixture = process.env.FSUSBLOG_RESET_ANONYMOUS_ISSUANCE_FIXTURE !== '0';
 const accessTokenExpiresMinutes = Number.parseInt(
     process.env.Jwt__AccessTokenExpiresMinutes
   || process.env.FSUSBLOG_JWT_ACCESS_TOKEN_EXPIRES_MINUTES
@@ -162,40 +156,6 @@ function runPsqlNumber(sql, description)
     return value;
 }
 
-function runRedisCli(args, description)
-{
-    if (!/^fsusblog-(?:dev|test|ci)(?:[-_.a-zA-Z0-9]*)$/.test(redisContainer))
-    {
-        throw new Error('FSUSBLOG_REDIS_CONTAINER must name a dev/test/ci fixture container before Redis fixtures can run.');
-    }
-
-    const result = spawnSync('docker', [
-        'exec',
-        redisContainer,
-        'redis-cli',
-        ...args
-    ], { encoding: 'utf8' });
-
-    if (result.status !== 0)
-    {
-        throw new Error(`${description} redis fixture command failed: ${result.stderr || result.stdout}`);
-    }
-
-    return result.stdout.trim();
-}
-
-function clearFixtureUserBanCache(handle)
-{
-    if (!redisContainer)
-    {
-        return;
-    }
-
-    const subjectHash = accountSubjectHash(ANONYMOUS_ACCOUNT_KIND, handle);
-    const key = `fsus:sec:blacklist-user:account:${subjectHash}`;
-    runRedisCli(['DEL', key, runtimeCacheKey(key)], `clear fixture user ban cache ${handle}`);
-}
-
 function base64Url(input)
 {
     return Buffer.from(input)
@@ -267,49 +227,6 @@ function accountSubjectHash(identityKind, subject)
     return createHash('sha256')
         .update(`${ACCOUNT_SUBJECT_HASH_PREFIX}:${normalizedKind}:${normalizedSubject}`, 'utf8')
         .digest('hex');
-}
-
-function anonymousCredentialIssuanceSubjectHash(userId)
-{
-    const pepper = String(anonymousCredentialSubjectHashPepper || '').trim();
-    if (pepper.length < 32)
-    {
-        return '';
-    }
-
-    const key = createHash('sha256').update(pepper, 'utf8').digest();
-    return createHmac('sha256', key)
-        .update(`fsusblog:anonymous-credential-issuance:v1:${userId}`, 'utf8')
-        .digest('hex');
-}
-
-function clearFixtureAnonymousCredentialIssuanceAudit(userId)
-{
-    if (!resetAnonymousCredentialIssuanceFixture)
-    {
-        return;
-    }
-
-    const subjectHash = anonymousCredentialIssuanceSubjectHash(userId);
-    if (!subjectHash)
-    {
-        return;
-    }
-
-    runPsql(`
-DO $$
-BEGIN
-  IF to_regclass('anonymous_credential_issuance_audit') IS NOT NULL THEN
-    DELETE FROM anonymous_credential_issuance_audit
-    WHERE subject_hash = ${sqlString(subjectHash)};
-  END IF;
-END $$;
-`);
-}
-
-function runtimeCacheKey(key)
-{
-    return testSession ? `e2e:${testSession}:${key}` : key;
 }
 
 function randomToken(byteLength = 32)
@@ -391,12 +308,9 @@ inserted AS (
     passkey_enabled,
     recovery_enabled,
     privacy_initialized_at,
-    anonymous_credential_level,
-    anonymous_credential_status,
     status,
     createtime,
-    mfaenabled,
-    riskflags
+    mfaenabled
   )
   SELECT
     ${sqlString(normalizedHandle)},
@@ -405,12 +319,9 @@ inserted AS (
     false,
     false,
     ${businessNowSql()},
-    'basic',
-    'active',
     0,
     ${businessNowSql()},
-    false,
-    0
+    false
   WHERE NOT EXISTS (SELECT 1 FROM existing)
   RETURNING id
 )
@@ -424,7 +335,6 @@ LIMIT 1;
 UPDATE sys_user
 SET status = 0,
     account_subject_hash = ${sqlString(accountSubjectHashValue)},
-    banreason = NULL,
     deleted_at = NULL,
     deleted_reason = NULL,
     mfaenabled = false
@@ -433,8 +343,6 @@ WHERE id = ${userId};
 DELETE FROM user_mfa_profile
 WHERE user_id = ${userId};
 `, `reset fixture user MFA ${normalizedHandle}`);
-    clearFixtureUserBanCache(normalizedHandle);
-    clearFixtureAnonymousCredentialIssuanceAudit(userId);
 
     const sessionId = stableFixtureSessionId(
         ANONYMOUS_ACCOUNT_KIND,
@@ -679,74 +587,6 @@ ON CONFLICT (sessionid) DO UPDATE SET
         accessTokenExpiresAtEpochSeconds,
         cookieHeader: buildAdminCookieHeader({ accessToken, sessionId })
     };
-}
-
-export function createAdminStepUpProofToken({
-    adminId,
-    sessionId,
-    action = 'admin-sensitive',
-    ttlSeconds = 45
-})
-{
-    if (!Number.isFinite(Number(adminId)) || Number(adminId) <= 0)
-    {
-        throw new Error('admin step-up proof requires a valid admin id');
-    }
-    if (!String(sessionId || '').trim())
-    {
-        throw new Error('admin step-up proof requires a valid session id');
-    }
-
-    const token = randomToken();
-    const identity = [
-        'admin',
-        Number(adminId),
-        String(sessionId).trim(),
-        String(action).trim(),
-        token
-    ].join(':');
-    const key = `fsus:sec:mfa-proof:${identity}`;
-    runRedisCli(['SET', runtimeCacheKey(key), '1', 'EX', String(Math.max(1, ttlSeconds))], 'admin step-up proof');
-    return token;
-}
-
-export function createUserMfaProofToken({
-    userId,
-    handle,
-    action,
-    ttlSeconds = 45
-})
-{
-    if (!Number.isFinite(Number(userId)) || Number(userId) <= 0)
-    {
-        throw new Error('user MFA proof requires a valid user id');
-    }
-    const normalizedHandle = String(handle || '').trim().toLowerCase();
-    if (!normalizedHandle)
-    {
-        throw new Error('user MFA proof requires a valid handle');
-    }
-    const normalizedAction = String(action || '').trim().toLowerCase();
-    if (!normalizedAction)
-    {
-        throw new Error('user MFA proof requires a valid action');
-    }
-
-    const token = randomToken();
-    const subject = accountSubjectHash(ANONYMOUS_ACCOUNT_KIND, normalizedHandle);
-    const identity = createHash('sha256')
-        .update([
-            'mfa-proof',
-            String(Number(userId)),
-            subject,
-            normalizedAction,
-            token
-        ].join(':'), 'utf8')
-        .digest('hex')
-        .toUpperCase();
-    const key = `fsus:sec:mfa-proof:${identity}`;
-    runRedisCli(['SET', runtimeCacheKey(key), '1', 'EX', String(Math.max(1, ttlSeconds))], 'user MFA proof');
-    return token;
 }
 
 function cookieEntries(cookieHeader, url)

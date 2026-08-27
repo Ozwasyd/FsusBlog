@@ -26,6 +26,11 @@ import {
     RETIRED_FIXTURE_RECEIPT_SCHEMAS
 } from './schemas.mjs';
 import { assertNoSecrets } from './secrets.mjs';
+import {
+    normalizeCleanupContract,
+    normalizeDomainObservations,
+    validateSecurityReceiptExtensions
+} from './security-receipt-contract.mjs';
 
 function requireText(value, label)
 {
@@ -134,22 +139,6 @@ function normalizePostconditionObservations(items)
     return Object.freeze(normalized);
 }
 
-function normalizeCleanupContract(value)
-{
-    if (value == null)
-    {
-        return Object.freeze({ kind: 'owned-namespace' });
-    }
-    if (!plainObject(value))
-    {
-        throw new Error('cleanupContract must be an object');
-    }
-    return freezeDeep({
-        kind: requireText(String(value.kind ?? 'owned-namespace'), 'cleanupContract.kind'),
-        notes: value.notes == null ? null : String(value.notes)
-    });
-}
-
 function normalizeTemporalBinding(value)
 {
     if (value == null)
@@ -224,6 +213,7 @@ export function buildProducerReceipt({
     databaseObservation = null,
     redisObservation = null,
     cacheObservation = null,
+    domainObservations = [],
     temporalBinding = null,
     catalogs = readFixtureCatalogs()
 } = {})
@@ -328,6 +318,7 @@ export function buildProducerReceipt({
         postconditionObservations: normalizePostconditionObservations(postconditionObservations),
         cleanupContract: normalizeCleanupContract(cleanupContract),
         temporalBinding: normalizeTemporalBinding(temporalBinding),
+        domainObservations: normalizeDomainObservations(domainObservations, id),
         observationDigests: freezeDeep({
             database: observations.database ? digestDatabaseObservation(observations.database) : null,
             redis: observations.redis ? digestRedisObservation(observations.redis) : null,
@@ -391,6 +382,7 @@ export function validateProducerReceipt(document, { catalogs = readFixtureCatalo
     {
         normalizeTemporalBinding(document.temporalBinding);
     }
+    validateSecurityReceiptExtensions(document);
 
     const catalogProducer = (catalogs.producer.producers ?? []).find((item) => item.id === document.producerId);
     if (!catalogProducer)

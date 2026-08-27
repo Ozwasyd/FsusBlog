@@ -119,18 +119,12 @@ REQUIRES_LOCAL_AUTH="$(node -e 'const p=JSON.parse(process.argv[1]); process.std
 REQUIRES_AUTH_FIXTURES="$(node -e 'const p=JSON.parse(process.argv[1]); process.stdout.write(p.requiresAuthFixtures ? "1" : "0")' "$PLAN_JSON")"
 REQUIRES_PUBLIC_FIXTURES="$(node -e 'const p=JSON.parse(process.argv[1]); process.stdout.write(p.requiresPublicFixtures ? "1" : "0")' "$PLAN_JSON")"
 REQUIRES_DEMO_SEED="$(node -e 'const p=JSON.parse(process.argv[1]); process.stdout.write(p.requiresDemoSeed ? "1" : "0")' "$PLAN_JSON")"
-REQUIRES_SECURITY_RESET="$(node -e 'const p=JSON.parse(process.argv[1]); process.stdout.write(p.requiresSecurityReset ? "1" : "0")' "$PLAN_JSON")"
 CAPABILITY_IDS="$(node -e 'const p=JSON.parse(process.argv[1]); process.stdout.write((p.capabilities||[]).join(","))' "$PLAN_JSON")"
 PRODUCER_IDS="$(node -e 'const p=JSON.parse(process.argv[1]); process.stdout.write((p.producers||[]).join(","))' "$PLAN_JSON")"
 
 echo "[dev-start] planned fixture profile=${PROFILE_ID} source=dev-cli catalogDigest=${CATALOG_DIGEST} mutationPolicy=${MUTATION_POLICY}"
 echo "[dev-start] capabilities=${CAPABILITY_IDS:-<none>} producers=${PRODUCER_IDS:-<none>}"
 echo "[dev-start] planned-profile receipt: ${PLANNED_RECEIPT}"
-
-if [[ "$REQUIRES_SECURITY_RESET" == "1" ]]; then
-    echo "[dev-start] security reset is not implemented as a standalone bootstrap producer yet" >&2
-    exit 1
-fi
 
 echo "[dev-start] starting PostgreSQL and Redis..."
 docker compose -f "$COMPOSE_FILE" up -d postgres redis

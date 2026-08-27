@@ -368,8 +368,7 @@ async function main(argv = process.argv.slice(2))
                 requiresLocalAuthBypass: planDocument.requiresLocalAuthBypass,
                 requiresAuthFixtures: planDocument.requiresAuthFixtures,
                 requiresPublicFixtures: planDocument.requiresPublicFixtures,
-                requiresDemoSeed: planDocument.requiresDemoSeed,
-                requiresSecurityReset: planDocument.requiresSecurityReset
+                requiresDemoSeed: planDocument.requiresDemoSeed
             }, { kind: 'planned-profile' });
         }
         process.stdout.write(`${JSON.stringify(planDocument)}\n`);
@@ -527,8 +526,7 @@ async function main(argv = process.argv.slice(2))
                 requiresLocalAuthBypass: planDocument.requiresLocalAuthBypass,
                 requiresAuthFixtures: planDocument.requiresAuthFixtures,
                 requiresPublicFixtures: planDocument.requiresPublicFixtures,
-                requiresDemoSeed: planDocument.requiresDemoSeed,
-                requiresSecurityReset: planDocument.requiresSecurityReset
+                requiresDemoSeed: planDocument.requiresDemoSeed
             }, { kind: 'planned-profile' });
         }
         const ports = resolvePorts(planDocument, options);

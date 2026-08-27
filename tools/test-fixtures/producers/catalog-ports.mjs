@@ -335,7 +335,26 @@ export function createScaleDataPort(catalogs = readFixtureCatalogs())
 
 export function createSecurityStatePort(catalogs = readFixtureCatalogs())
 {
-    return createStructuralBusinessPort(catalogProducer('security-state', catalogs), 'securityStateAdapter');
+    const producer = catalogProducer('security-state', catalogs);
+    return basePort(producer, {
+        async prepare(context, signal)
+        {
+            assertNoStrategyEnv();
+            requireConsumedProducerOutputs(producer, context);
+            const { prepareSecurityFixtures } = await import('./security-fixture-producer.mjs');
+            return prepareSecurityFixtures(context, signal);
+        },
+        async verify(context, producerResult)
+        {
+            const { verifySecurityFixtures } = await import('./security-fixture-producer.mjs');
+            return verifySecurityFixtures(context, producerResult);
+        },
+        async cleanup(context, producerResult, signal)
+        {
+            const { cleanupSecurityFixtures } = await import('./security-fixture-producer.mjs');
+            await cleanupSecurityFixtures(context, producerResult, signal);
+        }
+    });
 }
 
 function requireConsumedProducerOutputs(producer, context)

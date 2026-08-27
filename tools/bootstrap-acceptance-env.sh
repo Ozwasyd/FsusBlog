@@ -502,7 +502,6 @@ FIXTURE_PRODUCER_IDS=""
 FIXTURE_REQUIRES_AUTH=0
 FIXTURE_REQUIRES_PUBLIC=0
 FIXTURE_REQUIRES_DEMO=0
-FIXTURE_REQUIRES_SECURITY_RESET=0
 FIXTURE_REQUIRES_LOCAL_AUTH=0
 FIXTURE_RECEIPT_FILE=""
 FIXTURE_RECEIPT_DIGEST=""
@@ -1924,30 +1923,6 @@ RefreshFixtureServiceGeneration() {
     WriteEnvFile
 }
 
-ResetSecurityTestState() {
-    # Only when the sealed/planned profile explicitly requires security.runtime-reset.
-    # No default-on side effect and no free env override path in bootstrap.
-    if [[ "$FIXTURE_REQUIRES_SECURITY_RESET" != "1" ]]; then
-        return
-    fi
-
-    local deleted
-    local riskDeleted
-    riskDeleted="$(docker exec "$POSTGRES_CONTAINER" psql -U fsusblog -d fsusblog -Atqc "WITH deleted AS (DELETE FROM security_risk_event WHERE expires_at_utc > (now() AT TIME ZONE 'utc') RETURNING 1) SELECT count(*) FROM deleted;" 2>/dev/null || true)"
-    riskDeleted="${riskDeleted:-0}"
-    if [[ "$riskDeleted" =~ ^[0-9]+$ ]] && ((riskDeleted > 0)); then
-        Log "reset active persisted security risk events: ${riskDeleted}"
-        FORCE_BOOTSTRAP=1
-    fi
-
-    deleted="$(docker exec "$REDIS_CONTAINER" sh -c "{ redis-cli --scan --pattern '*${NS_SLUG}*fsus:sec:pow-risk:*'; redis-cli --scan --pattern 'fsus:sec:pow-risk:*'; } | sort -u | xargs -r redis-cli DEL" 2>/dev/null || true)"
-    deleted="${deleted:-0}"
-    if [[ "$deleted" =~ ^[0-9]+$ ]] && ((deleted > 0)); then
-        Log "reset local security PoW risk keys: ${deleted}"
-        FORCE_BOOTSTRAP=1
-    fi
-}
-
 ResolveFixtureProfilePlan() {
     local mode="${1:-full}"
     FIXTURE_PROFILE_PLAN_FILE="$FIXTURE_DIR/planned-profile.json"
@@ -2018,7 +1993,6 @@ ResolveFixtureProfilePlan() {
     FIXTURE_REQUIRES_AUTH="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.requiresAuthFixtures?"1":"0")})')"
     FIXTURE_REQUIRES_PUBLIC="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.requiresPublicFixtures?"1":"0")})')"
     FIXTURE_REQUIRES_DEMO="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.requiresDemoSeed?"1":"0")})')"
-    FIXTURE_REQUIRES_SECURITY_RESET="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.requiresSecurityReset?"1":"0")})')"
     FIXTURE_REQUIRES_LOCAL_AUTH="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.requiresLocalAuthBypass?"1":"0")})')"
 
     Log "planned fixture profile=${FIXTURE_PROFILE_ID} source=${FIXTURE_PROFILE_SOURCE} catalogDigest=${FIXTURE_CATALOG_DIGEST} mutationPolicy=${FIXTURE_MUTATION_POLICY}"
@@ -2069,10 +2043,6 @@ InvokeFixtureOrchestrator() {
     fi
     if [[ "$FIXTURE_REQUIRES_DEMO" == "1" ]]; then
         Log 'development-demo producer is owned by tools/dev/start.sh; acceptance bootstrap refuses demo-public'
-        exit 1
-    fi
-    if [[ "$FIXTURE_REQUIRES_SECURITY_RESET" == "1" ]]; then
-        Log 'security.runtime-reset is not a catalog bootstrap producer; refusing'
         exit 1
     fi
     Log "invoking unique fixture orchestrator profile=${FIXTURE_PROFILE_ID} producers=${FIXTURE_PRODUCER_IDS:-<none>}"
