@@ -182,6 +182,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public void BackendEncoder_MatchesSharedApiErrorFixture()
     {
         ErrorDetail error = ErrorDetail.Create(ErrorCode.Forbidden, "权限不足", "role_required", "trace-123");

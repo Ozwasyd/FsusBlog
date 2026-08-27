@@ -397,6 +397,7 @@ public sealed class UnifiedCacheTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public void CachePolicyRegistry_DisablesRegistryForExactAndVersionedHotPathCaches()
     {
         var registry = new CachePolicyRegistry();
