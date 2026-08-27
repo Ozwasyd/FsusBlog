@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -25,9 +26,20 @@ const {
 const { parseMatrix } = await import(
     pathToFileURL(path.join(root, 'tools/test-matrix/parse-matrix.mjs')).href
 );
-const { renderTestingDocs, resolveCiJobExecution } = await import(
+const {
+    renderTestingDocs,
+    resolveCiJobExecution
+} = await import(
     pathToFileURL(path.join(root, 'tools/docs/generate-testing-docs.mjs')).href
 );
+const { validateTestingDocsTransitionReceipt } = await import(
+    pathToFileURL(path.join(root, 'tools/docs/testing-docs-transition.mjs')).href
+);
+
+function textDigest(value)
+{
+    return `sha256:${createHash('sha256').update(value).digest('hex')}`;
+}
 
 function fixtureMatrix({ excludedFlag = null, producerCiJob = 'canonical-producer' } = {})
 {
@@ -735,4 +747,75 @@ test('projection declarations require a catalog, exact IDs, artifact declaration
     };
     assert.ok(validateEvidenceExecutionDeclaration(summaryEscape, fixtureMatrix())
         .some((error) => error.includes('reserved for summary tiers')));
+});
+
+test('testing docs transition receipt binds the exact source, current output, and rendered output', () =>
+{
+    const sourceText = 'version: fsusblog-test-matrix-v2\n';
+    const current = '# Previous generated matrix\n';
+    const rendered = '# Next generated matrix\n';
+    const receipt = {
+        schema: 'fsusblog.testing-docs-transition.v1',
+        issue: '#1627',
+        source: {
+            path: 'tests/matrix.yml',
+            sha256: textDigest(sourceText)
+        },
+        output: {
+            path: 'docs/testing.generated.md',
+            currentSha256: textDigest(current),
+            expectedSha256: textDigest(rendered)
+        }
+    };
+
+    assert.deepEqual(
+        validateTestingDocsTransitionReceipt(receipt, { sourceText, current, rendered }),
+        []
+    );
+});
+
+test('testing docs transition receipt fails closed on path, digest, schema, and shape drift', () =>
+{
+    const sourceText = 'matrix source\n';
+    const current = 'current output\n';
+    const rendered = 'rendered output\n';
+    const validReceipt = {
+        schema: 'fsusblog.testing-docs-transition.v1',
+        issue: '#1627',
+        source: {
+            path: 'tests/matrix.yml',
+            sha256: textDigest(sourceText)
+        },
+        output: {
+            path: 'docs/testing.generated.md',
+            currentSha256: textDigest(current),
+            expectedSha256: textDigest(rendered)
+        }
+    };
+
+    for (const mutate of [
+        (receipt) => { receipt.schema = 'fsusblog.testing-docs-transition.v0'; },
+        (receipt) => { receipt.issue = '1627'; },
+        (receipt) => { receipt.source.path = 'tests/other.yml'; },
+        (receipt) => { receipt.source.sha256 = textDigest('foreign source'); },
+        (receipt) => { receipt.output.path = 'docs/other.generated.md'; },
+        (receipt) => { receipt.output.currentSha256 = textDigest('foreign current'); },
+        (receipt) => { receipt.output.expectedSha256 = textDigest('foreign expected'); },
+        (receipt) => { receipt.extra = true; }
+    ])
+    {
+        const receipt = structuredClone(validReceipt);
+        mutate(receipt);
+        assert.notDeepEqual(
+            validateTestingDocsTransitionReceipt(receipt, { sourceText, current, rendered }),
+            []
+        );
+    }
+
+    const synchronized = structuredClone(validReceipt);
+    synchronized.output.currentSha256 = textDigest(rendered);
+    assert.ok(validateTestingDocsTransitionReceipt(
+        synchronized,
+        { sourceText, current: rendered, rendered }
+    ).some((error) => error.includes('already synchronized')));
 });
