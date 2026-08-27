@@ -1119,6 +1119,29 @@
             }
         },
         {
+            "file": "tests/tools/evidence-location-contract.test.mjs",
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "migration"
+            ]
+        },
+        {
+            "file": "tests/tools/evidence-location-governance.test.mjs",
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "migration",
+                "perf"
+            ]
+        },
+        {
             "file": "tests/tools/evidence-projection.test.mjs",
             "owner": "manual-diagnostic:tests/tools/evidence-projection.test.mjs",
             "executionCategory": "manual-diagnostic",

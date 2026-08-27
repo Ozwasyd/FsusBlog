@@ -4563,6 +4563,31 @@
             ]
         },
         {
+            "id": "evidence-location-governance",
+            "description": "Every repository evidence-location selection pattern has a stable scanner rule and exactly one identity-bound migration disposition, while current-run consumers have one registered explicit-path or content-addressed authority.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "config/testing/current-run-evidence-context.schema.json",
+                "config/testing/evidence-locator-registry.schema.json",
+                "config/testing/evidence-locator-registry.json",
+                "config/testing/evidence-location-migration-ledger.schema.json",
+                "config/testing/evidence-location-migration-ledger.json",
+                "tools/test/evidence-location-contract.mjs",
+                "tools/test/evidence-location-scanner.mjs",
+                "tools/test/generate-evidence-location-governance.mjs",
+                "tests/tools/evidence-location-contract.test.mjs",
+                "tests/tools/evidence-location-governance.test.mjs",
+                "docs/testing.md"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Reject missing, duplicate, orphan, unclassified, wildcard-suppressed or newly discovered location findings; duplicate consumer authorities; mutable latest, timestamp, directory, fallback, age or TTL locator policy; and any content digest drift.",
+            "minimumRequirement": "Static governance must scan tracked JS, TS, C#, shell, workflow and config consumers, prove exact location and rule coverage for every finding, retain all three disposition classes, bind actual helper callsites, and cover quality gate, release-final, aggregates, flaky, public preview, manifest and downloaded evidence consumers.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
             "id": "release-evidence-classification-governance",
             "description": "Historical reports, static contracts, fixtures, fresh run output, and release closeout evidence have distinct canonical owners; only an identity-bound, fully sealed bundle that passes require-ok may produce a small immutable-storage index.",
             "owner": "ServerContractAgent",
