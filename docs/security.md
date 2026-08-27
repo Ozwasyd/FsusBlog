@@ -502,6 +502,26 @@ complete 先用数据库状态、request hash 和 lease 排除并发，再在同
 
 ## 角色与访问控制（RBAC）
 
+<!-- fsus-doc-claim
+claimId: security.admin-permissions
+behaviorId: authentication-session-permission
+claimType: generated-section
+generatedSectionId: security.admin-permissions
+render: enum-set
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN security.admin-permissions -->
+- `admin.manage`
+- `anonymous.comment.configure`
+- `anonymous.credential.revoke`
+- `anonymous.nullifier.block`
+- `article.publish`
+- `article.write`
+- `audit.investigate`
+- `audit.read`
+- `comment.moderate`
+- `system.config`
+<!-- FSUSBLOG-GENERATED:END security.admin-permissions -->
+
 FsusBlog 采用三级角色体系：
 
 | 角色 | 覆盖 | 典型操作 |

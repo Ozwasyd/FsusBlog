@@ -32,6 +32,26 @@
       "factPath": "facts.deployment.runtime-role-contract",
       "orderPolicy": "ordinal",
       "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "security.admin-permissions",
+      "documentPath": "docs/security.md",
+      "renderer": "enum-set",
+      "extractorId": "auth-session-permission-fact-extractor",
+      "behaviorId": "authentication-session-permission",
+      "factPath": "facts.admin.permissions.all",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "api.public-error-codes",
+      "documentPath": "docs/api/schemas-and-errors.md",
+      "renderer": "enum-set",
+      "extractorId": "config-error-security-policy-fact-extractor",
+      "behaviorId": "configuration-error-security-policy",
+      "factPath": "facts.error-codes.public",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
     }
   ]
 }

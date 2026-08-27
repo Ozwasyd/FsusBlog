@@ -40,6 +40,23 @@ Schema migration qualification 使用窄 JSON 负响应，不进入 AEDS `ApiErr
 
 ## 错误码枚举
 
+<!-- fsus-doc-claim
+claimId: api.public-error-codes
+behaviorId: configuration-error-security-policy
+claimType: generated-section
+generatedSectionId: api.public-error-codes
+render: enum-set
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN api.public-error-codes -->
+- `Conflict`
+- `Forbidden`
+- `InfraFailure`
+- `NotFound`
+- `Unauthorized`
+- `Unknown`
+- `Validation`
+<!-- FSUSBLOG-GENERATED:END api.public-error-codes -->
+
 ### Public HTML 负响应
 
 公共 HTML 不使用 AEDS `ApiError` body。搜索 query 超过 2048 字符、规范化后的 `q` 超过 128 字符或含非空白控制字符时返回 400；无效路径或不存在/不可公开实体返回 404；只有数据模型明确永久删除时才返回 410；provider、DB gate 或其它临时依赖故障返回 503 + `Retry-After: 5`。这些响应统一为独立 `noindex,follow` HTML，带 `Cache-Control: no-store`、`X-Robots-Tag: noindex, follow`、`X-Fsus-Public-Aot-Backfill: none`，不带 canonical、`og:url`、`BlogPosting`、SPA boot 或 hydration payload。
