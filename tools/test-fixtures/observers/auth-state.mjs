@@ -84,6 +84,29 @@ export async function observeAuthState({ domain, identity, context, signal }) {
   }
   const before = await readObserverSideEffects(port)
   const state = await port.readAuthState({ handle, domain, signal })
+  if (domain === 'fixture.auth-identities' && state?.stateClass === 'fixture-auth-catalog') {
+    if (state.readonly !== true || state.clockDigest !== clock.digest || state.namespace !== handle.namespace) {
+      throw new Error('fixture auth catalog identity/clock is stale, shared or unobservable')
+    }
+    const identities = stableRecords((state.identities ?? []).map((entry) => ({
+      kind: requireSafeId(entry.kind, 'fixture auth identity kind'),
+      id: requireSafeId(entry.id, 'fixture auth identity id'),
+      domain: requireText(entry.domain, 'fixture auth identity domain'),
+      fieldsDigest: requireDigest(entry.fieldsDigest, 'fixture auth fields digest')
+    })), ['kind', 'id'], 'fixture auth identities')
+    if (digestCanonical(identities) !== handle.expectedIdentityDigest) throw new Error('fixture auth catalog planned/actual identity drifted')
+    const after = await readObserverSideEffects(port)
+    return normalizedObserverResult({
+      kind: 'auth-state', stateClass: 'fixture-auth-catalog', namespace: handle.namespace,
+      identities, fixtureReceiptDigest: requireDigest(state.fixtureReceiptDigest, 'fixture auth receipt digest')
+    }, {
+      providerId: requireText(state.providerId, 'auth providerId'),
+      providerVersion: requireText(state.providerVersion, 'auth providerVersion'),
+      clockDigest: requireDigest(state.clockDigest, 'auth clockDigest'),
+      secretPlaintextOccurrences: 0,
+      fingerprintKeyOccurrences: 0
+    }, sideEffectDelta(before, after))
+  }
   if (!plainObject(state) || state.readonly !== true || state.clockDigest !== clock.digest
     || state.namespace !== handle.namespace || state.userId !== handle.userId
     || state.siteId !== handle.siteId || state.sessionId !== handle.authSessionId) {

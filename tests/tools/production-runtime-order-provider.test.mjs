@@ -96,7 +96,7 @@ export async function verifyProductionCoordination() { return { status: 'verifie
   await session.cleanup()
 })
 
-test('canonical runtime-order command fails closed when production binding is absent', async () => {
+test('canonical runtime-order command uses shipped binding and fails closed without current-run identity', async () => {
   const script = path.resolve('tools/test/run-runtime-order-equivalence.mjs')
   const output = path.join(os.tmpdir(), `fsusblog-runtime-order-${process.pid}.json`)
   fs.rmSync(output, { force: true })
@@ -113,6 +113,6 @@ test('canonical runtime-order command fails closed when production binding is ab
     }
   ))
   assert.notEqual(error.status, 0)
-  assert.match(error.stderr, /FSUSBLOG_RUNTIME_ORDER_BINDING_MODULE is required/)
+  assert.match(error.stderr, /FSUSBLOG_RUNTIME_ORDER_IDENTITY_FILE/)
   assert.equal(fs.existsSync(output), false)
 })

@@ -26,6 +26,18 @@ function write(file, value) {
 }
 
 function sessionReceipt(identity, root) {
+  const handles = {
+    'fixture.runtime-config': {
+      domain: 'fixture.runtime-config',
+      owner: { ...identity, domain: 'fixture.runtime-config' },
+      mutableRoot: path.join(root, 'mutable', 'fixture-runtime-config'),
+      namespace: 'fixture-runtime-config',
+      opaqueHandle: null,
+      serviceIdentity: null,
+      topologyIdentity: null,
+      contentDigest: null
+    }
+  }
   return sealDocument({
     schema: 'fsusblog.runtime-execution-session.v1',
     status: 'ready',
@@ -33,7 +45,8 @@ function sessionReceipt(identity, root) {
     immutableInputsDigest: digestCanonical({ immutable: true }),
     domains: ['fixture.runtime-config'],
     ownedRoot: root,
-    handleDigest: digestCanonical({ handles: true }),
+    handles,
+    handleDigest: digestCanonical(handles),
     lifecycleEventCount: 1
   })
 }

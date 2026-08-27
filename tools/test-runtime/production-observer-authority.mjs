@@ -8,6 +8,7 @@ import { parseRuntimeEnvironment } from '../test/bundles/runtime-environment.mjs
 import { validateFixtureReceipt } from '../test-fixtures/receipt/fixture-receipt.mjs'
 import { createProtectedFingerprint, sealDocument, verifySealedDocument } from './contract.mjs'
 import { validateRuntimeExecutionSessionReceipt } from './runtime-execution-session.mjs'
+import { loadRuntimeStateAuthority } from './catalog.mjs'
 
 export const productionObserverAuthoritySchema = 'fsusblog.production-observer-authority.v1'
 
@@ -86,7 +87,7 @@ function resolvedConfig({ environment, identity, fingerprintKey }) {
   }
   return {
     schema: 'fsusblog.runtime-config.v1',
-    namespace: environment.FSUSBLOG_TEST_NAMESPACE,
+    namespace: identity.runId,
     requiredKeys,
     values,
     sources,
@@ -199,25 +200,28 @@ export function publishProductionObserverAuthority({
 }
 
 function publish(options) {
-  const identity = identityFromSession(options.sessionReceiptFile)
+  const sessionReceipt = readJson(options.sessionReceiptFile, 'runtime session receipt')
+  validateRuntimeExecutionSessionReceipt(sessionReceipt)
+  const identity = sessionReceipt.identity
   const absoluteEnvironment = regularFile(options.environmentFile, 'runtime environment')
   const rawEnvironment = fs.readFileSync(absoluteEnvironment, 'utf8')
   const namespace = rawEnvironment.match(/^FSUSBLOG_TEST_NAMESPACE=(.+)$/mu)?.[1]
   const environment = parseRuntimeEnvironment(rawEnvironment, namespace)
   if (environment.FSUSBLOG_TEST_RUN_ID !== identity.runId) throw new Error('runtime environment run identity drifted')
   const config = resolvedConfig({ environment, identity, fingerprintKey: readFingerprintKey(options.fingerprintKeyFile) })
-  const domains = {
-    'fixture.runtime-config': { status: 'observed', config }
-  }
+  const domains = Object.fromEntries(loadRuntimeStateAuthority().accessedDomains.map((domain) => [
+    domain, { status: 'absent', reasonCode: options.phase === 'ready' ? 'not-materialized' : 'before-bootstrap' }
+  ]))
+  domains['fixture.runtime-config'] = { status: 'observed', config }
   let serviceEnvelopeDigest = null
   if (options.phase === 'ready') {
     const serviceEnvelope = readJson(options.serviceEnvelopeFile, 'execution service envelope')
     validateServiceEnvelope(serviceEnvelope, identity)
     serviceEnvelopeDigest = fileDigest(regularFile(options.serviceEnvelopeFile, 'execution service envelope'))
-    const services = serviceEnvelope.actual.services.map((service) => serviceProjection(service, namespace))
+    const services = serviceEnvelope.actual.services.map((service) => serviceProjection(service, identity.runId))
     const plannedTopology = { services }
     const topology = {
-      namespace,
+      namespace: identity.runId,
       plannedTopologyDigest: digestCanonical(plannedTopology),
       plannedTopology,
       services
@@ -241,6 +245,23 @@ function publish(options) {
   domains['storage.fixture-objects'] = options.phase === 'ready'
     ? { status: 'observed', namespaceId: identity.sessionId, root: objectRoot, objects: [] }
     : { status: 'absent', reasonCode: 'before-bootstrap' }
+  const fixtureRoot = options.runtimeTopologyFile ? path.dirname(path.resolve(options.runtimeTopologyFile)) : null
+  const fileRoots = {
+    'artifact.release-derived': environment.FSUSBLOG_RELEASE_DERIVED_ROOT,
+    'artifact.static-web-assets': environment.PublicAot__SsrClientRoot,
+    'fixture.public-content': fixtureRoot,
+    'fixture.security-state': fixtureRoot
+  }
+  for (const [domain, candidate] of Object.entries(fileRoots)) {
+    if (options.phase !== 'ready' || !candidate) continue
+    const root = path.resolve(candidate)
+    if (!root.startsWith(`${path.resolve(sessionReceipt.ownedRoot)}${path.sep}`)) {
+      throw new Error(`${domain} producer root is outside the runtime session`)
+    }
+    const stat = fs.lstatSync(root)
+    if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error(`${domain} producer root is not a real directory`)
+    domains[domain] = { status: 'observed', root }
+  }
   const body = {
     schema: productionObserverAuthoritySchema,
     phase: options.phase,
@@ -256,6 +277,23 @@ function publish(options) {
         ? fileDigest(regularFile(options.fixtureReceiptFile, 'FixtureReceipt')) : null,
       aotWarmReportDigest: options.aotWarmReportFile && fs.existsSync(options.aotWarmReportFile)
         ? fileDigest(regularFile(options.aotWarmReportFile, 'public AOT warm report')) : null
+    },
+    producerRefs: {
+      sessionReceiptFile: path.resolve(options.sessionReceiptFile),
+      environmentFile: absoluteEnvironment,
+      fingerprintKeyFile: path.resolve(options.fingerprintKeyFile),
+      serviceEnvelopeFile: options.serviceEnvelopeFile ? path.resolve(options.serviceEnvelopeFile) : null,
+      environmentReadyFile: options.environmentReadyFile ? path.resolve(options.environmentReadyFile) : null,
+      runtimeTopologyFile: options.runtimeTopologyFile ? path.resolve(options.runtimeTopologyFile) : null,
+      fixtureReceiptFile: options.fixtureReceiptFile ? path.resolve(options.fixtureReceiptFile) : null,
+      aotWarmReportFile: options.aotWarmReportFile ? path.resolve(options.aotWarmReportFile) : null,
+      browserStorageFile: options.browserStorageFile ? path.resolve(options.browserStorageFile) : null,
+      objectStorageRoot: objectRoot
+    },
+    runtimeHandles: {
+      postgresContainer: environment.FSUSBLOG_POSTGRES_CONTAINER_NAME ?? null,
+      redisContainer: environment.FSUSBLOG_REDIS_CONTAINER_NAME ?? null,
+      redisNamespacePrefix: environment.RedisOptions__InstanceName ?? null
     },
     domains
   }

@@ -95,6 +95,31 @@ export function createProductionReceiptObjectStoragePort({ authorityFile, identi
   })
 }
 
+export function createProductionReceiptAuthStatePort({ authorityFile, identity, fixedClock }) {
+  return Object.freeze({
+    readonly: true,
+    async readSideEffectCounters() { return noSideEffects },
+    async readAuthState({ handle, domain }) {
+      const { record } = domainRecord({ authorityFile, identity, domain })
+      if (record.status !== 'observed') throw new Error(`${domain} auth authority is ${record.status}`)
+      if (domain === 'fixture.auth-identities') return {
+        ...record, readonly: true, namespace: handle.namespace,
+        clockDigest: fixedClock.digest, providerId: 'fixture-receipt', providerVersion: 'v2'
+      }
+      if (record.stateClass !== 'empty-browser-storage') throw new Error('browser storage authority is unsupported')
+      return {
+        readonly: true, namespace: handle.namespace, clockDigest: fixedClock.digest,
+        userId: handle.userId, siteId: handle.siteId, sessionId: handle.authSessionId,
+        deviceId: handle.deviceId, tokenClass: 'anonymous', roles: [], permissions: [], claims: {},
+        issuedAtEpochMs: fixedClock.epochMs, expiresAtEpochMs: fixedClock.epochMs,
+        serverGeneration: 'empty-browser-storage', token: null, cookies: [],
+        localStorage: {}, sessionStorage: {}, indexedDb: {},
+        providerId: 'playwright-storage-state', providerVersion: 'v1'
+      }
+    }
+  })
+}
+
 /** Fail-closed entry points for producer classes that are not yet materialized. */
 export function createProductionReceiptUnavailablePort({ authorityFile, identity, domain, kind }) {
   return Object.freeze({

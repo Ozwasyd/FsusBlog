@@ -66,10 +66,10 @@ function assertBinding(binding) {
 
 export async function createRuntimeOrderProvider() {
   const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
-  const bindingPath = path.resolve(requiredText(
-    process.env.FSUSBLOG_RUNTIME_ORDER_BINDING_MODULE,
-    'FSUSBLOG_RUNTIME_ORDER_BINDING_MODULE'
-  ))
+  const bindingPath = path.resolve(
+    String(process.env.FSUSBLOG_RUNTIME_ORDER_BINDING_MODULE ?? '').trim()
+      || path.join(repositoryRoot, 'tools', 'test-runtime', 'production-current-run-binding.mjs')
+  )
   if (!bindingPath.startsWith(`${repositoryRoot}${path.sep}`)) {
     throw new Error('runtime-order binding module must remain inside the repository')
   }

@@ -320,6 +320,7 @@ export class RuntimeExecutionSession {
   }
 
   receipt() {
+    const handles = Object.fromEntries(this.handles)
     const body = {
       schema: runtimeExecutionSessionSchema,
       status: this.#terminal ? 'terminal' : 'ready',
@@ -327,7 +328,8 @@ export class RuntimeExecutionSession {
       immutableInputsDigest: digestCanonical(this.immutableInputs),
       domains: this.domains,
       ownedRoot: this.ownedRoot,
-      handleDigest: digestCanonical(Object.fromEntries(this.handles)),
+      handles,
+      handleDigest: digestCanonical(handles),
       lifecycleEventCount: this.#sequence
     }
     return sealDocument(body)
@@ -348,6 +350,11 @@ export function validateRuntimeExecutionSessionReceipt(receipt, { identity = nul
   }
   requireDigest(receipt.immutableInputsDigest, 'session immutableInputsDigest')
   requireDigest(receipt.handleDigest, 'session handleDigest')
+  if (!plainObject(receipt.handles)
+    || JSON.stringify(Object.keys(receipt.handles).sort()) !== JSON.stringify([...receipt.domains].sort())
+    || digestCanonical(receipt.handles) !== receipt.handleDigest) {
+    throw new Error('runtime execution session receipt handles are missing, extra or tampered')
+  }
   if (!Array.isArray(receipt.domains) || receipt.domains.length === 0 || new Set(receipt.domains).size !== receipt.domains.length) {
     throw new Error('runtime execution session receipt has incomplete domain ownership')
   }
