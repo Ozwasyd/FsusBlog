@@ -1,0 +1,242 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.local/schemas/test-execution-envelope-applicability.schema.json",
+    "title": "FsusBlog Test Execution Envelope Applicability",
+    "type": "object",
+    "required": [
+        "schema",
+        "version",
+        "matrixSource",
+        "producerContractSource",
+        "generationFields",
+        "observers",
+        "producers",
+        "excludedEvidenceClasses"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.test-execution-envelope-applicability.v1"
+        },
+        "version": {
+            "const": 1
+        },
+        "matrixSource": {
+            "const": "tests/matrix.yml"
+        },
+        "producerContractSource": {
+            "const": "config/testing/producer-execution-class-contract.json"
+        },
+        "generationFields": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+                "type": "string",
+                "minLength": 1
+            }
+        },
+        "observers": {
+            "type": "array",
+            "minItems": 10,
+            "uniqueItems": true,
+            "items": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "domain",
+                    "implementationAuthority"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9-]*$"
+                    },
+                    "domain": {
+                        "$ref": "#/$defs/domain"
+                    },
+                    "implementationAuthority": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "additionalProperties": false
+            }
+        },
+        "producers": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "required": [
+                    "producerId",
+                    "sourceKind",
+                    "policyId",
+                    "evidenceClass",
+                    "executionClass",
+                    "allowedEnvironment",
+                    "requiredServices",
+                    "fieldApplicability"
+                ],
+                "properties": {
+                    "producerId": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9-]*$"
+                    },
+                    "sourceKind": {
+                        "enum": [
+                            "matrix-tier",
+                            "canonical-runner"
+                        ]
+                    },
+                    "policyId": {
+                        "const": "correctness-hermetic-v1"
+                    },
+                    "evidenceClass": {
+                        "enum": [
+                            "correctness",
+                            "browser-contract"
+                        ]
+                    },
+                    "executionClass": {
+                        "enum": [
+                            "benchmark",
+                            "browser",
+                            "build",
+                            "coordination",
+                            "load",
+                            "runtime",
+                            "security",
+                            "static-governance"
+                        ]
+                    },
+                    "allowedEnvironment": {
+                        "type": "array",
+                        "minItems": 1,
+                        "uniqueItems": true,
+                        "items": {
+                            "type": "string",
+                            "pattern": "^[A-Z_][A-Z0-9_]*$"
+                        }
+                    },
+                    "requiredServices": {
+                        "type": "array",
+                        "uniqueItems": true,
+                        "items": {
+                            "enum": [
+                                "backend",
+                                "frontend",
+                                "postgres",
+                                "preview",
+                                "redis"
+                            ]
+                        }
+                    },
+                    "fieldApplicability": {
+                        "type": "object",
+                        "required": [
+                            "platform",
+                            "resources",
+                            "environment",
+                            "toolchain",
+                            "browserRendering",
+                            "services",
+                            "directories",
+                            "network",
+                            "fontsLocale",
+                            "identity"
+                        ],
+                        "properties": {
+                            "platform": {
+                                "$ref": "#/$defs/applicability"
+                            },
+                            "resources": {
+                                "$ref": "#/$defs/applicability"
+                            },
+                            "environment": {
+                                "$ref": "#/$defs/applicability"
+                            },
+                            "toolchain": {
+                                "$ref": "#/$defs/applicability"
+                            },
+                            "browserRendering": {
+                                "$ref": "#/$defs/applicability"
+                            },
+                            "services": {
+                                "$ref": "#/$defs/applicability"
+                            },
+                            "directories": {
+                                "$ref": "#/$defs/applicability"
+                            },
+                            "network": {
+                                "$ref": "#/$defs/applicability"
+                            },
+                            "fontsLocale": {
+                                "$ref": "#/$defs/applicability"
+                            },
+                            "identity": {
+                                "$ref": "#/$defs/applicability"
+                            }
+                        },
+                        "additionalProperties": false
+                    }
+                },
+                "additionalProperties": false
+            }
+        },
+        "excludedEvidenceClasses": {
+            "const": [
+                {
+                    "evidenceClass": "diagnostic",
+                    "reason": "diagnostic producers are non-qualifying and cannot emit correctness evidence"
+                }
+            ]
+        }
+    },
+    "$defs": {
+        "domain": {
+            "enum": [
+                "platform",
+                "resources",
+                "environment",
+                "toolchain",
+                "browserRendering",
+                "services",
+                "directories",
+                "network",
+                "fontsLocale",
+                "identity"
+            ]
+        },
+        "applicability": {
+            "type": "object",
+            "required": [
+                "status",
+                "observerId",
+                "notApplicableReason"
+            ],
+            "properties": {
+                "status": {
+                    "enum": [
+                        "required",
+                        "optional",
+                        "not-applicable"
+                    ]
+                },
+                "observerId": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "notApplicableReason": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                }
+            },
+            "additionalProperties": false
+        }
+    },
+    "additionalProperties": false
+}

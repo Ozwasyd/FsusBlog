@@ -1,0 +1,363 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.local/schemas/test-execution-envelope-policy.schema.json",
+    "title": "FsusBlog Test Execution Envelope Policy",
+    "type": "object",
+    "required": [
+        "schema",
+        "version",
+        "policyId",
+        "contract"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.test-execution-envelope-policy.v1"
+        },
+        "version": {
+            "const": 1
+        },
+        "policyId": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]*$"
+        },
+        "contract": {
+            "type": "object",
+            "required": [
+                "requiredEnvelopeFields",
+                "platform",
+                "resources",
+                "environment",
+                "toolchain",
+                "browserRendering",
+                "services",
+                "directories",
+                "network",
+                "fontsLocale",
+                "identity"
+            ],
+            "properties": {
+                "requiredEnvelopeFields": {
+                    "const": [
+                        "schema",
+                        "policyVersion",
+                        "policyDigest",
+                        "catalogDigest",
+                        "schemaIdentity",
+                        "producerId",
+                        "schedulerRunId",
+                        "attemptId",
+                        "sourceCommit",
+                        "sourceFingerprint",
+                        "worktreeFingerprint",
+                        "platform",
+                        "architecture",
+                        "kernel",
+                        "libc",
+                        "containerRuntime",
+                        "cgroupLimits",
+                        "cpuModel",
+                        "cpuCount",
+                        "memoryLimit",
+                        "processEnvAllowlist",
+                        "processEnvValuesDigest",
+                        "pathEntries",
+                        "resolvedExecutables",
+                        "umask",
+                        "homeDirectoryPolicy",
+                        "temporaryDirectoryPolicy",
+                        "workingDirectory",
+                        "filesystemCaseSensitivity",
+                        "nodeVersion",
+                        "npmVersion",
+                        "dotnetSdkVersion",
+                        "dotnetRuntimeVersion",
+                        "msbuildVersion",
+                        "cmakeVersion",
+                        "ninjaVersion",
+                        "compilerVersion",
+                        "playwrightVersion",
+                        "browserName",
+                        "browserVersion",
+                        "browserRevision",
+                        "browserExecutableDigest",
+                        "browserLaunchArgs",
+                        "deviceScaleFactor",
+                        "renderingMode",
+                        "colorScheme",
+                        "gpuMode",
+                        "browserRenderingObservation",
+                        "postgresVersion",
+                        "postgresImageDigest",
+                        "redisVersion",
+                        "redisImageDigest",
+                        "dockerVersion",
+                        "serviceTopology",
+                        "networkPolicy",
+                        "externalEndpoints",
+                        "fontSetDigest",
+                        "localeDataDigest",
+                        "envelopeDigest"
+                    ]
+                },
+                "platform": {
+                    "$ref": "#/$defs/platformCategory"
+                },
+                "resources": {
+                    "$ref": "#/$defs/resourceCategory"
+                },
+                "environment": {
+                    "type": "object",
+                    "required": [
+                        "mode",
+                        "ambientInheritance",
+                        "producerAllowlistRequired",
+                        "sensitiveValueRepresentation",
+                        "pathResolution",
+                        "controlledVariables"
+                    ],
+                    "properties": {
+                        "mode": {
+                            "const": "minimal-base-plus-producer-allowlist"
+                        },
+                        "ambientInheritance": {
+                            "const": "denied"
+                        },
+                        "producerAllowlistRequired": {
+                            "const": true
+                        },
+                        "sensitiveValueRepresentation": {
+                            "const": "presence-type-sha256-only"
+                        },
+                        "pathResolution": {
+                            "const": "absolute-realpath-version-sha256"
+                        },
+                        "controlledVariables": {
+                            "type": "array",
+                            "minItems": 1,
+                            "uniqueItems": true,
+                            "items": {
+                                "type": "string",
+                                "pattern": "^[A-Z][A-Z0-9_]*$"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "toolchain": {
+                    "type": "object",
+                    "required": [
+                        "admission",
+                        "identityFields",
+                        "requiredFromMatrix"
+                    ],
+                    "properties": {
+                        "admission": {
+                            "const": "planned-actual-exact"
+                        },
+                        "identityFields": {
+                            "const": [
+                                "absolutePath",
+                                "realPath",
+                                "version",
+                                "sha256"
+                            ]
+                        },
+                        "requiredFromMatrix": {
+                            "const": [
+                                "requiresNode",
+                                "requiresDotnet",
+                                "requiresPlaywright"
+                            ]
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "browserRendering": {
+                    "$ref": "#/$defs/matrixProjectionCategory"
+                },
+                "services": {
+                    "$ref": "#/$defs/matrixProjectionCategory"
+                },
+                "directories": {
+                    "type": "object",
+                    "required": [
+                        "admission",
+                        "ownership",
+                        "escapePolicy",
+                        "writeObservation",
+                        "cleanup"
+                    ],
+                    "properties": {
+                        "admission": {
+                            "const": "planned-actual-exact"
+                        },
+                        "ownership": {
+                            "const": "run-attempt"
+                        },
+                        "escapePolicy": {
+                            "const": "realpath-fail-closed"
+                        },
+                        "writeObservation": {
+                            "const": "pre-post-delta"
+                        },
+                        "cleanup": {
+                            "const": "all-terminal-outcomes"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "network": {
+                    "type": "object",
+                    "required": [
+                        "correctnessDefault",
+                        "allowedDestinations",
+                        "observation",
+                        "sandboxUnavailable"
+                    ],
+                    "properties": {
+                        "correctnessDefault": {
+                            "const": "deny"
+                        },
+                        "allowedDestinations": {
+                            "const": [
+                                "loopback",
+                                "current-run-container-network",
+                                "catalog-exact-endpoint"
+                            ]
+                        },
+                        "observation": {
+                            "const": [
+                                "connections",
+                                "dns",
+                                "proxy",
+                                "certificate",
+                                "denials"
+                            ]
+                        },
+                        "sandboxUnavailable": {
+                            "const": "fail-closed"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "fontsLocale": {
+                    "$ref": "#/$defs/fontsLocaleCategory"
+                },
+                "identity": {
+                    "type": "object",
+                    "required": [
+                        "plannedActualAdmission",
+                        "requiredDigests",
+                        "unknownFieldPolicy",
+                        "missingFieldPolicy",
+                        "duplicateApplicabilityPolicy"
+                    ],
+                    "properties": {
+                        "plannedActualAdmission": {
+                            "const": "exact-before-assertions"
+                        },
+                        "requiredDigests": {
+                            "const": [
+                                "policyDigest",
+                                "catalogDigest",
+                                "schemaIdentity"
+                            ]
+                        },
+                        "unknownFieldPolicy": {
+                            "const": "fail-closed"
+                        },
+                        "missingFieldPolicy": {
+                            "const": "fail-closed"
+                        },
+                        "duplicateApplicabilityPolicy": {
+                            "const": "fail-closed"
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false
+        }
+    },
+    "additionalProperties": false,
+    "$defs": {
+        "platformCategory": {
+            "type": "object",
+            "required": ["admission", "nullSemantics", "identityFields"],
+            "properties": {
+                "admission": { "const": "planned-actual-exact" },
+                "nullSemantics": { "const": "explicit-not-applicable-with-reason" },
+                "identityFields": {
+                    "const": ["platform", "architecture", "kernel", "libc", "containerRuntime"]
+                }
+            },
+            "additionalProperties": false
+        },
+        "resourceCategory": {
+            "type": "object",
+            "required": ["admission", "nullSemantics", "identityFields"],
+            "properties": {
+                "admission": { "const": "planned-actual-exact" },
+                "nullSemantics": { "const": "explicit-not-applicable-with-reason" },
+                "identityFields": {
+                    "const": ["cgroupLimits", "cpuModel", "cpuCount", "memoryLimit"]
+                }
+            },
+            "additionalProperties": false
+        },
+        "fontsLocaleCategory": {
+            "type": "object",
+            "required": ["admission", "nullSemantics", "identityFields"],
+            "properties": {
+                "admission": { "const": "planned-actual-exact" },
+                "nullSemantics": { "const": "explicit-not-applicable-with-reason" },
+                "identityFields": {
+                    "const": ["fontSetDigest", "localeDataDigest"]
+                }
+            },
+            "additionalProperties": false
+        },
+        "plannedActualCategory": {
+            "type": "object",
+            "required": [
+                "admission",
+                "nullSemantics"
+            ],
+            "properties": {
+                "admission": {
+                    "const": "planned-actual-exact"
+                },
+                "nullSemantics": {
+                    "const": "explicit-not-applicable-with-reason"
+                }
+            },
+            "additionalProperties": false
+        },
+        "matrixProjectionCategory": {
+            "type": "object",
+            "required": [
+                "admission",
+                "matrixFields",
+                "nullSemantics"
+            ],
+            "properties": {
+                "admission": {
+                    "const": "planned-actual-exact"
+                },
+                "matrixFields": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "nullSemantics": {
+                    "const": "explicit-not-applicable-with-reason"
+                }
+            },
+            "additionalProperties": false
+        }
+    }
+}
