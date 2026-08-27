@@ -24,6 +24,7 @@ import {
     qualificationTemporalContext,
     verifyTemporalReplay
 } from './temporal-context.mjs';
+import { resolveTemporalRolesForProducerIfBound } from './temporal-role-resolver.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const physicalExecutionPolicy = 'config/testing/physical-execution-process-policy.json';
@@ -255,6 +256,21 @@ async function main(argv)
         sourceFingerprint
     });
     Object.assign(process.env, materializeTemporalEnvironment(temporalContext));
+    const resolvedTemporalRoles = resolveTemporalRolesForProducerIfBound({
+        temporalContext,
+        namespace: String(process.env.FSUSBLOG_TEST_NAMESPACE ?? 'default'),
+        fixtureId: producerId
+    });
+    if (resolvedTemporalRoles)
+    {
+        process.env.FSUSBLOG_RESOLVED_TEMPORAL_ROLES_JSON = JSON.stringify(resolvedTemporalRoles);
+        process.env.FSUSBLOG_TEMPORAL_ROLE_ARTIFACT_DIGEST = resolvedTemporalRoles.contentDigest;
+    }
+    else
+    {
+        delete process.env.FSUSBLOG_RESOLVED_TEMPORAL_ROLES_JSON;
+        delete process.env.FSUSBLOG_TEMPORAL_ROLE_ARTIFACT_DIGEST;
+    }
     const observedCommand = [
         process.execPath,
         temporalChildObserver,
