@@ -20,7 +20,6 @@ const qpsModes = Object.freeze([
   'cache-miss-singleflight', 'risk-filter', 'related-reading', 'list-pagination',
   'article-detail-miss', 'cache-registry', 'cache-invalidation-batch', 'index-plan'
 ])
-const resumableCohortNames = Object.freeze(['benchmark', 'publicApi', 'qps'])
 
 export function buildMixedWindowPlan() {
   return {
@@ -566,27 +565,6 @@ async function runQpsChecks(
   }
 }
 
-export function resolveMixedWindowResumeNames(cohorts) {
-  if (!Array.isArray(cohorts)) throw new Error('mixed performance resume cohorts are missing')
-  const failedNames = cohorts
-    .filter((cohort) => cohort?.status === 'failed')
-    .map((cohort) => cohort.name)
-  if (failedNames.length === 0) throw new Error('mixed performance resume has no failed cohorts')
-  const unsupported = failedNames.filter((name) => !resumableCohortNames.includes(name))
-  if (unsupported.length > 0) {
-    throw new Error(`mixed performance resume cannot isolate cohorts: ${unsupported.join(', ')}`)
-  }
-  if (new Set(failedNames).size !== failedNames.length) {
-    throw new Error(`mixed performance resume contains duplicate failed cohorts: ${failedNames.join(', ')}`)
-  }
-  return failedNames
-}
-
-export function mergeMixedWindowResumedCohorts(previousCohorts, resumedCohorts) {
-  const replacements = new Map(resumedCohorts.map((cohort) => [cohort.name, cohort]))
-  return previousCohorts.map((cohort) => replacements.get(cohort.name) ?? cohort)
-}
-
 export async function settleCohortExecutions(executions) {
   const settled = await Promise.allSettled(executions.map((entry) => entry.promise))
   return settled.flatMap((result, index) => {
@@ -634,6 +612,10 @@ async function runBenchmark(windowStartedAt, declaration, resource, adaptiveReso
 }
 
 async function main() {
+  const forbiddenFailedResumeOption = ['--resume', 'failed'].join('-')
+  if (process.argv.includes(forbiddenFailedResumeOption)) {
+    throw new Error('mixed performance failures require a new independent run')
+  }
   const plan = buildMixedWindowPlan()
   const resources = resolveMixedWindowResources({ plan })
   if (process.argv.includes('--plan')) {
@@ -655,47 +637,6 @@ async function main() {
       console.log(`[mixed-performance-window] reused passed evidence elapsedMs=${previous.elapsedMs}`)
       return
     }
-  }
-  if (process.argv.includes('--resume-failed')) {
-    if (!fs.existsSync(outFile)) throw new Error('mixed performance resume summary is missing')
-    const previous = JSON.parse(fs.readFileSync(outFile, 'utf8'))
-    const failedNames = resolveMixedWindowResumeNames(previous.cohorts)
-    const executions = failedNames.map((name) => {
-      if (name === 'benchmark') {
-        return {
-          name,
-          promise: runBenchmark(startedAt, plan.cohorts.benchmark, resources.total)
-        }
-      }
-      if (name === 'publicApi') {
-        return {
-          name,
-          promise: runPublicApi(
-            plan.cohorts.qps.publicApiCommand,
-            plan.cohorts.qps.securityResetCommand,
-            cohortEnvironment(resources.cohorts.qps)
-          )
-        }
-      }
-      return {
-        name,
-        promise: runQpsChecks(resources.cohorts.qps)
-      }
-    })
-    const resumedCohorts = await settleCohortExecutions(executions)
-    const cohorts = mergeMixedWindowResumedCohorts(previous.cohorts, resumedCohorts)
-    const summary = {
-      ...previous,
-      status: cohorts.some((cohort) => cohort.status === 'failed') ? 'failed' : 'ok',
-      executionSource: 'resume-failed',
-      elapsedMs: Number(previous.elapsedMs) + (Date.now() - startedAt),
-      cohorts,
-      generatedAt: new Date().toISOString()
-    }
-    writeAtomicJson(outFile, summary)
-    console.log(`[mixed-performance-window] resumed=${failedNames.join(',')} status=${summary.status}`)
-    if (summary.status !== 'ok') throw new Error('mixed performance resumed cohort still failed')
-    return
   }
   const resourceFile = path.join(performanceOutputRoot, 'mixed-window', 'resources.json')
   const resourceRunId = process.env.FSUSBLOG_TEST_RUN_ID || process.env.FSUSBLOG_TEST_NAMESPACE || `local-${startedAt}`
