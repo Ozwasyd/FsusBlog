@@ -968,7 +968,8 @@ function receiptContract(receipt)
         requiredOutputs: receipt.requiredOutputs,
         testIds: normalizeTestIds(receipt.testIds),
         commit: receipt.commit,
-        worktreeFingerprint: receipt.worktreeFingerprint
+        worktreeFingerprint: receipt.worktreeFingerprint,
+        executionEnvelopeDigest: receipt.executionEnvelopeDigest ?? null
     };
 }
 
@@ -1041,6 +1042,7 @@ function validateProjectionReceiptBinding({ projection, receipt, runId, normaliz
       || !['producer', 'consumer'].includes(projection.disposition)
       || projection.status !== 'success'
       || projection.physicalExecutionReceiptDigest !== receipt.receiptDigest
+      || projection.executionEnvelopeDigest !== (receipt.executionEnvelopeDigest ?? null)
       || JSON.stringify(normalizeTestIds(projection.testIds)) !== JSON.stringify(normalizeTestIds(receipt.testIds))
       || JSON.stringify(canonicalize(projection.artifactEvidence)) !== JSON.stringify(canonicalize(receipt.requiredOutputStates)))
     {
@@ -1115,6 +1117,15 @@ export function validateRunBoundConsumerEvidence(document, { runId, key, consume
     {
         throw new Error('run-bound consumer evidence integrity validation failed');
     }
+    if (document.physicalExecutionReceiptDocument.executionEnvelopeDigest != null
+      && (document.executionEnvelopeDigest
+          !== document.physicalExecutionReceiptDocument.executionEnvelopeDigest
+        || !/^sha256:[a-f0-9]{64}$/u.test(document.executionEnvelopeReceiptDigest ?? '')
+        || typeof document.executionEnvelopeReceipt !== 'string'
+        || !document.executionEnvelopeReceipt))
+    {
+        throw new Error('run-bound consumer execution envelope binding validation failed');
+    }
     validateProjectionReceiptBinding({
         projection: document.sourceProjectionDocument,
         receipt: document.physicalExecutionReceiptDocument,
@@ -1133,7 +1144,10 @@ export function validateRunBoundConsumerEvidence(document, { runId, key, consume
     return true;
 }
 
-export function buildRunBoundConsumerEvidence({ validatedProjection })
+export function buildRunBoundConsumerEvidence({
+    validatedProjection,
+    executionEnvelopeBinding = null
+})
 {
     const { projection, projectionBytes, receipt, projectionFile, receiptFile } = validatedProjection;
     const payload = {
@@ -1147,12 +1161,22 @@ export function buildRunBoundConsumerEvidence({ validatedProjection })
         physicalExecutionReceipt: normalizedRepositoryPath(receiptFile),
         physicalExecutionReceiptDigest: receipt.receiptDigest,
         physicalExecutionReceiptDocument: receipt,
+        executionEnvelopeDigest: receipt.executionEnvelopeDigest ?? null,
+        executionEnvelopeReceipt: executionEnvelopeBinding?.receiptFile ?? null,
+        executionEnvelopeReceiptDigest: executionEnvelopeBinding?.receiptDigest ?? null,
         sourceProjection: normalizedRepositoryPath(projectionFile),
         sourceProjectionDigest: `sha256:${createHash('sha256').update(projectionBytes).digest('hex')}`,
         sourceProjectionDocumentDigest: digestValue(projection),
         sourceProjectionDocument: projection,
         projectedAt: projection.projectedAt
     };
+    if (receipt.executionEnvelopeDigest != null
+      && (executionEnvelopeBinding?.envelopeDigest !== receipt.executionEnvelopeDigest
+        || !executionEnvelopeBinding?.receiptDigest
+        || !executionEnvelopeBinding?.receiptFile))
+    {
+        throw new Error('run-bound consumer execution envelope binding is missing');
+    }
     const document = { ...payload, evidenceDigest: digestValue(payload) };
     validateRunBoundConsumerEvidence(document);
     return document;
@@ -1292,6 +1316,7 @@ async function writeRunBoundProjection({
         artifactEvidence: receipt.requiredOutputStates,
         physicalExecutionReceipt: path.relative(repoRoot, receiptFile).replaceAll(path.sep, '/'),
         physicalExecutionReceiptDigest: receipt.receiptDigest,
+        executionEnvelopeDigest: receipt.executionEnvelopeDigest ?? null,
         projectedAt: new Date().toISOString()
     };
     const projectionDirectory = path.join(root, sanitizeSegment(runId, 'run'), 'projections');
@@ -1316,6 +1341,7 @@ export async function runBoundExecution({
     requiredOutputs = [],
     commit,
     worktreeFingerprint,
+    executionEnvelopeDigest = null,
     testIds = [],
     consumerId = 'consumer',
     lockTimeoutMs = defaultLockTimeoutMs,
@@ -1330,6 +1356,11 @@ export async function runBoundExecution({
         {
             throw new Error(`run-bound ${name} is required`);
         }
+    }
+    if (executionEnvelopeDigest != null
+      && !/^sha256:[a-f0-9]{64}$/u.test(executionEnvelopeDigest))
+    {
+        throw new Error('run-bound executionEnvelopeDigest must be a SHA-256 digest');
     }
     if (!Array.isArray(command) || command.length === 0)
     {
@@ -1356,7 +1387,8 @@ export async function runBoundExecution({
         requiredOutputs: normalizedOutputs,
         testIds: normalizedTestIds,
         commit,
-        worktreeFingerprint
+        worktreeFingerprint,
+        executionEnvelopeDigest
     };
     const contractDigest = digestValue(contract);
     const receiptDirectory = path.join(root, normalizedRunId, 'receipts', normalizedKey);
