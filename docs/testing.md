@@ -1451,6 +1451,7 @@ render: enum-set
 - `backend-test-governance`
 - `backend-unit`
 - `behavior-doc-static-admission`
+- `behavior-document-consistency-final`
 - `behavior-evidence-post-runtime`
 - `behavior-evidence-pre-runtime`
 - `behavior-test-evidence`

@@ -217,6 +217,7 @@ render: enum-set
 - `behavior-doc-static-admission->test-quality-lint`
 - `behavior-doc-static-admission->ux-viewport-plan-progress`
 - `behavior-doc-static-admission->wasm-build-artifacts`
+- `behavior-evidence-post-runtime->behavior-document-consistency-final`
 - `behavior-evidence-pre-runtime->behavior-evidence-post-runtime`
 - `behavior-evidence-pre-runtime->bootstrap`
 - `behavior-evidence-pre-runtime->production-correctness`

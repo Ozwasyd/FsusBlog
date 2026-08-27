@@ -663,9 +663,15 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
         status: 'ok'
     });
     const postRuntimeFile = path.join(build.directory, 'behavior-post-runtime.json');
+    const consistencyFinal = sealDocument({
+        schema: 'fsusblog.behavior-document-consistency-final-report.v1',
+        status: 'ok'
+    });
+    const consistencyFinalFile = path.join(build.directory, 'behavior-consistency-final.json');
     fs.writeFileSync(correctnessFile, `${JSON.stringify(correctness, null, 2)}\n`);
     fs.writeFileSync(browserContractFile, `${JSON.stringify(browserContract, null, 2)}\n`);
     fs.writeFileSync(postRuntimeFile, `${JSON.stringify(postRuntime, null, 2)}\n`);
+    fs.writeFileSync(consistencyFinalFile, `${JSON.stringify(consistencyFinal, null, 2)}\n`);
     const releaseDomainProjectionReceipts = [
         'release-admin-console',
         'release-aot-generation',
@@ -693,6 +699,8 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
         browserContractReceiptPath: browserContractFile,
         postRuntimeReceipt: postRuntime,
         postRuntimeReceiptPath: postRuntimeFile,
+        consistencyFinalReport: consistencyFinal,
+        consistencyFinalReportPath: consistencyFinalFile,
         releaseDomainProjectionReceipts,
         releaseReliabilityQualifiedReceipt,
         now: () => new Date('2026-07-18T00:04:00.000Z')
@@ -760,6 +768,8 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
         browserContractReceiptPath: browserContractFile,
         postRuntimeReceipt: postRuntime,
         postRuntimeReceiptPath: postRuntimeFile,
+        consistencyFinalReport: consistencyFinal,
+        consistencyFinalReportPath: consistencyFinalFile,
         releaseDomainProjectionReceipts,
         releaseReliabilityQualifiedReceipt
     }), /build receipt digest mismatch|content digest mismatch/u);
@@ -776,6 +786,8 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
         browserContractReceiptPath: browserContractFile,
         postRuntimeReceipt: postRuntime,
         postRuntimeReceiptPath: postRuntimeFile,
+        consistencyFinalReport: consistencyFinal,
+        consistencyFinalReportPath: consistencyFinalFile,
         releaseDomainProjectionReceipts,
         releaseReliabilityQualifiedReceipt
     }), /authoritative scheduler correctness checkpoint/u);
