@@ -1,6 +1,6 @@
-// Generated from config/contracts/behavior-contracts.json; digest b7d09fa312f83810208d972f80fd725af8585d468d577f25edfe9c849a6a34fb; do not edit by hand.
+// Generated from config/contracts/behavior-contracts.json; digest c7072fcfcb78581416aef93b97c2d1b3ed56b942b5bb732b87f252a8754fa5ab; do not edit by hand.
 
-export const BEHAVIOR_CONTRACT_CATALOG_DIGEST = 'b7d09fa312f83810208d972f80fd725af8585d468d577f25edfe9c849a6a34fb' as const
+export const BEHAVIOR_CONTRACT_CATALOG_DIGEST = 'c7072fcfcb78581416aef93b97c2d1b3ed56b942b5bb732b87f252a8754fa5ab' as const
 export const BEHAVIOR_CONTRACTS = [
   {
     "id": "test-asset-audit-reconciliation",
@@ -104,7 +104,12 @@ export const BEHAVIOR_CONTRACTS = [
       "binary-api-aeds-contract"
     ],
     "documents": [
-      "docs/api/contracts.md"
+      "docs/api.md",
+      "docs/api/aeds-only-policy.md",
+      "docs/api/contracts.md",
+      "docs/api/quick-reference.md",
+      "docs/api/schemas-and-errors.md",
+      "docs/api/stability.md"
     ],
     "mutationPolicy": {
       "mutationRequired": true,
@@ -138,7 +143,12 @@ export const BEHAVIOR_CONTRACTS = [
       "browserless-production-correctness"
     ],
     "documents": [
-      "docs/testing.md"
+      "docs/testing.md",
+      "docs/releases/release-identity.md",
+      "docs/releases/blue-green-deployment-runbook.md",
+      "docs/architecture/monolithic-distributed-boundary.md",
+      "docs/architecture.md",
+      "docs/architecture/overview.md"
     ]
   },
   {

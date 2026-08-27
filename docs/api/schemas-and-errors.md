@@ -684,6 +684,20 @@ runtime exception message、日志正文和签名细节不得进入 `ApiError`�
 
 ## Current public error categories
 
+### Current operation count
+
+<!-- fsus-doc-claim
+claimId: binary-api-aeds-contract.operation-count
+behaviorId: binary-api-aeds-contract
+claimType: generated-section
+generatedSectionId: api.operation-count
+render: scalar
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN api.operation-count -->
+262
+<!-- FSUSBLOG-GENERATED:END api.operation-count -->
+
 <!-- fsus-doc-claim
 claimId: configuration-error-security-policy.public-errors
 behaviorId: configuration-error-security-policy

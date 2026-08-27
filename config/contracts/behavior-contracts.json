@@ -147,7 +147,12 @@
                 "binary-api-aeds-contract"
             ],
             "documents": [
-                "docs/api/contracts.md"
+                "docs/api.md",
+                "docs/api/aeds-only-policy.md",
+                "docs/api/contracts.md",
+                "docs/api/quick-reference.md",
+                "docs/api/schemas-and-errors.md",
+                "docs/api/stability.md"
             ],
             "mutationPolicy": {
                 "mutationRequired": true,
@@ -181,7 +186,12 @@
                 "browserless-production-correctness"
             ],
             "documents": [
-                "docs/testing.md"
+                "docs/testing.md",
+                "docs/releases/release-identity.md",
+                "docs/releases/blue-green-deployment-runbook.md",
+                "docs/architecture/monolithic-distributed-boundary.md",
+                "docs/architecture.md",
+                "docs/architecture/overview.md"
             ]
         },
         {
