@@ -135,6 +135,12 @@ async function resolveTemporalRoles(context, resolver)
     {
         throw new Error('account-messaging temporal roles failed verification');
     }
+    if (artifact?.schema !== 'fsusblog.resolved-temporal-roles.v1'
+        || artifact?.shape?.id !== 'auth-security-messaging-account-lifecycle'
+        || !digestPattern.test(String(artifact?.contentDigest ?? '')))
+    {
+        throw new Error('account-messaging temporal roles are not bound to the canonical messaging shape');
+    }
     return artifact;
 }
 

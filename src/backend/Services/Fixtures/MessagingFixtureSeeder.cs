@@ -477,14 +477,58 @@ public sealed class MessagingFixtureSeeder(
             secondary.ToString(CultureInfo.InvariantCulture), s_noGroups, cancellationToken).ConfigureAwait(false);
         IReadOnlyList<long> adminStream = await backlog.ObserveReplayEventIdsAsync(
             null, s_adminGroups, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<long> emptyStream = await backlog.ObserveReplayEventIdsAsync(
+            empty.ToString(CultureInfo.InvariantCulture), s_noGroups, cancellationToken).ConfigureAwait(false);
         var streamIds = new HashSet<long>(primaryStream.Concat(secondaryStream).Concat(adminStream));
-        if (deliveryEvents.Values.Any(eventId => !streamIds.Contains(eventId)))
+        if (deliveryEvents.Values.Any(eventId => !streamIds.Contains(eventId)) || emptyStream.Count != 0)
         {
             throw new InvalidOperationException("Messaging outbox and stream event identities differ.");
+        }
+        if (primaryStream.Count < 2)
+        {
+            throw new InvalidOperationException("Messaging notification resume fixture requires at least two ordered events.");
+        }
+        long acknowledgedCursor = primaryStream[0];
+        long[] expectedReplayEventIds = primaryStream.Where(id => id > acknowledgedCursor).ToArray();
+        NotificationStreamReplayBatch replay = await backlog.ReplayAsync(
+            new NotificationStreamCursor(acknowledgedCursor),
+            primary.ToString(CultureInfo.InvariantCulture),
+            s_noGroups,
+            cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (replay.MissedGap || replay.Frames.Count != expectedReplayEventIds.Length)
+            {
+                throw new InvalidOperationException("Messaging notification cursor replay is duplicate, missing, or out of order.");
+            }
+        }
+        finally
+        {
+            foreach (SharedNotificationStreamFrame frame in replay.Frames)
+            {
+                frame.Release();
+            }
         }
 
         var entities = new List<MessagingFixtureObservedEntity>();
         var identities = new List<MessagingFixtureEntityIdentity>();
+        entities.Add(new MessagingFixtureObservedEntity(
+            "notification-cursor",
+            acknowledgedCursor.ToString(CultureInfo.InvariantCulture),
+            "acknowledged-resume-cursor",
+            new Dictionary<string, object?>
+            {
+                ["acknowledgedCursor"] = acknowledgedCursor,
+                ["cursorFloorRetained"] = true,
+                ["expectedEventIds"] = expectedReplayEventIds,
+                ["missedGap"] = false,
+                ["nextEventId"] = expectedReplayEventIds[0]
+            }));
+        identities.Add(new MessagingFixtureEntityIdentity(
+            "notification-cursor",
+            acknowledgedCursor.ToString(CultureInfo.InvariantCulture),
+            "acknowledged-resume-cursor",
+            Hash(string.Join(',', expectedReplayEventIds))));
         foreach ((string role, long conversationId) in roles.OrderBy(static item => item.Key, StringComparer.Ordinal))
         {
             List<ConversationMessage> ownedMessages = messages.Where(item => item.ConversationId == conversationId).ToList();
@@ -566,7 +610,8 @@ public sealed class MessagingFixtureSeeder(
                     [
                         new("redis.notification.primary", Hash("primary-stream"), primaryStream.Count > 0, primaryStream),
                         new("redis.notification.secondary", Hash("secondary-stream"), secondaryStream.Count > 0, secondaryStream),
-                        new("redis.notification.admin", Hash("admin-stream"), adminStream.Count > 0, adminStream)
+                        new("redis.notification.admin", Hash("admin-stream"), adminStream.Count > 0, adminStream),
+                        new("redis.notification.empty", Hash("empty-stream"), false, emptyStream)
                     ]),
                 new MessagingFixtureCacheObservation(request.Namespace, cacheEntries)),
             cleanup);
@@ -707,6 +752,9 @@ public sealed class MessagingFixtureSeeder(
             || !request.PlanDigest.StartsWith("sha256:", StringComparison.Ordinal)
             || request.TemporalRoles.ValueKind != JsonValueKind.Object
             || request.TemporalRoles.GetProperty("schema").GetString() != "fsusblog.resolved-temporal-roles.v1"
+            || !request.TemporalRoles.TryGetProperty("shape", out JsonElement temporalShape)
+            || !temporalShape.TryGetProperty("id", out JsonElement temporalShapeId)
+            || temporalShapeId.GetString() != "auth-security-messaging-account-lifecycle"
             || !request.TemporalRoles.TryGetProperty("contentDigest", out JsonElement temporalDigest)
             || !StringHasSha256Digest(temporalDigest.GetString())
             || !StringHasSha256Digest(request.IdentityReferences.SourceReceiptDigest))

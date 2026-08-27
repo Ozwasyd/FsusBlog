@@ -37,7 +37,7 @@ test('messaging inventory is closed, versioned, and exact against ownership', ()
 test('messaging inventory rejects handwritten notification types and unsupported states', () =>
 {
     assert.match(errorsFor((inventory) => inventory.eventTypeRefs.push('FixtureOnlyEvent')).join('\n'), /unknown notification event type/u);
-    assert.match(errorsFor((inventory) => inventory.messageStates.push('withdrawn')).join('\n'), /message states must match current production/u);
+    assert.match(errorsFor((inventory) => inventory.conversationStates.push('withdrawn')).join('\n'), /conversation\/read states must match current production/u);
 });
 
 test('messaging inventory rejects hidden empty, shortcut proofs, and missing resume semantics', () =>
@@ -52,7 +52,7 @@ test('messaging inventory rejects hidden empty, shortcut proofs, and missing res
     }).join('\n'), /shortcut postcondition|missing an exact stream/u);
     assert.match(errorsFor((inventory) =>
     {
-        inventory.capabilities.find((item) => item.id === 'notifications.stream-resume').stateFields = ['streamGeneration'];
+        inventory.capabilities.find((item) => item.id === 'notifications.stream-resume').stateFields = ['cursorFloorRetained'];
     }).join('\n'), /notification resume semantics are missing/u);
 });
 

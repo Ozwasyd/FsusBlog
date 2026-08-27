@@ -27,6 +27,7 @@ public sealed class MessagingFixtureTransportContractTests
           "semanticRoles": [],
           "temporalRoles": {
             "schema": "fsusblog.resolved-temporal-roles.v1",
+            "shape": { "id": "auth-security-messaging-account-lifecycle" },
             "contentDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
           },
           "inventoryDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",

@@ -10,9 +10,12 @@
         "primary-recipient",
         "secondary-recipient"
     ],
-    "messageStates": [
+    "conversationStates": [
         "closed",
         "open",
+        "pending"
+    ],
+    "readStates": [
         "read",
         "unread"
     ],
@@ -81,7 +84,7 @@
             ]
         },
         {
-            "id": "messages.message.closed",
+            "id": "messages.conversation.closed",
             "portId": "message-lifecycle",
             "identityRoles": [
                 "admin",
@@ -159,11 +162,12 @@
             ],
             "stateFields": [
                 "acknowledgedCursor",
-                "nextEventId",
-                "unreadCountAfterAck"
+                "expectedReplayEventIds",
+                "nextEventId"
             ],
             "postconditions": [
-                "api.ack-cursor-exact",
+                "api.stream-cursor-ingress-exact",
+                "stream.cursor-floor-retained-exact",
                 "stream.resume-after-ack-exact"
             ]
         },
@@ -228,8 +232,9 @@
             ],
             "stateFields": [
                 "acknowledgedCursor",
+                "cursorFloorRetained",
                 "expectedEventIds",
-                "streamGeneration"
+                "missedGap"
             ],
             "postconditions": [
                 "api.resume-cursor-exact",

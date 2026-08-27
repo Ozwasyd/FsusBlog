@@ -12,6 +12,9 @@ const digest = (character) => `sha256:${character.repeat(64)}`;
 const temporalArtifact = Object.freeze({
     schema: 'fsusblog.resolved-temporal-roles.v1',
     contentDigest: digest('a'),
+    shape: {
+        id: 'auth-security-messaging-account-lifecycle'
+    },
     roles: [
         {
             roleId: 'message-single-created',

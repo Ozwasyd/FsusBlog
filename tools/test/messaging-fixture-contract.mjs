@@ -11,7 +11,7 @@ const expectedCapabilityIds = Object.freeze([
     'messages.empty',
     'messages.inbox.read',
     'messages.inbox.unread',
-    'messages.message.closed',
+    'messages.conversation.closed',
     'messages.pagination.boundary',
     'messages.thread.multi-message',
     'messages.thread.single',
@@ -121,7 +121,8 @@ export function messagingFixtureContractErrors(inventory, ownership, {
         'strategy',
         'temporalShapeId',
         'identityRoles',
-        'messageStates',
+        'conversationStates',
+        'readStates',
         'eventTypeRegistry',
         'eventTypeRefs',
         'capabilities'
@@ -138,13 +139,16 @@ export function messagingFixtureContractErrors(inventory, ownership, {
     {
         errors.push('inventory must consume the canonical messaging temporal shape');
     }
-    if (!isSortedUnique(inventory?.identityRoles) || !isSortedUnique(inventory?.messageStates))
+    if (!isSortedUnique(inventory?.identityRoles)
+        || !isSortedUnique(inventory?.conversationStates)
+        || !isSortedUnique(inventory?.readStates))
     {
-        errors.push('identity roles and message states must be sorted unique stable IDs');
+        errors.push('identity roles, conversation states, and read states must be sorted unique stable IDs');
     }
-    if (!exactArray(inventory?.messageStates, ['closed', 'open', 'read', 'unread']))
+    if (!exactArray(inventory?.conversationStates, ['closed', 'open', 'pending'])
+        || !exactArray(inventory?.readStates, ['read', 'unread']))
     {
-        errors.push('message states must match current production status/read semantics exactly');
+        errors.push('conversation/read states must match current production semantics exactly');
     }
     if (!exactArray(inventory?.capabilities?.map((item) => item.id), expectedCapabilityIds))
     {
@@ -213,7 +217,7 @@ export function messagingFixtureContractErrors(inventory, ownership, {
         }
         if (capability.id === 'notifications.stream-resume')
         {
-            for (const field of ['acknowledgedCursor', 'expectedEventIds', 'streamGeneration'])
+            for (const field of ['acknowledgedCursor', 'cursorFloorRetained', 'expectedEventIds', 'missedGap'])
             {
                 if (!capability.stateFields?.includes(field))
                 {
@@ -223,7 +227,7 @@ export function messagingFixtureContractErrors(inventory, ownership, {
         }
         const requiredStateFields = {
             'messages.thread.multi-message': ['messageIds', 'sequence', 'threadId'],
-            'notifications.acknowledged': ['acknowledgedCursor', 'nextEventId', 'unreadCountAfterAck']
+            'notifications.acknowledged': ['acknowledgedCursor', 'expectedReplayEventIds', 'nextEventId']
         }[capability.id] ?? [];
         for (const field of requiredStateFields)
         {

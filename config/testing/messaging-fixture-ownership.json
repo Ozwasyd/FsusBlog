@@ -42,7 +42,7 @@
             "portId": "message-lifecycle"
         },
         {
-            "capabilityId": "messages.message.closed",
+            "capabilityId": "messages.conversation.closed",
             "portId": "message-lifecycle"
         },
         {
