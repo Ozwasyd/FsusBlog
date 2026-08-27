@@ -53,6 +53,8 @@ if (builder.Environment.IsDevelopment() &&
         LocalAuthFixtureEndpoints.AllowLocalAuthFixtureConfigurationKey))
 {
     builder.Services.AddScoped<IAuthFixtureSeeder, AuthFixtureSeeder>();
+    builder.Services.AddScoped<IAuthFixtureLifecycleRepository,
+        SqlSugarAuthFixtureLifecycleRepository>();
     builder.Services.AddScoped<IControlledWebAuthnAuthenticator, ControlledWebAuthnAuthenticator>();
     builder.Services.AddScoped<IUserSessionFixtureLoginWorkflow>(serviceProvider =>
         (IUserSessionFixtureLoginWorkflow)serviceProvider

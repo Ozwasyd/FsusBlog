@@ -1,7 +1,9 @@
 // fixture-catalog: producer auth-session
 using System.Buffers.Binary;
 using System.Globalization;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Cryptography;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 
@@ -11,14 +13,13 @@ using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.Security;
 
 using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.WebUtilities;
-
-using SqlSugar;
 
 namespace FsusBlog.Server.Services.Fixtures;
 
@@ -31,6 +32,25 @@ public interface IAuthFixtureSeeder
     Task<AuthFixtureVerificationResult> VerifyAsync(
         AuthFixtureVerificationRequest request,
         CancellationToken cancellationToken = default);
+}
+
+public interface IAuthFixtureLifecycleRepository
+{
+    Task<User?> FindUserByFixtureIdentityAsync(string fixtureIdentity, CancellationToken cancellationToken);
+    Task<User?> FindUserByIdAsync(int userId, CancellationToken cancellationToken);
+    Task<bool> HasVerifiedMfaProfileAsync(int userId, CancellationToken cancellationToken);
+    Task<bool> HasUsedPasskeyCredentialAsync(int userId, CancellationToken cancellationToken);
+    Task<bool> HasActiveRecoveryKeyAsync(int userId, CancellationToken cancellationToken);
+    Task<User> InsertOwnedUserAsync(User user, CancellationToken cancellationToken);
+    Task<bool> TransitionOwnedUserToDeletedAsync(int userId, DateTime deletedAt, CancellationToken cancellationToken);
+    Task<IReadOnlyList<UserSession>> ListUserSessionsAsync(int userId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<UserSession>> ListSessionsByIdsAsync(IReadOnlyList<string> sessionIds, CancellationToken cancellationToken);
+    Task<UserSession?> FindSessionAsync(string sessionId, CancellationToken cancellationToken);
+    Task<bool> TransitionSessionToExpiredAsync(string sessionId, DateTime expiredAt, CancellationToken cancellationToken);
+    Task<AdminPrincipal?> FindAdminByFixtureIdentityAsync(string fixtureIdentity, CancellationToken cancellationToken);
+    Task<AdminPrincipal?> FindAdminByIdAsync(long adminId, CancellationToken cancellationToken);
+    Task<AdminPrincipal> InsertOwnedAdminAsync(AdminPrincipal admin, CancellationToken cancellationToken);
+    Task<int> CountRootAdminsAsync(CancellationToken cancellationToken);
 }
 
 public interface IControlledWebAuthnAuthenticator
@@ -505,11 +525,13 @@ public sealed record AuthFixtureVerificationResult(
     string? Reason = null);
 
 public sealed class AuthFixtureSeeder(
-    ISqlSugarClient db,
+    IAuthFixtureLifecycleRepository repository,
     IUserMfaCommandService mfaCommands,
     IRecoveryKeyService recoveryKeys,
     IUserSessionFixtureLoginWorkflow fixtureLoginWorkflow,
     IUserSessionCommandService sessionCommands,
+    IUserSessionValidationService sessionValidation,
+    IJwtHelper jwt,
     IPasskeyService passkeys,
     TimeProvider timeProvider,
     IHostEnvironment environment,
@@ -651,12 +673,12 @@ public sealed class AuthFixtureSeeder(
         if (role.CapabilityId == "auth.user.mfa-enabled" && !user.MfaEnabled)
         {
             await EnableMfaAsync(user, cancellationToken);
-            user = await RequireUserAsync(user.Id);
+            user = await RequireUserAsync(user.Id, cancellationToken);
         }
         else if (role.CapabilityId == "auth.user.passkey-enabled" && !user.PasskeyEnabled)
         {
             await CompletePasskeyCeremonyAsync(user, role.FixtureIdentity, cancellationToken);
-            user = await RequireUserAsync(user.Id);
+            user = await RequireUserAsync(user.Id, cancellationToken);
         }
         else if (role.CapabilityId == "auth.user.recovery-enabled" && !user.RecoveryEnabled)
         {
@@ -666,7 +688,7 @@ public sealed class AuthFixtureSeeder(
             {
                 throw new InvalidOperationException(created.Error.Message);
             }
-            user = await RequireUserAsync(user.Id);
+            user = await RequireUserAsync(user.Id, cancellationToken);
         }
 
         var fields = BaseUserFields(user);
@@ -702,10 +724,8 @@ public sealed class AuthFixtureSeeder(
             throw new InvalidOperationException("session role has invalid exact device plan");
         }
 
-        List<UserSession> existingSessions = await db.Queryable<UserSession>()
-            .Where(item => item.UserId == user.Id)
-            .OrderBy(item => item.CreatedAt)
-            .ToListAsync();
+        IReadOnlyList<UserSession> existingSessions = await repository
+            .ListUserSessionsAsync(user.Id, cancellationToken);
         if (existingSessions.Count > 0)
         {
             if (existingSessions.Count != count ||
@@ -723,7 +743,16 @@ public sealed class AuthFixtureSeeder(
                 throw new InvalidOperationException(
                     "owned multi-device fixture lost distinct device/family state");
             }
-            return existingSessions.Select(item => ExistingSessionEntity(role, item)).ToArray();
+            var observedExisting = new List<AuthFixtureEntityObservation>(existingSessions.Count);
+            foreach (UserSession session in existingSessions)
+            {
+                observedExisting.Add(await ExistingSessionEntityAsync(
+                    role,
+                    session,
+                    user,
+                    cancellationToken));
+            }
+            return observedExisting;
         }
 
         var outcomes = new List<(SessionTokenResponseDto Tokens, string DeviceSignal)>(count);
@@ -757,13 +786,12 @@ public sealed class AuthFixtureSeeder(
 
         if (role.CapabilityId == "session.expired")
         {
-            DateTime expiredAt = timeProvider.GetUtcNow().UtcDateTime.AddSeconds(-1);
-            int updated = await db.Updateable<UserSession>()
-                .SetColumns(item => item.IdleExpiresAt == expiredAt)
-                .SetColumns(item => item.AbsoluteExpiresAt == expiredAt)
-                .Where(item => item.SessionId == outcomes[0].Tokens.SessionId)
-                .ExecuteCommandAsync();
-            RequireSingleTransition(updated, role.SemanticRole);
+            DateTime expiredAt = timeProvider.GetUtcNow().UtcDateTime;
+            bool updated = await repository.TransitionSessionToExpiredAsync(
+                outcomes[0].Tokens.SessionId,
+                expiredAt,
+                cancellationToken);
+            RequireSingleTransition(updated ? 1 : 0, role.SemanticRole);
         }
         else if (role.CapabilityId == "session.revoked")
         {
@@ -794,11 +822,20 @@ public sealed class AuthFixtureSeeder(
         for (int index = 0; index < count; index++)
         {
             SessionTokenResponseDto original = outcomes[index].Tokens;
-            UserSession session = await db.Queryable<UserSession>()
-                .Where(item => item.SessionId == original.SessionId)
-                .FirstAsync()
+            UserSession session = await repository.FindSessionAsync(
+                original.SessionId,
+                cancellationToken)
                 ?? throw new InvalidOperationException("session read-model row is missing");
             string state = SessionState(session);
+            ClaimsPrincipal tokenPrincipal = ReadIssuedPrincipal(original.AccessToken);
+            bool claimsMatch = tokenPrincipal.GetUserId() == user.Id &&
+                tokenPrincipal.GetSessionId() == session.SessionId &&
+                tokenPrincipal.FindFirst("auth_method")?.Value == session.AuthenticationMethod &&
+                tokenPrincipal.FindFirst("auth_strength")?.Value == session.AuthenticationStrength;
+            UserSessionValidationResult validation = await sessionValidation.ValidateAsync(
+                tokenPrincipal,
+                cancellationToken);
+            bool expectedEligible = state == "active";
             var fields = new Dictionary<string, object?>
             {
                 ["state"] = state,
@@ -808,8 +845,8 @@ public sealed class AuthFixtureSeeder(
                 ["rememberMe"] = session.RememberMe,
                 ["durationPolicy"] = session.DurationPolicy,
                 ["databaseStateVerified"] = true,
-                ["claimStateVerified"] = true,
-                ["cacheStateVerified"] = true
+                ["claimStateVerified"] = claimsMatch,
+                ["cacheStateVerified"] = validation.IsValid == expectedEligible
             };
             if (role.CapabilityId == "session.refresh-rotated")
             {
@@ -835,9 +872,9 @@ public sealed class AuthFixtureSeeder(
         string status = role.PermissionProjection == "disabled"
             ? AdminPrincipalStatus.Disabled
             : AdminPrincipalStatus.Active;
-        AdminPrincipal? existing = await db.Queryable<AdminPrincipal>()
-            .Where(item => item.Handle == role.FixtureIdentity)
-            .FirstAsync();
+        AdminPrincipal? existing = await repository.FindAdminByFixtureIdentityAsync(
+            role.FixtureIdentity,
+            cancellationToken);
         if (existing is null)
         {
             existing = new AdminPrincipal
@@ -849,7 +886,7 @@ public sealed class AuthFixtureSeeder(
                 Permissions = string.Join('\n', allowed),
                 CreatedAtUtc = timeProvider.GetUtcNow().UtcDateTime
             };
-            existing.Id = await db.Insertable(existing).ExecuteReturnBigIdentityAsync();
+            existing = await repository.InsertOwnedAdminAsync(existing, cancellationToken);
         }
         else if (!string.Equals(existing.Status, status, StringComparison.Ordinal) ||
             !Permissions(existing.Permissions).SequenceEqual(allowed))
@@ -858,7 +895,7 @@ public sealed class AuthFixtureSeeder(
                 $"owned admin {role.SemanticRole} exists with stale state; reset is forbidden");
         }
 
-        string[] denied = catalog.Except(allowed, StringComparer.Ordinal).ToArray();
+        (string[] authorized, string[] denied) = AuthorizeProjection(allowed, catalog);
         return Entity(
             role,
             existing.Id.ToString(CultureInfo.InvariantCulture),
@@ -880,10 +917,10 @@ public sealed class AuthFixtureSeeder(
                     _ => role.PermissionProjection
                 },
                 ["permissionIds"] = allowed,
-                ["allowedActions"] = allowed,
+                ["allowedActions"] = authorized,
                 ["deniedActions"] = denied,
                 ["permissionCatalogDigest"] = PermissionCatalogDigest(),
-                ["authorizationVerified"] = true,
+                ["authorizationVerified"] = authorized.SequenceEqual(allowed),
                 ["sessionIssuanceEligible"] = status == AdminPrincipalStatus.Active,
                 ["authorizationEligible"] = status == AdminPrincipalStatus.Active
             });
@@ -894,7 +931,7 @@ public sealed class AuthFixtureSeeder(
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        int roots = await db.Queryable<AdminPrincipal>().Where(static item => item.IsRoot).CountAsync();
+        int roots = await repository.CountRootAdminsAsync(cancellationToken);
         if (roots != 0)
         {
             throw new InvalidOperationException(
@@ -914,9 +951,9 @@ public sealed class AuthFixtureSeeder(
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        User? existing = await db.Queryable<User>()
-            .Where(item => item.PublicHandle == fixtureIdentity)
-            .FirstAsync();
+        User? existing = await repository.FindUserByFixtureIdentityAsync(
+            fixtureIdentity,
+            cancellationToken);
         int expectedStatus = deleted ? 2 : 0;
         if (existing is not null)
         {
@@ -947,18 +984,15 @@ public sealed class AuthFixtureSeeder(
             CreateTime = now,
             MfaEnabled = false
         };
-        user.Id = await db.Insertable(user).ExecuteReturnIdentityAsync();
+        user = await repository.InsertOwnedUserAsync(user, cancellationToken);
         if (deleted)
         {
-            int updated = await db.Updateable<User>()
-                .SetColumns(item => item.Status == 2)
-                .SetColumns(item => item.RegistrationState == AccountRegistrationStates.Closed)
-                .SetColumns(item => item.DeletedAt == now)
-                .SetColumns(item => item.DeletedReason == "fixture_owned_transition")
-                .Where(item => item.Id == user.Id && item.Status == 0)
-                .ExecuteCommandAsync();
-            RequireSingleTransition(updated, fixtureIdentity);
-            user = await RequireUserAsync(user.Id);
+            bool updated = await repository.TransitionOwnedUserToDeletedAsync(
+                user.Id,
+                now,
+                cancellationToken);
+            RequireSingleTransition(updated ? 1 : 0, fixtureIdentity);
+            user = await RequireUserAsync(user.Id, cancellationToken);
         }
         return user;
     }
@@ -1021,8 +1055,10 @@ public sealed class AuthFixtureSeeder(
         }
     }
 
-    private async Task<User> RequireUserAsync(int userId)
-        => await db.Queryable<User>().InSingleAsync(userId)
+    private async Task<User> RequireUserAsync(
+        int userId,
+        CancellationToken cancellationToken)
+        => await repository.FindUserByIdAsync(userId, cancellationToken)
             ?? throw new InvalidOperationException("owned user disappeared after transition");
 
     private async Task<bool> VerifyUserAsync(AuthFixtureVerificationEntity entity)
@@ -1031,7 +1067,7 @@ public sealed class AuthFixtureSeeder(
         {
             return false;
         }
-        User? user = await db.Queryable<User>().InSingleAsync(id);
+        User? user = await repository.FindUserByIdAsync(id, CancellationToken.None);
         if (user is null || !string.Equals(user.PublicHandle, entity.FixtureIdentity, StringComparison.Ordinal))
         {
             return false;
@@ -1040,18 +1076,21 @@ public sealed class AuthFixtureSeeder(
         {
             "auth.user.deleted" => user.Status == 2 && user.DeletedAt.HasValue,
             "auth.user.mfa-disabled" => user.Status == 0 && !user.MfaEnabled,
-            "auth.user.mfa-enabled" => user.Status == 0 && user.MfaEnabled,
-            "auth.user.passkey-enabled" => user.Status == 0 && user.PasskeyEnabled,
-            "auth.user.recovery-enabled" => user.Status == 0 && user.RecoveryEnabled,
+            "auth.user.mfa-enabled" => user.Status == 0 && user.MfaEnabled &&
+                await repository.HasVerifiedMfaProfileAsync(id, CancellationToken.None),
+            "auth.user.passkey-enabled" => user.Status == 0 && user.PasskeyEnabled &&
+                await repository.HasUsedPasskeyCredentialAsync(id, CancellationToken.None),
+            "auth.user.recovery-enabled" => user.Status == 0 && user.RecoveryEnabled &&
+                await repository.HasActiveRecoveryKeyAsync(id, CancellationToken.None),
             _ => user.Status == 0 && !user.DeletedAt.HasValue
         };
     }
 
     private async Task<bool> VerifySessionAsync(AuthFixtureVerificationEntity entity)
     {
-        UserSession? session = await db.Queryable<UserSession>()
-            .Where(item => item.SessionId == entity.Id)
-            .FirstAsync();
+        UserSession? session = await repository.FindSessionAsync(
+            entity.Id,
+            CancellationToken.None);
         if (session is null)
         {
             return false;
@@ -1086,11 +1125,32 @@ public sealed class AuthFixtureSeeder(
         };
     }
 
-    private static AuthFixtureEntityObservation ExistingSessionEntity(
+    private async Task<AuthFixtureEntityObservation> ExistingSessionEntityAsync(
         AuthFixtureRolePlan role,
-        UserSession session)
+        UserSession session,
+        User user,
+        CancellationToken cancellationToken)
     {
+        if (!UserSessionAuthenticationContext.TryFromSession(
+                session,
+                out UserSessionAuthenticationContext authentication))
+        {
+            throw new InvalidOperationException(
+                $"owned session role {role.SemanticRole} has invalid authentication projection");
+        }
+        IssuedAccessToken issued = jwt.GenerateAccessToken(
+            user,
+            session.SessionId,
+            authentication);
+        ClaimsPrincipal principal = ReadIssuedPrincipal(issued.Token);
+        UserSessionValidationResult validation = await sessionValidation.ValidateAsync(
+            principal,
+            cancellationToken);
         string state = role.ExpectedState;
+        bool claimsMatch = principal.GetUserId() == user.Id &&
+            principal.GetSessionId() == session.SessionId &&
+            principal.FindFirst("auth_method")?.Value == session.AuthenticationMethod &&
+            principal.FindFirst("auth_strength")?.Value == session.AuthenticationStrength;
         var fields = new Dictionary<string, object?>
         {
             ["state"] = state,
@@ -1100,8 +1160,8 @@ public sealed class AuthFixtureSeeder(
             ["rememberMe"] = session.RememberMe,
             ["durationPolicy"] = session.DurationPolicy,
             ["databaseStateVerified"] = true,
-            ["claimStateVerified"] = true,
-            ["cacheStateVerified"] = true
+            ["claimStateVerified"] = claimsMatch,
+            ["cacheStateVerified"] = validation.IsValid == (state is "active" or "rotated")
         };
         if (role.CapabilityId == "session.refresh-rotated")
         {
@@ -1118,7 +1178,9 @@ public sealed class AuthFixtureSeeder(
         {
             return false;
         }
-        AdminPrincipal? admin = await db.Queryable<AdminPrincipal>().InSingleAsync(id);
+        AdminPrincipal? admin = await repository.FindAdminByIdAsync(
+            id,
+            CancellationToken.None);
         if (admin is null || !string.Equals(admin.Handle, entity.FixtureIdentity, StringComparison.Ordinal))
         {
             return false;
@@ -1141,7 +1203,9 @@ public sealed class AuthFixtureSeeder(
             ? AdminPrincipalStatus.Disabled
             : AdminPrincipalStatus.Active;
         return admin.Status == expectedStatus &&
-            Permissions(admin.Permissions).SequenceEqual(expected);
+            Permissions(admin.Permissions).SequenceEqual(expected) &&
+            AuthorizeProjection(Permissions(admin.Permissions), catalog).Authorized
+                .SequenceEqual(expected);
     }
 
     private async Task<bool> VerifyMultiDeviceAsync(
@@ -1156,9 +1220,9 @@ public sealed class AuthFixtureSeeder(
         {
             return false;
         }
-        List<UserSession> sessions = await db.Queryable<UserSession>()
-            .Where(item => sessionIds.Contains(item.SessionId))
-            .ToListAsync();
+        IReadOnlyList<UserSession> sessions = await repository.ListSessionsByIdsAsync(
+            sessionIds,
+            CancellationToken.None);
         DateTime now = timeProvider.GetUtcNow().UtcDateTime;
         return sessions.Count == 2 &&
             sessions.All(item => !item.RevokedAt.HasValue &&
@@ -1170,7 +1234,7 @@ public sealed class AuthFixtureSeeder(
     }
 
     private async Task<bool> VerifyRootEmptyAsync()
-        => await db.Queryable<AdminPrincipal>().Where(static item => item.IsRoot).CountAsync() == 0;
+        => await repository.CountRootAdminsAsync(CancellationToken.None) == 0;
 
     private static AuthFixtureEntityObservation Entity(
         AuthFixtureRolePlan role,
@@ -1195,8 +1259,7 @@ public sealed class AuthFixtureSeeder(
             ["mfaEnabled"] = user.MfaEnabled,
             ["passkeyEnabled"] = user.PasskeyEnabled,
             ["recoveryEnabled"] = user.RecoveryEnabled,
-            ["accountStateVerified"] = true,
-            ["auditStateVerified"] = true
+            ["accountStateVerified"] = true
         };
 
     private static string SessionState(UserSession session)
@@ -1211,12 +1274,39 @@ public sealed class AuthFixtureSeeder(
             : "active";
     }
 
+    private static ClaimsPrincipal ReadIssuedPrincipal(string accessToken)
+    {
+        JwtSecurityToken token = new JwtSecurityTokenHandler().ReadJwtToken(accessToken);
+        return new ClaimsPrincipal(new ClaimsIdentity(
+            token.Claims,
+            authenticationType: "auth-fixture-issued-token-observation"));
+    }
+
     private static string[] Permissions(string value)
         => value.Split(
             '\n',
             StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Order(StringComparer.Ordinal)
             .ToArray();
+
+    private static (string[] Authorized, string[] Denied) AuthorizeProjection(
+        IReadOnlyList<string> permissionIds,
+        IReadOnlyList<string> catalog)
+    {
+        var identity = new ClaimsIdentity(permissionIds.Select(permissionId =>
+            new Claim(AdminPermissions.PermissionClaimType, permissionId)),
+            authenticationType: "auth-fixture-production-policy");
+        var principal = new ClaimsPrincipal(identity);
+        string[] authorized = catalog
+            .Where(principal.HasAdminPermission)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        string[] denied = catalog
+            .Where(permissionId => !principal.HasAdminPermission(permissionId))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        return (authorized, denied);
+    }
 
     private static string[] ProjectPermissions(
         string? projection,
