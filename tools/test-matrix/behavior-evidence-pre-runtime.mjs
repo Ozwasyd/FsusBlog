@@ -125,9 +125,11 @@ function requireField(value, label)
 
 function requireDigestMatch(receipt, label)
 {
-    const expected = digestValue(
-        Object.fromEntries(Object.entries(receipt).filter(([key]) => key !== 'contentDigest'))
-    );
+    const expected = receipt?.schema === staticAdmissionReceiptSchema
+        ? digestValue({ ...receipt, contentDigest: null })
+        : digestValue(
+            Object.fromEntries(Object.entries(receipt).filter(([key]) => key !== 'contentDigest'))
+        );
     const actual = normalizeDigest(receipt.contentDigest);
     if (actual !== expected && receipt.contentDigest !== expected && receipt.contentDigest !== `sha256:${expected}`)
     {

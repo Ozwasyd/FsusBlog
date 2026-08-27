@@ -316,7 +316,9 @@ function makeStaticAdmission({ status = 'ok', candidateSpawnCount = 0, sourceCom
         failureReasons: status === 'ok' ? [] : ['admission failure'],
         contentDigest: null
     };
-    receipt.contentDigest = digestReceipt(receipt);
+    receipt.contentDigest = createHash('sha256')
+        .update(JSON.stringify(stable(receipt)), 'utf8')
+        .digest('hex');
     return receipt;
 }
 
