@@ -1540,6 +1540,7 @@ render: enum-set
 - `resilience`
 - `rights-v3-test-matrix`
 - `risk-control-test-matrix`
+- `runtime-order-equivalence`
 - `security`
 - `security-authenticated-dast`
 - `soak-long-evidence-import`
