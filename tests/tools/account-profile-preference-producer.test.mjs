@@ -16,6 +16,13 @@ import {
     prepareAccountProfilePreferences,
     verifyAccountProfilePreferences
 } from '../../tools/test-fixtures/producers/account-profile-preference-producer.mjs';
+import { buildProducerReceipt } from '../../tools/test-fixtures/receipt/index.mjs';
+import {
+    buildFixtureVariantPlan,
+    buildProducerFixtureVariantPlan,
+    fixtureCatalogDigest,
+    readFixtureCatalogs
+} from '../../tools/testing/fixture-catalog.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const producerId = 'account-profile-preferences';
@@ -57,6 +64,7 @@ function plannedContext({
         producerResultDigest: digest,
         identityPrepareReferences: references
     };
+    const authReceipt = canonicalAuthReceipt(planned, references);
     return createProducerContext({
         plan: planned,
         producerId,
@@ -66,23 +74,66 @@ function plannedContext({
         },
         temporalContext: temporal,
         producerReceipts: {
-            'auth-session': {
-                schema: 'fsusblog.fixture-producer-receipt.v1',
-                producerId: 'auth-session',
-                producerReceiptDigest: 'ef'.repeat(32),
-                runId: 'run-1717',
-                namespace: 'profile-preferences',
-                profileId: 'account-profile-preferences',
-                observations: {
-                    database: {
-                        entities: references.map((reference) => ({
-                            semanticRole: reference.semanticRole,
-                            id: reference.publicId
-                        }))
-                    }
-                }
-            }
+            'auth-session': authReceipt
         }
+    });
+}
+
+function canonicalAuthReceipt(planned, references)
+{
+    const catalogs = readFixtureCatalogs();
+    const fixtureVariantIds = planned.variantIds;
+    const fixtureVariantPlan = buildFixtureVariantPlan(fixtureVariantIds, catalogs);
+    const authVariantId = 'canonical.auth.user.active';
+    const producerVariantPlan = buildProducerFixtureVariantPlan({
+        producerId: 'auth-session',
+        variantIds: [authVariantId],
+        fixtureVariantIds,
+        fixtureVariantPlanDigest: fixtureVariantPlan.variantPlanDigest,
+        catalogs
+    });
+    const entities = references.map((reference) => ({
+        kind: 'user',
+        id: reference.publicId,
+        owned: true,
+        semanticRole: reference.semanticRole,
+        fixtureIdentity: reference.fixtureIdentity,
+        capabilityHint: 'auth.user.active',
+        variantId: authVariantId,
+        fields: { state: 'active' }
+    }));
+    return buildProducerReceipt({
+        producerId: 'auth-session',
+        strategy: 'transaction-fixture',
+        runId: 'run-1717',
+        namespace: 'profile-preferences',
+        fixtureCatalogDigest: fixtureCatalogDigest(catalogs),
+        profileId: 'account-profile-preferences',
+        expandedCapabilityDigest: planned.expandedCapabilityDigest,
+        fixtureVariantIds,
+        variantPlanDigest: fixtureVariantPlan.variantPlanDigest,
+        producerVariantPlanDigest: producerVariantPlan.producerVariantPlanDigest,
+        producedVariantIds: [authVariantId],
+        providedCapabilities: ['auth.user.active'],
+        ownedStateDomains: catalogs.producer.producers.find(
+            (item) => item.id === 'auth-session'
+        ).stateDomains,
+        entityIdentities: entities.map((entity) => ({
+            kind: entity.kind,
+            id: entity.id,
+            variantId: entity.variantId
+        })),
+        postconditionObservations: [{
+            capabilityId: 'auth.user.active',
+            postconditionId: 'user-active',
+            ok: true
+        }],
+        databaseObservation: {
+            namespace: 'profile-preferences',
+            schemaIdentity: 'public',
+            entities
+        },
+        catalogs
     });
 }
 
