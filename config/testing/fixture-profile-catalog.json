@@ -55,6 +55,34 @@
       "requiresFreshNamespace": true
     },
     {
+      "id": "auth-identity-matrix",
+      "capabilities": [
+        "auth.admin.disabled",
+        "auth.admin.full-permission",
+        "auth.admin.partial-permission",
+        "auth.admin.read-only",
+        "auth.admin.root-bootstrap-empty",
+        "auth.user.active",
+        "auth.user.deleted",
+        "auth.user.mfa-disabled",
+        "auth.user.mfa-enabled",
+        "auth.user.passkey-enabled",
+        "auth.user.recovery-enabled",
+        "session.expired",
+        "session.multi-device",
+        "session.refresh-rotated",
+        "session.remembered",
+        "session.revoked",
+        "session.single-device"
+      ],
+      "allowedExecutionClasses": [
+        "runtime",
+        "security"
+      ],
+      "isDestructive": false,
+      "requiresFreshNamespace": true
+    },
+    {
       "id": "auth-security-matrix",
       "capabilities": [
         "auth.user.active",

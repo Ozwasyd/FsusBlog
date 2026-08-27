@@ -2203,6 +2203,31 @@
             ]
         },
         {
+            "consumerId": "source:legacy-auth-refresh-runtime",
+            "executionClass": "browser",
+            "source": "src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, session.single-device",
+            "implicitSource": "fixture-catalog consumer declaration in src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs",
+            "currentFallback": "no local data fallback path; depends on producers declared by the bound fixture profile",
+            "profileId": "auth-basic",
+            "profileIds": [
+                "auth-basic"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "session.single-device"
+            ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.session.single-device"
+            ],
+            "producerOwners": [
+                "auth-session"
+            ]
+        },
+        {
             "consumerId": "source:playwright-global-setup",
             "executionClass": "browser",
             "source": "tests/frontend/support/playwright/global-setup.ts",
@@ -2264,11 +2289,11 @@
         },
         {
             "producerId": "auth-session",
-            "source": "src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs"
+            "source": "src/backend/Services/Fixtures/AuthFixtureSeeder.cs"
         },
         {
             "producerId": "auth-session",
-            "source": "tests/frontend/support/session-fixtures.mjs"
+            "source": "tools/test-fixtures/producers/auth-session-producer.mjs"
         },
         {
             "producerId": "comment-moderation",

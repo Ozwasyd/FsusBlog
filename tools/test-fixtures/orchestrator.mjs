@@ -241,6 +241,13 @@ export async function prepare(planDocument, injectedPorts, signal = undefined, {
     ?? (catalogs.producer.producers ?? []).filter((item) => producerIds.includes(item.id));
     const portMap = indexProducerPorts(injectedPorts ?? [], { catalogProducers });
     requireProducerPorts(producerIds, portMap);
+    const identityRoleRequests = Object.freeze([...portMap.values()]
+        .filter((port) => producerIds.includes(port.id))
+        .flatMap((port) => port.identityRoleRequests));
+    if (identityRoleRequests.length > 0 && !producerIds.includes('auth-session'))
+    {
+        throw new Error('consumer identity role requests require the planned auth-session owner producer');
+    }
 
     let previousReceiptByProducer = new Map();
     if (previousFixtureReceipt != null)
@@ -333,7 +340,8 @@ export async function prepare(planDocument, injectedPorts, signal = undefined, {
                     handles: baseHandles,
                     catalogs,
                     previousProducerReceipt: previousReceiptByProducer.get(producerId) ?? null,
-                    temporalContext: temporalContextForProducer(planDocument, producerId)
+                    temporalContext: temporalContextForProducer(planDocument, producerId),
+                    identityRoleRequests: producerId === 'auth-session' ? identityRoleRequests : []
                 });
                 const rawResult = await port.prepare(context, signal);
                 throwIfAborted(signal);
@@ -654,6 +662,7 @@ export async function verify(prepareState, injectedVerifiers = {}, {
 
     const verifierMap = resolveVerifierPorts(prepareState, injectedVerifiers, catalogs);
     const sealedProducerReceipts = [];
+    const sealedProducerReceiptsById = {};
     const portPostconditions = [];
 
     try
@@ -702,7 +711,8 @@ export async function verify(prepareState, injectedVerifiers = {}, {
                 producerOutputs: prepareState.producerOutputs,
                 handles: planDocument.executionIdentity?.handles,
                 catalogs,
-                temporalContext: temporalContextForProducer(planDocument, producerId)
+                temporalContext: temporalContextForProducer(planDocument, producerId),
+                producerReceipts: sealedProducerReceiptsById
             });
             const portVerify = await port.verify(context, rawResult);
             const portOk = portVerify === true
@@ -806,6 +816,7 @@ export async function verify(prepareState, injectedVerifiers = {}, {
                 catalogs
             });
             sealedProducerReceipts.push(producerReceipt);
+            sealedProducerReceiptsById[producerId] = producerReceipt;
         }
 
         // Every profile capability must be covered by a sealed ProducerReceipt.

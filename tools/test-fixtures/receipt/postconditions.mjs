@@ -138,11 +138,11 @@ function verifyHomeFeaturedHot(ctx) {
   return pass(id, { articleIds: owned.ids, redisKeys: hotKeys.length })
 }
 
-function verifyAuthUser(id, { deleted = false, mfa = false } = {}) {
+function verifyAuthUser(id, { deleted = false, mfa = null, passkey = false, recovery = false } = {}) {
   return (ctx) => {
     const db = ctx.observations?.database
     if (!db) return fail(id, 'database observation required')
-    const users = entitiesOf(db, 'user')
+    const users = entitiesOf(db, 'user').filter((item) => item.postconditionId === id)
     const owned = requireOwnedIds(users, id)
     if (!owned.ok) return fail(id, owned.reason)
     for (const user of users) {
@@ -156,21 +156,20 @@ function verifyAuthUser(id, { deleted = false, mfa = false } = {}) {
       } else if (fields.status && fields.status !== 'active') {
         return fail(id, `user ${user.id} status is not active`)
       }
-      if (mfa && fields.mfaEnabled !== true) {
-        return fail(id, `user ${user.id} MFA is not enabled`)
+      if (mfa !== null && fields.mfaEnabled !== mfa) {
+        return fail(id, `user ${user.id} MFA state mismatch`)
       }
-    }
-    if (mfa) {
-      const redis = ctx.observations?.redis
-      if (!redis) return fail(id, 'redis session observation required for MFA')
-      const sessionKeys = (redis.keys ?? []).filter((item) => item.present === true
-        && (/session|mfa/i.test(String(item.key ?? '')) || /session|mfa/i.test(String(item.domain ?? ''))))
-      if (sessionKeys.length === 0) return fail(id, 'MFA session/cache keys missing')
-      for (const key of sessionKeys) {
-        if (key.sessionRevoked === true) return fail(id, 'session is revoked while MFA capability claims active')
-        if (key.mfaClaim !== true && key.claimDigest == null) {
-          return fail(id, 'MFA session claim missing')
+      if (passkey) {
+        const ceremony = fields.ceremony ?? {}
+        if (fields.passkeyEnabled !== true || ceremony.validationBoundary !== 'production-fido'
+          || ceremony.challengeConsumed !== true || ceremony.signatureVerified !== true
+          || ceremony.originVerified !== true || ceremony.rpIdVerified !== true
+          || ceremony.counterVerified !== true || ceremony.acceptAnySignature === true) {
+          return fail(id, `user ${user.id} production WebAuthn ceremony is incomplete`)
         }
+      }
+      if (recovery && fields.recoveryEnabled !== true) {
+        return fail(id, `user ${user.id} recovery state is not enabled`)
       }
     }
     return pass(id, { userIds: owned.ids })
@@ -181,7 +180,7 @@ function verifyAdminPermission(id, permission) {
   return (ctx) => {
     const db = ctx.observations?.database
     if (!db) return fail(id, 'database observation required')
-    const admins = entitiesOf(db, 'admin')
+    const admins = entitiesOf(db, 'admin').filter((item) => item.postconditionId === id)
     const owned = requireOwnedIds(admins, id)
     if (!owned.ok) return fail(id, owned.reason)
     for (const admin of admins) {
@@ -209,25 +208,65 @@ function verifyAdminPermission(id, permission) {
   }
 }
 
-function verifySession(id, { multi = false } = {}) {
+function verifyAdminRootEmpty(ctx) {
+  const id = 'admin-root-bootstrap-empty'
+  const db = ctx.observations?.database
+  if (!db) return fail(id, 'database observation required')
+  const roots = entitiesOf(db, 'admin-root-set').filter((item) => item.postconditionId === id)
+  const owned = requireOwnedIds(roots, id)
+  if (!owned.ok) return fail(id, owned.reason)
+  if (roots.some((item) => item.fields?.state !== 'empty'
+    || item.fields?.rootCount !== 0 || item.fields?.nonownedDeletionCount !== 0)) {
+    return fail(id, 'root bootstrap empty state is not isolated and non-destructive')
+  }
+  return pass(id, { rootSets: owned.ids })
+}
+
+function verifySession(id, { multi = false, expectedState = 'active', remembered = false, rotated = false } = {}) {
   return (ctx) => {
-    const redis = ctx.observations?.redis
     const db = ctx.observations?.database
-    if (!redis) return fail(id, 'redis session observation required')
     if (!db) return fail(id, 'database observation required for session binding')
-    const sessions = entitiesOf(db, 'session')
-    const keys = (redis.keys ?? []).filter((item) => item.present === true
-      && (/session/i.test(String(item.key ?? '')) || String(item.domain ?? '').includes('session')))
-    if (keys.length === 0) return fail(id, 'session redis keys missing')
-    for (const key of keys) {
-      if (key.sessionRevoked === true) return fail(id, 'session revoked (auth storage file is not sufficient)')
+    const allSessions = entitiesOf(db, 'session')
+    const taggedSessions = allSessions.filter((item) => item.postconditionId === id)
+    // Current producers always tag independent semantic identities. The
+    // all-session fallback only preserves fail-closed verification for legacy
+    // counterexamples that predate postcondition tags.
+    const sessions = taggedSessions.length ? taggedSessions : allSessions
+    const owned = requireOwnedIds(sessions, id)
+    if (!owned.ok) return fail(id, owned.reason)
+    const revokedKeys = (ctx.observations?.redis?.keys ?? []).filter((item) =>
+      item.sessionRevoked === true && sessions.some((session) =>
+        String(item.sessionId ?? item.key ?? '').includes(String(session.id))))
+    if (revokedKeys.length && expectedState !== 'revoked') {
+      return fail(id, 'session is revoked in the cache/read projection')
     }
-    if (multi) {
-      if (keys.length < 2 && sessions.length < 2) {
-        return fail(id, 'multi-device session requires >=2 live sessions')
+    for (const session of sessions) {
+      const fields = session.fields ?? {}
+      const observedState = fields.state ?? (fields.active === true ? 'active' : null)
+      if (observedState !== expectedState) return fail(id, `session ${session.id} state mismatch`)
+      if (fields.databaseStateVerified !== true || fields.claimStateVerified !== true
+        || fields.cacheStateVerified !== true) {
+        return fail(id, `session ${session.id} DB/claim/cache postcondition is incomplete`)
+      }
+      if (expectedState === 'active' && fields.live !== true) {
+        return fail(id, `session ${session.id} is not live`)
+      }
+      if (remembered && (fields.rememberMe !== true || fields.durationPolicy !== 'persistent_30d')) {
+        return fail(id, `session ${session.id} remembered policy mismatch`)
+      }
+      if (rotated && (fields.oldRefreshAccepted !== false || fields.currentGeneration !== 1
+        || fields.currentPointerVerified !== true)) {
+        return fail(id, `session ${session.id} refresh rotation mismatch`)
       }
     }
-    return pass(id, { sessionKeys: keys.length, sessions: sessions.length })
+    if (multi) {
+      const devices = new Set(sessions.map((item) => item.fields?.deviceSignal))
+      const families = new Set(sessions.map((item) => item.fields?.familyIdentity))
+      if (sessions.length !== 2 || devices.size !== 2 || families.size !== 2) {
+        return fail(id, 'multi-device session requires exactly two distinct live devices and families')
+      }
+    }
+    return pass(id, { sessionIds: owned.ids })
   }
 }
 
@@ -473,13 +512,21 @@ export const POSTCONDITION_VERIFIERS = Object.freeze({
   'home-featured-hot': verifyHomeFeaturedHot,
   'user-active': verifyAuthUser('user-active'),
   'user-deleted': verifyAuthUser('user-deleted', { deleted: true }),
+  'user-mfa-disabled': verifyAuthUser('user-mfa-disabled', { mfa: false }),
   'user-mfa-enabled': verifyAuthUser('user-mfa-enabled', { mfa: true }),
+  'user-passkey-enabled': verifyAuthUser('user-passkey-enabled', { passkey: true }),
+  'user-recovery-enabled': verifyAuthUser('user-recovery-enabled', { recovery: true }),
   'admin-disabled': verifyAdminPermission('admin-disabled', 'disabled'),
   'admin-full-permission': verifyAdminPermission('admin-full-permission', 'full'),
   'admin-partial-permission': verifyAdminPermission('admin-partial-permission', 'partial'),
   'admin-read-only': verifyAdminPermission('admin-read-only', 'read-only'),
+  'admin-root-bootstrap-empty': verifyAdminRootEmpty,
+  'session-expired': verifySession('session-expired', { expectedState: 'expired' }),
   'session-single-device': verifySession('session-single-device', { multi: false }),
   'session-multi-device': verifySession('session-multi-device', { multi: true }),
+  'session-refresh-rotated': verifySession('session-refresh-rotated', { expectedState: 'rotated', rotated: true }),
+  'session-remembered': verifySession('session-remembered', { remembered: true }),
+  'session-revoked': verifySession('session-revoked', { expectedState: 'revoked' }),
   'comment-moderation-matrix': verifyCommentMatrix('comment-moderation-matrix'),
   'comment-threaded': verifyCommentMatrix('comment-threaded'),
   'moderation-policy-matrix': verifyModerationPolicy,
