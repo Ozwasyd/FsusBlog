@@ -18,6 +18,14 @@
             "sourceFingerprint": "sha256:cf73c05402813328663f85bb51dea6f0e8d0e848df58c1329c52355d2de627f9"
         },
         {
+            "file": "src/backend/Services/Fixtures/AccountProfilePreferenceFixtureService.cs",
+            "owner": "TestFixtureAgent:account-profile-preferences",
+            "reason": "Temporary bounded profile and preference fixture aggregate while lifecycle ports are split along the existing profile and locale owner boundaries",
+            "expires": "2026-09-27",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/1717",
+            "sourceFingerprint": "sha256:3f548eb7a1a8424cc4b850b7fd41ea950f7b8dc81368d680231058ffbcf16af4"
+        },
+        {
             "file": "src/backend/Services/Fixtures/AuthFixtureSeeder.cs",
             "owner": "TestFixtureAgent:auth-session",
             "reason": "Temporary bounded aggregate while the auth fixture composition root is split along identity WebAuthn session and admin lifecycle ports",
@@ -48,6 +56,14 @@
             "expires": "2026-09-22",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2792",
             "sourceFingerprint": "sha256:975fc1f35417b2575fb01931577c683ebbda7caa585b3937a26a0ff39a501a3a"
+        },
+        {
+            "file": "tests/backend/Integration/AccountProfilePreferenceFixturePostgresTests.cs",
+            "owner": "TestFixtureAgent:account-profile-preferences",
+            "reason": "Temporary complete PostgreSQL lifecycle coverage bridge while profile preference and cleanup cases move into focused integration modules",
+            "expires": "2026-09-27",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/1717",
+            "sourceFingerprint": "sha256:f56895c8965069bdc6b773b8a648a7255c5fadb00431c4211e3678463923a817"
         },
         {
             "file": "tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs",
@@ -104,6 +120,14 @@
             "expires": "2026-09-27",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2530",
             "sourceFingerprint": "sha256:a617d65f153221a89af263d32b4ee27a0f34bfed53a390143a521631bf8db366"
+        },
+        {
+            "file": "tests/tools/account-profile-preference-producer.test.mjs",
+            "owner": "TestFixtureAgent:account-profile-preferences",
+            "reason": "Temporary producer contract coverage bridge while prepare verify cleanup and transport cases are split into focused modules",
+            "expires": "2026-09-27",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/1717",
+            "sourceFingerprint": "sha256:7cb4afb3f8d883bf6e35bdc9d750f457d32eb46b7f1f919cab3ee91d3362e5f0"
         },
         {
             "file": "tests/tools/auth-session-fixture-producer.test.mjs",
