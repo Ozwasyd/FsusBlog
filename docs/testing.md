@@ -105,6 +105,40 @@ correctness network 默认 deny，Linux 为每个 attempt 加载 systemd `IPAddr
 acceptance 五项 service 的版本、image digest、topology、port/network namespace 与 resource limit 以 `config/testing/test-execution-service-catalog.json` 为唯一目录。PostgreSQL/Redis 只接受目录中的 digest-pinned local image；bootstrap 不在 test phase pull image，缺少时直接失败，应先在独立 restore/preparation 阶段预载。bootstrap 将实际 roster 写到 `FSUSBLOG_TEST_SERVICE_ENVELOPE_FILE`，runner 仅在 planned/actual 全字段一致时接受。
 
 每个 correctness attempt 在 child 启动前写入 planned execution envelope，postflight 聚合 env/executable、browser/rendering、service/topology、directory/filesystem、network 与适用 host facts 后封存 `fsusblog.test-execution-envelope-receipt.v1`。`tools/test/verify-execution-envelope.mjs --plan <plan> --receipt <receipt>` 以独立路径验证 schema、planned/actual exact match、fragment/self digest 与 run/source/attempt identity；仅在该验证通过后，同一 envelope/receipt digest 才能绑定 producer receipt、temporal replay plan 与 release evidence。
+测试执行 replay 的 qualification producer 闭包由
+`config/testing/replay-qualification-producers.json` 唯一声明。xUnit 适配器通过
+`xunit.runner.utility` front controller 取得真实 assembly、collection 与 test-case
+inventory，并在父 runner 派发前封存 collection-preserving queue；每个 slot 是独立 OS
+child，child 必须在调用 xUnit `Run` 前回报真实 PID、collection 和 test-case admission。
+Vitest 适配器通过 `vitest list --json` 取得 inventory，以 test file 为不可拆 atom 建立
+repo-owned lane；controller PID 与 `setup.ts` 从真实 pool process 回报的 PID 都进入 actual。
+Playwright 适配器只使用公开 `--list --reporter=json` 与 `--test-list` 接口建立 N 条
+repo-owned lane，每条 lane 固定一个 runner worker，并保留真实 `workerIndex`、
+`parallelIndex`、outcome 与 browser artifact。三者都禁止从完成顺序、默认 worker 数或
+父进程推断 admission/worker identity；replay 只消费已封存的 plan 和 queue，不重新
+discovery、replan 或动态偷取工作。
+
+`tools/test/run-replay-qualification.mjs` 是唯一会启动 qualification producer 的入口。
+`--family framework` 对 xUnit、Vitest、Playwright 分别执行 1、2、planned worker
+topology 的首次运行与全新进程 replay；`--family randomized` 从
+`config/testing/random-stream-consumers.json` 自动计算 property/model/perf/fuzz
+consumer closure，并对相同三种 topology 重建并核对派生 stream。两族都必须覆盖
+inventory 声明的 filesystem enumeration、reported CPU/load、parent environment、
+framework default worker、worker restart 与 completion timing 扰动，且 source、run、
+plan、actual 和 receipt digest 完全绑定。标准收口顺序如下；两族必须在没有中途 source
+修改的同一 `run-id` 下生成：
+
+```bash
+node tools/test/run-replay-qualification.mjs --family framework --run-id <run-id> --root-seed <seed256> --output-dir .tmp/test-runs/<run-id>/framework
+node tools/test/run-replay-qualification.mjs --family randomized --run-id <run-id> --root-seed <seed256> --output-dir .tmp/test-runs/<run-id>/randomized
+node tools/test/aggregate-replay-qualification.mjs --framework .tmp/test-runs/<run-id>/framework/framework.json --randomized .tmp/test-runs/<run-id>/randomized/randomized.json --out .tmp/test-runs/<run-id>/replay-qualification.json
+node tools/test/verify-replay-qualification.mjs .tmp/test-runs/<run-id>/replay-qualification.json
+```
+
+aggregate 与 verifier 只能读取命令行显式指定的 family/result/plan/actual/receipt，并从
+canonical inventories 独立重算 exact closure；它们不得扫描 `latest`、启动 producer、
+补写缺失证据或把 diagnostic/recovered 结果提升为 qualified。聚合成功只表示所有真实
+producer 的原始引用与扰动覆盖完整，不替代这些 producer 的执行。
 
 Qualification 时间权威与业务/测量时钟分离由 `config/testing/temporal-policy.json`、`config/testing/temporal-context.schema.json` 与 `tools/test/temporal-context.mjs` 承载：唯一 temporal context 绑定 source/run/producer、固定 UTC business epoch、timezone/culture 与 immutable call-site ledger digest；plan/actual/receipt 必须 exact match，`generatedAt` 只进入 artifact metadata 且不进入 semantic outcome digest。Business wall clock 通过后端 `TestTemporalContext` / `TimeProvider` 与 Node `createBusinessWallClock` 注入并只允许显式推进；monotonic measurement 继续使用 `performance.now` / `process.hrtime.bigint` / `Stopwatch` 真实推进。
 

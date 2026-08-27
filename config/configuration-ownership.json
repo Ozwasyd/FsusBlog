@@ -129,6 +129,12 @@
             "pathType": "file"
         },
         {
+            "id": "replay-qualification-producer-inventory",
+            "owner": "test-execution-replay-governance",
+            "canonicalPath": "config/testing/replay-qualification-producers.json",
+            "pathType": "file"
+        },
+        {
             "id": "fsusui-test-baseline",
             "owner": "frontend-test-governance",
             "canonicalPath": "config/testing/fsusui-baseline.json",
