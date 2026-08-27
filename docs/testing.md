@@ -95,6 +95,17 @@ action deadline 只来自 `config/testing/release-reliability-lifecycle-action-r
 
 测试瘦身只允许基于机器证据推进。`static-governance` 的 `test-assets` phase 会先且仅先运行一次 `tools/check-test-retention.mjs`，完整写入 matrix 声明的 canonical `.tmp/release-evidence/test-retention-audit.json`，再让 lifecycle 与 test-asset audit 通过 `--audit-input` 消费同一份 source/run-bound artifact；二者不得在该 phase 内启动第二次 retention scan 或生成 lane-local 输入。CI 直接执行这个 canonical tier，不再在 tier 之后补跑另一套 test-asset audit。standalone lifecycle 或 audit 仍可自行生成诊断 retention，但不能成为 release authority。audit 按测试文件归类为 `must-keep`、`conditional`、`review-candidate` 或 `obsolete-candidate`，并对每个测试 ID 保存 framework、tier 调用次数、p50/p95、coverage ID、断言目标、失败历史、唯一证据与 replacement IDs；没有计时或历史样本时必须显式记录证据缺失，不能伪造为零。`catalogSnapshot` 同时保存 matrix tier/artifact/evidence、coverage registry、backend requirement catalog 与 release-evidence 路径及其源文件 SHA-256。producer 元数据记录 `runId`、`sourceState` 与 `generatedAt`；矩阵内执行自动继承 `FSUSBLOG_TEST_RUN_ID`，而 standalone audit 的 `runId=null` 只能用于诊断。`must-keep` 覆盖 API/安全/协议/发布/矩阵/治理等契约；`conditional` 代表成本较高但仍由 smart gate 或 release-final 保留的 lane；`review-candidate` 只能进入人工复核，不得自动删除；只有 coverage registry、断言目标、critical mutation slice 与矩阵/requirement/release-artifact 维度均不下降，并为每个被删 test ID 给出已保留 replacement IDs，才允许标为删除。
 
+<!-- fsus-doc-claim
+claimId: testing.test-asset-audit-catalog
+behaviorId: test-asset-audit-reconciliation
+claimType: generated-section
+generatedSectionId: testing.test-asset-audit-catalog
+render: scalar
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN testing.test-asset-audit-catalog -->
+fsusblog.coverage-registry.v1
+<!-- FSUSBLOG-GENERATED:END testing.test-asset-audit-catalog -->
+
 权威 before snapshot 固定为 `tests/test-retention-before.json`。它由删测前的完整 audit 压缩生成，绑定当时的完整 commit 与 tracked worktree fingerprint，并内嵌 backend/frontend/merged coverage 基线和 `backend-mutation` / `release-mutation-critical-slice` scope identity。仓库一旦存在该文件，capture 命令会拒绝向任何路径再次捕获 before。若从已保存的 clean audit 迁移，`--audit-input` 会先验证 matrix、coverage registry、requirement catalog 与 coverage baseline 和该 audit commit 完全一致。后续历史 replacement 条目只作为前序声明被继承；当前删除必须由 lifecycle registry、post-baseline manifest、replacement ledger 与 suite-convergence 正负测试持续证明，不再生成一次性的 optimization campaign 报告。
 
 local production 的 backend union 由 `tools/test/run-backend-production-shards.mjs` 执行。脚本先用 `Category!=Integration&Category!=Performance` 发现本轮全部测试，再按完整测试方法名生成确定性、互斥的分片；每个分片使用同一次 fresh build 的独立 DLL 复制，避免 Coverlet 并发插桩同一文件。成功条件不是“两个命令均返回 0”，而是各 TRX 的逐方法用例计数与 discovery 完全一致、所有 outcome 均为 `Passed`。每个分片只生成 Coverlet JSON 与紧凑 identity sidecar；sidecar 绑定 run/source fingerprint、raw digest、module/source universe。只有 shard universe 完整且 binding 一致，才允许合并权威 Coverlet JSON，并从内存中的 merged result 一次性生成最终 Cobertura 和 Summary。`.tmp/dependency-cache/dotnet` 只保存 NuGet/.NET 工具依赖缓存，可跨 fresh 保留；编译输出统一写入 `.tmp/build/<run-id>`，新 fresh run 通过新根获得空状态，TRX、coverage、checkpoint 与 release evidence 仍逐轮重建，不能作为历史结果复用。布局、锁与 GC 契约见 [`testing/issue-1069-run-bound-production-builds.md`](testing/issue-1069-run-bound-production-builds.md)。

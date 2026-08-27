@@ -4,6 +4,16 @@
     "canonicalSerialization": "json-utf8-v1",
     "sections": [
         {
+            "sectionId": "testing.test-asset-audit-catalog",
+            "documentPath": "docs/testing.md",
+            "renderer": "scalar",
+            "extractorId": "test-asset-audit-fact-extractor",
+            "behaviorId": "test-asset-audit-reconciliation",
+            "factPath": "catalogSchema",
+            "orderPolicy": "not-applicable",
+            "emptyPolicy": "fail"
+        },
+        {
             "sectionId": "release.finalizer-contract",
             "documentPath": "docs/testing.md",
             "renderer": "key-value-table",
