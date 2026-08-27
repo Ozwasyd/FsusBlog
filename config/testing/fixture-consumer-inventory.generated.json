@@ -8,7 +8,7 @@
             "source": "tools/test/lanes/acceptance-playwright.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier acceptance; command tools/test/lanes/acceptance-playwright.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); scale data is produced by the scale-data generator for the selected scale profile only; upserts auth identities; reuses existing user/admin rows when handles already exist",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); upserts auth identities; reuses existing user/admin rows when handles already exist",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -656,7 +656,7 @@
             "source": "tools/test/lanes/bootstrap-acceptance-env.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier bootstrap; command tools/test/lanes/bootstrap-acceptance-env.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); scale data is produced by the scale-data generator for the selected scale profile only; upserts auth identities; reuses existing user/admin rows when handles already exist",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); upserts auth identities; reuses existing user/admin rows when handles already exist",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -700,7 +700,7 @@
             "source": "tools/test/lanes/browser-contract.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier browser-contract; command tools/test/lanes/browser-contract.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); requires sealed browser-contract fixture root; public fallback is forbidden; scale data is produced by the scale-data generator for the selected scale profile only; upserts auth identities; reuses existing user/admin rows when handles already exist",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); requires sealed browser-contract fixture root; public fallback is forbidden; upserts auth identities; reuses existing user/admin rows when handles already exist",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -1688,7 +1688,7 @@
             "source": "tools/test/lanes/ux-viewport-boundaries.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier ux-viewport-boundaries; command tools/test/lanes/ux-viewport-boundaries.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); scale data is produced by the scale-data generator for the selected scale profile only; upserts auth identities; reuses existing user/admin rows when handles already exist",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); upserts auth identities; reuses existing user/admin rows when handles already exist",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -1732,7 +1732,7 @@
             "source": "tools/test/lanes/ux-viewport-smoke.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier ux-viewport-smoke; command tools/test/lanes/ux-viewport-smoke.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); scale data is produced by the scale-data generator for the selected scale profile only; upserts auth identities; reuses existing user/admin rows when handles already exist",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); upserts auth identities; reuses existing user/admin rows when handles already exist",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -1776,7 +1776,7 @@
             "source": "tools/test/lanes/ux-viewport-visual.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier ux-viewport-visual; command tools/test/lanes/ux-viewport-visual.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); scale data is produced by the scale-data generator for the selected scale profile only; upserts auth identities; reuses existing user/admin rows when handles already exist",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); upserts auth identities; reuses existing user/admin rows when handles already exist",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -1820,7 +1820,7 @@
             "source": "tools/test/lanes/visual-console-playwright.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier visual-console; command tools/test/lanes/visual-console-playwright.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); scale data is produced by the scale-data generator for the selected scale profile only; upserts auth identities; reuses existing user/admin rows when handles already exist",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); upserts auth identities; reuses existing user/admin rows when handles already exist",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -1864,7 +1864,7 @@
             "source": "tools/test/lanes/visual-public-playwright.sh",
             "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
             "implicitSource": "tests/matrix.yml tier visual-public; command tools/test/lanes/visual-public-playwright.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); scale data is produced by the scale-data generator for the selected scale profile only; upserts auth identities; reuses existing user/admin rows when handles already exist",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); upserts auth identities; reuses existing user/admin rows when handles already exist",
             "profileId": "public-content-lifecycle",
             "profileIds": [
                 "public-content-lifecycle"
@@ -1993,7 +1993,7 @@
             "source": "tests/frontend/support/session-fixtures.mjs",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, session.single-device",
             "implicitSource": "fixture-catalog consumer declaration in tests/frontend/support/session-fixtures.mjs",
-            "currentFallback": "persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; scale data is produced by the scale-data generator for the selected scale profile only; upserts auth identities; reuses existing user/admin rows when handles already exist",
+            "currentFallback": "persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; upserts auth identities; reuses existing user/admin rows when handles already exist",
             "profileId": "auth-basic",
             "profileIds": [
                 "auth-basic"
