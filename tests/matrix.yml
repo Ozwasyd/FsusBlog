@@ -387,6 +387,7 @@ tiers:
               config/testing/fixture-capability-catalog.json,
               config/testing/fixture-consumer-inventory.generated.json,
               config/testing/media-negative-corpus-plan.json,
+              config/testing/media-shape-catalog.json,
               config/testing/fixture-producer-registry.json,
               config/testing/fixture-profile-catalog.json,
               config/testing/content-field-contracts.generated.json,
@@ -428,6 +429,7 @@ tiers:
               src/backend/Models/Dtos/CommentDto.cs,
               src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs,
               config/schemas/media-negative-corpus-plan.schema.json,
+              config/schemas/media-shape-catalog.schema.json,
               tests/tools,
               tests/frontend,
               src/frontend/package.json,
@@ -442,6 +444,7 @@ tiers:
               tools/testing/generate-fixture-catalog-artifacts.mjs,
               tools/test-fixtures/content-shape-generator.mjs,
               tools/test-fixtures/media-negative-corpus.mjs,
+              tools/test-fixtures/media-shape-catalog.mjs,
               tools/test-matrix,
               tools/testing/generate-test-execution-envelope-applicability.mjs,
               tools/test/bundles,
@@ -2031,6 +2034,7 @@ tiers:
           - test-asset-audit-reconciliation
           - node-governance-policy-convergence
           - media-negative-corpus
+          - media-shape-catalog
           - test-temporal-authority
           - integrity-proof-docs-consistency
           - immutable-release-identity
@@ -2132,6 +2136,10 @@ tiers:
           - config/schemas/media-negative-corpus-plan.schema.json
           - tools/test-fixtures/media-negative-corpus.mjs
           - tests/tools/media-negative-corpus.test.mjs
+          - config/testing/media-shape-catalog.json
+          - config/schemas/media-shape-catalog.schema.json
+          - tools/test-fixtures/media-shape-catalog.mjs
+          - tests/tools/media-shape-catalog.test.mjs
           - config/testing/temporal-policy.json
           - config/testing/temporal-context.schema.json
           - config/testing/temporal-callsite-dispositions.json

@@ -13,6 +13,10 @@ node tools/governance/bounded-channel-contracts.mjs
 node --test tests/tools/bounded-channel-contracts.test.mjs
 ```
 
+## Media shape authority
+
+`config/testing/media-shape-catalog.json` 是唯一 closed/versioned MediaShapeCatalog。它分别登记 JPEG、PNG、SVG、WebP 的 MIME、extension、magic 与独立 codec fact owner，固定六种 aspect contract、十类 consumer applicability、十个 canonical positive shapes 和八个 single-fault negative shapes。catalog 只保存 AssetId-compatible generator digest refs，不保存 absolute path、public URL、storage path 或第二份 asset ledger；`no-cover` 明确不产生 bytes、URL 或默认图片。`tools/test-fixtures/media-shape-catalog.mjs` 对 catalog 与每个 shape 的 content digest、矩阵完整性、format/MIME/extension、orientation/alpha/dimensions、single-fault、consumer isolation 和唯一 authority 做独立 fail-closed 验证。
+
 ## Media negative corpus
 
 `config/testing/media-negative-corpus-plan.json` 是媒体 negative fixture 的唯一计划权威，schema 为 `config/schemas/media-negative-corpus-plan.schema.json`。runner `tools/test-fixtures/media-negative-corpus.mjs` 只接受由 canonical positive generator 签发、状态为 `verified` 的 `fsusblog.media-positive-asset-receipt.v1` 与对应 bytes；它不生成 positive shape、不拼装 AssetId，也不把 negative record 写入 canonical profile、scale、AOT 或普通 image library。
