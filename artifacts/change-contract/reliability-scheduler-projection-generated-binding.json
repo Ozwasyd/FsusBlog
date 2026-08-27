@@ -1,0 +1,16 @@
+{
+  "schema": "fsusblog.generated-output-binding.v1",
+  "sources": [
+    "tests/matrix.yml"
+  ],
+  "outputs": [
+    {
+      "path": "config/testing/fixture-profile-matrix.generated.json",
+      "sha256": "686c03c0bd34b7c5ee983b5904fda7b95e1a92b803cc294797396628e8f6ea74"
+    },
+    {
+      "path": "docs/testing.generated.md",
+            "sha256": "09b11f753a517bfc6440adcf994aadee935df97d78d524fecc1cf3d7026d41ea"
+    }
+  ]
+}
