@@ -3,6 +3,11 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
+    defaultTimeoutPolicyDigest,
+    qualificationTemporalContext
+} from '../../tools/test/temporal-context.mjs';
+
+import {
     authSessionProducerMeta,
     buildAuthSessionPlan,
     prepareAuthSession,
@@ -11,10 +16,15 @@ import {
     verifyAuthSession
 } from '../../tools/test-fixtures/producers/auth-session-producer.mjs';
 
-const temporalContext = Object.freeze({
-    schema: 'fsusblog.test-temporal-context.v1',
+const temporalContext = qualificationTemporalContext({
+    sourceCommit: 'a'.repeat(40),
+    sourceFingerprint: `sha256:${'b'.repeat(64)}`,
     producerId: 'auth-session',
-    businessEpochUtc: '2024-02-29T23:59:59.000Z'
+    schedulerRunId: 'run-17',
+    businessEpochUtc: '2024-02-29T23:59:59.000Z',
+    locale: 'en-US',
+    uiLocale: 'en-US',
+    timeoutPolicyDigest: defaultTimeoutPolicyDigest()
 });
 
 function buildPlan(capabilities, identityRoleRequests = [])

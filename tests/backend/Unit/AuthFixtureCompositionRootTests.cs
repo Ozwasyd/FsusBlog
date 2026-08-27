@@ -374,6 +374,21 @@ public sealed class AuthFixtureCompositionRootTests
             """
             {"schema":"fsusblog.test-temporal-context.v1","producerId":"auth-session"}
             """);
+        using JsonDocument resolvedTemporalRoles = JsonDocument.Parse(
+            """
+            {
+              "schema":"fsusblog.resolved-temporal-roles.v1",
+              "contextIdentity":{"producerId":"auth-session","schedulerRunId":"run-17"},
+              "roles":[{
+                "roleId":"session.created",
+                "clockKind":"business-wall",
+                "semanticEffect":"included",
+                "precision":"millisecond",
+                "instantUtc":"2024-02-29T23:59:59.000Z"
+              }],
+              "contentDigest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+            """);
         return new AuthFixturePlan
         {
             Schema = "fsusblog.auth-session-fixture-plan.v1",
@@ -399,6 +414,7 @@ public sealed class AuthFixtureCompositionRootTests
                 }
             ],
             TemporalContext = temporal.RootElement.Clone(),
+            ResolvedTemporalRoles = resolvedTemporalRoles.RootElement.Clone(),
             PlanDigest = "c".PadLeft(64, 'c')
         };
     }
