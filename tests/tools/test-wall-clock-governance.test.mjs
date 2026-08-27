@@ -39,7 +39,7 @@ test('repository temporal ledger has finite closure over real correctness produc
         mixedClockCount: 0,
         pendingCount: 0,
         unknownCount: 0,
-        governedSourceCount: 38
+        governedSourceCount: 39
     });
 });
 

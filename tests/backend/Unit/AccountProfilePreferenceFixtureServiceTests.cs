@@ -164,7 +164,7 @@ public sealed class AccountProfilePreferenceFixtureServiceTests
         {
             ProfileCommands = Substitute.For<IUserProfileCommandService>();
             AccountReader = Substitute.For<IUserAccountReader>();
-            PreferenceCommands = Substitute.For<IUserLocalePreferenceCommand>();
+            PreferenceCommands = Substitute.For<IAccountPreferenceFixtureCommand>();
             PreferenceReader = Substitute.For<IUserLocalePreferenceReader>();
             StateReader = Substitute.For<IAccountProfilePreferenceFixtureStateReader>();
 
@@ -195,14 +195,16 @@ public sealed class AccountProfilePreferenceFixtureServiceTests
                     state.ProfileRevision++;
                     return Task.FromResult((true, "ok"));
                 });
-            PreferenceCommands.UpdateAsync(
+            PreferenceCommands.UpdateAtAsync(
                     Arg.Any<int>(),
                     Arg.Any<UserLocalePreferenceUpdateDto>(),
+                    Arg.Any<DateTimeOffset>(),
                     Arg.Any<CancellationToken>())
                 .Returns(call =>
                 {
                     int userId = (int)call[0];
                     UserLocalePreferenceUpdateDto command = (UserLocalePreferenceUpdateDto)call[1];
+                    DateTimeOffset updatedAt = (DateTimeOffset)call[2];
                     MutableState state = States[userId];
                     if (command.ExpectedRevision != state.Preference.Revision)
                     {
@@ -228,7 +230,7 @@ public sealed class AccountProfilePreferenceFixtureServiceTests
                         command.Mode,
                         command.FixedLocale,
                         checked(previous.Revision + 1),
-                        DateTime.UnixEpoch.AddMinutes(previous.Revision + 1));
+                        updatedAt.UtcDateTime);
                     state.PreferenceExists = true;
                     return Task.FromResult(new UserLocalePreferenceUpdateResult(
                         UserLocalePreferenceUpdateOutcome.Success,
@@ -273,7 +275,7 @@ public sealed class AccountProfilePreferenceFixtureServiceTests
         {
             get;
         }
-        public IUserLocalePreferenceCommand PreferenceCommands
+        public IAccountPreferenceFixtureCommand PreferenceCommands
         {
             get;
         }
@@ -334,8 +336,38 @@ public sealed class AccountProfilePreferenceFixtureServiceTests
                 Namespace,
                 RunId,
                 Owner,
-                identities);
+                identities,
+                ResolvedTemporalRoles: TemporalArtifact());
         }
+
+        private static JsonElement TemporalArtifact()
+            => JsonSerializer.SerializeToElement(new
+            {
+                schema = "fsusblog.resolved-temporal-roles.v1",
+                contextIdentity = new
+                {
+                    producerId = "account-profile-preferences",
+                    schedulerRunId = RunId
+                },
+                roles = new[]
+                {
+                    Role("profile.updated", "2024-03-01T00:00:59.000Z"),
+                    Role("preference.revision", "2024-03-01T00:01:59.000Z"),
+                    Role("preference.conflict", "2024-03-01T00:01:59.000Z"),
+                    Role("preference.device-sync", "2024-03-01T00:02:59.000Z")
+                },
+                contentDigest = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            });
+
+        private static object Role(string roleId, string instantUtc)
+            => new
+            {
+                roleId,
+                clockKind = "business-wall",
+                semanticEffect = "included",
+                precision = "millisecond",
+                instantUtc
+            };
 
         private MutableState AddState(string role)
         {

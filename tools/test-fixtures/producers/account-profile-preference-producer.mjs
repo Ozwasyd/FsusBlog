@@ -8,6 +8,14 @@
  * It never creates users/sessions or writes SQL, Cookie, or localStorage.
  */
 
+import {
+    createTemporalDomainProducerReceipt,
+    projectTemporalRolesForBrowser,
+    projectTemporalRolesForPostgres,
+    resolveTemporalRolesForProducer,
+    verifyResolvedTemporalArtifact
+} from '../../test/temporal-role-resolver.mjs';
+
 const producerId = 'account-profile-preferences';
 const strategy = 'transaction-fixture';
 const capabilityPrefixes = Object.freeze(['profile.', 'preferences.']);
@@ -190,7 +198,7 @@ function variantForCapability(context, capabilityId)
     return matches[0];
 }
 
-function normalizeResult(raw, context, capabilities)
+function normalizeResult(raw, context, capabilities, resolvedTemporalRoles)
 {
     if (!raw || typeof raw !== 'object'
         || raw.strategy !== strategy
@@ -233,6 +241,9 @@ function normalizeResult(raw, context, capabilities)
         }
     }
 
+    verifyResolvedTemporalArtifact(resolvedTemporalRoles, {
+        temporalContext: context.temporalContext
+    });
     return Object.freeze({
         producerId,
         strategy,
@@ -281,6 +292,10 @@ function normalizeResult(raw, context, capabilities)
         }),
         cleanupContract: Object.freeze({ kind: 'owned-fields', owner: raw.owner }),
         compositionReceipt: raw,
+        resolvedTemporalRoles,
+        temporalRoleReceipt: createTemporalDomainProducerReceipt(resolvedTemporalRoles),
+        postgresTemporalRoles: projectTemporalRolesForPostgres(resolvedTemporalRoles),
+        browserTemporalRoles: projectTemporalRolesForBrowser(resolvedTemporalRoles),
         ...(raw.temporalObservation ? { temporalObservation: raw.temporalObservation } : {})
     });
 }
@@ -290,16 +305,26 @@ export async function prepareAccountProfilePreferences(context, signal)
     assertNoLegacyOverride();
     const capabilities = selectedCapabilities(context);
     const identities = identityReferences(context);
+    const resolvedTemporalRoles = resolveTemporalRolesForProducer({
+        temporalContext: context.temporalContext,
+        namespace: safeIdentity(context.namespace, 'fixture namespace'),
+        fixtureId: producerId,
+        planDigest: context.variantPlan?.producerVariantPlanDigest
+    });
+    verifyResolvedTemporalArtifact(resolvedTemporalRoles, {
+        temporalContext: context.temporalContext
+    });
     const request = {
         capabilities,
         namespace: safeIdentity(context.namespace, 'fixture namespace'),
         runId: safeIdentity(context.runIdentity, 'fixture run id'),
         owner: identities.owner,
         identityReferences: identities.references,
-        temporalContext: context.temporalContext ?? null
+        temporalContext: context.temporalContext,
+        resolvedTemporalRoles
     };
     const raw = await invoke(context, 'prepare', request, signal);
-    return normalizeResult(raw, context, capabilities);
+    return normalizeResult(raw, context, capabilities, resolvedTemporalRoles);
 }
 
 export async function verifyAccountProfilePreferences(context, producerResult, signal)

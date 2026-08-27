@@ -110,40 +110,38 @@ internal static class LocalAccountProfilePreferenceFixtureEndpoints
                 });
             }
 
-            if (request.TemporalContext is JsonElement temporalDocument)
+            if (request.TemporalContext is not JsonElement temporalDocument)
             {
-                TestTemporalRuntimeContext plannedTemporal = context.RequestServices
-                    .GetRequiredService<TestTemporalRuntimeContext>();
-                plannedTemporal.RequireExactRequest(temporalDocument);
+                throw new InvalidOperationException("fixture temporal context is required");
             }
+            TestTemporalRuntimeContext plannedTemporal = context.RequestServices
+                .GetRequiredService<TestTemporalRuntimeContext>();
+            plannedTemporal.RequireExactRequest(temporalDocument);
 
             AccountProfilePreferenceFixtureResult result = await fixture
                 .PrepareAsync(request, cancellationToken)
                 .ConfigureAwait(false);
-            TestTemporalRuntimeContext? actualTemporal = context.RequestServices
-                .GetService<TestTemporalRuntimeContext>();
-            if (actualTemporal is not null)
-            {
-                System.Data.DataTable observation = await db.Ado.GetDataTableAsync(
+            TestTemporalRuntimeContext actualTemporal = context.RequestServices
+                .GetRequiredService<TestTemporalRuntimeContext>();
+            System.Data.DataTable observation = await db.Ado.GetDataTableAsync(
                     """
                     SELECT current_setting('TimeZone') AS timezone,
                            current_setting('fsusblog.test_business_epoch_utc', true) AS business_epoch
                     """).ConfigureAwait(false);
-                if (observation.Rows.Count != 1)
-                {
-                    throw new InvalidOperationException("PostgreSQL temporal observation is missing");
-                }
-                result = result with
-                {
-                    TemporalObservation = actualTemporal.Observe(
+            if (observation.Rows.Count != 1)
+            {
+                throw new InvalidOperationException("PostgreSQL temporal observation is missing");
+            }
+            result = result with
+            {
+                TemporalObservation = actualTemporal.Observe(
                         Convert.ToString(
                             observation.Rows[0]["timezone"],
                             System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
                         Convert.ToString(
                             observation.Rows[0]["business_epoch"],
                             System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty)
-                };
-            }
+            };
             return Results.Json(result, s_jsonOptions);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

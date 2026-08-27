@@ -284,7 +284,7 @@ test('current temporal domain producers have zero private clock residue', () =>
     const result = verifyTemporalShapeGovernance();
     assert.deepEqual(result, {
         catalogDigest: result.catalogDigest,
-        producerCount: 3,
+        producerCount: 4,
         roleCount: 64,
         shapeCount: 15,
         secondAuthorityCount: 0,

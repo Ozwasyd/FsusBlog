@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
@@ -87,10 +88,11 @@ public sealed class AccountProfilePreferenceFixturePostgresTests(PostgresSchemaM
         var preferences = new UserLocalePreferenceService(
             db,
             NullLogger<UserLocalePreferenceService>.Instance);
+        var preferenceCommands = new AccountPreferenceFixtureCommand(preferences);
         var service = new AccountProfilePreferenceFixtureService(
             profileCommands,
             accountReader,
-            preferences,
+            preferenceCommands,
             preferences,
             new LocaleResolver(),
             new AccountProfilePreferenceFixtureStateReader(db));
@@ -99,7 +101,8 @@ public sealed class AccountProfilePreferenceFixturePostgresTests(PostgresSchemaM
             "profile-preference-postgres",
             "run-1717-postgres",
             "fxacct:profile-preference-postgres:run-1717-postgres",
-            identities);
+            identities,
+            ResolvedTemporalRoles: TemporalArtifact());
 
         AccountProfilePreferenceFixtureResult result = await service.PrepareAsync(request);
         AccountProfilePreferenceFixtureVerification verification = await service.VerifyAsync(result);
@@ -119,6 +122,35 @@ public sealed class AccountProfilePreferenceFixturePostgresTests(PostgresSchemaM
 
     private static string Digest(string value)
         => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+
+    private static JsonElement TemporalArtifact()
+        => JsonSerializer.SerializeToElement(new
+        {
+            schema = "fsusblog.resolved-temporal-roles.v1",
+            contextIdentity = new
+            {
+                producerId = "account-profile-preferences",
+                schedulerRunId = "run-1717-postgres"
+            },
+            roles = new[]
+            {
+                Role("profile.updated", "2024-03-01T00:00:59.000Z"),
+                Role("preference.revision", "2024-03-01T00:01:59.000Z"),
+                Role("preference.conflict", "2024-03-01T00:01:59.000Z"),
+                Role("preference.device-sync", "2024-03-01T00:02:59.000Z")
+            },
+            contentDigest = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        });
+
+    private static object Role(string roleId, string instantUtc)
+        => new
+        {
+            roleId,
+            clockKind = "business-wall",
+            semanticEffect = "included",
+            precision = "millisecond",
+            instantUtc
+        };
 
     private sealed class NoopAccountCache :
         ICacheTypedReader,

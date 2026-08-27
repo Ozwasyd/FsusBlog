@@ -6,6 +6,7 @@ using System.Text.Json;
 
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Shared.Contracts.Localization;
@@ -72,7 +73,8 @@ internal sealed record AccountProfilePreferenceFixtureRequest(
     string RunId,
     string Owner,
     IReadOnlyList<AccountFixtureIdentityReference> IdentityReferences,
-    JsonElement? TemporalContext = null);
+    JsonElement? TemporalContext = null,
+    JsonElement? ResolvedTemporalRoles = null);
 
 internal sealed record AccountFixtureEntityIdentity(
     string Kind,
@@ -170,6 +172,46 @@ internal interface IAccountProfilePreferenceFixtureService
         CancellationToken cancellationToken = default);
 }
 
+internal interface IAccountPreferenceFixtureCommand
+{
+    Task<UserLocalePreferenceUpdateResult> UpdateAtAsync(
+        int accountId,
+        UserLocalePreferenceUpdateDto request,
+        DateTimeOffset updatedAt,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> CompensateAsync(
+        int accountId,
+        UserLocalePreferenceDto committedPreference,
+        UserLocalePreferenceDto previousPreference,
+        bool previousPreferenceExisted,
+        CancellationToken cancellationToken = default);
+}
+
+internal sealed class AccountPreferenceFixtureCommand(
+    UserLocalePreferenceService preferences) : IAccountPreferenceFixtureCommand
+{
+    public Task<UserLocalePreferenceUpdateResult> UpdateAtAsync(
+        int accountId,
+        UserLocalePreferenceUpdateDto request,
+        DateTimeOffset updatedAt,
+        CancellationToken cancellationToken = default)
+        => preferences.UpdateAtAsync(accountId, request, updatedAt, cancellationToken);
+
+    public Task<bool> CompensateAsync(
+        int accountId,
+        UserLocalePreferenceDto committedPreference,
+        UserLocalePreferenceDto previousPreference,
+        bool previousPreferenceExisted,
+        CancellationToken cancellationToken = default)
+        => preferences.CompensateAsync(
+            accountId,
+            committedPreference,
+            previousPreference,
+            previousPreferenceExisted,
+            cancellationToken);
+}
+
 /// <summary>
 /// Test-only account profile/preference composition root (#1717, #2168, #2169).
 /// It consumes verified auth references and delegates every write to production
@@ -178,7 +220,7 @@ internal interface IAccountProfilePreferenceFixtureService
 internal sealed class AccountProfilePreferenceFixtureService(
     IUserProfileCommandService profileCommands,
     IUserAccountReader accountReader,
-    IUserLocalePreferenceCommand preferenceCommands,
+    IAccountPreferenceFixtureCommand preferenceCommands,
     IUserLocalePreferenceReader preferenceReader,
     ILocaleResolver localeResolver,
     IAccountProfilePreferenceFixtureStateReader stateReader)
@@ -206,6 +248,7 @@ internal sealed class AccountProfilePreferenceFixtureService(
                 AccountProfilePreferenceFixtureCapabilities.ProfileEmpty,
                 "profile-public-handle-empty",
                 null,
+                context.ProfileUpdatedInstant,
                 entities,
                 identities,
                 cancellationToken).ConfigureAwait(false);
@@ -221,6 +264,7 @@ internal sealed class AccountProfilePreferenceFixtureService(
                 AccountProfilePreferenceFixtureCapabilities.ProfileSet,
                 "profile-public-handle-set",
                 handle,
+                context.ProfileUpdatedInstant,
                 entities,
                 identities,
                 cancellationToken).ConfigureAwait(false);
@@ -262,6 +306,7 @@ internal sealed class AccountProfilePreferenceFixtureService(
                 AccountProfilePreferenceFixtureCapabilities.ProfileConflict,
                 "profile-public-handle-conflict",
                 handle,
+                context.ProfileUpdatedInstant,
                 entities,
                 identities,
                 cancellationToken,
@@ -379,6 +424,7 @@ internal sealed class AccountProfilePreferenceFixtureService(
                 identity,
                 LocalePreferenceModes.Fixed,
                 secondNonDefaultLocale.Code,
+                context.PreferenceRevisionInstant,
                 cleanup,
                 cancellationToken).ConfigureAwait(false);
             UserLocalePreferenceDto current = await preferenceReader
@@ -389,12 +435,13 @@ internal sealed class AccountProfilePreferenceFixtureService(
                 throw new InvalidOperationException("revision conflict requires a committed preference revision");
             }
 
-            UserLocalePreferenceUpdateResult stale = await preferenceCommands.UpdateAsync(
+            UserLocalePreferenceUpdateResult stale = await preferenceCommands.UpdateAtAsync(
                 identity.UserId,
                 new UserLocalePreferenceUpdateDto(
                     LocalePreferenceModes.Fixed,
                     nonDefaultLocale.Code,
                     current.Revision - 1),
+                context.PreferenceConflictInstant,
                 cancellationToken).ConfigureAwait(false);
             UserLocalePreferenceDto preserved = await preferenceReader
                 .GetAsync(identity.UserId, cancellationToken)
@@ -412,6 +459,9 @@ internal sealed class AccountProfilePreferenceFixtureService(
                 mutation.StateBefore.SecurityStateDigest,
                 null,
                 defaultLocale.Code,
+                context.PreferenceRevisionInstant,
+                "preference.conflict",
+                context.PreferenceConflictInstant,
                 entities,
                 identities,
                 projections,
@@ -630,8 +680,10 @@ internal sealed class AccountProfilePreferenceFixtureService(
             identity,
             mode,
             accountLocale?.Code,
+            context.PreferenceRevisionInstant,
             cleanup,
             cancellationToken).ConfigureAwait(false);
+        bool twoDeviceSync = capability == AccountProfilePreferenceFixtureCapabilities.LocaleTwoDeviceSync;
         await ObservePreferenceAsync(
             identity,
             capability,
@@ -639,6 +691,9 @@ internal sealed class AccountProfilePreferenceFixtureService(
             mutation.StateBefore.SecurityStateDigest,
             explicitCookieLocale,
             acceptLanguage,
+            context.PreferenceRevisionInstant,
+            twoDeviceSync ? "preference.device-sync" : "preference.revision",
+            twoDeviceSync ? context.PreferenceDeviceSyncInstant : context.PreferenceRevisionInstant,
             entities,
             identities,
             projections,
@@ -679,6 +734,7 @@ internal sealed class AccountProfilePreferenceFixtureService(
         AccountFixtureIdentityReference identity,
         string mode,
         string? fixedLocale,
+        DateTimeOffset updatedAt,
         IDictionary<string, AccountFixtureCleanupState> cleanup,
         CancellationToken cancellationToken)
     {
@@ -694,9 +750,10 @@ internal sealed class AccountProfilePreferenceFixtureService(
             return new PreferenceMutation(before, before.Preference);
         }
 
-        UserLocalePreferenceUpdateResult update = await preferenceCommands.UpdateAsync(
+        UserLocalePreferenceUpdateResult update = await preferenceCommands.UpdateAtAsync(
             identity.UserId,
             new UserLocalePreferenceUpdateDto(mode, fixedLocale, before.Preference.Revision),
+            updatedAt,
             cancellationToken).ConfigureAwait(false);
         if (!update.Success || !update.Preference.HasValue)
         {
@@ -717,6 +774,7 @@ internal sealed class AccountProfilePreferenceFixtureService(
         string capability,
         string postcondition,
         string? expectedHandle,
+        DateTimeOffset profileUpdatedInstant,
         ICollection<AccountFixtureObservedEntity> entities,
         ICollection<AccountFixtureEntityIdentity> identities,
         CancellationToken cancellationToken,
@@ -747,7 +805,11 @@ internal sealed class AccountProfilePreferenceFixtureService(
             ["sessionDigest"] = identity.SessionDigest,
             ["securityStateDigest"] = database.SecurityStateDigest,
             ["securityStateUnchanged"] = true,
-            ["preferenceMutation"] = false
+            ["preferenceMutation"] = false,
+            ["scenarioRoleId"] = "profile.updated",
+            ["scenarioInstantUtc"] = profileUpdatedInstant.ToString(
+                "yyyy-MM-dd'T'HH:mm:ss.fff'Z'",
+                CultureInfo.InvariantCulture)
         };
         foreach ((string key, object? value) in extraFields ?? new Dictionary<string, object?>())
         {
@@ -774,6 +836,9 @@ internal sealed class AccountProfilePreferenceFixtureService(
         string expectedSecurityDigest,
         LocaleDescriptor? explicitCookieLocale,
         string acceptLanguage,
+        DateTimeOffset expectedUpdatedAt,
+        string scenarioRoleId,
+        DateTimeOffset scenarioInstant,
         ICollection<AccountFixtureObservedEntity> entities,
         ICollection<AccountFixtureEntityIdentity> identities,
         ICollection<AccountLocaleDeviceProjection> projections,
@@ -790,7 +855,8 @@ internal sealed class AccountProfilePreferenceFixtureService(
         if (!database.Exists
             || !account.HasValue
             || database.SecurityStateDigest != expectedSecurityDigest
-            || !SamePreference(database.Preference, reader))
+            || !SamePreference(database.Preference, reader)
+            || reader.UpdatedAt.ToUniversalTime() != expectedUpdatedAt.UtcDateTime)
         {
             throw new InvalidOperationException($"preference postcondition failed for {identity.SemanticRole}");
         }
@@ -864,7 +930,12 @@ internal sealed class AccountProfilePreferenceFixtureService(
             ["isCatalogDefault"] = reader.FixedLocale == LocaleCatalog.Default.Code,
             ["isCatalogNonDefault"] = reader.FixedLocale is not null
                 && reader.FixedLocale != LocaleCatalog.Default.Code,
-            ["securityStateUnchanged"] = true
+            ["securityStateUnchanged"] = true,
+            ["updatedAtRoleId"] = "preference.revision",
+            ["scenarioRoleId"] = scenarioRoleId,
+            ["scenarioInstantUtc"] = scenarioInstant.ToString(
+                "yyyy-MM-dd'T'HH:mm:ss.fff'Z'",
+                CultureInfo.InvariantCulture)
         };
         foreach ((string key, object? value) in extraFields ?? new Dictionary<string, object?>())
         {
@@ -905,6 +976,25 @@ internal sealed class AccountProfilePreferenceFixtureService(
             throw new InvalidOperationException("fixture namespace, run, and owner identities are required");
         }
 
+        if (request.ResolvedTemporalRoles is not JsonElement
+            {
+                ValueKind: JsonValueKind.Object
+            } temporalArtifact)
+        {
+            throw new InvalidOperationException("resolved temporal role artifact is required");
+        }
+        string temporalDigest = temporalArtifact.GetProperty("contentDigest").GetString()
+            ?? throw new InvalidOperationException("resolved temporal role artifact digest is required");
+        ResolvedTemporalRoleContext temporalRoles = ResolvedTemporalRoleContext.Parse(
+            temporalArtifact.GetRawText(),
+            temporalDigest);
+        if (temporalRoles.ProducerId != ProducerId
+            || temporalRoles.SchedulerRunId != request.RunId)
+        {
+            throw new InvalidOperationException(
+                "resolved temporal role artifact is cross-producer or cross-run");
+        }
+
         var identities = new Dictionary<string, AccountFixtureIdentityReference>(StringComparer.Ordinal);
         foreach (AccountFixtureIdentityReference identity in request.IdentityReferences)
         {
@@ -920,7 +1010,13 @@ internal sealed class AccountProfilePreferenceFixtureService(
                 throw new InvalidOperationException("identity reference is stale, cross-run, duplicate, or unverified");
             }
         }
-        return new RequestContext(capabilities, identities);
+        return new RequestContext(
+            capabilities,
+            identities,
+            temporalRoles.RequireInstant("profile.updated"),
+            temporalRoles.RequireInstant("preference.revision"),
+            temporalRoles.RequireInstant("preference.conflict"),
+            temporalRoles.RequireInstant("preference.device-sync"));
     }
 
     private static void RequireExistingIdentity(
@@ -1122,7 +1218,11 @@ internal sealed class AccountProfilePreferenceFixtureService(
 
     private sealed record RequestContext(
         IReadOnlyList<string> Capabilities,
-        IReadOnlyDictionary<string, AccountFixtureIdentityReference> IdentityReferences)
+        IReadOnlyDictionary<string, AccountFixtureIdentityReference> IdentityReferences,
+        DateTimeOffset ProfileUpdatedInstant,
+        DateTimeOffset PreferenceRevisionInstant,
+        DateTimeOffset PreferenceConflictInstant,
+        DateTimeOffset PreferenceDeviceSyncInstant)
     {
         public AccountFixtureIdentityReference RequireIdentity(string semanticRole)
             => IdentityReferences.TryGetValue(semanticRole, out AccountFixtureIdentityReference? identity)

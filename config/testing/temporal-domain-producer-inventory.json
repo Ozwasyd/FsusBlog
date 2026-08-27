@@ -4,6 +4,133 @@
     "resolvedArtifactSchema": "config/testing/resolved-temporal-roles.schema.json",
     "producerBindings": [
         {
+            "producerId": "account-messaging",
+            "shapeId": "auth-security-messaging-account-lifecycle",
+            "implementations": [
+                "src/backend/Modules/Endpoints/LocalMessagingFixtureEndpoints.cs",
+                "src/backend/Services/Fixtures/MessagingFixtureSeeder.cs",
+                "tools/test-fixtures/producers/account-messaging-producer.mjs"
+            ],
+            "fieldMappings": [
+                {
+                    "field": "conversation.createdat",
+                    "roleId": "message.created",
+                    "consumer": "message-query"
+                },
+                {
+                    "field": "conversation.updatedat",
+                    "roleId": "message.reply-created",
+                    "consumer": "message-query"
+                },
+                {
+                    "field": "conversation.lastmessageat",
+                    "roleId": "message.reply-created",
+                    "consumer": "message-query"
+                },
+                {
+                    "field": "message.createdat",
+                    "roleId": "message.created",
+                    "consumer": "message-query"
+                },
+                {
+                    "field": "message.reply-createdat",
+                    "roleId": "message.reply-created",
+                    "consumer": "message-query"
+                },
+                {
+                    "field": "participant.lastreadat",
+                    "roleId": "message.read",
+                    "consumer": "read-state"
+                },
+                {
+                    "field": "participant.updatedat",
+                    "roleId": "message.read",
+                    "consumer": "read-state"
+                },
+                {
+                    "field": "conversation.closed-updatedat",
+                    "roleId": "message.conversation-closed",
+                    "consumer": "message-query"
+                },
+                {
+                    "field": "thread.order",
+                    "roleId": "message.thread-order",
+                    "consumer": "message-query"
+                },
+                {
+                    "field": "outbox.createdat",
+                    "roleId": "outbox.event-created",
+                    "consumer": "outbox-delivery"
+                },
+                {
+                    "field": "notification.event-time",
+                    "roleId": "notification.event",
+                    "consumer": "notification-stream"
+                },
+                {
+                    "field": "notification.ack-time",
+                    "roleId": "notification.ack",
+                    "consumer": "notification-stream"
+                },
+                {
+                    "field": "notification.sequence-time",
+                    "roleId": "notification.stream-sequence",
+                    "consumer": "notification-stream"
+                },
+                {
+                    "field": "notification.resume-time",
+                    "roleId": "notification.resume",
+                    "consumer": "notification-stream"
+                },
+                {
+                    "field": "notification.backlog-time",
+                    "roleId": "notification.backlog",
+                    "consumer": "notification-stream"
+                },
+                {
+                    "field": "audit.occurred-at",
+                    "roleId": "audit.occurred",
+                    "consumer": "audit-projection"
+                }
+            ]
+        },
+        {
+            "producerId": "account-profile-preferences",
+            "shapeId": "auth-security-messaging-account-lifecycle",
+            "implementations": [
+                "src/backend/Modules/Endpoints/LocalAccountProfilePreferenceFixtureEndpoints.cs",
+                "src/backend/Services/Fixtures/AccountProfilePreferenceFixtureService.cs",
+                "tools/test-fixtures/producers/account-profile-preference-producer.mjs"
+            ],
+            "fieldMappings": [
+                {
+                    "field": "profile.createdat",
+                    "roleId": "profile.created",
+                    "consumer": "account-profile"
+                },
+                {
+                    "field": "profile.updatedat",
+                    "roleId": "profile.updated",
+                    "consumer": "account-profile"
+                },
+                {
+                    "field": "preference.revision-time",
+                    "roleId": "preference.revision",
+                    "consumer": "preference-sync"
+                },
+                {
+                    "field": "preference.conflict-time",
+                    "roleId": "preference.conflict",
+                    "consumer": "preference-sync"
+                },
+                {
+                    "field": "preference.device-sync-time",
+                    "roleId": "preference.device-sync",
+                    "consumer": "preference-sync"
+                }
+            ]
+        },
+        {
             "producerId": "auth-session",
             "shapeId": "auth-security-messaging-account-lifecycle",
             "implementations": [
@@ -207,122 +334,6 @@
                     "field": "nullifier.issued-at",
                     "roleId": "security.nullifier-issued",
                     "consumer": "nullifier-policy"
-                }
-            ]
-        },
-        {
-            "producerId": "account-messaging",
-            "shapeId": "auth-security-messaging-account-lifecycle",
-            "implementations": [
-                "src/backend/Modules/Endpoints/LocalMessagingFixtureEndpoints.cs",
-                "src/backend/Services/Fixtures/MessagingFixtureSeeder.cs",
-                "tools/test-fixtures/producers/account-messaging-producer.mjs"
-            ],
-            "fieldMappings": [
-                {
-                    "field": "conversation.createdat",
-                    "roleId": "message.created",
-                    "consumer": "message-query"
-                },
-                {
-                    "field": "conversation.updatedat",
-                    "roleId": "message.reply-created",
-                    "consumer": "message-query"
-                },
-                {
-                    "field": "conversation.lastmessageat",
-                    "roleId": "message.reply-created",
-                    "consumer": "message-query"
-                },
-                {
-                    "field": "message.createdat",
-                    "roleId": "message.created",
-                    "consumer": "message-query"
-                },
-                {
-                    "field": "message.reply-createdat",
-                    "roleId": "message.reply-created",
-                    "consumer": "message-query"
-                },
-                {
-                    "field": "participant.lastreadat",
-                    "roleId": "message.read",
-                    "consumer": "read-state"
-                },
-                {
-                    "field": "participant.updatedat",
-                    "roleId": "message.read",
-                    "consumer": "read-state"
-                },
-                {
-                    "field": "conversation.closed-updatedat",
-                    "roleId": "message.conversation-closed",
-                    "consumer": "message-query"
-                },
-                {
-                    "field": "thread.order",
-                    "roleId": "message.thread-order",
-                    "consumer": "message-query"
-                },
-                {
-                    "field": "outbox.createdat",
-                    "roleId": "outbox.event-created",
-                    "consumer": "outbox-delivery"
-                },
-                {
-                    "field": "notification.event-time",
-                    "roleId": "notification.event",
-                    "consumer": "notification-stream"
-                },
-                {
-                    "field": "notification.ack-time",
-                    "roleId": "notification.ack",
-                    "consumer": "notification-stream"
-                },
-                {
-                    "field": "notification.sequence-time",
-                    "roleId": "notification.stream-sequence",
-                    "consumer": "notification-stream"
-                },
-                {
-                    "field": "notification.resume-time",
-                    "roleId": "notification.resume",
-                    "consumer": "notification-stream"
-                },
-                {
-                    "field": "notification.backlog-time",
-                    "roleId": "notification.backlog",
-                    "consumer": "notification-stream"
-                },
-                {
-                    "field": "profile.createdat",
-                    "roleId": "profile.created",
-                    "consumer": "account-profile"
-                },
-                {
-                    "field": "profile.updatedat",
-                    "roleId": "profile.updated",
-                    "consumer": "account-profile"
-                },
-                {
-                    "field": "preference.revision-time",
-                    "roleId": "preference.revision",
-                    "consumer": "preference-sync"
-                },
-                {
-                    "field": "preference.conflict-time",
-                    "roleId": "preference.conflict",
-                    "consumer": "preference-sync"
-                },
-                {
-                    "field": "preference.device-sync-time",
-                    "roleId": "preference.device-sync",
-                    "consumer": "preference-sync"
-                },
-                {
-                    "field": "audit.occurred-at",
-                    "roleId": "audit.occurred",
-                    "consumer": "audit-projection"
                 }
             ]
         }

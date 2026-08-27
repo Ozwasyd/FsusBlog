@@ -7,6 +7,10 @@ import { fileURLToPath } from 'node:url';
 import { plan } from '../../tools/test-fixtures/orchestrator.mjs';
 import { createProducerContext } from '../../tools/test-fixtures/producer-port.mjs';
 import {
+    defaultTimeoutPolicyDigest,
+    qualificationTemporalContext
+} from '../../tools/test/temporal-context.mjs';
+import {
     cleanupAccountProfilePreferences,
     prepareAccountProfilePreferences,
     verifyAccountProfilePreferences
@@ -16,7 +20,25 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 const producerId = 'account-profile-preferences';
 const digest = 'ab'.repeat(32);
 
-function plannedContext({ references = identityReferences(), adapter = compositionAdapter() } = {})
+function temporalContext()
+{
+    return qualificationTemporalContext({
+        sourceCommit: 'a'.repeat(40),
+        sourceFingerprint: `sha256:${'b'.repeat(64)}`,
+        producerId,
+        schedulerRunId: 'run-1717',
+        businessEpochUtc: '2024-02-29T23:59:59.000Z',
+        locale: 'en-US',
+        uiLocale: 'en-US',
+        timeoutPolicyDigest: defaultTimeoutPolicyDigest()
+    });
+}
+
+function plannedContext({
+    references = identityReferences(),
+    adapter = compositionAdapter(),
+    temporal = temporalContext()
+} = {})
 {
     const planned = plan(
         { profileId: 'account-profile-preferences', profileSource: 'dev-cli' },
@@ -38,7 +60,8 @@ function plannedContext({ references = identityReferences(), adapter = compositi
                 producerId: 'auth-session',
                 postconditions: ['user-active']
             }
-        }
+        },
+        temporalContext: temporal
     });
 }
 
@@ -154,6 +177,23 @@ test('producer consumes verified identity refs and emits exact typed live observ
     assert.ok(result.observations.database.entities.every((entity) => entity.owned));
     assert.equal(adapter.calls[0].request.identityReferences.length, 11);
     assert.equal(adapter.calls[0].request.owner, 'fxacct:profile-preferences:run-1717');
+    assert.equal(
+        adapter.calls[0].request.resolvedTemporalRoles.schema,
+        'fsusblog.resolved-temporal-roles.v1'
+    );
+    assert.deepEqual(
+        adapter.calls[0].request.resolvedTemporalRoles.roles.map((role) => role.roleId),
+        [
+            'profile.created',
+            'profile.updated',
+            'preference.revision',
+            'preference.conflict',
+            'preference.device-sync'
+        ]
+    );
+    assert.equal(result.temporalRoleReceipt.producerId, producerId);
+    assert.equal(result.postgresTemporalRoles.roles[1].instantUtc, '2024-03-01T00:00:59.000Z');
+    assert.equal(result.browserTemporalRoles.roles[2].instantUtc, '2024-03-01T00:01:59.000Z');
     assert.equal('cookie' in adapter.calls[0].request, false);
     assert.equal('localStorage' in adapter.calls[0].request, false);
 });
@@ -185,6 +225,14 @@ test('producer fails closed without identity refs or with cross-run refs', async
     await assert.rejects(
         prepareAccountProfilePreferences(plannedContext({ references: crossRun })),
         /cross-run or cross-owner/
+    );
+});
+
+test('producer fails closed without a sealed temporal context', async () =>
+{
+    await assert.rejects(
+        prepareAccountProfilePreferences(plannedContext({ temporal: null })),
+        /temporal\.context-invalid|temporal\.context-missing/u
     );
 });
 
