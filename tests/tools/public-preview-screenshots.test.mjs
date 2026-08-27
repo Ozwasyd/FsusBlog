@@ -680,7 +680,9 @@ test('capture contracts keep shards temporary and release verification explicit'
         acceptanceShared.indexOf('export async function captureStorageState')
     );
     assert.doesNotMatch(prewarm, /page\.reload/u);
-    assert.match(prewarm, /await session\.close\(\)[\s\S]*?session = await openAuditedPage\(browser\)[\s\S]*?await warm\(\)/u);
+    assert.match(prewarm, /try \{[\s\S]*?await warm\(\)[\s\S]*?finally \{[\s\S]*?await session\.close\(\)/u);
+    assert.equal(prewarm.match(/openAuditedPage\(browser\)/gu)?.length, 1);
+    assert.equal(prewarm.match(/await warm\(\)/gu)?.length, 1);
     assert.match(matrix, /id: browser-contract[\s\S]*?public-preview-screenshots\.json/u);
     assert.match(matrix, /id: release-final[\s\S]*?browser-contract/u);
     assert.match(browserRunner, /receipt\.publicPreview = \{[\s\S]*?captureContextCount:[\s\S]*?evidenceFileDigest: sha256File/u);

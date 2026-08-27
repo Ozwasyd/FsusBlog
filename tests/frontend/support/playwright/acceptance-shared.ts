@@ -703,21 +703,7 @@ export async function prewarmDevRuntime(
   }
 
   try {
-    try {
-      await warm()
-    } catch (error) {
-      // A cold Vite dependency optimization can invalidate the document that
-      // triggered it and can crash that renderer before reload. Replace the
-      // audited context once after the transform budget; a persistent failure
-      // still fails the second readiness check instead of being hidden.
-      if (!isRecoverablePrewarmFailure(error, browser.isConnected())) {
-        throw error
-      }
-
-      await session.close()
-      session = await openAuditedPage(browser)
-      await warm()
-    }
+    await warm()
   } finally {
     await session.close()
   }
