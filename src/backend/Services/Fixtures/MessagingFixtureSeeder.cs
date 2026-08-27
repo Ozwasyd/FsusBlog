@@ -352,6 +352,18 @@ public sealed class MessagingFixtureSeeder(
             .Select(item => item.AccountId)
             .Distinct()
             .ToListAsync(cancellationToken).ConfigureAwait(false);
+        List<ConversationStatusEvent> statusEvents = await db.Queryable<ConversationStatusEvent>()
+            .Where(item => conversationIds.Contains(item.ConversationId))
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        long[] retainedConversationIds = statusEvents
+            .Select(static item => item.ConversationId)
+            .Distinct()
+            .Order()
+            .ToArray();
+        long[] deletableConversationIds = conversationIds
+            .Except(retainedConversationIds)
+            .Order()
+            .ToArray();
 
         await backlog.RemoveOwnedEventsAsync(
                 expectedEventIds,
@@ -365,9 +377,6 @@ public sealed class MessagingFixtureSeeder(
             await db.Deleteable<MessageMutationOutbox>()
                 .Where(item => conversationIds.Contains(item.ConversationId))
                 .ExecuteCommandAsync(cancellationToken).ConfigureAwait(false);
-            await db.Deleteable<ConversationStatusEvent>()
-                .Where(item => conversationIds.Contains(item.ConversationId))
-                .ExecuteCommandAsync(cancellationToken).ConfigureAwait(false);
             await db.Deleteable<ConversationParticipantState>()
                 .Where(item => conversationIds.Contains(item.ConversationId))
                 .ExecuteCommandAsync(cancellationToken).ConfigureAwait(false);
@@ -377,9 +386,37 @@ public sealed class MessagingFixtureSeeder(
             await db.Deleteable<ConversationMessage>()
                 .Where(item => conversationIds.Contains(item.ConversationId))
                 .ExecuteCommandAsync(cancellationToken).ConfigureAwait(false);
-            await db.Deleteable<MessageConversation>()
-                .Where(item => conversationIds.Contains(item.Id))
-                .ExecuteCommandAsync(cancellationToken).ConfigureAwait(false);
+            if (retainedConversationIds.Length > 0)
+            {
+                DateTime redactedAt = timeProvider.GetUtcNow().UtcDateTime;
+                await db.Updateable<MessageConversation>()
+                    .SetColumns(item => new MessageConversation
+                    {
+                        Subject = "[fixture-retained-audit]",
+                        InitiatorAccountId = null,
+                        SourceMessageId = null,
+                        ClientMutationPrincipalKind = null,
+                        ClientMutationPrincipalId = null,
+                        ClientMutationId = null,
+                        MutationRequestHash = null,
+                        CreatedByType = MessageSenderType.System,
+                        CreatedByAccountId = null,
+                        CreatedByAdminPrincipalId = null,
+                        CreatedByAdminSessionAuditReference = null,
+                        ContentRedactedAt = redactedAt,
+                        ContentRedactionReason = "fixture_cleanup",
+                        UpdatedAt = redactedAt,
+                        LastMessageAt = redactedAt
+                    })
+                    .Where(item => retainedConversationIds.Contains(item.Id))
+                    .ExecuteCommandAsync(cancellationToken).ConfigureAwait(false);
+            }
+            if (deletableConversationIds.Length > 0)
+            {
+                await db.Deleteable<MessageConversation>()
+                    .Where(item => deletableConversationIds.Contains(item.Id))
+                    .ExecuteCommandAsync(cancellationToken).ConfigureAwait(false);
+            }
         }).ConfigureAwait(false);
         if (!transaction.IsSuccess)
         {
@@ -389,12 +426,38 @@ public sealed class MessagingFixtureSeeder(
         {
             await maintenance.RebuildAccountUnreadAsync(userId).ConfigureAwait(false);
         }
-        bool remains = await db.Queryable<MessageConversation>()
+        List<MessageConversation> retained = await db.Queryable<MessageConversation>()
             .Where(item => conversationIds.Contains(item.Id))
-            .AnyAsync(cancellationToken).ConfigureAwait(false);
-        if (remains)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        bool mutableRowsRemain = await db.Queryable<MessageMutationOutbox>()
+                .Where(item => conversationIds.Contains(item.ConversationId))
+                .AnyAsync(cancellationToken).ConfigureAwait(false)
+            || await db.Queryable<ConversationParticipantState>()
+                .Where(item => conversationIds.Contains(item.ConversationId))
+                .AnyAsync(cancellationToken).ConfigureAwait(false)
+            || await db.Queryable<AdminConversationQueueState>()
+                .Where(item => conversationIds.Contains(item.ConversationId))
+                .AnyAsync(cancellationToken).ConfigureAwait(false)
+            || await db.Queryable<ConversationMessage>()
+                .Where(item => conversationIds.Contains(item.ConversationId))
+                .AnyAsync(cancellationToken).ConfigureAwait(false);
+        if (mutableRowsRemain
+            || !retained.Select(static item => item.Id).Order().SequenceEqual(retainedConversationIds)
+            || retained.Any(static item =>
+                item.Subject != "[fixture-retained-audit]"
+                || item.ContentRedactionReason != "fixture_cleanup"
+                || !item.ContentRedactedAt.HasValue
+                || item.InitiatorAccountId.HasValue
+                || item.SourceMessageId.HasValue
+                || item.ClientMutationPrincipalKind is not null
+                || item.ClientMutationPrincipalId.HasValue
+                || item.ClientMutationId is not null
+                || item.MutationRequestHash is not null
+                || item.CreatedByAccountId.HasValue
+                || item.CreatedByAdminPrincipalId.HasValue
+                || item.CreatedByAdminSessionAuditReference is not null))
         {
-            throw new InvalidOperationException("Messaging fixture exact cleanup left owned conversations behind.");
+            throw new InvalidOperationException("Messaging fixture cleanup retention boundary is not exact.");
         }
         foreach (string deliveryKey in deliveryKeys)
         {
