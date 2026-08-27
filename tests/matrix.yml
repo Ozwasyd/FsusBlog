@@ -3672,13 +3672,25 @@ tiers:
       requiredFor: release-final
       coverage: [production-xss-release, release-browser-contract]
       artifacts: [src/frontend/test-results/playwright/production-xss-release/matrix.json]
-      evidence: [src/frontend/test-results/playwright/production-xss-release/matrix.json]
+      evidence:
+          [
+              src/frontend/test-results/playwright/production-xss-release/matrix.json,
+              config/testing/playwright-browser-identity-policy.json,
+              tools/test/playwright-browser-identity.mjs,
+          ]
       ciJob: browser-contract
       localOnly: false
       nightlyOnly: false
       retentionClass: must-keep
       triggerPaths: [src/frontend, src/backend, tests/frontend, tools/test/lanes/production-xss-release.sh]
-      triggerFiles: [tests/matrix.yml]
+      triggerFiles:
+          [
+              src/frontend/package-lock.json,
+              config/testing/playwright-browser-identity-policy.json,
+              config/schemas/playwright-browser-identity-policy.schema.json,
+              tools/test/playwright-browser-identity.mjs,
+              tests/matrix.yml,
+          ]
       triggerCoverage: [production-xss-release]
       triggerReason: release browser XSS corpus, production rendering, CSP, Trusted Types, or FsusUI alias changed
 
@@ -3737,6 +3749,10 @@ tiers:
               tests/browser-contract/fixture-lifecycle.test.mjs,
               tests/browser-contract/invariant-owners.json,
               tests/browser-contract/prepare-fixture.mjs,
+              config/testing/playwright-browser-identity-policy.json,
+              config/schemas/playwright-browser-identity-policy.schema.json,
+              tools/test/playwright-browser-identity.mjs,
+              tests/tools/playwright-browser-identity.test.mjs,
               tests/frontend/support/playwright/readiness.mjs,
               config/testing/browser-readiness-migrations.json,
               tools/testing/check-browser-readiness-contract.mjs,
@@ -3782,6 +3798,10 @@ tiers:
       triggerFiles:
           [
               src/frontend/package.json,
+              src/frontend/package-lock.json,
+              config/testing/playwright-browser-identity-policy.json,
+              config/schemas/playwright-browser-identity-policy.schema.json,
+              tools/test/playwright-browser-identity.mjs,
               src/frontend/public/sw.js,
               src/frontend/public/manifest.webmanifest,
               src/frontend/src/api/auth.ts,
