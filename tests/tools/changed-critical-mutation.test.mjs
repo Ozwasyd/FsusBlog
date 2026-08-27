@@ -281,6 +281,7 @@ test('generated config uses binding-derived test filter and owner-derived mutate
         generated['stryker-config']['test-case-filter'],
         'FullyQualifiedName~ArticleRightsCanonicalHashTests.Run'
     );
+    assert.equal(generated['stryker-config'].concurrency, 1);
     assert.deepEqual(generated['stryker-config'].thresholds, { high: 85, low: 70, break: 70 });
     assert.equal(generated['stryker-config']['break-on-initial-test-failure'], true);
 });
