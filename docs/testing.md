@@ -55,6 +55,27 @@ CPU、Node process 与 connection setup 只用于性能观察，绝不参与 cor
 
 `tests/coverage-registry.json` 是 matrix `coverage[]` 的机器可读索引。每个 coverage id 必须声明 `description`、`owner`、`risk`、`evidencePaths`、`assertionType`、`failClosedRule` 和 `minimumRequirement`；`description` 必须描述实际覆盖语义，不能保留 `Coverage contract for ...` 这类模板句，`minimumRequirement` 必须写明最低可接受断言或 evidence 形态，不能只重复 tier 类型。`tools/run-test-matrix.mjs validate` 会拒绝未注册的 coverage id、未被对应 tier artifact/evidence 声明的 evidence path、未使用的 registry id，拒绝只指向 unit/property 测试文件却标成非 `unit` 的明显 assertionType 错配，也会拒绝 `runtime` / `browser` / `perf` / `fuzz` / `mutation` 类型只指向静态 docs/source 文件的条目。该 registry 不替代测试本体，只把“这个 coverage 标签由什么证据证明”变成 fail-closed 合同。
 
+`config/testing/content-shape-catalog.json` 是 Unicode、script、正负 eligibility
+与 content consumer applicability 的唯一可编辑 `ContentShapeCatalog`。
+`tools/testing/content-shape-catalog.mjs` 从当前
+`ArticlePublicationValidator`、`CommentLimits` 和 comment binary endpoint 生成并核对
+`config/testing/content-field-contracts.generated.json`；测试不得另抄 article/comment
+字符或 UTF-8 byte 上限。production 的“字符”计数语义固定为 .NET UTF-16
+`string.Length`，byte 计数固定为 `Encoding.UTF8.GetByteCount`，generator 另行记录
+Unicode scalar 与 grapheme statistics，但不得拿它们替换 production 判定。当前 comment
+的 1000 UTF-16 unit 上限会先于 4096-byte 上限约束所有合法 Unicode 文本，因此 byte
+boundary case 仍是独立 dimension evidence，而不是伪称为可单独达到的整体正向输入。
+
+`tools/test-fixtures/content-shape-generator.mjs` 只接受 shape ID、field ref、固定 seed、
+generation version 和可选 boundary case ID，并从 catalog code-point recipe 纯函数生成 exact
+bytes、normalization 前后统计和 digest；correctness 路径禁止 wall clock、runtime random、
+ASCII byte proxy、`all-unicode` catch-all 或 per-test generator。zero-width/bidi 只属于
+negative shape；普通 positive profile 不得消费。ContentShape authority digest 已进入
+FixtureVariant plan 与 FixtureReceipt 使用的 fixture catalog digest，所以 locale、production
+field contract、schema 或 catalog 改变都会使旧 corpus identity 失效。本层不生成
+Markdown/search expected facts、不迁移 consumer，也不把全文写入默认 receipt/log；全文只应
+存入 run-owned fixture artifact。
+
 私有文章预览浏览器验收由 matrix leaf `article-private-preview` 唯一拥有，不再附带在
 `check:spa:routes`。`tools/test/lanes/article-private-preview.sh` 只连接 Debug
 frontend/backend，经 FixtureOrchestrator 准备

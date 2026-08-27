@@ -1,0 +1,255 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "fsusblog.content-shape-catalog.v1",
+    "title": "FsusBlog ContentShapeCatalog",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "generationVersion",
+        "digestAlgorithm",
+        "canonicalSerialization",
+        "fieldContractProjection",
+        "consumerDomains",
+        "scriptClasses",
+        "localeScriptBindings",
+        "boundaryCaseKinds",
+        "shapes"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.content-shape-catalog.v1"
+        },
+        "generationVersion": {
+            "const": "unicode-boundary-v1"
+        },
+        "digestAlgorithm": {
+            "const": "sha256"
+        },
+        "canonicalSerialization": {
+            "const": "json-utf8-v1"
+        },
+        "fieldContractProjection": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "path",
+                "schema"
+            ],
+            "properties": {
+                "path": {
+                    "const": "config/testing/content-field-contracts.generated.json"
+                },
+                "schema": {
+                    "const": "fsusblog.content-field-contract-projection.v1"
+                }
+            }
+        },
+        "consumerDomains": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+                "$ref": "#/$defs/id"
+            }
+        },
+        "scriptClasses": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "$ref": "#/$defs/scriptClass"
+            }
+        },
+        "localeScriptBindings": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "localeScript",
+                    "representativeShapeIds"
+                ],
+                "properties": {
+                    "localeScript": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "representativeShapeIds": {
+                        "type": "array",
+                        "minItems": 1,
+                        "uniqueItems": true,
+                        "items": {
+                            "$ref": "#/$defs/id"
+                        }
+                    }
+                }
+            }
+        },
+        "boundaryCaseKinds": {
+            "type": "array",
+            "minItems": 5,
+            "maxItems": 5,
+            "uniqueItems": true,
+            "items": {
+                "enum": [
+                    "min",
+                    "ordinary",
+                    "max-minus-one",
+                    "max",
+                    "max-plus-one-negative"
+                ]
+            }
+        },
+        "shapes": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "$ref": "#/$defs/shape"
+            }
+        }
+    },
+    "$defs": {
+        "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+        },
+        "stringList": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+                "type": "string",
+                "minLength": 1
+            }
+        },
+        "scriptClass": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "eligibility",
+                "codePoints",
+                "featureTags"
+            ],
+            "properties": {
+                "id": {
+                    "$ref": "#/$defs/id"
+                },
+                "eligibility": {
+                    "enum": [
+                        "positive",
+                        "negative"
+                    ]
+                },
+                "codePoints": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1114111
+                    }
+                },
+                "featureTags": {
+                    "$ref": "#/$defs/stringList"
+                }
+            }
+        },
+        "shape": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "applicableFields",
+                "scriptClasses",
+                "normalizationForm",
+                "target",
+                "featureTags",
+                "eligibility",
+                "expectedBoundaryRef",
+                "expectedSanitizationRef",
+                "expectedSearchRef",
+                "consumerDomains",
+                "fixedSeedPolicy",
+                "contentDigest"
+            ],
+            "properties": {
+                "id": {
+                    "$ref": "#/$defs/id"
+                },
+                "applicableFields": {
+                    "$ref": "#/$defs/stringList"
+                },
+                "scriptClasses": {
+                    "$ref": "#/$defs/stringList"
+                },
+                "normalizationForm": {
+                    "enum": [
+                        "field-policy",
+                        "NFC",
+                        "NFKC",
+                        "none"
+                    ]
+                },
+                "target": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "kind",
+                        "ordinaryUtf16Units",
+                        "ordinaryUtf8Bytes"
+                    ],
+                    "properties": {
+                        "kind": {
+                            "enum": [
+                                "boundary-plan",
+                                "ordinary",
+                                "negative"
+                            ]
+                        },
+                        "ordinaryUtf16Units": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "ordinaryUtf8Bytes": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    }
+                },
+                "featureTags": {
+                    "$ref": "#/$defs/stringList"
+                },
+                "eligibility": {
+                    "enum": [
+                        "positive",
+                        "negative"
+                    ]
+                },
+                "expectedBoundaryRef": {
+                    "$ref": "#/$defs/id"
+                },
+                "expectedSanitizationRef": {
+                    "$ref": "#/$defs/id"
+                },
+                "expectedSearchRef": {
+                    "$ref": "#/$defs/id"
+                },
+                "consumerDomains": {
+                    "$ref": "#/$defs/stringList"
+                },
+                "fixedSeedPolicy": {
+                    "enum": [
+                        "required",
+                        "ignored"
+                    ]
+                },
+                "contentDigest": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                }
+            }
+        }
+    }
+}
