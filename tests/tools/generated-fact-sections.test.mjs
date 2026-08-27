@@ -144,7 +144,7 @@ test('catalog schema contract is fail-closed and forbids baseline allowlists', (
     validateCatalogSchemaContract(loadCatalogSchema());
     const catalog = loadCatalog();
     assert.equal(catalog.schema, catalogSchemaId);
-    assert.deepEqual(catalog.sections, []);
+    assert.ok(catalog.sections.length > 0);
     validateCatalog(catalog);
 });
 
@@ -707,10 +707,12 @@ test('resolveFactPath prefers exact keys then nested descent', () =>
 {
     const observations = {
         permissions: ['a'],
-        nested: { child: { value: 3 } }
+        nested: { child: { value: 3 } },
+        facts: { 'auth.authentication-methods': { active: ['passkey'] } }
     };
     assert.deepEqual(resolveFactPath(observations, 'permissions'), ['a']);
     assert.equal(resolveFactPath(observations, 'nested.child.value'), 3);
+    assert.deepEqual(resolveFactPath(observations, 'facts.auth.authentication-methods.active'), ['passkey']);
     assert.equal(resolveFactPath(observations, 'missing'), undefined);
 });
 
@@ -792,7 +794,9 @@ test('repository governance rejects a lifecycle metadata write target', (t) =>
 
 test('CLI --check on empty catalog succeeds with zero writes', () =>
 {
-    const result = spawnSync(process.execPath, [cli, '--check'], {
+    const directory = fixtureRoot();
+    const catalogPath = write(directory, 'empty-catalog.json', `${JSON.stringify(sampleCatalog([]), null, 2)}\n`);
+    const result = spawnSync(process.execPath, [cli, '--check', '--catalog', catalogPath], {
         cwd: root,
         encoding: 'utf8'
     });

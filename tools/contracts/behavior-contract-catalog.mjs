@@ -346,6 +346,7 @@ export function validateBehaviorReferences(catalog, repositoryRoot = root)
         'tests/tools/doc-claim.test.mjs',
         'tests/tools/behavior-fact-extractors.test.mjs',
         'tests/tools/generated-fact-sections.test.mjs',
+        'tests/tools/document-claim-migration-ledger.test.mjs',
         'tests/tools/test-matrix-topology-observation.test.mjs',
         'tests/tools/ts-ast-adapter.test.mjs',
         'tools/contracts/behavior-contract-catalog.mjs',
@@ -370,6 +371,7 @@ export function validateBehaviorReferences(catalog, repositoryRoot = root)
         'tools/contracts/generate-behavior-contract-catalog.mjs',
         'tools/docs/doc-claim.mjs',
         'tools/docs/check-doc-claim.mjs',
+        'tools/docs/check-document-claim-migration-ledger.mjs',
         'tools/docs/doc-claim-staleness-mutation/fixture.mjs',
         'tools/docs/doc-claim-staleness-mutation/runner.mjs',
         'tools/docs/generated-fact-sections/generator.mjs',
@@ -524,6 +526,8 @@ export function validateBehaviorReferences(catalog, repositoryRoot = root)
                         continue;
                     }
                     const literals = [...reference[2].matchAll(/["'`]([a-z][a-z0-9-]*)["'`]/gu)].map((match) => match[1]);
+                    const markerLiteral = reference[2].trim().match(/^([a-z][a-z0-9-]*)$/u)?.[1];
+                    if (markerLiteral) literals.push(markerLiteral);
                     if (literals.length === 0)
                     {
                         fail(`${relative} contains an untyped or free-string behavior reference`);

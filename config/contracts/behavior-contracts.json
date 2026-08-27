@@ -208,6 +208,8 @@
                 "authentication-session-permission"
             ],
             "documents": [
+                "docs/anonymous-identity-smoke-flow.md",
+                "docs/architecture/decisions/ADR-Anonymous-Credential-Blind-Issuance.md",
                 "docs/security/user-session-authentication-context.md",
                 "docs/security.md"
             ],
@@ -246,7 +248,8 @@
                 "docs/security.md",
                 "docs/configuration-layout.md",
                 "docs/configuration/appsettings-authority.md",
-                "docs/api/schemas-and-errors.md"
+                "docs/api/schemas-and-errors.md",
+                "docs/api/contracts.md"
             ],
             "mutationPolicy": {
                 "mutationRequired": true,

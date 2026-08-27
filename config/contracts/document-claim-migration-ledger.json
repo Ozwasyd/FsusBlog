@@ -1,0 +1,23 @@
+{
+  "schema": "fsusblog.document-claim-migration-ledger.v1",
+  "scopes": [
+    {
+      "scopeId": "auth-security-configuration-admin-error",
+      "behaviorIds": [
+        "authentication-session-permission",
+        "configuration-error-security-policy"
+      ],
+      "entries": [
+        { "behaviorId": "authentication-session-permission", "documentPath": "docs/anonymous-identity-smoke-flow.md", "claimIds": ["authentication-session-permission.methods"], "generatedSectionIds": ["auth.methods.active"] },
+        { "behaviorId": "authentication-session-permission", "documentPath": "docs/architecture/decisions/ADR-Anonymous-Credential-Blind-Issuance.md", "claimIds": ["authentication-session-permission.strengths"], "generatedSectionIds": ["auth.strengths.active"] },
+        { "behaviorId": "authentication-session-permission", "documentPath": "docs/security.md", "claimIds": ["authentication-session-permission.admin-permissions"], "generatedSectionIds": ["auth.admin.permissions"] },
+        { "behaviorId": "authentication-session-permission", "documentPath": "docs/security/user-session-authentication-context.md", "claimIds": ["authentication-session-permission.duration-modes"], "generatedSectionIds": ["auth.session.duration-modes"] },
+        { "behaviorId": "configuration-error-security-policy", "documentPath": "docs/api/contracts.md", "claimIds": ["configuration-error-security-policy.cache-policies"], "generatedSectionIds": ["api.security-cache-policies"] },
+        { "behaviorId": "configuration-error-security-policy", "documentPath": "docs/api/schemas-and-errors.md", "claimIds": ["configuration-error-security-policy.public-errors"], "generatedSectionIds": ["api.public-error-codes"] },
+        { "behaviorId": "configuration-error-security-policy", "documentPath": "docs/configuration-layout.md", "claimIds": ["configuration-error-security-policy.keys"], "generatedSectionIds": ["configuration.keys"] },
+        { "behaviorId": "configuration-error-security-policy", "documentPath": "docs/configuration/appsettings-authority.md", "claimIds": ["configuration-error-security-policy.allowed-values"], "generatedSectionIds": ["configuration.allowed-values"] },
+        { "behaviorId": "configuration-error-security-policy", "documentPath": "docs/security.md", "claimIds": ["configuration-error-security-policy.challenge-kinds"], "generatedSectionIds": ["security.challenge.kinds"] }
+      ]
+    }
+  ]
+}

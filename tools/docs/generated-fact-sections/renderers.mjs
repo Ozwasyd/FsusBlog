@@ -203,7 +203,9 @@ function renderKeyValueTable(value, options = {})
 
     const rows = pairs.map(([key, entryValue]) =>
     {
-        const rendered = isPlainObject(entryValue) && Object.hasOwn(entryValue, 'value')
+        const rendered = isPlainObject(entryValue)
+            && Object.hasOwn(entryValue, 'value')
+            && (Object.hasOwn(entryValue, 'unit') || options.unit)
             ? formatDurationLike(entryValue, options.unit)
             : normalizeScalarText(typeof entryValue === 'string' || typeof entryValue === 'number' || typeof entryValue === 'boolean'
                 ? entryValue
