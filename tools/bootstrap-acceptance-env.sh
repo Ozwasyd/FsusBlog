@@ -427,6 +427,9 @@ RELEASE_PREVIEW_URL="${FSUSBLOG_RELEASE_PREVIEW_URL:-http://127.0.0.1:${RELEASE_
 CORS_ALLOWED_HOSTS_VALUE="${CORS_ALLOWED_HOSTS:-${DEBUG_FRONTEND_URL},${RELEASE_PREVIEW_URL},http://localhost:${DEBUG_FRONTEND_PORT},http://localhost:${RELEASE_PREVIEW_PORT}}"
 POSTGRES_CONTAINER="${FSUSBLOG_POSTGRES_CONTAINER_NAME:-fsusblog-test-postgres-$NS_SLUG}"
 REDIS_CONTAINER="${FSUSBLOG_REDIS_CONTAINER_NAME:-fsusblog-test-redis-$NS_SLUG}"
+POSTGRES_IMAGE_REFERENCE='postgres@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685'
+REDIS_IMAGE_REFERENCE='redis@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf'
+EXECUTION_SERVICE_ENVELOPE_FILE="$FIXTURE_DIR/execution-envelope-services.json"
 if [[ ! "$POSTGRES_CONTAINER" =~ ^fsusblog-(dev|test|ci)([-_.A-Za-z0-9]*)$ ]]; then
     POSTGRES_CONTAINER="fsusblog-test-postgres-$NS_SLUG"
 fi
@@ -555,6 +558,7 @@ FSUSBLOG_DEBUG_BACKEND_URL=$DEBUG_BACKEND_URL
 FSUSBLOG_RELEASE_PREVIEW_URL=$RELEASE_PREVIEW_URL
 FSUSBLOG_POSTGRES_CONTAINER_NAME=$POSTGRES_CONTAINER
 FSUSBLOG_REDIS_CONTAINER_NAME=$REDIS_CONTAINER
+FSUSBLOG_TEST_SERVICE_ENVELOPE_FILE=$EXECUTION_SERVICE_ENVELOPE_FILE
 FSUSBLOG_PORT_LEASED_ROLES=${PORT_LEASED_ROLES:-}
 FSUSBLOG_PORT_LEASE_DAEMON_PID=${PORT_LEASE_DAEMON_PID:-}
 FSUSBLOG_NOTIFICATION_DRILL_SECRET=$NOTIFICATION_DRILL_SECRET
@@ -1814,6 +1818,30 @@ AssertDedicatedContainerBinding() {
     fi
 }
 
+RequireLocalPinnedImage() {
+    local service="$1"
+    local imageReference="$2"
+    if [[ ! "$imageReference" =~ @sha256:[a-f0-9]{64}$ ]]; then
+        Log "$service image reference is not pinned by digest: $imageReference"
+        return 1
+    fi
+    if ! docker image inspect "$imageReference" >/dev/null 2>&1; then
+        Log "$service pinned image is absent locally; correctness bootstrap forbids test-time pulls: $imageReference"
+        return 1
+    fi
+}
+
+ContainerImageBindingMatches() {
+    local container="$1"
+    local expectedReference="$2"
+    local configuredReference runningImage expectedImage
+    configuredReference="$(docker inspect --format '{{.Config.Image}}' "$container" 2>/dev/null || true)"
+    runningImage="$(docker inspect --format '{{.Image}}' "$container" 2>/dev/null || true)"
+    expectedImage="$(docker image inspect --format '{{.Id}}' "$expectedReference" 2>/dev/null || true)"
+    [[ -n "$expectedImage" && "$configuredReference" == "$expectedReference" &&
+        "$runningImage" == "$expectedImage" ]]
+}
+
 EnsurePostgres() {
     local readinessDeadline="${1:-}"
     if [[ -z "$readinessDeadline" ]]; then
@@ -1821,8 +1849,10 @@ EnsurePostgres() {
         readinessDeadline="$READINESS_DEADLINE_AT_MS"
     fi
     AssertDedicatedContainerBinding "$POSTGRES_CONTAINER" postgres || return 1
+    RequireLocalPinnedImage postgres "$POSTGRES_IMAGE_REFERENCE" || return 1
     ReleasePortLeaseBeforeBind postgres 'PostgreSQL host mapping'
     if docker exec "$POSTGRES_CONTAINER" pg_isready -U fsusblog -d fsusblog >/dev/null 2>&1 &&
+        ContainerImageBindingMatches "$POSTGRES_CONTAINER" "$POSTGRES_IMAGE_REFERENCE" &&
         ContainerResourceBindingMatches "$POSTGRES_CONTAINER"; then
         Log 'postgres already ready'
         CompletePortLeaseHandoff postgres 'PostgreSQL host mapping' "container:$(docker inspect --format '{{.Id}}' "$POSTGRES_CONTAINER" 2>/dev/null || true)"
@@ -1830,6 +1860,7 @@ EnsurePostgres() {
     fi
 
     if docker ps -a --format '{{.Names}}' | grep -qx "$POSTGRES_CONTAINER" &&
+        ContainerImageBindingMatches "$POSTGRES_CONTAINER" "$POSTGRES_IMAGE_REFERENCE" &&
         ContainerResourceBindingMatches "$POSTGRES_CONTAINER"; then
         Log 'starting existing postgres container'
         UpdateExistingContainerResources "$POSTGRES_CONTAINER"
@@ -1852,7 +1883,7 @@ EnsurePostgres() {
             -e POSTGRES_PASSWORD=fsusblog_dev \
             -e POSTGRES_DB=fsusblog \
             -p "127.0.0.1:${POSTGRES_PORT}:5432" \
-            postgres:16-alpine >/dev/null
+            "$POSTGRES_IMAGE_REFERENCE" >/dev/null
     fi
 
     while (($(NowEpochMs) < readinessDeadline)); do
@@ -1875,8 +1906,10 @@ EnsureRedis() {
         readinessDeadline="$READINESS_DEADLINE_AT_MS"
     fi
     AssertDedicatedContainerBinding "$REDIS_CONTAINER" redis || return 1
+    RequireLocalPinnedImage redis "$REDIS_IMAGE_REFERENCE" || return 1
     ReleasePortLeaseBeforeBind redis 'Redis host mapping'
     if docker exec "$REDIS_CONTAINER" redis-cli ping >/dev/null 2>&1 &&
+        ContainerImageBindingMatches "$REDIS_CONTAINER" "$REDIS_IMAGE_REFERENCE" &&
         ContainerResourceBindingMatches "$REDIS_CONTAINER"; then
         Log 'redis already ready'
         CompletePortLeaseHandoff redis 'Redis host mapping' "container:$(docker inspect --format '{{.Id}}' "$REDIS_CONTAINER" 2>/dev/null || true)"
@@ -1884,6 +1917,7 @@ EnsureRedis() {
     fi
 
     if docker ps -a --format '{{.Names}}' | grep -qx "$REDIS_CONTAINER" &&
+        ContainerImageBindingMatches "$REDIS_CONTAINER" "$REDIS_IMAGE_REFERENCE" &&
         ContainerResourceBindingMatches "$REDIS_CONTAINER"; then
         Log 'starting existing redis container'
         UpdateExistingContainerResources "$REDIS_CONTAINER"
@@ -1899,7 +1933,7 @@ EnsureRedis() {
         fi
         Log 'creating redis container'
         BuildDockerResourceArgs
-        docker run -d "${DOCKER_RESOURCE_ARGS[@]}" --name "$REDIS_CONTAINER" -p "127.0.0.1:${REDIS_PORT}:6379" redis:7-alpine >/dev/null
+        docker run -d "${DOCKER_RESOURCE_ARGS[@]}" --name "$REDIS_CONTAINER" -p "127.0.0.1:${REDIS_PORT}:6379" "$REDIS_IMAGE_REFERENCE" >/dev/null
     fi
 
     while (($(NowEpochMs) < readinessDeadline)); do
@@ -1922,6 +1956,15 @@ RefreshFixtureServiceGeneration() {
     FSUSBLOG_FIXTURE_SERVICE_GENERATION="$(printf '%s\n%s\n' "$postgresIdentity" "$redisIdentity" | sha256sum | awk '{print $1}')"
     export FSUSBLOG_FIXTURE_SERVICE_GENERATION
     WriteEnvFile
+}
+
+WriteExecutionServiceEnvelope() {
+    "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/execution-envelope-services.mjs" \
+        --producer-id "${CURRENT_TIER:-bootstrap}" \
+        --run-id "${FSUSBLOG_TEST_RUN_ID:?FSUSBLOG_TEST_RUN_ID is required for service envelope admission}" \
+        --postgres-container "$POSTGRES_CONTAINER" \
+        --redis-container "$REDIS_CONTAINER" \
+        --output "$EXECUTION_SERVICE_ENVELOPE_FILE"
 }
 
 ResetSecurityTestState() {
@@ -2635,6 +2678,7 @@ Main() {
             backend-debug-build EnsureManagedBackendSharedDebugBuild
     fi
     RefreshFixtureServiceGeneration
+    WriteExecutionServiceEnvelope
     if [[ "${1:-}" == "--services-only" ]]; then
         Log 'postgres and redis ready'
         return

@@ -22,10 +22,13 @@ import {
     resolveBrowserContractRunIdentity
 } from '../browser-contract/fixture-lifecycle.mjs';
 import { fixtureReceiptView, loadBrowserContractFixture } from '../browser-contract/fixture.mjs';
+import { executionServiceImageReference } from '../../tools/test/execution-envelope-services.mjs';
 
 const commit = 'a'.repeat(40);
 const fingerprint = 'b'.repeat(64);
 const buildDigest = `sha256:${'c'.repeat(64)}`;
+const postgresImage = executionServiceImageReference('postgres');
+const redisImage = executionServiceImageReference('redis');
 
 test('dedicated local public-content fixture secret is deterministic and bound to target ingress', () =>
 {
@@ -145,12 +148,12 @@ process.stdout.write(JSON.stringify({
           postgres: {
             name: request.resources.databaseInstance,
             id: 'd'.repeat(64),
-            image: 'postgres:16-alpine'
+            image: ${JSON.stringify(postgresImage)}
           },
           redis: {
             name: request.resources.redisInstance,
             id: 'e'.repeat(64),
-            image: 'redis:7-alpine'
+            image: ${JSON.stringify(redisImage)}
           }
         }
       }
@@ -831,8 +834,8 @@ test('default provider state is bound to current source, build, namespace, and o
             testSessionHeader: false
         },
         containers: {
-            postgres: { name: identity.databaseInstance, id: 'd'.repeat(64), image: 'postgres:16-alpine' },
-            redis: { name: identity.redisInstance, id: 'e'.repeat(64), image: 'redis:7-alpine' }
+            postgres: { name: identity.databaseInstance, id: 'd'.repeat(64), image: postgresImage },
+            redis: { name: identity.redisInstance, id: 'e'.repeat(64), image: redisImage }
         },
         sourceState: harness.sourceState,
         buildIdentity: { receiptContentDigest: buildDigest }
