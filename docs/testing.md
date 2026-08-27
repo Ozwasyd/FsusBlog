@@ -81,6 +81,23 @@ Release frontend、Kestrel、PostgreSQL snapshot 和 browser worker，覆盖禁�
 
 `run-deterministic-command.mjs` invocation 必须显式声明 `--execution-class correctness|diagnostic` 与 `--producer-id`。`config/testing/producer-execution-class-contract.json` 是 matrix `evidenceClass` 到 execution class 的机器可读映射：默认 correctness 与 browser-contract 都要求 producer、scheduler run 和 source identity，diagnostic 恒定不可 qualification。correctness 在 child spawn 前要求 `FSUSBLOG_TEST_RUN_ID`、`FSUSBLOG_TEST_SOURCE_COMMIT`、`FSUSBLOG_TEST_SOURCE_FINGERPRINT`，缺任一字段以 `contract.missing-run-identity` 失败且零执行；它不生成 local、timestamp 或 latest fallback。diagnostic 也必须显式选择，才可 direct 执行，并恒定输出 `qualificationEligible=false`，不得发布 correctness projection。
 
+Correctness Playwright 的 browser/rendering identity 由
+`config/testing/playwright-browser-identity-policy.json` 与
+`tools/test/playwright-browser-identity.mjs` 唯一管理。普通 Playwright config、
+`browser-contract` 与 `production-xss-release` 都只使用
+`@playwright/test` 当前 lockfile 安装的 managed browser；不搜索系统 PATH、macOS
+Applications 或 `/usr/bin/google-chrome`，也不接受
+`PLAYWRIGHT_*_PATH` 覆盖。plan 在 launch 前绑定 browser name/version/revision、
+canonical absolute executable path 与 SHA-256、Playwright package/catalog、完整
+launch args，以及 font/locale digest、locale、device scale、headless rendering、
+color scheme 和 software GPU mode；launch 后重新 hash binary 并要求 browser version
+及整个 actual identity 与 plan exact match。managed browser 缺失、binary/revision/path/
+args/rendering 漂移都在 correctness evidence admission 前 fail closed。host browser 只可
+存在于 diagnostic identity，固定 `qualificationEligible=false`，不能升级成 correctness
+或 `browser-contract` evidence。Local、CI、published/local FsusUI 模式共用这份 policy；
+各机器的绝对安装路径可以不同，但同一 run 的 planned/actual path 必须完全相同，且
+revision、binary digest 与 Playwright catalog 必须一致。
+
 Qualification 时间权威与业务/测量时钟分离由 `config/testing/temporal-policy.json`、`config/testing/temporal-context.schema.json` 与 `tools/test/temporal-context.mjs` 承载：唯一 temporal context 绑定 source/run/producer、固定 UTC business epoch、timezone/culture 与 immutable call-site ledger digest；plan/actual/receipt 必须 exact match，`generatedAt` 只进入 artifact metadata 且不进入 semantic outcome digest。Business wall clock 通过后端 `TestTemporalContext` / `TimeProvider` 与 Node `createBusinessWallClock` 注入并只允许显式推进；monotonic measurement 继续使用 `performance.now` / `process.hrtime.bigint` / `Stopwatch` 真实推进。
 
 `config/testing/temporal-producer-bindings.json` 与 `tools/test/temporal-producer-bindings.mjs` 对 fixture consumer inventory 和真实 producer execution boundary 做 exact closure；`tools/test/verify-temporal-producers.mjs --kind catalog` 是 static-governance 的 fail-closed 入口。`FixtureOrchestrator` 为每个已计划 producer 派生 producer-specific context，producer child、backend/PostgreSQL adapter 或 browser 必须回传 actual observation；orchestrator 以真实 producer output 生成 semantic digest，并把 plan/actual/context/output digest 写入最终 `ProducerReceipt`。`tests/frontend/support/session-fixtures.mjs` 当前同时出现在 auth-session 与 security-state 的既有 implementation inventory 中；temporal ledger 对该物理 source 只登记一次，并要求其中的业务时间来自显式 fixture business epoch，artifact `generatedAt` 单独归类且不进入 semantic outcome。
