@@ -130,6 +130,7 @@ public sealed class MessagingFixtureTransportContractTests
         Assert.Contains(typeof(IMessageCommandService), dependencies);
         Assert.Contains(typeof(IMessageQueryService), dependencies);
         Assert.Contains(typeof(IMessageAdminQueueMaintenance), dependencies);
+        Assert.Contains(typeof(IMessageMutationOutboxDelivery), dependencies);
         Assert.DoesNotContain(dependencies, static type => type.Name.Contains("Mock", StringComparison.Ordinal));
     }
 }

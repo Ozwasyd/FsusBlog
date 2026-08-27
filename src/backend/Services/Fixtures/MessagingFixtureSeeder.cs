@@ -130,6 +130,7 @@ public sealed class MessagingFixtureSeeder(
     MessageCacheService cache,
     NotificationStreamBacklogStore backlog,
     MessageMutationOutboxWorker outboxWorker,
+    IMessageMutationOutboxDelivery outboxDelivery,
     TimeProvider timeProvider,
     ISqlSugarClient db) : IMessagingFixtureSeeder
 {
@@ -760,6 +761,12 @@ public sealed class MessagingFixtureSeeder(
         {
             long? eventId = await backlog.TryReadIdempotentEventIdAsync(delivery.DeliveryKey, cancellationToken)
                 .ConfigureAwait(false);
+            if (!eventId.HasValue && delivery.Status == MessageMutationOutboxStatus.Processed)
+            {
+                await outboxDelivery.DeliverAsync(delivery, cancellationToken).ConfigureAwait(false);
+                eventId = await backlog.TryReadIdempotentEventIdAsync(delivery.DeliveryKey, cancellationToken)
+                    .ConfigureAwait(false);
+            }
             if (!eventId.HasValue)
             {
                 throw new InvalidOperationException("Processed messaging outbox has no stream event identity.");
