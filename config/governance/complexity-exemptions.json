@@ -127,7 +127,7 @@
             "reason": "Temporary producer contract coverage bridge while prepare verify cleanup and transport cases are split into focused modules",
             "expires": "2026-09-27",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/1717",
-            "sourceFingerprint": "sha256:7cb4afb3f8d883bf6e35bdc9d750f457d32eb46b7f1f919cab3ee91d3362e5f0"
+            "sourceFingerprint": "sha256:cf41593d3eba9f7401a1051326e4ddd1177b399baca5d9e4826120752a9301dc"
         },
         {
             "file": "tests/tools/auth-session-fixture-producer.test.mjs",
