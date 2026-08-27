@@ -223,7 +223,7 @@ test('repository registry owns each active behavior exactly once', () =>
     const registry = loadRegistry();
     const result = validateOwnershipAgainstBehaviorCatalog(registry, loadCatalog(), root);
     assert.match(result.digest, /^[a-f0-9]{64}$/u);
-    assert.equal(result.behaviorOwners.size, 8);
+    assert.equal(result.behaviorOwners.size, 10);
     const check = spawnSync(process.execPath, [checker], { cwd: root, encoding: 'utf8' });
     assert.equal(check.status, 0, check.stderr || check.stdout);
     assert.match(check.stdout, /registry, ownership, receipt schema/u);
@@ -398,6 +398,7 @@ export function extract() {
                 outputSchema: receiptSchemaId,
                 requiredBuildArtifact: 'backend-release',
                 hermeticPolicy: 'exact-build-receipt',
+                evidenceStage: 'pre-runtime',
                 ownedBehaviorIds: ['compiled-only-behavior']
             }]
         };

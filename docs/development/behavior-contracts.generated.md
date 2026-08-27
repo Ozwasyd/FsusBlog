@@ -1,16 +1,18 @@
-<!-- Generated from config/contracts/behavior-contracts.json; digest 8cca390a3505ffe262c115422a9421f05f87c4f69427d523d67dd0f91e13c901; do not edit by hand. -->
+<!-- Generated from config/contracts/behavior-contracts.json; digest 368d4ee681ca9de800ebe97cda9f259c918d6f7f67bacbe7b9790e7bfa45c3ea; do not edit by hand. -->
 
 # Behavior Contract Index
 
 此索引完全由 `config/contracts/behavior-contracts.json` 生成；它只列出稳定行为 ID 和机器契约元数据，不承载 Markdown 正文或测试实现。
 
-| Behavior ID | Domain | Risk | Status | Extractor | Test kinds | Documentation | Release qualification |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `test-asset-audit-reconciliation` | testing | high | active | `test-asset-audit-fact-extractor` | positive, negative | required | yes |
-| `code-intent-governance` | governance | high | active | `code-intent-fact-extractor` | positive, negative | required | yes |
-| `document-lifecycle-governance` | documentation | high | active | `document-lifecycle-fact-extractor` | positive, negative, migration | rationale-only | yes |
-| `binary-api-aeds-contract` | api | critical | active | `openapi-aeds-fact-extractor` | positive, negative | required | yes |
-| `browserless-production-correctness` | testing | critical | active | `test-matrix-fact-extractor` | positive, negative, concurrency | required | yes |
-| `authentication-session-permission` | security | critical | active | `auth-session-permission-fact-extractor` | positive, negative, migration | required | yes |
-| `configuration-error-security-policy` | security | critical | active | `config-error-security-policy-fact-extractor` | positive, negative, boundary | required | yes |
-| `article-comment-lifecycle-outbox` | content | critical | active | `content-lifecycle-fact-extractor` | positive, negative | required | yes |
+| Behavior ID | Domain | Risk | Status | Evidence stage | Extractor | Test kinds | Documentation | Release qualification |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `test-asset-audit-reconciliation` | testing | high | active | pre-runtime | `test-asset-audit-fact-extractor` | positive, negative | required | yes |
+| `code-intent-governance` | governance | high | active | pre-runtime | `code-intent-fact-extractor` | positive, negative | required | yes |
+| `document-lifecycle-governance` | documentation | high | active | pre-runtime | `document-lifecycle-fact-extractor` | positive, negative, migration | rationale-only | yes |
+| `binary-api-aeds-contract` | api | critical | active | pre-runtime | `openapi-aeds-fact-extractor` | positive, negative | required | yes |
+| `browserless-production-correctness` | testing | critical | active | pre-runtime | `test-matrix-fact-extractor` | positive, negative, concurrency | required | yes |
+| `authentication-session-permission` | security | critical | active | pre-runtime | `auth-session-permission-fact-extractor` | positive, negative, migration | required | yes |
+| `configuration-error-security-policy` | security | critical | active | pre-runtime | `config-error-security-policy-fact-extractor` | positive, negative, boundary | required | yes |
+| `article-comment-lifecycle-outbox` | content | critical | active | pre-runtime | `content-lifecycle-fact-extractor` | positive, negative | required | yes |
+| `application-runtime-semantic-coherence` | runtime | critical | active | post-runtime | `application-runtime-observation-producer` | positive, negative, boundary | required | yes |
+| `release-deployment-runtime-containment` | deployment | critical | active | post-runtime | `release-deployment-observation-producer` | positive, negative, boundary | required | yes |

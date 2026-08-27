@@ -1174,20 +1174,17 @@ closure）同样失败**。shard 遗漏、duplicate testId、多跑、result
 missing、failed/cancelled/timeout、binding drift 与 framework adapter
 mismatch 全部 fail closed。
 
-### evidenceStage 代理
+### evidenceStage 分界
 
-catalog 全仓不存在 `evidenceStage` 字段（`rg evidenceStage` 零命中），
-且 #2186 固定约束禁止修改 catalog/DocClaim 语义，因此 producer 以
-`status === 'active' && releaseQualification === true` 代理
-`evidenceStage=pre-runtime && releaseQualification=true`。当前 8 个
-active+releaseQualification contracts（test-asset-audit-reconciliation、
-code-intent-governance、document-lifecycle-governance、
-binary-api-aeds-contract、browserless-production-correctness、
-authentication-session-permission、configuration-error-security-policy、
-article-comment-lifecycle-outbox）全部是 static governance / contract /
-unit 级 pre-runtime 行为，没有 post-runtime（browser/load/soak/nightly）
-behavior 被误纳入。若未来 catalog 增加 post-runtime behavior，必须先行
-引入 evidenceStage 语义并收紧代理，不能在本 producer 内合成。
+BehaviorCatalog 对每个 contract 显式声明 `evidenceStage`。原有八个
+static governance / contract / unit 行为是 `pre-runtime`；
+`application-runtime-semantic-coherence` 与
+`release-deployment-runtime-containment` 是 `post-runtime`。pre-runtime gate
+只聚合前者，后者必须由同一
+`behavior-fact-extractors.json` registry 中的 `runtime-receipt-adapter`
+消费显式 current-run raw receipts；静态 extractor runner 会拒绝执行它们。
+两类 stage 不能用缺省值、job 成功、artifact/file/HTTP 存在性或
+diagnostic 结果互相代理。
 
 独立 verifier `tools/test-matrix/verify-behavior-test-evidence.mjs` 重读
 raw results、bindings、catalog、test plan receipt 与 receipt，重算

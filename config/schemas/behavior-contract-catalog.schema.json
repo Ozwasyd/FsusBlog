@@ -80,6 +80,7 @@
                 "documentationRationale",
                 "allowedClaimTypes",
                 "releaseQualification",
+                "evidenceStage",
                 "coverageIds",
                 "documents"
             ],
@@ -162,6 +163,12 @@
                 },
                 "releaseQualification": {
                     "type": "boolean"
+                },
+                "evidenceStage": {
+                    "enum": [
+                        "pre-runtime",
+                        "post-runtime"
+                    ]
                 },
                 "coverageIds": {
                     "type": "array",

@@ -1,6 +1,6 @@
-// Generated from config/contracts/behavior-contracts.json; digest 8cca390a3505ffe262c115422a9421f05f87c4f69427d523d67dd0f91e13c901; do not edit by hand.
+// Generated from config/contracts/behavior-contracts.json; digest 368d4ee681ca9de800ebe97cda9f259c918d6f7f67bacbe7b9790e7bfa45c3ea; do not edit by hand.
 
-export const BEHAVIOR_CONTRACT_CATALOG_DIGEST = '8cca390a3505ffe262c115422a9421f05f87c4f69427d523d67dd0f91e13c901' as const
+export const BEHAVIOR_CONTRACT_CATALOG_DIGEST = '368d4ee681ca9de800ebe97cda9f259c918d6f7f67bacbe7b9790e7bfa45c3ea' as const
 export const BEHAVIOR_CONTRACTS = [
   {
     "id": "test-asset-audit-reconciliation",
@@ -21,6 +21,7 @@ export const BEHAVIOR_CONTRACTS = [
       "safety"
     ],
     "releaseQualification": true,
+    "evidenceStage": "pre-runtime",
     "coverageIds": [
       "test-asset-audit-reconciliation"
     ],
@@ -47,6 +48,7 @@ export const BEHAVIOR_CONTRACTS = [
       "safety"
     ],
     "releaseQualification": true,
+    "evidenceStage": "pre-runtime",
     "coverageIds": [
       "code-intent-governance"
     ],
@@ -74,6 +76,7 @@ export const BEHAVIOR_CONTRACTS = [
       "safety"
     ],
     "releaseQualification": true,
+    "evidenceStage": "pre-runtime",
     "coverageIds": [
       "document-lifecycle-governance"
     ],
@@ -100,6 +103,7 @@ export const BEHAVIOR_CONTRACTS = [
       "safety"
     ],
     "releaseQualification": true,
+    "evidenceStage": "pre-runtime",
     "coverageIds": [
       "binary-api-aeds-contract"
     ],
@@ -134,6 +138,7 @@ export const BEHAVIOR_CONTRACTS = [
       "safety"
     ],
     "releaseQualification": true,
+    "evidenceStage": "pre-runtime",
     "coverageIds": [
       "browserless-production-correctness"
     ],
@@ -161,6 +166,7 @@ export const BEHAVIOR_CONTRACTS = [
       "safety"
     ],
     "releaseQualification": true,
+    "evidenceStage": "pre-runtime",
     "coverageIds": [
       "authentication-session-permission"
     ],
@@ -196,6 +202,7 @@ export const BEHAVIOR_CONTRACTS = [
       "operational"
     ],
     "releaseQualification": true,
+    "evidenceStage": "pre-runtime",
     "coverageIds": [
       "configuration-error-security-policy"
     ],
@@ -231,6 +238,7 @@ export const BEHAVIOR_CONTRACTS = [
       "safety"
     ],
     "releaseQualification": true,
+    "evidenceStage": "pre-runtime",
     "coverageIds": [
       "article-comment-lifecycle-outbox"
     ],
@@ -246,6 +254,68 @@ export const BEHAVIOR_CONTRACTS = [
       "requireExecutedMutants": true,
       "allowedEquivalentMutantPolicy": "none"
     }
+  },
+  {
+    "id": "application-runtime-semantic-coherence",
+    "domain": "runtime",
+    "risk": "critical",
+    "status": "active",
+    "implementationOwnerCardinality": "one",
+    "allowedImplementationOwnerRoles": [],
+    "factExtractorId": "application-runtime-observation-producer",
+    "requiredTestKinds": [
+      "positive",
+      "negative",
+      "boundary"
+    ],
+    "documentationPolicy": "required",
+    "documentationRationale": "Current runtime, API, security, and content claims define the semantic application candidate contract.",
+    "allowedClaimTypes": [
+      "behavioral",
+      "safety",
+      "operational"
+    ],
+    "releaseQualification": true,
+    "evidenceStage": "post-runtime",
+    "coverageIds": [
+      "browserless-production-correctness"
+    ],
+    "documents": [
+      "docs/testing.md",
+      "docs/security.md",
+      "docs/api/article-publication-revisions.md"
+    ]
+  },
+  {
+    "id": "release-deployment-runtime-containment",
+    "domain": "deployment",
+    "risk": "critical",
+    "status": "active",
+    "implementationOwnerCardinality": "one",
+    "allowedImplementationOwnerRoles": [],
+    "factExtractorId": "release-deployment-observation-producer",
+    "requiredTestKinds": [
+      "positive",
+      "negative",
+      "boundary"
+    ],
+    "documentationPolicy": "required",
+    "documentationRationale": "Current release and deployment claims define release readiness and blue-green containment.",
+    "allowedClaimTypes": [
+      "behavioral",
+      "safety",
+      "operational"
+    ],
+    "releaseQualification": true,
+    "evidenceStage": "post-runtime",
+    "coverageIds": [
+      "blue-green-slot-orchestration"
+    ],
+    "documents": [
+      "docs/testing.md",
+      "docs/releases/blue-green-deployment-runbook.md",
+      "docs/architecture/monolithic-distributed-boundary.md"
+    ]
   }
 ] as const
 export type BehaviorId = typeof BEHAVIOR_CONTRACTS[number]['id']
