@@ -38,9 +38,13 @@ public sealed class AuthFixtureCompositionRootTests
             AccountSubjectHash = AccountSubjectHasher.Create(
                 AnonymousIdentityRuntime.AnonymousAccountKind,
                 FixtureIdentity),
-            PublicHandle = "consumer-updated-public-handle"
+            PublicHandle = null
         };
 
+        Assert.True(AuthFixtureSeeder.IsOwnedFixtureUser(user, FixtureIdentity));
+        user.PublicHandle = "consumer-updated-public-handle";
+        Assert.True(AuthFixtureSeeder.IsOwnedFixtureUser(user, FixtureIdentity));
+        user.PublicHandle = null;
         Assert.True(AuthFixtureSeeder.IsOwnedFixtureUser(user, FixtureIdentity));
         Assert.False(AuthFixtureSeeder.IsOwnedFixtureUser(user, "fxauth-different-owner"));
     }

@@ -972,7 +972,7 @@ public sealed class AuthFixtureSeeder(
         DateTime now = timeProvider.GetUtcNow().UtcDateTime;
         var user = new User
         {
-            PublicHandle = fixtureIdentity,
+            PublicHandle = null,
             IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
             AccountSubjectHash = accountSubjectHash,
             RegistrationState = AccountRegistrationStates.Active,
