@@ -991,6 +991,26 @@ tools/operations/check-release-evidence-manifest.mjs --require-ok
 
 ### `release-final` — final publish credential
 
+<!-- fsus-doc-claim
+claimId: release.finalizer-contract
+behaviorId: browserless-production-correctness
+claimType: generated-section
+generatedSectionId: release.finalizer-contract
+render: key-value-table
+anchor: release-final-final-publish-credential
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN release.finalizer-contract -->
+| Key | Value |
+| --- | --- |
+| evidenceBinding | current-run-exact |
+| executionMode | summary |
+| fallbackProducerAllowed | false |
+| ownership | finalizer-only |
+| producerSpawnAllowed | false |
+| publishCredentialGate | required-before-success |
+| terminalStates | ["failed","succeeded"] |
+<!-- FSUSBLOG-GENERATED:END release.finalizer-contract -->
+
 `release-final` 是唯一最终发布凭据。它是 `tests/matrix.yml` 中的 first-class tier，但标记为 `manualOnly`，不会作为 PR/push Quality Gate 的默认 job。发布候选必须显式运行：
 
 ```bash

@@ -12,11 +12,26 @@ FsusBlog 的架构定义是**单体分布式**（Homogeneous Binary, Heterogeneo
 
 ## 运行模式
 
-| 模式 | 同一程序的职责策略 | 热路径约束 |
-| --- | --- | --- |
-| `single` | 单实例拥有全部模块职责 | 不启用集群组件；调用保持进程内本地快路径 |
-| `static-role` | 运维配置同构实例的静态职责集合 | 未被分配的职责可经 port 选择远端 adapter |
-| `adaptive` | 同构实例根据成员、租约和负载动态承接职责 | 调度决策仍不能泄漏进领域模块 |
+<!-- fsus-doc-claim
+claimId: deployment.runtime-role-contract
+behaviorId: browserless-production-correctness
+claimType: generated-section
+generatedSectionId: deployment.runtime-role-contract
+render: key-value-table
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN deployment.runtime-role-contract -->
+| Key | Value |
+| --- | --- |
+| applicationOwner | src/backend/FsusBlog.Server.csproj |
+| architecture | homogeneous-monolith |
+| coResidency | application-capabilities-share-one-program |
+| declaredRoles | ["application","gateway","infrastructure"] |
+| defaultMode | single |
+| publicationUnit | ops/docker/FsusBlog.Server.Dockerfile |
+| separation | infrastructure-and-gateway-are-external-roles |
+| supportedModes | ["adaptive","single","static-role"] |
+| unsupportedCombinations | ["fixed-business-microservices","single-mode-remote-invocation-required"] |
+<!-- FSUSBLOG-GENERATED:END deployment.runtime-role-contract -->
 
 三种模式使用同一套 FsusBlog 程序和同一发布物。远端依赖临时异常时，节点保留本地失效与权威数据回退，transport 自行重试，不需要切换业务发布物；若要完全关闭集群组件，必须把 `Runtime:Mode` 改回 `single` 并滚动重启，因为 hosted service 的 DI 组合在启动时确定。`single` 模式的本地 publisher 必须先于 Redis transport 注册分支，保证无远程热路径。
 

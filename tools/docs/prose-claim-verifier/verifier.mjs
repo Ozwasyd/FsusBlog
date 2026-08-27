@@ -48,8 +48,14 @@ export function resolveFactPath(observations, factPath)
     }
     const parts = String(factPath).split('.')
     let current = observations
-    for (const part of parts)
+    for (let index = 0; index < parts.length; index += 1)
     {
+        const remaining = parts.slice(index).join('.')
+        if (Object.hasOwn(current, remaining))
+        {
+            return current[remaining]
+        }
+        const part = parts[index]
         if (!isPlainObject(current) || !Object.hasOwn(current, part))
         {
             return undefined

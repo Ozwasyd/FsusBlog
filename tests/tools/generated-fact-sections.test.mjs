@@ -144,7 +144,7 @@ test('catalog schema contract is fail-closed and forbids baseline allowlists', (
     validateCatalogSchemaContract(loadCatalogSchema());
     const catalog = loadCatalog();
     assert.equal(catalog.schema, catalogSchemaId);
-    assert.deepEqual(catalog.sections, []);
+    assert.ok(catalog.sections.length > 0);
     validateCatalog(catalog);
 });
 
@@ -792,12 +792,27 @@ test('repository governance rejects a lifecycle metadata write target', (t) =>
 
 test('CLI --check on empty catalog succeeds with zero writes', () =>
 {
-    const result = spawnSync(process.execPath, [cli, '--check'], {
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-generated-empty-'));
+    const catalog = path.join(directory, 'empty-catalog.json');
+    writeFileSync(catalog, `${JSON.stringify({
+        schema: catalogSchemaId,
+        digestAlgorithm: 'sha256',
+        canonicalSerialization: 'json-utf8-v1',
+        sections: []
+    })}\n`);
+    try
+    {
+        const result = spawnSync(process.execPath, [cli, '--check', '--catalog', catalog], {
         cwd: root,
         encoding: 'utf8'
-    });
-    assert.equal(result.status, 0, result.stderr || result.stdout);
-    assert.match(result.stdout, /sections=0/);
+        });
+        assert.equal(result.status, 0, result.stderr || result.stdout);
+        assert.match(result.stdout, /sections=0/);
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
 });
 
 test('CLI rejects unknown flags and missing mode', () =>

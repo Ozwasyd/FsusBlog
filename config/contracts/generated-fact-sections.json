@@ -2,5 +2,36 @@
   "schema": "fsusblog.generated-fact-section-catalog.v1",
   "digestAlgorithm": "sha256",
   "canonicalSerialization": "json-utf8-v1",
-  "sections": []
+  "sections": [
+    {
+      "sectionId": "release.finalizer-contract",
+      "documentPath": "docs/testing.md",
+      "renderer": "key-value-table",
+      "extractorId": "test-matrix-fact-extractor",
+      "behaviorId": "browserless-production-correctness",
+      "factPath": "facts.release-final.aggregate-contract",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "deployment.blue-green-contract",
+      "documentPath": "docs/releases/blue-green-deployment-runbook.md",
+      "renderer": "key-value-table",
+      "extractorId": "test-matrix-fact-extractor",
+      "behaviorId": "browserless-production-correctness",
+      "factPath": "facts.deployment.blue-green-contract",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "deployment.runtime-role-contract",
+      "documentPath": "docs/architecture/monolithic-distributed-boundary.md",
+      "renderer": "key-value-table",
+      "extractorId": "test-matrix-fact-extractor",
+      "behaviorId": "browserless-production-correctness",
+      "factPath": "facts.deployment.runtime-role-contract",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    }
+  ]
 }
