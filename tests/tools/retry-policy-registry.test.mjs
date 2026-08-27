@@ -44,7 +44,13 @@ function verifyAuthority(reference)
     return {
         verified: true,
         authorityDigest: reference.artifactDigest,
-        verificationReceiptDigest: reference.verificationReceiptDigest
+        verificationReceiptDigest: reference.verificationReceiptDigest,
+        identity: {
+            sourceCommit: commit,
+            worktreeFingerprint: fingerprint,
+            schedulerRunId: 'run-a',
+            producerId: 'unit-correctness'
+        }
     };
 }
 

@@ -332,7 +332,7 @@ function normalizeAuthorityReference(reference)
     });
 }
 
-export function validateExternalAuthorityReferences(references, verifyAuthority)
+export function validateExternalAuthorityReferences(references, verifyAuthority, expectedIdentity = null)
 {
     if (!Array.isArray(references) || references.length !== authorityKinds.length)
     {
@@ -357,6 +357,16 @@ export function validateExternalAuthorityReferences(references, verifyAuthority)
             || verification.verificationReceiptDigest !== reference.verificationReceiptDigest)
         {
             fail('attempt.external-authority-unverified', `${reference.kind} was not verified by its external owner`);
+        }
+        if (expectedIdentity !== null)
+        {
+            for (const [field, expected] of Object.entries(expectedIdentity))
+            {
+                if (verification.identity?.[field] !== expected)
+                {
+                    fail('attempt.external-authority-cross-identity', `${reference.kind} crosses ${field}`);
+                }
+            }
         }
     }
     return Object.freeze(normalized);
@@ -429,7 +439,12 @@ export function validateAttemptReceipt(receipt, {
     {
         fail('attempt.content-tamper', 'command digest mismatch');
     }
-    const authorities = validateExternalAuthorityReferences(receipt.authorityReferences, verifyAuthority);
+    const authorities = validateExternalAuthorityReferences(receipt.authorityReferences, verifyAuthority, {
+        sourceCommit: receipt.sourceCommit,
+        worktreeFingerprint: receipt.worktreeFingerprint,
+        schedulerRunId: receipt.schedulerRunId,
+        producerId: receipt.producerId
+    });
     const authorityByKind = new Map(authorities.map((reference) => [reference.kind, reference]));
     for (const [kind, field] of [
         ['execution-envelope', 'executionEnvelopeDigest'],
@@ -483,7 +498,7 @@ export function validateAttemptReceipt(receipt, {
     {
         validateDigest(receipt.artifactDigests[artifactPath], `artifactDigests.${artifactPath}`);
         if (typeof verifyArtifact === 'function'
-            && verifyArtifact(artifactPath, receipt.artifactDigests[artifactPath]) !== true)
+            && verifyArtifact(artifactPath, receipt.artifactDigests[artifactPath], receipt) !== true)
         {
             fail('attempt.artifact-tamper', `artifact is missing or changed: ${artifactPath}`);
         }
@@ -535,7 +550,19 @@ const aggregateFields = Object.freeze([
 
 function compareAttemptTopology(attempts)
 {
-    if (attempts.length < 2)
+    const authorityFields = [
+        'executionEnvelopeDigest',
+        'replayPlanDigest',
+        'temporalContextDigest'
+    ];
+    if (!attempts.slice(1).every((attempt) => authorityFields.every((field) => (
+        attempt[field] === attempts[0][field]
+    ))))
+    {
+        return false;
+    }
+    const failed = attempts.filter((attempt) => attempt.status !== 'clean-success');
+    if (failed.length < 2)
     {
         return true;
     }
@@ -543,15 +570,15 @@ function compareAttemptTopology(attempts)
         'failedTestIds',
         'executedTestIds',
         'failureClass',
-        'failureKind',
-        'executionEnvelopeDigest',
-        'replayPlanDigest',
-        'temporalContextDigest'
+        'failureKind'
     ];
-    const baseline = attempts[0];
-    return attempts.slice(1).every((attempt) => fields.every((field) => (
+    const artifactClasses = (attempt) => [...new Set(attempt.artifactPaths.map((item) => (
+        path.extname(item) || '<none>'
+    )))].sort();
+    const baseline = failed[0];
+    return failed.slice(1).every((attempt) => fields.every((field) => (
         canonicalJson(attempt[field]) === canonicalJson(baseline[field])
-    )));
+    )) && canonicalJson(artifactClasses(attempt)) === canonicalJson(artifactClasses(baseline)));
 }
 
 export function classifyAggregate(policy, attempts)
