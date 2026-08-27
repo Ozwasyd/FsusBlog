@@ -99,3 +99,19 @@ The admin comment moderation workbench shows model label, confidence, runtime id
 Single and bulk admin writes compare the persisted `moderation_status` with the state that was read before the update. Automatic model writes compare both that expected status and PostgreSQL `xmin`; a concurrent winner therefore prevents the stale write and its audit/notification side effects. Successful single and automatic audits carry the previous and next state; bulk audit context records a deterministic `from->to:count` summary.
 
 Operational rollback does not require a process restart: disable the model runtime through the existing moderation runtime control to stop new automatic transitions while preserving hard dictionaries, region policy, and manual review. Re-enabling the model resumes from the current persisted state; the transition matrix still rejects stale, duplicate, and illegal moves.
+## Current comment moderation states
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.comment-states
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.comment.states
+render: enum-set
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN content.comment.states -->
+- `Approved`
+- `Hidden`
+- `Pending`
+- `Rejected`
+<!-- FSUSBLOG-GENERATED:END content.comment.states -->

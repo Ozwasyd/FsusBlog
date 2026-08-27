@@ -2444,6 +2444,56 @@ bytes、signature、未裁剪 manifest 或异常 message。非当前节点未提
 
 ## Current cache policy catalog
 
+### Current article transitions
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.article-transitions
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.article.allowed-transitions
+render: transition-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN content.article.allowed-transitions -->
+| From | To | Guard |
+| --- | --- | --- |
+| Archived | Archived | Create |
+| Archived | Archived | Rollback |
+| Archived | Archived | Update |
+| Archived | Draft | Rollback |
+| Archived | Draft | Update |
+| Archived | Published | Rollback |
+| Archived | Published | Update |
+| Archived | Scheduled | Update |
+| Deleted | Published | Restore |
+| Draft | Archived | Rollback |
+| Draft | Archived | Update |
+| Draft | Draft | Create |
+| Draft | Draft | Rollback |
+| Draft | Draft | Update |
+| Draft | Published | Rollback |
+| Draft | Published | Update |
+| Draft | Scheduled | Update |
+| Published | Archived | Rollback |
+| Published | Archived | Update |
+| Published | Draft | Rollback |
+| Published | Draft | Update |
+| Published | Published | Create |
+| Published | Published | Rollback |
+| Published | Published | ScheduledPublish |
+| Published | Published | Update |
+| Published | Scheduled | Update |
+| Scheduled | Archived | Rollback |
+| Scheduled | Archived | Update |
+| Scheduled | Draft | Rollback |
+| Scheduled | Draft | Update |
+| Scheduled | Published | Rollback |
+| Scheduled | Published | ScheduledPublish |
+| Scheduled | Published | Update |
+| Scheduled | Scheduled | Create |
+| Scheduled | Scheduled | Update |
+<!-- FSUSBLOG-GENERATED:END content.article.allowed-transitions -->
+
 <!-- fsus-doc-claim
 claimId: configuration-error-security-policy.cache-policies
 behaviorId: configuration-error-security-policy

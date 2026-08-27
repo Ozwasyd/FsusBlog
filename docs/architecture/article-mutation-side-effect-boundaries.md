@@ -28,3 +28,17 @@ transaction uses the same fail-closed promotion path. Required outbox edges
 remain individually replayable, while notification and integrity delivery keep
 their existing idempotency and optional-failure semantics. Endpoint, AEDS,
 authorization, transaction, and cache-visibility contracts are unchanged.
+## Current optional outbox edges
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.optional-edges
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.article.optional-outbox-edges
+render: enum-set
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN content.article.optional-outbox-edges -->
+- `integrity-proof`
+- `notification`
+<!-- FSUSBLOG-GENERATED:END content.article.optional-outbox-edges -->

@@ -1,6 +1,6 @@
-// Generated from config/contracts/behavior-contracts.json; digest 13e9179951138f194736d3d0f37111fdb814cb00d62bfcbb81690c18518d178c; do not edit by hand.
+// Generated from config/contracts/behavior-contracts.json; digest b7d09fa312f83810208d972f80fd725af8585d468d577f25edfe9c849a6a34fb; do not edit by hand.
 
-export const BEHAVIOR_CONTRACT_CATALOG_DIGEST = '13e9179951138f194736d3d0f37111fdb814cb00d62bfcbb81690c18518d178c' as const
+export const BEHAVIOR_CONTRACT_CATALOG_DIGEST = 'b7d09fa312f83810208d972f80fd725af8585d468d577f25edfe9c849a6a34fb' as const
 export const BEHAVIOR_CONTRACTS = [
   {
     "id": "test-asset-audit-reconciliation",
@@ -241,7 +241,19 @@ export const BEHAVIOR_CONTRACTS = [
       "docs/api/design.md",
       "docs/api/contracts.md",
       "docs/api/article-publication-revisions.md",
-      "docs/moderation.md"
+      "docs/moderation.md",
+      "docs/architecture/article-asset-reference-lifecycle.md",
+      "docs/architecture/article-deletion-lifecycle.md",
+      "docs/architecture/article-mutation-outbox-claim-lease.md",
+      "docs/architecture/article-mutation-outbox-versioning.md",
+      "docs/architecture/article-mutation-side-effect-boundaries.md",
+      "docs/architecture/article-revision-concurrency.md",
+      "docs/architecture/comment-attribution-privacy-boundary.md",
+      "docs/architecture/comment-command-boundary.md",
+      "docs/architecture/comment-moderation-visibility-boundary.md",
+      "docs/architecture/comment-mutation-outbox.md",
+      "docs/architecture/comment-notification-boundary.md",
+      "docs/architecture/comment-query-boundary.md"
     ],
     "mutationPolicy": {
       "mutationRequired": true,

@@ -18,6 +18,28 @@
         { "behaviorId": "configuration-error-security-policy", "documentPath": "docs/configuration/appsettings-authority.md", "claimIds": ["configuration-error-security-policy.allowed-values"], "generatedSectionIds": ["configuration.allowed-values"] },
         { "behaviorId": "configuration-error-security-policy", "documentPath": "docs/security.md", "claimIds": ["configuration-error-security-policy.challenge-kinds"], "generatedSectionIds": ["security.challenge.kinds"] }
       ]
+    },
+    {
+      "scopeId": "content-lifecycle-outbox-privacy-notification",
+      "behaviorIds": ["article-comment-lifecycle-outbox"],
+      "entries": [
+        { "behaviorId": "article-comment-lifecycle-outbox", "documentPath": "docs/api/design.md", "claimIds": ["article-comment-lifecycle-outbox.article-states"], "generatedSectionIds": ["content.article.states"] },
+        { "behaviorId": "article-comment-lifecycle-outbox", "documentPath": "docs/api/contracts.md", "claimIds": ["article-comment-lifecycle-outbox.article-transitions"], "generatedSectionIds": ["content.article.allowed-transitions"] },
+        { "behaviorId": "article-comment-lifecycle-outbox", "documentPath": "docs/api/article-publication-revisions.md", "claimIds": ["article-comment-lifecycle-outbox.publication-coordinates"], "generatedSectionIds": ["content.article.publication-coordinates"] },
+        { "behaviorId": "article-comment-lifecycle-outbox", "documentPath": "docs/moderation.md", "claimIds": ["article-comment-lifecycle-outbox.comment-states"], "generatedSectionIds": ["content.comment.states"] },
+        { "behaviorId": "article-comment-lifecycle-outbox", "documentPath": "docs/architecture/article-asset-reference-lifecycle.md", "claimIds": ["article-comment-lifecycle-outbox.rights-fields"], "generatedSectionIds": ["content.article.rights-fields"] },
+        { "behaviorId": "article-comment-lifecycle-outbox", "documentPath": "docs/architecture/article-deletion-lifecycle.md", "claimIds": ["article-comment-lifecycle-outbox.delete-semantics"], "generatedSectionIds": ["content.article.delete-semantics"] },
+        { "behaviorId": "article-comment-lifecycle-outbox", "documentPath": "docs/architecture/article-mutation-outbox-claim-lease.md", "claimIds": ["article-comment-lifecycle-outbox.required-edges"], "generatedSectionIds": ["content.article.required-outbox-edges"] },
+        { "behaviorId": "article-comment-lifecycle-outbox", "documentPath": "docs/architecture/article-mutation-outbox-versioning.md", "claimIds": ["article-comment-lifecycle-outbox.event-types"], "generatedSectionIds": ["content.article.outbox-events"] },
+        { "behaviorId": "article-comment-lifecycle-outbox", "documentPath": "docs/architecture/article-mutation-side-effect-boundaries.md", "claimIds": ["article-comment-lifecycle-outbox.optional-edges"], "generatedSectionIds": ["content.article.optional-outbox-edges"] },
+        { "behaviorId": "article-comment-lifecycle-outbox", "documentPath": "docs/architecture/article-revision-concurrency.md", "claimIds": ["article-comment-lifecycle-outbox.rollback"], "generatedSectionIds": ["content.article.rollback-semantics"] },
+        { "behaviorId": "article-comment-lifecycle-outbox", "documentPath": "docs/architecture/comment-attribution-privacy-boundary.md", "claimIds": ["article-comment-lifecycle-outbox.persisted-fields"], "generatedSectionIds": ["content.comment.persisted-fields"] },
+        { "behaviorId": "article-comment-lifecycle-outbox", "documentPath": "docs/architecture/comment-command-boundary.md", "claimIds": ["article-comment-lifecycle-outbox.thread-invariants"], "generatedSectionIds": ["content.comment.thread-invariants"] },
+        { "behaviorId": "article-comment-lifecycle-outbox", "documentPath": "docs/architecture/comment-moderation-visibility-boundary.md", "claimIds": ["article-comment-lifecycle-outbox.public-visibility"], "generatedSectionIds": ["content.comment.public-visibility"] },
+        { "behaviorId": "article-comment-lifecycle-outbox", "documentPath": "docs/architecture/comment-mutation-outbox.md", "claimIds": ["article-comment-lifecycle-outbox.comment-outbox"], "generatedSectionIds": ["content.comment.required-outbox-edges"] },
+        { "behaviorId": "article-comment-lifecycle-outbox", "documentPath": "docs/architecture/comment-notification-boundary.md", "claimIds": ["article-comment-lifecycle-outbox.notification"], "generatedSectionIds": ["content.comment.notification"] },
+        { "behaviorId": "article-comment-lifecycle-outbox", "documentPath": "docs/architecture/comment-query-boundary.md", "claimIds": ["article-comment-lifecycle-outbox.max-depth"], "generatedSectionIds": ["content.comment.max-depth"] }
+      ]
     }
   ]
 }
