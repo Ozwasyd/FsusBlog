@@ -77,7 +77,7 @@ public static class LocalAuthFixtureEndpoints
                 userAccessTokenExpiresAtUtc,
                 refreshToken,
                 userSessionId,
-                temporalRoles.RequireInstant("session.absolute-expiry").UtcDateTime);
+                temporalRoles.RequireInstant("session.persistent-idle-expiry").UtcDateTime);
 
             authCookieService.SetAdminSessionCookies(
                 context,

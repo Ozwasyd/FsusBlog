@@ -178,7 +178,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                     },
                     roles = new[]
                     {
-                        Role("session.absolute-expiry", s_userAccessTokenExpiresAtUtc),
+                        Role("session.persistent-idle-expiry", s_userAccessTokenExpiresAtUtc),
                         Role("session.admin-persistent-idle-expiry", s_adminAccessTokenExpiresAtUtc)
                     },
                     contentDigest = TemporalArtifactDigest

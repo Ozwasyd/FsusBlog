@@ -531,7 +531,7 @@ VALUES (
   ${temporalRoleSql('session.created')},
   ${temporalRoleSql('session.last-seen')},
   ${temporalRoleSql(rememberMe ? 'session.persistent-idle-expiry' : 'session.idle-expiry')},
-  ${temporalRoleSql('session.absolute-expiry')},
+  ${temporalRoleSql(rememberMe ? 'session.persistent-absolute-expiry' : 'session.absolute-expiry')},
   NULL,
   NULL,
   0,
