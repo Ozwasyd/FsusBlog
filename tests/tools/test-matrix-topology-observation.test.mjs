@@ -50,6 +50,9 @@ function fixtureRepository(options = {})
     'tests/matrix.schema.json',
     'tests/coverage-registry.json',
     'config/testing/producer-execution-class-contract.json',
+    'config/testing/required-evidence-authority-ledger.json',
+    'tests/governance/monolithic-distributed-architecture.json',
+    'tools/deployment/slot-lib.mjs',
     'src/frontend/package.json',
     'tools/docs/generate-testing-docs.mjs',
     'tools/test-matrix/behavior-doc-static-admission-contract.mjs',
@@ -194,7 +197,7 @@ test('test-matrix-fact-extractor is registered for browserless-production-correc
   {
     assert.ok(extractor.consumedInputs.includes(consumer), `missing consumer input ${consumer}`)
   }
-  assert.equal(TEST_MATRIX_REQUIRED_FACT_KEYS.length, 15)
+  assert.equal(TEST_MATRIX_REQUIRED_FACT_KEYS.length, 19)
 })
 
 test('live matrix projects typed topology / release-final / production-fresh facts', async () =>
@@ -220,6 +223,13 @@ test('live matrix projects typed topology / release-final / production-fresh fac
   assert.equal(facts['release-final.finalizer-authority'].commandEntrypoint, 'tools/test/lanes/release-final.sh')
   assert.equal(facts['release-final.output-schema'], 'fsusblog.release-final-test-evidence-binding.v1')
   assert.ok(facts['release-final.required-input-schemas'].includes('fsusblog.release-final-evidence-inputs.v1'))
+  assert.equal(facts['release-final.aggregate-contract'].ownership, 'finalizer-only')
+  assert.equal(facts['release-final.aggregate-contract'].producerSpawnAllowed, false)
+  assert.equal(facts['release-final.aggregate-contract'].evidenceBinding, 'current-run-exact')
+  assert.equal(facts['deployment.blue-green-contract'].activeStopRejected, true)
+  assert.equal(facts['deployment.blue-green-contract'].pendingTransitionPreservesActive, true)
+  assert.equal(facts['deployment.runtime-role-contract'].defaultMode, 'single')
+  assert.ok(facts['deployment.runtime-role-contract'].supportedModes.includes('adaptive'))
   assert.ok(facts['production-fresh.bundle-ordering'].bundleIds.includes('frontend-tests'))
   assert.ok(facts['production-fresh.bundle-ordering'].edges.some((edge) => edge.endsWith('->performance-evidence')))
   assert.match(first.receipt.observations.topologyDigest, /^[a-f0-9]{64}$/u)
@@ -242,7 +252,9 @@ test('1) static-governance follows BehaviorDoc admission with no backend predece
   assert.equal(result.status, 'ok', result.failureReasons?.join('\n'))
   const membership = result.observations.facts['test.static-governance.membership']
   const predecessors = membership.predecessors?.['static-governance'] ?? []
-  assert.deepEqual(predecessors, ['behavior-doc-static-admission'])
+  assert.ok(predecessors.includes('behavior-doc-static-admission'))
+  assert.ok(predecessors.includes('test-inventory'))
+  assert.ok(!predecessors.includes('backend-unit'))
   assert.ok(!predecessors.includes('backend-unit'))
   // The physical frontend bundle is released only by the external static admission.
   assert.ok(membership.bundleMemberships.includes('production.frontend-tests'))
