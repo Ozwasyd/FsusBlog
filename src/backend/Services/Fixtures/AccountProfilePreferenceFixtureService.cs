@@ -241,8 +241,10 @@ internal sealed class AccountPreferenceFixtureCommand(
 
 /// <summary>
 /// Test-only account profile/preference composition root (#1717, #2168, #2169).
-/// It consumes verified auth references and delegates every write to production
-/// command ports. Browser state is an output projection and never an authority.
+/// Prepare consumes provisional auth-owned references for reversible mutations;
+/// the orchestrator seals those identities before verify can publish evidence.
+/// Every write delegates to production command ports. Browser state is an output
+/// projection and never an authority.
 /// </summary>
 internal sealed class AccountProfilePreferenceFixtureService(
     IUserProfileCommandService profileCommands,
