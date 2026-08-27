@@ -290,10 +290,13 @@ SelectCmake
 echo "[build:wasm] cmake=${CMAKE_BIN} version=${CMAKE_VERSION}"
 
 EMCMAKE_CMD=()
+EMCC_BIN=""
 if [[ -n "${FSUSBLOG_EMCMAKE:-}" ]]; then
-    EMCMAKE_CMD=("${FSUSBLOG_EMCMAKE}")
+    EMCMAKE_CMD=("$(readlink -f "${FSUSBLOG_EMCMAKE}")")
+    EMCC_BIN="$(dirname "${EMCMAKE_CMD[0]}")/emcc"
 elif command -v emcmake >/dev/null 2>&1; then
-    EMCMAKE_CMD=("$(command -v emcmake)")
+    EMCMAKE_CMD=("$(readlink -f "$(command -v emcmake)")")
+    EMCC_BIN="$(dirname "${EMCMAKE_CMD[0]}")/emcc"
 else
     EMSCRIPTEN_ROOT="$(dirname "$(command -v emcc)")"
     PYTHON_BIN="${FSUSBLOG_PYTHON:-$(command -v python || true)}"
@@ -302,7 +305,15 @@ else
         exit 1
     }
     EMCMAKE_CMD=("${PYTHON_BIN}" "${EMSCRIPTEN_ROOT}/emcmake.py")
+    EMCC_BIN="${EMSCRIPTEN_ROOT}/emcc"
 fi
+if [[ -n "${FSUSBLOG_EMCC:-}" ]]; then
+    EMCC_BIN="$(readlink -f "${FSUSBLOG_EMCC}")"
+fi
+[[ -x "${EMCC_BIN}" ]] || {
+    echo "[build:wasm] emcc paired with emcmake is missing or not executable: ${EMCC_BIN}" >&2
+    exit 1
+}
 RunEmcmake() {
     "${EMCMAKE_CMD[@]}" "$@"
 }
@@ -321,7 +332,7 @@ WASM_OPT_VERSION="$(${WASM_OPT_BIN} --version)"
     echo "[build:wasm] wasm-opt must be pinned to Binaryen version 123, got: ${WASM_OPT_VERSION}" >&2
     exit 1
 }
-EMSCRIPTEN_VERSION="$(emcc --version | sed -nE '1s/.* ([0-9]+\.[0-9]+\.[0-9]+) .*/\1/p')"
+EMSCRIPTEN_VERSION="$("${EMCC_BIN}" --version | sed -nE '1s/.* ([0-9]+\.[0-9]+\.[0-9]+) .*/\1/p')"
 [[ -n "${EMSCRIPTEN_VERSION}" ]] || {
     echo "[build:wasm] unable to resolve Emscripten version" >&2
     exit 1
@@ -331,7 +342,7 @@ export FSUSBLOG_WASM_TOOLCHAIN_BINARYEN="123"
 export FSUSBLOG_WASM_TOOLCHAIN_CMAKE="${CMAKE_VERSION}"
 export FSUSBLOG_WASM_TOOLCHAIN_VCPKG="${FSUSBLOG_VCPKG_COMMIT:-eae1680538b86f962455c27abca2aad0dc304a4d}"
 export FSUSBLOG_WASM_TOOLCHAIN_EMSDK_IMAGE="emscripten/emsdk:6.0.0@sha256:9eed2e47b4206928b22f99d2917013ad5462d777bb24cb546a652729896badd8"
-echo "[build:wasm] emscripten=${EMSCRIPTEN_VERSION} binaryen=${WASM_OPT_VERSION}"
+echo "[build:wasm] emcc=${EMCC_BIN} emscripten=${EMSCRIPTEN_VERSION} binaryen=${WASM_OPT_VERSION}"
 
 if [[ "${FSUSBLOG_WASM_DISABLE_VCPKG_AUTODETECT:-0}" != "1" ]]; then
     VCPKG_ROOT_CANDIDATE="${VCPKG_ROOT:-/home/dev/vcpkg}"

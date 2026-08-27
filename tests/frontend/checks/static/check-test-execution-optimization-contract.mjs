@@ -261,6 +261,8 @@ requireIncludes('src/frontend/wasm/build.sh', [
     '--check-source-paths',
     'RunEmcmake() {',
     '"${EMCMAKE_CMD[@]}" "$@"',
+    'EMCC_BIN="$(dirname "${EMCMAKE_CMD[0]}")/emcc"',
+    'EMSCRIPTEN_VERSION="$("${EMCC_BIN}" --version',
     'RunEmcmake "${CMAKE_BIN}" --fresh "${WASM_SOURCE_DIR}"',
     'RunEmcmake "${CMAKE_BIN}" --fresh "${WASM_POW_SOURCE_DIR}"',
     'COMMENT_PRIVACY_BUILD_CONTRACT="${REPOSITORY_ROOT}/tools/security/comment-privacy-build-contract.mjs"',
