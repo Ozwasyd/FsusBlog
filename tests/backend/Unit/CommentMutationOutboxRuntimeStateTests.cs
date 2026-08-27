@@ -8,6 +8,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class CommentMutationOutboxRuntimeStateTests
 {
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void ClaimLeasePolicy_DefaultsToSixtySecondsAndHeartbeatIsStrictlyLessThanOneThird()
     {
         IConfiguration configuration = new ConfigurationBuilder().Build();
@@ -19,6 +20,7 @@ public sealed class CommentMutationOutboxRuntimeStateTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "content-lifecycle-fail-closed")]
     public void Update_ExposesBacklogLatencyRetryFailureAndPoisonState()
     {
         var state = new CommentMutationOutboxRuntimeState();
@@ -37,6 +39,7 @@ public sealed class CommentMutationOutboxRuntimeStateTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void Update_ExposesClaimLeaseLifecycle()
     {
         var state = new CommentMutationOutboxRuntimeState();
@@ -51,6 +54,7 @@ public sealed class CommentMutationOutboxRuntimeStateTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void BuildSourceEventId_IsStablePerEventAndConsumer()
     {
         long first = CommentMutationOutboxWorker.BuildSourceEventId("018ff010-1234-7abc-8def-0123456789ab", "reply");
@@ -63,6 +67,7 @@ public sealed class CommentMutationOutboxRuntimeStateTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "content-lifecycle-fail-closed")]
     public void ResolveRealtimeAction_FailsClosedForOutOfOrderModerationAndDeleteEvents()
     {
         var delayedApproval = new CommentMutationOutboxEvent

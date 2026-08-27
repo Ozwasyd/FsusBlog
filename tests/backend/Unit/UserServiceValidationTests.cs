@@ -143,6 +143,7 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task BootstrapAnonymousAccountAsync_AnonymousIdentityMode_CreatesPasswordlessAnonymousContainer()
     {
         using var _ = SetAnonymousIdentityMode("1");
@@ -179,6 +180,7 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public async Task BootstrapAnonymousAccountAsync_WithoutHandlePersistsIdBasedPhysicalSubjectInTransaction()
     {
         using var _ = SetAnonymousIdentityMode("1");
@@ -311,6 +313,7 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task DeleteAccountAsync_ExecutesAnonymousTombstoneAndAssetRevocationInsideTransaction()
     {
         var db = Substitute.For<ISqlSugarClient>();
@@ -661,6 +664,7 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public async Task RevokeRefreshTokenAsync_EmptyToken_ReturnsFalse()
     {
         var svc = BuildSessionService();
@@ -668,6 +672,7 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public async Task RevokeSessionAsync_EmptySessionId_ReturnsFalse()
     {
         var svc = BuildSessionService();
@@ -675,6 +680,7 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public async Task RevokeSessionAsync_NullSessionId_ReturnsFalse()
     {
         var svc = BuildSessionService();
@@ -682,6 +688,7 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public async Task RevokeSessionAsync_PublicationFailureRollsBackAndInvalidatesPossiblePartialSnapshot()
     {
         var db = Substitute.For<ISqlSugarClient>();
@@ -746,6 +753,7 @@ public class UserServiceValidationTests
     [Theory]
     [InlineData("logout")]
     [InlineData("revoke-others")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task RevocationProducers_PublishDistributedFenceBeforeTransactionCommit(string producer)
     {
         var db = Substitute.For<ISqlSugarClient>();
@@ -793,6 +801,7 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public async Task RefreshTokenAsync_WithSessionId_EmptyToken_ReturnsFalse()
     {
         var svc = BuildSessionService();
@@ -802,6 +811,7 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public async Task RefreshTokenAsync_NullToken_ReturnsFalse()
     {
         var svc = BuildSessionService();
@@ -812,6 +822,7 @@ public class UserServiceValidationTests
 
     [Fact]
     [Trait("Category", "SecurityStateMachine")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public async Task RefreshTokenAsync_RotationCarriesIssuedAccessExpiryForCookieHandoff()
     {
         var db = Substitute.For<ISqlSugarClient>();
@@ -865,6 +876,7 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public async Task RefreshTokenAsync_EmptyToken_ReturnsFalse()
     {
         var svc = BuildSessionService();
@@ -874,6 +886,7 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public async Task GetSessionByRefreshTokenAsync_EmptyToken_ReturnsNull()
     {
         var svc = BuildSessionService();
@@ -881,6 +894,7 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public async Task GetSessionByRefreshTokenAsync_NullToken_ReturnsNull()
     {
         var svc = BuildSessionService();
@@ -888,6 +902,7 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public async Task RefreshTokenWithExpiryAsync_ReturnsRotatedIdleExpiryWithoutSecondSessionLookup()
     {
         var db = Substitute.For<ISqlSugarClient>();
@@ -953,6 +968,7 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task VerifyRefreshRotationAsync_RequiresExactlyOneActiveSessionWithCurrentHash()
     {
         var db = Substitute.For<ISqlSugarClient>();
@@ -991,6 +1007,7 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task IsRecentConcurrentRefreshRotationAsync_AcceptsOnlyRecentDifferentActiveHash()
     {
         var db = Substitute.For<ISqlSugarClient>();
@@ -1026,6 +1043,7 @@ public class UserServiceValidationTests
     [Theory]
     [InlineData(0)]
     [InlineData(2)]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public async Task VerifyRefreshRotationAsync_RejectsMissingOrAmbiguousRows(int matchCount)
     {
         var db = Substitute.For<ISqlSugarClient>();
@@ -1044,6 +1062,7 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public async Task RefreshTokenAsync_RotationConflictEmitsReplayMetricAndReturnsFailure()
     {
         var db = Substitute.For<ISqlSugarClient>();
@@ -1106,6 +1125,7 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public void RefreshFamilyRevokeMetrics_ExposeClosedReplayWindowAndRevokedSessionCount()
     {
         var measurements = new ConcurrentBag<(string Name, double Value)>();
@@ -1121,6 +1141,7 @@ public class UserServiceValidationTests
 
     [Fact]
     [Trait("Category", "SecurityStateMachine")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public async Task CompleteLoginAsync_BannedUser_IssuesRestrictedSessionToken()
     {
         var db = Substitute.For<ISqlSugarClient>();
@@ -1169,6 +1190,7 @@ public class UserServiceValidationTests
 
     [Fact]
     [Trait("Category", "SecurityStateMachine")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task CompleteLoginAsync_NormalUser_IssuesSessionToken()
     {
         var db = Substitute.For<ISqlSugarClient>();
@@ -1210,6 +1232,7 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task CompleteLoginAsync_UsesPostgresLockBoundedAdmissionAndInsertInOneTransaction()
     {
         var db = Substitute.For<ISqlSugarClient>();
@@ -1319,6 +1342,7 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public async Task CompleteLoginAsync_TransactionFailureReturnsFailureWithoutPublishingSessionState()
     {
         var db = Substitute.For<ISqlSugarClient>();
@@ -1355,6 +1379,7 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public async Task CompleteLoginAsync_CommitFailureInvalidatesPreCommitRevocationFence()
     {
         var db = Substitute.For<ISqlSugarClient>();
