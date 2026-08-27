@@ -208,6 +208,15 @@ test('account-messaging prepares, independently verifies, and exactly cleans own
     assert.equal(result.capabilities.length, 13);
     assert.equal(result.capabilityProofs.length, 13);
     assert.match(result.contentDigest, /^sha256:[a-f0-9]{64}$/u);
+    assert.deepEqual(result.entityIdentities, [
+        { kind: 'thread', id: '7001', variantId: 'canonical.messages.thread' },
+        {
+            kind: 'message',
+            id: '8001',
+            variantId: 'canonical.messages.thread',
+            digest: digest('e')
+        }
+    ]);
     const verification = await verifyAccountMessaging(context, result);
     assert.equal(verification.ok, true);
     assert.equal(verification.producerId, 'account-messaging');

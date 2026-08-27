@@ -277,8 +277,51 @@ function bindTypedVariants(context, entityIdentities, observations)
         }
         return Object.freeze({ ...entity, variantId });
     };
+    const receiptIdentityFor = (entity) =>
+    {
+        const allowedSourceKeys = new Set([
+            'kind',
+            'id',
+            'handle',
+            'digest',
+            'contentDigest',
+            'owner',
+            'semanticRole'
+        ]);
+        for (const key of Object.keys(entity ?? {}))
+        {
+            if (!allowedSourceKeys.has(key))
+            {
+                throw new Error(`account-messaging entity identity field ${key} is not receipt-safe`);
+            }
+        }
+        const typed = variantFor(entity);
+        const receiptIdentity = {
+            kind: typed.kind,
+            id: String(typed.id),
+            variantId: typed.variantId
+        };
+        if (typed.handle != null)
+        {
+            receiptIdentity.handle = String(typed.handle);
+        }
+        const digest = typed.digest ?? typed.contentDigest;
+        if (digest != null)
+        {
+            if (!digestPattern.test(String(digest)))
+            {
+                throw new Error('account-messaging entity identity digest is invalid');
+            }
+            receiptIdentity.digest = String(digest);
+        }
+        if (typed.owner != null)
+        {
+            receiptIdentity.owner = String(typed.owner);
+        }
+        return Object.freeze(receiptIdentity);
+    };
     return Object.freeze({
-        entityIdentities: Object.freeze(entityIdentities.map(variantFor)),
+        entityIdentities: Object.freeze(entityIdentities.map(receiptIdentityFor)),
         observations: Object.freeze({
             ...observations,
             database: Object.freeze({
