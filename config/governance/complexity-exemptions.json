@@ -106,6 +106,46 @@
             "sourceFingerprint": "sha256:eff178a3892f5899a3cdf8ed0f8dd5acfaee6bb159ea8512177966e1a5c03d43"
         },
         {
+            "file": "src/backend/Services/Fixtures/AuthFixtureSeeder.cs",
+            "owner": "TestFixtureAgent:auth-session",
+            "reason": "Temporary bounded aggregate while the auth fixture composition root is split along identity WebAuthn session and admin lifecycle ports",
+            "expires": "2026-09-27",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2150",
+            "sourceFingerprint": "sha256:20af191b8025bc99b79cfb84f522666e1c8ae1fdf11d7112445ea84d636316ae"
+        },
+        {
+            "file": "tests/backend/Unit/AuthFixtureCompositionRootTests.cs",
+            "owner": "TestFixtureAgent:auth-session",
+            "reason": "Temporary fixture endpoint coverage bridge while composition root tests are split by prepare verify and access-control boundary",
+            "expires": "2026-09-27",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2150",
+            "sourceFingerprint": "sha256:c5f26daa8ac95bc4de84d47098fda788318786369b189a70eee50fbd0b14b95b"
+        },
+        {
+            "file": "tests/tools/auth-session-fixture-producer.test.mjs",
+            "owner": "TestFixtureAgent:auth-session",
+            "reason": "Temporary complete auth matrix coverage bridge while producer tests are split by allocation lifecycle and live ingress contracts",
+            "expires": "2026-09-27",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2150",
+            "sourceFingerprint": "sha256:296f5b9fbea89720bb55ef09bf5c902c997a56d2b0a9b11b119796e863b0960a"
+        },
+        {
+            "file": "tests/tools/fixture-orchestrator.test.mjs",
+            "owner": "TestFixtureAgent:auth-session",
+            "reason": "Temporary DAG allocation coverage bridge while producer receipt and consumer identity wave tests are split into focused modules",
+            "expires": "2026-09-27",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2150",
+            "sourceFingerprint": "sha256:d9e616798c33f18486d66fb48255c0a9fa30b64a82d88e24e1b1f998ae41063b"
+        },
+        {
+            "file": "tools/test-fixtures/producers/auth-session-producer.mjs",
+            "owner": "TestFixtureAgent:auth-session",
+            "reason": "Temporary exact-one producer aggregate while deterministic planning validation projection and live composition-root adapters are separated",
+            "expires": "2026-09-27",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2150",
+            "sourceFingerprint": "sha256:d69fdc2b2b030829996f5f4dc20fc0a601eb985ed164ef38ae552c5f81d67cce"
+        },
+        {
             "file": "tools/test/temporal-role-resolver.mjs",
             "owner": "TestInfrastructureAgent:temporal-fixtures",
             "reason": "Temporary bounded bridge while the cross-runtime resolver projections and producer receipt surface are split after semantic-role cutover",
