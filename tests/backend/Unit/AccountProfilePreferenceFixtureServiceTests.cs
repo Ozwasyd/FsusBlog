@@ -153,6 +153,43 @@ public sealed class AccountProfilePreferenceFixtureServiceTests
         Assert.Equal(result.ContentDigest, verification.ContentDigest);
     }
 
+    [Fact]
+    public async Task Prepare_CompensatesProfileMutation_WhenIndependentReaderFails()
+    {
+        FixtureHarness harness = new();
+        AccountProfilePreferenceFixtureRequest request = harness.Request(
+            [AccountProfilePreferenceFixtureCapabilities.ProfileSet],
+            ["profile-set"]);
+        int userId = Assert.Single(request.IdentityReferences).UserId;
+        harness.AccountReader.GetAccountByIdAsync(userId)
+            .Returns(Task.FromResult<UserAccountSnapshot?>(null));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => harness.Service.PrepareAsync(request));
+
+        Assert.Null(harness.States[userId].PublicHandle);
+    }
+
+    [Fact]
+    public async Task Prepare_CompensatesPreferenceMutation_WhenIndependentReaderFails()
+    {
+        FixtureHarness harness = new();
+        AccountProfilePreferenceFixtureRequest request = harness.Request(
+            [AccountProfilePreferenceFixtureCapabilities.LocaleFixedDefault],
+            ["preference-fixed-default"]);
+        int userId = Assert.Single(request.IdentityReferences).UserId;
+        harness.PreferenceReader.GetAsync(userId, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new UserLocalePreferenceDto(
+                LocalePreferenceModes.Auto,
+                null,
+                0,
+                DateTime.UnixEpoch)));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => harness.Service.PrepareAsync(request));
+
+        Assert.False(harness.States[userId].PreferenceExists);
+        Assert.Equal(0, harness.States[userId].Preference.Revision);
+    }
+
     private sealed class FixtureHarness
     {
         private const string Namespace = "account-profile-test";

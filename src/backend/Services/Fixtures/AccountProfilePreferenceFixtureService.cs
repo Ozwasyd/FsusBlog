@@ -239,6 +239,50 @@ internal sealed class AccountProfilePreferenceFixtureService(
         var projections = new List<AccountLocaleDeviceProjection>();
         var cleanup = new Dictionary<string, AccountFixtureCleanupState>(StringComparer.Ordinal);
 
+        try
+        {
+            return await PrepareCoreAsync(
+                request,
+                context,
+                entities,
+                identities,
+                projections,
+                cleanup,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception prepareFailure)
+        {
+            try
+            {
+                await RestoreCleanupAsync(
+                    cleanup.Values.Reverse(),
+                    CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception cleanupFailure)
+            {
+                throw new AggregateException(
+                    "account profile/preference fixture prepare and compensation both failed",
+                    prepareFailure,
+                    cleanupFailure);
+            }
+
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo
+                .Capture(prepareFailure)
+                .Throw();
+            throw;
+        }
+    }
+
+    private async Task<AccountProfilePreferenceFixtureResult> PrepareCoreAsync(
+        AccountProfilePreferenceFixtureRequest request,
+        RequestContext context,
+        List<AccountFixtureObservedEntity> entities,
+        List<AccountFixtureEntityIdentity> identities,
+        List<AccountLocaleDeviceProjection> projections,
+        IDictionary<string, AccountFixtureCleanupState> cleanup,
+        CancellationToken cancellationToken)
+    {
+
         if (context.Capabilities.Contains(AccountProfilePreferenceFixtureCapabilities.ProfileEmpty))
         {
             AccountFixtureIdentityReference identity = context.RequireIdentity("profile-empty");
@@ -284,6 +328,10 @@ internal sealed class AccountProfilePreferenceFixtureService(
             AccountProfilePreferenceObservedState challengerBefore = await stateReader
                 .ReadAsync(challenger.UserId, cancellationToken)
                 .ConfigureAwait(false);
+            cleanup[challenger.SemanticRole] = CleanupState(challenger, challengerBefore) with
+            {
+                ProfileChanged = true
+            };
             (bool success, _) = await profileCommands
                 .UpdatePublicHandleAsync(challenger.UserId, handle, cancellationToken)
                 .ConfigureAwait(false);
@@ -610,7 +658,14 @@ internal sealed class AccountProfilePreferenceFixtureService(
                 $"cleanup requires an exact verified fixture result: {verification.Failure}");
         }
 
-        foreach (AccountFixtureCleanupState state in result.CleanupState.Reverse())
+        await RestoreCleanupAsync(result.CleanupState.Reverse(), cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task RestoreCleanupAsync(
+        IEnumerable<AccountFixtureCleanupState> cleanupState,
+        CancellationToken cancellationToken)
+    {
+        foreach (AccountFixtureCleanupState state in cleanupState)
         {
             AccountProfilePreferenceObservedState current = await stateReader
                 .ReadAsync(state.UserId, cancellationToken)
@@ -620,11 +675,14 @@ internal sealed class AccountProfilePreferenceFixtureService(
                 throw new InvalidOperationException("cleanup refused after auth/session/security state drift");
             }
 
-            if (state.PreferenceChanged && state.CommittedPreference.HasValue)
+            if (state.PreferenceChanged
+                && (current.PreferenceExists != state.PreviousPreferenceExisted
+                    || !SamePreference(current.Preference, state.PreviousPreference)))
             {
+                UserLocalePreferenceDto committed = state.CommittedPreference ?? current.Preference;
                 bool compensated = await preferenceCommands.CompensateAsync(
                     state.UserId,
-                    state.CommittedPreference.Value,
+                    committed,
                     state.PreviousPreference,
                     state.PreviousPreferenceExisted,
                     cancellationToken).ConfigureAwait(false);
@@ -634,7 +692,7 @@ internal sealed class AccountProfilePreferenceFixtureService(
                 }
             }
 
-            if (state.ProfileChanged)
+            if (state.ProfileChanged && current.PublicHandle != state.PreviousPublicHandle)
             {
                 (bool success, _) = await profileCommands.UpdatePublicHandleAsync(
                     state.UserId,
@@ -716,6 +774,10 @@ internal sealed class AccountProfilePreferenceFixtureService(
             return;
         }
 
+        cleanup[identity.SemanticRole] = CleanupState(identity, before) with
+        {
+            ProfileChanged = true
+        };
         (bool success, _) = await profileCommands
             .UpdatePublicHandleAsync(identity.UserId, publicHandle, cancellationToken)
             .ConfigureAwait(false);
@@ -723,11 +785,6 @@ internal sealed class AccountProfilePreferenceFixtureService(
         {
             throw new InvalidOperationException($"profile command rejected owned role {identity.SemanticRole}");
         }
-
-        cleanup[identity.SemanticRole] = CleanupState(identity, before) with
-        {
-            ProfileChanged = true
-        };
     }
 
     private async Task<PreferenceMutation> EnsurePreferenceAsync(
@@ -750,6 +807,10 @@ internal sealed class AccountProfilePreferenceFixtureService(
             return new PreferenceMutation(before, before.Preference);
         }
 
+        cleanup[identity.SemanticRole] = CleanupState(identity, before) with
+        {
+            PreferenceChanged = true
+        };
         UserLocalePreferenceUpdateResult update = await preferenceCommands.UpdateAtAsync(
             identity.UserId,
             new UserLocalePreferenceUpdateDto(mode, fixedLocale, before.Preference.Revision),
