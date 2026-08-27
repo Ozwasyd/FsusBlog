@@ -46,7 +46,7 @@
         "coverage:wasm-bridges": "npm run check:public-page-manifest-sync && vitest run --config vitest.wasm-bridges.config.ts --coverage",
         "coverage:adapters-binary": "npm run check:public-page-manifest-sync && vitest run --config vitest.adapters-binary.config.ts --coverage",
         "coverage:composables-state": "npm run check:public-page-manifest-sync && vitest run --config vitest.composables-state.config.ts --coverage",
-        "test:property": "vitest run --config vitest.property.config.ts",
+        "test:property": "node ../../tools/test/run-random-stream-producer.mjs --producer frontend-property-model-perf -- vitest run --config vitest.property.config.ts",
         "check:frontend-state-machines": "vitest run --config vitest.model.config.ts",
         "check:frontend-perf-regression": "vitest run --config vitest.perf.config.ts",
         "check:worker-contracts": "node ../../tests/frontend/checks/runtime/check-worker-contracts.mjs",

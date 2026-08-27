@@ -7,6 +7,27 @@ import { NotificationStreamEventType, type ArticleUpdatePayload, type Notificati
 
 const SAMPLE_ALPHABET = 'abcXYZ中文测试 　\u200B_%/:加微信学习'
 const NOW_MS = Date.parse('2026-01-01T00:00:00Z')
+const SOURCE = 'tests/frontend/property/frontendProperties.test.ts'
+
+function replaySeed(canonicalTestId: string, streamId: string): number {
+  const document = process.env.FSUSBLOG_RANDOM_STREAMS_JSON
+  if (!document) throw new Error('frontend property correctness requires sealed FSUSBLOG_RANDOM_STREAMS_JSON')
+  const streams = JSON.parse(document) as Record<string, string>
+  const seed = streams[`${canonicalTestId}\u0000${streamId}`]
+  if (!/^seed256:[0-9a-f]{64}$/u.test(seed ?? '')) {
+    throw new Error(`frontend property replay stream is missing or invalid: ${streamId}`)
+  }
+  return Number.parseInt(seed.slice('seed256:'.length, 'seed256:'.length + 8), 16) >>> 0
+}
+
+const MODERATION_SAMPLE_SEED = replaySeed(
+  `vitest:${SOURCE}#keeps%20moderation%20normalization%20idempotent%20across%20generated%20Unicode%20samples`,
+  'frontend-moderation-unicode-samples'
+)
+const SEARCH_FIXTURE_SEED = replaySeed(
+  `vitest:${SOURCE}#keeps%20search%20ranking%20deterministic%20for%20generated%20fixtures`,
+  'frontend-search-ranking-fixtures'
+)
 
 function generateString(seed: number, maxLength = 48): string {
   let state = seed >>> 0
@@ -58,8 +79,8 @@ function canonicalArticlePatch(patch: NotificationStreamArticleRenderPatch): str
 
 describe('frontend property tests', () => {
   it('keeps moderation normalization idempotent across generated Unicode samples', () => {
-    for (let seed = 1; seed <= 128; seed += 1) {
-      const normalized = normalizeModerationText(generateString(seed))
+    for (let index = 0; index < 128; index += 1) {
+      const normalized = normalizeModerationText(generateString((MODERATION_SAMPLE_SEED + index) >>> 0))
       expect(normalizeModerationText(normalized)).toBe(normalized)
     }
   })
@@ -100,7 +121,7 @@ describe('frontend property tests', () => {
 
   it('keeps search ranking deterministic for generated fixtures', () => {
     const items = Array.from({ length: 20 }, (_, index) =>
-      makeArticle(index + 1, `${generateString(index + 10, 12)} protocol`, index * 13)
+      makeArticle(index + 1, `${generateString((SEARCH_FIXTURE_SEED + index) >>> 0, 12)} protocol`, index * 13)
     )
 
     const first = rankSearchPage({ items, total: items.length }, 'protocol vue', 'relevance', NOW_MS)

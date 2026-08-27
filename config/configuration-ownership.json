@@ -117,6 +117,18 @@
             "pathType": "file"
         },
         {
+            "id": "playwright-replay-decision",
+            "owner": "test-execution-replay-governance",
+            "canonicalPath": "config/testing/playwright-replay-decision.json",
+            "pathType": "file"
+        },
+        {
+            "id": "random-stream-consumer-inventory",
+            "owner": "test-execution-replay-governance",
+            "canonicalPath": "config/testing/random-stream-consumers.json",
+            "pathType": "file"
+        },
+        {
             "id": "fsusui-test-baseline",
             "owner": "frontend-test-governance",
             "canonicalPath": "config/testing/fsusui-baseline.json",
