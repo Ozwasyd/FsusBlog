@@ -1,0 +1,44 @@
+{
+    "schema": "fsusblog.clean-attempt-consumer-inventory.v1",
+    "unifiedVerifier": "tools/release/clean-first-attempt-verifier.mjs#cleanFirstAttemptVerdict",
+    "migrationState": "pending-external-authorities",
+    "qualificationEligible": false,
+    "consumers": [
+        {
+            "id": "browser-contract",
+            "entrypoints": [
+                "tests/browser-contract/run.mjs",
+                "tools/release/test-evidence-receipts.mjs"
+            ],
+            "producerKinds": ["browser-contract"],
+            "attemptSchema": "fsusblog.test-attempt-receipt.v1",
+            "aggregateSchema": "fsusblog.test-attempt-aggregate-receipt.v1",
+            "outputSchemas": ["fsusblog.browser-contract-receipt.v2"],
+            "membershipFields": ["browsers", "projects", "semanticArtifactIds", "testIds"]
+        },
+        {
+            "id": "production-correctness",
+            "entrypoints": [
+                "tools/release/test-evidence-receipts.mjs",
+                "tools/run-test-matrix.mjs"
+            ],
+            "producerKinds": ["integration", "unit"],
+            "attemptSchema": "fsusblog.test-attempt-receipt.v1",
+            "aggregateSchema": "fsusblog.test-attempt-aggregate-receipt.v1",
+            "outputSchemas": ["fsusblog.browserless-correctness-receipt.v1"],
+            "membershipFields": ["selectedTierIds", "testVectors"]
+        },
+        {
+            "id": "release-reliability",
+            "entrypoints": [
+                "tools/release/release-reliability-qualified-receipt.mjs",
+                "tools/test/release-reliability-receipt.mjs"
+            ],
+            "producerKinds": ["reliability"],
+            "attemptSchema": "fsusblog.test-attempt-receipt.v1",
+            "aggregateSchema": "fsusblog.test-attempt-aggregate-receipt.v1",
+            "outputSchemas": ["fsusblog.release-reliability-qualified-receipt.v1"],
+            "membershipFields": ["lifecyclePhases", "scenarioIds"]
+        }
+    ]
+}
