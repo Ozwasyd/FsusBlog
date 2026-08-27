@@ -10,7 +10,10 @@
 
 import { createHash } from 'node:crypto';
 
-import { validateTemporalContext } from '../../test/temporal-context.mjs';
+import {
+    resolveTemporalRolesForProducer,
+    verifyResolvedTemporalArtifact
+} from '../../test/temporal-role-resolver.mjs';
 import { digestCanonical } from '../receipt/canonical.mjs';
 import { assertNoSecrets } from '../receipt/secrets.mjs';
 
@@ -147,19 +150,57 @@ function requireAuthIdentityRef(context, capabilities)
 
 function temporalFacts(context)
 {
-    const temporal = validateTemporalContext(context.temporalContext);
-    if (temporal.producerId !== 'security-state'
-      || temporal.schedulerRunId !== context.runIdentity)
-    {
-        throw new Error('security fixture temporal context identity mismatch');
-    }
-    return Object.freeze({
-        businessEpochUtc: temporal.businessEpochUtc,
-        businessClockMode: temporal.businessClockMode,
-        timezone: temporal.timezone,
-        locale: temporal.locale,
-        contextDigest: digestCanonical(temporal)
+    const artifact = resolveTemporalRolesForProducer({
+        temporalContext: context.temporalContext,
+        namespace: context.namespace,
+        fixtureId: 'security-state'
     });
+    verifyResolvedTemporalArtifact(artifact, { temporalContext: context.temporalContext });
+    return Object.freeze({
+        businessEpochUtc: artifact.contextIdentity.businessEpochUtc,
+        businessClockMode: 'fixed',
+        timezone: artifact.projection.timezone,
+        locale: artifact.projection.locale,
+        contextDigest: artifact.contextIdentity.contextDigest,
+        catalogDigest: artifact.catalog.digest,
+        shape: artifact.shape,
+        semanticDigest: artifact.semanticDigest,
+        contentDigest: artifact.contentDigest,
+        roles: artifact.roles
+    });
+}
+
+function temporalRoleIds(capabilityId)
+{
+    if (/^security\.risk\./u.test(capabilityId))
+    {
+        return ['security.risk-occurred', 'security.risk-expiry'];
+    }
+    if (capabilityId === 'security.pow.elevated')
+    {
+        return ['security.pow-window-start', 'security.pow-window-end'];
+    }
+    if (/^security\.rate-limit\./u.test(capabilityId))
+    {
+        return ['security.rate-limit-window-start', 'security.rate-limit-window-end'];
+    }
+    if (/^security\.subject\./u.test(capabilityId))
+    {
+        return ['security.ban-start', 'security.ban-end'];
+    }
+    if (/^security\.credential\./u.test(capabilityId))
+    {
+        return ['security.credential-issued', 'security.credential-revoked', 'security.credential-expiry'];
+    }
+    if (capabilityId === 'security.nullifier.blocked')
+    {
+        return ['security.nullifier-issued'];
+    }
+    if (/^security\.(?:issuance|audit)\./u.test(capabilityId))
+    {
+        return ['security.credential-issued', 'security.credential-revoked'];
+    }
+    return ['security.risk-occurred'];
 }
 
 function variantByCapability(context)
@@ -207,6 +248,8 @@ export function buildSecurityFixtureOperationPlan(context)
             nullifier: identityRef('nullifier', runId, namespace, semanticRole),
             issuance: identityRef('issuance', runId, namespace, semanticRole),
             temporal,
+            temporalRoles: Object.freeze(temporalRoleIds(capabilityId).map((roleId) =>
+                temporal.roles.find((role) => role.roleId === roleId))),
             authIdentityRef
         };
         assertPublicDocument(operation, `security operation ${capabilityId}`);

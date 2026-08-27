@@ -227,6 +227,10 @@ test('single producer routes every capability through its sealed family and inde
     assert.deepEqual(result.providedCapabilities, Object.keys(capabilityDecisions).sort());
     assert.equal(result.domainObservations.length, 3);
     assert.equal(result.cleanupContract.ownedEntityDigests.length, result.providedCapabilities.length * 5);
+    assert.equal(result.operationPlan.temporal.shape.id, 'auth-security-messaging-account-lifecycle');
+    assert.ok(result.operationPlan.temporal.roles.every((role) => role.precision === 'millisecond'));
+    assert.ok(result.operationPlan.operations.every((operation) =>
+        operation.temporalRoles.length > 0 && operation.temporalRoles.every(Boolean)));
     assert.equal((await verifySecurityFixtures(context, result)).ok, true);
     await cleanupSecurityFixtures(context, result);
     assert.equal(calls.filter((item) => item.startsWith('observe:')).length, 6);

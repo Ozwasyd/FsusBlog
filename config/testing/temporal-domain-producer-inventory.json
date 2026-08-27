@@ -42,7 +42,7 @@
             "producerId": "security-state",
             "shapeId": "auth-security-messaging-account-lifecycle",
             "implementations": [
-                "tests/frontend/support/session-fixtures.mjs"
+                "tools/test-fixtures/producers/security-fixture-producer.mjs"
             ],
             "fieldMappings": [
                 { "field": "risk.occurred-at", "roleId": "security.risk-occurred", "consumer": "risk-policy" },

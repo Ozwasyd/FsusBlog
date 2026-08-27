@@ -79,7 +79,23 @@
             "reason": "Temporary bounded bridge while the new security producer contract and three production-semantic family lifecycles are split after consumer cutover",
             "expires": "2026-09-22",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2156",
-            "sourceFingerprint": "sha256:f56b252981541da52b0449dc6d1a850f54c6a38bfaa3e6d630a4e8f277c4f5fb"
+            "sourceFingerprint": "sha256:5beae943c5bc42d69abf345a3b009488efab2e42110b9a8dccb4783e49d78af1"
+        },
+        {
+            "file": "tools/test/temporal-role-resolver.mjs",
+            "owner": "TestInfrastructureAgent:temporal-fixtures",
+            "reason": "Temporary bounded bridge while the cross-runtime resolver projections and producer receipt surface are split after semantic-role cutover",
+            "expires": "2026-09-22",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2530",
+            "sourceFingerprint": "sha256:1634155fb0611ec9eac76e297571773757770ad2cb848a479e0be804b2ebebec"
+        },
+        {
+            "file": "tools/test/temporal-shape-catalog.mjs",
+            "owner": "TestInfrastructureAgent:temporal-fixtures",
+            "reason": "Temporary bounded bridge while semantic temporal shape loading and closed-schema validation are split after producer migration",
+            "expires": "2026-09-22",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2530",
+            "sourceFingerprint": "sha256:55e120ca8dc384c43a121d99b7c2d2cf4f7668fb24e54fcc463f08d2e666217d"
         }
     ]
 }
