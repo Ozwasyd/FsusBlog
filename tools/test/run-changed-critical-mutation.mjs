@@ -310,7 +310,16 @@ function main()
         attributions,
         blocked,
         behaviorCatalog,
-        behaviorIds: selection.behaviors.map(({ behaviorId }) => behaviorId)
+        behaviorIds: selection.behaviors.map(({ behaviorId }) => behaviorId),
+        qualificationOptions: {
+            expectedOwnerPathsByBehavior: Object.fromEntries(
+                selection.behaviors.map((behavior) => [
+                    behavior.behaviorId,
+                    [...new Set(behavior.mutateFiles ?? [])]
+                        .sort((left, right) => left.localeCompare(right))
+                ])
+            )
+        }
     });
     const failureReasons = [
         ...blocked.map((entry) => `${entry.mutantId} attribution blocked: ${entry.reason}`),

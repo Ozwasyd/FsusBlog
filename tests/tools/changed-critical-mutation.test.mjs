@@ -369,6 +369,31 @@ test('per-behavior qualification fails on survived mutants regardless of domain 
     assert.equal(auth.qualified, true);
 });
 
+test('per-behavior qualification requires killed evidence for every selected owner file', () =>
+{
+    const attributions = [
+        { mutantId: 'm1', behaviorId: 'binary-api-aeds-contract', status: 'Killed', sourcePath: 'src/core/A.cs', symbol: 'A', mutator: 'Arith', coveredTestIds: ['t1'], killedTestIds: ['t1'] },
+        { mutantId: 'm2', behaviorId: 'binary-api-aeds-contract', status: 'Ignored', sourcePath: 'src/core/B.cs', symbol: 'B', mutator: 'Block', coveredTestIds: [], killedTestIds: [] }
+    ];
+    const { qualifications, failed } = qualifyBehaviorMutations({
+        attributions,
+        blocked: [],
+        behaviorCatalog: makeBehaviorCatalog(),
+        behaviorIds: ['binary-api-aeds-contract'],
+        qualificationOptions: {
+            expectedOwnerPathsByBehavior: {
+                'binary-api-aeds-contract': ['src/core/A.cs', 'src/core/B.cs']
+            }
+        }
+    });
+
+    assert.equal(failed, true);
+    assert.equal(qualifications[0].requiredOwners, 2);
+    assert.equal(qualifications[0].killedOwners, 1);
+    assert.ok(qualifications[0].failures.some((failure) =>
+        failure.includes('owner src/core/B.cs has no killed mutant evidence')));
+});
+
 test('mutation evidence receipt seals and validates', () =>
 {
     const receipt = sealMutationEvidenceReceipt({

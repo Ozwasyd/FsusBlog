@@ -792,6 +792,12 @@ function produceBehaviorMutationQualification(options)
 
     // 8. Per-behavior qualification with exact required mutants.
     const expectedByBehavior = expectedAttributionMutantIdsByBehavior(selection, authority);
+    const expectedOwnerPathsByBehavior = Object.fromEntries(
+        selection.behaviors.map((behavior) => [
+            behavior.behaviorId,
+            [...new Set(behavior.mutateFiles ?? [])].sort((left, right) => left.localeCompare(right))
+        ])
+    );
     const qualification = qualifyBehaviorMutations({
         attributions,
         blocked,
@@ -799,6 +805,7 @@ function produceBehaviorMutationQualification(options)
         behaviorIds: selection.behaviors.map(({ behaviorId }) => behaviorId),
         qualificationOptions: {
             expectedMutantIdsByBehavior: expectedByBehavior,
+            expectedOwnerPathsByBehavior,
             cleanTestIdsByBehavior,
             bindingByTestId: bindingByTestIdObject,
             testIdentityByRawId
