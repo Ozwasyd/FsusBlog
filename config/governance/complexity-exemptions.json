@@ -72,6 +72,86 @@
             "expires": "2026-09-22",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2792",
             "sourceFingerprint": "sha256:2dc7b06a5c9f63c94f9a02dd6e2f8496e89af0ae7e6e3ea8898b980f5e752031"
+        },
+        {
+            "file": "src/backend/Services/Fixtures/AuthFixtureSeeder.cs",
+            "owner": "TestFixtureAgent:auth-session",
+            "reason": "Temporary bounded aggregate while the auth fixture composition root is split along identity WebAuthn session and admin lifecycle ports",
+            "expires": "2026-09-27",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2150",
+            "sourceFingerprint": "sha256:20af191b8025bc99b79cfb84f522666e1c8ae1fdf11d7112445ea84d636316ae"
+        },
+        {
+            "file": "tests/backend/Unit/AuthFixtureCompositionRootTests.cs",
+            "owner": "TestFixtureAgent:auth-session",
+            "reason": "Temporary fixture endpoint coverage bridge while composition root tests are split by prepare verify and access-control boundary",
+            "expires": "2026-09-27",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2150",
+            "sourceFingerprint": "sha256:c5f26daa8ac95bc4de84d47098fda788318786369b189a70eee50fbd0b14b95b"
+        },
+        {
+            "file": "tests/tools/auth-session-fixture-producer.test.mjs",
+            "owner": "TestFixtureAgent:auth-session",
+            "reason": "Temporary complete auth matrix coverage bridge while producer tests are split by allocation lifecycle and live ingress contracts",
+            "expires": "2026-09-27",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2150",
+            "sourceFingerprint": "sha256:296f5b9fbea89720bb55ef09bf5c902c997a56d2b0a9b11b119796e863b0960a"
+        },
+        {
+            "file": "tests/tools/fixture-orchestrator.test.mjs",
+            "owner": "TestFixtureAgent:auth-session",
+            "reason": "Temporary DAG allocation coverage bridge while producer receipt and consumer identity wave tests are split into focused modules",
+            "expires": "2026-09-27",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2150",
+            "sourceFingerprint": "sha256:d9e616798c33f18486d66fb48255c0a9fa30b64a82d88e24e1b1f998ae41063b"
+        },
+        {
+            "file": "tools/test-fixtures/producers/auth-session-producer.mjs",
+            "owner": "TestFixtureAgent:auth-session",
+            "reason": "Temporary exact-one producer aggregate while deterministic planning validation projection and live composition-root adapters are separated",
+            "expires": "2026-09-27",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2150",
+            "sourceFingerprint": "sha256:d69fdc2b2b030829996f5f4dc20fc0a601eb985ed164ef38ae552c5f81d67cce"
+        },
+        {
+            "file": "tests/backend/Unit/AuthCookieExpiryFlowTests.cs",
+            "owner": "TestFixtureAgent:temporal-roles",
+            "reason": "Temporary session temporal role coverage bridge while cookie expiry cases are split by standard and persistent lifetime policy",
+            "expires": "2026-09-27",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2530",
+            "sourceFingerprint": "sha256:7d229db50b46d1e9607f902bd4aedf6faa910b378c4b5d0f5698ee745871f3b2"
+        },
+        {
+            "file": "tests/frontend/support/session-fixtures.mjs",
+            "owner": "TestFixtureAgent:temporal-roles",
+            "reason": "Temporary browser session projection bridge while standard and persistent semantic role adapters are decomposed",
+            "expires": "2026-09-27",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2530",
+            "sourceFingerprint": "sha256:1e61b311d5b94b2a2a84e0eefd8f2c2b622861b3b32889f8d1baa3801511ce2f"
+        },
+        {
+            "file": "tools/test-fixtures/receipt/postconditions.mjs",
+            "owner": "TestFixtureAgent:temporal-roles",
+            "reason": "Temporary fixture postcondition aggregate while temporal session invariants move into producer-scoped validators",
+            "expires": "2026-09-27",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2530",
+            "sourceFingerprint": "sha256:ffd73299391a97526d64c349658fff559cf8989219dd74c89af09c86e12d414e"
+        },
+        {
+            "file": "tools/test/temporal-role-resolver.mjs",
+            "owner": "TestFixtureAgent:temporal-roles",
+            "reason": "Temporary cross-runtime resolver aggregate while schema verification role resolution and runtime projections are split",
+            "expires": "2026-09-27",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2530",
+            "sourceFingerprint": "sha256:1634155fb0611ec9eac76e297571773757770ad2cb848a479e0be804b2ebebec"
+        },
+        {
+            "file": "tools/test/temporal-shape-catalog.mjs",
+            "owner": "TestFixtureAgent:temporal-roles",
+            "reason": "Temporary semantic shape catalog aggregate while policy projection and invariant validation are split",
+            "expires": "2026-09-27",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2530",
+            "sourceFingerprint": "sha256:bf0c9544ff8dd0d176aafa493ad651d4497ad11e26696cf3f8960ef5a29b4601"
         }
     ]
 }
