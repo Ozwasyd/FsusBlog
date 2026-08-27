@@ -6,7 +6,6 @@ using System.Text;
 using System.Text.Json;
 
 using FsusBlog.Server.Entities;
-using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Testing;
@@ -195,6 +194,15 @@ public sealed class SecurityFixtureCompositionRoot(
             };
         }
 
+        int accountId = operation.SourceAccountId
+            ?? throw new InvalidOperationException("security fixture requires an auth-session allocated account");
+        User allocatedAccount = await db.Queryable<User>().InSingleAsync(accountId).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("security fixture auth identity account is missing");
+        if (allocatedAccount.RegistrationState != AccountRegistrationStates.Active)
+        {
+            throw new InvalidOperationException("security fixture auth identity account is not active");
+        }
+
         await cacheWriter.SetStringAsync(
             CachePolicyId.SecurityMfaChallenge,
             operation.OperationId,
@@ -272,7 +280,6 @@ public sealed class SecurityFixtureCompositionRoot(
             };
         }
 
-        int accountId = await CreateOwnedAccountAsync(operation, cancellationToken).ConfigureAwait(false);
         state = state with
         {
             AccountId = accountId
@@ -288,9 +295,7 @@ public sealed class SecurityFixtureCompositionRoot(
             {
                 await blacklist.UnbanUserAsync(accountId).ConfigureAwait(false);
             }
-            User account = await db.Queryable<User>().InSingleAsync(accountId).ConfigureAwait(false)
-                ?? throw new InvalidOperationException("security fixture account disappeared");
-            BanStateSnapshot observed = await blacklist.GetBanStateAsync(accountId, account.AccountSubjectHash!).ConfigureAwait(false);
+            BanStateSnapshot observed = await blacklist.GetBanStateAsync(accountId, allocatedAccount.AccountSubjectHash!).ConfigureAwait(false);
             return state with
             {
                 Present = true,
@@ -611,33 +616,15 @@ public sealed class SecurityFixtureCompositionRoot(
                 await db.Deleteable<AnonymousCredentialIssuanceAudit>()
                     .Where(item => item.SubjectHash == HexDigest(state.IssuanceDigest))
                     .ExecuteCommandAsync(cancellationToken).ConfigureAwait(false);
-                if (state.AccountId is int accountId)
+                if (state.Family == "ban" && state.AccountId is int accountId)
                 {
-                    await db.Deleteable<User>().In(accountId).ExecuteCommandAsync(cancellationToken).ConfigureAwait(false);
+                    await blacklist.UnbanUserAsync(accountId).ConfigureAwait(false);
                 }
             }
             await db.Ado.ExecuteCommandAsync(
                 $"DELETE FROM {LedgerTable} WHERE operation_id = @OperationId",
                 new SugarParameter("@OperationId", operationId)).ConfigureAwait(false);
         }
-    }
-
-    private async Task<int> CreateOwnedAccountAsync(FixtureOperation operation, CancellationToken cancellationToken)
-    {
-        string handle = $"fxsec-{HexDigest(operation.OperationId)[..20]}";
-        string subjectHash = AccountSubjectHasher.Create("anonymous_account", handle);
-        var user = new User
-        {
-            PublicHandle = handle,
-            IdentityKind = "anonymous_account",
-            AccountSubjectHash = subjectHash,
-            RegistrationState = AccountRegistrationStates.Active,
-            Status = 0,
-            CreateTime = temporal.BusinessEpochUtc.UtcDateTime
-        };
-        int accountId = await db.Insertable(user).ExecuteReturnIdentityAsync();
-        cancellationToken.ThrowIfCancellationRequested();
-        return accountId;
     }
 
     private async Task EnsureAvailableAsync(CancellationToken cancellationToken)
@@ -691,18 +678,29 @@ public sealed class SecurityFixtureCompositionRoot(
         foreach (JsonElement operation in operationsElement.EnumerateArray())
         {
             string capabilityId = Required(operation, "capabilityId");
+            int? sourceAccountId = null;
             if (capabilityId != "security.clean")
             {
                 JsonElement auth = operation.GetProperty("authIdentityRef");
+                string expectedRole = capabilityId switch
+                {
+                    "security.subject.banned" => "subject.banned",
+                    "security.subject.unbanned" => "subject.unbanned",
+                    _ => "primary"
+                };
                 if (auth.GetProperty("verified").GetBoolean()
                     || Required(auth, "ownerProducerId") != "auth-session"
+                    || Required(auth, "consumerProducerId") != "security-state"
                     || Required(auth, "runId") != runId
                     || Required(auth, "namespace") != ns
                     || Required(auth, "profileId") != binding.ProfileId
-                    || Required(auth, "role") != "user.active")
+                    || Required(auth, "role") != expectedRole
+                    || !int.TryParse(Required(auth, "publicId"), CultureInfo.InvariantCulture, out int parsedAccountId)
+                    || parsedAccountId <= 0)
                 {
                     throw new InvalidOperationException("security fixture auth identity binding mismatch");
                 }
+                sourceAccountId = parsedAccountId;
             }
             JsonElement operationTemporal = operation.GetProperty("temporal");
             DateTimeOffset businessEpoch = DateTimeOffset.Parse(
@@ -722,7 +720,8 @@ public sealed class SecurityFixtureCompositionRoot(
                 Required(operation.GetProperty("ipPseudonym"), "digest"),
                 Required(operation.GetProperty("credential"), "digest"),
                 Required(operation.GetProperty("nullifier"), "digest"),
-                Required(operation.GetProperty("issuance"), "digest")));
+                Required(operation.GetProperty("issuance"), "digest"),
+                sourceAccountId));
         }
         if (operations.Count == 0 || operations.Any(item => item.Family != family))
         {
@@ -829,7 +828,8 @@ public sealed class SecurityFixtureCompositionRoot(
         string IpPseudonymDigest,
         string CredentialDigest,
         string NullifierDigest,
-        string IssuanceDigest);
+        string IssuanceDigest,
+        int? SourceAccountId);
 
     private sealed record CleanupPlan(string PlanDigest, string Family, string[] OwnedOperationIds);
 

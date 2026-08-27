@@ -2,6 +2,11 @@
     "schema": "fsusblog.security-fixture-ownership.v1",
     "producerId": "security-state",
     "producerPath": "tools/test-fixtures/producers/security-fixture-producer.mjs",
+    "implementationPaths": [
+        "src/backend/Modules/Endpoints/LocalSecurityFixtureEndpoints.cs",
+        "src/backend/Services/Fixtures/SecurityFixtureCompositionRoot.cs",
+        "tools/test-fixtures/producers/security-fixture-producer.mjs"
+    ],
     "strategy": "transaction-fixture",
     "cleanupOwner": "fixture-receipt.cleanupContract.receipt-owned-exact",
     "capabilities": [

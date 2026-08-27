@@ -328,6 +328,26 @@ export function createSecurityStatePort(catalogs = readFixtureCatalogs())
 {
     const producer = catalogProducer('security-state', catalogs);
     return basePort(producer, {
+        identityRoleRequests: [
+            {
+                ownerProducerId: 'auth-session',
+                consumerProducerId: 'security-state',
+                role: 'primary',
+                capabilityId: 'auth.user.active'
+            },
+            {
+                ownerProducerId: 'auth-session',
+                consumerProducerId: 'security-state',
+                role: 'subject.banned',
+                capabilityId: 'auth.user.active'
+            },
+            {
+                ownerProducerId: 'auth-session',
+                consumerProducerId: 'security-state',
+                role: 'subject.unbanned',
+                capabilityId: 'auth.user.active'
+            }
+        ],
         async prepare(context, signal)
         {
             assertNoStrategyEnv();

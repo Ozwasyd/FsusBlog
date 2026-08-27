@@ -796,7 +796,10 @@ export async function verifyAuthSession(context, producerResult)
     return {
         ok: true,
         producerId: PRODUCER_ID,
-        observations: verification.observations ?? producerResult.observations,
+        // The independent verifier attests the exact producerResult digest. Preserve the
+        // sealed typed-variant projection instead of replacing it with an untyped read-model
+        // payload that cannot be published in a ProducerReceipt.
+        observations: producerResult.observations,
         entityIdentities: producerResult.entityIdentities
     };
 }

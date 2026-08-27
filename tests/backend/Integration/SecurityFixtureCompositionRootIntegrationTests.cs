@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Text.Json;
 
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Testing;
@@ -40,14 +41,14 @@ public sealed class SecurityFixtureCompositionRootIntegrationTests(
         SecurityFixtureRequestBinding binding = new("security-run", "security-ns", "security-state-matrix");
         JsonElement[] fragments =
         [
-            Fragment(binding, "risk-pow-rate-limit",
+            Fragment(binding, harness.Accounts, "risk-pow-rate-limit",
                 "security.pow.elevated",
                 "security.rate-limit.near-limit",
                 "security.risk.low"),
-            Fragment(binding, "ban",
+            Fragment(binding, harness.Accounts, "ban",
                 "security.subject.banned",
                 "security.subject.unbanned"),
-            Fragment(binding, "credential",
+            Fragment(binding, harness.Accounts, "credential",
                 "security.audit.active-window",
                 "security.credential.active",
                 "security.credential.revoked",
@@ -93,6 +94,9 @@ public sealed class SecurityFixtureCompositionRootIntegrationTests(
             Assert.Empty(observed.GetProperty("residualOwnedOperationIds").EnumerateArray());
             Assert.Equal(0, observed.GetProperty("nonOwnedMutationCount").GetInt32());
         }
+        User[] preservedAccounts = harness.Db.Queryable<User>().OrderBy(item => item.Id).ToArray();
+        Assert.Equal(3, preservedAccounts.Length);
+        Assert.All(preservedAccounts, account => Assert.Equal(0, account.Status));
     }
 
     [Fact]
@@ -100,7 +104,7 @@ public sealed class SecurityFixtureCompositionRootIntegrationTests(
     {
         await using Harness harness = await CreateHarnessAsync(failCredentialIssue: true);
         SecurityFixtureRequestBinding binding = new("failure-run", "failure-ns", "security-state-matrix");
-        JsonElement fragment = Fragment(binding, "credential", "security.credential.active");
+        JsonElement fragment = Fragment(binding, harness.Accounts, "credential", "security.credential.active");
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             harness.Root.ApplyAsync(fragment, binding, CancellationToken.None));
@@ -109,7 +113,7 @@ public sealed class SecurityFixtureCompositionRootIntegrationTests(
         JsonElement observed = JsonSerializer.SerializeToElement(
             await harness.Root.ObserveCleanupAsync(cleanup, binding, CancellationToken.None));
         Assert.Empty(observed.GetProperty("residualOwnedOperationIds").EnumerateArray());
-        Assert.Equal(0, harness.Db.Queryable<User>().Count());
+        Assert.Equal(3, harness.Db.Queryable<User>().Count());
         Assert.Equal(0, harness.Db.Queryable<AnonymousCredential>().Count());
     }
 
@@ -123,6 +127,7 @@ public sealed class SecurityFixtureCompositionRootIntegrationTests(
             typeof(AnonymousCredential),
             typeof(CommentAnonymousNullifier),
             typeof(AnonymousCredentialIssuanceAudit));
+        AllocatedAccounts accounts = await SeedAllocatedAccountsAsync(db);
 
         ConnectionMultiplexer connection = await redis.ConnectAsync();
         var memory = new MemoryCache(new MemoryCacheOptions());
@@ -174,7 +179,7 @@ public sealed class SecurityFixtureCompositionRootIntegrationTests(
             temporal,
             environment,
             configuration);
-        return new Harness(root, db, cache, memory, connection, redis, redisPrefix);
+        return new Harness(root, db, cache, memory, connection, redis, redisPrefix, accounts);
     }
 
     private static async Task<string> DecisionAsync(
@@ -194,12 +199,25 @@ public sealed class SecurityFixtureCompositionRootIntegrationTests(
 
     private static JsonElement Fragment(
         SecurityFixtureRequestBinding binding,
+        AllocatedAccounts accounts,
         string family,
         params string[] capabilities)
     {
         object[] operations = capabilities.Order(StringComparer.Ordinal).Select(capability =>
         {
             string token = capability.Replace('.', '-');
+            string role = capability switch
+            {
+                "security.subject.banned" => "subject.banned",
+                "security.subject.unbanned" => "subject.unbanned",
+                _ => "primary"
+            };
+            int accountId = role switch
+            {
+                "subject.banned" => accounts.Banned,
+                "subject.unbanned" => accounts.Unbanned,
+                _ => accounts.Primary
+            };
             return new
             {
                 capabilityId = capability,
@@ -235,10 +253,12 @@ public sealed class SecurityFixtureCompositionRootIntegrationTests(
                     schema = "fsusblog.fixture-identity-prepare-reference.v1",
                     verified = false,
                     ownerProducerId = "auth-session",
+                    consumerProducerId = "security-state",
                     runId = binding.RunId,
                     @namespace = binding.Namespace,
                     profileId = binding.ProfileId,
-                    role = "user.active"
+                    role,
+                    publicId = accountId.ToString(System.Globalization.CultureInfo.InvariantCulture)
                 }
             };
         }).ToArray();
@@ -290,6 +310,28 @@ public sealed class SecurityFixtureCompositionRootIntegrationTests(
         ]);
     }
 
+    private static async Task<AllocatedAccounts> SeedAllocatedAccountsAsync(SqlSugarClient db)
+    {
+        async Task<int> SeedAsync(string role)
+        {
+            string handle = $"fixture-auth-{role}";
+            return await db.Insertable(new User
+            {
+                PublicHandle = handle,
+                IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
+                AccountSubjectHash = AccountSubjectHasher.Create(AnonymousIdentityRuntime.AnonymousAccountKind, handle),
+                RegistrationState = AccountRegistrationStates.Active,
+                Status = 0,
+                CreateTime = s_epoch.UtcDateTime
+            }).ExecuteReturnIdentityAsync();
+        }
+
+        return new AllocatedAccounts(
+            await SeedAsync("primary"),
+            await SeedAsync("banned"),
+            await SeedAsync("unbanned"));
+    }
+
     private static string Digest(string value)
         => $"sha256:{Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(value)))}";
 
@@ -332,10 +374,12 @@ public sealed class SecurityFixtureCompositionRootIntegrationTests(
         MemoryCache memory,
         ConnectionMultiplexer connection,
         PublicHotDeliveryRedisFixture redis,
-        string redisPrefix) : IAsyncDisposable
+        string redisPrefix,
+        AllocatedAccounts accounts) : IAsyncDisposable
     {
         public ISecurityFixtureCompositionRoot Root { get; } = root;
         public SqlSugarClient Db { get; } = db;
+        public AllocatedAccounts Accounts { get; } = accounts;
 
         public async ValueTask DisposeAsync()
         {
@@ -346,4 +390,6 @@ public sealed class SecurityFixtureCompositionRootIntegrationTests(
             Db.Dispose();
         }
     }
+
+    private sealed record AllocatedAccounts(int Primary, int Banned, int Unbanned);
 }

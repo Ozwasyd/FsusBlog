@@ -152,7 +152,9 @@ function ownershipViolations()
         violations.push({ ruleId: 'capability-inventory-drift', file: ownershipPath });
     }
     if (producerCatalog.producers.filter((item) => item.id === 'security-state').length !== 1
-      || JSON.stringify(producer?.implementationPaths) !== JSON.stringify([ownership.producerPath]))
+      || !Array.isArray(ownership.implementationPaths)
+      || !ownership.implementationPaths.includes(ownership.producerPath)
+      || JSON.stringify(producer?.implementationPaths) !== JSON.stringify(ownership.implementationPaths))
     {
         violations.push({ ruleId: 'producer-owner-drift', file: 'config/testing/fixture-producer-registry.json' });
     }

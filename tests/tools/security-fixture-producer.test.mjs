@@ -44,6 +44,26 @@ function contextFor(capabilities = Object.keys(capabilityDecisions).sort(), over
         ownerProducerId: 'security-state',
         expectedBoundary: 'Current writer-contract boundary; no undeclared producer fallback.'
     }));
+    const identityRef = (role, publicId) => ({
+        schema: 'fsusblog.fixture-identity-prepare-reference.v1',
+        verified: false,
+        ownerProducerId: 'auth-session',
+        consumerProducerId: 'security-state',
+        runId,
+        namespace,
+        profileId,
+        role,
+        publicId,
+        fixtureIdentity: `fixture-user-${role}`,
+        digest: `sha256:${'3'.repeat(64)}`,
+        producerResultDigest: `sha256:${'4'.repeat(64)}`,
+        planDigests: {
+            authSessionPlanDigest: `sha256:${'6'.repeat(64)}`,
+            catalogDigest: `sha256:${'1'.repeat(64)}`,
+            fixtureVariantPlanDigest: `sha256:${'7'.repeat(64)}`,
+            producerVariantPlanDigest: `sha256:${'8'.repeat(64)}`
+        }
+    });
     return {
         runIdentity: runId,
         namespace,
@@ -71,24 +91,10 @@ function contextFor(capabilities = Object.keys(capabilityDecisions).sort(), over
             timeoutPolicyDigest: `sha256:${'5'.repeat(64)}`
         }),
         handles: {
-            authIdentityPrepareRef: {
-                schema: 'fsusblog.fixture-identity-prepare-reference.v1',
-                verified: false,
-                ownerProducerId: 'auth-session',
-                runId,
-                namespace,
-                profileId,
-                role: 'user.active',
-                publicId: 'fixture-user-active',
-                fixtureIdentity: 'fixture-user-active',
-                digest: `sha256:${'3'.repeat(64)}`,
-                producerResultDigest: `sha256:${'4'.repeat(64)}`,
-                planDigests: {
-                    authSessionPlanDigest: `sha256:${'6'.repeat(64)}`,
-                    catalogDigest: `sha256:${'1'.repeat(64)}`,
-                    fixtureVariantPlanDigest: `sha256:${'7'.repeat(64)}`,
-                    producerVariantPlanDigest: `sha256:${'8'.repeat(64)}`
-                }
+            authIdentityPrepareRefs: {
+                primary: identityRef('primary', '101'),
+                'subject.banned': identityRef('subject.banned', '102'),
+                'subject.unbanned': identityRef('subject.unbanned', '103')
             }
         }
     };
@@ -276,8 +282,12 @@ for (const [name, mutate, pattern] of [
 test('security plan rejects cross-run auth identity and wildcard namespaces', () =>
 {
     const crossRun = contextFor(['security.subject.banned']);
-    crossRun.handles.authIdentityPrepareRef.runId = 'other-run';
+    crossRun.handles.authIdentityPrepareRefs['subject.banned'].runId = 'other-run';
     assert.throws(() => buildSecurityFixtureOperationPlan(crossRun), /not current\/digest-bound/u);
+
+    const crossConsumer = contextFor(['security.subject.unbanned']);
+    crossConsumer.handles.authIdentityPrepareRefs['subject.unbanned'].consumerProducerId = 'other-producer';
+    assert.throws(() => buildSecurityFixtureOperationPlan(crossConsumer), /not current\/digest-bound/u);
 
     const wildcard = contextFor(['security.clean'], { namespace: 'global-*' });
     assert.throws(() => buildSecurityFixtureOperationPlan(wildcard), /global\/wildcard/u);

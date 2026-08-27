@@ -23,7 +23,7 @@ test('security fixture ownership maps every capability to one producer and one c
     assert.deepEqual(ownership.capabilities.map((item) => item.id), capabilities);
     const producer = producerCatalog.producers.find((item) => item.id === 'security-state');
     assert.deepEqual(producer.provides, capabilities);
-    assert.deepEqual(producer.implementationPaths, ['tools/test-fixtures/producers/security-fixture-producer.mjs']);
+    assert.deepEqual(producer.implementationPaths, ownership.implementationPaths);
     for (const capabilityId of capabilities)
     {
         assert.equal(variants.variants.filter((item) => item.capabilityId === capabilityId).length, 1);

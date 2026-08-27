@@ -92,19 +92,26 @@ export function securityCapabilityFamily(capabilityId)
     throw new Error(`unknown security fixture capability ${capabilityId}`);
 }
 
-function requireAuthIdentityRef(context, capabilities)
+function requireAuthIdentityRef(context, capabilityId)
 {
-    if (!capabilities.some((capabilityId) => capabilityId !== 'security.clean'))
+    if (capabilityId === 'security.clean')
     {
         return null;
     }
-    const explicit = context.handles?.authIdentityPrepareRef;
+    const expectedRole = capabilityId === 'security.subject.banned'
+        ? 'subject.banned'
+        : capabilityId === 'security.subject.unbanned'
+            ? 'subject.unbanned'
+            : 'primary';
+    const explicit = context.handles?.authIdentityPrepareRefs?.[expectedRole]
+        ?? context.handles?.authIdentityPrepareRef;
     const fromProducer = context.producerOutputs?.['auth-session']?.identityPrepareReferences?.find((item) =>
-        item?.role === 'user.active' || item?.semanticRole === 'user.active');
+        item?.consumerProducerId === 'security-state'
+        && item?.role === expectedRole);
     const value = explicit ?? fromProducer;
     if (!value || typeof value !== 'object')
     {
-        throw new Error('security fixture requires a verified narrow auth identity reference');
+        throw new Error('security fixture requires a provisional consumer-scoped auth identity reference');
     }
     const role = requireText(value.role ?? value.semanticRole, 'auth identity role');
     const digest = requireText(value.digest, 'auth identity digest');
@@ -112,23 +119,25 @@ function requireAuthIdentityRef(context, capabilities)
     if (value.schema !== 'fsusblog.fixture-identity-prepare-reference.v1'
       || value.verified !== false
       || value.ownerProducerId !== 'auth-session'
+      || value.consumerProducerId !== 'security-state'
       || value.runId !== context.runIdentity
       || value.namespace !== context.namespace
       || value.profileId !== context.profileIdentity?.profileId
-      || role !== 'user.active'
-      || !/^sha256:[0-9a-f]{64}$/u.test(digest)
-      || !/^sha256:[0-9a-f]{64}$/u.test(producerResultDigest)
+      || role !== expectedRole
+      || !/^(?:sha256:)?[0-9a-f]{64}$/u.test(digest)
+      || !/^(?:sha256:)?[0-9a-f]{64}$/u.test(producerResultDigest)
       || value.planDigests?.catalogDigest !== context.plan?.catalogDigest
       || value.planDigests?.fixtureVariantPlanDigest !== context.plan?.variantPlanDigest
-      || !/^sha256:[0-9a-f]{64}$/u.test(value.planDigests?.authSessionPlanDigest ?? '')
-      || !/^sha256:[0-9a-f]{64}$/u.test(value.planDigests?.producerVariantPlanDigest ?? ''))
+      || !/^(?:sha256:)?[0-9a-f]{64}$/u.test(value.planDigests?.authSessionPlanDigest ?? '')
+      || !/^(?:sha256:)?[0-9a-f]{64}$/u.test(value.planDigests?.producerVariantPlanDigest ?? ''))
     {
-        throw new Error('security fixture auth identity prepare reference is not current/digest-bound user.active');
+        throw new Error('security fixture auth identity prepare reference is not current/digest-bound for the allocated role');
     }
     const normalized = Object.freeze({
         schema: value.schema,
         verified: false,
         ownerProducerId: value.ownerProducerId,
+        consumerProducerId: value.consumerProducerId,
         runId: value.runId,
         namespace: value.namespace,
         profileId: value.profileId,
@@ -229,7 +238,6 @@ export function buildSecurityFixtureOperationPlan(context)
         }
     }
     const temporal = temporalFacts(context);
-    const authIdentityRef = requireAuthIdentityRef(context, capabilities);
     const operations = capabilities.map((capabilityId) =>
     {
         const semanticRole = capabilityId.slice('security.'.length);
@@ -250,7 +258,7 @@ export function buildSecurityFixtureOperationPlan(context)
             temporal,
             temporalRoles: Object.freeze(temporalRoleIds(capabilityId).map((roleId) =>
                 temporal.roles.find((role) => role.roleId === roleId))),
-            authIdentityRef
+            authIdentityRef: requireAuthIdentityRef(context, capabilityId)
         };
         assertPublicDocument(operation, `security operation ${capabilityId}`);
         return Object.freeze(operation);
@@ -778,6 +786,9 @@ export async function prepareSecurityFixtures(context, signal)
         providedCapabilities: plan.capabilities,
         operationPlan: plan,
         familyObservationDigests: familyObservations.map((observation) => observation.contentDigest).sort(),
+        temporalObservation: {
+            businessEpochUtc: plan.temporal.businessEpochUtc
+        },
         recoveryReceipts,
         domainObservations: familyObservations.map((observation) => ({
             schema: observation.schema,
