@@ -2061,14 +2061,7 @@ function applyUxViewportResumeEnvironment(env, tier, resume)
     {
         return env;
     }
-    if (resume)
-    {
-        env.FSUSBLOG_UX_VIEWPORT_RESUME = '1';
-    }
-    else
-    {
-        env.FSUSBLOG_UX_VIEWPORT_RESUME = '0';
-    }
+    env.FSUSBLOG_UX_VIEWPORT_RESUME = '0';
     return env;
 }
 
