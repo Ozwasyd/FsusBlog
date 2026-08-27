@@ -21,6 +21,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Modules.Endpoints;
@@ -43,7 +44,7 @@ using Microsoft.Extensions.Hosting;
 using NSubstitute;
 namespace FsusBlog.Server.Tests.Unit;
 
-[CollectionDefinition(nameof(AuthCookieExpiryFlowCollection))]
+[CollectionDefinition(nameof(AuthCookieExpiryFlowCollection), DisableParallelization = true)]
 public sealed class AuthCookieExpiryFlowCollection
     : ICollectionFixture<AuthCookieExpiryFlowTests.AuthCookieExpiryFixture>;
 
@@ -151,12 +152,40 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
 
     public sealed class AuthCookieExpiryFixture : IAsyncLifetime
     {
+        private const string TemporalArtifactDigest =
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
         private readonly SemaphoreSlim _requestGate = new(1, 1);
+        private string? _previousTemporalArtifact;
+        private string? _previousTemporalArtifactDigest;
         private AuthCookieExpiryHarness? _successHarness;
         private AuthCookieExpiryHarness? _failureHarness;
 
         public async Task InitializeAsync()
         {
+            _previousTemporalArtifact = Environment.GetEnvironmentVariable(
+                ResolvedTemporalRoleContext.ArtifactEnvironmentVariable);
+            _previousTemporalArtifactDigest = Environment.GetEnvironmentVariable(
+                ResolvedTemporalRoleContext.ArtifactDigestEnvironmentVariable);
+            Environment.SetEnvironmentVariable(
+                ResolvedTemporalRoleContext.ArtifactEnvironmentVariable,
+                JsonSerializer.Serialize(new
+                {
+                    schema = "fsusblog.resolved-temporal-roles.v1",
+                    contextIdentity = new
+                    {
+                        producerId = "auth-session",
+                        schedulerRunId = "auth-cookie-expiry-flow"
+                    },
+                    roles = new[]
+                    {
+                        Role("session.absolute-expiry", s_userAccessTokenExpiresAtUtc),
+                        Role("session.admin-persistent-idle-expiry", s_adminAccessTokenExpiresAtUtc)
+                    },
+                    contentDigest = TemporalArtifactDigest
+                }));
+            Environment.SetEnvironmentVariable(
+                ResolvedTemporalRoleContext.ArtifactDigestEnvironmentVariable,
+                TemporalArtifactDigest);
             _successHarness = await AuthCookieExpiryHarness.CreateAsync(
                 LocalAuthFixtureRefreshResult.Ready(string.Empty, string.Empty));
             _failureHarness = await AuthCookieExpiryHarness.CreateAsync(
@@ -173,8 +202,25 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             {
                 await _successHarness.DisposeAsync();
             }
+            Environment.SetEnvironmentVariable(
+                ResolvedTemporalRoleContext.ArtifactEnvironmentVariable,
+                _previousTemporalArtifact);
+            Environment.SetEnvironmentVariable(
+                ResolvedTemporalRoleContext.ArtifactDigestEnvironmentVariable,
+                _previousTemporalArtifactDigest);
             _requestGate.Dispose();
         }
+
+        private static object Role(string roleId, DateTimeOffset instant) => new
+        {
+            roleId,
+            clockKind = "business-wall",
+            semanticEffect = "included",
+            precision = "millisecond",
+            instantUtc = instant.UtcDateTime.ToString(
+                "yyyy-MM-dd'T'HH:mm:ss.fff'Z'",
+                CultureInfo.InvariantCulture)
+        };
 
         internal async Task<HttpResponseMessage> SendSuccessAsync(AuthExpiryFlow flow)
         {
