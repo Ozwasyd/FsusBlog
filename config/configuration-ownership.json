@@ -926,6 +926,36 @@
             "validationCommand": "node --test tests/tools/release-required-evidence-catalog.test.mjs",
             "changePolicy": "manual-update-with-required-evidence-catalog-validation",
             "status": "manual"
+        },
+        {
+            "id": "current-run-evidence-context-schema",
+            "owner": "test-evidence-location-governance",
+            "canonicalPath": "config/testing/current-run-evidence-context.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "evidence-locator-registry",
+            "owner": "test-evidence-location-governance",
+            "canonicalPath": "config/testing/evidence-locator-registry.json",
+            "pathType": "file"
+        },
+        {
+            "id": "evidence-locator-registry-schema",
+            "owner": "test-evidence-location-governance",
+            "canonicalPath": "config/testing/evidence-locator-registry.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "evidence-location-migration-ledger",
+            "owner": "test-evidence-location-governance",
+            "canonicalPath": "config/testing/evidence-location-migration-ledger.json",
+            "pathType": "file"
+        },
+        {
+            "id": "evidence-location-migration-ledger-schema",
+            "owner": "test-evidence-location-governance",
+            "canonicalPath": "config/testing/evidence-location-migration-ledger.schema.json",
+            "pathType": "file"
         }
     ]
 }

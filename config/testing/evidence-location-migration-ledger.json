@@ -1,0 +1,9 @@
+{
+  "schema": "fsusblog.evidence-location-migration-ledger.v1",
+  "version": 1,
+  "scannerSchema": "fsusblog.evidence-location-scan.v1",
+  "scannerRuleIds": [],
+  "scanDigest": null,
+  "entries": [],
+  "contentDigest": "sha256:d7388963260cf0c6a212095574a89cf72db0e1c0d9b56551d0afa78e8a57bc59"
+}
