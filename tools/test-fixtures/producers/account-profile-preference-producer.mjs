@@ -217,15 +217,19 @@ async function invoke(context, action, body, signal)
         return adapter[action](body, context, signal);
     }
     const { baseUrl, secret } = endpointContext(context);
+    const headers = {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'X-Fsus-Account-Profile-Preference-Fixture-Secret': secret
+    };
+    if (action === 'prepare')
+    {
+        headers['X-Fsus-Test-Namespace'] = String(context.namespace ?? '');
+        headers['X-Fsus-Test-Run-Id'] = String(context.runIdentity ?? '');
+    }
     const response = await fetch(`${baseUrl}/__local/account-profile-preferences/${action}`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-            'X-Fsus-Account-Profile-Preference-Fixture-Secret': secret,
-            'X-Fsus-Test-Namespace': String(context.namespace ?? ''),
-            'X-Fsus-Test-Run-Id': String(context.runIdentity ?? '')
-        },
+        headers,
         body: JSON.stringify(body),
         signal
     });

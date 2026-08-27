@@ -259,6 +259,62 @@ test('producer independently verifies and cleans the exact composition receipt',
     assert.strictEqual(adapter.calls[2].receipt, result.compositionReceipt);
 });
 
+test('live transport sends prepare identity headers only to the prepare endpoint', async () =>
+{
+    const adapter = compositionAdapter();
+    const base = plannedContext({ adapter: null });
+    const context = {
+        ...base,
+        handles: Object.freeze({
+            ...base.handles,
+            baseUrl: 'http://127.0.0.1:37568',
+            accountProfilePreferenceFixtureSecret: 'fixture-secret'
+        })
+    };
+    const requests = [];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (url, options) =>
+    {
+        const action = String(url).split('/').at(-1);
+        requests.push({ action, headers: options.headers });
+        if (action === 'prepare')
+        {
+            const result = await adapter.prepare(JSON.parse(options.body));
+            return Response.json(result);
+        }
+        if (action === 'verify')
+        {
+            const receipt = JSON.parse(options.body);
+            return Response.json({ ok: true, contentDigest: receipt.contentDigest });
+        }
+        return new Response(null, { status: 204 });
+    };
+
+    try
+    {
+        const result = await prepareAccountProfilePreferences(context);
+        assert.equal((await verifyAccountProfilePreferences(context, result)).ok, true);
+        await cleanupAccountProfilePreferences(context, result);
+    }
+    finally
+    {
+        globalThis.fetch = originalFetch;
+    }
+
+    assert.deepEqual(requests.map((request) => request.action), ['prepare', 'verify', 'cleanup']);
+    assert.equal(requests[0].headers['X-Fsus-Test-Namespace'], 'profile-preferences');
+    assert.equal(requests[0].headers['X-Fsus-Test-Run-Id'], 'run-1717');
+    for (const request of requests.slice(1))
+    {
+        assert.equal('X-Fsus-Test-Namespace' in request.headers, false);
+        assert.equal('X-Fsus-Test-Run-Id' in request.headers, false);
+        assert.equal(
+            request.headers['X-Fsus-Account-Profile-Preference-Fixture-Secret'],
+            'fixture-secret'
+        );
+    }
+});
+
 test('producer verification fails closed without the sealed auth ProducerReceipt', async () =>
 {
     const context = plannedContext();
