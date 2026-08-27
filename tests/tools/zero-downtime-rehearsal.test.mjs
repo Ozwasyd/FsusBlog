@@ -67,7 +67,11 @@ function resolveRehearsalMachineTiming({ hostCpu, grantedCpu, load1 }) {
     workerTimeoutSeconds: Math.min(1_800, seconds(90)),
     hostInterruptionTimeoutSeconds: Math.min(300, seconds(10)),
     migrationTimeoutSeconds: Math.min(1_800, seconds(60)),
-    rehearsalTimeoutMs: wait(120_000)
+    // Explicit rollback performs a second rollout and a second worker
+    // qualification before cleanup. Give that composed real-process path
+    // headroom under sustained local scheduler pressure while keeping a
+    // bounded outer cleanup deadline.
+    rehearsalTimeoutMs: Math.min(1_800_000, wait(300_000))
   }
 }
 
@@ -108,7 +112,7 @@ if (runsFixtureShard('base')) test('rehearsal timing wires shared semantic scale
     workerTimeoutSeconds: 360,
     hostInterruptionTimeoutSeconds: 40,
     migrationTimeoutSeconds: 240,
-    rehearsalTimeoutMs: 480_000
+    rehearsalTimeoutMs: 1_200_000
   })
 })
 
