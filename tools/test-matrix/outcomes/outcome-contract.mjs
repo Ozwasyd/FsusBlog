@@ -182,7 +182,11 @@ export function sealProducerSemanticOutcomeCandidate(value)
     return validateProducerSemanticOutcomeCandidate(candidate);
 }
 
-export function externalCandidateVerification(candidate, expectedIdentity = candidate.identity)
+export function externalCandidateVerification(candidate, {
+    expectedIdentity = candidate.identity,
+    authorityIssue,
+    verificationReceiptDigest
+})
 {
     validateProducerSemanticOutcomeCandidate(candidate);
     for (const [field, expected] of Object.entries(expectedIdentity))
@@ -191,9 +195,12 @@ export function externalCandidateVerification(candidate, expectedIdentity = cand
     }
     return {
         verified: true,
+        authorityIssue,
         producerId: candidate.producerId,
+        producerAuthorityId: candidate.producerAuthorityId,
         candidateSchema: candidate.schema,
         candidateDigest: candidate.contentDigest,
+        verificationReceiptDigest,
         identity: candidate.identity,
         outcome: candidate.outcome
     };
