@@ -13,13 +13,13 @@ namespace FsusBlog.Server.Infrastructure.Testing;
 public sealed class SqlSugarAuthFixtureLifecycleRepository(
     ISqlSugarClient db) : IAuthFixtureLifecycleRepository
 {
-    public async Task<User?> FindUserByFixtureIdentityAsync(
-        string fixtureIdentity,
+    public async Task<User?> FindUserByOwnedSubjectHashAsync(
+        string accountSubjectHash,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         return await db.Queryable<User>()
-            .Where(item => item.PublicHandle == fixtureIdentity)
+            .Where(item => item.AccountSubjectHash == accountSubjectHash)
             .FirstAsync();
     }
 

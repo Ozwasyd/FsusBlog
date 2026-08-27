@@ -36,7 +36,7 @@ public interface IAuthFixtureSeeder
 
 public interface IAuthFixtureLifecycleRepository
 {
-    Task<User?> FindUserByFixtureIdentityAsync(string fixtureIdentity, CancellationToken cancellationToken);
+    Task<User?> FindUserByOwnedSubjectHashAsync(string accountSubjectHash, CancellationToken cancellationToken);
     Task<User?> FindUserByIdAsync(int userId, CancellationToken cancellationToken);
     Task<bool> HasVerifiedMfaProfileAsync(int userId, CancellationToken cancellationToken);
     Task<bool> HasUsedPasskeyCredentialAsync(int userId, CancellationToken cancellationToken);
@@ -951,8 +951,11 @@ public sealed class AuthFixtureSeeder(
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        User? existing = await repository.FindUserByFixtureIdentityAsync(
-            fixtureIdentity,
+        string accountSubjectHash = AccountSubjectHasher.Create(
+            AnonymousIdentityRuntime.AnonymousAccountKind,
+            fixtureIdentity);
+        User? existing = await repository.FindUserByOwnedSubjectHashAsync(
+            accountSubjectHash,
             cancellationToken);
         int expectedStatus = deleted ? 2 : 0;
         if (existing is not null)
@@ -971,9 +974,7 @@ public sealed class AuthFixtureSeeder(
         {
             PublicHandle = fixtureIdentity,
             IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
-            AccountSubjectHash = AccountSubjectHasher.Create(
-                AnonymousIdentityRuntime.AnonymousAccountKind,
-                fixtureIdentity),
+            AccountSubjectHash = accountSubjectHash,
             RegistrationState = AccountRegistrationStates.Active,
             PasskeyEnabled = false,
             RecoveryEnabled = false,
@@ -1068,7 +1069,7 @@ public sealed class AuthFixtureSeeder(
             return false;
         }
         User? user = await repository.FindUserByIdAsync(id, CancellationToken.None);
-        if (user is null || !string.Equals(user.PublicHandle, entity.FixtureIdentity, StringComparison.Ordinal))
+        if (user is null || !IsOwnedFixtureUser(user, entity.FixtureIdentity))
         {
             return false;
         }
@@ -1261,6 +1262,18 @@ public sealed class AuthFixtureSeeder(
             ["recoveryEnabled"] = user.RecoveryEnabled,
             ["accountStateVerified"] = true
         };
+
+    internal static bool IsOwnedFixtureUser(User user, string fixtureIdentity)
+        => string.Equals(
+                user.IdentityKind,
+                AnonymousIdentityRuntime.AnonymousAccountKind,
+                StringComparison.Ordinal) &&
+            string.Equals(
+                user.AccountSubjectHash,
+                AccountSubjectHasher.Create(
+                    AnonymousIdentityRuntime.AnonymousAccountKind,
+                    fixtureIdentity),
+                StringComparison.Ordinal);
 
     private static string SessionState(UserSession session)
     {
