@@ -52,12 +52,14 @@ The .NET CLI finds `.config/dotnet-tools.json` without a custom flag:
 dotnet tool restore
 ```
 
-Stryker has no repository-root discovery dependency. Both lanes pass their canonical file explicitly:
+root manifest 只锁定 official Stryker release；mutation lane 不执行该 manifest 中的
+upstream tool，而由 wrapper 校验 custom producer identity、official archive digest、overlay digest，并在
+`.tmp/tools/stryker/` 构建和缓存。各 lane 仍显式传递 canonical config：
 
 ```bash
-dotnet tool run dotnet-stryker --config-file config/testing/mutation/default.json
+node tools/mutation/stryker-tool.mjs run --working-directory . -- --config-file config/testing/mutation/default.json
 repo_root="$PWD"
-(cd src/core && dotnet tool run dotnet-stryker --config-file "$repo_root/config/testing/mutation/critical.json")
+node tools/mutation/stryker-tool.mjs run --working-directory src/core -- --config-file "$repo_root/config/testing/mutation/critical.json"
 ```
 
 The test runner also supplies each lane's output directory and, for the critical lane, runs from `src/core` while retaining the repository-absolute config path.

@@ -229,6 +229,7 @@
         ".hex",
         ".ico",
         ".png",
+        ".patch",
         ".proof",
         ".public_inputs",
         ".r1cs",

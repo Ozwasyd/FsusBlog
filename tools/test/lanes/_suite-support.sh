@@ -1442,13 +1442,12 @@ RunBackendMutationWithConfig() {
     Run rm -rf "$outputDir"
     local FSUSBLOG_MUTATION_BUILD=1
     export FSUSBLOG_MUTATION_BUILD
-    (
-        cd "$workingDir"
-        Run dotnet tool run dotnet-stryker \
-            --config-file "$configPath" \
-            --output "$outputDir" \
-            "${strykerTraceArgs[@]}"
-    )
+    Run node "$ROOT_DIR/tools/mutation/stryker-tool.mjs" run \
+        --working-directory "$workingDir" \
+        -- \
+        --config-file "$configPath" \
+        --output "$outputDir" \
+        "${strykerTraceArgs[@]}"
     if [[ -n "$authorityTier" || -n "$authorityOut" ]]; then
         local traceLogs=()
         mapfile -t traceLogs < <(
