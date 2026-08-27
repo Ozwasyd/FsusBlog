@@ -178,7 +178,8 @@
       "consumedInputs": [
         "config/contracts/behavior-contracts.json",
         "config/testing/required-evidence-authority-ledger.json",
-        "tests/matrix.yml"
+        "tests/matrix.yml",
+        "tools/fact-extractors/post-runtime/adapter.mjs"
       ],
       "outputSchema": "fsusblog.fact-observation-receipt.v1",
       "requiredBuildArtifact": null,

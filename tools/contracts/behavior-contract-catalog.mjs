@@ -397,6 +397,7 @@ export function validateBehaviorReferences(catalog, repositoryRoot = root)
         'tools/fact-extractors/identity.mjs',
         'tools/fact-extractors/governance.mjs',
         'tools/fact-extractors/post-runtime/registry.mjs',
+        'tools/fact-extractors/post-runtime/adapter.mjs',
         'tools/fact-extractors/post-runtime/application-runtime.mjs',
         'tools/fact-extractors/post-runtime/release-deployment.mjs',
         'tools/fact-extractors/check-behavior-fact-extractors.mjs',
