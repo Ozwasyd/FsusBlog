@@ -43,7 +43,10 @@ import {
     expectedAttributionMutantIdsByBehavior,
     qualifyBehaviorMutations
 } from '../test/changed-critical-mutation-attribution.mjs';
-import { createChangedCriticalMutationAuthority } from '../test/changed-critical-mutation-evidence.mjs';
+import {
+    createChangedCriticalMutationAuthority,
+    scopeMutationReport
+} from '../test/changed-critical-mutation-evidence.mjs';
 import { readChangedPaths, repoRelative } from '../test/changed-critical-mutation-support.mjs';
 import {
     selectChangedCriticalMutation,
@@ -756,12 +759,23 @@ function produceBehaviorMutationQualification(options)
             ...(implementationOwnerClosure?.bindings ?? [])
         ]
     };
-    const attributed = authorityRuns.map((physicalRun) => attributeMutantsToBehaviors({
-        report: physicalRun.report,
-        sourceProject: physicalRun.sourceProject,
-        ownerReceipt: attributionOwners,
-        selection
-    }));
+    const attributed = authorityRuns.map((physicalRun) =>
+    {
+        const closure = selection.projectClosures.find(
+            ({ sourceProject }) => sourceProject === physicalRun.sourceProject
+        );
+        const scoped = scopeMutationReport(
+            physicalRun.report,
+            closure.mutateFiles,
+            physicalRun.sourceProject
+        );
+        return attributeMutantsToBehaviors({
+            report: scoped.report,
+            sourceProject: physicalRun.sourceProject,
+            ownerReceipt: attributionOwners,
+            selection
+        });
+    });
     const attributions = attachExpectedTestEvidence({
         attributions: attributed.flatMap(({ attributions: entries }) => entries),
         selection
