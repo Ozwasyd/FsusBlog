@@ -796,7 +796,7 @@ export async function verifyAuthSession(context, producerResult)
     return {
         ok: true,
         producerId: PRODUCER_ID,
-        observations: verification.observations ?? producerResult.observations,
+        observations: producerResult.observations,
         entityIdentities: producerResult.entityIdentities
     };
 }

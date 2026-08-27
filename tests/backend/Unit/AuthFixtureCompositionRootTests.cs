@@ -6,6 +6,8 @@ using Fido2NetLib;
 using Fido2NetLib.Objects;
 
 using FsusBlog.Core.Mapping.Models;
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services.Fixtures;
 
@@ -25,6 +27,23 @@ public sealed class AuthFixtureCompositionRootTests
 {
     private const string FixtureSecret = "auth-fixture-composition-root-test-secret";
     private const string SecretHeader = "X-Fsus-Local-Auth-Fixture-Secret";
+
+    [Fact]
+    public void UserOwnership_RemainsBoundAfterConsumerMutatesPublicHandle()
+    {
+        const string FixtureIdentity = "fxauth-owned-profile-conflict-owner";
+        var user = new User
+        {
+            IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
+            AccountSubjectHash = AccountSubjectHasher.Create(
+                AnonymousIdentityRuntime.AnonymousAccountKind,
+                FixtureIdentity),
+            PublicHandle = "consumer-updated-public-handle"
+        };
+
+        Assert.True(AuthFixtureSeeder.IsOwnedFixtureUser(user, FixtureIdentity));
+        Assert.False(AuthFixtureSeeder.IsOwnedFixtureUser(user, "fxauth-different-owner"));
+    }
 
     [Theory]
     [InlineData("Production", "true", false)]

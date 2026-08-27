@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
@@ -382,6 +383,26 @@ test('independent verifier is mandatory and binds the exact producer result dige
         }
     }, producerResult);
     assert.equal(mismatch.ok, false);
+
+    const verified = await verifyAuthSession({
+        handles: {
+            authFixtureAdapter: {
+                verify: async () => ({
+                    ok: true,
+                    receiptDigest: createHash('sha256')
+                        .update(JSON.stringify(producerResult), 'utf8')
+                        .digest('hex'),
+                    observations: {
+                        database: {
+                            entities: [{ id: 'untyped-verifier-observation' }]
+                        }
+                    }
+                })
+            }
+        }
+    }, producerResult);
+    assert.equal(verified.ok, true);
+    assert.equal(verified.observations, producerResult.observations);
 });
 
 test('projects only consumer-owned requested refs after the exact ProducerReceipt is sealed', () =>
@@ -458,6 +479,8 @@ test('static governance keeps the unique producer out of DB, Redis, JWT, legacy,
     assert.doesNotMatch(seeder, /ISqlSugarClient|\.Insertable<|\.Updateable<|\.Deleteable<|\.Ado\b/u);
     assert.doesNotMatch(seeder, /acceptAny|RevokeAllSessions|RevokeOtherSessions/u);
     assert.doesNotMatch(seeder, /BanReason\s*==|RiskFlags\s*==|Blacklist/u);
+    assert.match(seeder, /AccountSubjectHash/u);
+    assert.doesNotMatch(seeder, /user\.PublicHandle\s*,\s*entity\.FixtureIdentity/u);
 
     for (const servicePath of [
         '../../src/backend/Services/UserService.cs',
