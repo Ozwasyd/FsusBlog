@@ -8,6 +8,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { PassThrough } from 'node:stream';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 const { createPhysicalExecutionLinuxSystemdAdapter } = await import(new URL("../../tools/test/physical-execution-linux-systemd-adapter.mjs", import.meta.url));
 const { createPhysicalExecutionWindowsJobAdapter } = await import(new URL("../../tools/test/physical-execution-windows-job-adapter.mjs", import.meta.url));
@@ -673,7 +674,7 @@ test('Windows requires a Job Object adapter and validates its kill-on-close evid
     assert.equal(evidence.authority.kind, 'windows-job-object');
 
     const script = fs.readFileSync(path.join(
-        path.dirname(new URL(import.meta.url).pathname),
+        path.dirname(fileURLToPath(import.meta.url)),
         '../../tools/test/physical-execution-windows-job.ps1'
     ), 'utf8');
     assert.match(script, /JobObjectLimitKillOnJobClose/u);
