@@ -3,6 +3,178 @@
     "stateDomainRegistry": "config/testing/runtime-state-domain-registry.json",
     "capabilities": [
         {
+            "id": "audit.chain-multi-record",
+            "ownerProducerId": "audit-records",
+            "stateDomains": [
+                "postgres.audit"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [
+                "audit.empty"
+            ],
+            "postconditionIds": [
+                "audit-chain-multi-record"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "audit.empty",
+            "ownerProducerId": "audit-records",
+            "stateDomains": [
+                "postgres.audit"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [
+                "audit.chain-multi-record",
+                "audit.high-value",
+                "audit.investigation-page",
+                "audit.legal-hold-eligible",
+                "audit.pseudonym-retention",
+                "audit.single-valid",
+                "audit.tamper-negative",
+                "audit.unknown-action-negative"
+            ],
+            "postconditionIds": [
+                "audit-empty"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "run",
+            "mutability": "immutable"
+        },
+        {
+            "id": "audit.high-value",
+            "ownerProducerId": "audit-records",
+            "stateDomains": [
+                "postgres.audit"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [
+                "audit.empty"
+            ],
+            "postconditionIds": [
+                "audit-high-value"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "audit.investigation-page",
+            "ownerProducerId": "audit-records",
+            "stateDomains": [
+                "postgres.audit"
+            ],
+            "dependsOn": [
+                "audit.chain-multi-record"
+            ],
+            "conflictsWith": [
+                "audit.empty"
+            ],
+            "postconditionIds": [
+                "audit-investigation-page"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "audit.legal-hold-eligible",
+            "ownerProducerId": "audit-records",
+            "stateDomains": [
+                "postgres.audit"
+            ],
+            "dependsOn": [
+                "audit.high-value"
+            ],
+            "conflictsWith": [
+                "audit.empty"
+            ],
+            "postconditionIds": [
+                "audit-legal-hold-eligible"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "audit.pseudonym-retention",
+            "ownerProducerId": "audit-records",
+            "stateDomains": [
+                "postgres.audit"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [
+                "audit.empty"
+            ],
+            "postconditionIds": [
+                "audit-pseudonym-retention"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "audit.single-valid",
+            "ownerProducerId": "audit-records",
+            "stateDomains": [
+                "postgres.audit"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [
+                "audit.empty"
+            ],
+            "postconditionIds": [
+                "audit-single-valid"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "audit.tamper-negative",
+            "ownerProducerId": "audit-records",
+            "stateDomains": [
+                "postgres.audit"
+            ],
+            "dependsOn": [
+                "audit.pseudonym-retention"
+            ],
+            "conflictsWith": [
+                "audit.empty"
+            ],
+            "postconditionIds": [
+                "audit-tamper-negative"
+            ],
+            "validityClasses": [
+                "negative-invalid"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "audit.unknown-action-negative",
+            "ownerProducerId": "audit-records",
+            "stateDomains": [
+                "postgres.audit"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [
+                "audit.empty"
+            ],
+            "postconditionIds": [
+                "audit-unknown-action-negative"
+            ],
+            "validityClasses": [
+                "negative-invalid"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
             "id": "auth.admin.disabled",
             "ownerProducerId": "auth-session",
             "stateDomains": [

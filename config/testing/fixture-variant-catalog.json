@@ -13,6 +13,14 @@
             ]
         },
         {
+            "id": "diagnostic-only",
+            "semantics": "Visual, fault-drill, or tool diagnostic data; never release qualification.",
+            "allowedExecutionClasses": [
+                "development",
+                "diagnostic"
+            ]
+        },
+        {
             "id": "migration-legacy",
             "semantics": "Exclusively for migration, old-format read, and retirement verification; ordinary correctness consumers are forbidden.",
             "allowedExecutionClasses": [
@@ -24,14 +32,6 @@
             "semantics": "Deliberately violates exactly one invariant and must be rejected.",
             "allowedExecutionClasses": [
                 "security"
-            ]
-        },
-        {
-            "id": "diagnostic-only",
-            "semantics": "Visual, fault-drill, or tool diagnostic data; never release qualification.",
-            "allowedExecutionClasses": [
-                "development",
-                "diagnostic"
             ]
         },
         {
@@ -73,6 +73,12 @@
             "id": "article-lifecycle"
         },
         {
+            "id": "audit-chain"
+        },
+        {
+            "id": "audit-record"
+        },
+        {
             "id": "comment-thread"
         },
         {
@@ -111,6 +117,9 @@
             "id": "diagnostic-local"
         },
         {
+            "id": "fixed-business-time"
+        },
+        {
             "id": "legacy-migration"
         }
     ],
@@ -130,6 +139,15 @@
         }
     ],
     "derivedStates": [
+        {
+            "id": "audit-chain-verified"
+        },
+        {
+            "id": "audit-investigation-projected"
+        },
+        {
+            "id": "audit-policy-verified"
+        },
         {
             "id": "legacy-read-verification"
         },
@@ -235,6 +253,269 @@
         }
     ],
     "variants": [
+        {
+            "id": "canonical.audit.chain-multi-record",
+            "capabilityId": "audit.chain-multi-record",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "audit-records",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "audit-chain"
+            ],
+            "temporalShapeId": "fixed-business-time",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "audit-chain-verified",
+                "audit-policy-verified"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Production store allocates deterministic daily chains, ordering, hashes and MACs.",
+            "allowedExecutionClasses": [
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.audit.empty",
+            "capabilityId": "audit.empty",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "audit-records",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "audit-record"
+            ],
+            "temporalShapeId": "fixed-business-time",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "The owned audit source contains exactly zero records and performs zero append mutation.",
+            "allowedExecutionClasses": [
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.audit.high-value",
+            "capabilityId": "audit.high-value",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "audit-records",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "audit-record"
+            ],
+            "temporalShapeId": "fixed-business-time",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "audit-chain-verified",
+                "audit-policy-verified"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "High-value audit records use the synchronous production durability path.",
+            "allowedExecutionClasses": [
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.audit.investigation-page",
+            "capabilityId": "audit.investigation-page",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "audit-records",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "audit-chain"
+            ],
+            "temporalShapeId": "fixed-business-time",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "audit-chain-verified",
+                "audit-investigation-projected",
+                "audit-policy-verified"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Investigation paging consumes the production redaction, ordering and cursor projection.",
+            "allowedExecutionClasses": [
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.audit.legal-hold-eligible",
+            "capabilityId": "audit.legal-hold-eligible",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "audit-records",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "audit-record"
+            ],
+            "temporalShapeId": "fixed-business-time",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "audit-policy-verified"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Legal-hold eligibility is read from the current production retention policy.",
+            "allowedExecutionClasses": [
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.audit.pseudonym-retention",
+            "capabilityId": "audit.pseudonym-retention",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "audit-records",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "audit-record"
+            ],
+            "temporalShapeId": "fixed-business-time",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "audit-chain-verified",
+                "audit-policy-verified"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Sensitive fixture facts are protected and pseudonymized before production signing and persistence.",
+            "allowedExecutionClasses": [
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.audit.single-valid",
+            "capabilityId": "audit.single-valid",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "audit-records",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "audit-record"
+            ],
+            "temporalShapeId": "fixed-business-time",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "audit-chain-verified",
+                "audit-policy-verified"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "A single audit record is accepted by the current catalog, store, signer and verifier.",
+            "allowedExecutionClasses": [
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "runtime",
+                "security"
+            ]
+        },
         {
             "id": "canonical.auth.admin.disabled",
             "capabilityId": "auth.admin.disabled",
@@ -2738,6 +3019,62 @@
             ],
             "defaultExecutionClasses": [
                 "diagnostic"
+            ]
+        },
+        {
+            "id": "negative.audit.tamper-single-field",
+            "capabilityId": "audit.tamper-negative",
+            "validityClass": "negative-invalid",
+            "ownerProducerId": "audit-records",
+            "writerContractId": "negative-command-rejection",
+            "contentShapeIds": [
+                "audit-record"
+            ],
+            "temporalShapeId": "fixed-business-time",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "rejected-by-validator"
+            ],
+            "forbiddenSentinelIds": [],
+            "expectedBoundary": "The isolated corpus mutates one audit field per case and the production verifier rejects every case.",
+            "expectedInvariantId": "audit-single-field-integrity",
+            "injectedSentinelId": "unverified-local-fallback-object",
+            "allowedExecutionClasses": [
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "security"
+            ]
+        },
+        {
+            "id": "negative.audit.unknown-action",
+            "capabilityId": "audit.unknown-action-negative",
+            "validityClass": "negative-invalid",
+            "ownerProducerId": "audit-records",
+            "writerContractId": "negative-command-rejection",
+            "contentShapeIds": [
+                "audit-record"
+            ],
+            "temporalShapeId": "fixed-business-time",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "rejected-by-validator"
+            ],
+            "forbiddenSentinelIds": [],
+            "expectedBoundary": "Unknown audit actions are rejected by the production retention catalog before append.",
+            "expectedInvariantId": "audit-action-registered",
+            "injectedSentinelId": "unknown-audit-action",
+            "allowedExecutionClasses": [
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "security"
             ]
         },
         {

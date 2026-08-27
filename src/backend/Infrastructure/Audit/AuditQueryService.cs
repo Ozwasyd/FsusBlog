@@ -413,7 +413,7 @@ public sealed class AuditQueryService(
     internal static string EncodeAuditCursor(AuditLog row)
     {
         string payload = string.Concat(
-            row.OccurredAtUtc.ToUniversalTime().Ticks.ToString(CultureInfo.InvariantCulture),
+            NormalizeUtc(row.OccurredAtUtc).Ticks.ToString(CultureInfo.InvariantCulture),
             ":",
             row.Id.ToString(CultureInfo.InvariantCulture));
         return WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(payload));
@@ -447,6 +447,11 @@ public sealed class AuditQueryService(
             return false;
         }
     }
+
+    private static DateTime NormalizeUtc(DateTime value)
+        => value.Kind == DateTimeKind.Unspecified
+            ? DateTime.SpecifyKind(value, DateTimeKind.Utc)
+            : value.ToUniversalTime();
 
     private async Task<T> QueryWithNewClientAsync<T>(Func<ISqlSugarClient, Task<T>> query)
     {

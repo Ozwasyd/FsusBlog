@@ -57,7 +57,7 @@ if (String(entry).endsWith('/tests/frontend/support/fixture-paths.mjs')) {
   process.stdout.write(fixtureRoot)
   process.exit(0)
 }
-if (entry === '-e' || entry === '-') {
+if (entry === '-e' || entry === '-' || entry === '--input-type=module') {
   const result = spawnSync(process.execPath, [entry, ...args], { stdio: 'inherit' })
   process.exit(result.status ?? 1)
 }
