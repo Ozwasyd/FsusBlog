@@ -20,6 +20,7 @@ import {
     normalizeDatabaseObservation,
     normalizeRedisObservation
 } from './observations.mjs';
+import { normalizeCleanupContract as normalizeMessagingCleanupContract } from './messaging-cleanup-contract.mjs';
 import {
     ENTITY_IDENTITY_KINDS,
     PRODUCER_RECEIPT_SCHEMA,
@@ -31,6 +32,13 @@ import {
     normalizeDomainObservations,
     validateSecurityReceiptExtensions
 } from './security-receipt-contract.mjs';
+
+function normalizeCleanupContract(value)
+{
+    return value?.kind === 'messaging-exact-receipt'
+        ? normalizeMessagingCleanupContract(value)
+        : normalizeSecurityCleanupContract(value);
+}
 
 function requireText(value, label)
 {
@@ -139,93 +147,6 @@ function normalizePostconditionObservations(items)
     return Object.freeze(normalized);
 }
 
-function normalizeMessagingCleanupContract(value)
-{
-    if (value == null)
-    {
-        return Object.freeze({ kind: 'owned-namespace' });
-    }
-    if (!plainObject(value))
-    {
-        throw new Error('cleanupContract must be an object');
-    }
-    const kind = requireText(String(value.kind ?? 'owned-namespace'), 'cleanupContract.kind');
-    const result = {
-        kind,
-        notes: value.notes == null ? null : String(value.notes)
-    };
-    if (kind === 'messaging-exact-receipt')
-    {
-        const receipt = value.receipt;
-        const allowedKeys = new Set([
-            'schema',
-            'planDigest',
-            'runId',
-            'namespace',
-            'ownedEntityIds',
-            'conversationIds',
-            'messageIds',
-            'eventIds',
-            'deliveryKeys'
-        ]);
-        if (!plainObject(receipt)
-            || Object.keys(receipt).some((key) => !allowedKeys.has(key))
-            || receipt.schema !== 'fsusblog.messaging-fixture-cleanup.v1')
-        {
-            throw new Error('messaging cleanup contract requires its exact typed receipt');
-        }
-        const canonicalIds = (items, label) =>
-        {
-            if (!Array.isArray(items) || items.some((item) => !/^[1-9][0-9]*$/u.test(String(item))))
-            {
-                throw new Error(`messaging cleanup ${label} must be canonical decimal strings`);
-            }
-            const normalized = items.map(String).sort((left, right) =>
-                BigInt(left) < BigInt(right) ? -1 : BigInt(left) > BigInt(right) ? 1 : 0);
-            if (new Set(normalized).size !== normalized.length)
-            {
-                throw new Error(`messaging cleanup ${label} must be unique`);
-            }
-            return Object.freeze(normalized);
-        };
-        const conversationIds = canonicalIds(receipt.conversationIds, 'conversationIds');
-        const messageIds = canonicalIds(receipt.messageIds, 'messageIds');
-        const eventIds = canonicalIds(receipt.eventIds, 'eventIds');
-        const ownedEntityIds = canonicalIds(receipt.ownedEntityIds, 'ownedEntityIds');
-        if (JSON.stringify(ownedEntityIds) !== JSON.stringify(
-            [...conversationIds, ...messageIds].sort((left, right) =>
-                BigInt(left) < BigInt(right) ? -1 : BigInt(left) > BigInt(right) ? 1 : 0)))
-        {
-            throw new Error('messaging cleanup ownedEntityIds do not bind conversations and messages');
-        }
-        if (!Array.isArray(receipt.deliveryKeys)
-            || receipt.deliveryKeys.some((item) => typeof item !== 'string' || !item.trim())
-            || new Set(receipt.deliveryKeys).size !== receipt.deliveryKeys.length)
-        {
-            throw new Error('messaging cleanup deliveryKeys must be unique non-empty strings');
-        }
-        result.receipt = {
-            schema: receipt.schema,
-            planDigest: assertDigest(receipt.planDigest, 'messaging cleanup planDigest'),
-            runId: requireText(String(receipt.runId ?? ''), 'messaging cleanup runId'),
-            namespace: requireText(String(receipt.namespace ?? ''), 'messaging cleanup namespace'),
-            ownedEntityIds,
-            conversationIds,
-            messageIds,
-            eventIds,
-            deliveryKeys: Object.freeze([...receipt.deliveryKeys].sort())
-        };
-        assertNoSecrets(result.receipt);
-    }
-    return freezeDeep(result);
-}
-
-function normalizeCleanupContract(value)
-{
-    return value?.kind === 'messaging-exact-receipt'
-        ? normalizeMessagingCleanupContract(value)
-        : normalizeSecurityCleanupContract(value);
-}
 function normalizeTemporalBinding(value)
 {
     if (value == null)

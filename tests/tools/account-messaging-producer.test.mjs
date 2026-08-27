@@ -13,6 +13,16 @@ import {
     resolveMessagingIdentityReferences,
     verifyAccountMessaging
 } from '../../tools/test-fixtures/producers/account-messaging-producer.mjs';
+import {
+    buildProducerReceipt,
+    digestCanonical
+} from '../../tools/test-fixtures/receipt/index.mjs';
+import {
+    buildFixtureVariantPlan,
+    buildProducerFixtureVariantPlan,
+    fixtureCatalogDigest,
+    readFixtureCatalogs
+} from '../../tools/testing/fixture-catalog.mjs';
 
 const digest = (character) => `sha256:${character.repeat(64)}`;
 const temporalArtifact = Object.freeze({
@@ -80,21 +90,70 @@ function authSessionResult(runId = 'message-test-run', namespace = 'message-test
 
 function authSessionReceipt(result)
 {
-    return Object.freeze({
-        schema: 'fsusblog.fixture-producer-receipt.v1',
+    const catalogs = readFixtureCatalogs();
+    const fixtureVariantIds = [
+        'canonical.auth.admin.full-permission',
+        'canonical.auth.user.active'
+    ];
+    const fixturePlan = buildFixtureVariantPlan(fixtureVariantIds, catalogs);
+    const producerPlan = buildProducerFixtureVariantPlan({
         producerId: 'auth-session',
-        producerReceiptDigest: `sha256:${'e'.repeat(64)}`,
+        variantIds: fixtureVariantIds,
+        fixtureVariantIds,
+        fixtureVariantPlanDigest: fixturePlan.variantPlanDigest,
+        catalogs
+    });
+    const variantFor = (item) => item.capabilityId === 'auth.admin.full-permission'
+        ? 'canonical.auth.admin.full-permission'
+        : 'canonical.auth.user.active';
+    const databaseObservation = {
+        namespace: result.identityPrepareReferences[0].namespace,
+        entities: result.identityPrepareReferences.map((item) => ({
+            kind: item.capabilityId === 'auth.admin.full-permission' ? 'admin' : 'user',
+            id: item.publicId,
+            semanticRole: item.semanticRole,
+            variantId: variantFor(item),
+            fields: { status: 'active' }
+        }))
+    };
+    return buildProducerReceipt({
+        producerId: 'auth-session',
+        strategy: 'transaction-fixture',
         runId: result.identityPrepareReferences[0].runId,
         namespace: result.identityPrepareReferences[0].namespace,
         profileId: result.identityPrepareReferences[0].profileId,
-        observations: {
-            database: {
-                entities: result.identityPrepareReferences.map((item) => ({
-                    semanticRole: item.semanticRole,
-                    id: item.publicId
-                }))
+        fixtureCatalogDigest: fixtureCatalogDigest(catalogs),
+        expandedCapabilityDigest: digestCanonical([
+            'auth.admin.full-permission',
+            'auth.user.active'
+        ]),
+        fixtureVariantIds,
+        variantPlanDigest: fixturePlan.variantPlanDigest,
+        producerVariantPlanDigest: producerPlan.producerVariantPlanDigest,
+        producedVariantIds: fixtureVariantIds,
+        providedCapabilities: ['auth.admin.full-permission', 'auth.user.active'],
+        ownedStateDomains: catalogs.producer.producers.find(
+            (item) => item.id === 'auth-session'
+        ).stateDomains,
+        entityIdentities: result.identityPrepareReferences.map((item) => ({
+            kind: item.capabilityId === 'auth.admin.full-permission' ? 'admin' : 'user',
+            id: item.publicId,
+            variantId: variantFor(item)
+        })),
+        postconditionObservations: [
+            {
+                capabilityId: 'auth.admin.full-permission',
+                postconditionId: 'admin-full-permission',
+                ok: true
+            },
+            {
+                capabilityId: 'auth.user.active',
+                postconditionId: 'user-active',
+                ok: true
             }
-        }
+        ],
+        databaseObservation,
+        catalogs
     });
 }
 
@@ -224,7 +283,7 @@ test('account-messaging prepares, independently verifies, and exactly cleans own
     const verification = await verifyAccountMessaging(context, result);
     assert.equal(verification.ok, true);
     assert.equal(verification.producerId, 'account-messaging');
-    assert.equal(verification.identitySourceReceiptDigest, `sha256:${'e'.repeat(64)}`);
+    assert.match(verification.identitySourceReceiptDigest, /^sha256:[a-f0-9]{64}$/u);
     assert.match(verification.identityReferencesDigest, /^[a-f0-9]{64}$/u);
     assert.deepEqual(verification.warnings, []);
     await cleanupAccountMessaging(context, result);
