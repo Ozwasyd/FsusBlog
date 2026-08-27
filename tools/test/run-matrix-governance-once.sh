@@ -31,6 +31,7 @@ exec "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mj
     --path tools/test-matrix \
     --path tools/test/bundles \
     --path tools/test/lanes \
+    --path tools/test/run-matrix-governance-producer.mjs \
     --path tools/test/run-matrix-governance-once.sh \
     --path tools/test/run-deterministic-command.mjs \
     --path tools/test/run-once.mjs \
@@ -42,4 +43,4 @@ exec "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mj
     --test-id matrix-validate \
     --test-id matrix-preflight \
     --test-id matrix-evidence-plan \
-    -- bash -c 'node tools/test-matrix/runtime-state-domain-catalog.mjs && node tools/check-test-matrix.mjs'
+    -- "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-matrix-governance-producer.mjs"
