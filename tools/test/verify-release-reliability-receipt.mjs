@@ -13,6 +13,9 @@ import {
     verifyProductionBuildReceipt
 } from '../ci/production-build-artifacts.mjs';
 import { snapshotGitWorktree } from '../test-matrix/scheduler.mjs';
+import {
+    validateReleaseReliabilitySchedulerCatalog
+} from '../test-matrix/release-reliability-scheduler-projection.mjs';
 
 import { parseRuntimeEnvironment } from './bundles/runtime-environment.mjs';
 import {
@@ -551,7 +554,9 @@ function uniqueStrings(values, { allowEmpty = false } = {})
 function validateCatalog(catalog)
 {
     const declaredTools = new Set((catalog?.scenarios ?? []).flatMap((scenario) => scenario.identityTools ?? []));
-    if (catalog?.schema !== 'fsusblog.release-reliability-scenario-catalog.v4'
+    if ((Object.hasOwn(catalog ?? {}, 'schedulerTimeoutPolicies')
+            && validateReleaseReliabilitySchedulerCatalog(catalog).length > 0)
+        || catalog?.schema !== 'fsusblog.release-reliability-scenario-catalog.v4'
         || catalog?.catalogScenarioCount !== 7
         || !Array.isArray(catalog.canonicalScenarioIds)
         || JSON.stringify(catalog.canonicalScenarioIds) !== JSON.stringify(canonicalScenarioIds)
@@ -1990,7 +1995,7 @@ function verifyResult(
     {
         throw new Error(`scenario ${scenario.id} result time ordering is invalid`);
     }
-    exactKeys(result.producer, [
+    const producerKeys = [
         'executable',
         'args',
         'env',
@@ -2003,7 +2008,12 @@ function verifyResult(
         'stdoutLog',
         'stderrLog',
         'processTreeReceipt'
-    ], `scenario ${scenario.id} producer`);
+    ];
+    if (Object.hasOwn(catalog, 'schedulerTimeoutPolicies'))
+    {
+        producerKeys.push('schedulerGrant');
+    }
+    exactKeys(result.producer, producerKeys, `scenario ${scenario.id} producer`);
     const commandToolId = path.basename(scenario.command.executable).replace(/\.exe$/iu, '');
     const expectedExecutable = identity.tools.find((tool) => tool.id === commandToolId)?.executable;
     const expectedLogRoot =
@@ -2019,6 +2029,16 @@ function verifyResult(
         || result.producer.timedOut !== false
         || result.producer.stdoutLog !== `${expectedLogRoot}.stdout.log`
         || result.producer.stderrLog !== `${expectedLogRoot}.stderr.log`
+        || (Object.hasOwn(catalog, 'schedulerTimeoutPolicies')
+            && (result.producer.schedulerGrant?.status !== 'granted'
+                || result.producer.schedulerGrant?.scenarioId !== scenario.id
+                || result.producer.schedulerGrant?.runId !== identity.runId
+                || typeof result.producer.schedulerGrant?.schedulerRunId !== 'string'
+                || !result.producer.schedulerGrant.schedulerRunId
+                || result.producer.schedulerGrant?.profileDigest
+                    !== scenario.schedulerProfileDigest
+                || result.producer.schedulerGrant?.granted?.cpuUnits
+                    < scenario.scheduler.minCpuUnits))
         || JSON.stringify(result.producer.processTreeReceipt)
             !== JSON.stringify(result.lifecycle.actions.find(
                 (record) => record.phase === 'measurement'
