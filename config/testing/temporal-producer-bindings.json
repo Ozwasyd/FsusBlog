@@ -35,6 +35,8 @@
             "actualObservation": "injected-adapter-owned-runtime-or-database-observation",
             "planCarrier": "FSUSBLOG_TEMPORAL_CONTEXT_JSON",
             "receiptCarrier": "temporal-receipt.json",
+            "semanticRoleCarrier": "FSUSBLOG_RESOLVED_TEMPORAL_ROLES_JSON",
+            "semanticRoleReceiptCarrier": "temporal-domain-producer-receipt.json",
             "clockDisposition": "canonical-business-epoch"
         },
         {
@@ -48,6 +50,8 @@
             "actualObservation": "target-node-process-and-injected-backend-business-epoch",
             "planCarrier": "FSUSBLOG_TEMPORAL_CONTEXT_JSON",
             "receiptCarrier": "temporal-receipt.json",
+            "semanticRoleCarrier": "FSUSBLOG_RESOLVED_TEMPORAL_ROLES_JSON",
+            "semanticRoleReceiptCarrier": "temporal-domain-producer-receipt.json",
             "clockDisposition": "canonical-business-epoch"
         },
         {
@@ -109,6 +113,8 @@
             "actualObservation": "injected-adapter-owned-runtime-or-database-observation",
             "planCarrier": "FSUSBLOG_TEMPORAL_CONTEXT_JSON",
             "receiptCarrier": "temporal-receipt.json",
+            "semanticRoleCarrier": "FSUSBLOG_RESOLVED_TEMPORAL_ROLES_JSON",
+            "semanticRoleReceiptCarrier": "temporal-domain-producer-receipt.json",
             "clockDisposition": "canonical-business-epoch"
         }
     ]
