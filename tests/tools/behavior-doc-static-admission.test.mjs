@@ -395,7 +395,7 @@ test('fact observations can be published before generated-section admission and 
     };
     const observation = (extractorId, source = sourceIdentity) => buildFactObservationReceipt({
         extractorId,
-        behaviorIds: ['behavior-contract'],
+        behaviorIds: ['document-lifecycle-governance'],
         sourceCommit: source.sourceCommit,
         worktreeFingerprint: source.worktreeFingerprint,
         extractorDigest: 'c'.repeat(64),
