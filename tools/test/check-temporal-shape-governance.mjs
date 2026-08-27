@@ -3,7 +3,10 @@ import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { readTemporalShapeCatalog } from './temporal-shape-catalog.mjs';
+import {
+    readTemporalShapeCatalog,
+    verifyAuthSessionPolicyRoles
+} from './temporal-shape-catalog.mjs';
 import { readTemporalDomainProducerInventory } from './temporal-role-resolver.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -92,6 +95,7 @@ export function verifyTemporalShapeGovernance({
             fail(`${shape.id} uses random/fractional microsecond offsets`);
         }
     }
+    verifyAuthSessionPolicyRoles(catalogState);
 
     const bindingByProducer = new Map(temporalProducerBindings.producerBindings
         .map((binding) => [binding.producerId, binding]));
@@ -135,6 +139,37 @@ export function verifyTemporalShapeGovernance({
                 fail(`${source} retains ${banned.map(([label]) => label).join(', ')}`);
             }
         }
+    }
+
+    const authProducerSource = sourceOverrides.get('tests/frontend/support/session-fixtures.mjs')
+        ?? readFileSync(path.join(repositoryRoot, 'tests/frontend/support/session-fixtures.mjs'), 'utf8');
+    const sessionPolicyBindings = [
+        [
+            'remember-me idle expiry',
+            /rememberMe\s*\?\s*'session\.persistent-idle-expiry'\s*:\s*'session\.idle-expiry'/u
+        ],
+        [
+            'remember-me absolute expiry',
+            /rememberMe\s*\?\s*'session\.persistent-absolute-expiry'\s*:\s*'session\.absolute-expiry'/u
+        ]
+    ];
+    for (const [label, pattern] of sessionPolicyBindings)
+    {
+        if (!pattern.test(authProducerSource))
+        {
+            fail(`tests/frontend/support/session-fixtures.mjs lacks exact ${label} role selection`);
+        }
+    }
+
+    const authEndpointSource = sourceOverrides.get(
+        'src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs'
+    ) ?? readFileSync(
+        path.join(repositoryRoot, 'src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs'),
+        'utf8'
+    );
+    if (!/RequireInstant\("session\.persistent-idle-expiry"\)/u.test(authEndpointSource))
+    {
+        fail('LocalAuthFixtureEndpoints must bind the remember-me cookie to persistent idle expiry');
     }
 
     const resolverFiles = configFiles.filter((file) =>

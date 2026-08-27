@@ -117,6 +117,39 @@ test('Node PostgreSQL .NET and browser adapters preserve exact cross-runtime ide
     }
 });
 
+test('auth producer resolves exact standard and remember-me session lifetimes', () =>
+{
+    const artifact = resolveTemporalRolesForProducer({
+        temporalContext: context(),
+        namespace: 'default',
+        fixtureId: 'auth-session-policy'
+    });
+    const offsets = new Map(artifact.roles.map((role) => [role.roleId, role.sourceOffsetMilliseconds]));
+    assert.equal(offsets.get('session.idle-expiry'), 7 * 86_400_000);
+    assert.equal(offsets.get('session.absolute-expiry'), 30 * 86_400_000);
+    assert.equal(offsets.get('session.persistent-idle-expiry'), 30 * 86_400_000);
+    assert.equal(offsets.get('session.persistent-absolute-expiry'), 90 * 86_400_000);
+    assert(artifact.relations.some((relation) =>
+        relation.id === 'session-persistent-lifetime'));
+
+    const inventory = readFileSync(
+        path.join(repositoryRoot, 'config/testing/temporal-domain-producer-inventory.json'),
+        'utf8'
+    );
+    assert.match(inventory, /sys-user-session\.remember-me-absoluteexpiresat/u);
+    const producer = readFileSync(
+        path.join(repositoryRoot, 'tests/frontend/support/session-fixtures.mjs'),
+        'utf8'
+    );
+    assert.match(producer, /rememberMe \? 'session\.persistent-idle-expiry' : 'session\.idle-expiry'/u);
+    assert.match(producer, /rememberMe \? 'session\.persistent-absolute-expiry' : 'session\.absolute-expiry'/u);
+    const endpoint = readFileSync(
+        path.join(repositoryRoot, 'src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs'),
+        'utf8'
+    );
+    assert.match(endpoint, /RequireInstant\("session\.persistent-idle-expiry"\)/u);
+});
+
 test('UTC midnight leap day month year and DST projections are exact and explicit', () =>
 {
     const temporalContext = context('comment-moderation');

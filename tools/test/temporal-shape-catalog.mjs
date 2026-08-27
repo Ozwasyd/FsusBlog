@@ -10,6 +10,8 @@ import {
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const catalogPath = path.join(repositoryRoot, 'config/testing/temporal-shape-catalog.json');
+const loginSessionPolicyPath = path.join(repositoryRoot, 'src/backend/Services/UserLoginWorkflowService.cs');
+const refreshSessionPolicyPath = path.join(repositoryRoot, 'src/backend/Services/UserSessionCommandService.cs');
 
 export const TEMPORAL_SHAPE_CATALOG_SCHEMA = 'fsusblog.temporal-shape-catalog.v1';
 export const TEMPORAL_SHAPE_SCHEMA = 'fsusblog.temporal-shape.v1';
@@ -382,9 +384,94 @@ export function validateTemporalShapeCatalog(catalog)
     });
 }
 
+function productionPolicyMilliseconds(source, constantName, sourceName)
+{
+    const pattern = new RegExp(`\\b${constantName}\\s*=\\s*TimeSpan\\.FromDays\\(([1-9][0-9]*)\\)`, 'u');
+    const match = source.match(pattern);
+    if (!match)
+    {
+        fail('temporal.session-policy-drift', `${sourceName} does not expose ${constantName} as an exact day policy`);
+    }
+    return Number(match[1]) * 86_400_000;
+}
+
+export function verifyAuthSessionPolicyRoles(catalogState, {
+    loginSource = readFileSync(loginSessionPolicyPath, 'utf8'),
+    refreshSource = readFileSync(refreshSessionPolicyPath, 'utf8')
+} = {})
+{
+    const shape = catalogState.catalog.shapes
+        .find((candidate) => candidate.id === 'auth-security-messaging-account-lifecycle');
+    if (!shape)
+    {
+        fail('temporal.session-policy-drift', 'auth session lifecycle shape is missing');
+    }
+    const roles = new Map(shape.timestampRoles.map((role) => [role.roleId, role]));
+    const expected = new Map([
+        ['session.idle-expiry', productionPolicyMilliseconds(
+            loginSource,
+            's_standardSessionIdleTtl',
+            'UserLoginWorkflowService')],
+        ['session.persistent-idle-expiry', productionPolicyMilliseconds(
+            loginSource,
+            's_rememberMeSessionIdleTtl',
+            'UserLoginWorkflowService')],
+        ['session.absolute-expiry', productionPolicyMilliseconds(
+            loginSource,
+            's_standardSessionAbsoluteTtl',
+            'UserLoginWorkflowService')],
+        ['session.persistent-absolute-expiry', productionPolicyMilliseconds(
+            loginSource,
+            's_rememberMeSessionAbsoluteTtl',
+            'UserLoginWorkflowService')]
+    ]);
+    const refreshIdle = new Map([
+        ['session.idle-expiry', productionPolicyMilliseconds(
+            refreshSource,
+            's_standardSessionIdleTtl',
+            'UserSessionCommandService')],
+        ['session.persistent-idle-expiry', productionPolicyMilliseconds(
+            refreshSource,
+            's_rememberMeSessionIdleTtl',
+            'UserSessionCommandService')]
+    ]);
+    for (const [roleId, expectedOffset] of expected)
+    {
+        const role = roles.get(roleId);
+        if (!role || role.offsetMilliseconds !== expectedOffset)
+        {
+            fail('temporal.session-policy-drift', `${roleId} does not match the production session policy`, {
+                roleId,
+                expectedOffsetMilliseconds: expectedOffset,
+                actualOffsetMilliseconds: role?.offsetMilliseconds ?? null
+            });
+        }
+    }
+    for (const [roleId, refreshOffset] of refreshIdle)
+    {
+        if (refreshOffset !== expected.get(roleId))
+        {
+            fail('temporal.session-policy-drift', `${roleId} login and refresh policies disagree`);
+        }
+    }
+    if (!shape.invariantIds.includes('session-persistent-lifetime'))
+    {
+        fail('temporal.session-policy-drift', 'persistent session lifetime invariant is missing');
+    }
+    return Object.freeze({
+        shapeId: shape.id,
+        standardIdleMilliseconds: expected.get('session.idle-expiry'),
+        standardAbsoluteMilliseconds: expected.get('session.absolute-expiry'),
+        rememberMeIdleMilliseconds: expected.get('session.persistent-idle-expiry'),
+        rememberMeAbsoluteMilliseconds: expected.get('session.persistent-absolute-expiry')
+    });
+}
+
 export function readTemporalShapeCatalog(file = catalogPath)
 {
-    return validateTemporalShapeCatalog(JSON.parse(readFileSync(file, 'utf8')));
+    const state = validateTemporalShapeCatalog(JSON.parse(readFileSync(file, 'utf8')));
+    verifyAuthSessionPolicyRoles(state);
+    return state;
 }
 
 export function resolveTemporalShape(shapeId, { catalog = readTemporalShapeCatalog() } = {})
