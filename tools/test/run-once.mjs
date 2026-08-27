@@ -371,7 +371,8 @@ export function validateRunOnceLockLifecycleReceipt(
     { namespace = receipt?.namespace, executionKey = receipt?.executionKey } = {}
 )
 {
-    const { receiptDigest: _receiptDigest, ...payload } = receipt ?? {};
+    const payload = { ...receipt };
+    delete payload.receiptDigest;
     const identity = receipt?.ownerIdentity;
     const policy = receipt?.policy;
     if (
@@ -482,7 +483,8 @@ function lockObservationReceipt(ownerSnapshotDigest, observedAt)
 
 function validLockObservation(receipt, ownerSnapshotDigest, nowMs)
 {
-    const { receiptDigest: _receiptDigest, ...payload } = receipt ?? {};
+    const payload = { ...receipt };
+    delete payload.receiptDigest;
     const observedAtMs = Date.parse(receipt?.observedAt);
     return Boolean(
         receipt &&
@@ -528,7 +530,9 @@ async function observeUnverifiableLock(lockDirectory, ownerFile, graceMs, nowMs)
             const concurrent = await readState(observationFile);
             if (!validLockObservation(concurrent, ownerSnapshotDigest, nowMs))
             {
-                throw new Error('owner-unverifiable: lock observation receipt integrity validation failed');
+                throw new Error('owner-unverifiable: lock observation receipt integrity validation failed', {
+                    cause: error
+                });
             }
             observation = concurrent;
         }
@@ -702,7 +706,7 @@ async function acquireLock(lockDirectory, timeoutMs, { staleAfterMs, heartbeatEv
 
             if (Date.now() - startedAt >= timeoutMs)
             {
-                throw new Error(`timed out waiting for run-once lock: ${lockDirectory}`);
+                throw new Error(`timed out waiting for run-once lock: ${lockDirectory}`, { cause: error });
             }
             await sleep(100, signal);
         }
@@ -951,7 +955,8 @@ export async function runOnce(
 
 function receiptPayload(receipt)
 {
-    const { receiptDigest: _receiptDigest, ...payload } = receipt;
+    const payload = { ...receipt };
+    delete payload.receiptDigest;
     return payload;
 }
 
@@ -1098,7 +1103,8 @@ export async function validateRunBoundProjection({
 
 function consumerEvidencePayload(document)
 {
-    const { evidenceDigest: _evidenceDigest, ...payload } = document;
+    const payload = { ...document };
+    delete payload.evidenceDigest;
     return payload;
 }
 

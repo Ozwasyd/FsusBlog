@@ -14,6 +14,14 @@ import {
     runBehaviorDocStaticAdmission
 } from './docs/behavior-doc-static-admission.mjs';
 import { sealSourceIdentity } from './fact-extractors/identity.mjs';
+import {
+    loadExecutionNetworkPolicy,
+    validateExecutionNetworkPolicy
+} from './test/execution-envelope-network.mjs';
+import {
+    loadExecutionServiceCatalog,
+    validateExecutionServiceCatalog
+} from './test/execution-envelope-services.mjs';
 import { availableMemoryGiB } from './test/system-memory.mjs';
 import {
     buildAggregatePlan as buildAggregateReachabilityPlan,
@@ -35,14 +43,6 @@ import {
     discoverOrphanDotnetBuildServers,
     dotnetBuildServerInventory
 } from './test-matrix/dotnet-build-server-cleanup.mjs';
-import {
-    loadExecutionServiceCatalog,
-    validateExecutionServiceCatalog
-} from './test/execution-envelope-services.mjs';
-import {
-    loadExecutionNetworkPolicy,
-    validateExecutionNetworkPolicy
-} from './test/execution-envelope-network.mjs';
 import {
     loadExecutionEnvelopeApplicability,
     loadExecutionEnvelopePolicy,

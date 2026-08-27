@@ -1,3 +1,4 @@
+/* eslint-disable import-x/no-relative-parent-imports -- Repository contract tests and tool authorities intentionally compose sibling owner modules. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { chmod, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
@@ -5,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+import { executionServiceImageReference } from '../../tools/test/execution-envelope-services.mjs';
 import {
     compensateVerifiedContainerCleanup,
     deriveLocalPublicContentFixtureSecret,
@@ -22,7 +24,6 @@ import {
     resolveBrowserContractRunIdentity
 } from '../browser-contract/fixture-lifecycle.mjs';
 import { fixtureReceiptView, loadBrowserContractFixture } from '../browser-contract/fixture.mjs';
-import { executionServiceImageReference } from '../../tools/test/execution-envelope-services.mjs';
 
 const commit = 'a'.repeat(40);
 const fingerprint = 'b'.repeat(64);

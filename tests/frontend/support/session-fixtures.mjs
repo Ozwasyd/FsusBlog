@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable import-x/no-relative-parent-imports -- Repository contract tests and tool authorities intentionally compose sibling owner modules. */
 // fixture-catalog: consumer auth-session-runtime auth-basic
 // fixture-catalog: producer auth-session
 // fixture-catalog: producer security-state
@@ -9,15 +10,16 @@ import { chmod, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import {
+    loadResolvedTemporalRoles,
+    requireResolvedTemporalRole
+} from '../../../tools/test/temporal-role-resolver.mjs';
+
+import {
     playwrightSessionModes,
     resolveAuthFixtureDirectory,
     resolvePlaywrightSessionMode
 } from './fixture-paths.mjs';
 import { resolveTestSession } from './test-session.mjs';
-import {
-    loadResolvedTemporalRoles,
-    requireResolvedTemporalRole
-} from '../../../tools/test/temporal-role-resolver.mjs';
 
 const CLAIM_NAME_IDENTIFIER = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier';
 const CLAIM_NAME = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name';

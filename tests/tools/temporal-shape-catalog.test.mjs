@@ -1,18 +1,19 @@
+/* eslint-disable import-x/no-relative-parent-imports -- Repository contract tests and tool authorities intentionally compose sibling owner modules. */
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 
-import { validateJsonSchema } from '../../tools/test-matrix/schema-validator/validate.mjs';
 import { verifyTemporalShapeGovernance } from '../../tools/test/check-temporal-shape-governance.mjs';
+import { readTemporalDomainProducerInventory } from '../../tools/test/temporal-role-resolver.mjs';
 import {
     readTemporalShapeCatalog,
     temporalShapeDigest,
     validateTemporalShapeCatalog,
     verifyAuthSessionPolicyRoles
 } from '../../tools/test/temporal-shape-catalog.mjs';
-import { readTemporalDomainProducerInventory } from '../../tools/test/temporal-role-resolver.mjs';
+import { validateJsonSchema } from '../../tools/test-matrix/schema-validator/validate.mjs';
 
 const repositoryRoot = path.resolve(import.meta.dirname, '../..');
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable import-x/no-relative-parent-imports -- Repository contract tests and tool authorities intentionally compose sibling owner modules. */
 // fixture-catalog: consumer browser-contract-fixture acceptance-representative
 // fixture-catalog: producer comment-moderation
 
@@ -88,19 +89,6 @@ function parseEnvFile(file)
             return separator > 0 ? [line.slice(0, separator), line.slice(separator + 1)] : null;
         })
         .filter(Boolean)));
-}
-
-function decodePublicFixture(raw)
-{
-    return Object.fromEntries(raw.split(/\r?\n/u).map((line) =>
-    {
-        const separator = line.indexOf('\t');
-        if (separator < 1)
-        {
-            return null;
-        }
-        return [line.slice(0, separator), Buffer.from(line.slice(separator + 1), 'base64url').toString('utf8')];
-    }).filter(Boolean));
 }
 
 async function readRequest()

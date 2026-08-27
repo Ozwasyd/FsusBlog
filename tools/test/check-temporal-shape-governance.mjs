@@ -3,11 +3,11 @@ import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { readTemporalDomainProducerInventory } from './temporal-role-resolver.mjs';
 import {
     readTemporalShapeCatalog,
     verifyAuthSessionPolicyRoles
 } from './temporal-shape-catalog.mjs';
-import { readTemporalDomainProducerInventory } from './temporal-role-resolver.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const testingConfigRoot = path.join(repositoryRoot, 'config/testing');

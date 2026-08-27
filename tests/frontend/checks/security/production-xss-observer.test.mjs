@@ -1,3 +1,4 @@
+/* eslint-disable import-x/no-relative-parent-imports -- Repository contract tests and tool authorities intentionally compose sibling owner modules. */
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
@@ -48,6 +49,7 @@ test('production XSS DOM audit rejects event handlers, dangerous URLs and namesp
 {
     const failures = auditSerializedElementTree([{
         namespace: 'http://www.w3.org/2000/svg',
+        // eslint-disable-next-line no-script-url -- The literal is the hostile protocol under test.
         attributes: { onload: 'attack()', href: 'javascript:attack()' }
     }], { allowedNamespaces: ['http://www.w3.org/1999/xhtml'], forbidExternalUrls: true });
     assert.deepEqual(failures.sort(), [

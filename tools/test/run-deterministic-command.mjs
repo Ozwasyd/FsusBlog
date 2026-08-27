@@ -1,10 +1,17 @@
 #!/usr/bin/env node
+/* eslint-disable import-x/no-relative-parent-imports -- Repository contract tests and tool authorities intentionally compose sibling owner modules. */
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+
+import {
+    loadExecutionEnvelopeApplicability,
+    loadExecutionEnvelopePolicy,
+    resolveExecutionEnvelopeProducer
+} from '../test-matrix/execution-envelope-policy.mjs';
 
 import {
     finalizeRunOwnedDirectories,
@@ -41,11 +48,6 @@ import {
     qualificationTemporalContext,
     verifyTemporalReplay
 } from './temporal-context.mjs';
-import {
-    loadExecutionEnvelopeApplicability,
-    loadExecutionEnvelopePolicy,
-    resolveExecutionEnvelopeProducer
-} from '../test-matrix/execution-envelope-policy.mjs';
 import { resolveTemporalRolesForProducerIfBound } from './temporal-role-resolver.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -210,7 +212,8 @@ function createRunnerTemporalContext({ producerId, runId, sourceCommit, sourceFi
 
 function bindTemporalArtifact(document, executionEnvelopeBinding)
 {
-    const { digest: _digest, ...payload } = document;
+    const payload = { ...document };
+    delete payload.digest;
     const bound = {
         ...payload,
         executionEnvelopeDigest: executionEnvelopeBinding.envelopeDigest,
@@ -385,6 +388,8 @@ async function main(argv)
     });
     let correctnessEnvironment;
     let networkSandbox;
+    let executionFailure = null;
+    let finalizationFailure = null;
     try
     {
         correctnessEnvironment = prepareCorrectnessEnvironment({
@@ -687,9 +692,12 @@ async function main(argv)
         });
         console.log(`[physical-execution] ${result.status} key=${options.key} receipt=${result.receiptFile} projection=${result.projectionFile}${consumerEvidenceFile ? ` consumer-evidence=${consumerEvidenceFile}` : ''} temporal-receipt=${temporalFiles.receipt} execution-envelope=${executionEnvelopeReceiptFile}`);
     }
+    catch (error)
+    {
+        executionFailure = error;
+    }
     finally
     {
-        let finalizationError = null;
         if (!postflightAttempted)
         {
             try
@@ -698,15 +706,27 @@ async function main(argv)
             }
             catch (error)
             {
-                finalizationError = error;
+                finalizationFailure = error;
             }
         }
         process.off('SIGINT', onSigint);
         process.off('SIGTERM', onSigterm);
-        if (finalizationError)
-        {
-            throw finalizationError;
-        }
+    }
+    if (executionFailure && finalizationFailure)
+    {
+        throw new AggregateError(
+            [executionFailure, finalizationFailure],
+            'physical execution and execution-envelope finalization failed',
+            { cause: finalizationFailure }
+        );
+    }
+    if (executionFailure)
+    {
+        throw executionFailure;
+    }
+    if (finalizationFailure)
+    {
+        throw finalizationFailure;
     }
 }
 

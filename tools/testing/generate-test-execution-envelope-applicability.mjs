@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable import-x/no-relative-parent-imports -- Repository contract tests and tool authorities intentionally compose sibling owner modules. */
 
 import fs from 'node:fs';
 import path from 'node:path';

@@ -1,3 +1,4 @@
+/* eslint-disable import-x/no-relative-parent-imports -- Repository contract tests and tool authorities intentionally compose sibling owner modules. */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -5,6 +6,7 @@ import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { executionEnvelopeDigest } from '../test-matrix/execution-envelope-policy.mjs';
+
 import { processIdentityStatus } from './process-identity.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -124,7 +126,7 @@ function dockerJson(args, docker = spawnSync)
     }
     catch (error)
     {
-        throw new Error(`execution service observation returned invalid JSON: ${error.message}`);
+        throw new Error(`execution service observation returned invalid JSON: ${error.message}`, { cause: error });
     }
 }
 

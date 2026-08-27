@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable import-x/no-relative-parent-imports -- Repository contract tests and tool authorities intentionally compose sibling owner modules. */
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
@@ -22,7 +23,6 @@ import { writeIntegrityProofProducer } from '../../test-matrix/integrity-proof-p
 import {
     artifactSubstitutionBindingDigest,
     matrixGeneratedRuntimePaths,
-    resolveLocalProfileResources,
     resolveArtifactSubstitutions,
     resolveFrontendVitestAdmissionFloor, performanceMixedWindowFloorMs, validatePerformanceDeadlineEvidence
 } from '../../test-matrix/local-profile.mjs';
@@ -69,6 +69,21 @@ import {
     waitForRunBoundMarker
 } from '../../test-matrix/run-bound-marker.mjs';
 import { readSchedulerProducerTerminalFailure } from '../../test-matrix/scheduler-run-owner.mjs';
+import {
+    assertRuntimeAuthorityUnchanged,
+    loadRuntimeStateAuthority
+} from '../../test-runtime/catalog.mjs';
+import {
+    createProductionBoundaryCollector,
+    stepMutatesRuntimeState
+} from '../../test-runtime/production-boundary-collector.mjs';
+import { validateRuntimeExecutionSessionReceipt } from '../../test-runtime/runtime-execution-session.mjs';
+import {
+    orderStepsByPlan,
+    runtimeStepCatalogDigest,
+    validateRuntimeSchedulePlan
+} from '../../test-runtime/schedule-plan.mjs';
+import { createStateConflictPolicy } from '../../test-runtime/state-conflict.mjs';
 import { backendTopologyDefaults } from '../backend-production-topology.mjs';
 import { buildLocalStaticManifest, planLocalStaticCommands } from '../local-static-governance.mjs';
 import {
@@ -90,21 +105,6 @@ import {
 import { wrapTaskScopedMeasurementCommand } from './measurement-step-command.mjs';
 import { readRuntimeEnvironment } from './runtime-environment.mjs';
 import { writeBundleSummaryAtomically } from './terminal-summary.mjs';
-import {
-    assertRuntimeAuthorityUnchanged,
-    loadRuntimeStateAuthority
-} from '../../test-runtime/catalog.mjs';
-import { createStateConflictPolicy } from '../../test-runtime/state-conflict.mjs';
-import {
-    orderStepsByPlan,
-    runtimeStepCatalogDigest,
-    validateRuntimeSchedulePlan
-} from '../../test-runtime/schedule-plan.mjs';
-import { validateRuntimeExecutionSessionReceipt } from '../../test-runtime/runtime-execution-session.mjs';
-import {
-    createProductionBoundaryCollector,
-    stepMutatesRuntimeState
-} from '../../test-runtime/production-boundary-collector.mjs';
 
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -491,7 +491,9 @@ function installShutdownForwarding()
                     finalizeBundleResourceUtilization('partial', new Error(`bundle cancelled by ${signal}`));
                 }
                 catch
-                {}
+                {
+                    // The primary cancellation path retains the process signal authority.
+                }
                 process.exit(exitCode);
             });
         });
