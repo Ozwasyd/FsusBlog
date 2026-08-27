@@ -808,6 +808,19 @@
             "recursive": true
         },
         {
+            "id": "stryker-tool-producer",
+            "owner": "mutation-test-governance",
+            "canonicalPath": "config/testing/mutation/stryker-tool.v1.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/mutation/stryker-tool.mjs",
+                "tests/tools/changed-critical-mutation.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/changed-critical-mutation.test.mjs",
+            "changePolicy": "manual-update-with-pinned-source-and-overlay-validation",
+            "status": "manual"
+        },
+        {
             "id": "dotnet-local-tools",
             "owner": "dotnet-cli",
             "canonicalPath": ".config/dotnet-tools.json",

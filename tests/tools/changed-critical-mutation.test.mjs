@@ -18,6 +18,9 @@ import {
 import {
     executeChangedCriticalSelection
 } from '../../tools/test/run-changed-critical-mutation.mjs';
+import {
+    validateStrykerToolPolicy
+} from '../../tools/mutation/stryker-tool.mjs';
 
 const rawToolPolicy = readFileSync(
     new URL('../../config/testing/mutation/changed-critical-domains.v1.json', import.meta.url)
@@ -390,4 +393,73 @@ test('checked-in nightly and fixed release mutation lanes remain present', () =>
     assert.match(matrix, /- id: release-mutation-critical-slice\n/u);
     assert.ok(defaults['stryker-config'].mutate.length > 1);
     assert.deepEqual(critical['stryker-config'].mutate, ['Algorithms/AedsEncoder.cs']);
+});
+
+test('repository Stryker producer pins official source and overlay identity', () =>
+{
+    const policy = JSON.parse(readFileSync(
+        new URL('../../config/testing/mutation/stryker-tool.v1.json', import.meta.url),
+        'utf8'
+    ));
+    const manifest = JSON.parse(readFileSync(
+        new URL('../../.config/dotnet-tools.json', import.meta.url),
+        'utf8'
+    ));
+    const overlay = readFileSync(new URL(
+        '../../tools/mutation/patches/stryker-net-4.14.2-candidate-validity.patch',
+        import.meta.url
+    ));
+
+    assert.equal(validateStrykerToolPolicy(policy, manifest, overlay), policy);
+    assert.equal(policy.upstreamCommit, 'cc7fdf3433025a4b63c2c091c07b2177d117359e');
+    assert.equal(policy.upstreamArchiveSha256, 'd50354b9f99fd9d9e4959b2c4cf0dbf5068cc47488a49db77d00e0dbbb32cca0');
+    assert.equal(manifest.tools['dotnet-stryker'].version, '4.14.2');
+});
+
+test('repository Stryker producer rejects unreviewed patch and version drift', () =>
+{
+    const policy = JSON.parse(readFileSync(
+        new URL('../../config/testing/mutation/stryker-tool.v1.json', import.meta.url),
+        'utf8'
+    ));
+    const manifest = JSON.parse(readFileSync(
+        new URL('../../.config/dotnet-tools.json', import.meta.url),
+        'utf8'
+    ));
+    const overlay = readFileSync(new URL(
+        '../../tools/mutation/patches/stryker-net-4.14.2-candidate-validity.patch',
+        import.meta.url
+    ));
+
+    assert.throws(
+        () => validateStrykerToolPolicy(policy, manifest, Buffer.concat([overlay, Buffer.from('x')])),
+        /patch digest/u
+    );
+    assert.throws(
+        () => validateStrykerToolPolicy(
+            { ...policy, packageVersion: '4.14.2' },
+            manifest,
+            overlay
+        ),
+        /package version/u
+    );
+});
+
+test('all mutation executors use the repository producer without status relaxation', () =>
+{
+    const executors = [
+        '../../tools/test/lanes/_suite-support.sh',
+        '../../tools/test/run-changed-critical-mutation.mjs',
+        '../../tools/test/run-release-mutation-parity-build.mjs'
+    ].map(path => readFileSync(new URL(path, import.meta.url), 'utf8')).join('\n');
+    const overlay = readFileSync(new URL(
+        '../../tools/mutation/patches/stryker-net-4.14.2-candidate-validity.patch',
+        import.meta.url
+    ), 'utf8');
+
+    assert.doesNotMatch(executors, /tool(?:'|\s)+run(?:'|\s)+dotnet-stryker/u);
+    assert.match(executors, /tools\/mutation\/stryker-tool\.mjs/u);
+    assert.match(overlay, /CsharpMutationCandidateValidator/u);
+    assert.doesNotMatch(overlay, /MutantStatus\.(?:Ignored|CompileError|Timeout)/u);
+    assert.doesNotMatch(overlay, /threshold|allowlist|excluded-mutant/iu);
 });

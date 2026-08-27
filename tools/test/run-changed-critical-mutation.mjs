@@ -140,11 +140,13 @@ function runPhysicalMutations({ selection, toolPolicy, runDirectory, root, physi
         const configPath = resolve(runDirectory, 'configs', `${runName}.json`);
         writeJsonAtomic(configPath, config);
         const result = spawnSync(
-            'dotnet',
+            'node',
             [
-                'tool',
+                resolve(root, 'tools/mutation/stryker-tool.mjs'),
                 'run',
-                'dotnet-stryker',
+                '--working-directory',
+                closure.sourceProject,
+                '--',
                 '--config-file',
                 configPath,
                 '--output',
@@ -153,7 +155,7 @@ function runPhysicalMutations({ selection, toolPolicy, runDirectory, root, physi
                 '--verbosity',
                 'trace'
             ], {
-                cwd: resolve(root, closure.sourceProject),
+                cwd: root,
                 stdio: 'inherit',
                 env: { ...process.env, FSUSBLOG_MUTATION_BUILD: '1' }
             }
