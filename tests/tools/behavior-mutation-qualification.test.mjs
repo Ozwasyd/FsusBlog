@@ -273,7 +273,7 @@ function buildPhysicalRuns({
         const configPath = path.join(baseDir, 'configs', `${closure.sourceProject.replaceAll('/', '-')}.json`);
         const tracePath = path.join(physicalDir, 'logs', 'log-fixture.txt');
         const lines = [
-            '2026-08-08T00:59:59.0000000Z  [DBG] Stryker starting, version: "4.14.2-fsusblog.1" (e60f399b)',
+            '2026-08-08T00:59:59.0000000Z  [DBG] Stryker starting, version: "4.14.2-fsusblog.2" (e60f399b)',
             '2026-08-08T01:00:00.0000000Z  [DBG] Stryker started with options: '
         + `StrykerOptions { ReportPath: "${path.dirname(reportAbsolutePath)}", `
         + `ReportFileName: "${reportName}", `

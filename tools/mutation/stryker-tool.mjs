@@ -59,7 +59,7 @@ export function validateStrykerToolPolicy(policy, manifest, patch)
         fail('upstream archive digest is invalid');
     if (policy.upstreamVersion !== '4.14.2')
         fail('upstream version is not the reviewed release');
-    if (policy.packageVersion !== '4.14.2-fsusblog.1')
+    if (policy.packageVersion !== '4.14.2-fsusblog.2')
         fail('package version is not the reviewed repository producer');
     const manifestTool = manifest?.tools?.['dotnet-stryker'];
     if (!manifest?.isRoot || manifestTool?.version !== policy.upstreamVersion
@@ -140,8 +140,8 @@ function buildTool()
         env: { ...process.env, DOTNET_ROLL_FORWARD: 'Major' }
     });
     process.stdout.write(`${focusedTestOutput}\n`);
-    if (!/Passed!\s+-\s+Failed:\s+0,\s+Passed:\s+7,/u.test(focusedTestOutput))
-        fail('fork focused test run did not execute the expected seven tests');
+    if (!/Passed!\s+-\s+Failed:\s+0,\s+Passed:\s+9,/u.test(focusedTestOutput))
+        fail('fork focused test run did not execute the expected nine tests');
     const feedDir = resolve(stagingDir, 'feed');
     run('dotnet', [
         'pack',

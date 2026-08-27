@@ -509,4 +509,40 @@ test('all mutation executors use the repository producer without status relaxati
     assert.match(overlay, /CsharpMutationCandidateValidator/u);
     assert.doesNotMatch(overlay, /MutantStatus\.(?:Ignored|CompileError|Timeout)/u);
     assert.doesNotMatch(overlay, /threshold|allowlist|excluded-mutant/iu);
+    assert.match(overlay, /remainingBaselineErrors/u);
+    assert.match(overlay, /introducedErrors/u);
+    assert.match(overlay, /KeepsCandidateWhenOnlyExactBaselineDiagnosticsRemain/u);
+    assert.match(overlay, /RejectsCandidateThatAddsAnErrorAlongsideExactBaselineDiagnostics/u);
+});
+
+test('repository candidate validator subtracts only exact baseline diagnostics', () =>
+{
+    const policy = JSON.parse(readFileSync(
+        new URL('../../config/testing/mutation/stryker-tool.v1.json', import.meta.url),
+        'utf8'
+    ));
+    const manifest = JSON.parse(readFileSync(
+        new URL('../../.config/dotnet-tools.json', import.meta.url),
+        'utf8'
+    ));
+    const overlay = readFileSync(new URL(
+        '../../tools/mutation/patches/stryker-net-4.14.2-candidate-validity.patch',
+        import.meta.url
+    ));
+    const source = overlay.toString('utf8');
+
+    assert.match(source, /GroupBy\(DiagnosticKey, StringComparer\.Ordinal\)/u);
+    assert.match(source, /remainingBaselineErrors\.TryGetValue\(key/u);
+    assert.match(source, /else\s*\n\+\s*\{\s*\n\+\s*introducedErrors\.Add\(error\)/u);
+    assert.match(source, /diagnostic\.Location\.SourceSpan/u);
+    assert.doesNotMatch(source, /originalErrors\.Length\s*!=\s*0/u);
+
+    const weakened = Buffer.from(source.replace(
+        'else\n+            {\n+                introducedErrors.Add(error);\n+            }',
+        'else\n+            {\n+                // fail open\n+            }'
+    ));
+    assert.throws(
+        () => validateStrykerToolPolicy(policy, manifest, weakened),
+        /patch digest/u
+    );
 });
