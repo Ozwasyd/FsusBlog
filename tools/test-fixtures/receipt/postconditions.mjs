@@ -467,22 +467,91 @@ function verifyMessages(id) {
   }
 }
 
-function verifyLocale(id) {
+function verifyAccountProfile(id, expected) {
+  return (ctx) => {
+    const db = ctx.observations?.database
+    if (!db) return fail(id, 'database observation required')
+    const profiles = entitiesOf(db, 'profile')
+      .filter((item) => item.postconditionId === id && item.owned !== false)
+    const owned = requireOwnedIds(profiles, id)
+    if (!owned.ok) return fail(id, owned.reason)
+    for (const profile of profiles) {
+      const fields = profile.fields ?? {}
+      if (fields.readerMatchesDatabase !== true || fields.securityStateUnchanged !== true
+        || fields.preferenceMutation !== false) {
+        return fail(id, `profile ${profile.id} lacks reader/security/non-preference proof`)
+      }
+      if (expected === 'empty' && fields.publicHandle != null) {
+        return fail(id, `profile ${profile.id} handle is not database NULL`)
+      }
+      if (expected === 'set' && (!String(fields.publicHandle ?? '') || fields.uniqueOwnerCount !== 1)) {
+        return fail(id, `profile ${profile.id} handle is not uniquely owned`)
+      }
+      if (expected === 'conflict'
+        && (fields.conflictErrorCode !== 'conflict'
+          || fields.challengerPreserved !== true || fields.uniqueOwnerCount !== 1)) {
+        return fail(id, `profile ${profile.id} conflict did not preserve the first owner`)
+      }
+    }
+    return pass(id, { profileIds: owned.ids })
+  }
+}
+
+function verifyAccountPreference(id, expected) {
   return (ctx) => {
     const db = ctx.observations?.database
     if (!db) return fail(id, 'database observation required')
     const prefs = entitiesOf(db, 'preference')
+      .filter((item) => item.postconditionId === id && item.owned !== false)
     const owned = requireOwnedIds(prefs, id)
     if (!owned.ok) return fail(id, owned.reason)
     for (const pref of prefs) {
-      if (id === 'locale-auto' && pref.fields?.localeMode !== 'auto') {
-        return fail(id, `preference ${pref.id} is not locale-auto`)
+      const fields = pref.fields ?? {}
+      if (fields.readerMatchesDatabase !== true || fields.securityStateUnchanged !== true
+        || fields.publicHandleMutation !== false || !/^[a-f0-9]{64}$/u.test(String(fields.catalogDigest ?? ''))
+        || Number(fields.revision) <= 0) {
+        return fail(id, `preference ${pref.id} lacks reader/catalog/revision/isolation proof`)
       }
-      if (id === 'locale-fixed' && pref.fields?.localeMode !== 'fixed') {
-        return fail(id, `preference ${pref.id} is not locale-fixed`)
+      const cookieLocales = fields.explicitCookieLocales ?? []
+      const incomingLocales = fields.incomingDeviceLocales ?? []
+      const resolvedLocales = fields.serverResolvedLocales ?? []
+      if (expected === 'auto'
+        && (fields.localeMode !== 'auto' || fields.fixedLocale != null
+          || cookieLocales.some((locale) => locale != null))) {
+        return fail(id, `preference ${pref.id} auto state retained an explicit locale`)
+      }
+      if (expected === 'fixed-default'
+        && (fields.localeMode !== 'fixed' || fields.isCatalogDefault !== true)) {
+        return fail(id, `preference ${pref.id} is not the catalog default fixed locale`)
+      }
+      if (expected === 'fixed-non-default'
+        && (fields.localeMode !== 'fixed' || fields.isCatalogNonDefault !== true)) {
+        return fail(id, `preference ${pref.id} is not a catalog non-default fixed locale`)
+      }
+      if (expected === 'device-explicit'
+        && (fields.localeMode !== 'auto' || cookieLocales.length === 0
+          || cookieLocales.some((locale) => locale == null)
+          || JSON.stringify(cookieLocales) !== JSON.stringify(resolvedLocales))) {
+        return fail(id, `preference ${pref.id} device projection is not the server locale authority input`)
+      }
+      if (expected === 'account-device-conflict'
+        && (fields.localeMode !== 'fixed' || incomingLocales.length !== 1
+          || incomingLocales[0] == null || incomingLocales[0] === fields.fixedLocale
+          || cookieLocales.length !== 1 || cookieLocales[0] !== fields.fixedLocale
+          || resolvedLocales.length !== 1 || resolvedLocales[0] !== fields.fixedLocale)) {
+        return fail(id, `preference ${pref.id} account/device conflict precedence is invalid`)
+      }
+      if (expected === 'revision-conflict'
+        && (fields.conflictErrorCode !== 'locale_preference_revision_conflict'
+          || fields.newerValuePreserved !== true || Number(fields.staleRevision) >= Number(fields.revision))) {
+        return fail(id, `preference ${pref.id} revision conflict did not preserve the newer value`)
+      }
+      if (expected === 'two-device-sync'
+        && (fields.deviceProjectionCount !== 2 || resolvedLocales.length !== 1)) {
+        return fail(id, `preference ${pref.id} two-device projection is not revision-equivalent`)
       }
     }
-    return pass(id)
+    return pass(id, { preferenceIds: owned.ids })
   }
 }
 
@@ -532,8 +601,16 @@ export const POSTCONDITION_VERIFIERS = Object.freeze({
   'moderation-policy-matrix': verifyModerationPolicy,
   'messages-thread': verifyMessages('messages-thread'),
   'notifications-unread': verifyMessages('notifications-unread'),
-  'locale-auto': verifyLocale('locale-auto'),
-  'locale-fixed': verifyLocale('locale-fixed'),
+  'preference-locale-account-device-conflict': verifyAccountPreference('preference-locale-account-device-conflict', 'account-device-conflict'),
+  'preference-locale-auto': verifyAccountPreference('preference-locale-auto', 'auto'),
+  'preference-locale-device-explicit': verifyAccountPreference('preference-locale-device-explicit', 'device-explicit'),
+  'preference-locale-fixed-default': verifyAccountPreference('preference-locale-fixed-default', 'fixed-default'),
+  'preference-locale-fixed-non-default': verifyAccountPreference('preference-locale-fixed-non-default', 'fixed-non-default'),
+  'preference-locale-revision-conflict': verifyAccountPreference('preference-locale-revision-conflict', 'revision-conflict'),
+  'preference-locale-two-device-sync': verifyAccountPreference('preference-locale-two-device-sync', 'two-device-sync'),
+  'profile-public-handle-conflict': verifyAccountProfile('profile-public-handle-conflict', 'conflict'),
+  'profile-public-handle-empty': verifyAccountProfile('profile-public-handle-empty', 'empty'),
+  'profile-public-handle-set': verifyAccountProfile('profile-public-handle-set', 'set'),
   'development-demo-dataset': verifyDemoDataset,
   'scale-xs': verifyScale('scale-xs'),
   'scale-s': verifyScale('scale-s'),

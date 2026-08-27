@@ -96,6 +96,8 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddHostedService<AccountEnrollmentCleanupWorker>();
         services.AddScoped<IUserLoginWorkflowService, UserLoginWorkflowService>();
         services.AddScoped<IUserProfileCommandService, UserProfileCommandService>();
+        services.AddScoped<FsusBlog.Server.Services.Fixtures.IAccountProfilePreferenceFixtureStateReader, FsusBlog.Server.Services.Fixtures.AccountProfilePreferenceFixtureStateReader>();
+        services.AddScoped<FsusBlog.Server.Services.Fixtures.IAccountProfilePreferenceFixtureService, FsusBlog.Server.Services.Fixtures.AccountProfilePreferenceFixtureService>();
         services.AddScoped<IUserSessionCommandService, UserSessionCommandService>();
         services.AddScoped<IUserMfaCommandService>(sp => sp.GetRequiredService<UserService>());
         services.AddScoped<IUserMfaVerificationService>(sp => sp.GetRequiredService<UserService>());

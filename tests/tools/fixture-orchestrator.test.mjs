@@ -467,15 +467,16 @@ test('account-messaging cutover refuses structural preparation without verified 
 
 test('state-domain conflicting producers are not scheduled in the same wave', () =>
 {
-    const dag = buildProducerDag('acceptance-representative');
-    // account-messaging and comment-moderation share postgres.settings → not same wave.
+    const dag = buildProducerDag('account-messaging');
+    // Account preference and messaging producers both consume the owned account
+    // namespace, so they must not mutate it in the same wave.
     const waveSets = dag.waves.map((wave) => new Set(wave));
     for (const wave of waveSets)
     {
         assert.equal(
-            wave.has('account-messaging') && wave.has('comment-moderation'),
+            wave.has('account-messaging') && wave.has('account-profile-preferences'),
             false,
-            'account-messaging and comment-moderation must not share a wave'
+            'account messaging and profile/preference producers must not share a wave'
         );
     }
 });
@@ -649,6 +650,10 @@ export FSUSBLOG_ACCEPTANCE_ENV_ROOT="$FSUSBLOG_TEST_STUB_ROOT/env"
 export FSUSBLOG_ACCEPTANCE_FIXTURE_ROOT="$FSUSBLOG_TEST_STUB_ROOT/bootstrap-fixtures"
 export FSUSBLOG_TEST_SOURCE_COMMIT=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 export FSUSBLOG_TEST_SOURCE_FINGERPRINT=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+export FSUSBLOG_RELEASE_ID=20260826000000-aaaaaaaaaaaa
+export FSUSBLOG_TEST_HUMAN_READ_PROOF_SIGNING_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+export FSUSBLOG_TEST_HUMAN_READ_PROOF_DEDUP_KEY=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=
+export FSUSBLOG_TEST_READ_ANALYTICS_NOISE_KEY=CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=
 export FSUSBLOG_NODE="$FSUSBLOG_TEST_STUB_NODE"
 source ./tools/bootstrap-acceptance-env.sh
 FIXTURE_PROFILE_ID=acceptance-representative

@@ -35,6 +35,50 @@
             ]
         },
         {
+            "id": "account-profile-preferences",
+            "strategy": "transaction-fixture",
+            "reuseVerifier": "fixture-receipt",
+            "implementationPaths": [
+                "src/backend/Modules/Endpoints/LocalAccountProfilePreferenceFixtureEndpoints.cs",
+                "src/backend/Services/Fixtures/AccountProfilePreferenceFixtureService.cs",
+                "tools/test-fixtures/producers/account-profile-preference-producer.mjs"
+            ],
+            "provides": [
+                "preferences.locale.account-device-conflict",
+                "preferences.locale.auto",
+                "preferences.locale.device-explicit",
+                "preferences.locale.fixed.non-default",
+                "preferences.locale.fixed.zh-cn",
+                "preferences.locale.revision-conflict",
+                "preferences.locale.two-device-sync",
+                "profile.public-handle.conflict",
+                "profile.public-handle.empty",
+                "profile.public-handle.set"
+            ],
+            "consumes": [
+                "auth.user.active"
+            ],
+            "stateDomains": [
+                "browser.storage-state",
+                "fixture.auth-identities",
+                "postgres.auth",
+                "postgres.settings",
+                "redis.cache.private"
+            ],
+            "receiptPostconditions": [
+                "preference-locale-account-device-conflict",
+                "preference-locale-auto",
+                "preference-locale-device-explicit",
+                "preference-locale-fixed-default",
+                "preference-locale-fixed-non-default",
+                "preference-locale-revision-conflict",
+                "preference-locale-two-device-sync",
+                "profile-public-handle-conflict",
+                "profile-public-handle-empty",
+                "profile-public-handle-set"
+            ]
+        },
+        {
             "id": "auth-session",
             "strategy": "transaction-fixture",
             "reuseVerifier": "fixture-receipt",

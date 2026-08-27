@@ -308,40 +308,185 @@
             "mutability": "scenario-owned"
         },
         {
-            "id": "preferences.locale-auto",
-            "ownerProducerId": "account-messaging",
+            "id": "preferences.locale.account-device-conflict",
+            "ownerProducerId": "account-profile-preferences",
             "stateDomains": [
-                "postgres.auth",
+                "fixture.auth-identities",
                 "postgres.settings"
             ],
             "dependsOn": [
                 "auth.user.active"
             ],
-            "conflictsWith": [
-                "preferences.locale-fixed"
-            ],
+            "conflictsWith": [],
             "postconditionIds": [
-                "locale-auto"
+                "preference-locale-account-device-conflict"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "preferences.locale.auto",
+            "ownerProducerId": "account-profile-preferences",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.settings"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "preference-locale-auto"
             ],
             "resetContractId": "owned-namespace",
             "scope": "namespace",
             "mutability": "immutable"
         },
         {
-            "id": "preferences.locale-fixed",
-            "ownerProducerId": "account-messaging",
+            "id": "preferences.locale.device-explicit",
+            "ownerProducerId": "account-profile-preferences",
             "stateDomains": [
-                "postgres.auth",
+                "browser.storage-state",
+                "fixture.auth-identities",
                 "postgres.settings"
             ],
             "dependsOn": [
                 "auth.user.active"
             ],
-            "conflictsWith": [
-                "preferences.locale-auto"
-            ],
+            "conflictsWith": [],
             "postconditionIds": [
-                "locale-fixed"
+                "preference-locale-device-explicit"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "preferences.locale.fixed.non-default",
+            "ownerProducerId": "account-profile-preferences",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.settings"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "preference-locale-fixed-non-default"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "preferences.locale.fixed.zh-cn",
+            "ownerProducerId": "account-profile-preferences",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.settings"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "preference-locale-fixed-default"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "preferences.locale.revision-conflict",
+            "ownerProducerId": "account-profile-preferences",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.settings"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "preference-locale-revision-conflict"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "preferences.locale.two-device-sync",
+            "ownerProducerId": "account-profile-preferences",
+            "stateDomains": [
+                "browser.storage-state",
+                "fixture.auth-identities",
+                "postgres.settings"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "preference-locale-two-device-sync"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "profile.public-handle.conflict",
+            "ownerProducerId": "account-profile-preferences",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth",
+                "redis.cache.private"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "profile-public-handle-conflict"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "profile.public-handle.empty",
+            "ownerProducerId": "account-profile-preferences",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth",
+                "redis.cache.private"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "profile-public-handle-empty"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "profile.public-handle.set",
+            "ownerProducerId": "account-profile-preferences",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth",
+                "redis.cache.private"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "profile-public-handle-set"
             ],
             "resetContractId": "owned-namespace",
             "scope": "namespace",

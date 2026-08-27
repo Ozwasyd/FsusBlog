@@ -924,10 +924,10 @@
             ]
         },
         {
-            "id": "canonical.preferences.locale-auto",
-            "capabilityId": "preferences.locale-auto",
+            "id": "canonical.preferences.locale.account-device-conflict",
+            "capabilityId": "preferences.locale.account-device-conflict",
             "validityClass": "canonical-positive",
-            "ownerProducerId": "account-messaging",
+            "ownerProducerId": "account-profile-preferences",
             "writerContractId": "current-production-write",
             "contentShapeIds": [
                 "account-preference"
@@ -950,7 +950,7 @@
                 "unknown-audit-action",
                 "unverified-local-fallback-object"
             ],
-            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "expectedBoundary": "Production preference command, independent reader, and device projection must agree.",
             "allowedExecutionClasses": [
                 "acceptance",
                 "browser",
@@ -967,10 +967,10 @@
             ]
         },
         {
-            "id": "canonical.preferences.locale-fixed",
-            "capabilityId": "preferences.locale-fixed",
+            "id": "canonical.preferences.locale.auto",
+            "capabilityId": "preferences.locale.auto",
             "validityClass": "canonical-positive",
-            "ownerProducerId": "account-messaging",
+            "ownerProducerId": "account-profile-preferences",
             "writerContractId": "current-production-write",
             "contentShapeIds": [
                 "account-preference"
@@ -993,7 +993,351 @@
                 "unknown-audit-action",
                 "unverified-local-fallback-object"
             ],
-            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "expectedBoundary": "Production preference command and independent reader must agree on auto with no fixed locale.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.preferences.locale.device-explicit",
+            "capabilityId": "preferences.locale.device-explicit",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "account-profile-preferences",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-preference"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Device locale is a catalog-bound projection and never an account database authority.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.preferences.locale.fixed.non-default",
+            "capabilityId": "preferences.locale.fixed.non-default",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "account-profile-preferences",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-preference"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Non-default locale is selected from the shared enabled LocaleCatalog.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.preferences.locale.fixed.zh-cn",
+            "capabilityId": "preferences.locale.fixed.zh-cn",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "account-profile-preferences",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-preference"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Default fixed locale is selected from the shared LocaleCatalog default descriptor.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.preferences.locale.revision-conflict",
+            "capabilityId": "preferences.locale.revision-conflict",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "account-profile-preferences",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-preference"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "A stale production preference command is rejected without overwriting the newer revision.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.preferences.locale.two-device-sync",
+            "capabilityId": "preferences.locale.two-device-sync",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "account-profile-preferences",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-preference"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Two device semantic roles observe the same account preference value and revision.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.profile.public-handle.conflict",
+            "capabilityId": "profile.public-handle.conflict",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "account-profile-preferences",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-identity"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Production handle uniqueness rejects the challenger and preserves the first owner.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.profile.public-handle.empty",
+            "capabilityId": "profile.public-handle.empty",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "account-profile-preferences",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-identity"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Production profile command and account reader agree on a database NULL handle.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.profile.public-handle.set",
+            "capabilityId": "profile.public-handle.set",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "account-profile-preferences",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-identity"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Production profile command, unique database owner, and account reader agree.",
             "allowedExecutionClasses": [
                 "acceptance",
                 "browser",

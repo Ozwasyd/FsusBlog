@@ -41,6 +41,29 @@
             "requiresFreshNamespace": true
         },
         {
+            "id": "account-profile-preferences",
+            "capabilities": [
+                "auth.user.active",
+                "preferences.locale.account-device-conflict",
+                "preferences.locale.auto",
+                "preferences.locale.device-explicit",
+                "preferences.locale.fixed.non-default",
+                "preferences.locale.fixed.zh-cn",
+                "preferences.locale.revision-conflict",
+                "preferences.locale.two-device-sync",
+                "profile.public-handle.conflict",
+                "profile.public-handle.empty",
+                "profile.public-handle.set"
+            ],
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "runtime"
+            ],
+            "isDestructive": false,
+            "requiresFreshNamespace": true
+        },
+        {
             "id": "auth-basic",
             "capabilities": [
                 "auth.admin.full-permission",

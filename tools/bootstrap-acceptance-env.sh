@@ -486,6 +486,7 @@ PUBLIC_READ_QUEUE_LIMIT="${FSUSBLOG_ACCEPTANCE_PUBLIC_READ_QUEUE_LIMIT:-10000}"
 NOTIFICATION_STREAM_MAX_CONNECTIONS_PER_ACCOUNT="${FSUSBLOG_ACCEPTANCE_NOTIFICATION_STREAM_MAX_CONNECTIONS_PER_ACCOUNT:-50}"
 LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET="${FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET:-fsusblog-local-public-content-fixture-secret-${NS_SLUG}-${FSUSBLOG_TEST_RUN_ID:-local}}"
 LOCAL_AUTH_FIXTURE_SECRET="${FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET:-fsusblog-local-auth-fixture-secret-${NS_SLUG}-${FSUSBLOG_TEST_RUN_ID:-local}}"
+ACCOUNT_PROFILE_PREFERENCE_FIXTURE_SECRET="${FSUSBLOG_ACCOUNT_PROFILE_PREFERENCE_FIXTURE_SECRET:-fsusblog-account-profile-preference-fixture-secret-${NS_SLUG}-${FSUSBLOG_TEST_RUN_ID:-local}}"
 ACCEPTANCE_LOG_MAX_KIB="${FSUSBLOG_ACCEPTANCE_LOG_MAX_KIB:-262144}"
 if [[ ! "$ACCEPTANCE_LOG_MAX_KIB" =~ ^[0-9]+$ ]] || ((ACCEPTANCE_LOG_MAX_KIB < 1024)); then
     printf '[acceptance:bootstrap] FSUSBLOG_ACCEPTANCE_LOG_MAX_KIB must be an integer >= 1024\n' >&2
@@ -2182,6 +2183,19 @@ ConfigureLocalAuthFixture() {
     export fsus__localAuthFixtureSecret="$LOCAL_AUTH_FIXTURE_SECRET"
 }
 
+ConfigureAccountProfilePreferenceFixture() {
+    if [[ ",${FIXTURE_PRODUCER_IDS}," != *",account-profile-preferences,"* ]]; then
+        unset FSUSBLOG_ACCOUNT_PROFILE_PREFERENCE_FIXTURE_SECRET || true
+        unset fsus__allowAccountProfilePreferenceFixture || true
+        unset fsus__accountProfilePreferenceFixtureSecret || true
+        return
+    fi
+
+    export FSUSBLOG_ACCOUNT_PROFILE_PREFERENCE_FIXTURE_SECRET="$ACCOUNT_PROFILE_PREFERENCE_FIXTURE_SECRET"
+    export fsus__allowAccountProfilePreferenceFixture=true
+    export fsus__accountProfilePreferenceFixtureSecret="$ACCOUNT_PROFILE_PREFERENCE_FIXTURE_SECRET"
+}
+
 PublishEnvironmentReadyReceipt() {
     # environment-ready is runtime topology readiness, not fixture completeness.
     # Completeness requires FixtureReceipt terminalStatus=verified (#1710).
@@ -2674,6 +2688,7 @@ Main() {
         ResolveFixtureProfilePlan full
         ConfigureLocalPublicContentFixture
         ConfigureLocalAuthFixture
+        ConfigureAccountProfilePreferenceFixture
         READINESS_PHASES_REMAINING=3
         ConfigureManagedBackendRuntimeReader
     fi

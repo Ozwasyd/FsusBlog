@@ -11,6 +11,9 @@
         "tools/test-fixtures/orchestrator.mjs",
         "tools/test-fixtures/producer-port.mjs",
         "tools/test-fixtures/producers/catalog-ports.mjs",
+        "src/backend/Modules/Endpoints/LocalAccountProfilePreferenceFixtureEndpoints.cs",
+        "src/backend/Services/Fixtures/AccountProfilePreferenceFixtureService.cs",
+        "tools/test-fixtures/producers/account-profile-preference-producer.mjs",
         "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs",
         "src/backend/Services/Fixtures/AuthFixtureSeeder.cs",
         "src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs",
@@ -39,6 +42,19 @@
             "receiptCarrier": "temporal-receipt.json",
             "semanticRoleCarrier": "FSUSBLOG_RESOLVED_TEMPORAL_ROLES_JSON",
             "semanticRoleReceiptCarrier": "temporal-domain-producer-receipt.json",
+            "clockDisposition": "canonical-business-epoch"
+        },
+        {
+            "producerId": "account-profile-preferences",
+            "implementations": [
+                "src/backend/Modules/Endpoints/LocalAccountProfilePreferenceFixtureEndpoints.cs",
+                "src/backend/Services/Fixtures/AccountProfilePreferenceFixtureService.cs",
+                "tools/test-fixtures/producers/account-profile-preference-producer.mjs"
+            ],
+            "contextIngress": "time-provider-and-producer-context",
+            "actualObservation": "backend-culture-postgres-session-and-preference-updated-at",
+            "planCarrier": "FSUSBLOG_TEMPORAL_CONTEXT_JSON",
+            "receiptCarrier": "temporal-receipt.json",
             "clockDisposition": "canonical-business-epoch"
         },
         {
