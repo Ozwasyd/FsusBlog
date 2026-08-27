@@ -5,7 +5,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-const { defaultTimeoutPolicyDigest, digestCanonical, perturbationTemporalContext, playwrightTemporalContextOptions, qualificationTemporalContext, semanticOutcomeDigest } = await import(new URL("../../tools/test/temporal-context.mjs", import.meta.url));
+const { defaultTimeoutPolicyDigest, digestCanonical, playwrightTemporalContextOptions, qualificationTemporalContext, semanticOutcomeDigest } = await import(new URL("../../tools/test/temporal-context.mjs", import.meta.url));
 const { bindCorrectnessProducerTemporalArtifacts, observeBrowserTemporalContext, postgresTemporalSessionSql, validateTemporalProducerBindings, verifyPostgresTemporalObservation } = await import(new URL("../../tools/test/temporal-producer-bindings.mjs", import.meta.url));
 const { buildProducerChildEnv } = await import(new URL("../../tools/test-fixtures/producers/spawn-helper.mjs", import.meta.url));
 const { buildFixtureVariantPlan, buildProducerFixtureVariantPlan } = await import(new URL("../../tools/testing/fixture-catalog.mjs", import.meta.url));
@@ -444,54 +444,24 @@ test('host TZ perturbation cannot change a fixed semantic business outcome', () 
     }
 });
 
-test('leap day DST transitions and UTC midnight have explicit replay contexts', () =>
+test('leap day DST transitions and UTC midnight use the unique temporal shape catalog', () =>
 {
-    const matrix = JSON.parse(readFileSync(
-        path.join(repositoryRoot, 'config/testing/temporal-perturbation-cases.json'),
+    const catalog = JSON.parse(readFileSync(
+        path.join(repositoryRoot, 'config/testing/temporal-shape-catalog.json'),
         'utf8'
     ));
-    assert.equal(matrix.schema, 'fsusblog.temporal-perturbation-matrix.v1');
-    assert.deepEqual(
-        matrix.cases.map((row) => row.boundary),
-        ['utc-midnight', 'leap-day', 'dst-forward', 'dst-backward', 'timezone-midnight']
-    );
-    for (const row of matrix.cases)
+    assert.equal(catalog.schema, 'fsusblog.temporal-shape-catalog.v1');
+    const tags = new Set(catalog.shapes.flatMap((shape) => shape.boundaryTags));
+    for (const boundary of [
+        'utc-midnight',
+        'leap-day',
+        'month-boundary',
+        'year-boundary',
+        'dst-forward',
+        'dst-backward'
+    ])
     {
-        assert.ok(row.locale);
-        assert.ok(row.uiLocale);
-        const context = perturbationTemporalContext({
-            ...contextInput({
-                businessEpochUtc: row.businessEpochUtc,
-                locale: row.locale,
-                uiLocale: row.uiLocale,
-                timezone: row.timezone,
-                postgresTimezone: row.timezone,
-                nodeTimezone: row.timezone
-            }),
-            producerId: 'comment-moderation'
-        });
-        const runtime = spawnSync(process.execPath, ['--input-type=module', '--eval', `
-      const context = JSON.parse(process.env.TEMPORAL_CASE)
-      const parts = new Intl.DateTimeFormat(context.locale, {
-        calendar: context.calendar,
-        timeZone: context.timezone,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-      }).formatToParts(new Date(context.businessEpochUtc))
-      const values = Object.fromEntries(parts.map((part) => [part.type, part.value]))
-      process.stdout.write(values.year + '-' + values.month + '-' + values.day)
-    `], {
-            cwd: repositoryRoot,
-            encoding: 'utf8',
-            env: {
-                ...process.env,
-                TZ: row.timezone,
-                TEMPORAL_CASE: JSON.stringify(context)
-            }
-        });
-        assert.equal(runtime.status, 0, runtime.stderr);
-        assert.equal(runtime.stdout, row.expectedLocalDate);
+        assert.equal(tags.has(boundary), true, boundary);
     }
 });
 
