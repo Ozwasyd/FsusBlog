@@ -9,9 +9,9 @@ The runtime equivalent is the immutable `fsusblog.fixture-variant-plan.v1` proje
 | Validity class | Catalog semantics |
 | --- | --- |
 | `canonical-positive` | Legally producible by the current production write contract; all mandatory derived relations are complete. |
-| `diagnostic-only` | Visual, fault-drill, or tool diagnostic data; never release qualification. |
 | `migration-legacy` | Exclusively for migration, old-format read, and retirement verification; ordinary correctness consumers are forbidden. |
 | `negative-invalid` | Deliberately violates exactly one invariant and must be rejected. |
+| `diagnostic-only` | Visual, fault-drill, or tool diagnostic data; never release qualification. |
 | `scale-synthetic` | Deterministic bulk data with declared production-graph equivalence and non-equivalence. |
 
 | Profile | Expanded capabilities | Resolved fixture variants | Execution classes | Destructive | Fresh namespace |

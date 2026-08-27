@@ -13,14 +13,6 @@
             ]
         },
         {
-            "id": "diagnostic-only",
-            "semantics": "Visual, fault-drill, or tool diagnostic data; never release qualification.",
-            "allowedExecutionClasses": [
-                "development",
-                "diagnostic"
-            ]
-        },
-        {
             "id": "migration-legacy",
             "semantics": "Exclusively for migration, old-format read, and retirement verification; ordinary correctness consumers are forbidden.",
             "allowedExecutionClasses": [
@@ -32,6 +24,14 @@
             "semantics": "Deliberately violates exactly one invariant and must be rejected.",
             "allowedExecutionClasses": [
                 "security"
+            ]
+        },
+        {
+            "id": "diagnostic-only",
+            "semantics": "Visual, fault-drill, or tool diagnostic data; never release qualification.",
+            "allowedExecutionClasses": [
+                "development",
+                "diagnostic"
             ]
         },
         {

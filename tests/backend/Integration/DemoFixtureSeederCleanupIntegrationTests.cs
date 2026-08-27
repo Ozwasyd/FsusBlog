@@ -372,6 +372,11 @@ public sealed class DemoFixtureSeederCleanupIntegrationTests(PostgresSchemaMigra
             Assert.True(first.Query?.OrderedDescending);
             Assert.True(first.Query?.PiiRedacted);
             Assert.True(first.Query?.ChainVerified);
+            Assert.Equal(nameof(AuditLogStore), first.Authorities.Store);
+            Assert.Equal(nameof(AuditRetentionPayloadProtector), first.Authorities.Protector);
+            Assert.Equal(nameof(AuditTamperEvidence), first.Authorities.Signer);
+            Assert.False(first.Privacy.PlaintextDetected);
+            Assert.Equal(first.Records.Count, first.Privacy.ProtectedRecordCount);
             Assert.All(first.Records, static item =>
             {
                 Assert.True(item.PayloadProtected);

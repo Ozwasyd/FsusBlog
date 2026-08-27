@@ -69,7 +69,9 @@ public sealed record AuditFixtureNegativeEvidence(
     string ActualReason,
     bool Isolated,
     string SourceRecordDigest,
-    string MutatedRecordDigest);
+    string MutatedRecordDigest,
+    string Isolation,
+    string ContentDigest);
 
 public sealed record AuditFixturePerformanceEvidence(
     int RecordCount,
@@ -100,6 +102,20 @@ public sealed record AuditFixtureQueryEvidence(
     bool ChainVerified,
     string ProjectionDigest);
 
+public sealed record AuditFixtureAuthorityEvidence(
+    string ActionCatalog,
+    string Store,
+    string Protector,
+    string Signer,
+    string Query,
+    string TemporalAuthority,
+    string CommandDigest);
+
+public sealed record AuditFixturePrivacyEvidence(
+    int ProtectedRecordCount,
+    bool PlaintextDetected,
+    string ProjectionDigest);
+
 public sealed record AuditFixtureReceipt(
     string Schema,
     string ProducerId,
@@ -110,6 +126,8 @@ public sealed record AuditFixtureReceipt(
     IReadOnlyList<AuditFixtureNegativeEvidence> NegativeCases,
     IReadOnlyList<AuditFixtureRetentionEvidence> Retention,
     AuditFixtureQueryEvidence? Query,
+    AuditFixtureAuthorityEvidence Authorities,
+    AuditFixturePrivacyEvidence Privacy,
     AuditFixturePerformanceEvidence Performance,
     string PolicyDigest,
     string SemanticRecordSetDigest,
@@ -179,6 +197,8 @@ public sealed class AuditFixtureProducer(
             AuditFixtureQueryEvidence? query = await BuildQueryEvidenceAsync(
                 plan,
                 cancellationToken).ConfigureAwait(false);
+            AuditFixtureAuthorityEvidence authorities = BuildAuthorityEvidence(plan);
+            AuditFixturePrivacyEvidence privacy = BuildPrivacyEvidence(rows);
             string policyDigest = ComputePolicyDigest(evidence.Select(static item => item.Action));
             string semanticRecordSetDigest = DigestJson(evidence.Select(static item => new
             {
@@ -201,6 +221,8 @@ public sealed class AuditFixtureProducer(
                 negativeCases = negatives,
                 retention,
                 query,
+                authorities,
+                privacy,
                 performance = new AuditFixturePerformanceEvidence(
                     evidence.Count,
                     batchCount,
@@ -221,6 +243,8 @@ public sealed class AuditFixtureProducer(
                 negatives,
                 retention,
                 query,
+                authorities,
+                privacy,
                 unsigned.performance,
                 policyDigest,
                 semanticRecordSetDigest,
@@ -442,14 +466,27 @@ public sealed class AuditFixtureProducer(
         var result = new List<AuditFixtureNegativeEvidence>();
         if (plan.Capabilities.Contains(AuditFixtureCapabilities.UnknownActionNegative, StringComparer.Ordinal))
         {
+            var unsigned = new
+            {
+                mutationId = "unknown-action",
+                mutatedField = "action",
+                expectedReason = "audit_retention_policy_missing",
+                actualReason = "audit_retention_policy_missing",
+                isolated = true,
+                sourceRecordDigest = DigestText("prewrite"),
+                mutatedRecordDigest = DigestText("fixture.unknown-action"),
+                isolation = "prewrite-production-catalog"
+            };
             result.Add(new AuditFixtureNegativeEvidence(
                 "unknown-action",
                 "action",
                 "audit_retention_policy_missing",
                 "audit_retention_policy_missing",
                 true,
-                DigestText("prewrite"),
-                DigestText("fixture.unknown-action")));
+                unsigned.sourceRecordDigest,
+                unsigned.mutatedRecordDigest,
+                unsigned.isolation,
+                DigestJson(unsigned)));
         }
         if (!plan.Capabilities.Contains(AuditFixtureCapabilities.TamperNegative, StringComparer.Ordinal))
         {
@@ -467,14 +504,29 @@ public sealed class AuditFixtureProducer(
                 throw new InvalidOperationException(
                     $"audit_fixture_negative_reason_mismatch:{mutationId}:{expectedReason}:{actualReason}");
             }
+            string sourceDigest = DigestAuditLog(source);
+            string mutatedDigest = DigestAuditLog(mutated);
+            var unsigned = new
+            {
+                mutationId,
+                mutatedField = field,
+                expectedReason,
+                actualReason,
+                isolated = true,
+                sourceRecordDigest = sourceDigest,
+                mutatedRecordDigest = mutatedDigest,
+                isolation = "in-memory-run-owned-negative-corpus"
+            };
             result.Add(new AuditFixtureNegativeEvidence(
                 mutationId,
                 field,
                 expectedReason,
                 actualReason,
                 true,
-                DigestAuditLog(source),
-                DigestAuditLog(mutated)));
+                sourceDigest,
+                mutatedDigest,
+                unsigned.isolation,
+                DigestJson(unsigned)));
         }
         return result;
     }
@@ -534,6 +586,56 @@ public sealed class AuditFixtureProducer(
                     ineligibleReason);
             })
             .ToArray();
+    }
+
+    private static AuditFixtureAuthorityEvidence BuildAuthorityEvidence(AuditFixturePlan plan)
+        => new(
+            nameof(AuditRetentionCatalog),
+            nameof(AuditLogStore),
+            nameof(AuditRetentionPayloadProtector),
+            nameof(AuditTamperEvidence),
+            nameof(AuditQueryService),
+            "TestTemporalRuntimeContext.BusinessEpochUtc",
+            DigestJson(new
+            {
+                plan.Owner,
+                plan.Capabilities,
+                records = plan.Records.Select(static record => new
+                {
+                    record.Source,
+                    record.Type,
+                    occurredAtUtc = NormalizeUtc(record.OccurredAtUtc).ToString("O", CultureInfo.InvariantCulture),
+                    record.Action,
+                    record.Outcome,
+                    record.Severity,
+                    record.IsHighValue,
+                    record.TargetType
+                }).ToArray()
+            }));
+
+    private static AuditFixturePrivacyEvidence BuildPrivacyEvidence(IReadOnlyList<AuditLog> rows)
+    {
+        bool plaintextDetected = rows.Any(static row =>
+            row.EventInfo.Contains("synthetic protected audit fixture", StringComparison.Ordinal)
+            || row.EventInfo.Contains("synthetic:", StringComparison.Ordinal)
+            || (row.ContextJson?.Contains("synthetic protected audit fixture", StringComparison.Ordinal) ?? false));
+        int protectedRecordCount = rows.Count(static row =>
+            row.ContextPayload is { Length: > 0 }
+            && string.Equals(
+                row.EventInfo,
+                AuditRetentionPayloadProtector.EncryptedEventInfo,
+                StringComparison.Ordinal));
+        return new AuditFixturePrivacyEvidence(
+            protectedRecordCount,
+            plaintextDetected,
+            DigestJson(rows.Select(static row => new
+            {
+                row.Id,
+                row.Action,
+                row.TargetType,
+                payloadProtected = row.ContextPayload is { Length: > 0 },
+                eventInfoDigest = DigestText(row.EventInfo)
+            }).ToArray()));
     }
 
     private async Task<AuditFixtureQueryEvidence?> BuildQueryEvidenceAsync(
@@ -739,54 +841,16 @@ internal static class AuditFixtureNegativeCorpus
 
     public static string Verify(AuditLog source, AuditLog mutated, byte[]? key, string expectedField)
     {
-        string[] changedFields = ChangedFields(source, mutated);
-        if (changedFields.Length != 1 || !string.Equals(changedFields[0], expectedField, StringComparison.Ordinal))
+        AuditTamperVerificationResult result = AuditTamperEvidence.VerifyIsolatedMutation(source, mutated, key);
+        if (!string.Equals(result.Field, expectedField, StringComparison.Ordinal))
         {
             return "negative_case_multiple_fields";
         }
-        AuditTamperVerificationResult production = AuditTamperEvidence.VerifyDetailed(mutated, key);
-        if (production.IsValid)
-        {
-            return "negative_case_accepted";
-        }
-        return expectedField switch
-        {
-            "record_body" => "record_body_mismatch",
-            "prev_hash" => "prev_hash_mismatch",
-            "protected_payload" => "protected_payload_mismatch",
-            _ => production.Reason
-        };
+        return result.Reason;
     }
 
     internal static string[] ChangedFields(AuditLog source, AuditLog mutated)
-    {
-        var changed = new List<string>();
-        if (!string.Equals(source.EventInfo, mutated.EventInfo, StringComparison.Ordinal))
-        {
-            changed.Add("record_body");
-        }
-        if (!string.Equals(source.PrevHash, mutated.PrevHash, StringComparison.Ordinal))
-        {
-            changed.Add("prev_hash");
-        }
-        if (!string.Equals(source.RecordHash, mutated.RecordHash, StringComparison.Ordinal))
-        {
-            changed.Add("record_hash");
-        }
-        if (!string.Equals(source.RecordMac, mutated.RecordMac, StringComparison.Ordinal))
-        {
-            changed.Add("record_mac");
-        }
-        if (!string.Equals(source.ChainId, mutated.ChainId, StringComparison.Ordinal))
-        {
-            changed.Add("chain_id");
-        }
-        if (!(source.ContextPayload ?? []).SequenceEqual(mutated.ContextPayload ?? []))
-        {
-            changed.Add("protected_payload");
-        }
-        return [.. changed];
-    }
+        => AuditTamperEvidence.ChangedCanonicalFields(source, mutated);
 
     private static AuditLog Clone(AuditLog source, Action<AuditLog> mutate)
     {

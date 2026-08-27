@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
     buildAuditPlan,
+    computeAuditNegativeContentDigest,
     computeAuditReceiptContentDigest,
     validateAuditReceipt
 } from '../../tools/test-fixtures/producers/audit-producer.mjs';
@@ -32,6 +33,20 @@ function receiptFor(plan, overrides = {})
         negativeCases: [],
         retention: [],
         query: null,
+        authorities: {
+            actionCatalog: 'AuditRetentionCatalog',
+            store: 'AuditLogStore',
+            protector: 'AuditRetentionPayloadProtector',
+            signer: 'AuditTamperEvidence',
+            query: 'AuditQueryService',
+            temporalAuthority: 'TestTemporalRuntimeContext.BusinessEpochUtc',
+            commandDigest: '5'.repeat(64)
+        },
+        privacy: {
+            protectedRecordCount: 0,
+            plaintextDetected: false,
+            projectionDigest: '6'.repeat(64)
+        },
         performance: {
             recordCount: 0,
             batchCount: 0,
@@ -88,15 +103,20 @@ test('audit empty receipt is content-addressed and proves zero mutation', () =>
 test('audit negative receipt requires isolation and one exact stable reason', () =>
 {
     const plan = buildAuditPlan(context(['audit.unknown-action-negative']));
+    const negative = {
+        mutationId: 'unknown-action',
+        mutatedField: 'action',
+        expectedReason: 'audit_retention_policy_missing',
+        actualReason: 'audit_retention_policy_missing',
+        isolated: true,
+        sourceRecordDigest: '2'.repeat(64),
+        mutatedRecordDigest: '3'.repeat(64),
+        isolation: 'prewrite-production-catalog'
+    };
     const valid = receiptFor(plan, {
         negativeCases: [{
-            mutationId: 'unknown-action',
-            mutatedField: 'action',
-            expectedReason: 'audit_retention_policy_missing',
-            actualReason: 'audit_retention_policy_missing',
-            isolated: true,
-            sourceRecordDigest: '2'.repeat(64),
-            mutatedRecordDigest: '3'.repeat(64)
+            ...negative,
+            contentDigest: computeAuditNegativeContentDigest(negative)
         }]
     });
 

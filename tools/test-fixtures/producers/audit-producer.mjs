@@ -89,6 +89,8 @@ export async function prepareAuditRecords(context, signal)
                 negativeCases: Object.freeze(validated.negativeCases),
                 retention: Object.freeze(validated.retention),
                 query: validated.query ? Object.freeze(validated.query) : null,
+                authorities: Object.freeze(validated.authorities),
+                privacy: Object.freeze(validated.privacy),
                 entities: Object.freeze(validated.records.map((record) => ({
                     kind: 'audit-record',
                     id: record.identity,
@@ -183,6 +185,24 @@ export function validateAuditReceipt(receipt, plan)
     {
         throw new Error('audit receipt retention evidence array is required');
     }
+    if (!receipt.authorities
+        || receipt.authorities.actionCatalog !== 'AuditRetentionCatalog'
+        || receipt.authorities.store !== 'AuditLogStore'
+        || receipt.authorities.protector !== 'AuditRetentionPayloadProtector'
+        || receipt.authorities.signer !== 'AuditTamperEvidence'
+        || receipt.authorities.query !== 'AuditQueryService'
+        || receipt.authorities.temporalAuthority !== 'TestTemporalRuntimeContext.BusinessEpochUtc'
+        || !/^[0-9a-f]{64}$/u.test(receipt.authorities.commandDigest))
+    {
+        throw new Error('audit receipt production authority identities are missing');
+    }
+    if (!receipt.privacy
+        || receipt.privacy.plaintextDetected !== false
+        || !Number.isInteger(receipt.privacy.protectedRecordCount)
+        || !/^[0-9a-f]{64}$/u.test(receipt.privacy.projectionDigest))
+    {
+        throw new Error('audit receipt privacy evidence is missing or detected plaintext');
+    }
     if (capabilities.some((id) => id === 'audit.legal-hold-eligible' || id === 'audit.pseudonym-retention'))
     {
         if (receipt.retention.length === 0
@@ -239,7 +259,12 @@ export function validateAuditReceipt(receipt, plan)
     {
         if (negative.isolated !== true
             || negative.expectedReason !== negative.actualReason
-            || typeof negative.mutatedField !== 'string')
+            || typeof negative.mutatedField !== 'string'
+            || typeof negative.isolation !== 'string'
+            || !/^[0-9a-f]{64}$/u.test(negative.sourceRecordDigest)
+            || !/^[0-9a-f]{64}$/u.test(negative.mutatedRecordDigest)
+            || !/^[0-9a-f]{64}$/u.test(negative.contentDigest)
+            || negative.contentDigest !== computeAuditNegativeContentDigest(negative))
         {
             throw new Error('audit negative evidence must be isolated with one exact reason');
         }
@@ -250,6 +275,20 @@ export function validateAuditReceipt(receipt, plan)
         throw new Error('audit receipt content digest mismatch');
     }
     return Object.freeze(receipt);
+}
+
+export function computeAuditNegativeContentDigest(negative)
+{
+    return createHash('sha256').update(JSON.stringify({
+        mutationId: negative.mutationId,
+        mutatedField: negative.mutatedField,
+        expectedReason: negative.expectedReason,
+        actualReason: negative.actualReason,
+        isolated: negative.isolated,
+        sourceRecordDigest: negative.sourceRecordDigest,
+        mutatedRecordDigest: negative.mutatedRecordDigest,
+        isolation: negative.isolation
+    })).digest('hex');
 }
 
 function postconditionsFor(capabilities)
@@ -400,6 +439,8 @@ export function computeAuditReceiptContentDigest(receipt)
         negativeCases: receipt.negativeCases,
         retention: receipt.retention,
         query: receipt.query,
+        authorities: receipt.authorities,
+        privacy: receipt.privacy,
         performance: receipt.performance,
         policyDigest: receipt.policyDigest,
         semanticRecordSetDigest: receipt.semanticRecordSetDigest,

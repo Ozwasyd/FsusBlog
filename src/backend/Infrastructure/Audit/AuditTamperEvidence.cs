@@ -121,6 +121,66 @@ internal static class AuditTamperEvidence
         return AuditTamperVerificationResult.Valid();
     }
 
+    internal static AuditTamperVerificationResult VerifyIsolatedMutation(
+        AuditLog source,
+        AuditLog candidate,
+        byte[]? key)
+    {
+        AuditTamperVerificationResult sourceVerification = VerifyDetailed(source, key);
+        if (!sourceVerification.IsValid)
+        {
+            return AuditTamperVerificationResult.Invalid("source_record_invalid", sourceVerification.Field ?? "record");
+        }
+
+        string[] fields = ChangedCanonicalFields(source, candidate);
+        if (fields.Length != 1)
+        {
+            return AuditTamperVerificationResult.Invalid(
+                fields.Length == 0 ? "mutation_missing" : "multiple_fields_mismatch",
+                "record");
+        }
+        return fields[0] switch
+        {
+            "record_body" => AuditTamperVerificationResult.Invalid("record_body_mismatch", fields[0]),
+            "prev_hash" => AuditTamperVerificationResult.Invalid("prev_hash_mismatch", fields[0]),
+            "record_hash" => AuditTamperVerificationResult.Invalid("record_hash_mismatch", fields[0]),
+            "record_mac" => AuditTamperVerificationResult.Invalid("record_mac_mismatch", fields[0]),
+            "chain_id" => AuditTamperVerificationResult.Invalid("chain_id_mismatch", fields[0]),
+            "protected_payload" => AuditTamperVerificationResult.Invalid("protected_payload_mismatch", fields[0]),
+            _ => AuditTamperVerificationResult.Invalid("record_field_mismatch", fields[0])
+        };
+    }
+
+    internal static string[] ChangedCanonicalFields(AuditLog source, AuditLog candidate)
+    {
+        var changed = new List<string>();
+        if (!string.Equals(source.EventInfo, candidate.EventInfo, StringComparison.Ordinal))
+        {
+            changed.Add("record_body");
+        }
+        if (!string.Equals(source.PrevHash, candidate.PrevHash, StringComparison.Ordinal))
+        {
+            changed.Add("prev_hash");
+        }
+        if (!string.Equals(source.RecordHash, candidate.RecordHash, StringComparison.Ordinal))
+        {
+            changed.Add("record_hash");
+        }
+        if (!string.Equals(source.RecordMac, candidate.RecordMac, StringComparison.Ordinal))
+        {
+            changed.Add("record_mac");
+        }
+        if (!string.Equals(source.ChainId, candidate.ChainId, StringComparison.Ordinal))
+        {
+            changed.Add("chain_id");
+        }
+        if (!(source.ContextPayload ?? []).SequenceEqual(candidate.ContextPayload ?? []))
+        {
+            changed.Add("protected_payload");
+        }
+        return [.. changed];
+    }
+
     internal static string ComputeRecordHash(AuditLog log)
     {
         ArgumentNullException.ThrowIfNull(log);
