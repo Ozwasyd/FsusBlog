@@ -3,7 +3,7 @@
     "status": "selected",
     "selectedAdapter": "repo-owned-n-lane",
     "rejectedAdapter": "maintained-playwright-dispatch-api",
-    "sourceCommit": "e11ffb2f26a8c45d79731a07445593a6772ac345",
+    "sourceCommit": "301f11bd6ecd4b34f506338b619c6ed7b060bc2b",
     "playwright": {
         "package": "@playwright/test",
         "version": "1.59.1",
@@ -25,9 +25,9 @@
     },
     "configuration": {
         "configPath": "src/frontend/playwright.config.ts",
-        "configDigest": "sha256:f433727957d4cc5d141b7e1b177448c27c8b08c1f20e75bed4e728b4ea301f58",
+        "configDigest": "sha256:aac1eaa9009d2fef90af5c900c33df7e72010176b5d291476bea8e8a62b6dd97",
         "globalSetupPath": "tests/frontend/support/playwright/global-setup.ts",
-        "globalSetupDigest": "sha256:98855cc07f641acf025f8808e3b5263b11a28b03216b16a2143c99b2113ac22b",
+        "globalSetupDigest": "sha256:ef628ff9ff6a3e0097b4c88b52c5db6830e6e20a9a20dcad67282e63372ec566",
         "globalTeardown": null
     },
     "adr": {
@@ -45,5 +45,5 @@
             "test-list-public-cli"
         ]
     },
-    "contentDigest": "sha256:91b4f39ebee370df8b0cb5ec1c90c83f2b417cb7ce773cf6b0582af02e81448e"
+    "contentDigest": "sha256:50bbb262d4b9fee6bee11f05ece18951f3a132a281fc11e822c4d13c2833751b"
 }

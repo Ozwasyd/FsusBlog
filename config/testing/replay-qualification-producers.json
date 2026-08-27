@@ -1,0 +1,63 @@
+{
+  "schema": "fsusblog.replay-qualification-producers.v1",
+  "families": {
+    "framework": [
+      {
+        "id": "backend-xunit",
+        "framework": "xunit",
+        "adapter": "tools/test/xunit-replay-adapter.mjs",
+        "assembly": "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll",
+        "classes": [
+          "FsusBlog.Server.Tests.Unit.BinaryAuthExpiryHeaderTests",
+          "FsusBlog.Server.Tests.Unit.SecurityRiskTaxonomyTests",
+          "FsusBlog.Server.Tests.Unit.TextNormalizerTests",
+          "FsusBlog.Server.Tests.Unit.TimeoutCancellationScopeTests"
+        ],
+        "plannedWorkers": 4,
+        "catalogAuthority": "xunit-front-controller-discovery"
+      },
+      {
+        "id": "frontend-vitest",
+        "framework": "vitest",
+        "adapter": "tools/test/vitest-replay-adapter.mjs",
+        "config": "src/frontend/vitest.config.ts",
+        "files": [
+          "tests/frontend/unit/services/auditConsole.test.ts",
+          "tests/frontend/unit/services/localePreferenceCommandPort.test.ts",
+          "tests/frontend/unit/services/searchRanking.test.ts",
+          "tests/frontend/unit/services/telemetryPrivacy.test.ts"
+        ],
+        "plannedWorkers": 4,
+        "catalogAuthority": "vitest-list-json"
+      },
+      {
+        "id": "browser-playwright",
+        "framework": "playwright",
+        "adapter": "tools/test/playwright-replay-adapter.mjs",
+        "config": "tests/tools/fixtures/playwright-replay/playwright.config.mjs",
+        "files": [
+          "tests/tools/fixtures/playwright-replay/alpha.spec.mjs",
+          "tests/tools/fixtures/playwright-replay/beta.spec.mjs",
+          "tests/tools/fixtures/playwright-replay/delta.spec.mjs",
+          "tests/tools/fixtures/playwright-replay/gamma.spec.mjs"
+        ],
+        "plannedWorkers": 4,
+        "catalogAuthority": "playwright-list-json"
+      }
+    ]
+  },
+  "topologies": [
+    "1",
+    "2",
+    "planned"
+  ],
+  "perturbations": [
+    "filesystem-enumeration",
+    "reported-cpu-load",
+    "parent-environment-noise",
+    "framework-default-worker",
+    "worker-process-restart",
+    "completion-timing"
+  ],
+  "contentDigest": "sha256:a71aedc8f083c9a840a1a9800c8c9b4cd6d4bcfcc9b3ab97bd45658aecf823d5"
+}
