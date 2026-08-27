@@ -10,6 +10,7 @@ import {
   assertOwnedHandle,
   assertReadonlyPort,
   normalizedObserverResult,
+  observeDeclaredAbsence,
   readObserverSideEffects,
   requireClock,
   sideEffectDelta,
@@ -71,6 +72,8 @@ function normalizeStorageEntries(storage, declared, context, label) {
 export async function observeAuthState({ domain, identity, context, signal }) {
   if (!['fixture.auth-identities', 'browser.storage-state'].includes(domain)) throw new Error(`auth observer cannot own ${domain}`)
   const handle = assertOwnedHandle(context?.handles?.[domain], identity, domain, 'auth session handle')
+  const absent = await observeDeclaredAbsence({ domain, identity, context, kind: 'auth-state', handle })
+  if (absent) return absent
   const port = assertReadonlyPort(context?.ports?.authState, ['readAuthState', 'readSideEffectCounters'], 'auth-state observer port')
   const clock = requireClock({ ...context, identity })
   if (!(context.protectedFingerprintKey instanceof Uint8Array) || !context.fingerprintScopeId) {

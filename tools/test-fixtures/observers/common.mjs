@@ -77,6 +77,38 @@ export function normalizedObserverResult(semantic, metadata, sideEffects) {
   return freezeDeep({ status: 'observed', semantic: normalizeSemantic(semantic), metadata: freezeDeep(metadata ?? {}), sideEffects })
 }
 
+/**
+ * A required domain may be genuinely absent at a pre-mutation boundary.  The
+ * absence is still an observation: it must come from the current-session
+ * producer authority and a readonly port, never from a missing file catch or
+ * an empty-object fallback inside a domain observer.
+ */
+export async function observeDeclaredAbsence({ domain, identity, context, kind, handle: suppliedHandle = null }) {
+  const handle = suppliedHandle ?? context?.handles?.[domain]
+  if (handle?.observationStatus !== 'absent') return null
+  assertOwnedHandle(handle, identity, domain, `${kind} absence handle`)
+  const port = assertReadonlyPort(context?.ports?.absence, [
+    'readDeclaredAbsence', 'readSideEffectCounters'
+  ], 'declared-absence observer port')
+  const before = await readObserverSideEffects(port)
+  const authority = await port.readDeclaredAbsence({ handle, domain })
+  if (!plainObject(authority) || authority.status !== 'absent'
+    || authority.domain !== domain || authority.namespace !== handle.namespace
+    || authority.authorityDigest !== handle.absenceAuthorityDigest) {
+    throw new Error(`${domain} absence authority is stale, shared or unverified`)
+  }
+  const after = await readObserverSideEffects(port)
+  return normalizedObserverResult({
+    kind,
+    observationStatus: 'absent',
+    namespace: handle.namespace,
+    reasonCode: requireSafeId(authority.reasonCode, `${domain} absence reasonCode`),
+    authorityDigest: requireDigest(authority.authorityDigest, `${domain} absence authorityDigest`)
+  }, {
+    producerRef: requireText(authority.producerRef, `${domain} absence producerRef`)
+  }, sideEffectDelta(before, after))
+}
+
 export function requireObserverHandle(context, domain) {
   const handle = context?.handles?.[domain]
   return assertOwnedHandle(handle, context.identity, domain)

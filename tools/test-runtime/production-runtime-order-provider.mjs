@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
+import { randomBytes } from 'node:crypto'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { digestCanonical } from '../test-fixtures/receipt/canonical.mjs'
@@ -125,6 +126,10 @@ export async function createRuntimeOrderProvider() {
       const planFile = path.join(evidenceRoot, 'schedule-plan.json')
       const resultFile = path.join(evidenceRoot, 'runtime-order-execution.json')
       const logFile = path.join(evidenceRoot, 'runtime-browser.log')
+      const observerFingerprintKeyFile = path.join(evidenceRoot, 'observer-fingerprint.key')
+      const observerAuthorityFile = path.join(evidenceRoot, 'production-observer-authority.json')
+      const publicAotWarmReport = path.join(evidenceRoot, 'public-aot-warm-evidence.json')
+      fs.writeFileSync(observerFingerprintKeyFile, randomBytes(32), { flag: 'wx', mode: 0o600 })
       writeExclusive(planFile, plan)
       const namespace = `order-${owned.session.identity.sessionId}`.toLowerCase().replace(/[^a-z0-9_.-]+/gu, '-').slice(0, 48)
       let result = null
@@ -154,6 +159,9 @@ export async function createRuntimeOrderProvider() {
             FSUSBLOG_RUNTIME_ORDER_BINDING_MODULE: bindingPath,
             FSUSBLOG_RUNTIME_ORDER_RESULT_FILE: resultFile,
             FSUSBLOG_RUNTIME_ORDER_SESSION_ROOT: owned.session.ownedRoot,
+            FSUSBLOG_RUNTIME_ORDER_FINGERPRINT_KEY_FILE: observerFingerprintKeyFile,
+            FSUSBLOG_RUNTIME_ORDER_AUTHORITY_FILE: observerAuthorityFile,
+            FSUSBLOG_PUBLIC_AOT_WARM_REPORT: publicAotWarmReport,
             FSUSBLOG_ACCEPTANCE_OUTPUT_ROOT: path.join(owned.session.ownedRoot, 'mutable', 'acceptance'),
             FSUSBLOG_ACCEPTANCE_ENV_ROOT: path.join(owned.session.ownedRoot, 'mutable', 'env'),
             FSUSBLOG_ACCEPTANCE_FIXTURE_ROOT: path.join(owned.session.ownedRoot, 'mutable', 'fixtures'),

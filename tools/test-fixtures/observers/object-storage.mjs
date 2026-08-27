@@ -5,6 +5,7 @@ import {
   assertReadonlyPort,
   digestReadable,
   normalizedObserverResult,
+  observeDeclaredAbsence,
   readObserverSideEffects,
   sideEffectDelta,
   stableRecords
@@ -21,6 +22,8 @@ function normalizeKey(value) {
 export async function observeObjectStorage({ domain, identity, context, signal }) {
   if (domain !== 'storage.fixture-objects') throw new Error(`object-storage observer cannot own ${domain}`)
   const handle = assertOwnedHandle(context?.handles?.[domain], identity, domain, 'object storage namespace handle')
+  const absent = await observeDeclaredAbsence({ domain, identity, context, kind: 'object-storage', handle })
+  if (absent) return absent
   const port = assertReadonlyPort(context?.ports?.objectStorage, ['listObjects', 'openRead', 'readSideEffectCounters'], 'object-storage observer port')
   if (handle.namespaceClass !== 'fixture-session' || handle.production === true || handle.shared === true) {
     throw new Error('object-storage observer refuses shared, production or user namespaces')

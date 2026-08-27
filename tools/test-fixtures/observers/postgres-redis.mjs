@@ -4,6 +4,7 @@ import {
   assertOwnedHandle,
   assertReadonlyPort,
   normalizedObserverResult,
+  observeDeclaredAbsence,
   readObserverSideEffects,
   requireClock,
   sideEffectDelta,
@@ -31,7 +32,10 @@ function normalizeColumns(columns, label) {
 
 export async function observePostgresqlState({ domain, identity, context, signal }) {
   if (!domain.startsWith('postgres.')) throw new Error(`PostgreSQL observer cannot own ${domain}`)
-  const { handle, port } = requireContext({ ...context, identity }, domain, 'postgresql')
+  const handle = assertOwnedHandle(context?.handles?.[domain], identity, domain)
+  const absent = await observeDeclaredAbsence({ domain, identity, context, kind: 'postgresql', handle })
+  if (absent) return absent
+  const { port } = requireContext({ ...context, identity }, domain, 'postgresql')
   if (typeof port.streamRows !== 'function') throw new Error('PostgreSQL observer port requires streamRows()')
   const before = await readObserverSideEffects(port)
   const description = await port.describeDomain({ handle, domain, signal })
@@ -91,7 +95,10 @@ function normalizeRedisValue(entry, clock) {
 
 export async function observeRedisState({ domain, identity, context, signal }) {
   if (!domain.startsWith('redis.')) throw new Error(`Redis observer cannot own ${domain}`)
-  const { handle, port } = requireContext({ ...context, identity }, domain, 'redis')
+  const handle = assertOwnedHandle(context?.handles?.[domain], identity, domain)
+  const absent = await observeDeclaredAbsence({ domain, identity, context, kind: 'redis', handle })
+  if (absent) return absent
+  const { port } = requireContext({ ...context, identity }, domain, 'redis')
   if (typeof port.scanDomain !== 'function') throw new Error('Redis observer port requires scanDomain()')
   const clock = requireClock({ ...context, identity })
   const before = await readObserverSideEffects(port)

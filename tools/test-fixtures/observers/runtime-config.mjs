@@ -10,6 +10,7 @@ import {
   assertOwnedHandle,
   assertReadonlyPort,
   normalizedObserverResult,
+  observeDeclaredAbsence,
   readObserverSideEffects,
   sideEffectDelta,
   stableRecords
@@ -33,16 +34,36 @@ function normalizedConfig(document, context) {
     protocol: requireSafeId(endpoint.protocol, 'runtime endpoint protocol'),
     hostAuthority: requireSafeId(endpoint.hostAuthority, 'runtime endpoint host authority')
   })), ['role'], 'runtime endpoints')
-  const secrets = stableRecords((document.secrets ?? []).map((secret) => ({
-    secretClass: requireSafeId(secret.secretClass, 'runtime secret class'),
-    sourceOwner: requireSafeId(secret.sourceOwner, 'runtime secret source owner'),
-    value: secret.present === true ? createProtectedFingerprint({
-      key: context.protectedFingerprintKey,
-      scopeId: context.fingerprintScopeId,
-      secretClass: secret.secretClass,
-      value: secret.value
-    }) : { secretClass: secret.secretClass, present: false, lengthClass: 'empty', fingerprint: null }
-  })), ['secretClass'], 'runtime secrets')
+  const secrets = stableRecords((document.secrets ?? []).map((secret) => {
+    const secretClass = requireSafeId(secret.secretClass, 'runtime secret class')
+    let value
+    if (plainObject(secret.protectedValue)) {
+      value = {
+        secretClass,
+        present: secret.protectedValue.present === true,
+        lengthClass: requireSafeId(secret.protectedValue.lengthClass, 'runtime secret length class'),
+        fingerprint: secret.protectedValue.fingerprint == null
+          ? null
+          : requireText(secret.protectedValue.fingerprint, 'runtime protected secret fingerprint')
+      }
+      if (value.present !== (value.fingerprint != null)
+        || (value.fingerprint != null && !/^hmac-sha256:[a-f0-9]{64}$/u.test(value.fingerprint))) {
+        throw new Error(`runtime protected secret ${secretClass} is malformed`)
+      }
+    } else {
+      value = secret.present === true ? createProtectedFingerprint({
+        key: context.protectedFingerprintKey,
+        scopeId: context.fingerprintScopeId,
+        secretClass,
+        value: secret.value
+      }) : { secretClass, present: false, lengthClass: 'empty', fingerprint: null }
+    }
+    return {
+      secretClass,
+      sourceOwner: requireSafeId(secret.sourceOwner, 'runtime secret source owner'),
+      value
+    }
+  }), ['secretClass'], 'runtime secrets')
   return freezeDeep({
     schema: requireText(document.schema, 'runtime config schema'),
     namespace: requireSafeId(document.namespace, 'runtime config namespace'),
@@ -59,6 +80,8 @@ function normalizedConfig(document, context) {
 export async function observeRuntimeConfig({ domain, identity, context, signal }) {
   if (domain !== 'fixture.runtime-config') throw new Error(`runtime-config observer cannot own ${domain}`)
   const handle = assertOwnedHandle(context?.handles?.[domain], identity, domain, 'runtime config handle')
+  const absent = await observeDeclaredAbsence({ domain, identity, context, kind: 'runtime-config', handle })
+  if (absent) return absent
   const port = assertReadonlyPort(context?.ports?.runtimeConfig, ['readResolvedConfig', 'readSideEffectCounters'], 'runtime-config observer port')
   if (!(context.protectedFingerprintKey instanceof Uint8Array) || !context.fingerprintScopeId) throw new Error('runtime config observer requires protected secret fingerprinting')
   const before = await readObserverSideEffects(port)

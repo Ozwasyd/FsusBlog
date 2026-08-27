@@ -4,6 +4,7 @@ import {
   assertOwnedHandle,
   assertReadonlyPort,
   normalizedObserverResult,
+  observeDeclaredAbsence,
   readObserverSideEffects,
   sideEffectDelta,
   stableRecords
@@ -49,6 +50,8 @@ export async function observeRuntimeTopology({ domain, identity, context, signal
     throw new Error(`runtime-topology observer cannot own ${domain}`)
   }
   const handle = assertOwnedHandle(context?.handles?.[domain], identity, domain, 'runtime topology handle')
+  const absent = await observeDeclaredAbsence({ domain, identity, context, kind: 'runtime-topology', handle })
+  if (absent) return absent
   const port = assertReadonlyPort(context?.ports?.runtimeTopology, ['readOwnedTopology', 'readSideEffectCounters'], 'runtime-topology observer port')
   const before = await readObserverSideEffects(port)
   const actualDocument = await port.readOwnedTopology({ handle, signal })

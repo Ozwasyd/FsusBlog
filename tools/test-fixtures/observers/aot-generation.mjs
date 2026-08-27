@@ -5,6 +5,7 @@ import {
   assertReadonlyPort,
   digestReadable,
   normalizedObserverResult,
+  observeDeclaredAbsence,
   readObserverSideEffects,
   sideEffectDelta,
   stableRecords
@@ -13,6 +14,8 @@ import {
 export async function observeAotGeneration({ domain, identity, context, signal }) {
   if (domain !== 'artifact.public-aot-overlay') throw new Error(`AOT observer cannot own ${domain}`)
   const handle = assertOwnedHandle(context?.handles?.[domain], identity, domain, 'AOT generation handle')
+  const absent = await observeDeclaredAbsence({ domain, identity, context, kind: 'aot-generation', handle })
+  if (absent) return absent
   const port = assertReadonlyPort(context?.ports?.aotGeneration, [
     'readActiveGeneration', 'readManifest', 'openArtifact', 'readSideEffectCounters'
   ], 'AOT generation observer port')
