@@ -177,19 +177,23 @@ function finalizeBehaviorSelection({
             const behaviorTestBindings = testBindings.filter(
                 (b) => b.behaviorId === entry.behaviorId
             );
-            // Derive FullyQualifiedName~ filters from test binding class names.
+            // Keep the physical mutation scope identical to the binding receipt.
+            // A class-only filter would also execute unbound sibling tests, allowing
+            // them to cover or kill mutants without a canonical behavior binding.
             const testFilters = [...new Set(
                 behaviorTestBindings.map((b) =>
                 {
                     const fqn = String(b.fullyQualifiedName ?? '');
                     const testId = String(b.canonicalTestId ?? '');
-                    const canonicalClass = testId.match(/^xunit-trx:([^#]+)#/u)?.[1];
-                    const className = canonicalClass ?? fqn.split('.').at(-2) ?? '';
-                    return className.trim();
+                    const canonicalParts = testId.match(/^xunit-trx:([^#]+)#([^#]+)$/u);
+                    const canonicalFqn = canonicalParts
+                        ? `${canonicalParts[1]}.${canonicalParts[2]}`
+                        : fqn;
+                    return canonicalFqn.trim();
                 }).filter(Boolean)
             )].sort();
             const filterExpression = testFilters
-                .map((cls) => `FullyQualifiedName~${cls}`)
+                .map((test) => `FullyQualifiedName~${test}`)
                 .join('|');
             const mutateFiles = [...new Set(
                 entry.owners
@@ -236,7 +240,7 @@ function finalizeBehaviorSelection({
     const mutateFiles = [...new Set(behaviors.flatMap((b) => b.mutateFiles))].sort();
     const testFilter = [...new Set(
         behaviors.flatMap((b) => b.testFilters)
-    )].sort().map((cls) => `FullyQualifiedName~${cls}`).join('|');
+    )].sort().map((test) => `FullyQualifiedName~${test}`).join('|');
 
     // Source project closures.
     const sourceProjects = [...new Set(
@@ -262,7 +266,7 @@ function finalizeBehaviorSelection({
             behaviors: projectBehaviors.map(({ behaviorId, risk }) => ({ behaviorId, risk })),
             mutateFiles: projectMutateFiles,
             testFilters: projectTestFilters,
-            testFilter: projectTestFilters.map((cls) => `FullyQualifiedName~${cls}`).join('|')
+            testFilter: projectTestFilters.map((test) => `FullyQualifiedName~${test}`).join('|')
         };
     });
 

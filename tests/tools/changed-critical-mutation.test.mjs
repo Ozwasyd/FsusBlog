@@ -175,6 +175,25 @@ test('single-behavior change selects only its owner mutate file and binding-deri
     assert.doesNotMatch(selection.testFilter, /AccountSubjectHasher/u);
 });
 
+test('binding-derived filter selects the exact method and excludes unbound class siblings', () =>
+{
+    const selection = select(['src/core/Integrity/ArticleRightsCanonicalHashV1.cs']);
+
+    assert.equal(
+        selection.testFilter,
+        'FullyQualifiedName~ArticleRightsCanonicalHashTests.Run'
+    );
+    assert.equal(
+        selection.behaviors[0].testFilter,
+        'FullyQualifiedName~ArticleRightsCanonicalHashTests.Run'
+    );
+    assert.deepEqual(
+        selection.behaviors[0].testFilters,
+        ['ArticleRightsCanonicalHashTests.Run']
+    );
+    assert.doesNotMatch(selection.testFilter, /ArticleRightsCanonicalHashTests(?:\||$)/u);
+});
+
 test('cross-behavior selection is deterministic and de-duplicated', () =>
 {
     const forward = select([
@@ -255,7 +274,10 @@ test('generated config uses binding-derived test filter and owner-derived mutate
 
     assert.deepEqual(generated['stryker-config']['test-projects'], ['../../tests/backend/FsusBlog.Server.Tests.csproj']);
     assert.deepEqual(generated['stryker-config'].mutate, ['Integrity/ArticleRightsCanonicalHashV1.cs']);
-    assert.match(generated['stryker-config']['test-case-filter'], /ArticleRightsCanonicalHashTests/u);
+    assert.equal(
+        generated['stryker-config']['test-case-filter'],
+        'FullyQualifiedName~ArticleRightsCanonicalHashTests.Run'
+    );
     assert.deepEqual(generated['stryker-config'].thresholds, { high: 85, low: 70, break: 70 });
     assert.equal(generated['stryker-config']['break-on-initial-test-failure'], true);
 });
