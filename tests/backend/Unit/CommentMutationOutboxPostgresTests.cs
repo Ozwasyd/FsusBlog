@@ -231,7 +231,6 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Boundary)]
     public async Task Worker_OverProductionLease_RenewsEveryBatchEventBeforeItStartsProcessing()
     {
         string connectionString = await CreateDatabaseAsync();
