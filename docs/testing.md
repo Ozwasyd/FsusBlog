@@ -13,6 +13,14 @@ node tools/governance/bounded-channel-contracts.mjs
 node --test tests/tools/bounded-channel-contracts.test.mjs
 ```
 
+## Media negative corpus
+
+`config/testing/media-negative-corpus-plan.json` 是媒体 negative fixture 的唯一计划权威，schema 为 `config/schemas/media-negative-corpus-plan.schema.json`。runner `tools/test-fixtures/media-negative-corpus.mjs` 只接受由 canonical positive generator 签发、状态为 `verified` 的 `fsusblog.media-positive-asset-receipt.v1` 与对应 bytes；它不生成 positive shape、不拼装 AssetId，也不把 negative record 写入 canonical profile、scale、AOT 或普通 image library。
+
+八类 case 固定为 missing、corrupt header、truncated、MIME-extension mismatch、unsupported、zero-byte、oversized dimensions 与 unsafe path。每类只有一个独立 fault condition 和唯一 reason code，attempt 固定为一次且不允许 clean-success retry。oversized case 只改 PNG IHDR 并重算 CRC，在 metadata admission 阶段拒绝，不分配巨大 bitmap；unsafe-path case 在任何 filesystem I/O 前终止且 receipt 不保存危险或 absolute path。每次 materialization 使用与 positive root 物理隔离的 fresh run-owned directory，独立 verifier 重算 case/receipt digest、single-fault、bytes、reason/status、resource safety 与 positive-root before/after digest。
+
+在 MediaShapeCatalog 与 canonical positive generator 落地前，该 runner 的单元测试使用最小 verified adapter receipt 验证 consumer-independent boundary；不得把它解释为 positive catalog、AssetId materialization 或业务 codec/HTTP consumer 已完成。
+
 ## Runtime state-domain catalog
 
 `config/testing/runtime-state-domain-catalog.json` is the sole runtime-state access authority. Domains must come from `config/testing/runtime-state-domain-registry.json`; executable runtime steps declare reads, writes, deletes, invalidations, creates, resets, predecessors, postconditions, and machine-verifiable source/test evidence. Coordination-only steps use `stateAccess: none`. The catalog is exact in both directions against `runtimeSteps()` and its validator runs as matrix governance; neither scheduler, lane scripts, nor documentation may keep a second conflict table. Runtime bundle producers write source/run-bound reset receipts after observing their real postconditions, and every `resetBefore`/`resetAfter` consumer verifies the receipt identity plus observation digests before proceeding.

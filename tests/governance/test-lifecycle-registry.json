@@ -1470,6 +1470,17 @@
             ]
         },
         {
+            "file": "tests/tools/media-negative-corpus.test.mjs",
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/mixed-performance-window.test.mjs",
             "owner": "manual-diagnostic:tests/tools/mixed-performance-window.test.mjs",
             "executionCategory": "manual-diagnostic",

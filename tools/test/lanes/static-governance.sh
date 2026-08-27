@@ -82,6 +82,7 @@ TEST_ASSET_BEHAVIOR_FILES=(
     "$ROOT_DIR/tests/tools/physical-execution-process-tree.test.mjs"
     "$ROOT_DIR/tests/tools/frontend-vitest-rolling-shards.test.mjs"
     "$ROOT_DIR/tests/tools/produce-behavior-test-evidence.test.mjs"
+    "$ROOT_DIR/tests/tools/media-negative-corpus.test.mjs"
     "$ROOT_DIR/tests/tools/production-resource-enforcement.test.mjs"
     "$ROOT_DIR/tests/tools/resource-utilization.test.mjs"
     "$ROOT_DIR/tests/tools/run-once.test.mjs"
