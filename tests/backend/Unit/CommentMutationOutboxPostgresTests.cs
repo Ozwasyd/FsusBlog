@@ -434,6 +434,14 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
         release.TrySetResult();
         Assert.Equal(0, await processing);
         await notifications.DidNotReceiveWithAnyArgs().PublishAddedAsync(default!, default, default);
+        CommentMutationOutboxRuntimeSnapshot terminal = state.CreateSnapshot();
+        Assert.Equal(0, terminal.ProcessedCount);
+        Assert.Equal(0, terminal.FailedCount);
+        Assert.Equal(1, terminal.LostCount);
+        using SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connectionString);
+        CommentMutationOutboxEvent after = verify.Queryable<CommentMutationOutboxEvent>().Single();
+        Assert.Equal(CommentMutationOutboxStatus.Processing, after.Status);
+        Assert.Equal("reclaimed-before-expiry", after.ClaimToken);
     }
 
     [Fact]
@@ -481,6 +489,11 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
         release.TrySetResult();
         Assert.Equal(0, await processing);
         await notifications.DidNotReceiveWithAnyArgs().PublishAddedAsync(default!, default, default);
+        CommentMutationOutboxRuntimeSnapshot terminal = state.CreateSnapshot();
+        Assert.Equal(0, terminal.ProcessedCount);
+        Assert.Equal(0, terminal.FailedCount);
+        Assert.Equal(0, terminal.RenewedCount);
+        Assert.Equal(1, terminal.LostCount);
         using SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connectionString);
         Assert.Equal(CommentMutationOutboxStatus.Processing, verify.Queryable<CommentMutationOutboxEvent>().Single().Status);
     }
@@ -706,8 +719,9 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
             ["CommentMutationOutbox:HeartbeatSeconds"] = "1"
         }).Build();
         using ServiceProvider provider = BuildWorkerServices(connectionString, invalidations);
+        var firstState = new CommentMutationOutboxRuntimeState();
         var firstWorker = new CommentMutationOutboxWorker(provider.GetRequiredService<IServiceScopeFactory>(),
-            Substitute.For<IBackgroundWorkerLease>(), new CommentMutationOutboxRuntimeState(), TimeProvider.System,
+            Substitute.For<IBackgroundWorkerLease>(), firstState, TimeProvider.System,
             configuration, NullLogger<CommentMutationOutboxWorker>.Instance);
         using var cancellation = new CancellationTokenSource();
         Task<int> first = firstWorker.ProcessPendingAsync(cancellation.Token);
@@ -733,8 +747,9 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
                 new SugarParameter("@Expired", DateTime.UtcNow.AddSeconds(-1)));
         }
 
+        var secondState = new CommentMutationOutboxRuntimeState();
         var secondWorker = new CommentMutationOutboxWorker(provider.GetRequiredService<IServiceScopeFactory>(),
-            Substitute.For<IBackgroundWorkerLease>(), new CommentMutationOutboxRuntimeState(), TimeProvider.System,
+            Substitute.For<IBackgroundWorkerLease>(), secondState, TimeProvider.System,
             configuration, NullLogger<CommentMutationOutboxWorker>.Instance);
         Assert.Equal(1, await secondWorker.ProcessPendingAsync(CancellationToken.None));
         releaseFirst.TrySetResult();
@@ -745,6 +760,10 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
         Assert.Equal(CommentMutationOutboxStatus.Processed, after.Status);
         Assert.Null(after.ClaimToken);
         Assert.Equal(2, calls);
+        Assert.Equal(0, firstState.CreateSnapshot().ProcessedCount);
+        Assert.Equal(1, firstState.CreateSnapshot().LostCount);
+        Assert.Equal(1, secondState.CreateSnapshot().ProcessedCount);
+        Assert.Equal(0, secondState.CreateSnapshot().LostCount);
     }
 
     [Fact]
@@ -793,6 +812,8 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
         Assert.Equal(CommentMutationOutboxStatus.Processing, after.Status);
         Assert.Equal("replacement-token", after.ClaimToken);
         Assert.Equal("replacement-worker", after.ClaimedBy);
+        Assert.Equal(0, after.AttemptCount);
+        Assert.Null(after.LastError);
         Assert.Equal(1, state.CreateSnapshot().LostCount);
         Assert.Equal(0, state.CreateSnapshot().FailedCount);
     }
@@ -831,6 +852,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
         Assert.Equal(CommentMutationOutboxStatus.Processing, after.Status);
         Assert.Equal("replacement-token", after.ClaimToken);
         Assert.Equal("replacement-worker", after.ClaimedBy);
+        Assert.Null(after.ProcessedAtUtc);
         Assert.Equal(0, state.CreateSnapshot().ProcessedCount);
         Assert.Equal(0, state.CreateSnapshot().FailedCount);
         Assert.Equal(1, state.CreateSnapshot().LostCount);
@@ -866,9 +888,13 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
 
         Assert.Equal(0, await worker.ProcessPendingAsync(CancellationToken.None));
         using SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connectionString);
-        Assert.Equal(CommentMutationOutboxStatus.Processing, verify.Queryable<CommentMutationOutboxEvent>().Single().Status);
+        CommentMutationOutboxEvent after = verify.Queryable<CommentMutationOutboxEvent>().Single();
+        Assert.Equal(CommentMutationOutboxStatus.Processing, after.Status);
+        Assert.False(string.IsNullOrWhiteSpace(after.ClaimToken));
+        Assert.Null(after.ProcessedAtUtc);
         Assert.Equal(2, verify.Queryable<CommentMutationOutboxDelivery>().Count());
         Assert.Equal(0, state.CreateSnapshot().ProcessedCount);
+        Assert.Equal(0, state.CreateSnapshot().FailedCount);
         Assert.Equal(1, state.CreateSnapshot().LostCount);
     }
 
@@ -911,6 +937,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
             .Single(delivery => delivery.ConsumerName == "cache-version");
         Assert.Equal(CommentMutationOutboxDeliveryStatus.Completed, tampered.Status);
         Assert.Equal("non-empty-tampered-digest", tampered.ResultDigest);
+        Assert.Null(verify.Queryable<CommentMutationOutboxEvent>().Single().ProcessedAtUtc);
         Assert.Equal(0, state.CreateSnapshot().ProcessedCount);
         Assert.Equal(0, state.CreateSnapshot().FailedCount);
         Assert.Equal(1, state.CreateSnapshot().LostCount);
@@ -932,6 +959,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var beforeRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var continueRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int releaseAttempts = 0;
         ICacheInvalidationDispatcher invalidations = Substitute.For<ICacheInvalidationDispatcher>();
         invalidations.InvalidateCommentMutationAsync(Arg.Any<CommentCacheInvalidationScope?>(), Arg.Any<CancellationToken>())
             .Returns(async call =>
@@ -948,6 +976,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
             new ConfigurationBuilder().Build(), NullLogger<CommentMutationOutboxWorker>.Instance,
             beforeReleaseClaim: async _ =>
             {
+                Interlocked.Increment(ref releaseAttempts);
                 beforeRelease.TrySetResult();
                 await continueRelease.Task;
             });
@@ -972,7 +1001,11 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
         Assert.Equal(CommentMutationOutboxStatus.Processing, after.Status);
         Assert.Equal("replacement-token", after.ClaimToken);
         Assert.Equal("replacement-worker", after.ClaimedBy);
-        Assert.Equal(1, state.CreateSnapshot().LostCount);
+        Assert.Equal(1, releaseAttempts);
+        CommentMutationOutboxRuntimeSnapshot terminal = state.CreateSnapshot();
+        Assert.Equal(0, terminal.ProcessedCount);
+        Assert.Equal(0, terminal.FailedCount);
+        Assert.Equal(1, terminal.LostCount);
     }
 
     [Fact]
@@ -1023,6 +1056,12 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
                 "UPDATE comment_mutation_outbox SET claim_token = 'replacement-token', claimed_by = 'replacement-worker', lease_generation = lease_generation + 1 WHERE id = @Id;",
                 new SugarParameter("@Id", claim.Id));
         }
+        DateTime lossDeadline = DateTime.UtcNow.AddSeconds(10);
+        while (state.CreateSnapshot().LostCount == 0 && DateTime.UtcNow < lossDeadline)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(100));
+        }
+        Assert.Equal(1, state.CreateSnapshot().LostCount);
         release.TrySetResult();
 
         Assert.Equal(0, await processing);
