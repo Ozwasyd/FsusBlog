@@ -3,7 +3,7 @@ new file mode 100644
 index 0000000..c7005ba
 --- /dev/null
 +++ b/src/Stryker.Core/Stryker.Core.UnitTest/Mutants/CsharpMutationCandidateValidatorTests.cs
-@@ -0,0 +1,128 @@
+@@ -0,0 +1,165 @@
 +using System;
 +using System.Collections.Generic;
 +using System.Linq;
@@ -48,6 +48,38 @@ index 0000000..c7005ba
 +            .IsValid.ShouldBeTrue();
 +        validator.Validate(node, candidates.Single(candidate => candidate.Type == Mutator.Bitwise), model)
 +            .IsValid.ShouldBeFalse();
++    }
++
++    [TestMethod]
++    public void KeepsCandidateWhenOnlyExactBaselineDiagnosticsRemain()
++    {
++        var (root, model) = Build(
++            "class C { MissingType Field; bool M(bool left, bool right) => left ^ right; }",
++            allowBaselineErrors: true);
++        var node = root.DescendantNodes().OfType<BinaryExpressionSyntax>().Single();
++        var mutation = new BinaryExpressionMutator().ApplyMutations(node, model)
++            .Single(candidate => candidate.Type == Mutator.Logical);
++
++        new CsharpMutationCandidateValidator().Validate(node, mutation, model)
++            .IsValid.ShouldBeTrue();
++    }
++
++    [TestMethod]
++    public void RejectsCandidateThatAddsAnErrorAlongsideExactBaselineDiagnostics()
++    {
++        var (root, model) = Build(
++            "class C { MissingType Field; ushort M(ushort left, byte right) => (ushort)(left ^ right); }",
++            allowBaselineErrors: true);
++        var node = root.DescendantNodes().OfType<BinaryExpressionSyntax>()
++            .Single(expression => expression.IsKind(SyntaxKind.ExclusiveOrExpression));
++        var mutation = new BinaryExpressionMutator().ApplyMutations(node, model)
++            .Single(candidate => candidate.Type == Mutator.Logical);
++
++        var result = new CsharpMutationCandidateValidator().Validate(node, mutation, model);
++
++        result.IsValid.ShouldBeFalse();
++        result.Reason.ShouldContain("CS0030");
++        result.Reason.ShouldNotContain("CS0246");
 +    }
 +
 +    [TestMethod]
@@ -117,7 +149,9 @@ index 0000000..c7005ba
 +            .IsValid.ShouldBeTrue();
 +    }
 +
-+    private static (CompilationUnitSyntax Root, SemanticModel Model) Build(string source)
++    private static (CompilationUnitSyntax Root, SemanticModel Model) Build(
++        string source,
++        bool allowBaselineErrors = false)
 +    {
 +        var syntaxTree = CSharpSyntaxTree.ParseText(source);
 +        Type[] types = [typeof(object), typeof(List<>), typeof(Enumerable)];
@@ -127,8 +161,11 @@ index 0000000..c7005ba
 +            [syntaxTree],
 +            references,
 +            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-+        compilation.GetDiagnostics().Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
-+            .ShouldBeEmpty();
++        if (!allowBaselineErrors)
++        {
++            compilation.GetDiagnostics().Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
++                .ShouldBeEmpty();
++        }
 +        return ((CompilationUnitSyntax)syntaxTree.GetRoot(), compilation.GetSemanticModel(syntaxTree));
 +    }
 +}
@@ -179,7 +216,7 @@ new file mode 100644
 index 0000000..c6579dc
 --- /dev/null
 +++ b/src/Stryker.Core/Stryker.Core/Mutants/CsharpMutationCandidateValidator.cs
-@@ -0,0 +1,267 @@
+@@ -0,0 +1,294 @@
 +using System;
 +using System.Collections.Generic;
 +using System.Globalization;
@@ -205,7 +242,7 @@ index 0000000..c6579dc
 +
 +public sealed class CsharpMutationCandidateValidator : IMutationCandidateValidator
 +{
-+    private readonly HashSet<SyntaxTree> _validatedSourceTrees = [];
++    private readonly Dictionary<SyntaxTree, IReadOnlyDictionary<string, int>> _baselineErrors = [];
 +
 +    public MutationCandidateValidation Validate(SyntaxNode originalNode, Mutation mutation, SemanticModel semanticModel)
 +    {
@@ -224,16 +261,10 @@ index 0000000..c6579dc
 +        }
 +
 +        var originalTree = originalNode.SyntaxTree;
-+        if (_validatedSourceTrees.Add(originalTree))
++        if (!_baselineErrors.TryGetValue(originalTree, out var baselineErrors))
 +        {
-+            var originalErrors = semanticModel.GetDiagnostics()
-+                .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
-+                .ToArray();
-+            if (originalErrors.Length != 0)
-+            {
-+                throw new InvalidOperationException(
-+                    $"Cannot validate mutation candidates in a source tree with compiler errors: {string.Join(", ", originalErrors.Select(error => error.Id).Distinct())}");
-+            }
++            baselineErrors = CountDiagnostics(semanticModel.GetDiagnostics());
++            _baselineErrors.Add(originalTree, baselineErrors);
 +        }
 +
 +        var marker = new SyntaxAnnotation();
@@ -247,11 +278,44 @@ index 0000000..c6579dc
 +        var candidateErrors = candidateCompilation.GetSemanticModel(candidateTree).GetDiagnostics()
 +            .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
 +            .ToArray();
++        var remainingBaselineErrors = baselineErrors.ToDictionary(entry => entry.Key, entry => entry.Value);
++        var introducedErrors = new List<Diagnostic>();
++        foreach (var error in candidateErrors)
++        {
++            var key = DiagnosticKey(error);
++            if (remainingBaselineErrors.TryGetValue(key, out var remaining) && remaining > 0)
++            {
++                remainingBaselineErrors[key] = remaining - 1;
++            }
++            else
++            {
++                introducedErrors.Add(error);
++            }
++        }
 +
-+        return candidateErrors.Length == 0
++        return introducedErrors.Count == 0
 +            ? MutationCandidateValidation.Valid
 +            : MutationCandidateValidation.Rejected(
-+                $"compiler-error:{string.Join(",", candidateErrors.Select(error => error.Id).Distinct().OrderBy(id => id))}");
++                $"compiler-error:{string.Join(",", introducedErrors.Select(error => error.Id).Distinct().OrderBy(id => id))}");
++    }
++
++    private static IReadOnlyDictionary<string, int> CountDiagnostics(IEnumerable<Diagnostic> diagnostics) => diagnostics
++        .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
++        .GroupBy(DiagnosticKey, StringComparer.Ordinal)
++        .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal);
++
++    private static string DiagnosticKey(Diagnostic diagnostic)
++    {
++        var span = diagnostic.Location.IsInSource
++            ? diagnostic.Location.SourceSpan
++            : default;
++        return string.Join("\0",
++            diagnostic.Id,
++            diagnostic.Severity,
++            diagnostic.GetMessage(CultureInfo.InvariantCulture),
++            diagnostic.Location.IsInSource,
++            span.Start,
++            span.Length);
 +    }
 +
 +    private static bool RequiresCompilationValidation(SyntaxNode originalNode, Mutation mutation) =>
