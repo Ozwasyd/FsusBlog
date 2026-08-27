@@ -12,8 +12,10 @@
         "tools/test-fixtures/producer-port.mjs",
         "tools/test-fixtures/producers/catalog-ports.mjs",
         "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs",
+        "src/backend/Services/Fixtures/AuthFixtureSeeder.cs",
         "src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs",
         "tests/frontend/support/session-fixtures.mjs",
+        "tools/test-fixtures/producers/auth-session-producer.mjs",
         "tools/test-fixtures/producers/demo-public-producer.mjs",
         "tools/test-fixtures/producers/public-content-producer.mjs",
         "tools/test-fixtures/producers/spawn-helper.mjs",
@@ -39,8 +41,8 @@
             "producerId": "auth-session",
             "implementations": [
                 "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs",
-                "src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs",
-                "tests/frontend/support/session-fixtures.mjs"
+                "src/backend/Services/Fixtures/AuthFixtureSeeder.cs",
+                "tools/test-fixtures/producers/auth-session-producer.mjs"
             ],
             "contextIngress": "time-provider-and-fixture-business-epoch",
             "actualObservation": "target-node-process-and-injected-backend-business-epoch",

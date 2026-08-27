@@ -6,6 +6,7 @@ using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Services.Fixtures;
 using FsusBlog.Server.Services.Security;
 
 using Microsoft.AspNetCore.Hosting;
@@ -34,6 +35,28 @@ public static class LocalAuthFixtureEndpoints
         {
             return;
         }
+
+        app.MapPost(
+                "/api/local/auth-fixture/prepare",
+                async Task<IResult> (
+                    [FromBody] AuthFixturePlan request,
+                    [FromServices] IAuthFixtureSeeder seeder,
+                    CancellationToken cancellationToken) => Results.Json(
+                        await seeder.PrepareAsync(request, cancellationToken)))
+            .AllowAnonymous()
+            .AddEndpointFilter(RequireLocalFixtureSecret)
+            .AddEndpointFilter(RequireLoopbackCaller);
+
+        app.MapPost(
+                "/api/local/auth-fixture/verify",
+                async Task<IResult> (
+                    [FromBody] AuthFixtureVerificationRequest request,
+                    [FromServices] IAuthFixtureSeeder seeder,
+                    CancellationToken cancellationToken) => Results.Json(
+                        await seeder.VerifyAsync(request, cancellationToken)))
+            .AllowAnonymous()
+            .AddEndpointFilter(RequireLocalFixtureSecret)
+            .AddEndpointFilter(RequireLoopbackCaller);
 
         var handler = async Task<IResult> (
             HttpContext context,

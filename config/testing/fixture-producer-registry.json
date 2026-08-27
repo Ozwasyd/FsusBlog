@@ -36,18 +36,26 @@
             "reuseVerifier": "fixture-receipt",
             "implementationPaths": [
                 "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs",
-                "src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs",
-                "tests/frontend/support/session-fixtures.mjs"
+                "src/backend/Services/Fixtures/AuthFixtureSeeder.cs",
+                "tools/test-fixtures/producers/auth-session-producer.mjs"
             ],
             "provides": [
                 "auth.admin.disabled",
                 "auth.admin.full-permission",
                 "auth.admin.partial-permission",
                 "auth.admin.read-only",
+                "auth.admin.root-bootstrap-empty",
                 "auth.user.active",
                 "auth.user.deleted",
+                "auth.user.mfa-disabled",
                 "auth.user.mfa-enabled",
+                "auth.user.passkey-enabled",
+                "auth.user.recovery-enabled",
+                "session.expired",
                 "session.multi-device",
+                "session.refresh-rotated",
+                "session.remembered",
+                "session.revoked",
                 "session.single-device"
             ],
             "consumes": [],
@@ -61,11 +69,19 @@
                 "admin-full-permission",
                 "admin-partial-permission",
                 "admin-read-only",
+                "admin-root-bootstrap-empty",
+                "session-expired",
                 "session-multi-device",
+                "session-refresh-rotated",
+                "session-remembered",
+                "session-revoked",
                 "session-single-device",
                 "user-active",
                 "user-deleted",
-                "user-mfa-enabled"
+                "user-mfa-disabled",
+                "user-mfa-enabled",
+                "user-passkey-enabled",
+                "user-recovery-enabled"
             ]
         },
         {

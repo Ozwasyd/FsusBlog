@@ -27,7 +27,8 @@ public sealed partial class UserLoginWorkflowService(
     IAuthRiskService authRisk,
     IUserSessionMetadataProtector sessionMetadata,
     IConfiguration? configuration = null,
-    IMessageNotificationStreamPort? notificationStream = null) : IUserLoginWorkflowService
+    IMessageNotificationStreamPort? notificationStream = null,
+    TimeProvider? timeProvider = null) : IUserLoginWorkflowService, IUserSessionFixtureLoginWorkflow
 {
     private const int UserStatusNormal = 0;
     private const int UserStatusBanned = 1;
@@ -36,6 +37,8 @@ public sealed partial class UserLoginWorkflowService(
     private static readonly TimeSpan s_rememberMeSessionIdleTtl = TimeSpan.FromDays(30);
     private static readonly TimeSpan s_standardSessionAbsoluteTtl = TimeSpan.FromDays(30);
     private static readonly TimeSpan s_rememberMeSessionAbsoluteTtl = TimeSpan.FromDays(90);
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+    private DateTime UtcNow => _timeProvider.GetUtcNow().UtcDateTime;
 
     public async Task<(bool Success, string Message, SessionTokenResponseDto? Data, UserAccountSnapshot? User)> CompleteLoginAsync(
         int userId,
@@ -80,6 +83,41 @@ public sealed partial class UserLoginWorkflowService(
         return authRisk.EvaluateLoginRiskAsync(userId, clientIp, deviceFingerprint, userAgent);
     }
 
+    public async Task<(bool Success, string Message, SessionTokenResponseDto? Data, UserAccountSnapshot? User)>
+        CompleteFixtureLoginAsync(
+            int userId,
+            string clientIp,
+            string? deviceFingerprint,
+            string? userAgent,
+            bool mfaVerified,
+            bool rememberMe,
+            UserSessionAuthenticationContext authenticationContext,
+            UserSessionFixtureIdentity fixtureIdentity,
+            CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ValidateFixtureIdentity(fixtureIdentity);
+        User? user = await db.Queryable<User>().InSingleAsync(userId);
+        if (user is null)
+        {
+            return (false, "用户不存在", null, null);
+        }
+        var result = await CompleteLoginAsync(
+            user,
+            clientIp,
+            deviceFingerprint,
+            userAgent,
+            mfaVerified,
+            rememberMe,
+            authenticationContext,
+            fixtureIdentity);
+        return (
+            result.Success,
+            result.Message,
+            result.Data,
+            result.UserEntity is null ? null : UserAccountReader.ToAccountSnapshot(result.UserEntity));
+    }
+
     private static TimeSpan ResolveIdleSessionTtl(bool rememberMe)
         => rememberMe ? s_rememberMeSessionIdleTtl : s_standardSessionIdleTtl;
 
@@ -93,7 +131,8 @@ public sealed partial class UserLoginWorkflowService(
         string? userAgent,
         bool mfaVerified,
         bool rememberMe,
-        UserSessionAuthenticationContext? authenticationContext = null)
+        UserSessionAuthenticationContext? authenticationContext = null,
+        UserSessionFixtureIdentity? fixtureIdentity = null)
     {
         if (!AccountRegistrationStates.IsActive(user.RegistrationState))
         {
@@ -116,7 +155,7 @@ public sealed partial class UserLoginWorkflowService(
             LogBannedAccountLogin(accountSubject);
         }
 
-        DateTime authenticatedAtUtc = DateTime.UtcNow;
+        DateTime authenticatedAtUtc = UtcNow;
         UserSessionAuthenticationContext sessionAuthentication = authenticationContext
             ?? UserSessionAuthenticationContext.FromLegacy(mfaVerified, rememberMe, authenticatedAtUtc);
         sessionAuthentication = sessionAuthentication with
@@ -136,8 +175,10 @@ public sealed partial class UserLoginWorkflowService(
 
         string refreshToken = jwt.GenerateRefreshToken();
         string refreshTokenHash = HashToken(refreshToken);
-        string sessionId = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
-        string refreshFamilyId = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+        string sessionId = fixtureIdentity?.SessionId ??
+            Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+        string refreshFamilyId = fixtureIdentity?.RefreshFamilyId ??
+            Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         IssuedAccessToken accessToken = jwt.GenerateAccessToken(user, sessionId, sessionAuthentication);
         DateTime idleExpiresAt = DateTime.MinValue;
         DateTime absoluteExpiresAt = DateTime.MinValue;
@@ -161,8 +202,8 @@ public sealed partial class UserLoginWorkflowService(
             BrowserFamily = metadata.BrowserFamily,
             OperatingSystemFamily = metadata.OperatingSystemFamily,
             FormFactor = metadata.FormFactor,
-            CreatedAt = DateTime.UtcNow,
-            LastSeenAt = DateTime.UtcNow,
+            CreatedAt = UtcNow,
+            LastSeenAt = UtcNow,
             IdleExpiresAt = idleExpiresAt,
             AbsoluteExpiresAt = absoluteExpiresAt,
             SessionMode = sessionAuthentication.SessionMode,
@@ -188,7 +229,7 @@ public sealed partial class UserLoginWorkflowService(
                 throw new UserSessionAdmissionRejectedException();
             }
 
-            DateTime admittedAt = DateTime.UtcNow;
+            DateTime admittedAt = UtcNow;
             idleExpiresAt = admittedAt.Add(ResolveIdleSessionTtl(rememberMe));
             absoluteExpiresAt = admittedAt.Add(ResolveAbsoluteSessionTtl(rememberMe));
             session.CreatedAt = admittedAt;
@@ -237,7 +278,7 @@ public sealed partial class UserLoginWorkflowService(
                     new SessionRevokedPayload(
                         limitEvictedSessionCount > 0 ? "active_session_limit" : "session_expired",
                         revokedSessions.Count,
-                        DateTime.UtcNow),
+                        UtcNow),
                     "user-session-admission-revoked");
             }
             catch (Exception ex)
@@ -253,6 +294,20 @@ public sealed partial class UserLoginWorkflowService(
             session.SessionId,
             idleExpiresAt,
             session.DurationPolicy), user);
+    }
+
+    private static void ValidateFixtureIdentity(UserSessionFixtureIdentity fixtureIdentity)
+    {
+        static bool Invalid(string value)
+            => string.IsNullOrWhiteSpace(value) || value.Length > 128 || value.Contains('|');
+        if (Invalid(fixtureIdentity.SessionId) || Invalid(fixtureIdentity.RefreshFamilyId) ||
+            string.Equals(
+                fixtureIdentity.SessionId,
+                fixtureIdentity.RefreshFamilyId,
+                StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("fixture session/family identities are invalid");
+        }
     }
 
     private async Task<(int Expired, int LimitEvicted)> RevokeSessionsForAdmissionAsync(

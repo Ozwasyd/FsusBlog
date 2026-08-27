@@ -49,6 +49,31 @@ CPU、Node process 与 connection setup 只用于性能观察，绝不参与 cor
 
 数据库 fixture 必须保留生产字段语义、约束和安全版本。例如 recovery-key limiter 由对应 service/contract tests 证明 attempt/window/lockout；subscription fixture 保留 `user_id`、`public_handle`、`hash_version` 和 proof 校验；demo seed 只能生成开发数据且不能绕过 production schema。静态文本检查不能替代事务、并发、幂等、迁移失败或 `WebApplicationFactory` 行为测试。
 
+`auth-session` 是 user/MFA/WebAuthn/session/admin capability 的唯一
+`transaction-fixture` owner。它按 run、namespace 与 semantic role 为互斥状态
+派生独立 identity，只编排受限后端 lifecycle ports；Node producer 不连接
+PostgreSQL/Redis、不签 JWT，也不拥有 ban、risk、PoW 或 credential issuance
+状态。Passkey capability 必须经过 production FIDO validation 与受控
+authenticator，不存在 accept-any 分支。普通 producer receipt 只保留 public
+identity/state/digest 与 read-model postcondition；token、MFA secret、recovery
+material 和 authenticator private material 不进入 receipt 或日志。每个结果还必须
+通过独立 `/api/local/auth-fixture/verify` read port 绑定完整 receipt digest，
+partial 或 self-reported observation 不发布 verified receipt。
+
+需要同一 capability 的多个独立 identity 时，consumer producer 必须在自身
+normalized port 的 `identityRoleRequests` 声明
+`ownerProducerId`、`consumerProducerId`、`role` 与其 catalog-declared
+`capabilityId`。当前只允许分配 `auth.user.active` 与
+`auth.admin.full-permission`；orchestrator 把所有 planned consumer request 一次性交给
+`auth-session`，并将排序后的完整 request list 纳入 auth plan digest。prepare
+阶段输出 `fsusblog.fixture-identity-prepare-reference.v1`，明确标为
+`verified: false`；consumer 不得改写 owner 或自行构造 fallback identity。verify
+阶段取得 auth-session 的 sealed `ProducerReceipt` 后，调用
+`projectVerifiedIdentityReferences` 生成 consumer-scoped
+`fsusblog.fixture-identity-references.v1`。每个 verified reference 绑定
+prepare-reference digest、producer-result digest 与 `sourceReceiptDigest`，且只能投影
+该 consumer 预先声明的 role。
+
 测试删除或合并时，先在 retention ledger 中给出仍存活的 replacement IDs，再更新 requirement、coverage 与 matrix。没有等价可执行断言时不得用文档、fixture 文件存在性或历史 evidence 替代测试。
 
 性能测试资产统一放在 `tests/performance/`，不再保留旧短名测试根。`browser-contract` 是 release correctness 的最小浏览器契约，而 `browser-diagnostics` 是 scheduled/manual 的诊断集合；两者的命令、artifact 和结论互不替代，diagnostics 失败不能伪装成 correctness 通过，contract 通过也不能覆盖 diagnostics 的独立风险报告。

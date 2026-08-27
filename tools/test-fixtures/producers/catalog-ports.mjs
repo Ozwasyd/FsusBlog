@@ -33,6 +33,7 @@ function basePort(producer, handlers)
         strategy: producer.strategy,
         providedCapabilities: [...producer.provides],
         consumedCapabilities: [...producer.consumes],
+        identityRoleRequests: handlers.identityRoleRequests ?? [],
         prepare: async (context, signal) =>
         {
             const result = await handlers.prepare(context, signal);
@@ -146,37 +147,27 @@ async function observeBackendTemporalContext(context, signal)
 export function createAuthSessionPort(catalogs = readFixtureCatalogs())
 {
     const producer = catalogProducer('auth-session', catalogs);
-    const script = path.join(repositoryRoot, 'tests/frontend/fixtures/prepare-auth-smoke-users.mjs');
     return basePort(producer, {
         async prepare(context, signal)
         {
             assertNoStrategyEnv();
-            await runProcess(process.execPath, [script], {
-                env: buildProducerChildEnv(context),
-                signal
-            });
-            const backendObservation = context.temporalContext
-                ? await observeBackendTemporalContext(context, signal)
-                : null;
+            const { prepareAuthSession } = await import('./auth-session-producer.mjs');
+            const result = await prepareAuthSession(context, signal);
             return {
-                producerId: producer.id,
-                strategy: producer.strategy,
-                implementation: 'tests/frontend/fixtures/prepare-auth-smoke-users.mjs',
+                ...result,
                 ...variantOutputFromTypedPlan(context, producer.id),
-                postconditions: [...producer.receiptPostconditions],
-                ...(backendObservation
-                    ? {
-                        temporalObservation: {
-                            ...backendObservation,
-                            observationBoundary: 'server-owned-auth-session-backend-and-postgres-session'
-                        }
-                    }
-                    : {})
+                postconditions: [...producer.receiptPostconditions]
             };
         },
-        async cleanup()
+        async verify(context, producerResult)
         {
-            // Auth fixture rows are namespace-owned; outer bootstrap owns DB drop.
+            const { verifyAuthSession } = await import('./auth-session-producer.mjs');
+            return verifyAuthSession(context, producerResult);
+        },
+        async cleanup(context, receipt, signal)
+        {
+            const { cleanupAuthSession } = await import('./auth-session-producer.mjs');
+            await cleanupAuthSession(context, receipt, signal);
         }
     });
 }
