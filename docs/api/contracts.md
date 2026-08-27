@@ -2444,6 +2444,20 @@ bytes、signature、未裁剪 manifest 或异常 message。非当前节点未提
 
 ## Current cache policy catalog
 
+### Current AEDS version
+
+<!-- fsus-doc-claim
+claimId: binary-api-aeds-contract.aeds-version
+behaviorId: binary-api-aeds-contract
+claimType: generated-section
+generatedSectionId: api.aeds-version
+render: scalar
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN api.aeds-version -->
+2
+<!-- FSUSBLOG-GENERATED:END api.aeds-version -->
+
 ### Current article transitions
 
 <!-- fsus-doc-claim

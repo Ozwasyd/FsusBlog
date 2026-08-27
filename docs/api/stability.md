@@ -51,3 +51,16 @@ The `/api/binary/**` runtime surface is the main application transport. It is op
 ## Admin And Deployment APIs
 
 Admin routes and undocumented deployment internals may change. Treat them as maintainer-facing implementation details unless a dedicated stability document says otherwise.
+## Current contract observation identity
+
+<!-- fsus-doc-claim
+claimId: binary-api-aeds-contract.observation-digest
+behaviorId: binary-api-aeds-contract
+claimType: generated-section
+generatedSectionId: api.observation-digest
+render: scalar
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN api.observation-digest -->
+04ecaaeaf581def85c8979fc0e61b9ea0c9991165d3edeac44a42711c14b57d7
+<!-- FSUSBLOG-GENERATED:END api.observation-digest -->

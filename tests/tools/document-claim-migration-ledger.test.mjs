@@ -9,7 +9,7 @@ const readJson = (relative) => JSON.parse(readFileSync(path.join(root, relative)
 
 test('repository migration ledger exactly covers catalog current documents', () =>
 {
-    assert.deepEqual(validateRepositoryMigrationLedger(), { scopeCount: 2, entryCount: 25 })
+    assert.deepEqual(validateRepositoryMigrationLedger(), { scopeCount: 3, entryCount: 37 })
 })
 
 test('missing document entry and orphan section fail closed', () =>

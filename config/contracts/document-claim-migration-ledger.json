@@ -40,6 +40,24 @@
         { "behaviorId": "article-comment-lifecycle-outbox", "documentPath": "docs/architecture/comment-notification-boundary.md", "claimIds": ["article-comment-lifecycle-outbox.notification"], "generatedSectionIds": ["content.comment.notification"] },
         { "behaviorId": "article-comment-lifecycle-outbox", "documentPath": "docs/architecture/comment-query-boundary.md", "claimIds": ["article-comment-lifecycle-outbox.max-depth"], "generatedSectionIds": ["content.comment.max-depth"] }
       ]
+    },
+    {
+      "scopeId": "api-testing-release-deployment",
+      "behaviorIds": ["binary-api-aeds-contract", "browserless-production-correctness"],
+      "entries": [
+        { "behaviorId": "binary-api-aeds-contract", "documentPath": "docs/api.md", "claimIds": ["binary-api-aeds-contract.operations"], "generatedSectionIds": ["api.operations"] },
+        { "behaviorId": "binary-api-aeds-contract", "documentPath": "docs/api/aeds-only-policy.md", "claimIds": ["binary-api-aeds-contract.protocol"], "generatedSectionIds": ["api.protocol"] },
+        { "behaviorId": "binary-api-aeds-contract", "documentPath": "docs/api/contracts.md", "claimIds": ["binary-api-aeds-contract.aeds-version"], "generatedSectionIds": ["api.aeds-version"] },
+        { "behaviorId": "binary-api-aeds-contract", "documentPath": "docs/api/quick-reference.md", "claimIds": ["binary-api-aeds-contract.operation-keys"], "generatedSectionIds": ["api.operation-keys"] },
+        { "behaviorId": "binary-api-aeds-contract", "documentPath": "docs/api/schemas-and-errors.md", "claimIds": ["binary-api-aeds-contract.operation-count"], "generatedSectionIds": ["api.operation-count"] },
+        { "behaviorId": "binary-api-aeds-contract", "documentPath": "docs/api/stability.md", "claimIds": ["binary-api-aeds-contract.observation-digest"], "generatedSectionIds": ["api.observation-digest"] },
+        { "behaviorId": "browserless-production-correctness", "documentPath": "docs/testing.md", "claimIds": ["browserless-production-correctness.tiers"], "generatedSectionIds": ["testing.tiers"] },
+        { "behaviorId": "browserless-production-correctness", "documentPath": "docs/releases/release-identity.md", "claimIds": ["browserless-production-correctness.final-inputs"], "generatedSectionIds": ["release.final-input-schemas"] },
+        { "behaviorId": "browserless-production-correctness", "documentPath": "docs/releases/blue-green-deployment-runbook.md", "claimIds": ["browserless-production-correctness.bundle-order"], "generatedSectionIds": ["release.production-bundle-order"] },
+        { "behaviorId": "browserless-production-correctness", "documentPath": "docs/architecture/monolithic-distributed-boundary.md", "claimIds": ["browserless-production-correctness.execution-classes"], "generatedSectionIds": ["testing.execution-classes"] },
+        { "behaviorId": "browserless-production-correctness", "documentPath": "docs/architecture.md", "claimIds": ["browserless-production-correctness.predecessors"], "generatedSectionIds": ["testing.candidate-predecessors"] },
+        { "behaviorId": "browserless-production-correctness", "documentPath": "docs/architecture/overview.md", "claimIds": ["browserless-production-correctness.dependency-edges"], "generatedSectionIds": ["testing.dependency-edges"] }
+      ]
     }
   ]
 }

@@ -127,3 +127,16 @@ tools/check-aeds-only-policy.sh
 - `docs/api/contracts.md` 与 quick reference
 
 迁移完成的 JSON 路径必须删除 allowlist 中的 `must-migrate` entry，并确认 scanner inventory 不再出现对应项。
+## Current public protocol
+
+<!-- fsus-doc-claim
+claimId: binary-api-aeds-contract.protocol
+behaviorId: binary-api-aeds-contract
+claimType: generated-section
+generatedSectionId: api.protocol
+render: scalar
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN api.protocol -->
+AEDS
+<!-- FSUSBLOG-GENERATED:END api.protocol -->
