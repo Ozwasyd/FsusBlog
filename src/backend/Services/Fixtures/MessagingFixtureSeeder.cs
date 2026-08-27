@@ -106,9 +106,9 @@ public sealed record MessagingFixtureCleanupReceipt(
     string RunId,
     string Namespace,
     IReadOnlyList<string> OwnedEntityIds,
-    IReadOnlyList<long> ConversationIds,
-    IReadOnlyList<long> MessageIds,
-    IReadOnlyList<long> EventIds,
+    IReadOnlyList<string> ConversationIds,
+    IReadOnlyList<string> MessageIds,
+    IReadOnlyList<string> EventIds,
     IReadOnlyList<string> DeliveryKeys);
 
 public sealed record MessagingFixtureResult(
@@ -291,13 +291,15 @@ public sealed class MessagingFixtureSeeder(
         {
             throw new InvalidOperationException("Messaging fixture cleanup receipt is invalid.");
         }
-        long[] conversationIds = receipt.ConversationIds.Distinct().Order().ToArray();
-        if (conversationIds.Length != receipt.ConversationIds.Count
-            || receipt.MessageIds.Distinct().Count() != receipt.MessageIds.Count
-            || receipt.EventIds.Distinct().Count() != receipt.EventIds.Count
+        long[] conversationIds = ParseExactPositiveIds(receipt.ConversationIds, "conversation");
+        long[] expectedMessageIds = ParseExactPositiveIds(receipt.MessageIds, "message");
+        long[] expectedEventIds = ParseExactPositiveIds(receipt.EventIds, "event");
+        if (receipt.ConversationIds.Distinct(StringComparer.Ordinal).Count() != receipt.ConversationIds.Count
+            || receipt.MessageIds.Distinct(StringComparer.Ordinal).Count() != receipt.MessageIds.Count
+            || receipt.EventIds.Distinct(StringComparer.Ordinal).Count() != receipt.EventIds.Count
             || receipt.DeliveryKeys.Distinct(StringComparer.Ordinal).Count() != receipt.DeliveryKeys.Count
             || receipt.OwnedEntityIds.Distinct(StringComparer.Ordinal).Count() != receipt.OwnedEntityIds.Count
-            || conversationIds.Any(static id => id <= 0))
+            || conversationIds.Length != receipt.ConversationIds.Count)
         {
             throw new InvalidOperationException("Messaging fixture cleanup conversation identity is not exact.");
         }
@@ -306,7 +308,7 @@ public sealed class MessagingFixtureSeeder(
             .OrderBy(item => item.Id)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
         long[] messageIds = messages.Select(static item => item.Id).Distinct().Order().ToArray();
-        if (!messageIds.SequenceEqual(receipt.MessageIds.Distinct().Order()))
+        if (!messageIds.SequenceEqual(expectedMessageIds))
         {
             throw new InvalidOperationException("Messaging fixture cleanup message identity is not exact.");
         }
@@ -333,7 +335,7 @@ public sealed class MessagingFixtureSeeder(
             }
             observedEventIds.Add(eventId.Value);
         }
-        if (!observedEventIds.SequenceEqual(receipt.EventIds.Distinct().Order()))
+        if (!observedEventIds.SequenceEqual(expectedEventIds))
         {
             throw new InvalidOperationException("Messaging fixture cleanup stream identity is not exact.");
         }
@@ -352,7 +354,7 @@ public sealed class MessagingFixtureSeeder(
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         await backlog.RemoveOwnedEventsAsync(
-                receipt.EventIds,
+                expectedEventIds,
                 receipt.DeliveryKeys,
                 userIds.Select(static id => id.ToString(CultureInfo.InvariantCulture)).ToArray(),
                 s_adminGroups,
@@ -583,8 +585,8 @@ public sealed class MessagingFixtureSeeder(
                 "exact",
                 "exact"))
             .ToArray();
-        long[] messageIds = messages.Select(static item => item.Id).Order().ToArray();
-        long[] eventIds = deliveryEvents.Values.Distinct().Order().ToArray();
+        string[] messageIds = messages.Select(static item => item.Id.ToString(CultureInfo.InvariantCulture)).Order(StringComparer.Ordinal).ToArray();
+        string[] eventIds = deliveryEvents.Values.Select(static item => item.ToString(CultureInfo.InvariantCulture)).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
         string[] deliveryKeys = deliveries.Select(static item => item.DeliveryKey).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
         string[] ownedEntityIds = conversationIds.Select(static id => id.ToString(CultureInfo.InvariantCulture))
             .Concat(messageIds.Select(static id => id.ToString(CultureInfo.InvariantCulture)))
@@ -596,7 +598,7 @@ public sealed class MessagingFixtureSeeder(
             request.RunId,
             request.Namespace,
             ownedEntityIds,
-            conversationIds,
+            conversationIds.Select(static id => id.ToString(CultureInfo.InvariantCulture)).Order(StringComparer.Ordinal).ToArray(),
             messageIds,
             eventIds,
             deliveryKeys);
@@ -811,6 +813,21 @@ public sealed class MessagingFixtureSeeder(
         => long.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out long parsed) && parsed > 0
             ? parsed
             : throw new InvalidOperationException($"Messaging fixture {label} is invalid.");
+
+    private static long[] ParseExactPositiveIds(IReadOnlyList<string> values, string label)
+        => values.Select(value =>
+            {
+                long parsed = ParsePositiveLong(value, label);
+                return string.Equals(
+                    parsed.ToString(CultureInfo.InvariantCulture),
+                    value,
+                    StringComparison.Ordinal)
+                        ? parsed
+                        : throw new InvalidOperationException(
+                            $"Messaging fixture {label} identity is not canonical.");
+            })
+            .Order()
+            .ToArray();
 
     private static string BuildOwner(string fixtureNamespace, string runId)
         => Hash(string.Concat(fixtureNamespace.Trim(), ":", runId.Trim()))[7..31];

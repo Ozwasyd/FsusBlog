@@ -174,7 +174,11 @@ function buildRaw(plan, overrides = {})
             planDigest: plan.planDigest,
             runId: plan.runId,
             namespace: plan.namespace,
-            ownedEntityIds: ['7001', '8001']
+            ownedEntityIds: ['7001', '8001'],
+            conversationIds: ['7001'],
+            messageIds: ['8001'],
+            eventIds: ['9001'],
+            deliveryKeys: ['fixture-delivery-9001']
         },
         ...overrides
     };
@@ -225,6 +229,14 @@ test('account-messaging prepares, independently verifies, and exactly cleans own
     assert.deepEqual(verification.warnings, []);
     await cleanupAccountMessaging(context, result);
     assert.deepEqual(cleaned.ownedEntityIds, ['7001', '8001']);
+
+    await cleanupAccountMessaging(context, {
+        schema: 'fsusblog.fixture-producer-receipt.v1',
+        producerId: 'account-messaging',
+        entityIdentities: result.entityIdentities,
+        cleanupContract: result.cleanupContract
+    });
+    assert.deepEqual(cleaned.conversationIds, ['7001']);
 });
 
 test('account-messaging consumes the canonical temporal resolver without a local fallback', async () =>

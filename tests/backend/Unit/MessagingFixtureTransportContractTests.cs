@@ -88,6 +88,36 @@ public sealed class MessagingFixtureTransportContractTests
     }
 
     [Fact]
+    public void MessagingCleanupReceipt_PreservesInt64IdentitiesAsCanonicalStrings()
+    {
+        const string Json = """
+            {
+              "schema": "fsusblog.messaging-fixture-cleanup.v1",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "runId": "run-1",
+              "namespace": "namespace-1",
+              "ownedEntityIds": ["9223372036854775806", "9223372036854775807"],
+              "conversationIds": ["9223372036854775806"],
+              "messageIds": ["9223372036854775807"],
+              "eventIds": ["9007199254740993"],
+              "deliveryKeys": ["fixture-delivery"]
+            }
+            """;
+
+        MessagingFixtureCleanupReceipt? receipt = JsonSerializer.Deserialize<MessagingFixtureCleanupReceipt>(
+            Json,
+            LocalMessagingFixtureEndpoints.s_json);
+
+        Assert.NotNull(receipt);
+        Assert.Equal("9223372036854775806", Assert.Single(receipt.ConversationIds));
+        Assert.Equal("9007199254740993", Assert.Single(receipt.EventIds));
+        Assert.Contains("\"9223372036854775807\"", JsonSerializer.Serialize(receipt), StringComparison.Ordinal);
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<MessagingFixtureCleanupReceipt>(
+            Json.Replace("\"9007199254740993\"", "9007199254740993", StringComparison.Ordinal),
+            LocalMessagingFixtureEndpoints.s_json));
+    }
+
+    [Fact]
     public void MessagingSeeder_DependsOnProductionPortsInsteadOfStorageWriters()
     {
         Type[] dependencies = typeof(MessagingFixtureSeeder)

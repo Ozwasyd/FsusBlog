@@ -481,6 +481,10 @@ export async function prepareAccountMessaging(context, signal, { temporalResolve
         cacheObservation: observations.cache,
         temporalObservation: raw.temporalObservation ?? raw.TemporalObservation ?? null,
         cleanupReceipt: raw.cleanupReceipt,
+        cleanupContract: Object.freeze({
+            kind: 'messaging-exact-receipt',
+            receipt: raw.cleanupReceipt
+        }),
         contentDigest: contentDigest(JSON.stringify({
             planDigest: plan.planDigest,
             capabilityProofs,
@@ -552,15 +556,34 @@ export async function verifyAccountMessaging(context, producerResult)
 
 export async function cleanupAccountMessaging(context, producerResult, signal)
 {
-    const cleanupReceipt = producerResult?.cleanupReceipt;
+    const cleanupReceipt = producerResult?.cleanupReceipt
+        ?? (producerResult?.cleanupContract?.kind === 'messaging-exact-receipt'
+            ? producerResult.cleanupContract.receipt
+            : null);
+    const planDigest = producerResult?.planDigest ?? cleanupReceipt?.planDigest;
     if (!cleanupReceipt
         || cleanupReceipt.schema !== 'fsusblog.messaging-fixture-cleanup.v1'
-        || cleanupReceipt.planDigest !== producerResult.planDigest
+        || cleanupReceipt.planDigest !== planDigest
         || cleanupReceipt.runId !== context.runIdentity
         || cleanupReceipt.namespace !== context.namespace
         || !Array.isArray(cleanupReceipt.ownedEntityIds))
     {
         throw new Error('account-messaging cleanup requires the exact prepare cleanup receipt');
+    }
+    if (producerResult?.schema === 'fsusblog.fixture-producer-receipt.v1')
+    {
+        const sealedIds = (producerResult.entityIdentities ?? [])
+            .filter((item) => item.kind === 'thread' || item.kind === 'message')
+            .map((item) => String(item.id))
+            .sort((left, right) => BigInt(left) < BigInt(right) ? -1 : BigInt(left) > BigInt(right) ? 1 : 0);
+        const cleanupIds = cleanupReceipt.ownedEntityIds
+            .map(String)
+            .sort((left, right) => BigInt(left) < BigInt(right) ? -1 : BigInt(left) > BigInt(right) ? 1 : 0);
+        if (producerResult.producerId !== PRODUCER_ID
+            || JSON.stringify(sealedIds) !== JSON.stringify(cleanupIds))
+        {
+            throw new Error('account-messaging cleanup receipt does not bind sealed entity identities');
+        }
     }
     const adapter = context.handles?.accountMessagingAdapter;
     if (adapter && typeof adapter.cleanup === 'function')
