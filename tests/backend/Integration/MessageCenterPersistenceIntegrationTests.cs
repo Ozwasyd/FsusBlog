@@ -1193,7 +1193,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             closeTransaction))
         {
             closeCommand.Parameters.AddWithValue("status", (int)ConversationStatus.Closed);
-            closeCommand.Parameters.AddWithValue("now", TemporalRoleUtc("message.deleted"));
+            closeCommand.Parameters.AddWithValue("now", TemporalRoleUtc("message.conversation-closed"));
             closeCommand.Parameters.AddWithValue("id", conversationId);
             Assert.Equal(1, await closeCommand.ExecuteNonQueryAsync());
         }

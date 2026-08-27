@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+    defaultTimeoutPolicyDigest,
+    qualificationTemporalContext
+} from '../../tools/test/temporal-context.mjs';
+import {
     buildMessagingFixturePlan,
     cleanupAccountMessaging,
     prepareAccountMessaging,
@@ -149,6 +153,34 @@ test('account-messaging prepares, independently verifies, and exactly cleans own
     });
     await cleanupAccountMessaging(context, result);
     assert.deepEqual(cleaned.ownedEntityIds, ['7001', '8001']);
+});
+
+test('account-messaging consumes the canonical temporal resolver without a local fallback', async () =>
+{
+    let capturedPlan = null;
+    const context = baseContext({
+        prepare: async ({ messagingPlan }) =>
+        {
+            capturedPlan = messagingPlan;
+            return buildRaw(messagingPlan);
+        }
+    });
+    context.temporalContext = qualificationTemporalContext({
+        sourceCommit: 'a'.repeat(40),
+        sourceFingerprint: digest('b'),
+        producerId: 'account-messaging',
+        schedulerRunId: context.runIdentity,
+        businessEpochUtc: '2042-05-17T09:30:00.000Z',
+        locale: 'en-US',
+        uiLocale: 'en-US',
+        timeoutPolicyDigest: defaultTimeoutPolicyDigest()
+    });
+
+    const result = await prepareAccountMessaging(context);
+
+    assert.equal(capturedPlan.temporalRoles.shape.id, 'auth-security-messaging-account-lifecycle');
+    assert.equal(result.temporalRoleArtifactDigest, capturedPlan.temporalRoles.contentDigest);
+    assert.equal(capturedPlan.temporalRoles.fixtureIdentity.fixtureId, 'account-messaging');
 });
 
 test('account-messaging reruns idempotently and parallel namespaces clean only receipt-owned entities', async () =>

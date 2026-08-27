@@ -8,6 +8,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Services.Background;
 using FsusBlog.Shared.Contracts.NotificationStream;
 using FsusBlog.Shared.Contracts.Outputs;
 
@@ -126,12 +127,13 @@ public sealed class MessagingFixtureSeeder(
     IMessageAdminQueueMaintenance maintenance,
     MessageCacheService cache,
     NotificationStreamBacklogStore backlog,
+    MessageMutationOutboxWorker outboxWorker,
     ISqlSugarClient db) : IMessagingFixtureSeeder
 {
     private const string ProducerId = "account-messaging";
     private const string Strategy = "transaction-fixture";
     private const int PaginationMessageCount = 52;
-    private static readonly TimeSpan s_outboxTimeout = TimeSpan.FromSeconds(30);
+    private const int MaxOutboxDrainPasses = 16;
     private static readonly IReadOnlySet<string> s_noGroups = new HashSet<string>(StringComparer.Ordinal);
     private static readonly IReadOnlySet<string> s_adminGroups = new HashSet<string>(StringComparer.Ordinal)
     {
@@ -650,8 +652,7 @@ public sealed class MessagingFixtureSeeder(
         IReadOnlyCollection<long> conversationIds,
         CancellationToken cancellationToken)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow.Add(s_outboxTimeout);
-        while (true)
+        for (int pass = 0; pass < MaxOutboxDrainPasses; pass++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             List<MessageMutationOutbox> deliveries = await db.Queryable<MessageMutationOutbox>()
@@ -663,13 +664,13 @@ public sealed class MessagingFixtureSeeder(
             {
                 return deliveries;
             }
-            if (deliveries.Any(static item => item.Status == MessageMutationOutboxStatus.Poison)
-                || DateTimeOffset.UtcNow >= deadline)
+            if (deliveries.Any(static item => item.Status == MessageMutationOutboxStatus.Poison))
             {
                 throw new InvalidOperationException("Messaging outbox did not reach exact processed state.");
             }
-            await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken).ConfigureAwait(false);
+            await outboxWorker.ProcessPendingAsync(cancellationToken).ConfigureAwait(false);
         }
+        throw new InvalidOperationException("Messaging outbox did not converge within the bounded worker drain.");
     }
 
     private async Task<Dictionary<string, long>> ObserveDeliveryEventsAsync(

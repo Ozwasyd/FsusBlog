@@ -52,7 +52,7 @@ function trackedFiles(root)
     return result.stdout.split('\0').filter(Boolean).sort();
 }
 
-function relevantCorrectnessSource(relativePath, source)
+function relevantCorrectnessSource(relativePath, source, implementationPaths)
 {
     if (relativePath === producerPath)
     {
@@ -64,13 +64,9 @@ function relevantCorrectnessSource(relativePath, source)
     {
         return false;
     }
-    const lower = source.toLowerCase();
-    if (lower.includes(accountMessagingProducerMarker)
-        || lower.includes(accountMessagingConsumerMarker))
-    {
-        return true;
-    }
-    return lower.includes('messaging-fixture') || lower.includes('account-messaging');
+    return implementationPaths.has(relativePath)
+        || source.includes(accountMessagingProducerMarker)
+        || source.includes(accountMessagingConsumerMarker);
 }
 
 function lineFor(source, index)
@@ -105,7 +101,7 @@ function scanSources(root, ownership)
         {
             producerMarkers.push(relativePath);
         }
-        if (!relevantCorrectnessSource(relativePath, source))
+        if (!relevantCorrectnessSource(relativePath, source, implementationPaths))
         {
             continue;
         }

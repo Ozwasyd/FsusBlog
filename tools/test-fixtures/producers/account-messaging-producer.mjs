@@ -127,10 +127,13 @@ async function resolveTemporalRoles(context, resolver)
         fixtureIdentity: {
             producerId: PRODUCER_ID,
             runId: context.runIdentity,
-            namespace: context.namespace
+            namespace: context.namespace,
+            fixtureId: PRODUCER_ID
         }
     });
-    const verified = await authority.verifyResolvedTemporalArtifact(artifact);
+    const verified = await authority.verifyResolvedTemporalArtifact(artifact, {
+        temporalContext: context.temporalContext
+    });
     if (verified === false || verified?.ok === false)
     {
         throw new Error('account-messaging temporal roles failed verification');
