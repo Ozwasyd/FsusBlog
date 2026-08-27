@@ -47,6 +47,10 @@ const fail = (message) => {
   process.stderr.write(message + '\\n')
   process.exit(31)
 }
+if (entry === '-e') {
+  eval(args[0])
+  return
+}
 if (String(entry).endsWith('/tests/frontend/support/fixture-paths.mjs')) {
   const fixtureRoot = process.env.FSUSBLOG_TEST_STUB_FIXTURE_ROOT
   if (!fixtureRoot) fail('fixture root is required')
@@ -443,7 +447,7 @@ test('producer env strategy override is rejected by default ports', async () =>
     }
 });
 
-test('default structural port keeps pre-cutover profiles preparable without claiming typed entity evidence', async () =>
+test('account-messaging cutover refuses structural preparation without verified identity facts', async () =>
 {
     const planned = plan({ profileId: 'account-messaging', profileSource: 'dev-cli' });
     const { createAccountMessagingPort } = await import('../../tools/test-fixtures/producers/catalog-ports.mjs');
@@ -455,11 +459,10 @@ test('default structural port keeps pre-cutover profiles preparable without clai
             'auth-session': { producerId: 'auth-session', postconditions: ['user-active'] }
         }
     });
-    const result = await port.prepare(context);
-    assert.equal(result.structuralOnly, true);
-    assert.equal(result.temporalArtifacts, undefined);
-    assert.equal(result.enforceVariantEvidence, undefined);
-    assert.deepEqual(result.variantIds, context.variantPlan.variants.map((item) => item.id).sort());
+    await assert.rejects(
+        () => port.prepare(context),
+        /requires #1713 verified identity references/u
+    );
 });
 
 test('state-domain conflicting producers are not scheduled in the same wave', () =>
@@ -647,7 +650,11 @@ InvokeFixtureOrchestrator
             ...process.env,
             FSUSBLOG_TEST_STUB_CAPTURE: stub.capture,
             FSUSBLOG_TEST_STUB_NODE: stub.executable,
-            FSUSBLOG_TEST_STUB_ROOT: stub.directory
+            FSUSBLOG_TEST_STUB_ROOT: stub.directory,
+            FSUSBLOG_RELEASE_ID: 'fixture-release-id',
+            FSUSBLOG_TEST_HUMAN_READ_PROOF_SIGNING_KEY: 'fixture-signing-key',
+            FSUSBLOG_TEST_HUMAN_READ_PROOF_DEDUP_KEY: 'fixture-dedup-key',
+            FSUSBLOG_TEST_READ_ANALYTICS_NOISE_KEY: 'fixture-noise-key'
         }
     });
     assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);

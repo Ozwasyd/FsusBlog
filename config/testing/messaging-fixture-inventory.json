@@ -1,0 +1,259 @@
+{
+    "schema": "fsusblog.messaging-fixture-inventory.v1",
+    "version": 1,
+    "producerId": "account-messaging",
+    "strategy": "transaction-fixture",
+    "temporalShapeId": "auth-security-messaging-account-lifecycle",
+    "identityRoles": [
+        "admin",
+        "empty-recipient",
+        "primary-recipient",
+        "secondary-recipient"
+    ],
+    "messageStates": [
+        "closed",
+        "open",
+        "read",
+        "unread"
+    ],
+    "eventTypeRegistry": "src/shared/Contracts/NotificationStream/NotificationStreamContracts.cs",
+    "eventTypeRefs": [
+        "InboxConversationStatusChanged",
+        "InboxConversationUpsert",
+        "InboxMessageAppend",
+        "InboxReadUpdated"
+    ],
+    "capabilities": [
+        {
+            "id": "messages.empty",
+            "portId": "message-lifecycle",
+            "identityRoles": [
+                "empty-recipient"
+            ],
+            "stateFields": [
+                "ownedConversationCount",
+                "ownedMessageCount",
+                "ownedParticipantCount"
+            ],
+            "postconditions": [
+                "api.inbox-exact-zero",
+                "cache.unread-exact-zero",
+                "database.messages-exact-zero"
+            ],
+            "emptyContract": "exact-zero-owned"
+        },
+        {
+            "id": "messages.inbox.read",
+            "portId": "message-lifecycle",
+            "identityRoles": [
+                "admin",
+                "primary-recipient"
+            ],
+            "stateFields": [
+                "lastReadMessageId",
+                "unreadCount"
+            ],
+            "postconditions": [
+                "api.unread-count-exact",
+                "cache.unread-generation-exact",
+                "database.read-receipt-exact",
+                "outbox.read-event-exact",
+                "stream.read-event-exact"
+            ]
+        },
+        {
+            "id": "messages.inbox.unread",
+            "portId": "message-lifecycle",
+            "identityRoles": [
+                "admin",
+                "primary-recipient"
+            ],
+            "stateFields": [
+                "lastReadMessageId",
+                "unreadCount"
+            ],
+            "postconditions": [
+                "api.unread-count-exact",
+                "cache.unread-generation-exact",
+                "database.read-receipt-exact",
+                "outbox.message-event-exact",
+                "stream.message-event-exact"
+            ]
+        },
+        {
+            "id": "messages.message.closed",
+            "portId": "message-lifecycle",
+            "identityRoles": [
+                "admin",
+                "primary-recipient"
+            ],
+            "stateFields": [
+                "conversationStatus",
+                "visibleMessageIds"
+            ],
+            "postconditions": [
+                "api.closed-visibility-exact",
+                "database.closed-state-exact",
+                "outbox.status-event-exact",
+                "stream.status-event-exact"
+            ]
+        },
+        {
+            "id": "messages.pagination.boundary",
+            "portId": "message-lifecycle",
+            "identityRoles": [
+                "admin",
+                "primary-recipient"
+            ],
+            "stateFields": [
+                "pageSize",
+                "previousCursor",
+                "sequence"
+            ],
+            "postconditions": [
+                "api.pagination-membership-exact",
+                "database.sequence-exact"
+            ]
+        },
+        {
+            "id": "messages.thread.multi-message",
+            "portId": "message-lifecycle",
+            "identityRoles": [
+                "admin",
+                "primary-recipient"
+            ],
+            "stateFields": [
+                "messageIds",
+                "sequence",
+                "threadId"
+            ],
+            "postconditions": [
+                "api.thread-order-exact",
+                "database.sequence-exact",
+                "outbox.message-event-exact",
+                "stream.message-event-exact"
+            ]
+        },
+        {
+            "id": "messages.thread.single",
+            "portId": "message-lifecycle",
+            "identityRoles": [
+                "primary-recipient"
+            ],
+            "stateFields": [
+                "messageIds",
+                "sequence",
+                "threadId"
+            ],
+            "postconditions": [
+                "api.thread-order-exact",
+                "database.sequence-exact",
+                "outbox.message-event-exact"
+            ]
+        },
+        {
+            "id": "notifications.acknowledged",
+            "portId": "notification-lifecycle",
+            "identityRoles": [
+                "primary-recipient"
+            ],
+            "stateFields": [
+                "acknowledgedCursor",
+                "nextEventId",
+                "unreadCountAfterAck"
+            ],
+            "postconditions": [
+                "api.ack-cursor-exact",
+                "stream.resume-after-ack-exact"
+            ]
+        },
+        {
+            "id": "notifications.backlog",
+            "portId": "notification-lifecycle",
+            "identityRoles": [
+                "primary-recipient"
+            ],
+            "stateFields": [
+                "eventIds",
+                "retainedCursor",
+                "sequence"
+            ],
+            "postconditions": [
+                "api.backlog-membership-exact",
+                "outbox.stream-identity-exact",
+                "stream.backlog-order-exact",
+                "stream.retention-boundary-exact"
+            ]
+        },
+        {
+            "id": "notifications.empty",
+            "portId": "notification-lifecycle",
+            "identityRoles": [
+                "empty-recipient"
+            ],
+            "stateFields": [
+                "ownedEventCount",
+                "ownedOutboxCount",
+                "ownedStreamCount"
+            ],
+            "postconditions": [
+                "api.notification-exact-zero",
+                "database.notification-exact-zero",
+                "outbox.notification-exact-zero",
+                "stream.notification-exact-zero"
+            ],
+            "emptyContract": "exact-zero-owned"
+        },
+        {
+            "id": "notifications.read",
+            "portId": "notification-lifecycle",
+            "identityRoles": [
+                "primary-recipient"
+            ],
+            "stateFields": [
+                "lastReadMessageId",
+                "unreadCount"
+            ],
+            "postconditions": [
+                "api.unread-count-exact",
+                "database.read-receipt-exact",
+                "stream.read-event-exact"
+            ]
+        },
+        {
+            "id": "notifications.stream-resume",
+            "portId": "notification-lifecycle",
+            "identityRoles": [
+                "primary-recipient"
+            ],
+            "stateFields": [
+                "acknowledgedCursor",
+                "expectedEventIds",
+                "streamGeneration"
+            ],
+            "postconditions": [
+                "api.resume-cursor-exact",
+                "stream.resume-no-duplicate-exact",
+                "stream.resume-no-gap-exact",
+                "stream.resume-order-exact"
+            ]
+        },
+        {
+            "id": "notifications.unread",
+            "portId": "notification-lifecycle",
+            "identityRoles": [
+                "primary-recipient"
+            ],
+            "stateFields": [
+                "eventIds",
+                "unreadCount"
+            ],
+            "postconditions": [
+                "api.unread-count-exact",
+                "cache.unread-generation-exact",
+                "outbox.stream-identity-exact",
+                "stream.message-event-exact"
+            ]
+        }
+    ]
+}

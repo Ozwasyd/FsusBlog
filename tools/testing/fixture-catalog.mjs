@@ -35,7 +35,9 @@ function stableStringify(value)
 const requiredFixtureSourceFiles = Object.freeze([
     'src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs',
     'src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs',
-    'tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs',
+    'src/backend/Modules/Endpoints/LocalMessagingFixtureEndpoints.cs',
+    'src/backend/Services/Fixtures/MessagingFixtureSeeder.cs',
+    'tools/test-fixtures/producers/account-messaging-producer.mjs',
     'tests/browser-contract/default-fixture-provider.mjs',
     'tests/browser-contract/fixture.mjs',
     'tests/browser-contract/prepare-fixture.mjs',

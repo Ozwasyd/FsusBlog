@@ -1,0 +1,110 @@
+{
+    "schema": "fsusblog.messaging-fixture-ownership.v1",
+    "inventory": "config/testing/messaging-fixture-inventory.json",
+    "producer": {
+        "id": "account-messaging",
+        "implementation": "tools/test-fixtures/producers/account-messaging-producer.mjs",
+        "strategy": "transaction-fixture"
+    },
+    "ports": [
+        {
+            "id": "message-lifecycle",
+            "implementation": "src/backend/Services/Fixtures/MessagingFixtureSeeder.cs",
+            "storageWrites": "production-message-application-ports"
+        },
+        {
+            "id": "notification-lifecycle",
+            "implementation": "src/backend/Services/Fixtures/MessagingFixtureSeeder.cs",
+            "storageWrites": "production-outbox-fanout-stream-ports"
+        }
+    ],
+    "gateways": [
+        {
+            "id": "loopback-http",
+            "implementation": "src/backend/Modules/Endpoints/LocalMessagingFixtureEndpoints.cs",
+            "delegatesTo": [
+                "message-lifecycle",
+                "notification-lifecycle"
+            ]
+        }
+    ],
+    "capabilityOwners": [
+        {
+            "capabilityId": "messages.empty",
+            "portId": "message-lifecycle"
+        },
+        {
+            "capabilityId": "messages.inbox.read",
+            "portId": "message-lifecycle"
+        },
+        {
+            "capabilityId": "messages.inbox.unread",
+            "portId": "message-lifecycle"
+        },
+        {
+            "capabilityId": "messages.message.closed",
+            "portId": "message-lifecycle"
+        },
+        {
+            "capabilityId": "messages.pagination.boundary",
+            "portId": "message-lifecycle"
+        },
+        {
+            "capabilityId": "messages.thread.multi-message",
+            "portId": "message-lifecycle"
+        },
+        {
+            "capabilityId": "messages.thread.single",
+            "portId": "message-lifecycle"
+        },
+        {
+            "capabilityId": "notifications.acknowledged",
+            "portId": "notification-lifecycle"
+        },
+        {
+            "capabilityId": "notifications.backlog",
+            "portId": "notification-lifecycle"
+        },
+        {
+            "capabilityId": "notifications.empty",
+            "portId": "notification-lifecycle"
+        },
+        {
+            "capabilityId": "notifications.read",
+            "portId": "notification-lifecycle"
+        },
+        {
+            "capabilityId": "notifications.stream-resume",
+            "portId": "notification-lifecycle"
+        },
+        {
+            "capabilityId": "notifications.unread",
+            "portId": "notification-lifecycle"
+        }
+    ],
+    "consumers": [
+        {
+            "id": "fixture-orchestrator",
+            "implementation": "tools/test-fixtures/orchestrator.mjs",
+            "receiptSchema": "fsusblog.fixture-receipt.v2"
+        }
+    ],
+    "privacy": {
+        "ordinaryArtifactFields": [
+            "contentDigest",
+            "eventType",
+            "identityRole",
+            "messageId",
+            "recipientIdDigest",
+            "streamCursor",
+            "threadId"
+        ],
+        "forbiddenFields": [
+            "body",
+            "cookie",
+            "notificationPayload",
+            "sessionId",
+            "token"
+        ]
+    }
+}

@@ -479,7 +479,30 @@ function createStructuralBusinessPort(producer, adapterHandleName)
 
 export function createAccountMessagingPort(catalogs = readFixtureCatalogs())
 {
-    return createStructuralBusinessPort(catalogProducer('account-messaging', catalogs), 'accountMessagingAdapter');
+    const producer = catalogProducer('account-messaging', catalogs);
+    return basePort(producer, {
+        async prepare(context, signal)
+        {
+            requireConsumedProducerOutputs(producer, context);
+            const { prepareAccountMessaging } = await import('./account-messaging-producer.mjs');
+            const result = await prepareAccountMessaging(context, signal);
+            return {
+                ...result,
+                ...variantOutputFromTypedPlan(context, producer.id),
+                postconditions: [...producer.receiptPostconditions]
+            };
+        },
+        async verify(context, producerResult)
+        {
+            const { verifyAccountMessaging } = await import('./account-messaging-producer.mjs');
+            return verifyAccountMessaging(context, producerResult);
+        },
+        async cleanup(context, producerResult, signal)
+        {
+            const { cleanupAccountMessaging } = await import('./account-messaging-producer.mjs');
+            await cleanupAccountMessaging(context, producerResult, signal);
+        }
+    });
 }
 
 export function createCommentModerationPort(catalogs = readFixtureCatalogs())

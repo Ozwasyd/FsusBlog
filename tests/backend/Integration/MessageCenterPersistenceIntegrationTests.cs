@@ -1,4 +1,3 @@
-// fixture-catalog: producer account-messaging
 using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
@@ -82,6 +81,39 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
     }
 
     [Fact]
+    public async Task MessageLifecycle_UsesInjectedBusinessClockForDatabaseAndProjectionOrder()
+    {
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        PostgresSqlSugarTestClient.InitTables(
+            db,
+            typeof(MessageConversation),
+            typeof(ConversationMessage),
+            typeof(ConversationParticipantState),
+            typeof(AdminConversationQueueState),
+            typeof(MessageMutationOutbox));
+        DateTimeOffset businessNow = new(2042, 5, 17, 9, 30, 0, TimeSpan.Zero);
+        MessageCenterService service = CreateService(
+            db,
+            CreatePermissiveUnifiedCache(),
+            Substitute.For<IMessageNotificationStreamPort>(),
+            timeProvider: new FixedTimeProvider(businessNow));
+
+        Result<ConversationDetailResponse> result = await service.CreateAccountTicketAsync(
+            42,
+            "business clock",
+            "controlled message",
+            "business-clock-create");
+
+        Assert.True(result.IsSuccess, result.Error.Message);
+        MessageConversation conversation = Assert.Single(await db.Queryable<MessageConversation>().ToListAsync());
+        ConversationMessage message = Assert.Single(await db.Queryable<ConversationMessage>().ToListAsync());
+        Assert.Equal(businessNow.UtcDateTime, conversation.CreatedAt);
+        Assert.Equal(businessNow.UtcDateTime, conversation.LastMessageAt);
+        Assert.Equal(businessNow.UtcDateTime, message.CreatedAt);
+        Assert.Equal(businessNow.UtcDateTime, result.Value!.LastMessageAt);
+    }
+
+    [Fact]
     public async Task CreateAccountTicketAsync_CommitsConversationMessageParticipantAndOutboxAtomically()
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
@@ -117,7 +149,8 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             new MessageCacheService(cache, cache, cache, cache),
             notifications,
             new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build(),
-            NullLogger<MessageCenterService>.Instance);
+            NullLogger<MessageCenterService>.Instance,
+            TimeProvider.System);
 
         var result = await service.CreateAccountTicketAsync(
             42,
@@ -1825,13 +1858,20 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         SqlSugarClient db,
         IUnifiedCache unifiedCache,
         IMessageNotificationStreamPort notifications,
-        Microsoft.Extensions.Configuration.IConfiguration? configuration = null)
+        Microsoft.Extensions.Configuration.IConfiguration? configuration = null,
+        TimeProvider? timeProvider = null)
         => new(
             db,
             new MessageCacheService(unifiedCache, unifiedCache, unifiedCache, unifiedCache),
             notifications,
             configuration ?? new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build(),
-            NullLogger<MessageCenterService>.Instance);
+            NullLogger<MessageCenterService>.Instance,
+            timeProvider ?? TimeProvider.System);
+
+    private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utcNow;
+    }
 
     private static Task<int> InsertAccountAsync(SqlSugarClient db, int status, DateTime? deletedAt = null)
         => db.Insertable(new User
