@@ -26,9 +26,12 @@ public partial class UserService(
     ISqlSugarClient _db,
     ILogger<UserService> _logger,
     ICacheCounterStore _cacheCounters,
-    ITotpService _totpService) : IUserMfaCommandService, IUserMfaVerificationService
+    ITotpService _totpService,
+    TimeProvider? timeProvider = null) : IUserMfaCommandService, IUserMfaVerificationService
 #pragma warning restore IDE1006
 {
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+
     private async Task<UserMfaProfile?> GetUserMfaProfileAsync(int userId)
         => await _db.Queryable<UserMfaProfile>()
             .Where(profile => profile.UserId == userId)
@@ -36,7 +39,7 @@ public partial class UserService(
 
     private async Task UpsertUserMfaProfileAsync(UserMfaProfile profile)
     {
-        profile.UpdatedAtUtc = DateTime.UtcNow;
+        profile.UpdatedAtUtc = _timeProvider.GetUtcNow().UtcDateTime;
         const string Sql = """
             INSERT INTO user_mfa_profile (
                 user_id,
@@ -126,7 +129,7 @@ public partial class UserService(
         string account = BuildMfaAccountLabel(user);
         string otpAuthUrl = _totpService.BuildOtpAuthUri(issuer, account, secret);
 
-        DateTime now = DateTime.UtcNow;
+        DateTime now = _timeProvider.GetUtcNow().UtcDateTime;
         profile ??= new UserMfaProfile { UserId = userId };
         profile.MfaPendingSecretEncrypted = protectedSecret;
         profile.MfaPendingCreatedAt = now;
@@ -164,7 +167,8 @@ public partial class UserService(
             return (false, null, "MFA_SETUP_NOT_STARTED");
         }
 
-        if (profile.MfaPendingCreatedAt is null || DateTime.UtcNow - profile.MfaPendingCreatedAt.Value > TimeSpan.FromMinutes(10))
+        if (profile.MfaPendingCreatedAt is null ||
+            _timeProvider.GetUtcNow().UtcDateTime - profile.MfaPendingCreatedAt.Value > TimeSpan.FromMinutes(10))
         {
             profile.MfaPendingSecretEncrypted = null;
             profile.MfaPendingCreatedAt = null;
@@ -192,11 +196,11 @@ public partial class UserService(
         string recoveryHashes = _totpService.HashRecoveryCodes(recoveryCodes);
 
         profile.MfaSecretEncrypted = profile.MfaPendingSecretEncrypted;
-        profile.MfaVerifiedAt = DateTime.UtcNow;
+        profile.MfaVerifiedAt = _timeProvider.GetUtcNow().UtcDateTime;
         profile.MfaRecoveryCodesHash = recoveryHashes;
         profile.MfaRecoveryCodesHashVersion = TotpService.CurrentRecoveryCodeHashVersion;
         profile.LastTotpStep = matchedSetupStep;
-        profile.LastTotpUsedAtUtc = DateTime.UtcNow;
+        profile.LastTotpUsedAtUtc = _timeProvider.GetUtcNow().UtcDateTime;
         profile.MfaPendingSecretEncrypted = null;
         profile.MfaPendingCreatedAt = null;
         var tran = await _db.Ado.UseTranAsync(async () =>
@@ -357,6 +361,7 @@ public partial class UserService(
     public async Task<bool> ResetMfaByAdminAsync(int userId)
     {
         int updated = 0;
+        DateTime updatedAtUtc = _timeProvider.GetUtcNow().UtcDateTime;
         var tran = await _db.Ado.UseTranAsync(async () =>
         {
             bool? lockedMfaEnabled = await LockUserMfaStateForUpdateAsync(userId);
@@ -377,7 +382,7 @@ public partial class UserService(
                 .SetColumns(p => p.MfaRecoveryCodesHash == null)
                 .SetColumns(p => p.MfaRecoveryCodesHashVersion == 1)
                 .SetColumns(p => p.MfaVerifiedAt == null)
-                .SetColumns(p => p.UpdatedAtUtc == DateTime.UtcNow)
+                .SetColumns(p => p.UpdatedAtUtc == updatedAtUtc)
                 .Where(p => p.UserId == userId)
                 .ExecuteCommandAsync();
         });
@@ -494,7 +499,7 @@ public partial class UserService(
 
     private async Task<bool> TryConsumeTotpStepAsync(int userId, long matchedStep)
     {
-        DateTime usedAtUtc = DateTime.UtcNow;
+        DateTime usedAtUtc = _timeProvider.GetUtcNow().UtcDateTime;
         const string Sql = """
             UPDATE user_mfa_profile
             SET last_totp_step = @MatchedStep,
@@ -531,7 +536,7 @@ public partial class UserService(
         {
             new("@UpdatedHashes", updatedHashes),
             new("@HashVersion", hashVersion),
-            new("@UpdatedAtUtc", DateTime.UtcNow),
+            new("@UpdatedAtUtc", _timeProvider.GetUtcNow().UtcDateTime),
             new("@UserId", userId),
             new("@OldHashes", oldHashes)
         });

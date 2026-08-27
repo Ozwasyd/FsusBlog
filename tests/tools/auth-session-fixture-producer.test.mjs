@@ -274,8 +274,100 @@ test('prepare binds receipt-safe entity identities and database evidence to type
     assert.equal(result.authVerificationEntities[0].semanticRole, 'user.active');
 });
 
-test('independent verifier is mandatory and binds the exact producer result digest', async () =>
+test('live prepare and verify consume environment secret without persisting it', async (context) =>
 {
+    const originalFetch = globalThis.fetch;
+    const originalBaseUrl = process.env.FSUSBLOG_BASE_URL;
+    const originalSecret = process.env.FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET;
+    const fixtureSecret = 'current-process-private-fixture-secret';
+    process.env.FSUSBLOG_BASE_URL = 'http://127.0.0.1:5088/';
+    process.env.FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET = fixtureSecret;
+    context.after(() =>
+    {
+        globalThis.fetch = originalFetch;
+        if (originalBaseUrl === undefined)
+        {
+            delete process.env.FSUSBLOG_BASE_URL;
+        }
+        else
+        {
+            process.env.FSUSBLOG_BASE_URL = originalBaseUrl;
+        }
+        if (originalSecret === undefined)
+        {
+            delete process.env.FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET;
+        }
+        else
+        {
+            process.env.FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET = originalSecret;
+        }
+    });
+
+    globalThis.fetch = async (url, request) =>
+    {
+        assert.match(String(url), /^http:\/\/127\.0\.0\.1:5088\/api\/local\/auth-fixture\/(?:prepare|verify)$/u);
+        assert.equal(request.headers['X-Fsus-Local-Auth-Fixture-Secret'], fixtureSecret);
+        assert.doesNotMatch(request.body, new RegExp(fixtureSecret, 'u'));
+        const body = JSON.parse(request.body);
+        const payload = String(url).endsWith('/prepare')
+            ? resultFor(body)
+            : { ok: true, receiptDigest: body.receiptDigest };
+        return new Response(JSON.stringify(payload), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+        });
+    };
+
+    const producerResult = await prepareAuthSession({
+        plan: {
+            capabilities: ['auth.user.active'],
+            catalogDigest: 'sha256:catalog-a',
+            variantPlanDigest: 'sha256:fixture-variants-a'
+        },
+        namespace: 'acceptance-a',
+        runIdentity: 'run-17',
+        profileIdentity: { profileId: 'auth-identity-matrix' },
+        variantPlan: {
+            producerVariantPlanDigest: 'sha256:producer-variants-a',
+            variants: [{
+                id: 'auth-user-active-default',
+                capabilityId: 'auth.user.active'
+            }]
+        },
+        temporalContext,
+        identityRoleRequests: [],
+        handles: {}
+    });
+    assert.doesNotMatch(JSON.stringify(producerResult), new RegExp(fixtureSecret, 'u'));
+    assert.equal((await verifyAuthSession({ handles: {} }, producerResult)).ok, true);
+});
+
+test('independent verifier is mandatory and binds the exact producer result digest', async (context) =>
+{
+    const ingressNames = [
+        'FSUSBLOG_BASE_URL',
+        'FSUSBLOG_DEBUG_BACKEND_URL',
+        'FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET'
+    ];
+    const originalIngress = Object.fromEntries(ingressNames.map((name) => [name, process.env[name]]));
+    for (const name of ingressNames)
+    {
+        delete process.env[name];
+    }
+    context.after(() =>
+    {
+        for (const name of ingressNames)
+        {
+            if (originalIngress[name] === undefined)
+            {
+                delete process.env[name];
+            }
+            else
+            {
+                process.env[name] = originalIngress[name];
+            }
+        }
+    });
     const plan = buildPlan(['auth.user.active']);
     const producerResult = validateAuthSessionResult(plan, resultFor(plan));
     const missing = await verifyAuthSession({ handles: {} }, producerResult);
@@ -363,8 +455,32 @@ test('static governance keeps the unique producer out of DB, Redis, JWT, legacy,
     );
     assert.match(seeder, /AdminPermissions\.All/u);
     assert.match(seeder, /controlled WebAuthn authenticator is unavailable/u);
+    assert.doesNotMatch(seeder, /ISqlSugarClient|\.Insertable<|\.Updateable<|\.Deleteable<|\.Ado\b/u);
     assert.doesNotMatch(seeder, /acceptAny|RevokeAllSessions|RevokeOtherSessions/u);
     assert.doesNotMatch(seeder, /BanReason\s*==|RiskFlags\s*==|Blacklist/u);
+
+    for (const servicePath of [
+        '../../src/backend/Services/UserService.cs',
+        '../../src/backend/Services/Security/PasskeyService.cs',
+        '../../src/backend/Services/Security/RecoveryKeyService.cs'
+    ])
+    {
+        const service = readFileSync(new URL(servicePath, import.meta.url), 'utf8');
+        assert.match(service, /TimeProvider/u);
+        assert.doesNotMatch(service, /DateTime\.(?:Now|UtcNow)/u);
+    }
+
+    const lifecycleRepository = readFileSync(
+        new URL(
+            '../../src/backend/Infrastructure/Testing/SqlSugarAuthFixtureLifecycleRepository.cs',
+            import.meta.url
+        ),
+        'utf8'
+    );
+    assert.doesNotMatch(
+        lifecycleRepository,
+        /BanReason|RiskFlags|CredentialIssuance|Blacklist|RevokeAll/u
+    );
 
     const runtimeRegistration = readFileSync(
         new URL('../../src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs', import.meta.url),
@@ -372,5 +488,8 @@ test('static governance keeps the unique producer out of DB, Redis, JWT, legacy,
     );
     assert.doesNotMatch(runtimeRegistration, /IAuthFixtureSeeder/u);
     const program = readFileSync(new URL('../../src/backend/Program.cs', import.meta.url), 'utf8');
-    assert.match(program, /builder\.Environment\.IsDevelopment\(\)[\s\S]*IAuthFixtureSeeder/u);
+    assert.match(
+        program,
+        /builder\.Environment\.IsDevelopment\(\)[\s\S]*IAuthFixtureSeeder[\s\S]*IAuthFixtureLifecycleRepository/u
+    );
 });

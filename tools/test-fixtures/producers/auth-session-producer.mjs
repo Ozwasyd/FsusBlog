@@ -559,11 +559,10 @@ export function validateAuthSessionResult(plan, raw)
 
 async function invokeLocalCompositionRoot(context, plan, signal)
 {
-    const baseUrl = String(context.handles?.baseUrl ?? context.handles?.debugBackendUrl ?? '').replace(/\/+$/u, '');
-    const secret = String(context.handles?.localAuthFixtureSecret ?? '');
+    const { baseUrl, secret } = resolveLocalCompositionRoot(context);
     if (!baseUrl || !secret)
     {
-        throw new Error('auth-session requires explicit backend URL and local fixture secret handles');
+        throw new Error('auth-session requires explicit backend URL and local fixture secret ingress');
     }
     const response = await fetch(`${baseUrl}/api/local/auth-fixture/prepare`, {
         method: 'POST',
@@ -590,6 +589,23 @@ async function invokeLocalCompositionRoot(context, plan, signal)
         throw new Error(`auth-session composition root failed HTTP ${response.status}: ${String(payload?.detail ?? text).slice(0, 400)}`);
     }
     return payload;
+}
+
+function resolveLocalCompositionRoot(context)
+{
+    const baseUrl = String(
+        context.handles?.baseUrl
+        ?? context.handles?.debugBackendUrl
+        ?? process.env.FSUSBLOG_BASE_URL
+        ?? process.env.FSUSBLOG_DEBUG_BACKEND_URL
+        ?? ''
+    ).replace(/\/+$/u, '');
+    const secret = String(
+        context.handles?.localAuthFixtureSecret
+        ?? process.env.FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET
+        ?? ''
+    );
+    return { baseUrl, secret };
 }
 
 export async function prepareAuthSession(context, signal)
@@ -741,8 +757,7 @@ export async function verifyAuthSession(context, producerResult)
     }
     else
     {
-        const baseUrl = String(context.handles?.baseUrl ?? context.handles?.debugBackendUrl ?? '').replace(/\/+$/u, '');
-        const secret = String(context.handles?.localAuthFixtureSecret ?? '');
+        const { baseUrl, secret } = resolveLocalCompositionRoot(context);
         if (!baseUrl || !secret)
         {
             return {

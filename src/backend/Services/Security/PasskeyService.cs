@@ -140,8 +140,11 @@ public sealed class PasskeyService(
     IMessageNotificationStreamPort notificationStream,
     IAuditEventService auditEvents,
     ILogger<PasskeyService> logger,
-    IConfiguration? configuration = null) : IPasskeyService
+    IConfiguration? configuration = null,
+    TimeProvider? timeProvider = null) : IPasskeyService
 {
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+
     internal const int MaxCredentialsPerUser = 5;
     private const int PasskeyUserHandleBytes = 32;
     private const string AnonymousPasskeyAccountName = "fsus-anonymous-account";
@@ -593,7 +596,7 @@ public sealed class PasskeyService(
             Transports = transports,
             BackupEligible = result.IsBackupEligible,
             BackupState = result.IsBackedUp,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = _timeProvider.GetUtcNow().UtcDateTime
         });
     }
 
@@ -1681,7 +1684,7 @@ public sealed class PasskeyService(
             storedSignCount,
             assertionState.RowVersion,
             actualSignCount,
-            DateTime.UtcNow,
+            _timeProvider.GetUtcNow().UtcDateTime,
             assertionMetadata,
             cancellationToken))
         {
@@ -1720,7 +1723,7 @@ public sealed class PasskeyService(
             current.Value.SignCount,
             current.Value.RowVersion,
             actualSignCount,
-            DateTime.UtcNow,
+            _timeProvider.GetUtcNow().UtcDateTime,
             assertionMetadata,
             cancellationToken);
         string retryAction = retryUpdated ? "counter_retry_updated" : "assertion_rejected";
@@ -1885,7 +1888,10 @@ public sealed class PasskeyService(
             await notificationStream.PublishToUserAsync(
                 NotificationStreamEventType.SessionRevoked,
                 user.Id,
-                new SessionRevokedPayload(CounterRiskReason, revokedSessionCount, DateTime.UtcNow),
+                new SessionRevokedPayload(
+                    CounterRiskReason,
+                    revokedSessionCount,
+                    _timeProvider.GetUtcNow().UtcDateTime),
                 "passkey-counter-risk-session-revoked");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
