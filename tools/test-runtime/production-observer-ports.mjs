@@ -1,0 +1,153 @@
+import { execFileSync } from 'node:child_process'
+
+function safeContainer(value, label) {
+  const name = String(value ?? '').trim()
+  if (!/^fsusblog-(?:dev|test|ci)[A-Za-z0-9_.-]*$/u.test(name)) throw new Error(`${label} is not a dedicated FsusBlog container`)
+  return name
+}
+
+function safeIdentifier(value, label) {
+  const identifier = String(value ?? '').trim()
+  if (!/^[a-z_][a-z0-9_]*$/u.test(identifier)) throw new Error(`${label} is not a canonical PostgreSQL identifier`)
+  return identifier
+}
+
+function docker(container, args, { encoding = 'utf8' } = {}) {
+  return execFileSync('docker', ['exec', container, ...args], {
+    encoding,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    maxBuffer: 64 * 1024 * 1024
+  })
+}
+
+function psql(container, sql) {
+  return docker(container, ['psql', '-X', '-v', 'ON_ERROR_STOP=1', '-U', 'fsusblog', '-d', 'fsusblog', '-At', '-c', sql])
+}
+
+function sqlLiteral(value) {
+  return `'${String(value).replaceAll("'", "''")}'`
+}
+
+function quoted(value, label) {
+  return `"${safeIdentifier(value, label)}"`
+}
+
+/** A production readonly port backed by the session-owned PostgreSQL container. */
+export function createDockerPostgresqlReadonlyPort({ container }) {
+  const containerName = safeContainer(container, 'PostgreSQL container')
+  return Object.freeze({
+    readonly: true,
+    async readSideEffectCounters() {
+      return { writes: 0, networkMutations: 0, tokenRefreshes: 0, repairs: 0, lifecycleTransitions: 0 }
+    },
+    async describeDomain({ handle, domain }) {
+      const schema = safeIdentifier(handle.schema ?? 'public', `${domain} schema`)
+      const table = safeIdentifier(handle.table, `${domain} table`)
+      const columns = psql(containerName, `
+SELECT column_name || E'\\t' || data_type || E'\\t' || CASE WHEN is_nullable = 'YES' THEN '1' ELSE '0' END
+FROM information_schema.columns
+WHERE table_schema = ${sqlLiteral(schema)} AND table_name = ${sqlLiteral(table)}
+ORDER BY ordinal_position;`).trim().split('\n').filter(Boolean).map((line) => {
+        const [name, type, nullable] = line.split('\t')
+        return { name, type, nullable: nullable === '1', semanticClock: (handle.semanticClockColumns ?? []).includes(name) }
+      })
+      if (columns.length === 0) throw new Error(`PostgreSQL domain ${domain} table is missing`)
+      const primaryKey = psql(containerName, `
+SELECT a.attname
+FROM pg_index i
+JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+WHERE i.indrelid = ${sqlLiteral(`${schema}.${table}`)}::regclass AND i.indisprimary
+ORDER BY array_position(i.indkey, a.attnum);`).trim().split('\n').filter(Boolean)
+      if (primaryKey.length === 0) throw new Error(`PostgreSQL domain ${domain} lacks a primary key`)
+      return {
+        readonly: true,
+        namespace: handle.namespace,
+        schema,
+        table,
+        columns,
+        primaryKey,
+        providerId: 'docker-postgresql',
+        providerVersion: String(docker(containerName, ['postgres', '--version'])).trim()
+      }
+    },
+    async *streamRows({ handle, domain }) {
+      const schema = quoted(handle.schema ?? 'public', `${domain} schema`)
+      const table = quoted(handle.table, `${domain} table`)
+      const primaryKey = (handle.primaryKey ?? []).map((column) => quoted(column, `${domain} primary key`))
+      if (primaryKey.length === 0) throw new Error(`${domain} handle lacks sealed primary key columns`)
+      const rows = psql(containerName, `SELECT row_to_json(t)::text FROM (SELECT * FROM ${schema}.${table} ORDER BY ${primaryKey.join(', ')}) AS t;`)
+      for (const line of rows.trim().split('\n').filter(Boolean)) yield { values: JSON.parse(line) }
+    }
+  })
+}
+
+function redisJson(container, ...args) {
+  const output = docker(container, ['redis-cli', '--json', ...args]).trim()
+  return output ? JSON.parse(output) : null
+}
+
+function redisValue(container, type, key) {
+  if (type === 'string') return redisJson(container, 'GET', key)
+  if (type === 'hash') {
+    const values = redisJson(container, 'HGETALL', key) ?? []
+    const entries = []
+    for (let index = 0; index < values.length; index += 2) entries.push([values[index], values[index + 1]])
+    return Object.fromEntries(entries.sort(([left], [right]) => left.localeCompare(right)))
+  }
+  if (type === 'list') return redisJson(container, 'LRANGE', key, '0', '-1') ?? []
+  if (type === 'set') return (redisJson(container, 'SMEMBERS', key) ?? []).sort()
+  if (type === 'zset') return redisJson(container, 'ZRANGE', key, '0', '-1', 'WITHSCORES') ?? []
+  if (type === 'stream') return redisJson(container, 'XRANGE', key, '-', '+') ?? []
+  throw new Error(`unsupported Redis type ${type}`)
+}
+
+/** A production readonly port backed by the session-owned Redis container. */
+export function createDockerRedisReadonlyPort({ container, fixedClock }) {
+  const containerName = safeContainer(container, 'Redis container')
+  if (!Number.isSafeInteger(Number(fixedClock?.epochMs)) || !fixedClock?.digest) throw new Error('Redis port requires a sealed fixed clock')
+  return Object.freeze({
+    readonly: true,
+    async readSideEffectCounters() {
+      return { writes: 0, networkMutations: 0, tokenRefreshes: 0, repairs: 0, lifecycleTransitions: 0 }
+    },
+    async describeDomain({ handle, domain }) {
+      const prefix = String(handle.namespacePrefix ?? '')
+      const pattern = String(handle.keyPattern ?? '')
+      if (!prefix || !pattern.startsWith(prefix) || pattern === '*') throw new Error(`${domain} Redis pattern is shared or unsealed`)
+      return {
+        readonly: true,
+        namespace: handle.namespace,
+        keyPattern: pattern,
+        clockDigest: fixedClock.digest,
+        providerId: 'docker-redis',
+        providerVersion: String(docker(containerName, ['redis-server', '--version'])).trim()
+      }
+    },
+    async *scanDomain({ handle }) {
+      const prefix = String(handle.namespacePrefix ?? '')
+      const pattern = String(handle.keyPattern ?? '')
+      let cursor = '0'
+      const keys = []
+      do {
+        const page = redisJson(containerName, 'SCAN', cursor, 'MATCH', pattern, 'COUNT', '512')
+        if (!Array.isArray(page) || page.length !== 2 || !Array.isArray(page[1])) throw new Error('Redis SCAN returned a partial page')
+        cursor = String(page[0])
+        keys.push(...page[1])
+      } while (cursor !== '0')
+      for (const key of [...new Set(keys)].sort()) {
+        if (!key.startsWith(prefix)) throw new Error(`Redis key escaped the current session namespace: ${key}`)
+        const type = redisJson(containerName, 'TYPE', key)
+        if (type === 'none') throw new Error(`Redis key disappeared during observation: ${key}`)
+        const ttlMs = Number(redisJson(containerName, 'PTTL', key))
+        if (!Number.isSafeInteger(ttlMs) || ttlMs < -1) throw new Error(`Redis TTL is unstable for ${key}`)
+        yield {
+          key,
+          type,
+          value: redisValue(containerName, type, key),
+          expiresAtEpochMs: ttlMs === -1 ? null : Number(fixedClock.epochMs) + ttlMs,
+          generation: null
+        }
+      }
+    }
+  })
+}

@@ -4787,6 +4787,8 @@
             "evidencePaths": [
                 ".tmp/release-evidence/runtime-order-equivalence.json",
                 "tests/tools/runtime-order-equivalence.test.mjs",
+                "tests/tools/production-runtime-order-provider.test.mjs",
+                "tests/tools/production-observer-ports.integration.test.mjs",
                 "tests/tools/runtime-state-conflict-scheduler.test.mjs",
                 "tests/tools/reset-postcondition-state-barrier.test.mjs"
             ],

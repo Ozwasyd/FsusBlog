@@ -94,12 +94,30 @@ The release command is:
 
 ```bash
 node tools/test/run-runtime-order-equivalence.mjs \
-  --all-required-schedules \
-  --provider <current-run-production-provider.mjs>
+  --all-required-schedules
 ```
 
-The provider must expose the real production runtime executor and
-`RuntimeExecutionSession` factory. There is no synthetic fallback. Until the
-replay and execution-envelope chains provide current receipts, their digests
-remain mandatory external inputs and qualification fails closed rather than
-inventing local defaults.
+The command selects
+`tools/test-runtime/production-runtime-order-provider.mjs`; `--provider` is
+reserved for an independently reviewed production adapter and is not a test
+fallback. The canonical provider requires
+`FSUSBLOG_RUNTIME_ORDER_BINDING_MODULE`; its session root defaults to the
+repository-contained `.tmp/runtime-order-sessions` and may be overridden only
+with another repository-contained `FSUSBLOG_RUNTIME_ORDER_SESSION_ROOT`. The binding may supply only sealed
+current-session adapters, readonly observer ports, coordination verification
+and reset-postcondition verification. It cannot supply snapshots, fragments,
+schedule results or the final receipt: those remain owned by the canonical
+runner, observers and `run-bundle` hooks.
+
+Every executable plan starts a distinct `RuntimeExecutionSession`, runs the
+actual `runtime-browser` bundle with the explicit plan, captures
+`before-runtime`, both boundaries of every real mutating step and
+`after-runtime`, and then performs postflight and cleanup. PostgreSQL and Redis
+production ports read the exact session-owned container/table/key handles and
+use readonly `SELECT`, `SCAN`, typed reads and TTL observation; they reject
+shared patterns or containers before observation. Missing binding operations,
+unverified coordination, incomplete reset predicates, absent domain handles or
+unsupported live state abort the command without writing an equivalence
+receipt. Until replay and execution-envelope chains provide current receipts,
+their digests remain mandatory external inputs and qualification fails closed
+rather than inventing local defaults.

@@ -2,7 +2,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { runtimeSteps } from './bundles/bundle-steps.mjs'
 import { loadRuntimeStateAuthority } from '../test-runtime/catalog.mjs'
@@ -26,8 +26,9 @@ function outputFile() {
 }
 
 async function loadProvider() {
-  const providerPath = option('--provider') ?? String(process.env.FSUSBLOG_RUNTIME_ORDER_PROVIDER ?? '').trim()
-  if (!providerPath) throw new Error('runtime order equivalence requires a real production provider module; synthetic fallback is forbidden')
+  const configured = option('--provider') ?? String(process.env.FSUSBLOG_RUNTIME_ORDER_PROVIDER ?? '').trim()
+  const providerPath = configured
+    || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../test-runtime/production-runtime-order-provider.mjs')
   const absolute = path.resolve(providerPath)
   const provider = await import(`${pathToFileURL(absolute).href}?run=${randomUUID()}`)
   const resolved = typeof provider.createRuntimeOrderProvider === 'function'
