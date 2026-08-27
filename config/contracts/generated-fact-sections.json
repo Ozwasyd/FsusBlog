@@ -2,5 +2,96 @@
   "schema": "fsusblog.generated-fact-section-catalog.v1",
   "digestAlgorithm": "sha256",
   "canonicalSerialization": "json-utf8-v1",
-  "sections": []
+  "sections": [
+    {
+      "sectionId": "auth.methods.active",
+      "documentPath": "docs/anonymous-identity-smoke-flow.md",
+      "renderer": "enum-set",
+      "extractorId": "auth-session-permission-fact-extractor",
+      "behaviorId": "authentication-session-permission",
+      "factPath": "facts.auth.authentication-methods.active",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "auth.strengths.active",
+      "documentPath": "docs/architecture/decisions/ADR-Anonymous-Credential-Blind-Issuance.md",
+      "renderer": "enum-set",
+      "extractorId": "auth-session-permission-fact-extractor",
+      "behaviorId": "authentication-session-permission",
+      "factPath": "facts.auth.authentication-strengths.active",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "auth.session.duration-modes",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "renderer": "enum-set",
+      "extractorId": "auth-session-permission-fact-extractor",
+      "behaviorId": "authentication-session-permission",
+      "factPath": "facts.auth.session.duration-modes.modes",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "auth.admin.permissions",
+      "documentPath": "docs/security.md",
+      "renderer": "enum-set",
+      "extractorId": "auth-session-permission-fact-extractor",
+      "behaviorId": "authentication-session-permission",
+      "factPath": "facts.admin.permissions.all",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "security.challenge.kinds",
+      "documentPath": "docs/security.md",
+      "renderer": "enum-set",
+      "extractorId": "config-error-security-policy-fact-extractor",
+      "behaviorId": "configuration-error-security-policy",
+      "factPath": "facts.security.challenge-kinds.active",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "configuration.keys",
+      "documentPath": "docs/configuration-layout.md",
+      "renderer": "key-value-table",
+      "extractorId": "config-error-security-policy-fact-extractor",
+      "behaviorId": "configuration-error-security-policy",
+      "factPath": "facts.configuration.keys",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "configuration.allowed-values",
+      "documentPath": "docs/configuration/appsettings-authority.md",
+      "renderer": "key-value-table",
+      "extractorId": "config-error-security-policy-fact-extractor",
+      "behaviorId": "configuration-error-security-policy",
+      "factPath": "facts.configuration.allowed-values",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "api.public-error-codes",
+      "documentPath": "docs/api/schemas-and-errors.md",
+      "renderer": "enum-set",
+      "extractorId": "config-error-security-policy-fact-extractor",
+      "behaviorId": "configuration-error-security-policy",
+      "factPath": "facts.error-codes.public",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "api.security-cache-policies",
+      "documentPath": "docs/api/contracts.md",
+      "renderer": "key-value-table",
+      "extractorId": "config-error-security-policy-fact-extractor",
+      "behaviorId": "configuration-error-security-policy",
+      "factPath": "facts.security.cache-policy-classes",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    }
+  ]
 }

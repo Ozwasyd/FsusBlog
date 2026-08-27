@@ -303,13 +303,26 @@ export function resolveFactPath(observations, factPath)
     }
     const parts = factPath.split('.')
     let current = observations
-    for (const part of parts)
+    let index = 0
+    while (index < parts.length)
     {
-        if (current == null || typeof current !== 'object' || Array.isArray(current) || !Object.hasOwn(current, part))
+        if (current == null || typeof current !== 'object' || Array.isArray(current))
         {
             return undefined
         }
-        current = current[part]
+        let matched = null
+        for (let end = parts.length; end > index; end -= 1)
+        {
+            const candidate = parts.slice(index, end).join('.')
+            if (Object.hasOwn(current, candidate))
+            {
+                matched = { key: candidate, end }
+                break
+            }
+        }
+        if (matched === null) return undefined
+        current = current[matched.key]
+        index = matched.end
     }
     return current
 }
