@@ -567,6 +567,12 @@ PublishRuntimeObserverAuthority() {
             --fixture-receipt "$FIXTURE_RECEIPT_FILE"
             --aot-warm-report "${FSUSBLOG_PUBLIC_AOT_WARM_REPORT:-$TMP_DIR/public-aot-warm-evidence.json}"
             --object-storage-root "$FIXTURE_DIR/runtime-object-storage"
+            --backend-process-identity "$TMP_DIR/backend.identity.json"
+            --frontend-process-identity "$TMP_DIR/dev-server.identity.json"
+            --release-process-identity "$TMP_DIR/preview.identity.json"
+            --backend-executable "${FSUSBLOG_BACKEND_SERVER_DLL:?runtime observer requires backend executable}"
+            --frontend-executable "$CLIENT_DIR/node_modules/vite/bin/vite.js"
+            --release-executable "$CLIENT_DIR/node_modules/vite/bin/vite.js"
         )
         if [[ -n "${FSUSBLOG_RUNTIME_ORDER_BROWSER_STORAGE_FILE:-}" ]]; then
             args+=(--browser-storage "$FSUSBLOG_RUNTIME_ORDER_BROWSER_STORAGE_FILE")
@@ -1190,7 +1196,7 @@ const inheritedDeadlineAtMs = Number.parseInt(
 )
 if (!Number.isInteger(pid) || pid <= 1 || !runId || !namespace || !role || !file
   || (dedicated && !preparationId)
-  || (dedicated && (!/^[a-f0-9]{40}$/u.test(sourceCommit) || !/^[a-f0-9]{64}$/u.test(sourceFingerprint)))
+  || (dedicated && (!/^[a-f0-9]{40}$/u.test(sourceCommit) || !/^(?:sha256:)?[a-f0-9]{64}$/u.test(sourceFingerprint)))
   || !Number.isInteger(inheritedDeadlineAtMs)) {
   throw new Error('runtime process identity input is incomplete')
 }

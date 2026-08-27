@@ -135,17 +135,26 @@ export async function createRuntimeOrderProvider() {
       let result = null
       let primaryFailure = null
       try {
+        const runtimeEnvironment = typeof binding.productionRuntimeEnvironment === 'function'
+          ? await binding.productionRuntimeEnvironment({ identity: owned.session.identity, plan })
+          : null
+        if (!runtimeEnvironment || typeof runtimeEnvironment !== 'object') {
+          throw new Error(`${plan.planId} production binding returned no sealed replay environment`)
+        }
         await run(path.join(repositoryRoot, 'tools/test/bundles/runtime-browser.sh'), [], {
           cwd: repositoryRoot,
           signal,
           logFile,
           env: {
             ...process.env,
+            ...runtimeEnvironment,
             FSUSBLOG_TEST_RUN_ID: immutableIdentity.runId,
             FSUSBLOG_PRODUCTION_FRESH_ATTEMPT_ID: owned.session.identity.attemptId,
             FSUSBLOG_TEST_SOURCE_COMMIT: immutableIdentity.sourceCommit,
             FSUSBLOG_TEST_SOURCE_FINGERPRINT: immutableIdentity.sourceFingerprint,
             FSUSBLOG_TEST_NAMESPACE: namespace,
+            FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME: '1',
+            FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID: owned.session.identity.sessionId,
             FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT: path.join(
               owned.session.ownedRoot,
               'mutable',

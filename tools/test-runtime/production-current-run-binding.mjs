@@ -3,6 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { digestCanonical } from '../test-fixtures/receipt/canonical.mjs'
+import { deriveRandomConsumerStream, loadRandomStreamInventory } from '../test/random-streams.mjs'
 import { createDockerPostgresqlReadonlyPort, createDockerRedisReadonlyPort } from './production-observer-ports.mjs'
 import {
   createProductionReceiptAbsencePort,
@@ -36,13 +37,60 @@ function loadIdentityAuthority() {
     throw new Error('runtime-order identity lacks the exact fixed-clock authority')
   }
   requireDigest(document.replayQualification?.contentDigest, 'replay qualification digest')
-  regularFile(path.resolve(document.replayQualification.file), 'replay qualification receipt')
-  return Object.freeze({ document, identity, fixedClock: Object.freeze({ epochMs: Number(fixedClock.epochMs), digest: fixedClock.digest }) })
+  const replayFile = regularFile(path.resolve(document.replayQualification.file), 'replay qualification receipt')
+  const replayQualification = JSON.parse(fs.readFileSync(replayFile, 'utf8'))
+  verifySealedDocument(replayQualification)
+  if (replayQualification.schema !== 'fsusblog.replay-qualification.v1'
+    || replayQualification.status !== 'verified'
+    || replayQualification.contentDigest !== document.replayQualification.contentDigest
+    || replayQualification.contentDigest !== identity.replayDigest
+    || replayQualification.sourceState?.commit !== identity.sourceCommit
+    || replayQualification.sourceState?.worktreeFingerprint !== identity.sourceFingerprint) {
+    throw new Error('runtime-order identity replay qualification is stale or cross-source')
+  }
+  const randomizedResults = replayQualification.families?.randomized?.results ?? []
+  if (!Array.isArray(randomizedResults) || randomizedResults.length === 0) {
+    throw new Error('runtime-order replay qualification lacks randomized producer results')
+  }
+  const rootSeeds = new Set(randomizedResults.map((entry) => {
+    const resultFile = regularFile(path.resolve(repositoryRoot, entry.ref), 'randomized replay producer receipt')
+    const result = JSON.parse(fs.readFileSync(resultFile, 'utf8'))
+    verifySealedDocument(result)
+    if (result.contentDigest !== entry.digest || result.status !== 'verified'
+      || result.source?.commit !== identity.sourceCommit
+      || result.source?.worktreeFingerprint !== identity.sourceFingerprint) {
+      throw new Error(`randomized replay producer receipt is stale: ${entry.producerId}/${entry.topology}`)
+    }
+    return String(result.plan?.inline?.rootSeed ?? '')
+  }))
+  if (rootSeeds.size !== 1 || !/^seed256:[0-9a-f]{64}$/u.test([...rootSeeds][0])) {
+    throw new Error('runtime-order replay qualification has no exact common root seed')
+  }
+  return Object.freeze({
+    document,
+    identity,
+    fixedClock: Object.freeze({ epochMs: Number(fixedClock.epochMs), digest: fixedClock.digest }),
+    replay: Object.freeze({ rootSeed: [...rootSeeds][0], qualificationDigest: replayQualification.contentDigest })
+  })
 }
 
 const identityAuthority = loadIdentityAuthority()
 export const immutableIdentity = identityAuthority.identity
 export const maxConcurrency = 2
+
+export function productionRuntimeEnvironment() {
+  const inventory = loadRandomStreamInventory()
+  const streams = Object.fromEntries(inventory.consumers.map((consumer) => {
+    const stream = deriveRandomConsumerStream({ rootSeed: identityAuthority.replay.rootSeed, consumer })
+    return [`${consumer.canonicalTestId}\u0000${consumer.streamId}`, stream.derivedSeed]
+  }))
+  return Object.freeze({
+    FSUSBLOG_RANDOM_STREAMS_JSON: JSON.stringify(streams),
+    FSUSBLOG_REPLAY_ROOT_SEED: identityAuthority.replay.rootSeed,
+    FSUSBLOG_REPLAY_EVIDENCE_CLASS: 'correctness',
+    FSUSBLOG_REPLAY_QUALIFICATION_DIGEST: identityAuthority.replay.qualificationDigest
+  })
+}
 
 function safeId(value) {
   return String(value).toLowerCase().replace(/[^a-z0-9_.-]+/gu, '-').replace(/^-+|-+$/gu, '').slice(0, 60)
@@ -118,7 +166,13 @@ function refreshObserverAuthority(file, identity, authority) {
       serviceEnvelopeFile: refs.serviceEnvelopeFile, environmentReadyFile: refs.environmentReadyFile,
       runtimeTopologyFile: refs.runtimeTopologyFile, fixtureReceiptFile: refs.fixtureReceiptFile,
       aotWarmReportFile: refs.aotWarmReportFile, browserStorageFile: refs.browserStorageFile,
-      objectStorageRoot: refs.objectStorageRoot
+      objectStorageRoot: refs.objectStorageRoot,
+      backendProcessIdentityFile: refs.backendProcessIdentityFile,
+      frontendProcessIdentityFile: refs.frontendProcessIdentityFile,
+      releaseProcessIdentityFile: refs.releaseProcessIdentityFile,
+      backendExecutableFile: refs.backendExecutableFile,
+      frontendExecutableFile: refs.frontendExecutableFile,
+      releaseExecutableFile: refs.releaseExecutableFile
     })
   }
   for (const domain of authority.accessedDomains) if (!document.domains?.[domain]) throw new Error(`observer authority omits ${domain}`)
@@ -127,8 +181,13 @@ function refreshObserverAuthority(file, identity, authority) {
 
 const postgresTables = Object.freeze({
   'postgres.article': 'article', 'postgres.audit': 'sys_audit_log', 'postgres.auth': 'sys_user',
-  'postgres.comment': 'comment', 'postgres.schema': '__EFMigrationsHistory',
-  'postgres.security': 'security_risk_event', 'postgres.settings': 'sys_setting'
+  'postgres.comment': 'comment', 'postgres.schema': '__fsus_schema_migration_history',
+  'postgres.security': 'security_risk_event', 'postgres.settings': 'sys_systemconfig'
+})
+
+const postgresPrimaryKeys = Object.freeze({
+  'postgres.schema': ['migration_id'],
+  'postgres.settings': ['key']
 })
 
 function observedHandle(base, record, document, identity, domain, sessionReceipt) {
@@ -138,12 +197,18 @@ function observedHandle(base, record, document, identity, domain, sessionReceipt
     ...common, observationStatus: 'absent', absenceAuthorityDigest: document.contentDigest
   }
   if (domain.startsWith('postgres.')) return {
-    ...common, schema: 'public', table: postgresTables[domain], primaryKey: ['id'], semanticClockColumns: []
+    ...common, schema: 'public', table: postgresTables[domain], primaryKey: postgresPrimaryKeys[domain] ?? ['id'], semanticClockColumns: []
   }
   if (domain.startsWith('redis.')) {
     const prefix = String(document.runtimeHandles?.redisNamespacePrefix ?? '')
     if (!prefix) throw new Error(`${domain} lacks the sealed Redis namespace prefix`)
-    return { ...common, namespacePrefix: prefix, keyPattern: `${prefix}*` }
+    return {
+      ...common,
+      namespacePrefix: prefix,
+      keyPattern: `${prefix}*|e2e:*`,
+      keyPatterns: [`${prefix}*`, 'e2e:*'],
+      ownershipClass: 'dedicated-session-container'
+    }
   }
   if (domain === 'fixture.runtime-config') return {
     ...common, namespace: record.config.namespace, plannedConfig: record.config, configReceiptDigest: document.contentDigest

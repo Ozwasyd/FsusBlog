@@ -630,9 +630,11 @@ if (!suiteSupportSource.includes(`BACKEND_ORDINARY_TEST_FILTER="\${FSUSBLOG_BACK
 {
     errors.push('backend ordinary and coverage lanes must share a fail-closed filter that excludes every dedicated special suite');
 }
-if (!suiteSupportSource.includes('RunBackendDotnetFilterOnly "$BACKEND_ORDINARY_TEST_FILTER"'))
+if (!suiteSupportSource.includes('PrepareBackendPlatformPlan backend-unit "$BACKEND_ORDINARY_TEST_FILTER"')
+    || !suiteSupportSource.includes('require(\'$(BackendPlatformPlanFile backend-unit)\').executionFilter')
+    || !suiteSupportSource.includes('RunBackendDotnetFilterOnly "$platformFilter" backend-unit'))
 {
-    errors.push('backend ordinary lane must consume BACKEND_ORDINARY_TEST_FILTER');
+    errors.push('backend ordinary lane must project BACKEND_ORDINARY_TEST_FILTER through the sealed platform plan');
 }
 for (const binding of [
     'RunBackendDotnetTest()',

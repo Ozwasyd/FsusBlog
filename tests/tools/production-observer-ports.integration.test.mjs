@@ -54,7 +54,7 @@ test('production PostgreSQL and Redis ports observe real session state without w
   }
   const table = `runtime_order_port_${suffix.replaceAll('-', '_')}`
   const redisPrefix = `FsusBlog_runtime_order_${suffix}:`
-  const redisKey = `${redisPrefix}sample`
+  const redisKey = `${redisPrefix}fsus:blog:article-list:sample`
   docker(postgresContainer, 'psql', '-X', '-v', 'ON_ERROR_STOP=1', '-U', 'fsusblog', '-d', 'fsusblog', '-c',
     `CREATE TABLE ${table} (id integer PRIMARY KEY, payload jsonb NOT NULL); INSERT INTO ${table} VALUES (2, '{"b":2}'), (1, '{"a":1}');`)
   docker(redisContainer, 'redis-cli', 'SET', redisKey, 'value', 'PX', '600000')
@@ -98,7 +98,9 @@ test('production PostgreSQL and Redis ports observe real session state without w
           catalogDigest: identity.catalogDigest,
           namespace: `redis-${suffix}`,
           namespacePrefix: redisPrefix,
-          keyPattern: `${redisPrefix}*`
+          keyPattern: `${redisPrefix}*|e2e:*`,
+          keyPatterns: [`${redisPrefix}*`, 'e2e:*'],
+          ownershipClass: 'dedicated-session-container'
         }
       },
       ports: { redis: createDockerRedisReadonlyPort({ container: redisContainer, fixedClock }) }

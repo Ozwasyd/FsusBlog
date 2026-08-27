@@ -101,6 +101,18 @@ function redisValue(container, type, key) {
   throw new Error(`unsupported Redis type ${type}`)
 }
 
+function redisSemanticDomain(key, instancePrefix) {
+  let semantic = String(key)
+  if (instancePrefix && semantic.startsWith(instancePrefix)) semantic = semantic.slice(instancePrefix.length)
+  semantic = semantic.replace(/^e2e:[a-z0-9-]+:/u, '')
+  if (/(?:session|auth|token|credential|mfa|passkey|login|logout)/u.test(semantic)) return 'redis.session'
+  if (/(?:rate|risk|challenge|pow|visit-lock|human-read|perception|blacklist|blocked-user|anonymous-comment-ticket)/u.test(semantic)) {
+    return 'redis.rate-limit'
+  }
+  if (/^(?:fsus:)?(?:blog|public|sys):|^blog:/u.test(semantic)) return 'redis.cache.public'
+  return 'redis.cache.private'
+}
+
 /** A production readonly port backed by the session-owned Redis container. */
 export function createDockerRedisReadonlyPort({ container, fixedClock }) {
   const containerName = safeContainer(container, 'Redis container')
@@ -112,30 +124,37 @@ export function createDockerRedisReadonlyPort({ container, fixedClock }) {
     },
     async describeDomain({ handle, domain }) {
       const prefix = String(handle.namespacePrefix ?? '')
-      const pattern = String(handle.keyPattern ?? '')
-      if (!prefix || !pattern.startsWith(prefix) || pattern === '*') throw new Error(`${domain} Redis pattern is shared or unsealed`)
+      const patterns = handle.keyPatterns ?? []
+      if (!prefix || handle.ownershipClass !== 'dedicated-session-container'
+        || !Array.isArray(patterns) || patterns.length !== 2
+        || patterns[0] !== `${prefix}*` || patterns[1] !== 'e2e:*') {
+        throw new Error(`${domain} Redis patterns are shared or unsealed`)
+      }
       return {
         readonly: true,
         namespace: handle.namespace,
-        keyPattern: pattern,
+        keyPattern: String(handle.keyPattern),
         clockDigest: fixedClock.digest,
         providerId: 'docker-redis',
         providerVersion: String(docker(containerName, ['redis-server', '--version'])).trim()
       }
     },
-    async *scanDomain({ handle }) {
+    async *scanDomain({ handle, domain }) {
       const prefix = String(handle.namespacePrefix ?? '')
-      const pattern = String(handle.keyPattern ?? '')
-      let cursor = '0'
       const keys = []
-      do {
-        const page = redisJson(containerName, 'SCAN', cursor, 'MATCH', pattern, 'COUNT', '512')
-        if (!Array.isArray(page) || page.length !== 2 || !Array.isArray(page[1])) throw new Error('Redis SCAN returned a partial page')
-        cursor = String(page[0])
-        keys.push(...page[1])
-      } while (cursor !== '0')
-      for (const key of [...new Set(keys)].sort()) {
-        if (!key.startsWith(prefix)) throw new Error(`Redis key escaped the current session namespace: ${key}`)
+      for (const pattern of handle.keyPatterns) {
+        let cursor = '0'
+        do {
+          const page = redisJson(containerName, 'SCAN', cursor, 'MATCH', pattern, 'COUNT', '512')
+          if (!Array.isArray(page) || page.length !== 2 || !Array.isArray(page[1])) throw new Error('Redis SCAN returned a partial page')
+          cursor = String(page[0])
+          keys.push(...page[1])
+        } while (cursor !== '0')
+      }
+      for (const key of [...new Set(keys)].filter((value) => redisSemanticDomain(value, prefix) === domain).sort()) {
+        if (!key.startsWith(prefix) && !key.startsWith('e2e:')) {
+          throw new Error(`Redis key escaped the current session namespace: ${key}`)
+        }
         const type = redisJson(containerName, 'TYPE', key)
         if (type === 'none') throw new Error(`Redis key disappeared during observation: ${key}`)
         const ttlMs = Number(redisJson(containerName, 'PTTL', key))

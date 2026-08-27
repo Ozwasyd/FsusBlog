@@ -76,10 +76,10 @@ function runtimeEnvironmentFile(root, namespace) {
   return path.join(environmentRoot, `${namespace}.env`)
 }
 
-function runtimeFixtureManifest(root, namespace) {
+function runtimeTopologyInventory(root, namespace) {
   const fixtureRoot = path.resolve(
     process.env.FSUSBLOG_ACCEPTANCE_FIXTURE_ROOT ?? path.join(root, '.tmp/fixtures'))
-  return path.join(fixtureRoot, namespace, 'manifest.json')
+  return path.join(fixtureRoot, namespace, 'runtime-topology.json')
 }
 
 function requireFileObservation(root, file, label, expectedFile) {
@@ -137,8 +137,8 @@ function observePostcondition({ root, assertionId, runIdentity, producerStep, re
       throw new Error('bootstrap runtime environment is not bound to the current run')
     }
     observations.push(requireFileObservation(root, environmentFile, 'runtime-environment', environmentFile))
-    const fixtureManifest = runtimeFixtureManifest(root, namespace)
-    observations.push(requireFileObservation(root, fixtureManifest, 'fixture-manifest', fixtureManifest))
+    const topologyInventory = runtimeTopologyInventory(root, namespace)
+    observations.push(requireFileObservation(root, topologyInventory, 'runtime-topology', topologyInventory))
   } else if (assertionId === 'release-public-hydration-ready') {
     if (producerStep.id !== 'release-public-hydration') throw new Error('release hydration assertion has the wrong producer')
     const markerFile = path.join(root, '.tmp', 'test-runs', runIdentity.runId, 'release-preview-ready.json')
@@ -217,9 +217,9 @@ function expectedFileObservations(root, assertionId, identity, producerStep) {
       ['runtime-environment', path.relative(
         root,
         runtimeEnvironmentFile(root, identity.namespace)).replaceAll(path.sep, '/')],
-      ['fixture-manifest', path.relative(
+      ['runtime-topology', path.relative(
         root,
-        runtimeFixtureManifest(root, identity.namespace)).replaceAll(path.sep, '/')]
+        runtimeTopologyInventory(root, identity.namespace)).replaceAll(path.sep, '/')]
     ]
   }
   if (assertionId === 'release-public-hydration-ready') {

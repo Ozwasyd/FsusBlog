@@ -33,7 +33,7 @@ const reset = {
 function fixture() {
   const root = mkdtempSync(path.join(tmpdir(), 'reset-receipt-'))
   const environmentFile = path.join(root, '.tmp/env/reset-test.env')
-  const fixtureManifest = path.join(root, '.tmp/fixtures/reset-test/manifest.json')
+  const fixtureManifest = path.join(root, '.tmp/fixtures/reset-test/runtime-topology.json')
   const logFile = path.join(root, '.tmp/local-production/runtime-browser/steps/bootstrap.log')
   for (const file of [environmentFile, fixtureManifest, logFile]) mkdirSync(path.dirname(file), { recursive: true })
   writeFileSync(environmentFile, 'FSUSBLOG_TEST_NAMESPACE=reset-test\nFSUSBLOG_TEST_RUN_ID=run-reset-test\n')
@@ -83,7 +83,7 @@ test('real bootstrap postcondition produces and consumes a run/source-bound rece
     assert.deepEqual(consumed.receipt.observations.map((entry) => entry.label), [
       'producer-log',
       'runtime-environment',
-      'fixture-manifest'
+      'runtime-topology'
     ])
   } finally {
     rmSync(context.root, { recursive: true, force: true })
@@ -107,13 +107,13 @@ test('Production Fresh bootstrap postcondition binds only attempt-root environme
     process.env.FSUSBLOG_ACCEPTANCE_FIXTURE_ROOT = fixtureRoot
     for (const file of [
       path.join(environmentRoot, 'reset-test.env'),
-      path.join(fixtureRoot, 'reset-test/manifest.json'),
+      path.join(fixtureRoot, 'reset-test/runtime-topology.json'),
       logFile
     ]) mkdirSync(path.dirname(file), { recursive: true })
     writeFileSync(
       path.join(environmentRoot, 'reset-test.env'),
       'FSUSBLOG_TEST_NAMESPACE=reset-test\nFSUSBLOG_TEST_RUN_ID=run-reset-test\n')
-    writeFileSync(path.join(fixtureRoot, 'reset-test/manifest.json'), '{"status":"ready"}\n')
+    writeFileSync(path.join(fixtureRoot, 'reset-test/runtime-topology.json'), '{"status":"ready"}\n')
     writeFileSync(logFile, 'acceptance environment ready\n')
 
     const produced = produceResetPostconditionReceipt({
@@ -126,7 +126,7 @@ test('Production Fresh bootstrap postcondition binds only attempt-root environme
     assert.deepEqual(produced.receipt.observations.map((entry) => entry.path), [
       '.tmp/test-runs/run-reset-test/outputs/attempts/attempt-0001/bundles/runtime-browser/steps/bootstrap.log',
       '.tmp/test-runs/run-reset-test/outputs/attempts/attempt-0001/runtime/acceptance-env/reset-test.env',
-      '.tmp/test-runs/run-reset-test/outputs/attempts/attempt-0001/runtime/acceptance-fixtures/reset-test/manifest.json'
+      '.tmp/test-runs/run-reset-test/outputs/attempts/attempt-0001/runtime/acceptance-fixtures/reset-test/runtime-topology.json'
     ])
     assert.equal(
       produced.file,

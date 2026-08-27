@@ -1,4 +1,4 @@
-import { freezeDeep, plainObject } from '../receipt/canonical.mjs'
+import { digestCanonical, freezeDeep, plainObject } from '../receipt/canonical.mjs'
 import {
   createProtectedFingerprint,
   normalizeSemantic,
