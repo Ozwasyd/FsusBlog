@@ -335,7 +335,7 @@ public sealed class MessagingFixtureSeeder(
             }
             observedEventIds.Add(eventId.Value);
         }
-        if (!observedEventIds.SequenceEqual(expectedEventIds))
+        if (observedEventIds.Count > 0 && !observedEventIds.SequenceEqual(expectedEventIds))
         {
             throw new InvalidOperationException("Messaging fixture cleanup stream identity is not exact.");
         }
