@@ -77,6 +77,7 @@ function reference(consumer)
     return {
         authorityIssue: consumer.candidateAuthorityIssue,
         producerId: consumer.candidateProducerId,
+        producerAuthorityId: consumer.candidateProducerAuthorityId,
         schema: 'fsusblog.producer-semantic-outcome-candidate.v1',
         path: `external/${consumer.id}/candidate.json`,
         contentDigest: `sha256:${'8'.repeat(64)}`,
@@ -110,6 +111,7 @@ function verifier(candidateReference, expectedIdentity, outcome = {
         verified: actual === candidateReference,
         authorityIssue: candidateReference.authorityIssue,
         producerId: candidateReference.producerId,
+        producerAuthorityId: candidateReference.producerAuthorityId,
         candidateSchema: candidateReference.schema,
         candidateDigest: candidateReference.contentDigest,
         verificationReceiptDigest: candidateReference.verificationReceiptDigest,
@@ -144,7 +146,7 @@ function admit(consumer, attemptEvidence, options = {})
 test('inventory binds build, projection and finalizer to external semantic owners only', () =>
 {
     const inventory = readSemanticOutcomeConsumerInventory();
-    assert.equal(inventory.migrationState, 'pending-semantic-candidate-authorities');
+    assert.equal(inventory.migrationState, 'pending-external-authorities');
     assert.equal(inventory.qualificationEligible, false);
     assert.deepEqual(inventory.consumers.map((entry) => [
         entry.id,
@@ -208,6 +210,7 @@ test('missing/tampered candidate and cross source, toolchain or authority identi
                 verified: true,
                 authorityIssue: candidateReference.authorityIssue,
                 producerId: candidateReference.producerId,
+                producerAuthorityId: candidateReference.producerAuthorityId,
                 candidateSchema: candidateReference.schema,
                 candidateDigest: `sha256:${'0'.repeat(64)}`,
                 verificationReceiptDigest: candidateReference.verificationReceiptDigest,
@@ -287,6 +290,6 @@ test('consumer source neither invokes producers nor imports raw semantic parsers
         path.join(root, 'tools/release/semantic-outcome-clean-attempt-consumers.mjs'),
         'utf8'
     );
-    assert.doesNotMatch(source, /child_process|spawnSync|execFile|immutable-build-adapter|release-projection-adapter|release-finalizer-adapter/u);
+    assert.doesNotMatch(source, /child_process|spawnSync|execFile|from\s+['"][^'"]*(?:immutable-build|release-projection|release-finalizer)-adapter/u);
     assert.doesNotMatch(source, /readdirSync|statSync|mtimeMs|finalExitCode/u);
 });

@@ -11,9 +11,12 @@ const inventoryFile = path.join(
 );
 const digestPattern = /^sha256:[0-9a-f]{64}$/u;
 const expectedAuthorities = new Map([
-    ['finalizer', { issue: 2656, producerId: 'release-finalizer-semantic-outcome' }],
-    ['immutable-build', { issue: 2654, producerId: 'immutable-build-semantic-outcome' }],
-    ['release-projection', { issue: 2655, producerId: 'release-projection-semantic-outcome' }]
+    ['finalizer', { issue: 2656, producerId: 'release-finalizer-semantic-outcome',
+        authorityId: 'tools/test-matrix/outcomes/release-finalizer-adapter.mjs' }],
+    ['immutable-build', { issue: 2654, producerId: 'immutable-build-semantic-outcome',
+        authorityId: 'tools/test-matrix/outcomes/immutable-build-adapter.mjs' }],
+    ['release-projection', { issue: 2655, producerId: 'release-projection-semantic-outcome',
+        authorityId: 'tools/test-matrix/outcomes/release-projection-adapter.mjs' }]
 ]);
 const candidateIdentityFields = Object.freeze([
     'buildIdentity',
@@ -51,7 +54,7 @@ export function validateSemanticOutcomeConsumerInventory(inventory)
         || inventory.unifiedAttemptVerifier
             !== 'tools/release/clean-first-attempt-verifier.mjs#cleanFirstAttemptVerdict'
         || inventory.candidateVerificationMode !== 'external-owner-only'
-        || inventory.migrationState !== 'pending-semantic-candidate-authorities'
+        || inventory.migrationState !== 'pending-external-authorities'
         || inventory.qualificationEligible !== false
         || !Array.isArray(inventory.consumers)
         || inventory.consumers.length !== expectedAuthorities.size)
@@ -66,7 +69,10 @@ export function validateSemanticOutcomeConsumerInventory(inventory)
         if (!authority
             || consumer.candidateAuthorityIssue !== authority.issue
             || consumer.candidateProducerId !== authority.producerId
-            || consumer.candidateSchemaAuthority !== 'issue:#2020'
+            || consumer.candidateProducerAuthorityId !== authority.authorityId
+            || consumer.candidateSchema !== 'fsusblog.producer-semantic-outcome-candidate.v1'
+            || consumer.candidateSchemaAuthority
+                !== 'config/schemas/producer-semantic-outcome-candidate.schema.json'
             || consumer.attemptSchema !== 'fsusblog.test-attempt-receipt.v1'
             || consumer.aggregateSchema !== 'fsusblog.test-attempt-aggregate-receipt.v1'
             || !Array.isArray(consumer.rawEvidenceAccess)
@@ -98,6 +104,7 @@ function validateCandidateReference(reference, consumer)
         'contentDigest',
         'path',
         'producerId',
+        'producerAuthorityId',
         'schema',
         'verificationReceiptDigest',
         'verificationReceiptPath'
@@ -105,7 +112,8 @@ function validateCandidateReference(reference, consumer)
     if (JSON.stringify(keys) !== JSON.stringify(expectedKeys.sort())
         || reference.authorityIssue !== consumer.candidateAuthorityIssue
         || reference.producerId !== consumer.candidateProducerId
-        || typeof reference.schema !== 'string' || !reference.schema
+        || reference.producerAuthorityId !== consumer.candidateProducerAuthorityId
+        || reference.schema !== consumer.candidateSchema
         || typeof reference.path !== 'string' || !reference.path
         || typeof reference.verificationReceiptPath !== 'string'
         || !reference.verificationReceiptPath
@@ -180,6 +188,7 @@ function verifyExternalCandidate(reference, consumer, verifyCandidate, expectedI
         || verification.verified !== true
         || verification.authorityIssue !== reference.authorityIssue
         || verification.producerId !== reference.producerId
+        || verification.producerAuthorityId !== reference.producerAuthorityId
         || verification.candidateSchema !== reference.schema
         || verification.candidateDigest !== reference.contentDigest
         || verification.verificationReceiptDigest !== reference.verificationReceiptDigest)
@@ -318,6 +327,7 @@ export function admitSemanticOutcomeCleanAttempt({
         candidate: Object.freeze({
             authorityIssue: candidateReference.authorityIssue,
             producerId: candidateReference.producerId,
+            producerAuthorityId: candidateReference.producerAuthorityId,
             schema: candidateReference.schema,
             path: candidateReference.path,
             contentDigest: candidateReference.contentDigest,

@@ -9,7 +9,7 @@
         "schema": { "const": "fsusblog.semantic-outcome-clean-attempt-consumer-inventory.v1" },
         "unifiedAttemptVerifier": { "const": "tools/release/clean-first-attempt-verifier.mjs#cleanFirstAttemptVerdict" },
         "candidateVerificationMode": { "const": "external-owner-only" },
-        "migrationState": { "const": "pending-semantic-candidate-authorities" },
+        "migrationState": { "const": "pending-external-authorities" },
         "qualificationEligible": { "const": false },
         "consumers": {
             "type": "array",
@@ -18,13 +18,15 @@
             "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["id", "entrypoints", "candidateAuthorityIssue", "candidateProducerId", "candidateSchemaAuthority", "attemptSchema", "aggregateSchema", "outputSchemas", "rawEvidenceAccess", "producerInvocation"],
+                "required": ["id", "entrypoints", "candidateAuthorityIssue", "candidateProducerId", "candidateProducerAuthorityId", "candidateSchema", "candidateSchemaAuthority", "attemptSchema", "aggregateSchema", "outputSchemas", "rawEvidenceAccess", "producerInvocation"],
                 "properties": {
                     "id": { "enum": ["finalizer", "immutable-build", "release-projection"] },
                     "entrypoints": { "$ref": "#/$defs/strings" },
                     "candidateAuthorityIssue": { "enum": [2654, 2655, 2656] },
                     "candidateProducerId": { "type": "string", "minLength": 1 },
-                    "candidateSchemaAuthority": { "const": "issue:#2020" },
+                    "candidateProducerAuthorityId": { "type": "string", "minLength": 1 },
+                    "candidateSchema": { "const": "fsusblog.producer-semantic-outcome-candidate.v1" },
+                    "candidateSchemaAuthority": { "const": "config/schemas/producer-semantic-outcome-candidate.schema.json" },
                     "attemptSchema": { "const": "fsusblog.test-attempt-receipt.v1" },
                     "aggregateSchema": { "const": "fsusblog.test-attempt-aggregate-receipt.v1" },
                     "outputSchemas": { "$ref": "#/$defs/strings" },
