@@ -4,6 +4,8 @@ import fs from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import { CanonicalMediaAssetStore } from '../../tools/test-fixtures/canonical-media-asset-store.mjs'
+import { materializePositiveMedia } from '../../tools/test-fixtures/media-positive-generator.mjs'
 import {
   MEDIA_NEGATIVE_CASE_IDS,
   inspectVerifiedPng,
@@ -39,7 +41,7 @@ function positiveReceipt(overrides = {}) {
     validityClass: 'canonical-positive',
     verificationStatus: 'verified',
     materializationOwner: 'canonical-media-positive-generator',
-    assetId: 'fixture.asset.png.one',
+    assetId: '10000000-0000-5000-8000-000000000001',
     shapeId: 'png.square.alpha',
     format: facts.format,
     mime: facts.mime,
@@ -51,6 +53,36 @@ function positiveReceipt(overrides = {}) {
     ...overrides
   })
 }
+
+test('real catalog generator and canonical AssetId store feed the complete negative corpus without ledger contamination', () => {
+  const directory = fs.mkdtempSync(path.join(tmpdir(), 'fsusblog-media-e2e-'))
+  const positiveRoot = path.join(directory, 'positive')
+  const corpusRoot = path.join(directory, 'negative')
+  try {
+    const store = new CanonicalMediaAssetStore({ root: positiveRoot, runNamespace: 'media-negative-e2e' })
+    const positive = materializePositiveMedia({ store, shapeIds: ['png-alpha'] }).receipts[0]
+    const bytes = store.read({
+      assetId: positive.assetId,
+      storageKey: positive.storageRef.storageKey,
+      byteDigest: positive.byteDigest
+    })
+    const ledgerBefore = store.receipt()
+    const receipt = materializeMediaNegativeCorpus({
+      positiveBytes: bytes,
+      positiveReceipt: positive,
+      positiveRoot,
+      corpusRoot
+    })
+    assert.deepEqual(verifyMediaNegativeCorpusReceipt({ receipt, corpusRoot }), [])
+    assert.deepEqual(receipt.cases.map((item) => item.caseId), MEDIA_NEGATIVE_CASE_IDS)
+    assert.equal(receipt.sourceAssetId, positive.assetId)
+    assert.deepEqual(store.receipt(), ledgerBefore)
+    assert.equal(store.receipt().records.length, 1)
+    assert.equal(receipt.cases.every((item) => item.isolation.positiveAssetIdCreated === false), true)
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true })
+  }
+})
 
 function fixture() {
   const directory = fs.mkdtempSync(path.join(tmpdir(), 'fsusblog-media-negative-'))

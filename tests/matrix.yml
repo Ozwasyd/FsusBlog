@@ -444,6 +444,8 @@ tiers:
               tools/testing/generate-fixture-catalog-artifacts.mjs,
               tools/test-fixtures/content-shape-generator.mjs,
               tools/test-fixtures/media-negative-corpus.mjs,
+              tools/test-fixtures/canonical-media-asset-store.mjs,
+              tools/test-fixtures/media-positive-generator.mjs,
               tools/test-fixtures/media-shape-catalog.mjs,
               tools/test-matrix,
               tools/testing/generate-test-execution-envelope-applicability.mjs,
@@ -2034,6 +2036,7 @@ tiers:
           - test-asset-audit-reconciliation
           - node-governance-policy-convergence
           - media-negative-corpus
+          - media-positive-generator
           - media-shape-catalog
           - test-temporal-authority
           - integrity-proof-docs-consistency
@@ -2136,6 +2139,9 @@ tiers:
           - config/schemas/media-negative-corpus-plan.schema.json
           - tools/test-fixtures/media-negative-corpus.mjs
           - tests/tools/media-negative-corpus.test.mjs
+          - tools/test-fixtures/canonical-media-asset-store.mjs
+          - tools/test-fixtures/media-positive-generator.mjs
+          - tests/tools/media-positive-generator.test.mjs
           - config/testing/media-shape-catalog.json
           - config/schemas/media-shape-catalog.schema.json
           - tools/test-fixtures/media-shape-catalog.mjs

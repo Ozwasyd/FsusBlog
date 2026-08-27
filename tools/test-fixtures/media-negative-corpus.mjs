@@ -20,6 +20,7 @@ export const MEDIA_NEGATIVE_CASE_IDS = Object.freeze([
 
 const digestPattern = /^sha256:[a-f0-9]{64}$/u
 const stableIdPattern = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/u
+const canonicalAssetIdPattern = /^[a-f0-9]{8}-[a-f0-9]{4}-5[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/u
 const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 const unsupportedBytes = Buffer.from('FSUSBLOG_UNSUPPORTED_MEDIA_V1\0', 'ascii')
 const conditionDefaults = Object.freeze({
@@ -177,8 +178,8 @@ function verifyPositiveReceipt(receipt, bytes, plan) {
     || receipt.materializationOwner !== plan.positiveAuthority.materializationOwner) {
     throw new Error('positive media receipt is not from the required verified canonical authority')
   }
-  if (!stableIdPattern.test(receipt.assetId ?? '') || !stableIdPattern.test(receipt.shapeId ?? '')) {
-    throw new Error('positive media receipt has invalid stable identity')
+  if (!canonicalAssetIdPattern.test(receipt.assetId ?? '') || !stableIdPattern.test(receipt.shapeId ?? '')) {
+    throw new Error('positive media receipt has invalid canonical AssetId or stable shape identity')
   }
   if (!digestPattern.test(receipt.contentDigest ?? '') || receipt.contentDigest !== contentDigest(receipt)) {
     throw new Error('positive media receipt content digest is invalid')
@@ -477,6 +478,7 @@ export function materializeMediaNegativeCorpus({
         validityClass: 'negative-invalid',
         executionClass,
         sourcePositiveDigest: positiveReceipt.contentDigest,
+        sourceAssetId: positiveReceipt.assetId,
         sourcePositiveByteDigest: sourceFacts.byteDigest,
         negativeByteDigest: mutation.bytes === null ? null : sha256(mutation.bytes),
         negativeByteLength: mutation.bytes === null ? null : mutation.bytes.length,
@@ -513,6 +515,7 @@ export function materializeMediaNegativeCorpus({
       planDigest: sha256(stableStringify(plan)),
       executionClass,
       sourcePositiveDigest: positiveReceipt.contentDigest,
+      sourceAssetId: positiveReceipt.assetId,
       sourcePositiveByteDigest: sourceFacts.byteDigest,
       positiveRootBeforeDigest: positiveBeforeDigest,
       positiveRootAfterDigest: positiveAfterDigest,
@@ -541,6 +544,7 @@ export function verifyMediaNegativeCorpusReceipt({ receipt, corpusRoot, plan = l
   if (!digestPattern.test(receipt?.contentDigest ?? '') || receipt.contentDigest !== contentDigest(receipt)) errors.push('media negative corpus receipt content digest is invalid')
   if (receipt?.planDigest !== sha256(stableStringify(plan))) errors.push('media negative corpus receipt plan digest is stale')
   if (!plan.executionClasses.includes(receipt?.executionClass)) errors.push('media negative corpus receipt execution class is invalid')
+  if (!canonicalAssetIdPattern.test(receipt?.sourceAssetId ?? '')) errors.push('media negative corpus receipt source AssetId is invalid')
   if (receiptHasUnsafePath(receipt)) errors.push('media negative corpus receipt exposes an absolute or unsafe path')
   if (receipt?.positiveRootBeforeDigest !== receipt?.positiveRootAfterDigest) errors.push('positive media root changed during negative generation')
   if (receipt?.resourceSafety?.actualHugeBitmapAllocated !== false || receipt?.resourceSafety?.rootEscapeAttempted !== false) errors.push('media negative corpus resource safety proof is invalid')
@@ -550,7 +554,7 @@ export function verifyMediaNegativeCorpusReceipt({ receipt, corpusRoot, plan = l
     const item = cases.find((candidate) => candidate.caseId === casePlan.id)
     if (!item) continue
     if (!digestPattern.test(item.contentDigest ?? '') || item.contentDigest !== contentDigest(item)) errors.push(`case ${casePlan.id} content digest is invalid`)
-    if (item.sourcePositiveDigest !== receipt.sourcePositiveDigest || item.sourcePositiveByteDigest !== receipt.sourcePositiveByteDigest) errors.push(`case ${casePlan.id} positive source binding is invalid`)
+    if (item.sourcePositiveDigest !== receipt.sourcePositiveDigest || item.sourcePositiveByteDigest !== receipt.sourcePositiveByteDigest || item.sourceAssetId !== receipt.sourceAssetId) errors.push(`case ${casePlan.id} positive source binding is invalid`)
     if (item.singleFault?.faultCondition !== casePlan.faultCondition || item.singleFault?.independentFaultCount !== 1) errors.push(`case ${casePlan.id} is not single-fault evidence`)
     const changed = Object.entries(item.singleFault?.conditions ?? {}).filter(([key, value]) => value !== conditionDefaults[key]).map(([key]) => key)
     if (JSON.stringify(changed) !== JSON.stringify([casePlan.faultCondition])) errors.push(`case ${casePlan.id} condition projection has multiple faults`)

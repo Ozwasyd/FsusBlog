@@ -1481,6 +1481,17 @@
             ]
         },
         {
+            "file": "tests/tools/media-positive-generator.test.mjs",
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/media-shape-catalog.test.mjs",
             "owner": "repository-governance:test-asset-behavior",
             "executionCategory": "repository-governance",

@@ -263,6 +263,25 @@
             ]
         },
         {
+            "id": "media-positive-generator",
+            "description": "Deterministic offline JPEG, PNG, SVG, and WebP fixtures are independently decoded and materialized only through run-owned canonical AssetId storage with sealed receipts and bounded resources.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "config/testing/media-shape-catalog.json",
+                "tools/test-fixtures/canonical-media-asset-store.mjs",
+                "tools/test-fixtures/media-positive-generator.mjs",
+                "tests/tools/media-positive-generator.test.mjs",
+                "docs/testing.md"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Generation rejects non-positive shapes, declaration or byte drift, unsafe storage refs, stale ledgers, cross-run cleanup, ambient codecs, remote fetches, fake formats, default images, direct public writes and second generators.",
+            "minimumRequirement": "All positive catalog shapes must yield real independently verified bytes or explicit no-cover; 0, 1, 1000 and bounded-large runs must remain deterministic, content-bound, idempotent and run-isolated.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
             "id": "media-shape-catalog",
             "description": "One closed content-addressed MediaShapeCatalog owns real format, MIME, extension, magic, dimension, aspect, alpha, orientation, validity and consumer-applicability contracts without becoming an asset ledger.",
             "owner": "ServerContractAgent",
