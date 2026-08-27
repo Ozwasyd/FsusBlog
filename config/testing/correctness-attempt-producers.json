@@ -3,7 +3,7 @@
     "generatedBy": "tools/test/generate-correctness-attempt-producers.mjs",
     "sourceDigests": {
         "config/testing/release-reliability-scenario-catalog.json": "sha256:52e9ab5d7a5af66cb9da9865394ca470f5c2dbdae676afd550bcdd20d9887ade",
-        "tests/matrix.yml": "sha256:e4ce9d29e4cb9086ff71134ef0add2b44d121056b92ad42c3b2205594bb65a2e",
+        "tests/matrix.yml": "sha256:d9f8ed06a455c45808e07e961cfdd3ea27a366fc23c7e284d11a57ce5db91bab",
         "tools/test-matrix/production-fresh-run-bound-outputs.mjs": "sha256:68c78054efb4a77b9e368fb079a9bb749b8edff24bc6d8375f7970555292c638"
     },
     "entries": [
@@ -4830,5 +4830,5 @@
             ]
         }
     ],
-    "contentDigest": "sha256:4a956631e3d2b3d22996f77d239bf2d2c70097bef3701412db0dbcbbe9b505e0"
+    "contentDigest": "sha256:33c97edb8cc77f173e8a599668e0511ccece67d1083575aafc0438721f31a1c1"
 }

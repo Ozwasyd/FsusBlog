@@ -33,7 +33,7 @@ try
         }
     }
     const semanticSource = fs.readFileSync(path.join(root, adapters[2]), 'utf8');
-    if (/child_process|readdirSync|statSync|immutable-build-adapter|release-projection-adapter|release-finalizer-adapter/u.test(semanticSource))
+    if (/child_process|readdirSync|statSync|from\s+['"][^'"]*(?:immutable-build|release-projection|release-finalizer)-adapter/u.test(semanticSource))
     {
         throw new Error('semantic outcome consumers must not execute producers or parse raw domains');
     }

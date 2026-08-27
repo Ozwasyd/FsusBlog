@@ -22,6 +22,9 @@ exec "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mj
     --path config/testing/correctness-attempt-producers.json \
     --path config/testing/clean-attempt-consumers.json \
     --path config/testing/semantic-outcome-clean-attempt-consumers.json \
+    --path config/testing/outcome-failure-taxonomy.json \
+    --path config/testing/outcome-field-dispositions.json \
+    --path config/schemas/producer-semantic-outcome-candidate.schema.json \
     --path config/schemas/runtime-state-domain-catalog.schema.json \
     --path config/schemas/runtime-state-domain-registry.schema.json \
     --path tests/tools \
