@@ -457,11 +457,17 @@ test('repository Stryker producer pins official source and overlay identity', ()
         '../../tools/mutation/patches/stryker-net-4.14.2-candidate-validity.patch',
         import.meta.url
     ));
+    const expressionTreeOverlay = readFileSync(new URL(
+        '../../tools/mutation/patches/stryker-net-4.14.2-expression-tree.patch',
+        import.meta.url
+    ));
 
-    assert.equal(validateStrykerToolPolicy(policy, manifest, overlay), policy);
+    assert.equal(validateStrykerToolPolicy(policy, manifest, overlay, expressionTreeOverlay), policy);
     assert.equal(policy.upstreamCommit, 'cc7fdf3433025a4b63c2c091c07b2177d117359e');
     assert.equal(policy.upstreamArchiveSha256, 'd50354b9f99fd9d9e4959b2c4cf0dbf5068cc47488a49db77d00e0dbbb32cca0');
     assert.equal(manifest.tools['dotnet-stryker'].version, '4.14.2');
+    assert.match(expressionTreeOverlay.toString('utf8'), /IsExpressionTreeArgument/u);
+    assert.doesNotMatch(expressionTreeOverlay.toString('utf8'), /MutantStatus\.(?:Ignored|CompileError|Timeout)/u);
 });
 
 test('repository Stryker producer rejects unreviewed patch and version drift', () =>
@@ -478,10 +484,23 @@ test('repository Stryker producer rejects unreviewed patch and version drift', (
         '../../tools/mutation/patches/stryker-net-4.14.2-candidate-validity.patch',
         import.meta.url
     ));
+    const expressionTreeOverlay = readFileSync(new URL(
+        '../../tools/mutation/patches/stryker-net-4.14.2-expression-tree.patch',
+        import.meta.url
+    ));
 
     assert.throws(
         () => validateStrykerToolPolicy(policy, manifest, Buffer.concat([overlay, Buffer.from('x')])),
         /patch digest/u
+    );
+    assert.throws(
+        () => validateStrykerToolPolicy(
+            policy,
+            manifest,
+            overlay,
+            Buffer.concat([expressionTreeOverlay, Buffer.from('x')])
+        ),
+        /expression-tree patch digest/u
     );
     assert.throws(
         () => validateStrykerToolPolicy(

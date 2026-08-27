@@ -46,7 +46,7 @@ function sha256(content)
     return createHash('sha256').update(content).digest('hex');
 }
 
-export function validateStrykerToolPolicy(policy, manifest, patch)
+export function validateStrykerToolPolicy(policy, manifest, patch, expressionTreePatch = null)
 {
     if (policy?.schema !== 'fsusblog.stryker-tool.v1')
         fail('unsupported policy schema');
@@ -69,6 +69,11 @@ export function validateStrykerToolPolicy(policy, manifest, patch)
     }
     if (sha256(patch) !== policy.patchSha256)
         fail('candidate-validity patch digest does not match policy');
+    const resolvedExpressionTreePatch = expressionTreePatch ?? readFileSync(
+        resolve(rootDir, policy.expressionTreePatchPath)
+    );
+    if (sha256(resolvedExpressionTreePatch) !== policy.expressionTreePatchSha256)
+        fail('expression-tree patch digest does not match policy');
     return policy;
 }
 
@@ -77,10 +82,12 @@ function readPolicy()
     const policy = JSON.parse(readFileSync(policyPath, 'utf8'));
     const manifestPath = resolve(rootDir, policy.toolManifestPath);
     const patchPath = resolve(rootDir, policy.patchPath);
+    const expressionTreePatchPath = resolve(rootDir, policy.expressionTreePatchPath);
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
     const patch = readFileSync(patchPath);
-    validateStrykerToolPolicy(policy, manifest, patch);
-    return { policy, patch, patchPath };
+    const expressionTreePatch = readFileSync(expressionTreePatchPath);
+    validateStrykerToolPolicy(policy, manifest, patch, expressionTreePatch);
+    return { policy, patch, patchPath, expressionTreePatch, expressionTreePatchPath };
 }
 
 function ensureArchive(policy)
@@ -96,13 +103,14 @@ function ensureArchive(policy)
 
 function buildTool()
 {
-    const { policy, patch, patchPath } = readPolicy();
+    const { policy, patch, patchPath, expressionTreePatch, expressionTreePatchPath } = readPolicy();
     const archivePath = ensureArchive(policy);
     const cacheKey = sha256(Buffer.concat([
         Buffer.from('fsusblog-stryker-bootstrap-v4'),
         Buffer.from(policy.upstreamCommit),
         Buffer.from(policy.packageVersion),
-        patch
+        patch,
+        expressionTreePatch
     ])).slice(0, 24);
     const cacheDir = resolve(rootDir, '.tmp/tools/stryker', cacheKey);
     const executable = resolve(
@@ -128,6 +136,14 @@ function buildTool()
         '--batch', '--forward', '--strip=1',
         '--directory', stagedSource, '--input', patchPath
     ]);
+    run('patch', [
+        '--batch', '--dry-run', '--forward', '--strip=1',
+        '--directory', stagedSource, '--input', expressionTreePatchPath
+    ]);
+    run('patch', [
+        '--batch', '--forward', '--strip=1',
+        '--directory', stagedSource, '--input', expressionTreePatchPath
+    ]);
 
     const focusedTestOutput = run('dotnet', [
         'test',
@@ -140,8 +156,8 @@ function buildTool()
         env: { ...process.env, DOTNET_ROLL_FORWARD: 'Major' }
     });
     process.stdout.write(`${focusedTestOutput}\n`);
-    if (!/Passed!\s+-\s+Failed:\s+0,\s+Passed:\s+9,/u.test(focusedTestOutput))
-        fail('fork focused test run did not execute the expected nine tests');
+    if (!/Passed!\s+-\s+Failed:\s+0,\s+Passed:\s+11,/u.test(focusedTestOutput))
+        fail('fork focused test run did not execute the expected eleven tests');
     const feedDir = resolve(stagingDir, 'feed');
     run('dotnet', [
         'pack',
@@ -162,6 +178,7 @@ function buildTool()
         packageSha256: sha256(readFileSync(packagePath)),
         packageVersion: policy.packageVersion,
         patchSha256: policy.patchSha256,
+        expressionTreePatchSha256: policy.expressionTreePatchSha256,
         upstreamCommit: policy.upstreamCommit
     }, null, 2)}\n`);
     mkdirSync(dirname(cacheDir), { recursive: true });
