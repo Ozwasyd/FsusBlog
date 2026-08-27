@@ -19,6 +19,7 @@
         "workers",
         "frameworkModes",
         "schedulerReadyPolicy",
+        "schedulerShuffleSeed",
         "command",
         "enumerationDigest",
         "shardDigest",
@@ -164,6 +165,10 @@
                     "const": false
                 }
             }
+        },
+        "schedulerShuffleSeed": {
+            "type": "string",
+            "minLength": 1
         },
         "command": {
             "type": "object",

@@ -295,6 +295,17 @@
             "supersededBy": null
         },
         {
+            "path": "docs/architecture/decisions/ADR-Test-Execution-Replay-Playwright.md",
+            "status": "current",
+            "owner": "governance",
+            "relatedIssues": [
+                2003,
+                2004
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
             "path": "docs/architecture/dependency-injection-lifetime-validation.md",
             "status": "current",
             "owner": "backend",

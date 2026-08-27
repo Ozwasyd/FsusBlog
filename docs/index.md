@@ -232,6 +232,7 @@
 
 ### Governance
 
+- [ADR: Playwright replay uses repository-owned sealed lanes](architecture/decisions/ADR-Test-Execution-Replay-Playwright.md)
 - [Content Credentials 离线原型](content-credentials.md)
 - [Dead-code audit tracking](dead-code-audit-tracking.md)
 - [本地开发指南](development.md)

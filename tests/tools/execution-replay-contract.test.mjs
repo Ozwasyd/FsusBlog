@@ -82,6 +82,7 @@ function replayPlan({
             kind: 'sealed-shard-order',
             dynamicReassignment: false
         },
+        schedulerShuffleSeed: 'scheduler-seed-v1',
         command: {
             executable: '/usr/bin/node',
             args: ['--test'],

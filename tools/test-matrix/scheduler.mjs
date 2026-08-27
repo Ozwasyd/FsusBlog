@@ -18,6 +18,10 @@ import {
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler observations reuse the canonical process identity collector.
 import { collectProcessIdentity } from '../test/process-identity.mjs';
 import {
+    createSchedulerReplayActual,
+    validateSchedulerReplayPlan
+} from '../test/scheduler-replay-contract.mjs';
+import {
     validateRunBoundConsumerEvidence,
     validateRunBoundProjection
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Run-bound evidence is owned by the shared execution contract.
@@ -4163,6 +4167,20 @@ async function runDagUnlocked(options)
         throw new Error(`invalid supersedes metadata: ${supersedesErrors.join('; ')}`);
     }
     const tiers = applySupersedes(options.tiers ?? []);
+    const schedulerReplayPlan = options.executionReplayPlan ?? null;
+    if (schedulerReplayPlan)
+    {
+        validateSchedulerReplayPlan(schedulerReplayPlan, { tiers, maxParallel });
+        if (schedulerReplayPlan.schedulerRunId !== runId)
+        {
+            throw new Error('scheduler replay plan run identity drift');
+        }
+        if (schedulerReplayPlan.sourceCommit !== sourceState.commit
+        || schedulerReplayPlan.worktreeFingerprint !== sourceState.worktreeFingerprint)
+        {
+            throw new Error('scheduler replay plan source identity drift');
+        }
+    }
     for (const tierId of currentRunPreexecutedTierBindings.keys())
     {
         if (typeof tierId !== 'string' || !tiers.some((tier) => tier.id === tierId))
@@ -4301,6 +4319,15 @@ async function runDagUnlocked(options)
         },
         maxParallel,
         sourceState,
+        executionReplay: schedulerReplayPlan ? {
+      planDigest: schedulerReplayPlan.planDigest,
+      schedulerReadyOrderPolicy: schedulerReplayPlan.schedulerReadyOrderPolicy,
+      schedulerShuffleSeed: schedulerReplayPlan.schedulerShuffleSeed,
+      dependencyCatalogDigest: schedulerReplayPlan.dependencyCatalogDigest,
+      eligibleStepIds: schedulerReplayPlan.eligibleStepIds,
+      expectedAdmissionSequence: schedulerReplayPlan.expectedAdmissionSequence,
+      actual: null
+    } : null,
         ...(options.runtimeNamespace ? { runtimeNamespace: options.runtimeNamespace } : {}),
         resumePolicy: resume ? {
       sourceChanged: resumeSourceChanged,
@@ -4317,7 +4344,7 @@ async function runDagUnlocked(options)
         failurePoint: null,
         failures: []
     };
-    const dynamicPriorityEnabled = options.dynamicPriority !== false
+    const dynamicPriorityEnabled = !schedulerReplayPlan && options.dynamicPriority !== false
     && String(options.env?.FSUSBLOG_TEST_DYNAMIC_PRIORITY
       ?? process.env.FSUSBLOG_TEST_DYNAMIC_PRIORITY
       ?? '1') !== '0';
@@ -4389,6 +4416,7 @@ async function runDagUnlocked(options)
     const reusedTiers = [];
     const readyAges = new Map();
     let priorityWaveNumber = 0;
+    let schedulerReplayAdmissionIndex = 0;
     let firstFailure = null;
     let producerAdmissionClosed = false;
     let residentState = null;
@@ -4906,7 +4934,21 @@ async function runDagUnlocked(options)
             readyAges
         });
         const readyById = new Map(ready.map((tier) => [tier.id, tier]));
-        const orderedReady = priority.ranked.map((entry) => readyById.get(entry.tierId));
+        let orderedReady = priority.ranked.map((entry) => readyById.get(entry.tierId));
+        if (schedulerReplayPlan)
+        {
+            orderedReady = [...ready].sort((left, right) =>
+            {
+                if (schedulerReplayPlan.schedulerReadyOrderPolicy === 'canonical')
+                {
+                    return startupAdmissionOrder(left, right);
+                }
+                const replayRank = (tier) => crypto.createHash('sha256')
+                    .update(`${schedulerReplayPlan.schedulerShuffleSeed}\u0000${priorityWaveNumber + 1}\u0000${tier.id}`)
+                    .digest('hex');
+                return replayRank(left).localeCompare(replayRank(right)) || startupAdmissionOrder(left, right);
+            });
+        }
         const priorityById = new Map(priority.ranked.map((entry) => [entry.tierId, entry]));
         const selected = [];
         const decisions = [];
@@ -5028,6 +5070,20 @@ async function runDagUnlocked(options)
             0
         );
         const admittedAtMs = Date.now();
+        if (schedulerReplayPlan)
+        {
+            for (const tier of selected)
+            {
+                const expectedTierId = schedulerReplayPlan.expectedAdmissionSequence[schedulerReplayAdmissionIndex];
+                if (tier.id !== expectedTierId)
+                {
+                    throw new Error(
+                        `scheduler replay admission drift at ${schedulerReplayAdmissionIndex}: expected ${expectedTierId}, got ${tier.id}`
+                    );
+                }
+                schedulerReplayAdmissionIndex += 1;
+            }
+        }
         return selected.map((tier) =>
         {
             const priorityDecision = decisions.find((entry) => entry.tierId === tier.id);
@@ -5870,6 +5926,30 @@ async function runDagUnlocked(options)
     checkpoint.resourceUtilization.waits = schedulerWaitLedger.finish();
     checkpoint.resourceUtilization.resourceGrantHistory = Object.fromEntries(Object.entries(checkpoint.tiers)
         .map(([tierId, result]) => [tierId, result.resourceGrantHistory ?? []]));
+    if (schedulerReplayPlan)
+    {
+        try
+        {
+            checkpoint.executionReplay.actual = createSchedulerReplayActual({
+                plan: schedulerReplayPlan,
+                checkpoint
+            });
+        }
+        catch (error)
+        {
+            checkpoint.status = 'failure';
+            checkpoint.failure ??= {
+                tierId: checkpoint.targetTierId,
+                exitCode: 1,
+                signal: null,
+                reason: error.message,
+                changedPaths: []
+            };
+            checkpoint.failurePoint ??= checkpoint.targetTierId;
+            checkpoint.failures.push(checkpoint.failure);
+            checkpoint.executionReplay.error = error.message;
+        }
+    }
     finalizeResourceEnforcer();
     checkpoint.resourceEnforcement = resourceEnforcer.evidence();
     removeInterruptHandlers();

@@ -743,6 +743,7 @@ export function validateReplayPlan(plan)
         'workers',
         'frameworkModes',
         'schedulerReadyPolicy',
+        'schedulerShuffleSeed',
         'command',
         'enumerationDigest',
         'shardDigest',
@@ -764,6 +765,7 @@ export function validateReplayPlan(plan)
     validateWorkers(plan.workers);
     validateFrameworkModes(plan.frameworkModes);
     validateSchedulerReadyPolicy(plan.schedulerReadyPolicy);
+    requiredText(plan.schedulerShuffleSeed, 'schedulerShuffleSeed');
     validateCommand(plan.command);
     validateRandomStreams(plan.randomStreams, {
         rootSeed,

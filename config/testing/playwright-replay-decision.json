@@ -1,0 +1,49 @@
+{
+    "schema": "fsusblog.playwright-replay-decision.v1",
+    "status": "selected",
+    "selectedAdapter": "repo-owned-n-lane",
+    "rejectedAdapter": "maintained-playwright-dispatch-api",
+    "sourceCommit": "e11ffb2f26a8c45d79731a07445593a6772ac345",
+    "playwright": {
+        "package": "@playwright/test",
+        "version": "1.59.1",
+        "lockPath": "src/frontend/package-lock.json",
+        "lockDigest": "sha256:9dde5d26547222886b296be6269aaf190064c199c10f6b0b7c67cb625707c541"
+    },
+    "capabilities": {
+        "sealedPublicDispatchApi": false,
+        "testListCli": true,
+        "reporterIsPreDispatch": false,
+        "workerRestartIdentity": true
+    },
+    "laneModel": {
+        "childWorkers": 1,
+        "ordinaryMinimumLanes": 2,
+        "parallel": true,
+        "globalSetupOwner": "repo-orchestrator",
+        "artifactOwner": "lane"
+    },
+    "configuration": {
+        "configPath": "src/frontend/playwright.config.ts",
+        "configDigest": "sha256:f433727957d4cc5d141b7e1b177448c27c8b08c1f20e75bed4e728b4ea301f58",
+        "globalSetupPath": "tests/frontend/support/playwright/global-setup.ts",
+        "globalSetupDigest": "sha256:98855cc07f641acf025f8808e3b5263b11a28b03216b16a2143c99b2113ac22b",
+        "globalTeardown": null
+    },
+    "adr": {
+        "path": "docs/architecture/decisions/ADR-Test-Execution-Replay-Playwright.md",
+        "digest": "sha256:0b73bcbfa89ad6add3bbec27747da1d3842425b0ae1e1b9fd04710bba1a3925f"
+    },
+    "probe": {
+        "path": "tools/test/probe-playwright-dispatch.mjs",
+        "digest": "sha256:9af39fc98f134dc0e0516c1b4d4e371698630feb8f597528305d304e5da08f15",
+        "requiredObservations": [
+            "reporter-no-pre-dispatch",
+            "delay-perturbs-completion-order",
+            "parallel-index-observed",
+            "worker-restart-identity",
+            "test-list-public-cli"
+        ]
+    },
+    "contentDigest": "sha256:91b4f39ebee370df8b0cb5ec1c90c83f2b417cb7ce773cf6b0582af02e81448e"
+}

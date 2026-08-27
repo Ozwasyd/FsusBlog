@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v3",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:8aa585bb17becca0faf96e22af58838bbc8877c430ee3330e361166cca46005c",
+    "policyDigest": "sha256:3273c75c78ea0de91ebd6618f0b431efdd24b341a5cad7c8d90a8579e4e02f1c",
     "documents": [
         {
             "path": "docs/active-release-fenced-commits.md",
@@ -446,6 +446,21 @@
             "supersedes": [],
             "supersededBy": null,
             "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/architecture/decisions/ADR-Test-Execution-Replay-Playwright.md",
+            "title": "ADR: Playwright replay uses repository-owned sealed lanes",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "governance",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                2003,
+                2004
+            ],
             "producer": null
         },
         {
