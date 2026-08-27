@@ -1,0 +1,242 @@
+diff --git a/src/Stryker.Core/Stryker.Core.UnitTest/Mutants/CsharpExpressionTreeInstrumentationTests.cs b/src/Stryker.Core/Stryker.Core.UnitTest/Mutants/CsharpExpressionTreeInstrumentationTests.cs
+new file mode 100644
+index 0000000..9b1e6e9
+--- /dev/null
++++ b/src/Stryker.Core/Stryker.Core.UnitTest/Mutants/CsharpExpressionTreeInstrumentationTests.cs
+@@ -0,0 +1,110 @@
++using System;
++using System.Collections.Generic;
++using System.Linq;
++using System.Linq.Expressions;
++using Microsoft.CodeAnalysis;
++using Microsoft.CodeAnalysis.CSharp;
++using Microsoft.CodeAnalysis.CSharp.Syntax;
++using Microsoft.VisualStudio.TestTools.UnitTesting;
++using Shouldly;
++using Stryker.Abstractions;
++using Stryker.Abstractions.Options;
++using Stryker.Configuration.Options;
++using Stryker.Core.InjectedHelpers;
++using Stryker.Core.Mutants;
++
++namespace Stryker.Core.UnitTest.Mutants;
++
++[TestClass]
++public class CsharpExpressionTreeInstrumentationTests : TestBase
++{
++    [TestMethod]
++    public void KeepsSelectorsOutsideExpressionTreeLambdasAndRetainsEveryMutant()
++    {
++        const string source = """
++            using System;
++            using System.Linq;
++            using System.Linq.Expressions;
++            class Row { public int Id { get; set; } public string Consumer { get; set; } }
++            class C
++            {
++                static IQueryable<Row> Where(IQueryable<Row> rows, Expression<Func<Row, bool>> predicate) => rows;
++                IQueryable<Row> Query(IQueryable<Row> rows, int id, string consumer) =>
++                    Where(rows, row => row.Id == id && row.Consumer == consumer);
++            }
++            """;
++        var syntaxTree = CSharpSyntaxTree.ParseText(source);
++        Type[] referenceTypes = [typeof(object), typeof(List<>), typeof(Enumerable), typeof(IQueryable<>), typeof(Expression<>)];
++        var compilation = CSharpCompilation.Create("ExpressionTreeInstrumentation")
++            .WithOptions(new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary))
++            .AddReferences(referenceTypes.Select(type => MetadataReference.CreateFromFile(type.Assembly.Location)))
++            .AddSyntaxTrees(syntaxTree);
++        var injection = new CodeInjection();
++        var semanticModel = compilation.GetSemanticModel(syntaxTree);
++        var sourceLambda = syntaxTree.GetRoot().DescendantNodes().OfType<LambdaExpressionSyntax>().Single();
++        semanticModel.GetTypeInfo(sourceLambda).ConvertedType?.ToDisplayString()
++            .ShouldBe("System.Linq.Expressions.Expression<System.Func<Row, bool>>");
++        semanticModel.GetTypeInfo(sourceLambda).ConvertedType?.ToDisplayString()
++            .StartsWith("System.Linq.Expressions.Expression<", StringComparison.Ordinal)
++            .ShouldBeTrue();
++        var sourceInvocation = sourceLambda.Ancestors().OfType<InvocationExpressionSyntax>().First();
++        var sourceMethod = semanticModel.GetSymbolInfo(sourceInvocation).Symbol.ShouldBeAssignableTo<IMethodSymbol>();
++        sourceMethod.Parameters.Last().Type.ToDisplayString()
++            .ShouldBe("System.Linq.Expressions.Expression<System.Func<Row, bool>>");
++        var orchestrator = new CsharpMutantOrchestrator(
++            new MutantPlacer(injection),
++            options: new StrykerOptions
++            {
++                MutationLevel = MutationLevel.Complete,
++                OptimizationMode = OptimizationModes.CoverageBasedTest
++            });
++
++        var mutatedRoot = orchestrator.Mutate(syntaxTree, semanticModel).GetRoot();
++        var originalLambda = syntaxTree.GetRoot().DescendantNodes().OfType<LambdaExpressionSyntax>().Single();
++        var expressionTreeMutants = orchestrator.Mutants
++            .Where(mutant => mutant.Mutation.OriginalNode.AncestorsAndSelf().Contains(originalLambda))
++            .ToArray();
++
++        expressionTreeMutants.ShouldNotBeEmpty();
++        expressionTreeMutants.ShouldAllBe(mutant => mutant.ResultStatus == MutantStatus.Pending);
++        mutatedRoot.DescendantNodes().OfType<LambdaExpressionSyntax>()
++            .ShouldAllBe(lambda => !lambda.ToString().Contains("MutantControl.IsActive", StringComparison.Ordinal));
++        mutatedRoot.DescendantNodes().OfType<LambdaExpressionSyntax>()
++            .Any(lambda => SyntaxFactory.AreEquivalent(lambda, originalLambda))
++            .ShouldBeTrue();
++
++        foreach (var mutant in expressionTreeMutants)
++        {
++            var selector = $"{injection.HelperNamespace}.MutantControl.IsActive({mutant.Id})";
++            mutatedRoot.DescendantNodes().OfType<InvocationExpressionSyntax>()
++                .Where(invocation => invocation.ToString() == selector)
++                .ShouldHaveSingleItem()
++                .Ancestors().OfType<LambdaExpressionSyntax>().ShouldBeEmpty();
++        }
++    }
++
++    [TestMethod]
++    public void KeepsDelegateLambdaInstrumentationInsideTheLambda()
++    {
++        const string source = "class C { bool Query(System.Func<int, bool> predicate) => predicate(1); bool M() => Query(value => value > 0); }";
++        var syntaxTree = CSharpSyntaxTree.ParseText(source);
++        Type[] referenceTypes = [typeof(object), typeof(Func<,>)];
++        var compilation = CSharpCompilation.Create("DelegateInstrumentation")
++            .WithOptions(new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary))
++            .AddReferences(referenceTypes.Select(type => MetadataReference.CreateFromFile(type.Assembly.Location)))
++            .AddSyntaxTrees(syntaxTree);
++        var injection = new CodeInjection();
++        var orchestrator = new CsharpMutantOrchestrator(
++            new MutantPlacer(injection),
++            options: new StrykerOptions
++            {
++                MutationLevel = MutationLevel.Complete,
++                OptimizationMode = OptimizationModes.CoverageBasedTest
++            });
++
++        var mutatedRoot = orchestrator.Mutate(syntaxTree, compilation.GetSemanticModel(syntaxTree)).GetRoot();
++        var lambda = mutatedRoot.DescendantNodes().OfType<LambdaExpressionSyntax>().Single();
++
++        lambda.ToString().ShouldContain("MutantControl.IsActive");
++    }
++}
+diff --git a/src/Stryker.Core/Stryker.Core/Mutants/CsharpNodeOrchestrators/AnonymousFunctionExpressionOrchestrator.cs b/src/Stryker.Core/Stryker.Core/Mutants/CsharpNodeOrchestrators/AnonymousFunctionExpressionOrchestrator.cs
+index 4037133..e78971a 100644
+--- a/src/Stryker.Core/Stryker.Core/Mutants/CsharpNodeOrchestrators/AnonymousFunctionExpressionOrchestrator.cs
++++ b/src/Stryker.Core/Stryker.Core/Mutants/CsharpNodeOrchestrators/AnonymousFunctionExpressionOrchestrator.cs
+@@ -1,4 +1,5 @@
+ using System;
++using Microsoft.CodeAnalysis;
+ using Microsoft.CodeAnalysis.CSharp;
+ using Microsoft.CodeAnalysis.CSharp.Syntax;
+ 
+@@ -6,6 +7,10 @@ namespace Stryker.Core.Mutants.CsharpNodeOrchestrators;
+ 
+ internal class AnonymousFunctionExpressionOrchestrator : BaseFunctionOrchestrator<AnonymousFunctionExpressionSyntax>
+ {
++    protected override AnonymousFunctionExpressionSyntax InjectMutations(AnonymousFunctionExpressionSyntax sourceNode,
++        AnonymousFunctionExpressionSyntax targetNode, SemanticModel semanticModel, MutationContext context) =>
++        context.InjectionBlocked ? targetNode : base.InjectMutations(sourceNode, targetNode, semanticModel, context);
++
+     protected override (BlockSyntax block, ExpressionSyntax expression) GetBodies(AnonymousFunctionExpressionSyntax node) => (node.Block, node.ExpressionBody);
+ 
+     protected override ParameterListSyntax ParameterList(AnonymousFunctionExpressionSyntax node) => node switch {ParenthesizedLambdaExpressionSyntax parenthesizedLambda => parenthesizedLambda.ParameterList,
+diff --git a/src/Stryker.Core/Stryker.Core/Mutants/CsharpNodeOrchestrators/InvocationExpressionOrchestrator.cs b/src/Stryker.Core/Stryker.Core/Mutants/CsharpNodeOrchestrators/InvocationExpressionOrchestrator.cs
+index a4af472..98282b2 100644
+--- a/src/Stryker.Core/Stryker.Core/Mutants/CsharpNodeOrchestrators/InvocationExpressionOrchestrator.cs
++++ b/src/Stryker.Core/Stryker.Core/Mutants/CsharpNodeOrchestrators/InvocationExpressionOrchestrator.cs
+@@ -1,5 +1,8 @@
+ using System.Collections.Generic;
++using System;
++using System.Linq;
+ using Microsoft.CodeAnalysis;
++using Microsoft.CodeAnalysis.CSharp;
+ using Microsoft.CodeAnalysis.CSharp.Syntax;
+ using Stryker.Core.Helpers;
+ 
+@@ -17,6 +20,7 @@ internal class InvocationExpressionOrchestrator : MemberAccessExpressionOrchestr
+     protected override ExpressionSyntax OrchestrateChildrenMutation(InvocationExpressionSyntax node, SemanticModel semanticModel,
+         MutationContext context)
+     {
++        var method = semanticModel.GetSymbolInfo(node).Symbol as IMethodSymbol;
+         var mutated = node.ReplaceNodes(node.ChildNodes(), (original, _) =>
+         {
+             if (original == node.Expression)
+@@ -27,15 +31,49 @@ internal class InvocationExpressionOrchestrator : MemberAccessExpressionOrchestr
+                 subContext.Leave();
+                 return result;
+             }
+-            else
++            else if (original is ArgumentListSyntax argumentList)
+             {
+-                //The argument list can be freely mutated,
+                 var subContext = context.Enter(MutationControl.Member);
+-                var result = subContext.Mutate(original, semanticModel);
+-                subContext.Leave();
+-                return result;
++                try
++                {
++                    return argumentList.WithArguments(
++                        SyntaxFactory.SeparatedList(argumentList.Arguments.Select((argument, index) =>
++                        {
++                            if (IsExpressionTreeArgument(argument, index, method))
++                            {
++                                subContext.BlockInjection();
++                                try
++                                {
++                                    return (ArgumentSyntax)subContext.Mutate(argument, semanticModel);
++                                }
++                                finally
++                                {
++                                    subContext.EnableInjection();
++                                }
++                            }
++                            return (ArgumentSyntax)subContext.Mutate(argument, semanticModel);
++                        })));
++                }
++                finally
++                {
++                    subContext.Leave();
++                }
+             }
++            return context.Mutate(original, semanticModel);
+         });
+         return mutated;
+     }
++
++    private static bool IsExpressionTreeArgument(ArgumentSyntax argument, int argumentIndex, IMethodSymbol method)
++    {
++        if (method == null)
++        {
++            return false;
++        }
++        var parameter = argument.NameColon == null
++            ? method.Parameters.ElementAtOrDefault(argumentIndex)
++            : method.Parameters.FirstOrDefault(candidate => candidate.Name == argument.NameColon.Name.Identifier.Text);
++        return parameter?.Type.ToDisplayString().StartsWith(
++            "System.Linq.Expressions.Expression<", StringComparison.Ordinal) == true;
++    }
+ }
+diff --git a/src/Stryker.Core/Stryker.Core/Mutants/MutationContext.cs b/src/Stryker.Core/Stryker.Core/Mutants/MutationContext.cs
+index 48ca82c..f37ec05 100644
+--- a/src/Stryker.Core/Stryker.Core/Mutants/MutationContext.cs
++++ b/src/Stryker.Core/Stryker.Core/Mutants/MutationContext.cs
+@@ -59,6 +59,11 @@ internal class MutationContext
+     /// </summary>
+     public bool HasLeftOverMutations => _mutation.HasPendingMutations();
+ 
++    /// <summary>
++    /// True when the current syntax must forward mutations to an enclosing control boundary.
++    /// </summary>
++    public bool InjectionBlocked => _mutation.InjectionBlocked;
++
+     /// <summary>
+     /// Returns the current mutation control level
+     /// </summary>
+diff --git a/src/Stryker.Core/Stryker.Core/Mutants/MutationStore.cs b/src/Stryker.Core/Stryker.Core/Mutants/MutationStore.cs
+index f035610..591063c 100644
+--- a/src/Stryker.Core/Stryker.Core/Mutants/MutationStore.cs
++++ b/src/Stryker.Core/Stryker.Core/Mutants/MutationStore.cs
+@@ -66,6 +66,8 @@ internal class MutationStore
+     /// </summary>
+     public MutationControl CurrentControl => _pendingMutations.Count > 0 ? _pendingMutations.Peek().Control : MutationControl.Member;
+ 
++    public bool InjectionBlocked => _injectionBlockCounter > 0;
++
+     /// <summary>
+     /// Enter a syntax level
+     /// </summary>
