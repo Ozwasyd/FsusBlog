@@ -9,6 +9,11 @@
 
 import { createHash } from 'node:crypto';
 
+import {
+    resolveTemporalRolesForProducer,
+    verifyResolvedTemporalArtifact
+} from '../../test/temporal-role-resolver.mjs';
+
 const PRODUCER_ID = 'auth-session';
 const STRATEGY = 'transaction-fixture';
 
@@ -255,6 +260,12 @@ export function buildAuthSessionPlan({
     {
         throw new Error('auth-session temporal context producerId mismatch');
     }
+    const resolvedTemporalRoles = resolveTemporalRolesForProducer({
+        temporalContext,
+        namespace: normalizedNamespace,
+        fixtureId: PRODUCER_ID
+    });
+    verifyResolvedTemporalArtifact(resolvedTemporalRoles, { temporalContext });
     const allocationRequests = normalizedIdentityRoleRequests(identityRoleRequests);
     const missingAllocationCapabilities = allocationRequests
         .filter((item) => !selected.includes(item.capabilityId));
@@ -290,6 +301,7 @@ export function buildAuthSessionPlan({
         identityRoleRequests: allocationRequests,
         identityAllocationRequestDigest: stableDigest(allocationRequests),
         temporalContext,
+        resolvedTemporalRoles,
         securityStateOwnership: 'forbidden',
         privateProjectionPolicy: 'opaque-ref-only'
     };

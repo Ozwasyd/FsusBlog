@@ -372,6 +372,10 @@ public sealed record AuthFixturePlan
     {
         get; init;
     }
+    public required JsonElement ResolvedTemporalRoles
+    {
+        get; init;
+    }
     public required string PlanDigest
     {
         get; init;
@@ -523,6 +527,23 @@ public sealed class AuthFixtureSeeder(
         RequireTestOnly();
         ValidatePlan(request);
         temporalRuntimeContext.RequireExactRequest(request.TemporalContext);
+        string resolvedDigest = request.ResolvedTemporalRoles
+            .GetProperty("contentDigest")
+            .GetString()
+            ?? throw new InvalidOperationException(
+                "resolved temporal role artifact contentDigest is required");
+        ResolvedTemporalRoleContext resolvedTemporalRoles =
+            ResolvedTemporalRoleContext.Parse(
+                request.ResolvedTemporalRoles.GetRawText(),
+                resolvedDigest);
+        if (resolvedTemporalRoles.ProducerId != ProducerId ||
+            resolvedTemporalRoles.SchedulerRunId != request.RunId ||
+            resolvedTemporalRoles.RequireInstant("session.created") !=
+                temporalRuntimeContext.BusinessEpochUtc)
+        {
+            throw new InvalidOperationException(
+                "resolved temporal roles do not exact-match the auth fixture plan");
+        }
 
         var entities = new List<AuthFixtureEntityObservation>();
         foreach (AuthFixtureRolePlan role in request.Roles)
@@ -570,7 +591,8 @@ public sealed class AuthFixtureSeeder(
                 businessEpochUtc = timeProvider.GetUtcNow().ToString(
                     "yyyy-MM-dd'T'HH:mm:ss.fff'Z'",
                     CultureInfo.InvariantCulture),
-                observationBoundary = "auth-fixture-backend-and-postgres-read-model"
+                observationBoundary = "auth-fixture-backend-and-postgres-read-model",
+                resolvedTemporalRoleArtifactDigest = resolvedTemporalRoles.ContentDigest
             });
     }
 
