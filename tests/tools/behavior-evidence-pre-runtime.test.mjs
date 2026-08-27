@@ -274,11 +274,18 @@ function makeParseReceipt({ catalog, claims = [] } = {})
     return { ...receipt, contentDigest: digestValue(receipt) };
 }
 
-function makeVerification({ catalog, parseReceipt, results = [], status = 'ok', failureReasons = [] } = {})
+function makeVerification({
+    catalog,
+    parseReceipt,
+    results = [],
+    status = 'ok',
+    failureReasons = [],
+    worktreeFingerprint = WORKTREE_FP
+} = {})
 {
     return sealDocClaimVerificationReceipt({
         sourceCommit: SOURCE_COMMIT,
-        worktreeFingerprint: WORKTREE_FP,
+        worktreeFingerprint,
         catalogDigest: catalogDigest(catalog),
         parseReceiptDigest: parseReceipt.contentDigest,
         factObservationDigests: [],
@@ -288,11 +295,17 @@ function makeVerification({ catalog, parseReceipt, results = [], status = 'ok', 
     });
 }
 
-function makeGenerated({ catalog, sections = [], status = 'ok', failureReasons = [] } = {})
+function makeGenerated({
+    catalog,
+    sections = [],
+    status = 'ok',
+    failureReasons = [],
+    worktreeFingerprint = WORKTREE_FP
+} = {})
 {
     return sealGeneratedSectionCheckReceipt({
         sourceCommit: SOURCE_COMMIT,
-        worktreeFingerprint: WORKTREE_FP,
+        worktreeFingerprint,
         catalogDigest: catalogDigest(catalog),
         sectionCatalogDigest: '8'.repeat(64),
         factObservationDigests: [],
@@ -302,21 +315,29 @@ function makeGenerated({ catalog, sections = [], status = 'ok', failureReasons =
     });
 }
 
-function makeStaticAdmission({ status = 'ok', candidateSpawnCount = 0, sourceCommit = SOURCE_COMMIT } = {})
+function makeStaticAdmission({
+    status = 'ok',
+    candidateSpawnCount = 0,
+    sourceCommit = SOURCE_COMMIT,
+    worktreeFingerprint = WORKTREE_FP,
+    nullFieldDigest = false
+} = {})
 {
     const receipt = {
         schema: 'fsusblog.behavior-doc-static-admission-receipt.v1',
         run: { id: 'run-1' },
         source: {
             commit: sourceCommit,
-            worktreeFingerprint: `sha256:${WORKTREE_FP}`
+            worktreeFingerprint: `sha256:${worktreeFingerprint}`
         },
         status,
         candidateSpawnCountBeforeReceipt: candidateSpawnCount,
         failureReasons: status === 'ok' ? [] : ['admission failure'],
         contentDigest: null
     };
-    receipt.contentDigest = digestReceipt(receipt);
+    receipt.contentDigest = nullFieldDigest
+        ? `sha256:${digestValue(receipt)}`
+        : digestReceipt(receipt);
     return receipt;
 }
 
@@ -514,6 +535,58 @@ test('happy path produces qualified pre-runtime receipt with stable digest', () 
         expectedCommit: SOURCE_COMMIT,
         expectedWorktreeFingerprint: WORKTREE_FP
     });
+});
+
+test('real static admission null-field digest and distinct static fingerprint qualify', () =>
+{
+    const staticFingerprint = '1'.repeat(64);
+    const inputs = happyBundle();
+    inputs.staticAdmissionReceipt = makeStaticAdmission({
+        worktreeFingerprint: staticFingerprint,
+        nullFieldDigest: true
+    });
+    inputs.docClaimVerificationReceipt = makeVerification({
+        catalog: inputs.catalog,
+        parseReceipt: inputs.docClaimParseReceipt,
+        results: [
+            makeVerificationResult('alpha-behavior', 'alpha.limit', 'limit', 'docs/alpha.md'),
+            makeVerificationResult('beta-behavior', 'beta.enabled', 'enabled', 'docs/beta.md')
+        ],
+        worktreeFingerprint: staticFingerprint
+    });
+    inputs.generatedSectionCheckReceipt = makeGenerated({
+        catalog: inputs.catalog,
+        worktreeFingerprint: staticFingerprint
+    });
+    inputs.factObservationReceipts = [
+        makeFact({
+            extractorId: 'alpha-fact-extractor',
+            behaviorIds: ['alpha-behavior'],
+            observations: { limit: 10 },
+            worktreeFingerprint: staticFingerprint
+        }),
+        makeFact({
+            extractorId: 'beta-fact-extractor',
+            behaviorIds: ['beta-behavior'],
+            observations: { enabled: true },
+            worktreeFingerprint: staticFingerprint
+        })
+    ];
+
+    assert.equal(join(inputs).status, 'ok');
+});
+
+test('static companion fingerprint drift from admission fails closed', () =>
+{
+    const inputs = happyBundle();
+    inputs.staticAdmissionReceipt = makeStaticAdmission({
+        worktreeFingerprint: '1'.repeat(64),
+        nullFieldDigest: true
+    });
+    assert.throws(
+        () => join(inputs),
+        /source identity does not match static admission source/u
+    );
 });
 
 test('counterexample 1: boundary test not executed but file exists fails gate and refuses runtime spawn', () =>
