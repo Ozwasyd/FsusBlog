@@ -15,6 +15,17 @@ const expectedAuthorities = new Map([
     ['immutable-build', { issue: 2654, producerId: 'immutable-build-semantic-outcome' }],
     ['release-projection', { issue: 2655, producerId: 'release-projection-semantic-outcome' }]
 ]);
+const candidateIdentityFields = Object.freeze([
+    'buildIdentity',
+    'executionEnvelopeDigest',
+    'producerId',
+    'replayPlanDigest',
+    'schedulerRunId',
+    'sourceCommit',
+    'temporalContextDigest',
+    'toolchainDigest',
+    'worktreeFingerprint'
+]);
 
 function sortedUnique(values, label)
 {
@@ -119,6 +130,36 @@ function identityMismatch(reference, field, expected, actual)
     });
 }
 
+function validateExpectedIdentity(identity)
+{
+    if (!identity || typeof identity !== 'object' || Array.isArray(identity)
+        || JSON.stringify(Object.keys(identity).sort()) !== JSON.stringify(candidateIdentityFields))
+    {
+        throw new Error(`candidate expected identity must exactly contain ${candidateIdentityFields.join(', ')}`);
+    }
+    for (const field of [
+        'buildIdentity',
+        'executionEnvelopeDigest',
+        'replayPlanDigest',
+        'temporalContextDigest',
+        'toolchainDigest',
+        'worktreeFingerprint'
+    ])
+    {
+        if (!digestPattern.test(String(identity[field] ?? '')))
+        {
+            throw new Error(`candidate expected identity ${field} must be SHA-256`);
+        }
+    }
+    if (!/^[0-9a-f]{40}$/u.test(String(identity.sourceCommit ?? ''))
+        || typeof identity.schedulerRunId !== 'string' || !identity.schedulerRunId
+        || typeof identity.producerId !== 'string' || !identity.producerId)
+    {
+        throw new Error('candidate expected source/run/producer identity is invalid');
+    }
+    return identity;
+}
+
 function verifyExternalCandidate(reference, consumer, verifyCandidate, expectedIdentity)
 {
     if (typeof verifyCandidate !== 'function')
@@ -185,6 +226,20 @@ export function admitSemanticOutcomeCleanAttempt({
     {
         throw new Error(`unknown semantic outcome consumer: ${consumerId}`);
     }
+    try
+    {
+        validateExpectedIdentity(expectedIdentity);
+    }
+    catch (error)
+    {
+        return Object.freeze({
+            schema: 'fsusblog.semantic-outcome-clean-attempt-admission.v1',
+            consumerId,
+            eligible: false,
+            reasons: Object.freeze([referenceError(error.message, candidateReference)]),
+            attemptVerdict: null
+        });
+    }
     const attemptVerdict = cleanFirstAttemptVerdict({
         ...attemptEvidence,
         expectedIdentity: {
@@ -221,7 +276,7 @@ export function admitSemanticOutcomeCleanAttempt({
         candidateReference,
         consumer,
         verifyCandidate,
-        expectedIdentity ?? {}
+        expectedIdentity
     );
     if (!candidate.verified)
     {
@@ -234,6 +289,23 @@ export function admitSemanticOutcomeCleanAttempt({
         });
     }
     const outcome = candidate.verification.outcome;
+    const outcomeShapeValid = ['blocked', 'cancelled', 'failed', 'success'].includes(outcome.status)
+        && (outcome.status === 'success'
+            ? outcome.requiredMembershipVerified === true && outcome.reasons.length === 0
+            : outcome.requiredMembershipVerified === false && outcome.reasons.length > 0);
+    if (!outcomeShapeValid)
+    {
+        return Object.freeze({
+            schema: 'fsusblog.semantic-outcome-clean-attempt-admission.v1',
+            consumerId,
+            eligible: false,
+            reasons: Object.freeze([referenceError(
+                `${candidateReference.producerId} canonical outcome status, membership, and reasons are inconsistent`,
+                candidateReference
+            )]),
+            attemptVerdict
+        });
+    }
     const successful = outcome.status === 'success'
         && outcome.requiredMembershipVerified === true
         && outcome.reasons.length === 0;

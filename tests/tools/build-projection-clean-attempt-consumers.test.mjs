@@ -121,7 +121,9 @@ function verifier(candidateReference, expectedIdentity, outcome = {
 function admit(consumer, attemptEvidence, options = {})
 {
     const candidateReference = options.candidateReference ?? reference(consumer);
-    const expectedIdentity = options.expectedIdentity ?? identity();
+    const expectedIdentity = Object.hasOwn(options, 'expectedIdentity')
+        ? options.expectedIdentity
+        : identity();
     const verifyCandidate = Object.hasOwn(options, 'verifyCandidate')
         ? options.verifyCandidate
         : verifier(
@@ -199,6 +201,8 @@ test('missing/tampered candidate and cross source, toolchain or authority identi
     const candidateReference = reference(consumer);
     const invalid = [
         { verifyCandidate: null },
+        { expectedIdentity: null },
+        { expectedIdentity: { sourceCommit } },
         {
             verifyCandidate: () => ({
                 verified: true,
@@ -221,6 +225,24 @@ test('missing/tampered candidate and cross source, toolchain or authority identi
             ...options
         });
         assert.equal(result.eligible, false);
+    }
+});
+
+test('candidate owner must return a closed and self-consistent semantic outcome', async (context) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-semantic-outcome-shape-'));
+    context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const attemptEvidence = await cleanEvidence(directory);
+    const consumer = readSemanticOutcomeConsumerInventory().consumers[0];
+    for (const outcome of [
+        { status: 'success', requiredMembershipVerified: true, reasons: [{ code: 'unexpected' }] },
+        { status: 'failed', requiredMembershipVerified: false, reasons: [] },
+        { status: 'unknown', requiredMembershipVerified: false, reasons: [{ code: 'unknown' }] }
+    ])
+    {
+        const result = admit(consumer, attemptEvidence, { outcome });
+        assert.equal(result.eligible, false);
+        assert.equal(result.reasons[0].code, 'candidate.external-authority-unverified');
     }
 });
 
