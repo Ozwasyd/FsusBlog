@@ -86,6 +86,31 @@ public sealed class AuthorizationAccessControlHardeningTests
     }
 
     [Fact]
+    public void AccountProfilePreferenceFixture_IsDevelopmentSecretLoopbackOnly_AndFailsClosedInProduction()
+    {
+        string runtimeShape = RuntimeMetadataInspection.DescribeType(
+            typeof(LocalAccountProfilePreferenceFixtureEndpoints));
+        Assert.Contains("IsDevelopment", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("RequireSecret", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("RequireLoopback", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("IPAddress.IsLoopback", runtimeShape, StringComparison.Ordinal);
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["fsus:allowAccountProfilePreferenceFixture"] = "true"
+            })
+            .Build();
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
+            configuration,
+            enforceProductionRules: true);
+        Assert.Contains(errors, static error => error.Contains(
+            "fsus:allowAccountProfilePreferenceFixture",
+            StringComparison.Ordinal));
+    }
+
+    [Fact]
     [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task UploadSessionOperations_UseOwnerBoundAccessWithoutEndpointPrevalidation()
     {

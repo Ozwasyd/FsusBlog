@@ -2292,6 +2292,18 @@
             "source": "tools/test-fixtures/producers/account-messaging-producer.mjs"
         },
         {
+            "producerId": "account-profile-preferences",
+            "source": "src/backend/Modules/Endpoints/LocalAccountProfilePreferenceFixtureEndpoints.cs"
+        },
+        {
+            "producerId": "account-profile-preferences",
+            "source": "src/backend/Services/Fixtures/AccountProfilePreferenceFixtureService.cs"
+        },
+        {
+            "producerId": "account-profile-preferences",
+            "source": "tools/test-fixtures/producers/account-profile-preference-producer.mjs"
+        },
+        {
             "producerId": "auth-session",
             "source": "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs"
         },

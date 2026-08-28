@@ -18,6 +18,14 @@
             "sourceFingerprint": "sha256:cf73c05402813328663f85bb51dea6f0e8d0e848df58c1329c52355d2de627f9"
         },
         {
+            "file": "src/backend/Services/Fixtures/AccountProfilePreferenceFixtureService.cs",
+            "owner": "TestFixtureAgent:account-profile-preferences",
+            "reason": "Temporary bounded profile and preference fixture aggregate while lifecycle ports are split along the existing profile and locale owner boundaries",
+            "expires": "2026-09-27",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/1717",
+            "sourceFingerprint": "sha256:3f548eb7a1a8424cc4b850b7fd41ea950f7b8dc81368d680231058ffbcf16af4"
+        },
+        {
             "file": "src/backend/Services/Fixtures/AuthFixtureSeeder.cs",
             "owner": "TestFixtureAgent:auth-session",
             "reason": "Temporary bounded aggregate while the auth fixture composition root is split along identity WebAuthn session and admin lifecycle ports",
@@ -48,6 +56,14 @@
             "expires": "2026-09-22",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2792",
             "sourceFingerprint": "sha256:975fc1f35417b2575fb01931577c683ebbda7caa585b3937a26a0ff39a501a3a"
+        },
+        {
+            "file": "tests/backend/Integration/AccountProfilePreferenceFixturePostgresTests.cs",
+            "owner": "TestFixtureAgent:account-profile-preferences",
+            "reason": "Temporary complete PostgreSQL lifecycle coverage bridge while profile preference and cleanup cases move into focused integration modules",
+            "expires": "2026-09-27",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/1717",
+            "sourceFingerprint": "sha256:f56895c8965069bdc6b773b8a648a7255c5fadb00431c4211e3678463923a817"
         },
         {
             "file": "tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs",
@@ -106,6 +122,14 @@
             "sourceFingerprint": "sha256:a617d65f153221a89af263d32b4ee27a0f34bfed53a390143a521631bf8db366"
         },
         {
+            "file": "tests/tools/account-profile-preference-producer.test.mjs",
+            "owner": "TestFixtureAgent:account-profile-preferences",
+            "reason": "Temporary producer contract coverage bridge while prepare verify cleanup and transport cases are split into focused modules",
+            "expires": "2026-09-27",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/1717",
+            "sourceFingerprint": "sha256:cf41593d3eba9f7401a1051326e4ddd1177b399baca5d9e4826120752a9301dc"
+        },
+        {
             "file": "tests/tools/auth-session-fixture-producer.test.mjs",
             "owner": "TestFixtureAgent:auth-session",
             "reason": "Temporary complete auth matrix coverage bridge while producer tests are split by allocation lifecycle and live ingress contracts",
@@ -127,7 +151,7 @@
             "reason": "Temporary DAG allocation coverage bridge while producer receipt and consumer identity wave tests are split into focused modules",
             "expires": "2026-09-27",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2150",
-            "sourceFingerprint": "sha256:3fec1cc467d30146298a861940cd20370a93e1e5a3808443cbf7ef5865614c74"
+            "sourceFingerprint": "sha256:8a1113dea99bac73a6d51023da1268bf5f87e0e65b4453c359324a21607e5435"
         },
         {
             "file": "tests/tools/local-production-profile.test.mjs",
@@ -183,7 +207,7 @@
             "reason": "Temporary fixture postcondition aggregate while temporal session invariants move into producer-scoped validators",
             "expires": "2026-09-27",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2530",
-            "sourceFingerprint": "sha256:faa4eeb2427dec775a1c86a06ec2076df13ca87bed7c273a2a6b118f12a04be3"
+            "sourceFingerprint": "sha256:cd2aa8a13d4ef8f694d19de35ca305998789bc651f003fcbc8712f19a2efa8a8"
         },
         {
             "file": "tools/test-inventory/xunit-roslyn-adapter/Program.cs",

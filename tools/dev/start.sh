@@ -122,6 +122,7 @@ REQUIRES_PUBLIC_FIXTURES="$(node -e 'const p=JSON.parse(process.argv[1]); proces
 REQUIRES_DEMO_SEED="$(node -e 'const p=JSON.parse(process.argv[1]); process.stdout.write(p.requiresDemoSeed ? "1" : "0")' "$PLAN_JSON")"
 CAPABILITY_IDS="$(node -e 'const p=JSON.parse(process.argv[1]); process.stdout.write((p.capabilities||[]).join(","))' "$PLAN_JSON")"
 PRODUCER_IDS="$(node -e 'const p=JSON.parse(process.argv[1]); process.stdout.write((p.producers||[]).join(","))' "$PLAN_JSON")"
+REQUIRES_ACCOUNT_PROFILE_PREFERENCES="$(node -e 'const p=JSON.parse(process.argv[1]); process.stdout.write((p.producers||[]).includes("account-profile-preferences") ? "1" : "0")' "$PLAN_JSON")"
 
 echo "[dev-start] planned fixture profile=${PROFILE_ID} source=dev-cli catalogDigest=${CATALOG_DIGEST} mutationPolicy=${MUTATION_POLICY}"
 echo "[dev-start] capabilities=${CAPABILITY_IDS:-<none>} producers=${PRODUCER_IDS:-<none>}"
@@ -285,6 +286,17 @@ else
     unset fsus__localAuthFixtureSecret || true
     unset FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET || true
     unset VITE_FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET || true
+fi
+
+if [[ "$REQUIRES_ACCOUNT_PROFILE_PREFERENCES" == "1" ]]; then
+    ACCOUNT_PROFILE_PREFERENCE_FIXTURE_SECRET="${FSUSBLOG_ACCOUNT_PROFILE_PREFERENCE_FIXTURE_SECRET:-local-development-account-profile-preference-fixture-secret-change-before-shared-use-2026}"
+    export FSUSBLOG_ACCOUNT_PROFILE_PREFERENCE_FIXTURE_SECRET="$ACCOUNT_PROFILE_PREFERENCE_FIXTURE_SECRET"
+    export fsus__allowAccountProfilePreferenceFixture=true
+    export fsus__accountProfilePreferenceFixtureSecret="$ACCOUNT_PROFILE_PREFERENCE_FIXTURE_SECRET"
+else
+    unset FSUSBLOG_ACCOUNT_PROFILE_PREFERENCE_FIXTURE_SECRET || true
+    export fsus__allowAccountProfilePreferenceFixture=false
+    unset fsus__accountProfilePreferenceFixtureSecret || true
 fi
 
 # Demo prepare is opt-in. Receipt-authorized cleanup has a separate gate so

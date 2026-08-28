@@ -15,6 +15,7 @@ import {
     runProcess,
     runTemporalProcess
 } from './spawn-helper.mjs';
+import { accountProfilePreferenceIdentityRoleRequests } from './account-profile-preference-producer.mjs';
 
 function catalogProducer(id, catalogs = readFixtureCatalogs())
 {
@@ -531,6 +532,43 @@ export function createAccountMessagingPort(catalogs = readFixtureCatalogs())
     });
 }
 
+export function createAccountProfilePreferencePort(catalogs = readFixtureCatalogs())
+{
+    const producer = catalogProducer('account-profile-preferences', catalogs);
+    return basePort(producer, {
+        identityRoleRequests: accountProfilePreferenceIdentityRoleRequests,
+        async prepare(context, signal)
+        {
+            assertNoStrategyEnv();
+            requireConsumedProducerOutputs(producer, context);
+            const { prepareAccountProfilePreferences } = await import(
+                './account-profile-preference-producer.mjs'
+            );
+            const result = await prepareAccountProfilePreferences(context, signal);
+            return {
+                ...result,
+                producerId: producer.id,
+                strategy: producer.strategy,
+                postconditions: [...producer.receiptPostconditions]
+            };
+        },
+        async verify(context, producerResult)
+        {
+            const { verifyAccountProfilePreferences } = await import(
+                './account-profile-preference-producer.mjs'
+            );
+            return verifyAccountProfilePreferences(context, producerResult);
+        },
+        async cleanup(context, producerResult, signal)
+        {
+            const { cleanupAccountProfilePreferences } = await import(
+                './account-profile-preference-producer.mjs'
+            );
+            await cleanupAccountProfilePreferences(context, producerResult, signal);
+        }
+    });
+}
+
 export function createCommentModerationPort(catalogs = readFixtureCatalogs())
 {
     return createStructuralBusinessPort(catalogProducer('comment-moderation', catalogs), 'commentModerationAdapter');
@@ -545,6 +583,7 @@ export function createDefaultProducerPorts(catalogs = readFixtureCatalogs())
         createDevelopmentDemoPort(catalogs),
         createScaleDataPort(catalogs),
         createSecurityStatePort(catalogs),
+        createAccountProfilePreferencePort(catalogs),
         createAccountMessagingPort(catalogs),
         createCommentModerationPort(catalogs)
     ];

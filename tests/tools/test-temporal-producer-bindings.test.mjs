@@ -33,8 +33,8 @@ function contextInput(overrides = {})
 test('every fixture inventory implementation has one canonical temporal binding', () =>
 {
     assert.deepEqual(validateTemporalProducerBindings(), {
-        producerCount: 7,
-        implementationCount: 19,
+        producerCount: 8,
+        implementationCount: 22,
         cutoverExclusionCount: 0,
         digest: validateTemporalProducerBindings().digest
     });

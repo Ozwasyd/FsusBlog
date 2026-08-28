@@ -970,6 +970,12 @@ public static class ProductionStartupValidator
         }
 
         if (enforceProductionRules
+            && configuration.GetValue<bool>(LocalAccountProfilePreferenceFixtureEndpoints.AllowConfigurationKey))
+        {
+            errors.Add("fsus:allowAccountProfilePreferenceFixture must be false outside Development.");
+        }
+
+        if (enforceProductionRules
             && configuration.GetValue<bool>(LocalPublicContentFixtureEndpoints.AllowLocalPublicContentFixtureConfigurationKey))
         {
             errors.Add("fsus:allowLocalPublicContentFixture must be false outside Development.");
