@@ -7233,6 +7233,14 @@ tiers:
       cpuWeight: 8
       memoryWeight: 3
       minCpuUnits: 4
+      cacheInputs:
+          [
+              tests/backend/Unit/PerceptionCharacterV3ArtifactPoolTests.cs,
+              tests/tools/perception-character-v3-redis-fixture.test.mjs,
+              tools/test/lanes/perception-character-v3-release-gate.sh,
+              tools/test/perception-character-v3-redis-fixture.sh,
+              tools/test/perception-redis-producer.mjs,
+          ]
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: true
