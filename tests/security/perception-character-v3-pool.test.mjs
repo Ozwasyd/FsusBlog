@@ -5,8 +5,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(new URL('../..', import.meta.url).pathname);
+const root = fileURLToPath(new URL('../..', import.meta.url));
 const command = path.join(root, 'tools/security/perception-character-v3-pool.mjs');
 const { buildSpokenPcm } = await import('../../tools/security/perception-character-v3-pool-media.mjs');
 
