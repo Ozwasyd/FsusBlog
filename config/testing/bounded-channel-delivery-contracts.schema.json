@@ -60,7 +60,14 @@
           },
           "evidenceSources": { "$ref": "#/$defs/references" },
           "proofTestIds": { "$ref": "#/$defs/references" },
-          "classProof": { "type": "object", "required": ["kind"] },
+          "classProof": {
+            "oneOf": [
+              { "$ref": "#/$defs/requiredProof" },
+              { "$ref": "#/$defs/bestEffortProof" },
+              { "$ref": "#/$defs/coalescibleProof" },
+              { "$ref": "#/$defs/replayableProof" }
+            ]
+          },
           "disposition": { "type": "string", "minLength": 1 },
           "implementationOwner": { "type": "string", "minLength": 1 },
           "authoritativeContracts": { "type": "array", "items": { "type": "string", "format": "uri" }, "uniqueItems": true }
@@ -79,6 +86,47 @@
       }
     },
     "references": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/reference" } },
+    "requiredProof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "durableSource", "replaySource"],
+      "properties": {
+        "kind": { "const": "required" },
+        "durableSource": { "$ref": "#/$defs/reference" },
+        "replaySource": { "$ref": "#/$defs/reference" }
+      }
+    },
+    "bestEffortProof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "productCapability", "impact", "productProof"],
+      "properties": {
+        "kind": { "const": "best-effort" },
+        "productCapability": { "type": "string", "minLength": 1 },
+        "impact": { "type": "string", "minLength": 1 },
+        "productProof": { "$ref": "#/$defs/reference" }
+      }
+    },
+    "coalescibleProof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "commutativeProof", "monotonicProof"],
+      "properties": {
+        "kind": { "const": "coalescible" },
+        "commutativeProof": { "$ref": "#/$defs/reference" },
+        "monotonicProof": { "$ref": "#/$defs/reference" }
+      }
+    },
+    "replayableProof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "executableSource", "postcondition"],
+      "properties": {
+        "kind": { "const": "replayable" },
+        "executableSource": { "$ref": "#/$defs/reference" },
+        "postcondition": { "$ref": "#/$defs/reference" }
+      }
+    },
     "disposition": {
       "type": "object",
       "additionalProperties": false,

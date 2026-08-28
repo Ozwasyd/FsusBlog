@@ -13,16 +13,22 @@ import {
 } from '../../tools/governance/bounded-channel-contracts.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+let discoveredCatalogQueues = null
 
 function catalog() {
   return JSON.parse(fs.readFileSync(defaultCatalogPath, 'utf8'))
+}
+
+function currentDiscovery() {
+  discoveredCatalogQueues ??= discoverBoundedChannels()
+  return discoveredCatalogQueues
 }
 
 function mutate(change) {
   const value = catalog()
   change(value)
   value.digest = deliveryCatalogDigest(value.queues)
-  return validateBoundedChannelCatalog(defaultCatalogPath, { catalog: value })
+  return validateBoundedChannelCatalog(defaultCatalogPath, { catalog: value, discovered: currentDiscovery() })
 }
 
 test('discovers direct, wrapped, and indirect bounded channel owners', () => {
@@ -30,6 +36,10 @@ test('discovers direct, wrapped, and indirect bounded channel owners', () => {
   const discovered = discoverBoundedChannels({ sources: new Map([[file, `
 using System.Threading.Channels;
 sealed class Fixture {
+  private const string RawExample = """Channel.CreateBounded<int>(1)""";
+  private const string VerbatimExample = @"Channel.CreateBounded<int>(1)";
+  private const string InterpolatedExample = $"Channel.CreateBounded<int>({1})";
+  // Channel<int> commented = Channel.CreateBounded<int>(1);
   Channel<int> direct = Channel.CreateBounded<int>(1);
   Channel<int> wrapped;
   Channel<int> indirect;
@@ -46,9 +56,9 @@ sealed class Fixture {
 })
 
 test('catalog is bidirectionally exact and emits successor dispositions', () => {
-  assert.deepEqual(validateBoundedChannelCatalog(), [])
+  assert.deepEqual(validateBoundedChannelCatalog(defaultCatalogPath, { discovered: currentDiscovery() }), [])
   const report = queueDispositionReport()
-  assert.equal(report.length, discoverBoundedChannels().length)
+  assert.equal(report.length, currentDiscovery().length)
   assert.ok(report.every((entry) => entry.disposition && entry.implementationOwner))
 })
 
@@ -68,6 +78,7 @@ test('rejects unknown owner and delivery class', () => {
 test('loaded schema rejects missing fields and additional properties', () => {
   assert.match(mutate((value) => { delete value.queues[0].failureSemantics }).join('\n'), /missing required property failureSemantics/u)
   assert.match(mutate((value) => { value.queues[0].wildcardSuppression = '*' }).join('\n'), /additional property wildcardSuppression/u)
+  assert.match(mutate((value) => { value.queues[0].classProof.wildcardSuppression = '*' }).join('\n'), /must match exactly one schema variant/u)
 })
 
 test('rejects incomplete class-specific proofs', () => {
@@ -89,7 +100,7 @@ test('Wait plus TryWrite requires an explicit disposition', () => {
 })
 
 test('a newly discovered bounded channel fails closed until cataloged', () => {
-  const discovered = discoverBoundedChannels()
+  const discovered = [...currentDiscovery()]
   discovered.push({ discoveryKey: 'src/backend/FutureQueue.cs#FutureQueue._channel', file: 'src/backend/FutureQueue.cs', ownerType: 'FutureQueue', target: '_channel', creationKind: 'direct', factory: null, line: 4 })
   assert.match(validateBoundedChannelCatalog(defaultCatalogPath, { discovered }).join('\n'), /missing from catalog: .*FutureQueue/u)
 })
@@ -102,14 +113,18 @@ test('PublicHot references authoritative contracts without copied authority', ()
 test('stable ordering and digest reject reorder or content drift', () => {
   const value = catalog()
   value.queues.reverse()
-  assert.match(validateBoundedChannelCatalog(defaultCatalogPath, { catalog: value }).join('\n'), /stable queueId ordering/u)
+  assert.match(validateBoundedChannelCatalog(defaultCatalogPath, { catalog: value, discovered: currentDiscovery() }).join('\n'), /stable queueId ordering/u)
   const clean = catalog()
   clean.queues[0].disposition += '-drift'
-  assert.match(validateBoundedChannelCatalog(defaultCatalogPath, { catalog: clean }).join('\n'), /digest does not match/u)
+  assert.match(validateBoundedChannelCatalog(defaultCatalogPath, { catalog: clean, discovered: currentDiscovery() }).join('\n'), /digest does not match/u)
 })
 
 test('published JSON schema owns the catalog shape', () => {
   const schema = JSON.parse(fs.readFileSync(path.join(root, 'config/testing/bounded-channel-delivery-contracts.schema.json'), 'utf8'))
   assert.equal(schema.$id, 'https://fsus.blog/schemas/testing/bounded-channel-delivery-contracts.schema.json')
   assert.deepEqual(schema.properties.queues.items.properties.deliveryClass.enum, ['required', 'best-effort', 'coalescible', 'replayable'])
+  assert.deepEqual(
+    schema.properties.queues.items.properties.classProof.oneOf.map((entry) => entry.$ref),
+    ['#/$defs/requiredProof', '#/$defs/bestEffortProof', '#/$defs/coalescibleProof', '#/$defs/replayableProof']
+  )
 })

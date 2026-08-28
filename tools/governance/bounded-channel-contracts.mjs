@@ -5,6 +5,8 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import { maskCSharp } from '../architecture/backend-physical-topology/csharp-mask.mjs'
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 export const defaultCatalogPath = path.join(root, 'config/testing/bounded-channel-delivery-contracts.json')
 const deliveryClasses = new Set(['required', 'best-effort', 'coalescible', 'replayable'])
@@ -24,43 +26,6 @@ function sourceFiles(directory) {
     else if (entry.isFile() && entry.name.endsWith('.cs')) files.push(absolute)
   }
   return files.sort()
-}
-
-function maskTrivia(source) {
-  let output = ''
-  let index = 0
-  let state = 'code'
-  while (index < source.length) {
-    const current = source[index]
-    const next = source[index + 1]
-    if (state === 'code' && current === '/' && next === '/') {
-      output += '  '; index += 2; state = 'line'; continue
-    }
-    if (state === 'code' && current === '/' && next === '*') {
-      output += '  '; index += 2; state = 'block'; continue
-    }
-    if (state === 'code' && current === '"') {
-      output += ' '; index++; state = 'string'; continue
-    }
-    if (state === 'line') {
-      output += current === '\n' ? '\n' : ' '; index++
-      if (current === '\n') state = 'code'
-      continue
-    }
-    if (state === 'block') {
-      if (current === '*' && next === '/') { output += '  '; index += 2; state = 'code'; continue }
-      output += current === '\n' ? '\n' : ' '; index++; continue
-    }
-    if (state === 'string') {
-      if (current === '\\') { output += '  '; index += 2; continue }
-      output += current === '\n' ? '\n' : ' '; index++
-      if (current === '"') state = 'code'
-      continue
-    }
-    output += current
-    index++
-  }
-  return output
 }
 
 function matchingBrace(source, open) {
@@ -126,7 +91,7 @@ export function discoverBoundedChannels({ sourceRoot = path.join(root, 'src'), s
     : sourceFiles(sourceRoot).map((file) => ({ file: repositoryPath(file), source: fs.readFileSync(file, 'utf8') }))
   const discovered = []
   for (const document of documents.sort((left, right) => left.file.localeCompare(right.file))) {
-    const masked = maskTrivia(document.source)
+    const masked = maskCSharp(document.source)
     const factories = channelFactories(masked)
     const directPattern = /\bChannel\s*\.\s*CreateBounded\s*</gu
     for (const match of masked.matchAll(directPattern)) {
@@ -181,6 +146,12 @@ function validateSchemaValue(schemaRoot, schema, value, location = '$') {
   if (schema.$ref) {
     const target = schema.$ref.split('/').slice(1).reduce((current, key) => current?.[key], schemaRoot)
     return target ? validateSchemaValue(schemaRoot, target, value, location) : [`${location} has unresolved schema reference ${schema.$ref}`]
+  }
+  if (schema.oneOf) {
+    const matches = schema.oneOf
+      .map((candidate) => validateSchemaValue(schemaRoot, candidate, value, location))
+      .filter((candidateErrors) => candidateErrors.length === 0)
+    return matches.length === 1 ? [] : [`${location} must match exactly one schema variant`]
   }
   const errors = []
   if (schema.const !== undefined && value !== schema.const) errors.push(`${location} must equal ${schema.const}`)
