@@ -113,6 +113,7 @@ RUN ln -sfn ../lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepac
 
 FROM fsusui-build-tools AS wasm-builder
 ARG VCPKG_COMMIT
+ARG FSUSBLOG_WASM_CACHE_IDENTITY=e47619f7dafc7f6ab823daf36e1bd97c8f6f38db6333154e46d9110068daaa9e
 WORKDIR /work
 
 RUN git clone https://github.com/microsoft/vcpkg.git /opt/vcpkg && \
@@ -121,11 +122,20 @@ RUN git clone https://github.com/microsoft/vcpkg.git /opt/vcpkg && \
     test "$(git rev-parse HEAD)" = "${VCPKG_COMMIT}" && \
     /opt/vcpkg/bootstrap-vcpkg.sh -disableMetrics
 
+ENV FSUSBLOG_DEPENDENCY_CACHE_ROOT=/.tmp/dependency-cache \
+    FSUSBLOG_EM_CACHE=/.cache/emscripten \
+    EM_CACHE=/.cache/emscripten \
+    VCPKG_DOWNLOADS=/.cache/vcpkg/downloads \
+    VCPKG_DEFAULT_BINARY_CACHE=/.cache/vcpkg/archives
+
 COPY tools/vcpkg-overlays/ /work/tools/vcpkg-overlays/
 COPY tools/frontend/ /work/tools/frontend/
 COPY tools/frontend/ /tools/frontend/
 
-RUN bash -lc 'set -euo pipefail; \
+RUN --mount=type=cache,id=fsusblog-vcpkg-downloads-${FSUSBLOG_WASM_CACHE_IDENTITY}-${VCPKG_COMMIT},target=/.cache/vcpkg/downloads,sharing=locked \
+    --mount=type=cache,id=fsusblog-vcpkg-archives-${FSUSBLOG_WASM_CACHE_IDENTITY}-${VCPKG_COMMIT},target=/.cache/vcpkg/archives,sharing=locked \
+    --mount=type=cache,id=fsusblog-emscripten-${FSUSBLOG_WASM_CACHE_IDENTITY}-${VCPKG_COMMIT},target=/.cache/emscripten,sharing=locked \
+    bash -lc 'set -euo pipefail; \
   export PATH="/opt/vcpkg:${PATH}"; \
   export VCPKG_ROOT="/opt/vcpkg"; \
   bash /work/tools/frontend/install-wasm-codec-deps.sh'
@@ -133,8 +143,7 @@ RUN bash -lc 'set -euo pipefail; \
 # Align wasm-builder CMake with the pinned release toolchain contract
 # (tools/frontend/ensure-cmake.sh -> CMAKE_VERSION=4.3.3) instead of the
 # distro apt cmake shipped by the emsdk base image.
-RUN --mount=type=cache,id=fsusblog-wasm-dependency,target=/.tmp/dependency-cache,sharing=locked \
-    FSUSBLOG_DEPENDENCY_CACHE_ROOT=/.tmp/dependency-cache \
+RUN --mount=type=cache,id=fsusblog-wasm-dependency-${FSUSBLOG_WASM_CACHE_IDENTITY}-${VCPKG_COMMIT},target=/.tmp/dependency-cache,sharing=locked \
     bash /work/tools/frontend/ensure-cmake.sh
 ENV FSUSBLOG_WASM_CMAKE=/.tmp/dependency-cache/cmake/4.3.3/bin/cmake
 
@@ -149,8 +158,10 @@ ENV FSUSBLOG_FRONTEND_WASM_ROOT=/work/src/frontend/public/wasm
 ENV FSUSBLOG_REPOSITORY_ROOT=/work
 ENV FSUSBLOG_ZK_PRODUCTION_ENABLED=${FSUSBLOG_ZK_PRODUCTION_ENABLED}
 
-RUN --mount=type=cache,id=fsusblog-wasm-dependency,target=/.tmp/dependency-cache,sharing=locked \
-    --mount=type=cache,id=fsusblog-emscripten,target=/.cache/emscripten,sharing=locked \
+RUN --mount=type=cache,id=fsusblog-wasm-dependency-${FSUSBLOG_WASM_CACHE_IDENTITY}-${VCPKG_COMMIT},target=/.tmp/dependency-cache,sharing=locked \
+    --mount=type=cache,id=fsusblog-emscripten-${FSUSBLOG_WASM_CACHE_IDENTITY}-${VCPKG_COMMIT},target=/.cache/emscripten,sharing=locked \
+    --mount=type=cache,id=fsusblog-vcpkg-downloads-${FSUSBLOG_WASM_CACHE_IDENTITY}-${VCPKG_COMMIT},target=/.cache/vcpkg/downloads,sharing=locked \
+    --mount=type=cache,id=fsusblog-vcpkg-archives-${FSUSBLOG_WASM_CACHE_IDENTITY}-${VCPKG_COMMIT},target=/.cache/vcpkg/archives,sharing=locked \
     bash -lc 'set -euo pipefail; \
   export PATH="/opt/vcpkg:${PATH}"; \
   export VCPKG_ROOT="/opt/vcpkg"; \

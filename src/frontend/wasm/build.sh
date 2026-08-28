@@ -202,7 +202,7 @@ rm -f \
 
 if [[ -n "${FSUSBLOG_EM_CACHE:-}" ]]; then
     export EM_CACHE="${FSUSBLOG_EM_CACHE}"
-else
+elif [[ -z "${EM_CACHE:-}" ]]; then
     # Keep Emscripten's compiler cache on a physical repository path. The test
     # artifact root may be a tmpfs symlink on disk-constrained hosts; Emscripten
     # otherwise emits SDK source paths relative to the symlink spelling and
