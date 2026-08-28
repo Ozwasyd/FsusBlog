@@ -445,6 +445,33 @@
             "reason": "The compiled runtime-role observation producer and its JavaScript adapter must preserve their exact external artifact spelling while internal C# and JavaScript symbols remain governed by the repository mapping."
         },
         {
+            "id": "active-release-protection-authority",
+            "authorityExceptionId": "json-api-field",
+            "paths": [
+                "config/deployment/destructive-operation-authority.json",
+                "tools/deployment/check-destructive-operation-authority.mjs",
+                "tools/deployment/destructive-operation-authority.mjs",
+                "tools/deployment/release-rollout.sh",
+                "tools/deployment/slot-start.sh",
+                "tools/deployment/slot-stop.sh",
+                "tools/deployment/verify-destructive-operation.mjs",
+                "tools/storage/gc-release-assets.mjs",
+                "tools/storage/release-gc.mjs"
+            ],
+            "externalPattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "fsusblog.destructive-operation-authority.v1",
+                "internal": "destructiveOperationAuthority"
+            },
+            "negative": {
+                "external": "fsusblog.destructive-operation-authority.v1",
+                "internal": "fsusblog.destructive-operation-authority.v1"
+            },
+            "reason": "The active-release destructive-operation authority and its exact deployment and storage consumers must preserve their existing external JSON, CLI, environment and shell identifiers while internal JavaScript and Shell symbols remain governed by the repository mapping."
+        },
+        {
             "id": "dotnet-configuration-environment",
             "authorityExceptionId": "environment-variable",
             "paths": [
