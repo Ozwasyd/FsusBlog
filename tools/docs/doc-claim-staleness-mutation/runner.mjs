@@ -479,7 +479,8 @@ function makeFact({
     status = 'ok',
     failureReasons = [],
     sourceCommit = SOURCE_COMMIT,
-    worktreeFingerprint = WORKTREE_FP
+    worktreeFingerprint = WORKTREE_FP,
+    registryDigest
 } = {})
 {
     return sealReceipt(buildReceipt({
@@ -489,7 +490,7 @@ function makeFact({
         worktreeFingerprint,
         buildIdentity: null,
         extractorDigest: 'c'.repeat(64),
-        registryDigest: 'd'.repeat(64),
+        registryDigest,
         consumedInputDigests: [{ path: 'tools/alpha/extract.mjs', digest: 'e'.repeat(64) }],
         observations,
         status,
@@ -850,15 +851,35 @@ function buildGraphBundle(graphMutation)
         throw new Error(`unknown graph mutation ${graphMutation}`)
     }
 
+    const factExtractorRegistry = {
+        schema: 'fsusblog.behavior-fact-extractor-registry.v1',
+        digestAlgorithm: 'sha256',
+        canonicalSerialization: 'json-utf8-v1',
+        extractors: catalog.extractors.map((entry) => ({
+            id: entry.id,
+            kind: 'canonical-catalog',
+            entrypoint: entry.path,
+            consumedInputs: [entry.path],
+            outputSchema: 'fsusblog.fact-observation-receipt.v1',
+            requiredBuildArtifact: null,
+            hermeticPolicy: 'declared-inputs',
+            ownedBehaviorIds: catalog.contracts
+                .filter((contract) => contract.factExtractorId === entry.id)
+                .map((contract) => contract.id)
+        }))
+    }
+    const registryDigest = digestValue(factExtractorRegistry)
     const alphaFact = makeFact({
         extractorId: 'alpha-fact-extractor',
         behaviorIds: ['alpha-behavior'],
-        observations: { limit: 10 }
+        observations: { limit: 10 },
+        registryDigest
     })
     const betaFact = makeFact({
         extractorId: 'beta-fact-extractor',
         behaviorIds: ['beta-behavior'],
-        observations: { enabled: true }
+        observations: { enabled: true },
+        registryDigest
     })
     const facts = [alphaFact, betaFact]
     const parseReceipt = makeParseReceipt({ catalog, claims })
@@ -893,6 +914,7 @@ function buildGraphBundle(graphMutation)
         reasonCode,
         inputs: {
             catalog,
+            factExtractorRegistry,
             ownerReceipt: owner,
             factObservationReceipts: facts,
             testEvidenceReceipt: testEvidence,

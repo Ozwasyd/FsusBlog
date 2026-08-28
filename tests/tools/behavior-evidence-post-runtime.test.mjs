@@ -71,6 +71,8 @@ function preRuntime(behaviorCatalog)
         scope: 'pre-runtime',
         runIdentity: runId,
         sourceIdentity: { commit, worktreeFingerprint: `sha256:${worktreeFingerprint}` },
+        buildIdentities: {},
+        registryDigest: `sha256:${'3'.repeat(64)}`,
         catalogDigest: `sha256:${digestCatalog(behaviorCatalog)}`,
         staticClaimVerificationDigest: `sha256:${'c'.repeat(64)}`,
         behaviorIds: [],
