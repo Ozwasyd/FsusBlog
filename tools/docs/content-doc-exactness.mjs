@@ -176,7 +176,7 @@ export function runContentNegativeClasses({ repositoryRoot = root, observationRe
         const marker = parseGeneratedMarkers(source, section.documentPath)
             .find((entry) => entry.sectionId === sectionId)
         if (!marker) throw new Error(`missing generated marker ${sectionId}`)
-        const actual = marker.body.replace(/\n+$/u, '')
+        const actual = marker.existingBody.replace(/\n+$/u, '')
         if (actual !== expected) throw new Error(`generated section drift detected for ${sectionId}`)
     }))
 
@@ -318,7 +318,14 @@ export function produceTerminalReceipt({
     assertComponentSeal(generated, 'generated receipt')
     assertTerminalSeal(mutation)
     if (mutation.schema !== mutationSchema || mutation.status !== 'ok'
-        || mutation.counts?.killed !== negativeClassIds.length || mutation.counts?.survived !== 0)
+        || mutation.observationDigest !== observation.contentDigest
+        || mutation.counts?.required !== negativeClassIds.length
+        || mutation.counts?.killed !== negativeClassIds.length
+        || mutation.counts?.survived !== 0
+        || mutation.warnings?.length !== 0
+        || stableSorted(mutation.cases?.map((entry) => entry.id) ?? []).join('\0')
+            !== stableSorted(negativeClassIds).join('\0')
+        || mutation.cases.some((entry) => entry.status !== 'killed'))
     {
         throw new Error('content mutation receipt is incomplete')
     }
@@ -352,22 +359,56 @@ export function produceTerminalReceipt({
     const residues = scanContentResidues(repositoryRoot)
     if (residues.length > 0) throw new Error(`content residue remains: ${JSON.stringify(residues[0])}`)
 
-    const rows = claims.map((claim) => ({
-        behaviorId: BehaviorId(contentBehaviorId),
-        domain: 'content',
-        currentAuthority: claim.location.documentPath,
-        current: currentDocuments.has(claim.location.documentPath),
-        claimId: claim.declaration.claimId,
-        claimType: claim.declaration.claimType === 'generated-section' ? 'generated-section' : 'prose-claim',
-        generatedSectionId: claim.declaration.generatedSectionId ?? null,
-        factPath: claim.declaration.factPath ?? null,
-        headingPath: claim.location.headingPath,
-        sourceRange: [claim.location.claimStartLine, claim.location.bodyEndLine ?? claim.location.claimEndLine],
-        documentDigest: digestPath(repositoryRoot, claim.location.documentPath),
-        observationDigest: observation.contentDigest,
-        verifierDigest: claim.declaration.claimType === 'generated-section' ? generated.contentDigest : prose.contentDigest,
-        mutationEvidenceDigest: mutation.contentDigest
-    })).sort((left, right) => left.claimId.localeCompare(right.claimId))
+    const sectionsById = new Map(inputs.sectionCatalog.sections.map((section) => [section.sectionId, section]))
+    const documentCache = new Map()
+    const documentSource = (documentPath) =>
+    {
+        if (!documentCache.has(documentPath))
+        {
+            documentCache.set(documentPath, readFileSync(path.join(repositoryRoot, documentPath), 'utf8'))
+        }
+        return documentCache.get(documentPath)
+    }
+    const lineAt = (source, index) => source.slice(0, index).split('\n').length
+    const rows = claims.map((claim) =>
+    {
+        const generatedClaim = claim.declaration.claimType === 'generated-section'
+        const section = generatedClaim ? sectionsById.get(claim.declaration.generatedSectionId) : null
+        if (generatedClaim && !section) throw new Error(`missing section for ${claim.declaration.claimId}`)
+        const source = documentSource(claim.location.documentPath)
+        const marker = generatedClaim
+            ? parseGeneratedMarkers(source, claim.location.documentPath)
+                .find((entry) => entry.sectionId === claim.declaration.generatedSectionId)
+            : null
+        if (generatedClaim && !marker) throw new Error(`missing marker for ${claim.declaration.claimId}`)
+        const factPath = generatedClaim ? section.factPath : claim.declaration.factPath
+        const fact = resolveFactPath(observation.observations, factPath)
+        return {
+            behaviorId: BehaviorId(contentBehaviorId),
+            domain: 'content',
+            currentAuthority: claim.location.documentPath,
+            current: currentDocuments.has(claim.location.documentPath),
+            claimId: claim.declaration.claimId,
+            claimType: generatedClaim ? 'generated-section' : 'prose-claim',
+            semanticClaimType: claim.declaration.claimType,
+            generatedSectionId: claim.declaration.generatedSectionId ?? null,
+            extractorId: generatedClaim ? section.extractorId : observation.extractorId,
+            factPath,
+            headingPath: claim.location.headingPath,
+            sourceRange: generatedClaim
+                ? [lineAt(source, marker.beginIndex), lineAt(source, marker.endIndex)]
+                : [claim.location.claimStartLine, claim.location.bodyEndLine ?? claim.location.claimEndLine],
+            renderedDigest: digestValue(generatedClaim ? marker.existingBody : claim.location.bodyText),
+            sourceOwners: fact?.sourceRanges == null
+                ? []
+                : Object.values(fact.sourceRanges).map((entry) => `${entry.owner}:${entry.range}`).sort(),
+            proofTests: Array.isArray(fact?.proofTests) ? [...fact.proofTests].sort() : [],
+            documentDigest: digestPath(repositoryRoot, claim.location.documentPath),
+            observationDigest: observation.contentDigest,
+            verifierDigest: generatedClaim ? generated.contentDigest : prose.contentDigest,
+            mutationEvidenceDigest: mutation.contentDigest
+        }
+    }).sort((left, right) => left.claimId.localeCompare(right.claimId))
 
     return seal({
         schema: terminalSchema,

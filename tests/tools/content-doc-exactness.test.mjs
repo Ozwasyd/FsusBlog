@@ -49,6 +49,20 @@ test('thirteen content exactness degradation classes are independently killed', 
     const cases = runContentNegativeClasses({ observationReceipt: await currentContentObservation() })
     assert.deepEqual(cases.map((entry) => entry.id).sort(), [...negativeClassIds].sort())
     assert.equal(cases.every((entry) => entry.status === 'killed'), true)
+    for (const id of [
+        'required-outbox-edge-drift',
+        'article-transition-reversal',
+        'comment-public-admin-visibility-drift',
+        'reply-notification-condition-drift',
+        'privacy-forbidden-field-drift'
+    ])
+    {
+        assert.match(cases.find((entry) => entry.id === id).reason, /generated section drift detected/u)
+    }
+    assert.match(
+        cases.find((entry) => entry.id === 'rollback-restore-delete-coordinate-omission').reason,
+        /PROSE_(?:RELATION_MISMATCH|CLAIM_REQUIRED_TOKEN_MISSING)/u
+    )
 })
 
 test('generated and prose exactness stay distinct at repository scale', async () =>
