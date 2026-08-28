@@ -130,7 +130,13 @@ public sealed class SchemaMigrationRunner(
                 "customization_profile",
                 "customization_version",
                 "customization_draft",
-                "customization_change_set"
+                "customization_change_set",
+                "authoring_canvas_document",
+                "authoring_canvas_node",
+                "authoring_canvas_frame_member",
+                "authoring_canvas_edge",
+                "authoring_canvas_receipt",
+                "authoring_canvas_idempotency"
             ],
             cancellationToken).ConfigureAwait(false);
 
