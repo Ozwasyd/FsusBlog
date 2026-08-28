@@ -104,6 +104,23 @@ describe('FilterHeader', () => {
     wrapper.unmount()
   })
 
+  it('renders description markup as plain text', () => {
+    const wrapper = mount(FilterHeader, {
+      props: {
+        view: createHeaderView({
+          description: '<strong>架构设计</strong>'
+        })
+      },
+      global
+    })
+
+    const desc = wrapper.get('p.mt-4')
+    expect(desc.text()).toBe('<strong>架构设计</strong>')
+    expect(desc.find('strong').exists()).toBe(false)
+
+    wrapper.unmount()
+  })
+
   it('renders skeleton and no title or description when loadingMeta is true', () => {
     const wrapper = mount(FilterHeader, {
       props: {
