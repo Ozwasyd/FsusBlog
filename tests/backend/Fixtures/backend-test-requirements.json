@@ -670,6 +670,7 @@
         "tools/security/check-security-matrices.mjs",
         "tools/test/lanes/privacy-zk-comment-matrix.sh",
         "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
+        "tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs",
         "tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts",
         "tests/frontend/unit/privacy/commentPrivacyWorkerClient.test.ts",
         "tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts",
