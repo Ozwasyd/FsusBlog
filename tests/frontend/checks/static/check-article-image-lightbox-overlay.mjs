@@ -84,7 +84,7 @@ export function findArticleImageLightboxOverlayViolations(options = {})
         violations.push(`${BARREL_PATH}: must re-export the stable overlay adapter`);
     }
 
-    if (!lightbox.includes('FsusUiOverlay') || !lightbox.includes("from '@/fsusui/overlay'"))
+    if (!/<FsusUiOverlay\b/u.test(lightbox) || !lightbox.includes("from '@/fsusui/overlay'"))
     {
         violations.push(`${LIGHTBOX_PATH}: must render scrim/viewport through FsusUiOverlay adapter`);
     }
@@ -157,9 +157,21 @@ export function findLightboxSourceViolations(relativePath, source)
                 violations.push(`${relativePath}: forbidden residue ${rule.id}`);
             }
         }
-        if (!source.includes('FsusUiOverlay'))
+        if (!/<FsusUiOverlay\b/u.test(source))
         {
             violations.push(`${relativePath}: missing FsusUiOverlay root`);
+        }
+        if (!/min-height:\s*var\(--fsus-viewport-block-size\)/u.test(source))
+        {
+            violations.push(`${relativePath}: lightbox root must consume the viewport block-size token`);
+        }
+        if (!/padding:\s*max\(1\.5rem,\s*var\(--fsus-safe-area-inset-top\)\)\s*max\(1\.5rem,\s*var\(--fsus-safe-area-inset-right\)\)\s*max\(1\.5rem,\s*var\(--fsus-safe-area-inset-bottom\)\)\s*max\(1\.5rem,\s*var\(--fsus-safe-area-inset-left\)\)/u.test(source))
+        {
+            violations.push(`${relativePath}: lightbox root padding must consume all safe-area tokens`);
+        }
+        if (!/\.article-image-lightbox__close\s*\{[^}]*top:\s*max\(1rem,\s*var\(--fsus-safe-area-inset-top\)\)/su.test(source))
+        {
+            violations.push(`${relativePath}: close control must keep its safe-area top offset`);
         }
     }
 
@@ -169,6 +181,7 @@ export function findLightboxSourceViolations(relativePath, source)
 function runLiveCheck()
 {
     const failures = [...findArticleImageLightboxOverlayViolations()];
+    const lightbox = read(repoRoot, LIGHTBOX_PATH);
     let mutationProofs = 0;
 
     const assertMutationRejected = (label, messages) =>
@@ -239,9 +252,52 @@ function runLiveCheck()
         )
     );
 
-    if (mutationProofs < 5)
+    assertMutationRejected(
+        'production-container-padding',
+        findLightboxSourceViolations(
+            LIGHTBOX_PATH,
+            lightbox.replace(
+                /padding:\s*max\(1\.5rem,\s*var\(--fsus-safe-area-inset-top\)\)\s*max\(1\.5rem,\s*var\(--fsus-safe-area-inset-right\)\)\s*max\(1\.5rem,\s*var\(--fsus-safe-area-inset-bottom\)\)\s*max\(1\.5rem,\s*var\(--fsus-safe-area-inset-left\)\);/u,
+                'padding: 0;'
+            )
+        )
+    );
+
+    assertMutationRejected(
+        'production-control-offset',
+        findLightboxSourceViolations(
+            LIGHTBOX_PATH,
+            lightbox.replace(
+                'top: max(1rem, var(--fsus-safe-area-inset-top));',
+                'top: 0;'
+            )
+        )
+    );
+
+    assertMutationRejected(
+        'production-viewport-token',
+        findLightboxSourceViolations(
+            LIGHTBOX_PATH,
+            lightbox.replace(
+                'min-height: var(--fsus-viewport-block-size);',
+                'min-height: 100%;'
+            )
+        )
+    );
+
+    assertMutationRejected(
+        'production-overlay-root',
+        findLightboxSourceViolations(
+            LIGHTBOX_PATH,
+            lightbox
+                .replace('<FsusUiOverlay', '<div')
+                .replace('</FsusUiOverlay>', '</div>')
+        )
+    );
+
+    if (mutationProofs < 9)
     {
-        failures.push(`expected 5 mutation proofs, got ${mutationProofs}`);
+        failures.push(`expected 9 mutation proofs, got ${mutationProofs}`);
     }
 
     if (failures.length > 0)
