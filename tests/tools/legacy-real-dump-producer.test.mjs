@@ -155,3 +155,11 @@ test('Passed runtime evidence binds restore, two migrations, postconditions and 
     /PostgreSQL identity drifted/u
   )
 })
+
+test('the compatibility verifier delegates to the only dotnet producer', () => {
+  const producer = fs.readFileSync(path.join(root, 'tools/test/run-legacy-real-dump-producer.mjs'), 'utf8')
+  const verifier = fs.readFileSync(path.join(root, 'tools/db/verify-legacy-upgrade-20260517.sh'), 'utf8')
+  assert.equal((producer.match(/'dotnet'/gu) ?? []).length, 1)
+  assert.doesNotMatch(verifier, /dotnet test/u)
+  assert.match(verifier, /node tools\/test\/run-legacy-real-dump-producer\.mjs/u)
+})

@@ -17,6 +17,7 @@ RequireCommand() {
 RequireCommand gzip
 RequireCommand docker
 RequireCommand dotnet
+RequireCommand node
 
 if [[ ! -f "$DUMP_PATH" ]]; then
     echo "legacy dump not found: $DUMP_PATH" >&2
@@ -29,7 +30,7 @@ gzip -cd "$DUMP_PATH" >"$DECOMPRESSED_DUMP"
 
 (
     cd "$ROOT_DIR"
-    FSUS_LEGACY_20260517_DUMP="$DECOMPRESSED_DUMP" \
-        dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
-        --filter "FullyQualifiedName~RunAsync_UpgradesLegacy20260517RealDump_WhenProvided"
+    FSUS_ENABLE_LEGACY_DUMP_TESTS="1" \
+        FSUS_LEGACY_20260517_DUMP="$DECOMPRESSED_DUMP" \
+        node tools/test/run-legacy-real-dump-producer.mjs
 )
