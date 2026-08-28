@@ -291,14 +291,27 @@ public sealed class AuthRiskControlEndpointContractTests(
     }
 
     [Fact]
+    [Trait("Category", "SecurityStateMachine")]
     public async Task TestServer_BannedAccountBlocksNormalWriteButAllowsExplicitRestrictedAction()
     {
-        using EndpointSecurityTestServer server = EndpointSecurityTestServer.Create(
-            new EndpointSecurityTestServerOptions { AccountBanned = true });
+        using EndpointSecurityTestServer server = EndpointSecurityTestServer.Create();
         using HttpClient client = CreateIsolatedClient(server);
+        string accessToken = server.IssueAnonymousAccountAccessToken();
 
-        using var blockedWrite = new HttpRequestMessage(HttpMethod.Post, "/api/binary/comment");
-        EndpointSecurityTestServer.AddAnonymousAccount(blockedWrite);
+        using var activeWrite = new HttpRequestMessage(HttpMethod.Delete, "/api/binary/comment/73?reason=test");
+        EndpointSecurityTestServer.AddAnonymousAccountAccessToken(activeWrite, accessToken);
+        EndpointSecurityTestServer.AddPowProof(activeWrite);
+        using HttpResponseMessage active = await client.SendAsync(activeWrite);
+        Assert.Equal(HttpStatusCode.OK, active.StatusCode);
+        await server.Comments.Received(1).DeleteCommentAsAccountAsync(73, 42, "test");
+
+        server.ResetObservations();
+        server.Blacklist.GetBanStateAsync(42, EndpointSecurityTestServer.AccountSubjectHash)
+            .Returns(Task.FromResult(new BanStateSnapshot(true, "test-restricted", "private reason")));
+
+        using var blockedWrite = new HttpRequestMessage(HttpMethod.Delete, "/api/binary/comment/73?reason=test");
+        EndpointSecurityTestServer.AddAnonymousAccountAccessToken(blockedWrite, accessToken);
+        EndpointSecurityTestServer.AddPowProof(blockedWrite);
         using HttpResponseMessage blocked = await client.SendAsync(blockedWrite);
         Assert.Equal((HttpStatusCode)StatusCodes.Status423Locked, blocked.StatusCode);
         ErrorDetail blockedError = await EndpointSecurityTestServer.ReadErrorAsync(blocked);
@@ -312,11 +325,20 @@ public sealed class AuthRiskControlEndpointContractTests(
             Arg.Any<IPowRequest>(),
             Arg.Any<string>(),
             Arg.Any<string?>());
+        await server.Comments.DidNotReceive().DeleteCommentAsAccountAsync(
+            Arg.Any<long>(),
+            Arg.Any<int>(),
+            Arg.Any<string>());
+
+        using var allowedRead = new HttpRequestMessage(HttpMethod.Get, "/api/binary/auth/me");
+        EndpointSecurityTestServer.AddAnonymousAccountAccessToken(allowedRead, accessToken);
+        using HttpResponseMessage read = await client.SendAsync(allowedRead);
+        Assert.Equal(HttpStatusCode.OK, read.StatusCode);
 
         using var allowedRestrictedAction = new HttpRequestMessage(
             HttpMethod.Post,
             "/api/binary/auth/sessions/session-other/revoke");
-        EndpointSecurityTestServer.AddAnonymousAccount(allowedRestrictedAction);
+        EndpointSecurityTestServer.AddAnonymousAccountAccessToken(allowedRestrictedAction, accessToken);
         using HttpResponseMessage allowed = await client.SendAsync(allowedRestrictedAction);
         Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
         await server.Sessions.Received(1).RevokeSessionAsync(
@@ -328,7 +350,7 @@ public sealed class AuthRiskControlEndpointContractTests(
         using var allowAnonymousAuth = new HttpRequestMessage(
             HttpMethod.Post,
             "/api/binary/auth/passkey/login/begin");
-        EndpointSecurityTestServer.AddAnonymousAccount(allowAnonymousAuth);
+        EndpointSecurityTestServer.AddAnonymousAccountAccessToken(allowAnonymousAuth, accessToken);
         using HttpResponseMessage authResponse = await client.SendAsync(allowAnonymousAuth);
         Assert.Equal((HttpStatusCode)StatusCodes.Status423Locked, authResponse.StatusCode);
         Assert.Equal(
@@ -362,23 +384,26 @@ public sealed class AuthRiskControlEndpointContractTests(
     }
 
     [Fact]
+    [Trait("Category", "SecurityStateMachine")]
     public async Task TestServer_DeletedAccountReturnsUnauthorizedAndBlocksAllAccess()
     {
         using EndpointSecurityTestServer server = EndpointSecurityTestServer.Create();
+        string accessToken = server.IssueAnonymousAccountAccessToken();
         server.Users.GetAccountByIdAsync(42).Returns(Task.FromResult<UserAccountSnapshot?>(
             new UserAccountSnapshot(42, 2, null, false, DateTime.UtcNow, AccountSubjectHash: EndpointSecurityTestServer.AccountSubjectHash)));
         using HttpClient client = CreateIsolatedClient(server);
 
         using var blockedGet = new HttpRequestMessage(HttpMethod.Get, "/api/binary/auth/me");
-        EndpointSecurityTestServer.AddAnonymousAccount(blockedGet);
+        EndpointSecurityTestServer.AddAnonymousAccountAccessToken(blockedGet, accessToken);
         using HttpResponseMessage responseGet = await client.SendAsync(blockedGet);
         Assert.Equal(HttpStatusCode.Unauthorized, responseGet.StatusCode);
         ErrorDetail getError = await EndpointSecurityTestServer.ReadErrorAsync(responseGet);
         Assert.Equal(ErrorCode.Unauthorized, getError.Code);
         Assert.Contains("账户已注销", getError.Message, StringComparison.Ordinal);
 
-        using var blockedPost = new HttpRequestMessage(HttpMethod.Post, "/api/binary/comment");
-        EndpointSecurityTestServer.AddAnonymousAccount(blockedPost);
+        using var blockedPost = new HttpRequestMessage(HttpMethod.Delete, "/api/binary/comment/73");
+        EndpointSecurityTestServer.AddAnonymousAccountAccessToken(blockedPost, accessToken);
+        EndpointSecurityTestServer.AddPowProof(blockedPost);
         using HttpResponseMessage responsePost = await client.SendAsync(blockedPost);
         Assert.Equal(HttpStatusCode.Unauthorized, responsePost.StatusCode);
         ErrorDetail postError = await EndpointSecurityTestServer.ReadErrorAsync(responsePost);
@@ -388,7 +413,7 @@ public sealed class AuthRiskControlEndpointContractTests(
         using var blockedRestricted = new HttpRequestMessage(
             HttpMethod.Post,
             "/api/binary/auth/sessions/session-other/revoke");
-        EndpointSecurityTestServer.AddAnonymousAccount(blockedRestricted);
+        EndpointSecurityTestServer.AddAnonymousAccountAccessToken(blockedRestricted, accessToken);
         using HttpResponseMessage responseRestricted = await client.SendAsync(blockedRestricted);
         Assert.Equal(HttpStatusCode.Unauthorized, responseRestricted.StatusCode);
 
@@ -398,6 +423,10 @@ public sealed class AuthRiskControlEndpointContractTests(
             Arg.Any<string>(),
             Arg.Any<CancellationToken>());
         await server.Articles.DidNotReceive().ClearTrashAsync(Arg.Any<CancellationToken>());
+        await server.Comments.DidNotReceive().DeleteCommentAsAccountAsync(
+            Arg.Any<long>(),
+            Arg.Any<int>(),
+            Arg.Any<string>());
         await server.AuditEvents.DidNotReceive().RecordHighValueAsync(
             Arg.Any<AuditEvent>(),
             Arg.Any<CancellationToken>());

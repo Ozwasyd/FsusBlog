@@ -865,6 +865,50 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    [Trait("Category", "SecurityStateMachine")]
+    public async Task RefreshTokenAsync_DeletedAccountRejectsExistingRefreshTokenWithoutRotation()
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var sessionQuery = Substitute.For<ISugarQueryable<UserSession>>();
+        db.Queryable<UserSession>().Returns(sessionQuery);
+        sessionQuery.Where(Arg.Any<Expression<Func<UserSession, bool>>>()).Returns(sessionQuery);
+        sessionQuery.FirstAsync().Returns(Task.FromResult(new UserSession
+        {
+            SessionId = "issued-before-deletion",
+            UserId = 42,
+            IdleExpiresAt = DateTime.UtcNow.AddHours(1),
+            AbsoluteExpiresAt = DateTime.UtcNow.AddDays(1),
+            MfaVerified = true
+        }));
+        var userQuery = Substitute.For<ISugarQueryable<User>>();
+        db.Queryable<User>().Returns(userQuery);
+        userQuery.InSingleAsync(42).Returns(Task.FromResult(new User
+        {
+            Id = 42,
+            Status = 2,
+            DeletedAt = DateTime.UtcNow
+        }));
+        var ado = Substitute.For<IAdo>();
+        db.Ado.Returns(ado);
+        ado.ExecuteCommandAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(Task.FromResult(0));
+        var jwt = Substitute.For<IJwtHelper>();
+        var service = BuildSessionService(db, jwt);
+
+        RefreshTokenRotationResult result = await service.RotateRefreshTokenAsync(
+            "refresh-issued-before-deletion",
+            "issued-before-deletion");
+
+        Assert.False(result.Success);
+        Assert.Null(result.Tokens);
+        Assert.Equal(RefreshTokenRotationOutcome.AccountUnavailable, result.Outcome);
+        jwt.DidNotReceive().GenerateRefreshToken();
+        jwt.DidNotReceive().GenerateAccessToken(
+            Arg.Any<User>(),
+            Arg.Any<string>(),
+            Arg.Any<UserSessionAuthenticationContext>());
+    }
+
+    [Fact]
     public async Task RefreshTokenAsync_EmptyToken_ReturnsFalse()
     {
         var svc = BuildSessionService();
@@ -1165,6 +1209,39 @@ public class UserServiceValidationTests
         _ = db.Received(1).Insertable(Arg.Is<UserSession>(session => session.SessionMode == UserSessionMode.Restricted));
         await persistence.SessionInsert.Received(1).ExecuteCommandAsync();
         await persistence.UserUpdate.DidNotReceive().ExecuteCommandAsync();
+    }
+
+    [Fact]
+    [Trait("Category", "SecurityStateMachine")]
+    public async Task CompleteLoginAsync_DeletedUserRejectsLoginWithoutIssuingSessionToken()
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var jwt = Substitute.For<IJwtHelper>();
+        var service = BuildLoginService(db, jwt);
+        var deletedUser = new User
+        {
+            Id = 42,
+            Status = 2,
+            DeletedAt = DateTime.UtcNow
+        };
+
+        var result = await service.CompleteLoginAsync(
+            deletedUser,
+            "127.0.0.1",
+            deviceFingerprint: "device-1",
+            userAgent: "test-agent",
+            mfaVerified: true,
+            rememberMe: false);
+
+        Assert.False(result.Success);
+        Assert.Equal("账户已注销", result.Message);
+        Assert.Null(result.Data);
+        Assert.Null(result.UserEntity);
+        jwt.DidNotReceive().GenerateRefreshToken();
+        jwt.DidNotReceive().GenerateAccessToken(
+            Arg.Any<User>(),
+            Arg.Any<string>(),
+            Arg.Any<UserSessionAuthenticationContext>());
     }
 
     [Fact]
