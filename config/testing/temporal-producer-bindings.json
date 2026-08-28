@@ -60,6 +60,19 @@
             "clockDisposition": "canonical-business-epoch"
         },
         {
+            "producerId": "audit-records",
+            "implementations": [
+                "src/backend/Modules/Endpoints/LocalAuditFixtureEndpoints.cs",
+                "src/backend/Services/Fixtures/AuditFixtureProducer.cs",
+                "tools/test-fixtures/producers/audit-producer.mjs"
+            ],
+            "contextIngress": "time-provider-and-producer-context",
+            "actualObservation": "test-temporal-runtime-context-business-epoch-and-postgres-audit-record-time",
+            "planCarrier": "FSUSBLOG_TEMPORAL_CONTEXT_JSON",
+            "receiptCarrier": "temporal-receipt.json",
+            "clockDisposition": "canonical-business-epoch"
+        },
+        {
             "producerId": "auth-session",
             "implementations": [
                 "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs",
