@@ -4950,6 +4950,25 @@
             "tierIds": [
                 "production-xss-release"
             ]
+        },
+        {
+            "id": "backend-legacy-20260517-real-dump",
+            "description": "The private 20260517 PostgreSQL custom dump is restored once, migrated twice, and checked against retained legacy counts and current postconditions by one dedicated producer.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                ".tmp/test-results/backend/legacy-20260517-real-dump/semantic-outcome.json",
+                "tests/backend/Integration/SchemaMigrationIntegrationTests.cs",
+                "tools/test/legacy-real-dump-contract.mjs",
+                "tools/test/run-legacy-real-dump-producer.mjs",
+                "tests/tools/legacy-real-dump-producer.test.mjs"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Reject missing enablement, dump path or digest, unreadable or mismatched dump bytes, source or PostgreSQL image drift, restore or migration failure, a non-exact test selection, or Passed TRX without restore, two migrations, legacy counts and postcondition evidence.",
+            "minimumRequirement": "The ordinary integration plan records the canonical test ID as not-selected; the dedicated producer alone records planned to executed to passed or failed and binds the source SHA, dump SHA-256, PostgreSQL image ID, server version and exact TRX result.",
+            "tierIds": [
+                "legacy-20260517-real-dump"
+            ]
         }
     ]
 }

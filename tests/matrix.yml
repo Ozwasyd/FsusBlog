@@ -3368,11 +3368,13 @@ tiers:
               .tmp/acceptance/*.log,
               .tmp/runtime/integration.json,
               .tmp/runtime-scenario-host/**,
+              .tmp/test-results/backend/integration/legacy-real-dump-membership.json,
           ]
       evidence:
           - .tmp/acceptance/*.log
           - .tmp/runtime/integration.json
           - .tmp/runtime-scenario-host/**
+          - .tmp/test-results/backend/integration/legacy-real-dump-membership.json
           - config/testing/runtime-scenario-catalog.json
           - docs/testing/runtime-scenario-host.md
           - tests/backend/runtime-fallback-evidence.json
@@ -3426,6 +3428,78 @@ tiers:
           ]
       triggerCoverage: [runtime-contract-smoke]
       triggerReason: backend runtime, API contract, auth, cache, DB, or runtime smoke inputs changed
+
+    - id: legacy-20260517-real-dump
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
+      owner: ServerContractAgent
+      command: node tools/test/run-legacy-real-dump-producer.mjs
+      outputReceiptSchema: fsusblog.legacy-20260517-real-dump-outcome.v1
+      executionDependsOn: [behavior-doc-static-admission]
+      services: []
+      parallelizable: false
+      exclusiveResources: [database-writes]
+      phase: 2
+      cost: high
+      resourceClass: database
+      cpuWeight: 1
+      memoryWeight: 2
+      minCpuUnits: 1
+      maxParallel: 1
+      requiresBootstrap: none
+      requiresNode: true
+      requiresDotnet: true
+      requiresPlaywright: none
+      cacheProfile: none
+      timeoutMinutes: 30
+      shardable: false
+      defaultShards: 1
+      risk: critical
+      cadence: release-manual
+      manualOnly: true
+      requiredFor: none
+      coverage: [backend-legacy-20260517-real-dump]
+      artifacts:
+          [
+              .tmp/test-results/backend/legacy-20260517-real-dump/membership-plan.json,
+              .tmp/test-results/backend/legacy-20260517-real-dump/legacy-20260517-real-dump.trx,
+              .tmp/test-results/backend/legacy-20260517-real-dump/semantic-outcome.json,
+          ]
+      evidence:
+          [
+              .tmp/test-results/backend/legacy-20260517-real-dump/semantic-outcome.json,
+              tests/backend/Integration/SchemaMigrationIntegrationTests.cs,
+              tools/test/legacy-real-dump-contract.mjs,
+              tools/test/run-legacy-real-dump-producer.mjs,
+              tests/tools/legacy-real-dump-producer.test.mjs,
+              docs/database-migration.md,
+          ]
+      ciJob: integration-runtime
+      localOnly: true
+      nightlyOnly: false
+      smartGateMode: conditional
+      retentionClass: must-keep
+      triggerPaths:
+          [
+              src/backend/Infrastructure/SchemaMigration,
+              tests/backend/Integration/SchemaMigrationIntegrationTests.cs,
+              tests/backend/Fixtures/PostgresSchemaMigrationFixture.cs,
+              tools/db/verify-legacy-upgrade-20260517.sh,
+              tools/test/legacy-real-dump-contract.mjs,
+              tools/test/run-legacy-real-dump-producer.mjs,
+          ]
+      triggerFiles:
+          [
+              tests/matrix.yml,
+              tests/coverage-registry.json,
+              tests/backend/Fixtures/backend-test-requirements.json,
+              docs/database-migration.md,
+          ]
+      triggerCoverage: [backend-legacy-20260517-real-dump]
+      triggerReason: real 20260517 dump producer, migration path, or identity evidence contract changed
 
     - id: ci
       executionClass: coordination
