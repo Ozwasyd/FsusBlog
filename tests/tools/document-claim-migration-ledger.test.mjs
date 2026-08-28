@@ -13,8 +13,8 @@ test('repository migration ledger exactly covers catalog current documents', () 
         scopeCount: 4,
         entryCount: 39,
         requiredBehaviorCount: 7,
-        generatedClaimCount: 56,
-        proseClaimCount: 8
+        generatedClaimCount: 78,
+        proseClaimCount: 22
     })
 })
 
