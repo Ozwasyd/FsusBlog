@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
@@ -239,6 +240,26 @@ test('independent verifier rereads only the explicit current-run JSON inputs and
   const receipt = produceApplicationRuntimeObservation(pathInputs)
   write('receipt.json', receipt)
   assert.equal(verifyApplicationRuntimeObservation({ ...pathInputs, receipt: relative('receipt.json') }).status, 'ok')
+
+  const cli = path.join(root, 'tools/fact-extractors/post-runtime/application-runtime.mjs')
+  const cliOutput = relative('cli-receipt.json')
+  const commonArguments = [
+    '--candidate-plan', pathInputs.candidatePlan,
+    '--pre-runtime', pathInputs.preRuntimeReceipt,
+    ...pathInputs.claimReceipts.flatMap((claim) => ['--claim', claim]),
+    ...pathInputs.rawReceipts.flatMap((raw) => ['--raw', raw])
+  ]
+  const produced = spawnSync(process.execPath, [cli, 'produce', ...commonArguments, '--out', cliOutput], {
+    cwd: root,
+    encoding: 'utf8'
+  })
+  assert.equal(produced.status, 0, produced.stderr)
+  const verified = spawnSync(process.execPath, [cli, 'verify', ...commonArguments, '--receipt', cliOutput], {
+    cwd: root,
+    encoding: 'utf8'
+  })
+  assert.equal(verified.status, 0, verified.stderr)
+  assert.equal(JSON.parse(readFileSync(path.join(root, cliOutput), 'utf8')).status, 'ok')
 
   const rawFile = path.join(root, inputs.rawReceipts[0])
   const tampered = JSON.parse(readFileSync(rawFile, 'utf8'))

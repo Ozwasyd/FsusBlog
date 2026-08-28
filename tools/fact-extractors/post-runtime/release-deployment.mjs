@@ -1,6 +1,10 @@
 import { isPlainObject } from '../lib/canonicalize.mjs'
+import path from 'node:path'
+import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 import {
   producePostRuntimeObservation,
+  runPostRuntimeObservationCli,
   verifyPostRuntimeObservation
 } from './adapter.mjs'
 
@@ -105,4 +109,23 @@ export function verifyReleaseDeploymentObservation({ receipt, ...inputs })
 export function extract(context)
 {
   return produceReleaseDeploymentObservation(context)
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
+{
+  try
+  {
+    runPostRuntimeObservationCli({
+      argv: process.argv.slice(2),
+      producerId: releaseDeploymentProducerId,
+      produce: produceReleaseDeploymentObservation,
+      verify: verifyReleaseDeploymentObservation,
+      defaultOutput: '.tmp/post-runtime-observations/release-deployment.json'
+    })
+  }
+  catch (error)
+  {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exitCode = 1
+  }
 }
