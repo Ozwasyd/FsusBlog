@@ -37,8 +37,27 @@ function writeObservation(repositoryRoot, observation)
 function sampleObservation(overrides = {})
 {
   const { facts: factOverrides, ...rest } = overrides
+  const causalFact = (factId, subject, predicate, object, condition, scope) => ({
+    factId,
+    schemaVersion: 1,
+    subject,
+    predicate,
+    object,
+    direction: 'forward',
+    condition,
+    truthValue: true,
+    scope,
+    conflictStatus: 'consistent',
+    sourceRanges: {
+      source1: {
+        owner: 'src/backend/Services/ArticlePublicationTransition.cs',
+        range: 'ProductionOwner.Symbol'
+      }
+    },
+    proofTests: [`proof-${factId}`]
+  })
   return {
-    schema: 'fsusblog.content-lifecycle-observation.v1',
+    schema: 'fsusblog.content-lifecycle-observation.v2',
     source: 'compiled-production-constants',
     status: 'ok',
     failureReasons: [],
@@ -78,6 +97,17 @@ function sampleObservation(overrides = {})
         },
         nonScheduledScheduledAt: 'forbidden'
       },
+      'article.scheduled.preDueCurrent': causalFact(
+        'article.scheduled.pre-due-current-publication', 'scheduled transition before due', 'preserves',
+        'old current publication coordinate', 'before due', 'article.publication.current-pointer'),
+      'article.scheduled.dueTransition': causalFact(
+        'article.scheduled.due-publication-transition', 'scheduled due transition', 'creates',
+        'new publication coordinate and switches current pointer without creating another revision',
+        'at due', 'article.publication.current-pointer'),
+      'article.scheduled.replaceCancelStale': causalFact(
+        'article.scheduled.replace-cancel-stale', 'replacement cancellation or stale schedule', 'does-not-switch',
+        'current publication pointer before a due row is successfully claimed',
+        'row is stale', 'article.publication.scheduler'),
       'article.rollback.semantics': {
         operation: 'Rollback',
         allowedTargets: ['Archived', 'Draft', 'Published'],
@@ -85,6 +115,10 @@ function sampleObservation(overrides = {})
         createsPublication: true,
         clonesResponsibilityFromSourceRevision: true
       },
+      'article.rollback.causal': causalFact(
+        'article.rollback.new-revision-publication', 'rollback', 'creates',
+        'new revision and new publication coordinates from a historical revision while preserving immutable history',
+        'historical revision accepted', 'article.revision-publication'),
       'article.restore.semantics': {
         operation: 'Restore',
         source: 'Deleted',
@@ -92,14 +126,28 @@ function sampleObservation(overrides = {})
         createsPublication: true,
         revivesOldPublicationPointer: false
       },
+      'article.restore.causal': causalFact(
+        'article.restore.new-publication-no-revision', 'restore', 'creates',
+        'new publication coordinate without reviving the old publication or creating a new revision',
+        'soft-deleted article restored', 'article.revision-publication'),
       'article.delete.semantics': {
         enterVia: 'dedicated-delete-flow',
         ordinaryTransitionTarget: 'forbidden',
         status: 'Deleted',
         softDelete: true,
+        createsRevision: false,
+        createsPublication: false,
+        createsTombstone: false,
+        preservesCurrentPublicationPointer: true,
+        preservesImmutableHistory: true,
+        visibilityTransition: 'current-to-deleted',
         outboxEventType: 'deleted',
         permanentDeleteEventType: 'permanently-deleted'
       },
+      'article.delete.causal': causalFact(
+        'article.delete.visibility-history', 'soft delete', 'preserves',
+        'current revision publication pointer and immutable history without creating revision publication or tombstone',
+        'row-version guarded delete', 'article.revision-publication-visibility'),
       'article.public-visibility.states': {
         Draft: false,
         Scheduled: false,
@@ -211,6 +259,14 @@ function sampleObservation(overrides = {})
         states: ['deleted', 'hidden', 'limited', 'pending', 'public', 'rejected'],
         adminSurface: 'full-moderation-states'
       },
+      'comment.deletedRoot.publicDescendants': causalFact(
+        'comment.deleted-root.public-descendants', 'deleted root', 'does-not-hide',
+        'independently visible direct and recursive descendants while the root is a deleted placeholder',
+        'descendant remains Approved and region-visible', 'comment.public-thread-projection'),
+      'comment.deletedRoot.adminDescendants': causalFact(
+        'comment.deleted-root.admin-descendants', 'deleted root', 'does-not-hide',
+        'direct or recursive descendant entities from the admin and attributable projections',
+        'authorized administrative projection', 'comment.admin-projection'),
       'comment.outbox.required-edges': {
         CommentCreated: ['audit-projection', 'cache-version', 'model-moderation', 'realtime-stream'],
         CommentDeleted: ['audit-projection', 'cache-version', 'realtime-stream', 'site-notification'],
@@ -587,6 +643,69 @@ test('max-depth without unit fails', () =>
   }
 })
 
+test('causal facts fail closed on missing, partial, reverse, conflict, source/proof loss, and old schema', () =>
+{
+  const mutations = [
+    ['scheduled pre-due fact missing', (observation) => { delete observation.facts['article.scheduled.preDueCurrent'] }],
+    ['rollback revision half missing', (observation) => { observation.facts['article.rollback.causal'].object = 'new publication coordinate only' }],
+    ['restore revives old publication', (observation) => { observation.facts['article.restore.causal'].object = 'revives old publication' }],
+    ['delete defaults unknown relations false', (observation) => { observation.facts['article.delete.causal'].object = 'visibility transition only' }],
+    ['descendants unspecified', (observation) => { delete observation.facts['comment.deletedRoot.publicDescendants'] }],
+    ['public admin conflict', (observation) => { observation.facts['comment.deletedRoot.adminDescendants'].conflictStatus = 'conflict' }],
+    ['reverse direction', (observation) => { observation.facts['article.scheduled.dueTransition'].direction = 'reverse' }],
+    ['source missing', (observation) => { observation.facts['article.restore.causal'].sourceRanges = {} }],
+    ['proof missing', (observation) => { observation.facts['article.restore.causal'].proofTests = [] }],
+    ['old schema', (observation) => { observation.schema = 'fsusblog.content-lifecycle-observation.v1' }]
+  ]
+  for (const [name, mutate] of mutations)
+  {
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'content-lifecycle-causal-negative-'))
+    try
+    {
+      const observation = sampleObservation()
+      mutate(observation)
+      const result = runExtract(directory, observation)
+      assert.equal(result.status, 'failed', name)
+    }
+    finally
+    {
+      rmSync(directory, { recursive: true, force: true })
+    }
+  }
+})
+
+test('causal authority rejects docs/tests prose and observation artifact tamper', () =>
+{
+  const directory = mkdtempSync(path.join(os.tmpdir(), 'content-lifecycle-causal-authority-'))
+  try
+  {
+    const docsAuthority = sampleObservation()
+    docsAuthority.facts['article.rollback.causal'].sourceRanges.source2 = {
+      owner: 'docs/api/article-publication-revisions.md',
+      range: 'Rollback paragraph'
+    }
+    assert.equal(runExtract(directory, docsAuthority).status, 'failed')
+
+    const observation = sampleObservation()
+    const written = writeObservation(directory, observation)
+    const result = extractContentLifecycle({
+      repositoryRoot: directory,
+      buildIdentity: {
+        artifactId: 'content-lifecycle-observation',
+        artifactDigest: 'f'.repeat(64),
+        receiptDigest: 'e'.repeat(64)
+      }
+    })
+    assert.equal(result.status, 'failed')
+    assert.match(result.failureReasons.join(';'), /artifact digest mismatch/u)
+    assert.notEqual(written.artifactDigest, 'f'.repeat(64))
+  }
+  finally
+  {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
 test('ambient bin/Debug build identity is refused', () =>
 {
   const directory = mkdtempSync(path.join(os.tmpdir(), 'content-lifecycle-obs-'))
@@ -614,7 +733,7 @@ test('ambient bin/Debug build identity is refused', () =>
 test('compiled observation host produces sealed production facts (live)', { timeout: 600_000 }, () =>
 {
   const produced = produceContentLifecycleObservation({ repositoryRoot: root, rebuild: true })
-  assert.equal(produced.observation.schema, 'fsusblog.content-lifecycle-observation.v1')
+  assert.equal(produced.observation.schema, 'fsusblog.content-lifecycle-observation.v2')
   assert.equal(produced.observation.status, 'ok')
   assert.ok(produced.observation.facts['article.lifecycle.states'].includes('Published'))
   assert.ok(produced.observation.facts['article.outbox.required-edges'].includes('public-hot-read'))

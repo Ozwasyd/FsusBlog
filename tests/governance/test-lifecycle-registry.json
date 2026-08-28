@@ -3428,6 +3428,25 @@
             ]
         },
         {
+            "file": "tests/tools/content-doc-exactness.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "behavior",
+                "migration",
+                "runtime",
+                "source-text"
+            ],
+            "staticGovernance": {
+                "id": "content-doc-exactness",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "host:content-doc-exactness",
+                "exclusive": true
+            }
+        },
+        {
             "file": "tests/tools/content-lifecycle-observation.test.mjs",
             "owner": "manual-diagnostic:tests/tools/content-lifecycle-observation.test.mjs",
             "executionCategory": "manual-diagnostic",

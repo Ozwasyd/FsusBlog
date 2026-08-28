@@ -40,3 +40,50 @@ render: key-value-table
 | Pending | false |
 | Rejected | false |
 <!-- FSUSBLOG-GENERATED:END content.comment.public-visibility -->
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.comment-admin-visibility
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.comment.admin-visibility
+render: enum-set
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN content.comment.admin-visibility -->
+- `Approved`
+- `Hidden`
+- `Pending`
+- `Rejected`
+<!-- FSUSBLOG-GENERATED:END content.comment.admin-visibility -->
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.region-visibility
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.comment.region-visibility
+render: key-value-table
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN content.comment.region-visibility -->
+| Key | Value |
+| --- | --- |
+| adminSurface | full-moderation-states |
+| publicSurface | {"blockedRegionFilter":"viewer-region-aware","requires":"Approved","unknownViewer":"apply-all-blocked-regions"} |
+| states | ["deleted","hidden","limited","pending","public","rejected"] |
+<!-- FSUSBLOG-GENERATED:END content.comment.region-visibility -->
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.deleted-root-public
+behaviorId: article-comment-lifecycle-outbox
+claimType: binary-relation
+factPath: facts.comment.deletedRoot.publicDescendants
+render: relation-subject-predicate-object
+-->
+deleted root does-not-hide independently visible direct and recursive descendants while the root is a deleted placeholder；每个 descendant 仍须独立满足 Approved 与 region visibility 条件。
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.deleted-root-admin
+behaviorId: article-comment-lifecycle-outbox
+claimType: binary-relation
+factPath: facts.comment.deletedRoot.adminDescendants
+render: relation-subject-predicate-object
+-->
+deleted root does-not-hide direct or recursive descendant entities from the admin and attributable projections。

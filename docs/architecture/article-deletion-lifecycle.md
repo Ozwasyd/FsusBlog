@@ -47,10 +47,57 @@ render: key-value-table
 <!-- FSUSBLOG-GENERATED:BEGIN content.article.delete-semantics -->
 | Key | Value |
 | --- | --- |
+| createsPublication | false |
+| createsRevision | false |
+| createsTombstone | false |
 | enterVia | dedicated-delete-flow |
 | ordinaryTransitionTarget | forbidden |
 | outboxEventType | deleted |
 | permanentDeleteEventType | permanently-deleted |
+| preservesCurrentPublicationPointer | true |
+| preservesImmutableHistory | true |
 | softDelete | true |
 | status | Deleted |
+| visibilityTransition | current-to-deleted |
 <!-- FSUSBLOG-GENERATED:END content.article.delete-semantics -->
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.article-public-visibility
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.article.public-visibility
+render: key-value-table
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN content.article.public-visibility -->
+| Key | Value |
+| --- | --- |
+| Archived | false |
+| Deleted | false |
+| Draft | false |
+| Published | true |
+| Scheduled | false |
+<!-- FSUSBLOG-GENERATED:END content.article.public-visibility -->
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.article-admin-visibility
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.article.admin-visibility
+render: enum-set
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN content.article.admin-visibility -->
+- `Archived`
+- `Deleted`
+- `Draft`
+- `Published`
+- `Scheduled`
+<!-- FSUSBLOG-GENERATED:END content.article.admin-visibility -->
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.delete-causal
+behaviorId: article-comment-lifecycle-outbox
+claimType: binary-relation
+factPath: facts.article.delete.causal
+render: relation-subject-predicate-object
+-->
+soft delete preserves current revision publication pointer and immutable history without creating revision publication or tombstone。

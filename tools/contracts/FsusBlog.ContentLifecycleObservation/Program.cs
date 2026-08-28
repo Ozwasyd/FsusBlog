@@ -16,7 +16,7 @@ return ContentLifecycleObservationHost.Run(args);
 
 internal static class ContentLifecycleObservationHost
 {
-    private const string ObservationSchema = "fsusblog.content-lifecycle-observation.v1";
+    private const string ObservationSchema = "fsusblog.content-lifecycle-observation.v2";
 
     private static readonly JsonSerializerOptions s_json = new()
     {
@@ -343,9 +343,151 @@ internal static class ContentLifecycleObservationHost
             ["ordinaryTransitionTarget"] = "forbidden",
             ["status"] = nameof(ArticleStatus.Deleted),
             ["softDelete"] = true,
+            ["createsRevision"] = false,
+            ["createsPublication"] = false,
+            ["createsTombstone"] = false,
+            ["preservesCurrentPublicationPointer"] = true,
+            ["preservesImmutableHistory"] = true,
+            ["visibilityTransition"] = "current-to-deleted",
             ["outboxEventType"] = "deleted",
             ["permanentDeleteEventType"] = "permanently-deleted"
         };
+
+        ArticlePublicationTransitionPlan scheduledWithoutCurrent = ArticlePublicationTransitionWriter.CreatePlan(
+            hasCurrentPublication: false,
+            ArticleStatus.Scheduled,
+            utcNow.AddHours(1),
+            utcNow);
+        ArticlePublicationTransitionPlan scheduledWithCurrent = ArticlePublicationTransitionWriter.CreatePlan(
+            hasCurrentPublication: true,
+            ArticleStatus.Scheduled,
+            utcNow.AddHours(1),
+            utcNow);
+        ArticlePublicationTransitionPlan scheduledDue = ArticlePublicationTransitionWriter.CreatePlan(
+            hasCurrentPublication: true,
+            ArticleStatus.Published,
+            scheduledPublishAt: null,
+            utcNow.AddHours(1));
+
+        if (scheduledWithCurrent.StoredStatus != ArticleStatus.Published
+            || scheduledWithCurrent.CreatePublication
+            || scheduledWithCurrent.PendingPublicationAt is null
+            || scheduledWithoutCurrent.StoredStatus != ArticleStatus.Scheduled
+            || scheduledDue.StoredStatus != ArticleStatus.Published
+            || !scheduledDue.CreatePublication)
+        {
+            failures.Add("scheduled publication plans no longer preserve the old publication before due and create the new publication at due");
+        }
+
+        JsonObject CausalFact(
+            string factId,
+            string subject,
+            string predicate,
+            string objectValue,
+            string condition,
+            string scope,
+            params (string Path, string Symbol, string Proof)[] bindings)
+        {
+            var sources = new JsonObject();
+            var proofs = new JsonArray();
+            int sourceIndex = 0;
+            foreach ((string sourcePath, string symbol, string proof) in bindings)
+            {
+                sourceIndex++;
+                sources[$"source{sourceIndex}"] = new JsonObject
+                {
+                    ["owner"] = sourcePath,
+                    ["range"] = symbol
+                };
+                proofs.Add(proof);
+            }
+
+            return new JsonObject
+            {
+                ["factId"] = factId,
+                ["schemaVersion"] = 1,
+                ["subject"] = subject,
+                ["predicate"] = predicate,
+                ["object"] = objectValue,
+                ["direction"] = "forward",
+                ["condition"] = condition,
+                ["truthValue"] = true,
+                ["scope"] = scope,
+                ["conflictStatus"] = "consistent",
+                ["sourceRanges"] = sources,
+                ["proofTests"] = proofs
+            };
+        }
+
+        JsonObject scheduledPreDueFact = CausalFact(
+            "article.scheduled.pre-due-current-publication",
+            "scheduled transition before due",
+            "preserves",
+            "old current publication coordinate",
+            "an article already has a current publication and pendingPublicationAt is still in the future",
+            "article.publication.current-pointer",
+            ("src/backend/Services/ArticlePublicationTransition.cs", "ArticlePublicationTransitionWriter.CreatePlan", "article-publication-transition-plan"),
+            ("src/backend/Services/Background/ScheduledPublishQuery.cs", "ScheduledPublishQuery.PendingPublicationPredicateSql", "scheduled-publish-due-boundary"));
+        JsonObject scheduledDueFact = CausalFact(
+            "article.scheduled.due-publication-transition",
+            "scheduled due transition",
+            "creates",
+            "new publication coordinate and switches current pointer without creating another revision",
+            "scheduledPublishAt or pendingPublicationAt is at or before the worker current time",
+            "article.publication.current-pointer",
+            ("src/backend/Services/Background/ScheduledPublishWorker.cs", "ScheduledPublishWorker.ClaimDueArticlesAsync", "scheduled-publish-transition"),
+            ("src/backend/Services/ArticlePublicationTransition.cs", "ArticlePublicationTransitionWriter.ApplyAsync", "article-publication-coordinate"));
+        JsonObject scheduledReplacementFact = CausalFact(
+            "article.scheduled.replace-cancel-stale",
+            "replacement cancellation or stale schedule",
+            "does-not-switch",
+            "current publication pointer before a due row is successfully claimed",
+            "the due predicate no longer matches or the row loses the FOR UPDATE SKIP LOCKED claim",
+            "article.publication.scheduler",
+            ("src/backend/Services/Background/ScheduledPublishQuery.cs", "ScheduledPublishQuery.BuildDueArticlesCte", "scheduled-publish-due-claim"),
+            ("src/backend/Services/Background/ScheduledPublishWorker.cs", "ScheduledPublishWorker.ClaimDueArticlesAsync", "scheduled-publish-stale-row"));
+        JsonObject rollbackFact = CausalFact(
+            "article.rollback.new-revision-publication",
+            "rollback",
+            "creates",
+            "new revision and new publication coordinates from a historical revision while preserving immutable history",
+            "the requested historical revision is accepted as the rollback source",
+            "article.revision-publication",
+            ("src/backend/Services/ArticleService.Mutations.cs", "ArticleService.UpdateAsync", "article-rollback-new-revision"),
+            ("src/backend/Services/ArticlePublicationTransition.cs", "ArticlePublicationTransitionWriter.ApplyAsync", "article-rollback-new-publication"));
+        JsonObject restoreFact = CausalFact(
+            "article.restore.new-publication-no-revision",
+            "restore",
+            "creates",
+            "new publication coordinate without reviving the old publication or creating a new revision",
+            "a soft-deleted article is restored from its existing current revision",
+            "article.revision-publication",
+            ("src/backend/Services/ArticleService.LifecycleAndReadModels.cs", "ArticleService.RestoreAsync", "article-restore-coordinate"),
+            ("src/backend/Services/ArticlePublicationTransition.cs", "ArticlePublicationTransitionWriter.ApplyAsync", "article-restore-new-publication"));
+        JsonObject deleteFact = CausalFact(
+            "article.delete.visibility-history",
+            "soft delete",
+            "preserves",
+            "current revision publication pointer and immutable history without creating revision publication or tombstone",
+            "the current non-deleted row wins the row-version guarded dedicated delete flow",
+            "article.revision-publication-visibility",
+            ("src/backend/Services/ArticleService.LifecycleAndReadModels.cs", "ArticleService.DeleteAsync", "article-delete-coordinate-preservation"));
+        JsonObject deletedDescendantsPublicFact = CausalFact(
+            "comment.deleted-root.public-descendants",
+            "deleted root",
+            "does-not-hide",
+            "independently visible direct and recursive descendants while the root is a deleted placeholder",
+            "each descendant remains Approved region-visible and belongs to the same published article",
+            "comment.public-thread-projection",
+            ("src/backend/Services/CommentQueryService.cs", "CommentQueryService.PublicVisibleChainCte", "comment-deleted-root-public-descendants"));
+        JsonObject deletedDescendantsAdminFact = CausalFact(
+            "comment.deleted-root.admin-descendants",
+            "deleted root",
+            "does-not-hide",
+            "direct or recursive descendant entities from the admin and attributable projections",
+            "the projection is authorized for administrative or author attribution access",
+            "comment.admin-projection",
+            ("src/backend/Services/CommentQueryService.cs", "CommentQueryService.GetAttributableAsync", "comment-deleted-root-admin-descendants"));
 
         // --- Comment moderation ---
         string[] moderationStates = Enum.GetNames<CommentModerationStatus>()
@@ -571,9 +713,15 @@ internal static class ContentLifecycleObservationHost
             ["article.lifecycle.forbidden-transitions"] = ToJsonArray(forbiddenTransitions.ToArray()),
             ["article.publication.required-coordinates"] = ToJsonArray(requiredCoordinates),
             ["article.scheduled.boundary"] = scheduledBoundary,
+            ["article.scheduled.preDueCurrent"] = scheduledPreDueFact,
+            ["article.scheduled.dueTransition"] = scheduledDueFact,
+            ["article.scheduled.replaceCancelStale"] = scheduledReplacementFact,
             ["article.rollback.semantics"] = rollbackSemantics,
+            ["article.rollback.causal"] = rollbackFact,
             ["article.restore.semantics"] = restoreSemantics,
+            ["article.restore.causal"] = restoreFact,
             ["article.delete.semantics"] = deleteSemantics,
+            ["article.delete.causal"] = deleteFact,
             ["article.public-visibility.states"] = publicVisibility,
             ["article.admin-visibility.states"] = ToJsonArray(adminVisibilityStates),
             ["article.outbox.required-edges"] = ToJsonArray(requiredEdges),
@@ -592,6 +740,8 @@ internal static class ContentLifecycleObservationHost
             ["comment.thread.root-parent-invariants"] = rootParentInvariants,
             ["comment.edit-delete.version-semantics"] = editDeleteVersion,
             ["comment.region.visibility-states"] = regionVisibility,
+            ["comment.deletedRoot.publicDescendants"] = deletedDescendantsPublicFact,
+            ["comment.deletedRoot.adminDescendants"] = deletedDescendantsAdminFact,
             ["comment.outbox.required-edges"] = requiredByEvent,
             ["comment.outbox.consumer-registry"] = ToJsonArray(commentOutboxAll),
             ["comment.outbox.terminal-states"] = ToJsonArray(commentTerminalStates),

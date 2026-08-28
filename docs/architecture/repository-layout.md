@@ -35,6 +35,12 @@ evidence contract 分别位于 `security/matrices/`、`security/policies/`、
 C# 与 TypeScript consumer 可以分别位于 Shared 和 frontend，但不得反向成为事实源。
 根目录 `contracts/security/` 与 `tools/frontend/` 不承载跨栈安全协议 source/generator。
 
+内容 lifecycle 文档 exactness 复用 `config/contracts/behavior-contracts.json`、
+`config/contracts/document-claim-migration-ledger.json` 与
+`config/contracts/generated-fact-sections.json` 的既有 ownership；
+`tools/docs/content-doc-exactness.mjs` 只是 current-run mutation/terminal receipt producer 与
+independent verifier，不拥有第二份 behavior、claim、state、transition 或 outbox registry。
+
 ## Configuration ownership
 
 通用运行时、测试和观测配置统一放在 `config/`；只有 .NET framework tool

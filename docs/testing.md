@@ -89,6 +89,13 @@ worktree、完整 commit 与生成后的 theme dist。
 
 准入 receipt 绑定 run、commit、FactObservation worktree fingerprint、toolchain、catalog/claim/extractor/renderer digest、owner 结果、全部 fact observation、minimal build、generated/prose/mutation 结果和 `candidateSpawnCountBeforeReceipt: 0`，并以 `contentDigest` 封存；同一 admission artifact 同时发布被主 receipt 逐项 digest 绑定的 implementation-owner、DocClaim parse/verification、generated-section 和 fact-observation companion receipts，后继 authority 不得从不存在的平行 `.tmp` producer 目录猜测这些输入。本地 Production Fresh runner 先取得同一 candidate/run 的 repository lease 和 capacity reservation，再在 reservation live guard 内生成并校验该 receipt；BehaviorDoc cache 命中与未命中都按 catalog 中的 worst-case build/staging/retention demand 预留，不得消耗 safety headroom，host temp demand 同时覆盖 process-unique DocClaim staleness mutation fixture repositories。admission 完成后必须用 lease 的同一 `snapshotSourceState` authority 重取 commit/worktree fingerprint 并精确匹配，不能直接比较 BehaviorDoc extractor 的另一套 fingerprint；漂移在 cleanup 和 producer 前 fail closed。receipt 仍先于 cleanup、candidate output root 和 scheduler child spawn，随后在每个 physical bundle admission 前重验 source/worktree/digest。非 Fresh 本地 profile 保持无 capacity authority 的静态准入顺序。GitHub Actions 通过独立 prerequisite job 生成同一 artifact；每个候选 job 必须使用 `.github/actions/consume-behavior-doc-admission` 下载并验证 producer 输出后才可调用 `tools/test.sh`。docs-only、source-only 和其他 smart-gate 计划都不能省略该节点，package script 也不得直接暴露其内部 authority 形成旁路。
 
+Content lifecycle 的 current-run terminal evidence 由 `tools/docs/content-doc-exactness.mjs`
+生成：generated claim 与 prose claim 分开计数，prose 必须逐项 verified，closed mutation roster 中
+scheduled/rollback/restore/delete/visibility/moderation/privacy/outbox 及治理退化类必须全部
+killed，missing/extra/conflict/stale/residue 必须为零。`verify` 不信任 terminal 自报数字；本地与
+CI 都显式传入 admission、prose、generated、content observation、mutation 五类 component，重算
+rows、authority digests、ledger closure 与最终 seal 后才接受。
+
 `production-correctness` 与 `production` 在 scheduler、runtime cleanup、cache/.tmp 清理、磁盘 reservation、namespace 准备或 producer spawn 前，必须取得以 canonical repository root 和 `production-fresh` 为键的仓库级独占 lease。candidate identity 绑定本轮真实 commit、worktree fingerprint、profile target tier 与固定 `production-fresh` namespace；owner process/start/executable/command 与 Unix process group 或 Windows Job Object authority 复用 scheduler verifier。Windows 必须在 acquisition 前证明 named Job member query 可用，release 时对稳定双快照中的每个成员收集完整 process identity，除 owner 外仍有成员或 query 不可验证都不得释放。第二个 Fresh 对可验证 owner fail-fast 且文件、进程、container、port 与 spawn 均零变化；owner 损坏或无法验证时 fail closed。stale reclaim 与 heartbeat/finalize 使用 owner token、content digest CAS；lease 只在 producer descendants、postflight、证据封存和 cache 恢复结束，写入 terminal receipt 后释放。
 
 Fresh cache preservation 在取得上述 lease 后、任何新 `.tmp` cleanup 或 producer spawn 前，先扫描 common Git directory 中、按 canonical repository root 隔离的 durable transaction journal。事务状态只允许 `prepared`、`evacuating`、`evacuated`、`fresh-root-cleared`、`restoring`、`restored`、`committed`、`aborted`、`recovery-required`；每次 journal 写入执行 file fsync、atomic rename 和 parent-directory fsync，每次 cache rename 同步 fsync source/holding parent。holding 固定在物理 `.tmp` 同文件系统的外部 sibling，并只登记现有四项 cache allowlist（Emscripten、dependency、.NET data cache、run-bound build roots）。只读 terminal `test-runs` 不是可复用 cache，不得 rename 到 holding；cleanup 通过 exact path 原地跳过并在删除前后复核 tree digest、mode、uid/gid 与目录 identity，保证 run B 不删除、移动、chmod 或改写 run A 的已封存 correctness evidence。除此以外的 TRX、coverage、summary、checkpoint 与 correctness output 不得登记。恢复只读取 journal 中的 exact original/holding path，不按 PID、mtime 或目录名猜测，并逐项复核 tree digest、mode、uid/gid、symlink/hardlink 边界和 #1675 owner identity；holding tamper、未知/损坏状态、目标重建、条目缺失、跨文件系统 rename、fsync 不可用、磁盘满或权限失败全部写入 `recovery-required` 并在 cleanup/spawn 前 fail closed。`committed`/`aborted` journal 作为 terminal receipt 保留 pre/post digest、动作、crash injection point 和 final state；cache 后续合法变化不会被旧 terminal receipt 冻结。
@@ -179,6 +186,17 @@ Prepare 结果逐 capability 绑定 database/API/cache/outbox/stream 的 exact o
 性能测试资产统一放在 `tests/performance/`，不再保留旧短名测试根。`browser-contract` 是 release correctness 的最小浏览器契约，而 `browser-diagnostics` 是 scheduled/manual 的诊断集合；两者的命令、artifact 和结论互不替代，diagnostics 失败不能伪装成 correctness 通过，contract 通过也不能覆盖 diagnostics 的独立风险报告。
 
 `tests/coverage-registry.json` 是 matrix `coverage[]` 的机器可读索引。每个 coverage id 必须声明 `description`、`owner`、`risk`、`evidencePaths`、`assertionType`、`failClosedRule` 和 `minimumRequirement`；`description` 必须描述实际覆盖语义，不能保留 `Coverage contract for ...` 这类模板句，`minimumRequirement` 必须写明最低可接受断言或 evidence 形态，不能只重复 tier 类型。`tools/run-test-matrix.mjs validate` 会拒绝未注册的 coverage id、未被对应 tier artifact/evidence 声明的 evidence path、未使用的 registry id，拒绝只指向 unit/property 测试文件却标成非 `unit` 的明显 assertionType 错配，也会拒绝 `runtime` / `browser` / `perf` / `fuzz` / `mutation` 类型只指向静态 docs/source 文件的条目。该 registry 不替代测试本体，只把“这个 coverage 标签由什么证据证明”变成 fail-closed 合同。
+
+<!-- fsus-doc-claim
+claimId: test-asset-audit-reconciliation.coverage-entry-count
+behaviorId: test-asset-audit-reconciliation
+claimType: generated-section
+generatedSectionId: testing.coverage-entry-count
+render: scalar
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN testing.coverage-entry-count -->
+257
+<!-- FSUSBLOG-GENERATED:END testing.coverage-entry-count -->
 
 `config/testing/content-shape-catalog.json` 是 Unicode、script、正负 eligibility
 与 content consumer applicability 的唯一可编辑 `ContentShapeCatalog`。
@@ -1676,6 +1694,7 @@ render: enum-set
 - `homogeneous-two-node-fixture`
 - `integration`
 - `integrity-proof-verification`
+- `legacy-20260517-real-dump`
 - `load`
 - `load-2x-peak`
 - `load-baseline`

@@ -87,14 +87,9 @@ The admin comment moderation workbench shows model label, confidence, runtime id
 
 ## Comment Status Transition Matrix
 
-`CommentModerationTransitions` is the single runtime source for manual and model-driven status changes. A state cannot transition to itself, and no state can return to `Pending` after a moderation decision. The machine-readable dashboard source is [`comment-moderation-state-machine.yaml`](moderation/comment-moderation-state-machine.yaml).
-
-| From / To | Pending | Approved | Rejected | Hidden |
-| ----------- | --------- | ---------- | ---------- | -------- |
-| Pending | denied | allowed | allowed | allowed |
-| Approved | denied | denied | allowed | allowed |
-| Rejected | denied | allowed | denied | allowed |
-| Hidden | denied | allowed | allowed | denied |
+The exact allowed and forbidden transition sets are generated below from the compiled
+`CommentModerationTransitions` observation. The YAML file is a dashboard artifact, not a current
+behavior authority.
 
 Single and bulk admin writes compare the persisted `moderation_status` with the state that was read before the update. Automatic model writes compare both that expected status and PostgreSQL `xmin`; a concurrent winner therefore prevents the stale write and its audit/notification side effects. Successful single and automatic audits carry the previous and next state; bulk audit context records a deterministic `from->to:count` summary.
 
@@ -115,3 +110,55 @@ render: enum-set
 - `Pending`
 - `Rejected`
 <!-- FSUSBLOG-GENERATED:END content.comment.states -->
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.comment-allowed-transitions
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.comment.allowed-transitions
+render: transition-table
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN content.comment.allowed-transitions -->
+| From | To | Guard |
+| --- | --- | --- |
+| Approved | Hidden | - |
+| Approved | Rejected | - |
+| Hidden | Approved | - |
+| Hidden | Rejected | - |
+| Pending | Approved | - |
+| Pending | Hidden | - |
+| Pending | Rejected | - |
+| Rejected | Approved | - |
+| Rejected | Hidden | - |
+<!-- FSUSBLOG-GENERATED:END content.comment.allowed-transitions -->
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.comment-forbidden-transitions
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.comment.forbidden-transitions
+render: transition-table
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN content.comment.forbidden-transitions -->
+| From | To | Guard |
+| --- | --- | --- |
+| Approved | Approved | - |
+| Approved | Pending | - |
+| Hidden | Hidden | - |
+| Hidden | Pending | - |
+| Pending | Pending | - |
+| Rejected | Pending | - |
+| Rejected | Rejected | - |
+<!-- FSUSBLOG-GENERATED:END content.comment.forbidden-transitions -->
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.appeal-source-states
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.comment.appeal-source-states
+render: enum-set
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN content.comment.appeal-source-states -->
+- `Hidden`
+- `Rejected`
+<!-- FSUSBLOG-GENERATED:END content.comment.appeal-source-states -->
