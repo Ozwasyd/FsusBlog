@@ -6391,11 +6391,17 @@ tiers:
           [
               .tmp/backend-perf,
               .tmp/backend-perf/measurement-noise.json,
+              .tmp/backend-perf/native-p99/preflight.json,
+              .tmp/backend-perf/native-p99/measurement.json,
+              .tmp/backend-perf/native-p99/summary.json,
           ]
       evidence:
           [
               .tmp/backend-perf/summary.json,
               .tmp/backend-perf/measurement-noise.json,
+              .tmp/backend-perf/native-p99/preflight.json,
+              .tmp/backend-perf/native-p99/measurement.json,
+              .tmp/backend-perf/native-p99/summary.json,
           ]
       ciJob: perf-regression
       localOnly: false
