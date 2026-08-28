@@ -74,8 +74,10 @@ export function materializeTestMatrixRunner(repositoryRoot, fixtureRoot)
 {
     const workflowDirectory = path.join(fixtureRoot, '.github/workflows');
     const testingConfigDirectory = path.join(fixtureRoot, 'config/testing');
+    const testDirectory = path.join(fixtureRoot, 'tests');
     fs.mkdirSync(workflowDirectory, { recursive: true });
     fs.mkdirSync(testingConfigDirectory, { recursive: true });
+    fs.mkdirSync(testDirectory, { recursive: true });
     const fixture = materializeEsmFixture({
         repositoryRoot,
         fixtureRoot,
@@ -91,17 +93,35 @@ export function materializeTestMatrixRunner(repositoryRoot, fixtureRoot)
         path.join(workflowDirectory, 'quality-gate.yml')
     );
     for (const file of [
+        'correctness-attempt-producers.json',
         'correctness-budget-policy.json',
         'measurement-noise-policy.json',
         'physical-execution-process-policy.json',
+        'release-reliability-scenario-catalog.json',
+        'replay-qualification-producers.json',
         'temporal-callsite-dispositions.json',
-        'temporal-policy.json'
+        'temporal-policy.json',
+        'test-execution-envelope-applicability.json'
     ])
     {
         fs.copyFileSync(
             path.join(repositoryRoot, 'config/testing', file),
             path.join(testingConfigDirectory, file)
         );
+    }
+    fs.copyFileSync(
+        path.join(repositoryRoot, 'tests/matrix.yml'),
+        path.join(testDirectory, 'matrix.yml')
+    );
+    for (const file of [
+        'tools/test/attempt-runner.mjs',
+        'tools/test/bundles/run-bundle.mjs',
+        'tools/test/temporal-context.mjs'
+    ])
+    {
+        const target = path.join(fixtureRoot, file);
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.copyFileSync(path.join(repositoryRoot, file), target);
     }
     return fixture.entryFiles[0];
 }
