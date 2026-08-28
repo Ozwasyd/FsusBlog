@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v3",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:ec50cde9878ab140d161d05daac583dc9e03595dbbd4a314d59da254802af538",
+    "policyDigest": "sha256:6e4116f6c21416fe4ef97b47f0b9003de8c0848ffd7d1bf31e899439bca0e8f7",
     "documents": [
         {
             "path": "docs/active-release-fenced-commits.md",
@@ -350,6 +350,21 @@
             "supersedes": [],
             "supersededBy": null,
             "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/architecture/authoring-canvas-document-boundary.md",
+            "title": "Authoring canvas document boundary",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "backend",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                2482,
+                2484
+            ],
             "producer": null
         },
         {

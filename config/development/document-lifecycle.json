@@ -223,6 +223,17 @@
             "supersededBy": null
         },
         {
+            "path": "docs/architecture/authoring-canvas-document-boundary.md",
+            "status": "current",
+            "owner": "backend",
+            "relatedIssues": [
+                2482,
+                2484
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
             "path": "docs/architecture/article-revision-concurrency.md",
             "status": "current",
             "owner": "backend",

@@ -1384,6 +1384,29 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                     "fresh_backup_restore"
                 ]));
 
+        result.Add(
+            AuthoringCanvasDocumentMigrationDefinitions.MigrationId,
+            new OnlineSchemaMigrationMetadata(
+                AuthoringCanvasDocumentMigrationDefinitions.MigrationId,
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260828-authoring-canvas-document"),
+                ContractAfterCoordinate: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "authoring_canvas_closed_schema",
+                    "authoring_canvas_owner_scope"
+                ]));
+
         return new ReadOnlyDictionary<string, OnlineSchemaMigrationMetadata>(result);
     }
 
