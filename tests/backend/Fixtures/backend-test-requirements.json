@@ -344,6 +344,21 @@
         "tools/check-backend-test-governance.mjs",
         "config/testing/mutation/default.json"
       ]
+    },
+    {
+      "id": "legacy-20260517-real-dump",
+      "command": "node tools/test/run-legacy-real-dump-producer.mjs",
+      "risk": "critical",
+      "requirements": [
+        "BACKEND-LEGACY-20260517-REAL-DUMP"
+      ],
+      "evidencePaths": [
+        "tests/backend/Integration/SchemaMigrationIntegrationTests.cs",
+        "tools/test/legacy-real-dump-contract.mjs",
+        "tools/test/run-legacy-real-dump-producer.mjs",
+        "tests/tools/legacy-real-dump-producer.test.mjs",
+        "docs/database-migration.md"
+      ]
     }
   ],
   "requirements": [
@@ -1096,6 +1111,18 @@
         "tests/matrix.yml",
         "tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs",
         "tests/backend/rate-limiter-rejection-sampler-evidence.json"
+      ]
+    },
+    {
+      "id": "BACKEND-LEGACY-20260517-REAL-DUMP",
+      "risk": "critical",
+      "coverage": "exact-one dedicated execution of the private 20260517 PostgreSQL custom dump restore, double migration, retained legacy counts and current postconditions with source, dump and PostgreSQL runtime identity",
+      "evidencePaths": [
+        "tests/backend/Integration/SchemaMigrationIntegrationTests.cs",
+        "tools/test/legacy-real-dump-contract.mjs",
+        "tools/test/run-legacy-real-dump-producer.mjs",
+        "tests/tools/legacy-real-dump-producer.test.mjs",
+        "docs/database-migration.md"
       ]
     }
   ],

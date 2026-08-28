@@ -487,6 +487,24 @@
             ]
         },
         {
+            "file": "tests/tools/legacy-real-dump-producer.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "migration",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "legacy-real-dump-producer",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/legacy-real-dump-producer",
+                "output": ".tmp/test-governance/results/{checkId}/legacy-real-dump-producer.json"
+            }
+        },
+        {
             "file": "tests/tools/backup-envelope-contract.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",
