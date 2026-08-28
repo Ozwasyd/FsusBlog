@@ -117,34 +117,25 @@ public sealed class AuthoringWorkflowServiceTests
     }
 
     [Fact]
-    public void RebuildAssetLibraryAsync_RuntimeUsesTransactionAndLocks()
+    public void AssetLibraryRuntime_HasNoSecondRebuildOwner()
     {
-        string method = RuntimeMetadataInspection.DescribeMethods(
-            typeof(AuthoringAssetLibraryService),
-            "RebuildAssetLibraryAsync");
-
-        Assert.Contains("UseTranAsync", method, StringComparison.Ordinal);
-        Assert.Contains("pg_advisory_xact_lock", method, StringComparison.Ordinal);
-        Assert.Contains("FOR UPDATE", method, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            typeof(AuthoringAssetLibraryService).GetMethods(),
+            static method => method.Name.Contains("Rebuild", StringComparison.Ordinal));
     }
 
     [Fact]
-    public void ReindexAssetsAsync_RuntimeUsesArticleScopedAssetPath()
+    public void ReindexAssetsAsync_RuntimeUsesCanonicalLedgerProjection()
     {
-        IReadOnlyList<IReadOnlyList<string>> reindex = RuntimeMetadataInspection
-            .DescribeDeclaredMemberReferenceSequencesContaining(
-                typeof(AuthoringAssetLibraryService),
-                "ReindexArticleAssetsAsync");
-        string articleScoped = RuntimeMetadataInspection.DescribeMethods(
+        string runtime = RuntimeMetadataInspection.DescribeMethods(
             typeof(AuthoringAssetLibraryService),
-            "ReindexArticleAssetsAsync",
-            "EnsureAssetArticleReferenceStoreAsync");
+            "ReindexAssetsAsync",
+            "ListAssetsAsync");
 
-        Assert.All(reindex, static references =>
-            Assert.DoesNotContain(references, reference => reference.Contains("RebuildAssetLibraryAsync", StringComparison.Ordinal)));
-        Assert.Contains("EnsureAssetArticleReferenceStoreAsync", articleScoped, StringComparison.Ordinal);
-        Assert.Contains("asset_library_article_ref", articleScoped, StringComparison.Ordinal);
-        Assert.Contains("get_ArticleId", articleScoped, StringComparison.Ordinal);
+        Assert.Contains("ListAssetsAsync", runtime, StringComparison.Ordinal);
+        Assert.Contains("content_asset", runtime, StringComparison.Ordinal);
+        Assert.Contains("content_asset_reference", runtime, StringComparison.Ordinal);
+        Assert.DoesNotContain("asset_library_", runtime, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -1,0 +1,17 @@
+{
+    "schema": "fsusblog.outcome-field-dispositions.v1",
+    "schemaVersion": "1",
+    "fingerprintAlgorithmVersion": "canonical-json-sha256-v1",
+    "entries": [
+        { "schemaPath": "$.schema", "category": "execution-identity", "normalizationRule": "exact", "owner": "outcome-contract", "proofTestId": "outcome:field-coverage", "reasonCode": "contract.schema" },
+        { "schemaPath": "$.schemaVersion", "category": "execution-identity", "normalizationRule": "exact", "owner": "outcome-contract", "proofTestId": "outcome:field-coverage", "reasonCode": "contract.schema" },
+        { "schemaPath": "$.producerId", "category": "execution-identity", "normalizationRule": "exact", "owner": "producer-adapter", "proofTestId": "outcome:field-coverage", "reasonCode": "contract.identity" },
+        { "schemaPath": "$.producerAuthorityId", "category": "execution-identity", "normalizationRule": "exact", "owner": "producer-adapter", "proofTestId": "outcome:field-coverage", "reasonCode": "contract.identity" },
+        { "schemaPath": "$.identity", "category": "execution-identity", "normalizationRule": "canonical-object", "owner": "test-runtime", "proofTestId": "outcome:field-coverage", "reasonCode": "contract.identity" },
+        { "schemaPath": "$.inputAuthorityRefs", "category": "execution-identity", "normalizationRule": "sort-by-kind", "owner": "producer-adapter", "proofTestId": "outcome:field-coverage", "reasonCode": "contract.identity" },
+        { "schemaPath": "$.attemptEligibility", "category": "semantic-outcome", "normalizationRule": "canonical-object", "owner": "test-evidence", "proofTestId": "outcome:field-coverage", "reasonCode": "contract.missing-evidence" },
+        { "schemaPath": "$.outcome", "category": "semantic-outcome", "normalizationRule": "canonical-object", "owner": "producer-adapter", "proofTestId": "outcome:field-coverage", "reasonCode": "product.assertion" },
+        { "schemaPath": "$.verificationStatus", "category": "semantic-outcome", "normalizationRule": "exact", "owner": "producer-adapter", "proofTestId": "outcome:field-coverage", "reasonCode": "contract.missing-evidence" },
+        { "schemaPath": "$.contentDigest", "category": "execution-identity", "normalizationRule": "content-seal", "owner": "outcome-contract", "proofTestId": "outcome:field-coverage", "reasonCode": "contract.schema" }
+    ]
+}

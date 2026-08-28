@@ -308,19 +308,25 @@ public sealed class SearchIndexServiceTests
     [InlineData(0xBF, 1)]   // Continuation byte (fallback)
     public void GetUtf8ScalarLength_ReturnsCorrectRuneLength(byte inputByte, int expected)
     {
-        // Access via SearchIndexService.TokenizeForTests which uses GetUtf8ScalarLength internally
-        // Verify by round-tripping: tokenize text containing those codepoints
-        // For direct testing: use reflection to access the inner class method
-        var type = typeof(SearchIndexService).GetNestedType("SearchDictionaryReader", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-        if (type == null)
-            return; // Nested class may not be accessible
+        int actual = SearchIndexService.GetUtf8ScalarLength(inputByte);
 
-        var method = type.GetMethod("GetUtf8ScalarLength", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public);
-        if (method == null)
-            return;
-
-        int actual = (int)method.Invoke(null, [inputByte])!;
         Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void TokenizeForTests_Utf8ScalarLengthOwnerDrivesDictionaryReadPath()
+    {
+        string lexiconRoot = CreateLexiconRoot(coreEntries: ["é\t9", "中\t8", "😀\t7"]);
+
+        SearchIndexService.SearchTokenDebugView[] tokens = SearchIndexService.TokenizeForTests(
+            lexiconRoot,
+            "é中😀");
+
+        Assert.Collection(
+            tokens,
+            token => Assert.Equal(("é", 0u), (token.Text, token.Position)),
+            token => Assert.Equal(("中", 1u), (token.Text, token.Position)),
+            token => Assert.Equal(("😀", 2u), (token.Text, token.Position)));
     }
 
     [Fact]

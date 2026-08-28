@@ -10,6 +10,7 @@ using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Core.Services.Gateways;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Interfaces;
@@ -137,10 +138,12 @@ public sealed class DemoFixtureSeeder(
     IRuntimeKeyScope runtimeKeyScope,
     IHostEnvironment hostEnvironment,
     IConfiguration configuration,
-    TimeProvider timeProvider) : IDemoFixtureSeeder
+    TimeProvider timeProvider,
+    IAuditLogStore auditLogStore) : IDemoFixtureSeeder
 {
     private const string Strategy = "transaction-fixture";
     private const string DiagnosticVariantId = "diagnostic.development.demo.dataset";
+    private static readonly string[] s_demoAuditChainIds = ["20260601", "20260602"];
     private const string FixtureSecretConfigurationKey = "fsus:localDemoFixtureSecret";
     private const string IdentityDigestDomain = "fsusblog.demo-fixture-identity.v1";
 
@@ -456,11 +459,11 @@ public sealed class DemoFixtureSeeder(
                 cancellationToken).ConfigureAwait(false);
             AddEntity("audit-event", audit.SecurityEventId.ToString(CultureInfo.InvariantCulture), "security", new()
             {
-                ["action"] = "anti-crawler.demo-signal"
+                ["action"] = AuditActionCatalog.PublicAotCache
             });
             AddEntity("audit-event", audit.ModerationEventId.ToString(CultureInfo.InvariantCulture), "moderation", new()
             {
-                ["action"] = "comment.moderation.demo-pending"
+                ["action"] = AuditActionCatalog.CommentModerated
             });
 
             await db.Ado.CommitTranAsync().ConfigureAwait(false);
@@ -537,6 +540,7 @@ public sealed class DemoFixtureSeeder(
                 try
                 {
                     await db.Ado.RollbackTranAsync().ConfigureAwait(false);
+                    AuditLogStore.InvalidateChainTailCacheForFixtureCleanup(s_demoAuditChainIds);
                 }
                 catch (Exception error)
                 {
@@ -599,6 +603,7 @@ public sealed class DemoFixtureSeeder(
 
         if (committed)
         {
+            AuditLogStore.InvalidateChainTailCacheForFixtureCleanup(s_demoAuditChainIds);
             await RemoveArticleReadModelsAsync(rows.ArticleIds, cancellationToken).ConfigureAwait(false);
             _ = await RebuildAndObserveAsync(
                 rows.ArticleIds,
@@ -922,7 +927,7 @@ public sealed class DemoFixtureSeeder(
             await db.Deleteable<CommentSlowModeState>().Where(item => rows.ArticleIds.Contains(item.ArticleId)).ExecuteCommandAsync(ct).ConfigureAwait(false);
             await db.Deleteable<CommentPolicyAuditEvent>().Where(item => rows.ArticleIds.Contains(item.ArticleId)).ExecuteCommandAsync(ct).ConfigureAwait(false);
             await db.Deleteable<ArticleCommentPolicy>().Where(item => rows.ArticleIds.Contains(item.ArticleId)).ExecuteCommandAsync(ct).ConfigureAwait(false);
-            await db.Deleteable<ArticleAssetReference>().Where(item => item.ArticleId != null && rows.ArticleIds.Contains(item.ArticleId.Value)).ExecuteCommandAsync(ct).ConfigureAwait(false);
+            await db.Deleteable<ContentAssetReference>().Where(item => item.ArticleId != null && rows.ArticleIds.Contains(item.ArticleId.Value)).ExecuteCommandAsync(ct).ConfigureAwait(false);
             await db.Deleteable<ArticlePublicTaxonomyProjection>().Where(item => rows.ArticleIds.Contains(item.ArticleId)).ExecuteCommandAsync(ct).ConfigureAwait(false);
             string articleIdPlaceholders = string.Join(
                 ", ",
@@ -1693,54 +1698,52 @@ public sealed class DemoFixtureSeeder(
         long commentId,
         CancellationToken ct)
     {
-        long securityEventId = await InsertReturningIdAsync(
-            """
-            INSERT INTO sys_audit_log
-              (source, type, occurred_at_utc, actor_type, actor_id, actor_role, action,
-               target_type, target_id, outcome, severity, is_high_value, trace_id,
-               request_path, request_method, ip_hash, user_agent_hash,
-               session_id_hash, device_fingerprint_hash, reason_code, event_info, context_json)
-            VALUES
-              (@Source, 'security', '2026-06-01 12:00:00+00', 'system', @ActorId, NULL,
-               'anti-crawler.demo-signal', 'public-read', @target1, 'observed', 'info', false,
-               @TraceId, '/articles/public-preview-walkthrough', 'GET',
-               @IpHash, @UserAgentHash, NULL, NULL,
-               'demo-security-event', 'Fictional anti-crawler demo event', @ContextJson)
-            RETURNING id;
-            """,
-            ct,
-            new SugarParameter("@Source", owner.Value),
-            new SugarParameter("@ActorId", owner.Name("security-actor")),
-            new SugarParameter("@target1", articleId.ToString(CultureInfo.InvariantCulture)),
-            new SugarParameter("@TraceId", owner.Name("security-trace")),
-            new SugarParameter("@IpHash", owner.Name("fictional-ip-hash")),
-            new SugarParameter("@UserAgentHash", owner.Name("fictional-ua-hash")),
-            new SugarParameter("@ContextJson", """{"demo":true,"fictional":true}""")).ConfigureAwait(false);
+        string securityTarget = owner.Name("audit-security");
+        string moderationTarget = owner.Name("audit-moderation");
+        await auditLogStore.WriteBatchAsync(
+        [
+            new AuditRecord(
+                AuditSourceCatalog.System,
+                AuditTypeCatalog.Infra,
+                new DateTime(2026, 6, 1, 12, 0, 0, DateTimeKind.Utc),
+                "Fictional public AOT demo observation",
+                null,
+                Action: AuditActionCatalog.PublicAotCache,
+                Outcome: AuditOutcomeCatalog.Success,
+                Severity: AuditSeverityCatalog.Info,
+                ActorType: AuditActorTypeCatalog.System,
+                TargetType: "demo-fixture",
+                TargetId: securityTarget,
+                ReasonCode: "demo-security-event"),
+            new AuditRecord(
+                AuditSourceCatalog.Comment,
+                AuditTypeCatalog.Business,
+                new DateTime(2026, 6, 2, 12, 0, 0, DateTimeKind.Utc),
+                "Fictional moderation queue demo event",
+                null,
+                Action: AuditActionCatalog.CommentModerated,
+                Outcome: AuditOutcomeCatalog.Success,
+                Severity: AuditSeverityCatalog.Info,
+                ActorType: AuditActorTypeCatalog.System,
+                TargetType: "demo-fixture",
+                TargetId: moderationTarget,
+                ReasonCode: "demo-moderation-event")
+        ],
+        ct).ConfigureAwait(false);
 
-        long moderationEventId = await InsertReturningIdAsync(
-            """
-            INSERT INTO sys_audit_log
-              (source, type, occurred_at_utc, actor_type, actor_id, actor_role, action,
-               target_type, target_id, outcome, severity, is_high_value, trace_id,
-               request_path, request_method, ip_hash, user_agent_hash,
-               session_id_hash, device_fingerprint_hash, reason_code, event_info, context_json)
-            VALUES
-              (@Source, 'audit', '2026-06-02 12:00:00+00', 'admin_principal', @AdminHandle, NULL,
-               'comment.moderation.demo-pending', 'comment', @target2, 'pending', 'info', false,
-               @TraceId, '/user/manage/comments', 'POST',
-               @IpHash, @UserAgentHash, NULL, NULL,
-               'demo-moderation-event', 'Fictional moderation queue demo event', @ContextJson)
-            RETURNING id;
-            """,
-            ct,
-            new SugarParameter("@Source", owner.Value),
-            new SugarParameter("@AdminHandle", owner.AdminHandle),
-            new SugarParameter("@target2", commentId.ToString(CultureInfo.InvariantCulture)),
-            new SugarParameter("@TraceId", owner.Name("moderation-trace")),
-            new SugarParameter("@IpHash", owner.Name("fictional-ip-hash")),
-            new SugarParameter("@UserAgentHash", owner.Name("fictional-ua-hash")),
-            new SugarParameter("@ContextJson", """{"demo":true,"fictional":true}""")).ConfigureAwait(false);
-
-        return new SeededAudit(securityEventId, moderationEventId);
+        List<AuditLog> rows = await db.Queryable<AuditLog>()
+            .Where(item => item.TargetType == "demo-fixture"
+                && (item.TargetId == securityTarget || item.TargetId == moderationTarget))
+            .OrderBy(item => item.OccurredAtUtc)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+        if (rows.Count != 2
+            || rows.Any(static row => string.IsNullOrWhiteSpace(row.ChainId)
+                || string.IsNullOrWhiteSpace(row.RecordHash)
+                || string.IsNullOrWhiteSpace(row.RecordMac)))
+        {
+            throw new InvalidOperationException("canonical demo audit records were not signed by the production store");
+        }
+        return new SeededAudit(rows[0].Id, rows[1].Id);
     }
 }

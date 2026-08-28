@@ -1,0 +1,79 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsus.blog/schemas/current-run-evidence-context.schema.json",
+    "title": "Current run evidence context",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "schedulerRunId",
+        "attemptId",
+        "sourceCommit",
+        "worktreeFingerprint",
+        "candidateIdentity",
+        "buildIdentity",
+        "ownedRoots",
+        "contentDigest"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.current-run-evidence-context.v1"
+        },
+        "schedulerRunId": {
+            "type": "string",
+            "minLength": 1
+        },
+        "attemptId": {
+            "type": "string",
+            "minLength": 1
+        },
+        "sourceCommit": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$"
+        },
+        "worktreeFingerprint": {
+            "$ref": "#/$defs/digest"
+        },
+        "candidateIdentity": {
+            "$ref": "#/$defs/identity"
+        },
+        "buildIdentity": {
+            "$ref": "#/$defs/identity"
+        },
+        "ownedRoots": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+                "type": "string",
+                "minLength": 1
+            }
+        },
+        "contentDigest": {
+            "$ref": "#/$defs/digest"
+        }
+    },
+    "$defs": {
+        "digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "identity": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "digest"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "digest": {
+                    "$ref": "#/$defs/digest"
+                }
+            }
+        }
+    }
+}

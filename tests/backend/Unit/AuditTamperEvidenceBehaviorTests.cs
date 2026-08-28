@@ -82,6 +82,79 @@ public sealed class AuditTamperEvidenceBehaviorTests
     }
 
     [Fact]
+    public void VerifyDetailed_ReturnsStableFieldReasons()
+    {
+        byte[] key = Encoding.UTF8.GetBytes(ValidTamperKey);
+        AuditRecord record = BuildTamperRecord();
+        AuditTamperEvidenceResult evidence = AuditTamperEvidence.Sign(record, key);
+        AuditLog valid = ToAuditLog(record, evidence);
+
+        Assert.Equal("valid", AuditTamperEvidence.VerifyDetailed(valid, key).Reason);
+
+        AuditLog wrongChain = Clone(valid);
+        wrongChain.ChainId = "20260615";
+        AuditTamperVerificationResult chainResult = AuditTamperEvidence.VerifyDetailed(wrongChain, key);
+        Assert.Equal("chain_id_mismatch", chainResult.Reason);
+        Assert.Equal("chain_id", chainResult.Field);
+
+        AuditTamperVerificationResult previousResult = AuditTamperEvidence.VerifyDetailed(
+            valid,
+            key,
+            new string('a', 64));
+        Assert.Equal("prev_hash_mismatch", previousResult.Reason);
+        Assert.Equal("prev_hash", previousResult.Field);
+
+        AuditLog wrongHash = Clone(valid);
+        wrongHash.EventInfo = "tampered";
+        Assert.Equal(
+            "record_hash_mismatch",
+            AuditTamperEvidence.VerifyDetailed(wrongHash, key).Reason);
+
+        AuditLog wrongMac = Clone(valid);
+        wrongMac.RecordMac = new string('a', 64);
+        Assert.Equal(
+            "record_mac_mismatch",
+            AuditTamperEvidence.VerifyDetailed(wrongMac, key).Reason);
+    }
+
+    [Fact]
+    public void VerifyDetailed_BindsProtectedPayloadDigest()
+    {
+        byte[] key = Encoding.UTF8.GetBytes(ValidTamperKey);
+        AuditRecord record = BuildTamperRecord() with
+        {
+            ContextPayload = Encoding.UTF8.GetBytes("ciphertext-envelope")
+        };
+        AuditTamperEvidenceResult evidence = AuditTamperEvidence.Sign(record, key);
+        AuditLog tampered = ToAuditLog(record, evidence);
+        tampered.ContextPayload![0] ^= 0x01;
+
+        AuditTamperVerificationResult result = AuditTamperEvidence.VerifyDetailed(tampered, key);
+
+        Assert.Equal("record_hash_mismatch", result.Reason);
+        Assert.Equal("record_hash", result.Field);
+    }
+
+    [Fact]
+    public void VerifyDetailed_AcceptsPayloadUnboundV1HistoricalSignature()
+    {
+        byte[] key = Encoding.UTF8.GetBytes(ValidTamperKey);
+        AuditRecord historicalCanonical = BuildTamperRecord();
+        AuditTamperEvidenceResult historicalEvidence = AuditTamperEvidence.Sign(historicalCanonical, key);
+        AuditRecord stored = historicalCanonical with
+        {
+            ContextPayload = Encoding.UTF8.GetBytes("historical-envelope")
+        };
+
+        AuditTamperVerificationResult result = AuditTamperEvidence.VerifyDetailed(
+            ToAuditLog(stored, historicalEvidence),
+            key);
+
+        Assert.True(result.IsValid);
+        Assert.Equal("valid", result.Reason);
+    }
+
+    [Fact]
     public void ResolveKey_RejectsWeakKeyAndIgnoresLegacyConfigurationLocation()
     {
         IConfiguration shortKeyConfiguration = new ConfigurationBuilder()
@@ -208,6 +281,39 @@ public sealed class AuditTamperEvidenceBehaviorTests
             PrevHash = record.PrevHash,
             RecordHash = recordHash ?? evidence.RecordHash,
             RecordMac = recordMac ?? evidence.RecordMac
+        };
+
+    private static AuditLog Clone(AuditLog source)
+        => new()
+        {
+            Id = source.Id,
+            Source = source.Source,
+            Type = source.Type,
+            OccurredAtUtc = source.OccurredAtUtc,
+            ActorType = source.ActorType,
+            ActorId = source.ActorId,
+            ActorRole = source.ActorRole,
+            Action = source.Action,
+            TargetType = source.TargetType,
+            TargetId = source.TargetId,
+            Outcome = source.Outcome,
+            Severity = source.Severity,
+            IsHighValue = source.IsHighValue,
+            TraceId = source.TraceId,
+            RequestPath = source.RequestPath,
+            RequestMethod = source.RequestMethod,
+            IpHash = source.IpHash,
+            UserAgentHash = source.UserAgentHash,
+            SessionIdHash = source.SessionIdHash,
+            DeviceFingerprintHash = source.DeviceFingerprintHash,
+            ReasonCode = source.ReasonCode,
+            EventInfo = source.EventInfo,
+            ContextPayload = source.ContextPayload?.ToArray(),
+            ContextJson = source.ContextJson,
+            ChainId = source.ChainId,
+            PrevHash = source.PrevHash,
+            RecordHash = source.RecordHash,
+            RecordMac = source.RecordMac
         };
 
     private static T RunWithCulture<T>(string cultureName, Func<T> action)

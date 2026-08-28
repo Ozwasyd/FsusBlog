@@ -22,6 +22,20 @@ StaticTestLifecycle() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-lifecycle.mjs" --audit-input "$retentionAudit"
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/native-test-governance.mjs"
 }
+StaticTestReplacementDiff() {
+    local base="${FSUSBLOG_TEST_REPLACEMENT_DIFF_BASE:-origin/master}"
+    local transactions=()
+    mapfile -t transactions < <(git -C "$ROOT_DIR" diff --name-only "$base" HEAD -- 'tests/test-replacement-transactions/*.json')
+    if (( ${#transactions[@]} > 1 )); then
+        echo "[test-replacement] multiple current transactions are ambiguous: ${transactions[*]}" >&2
+        return 1
+    fi
+    if (( ${#transactions[@]} == 1 )); then
+        Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test-replacement-transaction.mjs" check-diff "$base" "${transactions[0]}"
+    else
+        Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test-replacement-transaction.mjs" check-diff "$base"
+    fi
+}
 StaticArticleCoreTestApi() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-article-core-test-api.mjs"; }
 StaticBackendGovernance() { RunTier "static-governance" RunBackendTestGovernanceOnly; }
 StaticGateIntegrity() { Run "$ROOT_DIR/tools/check-gate-integrity.sh" --self-test; }
@@ -43,6 +57,7 @@ StaticAppsettingsAuthority() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/con
 StaticBackendConfigurationContract() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/configuration/check-backend-configuration-contract.mjs"; }
 StaticMonolithicDistributedArchitecture() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-monolithic-distributed-architecture.mjs"; }
 StaticBehaviorMutationGovernance() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-behavior-mutation-governance.mjs"; }
+StaticFixtureMutationRecoveryGovernance() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-fixture-mutation-recovery-governance.mjs"; }
 StaticCsharpStyle() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/dotnet/check-csharp-style.mjs" --mode full
 }
@@ -60,10 +75,16 @@ TEST_ASSET_BEHAVIOR_FILES=(
     "$ROOT_DIR/tests/tools/cross-stack-receipt-join.test.mjs"
     "$ROOT_DIR/tests/tools/content-addressed-build-cache.test.mjs"
     "$ROOT_DIR/tests/tools/dotnet-build-server-cleanup.test.mjs"
+    "$ROOT_DIR/tests/tools/evidence-location-contract.test.mjs"
+    "$ROOT_DIR/tests/tools/evidence-location-governance.test.mjs"
+    "$ROOT_DIR/tests/tools/fixture-mutation-recovery.test.mjs"
     "$ROOT_DIR/tests/tools/no-global-dotnet-build-server-shutdown.test.mjs"
     "$ROOT_DIR/tests/tools/physical-execution-process-tree.test.mjs"
     "$ROOT_DIR/tests/tools/frontend-vitest-rolling-shards.test.mjs"
     "$ROOT_DIR/tests/tools/produce-behavior-test-evidence.test.mjs"
+    "$ROOT_DIR/tests/tools/media-negative-corpus.test.mjs"
+    "$ROOT_DIR/tests/tools/media-positive-generator.test.mjs"
+    "$ROOT_DIR/tests/tools/media-shape-catalog.test.mjs"
     "$ROOT_DIR/tests/tools/production-resource-enforcement.test.mjs"
     "$ROOT_DIR/tests/tools/resource-utilization.test.mjs"
     "$ROOT_DIR/tests/tools/run-once.test.mjs"
@@ -107,6 +128,7 @@ RunApplicationStaticPrechecksPhase() {
         backend-configuration-contract StaticBackendConfigurationContract \
         monolithic-distributed-architecture StaticMonolithicDistributedArchitecture \
         behavior-mutation-governance StaticBehaviorMutationGovernance \
+        fixture-mutation-recovery-governance StaticFixtureMutationRecoveryGovernance \
         line-endings StaticLineEndings \
         csharp-style StaticCsharpStyle \
         label-governance StaticLabelGovernance
@@ -121,6 +143,7 @@ RunTestAssetGovernancePhase() {
         temporal-producer-bindings StaticTemporalProducerBindings \
         test-asset-audit StaticTestAssetAudit \
         browser-test-migration StaticBrowserTestMigration \
+        test-replacement-diff StaticTestReplacementDiff \
         test-lifecycle StaticTestLifecycle \
         canonical-node-behavior StaticTestAssetBehavior \
         article-core-test-api StaticArticleCoreTestApi \

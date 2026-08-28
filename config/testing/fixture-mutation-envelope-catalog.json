@@ -994,7 +994,7 @@
                 "auth-security-matrix"
             ],
             "targetCapabilities": [
-                "security.risk-escalated"
+                "security.risk.escalated"
             ],
             "semanticTargets": {
                 "entities": [],

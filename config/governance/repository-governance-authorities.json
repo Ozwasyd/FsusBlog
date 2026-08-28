@@ -44,12 +44,14 @@
                     ],
                     "checkerSources": [
                         "tools/test/lanes/static-governance.sh",
-                        "tools/governance/check-behavior-mutation-governance.mjs"
+                        "tools/governance/check-behavior-mutation-governance.mjs",
+                        "tools/governance/check-fixture-mutation-recovery-governance.mjs"
                     ],
                     "ruleIds": [
                         "application:aeds-policy",
                         "application:background-service-classification",
                         "application:behavior-mutation-governance",
+                        "application:fixture-mutation-recovery-governance",
                         "application:backend-physical-topology",
                         "application:code-intent",
                         "application:configuration-authority",

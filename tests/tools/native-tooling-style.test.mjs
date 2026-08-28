@@ -162,6 +162,19 @@ test('native tooling style governance publishes standard native and tooling conf
     assert.ok(buildNames.has('lint'))
     assert.ok(exceptions.exceptions.every((item) =>
         item.authorityExceptionId || item.authorityClassificationId || item.precedenceClass === 'language-syntax'))
+    const searchScalarBoundary = exceptions.exceptions.find(
+        (item) => item.id === 'search-index-utf8-scalar-owner'
+    )
+    assert.deepEqual(searchScalarBoundary.paths, [
+        'docs/testing.generated.md',
+        'src/backend/Services/SearchIndexService.Dictionary.cs',
+        'tests/backend/Fixtures/backend-test-requirements.json',
+        'tests/coverage-registry.json',
+        'tools/check-backend-test-governance.mjs',
+        'tools/test/csharp-source-mask.mjs',
+        'tools/test/search-index-utf8-scalar-governance.mjs'
+    ])
+    assert.ok(searchScalarBoundary.paths.every((path) => !path.includes('*')))
 })
 
 test('native tooling style governance accepts positive C++, CMake, Shell, YAML, JSON and Markdown fixtures', () =>

@@ -1,10 +1,8 @@
 #!/usr/bin/env node
 // fixture-catalog: consumer auth-session-runtime auth-basic
-// fixture-catalog: producer auth-session
-// fixture-catalog: producer security-state
 
 import { spawnSync } from 'node:child_process';
-import { createHash, createHmac, randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { chmod, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -14,6 +12,10 @@ import {
     resolvePlaywrightSessionMode
 } from './fixture-paths.mjs';
 import { resolveTestSession } from './test-session.mjs';
+import {
+    loadResolvedTemporalRoles,
+    requireResolvedTemporalRole
+} from '../../../tools/test/temporal-role-resolver.mjs';
 
 const CLAIM_NAME_IDENTIFIER = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier';
 const CLAIM_NAME = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name';
@@ -40,7 +42,6 @@ const pgDb = process.env.FSUSBLOG_PG_DB || 'fsusblog';
 const testSession = resolveTestSession();
 const playwrightSessionMode = resolvePlaywrightSessionMode();
 const persistAuthFixtures = process.env.FSUSBLOG_PERSIST_AUTH_FIXTURES !== '0';
-const redisContainer = process.env.FSUSBLOG_REDIS_CONTAINER || process.env.FSUSBLOG_REDIS_CONTAINER_NAME || '';
 
 const jwtSecret = process.env.Jwt__SecretKey
   || process.env.JWT_SECRET
@@ -54,16 +55,6 @@ const jwtAudience = process.env.Jwt__Audience
   || process.env.FSUSBLOG_JWT_AUDIENCE
   || 'fsusblog-client';
 const jwtKeyVersion = process.env.Jwt__KeyVersion || '';
-const anonymousCredentialSubjectHashPepper = process.env.AnonymousCredentialIssuer__SubjectHashPepper
-  || process.env.FSUSBLOG_DEV_ANONYMOUS_SUBJECT_HASH_PEPPER
-  || '';
-const resetAnonymousCredentialIssuanceFixture = process.env.FSUSBLOG_RESET_ANONYMOUS_ISSUANCE_FIXTURE !== '0';
-const accessTokenExpiresMinutes = Number.parseInt(
-    process.env.Jwt__AccessTokenExpiresMinutes
-  || process.env.FSUSBLOG_JWT_ACCESS_TOKEN_EXPIRES_MINUTES
-  || '15',
-    10
-) || 15;
 
 function schemaForSession(session)
 {
@@ -162,40 +153,6 @@ function runPsqlNumber(sql, description)
     return value;
 }
 
-function runRedisCli(args, description)
-{
-    if (!/^fsusblog-(?:dev|test|ci)(?:[-_.a-zA-Z0-9]*)$/.test(redisContainer))
-    {
-        throw new Error('FSUSBLOG_REDIS_CONTAINER must name a dev/test/ci fixture container before Redis fixtures can run.');
-    }
-
-    const result = spawnSync('docker', [
-        'exec',
-        redisContainer,
-        'redis-cli',
-        ...args
-    ], { encoding: 'utf8' });
-
-    if (result.status !== 0)
-    {
-        throw new Error(`${description} redis fixture command failed: ${result.stderr || result.stdout}`);
-    }
-
-    return result.stdout.trim();
-}
-
-function clearFixtureUserBanCache(handle)
-{
-    if (!redisContainer)
-    {
-        return;
-    }
-
-    const subjectHash = accountSubjectHash(ANONYMOUS_ACCOUNT_KIND, handle);
-    const key = `fsus:sec:blacklist-user:account:${subjectHash}`;
-    runRedisCli(['DEL', key, runtimeCacheKey(key)], `clear fixture user ban cache ${handle}`);
-}
-
 function base64Url(input)
 {
     return Buffer.from(input)
@@ -226,38 +183,55 @@ function signJwt(payload)
     return `${encodedHeader}.${encodedPayload}.${base64Url(signature)}`;
 }
 
-// Canonical business wall clock for fixture JWT/session rows. Matches
-// config/testing/temporal-policy.json qualification defaults and data-scale seed.
-// Host wall clock is never used for correctness fields.
-const CANONICAL_BUSINESS_EPOCH_UTC = '2024-02-29T23:59:59.000Z';
+let loadedTemporalArtifact;
+let loadedTemporalArtifactDigest;
 
-function resolveBusinessEpochUtc()
+function resolvedTemporalArtifact()
 {
-    const businessEpochUtc = String(
-        process.env.FSUSBLOG_TEST_BUSINESS_EPOCH_UTC ?? CANONICAL_BUSINESS_EPOCH_UTC
-    ).trim();
-    const businessMs = Date.parse(businessEpochUtc);
-    if (!Number.isFinite(businessMs))
+    const digest = String(process.env.FSUSBLOG_TEMPORAL_ROLE_ARTIFACT_DIGEST ?? '').trim();
+    if (!loadedTemporalArtifact || loadedTemporalArtifactDigest !== digest)
     {
-        throw new Error('FSUSBLOG_TEST_BUSINESS_EPOCH_UTC must be a parseable RFC3339 UTC instant');
+        loadedTemporalArtifact = loadResolvedTemporalRoles();
+        loadedTemporalArtifactDigest = loadedTemporalArtifact.contentDigest;
     }
-    return new Date(businessMs).toISOString().replace(/\.(\d{3})\d*Z$/u, '.$1Z');
+    return loadedTemporalArtifact;
 }
 
-function nowEpochSeconds()
+function temporalRole(roleId)
 {
-    return Math.floor(Date.parse(resolveBusinessEpochUtc()) / 1000);
+    return requireResolvedTemporalRole(resolvedTemporalArtifact(), roleId);
 }
 
-function businessNowSql()
+function temporalRoleEpochSeconds(roleId)
 {
-    // Injected business wall clock as a timestamptz literal (never session wall clock).
-    return `timestamptz '${resolveBusinessEpochUtc()}'`;
+    const role = temporalRole(roleId);
+    if (role.epochMilliseconds % 1000 !== 0)
+    {
+        throw new Error(`${roleId} cannot be represented as an exact JWT epoch second`);
+    }
+    return role.epochMilliseconds / 1000;
 }
 
-function expiresAtEpochSeconds()
+function temporalRoleSql(roleId)
 {
-    return nowEpochSeconds() + accessTokenExpiresMinutes * 60;
+    return `timestamptz '${temporalRole(roleId).instantUtc}'`;
+}
+
+function exactTemporalTtlSeconds(roleId, requestedSeconds)
+{
+    const expiresAt = temporalRole(roleId).epochMilliseconds;
+    const startsAt = temporalRole('session.authenticated').epochMilliseconds;
+    const durationMilliseconds = expiresAt - startsAt;
+    if (durationMilliseconds <= 0 || durationMilliseconds % 1000 !== 0)
+    {
+        throw new Error(`${roleId} does not define an exact positive TTL`);
+    }
+    const expectedSeconds = durationMilliseconds / 1000;
+    if (Number(requestedSeconds) !== expectedSeconds)
+    {
+        throw new Error(`${roleId} TTL must exact-match the resolved temporal role`);
+    }
+    return expectedSeconds;
 }
 
 function accountSubjectHash(identityKind, subject)
@@ -267,49 +241,6 @@ function accountSubjectHash(identityKind, subject)
     return createHash('sha256')
         .update(`${ACCOUNT_SUBJECT_HASH_PREFIX}:${normalizedKind}:${normalizedSubject}`, 'utf8')
         .digest('hex');
-}
-
-function anonymousCredentialIssuanceSubjectHash(userId)
-{
-    const pepper = String(anonymousCredentialSubjectHashPepper || '').trim();
-    if (pepper.length < 32)
-    {
-        return '';
-    }
-
-    const key = createHash('sha256').update(pepper, 'utf8').digest();
-    return createHmac('sha256', key)
-        .update(`fsusblog:anonymous-credential-issuance:v1:${userId}`, 'utf8')
-        .digest('hex');
-}
-
-function clearFixtureAnonymousCredentialIssuanceAudit(userId)
-{
-    if (!resetAnonymousCredentialIssuanceFixture)
-    {
-        return;
-    }
-
-    const subjectHash = anonymousCredentialIssuanceSubjectHash(userId);
-    if (!subjectHash)
-    {
-        return;
-    }
-
-    runPsql(`
-DO $$
-BEGIN
-  IF to_regclass('anonymous_credential_issuance_audit') IS NOT NULL THEN
-    DELETE FROM anonymous_credential_issuance_audit
-    WHERE subject_hash = ${sqlString(subjectHash)};
-  END IF;
-END $$;
-`);
-}
-
-function runtimeCacheKey(key)
-{
-    return testSession ? `e2e:${testSession}:${key}` : key;
 }
 
 function randomToken(byteLength = 32)
@@ -391,12 +322,9 @@ inserted AS (
     passkey_enabled,
     recovery_enabled,
     privacy_initialized_at,
-    anonymous_credential_level,
-    anonymous_credential_status,
     status,
     createtime,
-    mfaenabled,
-    riskflags
+    mfaenabled
   )
   SELECT
     ${sqlString(normalizedHandle)},
@@ -404,13 +332,10 @@ inserted AS (
     ${sqlString(accountSubjectHashValue)},
     false,
     false,
-    ${businessNowSql()},
-    'basic',
-    'active',
+    ${temporalRoleSql('session.created')},
     0,
-    ${businessNowSql()},
-    false,
-    0
+    ${temporalRoleSql('session.created')},
+    false
   WHERE NOT EXISTS (SELECT 1 FROM existing)
   RETURNING id
 )
@@ -424,7 +349,6 @@ LIMIT 1;
 UPDATE sys_user
 SET status = 0,
     account_subject_hash = ${sqlString(accountSubjectHashValue)},
-    banreason = NULL,
     deleted_at = NULL,
     deleted_reason = NULL,
     mfaenabled = false
@@ -433,8 +357,6 @@ WHERE id = ${userId};
 DELETE FROM user_mfa_profile
 WHERE user_id = ${userId};
 `, `reset fixture user MFA ${normalizedHandle}`);
-    clearFixtureUserBanCache(normalizedHandle);
-    clearFixtureAnonymousCredentialIssuanceAudit(userId);
 
     const sessionId = stableFixtureSessionId(
         ANONYMOUS_ACCOUNT_KIND,
@@ -444,12 +366,12 @@ WHERE user_id = ${userId};
     // Session validation binds JWT auth_method/auth_strength/auth_time to the
     // sys_user_session authentication context. Keep the DB row and token claims
     // on the same unix second so UserSessionValidationService accepts fixtures.
-    const authenticatedAtEpochSeconds = nowEpochSeconds();
-    const authenticatedAtSql = `to_timestamp(${authenticatedAtEpochSeconds}) AT TIME ZONE 'UTC'`;
+    const authenticatedAtEpochSeconds = temporalRoleEpochSeconds('session.authenticated');
+    const authenticatedAtSql = temporalRoleSql('session.authenticated');
     const authenticationMethod = 'other';
     const authenticationStrength = 'legacy_unverified';
     const sessionModeClaim = 'normal';
-    const accessTokenExpiresAtEpochSeconds = expiresAtEpochSeconds();
+    const accessTokenExpiresAtEpochSeconds = temporalRoleEpochSeconds('session.access-token-expiry');
     const accessToken = signJwt({
         [CLAIM_NAME_IDENTIFIER]: String(userId),
         identity_kind: ANONYMOUS_ACCOUNT_KIND,
@@ -469,7 +391,7 @@ WHERE user_id = ${userId};
 
     runPsql(`
 UPDATE sys_user_session
-SET revokedat = ${businessNowSql()},
+SET revokedat = ${temporalRoleSql('session.revoked')},
     revokereason = 'login_replaced'
 WHERE userid = ${userId}
   AND sessionid <> ${sqlString(sessionId)}
@@ -513,10 +435,10 @@ VALUES (
   'Unknown',
   'Unknown',
   'Unknown',
-  ${authenticatedAtSql},
-  ${authenticatedAtSql},
-  ${authenticatedAtSql} + interval '${rememberMe ? '30 days' : '2 hours'}',
-  ${authenticatedAtSql} + interval '30 days',
+  ${temporalRoleSql('session.created')},
+  ${temporalRoleSql('session.last-seen')},
+  ${temporalRoleSql(rememberMe ? 'session.persistent-idle-expiry' : 'session.idle-expiry')},
+  ${temporalRoleSql(rememberMe ? 'session.persistent-absolute-expiry' : 'session.absolute-expiry')},
   NULL,
   NULL,
   0,
@@ -589,8 +511,8 @@ VALUES (
   'active',
   false,
   ${sqlString(permissions)},
-  ${businessNowSql()},
-  ${businessNowSql()},
+  ${temporalRoleSql('session.created')},
+  ${temporalRoleSql('session.last-seen')},
   false,
   NULL,
   NULL
@@ -599,7 +521,7 @@ ON CONFLICT (handle) DO UPDATE SET
   displayname = EXCLUDED.displayname,
   status = 'active',
   permissions = EXCLUDED.permissions,
-  lastloginatutc = ${businessNowSql()}
+  lastloginatutc = ${temporalRoleSql('session.last-seen')}
 RETURNING id;
 `, `fixture admin ${normalizedHandle}`);
 
@@ -607,7 +529,8 @@ RETURNING id;
         ADMIN_PRINCIPAL_KIND,
         normalizedHandle,
         fixtureSessionScope({ rememberMe, deviceFingerprint }));
-    const accessTokenExpiresAtEpochSeconds = expiresAtEpochSeconds();
+    const authenticatedAtEpochSeconds = temporalRoleEpochSeconds('session.authenticated');
+    const accessTokenExpiresAtEpochSeconds = temporalRoleEpochSeconds('session.access-token-expiry');
     const accessToken = signJwt({
         [CLAIM_NAME_IDENTIFIER]: String(adminId),
         [CLAIM_NAME]: normalizedHandle,
@@ -621,8 +544,8 @@ RETURNING id;
         [ADMIN_PERMISSION_CLAIM]: defaultAdminPermissions,
         iss: jwtIssuer,
         aud: jwtAudience,
-        iat: nowEpochSeconds(),
-        nbf: nowEpochSeconds(),
+        iat: authenticatedAtEpochSeconds,
+        nbf: authenticatedAtEpochSeconds,
         exp: accessTokenExpiresAtEpochSeconds
     });
 
@@ -649,10 +572,10 @@ VALUES (
   ${sqlString(deviceFingerprint)},
   '127.0.0.1',
   'fsusblog-test-session-fixture',
-  ${businessNowSql()},
-  ${businessNowSql()},
-  ${businessNowSql()} + interval '${rememberMe ? '24 hours' : '2 hours'}',
-  ${businessNowSql()} + interval '${rememberMe ? '30 days' : '12 hours'}',
+  ${temporalRoleSql('session.created')},
+  ${temporalRoleSql('session.last-seen')},
+  ${temporalRoleSql(rememberMe ? 'session.admin-persistent-idle-expiry' : 'session.admin-standard-idle-expiry')},
+  ${temporalRoleSql(rememberMe ? 'session.admin-persistent-absolute-expiry' : 'session.admin-standard-absolute-expiry')},
   NULL,
   NULL,
   true
@@ -663,7 +586,7 @@ ON CONFLICT (sessionid) DO UPDATE SET
   devicefingerprint = EXCLUDED.devicefingerprint,
   lastip = EXCLUDED.lastip,
   useragent = EXCLUDED.useragent,
-  lastseenatutc = ${businessNowSql()},
+  lastseenatutc = ${temporalRoleSql('session.last-seen')},
   idleexpiresatutc = EXCLUDED.idleexpiresatutc,
   absoluteexpiresatutc = EXCLUDED.absoluteexpiresatutc,
   revokedatutc = NULL,
@@ -679,74 +602,6 @@ ON CONFLICT (sessionid) DO UPDATE SET
         accessTokenExpiresAtEpochSeconds,
         cookieHeader: buildAdminCookieHeader({ accessToken, sessionId })
     };
-}
-
-export function createAdminStepUpProofToken({
-    adminId,
-    sessionId,
-    action = 'admin-sensitive',
-    ttlSeconds = 45
-})
-{
-    if (!Number.isFinite(Number(adminId)) || Number(adminId) <= 0)
-    {
-        throw new Error('admin step-up proof requires a valid admin id');
-    }
-    if (!String(sessionId || '').trim())
-    {
-        throw new Error('admin step-up proof requires a valid session id');
-    }
-
-    const token = randomToken();
-    const identity = [
-        'admin',
-        Number(adminId),
-        String(sessionId).trim(),
-        String(action).trim(),
-        token
-    ].join(':');
-    const key = `fsus:sec:mfa-proof:${identity}`;
-    runRedisCli(['SET', runtimeCacheKey(key), '1', 'EX', String(Math.max(1, ttlSeconds))], 'admin step-up proof');
-    return token;
-}
-
-export function createUserMfaProofToken({
-    userId,
-    handle,
-    action,
-    ttlSeconds = 45
-})
-{
-    if (!Number.isFinite(Number(userId)) || Number(userId) <= 0)
-    {
-        throw new Error('user MFA proof requires a valid user id');
-    }
-    const normalizedHandle = String(handle || '').trim().toLowerCase();
-    if (!normalizedHandle)
-    {
-        throw new Error('user MFA proof requires a valid handle');
-    }
-    const normalizedAction = String(action || '').trim().toLowerCase();
-    if (!normalizedAction)
-    {
-        throw new Error('user MFA proof requires a valid action');
-    }
-
-    const token = randomToken();
-    const subject = accountSubjectHash(ANONYMOUS_ACCOUNT_KIND, normalizedHandle);
-    const identity = createHash('sha256')
-        .update([
-            'mfa-proof',
-            String(Number(userId)),
-            subject,
-            normalizedAction,
-            token
-        ].join(':'), 'utf8')
-        .digest('hex')
-        .toUpperCase();
-    const key = `fsus:sec:mfa-proof:${identity}`;
-    runRedisCli(['SET', runtimeCacheKey(key), '1', 'EX', String(Math.max(1, ttlSeconds))], 'user MFA proof');
-    return token;
 }
 
 function cookieEntries(cookieHeader, url)

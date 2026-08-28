@@ -7,6 +7,7 @@ import process from 'node:process';
 import { execFile } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { format, promisify } from 'node:util';
+import { readVerifiedSecurityCleanupReceipt } from './security-cleanup-barrier.mjs';
 
 const execFileAsync = promisify(execFile);
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -199,21 +200,9 @@ export async function defaultResetBarrier({ barrier, scenario, identity })
 {
     const startedAt = new Date().toISOString();
     const startedNs = process.hrtime.bigint();
-    const label = `runtime scenario host ${barrier} before ${scenario.id}`;
-    const { stdout = '', stderr = '' } = await execFileAsync(
-        'bash',
-        [path.join(repositoryRoot, 'tools/test/lanes/reset-security-runtime-state.sh'), label],
-        {
-            cwd: repositoryRoot,
-            env: {
-                ...process.env,
-                FSUSBLOG_TEST_RUN_ID: identity.runId,
-                FSUSBLOG_TEST_SOURCE_COMMIT: identity.commit,
-                FSUSBLOG_TEST_SOURCE_FINGERPRINT: identity.worktreeFingerprint
-            },
-            encoding: 'utf8',
-            maxBuffer: 4 * 1024 * 1024
-        }
+    const cleanupReceipt = readVerifiedSecurityCleanupReceipt(
+        process.env.FSUSBLOG_SECURITY_FIXTURE_CLEANUP_RECEIPT_FILE,
+        digest
     );
     return {
         schema: 'fsusblog.runtime-scenario-reset-receipt.v1',
@@ -224,8 +213,7 @@ export async function defaultResetBarrier({ barrier, scenario, identity })
         startedAt,
         finishedAt: new Date().toISOString(),
         durationMs: Number(process.hrtime.bigint() - startedNs) / 1e6,
-        stdoutDigest: digest(stdout),
-        stderrDigest: digest(stderr),
+        cleanupReceiptDigest: cleanupReceipt.contentDigest,
         identityBefore: null,
         identityAfter: null,
         pollutionDetected: false

@@ -1,0 +1,123 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsus.blog/schemas/evidence-location-migration-ledger.schema.json",
+    "title": "Evidence location migration ledger",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "version",
+        "scannerSchema",
+        "scannerRuleIds",
+        "scanDigest",
+        "entries",
+        "contentDigest"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.evidence-location-migration-ledger.v1"
+        },
+        "version": {
+            "const": 1
+        },
+        "scannerSchema": {
+            "const": "fsusblog.evidence-location-scan.v1"
+        },
+        "scannerRuleIds": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+                "type": "string",
+                "minLength": 1
+            }
+        },
+        "scanDigest": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "entries": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/entry"
+            }
+        },
+        "contentDigest": {
+            "$ref": "#/$defs/digest"
+        }
+    },
+    "$defs": {
+        "digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "entry": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "findingId",
+                "consumerId",
+                "location",
+                "oldSelectionRule",
+                "classification",
+                "newAuthorityId",
+                "locatorMode",
+                "action",
+                "owner",
+                "proofTest"
+            ],
+            "properties": {
+                "findingId": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{16}$"
+                },
+                "consumerId": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "location": {
+                    "type": "string",
+                    "pattern": "^[^:*?\\[\\]]+:[1-9][0-9]*$"
+                },
+                "oldSelectionRule": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "classification": {
+                    "enum": [
+                        "correctness-selection",
+                        "diagnostic-only",
+                        "not-evidence"
+                    ]
+                },
+                "newAuthorityId": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "locatorMode": {
+                    "enum": [
+                        "explicit-run-path",
+                        "content-addressed-reference",
+                        "not-applicable"
+                    ]
+                },
+                "action": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "owner": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "proofTest": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            }
+        }
+    }
+}

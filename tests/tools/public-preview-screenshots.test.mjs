@@ -457,6 +457,7 @@ test('registry covers visible authorities and binds the resolved FsusUI identity
     const files = new Set(Object.values(inputs.categories).flatMap((category) => category.files));
     for (const expected of [
         'src/frontend/package-lock.json',
+        'src/frontend/playwright.config.ts',
         'src/frontend/vite.config.ts',
         'src/frontend/src/assets/main.css',
         'src/frontend/src/bootstrap/fontPreparationPort.ts',
@@ -610,7 +611,8 @@ test('capture contracts keep shards temporary and release verification explicit'
     assert.match(runner, /FSUSBLOG_PUBLIC_PREVIEW_WRITER_NAMESPACE="\$NAMESPACE"/u);
     assert.match(runner, /FSUSBLOG_PUBLIC_PREVIEW_WRITER_PID="\$\$"/u);
     assert.match(runner, /FSUSBLOG_REPOSITORY_ROOT="\$ROOT_DIR"/u);
-    assert.match(runner, /FSUSBLOG_PLAYWRIGHT_MANAGED_ONLY=1/u);
+    assert.match(browserRunner, /createCorrectnessBrowserPlan/u);
+    assert.match(browserRunner, /observeCorrectnessBrowser/u);
     assert.match(runner, /FSUSBLOG_BASE_URL="\$FSUSBLOG_RELEASE_PREVIEW_URL"/u);
     assert.match(runner, /FSUSBLOG_PUBLIC_BASE_URL="\$FSUSBLOG_RELEASE_PREVIEW_URL"/u);
     assert.match(runner, /PLAYWRIGHT_BASE_URL="\$FSUSBLOG_RELEASE_PREVIEW_URL"/u);
@@ -668,6 +670,7 @@ test('capture contracts keep shards temporary and release verification explicit'
         runtimeAudit: true,
         timezone: 'UTC'
     });
+    assert.ok(registry.visualInputs.capture.includes('src/frontend/playwright.config.ts'));
     assert.ok(registry.visualInputs.capture.includes('tests/frontend/e2e/manual/manual-layout-screenshots.spec.ts'));
     assert.ok(registry.visualInputs.capture.includes('tests/frontend/support/playwright'));
     assert.ok(!registry.visualInputs.capture.includes('tools/docs/public-preview-screenshots.mjs'));
@@ -677,7 +680,9 @@ test('capture contracts keep shards temporary and release verification explicit'
         acceptanceShared.indexOf('export async function captureStorageState')
     );
     assert.doesNotMatch(prewarm, /page\.reload/u);
-    assert.match(prewarm, /await session\.close\(\)[\s\S]*?session = await openAuditedPage\(browser\)[\s\S]*?await warm\(\)/u);
+    assert.match(prewarm, /try \{[\s\S]*?await warm\(\)[\s\S]*?finally \{[\s\S]*?await session\.close\(\)/u);
+    assert.equal(prewarm.match(/openAuditedPage\(browser\)/gu)?.length, 1);
+    assert.equal(prewarm.match(/await warm\(\)/gu)?.length, 1);
     assert.match(matrix, /id: browser-contract[\s\S]*?public-preview-screenshots\.json/u);
     assert.match(matrix, /id: release-final[\s\S]*?browser-contract/u);
     assert.match(browserRunner, /receipt\.publicPreview = \{[\s\S]*?captureContextCount:[\s\S]*?evidenceFileDigest: sha256File/u);
@@ -687,4 +692,46 @@ test('capture contracts keep shards temporary and release verification explicit'
     assert.match(releaseEvidence, /public-preview screenshot evidence is required; release-final fails closed without local evidence/u);
     assert.match(releaseEvidence, /validatePublicPreviewEvidenceBinding/u);
     assert.match(releaseFinal, /public-preview commit=\$\{publicPreviewEvidence\.sourceCommit\} releaseId=\$\{publicPreviewEvidence\.releaseId\} images=/u);
+});
+
+test('public-preview checker binds the complete capture-only renderer contract', () =>
+{
+    const checkerPath = path.join(root, 'tools/docs/check-public-preview-screenshots.mjs');
+    const checker = fs.readFileSync(checkerPath, 'utf8');
+    const playwrightConfiguration = fs.readFileSync(
+        path.join(root, 'src/frontend/playwright.config.ts'),
+        'utf8'
+    );
+    const captureBlock = playwrightConfiguration.match(
+        /\.\.\.\(process\.env\.FSUSBLOG_PUBLIC_PREVIEW_DOCS_CAPTURE === '1'\s*\?\s*\[([\s\S]*?)\]\s*:\s*\[\]\)/u
+    )?.[1] ?? '';
+    assert.ok(captureBlock, 'renderer flags must remain scoped to public-preview docs capture');
+
+    for (const flag of [
+        '--disable-gpu',
+        '--disable-gpu-rasterization',
+        '--disable-checker-imaging',
+        '--disable-lcd-text',
+        '--disable-font-subpixel-positioning',
+        '--disable-skia-runtime-opts',
+        '--disable-oop-rasterization',
+        '--disable-partial-raster',
+        '--disable-threaded-animation',
+        '--disable-threaded-scrolling',
+        '--disable-zero-copy',
+        '--force-device-scale-factor=1',
+        '--force-color-profile=srgb',
+        '--num-raster-threads=1'
+    ])
+    {
+        assert.ok(captureBlock.includes(`'${flag}'`), `capture block must include ${flag}`);
+        assert.ok(checker.includes(`'${flag}'`), `checker must require ${flag}`);
+    }
+
+    const result = spawnSync(process.execPath, [checkerPath], {
+        cwd: root,
+        encoding: 'utf8'
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /ok screenshots=9/u);
 });

@@ -86,6 +86,25 @@ test('collector discards VSTest serialized attachment copies before exact lane v
   await assert.rejects(stat(path.dirname(path.dirname(serializedCopy))), { code: 'ENOENT' })
 })
 
+test('collector discards the current host timestamp VSTest attachment layout', async (t) => {
+  const subject = await fixture()
+  t.after(() => rm(subject.root, { recursive: true, force: true }))
+  const serializedCopy = path.join(
+    subject.coverageRoot,
+    'backend',
+    'ordinary',
+    '_build-agent_2026-08-27_00_00_00',
+    'In',
+    'build-agent'
+  )
+  await writeReport(serializedCopy)
+
+  const result = subject.run()
+
+  assert.equal(result.status, 0, result.stderr || result.stdout)
+  await assert.rejects(stat(path.dirname(path.dirname(serializedCopy))), { code: 'ENOENT' })
+})
+
 test('collector still rejects two independent collector result directories', async (t) => {
   const subject = await fixture()
   t.after(() => rm(subject.root, { recursive: true, force: true }))

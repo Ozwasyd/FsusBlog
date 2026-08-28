@@ -2,6 +2,7 @@ using System.Data;
 
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using FsusBlog.Server.Infrastructure.Storage;
 
 using SqlSugar;
 
@@ -61,7 +62,8 @@ public sealed class SchemaMigrationRunner(
     TimeProvider timeProvider,
     ILogger<SchemaMigrationRunner> logger,
     IReleaseIdentityProvider releaseIdentityProvider,
-    IArticleDetailAedsArtifactMaintenanceService? articleDetailAedsMaintenance = null) : ISchemaMigrationRunner
+    IArticleDetailAedsArtifactMaintenanceService? articleDetailAedsMaintenance = null,
+    ReleaseStoragePaths? storagePaths = null) : ISchemaMigrationRunner
 {
     internal const string HistoryTableName = "__fsus_schema_migration_history";
 
@@ -73,6 +75,7 @@ public sealed class SchemaMigrationRunner(
     private readonly ILogger<SchemaMigrationRunner> _logger = logger;
     private readonly IReleaseIdentityProvider _releaseIdentityProvider = releaseIdentityProvider;
     private readonly IArticleDetailAedsArtifactMaintenanceService? _articleDetailAedsMaintenance = articleDetailAedsMaintenance;
+    private readonly ReleaseStoragePaths? _storagePaths = storagePaths;
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
@@ -106,7 +109,6 @@ public sealed class SchemaMigrationRunner(
                 "region_read_stats",
                 "event_type_read_stats",
                 "article_view_projection_watermark",
-                "asset_library_article_ref",
                 "author_daily_read_stats",
                 "author_route_stats",
                 "author_rum_stats",
@@ -179,6 +181,19 @@ public sealed class SchemaMigrationRunner(
         ISchemaMigrationDescriptor descriptor,
         CancellationToken cancellationToken)
     {
+        if (step is ContentAssetCutoverBackfillStep)
+        {
+            if (_storagePaths is null)
+            {
+                throw new InvalidOperationException(
+                    $"Schema migration {descriptor.MigrationId} requires {nameof(ReleaseStoragePaths)}.");
+            }
+
+            await ContentAssetCutoverBackfill.ExecuteAsync(_db, _storagePaths, cancellationToken)
+                .ConfigureAwait(false);
+            return;
+        }
+
         if (step is not ClearLegacyPublicArtifactsStep)
         {
             await step.ExecuteAsync(_db, cancellationToken).ConfigureAwait(false);

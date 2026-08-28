@@ -189,9 +189,8 @@ public partial class ArticleService
         ct.ThrowIfCancellationRequested();
         article.Content = await _db.Queryable<ArticleBody>().Where(it => it.ArticleId == id).Select(it => it.MarkdownContent).FirstAsync() ?? string.Empty;
         ct.ThrowIfCancellationRequested();
-        string[] imageUrls = [.. ArticleAssetReferenceStore
-            .BuildReferenceCounts(article.Content, article.CoverImageUrl)
-            .Keys];
+        string[] imageUrls = ArticleAssetReferenceStore
+            .ExtractPublicAssetUrls(article.Content, article.CoverImageUrl);
         ArticleVersionCoordinates version = await LoadCurrentVersionCoordinatesAsync(id).ConfigureAwait(false);
         var beforeScope = new ArticleMutationScopeSnapshot(
             state.CategoryIds.Single(),

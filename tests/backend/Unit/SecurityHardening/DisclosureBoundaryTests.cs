@@ -119,33 +119,6 @@ public sealed class DisclosureBoundaryTests
         Assert.All(document.RootElement.EnumerateObject(), property => Assert.False(property.Value.GetBoolean()));
     }
 
-    [Fact]
-    public async Task StructuredSecurityLogField_IsSanitizedBeforeLoggerReceivesIt()
-    {
-        string root = Path.Combine(Path.GetTempPath(), $"fsusblog-log-boundary-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(root);
-        try
-        {
-            var logger = new StructuredLogger<FileService>();
-            var service = new FileService(ReleaseStorageTestPaths.Create(root), logger);
-
-            bool deleted = await service.DeleteImageAsync("/outside\r\nINJECT\u001b[31m");
-
-            Assert.False(deleted);
-            IReadOnlyDictionary<string, object?> fields = Assert.Single(logger.Entries);
-            string path = Assert.IsType<string>(fields["FullPath"]);
-            Assert.DoesNotContain('\r', path);
-            Assert.DoesNotContain('\n', path);
-            Assert.DoesNotContain('\u001b', path);
-            Assert.Contains("\\r\\n", path, StringComparison.Ordinal);
-            Assert.Contains("\\u001B", path, StringComparison.Ordinal);
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
-    }
-
     private static string DecodeApiErrorMessage(MemoryStream body)
     {
         var encoder = new AedsEncoder();

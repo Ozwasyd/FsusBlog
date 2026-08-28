@@ -1,0 +1,194 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.local/schemas/playwright-browser-identity-policy.schema.json",
+    "title": "FsusBlog Playwright browser identity policy",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "$schema",
+        "schema",
+        "correctness",
+        "diagnostic"
+    ],
+    "properties": {
+        "$schema": {
+            "type": "string",
+            "const": "../schemas/playwright-browser-identity-policy.schema.json"
+        },
+        "schema": {
+            "type": "string",
+            "const": "fsusblog.playwright-browser-identity-policy.v1"
+        },
+        "correctness": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "managedOnly",
+                "allowedEvidenceClasses",
+                "browserNames",
+                "forbiddenExecutableEnvironment",
+                "launch",
+                "rendering",
+                "fontSourceFiles",
+                "fontPackages",
+                "localeSourceRoot"
+            ],
+            "properties": {
+                "managedOnly": {
+                    "type": "boolean",
+                    "const": true
+                },
+                "allowedEvidenceClasses": {
+                    "type": "array",
+                    "const": [
+                        "correctness",
+                        "browser-contract"
+                    ]
+                },
+                "browserNames": {
+                    "type": "array",
+                    "const": [
+                        "chromium",
+                        "firefox",
+                        "webkit"
+                    ]
+                },
+                "forbiddenExecutableEnvironment": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "launch": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "chromium",
+                        "firefox",
+                        "webkit"
+                    ],
+                    "properties": {
+                        "chromium": {
+                            "$ref": "#/$defs/launch"
+                        },
+                        "firefox": {
+                            "$ref": "#/$defs/launch"
+                        },
+                        "webkit": {
+                            "$ref": "#/$defs/launch"
+                        }
+                    }
+                },
+                "rendering": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "renderingMode",
+                        "deviceScaleFactor",
+                        "colorScheme"
+                    ],
+                    "properties": {
+                        "renderingMode": {
+                            "type": "string",
+                            "const": "headless"
+                        },
+                        "deviceScaleFactor": {
+                            "type": "number",
+                            "exclusiveMinimum": 0
+                        },
+                        "colorScheme": {
+                            "enum": [
+                                "light",
+                                "dark"
+                            ]
+                        }
+                    }
+                },
+                "fontSourceFiles": {
+                    "$ref": "#/$defs/nonEmptyStrings"
+                },
+                "fontPackages": {
+                    "$ref": "#/$defs/nonEmptyStrings"
+                },
+                "localeSourceRoot": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            }
+        },
+        "diagnostic": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "qualificationEligible",
+                "hostBrowserAllowed"
+            ],
+            "properties": {
+                "qualificationEligible": {
+                    "type": "boolean",
+                    "const": false
+                },
+                "hostBrowserAllowed": {
+                    "type": "boolean",
+                    "const": true
+                }
+            }
+        }
+    },
+    "$defs": {
+        "launch": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "headless",
+                "args",
+                "gpuMode"
+            ],
+            "properties": {
+                "headless": {
+                    "type": "boolean",
+                    "const": true
+                },
+                "args": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "uniqueItems": true
+                },
+                "firefoxUserPrefs": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "anyOf": [
+                            {
+                                "type": "boolean"
+                            },
+                            {
+                                "type": "number"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
+                    }
+                },
+                "gpuMode": {
+                    "type": "string",
+                    "const": "software"
+                }
+            }
+        },
+        "nonEmptyStrings": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+                "type": "string",
+                "minLength": 1
+            }
+        }
+    }
+}

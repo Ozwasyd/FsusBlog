@@ -1,0 +1,351 @@
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import test from 'node:test';
+
+import { contentDigest } from '../../tools/test-quality/schema.mjs';
+import {
+    applyReplacementTransaction,
+    createReplacementTransaction,
+    detectReplacementRequiredChanges,
+    validateReplacementReceipt,
+    validateReplacementTransaction,
+    verifyDiffHasTransaction
+} from '../../tools/test-replacement/transaction.mjs';
+
+const hash = (value) => `sha256:${createHash('sha256').update(String(value)).digest('hex')}`;
+
+function inventory(cases, marker)
+{
+    return {
+        inventoryDigest: hash(`inventory:${marker}`),
+        sourceState: { commit: marker.repeat(40).slice(0, 40), worktreeFingerprint: marker.repeat(64).slice(0, 64) },
+        sourceFiles: [...new Set(cases.map((item) => item.path))].map((sourcePath) => ({
+            path: sourcePath,
+            sourceDigest: hash(`${marker}:${sourcePath}`)
+        })),
+        testCases: cases.map((item) => ({
+            id: item.id,
+            ownerFile: item.path,
+            adapter: item.framework ?? 'xunit',
+            identity: item.identity ?? 'static',
+            platform: item.platform ?? 'linux',
+            fixture: item.fixture ?? 'postgres'
+        }))
+    };
+}
+
+function retention(cases)
+{
+    return {
+        testRecords: cases.map((item) => ({
+            id: item.id,
+            runtimeBoundary: item.runtimeBoundary ?? 'dotnet:integration',
+            productionSymbols: item.productionSymbols ?? ['ArticleService.Read'],
+            assertionTargets: item.assertionTargets ?? ['http:status:equal:200'],
+            requirementIds: item.requirementIds ?? ['REQ-ARTICLE'],
+            coverageIds: item.coverageIds ?? ['article-read'],
+            tierIds: item.tierIds ?? ['backend-integration'],
+            evidencePaths: item.evidencePaths ?? ['.tmp/article-read.json'],
+            qualityOutcome: item.qualityOutcome ?? 'passed',
+            retentionClass: item.retentionClass ?? 'must-keep'
+        }))
+    };
+}
+
+function mapping(beforeTestId, afterTestIds, disposition = afterTestIds.length > 1 ? 'shared-replacement' : 'replacement')
+{
+    const project = (before) => [{ before, after: disposition === 'retired' ? [] : [before] }];
+    return {
+        beforeTestId,
+        afterTestIds,
+        disposition,
+        assertionMappings: project('http:status:equal:200'),
+        requirementMappings: project('REQ-ARTICLE'),
+        coverageMappings: project('article-read'),
+        tierMappings: project('backend-integration'),
+        evidenceMappings: project('.tmp/article-read.json')
+    };
+}
+
+function quality(cases)
+{
+    return { cases: cases.map((item) => ({ testId: item.id, outcome: item.qualityOutcome ?? 'passed' })) };
+}
+
+function change(sourcePath, beforeContent, afterContent, kind = 'source', afterExists = true)
+{
+    return {
+        path: sourcePath,
+        beforeExists: beforeContent !== null,
+        beforeDigest: hash(beforeContent ?? ''),
+        afterExists,
+        afterDigest: hash(afterContent),
+        afterContent,
+        kind
+    };
+}
+
+function catalogChanges(mappings)
+{
+    const ledger = `${JSON.stringify({
+        deletedTests: mappings.map((mapping) => ({
+            id: mapping.beforeTestId,
+            replacementTestIds: mapping.afterTestIds
+        }))
+    }, null, 2)}\n`;
+    return [
+        change('tests/test-retention-replacements.json', '{}\n', ledger, 'catalog'),
+        change('tests/backend/Fixtures/backend-test-requirements.json', '{}\n', '{"updated":true}\n', 'catalog'),
+        change('tests/coverage-registry.json', '{}\n', '{"updated":true}\n', 'catalog'),
+        change('tests/matrix.yml', 'tiers: []\n', 'tiers:\n  - updated\n', 'catalog'),
+        change('docs/generated/testing.md', 'old\n', 'new\n', 'generated-doc')
+    ];
+}
+
+function plan({
+    operation = 'rename',
+    beforeCases = [{ id: 'old', path: 'tests/OldTests.cs' }],
+    afterCases = [{ id: 'new', path: 'tests/NewTests.cs' }],
+    mappings = null,
+    sourceChanges = null
+} = {})
+{
+    const resolvedMappings = mappings ?? beforeCases.map((before) => mapping(
+        before.id,
+        afterCases.map((after) => after.id)
+    ));
+    const oldPaths = new Set(beforeCases.map((item) => item.path));
+    const newPaths = new Set(afterCases.map((item) => item.path));
+    const resolvedSourceChanges = sourceChanges ?? [
+        ...[...oldPaths].map((sourcePath) => change(
+            sourcePath,
+            `before:${sourcePath}\n`,
+            newPaths.has(sourcePath) ? `after:${sourcePath}\n` : '',
+            'source',
+            newPaths.has(sourcePath)
+        )),
+        ...[...newPaths].filter((sourcePath) => !oldPaths.has(sourcePath)).map((sourcePath) => change(
+            sourcePath,
+            null,
+            `after:${sourcePath}\n`
+        ))
+    ];
+    const beforeInventory = inventory(beforeCases, 'a');
+    const afterInventory = inventory(afterCases, 'b');
+    return createReplacementTransaction({
+        request: {
+            transactionId: `tx-${operation}`,
+            operation,
+            owner: 'test-governance',
+            reason: 'fixture replacement',
+            issue: '#2626',
+            beforeTestIds: beforeCases.map((item) => item.id),
+            afterTestIds: afterCases.map((item) => item.id),
+            mappings: resolvedMappings,
+            changes: [...resolvedSourceChanges, ...catalogChanges(resolvedMappings)]
+        },
+        beforeInventory,
+        afterInventory,
+        beforeRetention: retention(beforeCases),
+        afterRetention: retention(afterCases),
+        afterQuality: quality(afterCases)
+    });
+}
+
+test('rename transaction seals exact identities, compatibility and catalog closure', () =>
+{
+    const transaction = plan();
+    assert.equal(validateReplacementTransaction(transaction), transaction);
+    assert.equal(transaction.before[0].testId, 'old');
+    assert.equal(transaction.after[0].qualityOutcome, 'passed');
+    assert.match(transaction.contentDigest, /^sha256:[0-9a-f]{64}$/u);
+});
+
+test('merge, parameterize and split preserve every case through explicit mappings', () =>
+{
+    const merged = plan({
+        operation: 'merge',
+        beforeCases: [
+            { id: 'old-a', path: 'tests/OldATests.cs' },
+            { id: 'old-b', path: 'tests/OldBTests.cs' }
+        ],
+        afterCases: [{ id: 'merged', path: 'tests/MergedTests.cs' }]
+    });
+    assert.deepEqual(merged.mappings.map((item) => item.beforeTestId), ['old-a', 'old-b']);
+    const parameterized = plan({
+        operation: 'parameterize',
+        beforeCases: [
+            { id: 'old-case-a', path: 'tests/CasesTests.cs' },
+            { id: 'old-case-b', path: 'tests/CasesTests.cs' }
+        ],
+        afterCases: [
+            { id: 'theory[row:a]', path: 'tests/CasesTests.cs' },
+            { id: 'theory[row:b]', path: 'tests/CasesTests.cs' }
+        ],
+        mappings: [
+            mapping('old-case-a', ['theory[row:a]']),
+            mapping('old-case-b', ['theory[row:b]'])
+        ]
+    });
+    assert.equal(parameterized.mappings.length, 2);
+    const split = plan({
+        operation: 'split',
+        afterCases: [
+            { id: 'new-a', path: 'tests/NewATests.cs' },
+            { id: 'new-b', path: 'tests/NewBTests.cs' }
+        ]
+    });
+    assert.deepEqual(split.mappings[0].afterTestIds, ['new-a', 'new-b']);
+});
+
+test('delete requires explicit retirement and a generated empty ledger disposition', () =>
+{
+    const mappings = [mapping('old', [], 'retired')];
+    const transaction = plan({ operation: 'delete', afterCases: [], mappings });
+    assert.equal(transaction.after.length, 0);
+    assert.throws(() => plan({ operation: 'delete' }), /explicitly retired/u);
+});
+
+test('planning fails closed on missing IDs, failed quality and lost compatibility dimensions', () =>
+{
+    assert.throws(() => plan({
+        afterCases: [{ id: 'new', path: 'tests/NewTests.cs', qualityOutcome: 'failed' }]
+    }), /not quality-passed/u);
+    assert.throws(() => plan({
+        afterCases: [{ id: 'new', path: 'tests/NewTests.cs', platform: 'windows' }]
+    }), /platform-compatible/u);
+    assert.throws(() => plan({
+        mappings: [mapping('missing', ['new'])]
+    }), /duplicated or incomplete/u);
+    assert.throws(() => plan({ sourceChanges: [] }), /source change is missing/u);
+    const lostCoverage = mapping('old', ['new']);
+    lostCoverage.coverageMappings = [];
+    assert.throws(() => plan({ mappings: [lostCoverage] }), /coverageMappings is duplicated or incomplete/u);
+    assert.throws(() => plan({
+        afterCases: [{ id: 'old', path: 'tests/NewTests.cs' }],
+        mappings: [mapping('old', ['old'])]
+    }), /remains discoverable/u);
+    assert.throws(() => plan({
+        afterCases: [
+            { id: 'new', path: 'tests/NewATests.cs' },
+            { id: 'new', path: 'tests/NewBTests.cs' }
+        ]
+    }), /duplicate test IDs/u);
+    assert.throws(() => plan({
+        operation: 'parameterize',
+        afterCases: [{ id: 'theory-owner', path: 'tests/NewTests.cs', identity: 'dynamic' }]
+    }), /stable current case identities/u);
+});
+
+test('transaction validation rejects partial catalogs and sealed-content tampering', () =>
+{
+    const partial = structuredClone(plan());
+    partial.changes = partial.changes.filter((item) => item.path !== 'tests/coverage-registry.json');
+    partial.contentDigest = contentDigest(partial);
+    assert.throws(() => validateReplacementTransaction(partial), /catalog change is missing/u);
+
+    const tamperedDoc = structuredClone(plan());
+    const generated = tamperedDoc.changes.find((item) => item.kind === 'generated-doc');
+    generated.afterContent = 'manually edited\n';
+    tamperedDoc.contentDigest = contentDigest(tamperedDoc);
+    assert.throws(() => validateReplacementTransaction(tamperedDoc), /does not match afterDigest/u);
+
+    const tamperedMapping = structuredClone(plan());
+    tamperedMapping.mappings[0].assertionMappings = [];
+    tamperedMapping.contentDigest = contentDigest(tamperedMapping);
+    assert.throws(() => validateReplacementTransaction(tamperedMapping), /assertion .* has no disposition/u);
+});
+
+test('atomic apply deletes and writes as one unit and rolls everything back on verification failure', () =>
+{
+    const root = mkdtempSync(path.join(os.tmpdir(), 'fsus-replacement-'));
+    try
+    {
+        const transaction = plan();
+        for (const item of transaction.changes)
+        {
+            if (!item.beforeExists)
+            {
+                continue;
+            }
+            const absolute = path.join(root, item.path);
+            mkdirSync(path.dirname(absolute), { recursive: true });
+            const fixtureContent = item.kind === 'source' ? `before:${item.path}\n`
+                : item.path === 'tests/matrix.yml' ? 'tiers: []\n'
+                    : item.kind === 'generated-doc' ? 'old\n' : '{}\n';
+            writeFileSync(absolute, fixtureContent);
+        }
+        const receipt = applyReplacementTransaction({ root, transaction });
+        assert.equal(receipt.verification, 'passed');
+        assert.equal(validateReplacementReceipt(receipt, { transaction }), receipt);
+        const tamperedReceipt = structuredClone(receipt);
+        tamperedReceipt.verificationOutcomes.pop();
+        assert.throws(() => validateReplacementReceipt(tamperedReceipt, { transaction }), /content digest/u);
+        assert.equal(existsSync(path.join(root, 'tests/OldTests.cs')), false);
+        assert.equal(readFileSync(path.join(root, 'tests/NewTests.cs'), 'utf8'), 'after:tests/NewTests.cs\n');
+        assert.throws(() => validateReplacementTransaction(transaction, { existingReceipts: [receipt] }), /already applied/u);
+
+        const rollbackRoot = mkdtempSync(path.join(os.tmpdir(), 'fsus-replacement-rollback-'));
+        try
+        {
+            for (const item of transaction.changes)
+            {
+                if (!item.beforeExists)
+                {
+                    continue;
+                }
+                const absolute = path.join(rollbackRoot, item.path);
+                mkdirSync(path.dirname(absolute), { recursive: true });
+                const fixtureContent = item.kind === 'source' ? `before:${item.path}\n`
+                    : item.path === 'tests/matrix.yml' ? 'tiers: []\n'
+                        : item.kind === 'generated-doc' ? 'old\n' : '{}\n';
+                writeFileSync(absolute, fixtureContent);
+            }
+            assert.throws(() => applyReplacementTransaction({
+                root: rollbackRoot,
+                transaction,
+                verifyAfter: () => { throw new Error('verification failed'); }
+            }), /verification failed/u);
+            assert.equal(readFileSync(path.join(rollbackRoot, 'tests/OldTests.cs'), 'utf8'), 'before:tests/OldTests.cs\n');
+            assert.equal(existsSync(path.join(rollbackRoot, 'tests/NewTests.cs')), false);
+        }
+        finally
+        {
+            rmSync(rollbackRoot, { recursive: true, force: true });
+        }
+    }
+    finally
+    {
+        rmSync(root, { recursive: true, force: true });
+    }
+});
+
+test('diff checker detects deleted tests, renamed tests and removed discoverable cases', () =>
+{
+    const root = mkdtempSync(path.join(os.tmpdir(), 'fsus-replacement-git-'));
+    try
+    {
+        execFileSync('git', ['init', '-q'], { cwd: root });
+        execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: root });
+        execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: root });
+        mkdirSync(path.join(root, 'tests'), { recursive: true });
+        writeFileSync(path.join(root, 'tests', 'OldTests.cs'), '[Fact]\npublic void Old() {}\n');
+        execFileSync('git', ['add', '.'], { cwd: root });
+        execFileSync('git', ['commit', '-qm', 'before'], { cwd: root });
+        execFileSync('git', ['mv', 'tests/OldTests.cs', 'tests/NewTests.cs'], { cwd: root });
+        writeFileSync(path.join(root, 'tests', 'NewTests.cs'), 'public void Helper() {}\n');
+        execFileSync('git', ['commit', '-qam', 'after'], { cwd: root });
+        const changes = detectReplacementRequiredChanges({ root, base: 'HEAD^' });
+        assert.ok(changes.some((item) => item.reason === 'test-source-delete-or-rename'));
+        assert.ok(changes.some((item) => item.reason === 'discoverable-test-or-case-removal'));
+        assert.throws(() => verifyDiffHasTransaction({ root, base: 'HEAD^' }), /unregistered test source change/u);
+    }
+    finally
+    {
+        rmSync(root, { recursive: true, force: true });
+    }
+});

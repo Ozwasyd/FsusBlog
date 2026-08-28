@@ -1,10 +1,25 @@
+import { appendFileSync } from 'node:fs'
 import { Window } from 'happy-dom'
-import { afterAll, beforeAll, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, vi } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 import { createUnitAnimationFrameEnvironment } from './animationFrameEnvironment'
 
 const unitWindow = new Window({ url: 'https://fsusblog.test/' })
 const animationFrames = createUnitAnimationFrameEnvironment()
+const runtimeTopologyEvidence = process.env.FSUSBLOG_VITEST_RUNTIME_TOPOLOGY_EVIDENCE
+
+function recordRuntimeTopology(event: 'start' | 'finish', task: { id: string; name: string }) {
+  if (!runtimeTopologyEvidence) return
+  appendFileSync(runtimeTopologyEvidence, `${JSON.stringify({ event, workerProcessId: process.pid, task })}\n`)
+}
+
+beforeEach((context) => {
+  recordRuntimeTopology('start', { id: context.task.id, name: context.task.name })
+})
+
+afterEach((context) => {
+  recordRuntimeTopology('finish', { id: context.task.id, name: context.task.name })
+})
 ;(globalThis as { window?: Window }).window = unitWindow
 ;(globalThis as { document?: Document }).document = unitWindow.document
 ;(globalThis as { history?: History }).history = unitWindow.history

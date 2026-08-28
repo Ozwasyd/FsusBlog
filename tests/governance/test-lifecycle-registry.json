@@ -1007,7 +1007,8 @@
             "staticGovernance": {
                 "id": "deployment-slots",
                 "category": "real-subprocess-lifecycle",
-                "physicalOwner": "process:lifecycle"
+                "physicalOwner": "process:lifecycle",
+                "exclusive": true
             }
         },
         {
@@ -1081,6 +1082,17 @@
             ]
         },
         {
+            "file": "tests/tools/fixture-mutation-recovery.test.mjs",
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/mutation-envelope-catalog.test.mjs",
             "owner": "manual-diagnostic:tests/tools/mutation-envelope-catalog.test.mjs",
             "executionCategory": "manual-diagnostic",
@@ -1117,6 +1129,29 @@
                 "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/dotnet-release-metadata",
                 "output": ".tmp/test-governance/results/{checkId}/dotnet-release-metadata.json"
             }
+        },
+        {
+            "file": "tests/tools/evidence-location-contract.test.mjs",
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "migration"
+            ]
+        },
+        {
+            "file": "tests/tools/evidence-location-governance.test.mjs",
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "migration",
+                "perf"
+            ]
         },
         {
             "file": "tests/tools/evidence-projection.test.mjs",
@@ -1306,7 +1341,8 @@
             "staticGovernance": {
                 "id": "gateway-switch",
                 "category": "real-subprocess-lifecycle",
-                "physicalOwner": "process:lifecycle"
+                "physicalOwner": "process:lifecycle",
+                "exclusive": true
             }
         },
         {
@@ -1430,6 +1466,39 @@
             "classifications": [
                 "source-text",
                 "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/media-negative-corpus.test.mjs",
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/media-positive-generator.test.mjs",
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/media-shape-catalog.test.mjs",
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
                 "runtime"
             ]
         },
@@ -2845,6 +2914,43 @@
             ]
         },
         {
+            "file": "tests/tools/test-quality-engine.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "test-quality-engine",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/test-quality-engine",
+                "output": ".tmp/test-governance/results/{checkId}/test-quality-engine.json"
+            }
+        },
+        {
+            "file": "tests/tools/test-replacement-transaction.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "migration",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "test-replacement-transaction",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/test-replacement-transaction",
+                "output": ".tmp/test-governance/results/{checkId}/test-replacement-transaction.json"
+            }
+        },
+        {
             "file": "tests/tools/test-suite-convergence.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",
@@ -3232,6 +3338,22 @@
                 "migration",
                 "runtime"
             ]
+        },
+        {
+            "file": "tests/tools/bounded-channel-contracts.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "bounded-channel-contracts",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/browser-diagnostics-release-runtime.test.mjs",
@@ -3905,6 +4027,54 @@
             "classifications": [
                 "perf"
             ]
+        },
+        {
+            "file": "tests/tools/reliability-scheduler-conflicts.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "perf",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "reliability-scheduler-conflicts",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
+        },
+        {
+            "file": "tests/tools/reliability-scheduler-projection.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "perf"
+            ],
+            "staticGovernance": {
+                "id": "reliability-scheduler-projection",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
+        },
+        {
+            "file": "tests/tools/reliability-timeout-projection.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "perf"
+            ],
+            "staticGovernance": {
+                "id": "reliability-timeout-projection",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/release-reliability-cancellation.test.mjs",

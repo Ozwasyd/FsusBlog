@@ -987,7 +987,9 @@ test('qualified local wrapper uses strict runtime parsing and canonical semantic
         /qualified_executor_environment[\s\S]*FSUSBLOG_(?:SOAK_SHORT_SECONDS|LOAD_PROFILE_CONCURRENCY|RELEASE_RESOURCE_REQUESTS|DATA_SCALE_REQUESTS)=/u
     );
     assert.match(source, /probe-release-reliability-runtime-smoke\.mjs/u);
-    assert.match(source, /runtime_smoke_deadline=\$\(\(SECONDS \+ 60\)\)/u);
+    assert.doesNotMatch(source, /runtime_smoke_deadline=/u);
+    assert.match(source, /runtime_smoke_attempt_count=1/u);
+    assert.match(source, /did not satisfy live\/canonical AEDS route admission on its first attempt/u);
     assert.match(source, /live\/canonical AEDS route admission/u);
     assert.doesNotMatch(source, /health\/ready/u);
     assert.match(source, /audit-retention-policy/u);

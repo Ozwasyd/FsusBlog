@@ -9,15 +9,17 @@ import { fileURLToPath } from 'node:url';
 
 import {
     executeLifecycleActionPlan,
-    loadLifecycleActionContracts
-} from './release-reliability-lifecycle-actions.mjs';
+    loadLifecycleActionContracts,
+    readQualifiedRuntimeEnvironment,
+    resolveScenarioSchedulerGrant,
+    validateReleaseReliabilitySchedulerCatalog
+} from './release-reliability-execution-context.mjs';
 import {
     collectRunIdentity,
     createCandidateReceipt,
     createTimeline,
     sealDocument
 } from './release-reliability-receipt.mjs';
-import { readQualifiedRuntimeEnvironment } from './release-reliability-runtime-environment.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const catalogPath = path.join(root, 'config/testing/release-reliability-scenario-catalog.json');
@@ -603,6 +605,10 @@ export function validateCatalog(catalog)
     {
         errors.push('catalog.identityTools must exactly equal the union of scenario identityTools');
     }
+    if (Object.hasOwn(catalog ?? {}, 'schedulerTimeoutPolicies'))
+    {
+        errors.push(...validateReleaseReliabilitySchedulerCatalog(catalog));
+    }
     return errors;
 }
 
@@ -759,6 +765,7 @@ export async function executeScenario({
     physicalExecution,
     signal = null,
     ambientEnvironment = process.env,
+    requireSchedulerGrant = false,
     lifecycleContracts = null,
     now = () => new Date().toISOString()
 })
@@ -787,6 +794,22 @@ export async function executeScenario({
     ) && Number.isInteger(verifiedBackendHostPid) && verifiedBackendHostPid > 1;
     let childEnvironment = null;
     let environmentFailure = null;
+    let schedulerGrant = null;
+    let schedulerGrantFailure = null;
+    try
+    {
+        schedulerGrant = resolveScenarioSchedulerGrant({
+            catalog,
+            scenario,
+            runId,
+            ambientEnvironment,
+            requireSchedulerGrant
+        });
+    }
+    catch (error)
+    {
+        schedulerGrantFailure = error instanceof Error ? error.message : String(error);
+    }
     if (identity?.status === 'complete')
     {
         try
@@ -821,9 +844,11 @@ export async function executeScenario({
     });
     const cannotRun = identity?.status !== 'complete'
         ? 'run identity is incomplete; lifecycle actions were not executed'
-        : environmentFailure === null
-            ? null
-            : `child environment contract failed: ${environmentFailure}`;
+        : schedulerGrantFailure !== null
+            ? `scheduler grant admission failed: ${schedulerGrantFailure}`
+            : environmentFailure === null
+                ? null
+                : `child environment contract failed: ${environmentFailure}`;
     const lifecycle = cannotRun === null
         ? await executeLifecycleActionPlan({
             contracts,
@@ -902,6 +927,7 @@ export async function executeScenario({
             environmentContract: scenarioEnvironmentContract(catalog, scenario),
             cwd: scenario.command.cwd,
             commandDigest: sha256(JSON.stringify(scenario.command)),
+            schedulerGrant,
             exitCode: measurement?.exitCode ?? null,
             signal: measurement?.signal ?? null,
             timedOut: measurement?.timedOut ?? false,
@@ -950,6 +976,7 @@ export async function executeScenarios({
     physicalExecution,
     signal = null,
     ambientEnvironment = process.env,
+    requireSchedulerGrant = false,
     lifecycleContracts = null,
     now = () => new Date().toISOString()
 })
@@ -992,6 +1019,7 @@ export async function executeScenarios({
             physicalExecution,
             signal,
             ambientEnvironment,
+            requireSchedulerGrant,
             lifecycleContracts: resolvedLifecycleContracts,
             now
         }));
@@ -1098,6 +1126,7 @@ async function main()
             identity,
             identityReference,
             lifecycleContracts,
+            requireSchedulerGrant: true,
             signal: driverCancellation.signal
         });
     }

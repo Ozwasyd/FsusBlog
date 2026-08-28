@@ -6,6 +6,8 @@ using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Testing;
+using FsusBlog.Server.Services.Fixtures;
 using FsusBlog.Server.Services.Security;
 
 using Microsoft.AspNetCore.Hosting;
@@ -35,11 +37,32 @@ public static class LocalAuthFixtureEndpoints
             return;
         }
 
+        app.MapPost(
+                "/api/local/auth-fixture/prepare",
+                async Task<IResult> (
+                    [FromBody] AuthFixturePlan request,
+                    [FromServices] IAuthFixtureSeeder seeder,
+                    CancellationToken cancellationToken) => Results.Json(
+                        await seeder.PrepareAsync(request, cancellationToken)))
+            .AllowAnonymous()
+            .AddEndpointFilter(RequireLocalFixtureSecret)
+            .AddEndpointFilter(RequireLoopbackCaller);
+
+        app.MapPost(
+                "/api/local/auth-fixture/verify",
+                async Task<IResult> (
+                    [FromBody] AuthFixtureVerificationRequest request,
+                    [FromServices] IAuthFixtureSeeder seeder,
+                    CancellationToken cancellationToken) => Results.Json(
+                        await seeder.VerifyAsync(request, cancellationToken)))
+            .AllowAnonymous()
+            .AddEndpointFilter(RequireLocalFixtureSecret)
+            .AddEndpointFilter(RequireLoopbackCaller);
+
         var handler = async Task<IResult> (
             HttpContext context,
             IWebHostEnvironment environment,
             [FromServices] AuthCookieService authCookieService,
-            [FromServices] TimeProvider timeProvider,
             string? redirect,
             CancellationToken cancellationToken) =>
         {
@@ -69,6 +92,7 @@ public static class LocalAuthFixtureEndpoints
                 return Results.Problem("local auth fixture is invalid", statusCode: StatusCodes.Status500InternalServerError);
             }
 
+            ResolvedTemporalRoleContext temporalRoles = ResolvedTemporalRoleContext.FromEnvironment();
             authCookieService.SetTokenCookies(
                 context,
                 environment,
@@ -76,7 +100,7 @@ public static class LocalAuthFixtureEndpoints
                 userAccessTokenExpiresAtUtc,
                 refreshToken,
                 userSessionId,
-                timeProvider.GetUtcNow().UtcDateTime.AddDays(30));
+                temporalRoles.RequireInstant("session.persistent-idle-expiry").UtcDateTime);
 
             authCookieService.SetAdminSessionCookies(
                 context,
@@ -84,7 +108,7 @@ public static class LocalAuthFixtureEndpoints
                 adminAccessToken,
                 adminAccessTokenExpiresAtUtc,
                 adminSessionId,
-                timeProvider.GetUtcNow().UtcDateTime.AddHours(24));
+                temporalRoles.RequireInstant("session.admin-persistent-idle-expiry").UtcDateTime);
 
             return Results.Redirect(SanitizeRedirectPath(redirect));
         };
@@ -116,11 +140,12 @@ public static class LocalAuthFixtureEndpoints
                 return Results.Forbid();
             }
 
+            ResolvedTemporalRoleContext temporalRoles = ResolvedTemporalRoleContext.FromEnvironment();
             string proofToken = await adminPrincipals.CreateAdminStepUpProofTokenAsync(
                 adminPrincipalId,
                 context.User.GetAdminSessionId()!,
                 AdminSensitiveAction,
-                TimeSpan.FromMinutes(5),
+                temporalRoles.RequireDuration("session.authenticated", "mfa.challenge-expiry"),
                 cancellationToken);
 
             return Results.Json(new

@@ -122,6 +122,31 @@ function candidateFixture(context)
         authority: { kind: 'scheduler-checkpoint', status: 'success', runId, authoritative: true },
         now: () => new Date('2026-08-27T00:01:00.000Z')
     })
+    const browserPlan = seal({
+        schema: 'fsusblog.playwright-browser-identity.v1',
+        executionClass: 'correctness', evidenceClass: 'browser-contract',
+        qualificationEligible: true, managedExecutable: true,
+        browserName: 'chromium', browserVersion: '140.0.0', revision: '123456',
+        executablePath: '/managed/chromium-123456/chrome',
+        executableSha256: `sha256:${'f'.repeat(64)}`,
+        playwright: { package: '@playwright/test', version: '1.59.1' },
+        launchOptions: { headless: true, executablePath: '/managed/chromium-123456/chrome', args: [] },
+        rendering: {
+            fontSetDigest: `sha256:${'1'.repeat(64)}`,
+            localeDataDigest: `sha256:${'2'.repeat(64)}`,
+            locale: 'zh-CN', deviceScaleFactor: 1, renderingMode: 'headless',
+            colorScheme: 'light', gpuMode: 'software'
+        }
+    })
+    const browserActual = seal({
+        ...structuredClone(browserPlan),
+        schema: 'fsusblog.playwright-browser-actual.v1',
+        planDigest: browserPlan.contentDigest,
+        renderingObservation: {
+            locale: 'zh-CN', deviceScaleFactor: 1, colorScheme: 'light',
+            renderer: 'SwiftShader fixture renderer'
+        }
+    })
     const browserContract = sealBrowserContractReceipt({
         schema: 'fsusblog.browser-contract-receipt.v2',
         status: 'success',
@@ -135,7 +160,10 @@ function candidateFixture(context)
             profile: build.build.profile
         },
         fixture: { namespace: 'browser-contract-post-runtime' },
-        playwright: { chromiumRevision: '123456', chromiumVersion: '140.0.0' },
+        playwright: {
+            chromiumRevision: '123456', chromiumVersion: '140.0.0',
+            browserIdentity: { plan: browserPlan, actual: browserActual }
+        },
         topology: {
             runner: 'playwright-library', browserType: 'chromium', managedBrowser: true,
             workerPool: false, shard: null, retries: 0, browserLaunchCount: 1,

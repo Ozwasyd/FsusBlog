@@ -339,7 +339,9 @@ public sealed class OnlineSchemaMigrationPolicyTests
             PluginRegistryMigrationDefinitions.MigrationId,
             ThemeRegistryMigrationDefinitions.MigrationId,
             ThemeActivationRuntimeMigrationDefinitions.MigrationId,
-            CustomizationMigrationDefinitions.MigrationId
+            CustomizationMigrationDefinitions.MigrationId,
+            ContentAssetCutoverMigrationDefinitions.PrototypeShapeMigrationId,
+            ContentAssetCutoverMigrationDefinitions.MigrationId
         };
         Assert.All(metadata.Values.Where(classification =>
             !onlineIds.Contains(classification.MigrationId)), classification =>

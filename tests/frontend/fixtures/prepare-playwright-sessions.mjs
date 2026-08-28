@@ -11,6 +11,11 @@ import {
   resolveSessionFixtureDirectory
 } from '../support/fixture-paths.mjs';
 import { resolveSessionPrepConcurrency } from './session-prep-admission.mjs';
+import { loadTemporalContext } from '../../../tools/test/temporal-context.mjs';
+import {
+  resolveTemporalRolesForProducer,
+  verifyResolvedTemporalArtifact
+} from '../../../tools/test/temporal-role-resolver.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -153,17 +158,6 @@ async function runPsql(sql) {
   ]);
 }
 
-async function runRedis(args) {
-  assertSafeFixtureContainer(redisContainer, 'FSUSBLOG_REDIS_CONTAINER');
-  return run('docker', [
-    'exec',
-    '-i',
-    redisContainer,
-    'redis-cli',
-    ...args
-  ]);
-}
-
 async function readPostgresPidSnapshot() {
   assertSafeFixtureContainer(pgContainer, 'FSUSBLOG_PG_CONTAINER');
   const output = await run('docker', [
@@ -210,18 +204,6 @@ END $$;
   await runPsql(sql);
 }
 
-async function cleanupRedis(session) {
-  const pattern = `e2e:${session}:*`;
-  const keys = (await runRedis(['--scan', '--pattern', pattern]))
-    .split(/\r?\n/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-  if (keys.length > 0) {
-    await runRedis(['DEL', ...keys]);
-  }
-}
-
 async function runNodeScript(script, env) {
   await run(process.execPath, [script], {
     env: { ...process.env, ...env },
@@ -256,6 +238,17 @@ async function main() {
     ? resolveSessionPrepConcurrency(requestedSessionPrepConcurrency, postgresPids)
     : 1;
   const fixturesDir = resolveSessionFixtureDirectory();
+  const temporalContext = loadTemporalContext();
+  const resolvedTemporalRoles = resolveTemporalRolesForProducer({
+    temporalContext,
+    namespace: process.env.FSUSBLOG_TEST_NAMESPACE,
+    fixtureId: 'auth-session'
+  });
+  verifyResolvedTemporalArtifact(resolvedTemporalRoles, { temporalContext });
+  const temporalRoleEnvironment = {
+    FSUSBLOG_RESOLVED_TEMPORAL_ROLES_JSON: JSON.stringify(resolvedTemporalRoles),
+    FSUSBLOG_TEMPORAL_ROLE_ARTIFACT_DIGEST: resolvedTemporalRoles.contentDigest
+  };
   await mkdir(fixturesDir, { recursive: true });
   const admissionEvidence = postgresPids
     ? `postgresPids=${postgresPids.current}/${postgresPids.max ?? 'max'}`
@@ -267,12 +260,10 @@ async function main() {
 
   await runWithConcurrency(sessions, sessionPrepConcurrency, async (session) => {
     console.log(`[prepare-playwright-sessions] preparing ${session}`);
-    await Promise.all([
-      clonePublicSchema(session),
-      cleanupRedis(session)
-    ]);
+    await clonePublicSchema(session);
 
     const env = {
+      ...temporalRoleEnvironment,
       FSUSBLOG_BASE_URL: backendBaseUrl,
       FSUSBLOG_PG_CONTAINER: pgContainer,
       FSUSBLOG_REDIS_CONTAINER: redisContainer,

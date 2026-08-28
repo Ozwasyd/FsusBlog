@@ -105,7 +105,6 @@ RunAcceptanceProbe() {
     ConfigurePlaywrightShard acceptance
     ConfigurePlaywrightWorkers acceptance-spa-routes FSUSBLOG_SPA_ROUTES_WORKERS
     ConfigurePlaywrightWorkers acceptance-public-routes FSUSBLOG_PUBLIC_ACCEPTANCE_WORKERS
-    ResetSecurityRuntimeState "pre diagnostic acceptance"
     PrepareProbeFixtures
 
     export FSUSBLOG_BASE_URL="$RELEASE_PREVIEW_URL"
@@ -116,7 +115,6 @@ RunAcceptanceProbe() {
     export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
     RunInClient npm run check:spa:routes
     RunInClient npm run check:acceptance:auth
-    ResetSecurityRuntimeState "pre diagnostic console acceptance"
     RunInClient npm run check:acceptance:console
 }
 
@@ -128,7 +126,6 @@ case "$PROBE" in
         ;;
     release-rbac-negative)
         PrepareProbeFixtures
-        ResetSecurityRuntimeState "pre diagnostic release RBAC"
         RunReleaseAssertion check:security:permissions RunInClient npm run check:security:permissions
         RunReleaseAssertion check:security:attack-matrix RunInClient npm run check:security:attack-matrix
         WriteReleaseAssertions release-rbac-negative
@@ -155,7 +152,6 @@ case "$PROBE" in
         ;;
     permission-matrix)
         PrepareProbeFixtures
-        ResetSecurityRuntimeState "pre diagnostic permission matrix"
         RunInClient npm run check:security:permissions
         ;;
     *)

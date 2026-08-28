@@ -1,9 +1,6 @@
 const { readPrivateJson } = await import(new URL("../../../tools/test-fixtures/receipt/index.mjs", import.meta.url));
 
 import { resolveAuthFixtureManifest } from './fixture-paths.mjs';
-import {
-    createAdminStepUpProofToken as createSessionAdminStepUpProofToken
-} from './session-fixtures.mjs';
 
 const receiptDigestPattern = /^sha256:[a-f0-9]{64}$/u;
 
@@ -47,7 +44,35 @@ export function readAdminAuthFixtureProjection({
     });
 }
 
-export function createAdminStepUpProofToken({
+async function createSessionAdminStepUpProofToken({ session, action })
+{
+    if (action !== 'admin-sensitive')
+    {
+        throw new Error('auth fixture projection only supports the production admin-sensitive action');
+    }
+    const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568';
+    const fixtureSecret = process.env.FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET || '';
+    const cookieHeader = nonEmptyString(session?.cookieHeader, 'session cookie header');
+    if (!fixtureSecret)
+    {
+        throw new Error('auth fixture projection requires the local auth fixture secret');
+    }
+    const response = await fetch(`${baseUrl}/__local/auth-fixture/admin-sensitive-proof`, {
+        method: 'POST',
+        headers: {
+            Cookie: cookieHeader,
+            'X-Fsus-Local-Auth-Fixture-Secret': fixtureSecret
+        }
+    });
+    if (!response.ok)
+    {
+        throw new Error(`auth fixture production proof port failed HTTP ${response.status}`);
+    }
+    const result = await response.json();
+    return nonEmptyString(result?.proofToken, 'admin-sensitive proof');
+}
+
+export async function createAdminStepUpProofToken({
     session,
     action = 'admin-sensitive',
     ttlSeconds = 45,
@@ -68,7 +93,8 @@ export function createAdminStepUpProofToken({
         throw new Error('auth fixture projection requires the canonical proof producer');
     }
 
-    return proofProducer({
+    return await proofProducer({
+        session,
         adminId: sessionAdminId,
         sessionId,
         action,
