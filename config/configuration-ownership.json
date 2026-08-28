@@ -93,6 +93,66 @@
             "pathType": "file"
         },
         {
+            "id": "content-shape-catalog-schema",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/schemas/content-shape-catalog.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "clean-attempt-consumer-inventory-schema",
+            "owner": "test-attempt-governance",
+            "canonicalPath": "config/schemas/clean-attempt-consumer-inventory.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "correctness-attempt-producers-schema",
+            "owner": "test-attempt-governance",
+            "canonicalPath": "config/schemas/correctness-attempt-producers.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "release-clean-attempt-cohort-schema",
+            "owner": "test-attempt-governance",
+            "canonicalPath": "config/schemas/release-clean-attempt-cohort.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "retry-disposition-registry-schema",
+            "owner": "test-attempt-governance",
+            "canonicalPath": "config/schemas/retry-disposition-registry.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "retry-policy-registry-schema",
+            "owner": "test-attempt-governance",
+            "canonicalPath": "config/schemas/retry-policy-registry.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "test-attempt-aggregate-receipt-schema",
+            "owner": "test-attempt-governance",
+            "canonicalPath": "config/schemas/test-attempt-aggregate-receipt.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "test-attempt-receipt-schema",
+            "owner": "test-attempt-governance",
+            "canonicalPath": "config/schemas/test-attempt-receipt.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "producer-semantic-outcome-candidate-schema",
+            "owner": "semantic-outcome-governance",
+            "canonicalPath": "config/schemas/producer-semantic-outcome-candidate.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "semantic-outcome-clean-attempt-consumer-inventory-schema",
+            "owner": "semantic-outcome-governance",
+            "canonicalPath": "config/schemas/semantic-outcome-clean-attempt-consumer-inventory.schema.json",
+            "pathType": "file"
+        },
+        {
             "id": "runtime-state-domain-catalog-schema",
             "owner": "runtime-state-domain-governance",
             "canonicalPath": "config/schemas/runtime-state-domain-catalog.schema.json",
@@ -132,6 +192,78 @@
             "id": "replay-qualification-producer-inventory",
             "owner": "test-execution-replay-governance",
             "canonicalPath": "config/testing/replay-qualification-producers.json",
+            "pathType": "file"
+        },
+        {
+            "id": "clean-attempt-consumer-inventory",
+            "owner": "test-attempt-governance",
+            "canonicalPath": "config/testing/clean-attempt-consumers.json",
+            "pathType": "file"
+        },
+        {
+            "id": "correctness-attempt-producer-inventory",
+            "owner": "test-attempt-governance",
+            "canonicalPath": "config/testing/correctness-attempt-producers.json",
+            "pathType": "file"
+        },
+        {
+            "id": "retry-disposition-registry",
+            "owner": "test-attempt-governance",
+            "canonicalPath": "config/testing/retry-disposition-registry.json",
+            "pathType": "file"
+        },
+        {
+            "id": "retry-policy-registry",
+            "owner": "test-attempt-governance",
+            "canonicalPath": "config/testing/retry-policy-registry.json",
+            "pathType": "file"
+        },
+        {
+            "id": "semantic-outcome-clean-attempt-consumer-inventory",
+            "owner": "semantic-outcome-governance",
+            "canonicalPath": "config/testing/semantic-outcome-clean-attempt-consumers.json",
+            "pathType": "file"
+        },
+        {
+            "id": "outcome-failure-taxonomy",
+            "owner": "semantic-outcome-governance",
+            "canonicalPath": "config/testing/outcome-failure-taxonomy.json",
+            "pathType": "file"
+        },
+        {
+            "id": "outcome-field-disposition-registry",
+            "owner": "semantic-outcome-governance",
+            "canonicalPath": "config/testing/outcome-field-dispositions.json",
+            "pathType": "file"
+        },
+        {
+            "id": "content-shape-catalog",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/testing/content-shape-catalog.json",
+            "pathType": "file"
+        },
+        {
+            "id": "content-field-contract-projection",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/testing/content-field-contracts.generated.json",
+            "pathType": "file"
+        },
+        {
+            "id": "messaging-fixture-inventory",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/testing/messaging-fixture-inventory.json",
+            "pathType": "file"
+        },
+        {
+            "id": "messaging-fixture-ownership",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/testing/messaging-fixture-ownership.json",
+            "pathType": "file"
+        },
+        {
+            "id": "security-fixture-ownership",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/testing/security-fixture-ownership.json",
             "pathType": "file"
         },
         {
