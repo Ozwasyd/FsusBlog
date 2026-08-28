@@ -117,6 +117,24 @@
             "pathType": "file"
         },
         {
+            "id": "playwright-replay-decision",
+            "owner": "test-execution-replay-governance",
+            "canonicalPath": "config/testing/playwright-replay-decision.json",
+            "pathType": "file"
+        },
+        {
+            "id": "random-stream-consumer-inventory",
+            "owner": "test-execution-replay-governance",
+            "canonicalPath": "config/testing/random-stream-consumers.json",
+            "pathType": "file"
+        },
+        {
+            "id": "replay-qualification-producer-inventory",
+            "owner": "test-execution-replay-governance",
+            "canonicalPath": "config/testing/replay-qualification-producers.json",
+            "pathType": "file"
+        },
+        {
             "id": "fsusui-test-baseline",
             "owner": "frontend-test-governance",
             "canonicalPath": "config/testing/fsusui-baseline.json",
@@ -626,6 +644,30 @@
             "owner": "test-observation-ledger",
             "canonicalPath": "config/schemas/test-observation-artifact.schema.json",
             "pathType": "file"
+        },
+        {
+            "id": "test-execution-replay-plan-schema",
+            "owner": "test-replay-governance",
+            "canonicalPath": "config/schemas/test-execution-replay-plan.schema.json",
+            "pathType": "file",
+            "purpose": "Closed framework-neutral replay plan contract for canonical test identity, entropy streams, order, shards, workers and command binding.",
+            "consumers": [
+                "tools/test/execution-replay-contract.mjs",
+                "tests/tools/execution-replay-contract.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/execution-replay-contract.test.mjs"
+        },
+        {
+            "id": "test-execution-replay-receipt-schema",
+            "owner": "test-replay-governance",
+            "canonicalPath": "config/schemas/test-execution-replay-receipt.schema.json",
+            "pathType": "file",
+            "purpose": "Closed actual replay receipt contract for observed test order, shard and worker membership, entropy streams, admission sequence and process outcome.",
+            "consumers": [
+                "tools/test/execution-replay-contract.mjs",
+                "tests/tools/execution-replay-contract.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/execution-replay-contract.test.mjs"
         },
         {
             "id": "behavior-test-evidence-schema",

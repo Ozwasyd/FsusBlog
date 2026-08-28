@@ -2247,6 +2247,24 @@ tiers:
           - tools/test-matrix/run-priority-fixture.mjs
           - tools/test-matrix/scheduler-admission-support.mjs
           - tools/test-matrix/scheduler.mjs
+          - config/testing/replay-qualification-producers.json
+          - config/testing/random-stream-consumers.json
+          - tools/test/execution-replay-contract.mjs
+          - tools/test/execution-replay-verifier.mjs
+          - tools/test/random-streams.mjs
+          - tools/test/xunit-replay-adapter.mjs
+          - tools/test/xunit-replay-runner
+          - tools/test/vitest-replay-adapter.mjs
+          - tools/test/playwright-replay-adapter.mjs
+          - tools/test/run-replay-qualification.mjs
+          - tools/test/aggregate-replay-qualification.mjs
+          - tools/test/verify-replay-qualification.mjs
+          - tests/tools/xunit-replay-adapter.test.mjs
+          - tests/tools/replay-qualification-frameworks.test.mjs
+          - tests/tools/replay-qualification-randomized.test.mjs
+          - tests/tools/replay-qualification-aggregate.test.mjs
+          - tests/tools/replay-qualification-verifier.test.mjs
+          - tests/tools/fixtures/playwright-replay
           - config/schemas/test-observation-artifact.schema.json
           - config/schemas/test-matrix-priority-score.schema.json
           - tools/test-observations/flaky-observer-execution.mjs

@@ -1,0 +1,49 @@
+{
+    "schema": "fsusblog.playwright-replay-decision.v1",
+    "status": "selected",
+    "selectedAdapter": "repo-owned-n-lane",
+    "rejectedAdapter": "maintained-playwright-dispatch-api",
+    "sourceCommit": "301f11bd6ecd4b34f506338b619c6ed7b060bc2b",
+    "playwright": {
+        "package": "@playwright/test",
+        "version": "1.59.1",
+        "lockPath": "src/frontend/package-lock.json",
+        "lockDigest": "sha256:9dde5d26547222886b296be6269aaf190064c199c10f6b0b7c67cb625707c541"
+    },
+    "capabilities": {
+        "sealedPublicDispatchApi": false,
+        "testListCli": true,
+        "reporterIsPreDispatch": false,
+        "workerRestartIdentity": true
+    },
+    "laneModel": {
+        "childWorkers": 1,
+        "ordinaryMinimumLanes": 2,
+        "parallel": true,
+        "globalSetupOwner": "repo-orchestrator",
+        "artifactOwner": "lane"
+    },
+    "configuration": {
+        "configPath": "src/frontend/playwright.config.ts",
+        "configDigest": "sha256:aac1eaa9009d2fef90af5c900c33df7e72010176b5d291476bea8e8a62b6dd97",
+        "globalSetupPath": "tests/frontend/support/playwright/global-setup.ts",
+        "globalSetupDigest": "sha256:ef628ff9ff6a3e0097b4c88b52c5db6830e6e20a9a20dcad67282e63372ec566",
+        "globalTeardown": null
+    },
+    "adr": {
+        "path": "docs/architecture/decisions/ADR-Test-Execution-Replay-Playwright.md",
+        "digest": "sha256:0b73bcbfa89ad6add3bbec27747da1d3842425b0ae1e1b9fd04710bba1a3925f"
+    },
+    "probe": {
+        "path": "tools/test/probe-playwright-dispatch.mjs",
+        "digest": "sha256:9af39fc98f134dc0e0516c1b4d4e371698630feb8f597528305d304e5da08f15",
+        "requiredObservations": [
+            "reporter-no-pre-dispatch",
+            "delay-perturbs-completion-order",
+            "parallel-index-observed",
+            "worker-restart-identity",
+            "test-list-public-cli"
+        ]
+    },
+    "contentDigest": "sha256:50bbb262d4b9fee6bee11f05ece18951f3a132a281fc11e822c4d13c2833751b"
+}
