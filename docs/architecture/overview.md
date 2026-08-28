@@ -187,6 +187,7 @@ render: enum-set
 - `behavior-doc-static-admission->frontend-runtime-contracts`
 - `behavior-doc-static-admission->frontend-unit-shard`
 - `behavior-doc-static-admission->homogeneous-two-node-fixture`
+- `behavior-doc-static-admission->legacy-20260517-real-dump`
 - `behavior-doc-static-admission->markdown-preview-release-performance`
 - `behavior-doc-static-admission->native-fuzz-sanitizer`
 - `behavior-doc-static-admission->native-smoke`
