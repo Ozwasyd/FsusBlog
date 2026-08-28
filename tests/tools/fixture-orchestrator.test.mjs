@@ -41,6 +41,7 @@ function fixtureCliBoundaryStub(context)
     writeFileSync(executable, `#!/usr/bin/env node
 const fs = require('node:fs')
 const path = require('node:path')
+const { spawnSync } = require('node:child_process')
 const [entry, ...args] = process.argv.slice(2)
 const fail = (message) => {
   process.stderr.write(message + '\\n')
@@ -51,6 +52,10 @@ if (String(entry).endsWith('/tests/frontend/support/fixture-paths.mjs')) {
   if (!fixtureRoot) fail('fixture root is required')
   process.stdout.write(fixtureRoot)
   process.exit(0)
+}
+if (entry === '-e' || entry === '-') {
+  const result = spawnSync(process.execPath, [entry, ...args], { stdio: 'inherit' })
+  process.exit(result.status ?? 1)
 }
 if (!String(entry).endsWith('/tools/test-fixtures/cli.mjs')) fail('unexpected node entry: ' + entry)
 const options = { _: [] }
@@ -452,6 +457,7 @@ test('default structural port keeps pre-cutover profiles preparable without clai
     });
     const result = await port.prepare(context);
     assert.equal(result.structuralOnly, true);
+    assert.equal(result.temporalArtifacts, undefined);
     assert.equal(result.enforceVariantEvidence, undefined);
     assert.deepEqual(result.variantIds, context.variantPlan.variants.map((item) => item.id).sort());
 });

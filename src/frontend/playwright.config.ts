@@ -1,10 +1,15 @@
 import { randomUUID } from 'node:crypto'
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { defineConfig, type BrowserName } from '@playwright/test'
 import { playwrightScreenshotPathTemplate } from '../../tests/frontend/support/playwright/screenshotPathTemplate.mjs'
+import {
+  correctnessProjectUse,
+  createCorrectnessBrowserPlan,
+  serializableBrowserPlan
+} from '../../tools/test/playwright-browser-identity.mjs'
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_PUBLIC_BASE_URL || 'http://127.0.0.1:3000'
 const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url))
@@ -92,49 +97,26 @@ const dynamicWorkerCap = Math.max(1, Math.min(cpuCap, memoryCap, loadCap))
 const workers = Number.isFinite(configuredWorkers) && configuredWorkers > 0
   ? Math.max(1, Math.min(Math.floor(configuredWorkers), dynamicWorkerCap))
   : dynamicWorkerCap
-const executablePath = process.env.FSUSBLOG_PLAYWRIGHT_MANAGED_ONLY === '1'
-  ? undefined
-  : process.env.PLAYWRIGHT_CHROMIUM_PATH || [
-    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    '/Applications/Chromium.app/Contents/MacOS/Chromium',
-    '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
-    '/usr/bin/google-chrome',
-    '/usr/bin/chromium',
-    '/usr/bin/chromium-browser'
-    ].find((candidate) => existsSync(candidate))
-
-const chromiumLaunchOptions: {
-  executablePath?: string
-  args: string[]
-} = {
-  args: [
-    '--no-sandbox',
-    '--disable-dev-shm-usage',
-    ...(process.env.FSUSBLOG_PUBLIC_PREVIEW_DOCS_CAPTURE === '1'
-      ? [
-          '--disable-gpu',
-          '--disable-gpu-rasterization',
-          '--disable-checker-imaging',
-          '--disable-lcd-text',
-          '--disable-font-subpixel-positioning',
-          '--disable-skia-runtime-opts',
-          '--disable-oop-rasterization',
-          '--disable-partial-raster',
-          '--disable-threaded-animation',
-          '--disable-threaded-scrolling',
-          '--disable-zero-copy',
-          '--force-device-scale-factor=1',
-          '--force-color-profile=srgb',
-          '--num-raster-threads=1'
-        ]
-      : [])
-  ]
-}
-
-if (executablePath) {
-  chromiumLaunchOptions.executablePath = executablePath
-}
-
+const publicPreviewRendererArgs = [
+  ...(process.env.FSUSBLOG_PUBLIC_PREVIEW_DOCS_CAPTURE === '1'
+    ? [
+        '--disable-gpu',
+        '--disable-gpu-rasterization',
+        '--disable-checker-imaging',
+        '--disable-lcd-text',
+        '--disable-font-subpixel-positioning',
+        '--disable-skia-runtime-opts',
+        '--disable-oop-rasterization',
+        '--disable-partial-raster',
+        '--disable-threaded-animation',
+        '--disable-threaded-scrolling',
+        '--disable-zero-copy',
+        '--force-device-scale-factor=1',
+        '--force-color-profile=srgb',
+        '--num-raster-threads=1'
+      ]
+    : [])
+]
 const requestedBrowsers = (process.env.FSUSBLOG_PLAYWRIGHT_BROWSERS || 'chromium')
   .split(',')
   .map((browser) => browser.trim().toLowerCase())
@@ -142,18 +124,26 @@ const requestedBrowsers = (process.env.FSUSBLOG_PLAYWRIGHT_BROWSERS || 'chromium
 
 const uniqueBrowsers = Array.from(new Set(requestedBrowsers))
 const supportedBrowsers = new Set(['chromium', 'firefox', 'webkit'])
-const projects = uniqueBrowsers.map((browser) => {
+const correctnessLocale = temporalContext?.uiLocale || 'zh-CN'
+const browserPlans = uniqueBrowsers.map((browser) => {
   if (!supportedBrowsers.has(browser)) {
     throw new Error(`Unsupported FSUSBLOG_PLAYWRIGHT_BROWSERS entry: ${browser}`)
   }
-
-  const browserName = browser as BrowserName
+  return createCorrectnessBrowserPlan({
+    browserName: browser as BrowserName,
+    evidenceClass: 'correctness',
+    locale: correctnessLocale,
+    frontendRoot: path.join(repositoryRoot, 'src/frontend'),
+    additionalLaunchArgs: browser === 'chromium' ? publicPreviewRendererArgs : []
+  })
+})
+process.env.FSUSBLOG_PLAYWRIGHT_BROWSER_IDENTITY_PLANS = JSON.stringify(
+  browserPlans.map(serializableBrowserPlan)
+)
+const projects = browserPlans.map((plan) => {
   return {
-    name: browser,
-    use: {
-      browserName,
-      ...(browserName === 'chromium' ? { launchOptions: chromiumLaunchOptions } : {})
-    }
+    name: plan.browserName,
+    use: correctnessProjectUse(plan)
   }
 })
 

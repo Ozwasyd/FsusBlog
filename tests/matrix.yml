@@ -393,7 +393,16 @@ tiers:
               config/testing/runtime-state-domain-catalog.json,
               config/testing/runtime-state-domain-registry.json,
               config/testing/correctness-budget-policy.json,
+              config/testing/test-execution-envelope-applicability.json,
+              config/testing/test-execution-envelope-policy.json,
+              config/testing/test-execution-network-policy.json,
+              config/testing/test-execution-service-catalog.json,
               config/testing/physical-execution-process-policy.json,
+              config/schemas/test-execution-envelope-applicability.schema.json,
+              config/schemas/test-execution-envelope-policy.schema.json,
+              config/schemas/test-execution-envelope-receipt.schema.json,
+              config/schemas/test-execution-network-policy.schema.json,
+              config/schemas/test-execution-service-catalog.schema.json,
               config/schemas/runtime-state-domain-catalog.schema.json,
               config/schemas/runtime-state-domain-registry.schema.json,
               config/schemas/content-shape-catalog.schema.json,
@@ -415,10 +424,19 @@ tiers:
               tools/testing/generate-fixture-catalog-artifacts.mjs,
               tools/test-fixtures/content-shape-generator.mjs,
               tools/test-matrix,
+              tools/testing/generate-test-execution-envelope-applicability.mjs,
               tools/test/bundles,
               tools/test/lanes,
               tools/test/run-matrix-governance-once.sh,
+              tools/test/run-matrix-governance-producer.mjs,
               tools/test/run-deterministic-command.mjs,
+              tools/test/execution-envelope-directories.mjs,
+              tools/test/execution-envelope-environment.mjs,
+              tools/test/execution-envelope-network.mjs,
+              tools/test/execution-envelope-receipt.mjs,
+              tools/test/execution-envelope-services.mjs,
+              tools/test/native/execution-envelope-landlock.c,
+              tools/test/verify-execution-envelope.mjs,
               tools/test/run-once.mjs,
               tools/test/physical-execution-process-tree.mjs,
               tools/test/physical-execution-linux-systemd-adapter.mjs,
@@ -3687,13 +3705,25 @@ tiers:
       requiredFor: release-final
       coverage: [production-xss-release, release-browser-contract]
       artifacts: [src/frontend/test-results/playwright/production-xss-release/matrix.json]
-      evidence: [src/frontend/test-results/playwright/production-xss-release/matrix.json]
+      evidence:
+          [
+              src/frontend/test-results/playwright/production-xss-release/matrix.json,
+              config/testing/playwright-browser-identity-policy.json,
+              tools/test/playwright-browser-identity.mjs,
+          ]
       ciJob: browser-contract
       localOnly: false
       nightlyOnly: false
       retentionClass: must-keep
       triggerPaths: [src/frontend, src/backend, tests/frontend, tools/test/lanes/production-xss-release.sh]
-      triggerFiles: [tests/matrix.yml]
+      triggerFiles:
+          [
+              src/frontend/package-lock.json,
+              config/testing/playwright-browser-identity-policy.json,
+              config/schemas/playwright-browser-identity-policy.schema.json,
+              tools/test/playwright-browser-identity.mjs,
+              tests/matrix.yml,
+          ]
       triggerCoverage: [production-xss-release]
       triggerReason: release browser XSS corpus, production rendering, CSP, Trusted Types, or FsusUI alias changed
 
@@ -3752,6 +3782,10 @@ tiers:
               tests/browser-contract/fixture-lifecycle.test.mjs,
               tests/browser-contract/invariant-owners.json,
               tests/browser-contract/prepare-fixture.mjs,
+              config/testing/playwright-browser-identity-policy.json,
+              config/schemas/playwright-browser-identity-policy.schema.json,
+              tools/test/playwright-browser-identity.mjs,
+              tests/tools/playwright-browser-identity.test.mjs,
               tests/frontend/support/playwright/readiness.mjs,
               config/testing/browser-readiness-migrations.json,
               tools/testing/check-browser-readiness-contract.mjs,
@@ -3797,6 +3831,10 @@ tiers:
       triggerFiles:
           [
               src/frontend/package.json,
+              src/frontend/package-lock.json,
+              config/testing/playwright-browser-identity-policy.json,
+              config/schemas/playwright-browser-identity-policy.schema.json,
+              tools/test/playwright-browser-identity.mjs,
               src/frontend/public/sw.js,
               src/frontend/public/manifest.webmanifest,
               src/frontend/src/api/auth.ts,

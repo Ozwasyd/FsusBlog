@@ -127,6 +127,31 @@ Release frontend、Kestrel、PostgreSQL snapshot 和 browser worker，覆盖禁�
 
 `run-deterministic-command.mjs` invocation 必须显式声明 `--execution-class correctness|diagnostic` 与 `--producer-id`。`config/testing/producer-execution-class-contract.json` 是 matrix `evidenceClass` 到 execution class 的机器可读映射：默认 correctness 与 browser-contract 都要求 producer、scheduler run 和 source identity，diagnostic 恒定不可 qualification。correctness 在 child spawn 前要求 `FSUSBLOG_TEST_RUN_ID`、`FSUSBLOG_TEST_SOURCE_COMMIT`、`FSUSBLOG_TEST_SOURCE_FINGERPRINT`，缺任一字段以 `contract.missing-run-identity` 失败且零执行；它不生成 local、timestamp 或 latest fallback。diagnostic 也必须显式选择，才可 direct 执行，并恒定输出 `qualificationEligible=false`，不得发布 correctness projection。
 
+Correctness Playwright 的 browser/rendering identity 由
+`config/testing/playwright-browser-identity-policy.json` 与
+`tools/test/playwright-browser-identity.mjs` 唯一管理。普通 Playwright config、
+`browser-contract` 与 `production-xss-release` 都只使用
+`@playwright/test` 当前 lockfile 安装的 managed browser；不搜索系统 PATH、macOS
+Applications 或 `/usr/bin/google-chrome`，也不接受
+`PLAYWRIGHT_*_PATH` 覆盖。plan 在 launch 前绑定 browser name/version/revision、
+canonical absolute executable path 与 SHA-256、Playwright package/catalog、完整
+launch args，以及 font/locale digest、locale、device scale、headless rendering、
+color scheme 和 software GPU mode；launch 后重新 hash binary 并要求 browser version
+及整个 actual identity 与 plan exact match。managed browser 缺失、binary/revision/path/
+args/rendering 漂移都在 correctness evidence admission 前 fail closed。host browser 只可
+存在于 diagnostic identity，固定 `qualificationEligible=false`，不能升级成 correctness
+或 `browser-contract` evidence。Local、CI、published/local FsusUI 模式共用这份 policy；
+各机器的绝对安装路径可以不同，但同一 run 的 planned/actual path 必须完全相同，且
+revision、binary digest 与 Playwright catalog 必须一致。
+
+correctness 的 execution envelope 由 `config/testing/test-execution-envelope-policy.json` 与 `config/testing/test-execution-envelope-applicability.json` 唯一定义；每个非 diagnostic producer 必须按 execution class 恰好映射一次。runner 只继承固定 locale/timezone、`PATH`、显式 `--env` allowlist 与 run/source/temporal identity，并在 spawn 前对实际 executable 的 absolute path、realpath、version 和 SHA-256 与 plan 做 exact-match；secret 只记录 presence、type 和 digest。每个 attempt 拥有独立的 HOME、TMP、npm、NuGet、dotnet 与 tool cache root，并在 success、failure、timeout 或 cancel 后只删除本轮 owned root；路径 realpath/symlink 逃逸会在 spawn 前 fail closed。
+
+correctness network 默认 deny，Linux 为每个 attempt 加载 systemd `IPAddressDeny=any` / `IPAddressAllow=localhost`，仅让 catalog 中由当轮 service envelope 封存的 loopback port 成为合法 endpoint；同时以 Landlock 将 repository/toolchain 设为只读、只允许 run-owned roots 与显式 `--output` 路径写入。`strace` observation 封存 connection、DNS、proxy/certificate 输入和 denial，planned/actual endpoint 不精确一致就拒绝该 evidence；隔离或 observation 不可用时不降级执行。build/restore transfer 是独立 phase，不属于 correctness network allowlist，也不能用后续成功覆盖 correctness 中的下载尝试。
+
+acceptance 五项 service 的版本、image digest、topology、port/network namespace 与 resource limit 以 `config/testing/test-execution-service-catalog.json` 为唯一目录。PostgreSQL/Redis 只接受目录中的 digest-pinned local image；bootstrap 不在 test phase pull image，缺少时直接失败，应先在独立 restore/preparation 阶段预载。bootstrap 将实际 roster 写到 `FSUSBLOG_TEST_SERVICE_ENVELOPE_FILE`，runner 仅在 planned/actual 全字段一致时接受。
+
+每个 correctness attempt 在 child 启动前写入 planned execution envelope，postflight 聚合 env/executable、browser/rendering、service/topology、directory/filesystem、network 与适用 host facts 后封存 `fsusblog.test-execution-envelope-receipt.v1`。`tools/test/verify-execution-envelope.mjs --plan <plan> --receipt <receipt>` 以独立路径验证 schema、planned/actual exact match、fragment/self digest 与 run/source/attempt identity；仅在该验证通过后，同一 envelope/receipt digest 才能绑定 producer receipt、temporal replay plan 与 release evidence。
+
 Qualification 时间权威与业务/测量时钟分离由 `config/testing/temporal-policy.json`、`config/testing/temporal-context.schema.json` 与 `tools/test/temporal-context.mjs` 承载：唯一 temporal context 绑定 source/run/producer、固定 UTC business epoch、timezone/culture 与 immutable call-site ledger digest；plan/actual/receipt 必须 exact match，`generatedAt` 只进入 artifact metadata 且不进入 semantic outcome digest。Business wall clock 通过后端 `TestTemporalContext` / `TimeProvider` 与 Node `createBusinessWallClock` 注入并只允许显式推进；monotonic measurement 继续使用 `performance.now` / `process.hrtime.bigint` / `Stopwatch` 真实推进。
 
 `config/testing/temporal-shape-catalog.json` 是 fixture semantic temporal role 和边界 shape 的唯一、闭合且版本化权威；不得再新增第二份 timestamp 情景表、私有 epoch 或 producer-local offset。`tools/test/temporal-role-resolver.mjs` 只从 producer-bound temporal context 和该 catalog 纯函数解析 exact millisecond UTC/local/offset/business-state，并为 Node、.NET、PostgreSQL 与 browser 输出同一 content digest 的投影；跨运行时 consumer 只验证并消费 artifact，不重算 offset。显式 advance 只改变 business-wall role，不改变 monotonic clock；same-timestamp ordering 和 out-of-order occurred/arrival 必须按 catalog tie-breaker/invariant 验证。`tools/test/check-temporal-shape-governance.mjs` 独立拒绝第二权威、未登记 role、私有 wall clock、sleep 和 SQL interval 重算。

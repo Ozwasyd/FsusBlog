@@ -427,6 +427,9 @@ RELEASE_PREVIEW_URL="${FSUSBLOG_RELEASE_PREVIEW_URL:-http://127.0.0.1:${RELEASE_
 CORS_ALLOWED_HOSTS_VALUE="${CORS_ALLOWED_HOSTS:-${DEBUG_FRONTEND_URL},${RELEASE_PREVIEW_URL},http://localhost:${DEBUG_FRONTEND_PORT},http://localhost:${RELEASE_PREVIEW_PORT}}"
 POSTGRES_CONTAINER="${FSUSBLOG_POSTGRES_CONTAINER_NAME:-fsusblog-test-postgres-$NS_SLUG}"
 REDIS_CONTAINER="${FSUSBLOG_REDIS_CONTAINER_NAME:-fsusblog-test-redis-$NS_SLUG}"
+POSTGRES_IMAGE_REFERENCE='postgres@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685'
+REDIS_IMAGE_REFERENCE='redis@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf'
+EXECUTION_SERVICE_ENVELOPE_FILE="$FIXTURE_DIR/execution-envelope-services.json"
 if [[ ! "$POSTGRES_CONTAINER" =~ ^fsusblog-(dev|test|ci)([-_.A-Za-z0-9]*)$ ]]; then
     POSTGRES_CONTAINER="fsusblog-test-postgres-$NS_SLUG"
 fi
@@ -482,6 +485,7 @@ PUBLIC_READ_PERMIT_LIMIT="${FSUSBLOG_ACCEPTANCE_PUBLIC_READ_PERMIT_LIMIT:-100000
 PUBLIC_READ_QUEUE_LIMIT="${FSUSBLOG_ACCEPTANCE_PUBLIC_READ_QUEUE_LIMIT:-10000}"
 NOTIFICATION_STREAM_MAX_CONNECTIONS_PER_ACCOUNT="${FSUSBLOG_ACCEPTANCE_NOTIFICATION_STREAM_MAX_CONNECTIONS_PER_ACCOUNT:-50}"
 LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET="${FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET:-fsusblog-local-public-content-fixture-secret-${NS_SLUG}-${FSUSBLOG_TEST_RUN_ID:-local}}"
+LOCAL_AUTH_FIXTURE_SECRET="${FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET:-fsusblog-local-auth-fixture-secret-${NS_SLUG}-${FSUSBLOG_TEST_RUN_ID:-local}}"
 ACCEPTANCE_LOG_MAX_KIB="${FSUSBLOG_ACCEPTANCE_LOG_MAX_KIB:-262144}"
 if [[ ! "$ACCEPTANCE_LOG_MAX_KIB" =~ ^[0-9]+$ ]] || ((ACCEPTANCE_LOG_MAX_KIB < 1024)); then
     printf '[acceptance:bootstrap] FSUSBLOG_ACCEPTANCE_LOG_MAX_KIB must be an integer >= 1024\n' >&2
@@ -555,6 +559,7 @@ FSUSBLOG_DEBUG_BACKEND_URL=$DEBUG_BACKEND_URL
 FSUSBLOG_RELEASE_PREVIEW_URL=$RELEASE_PREVIEW_URL
 FSUSBLOG_POSTGRES_CONTAINER_NAME=$POSTGRES_CONTAINER
 FSUSBLOG_REDIS_CONTAINER_NAME=$REDIS_CONTAINER
+FSUSBLOG_TEST_SERVICE_ENVELOPE_FILE=$EXECUTION_SERVICE_ENVELOPE_FILE
 FSUSBLOG_PORT_LEASED_ROLES=${PORT_LEASED_ROLES:-}
 FSUSBLOG_PORT_LEASE_DAEMON_PID=${PORT_LEASE_DAEMON_PID:-}
 FSUSBLOG_NOTIFICATION_DRILL_SECRET=$NOTIFICATION_DRILL_SECRET
@@ -566,6 +571,8 @@ FSUSBLOG_FIXTURE_SERVICE_GENERATION=${FSUSBLOG_FIXTURE_SERVICE_GENERATION:-unini
 FSUSBLOG_RUNTIME_CONFIGURATION=${FSUSBLOG_RUNTIME_CONFIGURATION:-}
 FSUSBLOG_RUNTIME_NO_BUILD=${FSUSBLOG_RUNTIME_NO_BUILD:-0}
 FSUSBLOG_TEST_RUN_ID=${FSUSBLOG_TEST_RUN_ID:-}
+FSUSBLOG_TEST_BUSINESS_EPOCH_UTC=${FSUSBLOG_TEST_BUSINESS_EPOCH_UTC:-}
+FSUSBLOG_TEMPORAL_CONTEXT_FILE=${FSUSBLOG_TEMPORAL_CONTEXT_FILE:-}
 FSUSBLOG_PHYSICAL_BUNDLE_ID=${FSUSBLOG_PHYSICAL_BUNDLE_ID:-}
 FSUSBLOG_STEP_ID=${FSUSBLOG_STEP_ID:-}
 FSUSBLOG_TEST_RUNTIME_MODE=${FSUSBLOG_TEST_RUNTIME_MODE:-single}
@@ -577,6 +584,7 @@ FSUSBLOG_TEST_CLUSTER_BOOTSTRAP=${FSUSBLOG_TEST_CLUSTER_BOOTSTRAP:-none}
 FSUSBLOG_TEST_CLUSTER_FIXTURES=${FSUSBLOG_TEST_CLUSTER_FIXTURES:-}
 FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME=${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}
 FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID=${FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID:-}
+FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET=${FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET:-}
 ConnectionStrings__DefaultConnection=$POSTGRES_CONNECTION
 ConnectionStrings__Redis=$REDIS_CONNECTION
 RedisOptions__Configuration=$REDIS_CONNECTION
@@ -1814,6 +1822,30 @@ AssertDedicatedContainerBinding() {
     fi
 }
 
+RequireLocalPinnedImage() {
+    local service="$1"
+    local imageReference="$2"
+    if [[ ! "$imageReference" =~ @sha256:[a-f0-9]{64}$ ]]; then
+        Log "$service image reference is not pinned by digest: $imageReference"
+        return 1
+    fi
+    if ! docker image inspect "$imageReference" >/dev/null 2>&1; then
+        Log "$service pinned image is absent locally; correctness bootstrap forbids test-time pulls: $imageReference"
+        return 1
+    fi
+}
+
+ContainerImageBindingMatches() {
+    local container="$1"
+    local expectedReference="$2"
+    local configuredReference runningImage expectedImage
+    configuredReference="$(docker inspect --format '{{.Config.Image}}' "$container" 2>/dev/null || true)"
+    runningImage="$(docker inspect --format '{{.Image}}' "$container" 2>/dev/null || true)"
+    expectedImage="$(docker image inspect --format '{{.Id}}' "$expectedReference" 2>/dev/null || true)"
+    [[ -n "$expectedImage" && "$configuredReference" == "$expectedReference" &&
+        "$runningImage" == "$expectedImage" ]]
+}
+
 EnsurePostgres() {
     local readinessDeadline="${1:-}"
     if [[ -z "$readinessDeadline" ]]; then
@@ -1821,8 +1853,10 @@ EnsurePostgres() {
         readinessDeadline="$READINESS_DEADLINE_AT_MS"
     fi
     AssertDedicatedContainerBinding "$POSTGRES_CONTAINER" postgres || return 1
+    RequireLocalPinnedImage postgres "$POSTGRES_IMAGE_REFERENCE" || return 1
     ReleasePortLeaseBeforeBind postgres 'PostgreSQL host mapping'
     if docker exec "$POSTGRES_CONTAINER" pg_isready -U fsusblog -d fsusblog >/dev/null 2>&1 &&
+        ContainerImageBindingMatches "$POSTGRES_CONTAINER" "$POSTGRES_IMAGE_REFERENCE" &&
         ContainerResourceBindingMatches "$POSTGRES_CONTAINER"; then
         Log 'postgres already ready'
         CompletePortLeaseHandoff postgres 'PostgreSQL host mapping' "container:$(docker inspect --format '{{.Id}}' "$POSTGRES_CONTAINER" 2>/dev/null || true)"
@@ -1830,6 +1864,7 @@ EnsurePostgres() {
     fi
 
     if docker ps -a --format '{{.Names}}' | grep -qx "$POSTGRES_CONTAINER" &&
+        ContainerImageBindingMatches "$POSTGRES_CONTAINER" "$POSTGRES_IMAGE_REFERENCE" &&
         ContainerResourceBindingMatches "$POSTGRES_CONTAINER"; then
         Log 'starting existing postgres container'
         UpdateExistingContainerResources "$POSTGRES_CONTAINER"
@@ -1852,7 +1887,7 @@ EnsurePostgres() {
             -e POSTGRES_PASSWORD=fsusblog_dev \
             -e POSTGRES_DB=fsusblog \
             -p "127.0.0.1:${POSTGRES_PORT}:5432" \
-            postgres:16-alpine >/dev/null
+            "$POSTGRES_IMAGE_REFERENCE" >/dev/null
     fi
 
     while (($(NowEpochMs) < readinessDeadline)); do
@@ -1875,8 +1910,10 @@ EnsureRedis() {
         readinessDeadline="$READINESS_DEADLINE_AT_MS"
     fi
     AssertDedicatedContainerBinding "$REDIS_CONTAINER" redis || return 1
+    RequireLocalPinnedImage redis "$REDIS_IMAGE_REFERENCE" || return 1
     ReleasePortLeaseBeforeBind redis 'Redis host mapping'
     if docker exec "$REDIS_CONTAINER" redis-cli ping >/dev/null 2>&1 &&
+        ContainerImageBindingMatches "$REDIS_CONTAINER" "$REDIS_IMAGE_REFERENCE" &&
         ContainerResourceBindingMatches "$REDIS_CONTAINER"; then
         Log 'redis already ready'
         CompletePortLeaseHandoff redis 'Redis host mapping' "container:$(docker inspect --format '{{.Id}}' "$REDIS_CONTAINER" 2>/dev/null || true)"
@@ -1884,6 +1921,7 @@ EnsureRedis() {
     fi
 
     if docker ps -a --format '{{.Names}}' | grep -qx "$REDIS_CONTAINER" &&
+        ContainerImageBindingMatches "$REDIS_CONTAINER" "$REDIS_IMAGE_REFERENCE" &&
         ContainerResourceBindingMatches "$REDIS_CONTAINER"; then
         Log 'starting existing redis container'
         UpdateExistingContainerResources "$REDIS_CONTAINER"
@@ -1899,7 +1937,7 @@ EnsureRedis() {
         fi
         Log 'creating redis container'
         BuildDockerResourceArgs
-        docker run -d "${DOCKER_RESOURCE_ARGS[@]}" --name "$REDIS_CONTAINER" -p "127.0.0.1:${REDIS_PORT}:6379" redis:7-alpine >/dev/null
+        docker run -d "${DOCKER_RESOURCE_ARGS[@]}" --name "$REDIS_CONTAINER" -p "127.0.0.1:${REDIS_PORT}:6379" "$REDIS_IMAGE_REFERENCE" >/dev/null
     fi
 
     while (($(NowEpochMs) < readinessDeadline)); do
@@ -1922,6 +1960,15 @@ RefreshFixtureServiceGeneration() {
     FSUSBLOG_FIXTURE_SERVICE_GENERATION="$(printf '%s\n%s\n' "$postgresIdentity" "$redisIdentity" | sha256sum | awk '{print $1}')"
     export FSUSBLOG_FIXTURE_SERVICE_GENERATION
     WriteEnvFile
+}
+
+WriteExecutionServiceEnvelope() {
+    "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/execution-envelope-services.mjs" \
+        --producer-id "${CURRENT_TIER:-bootstrap}" \
+        --run-id "${FSUSBLOG_TEST_RUN_ID:?FSUSBLOG_TEST_RUN_ID is required for service envelope admission}" \
+        --postgres-container "$POSTGRES_CONTAINER" \
+        --redis-container "$REDIS_CONTAINER" \
+        --output "$EXECUTION_SERVICE_ENVELOPE_FILE"
 }
 
 ResetSecurityTestState() {
@@ -2084,6 +2131,10 @@ InvokeFixtureOrchestrator() {
         export FSUSBLOG_PG_CONTAINER="$POSTGRES_CONTAINER"
         export FSUSBLOG_REDIS_CONTAINER="$REDIS_CONTAINER"
         export FSUSBLOG_REDIS_CONTAINER_NAME="$REDIS_CONTAINER"
+        export FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET="$LOCAL_AUTH_FIXTURE_SECRET"
+        if [[ -n "${FSUSBLOG_TEMPORAL_CONTEXT_FILE:-}" ]]; then
+            unset FSUSBLOG_TEMPORAL_CONTEXT_JSON
+        fi
         export Jwt__KeyVersion="$JWT_KEY_VERSION"
         export Jwt__SecretKey="$JWT_SECRET"
         export Jwt__Issuer="$JWT_ISSUER"
@@ -2115,6 +2166,26 @@ InvokeFixtureOrchestrator() {
     fi
 }
 
+EnsureFixtureTemporalContext() {
+    if [[ -n "${FSUSBLOG_TEMPORAL_CONTEXT_JSON:-}" ]]; then
+        return
+    fi
+    if [[ -z "${FSUSBLOG_TEMPORAL_CONTEXT_FILE:-}" ]]; then
+        local temporalContextFile="$FIXTURE_DIR/temporal-context.json"
+        "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/write-temporal-context.mjs" \
+            --producer auth-session \
+            --business-epoch "${FSUSBLOG_TEST_BUSINESS_EPOCH_UTC:?fixture business epoch is required}" \
+            --output "$temporalContextFile" >/dev/null
+        FSUSBLOG_TEMPORAL_CONTEXT_FILE="$temporalContextFile"
+        export FSUSBLOG_TEMPORAL_CONTEXT_FILE
+    fi
+    FSUSBLOG_TEMPORAL_CONTEXT_JSON="$("${FSUSBLOG_NODE:-node}" -e \
+        'const fs=require("node:fs");process.stdout.write(JSON.stringify(JSON.parse(fs.readFileSync(process.argv[1],"utf8"))))' \
+        "$FSUSBLOG_TEMPORAL_CONTEXT_FILE")"
+    export FSUSBLOG_TEMPORAL_CONTEXT_JSON
+    WriteEnvFile
+}
+
 ConfigureLocalPublicContentFixture() {
     if [[ "$FIXTURE_REQUIRES_PUBLIC" != "1" ]]; then
         unset FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET || true
@@ -2126,6 +2197,19 @@ ConfigureLocalPublicContentFixture() {
     export FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET="$LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET"
     export fsus__allowLocalPublicContentFixture=true
     export fsus__localPublicContentFixtureSecret="$LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET"
+}
+
+ConfigureLocalAuthFixture() {
+    if [[ "$FIXTURE_REQUIRES_LOCAL_AUTH" != "1" ]]; then
+        unset FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET || true
+        unset fsus__allowLocalAuthFixture || true
+        unset fsus__localAuthFixtureSecret || true
+        return
+    fi
+
+    export FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET="$LOCAL_AUTH_FIXTURE_SECRET"
+    export fsus__allowLocalAuthFixture=true
+    export fsus__localAuthFixtureSecret="$LOCAL_AUTH_FIXTURE_SECRET"
 }
 
 PublishEnvironmentReadyReceipt() {
@@ -2619,6 +2703,7 @@ Main() {
         # Order: resolve/validate profile → planned receipt → schema/services/runtime → orchestrator → receipts.
         ResolveFixtureProfilePlan full
         ConfigureLocalPublicContentFixture
+        ConfigureLocalAuthFixture
         READINESS_PHASES_REMAINING=3
         ConfigureManagedBackendRuntimeReader
     fi
@@ -2635,6 +2720,7 @@ Main() {
             backend-debug-build EnsureManagedBackendSharedDebugBuild
     fi
     RefreshFixtureServiceGeneration
+    WriteExecutionServiceEnvelope
     if [[ "${1:-}" == "--services-only" ]]; then
         Log 'postgres and redis ready'
         return
@@ -2643,6 +2729,12 @@ Main() {
         AllocateReadinessDeadline 'release bundle preparation'
         PrepareReleasePreviewBundle "$READINESS_DEADLINE_AT_MS"
     fi
+    if [[ -z "${FSUSBLOG_TEST_BUSINESS_EPOCH_UTC:-}" ]]; then
+        FSUSBLOG_TEST_BUSINESS_EPOCH_UTC="$(date -u '+%Y-%m-%dT%H:%M:%S.000Z')"
+        export FSUSBLOG_TEST_BUSINESS_EPOCH_UTC
+        Log "materialized local fixture business epoch before runtime activation: $FSUSBLOG_TEST_BUSINESS_EPOCH_UTC"
+    fi
+    EnsureFixtureTemporalContext
     AllocateReadinessDeadline 'runtime applications'
     local -a runtimeApplications=(debug-backend EnsureBackend)
     if CiProductionHasDomain frontend-dist; then
@@ -2650,11 +2742,6 @@ Main() {
     fi
     RunBootstrapParallel 'runtime applications' "$READINESS_DEADLINE_AT_MS" "${runtimeApplications[@]}"
     WaitForPowReady
-    if [[ -z "${FSUSBLOG_TEST_BUSINESS_EPOCH_UTC:-}" ]]; then
-        FSUSBLOG_TEST_BUSINESS_EPOCH_UTC="$(date -u '+%Y-%m-%dT%H:%M:%S.000Z')"
-        export FSUSBLOG_TEST_BUSINESS_EPOCH_UTC
-        Log "materialized local fixture business epoch after runtime readiness: $FSUSBLOG_TEST_BUSINESS_EPOCH_UTC"
-    fi
     InvokeFixtureOrchestrator
     if CiProductionHasDomain frontend-dist; then
         # Process startup already proved the immutable frontend entry. Before

@@ -611,7 +611,8 @@ test('capture contracts keep shards temporary and release verification explicit'
     assert.match(runner, /FSUSBLOG_PUBLIC_PREVIEW_WRITER_NAMESPACE="\$NAMESPACE"/u);
     assert.match(runner, /FSUSBLOG_PUBLIC_PREVIEW_WRITER_PID="\$\$"/u);
     assert.match(runner, /FSUSBLOG_REPOSITORY_ROOT="\$ROOT_DIR"/u);
-    assert.match(runner, /FSUSBLOG_PLAYWRIGHT_MANAGED_ONLY=1/u);
+    assert.match(browserRunner, /createCorrectnessBrowserPlan/u);
+    assert.match(browserRunner, /observeCorrectnessBrowser/u);
     assert.match(runner, /FSUSBLOG_BASE_URL="\$FSUSBLOG_RELEASE_PREVIEW_URL"/u);
     assert.match(runner, /FSUSBLOG_PUBLIC_BASE_URL="\$FSUSBLOG_RELEASE_PREVIEW_URL"/u);
     assert.match(runner, /PLAYWRIGHT_BASE_URL="\$FSUSBLOG_RELEASE_PREVIEW_URL"/u);

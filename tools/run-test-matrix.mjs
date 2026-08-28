@@ -35,6 +35,19 @@ import {
     discoverOrphanDotnetBuildServers,
     dotnetBuildServerInventory
 } from './test-matrix/dotnet-build-server-cleanup.mjs';
+import {
+    loadExecutionServiceCatalog,
+    validateExecutionServiceCatalog
+} from './test/execution-envelope-services.mjs';
+import {
+    loadExecutionNetworkPolicy,
+    validateExecutionNetworkPolicy
+} from './test/execution-envelope-network.mjs';
+import {
+    loadExecutionEnvelopeApplicability,
+    loadExecutionEnvelopePolicy,
+    validateExecutionEnvelopeContracts
+} from './test-matrix/execution-envelope-policy.mjs';
 import { validateFixtureProfileMatrix } from './test-matrix/fixture-profile-contract.mjs';
 import { cleanLocalProductionOutputs, dockerRootDirectory } from './test-matrix/fresh-production.mjs';
 import {
@@ -917,6 +930,15 @@ function validateMatrix(matrix)
     const errors = [];
     const ids = new Set();
     const byId = tierMap(matrix);
+    errors.push(...validateExecutionEnvelopeContracts({
+        matrix,
+        policy: loadExecutionEnvelopePolicy(),
+        catalog: loadExecutionEnvelopeApplicability()
+    }).map((error) => `executionEnvelope: ${error}`));
+    errors.push(...validateExecutionServiceCatalog(loadExecutionServiceCatalog(), matrix)
+        .map((error) => `executionServiceCatalog: ${error}`));
+    errors.push(...validateExecutionNetworkPolicy(loadExecutionNetworkPolicy())
+        .map((error) => `executionNetworkPolicy: ${error}`));
     errors.push(...validateCorrectnessBudgetPolicy(loadCorrectnessBudgetPolicy(), matrix)
         .map((error) => `correctnessBudgetPolicy: ${error}`));
 
