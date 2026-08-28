@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -13,6 +15,37 @@ import {
 } from '../../tools/test/perception-redis-producer.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+
+function runFixtureWithDockerStub({ port = '127.0.0.1:6379', pingReady = false } = {})
+{
+    const stubDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-local-redis-docker-'));
+    const dockerStub = path.join(stubDirectory, 'docker');
+    const sleepStub = path.join(stubDirectory, 'sleep');
+    fs.writeFileSync(dockerStub, `#!/usr/bin/env bash
+if [[ "$1" == "info" || "$1" == "run" || "$1 $2" == "image inspect" || "$1" == "rm" ]]; then exit 0; fi
+if [[ "$1" == "port" ]]; then printf '%s\\n' "$FSUSBLOG_FAKE_DOCKER_PORT"; exit 0; fi
+if [[ "$1 $3" == "exec redis-cli" && "$4" == "ping" ]]; then [[ "$FSUSBLOG_FAKE_DOCKER_PING" == "ready" ]] && echo PONG && exit 0; exit 1; fi
+exit 1
+`, { mode: 0o755 });
+    fs.writeFileSync(sleepStub, '#!/usr/bin/env bash\nexit 0\n', { mode: 0o755 });
+    try
+    {
+        return spawnSync('/bin/bash', [path.join(root, 'tools/test/perception-character-v3-redis-fixture.sh')], {
+            cwd: root,
+            encoding: 'utf8',
+            env: {
+                ...process.env,
+                PATH: `${stubDirectory}:${process.env.PATH}`,
+                FSUSBLOG_FAKE_DOCKER_PORT: port,
+                FSUSBLOG_FAKE_DOCKER_PING: pingReady ? 'ready' : 'not-ready'
+            }
+        });
+    }
+    finally
+    {
+        fs.rmSync(stubDirectory, { recursive: true, force: true });
+    }
+}
 
 test('canonical LocalRedis producer registers all four Perception V3 tests under single shared owner', () =>
 {
@@ -65,6 +98,56 @@ test('ArtifactPoolBurn test fails closed and contains no early return on missing
         /throw new InvalidOperationException/u,
         'ArtifactPoolBurn test must throw when FSUSBLOG_TEST_REDIS is not set'
     );
+});
+
+test('perception-character-v3-redis-fixture.sh binds fail-closed container lifecycle and outcome reconciliation', () =>
+{
+    const script = fs.readFileSync(
+        path.join(root, 'tools/test/perception-character-v3-redis-fixture.sh'),
+        'utf8'
+    );
+    assert.match(script, /command -v docker/u);
+    assert.match(script, /docker info/u);
+    assert.match(script, /trap Cleanup EXIT/u);
+    assert.match(script, /redis-cli ping/u);
+    assert.match(script, /FSUSBLOG_TEST_REDIS=/u);
+    assert.match(script, /FSUSBLOG_TEST_REDIS_PREFIX=/u);
+    assert.match(script, /redis-cli --raw --scan --pattern/u);
+    assert.match(script, /RedisLuaCalls/u);
+    assert.match(script, /snapshotGitWorktree/u);
+    assert.match(script, /perception-redis-producer\.mjs/u);
+});
+
+test('LocalRedis runner fails closed when Docker is unavailable, port parsing fails, or PING is not ready', () =>
+{
+    const unavailableDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-local-redis-no-docker-'));
+    fs.symlinkSync('/usr/bin/dirname', path.join(unavailableDirectory, 'dirname'));
+    try
+    {
+        const unavailable = spawnSync(
+            '/bin/bash',
+            [path.join(root, 'tools/test/perception-character-v3-redis-fixture.sh')],
+            {
+                cwd: root,
+                encoding: 'utf8',
+                env: { ...process.env, PATH: unavailableDirectory }
+            }
+        );
+        assert.notEqual(unavailable.status, 0);
+        assert.match(unavailable.stderr, /docker is required/u);
+    }
+    finally
+    {
+        fs.rmSync(unavailableDirectory, { recursive: true, force: true });
+    }
+
+    const invalidPort = runFixtureWithDockerStub({ port: 'invalid' });
+    assert.notEqual(invalidPort.status, 0);
+    assert.match(invalidPort.stderr, /failed to resolve published port/u);
+
+    const pingNotReady = runFixtureWithDockerStub({ port: '127.0.0.1:6379' });
+    assert.notEqual(pingNotReady.status, 0);
+    assert.match(pingNotReady.stderr, /failed to respond to PING/u);
 });
 
 test('reconcileLocalRedisOutcome parses passing TRX and produces conforming receipt', () =>

@@ -6464,7 +6464,7 @@ tiers:
       risk: high
       cadence: pr
       requiredFor: production
-      coverage: [benchmarkdotnet-readiness]
+      coverage: [benchmarkdotnet-readiness, native-groth16-p99]
       artifacts:
           [
               .tmp/backend-perf,

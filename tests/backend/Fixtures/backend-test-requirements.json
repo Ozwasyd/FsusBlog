@@ -261,7 +261,10 @@
         "benchmarks/core/RateLimiterRejectionSamplerBenchmarks.cs",
         "tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs",
         "tools/test/native-p99-producer-contract.mjs",
-        "tools/test/lanes/backend-perf-native-p99.sh"
+        "tools/test/lanes/backend-perf-native-p99.sh",
+        ".tmp/backend-perf/native-p99/preflight.json",
+        ".tmp/backend-perf/native-p99/measurement.json",
+        ".tmp/backend-perf/native-p99/summary.json"
       ]
     },
     {
