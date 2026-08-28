@@ -151,7 +151,7 @@
             "reason": "Temporary DAG allocation coverage bridge while producer receipt and consumer identity wave tests are split into focused modules",
             "expires": "2026-09-27",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2150",
-            "sourceFingerprint": "sha256:3fec1cc467d30146298a861940cd20370a93e1e5a3808443cbf7ef5865614c74"
+            "sourceFingerprint": "sha256:8a1113dea99bac73a6d51023da1268bf5f87e0e65b4453c359324a21607e5435"
         },
         {
             "file": "tests/tools/local-production-profile.test.mjs",
@@ -207,7 +207,7 @@
             "reason": "Temporary fixture postcondition aggregate while temporal session invariants move into producer-scoped validators",
             "expires": "2026-09-27",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2530",
-            "sourceFingerprint": "sha256:faa4eeb2427dec775a1c86a06ec2076df13ca87bed7c273a2a6b118f12a04be3"
+            "sourceFingerprint": "sha256:cd2aa8a13d4ef8f694d19de35ca305998789bc651f003fcbc8712f19a2efa8a8"
         },
         {
             "file": "tools/test-inventory/xunit-roslyn-adapter/Program.cs",

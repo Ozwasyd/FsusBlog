@@ -12,9 +12,7 @@
             ],
             "provides": [
                 "messages.thread",
-                "notifications.unread",
-                "preferences.locale-auto",
-                "preferences.locale-fixed"
+                "notifications.unread"
             ],
             "consumes": [
                 "auth.admin.full-permission",
@@ -23,13 +21,10 @@
             "stateDomains": [
                 "fixture.auth-identities",
                 "postgres.auth",
-                "postgres.settings",
                 "redis.notification",
                 "redis.session"
             ],
             "receiptPostconditions": [
-                "locale-auto",
-                "locale-fixed",
                 "messages-thread",
                 "notifications-unread"
             ]
