@@ -36,6 +36,7 @@
       ],
       "evidencePaths": [
         "tests/backend/Unit/BackendAuthStateMachineTests.cs",
+        "tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs",
         "tests/backend/Unit/ShieldMiddlewareTests.cs",
         "tools/security/check-security-matrices.mjs",
         "tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs",
@@ -421,6 +422,7 @@
       "coverage": "PoW, login, MFA, recovery code, passkey, refresh, revoke, banned/deleted transitions",
       "evidencePaths": [
         "tests/backend/Unit/BackendAuthStateMachineTests.cs",
+        "tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs",
         "tests/backend/Unit/JwtHelperTests.cs",
         "tests/backend/Unit/PasskeyServiceTests.cs",
         "tests/backend/Unit/TotpServiceTests.cs",
@@ -599,6 +601,7 @@
         "tools/security/check-security-matrices.mjs",
         "tests/frontend/checks/security/check-permission-matrix.mjs",
         "tests/backend/Unit/BackendAuthStateMachineTests.cs",
+        "tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs",
         "tests/backend/Unit/ShieldMiddlewareTests.cs",
         "tests/backend/Unit/SecurityHardening/CanonicalPathBoundaryTests.cs",
         "tests/backend/Unit/SecurityHardening/InputLimitBoundaryTests.cs",

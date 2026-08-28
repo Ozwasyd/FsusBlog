@@ -8865,6 +8865,7 @@ tiers:
       evidence:
           - .tmp/backend-auth-state-machine/summary.json
           - tests/backend/Unit/BackendAuthStateMachineTests.cs
+          - tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs
           - tests/backend/Unit/ShieldMiddlewareTests.cs
           - tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs
           - tests/backend/Unit/SubscriptionEndpointsContractTests.cs

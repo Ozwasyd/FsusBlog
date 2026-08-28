@@ -1,6 +1,7 @@
 using System.Net;
 
 using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Policies;
@@ -358,6 +359,48 @@ public sealed class AuthRiskControlEndpointContractTests(
         EndpointSecurityTestServer.AddRestrictedAnonymousAccount(allowedRead);
         using HttpResponseMessage allowed = await client.SendAsync(allowedRead);
         Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
+    }
+
+    [Fact]
+    public async Task TestServer_DeletedAccountReturnsUnauthorizedAndBlocksAllAccess()
+    {
+        using EndpointSecurityTestServer server = EndpointSecurityTestServer.Create();
+        server.Users.GetAccountByIdAsync(42).Returns(Task.FromResult<UserAccountSnapshot?>(
+            new UserAccountSnapshot(42, 2, null, false, DateTime.UtcNow, AccountSubjectHash: EndpointSecurityTestServer.AccountSubjectHash)));
+        using HttpClient client = CreateIsolatedClient(server);
+
+        using var blockedGet = new HttpRequestMessage(HttpMethod.Get, "/api/binary/auth/me");
+        EndpointSecurityTestServer.AddAnonymousAccount(blockedGet);
+        using HttpResponseMessage responseGet = await client.SendAsync(blockedGet);
+        Assert.Equal(HttpStatusCode.Unauthorized, responseGet.StatusCode);
+        ErrorDetail getError = await EndpointSecurityTestServer.ReadErrorAsync(responseGet);
+        Assert.Equal(ErrorCode.Unauthorized, getError.Code);
+        Assert.Contains("账户已注销", getError.Message, StringComparison.Ordinal);
+
+        using var blockedPost = new HttpRequestMessage(HttpMethod.Post, "/api/binary/comment");
+        EndpointSecurityTestServer.AddAnonymousAccount(blockedPost);
+        using HttpResponseMessage responsePost = await client.SendAsync(blockedPost);
+        Assert.Equal(HttpStatusCode.Unauthorized, responsePost.StatusCode);
+        ErrorDetail postError = await EndpointSecurityTestServer.ReadErrorAsync(responsePost);
+        Assert.Equal(ErrorCode.Unauthorized, postError.Code);
+        Assert.Contains("账户已注销", postError.Message, StringComparison.Ordinal);
+
+        using var blockedRestricted = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/binary/auth/sessions/session-other/revoke");
+        EndpointSecurityTestServer.AddAnonymousAccount(blockedRestricted);
+        using HttpResponseMessage responseRestricted = await client.SendAsync(blockedRestricted);
+        Assert.Equal(HttpStatusCode.Unauthorized, responseRestricted.StatusCode);
+
+        await server.Sessions.DidNotReceive().RevokeSessionAsync(
+            Arg.Any<int>(),
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<CancellationToken>());
+        await server.Articles.DidNotReceive().ClearTrashAsync(Arg.Any<CancellationToken>());
+        await server.AuditEvents.DidNotReceive().RecordHighValueAsync(
+            Arg.Any<AuditEvent>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]

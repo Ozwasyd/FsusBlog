@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 namespace FsusBlog.Server.Tests.Unit;
 
+[Trait("Category", "SecurityStateMachine")]
 public sealed class BannedUserMiddlewareIdentityKindTests
 {
     private const string StableAccountSubjectHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -253,6 +254,208 @@ public sealed class BannedUserMiddlewareIdentityKindTests
         await blacklist.DidNotReceive().GetBanStateAsync(Arg.Any<int>(), Arg.Any<string>());
     }
 
+    [Theory]
+    [InlineData("POST")]
+    [InlineData("PUT")]
+    [InlineData("DELETE")]
+    [InlineData("PATCH")]
+    public async Task InvokeAsync_ActiveUserOrdinaryWrite_AllowsNext(string method)
+    {
+        bool nextCalled = false;
+        var middleware = new BannedUserMiddleware(context =>
+        {
+            nextCalled = true;
+            context.Response.StatusCode = StatusCodes.Status204NoContent;
+            return Task.CompletedTask;
+        });
+        var blacklist = Substitute.For<IBlacklistService>();
+        blacklist.GetBanStateAsync(42, StableAccountSubjectHash)
+            .Returns(Task.FromResult(new BanStateSnapshot(false, null, null)));
+        var users = Substitute.For<IUserAccountReader>();
+        users.GetAccountByIdAsync(42).Returns(Task.FromResult<UserAccountSnapshot?>(CreateActiveUser(42)));
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var context = CreateContext(method, CreateAnonymousAccount(42));
+
+        await middleware.InvokeAsync(context, blacklist, users, cache);
+
+        Assert.True(nextCalled);
+        Assert.Equal(StatusCodes.Status204NoContent, context.Response.StatusCode);
+        await users.Received(1).GetAccountByIdAsync(42);
+        await blacklist.Received(1).GetBanStateAsync(42, StableAccountSubjectHash);
+    }
+
+    [Theory]
+    [InlineData("POST")]
+    [InlineData("PUT")]
+    [InlineData("DELETE")]
+    [InlineData("PATCH")]
+    public async Task InvokeAsync_BannedUserOrdinaryWrite_ReturnsLockedAndShortCircuitsWithoutSideEffects(string method)
+    {
+        bool nextCalled = false;
+        var middleware = new BannedUserMiddleware(context =>
+        {
+            nextCalled = true;
+            return Task.CompletedTask;
+        });
+        var blacklist = Substitute.For<IBlacklistService>();
+        blacklist.GetBanStateAsync(42, StableAccountSubjectHash)
+            .Returns(Task.FromResult(new BanStateSnapshot(true, "policy_violation", "restricted account")));
+        var users = Substitute.For<IUserAccountReader>();
+        users.GetAccountByIdAsync(42).Returns(Task.FromResult<UserAccountSnapshot?>(CreateActiveUser(42)));
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var context = CreateContext(method, CreateAnonymousAccount(42));
+
+        await middleware.InvokeAsync(context, blacklist, users, cache);
+
+        Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status423Locked, context.Response.StatusCode);
+        await users.Received(1).GetAccountByIdAsync(42);
+        await blacklist.Received(1).GetBanStateAsync(42, StableAccountSubjectHash);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_BannedUser_AllowsOrdinaryGetAndExplicitRestrictedAccountAction()
+    {
+        int nextCalls = 0;
+        var middleware = new BannedUserMiddleware(context =>
+        {
+            nextCalls++;
+            context.Response.StatusCode = StatusCodes.Status200OK;
+            return Task.CompletedTask;
+        });
+        var blacklist = Substitute.For<IBlacklistService>();
+        blacklist.GetBanStateAsync(42, StableAccountSubjectHash)
+            .Returns(Task.FromResult(new BanStateSnapshot(true, "manual_ban", "banned")));
+        var users = Substitute.For<IUserAccountReader>();
+        users.GetAccountByIdAsync(42).Returns(Task.FromResult<UserAccountSnapshot?>(CreateActiveUser(42)));
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+
+        var getContext = CreateContext("GET", CreateAnonymousAccount(42));
+        await middleware.InvokeAsync(getContext, blacklist, users, cache);
+
+        var postContext = CreateContext("POST", CreateAnonymousAccount(42));
+        SetRestrictedAccountActionEndpoint(postContext, RestrictedAccountAction.DeleteOwnAccount);
+        await middleware.InvokeAsync(postContext, blacklist, users, cache);
+
+        Assert.Equal(2, nextCalls);
+        Assert.Equal(StatusCodes.Status200OK, getContext.Response.StatusCode);
+        Assert.Equal(StatusCodes.Status200OK, postContext.Response.StatusCode);
+        await blacklist.DidNotReceive().GetBanStateAsync(Arg.Any<int>(), Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task InvokeAsync_RestrictedSessionMode_AllowsRestrictedAccountActionsAndBlocksOtherReadsAndWrites()
+    {
+        int nextCalls = 0;
+        var middleware = new BannedUserMiddleware(context =>
+        {
+            nextCalls++;
+            context.Response.StatusCode = StatusCodes.Status200OK;
+            return Task.CompletedTask;
+        });
+        var blacklist = Substitute.For<IBlacklistService>();
+        var users = Substitute.For<IUserAccountReader>();
+        users.GetAccountByIdAsync(42).Returns(Task.FromResult<UserAccountSnapshot?>(CreateActiveUser(42)));
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+
+        ClaimsPrincipal restrictedPrincipal = CreatePrincipal(
+            42,
+            new Claim("identity_kind", AnonymousIdentityRuntime.AnonymousAccountKind),
+            new Claim(AccountSubjectHasher.ClaimType, StableAccountSubjectHash),
+            new Claim(UserSessionModes.ClaimType, UserSessionModes.ToClaimValue(UserSessionMode.Restricted)));
+
+        var blockedGetContext = CreateContext("GET", restrictedPrincipal);
+        await middleware.InvokeAsync(blockedGetContext, blacklist, users, cache);
+        Assert.Equal(StatusCodes.Status423Locked, blockedGetContext.Response.StatusCode);
+
+        var blockedPostContext = CreateContext("POST", restrictedPrincipal);
+        await middleware.InvokeAsync(blockedPostContext, blacklist, users, cache);
+        Assert.Equal(StatusCodes.Status423Locked, blockedPostContext.Response.StatusCode);
+
+        var allowedActionContext = CreateContext("POST", restrictedPrincipal);
+        SetRestrictedAccountActionEndpoint(allowedActionContext, RestrictedAccountAction.Logout);
+        await middleware.InvokeAsync(allowedActionContext, blacklist, users, cache);
+        Assert.Equal(StatusCodes.Status200OK, allowedActionContext.Response.StatusCode);
+
+        Assert.Equal(1, nextCalls);
+    }
+
+    [Theory]
+    [InlineData("GET")]
+    [InlineData("POST")]
+    [InlineData("DELETE")]
+    public async Task InvokeAsync_DeletedOrDeactivatedAccount_ReturnsUnauthorizedOnReadsAndWrites(string method)
+    {
+        bool nextCalled = false;
+        var middleware = new BannedUserMiddleware(context =>
+        {
+            nextCalled = true;
+            return Task.CompletedTask;
+        });
+        var blacklist = Substitute.For<IBlacklistService>();
+        var users = Substitute.For<IUserAccountReader>();
+        users.GetAccountByIdAsync(42).Returns(Task.FromResult<UserAccountSnapshot?>(CreateDeletedUser(42)));
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var context = CreateContext(method, CreateAnonymousAccount(42));
+        SetRestrictedAccountActionEndpoint(context, RestrictedAccountAction.RevokeOwnSession);
+
+        await middleware.InvokeAsync(context, blacklist, users, cache);
+
+        Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status401Unauthorized, context.Response.StatusCode);
+        await users.Received(1).GetAccountByIdAsync(42);
+        await blacklist.DidNotReceive().GetBanStateAsync(Arg.Any<int>(), Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task InvokeAsync_StaleTokenIssuedBeforeBanOrDeletion_EnforcesAuthoritativeServerState()
+    {
+        bool nextCalled = false;
+        var middleware = new BannedUserMiddleware(context =>
+        {
+            nextCalled = true;
+            return Task.CompletedTask;
+        });
+        var blacklist = Substitute.For<IBlacklistService>();
+        blacklist.GetBanStateAsync(42, StableAccountSubjectHash)
+            .Returns(Task.FromResult(new BanStateSnapshot(true, "recent_ban", "banned")));
+        var users = Substitute.For<IUserAccountReader>();
+        users.GetAccountByIdAsync(42).Returns(Task.FromResult<UserAccountSnapshot?>(CreateActiveUser(42)));
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var context = CreateContext("POST", CreateAnonymousAccount(42));
+
+        await middleware.InvokeAsync(context, blacklist, users, cache);
+
+        Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status423Locked, context.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_CachedActiveAccountState_DoesNotBypassAuthoritativeBanCheckOnWrites()
+    {
+        int nextCalls = 0;
+        var middleware = new BannedUserMiddleware(context =>
+        {
+            nextCalls++;
+            return Task.CompletedTask;
+        });
+        var blacklist = Substitute.For<IBlacklistService>();
+        blacklist.GetBanStateAsync(42, StableAccountSubjectHash)
+            .Returns(Task.FromResult(new BanStateSnapshot(true, "banned", "banned")));
+        var users = Substitute.For<IUserAccountReader>();
+        users.GetAccountByIdAsync(42).Returns(Task.FromResult<UserAccountSnapshot?>(CreateActiveUser(42)));
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        cache.Set("account:state:" + StableAccountSubjectHash, CreateActiveUser(42));
+
+        var context = CreateContext("POST", CreateAnonymousAccount(42));
+        await middleware.InvokeAsync(context, blacklist, users, cache);
+
+        Assert.Equal(0, nextCalls);
+        Assert.Equal(StatusCodes.Status423Locked, context.Response.StatusCode);
+        await users.DidNotReceive().GetAccountByIdAsync(Arg.Any<int>());
+        await blacklist.Received(1).GetBanStateAsync(42, StableAccountSubjectHash);
+    }
+
     private static DefaultHttpContext CreateContext(string method, ClaimsPrincipal user)
     {
         var context = new DefaultHttpContext();
@@ -268,6 +471,14 @@ public sealed class BannedUserMiddlewareIdentityKindTests
             _ => Task.CompletedTask,
             new EndpointMetadataCollection(ForceAccountStateRefreshMetadata.Instance),
             "force-account-state-refresh"));
+
+    private static void SetRestrictedAccountActionEndpoint(
+        DefaultHttpContext context,
+        RestrictedAccountAction action = RestrictedAccountAction.DeleteOwnAccount)
+        => context.SetEndpoint(new Endpoint(
+            _ => Task.CompletedTask,
+            new EndpointMetadataCollection(new RestrictedAccountActionMetadata(action)),
+            "restricted-account-action"));
 
     private static ClaimsPrincipal CreateAdminPrincipal(int adminId)
         => CreatePrincipal(

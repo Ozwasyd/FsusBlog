@@ -7467,7 +7467,7 @@
                 "xunit:tests/backend/Unit/AuthoringUserBanConcurrencyTests.cs#AuthoringUserBanConcurrencyTests.AdminChangeStatusAsync_ConcurrentAccountDeletionDoesNotRestoreBannedStatus",
                 "xunit:tests/backend/Unit/AuthoringUserBanConcurrencyTests.cs#AuthoringUserBanConcurrencyTests.AdminChangeStatusAsync_ConcurrentRowVersionMismatchReturnsConflictWithoutBlacklistWrite",
                 "xunit:tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs#UserAuthPostgresConcurrencyTests.BlacklistService_BanAndUnbanCannotResurrectDeletedAccount",
-                "xunit:tests/backend/Unit/BackendAuthStateMachineTests.cs#BackendAuthStateMachineTests.BannedAndDeletedUsers_HaveNoWriteBoundary"
+                "xunit:tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs#BannedUserMiddlewareIdentityKindTests.InvokeAsync_BannedUserOrdinaryWrite_ReturnsLockedAndShortCircuitsWithoutSideEffects"
             ],
             "reason": "Database races prove deleted accounts stay terminal and stale moderation writes cannot restore status or emit blacklist side effects."
         },
