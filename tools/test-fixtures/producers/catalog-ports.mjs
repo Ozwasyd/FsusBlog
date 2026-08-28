@@ -569,34 +569,6 @@ export function createAccountProfilePreferencePort(catalogs = readFixtureCatalog
     });
 }
 
-export function createAuditRecordsPort(catalogs = readFixtureCatalogs())
-{
-    const producer = catalogProducer('audit-records', catalogs);
-    return basePort(producer, {
-        async prepare(context, signal)
-        {
-            assertNoStrategyEnv();
-            const { prepareAuditRecords } = await import('./audit-producer.mjs');
-            const result = await prepareAuditRecords(context, signal);
-            return {
-                ...result,
-                ...variantOutputFromTypedPlan(context, producer.id),
-                postconditions: [...producer.receiptPostconditions]
-            };
-        },
-        async verify(context, producerResult)
-        {
-            const { verifyAuditRecords } = await import('./audit-producer.mjs');
-            return verifyAuditRecords(context, producerResult);
-        },
-        async cleanup(context, receipt, signal)
-        {
-            const { cleanupAuditRecords } = await import('./audit-producer.mjs');
-            await cleanupAuditRecords(context, receipt, signal);
-        }
-    });
-}
-
 export function createCommentModerationPort(catalogs = readFixtureCatalogs())
 {
     return createStructuralBusinessPort(catalogProducer('comment-moderation', catalogs), 'commentModerationAdapter');
