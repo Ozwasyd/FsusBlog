@@ -74,8 +74,10 @@
       "kind": "compiled-assembly",
       "entrypoint": "tools/fact-extractors/openapi-aeds/extract.mjs",
       "consumedInputs": [
+        "config/contracts/behavior-contracts.json",
         "src/shared/Contracts/Validation/aeds-endpoint-contracts.json",
         "src/shared/Contracts/Validation/aeds-protocol.json",
+        "tools/contracts/behavior-contract-catalog.mjs",
         "tools/contracts/FsusBlog.OpenApiObservation/Program.cs"
       ],
       "outputSchema": "fsusblog.fact-observation-receipt.v1",

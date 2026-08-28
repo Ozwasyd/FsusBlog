@@ -57,6 +57,13 @@ internal static class OpenApiProjectionWriter
                 ["x-fsus-rate-limit"] = op.RateLimit,
                 ["x-fsus-permission"] = op.Permission
             };
+            operation["x-fsus-request-contract"] = JsonSerializer.SerializeToNode(op.Request);
+            operation["x-fsus-response-contracts"] = JsonSerializer.SerializeToNode(op.Responses);
+            operation["x-fsus-public-error-refs"] = JsonSerializer.SerializeToNode(op.PublicErrorRefs);
+            operation["x-fsus-public-error-ref-state"] = op.PublicErrorRefState;
+            operation["x-fsus-error-authority-behavior"] = op.ErrorAuthorityBehaviorId;
+            operation["x-fsus-result-placement"] = op.ResultPlacement;
+            operation["x-fsus-protocol-state"] = op.ProtocolState;
             if (!string.IsNullOrWhiteSpace(op.SourceIdentity))
             {
                 operation["x-fsus-source-identity"] = op.SourceIdentity;
@@ -94,6 +101,8 @@ internal static class OpenApiProjectionWriter
             },
             ["x-fsus-observation-digest"] = observation.ObservationDigest
         };
+        document["x-fsus-protocol-states"] = JsonSerializer.SerializeToNode(observation.ProtocolStates);
+        document["x-fsus-error-authority"] = JsonSerializer.SerializeToNode(observation.ErrorAuthority);
 
         return document.ToJsonString(new JsonSerializerOptions
         {
