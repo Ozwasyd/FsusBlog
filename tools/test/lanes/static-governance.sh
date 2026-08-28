@@ -75,6 +75,8 @@ TEST_ASSET_BEHAVIOR_FILES=(
     "$ROOT_DIR/tests/tools/cross-stack-receipt-join.test.mjs"
     "$ROOT_DIR/tests/tools/content-addressed-build-cache.test.mjs"
     "$ROOT_DIR/tests/tools/dotnet-build-server-cleanup.test.mjs"
+    "$ROOT_DIR/tests/tools/evidence-location-contract.test.mjs"
+    "$ROOT_DIR/tests/tools/evidence-location-governance.test.mjs"
     "$ROOT_DIR/tests/tools/fixture-mutation-recovery.test.mjs"
     "$ROOT_DIR/tests/tools/no-global-dotnet-build-server-shutdown.test.mjs"
     "$ROOT_DIR/tests/tools/physical-execution-process-tree.test.mjs"

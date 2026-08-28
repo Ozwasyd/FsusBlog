@@ -2042,6 +2042,7 @@ tiers:
           - appsettings-authority-governance
           - zk-artifact-lifecycle-ownership
           - release-evidence-classification-governance
+          - evidence-location-governance
           - security-domain-structure-governance
           - configuration-layout-governance
           - operations-layout-governance
@@ -2381,6 +2382,16 @@ tiers:
           - tools/operations/evidence-classification.mjs
           - tools/operations/seal-release-evidence-bundle.mjs
           - tests/tools/release-evidence-model.test.mjs
+          - config/testing/current-run-evidence-context.schema.json
+          - config/testing/evidence-locator-registry.schema.json
+          - config/testing/evidence-locator-registry.json
+          - config/testing/evidence-location-migration-ledger.schema.json
+          - config/testing/evidence-location-migration-ledger.json
+          - tools/test/evidence-location-contract.mjs
+          - tools/test/evidence-location-scanner.mjs
+          - tools/test/generate-evidence-location-governance.mjs
+          - tests/tools/evidence-location-contract.test.mjs
+          - tests/tools/evidence-location-governance.test.mjs
           - security/evidence-contracts/release-bundle-storage.json
           - security/matrices/privacy-zk-comment.yml
           - tests/fixtures/evidence/anonymous-eligibility-anonymity-set.json
