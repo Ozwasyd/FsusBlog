@@ -6,6 +6,14 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import {
+  createDeterministicRandom,
+  deriveRandomConsumerStream,
+  generateDiagnosticRootSeed,
+  loadRandomStreamInventory,
+  resolveRandomConsumer
+} from '../test/random-streams.mjs'
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const decoderDirectory = resolve(process.env.FSUSBLOG_FRONTEND_DIST_ROOT
   ? join(process.env.FSUSBLOG_FRONTEND_DIST_ROOT, 'wasm')
@@ -23,6 +31,31 @@ const releaseEvidenceDirectory = resolve(
   process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR ?? resolve(root, '.tmp/release-evidence'))
 const relativeOutputDirectory = relative(root, outputDirectory).replaceAll(sep, '/')
 const namespace = process.env.FSUSBLOG_TEST_NAMESPACE || 'local'
+const randomInventory = loadRandomStreamInventory()
+const randomConsumer = randomInventory.consumers.find((entry) => entry.producerId === 'wasm-fuzz-regression')
+if (!randomConsumer) throw new Error('wasm fuzz random stream consumer is missing')
+const explicitRootSeed = String(process.env.FSUSBLOG_REPLAY_ROOT_SEED ?? '').trim()
+const replayPlanDigest = String(process.env.FSUSBLOG_REPLAY_PLAN_DIGEST ?? '').trim()
+const replayMode = String(process.env.FSUSBLOG_REPLAY_MODE ?? 'diagnostic').trim()
+if (replayMode === 'qualification'
+  && (!explicitRootSeed || !/^sha256:[0-9a-f]{64}$/u.test(replayPlanDigest))) {
+  throw new Error('wasm fuzz qualification requires sealed root seed and replay plan digest')
+}
+if (replayMode === 'diagnostic' && replayPlanDigest) {
+  throw new Error('wasm fuzz diagnostic replay cannot consume a qualification plan digest')
+}
+if (!['diagnostic', 'qualification'].includes(replayMode)) {
+  throw new Error(`wasm fuzz replay mode is invalid: ${replayMode}`)
+}
+const rootSeedResolution = replayMode === 'qualification'
+  ? { rootSeed: explicitRootSeed, evidenceClass: 'correctness', qualificationEligible: true }
+  : explicitRootSeed
+    ? { rootSeed: explicitRootSeed, evidenceClass: 'diagnostic', qualificationEligible: false }
+    : generateDiagnosticRootSeed()
+const randomStream = deriveRandomConsumerStream({
+  rootSeed: rootSeedResolution.rootSeed,
+  consumer: resolveRandomConsumer(randomInventory, randomConsumer)
+})
 
 function positiveInteger(value, fallback) {
   const parsed = Number.parseInt(String(value ?? ''), 10)
@@ -73,18 +106,8 @@ function validFrame(entry) {
   return frame
 }
 
-function xorshift32(seed) {
-  let state = seed >>> 0
-  return () => {
-    state ^= state << 13
-    state ^= state >>> 17
-    state ^= state << 5
-    return state >>> 0
-  }
-}
-
 function mutate(base, seed, iteration) {
-  const random = xorshift32(seed)
+  const random = createDeterministicRandom(`${randomStream.derivedSeed}:${seed}:${iteration}`)
   const mutation = iteration % 6
   if (mutation === 0) {
     return Uint8Array.from({ length: random() % 96 + 1 }, () => random() & 0xff)
@@ -109,7 +132,10 @@ function mutate(base, seed, iteration) {
 }
 
 function seedFor(corpusIndex, iteration) {
-  return (0x9e3779b9 ^ Math.imul(corpusIndex + 1, 0x85ebca6b) ^ Math.imul(iteration + 1, 0xc2b2ae35)) >>> 0
+  return Number.parseInt(createHash('sha256')
+    .update(`${randomStream.derivedSeed}\u0000${corpus[corpusIndex].id}\u0000${iteration}`)
+    .digest('hex')
+    .slice(0, 8), 16) >>> 0
 }
 
 function handleToken(value, label) {
@@ -133,10 +159,13 @@ async function writeEvidence(summary) {
   await writeFile(join(outputDirectory, 'summary.json'), `${JSON.stringify(summary, null, 2)}\n`)
   await writeFile(join(releaseEvidenceDirectory, 'fuzz-seeds.json'), `${JSON.stringify({
     status: summary.status,
+    evidenceClass: summary.evidenceClass,
+    qualificationEligible: summary.qualificationEligible,
+    randomStream: summary.randomStream,
     wasm: `${relativeOutputDirectory}/summary.json`,
     seeds: summary.seedPlan,
     seedsRun: summary.seedsRun,
-    replayCommand: './tools/test.sh wasm-fuzz-regression',
+    replayCommand: summary.replayCommand,
     generatedAt: summary.generatedAt
   }, null, 2)}\n`)
 }
@@ -231,6 +260,13 @@ try {
   await writeEvidence({
     status: 'ok',
     executionSource: 'fresh-wasm-runtime',
+    evidenceClass: rootSeedResolution.evidenceClass,
+    qualificationEligible: rootSeedResolution.qualificationEligible,
+    randomStream,
+    replayPlanDigest: replayPlanDigest || null,
+    replayCommand: replayPlanDigest
+      ? `FSUSBLOG_REPLAY_MODE=qualification FSUSBLOG_REPLAY_ROOT_SEED=${rootSeedResolution.rootSeed} FSUSBLOG_REPLAY_PLAN_DIGEST=${replayPlanDigest} ./tools/test.sh wasm-fuzz-regression`
+      : `FSUSBLOG_REPLAY_MODE=diagnostic FSUSBLOG_REPLAY_ROOT_SEED=${rootSeedResolution.rootSeed} ./tools/test.sh wasm-fuzz-regression`,
     namespace,
     corpus: corpus.map((entry) => entry.id),
     seedsRun,
@@ -251,12 +287,19 @@ try {
 } catch (error) {
   const generatedAt = new Date().toISOString()
   const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error)
-  const crashName = `crash-${Date.now()}.json`
+  const crashName = `crash-${createHash('sha256').update(`${randomStream.streamDigest}:${JSON.stringify(activeSeed)}:${message}`).digest('hex')}.json`
   await mkdir(crashDirectory, { recursive: true })
   await writeFile(join(crashDirectory, crashName), `${JSON.stringify({ activeSeed, error: message }, null, 2)}\n`)
   await writeEvidence({
     status: 'failure',
     executionSource: 'fresh-wasm-runtime',
+    evidenceClass: rootSeedResolution.evidenceClass,
+    qualificationEligible: rootSeedResolution.qualificationEligible,
+    randomStream,
+    replayPlanDigest: replayPlanDigest || null,
+    replayCommand: replayPlanDigest
+      ? `FSUSBLOG_REPLAY_MODE=qualification FSUSBLOG_REPLAY_ROOT_SEED=${rootSeedResolution.rootSeed} FSUSBLOG_REPLAY_PLAN_DIGEST=${replayPlanDigest} ./tools/test.sh wasm-fuzz-regression`
+      : `FSUSBLOG_REPLAY_MODE=diagnostic FSUSBLOG_REPLAY_ROOT_SEED=${rootSeedResolution.rootSeed} ./tools/test.sh wasm-fuzz-regression`,
     namespace,
     corpus: corpus.map((entry) => entry.id),
     seedsRun,

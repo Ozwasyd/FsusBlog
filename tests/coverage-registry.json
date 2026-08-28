@@ -244,6 +244,63 @@
             ]
         },
         {
+            "id": "media-negative-corpus",
+            "description": "A single closed media negative corpus derives eight isolated one-fault cases from verified positive bytes without creating positive AssetIds, public indexes, scale assets, AOT successes, retries, unsafe path I/O, or dangerous bitmap allocation.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "config/testing/media-negative-corpus-plan.json",
+                "config/schemas/media-negative-corpus-plan.schema.json",
+                "tools/test-fixtures/media-negative-corpus.mjs",
+                "tests/tools/media-negative-corpus.test.mjs",
+                "docs/testing.md"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Static governance rejects missing or duplicate cases, non-unique conditions or reasons, unverified positive receipts, multi-fault mutation, negative-in-positive contamination, retries, root escape, huge allocation, receipt or bytes tamper, and positive-root drift.",
+            "minimumRequirement": "All eight classes must produce stable closed decode/store/materialization/HTTP/fallback results, one attempt, one independent fault, source-bound receipts, safe bounded bytes, isolated storage and unchanged positive evidence across reruns.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
+            "id": "media-positive-generator",
+            "description": "Deterministic offline JPEG, PNG, SVG, and WebP fixtures are independently decoded and materialized only through run-owned canonical AssetId storage with sealed receipts and bounded resources.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "config/testing/media-shape-catalog.json",
+                "tools/test-fixtures/canonical-media-asset-store.mjs",
+                "tools/test-fixtures/media-positive-generator.mjs",
+                "tests/tools/media-positive-generator.test.mjs",
+                "docs/testing.md"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Generation rejects non-positive shapes, declaration or byte drift, unsafe storage refs, stale ledgers, cross-run cleanup, ambient codecs, remote fetches, fake formats, default images, direct public writes and second generators.",
+            "minimumRequirement": "All positive catalog shapes must yield real independently verified bytes or explicit no-cover; 0, 1, 1000 and bounded-large runs must remain deterministic, content-bound, idempotent and run-isolated.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
+            "id": "media-shape-catalog",
+            "description": "One closed content-addressed MediaShapeCatalog owns real format, MIME, extension, magic, dimension, aspect, alpha, orientation, validity and consumer-applicability contracts without becoming an asset ledger.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "config/testing/media-shape-catalog.json",
+                "config/schemas/media-shape-catalog.schema.json",
+                "tools/test-fixtures/media-shape-catalog.mjs",
+                "tests/tools/media-shape-catalog.test.mjs",
+                "docs/testing.md"
+            ],
+            "assertionType": "static",
+            "failClosedRule": "Static governance rejects a second media list, incomplete format/aspect/positive/negative matrix, MIME or extension guessing, missing codec fact ownership, fake WebP, default-cover authority, path or URL storage, multi-fault negative evidence, consumer pollution and digest tamper.",
+            "minimumRequirement": "The catalog must exactly cover JPEG landscape and oriented portrait, WebP landscape and square, PNG alpha and opaque, safe SVG, small and bounded large raster, no-cover, all six aspects, all ten consumer classes and eight unique negative faults.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
             "id": "test-temporal-authority",
             "description": "Qualification temporal context separates business wall clock, monotonic measurement clock, and artifact metadata, binds child/backend/PostgreSQL/browser actual observations to producer output receipts, and fail-closes incomplete wall-clock closure.",
             "owner": "ServerContractAgent",
@@ -892,6 +949,26 @@
                 "backend-unit",
                 "backend-mutation",
                 "production"
+            ]
+        },
+        {
+            "id": "backend-search-index-utf8-scalar-owner",
+            "description": "The stable internal SearchIndexService.GetUtf8ScalarLength owner is directly asserted by SearchIndexServiceTests.GetUtf8ScalarLength_ReturnsCorrectRuneLength and consumed by the real tokenizer, dictionary compiler and runtime reader.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                ".tmp/backend-unit/summary.json",
+                "src/backend/Services/SearchIndexService.Dictionary.cs",
+                "src/backend/Properties/AssemblyInfo.cs",
+                "tests/backend/FsusBlog.Server.Tests.csproj",
+                "tests/backend/Unit/SearchIndexServiceTests.cs",
+                "tests/test-retention-replacements.json"
+            ],
+            "assertionType": "unit",
+            "failClosedRule": "Reject a missing or renamed production owner, any reflection or early-return fallback in the scalar-length Theory, a test-only algorithm copy, mapping drift, or a dictionary compiler/runtime reader that stops consuming the owner.",
+            "minimumRequirement": "The backend-unit result must retain the exact scalar-length Theory ID with all 10 ASCII, 2/3/4-byte and continuation fallback cases plus a tokenizer read-path assertion over valid 2/3/4-byte dictionary terms.",
+            "tierIds": [
+                "backend-unit"
             ]
         },
         {
@@ -2830,7 +2907,7 @@
         },
         {
             "id": "test-retention-classification",
-            "description": "Test retention classification is covered by a static audit that maps test files to must-keep, conditional, review-candidate, or obsolete-candidate classes.",
+            "description": "Test retention classification is covered by a case-level static audit over canonical inventory, oracle/quality facts and catalog ownership; test replacement is an atomic plan, verify, apply and rollback transaction.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
@@ -2843,8 +2920,8 @@
                 "tests/tools/security-worker-admission.test.mjs"
             ],
             "assertionType": "static",
-            "failClosedRule": "matrix-validate requires both the tracked before snapshot and current retention audit to be declared by static-governance; final authority rejects a missing source binding, undeclared test/assertion loss, catalog loss, a producer runId that differs from the production checkpoint, or an audit generated before checkpoint completion.",
-            "minimumRequirement": "The before snapshot must bind commit/worktree fingerprint and preserve test/assertion/tier/coverage/timing/failure plus matrix artifact, release evidence, requirement catalog, three-scope coverage, and critical mutation identity; the current audit must preserve or explicitly replace those dimensions.",
+            "failClosedRule": "matrix-validate requires both the tracked before snapshot and current case-level retention audit to be declared by static-governance; final authority rejects unresolved or failed quality, missing source binding, undeclared test/assertion loss, partial catalog updates, incompatible replacement dimensions, duplicate transactions, failed apply verification, or an audit generated before checkpoint completion.",
+            "minimumRequirement": "The before snapshot must bind commit/worktree fingerprint and preserve test/assertion/tier/coverage/timing/failure plus matrix artifact, release evidence, requirement catalog, three-scope coverage, and critical mutation identity; every deletion, rename, merge, parameterization, split or support move must atomically preserve or explicitly retire each case and assertion with rollback on any verification failure.",
             "tierIds": [
                 "static-governance"
             ]
@@ -2866,15 +2943,15 @@
         },
         {
             "id": "test-quality-lint",
-            "description": "Test Quality Lint is covered by runtime artifacts that exercise the named behavior.",
+            "description": "Canonical case-level test quality is derived from adapter-resolved symbols, AST/control-flow facts and a closed versioned policy after the isolated multi-framework adversarial conformance corpus passes.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
                 ".tmp/release-evidence/test-quality-summary.json"
             ],
             "assertionType": "static",
-            "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-            "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
+            "failClosedRule": "The producer must run conformance first and then reject unresolved symbols, unknown assertion APIs, zero-outcome cases, early exits, test-to-test calls, discoverable workers, weak oracles, undeclared dynamic cases, stale bindings, non-exact waivers and any tampered case/count/first-failure projection.",
+            "minimumRequirement": "The sealed fsusblog.test-quality.v2 artifact must cover every canonical inventory case exactly once, bind inventory/adapters/oracle/policy/conformance digests, preserve exact source spans and be independently recomputable without retry overwrite.",
             "tierIds": [
                 "test-quality-lint"
             ]
@@ -4560,6 +4637,31 @@
             "tierIds": [
                 "static-governance",
                 "privacy-zk-comment-matrix"
+            ]
+        },
+        {
+            "id": "evidence-location-governance",
+            "description": "Every repository evidence-location selection pattern has a stable scanner rule and exactly one identity-bound migration disposition, while current-run consumers have one registered explicit-path or content-addressed authority.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "config/testing/current-run-evidence-context.schema.json",
+                "config/testing/evidence-locator-registry.schema.json",
+                "config/testing/evidence-locator-registry.json",
+                "config/testing/evidence-location-migration-ledger.schema.json",
+                "config/testing/evidence-location-migration-ledger.json",
+                "tools/test/evidence-location-contract.mjs",
+                "tools/test/evidence-location-scanner.mjs",
+                "tools/test/generate-evidence-location-governance.mjs",
+                "tests/tools/evidence-location-contract.test.mjs",
+                "tests/tools/evidence-location-governance.test.mjs",
+                "docs/testing.md"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Reject missing, duplicate, orphan, unclassified, wildcard-suppressed or newly discovered location findings; duplicate consumer authorities; mutable latest, timestamp, directory, fallback, age or TTL locator policy; and any content digest drift.",
+            "minimumRequirement": "Static governance must scan tracked JS, TS, C#, shell, workflow and config consumers, prove exact location and rule coverage for every finding, retain all three disposition classes, bind actual helper callsites, and cover quality gate, release-final, aggregates, flaky, public preview, manifest and downloaded evidence consumers.",
+            "tierIds": [
+                "static-governance"
             ]
         },
         {

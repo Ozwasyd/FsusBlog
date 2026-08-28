@@ -1592,52 +1592,6 @@ public sealed class FileServiceTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public async Task DeleteImageAsync_DeletesFromWebRootUploadFolderWhenContentRootDiffers()
-    {
-        string root = CreateTempDirectory();
-        try
-        {
-            var svc = CreateService(root);
-            string filePath = Path.Combine(GetIllustrationFolder(root), "sample.png");
-            await File.WriteAllBytesAsync(filePath, [0x89, 0x50, 0x4E, 0x47]);
-
-            bool deleted = await svc.DeleteImageAsync("/uploads/illustration/sample.png");
-
-            Assert.True(deleted);
-            Assert.False(File.Exists(filePath));
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
-    }
-
-    [Fact]
-    public async Task DeleteImageAsync_SanitizesSecurityWarningPathBeforeLogging()
-    {
-        string root = CreateTempDirectory();
-        try
-        {
-            var logger = new CapturingLogger<FileService>();
-            var svc = CreateService(root, logger);
-
-            bool deleted = await svc.DeleteImageAsync("/outside\r\nINJECT\u001b[31m");
-
-            Assert.False(deleted);
-            string message = Assert.Single(logger.Messages);
-            Assert.DoesNotContain('\r', message);
-            Assert.DoesNotContain('\n', message);
-            Assert.DoesNotContain('\u001b', message);
-            Assert.Contains("\\r\\n", message, StringComparison.Ordinal);
-            Assert.Contains("\\u001B", message, StringComparison.Ordinal);
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
-    }
-
-    [Fact]
     public async Task CompleteUploadAsync_InvalidSha256_ReturnsFail()
     {
         ResetSessionLocks();

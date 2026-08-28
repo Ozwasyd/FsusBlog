@@ -147,6 +147,8 @@ internal static partial class XunitAdapterProgram
         Compilation compilation,
         HashSet<ISymbol> visited)
     {
+        if (callsTestMethod)
+            return false;
         if (IsDirectAssertionCandidate(target, callsTestMethod))
             return true;
         if (AssemblyKind(target) != "test" || !visited.Add(target.OriginalDefinition))
@@ -185,19 +187,15 @@ internal static partial class XunitAdapterProgram
     private static bool IsDirectAssertionCandidate(IMethodSymbol target, bool callsTestMethod)
     {
         if (callsTestMethod)
-            return true;
+            return false;
         string name = target.Name;
-        if (name.StartsWith("Assert", StringComparison.Ordinal))
-            return true;
-        if (name.StartsWith("Should", StringComparison.Ordinal))
-            return true;
         string containing = target.ContainingType?.ToDisplayString() ?? "";
         return containing == "Xunit.Assert"
+            || containing == "Xunit.Record"
             || containing.StartsWith("FluentAssertions", StringComparison.Ordinal)
             || containing == "NSubstitute.Received"
             || (containing == "NSubstitute.SubstituteExtensions"
-                && name is "Received" or "DidNotReceive" or "ReceivedWithAnyArgs" or "DidNotReceiveWithAnyArgs")
-            || name is "expect" or "assert";
+                && name is "Received" or "DidNotReceive" or "ReceivedWithAnyArgs" or "DidNotReceiveWithAnyArgs");
     }
 
 }

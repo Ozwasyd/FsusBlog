@@ -22,8 +22,8 @@ public sealed class AuthoringDraftConcurrencyTests(PostgresSchemaMigrationFixtur
         PostgresSqlSugarTestClient.InitTables(
             setupDb,
             typeof(ArticleDraft),
-            typeof(ArticleAssetReference),
-            typeof(ArticleAssetCleanupQueueItem));
+            typeof(ContentAssetReference),
+            typeof(ContentAssetCleanupQueueItem));
         using SqlSugarClient firstDb = PostgresSqlSugarTestClient.Create(connectionString);
         using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(connectionString);
         AuthoringDraftLifecycleService firstService = CreateService(firstDb);
@@ -54,8 +54,8 @@ public sealed class AuthoringDraftConcurrencyTests(PostgresSchemaMigrationFixtur
         PostgresSqlSugarTestClient.InitTables(
             db,
             typeof(ArticleDraft),
-            typeof(ArticleAssetReference),
-            typeof(ArticleAssetCleanupQueueItem));
+            typeof(ContentAssetReference),
+            typeof(ContentAssetCleanupQueueItem));
         using SqlSugarClient staleTabDb = PostgresSqlSugarTestClient.Create(connectionString);
         AuthoringDraftLifecycleService service = CreateService(db);
         AuthoringDraftLifecycleService staleTabService = CreateService(staleTabDb);
@@ -88,8 +88,8 @@ public sealed class AuthoringDraftConcurrencyTests(PostgresSchemaMigrationFixtur
         PostgresSqlSugarTestClient.InitTables(
             db,
             typeof(ArticleDraft),
-            typeof(ArticleAssetReference),
-            typeof(ArticleAssetCleanupQueueItem));
+            typeof(ContentAssetReference),
+            typeof(ContentAssetCleanupQueueItem));
         using SqlSugarClient retryDb = PostgresSqlSugarTestClient.Create(connectionString);
         AuthoringDraftLifecycleService service = CreateService(db);
         AuthoringDraftLifecycleService retryService = CreateService(retryDb);
@@ -113,8 +113,8 @@ public sealed class AuthoringDraftConcurrencyTests(PostgresSchemaMigrationFixtur
         PostgresSqlSugarTestClient.InitTables(
             db,
             typeof(ArticleDraft),
-            typeof(ArticleAssetReference),
-            typeof(ArticleAssetCleanupQueueItem));
+            typeof(ContentAssetReference),
+            typeof(ContentAssetCleanupQueueItem));
         AuthoringDraftLifecycleService service = CreateService(db);
 
         ServerDraftResponse created = await service.SaveDraftAsync(
@@ -140,8 +140,8 @@ public sealed class AuthoringDraftConcurrencyTests(PostgresSchemaMigrationFixtur
         PostgresSqlSugarTestClient.InitTables(
             setupDb,
             typeof(ArticleDraft),
-            typeof(ArticleAssetReference),
-            typeof(ArticleAssetCleanupQueueItem));
+            typeof(ContentAssetReference),
+            typeof(ContentAssetCleanupQueueItem));
         ServerDraftResponse created = await CreateService(setupDb).SaveDraftAsync(
             7,
             CreateRequest("rev-initial", "initial content"),
@@ -177,8 +177,8 @@ public sealed class AuthoringDraftConcurrencyTests(PostgresSchemaMigrationFixtur
         PostgresSqlSugarTestClient.InitTables(
             db,
             typeof(ArticleDraft),
-            typeof(ArticleAssetReference),
-            typeof(ArticleAssetCleanupQueueItem));
+            typeof(ContentAssetReference),
+            typeof(ContentAssetCleanupQueueItem));
         AuthoringDraftLifecycleService service = CreateService(db);
 
         ServerDraftResponse first = await service.SaveDraftAsync(7, CreateRequest("rev-a", "first content"), CancellationToken.None);
@@ -204,8 +204,8 @@ public sealed class AuthoringDraftConcurrencyTests(PostgresSchemaMigrationFixtur
         PostgresSqlSugarTestClient.InitTables(
             setupDb,
             typeof(ArticleDraft),
-            typeof(ArticleAssetReference),
-            typeof(ArticleAssetCleanupQueueItem));
+            typeof(ContentAssetReference),
+            typeof(ContentAssetCleanupQueueItem));
         ServerDraftResponse created = await CreateService(setupDb).SaveDraftAsync(
             7,
             CreateRequest("rev-initial", "initial content"),
@@ -252,7 +252,7 @@ public sealed class AuthoringDraftConcurrencyTests(PostgresSchemaMigrationFixtur
             $"Title {revision}",
             content,
             $"Summary {revision}",
-            "/uploads/cover.webp",
+            null,
             3,
             [4, 5],
             revision,

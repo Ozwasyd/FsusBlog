@@ -2,6 +2,7 @@ import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from
 import { type UploadRequestOptions } from '@ozwasyd/element-plus'
 import type { ImageCompressionOptions } from '@/api/upload'
 import type { ApiRequestConfig } from '@/api/requestConfig'
+import { listAssetLibrary } from '@/api/authoring'
 import {
   deleteImage,
   getAdminPageData,
@@ -689,7 +690,14 @@ export function useAdminSettingsPage() {
     imageLoading.value = true
     previousOgImage.value = current
     try {
-      await deleteImage(current)
+      const asset = (await listAssetLibrary()).find(item => item.url === current)
+      if (!asset) {
+        throw createAppError(
+          AppErrorCode.NotFound,
+          '当前图片不是可删除的本地资产'
+        )
+      }
+      await deleteImage(asset.id)
       siteForm.ogImage = ''
       toast.success('预览图已从配置移除并删除服务器文件，请保存同步')
     } catch (error: unknown) {

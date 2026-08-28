@@ -1,11 +1,11 @@
 using System.Data.Common;
 using System.Threading.Channels;
 
+using FsusBlog.Server.Contracts.Assets;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Interfaces;
-using FsusBlog.Server.Services.Articles;
 
 using SqlSugar;
 
@@ -34,27 +34,14 @@ public sealed class ArticleAssetCleanupQueue
 
 public sealed class ArticleAssetCleanupService(
     ISqlSugarClient db,
-    IFileService fileService,
+    IAssetStore assetStore,
     TimeProvider timeProvider,
     ILogger<ArticleAssetCleanupService> logger)
 {
     internal const int DefaultBatchSize = 32;
 
     public async Task<int> RebuildReferenceLedgerAsync(CancellationToken cancellationToken = default)
-    {
-        var store = new ArticleAssetReferenceStore(db, timeProvider);
-        var transaction = await db.Ado.UseTranAsync(async () =>
-        {
-            await store.RebuildAllAsync(cancellationToken).ConfigureAwait(false);
-            return await db.Queryable<ArticleAssetReference>().CountAsync(cancellationToken);
-        }).ConfigureAwait(false);
-        if (!transaction.IsSuccess)
-        {
-            throw new InvalidOperationException("Article asset reference rebuild failed.", transaction.ErrorException);
-        }
-
-        return transaction.Data;
-    }
+        => await db.Queryable<ContentAssetReference>().CountAsync(cancellationToken);
 
     public async Task<int> ProcessDueAsync(int maxItems = DefaultBatchSize, CancellationToken cancellationToken = default)
     {
@@ -62,16 +49,15 @@ public sealed class ArticleAssetCleanupService(
         for (int index = 0; index < Math.Clamp(maxItems, 1, 256); index++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            string? candidateUrl = null;
-            var store = new ArticleAssetReferenceStore(db, timeProvider);
-            var transaction = await db.Ado.UseTranAsync(async () =>
+            AssetId? candidateAssetId = null;
+            var claim = await db.Ado.UseTranAsync(async () =>
             {
                 using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
                     """
-                    SELECT normalized_url
-                    FROM article_asset_cleanup_queue
+                    SELECT asset_id
+                    FROM content_asset_cleanup_queue
                     WHERE not_before_utc <= @NowUtc
-                    ORDER BY not_before_utc, normalized_url
+                    ORDER BY not_before_utc, asset_id
                     LIMIT 1
                     FOR UPDATE SKIP LOCKED;
                     """,
@@ -81,39 +67,39 @@ public sealed class ArticleAssetCleanupService(
                     return false;
                 }
 
-                candidateUrl = reader.ReadString("normalized_url");
+                candidateAssetId = AssetId.FromGuid(reader.GetGuid(reader.GetOrdinal("asset_id")));
                 await reader.DisposeAsync().ConfigureAwait(false);
-                await store.ReconcileUrlsAsync([candidateUrl], cancellationToken).ConfigureAwait(false);
-                bool referenced = await db.Queryable<ArticleAssetReference>()
-                    .Where(reference => reference.NormalizedUrl == candidateUrl)
-                    .AnyAsync(cancellationToken);
-                if (referenced)
-                {
-                    await DeleteQueueItemAsync(candidateUrl, cancellationToken).ConfigureAwait(false);
-                    return true;
-                }
-
-                // File deletion deliberately stays inside the URL-locked transaction. Writers use
-                // the same advisory lock, so no new authoritative reference can commit between the
-                // final zero-reference check and the idempotent local delete.
-                _ = await fileService.DeleteImageAsync(candidateUrl).ConfigureAwait(false);
-                await DeleteQueueItemAsync(candidateUrl, cancellationToken).ConfigureAwait(false);
+                await db.Ado.ExecuteCommandAsync(
+                    "UPDATE content_asset_cleanup_queue SET not_before_utc = @LeaseUntilUtc WHERE asset_id = @AssetId;",
+                    new SugarParameter("@LeaseUntilUtc", timeProvider.GetUtcNow().UtcDateTime.AddMinutes(5)),
+                    new SugarParameter("@AssetId", candidateAssetId.Value.Value)).ConfigureAwait(false);
                 return true;
             }).ConfigureAwait(false);
 
-            if (!transaction.IsSuccess)
+            if (!claim.IsSuccess)
             {
-                if (candidateUrl is not null)
-                {
-                    await RecordFailureAsync(candidateUrl, transaction.ErrorException, cancellationToken).ConfigureAwait(false);
-                }
-
-                logger.LogWarning(transaction.ErrorException, "article-asset-cleanup-item-failed {AssetUrl}", candidateUrl);
+                logger.LogWarning(claim.ErrorException, "content-asset-cleanup-claim-failed");
                 break;
             }
 
-            if (!transaction.Data)
+            if (!claim.Data || candidateAssetId is null)
             {
+                break;
+            }
+
+            try
+            {
+                AssetDeleteResult outcome = await assetStore.DeleteAsync(candidateAssetId.Value, cancellationToken)
+                    .ConfigureAwait(false);
+                if (outcome == AssetDeleteResult.Referenced)
+                {
+                    await CancelCleanupAsync(candidateAssetId.Value, cancellationToken).ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                await RecordFailureAsync(candidateAssetId.Value, ex, cancellationToken).ConfigureAwait(false);
+                logger.LogWarning(ex, "content-asset-cleanup-item-failed {AssetId}", candidateAssetId);
                 break;
             }
 
@@ -123,12 +109,12 @@ public sealed class ArticleAssetCleanupService(
         return processed;
     }
 
-    private Task<int> DeleteQueueItemAsync(string normalizedUrl, CancellationToken cancellationToken)
-        => db.Deleteable<ArticleAssetCleanupQueueItem>()
-            .Where(item => item.NormalizedUrl == normalizedUrl)
+    private Task<int> CancelCleanupAsync(AssetId assetId, CancellationToken cancellationToken)
+        => db.Deleteable<ContentAssetCleanupQueueItem>()
+            .Where(item => item.AssetId == assetId.Value)
             .ExecuteCommandAsync(cancellationToken);
 
-    private async Task RecordFailureAsync(string normalizedUrl, Exception? exception, CancellationToken cancellationToken)
+    private async Task RecordFailureAsync(AssetId assetId, Exception? exception, CancellationToken cancellationToken)
     {
         string error = exception?.Message ?? "asset cleanup failed";
         if (error.Length > 512)
@@ -139,14 +125,14 @@ public sealed class ArticleAssetCleanupService(
         DateTime now = timeProvider.GetUtcNow().UtcDateTime;
         await db.Ado.ExecuteCommandAsync(
             """
-            UPDATE article_asset_cleanup_queue
+            UPDATE content_asset_cleanup_queue
             SET attempt_count = attempt_count + 1,
                 last_error = @LastError,
                 not_before_utc = @NotBeforeUtc,
                 updated_at_utc = @UpdatedAtUtc
-            WHERE normalized_url = @NormalizedUrl;
+            WHERE asset_id = @AssetId;
             """,
-            new SugarParameter("@NormalizedUrl", normalizedUrl),
+            new SugarParameter("@AssetId", assetId.Value),
             new SugarParameter("@LastError", error),
             new SugarParameter("@NotBeforeUtc", now.AddMinutes(15)),
             new SugarParameter("@UpdatedAtUtc", now)).ConfigureAwait(false);

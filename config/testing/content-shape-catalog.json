@@ -1,0 +1,798 @@
+{
+    "schema": "fsusblog.content-shape-catalog.v1",
+    "generationVersion": "unicode-boundary-v1",
+    "digestAlgorithm": "sha256",
+    "canonicalSerialization": "json-utf8-v1",
+    "fieldContractProjection": {
+        "path": "config/testing/content-field-contracts.generated.json",
+        "schema": "fsusblog.content-field-contract-projection.v1"
+    },
+    "consumerDomains": [
+        "aeds",
+        "aot",
+        "article",
+        "comment",
+        "editor",
+        "hydration",
+        "moderation",
+        "search",
+        "visual"
+    ],
+    "scriptClasses": [
+        {
+            "id": "bidi",
+            "eligibility": "negative",
+            "codePoints": [
+                8238,
+                65,
+                8236
+            ],
+            "featureTags": [
+                "control",
+                "directionality"
+            ]
+        },
+        {
+            "id": "combining",
+            "eligibility": "positive",
+            "codePoints": [
+                101,
+                769
+            ],
+            "featureTags": [
+                "grapheme",
+                "normalization-change"
+            ]
+        },
+        {
+            "id": "cyrillic",
+            "eligibility": "positive",
+            "codePoints": [
+                1055,
+                1088,
+                1080,
+                1074,
+                1077,
+                1090
+            ],
+            "featureTags": [
+                "letter",
+                "multibyte"
+            ]
+        },
+        {
+            "id": "emoji-zwj",
+            "eligibility": "positive",
+            "codePoints": [
+                128105,
+                8205,
+                128187
+            ],
+            "featureTags": [
+                "astral",
+                "grapheme",
+                "zwj"
+            ]
+        },
+        {
+            "id": "fullwidth",
+            "eligibility": "positive",
+            "codePoints": [
+                65313,
+                65314,
+                65315
+            ],
+            "featureTags": [
+                "compatibility",
+                "multibyte"
+            ]
+        },
+        {
+            "id": "ja",
+            "eligibility": "positive",
+            "codePoints": [
+                26085,
+                26412,
+                35486
+            ],
+            "featureTags": [
+                "cjk",
+                "multibyte"
+            ]
+        },
+        {
+            "id": "ko",
+            "eligibility": "positive",
+            "codePoints": [
+                54620,
+                44397,
+                50612
+            ],
+            "featureTags": [
+                "hangul",
+                "multibyte"
+            ]
+        },
+        {
+            "id": "latin-basic",
+            "eligibility": "positive",
+            "codePoints": [
+                97,
+                98,
+                99
+            ],
+            "featureTags": [
+                "ascii",
+                "single-byte"
+            ]
+        },
+        {
+            "id": "latin-diacritics",
+            "eligibility": "positive",
+            "codePoints": [
+                224,
+                233,
+                241
+            ],
+            "featureTags": [
+                "letter",
+                "multibyte"
+            ]
+        },
+        {
+            "id": "long-unbroken-token",
+            "eligibility": "positive",
+            "codePoints": [
+                120
+            ],
+            "featureTags": [
+                "layout-stress",
+                "tokenization"
+            ]
+        },
+        {
+            "id": "mixed-script",
+            "eligibility": "positive",
+            "codePoints": [
+                65,
+                1040,
+                28450,
+                128640
+            ],
+            "featureTags": [
+                "astral",
+                "mixed",
+                "multibyte"
+            ]
+        },
+        {
+            "id": "zero-width",
+            "eligibility": "negative",
+            "codePoints": [
+                97,
+                8203,
+                98
+            ],
+            "featureTags": [
+                "control",
+                "invisible"
+            ]
+        },
+        {
+            "id": "zh-hans",
+            "eligibility": "positive",
+            "codePoints": [
+                31616,
+                20307,
+                20013,
+                25991
+            ],
+            "featureTags": [
+                "cjk",
+                "multibyte"
+            ]
+        },
+        {
+            "id": "zh-hant",
+            "eligibility": "positive",
+            "codePoints": [
+                32321,
+                39636,
+                20013,
+                25991
+            ],
+            "featureTags": [
+                "cjk",
+                "multibyte"
+            ]
+        }
+    ],
+    "localeScriptBindings": [
+        {
+            "localeScript": "Cyrl",
+            "representativeShapeIds": [
+                "script.cyrillic"
+            ]
+        },
+        {
+            "localeScript": "Hans",
+            "representativeShapeIds": [
+                "script.zh-hans"
+            ]
+        },
+        {
+            "localeScript": "Hant",
+            "representativeShapeIds": [
+                "script.zh-hant"
+            ]
+        },
+        {
+            "localeScript": "Jpan",
+            "representativeShapeIds": [
+                "script.ja"
+            ]
+        },
+        {
+            "localeScript": "Kore",
+            "representativeShapeIds": [
+                "script.ko"
+            ]
+        },
+        {
+            "localeScript": "Latn",
+            "representativeShapeIds": [
+                "script.latin-basic",
+                "script.latin-diacritics"
+            ]
+        }
+    ],
+    "boundaryCaseKinds": [
+        "max",
+        "max-minus-one",
+        "max-plus-one-negative",
+        "min",
+        "ordinary"
+    ],
+    "shapes": [
+        {
+            "id": "negative.bidi",
+            "applicableFields": [
+                "article.body",
+                "article.summary",
+                "article.title",
+                "comment.content"
+            ],
+            "scriptClasses": [
+                "bidi"
+            ],
+            "normalizationForm": "field-policy",
+            "target": {
+                "kind": "negative",
+                "ordinaryUtf16Units": 3,
+                "ordinaryUtf8Bytes": 5
+            },
+            "featureTags": [
+                "negative",
+                "security"
+            ],
+            "eligibility": "negative",
+            "expectedBoundaryRef": "dangerous-input.reject",
+            "expectedSanitizationRef": "bidi.reject",
+            "expectedSearchRef": "not-applicable",
+            "consumerDomains": [
+                "article",
+                "comment",
+                "editor",
+                "moderation",
+                "search"
+            ],
+            "fixedSeedPolicy": "ignored",
+            "contentDigest": "sha256:db333f20f0c04662f8740b93d6eb68bed2bc8a325cfe17f70fe0950d7cf00724"
+        },
+        {
+            "id": "negative.zero-width",
+            "applicableFields": [
+                "article.body",
+                "article.summary",
+                "article.title",
+                "comment.content"
+            ],
+            "scriptClasses": [
+                "zero-width"
+            ],
+            "normalizationForm": "field-policy",
+            "target": {
+                "kind": "negative",
+                "ordinaryUtf16Units": 3,
+                "ordinaryUtf8Bytes": 5
+            },
+            "featureTags": [
+                "invisible",
+                "negative"
+            ],
+            "eligibility": "negative",
+            "expectedBoundaryRef": "dangerous-input.reject",
+            "expectedSanitizationRef": "zero-width.reject",
+            "expectedSearchRef": "not-applicable",
+            "consumerDomains": [
+                "article",
+                "comment",
+                "editor",
+                "moderation",
+                "search"
+            ],
+            "fixedSeedPolicy": "ignored",
+            "contentDigest": "sha256:c2ee13a2d177d6306ee9a36ed6c5ef47de428ee6b59f5de921577d605d89c250"
+        },
+        {
+            "id": "script.combining",
+            "applicableFields": [
+                "article.body",
+                "article.summary",
+                "article.title",
+                "comment.content"
+            ],
+            "scriptClasses": [
+                "combining"
+            ],
+            "normalizationForm": "NFC",
+            "target": {
+                "kind": "boundary-plan",
+                "ordinaryUtf16Units": 32,
+                "ordinaryUtf8Bytes": 48
+            },
+            "featureTags": [
+                "grapheme",
+                "normalization-change"
+            ],
+            "eligibility": "positive",
+            "expectedBoundaryRef": "production-field-contract",
+            "expectedSanitizationRef": "nfc-observe",
+            "expectedSearchRef": "downstream-contract",
+            "consumerDomains": [
+                "aeds",
+                "aot",
+                "article",
+                "comment",
+                "editor",
+                "hydration",
+                "moderation",
+                "search",
+                "visual"
+            ],
+            "fixedSeedPolicy": "required",
+            "contentDigest": "sha256:56cedced6da786898efba1573794b6c0a24bd9ae2faf9369d6aeead6b2d6dc5e"
+        },
+        {
+            "id": "script.cyrillic",
+            "applicableFields": [
+                "article.body",
+                "article.summary",
+                "article.title",
+                "comment.content"
+            ],
+            "scriptClasses": [
+                "cyrillic"
+            ],
+            "normalizationForm": "field-policy",
+            "target": {
+                "kind": "boundary-plan",
+                "ordinaryUtf16Units": 48,
+                "ordinaryUtf8Bytes": 96
+            },
+            "featureTags": [
+                "letter",
+                "multibyte"
+            ],
+            "eligibility": "positive",
+            "expectedBoundaryRef": "production-field-contract",
+            "expectedSanitizationRef": "field-policy",
+            "expectedSearchRef": "downstream-contract",
+            "consumerDomains": [
+                "aeds",
+                "aot",
+                "article",
+                "comment",
+                "editor",
+                "hydration",
+                "moderation",
+                "search",
+                "visual"
+            ],
+            "fixedSeedPolicy": "required",
+            "contentDigest": "sha256:5af7d1f98d6acce49b964bcb4e9ffe137f9444c39454262109ef77e8807feeb0"
+        },
+        {
+            "id": "script.emoji-zwj",
+            "applicableFields": [
+                "article.body",
+                "article.summary",
+                "article.title",
+                "comment.content"
+            ],
+            "scriptClasses": [
+                "emoji-zwj"
+            ],
+            "normalizationForm": "field-policy",
+            "target": {
+                "kind": "boundary-plan",
+                "ordinaryUtf16Units": 40,
+                "ordinaryUtf8Bytes": 88
+            },
+            "featureTags": [
+                "astral",
+                "grapheme",
+                "zwj"
+            ],
+            "eligibility": "positive",
+            "expectedBoundaryRef": "production-field-contract",
+            "expectedSanitizationRef": "sequence-preserve",
+            "expectedSearchRef": "downstream-contract",
+            "consumerDomains": [
+                "aeds",
+                "aot",
+                "article",
+                "comment",
+                "editor",
+                "hydration",
+                "moderation",
+                "search",
+                "visual"
+            ],
+            "fixedSeedPolicy": "required",
+            "contentDigest": "sha256:88ad7637733a987ae1feae3a7b15a2bc4660b450f59b1eb2a142ec66ba5e3285"
+        },
+        {
+            "id": "script.fullwidth",
+            "applicableFields": [
+                "article.body",
+                "article.summary",
+                "article.title",
+                "comment.content"
+            ],
+            "scriptClasses": [
+                "fullwidth"
+            ],
+            "normalizationForm": "NFKC",
+            "target": {
+                "kind": "boundary-plan",
+                "ordinaryUtf16Units": 48,
+                "ordinaryUtf8Bytes": 144
+            },
+            "featureTags": [
+                "compatibility",
+                "multibyte"
+            ],
+            "eligibility": "positive",
+            "expectedBoundaryRef": "production-field-contract",
+            "expectedSanitizationRef": "nfkc-observe",
+            "expectedSearchRef": "downstream-contract",
+            "consumerDomains": [
+                "aeds",
+                "aot",
+                "article",
+                "comment",
+                "editor",
+                "hydration",
+                "moderation",
+                "search",
+                "visual"
+            ],
+            "fixedSeedPolicy": "required",
+            "contentDigest": "sha256:1cb161cb44967f880ca7ae8f97e6fa603fa3fedb79237c7fb124c4d848b86917"
+        },
+        {
+            "id": "script.ja",
+            "applicableFields": [
+                "article.body",
+                "article.summary",
+                "article.title",
+                "comment.content"
+            ],
+            "scriptClasses": [
+                "ja"
+            ],
+            "normalizationForm": "field-policy",
+            "target": {
+                "kind": "boundary-plan",
+                "ordinaryUtf16Units": 48,
+                "ordinaryUtf8Bytes": 144
+            },
+            "featureTags": [
+                "cjk",
+                "multibyte"
+            ],
+            "eligibility": "positive",
+            "expectedBoundaryRef": "production-field-contract",
+            "expectedSanitizationRef": "field-policy",
+            "expectedSearchRef": "downstream-contract",
+            "consumerDomains": [
+                "aeds",
+                "aot",
+                "article",
+                "comment",
+                "editor",
+                "hydration",
+                "moderation",
+                "search",
+                "visual"
+            ],
+            "fixedSeedPolicy": "required",
+            "contentDigest": "sha256:0d6035cfca84e49cf83c5b2a52033995081e963a742becaf8e433a644298b373"
+        },
+        {
+            "id": "script.ko",
+            "applicableFields": [
+                "article.body",
+                "article.summary",
+                "article.title",
+                "comment.content"
+            ],
+            "scriptClasses": [
+                "ko"
+            ],
+            "normalizationForm": "field-policy",
+            "target": {
+                "kind": "boundary-plan",
+                "ordinaryUtf16Units": 48,
+                "ordinaryUtf8Bytes": 144
+            },
+            "featureTags": [
+                "hangul",
+                "multibyte"
+            ],
+            "eligibility": "positive",
+            "expectedBoundaryRef": "production-field-contract",
+            "expectedSanitizationRef": "field-policy",
+            "expectedSearchRef": "downstream-contract",
+            "consumerDomains": [
+                "aeds",
+                "aot",
+                "article",
+                "comment",
+                "editor",
+                "hydration",
+                "moderation",
+                "search",
+                "visual"
+            ],
+            "fixedSeedPolicy": "required",
+            "contentDigest": "sha256:576a539d96b5ac994ac5d7e0eead91e605f4e8d054c405eaa125a32e12edc360"
+        },
+        {
+            "id": "script.latin-basic",
+            "applicableFields": [
+                "article.body",
+                "article.summary",
+                "article.title",
+                "comment.content"
+            ],
+            "scriptClasses": [
+                "latin-basic"
+            ],
+            "normalizationForm": "field-policy",
+            "target": {
+                "kind": "boundary-plan",
+                "ordinaryUtf16Units": 64,
+                "ordinaryUtf8Bytes": 64
+            },
+            "featureTags": [
+                "ascii",
+                "single-byte"
+            ],
+            "eligibility": "positive",
+            "expectedBoundaryRef": "production-field-contract",
+            "expectedSanitizationRef": "field-policy",
+            "expectedSearchRef": "downstream-contract",
+            "consumerDomains": [
+                "aeds",
+                "aot",
+                "article",
+                "comment",
+                "editor",
+                "hydration",
+                "moderation",
+                "search",
+                "visual"
+            ],
+            "fixedSeedPolicy": "required",
+            "contentDigest": "sha256:e099d0e00847cf182b63d8b7b9071d5e36f6e7e8e7acc75e151ab213ff3cc52c"
+        },
+        {
+            "id": "script.latin-diacritics",
+            "applicableFields": [
+                "article.body",
+                "article.summary",
+                "article.title",
+                "comment.content"
+            ],
+            "scriptClasses": [
+                "latin-diacritics"
+            ],
+            "normalizationForm": "field-policy",
+            "target": {
+                "kind": "boundary-plan",
+                "ordinaryUtf16Units": 48,
+                "ordinaryUtf8Bytes": 96
+            },
+            "featureTags": [
+                "letter",
+                "multibyte"
+            ],
+            "eligibility": "positive",
+            "expectedBoundaryRef": "production-field-contract",
+            "expectedSanitizationRef": "field-policy",
+            "expectedSearchRef": "downstream-contract",
+            "consumerDomains": [
+                "aeds",
+                "aot",
+                "article",
+                "comment",
+                "editor",
+                "hydration",
+                "moderation",
+                "search",
+                "visual"
+            ],
+            "fixedSeedPolicy": "required",
+            "contentDigest": "sha256:3aafd92a58759ae1f2aea09946e60f3fbd2c097fc9b2cc53bf150a514c8f9b10"
+        },
+        {
+            "id": "script.long-unbroken-token",
+            "applicableFields": [
+                "article.body",
+                "article.summary",
+                "article.title",
+                "comment.content"
+            ],
+            "scriptClasses": [
+                "long-unbroken-token"
+            ],
+            "normalizationForm": "field-policy",
+            "target": {
+                "kind": "boundary-plan",
+                "ordinaryUtf16Units": 512,
+                "ordinaryUtf8Bytes": 512
+            },
+            "featureTags": [
+                "layout-stress",
+                "tokenization"
+            ],
+            "eligibility": "positive",
+            "expectedBoundaryRef": "production-field-contract",
+            "expectedSanitizationRef": "sequence-preserve",
+            "expectedSearchRef": "downstream-contract",
+            "consumerDomains": [
+                "aeds",
+                "aot",
+                "article",
+                "comment",
+                "editor",
+                "hydration",
+                "moderation",
+                "search",
+                "visual"
+            ],
+            "fixedSeedPolicy": "ignored",
+            "contentDigest": "sha256:ea30af3d597b023fd2676b2c0d444c7d3ce076874a6bb583f1d880948a4dedd7"
+        },
+        {
+            "id": "script.mixed-script",
+            "applicableFields": [
+                "article.body",
+                "article.summary",
+                "article.title",
+                "comment.content"
+            ],
+            "scriptClasses": [
+                "mixed-script"
+            ],
+            "normalizationForm": "field-policy",
+            "target": {
+                "kind": "boundary-plan",
+                "ordinaryUtf16Units": 48,
+                "ordinaryUtf8Bytes": 96
+            },
+            "featureTags": [
+                "astral",
+                "mixed",
+                "multibyte"
+            ],
+            "eligibility": "positive",
+            "expectedBoundaryRef": "production-field-contract",
+            "expectedSanitizationRef": "sequence-preserve",
+            "expectedSearchRef": "downstream-contract",
+            "consumerDomains": [
+                "aeds",
+                "aot",
+                "article",
+                "comment",
+                "editor",
+                "hydration",
+                "moderation",
+                "search",
+                "visual"
+            ],
+            "fixedSeedPolicy": "required",
+            "contentDigest": "sha256:f97853a289d6080c25cd274ae2028182f1ec65ee9951b7be676902b007d2f2b3"
+        },
+        {
+            "id": "script.zh-hans",
+            "applicableFields": [
+                "article.body",
+                "article.summary",
+                "article.title",
+                "comment.content"
+            ],
+            "scriptClasses": [
+                "zh-hans"
+            ],
+            "normalizationForm": "field-policy",
+            "target": {
+                "kind": "boundary-plan",
+                "ordinaryUtf16Units": 48,
+                "ordinaryUtf8Bytes": 144
+            },
+            "featureTags": [
+                "cjk",
+                "multibyte"
+            ],
+            "eligibility": "positive",
+            "expectedBoundaryRef": "production-field-contract",
+            "expectedSanitizationRef": "field-policy",
+            "expectedSearchRef": "downstream-contract",
+            "consumerDomains": [
+                "aeds",
+                "aot",
+                "article",
+                "comment",
+                "editor",
+                "hydration",
+                "moderation",
+                "search",
+                "visual"
+            ],
+            "fixedSeedPolicy": "required",
+            "contentDigest": "sha256:6309156d7e80c6974c83bdcc1613ed29886044ab94dca69ee1bb64580f213a00"
+        },
+        {
+            "id": "script.zh-hant",
+            "applicableFields": [
+                "article.body",
+                "article.summary",
+                "article.title",
+                "comment.content"
+            ],
+            "scriptClasses": [
+                "zh-hant"
+            ],
+            "normalizationForm": "field-policy",
+            "target": {
+                "kind": "boundary-plan",
+                "ordinaryUtf16Units": 48,
+                "ordinaryUtf8Bytes": 144
+            },
+            "featureTags": [
+                "cjk",
+                "multibyte"
+            ],
+            "eligibility": "positive",
+            "expectedBoundaryRef": "production-field-contract",
+            "expectedSanitizationRef": "field-policy",
+            "expectedSearchRef": "downstream-contract",
+            "consumerDomains": [
+                "aeds",
+                "aot",
+                "article",
+                "comment",
+                "editor",
+                "hydration",
+                "moderation",
+                "search",
+                "visual"
+            ],
+            "fixedSeedPolicy": "required",
+            "contentDigest": "sha256:f3180896018f81215fed1d8feabd65396f855a25d0c8ba91f953d4c13eb6d824"
+        }
+    ]
+}

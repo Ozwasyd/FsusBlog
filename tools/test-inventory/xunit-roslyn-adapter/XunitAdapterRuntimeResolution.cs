@@ -12,7 +12,11 @@ internal static partial class XunitAdapterProgram
         string? dotnet = FindOnPath("dotnet");
         if (dotnet is not null)
         {
-            candidates.Add(Path.GetDirectoryName(Path.GetDirectoryName(dotnet)) ?? "");
+            FileInfo info = new(dotnet);
+            string resolved = info.LinkTarget is null
+                ? dotnet
+                : Path.GetFullPath(Path.Combine(info.DirectoryName ?? "", info.LinkTarget));
+            candidates.Add(Path.GetDirectoryName(resolved) ?? "");
         }
         candidates.Add("/usr/share/dotnet");
         candidates.Add("/usr/lib/dotnet");
@@ -45,7 +49,7 @@ internal static partial class XunitAdapterProgram
         string runtimeDir = System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory();
         if (!string.IsNullOrWhiteSpace(runtimeDir))
         {
-            string candidate = Path.GetFullPath(Path.Combine(runtimeDir, "..", "..", ".."));
+            string candidate = Path.GetFullPath(Path.Combine(runtimeDir, "..", "..", "..", ".."));
             if (Directory.Exists(Path.Combine(candidate, "shared")))
                 return candidate;
         }
@@ -65,7 +69,7 @@ internal static partial class XunitAdapterProgram
                 if (Directory.Exists(Path.Combine(root, "shared")))
                     return root;
             }
-            string fromPath = Path.GetDirectoryName(dotnet) ?? "";
+            string fromPath = Path.GetDirectoryName(Path.GetDirectoryName(dotnet)) ?? "";
             if (Directory.Exists(Path.Combine(fromPath, "shared")))
                 return fromPath;
         }

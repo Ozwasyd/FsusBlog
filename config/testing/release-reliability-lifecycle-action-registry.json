@@ -1237,7 +1237,7 @@
                 "ok"
             ],
             "timeoutPolicy": {
-                "timeoutMs": 120000,
+                "timeoutMs": 315000,
                 "terminateGraceMs": 5000
             },
             "stateDomains": [
@@ -1455,7 +1455,7 @@
                 "ok"
             ],
             "timeoutPolicy": {
-                "timeoutMs": 120000,
+                "timeoutMs": 285000,
                 "terminateGraceMs": 5000
             },
             "stateDomains": [

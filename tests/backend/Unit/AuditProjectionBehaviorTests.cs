@@ -118,6 +118,19 @@ public sealed class AuditProjectionBehaviorTests
         Assert.False(AuditQueryService.TryDecodeAuditCursor("not-a-cursor", out _));
     }
 
+    [Fact]
+    public void AuditCursor_TreatsDatabaseUnspecifiedTimestampAsUtc()
+    {
+        AuditLog row = CreateSensitiveAuditLog();
+        row.OccurredAtUtc = new DateTime(2026, 7, 11, 10, 9, 8, 765, DateTimeKind.Unspecified);
+
+        string cursorText = AuditQueryService.EncodeAuditCursor(row);
+        Assert.True(AuditQueryService.TryDecodeAuditCursor(cursorText, out AuditQueryService.AuditLogCursor cursor));
+
+        Assert.Equal(DateTimeKind.Utc, cursor.OccurredAtUtc.Kind);
+        Assert.Equal(DateTime.SpecifyKind(row.OccurredAtUtc, DateTimeKind.Utc), cursor.OccurredAtUtc);
+    }
+
     private static AuditLog CreateSensitiveAuditLog()
         => new()
         {

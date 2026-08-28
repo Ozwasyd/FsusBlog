@@ -477,7 +477,6 @@ test('dev-cli and matrix resolve share digests and none is zero-mutation', () =>
     assert.deepEqual(none.producers, []);
     assert.equal(none.requiresAuthFixtures, false);
     assert.equal(none.requiresLocalAuthBypass, false);
-    assert.equal(none.requiresSecurityReset, false);
     assert.equal(none.catalogDigest, fixtureCatalogDigest());
 
     const demo = resolveFixtureProfile({ profileId: 'demo-public', profileSource: 'dev-cli', freeProfileEnv: '' });
@@ -487,7 +486,6 @@ test('dev-cli and matrix resolve share digests and none is zero-mutation', () =>
     const acceptance = planFixtureMutation('acceptance-representative');
     assert.equal(acceptance.requiresAuthFixtures, true);
     assert.equal(acceptance.requiresPublicFixtures, true);
-    assert.equal(acceptance.requiresSecurityReset, false);
 
     const sealed = sealMatrixFixtureProfile({
         id: 'bootstrap',
@@ -661,7 +659,10 @@ test('bootstrap and start entrypoints no longer hide default fixture injection',
     assert.match(bootstrap, /InvokeFixtureOrchestrator/u);
     assert.doesNotMatch(bootstrap, /RESET_SECURITY_TEST_STATE="\$\{FSUSBLOG_RESET_SECURITY_TEST_STATE:-1\}"/u);
     assert.doesNotMatch(bootstrap, /RESET_SECURITY_TEST_STATE=/u);
-    assert.match(bootstrap, /FIXTURE_REQUIRES_SECURITY_RESET/u);
+    assert.doesNotMatch(bootstrap, /FIXTURE_REQUIRES_SECURITY_RESET/u);
+    assert.match(bootstrap, /ConfigureLocalAuthFixture/u);
+    assert.match(bootstrap, /fsus__allowLocalAuthFixture=true/u);
+    assert.match(bootstrap, /FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET/u);
     // Unconditional PrepareFixtures() call must not remain in Main order after WaitForPowReady.
     const mainStart = bootstrap.indexOf('Main()');
     const main = bootstrap.slice(
@@ -672,7 +673,11 @@ test('bootstrap and start entrypoints no longer hide default fixture injection',
     assert.match(main, /InvokeFixtureOrchestrator/u);
     assert.match(
         main,
-        /WaitForPowReady[\s\S]*?-z "\$\{FSUSBLOG_TEST_BUSINESS_EPOCH_UTC:-\}"[\s\S]*?date -u[\s\S]*?InvokeFixtureOrchestrator/u
+        /PrepareReleasePreviewBundle[\s\S]*?-z "\$\{FSUSBLOG_TEST_BUSINESS_EPOCH_UTC:-\}"[\s\S]*?date -u[\s\S]*?EnsureFixtureTemporalContext[\s\S]*?RunBootstrapParallel 'runtime applications'[\s\S]*?WaitForPowReady[\s\S]*?InvokeFixtureOrchestrator/u
+    );
+    assert.match(
+        bootstrap,
+        /EnsureFixtureTemporalContext\(\)[\s\S]*?write-temporal-context\.mjs[\s\S]*?FSUSBLOG_TEMPORAL_CONTEXT_FILE[\s\S]*?WriteEnvFile/u
     );
 });
 

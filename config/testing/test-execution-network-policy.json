@@ -1,0 +1,64 @@
+{
+    "schema": "fsusblog.test-execution-network-policy.v1",
+    "version": 1,
+    "correctnessDefault": "deny",
+    "sandbox": {
+        "linux": {
+            "isolation": "systemd-private-network-plus-landlock-filesystem",
+            "observer": "strace-network-syscalls"
+        },
+        "unavailable": "fail-closed"
+    },
+    "allowedEndpointClasses": [
+        "loopback",
+        "current-run-container-network",
+        "catalog-exact-endpoint"
+    ],
+    "serviceEndpoints": {
+        "backend": {
+            "protocol": "tcp",
+            "host": "127.0.0.1",
+            "portSource": "service-envelope",
+            "dns": "not-applicable-literal-loopback",
+            "certificate": "not-applicable-plaintext-local-service",
+            "proxy": "denied"
+        },
+        "frontend": {
+            "protocol": "tcp",
+            "host": "127.0.0.1",
+            "portSource": "service-envelope",
+            "dns": "not-applicable-literal-loopback",
+            "certificate": "not-applicable-plaintext-local-service",
+            "proxy": "denied"
+        },
+        "postgres": {
+            "protocol": "tcp",
+            "host": "127.0.0.1",
+            "portSource": "service-envelope",
+            "dns": "not-applicable-literal-loopback",
+            "certificate": "not-applicable-plaintext-local-service",
+            "proxy": "denied"
+        },
+        "preview": {
+            "protocol": "tcp",
+            "host": "127.0.0.1",
+            "portSource": "service-envelope",
+            "dns": "not-applicable-literal-loopback",
+            "certificate": "not-applicable-plaintext-local-service",
+            "proxy": "denied"
+        },
+        "redis": {
+            "protocol": "tcp",
+            "host": "127.0.0.1",
+            "portSource": "service-envelope",
+            "dns": "not-applicable-literal-loopback",
+            "certificate": "not-applicable-plaintext-local-service",
+            "proxy": "denied"
+        }
+    },
+    "externalEndpoints": [],
+    "buildRestorePolicy": {
+        "phase": "separate-from-correctness",
+        "artifactAdmission": "immutable-build-receipt"
+    }
+}

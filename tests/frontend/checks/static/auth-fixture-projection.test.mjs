@@ -26,8 +26,9 @@ test('admin proof delegates only after the private projection matches the active
             admin: { id: 42, sessionId: 'admin-session-42' }
         });
         const calls = [];
-        const token = createAdminStepUpProofToken({
-            session: { adminId: 42, sessionId: 'admin-session-42' },
+        const session = { adminId: 42, sessionId: 'admin-session-42' };
+        const token = await createAdminStepUpProofToken({
+            session,
             action: 'article-delete',
             ttlSeconds: 30,
             projectionFile,
@@ -40,6 +41,7 @@ test('admin proof delegates only after the private projection matches the active
 
         assert.equal(token, 'proof-token');
         assert.deepEqual(calls, [{
+            session,
             adminId: 42,
             sessionId: 'admin-session-42',
             action: 'article-delete',
@@ -66,8 +68,8 @@ test('admin proof rejects projection drift before invoking the proof producer', 
             admin: { id: 42, sessionId: 'stale-session' }
         });
         let calls = 0;
-        assert.throws(
-            () => createAdminStepUpProofToken({
+        await assert.rejects(
+            createAdminStepUpProofToken({
                 session: { adminId: 42, sessionId: 'active-session' },
                 projectionFile,
                 proofProducer: () =>

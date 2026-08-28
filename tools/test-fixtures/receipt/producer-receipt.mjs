@@ -20,12 +20,25 @@ import {
     normalizeDatabaseObservation,
     normalizeRedisObservation
 } from './observations.mjs';
+import { normalizeCleanupContract as normalizeMessagingCleanupContract } from './messaging-cleanup-contract.mjs';
 import {
     ENTITY_IDENTITY_KINDS,
     PRODUCER_RECEIPT_SCHEMA,
     RETIRED_FIXTURE_RECEIPT_SCHEMAS
 } from './schemas.mjs';
 import { assertNoSecrets } from './secrets.mjs';
+import {
+    normalizeCleanupContract as normalizeSecurityCleanupContract,
+    normalizeDomainObservations,
+    validateSecurityReceiptExtensions
+} from './security-receipt-contract.mjs';
+
+function normalizeCleanupContract(value)
+{
+    return value?.kind === 'messaging-exact-receipt'
+        ? normalizeMessagingCleanupContract(value)
+        : normalizeSecurityCleanupContract(value);
+}
 
 function requireText(value, label)
 {
@@ -134,22 +147,6 @@ function normalizePostconditionObservations(items)
     return Object.freeze(normalized);
 }
 
-function normalizeCleanupContract(value)
-{
-    if (value == null)
-    {
-        return Object.freeze({ kind: 'owned-namespace' });
-    }
-    if (!plainObject(value))
-    {
-        throw new Error('cleanupContract must be an object');
-    }
-    return freezeDeep({
-        kind: requireText(String(value.kind ?? 'owned-namespace'), 'cleanupContract.kind'),
-        notes: value.notes == null ? null : String(value.notes)
-    });
-}
-
 function normalizeTemporalBinding(value)
 {
     if (value == null)
@@ -224,6 +221,7 @@ export function buildProducerReceipt({
     databaseObservation = null,
     redisObservation = null,
     cacheObservation = null,
+    domainObservations = [],
     temporalBinding = null,
     catalogs = readFixtureCatalogs()
 } = {})
@@ -306,6 +304,11 @@ export function buildProducerReceipt({
             ? normalizeCacheObservation(cacheObservation)
             : null
     };
+    const sealedCleanupContract = normalizeCleanupContract(cleanupContract);
+    if (sealedCleanupContract.kind === 'messaging-exact-receipt' && id !== 'account-messaging')
+    {
+        throw new Error('messaging exact cleanup receipt belongs only to account-messaging');
+    }
 
     const body = {
         schema: PRODUCER_RECEIPT_SCHEMA,
@@ -326,8 +329,9 @@ export function buildProducerReceipt({
         ownedStateDomains: domains,
         entityIdentities: normalizeEntityIdentities(entityIdentities, new Set(producedVariants)),
         postconditionObservations: normalizePostconditionObservations(postconditionObservations),
-        cleanupContract: normalizeCleanupContract(cleanupContract),
+        cleanupContract: sealedCleanupContract,
         temporalBinding: normalizeTemporalBinding(temporalBinding),
+        domainObservations: normalizeDomainObservations(domainObservations, id),
         observationDigests: freezeDeep({
             database: observations.database ? digestDatabaseObservation(observations.database) : null,
             redis: observations.redis ? digestRedisObservation(observations.redis) : null,
@@ -391,6 +395,7 @@ export function validateProducerReceipt(document, { catalogs = readFixtureCatalo
     {
         normalizeTemporalBinding(document.temporalBinding);
     }
+    validateSecurityReceiptExtensions(document, { normalizeCleanup: normalizeCleanupContract });
 
     const catalogProducer = (catalogs.producer.producers ?? []).find((item) => item.id === document.producerId);
     if (!catalogProducer)

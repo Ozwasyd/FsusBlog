@@ -252,6 +252,14 @@
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
         {
+            "id": "node-test:tests/tools/browserless-correctness-contract.test.mjs#every-browser-capable-tier-declares-the-browser-resource-df63a35678",
+            "path": "tests/tools/browserless-correctness-contract.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/test-matrix-resource-contract.test.mjs#browser-capable-tiers-cannot-hide-outside-browser-resour-d660ad739f"
+            ],
+            "reason": "The matrix resource-contract suite remains the single discoverable owner of the non-vacuous all-browser-tier resourceClass assertion; the browserless suite retains only production and release closure behavior."
+        },
+        {
             "id": "node-test:tests/tools/test-optimization-report.test.mjs#final-authority-binds-checkpoints-coverage-and-retention-2947049189",
             "path": "tests/tools/test-optimization-report.test.mjs",
             "replacementTestIds": [

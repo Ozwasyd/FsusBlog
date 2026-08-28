@@ -57,7 +57,7 @@ public sealed partial class MessageCenterService
         long messageId = 0;
         MutationReplayState replayState = MutationReplayState.None;
         string requestHash = ComputeMutationRequestHash("create", normalizedSubject, normalizedBody);
-        DateTime now = DateTime.UtcNow;
+        DateTime now = UtcNow;
 
         var tran = await db.Ado.UseTranAsync(async () =>
         {
@@ -221,7 +221,7 @@ public sealed partial class MessageCenterService
 
     private async Task<ReplyWriteOutcome> WriteReplyAsync(ReplyWriteCommand command)
     {
-        DateTime now = DateTime.UtcNow;
+        DateTime now = UtcNow;
         long messageId = SnowFlakeSingle.Instance.NextId();
         string requestHash = ComputeMutationRequestHash(
             "reply",
@@ -544,7 +544,7 @@ public sealed partial class MessageCenterService
             return Result<ConversationStatusMutationResultResponse>.Failure(ErrorCode.Validation, "conversation_status_reason_invalid");
         }
 
-        DateTime now = DateTime.UtcNow;
+        DateTime now = UtcNow;
         ConversationStatusWriteOutcome outcome = ConversationStatusWriteOutcome.NotFound;
         ConversationStatus previousStatus = default;
         ConversationStatus currentStatus = default;
@@ -762,7 +762,7 @@ public sealed partial class MessageCenterService
             normalizedBody);
         MutationReplayState replayState = MutationReplayState.None;
         SystemMessageTargetValidation targetValidation = SystemMessageTargetValidation.Allowed;
-        DateTime now = DateTime.UtcNow;
+        DateTime now = UtcNow;
         var tran = await db.Ado.UseTranAsync(async () =>
         {
             await AcquireMutationLockAsync("system", 0, sourceEventId.ToString(CultureInfo.InvariantCulture));

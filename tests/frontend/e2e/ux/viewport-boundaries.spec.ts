@@ -122,7 +122,7 @@ const usesIsolatedSessions = process.env.FSUSBLOG_TEST_SESSION_ISOLATION === '1'
 const viewportExecutionMode = mode === 'smoke' || usesIsolatedSessions
   ? 'parallel'
   : 'default'
-const resume = readBooleanFlag('FSUSBLOG_UX_VIEWPORT_RESUME')
+const resume = false
 const riskMatrix = readBooleanFlag('FSUSBLOG_UX_VIEWPORT_RISK_MATRIX')
 const runtimeBrowserTimeoutPlan = resolveRuntimeBrowserTimeoutPlan()
 const riskAppReadyTimeoutMs = riskMatrix

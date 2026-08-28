@@ -1,230 +1,361 @@
 {
-  "schema": "fsusblog.fixture-profile-catalog.v1",
-  "profiles": [
-    {
-      "id": "acceptance-representative",
-      "capabilities": [
-        "auth.admin.full-permission",
-        "auth.user.active",
-        "comment.moderation-matrix",
-        "comment.threaded",
-        "messages.thread",
-        "notifications.unread",
-        "public.article.draft",
-        "public.article.published",
-        "public.article.revision-history",
-        "public.home.featured-hot",
-        "session.single-device"
-      ],
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime"
-      ],
-      "isDestructive": false,
-      "requiresFreshNamespace": true
-    },
-    {
-      "id": "account-messaging",
-      "capabilities": [
-        "auth.user.active",
-        "messages.thread",
-        "notifications.unread",
-        "preferences.locale-fixed"
-      ],
-      "allowedExecutionClasses": [
-        "browser",
-        "runtime"
-      ],
-      "isDestructive": false,
-      "requiresFreshNamespace": true
-    },
-    {
-      "id": "auth-basic",
-      "capabilities": [
-        "auth.admin.full-permission",
-        "auth.user.active",
-        "session.single-device"
-      ],
-      "allowedExecutionClasses": [
-        "browser",
-        "runtime"
-      ],
-      "isDestructive": false,
-      "requiresFreshNamespace": true
-    },
-    {
-      "id": "auth-security-matrix",
-      "capabilities": [
-        "auth.user.active",
-        "security.credential.revoked",
-        "security.pow.elevated",
-        "security.risk-escalated",
-        "security.subject.banned",
-        "session.multi-device"
-      ],
-      "allowedExecutionClasses": [
-        "load",
-        "runtime",
-        "security"
-      ],
-      "isDestructive": false,
-      "requiresFreshNamespace": true
-    },
-    {
-      "id": "comments-moderation",
-      "capabilities": [
-        "auth.admin.full-permission",
-        "auth.user.active",
-        "comment.moderation-matrix",
-        "comment.threaded",
-        "moderation.policy-matrix",
-        "public.article.published"
-      ],
-      "allowedExecutionClasses": [
-        "browser",
-        "load",
-        "runtime"
-      ],
-      "isDestructive": false,
-      "requiresFreshNamespace": true
-    },
-    {
-      "id": "demo-public",
-      "capabilities": [
-        "development.demo.dataset"
-      ],
-      "allowedExecutionClasses": [
-        "development",
-        "diagnostic"
-      ],
-      "isDestructive": true,
-      "requiresFreshNamespace": true
-    },
-    {
-      "id": "none",
-      "capabilities": [],
-      "allowedExecutionClasses": [
-        "browser",
-        "diagnostic",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "isDestructive": false,
-      "requiresFreshNamespace": false
-    },
-    {
-      "id": "production-xss",
-      "capabilities": [
-        "auth.admin.full-permission",
-        "auth.user.active",
-        "public.article.published",
-        "session.single-device"
-      ],
-      "allowedExecutionClasses": [
-        "browser"
-      ],
-      "isDestructive": false,
-      "requiresFreshNamespace": true
-    },
-    {
-      "id": "public-content-lifecycle",
-      "capabilities": [
-        "public.article.archived",
-        "public.article.deleted",
-        "public.article.draft",
-        "public.article.multiple-publications",
-        "public.article.multiple-revisions",
-        "public.article.published",
-        "public.article.revision-history",
-        "public.article.scheduled",
-        "public.home.featured-hot",
-        "public.search.indexed",
-        "public.taxonomy.category-tag"
-      ],
-      "allowedExecutionClasses": [
-        "browser",
-        "load",
-        "runtime"
-      ],
-      "isDestructive": false,
-      "requiresFreshNamespace": true
-    },
-    {
-      "id": "public-empty",
-      "capabilities": [
-        "public.empty"
-      ],
-      "allowedExecutionClasses": [
-        "browser",
-        "load",
-        "runtime"
-      ],
-      "isDestructive": false,
-      "requiresFreshNamespace": true
-    },
-    {
-      "id": "public-minimal",
-      "capabilities": [
-        "public.article.published",
-        "public.article.revision-history",
-        "public.home.featured-hot",
-        "public.search.indexed",
-        "public.taxonomy.category-tag"
-      ],
-      "allowedExecutionClasses": [
-        "browser",
-        "load",
-        "runtime"
-      ],
-      "isDestructive": false,
-      "requiresFreshNamespace": true
-    },
-    {
-      "id": "scale-l-nightly",
-      "capabilities": [
-        "scale.article-comment.l"
-      ],
-      "allowedExecutionClasses": [
-        "load"
-      ],
-      "isDestructive": true,
-      "requiresFreshNamespace": true
-    },
-    {
-      "id": "scale-m",
-      "capabilities": [
-        "scale.article-comment.m"
-      ],
-      "allowedExecutionClasses": [
-        "load"
-      ],
-      "isDestructive": true,
-      "requiresFreshNamespace": true
-    },
-    {
-      "id": "scale-s",
-      "capabilities": [
-        "scale.article-comment.s"
-      ],
-      "allowedExecutionClasses": [
-        "load"
-      ],
-      "isDestructive": true,
-      "requiresFreshNamespace": true
-    },
-    {
-      "id": "scale-xs",
-      "capabilities": [
-        "scale.article-comment.xs"
-      ],
-      "allowedExecutionClasses": [
-        "load"
-      ],
-      "isDestructive": true,
-      "requiresFreshNamespace": true
-    }
-  ]
+    "schema": "fsusblog.fixture-profile-catalog.v1",
+    "profiles": [
+        {
+            "id": "acceptance-representative",
+            "capabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "notifications.unread",
+                "public.article.draft",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
+                "session.single-device"
+            ],
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime"
+            ],
+            "isDestructive": false,
+            "requiresFreshNamespace": true
+        },
+        {
+            "id": "account-messaging",
+            "capabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "messages.thread",
+                "notifications.unread"
+            ],
+            "allowedExecutionClasses": [
+                "browser",
+                "runtime"
+            ],
+            "isDestructive": false,
+            "requiresFreshNamespace": true
+        },
+        {
+            "id": "account-profile-preferences",
+            "capabilities": [
+                "auth.user.active",
+                "preferences.locale.account-device-conflict",
+                "preferences.locale.auto",
+                "preferences.locale.device-explicit",
+                "preferences.locale.fixed.non-default",
+                "preferences.locale.fixed.zh-cn",
+                "preferences.locale.revision-conflict",
+                "preferences.locale.two-device-sync",
+                "profile.public-handle.conflict",
+                "profile.public-handle.empty",
+                "profile.public-handle.set"
+            ],
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "runtime"
+            ],
+            "isDestructive": false,
+            "requiresFreshNamespace": true
+        },
+        {
+            "id": "audit-canonical",
+            "capabilities": [
+                "audit.chain-multi-record",
+                "audit.high-value",
+                "audit.investigation-page",
+                "audit.legal-hold-eligible",
+                "audit.pseudonym-retention",
+                "audit.single-valid"
+            ],
+            "allowedExecutionClasses": [
+                "runtime",
+                "security"
+            ],
+            "isDestructive": false,
+            "requiresFreshNamespace": true
+        },
+        {
+            "id": "audit-empty",
+            "capabilities": [
+                "audit.empty"
+            ],
+            "allowedExecutionClasses": [
+                "runtime",
+                "security"
+            ],
+            "isDestructive": false,
+            "requiresFreshNamespace": true
+        },
+        {
+            "id": "audit-negative",
+            "capabilities": [
+                "audit.tamper-negative",
+                "audit.unknown-action-negative"
+            ],
+            "allowedExecutionClasses": [
+                "security"
+            ],
+            "isDestructive": false,
+            "requiresFreshNamespace": true
+        },
+        {
+            "id": "auth-basic",
+            "capabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "session.single-device"
+            ],
+            "allowedExecutionClasses": [
+                "browser",
+                "runtime"
+            ],
+            "isDestructive": false,
+            "requiresFreshNamespace": true
+        },
+        {
+            "id": "auth-identity-matrix",
+            "capabilities": [
+                "auth.admin.disabled",
+                "auth.admin.full-permission",
+                "auth.admin.partial-permission",
+                "auth.admin.read-only",
+                "auth.admin.root-bootstrap-empty",
+                "auth.user.active",
+                "auth.user.deleted",
+                "auth.user.mfa-disabled",
+                "auth.user.mfa-enabled",
+                "auth.user.passkey-enabled",
+                "auth.user.recovery-enabled",
+                "session.expired",
+                "session.multi-device",
+                "session.refresh-rotated",
+                "session.remembered",
+                "session.revoked",
+                "session.single-device"
+            ],
+            "allowedExecutionClasses": [
+                "runtime",
+                "security"
+            ],
+            "isDestructive": false,
+            "requiresFreshNamespace": true
+        },
+        {
+            "id": "auth-security-matrix",
+            "capabilities": [
+                "auth.user.active",
+                "security.credential.revoked",
+                "security.pow.elevated",
+                "security.risk.escalated",
+                "security.subject.banned",
+                "session.multi-device"
+            ],
+            "allowedExecutionClasses": [
+                "load",
+                "runtime",
+                "security"
+            ],
+            "isDestructive": false,
+            "requiresFreshNamespace": true
+        },
+        {
+            "id": "comments-moderation",
+            "capabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "moderation.policy-matrix",
+                "public.article.published"
+            ],
+            "allowedExecutionClasses": [
+                "browser",
+                "load",
+                "runtime"
+            ],
+            "isDestructive": false,
+            "requiresFreshNamespace": true
+        },
+        {
+            "id": "demo-public",
+            "capabilities": [
+                "development.demo.dataset"
+            ],
+            "allowedExecutionClasses": [
+                "development",
+                "diagnostic"
+            ],
+            "isDestructive": true,
+            "requiresFreshNamespace": true
+        },
+        {
+            "id": "none",
+            "capabilities": [],
+            "allowedExecutionClasses": [
+                "browser",
+                "diagnostic",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "isDestructive": false,
+            "requiresFreshNamespace": false
+        },
+        {
+            "id": "production-xss",
+            "capabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "public.article.published",
+                "session.single-device"
+            ],
+            "allowedExecutionClasses": [
+                "browser"
+            ],
+            "isDestructive": false,
+            "requiresFreshNamespace": true
+        },
+        {
+            "id": "public-content-lifecycle",
+            "capabilities": [
+                "public.article.archived",
+                "public.article.deleted",
+                "public.article.draft",
+                "public.article.multiple-publications",
+                "public.article.multiple-revisions",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.article.scheduled",
+                "public.home.featured-hot",
+                "public.search.indexed",
+                "public.taxonomy.category-tag"
+            ],
+            "allowedExecutionClasses": [
+                "browser",
+                "load",
+                "runtime"
+            ],
+            "isDestructive": false,
+            "requiresFreshNamespace": true
+        },
+        {
+            "id": "public-empty",
+            "capabilities": [
+                "public.empty"
+            ],
+            "allowedExecutionClasses": [
+                "browser",
+                "load",
+                "runtime"
+            ],
+            "isDestructive": false,
+            "requiresFreshNamespace": true
+        },
+        {
+            "id": "public-minimal",
+            "capabilities": [
+                "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
+                "public.search.indexed",
+                "public.taxonomy.category-tag"
+            ],
+            "allowedExecutionClasses": [
+                "browser",
+                "load",
+                "runtime"
+            ],
+            "isDestructive": false,
+            "requiresFreshNamespace": true
+        },
+        {
+            "id": "scale-l-nightly",
+            "capabilities": [
+                "scale.article-comment.l"
+            ],
+            "allowedExecutionClasses": [
+                "load"
+            ],
+            "isDestructive": true,
+            "requiresFreshNamespace": true
+        },
+        {
+            "id": "scale-m",
+            "capabilities": [
+                "scale.article-comment.m"
+            ],
+            "allowedExecutionClasses": [
+                "load"
+            ],
+            "isDestructive": true,
+            "requiresFreshNamespace": true
+        },
+        {
+            "id": "scale-s",
+            "capabilities": [
+                "scale.article-comment.s"
+            ],
+            "allowedExecutionClasses": [
+                "load"
+            ],
+            "isDestructive": true,
+            "requiresFreshNamespace": true
+        },
+        {
+            "id": "scale-xs",
+            "capabilities": [
+                "scale.article-comment.xs"
+            ],
+            "allowedExecutionClasses": [
+                "load"
+            ],
+            "isDestructive": true,
+            "requiresFreshNamespace": true
+        },
+        {
+            "id": "security-clean",
+            "capabilities": [
+                "auth.user.active",
+                "security.clean"
+            ],
+            "allowedExecutionClasses": [
+                "load",
+                "runtime",
+                "security"
+            ],
+            "isDestructive": false,
+            "requiresFreshNamespace": true
+        },
+        {
+            "id": "security-state-matrix",
+            "capabilities": [
+                "auth.user.active",
+                "security.audit.active-window",
+                "security.credential.active",
+                "security.credential.revoked",
+                "security.issuance.replay-observed",
+                "security.nullifier.blocked",
+                "security.pow.elevated",
+                "security.rate-limit.blocked",
+                "security.rate-limit.near-limit",
+                "security.risk.escalated",
+                "security.risk.low",
+                "security.subject.banned",
+                "security.subject.unbanned"
+            ],
+            "allowedExecutionClasses": [
+                "load",
+                "runtime",
+                "security"
+            ],
+            "isDestructive": false,
+            "requiresFreshNamespace": true
+        }
+    ]
 }

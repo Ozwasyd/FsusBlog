@@ -3,7 +3,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { maskCSharpTrivia } from './test/csharp-source-mask.mjs';
+import { maskCSharpTrivia, verifyFactWrappersAndSearchUtf8ScalarOwner } from './test/csharp-source-mask.mjs';
 import { parseMatrix } from './test-matrix/parse-matrix.mjs';
 import {
     verifyPlatformRuntimeGovernance,
@@ -845,7 +845,7 @@ verifyBackendTestPathGovernance();
 verifyEnvironmentVariableGovernance();
 verifyPlatformRuntimeGovernance(root, fail);
 verifyPublicAotCrashWorkerGovernance(root, fail);
-verifyFactWrappersDeleted();
+verifyFactWrappersAndSearchUtf8ScalarOwner(root, fail, maskCSharpTrivia, verifyFactWrappersDeleted);
 
 if (errors.length > 0)
 {

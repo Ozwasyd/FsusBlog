@@ -32,8 +32,9 @@ export async function verifyConsumerEvidenceFile(file, {
   const evidence = readRegularJson(evidenceFile, 'consumer evidence').document
   validateRunBoundConsumerEvidence(evidence)
 
-  const projectionFile = path.resolve(repoRoot, evidence.sourceProjection)
-  const receiptFile = path.resolve(repoRoot, evidence.physicalExecutionReceipt)
+  const repositoryRoot = path.resolve(evidence.physicalExecutionReceiptDocument.cwd)
+  const projectionFile = path.resolve(repositoryRoot, evidence.sourceProjection)
+  const receiptFile = path.resolve(repositoryRoot, evidence.physicalExecutionReceipt)
   const validated = await validateRunBoundProjection({
     root,
     runId: evidence.schedulerRunId,

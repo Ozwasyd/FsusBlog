@@ -181,7 +181,7 @@ public sealed partial class MessageCenterService
                OR msg_admin_queue_state.lastreadat IS DISTINCT FROM EXCLUDED.lastreadat;
             """,
                 new SugarParameter("@AccountSenderType", (int)MessageSenderType.Account),
-                new SugarParameter("@Now", DateTime.UtcNow));
+                new SugarParameter("@Now", UtcNow));
         });
         if (!transaction.IsSuccess)
         {
@@ -361,7 +361,7 @@ public sealed partial class MessageCenterService
             """,
             new SugarParameter("@ConversationId", conversationId),
             new SugarParameter("@AccountSenderType", (int)MessageSenderType.Account),
-            new SugarParameter("@Now", DateTime.UtcNow));
+            new SugarParameter("@Now", UtcNow));
 
     private Task<int> RebuildAccountParticipantUnreadCoreAsync(int accountId)
         => db.Ado.ExecuteCommandAsync(
@@ -424,7 +424,7 @@ public sealed partial class MessageCenterService
             """,
             new SugarParameter("@AccountId", accountId),
             new SugarParameter("@AccountSenderType", (int)MessageSenderType.Account),
-            new SugarParameter("@Now", DateTime.UtcNow));
+            new SugarParameter("@Now", UtcNow));
 
     private Task<int> RebuildAdminQueueConversationCoreAsync(long conversationId)
         => db.Ado.ExecuteCommandAsync(
@@ -497,7 +497,7 @@ public sealed partial class MessageCenterService
             """,
             new SugarParameter("@ConversationId", conversationId),
             new SugarParameter("@AccountSenderType", (int)MessageSenderType.Account),
-            new SugarParameter("@Now", DateTime.UtcNow));
+            new SugarParameter("@Now", UtcNow));
 
     private async Task RecoverAccountUnreadCacheAsync(int accountId)
     {
@@ -518,7 +518,7 @@ public sealed partial class MessageCenterService
 
     public async Task<Result> MarkConversationReadAsync(int accountId, long conversationId, long readThroughMessageId)
     {
-        DateTime now = DateTime.UtcNow;
+        DateTime now = UtcNow;
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
             ReplyParticipantLock? participant = await LoadReplyParticipantForUpdateAsync(conversationId, accountId);

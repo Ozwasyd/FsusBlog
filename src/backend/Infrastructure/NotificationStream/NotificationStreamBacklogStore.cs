@@ -116,6 +116,92 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
         return (long)result;
     }
 
+    internal async Task<long?> TryReadIdempotentEventIdAsync(
+        string idempotencyKey,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(idempotencyKey))
+        {
+            return null;
+        }
+
+        RedisValue value = await _database.StringGetAsync(
+                keyScope.PrefixKey(string.Concat(IdempotencyKeyPrefix, idempotencyKey)))
+            .ConfigureAwait(false);
+        return value.TryParse(out long eventId) && eventId > 0 ? eventId : null;
+    }
+
+    internal async Task<IReadOnlyList<long>> ObserveReplayEventIdsAsync(
+        string? userId,
+        IReadOnlySet<string> groups,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        IReadOnlyList<string> routes = NotificationStreamTargetRouteCodec.GetReplayRoutes(userId, groups);
+        var eventIds = new SortedSet<long>();
+        foreach (string route in routes)
+        {
+            StreamEntry[] entries = await _database.StreamRangeAsync(
+                    RouteStreamKey(route),
+                    count: MaxReplayEntries,
+                    messageOrder: Order.Ascending)
+                .ConfigureAwait(false);
+            foreach (StreamEntry entry in entries)
+            {
+                if (TryParseEventId(entry.Id, out long eventId))
+                {
+                    eventIds.Add(eventId);
+                }
+            }
+        }
+        return eventIds.ToArray();
+    }
+
+    internal async Task RemoveOwnedEventsAsync(
+        IReadOnlyCollection<long> eventIds,
+        IReadOnlyCollection<string> idempotencyKeys,
+        IReadOnlyCollection<string> userIds,
+        IReadOnlySet<string> groups,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (eventIds.Count == 0 && idempotencyKeys.Count == 0)
+        {
+            return;
+        }
+
+        var routes = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (string userId in userIds)
+        {
+            routes.UnionWith(NotificationStreamTargetRouteCodec.GetReplayRoutes(userId, groups));
+        }
+        routes.UnionWith(NotificationStreamTargetRouteCodec.GetReplayRoutes(null, groups));
+        RedisValue[] streamIds = eventIds
+            .Where(static id => id > 0)
+            .Distinct()
+            .Order()
+            .Select(static id => (RedisValue)string.Create(CultureInfo.InvariantCulture, $"{id}-0"))
+            .ToArray();
+        foreach (string route in routes)
+        {
+            if (streamIds.Length > 0)
+            {
+                await _database.StreamDeleteAsync(RouteStreamKey(route), streamIds).ConfigureAwait(false);
+            }
+        }
+        RedisKey[] dedupeKeys = idempotencyKeys
+            .Where(static key => !string.IsNullOrWhiteSpace(key))
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .Select(key => (RedisKey)keyScope.PrefixKey(string.Concat(IdempotencyKeyPrefix, key)))
+            .ToArray();
+        if (dedupeKeys.Length > 0)
+        {
+            await _database.KeyDeleteAsync(dedupeKeys).ConfigureAwait(false);
+        }
+    }
+
     public async Task<Result<NotificationStreamAppendResult>> AppendAsync(
         long eventId,
         string route,

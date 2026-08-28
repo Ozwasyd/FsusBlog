@@ -9,6 +9,13 @@ import process from 'node:process';
 import { setTimeout as delay } from 'node:timers/promises';
 
 import { verifyProductionBuildReceipt } from '../../../../tools/ci/production-build-artifacts.mjs';
+import {
+    bindBrowserRenderingObservation,
+    createCorrectnessBrowserPlan,
+    observeBrowserRendering,
+    observeCorrectnessBrowser,
+    serializableBrowserPlan
+} from '../../../../tools/test/playwright-browser-identity.mjs';
 import { deriveLocalPublicContentFixtureSecret } from '../../../browser-contract/default-fixture-provider.mjs';
 import { loadBrowserContractFixture } from '../../../browser-contract/fixture.mjs';
 import {
@@ -748,26 +755,56 @@ async function waitForFullAppRouterReady(page, expectedPath)
     );
 }
 
-async function runBrowser(browserName, browserType, cases, articles, results)
+async function runBrowser(browserName, browserType, identityPlan, cases, articles, results, browserIdentities)
 {
-    const browser = await browserType.launch({ headless: true });
+    const launchOptions = identityPlan ? structuredClone(identityPlan.launchOptions) : { headless: true };
+    const browser = await browserType.launch(launchOptions);
     try
     {
+        let browserIdentity = null;
+        if (identityPlan)
+        {
+            browserIdentity = {
+                plan: serializableBrowserPlan(identityPlan),
+                actual: observeCorrectnessBrowser({
+                    plan: identityPlan,
+                    browser,
+                    launchOptions,
+                    rendering: identityPlan.rendering
+                })
+            };
+            browserIdentities.push(browserIdentity);
+        }
+        const renderingContext = identityPlan
+            ? {
+                locale: identityPlan.rendering.locale,
+                deviceScaleFactor: identityPlan.rendering.deviceScaleFactor,
+                colorScheme: identityPlan.rendering.colorScheme
+            }
+            : { locale: productionLocale };
         const surfaceCases = representativeCategoryCases(cases);
         const surfaceCaseIds = new Set(surfaceCases.map((entry) => entry.id));
         const noScript = await browser.newContext({
             javaScriptEnabled: false,
-            locale: productionLocale,
+            ...renderingContext,
             serviceWorkers: 'block'
         });
         const noScriptPage = await newBusinessClockPage(noScript);
         const noScriptObservationRef = { current: createObservation() };
         await installObservers(noScript, noScriptPage, noScriptObservationRef);
         const context = await browser.newContext({
-            locale: productionLocale,
+            ...renderingContext,
             serviceWorkers: 'block'
         });
         const page = await newBusinessClockPage(context);
+        if (identityPlan)
+        {
+            browserIdentity.actual = bindBrowserRenderingObservation(
+                identityPlan,
+                browserIdentity.actual,
+                await observeBrowserRendering(page)
+            );
+        }
         const observationRef = { current: createObservation() };
         await installObservers(context, page, observationRef);
         for (const entry of cases)
@@ -854,7 +891,7 @@ async function runBrowser(browserName, browserType, cases, articles, results)
         await context.close();
 
         const aboutContext = await browser.newContext({
-            locale: productionLocale,
+            ...renderingContext,
             serviceWorkers: 'block'
         });
         const aboutPage = await newBusinessClockPage(aboutContext);
@@ -890,7 +927,7 @@ async function runBrowser(browserName, browserType, cases, articles, results)
         await aboutContext.close();
 
         const spaContext = await browser.newContext({
-            locale: productionLocale,
+            ...renderingContext,
             serviceWorkers: 'block'
         });
         const spaPage = await newBusinessClockPage(spaContext);
@@ -956,7 +993,7 @@ async function runBrowser(browserName, browserType, cases, articles, results)
             throw new Error('portable admin storage state was not prepared');
         }
         const previewContext = await browser.newContext({
-            locale: productionLocale,
+            ...renderingContext,
             storageState: adminStorageState,
             serviceWorkers: 'block'
         });
@@ -1022,6 +1059,7 @@ async function runBrowser(browserName, browserType, cases, articles, results)
 
 await mkdir(outputRoot, { recursive: true });
 const results = [];
+const browserIdentities = [];
 let report;
 let runtime = null;
 let cleanup = null;
@@ -1052,13 +1090,23 @@ try
     const cases = selectProductionXssCases(corpusContract.corpus, mode);
     const seeded = await seed(cases, resolveMetadataProbe(cases));
     const browsers = mode === 'release'
-        ? [['chromium', playwright.chromium], ['firefox', playwright.firefox], ['webkit', playwright.webkit]]
-        : [['chromium', playwright.chromium]];
+        ? ['chromium', 'firefox', 'webkit'].map((name) => {
+            const plan = createCorrectnessBrowserPlan({
+                browserName: name,
+                evidenceClass: 'browser-contract',
+                locale: productionLocale,
+                frontendRoot,
+                env: process.env
+            });
+            return [name, plan.browserType, plan];
+        })
+        : [['chromium', playwright.chromium, null]];
     warmedStartedAt = new Date().toISOString();
     warmedStarted = performance.now();
     try
     {
-        await Promise.all(browsers.map(([name, type]) => runBrowser(name, type, cases, seeded.articles, results)));
+        await Promise.all(browsers.map(([name, type, plan]) =>
+            runBrowser(name, type, plan, cases, seeded.articles, results, browserIdentities)));
     }
     finally
     {
@@ -1081,6 +1129,7 @@ try
             testOnlyContractPath: path.relative(repositoryRoot, corpusContract.contractPath)
         },
         browsers: browsers.map(([name]) => name),
+        browserIdentities,
         caseCount: cases.length,
         entries: results,
         runtime: {

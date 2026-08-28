@@ -57,6 +57,10 @@ public sealed class ArticleRevisionConcurrencyDatabaseFixture : PostgresClassDat
 {
 }
 
+public sealed class SecurityFixtureDatabaseFixture : PostgresClassDatabaseFixture
+{
+}
+
 internal static class PostgresSqlSugarTestClient
 {
     public static async Task<SqlSugarClient> CreateAsync(PostgresSchemaMigrationFixture fixture)

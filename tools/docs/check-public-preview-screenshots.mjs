@@ -40,6 +40,14 @@ function includes(path, source, token)
     }
 }
 
+function includesStringLiteral(path, source, token)
+{
+    if (!source.includes(`'${token}'`) && !source.includes(`"${token}"`))
+    {
+        errors.push(`${path} missing string literal ${token}`);
+    }
+}
+
 for (const file of screenshots)
 {
     const path = `docs/assets/screenshots/${file}`;
@@ -132,7 +140,6 @@ const manualCapture = read('tests/frontend/e2e/manual/manual-layout-screenshots.
 for (const token of [
     'APP_ROUTE_RECORDS',
     'buildManualRoutesFromRouteRecords',
-    'materializeRoutePath',
     'ensureThemeApplied',
     'assertThemeModeToggleStyled',
     'parseManualScreenshotFilter',
@@ -152,6 +159,12 @@ for (const token of [
 {
     includes('tests/frontend/e2e/manual/manual-layout-screenshots.spec.ts', manualCapture, token);
 }
+const manualRoutePlan = read('tests/frontend/support/playwright/manualScreenshotRoutePlan.ts');
+includes(
+    'tests/frontend/support/playwright/manualScreenshotRoutePlan.ts',
+    manualRoutePlan,
+    'materializeRoutePath'
+);
 const hydrationReadinessIndex = manualCapture.indexOf('await waitForPublicHydration(page)');
 const dynamicNormalizationIndex = manualCapture.indexOf('await normalizeDynamicEvidenceForScreenshot(page)');
 if (hydrationReadinessIndex < 0 || dynamicNormalizationIndex < 0 || hydrationReadinessIndex > dynamicNormalizationIndex)
@@ -190,14 +203,36 @@ if (
     errors.push('public-preview quality capture must finish hydration before normalizing dynamic DOM text');
 }
 const playwrightConfiguration = read('src/frontend/playwright.config.ts');
+includes(
+    'src/frontend/playwright.config.ts',
+    playwrightConfiguration,
+    'FSUSBLOG_PUBLIC_PREVIEW_DOCS_CAPTURE'
+);
+const publicPreviewLaunchOptions = playwrightConfiguration.match(
+    /\.\.\.\(process\.env\.FSUSBLOG_PUBLIC_PREVIEW_DOCS_CAPTURE === '1'\s*\?\s*\[([\s\S]*?)\]\s*:\s*\[\]\)/u
+)?.[1] ?? '';
+if (!publicPreviewLaunchOptions)
+{
+    errors.push('src/frontend/playwright.config.ts must keep public-preview renderer flags capture-only');
+}
 for (const token of [
-    'FSUSBLOG_PUBLIC_PREVIEW_DOCS_CAPTURE',
     '--disable-gpu',
+    '--disable-gpu-rasterization',
+    '--disable-checker-imaging',
     '--disable-lcd-text',
-    '--disable-font-subpixel-positioning'
+    '--disable-font-subpixel-positioning',
+    '--disable-skia-runtime-opts',
+    '--disable-oop-rasterization',
+    '--disable-partial-raster',
+    '--disable-threaded-animation',
+    '--disable-threaded-scrolling',
+    '--disable-zero-copy',
+    '--force-device-scale-factor=1',
+    '--force-color-profile=srgb',
+    '--num-raster-threads=1'
 ])
 {
-    includes('src/frontend/playwright.config.ts', playwrightConfiguration, token);
+    includesStringLiteral('src/frontend/playwright.config.ts', publicPreviewLaunchOptions, token);
 }
 for (const token of [
     'buildAnonymousRoutes',

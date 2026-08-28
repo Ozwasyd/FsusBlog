@@ -43,9 +43,11 @@ fixture、assertion 集、coverage IDs、status、failure diagnostics 与 timing
 `summary.json` 只在整组成功时生成；failure/cancel 只保留 `partial.json`，
 后续成功不得覆盖先前失败。
 
-host 在 identity/fault 阶段边界调用既有
-`tools/test/lanes/reset-security-runtime-state.sh`，并生成结构化 reset receipt。
-receipt 非 pass、仍有 active identity 或发现 pollution 时对应场景 fail closed。
+host 在 identity/fault 阶段边界只消费 `security-state` producer 的 exact owned
+cleanup observation（由 `FSUSBLOG_SECURITY_FIXTURE_CLEANUP_RECEIPT_FILE` 绑定），
+不直接操作 PostgreSQL 或 Redis。receipt digest 无法重算、仍有 owned state、
+修改 non-owned state、未保留其他 namespace，或仍有 active identity 时对应场景
+fail closed。
 `tests/tools/fixtures/runtime-scenario-host/polluted-identity.json` 和
 `tests/tools/runtime-scenario-host.test.mjs` 证明污染不能被后续成功覆盖。
 

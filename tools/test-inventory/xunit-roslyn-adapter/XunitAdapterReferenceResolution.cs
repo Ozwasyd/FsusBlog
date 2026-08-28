@@ -98,7 +98,7 @@ internal static partial class XunitAdapterProgram
                 // Ignore unreadable runtime configs; NETCore.App ref pack still covers the BCL.
             }
         }
-        if (frameworks.Count == 0)
+        if (frameworks.Count == 0 && dotnetRoot is not null)
         {
             string fallback = Path.Combine(dotnetRoot, "shared", "Microsoft.AspNetCore.App");
             if (Directory.Exists(fallback))

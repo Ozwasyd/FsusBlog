@@ -1,0 +1,42 @@
+{
+  "schema": "fsusblog.generated-output-binding.v1",
+  "sources": [
+    "config/docs/public-preview-screenshots.json",
+    "config/testing/fsusui-baseline.json",
+    "src/frontend/playwright.config.ts"
+  ],
+  "outputs": [
+    {
+      "path": "docs/assets/screenshots/admin-dashboard.png",
+      "sha256": "39dddb819c5f72a094fb9b689ad74f86da03e70cc1c4d5e02cd1ff96c217b95e"
+    },
+    {
+      "path": "docs/assets/screenshots/article-detail-light.png",
+      "sha256": "aac87b4bdcaffc2046a52d52485696ade55104b4a2df5651c13f6ba5e8fc3385"
+    },
+    {
+      "path": "docs/assets/screenshots/article-editor.png",
+      "sha256": "ba63bccafb0c3d2c8683e1a6d692727ebdad03e0170c113fea923e43fbef773a"
+    },
+    {
+      "path": "docs/assets/screenshots/comment-moderation.png",
+      "sha256": "ad67bdd3b28a9980d3d5820b6f68e2f39c1ff9979570a5b03742cda73d7a27f1"
+    },
+    {
+      "path": "docs/assets/screenshots/manifest.json",
+      "sha256": "d1af68e7f64b07ac233525550044a816694c4dddc3927464451617483f2450dd"
+    },
+    {
+      "path": "docs/assets/screenshots/operations-status.png",
+      "sha256": "80f7f5d8a6ccc930405139eaedae9da7f68f7143a8f04fb45cabb0435a18de59"
+    },
+    {
+      "path": "docs/assets/screenshots/security-console.png",
+      "sha256": "b795b89a4052c95ed5a927d1e9e12435f1e83c0113b5dfaafae5582c9f4ebe7f"
+    },
+    {
+      "path": "docs/assets/visual-evidence/public-preview-quality.json",
+      "sha256": "1b92248110525a841f31fe05f77c2b5192d1efb3dd0d4bd0263d08b248e179a7"
+    }
+  ]
+}

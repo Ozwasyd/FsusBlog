@@ -110,6 +110,29 @@ public interface IUserLoginWorkflowService
     Task<RiskEvaluationResult> EvaluateLoginRiskAsync(int userId, string clientIp, string? deviceFingerprint, string? userAgent, CancellationToken cancellationToken = default);
 }
 
+public readonly record struct UserSessionFixtureIdentity(
+    string SessionId,
+    string RefreshFamilyId);
+
+/// <summary>
+/// Development/Test-only semantic port. It is registered only with the local
+/// auth fixture composition root and retains the production login workflow.
+/// </summary>
+public interface IUserSessionFixtureLoginWorkflow
+{
+    Task<(bool Success, string Message, SessionTokenResponseDto? Data, UserAccountSnapshot? User)>
+        CompleteFixtureLoginAsync(
+            int userId,
+            string clientIp,
+            string? deviceFingerprint,
+            string? userAgent,
+            bool mfaVerified,
+            bool rememberMe,
+            UserSessionAuthenticationContext authenticationContext,
+            UserSessionFixtureIdentity fixtureIdentity,
+            CancellationToken cancellationToken = default);
+}
+
 public interface IUserProfileCommandService
 {
     Task<(bool Success, string Message)> UpdatePublicHandleAsync(int userId, string? publicHandle, CancellationToken cancellationToken = default);

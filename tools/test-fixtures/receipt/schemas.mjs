@@ -32,5 +32,10 @@ export const ENTITY_IDENTITY_KINDS = Object.freeze([
     'preference',
     'scale-batch',
     'security-subject',
+    'security-credential',
+    'security-nullifier',
+    'security-issuance',
+    'security-audit',
+    'security-rate-limit',
     'other'
 ]);

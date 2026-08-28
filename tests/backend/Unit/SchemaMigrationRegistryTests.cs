@@ -523,43 +523,25 @@ public sealed class SchemaMigrationRegistryTests
     }
 
     [Fact]
-    public void GetDescriptors_AssetLibraryArticleRef_CreatesArticleScopedAssetProjection()
+    public void GetDescriptors_ContentAssetCutover_CreatesSingleLedgerAndCleanupBoundary()
     {
         var registry = new SchemaMigrationRegistry();
 
         ISchemaMigrationDescriptor descriptor = Assert.Single(
             registry.GetDescriptors(),
-            static item => item.MigrationId == "20260629-post-asset-library-article-ref");
-        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
-        string runnerRuntime = RuntimeMetadataInspection.DescribeMethods(
-            typeof(SchemaMigrationRunner),
-            nameof(SchemaMigrationRunner.RunAsync));
-
-        Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
-        Assert.Contains("asset_library_article_ref", fingerprint, StringComparison.Ordinal);
-        Assert.Contains("PRIMARY KEY (url, article_id)", fingerprint, StringComparison.Ordinal);
-        Assert.Contains("reference_count integer NOT NULL", fingerprint, StringComparison.Ordinal);
-        Assert.Contains("idx_asset_library_article_ref_article", fingerprint, StringComparison.Ordinal);
-        Assert.Contains("asset_library_article_ref", runnerRuntime, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void GetDescriptors_ArticleAssetReferenceLedger_CreatesDelayedCleanupBoundary()
-    {
-        var registry = new SchemaMigrationRegistry();
-
-        ISchemaMigrationDescriptor descriptor = Assert.Single(
-            registry.GetDescriptors(),
-            static item => item.MigrationId == ArticleAssetReferenceMigrationDefinitions.MigrationId);
+            static item => item.MigrationId == ContentAssetCutoverMigrationDefinitions.MigrationId);
         string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
 
         Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
         Assert.True(descriptor.Transactional);
-        Assert.Contains("article_asset_reference", fingerprint, StringComparison.Ordinal);
-        Assert.Contains("PRIMARY KEY (normalized_url, source_kind, source_key)", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("content_asset", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("content_asset_reference", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("PRIMARY KEY (asset_id, source_kind, source_key)", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("reference_count integer NOT NULL", fingerprint, StringComparison.Ordinal);
         Assert.Contains("source_kind IN ('article', 'draft', 'revision')", fingerprint, StringComparison.Ordinal);
-        Assert.Contains("article_asset_cleanup_queue", fingerprint, StringComparison.Ordinal);
-        Assert.Contains("idx_article_asset_cleanup_due", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("content_asset_cleanup_queue", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("idx_content_asset_cleanup_due", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("ContentAssetCutoverBackfill", string.Join(',', descriptor.Steps.Select(static step => step.Kind)), StringComparison.Ordinal);
     }
 
     [Fact]

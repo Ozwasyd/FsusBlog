@@ -1,0 +1,44 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.local/schemas/release-clean-attempt-cohort.v1.json",
+    "title": "FsusBlog append-only clean attempt cohort",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["schema", "cohortId", "buildIdentity", "previousRevisionDigest", "events", "qualificationEligible", "contentDigest"],
+    "properties": {
+        "schema": { "const": "fsusblog.release-clean-attempt-cohort.v1" },
+        "cohortId": { "type": "string", "minLength": 1 },
+        "buildIdentity": { "$ref": "#/$defs/digest" },
+        "previousRevisionDigest": { "oneOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }] },
+        "events": {
+            "type": "array",
+            "maxItems": 3,
+            "items": { "$ref": "#/$defs/event" }
+        },
+        "qualificationEligible": { "type": "boolean" },
+        "contentDigest": { "$ref": "#/$defs/digest" }
+    },
+    "$defs": {
+        "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "reference": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "digest"],
+            "properties": { "path": { "type": "string", "minLength": 1 }, "digest": { "$ref": "#/$defs/digest" } }
+        },
+        "event": {
+            "type": "object",
+            "required": ["schema", "sequence", "slot", "previousEventDigest", "status", "reasons", "evidence", "contentDigest"],
+            "properties": {
+                "schema": { "const": "fsusblog.release-clean-attempt-cohort-event.v1" },
+                "sequence": { "type": "integer", "minimum": 1, "maximum": 3 },
+                "slot": { "type": "integer", "minimum": 1, "maximum": 3 },
+                "previousEventDigest": { "oneOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }] },
+                "status": { "enum": ["admitted", "rejected"] },
+                "reasons": { "type": "array", "items": { "type": "object" } },
+                "evidence": { "type": "object" },
+                "contentDigest": { "$ref": "#/$defs/digest" }
+            }
+        }
+    }
+}
