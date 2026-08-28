@@ -19,6 +19,8 @@ const environmentVariableGovernanceFixtureDirectory = 'tests/backend/Fixtures/en
 const platformRuntimeGovernanceFixtureDirectory = 'tests/backend/Fixtures/platform-runtime-governance';
 const publicAotCrashWorkerGovernanceFixtureDirectory =
     'tests/backend/Fixtures/public-aot-crash-worker-governance';
+const localRedisFixtureGovernanceDirectory =
+    'tests/backend/Fixtures/local-redis-fixture-governance';
 const environmentVariableCollectionPath = 'tests/backend/Fixtures/EnvironmentVariableCollection.cs';
 const approvedEnvironmentVariableMutationFiles = new Set([
     'tests/backend/Fixtures/ScopedEnvironmentVariables.cs'
@@ -436,6 +438,127 @@ function verifyEnvironmentVariableGovernance()
     }
 }
 
+function scanLocalRedisFixtureGovernance(relativePath, source)
+{
+    const masked = maskCSharpTrivia(source);
+    const violations = [];
+    const methodPattern =
+        /((?:\[[^\]\r\n]+\][ \t\r\n]*)+)(?:public\s+)?(?:async\s+)?(?:Task(?:<[^>]+>)?|ValueTask(?:<[^>]+>)?|void)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\([^)]*\)\s*\{/gu;
+    for (const match of masked.matchAll(methodPattern))
+    {
+        const attributes = source.slice(match.index, match.index + match[1].length);
+        if (!/\b(?:Fact|Theory)\b/u.test(attributes))
+        {
+            continue;
+        }
+        const hasLocalRedisTrait =
+            /\[\s*Trait\s*\(\s*(?:"|@")Fixture(?:"|@")\s*,\s*(?:"|@")LocalRedis(?:"|@")\s*\)\s*\]/u.test(attributes);
+
+        const openingIndex = match.index + match[0].lastIndexOf('{');
+        let depth = 0;
+        let closingIndex = masked.length;
+        for (let index = openingIndex; index < masked.length; index += 1)
+        {
+            if (masked[index] === '{')
+            {
+                depth += 1;
+            }
+            else if (masked[index] === '}')
+            {
+                depth -= 1;
+                if (depth === 0)
+                {
+                    closingIndex = index;
+                    break;
+                }
+            }
+        }
+        const body = masked.slice(openingIndex + 1, closingIndex);
+        const bodySource = source.slice(openingIndex + 1, closingIndex);
+
+        if (bodySource.includes('FSUSBLOG_TEST_REDIS') && !hasLocalRedisTrait)
+        {
+            violations.push({
+                path: relativePath,
+                line: lineNumberForIndex(source, match.index),
+                rule: 'local-redis-fixture-trait-missing',
+                message: `${match[2]} consumes FSUSBLOG_TEST_REDIS without [Trait("Fixture", "LocalRedis")]`
+            });
+        }
+
+        if (
+            (match[2] === 'ArtifactPoolBurnSurvivesCancellationProcessInterruptionAndAmbiguousReply' ||
+             relativePath.includes('local-redis-fixture-governance')) &&
+            bodySource.includes('FSUSBLOG_TEST_REDIS') &&
+            /\breturn\s*;/u.test(body)
+        )
+        {
+            violations.push({
+                path: relativePath,
+                line: lineNumberForIndex(source, match.index),
+                rule: 'local-redis-runtime-return',
+                message: `${match[2]} must fail closed when FSUSBLOG_TEST_REDIS is missing, not return early`
+            });
+        }
+    }
+    return violations;
+}
+
+function verifyLocalRedisFixtureGovernance()
+{
+    const positiveFixture = `${localRedisFixtureGovernanceDirectory}/planned-local-redis-test.fixture.cs.txt`;
+    const runtimeReturnFixture = `${localRedisFixtureGovernanceDirectory}/runtime-return.fixture.cs.txt`;
+    const missingTraitFixture = `${localRedisFixtureGovernanceDirectory}/missing-fixture-trait.fixture.cs.txt`;
+
+    requireFile(positiveFixture);
+    requireFile(runtimeReturnFixture);
+    requireFile(missingTraitFixture);
+
+    if (scanLocalRedisFixtureGovernance(
+        positiveFixture,
+        readFileSync(resolve(root, positiveFixture), 'utf8')
+    ).length !== 0)
+    {
+        fail('backend LocalRedis fixture governance rejected the positive fixture');
+    }
+
+    const runtimeReturn = scanLocalRedisFixtureGovernance(
+        runtimeReturnFixture,
+        readFileSync(resolve(root, runtimeReturnFixture), 'utf8')
+    );
+    if (runtimeReturn.length !== 1 || runtimeReturn[0].rule !== 'local-redis-runtime-return')
+    {
+        fail('backend LocalRedis fixture governance must reject runtime return');
+    }
+
+    const missingTrait = scanLocalRedisFixtureGovernance(
+        missingTraitFixture,
+        readFileSync(resolve(root, missingTraitFixture), 'utf8')
+    );
+    if (missingTrait.length !== 1 || missingTrait[0].rule !== 'local-redis-fixture-trait-missing')
+    {
+        fail('backend LocalRedis fixture governance must reject missing Fixture=LocalRedis trait');
+    }
+
+    const backendTestFiles = walk(
+        resolve(root, 'tests/backend'),
+        path => path.endsWith('.cs')
+    )
+        .map(path => ({ fullPath: path, relativePath: toRepoPath(path) }))
+        .sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+    for (const { fullPath, relativePath } of backendTestFiles)
+    {
+        const source = readFileSync(fullPath, 'utf8');
+        for (const violation of scanLocalRedisFixtureGovernance(relativePath, source))
+        {
+            fail(
+                `backend-local-redis-fixture-governance ${violation.path}:${violation.line} ` +
+                `${violation.rule}: ${violation.message}`
+            );
+        }
+    }
+}
+
 function extractFactMethods(source)
 {
     const masked = maskCSharpTrivia(source);
@@ -846,6 +969,7 @@ verifyEnvironmentVariableGovernance();
 verifyPlatformRuntimeGovernance(root, fail);
 verifyPublicAotCrashWorkerGovernance(root, fail);
 verifyFactWrappersAndSearchUtf8ScalarOwner(root, fail, maskCSharpTrivia, verifyFactWrappersDeleted);
+verifyLocalRedisFixtureGovernance();
 
 if (errors.length > 0)
 {

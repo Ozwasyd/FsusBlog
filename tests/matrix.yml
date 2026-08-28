@@ -7245,7 +7245,11 @@ tiers:
       cadence: push
       requiredFor: production
       coverage: [perception-character-v3-breaking-release]
-      artifacts: [.tmp/security/perception-character-v3/release-gate]
+      artifacts:
+          [
+              .tmp/security/perception-character-v3/release-gate,
+              .tmp/test-results/backend/perception-character-v3-redis-producer.json,
+          ]
       evidence:
           [
               .tmp/security/perception-character-v3/release-gate/gate-summary.json,
@@ -7254,6 +7258,11 @@ tiers:
               .tmp/security/perception-character-v3/release-gate/perception-character-v3-migration-receipt.json,
               .tmp/security/perception-character-v3/release-gate/implementation-verification-receipt.json,
               .tmp/security/perception-character-v3/release-gate/independent-review-receipt.json,
+              .tmp/test-results/backend/perception-character-v3-redis-producer.json,
+              tests/backend/Unit/PerceptionCharacterV3ArtifactPoolTests.cs,
+              tests/tools/perception-character-v3-redis-fixture.test.mjs,
+              tools/test/perception-character-v3-redis-fixture.sh,
+              tools/test/perception-redis-producer.mjs,
           ]
       ciJob: security-static-fuzz
       localOnly: false
