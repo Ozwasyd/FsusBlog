@@ -6450,6 +6450,7 @@ tiers:
               tools/test/ensure-benchmark-release-build.sh,
               tools/test-matrix/dotnet-build-server-cleanup.mjs,
               tools/test/run-with-dotnet-release-build-lock.sh,
+              tools/test/native-p99-producer-contract.mjs,
               tools/test/lanes/perf-regression.sh,
               tools/test/lanes,
           ]
