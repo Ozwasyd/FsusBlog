@@ -3118,7 +3118,7 @@ test('scheduler injects its authoritative Fresh or resume mode into every tier e
     assert.deepEqual(executionSources, ['fresh', 'resume']);
 });
 
-test('an early resume failure preserves untouched success candidates for the next resume', async () =>
+test('an early resume failure requires a new independent run', async () =>
 {
     const { runDag } = await loadScheduler();
     const temp = createTempDir('scheduler-resume-early-failure');
@@ -3168,15 +3168,11 @@ test('an early resume failure preserves untouched success candidates for the nex
 
     failGate = false;
     executed.length = 0;
-    const recoveredResume = await run(true);
-    assert.equal(recoveredResume.status, 'success');
-    assert.deepEqual(executed, ['gate']);
-    assert.deepEqual(recoveredResume.reusedTiers, ['later-independent']);
-    assert.deepEqual(recoveredResume.checkpoint.completedTiers, ['gate', 'later-independent']);
-    assert.deepEqual(recoveredResume.checkpoint.resumeCandidates, {});
+    await assert.rejects(run(true), /cannot re-execute failed tiers.*gate/u);
+    assert.deepEqual(executed, []);
 });
 
-test('carried resume candidates retain source provenance across an early failure', async () =>
+test('carried resume candidates cannot hide an early failed attempt', async () =>
 {
     const { runDag } = await loadScheduler();
     const temp = createTempDir('scheduler-resume-candidate-source');
@@ -3227,10 +3223,8 @@ test('carried resume candidates retain source provenance across an early failure
 
     failGate = false;
     executed.length = 0;
-    const recoveredResume = await run(true);
-    assert.equal(recoveredResume.status, 'success');
-    assert.deepEqual(recoveredResume.reusedTiers, []);
-    assert.deepEqual(executed, ['gate', 'later-independent']);
+    await assert.rejects(run(true), /cannot re-execute failed tiers.*gate/u);
+    assert.deepEqual(executed, []);
 });
 
 test('resume can require one coherent source state instead of reusing otherwise valid tiers', async () =>
@@ -3956,7 +3950,7 @@ test('matrix job summaries explicitly separate browser diagnostics from correctn
     }
 });
 
-test('viewport CLI resume reaches Playwright progress while fresh clears ambient resume state', () =>
+test('viewport CLI never reuses failed Playwright progress across scheduler resume', () =>
 {
     const temp = createTempDir('scheduler-viewport-resume');
     const runner = createRunnerFixture(temp);
@@ -4010,7 +4004,7 @@ test('viewport CLI resume reaches Playwright progress while fresh clears ambient
         encoding: 'utf8'
     });
     assert.equal(resumed.status, 0, resumed.stderr);
-    assert.deepEqual(fs.readFileSync(history, 'utf8').trim().split('\n'), ['0', '1']);
+    assert.deepEqual(fs.readFileSync(history, 'utf8').trim().split('\n'), ['0', '0']);
 });
 
 test('local fresh runs isolate the default namespace by scheduler run id', () =>

@@ -509,7 +509,6 @@ backend_container_id="$(docker run -d --name "$backend_container" --network "$ba
     --label "io.fsusblog.test.run-id=$run_id" --label "io.fsusblog.test.namespace=$namespace" "$image")"
 [[ "$backend_container_id" =~ ^[0-9a-f]{64}$ ]] || { printf '%s\n' 'backend app container did not return one concrete ID' >&2; exit 1; }
 runtime_health_deadline=$((SECONDS + 180))
-runtime_smoke_deadline=""
 runtime_smoke_observation=""
 runtime_smoke_attempt_count=0
 runtime_smoke_started_seconds=""
@@ -532,19 +531,7 @@ while true; do
     fi
     case "$runtime_health_status" in
         healthy)
-            if [[ -z "$runtime_smoke_deadline" ]]; then
-                runtime_smoke_deadline=$((SECONDS + 60))
-                runtime_smoke_started_seconds="$SECONDS"
-            fi
-            runtime_smoke_attempt_count=$((runtime_smoke_attempt_count + 1))
-            if runtime_smoke_observation=$(node "$runtime_smoke_probe" \
-                "${runtime_smoke_probe_arguments[@]}" 2>&1); then
-                break
-            fi
-            if ((SECONDS >= runtime_smoke_deadline)); then
-                printf 'runtime image backend did not satisfy live/canonical AEDS route admission after becoming healthy: %s\n' "$runtime_smoke_observation" >&2
-                exit 1
-            fi
+            break
             ;;
         starting)
             runtime_smoke_observation="Docker health status is starting"
@@ -564,6 +551,13 @@ while true; do
     esac
     sleep 0.25
 done
+runtime_smoke_started_seconds="$SECONDS"
+runtime_smoke_attempt_count=1
+if ! runtime_smoke_observation=$(node "$runtime_smoke_probe" \
+    "${runtime_smoke_probe_arguments[@]}" 2>&1); then
+    printf 'runtime image backend did not satisfy live/canonical AEDS route admission on its first attempt: %s\n' "$runtime_smoke_observation" >&2
+    exit 1
+fi
 runtime_smoke_elapsed_seconds=$((SECONDS - runtime_smoke_started_seconds))
 fixture_authority=".tmp/release-reliability/${run_id}/fixture-authority.json"
 audit_retention_policy="src/backend/Infrastructure/Audit/AuditRetentionCatalog.cs"

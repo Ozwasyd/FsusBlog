@@ -1,0 +1,73 @@
+{
+    "schema": "fsusblog.retry-policy-registry.v1",
+    "policyVersion": "fsusblog-attempt-provenance-v1",
+    "statuses": [
+        "cancelled",
+        "clean-success",
+        "diagnostic-failed-after-retry",
+        "diagnostic-recovered-after-allowed-infra-retry",
+        "failed-no-retry",
+        "recovered-infra-success",
+        "unstable-attempt-topology"
+    ],
+    "classifications": [
+        "correctness",
+        "diagnostic",
+        "restore-transfer"
+    ],
+    "actions": [
+        "diagnostic-only",
+        "instrument",
+        "remove",
+        "restore-only"
+    ],
+    "defaultDisposition": {
+        "allowedRetries": 0,
+        "qualificationEligible": false,
+        "retryOn": []
+    },
+    "policies": [
+        {
+            "id": "correctness-first-attempt",
+            "classification": "correctness",
+            "allowedRetries": 0,
+            "retryOn": [],
+            "firstFailureBlocksQualification": true,
+            "successClassification": "clean-success",
+            "recoveredClassification": null,
+            "qualificationSemantics": "first-and-only-attempt-must-be-clean",
+            "owner": "test-governance"
+        },
+        {
+            "id": "diagnostic-browser-process-crash",
+            "classification": "diagnostic",
+            "allowedRetries": 1,
+            "retryOn": [
+                "browser-process-crash"
+            ],
+            "firstFailureBlocksQualification": true,
+            "successClassification": "clean-success",
+            "recoveredClassification": "diagnostic-recovered-after-allowed-infra-retry",
+            "qualificationSemantics": "diagnostic-only-never-qualifies",
+            "owner": "test-governance"
+        },
+        {
+            "id": "dependency-transfer-observed-recovery",
+            "classification": "restore-transfer",
+            "allowedRetries": 1,
+            "retryOn": [
+                "dependency-registry-connection-reset",
+                "dependency-registry-timeout"
+            ],
+            "firstFailureBlocksQualification": true,
+            "successClassification": "clean-success",
+            "recoveredClassification": "recovered-infra-success",
+            "qualificationSemantics": "recovered-output-may-fill-cache-but-never-qualifies",
+            "owner": "build"
+        }
+    ],
+    "producerBindingSources": [
+        "config/testing/correctness-attempt-producers.json",
+        "config/testing/retry-disposition-registry.json"
+    ]
+}

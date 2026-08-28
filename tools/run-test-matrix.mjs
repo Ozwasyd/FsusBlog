@@ -15,6 +15,7 @@ import {
 } from './docs/behavior-doc-static-admission.mjs';
 import { sealSourceIdentity } from './fact-extractors/identity.mjs';
 import { availableMemoryGiB } from './test/system-memory.mjs';
+import { validateCorrectnessAttemptMigration } from './test/correctness-attempt-migration.mjs';
 import {
     buildAggregatePlan as buildAggregateReachabilityPlan,
     buildReceiptPlan as buildReceiptReachabilityPlan
@@ -2061,14 +2062,7 @@ function applyUxViewportResumeEnvironment(env, tier, resume)
     {
         return env;
     }
-    if (resume)
-    {
-        env.FSUSBLOG_UX_VIEWPORT_RESUME = '1';
-    }
-    else
-    {
-        env.FSUSBLOG_UX_VIEWPORT_RESUME = '0';
-    }
+    env.FSUSBLOG_UX_VIEWPORT_RESUME = '0';
     return env;
 }
 
@@ -6384,6 +6378,7 @@ async function main()
     }
 
     const matrix = loadMatrix({ validateDependencyFields: command !== 'validate' });
+    validateCorrectnessAttemptMigration(root);
     if (command === 'validate')
     {
         const errors = [

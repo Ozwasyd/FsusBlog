@@ -2437,6 +2437,16 @@ function resumeTierCandidates(previous, tierIds)
     {
         return candidates;
     }
+    const terminalFailures = Object.entries(previous.tiers ?? {})
+        .filter(([, result]) => result?.status !== 'success')
+        .map(([tierId]) => tierId)
+        .sort();
+    if (terminalFailures.length > 0)
+    {
+        throw new Error(
+            `correctness resume cannot re-execute failed tiers; start an independent run: ${terminalFailures.join(', ')}`
+        );
+    }
 
     const retainSuccessful = (tierId, value, fallbackSourceState) =>
     {
@@ -5125,7 +5135,7 @@ async function runDagUnlocked(options)
         if (
             resumeBudgetPolicyChanged
       || (options.reuseAcrossSourceChanges === false && !sameCheckpointSource(candidate?.sourceState, sourceState))
-      || previousTier?.status !== 'success'
+      || !Object.is(previousTier?.status, 'success')
       || previousTier.inputFingerprint !== inputFingerprint
       || previousTier.dependencyFingerprint !== dependencyFingerprintValue
       || previousTier.outputFingerprint !== currentOutputs.fingerprint
