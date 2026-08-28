@@ -141,6 +141,39 @@
             "reason": "The canonical final-image projection and its sole shell executor must change atomically for the same caller-visible process environment keys."
         },
         {
+            "id": "release-locator-current-run-authority",
+            "authorityExceptionId": "json-api-field",
+            "paths": [
+                "config/testing/evidence-location-migration-ledger.json",
+                "config/testing/evidence-locator-registry.json",
+                "config/testing/evidence-locator-registry.schema.json",
+                "tools/operations/collect-release-evidence.sh",
+                "tools/release/check-release-final.mjs",
+                "tools/release/public-preview-release-evidence.mjs",
+                "tools/release/release-final-domain-evidence.mjs",
+                "tools/release/test-evidence-receipts.mjs",
+                "tools/test/current-run-evidence-locator.mjs",
+                "tools/test/current-run-evidence-publication.mjs",
+                "tools/test/evidence-location-contract.mjs",
+                "tools/test/generate-evidence-location-governance.mjs",
+                "tools/test/lanes/release-final.sh",
+                "tools/test/publish-current-run-evidence-reference.mjs",
+                "tools/test/publish-release-final-evidence-parent.mjs"
+            ],
+            "externalPattern": "^[A-Za-z][A-Za-z0-9_.:/-]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH",
+                "internal": "releaseFinalEvidencePath"
+            },
+            "negative": {
+                "external": "FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH",
+                "internal": "FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH"
+            },
+            "reason": "The sealed release locator registry, producer adapters, parent receipt, verifier and release-final consumer must change atomically while preserving their caller-visible JSON keys, schemas, CLI flags and process environment bindings."
+        },
+        {
             "id": "production-image-verification-contract",
             "authorityExceptionId": "environment-variable",
             "paths": [
