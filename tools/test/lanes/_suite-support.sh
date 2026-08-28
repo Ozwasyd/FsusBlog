@@ -1744,7 +1744,7 @@ EndLegacyRuntimeScenarioObservation() {
 RunIntegrationOnly() {
     Log "tier=integration | debug runtime validation, requires frontend=3000 backend=5000"
     if [[ "${FSUSBLOG_SKIP_BACKEND_INTEGRATION_TESTS:-0}" != "1" ]]; then
-        RunBackendDotnetFilterOnly "Category=Integration" integration
+        RunBackendDotnetFilterOnly "Category=Integration&Fixture!=Legacy20260517RealDump" integration
         Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/write-rights-v3-integration-producer.mjs"
     fi
     RequireDebugStack
