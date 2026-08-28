@@ -88,6 +88,16 @@
                     "consumer": "notification-stream"
                 },
                 {
+                    "field": "profile.createdat",
+                    "roleId": "profile.created",
+                    "consumer": "account-profile"
+                },
+                {
+                    "field": "profile.updatedat",
+                    "roleId": "profile.updated",
+                    "consumer": "account-profile"
+                },
+                {
                     "field": "audit.occurred-at",
                     "roleId": "audit.occurred",
                     "consumer": "audit-projection"
