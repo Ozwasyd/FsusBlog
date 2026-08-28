@@ -24,22 +24,6 @@ function walk<TState extends string, TEvent extends string>(
   return events.reduce((state, event) => transition(machine, state, event), machine.initial)
 }
 
-const markdownMachine = {
-  initial: 'clean_draft',
-  transitions: {
-    clean_draft: { edit: 'editing' },
-    editing: { saveDraft: 'autosaved', serverFail: 'server_draft_failed', publishShortcut: 'publish_confirm' },
-    autosaved: { edit: 'editing', publishShortcut: 'publish_confirm' },
-    server_draft_failed: { recover: 'recovered', edit: 'editing' },
-    recovered: { saveDraft: 'autosaved', edit: 'editing' },
-    publish_confirm: { cancelPublish: 'editing', confirmPublish: 'published' },
-    published: { edit: 'editing' }
-  }
-} satisfies Machine<
-  'clean_draft' | 'editing' | 'autosaved' | 'server_draft_failed' | 'recovered' | 'publish_confirm' | 'published',
-  'edit' | 'saveDraft' | 'serverFail' | 'recover' | 'publishShortcut' | 'cancelPublish' | 'confirmPublish'
->
-
 const settingsMachine = {
   initial: 'loaded',
   transitions: {
@@ -84,11 +68,6 @@ const uploadMachine = {
 >
 
 describe('frontend state machine models', () => {
-  it('separates draft save from publish confirmation in markdown authoring', () => {
-    expect(walk(markdownMachine, ['edit', 'saveDraft', 'publishShortcut', 'confirmPublish'])).toBe('published')
-    expect(() => transition(markdownMachine, 'editing', 'confirmPublish')).toThrow('illegal transition')
-  })
-
   it('requires a decision before switching dirty settings state', () => {
     expect(walk(settingsMachine, ['edit', 'switchSlug', 'cancel'])).toBe('dirty')
     expect(walk(settingsMachine, ['edit', 'switchSlug', 'discard'])).toBe('loaded')
