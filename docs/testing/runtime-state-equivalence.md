@@ -101,8 +101,17 @@ The command selects
 `tools/test-runtime/production-runtime-order-provider.mjs`; `--provider` is
 reserved for an independently reviewed production adapter and is not a test
 fallback. The canonical provider requires
-`FSUSBLOG_RUNTIME_ORDER_BINDING_MODULE`; its session root defaults to the
-repository-contained `.tmp/runtime-order-sessions` and may be overridden only
+`FSUSBLOG_RUNTIME_ORDER_IDENTITY_FILE`; the default binding is
+`tools/test-runtime/production-current-run-binding.mjs`, while
+`FSUSBLOG_RUNTIME_ORDER_BINDING_MODULE` is only an explicit reviewed override.
+`tools/test-runtime/produce-runtime-order-identity.mjs` is the sole producer
+for that identity file. It verifies the current production-build and replay
+receipts against the same run/source, binds the canonical fixture catalogs,
+execution-envelope policy, fixed epoch and state-domain catalog, and seals
+their digests before any schedule is created. The provider reopens and
+revalidates every referenced regular non-symlink file; a stale build, replay,
+fixture, envelope or catalog cannot authorize a run. Its session root defaults
+to the repository-contained `.tmp/runtime-order-sessions` and may be overridden only
 with another repository-contained `FSUSBLOG_RUNTIME_ORDER_SESSION_ROOT`. The binding may supply only sealed
 current-session adapters, readonly observer ports, coordination verification
 and reset-postcondition verification. It cannot supply snapshots, fragments,

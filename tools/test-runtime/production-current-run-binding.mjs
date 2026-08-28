@@ -15,7 +15,8 @@ import { readRunBoundMarker } from '../test-matrix/run-bound-marker.mjs';
 
 import { loadRuntimeStateAuthority } from './catalog.mjs';
 import { readBehaviorEvidenceReadyAuthority } from './behavior-evidence-ready-authority.mjs';
-import { normalizeRuntimeIdentity, requireDigest, sealDocument, verifySealedDocument } from './contract.mjs';
+import { normalizeRuntimeIdentity, requireDigest, sealDocument } from './contract.mjs';
+import { verifyRuntimeOrderIdentityAuthority } from './runtime-order-identity.mjs';
 import { publishProductionObserverAuthority, readProductionObserverAuthority } from './production-observer-authority.mjs';
 import { createDockerPostgresqlReadonlyPort, createDockerRedisReadonlyPort } from './production-observer-ports.mjs';
 import {
@@ -46,12 +47,12 @@ function regularFile(file, label)
 
 function loadIdentityAuthority()
 {
-    const document = JSON.parse(fs.readFileSync(regularFile(identityFile, 'FSUSBLOG_RUNTIME_ORDER_IDENTITY_FILE'), 'utf8'));
-    if (document.schema !== 'fsusblog.production-runtime-order-identity.v1')
+    if (!String(process.env.FSUSBLOG_RUNTIME_ORDER_IDENTITY_FILE ?? '').trim())
     {
-        throw new Error('runtime-order identity schema is invalid');
+        throw new Error('FSUSBLOG_RUNTIME_ORDER_IDENTITY_FILE is required');
     }
-    verifySealedDocument(document);
+    const verified = verifyRuntimeOrderIdentityAuthority({ root: repositoryRoot, file: identityFile });
+    const document = verified.document;
     const identity = normalizeRuntimeIdentity({ ...document.identity, sessionId: 'schedule-template' });
     const fixedClock = document.fixedClock;
     if (!Number.isSafeInteger(Number(fixedClock?.epochMs)) || fixedClock?.digest !== identity.clockDigest)
