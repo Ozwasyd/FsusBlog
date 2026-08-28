@@ -15,6 +15,7 @@
         "tools/test/run-deterministic-command.mjs",
         "tools/test-fixtures/orchestrator.mjs",
         "tools/test-fixtures/producer-port.mjs",
+        "tools/test-fixtures/producers/auth-session-producer.mjs",
         "tools/test-fixtures/producers/catalog-ports.mjs",
         "tools/test-fixtures/producers/spawn-helper.mjs",
         "tools/test-fixtures/producers/temporal-child-handshake.bash",
@@ -25,6 +26,7 @@
         "tools/test-fixtures/receipt/producer-receipt.mjs",
         "tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs",
         "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs",
+        "src/backend/Services/Fixtures/AuthFixtureSeeder.cs",
         "src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs",
         "tests/browser-contract/default-fixture-provider.mjs",
         "src/backend/Modules/Endpoints/LocalDemoFixtureEndpoints.cs",
@@ -754,19 +756,6 @@
             "ingress": "runtime-monotonic",
             "owner": "browser-contract",
             "semanticEffect": "excluded"
-        },
-        {
-            "callSiteId": "session-fixtures.auth-business-epoch-normalization",
-            "path": "tests/frontend/support/session-fixtures.mjs",
-            "symbol": "resolveBusinessEpochUtc",
-            "sourceAnchor": "    return new Date(businessMs).toISOString().replace(/\\.(\\d{3})\\d*Z$/u, '.$1Z');",
-            "api": "new Date(value)",
-            "clockKind": "business-wall",
-            "authorityKind": "canonical-business-epoch",
-            "disposition": "business-wall",
-            "ingress": "canonical-injected",
-            "owner": "auth-session",
-            "semanticEffect": "included"
         },
         {
             "callSiteId": "session-fixtures.auth-manifest.generated-at",

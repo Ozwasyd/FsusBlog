@@ -1,0 +1,1754 @@
+{
+    "schema": "fsusblog.temporal-shape-catalog.v1",
+    "baseEpochAuthority": {
+        "source": "temporalContext.businessEpochUtc",
+        "representation": "relative-offsets-only"
+    },
+    "precisionPolicy": {
+        "unit": "millisecond",
+        "rounding": "none",
+        "loss": "reject"
+    },
+    "roleOwners": [
+        {
+            "id": "content-fixture",
+            "source": "src/backend/Services/Fixtures/PublicContentFixtureSeeder.cs"
+        },
+        {
+            "id": "identity-fixture",
+            "source": "tests/frontend/support/session-fixtures.mjs"
+        },
+        {
+            "id": "security-fixture",
+            "source": "tests/frontend/support/session-fixtures.mjs"
+        },
+        {
+            "id": "messaging-fixture",
+            "source": "tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs"
+        },
+        {
+            "id": "account-fixture",
+            "source": "config/testing/fixture-producer-registry.json"
+        },
+        {
+            "id": "audit-fixture",
+            "source": "src/backend/Services/Fixtures/DemoFixtureSeeder.cs"
+        },
+        {
+            "id": "scale-fixture",
+            "source": "tools/data-scale/seed.sh"
+        },
+        {
+            "id": "temporal-fixture",
+            "source": "tools/test/temporal-role-resolver.mjs"
+        }
+    ],
+    "roleRegistry": [
+        {
+            "id": "article.created",
+            "domain": "content",
+            "owner": "content-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "article.revision",
+            "domain": "content",
+            "owner": "content-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "article.publication",
+            "domain": "content",
+            "owner": "content-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "article.published",
+            "domain": "content",
+            "owner": "content-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "article.metadata-updated",
+            "domain": "content",
+            "owner": "content-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "comment.created",
+            "domain": "comment",
+            "owner": "content-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "comment.edited",
+            "domain": "comment",
+            "owner": "content-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "comment.moderated",
+            "domain": "comment",
+            "owner": "content-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "session.authenticated",
+            "domain": "session",
+            "owner": "identity-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "session.auth-time",
+            "domain": "session",
+            "owner": "identity-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "session.created",
+            "domain": "session",
+            "owner": "identity-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "session.last-seen",
+            "domain": "session",
+            "owner": "identity-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "session.idle-expiry",
+            "domain": "session",
+            "owner": "identity-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "session.absolute-expiry",
+            "domain": "session",
+            "owner": "identity-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "session.persistent-idle-expiry",
+            "domain": "session",
+            "owner": "identity-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "session.persistent-absolute-expiry",
+            "domain": "session",
+            "owner": "identity-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "session.admin-standard-idle-expiry",
+            "domain": "session",
+            "owner": "identity-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "session.admin-standard-absolute-expiry",
+            "domain": "session",
+            "owner": "identity-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "session.admin-persistent-idle-expiry",
+            "domain": "session",
+            "owner": "identity-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "session.admin-persistent-absolute-expiry",
+            "domain": "session",
+            "owner": "identity-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "session.access-token-expiry",
+            "domain": "session",
+            "owner": "identity-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "session.refresh-issued",
+            "domain": "session",
+            "owner": "identity-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "session.refresh-rotated",
+            "domain": "session",
+            "owner": "identity-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "session.revoked",
+            "domain": "session",
+            "owner": "identity-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "mfa.challenge-expiry",
+            "domain": "mfa",
+            "owner": "identity-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "mfa.proof-expiry",
+            "domain": "mfa",
+            "owner": "identity-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "webauthn.challenge-expiry",
+            "domain": "webauthn",
+            "owner": "identity-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "recovery.enrolled",
+            "domain": "recovery",
+            "owner": "identity-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "security.risk-occurred",
+            "domain": "security",
+            "owner": "security-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "security.risk-expiry",
+            "domain": "security",
+            "owner": "security-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "security.pow-window-start",
+            "domain": "security",
+            "owner": "security-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "security.pow-window-end",
+            "domain": "security",
+            "owner": "security-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "security.rate-limit-window-start",
+            "domain": "security",
+            "owner": "security-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "security.rate-limit-window-end",
+            "domain": "security",
+            "owner": "security-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "security.ban-start",
+            "domain": "security",
+            "owner": "security-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "security.ban-end",
+            "domain": "security",
+            "owner": "security-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "security.credential-issued",
+            "domain": "security",
+            "owner": "security-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "security.credential-expiry",
+            "domain": "security",
+            "owner": "security-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "security.credential-revoked",
+            "domain": "security",
+            "owner": "security-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "security.nullifier-issued",
+            "domain": "security",
+            "owner": "security-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "message.created",
+            "domain": "messaging",
+            "owner": "messaging-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "message.reply-created",
+            "domain": "messaging",
+            "owner": "messaging-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "message.read",
+            "domain": "messaging",
+            "owner": "messaging-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "message.deleted",
+            "domain": "messaging",
+            "owner": "messaging-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "message.thread-order",
+            "domain": "messaging",
+            "owner": "messaging-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "notification.event",
+            "domain": "notification",
+            "owner": "messaging-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "notification.ack",
+            "domain": "notification",
+            "owner": "messaging-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "notification.stream-sequence",
+            "domain": "notification",
+            "owner": "messaging-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "notification.resume",
+            "domain": "notification",
+            "owner": "messaging-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "notification.backlog",
+            "domain": "notification",
+            "owner": "messaging-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "profile.created",
+            "domain": "account",
+            "owner": "account-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "profile.updated",
+            "domain": "account",
+            "owner": "account-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "preference.revision",
+            "domain": "account",
+            "owner": "account-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "preference.conflict",
+            "domain": "account",
+            "owner": "account-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "preference.device-sync",
+            "domain": "account",
+            "owner": "account-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "audit.occurred",
+            "domain": "audit",
+            "owner": "audit-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "outbox.event-created",
+            "domain": "audit",
+            "owner": "audit-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "scale.row-created",
+            "domain": "scale",
+            "owner": "scale-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "fixture.command-time",
+            "domain": "fixture",
+            "owner": "temporal-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "fixture.boundary-time",
+            "domain": "fixture",
+            "owner": "temporal-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "fixture.occurred",
+            "domain": "fixture",
+            "owner": "temporal-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "fixture.arrival",
+            "domain": "fixture",
+            "owner": "temporal-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "fixture.processing",
+            "domain": "fixture",
+            "owner": "temporal-fixture",
+            "clockKind": "business-wall",
+            "semanticEffect": "included"
+        },
+        {
+            "id": "metadata.generated-at",
+            "domain": "metadata",
+            "owner": "temporal-fixture",
+            "clockKind": "artifact-metadata",
+            "semanticEffect": "excluded"
+        }
+    ],
+    "timezoneCases": [
+        {
+            "id": "utc",
+            "timezone": "UTC"
+        },
+        {
+            "id": "los-angeles",
+            "timezone": "America/Los_Angeles"
+        },
+        {
+            "id": "shanghai",
+            "timezone": "Asia/Shanghai"
+        }
+    ],
+    "cultureCases": [
+        {
+            "id": "invariant",
+            "locale": "en-US",
+            "backendCulture": "Invariant",
+            "calendar": "gregory"
+        },
+        {
+            "id": "zh-cn",
+            "locale": "zh-CN",
+            "backendCulture": "zh-CN",
+            "calendar": "gregory"
+        }
+    ],
+    "tieBreakers": [
+        {
+            "id": "message-id-ascending",
+            "identity": "ConversationMessage.Id ASC",
+            "source": "src/backend/Services/NotificationStream/MessageCenterService.ConversationQuery.cs"
+        },
+        {
+            "id": "conversation-activity-descending",
+            "identity": "LastMessageAt DESC then ConversationId DESC",
+            "source": "src/backend/Services/NotificationStream/MessageCenterService.ConversationQuery.cs"
+        }
+    ],
+    "invariants": [
+        {
+            "id": "article-lifecycle",
+            "kind": "ordered-chain",
+            "roles": [
+                "article.created",
+                "article.revision",
+                "article.publication"
+            ],
+            "operators": [
+                "<=",
+                "<="
+            ]
+        },
+        {
+            "id": "article-metadata-current",
+            "kind": "ordered-chain",
+            "roles": [
+                "article.revision",
+                "article.metadata-updated"
+            ],
+            "operators": [
+                "<="
+            ]
+        },
+        {
+            "id": "comment-lifecycle",
+            "kind": "ordered-chain",
+            "roles": [
+                "comment.created",
+                "comment.edited",
+                "comment.moderated"
+            ],
+            "operators": [
+                "<=",
+                "<="
+            ]
+        },
+        {
+            "id": "session-lifetime",
+            "kind": "ordered-chain",
+            "roles": [
+                "session.authenticated",
+                "session.last-seen",
+                "session.idle-expiry",
+                "session.absolute-expiry"
+            ],
+            "operators": [
+                "<=",
+                "<=",
+                "<="
+            ]
+        },
+        {
+            "id": "session-persistent-lifetime",
+            "kind": "ordered-chain",
+            "roles": [
+                "session.authenticated",
+                "session.last-seen",
+                "session.persistent-idle-expiry",
+                "session.persistent-absolute-expiry"
+            ],
+            "operators": [
+                "<=",
+                "<=",
+                "<="
+            ]
+        },
+        {
+            "id": "session-auth-identity",
+            "kind": "same-instant",
+            "roles": [
+                "session.authenticated",
+                "session.auth-time",
+                "session.created",
+                "session.refresh-issued"
+            ],
+            "tieBreakerId": "message-id-ascending"
+        },
+        {
+            "id": "security-risk-lifetime",
+            "kind": "ordered-chain",
+            "roles": [
+                "security.risk-occurred",
+                "security.risk-expiry"
+            ],
+            "operators": [
+                "<"
+            ]
+        },
+        {
+            "id": "security-window",
+            "kind": "ordered-chain",
+            "roles": [
+                "security.pow-window-start",
+                "security.pow-window-end",
+                "security.rate-limit-window-end"
+            ],
+            "operators": [
+                "<",
+                "<="
+            ]
+        },
+        {
+            "id": "security-ban-lifetime",
+            "kind": "ordered-chain",
+            "roles": [
+                "security.ban-start",
+                "security.ban-end"
+            ],
+            "operators": [
+                "<"
+            ]
+        },
+        {
+            "id": "security-credential-lifetime",
+            "kind": "ordered-chain",
+            "roles": [
+                "security.credential-issued",
+                "security.credential-revoked",
+                "security.credential-expiry"
+            ],
+            "operators": [
+                "<=",
+                "<="
+            ]
+        },
+        {
+            "id": "message-lifecycle",
+            "kind": "ordered-chain",
+            "roles": [
+                "message.created",
+                "message.reply-created",
+                "message.read",
+                "message.deleted"
+            ],
+            "operators": [
+                "<=",
+                "<=",
+                "<="
+            ]
+        },
+        {
+            "id": "message-same-instant-order",
+            "kind": "same-instant",
+            "roles": [
+                "message.created",
+                "message.thread-order"
+            ],
+            "tieBreakerId": "message-id-ascending"
+        },
+        {
+            "id": "notification-lifecycle",
+            "kind": "ordered-chain",
+            "roles": [
+                "notification.event",
+                "notification.stream-sequence",
+                "notification.ack",
+                "notification.resume"
+            ],
+            "operators": [
+                "<=",
+                "<=",
+                "<="
+            ]
+        },
+        {
+            "id": "preference-revision-order",
+            "kind": "ordered-chain",
+            "roles": [
+                "profile.created",
+                "profile.updated",
+                "preference.revision",
+                "preference.conflict",
+                "preference.device-sync"
+            ],
+            "operators": [
+                "<=",
+                "<=",
+                "<=",
+                "<="
+            ]
+        },
+        {
+            "id": "outbox-notification-audit",
+            "kind": "ordered-chain",
+            "roles": [
+                "outbox.event-created",
+                "notification.event",
+                "audit.occurred"
+            ],
+            "operators": [
+                "<=",
+                "<="
+            ]
+        },
+        {
+            "id": "out-of-order-arrival",
+            "kind": "occurred-arrival",
+            "roles": [
+                "fixture.occurred",
+                "fixture.arrival",
+                "fixture.processing"
+            ]
+        },
+        {
+            "id": "generated-at-excluded",
+            "kind": "metadata-exclusion",
+            "roles": [
+                "metadata.generated-at"
+            ]
+        }
+    ],
+    "requiredBoundaryTags": [
+        "recent-history",
+        "same-timestamp",
+        "utc-midnight",
+        "leap-day",
+        "month-boundary",
+        "year-boundary",
+        "dst-forward",
+        "dst-backward",
+        "scheduled-before",
+        "scheduled-at",
+        "scheduled-after",
+        "expiry-before",
+        "expiry-at",
+        "expiry-after",
+        "retention-before",
+        "retention-at",
+        "retention-after",
+        "out-of-order-arrival"
+    ],
+    "shapes": [
+        {
+            "id": "recent-history",
+            "schema": "fsusblog.temporal-shape.v1",
+            "baseEpochReference": "temporalContext.businessEpochUtc",
+            "timezoneCaseId": "utc",
+            "cultureCaseId": "invariant",
+            "timestampRoles": [
+                {
+                    "roleId": "fixture.command-time",
+                    "offsetMilliseconds": -86400000,
+                    "expectedBusinessState": "history"
+                },
+                {
+                    "roleId": "fixture.boundary-time",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "current"
+                }
+            ],
+            "orderingGroups": [
+                {
+                    "id": "history-order",
+                    "roleIds": [
+                        "fixture.command-time",
+                        "fixture.boundary-time"
+                    ],
+                    "direction": "ascending"
+                }
+            ],
+            "expiryBoundaries": [],
+            "expectedBusinessStates": {
+                "history": "visible",
+                "current": "active"
+            },
+            "invariantIds": [],
+            "boundaryTags": [
+                "recent-history"
+            ],
+            "contentDigest": "sha256:babb4877a0f2a1e6e2a331a4e7aede95ba649558245b160008a2221264e85bd0"
+        },
+        {
+            "id": "same-timestamp-tie",
+            "schema": "fsusblog.temporal-shape.v1",
+            "baseEpochReference": "temporalContext.businessEpochUtc",
+            "timezoneCaseId": "utc",
+            "cultureCaseId": "invariant",
+            "timestampRoles": [
+                {
+                    "roleId": "message.created",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "created"
+                },
+                {
+                    "roleId": "message.thread-order",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "ordered-by-id"
+                }
+            ],
+            "orderingGroups": [
+                {
+                    "id": "message-tie",
+                    "roleIds": [
+                        "message.created",
+                        "message.thread-order"
+                    ],
+                    "direction": "same-instant",
+                    "tieBreakerId": "message-id-ascending"
+                }
+            ],
+            "expiryBoundaries": [],
+            "expectedBusinessStates": {
+                "created": "visible",
+                "ordered-by-id": "stable"
+            },
+            "invariantIds": [
+                "message-same-instant-order"
+            ],
+            "boundaryTags": [
+                "same-timestamp"
+            ],
+            "contentDigest": "sha256:0c2594d993eb10461447e87d6f8e7d0ef11436aad7c7a06ff97d8a490b36a591"
+        },
+        {
+            "id": "calendar-boundaries",
+            "schema": "fsusblog.temporal-shape.v1",
+            "baseEpochReference": "temporalContext.businessEpochUtc",
+            "timezoneCaseId": "utc",
+            "cultureCaseId": "invariant",
+            "timestampRoles": [
+                {
+                    "roleId": "fixture.command-time",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "leap-day"
+                },
+                {
+                    "roleId": "fixture.boundary-time",
+                    "offsetMilliseconds": 1000,
+                    "expectedBusinessState": "month-start"
+                }
+            ],
+            "orderingGroups": [
+                {
+                    "id": "calendar-order",
+                    "roleIds": [
+                        "fixture.command-time",
+                        "fixture.boundary-time"
+                    ],
+                    "direction": "ascending"
+                }
+            ],
+            "expiryBoundaries": [],
+            "expectedBusinessStates": {
+                "leap-day": "active",
+                "month-start": "active"
+            },
+            "invariantIds": [],
+            "boundaryTags": [
+                "utc-midnight",
+                "leap-day",
+                "month-boundary"
+            ],
+            "contentDigest": "sha256:c3b8ed446d1c06827c1041d04c040188558bf750d1b3e2853c4dfdf2140ce33e"
+        },
+        {
+            "id": "year-boundary",
+            "schema": "fsusblog.temporal-shape.v1",
+            "baseEpochReference": "temporalContext.businessEpochUtc",
+            "timezoneCaseId": "utc",
+            "cultureCaseId": "invariant",
+            "timestampRoles": [
+                {
+                    "roleId": "fixture.command-time",
+                    "offsetMilliseconds": 26438400000,
+                    "expectedBusinessState": "year-end"
+                },
+                {
+                    "roleId": "fixture.boundary-time",
+                    "offsetMilliseconds": 26438401000,
+                    "expectedBusinessState": "year-start"
+                }
+            ],
+            "orderingGroups": [
+                {
+                    "id": "year-order",
+                    "roleIds": [
+                        "fixture.command-time",
+                        "fixture.boundary-time"
+                    ],
+                    "direction": "ascending"
+                }
+            ],
+            "expiryBoundaries": [],
+            "expectedBusinessStates": {
+                "year-end": "active",
+                "year-start": "active"
+            },
+            "invariantIds": [],
+            "boundaryTags": [
+                "year-boundary"
+            ],
+            "contentDigest": "sha256:2626967d20f54cf66c2e525df397dfc333a8f429bdb8a9d04856e7c140c09213"
+        },
+        {
+            "id": "dst-forward",
+            "schema": "fsusblog.temporal-shape.v1",
+            "baseEpochReference": "temporalContext.businessEpochUtc",
+            "timezoneCaseId": "los-angeles",
+            "cultureCaseId": "invariant",
+            "timestampRoles": [
+                {
+                    "roleId": "fixture.command-time",
+                    "offsetMilliseconds": 813599000,
+                    "expectedBusinessState": "before-gap"
+                },
+                {
+                    "roleId": "fixture.boundary-time",
+                    "offsetMilliseconds": 813601000,
+                    "expectedBusinessState": "after-gap"
+                }
+            ],
+            "orderingGroups": [
+                {
+                    "id": "dst-forward-order",
+                    "roleIds": [
+                        "fixture.command-time",
+                        "fixture.boundary-time"
+                    ],
+                    "direction": "ascending"
+                }
+            ],
+            "expiryBoundaries": [],
+            "expectedBusinessStates": {
+                "before-gap": "valid",
+                "after-gap": "valid"
+            },
+            "invariantIds": [],
+            "boundaryTags": [
+                "dst-forward"
+            ],
+            "contentDigest": "sha256:6ace11933b914e11d5a59d286441abb3dc2bd342ed135658a043850b3b1d7a98"
+        },
+        {
+            "id": "dst-backward",
+            "schema": "fsusblog.temporal-shape.v1",
+            "baseEpochReference": "temporalContext.businessEpochUtc",
+            "timezoneCaseId": "los-angeles",
+            "cultureCaseId": "invariant",
+            "timestampRoles": [
+                {
+                    "roleId": "fixture.command-time",
+                    "offsetMilliseconds": 21373199000,
+                    "expectedBusinessState": "first-hour"
+                },
+                {
+                    "roleId": "fixture.boundary-time",
+                    "offsetMilliseconds": 21376801000,
+                    "expectedBusinessState": "second-hour"
+                }
+            ],
+            "orderingGroups": [
+                {
+                    "id": "dst-backward-order",
+                    "roleIds": [
+                        "fixture.command-time",
+                        "fixture.boundary-time"
+                    ],
+                    "direction": "ascending"
+                }
+            ],
+            "expiryBoundaries": [],
+            "expectedBusinessStates": {
+                "first-hour": "valid",
+                "second-hour": "valid"
+            },
+            "invariantIds": [],
+            "boundaryTags": [
+                "dst-backward"
+            ],
+            "contentDigest": "sha256:a642bef7e4a9821fc4eacbab2006113cc915f5a477e2e98cd5ba728df0557967"
+        },
+        {
+            "id": "scheduled-before",
+            "schema": "fsusblog.temporal-shape.v1",
+            "baseEpochReference": "temporalContext.businessEpochUtc",
+            "timezoneCaseId": "utc",
+            "cultureCaseId": "invariant",
+            "timestampRoles": [
+                {
+                    "roleId": "fixture.boundary-time",
+                    "offsetMilliseconds": -1,
+                    "expectedBusinessState": "not-due"
+                },
+                {
+                    "roleId": "fixture.command-time",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "command"
+                }
+            ],
+            "orderingGroups": [
+                {
+                    "id": "scheduled-before-order",
+                    "roleIds": [
+                        "fixture.boundary-time",
+                        "fixture.command-time"
+                    ],
+                    "direction": "ascending"
+                }
+            ],
+            "expiryBoundaries": [],
+            "expectedBusinessStates": {
+                "not-due": "scheduled",
+                "command": "issued"
+            },
+            "invariantIds": [],
+            "boundaryTags": [
+                "scheduled-before"
+            ],
+            "contentDigest": "sha256:0cc3040bfc7907dd1d56c1298ca633cb10a4ec8f9008e08b6d60bad1edfa6711"
+        },
+        {
+            "id": "scheduled-at",
+            "schema": "fsusblog.temporal-shape.v1",
+            "baseEpochReference": "temporalContext.businessEpochUtc",
+            "timezoneCaseId": "utc",
+            "cultureCaseId": "invariant",
+            "timestampRoles": [
+                {
+                    "roleId": "fixture.boundary-time",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "due"
+                },
+                {
+                    "roleId": "fixture.command-time",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "command"
+                }
+            ],
+            "orderingGroups": [
+                {
+                    "id": "scheduled-at-order",
+                    "roleIds": [
+                        "fixture.boundary-time",
+                        "fixture.command-time"
+                    ],
+                    "direction": "same-instant",
+                    "tieBreakerId": "message-id-ascending"
+                }
+            ],
+            "expiryBoundaries": [],
+            "expectedBusinessStates": {
+                "due": "publishable",
+                "command": "issued"
+            },
+            "invariantIds": [],
+            "boundaryTags": [
+                "scheduled-at"
+            ],
+            "contentDigest": "sha256:c43d5397fd275fae6bacb406fb813665812d7f7e349f75ce2a9c51d8936819b5"
+        },
+        {
+            "id": "scheduled-after",
+            "schema": "fsusblog.temporal-shape.v1",
+            "baseEpochReference": "temporalContext.businessEpochUtc",
+            "timezoneCaseId": "utc",
+            "cultureCaseId": "invariant",
+            "timestampRoles": [
+                {
+                    "roleId": "fixture.command-time",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "command"
+                },
+                {
+                    "roleId": "fixture.boundary-time",
+                    "offsetMilliseconds": 1,
+                    "expectedBusinessState": "past-due"
+                }
+            ],
+            "orderingGroups": [
+                {
+                    "id": "scheduled-after-order",
+                    "roleIds": [
+                        "fixture.command-time",
+                        "fixture.boundary-time"
+                    ],
+                    "direction": "ascending"
+                }
+            ],
+            "expiryBoundaries": [],
+            "expectedBusinessStates": {
+                "command": "issued",
+                "past-due": "published"
+            },
+            "invariantIds": [],
+            "boundaryTags": [
+                "scheduled-after"
+            ],
+            "contentDigest": "sha256:e1186fdf6e4e9bceb7674369ac06283cc7ed295355a26e11c1b98f02acd85158"
+        },
+        {
+            "id": "expiry-before",
+            "schema": "fsusblog.temporal-shape.v1",
+            "baseEpochReference": "temporalContext.businessEpochUtc",
+            "timezoneCaseId": "utc",
+            "cultureCaseId": "invariant",
+            "timestampRoles": [
+                {
+                    "roleId": "fixture.boundary-time",
+                    "offsetMilliseconds": -1,
+                    "expectedBusinessState": "unexpired"
+                },
+                {
+                    "roleId": "fixture.command-time",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "now"
+                }
+            ],
+            "orderingGroups": [
+                {
+                    "id": "expiry-before-order",
+                    "roleIds": [
+                        "fixture.boundary-time",
+                        "fixture.command-time"
+                    ],
+                    "direction": "ascending"
+                }
+            ],
+            "expiryBoundaries": [
+                {
+                    "id": "expiry-before-boundary",
+                    "subjectRoleId": "fixture.boundary-time",
+                    "referenceRoleId": "fixture.command-time",
+                    "relation": "before"
+                }
+            ],
+            "expectedBusinessStates": {
+                "unexpired": "active",
+                "now": "current"
+            },
+            "invariantIds": [],
+            "boundaryTags": [
+                "expiry-before"
+            ],
+            "contentDigest": "sha256:a0d47ddf6b7db26895e9fa5a94efd8f12d7ab527b4db5e1194b6050227a6a7f4"
+        },
+        {
+            "id": "expiry-at",
+            "schema": "fsusblog.temporal-shape.v1",
+            "baseEpochReference": "temporalContext.businessEpochUtc",
+            "timezoneCaseId": "utc",
+            "cultureCaseId": "invariant",
+            "timestampRoles": [
+                {
+                    "roleId": "fixture.boundary-time",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "expired"
+                },
+                {
+                    "roleId": "fixture.command-time",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "now"
+                }
+            ],
+            "orderingGroups": [
+                {
+                    "id": "expiry-at-order",
+                    "roleIds": [
+                        "fixture.boundary-time",
+                        "fixture.command-time"
+                    ],
+                    "direction": "same-instant",
+                    "tieBreakerId": "message-id-ascending"
+                }
+            ],
+            "expiryBoundaries": [
+                {
+                    "id": "expiry-at-boundary",
+                    "subjectRoleId": "fixture.boundary-time",
+                    "referenceRoleId": "fixture.command-time",
+                    "relation": "at"
+                }
+            ],
+            "expectedBusinessStates": {
+                "expired": "inactive",
+                "now": "current"
+            },
+            "invariantIds": [],
+            "boundaryTags": [
+                "expiry-at"
+            ],
+            "contentDigest": "sha256:e66931a4b337906cdec7692c7845565808ee1aae1e5cce7c6540aefb18c7eade"
+        },
+        {
+            "id": "expiry-after",
+            "schema": "fsusblog.temporal-shape.v1",
+            "baseEpochReference": "temporalContext.businessEpochUtc",
+            "timezoneCaseId": "utc",
+            "cultureCaseId": "invariant",
+            "timestampRoles": [
+                {
+                    "roleId": "fixture.command-time",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "now"
+                },
+                {
+                    "roleId": "fixture.boundary-time",
+                    "offsetMilliseconds": 1,
+                    "expectedBusinessState": "future-expiry"
+                }
+            ],
+            "orderingGroups": [
+                {
+                    "id": "expiry-after-order",
+                    "roleIds": [
+                        "fixture.command-time",
+                        "fixture.boundary-time"
+                    ],
+                    "direction": "ascending"
+                }
+            ],
+            "expiryBoundaries": [
+                {
+                    "id": "expiry-after-boundary",
+                    "subjectRoleId": "fixture.boundary-time",
+                    "referenceRoleId": "fixture.command-time",
+                    "relation": "after"
+                }
+            ],
+            "expectedBusinessStates": {
+                "now": "current",
+                "future-expiry": "active"
+            },
+            "invariantIds": [],
+            "boundaryTags": [
+                "expiry-after"
+            ],
+            "contentDigest": "sha256:a10b3cc1897a906e4346c668a7ed2293a0451ed8ca93e0764c5a37b9a63d9167"
+        },
+        {
+            "id": "retention-boundaries",
+            "schema": "fsusblog.temporal-shape.v1",
+            "baseEpochReference": "temporalContext.businessEpochUtc",
+            "timezoneCaseId": "utc",
+            "cultureCaseId": "invariant",
+            "timestampRoles": [
+                {
+                    "roleId": "fixture.occurred",
+                    "offsetMilliseconds": -1,
+                    "expectedBusinessState": "retained-before"
+                },
+                {
+                    "roleId": "fixture.command-time",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "retention-at"
+                },
+                {
+                    "roleId": "fixture.boundary-time",
+                    "offsetMilliseconds": 1,
+                    "expectedBusinessState": "purged-after"
+                }
+            ],
+            "orderingGroups": [
+                {
+                    "id": "retention-order",
+                    "roleIds": [
+                        "fixture.occurred",
+                        "fixture.command-time",
+                        "fixture.boundary-time"
+                    ],
+                    "direction": "ascending"
+                }
+            ],
+            "expiryBoundaries": [
+                {
+                    "id": "retention-before-boundary",
+                    "subjectRoleId": "fixture.occurred",
+                    "referenceRoleId": "fixture.command-time",
+                    "relation": "before"
+                },
+                {
+                    "id": "retention-after-boundary",
+                    "subjectRoleId": "fixture.boundary-time",
+                    "referenceRoleId": "fixture.command-time",
+                    "relation": "after"
+                }
+            ],
+            "expectedBusinessStates": {
+                "retained-before": "retained",
+                "retention-at": "eligible",
+                "purged-after": "purged"
+            },
+            "invariantIds": [],
+            "boundaryTags": [
+                "retention-before",
+                "retention-at",
+                "retention-after"
+            ],
+            "contentDigest": "sha256:bc6d8a1c8c47ab496dfda5f2a6c3b7e009336606f36af35e4b6cd616a085205d"
+        },
+        {
+            "id": "out-of-order-arrival",
+            "schema": "fsusblog.temporal-shape.v1",
+            "baseEpochReference": "temporalContext.businessEpochUtc",
+            "timezoneCaseId": "utc",
+            "cultureCaseId": "invariant",
+            "timestampRoles": [
+                {
+                    "roleId": "fixture.occurred",
+                    "offsetMilliseconds": -1000,
+                    "expectedBusinessState": "occurred"
+                },
+                {
+                    "roleId": "fixture.arrival",
+                    "offsetMilliseconds": 1000,
+                    "expectedBusinessState": "arrived-late"
+                },
+                {
+                    "roleId": "fixture.processing",
+                    "offsetMilliseconds": 2000,
+                    "expectedBusinessState": "processed"
+                }
+            ],
+            "orderingGroups": [
+                {
+                    "id": "arrival-order",
+                    "roleIds": [
+                        "fixture.occurred",
+                        "fixture.arrival",
+                        "fixture.processing"
+                    ],
+                    "direction": "ascending"
+                }
+            ],
+            "expiryBoundaries": [],
+            "expectedBusinessStates": {
+                "occurred": "recorded",
+                "arrived-late": "queued",
+                "processed": "applied"
+            },
+            "invariantIds": [
+                "out-of-order-arrival"
+            ],
+            "boundaryTags": [
+                "out-of-order-arrival"
+            ],
+            "contentDigest": "sha256:a1381dd9f20d9dc240753cc3e36c1da7ac1b134cca7da247a680eff15d21262f"
+        },
+        {
+            "id": "auth-security-messaging-account-lifecycle",
+            "schema": "fsusblog.temporal-shape.v1",
+            "baseEpochReference": "temporalContext.businessEpochUtc",
+            "timezoneCaseId": "utc",
+            "cultureCaseId": "invariant",
+            "timestampRoles": [
+                {
+                    "roleId": "session.authenticated",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "authenticated"
+                },
+                {
+                    "roleId": "session.auth-time",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "authenticated"
+                },
+                {
+                    "roleId": "session.created",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "active"
+                },
+                {
+                    "roleId": "session.refresh-issued",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "active"
+                },
+                {
+                    "roleId": "session.last-seen",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "active"
+                },
+                {
+                    "roleId": "session.access-token-expiry",
+                    "offsetMilliseconds": 900000,
+                    "expectedBusinessState": "expired"
+                },
+                {
+                    "roleId": "session.refresh-rotated",
+                    "offsetMilliseconds": 1800000,
+                    "expectedBusinessState": "rotated"
+                },
+                {
+                    "roleId": "session.idle-expiry",
+                    "offsetMilliseconds": 604800000,
+                    "expectedBusinessState": "standard-idle-expired"
+                },
+                {
+                    "roleId": "session.revoked",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "revoked"
+                },
+                {
+                    "roleId": "session.absolute-expiry",
+                    "offsetMilliseconds": 2592000000,
+                    "expectedBusinessState": "standard-absolute-expired"
+                },
+                {
+                    "roleId": "session.persistent-idle-expiry",
+                    "offsetMilliseconds": 2592000000,
+                    "expectedBusinessState": "remember-me-idle-expired"
+                },
+                {
+                    "roleId": "session.persistent-absolute-expiry",
+                    "offsetMilliseconds": 7776000000,
+                    "expectedBusinessState": "remember-me-absolute-expired"
+                },
+                {
+                    "roleId": "session.admin-standard-idle-expiry",
+                    "offsetMilliseconds": 7200000,
+                    "expectedBusinessState": "idle-expired"
+                },
+                {
+                    "roleId": "session.admin-standard-absolute-expiry",
+                    "offsetMilliseconds": 43200000,
+                    "expectedBusinessState": "absolute-expired"
+                },
+                {
+                    "roleId": "session.admin-persistent-idle-expiry",
+                    "offsetMilliseconds": 86400000,
+                    "expectedBusinessState": "idle-expired"
+                },
+                {
+                    "roleId": "session.admin-persistent-absolute-expiry",
+                    "offsetMilliseconds": 2592000000,
+                    "expectedBusinessState": "absolute-expired"
+                },
+                {
+                    "roleId": "mfa.challenge-expiry",
+                    "offsetMilliseconds": 300000,
+                    "expectedBusinessState": "challenge-expired"
+                },
+                {
+                    "roleId": "mfa.proof-expiry",
+                    "offsetMilliseconds": 45000,
+                    "expectedBusinessState": "proof-expired"
+                },
+                {
+                    "roleId": "webauthn.challenge-expiry",
+                    "offsetMilliseconds": 300000,
+                    "expectedBusinessState": "challenge-expired"
+                },
+                {
+                    "roleId": "recovery.enrolled",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "enrolled"
+                },
+                {
+                    "roleId": "security.risk-occurred",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "risk-active"
+                },
+                {
+                    "roleId": "security.risk-expiry",
+                    "offsetMilliseconds": 3600000,
+                    "expectedBusinessState": "risk-expired"
+                },
+                {
+                    "roleId": "security.pow-window-start",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "pow-active"
+                },
+                {
+                    "roleId": "security.pow-window-end",
+                    "offsetMilliseconds": 60000,
+                    "expectedBusinessState": "pow-expired"
+                },
+                {
+                    "roleId": "security.rate-limit-window-start",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "rate-active"
+                },
+                {
+                    "roleId": "security.rate-limit-window-end",
+                    "offsetMilliseconds": 60000,
+                    "expectedBusinessState": "rate-reset"
+                },
+                {
+                    "roleId": "security.ban-start",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "banned"
+                },
+                {
+                    "roleId": "security.ban-end",
+                    "offsetMilliseconds": 86400000,
+                    "expectedBusinessState": "ban-ended"
+                },
+                {
+                    "roleId": "security.credential-issued",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "credential-active"
+                },
+                {
+                    "roleId": "security.credential-revoked",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "credential-revoked"
+                },
+                {
+                    "roleId": "security.credential-expiry",
+                    "offsetMilliseconds": 86400000,
+                    "expectedBusinessState": "credential-expired"
+                },
+                {
+                    "roleId": "security.nullifier-issued",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "nullifier-active"
+                },
+                {
+                    "roleId": "message.created",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "unread"
+                },
+                {
+                    "roleId": "message.thread-order",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "ordered-by-id"
+                },
+                {
+                    "roleId": "message.reply-created",
+                    "offsetMilliseconds": 60000,
+                    "expectedBusinessState": "unread"
+                },
+                {
+                    "roleId": "message.read",
+                    "offsetMilliseconds": 120000,
+                    "expectedBusinessState": "read"
+                },
+                {
+                    "roleId": "message.deleted",
+                    "offsetMilliseconds": 180000,
+                    "expectedBusinessState": "deleted"
+                },
+                {
+                    "roleId": "outbox.event-created",
+                    "offsetMilliseconds": 60000,
+                    "expectedBusinessState": "pending"
+                },
+                {
+                    "roleId": "notification.event",
+                    "offsetMilliseconds": 60000,
+                    "expectedBusinessState": "published"
+                },
+                {
+                    "roleId": "notification.stream-sequence",
+                    "offsetMilliseconds": 60000,
+                    "expectedBusinessState": "sequenced"
+                },
+                {
+                    "roleId": "notification.ack",
+                    "offsetMilliseconds": 120000,
+                    "expectedBusinessState": "acknowledged"
+                },
+                {
+                    "roleId": "notification.resume",
+                    "offsetMilliseconds": 180000,
+                    "expectedBusinessState": "resumed"
+                },
+                {
+                    "roleId": "notification.backlog",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "backlogged"
+                },
+                {
+                    "roleId": "audit.occurred",
+                    "offsetMilliseconds": 120000,
+                    "expectedBusinessState": "recorded"
+                },
+                {
+                    "roleId": "profile.created",
+                    "offsetMilliseconds": 0,
+                    "expectedBusinessState": "active"
+                },
+                {
+                    "roleId": "profile.updated",
+                    "offsetMilliseconds": 60000,
+                    "expectedBusinessState": "updated"
+                },
+                {
+                    "roleId": "preference.revision",
+                    "offsetMilliseconds": 120000,
+                    "expectedBusinessState": "revised"
+                },
+                {
+                    "roleId": "preference.conflict",
+                    "offsetMilliseconds": 120000,
+                    "expectedBusinessState": "conflicted"
+                },
+                {
+                    "roleId": "preference.device-sync",
+                    "offsetMilliseconds": 180000,
+                    "expectedBusinessState": "synchronized"
+                }
+            ],
+            "orderingGroups": [
+                {
+                    "id": "session-lifetime-order",
+                    "roleIds": [
+                        "session.authenticated",
+                        "session.last-seen",
+                        "session.idle-expiry",
+                        "session.absolute-expiry"
+                    ],
+                    "direction": "ascending"
+                },
+                {
+                    "id": "session-persistent-lifetime-order",
+                    "roleIds": [
+                        "session.authenticated",
+                        "session.last-seen",
+                        "session.persistent-idle-expiry",
+                        "session.persistent-absolute-expiry"
+                    ],
+                    "direction": "ascending"
+                },
+                {
+                    "id": "session-auth-tie",
+                    "roleIds": [
+                        "session.authenticated",
+                        "session.auth-time",
+                        "session.created",
+                        "session.refresh-issued"
+                    ],
+                    "direction": "same-instant",
+                    "tieBreakerId": "message-id-ascending"
+                },
+                {
+                    "id": "message-lifecycle-order",
+                    "roleIds": [
+                        "message.created",
+                        "message.reply-created",
+                        "message.read",
+                        "message.deleted"
+                    ],
+                    "direction": "ascending"
+                },
+                {
+                    "id": "message-tie",
+                    "roleIds": [
+                        "message.created",
+                        "message.thread-order"
+                    ],
+                    "direction": "same-instant",
+                    "tieBreakerId": "message-id-ascending"
+                },
+                {
+                    "id": "preference-order",
+                    "roleIds": [
+                        "profile.created",
+                        "profile.updated",
+                        "preference.revision",
+                        "preference.conflict",
+                        "preference.device-sync"
+                    ],
+                    "direction": "ascending"
+                }
+            ],
+            "expiryBoundaries": [
+                {
+                    "id": "session-idle-after-auth",
+                    "subjectRoleId": "session.idle-expiry",
+                    "referenceRoleId": "session.authenticated",
+                    "relation": "after"
+                },
+                {
+                    "id": "session-absolute-after-idle",
+                    "subjectRoleId": "session.absolute-expiry",
+                    "referenceRoleId": "session.idle-expiry",
+                    "relation": "after"
+                },
+                {
+                    "id": "session-persistent-idle-after-auth",
+                    "subjectRoleId": "session.persistent-idle-expiry",
+                    "referenceRoleId": "session.authenticated",
+                    "relation": "after"
+                },
+                {
+                    "id": "session-persistent-absolute-after-idle",
+                    "subjectRoleId": "session.persistent-absolute-expiry",
+                    "referenceRoleId": "session.persistent-idle-expiry",
+                    "relation": "after"
+                },
+                {
+                    "id": "credential-expiry-after-issued",
+                    "subjectRoleId": "security.credential-expiry",
+                    "referenceRoleId": "security.credential-issued",
+                    "relation": "after"
+                },
+                {
+                    "id": "ban-end-after-start",
+                    "subjectRoleId": "security.ban-end",
+                    "referenceRoleId": "security.ban-start",
+                    "relation": "after"
+                }
+            ],
+            "expectedBusinessStates": {
+                "session": "active-before-expiry",
+                "security": "bounded-windows",
+                "messaging": "stable-sequence",
+                "account": "monotonic-revision"
+            },
+            "invariantIds": [
+                "session-lifetime",
+                "session-persistent-lifetime",
+                "session-auth-identity",
+                "security-risk-lifetime",
+                "security-window",
+                "security-ban-lifetime",
+                "security-credential-lifetime",
+                "message-lifecycle",
+                "message-same-instant-order",
+                "notification-lifecycle",
+                "preference-revision-order",
+                "outbox-notification-audit",
+                "generated-at-excluded"
+            ],
+            "boundaryTags": [],
+            "contentDigest": "sha256:699f726eb644f2464b5d37d4f8db403a10789c996a791cc7d3f226c32cb2530e"
+        }
+    ]
+}

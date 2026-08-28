@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "9f42d4da1b5f29bf9c77d8476756edf05aeea622",
+    "formatter": {
+        "identity": "native-tooling-style",
+        "version": "v1",
+        "command": "node tools/style/check-native-tooling-style.mjs --operation format --mode changed --domain all --write --file config/testing/resolved-temporal-roles.schema.json --file config/testing/temporal-domain-producer-inventory.json --file config/testing/temporal-domain-producer-receipt.schema.json --file config/testing/temporal-policy.json --file config/testing/temporal-shape-catalog.json --file config/testing/temporal-shape-catalog.schema.json"
+    },
+    "paths": [
+        "config/testing/resolved-temporal-roles.schema.json",
+        "config/testing/temporal-domain-producer-inventory.json",
+        "config/testing/temporal-domain-producer-receipt.schema.json",
+        "config/testing/temporal-policy.json",
+        "config/testing/temporal-shape-catalog.json",
+        "config/testing/temporal-shape-catalog.schema.json"
+    ],
+    "firstPassTreeSha256": "324663964d2b1c37de0fa7718c2e06fde2e2f6f8594c7a64d775d56b8fc5920f",
+    "secondPassTreeSha256": "324663964d2b1c37de0fa7718c2e06fde2e2f6f8594c7a64d775d56b8fc5920f",
+    "idempotent": true
+}

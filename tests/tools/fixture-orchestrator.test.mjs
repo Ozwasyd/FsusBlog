@@ -110,6 +110,7 @@ function mockPort(spec, hooks = {})
         strategy: spec.strategy,
         providedCapabilities: [...spec.provides],
         consumedCapabilities: [...spec.consumes],
+        identityRoleRequests: hooks.identityRoleRequests ?? [],
         calls,
         async prepare(context, signal)
         {
@@ -191,6 +192,36 @@ test('profile expands to a single producer DAG resolver', () =>
     const planned = plan({ profileId: 'scale-xs', profileSource: 'dev-cli' });
     assert.deepEqual(planned.producers, dag.producers.map((item) => item.id));
     assert.deepEqual(planned.order, dag.order);
+});
+
+test('auth-session receives sealed consumer identity allocation requests from planned ports', async () =>
+{
+    const planned = plan({ profileId: 'account-messaging', profileSource: 'dev-cli' });
+    let authRequests = null;
+    const request = {
+        ownerProducerId: 'auth-session',
+        consumerProducerId: 'account-messaging',
+        role: 'primary-recipient',
+        capabilityId: 'auth.user.active'
+    };
+    const ports = portsForPlan(planned, {
+        'auth-session': {
+            onPrepare: async (context) =>
+            {
+                authRequests = context.identityRoleRequests;
+                return { ok: true };
+            }
+        },
+        'account-messaging': { identityRoleRequests: [request] }
+    });
+    await prepare(planned, ports);
+    assert.deepEqual(authRequests, [request]);
+
+    ports.find((port) => port.id === 'account-messaging').identityRoleRequests = [{
+        ...request,
+        capabilityId: 'auth.user.deleted'
+    }];
+    await assert.rejects(() => prepare(planned, ports), /catalog-declared consumed capabilities/u);
 });
 
 test('producer dependency cycle fails before mutation', () =>
@@ -489,9 +520,33 @@ test('verify and cleanup succeed for prepared mock plan with observations', asyn
                         namespace: null,
                         schemaIdentity: 'public',
                         entities: [
-                            { kind: 'user', id: 'u1', variantId: 'canonical.auth.user.active', fields: { status: 'active', deleted: false } },
-                            { kind: 'admin', id: 'a1', variantId: 'canonical.auth.admin.full-permission', fields: { permission: 'full' } },
-                            { kind: 'session', id: 's1', variantId: 'canonical.session.single-device', fields: { active: true } }
+                            {
+                                kind: 'user',
+                                id: 'u1',
+                                variantId: 'canonical.auth.user.active',
+                                postconditionId: 'user-active',
+                                fields: { status: 'active', deleted: false }
+                            },
+                            {
+                                kind: 'admin',
+                                id: 'a1',
+                                variantId: 'canonical.auth.admin.full-permission',
+                                postconditionId: 'admin-full-permission',
+                                fields: { permission: 'full' }
+                            },
+                            {
+                                kind: 'session',
+                                id: 's1',
+                                variantId: 'canonical.session.single-device',
+                                postconditionId: 'session-single-device',
+                                fields: {
+                                    state: 'active',
+                                    live: true,
+                                    databaseStateVerified: true,
+                                    claimStateVerified: true,
+                                    cacheStateVerified: true
+                                }
+                            }
                         ]
                     },
                     redis: {

@@ -49,6 +49,31 @@ CPU、Node process 与 connection setup 只用于性能观察，绝不参与 cor
 
 数据库 fixture 必须保留生产字段语义、约束和安全版本。例如 recovery-key limiter 由对应 service/contract tests 证明 attempt/window/lockout；subscription fixture 保留 `user_id`、`public_handle`、`hash_version` 和 proof 校验；demo seed 只能生成开发数据且不能绕过 production schema。静态文本检查不能替代事务、并发、幂等、迁移失败或 `WebApplicationFactory` 行为测试。
 
+`auth-session` 是 user/MFA/WebAuthn/session/admin capability 的唯一
+`transaction-fixture` owner。它按 run、namespace 与 semantic role 为互斥状态
+派生独立 identity，只编排受限后端 lifecycle ports；Node producer 不连接
+PostgreSQL/Redis、不签 JWT，也不拥有 ban、risk、PoW 或 credential issuance
+状态。Passkey capability 必须经过 production FIDO validation 与受控
+authenticator，不存在 accept-any 分支。普通 producer receipt 只保留 public
+identity/state/digest 与 read-model postcondition；token、MFA secret、recovery
+material 和 authenticator private material 不进入 receipt 或日志。每个结果还必须
+通过独立 `/api/local/auth-fixture/verify` read port 绑定完整 receipt digest，
+partial 或 self-reported observation 不发布 verified receipt。
+
+需要同一 capability 的多个独立 identity 时，consumer producer 必须在自身
+normalized port 的 `identityRoleRequests` 声明
+`ownerProducerId`、`consumerProducerId`、`role` 与其 catalog-declared
+`capabilityId`。当前只允许分配 `auth.user.active` 与
+`auth.admin.full-permission`；orchestrator 把所有 planned consumer request 一次性交给
+`auth-session`，并将排序后的完整 request list 纳入 auth plan digest。prepare
+阶段输出 `fsusblog.fixture-identity-prepare-reference.v1`，明确标为
+`verified: false`；consumer 不得改写 owner 或自行构造 fallback identity。verify
+阶段取得 auth-session 的 sealed `ProducerReceipt` 后，调用
+`projectVerifiedIdentityReferences` 生成 consumer-scoped
+`fsusblog.fixture-identity-references.v1`。每个 verified reference 绑定
+prepare-reference digest、producer-result digest 与 `sourceReceiptDigest`，且只能投影
+该 consumer 预先声明的 role。
+
 测试删除或合并时，先在 retention ledger 中给出仍存活的 replacement IDs，再更新 requirement、coverage 与 matrix。没有等价可执行断言时不得用文档、fixture 文件存在性或历史 evidence 替代测试。
 
 性能测试资产统一放在 `tests/performance/`，不再保留旧短名测试根。`browser-contract` 是 release correctness 的最小浏览器契约，而 `browser-diagnostics` 是 scheduled/manual 的诊断集合；两者的命令、artifact 和结论互不替代，diagnostics 失败不能伪装成 correctness 通过，contract 通过也不能覆盖 diagnostics 的独立风险报告。
@@ -83,11 +108,15 @@ Release frontend、Kestrel、PostgreSQL snapshot 和 browser worker，覆盖禁�
 
 Qualification 时间权威与业务/测量时钟分离由 `config/testing/temporal-policy.json`、`config/testing/temporal-context.schema.json` 与 `tools/test/temporal-context.mjs` 承载：唯一 temporal context 绑定 source/run/producer、固定 UTC business epoch、timezone/culture 与 immutable call-site ledger digest；plan/actual/receipt 必须 exact match，`generatedAt` 只进入 artifact metadata 且不进入 semantic outcome digest。Business wall clock 通过后端 `TestTemporalContext` / `TimeProvider` 与 Node `createBusinessWallClock` 注入并只允许显式推进；monotonic measurement 继续使用 `performance.now` / `process.hrtime.bigint` / `Stopwatch` 真实推进。
 
+`config/testing/temporal-shape-catalog.json` 是 fixture semantic temporal role 和边界 shape 的唯一、闭合且版本化权威；不得再新增第二份 timestamp 情景表、私有 epoch 或 producer-local offset。`tools/test/temporal-role-resolver.mjs` 只从 producer-bound temporal context 和该 catalog 纯函数解析 exact millisecond UTC/local/offset/business-state，并为 Node、.NET、PostgreSQL 与 browser 输出同一 content digest 的投影；跨运行时 consumer 只验证并消费 artifact，不重算 offset。显式 advance 只改变 business-wall role，不改变 monotonic clock；same-timestamp ordering 和 out-of-order occurred/arrival 必须按 catalog tie-breaker/invariant 验证。`tools/test/check-temporal-shape-governance.mjs` 独立拒绝第二权威、未登记 role、私有 wall clock、sleep 和 SQL interval 重算。
+
 `config/testing/temporal-producer-bindings.json` 与 `tools/test/temporal-producer-bindings.mjs` 对 fixture consumer inventory 和真实 producer execution boundary 做 exact closure；`tools/test/verify-temporal-producers.mjs --kind catalog` 是 static-governance 的 fail-closed 入口。`FixtureOrchestrator` 为每个已计划 producer 派生 producer-specific context，producer child、backend/PostgreSQL adapter 或 browser 必须回传 actual observation；orchestrator 以真实 producer output 生成 semantic digest，并把 plan/actual/context/output digest 写入最终 `ProducerReceipt`。`tests/frontend/support/session-fixtures.mjs` 当前同时出现在 auth-session 与 security-state 的既有 implementation inventory 中；temporal ledger 对该物理 source 只登记一次，并要求其中的业务时间来自显式 fixture business epoch，artifact `generatedAt` 单独归类且不进入 semantic outcome。
 
 canonical correctness runner 在 child spawn 前注入 context，由 child observer 回传 actual，而不是由父进程复制 plan；run-bound physical receipt 的 output state 同时进入 temporal outcome digest，epoch/locale 改变时不得误复用旧执行。`tools/test/write-temporal-context.mjs` 为 browser-contract 生成 run/source-bound context；Playwright config 与 library runner 同时绑定 `locale` 和 `timezoneId`。browser runtime 读取 `navigator.language` 与 `Intl` timezone，backend 解析并 exact-match `FSUSBLOG_TEMPORAL_CONTEXT_JSON`，PostgreSQL connection session 设置并回读 `TimeZone` 与 `fsusblog.test_business_epoch_utc`；三类 actual 合并后才可产生 browser temporal receipt。
 
-`tools/test/check-wall-clock-governance.mjs` 从 fixture inventory 与 producer execution-boundary catalog 计算完整扫描闭包；ledger 少一个或多一个 source、漏分一个 clock call、混用 business/measurement clock 都失败。`tools/data-scale/seed.sh` 的业务时间字段读取 session-injected fixed epoch，duration/generatedAt 仍分别属于 measurement/artifact。TTL/expiry correctness 使用 injected `TimeProvider` 推进，timeout 与 duration 保持真实 monotonic clock。`config/testing/temporal-perturbation-cases.json` 记录 UTC midnight、leap day、DST forward/backward 与 Shanghai date boundary；测试在独立 Node runtime 中执行各 timezone case，并通过真实 correctness child 对 host `TZ` 与 wall-clock offset 做扰动，业务 timestamp 始终保留在 semantic digest。
+`tools/test/check-wall-clock-governance.mjs` 从 fixture inventory 与 producer execution-boundary catalog 计算完整扫描闭包；ledger 少一个或多一个 source、漏分一个 clock call、混用 business/measurement clock 都失败。`tools/data-scale/seed.sh` 的业务时间字段读取 session-injected fixed epoch，duration/generatedAt 仍分别属于 measurement/artifact。TTL/expiry correctness 使用 injected `TimeProvider` 推进，timeout 与 duration 保持真实 monotonic clock。UTC midnight、leap day、month/year、DST forward/backward、scheduled/expiry/retention boundary 与 out-of-order 只在 `temporal-shape-catalog.json` 声明；测试在独立 Node runtime 中执行各 timezone/culture shape，并通过真实 correctness child 对 host `TZ` 与 wall-clock offset 做扰动，业务 timestamp 始终保留在 semantic digest。
+
+`config/testing/temporal-domain-producer-inventory.json` 限定本阶段迁移的 auth/session、security 和 account-messaging producer，并把每个持久化字段、consumer 和 semantic role 做 exact mapping。`FSUSBLOG_RESOLVED_TEMPORAL_ROLES_JSON` 和 `FSUSBLOG_TEMPORAL_ROLE_ARTIFACT_DIGEST` 是 child/.NET ingress；receipt 只保留 producer/role/state/invariant/digest 绑定，不复制绝对 instant 或 secret。该三类 producer 不得再读取 `Date.now` / `DateTime.UtcNow`、不得用随机 microseconds 打破并列、不得通过 sleep 证明 expiry，PostgreSQL adapter 也不得用 interval 重算 role。
 
 generic runner、scheduler 与 Release Reliability driver 的 physical execution termination 只通过 `tools/test/physical-execution-process-tree.mjs` 进入。Linux 在可验证的 transient systemd cgroup 中同时保留 run-owned process group，因而 `setsid`/daemonized descendant、继承输出 FD 和端口持有者仍受同一 control-group authority 收容；authority 不可用时在业务 child spawn 前 fail closed。macOS 使用独立 process group；Windows 通过 creation-suspended、assign-before-resume 的原生 Job Object adapter，并启用 kill-on-close。`SIGINT`、`SIGTERM`、`SIGHUP`、上层 `AbortSignal`、action deadline、producer failure 与 runner exit 汇入同一个 idempotent cancellation path；第一个原因保持 `firstFailure`，重复取消只计数，containment、terminal wait 和日志 finalization 的后续错误进入 `cleanupFailures`，不能覆盖首因。
 
