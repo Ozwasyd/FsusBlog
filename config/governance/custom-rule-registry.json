@@ -3,7 +3,7 @@
     "generatedBy": "tools/governance/check-rule-platform.mjs --write-registry",
     "inventory": {
         "packageScriptCount": 214,
-        "implementationCount": 399
+        "implementationCount": 400
     },
     "rules": [
         {
@@ -14629,6 +14629,35 @@
                 "executionKey": "governance:file:tools/test/check-hidden-retries.mjs",
                 "receiptCompatible": true
             }
+        },
+        {
+            "id": "Implementation.ToolsTestCheckMessagingFixtureGovernanceMjs",
+            "externalId": "tools/test/check-messaging-fixture-governance.mjs",
+            "symbol": "CheckToolsTestCheckMessagingFixtureGovernance",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "text",
+            "sourceScopes": [
+                "tools/test/check-messaging-fixture-governance.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/test/check-messaging-fixture-governance.mjs",
+                "executionKey": "governance:file:tools/test/check-messaging-fixture-governance.mjs",
+                "receiptCompatible": true
+            },
+            "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
         },
         {
             "id": "Implementation.ToolsTestCheckMutationInventoryMjs",

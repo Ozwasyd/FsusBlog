@@ -27,13 +27,13 @@ public sealed partial class MessageCenterService
         => notificationStreamPort.PublishToUserAsync(
             NotificationStreamEventType.AccountStatusChanged,
             accountId,
-            new AccountStatusPayload(status, reason, DateTime.UtcNow),
+            new AccountStatusPayload(status, reason, UtcNow),
             "push-account-status");
 
     public Task PushCommentRemoveAsync(int articleId, long commentId, long? rootId, long? parentId, string? idempotencyKey = null)
         => notificationStreamPort.PublishToContentFeedAsync(
             NotificationStreamEventType.CommentRemoved,
-            new CommentRemovedPayload(articleId, commentId.ToString(), rootId?.ToString(), parentId?.ToString(), DateTime.UtcNow),
+            new CommentRemovedPayload(articleId, commentId.ToString(), rootId?.ToString(), parentId?.ToString(), UtcNow),
             "push-comment-removed",
             idempotencyKey);
 
@@ -142,7 +142,7 @@ public sealed partial class MessageCenterService
         }
     }
 
-    private static MessageMutationOutbox CreateDelivery(
+    private MessageMutationOutbox CreateDelivery(
         long mutationCoordinate,
         string eventKind,
         string audienceKind,
@@ -152,7 +152,7 @@ public sealed partial class MessageCenterService
         long? readThroughMessageId,
         ConversationStatus? conversationStatus = null)
     {
-        DateTime now = DateTime.UtcNow;
+        DateTime now = UtcNow;
         string target = targetAccountId?.ToString(CultureInfo.InvariantCulture) ?? "group";
         return new MessageMutationOutbox
         {

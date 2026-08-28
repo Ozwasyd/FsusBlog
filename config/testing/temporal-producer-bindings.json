@@ -29,7 +29,9 @@
         {
             "producerId": "account-messaging",
             "implementations": [
-                "tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs"
+                "src/backend/Modules/Endpoints/LocalMessagingFixtureEndpoints.cs",
+                "src/backend/Services/Fixtures/MessagingFixtureSeeder.cs",
+                "tools/test-fixtures/producers/account-messaging-producer.mjs"
             ],
             "contextIngress": "backend-test-temporal-context",
             "actualObservation": "injected-adapter-owned-runtime-or-database-observation",

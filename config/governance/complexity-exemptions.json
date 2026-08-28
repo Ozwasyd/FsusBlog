@@ -2,6 +2,14 @@
     "schema": "fsusblog.complexity-exemptions.v1",
     "exemptions": [
         {
+            "file": "src/backend/Infrastructure/NotificationStream/NotificationStreamBacklogStore.cs",
+            "owner": "TestFixtureAgent:temporal-roles",
+            "reason": "Temporary notification stream lifecycle bridge while temporal expiry and backlog responsibilities are split along their existing runtime owners",
+            "expires": "2026-09-27",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2530",
+            "sourceFingerprint": "sha256:a6925a5fedb339bae5566223f7c5f5f57d8cb7499c777f48ed0544316d38a27f"
+        },
+        {
             "file": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Serving.cs",
             "owner": "ServerContractAgent:public-hot-read",
             "reason": "Temporary bounded bridge while public-hot serving imports are split along the existing route and artifact boundaries",
@@ -18,6 +26,14 @@
             "sourceFingerprint": "sha256:20af191b8025bc99b79cfb84f522666e1c8ae1fdf11d7112445ea84d636316ae"
         },
         {
+            "file": "src/backend/Services/Fixtures/MessagingFixtureSeeder.cs",
+            "owner": "TestFixtureAgent:account-messaging",
+            "reason": "Temporary messaging fixture lifecycle bridge while planning persistence verification and cleanup are split along the existing producer ports",
+            "expires": "2026-09-27",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/1716",
+            "sourceFingerprint": "sha256:2a5b99596d7a780f1107f5b02fa0c58e137f969d4898528c5981217bfbefcfa6"
+        },
+        {
             "file": "src/backend/Services/Fixtures/SecurityFixtureCompositionRoot.cs",
             "owner": "TestInfrastructureAgent:security-fixtures",
             "reason": "Temporary bounded composition root while the three production security family lifecycles are split into dedicated internal services after fixture cutover",
@@ -32,6 +48,14 @@
             "expires": "2026-09-22",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2792",
             "sourceFingerprint": "sha256:975fc1f35417b2575fb01931577c683ebbda7caa585b3937a26a0ff39a501a3a"
+        },
+        {
+            "file": "tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs",
+            "owner": "TestFixtureAgent:temporal-roles",
+            "reason": "Temporary message persistence matrix bridge while temporal observations are split from the existing PostgreSQL lifecycle scenarios",
+            "expires": "2026-09-27",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2530",
+            "sourceFingerprint": "sha256:490d32750952c5af6a6e375a921c95f62080de3c03a3adc8ea17bba034ea12eb"
         },
         {
             "file": "tests/backend/Integration/SecurityFixtureCompositionRootIntegrationTests.cs",
@@ -103,7 +127,7 @@
             "reason": "Temporary DAG allocation coverage bridge while producer receipt and consumer identity wave tests are split into focused modules",
             "expires": "2026-09-27",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2150",
-            "sourceFingerprint": "sha256:f18cf9018d611c0053fe0f78e5c3286ac6084a110f7c02a53ec4ba08fe784bb3"
+            "sourceFingerprint": "sha256:3fec1cc467d30146298a861940cd20370a93e1e5a3808443cbf7ef5865614c74"
         },
         {
             "file": "tests/tools/local-production-profile.test.mjs",

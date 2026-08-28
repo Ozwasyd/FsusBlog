@@ -214,7 +214,9 @@
             "producerId": "account-messaging",
             "shapeId": "auth-security-messaging-account-lifecycle",
             "implementations": [
-                "tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs"
+                "src/backend/Modules/Endpoints/LocalMessagingFixtureEndpoints.cs",
+                "src/backend/Services/Fixtures/MessagingFixtureSeeder.cs",
+                "tools/test-fixtures/producers/account-messaging-producer.mjs"
             ],
             "fieldMappings": [
                 {
@@ -253,8 +255,8 @@
                     "consumer": "read-state"
                 },
                 {
-                    "field": "message.deletedat",
-                    "roleId": "message.deleted",
+                    "field": "conversation.closed-updatedat",
+                    "roleId": "message.conversation-closed",
                     "consumer": "message-query"
                 },
                 {

@@ -122,9 +122,12 @@ export function normalizeDomainObservations(values, producerId)
     return Object.freeze(normalized);
 }
 
-export function validateSecurityReceiptExtensions(document)
+export function validateSecurityReceiptExtensions(
+    document,
+    { normalizeCleanup = normalizeCleanupContract } = {}
+)
 {
-    const canonicalCleanupContract = normalizeCleanupContract(document.cleanupContract);
+    const canonicalCleanupContract = normalizeCleanup(document.cleanupContract);
     if (JSON.stringify(canonicalCleanupContract) !== JSON.stringify(document.cleanupContract))
     {
         throw new Error('ProducerReceipt cleanupContract is not canonical');

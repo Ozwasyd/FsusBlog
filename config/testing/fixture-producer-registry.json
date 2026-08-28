@@ -6,7 +6,9 @@
             "strategy": "transaction-fixture",
             "reuseVerifier": "fixture-receipt",
             "implementationPaths": [
-                "tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs"
+                "src/backend/Modules/Endpoints/LocalMessagingFixtureEndpoints.cs",
+                "src/backend/Services/Fixtures/MessagingFixtureSeeder.cs",
+                "tools/test-fixtures/producers/account-messaging-producer.mjs"
             ],
             "provides": [
                 "messages.thread",
@@ -15,13 +17,15 @@
                 "preferences.locale-fixed"
             ],
             "consumes": [
+                "auth.admin.full-permission",
                 "auth.user.active"
             ],
             "stateDomains": [
                 "fixture.auth-identities",
                 "postgres.auth",
                 "postgres.settings",
-                "redis.notification"
+                "redis.notification",
+                "redis.session"
             ],
             "receiptPostconditions": [
                 "locale-auto",

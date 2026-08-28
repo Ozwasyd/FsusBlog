@@ -2281,7 +2281,15 @@
     "producerImplementations": [
         {
             "producerId": "account-messaging",
-            "source": "tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs"
+            "source": "src/backend/Modules/Endpoints/LocalMessagingFixtureEndpoints.cs"
+        },
+        {
+            "producerId": "account-messaging",
+            "source": "src/backend/Services/Fixtures/MessagingFixtureSeeder.cs"
+        },
+        {
+            "producerId": "account-messaging",
+            "source": "tools/test-fixtures/producers/account-messaging-producer.mjs"
         },
         {
             "producerId": "auth-session",

@@ -99,6 +99,10 @@ normalized port 的 `identityRoleRequests` 声明
 prepare-reference digest、producer-result digest 与 `sourceReceiptDigest`，且只能投影
 该 consumer 预先声明的 role。
 
+Account messaging fixture 的 capability 与 owner authority 分别是 `config/testing/messaging-fixture-inventory.json` 和 `config/testing/messaging-fixture-ownership.json`。唯一 Node producer `tools/test-fixtures/producers/account-messaging-producer.mjs` 必须消费 `auth-session` 发布的 exact prepare identity references 与 sealed temporal-role artifact，再经 development-only、loopback/secret-gated composition root 调用真实 message command、outbox fan-out、notification stream、query 和 cache 路径；禁止 direct SQL seed、first-row discovery、sleep/random ordering、mock stream 或 structural fallback。verify 阶段必须把同一组 prepare references 绑定到 `auth-session` sealed ProducerReceipt 的 verified projection，不得在 prepare 阶段预声明 verified 或伪造 receipt digest。空 inbox/notification 必须由独立 empty identity 证明 exact zero，不能用过滤隐藏旧资料。
+
+Prepare 结果逐 capability 绑定 database/API/cache/outbox/stream 的 exact observation，并只在 cleanup receipt 中携带本轮 namespace 拥有的 entity/key IDs；普通 artifact 不保存 message body、cookie、session、token 或 notification payload。verify 必须重新读取服务状态并拒绝 count-only 或 warning success，cleanup 只能删除 receipt-owned 身份。`node tools/test/check-messaging-fixture-governance.mjs` 生成 source-bound cleanup 与 terminal acceptance receipts；只有 owner closure、mutation cases、parallel/rerun isolation、consumer parity 和 privacy 全部 accepted 且 warnings 为零时才通过。
+
 测试删除或合并时，先在 retention ledger 中给出仍存活的 replacement IDs，再更新 requirement、coverage 与 matrix。没有等价可执行断言时不得用文档、fixture 文件存在性或历史 evidence 替代测试。
 
 性能测试资产统一放在 `tests/performance/`，不再保留旧短名测试根。`browser-contract` 是 release correctness 的最小浏览器契约，而 `browser-diagnostics` 是 scheduled/manual 的诊断集合；两者的命令、artifact 和结论互不替代，diagnostics 失败不能伪装成 correctness 通过，contract 通过也不能覆盖 diagnostics 的独立风险报告。

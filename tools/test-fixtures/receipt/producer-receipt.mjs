@@ -20,6 +20,7 @@ import {
     normalizeDatabaseObservation,
     normalizeRedisObservation
 } from './observations.mjs';
+import { normalizeCleanupContract as normalizeMessagingCleanupContract } from './messaging-cleanup-contract.mjs';
 import {
     ENTITY_IDENTITY_KINDS,
     PRODUCER_RECEIPT_SCHEMA,
@@ -27,10 +28,17 @@ import {
 } from './schemas.mjs';
 import { assertNoSecrets } from './secrets.mjs';
 import {
-    normalizeCleanupContract,
+    normalizeCleanupContract as normalizeSecurityCleanupContract,
     normalizeDomainObservations,
     validateSecurityReceiptExtensions
 } from './security-receipt-contract.mjs';
+
+function normalizeCleanupContract(value)
+{
+    return value?.kind === 'messaging-exact-receipt'
+        ? normalizeMessagingCleanupContract(value)
+        : normalizeSecurityCleanupContract(value);
+}
 
 function requireText(value, label)
 {
@@ -296,6 +304,11 @@ export function buildProducerReceipt({
             ? normalizeCacheObservation(cacheObservation)
             : null
     };
+    const sealedCleanupContract = normalizeCleanupContract(cleanupContract);
+    if (sealedCleanupContract.kind === 'messaging-exact-receipt' && id !== 'account-messaging')
+    {
+        throw new Error('messaging exact cleanup receipt belongs only to account-messaging');
+    }
 
     const body = {
         schema: PRODUCER_RECEIPT_SCHEMA,
@@ -316,7 +329,7 @@ export function buildProducerReceipt({
         ownedStateDomains: domains,
         entityIdentities: normalizeEntityIdentities(entityIdentities, new Set(producedVariants)),
         postconditionObservations: normalizePostconditionObservations(postconditionObservations),
-        cleanupContract: normalizeCleanupContract(cleanupContract),
+        cleanupContract: sealedCleanupContract,
         temporalBinding: normalizeTemporalBinding(temporalBinding),
         domainObservations: normalizeDomainObservations(domainObservations, id),
         observationDigests: freezeDeep({
@@ -382,7 +395,7 @@ export function validateProducerReceipt(document, { catalogs = readFixtureCatalo
     {
         normalizeTemporalBinding(document.temporalBinding);
     }
-    validateSecurityReceiptExtensions(document);
+    validateSecurityReceiptExtensions(document, { normalizeCleanup: normalizeCleanupContract });
 
     const catalogProducer = (catalogs.producer.producers ?? []).find((item) => item.id === document.producerId);
     if (!catalogProducer)
