@@ -127,6 +127,21 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    public void ValidateCore_RejectsLocalSecurityFixtureGateOutsideDevelopment()
+    {
+        IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
+        {
+            [LocalSecurityFixtureEndpoints.AllowLocalSecurityFixtureConfigurationKey] = "true"
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
+            configuration,
+            enforceProductionRules: true);
+
+        Assert.Contains("fsus:allowLocalSecurityFixture must be false outside Development.", errors);
+    }
+
+    [Fact]
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary, InvariantId = "session-limit-boundary")]
     public void ValidateCore_RejectsOutOfRangeActiveUserSessionLimit()
     {

@@ -90,7 +90,8 @@ public sealed class MessageCenterServiceTests
             cache,
             Substitute.For<IMessageNotificationStreamPort>(),
             new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build(),
-            NullLogger<MessageCenterService>.Instance);
+            NullLogger<MessageCenterService>.Instance,
+            TimeProvider.System);
     }
 
     [Fact]

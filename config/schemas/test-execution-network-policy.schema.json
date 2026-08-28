@@ -1,0 +1,135 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.local/schemas/test-execution-network-policy.schema.json",
+    "title": "FsusBlog Test Execution Network Policy",
+    "type": "object",
+    "required": [
+        "schema",
+        "version",
+        "correctnessDefault",
+        "sandbox",
+        "allowedEndpointClasses",
+        "serviceEndpoints",
+        "externalEndpoints",
+        "buildRestorePolicy"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.test-execution-network-policy.v1"
+        },
+        "version": {
+            "const": 1
+        },
+        "correctnessDefault": {
+            "const": "deny"
+        },
+        "sandbox": {
+            "type": "object",
+            "required": [
+                "linux",
+                "unavailable"
+            ],
+            "properties": {
+                "linux": {
+                    "const": {
+                        "isolation": "systemd-private-network-plus-landlock-filesystem",
+                        "observer": "strace-network-syscalls"
+                    }
+                },
+                "unavailable": {
+                    "const": "fail-closed"
+                }
+            },
+            "additionalProperties": false
+        },
+        "allowedEndpointClasses": {
+            "const": [
+                "loopback",
+                "current-run-container-network",
+                "catalog-exact-endpoint"
+            ]
+        },
+        "serviceEndpoints": {
+            "type": "object",
+            "required": [
+                "backend",
+                "frontend",
+                "postgres",
+                "preview",
+                "redis"
+            ],
+            "properties": {
+                "backend": {
+                    "$ref": "#/$defs/projectedServiceEndpoint"
+                },
+                "frontend": {
+                    "$ref": "#/$defs/projectedServiceEndpoint"
+                },
+                "postgres": {
+                    "$ref": "#/$defs/projectedServiceEndpoint"
+                },
+                "preview": {
+                    "$ref": "#/$defs/projectedServiceEndpoint"
+                },
+                "redis": {
+                    "$ref": "#/$defs/projectedServiceEndpoint"
+                }
+            },
+            "additionalProperties": false
+        },
+        "externalEndpoints": {
+            "const": []
+        },
+        "buildRestorePolicy": {
+            "type": "object",
+            "required": [
+                "phase",
+                "artifactAdmission"
+            ],
+            "properties": {
+                "phase": {
+                    "const": "separate-from-correctness"
+                },
+                "artifactAdmission": {
+                    "const": "immutable-build-receipt"
+                }
+            },
+            "additionalProperties": false
+        }
+    },
+    "additionalProperties": false,
+    "$defs": {
+        "projectedServiceEndpoint": {
+            "type": "object",
+            "required": [
+                "protocol",
+                "host",
+                "portSource",
+                "dns",
+                "certificate",
+                "proxy"
+            ],
+            "properties": {
+                "protocol": {
+                    "const": "tcp"
+                },
+                "host": {
+                    "const": "127.0.0.1"
+                },
+                "portSource": {
+                    "const": "service-envelope"
+                },
+                "dns": {
+                    "const": "not-applicable-literal-loopback"
+                },
+                "certificate": {
+                    "const": "not-applicable-plaintext-local-service"
+                },
+                "proxy": {
+                    "const": "denied"
+                }
+            },
+            "additionalProperties": false
+        }
+    }
+}

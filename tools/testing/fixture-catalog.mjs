@@ -4,6 +4,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { parseMatrix } from '../test-matrix/parse-matrix.mjs';
+import {
+    contentShapeCatalogDigest,
+    readContentShapeAuthority,
+    validateContentShapeAuthority
+} from './content-shape-catalog.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const config = (name) => path.join(root, 'config/testing', name);
@@ -30,7 +35,9 @@ function stableStringify(value)
 const requiredFixtureSourceFiles = Object.freeze([
     'src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs',
     'src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs',
-    'tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs',
+    'src/backend/Modules/Endpoints/LocalMessagingFixtureEndpoints.cs',
+    'src/backend/Services/Fixtures/MessagingFixtureSeeder.cs',
+    'tools/test-fixtures/producers/account-messaging-producer.mjs',
     'tests/browser-contract/default-fixture-provider.mjs',
     'tests/browser-contract/fixture.mjs',
     'tests/browser-contract/prepare-fixture.mjs',
@@ -472,6 +479,11 @@ export function validateFixtureVariantCatalog({
         {
             errors.push(`variant ${id} ownerProducerId must match capability owner ${capability.ownerProducerId}`);
         }
+        const capabilityValidityClasses = capability?.validityClasses ?? FIXTURE_VALIDITY_CLASSES;
+        if (!capabilityValidityClasses.includes(variant.validityClass))
+        {
+            errors.push(`variant ${id} validityClass is not allowed by capability ${variant.capabilityId}`);
+        }
         if (!writerContracts.has(variant.writerContractId))
         {
             errors.push(`variant ${id} references unknown writer contract ${variant.writerContractId}`);
@@ -570,9 +582,17 @@ export function validateFixtureVariantCatalog({
         {
             errors.push(`capability ${capability.id} has no registered fixture variant`);
         }
-        if (!canonicalByCapability.has(capability.id) && !/^(?:development\.demo\.dataset|scale\.)/u.test(capability.id))
+        const capabilityValidityClasses = capability.validityClasses ?? FIXTURE_VALIDITY_CLASSES;
+        if (capabilityValidityClasses.includes('canonical-positive')
+            && !canonicalByCapability.has(capability.id)
+            && !/^(?:development\.demo\.dataset|scale\.)/u.test(capability.id))
         {
             errors.push(`capability ${capability.id} has no canonical-positive variant`);
+        }
+        if (!capabilityValidityClasses.includes('canonical-positive')
+            && canonicalByCapability.has(capability.id))
+        {
+            errors.push(`negative-only capability ${capability.id} cannot register a canonical-positive variant`);
         }
     }
     for (const capability of capabilities)
@@ -1349,7 +1369,8 @@ export function expandFixtureProfile(profileId, catalogs = readFixtureCatalogs()
 }
 
 /**
- * Authority digest over capability/profile/producer catalogs (inventory excluded).
+ * Authority digest over capability/profile/producer/content-shape catalogs
+ * (inventory excluded).
  * Used to fail closed when sealed matrix identity drifts from live catalogs.
  */
 export function fixtureCatalogDigest(catalogs = readFixtureCatalogs())
@@ -1358,7 +1379,10 @@ export function fixtureCatalogDigest(catalogs = readFixtureCatalogs())
         capability: catalogs.capability,
         profile: catalogs.profile,
         producer: catalogs.producer,
-        variant: catalogs.variant
+        variant: catalogs.variant,
+        contentShapeAuthorityDigest: contentShapeCatalogDigest(
+            catalogs.contentShapeAuthority ?? readContentShapeAuthority()
+        )
     });
 }
 
@@ -1396,7 +1420,6 @@ export function planFixtureMutation(profileId, catalogs = readFixtureCatalogs())
     const requiresDemoSeed = expanded.capabilities.includes('development.demo.dataset');
     const requiresSecurityState = expanded.capabilities.some((id) => byCapability.get(id)?.ownerProducerId === 'security-state');
     // Catalog has no dedicated security-runtime-reset capability yet; fail closed to zero.
-    const requiresSecurityReset = expanded.capabilities.some((id) => id === 'security.runtime-reset');
     const mutationPolicy = profileId === 'none' || expanded.capabilities.length === 0
         ? 'zero-mutation'
         : profile.isDestructive
@@ -1414,7 +1437,6 @@ export function planFixtureMutation(profileId, catalogs = readFixtureCatalogs())
         requiresPublicFixtures,
         requiresDemoSeed,
         requiresSecurityState,
-        requiresSecurityReset,
         allowedExecutionClasses: Object.freeze([...(profile.allowedExecutionClasses ?? [])])
     });
 }
@@ -1571,7 +1593,6 @@ export function resolveFixtureProfile({
         requiresPublicFixtures: plan.requiresPublicFixtures,
         requiresDemoSeed: plan.requiresDemoSeed,
         requiresSecurityState: plan.requiresSecurityState,
-        requiresSecurityReset: plan.requiresSecurityReset,
         sealed: profileSource === 'matrix'
             ? Object.freeze({
         fixtureProfileId: requestedId,
@@ -1746,7 +1767,6 @@ export function writeFixtureProfileReceipt(file, plan, {
         requiresAuthFixtures: plan.requiresAuthFixtures,
         requiresPublicFixtures: plan.requiresPublicFixtures,
         requiresDemoSeed: plan.requiresDemoSeed,
-        requiresSecurityReset: plan.requiresSecurityReset,
         // environment-ready references FixtureReceipt v2 digests; URLs/containers are not completeness proof.
         fixtureReceiptPath,
         fixtureReceiptDigest,
@@ -1902,6 +1922,13 @@ export function validateFixtureCatalogs({
         if (!['immutable', 'scenario-owned'].includes(item.mutability))
         {
             errors.push(`capability ${item.id} has invalid mutability`);
+        }
+        const validityClasses = item.validityClasses ?? FIXTURE_VALIDITY_CLASSES;
+        if (!sortedUnique(validityClasses)
+            || validityClasses.length === 0
+            || validityClasses.some((value) => !FIXTURE_VALIDITY_CLASSES.includes(value)))
+        {
+            errors.push(`capability ${item.id} validityClasses must be sorted, unique and known`);
         }
     }
     for (const item of producers)
@@ -2253,6 +2280,7 @@ export function validateFixtureCatalogs({
         producerFile: files.producer ?? fixtureCatalogFiles.producer
     }));
     errors.push(...validateFixtureSentinelRegistry({ catalogs, repositoryRoot }));
+    errors.push(...validateContentShapeAuthority({ root: repositoryRoot }));
     return errors;
 }
 

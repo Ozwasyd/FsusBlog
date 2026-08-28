@@ -1,0 +1,12 @@
+import { expect, test } from '@playwright/test'
+
+import { load } from '../../../../src/subject'
+
+test('playwright exact state', async () => {
+    expect(load()).toBe(2)
+})
+
+const dynamicRows = load()
+test.each(dynamicRows)('playwright dynamic %s', async (value) => {
+    expect(value).toBe(2)
+})

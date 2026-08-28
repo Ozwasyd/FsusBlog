@@ -11,9 +11,11 @@ namespace FsusBlog.Server.Services;
 
 public sealed class UserLocalePreferenceService(
     ISqlSugarClient db,
-    ILogger<UserLocalePreferenceService> logger)
+    ILogger<UserLocalePreferenceService> logger,
+    TimeProvider? timeProvider = null)
     : IUserLocalePreferenceReader, IUserLocalePreferenceCommand
 {
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
     private static readonly UserLocalePreferenceDto s_default =
         new(LocalePreferenceModes.Auto, null, 0, DateTime.UnixEpoch);
 
@@ -43,6 +45,32 @@ public sealed class UserLocalePreferenceService(
         int accountId,
         UserLocalePreferenceUpdateDto request,
         CancellationToken cancellationToken = default)
+        => await UpdateCoreAsync(
+            accountId,
+            request,
+            _timeProvider.GetUtcNow(),
+            cancellationToken).ConfigureAwait(false);
+
+    internal Task<UserLocalePreferenceUpdateResult> UpdateAtAsync(
+        int accountId,
+        UserLocalePreferenceUpdateDto request,
+        DateTimeOffset updatedAt,
+        CancellationToken cancellationToken = default)
+    {
+        if (updatedAt.Offset != TimeSpan.Zero
+            || updatedAt.Ticks % TimeSpan.TicksPerMillisecond != 0)
+        {
+            throw new InvalidOperationException(
+                "locale preference fixture time must be an exact millisecond UTC instant");
+        }
+        return UpdateCoreAsync(accountId, request, updatedAt, cancellationToken);
+    }
+
+    private async Task<UserLocalePreferenceUpdateResult> UpdateCoreAsync(
+        int accountId,
+        UserLocalePreferenceUpdateDto request,
+        DateTimeOffset updatedAt,
+        CancellationToken cancellationToken)
     {
         if (!TryNormalize(request, out UserLocalePreferenceUpdateDto normalized, out UserLocalePreferenceUpdateOutcome invalid))
         {
@@ -62,7 +90,6 @@ public sealed class UserLocalePreferenceService(
                     return;
                 }
 
-                DateTime updatedAt = DateTime.UtcNow;
                 long revision = checked(previous.Revision + 1);
                 SugarParameter[] parameters =
                 [
@@ -70,7 +97,7 @@ public sealed class UserLocalePreferenceService(
                     new("@Mode", normalized.Mode),
                     new("@FixedLocale", normalized.FixedLocale),
                     new("@Revision", revision),
-                    new("@UpdatedAt", updatedAt),
+                    new("@UpdatedAt", updatedAt.UtcDateTime),
                     new("@ExpectedRevision", normalized.ExpectedRevision)
                 ];
                 int affected = previousExisted
@@ -101,7 +128,7 @@ public sealed class UserLocalePreferenceService(
                         normalized.Mode,
                         normalized.FixedLocale,
                         revision,
-                        updatedAt);
+                        updatedAt.UtcDateTime);
                 }
             }).ConfigureAwait(false);
 

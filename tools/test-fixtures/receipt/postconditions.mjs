@@ -8,6 +8,7 @@
 
 import { readFixtureCatalogs } from '../../testing/fixture-catalog.mjs'
 import { freezeDeep, plainObject } from './canonical.mjs'
+import { securityPostconditionVerifiers } from './security-postconditions.mjs'
 
 function fail(id, reason) {
   return Object.freeze({ ok: false, postconditionId: id, reason })
@@ -137,11 +138,11 @@ function verifyHomeFeaturedHot(ctx) {
   return pass(id, { articleIds: owned.ids, redisKeys: hotKeys.length })
 }
 
-function verifyAuthUser(id, { deleted = false, mfa = false } = {}) {
+function verifyAuthUser(id, { deleted = false, mfa = null, passkey = false, recovery = false } = {}) {
   return (ctx) => {
     const db = ctx.observations?.database
     if (!db) return fail(id, 'database observation required')
-    const users = entitiesOf(db, 'user')
+    const users = entitiesOf(db, 'user').filter((item) => item.postconditionId === id)
     const owned = requireOwnedIds(users, id)
     if (!owned.ok) return fail(id, owned.reason)
     for (const user of users) {
@@ -155,21 +156,20 @@ function verifyAuthUser(id, { deleted = false, mfa = false } = {}) {
       } else if (fields.status && fields.status !== 'active') {
         return fail(id, `user ${user.id} status is not active`)
       }
-      if (mfa && fields.mfaEnabled !== true) {
-        return fail(id, `user ${user.id} MFA is not enabled`)
+      if (mfa !== null && fields.mfaEnabled !== mfa) {
+        return fail(id, `user ${user.id} MFA state mismatch`)
       }
-    }
-    if (mfa) {
-      const redis = ctx.observations?.redis
-      if (!redis) return fail(id, 'redis session observation required for MFA')
-      const sessionKeys = (redis.keys ?? []).filter((item) => item.present === true
-        && (/session|mfa/i.test(String(item.key ?? '')) || /session|mfa/i.test(String(item.domain ?? ''))))
-      if (sessionKeys.length === 0) return fail(id, 'MFA session/cache keys missing')
-      for (const key of sessionKeys) {
-        if (key.sessionRevoked === true) return fail(id, 'session is revoked while MFA capability claims active')
-        if (key.mfaClaim !== true && key.claimDigest == null) {
-          return fail(id, 'MFA session claim missing')
+      if (passkey) {
+        const ceremony = fields.ceremony ?? {}
+        if (fields.passkeyEnabled !== true || ceremony.validationBoundary !== 'production-fido'
+          || ceremony.challengeConsumed !== true || ceremony.signatureVerified !== true
+          || ceremony.originVerified !== true || ceremony.rpIdVerified !== true
+          || ceremony.counterVerified !== true || ceremony.acceptAnySignature === true) {
+          return fail(id, `user ${user.id} production WebAuthn ceremony is incomplete`)
         }
+      }
+      if (recovery && fields.recoveryEnabled !== true) {
+        return fail(id, `user ${user.id} recovery state is not enabled`)
       }
     }
     return pass(id, { userIds: owned.ids })
@@ -180,7 +180,7 @@ function verifyAdminPermission(id, permission) {
   return (ctx) => {
     const db = ctx.observations?.database
     if (!db) return fail(id, 'database observation required')
-    const admins = entitiesOf(db, 'admin')
+    const admins = entitiesOf(db, 'admin').filter((item) => item.postconditionId === id)
     const owned = requireOwnedIds(admins, id)
     if (!owned.ok) return fail(id, owned.reason)
     for (const admin of admins) {
@@ -208,25 +208,65 @@ function verifyAdminPermission(id, permission) {
   }
 }
 
-function verifySession(id, { multi = false } = {}) {
+function verifyAdminRootEmpty(ctx) {
+  const id = 'admin-root-bootstrap-empty'
+  const db = ctx.observations?.database
+  if (!db) return fail(id, 'database observation required')
+  const roots = entitiesOf(db, 'admin-root-set').filter((item) => item.postconditionId === id)
+  const owned = requireOwnedIds(roots, id)
+  if (!owned.ok) return fail(id, owned.reason)
+  if (roots.some((item) => item.fields?.state !== 'empty'
+    || item.fields?.rootCount !== 0 || item.fields?.nonownedDeletionCount !== 0)) {
+    return fail(id, 'root bootstrap empty state is not isolated and non-destructive')
+  }
+  return pass(id, { rootSets: owned.ids })
+}
+
+function verifySession(id, { multi = false, expectedState = 'active', remembered = false, rotated = false } = {}) {
   return (ctx) => {
-    const redis = ctx.observations?.redis
     const db = ctx.observations?.database
-    if (!redis) return fail(id, 'redis session observation required')
     if (!db) return fail(id, 'database observation required for session binding')
-    const sessions = entitiesOf(db, 'session')
-    const keys = (redis.keys ?? []).filter((item) => item.present === true
-      && (/session/i.test(String(item.key ?? '')) || String(item.domain ?? '').includes('session')))
-    if (keys.length === 0) return fail(id, 'session redis keys missing')
-    for (const key of keys) {
-      if (key.sessionRevoked === true) return fail(id, 'session revoked (auth storage file is not sufficient)')
+    const allSessions = entitiesOf(db, 'session')
+    const taggedSessions = allSessions.filter((item) => item.postconditionId === id)
+    // Current producers always tag independent semantic identities. The
+    // all-session fallback only preserves fail-closed verification for legacy
+    // counterexamples that predate postcondition tags.
+    const sessions = taggedSessions.length ? taggedSessions : allSessions
+    const owned = requireOwnedIds(sessions, id)
+    if (!owned.ok) return fail(id, owned.reason)
+    const revokedKeys = (ctx.observations?.redis?.keys ?? []).filter((item) =>
+      item.sessionRevoked === true && sessions.some((session) =>
+        String(item.sessionId ?? item.key ?? '').includes(String(session.id))))
+    if (revokedKeys.length && expectedState !== 'revoked') {
+      return fail(id, 'session is revoked in the cache/read projection')
     }
-    if (multi) {
-      if (keys.length < 2 && sessions.length < 2) {
-        return fail(id, 'multi-device session requires >=2 live sessions')
+    for (const session of sessions) {
+      const fields = session.fields ?? {}
+      const observedState = fields.state ?? (fields.active === true ? 'active' : null)
+      if (observedState !== expectedState) return fail(id, `session ${session.id} state mismatch`)
+      if (fields.databaseStateVerified !== true || fields.claimStateVerified !== true
+        || fields.cacheStateVerified !== true) {
+        return fail(id, `session ${session.id} DB/claim/cache postcondition is incomplete`)
+      }
+      if (expectedState === 'active' && fields.live !== true) {
+        return fail(id, `session ${session.id} is not live`)
+      }
+      if (remembered && (fields.rememberMe !== true || fields.durationPolicy !== 'persistent_30d')) {
+        return fail(id, `session ${session.id} remembered policy mismatch`)
+      }
+      if (rotated && (fields.oldRefreshAccepted !== false || fields.currentGeneration !== 1
+        || fields.currentPointerVerified !== true)) {
+        return fail(id, `session ${session.id} refresh rotation mismatch`)
       }
     }
-    return pass(id, { sessionKeys: keys.length, sessions: sessions.length })
+    if (multi) {
+      const devices = new Set(sessions.map((item) => item.fields?.deviceSignal))
+      const families = new Set(sessions.map((item) => item.fields?.familyIdentity))
+      if (sessions.length !== 2 || devices.size !== 2 || families.size !== 2) {
+        return fail(id, 'multi-device session requires exactly two distinct live devices and families')
+      }
+    }
+    return pass(id, { sessionIds: owned.ids })
   }
 }
 
@@ -265,29 +305,6 @@ function verifyScale(id) {
       if (Number(row.fields?.count ?? row.fields?.articleCount ?? 1) <= 0) {
         return fail(id, 'scale count must be exact positive owned rows, not >0-only probe')
       }
-    }
-    return pass(id, { ids: owned.ids })
-  }
-}
-
-function verifySecurity(id, field) {
-  return (ctx) => {
-    const db = ctx.observations?.database
-    const redis = ctx.observations?.redis
-    if (!db) return fail(id, 'database observation required')
-    const subjects = entitiesOf(db, 'security-subject').concat(entitiesOf(db, 'user'))
-    const owned = requireOwnedIds(subjects, id)
-    if (!owned.ok) return fail(id, owned.reason)
-    for (const subject of subjects) {
-      if (subject.fields?.[field] !== true && subject.fields?.state !== field) {
-        if (subject.postconditionId !== id) {
-          return fail(id, `security subject ${subject.id} missing ${field}`)
-        }
-      }
-    }
-    if (redis && field === 'riskEscalated') {
-      const keys = (redis.keys ?? []).filter((item) => item.present === true && /risk|pow/i.test(String(item.key ?? item.domain ?? '')))
-      if (keys.length === 0) return fail(id, 'security redis risk keys missing')
     }
     return pass(id, { ids: owned.ids })
   }
@@ -450,22 +467,91 @@ function verifyMessages(id) {
   }
 }
 
-function verifyLocale(id) {
+function verifyAccountProfile(id, expected) {
+  return (ctx) => {
+    const db = ctx.observations?.database
+    if (!db) return fail(id, 'database observation required')
+    const profiles = entitiesOf(db, 'profile')
+      .filter((item) => item.postconditionId === id && item.owned !== false)
+    const owned = requireOwnedIds(profiles, id)
+    if (!owned.ok) return fail(id, owned.reason)
+    for (const profile of profiles) {
+      const fields = profile.fields ?? {}
+      if (fields.readerMatchesDatabase !== true || fields.securityStateUnchanged !== true
+        || fields.preferenceMutation !== false) {
+        return fail(id, `profile ${profile.id} lacks reader/security/non-preference proof`)
+      }
+      if (expected === 'empty' && fields.publicHandle != null) {
+        return fail(id, `profile ${profile.id} handle is not database NULL`)
+      }
+      if (expected === 'set' && (!String(fields.publicHandle ?? '') || fields.uniqueOwnerCount !== 1)) {
+        return fail(id, `profile ${profile.id} handle is not uniquely owned`)
+      }
+      if (expected === 'conflict'
+        && (fields.conflictErrorCode !== 'conflict'
+          || fields.challengerPreserved !== true || fields.uniqueOwnerCount !== 1)) {
+        return fail(id, `profile ${profile.id} conflict did not preserve the first owner`)
+      }
+    }
+    return pass(id, { profileIds: owned.ids })
+  }
+}
+
+function verifyAccountPreference(id, expected) {
   return (ctx) => {
     const db = ctx.observations?.database
     if (!db) return fail(id, 'database observation required')
     const prefs = entitiesOf(db, 'preference')
+      .filter((item) => item.postconditionId === id && item.owned !== false)
     const owned = requireOwnedIds(prefs, id)
     if (!owned.ok) return fail(id, owned.reason)
     for (const pref of prefs) {
-      if (id === 'locale-auto' && pref.fields?.localeMode !== 'auto') {
-        return fail(id, `preference ${pref.id} is not locale-auto`)
+      const fields = pref.fields ?? {}
+      if (fields.readerMatchesDatabase !== true || fields.securityStateUnchanged !== true
+        || fields.publicHandleMutation !== false || !/^[a-f0-9]{64}$/u.test(String(fields.catalogDigest ?? ''))
+        || Number(fields.revision) <= 0) {
+        return fail(id, `preference ${pref.id} lacks reader/catalog/revision/isolation proof`)
       }
-      if (id === 'locale-fixed' && pref.fields?.localeMode !== 'fixed') {
-        return fail(id, `preference ${pref.id} is not locale-fixed`)
+      const cookieLocales = fields.explicitCookieLocales ?? []
+      const incomingLocales = fields.incomingDeviceLocales ?? []
+      const resolvedLocales = fields.serverResolvedLocales ?? []
+      if (expected === 'auto'
+        && (fields.localeMode !== 'auto' || fields.fixedLocale != null
+          || cookieLocales.some((locale) => locale != null))) {
+        return fail(id, `preference ${pref.id} auto state retained an explicit locale`)
+      }
+      if (expected === 'fixed-default'
+        && (fields.localeMode !== 'fixed' || fields.isCatalogDefault !== true)) {
+        return fail(id, `preference ${pref.id} is not the catalog default fixed locale`)
+      }
+      if (expected === 'fixed-non-default'
+        && (fields.localeMode !== 'fixed' || fields.isCatalogNonDefault !== true)) {
+        return fail(id, `preference ${pref.id} is not a catalog non-default fixed locale`)
+      }
+      if (expected === 'device-explicit'
+        && (fields.localeMode !== 'auto' || cookieLocales.length === 0
+          || cookieLocales.some((locale) => locale == null)
+          || JSON.stringify(cookieLocales) !== JSON.stringify(resolvedLocales))) {
+        return fail(id, `preference ${pref.id} device projection is not the server locale authority input`)
+      }
+      if (expected === 'account-device-conflict'
+        && (fields.localeMode !== 'fixed' || incomingLocales.length !== 1
+          || incomingLocales[0] == null || incomingLocales[0] === fields.fixedLocale
+          || cookieLocales.length !== 1 || cookieLocales[0] !== fields.fixedLocale
+          || resolvedLocales.length !== 1 || resolvedLocales[0] !== fields.fixedLocale)) {
+        return fail(id, `preference ${pref.id} account/device conflict precedence is invalid`)
+      }
+      if (expected === 'revision-conflict'
+        && (fields.conflictErrorCode !== 'locale_preference_revision_conflict'
+          || fields.newerValuePreserved !== true || Number(fields.staleRevision) >= Number(fields.revision))) {
+        return fail(id, `preference ${pref.id} revision conflict did not preserve the newer value`)
+      }
+      if (expected === 'two-device-sync'
+        && (fields.deviceProjectionCount !== 2 || resolvedLocales.length !== 1)) {
+        return fail(id, `preference ${pref.id} two-device projection is not revision-equivalent`)
       }
     }
-    return pass(id)
+    return pass(id, { preferenceIds: owned.ids })
   }
 }
 
@@ -479,8 +565,96 @@ function verifyModerationPolicy(ctx) {
   return pass(id, { ids: owned.ids })
 }
 
+function verifyAudit(id) {
+  const capabilityId = id.replace(/^audit-/u, 'audit.')
+  return (ctx) => {
+    const db = ctx.observations?.database
+    if (!db) return fail(id, 'database observation required')
+    if (typeof db.owner !== 'string' || !db.owner.startsWith('audit-fixture:')) {
+      return fail(id, 'audit owner identity is missing')
+    }
+    if (!/^[0-9a-f]{64}$/u.test(String(db.policyDigest ?? ''))
+      || !/^[0-9a-f]{64}$/u.test(String(db.semanticRecordSetDigest ?? ''))) {
+      return fail(id, 'audit policy or semantic record-set digest is missing')
+    }
+    if (capabilityId === 'audit.empty') {
+      return Number(db.recordCount ?? -1) === 0 && (db.entities ?? []).length === 0
+        ? pass(id, { recordCount: 0 })
+        : fail(id, 'audit.empty must prove zero owned records')
+    }
+    if (capabilityId === 'audit.tamper-negative'
+      || capabilityId === 'audit.unknown-action-negative') {
+      const cases = (db.negativeCases ?? []).filter((item) => capabilityId === 'audit.tamper-negative'
+        ? item.mutationId !== 'unknown-action'
+        : item.mutationId === 'unknown-action')
+      if (cases.length === 0) return fail(id, 'isolated negative audit evidence is missing')
+      if (cases.some((item) => item.isolated !== true
+        || item.expectedReason !== item.actualReason
+        || !item.mutatedField)) {
+        return fail(id, 'negative audit evidence lacks a unique stable reason')
+      }
+      return pass(id, { cases: cases.length })
+    }
+
+    const records = entitiesOf(db, 'audit-record').filter((item) => item.fields?.capability === capabilityId)
+    const owned = requireOwnedIds(records, id)
+    if (!owned.ok) return fail(id, owned.reason)
+    for (const record of records) {
+      const fields = record.fields ?? {}
+      if (!/^[0-9]{8}$/u.test(String(fields.chainId ?? ''))
+        || !/^[0-9a-f]{64}$/u.test(String(fields.recordHash ?? ''))
+        || !/^[0-9a-f]{64}$/u.test(String(fields.recordMacDigest ?? ''))) {
+        return fail(id, `audit record ${record.id} lacks chain/hash/MAC evidence`)
+      }
+    }
+    if (capabilityId === 'audit.chain-multi-record' && records.length < 4) {
+      return fail(id, 'audit chain matrix requires same-day and cross-day records')
+    }
+    if (capabilityId === 'audit.investigation-page' && records.length < 3) {
+      return fail(id, 'audit investigation page requires a stable multi-record page')
+    }
+    if (capabilityId === 'audit.investigation-page') {
+      const query = db.query
+      if (!query || query.total !== 3 || query.cursorBound !== true
+        || query.orderedDescending !== true || query.piiRedacted !== true
+        || query.chainVerified !== true) {
+        return fail(id, 'audit investigation page lacks verified production query evidence')
+      }
+    }
+    if (capabilityId === 'audit.legal-hold-eligible') {
+      const retention = db.retention ?? []
+      if (!retention.some((item) => item.legalHoldAllowed === true)
+        || retention.some((item) => item.eligibleHoldActiveBeforeExpiry !== true
+          || item.eligibleHoldInactiveAtExpiry !== true
+          || item.ineligibleHoldReason !== 'audit_legal_hold_not_allowed')) {
+        return fail(id, 'audit legal-hold production boundary evidence is missing')
+      }
+    }
+    if (capabilityId === 'audit.high-value' && records.some((item) => item.fields?.highValue !== true)) {
+      return fail(id, 'audit high-value record did not use durable classification')
+    }
+    if (capabilityId === 'audit.pseudonym-retention'
+      && records.some((item) => item.fields?.payloadProtected !== true)) {
+      return fail(id, 'audit pseudonym record did not use production payload protection')
+    }
+    if (capabilityId === 'audit.pseudonym-retention' && !(db.retention ?? []).length) {
+      return fail(id, 'audit pseudonym record lacks production retention boundary evidence')
+    }
+    return pass(id, { recordIds: owned.ids })
+  }
+}
+
 /** Built-in machine postcondition verifiers keyed by catalog postconditionId. */
 export const POSTCONDITION_VERIFIERS = Object.freeze({
+  'audit-chain-multi-record': verifyAudit('audit-chain-multi-record'),
+  'audit-empty': verifyAudit('audit-empty'),
+  'audit-high-value': verifyAudit('audit-high-value'),
+  'audit-investigation-page': verifyAudit('audit-investigation-page'),
+  'audit-legal-hold-eligible': verifyAudit('audit-legal-hold-eligible'),
+  'audit-pseudonym-retention': verifyAudit('audit-pseudonym-retention'),
+  'audit-single-valid': verifyAudit('audit-single-valid'),
+  'audit-tamper-negative': verifyAudit('audit-tamper-negative'),
+  'audit-unknown-action-negative': verifyAudit('audit-unknown-action-negative'),
   'article-published': verifyArticlePublished,
   'article-archived': verifyArticleStatus('article-archived', 'archived', { allowMissingPublication: true }),
   'article-deleted': verifyArticleStatus('article-deleted', 'deleted', { allowMissingPublication: true }),
@@ -495,29 +669,42 @@ export const POSTCONDITION_VERIFIERS = Object.freeze({
   'home-featured-hot': verifyHomeFeaturedHot,
   'user-active': verifyAuthUser('user-active'),
   'user-deleted': verifyAuthUser('user-deleted', { deleted: true }),
+  'user-mfa-disabled': verifyAuthUser('user-mfa-disabled', { mfa: false }),
   'user-mfa-enabled': verifyAuthUser('user-mfa-enabled', { mfa: true }),
+  'user-passkey-enabled': verifyAuthUser('user-passkey-enabled', { passkey: true }),
+  'user-recovery-enabled': verifyAuthUser('user-recovery-enabled', { recovery: true }),
   'admin-disabled': verifyAdminPermission('admin-disabled', 'disabled'),
   'admin-full-permission': verifyAdminPermission('admin-full-permission', 'full'),
   'admin-partial-permission': verifyAdminPermission('admin-partial-permission', 'partial'),
   'admin-read-only': verifyAdminPermission('admin-read-only', 'read-only'),
+  'admin-root-bootstrap-empty': verifyAdminRootEmpty,
+  'session-expired': verifySession('session-expired', { expectedState: 'expired' }),
   'session-single-device': verifySession('session-single-device', { multi: false }),
   'session-multi-device': verifySession('session-multi-device', { multi: true }),
+  'session-refresh-rotated': verifySession('session-refresh-rotated', { expectedState: 'rotated', rotated: true }),
+  'session-remembered': verifySession('session-remembered', { remembered: true }),
+  'session-revoked': verifySession('session-revoked', { expectedState: 'revoked' }),
   'comment-moderation-matrix': verifyCommentMatrix('comment-moderation-matrix'),
   'comment-threaded': verifyCommentMatrix('comment-threaded'),
   'moderation-policy-matrix': verifyModerationPolicy,
   'messages-thread': verifyMessages('messages-thread'),
   'notifications-unread': verifyMessages('notifications-unread'),
-  'locale-auto': verifyLocale('locale-auto'),
-  'locale-fixed': verifyLocale('locale-fixed'),
+  'preference-locale-account-device-conflict': verifyAccountPreference('preference-locale-account-device-conflict', 'account-device-conflict'),
+  'preference-locale-auto': verifyAccountPreference('preference-locale-auto', 'auto'),
+  'preference-locale-device-explicit': verifyAccountPreference('preference-locale-device-explicit', 'device-explicit'),
+  'preference-locale-fixed-default': verifyAccountPreference('preference-locale-fixed-default', 'fixed-default'),
+  'preference-locale-fixed-non-default': verifyAccountPreference('preference-locale-fixed-non-default', 'fixed-non-default'),
+  'preference-locale-revision-conflict': verifyAccountPreference('preference-locale-revision-conflict', 'revision-conflict'),
+  'preference-locale-two-device-sync': verifyAccountPreference('preference-locale-two-device-sync', 'two-device-sync'),
+  'profile-public-handle-conflict': verifyAccountProfile('profile-public-handle-conflict', 'conflict'),
+  'profile-public-handle-empty': verifyAccountProfile('profile-public-handle-empty', 'empty'),
+  'profile-public-handle-set': verifyAccountProfile('profile-public-handle-set', 'set'),
   'development-demo-dataset': verifyDemoDataset,
   'scale-xs': verifyScale('scale-xs'),
   'scale-s': verifyScale('scale-s'),
   'scale-m': verifyScale('scale-m'),
   'scale-l': verifyScale('scale-l'),
-  'credential-revoked': verifySecurity('credential-revoked', 'credentialRevoked'),
-  'pow-elevated': verifySecurity('pow-elevated', 'powElevated'),
-  'risk-escalated': verifySecurity('risk-escalated', 'riskEscalated'),
-  'subject-banned': verifySecurity('subject-banned', 'banned')
+  ...securityPostconditionVerifiers
 })
 
 /**

@@ -11,6 +11,7 @@ export {
   createProducerContext
 } from './orchestrator.mjs'
 export {
+  createAuditRecordsPort,
   createDefaultProducerPorts,
   createPortsForProducerIds
 } from './producers/catalog-ports.mjs'
@@ -19,3 +20,4 @@ export {
   REQUIRED_PRODUCER_REUSE_VERIFIER
 } from './run-fixture-once.mjs'
 export * from './receipt/index.mjs'
+export * from './mutation-recovery/index.mjs'

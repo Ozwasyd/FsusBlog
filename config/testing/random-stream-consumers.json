@@ -1,0 +1,159 @@
+{
+    "schema": "fsusblog.random-stream-consumers.v1",
+    "consumers": [
+        {
+            "producerId": "backend-property",
+            "canonicalTestId": "xunit:tests/backend/Unit/BackendPropertyTests.cs#AedsRoundTripProperty_PreservesPayloadAndFrameType",
+            "kind": "property",
+            "entrypoint": "tests/backend/Unit/BackendPropertyTests.cs",
+            "runner": "dotnet-test",
+            "runnerConfig": "tests/backend/FsusBlog.Tests.csproj",
+            "streamId": "backend-aeds-roundtrip-payloads",
+            "version": "backend-property-v1",
+            "budget": {
+                "iterations": 7,
+                "transitions": 0,
+                "shrinks": 0
+            },
+            "receiptOwner": ".tmp/backend-property/random-streams.json",
+            "evidenceClass": "correctness",
+            "qualificationEligible": true,
+            "usesRandomness": true,
+            "randomStreams": [
+                "backend-aeds-roundtrip-payloads"
+            ]
+        },
+        {
+            "producerId": "backend-property",
+            "canonicalTestId": "xunit:tests/backend/Unit/BackendPropertyTests.cs#AedsTruncationProperty_ReturnsProtocolFailureInsteadOfThrowing",
+            "kind": "property",
+            "entrypoint": "tests/backend/Unit/BackendPropertyTests.cs",
+            "runner": "dotnet-test",
+            "runnerConfig": "tests/backend/FsusBlog.Tests.csproj",
+            "streamId": "backend-aeds-truncation-payloads",
+            "version": "backend-property-v1",
+            "budget": {
+                "iterations": 1,
+                "transitions": 0,
+                "shrinks": 0
+            },
+            "receiptOwner": ".tmp/backend-property/random-streams.json",
+            "evidenceClass": "correctness",
+            "qualificationEligible": true,
+            "usesRandomness": true,
+            "randomStreams": [
+                "backend-aeds-truncation-payloads"
+            ]
+        },
+        {
+            "producerId": "backend-property",
+            "canonicalTestId": "xunit:tests/backend/Unit/BackendPropertyTests.cs#AedsBitFlipProperty_DetectsPayloadCorruption",
+            "kind": "property",
+            "entrypoint": "tests/backend/Unit/BackendPropertyTests.cs",
+            "runner": "dotnet-test",
+            "runnerConfig": "tests/backend/FsusBlog.Tests.csproj",
+            "streamId": "backend-aeds-bitflip-payloads",
+            "version": "backend-property-v1",
+            "budget": {
+                "iterations": 1,
+                "transitions": 0,
+                "shrinks": 0
+            },
+            "receiptOwner": ".tmp/backend-property/random-streams.json",
+            "evidenceClass": "correctness",
+            "qualificationEligible": true,
+            "usesRandomness": true,
+            "randomStreams": [
+                "backend-aeds-bitflip-payloads"
+            ]
+        },
+        {
+            "producerId": "frontend-property-model-perf",
+            "canonicalTestId": "vitest:tests/frontend/property/frontendProperties.test.ts#keeps%20moderation%20normalization%20idempotent%20across%20generated%20Unicode%20samples",
+            "kind": "property",
+            "entrypoint": "tests/frontend/property/frontendProperties.test.ts",
+            "runner": "vitest",
+            "runnerConfig": "src/frontend/vitest.property.config.ts",
+            "streamId": "frontend-moderation-unicode-samples",
+            "version": "frontend-property-v1",
+            "budget": {
+                "iterations": 128,
+                "transitions": 0,
+                "shrinks": 0
+            },
+            "receiptOwner": ".tmp/frontend/frontend-property-model-perf/random-streams.json",
+            "evidenceClass": "correctness",
+            "qualificationEligible": true,
+            "usesRandomness": true,
+            "randomStreams": [
+                "frontend-moderation-unicode-samples"
+            ]
+        },
+        {
+            "producerId": "frontend-property-model-perf",
+            "canonicalTestId": "vitest:tests/frontend/property/frontendProperties.test.ts#keeps%20search%20ranking%20deterministic%20for%20generated%20fixtures",
+            "kind": "property",
+            "entrypoint": "tests/frontend/property/frontendProperties.test.ts",
+            "runner": "vitest",
+            "runnerConfig": "src/frontend/vitest.property.config.ts",
+            "streamId": "frontend-search-ranking-fixtures",
+            "version": "frontend-property-v1",
+            "budget": {
+                "iterations": 20,
+                "transitions": 0,
+                "shrinks": 0
+            },
+            "receiptOwner": ".tmp/frontend/frontend-property-model-perf/random-streams.json",
+            "evidenceClass": "correctness",
+            "qualificationEligible": true,
+            "usesRandomness": true,
+            "randomStreams": [
+                "frontend-search-ranking-fixtures"
+            ]
+        },
+        {
+            "producerId": "wasm-fuzz-regression",
+            "canonicalTestId": "node:tools/security/run-wasm-fuzz.mjs#aeds-decoder-differential-fuzz",
+            "kind": "fuzz",
+            "entrypoint": "tools/security/run-wasm-fuzz.mjs",
+            "runner": "node",
+            "runnerConfig": "tools/test/lanes/wasm-fuzz-regression.sh",
+            "streamId": "wasm-aeds-mutator",
+            "version": "wasm-aeds-mutator-v1",
+            "budget": {
+                "iterations": 64,
+                "transitions": 0,
+                "shrinks": 0
+            },
+            "receiptOwner": ".tmp/fuzz/wasm/summary.json",
+            "evidenceClass": "correctness",
+            "qualificationEligible": true,
+            "usesRandomness": true,
+            "randomStreams": [
+                "wasm-aeds-mutator"
+            ]
+        }
+    ],
+    "nonRandomDeclarations": [
+        {
+            "producerId": "frontend-property-model-perf",
+            "canonicalTestId": "vitest:tests/frontend/model/frontendStateMachines.test.ts#frontend-state-machine-models",
+            "entrypoint": "src/frontend/vitest.model.config.ts",
+            "randomStreams": []
+        },
+        {
+            "producerId": "frontend-property-model-perf",
+            "canonicalTestId": "vitest:tests/frontend/model/frontendStateMachines.test.ts#deterministic-transition-contracts",
+            "entrypoint": "tests/frontend/model/frontendStateMachines.test.ts",
+            "randomStreams": []
+        }
+    ],
+    "nonSemanticEntropy": [
+        {
+            "entrypoint": "tools/test-fixtures/receipt/private-io.mjs",
+            "sourceAnchor": "`${target}.${process.pid}.${randomUUID()}.tmp`",
+            "purpose": "atomic-write-location-only",
+            "semanticDigestExcluded": true
+        }
+    ]
+}

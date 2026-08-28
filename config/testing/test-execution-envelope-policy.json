@@ -1,0 +1,187 @@
+{
+    "schema": "fsusblog.test-execution-envelope-policy.v1",
+    "version": 1,
+  "policyId": "correctness-hermetic-v1",
+  "contract": {
+    "requiredEnvelopeFields": [
+      "schema",
+      "policyVersion",
+      "policyDigest",
+      "catalogDigest",
+      "schemaIdentity",
+      "producerId",
+      "schedulerRunId",
+      "attemptId",
+      "sourceCommit",
+      "sourceFingerprint",
+      "worktreeFingerprint",
+      "platform",
+      "architecture",
+      "kernel",
+      "libc",
+      "containerRuntime",
+      "cgroupLimits",
+      "cpuModel",
+      "cpuCount",
+      "memoryLimit",
+      "processEnvAllowlist",
+      "processEnvValuesDigest",
+      "pathEntries",
+      "resolvedExecutables",
+      "umask",
+      "homeDirectoryPolicy",
+      "temporaryDirectoryPolicy",
+      "workingDirectory",
+      "filesystemCaseSensitivity",
+      "nodeVersion",
+      "npmVersion",
+      "dotnetSdkVersion",
+      "dotnetRuntimeVersion",
+      "msbuildVersion",
+      "cmakeVersion",
+      "ninjaVersion",
+      "compilerVersion",
+      "playwrightVersion",
+      "browserName",
+      "browserVersion",
+      "browserRevision",
+      "browserExecutableDigest",
+      "browserLaunchArgs",
+      "deviceScaleFactor",
+      "renderingMode",
+      "colorScheme",
+      "gpuMode",
+      "browserRenderingObservation",
+      "postgresVersion",
+      "postgresImageDigest",
+      "redisVersion",
+      "redisImageDigest",
+      "dockerVersion",
+      "serviceTopology",
+      "networkPolicy",
+      "externalEndpoints",
+      "fontSetDigest",
+      "localeDataDigest",
+      "envelopeDigest"
+    ],
+    "platform": {
+      "admission": "planned-actual-exact",
+      "nullSemantics": "explicit-not-applicable-with-reason",
+      "identityFields": [
+        "platform",
+        "architecture",
+        "kernel",
+        "libc",
+        "containerRuntime"
+      ]
+    },
+    "resources": {
+      "admission": "planned-actual-exact",
+      "nullSemantics": "explicit-not-applicable-with-reason",
+      "identityFields": [
+        "cgroupLimits",
+        "cpuModel",
+        "cpuCount",
+        "memoryLimit"
+      ]
+        },
+        "environment": {
+            "mode": "minimal-base-plus-producer-allowlist",
+            "ambientInheritance": "denied",
+            "producerAllowlistRequired": true,
+            "sensitiveValueRepresentation": "presence-type-sha256-only",
+            "pathResolution": "absolute-realpath-version-sha256",
+            "controlledVariables": [
+                "DOTNET_CLI_HOME",
+                "DOTNET_ROOT",
+                "HOME",
+                "HTTPS_PROXY",
+                "HTTP_PROXY",
+                "NODE_EXTRA_CA_CERTS",
+                "NODE_OPTIONS",
+                "NPM_CONFIG_CACHE",
+                "NUGET_PACKAGES",
+                "PATH",
+                "PLAYWRIGHT_BROWSERS_PATH",
+                "SSL_CERT_DIR",
+                "SSL_CERT_FILE",
+                "TEMP",
+                "TMP",
+                "TMPDIR",
+                "USERPROFILE"
+            ]
+        },
+        "toolchain": {
+            "admission": "planned-actual-exact",
+            "identityFields": [
+                "absolutePath",
+                "realPath",
+                "version",
+                "sha256"
+            ],
+            "requiredFromMatrix": [
+                "requiresNode",
+                "requiresDotnet",
+                "requiresPlaywright"
+            ]
+        },
+        "browserRendering": {
+            "admission": "planned-actual-exact",
+            "matrixFields": [
+                "requiresPlaywright"
+            ],
+            "nullSemantics": "explicit-not-applicable-with-reason"
+        },
+        "services": {
+            "admission": "planned-actual-exact",
+            "matrixFields": [
+                "services",
+                "clusterFixtures",
+                "coordinationStore"
+            ],
+            "nullSemantics": "explicit-not-applicable-with-reason"
+        },
+        "directories": {
+            "admission": "planned-actual-exact",
+            "ownership": "run-attempt",
+            "escapePolicy": "realpath-fail-closed",
+            "writeObservation": "pre-post-delta",
+            "cleanup": "all-terminal-outcomes"
+        },
+        "network": {
+            "correctnessDefault": "deny",
+            "allowedDestinations": [
+                "loopback",
+                "current-run-container-network",
+                "catalog-exact-endpoint"
+            ],
+            "observation": [
+                "connections",
+                "dns",
+                "proxy",
+                "certificate",
+                "denials"
+            ],
+            "sandboxUnavailable": "fail-closed"
+        },
+    "fontsLocale": {
+      "admission": "planned-actual-exact",
+      "nullSemantics": "explicit-not-applicable-with-reason",
+      "identityFields": [
+        "fontSetDigest",
+        "localeDataDigest"
+      ]
+        },
+        "identity": {
+            "plannedActualAdmission": "exact-before-assertions",
+            "requiredDigests": [
+                "policyDigest",
+                "catalogDigest",
+                "schemaIdentity"
+            ],
+            "unknownFieldPolicy": "fail-closed",
+            "missingFieldPolicy": "fail-closed",
+            "duplicateApplicabilityPolicy": "fail-closed"
+        }
+    }
+}

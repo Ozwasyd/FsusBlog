@@ -55,7 +55,7 @@ public sealed class AnonymousCredentialService(ISqlSugarClient db) : IAnonymousC
             IssuedAtUtc = DateTime.UtcNow,
             MetadataJson = string.IsNullOrWhiteSpace(metadataJson) ? "{}" : metadataJson.Trim()
         };
-        credential.Id = await db.Insertable(credential).ExecuteReturnSnowflakeIdAsync();
+        credential.Id = await db.Insertable(credential).ExecuteReturnBigIdentityAsync(cancellationToken);
         return credential;
     }
 

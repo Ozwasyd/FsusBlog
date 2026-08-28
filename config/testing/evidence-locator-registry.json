@@ -1117,6 +1117,30 @@
             "outputBinding": "FSUSBLOG_TEST_OBSERVATIONS_FLAKY_OBSERVER_EXECUTION_EVIDENCE_PATH"
         },
         {
+            "consumerId": "evidence-consumer.test-quality.artifact",
+            "authorityId": "evidence-consumer.test-quality.artifact.current-run",
+            "producerId": "evidence-consumer.test-quality.artifact.producer",
+            "receiptSchema": "fsusblog.current-run-evidence-binding.v1",
+            "locatorMode": "explicit-run-path",
+            "requiredIdentityFields": [
+                "attemptId",
+                "candidateIdentity",
+                "schedulerRunId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "requiredDigestFields": [
+                "contentDigest",
+                "producerReceiptDigest"
+            ],
+            "expectedCardinality": "exact-one",
+            "allowedRoots": [
+                "artifacts/current-run"
+            ],
+            "producerCommand": "node tools/run-test-matrix.mjs --mode ci",
+            "outputBinding": "FSUSBLOG_TEST_QUALITY_ARTIFACT_EVIDENCE_PATH"
+        },
+        {
             "consumerId": "evidence-consumer.test.aggregate-data-scale-evidence",
             "authorityId": "evidence-consumer.test.aggregate-data-scale-evidence.current-run",
             "producerId": "evidence-consumer.test.aggregate-data-scale-evidence.producer",
@@ -1189,6 +1213,30 @@
             ],
             "producerCommand": "node tools/run-test-matrix.mjs --mode ci",
             "outputBinding": "FSUSBLOG_TEST_CHECK_PHYSICAL_EXECUTION_CONSUMER_EVIDENCE_EVIDENCE_PATH"
+        },
+        {
+            "consumerId": "evidence-consumer.test.execution-envelope-receipt",
+            "authorityId": "evidence-consumer.test.execution-envelope-receipt.current-run",
+            "producerId": "evidence-consumer.test.execution-envelope-receipt.producer",
+            "receiptSchema": "fsusblog.current-run-evidence-binding.v1",
+            "locatorMode": "explicit-run-path",
+            "requiredIdentityFields": [
+                "attemptId",
+                "candidateIdentity",
+                "schedulerRunId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "requiredDigestFields": [
+                "contentDigest",
+                "producerReceiptDigest"
+            ],
+            "expectedCardinality": "exact-one",
+            "allowedRoots": [
+                "artifacts/current-run"
+            ],
+            "producerCommand": "node tools/run-test-matrix.mjs --mode ci",
+            "outputBinding": "FSUSBLOG_TEST_EXECUTION_ENVELOPE_RECEIPT_EVIDENCE_PATH"
         },
         {
             "consumerId": "evidence-consumer.test.lanes.runtime-evidence-probe",
@@ -1360,5 +1408,5 @@
             "outputBinding": "FSUSBLOG_TEST_WRITE_RELEASE_DOMAIN_ASSERTION_REPORT_EVIDENCE_PATH"
         }
     ],
-    "contentDigest": "sha256:1c7fb7feb75871779d8ce603992704d17b403edb92c19aa3850eb68fb2238eef"
+    "contentDigest": "sha256:0cc7ec025ece0183ed324a9e7f8e08dd12d9bd803d4e253b49921d646a11eddf"
 }

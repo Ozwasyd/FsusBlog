@@ -16,7 +16,7 @@ CLEANUP=0
 
 Usage() {
     cat <<'USAGE'
-Usage: tools/dev/start.sh [--fixture-profile none|demo-public|acceptance-representative] [--no-install] [--cleanup]
+Usage: tools/dev/start.sh [--fixture-profile <catalog-id>] [--no-install] [--cleanup]
 
 Starts the public-preview development stack:
   - PostgreSQL and Redis through ops/development/dependencies.compose.yml
@@ -26,6 +26,7 @@ Starts the public-preview development stack:
 Fixture profile (catalog id; default none):
   none                       Zero business/auth/session/security mutation after schema start.
   demo-public                Apply development demo dataset only.
+  account-messaging          Prepare and verify auth/message/notification fixtures.
   acceptance-representative  Prepare local auth/public representative fixtures.
 
 Options:
@@ -119,18 +120,13 @@ REQUIRES_LOCAL_AUTH="$(node -e 'const p=JSON.parse(process.argv[1]); process.std
 REQUIRES_AUTH_FIXTURES="$(node -e 'const p=JSON.parse(process.argv[1]); process.stdout.write(p.requiresAuthFixtures ? "1" : "0")' "$PLAN_JSON")"
 REQUIRES_PUBLIC_FIXTURES="$(node -e 'const p=JSON.parse(process.argv[1]); process.stdout.write(p.requiresPublicFixtures ? "1" : "0")' "$PLAN_JSON")"
 REQUIRES_DEMO_SEED="$(node -e 'const p=JSON.parse(process.argv[1]); process.stdout.write(p.requiresDemoSeed ? "1" : "0")' "$PLAN_JSON")"
-REQUIRES_SECURITY_RESET="$(node -e 'const p=JSON.parse(process.argv[1]); process.stdout.write(p.requiresSecurityReset ? "1" : "0")' "$PLAN_JSON")"
 CAPABILITY_IDS="$(node -e 'const p=JSON.parse(process.argv[1]); process.stdout.write((p.capabilities||[]).join(","))' "$PLAN_JSON")"
 PRODUCER_IDS="$(node -e 'const p=JSON.parse(process.argv[1]); process.stdout.write((p.producers||[]).join(","))' "$PLAN_JSON")"
+REQUIRES_ACCOUNT_PROFILE_PREFERENCES="$(node -e 'const p=JSON.parse(process.argv[1]); process.stdout.write((p.producers||[]).includes("account-profile-preferences") ? "1" : "0")' "$PLAN_JSON")"
 
 echo "[dev-start] planned fixture profile=${PROFILE_ID} source=dev-cli catalogDigest=${CATALOG_DIGEST} mutationPolicy=${MUTATION_POLICY}"
 echo "[dev-start] capabilities=${CAPABILITY_IDS:-<none>} producers=${PRODUCER_IDS:-<none>}"
 echo "[dev-start] planned-profile receipt: ${PLANNED_RECEIPT}"
-
-if [[ "$REQUIRES_SECURITY_RESET" == "1" ]]; then
-    echo "[dev-start] security reset is not implemented as a standalone bootstrap producer yet" >&2
-    exit 1
-fi
 
 echo "[dev-start] starting PostgreSQL and Redis..."
 docker compose -f "$COMPOSE_FILE" up -d postgres redis
@@ -174,6 +170,41 @@ SOURCE_IDENTITY_JSON="$(
 )"
 SOURCE_COMMIT="$(node -e 'const p=JSON.parse(process.argv[1]); process.stdout.write(p.commit)' "$SOURCE_IDENTITY_JSON")"
 SOURCE_FINGERPRINT="$(node -e 'const p=JSON.parse(process.argv[1]); process.stdout.write(p.worktreeFingerprint)' "$SOURCE_IDENTITY_JSON")"
+
+if [[ ",${PRODUCER_IDS}," == *",auth-session,"* ]]; then
+    if [[ -z "${FSUSBLOG_TEMPORAL_CONTEXT_JSON:-}" ]]; then
+        FSUSBLOG_TEMPORAL_CONTEXT_JSON="$(
+            SOURCE_COMMIT="$SOURCE_COMMIT" \
+            SOURCE_FINGERPRINT="$SOURCE_FINGERPRINT" \
+            DEV_RUN_ID="$DEV_RUN_ID" \
+            node --input-type=module -e '
+                import {
+                    defaultTimeoutPolicyDigest,
+                    qualificationTemporalContext
+                } from "./tools/test/temporal-context.mjs";
+                process.stdout.write(JSON.stringify(qualificationTemporalContext({
+                    sourceCommit: process.env.SOURCE_COMMIT,
+                    sourceFingerprint: process.env.SOURCE_FINGERPRINT,
+                    producerId: "auth-session",
+                    schedulerRunId: process.env.DEV_RUN_ID,
+                    businessEpochUtc: "2042-05-17T09:30:00.000Z",
+                    locale: "en-US",
+                    uiLocale: "en-US",
+                    timeoutPolicyDigest: defaultTimeoutPolicyDigest()
+                })));
+            '
+        )"
+        export FSUSBLOG_TEMPORAL_CONTEXT_JSON
+    fi
+    export FSUSBLOG_TEST_BUSINESS_EPOCH_UTC="$(
+        node -e 'const value=JSON.parse(process.argv[1]); process.stdout.write(value.businessEpochUtc)' \
+            "$FSUSBLOG_TEMPORAL_CONTEXT_JSON"
+    )"
+    export TZ="$(
+        node -e 'const value=JSON.parse(process.argv[1]); process.stdout.write(value.nodeTimezone)' \
+            "$FSUSBLOG_TEMPORAL_CONTEXT_JSON"
+    )"
+fi
 
 DEMO_TRANSITION_ACTION="none"
 DEMO_TRANSITION_REASON="no-previous-demo-receipt"
@@ -248,11 +279,24 @@ if [[ "$REQUIRES_LOCAL_AUTH" == "1" ]]; then
     export fsus__allowLocalAuthFixture=true
     LOCAL_AUTH_FIXTURE_SECRET="${FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET:-${fsus__localAuthFixtureSecret:-local-development-auth-fixture-secret-change-before-shared-use-2026}}"
     export fsus__localAuthFixtureSecret="$LOCAL_AUTH_FIXTURE_SECRET"
+    export FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET="$LOCAL_AUTH_FIXTURE_SECRET"
     export VITE_FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET="$LOCAL_AUTH_FIXTURE_SECRET"
 else
     export fsus__allowLocalAuthFixture=false
     unset fsus__localAuthFixtureSecret || true
+    unset FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET || true
     unset VITE_FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET || true
+fi
+
+if [[ "$REQUIRES_ACCOUNT_PROFILE_PREFERENCES" == "1" ]]; then
+    ACCOUNT_PROFILE_PREFERENCE_FIXTURE_SECRET="${FSUSBLOG_ACCOUNT_PROFILE_PREFERENCE_FIXTURE_SECRET:-local-development-account-profile-preference-fixture-secret-change-before-shared-use-2026}"
+    export FSUSBLOG_ACCOUNT_PROFILE_PREFERENCE_FIXTURE_SECRET="$ACCOUNT_PROFILE_PREFERENCE_FIXTURE_SECRET"
+    export fsus__allowAccountProfilePreferenceFixture=true
+    export fsus__accountProfilePreferenceFixtureSecret="$ACCOUNT_PROFILE_PREFERENCE_FIXTURE_SECRET"
+else
+    unset FSUSBLOG_ACCOUNT_PROFILE_PREFERENCE_FIXTURE_SECRET || true
+    export fsus__allowAccountProfilePreferenceFixture=false
+    unset fsus__accountProfilePreferenceFixtureSecret || true
 fi
 
 # Demo prepare is opt-in. Receipt-authorized cleanup has a separate gate so
@@ -333,7 +377,8 @@ if [[ "$DEMO_TRANSITION_ACTION" == "cleanup" ]]; then
 fi
 
 echo "[dev-start] invoking unique fixture orchestrator for profile ${PROFILE_ID}..."
-# The none and demo-public profiles publish verified FixtureReceipts. A repeated
+# The none, demo-public, and closed account-messaging profiles publish verified
+# FixtureReceipts. A repeated
 # demo-public run first cleans the exact identities sealed by its prior receipt.
 DEV_FIXTURE_ARGS=(
     run
@@ -359,7 +404,7 @@ if [[ "$PROFILE_ID" == "demo-public" ]]; then
     fi
 fi
 FIXTURE_RECEIPT_PUBLISHED=0
-if [[ "$PROFILE_ID" == "none" || "$PROFILE_ID" == "demo-public" ]]; then
+if [[ "$PROFILE_ID" == "none" || "$PROFILE_ID" == "demo-public" || "$PROFILE_ID" == "account-messaging" ]]; then
     DEV_FIXTURE_ARGS+=(--fixture-receipt "$FIXTURE_RECEIPT")
     FIXTURE_RECEIPT_PUBLISHED=1
 else

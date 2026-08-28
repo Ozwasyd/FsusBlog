@@ -48,7 +48,7 @@ public sealed partial class MessageCenterService
         => notificationStreamPort.PublishToUserAsync(
             NotificationStreamEventType.InboxConversationUpsert,
             accountId,
-            new InboxConversationUpsertPayload(ToRealtimeConversationReference(summary), totalUnread, DateTime.UtcNow),
+            new InboxConversationUpsertPayload(ToRealtimeConversationReference(summary), totalUnread, UtcNow),
             "inbox-conversation-upsert",
             idempotencyKey);
 
@@ -72,7 +72,7 @@ public sealed partial class MessageCenterService
 
         await notificationStreamPort.PublishToAdminUsersAsync(
             NotificationStreamEventType.InboxConversationUpsert,
-            new InboxConversationUpsertPayload(ToRealtimeConversationReference(summary), null, DateTime.UtcNow),
+            new InboxConversationUpsertPayload(ToRealtimeConversationReference(summary), null, UtcNow),
             "admin-conversation-upsert",
             idempotencyKey);
     }
@@ -93,7 +93,7 @@ public sealed partial class MessageCenterService
             },
             conversationUnreadCount,
             totalUnread,
-            DateTime.UtcNow);
+            UtcNow);
         if (targetAccountId.HasValue)
         {
             return notificationStreamPort.PublishToUserAsync(NotificationStreamEventType.InboxMessageAppend, targetAccountId.Value, payload, "inbox-message-append-user", idempotencyKey);
@@ -112,7 +112,7 @@ public sealed partial class MessageCenterService
         => notificationStreamPort.PublishToUserAsync(
             NotificationStreamEventType.InboxReadUpdated,
             accountId,
-            new InboxReadUpdatedPayload(conversationId.ToString(), lastReadMessageId?.ToString(), conversationUnreadCount, totalUnread, DateTime.UtcNow),
+            new InboxReadUpdatedPayload(conversationId.ToString(), lastReadMessageId?.ToString(), conversationUnreadCount, totalUnread, UtcNow),
             "inbox-read-updated",
             idempotencyKey);
 
@@ -124,7 +124,7 @@ public sealed partial class MessageCenterService
         => notificationStreamPort.PublishToUserAsync(
             NotificationStreamEventType.InboxConversationStatusChanged,
             accountId,
-            new InboxConversationStatusChangedPayload(conversationId.ToString(), status, DateTime.UtcNow),
+            new InboxConversationStatusChangedPayload(conversationId.ToString(), status, UtcNow),
             "inbox-conversation-status-changed",
             idempotencyKey);
 
@@ -134,7 +134,7 @@ public sealed partial class MessageCenterService
         string? idempotencyKey = null)
         => notificationStreamPort.PublishToAdminUsersAsync(
             NotificationStreamEventType.InboxConversationStatusChanged,
-            new InboxConversationStatusChangedPayload(conversationId.ToString(), status, DateTime.UtcNow),
+            new InboxConversationStatusChangedPayload(conversationId.ToString(), status, UtcNow),
             "inbox-conversation-status-changed-admin",
             idempotencyKey);
 

@@ -200,7 +200,10 @@ public sealed class AuditLogStore(
         parameters[offset] = new SugarParameter(parameterNames[offset++], DbValue(signed.DeviceFingerprintHash));
         parameters[offset] = new SugarParameter(parameterNames[offset++], DbValue(signed.ReasonCode));
         parameters[offset] = new SugarParameter(parameterNames[offset++], signed.EventInfo);
-        parameters[offset] = new SugarParameter(parameterNames[offset++], DbValue(signed.ContextPayload));
+        parameters[offset] = new SugarParameter(parameterNames[offset++], DbValue(signed.ContextPayload))
+        {
+            DbType = System.Data.DbType.Binary
+        };
         parameters[offset] = new SugarParameter(parameterNames[offset++], DbValue(signed.ContextJson));
         parameters[offset] = new SugarParameter(parameterNames[offset++], DbValue(signed.ChainId));
         parameters[offset] = new SugarParameter(parameterNames[offset++], DbValue(signed.PrevHash));
@@ -255,6 +258,14 @@ public sealed class AuditLogStore(
 
     internal static void ClearChainTailCacheForTests()
         => s_chainTailCache.Clear();
+
+    internal static void InvalidateChainTailCacheForFixtureCleanup(IEnumerable<string> chainIds)
+    {
+        foreach (string chainId in chainIds.Where(static item => !string.IsNullOrWhiteSpace(item)))
+        {
+            s_chainTailCache.TryRemove(chainId, out _);
+        }
+    }
 
     private sealed record AuditLogInsertBatchShape(string Sql, string[] ParameterNames);
 }

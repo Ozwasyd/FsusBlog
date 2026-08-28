@@ -1,0 +1,16 @@
+{
+    "schema": "fsusblog.performance-claim-evidence.v1",
+    "changeRevision": "7a54c7be1b259a1a495eb5c92acc0bdb53fea21e",
+    "claimLevel": "S",
+    "status": "structural-only",
+    "evidence": [
+        {
+            "path": "ops/docker/FsusBlog.Server.Dockerfile",
+            "sha256": "a46b98b4ff447e42b2da7ae06b465c0be8fa21e2483d4ff0fd2419eeb5c20844"
+        },
+        {
+            "path": "tests/tools/final-image-toolchain-pin.test.mjs",
+            "sha256": "6ca58336b323fdf07c838523a793f343afcfec729d5b465f492c0e15609df47a"
+        }
+    ]
+}

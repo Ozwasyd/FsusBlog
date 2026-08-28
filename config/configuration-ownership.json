@@ -93,6 +93,66 @@
             "pathType": "file"
         },
         {
+            "id": "content-shape-catalog-schema",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/schemas/content-shape-catalog.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "clean-attempt-consumer-inventory-schema",
+            "owner": "test-attempt-governance",
+            "canonicalPath": "config/schemas/clean-attempt-consumer-inventory.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "correctness-attempt-producers-schema",
+            "owner": "test-attempt-governance",
+            "canonicalPath": "config/schemas/correctness-attempt-producers.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "release-clean-attempt-cohort-schema",
+            "owner": "test-attempt-governance",
+            "canonicalPath": "config/schemas/release-clean-attempt-cohort.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "retry-disposition-registry-schema",
+            "owner": "test-attempt-governance",
+            "canonicalPath": "config/schemas/retry-disposition-registry.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "retry-policy-registry-schema",
+            "owner": "test-attempt-governance",
+            "canonicalPath": "config/schemas/retry-policy-registry.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "test-attempt-aggregate-receipt-schema",
+            "owner": "test-attempt-governance",
+            "canonicalPath": "config/schemas/test-attempt-aggregate-receipt.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "test-attempt-receipt-schema",
+            "owner": "test-attempt-governance",
+            "canonicalPath": "config/schemas/test-attempt-receipt.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "producer-semantic-outcome-candidate-schema",
+            "owner": "semantic-outcome-governance",
+            "canonicalPath": "config/schemas/producer-semantic-outcome-candidate.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "semantic-outcome-clean-attempt-consumer-inventory-schema",
+            "owner": "semantic-outcome-governance",
+            "canonicalPath": "config/schemas/semantic-outcome-clean-attempt-consumer-inventory.schema.json",
+            "pathType": "file"
+        },
+        {
             "id": "runtime-state-domain-catalog-schema",
             "owner": "runtime-state-domain-governance",
             "canonicalPath": "config/schemas/runtime-state-domain-catalog.schema.json",
@@ -115,6 +175,124 @@
             "owner": "production-correctness-budget",
             "canonicalPath": "config/testing/correctness-budget-policy.json",
             "pathType": "file"
+        },
+        {
+            "id": "playwright-replay-decision",
+            "owner": "test-execution-replay-governance",
+            "canonicalPath": "config/testing/playwright-replay-decision.json",
+            "pathType": "file"
+        },
+        {
+            "id": "random-stream-consumer-inventory",
+            "owner": "test-execution-replay-governance",
+            "canonicalPath": "config/testing/random-stream-consumers.json",
+            "pathType": "file"
+        },
+        {
+            "id": "replay-qualification-producer-inventory",
+            "owner": "test-execution-replay-governance",
+            "canonicalPath": "config/testing/replay-qualification-producers.json",
+            "pathType": "file"
+        },
+        {
+            "id": "clean-attempt-consumer-inventory",
+            "owner": "test-attempt-governance",
+            "canonicalPath": "config/testing/clean-attempt-consumers.json",
+            "pathType": "file"
+        },
+        {
+            "id": "correctness-attempt-producer-inventory",
+            "owner": "test-attempt-governance",
+            "canonicalPath": "config/testing/correctness-attempt-producers.json",
+            "pathType": "file"
+        },
+        {
+            "id": "retry-disposition-registry",
+            "owner": "test-attempt-governance",
+            "canonicalPath": "config/testing/retry-disposition-registry.json",
+            "pathType": "file"
+        },
+        {
+            "id": "retry-policy-registry",
+            "owner": "test-attempt-governance",
+            "canonicalPath": "config/testing/retry-policy-registry.json",
+            "pathType": "file"
+        },
+        {
+            "id": "semantic-outcome-clean-attempt-consumer-inventory",
+            "owner": "semantic-outcome-governance",
+            "canonicalPath": "config/testing/semantic-outcome-clean-attempt-consumers.json",
+            "pathType": "file"
+        },
+        {
+            "id": "outcome-failure-taxonomy",
+            "owner": "semantic-outcome-governance",
+            "canonicalPath": "config/testing/outcome-failure-taxonomy.json",
+            "pathType": "file"
+        },
+        {
+            "id": "outcome-field-disposition-registry",
+            "owner": "semantic-outcome-governance",
+            "canonicalPath": "config/testing/outcome-field-dispositions.json",
+            "pathType": "file"
+        },
+        {
+            "id": "content-shape-catalog",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/testing/content-shape-catalog.json",
+            "pathType": "file"
+        },
+        {
+            "id": "content-field-contract-projection",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/testing/content-field-contracts.generated.json",
+            "pathType": "file"
+        },
+        {
+            "id": "messaging-fixture-inventory",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/testing/messaging-fixture-inventory.json",
+            "pathType": "file"
+        },
+        {
+            "id": "messaging-fixture-ownership",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/testing/messaging-fixture-ownership.json",
+            "pathType": "file"
+        },
+        {
+            "id": "security-fixture-ownership",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/testing/security-fixture-ownership.json",
+            "pathType": "file"
+        },
+        {
+            "id": "bounded-channel-delivery-contract-catalog",
+            "owner": "test-governance",
+            "canonicalPath": "config/testing/bounded-channel-delivery-contracts.json",
+            "pathType": "file",
+            "purpose": "Closed-world inventory of bounded backend channels, delivery classes, failure semantics, and proof sources.",
+            "consumers": [
+                "tools/governance/bounded-channel-contracts.mjs",
+                "tests/tools/bounded-channel-contracts.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/bounded-channel-contracts.test.mjs",
+            "changePolicy": "manual-update-with-bounded-channel-discovery-and-contract-validation",
+            "status": "manual"
+        },
+        {
+            "id": "bounded-channel-delivery-contract-schema",
+            "owner": "test-governance",
+            "canonicalPath": "config/testing/bounded-channel-delivery-contracts.schema.json",
+            "pathType": "file",
+            "purpose": "Closed JSON Schema for bounded-channel delivery catalog entries and delivery-class proof variants.",
+            "consumers": [
+                "tools/governance/bounded-channel-contracts.mjs",
+                "tests/tools/bounded-channel-contracts.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/bounded-channel-contracts.test.mjs",
+            "changePolicy": "manual-update-with-bounded-channel-discovery-and-contract-validation",
+            "status": "manual"
         },
         {
             "id": "fsusui-test-baseline",
@@ -204,6 +382,34 @@
             "status": "manual"
         },
         {
+            "id": "fixture-semantic-snapshot-policy",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/testing/fixture-semantic-snapshot-policy.json",
+            "pathType": "file",
+            "purpose": "Closed field dispositions, record kinds, nonowned sentinel domains and bounded shard limits for receipt-bound fixture semantic snapshots.",
+            "consumers": [
+                "tools/test-fixtures/mutation-recovery/semantic-snapshot.mjs",
+                "tests/tools/fixture-mutation-recovery.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/fixture-mutation-recovery.test.mjs",
+            "changePolicy": "manual-update-with-fixture-mutation-recovery-validation",
+            "status": "manual"
+        },
+        {
+            "id": "fixture-semantic-snapshot-policy-schema",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/schemas/fixture-semantic-snapshot-policy.schema.json",
+            "pathType": "file",
+            "purpose": "Closed JSON Schema for fixture semantic snapshot dispositions, sentinel domains and shard bounds.",
+            "consumers": [
+                "config/testing/fixture-semantic-snapshot-policy.json",
+                "tests/tools/fixture-mutation-recovery.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/fixture-mutation-recovery.test.mjs",
+            "changePolicy": "manual-update-with-fixture-mutation-recovery-validation",
+            "status": "manual"
+        },
+        {
             "id": "mutation-envelope-catalog-validator",
             "owner": "test-fixture-catalog",
             "canonicalPath": "tools/test-fixtures/mutation-envelope-catalog.mjs",
@@ -228,6 +434,169 @@
             ],
             "validationCommand": "node --test tests/tools/mutation-envelope-catalog.test.mjs",
             "changePolicy": "manual-update-with-mutation-envelope-catalog-validation",
+            "status": "manual"
+        },
+        {
+            "id": "test-execution-envelope-policy-schema",
+            "owner": "test-execution-envelope-governance",
+            "canonicalPath": "config/schemas/test-execution-envelope-policy.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "playwright-browser-identity-policy-schema",
+            "owner": "test-execution-envelope-governance",
+            "canonicalPath": "config/schemas/playwright-browser-identity-policy.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/test/playwright-browser-identity.mjs",
+                "tests/tools/playwright-browser-identity.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/playwright-browser-identity.test.mjs",
+            "changePolicy": "manual-update-with-managed-browser-identity-validation",
+            "status": "manual"
+        },
+        {
+            "id": "playwright-browser-identity-policy",
+            "owner": "test-execution-envelope-governance",
+            "canonicalPath": "config/testing/playwright-browser-identity-policy.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/test/playwright-browser-identity.mjs",
+                "tests/browser-contract/run.mjs",
+                "tests/tools/playwright-browser-identity.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/playwright-browser-identity.test.mjs",
+            "changePolicy": "manual-update-with-managed-browser-identity-validation",
+            "status": "manual"
+        },
+        {
+            "id": "test-execution-envelope-applicability-schema",
+            "owner": "test-execution-envelope-governance",
+            "canonicalPath": "config/schemas/test-execution-envelope-applicability.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "test-execution-envelope-receipt-schema",
+            "owner": "test-execution-envelope-governance",
+            "canonicalPath": "config/schemas/test-execution-envelope-receipt.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/test/execution-envelope-receipt.mjs",
+                "tools/test/verify-execution-envelope.mjs",
+                "tests/tools/execution-envelope-receipt.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/execution-envelope-receipt.test.mjs",
+            "changePolicy": "manual-update-with-independent-receipt-verification",
+            "status": "manual"
+        },
+        {
+            "id": "test-execution-network-policy-schema",
+            "owner": "test-execution-envelope-governance",
+            "canonicalPath": "config/schemas/test-execution-network-policy.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "test-execution-service-catalog-schema",
+            "owner": "test-execution-envelope-governance",
+            "canonicalPath": "config/schemas/test-execution-service-catalog.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "test-execution-envelope-policy",
+            "owner": "test-execution-envelope-governance",
+            "canonicalPath": "config/testing/test-execution-envelope-policy.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/test/run-deterministic-command.mjs",
+                "tools/test-matrix/execution-envelope-policy.mjs",
+                "tools/testing/generate-test-execution-envelope-applicability.mjs",
+                "tests/tools/execution-envelope-policy.test.mjs"
+            ],
+            "validationCommand": "node tools/testing/generate-test-execution-envelope-applicability.mjs --check && node --test tests/tools/execution-envelope-policy.test.mjs",
+            "changePolicy": "regenerate-from-tests-matrix-and-producer-contract",
+            "status": "generated"
+        },
+        {
+            "id": "test-execution-envelope-applicability-generator",
+            "owner": "test-execution-envelope-governance",
+            "canonicalPath": "tools/testing/generate-test-execution-envelope-applicability.mjs",
+            "pathType": "file",
+            "consumers": [
+                "config/testing/test-execution-envelope-applicability.json",
+                "tests/matrix.yml",
+                "config/testing/producer-execution-class-contract.json"
+            ],
+            "validationCommand": "node tools/testing/generate-test-execution-envelope-applicability.mjs --check",
+            "changePolicy": "manual-update-with-generated-catalog-validation",
+            "status": "manual"
+        },
+        {
+            "id": "test-execution-envelope-applicability",
+            "owner": "test-execution-envelope-governance",
+            "canonicalPath": "config/testing/test-execution-envelope-applicability.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/test/run-deterministic-command.mjs",
+                "tools/test-matrix/execution-envelope-policy.mjs",
+                "tests/tools/execution-envelope-policy.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/execution-envelope-policy.test.mjs",
+            "changePolicy": "manual-update-with-execution-envelope-contract-validation",
+            "status": "manual"
+        },
+        {
+            "id": "test-execution-network-policy",
+            "owner": "test-execution-envelope-governance",
+            "canonicalPath": "config/testing/test-execution-network-policy.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/test/execution-envelope-network.mjs",
+                "tools/test/run-deterministic-command.mjs",
+                "tests/tools/execution-envelope-network.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/execution-envelope-network.test.mjs tests/tools/execution-envelope-runner-integration.test.mjs",
+            "changePolicy": "manual-update-with-execution-envelope-contract-validation",
+            "status": "manual"
+        },
+        {
+            "id": "test-execution-service-catalog",
+            "owner": "test-execution-envelope-governance",
+            "canonicalPath": "config/testing/test-execution-service-catalog.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/bootstrap-acceptance-env.sh",
+                "tools/test/execution-envelope-services.mjs",
+                "tests/tools/execution-envelope-services.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/execution-envelope-services.test.mjs",
+            "changePolicy": "manual-update-with-execution-envelope-contract-validation",
+            "status": "manual"
+        },
+        {
+            "id": "test-execution-envelope-receipt-sealer",
+            "owner": "test-execution-envelope-governance",
+            "canonicalPath": "tools/test/execution-envelope-receipt.mjs",
+            "pathType": "file",
+            "consumers": [
+                "tools/test/run-deterministic-command.mjs",
+                "tools/test/verify-execution-envelope.mjs",
+                "tests/tools/execution-envelope-receipt.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/execution-envelope-receipt.test.mjs tests/tools/execution-envelope-runner-integration.test.mjs",
+            "changePolicy": "manual-update-with-independent-receipt-verification",
+            "status": "manual"
+        },
+        {
+            "id": "test-execution-envelope-independent-verifier",
+            "owner": "test-execution-envelope-governance",
+            "canonicalPath": "tools/test/verify-execution-envelope.mjs",
+            "pathType": "file",
+            "consumers": [
+                "tests/tools/execution-envelope-receipt.test.mjs",
+                "docs/testing.md"
+            ],
+            "validationCommand": "node --test tests/tools/execution-envelope-receipt.test.mjs",
+            "changePolicy": "manual-update-with-sealer-verifier-separation",
             "status": "manual"
         },
         {
@@ -284,9 +653,15 @@
             "pathType": "file"
         },
         {
-            "id": "temporal-perturbation-cases",
+            "id": "temporal-domain-producer-inventory",
             "owner": "temporal-qualification-governance",
-            "canonicalPath": "config/testing/temporal-perturbation-cases.json",
+            "canonicalPath": "config/testing/temporal-domain-producer-inventory.json",
+            "pathType": "file"
+        },
+        {
+            "id": "temporal-domain-producer-receipt-schema",
+            "owner": "temporal-qualification-governance",
+            "canonicalPath": "config/testing/temporal-domain-producer-receipt.schema.json",
             "pathType": "file"
         },
         {
@@ -299,6 +674,24 @@
             "id": "temporal-producer-bindings",
             "owner": "temporal-qualification-governance",
             "canonicalPath": "config/testing/temporal-producer-bindings.json",
+            "pathType": "file"
+        },
+        {
+            "id": "temporal-shape-catalog",
+            "owner": "temporal-qualification-governance",
+            "canonicalPath": "config/testing/temporal-shape-catalog.json",
+            "pathType": "file"
+        },
+        {
+            "id": "temporal-shape-catalog-schema",
+            "owner": "temporal-qualification-governance",
+            "canonicalPath": "config/testing/temporal-shape-catalog.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "resolved-temporal-roles-schema",
+            "owner": "temporal-qualification-governance",
+            "canonicalPath": "config/testing/resolved-temporal-roles.schema.json",
             "pathType": "file"
         },
         {
@@ -439,6 +832,30 @@
             "owner": "test-observation-ledger",
             "canonicalPath": "config/schemas/test-observation-artifact.schema.json",
             "pathType": "file"
+        },
+        {
+            "id": "test-execution-replay-plan-schema",
+            "owner": "test-replay-governance",
+            "canonicalPath": "config/schemas/test-execution-replay-plan.schema.json",
+            "pathType": "file",
+            "purpose": "Closed framework-neutral replay plan contract for canonical test identity, entropy streams, order, shards, workers and command binding.",
+            "consumers": [
+                "tools/test/execution-replay-contract.mjs",
+                "tests/tools/execution-replay-contract.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/execution-replay-contract.test.mjs"
+        },
+        {
+            "id": "test-execution-replay-receipt-schema",
+            "owner": "test-replay-governance",
+            "canonicalPath": "config/schemas/test-execution-replay-receipt.schema.json",
+            "pathType": "file",
+            "purpose": "Closed actual replay receipt contract for observed test order, shard and worker membership, entropy streams, admission sequence and process outcome.",
+            "consumers": [
+                "tools/test/execution-replay-contract.mjs",
+                "tests/tools/execution-replay-contract.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/execution-replay-contract.test.mjs"
         },
         {
             "id": "behavior-test-evidence-schema",
@@ -831,6 +1248,54 @@
             ],
             "validationCommand": "node --test tests/tools/test-inventory.test.mjs",
             "changePolicy": "manual-update-with-inventory-closure-validation",
+            "status": "manual"
+        },
+        {
+            "id": "test-quality-policy",
+            "owner": "repository-governance",
+            "canonicalPath": "config/testing/test-quality-policy.json",
+            "pathType": "file",
+            "purpose": "Closed test-quality rule and exact-waiver authority consumed by the canonical case-level oracle policy.",
+            "consumers": [
+                "tools/test-quality/policy.mjs",
+                "tools/ci/check-test-quality.mjs",
+                "tools/check-test-retention.mjs",
+                "tests/tools/test-quality-engine.test.mjs"
+            ],
+            "validationCommand": "node tools/ci/check-test-quality.mjs --self-test && node --test tests/tools/test-quality-engine.test.mjs",
+            "changePolicy": "manual-update-with-test-quality-conformance",
+            "status": "manual"
+        },
+        {
+            "id": "test-quality-module",
+            "owner": "repository-governance",
+            "canonicalPath": "tools/test-quality",
+            "pathType": "directory",
+            "recursive": true,
+            "purpose": "Canonical resolved-oracle facts, case policy, adversarial conformance, sealed quality artifact producer and independent verifier.",
+            "consumers": [
+                "tools/ci/check-test-quality.mjs",
+                "tools/check-test-retention.mjs",
+                "tools/test/lanes/test-quality-lint.sh",
+                "tests/tools/test-quality-engine.test.mjs"
+            ],
+            "validationCommand": "node tools/ci/check-test-quality.mjs --self-test && node --test tests/tools/test-quality-engine.test.mjs",
+            "changePolicy": "manual-update-with-test-quality-conformance",
+            "status": "manual"
+        },
+        {
+            "id": "test-replacement-transaction-module",
+            "owner": "repository-governance",
+            "canonicalPath": "tools/test-replacement",
+            "pathType": "directory",
+            "recursive": true,
+            "purpose": "Atomic test deletion, rename, merge, parameterization, split and support-move planning, verification, application, receipt and rollback authority.",
+            "consumers": [
+                "tools/test-replacement-transaction.mjs",
+                "tests/tools/test-replacement-transaction.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/test-replacement-transaction.test.mjs",
+            "changePolicy": "manual-update-with-atomic-replacement-transaction-tests",
             "status": "manual"
         },
         {

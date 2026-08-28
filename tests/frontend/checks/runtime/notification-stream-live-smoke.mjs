@@ -1,71 +1,18 @@
 #!/usr/bin/env node
 
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
 import { decodeAedsFrame, readAedsResponse } from '../../support/aeds-envelope.mjs'
-import { baseUrl, buildPowHeaders, fetchChallenge, requestTimeoutMs } from '../../support/auth-helpers.mjs'
+import { baseUrl, buildPowHeaders, requestTimeoutMs } from '../../support/auth-helpers.mjs'
 import { isDirectExecution, reportDirectFailure } from '../../support/direct-execution.mjs'
 import { fetchWithTimeout, probeReachable } from '../../support/http.mjs'
 
 const streamPath = '/api/notifications/stream'
 const wsProtocol = 'fsus-aeds.v2'
 const frameNotificationHeartbeat = 70
-const execFileAsync = promisify(execFile)
-const resetSecurityTestState = process.env.FSUSBLOG_RESET_SECURITY_TEST_STATE !== '0'
-const redisContainer = process.env.FSUSBLOG_REDIS_CONTAINER || process.env.FSUSBLOG_REDIS_CONTAINER_NAME || 'fsusblog-redis'
-const maxDeterministicPowDifficulty = Number.parseInt(process.env.FSUSBLOG_ACCEPTANCE_POW_MAX_DIFFICULTY ?? '20', 10) || 20
 
 function assert(condition, message) {
   if (!condition) {
     throw new Error(message)
   }
-}
-
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-async function resetLocalPowRiskState() {
-  if (!resetSecurityTestState) {
-    return
-  }
-
-  try {
-    await execFileAsync('docker', [
-      'exec',
-      redisContainer,
-      'sh',
-      '-c',
-      "redis-cli --scan --pattern '*fsus:sec:pow-risk:*' | xargs -r redis-cli DEL"
-    ], { timeout: 5000 })
-  } catch {
-    // Non-local environments may not use the developer docker container.
-  }
-}
-
-async function waitForDeterministicPow(label) {
-  let lastDifficulty = 'unknown'
-  for (let attempt = 0; attempt < 30; attempt += 1) {
-    try {
-      const challenge = await fetchChallenge(5000)
-      const difficulty = Number(challenge.difficulty ?? challenge.Difficulty ?? 999)
-      lastDifficulty = Number.isFinite(difficulty) ? String(difficulty) : 'unknown'
-      if (difficulty <= maxDeterministicPowDifficulty) {
-        return
-      }
-    } catch {
-      lastDifficulty = 'unreachable'
-    }
-
-    await delay(1000)
-  }
-
-  throw new Error(`${label} pow difficulty did not settle below ${maxDeterministicPowDifficulty}; last=${lastDifficulty}`)
-}
-
-async function resetAndWaitForPow(label) {
-  await resetLocalPowRiskState()
-  await waitForDeterministicPow(label)
 }
 
 function toWsUrl(path, params = {}) {
@@ -151,7 +98,6 @@ export async function runNotificationStreamLiveSmoke() {
   await probeReachable(`${baseUrl}/api/binary/article/list/home/1/1.aeds`, '[notification-stream-live-smoke backend]', requestTimeoutMs)
 
   await expectHttpHandshakeFailure('http-upgrade-required', 426, 'websocket_required')
-  await resetAndWaitForPow('notification stream live websocket')
   await expectLiveWebSocket('anonymous-initial')
   await expectLiveWebSocket('anonymous-reconnect', { cursor: '0' })
 

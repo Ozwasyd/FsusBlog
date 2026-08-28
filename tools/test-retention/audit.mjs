@@ -484,28 +484,6 @@ function normalizeSemanticSource(source)
         .trim();
 }
 
-function assertionTargets(source, fallback)
-{
-    const targets = [];
-    const patterns = [
-        /\bAssert\.[A-Za-z_][A-Za-z0-9_]*(?:<[^>]+>)?\([^;\n]*/gu,
-        /\b(?:assert|expect)\([^;\n]*?\)(?:\.[A-Za-z_][A-Za-z0-9_]*(?:\([^;\n]*\))?)+/gu,
-        /\b(?:assert|expect)\.[A-Za-z_][A-Za-z0-9_]*\([^;\n]*/gu
-    ];
-    for (const pattern of patterns)
-    {
-        for (const match of source.matchAll(pattern))
-        {
-            const normalized = match[0].replace(/\s+/gu, ' ').trim().slice(0, 240);
-            if (normalized && !targets.includes(normalized))
-            {
-                targets.push(normalized);
-            }
-        }
-    }
-    return targets.length > 0 ? targets : [`behavior:${String(fallback).trim()}`];
-}
-
 function riskTagsFor(file, name, source)
 {
     const haystack = `${file}\n${name}\n${source}`;
@@ -521,7 +499,7 @@ function record({ id, file, framework, name, source, tierCategory = undefined, m
         id,
         path: file,
         framework,
-        assertionTargets: assertionTargets(source, name),
+        assertionTargets: [],
         riskTags: riskTagsFor(file, name, source),
         _tierCategory: tierCategory,
         _semanticSignature: shortHash(`${framework}\n${normalized}`)
@@ -970,6 +948,7 @@ export function normalizeReplacementManifest(manifest, currentRecords, catalog =
     }
     const currentTestIds = new Set((currentRecords ?? []).map((record) => record.id));
     const currentAssertionTargets = new Set((currentRecords ?? []).flatMap((record) => record.assertionTargets ?? []));
+    const historicalAssertionTargetKeys = new Set(catalog.historicalAssertionTargetKeys ?? []);
     const deletedTests = manifest?.deletedTests ?? [];
     const assertionReplacements = manifest?.assertionReplacements ?? [];
     const tierReplacements = catalog.tierReplacements ?? manifest?.tierReplacements ?? [];
@@ -1114,7 +1093,8 @@ export function normalizeReplacementManifest(manifest, currentRecords, catalog =
         {
             for (const target of entry.after)
             {
-                if (!currentAssertionTargets.has(target))
+                if (!currentAssertionTargets.has(target)
+                    && !historicalAssertionTargetKeys.has(compactRetentionKey(target)))
                 {
                     fail(`assertion replacement ${entry.before} references missing replacement assertion target: ${target}`);
                 }
@@ -1214,12 +1194,28 @@ function applyEquivalence(records)
         ['must-keep', 0],
         ['conditional', 1],
         ['review-candidate', 2],
-        ['obsolete-candidate', 3]
+        ['replaceable-candidate', 3],
+        ['obsolete-candidate', 4],
+        ['blocked-quality', 5]
     ]);
     const groups = new Map();
     for (const item of records)
     {
-        const key = `${item.framework}\n${item._semanticSignature}\n${item.coverageIds.join('|')}`;
+        if (item.qualityOutcome === 'failed' || item.qualityOutcome === 'unresolved-failed')
+        {
+            item.uniqueEvidence = true;
+            item.equivalentTo = null;
+            continue;
+        }
+        const key = [
+            item.framework,
+            item._semanticSignature,
+            item.coverageIds.join('|'),
+            item.tierIds.join('|'),
+            item.productionSymbols.join('|'),
+            item.assertionTargets.join('|'),
+            item.runtimeBoundary
+        ].join('\n');
         const group = groups.get(key) ?? [];
         group.push(item);
         groups.set(key, group);
@@ -1240,13 +1236,79 @@ function applyEquivalence(records)
             duplicate.uniqueEvidence = false;
             duplicate.equivalentTo = canonical.id;
             duplicate.replacementTestIds = [canonical.id];
+            duplicate.retentionClass = 'replaceable-candidate';
         }
     }
 }
 
-export async function auditTestRecords({ root, files, fileMetadata, timingHistory, failureHistory, inventory = null })
+function factAssertionTargets(fact)
+{
+    return sortedUnique((fact?.assertions ?? []).map((assertion) => [
+        assertion.apiId,
+        assertion.actual?.text ?? '<none>',
+        assertion.operator,
+        assertion.expected?.text ?? '<none>'
+    ].join(':')));
+}
+
+function retentionClassForCase({ metadata, fact, qualityOutcome, riskTags })
+{
+    if (qualityOutcome === 'failed' || qualityOutcome === 'unresolved-failed')
+    {
+        return { retentionClass: 'blocked-quality', retentionReasons: ['quality-outcome-blocks-retirement'] };
+    }
+    const reasons = [];
+    if (riskTags.length > 0)
+    {
+        reasons.push('review-required-risk-name');
+    }
+    if ((metadata.coverageIds?.length ?? 0) > 0)
+    {
+        reasons.push('coverage-owner');
+    }
+    if ((metadata.tierIds?.length ?? 0) > 0)
+    {
+        reasons.push('matrix-runtime-owner');
+    }
+    const productionSymbols = (fact?.calls?.production ?? []).length;
+    const assertions = (fact?.assertions ?? []).length;
+    if (productionSymbols > 0)
+    {
+        reasons.push('production-symbol-owner');
+    }
+    if (assertions > 0)
+    {
+        reasons.push('resolved-oracle-owner');
+    }
+    if (productionSymbols === 0 && assertions > 0)
+    {
+        reasons.push('self-model-review');
+    }
+    if (reasons.includes('coverage-owner') || reasons.includes('matrix-runtime-owner'))
+    {
+        return { retentionClass: 'must-keep', retentionReasons: reasons.sort() };
+    }
+    if (productionSymbols > 0 && assertions > 0)
+    {
+        return { retentionClass: 'conditional', retentionReasons: reasons.sort() };
+    }
+    return { retentionClass: 'review-candidate', retentionReasons: reasons.sort() };
+}
+
+export async function auditTestRecords({
+    root,
+    files,
+    fileMetadata,
+    timingHistory,
+    failureHistory,
+    inventory = null,
+    oracleFacts = null,
+    qualityResult = null
+})
 {
     const records = [];
+    const factsById = new Map((oracleFacts?.cases ?? []).map((item) => [item.testId, item]));
+    const qualityById = new Map((qualityResult?.cases ?? []).map((item) => [item.testId, item]));
     for (const file of files)
     {
         const source = await readFile(path.join(root, file), 'utf8');
@@ -1261,8 +1323,26 @@ export async function auditTestRecords({ root, files, fileMetadata, timingHistor
                 : metadata.tierIds ?? [];
             const tierIds = [...new Set(inferredRecordTiers)].sort();
             const coverageIds = [...new Set(metadata.coverageIds ?? [])].sort();
+            const fact = factsById.get(extracted.id) ?? null;
+            const quality = qualityById.get(extracted.id) ?? null;
+            const qualityOutcome = quality?.outcome ?? (fact === null ? 'not-applicable' : 'unresolved-failed');
+            const classification = retentionClassForCase({
+                metadata: { ...metadata, coverageIds, tierIds },
+                fact,
+                qualityOutcome,
+                riskTags: extracted.riskTags ?? []
+            });
             records.push({
                 ...extracted,
+                assertionTargets: factAssertionTargets(fact),
+                productionSymbols: sortedUnique((fact?.calls?.production ?? []).map((call) => (
+                    `${call.assembly ?? '<unknown>'}:${call.containingType ?? '<unknown>'}.${call.methodName}`
+                ))),
+                qualityOutcome,
+                qualityViolations: sortedUnique((quality?.violations ?? []).map((item) => item.ruleId)),
+                retentionClass: classification.retentionClass,
+                retentionReasons: classification.retentionReasons,
+                runtimeBoundary: `${extracted.framework}:${fact?.identity ?? 'support'}:${fact?.controlFlow?.dynamicObligation ?? 'static'}`,
                 coverageIds,
                 tierIds,
                 invocationCount: tierIds.length,
@@ -1278,7 +1358,9 @@ export async function auditTestRecords({ root, files, fileMetadata, timingHistor
                     lastFailureAt: failures.filter((entry) => entry?.failed === true && entry?.at).map((entry) => entry.at).sort().at(-1) ?? null
                 },
                 replacementTestIds: [],
-                _retentionClass: metadata.retentionClass
+                _retentionClass: classification.retentionClass === 'blocked-quality'
+                    ? 'blocked-quality'
+                    : metadata.retentionClass ?? classification.retentionClass
             });
         }
     }

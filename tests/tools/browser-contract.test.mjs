@@ -293,6 +293,8 @@ test('runner source enforces one managed launch, one context factory, and proces
     assert.equal((runner.match(/browser\.newContext\(/gu) ?? []).length, 1);
     assert.match(runner, /browser\.on\('disconnected'/u);
     assert.match(runner, /verifyProductionBuildReceipt/u);
+    assert.match(runner, /createCorrectnessBrowserPlan/u);
+    assert.match(runner, /observeCorrectnessBrowser/u);
     assert.match(runner, /productFailures\.push/u);
     assert.match(runner, /scenarioReceipt\.classification === 'product'/u);
     assert.doesNotMatch(runner, /max(?:imum)?[-_ ]?(?:errors|failures)|failFast/iu);

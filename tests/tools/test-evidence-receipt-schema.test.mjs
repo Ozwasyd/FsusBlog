@@ -102,6 +102,31 @@ function correctnessFixture(build)
 
 function browserContractFixture(build)
 {
+    const browserPlan = sealDocument({
+        schema: 'fsusblog.playwright-browser-identity.v1',
+        executionClass: 'correctness', evidenceClass: 'browser-contract',
+        qualificationEligible: true, managedExecutable: true,
+        browserName: 'chromium', browserVersion: '140.0.0', revision: '123456',
+        executablePath: '/managed/chromium-123456/chrome',
+        executableSha256: `sha256:${'f'.repeat(64)}`,
+        playwright: { package: '@playwright/test', version: '1.59.1' },
+        launchOptions: { headless: true, executablePath: '/managed/chromium-123456/chrome', args: [] },
+        rendering: {
+            fontSetDigest: `sha256:${'1'.repeat(64)}`,
+            localeDataDigest: `sha256:${'2'.repeat(64)}`,
+            locale: 'zh-CN', deviceScaleFactor: 1, renderingMode: 'headless',
+            colorScheme: 'light', gpuMode: 'software'
+        }
+    });
+    const browserActual = sealDocument({
+        ...structuredClone(browserPlan),
+        schema: 'fsusblog.playwright-browser-actual.v1',
+        planDigest: browserPlan.contentDigest,
+        renderingObservation: {
+            locale: 'zh-CN', deviceScaleFactor: 1, colorScheme: 'light',
+            renderer: 'SwiftShader fixture renderer'
+        }
+    });
     const publicPreview = {
         schema: 'fsusblog.public-preview-screenshot-verification.v1',
         status: 'ok',
@@ -131,7 +156,10 @@ function browserContractFixture(build)
             profile: build.receipt.build.profile
         },
         fixture: { namespace: 'browser-contract-run-1151' },
-        playwright: { chromiumRevision: '123456', chromiumVersion: '140.0.0' },
+        playwright: {
+            chromiumRevision: '123456', chromiumVersion: '140.0.0',
+            browserIdentity: { plan: browserPlan, actual: browserActual }
+        },
         topology: {
             runner: 'playwright-library', browserType: 'chromium', managedBrowser: true,
             workerPool: false, shard: null, retries: 0, browserLaunchCount: 1,
@@ -431,6 +459,17 @@ test('Browser Contract receipt seals #1078 identity, Chromium topology, diagnost
         expectedFingerprint: build.sourceState.worktreeFingerprint,
         expectedBuildReceiptDigest: build.receipt.contentDigest
     }), []);
+
+    const binaryDrift = structuredClone(receipt);
+    binaryDrift.playwright.browserIdentity.actual.executableSha256 = `sha256:${'0'.repeat(64)}`;
+    assert.ok(validateBrowserContractReceipt(sealBrowserContractReceipt(binaryDrift))
+        .some((error) => error.includes('executableSha256 mismatch')));
+
+    const diagnosticUpgrade = structuredClone(receipt);
+    diagnosticUpgrade.playwright.browserIdentity.actual.executionClass = 'diagnostic';
+    diagnosticUpgrade.playwright.browserIdentity.actual.qualificationEligible = false;
+    assert.ok(validateBrowserContractReceipt(sealBrowserContractReceipt(diagnosticUpgrade))
+        .some((error) => error.includes('actual browser identity is missing or non-qualifying')));
 });
 
 test('public-preview evidence binding rejects missing, stale, and tampered local evidence', (context) =>
