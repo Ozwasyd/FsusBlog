@@ -236,6 +236,63 @@
             "reason": "The search UTF-8 scalar production owner, governance registry and generated test documentation must migrate atomically while preserving their existing external JSON, document and tooling identifiers; internal C# symbols remain governed by the repository mapping."
         },
         {
+            "id": "post-runtime-observation-authority",
+            "authorityExceptionId": "json-api-field",
+            "paths": [
+                "config/contracts/behavior-contracts.json",
+                "config/contracts/behavior-fact-extractors.json",
+                "config/contracts/generated-fact-sections.json",
+                "config/development/authoritative-development-docs.json",
+                "config/schemas/behavior-contract-catalog.schema.json",
+                "config/schemas/behavior-fact-extractor-registry.schema.json",
+                "config/testing/mutation/stryker-tool.v1.json",
+                "docs/api/article-publication-revisions.md",
+                "docs/architecture/monolithic-distributed-boundary.md",
+                "docs/architecture/repository-layout.md",
+                "docs/development/behavior-contracts.generated.md",
+                "docs/releases/blue-green-deployment-runbook.md",
+                "src/shared/Contracts/Governance/BehaviorContractCatalog.g.cs",
+                "tools/check-backend-test-governance.mjs",
+                "tools/contracts/behavior-contract-catalog.mjs",
+                "tools/contracts/behavior-graph-join.mjs",
+                "tools/contracts/behavior-test-binding.mjs",
+                "tools/contracts/generate-behavior-contract-catalog.mjs",
+                "tools/docs/behavior-doc-exactness.mjs",
+                "tools/docs/behavior-doc-static-admission.mjs",
+                "tools/fact-extractors/governance.mjs",
+                "tools/fact-extractors/post-runtime/adapter.mjs",
+                "tools/fact-extractors/post-runtime/application-runtime.mjs",
+                "tools/fact-extractors/post-runtime/registry.mjs",
+                "tools/fact-extractors/post-runtime/release-deployment.mjs",
+                "tools/fact-extractors/registry.mjs",
+                "tools/fact-extractors/runner.mjs",
+                "tools/fact-extractors/test-matrix/extract.mjs",
+                "tools/mutation/stryker-tool.mjs",
+                "tools/test-matrix/behavior-evidence-pre-runtime.mjs",
+                "tools/test-matrix/produce-behavior-mutation-qualification.mjs",
+                "tools/test-matrix/verify-behavior-mutation-qualification.mjs",
+                "tools/test/changed-critical-mutation-attribution.mjs",
+                "tools/test/changed-critical-mutation-evidence.mjs",
+                "tools/test/changed-critical-mutation.mjs",
+                "tools/test/check-stryker-report.mjs",
+                "tools/test/lanes/_suite-support.sh",
+                "tools/test/run-changed-critical-mutation.mjs",
+                "tools/test/run-release-mutation-parity-build.mjs"
+            ],
+            "externalPattern": "^[A-Za-z][A-Za-z0-9_-]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "post_runtime_observation_application",
+                "internal": "postRuntimeObservationApplication"
+            },
+            "negative": {
+                "external": "post_runtime_observation_application",
+                "internal": "post_runtime_observation_application"
+            },
+            "reason": "The generated Behavior catalog sources, schemas, projections and documentation authorities must change atomically with their post-runtime observation and governance tooling while preserving existing external JSON, document, environment and tooling identifiers; internal C#, JavaScript and Shell symbols remain governed by the repository mapping."
+        },
+        {
             "id": "dotnet-configuration-environment",
             "authorityExceptionId": "environment-variable",
             "paths": [
