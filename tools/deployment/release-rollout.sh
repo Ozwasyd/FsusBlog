@@ -1041,7 +1041,10 @@ CompleteAssetCompatibilityProbe() {
     WaitForAssetCheckpoint
     WriteAssetCompatibilitySignal "$ASSET_COMPATIBILITY_SWITCH_FILE" switched
     node "$ROOT_DIR/tools/storage/gc-release-assets.mjs" --apply \
-        --store "$ASSET_STORE" --state "$RETENTION_STATE" --out "$ASSET_COMPATIBILITY_GC_EVIDENCE" >/dev/null
+        --store "$ASSET_STORE" --state "$RETENTION_STATE" \
+        --slot-state "$SLOT_STATE_FILE" --rollout-state "$ROLLOUT_STATE_FILE" \
+        --deployment-lock "$DEPLOYMENT_LOCK_FILE" \
+        --out "$ASSET_COMPATIBILITY_GC_EVIDENCE" >/dev/null
     jq -e '.schema == "fsusblog.release-assets.gc-evidence.v1" and .status == "ok" and .dryRun == false' \
         "$ASSET_COMPATIBILITY_GC_EVIDENCE" >/dev/null
     WriteAssetCompatibilitySignal "$ASSET_COMPATIBILITY_GC_FILE" gc-complete
@@ -1242,7 +1245,7 @@ RecoverPendingState() {
     case "$action" in
         preserve-source-stop-candidate)
             set +e
-            "$ROOT_DIR/tools/deployment/slot-stop.sh" --slot "$TARGET_SLOT" --env-file "$PRODUCTION_ENV_FILE" --state-file "$SLOT_STATE_FILE" >"$recoveryStdout" 2>"$recoveryStderr"
+            "$ROOT_DIR/tools/deployment/slot-stop.sh" --slot "$TARGET_SLOT" --env-file "$PRODUCTION_ENV_FILE" --state-file "$SLOT_STATE_FILE" --rollout-state "$ROLLOUT_STATE_FILE" >"$recoveryStdout" 2>"$recoveryStderr"
             status=$?
             set -e
             ;;
@@ -1342,7 +1345,7 @@ StageCandidateStart() {
         --slot "$TARGET_SLOT" --release-manifest "$RELEASE_MANIFEST" \
         --production-build-receipt "$ASSET_STORE/releases/$TARGET_RELEASE/production-build-receipt.json" \
         --env-file "$PRODUCTION_ENV_FILE" --state-file "$SLOT_STATE_FILE" \
-        --deployment-generation "$TARGET_GENERATION"
+        --deployment-generation "$TARGET_GENERATION" --rollout-state "$ROLLOUT_STATE_FILE"
 }
 
 StageCandidateReadiness() {
@@ -1536,7 +1539,8 @@ StageSourceDrain() {
 
 StageSourceStop() {
     "$ROOT_DIR/tools/deployment/slot-stop.sh" \
-        --slot "$SOURCE_SLOT" --env-file "$PRODUCTION_ENV_FILE" --state-file "$SLOT_STATE_FILE"
+        --slot "$SOURCE_SLOT" --env-file "$PRODUCTION_ENV_FILE" --state-file "$SLOT_STATE_FILE" \
+        --rollout-state "$ROLLOUT_STATE_FILE"
 }
 
 ArtifactArgs() {
