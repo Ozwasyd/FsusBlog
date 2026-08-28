@@ -1,6 +1,6 @@
-// Generated from config/contracts/behavior-contracts.json; digest 458edbf436617823bc10ae33cac11935f0adc19e97c09d715bf75620926d214a; do not edit by hand.
+// Generated from config/contracts/behavior-contracts.json; digest 05fc7505ff1df2050454549f5ac0eca67a22029a5247b5508d5f674c6350edff; do not edit by hand.
 
-export const BEHAVIOR_CONTRACT_CATALOG_DIGEST = '458edbf436617823bc10ae33cac11935f0adc19e97c09d715bf75620926d214a' as const
+export const BEHAVIOR_CONTRACT_CATALOG_DIGEST = '05fc7505ff1df2050454549f5ac0eca67a22029a5247b5508d5f674c6350edff' as const
 export const BEHAVIOR_CONTRACTS = [
   {
     "id": "test-asset-audit-reconciliation",
@@ -121,7 +121,13 @@ export const BEHAVIOR_CONTRACTS = [
         "owner": "backend",
         "anchor": "protocol.operations",
         "claimIds": [
-          "binary-api-aeds-contract.operations"
+          "binary-api-aeds-contract.operation-active-state",
+          "binary-api-aeds-contract.operations",
+          "binary-api-aeds-contract.request-non-nullable",
+          "binary-api-aeds-contract.request-required",
+          "binary-api-aeds-contract.request-source",
+          "binary-api-aeds-contract.response-non-nullable",
+          "binary-api-aeds-contract.response-result-placement"
         ],
         "sectionIds": [
           "api.operations"
@@ -135,10 +141,14 @@ export const BEHAVIOR_CONTRACTS = [
         "owner": "backend",
         "anchor": "protocol.aeds-only",
         "claimIds": [
-          "binary-api-aeds-contract.protocol"
+          "binary-api-aeds-contract.aeds-only",
+          "binary-api-aeds-contract.migration-only-state",
+          "binary-api-aeds-contract.protocol",
+          "binary-api-aeds-contract.protocol-states"
         ],
         "sectionIds": [
-          "api.protocol"
+          "api.protocol",
+          "api.protocol-states"
         ],
         "proofIds": [
           "binary-api-aeds-contract"
@@ -177,9 +187,13 @@ export const BEHAVIOR_CONTRACTS = [
         "owner": "backend",
         "anchor": "protocol.operation-count",
         "claimIds": [
-          "binary-api-aeds-contract.operation-count"
+          "binary-api-aeds-contract.error-authority-reference",
+          "binary-api-aeds-contract.operation-count",
+          "binary-api-aeds-contract.public-error-authority-owner",
+          "binary-api-aeds-contract.public-error-reference-state"
         ],
         "sectionIds": [
+          "api.error-authority-reference",
           "api.operation-count"
         ],
         "proofIds": [

@@ -21753,7 +21753,7 @@
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json",
     "endpointContracts": "src/shared/Contracts/Validation/aeds-endpoint-contracts.json"
   },
-  "x-fsus-observation-digest": "eff1f49c3e2fa0a7b2dcdc18a8272fabac0860204de1707a76b2128857b67f07",
+  "x-fsus-observation-digest": "13097a4ad5520270382adee523ab104825dd6c4255dfc5de7dac4514f6056f5e",
   "x-fsus-protocol-states": {
     "SupportedVersions": [
       2
@@ -22009,7 +22009,7 @@
   },
   "x-fsus-error-authority": {
     "BehaviorId": "configuration-error-security-policy",
-    "CatalogDigest": "458edbf436617823bc10ae33cac11935f0adc19e97c09d715bf75620926d214a",
+    "CatalogDigest": "05fc7505ff1df2050454549f5ac0eca67a22029a5247b5508d5f674c6350edff",
     "DocumentPath": "docs/api/schemas-and-errors.md",
     "FactIds": [
       "facts.error-codes.domain.active",

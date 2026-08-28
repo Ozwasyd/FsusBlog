@@ -54,6 +54,16 @@
             "emptyPolicy": "fail"
         },
         {
+            "sectionId": "api.error-authority-reference",
+            "documentPath": "docs/api/schemas-and-errors.md",
+            "renderer": "key-value-table",
+            "extractorId": "openapi-aeds-fact-extractor",
+            "behaviorId": "binary-api-aeds-contract",
+            "factPath": "errorAuthority",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
             "sectionId": "api.observation-digest",
             "documentPath": "docs/api/stability.md",
             "renderer": "scalar",
@@ -101,6 +111,16 @@
             "behaviorId": "binary-api-aeds-contract",
             "factPath": "protocol",
             "orderPolicy": "not-applicable",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "api.protocol-states",
+            "documentPath": "docs/api/aeds-only-policy.md",
+            "renderer": "key-value-table",
+            "extractorId": "openapi-aeds-fact-extractor",
+            "behaviorId": "binary-api-aeds-contract",
+            "factPath": "protocolStates",
+            "orderPolicy": "ordinal",
             "emptyPolicy": "fail"
         },
         {

@@ -166,7 +166,15 @@
                     "path": "docs/api.md",
                     "owner": "backend",
                     "anchor": "protocol.operations",
-                    "claimIds": ["binary-api-aeds-contract.operations"],
+                    "claimIds": [
+                        "binary-api-aeds-contract.operation-active-state",
+                        "binary-api-aeds-contract.operations",
+                        "binary-api-aeds-contract.request-non-nullable",
+                        "binary-api-aeds-contract.request-required",
+                        "binary-api-aeds-contract.request-source",
+                        "binary-api-aeds-contract.response-non-nullable",
+                        "binary-api-aeds-contract.response-result-placement"
+                    ],
                     "sectionIds": ["api.operations"],
                     "proofIds": ["binary-api-aeds-contract"]
                 },
@@ -174,8 +182,16 @@
                     "path": "docs/api/aeds-only-policy.md",
                     "owner": "backend",
                     "anchor": "protocol.aeds-only",
-                    "claimIds": ["binary-api-aeds-contract.protocol"],
-                    "sectionIds": ["api.protocol"],
+                    "claimIds": [
+                        "binary-api-aeds-contract.aeds-only",
+                        "binary-api-aeds-contract.migration-only-state",
+                        "binary-api-aeds-contract.protocol",
+                        "binary-api-aeds-contract.protocol-states"
+                    ],
+                    "sectionIds": [
+                        "api.protocol",
+                        "api.protocol-states"
+                    ],
                     "proofIds": ["binary-api-aeds-contract"]
                 },
                 {
@@ -198,8 +214,16 @@
                     "path": "docs/api/schemas-and-errors.md",
                     "owner": "backend",
                     "anchor": "protocol.operation-count",
-                    "claimIds": ["binary-api-aeds-contract.operation-count"],
-                    "sectionIds": ["api.operation-count"],
+                    "claimIds": [
+                        "binary-api-aeds-contract.error-authority-reference",
+                        "binary-api-aeds-contract.operation-count",
+                        "binary-api-aeds-contract.public-error-authority-owner",
+                        "binary-api-aeds-contract.public-error-reference-state"
+                    ],
+                    "sectionIds": [
+                        "api.error-authority-reference",
+                        "api.operation-count"
+                    ],
                     "proofIds": ["binary-api-aeds-contract"]
                 },
                 {

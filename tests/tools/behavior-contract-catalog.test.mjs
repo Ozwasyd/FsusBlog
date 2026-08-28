@@ -96,7 +96,7 @@ test('protocol release and deployment domains have exact document and extractor 
   const protocol = catalog.contracts.find((entry) => entry.id === 'binary-api-aeds-contract')
   assert.deepEqual(
     protocol.documentAuthorities.find((entry) => entry.path === 'docs/api/schemas-and-errors.md').sectionIds,
-    ['api.operation-count']
+    ['api.error-authority-reference', 'api.operation-count']
   )
   assert.deepEqual(protocol.crossDomainReferences.map((entry) => entry.behaviorId), ['configuration-error-security-policy'])
   const lifecycle = JSON.parse(readFileSync(path.join(root, 'config/development/document-lifecycle.json'), 'utf8'))
