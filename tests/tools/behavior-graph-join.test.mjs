@@ -25,7 +25,6 @@ const checkerPath = path.join(root, 'tools/contracts/check-behavior-graph.mjs')
 const SOURCE_COMMIT = 'a'.repeat(40)
 const WORKTREE_FP = 'b'.repeat(64)
 const EXTRACTOR_DIGEST = 'c'.repeat(64)
-const REGISTRY_DIGEST = 'd'.repeat(64)
 const INPUT_DIGEST = 'e'.repeat(64)
 
 function stable (value)
@@ -99,6 +98,33 @@ function catalogDigest (catalog)
   return digestValue(catalog)
 }
 
+function makeFactExtractorRegistry (catalog = makeCatalog(), compiledArtifacts = {})
+{
+  return {
+    schema: 'fsusblog.behavior-fact-extractor-registry.v1',
+    digestAlgorithm: 'sha256',
+    canonicalSerialization: 'json-utf8-v1',
+    extractors: catalog.extractors.map((entry) =>
+    {
+      const requiredBuildArtifact = compiledArtifacts[entry.id] ?? null
+      return {
+        id: entry.id,
+        kind: requiredBuildArtifact == null ? 'canonical-catalog' : 'compiled-assembly',
+        entrypoint: entry.path,
+        consumedInputs: [entry.path],
+        outputSchema: 'fsusblog.fact-observation-receipt.v1',
+        requiredBuildArtifact,
+        hermeticPolicy: requiredBuildArtifact == null ? 'declared-inputs' : 'exact-build-receipt',
+        ownedBehaviorIds: catalog.contracts
+          .filter((contract) => contract.factExtractorId === entry.id)
+          .map((contract) => contract.id)
+      }
+    })
+  }
+}
+
+const REGISTRY_DIGEST = digestValue(makeFactExtractorRegistry())
+
 function makeFact ({
   extractorId = 'alpha-fact-extractor',
   behaviorIds = ['alpha-behavior'],
@@ -107,7 +133,8 @@ function makeFact ({
   failureReasons = [],
   sourceCommit = SOURCE_COMMIT,
   worktreeFingerprint = WORKTREE_FP,
-  buildIdentity = null
+  buildIdentity = null,
+  registryDigest = REGISTRY_DIGEST
 } = {})
 {
   return sealReceipt(buildReceipt({
@@ -117,7 +144,7 @@ function makeFact ({
     worktreeFingerprint,
     buildIdentity,
     extractorDigest: EXTRACTOR_DIGEST,
-    registryDigest: REGISTRY_DIGEST,
+    registryDigest,
     consumedInputDigests: [{ path: 'tools/alpha/extract.mjs', digest: INPUT_DIGEST }],
     observations: status === 'ok' ? observations : observations,
     status,
@@ -396,6 +423,7 @@ function defaultVerificationResults ()
 function happyBundle (mutators = {})
 {
   const catalog = makeCatalog(mutators.catalog)
+  const factExtractorRegistry = mutators.factExtractorRegistry ?? makeFactExtractorRegistry(catalog)
   const alphaFact = makeFact({
     extractorId: 'alpha-fact-extractor',
     behaviorIds: ['alpha-behavior'],
@@ -439,6 +467,7 @@ function happyBundle (mutators = {})
   })
   return {
     catalog,
+    factExtractorRegistry,
     ownerReceipt: owner,
     factObservationReceipts: facts,
     testEvidenceReceipt: testEvidence,
@@ -489,6 +518,7 @@ test('happy path seals qualified BehaviorGraph with recomputable digest', () =>
   const receipt = joinBehaviorGraph(inputs)
   assert.equal(receipt.schema, behaviorGraphSchema)
   assert.equal(receipt.status, 'ok')
+  assert.deepEqual(receipt.buildIdentities, {})
   assert.deepEqual(receipt.failureReasons, [])
   assert.equal(receipt.contentDigest, recomputeContentDigest(receipt))
   validateBehaviorGraphReceipt(receipt)
@@ -497,6 +527,75 @@ test('happy path seals qualified BehaviorGraph with recomputable digest', () =>
   assert.ok(receipt.behaviorNodes.every((node) => node.qualification === 'qualified'))
   assert.equal(receipt.sourceIdentity.commit, SOURCE_COMMIT)
   assert.equal(receipt.sourceIdentity.worktreeFingerprint, WORKTREE_FP)
+})
+
+test('compiled fact extractors preserve distinct canonical build identities per extractor', () =>
+{
+  const catalog = makeCatalog()
+  const factExtractorRegistry = makeFactExtractorRegistry(catalog, {
+    'alpha-fact-extractor': 'alpha-observation',
+    'beta-fact-extractor': 'beta-observation'
+  })
+  const registryDigest = digestValue(factExtractorRegistry)
+  const alphaBuild = { artifactId: 'alpha-observation', receiptDigest: '1'.repeat(64), artifactDigest: '2'.repeat(64) }
+  const betaBuild = { artifactId: 'beta-observation', receiptDigest: '3'.repeat(64), artifactDigest: '4'.repeat(64) }
+  const facts = [
+    makeFact({ extractorId: 'alpha-fact-extractor', behaviorIds: ['alpha-behavior'], observations: { limit: 10 }, buildIdentity: alphaBuild, registryDigest }),
+    makeFact({ extractorId: 'beta-fact-extractor', behaviorIds: ['beta-behavior'], observations: { enabled: true }, buildIdentity: betaBuild, registryDigest })
+  ]
+
+  const receipt = joinBehaviorGraph(happyBundle({ factExtractorRegistry, facts }))
+  assert.equal(receipt.status, 'ok')
+  assert.deepEqual(receipt.buildIdentities, {
+    'alpha-fact-extractor': alphaBuild,
+    'beta-fact-extractor': betaBuild
+  })
+  assert.equal(receipt.registryDigest, registryDigest)
+})
+
+test('missing compiled build and same-extractor build conflicts fail closed', () =>
+{
+  const catalog = makeCatalog()
+  const factExtractorRegistry = makeFactExtractorRegistry(catalog, {
+    'alpha-fact-extractor': 'alpha-observation'
+  })
+  const registryDigest = digestValue(factExtractorRegistry)
+  const beta = makeFact({ extractorId: 'beta-fact-extractor', behaviorIds: ['beta-behavior'], observations: { enabled: true }, registryDigest })
+  const missingBuild = joinBehaviorGraph(happyBundle({
+    factExtractorRegistry,
+    facts: [
+      makeFact({ extractorId: 'alpha-fact-extractor', behaviorIds: ['alpha-behavior'], observations: { limit: 10 }, registryDigest }),
+      beta
+    ]
+  }))
+  assert.equal(missingBuild.status, 'failed')
+  assert.ok(missingBuild.failureReasons.some((reason) => /missing required compiled buildIdentity for alpha-observation/u.test(reason)))
+
+  const first = makeFact({
+    extractorId: 'alpha-fact-extractor', behaviorIds: ['alpha-behavior'], observations: { limit: 10 }, registryDigest,
+    buildIdentity: { artifactId: 'alpha-observation', receiptDigest: '1'.repeat(64), artifactDigest: '2'.repeat(64) }
+  })
+  const conflicting = makeFact({
+    extractorId: 'alpha-fact-extractor', behaviorIds: ['alpha-behavior'], observations: { limit: 10 }, registryDigest,
+    buildIdentity: { artifactId: 'alpha-observation', receiptDigest: '1'.repeat(64), artifactDigest: '9'.repeat(64) }
+  })
+  const conflict = joinBehaviorGraph(happyBundle({ factExtractorRegistry, facts: [first, conflicting, beta] }))
+  assert.equal(conflict.status, 'failed')
+  assert.ok(conflict.failureReasons.some((reason) => /conflicting build identities within one extractor authority/u.test(reason)))
+})
+
+test('fact extractor registry identity drift fails closed', () =>
+{
+  const inputs = happyBundle()
+  const drifted = structuredClone(inputs.factObservationReceipts[0])
+  drifted.registryDigest = 'f'.repeat(64)
+  drifted.contentDigest = digestValue(Object.fromEntries(
+    Object.entries(drifted).filter(([key]) => key !== 'contentDigest')
+  ))
+  inputs.factObservationReceipts[0] = drifted
+  const receipt = joinBehaviorGraph(inputs)
+  assert.equal(receipt.status, 'failed')
+  assert.ok(receipt.failureReasons.some((reason) => /registryDigest does not match/u.test(reason)))
 })
 
 test('mutation proof is linked through Behavior ID and strengthens the DocClaim-qualified node', () =>

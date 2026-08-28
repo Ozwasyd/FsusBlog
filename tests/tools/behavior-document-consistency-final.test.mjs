@@ -63,6 +63,7 @@ function fixture(overrides = {})
     const pre = seal({
         schema: 'fsusblog.behavior-evidence-pre-runtime-receipt.v1', scope: 'pre-runtime',
         runIdentity: runId, sourceIdentity: { commit, worktreeFingerprint: `sha256:${fingerprint}` },
+        buildIdentities: {}, registryDigest: `sha256:${'3'.repeat(64)}`,
         catalogDigest: `sha256:${catalogHash}`, staticClaimVerificationDigest: `sha256:${'c'.repeat(64)}`,
         behaviorIds: ['alpha-behavior'], requiredTestKinds: { 'alpha-behavior': ['positive'] },
         observedTestKinds: { 'alpha-behavior': ['positive'] }, mutationStatus: {},
