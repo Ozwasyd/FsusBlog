@@ -1,3 +1,5 @@
+using FsusBlog.Server.Contracts.Assets;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Articles;
@@ -28,10 +30,9 @@ internal sealed class ArticleDeletionKernel(ISqlSugarClient db)
         SugarParameter[] idParameters = [.. targets.Select(
             static (articleId, index) => new SugarParameter($"@ArticleId{index}", articleId))];
         var assetReferences = new ArticleAssetReferenceStore(db);
-        string[] mutableAssetUrls = await assetReferences
-            .LoadMutableArticleSourceUrlsAsync(targets, cancellationToken)
+        AssetId[] mutableAssetIds = await assetReferences
+            .LoadMutableArticleSourceAssetIdsAsync(targets, cancellationToken)
             .ConfigureAwait(false);
-        await assetReferences.ReconcileUrlsAsync(mutableAssetUrls, cancellationToken).ConfigureAwait(false);
 
         // These tables are current-state projections. Immutable revision/publication/proof and
         // append-only event tables are deliberately absent; their retention is catalogued in
@@ -47,14 +48,6 @@ internal sealed class ArticleDeletionKernel(ISqlSugarClient db)
             DELETE FROM article_body
             WHERE article_id IN ({idPlaceholders});
 
-            DELETE FROM asset_library_article_ref
-            WHERE article_id IN ({idPlaceholders});
-
-            UPDATE asset_library_item
-            SET source_article_id = NULL,
-                updated_at = now() AT TIME ZONE 'utc'
-            WHERE source_article_id IN ({idPlaceholders});
-
             DELETE FROM article_public_taxonomy_projection
             WHERE article_id IN ({idPlaceholders});
 
@@ -67,7 +60,7 @@ internal sealed class ArticleDeletionKernel(ISqlSugarClient db)
             idParameters).ConfigureAwait(false);
 
         await assetReferences
-            .RemoveMutableArticleSourcesAndScheduleAsync(targets, mutableAssetUrls, cancellationToken)
+            .RemoveMutableArticleSourcesAndScheduleAsync(targets, mutableAssetIds, cancellationToken)
             .ConfigureAwait(false);
 
         foreach (int articleId in targets)

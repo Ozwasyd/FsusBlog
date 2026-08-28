@@ -1,4 +1,5 @@
 using FsusBlog.Core.Integrity;
+using FsusBlog.Server.Contracts.Assets;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
@@ -63,23 +64,29 @@ public static class PublicArtifactDigestEntries
         return ArtifactDigestV1.ComputeUtf8(kind, key, output);
     }
 
-    public static ArtifactDigestEntry FromAssetLibraryItem(AssetLibraryItem item)
+    public static ArtifactDigestEntry FromContentAsset(ContentAsset asset)
     {
-        ArgumentNullException.ThrowIfNull(item);
-        return ArtifactDigestV1.FromAssetLibrarySha256(item.Url, item.Sha256, length: null);
+        ArgumentNullException.ThrowIfNull(asset);
+        return ArtifactDigestV1.FromAssetLibrarySha256(
+            PublicAssetUrlCodec.RoutePrefix + asset.StorageKey,
+            asset.Sha256,
+            asset.SizeBytes);
     }
 
-    public static ArtifactDigestEntry ValidateAssetLibraryItem(
-        AssetLibraryItem item,
+    public static ArtifactDigestEntry ValidateContentAsset(
+        ContentAsset asset,
         ReadOnlySpan<byte> actualBytes)
     {
-        ArgumentNullException.ThrowIfNull(item);
-        return ArtifactDigestV1.ValidateAssetLibrarySha256(item.Url, item.Sha256, actualBytes);
+        ArgumentNullException.ThrowIfNull(asset);
+        return ArtifactDigestV1.ValidateAssetLibrarySha256(
+            PublicAssetUrlCodec.RoutePrefix + asset.StorageKey,
+            asset.Sha256,
+            actualBytes);
     }
 
     public static ArtifactDigestEntry ComputeArticleAssetManifest(
         int articleId,
-        IEnumerable<AssetLibraryItem> assets)
+        IEnumerable<ContentAsset> assets)
     {
         if (articleId <= 0)
         {
@@ -87,7 +94,7 @@ public static class PublicArtifactDigestEntries
         }
 
         ArgumentNullException.ThrowIfNull(assets);
-        ArtifactDigestEntry[] entries = [.. assets.Select(FromAssetLibraryItem)];
+        ArtifactDigestEntry[] entries = [.. assets.Select(FromContentAsset)];
         return ArtifactDigestV1.ComputePublicAssetManifest($"article:{articleId}", entries);
     }
 

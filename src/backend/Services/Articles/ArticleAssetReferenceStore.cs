@@ -1,6 +1,6 @@
-using System.Data.Common;
 using System.Globalization;
 
+using FsusBlog.Server.Contracts.Assets;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Helpers;
 
@@ -8,82 +8,17 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Services.Articles;
 
-public static class ArticleAssetUrlNormalizer
-{
-    private const string UploadPrefix = "/uploads/illustration/";
-    private static readonly HashSet<string> s_extensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif", ".svg"
-    };
-
-    public static bool TryNormalize(string? rawUrl, out string normalizedUrl)
-    {
-        normalizedUrl = string.Empty;
-        if (string.IsNullOrWhiteSpace(rawUrl))
-        {
-            return false;
-        }
-
-        string candidate = rawUrl.Trim().Replace('\\', '/');
-        int suffixStart = candidate.IndexOfAny(['?', '#']);
-        if (suffixStart >= 0)
-        {
-            candidate = candidate[..suffixStart];
-        }
-
-        try
-        {
-            candidate = Uri.UnescapeDataString(candidate);
-        }
-        catch (UriFormatException)
-        {
-            return false;
-        }
-
-        candidate = CollapseSlashes(candidate);
-        candidate = "/" + candidate.TrimStart('/');
-        string[] segments = candidate.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        if (segments.Any(static segment => segment is "." or ".." || segment.IndexOf('\0') >= 0))
-        {
-            return false;
-        }
-
-        if (!candidate.StartsWith(UploadPrefix, StringComparison.OrdinalIgnoreCase)
-            || !s_extensions.Contains(Path.GetExtension(candidate)))
-        {
-            return false;
-        }
-
-        normalizedUrl = candidate.ToLowerInvariant();
-        return normalizedUrl.Length <= 512;
-    }
-
-    private static string CollapseSlashes(string value)
-    {
-        Span<char> buffer = value.Length <= 512 ? stackalloc char[value.Length] : new char[value.Length];
-        int written = 0;
-        bool previousSlash = false;
-        foreach (char character in value)
-        {
-            bool slash = character == '/';
-            if (slash && previousSlash)
-            {
-                continue;
-            }
-
-            buffer[written++] = character;
-            previousSlash = slash;
-        }
-
-        return new string(buffer[..written]);
-    }
-}
-
+/// <summary>
+/// The only persistent content-asset reference ledger. Public URLs are decoded
+/// at the write boundary and immediately resolved to <see cref="AssetId"/>.
+/// </summary>
 internal sealed class ArticleAssetReferenceStore(ISqlSugarClient db, TimeProvider? timeProvider = null)
 {
     private static readonly TimeSpan s_cleanupDelay = TimeSpan.FromHours(24);
-    internal static TimeSpan CleanupDelay => s_cleanupDelay;
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+    private readonly PublicAssetUrlCodec _urlCodec = new();
+
+    internal static TimeSpan CleanupDelay => s_cleanupDelay;
 
     public Task ReplaceCurrentArticleAsync(
         int articleId,
@@ -91,7 +26,7 @@ internal sealed class ArticleAssetReferenceStore(ISqlSugarClient db, TimeProvide
         string? coverImageUrl,
         CancellationToken cancellationToken = default)
         => ReplaceSourceAsync(
-            ArticleAssetSourceKinds.CurrentArticle,
+            ContentAssetSourceKinds.Article,
             articleId.ToString(CultureInfo.InvariantCulture),
             articleId,
             markdownContent,
@@ -106,7 +41,7 @@ internal sealed class ArticleAssetReferenceStore(ISqlSugarClient db, TimeProvide
         string? coverImageUrl,
         CancellationToken cancellationToken = default)
         => ReplaceSourceAsync(
-            ArticleAssetSourceKinds.Draft,
+            ContentAssetSourceKinds.Draft,
             string.Concat(ownerAdminPrincipalId.ToString(CultureInfo.InvariantCulture), ":", draftKey),
             articleId,
             markdownContent,
@@ -120,7 +55,7 @@ internal sealed class ArticleAssetReferenceStore(ISqlSugarClient db, TimeProvide
         string? coverImageUrl,
         CancellationToken cancellationToken = default)
         => ReplaceSourceAsync(
-            ArticleAssetSourceKinds.Revision,
+            ContentAssetSourceKinds.Revision,
             revisionId.ToString(CultureInfo.InvariantCulture),
             articleId,
             markdownContent,
@@ -129,154 +64,104 @@ internal sealed class ArticleAssetReferenceStore(ISqlSugarClient db, TimeProvide
 
     public async Task RemoveCurrentArticlesAndScheduleAsync(
         IReadOnlyCollection<int> articleIds,
-        IEnumerable<string> candidateUrls,
+        IEnumerable<AssetId> candidateAssetIds,
         CancellationToken cancellationToken = default)
     {
-        if (articleIds.Count == 0)
+        string[] sourceKeys = [.. articleIds.Distinct().Select(static id => id.ToString(CultureInfo.InvariantCulture))];
+        if (sourceKeys.Length == 0)
         {
             return;
         }
 
-        await AcquireLedgerLockAsync(cancellationToken).ConfigureAwait(false);
-        string[] sourceKeys = [.. articleIds.Select(static id => id.ToString(CultureInfo.InvariantCulture))];
-        List<string> trackedUrls = await db.Queryable<ArticleAssetReference>()
-            .Where(reference => reference.SourceKind == ArticleAssetSourceKinds.CurrentArticle
+        List<Guid> tracked = await db.Queryable<ContentAssetReference>()
+            .Where(reference => reference.SourceKind == ContentAssetSourceKinds.Article
                 && sourceKeys.Contains(reference.SourceKey))
-            .Select(reference => reference.NormalizedUrl)
+            .Select(reference => reference.AssetId)
             .ToListAsync(cancellationToken);
-        string[] normalizedCandidates = NormalizeUrls(candidateUrls.Concat(trackedUrls));
-        await AcquireUrlLocksAsync(normalizedCandidates, cancellationToken).ConfigureAwait(false);
-
-        await db.Deleteable<ArticleAssetReference>()
-            .Where(reference => reference.SourceKind == ArticleAssetSourceKinds.CurrentArticle
+        AssetId[] touched = ParseAssetIds(candidateAssetIds.Select(static id => id.Value).Concat(tracked));
+        await AcquireAssetLocksAsync(touched, cancellationToken).ConfigureAwait(false);
+        await db.Deleteable<ContentAssetReference>()
+            .Where(reference => reference.SourceKind == ContentAssetSourceKinds.Article
                 && sourceKeys.Contains(reference.SourceKey))
             .ExecuteCommandAsync(cancellationToken);
-        await ScheduleIfUnreferencedAsync(normalizedCandidates, cancellationToken).ConfigureAwait(false);
+        await ScheduleIfUnreferencedAsync(touched, cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task<string[]> LoadMutableArticleSourceUrlsAsync(
+    public async Task<AssetId[]> LoadMutableArticleSourceAssetIdsAsync(
         IReadOnlyCollection<int> articleIds,
         CancellationToken cancellationToken = default)
     {
-        if (articleIds.Count == 0)
+        int[] targets = [.. articleIds.Distinct()];
+        if (targets.Length == 0)
         {
             return [];
         }
 
-        int[] targets = [.. articleIds.Distinct()];
-        List<Article> articles = await db.Queryable<Article>()
-            .ClearFilter()
-            .Where(article => targets.Contains(article.Id))
-            .ToListAsync(cancellationToken);
-        Dictionary<int, string> bodies = (await db.Queryable<ArticleBody>()
-                .Where(body => targets.Contains(body.ArticleId))
-                .ToListAsync(cancellationToken))
-            .ToDictionary(static body => body.ArticleId, static body => body.MarkdownContent);
-        List<ArticleDraft> drafts = await db.Queryable<ArticleDraft>()
-            .Where(draft => draft.ArticleId != null && targets.Contains(draft.ArticleId.Value))
-            .ToListAsync(cancellationToken);
-        List<string> tracked = await db.Queryable<ArticleAssetReference>()
+        List<Guid> tracked = await db.Queryable<ContentAssetReference>()
             .Where(reference => reference.ArticleId != null
                 && targets.Contains(reference.ArticleId.Value)
-                && (reference.SourceKind == ArticleAssetSourceKinds.CurrentArticle
-                    || reference.SourceKind == ArticleAssetSourceKinds.Draft))
-            .Select(reference => reference.NormalizedUrl)
+                && (reference.SourceKind == ContentAssetSourceKinds.Article
+                    || reference.SourceKind == ContentAssetSourceKinds.Draft))
+            .Select(reference => reference.AssetId)
             .ToListAsync(cancellationToken);
-
-        IEnumerable<string> discovered = articles
-            .SelectMany(article => BuildReferenceCounts(
-                bodies.GetValueOrDefault(article.Id, string.Empty),
-                article.CoverImageUrl).Keys)
-            .Concat(drafts.SelectMany(static draft => BuildReferenceCounts(
-                draft.MarkdownContent,
-                draft.CoverImageUrl).Keys))
-            .Concat(tracked);
-        return NormalizeUrls(discovered);
+        return ParseAssetIds(tracked);
     }
 
     public async Task RemoveMutableArticleSourcesAndScheduleAsync(
         IReadOnlyCollection<int> articleIds,
-        IEnumerable<string> candidateUrls,
+        IEnumerable<AssetId> candidateAssetIds,
         CancellationToken cancellationToken = default)
     {
-        if (articleIds.Count == 0)
-        {
-            return;
-        }
-
         int[] targets = [.. articleIds.Distinct()];
-        await AcquireLedgerLockAsync(cancellationToken).ConfigureAwait(false);
-        List<string> trackedUrls = await db.Queryable<ArticleAssetReference>()
-            .Where(reference => reference.ArticleId != null
-                && targets.Contains(reference.ArticleId.Value)
-                && (reference.SourceKind == ArticleAssetSourceKinds.CurrentArticle
-                    || reference.SourceKind == ArticleAssetSourceKinds.Draft))
-            .Select(reference => reference.NormalizedUrl)
-            .ToListAsync(cancellationToken);
-        string[] normalizedCandidates = NormalizeUrls(candidateUrls.Concat(trackedUrls));
-        await AcquireUrlLocksAsync(normalizedCandidates, cancellationToken).ConfigureAwait(false);
-
-        await db.Deleteable<ArticleAssetReference>()
-            .Where(reference => reference.ArticleId != null
-                && targets.Contains(reference.ArticleId.Value)
-                && (reference.SourceKind == ArticleAssetSourceKinds.CurrentArticle
-                    || reference.SourceKind == ArticleAssetSourceKinds.Draft))
-            .ExecuteCommandAsync(cancellationToken);
-        await ScheduleIfUnreferencedAsync(normalizedCandidates, cancellationToken).ConfigureAwait(false);
-    }
-
-    public async Task ReconcileUrlsAsync(IEnumerable<string> candidateUrls, CancellationToken cancellationToken = default)
-    {
-        string[] normalizedCandidates = NormalizeUrls(candidateUrls);
-        if (normalizedCandidates.Length == 0)
+        if (targets.Length == 0)
         {
             return;
         }
 
-        await AcquireLedgerLockAsync(cancellationToken).ConfigureAwait(false);
-        await AcquireUrlLocksAsync(normalizedCandidates, cancellationToken).ConfigureAwait(false);
-        await db.Deleteable<ArticleAssetReference>()
-            .Where(reference => normalizedCandidates.Contains(reference.NormalizedUrl))
+        List<Guid> tracked = await db.Queryable<ContentAssetReference>()
+            .Where(reference => reference.ArticleId != null
+                && targets.Contains(reference.ArticleId.Value)
+                && (reference.SourceKind == ContentAssetSourceKinds.Article
+                    || reference.SourceKind == ContentAssetSourceKinds.Draft))
+            .Select(reference => reference.AssetId)
+            .ToListAsync(cancellationToken);
+        AssetId[] touched = ParseAssetIds(candidateAssetIds.Select(static id => id.Value).Concat(tracked));
+        await AcquireAssetLocksAsync(touched, cancellationToken).ConfigureAwait(false);
+        await db.Deleteable<ContentAssetReference>()
+            .Where(reference => reference.ArticleId != null
+                && targets.Contains(reference.ArticleId.Value)
+                && (reference.SourceKind == ContentAssetSourceKinds.Article
+                    || reference.SourceKind == ContentAssetSourceKinds.Draft))
             .ExecuteCommandAsync(cancellationToken);
-
-        HashSet<string> candidates = [.. normalizedCandidates];
-        foreach (SourceSnapshot source in await LoadAllSourcesAsync(cancellationToken).ConfigureAwait(false))
-        {
-            Dictionary<string, int> references = BuildReferenceCounts(source.MarkdownContent, source.CoverImageUrl);
-            foreach ((string normalizedUrl, int count) in references)
-            {
-                if (candidates.Contains(normalizedUrl))
-                {
-                    await UpsertReferenceAsync(source.SourceKind, source.SourceKey, source.ArticleId, normalizedUrl, count, cancellationToken)
-                        .ConfigureAwait(false);
-                }
-            }
-        }
-
-        await CancelQueuedCleanupAsync(normalizedCandidates, cancellationToken).ConfigureAwait(false);
+        await ScheduleIfUnreferencedAsync(touched, cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task RebuildAllAsync(CancellationToken cancellationToken = default)
+    public Task<int> CountAsync(CancellationToken cancellationToken = default)
+        => db.Queryable<ContentAssetReference>().CountAsync(cancellationToken);
+
+    internal async Task AcquireAssetLockAsync(AssetId assetId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        await AcquireLedgerLockAsync(cancellationToken).ConfigureAwait(false);
-        List<SourceSnapshot> sources = await LoadAllSourcesAsync(cancellationToken).ConfigureAwait(false);
-        string[] urls = [.. sources
-            .SelectMany(static source => BuildReferenceCounts(source.MarkdownContent, source.CoverImageUrl).Keys)
-            .Distinct(StringComparer.Ordinal)
-            .Order(StringComparer.Ordinal)];
-        await AcquireUrlLocksAsync(urls, cancellationToken).ConfigureAwait(false);
-        await db.Deleteable<ArticleAssetReference>().ExecuteCommandAsync(cancellationToken);
-        foreach (SourceSnapshot source in sources)
+        await db.Ado.ExecuteCommandAsync(
+            "SELECT pg_advisory_xact_lock(hashtextextended(CAST(@AssetId AS text), 1779));",
+            new SugarParameter("@AssetId", assetId.Value)).ConfigureAwait(false);
+    }
+
+    internal static string[] ExtractPublicAssetUrls(string? markdownContent, string? coverImageUrl)
+    {
+        var urls = new HashSet<string>(StringComparer.Ordinal);
+        foreach (ImageHelper.IllustrationReference reference in ImageHelper.ExtractIllustrationReferences(markdownContent ?? string.Empty))
         {
-            foreach ((string normalizedUrl, int count) in BuildReferenceCounts(source.MarkdownContent, source.CoverImageUrl))
-            {
-                await UpsertReferenceAsync(source.SourceKind, source.SourceKey, source.ArticleId, normalizedUrl, count, cancellationToken)
-                    .ConfigureAwait(false);
-            }
+            urls.Add(reference.Url);
         }
 
-        await CancelQueuedCleanupAsync(urls, cancellationToken).ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(coverImageUrl)
+            && coverImageUrl.StartsWith(PublicAssetUrlCodec.RoutePrefix, StringComparison.Ordinal))
+        {
+            urls.Add(coverImageUrl);
+        }
+
+        return [.. urls.Order(StringComparer.Ordinal)];
     }
 
     private async Task ReplaceSourceAsync(
@@ -288,207 +173,231 @@ internal sealed class ArticleAssetReferenceStore(ISqlSugarClient db, TimeProvide
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        await AcquireLedgerLockAsync(cancellationToken).ConfigureAwait(false);
         await AcquireSourceLockAsync(sourceKind, sourceKey, cancellationToken).ConfigureAwait(false);
-        List<string> previousUrls = await db.Queryable<ArticleAssetReference>()
+        List<Guid> previous = await db.Queryable<ContentAssetReference>()
             .Where(reference => reference.SourceKind == sourceKind && reference.SourceKey == sourceKey)
-            .Select(reference => reference.NormalizedUrl)
+            .Select(reference => reference.AssetId)
             .ToListAsync(cancellationToken);
-        Dictionary<string, int> desired = BuildReferenceCounts(markdownContent, coverImageUrl);
-        string[] touchedUrls = [.. previousUrls.Concat(desired.Keys).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
-        await AcquireUrlLocksAsync(touchedUrls, cancellationToken).ConfigureAwait(false);
+        Dictionary<AssetId, DesiredReference> desired = await ResolveReferencesAsync(
+            markdownContent,
+            coverImageUrl,
+            cancellationToken).ConfigureAwait(false);
+        AssetId[] touched = ParseAssetIds(previous.Concat(desired.Keys.Select(static id => id.Value)));
+        await AcquireAssetLocksAsync(touched, cancellationToken).ConfigureAwait(false);
+        await EnsureAssetsAvailableAsync(desired.Keys, cancellationToken).ConfigureAwait(false);
 
-        await db.Deleteable<ArticleAssetReference>()
+        await db.Deleteable<ContentAssetReference>()
             .Where(reference => reference.SourceKind == sourceKind && reference.SourceKey == sourceKey)
             .ExecuteCommandAsync(cancellationToken);
-        foreach ((string normalizedUrl, int count) in desired)
+        DateTime now = _timeProvider.GetUtcNow().UtcDateTime;
+        foreach ((AssetId assetId, DesiredReference reference) in desired.OrderBy(static item => item.Key.ToString(), StringComparer.Ordinal))
         {
-            await UpsertReferenceAsync(sourceKind, sourceKey, articleId, normalizedUrl, count, cancellationToken)
-                .ConfigureAwait(false);
+            await db.Insertable(new ContentAssetReference
+            {
+                AssetId = assetId.Value,
+                SourceKind = sourceKind,
+                SourceKey = sourceKey,
+                ArticleId = articleId,
+                ReferenceCount = reference.Count,
+                AltText = reference.AltText,
+                UpdatedAtUtc = now
+            }).ExecuteCommandAsync(cancellationToken);
         }
 
         await CancelQueuedCleanupAsync(desired.Keys, cancellationToken).ConfigureAwait(false);
-        await ScheduleIfUnreferencedAsync(previousUrls.Except(desired.Keys, StringComparer.Ordinal), cancellationToken)
+        HashSet<AssetId> desiredIds = [.. desired.Keys];
+        await ScheduleIfUnreferencedAsync(touched.Where(id => !desiredIds.Contains(id)), cancellationToken)
             .ConfigureAwait(false);
     }
 
-    private async Task<List<SourceSnapshot>> LoadAllSourcesAsync(CancellationToken cancellationToken)
-    {
-        List<Article> articles = await db.Queryable<Article>().ClearFilter().ToListAsync(cancellationToken);
-        List<ArticleBody> bodies = await db.Queryable<ArticleBody>().ToListAsync(cancellationToken);
-        Dictionary<int, string> bodiesByArticleId = bodies.ToDictionary(
-            static body => body.ArticleId,
-            static body => body.MarkdownContent);
-        var sources = new List<SourceSnapshot>(articles.Count);
-        foreach (Article article in articles)
-        {
-            sources.Add(new SourceSnapshot(
-                ArticleAssetSourceKinds.CurrentArticle,
-                article.Id.ToString(CultureInfo.InvariantCulture),
-                article.Id,
-                bodiesByArticleId.GetValueOrDefault(article.Id, string.Empty),
-                article.CoverImageUrl));
-        }
-
-        foreach (ArticleDraft draft in await db.Queryable<ArticleDraft>().ToListAsync(cancellationToken))
-        {
-            sources.Add(new SourceSnapshot(
-                ArticleAssetSourceKinds.Draft,
-                string.Concat(draft.OwnerAdminPrincipalId.ToString(CultureInfo.InvariantCulture), ":", draft.DraftKey),
-                draft.ArticleId,
-                draft.MarkdownContent,
-                draft.CoverImageUrl));
-        }
-
-        List<ArticleRevision> revisions = await db.Queryable<ArticleRevision>().ToListAsync(cancellationToken);
-        await ArticleRevisionContentBlockStore.HydrateAsync(db, revisions, cancellationToken).ConfigureAwait(false);
-        foreach (ArticleRevision revision in revisions)
-        {
-            sources.Add(new SourceSnapshot(
-                ArticleAssetSourceKinds.Revision,
-                revision.Id.ToString(CultureInfo.InvariantCulture),
-                revision.ArticleId,
-                revision.MarkdownContent,
-                revision.CoverImageUrl));
-        }
-
-        return sources;
-    }
-
-    private async Task UpsertReferenceAsync(
-        string sourceKind,
-        string sourceKey,
-        int? articleId,
-        string normalizedUrl,
-        int referenceCount,
+    private async Task<Dictionary<AssetId, DesiredReference>> ResolveReferencesAsync(
+        string markdownContent,
+        string? coverImageUrl,
         CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        await db.Ado.ExecuteCommandAsync(
-            """
-            INSERT INTO article_asset_reference
-                (normalized_url, source_kind, source_key, article_id, reference_count, updated_at_utc)
-            VALUES
-                (@NormalizedUrl, @SourceKind, @SourceKey, CAST(@ArticleId AS integer), @ReferenceCount, @UpdatedAtUtc)
-            ON CONFLICT (normalized_url, source_kind, source_key) DO UPDATE
-            SET article_id = EXCLUDED.article_id,
-                reference_count = EXCLUDED.reference_count,
-                updated_at_utc = EXCLUDED.updated_at_utc;
-            """,
-            new SugarParameter("@NormalizedUrl", normalizedUrl),
-            new SugarParameter("@SourceKind", sourceKind),
-            new SugarParameter("@SourceKey", sourceKey),
-            new SugarParameter("@ArticleId", articleId.HasValue ? articleId.Value : DBNull.Value),
-            new SugarParameter("@ReferenceCount", referenceCount),
-            new SugarParameter("@UpdatedAtUtc", _timeProvider.GetUtcNow().UtcDateTime)).ConfigureAwait(false);
+        var requested = new Dictionary<string, DesiredReference>(StringComparer.Ordinal);
+        foreach (ImageHelper.IllustrationReference reference in ImageHelper.ExtractIllustrationReferences(markdownContent ?? string.Empty))
+        {
+            Add(
+                reference.Url,
+                reference.AltText,
+                CountOccurrences(markdownContent, reference.Url));
+        }
+
+        Add(coverImageUrl, null, 1);
+        if (requested.Count == 0)
+        {
+            return [];
+        }
+
+        string[] storageKeys = [.. requested.Keys.Order(StringComparer.Ordinal)];
+        List<ContentAsset> assets = await db.Queryable<ContentAsset>()
+            .Where(asset => storageKeys.Contains(asset.StorageKey))
+            .ToListAsync(cancellationToken);
+        Dictionary<string, ContentAsset> byKey = assets.ToDictionary(static asset => asset.StorageKey, StringComparer.Ordinal);
+        string[] missing = [.. storageKeys.Where(key => !byKey.ContainsKey(key))];
+        if (missing.Length > 0)
+        {
+            throw new InvalidOperationException("content_asset_reference_missing_asset:" + string.Join(',', missing));
+        }
+
+        var result = new Dictionary<AssetId, DesiredReference>();
+        foreach ((string storageKey, DesiredReference reference) in requested)
+        {
+            ContentAsset asset = byKey[storageKey];
+            if (!ContentAssetStates.IsValid(asset.State))
+            {
+                throw new InvalidOperationException($"content_asset_not_active:{asset.AssetId}:{asset.State}");
+            }
+
+            result.Add(AssetId.FromGuid(asset.AssetId), reference);
+        }
+
+        return result;
+
+        void Add(string? publicUrl, string? altText, int count)
+        {
+            if (string.IsNullOrWhiteSpace(publicUrl) || count <= 0)
+            {
+                return;
+            }
+
+            if (!_urlCodec.TryGetStorageKey(publicUrl, out AssetStorageKey storageKey))
+            {
+                if (publicUrl.StartsWith(PublicAssetUrlCodec.RoutePrefix, StringComparison.Ordinal))
+                {
+                    throw new InvalidOperationException($"content_asset_public_url_invalid:{publicUrl}");
+                }
+
+                return;
+            }
+
+            if (requested.TryGetValue(storageKey.Value, out DesiredReference? current))
+            {
+                requested[storageKey.Value] = current with
+                {
+                    Count = current.Count + count,
+                    AltText = current.AltText ?? NormalizeAltText(altText)
+                };
+            }
+            else
+            {
+                requested[storageKey.Value] = new DesiredReference(count, NormalizeAltText(altText));
+            }
+        }
     }
 
-    private async Task ScheduleIfUnreferencedAsync(IEnumerable<string> urls, CancellationToken cancellationToken)
+    private async Task EnsureAssetsAvailableAsync(
+        IEnumerable<AssetId> assetIds,
+        CancellationToken cancellationToken)
+    {
+        Guid[] expected = [.. assetIds.Select(static id => id.Value).Distinct()];
+        if (expected.Length == 0)
+        {
+            return;
+        }
+
+        List<ContentAsset> assets = await db.Queryable<ContentAsset>()
+            .Where(asset => expected.Contains(asset.AssetId))
+            .ToListAsync(cancellationToken);
+        if (assets.Count != expected.Length)
+        {
+            throw new InvalidOperationException("content_asset_reference_asset_disappeared");
+        }
+        if (assets.Any(static asset => !ContentAssetStates.IsValid(asset.State)))
+        {
+            throw new InvalidOperationException("content_asset_reference_asset_state_invalid");
+        }
+    }
+
+    private async Task ScheduleIfUnreferencedAsync(IEnumerable<AssetId> assetIds, CancellationToken cancellationToken)
     {
         DateTime now = _timeProvider.GetUtcNow().UtcDateTime;
-        foreach (string url in urls.Distinct(StringComparer.Ordinal))
+        foreach (AssetId assetId in assetIds.Distinct().OrderBy(static id => id.ToString(), StringComparer.Ordinal))
         {
-            cancellationToken.ThrowIfCancellationRequested();
             await db.Ado.ExecuteCommandAsync(
                 """
-                INSERT INTO article_asset_cleanup_queue
-                    (normalized_url, not_before_utc, attempt_count, last_error, updated_at_utc)
-                SELECT @NormalizedUrl, @NotBeforeUtc, 0, NULL, @UpdatedAtUtc
-                WHERE NOT EXISTS (
-                    SELECT 1
-                    FROM article_asset_reference
-                    WHERE normalized_url = @NormalizedUrl
-                )
-                ON CONFLICT (normalized_url) DO UPDATE
-                SET not_before_utc = LEAST(article_asset_cleanup_queue.not_before_utc, EXCLUDED.not_before_utc),
+                INSERT INTO content_asset_cleanup_queue
+                    (asset_id, not_before_utc, attempt_count, last_error, updated_at_utc)
+                SELECT @AssetId, @NotBeforeUtc, 0, NULL, @UpdatedAtUtc
+                WHERE NOT EXISTS (SELECT 1 FROM content_asset_reference WHERE asset_id = @AssetId)
+                ON CONFLICT (asset_id) DO UPDATE
+                SET not_before_utc = LEAST(content_asset_cleanup_queue.not_before_utc, EXCLUDED.not_before_utc),
                     last_error = NULL,
                     updated_at_utc = EXCLUDED.updated_at_utc;
+
+                UPDATE content_asset
+                SET state = 'pending_delete', updated_at_utc = @UpdatedAtUtc
+                WHERE id = @AssetId
+                  AND NOT EXISTS (SELECT 1 FROM content_asset_reference WHERE asset_id = @AssetId);
                 """,
-                new SugarParameter("@NormalizedUrl", url),
+                new SugarParameter("@AssetId", assetId.Value),
                 new SugarParameter("@NotBeforeUtc", now + CleanupDelay),
                 new SugarParameter("@UpdatedAtUtc", now)).ConfigureAwait(false);
         }
     }
 
-    private Task CancelQueuedCleanupAsync(IEnumerable<string> urls, CancellationToken cancellationToken)
+    private async Task CancelQueuedCleanupAsync(IEnumerable<AssetId> assetIds, CancellationToken cancellationToken)
     {
-        string[] normalized = [.. urls.Distinct(StringComparer.Ordinal)];
-        if (normalized.Length == 0)
+        Guid[] ids = [.. assetIds.Select(static id => id.Value).Distinct()];
+        if (ids.Length == 0)
         {
-            return Task.CompletedTask;
+            return;
         }
 
-        return db.Deleteable<ArticleAssetCleanupQueueItem>()
-            .Where(item => normalized.Contains(item.NormalizedUrl))
+        await db.Deleteable<ContentAssetCleanupQueueItem>()
+            .Where(item => ids.Contains(item.AssetId))
+            .ExecuteCommandAsync(cancellationToken);
+        await db.Updateable<ContentAsset>()
+            .SetColumns(asset => new ContentAsset
+            {
+                State = ContentAssetStates.Active,
+                UpdatedAtUtc = _timeProvider.GetUtcNow().UtcDateTime
+            })
+            .Where(asset => ids.Contains(asset.AssetId))
             .ExecuteCommandAsync(cancellationToken);
     }
 
-    private async Task AcquireSourceLockAsync(string sourceKind, string sourceKey, CancellationToken cancellationToken)
+    private Task AcquireSourceLockAsync(string sourceKind, string sourceKey, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        await db.Ado.ExecuteCommandAsync(
-            "SELECT pg_advisory_xact_lock(hashtext('article_asset_source'), hashtext(@SourceIdentity));",
-            new SugarParameter("@SourceIdentity", string.Concat(sourceKind, ":", sourceKey))).ConfigureAwait(false);
+        return db.Ado.ExecuteCommandAsync(
+            "SELECT pg_advisory_xact_lock(hashtextextended(@SourceIdentity, 1779));",
+            new SugarParameter("@SourceIdentity", string.Concat(sourceKind, ":", sourceKey)));
     }
 
-    private async Task AcquireLedgerLockAsync(CancellationToken cancellationToken)
+    private async Task AcquireAssetLocksAsync(IEnumerable<AssetId> assetIds, CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        await db.Ado.ExecuteCommandAsync("SELECT pg_advisory_xact_lock(hashtext('article_asset_reference_ledger'));")
-            .ConfigureAwait(false);
-    }
-
-    internal async Task AcquireUrlLockAsync(string normalizedUrl, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        await db.Ado.ExecuteCommandAsync(
-            "SELECT pg_advisory_xact_lock(hashtext('article_asset_url'), hashtext(@NormalizedUrl));",
-            new SugarParameter("@NormalizedUrl", normalizedUrl)).ConfigureAwait(false);
-    }
-
-    private async Task AcquireUrlLocksAsync(IEnumerable<string> urls, CancellationToken cancellationToken)
-    {
-        foreach (string url in urls.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
+        foreach (AssetId assetId in assetIds.Distinct().OrderBy(static id => id.ToString(), StringComparer.Ordinal))
         {
-            await AcquireUrlLockAsync(url, cancellationToken).ConfigureAwait(false);
+            await AcquireAssetLockAsync(assetId, cancellationToken).ConfigureAwait(false);
         }
     }
 
-    internal static Dictionary<string, int> BuildReferenceCounts(string? markdownContent, string? coverImageUrl)
+    private static AssetId[] ParseAssetIds(IEnumerable<Guid> values)
+        => [.. values.Select(AssetId.FromGuid).Distinct().OrderBy(static id => id.ToString(), StringComparer.Ordinal)];
+
+    private static string? NormalizeAltText(string? value)
     {
-        var references = new Dictionary<string, int>(StringComparer.Ordinal);
-        foreach (ImageHelper.IllustrationReference reference in ImageHelper.ExtractIllustrationReferences(markdownContent ?? string.Empty))
-        {
-            Add(reference.Url);
-        }
-
-        Add(coverImageUrl);
-        return references;
-
-        void Add(string? rawUrl)
-        {
-            if (!ArticleAssetUrlNormalizer.TryNormalize(rawUrl, out string normalizedUrl))
-            {
-                return;
-            }
-
-            references.TryGetValue(normalizedUrl, out int count);
-            references[normalizedUrl] = count + 1;
-        }
+        string? normalized = value?.Trim();
+        return string.IsNullOrEmpty(normalized) ? null : normalized[..Math.Min(normalized.Length, 256)];
     }
 
-    private static string[] NormalizeUrls(IEnumerable<string> urls)
-        => [.. urls
-            .Select(static url => ArticleAssetUrlNormalizer.TryNormalize(url, out string normalized) ? normalized : null)
-            .Where(static url => url is not null)
-            .Select(static url => url!)
-            .Distinct(StringComparer.Ordinal)
-            .Order(StringComparer.Ordinal)];
+    private static int CountOccurrences(string? source, string value)
+    {
+        int count = 0;
+        int offset = 0;
+        while (!string.IsNullOrEmpty(source)
+            && offset < source.Length
+            && source.IndexOf(value, offset, StringComparison.Ordinal) is int index
+            && index >= 0)
+        {
+            count++;
+            offset = index + value.Length;
+        }
 
-    private sealed record SourceSnapshot(
-        string SourceKind,
-        string SourceKey,
-        int? ArticleId,
-        string MarkdownContent,
-        string? CoverImageUrl);
+        return count;
+    }
+
+    private sealed record DesiredReference(int Count, string? AltText);
 }

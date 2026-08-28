@@ -12,6 +12,5 @@ namespace FsusBlog.Server.Interfaces
         Task<Result<UploadPartAckDto>> UploadPartAsync(UploadSessionAccess access, int partNumber, long offset, IFormFile part, string? payloadHash, CancellationToken cancellationToken = default);
         Task<Result<UploadCompleteDto>> CompleteUploadAsync(UploadSessionAccess access, string? sha256, CancellationToken cancellationToken = default);
         Task<Result<bool>> AbortUploadAsync(UploadSessionAccess access, CancellationToken cancellationToken = default);
-        Task<bool> DeleteImageAsync(string imageUrl);
     }
 }

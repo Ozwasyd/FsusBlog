@@ -13,6 +13,20 @@ node tools/governance/bounded-channel-contracts.mjs
 node --test tests/tools/bounded-channel-contracts.test.mjs
 ```
 
+## Media shape authority
+
+`config/testing/media-shape-catalog.json` 是唯一 closed/versioned MediaShapeCatalog。它分别登记 JPEG、PNG、SVG、WebP 的 MIME、extension、magic 与独立 codec fact owner，固定六种 aspect contract、十类 consumer applicability、十个 canonical positive shapes 和八个 single-fault negative shapes。catalog 只保存 AssetId-compatible generator digest refs，不保存 absolute path、public URL、storage path 或第二份 asset ledger；`no-cover` 明确不产生 bytes、URL 或默认图片。`tools/test-fixtures/media-shape-catalog.mjs` 对 catalog 与每个 shape 的 content digest、矩阵完整性、format/MIME/extension、orientation/alpha/dimensions、single-fault、consumer isolation 和唯一 authority 做独立 fail-closed 验证。
+
+`tools/test-fixtures/media-positive-generator.mjs` 离线生成真实 JPEG、PNG 与安全 SVG bytes，并加载 repository-pinned WebP bytes；独立 parser 从 bytes 重算 magic、MIME/extension、dimensions、EXIF orientation、alpha、byte digest 与 decoded semantic digest。`tools/test-fixtures/canonical-media-asset-store.mjs` 只用 canonical UUID AssetId 与 run-owned storage key 物化 fixture，ledger 绑定 owner namespace、bytes 和 metadata；相同 run 幂等复用前必须重验 digest，不同 run 保持独立 AssetId 但共享相同 media content identity。`no-cover` 只产生 explicit-null receipt。generator 不访问网络、系统 codec/font 或 public root；cleanup 只处理 receipt-owned records。0、1、1000 assets 与 1200x900 large raster 均由 focused test 验证 CPU、RSS 和 disk 上界。
+
+## Media negative corpus
+
+`config/testing/media-negative-corpus-plan.json` 是媒体 negative fixture 的唯一计划权威，schema 为 `config/schemas/media-negative-corpus-plan.schema.json`。runner `tools/test-fixtures/media-negative-corpus.mjs` 只接受由 canonical positive generator 签发、状态为 `verified` 的 `fsusblog.media-positive-asset-receipt.v1` 与对应 bytes；它不生成 positive shape、不拼装 AssetId，也不把 negative record 写入 canonical profile、scale、AOT 或普通 image library。
+
+八类 case 固定为 missing、corrupt header、truncated、MIME-extension mismatch、unsupported、zero-byte、oversized dimensions 与 unsafe path。每类只有一个独立 fault condition 和唯一 reason code，attempt 固定为一次且不允许 clean-success retry。oversized case 只改 PNG IHDR 并重算 CRC，在 metadata admission 阶段拒绝，不分配巨大 bitmap；unsafe-path case 在任何 filesystem I/O 前终止且 receipt 不保存危险或 absolute path。每次 materialization 使用与 positive root 物理隔离的 fresh run-owned directory，独立 verifier 重算 case/receipt digest、single-fault、bytes、reason/status、resource safety 与 positive-root before/after digest。
+
+端到端测试从 MediaShapeCatalog 选取 `png-alpha`，经 canonical generator 与 AssetId store 取得 verified receipt/bytes，再派生全部八类 negative case，并核验 positive ledger 与 bytes root 在运行前后完全不变。其余单元测试仍以最小 sealed receipt 定位单一拒绝条件，但不作为端到端验收替代品。
+
 ## Runtime state-domain catalog
 
 `config/testing/runtime-state-domain-catalog.json` is the sole runtime-state access authority. Domains must come from `config/testing/runtime-state-domain-registry.json`; executable runtime steps declare reads, writes, deletes, invalidations, creates, resets, predecessors, postconditions, and machine-verifiable source/test evidence. Coordination-only steps use `stateAccess: none`. The catalog is exact in both directions against `runtimeSteps()` and its validator runs as matrix governance; neither scheduler, lane scripts, nor documentation may keep a second conflict table. Runtime bundle producers write source/run-bound reset receipts after observing their real postconditions, and every `resetBefore`/`resetAfter` consumer verifies the receipt identity plus observation digests before proceeding.

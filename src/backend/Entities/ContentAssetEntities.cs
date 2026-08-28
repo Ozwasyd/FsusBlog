@@ -8,16 +8,25 @@ namespace FsusBlog.Server.Entities;
 [SugarIndex("ux_content_asset_storage_key", nameof(StorageKey), OrderByType.Asc, true)]
 public sealed class ContentAsset
 {
-    [SugarColumn(IsPrimaryKey = true, ColumnName = "asset_id", Length = 36)]
-    public string AssetId { get; set; } = string.Empty;
+    [SugarColumn(IsPrimaryKey = true, ColumnName = "id", ColumnDataType = "uuid")]
+    public Guid AssetId
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "storage_class", Length = 16)]
+    public string StorageClass { get; set; } = "public";
 
     [SugarColumn(ColumnName = "storage_key", Length = 512)]
     public string StorageKey { get; set; } = string.Empty;
 
-    [SugarColumn(ColumnName = "mime_type", Length = 127)]
+    [SugarColumn(ColumnName = "media_type", Length = 127)]
     public string MimeType { get; set; } = string.Empty;
 
-    [SugarColumn(ColumnName = "size_bytes")]
+    [SugarColumn(ColumnName = "extension", Length = 16)]
+    public string Extension { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "byte_length")]
     public long SizeBytes
     {
         get; set;
@@ -29,20 +38,26 @@ public sealed class ContentAsset
         get; set;
     }
 
-    [SugarColumn(ColumnName = "width_pixels", IsNullable = true)]
+    [SugarColumn(ColumnName = "width", IsNullable = true)]
     public int? WidthPixels
     {
         get; set;
     }
 
-    [SugarColumn(ColumnName = "height_pixels", IsNullable = true)]
+    [SugarColumn(ColumnName = "height", IsNullable = true)]
     public int? HeightPixels
     {
         get; set;
     }
 
+    [SugarColumn(ColumnName = "owner_admin_principal_id", IsNullable = true)]
+    public long? OwnerAdminPrincipalId
+    {
+        get; set;
+    }
+
     [SugarColumn(ColumnName = "state", Length = 16)]
-    public string State { get; set; } = ContentAssetStates.Pending;
+    public string State { get; set; } = ContentAssetStates.Active;
 
     [SugarColumn(ColumnName = "created_at_utc")]
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
@@ -55,8 +70,11 @@ public sealed class ContentAsset
 [SugarIndex("idx_content_asset_reference_source", nameof(SourceKind), OrderByType.Asc, nameof(SourceKey), OrderByType.Asc)]
 public sealed class ContentAssetReference
 {
-    [SugarColumn(IsPrimaryKey = true, ColumnName = "asset_id", Length = 36)]
-    public string AssetId { get; set; } = string.Empty;
+    [SugarColumn(IsPrimaryKey = true, ColumnName = "asset_id", ColumnDataType = "uuid")]
+    public Guid AssetId
+    {
+        get; set;
+    }
 
     [SugarColumn(IsPrimaryKey = true, ColumnName = "source_kind", Length = 16)]
     public string SourceKind { get; set; } = string.Empty;
@@ -64,8 +82,20 @@ public sealed class ContentAssetReference
     [SugarColumn(IsPrimaryKey = true, ColumnName = "source_key", Length = 160)]
     public string SourceKey { get; set; } = string.Empty;
 
+    [SugarColumn(ColumnName = "article_id", IsNullable = true)]
+    public int? ArticleId
+    {
+        get; set;
+    }
+
     [SugarColumn(ColumnName = "reference_count")]
     public int ReferenceCount
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "alt_text", Length = 256, IsNullable = true)]
+    public string? AltText
     {
         get; set;
     }
@@ -78,8 +108,11 @@ public sealed class ContentAssetReference
 [SugarIndex("idx_content_asset_cleanup_due", nameof(NotBeforeUtc), OrderByType.Asc)]
 public sealed class ContentAssetCleanupQueueItem
 {
-    [SugarColumn(IsPrimaryKey = true, ColumnName = "asset_id", Length = 36)]
-    public string AssetId { get; set; } = string.Empty;
+    [SugarColumn(IsPrimaryKey = true, ColumnName = "asset_id", ColumnDataType = "uuid")]
+    public Guid AssetId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "not_before_utc")]
     public DateTime NotBeforeUtc { get; set; } = DateTime.UtcNow;

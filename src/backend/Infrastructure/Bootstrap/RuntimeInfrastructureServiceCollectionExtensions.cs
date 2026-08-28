@@ -213,6 +213,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<UploadSessionCleanupQueue>();
         services.AddSingleton<FileService>();
         services.AddSingleton<IFileService>(sp => sp.GetRequiredService<FileService>());
+        services.AddScoped<IAssetStore, LocalContentAssetStore>();
         if (!OpenApiExportMode.IsEnabled())
         {
             services.AddHostedService<UploadSessionCleanupWorker>();

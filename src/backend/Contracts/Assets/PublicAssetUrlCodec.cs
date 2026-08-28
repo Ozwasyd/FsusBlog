@@ -10,7 +10,7 @@ namespace FsusBlog.Server.Contracts.Assets;
 /// </summary>
 public sealed class PublicAssetUrlCodec
 {
-    public const string RoutePrefix = "/content-assets/";
+    public const string RoutePrefix = "/uploads/";
 
     public Uri ToPublicUrl(AssetRecord record, Uri publicBase)
     {
@@ -28,13 +28,33 @@ public sealed class PublicAssetUrlCodec
         return new Uri(url, UriKind.Absolute);
     }
 
-    public bool TryGetStorageKey(Uri url, out AssetStorageKey storageKey)
-        => TryGetStorageKey(url, expectedBase: null, out storageKey);
+    public string ToPublicPath(AssetStorageKey storageKey)
+        => RoutePrefix + storageKey.Value;
 
-    public bool TryGetStorageKey(Uri url, Uri? expectedBase, out AssetStorageKey storageKey)
+    public bool TryGetStorageKey(string? publicUrl, out AssetStorageKey storageKey)
     {
         storageKey = default;
-        if (!url.IsAbsoluteUri
+        if (string.IsNullOrWhiteSpace(publicUrl))
+        {
+            return false;
+        }
+
+        string candidate = publicUrl.Trim();
+        if (candidate.IndexOfAny(['?', '#', '\0', '\\']) >= 0
+            || !candidate.StartsWith(RoutePrefix, StringComparison.Ordinal)
+            || candidate.IndexOf('%') >= 0)
+        {
+            return false;
+        }
+
+        return AssetStorageKey.TryParse(candidate[RoutePrefix.Length..], out storageKey);
+    }
+
+    public bool TryGetStorageKey(Uri url, Uri expectedBase, out AssetStorageKey storageKey)
+    {
+        storageKey = default;
+        if (!IsHttpBase(expectedBase)
+            || !url.IsAbsoluteUri
             || (url.Scheme != Uri.UriSchemeHttp && url.Scheme != Uri.UriSchemeHttps)
             || url.Query.Length > 0
             || url.Fragment.Length > 0
@@ -43,11 +63,10 @@ public sealed class PublicAssetUrlCodec
             return false;
         }
 
-        if (expectedBase is not null
-            && !string.Equals(
-                url.GetLeftPart(UriPartial.Authority),
-                expectedBase.GetLeftPart(UriPartial.Authority),
-                StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(
+            url.GetLeftPart(UriPartial.Authority),
+            expectedBase.GetLeftPart(UriPartial.Authority),
+            StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
