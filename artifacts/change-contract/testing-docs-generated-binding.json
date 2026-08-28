@@ -7,6 +7,10 @@
     {
       "path": "docs/testing.generated.md",
       "sha256": "c2431fe6119102db2120f65fb167a48876f04f74683a3c7aa601b812dd27140a"
+    },
+    {
+      "path": "config/testing/correctness-attempt-producers.json",
+      "sha256": "d86f9212e2319dca9971a04f1e4db096bfbf71999a4f3bad58d5c5cb5c9748fc"
     }
   ]
 }
