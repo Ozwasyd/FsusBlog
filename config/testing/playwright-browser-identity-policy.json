@@ -1,0 +1,78 @@
+{
+    "$schema": "../schemas/playwright-browser-identity-policy.schema.json",
+    "schema": "fsusblog.playwright-browser-identity-policy.v1",
+    "correctness": {
+        "managedOnly": true,
+        "allowedEvidenceClasses": [
+            "correctness",
+            "browser-contract"
+        ],
+        "browserNames": [
+            "chromium",
+            "firefox",
+            "webkit"
+        ],
+        "forbiddenExecutableEnvironment": [
+            "PLAYWRIGHT_CHROMIUM_PATH",
+            "PLAYWRIGHT_FIREFOX_PATH",
+            "PLAYWRIGHT_WEBKIT_PATH"
+        ],
+        "launch": {
+            "chromium": {
+                "headless": true,
+                "args": [
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                    "--disable-lcd-text",
+                    "--disable-font-subpixel-positioning",
+                    "--use-angle=swiftshader"
+                ],
+                "gpuMode": "software"
+            },
+            "firefox": {
+                "headless": true,
+                "args": [],
+                "firefoxUserPrefs": {
+                    "gfx.webrender.software": true,
+                    "layers.acceleration.disabled": true
+                },
+                "gpuMode": "software"
+            },
+            "webkit": {
+                "headless": true,
+                "args": [],
+                "gpuMode": "software"
+            }
+        },
+        "rendering": {
+            "renderingMode": "headless",
+            "deviceScaleFactor": 1,
+            "colorScheme": "light"
+        },
+        "fontSourceFiles": [
+            "src/frontend/src/assets/fonts/code.css",
+            "src/frontend/src/assets/fonts/cyrl.css",
+            "src/frontend/src/assets/fonts/hans.css",
+            "src/frontend/src/assets/fonts/hant.css",
+            "src/frontend/src/assets/fonts/jpan.css",
+            "src/frontend/src/assets/fonts/kore.css",
+            "src/frontend/src/assets/fonts/latn.css",
+            "src/frontend/src/locales/localeFontCatalog.ts"
+        ],
+        "fontPackages": [
+            "@fontsource-variable/noto-sans-jp",
+            "@fontsource/google-sans",
+            "@fontsource/jetbrains-mono",
+            "@fontsource/noto-sans-jp",
+            "@fontsource/noto-sans-kr",
+            "@fontsource/noto-sans-sc",
+            "@fontsource/noto-sans-tc"
+        ],
+        "localeSourceRoot": "src/frontend/src/locales"
+    },
+    "diagnostic": {
+        "qualificationEligible": false,
+        "hostBrowserAllowed": true
+    }
+}

@@ -52,6 +52,18 @@ export function normalizeProducerPort(port, { catalogProducer = null } = {})
 
     const providedCapabilities = freezeStringList(port.providedCapabilities ?? port.provides, `producer ${id} providedCapabilities`);
     const consumedCapabilities = freezeStringList(port.consumedCapabilities ?? port.consumes, `producer ${id} consumedCapabilities`);
+    const identityRoleRequests = freezeIdentityRoleRequests(
+        port.identityRoleRequests ?? [],
+        id
+    );
+    const undeclaredIdentityCapabilities = identityRoleRequests
+        .filter((item) => !consumedCapabilities.includes(item.capabilityId));
+    if (undeclaredIdentityCapabilities.length)
+    {
+        throw new Error(
+            `producer ${id} identity role requests must use catalog-declared consumed capabilities`
+        );
+    }
     if (catalogProducer)
     {
         assertSameSet(providedCapabilities, catalogProducer.provides, `producer ${id} providedCapabilities`);
@@ -63,10 +75,51 @@ export function normalizeProducerPort(port, { catalogProducer = null } = {})
         strategy,
         providedCapabilities,
         consumedCapabilities,
+        identityRoleRequests,
         prepare: port.prepare.bind(port),
         verify: port.verify.bind(port),
         cleanup: port.cleanup.bind(port)
     });
+}
+
+function freezeIdentityRoleRequests(values, consumerProducerId)
+{
+    if (!Array.isArray(values))
+    {
+        throw new Error(`producer ${consumerProducerId} identityRoleRequests must be an array`);
+    }
+    const stableId = /^[a-z0-9][a-z0-9._-]{0,127}$/u;
+    const normalized = values.map((value) =>
+    {
+        if (!value || typeof value !== 'object')
+        {
+            throw new Error(`producer ${consumerProducerId} identity role request must be an object`);
+        }
+        const request = {
+            ownerProducerId: String(value.ownerProducerId ?? '').trim(),
+            consumerProducerId: String(value.consumerProducerId ?? '').trim(),
+            role: String(value.role ?? '').trim(),
+            capabilityId: String(value.capabilityId ?? '').trim()
+        };
+        if (request.ownerProducerId !== 'auth-session'
+            || request.consumerProducerId !== consumerProducerId
+            || !stableId.test(request.role)
+            || !stableId.test(request.capabilityId))
+        {
+            throw new Error(`producer ${consumerProducerId} has an invalid auth-session identity role request`);
+        }
+        return Object.freeze(request);
+    }).sort((left, right) =>
+        `${left.consumerProducerId}\0${left.role}`.localeCompare(
+            `${right.consumerProducerId}\0${right.role}`,
+            'en'
+        ));
+    const keys = normalized.map((item) => `${item.consumerProducerId}\0${item.role}`);
+    if (new Set(keys).size !== keys.length)
+    {
+        throw new Error(`producer ${consumerProducerId} identity role requests must be unique`);
+    }
+    return Object.freeze(normalized);
 }
 
 export function indexProducerPorts(ports, { catalogProducers = [] } = {})
@@ -147,7 +200,9 @@ export function createProducerContext({
     handles = null,
     catalogs = undefined,
     previousProducerReceipt = null,
-    temporalContext = null
+    temporalContext = null,
+    identityRoleRequests = null,
+    producerReceipts = null
 } = {})
 {
     const producerVariantIds = (plan?.variantPlan?.byProducer
@@ -172,6 +227,8 @@ export function createProducerContext({
         handles: Object.freeze({ ...(handles ?? {}) }),
         previousProducerReceipt,
         temporalContext,
+        identityRoleRequests: Object.freeze([...(identityRoleRequests ?? [])]),
+        producerReceipts: Object.freeze({ ...(producerReceipts ?? {}) }),
         ports: ports ?? null
     });
 }

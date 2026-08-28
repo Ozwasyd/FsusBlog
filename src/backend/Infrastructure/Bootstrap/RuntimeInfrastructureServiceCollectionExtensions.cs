@@ -410,9 +410,10 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         }
         services.AddSingleton<ScheduledPublishRuntimeState>();
         services.AddSingleton<MessageMutationOutboxRuntimeState>();
+        services.AddSingleton<MessageMutationOutboxWorker>();
         if (!OpenApiExportMode.IsEnabled())
         {
-            services.AddHostedService<MessageMutationOutboxWorker>();
+            services.AddHostedService(static provider => provider.GetRequiredService<MessageMutationOutboxWorker>());
             services.AddHostedService<ScheduledPublishWorker>();
         }
         return services;

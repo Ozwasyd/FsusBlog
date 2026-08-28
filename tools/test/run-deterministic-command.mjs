@@ -6,6 +6,23 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import {
+    finalizeRunOwnedDirectories,
+    prepareRunOwnedDirectories
+} from './execution-envelope-directories.mjs';
+import { prepareCorrectnessEnvironment } from './execution-envelope-environment.mjs';
+import {
+    finalizeNetworkSandbox,
+    loadExecutionNetworkPolicy,
+    prepareNetworkSandbox,
+    projectPlannedEndpoints
+} from './execution-envelope-network.mjs';
+import {
+    buildExecutionEnvelope,
+    observeExecutionEnvelopeHostFacts,
+    sealExecutionEnvelopeReceipt,
+    verifyExecutionEnvelopeReceipt
+} from './execution-envelope-receipt.mjs';
 import { runPhysicalExecution } from './physical-execution-process-tree.mjs';
 import {
     buildRunBoundConsumerEvidence,
@@ -24,6 +41,12 @@ import {
     qualificationTemporalContext,
     verifyTemporalReplay
 } from './temporal-context.mjs';
+import {
+    loadExecutionEnvelopeApplicability,
+    loadExecutionEnvelopePolicy,
+    resolveExecutionEnvelopeProducer
+} from '../test-matrix/execution-envelope-policy.mjs';
+import { resolveTemporalRolesForProducerIfBound } from './temporal-role-resolver.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const physicalExecutionPolicy = 'config/testing/physical-execution-process-policy.json';
@@ -86,7 +109,15 @@ function sanitizeSegment(value, fallback)
     return normalized && normalized !== '.' && normalized !== '..' ? normalized : fallback;
 }
 
-async function publishConsumerProjection({ result, directory, cwd, runId, key, consumerId })
+async function publishConsumerProjection({
+    result,
+    directory,
+    cwd,
+    runId,
+    key,
+    consumerId,
+    executionEnvelopeBinding
+})
 {
     const normalizedKey = sanitizeSegment(key, 'execution');
     const validatedProjection = await validateRunBoundProjection({
@@ -114,7 +145,10 @@ async function publishConsumerProjection({ result, directory, cwd, runId, key, c
         outputDirectory,
         `${sanitizeSegment(consumerId, 'consumer')}-${normalizedKey}.json`
     );
-    const document = buildRunBoundConsumerEvidence({ validatedProjection });
+    const document = buildRunBoundConsumerEvidence({
+        validatedProjection,
+        executionEnvelopeBinding
+    });
     validateRunBoundConsumerEvidence(document, { runId, key: normalizedKey, consumerId });
     const temporary = `${outputFile}.next-${process.pid}`;
     fs.writeFileSync(temporary, `${JSON.stringify(document, null, 2)}\n`, { mode: 0o600 });
@@ -133,6 +167,21 @@ function writePrivateJson(file, value)
     const temporary = `${file}.next-${process.pid}`;
     fs.writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
     fs.renameSync(temporary, file);
+}
+
+function readOptionalEnvelopeFragment(file, label)
+{
+    if (!file)
+    {
+        return null;
+    }
+    const resolved = path.resolve(file);
+    const metadata = fs.lstatSync(resolved);
+    if (!metadata.isFile() || metadata.isSymbolicLink())
+    {
+        throw new Error(`${label} must be a regular non-symlink file`);
+    }
+    return JSON.parse(fs.readFileSync(fs.realpathSync(resolved), 'utf8'));
 }
 
 function createRunnerTemporalContext({ producerId, runId, sourceCommit, sourceFingerprint })
@@ -159,7 +208,23 @@ function createRunnerTemporalContext({ producerId, runId, sourceCommit, sourceFi
     });
 }
 
-function publishRunnerTemporalArtifacts({ context, result, key })
+function bindTemporalArtifact(document, executionEnvelopeBinding)
+{
+    const { digest: _digest, ...payload } = document;
+    const bound = {
+        ...payload,
+        executionEnvelopeDigest: executionEnvelopeBinding.envelopeDigest,
+        executionEnvelopeReceiptDigest: executionEnvelopeBinding.receiptDigest
+    };
+    return Object.freeze({ ...bound, digest: digestCanonical(bound) });
+}
+
+function publishRunnerTemporalArtifacts({
+    context,
+    result,
+    key,
+    executionEnvelopeBinding
+})
 {
     const runBoundReceipt = JSON.parse(fs.readFileSync(result.receiptFile, 'utf8'));
     const runBoundProjection = JSON.parse(fs.readFileSync(result.projectionFile, 'utf8'));
@@ -172,9 +237,15 @@ function publishRunnerTemporalArtifacts({ context, result, key })
     const observations = JSON.parse(
         Buffer.from(encodedObservation, 'base64url').toString('utf8')
     );
-    const plan = createTemporalPlan(context);
-    const actual = createTemporalActual(context, observations);
-    const receipt = createTemporalReceipt({
+    const plan = bindTemporalArtifact(
+        createTemporalPlan(context),
+        executionEnvelopeBinding
+    );
+    const actual = bindTemporalArtifact(
+        createTemporalActual(context, observations),
+        executionEnvelopeBinding
+    );
+    const receipt = bindTemporalArtifact(createTemporalReceipt({
         plan,
         actual,
         outcome: {
@@ -185,10 +256,12 @@ function publishRunnerTemporalArtifacts({ context, result, key })
             runBoundContractDigest: runBoundReceipt.contractDigest,
             runBoundReceiptDigest: runBoundReceipt.receiptDigest,
             runBoundProjectionReceiptDigest: runBoundProjection.physicalExecutionReceiptDigest,
-            requiredOutputStates: runBoundReceipt.requiredOutputStates
+            requiredOutputStates: runBoundReceipt.requiredOutputStates,
+            executionEnvelopeDigest: executionEnvelopeBinding.envelopeDigest,
+            executionEnvelopeReceiptDigest: executionEnvelopeBinding.receiptDigest
         },
         generatedAt: new Date().toISOString()
-    });
+    }), executionEnvelopeBinding);
     verifyTemporalReplay({ plan, actual, receipt });
     const directory = path.dirname(result.receiptFile);
     const prefix = sanitizeSegment(key, 'execution');
@@ -203,9 +276,9 @@ function publishRunnerTemporalArtifacts({ context, result, key })
     return files;
 }
 
-async function spawnCommand(command, cwd, signal)
+async function spawnCommand(command, cwd, signal, env, options = {})
 {
-    return await runPhysicalExecution({ command, cwd, signal });
+    return await runPhysicalExecution({ command, cwd, signal, env, ...options });
 }
 
 async function main(argv)
@@ -243,7 +316,7 @@ async function main(argv)
         {
             throw new Error('diagnostic execution cannot publish a correctness projection');
         }
-        await spawnCommand(command, cwd);
+        await spawnCommand(command, cwd, undefined, process.env);
         console.log(`[physical-execution] diagnostic-direct key=${options.key} qualificationEligible=false`);
         return;
     }
@@ -254,22 +327,138 @@ async function main(argv)
         sourceCommit,
         sourceFingerprint
     });
-    Object.assign(process.env, materializeTemporalEnvironment(temporalContext));
+    const resolvedTemporalRoles = resolveTemporalRolesForProducerIfBound({
+        temporalContext,
+        namespace: String(process.env.FSUSBLOG_TEST_NAMESPACE ?? 'default'),
+        fixtureId: producerId
+    });
+    const temporalRoleEnvironment = resolvedTemporalRoles
+        ? {
+            FSUSBLOG_RESOLVED_TEMPORAL_ROLES_JSON: JSON.stringify(resolvedTemporalRoles),
+            FSUSBLOG_TEMPORAL_ROLE_ARTIFACT_DIGEST: resolvedTemporalRoles.contentDigest
+        }
+        : {};
+    const policy = loadExecutionEnvelopePolicy();
+    const catalog = loadExecutionEnvelopeApplicability();
+    const producerEnvelope = resolveExecutionEnvelopeProducer(producerId, catalog);
+    const browserEnvelopeSource = readOptionalEnvelopeFragment(
+        options.browserEnvelope,
+        'execution browser envelope'
+    );
+    const browserEnvelope = browserEnvelopeSource?.playwright?.browserIdentity
+        ?? browserEnvelopeSource;
+    const serviceEnvelope = readOptionalEnvelopeFragment(
+        options.serviceEnvelope,
+        'execution service envelope'
+    );
+    const allowedEnvironment = new Set(producerEnvelope.allowedEnvironment);
+    for (const name of options.environmentNames)
+    {
+        if (!allowedEnvironment.has(name))
+        {
+            throw new Error(
+                `${producerId}: environment input is not declared by the applicability catalog: ${name}`
+            );
+        }
+    }
+    if (producerEnvelope.fieldApplicability.browserRendering.status === 'required'
+      && !browserEnvelope)
+    {
+        throw new Error(`${producerId}: required execution browser envelope is missing`);
+    }
+    if (producerEnvelope.fieldApplicability.services.status === 'required')
+    {
+        if (!serviceEnvelope
+          || JSON.stringify(serviceEnvelope.requiredServices)
+            !== JSON.stringify(producerEnvelope.requiredServices))
+        {
+            throw new Error(`${producerId}: required execution service envelope is missing or drifted`);
+        }
+    }
+    const directoryEnvelope = prepareRunOwnedDirectories({
+        repositoryRoot: repoRoot,
+        cwd,
+        runId,
+        producerId,
+        attemptId: options.key,
+        outputs: options.outputs
+    });
+    let correctnessEnvironment;
+    let networkSandbox;
+    try
+    {
+        correctnessEnvironment = prepareCorrectnessEnvironment({
+            command,
+            parentEnvironment: process.env,
+            producerAllowlist: options.environmentNames,
+            injectedEnvironment: {
+                ...materializeTemporalEnvironment(temporalContext),
+                ...temporalRoleEnvironment,
+                ...directoryEnvelope.environment,
+                FSUSBLOG_TEST_RUN_ID: runId,
+                FSUSBLOG_TEST_SOURCE_COMMIT: sourceCommit,
+                FSUSBLOG_TEST_SOURCE_FINGERPRINT: sourceFingerprint
+            },
+            policy,
+            catalog
+        });
+        const networkPolicy = loadExecutionNetworkPolicy();
+        networkSandbox = prepareNetworkSandbox({
+            command: [
+                process.execPath,
+                temporalChildObserver,
+                '--',
+                ...correctnessEnvironment.command
+            ],
+            cwd,
+            directories: directoryEnvelope.fragment.directories,
+            writableRoots: directoryEnvelope.fragment.writableRoots,
+            plannedEndpoints: projectPlannedEndpoints({
+                services: producerEnvelope.requiredServices,
+                serviceEnvelope,
+                policy: networkPolicy
+            }),
+            environment: correctnessEnvironment.environment,
+            policy: networkPolicy
+        });
+    }
+    catch (error)
+    {
+        finalizeRunOwnedDirectories(directoryEnvelope);
+        throw error;
+    }
     const observedCommand = [
-        process.execPath,
-        temporalChildObserver,
-        '--',
-        ...command
+        ...networkSandbox.command
     ];
     const commit = git(['rev-parse', 'HEAD']);
     const inputPaths = [...new Set([
         ...options.paths,
         physicalExecutionPolicy,
+        'config/schemas/test-execution-envelope-applicability.schema.json',
+        'config/schemas/test-execution-envelope-policy.schema.json',
+        'config/schemas/test-execution-envelope-receipt.schema.json',
+        'config/schemas/test-execution-network-policy.schema.json',
+        'config/testing/test-execution-envelope-applicability.json',
+        'config/testing/test-execution-envelope-policy.json',
+        'config/testing/test-execution-network-policy.json',
+        'config/testing/temporal-domain-producer-inventory.json',
+        'config/testing/temporal-shape-catalog.json',
+        'config/testing/resolved-temporal-roles.schema.json',
+        'tools/test/execution-envelope-directories.mjs',
+        'tools/test/execution-envelope-environment.mjs',
+        'tools/test/execution-envelope-network.mjs',
+        'tools/test/execution-envelope-receipt.mjs',
+        'tools/test/native/execution-envelope-landlock.c',
+        'tools/test-matrix/execution-envelope-policy.mjs',
         'tools/test/temporal-context.mjs',
+        'tools/test/temporal-role-resolver.mjs',
+        'tools/test/temporal-shape-catalog.mjs',
         'tools/test-fixtures/producers/temporal-child-handshake.bash',
         'tools/test-fixtures/producers/temporal-child-handshake.cjs',
         'tools/test-fixtures/producers/temporal-child-handshake-emitter.cjs',
-        'tools/test-fixtures/producers/temporal-child-observer.mjs'
+        'tools/test-fixtures/producers/temporal-child-observer.mjs',
+        ...(options.browserEnvelope ? [options.browserEnvelope] : []),
+        ...(options.serviceEnvelope ? [options.serviceEnvelope] : [])
     ])];
     const inputDigest = await fingerprintPaths(inputPaths, {
         root: repoRoot,
@@ -278,28 +467,147 @@ async function main(argv)
             cwd,
             JSON.stringify(command),
             JSON.stringify([...options.outputs].sort()),
-            digestCanonical(temporalContext)
+            digestCanonical(temporalContext),
+            correctnessEnvironment.fragmentDigest,
+            digest(directoryEnvelope.fragment),
+            digest(networkSandbox.fragment)
         ]
     });
-    const environment = Object.fromEntries([...new Set(options.environmentNames)].sort().map((name) => [name, process.env[name] ?? '']));
     const environmentDigest = digest({
-        node: process.version,
-        platform: process.platform,
-        architecture: process.arch,
-        environment
+        environment: correctnessEnvironment.fragment,
+        directories: directoryEnvelope.fragment,
+        network: networkSandbox.fragment
     });
     const worktreeFingerprint = digest({
         commit,
         inputDigest,
         status: git(['status', '--porcelain=v1', '--untracked-files=all', '--', ...inputPaths])
     });
-    const consumerId = producerId;
+    const consumerId = String(options.consumer ?? producerId).trim() || producerId;
+    const envelopeDirectory = path.join(
+        repoRoot,
+        '.tmp/test-execution-envelope',
+        sanitizeSegment(runId, 'run'),
+        sanitizeSegment(producerId, 'producer')
+    );
+    const executionEnvelopePlanFile = path.join(
+        envelopeDirectory,
+        `${sanitizeSegment(options.key, 'execution')}-plan.json`
+    );
+    const executionEnvelopeReceiptFile = path.join(
+        envelopeDirectory,
+        `${sanitizeSegment(options.key, 'execution')}-receipt.json`
+    );
+    const envelopeIdentity = {
+        producerId,
+        schedulerRunId: runId,
+        attemptId: options.key,
+        sourceCommit,
+        sourceFingerprint,
+        worktreeFingerprint: `sha256:${worktreeFingerprint}`,
+        workingDirectory: cwd
+    };
+    const plan = buildExecutionEnvelope({
+        phase: 'planned',
+        identity: envelopeIdentity,
+        applicability: producerEnvelope,
+        policy,
+        catalog,
+        environment: correctnessEnvironment.fragment,
+        directories: directoryEnvelope.fragment,
+        network: networkSandbox.fragment,
+        browser: browserEnvelope,
+        services: serviceEnvelope,
+        hostFacts: observeExecutionEnvelopeHostFacts({
+            directory: directoryEnvelope.fragment.ownedRoot
+        })
+    });
+    writePrivateJson(executionEnvelopePlanFile, plan);
     const controller = new AbortController();
     const abort = (signal) => controller.abort(Object.assign(new Error(`received ${signal}`), { name: 'AbortError', signal }));
     const onSigint = () => abort('SIGINT');
     const onSigterm = () => abort('SIGTERM');
     process.once('SIGINT', onSigint);
     process.once('SIGTERM', onSigterm);
+    let postflightAttempted = false;
+    let executionEnvelopeBinding = null;
+    const finalizeEnvelope = () =>
+    {
+        if (postflightAttempted)
+        {
+            return executionEnvelopeBinding;
+        }
+        postflightAttempted = true;
+        let postflightError = null;
+        let networkFragment = networkSandbox.fragment;
+        let directoryFragment = directoryEnvelope.fragment;
+        let actualHostFacts = null;
+        try
+        {
+            networkFragment = finalizeNetworkSandbox(networkSandbox);
+        }
+        catch (error)
+        {
+            postflightError = error;
+        }
+        try
+        {
+            actualHostFacts = observeExecutionEnvelopeHostFacts({
+                directory: directoryEnvelope.fragment.ownedRoot
+            });
+        }
+        catch (error)
+        {
+            postflightError ??= error;
+        }
+        try
+        {
+            directoryFragment = finalizeRunOwnedDirectories(directoryEnvelope);
+        }
+        catch (error)
+        {
+            postflightError ??= error;
+        }
+        if (postflightError)
+        {
+            writePrivateJson(executionEnvelopeReceiptFile, {
+                schema: 'fsusblog.test-execution-envelope-rejection.v1',
+                qualificationEligible: false,
+                producerId,
+                schedulerRunId: runId,
+                attemptId: options.key,
+                planDigest: plan.envelopeDigest,
+                reason: postflightError.message,
+                fragments: {
+                    environment: correctnessEnvironment.fragment,
+                    directories: directoryFragment,
+                    network: networkFragment
+                }
+            });
+            throw postflightError;
+        }
+        const actual = buildExecutionEnvelope({
+            phase: 'actual',
+            identity: envelopeIdentity,
+            applicability: producerEnvelope,
+            policy,
+            catalog,
+            environment: correctnessEnvironment.fragment,
+            directories: directoryFragment,
+            network: networkFragment,
+            browser: browserEnvelope,
+            services: serviceEnvelope,
+            hostFacts: actualHostFacts
+        });
+        const receipt = sealExecutionEnvelopeReceipt({ plan, actual });
+        writePrivateJson(executionEnvelopeReceiptFile, receipt);
+        executionEnvelopeBinding = {
+            ...verifyExecutionEnvelopeReceipt(receipt),
+            receiptFile: path.relative(repoRoot, executionEnvelopeReceiptFile)
+                .replaceAll(path.sep, '/')
+        };
+        return executionEnvelopeBinding;
+    };
     try
     {
         const result = await runBoundExecution({
@@ -313,10 +621,58 @@ async function main(argv)
             requiredOutputs: options.outputs,
             commit,
             worktreeFingerprint,
+            executionEnvelopeDigest: plan.envelopeDigest,
             testIds: options.testIds,
             consumerId,
             signal: controller.signal
-        }, async () => spawnCommand(observedCommand, cwd, controller.signal));
+        }, async () =>
+        {
+            let physicalExecution;
+            let executionError = null;
+            try
+            {
+                physicalExecution = await spawnCommand(
+                    observedCommand,
+                    cwd,
+                    controller.signal,
+                    correctnessEnvironment.environment,
+                    {
+                        linuxPrivateNetwork: networkSandbox.linuxPrivateNetwork,
+                        linuxNetworkPolicy: networkSandbox.linuxNetworkPolicy,
+                        linuxReadWritePaths: networkSandbox.linuxReadWritePaths
+                    }
+                );
+            }
+            catch (error)
+            {
+                executionError = error;
+                physicalExecution = error?.physicalExecution ?? null;
+            }
+            let envelopeError = null;
+            try
+            {
+                finalizeEnvelope();
+            }
+            catch (error)
+            {
+                envelopeError = error;
+            }
+            if (envelopeError)
+            {
+                envelopeError.physicalExecution = physicalExecution;
+                envelopeError.cause = executionError;
+                throw envelopeError;
+            }
+            if (executionError)
+            {
+                throw executionError;
+            }
+            return physicalExecution;
+        });
+        if (!executionEnvelopeBinding)
+        {
+            throw new Error('correctness producer completed without an execution envelope receipt');
+        }
         const consumerEvidenceFile = options.projectionDirectory
             ? await publishConsumerProjection({
           result,
@@ -324,20 +680,38 @@ async function main(argv)
           cwd,
           runId,
           key: options.key,
-          consumerId
+          consumerId,
+          executionEnvelopeBinding
         })
             : null;
         const temporalFiles = publishRunnerTemporalArtifacts({
             context: temporalContext,
             result,
-            key: options.key
+            key: options.key,
+            executionEnvelopeBinding
         });
-        console.log(`[physical-execution] ${result.status} key=${options.key} receipt=${result.receiptFile} projection=${result.projectionFile}${consumerEvidenceFile ? ` consumer-evidence=${consumerEvidenceFile}` : ''} temporal-receipt=${temporalFiles.receipt}`);
+        console.log(`[physical-execution] ${result.status} key=${options.key} receipt=${result.receiptFile} projection=${result.projectionFile}${consumerEvidenceFile ? ` consumer-evidence=${consumerEvidenceFile}` : ''} temporal-receipt=${temporalFiles.receipt} execution-envelope=${executionEnvelopeReceiptFile}`);
     }
     finally
     {
+        let finalizationError = null;
+        if (!postflightAttempted)
+        {
+            try
+            {
+                finalizeEnvelope();
+            }
+            catch (error)
+            {
+                finalizationError = error;
+            }
+        }
         process.off('SIGINT', onSigint);
         process.off('SIGTERM', onSigterm);
+        if (finalizationError)
+        {
+            throw finalizationError;
+        }
     }
 }
 

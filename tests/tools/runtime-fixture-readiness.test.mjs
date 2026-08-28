@@ -4,35 +4,22 @@ import test from 'node:test'
 import { evaluateAfterNavigationSettles, isNavigationContextReset } from '../frontend/checks/perf/route-render-pressure-readiness.mjs'
 import { buildDirectDbSeedCacheActions } from '../frontend/fixtures/direct-db-seed-cache-plan.mjs'
 
-test('route pressure retries only navigation context resets', async () => {
+test('route pressure evaluates exactly once after navigation readiness', async () => {
   let evaluateCalls = 0
-  let loadStateCalls = 0
-  let delayCalls = 0
   const page = {
     async evaluate() {
       evaluateCalls += 1
-      if (evaluateCalls === 1) throw new Error('Execution context was destroyed, most likely because of a navigation')
       return { nodeCount: 42 }
-    },
-    async waitForLoadState(state) {
-      assert.equal(state, 'domcontentloaded')
-      loadStateCalls += 1
-    },
-    async waitForTimeout(delayMs) {
-      assert.equal(delayMs, 25)
-      delayCalls += 1
     }
   }
 
-  const result = await evaluateAfterNavigationSettles(page, () => null, {}, { settleDelayMs: 25 })
+  const result = await evaluateAfterNavigationSettles(page, () => null, {})
   assert.deepEqual(result, { nodeCount: 42 })
-  assert.equal(evaluateCalls, 2)
-  assert.equal(loadStateCalls, 1)
-  assert.equal(delayCalls, 1)
+  assert.equal(evaluateCalls, 1)
   assert.equal(isNavigationContextReset(new Error('ordinary assertion failure')), false)
 })
 
-test('route pressure preserves non-navigation failures and bounds navigation retries', async () => {
+test('route pressure preserves failures and rejects retry configuration', async () => {
   const nonNavigationPage = {
     async evaluate() {
       throw new Error('browser metric contract failed')
@@ -53,10 +40,15 @@ test('route pressure preserves non-navigation failures and bounds navigation ret
     async waitForTimeout() {}
   }
   await assert.rejects(
-    evaluateAfterNavigationSettles(navigatingPage, () => null, null, { maxAttempts: 3, settleDelayMs: 0 }),
+    evaluateAfterNavigationSettles(navigatingPage, () => null, null),
     /Execution context was destroyed/u
   )
-  assert.equal(attempts, 3)
+  assert.equal(attempts, 1)
+  await assert.rejects(
+    evaluateAfterNavigationSettles(navigatingPage, () => null, null, { maxAttempts: 2 }),
+    /permits exactly one attempt/u
+  )
+  assert.equal(attempts, 1)
 })
 
 test('direct DB fixture cache plan invalidates every article before rebuilding AOT', () => {

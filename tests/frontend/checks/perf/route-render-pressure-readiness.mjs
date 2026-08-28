@@ -8,22 +8,8 @@ export function isNavigationContextReset(error) {
 }
 
 export async function evaluateAfterNavigationSettles(page, pageFunction, argument, options = {}) {
-  const maxAttempts = Math.max(1, Math.trunc(Number(options.maxAttempts) || 3))
-  const settleDelayMs = Math.max(
-    0,
-    Math.trunc(options.settleDelayMs === undefined ? 100 : Number(options.settleDelayMs))
-  )
-  const loadStateTimeoutMs = Math.max(1, Math.trunc(Number(options.loadStateTimeoutMs) || 10_000))
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    try {
-      return await page.evaluate(pageFunction, argument)
-    } catch (error) {
-      if (!isNavigationContextReset(error) || attempt === maxAttempts) throw error
-      await page.waitForLoadState('domcontentloaded', { timeout: loadStateTimeoutMs }).catch(() => {})
-      if (settleDelayMs > 0) await page.waitForTimeout(settleDelayMs)
-    }
+  if (options.maxAttempts !== undefined && Number(options.maxAttempts) !== 1) {
+    throw new Error('route render pressure correctness evaluation permits exactly one attempt')
   }
-
-  throw new Error('route render pressure evaluation exhausted without a result')
+  return await page.evaluate(pageFunction, argument)
 }

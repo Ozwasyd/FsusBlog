@@ -1,3 +1,4 @@
+# docs/testing.generated.md is generated from this source by tools/docs/generate-testing-docs.mjs.
 version: fsusblog-test-matrix-v2
 namespaceTemplate: ${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}-${MATRIX_JOB:-local}-${MATRIX_SHARD:-0}
 governance:
@@ -387,12 +388,44 @@ tiers:
               config/testing/fixture-consumer-inventory.generated.json,
               config/testing/fixture-producer-registry.json,
               config/testing/fixture-profile-catalog.json,
+              config/testing/content-field-contracts.generated.json,
+              config/testing/content-shape-catalog.json,
               config/testing/runtime-state-domain-catalog.json,
               config/testing/runtime-state-domain-registry.json,
               config/testing/correctness-budget-policy.json,
+              config/testing/test-execution-envelope-applicability.json,
+              config/testing/test-execution-envelope-policy.json,
+              config/testing/test-execution-network-policy.json,
+              config/testing/test-execution-service-catalog.json,
               config/testing/physical-execution-process-policy.json,
+              config/schemas/test-execution-envelope-applicability.schema.json,
+              config/schemas/test-execution-envelope-policy.schema.json,
+              config/schemas/test-execution-envelope-receipt.schema.json,
+              config/schemas/test-execution-network-policy.schema.json,
+              config/schemas/test-execution-service-catalog.schema.json,
+              config/testing/retry-policy-registry.json,
+              config/testing/retry-disposition-registry.json,
+              config/testing/correctness-attempt-producers.json,
+              config/testing/clean-attempt-consumers.json,
+              config/testing/semantic-outcome-clean-attempt-consumers.json,
+              config/testing/outcome-failure-taxonomy.json,
+              config/testing/outcome-field-dispositions.json,
+              config/schemas/retry-policy-registry.schema.json,
+              config/schemas/retry-disposition-registry.schema.json,
+              config/schemas/test-attempt-receipt.schema.json,
+              config/schemas/test-attempt-aggregate-receipt.schema.json,
+              config/schemas/correctness-attempt-producers.schema.json,
+              config/schemas/clean-attempt-consumer-inventory.schema.json,
+              config/schemas/release-clean-attempt-cohort.schema.json,
+              config/schemas/semantic-outcome-clean-attempt-consumer-inventory.schema.json,
+              config/schemas/producer-semantic-outcome-candidate.schema.json,
               config/schemas/runtime-state-domain-catalog.schema.json,
               config/schemas/runtime-state-domain-registry.schema.json,
+              config/schemas/content-shape-catalog.schema.json,
+              src/shared/Contracts/Localization/locale-catalog.json,
+              src/backend/Services/Articles/ArticlePublicationValidator.cs,
+              src/backend/Models/Dtos/CommentDto.cs,
+              src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs,
               tests/tools,
               tests/frontend,
               src/frontend/package.json,
@@ -403,12 +436,33 @@ tiers:
               tools/check-workflow-matrix-sync.mjs,
               tools/docs/generate-testing-docs.mjs,
               tools/testing/fixture-catalog.mjs,
+              tools/testing/content-shape-catalog.mjs,
               tools/testing/generate-fixture-catalog-artifacts.mjs,
+              tools/test-fixtures/content-shape-generator.mjs,
               tools/test-matrix,
+              tools/testing/generate-test-execution-envelope-applicability.mjs,
               tools/test/bundles,
               tools/test/lanes,
               tools/test/run-matrix-governance-once.sh,
+              tools/test/run-matrix-governance-producer.mjs,
               tools/test/run-deterministic-command.mjs,
+              tools/test/correctness-attempt-migration.mjs,
+              tools/test/attempt-governance-acceptance.mjs,
+              tools/test/generate-attempt-governance-acceptance.mjs,
+              tools/test/verify-attempt-governance-acceptance.mjs,
+              tools/test/execution-envelope-directories.mjs,
+              tools/test/execution-envelope-environment.mjs,
+              tools/test/execution-envelope-network.mjs,
+              tools/test/execution-envelope-receipt.mjs,
+              tools/test/execution-envelope-services.mjs,
+              tools/test/native/execution-envelope-landlock.c,
+              tools/test/verify-execution-envelope.mjs,
+              tools/test/attempt-provenance.mjs,
+              tools/test/hidden-retry-scanner.mjs,
+              tools/test/check-hidden-retries.mjs,
+              tools/test/check-clean-attempt-consumers.mjs,
+              tools/test/correctness-attempt-producers.mjs,
+              tools/test/generate-correctness-attempt-producers.mjs,
               tools/test/run-once.mjs,
               tools/test/physical-execution-process-tree.mjs,
               tools/test/physical-execution-linux-systemd-adapter.mjs,
@@ -1476,6 +1530,7 @@ tiers:
           - backend-auth-mfa-pow-session-state-machine
           - backend-race-idempotency-model
           - backend-fault-race-readiness
+          - backend-search-index-utf8-scalar-owner
           - backend-audit-behavior
           - backend-operations-readiness-behavior
           - backend-public-aot-artifact-behavior
@@ -1523,6 +1578,10 @@ tiers:
           - tests/backend/Fixtures/platform-runtime-governance/runtime-return.fixture.cs.txt
           - tests/backend/Unit/FsusHostRuntimeTuningTests.cs
           - tests/backend/Unit/PodBinaryCodecBatchAllocationTests.cs
+          - src/backend/Services/SearchIndexService.Dictionary.cs
+          - src/backend/Properties/AssemblyInfo.cs
+          - tests/backend/FsusBlog.Server.Tests.csproj
+          - tests/backend/Unit/SearchIndexServiceTests.cs
           - tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs
           - tests/backend/Unit/UserSecurityStepUpServiceTests.cs
           - tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs
@@ -2214,6 +2273,24 @@ tiers:
           - tools/test-matrix/run-priority-fixture.mjs
           - tools/test-matrix/scheduler-admission-support.mjs
           - tools/test-matrix/scheduler.mjs
+          - config/testing/replay-qualification-producers.json
+          - config/testing/random-stream-consumers.json
+          - tools/test/execution-replay-contract.mjs
+          - tools/test/execution-replay-verifier.mjs
+          - tools/test/random-streams.mjs
+          - tools/test/xunit-replay-adapter.mjs
+          - tools/test/xunit-replay-runner
+          - tools/test/vitest-replay-adapter.mjs
+          - tools/test/playwright-replay-adapter.mjs
+          - tools/test/run-replay-qualification.mjs
+          - tools/test/aggregate-replay-qualification.mjs
+          - tools/test/verify-replay-qualification.mjs
+          - tests/tools/xunit-replay-adapter.test.mjs
+          - tests/tools/replay-qualification-frameworks.test.mjs
+          - tests/tools/replay-qualification-randomized.test.mjs
+          - tests/tools/replay-qualification-aggregate.test.mjs
+          - tests/tools/replay-qualification-verifier.test.mjs
+          - tests/tools/fixtures/playwright-replay
           - config/schemas/test-observation-artifact.schema.json
           - config/schemas/test-matrix-priority-score.schema.json
           - tools/test-observations/flaky-observer-execution.mjs
@@ -3672,13 +3749,25 @@ tiers:
       requiredFor: release-final
       coverage: [production-xss-release, release-browser-contract]
       artifacts: [src/frontend/test-results/playwright/production-xss-release/matrix.json]
-      evidence: [src/frontend/test-results/playwright/production-xss-release/matrix.json]
+      evidence:
+          [
+              src/frontend/test-results/playwright/production-xss-release/matrix.json,
+              config/testing/playwright-browser-identity-policy.json,
+              tools/test/playwright-browser-identity.mjs,
+          ]
       ciJob: browser-contract
       localOnly: false
       nightlyOnly: false
       retentionClass: must-keep
       triggerPaths: [src/frontend, src/backend, tests/frontend, tools/test/lanes/production-xss-release.sh]
-      triggerFiles: [tests/matrix.yml]
+      triggerFiles:
+          [
+              src/frontend/package-lock.json,
+              config/testing/playwright-browser-identity-policy.json,
+              config/schemas/playwright-browser-identity-policy.schema.json,
+              tools/test/playwright-browser-identity.mjs,
+              tests/matrix.yml,
+          ]
       triggerCoverage: [production-xss-release]
       triggerReason: release browser XSS corpus, production rendering, CSP, Trusted Types, or FsusUI alias changed
 
@@ -3737,6 +3826,10 @@ tiers:
               tests/browser-contract/fixture-lifecycle.test.mjs,
               tests/browser-contract/invariant-owners.json,
               tests/browser-contract/prepare-fixture.mjs,
+              config/testing/playwright-browser-identity-policy.json,
+              config/schemas/playwright-browser-identity-policy.schema.json,
+              tools/test/playwright-browser-identity.mjs,
+              tests/tools/playwright-browser-identity.test.mjs,
               tests/frontend/support/playwright/readiness.mjs,
               config/testing/browser-readiness-migrations.json,
               tools/testing/check-browser-readiness-contract.mjs,
@@ -3782,6 +3875,10 @@ tiers:
       triggerFiles:
           [
               src/frontend/package.json,
+              src/frontend/package-lock.json,
+              config/testing/playwright-browser-identity-policy.json,
+              config/schemas/playwright-browser-identity-policy.schema.json,
+              tools/test/playwright-browser-identity.mjs,
               src/frontend/public/sw.js,
               src/frontend/public/manifest.webmanifest,
               src/frontend/src/api/auth.ts,
@@ -7592,14 +7689,19 @@ tiers:
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-soak-min
       executionDependsOn: [behavior-doc-static-admission]
       services: []
-      parallelizable: true
-      exclusiveResources: []
+      timeoutPolicyId: release-soak-outer
+      maxParallel: 1
+      countedResources: {}
+      schedulerProfileDigest: sha256:3b0378e274e8ea4ac7da47e83440f0a2395109c7f4759e0fa46cd6474c58f794
+      schedulerAuthority: release-reliability-scenario-catalog
+      parallelizable: false
+      exclusiveResources: [database, resource-counters, runtime-http]
       phase: 5
-      cost: low
-      resourceClass: io
-      cpuWeight: 1
-      memoryWeight: 1
-      minCpuUnits: 1
+      cost: high
+      resourceClass: database
+      cpuWeight: 2
+      memoryWeight: 2
+      minCpuUnits: 2
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -7607,7 +7709,7 @@ tiers:
       evidenceClass: diagnostic
       qualificationEligible: false
       cacheProfile: none
-      timeoutMinutes: 5
+      timeoutMinutes: 8
       shardable: false
       defaultShards: 1
       risk: critical
@@ -7626,9 +7728,9 @@ tiers:
       manualOnly: true
 
     - id: release-load-peak
-      executionClass: runtime
+      executionClass: benchmark
       fixtureProfile: none
-      fixtureProfileReason: none-runtime
+      fixtureProfileReason: none-benchmark
       fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
       fixtureMutatorAllowed: false
       owner: ServerContractAgent
@@ -7636,14 +7738,19 @@ tiers:
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-load-peak
       executionDependsOn: [behavior-doc-static-admission]
       services: []
-      parallelizable: true
-      exclusiveResources: []
+      timeoutPolicyId: release-load-peak-outer
+      maxParallel: 1
+      countedResources: {}
+      schedulerProfileDigest: sha256:cd591c614cc52589e50baf91ff07fb1fed2e3df1b88efc37ad01827a06da5509
+      schedulerAuthority: release-reliability-scenario-catalog
+      parallelizable: false
+      exclusiveResources: [network, performance-counters, runtime-http]
       phase: 5
-      cost: low
-      resourceClass: io
-      cpuWeight: 1
+      cost: high
+      resourceClass: benchmark
+      cpuWeight: 2
       memoryWeight: 1
-      minCpuUnits: 1
+      minCpuUnits: 2
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -7651,7 +7758,7 @@ tiers:
       evidenceClass: diagnostic
       qualificationEligible: false
       cacheProfile: none
-      timeoutMinutes: 5
+      timeoutMinutes: 3
       shardable: false
       defaultShards: 1
       risk: critical
@@ -7675,9 +7782,9 @@ tiers:
       manualOnly: true
 
     - id: release-load-burst
-      executionClass: runtime
+      executionClass: benchmark
       fixtureProfile: none
-      fixtureProfileReason: none-runtime
+      fixtureProfileReason: none-benchmark
       fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
       fixtureMutatorAllowed: false
       owner: ServerContractAgent
@@ -7685,14 +7792,19 @@ tiers:
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-load-burst
       executionDependsOn: [behavior-doc-static-admission]
       services: []
-      parallelizable: true
-      exclusiveResources: []
+      timeoutPolicyId: release-load-burst-outer
+      maxParallel: 1
+      countedResources: {}
+      schedulerProfileDigest: sha256:1165ec779581408850a684984512bf6ffaad558c850a58bb0a044d5b4aa0ae95
+      schedulerAuthority: release-reliability-scenario-catalog
+      parallelizable: false
+      exclusiveResources: [network, performance-counters, runtime-http]
       phase: 5
-      cost: low
-      resourceClass: io
-      cpuWeight: 1
-      memoryWeight: 1
-      minCpuUnits: 1
+      cost: high
+      resourceClass: benchmark
+      cpuWeight: 4
+      memoryWeight: 2
+      minCpuUnits: 4
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -7700,7 +7812,7 @@ tiers:
       evidenceClass: diagnostic
       qualificationEligible: false
       cacheProfile: none
-      timeoutMinutes: 5
+      timeoutMinutes: 2
       shardable: false
       defaultShards: 1
       risk: critical
@@ -7734,14 +7846,19 @@ tiers:
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-data-scale-m
       executionDependsOn: [behavior-doc-static-admission]
       services: []
-      parallelizable: true
-      exclusiveResources: []
+      timeoutPolicyId: release-data-scale-outer
+      maxParallel: 1
+      countedResources: {}
+      schedulerProfileDigest: sha256:fad85b52a56a048d25c8f830abb931f749ab6700f3d7d57fcad7d2391ee8bc60
+      schedulerAuthority: release-reliability-scenario-catalog
+      parallelizable: false
+      exclusiveResources: [data-scale-artifacts, data-scale-postgres, data-scale-redis, data-scale-runtime]
       phase: 5
-      cost: low
-      resourceClass: io
-      cpuWeight: 1
-      memoryWeight: 1
-      minCpuUnits: 1
+      cost: high
+      resourceClass: database
+      cpuWeight: 2
+      memoryWeight: 4
+      minCpuUnits: 2
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -7749,7 +7866,7 @@ tiers:
       evidenceClass: diagnostic
       qualificationEligible: false
       cacheProfile: none
-      timeoutMinutes: 5
+      timeoutMinutes: 11
       shardable: false
       defaultShards: 1
       risk: critical
@@ -7778,14 +7895,19 @@ tiers:
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-mutation-critical-slice
       executionDependsOn: [behavior-doc-static-admission]
       services: []
-      parallelizable: true
-      exclusiveResources: []
+      timeoutPolicyId: release-mutation-outer
+      maxParallel: 1
+      countedResources: {}
+      schedulerProfileDigest: sha256:40abec554de99a27750299e4e29431352f2eb8f6392a9109f22ef4fea983201e
+      schedulerAuthority: release-reliability-scenario-catalog
+      parallelizable: false
+      exclusiveResources: [build-artifacts, cpu, mutation-output]
       phase: 5
-      cost: low
-      resourceClass: io
-      cpuWeight: 1
-      memoryWeight: 1
-      minCpuUnits: 1
+      cost: high
+      resourceClass: cpu
+      cpuWeight: 4
+      memoryWeight: 4
+      minCpuUnits: 4
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -7793,7 +7915,7 @@ tiers:
       evidenceClass: diagnostic
       qualificationEligible: false
       cacheProfile: none
-      timeoutMinutes: 5
+      timeoutMinutes: 16
       shardable: false
       defaultShards: 1
       risk: critical
@@ -7830,14 +7952,19 @@ tiers:
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-memory-leak-budget
       executionDependsOn: [behavior-doc-static-admission]
       services: []
-      parallelizable: true
-      exclusiveResources: []
+      timeoutPolicyId: release-memory-retention-outer
+      maxParallel: 1
+      countedResources: {}
+      schedulerProfileDigest: sha256:ec9e5178e1c18d515097a6dc0ccc5766e8c9b3623a9aa2fc615ab4fcf7e9fc5e
+      schedulerAuthority: release-reliability-scenario-catalog
+      parallelizable: false
+      exclusiveResources: [database, resource-counters, runtime-http]
       phase: 5
-      cost: low
-      resourceClass: io
-      cpuWeight: 1
-      memoryWeight: 1
-      minCpuUnits: 1
+      cost: high
+      resourceClass: database
+      cpuWeight: 2
+      memoryWeight: 2
+      minCpuUnits: 2
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -7845,7 +7972,7 @@ tiers:
       evidenceClass: diagnostic
       qualificationEligible: false
       cacheProfile: none
-      timeoutMinutes: 5
+      timeoutMinutes: 7
       shardable: false
       defaultShards: 1
       risk: critical
@@ -7878,14 +8005,19 @@ tiers:
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-open-handle-budget
       executionDependsOn: [behavior-doc-static-admission]
       services: []
-      parallelizable: true
-      exclusiveResources: []
+      timeoutPolicyId: release-handle-retention-outer
+      maxParallel: 1
+      countedResources: {}
+      schedulerProfileDigest: sha256:eddf006c4d01c34d2c0cab52c6d6feb955fa7b2b7186b87ccaf8aafa768c57ff
+      schedulerAuthority: release-reliability-scenario-catalog
+      parallelizable: false
+      exclusiveResources: [database, resource-counters, runtime-http]
       phase: 5
-      cost: low
-      resourceClass: io
-      cpuWeight: 1
-      memoryWeight: 1
-      minCpuUnits: 1
+      cost: high
+      resourceClass: database
+      cpuWeight: 2
+      memoryWeight: 2
+      minCpuUnits: 2
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -7893,7 +8025,7 @@ tiers:
       evidenceClass: diagnostic
       qualificationEligible: false
       cacheProfile: none
-      timeoutMinutes: 5
+      timeoutMinutes: 6
       shardable: false
       defaultShards: 1
       risk: critical
@@ -7933,9 +8065,9 @@ tiers:
       phase: 5
       cost: high
       resourceClass: benchmark
-      cpuWeight: 1
-      memoryWeight: 1
-      minCpuUnits: 1
+      cpuWeight: 4
+      memoryWeight: 4
+      minCpuUnits: 4
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: true
@@ -7969,6 +8101,11 @@ tiers:
               tools/test/release-reliability-lifecycle.mjs,
               tools/test/verify-release-reliability-lifecycle-action.mjs,
               tools/test/verify-release-reliability-receipt.mjs,
+              tools/test-matrix/generate-release-reliability-scheduler-projection.mjs,
+              tools/test-matrix/release-reliability-scheduler-projection.mjs,
+              tests/tools/reliability-scheduler-conflicts.test.mjs,
+              tests/tools/reliability-scheduler-projection.test.mjs,
+              tests/tools/reliability-timeout-projection.test.mjs,
               tests/tools/release-reliability-process-tree.test.mjs,
               tests/tools/release-reliability-cancellation.test.mjs,
               tools/release/release-reliability-qualified-receipt.mjs,
@@ -8983,6 +9120,10 @@ tiers:
       evidence:
           [
               tests/backend/Fixtures/backend-test-requirements.json,
+              src/backend/Services/SearchIndexService.Dictionary.cs,
+              tests/backend/Unit/SearchIndexServiceTests.cs,
+              tools/test/csharp-source-mask.mjs,
+              tools/test/search-index-utf8-scalar-governance.mjs,
               tests/backend/Unit/CoverageScriptContractTests.cs,
               tests/backend/Unit/TestInfrastructure/BackendTestPathsTests.cs,
               tests/tools/backend-trx-contract.test.mjs,

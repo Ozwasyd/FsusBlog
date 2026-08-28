@@ -147,6 +147,63 @@ function restoreStageCopiesProject(copies, project)
     ));
 }
 
+function releaseBackendCompileProducerViolations(source)
+{
+    const buildStart = source.indexOf('FROM build-${RUNTIME_BASE_FLAVOR} AS build');
+    const publishStart = source.indexOf('FROM build AS publish', buildStart);
+    const debugPublishStart = source.indexOf('FROM build AS publish-debug', publishStart);
+    if (buildStart < 0 || publishStart < 0 || debugPublishStart < 0)
+    {
+        return ['release backend build/publish stages are missing'];
+    }
+
+    const buildStage = source.slice(buildStart, publishStart);
+    const releaseStages = source.slice(buildStart, debugPublishStart);
+    const publishStage = source.slice(publishStart, debugPublishStart);
+    const violations = [];
+    if (/\bdotnet\s+build\b/u.test(releaseStages))
+    {
+        violations.push('release backend path must not run standalone dotnet build');
+    }
+    if (releaseStages.includes('/app/build'))
+    {
+        violations.push('release backend path must not materialize /app/build');
+    }
+    const restoreIndex = buildStage.indexOf('dotnet restore "./src/backend/FsusBlog.Server.csproj"');
+    const fullInputCopyIndex = buildStage.indexOf('\nCOPY . .\n');
+    if (restoreIndex < 0 || fullInputCopyIndex < restoreIndex)
+    {
+        violations.push('release backend publish must remain downstream of the full repository input copy');
+    }
+    if ((publishStage.match(/\bRUN\s+dotnet\s+publish\b/gu) ?? []).length !== 1)
+    {
+        violations.push('release backend path must own exactly one direct dotnet publish producer');
+    }
+    if (/\bfor\s+\w+\s+in\s+[^;]+;\s*do\s+dotnet\s+publish\b/u.test(publishStage))
+    {
+        violations.push('release backend publish must fail directly without a compile retry loop');
+    }
+    for (const option of [
+        '--no-restore',
+        '--self-contained true',
+        '-r "$TARGET_RUNTIME"',
+        '-o /app/publish',
+        '/p:PublishSingleFile="$PUBLISH_SINGLE_FILE"',
+        '/p:PublishReadyToRun="$PUBLISH_READY_TO_RUN"'
+    ])
+    {
+        if (!publishStage.includes(option))
+        {
+            violations.push(`release backend publish must preserve ${option}`);
+        }
+    }
+    if (publishStage.includes('--no-build'))
+    {
+        violations.push('release backend publish must remain the compile-capable producer');
+    }
+    return violations;
+}
+
 test('final Dockerfile pins musl and glibc .NET and Node images to one patch set', () =>
 {
     for (const [name, value] of [
@@ -295,6 +352,45 @@ test('Docker restore layer copies the recursive backend ProjectReference closure
         );
     }
     assert.ok(projects.has('tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj'));
+});
+
+test('release backend final-image path uses one compile-capable publish producer', () =>
+{
+    assert.deepEqual(releaseBackendCompileProducerViolations(dockerfile), []);
+
+    const mutated = dockerfile.replace(
+        'FROM build AS publish',
+        [
+            'RUN dotnet build "./FsusBlog.Server.csproj" -o /app/build --no-restore',
+            '',
+            'FROM build AS publish'
+        ].join('\n')
+    );
+    assert.ok(
+        releaseBackendCompileProducerViolations(mutated).includes(
+            'release backend path must not run standalone dotnet build'
+        ),
+        'governance must reject a reintroduced standalone release build'
+    );
+
+    const retryMutation = dockerfile.replace(
+        'RUN dotnet publish "./FsusBlog.Server.csproj"',
+        'RUN sh -lc \'for attempt in 1 2; do dotnet publish "./FsusBlog.Server.csproj"'
+    );
+    assert.ok(
+        releaseBackendCompileProducerViolations(retryMutation).includes(
+            'release backend publish must fail directly without a compile retry loop'
+        ),
+        'governance must reject a release publish compile retry loop'
+    );
+
+    const staleInputMutation = dockerfile.replace('\nCOPY . .\n', '\n');
+    assert.ok(
+        releaseBackendCompileProducerViolations(staleInputMutation).includes(
+            'release backend publish must remain downstream of the full repository input copy'
+        ),
+        'governance must keep source, project, Directory.Build, and NuGet lock inputs ahead of publish'
+    );
 });
 
 test('frontend Docker stage validates transported Wasm before scoped ensure-wasm skipping', () =>

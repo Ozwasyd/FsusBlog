@@ -6,30 +6,26 @@ import {
     navigateThroughRetryablePublicAot
 } from './publicAotNavigationRetry.mjs';
 
-test('public AOT navigation retries bounded empty-response transport failures', async () =>
+test('public AOT navigation preserves an empty-response first failure without retry', async () =>
 {
     let attempts = 0;
-    const delays = [];
-    const response = { status: () => 200, headers: () => ({}) };
+    const observations = [];
 
-    const observed = await navigateThroughRetryablePublicAot({
+    await assert.rejects(navigateThroughRetryablePublicAot({
         navigate: async () =>
         {
             attempts += 1;
-            if (attempts < 3)
-            {
-                throw new Error('page.goto: NS_ERROR_NET_EMPTY_RESPONSE');
-            }
-            return response;
+            throw new Error('page.goto: NS_ERROR_NET_EMPTY_RESPONSE');
         },
-        sleep: async (delay) => delays.push(delay),
+        sleep: async () => assert.fail('correctness navigation must not sleep for retry'),
+        onRetryableError: (value) => observations.push(value),
         deadlineAtMs: 10_000,
         now: () => 0
-    });
+    }), /NS_ERROR_NET_EMPTY_RESPONSE/u);
 
-    assert.equal(observed, response);
-    assert.equal(attempts, 3);
-    assert.deepEqual(delays, [250, 500]);
+    assert.equal(attempts, 1);
+    assert.equal(observations.length, 1);
+    assert.equal(observations[0].attempt, 1);
 });
 
 test('public AOT navigation retries only same-target Firefox navigation interruptions', async () =>
@@ -49,57 +45,47 @@ test('public AOT navigation retries only same-target Firefox navigation interrup
     );
 
     let attempts = 0;
-    const response = { status: () => 200, headers: () => ({}) };
-    const observed = await navigateThroughRetryablePublicAot({
+    await assert.rejects(navigateThroughRetryablePublicAot({
         navigate: async () =>
         {
             attempts += 1;
-            if (attempts === 1)
-            {
-                throw new Error(
-                    `page.goto: Navigation to "${target}" is interrupted by another navigation to "${target}"`
-                );
-            }
-            return response;
+            throw new Error(
+                `page.goto: Navigation to "${target}" is interrupted by another navigation to "${target}"`
+            );
         },
-        sleep: async () =>
-        {},
+        sleep: async () => assert.fail('correctness navigation must not sleep for retry'),
         deadlineAtMs: 10_000,
         now: () => 0
-    });
+    }), /interrupted by another navigation/u);
 
-    assert.equal(observed, response);
-    assert.equal(attempts, 2);
+    assert.equal(attempts, 1);
 });
 
-test('public AOT navigation retries a revocation-fenced 410 until the route is readable', async () =>
+test('public AOT navigation rejects a revocation-fenced 410 on the first attempt', async () =>
 {
     let attempts = 0;
-    const delays = [];
-    const readable = { status: () => 200, headers: () => ({}) };
+    const observations = [];
 
-    const observed = await navigateThroughRetryablePublicAot({
+    await assert.rejects(navigateThroughRetryablePublicAot({
         navigate: async () =>
         {
             attempts += 1;
-            return attempts < 3
-                ? {
+            return {
             status: () => 410,
             headers: () => ({
               'cache-control': 'no-store, no-cache, must-revalidate',
               'x-fsus-revoked': 'g67'
             })
-          }
-                : readable;
+          };
         },
-        sleep: async (delay) => delays.push(delay),
+        sleep: async () => assert.fail('correctness navigation must not sleep for retry'),
+        onRetryableResponse: (value) => observations.push(value),
         deadlineAtMs: 10_000,
         now: () => 0
-    });
+    }), /retryable response on its first attempt/u);
 
-    assert.equal(observed, readable);
-    assert.equal(attempts, 3);
-    assert.deepEqual(delays, [250, 250]);
+    assert.equal(attempts, 1);
+    assert.equal(observations.length, 1);
 });
 
 test('public AOT navigation does not retry unrelated HTTP or browser failures', async () =>
@@ -141,11 +127,9 @@ test('public AOT navigation does not retry unrelated HTTP or browser failures', 
     assert.equal(attempts, 1);
 });
 
-test('public AOT empty-response retries remain bounded by the runtime deadline', async () =>
+test('public AOT empty-response failure is independent of remaining deadline', async () =>
 {
     let attempts = 0;
-    let nowMs = 0;
-    const delays = [];
     await assert.rejects(
         navigateThroughRetryablePublicAot({
             navigate: async () =>
@@ -153,16 +137,11 @@ test('public AOT empty-response retries remain bounded by the runtime deadline',
                 attempts += 1;
                 throw new Error('page.goto: net::ERR_EMPTY_RESPONSE');
             },
-            sleep: async (delayMs) =>
-            {
-                delays.push(delayMs);
-                nowMs += delayMs;
-            },
+            sleep: async () => assert.fail('correctness navigation must not sleep for retry'),
             deadlineAtMs: 3_000,
-            now: () => nowMs
+            now: () => 0
         }),
         /ERR_EMPTY_RESPONSE/u
     );
-    assert.equal(attempts, 5);
-    assert.deepEqual(delays, [250, 500, 750, 1_000]);
+    assert.equal(attempts, 1);
 });

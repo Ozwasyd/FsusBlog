@@ -895,6 +895,26 @@
             ]
         },
         {
+            "id": "backend-search-index-utf8-scalar-owner",
+            "description": "The stable internal SearchIndexService.GetUtf8ScalarLength owner is directly asserted by SearchIndexServiceTests.GetUtf8ScalarLength_ReturnsCorrectRuneLength and consumed by the real tokenizer, dictionary compiler and runtime reader.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                ".tmp/backend-unit/summary.json",
+                "src/backend/Services/SearchIndexService.Dictionary.cs",
+                "src/backend/Properties/AssemblyInfo.cs",
+                "tests/backend/FsusBlog.Server.Tests.csproj",
+                "tests/backend/Unit/SearchIndexServiceTests.cs",
+                "tests/test-retention-replacements.json"
+            ],
+            "assertionType": "unit",
+            "failClosedRule": "Reject a missing or renamed production owner, any reflection or early-return fallback in the scalar-length Theory, a test-only algorithm copy, mapping drift, or a dictionary compiler/runtime reader that stops consuming the owner.",
+            "minimumRequirement": "The backend-unit result must retain the exact scalar-length Theory ID with all 10 ASCII, 2/3/4-byte and continuation fallback cases plus a tokenizer read-path assertion over valid 2/3/4-byte dictionary terms.",
+            "tierIds": [
+                "backend-unit"
+            ]
+        },
+        {
             "id": "backend-static",
             "description": "Backend Static is covered by declared repository evidence that exercise the named behavior.",
             "owner": "ServerContractAgent",

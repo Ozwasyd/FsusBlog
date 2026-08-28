@@ -113,7 +113,7 @@
     },
     {
       "id": "SchemaMigrationPostgresCollectionB",
-      "estimatedFacts": 338,
+      "estimatedFacts": 339,
       "tests": [
         {
           "path": "Integration/AccountEnrollmentIntegrationTests.cs",
@@ -186,6 +186,10 @@
         {
           "path": "Unit/UserPublicHandleConcurrencyTests.cs",
           "class": "UserPublicHandleConcurrencyTests"
+        },
+        {
+          "path": "Integration/AccountProfilePreferenceFixturePostgresTests.cs",
+          "class": "AccountProfilePreferenceFixturePostgresTests"
         },
         {
           "path": "Unit/AnonymousCredentialRevocationArtifactServiceTests.cs",

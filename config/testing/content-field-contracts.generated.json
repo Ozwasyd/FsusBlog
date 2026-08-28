@@ -1,0 +1,70 @@
+{
+    "schema": "fsusblog.content-field-contract-projection.v1",
+    "generatedBy": "tools/testing/content-shape-catalog.mjs",
+    "countSemantics": "production-dotnet-string-length-and-utf8-get-byte-count",
+    "sources": [
+        {
+            "path": "src/backend/Services/Articles/ArticlePublicationValidator.cs",
+            "sha256": "sha256:9104e173e2e3bee5348cbd0804df4a67c3d1303b7c8ceeb74c646313c719f739"
+        },
+        {
+            "path": "src/backend/Models/Dtos/CommentDto.cs",
+            "sha256": "sha256:d6626536e687bfa3b1c22aab9012584826080ec721a692d9defbf05a049fe95f"
+        },
+        {
+            "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs",
+            "sha256": "sha256:d0ed7322b968a839e0be0a1b65b9d732ee331f2fe1ad663988f0417c957ed76f"
+        }
+    ],
+    "fields": [
+        {
+            "id": "article.body",
+            "owner": "ArticlePublicationValidator",
+            "sourceRef": "src/backend/Services/Articles/ArticlePublicationValidator.cs#MaxContentLength",
+            "nullable": false,
+            "normalization": "none",
+            "characterCount": "utf16-code-units",
+            "minCharacters": 1,
+            "maxCharacters": 200000,
+            "minUtf8Bytes": null,
+            "maxUtf8Bytes": null
+        },
+        {
+            "id": "article.summary",
+            "owner": "ArticlePublicationValidator",
+            "sourceRef": "src/backend/Services/Articles/ArticlePublicationValidator.cs#MaxSummaryLength",
+            "nullable": true,
+            "normalization": "trim",
+            "characterCount": "utf16-code-units",
+            "minCharacters": 0,
+            "maxCharacters": 512,
+            "minUtf8Bytes": null,
+            "maxUtf8Bytes": null
+        },
+        {
+            "id": "article.title",
+            "owner": "ArticlePublicationValidator",
+            "sourceRef": "src/backend/Services/Articles/ArticlePublicationValidator.cs#MaxTitleLength",
+            "nullable": false,
+            "normalization": "trim",
+            "characterCount": "utf16-code-units",
+            "minCharacters": 1,
+            "maxCharacters": 256,
+            "minUtf8Bytes": null,
+            "maxUtf8Bytes": null
+        },
+        {
+            "id": "comment.content",
+            "owner": "CommentLimits",
+            "sourceRef": "src/backend/Models/Dtos/CommentDto.cs#ContentMaxChars+ContentMaxUtf8Bytes",
+            "nullable": false,
+            "normalization": "trim",
+            "characterCount": "utf16-code-units",
+            "minCharacters": 1,
+            "maxCharacters": 1000,
+            "minUtf8Bytes": 1,
+            "maxUtf8Bytes": 4096
+        }
+    ],
+    "contentDigest": "sha256:499dd32f344230148f923cd2b16a7d923b6d1c8d5de0b55c1638efd4528aaa43"
+}

@@ -7,7 +7,7 @@ import { promisify } from 'node:util';
 
 const { decodePublicAotPayload, readAedsResponse } = await import(new URL("../../support/aeds-envelope.mjs", import.meta.url));
 const { createAdminStepUpProofToken } = await import(new URL("../../support/auth-fixture-projection.mjs", import.meta.url));
-const { authBinary, baseUrl, fetchChallenge, loginWithFixtureSessionBypass, requestTimeoutMs } = await import(new URL("../../support/auth-helpers.mjs", import.meta.url));
+const { authBinary, baseUrl, loginWithFixtureSessionBypass, requestTimeoutMs } = await import(new URL("../../support/auth-helpers.mjs", import.meta.url));
 const { isDirectExecution, reportDirectFailure } = await import(new URL("../../support/direct-execution.mjs", import.meta.url));
 const { fetchWithTimeout } = await import(new URL("../../support/http.mjs", import.meta.url));
 const { readPublicFixtureIds } = await import(new URL("../../support/public-fixtures.mjs", import.meta.url));
@@ -29,13 +29,10 @@ const coherenceTimeoutMs = Math.max(
 );
 const testSessionIsolation = process.env.FSUSBLOG_TEST_SESSION_ISOLATION === '1';
 const execFileAsync = promisify(execFile);
-const resetSecurityTestState = process.env.FSUSBLOG_RESET_SECURITY_TEST_STATE !== '0';
-const redisContainer = process.env.FSUSBLOG_REDIS_CONTAINER || process.env.FSUSBLOG_REDIS_CONTAINER_NAME || 'fsusblog-redis';
 const postgresContainer = process.env.FSUSBLOG_PG_CONTAINER || process.env.FSUSBLOG_POSTGRES_CONTAINER_NAME || '';
 const postgresUser = process.env.FSUSBLOG_PG_USER || 'fsusblog';
 const postgresDatabase = process.env.FSUSBLOG_PG_DB || 'fsusblog';
 const testSession = resolveTestSession();
-const maxDeterministicPowDifficulty = Number.parseInt(process.env.FSUSBLOG_ACCEPTANCE_POW_MAX_DIFFICULTY ?? '20', 10) || 20;
 const ArticleStatus = Object.freeze({
     Draft: 0,
     Scheduled: 1,
@@ -55,61 +52,6 @@ function assert(condition, message)
 function delay(ms)
 {
     return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function resetLocalSecurityRiskState()
-{
-    if (!resetSecurityTestState)
-    {
-        return;
-    }
-
-    try
-    {
-        await execFileAsync('docker', [
-            'exec',
-            redisContainer,
-            'sh',
-            '-c',
-            "redis-cli --scan --pattern '*fsus:sec:pow-risk:*' | xargs -r redis-cli DEL"
-        ], { timeout: 5000 });
-    }
-    catch
-    {
-    // Non-local environments may not use the developer docker container.
-    }
-}
-
-async function waitForDeterministicPow(label)
-{
-    let lastDifficulty = 'unknown';
-    for (let attempt = 0; attempt < 30; attempt += 1)
-    {
-        try
-        {
-            const challenge = await fetchChallenge(5000);
-            const difficulty = Number(challenge.difficulty ?? challenge.Difficulty ?? 999);
-            lastDifficulty = Number.isFinite(difficulty) ? String(difficulty) : 'unknown';
-            if (difficulty <= maxDeterministicPowDifficulty)
-            {
-                return;
-            }
-        }
-        catch
-        {
-            lastDifficulty = 'unreachable';
-        }
-
-        await delay(1000);
-    }
-
-    throw new Error(`${label} pow difficulty did not settle below ${maxDeterministicPowDifficulty}; last=${lastDifficulty}`);
-}
-
-async function resetAndWaitForMutationBudget(label)
-{
-    await resetLocalSecurityRiskState();
-    await waitForDeterministicPow(label);
 }
 
 async function eventually(label, assertion, timeout = coherenceTimeoutMs, interval = 600)
@@ -576,7 +518,6 @@ async function mutateArticle(session, path, method, operation, marker)
     });
     if (response.status === 428)
     {
-        await resetAndWaitForMutationBudget(`distribution ${operation}`);
         const retryProofToken = await createAdminStepUpProofToken({ session });
         ({ response } = await authBinary(path, {
             method,
@@ -591,7 +532,6 @@ async function mutateArticle(session, path, method, operation, marker)
 
 export async function runDistributionVersionCoherence()
 {
-    await resetAndWaitForMutationBudget('distribution coherence');
     const session = await loginWithFixtureSessionBypass(adminUsername, adminPassword, false, 'distribution-admin-login', timeoutMs);
     // The integration lane prepared this namespace immediately before runtime
     // checks. Reuse only that current-run fixture contract; fail closed instead

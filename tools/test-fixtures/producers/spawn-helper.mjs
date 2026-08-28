@@ -2,6 +2,8 @@ import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { resolveTemporalRolesForProducerIfBound } from '../../test/temporal-role-resolver.mjs';
+
 export const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const temporalChildObserver = path.join(
     repositoryRoot,
@@ -219,6 +221,21 @@ export function buildProducerChildEnv(context, extra = {})
         env.FSUSBLOG_TEST_LOCALE = context.temporalContext.locale;
         env.FSUSBLOG_TEST_TIMEZONE = context.temporalContext.timezone;
         env.TZ = context.temporalContext.nodeTimezone;
+        const temporalRoles = resolveTemporalRolesForProducerIfBound({
+            temporalContext: context.temporalContext,
+            namespace: String(context.namespace ?? 'default'),
+            fixtureId: String(context.variantPlan.producerId ?? context.temporalContext.producerId)
+        });
+        if (temporalRoles)
+        {
+            env.FSUSBLOG_RESOLVED_TEMPORAL_ROLES_JSON = JSON.stringify(temporalRoles);
+            env.FSUSBLOG_TEMPORAL_ROLE_ARTIFACT_DIGEST = temporalRoles.contentDigest;
+        }
+        else
+        {
+            delete env.FSUSBLOG_RESOLVED_TEMPORAL_ROLES_JSON;
+            delete env.FSUSBLOG_TEMPORAL_ROLE_ARTIFACT_DIGEST;
+        }
     }
     if (handles.jwt)
     {

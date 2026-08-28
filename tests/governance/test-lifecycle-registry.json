@@ -1007,7 +1007,8 @@
             "staticGovernance": {
                 "id": "deployment-slots",
                 "category": "real-subprocess-lifecycle",
-                "physicalOwner": "process:lifecycle"
+                "physicalOwner": "process:lifecycle",
+                "exclusive": true
             }
         },
         {
@@ -1306,7 +1307,8 @@
             "staticGovernance": {
                 "id": "gateway-switch",
                 "category": "real-subprocess-lifecycle",
-                "physicalOwner": "process:lifecycle"
+                "physicalOwner": "process:lifecycle",
+                "exclusive": true
             }
         },
         {
@@ -3942,6 +3944,54 @@
             "classifications": [
                 "perf"
             ]
+        },
+        {
+            "file": "tests/tools/reliability-scheduler-conflicts.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "perf",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "reliability-scheduler-conflicts",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
+        },
+        {
+            "file": "tests/tools/reliability-scheduler-projection.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "perf"
+            ],
+            "staticGovernance": {
+                "id": "reliability-scheduler-projection",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
+        },
+        {
+            "file": "tests/tools/reliability-timeout-projection.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "perf"
+            ],
+            "staticGovernance": {
+                "id": "reliability-timeout-projection",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/release-reliability-cancellation.test.mjs",
