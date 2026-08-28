@@ -5,20 +5,6 @@ namespace FsusBlog.Server.Tests.Unit;
 [Trait("Category", "Concurrency")]
 public sealed class AnonymousPrivacyConcurrencyTests
 {
-    [Fact]
-    public async Task SameNullifierAndScopeConcurrentSubmit_AllowsOnlyPolicyLimit()
-    {
-        const int Attempts = 24;
-        const int Limit = 2;
-        using var barrier = new Barrier(Attempts);
-        var limiter = new ScopedNullifierLimiter(Limit);
-
-        bool[] results = await Task.WhenAll(Enumerable.Range(0, Attempts)
-            .Select(_ => StartBarrierTask(barrier, () => limiter.TryAccept("nullifier-a", "article:42"))));
-
-        Assert.Equal(Limit, results.Count(static value => value));
-        Assert.Equal(Attempts - Limit, results.Count(static value => !value));
-    }
 
     [Fact]
     public async Task SameTicketConcurrentConsume_SucceedsOnce()
@@ -131,27 +117,6 @@ public sealed class AnonymousPrivacyConcurrencyTests
             TaskCreationOptions.LongRunning,
             TaskScheduler.Default).Unwrap();
 
-    private sealed class ScopedNullifierLimiter(int limit)
-    {
-        private readonly object _sync = new();
-        private readonly Dictionary<string, int> _counts = [];
-
-        public bool TryAccept(string nullifierHash, string scope)
-        {
-            string key = $"{scope}:{nullifierHash}";
-            lock (_sync)
-            {
-                _counts.TryGetValue(key, out int count);
-                if (count >= limit)
-                {
-                    return false;
-                }
-
-                _counts[key] = count + 1;
-                return true;
-            }
-        }
-    }
 
     private sealed class SingleUseTicketStore
     {

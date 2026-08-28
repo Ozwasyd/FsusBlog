@@ -266,6 +266,7 @@ scenarios:
           - src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs
       tests:
           - tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs
+          - tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs
       evidence:
           - .tmp/security/privacy-zk-comment-matrix.json
 

@@ -5979,6 +5979,15 @@
             "reason": "Real POD round trips, principal behavior and actor projection replace regex searches over frame enums and other test method names."
         },
         {
+            "id": "xunit:tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs#AnonymousPrivacyConcurrencyTests.SameNullifierAndScopeConcurrentSubmit_AllowsOnlyPolicyLimit",
+            "path": "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs#AnonymousNullifierPostgresConcurrencyTests.TryConsumeAsync_SameScopeRaceStopsAtPolicyLimitWithStableState",
+                "xunit:tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs#AnonymousNullifierPostgresConcurrencyTests.CreateStrongAnonymousCommentAsync_SameNullifierRaceCommitsOnlyAllowedComments"
+            ],
+            "reason": "The in-memory dictionary and lock limiter is replaced by PostgreSQL concurrency tests covering atomic nullifier scope limits and transactional anonymous comment submission."
+        },
+        {
             "id": "xunit:tests/backend/Unit/AnonymousPrivacyMatrixTests.cs#AnonymousPrivacyMatrixTests.PrivacyZkBackendGate_CoversRevocationAccumulatorAndWitnessTests",
             "path": "tests/backend/Unit/AnonymousPrivacyMatrixTests.cs",
             "replacementTestIds": [
