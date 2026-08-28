@@ -1,0 +1,12 @@
+{
+  "schema": "fsusblog.generated-output-binding.v1",
+  "sources": [
+    "tests/matrix.yml"
+  ],
+  "outputs": [
+    {
+      "path": "config/testing/correctness-attempt-producers.json",
+      "sha256": "16980e7e9f04ec5c424a6053a9a2e663db35a594373108a8af110bd76f73ece7"
+    }
+  ]
+}
