@@ -712,7 +712,7 @@
             "consumerId": "evidence-consumer.release.check-release-final",
             "authorityId": "evidence-consumer.release.check-release-final.current-run",
             "producerId": "evidence-consumer.release.check-release-final.producer",
-            "receiptSchema": "fsusblog.release-evidence-manifest.v2",
+            "receiptSchema": "fsusblog.current-run-evidence-reference.v1",
             "locatorMode": "explicit-run-path",
             "requiredIdentityFields": [
                 "attemptId",
@@ -731,7 +731,7 @@
                 ".tmp/downloaded-artifacts",
                 "artifacts/current-run"
             ],
-            "producerCommand": "node tools/release/check-release-final.mjs",
+            "producerCommand": "bash tools/operations/collect-release-evidence.sh --require-ok",
             "outputBindingKey": "FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH"
         },
         {
@@ -1541,5 +1541,5 @@
             "outputBindingKey": "FSUSBLOG_TEST_WRITE_RELEASE_DOMAIN_ASSERTION_REPORT_EVIDENCE_PATH"
         }
     ],
-    "contentDigest": "sha256:250800c1d6f75d1cc2faedcb19c65151e5779a0ca4ee5b7ad1dee786791c5412"
+    "contentDigest": "sha256:92479ab7f024ef6b2506a0cc809d56a406ef17836b8d6dd35f91340c7d7304a9"
 }

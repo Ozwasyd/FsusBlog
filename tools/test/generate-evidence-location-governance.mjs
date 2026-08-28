@@ -88,7 +88,7 @@ function receiptSchemaFor(file)
 {
     if (file === 'tools/ci/check-flaky-evidence.mjs') return 'fsusblog.ci.flaky.v1';
     if (file === 'tools/ci/summarize-quality-gate.mjs') return 'fsusblog.quality-gate-summary.v1';
-    if (file === 'tools/release/check-release-final.mjs') return 'fsusblog.release-evidence-manifest.v2';
+    if (file === 'tools/release/check-release-final.mjs') return 'fsusblog.current-run-evidence-reference.v1';
     if (file === 'tools/release/public-preview-release-evidence.mjs') return 'fsusblog.public-preview-screenshot-verification.v1';
     return 'fsusblog.current-run-evidence-binding.v1';
 }
@@ -97,6 +97,7 @@ function producerCommandFor(file)
 {
     if (file === 'tools/ci/summarize-quality-gate.mjs') return 'node tools/ci/summarize-quality-gate.mjs';
     if (file === 'tools/release/public-preview-release-evidence.mjs') return 'bash tools/docs/run-public-preview-capture.sh';
+    if (file === 'tools/release/check-release-final.mjs') return 'bash tools/operations/collect-release-evidence.sh --require-ok';
     if (file.startsWith('.github/workflows/')) return 'node tools/run-test-matrix.mjs --mode ci';
     if (file.endsWith('.sh')) return `bash ${file}`;
     if (file.endsWith('.mjs') || file.endsWith('.js')) return `node ${file}`;

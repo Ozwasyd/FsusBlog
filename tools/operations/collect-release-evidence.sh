@@ -1148,4 +1148,14 @@ if [[ "$REQUIRE_OK" == "1" ]]; then
 fi
 node "$ROOT_DIR/tools/operations/seal-release-evidence-bundle.mjs" "${seal_args[@]}"
 
+if [[ -n "${FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT:-}" && -n "${FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH:-}" ]]; then
+    node "$ROOT_DIR/tools/test/publish-current-run-evidence-reference.mjs" \
+        --context "$FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT" \
+        --consumer evidence-consumer.release.check-release-final \
+        --payload "$OUT_DIR/manifest.json" \
+        --payload-schema fsusblog.release-evidence-manifest.v2 \
+        --output "$FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH" \
+        --terminal-status success
+fi
+
 echo "[release-evidence] wrote $OUT_DIR/manifest.json namespace=$RELEASE_NAMESPACE requireOk=$REQUIRE_OK"
