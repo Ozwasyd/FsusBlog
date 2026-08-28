@@ -3,7 +3,7 @@
     "generatedBy": "tools/governance/check-rule-platform.mjs --write-registry",
     "inventory": {
         "packageScriptCount": 214,
-        "implementationCount": 400
+        "implementationCount": 402
     },
     "rules": [
         {
@@ -11678,7 +11678,7 @@
             "symbol": "CheckToolsCiCheckTestQuality",
             "owner": "TestGovernanceOwner",
             "category": "test-governance",
-            "engine": "runtime",
+            "engine": "parser",
             "sourceScopes": [
                 "tools/ci/check-test-quality.mjs",
                 "tests/**",
@@ -13174,6 +13174,36 @@
                 "executionKey": "governance:file:tools/governance/check-dead-code-audit-index.mjs",
                 "receiptCompatible": true
             }
+        },
+        {
+            "id": "Implementation.ToolsGovernanceCheckFixtureMutationRecoveryGovernanceMjs",
+            "externalId": "tools/governance/check-fixture-mutation-recovery-governance.mjs",
+            "symbol": "CheckToolsGovernanceCheckFixtureMutationRecoveryGovernance",
+            "owner": "RepositoryGovernanceOwner",
+            "category": "repository-governance",
+            "engine": "text",
+            "sourceScopes": [
+                "tools/governance/check-fixture-mutation-recovery-governance.mjs",
+                "config/**",
+                "docs/**",
+                "tools/**",
+                "tests/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/governance/check-fixture-mutation-recovery-governance.mjs",
+                "executionKey": "governance:file:tools/governance/check-fixture-mutation-recovery-governance.mjs",
+                "receiptCompatible": true
+            },
+            "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
         },
         {
             "id": "Implementation.ToolsGovernanceCheckMonolithicDistributedArchitectureMjs",
@@ -17676,6 +17706,34 @@
                 "receiptCompatible": true
             },
             "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
+        },
+        {
+            "id": "Implementation.ToolsTestingCheckAuditFixtureGovernanceMjs",
+            "externalId": "tools/testing/check-audit-fixture-governance.mjs",
+            "symbol": "CheckToolsTestingCheckAuditFixtureGovernance",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "parser",
+            "sourceScopes": [
+                "tools/testing/check-audit-fixture-governance.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/testing/check-audit-fixture-governance.mjs",
+                "executionKey": "governance:file:tools/testing/check-audit-fixture-governance.mjs",
+                "receiptCompatible": true
+            }
         },
         {
             "id": "Implementation.ToolsTestingCheckBrowserReadinessContractMjs",
