@@ -25,7 +25,7 @@ import {
     validateVisualArtifact
 } from './perception-character-v3-pool-media.mjs';
 
-const root = fileURLToPath(new URL('../..', import.meta.url));
+const root = path.resolve(new URL('../..', import.meta.url).pathname);
 const contractPath = path.join(root, 'src/shared/Contracts/Validation/Security/perception-character-v3-contract.json');
 const schema = 'fsusblog.security.perception-character-v3.pool-manifest.v1';
 const entrySchema = 'fsusblog.security.perception-character-v3.pool-entry.v1';

@@ -3,12 +3,11 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { buildAudioArtifactFromPackets } from '../contracts/perception-character-v3-artifacts.mjs';
 import { contract } from '../contracts/perception-character-v3-reference.mjs';
 
-const root = fileURLToPath(new URL('../..', import.meta.url));
+const root = path.resolve(new URL('../..', import.meta.url).pathname);
 const spokenAtlasPath = path.join(root, 'src/shared/Contracts/Validation/Security/perception-character-v3-spoken-atlas.json');
 const opusSourcePath = path.join(root, 'tools/security/perception-character-v3-opus.c');
 let encoderDirectory;

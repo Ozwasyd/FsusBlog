@@ -5,7 +5,6 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
 
 import {
     contract,
@@ -17,7 +16,7 @@ import {
     encodeAudioArtifact
 } from '../../tools/security/perception-character-v3-pool-media.mjs';
 
-const root = fileURLToPath(new URL('../..', import.meta.url));
+const root = path.resolve(new URL('../..', import.meta.url).pathname);
 const corpusTool = path.join(root, 'tools/security/perception-character-v3-release-corpus.mjs');
 
 test('compressed visual and deterministic audio artifacts satisfy release-profile primitives', () =>
