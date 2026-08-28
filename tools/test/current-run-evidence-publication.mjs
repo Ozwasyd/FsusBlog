@@ -9,6 +9,14 @@ import {
 import { validateCurrentRunEvidenceContext } from './evidence-location-contract.mjs';
 
 export const EVIDENCE_REFERENCE_SCHEMA = 'fsusblog.current-run-evidence-reference.v1';
+export const releaseFinalDirectConsumerIds = Object.freeze([
+    'evidence-consumer.release-final.direct.behavior-consistency',
+    'evidence-consumer.release-final.direct.behavior-post-runtime',
+    'evidence-consumer.release-final.direct.browser-contract',
+    'evidence-consumer.release-final.direct.browserless-correctness',
+    'evidence-consumer.release-final.direct.production-build',
+    'evidence-consumer.release-final.direct.public-preview'
+]);
 
 function digestFile(file)
 {
@@ -106,8 +114,9 @@ export function createEvidenceParentReceipt({ context, parentAuthorityId, produc
     {
         assert(child.schedulerRunId === context.schedulerRunId && child.attemptId === context.attemptId,
             'parent reference crosses run attempt');
-        assert(child.payload && Object.keys(child.payload).sort().join(',') === 'digest,path,schema',
-            'parent references must not copy or rewrite child payloads');
+        assert(typeof child.path === 'string' && child.path.length > 0
+            && /^sha256:[0-9a-f]{64}$/u.test(child.inputDigest ?? ''),
+        'parent child must carry an explicit path and digest');
     }
     const body = {
         schema: 'fsusblog.current-run-evidence-parent.v1',
@@ -121,7 +130,7 @@ export function createEvidenceParentReceipt({ context, parentAuthorityId, produc
         producerId,
         children: childReferences.map((child) => ({ authorityId: child.authorityId,
             producerId: child.producerId, producerReceiptDigest: child.producerReceiptDigest,
-            payload: child.payload }))
+            path: child.path, inputDigest: child.inputDigest }))
     };
     const withContent = { ...body, contentDigest: evidenceContentDigest(body) };
     return { ...withContent, producerReceiptDigest: evidenceProducerReceiptDigest(withContent) };

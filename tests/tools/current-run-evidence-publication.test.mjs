@@ -58,10 +58,11 @@ test('failure cancel missing output and cross-attempt parent refs fail closed', 
     try {
         const receipt = publishCurrentRunEvidenceReference(g.options);
         assert.throws(() => createEvidenceParentReceipt({ context: g.context, parentAuthorityId: 'parent', producerId: 'parent-producer',
-            childReferences: [{ ...receipt, attemptId: 'old-attempt' }] }), /crosses run attempt/u);
+            childReferences: [{ ...receipt, path: g.options.outputPath, inputDigest: d('e'), attemptId: 'old-attempt' }] }), /crosses run attempt/u);
         const parent = createEvidenceParentReceipt({ context: g.context, parentAuthorityId: 'parent', producerId: 'parent-producer',
-            childReferences: [receipt] });
-        assert.deepEqual(Object.keys(parent.children[0].payload).sort(), ['digest', 'path', 'schema']);
+            childReferences: [{ ...receipt, path: g.options.outputPath, inputDigest: d('e') }] });
+        assert.deepEqual(Object.keys(parent.children[0]).sort(),
+            ['authorityId', 'inputDigest', 'path', 'producerId', 'producerReceiptDigest']);
     } finally { fs.rmSync(g.root, { recursive: true, force: true }); }
 });
 

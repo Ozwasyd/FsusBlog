@@ -89,7 +89,8 @@ function receiptSchemaFor(file)
     if (file === 'tools/ci/check-flaky-evidence.mjs') return 'fsusblog.ci.flaky.v1';
     if (file === 'tools/ci/summarize-quality-gate.mjs') return 'fsusblog.quality-gate-summary.v1';
     if (file === 'tools/release/check-release-final.mjs') return 'fsusblog.current-run-evidence-reference.v1';
-    if (file === 'tools/release/public-preview-release-evidence.mjs') return 'fsusblog.public-preview-screenshot-verification.v1';
+    if (file === 'tools/release/release-final-domain-evidence.mjs') return 'fsusblog.current-run-evidence-parent.v1';
+    if (file === 'tools/release/public-preview-release-evidence.mjs') return 'fsusblog.current-run-evidence-reference.v1';
     return 'fsusblog.current-run-evidence-binding.v1';
 }
 
@@ -98,6 +99,7 @@ function producerCommandFor(file)
     if (file === 'tools/ci/summarize-quality-gate.mjs') return 'node tools/ci/summarize-quality-gate.mjs';
     if (file === 'tools/release/public-preview-release-evidence.mjs') return 'bash tools/docs/run-public-preview-capture.sh';
     if (file === 'tools/release/check-release-final.mjs') return 'bash tools/operations/collect-release-evidence.sh --require-ok';
+    if (file === 'tools/release/release-final-domain-evidence.mjs') return 'node tools/test/publish-release-final-evidence-parent.mjs';
     if (file.startsWith('.github/workflows/')) return 'node tools/run-test-matrix.mjs --mode ci';
     if (file.endsWith('.sh')) return `bash ${file}`;
     if (file.endsWith('.mjs') || file.endsWith('.js')) return `node ${file}`;
@@ -168,6 +170,51 @@ function buildGovernance(scan)
             producerCommand: producerCommandFor(file),
             outputBindingKey: bindingFor(consumerId)
         };
+    });
+    const directReleaseInputs = [
+        ['behavior-consistency', 'behavior-document-consistency-final', 'node tools/docs/behavior-document-consistency-final.mjs'],
+        ['behavior-post-runtime', 'behavior-evidence-post-runtime', 'node tools/test-matrix/behavior-evidence-post-runtime.mjs'],
+        ['browser-contract', 'browser-contract', 'node tests/browser-contract/run.mjs'],
+        ['browserless-correctness', 'browserless-correctness', 'node tools/release/test-evidence-receipts-cli.mjs create-correctness'],
+        ['production-build', 'ci-production-build', 'node tools/ci/production-build-artifacts.mjs'],
+        ['public-preview', 'public-preview-release-evidence', 'bash tools/docs/run-public-preview-capture.sh']
+    ];
+    for (const [id, producerId, producerCommand] of directReleaseInputs)
+    {
+        const consumerId = `evidence-consumer.release-final.direct.${id}`;
+        registryEntries.push({
+            consumerId,
+            authorityId: `${consumerId}.current-run`,
+            producerId,
+            receiptSchema: 'fsusblog.current-run-evidence-reference.v1',
+            locatorMode: 'explicit-run-path',
+            requiredIdentityFields: [
+                'attemptId', 'buildIdentity', 'candidateIdentity', 'schedulerRunId',
+                'sourceCommit', 'worktreeFingerprint'
+            ],
+            requiredDigestFields: ['contentDigest', 'producerReceiptDigest'],
+            expectedCardinality: 'exact-one',
+            allowedRoots: ['artifacts/current-run'],
+            producerCommand,
+            outputBindingKey: bindingFor(consumerId)
+        });
+    }
+    const parentConsumerId = 'evidence-consumer.release.release-final-domain-evidence';
+    registryEntries.push({
+        consumerId: parentConsumerId,
+        authorityId: `${parentConsumerId}.current-run`,
+        producerId: 'release-final-domain-evidence-parent',
+        receiptSchema: 'fsusblog.current-run-evidence-parent.v1',
+        locatorMode: 'explicit-run-path',
+        requiredIdentityFields: [
+            'attemptId', 'buildIdentity', 'candidateIdentity', 'schedulerRunId',
+            'sourceCommit', 'worktreeFingerprint'
+        ],
+        requiredDigestFields: ['contentDigest', 'producerReceiptDigest'],
+        expectedCardinality: 'exact-one',
+        allowedRoots: ['artifacts/current-run'],
+        producerCommand: 'node tools/test/publish-release-final-evidence-parent.mjs',
+        outputBindingKey: bindingFor(parentConsumerId)
     });
     const registryPayload = {
         schema: 'fsusblog.evidence-locator-registry.v1',
