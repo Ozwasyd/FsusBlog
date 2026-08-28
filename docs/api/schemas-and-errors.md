@@ -78,48 +78,9 @@ GET 与 HEAD 返回相同状态和关键头；HEAD 保留与 GET 相同的 `Cont
 | `InfraFailure` | 500 | 基础设施无法完成当前契约；taxonomy 写入后的 PublicHot delivery failure 可能已提交数据库 mutation，客户端须先重读管理端 taxonomy 状态再决定是否重试 |
 | `InternalError` | 500 | 服务端内部错误 |
 
-### 认证错误
+### Authentication, PoW, MFA, Recovery and Passkey errors
 
-| 错误码 | HTTP 状态 | 含义 |
-| -------- | ----------- | ------ |
-| `InvalidCredentials` | 401 | 用户名或密码错误 |
-| `AccountBanned` | 403 | 账号已被封禁 |
-| `AccountNotFound` | 404 | 账号不存在 |
-| `UsernameAlreadyTaken` | 409 | 用户名已被占用 |
-| `EmailAlreadyTaken` | 409 | 邮箱已被注册 |
-| `TokenExpired` | 401 | 令牌已过期 |
-| `TokenInvalid` | 401 | 令牌格式无效 |
-| `RefreshTokenInvalid` | 401 | Refresh Token 无效、过期或超过短竞争窗口后重放；服务端继续按 family replay 策略 fail closed |
-| `SessionNotFound` | 404 | 会话不存在或已过期 |
-
-### PoW 错误
-
-| 错误码 | HTTP 状态 | 含义 |
-| -------- | ----------- | ------ |
-| `PowChallengeNotFound` | 400 | 挑战令牌不存在或已过期 |
-| `PowAnswerInvalid` | 400 | PoW 答案不满足难度要求 |
-| `PowChallengeAlreadyUsed` | 400 | 挑战令牌已被使用（防重放） |
-
-### MFA 错误
-
-| 错误码 | HTTP 状态 | 含义 |
-| -------- | ----------- | ------ |
-| `MfaAlreadyEnabled` | 409 | MFA 已启用 |
-| `MfaNotEnabled` | 400 | MFA 未启用 |
-| `MfaCodeInvalid` | 400 | TOTP 码错误 |
-| `MfaRecoveryCodeInvalid` | 400 | 恢复码无效 |
-| `MfaRecoveryCodesExhausted` | 400 | 恢复码已全部使用 |
-| `MfaChallengeTokenInvalid` | 401 | MFA 挑战令牌无效或过期 |
-
-### Passkey 错误
-
-| 错误码 | HTTP 状态 | 含义 |
-| -------- | ----------- | ------ |
-| `PasskeyCredentialLimitReached` | 409 | 已达到最大密钥数量（5 枚） |
-| `PasskeyCredentialNotFound` | 404 | 指定密钥不存在 |
-| `PasskeyAssertionFailed` | 401 | Passkey 断言验证失败 |
-| `PasskeyRegistrationFailed` | 400 | Passkey 注册失败 |
-| `PasskeyMfaProofRequired` | 403 | 注册新 Passkey 需提供 MFA 证明令牌 |
+这些 domain error 的 active/retired/migration-only 集合、operation/condition 与 transport mapping 只由本文末尾的 generated domain-error sections 承载；不再保留手写的第二错误表。
 
 ### 内容错误
 
@@ -655,6 +616,94 @@ replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
 - `src/shared/Contracts/Validation/aeds-protocol.json` — 帧类型与 AEDS header 的生成输入
 - `tools/frontend/generate-aeds-protocol.mjs` — 生成并校验三端协议常量
 - `src/shared/Contracts/Validation/PodSizeCatalog.cs` — POD 大小权威源码
+
+## Current generated domain errors and transport mappings
+
+<!-- fsus-doc-claim
+claimId: configuration-error-security-policy.domain-errors-active
+behaviorId: configuration-error-security-policy
+claimType: generated-section
+generatedSectionId: api.domain-errors-active
+render: key-value-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN api.domain-errors-active -->
+| Key | Value |
+| --- | --- |
+| auth.login.authentication-failed | {"condition":"credential verification fails","domain":"auth","failMode":"fail-closed","operation":"login","proofTests":["UserBootstrapLoginMfaBoundaryTests.Login_InvalidCredential_FailsClosed"],"retryability":"retry-after-new-credential","sourceOwner":"UserLoginWorkflowService","sourceRange":"UserLoginWorkflowService.LoginAsync","stableCode":"auth.login.authentication-failed","status":"active","transport":{"aedsErrorCode":"Unauthorized","aedsFrame":"Error","httpStatus":401}} |
+| auth.login.request-invalid | {"condition":"request contract is invalid","domain":"auth","failMode":"fail-closed","operation":"login","proofTests":["BinaryAuthEndpointTests.Login_InvalidRequest_ReturnsValidation"],"retryability":"not-retryable","sourceOwner":"BinaryEndpoints.Auth","sourceRange":"BinaryEndpoints.HandleLoginAsync","stableCode":"auth.login.request-invalid","status":"active","transport":{"aedsErrorCode":"Validation","aedsFrame":"Error","httpStatus":400}} |
+| auth.mfa.code-invalid | {"condition":"TOTP or recovery code verification fails","domain":"mfa","failMode":"fail-closed","operation":"totp-verify","proofTests":["MfaChallengeServiceTests.InvalidCode_IsRejected"],"retryability":"retry-within-attempt-policy","sourceOwner":"UserService","sourceRange":"UserService.VerifyMfaOrRecoveryCodeAsync","stableCode":"auth.mfa.code-invalid","status":"active","transport":{"aedsErrorCode":"Unauthorized","aedsFrame":"Error","httpStatus":401}} |
+| auth.passkey.assertion-invalid | {"condition":"WebAuthn assertion validation fails","domain":"passkey","failMode":"fail-closed","operation":"authenticate","proofTests":["PasskeyServiceTests.InvalidAssertion_IsRejected"],"retryability":"retry-after-new-challenge","sourceOwner":"PasskeyService","sourceRange":"PasskeyService.CompleteAuthenticationAsync","stableCode":"auth.passkey.assertion-invalid","status":"active","transport":{"aedsErrorCode":"Unauthorized","aedsFrame":"Error","httpStatus":401}} |
+| auth.passkey.challenge-expired | {"condition":"Passkey challenge is absent, consumed, or expired","domain":"passkey","failMode":"fail-closed","operation":"authenticate","proofTests":["PasskeyServiceTests.ExpiredChallenge_IsRejected"],"retryability":"retry-after-new-challenge","sourceOwner":"PasskeyService","sourceRange":"PasskeyService.CompleteAuthenticationAsync","stableCode":"auth.passkey.challenge-expired","status":"active","transport":{"aedsErrorCode":"Unauthorized","aedsFrame":"Error","httpStatus":401}} |
+| auth.recovery.proof-invalid | {"condition":"Recovery Key proof verification fails","domain":"recovery","failMode":"fail-closed","operation":"verify","proofTests":["RecoveryKeyServiceTests.InvalidProof_IsRejected"],"retryability":"retry-after-new-session","sourceOwner":"RecoveryKeyService","sourceRange":"RecoveryKeyService.VerifyAsync","stableCode":"auth.recovery.proof-invalid","status":"active","transport":{"aedsErrorCode":"Unauthorized","aedsFrame":"Error","httpStatus":401}} |
+| auth.refresh.context-invalid | {"condition":"persisted authentication context is missing or inconsistent","domain":"session","failMode":"fail-closed","operation":"refresh","proofTests":["UserSessionAuthenticationContextTests.Refresh_InvalidContext_FailsClosed"],"retryability":"reauthenticate","sourceOwner":"UserSessionCommandService","sourceRange":"UserSessionCommandService.RefreshSessionAsync","stableCode":"auth.refresh.context-invalid","status":"active","transport":{"aedsErrorCode":"Unauthorized","aedsFrame":"Error","httpStatus":401}} |
+| auth.refresh.token-replay | {"condition":"refresh token generation has already been consumed","domain":"session","failMode":"fail-closed","operation":"refresh","proofTests":["RefreshTokenLineageTests.Replay_RevokesFamily"],"retryability":"reauthenticate","sourceOwner":"UserSessionCommandService","sourceRange":"UserSessionCommandService.RefreshSessionAsync","stableCode":"auth.refresh.token-replay","status":"active","transport":{"aedsErrorCode":"Unauthorized","aedsFrame":"Error","httpStatus":401}} |
+| auth.session.not-found | {"condition":"bound session does not exist","domain":"session","failMode":"fail-closed","operation":"lookup","proofTests":["UserSessionAuthenticationContextTests.MissingSession_IsRejected"],"retryability":"not-retryable","sourceOwner":"UserSessionValidationService","sourceRange":"UserSessionValidationService.ValidateAsync","stableCode":"auth.session.not-found","status":"active","transport":{"aedsErrorCode":"Unauthorized","aedsFrame":"Error","httpStatus":401}} |
+| auth.session.revoked | {"condition":"bound session is revoked","domain":"session","failMode":"fail-closed","operation":"validation","proofTests":["UserSessionAuthenticationContextTests.RevokedSession_IsRejected"],"retryability":"not-retryable","sourceOwner":"UserSessionValidationService","sourceRange":"UserSessionValidationService.ValidateAsync","stableCode":"auth.session.revoked","status":"active","transport":{"aedsErrorCode":"Unauthorized","aedsFrame":"Error","httpStatus":401}} |
+| auth.step-up.proof-invalid-or-consumed | {"condition":"proof binding mismatches or proof was consumed or expired","domain":"step-up","failMode":"fail-closed","operation":"authorize","proofTests":["UserSecurityStepUpServiceTests.MfaProof_IsBoundToSessionActionAndConsumedOnce"],"retryability":"retry-after-step-up","sourceOwner":"MfaChallengeService","sourceRange":"MfaChallengeService.ValidateAndConsumeProofTokenAsync","stableCode":"auth.step-up.proof-invalid-or-consumed","status":"active","transport":{"aedsErrorCode":"Forbidden","aedsFrame":"Error","httpStatus":403}} |
+| auth.step-up.proof-required | {"condition":"sensitive action has no matching proof","domain":"step-up","failMode":"fail-closed","operation":"authorize","proofTests":["UserSecurityStepUpServiceTests.MissingProof_IsRejected"],"retryability":"retry-after-step-up","sourceOwner":"UserSecurityStepUpService","sourceRange":"UserSecurityStepUpService.VerifyAsync","stableCode":"auth.step-up.proof-required","status":"active","transport":{"aedsErrorCode":"Forbidden","aedsFrame":"Error","httpStatus":403}} |
+| security.challenge.capability-conflict | {"condition":"client capability manifest cannot satisfy the selected challenge","domain":"security-challenge","failMode":"fail-closed","operation":"issue","proofTests":["SecurityChallengeBinaryEndpointTests.CapabilityMismatch_ReturnsConflict"],"retryability":"retry-after-capability-refresh","sourceOwner":"BinaryEndpoints.SecurityChallenge","sourceRange":"BinaryEndpoints.HandleSecurityChallengeIssueAsync","stableCode":"security.challenge.capability-conflict","status":"active","transport":{"aedsErrorCode":"Conflict","aedsFrame":"Error","httpStatus":409}} |
+| security.challenge.kind-unsupported | {"condition":"challenge kind or capability version is unsupported","domain":"security-challenge","failMode":"fail-closed","operation":"verify","proofTests":["SecurityChallengeContractTests.UnsupportedKind_IsRejected"],"retryability":"retry-after-capability-refresh","sourceOwner":"SecurityChallengeContracts","sourceRange":"SecurityChallengeContracts.SupportedKinds","stableCode":"security.challenge.kind-unsupported","status":"active","transport":{"aedsErrorCode":"Validation","aedsFrame":"Error","httpStatus":400}} |
+| security.challenge.request-invalid | {"condition":"AEDS request contract or required binding is invalid","domain":"security-challenge","failMode":"fail-closed","operation":"issue-or-verify","proofTests":["SecurityChallengeBinaryEndpointTests.Verify_InvalidRequest_ReturnsValidation"],"retryability":"retry-after-correction","sourceOwner":"BinaryEndpoints.SecurityChallenge","sourceRange":"BinaryEndpoints.HandleSecurityChallengeVerifyAsync","stableCode":"security.challenge.request-invalid","status":"active","transport":{"aedsErrorCode":"Validation","aedsFrame":"Error","httpStatus":400}} |
+| security.challenge.state-unavailable | {"condition":"required challenge state is unavailable","domain":"security-challenge","failMode":"fail-closed","operation":"verify","proofTests":["SecurityChallengeBinaryEndpointTests.StateUnavailable_FailsClosed"],"retryability":"retry-after-new-challenge","sourceOwner":"SecurityChallengeOrchestrator","sourceRange":"SecurityChallengeOrchestrator.VerifyAsync","stableCode":"security.challenge.state-unavailable","status":"active","transport":{"aedsErrorCode":"InfraFailure","aedsFrame":"Error","httpStatus":500}} |
+| security.challenge.verification-failed | {"condition":"provider verification or attempt admission fails","domain":"security-challenge","failMode":"fail-closed","operation":"verify","proofTests":["SecurityChallengeBinaryEndpointTests.VerifyFailure_IsGeneric"],"retryability":"retry-after-new-challenge","sourceOwner":"BinaryEndpoints.SecurityChallenge","sourceRange":"BinaryEndpoints.HandleSecurityChallengeVerifyAsync","stableCode":"security.challenge.verification-failed","status":"active","transport":{"aedsErrorCode":"Forbidden","aedsFrame":"Error","httpStatus":403}} |
+| security.pow.challenge-expired | {"condition":"PoW challenge lifetime has elapsed","domain":"pow","failMode":"fail-closed","operation":"verify","proofTests":["PowSecurityTests.ExpiredChallenge_IsRejected"],"retryability":"retry-after-new-challenge","sourceOwner":"RedisPowService","sourceRange":"RedisPowService.ValidateAsync","stableCode":"security.pow.challenge-expired","status":"active","transport":{"aedsErrorCode":"Forbidden","aedsFrame":"Error","httpStatus":403}} |
+| security.pow.challenge-invalid | {"condition":"PoW challenge, signature, binding, or nonce is invalid","domain":"pow","failMode":"fail-closed","operation":"verify","proofTests":["PowSecurityTests.InvalidChallenge_IsRejected"],"retryability":"retry-after-new-challenge","sourceOwner":"RedisPowService","sourceRange":"RedisPowService.ValidateAsync","stableCode":"security.pow.challenge-invalid","status":"active","transport":{"aedsErrorCode":"Forbidden","aedsFrame":"Error","httpStatus":403}} |
+<!-- FSUSBLOG-GENERATED:END api.domain-errors-active -->
+
+<!-- fsus-doc-claim
+claimId: configuration-error-security-policy.domain-errors-retired
+behaviorId: configuration-error-security-policy
+claimType: generated-section
+generatedSectionId: api.domain-errors-retired
+render: key-value-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN api.domain-errors-retired -->
+| Key | Value |
+| --- | --- |
+| state | empty-map |
+<!-- FSUSBLOG-GENERATED:END api.domain-errors-retired -->
+
+<!-- fsus-doc-claim
+claimId: configuration-error-security-policy.domain-errors-migration-only
+behaviorId: configuration-error-security-policy
+claimType: generated-section
+generatedSectionId: api.domain-errors-migration-only
+render: key-value-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN api.domain-errors-migration-only -->
+| Key | Value |
+| --- | --- |
+| state | empty-map |
+<!-- FSUSBLOG-GENERATED:END api.domain-errors-migration-only -->
+
+<!-- fsus-doc-claim
+claimId: configuration-error-security-policy.error-transport-mappings
+behaviorId: configuration-error-security-policy
+claimType: generated-section
+generatedSectionId: api.error-transport-mappings
+render: key-value-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN api.error-transport-mappings -->
+| Key | Value |
+| --- | --- |
+| key_343030 | {"identity":"400","value":{"direction":"status-to-error-code","errorCode":"Validation","httpStatus":400}} |
+| key_343031 | {"identity":"401","value":{"direction":"status-to-error-code","errorCode":"Unauthorized","httpStatus":401}} |
+| key_343033 | {"identity":"403","value":{"direction":"status-to-error-code","errorCode":"Forbidden","httpStatus":403}} |
+| key_343034 | {"identity":"404","value":{"direction":"status-to-error-code","errorCode":"NotFound","httpStatus":404}} |
+| key_343039 | {"identity":"409","value":{"direction":"status-to-error-code","errorCode":"Conflict","httpStatus":409}} |
+| key_343233 | {"identity":"423","value":{"direction":"status-to-error-code","errorCode":"Forbidden","httpStatus":423}} |
+| key_353030 | {"identity":"500","value":{"direction":"status-to-error-code","errorCode":"InfraFailure","httpStatus":500}} |
+| key_636f64653a436f6e666c696374 | {"identity":"code:Conflict","value":{"direction":"error-code-to-status","errorCode":"Conflict","httpStatus":409}} |
+| key_636f64653a466f7262696464656e | {"identity":"code:Forbidden","value":{"direction":"error-code-to-status","errorCode":"Forbidden","httpStatus":403}} |
+| key_636f64653a496e6672614661696c757265 | {"identity":"code:InfraFailure","value":{"direction":"error-code-to-status","errorCode":"InfraFailure","httpStatus":500}} |
+| key_636f64653a4e6f74466f756e64 | {"identity":"code:NotFound","value":{"direction":"error-code-to-status","errorCode":"NotFound","httpStatus":404}} |
+| key_636f64653a556e617574686f72697a6564 | {"identity":"code:Unauthorized","value":{"direction":"error-code-to-status","errorCode":"Unauthorized","httpStatus":401}} |
+| key_636f64653a56616c69646174696f6e | {"identity":"code:Validation","value":{"direction":"error-code-to-status","errorCode":"Validation","httpStatus":400}} |
+<!-- FSUSBLOG-GENERATED:END api.error-transport-mappings -->
 
 ## 文章/线程评论策略错误
 

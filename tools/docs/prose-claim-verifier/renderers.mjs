@@ -447,7 +447,14 @@ function normalizeRelation(value, render)
     return {
         subject: subject.normalize('NFC'),
         predicate: predicate.normalize('NFC'),
-        object: object.normalize('NFC')
+        object: object.normalize('NFC'),
+        relationId: typeof value.relationId === 'string' ? value.relationId.normalize('NFC') : null,
+        condition: typeof value.condition === 'string' ? value.condition.normalize('NFC') : null,
+        truthValue: value.truthValue ?? null,
+        declaredDirection: value.direction ?? null,
+        scope: isPlainObject(value.scope)
+            ? Object.values(value.scope).filter((entry) => typeof entry === 'string' && entry.length > 0)
+            : []
     }
 }
 
@@ -473,16 +480,38 @@ function renderRelationSubjectPredicateObject(value)
 {
     const triple = normalizeRelation(value, 'relation-subject-predicate-object')
     const pred = predicateTokens(triple.predicate)
+    const requiredGroups = [
+        [triple.subject, triple.subject.replaceAll('_', ' ')],
+        [...pred.anyOf],
+        [triple.object, triple.object.replaceAll('_', ' ')]
+    ]
+    const forbiddenTokens = []
+    if (triple.relationId) requiredGroups.unshift([triple.relationId])
+    if (triple.condition) requiredGroups.push([triple.condition])
+    for (const scope of triple.scope) requiredGroups.push([scope, scope.replaceAll('_', ' ')])
+    if (triple.truthValue === 'false')
+    {
+        requiredGroups.push(['false', 'does not', 'never', '不会', '不'])
+        forbiddenTokens.push('true', 'affirmed')
+    }
+    else if (triple.truthValue === 'conditional')
+    {
+        requiredGroups.push(['conditional', 'condition', '条件'])
+    }
+    else if (!['true', null].includes(triple.truthValue))
+    {
+        failShape('relation-subject-predicate-object', `unsupported relation truthValue ${triple.truthValue}`)
+    }
+    if (triple.declaredDirection != null && triple.declaredDirection !== 'subject-to-object')
+    {
+        failShape('relation-subject-predicate-object', `unsupported relation direction ${triple.declaredDirection}`)
+    }
     return Object.freeze({
         kind: 'binary-relation',
         render: 'relation-subject-predicate-object',
         relation: Object.freeze({ ...triple }),
-        requiredAnyOfGroups: Object.freeze([
-            Object.freeze([triple.subject, triple.subject.replaceAll('_', ' ')]),
-            Object.freeze([...pred.anyOf]),
-            Object.freeze([triple.object, triple.object.replaceAll('_', ' ')])
-        ]),
-        forbiddenTokens: Object.freeze([]),
+        requiredAnyOfGroups: Object.freeze(requiredGroups.map((group) => Object.freeze(group))),
+        forbiddenTokens: Object.freeze(forbiddenTokens),
         // Direction: subject must appear before object relative to a predicate token.
         direction: Object.freeze({
             subjectTokens: Object.freeze([triple.subject, triple.subject.replaceAll('_', ' ')]),

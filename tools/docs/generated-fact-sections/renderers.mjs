@@ -63,7 +63,13 @@ function isEmptyValue(value)
 {
     if (value === null || value === undefined) return true
     if (Array.isArray(value)) return value.length === 0
-    if (isPlainObject(value)) return Object.keys(value).length === 0
+    if (isPlainObject(value))
+    {
+        if (Object.keys(value).length === 0) return true
+        // FactObservationReceipt canonicalizes an observed empty array as
+        // {count:0}; treat only that exact shape as empty, never a general map.
+        return Object.keys(value).length === 1 && value.count === 0
+    }
     if (typeof value === 'string') return value.length === 0
     return false
 }

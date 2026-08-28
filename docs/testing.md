@@ -1676,6 +1676,7 @@ render: enum-set
 - `homogeneous-two-node-fixture`
 - `integration`
 - `integrity-proof-verification`
+- `legacy-20260517-real-dump`
 - `load`
 - `load-2x-peak`
 - `load-baseline`

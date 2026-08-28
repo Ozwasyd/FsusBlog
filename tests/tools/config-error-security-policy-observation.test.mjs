@@ -14,6 +14,19 @@ import { extract as extractConfigErrorSecurity } from '../../tools/fact-extracto
 import { validateObservations } from '../../tools/fact-extractors/receipt.mjs'
 
 const observationRelative = '.tmp/contracts/config-error-security/config-error-security-policy-observation.json'
+const activeChallengeKinds = [
+  'adminPasskeyStepUpV1',
+  'anonymousCredentialProofV1',
+  'argon2idPoSpaceV1',
+  'humanReadProofV1',
+  'passkeyStepUpV1',
+  'perceptionCharacterV3',
+  'perceptionLocalizationV2',
+  'perceptionMicroInteractionV2',
+  'recoveryKeyProofV1',
+  'sha256PowV1',
+  'zkAnonymousCommentProofV1'
+]
 
 function sha256(buffer)
 {
@@ -47,11 +60,85 @@ function writeObservation(repositoryRoot, observation)
   }
 }
 
+function sampleDomainErrors()
+{
+  const entries = [
+    ['auth.login.failed', 'auth', 'login', 'Unauthorized', 401],
+    ['auth.session.revoked', 'session', 'validation', 'Unauthorized', 401],
+    ['auth.passkey.invalid', 'passkey', 'authenticate', 'Unauthorized', 401],
+    ['auth.mfa.invalid', 'mfa', 'verify', 'Unauthorized', 401],
+    ['auth.recovery.invalid', 'recovery', 'verify', 'Unauthorized', 401],
+    ['auth.step-up.required', 'step-up', 'authorize', 'Forbidden', 403],
+    ['security.pow.invalid', 'pow', 'verify', 'Forbidden', 403],
+    ['security.challenge.invalid', 'security-challenge', 'verify', 'Validation', 400]
+  ]
+  return {
+    schema: 'fsusblog.domain-error-catalog.v1',
+    version: 1,
+    closed: true,
+    active: Object.fromEntries(entries.map(([stableCode, domain, operation, aedsErrorCode, httpStatus]) => [
+      stableCode,
+      {
+        stableCode,
+        domain,
+        operation,
+        condition: 'typed production condition',
+        transport: { httpStatus, aedsFrame: 'Error', aedsErrorCode },
+        retryability: 'retry-after-new-proof',
+        failMode: 'fail-closed',
+        status: 'active',
+        sourceOwner: 'src/backend/Authority.cs',
+        sourceRange: 'Authority.Member',
+        proofTests: ['AuthorityTests.ProvesCondition']
+      }
+    ])),
+    retired: {},
+    migrationOnly: {}
+  }
+}
+
+function sampleChallengeWindow()
+{
+  return {
+    schema: 'fsusblog.security-challenge-verification-window.v1',
+    version: 1,
+    closed: true,
+    factId: 'security.challenge.verify-attempt-window',
+    windowType: 'sliding-expiry-counter',
+    duration: { value: 2, unit: 'minutes', inclusiveMin: true, inclusiveMax: true, bound: 'inclusive-inclusive' },
+    durationMilliseconds: 120000,
+    startsAt: 'first-counter-increment',
+    boundary: 'count-less-than-or-equal-max-attempts',
+    challengeKinds: activeChallengeKinds,
+    challengeManifestVersion: '2026.07.22.1',
+    cacheExpiryFactId: 'security.challenge.verify-attempt-cache-expiry',
+    cacheExpiry: { value: 2, unit: 'minutes', inclusiveMin: true, inclusiveMax: true, bound: 'inclusive-inclusive' },
+    cacheExpiryMilliseconds: 120000,
+    maxAttemptsFactId: 'security.challenge.verify-max-attempts',
+    maxAttempts: { value: 3, unit: 'attempts', inclusiveMin: true, inclusiveMax: true, bound: 'inclusive-inclusive' },
+    failModeFactId: 'security.challenge.verify-fail-mode',
+    failMode: 'fail-closed',
+    relation: 'window-duration-and-cache-expiry-are-distinct-facts-with-equal-current-duration',
+    'window-relation': {
+      relationId: 'security.challenge.verify-window-distinct-from-cache-expiry',
+      subject: 'security.challenge.verify-attempt-window',
+      predicate: 'is-distinct-from',
+      object: 'security.challenge.verify-attempt-cache-expiry',
+      direction: 'subject-to-object',
+      condition: 'current sliding-expiry-counter policy',
+      truthValue: 'true'
+    },
+    sourceOwner: 'src/backend/Services/Security/SecurityChallengeVerifyRateLimiter.cs',
+    sourceRange: 'SecurityChallengeVerifyRateLimiter.TryAcquireAsync',
+    proofTests: ['SecurityChallengeVerifyRateLimiterTests']
+  }
+}
+
 function sampleObservation(overrides = {})
 {
   const { facts: factOverrides, ...rest } = overrides
   return {
-    schema: 'fsusblog.config-error-security-policy-observation.v1',
+    schema: 'fsusblog.config-error-security-policy-observation.v2',
     source: 'compiled-production-constants',
     status: 'ok',
     failureReasons: [],
@@ -132,25 +219,19 @@ function sampleObservation(overrides = {})
       'error-codes.transport-mapping': {
         '400': { httpStatus: 400, errorCode: 'Validation', direction: 'status-to-error-code' },
         '401': { httpStatus: 401, errorCode: 'Unauthorized', direction: 'status-to-error-code' },
+        'code:Conflict': { errorCode: 'Conflict', httpStatus: 409, direction: 'error-code-to-status' },
+        'code:Forbidden': { errorCode: 'Forbidden', httpStatus: 403, direction: 'error-code-to-status' },
+        'code:InfraFailure': { errorCode: 'InfraFailure', httpStatus: 500, direction: 'error-code-to-status' },
+        'code:Unauthorized': { errorCode: 'Unauthorized', httpStatus: 401, direction: 'error-code-to-status' },
         'code:Validation': { errorCode: 'Validation', httpStatus: 400, direction: 'error-code-to-status' }
       },
+      'error-codes.domain': sampleDomainErrors(),
       'security.challenge-kinds': {
-        active: [
-          'adminPasskeyStepUpV1',
-          'anonymousCredentialProofV1',
-          'argon2idPoSpaceV1',
-          'humanReadProofV1',
-          'passkeyStepUpV1',
-          'perceptionCharacterV3',
-          'perceptionLocalizationV2',
-          'perceptionMicroInteractionV2',
-          'recoveryKeyProofV1',
-          'sha256PowV1',
-          'zkAnonymousCommentProofV1'
-        ],
+        active: activeChallengeKinds,
         manifestVersion: '2026.07.22.1'
       },
       'security.challenge-retired-kinds': [],
+      'security.challenge-verification-window': sampleChallengeWindow(),
       'security.rate-limit-policies': {
         fixed_ip: {
           policyId: 'fixed_ip',
@@ -336,6 +417,11 @@ test('positive sample observation extracts typed config/error/security facts', (
     assert.equal(observationFact(result, 'frontend.projection')['error-codes'].status, 'exact')
     assert.equal(observationFact(result, 'frontend.projection')['challenge-kinds'].status, 'exact')
     assert.equal(observationFact(result, 'security.fail-open-closed-modes')['rate-limiter-rejection'], 'fail-closed')
+    assert.equal(observationFact(result, 'error-codes.domain').closed, true)
+    assert.notEqual(
+      observationFact(result, 'security.challenge-verification-window').factId,
+      observationFact(result, 'security.challenge-verification-window').cacheExpiryFactId
+    )
   }
   finally
   {
@@ -705,6 +791,86 @@ test('docs/example source markers fail closed', () =>
     const result = runExtract(directory, sampleObservation({ source: 'example-appsettings' }))
     assert.equal(result.status, 'failed')
     assert.ok(result.failureReasons.some((reason) => /example|docs|fixture/iu.test(reason)))
+  }
+  finally
+  {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('domain error omissions, conflicts, lifecycle leaks, aliases and missing proof fail closed', () =>
+{
+  const directory = mkdtempSync(path.join(os.tmpdir(), 'config-error-sec-obs-'))
+  try
+  {
+    writeFrontendProjection(directory)
+
+    const missing = sampleDomainErrors()
+    delete missing.active['auth.mfa.invalid']
+    assert.ok(runExtract(directory, sampleObservation({ facts: { 'error-codes.domain': missing } }))
+      .failureReasons.some((reason) => /missing active mfa coverage/iu.test(reason)))
+
+    const conflict = sampleDomainErrors()
+    conflict.active['auth.login.failed'].transport.httpStatus = 403
+    assert.ok(runExtract(directory, sampleObservation({ facts: { 'error-codes.domain': conflict } }))
+      .failureReasons.some((reason) => /mapping conflicts/iu.test(reason)))
+
+    const retired = sampleDomainErrors()
+    retired.active['auth.login.failed'].status = 'retired'
+    assert.ok(runExtract(directory, sampleObservation({ facts: { 'error-codes.domain': retired } }))
+      .failureReasons.some((reason) => /status=active/iu.test(reason)))
+
+    const messageIdentity = sampleDomainErrors()
+    messageIdentity.active['auth.login.failed'].messageText = 'login_failed'
+    assert.ok(runExtract(directory, sampleObservation({ facts: { 'error-codes.domain': messageIdentity } }))
+      .failureReasons.some((reason) => /message text/iu.test(reason)))
+
+    const alias = sampleDomainErrors()
+    alias.active['auth.login.compat-alias'] = {
+      ...alias.active['auth.login.failed'],
+      stableCode: 'auth.login.compat-alias'
+    }
+    assert.ok(runExtract(directory, sampleObservation({ facts: { 'error-codes.domain': alias } }))
+      .failureReasons.some((reason) => /compatibility domain error identity/iu.test(reason)))
+
+    const unproved = sampleDomainErrors()
+    unproved.active['auth.login.failed'].proofTests = []
+    assert.ok(runExtract(directory, sampleObservation({ facts: { 'error-codes.domain': unproved } }))
+      .failureReasons.some((reason) => /missing proofTests/iu.test(reason)))
+  }
+  finally
+  {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('verification window rejects cache aliasing, wrong canonical duration, missing scope and zero fallback', () =>
+{
+  const directory = mkdtempSync(path.join(os.tmpdir(), 'config-error-sec-obs-'))
+  try
+  {
+    writeFrontendProjection(directory)
+
+    const cacheAlias = sampleChallengeWindow()
+    cacheAlias.cacheExpiryFactId = cacheAlias.factId
+    assert.ok(runExtract(directory, sampleObservation({ facts: { 'security.challenge-verification-window': cacheAlias } }))
+      .failureReasons.some((reason) => /distinct stable fact IDs/iu.test(reason)))
+
+    const wrongUnit = sampleChallengeWindow()
+    wrongUnit.duration = { ...wrongUnit.duration, value: 2, unit: 'seconds' }
+    assert.ok(runExtract(directory, sampleObservation({ facts: { 'security.challenge-verification-window': wrongUnit } }))
+      .failureReasons.some((reason) => /canonical duration mismatch/iu.test(reason)))
+
+    const zero = sampleChallengeWindow()
+    zero.duration = { ...zero.duration, value: 0 }
+    zero.durationMilliseconds = 0
+    assert.ok(runExtract(directory, sampleObservation({ facts: { 'security.challenge-verification-window': zero } }))
+      .failureReasons.some((reason) => /non-zero typed duration/iu.test(reason)))
+
+    const wrongScope = sampleChallengeWindow()
+    wrongScope.challengeKinds = wrongScope.challengeKinds.slice(1)
+    assert.ok(runExtract(directory, sampleObservation({ facts: { 'security.challenge-verification-window': wrongScope } }))
+      .failureReasons.some((reason) => /scope must exactly match/iu.test(reason)))
   }
   finally
   {
