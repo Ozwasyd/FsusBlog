@@ -447,9 +447,15 @@
             "pathType": "file"
         },
         {
-            "id": "temporal-perturbation-cases",
+            "id": "temporal-domain-producer-inventory",
             "owner": "temporal-qualification-governance",
-            "canonicalPath": "config/testing/temporal-perturbation-cases.json",
+            "canonicalPath": "config/testing/temporal-domain-producer-inventory.json",
+            "pathType": "file"
+        },
+        {
+            "id": "temporal-domain-producer-receipt-schema",
+            "owner": "temporal-qualification-governance",
+            "canonicalPath": "config/testing/temporal-domain-producer-receipt.schema.json",
             "pathType": "file"
         },
         {
@@ -462,6 +468,24 @@
             "id": "temporal-producer-bindings",
             "owner": "temporal-qualification-governance",
             "canonicalPath": "config/testing/temporal-producer-bindings.json",
+            "pathType": "file"
+        },
+        {
+            "id": "temporal-shape-catalog",
+            "owner": "temporal-qualification-governance",
+            "canonicalPath": "config/testing/temporal-shape-catalog.json",
+            "pathType": "file"
+        },
+        {
+            "id": "temporal-shape-catalog-schema",
+            "owner": "temporal-qualification-governance",
+            "canonicalPath": "config/testing/temporal-shape-catalog.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "resolved-temporal-roles-schema",
+            "owner": "temporal-qualification-governance",
+            "canonicalPath": "config/testing/resolved-temporal-roles.schema.json",
             "pathType": "file"
         },
         {

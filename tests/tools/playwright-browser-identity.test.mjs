@@ -182,6 +182,23 @@ test('revision and launch argument drift are rejected', () =>
     );
 });
 
+test('capture-only renderer arguments remain part of the sealed browser identity', () =>
+{
+    const plan = fixture().create({
+        additionalLaunchArgs: ['--disable-gpu-rasterization', '--disable-gpu']
+    });
+    assert.deepEqual(plan.launchOptions.args, [
+        '--disable-gpu',
+        '--use-angle=swiftshader',
+        '--disable-gpu-rasterization'
+    ]);
+    assert.equal(assertBrowserPlanActualMatch(plan, actualFrom(plan)), true);
+    assert.throws(
+        () => fixture().create({ additionalLaunchArgs: [''] }),
+        /additional correctness browser launch arguments/u
+    );
+});
+
 test('font, locale, scale, rendering, color and GPU identity are mandatory', () =>
 {
     const plan = fixture().create();

@@ -203,6 +203,7 @@ export function createCorrectnessBrowserPlan({
     browserName = 'chromium',
     evidenceClass = 'correctness',
     locale,
+    additionalLaunchArgs = [],
     repoRoot = repositoryRoot,
     frontendRoot = path.join(repositoryRoot, 'src/frontend'),
     env = process.env,
@@ -254,10 +255,15 @@ export function createCorrectnessBrowserPlan({
         gpuMode: launchPolicy.gpuMode
     };
     assertRenderingIdentity(rendering);
+    if (!Array.isArray(additionalLaunchArgs)
+        || additionalLaunchArgs.some((value) => typeof value !== 'string' || !value.trim()))
+    {
+        throw new Error('additional correctness browser launch arguments must be non-empty strings');
+    }
     const launchOptions = {
         headless: launchPolicy.headless,
         executablePath: executable.executablePath,
-        args: [...launchPolicy.args],
+        args: [...new Set([...launchPolicy.args, ...additionalLaunchArgs])],
         ...(launchPolicy.firefoxUserPrefs ? { firefoxUserPrefs: { ...launchPolicy.firefoxUserPrefs } } : {})
     };
     const plan = {
@@ -319,14 +325,26 @@ export async function verifyCorrectnessBrowserPlans({ plans, frontendRoot, env =
             frontendRoot,
             env
         });
+        const baselineLaunchArgs = new Set(currentPlan.launchOptions.args);
+        const additionalLaunchArgs = suppliedPlan.launchOptions.args.filter(
+            (argument) => !baselineLaunchArgs.has(argument)
+        );
+        const sealedCurrentPlan = createCorrectnessBrowserPlan({
+            browserName: suppliedPlan.browserName,
+            evidenceClass: suppliedPlan.evidenceClass,
+            locale: suppliedPlan.rendering.locale,
+            additionalLaunchArgs,
+            frontendRoot,
+            env
+        });
         assertBrowserPlanActualMatch(suppliedPlan, {
-            ...serializableBrowserPlan(currentPlan),
+            ...serializableBrowserPlan(sealedCurrentPlan),
             planDigest: suppliedPlan.contentDigest
         });
         let browser;
         try
         {
-            browser = await currentPlan.browserType.launch(structuredClone(suppliedPlan.launchOptions));
+            browser = await sealedCurrentPlan.browserType.launch(structuredClone(suppliedPlan.launchOptions));
             const context = await browser.newContext({
                 locale: suppliedPlan.rendering.locale,
                 deviceScaleFactor: suppliedPlan.rendering.deviceScaleFactor,

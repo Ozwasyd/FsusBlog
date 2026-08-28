@@ -985,9 +985,9 @@ function validateReceiptIntegrity(receipt, { contractDigest, runId })
     }
 }
 
-function normalizedRepositoryPath(file)
+function normalizedRepositoryPath(file, root = repoRoot)
 {
-    return path.relative(repoRoot, file).replaceAll(path.sep, '/');
+    return path.relative(path.resolve(root), path.resolve(file)).replaceAll(path.sep, '/');
 }
 
 function isWithin(parent, child)
@@ -1067,7 +1067,10 @@ export async function validateRunBoundProjection({
     const receiptDirectory = path.join(runDirectory, 'receipts', normalizedKey);
     const projectionEntry = await readRegularBoundJson(projectionFile, projectionDirectory, 'run-bound projection');
     const receiptEntry = await readRegularBoundJson(receiptFile, receiptDirectory, 'run-bound receipt');
-    const expectedReceiptPath = normalizedRepositoryPath(receiptEntry.file);
+    const expectedReceiptPath = normalizedRepositoryPath(
+        receiptEntry.file,
+        receiptEntry.document.cwd
+    );
 
     if (projectionEntry.document.physicalExecutionReceipt !== expectedReceiptPath
       || path.basename(receiptEntry.file) !== `${receiptEntry.document.contractDigest}.json`)
@@ -1158,13 +1161,13 @@ export function buildRunBoundConsumerEvidence({
         status: projection.status,
         testIds: projection.testIds,
         artifactEvidence: projection.artifactEvidence,
-        physicalExecutionReceipt: normalizedRepositoryPath(receiptFile),
+        physicalExecutionReceipt: normalizedRepositoryPath(receiptFile, receipt.cwd),
         physicalExecutionReceiptDigest: receipt.receiptDigest,
         physicalExecutionReceiptDocument: receipt,
         executionEnvelopeDigest: receipt.executionEnvelopeDigest ?? null,
         executionEnvelopeReceipt: executionEnvelopeBinding?.receiptFile ?? null,
         executionEnvelopeReceiptDigest: executionEnvelopeBinding?.receiptDigest ?? null,
-        sourceProjection: normalizedRepositoryPath(projectionFile),
+        sourceProjection: normalizedRepositoryPath(projectionFile, receipt.cwd),
         sourceProjectionDigest: `sha256:${createHash('sha256').update(projectionBytes).digest('hex')}`,
         sourceProjectionDocumentDigest: digestValue(projection),
         sourceProjectionDocument: projection,
@@ -1242,20 +1245,26 @@ async function summarizeRunBoundExecutions(root, runId, {
             readJsonFiles(receiptRoot),
             readJsonFiles(projectionRoot)
         ]);
-        const validProjections = projections.map((entry) => entry.document).filter(Boolean);
+        const validReceipts = receipts.filter(
+            (entry) => entry.document?.schema === runBoundSchema
+        );
+        const validProjections = projections
+            .map((entry) => entry.document)
+            .filter((document) =>
+                document?.schema === 'fsusblog.physical-execution-projection.v1');
         const summary = {
             schema: 'fsusblog.physical-execution-summary.v1',
             schedulerRunId: runId,
-            physicalExecutions: receipts.length,
+            physicalExecutions: validReceipts.length,
             logicalConsumers: validProjections.length,
             dedupHits: validProjections.filter((entry) => entry.disposition === 'consumer').length,
             avoidedChildStartups: validProjections.reduce((total, entry) => total + Number(entry.avoidedChildStartups ?? 0), 0),
             totalConsumerWaitMs: validProjections.reduce((total, entry) => total + Number(entry.waitedMs ?? 0), 0),
-            receiptBytes: receipts.reduce((total, entry) => total + entry.bytes, 0),
-            producers: receipts.map((entry) => ({
+            receiptBytes: validReceipts.reduce((total, entry) => total + entry.bytes, 0),
+            producers: validReceipts.map((entry) => ({
                 key: entry.document?.executionKey,
                 status: entry.document?.status,
-                receipt: path.relative(repoRoot, entry.file).replaceAll(path.sep, '/')
+                receipt: normalizedRepositoryPath(entry.file, entry.document?.cwd)
             })),
             consumers: validProjections.map((entry) => ({
                 consumerId: entry.consumerId,
@@ -1314,7 +1323,7 @@ async function writeRunBoundProjection({
         status: receipt.status,
         testIds: normalizedTestIds,
         artifactEvidence: receipt.requiredOutputStates,
-        physicalExecutionReceipt: path.relative(repoRoot, receiptFile).replaceAll(path.sep, '/'),
+        physicalExecutionReceipt: normalizedRepositoryPath(receiptFile, receipt.cwd),
         physicalExecutionReceiptDigest: receipt.receiptDigest,
         executionEnvelopeDigest: receipt.executionEnvelopeDigest ?? null,
         projectedAt: new Date().toISOString()

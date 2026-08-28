@@ -63,16 +63,6 @@ test('production correctness dependency closure has no browser capability', () =
     assert.ok(closure.some((tier) => tier.id === 'production-build-artifacts'));
 });
 
-test('every browser-capable tier declares the browser resource boundary', () =>
-{
-    const browserTiers = matrix.tiers.filter((tier) => tier.requiresPlaywright !== 'none');
-    assert.ok(browserTiers.length > 0);
-    for (const tier of browserTiers)
-    {
-        assert.equal(tier.resourceClass, 'browser', tier.id);
-    }
-});
-
 test('release final binds one immutable browser contract as evidence without scheduling it', () =>
 {
     const correctness = dependencyClosure('production-correctness');

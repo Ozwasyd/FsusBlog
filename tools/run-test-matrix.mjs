@@ -113,6 +113,10 @@ import {
 } from './test-matrix/resource-utilization.mjs';
 import { validateRuntimeStateDomainCatalog } from './test-matrix/runtime-state-domain-catalog.mjs';
 import {
+    loadReleaseReliabilityCatalog,
+    validateReleaseReliabilitySchedulerMatrix
+} from './test-matrix/release-reliability-scheduler-projection.mjs';
+import {
     aggregateArtifactPathExists,
     applySupersedes,
     attachCheckpointEvidence,
@@ -1591,6 +1595,11 @@ function validateMatrix(matrix)
                 + 'as the release-final correctness/qualification-eligible reliability authority'
         );
     }
+
+    errors.push(...validateReleaseReliabilitySchedulerMatrix(
+        matrix,
+        loadReleaseReliabilityCatalog({ root })
+    ));
 
     return errors;
 }
