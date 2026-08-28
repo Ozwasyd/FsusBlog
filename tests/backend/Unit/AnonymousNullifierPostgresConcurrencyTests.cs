@@ -74,6 +74,64 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
     }
 
     [Fact]
+    public async Task TryConsumeAsync_SameNullifierDifferentScopesAndWhitespaceNormalization_EnforcesIndependentLimitsAndNormalizedIdentity()
+    {
+        const int AttemptsPerScope = 4;
+        const int TotalAttempts = AttemptsPerScope * 2;
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using (SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString))
+        {
+            PostgresSqlSugarTestClient.InitTables(setupDb, typeof(CommentAnonymousNullifier));
+        }
+        using var barrier = new Barrier(TotalAttempts);
+
+        (string scope, NullifierReservationResult result)[] results = await Task.WhenAll(
+            Enumerable.Range(0, TotalAttempts).Select(index => StartBarrierTaskAsync(barrier, async () =>
+            {
+                using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+                var service = new CommentAnonymousNullifierService(db, BuildConfiguration(limit: 1));
+                string normalizedScope = index % 2 == 0
+                    ? "comment:v1:article:42:top"
+                    : "comment:v1:article:43:top";
+                bool useWhitespaceVariant = index >= AttemptsPerScope;
+                string scope = useWhitespaceVariant ? $"  {normalizedScope}  " : normalizedScope;
+                string nullifierHash = useWhitespaceVariant ? $"  {NullifierHash}  " : NullifierHash;
+                NullifierReservationResult result = await service.TryConsumeAsync(
+                    nullifierHash,
+                    scope,
+                    commentId: 20_000 + index,
+                    CancellationToken.None);
+                return (scope: normalizedScope, result);
+            }))).WaitAsync(TimeSpan.FromSeconds(30));
+
+        using SqlSugarClient assertDb = PostgresSqlSugarTestClient.Create(connectionString);
+        List<CommentAnonymousNullifier> rows = assertDb.Queryable<CommentAnonymousNullifier>()
+            .OrderBy(static row => row.Scope)
+            .ToList();
+
+        Assert.Equal(2, rows.Count);
+
+        var scope42Results = results.Where(item => item.scope == "comment:v1:article:42:top").ToArray();
+        var scope43Results = results.Where(item => item.scope == "comment:v1:article:43:top").ToArray();
+
+        Assert.Equal(1, scope42Results.Count(item => item.result.Allowed));
+        Assert.Equal(AttemptsPerScope - 1, scope42Results.Count(item => !item.result.Allowed));
+        Assert.Equal(1, scope43Results.Count(item => item.result.Allowed));
+        Assert.Equal(AttemptsPerScope - 1, scope43Results.Count(item => !item.result.Allowed));
+
+        CommentAnonymousNullifier row42 = Assert.Single(rows, static row => row.Scope == "comment:v1:article:42:top");
+        CommentAnonymousNullifier row43 = Assert.Single(rows, static row => row.Scope == "comment:v1:article:43:top");
+
+        Assert.Equal(1, row42.UseCount);
+        Assert.Equal(NullifierHash, row42.NullifierHash);
+        Assert.False(row42.Blocked);
+
+        Assert.Equal(1, row43.UseCount);
+        Assert.Equal(NullifierHash, row43.NullifierHash);
+        Assert.False(row43.Blocked);
+    }
+
+    [Fact]
     public async Task CreateStrongAnonymousCommentAsync_SameNullifierRaceCommitsOnlyAllowedComments()
     {
         const int Attempts = 8;
@@ -94,7 +152,12 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
                 byte[] ticket = CreateTicket(index);
                 var ticketService = new FixedTicketService(CreateTicketPayload());
                 var nullifierService = new CommentAnonymousNullifierService(db, BuildConfiguration(Limit));
-                CommentCommandService service = CreateCommentService(db, ticketService, nullifierService, invalidations);
+                CommentCommandService service = CreateCommentService(
+                    db,
+                    ticketService,
+                    nullifierService,
+                    invalidations,
+                    mutationOutbox: new CommentMutationOutboxWriter(db));
                 return await service.CreateStrongAnonymousCommentAsync(
                     CreateCommentRequest(ticket, $"anonymous race {index}"),
                     RegionDecision(),
@@ -105,11 +168,13 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
         List<Comment> comments = assertDb.Queryable<Comment>().OrderBy(static comment => comment.Id).ToList();
         CommentAnonymousNullifier nullifier = Assert.Single(assertDb.Queryable<CommentAnonymousNullifier>().ToList());
         List<CommentRegionCompliance> compliance = assertDb.Queryable<CommentRegionCompliance>().ToList();
+        List<CommentMutationOutboxEvent> outbox = assertDb.Queryable<CommentMutationOutboxEvent>().ToList();
 
-        Assert.Equal(Limit, results.Count(static result => result));
+        int successfulCount = results.Count(static result => result);
+        Assert.Equal(Limit, successfulCount);
         Assert.Equal(Attempts - Limit, results.Count(static result => !result));
-        Assert.Single(comments);
-        Assert.Single(compliance);
+        Assert.Equal(successfulCount, comments.Count);
+        Assert.Equal(successfulCount, compliance.Count);
         Assert.All(comments, comment =>
         {
             Assert.Equal(NullifierHash, comment.AnonymousNullifierHash);
@@ -119,7 +184,55 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
         Assert.Equal(Limit, nullifier.UseCount);
         Assert.Contains(comments, comment => comment.Id == nullifier.FirstCommentId);
         Assert.Contains(comments, comment => comment.Id == nullifier.LastCommentId);
-        Assert.Single(invalidations.Scopes);
+        Assert.Equal(successfulCount * 2, outbox.Count);
+        Assert.All(comments, comment =>
+        {
+            CommentMutationOutboxEvent[] commentEvents = [.. outbox.Where(item => item.CommentId == comment.Id)];
+            Assert.Equal(2, commentEvents.Length);
+            Assert.Contains(commentEvents, item => item.EventType == CommentMutationEventTypes.Created);
+            Assert.Contains(commentEvents, item => item.EventType == CommentMutationEventTypes.VisibilityChanged);
+        });
+        Assert.Empty(invalidations.Scopes);
+
+        AnonymousCommentTicketPayload crossArticlePayload = CreateTicketPayload() with
+        {
+            ArticleId = 43,
+            Scope = AnonymousCommentScopePolicy.CreateTopLevelScope(43)
+        };
+        CommentCommandService crossArticleService = CreateCommentService(
+            assertDb,
+            new FixedTicketService(crossArticlePayload),
+            new CommentAnonymousNullifierService(assertDb, BuildConfiguration(limit: 1)),
+            invalidations,
+            mutationOutbox: new CommentMutationOutboxWriter(assertDb));
+        bool crossArticleCreated = await crossArticleService.CreateStrongAnonymousCommentAsync(
+            CreateCommentRequest(CreateTicket(201), "cross article mismatch"),
+            RegionDecision(),
+            CancellationToken.None);
+
+        AnonymousCommentTicketPayload threadPayload = CreateTicketPayload() with
+        {
+            Scope = AnonymousCommentScopePolicy.CreateThreadScope(42, 123),
+            RootId = 123
+        };
+        CommentCommandService threadMismatchService = CreateCommentService(
+            assertDb,
+            new FixedTicketService(threadPayload),
+            new CommentAnonymousNullifierService(assertDb, BuildConfiguration(limit: 1)),
+            invalidations,
+            mutationOutbox: new CommentMutationOutboxWriter(assertDb));
+        bool threadMismatchCreated = await threadMismatchService.CreateStrongAnonymousCommentAsync(
+            CreateCommentRequest(CreateTicket(202), "thread mismatch"),
+            RegionDecision(),
+            CancellationToken.None);
+
+        Assert.False(crossArticleCreated);
+        Assert.False(threadMismatchCreated);
+        Assert.Equal(successfulCount, assertDb.Queryable<Comment>().Count());
+        Assert.Equal(successfulCount, assertDb.Queryable<CommentRegionCompliance>().Count());
+        Assert.Single(assertDb.Queryable<CommentAnonymousNullifier>().ToList());
+        Assert.Equal(successfulCount * 2, assertDb.Queryable<CommentMutationOutboxEvent>().Count());
+        Assert.Empty(invalidations.Scopes);
     }
 
     [Fact]
@@ -136,7 +249,8 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
             db,
             new FixedTicketService(CreateTicketPayload()),
             consumeThenFail,
-            invalidations);
+            invalidations,
+            mutationOutbox: new CommentMutationOutboxWriter(db));
 
         bool created = await service.CreateStrongAnonymousCommentAsync(
             CreateCommentRequest(CreateTicket(99), "rollback after consume"),
@@ -148,6 +262,7 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
         Assert.Equal(0, db.Queryable<Comment>().Count());
         Assert.Equal(0, db.Queryable<CommentRegionCompliance>().Count());
         Assert.Equal(0, db.Queryable<CommentAnonymousNullifier>().Count());
+        Assert.Equal(0, db.Queryable<CommentMutationOutboxEvent>().Count());
         Assert.Empty(invalidations.Scopes);
     }
 
@@ -221,7 +336,8 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
         ICacheInvalidationDispatcher invalidations,
         IMessageRealtimePublisher? realtime = null,
         IAntiSpamModerationService? antiSpam = null,
-        ICommentModerationDispositionPolicy? dispositionPolicy = null)
+        ICommentModerationDispositionPolicy? dispositionPolicy = null,
+        ICommentMutationOutbox? mutationOutbox = null)
     {
         AnonymousCommentPolicySnapshot policy = AnonymousCommentPolicySnapshot.Default with
         {
@@ -267,7 +383,8 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
             notifications,
             moderation,
             attribution,
-            invalidations);
+            invalidations,
+            mutationOutbox: mutationOutbox);
     }
 
     private static AntiSpamModerationResult CreateRiskModelResult()
@@ -341,6 +458,7 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
             typeof(CommentRevision),
             typeof(CommentBlockedRegion),
             typeof(CommentRegionCompliance),
+            typeof(CommentMutationOutboxEvent),
             typeof(CommentAnonymousNullifier));
 
     private static void SeedArticle(SqlSugarClient db, int articleId)
