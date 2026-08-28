@@ -48,3 +48,31 @@ render: enum-set
 - `public_handle`
 - `reputation_bucket`
 <!-- FSUSBLOG-GENERATED:END content.comment.persisted-fields -->
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.forbidden-fields
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.comment.forbidden-fields
+render: enum-set
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN content.comment.forbidden-fields -->
+- `accountId`
+- `account_id`
+- `authorId`
+- `author_id`
+- `email`
+- `ip`
+- `lastIp`
+- `last_ip`
+- `publicHandle`
+- `public_handle`
+- `replyToUserId`
+- `reply_to_user_id`
+- `userId`
+- `userName`
+- `user_id`
+- `user_name`
+- `userid`
+- `username`
+<!-- FSUSBLOG-GENERATED:END content.comment.forbidden-fields -->

@@ -516,14 +516,15 @@ export async function runBehaviorDocStaticAdmission({
         {
             throw new Error(`prose verification failed: ${proseResult.diagnostics[0]?.message}`);
         }
+        const proseClaims = claimReceipt.claims
+            .filter((claim) => claim.declaration.claimType !== 'generated-section');
         const proseReceipt = sealDocClaimVerificationReceipt({
             sourceCommit: sourceIdentity.sourceCommit,
             worktreeFingerprint: sourceIdentity.worktreeFingerprint,
             catalogDigest: digestCatalog(catalog),
             parseReceiptDigest: claimReceipt.contentDigest,
             factObservationDigests,
-            results: claimReceipt.claims
-                .filter((claim) => claim.declaration.claimType !== 'generated-section')
+            results: proseClaims
                 .map((claim) => ({
                     claimId: claim.declaration.claimId,
                     behaviorId: BehaviorId(claim.declaration.behaviorId),
@@ -539,7 +540,7 @@ export async function runBehaviorDocStaticAdmission({
         });
         base.prose = {
             status: 'ok',
-            verifiedClaimCount: claimReceipt.claims.length,
+            verifiedClaimCount: proseClaims.length,
             contentDigest: proseReceipt.contentDigest
         };
 

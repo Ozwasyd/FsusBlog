@@ -66,6 +66,17 @@ stale/wrong SHA、artifact bytes 不匹配、机器 identity 缺失或统计字�
 
 `tests/governance/code-intent-registry.json` 是唯一 machine-readable registry。它包含：
 
+<!-- fsus-doc-claim
+claimId: code-intent-governance.intent-entry-count
+behaviorId: code-intent-governance
+claimType: generated-section
+generatedSectionId: governance.intent-entry-count
+render: scalar
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN governance.intent-entry-count -->
+14
+<!-- FSUSBLOG-GENERATED:END governance.intent-entry-count -->
+
 - comment scan roots、语言扩展和复用的 generated/vendor/fixture/lock/minified 分类；
 - README、architecture overview 等 public entry document 的无边界性能措辞门禁；
 - `trackedTodos[]`、`publicContracts[]` 和 `intents[]`；

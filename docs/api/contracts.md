@@ -2087,15 +2087,8 @@ urlset 每页上限为 45,000，超过后根 `/sitemap.xml` 改为 sitemap index
 
 ### 文章生命周期
 
-`Article.Status` 的服务端枚举为：
-
-| 值 | 语义 |
-| ---- | ------ |
-| `Draft` | 草稿，不进入公开读链 |
-| `Scheduled` | 首次定时发布候选，到点后由 worker 转为 `Published` |
-| `Published` | 公开可读 |
-| `Archived` | 归档隐藏，不进入公开分发 |
-| `Deleted` | 逻辑删除，保留原有回收站语义 |
+`Article.Status` 的 exact set 由 [`design.md`](design.md) 的 generated section 拥有；
+本文件只保留下方由同一 observation 生成的 allowed/forbidden transition projections。
 
 `CreateArticleRequest` 与 `UpdateArticleRequest` 支持 `status`、`scheduledPublishAt`、`rights` 和独立 `resetRights`。rights 省略表示 `preserve`，完整 payload 表示 `replace`，`resetRights=true` 且 rights 省略表示 `reset`；reset 与 replacement payload 同时出现返回 `Validation/details=article_rights_reset_payload_conflict`，replace 缺少完整 payload 返回 `article_rights_payload_required`，未知 mutation 返回 `article_rights_mutation_invalid`。create 的 preserve/reset 使用仓库默认值；普通 update 的 preserve 保留当前有效策略；revision rollback 不接受 rights mutation，而是复制源 revision 的不可变 rights snapshot，缺失时返回 `Validation/details=article_revision_package_incomplete`；内容 import 没有 rights 时按 create preserve 绑定默认值。公开读路径必须检查 `IsDeleted=false`、`Status=Published` 和有效 `current_publication_id`，并沿 publication 绑定的 revision/rights/responsibility 读取。首次定时发布仍检查 `ScheduledPublishAt<=now`；已发布文章的未来更新记录在 `pending_publication_at`，不会提前替换当前 publication，worker 直接使用目标 revision 已绑定的 rights snapshot。
 
@@ -2507,6 +2500,108 @@ render: transition-table
 | Scheduled | Scheduled | Create |
 | Scheduled | Scheduled | Update |
 <!-- FSUSBLOG-GENERATED:END content.article.allowed-transitions -->
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.article-forbidden-transitions
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.article.forbidden-transitions
+render: transition-table
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN content.article.forbidden-transitions -->
+| From | To | Guard |
+| --- | --- | --- |
+| Archived | Archived | article_status_transition_invalid |
+| Archived | Archived | article_status_transition_invalid |
+| Archived | Deleted | article_deleted_requires_delete_flow |
+| Archived | Deleted | article_deleted_requires_delete_flow |
+| Archived | Deleted | article_deleted_requires_delete_flow |
+| Archived | Deleted | article_deleted_requires_delete_flow |
+| Archived | Deleted | article_deleted_requires_delete_flow |
+| Archived | Draft | article_status_transition_invalid |
+| Archived | Draft | article_status_transition_invalid |
+| Archived | Draft | article_status_transition_invalid |
+| Archived | Published | article_status_transition_invalid |
+| Archived | Published | article_status_transition_invalid |
+| Archived | Published | article_status_transition_invalid |
+| Archived | Scheduled | article_status_transition_invalid |
+| Archived | Scheduled | article_status_transition_invalid |
+| Archived | Scheduled | article_status_transition_invalid |
+| Archived | Scheduled | article_status_transition_invalid |
+| Deleted | Archived | article_status_transition_invalid |
+| Deleted | Archived | article_status_transition_invalid |
+| Deleted | Archived | article_status_transition_invalid |
+| Deleted | Archived | article_status_transition_invalid |
+| Deleted | Archived | article_status_transition_invalid |
+| Deleted | Deleted | article_deleted_requires_delete_flow |
+| Deleted | Deleted | article_deleted_requires_delete_flow |
+| Deleted | Deleted | article_deleted_requires_delete_flow |
+| Deleted | Deleted | article_deleted_requires_delete_flow |
+| Deleted | Deleted | article_deleted_requires_delete_flow |
+| Deleted | Draft | article_status_transition_invalid |
+| Deleted | Draft | article_status_transition_invalid |
+| Deleted | Draft | article_status_transition_invalid |
+| Deleted | Draft | article_status_transition_invalid |
+| Deleted | Draft | article_status_transition_invalid |
+| Deleted | Published | article_status_transition_invalid |
+| Deleted | Published | article_status_transition_invalid |
+| Deleted | Published | article_status_transition_invalid |
+| Deleted | Published | article_status_transition_invalid |
+| Deleted | Scheduled | article_status_transition_invalid |
+| Deleted | Scheduled | article_status_transition_invalid |
+| Deleted | Scheduled | article_status_transition_invalid |
+| Deleted | Scheduled | article_status_transition_invalid |
+| Deleted | Scheduled | article_status_transition_invalid |
+| Draft | Archived | article_status_transition_invalid |
+| Draft | Archived | article_status_transition_invalid |
+| Draft | Archived | article_status_transition_invalid |
+| Draft | Deleted | article_deleted_requires_delete_flow |
+| Draft | Deleted | article_deleted_requires_delete_flow |
+| Draft | Deleted | article_deleted_requires_delete_flow |
+| Draft | Deleted | article_deleted_requires_delete_flow |
+| Draft | Deleted | article_deleted_requires_delete_flow |
+| Draft | Draft | article_status_transition_invalid |
+| Draft | Draft | article_status_transition_invalid |
+| Draft | Published | article_status_transition_invalid |
+| Draft | Published | article_status_transition_invalid |
+| Draft | Published | article_status_transition_invalid |
+| Draft | Scheduled | article_status_transition_invalid |
+| Draft | Scheduled | article_status_transition_invalid |
+| Draft | Scheduled | article_status_transition_invalid |
+| Draft | Scheduled | article_status_transition_invalid |
+| Published | Archived | article_status_transition_invalid |
+| Published | Archived | article_status_transition_invalid |
+| Published | Archived | article_status_transition_invalid |
+| Published | Deleted | article_deleted_requires_delete_flow |
+| Published | Deleted | article_deleted_requires_delete_flow |
+| Published | Deleted | article_deleted_requires_delete_flow |
+| Published | Deleted | article_deleted_requires_delete_flow |
+| Published | Deleted | article_deleted_requires_delete_flow |
+| Published | Draft | article_status_transition_invalid |
+| Published | Draft | article_status_transition_invalid |
+| Published | Draft | article_status_transition_invalid |
+| Published | Published | article_status_transition_invalid |
+| Published | Scheduled | article_status_transition_invalid |
+| Published | Scheduled | article_status_transition_invalid |
+| Published | Scheduled | article_status_transition_invalid |
+| Published | Scheduled | article_status_transition_invalid |
+| Scheduled | Archived | article_status_transition_invalid |
+| Scheduled | Archived | article_status_transition_invalid |
+| Scheduled | Archived | article_status_transition_invalid |
+| Scheduled | Deleted | article_deleted_requires_delete_flow |
+| Scheduled | Deleted | article_deleted_requires_delete_flow |
+| Scheduled | Deleted | article_deleted_requires_delete_flow |
+| Scheduled | Deleted | article_deleted_requires_delete_flow |
+| Scheduled | Deleted | article_deleted_requires_delete_flow |
+| Scheduled | Draft | article_status_transition_invalid |
+| Scheduled | Draft | article_status_transition_invalid |
+| Scheduled | Draft | article_status_transition_invalid |
+| Scheduled | Published | article_status_transition_invalid |
+| Scheduled | Published | article_status_transition_invalid |
+| Scheduled | Scheduled | article_status_transition_invalid |
+| Scheduled | Scheduled | article_status_transition_invalid |
+| Scheduled | Scheduled | article_status_transition_invalid |
+<!-- FSUSBLOG-GENERATED:END content.article.forbidden-transitions -->
 
 <!-- fsus-doc-claim
 claimId: configuration-error-security-policy.cache-policies

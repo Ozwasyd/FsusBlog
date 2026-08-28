@@ -4,7 +4,7 @@ import path from 'node:path'
 
 const observationRelative = '.tmp/contracts/content-lifecycle/content-lifecycle-observation.json'
 const expectedArtifactId = 'content-lifecycle-observation'
-const expectedSchema = 'fsusblog.content-lifecycle-observation.v1'
+const expectedSchema = 'fsusblog.content-lifecycle-observation.v2'
 
 const requiredFactKeys = Object.freeze([
   'article.lifecycle.states',
@@ -12,9 +12,15 @@ const requiredFactKeys = Object.freeze([
   'article.lifecycle.forbidden-transitions',
   'article.publication.required-coordinates',
   'article.scheduled.boundary',
+  'article.scheduled.preDueCurrent',
+  'article.scheduled.dueTransition',
+  'article.scheduled.replaceCancelStale',
   'article.rollback.semantics',
+  'article.rollback.causal',
   'article.restore.semantics',
+  'article.restore.causal',
   'article.delete.semantics',
+  'article.delete.causal',
   'article.public-visibility.states',
   'article.outbox.required-edges',
   'article.outbox.optional-edges',
@@ -29,6 +35,8 @@ const requiredFactKeys = Object.freeze([
   'comment.thread.root-parent-invariants',
   'comment.edit-delete.version-semantics',
   'comment.region.visibility-states',
+  'comment.deletedRoot.publicDescendants',
+  'comment.deletedRoot.adminDescendants',
   'comment.outbox.required-edges',
   'comment.notification.conditions',
   'comment.privacy.persisted-fields',
@@ -62,6 +70,70 @@ function isTypedBoundary(value)
     && Number.isFinite(value.value)
     && typeof value.unit === 'string'
     && value.unit.length > 0
+}
+
+const causalFactKeys = Object.freeze([
+  'article.scheduled.preDueCurrent',
+  'article.scheduled.dueTransition',
+  'article.scheduled.replaceCancelStale',
+  'article.rollback.causal',
+  'article.restore.causal',
+  'article.delete.causal',
+  'comment.deletedRoot.publicDescendants',
+  'comment.deletedRoot.adminDescendants'
+])
+
+function validateCausalFact(key, fact)
+{
+  const failures = []
+  const expectedId = {
+    'article.scheduled.preDueCurrent': 'article.scheduled.pre-due-current-publication',
+    'article.scheduled.dueTransition': 'article.scheduled.due-publication-transition',
+    'article.scheduled.replaceCancelStale': 'article.scheduled.replace-cancel-stale',
+    'article.rollback.causal': 'article.rollback.new-revision-publication',
+    'article.restore.causal': 'article.restore.new-publication-no-revision',
+    'article.delete.causal': 'article.delete.visibility-history',
+    'comment.deletedRoot.publicDescendants': 'comment.deleted-root.public-descendants',
+    'comment.deletedRoot.adminDescendants': 'comment.deleted-root.admin-descendants'
+  }[key]
+  if (fact == null || typeof fact !== 'object' || Array.isArray(fact))
+  {
+    return [`${key} must be a causal fact object`]
+  }
+  const exactKeys = [
+    'condition', 'conflictStatus', 'direction', 'factId', 'object', 'predicate',
+    'proofTests', 'schemaVersion', 'scope', 'sourceRanges', 'subject', 'truthValue'
+  ]
+  if (JSON.stringify(Object.keys(fact).sort()) !== JSON.stringify(exactKeys))
+  {
+    failures.push(`${key} causal fact fields are not closed`)
+  }
+  if (fact.factId !== expectedId || fact.schemaVersion !== 1 || fact.direction !== 'subject-to-object'
+    || fact.truthValue !== 'true' || fact.conflictStatus !== 'consistent')
+  {
+    failures.push(`${key} causal identity/truth/conflict fields are invalid`)
+  }
+  for (const field of ['subject', 'predicate', 'object', 'condition', 'scope'])
+  {
+    if (typeof fact[field] !== 'string' || fact[field].trim().length === 0)
+    {
+      failures.push(`${key}.${field} must be non-empty`)
+    }
+  }
+  if (fact.sourceRanges == null || typeof fact.sourceRanges !== 'object' || Array.isArray(fact.sourceRanges)
+    || Object.keys(fact.sourceRanges).length === 0
+    || Object.entries(fact.sourceRanges).some(([sourceId, source]) => !/^source[1-9][0-9]*$/u.test(sourceId)
+      || Object.keys(source ?? {}).sort().join('\0') !== 'owner\0range'
+      || typeof source.owner !== 'string' || !source.owner.startsWith('src/')
+      || typeof source.range !== 'string' || source.range.length === 0))
+  {
+    failures.push(`${key} must bind production source owners and symbol ranges`)
+  }
+  if (!isSortedUniqueStrings([...fact.proofTests].sort()) || fact.proofTests.length === 0)
+  {
+    failures.push(`${key} must bind unique proof test IDs`)
+  }
+  return failures
 }
 
 /**
@@ -342,6 +414,27 @@ export function extract(context)
     || scheduled?.scheduledPublishAt?.boundary !== 'exclusive')
   {
     failureReasons.push('article.scheduled.boundary must declare exclusive strictly-after utc boundary')
+  }
+
+  for (const key of causalFactKeys)
+  {
+    failureReasons.push(...validateCausalFact(key, facts[key]))
+  }
+
+  const rollbackCausal = facts['article.rollback.causal']
+  if (!String(rollbackCausal?.object ?? '').includes('new revision and new publication'))
+  {
+    failureReasons.push('rollback causal fact must bind both new revision and new publication coordinates')
+  }
+  const restoreCausal = facts['article.restore.causal']
+  if (!String(restoreCausal?.object ?? '').includes('without reviving the old publication or creating a new revision'))
+  {
+    failureReasons.push('restore causal fact must reject old-publication revival and new revision creation')
+  }
+  const deleteCausal = facts['article.delete.causal']
+  if (!String(deleteCausal?.object ?? '').includes('without creating revision publication or tombstone'))
+  {
+    failureReasons.push('delete causal fact must explicitly reject revision publication and tombstone creation')
   }
 
   const coherence = facts.coherence

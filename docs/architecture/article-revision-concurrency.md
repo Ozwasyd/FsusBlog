@@ -42,3 +42,12 @@ render: key-value-table
 | forbiddenTargets | ["Deleted","Scheduled"] |
 | operation | Rollback |
 <!-- FSUSBLOG-GENERATED:END content.article.rollback-semantics -->
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.rollback-causal
+behaviorId: article-comment-lifecycle-outbox
+claimType: binary-relation
+factPath: facts.article.rollback.causal
+render: relation-subject-predicate-object
+-->
+rollback creates new revision and new publication coordinates from a historical revision while preserving immutable history when the requested historical revision is accepted as the rollback source。
