@@ -1,0 +1,13 @@
+{
+  "schema": "fsusblog.testing-docs-transition.v1",
+  "issue": "#1627",
+  "source": {
+    "path": "tests/matrix.yml",
+    "sha256": "sha256:750a0b7d5f879ed9e4bd3d2b1f51164c2005e5d8dfc897c8b7cceb06aa32afb2"
+  },
+  "output": {
+    "path": "docs/testing.generated.md",
+    "currentSha256": "sha256:201efe0163beb9c1c52baa285ecc91f4a5382159732f545b7ab47ba227008c89",
+    "expectedSha256": "sha256:09b11f753a517bfc6440adcf994aadee935df97d78d524fecc1cf3d7026d41ea"
+  }
+}
