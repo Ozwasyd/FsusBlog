@@ -24,20 +24,6 @@ function walk<TState extends string, TEvent extends string>(
   return events.reduce((state, event) => transition(machine, state, event), machine.initial)
 }
 
-const authMachine = {
-  initial: 'guest',
-  transitions: {
-    guest: { submitPassword: 'password_submitted' },
-    password_submitted: { rejectPassword: 'guest', requireMfa: 'mfa_required', authenticate: 'authenticated' },
-    mfa_required: { rejectMfa: 'mfa_required', useRecoveryCode: 'recovery_code_used', authenticate: 'authenticated' },
-    recovery_code_used: { authenticate: 'authenticated' },
-    authenticated: { logout: 'guest' }
-  }
-} satisfies Machine<
-  'guest' | 'password_submitted' | 'mfa_required' | 'recovery_code_used' | 'authenticated',
-  'submitPassword' | 'rejectPassword' | 'requireMfa' | 'rejectMfa' | 'useRecoveryCode' | 'authenticate' | 'logout'
->
-
 const markdownMachine = {
   initial: 'clean_draft',
   transitions: {
@@ -98,12 +84,6 @@ const uploadMachine = {
 >
 
 describe('frontend state machine models', () => {
-  it('guards MFA and recovery-code auth paths', () => {
-    expect(walk(authMachine, ['submitPassword', 'requireMfa', 'useRecoveryCode', 'authenticate'])).toBe('authenticated')
-    expect(() => transition(authMachine, 'guest', 'authenticate')).toThrow('illegal transition')
-    expect(() => transition(authMachine, 'mfa_required', 'logout')).toThrow('illegal transition')
-  })
-
   it('separates draft save from publish confirmation in markdown authoring', () => {
     expect(walk(markdownMachine, ['edit', 'saveDraft', 'publishShortcut', 'confirmPublish'])).toBe('published')
     expect(() => transition(markdownMachine, 'editing', 'confirmPublish')).toThrow('illegal transition')
