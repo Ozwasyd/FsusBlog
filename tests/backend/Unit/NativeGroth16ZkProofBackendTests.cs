@@ -1,7 +1,9 @@
 using System.Diagnostics;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Bootstrap;
@@ -32,6 +34,8 @@ public sealed class NativeGroth16ZkProofBackendTests
     private const long CredentialEpoch = 7;
     private const ushort PublicInputLayoutVersion = 6;
     private const string NullifierHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    private const int NativeP99SampleCount = 32;
+    private const double NativeP99BudgetMilliseconds = 50;
     private static readonly string s_policyHash = new('9', 64);
 
     [Fact]
@@ -254,11 +258,6 @@ public sealed class NativeGroth16ZkProofBackendTests
     [Trait("Category", "Performance")]
     public async Task MclGroth16VerifierLibrary_VerifyP99StaysInsideNativeBudget()
     {
-        if (!string.Equals(Environment.GetEnvironmentVariable("FSUSBLOG_RUN_PERFORMANCE_TESTS"), "1", StringComparison.Ordinal))
-        {
-            return;
-        }
-
         byte[] verifyingKey = MclGroth16PairingFixture.CreateVerifyingKey();
         using var temp = TempNativeZkFixture.Create(verifyingKey);
         ProductionZkProofBackendRequest request = ValidBackendRequest([], temp.VerifyingKeySha256);
@@ -271,7 +270,8 @@ public sealed class NativeGroth16ZkProofBackendTests
         {
             Proof = proof
         });
-        double[] elapsedMs = new double[32];
+        double[] elapsedMs = new double[NativeP99SampleCount];
+        bool[] verified = new bool[NativeP99SampleCount];
         for (int index = 0; index < elapsedMs.Length; index++)
         {
             long started = Stopwatch.GetTimestamp();
@@ -280,12 +280,57 @@ public sealed class NativeGroth16ZkProofBackendTests
                 Proof = proof
             });
             elapsedMs[index] = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
-            Assert.True(result.Verified);
+            verified[index] = result.Verified;
         }
 
-        Array.Sort(elapsedMs);
-        double p99 = elapsedMs[(int)Math.Ceiling(elapsedMs.Length * 0.99) - 1];
-        Assert.True(p99 <= 50, $"MCL verifier p99 {p99:F2}ms exceeds 50ms native verifier budget.");
+        double[] sortedElapsedMs = [.. elapsedMs];
+        Array.Sort(sortedElapsedMs);
+        double p99 = sortedElapsedMs[(int)Math.Ceiling(sortedElapsedMs.Length * 0.99) - 1];
+        WriteNativeP99Evidence(elapsedMs, verified, p99);
+        Assert.All(verified, Assert.True);
+        Assert.True(
+            p99 <= NativeP99BudgetMilliseconds,
+            $"MCL verifier p99 {p99:F2}ms exceeds {NativeP99BudgetMilliseconds:F0}ms native verifier budget.");
+    }
+
+    private static void WriteNativeP99Evidence(double[] elapsedMs, bool[] verified, double p99)
+    {
+        string? evidencePath = Environment.GetEnvironmentVariable("FSUSBLOG_NATIVE_P99_EVIDENCE_PATH");
+        if (string.IsNullOrWhiteSpace(evidencePath))
+        {
+            throw new InvalidOperationException("Native P99 producer evidence path is required when this test is selected.");
+        }
+
+        string assemblyPath = Assembly.GetExecutingAssembly().Location;
+        var evidence = new
+        {
+            schema = "fsusblog.native-groth16-p99-measurement.v1",
+            status = verified.All(static value => value)
+                && p99 <= NativeP99BudgetMilliseconds
+                    ? "passed"
+                    : "failed",
+            testId = "FsusBlog.Server.Tests.Unit.NativeGroth16ZkProofBackendTests.MclGroth16VerifierLibrary_VerifyP99StaysInsideNativeBudget",
+            warmupCount = 1,
+            sampleCount = elapsedMs.Length,
+            thresholdMs = NativeP99BudgetMilliseconds,
+            p99Ms = p99,
+            samples = elapsedMs.Select((elapsed, index) => new
+            {
+                index,
+                elapsedMs = elapsed,
+                verified = verified[index]
+            }),
+            testAssembly = new
+            {
+                path = assemblyPath,
+                sha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(assemblyPath))).ToLowerInvariant()
+            }
+        };
+        string absolutePath = Path.GetFullPath(evidencePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(absolutePath)!);
+        string temporaryPath = $"{absolutePath}.next-{Environment.ProcessId}";
+        File.WriteAllText(temporaryPath, $"{JsonSerializer.Serialize(evidence, new JsonSerializerOptions { WriteIndented = true })}\n");
+        File.Move(temporaryPath, absolutePath, overwrite: true);
     }
 
     [Fact]
