@@ -34,12 +34,122 @@
       "emptyPolicy": "fail"
     },
     {
+      "sectionId": "auth.session.idle-expiry-policy",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "renderer": "key-value-table",
+      "extractorId": "auth-session-permission-fact-extractor",
+      "behaviorId": "authentication-session-permission",
+      "factPath": "facts.auth.session.idle-expiry-policy",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "auth.session.absolute-expiry-policy",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "renderer": "key-value-table",
+      "extractorId": "auth-session-permission-fact-extractor",
+      "behaviorId": "authentication-session-permission",
+      "factPath": "facts.auth.session.absolute-expiry-policy",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "auth.session.refresh-context",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "renderer": "key-value-table",
+      "extractorId": "auth-session-permission-fact-extractor",
+      "behaviorId": "authentication-session-permission",
+      "factPath": "facts.auth.refresh.context-preservation",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "auth.step-up.freshness",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "renderer": "key-value-table",
+      "extractorId": "auth-session-permission-fact-extractor",
+      "behaviorId": "authentication-session-permission",
+      "factPath": "facts.auth.step-up.freshness",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "auth.step-up.binding",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "renderer": "enum-set",
+      "extractorId": "auth-session-permission-fact-extractor",
+      "behaviorId": "authentication-session-permission",
+      "factPath": "facts.auth.step-up.binding.fields",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "auth.passkey.states",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "renderer": "key-value-table",
+      "extractorId": "auth-session-permission-fact-extractor",
+      "behaviorId": "authentication-session-permission",
+      "factPath": "facts.auth.passkey.states",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "auth.mfa.states",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "renderer": "enum-set",
+      "extractorId": "auth-session-permission-fact-extractor",
+      "behaviorId": "authentication-session-permission",
+      "factPath": "facts.auth.mfa.states",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "auth.recovery.states",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "renderer": "enum-set",
+      "extractorId": "auth-session-permission-fact-extractor",
+      "behaviorId": "authentication-session-permission",
+      "factPath": "facts.auth.recovery.states",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "auth.credential-session-revocation",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "renderer": "key-value-table",
+      "extractorId": "auth-session-permission-fact-extractor",
+      "behaviorId": "authentication-session-permission",
+      "factPath": "facts.auth.credential-session-revocation",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
       "sectionId": "auth.admin.permissions",
       "documentPath": "docs/security.md",
       "renderer": "enum-set",
       "extractorId": "auth-session-permission-fact-extractor",
       "behaviorId": "authentication-session-permission",
       "factPath": "facts.admin.permissions.all",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "auth.admin.permissions-read-only",
+      "documentPath": "docs/security.md",
+      "renderer": "enum-set",
+      "extractorId": "auth-session-permission-fact-extractor",
+      "behaviorId": "authentication-session-permission",
+      "factPath": "facts.admin.permissions.read-only",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "auth.admin.permissions-partial-policy",
+      "documentPath": "docs/security.md",
+      "renderer": "key-value-table",
+      "extractorId": "auth-session-permission-fact-extractor",
+      "behaviorId": "authentication-session-permission",
+      "factPath": "facts.admin.permissions.partial-policy",
       "orderPolicy": "ordinal",
       "emptyPolicy": "fail"
     },
@@ -54,6 +164,56 @@
       "emptyPolicy": "fail"
     },
     {
+      "sectionId": "security.challenge.retired-kinds",
+      "documentPath": "docs/security.md",
+      "renderer": "enum-set",
+      "extractorId": "config-error-security-policy-fact-extractor",
+      "behaviorId": "configuration-error-security-policy",
+      "factPath": "facts.security.challenge-retired-kinds",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "render-empty"
+    },
+    {
+      "sectionId": "security.challenge.verification-window",
+      "documentPath": "docs/security.md",
+      "renderer": "key-value-table",
+      "extractorId": "config-error-security-policy-fact-extractor",
+      "behaviorId": "configuration-error-security-policy",
+      "factPath": "facts.security.challenge-verification-window",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "security.challenge.rate-policies",
+      "documentPath": "docs/security.md",
+      "renderer": "key-value-table",
+      "extractorId": "config-error-security-policy-fact-extractor",
+      "behaviorId": "configuration-error-security-policy",
+      "factPath": "facts.security.rate-limit-policies",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "security.challenge.fail-modes",
+      "documentPath": "docs/security.md",
+      "renderer": "key-value-table",
+      "extractorId": "config-error-security-policy-fact-extractor",
+      "behaviorId": "configuration-error-security-policy",
+      "factPath": "facts.security.fail-open-closed-modes",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "security.challenge.numeric-boundaries",
+      "documentPath": "docs/security.md",
+      "renderer": "key-value-table",
+      "extractorId": "config-error-security-policy-fact-extractor",
+      "behaviorId": "configuration-error-security-policy",
+      "factPath": "facts.security.numeric-boundaries",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
       "sectionId": "configuration.keys",
       "documentPath": "docs/configuration-layout.md",
       "renderer": "key-value-table",
@@ -62,6 +222,26 @@
       "factPath": "facts.configuration.keys",
       "orderPolicy": "ordinal",
       "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "configuration.defaults",
+      "documentPath": "docs/configuration-layout.md",
+      "renderer": "key-value-table",
+      "extractorId": "config-error-security-policy-fact-extractor",
+      "behaviorId": "configuration-error-security-policy",
+      "factPath": "facts.configuration.defaults",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "configuration.required-production-values",
+      "documentPath": "docs/configuration-layout.md",
+      "renderer": "key-value-table",
+      "extractorId": "config-error-security-policy-fact-extractor",
+      "behaviorId": "configuration-error-security-policy",
+      "factPath": "facts.configuration.required-production-values",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "render-empty"
     },
     {
       "sectionId": "configuration.allowed-values",
@@ -80,6 +260,46 @@
       "extractorId": "config-error-security-policy-fact-extractor",
       "behaviorId": "configuration-error-security-policy",
       "factPath": "facts.error-codes.public",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "api.domain-errors-active",
+      "documentPath": "docs/api/schemas-and-errors.md",
+      "renderer": "key-value-table",
+      "extractorId": "config-error-security-policy-fact-extractor",
+      "behaviorId": "configuration-error-security-policy",
+      "factPath": "facts.error-codes.domain.active",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "fail"
+    },
+    {
+      "sectionId": "api.domain-errors-retired",
+      "documentPath": "docs/api/schemas-and-errors.md",
+      "renderer": "key-value-table",
+      "extractorId": "config-error-security-policy-fact-extractor",
+      "behaviorId": "configuration-error-security-policy",
+      "factPath": "facts.error-codes.domain.retired",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "render-empty"
+    },
+    {
+      "sectionId": "api.domain-errors-migration-only",
+      "documentPath": "docs/api/schemas-and-errors.md",
+      "renderer": "key-value-table",
+      "extractorId": "config-error-security-policy-fact-extractor",
+      "behaviorId": "configuration-error-security-policy",
+      "factPath": "facts.error-codes.domain.migrationOnly",
+      "orderPolicy": "ordinal",
+      "emptyPolicy": "render-empty"
+    },
+    {
+      "sectionId": "api.error-transport-mappings",
+      "documentPath": "docs/api/schemas-and-errors.md",
+      "renderer": "key-value-table",
+      "extractorId": "config-error-security-policy-fact-extractor",
+      "behaviorId": "configuration-error-security-policy",
+      "factPath": "facts.error-codes.transport-mapping",
       "orderPolicy": "ordinal",
       "emptyPolicy": "fail"
     },
