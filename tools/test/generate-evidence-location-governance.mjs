@@ -97,6 +97,9 @@ function producerCommandFor(file)
 {
     if (file === 'tools/ci/summarize-quality-gate.mjs') return 'node tools/ci/summarize-quality-gate.mjs';
     if (file === 'tools/release/public-preview-release-evidence.mjs') return 'bash tools/docs/run-public-preview-capture.sh';
+    if (file.startsWith('.github/workflows/')) return 'node tools/run-test-matrix.mjs --mode ci';
+    if (file.endsWith('.sh')) return `bash ${file}`;
+    if (file.endsWith('.mjs') || file.endsWith('.js')) return `node ${file}`;
     return 'node tools/run-test-matrix.mjs --mode ci';
 }
 
@@ -150,6 +153,7 @@ function buildGovernance(scan)
                 : 'explicit-run-path',
             requiredIdentityFields: [
                 'attemptId',
+                'buildIdentity',
                 'candidateIdentity',
                 'schedulerRunId',
                 'sourceCommit',
@@ -161,7 +165,7 @@ function buildGovernance(scan)
                 ? ['.tmp/downloaded-artifacts', 'artifacts/current-run']
                 : ['artifacts/current-run'],
             producerCommand: producerCommandFor(file),
-            outputBinding: bindingFor(consumerId)
+            outputBindingKey: bindingFor(consumerId)
         };
     });
     const registryPayload = {

@@ -22,12 +22,12 @@ function registryEntry(overrides = {})
         producerId: 'quality-gate-summary-producer',
         receiptSchema: 'fsusblog.quality-gate-summary.v1',
         locatorMode: 'explicit-run-path',
-        requiredIdentityFields: ['attemptId', 'candidateIdentity', 'schedulerRunId', 'sourceCommit', 'worktreeFingerprint'],
-        requiredDigestFields: ['contentDigest'],
+        requiredIdentityFields: ['attemptId', 'buildIdentity', 'candidateIdentity', 'schedulerRunId', 'sourceCommit', 'worktreeFingerprint'],
+        requiredDigestFields: ['contentDigest', 'producerReceiptDigest'],
         expectedCardinality: 'exact-one',
         allowedRoots: ['artifacts/quality-gate'],
         producerCommand: 'node tools/ci/summarize-quality-gate.mjs',
-        outputBinding: 'FSUSBLOG_QUALITY_GATE_SUMMARY_PATH',
+        outputBindingKey: 'FSUSBLOG_QUALITY_GATE_SUMMARY_PATH',
         ...overrides
     };
 }
@@ -71,6 +71,9 @@ test('registry rejects fallback modes insufficient identity wildcard roots and a
         [registryEntry({ locatorMode: 'latest-fallback' }), /unsupported/u],
         [registryEntry({ requiredIdentityFields: ['sourceCommit'] }), /omit current-run identity/u],
         [registryEntry({ requiredDigestFields: [] }), /contentDigest/u],
+        [registryEntry({ requiredDigestFields: ['contentDigest'] }), /producerReceiptDigest/u],
+        [registryEntry({ outputBindingKey: '' }), /outputBindingKey/u],
+        [registryEntry({ producerCommand: '' }), /producerCommand/u],
         [registryEntry({ allowedRoots: ['artifacts/**'] }), /exact repository-relative/u],
         [registryEntry({ ageTtlSeconds: 60 }), /forbidden selection policy/u]
     ];
