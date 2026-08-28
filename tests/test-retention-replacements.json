@@ -9157,7 +9157,7 @@
             "replacementTestIds": [
                 "xunit:tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs#NativeGroth16ZkProofBackendTests.MclGroth16VerifierLibrary_VerifyP99StaysInsideNativeBudget"
             ],
-            "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
+            "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary; backend-perf-native-p99 is its exact-one execution owner and ordinary unit plans keep it not-selected."
         },
         {
             "id": "xunit:tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs#NativeGroth16PublicInputCodec.NativeGroth16ZkProofBackend_NativeExceptionRejectsWithoutThrowingOrLoggingSensitiveInputs",
