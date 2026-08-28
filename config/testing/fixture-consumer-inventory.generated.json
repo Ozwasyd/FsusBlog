@@ -1551,6 +1551,50 @@
             ]
         },
         {
+            "consumerId": "matrix:runtime-order-equivalence",
+            "executionClass": "runtime",
+            "source": "tools/test/run-runtime-order-equivalence.mjs",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
+            "implicitSource": "tests/matrix.yml tier runtime-order-equivalence; command tools/test/run-runtime-order-equivalence.mjs",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "notifications.unread",
+                "public.article.draft",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
+                "session.single-device"
+            ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
+                "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
+                "canonical.session.single-device"
+            ],
+            "producerOwners": [
+                "account-messaging",
+                "auth-session",
+                "comment-moderation",
+                "public-content"
+            ]
+        },
+        {
             "consumerId": "matrix:security",
             "executionClass": "security",
             "source": "tools/test/lanes/security-runtime.sh",

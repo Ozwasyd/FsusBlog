@@ -153,6 +153,30 @@
             "pathType": "file"
         },
         {
+            "id": "runtime-execution-session-schema",
+            "owner": "runtime-state-equivalence",
+            "canonicalPath": "config/schemas/runtime-execution-session.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "runtime-order-equivalence-receipt-schema",
+            "owner": "runtime-state-equivalence",
+            "canonicalPath": "config/schemas/runtime-order-equivalence-receipt.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "runtime-schedule-plan-schema",
+            "owner": "runtime-state-equivalence",
+            "canonicalPath": "config/schemas/runtime-schedule-plan.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "runtime-state-snapshot-schema",
+            "owner": "runtime-state-equivalence",
+            "canonicalPath": "config/schemas/runtime-state-snapshot.schema.json",
+            "pathType": "file"
+        },
+        {
             "id": "runtime-state-domain-catalog-schema",
             "owner": "runtime-state-domain-governance",
             "canonicalPath": "config/schemas/runtime-state-domain-catalog.schema.json",

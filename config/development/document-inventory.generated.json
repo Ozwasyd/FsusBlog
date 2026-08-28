@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v3",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:ec50cde9878ab140d161d05daac583dc9e03595dbbd4a314d59da254802af538",
+    "policyDigest": "sha256:3273c75c78ea0de91ebd6618f0b431efdd24b341a5cad7c8d90a8579e4e02f1c",
     "documents": [
         {
             "path": "docs/active-release-fenced-commits.md",
@@ -4398,6 +4398,35 @@
             "supersededBy": null,
             "relatedIssues": [
                 1383
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/testing/runtime-state-equivalence.md",
+            "title": "Runtime state isolation and order equivalence",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "release",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1599,
+                1988,
+                1989,
+                1990,
+                1991,
+                1992,
+                1993,
+                1994,
+                1995,
+                1996,
+                2631,
+                2632,
+                2633,
+                2634,
+                2635,
+                2636
             ],
             "producer": null
         },

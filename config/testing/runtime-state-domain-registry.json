@@ -36,6 +36,231 @@
         "runtime.frontend-preview",
         "runtime.measurement-children",
         "runtime.performance-counters",
-        "runtime.release-preview"
+        "runtime.release-preview",
+        "storage.fixture-objects"
+    ],
+    "observerBindings": [
+        {
+            "domain": "artifact.mutation-output",
+            "observerId": "fixture-file-tree",
+            "observerVersion": "v1",
+            "semanticClass": "file-tree"
+        },
+        {
+            "domain": "artifact.production-build",
+            "observerId": "fixture-file-tree",
+            "observerVersion": "v1",
+            "semanticClass": "file-tree"
+        },
+        {
+            "domain": "artifact.public-aot-overlay",
+            "observerId": "aot-generation",
+            "observerVersion": "v1",
+            "semanticClass": "aot-generation"
+        },
+        {
+            "domain": "artifact.release-derived",
+            "observerId": "fixture-file-tree",
+            "observerVersion": "v1",
+            "semanticClass": "file-tree"
+        },
+        {
+            "domain": "artifact.static-web-assets",
+            "observerId": "fixture-file-tree",
+            "observerVersion": "v1",
+            "semanticClass": "file-tree"
+        },
+        {
+            "domain": "browser.service-worker",
+            "observerId": "runtime-topology",
+            "observerVersion": "v1",
+            "semanticClass": "runtime-topology"
+        },
+        {
+            "domain": "browser.storage-state",
+            "observerId": "auth-state",
+            "observerVersion": "v1",
+            "semanticClass": "auth-state"
+        },
+        {
+            "domain": "fixture.auth-identities",
+            "observerId": "auth-state",
+            "observerVersion": "v1",
+            "semanticClass": "auth-state"
+        },
+        {
+            "domain": "fixture.data-scale",
+            "observerId": "fixture-file-tree",
+            "observerVersion": "v1",
+            "semanticClass": "file-tree"
+        },
+        {
+            "domain": "fixture.public-content",
+            "observerId": "fixture-file-tree",
+            "observerVersion": "v1",
+            "semanticClass": "file-tree"
+        },
+        {
+            "domain": "fixture.runtime-config",
+            "observerId": "runtime-config",
+            "observerVersion": "v1",
+            "semanticClass": "runtime-config"
+        },
+        {
+            "domain": "fixture.security-state",
+            "observerId": "fixture-file-tree",
+            "observerVersion": "v1",
+            "semanticClass": "file-tree"
+        },
+        {
+            "domain": "network.host-topology",
+            "observerId": "runtime-topology",
+            "observerVersion": "v1",
+            "semanticClass": "runtime-topology"
+        },
+        {
+            "domain": "network.zap-container",
+            "observerId": "runtime-topology",
+            "observerVersion": "v1",
+            "semanticClass": "runtime-topology"
+        },
+        {
+            "domain": "postgres.article",
+            "observerId": "postgresql",
+            "observerVersion": "v1",
+            "semanticClass": "postgresql"
+        },
+        {
+            "domain": "postgres.audit",
+            "observerId": "postgresql",
+            "observerVersion": "v1",
+            "semanticClass": "postgresql"
+        },
+        {
+            "domain": "postgres.auth",
+            "observerId": "postgresql",
+            "observerVersion": "v1",
+            "semanticClass": "postgresql"
+        },
+        {
+            "domain": "postgres.comment",
+            "observerId": "postgresql",
+            "observerVersion": "v1",
+            "semanticClass": "postgresql"
+        },
+        {
+            "domain": "postgres.data-scale-fixture",
+            "observerId": "postgresql",
+            "observerVersion": "v1",
+            "semanticClass": "postgresql"
+        },
+        {
+            "domain": "postgres.outbox",
+            "observerId": "postgresql",
+            "observerVersion": "v1",
+            "semanticClass": "postgresql"
+        },
+        {
+            "domain": "postgres.schema",
+            "observerId": "postgresql",
+            "observerVersion": "v1",
+            "semanticClass": "postgresql"
+        },
+        {
+            "domain": "postgres.security",
+            "observerId": "postgresql",
+            "observerVersion": "v1",
+            "semanticClass": "postgresql"
+        },
+        {
+            "domain": "postgres.settings",
+            "observerId": "postgresql",
+            "observerVersion": "v1",
+            "semanticClass": "postgresql"
+        },
+        {
+            "domain": "redis.cache.private",
+            "observerId": "redis",
+            "observerVersion": "v1",
+            "semanticClass": "redis"
+        },
+        {
+            "domain": "redis.cache.public",
+            "observerId": "redis",
+            "observerVersion": "v1",
+            "semanticClass": "redis"
+        },
+        {
+            "domain": "redis.data-scale-fixture",
+            "observerId": "redis",
+            "observerVersion": "v1",
+            "semanticClass": "redis"
+        },
+        {
+            "domain": "redis.notification",
+            "observerId": "redis",
+            "observerVersion": "v1",
+            "semanticClass": "redis"
+        },
+        {
+            "domain": "redis.rate-limit",
+            "observerId": "redis",
+            "observerVersion": "v1",
+            "semanticClass": "redis"
+        },
+        {
+            "domain": "redis.session",
+            "observerId": "redis",
+            "observerVersion": "v1",
+            "semanticClass": "redis"
+        },
+        {
+            "domain": "runtime.backend-process",
+            "observerId": "runtime-topology",
+            "observerVersion": "v1",
+            "semanticClass": "runtime-topology"
+        },
+        {
+            "domain": "runtime.backend-resource-counters",
+            "observerId": "runtime-topology",
+            "observerVersion": "v1",
+            "semanticClass": "runtime-topology"
+        },
+        {
+            "domain": "runtime.data-scale-backend",
+            "observerId": "runtime-topology",
+            "observerVersion": "v1",
+            "semanticClass": "runtime-topology"
+        },
+        {
+            "domain": "runtime.frontend-preview",
+            "observerId": "runtime-topology",
+            "observerVersion": "v1",
+            "semanticClass": "runtime-topology"
+        },
+        {
+            "domain": "runtime.measurement-children",
+            "observerId": "runtime-topology",
+            "observerVersion": "v1",
+            "semanticClass": "runtime-topology"
+        },
+        {
+            "domain": "runtime.performance-counters",
+            "observerId": "runtime-topology",
+            "observerVersion": "v1",
+            "semanticClass": "runtime-topology"
+        },
+        {
+            "domain": "runtime.release-preview",
+            "observerId": "runtime-topology",
+            "observerVersion": "v1",
+            "semanticClass": "runtime-topology"
+        },
+        {
+            "domain": "storage.fixture-objects",
+            "observerId": "object-storage",
+            "observerVersion": "v1",
+            "semanticClass": "object-storage"
+        }
     ]
 }

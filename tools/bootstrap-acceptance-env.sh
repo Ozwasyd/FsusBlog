@@ -546,6 +546,42 @@ if [[ "${FSUSBLOG_RUNTIME_NO_BUILD:-0}" == "1" && -z "$PUBLIC_AOT_SSR_WORKER_SCR
     PUBLIC_AOT_SSR_WORKER_SCRIPT='./dist/server/server-public-ssr.bundle.mjs'
 fi
 
+PublishRuntimeObserverAuthority() {
+    local phase="$1"
+    if [[ -z "${FSUSBLOG_RUNTIME_SESSION_RECEIPT:-}" ||
+        -z "${FSUSBLOG_RUNTIME_ORDER_FINGERPRINT_KEY_FILE:-}" ||
+        -z "${FSUSBLOG_RUNTIME_ORDER_AUTHORITY_FILE:-}" ]]; then
+        return 0
+    fi
+    local -a args=(
+        --phase "$phase"
+        --output "$FSUSBLOG_RUNTIME_ORDER_AUTHORITY_FILE"
+        --session-receipt "$FSUSBLOG_RUNTIME_SESSION_RECEIPT"
+        --environment "$ENV_FILE"
+        --fingerprint-key "$FSUSBLOG_RUNTIME_ORDER_FINGERPRINT_KEY_FILE"
+    )
+    if [[ "$phase" == "ready" ]]; then
+        args+=(
+            --service-envelope "$EXECUTION_SERVICE_ENVELOPE_FILE"
+            --environment-ready "$ENVIRONMENT_READY_RECEIPT_FILE"
+            --runtime-topology "$FIXTURE_DIR/runtime-topology.json"
+            --fixture-receipt "$FIXTURE_RECEIPT_FILE"
+            --aot-warm-report "${FSUSBLOG_PUBLIC_AOT_WARM_REPORT:-$TMP_DIR/public-aot-warm-evidence.json}"
+            --object-storage-root "$FIXTURE_DIR/runtime-object-storage"
+            --backend-process-identity "$TMP_DIR/backend.identity.json"
+            --frontend-process-identity "$TMP_DIR/dev-server.identity.json"
+            --release-process-identity "$TMP_DIR/preview.identity.json"
+            --backend-executable "${FSUSBLOG_BACKEND_SERVER_DLL:?runtime observer requires backend executable}"
+            --frontend-executable "$CLIENT_DIR/node_modules/vite/bin/vite.js"
+            --release-executable "$CLIENT_DIR/node_modules/vite/bin/vite.js"
+        )
+        if [[ -n "${FSUSBLOG_RUNTIME_ORDER_BROWSER_STORAGE_FILE:-}" ]]; then
+            args+=(--browser-storage "$FSUSBLOG_RUNTIME_ORDER_BROWSER_STORAGE_FILE")
+        fi
+    fi
+    "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test-runtime/production-observer-authority.mjs" "${args[@]}"
+}
+
 WriteEnvFile() {
     cat >"$ENV_FILE" <<EOF
 FSUSBLOG_TEST_NAMESPACE=$FSUSBLOG_TEST_NAMESPACE
@@ -634,6 +670,7 @@ Testing__EnforceProductionCsp=true
 CORS_ALLOWED_HOSTS=$CORS_ALLOWED_HOSTS_VALUE
 AuthCookies__AllowInsecureTransportCookies=true
 EOF
+    PublishRuntimeObserverAuthority config
 }
 
 Log() {
@@ -1163,7 +1200,7 @@ const inheritedDeadlineAtMs = Number.parseInt(
 )
 if (!Number.isInteger(pid) || pid <= 1 || !runId || !namespace || !role || !file
   || (dedicated && !preparationId)
-  || (dedicated && (!/^[a-f0-9]{40}$/u.test(sourceCommit) || !/^[a-f0-9]{64}$/u.test(sourceFingerprint)))
+  || (dedicated && (!/^[a-f0-9]{40}$/u.test(sourceCommit) || !/^(?:sha256:)?[a-f0-9]{64}$/u.test(sourceFingerprint)))
   || !Number.isInteger(inheritedDeadlineAtMs)) {
   throw new Error('runtime process identity input is incomplete')
 }
@@ -2783,6 +2820,7 @@ Main() {
             generatedAt: now | todate
         }' \
         >"$FIXTURE_DIR/runtime-topology.json"
+    PublishRuntimeObserverAuthority ready
     # Remove retired URL/container-only completeness manifest if present from older runs.
     rm -f "$FIXTURE_DIR/manifest.json"
     WaitForBinaryUrl 'seo probe' "$DEBUG_BACKEND_URL/api/binary/system/seo" "$EXECUTION_DEADLINE_AT_MS"

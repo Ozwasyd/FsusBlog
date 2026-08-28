@@ -7579,6 +7579,77 @@
             }
         },
         {
+            "producerId": "runtime-order-equivalence",
+            "sourceKind": "matrix-tier",
+            "policyId": "correctness-hermetic-v1",
+            "evidenceClass": "correctness",
+            "executionClass": "runtime",
+            "allowedEnvironment": [
+                "FSUSBLOG_POSTGRES_PORT",
+                "FSUSBLOG_REDIS_PORT",
+                "PATH"
+            ],
+            "requiredServices": [
+                "backend",
+                "frontend",
+                "postgres",
+                "preview",
+                "redis"
+            ],
+            "fieldApplicability": {
+                "platform": {
+                    "status": "required",
+                    "observerId": "platform-runtime",
+                    "notApplicableReason": null
+                },
+                "resources": {
+                    "status": "required",
+                    "observerId": "resource-limit-runtime",
+                    "notApplicableReason": null
+                },
+                "environment": {
+                    "status": "required",
+                    "observerId": "minimal-child-environment",
+                    "notApplicableReason": null
+                },
+                "toolchain": {
+                    "status": "required",
+                    "observerId": "executable-chain-identity",
+                    "notApplicableReason": null
+                },
+                "browserRendering": {
+                    "status": "not-applicable",
+                    "observerId": null,
+                    "notApplicableReason": "matrix-requires-playwright-none"
+                },
+                "services": {
+                    "status": "required",
+                    "observerId": "service-topology-runtime",
+                    "notApplicableReason": null
+                },
+                "directories": {
+                    "status": "required",
+                    "observerId": "run-owned-directory-postflight",
+                    "notApplicableReason": null
+                },
+                "network": {
+                    "status": "required",
+                    "observerId": "sandbox-network-runtime",
+                    "notApplicableReason": null
+                },
+                "fontsLocale": {
+                    "status": "required",
+                    "observerId": "font-locale-runtime",
+                    "notApplicableReason": null
+                },
+                "identity": {
+                    "status": "required",
+                    "observerId": "planned-actual-envelope",
+                    "notApplicableReason": null
+                }
+            }
+        },
+        {
             "producerId": "security",
             "sourceKind": "matrix-tier",
             "policyId": "correctness-hermetic-v1",
