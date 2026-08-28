@@ -293,6 +293,47 @@
             "reason": "The generated Behavior catalog sources, schemas, projections and documentation authorities must change atomically with their post-runtime observation and governance tooling while preserving existing external JSON, document, environment and tooling identifiers; internal C#, JavaScript and Shell symbols remain governed by the repository mapping."
         },
         {
+            "id": "content-doc-exactness-authority",
+            "authorityExceptionId": "json-api-field",
+            "paths": [
+                "config/contracts/document-claim-migration-ledger.json",
+                "config/contracts/generated-fact-sections.json",
+                "config/testing/correctness-attempt-producers.json",
+                "docs/api/article-publication-revisions.md",
+                "docs/api/contracts.md",
+                "docs/api/design.md",
+                "docs/architecture/article-deletion-lifecycle.md",
+                "docs/architecture/article-mutation-outbox-versioning.md",
+                "docs/architecture/article-revision-concurrency.md",
+                "docs/architecture/comment-attribution-privacy-boundary.md",
+                "docs/architecture/comment-command-boundary.md",
+                "docs/architecture/comment-moderation-visibility-boundary.md",
+                "docs/architecture/comment-mutation-outbox.md",
+                "docs/architecture/overview.md",
+                "docs/architecture/repository-layout.md",
+                "docs/development/code-intent-governance.md",
+                "docs/development/doc-claim-protocol.md",
+                "tests/coverage-registry.json",
+                "tests/governance/test-lifecycle-registry.json",
+                "tools/docs/behavior-doc-static-admission.mjs",
+                "tools/docs/check-document-claim-migration-ledger.mjs",
+                "tools/docs/content-doc-exactness.mjs",
+                "tools/fact-extractors/content-lifecycle/extract.mjs"
+            ],
+            "externalPattern": "^[A-Za-z][A-Za-z0-9_.-]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "content-doc-exactness-receipt.v1",
+                "internal": "contentDocExactnessReceipt"
+            },
+            "negative": {
+                "external": "content-doc-exactness-receipt.v1",
+                "internal": "content-doc-exactness-receipt.v1"
+            },
+            "reason": "The content exactness catalogs, current documentation authorities, test registries and receipt tooling must change atomically while preserving existing external JSON, Markdown marker, command-line and receipt identifiers; internal JavaScript symbols remain governed by the repository mapping."
+        },
+        {
             "id": "pre-runtime-fact-build-identity-authority",
             "authorityExceptionId": "json-api-field",
             "paths": [
