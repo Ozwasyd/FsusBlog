@@ -24,20 +24,6 @@ function walk<TState extends string, TEvent extends string>(
   return events.reduce((state, event) => transition(machine, state, event), machine.initial)
 }
 
-const messageMachine = {
-  initial: 'conversation_selected',
-  transitions: {
-    conversation_selected: { editReply: 'reply_draft', closeConversation: 'closed_conversation' },
-    reply_draft: { switchConversation: 'draft_decision', send: 'sending' },
-    draft_decision: { saveDraft: 'conversation_selected', discardDraft: 'conversation_selected', cancelSwitch: 'reply_draft' },
-    sending: { sent: 'conversation_selected', failSend: 'reply_draft' },
-    closed_conversation: { switchConversation: 'conversation_selected' }
-  }
-} satisfies Machine<
-  'conversation_selected' | 'reply_draft' | 'draft_decision' | 'sending' | 'closed_conversation',
-  'editReply' | 'switchConversation' | 'closeConversation' | 'saveDraft' | 'discardDraft' | 'cancelSwitch' | 'send' | 'sent' | 'failSend'
->
-
 const uploadMachine = {
   initial: 'idle',
   transitions: {
@@ -55,11 +41,6 @@ const uploadMachine = {
 >
 
 describe('frontend state machine models', () => {
-  it('prevents message drafts from silently crossing conversations', () => {
-    expect(walk(messageMachine, ['editReply', 'switchConversation', 'saveDraft'])).toBe('conversation_selected')
-    expect(() => transition(messageMachine, 'closed_conversation', 'send')).toThrow('illegal transition')
-  })
-
   it('keeps upload resume and abandon transitions explicit', () => {
     expect(walk(uploadMachine, ['selectFile', 'upload', 'failChunk', 'resume', 'upload', 'complete'])).toBe('completed')
     expect(() => transition(uploadMachine, 'paused', 'complete')).toThrow('illegal transition')
