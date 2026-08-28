@@ -28,6 +28,7 @@ public sealed class ArticleMutationOutboxFailurePropagationTests
 
     [Theory]
     [MemberData(nameof(CoordinatorCriticalEdges))]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "content-lifecycle-fail-closed")]
     public async Task ReplayOutboxAsync_CriticalProjectorFailureReturnsFailedResult(string failedEdge)
     {
         ArticleMutationSideEffectCoordinator coordinator = CreateCoordinator(failedEdge);
@@ -51,6 +52,7 @@ public sealed class ArticleMutationOutboxFailurePropagationTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Boundary)]
     public async Task ReplayOutboxAsync_NotificationFailureIsRecordedWithoutBlockingCriticalConvergence()
     {
         IMessageRealtimePublisher realtimePublisher = Substitute.For<IMessageRealtimePublisher>();
@@ -80,6 +82,7 @@ public sealed class ArticleMutationOutboxFailurePropagationTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "content-lifecycle-fail-closed")]
     public async Task ReplayOutboxAsync_CancellationIsNeverDowngradedToBestEffortFailure()
     {
         using var cancellation = new CancellationTokenSource();

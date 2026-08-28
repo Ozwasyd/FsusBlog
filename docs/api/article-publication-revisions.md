@@ -16,16 +16,8 @@
 
 所有写入经 `ArticlePublicationTransitionWriter` 收口：
 
-普通创建/更新的状态矩阵如下；`✓` 表示允许，`—` 表示拒绝。`Deleted → Published`
-仅代表专用 restore 操作，普通 update 不得使用该边。
-
-| 源状态 ↓ / 目标状态 → | `Draft` | `Scheduled` | `Published` | `Archived` | `Deleted` |
-|---|---:|---:|---:|---:|---:|
-| `Draft` | ✓ | ✓ | ✓ | ✓ | — |
-| `Scheduled` | ✓ | ✓ | ✓ | ✓ | — |
-| `Published` | ✓ | ✓ | ✓ | ✓ | — |
-| `Archived` | ✓ | ✓ | ✓ | ✓ | — |
-| `Deleted` | — | — | restore only | — | — |
+完整状态边由 [API contracts 的 generated transition authority](contracts.md#文章生命周期) 投影；
+本文不维护第二份状态矩阵。`Deleted → Published` 只允许专用 restore，不能被普通 update 解释。
 
 `Scheduled` 必须携带严格晚于服务端当前 UTC 时间的 `scheduledPublishAt`；其它目标状态
 不得携带该字段。未定义枚举、缺失/过期计划时间、非法转换和直接写 `Deleted` 都返回

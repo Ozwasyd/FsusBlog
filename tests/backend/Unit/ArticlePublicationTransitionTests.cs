@@ -11,6 +11,7 @@ public sealed class ArticlePublicationTransitionTests
     private static readonly DateTime s_now = new(2026, 7, 19, 8, 0, 0, DateTimeKind.Utc);
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void CreatePlan_NewScheduledArticle_StoresScheduledDeadline()
     {
         DateTime dueAt = s_now.AddHours(2);
@@ -28,6 +29,7 @@ public sealed class ArticlePublicationTransitionTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void CreatePlan_PublishedArticleScheduledRevision_PreservesCurrentPublicState()
     {
         DateTime dueAt = s_now.AddHours(2);
@@ -48,6 +50,7 @@ public sealed class ArticlePublicationTransitionTests
     [InlineData(ArticleStatus.Published, true, false)]
     [InlineData(ArticleStatus.Archived, false, true)]
     [InlineData(ArticleStatus.Draft, false, false)]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void CreatePlan_CommonTransitions_AreDeterministic(
         ArticleStatus targetStatus,
         bool createsPublication,
@@ -66,6 +69,7 @@ public sealed class ArticlePublicationTransitionTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "content-lifecycle-fail-closed")]
     public void CreatePlan_PastScheduledDeadline_IsRejected()
     {
         ArticleStatusTransitionValidationException error = Assert.Throws<ArticleStatusTransitionValidationException>(
@@ -109,6 +113,7 @@ public sealed class ArticlePublicationTransitionTests
 
     [Theory]
     [MemberData(nameof(CompleteStateMatrix))]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Boundary)]
     public void ValidateTransition_CoversCompleteStateMatrix(
         ArticleStatus source,
         ArticleStatus target,
@@ -144,6 +149,7 @@ public sealed class ArticlePublicationTransitionTests
     [InlineData(-1)]
     [InlineData(5)]
     [InlineData(int.MaxValue)]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "content-lifecycle-fail-closed")]
     public void ValidateTarget_UndefinedStatus_IsRejectedWithStableCode(int status)
     {
         ArticleStatusTransitionValidation validation = Assert.IsType<ArticleStatusTransitionValidation>(
@@ -153,6 +159,7 @@ public sealed class ArticlePublicationTransitionTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "content-lifecycle-fail-closed")]
     public void ValidateTarget_MissingScheduledTimestamp_IsRejectedWithStableCode()
     {
         ArticleStatusTransitionValidation validation = Assert.IsType<ArticleStatusTransitionValidation>(
@@ -162,6 +169,7 @@ public sealed class ArticlePublicationTransitionTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "content-lifecycle-fail-closed")]
     public void ValidateTarget_TimestampOnNonScheduledState_IsRejectedWithStableCode()
     {
         ArticleStatusTransitionValidation validation = Assert.IsType<ArticleStatusTransitionValidation>(
@@ -183,6 +191,7 @@ public sealed class ArticlePublicationTransitionTests
     [InlineData(ArticleStatusTransitionOperation.ScheduledPublish, ArticleStatus.Scheduled, ArticleStatus.Published, true)]
     [InlineData(ArticleStatusTransitionOperation.ScheduledPublish, ArticleStatus.Published, ArticleStatus.Published, true)]
     [InlineData(ArticleStatusTransitionOperation.ScheduledPublish, ArticleStatus.Draft, ArticleStatus.Published, false)]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void ValidateTransition_EnforcesOperationSpecificSources(
         ArticleStatusTransitionOperation operation,
         ArticleStatus source,
@@ -200,6 +209,7 @@ public sealed class ArticlePublicationTransitionTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void BuildOutboxPayload_BindsExactRevisionAndPublication()
     {
         var version = new ArticleVersionCoordinates(801, 7, 901, 1001, 1201, 4);

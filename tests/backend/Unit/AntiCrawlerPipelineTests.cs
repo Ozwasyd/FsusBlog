@@ -27,6 +27,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AntiCrawlerPipelineTests
 {
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public async Task TestServer_PartitionsVerifiedCrawlerSocialPreviewAndOrdinaryReadsWhileRejectingFakeCrawler()
     {
         var sink = new CapturingRiskSink();
@@ -55,6 +56,7 @@ public sealed class AntiCrawlerPipelineTests
     [Theory]
     [InlineData(SecuritySystemModes.Observe, true)]
     [InlineData(SecuritySystemModes.Disabled, false)]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public async Task TestServer_FakeCrawlerPassesInNonEnforcingModesWithExpectedRiskSignal(
         string mode,
         bool expectsSignal)
@@ -72,6 +74,7 @@ public sealed class AntiCrawlerPipelineTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public async Task TestServer_RateLimiterRejectionRiskWritesAreBoundedPerClientAndPath()
     {
         var sink = new CapturingRiskSink();
@@ -94,6 +97,7 @@ public sealed class AntiCrawlerPipelineTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public async Task TestServer_FixedIpLimiterKeepsAuthenticatedAdminPrincipalBounded()
     {
         var sink = new CapturingRiskSink();
@@ -106,6 +110,7 @@ public sealed class AntiCrawlerPipelineTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public async Task TestServer_LoopbackRequestsBypassSharedRateLimitPolicies()
     {
         var sink = new CapturingRiskSink();
@@ -124,6 +129,7 @@ public sealed class AntiCrawlerPipelineTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "security-policy-fail-closed")]
     public async Task TestServer_RateLimiterTestsCanDisableLoopbackBypass()
     {
         var sink = new CapturingRiskSink();

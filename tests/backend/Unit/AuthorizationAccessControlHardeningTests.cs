@@ -282,6 +282,7 @@ public sealed class AuthorizationAccessControlHardeningTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public async Task AdminSensitiveStepUp_RequiresTrustedOriginAndShortSingleUseProof()
     {
         foreach (Type endpointType in new[] { typeof(BinaryEndpoints), typeof(AuthoringEndpoints), typeof(SecurityEndpoints) })

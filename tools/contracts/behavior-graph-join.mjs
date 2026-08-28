@@ -689,7 +689,12 @@ export function joinBehaviorGraph (options = {})
     }
   }
 
-  // Source identities must agree.
+  // Source commits must agree across authorities. The scheduler execution
+  // fingerprint and FactObservation fingerprint use different canonical
+  // algorithms, so exact-match fingerprints within their own authority group.
+  const staticWorktreeFingerprint = normalizeFingerprint(
+    verificationReceipt.worktreeFingerprint
+  )
   const identityChecks = [
     ['verification', verificationReceipt.sourceCommit, verificationReceipt.worktreeFingerprint],
     ['generated-section', generatedReceipt.sourceCommit, generatedReceipt.worktreeFingerprint],
@@ -701,7 +706,8 @@ export function joinBehaviorGraph (options = {})
   ]
   for (const [label, commit, fingerprint] of identityChecks)
   {
-    if (commit !== sourceCommit || normalizeFingerprint(fingerprint) !== worktreeFingerprint)
+    if (commit !== sourceCommit
+      || normalizeFingerprint(fingerprint) !== staticWorktreeFingerprint)
     {
       const reason = `${label} source identity does not match this-round source (old run/build/worktree refused)`
       pushLocator(conflicts, 'identity-mismatch', null, label, reason)

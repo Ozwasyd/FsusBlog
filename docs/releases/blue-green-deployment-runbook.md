@@ -4,6 +4,32 @@ This runbook is the current authority for slot lifecycle, atomic gateway switchi
 
 ## Slot model
 
+<!-- fsus-doc-claim
+claimId: deployment.blue-green-contract
+behaviorId: browserless-production-correctness
+claimType: generated-section
+generatedSectionId: deployment.blue-green-contract
+render: key-value-table
+anchor: slot-model
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN deployment.blue-green-contract -->
+| Key | Value |
+| --- | --- |
+| activeIdentityFields | ["activeImageDigest","activeReleaseId","activeSlot"] |
+| activeStopRejected | true |
+| destructiveCleanupExclusions | ["active-artifact","active-process","active-runtime","shared-schema","shared-volume"] |
+| failureSemantics | preserve-or-restore-active-identity |
+| operations | ["bootstrap","rollback","switch"] |
+| pendingTransitionPreservesActive | true |
+| slots | ["blue","green"] |
+| stableStates | ["stable"] |
+| standbyIdentityFields | ["imageDigest","releaseId","slot"] |
+| stateSchema | fsusblog.deployment-slots.v1 |
+| switchCommitsTargetIdentity | true |
+| transitionStates | ["rollback_required","switching"] |
+| unknownActiveIdentityPolicy | fail-closed |
+<!-- FSUSBLOG-GENERATED:END deployment.blue-green-contract -->
+
 Only `blue` and `green` are valid slots. Each slot has a distinct loopback port, Compose project, container name, immutable release identity, runtime generation and instance-local log/cache/temp roots. PostgreSQL, Redis, uploads, DataProtection keys and append-only release storage remain shared according to their own lifecycle contracts.
 
 A slot progresses through `Starting -> Candidate -> Ready -> Active -> Draining -> Stopped`. Readiness requires a positive runtime generation plus startup, dependency, schema compatibility, release identity and storage checks. Repeating the same valid transition is idempotent; an identity or generation mismatch fails closed.

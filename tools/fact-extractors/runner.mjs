@@ -111,6 +111,10 @@ export async function runExtractor({
 {
     const { digest: registryDigest } = validateRegistry(registry, repositoryRoot)
     const extractor = getExtractor(registry, extractorId)
+    if (extractor.evidenceStage === 'post-runtime')
+    {
+        fail(`${extractorId} is a post-runtime adapter; use explicit current-run raw receipt sealing`)
+    }
     const identity = sealSourceIdentity(repositoryRoot)
     const normalizedBuildIdentity = validateBuildIdentity(buildIdentity, extractor.requiredBuildArtifact)
 
@@ -203,7 +207,7 @@ export async function runAllExtractors(options = {})
     const registry = options.registry ?? loadRegistry(path.join(repositoryRoot, 'config/contracts/behavior-fact-extractors.json'))
     validateOwnershipAgainstBehaviorCatalog(registry, options.catalog, repositoryRoot)
     const receipts = []
-    for (const extractor of registry.extractors)
+    for (const extractor of registry.extractors.filter((entry) => entry.evidenceStage === 'pre-runtime'))
     {
         const result = await runExtractor({
             ...options,

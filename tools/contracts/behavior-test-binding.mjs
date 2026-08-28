@@ -823,10 +823,12 @@ export function scanBehaviorTestBindings({
 
     validateBindingSet(catalog, bindings, errors);
 
-    // Discovery completeness: every active required kind must have at least one source binding.
+    // Discovery completeness is the pre-runtime gate boundary. Post-runtime
+    // behaviors are planned and sealed by their registered runtime producers;
+    // requiring them here would create a circular dependency before candidate spawn.
     for (const contract of catalog.contracts)
     {
-        if (contract.status !== 'active')
+        if (contract.status !== 'active' || contract.evidenceStage !== 'pre-runtime')
         {
             continue;
         }
@@ -1043,7 +1045,7 @@ export function joinBehaviorTestEvidence({
     const coverage = [];
     for (const contract of catalog.contracts)
     {
-        if (contract.status !== 'active')
+        if (contract.status !== 'active' || contract.evidenceStage !== 'pre-runtime')
         {
             continue;
         }

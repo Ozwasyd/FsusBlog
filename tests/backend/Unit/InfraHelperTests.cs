@@ -62,6 +62,67 @@ public class CacheTagExtensionsTests
     }
 }
 
+public sealed class ApiErrorSemanticMapperTests
+{
+    [Theory]
+    [InlineData(ErrorCode.Validation, StatusCodes.Status400BadRequest)]
+    [InlineData(ErrorCode.Unauthorized, StatusCodes.Status401Unauthorized)]
+    [InlineData(ErrorCode.Forbidden, StatusCodes.Status403Forbidden)]
+    [InlineData(ErrorCode.NotFound, StatusCodes.Status404NotFound)]
+    [InlineData(ErrorCode.Conflict, StatusCodes.Status409Conflict)]
+    [InlineData(ErrorCode.InfraFailure, StatusCodes.Status500InternalServerError)]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
+    public void MapStatusCode_UsesStableErrorSemantics(ErrorCode code, int expectedStatus)
+    {
+        var error = ErrorDetail.Create(code, "mapped");
+
+        Assert.Equal(expectedStatus, ApiErrorSemanticMapper.MapStatusCode(error));
+    }
+
+    [Theory]
+    [InlineData(StatusCodes.Status400BadRequest, ErrorCode.Validation, "Bad Request")]
+    [InlineData(StatusCodes.Status401Unauthorized, ErrorCode.Unauthorized, "Unauthorized")]
+    [InlineData(StatusCodes.Status403Forbidden, ErrorCode.Forbidden, "Forbidden")]
+    [InlineData(StatusCodes.Status404NotFound, ErrorCode.NotFound, "Not Found")]
+    [InlineData(StatusCodes.Status409Conflict, ErrorCode.Conflict, "Conflict")]
+    [InlineData(StatusCodes.Status423Locked, ErrorCode.Forbidden, "Locked")]
+    [InlineData(StatusCodes.Status418ImATeapot, ErrorCode.InfraFailure, "Request failed")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "api-error-semantic-mapping")]
+    public void HttpStatusMapping_FailsClosedWithStableCodeAndMessage(
+        int statusCode,
+        ErrorCode expectedCode,
+        string expectedMessage)
+    {
+        Assert.Equal(expectedCode, ApiErrorSemanticMapper.MapErrorCode(statusCode));
+        Assert.Equal(expectedMessage, ApiErrorSemanticMapper.MapDefaultMessage(statusCode));
+    }
+
+    [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
+    public void CreateError_UsesDefaultOnlyForMissingMessageAndPreservesEvidenceFields()
+    {
+        ErrorDetail fallback = ApiErrorSemanticMapper.CreateError(
+            StatusCodes.Status404NotFound,
+            message: " ",
+            traceId: "trace-default",
+            details: "default-details");
+        ErrorDetail explicitMessage = ApiErrorSemanticMapper.CreateError(
+            StatusCodes.Status409Conflict,
+            message: "explicit",
+            traceId: "trace-explicit",
+            details: "explicit-details");
+
+        Assert.Equal(ErrorCode.NotFound, fallback.Code);
+        Assert.Equal("Not Found", fallback.Message);
+        Assert.Equal("trace-default", fallback.TraceId);
+        Assert.Equal("default-details", fallback.Details);
+        Assert.Equal(ErrorCode.Conflict, explicitMessage.Code);
+        Assert.Equal("explicit", explicitMessage.Message);
+        Assert.Equal("trace-explicit", explicitMessage.TraceId);
+        Assert.Equal("explicit-details", explicitMessage.Details);
+    }
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 // AedsBinaryWriter
 // ──────────────────────────────────────────────────────────────────────────────
@@ -82,6 +143,7 @@ public class AedsBinaryWriterTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Boundary)]
     public void WriteFrame_EmptyPayload_StillWritesHeader()
     {
         var encoder = new AedsEncoder();
@@ -91,6 +153,7 @@ public class AedsBinaryWriterTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void WriteFrame_ToBufferWriter_WritesBytes()
     {
         // Use real encoder (not mock) since span can't be used with NSubstitute
@@ -104,6 +167,7 @@ public class AedsBinaryWriterTests
 public class BinaryResultsTests
 {
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task FromError_WritesBinaryFrameAndMappedStatusCode()
     {
         var context = new DefaultHttpContext();
@@ -122,6 +186,7 @@ public class BinaryResultsTests
 public class BinaryRequestBinderTests
 {
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task ReadFrameAsync_ValidFrame_ReturnsPayloadSlice()
     {
         var encoder = new AedsEncoder();
@@ -148,6 +213,7 @@ public class BinaryRequestBinderTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-wire-fail-closed")]
     public async Task ReadFrameAsync_DeclaredOversizedPayloadRejectsBeforePayloadRead()
     {
         byte[] frameHeader = new byte[AedsFrameHeader.Size];
@@ -177,6 +243,7 @@ public class BinaryRequestBinderTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Boundary)]
     public async Task ReadFrameAsync_NonZeroRequestFlagsAreRejected()
     {
         byte[] frame = new AedsEncoder().Encode(AedsFrameType.MutationId, [0x01, 0x02]);
@@ -705,6 +772,7 @@ public class BackgroundWorkflowSourceTests
 public class MiddlewareResultsTests
 {
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task WriteErrorAsync_WithAedsEncoder_WritesApiErrorFrame()
     {
         var services = new ServiceCollection()
@@ -753,6 +821,7 @@ public class ApiBinaryResponseMiddlewareTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task InvokeAsync_BinaryEndpointWithTextAccept_ReturnsApiErrorFrameBeforeEndpoint()
     {
         static Task Next(HttpContext context)
@@ -782,6 +851,7 @@ public class ApiBinaryResponseMiddlewareTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task InvokeAsync_BinaryEndpointWithTextBody_ReturnsApiErrorFrameBeforeEndpoint()
     {
         static Task Next(HttpContext context)
@@ -870,6 +940,7 @@ public class ApiBinaryResponseMiddlewareTests
     [Theory]
     [InlineData("application/octet-stream;q=0")]
     [InlineData("application/json, application/octet-stream;q=0")]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Boundary)]
     public async Task InvokeAsync_BinaryEndpointQZeroRejectsBinaryAccept(string accept)
     {
         static Task Next(HttpContext context)
@@ -921,6 +992,7 @@ public class ApiBinaryResponseMiddlewareTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Boundary)]
     public async Task InvokeAsync_BinaryEndpointWithEmptyAuthorizationFailure_ReturnsApiErrorFrame()
     {
         static Task Next(HttpContext context)
@@ -983,6 +1055,7 @@ public class ApiBinaryResponseMiddlewareTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task InvokeAsync_MarkedLegacyApiWithBinaryAccept_ReturnsApiErrorFrame()
     {
         static async Task Next(HttpContext context)
@@ -1018,6 +1091,7 @@ public class ApiBinaryResponseMiddlewareTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Boundary)]
     public async Task InvokeAsync_MarkedLegacyApiWithLargeTextResponse_ReturnsCaptureLimitApiError()
     {
         static async Task Next(HttpContext context)

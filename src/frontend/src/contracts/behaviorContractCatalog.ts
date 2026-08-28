@@ -1,6 +1,6 @@
-// Generated from config/contracts/behavior-contracts.json; digest 6751b721ba30f13ffbc0e290224f8aef1d656684408af6503a618949b56539ee; do not edit by hand.
+// Generated from config/contracts/behavior-contracts.json; digest 05c3c7b07e2f4682a53905a383ad4b713f9bc98d5a72b30410c29ce251f1945e; do not edit by hand.
 
-export const BEHAVIOR_CONTRACT_CATALOG_DIGEST = '6751b721ba30f13ffbc0e290224f8aef1d656684408af6503a618949b56539ee' as const
+export const BEHAVIOR_CONTRACT_CATALOG_DIGEST = '05c3c7b07e2f4682a53905a383ad4b713f9bc98d5a72b30410c29ce251f1945e' as const
 export const BEHAVIOR_CONTRACTS = [
   {
     "id": "test-asset-audit-reconciliation",
@@ -143,11 +143,7 @@ export const BEHAVIOR_CONTRACTS = [
       "safety"
     ],
     "releaseQualification": true,
-    "evidenceStage": "post-runtime",
-    "runtimeEvidence": {
-      "producerTierId": "production-correctness",
-      "observationSchema": "fsusblog.browserless-correctness-receipt.v1"
-    },
+    "evidenceStage": "pre-runtime",
     "coverageIds": [
       "browserless-production-correctness"
     ],
@@ -283,6 +279,68 @@ export const BEHAVIOR_CONTRACTS = [
       "requireExecutedMutants": true,
       "allowedEquivalentMutantPolicy": "none"
     }
+  },
+  {
+    "id": "application-runtime-semantic-coherence",
+    "domain": "runtime",
+    "risk": "critical",
+    "status": "active",
+    "implementationOwnerCardinality": "one",
+    "allowedImplementationOwnerRoles": [],
+    "factExtractorId": "application-runtime-observation-producer",
+    "requiredTestKinds": [
+      "positive",
+      "negative",
+      "boundary"
+    ],
+    "documentationPolicy": "required",
+    "documentationRationale": "Current runtime, API, security, and content claims define the semantic application candidate contract.",
+    "allowedClaimTypes": [
+      "behavioral",
+      "safety",
+      "operational"
+    ],
+    "releaseQualification": true,
+    "evidenceStage": "post-runtime",
+    "coverageIds": [
+      "browserless-production-correctness"
+    ],
+    "documents": [
+      "docs/testing.md",
+      "docs/security.md",
+      "docs/api/article-publication-revisions.md"
+    ]
+  },
+  {
+    "id": "release-deployment-runtime-containment",
+    "domain": "deployment",
+    "risk": "critical",
+    "status": "active",
+    "implementationOwnerCardinality": "one",
+    "allowedImplementationOwnerRoles": [],
+    "factExtractorId": "release-deployment-observation-producer",
+    "requiredTestKinds": [
+      "positive",
+      "negative",
+      "boundary"
+    ],
+    "documentationPolicy": "required",
+    "documentationRationale": "Current release and deployment claims define release readiness and blue-green containment.",
+    "allowedClaimTypes": [
+      "behavioral",
+      "safety",
+      "operational"
+    ],
+    "releaseQualification": true,
+    "evidenceStage": "post-runtime",
+    "coverageIds": [
+      "blue-green-slot-orchestration"
+    ],
+    "documents": [
+      "docs/testing.md",
+      "docs/releases/blue-green-deployment-runbook.md",
+      "docs/architecture/monolithic-distributed-boundary.md"
+    ]
   }
 ] as const
 export type BehaviorId = typeof BEHAVIOR_CONTRACTS[number]['id']

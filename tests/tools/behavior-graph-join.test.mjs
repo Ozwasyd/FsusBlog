@@ -311,12 +311,13 @@ function makeVerification ({
   factObservationDigests,
   results,
   status = 'ok',
-  failureReasons = []
+  failureReasons = [],
+  worktreeFingerprint = WORKTREE_FP
 })
 {
   return sealDocClaimVerificationReceipt({
     sourceCommit: SOURCE_COMMIT,
-    worktreeFingerprint: WORKTREE_FP,
+    worktreeFingerprint,
     catalogDigest: catalogDigest(catalog),
     parseReceiptDigest: parseReceipt.contentDigest,
     factObservationDigests,
@@ -331,12 +332,13 @@ function makeGenerated ({
   factObservationDigests,
   sections,
   status = 'ok',
-  failureReasons = []
+  failureReasons = [],
+  worktreeFingerprint = WORKTREE_FP
 })
 {
   return sealGeneratedSectionCheckReceipt({
     sourceCommit: SOURCE_COMMIT,
-    worktreeFingerprint: WORKTREE_FP,
+    worktreeFingerprint,
     catalogDigest: catalogDigest(catalog),
     sectionCatalogDigest: '8'.repeat(64),
     factObservationDigests,
@@ -395,18 +397,21 @@ function defaultVerificationResults ()
 
 function happyBundle (mutators = {})
 {
+  const staticWorktreeFingerprint = mutators.staticWorktreeFingerprint ?? WORKTREE_FP
   const catalog = makeCatalog(mutators.catalog)
   const alphaFact = makeFact({
     extractorId: 'alpha-fact-extractor',
     behaviorIds: ['alpha-behavior'],
     observations: { limit: 10 },
-    buildIdentity: mutators.buildIdentity ?? null
+    buildIdentity: mutators.buildIdentity ?? null,
+    worktreeFingerprint: staticWorktreeFingerprint
   })
   const betaFact = makeFact({
     extractorId: 'beta-fact-extractor',
     behaviorIds: ['beta-behavior'],
     observations: { enabled: true },
-    buildIdentity: mutators.buildIdentity ?? null
+    buildIdentity: mutators.buildIdentity ?? null,
+    worktreeFingerprint: staticWorktreeFingerprint
   })
   const facts = mutators.facts ?? [alphaFact, betaFact]
   const owner = mutators.owner ?? makeOwner({ catalog })
@@ -428,14 +433,16 @@ function happyBundle (mutators = {})
     factObservationDigests,
     results: mutators.verificationResults ?? defaultVerificationResults(),
     status: mutators.verificationStatus ?? 'ok',
-    failureReasons: mutators.verificationFailures ?? []
+    failureReasons: mutators.verificationFailures ?? [],
+    worktreeFingerprint: staticWorktreeFingerprint
   })
   const generated = mutators.generated ?? makeGenerated({
     catalog,
     factObservationDigests,
     sections: mutators.generatedSections ?? [],
     status: mutators.generatedStatus ?? 'ok',
-    failureReasons: mutators.generatedFailures ?? []
+    failureReasons: mutators.generatedFailures ?? [],
+    worktreeFingerprint: staticWorktreeFingerprint
   })
   return {
     catalog,
@@ -497,6 +504,30 @@ test('happy path seals qualified BehaviorGraph with recomputable digest', () =>
   assert.ok(receipt.behaviorNodes.every((node) => node.qualification === 'qualified'))
   assert.equal(receipt.sourceIdentity.commit, SOURCE_COMMIT)
   assert.equal(receipt.sourceIdentity.worktreeFingerprint, WORKTREE_FP)
+})
+
+test('scheduler and static authority fingerprints may differ on the same commit', () =>
+{
+  const receipt = joinBehaviorGraph(happyBundle({
+    staticWorktreeFingerprint: '1'.repeat(64)
+  }))
+  assert.equal(receipt.status, 'ok')
+  assert.equal(receipt.sourceIdentity.worktreeFingerprint, WORKTREE_FP)
+})
+
+test('static authority receipts still require one exact fingerprint', () =>
+{
+  const inputs = happyBundle({ staticWorktreeFingerprint: '1'.repeat(64) })
+  inputs.factObservationReceipts[0] = makeFact({
+    extractorId: 'alpha-fact-extractor',
+    behaviorIds: ['alpha-behavior'],
+    observations: { limit: 10 },
+    worktreeFingerprint: '2'.repeat(64)
+  })
+  const receipt = joinBehaviorGraph(inputs)
+  assert.equal(receipt.status, 'failed')
+  assert.ok(receipt.conflicts.some((entry) =>
+    entry.kind === 'identity-mismatch' && /fact:alpha-fact-extractor/u.test(entry.anchor)))
 })
 
 test('mutation proof is linked through Behavior ID and strengthens the DocClaim-qualified node', () =>

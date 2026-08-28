@@ -80,6 +80,7 @@
                 "documentationRationale",
                 "allowedClaimTypes",
                 "releaseQualification",
+                "evidenceStage",
                 "coverageIds",
                 "documents"
             ],
@@ -163,6 +164,12 @@
                 "releaseQualification": {
                     "type": "boolean"
                 },
+                "evidenceStage": {
+                    "enum": [
+                        "pre-runtime",
+                        "post-runtime"
+                    ]
+                },
                 "coverageIds": {
                     "type": "array",
                     "minItems": 1,
@@ -178,18 +185,6 @@
                     "items": {
                         "type": "string",
                         "pattern": "^docs/"
-                    }
-                },
-                "evidenceStage": {
-                    "enum": ["pre-runtime", "post-runtime"]
-                },
-                "runtimeEvidence": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["producerTierId", "observationSchema"],
-                    "properties": {
-                        "producerTierId": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
-                        "observationSchema": { "type": "string", "pattern": "^fsusblog\\.[a-z0-9.-]+\\.v[0-9]+$" }
                     }
                 },
                 "mutationPolicy": {
