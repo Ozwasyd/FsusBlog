@@ -14,6 +14,7 @@ import {
   validateLegacyRealDumpPreflight,
   validateLegacyRealDumpRuntimeEvidence
 } from '../../tools/test/legacy-real-dump-contract.mjs'
+import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const sourceSha = '1'.repeat(40)
@@ -72,13 +73,17 @@ function trxRow({ name = legacyRealDumpContract.fullyQualifiedName, outcome = 'P
   return `<UnitTestResult testName="${name}" outcome="${outcome}">${output}</UnitTestResult>`
 }
 
-test('ordinary integration is not-selected and the contract allows one dedicated owner', () => {
+test('ordinary integration is not-selected and the dedicated producer is the exact-one planned owner', () => {
   assert.equal(buildLegacyRealDumpMembership('integration').result, 'not-selected')
   assert.equal(buildLegacyRealDumpMembership(legacyRealDumpContract.producerId).result, 'planned')
   assert.throws(() => buildLegacyRealDumpMembership('second-owner'), /unsupported/u)
 
   const suite = fs.readFileSync(path.join(root, 'tools/test/lanes/_suite-support.sh'), 'utf8')
   assert.match(suite, /Category=Integration&Fixture!=Legacy20260517RealDump/u)
+  const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'))
+  const owners = matrix.tiers.filter((tier) => tier.id === legacyRealDumpContract.producerId)
+  assert.equal(owners.length, 1)
+  assert.equal(owners[0].command, 'node tools/test/run-legacy-real-dump-producer.mjs')
 })
 
 test('preflight binds enable, readable dump, source, digest and PostgreSQL image identity', (t) => {
