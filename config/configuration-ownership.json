@@ -135,6 +135,34 @@
             "pathType": "file"
         },
         {
+            "id": "bounded-channel-delivery-contract-catalog",
+            "owner": "test-governance",
+            "canonicalPath": "config/testing/bounded-channel-delivery-contracts.json",
+            "pathType": "file",
+            "purpose": "Closed-world inventory of bounded backend channels, delivery classes, failure semantics, and proof sources.",
+            "consumers": [
+                "tools/governance/bounded-channel-contracts.mjs",
+                "tests/tools/bounded-channel-contracts.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/bounded-channel-contracts.test.mjs",
+            "changePolicy": "manual-update-with-bounded-channel-discovery-and-contract-validation",
+            "status": "manual"
+        },
+        {
+            "id": "bounded-channel-delivery-contract-schema",
+            "owner": "test-governance",
+            "canonicalPath": "config/testing/bounded-channel-delivery-contracts.schema.json",
+            "pathType": "file",
+            "purpose": "Closed JSON Schema for bounded-channel delivery catalog entries and delivery-class proof variants.",
+            "consumers": [
+                "tools/governance/bounded-channel-contracts.mjs",
+                "tests/tools/bounded-channel-contracts.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/bounded-channel-contracts.test.mjs",
+            "changePolicy": "manual-update-with-bounded-channel-discovery-and-contract-validation",
+            "status": "manual"
+        },
+        {
             "id": "fsusui-test-baseline",
             "owner": "frontend-test-governance",
             "canonicalPath": "config/testing/fsusui-baseline.json",
