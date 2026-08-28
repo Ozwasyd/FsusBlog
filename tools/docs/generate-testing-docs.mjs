@@ -4,10 +4,6 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { loadMatrix, relative, root } from './lib/matrix.mjs'
-import {
-  testingDocsTransitionPath,
-  testingDocsTransitionStatus
-} from './testing-docs-transition.mjs'
 import { buildAggregatePlan, buildReceiptPlan } from '../test-matrix/aggregate-plan.mjs'
 
 const groupDefinitions = [
@@ -333,18 +329,6 @@ function main() {
   if (check) {
     const current = fs.existsSync(outFile) ? fs.readFileSync(outFile, 'utf8') : ''
     if (current !== rendered) {
-      const transition = testingDocsTransitionStatus({ root, outFile, current, rendered })
-      if (transition.present && transition.errors.length === 0) {
-        writeSummary('transition', outFile)
-        console.log(`[testing-docs] accepted exact transition ${testingDocsTransitionPath}`)
-        return
-      }
-      if (transition.present) {
-        const error = `${relative(outFile)} transition receipt is invalid: ${transition.errors.join('; ')}`
-        writeSummary('failed', outFile, [error])
-        console.error(`[testing-docs] ${error}`)
-        process.exit(1)
-      }
       const error = `${relative(outFile)} is not in sync with tests/matrix.yml`
       writeSummary('failed', outFile, [error])
       console.error(`[testing-docs] ${error}`)
