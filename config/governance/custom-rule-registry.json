@@ -3,7 +3,7 @@
     "generatedBy": "tools/governance/check-rule-platform.mjs --write-registry",
     "inventory": {
         "packageScriptCount": 214,
-        "implementationCount": 394
+        "implementationCount": 395
     },
     "rules": [
         {
@@ -14682,6 +14682,34 @@
                 "mode": "delegated-implementation",
                 "implementation": "tools/test/check-stryker-report.mjs",
                 "executionKey": "governance:file:tools/test/check-stryker-report.mjs",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Implementation.ToolsTestCheckTemporalShapeGovernanceMjs",
+            "externalId": "tools/test/check-temporal-shape-governance.mjs",
+            "symbol": "CheckToolsTestCheckTemporalShapeGovernance",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "parser",
+            "sourceScopes": [
+                "tools/test/check-temporal-shape-governance.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/test/check-temporal-shape-governance.mjs",
+                "executionKey": "governance:file:tools/test/check-temporal-shape-governance.mjs",
                 "receiptCompatible": true
             }
         },

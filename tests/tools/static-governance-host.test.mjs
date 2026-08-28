@@ -64,8 +64,14 @@ test('lifecycle and destructive checks preserve independent process boundaries',
     for (const host of plan.hosts.filter((entry) => entry.category === 'real-subprocess-lifecycle'))
     {
         assert.equal(host.checks.length, 1);
-        assert.equal(host.exclusive, false);
+        assert.equal(host.exclusive, host.checks[0].exclusive === true);
     }
+    assert.equal(plan.hosts.find((host) => host.id.endsWith(':gateway-switch')).exclusive, true);
+    assert.equal(plan.hosts.find((host) => host.id.endsWith(':deployment-slots')).exclusive, true);
+    assert.ok(
+        plan.hosts.some((host) =>
+            host.category === 'real-subprocess-lifecycle' && host.exclusive === false)
+    );
     for (const host of plan.hosts.filter((entry) => entry.category === 'exclusive-resource-destructive-rehearsal'))
     {
         assert.equal(host.checks.length, 1);
@@ -86,6 +92,13 @@ test('registry and execution evidence fail closed for missing, duplicate and unk
             checks: [{ ...registry.checks[0], category: 'invented' }]
         }),
         /unknown isolation category/u
+    );
+    assert.throws(
+        () => buildStaticGovernanceExecutionPlan({
+            ...registry,
+            checks: [{ ...registry.checks[0], exclusive: false }]
+        }),
+        /invalid exclusive lifecycle declaration/u
     );
 
     const plan = buildStaticGovernanceExecutionPlan(registry);

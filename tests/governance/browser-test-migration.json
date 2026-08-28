@@ -74,7 +74,7 @@
                 ],
                 "replacementLayer": "correctness",
                 "replacementTestIds": [
-                    "node-test:tests/tools/browserless-correctness-contract.test.mjs#every-browser-capable-tier-declares-the-browser-resource-df63a35678",
+                    "node-test:tests/tools/test-matrix-resource-contract.test.mjs#browser-capable-tiers-cannot-hide-outside-browser-resour-d660ad739f",
                     "node-test:tests/tools/browser-diagnostics.test.mjs#diagnostics-topology-is-fixed-managed-and-independent-fr-cea18d9ce2"
                 ],
                 "browserOnlyRisk": {

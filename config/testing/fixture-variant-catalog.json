@@ -1,1820 +1,2171 @@
 {
-  "schema": "fsusblog.fixture-variant-catalog.v1",
-  "validityClasses": [
-    {
-      "id": "canonical-positive",
-      "semantics": "Legally producible by the current production write contract; all mandatory derived relations are complete.",
-      "allowedExecutionClasses": ["acceptance", "browser", "load", "runtime", "security"]
-    },
-    {
-      "id": "migration-legacy",
-      "semantics": "Exclusively for migration, old-format read, and retirement verification; ordinary correctness consumers are forbidden.",
-      "allowedExecutionClasses": ["diagnostic"]
-    },
-    {
-      "id": "negative-invalid",
-      "semantics": "Deliberately violates exactly one invariant and must be rejected.",
-      "allowedExecutionClasses": ["security"]
-    },
-    {
-      "id": "diagnostic-only",
-      "semantics": "Visual, fault-drill, or tool diagnostic data; never release qualification.",
-      "allowedExecutionClasses": ["development", "diagnostic"]
-    },
-    {
-      "id": "scale-synthetic",
-      "semantics": "Deterministic bulk data with declared production-graph equivalence and non-equivalence.",
-      "allowedExecutionClasses": ["load"]
-    }
-  ],
-  "writerContracts": [
-    {
-      "id": "current-production-write"
-    },
-    {
-      "id": "deterministic-scale-generator"
-    },
-    {
-      "id": "diagnostic-demo-seed"
-    },
-    {
-      "id": "migration-retirement-reader"
-    },
-    {
-      "id": "negative-command-rejection"
-    }
-  ],
-  "contentShapes": [
-    {
-      "id": "account-identity"
-    },
-    {
-      "id": "account-message"
-    },
-    {
-      "id": "account-preference"
-    },
-    {
-      "id": "article-lifecycle"
-    },
-    {
-      "id": "comment-thread"
-    },
-    {
-      "id": "demo-dataset"
-    },
-    {
-      "id": "empty-public-state"
-    },
-    {
-      "id": "home-projection"
-    },
-    {
-      "id": "moderation-policy"
-    },
-    {
-      "id": "scale-graph"
-    },
-    {
-      "id": "search-projection"
-    },
-    {
-      "id": "security-state"
-    },
-    {
-      "id": "taxonomy"
-    }
-  ],
-  "temporalShapes": [
-    {
-      "id": "current-production"
-    },
-    {
-      "id": "deterministic-scale"
-    },
-    {
-      "id": "diagnostic-local"
-    },
-    {
-      "id": "legacy-migration"
-    }
-  ],
-  "mediaShapes": [
-    {
-      "id": "cover-and-no-cover",
-      "semantics": "Live observed entities include at least one cover-bearing entity and at least one entity without a cover."
-    },
-    {
-      "id": "no-media",
-      "semantics": "No live observed entity bound to the variant has hasCover=true or a non-empty coverImageUrl."
-    }
-  ],
-  "distributionShapes": [
-    {
-      "id": "deterministic-bulk"
-    }
-  ],
-  "derivedStates": [
-    {
-      "id": "legacy-read-verification"
-    },
-    {
-      "id": "production-derived-state"
-    },
-    {
-      "id": "rejected-by-validator"
-    },
-    {
-      "id": "scale-counts-verified"
-    }
-  ],
-  "sentinels": [
-    {
-      "id": "created-by-admin-principal-zero",
-      "value": "created_by_admin_principal_id=0",
-      "allowedValidityClasses": [
-        "migration-legacy"
-      ],
-      "allowedProfiles": [
-      ],
-      "profileScope": "unbound-retired",
-      "forbiddenInCanonicalPositive": true,
-      "retirementOwner": "fixture-variant-governance"
-    },
-    {
-      "id": "legacy-server-visible-pseudonymous",
-      "value": "legacy_server_visible_pseudonymous",
-      "allowedValidityClasses": [
-        "migration-legacy"
-      ],
-      "allowedProfiles": [
-      ],
-      "profileScope": "unbound-retired",
-      "forbiddenInCanonicalPositive": true,
-      "retirementOwner": "fixture-variant-governance"
-    },
-    {
-      "id": "legacy-unverified",
-      "value": "legacy_unverified",
-      "allowedValidityClasses": [
-        "migration-legacy"
-      ],
-      "allowedProfiles": [
-      ],
-      "profileScope": "unbound-retired",
-      "forbiddenInCanonicalPositive": true,
-      "retirementOwner": "fixture-variant-governance"
-    },
-    {
-      "id": "legacy-verified",
-      "value": "legacy_verified",
-      "allowedValidityClasses": [
-        "migration-legacy"
-      ],
-      "allowedProfiles": [
-      ],
-      "profileScope": "unbound-retired",
-      "forbiddenInCanonicalPositive": true,
-      "retirementOwner": "fixture-variant-governance"
-    },
-    {
-      "id": "rights-v3-content-hash-recompute",
-      "value": "rights-v3:content-hash:recompute",
-      "allowedValidityClasses": [
-        "migration-legacy"
-      ],
-      "allowedProfiles": [
-      ],
-      "profileScope": "unbound-retired",
-      "forbiddenInCanonicalPositive": true,
-      "retirementOwner": "fixture-variant-governance"
-    },
-    {
-      "id": "rights-v3-policy-hash-recompute",
-      "value": "rights-v3:policy-hash:recompute",
-      "allowedValidityClasses": [
-        "migration-legacy",
-        "negative-invalid"
-      ],
-      "allowedProfiles": [
-      ],
-      "profileScope": "unbound-retired",
-      "forbiddenInCanonicalPositive": true,
-      "retirementOwner": "fixture-variant-governance"
-    },
-    {
-      "id": "unknown-audit-action",
-      "value": "unknown audit action",
-      "allowedValidityClasses": [
-        "migration-legacy"
-      ],
-      "allowedProfiles": [
-      ],
-      "profileScope": "unbound-retired",
-      "forbiddenInCanonicalPositive": true,
-      "retirementOwner": "fixture-variant-governance"
-    },
-    {
-      "id": "unverified-local-fallback-object",
-      "value": "unverified local fallback object",
-      "allowedValidityClasses": [
-        "migration-legacy"
-      ],
-      "allowedProfiles": [
-      ],
-      "profileScope": "unbound-retired",
-      "forbiddenInCanonicalPositive": true,
-      "retirementOwner": "fixture-variant-governance"
-    }
-  ],
-  "variants": [
-    {
-      "id": "canonical.auth.admin.disabled",
-      "capabilityId": "auth.admin.disabled",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "auth-session",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "account-identity"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.auth.admin.full-permission",
-      "capabilityId": "auth.admin.full-permission",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "auth-session",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "account-identity"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.auth.admin.partial-permission",
-      "capabilityId": "auth.admin.partial-permission",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "auth-session",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "account-identity"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.auth.admin.read-only",
-      "capabilityId": "auth.admin.read-only",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "auth-session",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "account-identity"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.auth.user.active",
-      "capabilityId": "auth.user.active",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "auth-session",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "account-identity"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.auth.user.deleted",
-      "capabilityId": "auth.user.deleted",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "auth-session",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "account-identity"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.auth.user.mfa-enabled",
-      "capabilityId": "auth.user.mfa-enabled",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "auth-session",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "account-identity"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.comment.moderation-matrix",
-      "capabilityId": "comment.moderation-matrix",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "comment-moderation",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "comment-thread"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.comment.threaded",
-      "capabilityId": "comment.threaded",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "comment-moderation",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "comment-thread"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.messages.thread",
-      "capabilityId": "messages.thread",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "account-messaging",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "account-message"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.moderation.policy-matrix",
-      "capabilityId": "moderation.policy-matrix",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "comment-moderation",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "moderation-policy"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.notifications.unread",
-      "capabilityId": "notifications.unread",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "account-messaging",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "account-message"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.preferences.locale-auto",
-      "capabilityId": "preferences.locale-auto",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "account-messaging",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "account-preference"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.preferences.locale-fixed",
-      "capabilityId": "preferences.locale-fixed",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "account-messaging",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "account-preference"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.public.article.archived",
-      "capabilityId": "public.article.archived",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "public-content",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "article-lifecycle"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.public.article.deleted",
-      "capabilityId": "public.article.deleted",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "public-content",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "article-lifecycle"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.public.article.draft",
-      "capabilityId": "public.article.draft",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "public-content",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "article-lifecycle"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.public.article.multiple-publications",
-      "capabilityId": "public.article.multiple-publications",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "public-content",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "article-lifecycle"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.public.article.multiple-revisions",
-      "capabilityId": "public.article.multiple-revisions",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "public-content",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "article-lifecycle"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.public.article.published",
-      "capabilityId": "public.article.published",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "public-content",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "article-lifecycle"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "cover-and-no-cover"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.public.article.revision-history",
-      "capabilityId": "public.article.revision-history",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "public-content",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "article-lifecycle"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "cover-and-no-cover"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.public.article.scheduled",
-      "capabilityId": "public.article.scheduled",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "public-content",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "article-lifecycle"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.public.empty",
-      "capabilityId": "public.empty",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "public-content",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "empty-public-state"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.public.home.featured-hot",
-      "capabilityId": "public.home.featured-hot",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "public-content",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "home-projection"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "cover-and-no-cover"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.public.search.indexed",
-      "capabilityId": "public.search.indexed",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "public-content",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "search-projection"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "cover-and-no-cover"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.public.taxonomy.category-tag",
-      "capabilityId": "public.taxonomy.category-tag",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "public-content",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "taxonomy"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.security.credential.revoked",
-      "capabilityId": "security.credential.revoked",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "security-state",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "security-state"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "load",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "load",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.security.pow.elevated",
-      "capabilityId": "security.pow.elevated",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "security-state",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "security-state"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "load",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "load",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.security.risk-escalated",
-      "capabilityId": "security.risk-escalated",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "security-state",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "security-state"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "load",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "load",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.security.subject.banned",
-      "capabilityId": "security.subject.banned",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "security-state",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "security-state"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "load",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "load",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.session.multi-device",
-      "capabilityId": "session.multi-device",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "auth-session",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "account-identity"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ]
-    },
-    {
-      "id": "canonical.session.single-device",
-      "capabilityId": "session.single-device",
-      "validityClass": "canonical-positive",
-      "ownerProducerId": "auth-session",
-      "writerContractId": "current-production-write",
-      "contentShapeIds": [
-        "account-identity"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [
-        "created-by-admin-principal-zero",
-        "legacy-server-visible-pseudonymous",
-        "legacy-unverified",
-        "legacy-verified",
-        "rights-v3-content-hash-recompute",
-        "rights-v3-policy-hash-recompute",
-        "unknown-audit-action",
-        "unverified-local-fallback-object"
-      ],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ],
-      "defaultExecutionClasses": [
-        "acceptance",
-        "browser",
-        "load",
-        "runtime",
-        "security"
-      ]
-    },
-    {
-      "id": "diagnostic.development.demo.dataset",
-      "capabilityId": "development.demo.dataset",
-      "validityClass": "diagnostic-only",
-      "ownerProducerId": "development-demo",
-      "writerContractId": "diagnostic-demo-seed",
-      "contentShapeIds": [
-        "demo-dataset"
-      ],
-      "temporalShapeId": "diagnostic-local",
-      "mediaShapeIds": [
-        "cover-and-no-cover"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "production-derived-state"
-      ],
-      "forbiddenSentinelIds": [],
-      "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
-      "allowedExecutionClasses": [
-        "development",
-        "diagnostic"
-      ],
-      "defaultExecutionClasses": [
-        "development",
-        "diagnostic"
-      ]
-    },
-    {
-      "id": "migration.comment-threaded-legacy-author",
-      "capabilityId": "comment.threaded",
-      "validityClass": "migration-legacy",
-      "ownerProducerId": "comment-moderation",
-      "writerContractId": "migration-retirement-reader",
-      "contentShapeIds": [
-        "comment-thread"
-      ],
-      "temporalShapeId": "legacy-migration",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "legacy-read-verification"
-      ],
-      "forbiddenSentinelIds": [],
-      "expectedBoundary": "Legacy comment author read and retirement verification only.",
-      "allowedExecutionClasses": [
-        "diagnostic"
-      ],
-      "defaultExecutionClasses": [
-        "diagnostic"
-      ]
-    },
-    {
-      "id": "migration.public-article-published-legacy",
-      "capabilityId": "public.article.published",
-      "validityClass": "migration-legacy",
-      "ownerProducerId": "public-content",
-      "writerContractId": "migration-retirement-reader",
-      "contentShapeIds": [
-        "article-lifecycle"
-      ],
-      "temporalShapeId": "legacy-migration",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "legacy-read-verification"
-      ],
-      "forbiddenSentinelIds": [],
-      "expectedBoundary": "Migration and retirement read boundary only.",
-      "allowedExecutionClasses": [
-        "diagnostic"
-      ],
-      "defaultExecutionClasses": [
-        "diagnostic"
-      ]
-    },
-    {
-      "id": "migration.session-single-device-legacy-authentication",
-      "capabilityId": "session.single-device",
-      "validityClass": "migration-legacy",
-      "ownerProducerId": "auth-session",
-      "writerContractId": "migration-retirement-reader",
-      "contentShapeIds": [
-        "account-identity"
-      ],
-      "temporalShapeId": "legacy-migration",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "legacy-read-verification"
-      ],
-      "forbiddenSentinelIds": [],
-      "expectedBoundary": "Legacy authentication-strength read and retirement verification only.",
-      "allowedExecutionClasses": [
-        "diagnostic"
-      ],
-      "defaultExecutionClasses": [
-        "diagnostic"
-      ]
-    },
-    {
-      "id": "negative.public-article-published-rights-recompute",
-      "capabilityId": "public.article.published",
-      "validityClass": "negative-invalid",
-      "ownerProducerId": "public-content",
-      "writerContractId": "negative-command-rejection",
-      "contentShapeIds": [
-        "article-lifecycle"
-      ],
-      "temporalShapeId": "current-production",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": null,
-      "requiredDerivedStateIds": [
-        "rejected-by-validator"
-      ],
-      "forbiddenSentinelIds": [],
-      "expectedBoundary": "Exactly one rights-hash invariant is violated and command rejection is required.",
-      "expectedInvariantId": "rights-policy-hash-ready",
-      "injectedSentinelId": "rights-v3-policy-hash-recompute",
-      "allowedExecutionClasses": [
-        "security"
-      ],
-      "defaultExecutionClasses": []
-    },
-    {
-      "id": "scale.scale.article-comment.l",
-      "capabilityId": "scale.article-comment.l",
-      "validityClass": "scale-synthetic",
-      "ownerProducerId": "scale-data",
-      "writerContractId": "deterministic-scale-generator",
-      "contentShapeIds": [
-        "scale-graph"
-      ],
-      "temporalShapeId": "deterministic-scale",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": "deterministic-bulk",
-      "requiredDerivedStateIds": [
-        "scale-counts-verified"
-      ],
-      "forbiddenSentinelIds": [],
-      "expectedBoundary": "equivalent: schema and relationship constraints; not-equivalent: production behavior distribution.",
-      "allowedExecutionClasses": [
-        "load"
-      ],
-      "defaultExecutionClasses": [
-        "load"
-      ]
-    },
-    {
-      "id": "scale.scale.article-comment.m",
-      "capabilityId": "scale.article-comment.m",
-      "validityClass": "scale-synthetic",
-      "ownerProducerId": "scale-data",
-      "writerContractId": "deterministic-scale-generator",
-      "contentShapeIds": [
-        "scale-graph"
-      ],
-      "temporalShapeId": "deterministic-scale",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": "deterministic-bulk",
-      "requiredDerivedStateIds": [
-        "scale-counts-verified"
-      ],
-      "forbiddenSentinelIds": [],
-      "expectedBoundary": "equivalent: schema and relationship constraints; not-equivalent: production behavior distribution.",
-      "allowedExecutionClasses": [
-        "load"
-      ],
-      "defaultExecutionClasses": [
-        "load"
-      ]
-    },
-    {
-      "id": "scale.scale.article-comment.s",
-      "capabilityId": "scale.article-comment.s",
-      "validityClass": "scale-synthetic",
-      "ownerProducerId": "scale-data",
-      "writerContractId": "deterministic-scale-generator",
-      "contentShapeIds": [
-        "scale-graph"
-      ],
-      "temporalShapeId": "deterministic-scale",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": "deterministic-bulk",
-      "requiredDerivedStateIds": [
-        "scale-counts-verified"
-      ],
-      "forbiddenSentinelIds": [],
-      "expectedBoundary": "equivalent: schema and relationship constraints; not-equivalent: production behavior distribution.",
-      "allowedExecutionClasses": [
-        "load"
-      ],
-      "defaultExecutionClasses": [
-        "load"
-      ]
-    },
-    {
-      "id": "scale.scale.article-comment.xs",
-      "capabilityId": "scale.article-comment.xs",
-      "validityClass": "scale-synthetic",
-      "ownerProducerId": "scale-data",
-      "writerContractId": "deterministic-scale-generator",
-      "contentShapeIds": [
-        "scale-graph"
-      ],
-      "temporalShapeId": "deterministic-scale",
-      "mediaShapeIds": [
-        "no-media"
-      ],
-      "distributionShapeId": "deterministic-bulk",
-      "requiredDerivedStateIds": [
-        "scale-counts-verified"
-      ],
-      "forbiddenSentinelIds": [],
-      "expectedBoundary": "equivalent: schema and relationship constraints; not-equivalent: production behavior distribution.",
-      "allowedExecutionClasses": [
-        "load"
-      ],
-      "defaultExecutionClasses": [
-        "load"
-      ]
-    }
-  ]
+    "schema": "fsusblog.fixture-variant-catalog.v1",
+    "validityClasses": [
+        {
+            "id": "canonical-positive",
+            "semantics": "Legally producible by the current production write contract; all mandatory derived relations are complete.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "migration-legacy",
+            "semantics": "Exclusively for migration, old-format read, and retirement verification; ordinary correctness consumers are forbidden.",
+            "allowedExecutionClasses": [
+                "diagnostic"
+            ]
+        },
+        {
+            "id": "negative-invalid",
+            "semantics": "Deliberately violates exactly one invariant and must be rejected.",
+            "allowedExecutionClasses": [
+                "security"
+            ]
+        },
+        {
+            "id": "diagnostic-only",
+            "semantics": "Visual, fault-drill, or tool diagnostic data; never release qualification.",
+            "allowedExecutionClasses": [
+                "development",
+                "diagnostic"
+            ]
+        },
+        {
+            "id": "scale-synthetic",
+            "semantics": "Deterministic bulk data with declared production-graph equivalence and non-equivalence.",
+            "allowedExecutionClasses": [
+                "load"
+            ]
+        }
+    ],
+    "writerContracts": [
+        {
+            "id": "current-production-write"
+        },
+        {
+            "id": "deterministic-scale-generator"
+        },
+        {
+            "id": "diagnostic-demo-seed"
+        },
+        {
+            "id": "migration-retirement-reader"
+        },
+        {
+            "id": "negative-command-rejection"
+        }
+    ],
+    "contentShapes": [
+        {
+            "id": "account-identity"
+        },
+        {
+            "id": "account-message"
+        },
+        {
+            "id": "account-preference"
+        },
+        {
+            "id": "article-lifecycle"
+        },
+        {
+            "id": "comment-thread"
+        },
+        {
+            "id": "demo-dataset"
+        },
+        {
+            "id": "empty-public-state"
+        },
+        {
+            "id": "home-projection"
+        },
+        {
+            "id": "moderation-policy"
+        },
+        {
+            "id": "scale-graph"
+        },
+        {
+            "id": "search-projection"
+        },
+        {
+            "id": "security-state"
+        },
+        {
+            "id": "taxonomy"
+        }
+    ],
+    "temporalShapes": [
+        {
+            "id": "current-production"
+        },
+        {
+            "id": "deterministic-scale"
+        },
+        {
+            "id": "diagnostic-local"
+        },
+        {
+            "id": "legacy-migration"
+        }
+    ],
+    "mediaShapes": [
+        {
+            "id": "cover-and-no-cover",
+            "semantics": "Live observed entities include at least one cover-bearing entity and at least one entity without a cover."
+        },
+        {
+            "id": "no-media",
+            "semantics": "No live observed entity bound to the variant has hasCover=true or a non-empty coverImageUrl."
+        }
+    ],
+    "distributionShapes": [
+        {
+            "id": "deterministic-bulk"
+        }
+    ],
+    "derivedStates": [
+        {
+            "id": "legacy-read-verification"
+        },
+        {
+            "id": "production-derived-state"
+        },
+        {
+            "id": "rejected-by-validator"
+        },
+        {
+            "id": "scale-counts-verified"
+        }
+    ],
+    "sentinels": [
+        {
+            "id": "created-by-admin-principal-zero",
+            "value": "created_by_admin_principal_id=0",
+            "allowedValidityClasses": [
+                "migration-legacy"
+            ],
+            "allowedProfiles": [],
+            "profileScope": "unbound-retired",
+            "forbiddenInCanonicalPositive": true,
+            "retirementOwner": "fixture-variant-governance"
+        },
+        {
+            "id": "legacy-server-visible-pseudonymous",
+            "value": "legacy_server_visible_pseudonymous",
+            "allowedValidityClasses": [
+                "migration-legacy"
+            ],
+            "allowedProfiles": [],
+            "profileScope": "unbound-retired",
+            "forbiddenInCanonicalPositive": true,
+            "retirementOwner": "fixture-variant-governance"
+        },
+        {
+            "id": "legacy-unverified",
+            "value": "legacy_unverified",
+            "allowedValidityClasses": [
+                "migration-legacy"
+            ],
+            "allowedProfiles": [],
+            "profileScope": "unbound-retired",
+            "forbiddenInCanonicalPositive": true,
+            "retirementOwner": "fixture-variant-governance"
+        },
+        {
+            "id": "legacy-verified",
+            "value": "legacy_verified",
+            "allowedValidityClasses": [
+                "migration-legacy"
+            ],
+            "allowedProfiles": [],
+            "profileScope": "unbound-retired",
+            "forbiddenInCanonicalPositive": true,
+            "retirementOwner": "fixture-variant-governance"
+        },
+        {
+            "id": "rights-v3-content-hash-recompute",
+            "value": "rights-v3:content-hash:recompute",
+            "allowedValidityClasses": [
+                "migration-legacy"
+            ],
+            "allowedProfiles": [],
+            "profileScope": "unbound-retired",
+            "forbiddenInCanonicalPositive": true,
+            "retirementOwner": "fixture-variant-governance"
+        },
+        {
+            "id": "rights-v3-policy-hash-recompute",
+            "value": "rights-v3:policy-hash:recompute",
+            "allowedValidityClasses": [
+                "migration-legacy",
+                "negative-invalid"
+            ],
+            "allowedProfiles": [],
+            "profileScope": "unbound-retired",
+            "forbiddenInCanonicalPositive": true,
+            "retirementOwner": "fixture-variant-governance"
+        },
+        {
+            "id": "unknown-audit-action",
+            "value": "unknown audit action",
+            "allowedValidityClasses": [
+                "migration-legacy"
+            ],
+            "allowedProfiles": [],
+            "profileScope": "unbound-retired",
+            "forbiddenInCanonicalPositive": true,
+            "retirementOwner": "fixture-variant-governance"
+        },
+        {
+            "id": "unverified-local-fallback-object",
+            "value": "unverified local fallback object",
+            "allowedValidityClasses": [
+                "migration-legacy"
+            ],
+            "allowedProfiles": [],
+            "profileScope": "unbound-retired",
+            "forbiddenInCanonicalPositive": true,
+            "retirementOwner": "fixture-variant-governance"
+        }
+    ],
+    "variants": [
+        {
+            "id": "canonical.auth.admin.disabled",
+            "capabilityId": "auth.admin.disabled",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "auth-session",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-identity"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.auth.admin.full-permission",
+            "capabilityId": "auth.admin.full-permission",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "auth-session",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-identity"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.auth.admin.partial-permission",
+            "capabilityId": "auth.admin.partial-permission",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "auth-session",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-identity"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.auth.admin.read-only",
+            "capabilityId": "auth.admin.read-only",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "auth-session",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-identity"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.auth.admin.root-bootstrap-empty",
+            "capabilityId": "auth.admin.root-bootstrap-empty",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "auth-session",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-identity"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.auth.user.active",
+            "capabilityId": "auth.user.active",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "auth-session",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-identity"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.auth.user.deleted",
+            "capabilityId": "auth.user.deleted",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "auth-session",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-identity"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.auth.user.mfa-disabled",
+            "capabilityId": "auth.user.mfa-disabled",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "auth-session",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-identity"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.auth.user.passkey-enabled",
+            "capabilityId": "auth.user.passkey-enabled",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "auth-session",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-identity"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.auth.user.recovery-enabled",
+            "capabilityId": "auth.user.recovery-enabled",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "auth-session",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-identity"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.auth.user.mfa-enabled",
+            "capabilityId": "auth.user.mfa-enabled",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "auth-session",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-identity"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.comment.moderation-matrix",
+            "capabilityId": "comment.moderation-matrix",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "comment-moderation",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "comment-thread"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.comment.threaded",
+            "capabilityId": "comment.threaded",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "comment-moderation",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "comment-thread"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.messages.thread",
+            "capabilityId": "messages.thread",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "account-messaging",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-message"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.moderation.policy-matrix",
+            "capabilityId": "moderation.policy-matrix",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "comment-moderation",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "moderation-policy"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.notifications.unread",
+            "capabilityId": "notifications.unread",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "account-messaging",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-message"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.preferences.locale-auto",
+            "capabilityId": "preferences.locale-auto",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "account-messaging",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-preference"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.preferences.locale-fixed",
+            "capabilityId": "preferences.locale-fixed",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "account-messaging",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-preference"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.public.article.archived",
+            "capabilityId": "public.article.archived",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "public-content",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "article-lifecycle"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.public.article.deleted",
+            "capabilityId": "public.article.deleted",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "public-content",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "article-lifecycle"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.public.article.draft",
+            "capabilityId": "public.article.draft",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "public-content",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "article-lifecycle"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.public.article.multiple-publications",
+            "capabilityId": "public.article.multiple-publications",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "public-content",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "article-lifecycle"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.public.article.multiple-revisions",
+            "capabilityId": "public.article.multiple-revisions",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "public-content",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "article-lifecycle"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.public.article.published",
+            "capabilityId": "public.article.published",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "public-content",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "article-lifecycle"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "cover-and-no-cover"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.public.article.revision-history",
+            "capabilityId": "public.article.revision-history",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "public-content",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "article-lifecycle"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "cover-and-no-cover"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.public.article.scheduled",
+            "capabilityId": "public.article.scheduled",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "public-content",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "article-lifecycle"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.public.empty",
+            "capabilityId": "public.empty",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "public-content",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "empty-public-state"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.public.home.featured-hot",
+            "capabilityId": "public.home.featured-hot",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "public-content",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "home-projection"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "cover-and-no-cover"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.public.search.indexed",
+            "capabilityId": "public.search.indexed",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "public-content",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "search-projection"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "cover-and-no-cover"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.public.taxonomy.category-tag",
+            "capabilityId": "public.taxonomy.category-tag",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "public-content",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "taxonomy"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.security.credential.revoked",
+            "capabilityId": "security.credential.revoked",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "security-state",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "security-state"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "load",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "load",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.security.pow.elevated",
+            "capabilityId": "security.pow.elevated",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "security-state",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "security-state"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "load",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "load",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.security.risk-escalated",
+            "capabilityId": "security.risk-escalated",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "security-state",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "security-state"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "load",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "load",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.security.subject.banned",
+            "capabilityId": "security.subject.banned",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "security-state",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "security-state"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "load",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "load",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.session.expired",
+            "capabilityId": "session.expired",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "auth-session",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-identity"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.session.multi-device",
+            "capabilityId": "session.multi-device",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "auth-session",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-identity"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.session.refresh-rotated",
+            "capabilityId": "session.refresh-rotated",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "auth-session",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-identity"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.session.remembered",
+            "capabilityId": "session.remembered",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "auth-session",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-identity"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.session.revoked",
+            "capabilityId": "session.revoked",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "auth-session",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-identity"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.session.single-device",
+            "capabilityId": "session.single-device",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "auth-session",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "account-identity"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "diagnostic.development.demo.dataset",
+            "capabilityId": "development.demo.dataset",
+            "validityClass": "diagnostic-only",
+            "ownerProducerId": "development-demo",
+            "writerContractId": "diagnostic-demo-seed",
+            "contentShapeIds": [
+                "demo-dataset"
+            ],
+            "temporalShapeId": "diagnostic-local",
+            "mediaShapeIds": [
+                "cover-and-no-cover"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [],
+            "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "development",
+                "diagnostic"
+            ],
+            "defaultExecutionClasses": [
+                "development",
+                "diagnostic"
+            ]
+        },
+        {
+            "id": "migration.comment-threaded-legacy-author",
+            "capabilityId": "comment.threaded",
+            "validityClass": "migration-legacy",
+            "ownerProducerId": "comment-moderation",
+            "writerContractId": "migration-retirement-reader",
+            "contentShapeIds": [
+                "comment-thread"
+            ],
+            "temporalShapeId": "legacy-migration",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "legacy-read-verification"
+            ],
+            "forbiddenSentinelIds": [],
+            "expectedBoundary": "Legacy comment author read and retirement verification only.",
+            "allowedExecutionClasses": [
+                "diagnostic"
+            ],
+            "defaultExecutionClasses": [
+                "diagnostic"
+            ]
+        },
+        {
+            "id": "migration.public-article-published-legacy",
+            "capabilityId": "public.article.published",
+            "validityClass": "migration-legacy",
+            "ownerProducerId": "public-content",
+            "writerContractId": "migration-retirement-reader",
+            "contentShapeIds": [
+                "article-lifecycle"
+            ],
+            "temporalShapeId": "legacy-migration",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "legacy-read-verification"
+            ],
+            "forbiddenSentinelIds": [],
+            "expectedBoundary": "Migration and retirement read boundary only.",
+            "allowedExecutionClasses": [
+                "diagnostic"
+            ],
+            "defaultExecutionClasses": [
+                "diagnostic"
+            ]
+        },
+        {
+            "id": "migration.session-single-device-legacy-authentication",
+            "capabilityId": "session.single-device",
+            "validityClass": "migration-legacy",
+            "ownerProducerId": "auth-session",
+            "writerContractId": "migration-retirement-reader",
+            "contentShapeIds": [
+                "account-identity"
+            ],
+            "temporalShapeId": "legacy-migration",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "legacy-read-verification"
+            ],
+            "forbiddenSentinelIds": [],
+            "expectedBoundary": "Legacy authentication-strength read and retirement verification only.",
+            "allowedExecutionClasses": [
+                "diagnostic"
+            ],
+            "defaultExecutionClasses": [
+                "diagnostic"
+            ]
+        },
+        {
+            "id": "negative.public-article-published-rights-recompute",
+            "capabilityId": "public.article.published",
+            "validityClass": "negative-invalid",
+            "ownerProducerId": "public-content",
+            "writerContractId": "negative-command-rejection",
+            "contentShapeIds": [
+                "article-lifecycle"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "rejected-by-validator"
+            ],
+            "forbiddenSentinelIds": [],
+            "expectedBoundary": "Exactly one rights-hash invariant is violated and command rejection is required.",
+            "expectedInvariantId": "rights-policy-hash-ready",
+            "injectedSentinelId": "rights-v3-policy-hash-recompute",
+            "allowedExecutionClasses": [
+                "security"
+            ],
+            "defaultExecutionClasses": []
+        },
+        {
+            "id": "scale.scale.article-comment.l",
+            "capabilityId": "scale.article-comment.l",
+            "validityClass": "scale-synthetic",
+            "ownerProducerId": "scale-data",
+            "writerContractId": "deterministic-scale-generator",
+            "contentShapeIds": [
+                "scale-graph"
+            ],
+            "temporalShapeId": "deterministic-scale",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": "deterministic-bulk",
+            "requiredDerivedStateIds": [
+                "scale-counts-verified"
+            ],
+            "forbiddenSentinelIds": [],
+            "expectedBoundary": "equivalent: schema and relationship constraints; not-equivalent: production behavior distribution.",
+            "allowedExecutionClasses": [
+                "load"
+            ],
+            "defaultExecutionClasses": [
+                "load"
+            ]
+        },
+        {
+            "id": "scale.scale.article-comment.m",
+            "capabilityId": "scale.article-comment.m",
+            "validityClass": "scale-synthetic",
+            "ownerProducerId": "scale-data",
+            "writerContractId": "deterministic-scale-generator",
+            "contentShapeIds": [
+                "scale-graph"
+            ],
+            "temporalShapeId": "deterministic-scale",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": "deterministic-bulk",
+            "requiredDerivedStateIds": [
+                "scale-counts-verified"
+            ],
+            "forbiddenSentinelIds": [],
+            "expectedBoundary": "equivalent: schema and relationship constraints; not-equivalent: production behavior distribution.",
+            "allowedExecutionClasses": [
+                "load"
+            ],
+            "defaultExecutionClasses": [
+                "load"
+            ]
+        },
+        {
+            "id": "scale.scale.article-comment.s",
+            "capabilityId": "scale.article-comment.s",
+            "validityClass": "scale-synthetic",
+            "ownerProducerId": "scale-data",
+            "writerContractId": "deterministic-scale-generator",
+            "contentShapeIds": [
+                "scale-graph"
+            ],
+            "temporalShapeId": "deterministic-scale",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": "deterministic-bulk",
+            "requiredDerivedStateIds": [
+                "scale-counts-verified"
+            ],
+            "forbiddenSentinelIds": [],
+            "expectedBoundary": "equivalent: schema and relationship constraints; not-equivalent: production behavior distribution.",
+            "allowedExecutionClasses": [
+                "load"
+            ],
+            "defaultExecutionClasses": [
+                "load"
+            ]
+        },
+        {
+            "id": "scale.scale.article-comment.xs",
+            "capabilityId": "scale.article-comment.xs",
+            "validityClass": "scale-synthetic",
+            "ownerProducerId": "scale-data",
+            "writerContractId": "deterministic-scale-generator",
+            "contentShapeIds": [
+                "scale-graph"
+            ],
+            "temporalShapeId": "deterministic-scale",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": "deterministic-bulk",
+            "requiredDerivedStateIds": [
+                "scale-counts-verified"
+            ],
+            "forbiddenSentinelIds": [],
+            "expectedBoundary": "equivalent: schema and relationship constraints; not-equivalent: production behavior distribution.",
+            "allowedExecutionClasses": [
+                "load"
+            ],
+            "defaultExecutionClasses": [
+                "load"
+            ]
+        }
+    ]
 }

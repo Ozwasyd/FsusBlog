@@ -4,6 +4,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { parseMatrix } from '../test-matrix/parse-matrix.mjs';
+import {
+    contentShapeCatalogDigest,
+    readContentShapeAuthority,
+    validateContentShapeAuthority
+} from './content-shape-catalog.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const config = (name) => path.join(root, 'config/testing', name);
@@ -1349,7 +1354,8 @@ export function expandFixtureProfile(profileId, catalogs = readFixtureCatalogs()
 }
 
 /**
- * Authority digest over capability/profile/producer catalogs (inventory excluded).
+ * Authority digest over capability/profile/producer/content-shape catalogs
+ * (inventory excluded).
  * Used to fail closed when sealed matrix identity drifts from live catalogs.
  */
 export function fixtureCatalogDigest(catalogs = readFixtureCatalogs())
@@ -1358,7 +1364,10 @@ export function fixtureCatalogDigest(catalogs = readFixtureCatalogs())
         capability: catalogs.capability,
         profile: catalogs.profile,
         producer: catalogs.producer,
-        variant: catalogs.variant
+        variant: catalogs.variant,
+        contentShapeAuthorityDigest: contentShapeCatalogDigest(
+            catalogs.contentShapeAuthority ?? readContentShapeAuthority()
+        )
     });
 }
 
@@ -2253,6 +2262,7 @@ export function validateFixtureCatalogs({
         producerFile: files.producer ?? fixtureCatalogFiles.producer
     }));
     errors.push(...validateFixtureSentinelRegistry({ catalogs, repositoryRoot }));
+    errors.push(...validateContentShapeAuthority({ root: repositoryRoot }));
     return errors;
 }
 

@@ -97,6 +97,26 @@ const dynamicWorkerCap = Math.max(1, Math.min(cpuCap, memoryCap, loadCap))
 const workers = Number.isFinite(configuredWorkers) && configuredWorkers > 0
   ? Math.max(1, Math.min(Math.floor(configuredWorkers), dynamicWorkerCap))
   : dynamicWorkerCap
+const publicPreviewRendererArgs = [
+  ...(process.env.FSUSBLOG_PUBLIC_PREVIEW_DOCS_CAPTURE === '1'
+    ? [
+        '--disable-gpu',
+        '--disable-gpu-rasterization',
+        '--disable-checker-imaging',
+        '--disable-lcd-text',
+        '--disable-font-subpixel-positioning',
+        '--disable-skia-runtime-opts',
+        '--disable-oop-rasterization',
+        '--disable-partial-raster',
+        '--disable-threaded-animation',
+        '--disable-threaded-scrolling',
+        '--disable-zero-copy',
+        '--force-device-scale-factor=1',
+        '--force-color-profile=srgb',
+        '--num-raster-threads=1'
+      ]
+    : [])
+]
 const requestedBrowsers = (process.env.FSUSBLOG_PLAYWRIGHT_BROWSERS || 'chromium')
   .split(',')
   .map((browser) => browser.trim().toLowerCase())
@@ -113,7 +133,8 @@ const browserPlans = uniqueBrowsers.map((browser) => {
     browserName: browser as BrowserName,
     evidenceClass: 'correctness',
     locale: correctnessLocale,
-    frontendRoot: path.join(repositoryRoot, 'src/frontend')
+    frontendRoot: path.join(repositoryRoot, 'src/frontend'),
+    additionalLaunchArgs: browser === 'chromium' ? publicPreviewRendererArgs : []
   })
 })
 process.env.FSUSBLOG_PLAYWRIGHT_BROWSER_IDENTITY_PLANS = JSON.stringify(

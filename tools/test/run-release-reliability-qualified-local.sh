@@ -635,14 +635,14 @@ for inherited_key in \
     LANG LC_ALL TMPDIR TZ \
     FSUSBLOG_AOT_CACHE_DIR FSUSBLOG_BACKEND_TEST_BIN_DIR FSUSBLOG_BACKEND_TEST_DLL \
     FSUSBLOG_BACKEND_TEST_OBJ_DIR FSUSBLOG_BACKEND_WEBROOT FSUSBLOG_PRODUCTION_BUILD_ROOT \
-    FSUSBLOG_PUBLIC_AOT_CACHE_DIR FSUSBLOG_SEARCH_DIR FSUSBLOG_SEARCH_INDEX_DIR FSUSBLOG_WEB_ROOT
+    FSUSBLOG_PUBLIC_AOT_CACHE_DIR FSUSBLOG_SEARCH_DIR FSUSBLOG_SEARCH_INDEX_DIR FSUSBLOG_WEB_ROOT \
+    FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE FSUSBLOG_SCHEDULER_RESOURCE_GRANT_RUN_ID FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID
 do
     if [[ -n "${!inherited_key:-}" ]]; then
         qualified_executor_environment+=("$inherited_key=${!inherited_key}")
     fi
 done
-env -i "${qualified_executor_environment[@]}" \
-    node "$root/tools/test/run-release-reliability-scenarios.mjs"
+env -i "${qualified_executor_environment[@]}" node "$root/tools/test/run-release-reliability-scenarios.mjs"
 candidate_receipt=".tmp/release-reliability/${invocation_id}/candidate-receipt.json"
 verified_attestation=".tmp/release-reliability/${invocation_id}/verified-attestation.json"
 qualified_receipt=".tmp/release-reliability/${invocation_id}/qualified-receipt.json"

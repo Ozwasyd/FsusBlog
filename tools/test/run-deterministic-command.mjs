@@ -46,6 +46,7 @@ import {
     loadExecutionEnvelopePolicy,
     resolveExecutionEnvelopeProducer
 } from '../test-matrix/execution-envelope-policy.mjs';
+import { resolveTemporalRolesForProducerIfBound } from './temporal-role-resolver.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const physicalExecutionPolicy = 'config/testing/physical-execution-process-policy.json';
@@ -326,6 +327,17 @@ async function main(argv)
         sourceCommit,
         sourceFingerprint
     });
+    const resolvedTemporalRoles = resolveTemporalRolesForProducerIfBound({
+        temporalContext,
+        namespace: String(process.env.FSUSBLOG_TEST_NAMESPACE ?? 'default'),
+        fixtureId: producerId
+    });
+    const temporalRoleEnvironment = resolvedTemporalRoles
+        ? {
+            FSUSBLOG_RESOLVED_TEMPORAL_ROLES_JSON: JSON.stringify(resolvedTemporalRoles),
+            FSUSBLOG_TEMPORAL_ROLE_ARTIFACT_DIGEST: resolvedTemporalRoles.contentDigest
+        }
+        : {};
     const policy = loadExecutionEnvelopePolicy();
     const catalog = loadExecutionEnvelopeApplicability();
     const producerEnvelope = resolveExecutionEnvelopeProducer(producerId, catalog);
@@ -381,6 +393,7 @@ async function main(argv)
             producerAllowlist: options.environmentNames,
             injectedEnvironment: {
                 ...materializeTemporalEnvironment(temporalContext),
+                ...temporalRoleEnvironment,
                 ...directoryEnvelope.environment,
                 FSUSBLOG_TEST_RUN_ID: runId,
                 FSUSBLOG_TEST_SOURCE_COMMIT: sourceCommit,
@@ -428,6 +441,9 @@ async function main(argv)
         'config/testing/test-execution-envelope-applicability.json',
         'config/testing/test-execution-envelope-policy.json',
         'config/testing/test-execution-network-policy.json',
+        'config/testing/temporal-domain-producer-inventory.json',
+        'config/testing/temporal-shape-catalog.json',
+        'config/testing/resolved-temporal-roles.schema.json',
         'tools/test/execution-envelope-directories.mjs',
         'tools/test/execution-envelope-environment.mjs',
         'tools/test/execution-envelope-network.mjs',
@@ -435,6 +451,8 @@ async function main(argv)
         'tools/test/native/execution-envelope-landlock.c',
         'tools/test-matrix/execution-envelope-policy.mjs',
         'tools/test/temporal-context.mjs',
+        'tools/test/temporal-role-resolver.mjs',
+        'tools/test/temporal-shape-catalog.mjs',
         'tools/test-fixtures/producers/temporal-child-handshake.bash',
         'tools/test-fixtures/producers/temporal-child-handshake.cjs',
         'tools/test-fixtures/producers/temporal-child-handshake-emitter.cjs',

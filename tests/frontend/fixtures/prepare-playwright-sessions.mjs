@@ -11,6 +11,11 @@ import {
   resolveSessionFixtureDirectory
 } from '../support/fixture-paths.mjs';
 import { resolveSessionPrepConcurrency } from './session-prep-admission.mjs';
+import { loadTemporalContext } from '../../../tools/test/temporal-context.mjs';
+import {
+  resolveTemporalRolesForProducer,
+  verifyResolvedTemporalArtifact
+} from '../../../tools/test/temporal-role-resolver.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -256,6 +261,17 @@ async function main() {
     ? resolveSessionPrepConcurrency(requestedSessionPrepConcurrency, postgresPids)
     : 1;
   const fixturesDir = resolveSessionFixtureDirectory();
+  const temporalContext = loadTemporalContext();
+  const resolvedTemporalRoles = resolveTemporalRolesForProducer({
+    temporalContext,
+    namespace: process.env.FSUSBLOG_TEST_NAMESPACE,
+    fixtureId: 'auth-session'
+  });
+  verifyResolvedTemporalArtifact(resolvedTemporalRoles, { temporalContext });
+  const temporalRoleEnvironment = {
+    FSUSBLOG_RESOLVED_TEMPORAL_ROLES_JSON: JSON.stringify(resolvedTemporalRoles),
+    FSUSBLOG_TEMPORAL_ROLE_ARTIFACT_DIGEST: resolvedTemporalRoles.contentDigest
+  };
   await mkdir(fixturesDir, { recursive: true });
   const admissionEvidence = postgresPids
     ? `postgresPids=${postgresPids.current}/${postgresPids.max ?? 'max'}`
@@ -273,6 +289,7 @@ async function main() {
     ]);
 
     const env = {
+      ...temporalRoleEnvironment,
       FSUSBLOG_BASE_URL: backendBaseUrl,
       FSUSBLOG_PG_CONTAINER: pgContainer,
       FSUSBLOG_REDIS_CONTAINER: redisContainer,

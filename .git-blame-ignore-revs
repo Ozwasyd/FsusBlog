@@ -20,3 +20,7 @@ b3dab49538a9b24d0047e387f20595b58c39c0c8
 
 # Post-migration C# whitespace recovery for #1601, #1706, #1747, #1748, and #1783.
 655d65dd8d00f55ec6bcf2cedf9cbc740045173d
+
+# Temporal governance JSON formatting for #2530.
+79254f31127a02e762a7ee530655dc1d2f489db3
+9f42d4da1b5f29bf9c77d8476756edf05aeea622

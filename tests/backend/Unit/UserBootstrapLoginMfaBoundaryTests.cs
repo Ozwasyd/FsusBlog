@@ -29,7 +29,8 @@ public sealed class UserBootstrapLoginMfaBoundaryTests
                 typeof(IAuthRiskService),
                 typeof(FsusBlog.Server.Infrastructure.Security.IUserSessionMetadataProtector),
                 typeof(IConfiguration),
-                typeof(FsusBlog.Server.Services.NotificationStream.IMessageNotificationStreamPort)
+                typeof(FsusBlog.Server.Services.NotificationStream.IMessageNotificationStreamPort),
+                typeof(TimeProvider)
             ],
             ConstructorDependencies(typeof(UserLoginWorkflowService)));
 
