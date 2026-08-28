@@ -473,23 +473,37 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
 
   const sendReply = async (): Promise<void> => {
     if (!selectedConversationId.value || !replyBody.value.trim() || sending.value) return
+    const conversationId = selectedConversationId.value
+    const body = replyBody.value
+    const conversationDetail = detail.value
     sending.value = true
     try {
-      const readThroughMessageId = detail.value?.readSnapshotMessageId
-      if (!readThroughMessageId) {
+      const readThroughMessageId = conversationDetail?.readSnapshotMessageId
+      if (
+        !conversationDetail
+        || conversationDetail.conversationId !== conversationId
+        || !conversationDetail.canReply
+        || conversationDetail.status === 2
+        || !readThroughMessageId
+      ) {
         throw new Error('conversation_read_snapshot_missing')
       }
-      const message = await messageApi.replyAccountConversation(selectedConversationId.value, {
-        body: replyBody.value,
+      const message = await messageApi.replyAccountConversation(conversationId, {
+        body,
         readThroughMessageId
       })
+      if (selectedConversationId.value !== conversationId || detail.value?.conversationId !== conversationId) {
+        return
+      }
       applyMessageAppendPatch({
-        conversationId: selectedConversationId.value,
+        conversationId,
         message,
-        conversationUnreadCount: detail.value?.unreadCount
+        conversationUnreadCount: detail.value.unreadCount
       })
-      delete replyDrafts[selectedConversationId.value]
-      replyBody.value = ''
+      if (replyBody.value === body) {
+        delete replyDrafts[conversationId]
+        replyBody.value = ''
+      }
       toast.success('已发送')
     } catch (error) {
       showErrorToast(error, '回复发送失败')
