@@ -178,8 +178,8 @@ describe('system API', () => {
     }))
   })
 
-  it('deleteImage sends binary file delete request', async () => {
-    await deleteImage('/uploads/illustration/test.webp')
+  it('deleteImage sends canonical AssetId in the binary file delete request', async () => {
+    await deleteImage('3f3b2e7a-1d2e-4f8a-9c5b-6a7b8c9d0e1f')
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryRoute: { operationId: 'binary_delete_file_delete' },
       frameType: FrameType.EmptySuccess,

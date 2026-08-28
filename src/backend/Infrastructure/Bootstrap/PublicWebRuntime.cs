@@ -295,8 +295,12 @@ internal static partial class PublicWebRuntime
     internal static void MapFsusOperationalRoutes(this WebApplication app)
     {
         app.MapLocalAuthFixtureEndpoints();
+        app.MapLocalAccountProfilePreferenceFixtureEndpoints();
         app.MapLocalPublicContentFixtureEndpoints();
+        app.MapLocalMessagingFixtureEndpoints();
+        app.MapLocalAuditFixtureEndpoints();
         app.MapLocalDemoFixtureEndpoints();
+        app.MapLocalSecurityFixtureEndpoints();
         app.MapNotificationStreamDrillEndpoints();
         app.MapReleaseSchemaQualificationEndpoints();
         app.MapProductionHealthEndpoints();

@@ -2832,9 +2832,7 @@ test('collectFailures consumes active settlements once after the wall-clock dead
         `import { runDag } from ${JSON.stringify(pathToFileURL(schedulerFile).href)}`,
         `const root = ${JSON.stringify(temp)}`,
         "const makeTier = (id) => ({ id, command: 'custom', executionDependsOn: [], services: [], parallelizable: true, exclusiveResources: [], phase: 0, resourceClass: 'cpu', maxParallel: 2, cpuUnits: 1, memoryGiB: 0.1, cacheInputs: [], executionKey: `probe/${id}`, executionVariant: 'ordinary', coverage: ['ordinary-unit'] })",
-        'const executed = []',
-        'const aborted = []',
-        'const completed = []',
+        'const executed = [], aborted = [], completed = [], releases = new Map()',
         'const result = await runDag({',
         "  tiers: [makeTier('active-a'), makeTier('active-b'), makeTier('pending-after-deadline')],",
         '  root,',
@@ -2842,17 +2840,16 @@ test('collectFailures consumes active settlements once after the wall-clock dead
         "  runId: 'deadline-collect-settle',",
         '  maxParallel: 2,',
         '  collectFailures: true,',
-        '  wallClockBudgetMs: 500,',
+        '  wallClockBudgetMs: 2000,',
         '  terminationGraceMs: 10,',
         '  systemResources: { cpuCount: 2, availableMemoryGiB: 2, load1: 0 },',
         "  snapshotWorktree: async () => ({ fingerprint: 'stable', entries: {} }),",
         '  executeTier: async (current) => {',
         '    executed.push(current.id)',
         "    if (executed.length === 2) console.log('ACTIVE')",
-        "    await delay(current.id === 'active-a' ? 900 : 1100)",
-        '    return { code: 0, signal: null }',
+        '    return new Promise((resolve) => { const handle = setInterval(() => {}, 30000); releases.set(current.id, (result) => { clearInterval(handle); resolve(result) }) })',
         '  },',
-        '  abortTier: (current) => { aborted.push(current.id) },',
+        '  abortTier: (current) => { aborted.push(current.id); releases.get(current.id)?.({ code: 0, signal: null }) },',
         '  onTierComplete: (current) => { completed.push(current.id) }',
         '})',
         'console.log(JSON.stringify({',
@@ -2908,6 +2905,7 @@ test('bundle timeout kills a pipe-holding grandchild and still collects independ
     const { runDag } = await loadScheduler();
     const temp = createTempDir('scheduler-bundle-timeout-tree');
     const pidFile = path.join(temp, 'grandchild.pid');
+    const identityReadyMarker = path.join(temp, 'independent.identity-ready');
     const grandchildFile = path.join(temp, 'grandchild.sh');
     const parentFile = path.join(temp, 'parent.sh');
     const failFile = path.join(temp, 'fail.mjs');
@@ -2916,7 +2914,10 @@ while true; do printf 'holding-pipe\n'; sleep 0.025; done`);
     fs.writeFileSync(parentFile, String.raw`set -euo pipefail
 /bin/bash ${JSON.stringify(grandchildFile)} &
 child=$!; printf '%s\n' "$child" > ${JSON.stringify(pidFile)}; wait "$child"`);
-    fs.writeFileSync(failFile, 'setTimeout(() => process.exit(7), 50)\n');
+    fs.writeFileSync(failFile, String.raw`import fs from 'node:fs'
+import { setTimeout as delay } from 'node:timers/promises'
+while (!fs.existsSync(${JSON.stringify(identityReadyMarker)})) await delay(10)
+process.exit(7)`);
 
     t.after(() =>
     {
@@ -2945,7 +2946,7 @@ child=$!; printf '%s\n' "$child" > ${JSON.stringify(pidFile)}; wait "$child"`);
                 budgetMs: 150
             }),
             tier('independent-failure', {
-                command: `${JSON.stringify(process.execPath)} ${JSON.stringify(failFile)}`
+                command: `${JSON.stringify(process.execPath)} ${JSON.stringify(failFile)}`, budgetMs: 1_500
             })
         ],
         root: temp,
@@ -2955,6 +2956,7 @@ child=$!; printf '%s\n' "$child" > ${JSON.stringify(pidFile)}; wait "$child"`);
         collectFailures: true,
         terminationGraceMs: 75,
         systemResources: { cpuCount: 8, availableMemoryGiB: 8, load1: 0 },
+        onTierStart: (startedTier) => startedTier.id === 'independent-failure' && fs.writeFileSync(identityReadyMarker, 'verified'),
         snapshotWorktree: stableSnapshot
     });
     const elapsedMs = Date.now() - startedAt;
@@ -3116,7 +3118,7 @@ test('scheduler injects its authoritative Fresh or resume mode into every tier e
     assert.deepEqual(executionSources, ['fresh', 'resume']);
 });
 
-test('an early resume failure preserves untouched success candidates for the next resume', async () =>
+test('an early resume failure requires a new independent run', async () =>
 {
     const { runDag } = await loadScheduler();
     const temp = createTempDir('scheduler-resume-early-failure');
@@ -3166,15 +3168,11 @@ test('an early resume failure preserves untouched success candidates for the nex
 
     failGate = false;
     executed.length = 0;
-    const recoveredResume = await run(true);
-    assert.equal(recoveredResume.status, 'success');
-    assert.deepEqual(executed, ['gate']);
-    assert.deepEqual(recoveredResume.reusedTiers, ['later-independent']);
-    assert.deepEqual(recoveredResume.checkpoint.completedTiers, ['gate', 'later-independent']);
-    assert.deepEqual(recoveredResume.checkpoint.resumeCandidates, {});
+    await assert.rejects(run(true), /cannot re-execute failed tiers.*gate/u);
+    assert.deepEqual(executed, []);
 });
 
-test('carried resume candidates retain source provenance across an early failure', async () =>
+test('carried resume candidates cannot hide an early failed attempt', async () =>
 {
     const { runDag } = await loadScheduler();
     const temp = createTempDir('scheduler-resume-candidate-source');
@@ -3225,10 +3223,8 @@ test('carried resume candidates retain source provenance across an early failure
 
     failGate = false;
     executed.length = 0;
-    const recoveredResume = await run(true);
-    assert.equal(recoveredResume.status, 'success');
-    assert.deepEqual(recoveredResume.reusedTiers, []);
-    assert.deepEqual(executed, ['gate', 'later-independent']);
+    await assert.rejects(run(true), /cannot re-execute failed tiers.*gate/u);
+    assert.deepEqual(executed, []);
 });
 
 test('resume can require one coherent source state instead of reusing otherwise valid tiers', async () =>
@@ -3954,7 +3950,7 @@ test('matrix job summaries explicitly separate browser diagnostics from correctn
     }
 });
 
-test('viewport CLI resume reaches Playwright progress while fresh clears ambient resume state', () =>
+test('viewport CLI never reuses failed Playwright progress across scheduler resume', () =>
 {
     const temp = createTempDir('scheduler-viewport-resume');
     const runner = createRunnerFixture(temp);
@@ -4008,7 +4004,7 @@ test('viewport CLI resume reaches Playwright progress while fresh clears ambient
         encoding: 'utf8'
     });
     assert.equal(resumed.status, 0, resumed.stderr);
-    assert.deepEqual(fs.readFileSync(history, 'utf8').trim().split('\n'), ['0', '1']);
+    assert.deepEqual(fs.readFileSync(history, 'utf8').trim().split('\n'), ['0', '0']);
 });
 
 test('local fresh runs isolate the default namespace by scheduler run id', () =>

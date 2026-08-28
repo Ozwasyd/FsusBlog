@@ -1,0 +1,19 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.local/schemas/producer-semantic-outcome-candidate.v1.json",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["schema", "schemaVersion", "producerId", "producerAuthorityId", "identity", "inputAuthorityRefs", "attemptEligibility", "outcome", "verificationStatus", "contentDigest"],
+    "properties": {
+        "schema": { "const": "fsusblog.producer-semantic-outcome-candidate.v1" },
+        "schemaVersion": { "const": "1" },
+        "producerId": { "type": "string", "minLength": 1 },
+        "producerAuthorityId": { "type": "string", "minLength": 1 },
+        "identity": { "type": "object" },
+        "inputAuthorityRefs": { "type": "array", "minItems": 1 },
+        "attemptEligibility": { "type": "object" },
+        "outcome": { "type": "object" },
+        "verificationStatus": { "const": "verified" },
+        "contentDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+    }
+}

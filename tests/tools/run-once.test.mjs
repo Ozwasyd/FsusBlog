@@ -108,6 +108,10 @@ test('consumer evidence reopens and embeds the exact run-bound projection and re
 
     assert.equal(validateRunBoundConsumerEvidence(evidence, { runId, key, consumerId }), true)
     assert.equal(evidence.schema, 'fsusblog.physical-execution-consumer-evidence.v2')
+    assert.equal(path.resolve(root, evidence.sourceProjection), path.resolve(result.projectionFile))
+    assert.equal(path.resolve(root, evidence.physicalExecutionReceipt), path.resolve(result.receiptFile))
+    assert.equal(evidence.sourceProjection.startsWith('../'), false)
+    assert.equal(evidence.physicalExecutionReceipt.startsWith('../'), false)
     assert.equal(evidence.physicalExecutionReceiptDocument.receiptDigest, evidence.physicalExecutionReceiptDigest)
     assert.deepEqual(evidence.sourceProjectionDocument.artifactEvidence, evidence.artifactEvidence)
     assert.equal(Object.hasOwn(physicalReceipt, 'ownerIdentityPolicy'), false)
@@ -145,7 +149,7 @@ test('consumer evidence reopens and embeds the exact run-bound projection and re
     )
 })
 
-test('run-bound summaries exclude lock release and reclaim tombstones', async (context) => {
+test('run-bound summaries exclude lock tombstones and temporal artifacts', async (context) => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-run-bound-lock-tombstones-'))
     context.after(() => fs.rmSync(root, { recursive: true, force: true }))
 
@@ -187,6 +191,10 @@ test('run-bound summaries exclude lock release and reclaim tombstones', async (c
             '{"schema":"fsusblog.run-once-lock-observation.v1"}\n'
         )
     }
+    fs.writeFileSync(
+        path.join(receiptDirectory, 'shared-governance-temporal-receipt.json'),
+        '{"schema":"fsusblog.test-temporal-receipt.v1"}\n'
+    )
 
     const consumer = await runBoundExecution(
         { ...options, consumerId: 'consumer' },

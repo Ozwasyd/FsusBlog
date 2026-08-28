@@ -14,15 +14,8 @@ import {
     runBehaviorDocStaticAdmission
 } from './docs/behavior-doc-static-admission.mjs';
 import { sealSourceIdentity } from './fact-extractors/identity.mjs';
-import {
-    loadExecutionNetworkPolicy,
-    validateExecutionNetworkPolicy
-} from './test/execution-envelope-network.mjs';
-import {
-    loadExecutionServiceCatalog,
-    validateExecutionServiceCatalog
-} from './test/execution-envelope-services.mjs';
 import { availableMemoryGiB } from './test/system-memory.mjs';
+import { validateCorrectnessAttemptMigration } from './test/correctness-attempt-migration.mjs';
 import {
     buildAggregatePlan as buildAggregateReachabilityPlan,
     buildReceiptPlan as buildReceiptReachabilityPlan
@@ -43,6 +36,14 @@ import {
     discoverOrphanDotnetBuildServers,
     dotnetBuildServerInventory
 } from './test-matrix/dotnet-build-server-cleanup.mjs';
+import {
+    loadExecutionServiceCatalog,
+    validateExecutionServiceCatalog
+} from './test/execution-envelope-services.mjs';
+import {
+    loadExecutionNetworkPolicy,
+    validateExecutionNetworkPolicy
+} from './test/execution-envelope-network.mjs';
 import {
     loadExecutionEnvelopeApplicability,
     loadExecutionEnvelopePolicy,
@@ -112,6 +113,10 @@ import {
     writeResourceUtilizationEvidence
 } from './test-matrix/resource-utilization.mjs';
 import { validateRuntimeStateDomainCatalog } from './test-matrix/runtime-state-domain-catalog.mjs';
+import {
+    loadReleaseReliabilityCatalog,
+    validateReleaseReliabilitySchedulerMatrix
+} from './test-matrix/release-reliability-scheduler-projection.mjs';
 import {
     aggregateArtifactPathExists,
     applySupersedes,
@@ -1592,6 +1597,11 @@ function validateMatrix(matrix)
         );
     }
 
+    errors.push(...validateReleaseReliabilitySchedulerMatrix(
+        matrix,
+        loadReleaseReliabilityCatalog({ root })
+    ));
+
     return errors;
 }
 
@@ -2052,14 +2062,7 @@ function applyUxViewportResumeEnvironment(env, tier, resume)
     {
         return env;
     }
-    if (resume)
-    {
-        env.FSUSBLOG_UX_VIEWPORT_RESUME = '1';
-    }
-    else
-    {
-        env.FSUSBLOG_UX_VIEWPORT_RESUME = '0';
-    }
+    env.FSUSBLOG_UX_VIEWPORT_RESUME = '0';
     return env;
 }
 
@@ -6375,6 +6378,7 @@ async function main()
     }
 
     const matrix = loadMatrix({ validateDependencyFields: command !== 'validate' });
+    validateCorrectnessAttemptMigration(root);
     if (command === 'validate')
     {
         const errors = [

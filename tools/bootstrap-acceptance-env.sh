@@ -485,6 +485,8 @@ PUBLIC_READ_PERMIT_LIMIT="${FSUSBLOG_ACCEPTANCE_PUBLIC_READ_PERMIT_LIMIT:-100000
 PUBLIC_READ_QUEUE_LIMIT="${FSUSBLOG_ACCEPTANCE_PUBLIC_READ_QUEUE_LIMIT:-10000}"
 NOTIFICATION_STREAM_MAX_CONNECTIONS_PER_ACCOUNT="${FSUSBLOG_ACCEPTANCE_NOTIFICATION_STREAM_MAX_CONNECTIONS_PER_ACCOUNT:-50}"
 LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET="${FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET:-fsusblog-local-public-content-fixture-secret-${NS_SLUG}-${FSUSBLOG_TEST_RUN_ID:-local}}"
+LOCAL_AUTH_FIXTURE_SECRET="${FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET:-fsusblog-local-auth-fixture-secret-${NS_SLUG}-${FSUSBLOG_TEST_RUN_ID:-local}}"
+ACCOUNT_PROFILE_PREFERENCE_FIXTURE_SECRET="${FSUSBLOG_ACCOUNT_PROFILE_PREFERENCE_FIXTURE_SECRET:-fsusblog-account-profile-preference-fixture-secret-${NS_SLUG}-${FSUSBLOG_TEST_RUN_ID:-local}}"
 ACCEPTANCE_LOG_MAX_KIB="${FSUSBLOG_ACCEPTANCE_LOG_MAX_KIB:-262144}"
 if [[ ! "$ACCEPTANCE_LOG_MAX_KIB" =~ ^[0-9]+$ ]] || ((ACCEPTANCE_LOG_MAX_KIB < 1024)); then
     printf '[acceptance:bootstrap] FSUSBLOG_ACCEPTANCE_LOG_MAX_KIB must be an integer >= 1024\n' >&2
@@ -505,7 +507,6 @@ FIXTURE_PRODUCER_IDS=""
 FIXTURE_REQUIRES_AUTH=0
 FIXTURE_REQUIRES_PUBLIC=0
 FIXTURE_REQUIRES_DEMO=0
-FIXTURE_REQUIRES_SECURITY_RESET=0
 FIXTURE_REQUIRES_LOCAL_AUTH=0
 FIXTURE_RECEIPT_FILE=""
 FIXTURE_RECEIPT_DIGEST=""
@@ -606,6 +607,8 @@ FSUSBLOG_FIXTURE_SERVICE_GENERATION=${FSUSBLOG_FIXTURE_SERVICE_GENERATION:-unini
 FSUSBLOG_RUNTIME_CONFIGURATION=${FSUSBLOG_RUNTIME_CONFIGURATION:-}
 FSUSBLOG_RUNTIME_NO_BUILD=${FSUSBLOG_RUNTIME_NO_BUILD:-0}
 FSUSBLOG_TEST_RUN_ID=${FSUSBLOG_TEST_RUN_ID:-}
+FSUSBLOG_TEST_BUSINESS_EPOCH_UTC=${FSUSBLOG_TEST_BUSINESS_EPOCH_UTC:-}
+FSUSBLOG_TEMPORAL_CONTEXT_FILE=${FSUSBLOG_TEMPORAL_CONTEXT_FILE:-}
 FSUSBLOG_PHYSICAL_BUNDLE_ID=${FSUSBLOG_PHYSICAL_BUNDLE_ID:-}
 FSUSBLOG_STEP_ID=${FSUSBLOG_STEP_ID:-}
 FSUSBLOG_TEST_RUNTIME_MODE=${FSUSBLOG_TEST_RUNTIME_MODE:-single}
@@ -617,6 +620,7 @@ FSUSBLOG_TEST_CLUSTER_BOOTSTRAP=${FSUSBLOG_TEST_CLUSTER_BOOTSTRAP:-none}
 FSUSBLOG_TEST_CLUSTER_FIXTURES=${FSUSBLOG_TEST_CLUSTER_FIXTURES:-}
 FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME=${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}
 FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID=${FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID:-}
+FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET=${FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET:-}
 ConnectionStrings__DefaultConnection=$POSTGRES_CONNECTION
 ConnectionStrings__Redis=$REDIS_CONNECTION
 RedisOptions__Configuration=$REDIS_CONNECTION
@@ -2004,30 +2008,6 @@ WriteExecutionServiceEnvelope() {
         --output "$EXECUTION_SERVICE_ENVELOPE_FILE"
 }
 
-ResetSecurityTestState() {
-    # Only when the sealed/planned profile explicitly requires security.runtime-reset.
-    # No default-on side effect and no free env override path in bootstrap.
-    if [[ "$FIXTURE_REQUIRES_SECURITY_RESET" != "1" ]]; then
-        return
-    fi
-
-    local deleted
-    local riskDeleted
-    riskDeleted="$(docker exec "$POSTGRES_CONTAINER" psql -U fsusblog -d fsusblog -Atqc "WITH deleted AS (DELETE FROM security_risk_event WHERE expires_at_utc > (now() AT TIME ZONE 'utc') RETURNING 1) SELECT count(*) FROM deleted;" 2>/dev/null || true)"
-    riskDeleted="${riskDeleted:-0}"
-    if [[ "$riskDeleted" =~ ^[0-9]+$ ]] && ((riskDeleted > 0)); then
-        Log "reset active persisted security risk events: ${riskDeleted}"
-        FORCE_BOOTSTRAP=1
-    fi
-
-    deleted="$(docker exec "$REDIS_CONTAINER" sh -c "{ redis-cli --scan --pattern '*${NS_SLUG}*fsus:sec:pow-risk:*'; redis-cli --scan --pattern 'fsus:sec:pow-risk:*'; } | sort -u | xargs -r redis-cli DEL" 2>/dev/null || true)"
-    deleted="${deleted:-0}"
-    if [[ "$deleted" =~ ^[0-9]+$ ]] && ((deleted > 0)); then
-        Log "reset local security PoW risk keys: ${deleted}"
-        FORCE_BOOTSTRAP=1
-    fi
-}
-
 ResolveFixtureProfilePlan() {
     local mode="${1:-full}"
     FIXTURE_PROFILE_PLAN_FILE="$FIXTURE_DIR/planned-profile.json"
@@ -2098,7 +2078,6 @@ ResolveFixtureProfilePlan() {
     FIXTURE_REQUIRES_AUTH="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.requiresAuthFixtures?"1":"0")})')"
     FIXTURE_REQUIRES_PUBLIC="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.requiresPublicFixtures?"1":"0")})')"
     FIXTURE_REQUIRES_DEMO="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.requiresDemoSeed?"1":"0")})')"
-    FIXTURE_REQUIRES_SECURITY_RESET="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.requiresSecurityReset?"1":"0")})')"
     FIXTURE_REQUIRES_LOCAL_AUTH="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.requiresLocalAuthBypass?"1":"0")})')"
 
     Log "planned fixture profile=${FIXTURE_PROFILE_ID} source=${FIXTURE_PROFILE_SOURCE} catalogDigest=${FIXTURE_CATALOG_DIGEST} mutationPolicy=${FIXTURE_MUTATION_POLICY}"
@@ -2151,10 +2130,6 @@ InvokeFixtureOrchestrator() {
         Log 'development-demo producer is owned by tools/dev/start.sh; acceptance bootstrap refuses demo-public'
         exit 1
     fi
-    if [[ "$FIXTURE_REQUIRES_SECURITY_RESET" == "1" ]]; then
-        Log 'security.runtime-reset is not a catalog bootstrap producer; refusing'
-        exit 1
-    fi
     Log "invoking unique fixture orchestrator profile=${FIXTURE_PROFILE_ID} producers=${FIXTURE_PRODUCER_IDS:-<none>}"
     (
         export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
@@ -2164,6 +2139,10 @@ InvokeFixtureOrchestrator() {
         export FSUSBLOG_PG_CONTAINER="$POSTGRES_CONTAINER"
         export FSUSBLOG_REDIS_CONTAINER="$REDIS_CONTAINER"
         export FSUSBLOG_REDIS_CONTAINER_NAME="$REDIS_CONTAINER"
+        export FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET="$LOCAL_AUTH_FIXTURE_SECRET"
+        if [[ -n "${FSUSBLOG_TEMPORAL_CONTEXT_FILE:-}" ]]; then
+            unset FSUSBLOG_TEMPORAL_CONTEXT_JSON
+        fi
         export Jwt__KeyVersion="$JWT_KEY_VERSION"
         export Jwt__SecretKey="$JWT_SECRET"
         export Jwt__Issuer="$JWT_ISSUER"
@@ -2195,6 +2174,26 @@ InvokeFixtureOrchestrator() {
     fi
 }
 
+EnsureFixtureTemporalContext() {
+    if [[ -n "${FSUSBLOG_TEMPORAL_CONTEXT_JSON:-}" ]]; then
+        return
+    fi
+    if [[ -z "${FSUSBLOG_TEMPORAL_CONTEXT_FILE:-}" ]]; then
+        local temporalContextFile="$FIXTURE_DIR/temporal-context.json"
+        "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/write-temporal-context.mjs" \
+            --producer auth-session \
+            --business-epoch "${FSUSBLOG_TEST_BUSINESS_EPOCH_UTC:?fixture business epoch is required}" \
+            --output "$temporalContextFile" >/dev/null
+        FSUSBLOG_TEMPORAL_CONTEXT_FILE="$temporalContextFile"
+        export FSUSBLOG_TEMPORAL_CONTEXT_FILE
+    fi
+    FSUSBLOG_TEMPORAL_CONTEXT_JSON="$("${FSUSBLOG_NODE:-node}" -e \
+        'const fs=require("node:fs");process.stdout.write(JSON.stringify(JSON.parse(fs.readFileSync(process.argv[1],"utf8"))))' \
+        "$FSUSBLOG_TEMPORAL_CONTEXT_FILE")"
+    export FSUSBLOG_TEMPORAL_CONTEXT_JSON
+    WriteEnvFile
+}
+
 ConfigureLocalPublicContentFixture() {
     if [[ "$FIXTURE_REQUIRES_PUBLIC" != "1" ]]; then
         unset FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET || true
@@ -2206,6 +2205,32 @@ ConfigureLocalPublicContentFixture() {
     export FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET="$LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET"
     export fsus__allowLocalPublicContentFixture=true
     export fsus__localPublicContentFixtureSecret="$LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET"
+}
+
+ConfigureLocalAuthFixture() {
+    if [[ "$FIXTURE_REQUIRES_LOCAL_AUTH" != "1" ]]; then
+        unset FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET || true
+        unset fsus__allowLocalAuthFixture || true
+        unset fsus__localAuthFixtureSecret || true
+        return
+    fi
+
+    export FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET="$LOCAL_AUTH_FIXTURE_SECRET"
+    export fsus__allowLocalAuthFixture=true
+    export fsus__localAuthFixtureSecret="$LOCAL_AUTH_FIXTURE_SECRET"
+}
+
+ConfigureAccountProfilePreferenceFixture() {
+    if [[ ",${FIXTURE_PRODUCER_IDS}," != *",account-profile-preferences,"* ]]; then
+        unset FSUSBLOG_ACCOUNT_PROFILE_PREFERENCE_FIXTURE_SECRET || true
+        unset fsus__allowAccountProfilePreferenceFixture || true
+        unset fsus__accountProfilePreferenceFixtureSecret || true
+        return
+    fi
+
+    export FSUSBLOG_ACCOUNT_PROFILE_PREFERENCE_FIXTURE_SECRET="$ACCOUNT_PROFILE_PREFERENCE_FIXTURE_SECRET"
+    export fsus__allowAccountProfilePreferenceFixture=true
+    export fsus__accountProfilePreferenceFixtureSecret="$ACCOUNT_PROFILE_PREFERENCE_FIXTURE_SECRET"
 }
 
 PublishEnvironmentReadyReceipt() {
@@ -2699,6 +2724,8 @@ Main() {
         # Order: resolve/validate profile → planned receipt → schema/services/runtime → orchestrator → receipts.
         ResolveFixtureProfilePlan full
         ConfigureLocalPublicContentFixture
+        ConfigureLocalAuthFixture
+        ConfigureAccountProfilePreferenceFixture
         READINESS_PHASES_REMAINING=3
         ConfigureManagedBackendRuntimeReader
     fi
@@ -2724,6 +2751,12 @@ Main() {
         AllocateReadinessDeadline 'release bundle preparation'
         PrepareReleasePreviewBundle "$READINESS_DEADLINE_AT_MS"
     fi
+    if [[ -z "${FSUSBLOG_TEST_BUSINESS_EPOCH_UTC:-}" ]]; then
+        FSUSBLOG_TEST_BUSINESS_EPOCH_UTC="$(date -u '+%Y-%m-%dT%H:%M:%S.000Z')"
+        export FSUSBLOG_TEST_BUSINESS_EPOCH_UTC
+        Log "materialized local fixture business epoch before runtime activation: $FSUSBLOG_TEST_BUSINESS_EPOCH_UTC"
+    fi
+    EnsureFixtureTemporalContext
     AllocateReadinessDeadline 'runtime applications'
     local -a runtimeApplications=(debug-backend EnsureBackend)
     if CiProductionHasDomain frontend-dist; then
@@ -2731,11 +2764,6 @@ Main() {
     fi
     RunBootstrapParallel 'runtime applications' "$READINESS_DEADLINE_AT_MS" "${runtimeApplications[@]}"
     WaitForPowReady
-    if [[ -z "${FSUSBLOG_TEST_BUSINESS_EPOCH_UTC:-}" ]]; then
-        FSUSBLOG_TEST_BUSINESS_EPOCH_UTC="$(date -u '+%Y-%m-%dT%H:%M:%S.000Z')"
-        export FSUSBLOG_TEST_BUSINESS_EPOCH_UTC
-        Log "materialized local fixture business epoch after runtime readiness: $FSUSBLOG_TEST_BUSINESS_EPOCH_UTC"
-    fi
     InvokeFixtureOrchestrator
     if CiProductionHasDomain frontend-dist; then
         # Process startup already proved the immutable frontend entry. Before

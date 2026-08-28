@@ -24,7 +24,7 @@
         },
         {
             "id": "messaging-fixture",
-            "source": "tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs"
+            "source": "src/backend/Services/Fixtures/MessagingFixtureSeeder.cs"
         },
         {
             "id": "account-fixture",
@@ -346,7 +346,7 @@
             "semanticEffect": "included"
         },
         {
-            "id": "message.deleted",
+            "id": "message.conversation-closed",
             "domain": "messaging",
             "owner": "messaging-fixture",
             "clockKind": "business-wall",
@@ -667,7 +667,7 @@
                 "message.created",
                 "message.reply-created",
                 "message.read",
-                "message.deleted"
+                "message.conversation-closed"
             ],
             "operators": [
                 "<=",
@@ -1560,9 +1560,9 @@
                     "expectedBusinessState": "read"
                 },
                 {
-                    "roleId": "message.deleted",
+                    "roleId": "message.conversation-closed",
                     "offsetMilliseconds": 180000,
-                    "expectedBusinessState": "deleted"
+                    "expectedBusinessState": "closed"
                 },
                 {
                     "roleId": "outbox.event-created",
@@ -1663,7 +1663,7 @@
                         "message.created",
                         "message.reply-created",
                         "message.read",
-                        "message.deleted"
+                        "message.conversation-closed"
                     ],
                     "direction": "ascending"
                 },
@@ -1748,7 +1748,7 @@
                 "generated-at-excluded"
             ],
             "boundaryTags": [],
-            "contentDigest": "sha256:699f726eb644f2464b5d37d4f8db403a10789c996a791cc7d3f226c32cb2530e"
+            "contentDigest": "sha256:2be85a2de0e3462acd3f963950a61af6a2d4224ca3bae36cd820d7868e133c19"
         }
     ]
 }

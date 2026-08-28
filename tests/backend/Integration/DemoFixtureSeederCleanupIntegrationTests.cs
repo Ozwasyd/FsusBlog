@@ -2,6 +2,7 @@ using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Core.Services.Gateways;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Interfaces;
@@ -303,6 +304,126 @@ public sealed class DemoFixtureSeederCleanupIntegrationTests(PostgresSchemaMigra
             .CountAsync());
     }
 
+    [Fact]
+    public async Task AuditFixtureProducer_UsesProtectedProductionStore_AndRerunsExactOwnedSemantics()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        string dataRoot = Path.Combine(Path.GetTempPath(), $"fsusblog-audit-fixture-{Guid.NewGuid():N}");
+        try
+        {
+            IConfiguration configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Audit:TamperEvidenceKey"] = "audit-fixture-integration-tamper-key-with-sufficient-entropy",
+                    ["FSUSBLOG_DATA_ROOT"] = dataRoot
+                })
+                .Build();
+            var keyStore = new LocalAuditRetentionEpochKeyStore(configuration);
+            var protector = new AuditRetentionPayloadProtector(keyStore);
+            var store = new AuditLogStore(db, configuration, protector);
+            var query = new AuditQueryService(
+                db,
+                new AuditLogRuntimeState(new AuditLogChannel()),
+                configuration,
+                protector);
+            var producer = new AuditFixtureProducer(store, db, configuration, query);
+            await store.WriteBatchAsync(
+            [
+                new AuditRecord(
+                    AuditSourceCatalog.System,
+                    AuditTypeCatalog.Infra,
+                    new DateTime(2026, 8, 19, 12, 0, 0, DateTimeKind.Utc),
+                    "developer-owned audit control",
+                    null,
+                    Action: AuditActionCatalog.LogRecorded,
+                    TargetType: "developer-audit-control")
+            ], CancellationToken.None);
+            var request = new AuditFixtureRequest(
+                "integration-audit",
+                "rerun-a",
+                new DateTimeOffset(2026, 8, 20, 12, 0, 0, TimeSpan.Zero),
+                [
+                    AuditFixtureCapabilities.ChainMultiRecord,
+                    AuditFixtureCapabilities.HighValue,
+                    AuditFixtureCapabilities.InvestigationPage,
+                    AuditFixtureCapabilities.LegalHoldEligible,
+                    AuditFixtureCapabilities.PseudonymRetention,
+                    AuditFixtureCapabilities.SingleValid,
+                    AuditFixtureCapabilities.TamperNegative,
+                    AuditFixtureCapabilities.UnknownActionNegative
+                ]);
+
+            AuditFixtureReceipt first = await producer.PrepareAsync(request);
+            AuditFixtureReceipt second = await producer.PrepareAsync(request);
+
+            Assert.Equal("verified", first.Status);
+            Assert.Empty(first.Warnings);
+            Assert.Equal(7, first.NegativeCases.Count);
+            Assert.Equal(6, first.NegativeCases.Count(static item => item.MutationId != "unknown-action"));
+            Assert.NotEmpty(first.Retention);
+            Assert.All(first.Retention, static item =>
+            {
+                Assert.True(item.EligibleHoldActiveBeforeExpiry);
+                Assert.True(item.EligibleHoldInactiveAtExpiry);
+                Assert.Equal("audit_legal_hold_not_allowed", item.IneligibleHoldReason);
+            });
+            Assert.Equal(3, first.Query?.Total);
+            Assert.True(first.Query?.CursorBound, System.Text.Json.JsonSerializer.Serialize(first.Query));
+            Assert.True(first.Query?.OrderedDescending);
+            Assert.True(first.Query?.PiiRedacted);
+            Assert.True(first.Query?.ChainVerified);
+            Assert.Equal(nameof(AuditLogStore), first.Authorities.Store);
+            Assert.Equal(nameof(AuditRetentionPayloadProtector), first.Authorities.Protector);
+            Assert.Equal(nameof(AuditTamperEvidence), first.Authorities.Signer);
+            Assert.False(first.Privacy.PlaintextDetected);
+            Assert.Equal(first.Records.Count, first.Privacy.ProtectedRecordCount);
+            Assert.All(first.Records, static item =>
+            {
+                Assert.True(item.PayloadProtected);
+                Assert.Matches("^[0-9a-f]{64}$", item.RecordHash);
+                Assert.Matches("^[0-9a-f]{64}$", item.RecordMacDigest);
+            });
+            Assert.Equal(first.SemanticRecordSetDigest, second.SemanticRecordSetDigest);
+            Assert.NotEqual(
+                first.Records.Select(static item => item.RecordHash),
+                second.Records.Select(static item => item.RecordHash));
+            Assert.Equal(1, await db.Queryable<AuditLog>()
+                .Where(item => item.TargetType == "developer-audit-control")
+                .CountAsync());
+            Assert.DoesNotContain(await db.Queryable<AuditLog>().ToListAsync(), static item =>
+                item.EventInfo.Contains("synthetic protected audit fixture", StringComparison.Ordinal));
+
+            await producer.CleanupAsync("integration-audit", "rerun-a");
+
+            Assert.Equal(0, await db.Queryable<AuditLog>()
+                .Where(item => item.TargetType!.StartsWith("audit-fixture:"))
+                .CountAsync());
+            Assert.Equal(1, await db.Queryable<AuditLog>()
+                .Where(item => item.TargetType == "developer-audit-control")
+                .CountAsync());
+
+            AuditFixtureReceipt scale = await producer.PrepareAsync(new AuditFixtureRequest(
+                "integration-audit",
+                "scale-1000",
+                new DateTimeOffset(2026, 8, 21, 12, 0, 0, TimeSpan.Zero),
+                [AuditFixtureCapabilities.ChainMultiRecord],
+                ScaleRecordCount: 1000));
+
+            Assert.Equal(1000, scale.Records.Count);
+            Assert.Equal(1000, scale.Performance.RecordCount);
+            Assert.Equal(10, scale.Performance.BatchCount);
+            Assert.Equal(100, scale.Performance.MaximumBatchSize);
+            await producer.CleanupAsync("integration-audit", "scale-1000");
+        }
+        finally
+        {
+            if (Directory.Exists(dataRoot))
+            {
+                Directory.Delete(dataRoot, recursive: true);
+            }
+        }
+    }
+
     private static DemoFixtureSeeder CreateSeeder(
         ISqlSugarClient db,
         string environmentName,
@@ -366,7 +487,8 @@ public sealed class DemoFixtureSeederCleanupIntegrationTests(PostgresSchemaMigra
         IConfiguration configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["fsus:localDemoFixtureSecret"] = FixtureSecret
+                ["fsus:localDemoFixtureSecret"] = FixtureSecret,
+                ["Audit:TamperEvidenceKey"] = "demo-fixture-audit-tamper-key-with-sufficient-entropy"
             })
             .Build();
         return new DemoFixtureSeeder(
@@ -379,7 +501,8 @@ public sealed class DemoFixtureSeederCleanupIntegrationTests(PostgresSchemaMigra
             runtimeKeyScope,
             environment,
             configuration,
-            new FixedDemoTimeProvider());
+            new FixedDemoTimeProvider(),
+            new AuditLogStore(db, configuration));
     }
 
     private static async Task<IReadOnlyList<PopularArticleCoreModel>> ObserveHotArticlesAsync(
@@ -428,7 +551,7 @@ public sealed class DemoFixtureSeederCleanupIntegrationTests(PostgresSchemaMigra
             typeof(ArticleMutationOutboxEvent),
             typeof(ArticleMutationOutboxEdge),
             typeof(ArticleMutationCommand),
-            typeof(ArticleAssetReference),
+            typeof(ContentAssetReference),
             typeof(ArticlePublicTaxonomyProjection),
             typeof(ArticleViewSeed),
             typeof(ArticleCommentPolicy),
@@ -607,27 +730,51 @@ public sealed class DemoFixtureSeederCleanupIntegrationTests(PostgresSchemaMigra
             .Where(item => comments.Contains(item.CommentId))
             .OrderBy(item => item.CommentId)
             .ToListAsync();
-        long[] audits =
+        IConfiguration auditConfiguration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Audit:TamperEvidenceKey"] = "demo-fixture-audit-tamper-key-with-sufficient-entropy"
+            })
+            .Build();
+        var auditStore = new AuditLogStore(db, auditConfiguration);
+        await auditStore.WriteBatchAsync(
         [
-            await db.Insertable(new AuditLog
-            {
-                Source = Owner,
-                Type = "security",
-                Action = "anti-crawler.demo-signal",
-                Outcome = "observed",
-                Severity = "info",
-                OccurredAtUtc = DateTime.UtcNow
-            }).ExecuteReturnBigIdentityAsync(),
-            await db.Insertable(new AuditLog
-            {
-                Source = Owner,
-                Type = "audit",
-                Action = "comment.moderation.demo-pending",
-                Outcome = "pending",
-                Severity = "info",
-                OccurredAtUtc = DateTime.UtcNow
-            }).ExecuteReturnBigIdentityAsync()
-        ];
+            new AuditRecord(
+                AuditSourceCatalog.System,
+                AuditTypeCatalog.Infra,
+                new DateTime(2026, 6, 1, 12, 0, 0, DateTimeKind.Utc),
+                "Fictional public AOT demo observation",
+                null,
+                Action: AuditActionCatalog.PublicAotCache,
+                Outcome: AuditOutcomeCatalog.Success,
+                Severity: AuditSeverityCatalog.Info,
+                ActorType: AuditActorTypeCatalog.System,
+                TargetType: "demo-fixture",
+                TargetId: Name("audit-security")),
+            new AuditRecord(
+                AuditSourceCatalog.Comment,
+                AuditTypeCatalog.Business,
+                new DateTime(2026, 6, 2, 12, 0, 0, DateTimeKind.Utc),
+                "Fictional moderation queue demo event",
+                null,
+                Action: AuditActionCatalog.CommentModerated,
+                Outcome: AuditOutcomeCatalog.Success,
+                Severity: AuditSeverityCatalog.Info,
+                ActorType: AuditActorTypeCatalog.System,
+                TargetType: "demo-fixture",
+                TargetId: Name("audit-moderation"))
+        ],
+        CancellationToken.None);
+        string securityTarget = Name("audit-security");
+        string moderationTarget = Name("audit-moderation");
+        long[] audits = (await db.Queryable<AuditLog>()
+            .Where(item => item.TargetType == "demo-fixture"
+                && (item.TargetId == securityTarget
+                    || item.TargetId == moderationTarget))
+            .OrderBy(item => item.OccurredAtUtc)
+            .Select(item => item.Id)
+            .ToListAsync()).ToArray();
+        Assert.Equal(2, audits.Length);
 
         var receipt = new List<DemoEntityIdentity>();
         void Add(string kind, long id, string? handle = null)

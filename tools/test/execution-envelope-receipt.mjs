@@ -1,4 +1,3 @@
-/* eslint-disable import-x/no-relative-parent-imports -- Repository contract tests and tool authorities intentionally compose sibling owner modules. */
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
@@ -9,7 +8,6 @@ import {
     createExecutionEnvelopePolicyIdentity,
     executionEnvelopeDigest
 } from '../test-matrix/execution-envelope-policy.mjs';
-
 import {
     assertBrowserPlanActualMatch,
     validateBrowserIdentityPlan
@@ -518,15 +516,13 @@ function mismatchPaths(left, right, location = '')
 
 function envelopePayload(envelope)
 {
-    const payload = { ...envelope };
-    delete payload.envelopeDigest;
+    const { envelopeDigest: _envelopeDigest, ...payload } = envelope ?? {};
     return payload;
 }
 
 function receiptPayload(receipt)
 {
-    const payload = { ...receipt };
-    delete payload.receiptDigest;
+    const { receiptDigest: _receiptDigest, ...payload } = receipt ?? {};
     return payload;
 }
 

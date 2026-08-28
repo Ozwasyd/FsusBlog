@@ -85,6 +85,10 @@ import {
 } from '../../test-runtime/schedule-plan.mjs';
 import { createStateConflictPolicy } from '../../test-runtime/state-conflict.mjs';
 import { backendTopologyDefaults } from '../backend-production-topology.mjs';
+import {
+    assertCorrectnessAttemptExecutionOwner,
+    validateCorrectnessAttemptMigration
+} from '../correctness-attempt-migration.mjs';
 import { buildLocalStaticManifest, planLocalStaticCommands } from '../local-static-governance.mjs';
 import {
     readMeasurementNoiseAuthoritySequence,
@@ -3578,6 +3582,15 @@ async function runFrontendTests()
 
 async function run()
 {
+    validateCorrectnessAttemptMigration(root);
+    for (const producerId of productionFreshProducerInventory.bundles[bundleId] ?? [])
+    {
+        assertCorrectnessAttemptExecutionOwner(
+            `physical:${bundleId}:${producerId}`,
+            'tools/test/bundles/run-bundle.mjs',
+            root
+        );
+    }
     if (finalizeExisting)
     {
         loadExistingMemberExecutionReceipts();

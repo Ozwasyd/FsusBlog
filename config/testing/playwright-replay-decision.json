@@ -25,7 +25,7 @@
     },
     "configuration": {
         "configPath": "src/frontend/playwright.config.ts",
-        "configDigest": "sha256:aac1eaa9009d2fef90af5c900c33df7e72010176b5d291476bea8e8a62b6dd97",
+        "configDigest": "sha256:12066ef806f7a674a0c948f5f121b0dd024d90d110c58f17148d2dc17d0e542a",
         "globalSetupPath": "tests/frontend/support/playwright/global-setup.ts",
         "globalSetupDigest": "sha256:ef628ff9ff6a3e0097b4c88b52c5db6830e6e20a9a20dcad67282e63372ec566",
         "globalTeardown": null
@@ -36,7 +36,7 @@
     },
     "probe": {
         "path": "tools/test/probe-playwright-dispatch.mjs",
-        "digest": "sha256:e8bb72d75f5da11bf9e9b11c8dd05fd6debf74f9e0e05fee26e38b3b5254410c",
+        "digest": "sha256:9af39fc98f134dc0e0516c1b4d4e371698630feb8f597528305d304e5da08f15",
         "requiredObservations": [
             "reporter-no-pre-dispatch",
             "delay-perturbs-completion-order",
@@ -45,5 +45,5 @@
             "test-list-public-cli"
         ]
     },
-    "contentDigest": "sha256:08d6811bd5560acf210a0f8990f9c5d9fd1752b67b96e184c324642a0f9ebaa2"
+    "contentDigest": "sha256:103024a238b0be1bf7a87df72f17e2f263ecc5f0a44da81bd44e6ce5435e355b"
 }

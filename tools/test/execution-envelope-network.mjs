@@ -1,4 +1,3 @@
-/* eslint-disable import-x/no-relative-parent-imports -- Repository contract tests and tool authorities intentionally compose sibling owner modules. */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import net from 'node:net';
@@ -6,9 +5,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import { executionEnvelopeDigest } from '../test-matrix/execution-envelope-policy.mjs';
-
 import { observeExecutableIdentity } from './execution-envelope-environment.mjs';
+import { executionEnvelopeDigest } from '../test-matrix/execution-envelope-policy.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const landlockSource = path.join(
@@ -168,6 +166,7 @@ export function projectPlannedEndpoints({ services, serviceEnvelope, policy })
 
 export function prepareNetworkSandbox({
     command,
+    cwd,
     directories,
     writableRoots,
     plannedEndpoints = [],

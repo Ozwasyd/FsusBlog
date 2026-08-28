@@ -103,8 +103,8 @@ run('dotnet', ['build', sourceProject, '--configuration', 'Debug'], {
 const debugAssembly = path.join(buildRoot, 'dotnet/FsusBlog.Core/bin/Debug/net10.0/FsusBlog.Core.dll')
 if (!fs.existsSync(debugAssembly)) throw new Error('run-bound Debug production Core artifact is missing')
 const debugAssemblyDigest = sha256(fs.readFileSync(debugAssembly))
-const result = spawnSync('node', [path.join(root, 'tools/mutation/stryker-tool.mjs'), 'run', '--working-directory', mutationProjectRoot, '--', '--config-file', configFile, '--output', output, '--log-to-file', '--verbosity', 'trace'], {
-    cwd: root, stdio: 'inherit', env: environment
+const result = spawnSync('dotnet', ['tool', 'run', 'dotnet-stryker', '--config-file', configFile, '--output', output, '--log-to-file', '--verbosity', 'trace'], {
+    cwd: mutationProjectRoot, stdio: 'inherit', env: environment
 })
 if (result.status !== 0) throw new Error('Release Stryker failed for the sealed critical authority scope')
 const reportFile = path.join(output, 'reports', config['stryker-config']['report-file-name'] + '.json')

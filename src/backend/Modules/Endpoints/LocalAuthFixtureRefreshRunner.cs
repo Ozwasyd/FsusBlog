@@ -1,4 +1,4 @@
-// fixture-catalog: producer auth-session
+// fixture-catalog: consumer legacy-auth-refresh-runtime auth-basic
 using System.Diagnostics;
 
 using Microsoft.AspNetCore.Hosting;

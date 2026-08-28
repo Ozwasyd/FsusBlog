@@ -567,42 +567,74 @@ function fixtureFromCallback(callback)
     return null;
 }
 
-function isAssertionIdentifier(name)
+function assertionRootIdentifier(node)
 {
-    return name === 'expect' || name === 'assert' || name === 'Assert';
-}
-
-function isAssertionCallee(callee)
-{
-    let current = callee;
+    let current = node;
     while (ts.isPropertyAccessExpression(current))
     {
-        if (ts.isIdentifier(current.expression) && isAssertionIdentifier(current.expression.text))
-        {
-            return true;
-        }
         current = current.expression;
     }
-    if (ts.isCallExpression(current) && ts.isIdentifier(current.expression) && isAssertionIdentifier(current.expression.text))
+    while (ts.isCallExpression(current))
     {
-        return true;
+        current = current.expression;
+        while (ts.isPropertyAccessExpression(current))
+        {
+            current = current.expression;
+        }
     }
-    return false;
+    return ts.isIdentifier(current) ? current.text : null;
+}
+
+function assertionBinding(ctx, rootName)
+{
+    if (!rootName)
+    {
+        return null;
+    }
+    const binding = ctx.imports.get(rootName);
+    if (binding)
+    {
+        if ((binding.module === 'vitest' || binding.module === '@playwright/test')
+            && binding.exported === 'expect')
+        {
+            return binding;
+        }
+        if ((binding.module === 'node:assert' || binding.module === 'node:assert/strict')
+            && (binding.exported === 'default' || binding.exported === '*' || binding.exported === 'strict'))
+        {
+            return binding;
+        }
+        return null;
+    }
+    if (rootName === 'expect'
+        && !ctx.declaredNames.has(rootName)
+        && (ctx.adapter === 'vitest' || ctx.adapter === 'playwright'))
+    {
+        return { module: ctx.adapter === 'vitest' ? 'vitest' : '@playwright/test', exported: 'expect' };
+    }
+    return null;
+}
+
+function isAssertionCallee(ctx, callee)
+{
+    return assertionBinding(ctx, assertionRootIdentifier(callee)) !== null;
 }
 
 function resolveCallIdentity(ctx, call)
 {
     const callee = call.expression;
+    const assertionRoot = assertionRootIdentifier(callee);
+    const resolvedAssertionBinding = assertionBinding(ctx, assertionRoot);
     if (ts.isPropertyAccessExpression(callee))
     {
-        const root = baseIdentifier(callee.expression);
+        const root = baseIdentifier(callee.expression) ?? assertionRoot;
         const binding = root ? ctx.imports.get(root) : null;
         return {
             methodName: callee.name.text,
             containingType: ctx.source.slice(callee.expression.getStart(ctx.sourceFile), callee.expression.getEnd()).replace(/\s+/gu, ' ').trim().slice(0, 160),
             rootName: root,
-            moduleSpecifier: binding?.module ?? null,
-            isAssertion: isAssertionCallee(callee)
+            moduleSpecifier: resolvedAssertionBinding?.module ?? binding?.module ?? null,
+            isAssertion: isAssertionCallee(ctx, callee)
         };
     }
     if (ts.isIdentifier(callee))
@@ -612,8 +644,8 @@ function resolveCallIdentity(ctx, call)
             methodName: callee.text,
             containingType: undefined,
             rootName: callee.text,
-            moduleSpecifier: binding?.module ?? null,
-            isAssertion: isAssertionIdentifier(callee.text)
+            moduleSpecifier: resolvedAssertionBinding?.module ?? binding?.module ?? null,
+            isAssertion: resolvedAssertionBinding !== null
         };
     }
     return { methodName: '<expression>', containingType: undefined, rootName: null, moduleSpecifier: null, isAssertion: false };
@@ -651,7 +683,10 @@ function callFacts(ctx, body, caseId, testIdByCallbackName)
             const identity = resolveCallIdentity(ctx, node);
             if (identity.isAssertion)
             {
-                if (assertionCandidates.length < MAX_ASSERTIONS)
+                const chainedExpectationRoot = identity.methodName === 'expect'
+                    && ts.isPropertyAccessExpression(node.parent)
+                    && node.parent.expression === node;
+                if (!chainedExpectationRoot && assertionCandidates.length < MAX_ASSERTIONS)
                 {
                     assertionCandidates.push({
                         methodName: identity.methodName,

@@ -1,0 +1,35 @@
+import { describe, expect, test } from 'vitest'
+
+import { load } from '../../../../src/subject'
+
+describe('vitest quality corpus', () => {
+    test('vitest exact state', () => {
+        expect(load()).toBe(2)
+    })
+
+    test('vitest empty masked case', () => {
+        load()
+    })
+
+    test('vitest constant self proof', () => {
+        expect(401).toBe(401)
+    })
+
+    test('vitest early return', () => {
+        if (!process.env.FIXTURE_AVAILABLE) return
+        expect(load()).toBe(2)
+    })
+
+    test('vitest cache name mismatch', () => {
+        expect(load()).toBe(load())
+    })
+
+    test('vitest unreachable oracle', () => {
+        if (false) expect(load()).toBe(2)
+    })
+
+    test('vitest uninformative measurement', () => {
+        const elapsed = 0
+        expect(elapsed).toBeGreaterThanOrEqual(0)
+    })
+})

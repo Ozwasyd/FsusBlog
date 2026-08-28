@@ -1,4 +1,3 @@
-/* eslint-disable import-x/no-relative-parent-imports -- Repository contract tests and tool authorities intentionally compose sibling owner modules. */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';

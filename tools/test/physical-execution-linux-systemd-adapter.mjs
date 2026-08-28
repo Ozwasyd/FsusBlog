@@ -132,6 +132,14 @@ function unitProperties(unitName, runSystemctl)
     return { status: 'verified', values, command: commandResultEvidence(args, result) };
 }
 
+function exactPropertyTokens(value, expected)
+{
+    const actualTokens = String(value ?? '').trim().split(/\s+/u).filter(Boolean).sort();
+    const expectedTokens = [...expected].sort();
+    return actualTokens.length === expectedTokens.length
+        && actualTokens.every((token, index) => token === expectedTokens[index]);
+}
+
 function cgroupMemberPids(controlGroup)
 {
     if (!controlGroup)
@@ -705,8 +713,14 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     throw new Error('physical execution systemd private network authority is unverifiable');
                 }
                 if (linuxNetworkPolicy
-                    && (properties.values.IPAddressDeny !== '0.0.0.0/0 ::/0'
-                        || properties.values.IPAddressAllow !== '::1/128 127.0.0.0/8'))
+                    && (!exactPropertyTokens(
+                        properties.values.IPAddressDeny,
+                        ['0.0.0.0/0', '::/0']
+                    )
+                        || !exactPropertyTokens(
+                            properties.values.IPAddressAllow,
+                            ['127.0.0.0/8', '::1/128']
+                        )))
                 {
                     throw new Error('physical execution systemd IP address policy authority is unverifiable');
                 }

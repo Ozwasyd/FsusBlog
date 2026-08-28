@@ -39,6 +39,16 @@ public sealed partial class SearchIndexService
         string ResolveUtf8(uint hash);
     }
 
+    internal static int GetUtf8ScalarLength(byte value)
+        => value switch
+        {
+            < 0x80 => 1,
+            >= 0xC2 and < 0xE0 => 2,
+            >= 0xE0 and < 0xF0 => 3,
+            >= 0xF0 and < 0xF8 => 4,
+            _ => 1
+        };
+
     private ref struct SearchTokenizer
     {
         private readonly ISearchDictionaryLookup _dictionary;
@@ -434,16 +444,6 @@ public sealed partial class SearchIndexService
                 || value is >= (byte)'A' and <= (byte)'Z'
                 || value is >= (byte)'0' and <= (byte)'9';
 
-        internal static int GetUtf8ScalarLength(byte value)
-            => value switch
-            {
-                < 0x80 => 1,
-                >= 0xC2 and < 0xE0 => 2,
-                >= 0xE0 and < 0xF0 => 3,
-                >= 0xF0 and < 0xF8 => 4,
-                _ => 1
-            };
-
         internal static uint DecodeUtf8Scalar(ReadOnlySpan<byte> source, int offset, int runeLength)
             => runeLength switch
             {
@@ -628,7 +628,7 @@ public sealed partial class SearchIndexService
             var scalars = new List<uint>(Math.Max(1, bytes.Length / 3));
             for (int offset = 0; offset < bytes.Length;)
             {
-                int runeLength = SearchTokenizer.GetUtf8ScalarLength(bytes[offset]);
+                int runeLength = GetUtf8ScalarLength(bytes[offset]);
                 if (runeLength <= 0 || offset + runeLength > bytes.Length)
                 {
                     break;
@@ -646,7 +646,7 @@ public sealed partial class SearchIndexService
             int count = 0;
             for (int offset = 0; offset < bytes.Length;)
             {
-                int runeLength = SearchTokenizer.GetUtf8ScalarLength(bytes[offset]);
+                int runeLength = GetUtf8ScalarLength(bytes[offset]);
                 if (runeLength <= 0 || offset + runeLength > bytes.Length)
                 {
                     break;
@@ -934,7 +934,7 @@ public sealed partial class SearchIndexService
             uint state = 0;
             for (int offset = 0; offset < source.Length;)
             {
-                int runeLength = SearchTokenizer.GetUtf8ScalarLength(source[offset]);
+                int runeLength = GetUtf8ScalarLength(source[offset]);
                 if (runeLength <= 0 || offset + runeLength > source.Length)
                 {
                     break;

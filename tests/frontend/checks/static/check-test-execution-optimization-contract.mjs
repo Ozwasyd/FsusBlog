@@ -148,8 +148,7 @@ requireIncludes('tests/frontend/fixtures/prepare-playwright-sessions.mjs', [
     'FSUSBLOG_REDIS_CONTAINER: redisContainer',
     'FSUSBLOG_USER_USERNAME: `binaryuser-${session}`',
     'FSUSBLOG_ADMIN_USERNAME: `binaryadmin-${session}`',
-    'FSUSBLOG_DEVICE_FP: `${session}-playwright`',
-    "assertSafeFixtureContainer(redisContainer, 'FSUSBLOG_REDIS_CONTAINER')"
+    'FSUSBLOG_DEVICE_FP: `${session}-playwright`'
 ]);
 if (read('tests/frontend/fixtures/prepare-playwright-sessions.mjs').includes('spawnSync'))
 {
@@ -261,8 +260,6 @@ requireIncludes('src/frontend/wasm/build.sh', [
     '--check-source-paths',
     'RunEmcmake() {',
     '"${EMCMAKE_CMD[@]}" "$@"',
-    'EMCC_BIN="$(dirname "${EMCMAKE_CMD[0]}")/emcc"',
-    'EMSCRIPTEN_VERSION="$("${EMCC_BIN}" --version',
     'RunEmcmake "${CMAKE_BIN}" --fresh "${WASM_SOURCE_DIR}"',
     'RunEmcmake "${CMAKE_BIN}" --fresh "${WASM_POW_SOURCE_DIR}"',
     'COMMENT_PRIVACY_BUILD_CONTRACT="${REPOSITORY_ROOT}/tools/security/comment-privacy-build-contract.mjs"',
@@ -632,11 +629,9 @@ if (!suiteSupportSource.includes(`BACKEND_ORDINARY_TEST_FILTER="\${FSUSBLOG_BACK
 {
     errors.push('backend ordinary and coverage lanes must share a fail-closed filter that excludes every dedicated special suite');
 }
-if (!suiteSupportSource.includes('PrepareBackendPlatformPlan backend-unit "$BACKEND_ORDINARY_TEST_FILTER"')
-    || !suiteSupportSource.includes('require(\'$(BackendPlatformPlanFile backend-unit)\').executionFilter')
-    || !suiteSupportSource.includes('RunBackendDotnetFilterOnly "$platformFilter" backend-unit'))
+if (!suiteSupportSource.includes('RunBackendDotnetFilterOnly "$BACKEND_ORDINARY_TEST_FILTER"'))
 {
-    errors.push('backend ordinary lane must project BACKEND_ORDINARY_TEST_FILTER through the sealed platform plan');
+    errors.push('backend ordinary lane must consume BACKEND_ORDINARY_TEST_FILTER');
 }
 for (const binding of [
     'RunBackendDotnetTest()',

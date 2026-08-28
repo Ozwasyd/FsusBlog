@@ -1,12 +1,11 @@
-/* eslint-disable import-x/no-relative-parent-imports -- Repository contract tests and tool authorities intentionally compose sibling owner modules. */
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
-import { Writable } from 'node:stream';
 import test from 'node:test';
+import { Writable } from 'node:stream';
 
 import {
     finalizeNetworkSandbox,
@@ -176,20 +175,17 @@ test('systemd address policy permits an exact current-run loopback service and d
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-network-loopback-'));
     const directories = Object.fromEntries([
         'home', 'temp', 'npmCache', 'nugetPackages', 'dotnetHome', 'toolCache'
-    ].map((name) =>
-    {
+    ].map((name) => {
         const value = path.join(directory, name);
         fs.mkdirSync(value, { recursive: true, mode: 0o700 });
         return [name, value];
     }));
     const server = net.createServer((socket) => socket.end());
-    context.after(() =>
-    {
+    context.after(() => {
         server.close();
         fs.rmSync(directory, { recursive: true, force: true });
     });
-    await new Promise((resolve, reject) =>
-    {
+    await new Promise((resolve, reject) => {
         server.once('error', reject);
         server.listen(0, '127.0.0.1', resolve);
     });
@@ -225,10 +221,7 @@ test('systemd address policy permits an exact current-run loopback service and d
         environment,
         policy
     });
-    const quiet = new Writable({ write(_chunk, _encoding, callback)
-    {
-        callback();
-    } });
+    const quiet = new Writable({ write(_chunk, _encoding, callback) { callback(); } });
     await runPhysicalExecution({
         command: prepared.command,
         cwd: process.cwd(),

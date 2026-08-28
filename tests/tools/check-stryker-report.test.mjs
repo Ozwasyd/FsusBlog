@@ -111,7 +111,7 @@ function traceFor(inputReport, inputConfig = config, {
     const reportName = basename(reportPath, extname(reportPath));
     const lines = [
         '2026-07-11T00:59:59.0000000Z  [DBG] '
-        + 'Stryker starting, version: "4.14.2-fsusblog.2" (e60f399b)',
+        + 'Stryker starting, version: "4.14.2" (e60f399b)',
         '2026-07-11T01:00:00.0000000Z  [DBG] Stryker started with options: '
         + `StrykerOptions { ReportPath: "${dirname(reportPath)}", `
         + `ReportFileName: "${reportName}", `
@@ -239,7 +239,7 @@ test('mutation authority binds stable inventory, real test identities, terminal 
         fullyQualifiedName: defaultTestName
     }]);
     assert.equal(value.traceExecution.batches[0].rawMutantIds.length, 2);
-    assert.equal(value.traceExecution.strykerVersion, '4.14.2-fsusblog.2');
+    assert.equal(value.traceExecution.strykerVersion, '4.14.2');
     const firstBatchMembers = value.inventory.filter(
         ({ traceBatchId }) => traceBatchId === value.traceExecution.batches[0].batchId
     );
@@ -353,7 +353,7 @@ test('replacement identity preserves leading whitespace and legal empty strings'
     );
 });
 
-test('operator identity uses the reviewed repository Stryker.NET allowlist', () =>
+test('operator identity uses the reviewed Stryker.NET 4.14.2 allowlist', () =>
 {
     const knownOperators = [
         'Arithmetic mutation',
@@ -376,7 +376,7 @@ test('operator identity uses the reviewed repository Stryker.NET allowlist', () 
         'TotallyUnknownMutationOperator';
     assert.throws(
         () => authority(unknown),
-        /not in the Stryker\.NET 4\.14\.2-fsusblog\.2 allowlist/u
+        /not in the Stryker\.NET 4\.14\.2 allowlist/u
     );
 });
 
@@ -529,10 +529,7 @@ test('trace binding rejects missing, duplicate, extra, reversed, mismatched, or 
     );
     assert.throws(
         () => authority(input, config, {
-            rawTrace: traceFor(input).toString('utf8').replace(
-                '4.14.2-fsusblog.2',
-                '4.14.3'
-            )
+            rawTrace: traceFor(input).toString('utf8').replace('4.14.2', '4.14.3')
         }),
         /unsupported Stryker\.NET producer version 4\.14\.3/u
     );

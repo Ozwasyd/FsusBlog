@@ -1,0 +1,161 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "fsusblog.media-negative-corpus-plan.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "owner",
+        "executionClasses",
+        "positiveAuthority",
+        "resourceLimits",
+        "cases"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.media-negative-corpus-plan.v1"
+        },
+        "owner": {
+            "const": "media-negative-corpus"
+        },
+        "executionClasses": {
+            "const": [
+                "diagnostic-only",
+                "negative-invalid"
+            ]
+        },
+        "positiveAuthority": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "requiredReceiptSchema",
+                "requiredValidityClass",
+                "requiredVerificationStatus",
+                "materializationOwner"
+            ],
+            "properties": {
+                "requiredReceiptSchema": {
+                    "const": "fsusblog.media-positive-asset-receipt.v1"
+                },
+                "requiredValidityClass": {
+                    "const": "canonical-positive"
+                },
+                "requiredVerificationStatus": {
+                    "const": "verified"
+                },
+                "materializationOwner": {
+                    "const": "canonical-media-positive-generator"
+                }
+            }
+        },
+        "resourceLimits": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "maximumEncodedBytes",
+                "maximumPixelWidth",
+                "maximumPixelHeight",
+                "maximumPixelCount",
+                "maximumAttempts"
+            ],
+            "properties": {
+                "maximumEncodedBytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16777216
+                },
+                "maximumPixelWidth": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                },
+                "maximumPixelHeight": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                },
+                "maximumPixelCount": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 268435456
+                },
+                "maximumAttempts": {
+                    "const": 1
+                }
+            }
+        },
+        "cases": {
+            "type": "array",
+            "minItems": 8,
+            "maxItems": 8,
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "id",
+                    "mutationId",
+                    "faultCondition",
+                    "reasonCode",
+                    "httpStatus",
+                    "decodeStatus",
+                    "storeStatus",
+                    "materializationStatus",
+                    "fallbackPolicy",
+                    "retryPolicy",
+                    "layoutPlaceholderAllowed"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+                    },
+                    "mutationId": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+                    },
+                    "faultCondition": {
+                        "enum": [
+                            "availability",
+                            "byte-state",
+                            "declaration-consistency",
+                            "dimensions-admission",
+                            "format-support",
+                            "header-magic",
+                            "path-safety",
+                            "payload-completeness"
+                        ]
+                    },
+                    "reasonCode": {
+                        "type": "string",
+                        "pattern": "^media\\.[a-z]+(?:\\.[a-z]+)*$"
+                    },
+                    "httpStatus": {
+                        "type": "integer",
+                        "minimum": 400,
+                        "maximum": 499
+                    },
+                    "decodeStatus": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "storeStatus": {
+                        "const": "not-created"
+                    },
+                    "materializationStatus": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "fallbackPolicy": {
+                        "const": "fixture-only-reject"
+                    },
+                    "retryPolicy": {
+                        "const": "none"
+                    },
+                    "layoutPlaceholderAllowed": {
+                        "const": false
+                    }
+                }
+            }
+        }
+    }
+}

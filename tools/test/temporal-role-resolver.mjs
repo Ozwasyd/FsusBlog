@@ -212,9 +212,7 @@ function clockAdvancePlan(roles)
 
 function unsignedArtifact(artifact)
 {
-    const unsigned = { ...artifact };
-    delete unsigned.contentDigest;
-    delete unsigned.semanticDigest;
+    const { contentDigest, semanticDigest, ...unsigned } = artifact;
     return unsigned;
 }
 

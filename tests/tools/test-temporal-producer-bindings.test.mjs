@@ -11,6 +11,7 @@ const { buildProducerChildEnv } = await import(new URL("../../tools/test-fixture
 const { buildFixtureVariantPlan, buildProducerFixtureVariantPlan } = await import(new URL("../../tools/testing/fixture-catalog.mjs", import.meta.url));
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const deterministicRunnerProducerId = 'matrix-governance';
 const sourceCommit = 'a'.repeat(40);
 const sourceFingerprint = `sha256:${'b'.repeat(64)}`;
 const timeoutPolicyDigest = defaultTimeoutPolicyDigest();
@@ -32,8 +33,8 @@ function contextInput(overrides = {})
 test('every fixture inventory implementation has one canonical temporal binding', () =>
 {
     assert.deepEqual(validateTemporalProducerBindings(), {
-        producerCount: 7,
-        implementationCount: 15,
+        producerCount: 8,
+        implementationCount: 22,
         cutoverExclusionCount: 0,
         digest: validateTemporalProducerBindings().digest
     });
@@ -139,7 +140,7 @@ test('canonical correctness runner injects context and publishes replayable temp
         'tools/test/run-deterministic-command.mjs',
         '--key', runId,
         '--execution-class', 'correctness',
-        '--producer-id', 'scale-data',
+        '--producer-id', deterministicRunnerProducerId,
         '--path', 'tools/test/temporal-context.mjs',
         '--',
         process.execPath,
@@ -203,7 +204,7 @@ test('target child exit handshake rejects child-owned timezone and epoch drift',
         'tools/test/run-deterministic-command.mjs',
         '--key', runId,
         '--execution-class', 'correctness',
-        '--producer-id', 'scale-data',
+        '--producer-id', deterministicRunnerProducerId,
         '--path', 'tools/test/temporal-context.mjs',
         '--',
         process.execPath,
@@ -248,7 +249,7 @@ test('target Bash exit handshake rejects shell-owned timezone and epoch drift', 
         '--execution-class',
         'correctness',
         '--producer-id',
-        'scale-data',
+        deterministicRunnerProducerId,
         '--path',
         'tools/data-scale/seed.sh',
         '--',
@@ -291,7 +292,7 @@ test('correctness runner rejects a target that suppresses its exit handshake', (
         'tools/test/run-deterministic-command.mjs',
         '--key', runId,
         '--execution-class', 'correctness',
-        '--producer-id', 'scale-data',
+        '--producer-id', deterministicRunnerProducerId,
         '--path', 'tools/test/temporal-context.mjs',
         '--',
         process.execPath,
@@ -372,7 +373,6 @@ test('browser context binds explicit locale and timezone instead of Node TZ only
 test('host TZ perturbation cannot change a fixed semantic business outcome', () =>
 {
     const outputRoot = path.join(repositoryRoot, '.tmp/temporal-host-perturbation');
-    const preload = path.join(repositoryRoot, 'tests/fixtures/temporal-wall-clock-offset.cjs');
     const digests = [
         ['UTC', '0'],
         ['America/Los_Angeles', '86400000'],
@@ -384,9 +384,16 @@ test('host TZ perturbation cannot change a fixed semantic business outcome', () 
         const script = `
       const fs = require('node:fs')
       const path = require('node:path')
+      const SystemDate = Date
+      const offsetMs = Number(process.argv[2])
+      globalThis.Date = class extends SystemDate {
+        constructor(...args) { super(...(args.length > 0 ? args : [SystemDate.now() + offsetMs])) }
+        static now() { return SystemDate.now() + offsetMs }
+      }
       const context = JSON.parse(process.env.FSUSBLOG_TEMPORAL_CONTEXT_JSON)
-      fs.mkdirSync(path.dirname(process.env.TEMPORAL_OUT), { recursive: true })
-      fs.writeFileSync(process.env.TEMPORAL_OUT, JSON.stringify({
+      const output = process.argv[1]
+      fs.mkdirSync(path.dirname(output), { recursive: true })
+      fs.writeFileSync(output, JSON.stringify({
         businessEpochUtc: context.businessEpochUtc,
         scheduledPublishAt: '2024-03-01T00:00:00.000Z',
         expiresAt: '2024-03-01T01:00:00.000Z',
@@ -397,23 +404,21 @@ test('host TZ perturbation cannot change a fixed semantic business outcome', () 
             'tools/test/run-deterministic-command.mjs',
             '--key', runId,
             '--execution-class', 'correctness',
-            '--producer-id', 'scale-data',
+            '--producer-id', deterministicRunnerProducerId,
             '--path', 'tools/test/temporal-context.mjs',
             '--output', output,
             '--',
-            'env',
-            `NODE_OPTIONS=--require=${preload}`,
-            `FSUSBLOG_TEST_HOST_CLOCK_OFFSET_MS=${clockOffset}`,
             process.execPath,
             '--eval',
-            script
+            script,
+            output,
+            clockOffset
         ], {
             cwd: repositoryRoot,
             encoding: 'utf8',
             env: {
                 ...process.env,
                 TZ,
-                TEMPORAL_OUT: output,
                 FSUSBLOG_TEST_RUN_ID: runId,
                 FSUSBLOG_TEST_SOURCE_COMMIT: sourceCommit,
                 FSUSBLOG_TEST_SOURCE_FINGERPRINT: sourceFingerprint,

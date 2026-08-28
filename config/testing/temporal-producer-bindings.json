@@ -11,9 +11,14 @@
         "tools/test-fixtures/orchestrator.mjs",
         "tools/test-fixtures/producer-port.mjs",
         "tools/test-fixtures/producers/catalog-ports.mjs",
+        "src/backend/Modules/Endpoints/LocalAccountProfilePreferenceFixtureEndpoints.cs",
+        "src/backend/Services/Fixtures/AccountProfilePreferenceFixtureService.cs",
+        "tools/test-fixtures/producers/account-profile-preference-producer.mjs",
         "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs",
+        "src/backend/Services/Fixtures/AuthFixtureSeeder.cs",
         "src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs",
         "tests/frontend/support/session-fixtures.mjs",
+        "tools/test-fixtures/producers/auth-session-producer.mjs",
         "tools/test-fixtures/producers/demo-public-producer.mjs",
         "tools/test-fixtures/producers/public-content-producer.mjs",
         "tools/test-fixtures/producers/spawn-helper.mjs",
@@ -27,7 +32,9 @@
         {
             "producerId": "account-messaging",
             "implementations": [
-                "tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs"
+                "src/backend/Modules/Endpoints/LocalMessagingFixtureEndpoints.cs",
+                "src/backend/Services/Fixtures/MessagingFixtureSeeder.cs",
+                "tools/test-fixtures/producers/account-messaging-producer.mjs"
             ],
             "contextIngress": "backend-test-temporal-context",
             "actualObservation": "injected-adapter-owned-runtime-or-database-observation",
@@ -38,11 +45,26 @@
             "clockDisposition": "canonical-business-epoch"
         },
         {
+            "producerId": "account-profile-preferences",
+            "implementations": [
+                "src/backend/Modules/Endpoints/LocalAccountProfilePreferenceFixtureEndpoints.cs",
+                "src/backend/Services/Fixtures/AccountProfilePreferenceFixtureService.cs",
+                "tools/test-fixtures/producers/account-profile-preference-producer.mjs"
+            ],
+            "contextIngress": "time-provider-and-producer-context",
+            "actualObservation": "backend-culture-postgres-session-and-preference-updated-at",
+            "planCarrier": "FSUSBLOG_TEMPORAL_CONTEXT_JSON",
+            "receiptCarrier": "temporal-receipt.json",
+            "semanticRoleCarrier": "FSUSBLOG_RESOLVED_TEMPORAL_ROLES_JSON",
+            "semanticRoleReceiptCarrier": "temporal-domain-producer-receipt.json",
+            "clockDisposition": "canonical-business-epoch"
+        },
+        {
             "producerId": "auth-session",
             "implementations": [
                 "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs",
-                "src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs",
-                "tests/frontend/support/session-fixtures.mjs"
+                "src/backend/Services/Fixtures/AuthFixtureSeeder.cs",
+                "tools/test-fixtures/producers/auth-session-producer.mjs"
             ],
             "contextIngress": "time-provider-and-fixture-business-epoch",
             "actualObservation": "target-node-process-and-injected-backend-business-epoch",
@@ -105,7 +127,9 @@
         {
             "producerId": "security-state",
             "implementations": [
-                "tests/frontend/support/session-fixtures.mjs"
+                "src/backend/Modules/Endpoints/LocalSecurityFixtureEndpoints.cs",
+                "src/backend/Services/Fixtures/SecurityFixtureCompositionRoot.cs",
+                "tools/test-fixtures/producers/security-fixture-producer.mjs"
             ],
             "contextIngress": "fixture-orchestrator-producer-port",
             "actualObservation": "injected-adapter-owned-runtime-or-database-observation",

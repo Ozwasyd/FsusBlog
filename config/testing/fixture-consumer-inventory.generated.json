@@ -496,7 +496,7 @@
             "consumerId": "matrix:backend-qps-risk-filter",
             "executionClass": "load",
             "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "auth.user.active, security.credential.revoked, security.pow.elevated, security.risk-escalated, security.subject.banned, session.multi-device",
+            "requiredBusinessFact": "auth.user.active, security.credential.revoked, security.pow.elevated, security.risk.escalated, security.subject.banned, session.multi-device",
             "implicitSource": "tests/matrix.yml tier backend-qps-risk-filter; command tools/test/lanes/backend-qps.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "auth-security-matrix",
@@ -507,7 +507,7 @@
                 "auth.user.active",
                 "security.credential.revoked",
                 "security.pow.elevated",
-                "security.risk-escalated",
+                "security.risk.escalated",
                 "security.subject.banned",
                 "session.multi-device"
             ],
@@ -515,7 +515,7 @@
                 "canonical.auth.user.active",
                 "canonical.security.credential.revoked",
                 "canonical.security.pow.elevated",
-                "canonical.security.risk-escalated",
+                "canonical.security.risk.escalated",
                 "canonical.security.subject.banned",
                 "canonical.session.multi-device"
             ],
@@ -744,7 +744,7 @@
             "source": "tools/test/lanes/browser-runtime-risk-diagnostics.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier browser-diagnostics; command tools/test/lanes/browser-runtime-risk-diagnostics.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; lane may reset security runtime state around execution (not a business-data fallback)",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -876,7 +876,7 @@
             "source": "tools/test/lanes/browser-runtime-risk-diagnostics.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier browser-runtime-risk-diagnostics; command tools/test/lanes/browser-runtime-risk-diagnostics.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; lane may reset security runtime state around execution (not a business-data fallback)",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -1598,7 +1598,7 @@
             "consumerId": "matrix:security",
             "executionClass": "security",
             "source": "tools/test/lanes/security-runtime.sh",
-            "requiredBusinessFact": "auth.user.active, security.credential.revoked, security.pow.elevated, security.risk-escalated, security.subject.banned, session.multi-device",
+            "requiredBusinessFact": "auth.user.active, security.credential.revoked, security.pow.elevated, security.risk.escalated, security.subject.banned, session.multi-device",
             "implicitSource": "tests/matrix.yml tier security; command tools/test/lanes/security-runtime.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
             "profileId": "auth-security-matrix",
@@ -1609,7 +1609,7 @@
                 "auth.user.active",
                 "security.credential.revoked",
                 "security.pow.elevated",
-                "security.risk-escalated",
+                "security.risk.escalated",
                 "security.subject.banned",
                 "session.multi-device"
             ],
@@ -1617,7 +1617,7 @@
                 "canonical.auth.user.active",
                 "canonical.security.credential.revoked",
                 "canonical.security.pow.elevated",
-                "canonical.security.risk-escalated",
+                "canonical.security.risk.escalated",
                 "canonical.security.subject.banned",
                 "canonical.session.multi-device"
             ],
@@ -1630,7 +1630,7 @@
             "consumerId": "matrix:security-authenticated-dast",
             "executionClass": "security",
             "source": "tools/test/lanes/security-authenticated-dast.sh",
-            "requiredBusinessFact": "auth.user.active, security.credential.revoked, security.pow.elevated, security.risk-escalated, security.subject.banned, session.multi-device",
+            "requiredBusinessFact": "auth.user.active, security.credential.revoked, security.pow.elevated, security.risk.escalated, security.subject.banned, session.multi-device",
             "implicitSource": "tests/matrix.yml tier security-authenticated-dast; command tools/test/lanes/security-authenticated-dast.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
             "profileId": "auth-security-matrix",
@@ -1641,7 +1641,7 @@
                 "auth.user.active",
                 "security.credential.revoked",
                 "security.pow.elevated",
-                "security.risk-escalated",
+                "security.risk.escalated",
                 "security.subject.banned",
                 "session.multi-device"
             ],
@@ -1649,7 +1649,7 @@
                 "canonical.auth.user.active",
                 "canonical.security.credential.revoked",
                 "canonical.security.pow.elevated",
-                "canonical.security.risk-escalated",
+                "canonical.security.risk.escalated",
                 "canonical.security.subject.banned",
                 "canonical.session.multi-device"
             ],
@@ -2247,6 +2247,31 @@
             ]
         },
         {
+            "consumerId": "source:legacy-auth-refresh-runtime",
+            "executionClass": "browser",
+            "source": "src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, session.single-device",
+            "implicitSource": "fixture-catalog consumer declaration in src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs",
+            "currentFallback": "no local data fallback path; depends on producers declared by the bound fixture profile",
+            "profileId": "auth-basic",
+            "profileIds": [
+                "auth-basic"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "session.single-device"
+            ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.session.single-device"
+            ],
+            "producerOwners": [
+                "auth-session"
+            ]
+        },
+        {
             "consumerId": "source:playwright-global-setup",
             "executionClass": "browser",
             "source": "tests/frontend/support/playwright/global-setup.ts",
@@ -2300,7 +2325,39 @@
     "producerImplementations": [
         {
             "producerId": "account-messaging",
-            "source": "tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs"
+            "source": "src/backend/Modules/Endpoints/LocalMessagingFixtureEndpoints.cs"
+        },
+        {
+            "producerId": "account-messaging",
+            "source": "src/backend/Services/Fixtures/MessagingFixtureSeeder.cs"
+        },
+        {
+            "producerId": "account-messaging",
+            "source": "tools/test-fixtures/producers/account-messaging-producer.mjs"
+        },
+        {
+            "producerId": "account-profile-preferences",
+            "source": "src/backend/Modules/Endpoints/LocalAccountProfilePreferenceFixtureEndpoints.cs"
+        },
+        {
+            "producerId": "account-profile-preferences",
+            "source": "src/backend/Services/Fixtures/AccountProfilePreferenceFixtureService.cs"
+        },
+        {
+            "producerId": "account-profile-preferences",
+            "source": "tools/test-fixtures/producers/account-profile-preference-producer.mjs"
+        },
+        {
+            "producerId": "audit-records",
+            "source": "src/backend/Modules/Endpoints/LocalAuditFixtureEndpoints.cs"
+        },
+        {
+            "producerId": "audit-records",
+            "source": "src/backend/Services/Fixtures/AuditFixtureProducer.cs"
+        },
+        {
+            "producerId": "audit-records",
+            "source": "tools/test-fixtures/producers/audit-producer.mjs"
         },
         {
             "producerId": "auth-session",
@@ -2308,11 +2365,11 @@
         },
         {
             "producerId": "auth-session",
-            "source": "src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs"
+            "source": "src/backend/Services/Fixtures/AuthFixtureSeeder.cs"
         },
         {
             "producerId": "auth-session",
-            "source": "tests/frontend/support/session-fixtures.mjs"
+            "source": "tools/test-fixtures/producers/auth-session-producer.mjs"
         },
         {
             "producerId": "comment-moderation",
@@ -2356,7 +2413,15 @@
         },
         {
             "producerId": "security-state",
-            "source": "tests/frontend/support/session-fixtures.mjs"
+            "source": "src/backend/Modules/Endpoints/LocalSecurityFixtureEndpoints.cs"
+        },
+        {
+            "producerId": "security-state",
+            "source": "src/backend/Services/Fixtures/SecurityFixtureCompositionRoot.cs"
+        },
+        {
+            "producerId": "security-state",
+            "source": "tools/test-fixtures/producers/security-fixture-producer.mjs"
         }
     ]
 }

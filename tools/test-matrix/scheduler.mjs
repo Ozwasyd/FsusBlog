@@ -44,6 +44,7 @@ import {
     resolveRunBoundArtifactDeclaration
 } from './local-profile.mjs';
 import { createProductionResourceEnforcer } from './production-resource-enforcement.mjs';
+import { releaseReliabilityResourceConflict } from './release-reliability-scheduler-projection.mjs';
 import {
     createResidentLeaseHandoff,
     readResidentLeaseDocument,
@@ -95,6 +96,7 @@ const orchestrationOnlyFingerprintEnvironmentKeys = new Set([
     'FSUSBLOG_COMMAND_MANIFEST_WORKERS',
     'FSUSBLOG_PLAYWRIGHT_WORKERS',
     'FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE',
+    'FSUSBLOG_SCHEDULER_RESOURCE_GRANT_RUN_ID',
     'FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID',
     'FSUSBLOG_CGROUP_BUNDLE_PATH',
     'FSUSBLOG_CGROUP_EFFECTIVE_CPU_MAX',
@@ -2435,6 +2437,16 @@ function resumeTierCandidates(previous, tierIds)
     if (!previous)
     {
         return candidates;
+    }
+    const terminalFailures = Object.entries(previous.tiers ?? {})
+        .filter(([, result]) => result?.status !== 'success')
+        .map(([tierId]) => tierId)
+        .sort();
+    if (terminalFailures.length > 0)
+    {
+        throw new Error(
+            `correctness resume cannot re-execute failed tiers; start an independent run: ${terminalFailures.join(', ')}`
+        );
     }
 
     const retainSuccessful = (tierId, value, fallbackSourceState) =>
@@ -4966,6 +4978,7 @@ async function runDagUnlocked(options)
         {
             const admittedEntries = [...activeEntries, ...selected.map((item) => ({ tier: item }))];
             let excludedBy = null;
+            let excludedDetail = null;
             if (!canShareAdmission(tier, admittedEntries, maxParallel))
             {
                 if (admittedEntries.length >= maxParallel)
@@ -4983,6 +4996,10 @@ async function runDagUnlocked(options)
                 else if (admittedEntries.some((entry) => intersects(tier.exclusiveResources, entry.tier.exclusiveResources)))
                 {
                     excludedBy = 'exclusive-resource';
+                    excludedDetail = releaseReliabilityResourceConflict(
+                        tier,
+                        admittedEntries.map((entry) => entry.tier)
+                    );
                 }
                 else if (admittedEntries.some((entry) => (
                     (tier.services?.length ?? 0) > 0
@@ -4999,7 +5016,12 @@ async function runDagUnlocked(options)
             }
             if (excludedBy)
             {
-                decisions.push({ ...priorityById.get(tier.id), admitted: false, hardConstraint: excludedBy });
+                decisions.push({
+                    ...priorityById.get(tier.id),
+                    admitted: false,
+                    hardConstraint: excludedBy,
+                    ...(excludedDetail === null ? {} : { hardConstraintDetail: excludedDetail })
+                });
                 continue;
             }
             if (tier.resourceGrantMode === 'dynamic')
@@ -5114,7 +5136,7 @@ async function runDagUnlocked(options)
         if (
             resumeBudgetPolicyChanged
       || (options.reuseAcrossSourceChanges === false && !sameCheckpointSource(candidate?.sourceState, sourceState))
-      || previousTier?.status !== 'success'
+      || !Object.is(previousTier?.status, 'success')
       || previousTier.inputFingerprint !== inputFingerprint
       || previousTier.dependencyFingerprint !== dependencyFingerprintValue
       || previousTier.outputFingerprint !== currentOutputs.fingerprint
@@ -5159,6 +5181,7 @@ async function runDagUnlocked(options)
             FSUSBLOG_TEST_SOURCE_COMMIT: sourceState.commit ?? '',
             FSUSBLOG_TEST_SOURCE_FINGERPRINT: sourceState.worktreeFingerprint,
             FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE: resourceGrantFile,
+            FSUSBLOG_SCHEDULER_RESOURCE_GRANT_RUN_ID: runId,
             FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID: tier.id,
             ...(tier.residentLeaseConsumer === true ? {
         FSUSBLOG_RESIDENT_LEASE_INVENTORY: residentLeaseFile,
@@ -5310,6 +5333,8 @@ async function runDagUnlocked(options)
             runId,
             runDirectory
         };
+        const requiresProcessRegistration =
+            resourceEnforcer.mode === 'enforced' || Boolean(options.registerManagedProcess);
         let execution;
         if (options.executeTier)
         {
@@ -5330,11 +5355,11 @@ async function runDagUnlocked(options)
                 Number(tier.terminationGraceMs) > 0
                     ? Number(tier.terminationGraceMs)
                     : terminationGraceMs,
-                suspendForAttach: resourceEnforcer.mode === 'enforced' || Boolean(options.registerManagedProcess),
+                suspendForAttach: requiresProcessRegistration,
                 durableContainment: Boolean(options.registerManagedProcess)
             });
         }
-        if (execution.child)
+        if (execution.child && requiresProcessRegistration)
         {
             try
             {
@@ -5692,6 +5717,9 @@ async function runDagUnlocked(options)
                 }
                 const exclusiveResources = (tier.exclusiveResources ?? []).filter((resource) =>
                     admissionEntries.some((entry) => (entry.tier.exclusiveResources ?? []).includes(resource)));
+                const exclusiveResourceConflicts = admissionEntries
+                    .map((entry) => releaseReliabilityResourceConflict(tier, [entry.tier]))
+                    .filter(Boolean);
                 const serviceResources = (tier.services ?? []).filter((service) =>
                     admissionEntries.some((entry) => (entry.tier.services ?? []).includes(service)))
                     .map((service) => `service:${service}`);
@@ -5702,7 +5730,10 @@ async function runDagUnlocked(options)
                 }
                 else if (exclusiveResources.length > 0)
                 {
-                    schedulerWaitLedger.observe(tier.id, { exclusiveResources });
+                    schedulerWaitLedger.observe(tier.id, {
+                        exclusiveResources,
+                        exclusiveResourceConflicts
+                    });
                 }
                 else
                 {

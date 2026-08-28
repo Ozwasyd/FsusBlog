@@ -3,7 +3,7 @@
     "generatedBy": "tools/governance/check-rule-platform.mjs --write-registry",
     "inventory": {
         "packageScriptCount": 214,
-        "implementationCount": 394
+        "implementationCount": 402
     },
     "rules": [
         {
@@ -1875,7 +1875,7 @@
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
                 "mode": "delegated-command",
-                "command": "npm run verify:wasm && env -u NO_COLOR NODE_PATH=./node_modules FSUSBLOG_PLAYWRIGHT_BROWSERS=${FSUSBLOG_PLAYWRIGHT_BROWSERS:-chromium,firefox,webkit} ../../tools/frontend/run-playwright-sanitized-env.sh npx playwright test --config=${FSUSBLOG_PLAYWRIGHT_CONFIG:-playwright.config.ts} ${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-} --workers=${FSUSBLOG_PLAYWRIGHT_WORKERS:-`node ../../tools/test/resolve-playwright-workers.mjs cross-browser-smoke`} --grep='browser-test:(primary-public-route-navigation|capability-engine-delta)' acceptance/public-routes.spec.ts acceptance/cross-browser-smoke.spec.ts",
+                "command": "npm run verify:wasm && env -u NO_COLOR NODE_PATH=./node_modules FSUSBLOG_PLAYWRIGHT_BROWSERS=${FSUSBLOG_PLAYWRIGHT_BROWSERS:-chromium,firefox,webkit} ../../tools/frontend/run-playwright-sanitized-env.sh npx playwright test --config=${FSUSBLOG_PLAYWRIGHT_CONFIG:-playwright.diagnostics.config.ts} ${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-} --workers=${FSUSBLOG_PLAYWRIGHT_WORKERS:-`node ../../tools/test/resolve-playwright-workers.mjs cross-browser-smoke`} --grep='browser-test:(primary-public-route-navigation|capability-engine-delta)' acceptance/public-routes.spec.ts acceptance/cross-browser-smoke.spec.ts",
                 "implementation": "tools/frontend/run-playwright-sanitized-env.sh",
                 "executionKey": "governance:check:cross-browser:smoke",
                 "receiptCompatible": true
@@ -1992,7 +1992,7 @@
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
                 "mode": "delegated-command",
-                "command": "npm run verify:wasm && env -u NO_COLOR NODE_PATH=./node_modules FSUSBLOG_PLAYWRIGHT_BROWSERS=${FSUSBLOG_PLAYWRIGHT_BROWSERS:-chromium,firefox,webkit} ../../tools/frontend/run-playwright-sanitized-env.sh npx playwright test --config=${FSUSBLOG_PLAYWRIGHT_CONFIG:-playwright.config.ts} ${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-} --workers=${FSUSBLOG_PLAYWRIGHT_WORKERS:-`node ../../tools/test/resolve-playwright-workers.mjs cross-browser-smoke`}",
+                "command": "npm run verify:wasm && env -u NO_COLOR NODE_PATH=./node_modules FSUSBLOG_PLAYWRIGHT_BROWSERS=${FSUSBLOG_PLAYWRIGHT_BROWSERS:-chromium,firefox,webkit} ../../tools/frontend/run-playwright-sanitized-env.sh npx playwright test --config=${FSUSBLOG_PLAYWRIGHT_CONFIG:-playwright.diagnostics.config.ts} ${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-} --workers=${FSUSBLOG_PLAYWRIGHT_WORKERS:-`node ../../tools/test/resolve-playwright-workers.mjs cross-browser-smoke`}",
                 "implementation": "tools/frontend/run-playwright-sanitized-env.sh",
                 "executionKey": "governance:check:cross-browser:smoke:run",
                 "receiptCompatible": true
@@ -11678,7 +11678,7 @@
             "symbol": "CheckToolsCiCheckTestQuality",
             "owner": "TestGovernanceOwner",
             "category": "test-governance",
-            "engine": "runtime",
+            "engine": "parser",
             "sourceScopes": [
                 "tools/ci/check-test-quality.mjs",
                 "tests/**",
@@ -13176,6 +13176,36 @@
             }
         },
         {
+            "id": "Implementation.ToolsGovernanceCheckFixtureMutationRecoveryGovernanceMjs",
+            "externalId": "tools/governance/check-fixture-mutation-recovery-governance.mjs",
+            "symbol": "CheckToolsGovernanceCheckFixtureMutationRecoveryGovernance",
+            "owner": "RepositoryGovernanceOwner",
+            "category": "repository-governance",
+            "engine": "text",
+            "sourceScopes": [
+                "tools/governance/check-fixture-mutation-recovery-governance.mjs",
+                "config/**",
+                "docs/**",
+                "tools/**",
+                "tests/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/governance/check-fixture-mutation-recovery-governance.mjs",
+                "executionKey": "governance:file:tools/governance/check-fixture-mutation-recovery-governance.mjs",
+                "receiptCompatible": true
+            },
+            "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
+        },
+        {
             "id": "Implementation.ToolsGovernanceCheckMonolithicDistributedArchitectureMjs",
             "externalId": "tools/governance/check-monolithic-distributed-architecture.mjs",
             "symbol": "CheckToolsGovernanceCheckMonolithicDistributedArchitecture",
@@ -14546,6 +14576,35 @@
             }
         },
         {
+            "id": "Implementation.ToolsTestCheckCleanAttemptConsumersMjs",
+            "externalId": "tools/test/check-clean-attempt-consumers.mjs",
+            "symbol": "CheckToolsTestCheckCleanAttemptConsumers",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "text",
+            "sourceScopes": [
+                "tools/test/check-clean-attempt-consumers.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/test/check-clean-attempt-consumers.mjs",
+                "executionKey": "governance:file:tools/test/check-clean-attempt-consumers.mjs",
+                "receiptCompatible": true
+            },
+            "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
+        },
+        {
             "id": "Implementation.ToolsTestCheckFrontendTestLayoutMjs",
             "externalId": "tools/test/check-frontend-test-layout.mjs",
             "symbol": "CheckToolsTestCheckFrontendTestLayout",
@@ -14572,6 +14631,63 @@
                 "executionKey": "governance:file:tools/test/check-frontend-test-layout.mjs",
                 "receiptCompatible": true
             }
+        },
+        {
+            "id": "Implementation.ToolsTestCheckHiddenRetriesMjs",
+            "externalId": "tools/test/check-hidden-retries.mjs",
+            "symbol": "CheckToolsTestCheckHiddenRetries",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "parser",
+            "sourceScopes": [
+                "tools/test/check-hidden-retries.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/test/check-hidden-retries.mjs",
+                "executionKey": "governance:file:tools/test/check-hidden-retries.mjs",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Implementation.ToolsTestCheckMessagingFixtureGovernanceMjs",
+            "externalId": "tools/test/check-messaging-fixture-governance.mjs",
+            "symbol": "CheckToolsTestCheckMessagingFixtureGovernance",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "text",
+            "sourceScopes": [
+                "tools/test/check-messaging-fixture-governance.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/test/check-messaging-fixture-governance.mjs",
+                "executionKey": "governance:file:tools/test/check-messaging-fixture-governance.mjs",
+                "receiptCompatible": true
+            },
+            "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
         },
         {
             "id": "Implementation.ToolsTestCheckMutationInventoryMjs",
@@ -14658,6 +14774,64 @@
             }
         },
         {
+            "id": "Implementation.ToolsTestCheckRandomEntropyGovernanceMjs",
+            "externalId": "tools/test/check-random-entropy-governance.mjs",
+            "symbol": "CheckToolsTestCheckRandomEntropyGovernance",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "text",
+            "sourceScopes": [
+                "tools/test/check-random-entropy-governance.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/test/check-random-entropy-governance.mjs",
+                "executionKey": "governance:file:tools/test/check-random-entropy-governance.mjs",
+                "receiptCompatible": true
+            },
+            "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
+        },
+        {
+            "id": "Implementation.ToolsTestCheckSecurityFixtureGovernanceMjs",
+            "externalId": "tools/test/check-security-fixture-governance.mjs",
+            "symbol": "CheckToolsTestCheckSecurityFixtureGovernance",
+            "owner": "SecurityGovernanceOwner",
+            "category": "security-privacy",
+            "engine": "parser",
+            "sourceScopes": [
+                "tools/test/check-security-fixture-governance.mjs",
+                "security/**",
+                "src/backend/**",
+                "src/frontend/src/privacy/**",
+                "tests/security/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/test/check-security-fixture-governance.mjs",
+                "executionKey": "governance:file:tools/test/check-security-fixture-governance.mjs",
+                "receiptCompatible": true
+            }
+        },
+        {
             "id": "Implementation.ToolsTestCheckStrykerReportMjs",
             "externalId": "tools/test/check-stryker-report.mjs",
             "symbol": "CheckToolsTestCheckStrykerReport",
@@ -14684,6 +14858,63 @@
                 "executionKey": "governance:file:tools/test/check-stryker-report.mjs",
                 "receiptCompatible": true
             }
+        },
+        {
+            "id": "Implementation.ToolsTestCheckTemporalShapeGovernanceMjs",
+            "externalId": "tools/test/check-temporal-shape-governance.mjs",
+            "symbol": "CheckToolsTestCheckTemporalShapeGovernance",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "parser",
+            "sourceScopes": [
+                "tools/test/check-temporal-shape-governance.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/test/check-temporal-shape-governance.mjs",
+                "executionKey": "governance:file:tools/test/check-temporal-shape-governance.mjs",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Implementation.ToolsTestCheckTestEntropyGovernanceMjs",
+            "externalId": "tools/test/check-test-entropy-governance.mjs",
+            "symbol": "CheckToolsTestCheckTestEntropyGovernance",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "text",
+            "sourceScopes": [
+                "tools/test/check-test-entropy-governance.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/test/check-test-entropy-governance.mjs",
+                "executionKey": "governance:file:tools/test/check-test-entropy-governance.mjs",
+                "receiptCompatible": true
+            },
+            "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
         },
         {
             "id": "Implementation.ToolsTestCheckWallClockGovernanceMjs",
@@ -16855,35 +17086,6 @@
             }
         },
         {
-            "id": "Implementation.ToolsTestLanesResetSecurityRuntimeStateSh",
-            "externalId": "tools/test/lanes/reset-security-runtime-state.sh",
-            "symbol": "CheckToolsTestLanesResetSecurityRuntimeState",
-            "owner": "SecurityGovernanceOwner",
-            "category": "security-privacy",
-            "engine": "runtime",
-            "sourceScopes": [
-                "tools/test/lanes/reset-security-runtime-state.sh",
-                "security/**",
-                "src/backend/**",
-                "src/frontend/src/privacy/**",
-                "tests/security/**"
-            ],
-            "severity": "error",
-            "fixable": false,
-            "changedFileSafe": true,
-            "dependencies": [],
-            "testFixtures": [
-                "tests/tools/rule-platform.test.mjs"
-            ],
-            "documentation": "docs/development/custom-rule-platform.md",
-            "execution": {
-                "mode": "delegated-implementation",
-                "implementation": "tools/test/lanes/reset-security-runtime-state.sh",
-                "executionKey": "governance:file:tools/test/lanes/reset-security-runtime-state.sh",
-                "receiptCompatible": true
-            }
-        },
-        {
             "id": "Implementation.ToolsTestLanesResilienceRuntimeSh",
             "externalId": "tools/test/lanes/resilience-runtime.sh",
             "symbol": "CheckToolsTestLanesResilienceRuntime",
@@ -17504,6 +17706,34 @@
                 "receiptCompatible": true
             },
             "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
+        },
+        {
+            "id": "Implementation.ToolsTestingCheckAuditFixtureGovernanceMjs",
+            "externalId": "tools/testing/check-audit-fixture-governance.mjs",
+            "symbol": "CheckToolsTestingCheckAuditFixtureGovernance",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "parser",
+            "sourceScopes": [
+                "tools/testing/check-audit-fixture-governance.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/testing/check-audit-fixture-governance.mjs",
+                "executionKey": "governance:file:tools/testing/check-audit-fixture-governance.mjs",
+                "receiptCompatible": true
+            }
         },
         {
             "id": "Implementation.ToolsTestingCheckBrowserReadinessContractMjs",

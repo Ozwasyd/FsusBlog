@@ -12,10 +12,7 @@ const evidenceClasses = new Set(['correctness', 'browser-contract']);
 
 function canonicalJson(value)
 {
-    if (Array.isArray(value))
-    {
-        return `[${value.map(canonicalJson).join(',')}]`;
-    }
+    if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
     if (value && typeof value === 'object')
     {
         return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`;
@@ -35,31 +32,19 @@ function sha256File(file, fileSystem = fs)
 
 function sortedFiles(root, fileSystem = fs)
 {
-    if (!fileSystem.existsSync(root))
-    {
-        throw new Error(`browser identity input is missing: ${root}`);
-    }
+    if (!fileSystem.existsSync(root)) throw new Error(`browser identity input is missing: ${root}`);
     const files = [];
     const visit = (current) =>
     {
         const stat = fileSystem.lstatSync(current);
-        if (stat.isSymbolicLink())
-        {
-            throw new Error(`browser identity input must not be a symlink: ${current}`);
-        }
+        if (stat.isSymbolicLink()) throw new Error(`browser identity input must not be a symlink: ${current}`);
         if (stat.isFile())
         {
             files.push(current);
             return;
         }
-        if (!stat.isDirectory())
-        {
-            throw new Error(`browser identity input is not a regular file or directory: ${current}`);
-        }
-        for (const name of fileSystem.readdirSync(current).sort())
-        {
-            visit(path.join(current, name));
-        }
+        if (!stat.isDirectory()) throw new Error(`browser identity input is not a regular file or directory: ${current}`);
+        for (const name of fileSystem.readdirSync(current).sort()) visit(path.join(current, name));
     };
     visit(root);
     return files;
@@ -176,24 +161,12 @@ function packageResolution(frontendRoot, browserName, requireFactory = createReq
 
 function executableIdentity(executablePath, allowedRevisions, fileSystem = fs)
 {
-    if (!path.isAbsolute(executablePath))
-    {
-        throw new Error('managed browser executable path must be absolute');
-    }
-    if (!fileSystem.existsSync(executablePath))
-    {
-        throw new Error(`managed browser is missing: ${executablePath}`);
-    }
+    if (!path.isAbsolute(executablePath)) throw new Error('managed browser executable path must be absolute');
+    if (!fileSystem.existsSync(executablePath)) throw new Error(`managed browser is missing: ${executablePath}`);
     const stat = fileSystem.lstatSync(executablePath);
-    if (!stat.isFile() || stat.isSymbolicLink())
-    {
-        throw new Error(`managed browser executable is unsafe: ${executablePath}`);
-    }
+    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`managed browser executable is unsafe: ${executablePath}`);
     const real = fileSystem.realpathSync(executablePath);
-    if (real !== path.resolve(executablePath))
-    {
-        throw new Error(`managed browser executable path is not canonical: ${executablePath}`);
-    }
+    if (real !== path.resolve(executablePath)) throw new Error(`managed browser executable path is not canonical: ${executablePath}`);
     const revisionMatch = executablePath.match(/(?:chromium|chromium_headless_shell|firefox|webkit)-([0-9]+)/u);
     const revision = revisionMatch?.[1] ?? '';
     if (!revision || !allowedRevisions.has(revision))
@@ -230,6 +203,7 @@ export function createCorrectnessBrowserPlan({
     browserName = 'chromium',
     evidenceClass = 'correctness',
     locale,
+    additionalLaunchArgs = [],
     repoRoot = repositoryRoot,
     frontendRoot = path.join(repositoryRoot, 'src/frontend'),
     env = process.env,
@@ -239,24 +213,12 @@ export function createCorrectnessBrowserPlan({
 } = {})
 {
     policy = validatePlaywrightBrowserIdentityPolicy(policy);
-    if (!browserNames.has(browserName))
-    {
-        throw new Error(`unsupported correctness browser: ${browserName}`);
-    }
-    if (!evidenceClasses.has(evidenceClass))
-    {
-        throw new Error(`invalid correctness browser evidence class: ${evidenceClass}`);
-    }
-    if (typeof locale !== 'string' || !locale.trim())
-    {
-        throw new Error('correctness browser locale is required');
-    }
+    if (!browserNames.has(browserName)) throw new Error(`unsupported correctness browser: ${browserName}`);
+    if (!evidenceClasses.has(evidenceClass)) throw new Error(`invalid correctness browser evidence class: ${evidenceClass}`);
+    if (typeof locale !== 'string' || !locale.trim()) throw new Error('correctness browser locale is required');
     for (const name of policy.correctness.forbiddenExecutableEnvironment)
     {
-        if (String(env[name] ?? '').trim())
-        {
-            throw new Error(`correctness browser forbids host executable override: ${name}`);
-        }
+        if (String(env[name] ?? '').trim()) throw new Error(`correctness browser forbids host executable override: ${name}`);
     }
 
     const resolved = packageResolution(frontendRoot, browserName, requireFactory, fileSystem);
@@ -293,10 +255,15 @@ export function createCorrectnessBrowserPlan({
         gpuMode: launchPolicy.gpuMode
     };
     assertRenderingIdentity(rendering);
+    if (!Array.isArray(additionalLaunchArgs)
+        || additionalLaunchArgs.some((value) => typeof value !== 'string' || !value.trim()))
+    {
+        throw new Error('additional correctness browser launch arguments must be non-empty strings');
+    }
     const launchOptions = {
         headless: launchPolicy.headless,
         executablePath: executable.executablePath,
-        args: [...launchPolicy.args],
+        args: [...new Set([...launchPolicy.args, ...additionalLaunchArgs])],
         ...(launchPolicy.firefoxUserPrefs ? { firefoxUserPrefs: { ...launchPolicy.firefoxUserPrefs } } : {})
     };
     const plan = {
@@ -337,8 +304,7 @@ export function correctnessProjectUse(plan)
 export function serializableBrowserPlan(plan)
 {
     validateBrowserIdentityPlan(plan);
-    const serializable = { ...plan };
-    delete serializable.browserType;
+    const { browserType: _browserType, ...serializable } = plan;
     return structuredClone(serializable);
 }
 
@@ -359,14 +325,26 @@ export async function verifyCorrectnessBrowserPlans({ plans, frontendRoot, env =
             frontendRoot,
             env
         });
+        const baselineLaunchArgs = new Set(currentPlan.launchOptions.args);
+        const additionalLaunchArgs = suppliedPlan.launchOptions.args.filter(
+            (argument) => !baselineLaunchArgs.has(argument)
+        );
+        const sealedCurrentPlan = createCorrectnessBrowserPlan({
+            browserName: suppliedPlan.browserName,
+            evidenceClass: suppliedPlan.evidenceClass,
+            locale: suppliedPlan.rendering.locale,
+            additionalLaunchArgs,
+            frontendRoot,
+            env
+        });
         assertBrowserPlanActualMatch(suppliedPlan, {
-            ...serializableBrowserPlan(currentPlan),
+            ...serializableBrowserPlan(sealedCurrentPlan),
             planDigest: suppliedPlan.contentDigest
         });
         let browser;
         try
         {
-            browser = await currentPlan.browserType.launch(structuredClone(suppliedPlan.launchOptions));
+            browser = await sealedCurrentPlan.browserType.launch(structuredClone(suppliedPlan.launchOptions));
             const context = await browser.newContext({
                 locale: suppliedPlan.rendering.locale,
                 deviceScaleFactor: suppliedPlan.rendering.deviceScaleFactor,
@@ -386,8 +364,7 @@ export async function verifyCorrectnessBrowserPlans({ plans, frontendRoot, env =
         }
         finally
         {
-            await browser?.close().catch(() =>
-            {});
+            await browser?.close().catch(() => {});
         }
     }
     return receipts;
@@ -397,13 +374,13 @@ export async function observeBrowserRendering(page)
 {
     return page.evaluate(() =>
     {
-        const canvas = globalThis.document.createElement('canvas');
+        const canvas = document.createElement('canvas');
         const webgl = canvas.getContext('webgl');
         const extension = webgl?.getExtension('WEBGL_debug_renderer_info');
         return {
-            locale: globalThis.navigator.language,
-            deviceScaleFactor: globalThis.devicePixelRatio,
-            colorScheme: globalThis.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
+            locale: navigator.language,
+            deviceScaleFactor: devicePixelRatio,
+            colorScheme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
             renderer: extension ? String(webgl.getParameter(extension.UNMASKED_RENDERER_WEBGL)) : 'webgl-unavailable'
         };
     });
@@ -451,24 +428,15 @@ export function validateBrowserIdentityPlan(plan)
     }
     for (const key of ['browserVersion', 'revision', 'executablePath', 'executableSha256', 'contentDigest'])
     {
-        if (!plan[key])
-        {
-            throw new Error(`correctness browser plan is missing: ${key}`);
-        }
+        if (!plan[key]) throw new Error(`correctness browser plan is missing: ${key}`);
     }
     if (!path.isAbsolute(plan.executablePath) || !digestPattern.test(plan.executableSha256))
     {
         throw new Error('correctness browser executable identity is invalid');
     }
     assertRenderingIdentity(plan.rendering);
-    const content = { ...plan };
-    delete content.browserType;
-    delete content.contentDigest;
-    const { contentDigest } = plan;
-    if (contentDigest !== digest(canonicalJson(content)))
-    {
-        throw new Error('correctness browser plan digest mismatch');
-    }
+    const { contentDigest, browserType: _browserType, ...content } = plan;
+    if (contentDigest !== digest(canonicalJson(content))) throw new Error('correctness browser plan digest mismatch');
     return plan;
 }
 
@@ -515,10 +483,7 @@ export function assertBrowserPlanActualMatch(plan, actual)
             throw new Error(`correctness browser planned/actual mismatch: ${key}`);
         }
     }
-    if (actual.planDigest !== plan.contentDigest)
-    {
-        throw new Error('correctness browser actual plan digest mismatch');
-    }
+    if (actual.planDigest !== plan.contentDigest) throw new Error('correctness browser actual plan digest mismatch');
     return true;
 }
 

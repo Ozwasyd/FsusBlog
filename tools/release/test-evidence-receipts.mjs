@@ -762,10 +762,7 @@ export function validateBrowserContractReceipt(receipt, {
         }
         for (const field of ['fontSetDigest', 'localeDataDigest'])
         {
-            if (!isDigest(plan?.rendering?.[field]))
-            {
-                errors.push(`Browser Contract ${field} is invalid`);
-            }
+            if (!isDigest(plan?.rendering?.[field])) errors.push(`Browser Contract ${field} is invalid`);
         }
         for (const field of ['locale', 'renderingMode', 'colorScheme', 'gpuMode'])
         {

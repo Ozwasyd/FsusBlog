@@ -558,11 +558,6 @@ export function createChangedCriticalStrykerConfig(selection, toolPolicy, source
             configuration: toolPolicy.defaults.configuration,
             'test-case-filter': closure.testFilter,
             'mutation-level': toolPolicy.defaults.mutationLevel,
-            // The selected closure can contain Docker/PostgreSQL tests whose
-            // lease semantics are part of the behavior under qualification.
-            // Parallel mutant workers would turn host contention into an
-            // unrelated kill, so the authority records a serialized topology.
-            concurrency: 1,
             thresholds: toolPolicy.defaults.thresholds,
             'break-on-initial-test-failure': true,
             reporters: ['progress', 'html', 'json'],

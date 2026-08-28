@@ -14,6 +14,11 @@ import {
     sha256File,
     validateBrowserContractReceipt
 } from '../../tools/release/test-evidence-receipts.mjs';
+import { loadTemporalContext } from '../../tools/test/temporal-context.mjs';
+import {
+    bindCorrectnessProducerTemporalArtifacts,
+    observeBrowserTemporalContext
+} from '../../tools/test/temporal-producer-bindings.mjs';
 import {
     bindBrowserRenderingObservation,
     createCorrectnessBrowserPlan,
@@ -21,11 +26,6 @@ import {
     observeCorrectnessBrowser,
     serializableBrowserPlan
 } from '../../tools/test/playwright-browser-identity.mjs';
-import { loadTemporalContext } from '../../tools/test/temporal-context.mjs';
-import {
-    bindCorrectnessProducerTemporalArtifacts,
-    observeBrowserTemporalContext
-} from '../../tools/test/temporal-producer-bindings.mjs';
 
 import {
     BrowserContractFailure,

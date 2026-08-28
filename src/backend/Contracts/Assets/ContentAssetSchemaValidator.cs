@@ -18,14 +18,20 @@ public static class ContentAssetSchemaValidator
     {
         ArgumentNullException.ThrowIfNull(record);
 
+        ValidateStorageClass(record.StorageClass);
         ValidateMimeType(record.MimeType);
+        ValidateExtension(record.Extension);
         if (record.SizeBytes < 0)
         {
             throw new ArgumentException("Content asset size cannot be negative.", nameof(record));
         }
 
         ValidateSha256(record.Sha256);
-        ValidateDimensions(record.WidthPixels, record.HeightPixels);
+        ValidateDimensions(record.MimeType, record.WidthPixels, record.HeightPixels);
+        if (record.OwnerAdminPrincipalId <= 0)
+        {
+            throw new ArgumentException("Content asset owner principal must be positive when present.", nameof(record));
+        }
         if (!Enum.IsDefined(record.State))
         {
             throw new ArgumentException("Content asset state is not a defined contract state.", nameof(record));
@@ -64,6 +70,17 @@ public static class ContentAssetSchemaValidator
                 nameof(reference));
         }
 
+
+        if (reference.ArticleId <= 0)
+        {
+            throw new ArgumentException("Content asset article id must be positive when present.", nameof(reference));
+        }
+
+        if (reference.AltText?.Length > 256)
+        {
+            throw new ArgumentException("Content asset alt text cannot exceed 256 characters.", nameof(reference));
+        }
+
         ValidateUtc(reference.UpdatedAtUtc, nameof(reference));
     }
 
@@ -89,18 +106,24 @@ public static class ContentAssetSchemaValidator
 
         RequireAssetId(entity.AssetId);
         RequireStorageKey(entity.StorageKey);
+        ValidateStorageClass(entity.StorageClass);
         ValidateMimeType(entity.MimeType);
+        ValidateExtension(entity.Extension);
         if (entity.SizeBytes < 0)
         {
             throw new ArgumentException("Content asset size cannot be negative.", nameof(entity));
         }
 
         ValidateSha256(entity.Sha256);
-        ValidateDimensions(entity.WidthPixels, entity.HeightPixels);
+        ValidateDimensions(entity.MimeType, entity.WidthPixels, entity.HeightPixels);
+        if (entity.OwnerAdminPrincipalId <= 0)
+        {
+            throw new ArgumentException("Content asset owner principal must be positive when present.", nameof(entity));
+        }
         if (!ContentAssetStates.IsValid(entity.State))
         {
             throw new ArgumentException(
-                "Content asset state must be one of pending, ready or failed.",
+                "Content asset state must be one of active or pending_delete.",
                 nameof(entity));
         }
 
@@ -140,6 +163,17 @@ public static class ContentAssetSchemaValidator
                 nameof(entity));
         }
 
+
+        if (entity.ArticleId <= 0)
+        {
+            throw new ArgumentException("Content asset article id must be positive when present.", nameof(entity));
+        }
+
+        if (entity.AltText?.Length > 256)
+        {
+            throw new ArgumentException("Content asset alt text cannot exceed 256 characters.", nameof(entity));
+        }
+
         ValidateUtc(entity.UpdatedAtUtc, nameof(entity));
     }
 
@@ -164,8 +198,8 @@ public static class ContentAssetSchemaValidator
         ValidateEntitySchema(
             typeof(ContentAsset),
             "content_asset",
-            ["asset_id"],
-            ["asset_id", "storage_key", "mime_type", "size_bytes", "state", "created_at_utc", "updated_at_utc"],
+            ["id"],
+            ["id", "storage_class", "storage_key", "media_type", "extension", "byte_length", "width", "height", "state", "created_at_utc", "updated_at_utc"],
             rejectUrlIdentity: true,
             uniqueProperties: ["StorageKey"]);
 
@@ -173,7 +207,7 @@ public static class ContentAssetSchemaValidator
             typeof(ContentAssetReference),
             "content_asset_reference",
             ["asset_id", "source_kind", "source_key"],
-            ["asset_id", "source_kind", "source_key", "reference_count", "updated_at_utc"],
+            ["asset_id", "source_kind", "source_key", "article_id", "reference_count", "alt_text", "updated_at_utc"],
             rejectUrlIdentity: true,
             uniqueProperties: []);
 
@@ -269,11 +303,11 @@ public static class ContentAssetSchemaValidator
         }
     }
 
-    private static void RequireAssetId(string value)
+    private static void RequireAssetId(Guid value)
     {
-        if (!AssetId.TryParse(value, out _))
+        if (value == Guid.Empty)
         {
-            throw new ArgumentException("Content asset id must be a canonical UUID.", nameof(value));
+            throw new ArgumentException("Content asset id must be a non-empty UUID.", nameof(value));
         }
     }
 
@@ -299,6 +333,25 @@ public static class ContentAssetSchemaValidator
         }
     }
 
+    private static void ValidateStorageClass(string value)
+    {
+        if (value is not "public" and not "private")
+        {
+            throw new ArgumentException("Content asset storage class must be public or private.", nameof(value));
+        }
+    }
+
+    private static void ValidateExtension(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)
+            || value.Length > 16
+            || value[0] != '.'
+            || value.Skip(1).Any(static character => !char.IsAsciiLetterOrDigit(character)))
+        {
+            throw new ArgumentException("Content asset extension must be a normalized dotted extension.", nameof(value));
+        }
+    }
+
     private static void ValidateSha256(string? value)
     {
         if (value is null)
@@ -315,10 +368,16 @@ public static class ContentAssetSchemaValidator
         }
     }
 
-    private static void ValidateDimensions(int? width, int? height)
+    private static void ValidateDimensions(string mimeType, int? width, int? height)
     {
         if (width is null && height is null)
         {
+            if (mimeType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException(
+                    "Image content assets must have positive width and height metadata.",
+                    nameof(width));
+            }
             return;
         }
 

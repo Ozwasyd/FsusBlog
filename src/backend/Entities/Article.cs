@@ -1329,62 +1329,6 @@ public static class ArticleMutationOutboxEdgeStatus
     public const string Skipped = "skipped";
 }
 
-[SugarTable("asset_library_item")]
-[SugarIndex("idx_asset_library_hash", nameof(Sha256), OrderByType.Asc)]
-public class AssetLibraryItem
-{
-    [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
-    public long Id
-    {
-        get; set;
-    }
-
-    [SugarColumn(ColumnName = "url", Length = 512)]
-    public string Url { get; set; } = string.Empty;
-
-    [SugarColumn(ColumnName = "alt_text", Length = 256, IsNullable = true)]
-    public string? AltText
-    {
-        get; set;
-    }
-
-    [SugarColumn(ColumnName = "source_article_id", IsNullable = true)]
-    public int? SourceArticleId
-    {
-        get; set;
-    }
-
-    [SugarColumn(ColumnName = "width", IsNullable = true)]
-    public int? Width
-    {
-        get; set;
-    }
-
-    [SugarColumn(ColumnName = "height", IsNullable = true)]
-    public int? Height
-    {
-        get; set;
-    }
-
-    [SugarColumn(ColumnName = "sha256", Length = 64, IsNullable = true)]
-    public string? Sha256
-    {
-        get; set;
-    }
-
-    [SugarColumn(ColumnName = "reference_count")]
-    public int ReferenceCount
-    {
-        get; set;
-    }
-
-    [SugarColumn(ColumnName = "created_at")]
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-    [SugarColumn(ColumnName = "updated_at")]
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-}
-
 [SugarTable("site_subscription")]
 [SugarIndex("idx_site_subscription_email", nameof(EmailHash), OrderByType.Asc, true)]
 public class SiteSubscription

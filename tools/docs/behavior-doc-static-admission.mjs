@@ -30,10 +30,7 @@ import {
     digestValue,
     sealSourceIdentity
 } from '../fact-extractors/identity.mjs';
-import {
-    semanticDigestFromReceipt,
-    validateReceipt as validateFactObservationReceipt
-} from '../fact-extractors/receipt.mjs';
+import { semanticDigestFromReceipt } from '../fact-extractors/receipt.mjs';
 import {
     loadRegistry,
     validateOwnershipAgainstBehaviorCatalog,
@@ -335,50 +332,6 @@ function writeReceipt(file, receipt)
     fs.renameSync(temporary, file);
 }
 
-export function publishFactObservationReceipts({
-    outputDirectory,
-    receipts,
-    sourceIdentity,
-    repositoryRoot = root
-})
-{
-    if (typeof outputDirectory !== 'string' || outputDirectory.length === 0)
-    {
-        throw new Error('fact observation output directory is required');
-    }
-    if (!Array.isArray(receipts) || receipts.length === 0)
-    {
-        throw new Error('fact observation receipts are required');
-    }
-    const extractorIds = new Set();
-    for (const receipt of receipts)
-    {
-        validateFactObservationReceipt(receipt, {
-            repositoryRoot,
-            expectedSourceCommit: sourceIdentity.sourceCommit,
-            expectedWorktreeFingerprint: sourceIdentity.worktreeFingerprint
-        });
-        if (receipt.status !== 'ok')
-        {
-            throw new Error(`cannot publish failed fact observation ${receipt.extractorId}`);
-        }
-        if (extractorIds.has(receipt.extractorId))
-        {
-            throw new Error(`duplicate fact observation ${receipt.extractorId}`);
-        }
-        extractorIds.add(receipt.extractorId);
-    }
-
-    const published = [];
-    for (const receipt of receipts)
-    {
-        const file = path.join(outputDirectory, `${receipt.extractorId}.json`);
-        writeReceipt(file, receipt);
-        published.push(file);
-    }
-    return published;
-}
-
 export async function runBehaviorDocStaticAdmission({
     repositoryRoot = root,
     runId = process.env.FSUSBLOG_TEST_RUN_ID || `local-${process.pid}`,
@@ -387,7 +340,6 @@ export async function runBehaviorDocStaticAdmission({
         repositoryRoot,
         defaultBehaviorDocAdmissionComponentsDirectory
     ),
-    observationOutputDirectory = null,
     candidateSpawnCountBeforeReceipt = 0
 } = {})
 {
@@ -510,16 +462,6 @@ export async function runBehaviorDocStaticAdmission({
                 semanticDigest: semanticDigestFromReceipt(result.receipt),
                 contentDigest: result.receipt.contentDigest
             };
-        }
-
-        if (observationOutputDirectory !== null)
-        {
-            publishFactObservationReceipts({
-                outputDirectory: observationOutputDirectory,
-                receipts: observationReceipts,
-                sourceIdentity,
-                repositoryRoot
-            });
         }
 
         const generatedGovernance = scanGeneratedFactSectionGovernance(repositoryRoot);
@@ -657,12 +599,7 @@ export async function runBehaviorDocStaticAdmission({
 
 function parseArgs(argv)
 {
-    const options = {
-        outputFile: null,
-        observationOutputDirectory: null,
-        verifyFile: null,
-        runId: null
-    };
+    const options = { outputFile: null, verifyFile: null, runId: null };
     for (let index = 0; index < argv.length; index += 1)
     {
         const argument = argv[index];
@@ -677,10 +614,6 @@ function parseArgs(argv)
         else if (argument === '--run-id')
         {
             options.runId = argv[++index];
-        }
-        else if (argument === '--observations-out')
-        {
-            options.observationOutputDirectory = argv[++index];
         }
         else if (argument === '--help' || argument === '-h')
         {
@@ -699,7 +632,7 @@ async function main()
     const options = parseArgs(process.argv.slice(2));
     if (options.help)
     {
-        console.log('Usage: node tools/docs/behavior-doc-static-admission.mjs [--out path] [--observations-out directory] [--run-id id] [--verify receipt]');
+        console.log('Usage: node tools/docs/behavior-doc-static-admission.mjs [--out path] [--run-id id] [--verify receipt]');
         return;
     }
     if (options.verifyFile)
@@ -718,9 +651,6 @@ async function main()
     const result = await runBehaviorDocStaticAdmission({
         repositoryRoot: root,
         ...(options.runId ? { runId: options.runId } : {}),
-        ...(options.observationOutputDirectory
-            ? { observationOutputDirectory: path.resolve(root, options.observationOutputDirectory) }
-            : {}),
         ...(options.outputFile ? { outputFile: path.resolve(root, options.outputFile) } : {})
     });
     console.log(

@@ -88,8 +88,7 @@ function uniqueIds(rows, location)
 
 export function temporalShapeContent(shape)
 {
-    const content = { ...shape };
-    delete content.contentDigest;
+    const { contentDigest, ...content } = shape;
     return content;
 }
 

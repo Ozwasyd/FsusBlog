@@ -51,8 +51,8 @@ try {
   const schedule = createBalancedSchedule(selectedIds, rounds, `${options['commit-sha']}:${options['fixture-id']}:${hardware.digest}`)
   const output = path.resolve(options.output)
   fs.mkdirSync(path.dirname(output), { recursive: true })
-  const runs = options['resume-from']
-    ? readResumeRuns(options['resume-from'], {
+  const runs = options['reuse-clean-from']
+    ? readCleanRuns(options['reuse-clean-from'], {
         options,
         loaded,
         hardware,
@@ -187,9 +187,9 @@ function writeEvidence(output, loaded, hardware, options, profiles, catalogProfi
   return evidence
 }
 
-function readResumeRuns(file, expected) {
+function readCleanRuns(file, expected) {
   const resolved = path.resolve(file)
-  if (!fs.statSync(resolved).isFile()) throw new Error('--resume-from must be a regular evidence file')
+  if (!fs.statSync(resolved).isFile()) throw new Error('--reuse-clean-from must be a regular evidence file')
   const evidence = JSON.parse(fs.readFileSync(resolved, 'utf8'))
   const validationErrors = validateRuntimeMatrixEvidence(evidence, { requireComplete: false })
   if (validationErrors.length > 0) throw new Error(`resume evidence failed validation:\n${validationErrors.join('\n')}`)
@@ -217,6 +217,10 @@ function readResumeRuns(file, expected) {
   for (const run of evidence.runs) {
     const profile = expected.profiles.find((candidate) => candidate.id === run.identity?.profileId)
     if (!profile || run.identity?.profileDigest !== sha256Value(profile)) throw new Error(`resume evidence profile digest does not match ${run.identity?.profileId ?? 'unknown'}`)
+  }
+  const nonCleanRuns = evidence.runs.filter((run) => run.status !== 'ok')
+  if (nonCleanRuns.length > 0) {
+    throw new Error('runtime matrix cannot re-execute failed schedule keys; start an independent run')
   }
   return structuredClone(evidence.runs)
 }

@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
-import { spawn, spawnSync } from 'node:child_process';
-import { readFileSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
-import path from 'node:path';
-import process from 'node:process';
-import { fileURLToPath } from 'node:url';
+import { spawn, spawnSync } from 'node:child_process'
+import { readFileSync, mkdirSync, renameSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
+import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 
 import {
     REPLAY_PLAN_SCHEMA,
@@ -15,155 +15,116 @@ import {
     sealReplayPlan,
     sealReplayReceipt,
     validateReplayPlan
-} from './execution-replay-contract.mjs';
-import { buildExecutionReplayCommand } from './execution-replay-verifier.mjs';
-import { createFuzzCaseReceipt } from './fuzz-random-stream.mjs';
+} from './execution-replay-contract.mjs'
+import { buildExecutionReplayCommand } from './execution-replay-verifier.mjs'
 import {
     createDeterministicRandom,
     createRandomStreamReceipt,
     deriveRandomConsumerStream,
     deterministicCaseIdentity,
     loadRandomStreamInventory
-} from './random-streams.mjs';
+} from './random-streams.mjs'
+import { createFuzzCaseReceipt } from './fuzz-random-stream.mjs'
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const inventoryFile = path.join(root, 'config/testing/replay-qualification-producers.json');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+const inventoryFile = path.join(root, 'config/testing/replay-qualification-producers.json')
 
-function fail(message)
-{
-    throw new Error(message);
-}
+function fail(message) { throw new Error(message) }
 
 function parseArgs(argv)
 {
-    const values = new Map();
+    const values = new Map()
     for (let index = 0; index < argv.length; index += 2)
     {
-        if (!argv[index]?.startsWith('--') || argv[index + 1] === undefined)
-        {
-            fail('qualification arguments must be --key value pairs');
-        }
-        if (values.has(argv[index].slice(2)))
-        {
-            fail(`duplicate ${argv[index]}`);
-        }
-        values.set(argv[index].slice(2), argv[index + 1]);
+        if (!argv[index]?.startsWith('--') || argv[index + 1] === undefined) fail('qualification arguments must be --key value pairs')
+        if (values.has(argv[index].slice(2))) fail(`duplicate ${argv[index]}`)
+        values.set(argv[index].slice(2), argv[index + 1])
     }
-    const required = (name) => values.get(name) ?? fail(`missing --${name}`);
+    const required = (name) => values.get(name) ?? fail(`missing --${name}`)
     return {
         family: required('family'),
         runId: required('run-id'),
         rootSeed: normalizeRootSeed(required('root-seed')),
         outputDirectory: path.resolve(root, values.get('output-dir') ?? `.tmp/test-runs/${required('run-id')}/replay-qualification`)
-    };
+    }
 }
 
 function atomicJson(file, value)
 {
-    mkdirSync(path.dirname(file), { recursive: true });
-    const temporary = `${file}.next-${process.pid}`;
-    writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`);
-    renameSync(temporary, file);
+    mkdirSync(path.dirname(file), { recursive: true })
+    const temporary = `${file}.next-${process.pid}`
+    writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`)
+    renameSync(temporary, file)
 }
 
-function readJson(file)
-{
-    return JSON.parse(readFileSync(file, 'utf8'));
-}
+function readJson(file) { return JSON.parse(readFileSync(file, 'utf8')) }
 
 function owned(file, label)
 {
-    const absolute = path.resolve(root, file);
-    const relative = path.relative(root, absolute);
-    if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative))
-    {
-        fail(`${label} escapes repository`);
-    }
-    return absolute;
+    const absolute = path.resolve(root, file)
+    const relative = path.relative(root, absolute)
+    if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) fail(`${label} escapes repository`)
+    return absolute
 }
 
 function inventory()
 {
-    const document = readJson(inventoryFile);
+    const document = readJson(inventoryFile)
     if (document.schema !== 'fsusblog.replay-qualification-producers.v1'
-        || document.contentDigest !== canonicalDigest({ ...document, contentDigest: null }))
-    {
-        fail('replay qualification inventory digest mismatch');
-    }
-    return document;
+        || document.contentDigest !== canonicalDigest({ ...document, contentDigest: null })) fail('replay qualification inventory digest mismatch')
+    return document
 }
 
 function spawnCommand(executable, args, env = process.env, cwd = root)
 {
     return new Promise((resolve, reject) =>
     {
-        const child = spawn(executable, args, { cwd, env, stdio: ['ignore', 'inherit', 'inherit'] });
-        child.once('error', reject);
-        child.once('close', (code, signal) => resolve({ code, signal, processId: child.pid }));
-    });
+        const child = spawn(executable, args, { cwd, env, stdio: ['ignore', 'inherit', 'inherit'] })
+        child.once('error', reject)
+        child.once('close', (code, signal) => resolve({ code, signal, processId: child.pid }))
+    })
 }
 
 function adapterArguments(producer, { outputDirectory, rootSeed, runId, workers })
 {
     const args = [owned(producer.adapter, 'adapter'), '--output-dir', outputDirectory,
-        '--root-seed', rootSeed, '--workers', String(workers), '--run-id', runId, '--producer', producer.id];
-    if (producer.assembly)
-    {
-        args.push('--assembly', owned(producer.assembly, 'assembly'));
-    }
-    if (producer.config)
-    {
-        args.push('--config', owned(producer.config, 'config'));
-    }
-    for (const className of producer.classes ?? [])
-    {
-        args.push('--class', className);
-    }
-    for (const file of producer.files ?? [])
-    {
-        args.push('--file', owned(file, 'test file'));
-    }
-    return args;
+        '--root-seed', rootSeed, '--workers', String(workers), '--run-id', runId, '--producer', producer.id]
+    if (producer.assembly) args.push('--assembly', owned(producer.assembly, 'assembly'))
+    if (producer.config) args.push('--config', owned(producer.config, 'config'))
+    for (const className of producer.classes ?? []) args.push('--class', className)
+    for (const file of producer.files ?? []) args.push('--file', owned(file, 'test file'))
+    return args
 }
 
 function topologyWorkers(producer, topology)
 {
-    if (topology === 'planned')
-    {
-        return producer.plannedWorkers;
-    }
-    const value = Number(topology);
-    if (!Number.isInteger(value) || value < 1)
-    {
-        fail(`invalid topology ${topology}`);
-    }
-    return value;
+    if (topology === 'planned') return producer.plannedWorkers
+    const value = Number(topology)
+    if (!Number.isInteger(value) || value < 1) fail(`invalid topology ${topology}`)
+    return value
 }
 
 async function qualifyTopology(producer, topology, options, requiredPerturbations)
 {
-    const workers = topologyWorkers(producer, topology);
-    const directory = path.join(options.outputDirectory, 'runs', producer.id, topology);
+    const workers = topologyWorkers(producer, topology)
+    const directory = path.join(options.outputDirectory, 'runs', producer.id, topology)
     const initial = await spawnCommand(process.execPath, adapterArguments(producer, {
         outputDirectory: directory,
         rootSeed: options.rootSeed,
         runId: `${options.runId}-${producer.id}-${topology}`,
         workers
-    }));
-    if (initial.code !== 0 || initial.signal !== null)
-    {
-        fail(`${producer.id}/${topology} initial qualification failed`);
-    }
-    const planFile = path.join(directory, 'plan.json');
-    const plan = readJson(planFile);
-    validateReplayPlan(plan);
-    const initialActualFile = path.join(directory, 'actual/framework-actual.json');
-    const initialReceiptFile = path.join(directory, 'actual/receipt.json');
-    const initialActual = readJson(initialActualFile);
-    const manifestFile = path.join(directory, 'queue-manifest.json');
-    const replayDirectory = path.join(directory, 'replay');
+    }))
+    if (initial.code !== 0 || initial.signal !== null) fail(`${producer.id}/${topology} initial qualification failed`)
+    const planFile = path.join(directory, 'plan.json')
+    const plan = readJson(planFile)
+    validateReplayPlan(plan)
+    const initialActualFile = path.join(directory, 'actual/framework-actual.json')
+    const initialReceiptFile = path.join(directory, 'actual/receipt.json')
+    const initialActual = readJson(initialActualFile)
+    const manifestFile = path.join(directory, 'queue-manifest.json')
+    const replayDirectory = path.join(directory, 'replay')
     const replayArgs = [owned(producer.adapter, 'adapter'), '--replay-plan', planFile,
-        '--queue-manifest', manifestFile, '--output-dir', replayDirectory];
+        '--queue-manifest', manifestFile, '--output-dir', replayDirectory]
     const replayProcess = await spawnCommand(process.execPath, replayArgs, {
         ...process.env,
         FSUSBLOG_REPLAY_PLAN_DIGEST: plan.planDigest,
@@ -175,41 +136,26 @@ async function qualifyTopology(producer, topology, options, requiredPerturbation
         FSUSBLOG_STEP_CPU_BUDGET: '97',
         FSUSBLOG_STEP_MEMORY_GIB: '97',
         FSUSBLOG_REPLAY_PARENT_NOISE: 'date-uuid-default-worker-noise'
-    });
-    if (replayProcess.code !== 0 || replayProcess.signal !== null)
-    {
-        fail(`${producer.id}/${topology} perturbed replay failed`);
-    }
-    const replayActualFile = path.join(replayDirectory, 'framework-actual.json');
-    const replayReceiptFile = path.join(replayDirectory, 'receipt.json');
-    const replayActual = readJson(replayActualFile);
-    if (initialActual.semanticDigest !== replayActual.semanticDigest)
-    {
-        fail(`${producer.id}/${topology} semantic replay drift`);
-    }
-    if (JSON.stringify(initialActual.actualTestIds) !== JSON.stringify(replayActual.actualTestIds))
-    {
-        fail(`${producer.id}/${topology} test identity replay drift`);
-    }
-    if (JSON.stringify(initialActual.preDispatch) !== JSON.stringify(replayActual.preDispatch))
-    {
-        fail(`${producer.id}/${topology} pre-dispatch replay drift`);
-    }
+    })
+    if (replayProcess.code !== 0 || replayProcess.signal !== null) fail(`${producer.id}/${topology} perturbed replay failed`)
+    const replayActualFile = path.join(replayDirectory, 'framework-actual.json')
+    const replayReceiptFile = path.join(replayDirectory, 'receipt.json')
+    const replayActual = readJson(replayActualFile)
+    if (initialActual.semanticDigest !== replayActual.semanticDigest) fail(`${producer.id}/${topology} semantic replay drift`)
+    if (JSON.stringify(initialActual.actualTestIds) !== JSON.stringify(replayActual.actualTestIds)) fail(`${producer.id}/${topology} test identity replay drift`)
+    if (JSON.stringify(initialActual.preDispatch) !== JSON.stringify(replayActual.preDispatch)) fail(`${producer.id}/${topology} pre-dispatch replay drift`)
     const initialProcesses = JSON.stringify((initialActual.workers ?? initialActual.lanes).map((worker) =>
-        worker.processId ?? worker.controllerProcessId));
+        worker.processId ?? worker.controllerProcessId))
     const replayProcesses = JSON.stringify((replayActual.workers ?? replayActual.lanes).map((worker) =>
-        worker.processId ?? worker.controllerProcessId));
-    if (initialProcesses === replayProcesses)
-    {
-        fail(`${producer.id}/${topology} did not observe actual process restart identity`);
-    }
+        worker.processId ?? worker.controllerProcessId))
+    if (initialProcesses === replayProcesses) fail(`${producer.id}/${topology} did not observe actual process restart identity`)
     const replayCommand = buildExecutionReplayCommand({
         root,
         planPath: planFile,
         plan,
         schedulerShuffleSeed: plan.schedulerShuffleSeed,
         executionEnvelopeRef: canonicalDigest({ runId: options.runId, producer: producer.id, topology })
-    });
+    })
     const base = {
         schema: 'fsusblog.replay-producer-qualification.v1',
         family: 'framework',
@@ -232,19 +178,19 @@ async function qualifyTopology(producer, topology, options, requiredPerturbation
         replay: { argv: replayCommand.argv, posix: replayCommand.posix },
         processEvidence: { initial, replay: replayProcess },
         contentDigest: null
-    };
-    return { ...base, contentDigest: canonicalDigest(base) };
+    }
+    return { ...base, contentDigest: canonicalDigest(base) }
 }
 
 function randomConsumerReceipt(consumer, rootSeed)
 {
-    const stream = deriveRandomConsumerStream({ rootSeed, consumer });
-    const random = createDeterministicRandom(stream.derivedSeed);
-    const executedIterations = Math.max(consumer.budget.iterations, consumer.budget.transitions);
-    const cases = Array.from({ length: executedIterations }, (_, index) => ({ index, value: random() }));
+    const stream = deriveRandomConsumerStream({ rootSeed, consumer })
+    const random = createDeterministicRandom(stream.derivedSeed)
+    const executedIterations = Math.max(consumer.budget.iterations, consumer.budget.transitions)
+    const cases = Array.from({ length: executedIterations }, (_, index) => ({ index, value: random() }))
     if (consumer.kind === 'fuzz')
     {
-        return createFuzzCaseReceipt({ consumer, stream, cases, executedIterations });
+        return createFuzzCaseReceipt({ consumer, stream, cases, executedIterations })
     }
     return createRandomStreamReceipt({
         consumer,
@@ -258,46 +204,40 @@ function randomConsumerReceipt(consumer, rootSeed)
             canonicalDigest({ stream: stream.streamDigest, transition: index })),
         executedIterations,
         outcome: 'passed'
-    });
+    })
 }
 
 function qualificationSourceIdentity()
 {
-    const commit = process.env.FSUSBLOG_TEST_SOURCE_COMMIT ?? runGit('rev-parse', 'HEAD');
-    const configured = process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT;
+    const commit = process.env.FSUSBLOG_TEST_SOURCE_COMMIT ?? runGit('rev-parse', 'HEAD')
+    const configured = process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT
     if (configured)
     {
         return {
             commit,
             worktreeFingerprint: configured.startsWith('sha256:') ? configured : `sha256:${configured}`
-        };
+        }
     }
-    const diffResult = spawnSync('git', ['diff', '--binary', 'HEAD'], { cwd: root, encoding: 'utf8' });
-    if (diffResult.status !== 0)
-    {
-        fail('git diff failed');
-    }
-    const diff = diffResult.stdout;
+    const diffResult = spawnSync('git', ['diff', '--binary', 'HEAD'], { cwd: root, encoding: 'utf8' })
+    if (diffResult.status !== 0) fail('git diff failed')
+    const diff = diffResult.stdout
     const untrackedResult = spawnSync('git', ['ls-files', '--others', '--exclude-standard', '-z'], {
         cwd: root,
         encoding: 'utf8'
-    });
-    if (untrackedResult.status !== 0)
-    {
-        fail('git untracked inventory failed');
-    }
+    })
+    if (untrackedResult.status !== 0) fail('git untracked inventory failed')
     const untracked = untrackedResult.stdout.split('\0').filter(Boolean).sort()
-        .map((file) => ({ file, content: readFileSync(path.join(root, file)).toString('base64') }));
-    return { commit, worktreeFingerprint: canonicalDigest({ diff, untracked }) };
+        .map((file) => ({ file, content: readFileSync(path.join(root, file)).toString('base64') }))
+    return { commit, worktreeFingerprint: canonicalDigest({ diff, untracked }) }
 }
 
 function randomStreamEnvironment(consumers, rootSeed)
 {
     return JSON.stringify(Object.fromEntries(consumers.map((consumer) =>
     {
-        const stream = deriveRandomConsumerStream({ rootSeed, consumer });
-        return [`${consumer.canonicalTestId}\0${consumer.streamId}`, stream.derivedSeed];
-    })));
+        const stream = deriveRandomConsumerStream({ rootSeed, consumer })
+        return [`${consumer.canonicalTestId}\0${consumer.streamId}`, stream.derivedSeed]
+    })))
 }
 
 function randomizedProducerCommands(producerId, workers)
@@ -308,12 +248,12 @@ function randomizedProducerCommands(producerId, workers)
             executable: 'dotnet',
             args: ['test', 'tests/backend/FsusBlog.Server.Tests.csproj', '--no-build', '--filter', 'Category=Property', '--verbosity', 'quiet'],
             cwd: root
-        }];
+        }]
     }
     if (producerId === 'frontend-property-model-perf')
     {
-        const vitest = path.join(root, 'src/frontend/node_modules/.bin/vitest');
-        const workerArguments = ['--pool=forks', '--no-file-parallelism', '--maxWorkers', String(workers)];
+        const vitest = path.join(root, 'src/frontend/node_modules/.bin/vitest')
+        const workerArguments = ['--pool=forks', '--no-file-parallelism', '--maxWorkers', String(workers)]
         return [
             {
                 executable: process.execPath,
@@ -326,7 +266,7 @@ function randomizedProducerCommands(producerId, workers)
                 args: ['run', '--config', 'vitest.model.config.ts', ...workerArguments],
                 cwd: path.join(root, 'src/frontend')
             }
-        ];
+        ]
     }
     if (producerId === 'wasm-fuzz-regression')
     {
@@ -334,15 +274,15 @@ function randomizedProducerCommands(producerId, workers)
             executable: process.execPath,
             args: [path.join(root, 'tools/security/run-wasm-fuzz.mjs')],
             cwd: root
-        }];
+        }]
     }
-    fail(`randomized producer command is not owned: ${producerId}`);
+    fail(`randomized producer command is not owned: ${producerId}`)
 }
 
 async function runRandomizedProducer({ producerId, consumers, workers, options, plan, attempt, directory })
 {
-    const commands = randomizedProducerCommands(producerId, workers);
-    const evidenceDirectory = path.join(directory, attempt);
+    const commands = randomizedProducerCommands(producerId, workers)
+    const evidenceDirectory = path.join(directory, attempt)
     const environment = {
         ...process.env,
         FSUSBLOG_RANDOM_STREAMS_JSON: randomStreamEnvironment(consumers, options.rootSeed),
@@ -355,33 +295,30 @@ async function runRandomizedProducer({ producerId, consumers, workers, options, 
         FSUSBLOG_FUZZ_EVIDENCE_DIR: evidenceDirectory,
         FSUSBLOG_RELEASE_EVIDENCE_DIR: path.join(evidenceDirectory, 'release'),
         FSUSBLOG_TEST_NAMESPACE: `${options.runId}-${producerId}-${plan.frameworkModes[1].value}-${attempt}`
-    };
-    const processes = [];
+    }
+    const processes = []
     for (const command of commands)
     {
-        const result = await spawnCommand(command.executable, command.args, environment, command.cwd);
-        if (result.code !== 0 || result.signal !== null)
-        {
-            fail(`${producerId}/${plan.frameworkModes[1].value} ${attempt} producer failed`);
-        }
+        const result = await spawnCommand(command.executable, command.args, environment, command.cwd)
+        if (result.code !== 0 || result.signal !== null) fail(`${producerId}/${plan.frameworkModes[1].value} ${attempt} producer failed`)
         processes.push({
             ...result,
             executable: command.executable,
             argumentsDigest: canonicalDigest(command.args)
-        });
+        })
     }
     return {
         processes,
         evidenceDirectory: path.relative(root, evidenceDirectory).replaceAll(path.sep, '/')
-    };
+    }
 }
 
 async function randomizedResult({ producerId, consumers, topology, options, requiredPerturbations })
 {
-    const workers = topology === 'planned' ? 4 : Number(topology);
-    const testIds = consumers.map((consumer) => consumer.canonicalTestId);
-    const assignment = planExactShards({ testIds, shardCount: workers, allowEmptyShards: workers > testIds.length });
-    const workerIds = Array.from({ length: workers }, (_, index) => `random-slot-${index + 1}`);
+    const workers = topology === 'planned' ? 4 : Number(topology)
+    const testIds = consumers.map((consumer) => consumer.canonicalTestId)
+    const assignment = planExactShards({ testIds, shardCount: workers, allowEmptyShards: workers > testIds.length })
+    const workerIds = Array.from({ length: workers }, (_, index) => `random-slot-${index + 1}`)
     const streams = consumers.map((consumer) => deriveRandomConsumerStream({ rootSeed: options.rootSeed, consumer }))
         .map((stream) => ({
             version: stream.version,
@@ -389,7 +326,7 @@ async function randomizedResult({ producerId, consumers, topology, options, requ
             streamId: stream.streamId,
             consumerTestId: stream.consumerTestId,
             seed: stream.seed
-        })).sort((left, right) => left.streamId.localeCompare(right.streamId));
+        })).sort((left, right) => left.streamId.localeCompare(right.streamId))
     const plan = sealReplayPlan({
         schema: REPLAY_PLAN_SCHEMA,
         source: qualificationSourceIdentity(),
@@ -412,32 +349,27 @@ async function randomizedResult({ producerId, consumers, topology, options, requ
                 '--run-id', options.runId, '--root-seed', options.rootSeed],
             environmentDigest: canonicalDigest({ inputs: 'sealed-random-stream-plan' })
         }
-    });
-    const actualReceipts = consumers.map((consumer) => randomConsumerReceipt(consumer, options.rootSeed));
-    const repeatedReceipts = [...consumers].reverse().map((consumer) => randomConsumerReceipt(consumer, options.rootSeed)).reverse();
-    if (canonicalDigest(actualReceipts) !== canonicalDigest(repeatedReceipts))
-    {
-        fail(`${producerId}/${topology} random replay drift`);
-    }
-    const producerDirectory = path.join(options.outputDirectory, 'producer-evidence', producerId, topology);
+    })
+    const actualReceipts = consumers.map((consumer) => randomConsumerReceipt(consumer, options.rootSeed))
+    const repeatedReceipts = [...consumers].reverse().map((consumer) => randomConsumerReceipt(consumer, options.rootSeed)).reverse()
+    if (canonicalDigest(actualReceipts) !== canonicalDigest(repeatedReceipts)) fail(`${producerId}/${topology} random replay drift`)
+    const producerDirectory = path.join(options.outputDirectory, 'producer-evidence', producerId, topology)
     const initialProcess = await runRandomizedProducer({
         producerId, consumers, workers, options, plan, attempt: 'initial', directory: producerDirectory
-    });
+    })
     const replayProcess = await runRandomizedProducer({
         producerId, consumers, workers, options, plan, attempt: 'replay', directory: producerDirectory
-    });
-    const initialProcessIds = initialProcess.processes.map((entry) => entry.processId);
-    const replayProcessIds = replayProcess.processes.map((entry) => entry.processId);
+    })
+    const initialProcessIds = initialProcess.processes.map((entry) => entry.processId)
+    const replayProcessIds = replayProcess.processes.map((entry) => entry.processId)
     if (initialProcessIds.some((processId) => replayProcessIds.includes(processId)))
-    {
-        fail(`${producerId}/${topology} did not restart every producer process`);
-    }
+        fail(`${producerId}/${topology} did not restart every producer process`)
     const workerReceipts = workerIds.map((id, index) => ({
         id,
         testIds: plan.testEnumerationOrder.filter((_, testIndex) => testIndex % workers === index)
-    }));
-    const workerByTest = new Map(workerReceipts.flatMap((worker) => worker.testIds.map((test) => [test, worker.id])));
-    const shardByTest = new Map(plan.shards.flatMap((shard) => shard.testIds.map((test) => [test, shard.id])));
+    }))
+    const workerByTest = new Map(workerReceipts.flatMap((worker) => worker.testIds.map((test) => [test, worker.id])))
+    const shardByTest = new Map(plan.shards.flatMap((shard) => shard.testIds.map((test) => [test, shard.id])))
     const receipt = sealReplayReceipt({
         schema: REPLAY_RECEIPT_SCHEMA, source: plan.source, producer: plan.producer, run: plan.run,
         planDigest: plan.planDigest, rootSeed: plan.rootSeed, entropySources: plan.entropySources,
@@ -447,7 +379,7 @@ async function randomizedResult({ producerId, consumers, topology, options, requ
             ordinal, testId, shardId: shardByTest.get(testId), workerId: workerByTest.get(testId)
         })),
         processOutcome: { status: 'passed', exitCode: 0, signal: null }
-    });
+    })
     const base = {
         schema: 'fsusblog.replay-producer-qualification.v1', family: 'randomized', producerId,
         framework: 'random-stream', topology, workers, status: 'verified', qualificationEligible: true,
@@ -475,51 +407,46 @@ async function randomizedResult({ producerId, consumers, topology, options, requ
             replay: replayProcess
         },
         contentDigest: null
-    };
-    return { ...base, contentDigest: canonicalDigest(base) };
+    }
+    return { ...base, contentDigest: canonicalDigest(base) }
 }
 
 function runGit(...args)
 {
-    const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
-    if (result.status !== 0)
-    {
-        fail(`git ${args.join(' ')} failed`);
-    }
-    return result.stdout.trim();
+    const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' })
+    if (result.status !== 0) fail(`git ${args.join(' ')} failed`)
+    return result.stdout.trim()
 }
 
 async function qualifyRandomized(authority, options)
 {
-    const randomAuthority = loadRandomStreamInventory();
-    const grouped = new Map();
+    const randomAuthority = loadRandomStreamInventory()
+    const grouped = new Map()
     for (const consumer of randomAuthority.consumers)
-    {
-        grouped.set(consumer.producerId, [...(grouped.get(consumer.producerId) ?? []), consumer]);
-    }
-    const results = [];
-    let producerSpawnCount = 0;
+        grouped.set(consumer.producerId, [...(grouped.get(consumer.producerId) ?? []), consumer])
+    const results = []
+    let producerSpawnCount = 0
     for (const [producerId, consumers] of [...grouped.entries()].sort())
     {
         for (const topology of authority.topologies)
         {
-            const result = await randomizedResult({ producerId, consumers, topology, options, requiredPerturbations: authority.perturbations });
-            const file = path.join(options.outputDirectory, 'results', producerId, `${topology}.json`);
-            atomicJson(file, result);
-            results.push({ producerId, topology, ref: path.relative(root, file).replaceAll(path.sep, '/'), digest: result.contentDigest });
-            producerSpawnCount += result.processEvidence.producerProcessCount;
+            const result = await randomizedResult({ producerId, consumers, topology, options, requiredPerturbations: authority.perturbations })
+            const file = path.join(options.outputDirectory, 'results', producerId, `${topology}.json`)
+            atomicJson(file, result)
+            results.push({ producerId, topology, ref: path.relative(root, file).replaceAll(path.sep, '/'), digest: result.contentDigest })
+            producerSpawnCount += result.processEvidence.producerProcessCount
         }
     }
-    return { producerIds: [...grouped.keys()].sort(), results, producerSpawnCount };
+    return { producerIds: [...grouped.keys()].sort(), results, producerSpawnCount }
 }
 
 async function main()
 {
-    const options = parseArgs(process.argv.slice(2));
-    const authority = inventory();
+    const options = parseArgs(process.argv.slice(2))
+    const authority = inventory()
     if (options.family === 'randomized')
     {
-        const qualification = await qualifyRandomized(authority, options);
+        const qualification = await qualifyRandomized(authority, options)
         const base = {
             schema: 'fsusblog.replay-family-qualification.v1', family: 'randomized', status: 'verified',
             qualificationEligible: true, runId: options.runId, inventoryDigest: authority.contentDigest,
@@ -527,26 +454,23 @@ async function main()
             requiredProducers: qualification.producerIds, requiredTopologies: authority.topologies,
             requiredPerturbations: authority.perturbations, results: qualification.results,
             producerSpawnCount: qualification.producerSpawnCount, contentDigest: null
-        };
-        const receipt = { ...base, contentDigest: canonicalDigest(base) };
-        atomicJson(path.join(options.outputDirectory, 'randomized.json'), receipt);
-        process.stdout.write(`${JSON.stringify(receipt, null, 2)}\n`);
-        return;
+        }
+        const receipt = { ...base, contentDigest: canonicalDigest(base) }
+        atomicJson(path.join(options.outputDirectory, 'randomized.json'), receipt)
+        process.stdout.write(`${JSON.stringify(receipt, null, 2)}\n`)
+        return
     }
-    const producers = authority.families[options.family];
-    if (!Array.isArray(producers) || producers.length === 0)
-    {
-        fail(`unsupported qualification family ${options.family}`);
-    }
-    const results = [];
+    const producers = authority.families[options.family]
+    if (!Array.isArray(producers) || producers.length === 0) fail(`unsupported qualification family ${options.family}`)
+    const results = []
     for (const producer of producers)
     {
         for (const topology of authority.topologies)
         {
-            const result = await qualifyTopology(producer, topology, options, authority.perturbations);
-            const file = path.join(options.outputDirectory, 'results', producer.id, `${topology}.json`);
-            atomicJson(file, result);
-            results.push({ producerId: producer.id, topology, ref: path.relative(root, file).replaceAll(path.sep, '/'), digest: result.contentDigest });
+            const result = await qualifyTopology(producer, topology, options, authority.perturbations)
+            const file = path.join(options.outputDirectory, 'results', producer.id, `${topology}.json`)
+            atomicJson(file, result)
+            results.push({ producerId: producer.id, topology, ref: path.relative(root, file).replaceAll(path.sep, '/'), digest: result.contentDigest })
         }
     }
     const base = {
@@ -562,14 +486,14 @@ async function main()
         results,
         producerSpawnCount: results.length * 2,
         contentDigest: null
-    };
-    const receipt = { ...base, contentDigest: canonicalDigest(base) };
-    atomicJson(path.join(options.outputDirectory, `${options.family}.json`), receipt);
-    process.stdout.write(`${JSON.stringify(receipt, null, 2)}\n`);
+    }
+    const receipt = { ...base, contentDigest: canonicalDigest(base) }
+    atomicJson(path.join(options.outputDirectory, `${options.family}.json`), receipt)
+    process.stdout.write(`${JSON.stringify(receipt, null, 2)}\n`)
 }
 
 main().catch((error) =>
 {
-    process.stderr.write(`${error instanceof Error ? error.stack : String(error)}\n`);
-    process.exitCode = 1;
-});
+    process.stderr.write(`${error instanceof Error ? error.stack : String(error)}\n`)
+    process.exitCode = 1
+})

@@ -1,12 +1,10 @@
 #!/usr/bin/env node
 
-import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import os from 'node:os';
 import { resolve } from 'node:path';
-import { promisify } from 'node:util';
 
 import { decodeAedsFrame } from '../../support/aeds-envelope.mjs';
 import {
@@ -35,9 +33,6 @@ const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD ?? '';
 const repoRoot = resolve(process.cwd(), '..', '..');
 const evidenceDir = process.env.FSUSBLOG_SECURITY_EVIDENCE_DIR || resolve(repoRoot, '.tmp/security');
 const publicFixtureIds = readPublicFixtureIds();
-const execFileAsync = promisify(execFile);
-const redisContainer = process.env.FSUSBLOG_REDIS_CONTAINER || process.env.FSUSBLOG_REDIS_CONTAINER_NAME || 'fsusblog-redis';
-const postgresContainer = process.env.FSUSBLOG_PG_CONTAINER || process.env.FSUSBLOG_POSTGRES_CONTAINER_NAME || '';
 const require = createRequire(import.meta.url);
 const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }));
 const executablePath = resolveSystemChromiumExecutablePath();
@@ -242,51 +237,6 @@ function withTrustedOrigin(options)
             ...(options.headers || {})
         }
     };
-}
-
-async function resetLocalSecurityRiskState()
-{
-    try
-    {
-        await execFileAsync('docker', [
-            'exec',
-            redisContainer,
-            'sh',
-            '-c',
-            "{ redis-cli --scan --pattern '*fsus:sec:pow-risk:*'; redis-cli --scan --pattern 'fsus:sec:pow-risk:*'; } | sort -u | xargs -r redis-cli DEL"
-        ], { timeout: 5000 });
-    }
-    catch
-    {
-    // Non-local environments may not use the developer docker container.
-    }
-
-    if (!/^fsusblog-(dev|test|ci)([-_.A-Za-z0-9]*)$/.test(postgresContainer))
-    {
-        return;
-    }
-
-    try
-    {
-        await execFileAsync('docker', [
-            'exec',
-            postgresContainer,
-            'psql',
-            '-v',
-            'ON_ERROR_STOP=1',
-            '-q',
-            '-U',
-            'fsusblog',
-            '-d',
-            'fsusblog',
-            '-c',
-            'delete from security_risk_event'
-        ], { timeout: 5000 });
-    }
-    catch
-    {
-    // Non-local environments may not expose the runtime PostgreSQL container.
-    }
 }
 
 async function readServerFile(relativePath)
@@ -1128,9 +1078,7 @@ async function assertApiMatrix()
     await assertGuestForbiddenMatrix(articleId);
     await assertRoleUserForbiddenMatrix(userSession, adminSession, articleId, categoryId, marker);
     await assertRoleUserAllowedBoundaries(userSession, articleId, marker);
-    await resetLocalSecurityRiskState();
     await assertAdminPositivePowCrud(adminSession);
-    await resetLocalSecurityRiskState();
     await assertAdminPowBoundaries(adminSession, categoryId, largeMarkdownPayload);
 }
 

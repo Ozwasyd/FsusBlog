@@ -12,7 +12,7 @@ internal interface INotificationFrameCodec
     SharedNotificationStreamFrame EncodeEventFrame<TPayload>(long eventId, NotificationStreamEventType eventType, TPayload payload);
 }
 
-internal sealed class NotificationFrameCodec(IAedsEncoder aeds) : INotificationFrameCodec
+internal sealed class NotificationFrameCodec(IAedsEncoder aeds, TimeProvider timeProvider) : INotificationFrameCodec
 {
     public byte[] EncodeHeartbeatFrame()
     {
@@ -24,7 +24,7 @@ internal sealed class NotificationFrameCodec(IAedsEncoder aeds) : INotificationF
     public SharedNotificationStreamFrame EncodeEventFrame<TPayload>(long eventId, NotificationStreamEventType eventType, TPayload payload)
     {
         var payloadWriter = new ArrayBufferWriter<byte>(512);
-        PodBinaryCodec.WriteNotificationEvent(eventId, eventType, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), payload, payloadWriter);
+        PodBinaryCodec.WriteNotificationEvent(eventId, eventType, timeProvider.GetUtcNow().ToUnixTimeMilliseconds(), payload, payloadWriter);
         return SharedNotificationStreamFrame.FromArray(aeds.Encode(AedsFrameType.NotificationEvent, payloadWriter.WrittenSpan));
     }
 }

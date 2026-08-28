@@ -100,43 +100,27 @@ export async function navigateThroughRetryablePublicAot({
         throw new TypeError('public AOT navigation requires a future runtime-derived deadline');
     }
 
-    let consecutiveTransportRetries = 0;
-    while (true)
+    let response;
+    try
     {
-        let response;
-        try
-        {
-            response = await navigate();
-        }
-        catch (error)
-        {
-            consecutiveTransportRetries += 1;
-            const retryDelayMs = Math.min(250 * consecutiveTransportRetries, 1_000);
-            const remainingMs = deadlineAtMs - now();
-            if (!isRetryablePublicAotTransportError(error)
-        || retryDelayMs >= remainingMs)
-            {
-                throw error;
-            }
-            await onRetryableError?.({ error, retryDelayMs, attempt: consecutiveTransportRetries });
-            await sleep(retryDelayMs);
-            continue;
-        }
-        consecutiveTransportRetries = 0;
-        const retryDelayMs = retryablePublicAotDelayMs(response);
-        if (retryDelayMs === null)
-        {
-            return response;
-        }
-
-        const remainingMs = deadlineAtMs - now();
-        if (retryDelayMs >= remainingMs)
-        {
-            throw new Error(
-                `retryable public AOT response exceeds the runtime navigation deadline: retryAfterMs=${retryDelayMs} remainingMs=${Math.max(0, remainingMs)}`
-            );
-        }
-        await onRetryableResponse?.({ response, retryDelayMs });
-        await sleep(retryDelayMs);
+        response = await navigate();
     }
+    catch (error)
+    {
+        if (isRetryablePublicAotTransportError(error))
+        {
+            await onRetryableError?.({ error, retryDelayMs: null, attempt: 1 });
+        }
+        throw error;
+    }
+
+    const retryDelayMs = retryablePublicAotDelayMs(response);
+    if (retryDelayMs !== null)
+    {
+        await onRetryableResponse?.({ response, retryDelayMs });
+        throw new Error(
+            `public AOT correctness navigation received a retryable response on its first attempt: status=${responseStatus(response)} retryAfterMs=${retryDelayMs}`
+        );
+    }
+    return response;
 }

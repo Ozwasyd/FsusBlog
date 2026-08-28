@@ -1,0 +1,23 @@
+export const factWrapperContracts = [
+    ['tests/backend/Unit/UnifiedCacheTests.cs',
+        ['RemoveManyAsync_DeletesRedisKeysAndRegistryMembersAtomically'],
+        'RemoveManyAsync_SourceUsesSingleLuaScriptForDeleteAndRegistryRemoval'],
+    ['tests/backend/Unit/UnifiedCacheTests.cs',
+        ['RemoveByPrefixMany_SourceGroupsByPolicyAndScansRegistryOnce'],
+        'RemoveByPrefix_SourceUsesPagedSetScanInsteadOfSetMembers'],
+    ['tests/backend/Unit/UserServiceValidationTests.cs',
+        ['StartMfaSetupAsync_UsesAtomicMfaProfileUpsert'],
+        'UserService_MfaProfileUpsertUsesSingleConflictSafeStatement'],
+    ['tests/backend/Unit/UserServiceValidationTests.cs',
+        ['VerifyMfaOrRecoveryCodeAsync_RecoveryCodeCasConflictReturnsFalse'],
+        'UserService_RecoveryCodeConsumptionUsesHashCompareAndSwap'],
+    ['tests/backend/Unit/WebApplicationCompositionExtensionsTests.cs',
+        ['PublicAotHtmlFastPath_PrefersBrotliVariantAndWritesPreencodedBytes', 'PublicAotHtmlFastPath_PreencodedVariantsHaveExpectedByteShape'],
+        'PublicAotHtmlFastPath_SourceAvoidsStringContentAndPerRequestUtf8Encode'],
+    ['tests/backend/Unit/WebApplicationCompositionExtensionsTests.cs',
+        ['DynamicManifest_ReturnsNotModifiedForMatchingEtagAndChangesEtagWhenSeoChanges'],
+        'DynamicManifest_SourceUsesDerivedBytesCacheAndConditionalEtag'],
+    ['tests/backend/Unit/WebApplicationCompositionExtensionsTests.cs',
+        ['ImmutableSearchShardKeepsLongCacheAndRemovesValidators'],
+        'ImmutableStaticAssets_KeepLongCacheWithoutValidators']
+];

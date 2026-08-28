@@ -1,4 +1,3 @@
-/* eslint-disable import-x/no-relative-parent-imports -- Repository contract tests and tool authorities intentionally compose sibling owner modules. */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -12,7 +11,6 @@ import {
     verifyExecutionEnvelopeConsumerBindings,
     verifyExecutionEnvelopeReceipt
 } from '../../tools/test/execution-envelope-receipt.mjs';
-import { verifyExecutionEnvelopeFiles } from '../../tools/test/verify-execution-envelope.mjs';
 import {
     loadExecutionEnvelopeApplicability,
     loadExecutionEnvelopePolicy,
@@ -20,6 +18,7 @@ import {
     resolveExecutionEnvelopeProducer
 } from '../../tools/test-matrix/execution-envelope-policy.mjs';
 import { validateJsonSchema } from '../../tools/test-matrix/schema-validator/validate.mjs';
+import { verifyExecutionEnvelopeFiles } from '../../tools/test/verify-execution-envelope.mjs';
 
 const policy = loadExecutionEnvelopePolicy();
 const catalog = loadExecutionEnvelopeApplicability();
@@ -194,18 +193,9 @@ test('mismatch, fragment tamper, and cross-run splice fail with a location', () 
 {
     const plan = envelope('planned');
     for (const mutate of [
-        (actual) =>
-        {
-            actual.cpuCount = 8;
-        },
-        (actual) =>
-        {
-            actual.fragmentDigests.network = `sha256:${'f'.repeat(64)}`;
-        },
-        (actual) =>
-        {
-            actual.schedulerRunId = 'run-b';
-        }
+        (actual) => { actual.cpuCount = 8; },
+        (actual) => { actual.fragmentDigests.network = `sha256:${'f'.repeat(64)}`; },
+        (actual) => { actual.schedulerRunId = 'run-b'; }
     ])
     {
         const actual = structuredClone(envelope('actual'));

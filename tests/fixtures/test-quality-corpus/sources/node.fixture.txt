@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+
+import { load, reject } from '../../../src/subject.mjs'
+
+test('node assert equal', () => assert.equal(load(), 2))
+test('node assert strict equal', () => assert.strictEqual(load(), 2))
+test('node assert deep equal', () => assert.deepEqual([load()], [2]))
+test('node assert deep strict equal', () => assert.deepStrictEqual([load()], [2]))
+test('node assert match', () => assert.match(String(load()), /2/))
+test('node assert throws', () => assert.throws(() => reject()))
+test('node assert rejects', async () => assert.rejects(async () => reject()))
+test('node assert does not throw', () => assert.doesNotThrow(() => load()))
+test('node assert fail is observed', () => assert.throws(() => assert.fail('expected failure')))
+test('node empty worker', () => load())

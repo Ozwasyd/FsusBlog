@@ -1,8 +1,13 @@
+using System.Reflection;
+
+using FsusBlog.Server.Contracts.Assets;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
 using SqlSugar;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
@@ -10,136 +15,84 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AuthoringAssetLibraryRebuildTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
-    public async Task ReindexAssetsAsync_ConcurrentRebuildKeepsSingleAssetRow()
+    public void AssetLibraryProjection_HasNoRuntimeDdlOrMarkdownScanner()
     {
-        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
-        using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
-        CreateTables(setupDb);
-        SeedArticleWithBody(setupDb, 42, "![Active](/uploads/illustration/active.png)");
-        using SqlSugarClient firstDb = PostgresSqlSugarTestClient.Create(connectionString);
-        using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(connectionString);
-        AuthoringAssetLibraryService firstService = CreateService(firstDb);
-        AuthoringAssetLibraryService secondService = CreateService(secondDb);
-        using var barrier = new Barrier(2);
+        string source = File.ReadAllText(SourcePath<AuthoringAssetLibraryService>());
 
-        await Task.WhenAll(
-                StartBarrierTaskAsync(barrier, () => firstService.ReindexAssetsAsync(42, CancellationToken.None)),
-                StartBarrierTaskAsync(barrier, () => secondService.ReindexAssetsAsync(42, CancellationToken.None)))
-            .WaitAsync(TimeSpan.FromSeconds(30));
-
-        AssetLibraryItem item = Assert.Single(setupDb.Queryable<AssetLibraryItem>()
-            .Where(asset => asset.Url == "/uploads/illustration/active.png")
-            .ToList());
-        Assert.Equal(1, item.ReferenceCount);
+        Assert.DoesNotContain("CREATE TABLE", source, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ImageHelper", source, StringComparison.Ordinal);
+        Assert.Contains("FROM content_asset asset", source, StringComparison.Ordinal);
+        Assert.Contains("LEFT JOIN content_asset_reference", source, StringComparison.Ordinal);
+        Assert.Contains("SUM(reference.reference_count)", source, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task ReindexAssetsAsync_RollsBackWhenRebuildFailsMidway()
+    public async Task ListAssetsAsync_ProjectsExactAggregateFromCanonicalLedger()
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
-        CreateTables(db);
-        SeedArticleWithBody(db, 42, "![Active](/uploads/illustration/active.png)");
-        SeedAsset(db, "/uploads/illustration/orphan.png", referenceCount: 7);
-        InstallFailingActiveAssetInsertTrigger(db);
-        AuthoringAssetLibraryService service = CreateService(db);
-
-        await Assert.ThrowsAnyAsync<Exception>(() => service.ReindexAssetsAsync(42, CancellationToken.None));
-
-        AssetLibraryItem orphan = db.Queryable<AssetLibraryItem>()
-            .First(asset => asset.Url == "/uploads/illustration/orphan.png");
-        Assert.False(db.Queryable<AssetLibraryItem>().Any(asset => asset.Url == "/uploads/illustration/active.png"));
-        Assert.Equal(7, orphan.ReferenceCount);
-        Assert.Equal(
-            0,
-            db.Ado.GetInt("SELECT COUNT(1) FROM asset_library_article_ref WHERE url = '/uploads/illustration/active.png';"));
-    }
-
-    private static void CreateTables(SqlSugarClient db)
-    {
         PostgresSqlSugarTestClient.InitTables(
             db,
-            typeof(Article),
-            typeof(ArticleBody),
-            typeof(AssetLibraryItem));
-        db.Ado.ExecuteCommand(
-            """
-            CREATE TABLE IF NOT EXISTS asset_library_article_ref (
-                url varchar(512) NOT NULL,
-                article_id integer NOT NULL,
-                alt_text varchar(256) NULL,
-                reference_count integer NOT NULL DEFAULT 0,
-                updated_at_utc timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
-                PRIMARY KEY (url, article_id)
-            );
-            """);
-    }
-
-    private static void SeedArticleWithBody(SqlSugarClient db, int articleId, string markdown)
-    {
-        db.Ado.ExecuteCommand(
-            """
-            INSERT INTO article
-                (id, title, categoryid, views, createtime, metadata_updated_at, isdeleted, status, published_at, scheduled_publish_at)
-            VALUES
-                (@Id, @Title, 1, 0, @PublishedAt, @PublishedAt, false, @Status, @PublishedAt, NULL);
-            """,
-            new SugarParameter("@Id", articleId),
-            new SugarParameter("@Title", $"Article {articleId}"),
-            new SugarParameter("@Status", (int)ArticleStatus.Published),
-            new SugarParameter("@PublishedAt", DateTime.UtcNow.AddMinutes(-1)));
-        db.Insertable(new ArticleBody
+            typeof(ContentAsset),
+            typeof(ContentAssetReference),
+            typeof(ContentAssetCleanupQueueItem));
+        Guid assetId = Guid.NewGuid();
+        DateTime updatedAt = DateTime.UtcNow.AddMinutes(-1);
+        db.Insertable(new ContentAsset
         {
-            ArticleId = articleId,
-            MarkdownContent = markdown,
-            UpdatedAt = DateTime.UtcNow
+            AssetId = assetId,
+            StorageClass = "public",
+            StorageKey = "illustration/aggregate.png",
+            MimeType = "image/png",
+            Extension = ".png",
+            SizeBytes = 24,
+            Sha256 = new string('b', 64),
+            WidthPixels = 1,
+            HeightPixels = 1,
+            State = ContentAssetStates.Active,
+            CreatedAtUtc = updatedAt,
+            UpdatedAtUtc = updatedAt
         }).ExecuteCommand();
-    }
-
-    private static void SeedAsset(SqlSugarClient db, string url, int referenceCount)
-        => db.Insertable(new AssetLibraryItem
+        db.Insertable(new[]
         {
-            Url = url,
-            Sha256 = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(url))),
-            ReferenceCount = referenceCount,
-            CreatedAt = DateTime.UtcNow.AddMinutes(-5),
-            UpdatedAt = DateTime.UtcNow.AddMinutes(-5)
-        }).ExecuteCommand();
-
-    private static void InstallFailingActiveAssetInsertTrigger(SqlSugarClient db)
-        => db.Ado.ExecuteCommand(
-            """
-            CREATE OR REPLACE FUNCTION fail_active_asset_insert()
-            RETURNS trigger
-            LANGUAGE plpgsql
-            AS $$
-            BEGIN
-                IF NEW.url = '/uploads/illustration/active.png' THEN
-                    RAISE EXCEPTION 'unit active asset insert failure';
-                END IF;
-
-                RETURN NEW;
-            END;
-            $$;
-
-            CREATE TRIGGER fail_active_asset_insert
-            BEFORE INSERT ON asset_library_item
-            FOR EACH ROW
-            EXECUTE FUNCTION fail_active_asset_insert();
-            """);
-
-    private static AuthoringAssetLibraryService CreateService(SqlSugarClient db)
-        => new(db);
-
-    private static Task<T> StartBarrierTaskAsync<T>(Barrier barrier, Func<Task<T>> action)
-        => Task.Factory.StartNew(
-            async () =>
+            new ContentAssetReference
             {
-                Assert.True(
-                    barrier.SignalAndWait(TimeSpan.FromSeconds(30)),
-                    "Timed out waiting for concurrent asset rebuilds.");
-                return await action();
+                AssetId = assetId,
+                SourceKind = ContentAssetSourceKinds.Article,
+                SourceKey = "42",
+                ArticleId = 42,
+                ReferenceCount = 2,
+                AltText = "hero",
+                UpdatedAtUtc = updatedAt
             },
-            CancellationToken.None,
-            TaskCreationOptions.LongRunning,
-            TaskScheduler.Default).Unwrap();
+            new ContentAssetReference
+            {
+                AssetId = assetId,
+                SourceKind = ContentAssetSourceKinds.Draft,
+                SourceKey = "44:article-42",
+                ArticleId = 42,
+                ReferenceCount = 1,
+                UpdatedAtUtc = updatedAt
+            }
+        }).ExecuteCommand();
+
+        var service = new AuthoringAssetLibraryService(db);
+        AssetLibraryItemResponse item = Assert.Single(await service.ListAssetsAsync());
+
+        Assert.Equal(assetId.ToString("D"), item.Id);
+        Assert.Equal("/uploads/illustration/aggregate.png", item.Url);
+        Assert.Equal("hero", item.AltText);
+        Assert.Equal(42, item.SourceArticleId);
+        Assert.Equal(3, item.ReferenceCount);
+        Assert.Equal(new string('b', 64), item.Sha256);
+    }
+
+    private static string SourcePath<T>()
+    {
+        string repositoryRoot = Path.GetFullPath(Path.Combine(
+            Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!,
+            "../../../../../"));
+        return Path.Combine(
+            repositoryRoot,
+            "src/backend/Services/Authoring/AuthoringAssetLibraryService.cs");
+    }
 }

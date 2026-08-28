@@ -218,7 +218,9 @@
                 "src/backend/Services/SearchIndexService.Dictionary.cs",
                 "tests/backend/Fixtures/backend-test-requirements.json",
                 "tests/coverage-registry.json",
-                "tools/check-backend-test-governance.mjs"
+                "tools/check-backend-test-governance.mjs",
+                "tools/test/csharp-source-mask.mjs",
+                "tools/test/search-index-utf8-scalar-governance.mjs"
             ],
             "externalPattern": "^[A-Za-z][A-Za-z0-9_-]*$",
             "internalPattern": "^[a-z][A-Za-z0-9]*$",
