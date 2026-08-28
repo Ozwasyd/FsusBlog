@@ -14,7 +14,10 @@ import {
     expectedAttributionMutantIdsByBehavior,
     qualifyBehaviorMutations
 } from '../../tools/test/changed-critical-mutation-attribution.mjs';
-import { createChangedCriticalMutationAuthority } from '../../tools/test/changed-critical-mutation-evidence.mjs';
+import {
+    createChangedCriticalMutationAuthority,
+    scopeMutationReport
+} from '../../tools/test/changed-critical-mutation-evidence.mjs';
 import {
     createChangedCriticalStrykerConfig,
     selectChangedCriticalMutation,
@@ -129,7 +132,8 @@ function buildPhysicalRuns({
     scan,
     baseDir,
     specialStatus = null,
-    specialStatusSourceFile = null
+    specialStatusSourceFile = null,
+    outOfScopeStatus = null
 })
 {
     const bindingByBehavior = new Map();
@@ -230,6 +234,23 @@ function buildPhysicalRuns({
                 mutants: [mutant]
             };
         }
+        if (outOfScopeStatus && runs.length === 0)
+        {
+            const mutant = {
+                ...mutantFor(closure.behaviors[0].behaviorId, index),
+                id: `raw-out-of-scope-${index}`,
+                status: outOfScopeStatus,
+                coveredBy: [],
+                killedBy: []
+            };
+            index += 1;
+            files['SafeMode/OutOfScope.cs'] = {
+                language: 'cs',
+                source: 'return value + 1;\nreturn value + 2;\nreturn value + 3;',
+                mutants: [mutant]
+            };
+            mutantsByRaw.push({ rawMutantId: mutant.id, status: mutant.status });
+        }
         for (const behavior of closure.behaviors)
         {
             for (const test of testFilesByBehavior.get(behavior.behaviorId) ?? [])
@@ -252,7 +273,7 @@ function buildPhysicalRuns({
         const configPath = path.join(baseDir, 'configs', `${closure.sourceProject.replaceAll('/', '-')}.json`);
         const tracePath = path.join(physicalDir, 'logs', 'log-fixture.txt');
         const lines = [
-            '2026-08-08T00:59:59.0000000Z  [DBG] Stryker starting, version: "4.14.2" (e60f399b)',
+            '2026-08-08T00:59:59.0000000Z  [DBG] Stryker starting, version: "4.14.2-fsusblog.2" (e60f399b)',
             '2026-08-08T01:00:00.0000000Z  [DBG] Stryker started with options: '
         + `StrykerOptions { ReportPath: "${path.dirname(reportAbsolutePath)}", `
         + `ReportFileName: "${reportName}", `
@@ -309,6 +330,7 @@ function buildMutationFixture({
     changedPaths = null,
     specialStatus = null,
     specialStatusSourceFile = null,
+    outOfScopeStatus = null,
     evidenceRetry = false,
     evidenceDiagnostic = false,
     evidenceSkipped = false,
@@ -349,7 +371,8 @@ function buildMutationFixture({
         scan: sharedScan,
         baseDir: fixtureDir,
         specialStatus,
-        specialStatusSourceFile
+        specialStatusSourceFile,
+        outOfScopeStatus
     });
     const authority = createChangedCriticalMutationAuthority({
         selection,
@@ -411,12 +434,23 @@ function buildMutationFixture({
         ...ownerReceipt,
         bindings: [...ownerReceipt.bindings, ...sharedOwnerClosure.bindings]
     };
-    const attributed = runs.map((run) => attributeMutantsToBehaviors({
-        report: run.report,
-        sourceProject: run.sourceProject,
-        ownerReceipt: mergedOwner,
-        selection
-    }));
+    const attributed = runs.map((run) =>
+    {
+        const closure = selection.projectClosures.find(
+            ({ sourceProject }) => sourceProject === run.sourceProject
+        );
+        const scoped = scopeMutationReport(
+            run.report,
+            closure.mutateFiles,
+            run.sourceProject
+        );
+        return attributeMutantsToBehaviors({
+            report: scoped.report,
+            sourceProject: run.sourceProject,
+            ownerReceipt: mergedOwner,
+            selection
+        });
+    });
     const attributions = attachExpectedTestEvidence({
         attributions: attributed.flatMap(({ attributions: entries }) => entries),
         selection
@@ -855,6 +889,37 @@ test('mutation timeout and error fail closed (never a warning)', () =>
     assert.equal(compileResult.ok, false);
     assert.ok(compileResult.errors.some((error) => error.includes('compile-error')), compileResult.errors.join('\n'));
     assert.ok(compileResult.errors.some((error) => error.includes('error')), compileResult.errors.join('\n'));
+});
+
+test('out-of-scope Safe Mode compile errors remain diagnostics without contaminating qualification', () =>
+{
+    const fixture = buildMutationFixture({
+        name: 'out-of-scope-compile-error',
+        scope: 'release',
+        outOfScopeStatus: 'CompileError'
+    });
+    assert.equal(
+        fixture.authority.outOfScopeDiagnostics.classification,
+        'stryker-safe-mode-pre-filter'
+    );
+    assert.equal(fixture.authority.outOfScopeDiagnostics.mutantCount, 1);
+    assert.equal(fixture.authority.outOfScopeDiagnostics.compileError, 1);
+    assert.equal(fixture.authority.mutants.compileError, 0);
+    assert.equal(fixture.receipt.status, 'ok');
+    const result = verifyBehaviorMutationQualification(verifyOptions(fixture));
+    assert.equal(result.ok, true, result.errors.join('\n'));
+});
+
+test('out-of-scope executed mutant is rejected instead of hidden as a diagnostic', () =>
+{
+    assert.throws(
+        () => buildMutationFixture({
+            name: 'out-of-scope-survived',
+            scope: 'release',
+            outOfScopeStatus: 'Survived'
+        }),
+        /executed or scored mutants outside selected closure/u
+    );
 });
 
 test('duplicate/multiple and zero mutant results fail closed', () =>

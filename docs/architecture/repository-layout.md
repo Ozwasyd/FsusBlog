@@ -93,7 +93,11 @@ input/witness layout、constraint count、proof system、curve、ceremony state 
 `src/` 是唯一 canonical product-source root。`benchmarks/`、`tests/`、`tools/`
 和 `ops/` 中包含可执行源码，但分别受 benchmark isolation、test isolation、
 repository tooling 与 operator tooling 的架构例外约束，不进入产品源码或 shipping
-assemblies。`.config/` 是 .NET tool manifest 所需的 framework root；其他
+assemblies。Stryker.NET 工具源码只允许由 `config/testing/mutation/stryker-tool.v1.json`
+固定 official commit archive 与 SHA-256；仓库修改只能由 `tools/mutation/patches/` 的版本化
+overlay 表达，并由 `tools/mutation/stryker-tool.mjs` 解包到 `.tmp/` 后构建，禁止把 fork
+或把该工具链接入产品 runtime。`.config/` 的 manifest 绑定 official release，overlay
+producer 的 custom package identity 由同一 policy 绑定。其他
 top-level 目录必须在
 `tests/governance/repository-source-layout.json` 中声明为 artifact、configuration、
 documentation、security 或 automation ownership；新增 source-like root 必须同时提供

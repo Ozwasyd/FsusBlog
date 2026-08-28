@@ -125,11 +125,12 @@ function requireField(value, label)
 
 function requireDigestMatch(receipt, label)
 {
-    const expected = digestValue(
+    const expectedWithoutField = digestValue(
         Object.fromEntries(Object.entries(receipt).filter(([key]) => key !== 'contentDigest'))
     );
+    const expectedWithNull = digestValue({ ...receipt, contentDigest: null });
     const actual = normalizeDigest(receipt.contentDigest);
-    if (actual !== expected && receipt.contentDigest !== expected && receipt.contentDigest !== `sha256:${expected}`)
+    if (actual !== expectedWithoutField && actual !== expectedWithNull)
     {
         fail(`${label} contentDigest mismatch`);
     }
@@ -408,8 +409,10 @@ export function joinBehaviorEvidencePreRuntime(options = {})
       + `${admission.candidateSpawnCountBeforeReceipt}`
         );
     }
-    if (admission.source?.commit !== sourceCommit
-    || normalizeFingerprint(admission.source?.worktreeFingerprint) !== fp)
+    const staticWorktreeFingerprint = normalizeFingerprint(
+        admission.source?.worktreeFingerprint
+    );
+    if (admission.source?.commit !== sourceCommit || !staticWorktreeFingerprint)
     {
         fail('static admission receipt source identity does not match this-round source');
     }
@@ -465,20 +468,37 @@ export function joinBehaviorEvidencePreRuntime(options = {})
     const catalog = loadJson(requireField(options.catalog, 'catalog'));
     const preRuntimeBehaviorIds = requirePreRuntimeBehaviorIds(catalog);
 
+    const staticIdentityInputs = [
+        ['doc-claim verification', loadJson(requireField(
+            options.docClaimVerificationReceipt,
+            'docClaimVerificationReceipt'
+        ))],
+        ['generated-section check', loadJson(requireField(
+            options.generatedSectionCheckReceipt,
+            'generatedSectionCheckReceipt'
+        ))],
+        ...(options.factObservationReceipts ?? []).map((entry, index) => [
+            `fact observation ${index}`,
+            loadJson(entry)
+        ])
+    ];
+    for (const [label, receipt] of staticIdentityInputs)
+    {
+        if (receipt.sourceCommit !== sourceCommit
+        || normalizeFingerprint(receipt.worktreeFingerprint) !== staticWorktreeFingerprint)
+        {
+            fail(`${label} source identity does not match static admission source`);
+        }
+    }
+
     const graphInputs = {
         catalog,
         ownerReceipt: requireField(options.ownerReceipt, 'ownerReceipt'),
         testEvidenceReceipt: testEvidence,
         docClaimParseReceipt: requireField(options.docClaimParseReceipt, 'docClaimParseReceipt'),
-        docClaimVerificationReceipt: requireField(
-            options.docClaimVerificationReceipt,
-            'docClaimVerificationReceipt'
-        ),
-        generatedSectionCheckReceipt: requireField(
-            options.generatedSectionCheckReceipt,
-            'generatedSectionCheckReceipt'
-        ),
-        factObservationReceipts: options.factObservationReceipts ?? [],
+        docClaimVerificationReceipt: staticIdentityInputs[0][1],
+        generatedSectionCheckReceipt: staticIdentityInputs[1][1],
+        factObservationReceipts: staticIdentityInputs.slice(2).map(([, receipt]) => receipt),
         ...(mutationDigest != null
             ? { mutationEvidenceReceipt: loadJson(options.mutationEvidenceReceipt) }
             : {})

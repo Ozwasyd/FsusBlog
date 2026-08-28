@@ -40,6 +40,7 @@
                 "outputSchema",
                 "requiredBuildArtifact",
                 "hermeticPolicy",
+                "evidenceStage",
                 "ownedBehaviorIds"
             ],
             "properties": {
@@ -53,7 +54,8 @@
                         "compiled-assembly",
                         "canonical-catalog",
                         "generated-contract",
-                        "matrix-projection"
+                        "matrix-projection",
+                        "runtime-receipt-adapter"
                     ]
                 },
                 "entrypoint": {
@@ -82,7 +84,14 @@
                     "enum": [
                         "source-worktree",
                         "exact-build-receipt",
-                        "declared-inputs"
+                        "declared-inputs",
+                        "current-run-receipts"
+                    ]
+                },
+                "evidenceStage": {
+                    "enum": [
+                        "pre-runtime",
+                        "post-runtime"
                     ]
                 },
                 "ownedBehaviorIds": {
@@ -92,6 +101,101 @@
                     "items": {
                         "type": "string",
                         "pattern": "^[a-z][a-z0-9-]*$"
+                    }
+                },
+                "runtimeContract": {
+                    "$ref": "#/$defs/runtimeContract"
+                }
+            }
+        },
+        "runtimeContract": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "producerOwner",
+                "observationSchema",
+                "executionClass",
+                "evidenceClass",
+                "observationClasses",
+                "requiredIdentities",
+                "requiredOutcomes",
+                "diagnosticEligibility",
+                "timeoutSemantics",
+                "cancelSemantics",
+                "recoverySemantics",
+                "acceptedClaimIds"
+            ],
+            "properties": {
+                "producerOwner": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]*$"
+                },
+                "observationSchema": {
+                    "const": "fsusblog.fact-observation-receipt.v1"
+                },
+                "executionClass": {
+                    "enum": [
+                        "runtime",
+                        "browser-runtime",
+                        "release-deployment"
+                    ]
+                },
+                "evidenceClass": {
+                    "const": "correctness"
+                },
+                "observationClasses": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9-]*$"
+                    }
+                },
+                "requiredIdentities": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9-]*$"
+                    }
+                },
+                "requiredOutcomes": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "enum": [
+                            "positive",
+                            "negative",
+                            "boundary",
+                            "failure"
+                        ]
+                    }
+                },
+                "diagnosticEligibility": {
+                    "const": "forbidden-for-qualification"
+                },
+                "timeoutSemantics": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]*$"
+                },
+                "cancelSemantics": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]*$"
+                },
+                "recoverySemantics": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]*$"
+                },
+                "acceptedClaimIds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9.-]*$"
                     }
                 }
             }

@@ -15,6 +15,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AnonymousCommentPolicyTests
 {
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "security-policy-fail-closed")]
     public void AnonymousCommentPolicy_DefaultsToZkFailClosedAndRejectsImplicitPublicMode()
     {
         var service = new AnonymousCommentPolicyService(BuildConfiguration([]));
@@ -35,6 +36,7 @@ public sealed class AnonymousCommentPolicyTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "security-policy-fail-closed")]
     public void AnonymousCommentPolicy_DisabledAnonymousRejectsAnonymousAndZkModes()
     {
         var service = new AnonymousCommentPolicyService(BuildConfiguration(new Dictionary<string, string?>
@@ -53,6 +55,7 @@ public sealed class AnonymousCommentPolicyTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void AnonymousCommentPolicy_UpdateCanExposeZkAndCuratedLanguages()
     {
         var service = new AnonymousCommentPolicyService(BuildConfiguration([]));
@@ -74,6 +77,7 @@ public sealed class AnonymousCommentPolicyTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public void AnonymousCommentPolicy_DefaultsAndValidatesConfigurableCommentLimits()
     {
         var defaults = new AnonymousCommentPolicyService(BuildConfiguration([]));
@@ -93,6 +97,7 @@ public sealed class AnonymousCommentPolicyTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public void AnonymousCommentPolicy_UpdateRejectsOutOfRangeCommentLimits()
     {
         var service = new AnonymousCommentPolicyService(BuildConfiguration([]));
@@ -121,6 +126,7 @@ public sealed class AnonymousCommentPolicyTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "security-policy-fail-closed")]
     public void AnonymousCommentPolicy_UpdateRejectsInvalidAuthorMode()
     {
         var service = new AnonymousCommentPolicyService(BuildConfiguration([]));
@@ -139,6 +145,7 @@ public sealed class AnonymousCommentPolicyTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task AnonymousCommentPolicyService_GetCurrentAsyncYieldsWhilePolicyQueryIsSlow()
     {
         var queryStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

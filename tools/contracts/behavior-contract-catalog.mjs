@@ -10,6 +10,7 @@ export const allowedTestKinds = new Set(['positive', 'boundary', 'negative', 'co
 export const allowedStatuses = new Set(['active', 'migration-only', 'retired']);
 export const allowedDocumentationPolicies = new Set(['required', 'not-public', 'rationale-only']);
 export const allowedClaimTypes = new Set(['behavioral', 'safety', 'operational']);
+export const allowedEvidenceStages = new Set(['pre-runtime', 'post-runtime']);
 export const contractFieldKeys = [
     'id',
     'domain',
@@ -23,10 +24,11 @@ export const contractFieldKeys = [
     'documentationRationale',
     'allowedClaimTypes',
     'releaseQualification',
+    'evidenceStage',
     'coverageIds',
     'documents'
 ];
-export const optionalContractFieldKeys = ['evidenceStage', 'runtimeEvidence', 'mutationPolicy'];
+export const optionalContractFieldKeys = ['mutationPolicy'];
 
 const fail = (message) =>
 {
@@ -88,6 +90,7 @@ export function validateSchemaContract(schema)
     exactEnum(contract?.properties?.requiredTestKinds?.items?.enum, allowedTestKinds, 'requiredTestKinds');
     exactEnum(contract?.properties?.documentationPolicy?.enum, allowedDocumentationPolicies, 'documentationPolicy');
     exactEnum(contract?.properties?.allowedClaimTypes?.items?.enum, allowedClaimTypes, 'allowedClaimTypes');
+    exactEnum(contract?.properties?.evidenceStage?.enum, allowedEvidenceStages, 'evidenceStage');
     if (contract?.properties?.implementationOwners !== undefined)
     {
         fail('schema must not declare path-based implementationOwners');
@@ -194,24 +197,13 @@ export function validateCatalog(catalog, repositoryRoot = root)
         {
             fail(`${contract.id} releaseQualification must be boolean`);
         }
-        const evidenceStage = contract.evidenceStage ?? 'pre-runtime';
-        if (!['pre-runtime', 'post-runtime'].includes(evidenceStage))
+        if (!allowedEvidenceStages.has(contract.evidenceStage))
         {
-            fail(`${contract.id} evidenceStage is invalid`);
+            fail(`${contract.id} evidenceStage must be pre-runtime or post-runtime`);
         }
-        if (evidenceStage === 'post-runtime')
+        if (!contract.releaseQualification && contract.evidenceStage === 'post-runtime')
         {
-            if (!isPlainObject(contract.runtimeEvidence)
-                || Object.keys(contract.runtimeEvidence).sort().join('\0') !== ['observationSchema', 'producerTierId'].join('\0')
-                || !isId(contract.runtimeEvidence.producerTierId)
-                || !/^fsusblog\.[a-z0-9.-]+\.v[0-9]+$/u.test(contract.runtimeEvidence.observationSchema))
-            {
-                fail(`${contract.id} post-runtime behavior requires one stable runtime evidence producer/schema`);
-            }
-        }
-        else if (Object.hasOwn(contract, 'runtimeEvidence'))
-        {
-            fail(`${contract.id} pre-runtime behavior cannot declare runtimeEvidence`);
+            fail(`${contract.id} post-runtime behavior must participate in release qualification`);
         }
         uniqueStrings(contract.coverageIds, `${contract.id}.coverageIds`, { min: 1 });
         if (contract.coverageIds.some((id) => !coverage.has(id)))
@@ -309,6 +301,7 @@ export function validateBehaviorReferences(catalog, repositoryRoot = root)
         'documentationPolicy',
         'allowedClaimTypes',
         'releaseQualification',
+        'evidenceStage',
         'implementationOwnerCardinality',
         'allowedImplementationOwnerRoles',
         'implementationOwners'
@@ -319,6 +312,7 @@ export function validateBehaviorReferences(catalog, repositoryRoot = root)
         'documentationPolicy',
         'allowedClaimTypes',
         'releaseQualification',
+        'evidenceStage',
         'implementationOwnerCardinality',
         'allowedImplementationOwnerRoles',
         'implementationOwners'
@@ -368,6 +362,8 @@ export function validateBehaviorReferences(catalog, repositoryRoot = root)
         'tests/tools/changed-critical-mutation.test.mjs',
         'tests/tools/doc-claim.test.mjs',
         'tests/tools/behavior-fact-extractors.test.mjs',
+        'tests/tools/behavior-doc-exactness.test.mjs',
+        'tests/tools/post-runtime-producer-registry.test.mjs',
         'tests/tools/generated-fact-sections.test.mjs',
         'tests/tools/document-claim-migration-ledger.test.mjs',
         'tests/tools/test-matrix-topology-observation.test.mjs',
@@ -395,6 +391,7 @@ export function validateBehaviorReferences(catalog, repositoryRoot = root)
         'tools/contracts/check-behavior-owner-binding.mjs',
         'tools/contracts/generate-behavior-contract-catalog.mjs',
         'tools/docs/doc-claim.mjs',
+        'tools/docs/behavior-doc-exactness.mjs',
         'tools/docs/check-doc-claim.mjs',
         'tools/docs/check-document-claim-migration-ledger.mjs',
         'tools/docs/doc-claim-staleness-mutation/fixture.mjs',
@@ -407,6 +404,10 @@ export function validateBehaviorReferences(catalog, repositoryRoot = root)
         'tools/fact-extractors/reader.mjs',
         'tools/fact-extractors/identity.mjs',
         'tools/fact-extractors/governance.mjs',
+        'tools/fact-extractors/post-runtime/registry.mjs',
+        'tools/fact-extractors/post-runtime/adapter.mjs',
+        'tools/fact-extractors/post-runtime/application-runtime.mjs',
+        'tools/fact-extractors/post-runtime/release-deployment.mjs',
         'tools/fact-extractors/check-behavior-fact-extractors.mjs',
         'config/schemas/doc-claim.schema.json',
         'config/schemas/behavior-fact-extractor-registry.schema.json',

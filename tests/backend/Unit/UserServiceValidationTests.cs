@@ -909,6 +909,7 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public async Task RefreshTokenAsync_EmptyToken_ReturnsFalse()
     {
         var svc = BuildSessionService();
@@ -1246,6 +1247,7 @@ public class UserServiceValidationTests
 
     [Fact]
     [Trait("Category", "SecurityStateMachine")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task CompleteLoginAsync_NormalUser_IssuesSessionToken()
     {
         var db = Substitute.For<ISqlSugarClient>();

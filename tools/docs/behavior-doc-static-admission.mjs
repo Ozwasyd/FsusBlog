@@ -297,7 +297,10 @@ export function validateBehaviorDocStaticAdmissionReceipt(receipt, {
         const registry = loadRegistry(
             path.join(expectedWorktree, 'config/contracts/behavior-fact-extractors.json')
         );
-        const expectedExtractorIds = registry.extractors.map((extractor) => extractor.id).sort();
+        const expectedExtractorIds = registry.extractors
+            .filter((extractor) => extractor.evidenceStage === 'pre-runtime')
+            .map((extractor) => extractor.id)
+            .sort();
         const actualExtractorIds = Object.keys(receipt.factObservations).sort();
         if (JSON.stringify(actualExtractorIds) !== JSON.stringify(expectedExtractorIds))
         {
@@ -439,7 +442,7 @@ export async function runBehaviorDocStaticAdmission({
         base.minimalContractBuild = minimalBuild.receipt;
 
         const observationReceipts = [];
-        for (const extractor of registry.extractors)
+        for (const extractor of registry.extractors.filter((entry) => entry.evidenceStage === 'pre-runtime'))
         {
             const buildIdentity = extractor.requiredBuildArtifact === null
                 ? null

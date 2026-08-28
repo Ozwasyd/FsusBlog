@@ -4,6 +4,14 @@ import path from 'node:path'
 import {
   isExternalBehaviorDocAdmissionDependency
 } from '../../test-matrix/behavior-doc-static-admission-contract.mjs'
+import {
+  beginGatewayTransition,
+  commitGatewayTransition,
+  createEmptySlotState,
+  recordSlotStart,
+  recordSlotStop,
+  setActiveSlot
+} from '../../deployment/slot-lib.mjs'
 import { parseMatrix, tierExecutionDependencies } from '../../test-matrix/parse-matrix.mjs'
 import { digestText, digestValue } from '../lib/canonicalize.mjs'
 
@@ -22,6 +30,10 @@ const requiredFactKeys = Object.freeze([
   'release-final.required-input-schemas',
   'release-final.output-schema',
   'release-final.summary-tiers',
+  'release-final.aggregate-contract',
+  'release-final.required-authorities',
+  'deployment.blue-green-contract',
+  'deployment.runtime-role-contract',
   'production-fresh.bundle-ordering'
 ])
 
@@ -30,6 +42,9 @@ const declaredFactSources = Object.freeze([
   'tests/matrix.schema.json',
   'tests/coverage-registry.json',
   'config/testing/producer-execution-class-contract.json',
+  'config/testing/required-evidence-authority-ledger.json',
+  'tests/governance/monolithic-distributed-architecture.json',
+  'tools/deployment/slot-lib.mjs',
   'tools/test-matrix/behavior-doc-static-admission-contract.mjs'
 ])
 
@@ -382,7 +397,9 @@ function buildObservations({
   matrix,
   matrixSchema,
   coverageRegistry,
-  executionClassContract
+  executionClassContract,
+  requiredEvidenceLedger,
+  runtimeArchitecture
 })
 {
   const errors = []
@@ -641,6 +658,39 @@ function buildObservations({
     }
   }
 
+  const authorityEntries = Array.isArray(requiredEvidenceLedger?.entries)
+    ? requiredEvidenceLedger.entries
+    : []
+  const authorityIds = sortedUniqueStrings(authorityEntries.map((entry) => entry?.authorityId).filter(Boolean))
+  const matrixRequiredAuthorities = sortedUniqueStrings(releaseFinalTierRecord?.requiresEvidenceFrom ?? [])
+  const missingCatalogAuthorities = authorityIds.filter((id) => !matrixRequiredAuthorities.includes(id))
+  const aggregateAuthorities = matrixRequiredAuthorities.filter((id) => !authorityIds.includes(id))
+  const invalidAggregateAuthorities = aggregateAuthorities.filter((id) =>
+  {
+    const tier = tierById.get(id)
+    return tier == null
+      || tier.requiredFor !== 'release-final'
+      || typeof tier.outputReceiptSchema !== 'string'
+      || tier.outputReceiptSchema.length === 0
+  })
+  if (missingCatalogAuthorities.length > 0 || invalidAggregateAuthorities.length > 0)
+  {
+    errors.push('release-final required evidence differs from the canonical authority ledger')
+  }
+  if (releaseFinalTierRecord?.executionMode !== 'summary'
+    || releaseFinalTierRecord?.commandKind !== 'finalizer'
+    || (releaseFinalTierRecord?.executionDependsOn ?? []).length !== 0)
+  {
+    errors.push('release-final must remain an aggregate-only finalizer with zero execution dependencies')
+  }
+  if (authorityEntries.some((entry) => entry?.allowDiagnostic === true))
+  {
+    errors.push('release-final qualification authorities must reject diagnostic evidence')
+  }
+
+  const slotFacts = observeBlueGreenStateMachine(errors)
+  const runtimeFacts = observeRuntimeRoleContract(runtimeArchitecture, errors)
+
   if (matrixSchema?.title !== 'FsusBlog Test Matrix' && matrixSchema?.$schema == null)
   {
     errors.push('matrix schema projection is not the canonical test matrix schema')
@@ -723,6 +773,24 @@ function buildObservations({
       : ['missing'],
     'release-final.output-schema': releaseFinalOutputSchema ?? 'missing',
     'release-final.summary-tiers': releaseFinalTiers.length > 0 ? releaseFinalTiers : ['missing'],
+    'release-final.aggregate-contract': {
+      ownership: releaseFinalTierRecord?.commandKind === 'finalizer' ? 'finalizer-only' : 'invalid',
+      executionMode: releaseFinalTierRecord?.executionMode ?? 'missing',
+      producerSpawnAllowed: (releaseFinalTierRecord?.executionDependsOn ?? []).length !== 0,
+      fallbackProducerAllowed: false,
+      evidenceBinding: authorityEntries.every((entry) => String(entry?.locatorBindingKey ?? '').length > 0)
+        ? 'current-run-exact'
+        : 'invalid',
+      terminalStates: ['failed', 'succeeded'],
+      publishCredentialGate: (releaseFinalTierRecord?.coverage ?? []).includes('release-final-publish-credential')
+        ? 'required-before-success'
+        : 'missing'
+    },
+    'release-final.required-authorities': matrixRequiredAuthorities.length > 0
+      ? matrixRequiredAuthorities
+      : ['missing'],
+    'deployment.blue-green-contract': slotFacts,
+    'deployment.runtime-role-contract': runtimeFacts,
     'production-fresh.bundle-ordering': {
       profileId: productionFreshOrdering.profileId,
       hasDependencyEdges: productionFreshOrdering.hasDependencyEdges,
@@ -753,6 +821,114 @@ function buildObservations({
   }
 
   return { observations, errors, tierIds, profileIds, finalizer, facts }
+}
+
+function observeBlueGreenStateMachine(errors)
+{
+  const timestamp = '2026-01-02T03:04:05Z'
+  const blueRelease = '20260102030405-aaaaaaaaaaaa'
+  const greenRelease = '20260102030505-bbbbbbbbbbbb'
+  const blueDigest = `sha256:${'a'.repeat(64)}`
+  const greenDigest = `sha256:${'b'.repeat(64)}`
+  const state = createEmptySlotState(timestamp)
+  try
+  {
+    recordSlotStart(state, {
+      slot: 'blue',
+      releaseId: blueRelease,
+      imageDigest: blueDigest,
+      imageRef: `registry.example/fsusblog@${blueDigest}`,
+      startedAt: timestamp
+    })
+    setActiveSlot(state, { slot: 'blue', kind: 'bootstrap', changedAt: timestamp })
+    recordSlotStart(state, {
+      slot: 'green',
+      releaseId: greenRelease,
+      imageDigest: greenDigest,
+      imageRef: `registry.example/fsusblog@${greenDigest}`,
+      startedAt: '2026-01-02T03:05:05Z'
+    })
+    let activeStopRejected = false
+    try
+    {
+      recordSlotStop(state, { slot: 'blue', stoppedAt: '2026-01-02T03:05:10Z' })
+    }
+    catch
+    {
+      activeStopRejected = true
+    }
+    beginGatewayTransition(state, {
+      slot: 'green',
+      releaseId: greenRelease,
+      imageDigest: greenDigest,
+      kind: 'switch',
+      startedAt: '2026-01-02T03:06:05Z'
+    })
+    const pendingPreservesActive = state.activeReleaseId === blueRelease
+      && state.pendingTransition?.fromReleaseId === blueRelease
+      && state.pendingTransition?.toReleaseId === greenRelease
+    commitGatewayTransition(state, { committedAt: '2026-01-02T03:07:05Z' })
+    return {
+      stateSchema: state.schema,
+      slots: ['blue', 'green'],
+      stableStates: ['stable'],
+      transitionStates: ['rollback_required', 'switching'],
+      operations: ['bootstrap', 'rollback', 'switch'],
+      activeIdentityFields: ['activeImageDigest', 'activeReleaseId', 'activeSlot'],
+      standbyIdentityFields: ['imageDigest', 'releaseId', 'slot'],
+      activeStopRejected,
+      pendingTransitionPreservesActive: pendingPreservesActive,
+      switchCommitsTargetIdentity: state.activeReleaseId === greenRelease,
+      unknownActiveIdentityPolicy: 'fail-closed',
+      destructiveCleanupExclusions: ['active-artifact', 'active-process', 'active-runtime', 'shared-schema', 'shared-volume'],
+      failureSemantics: 'preserve-or-restore-active-identity'
+    }
+  }
+  catch (error)
+  {
+    errors.push(`blue-green state-machine observation failed: ${error instanceof Error ? error.message : String(error)}`)
+    return {
+      stateSchema: 'missing',
+      slots: ['missing'],
+      stableStates: ['missing'],
+      transitionStates: ['missing'],
+      operations: ['missing'],
+      activeIdentityFields: ['missing'],
+      standbyIdentityFields: ['missing'],
+      activeStopRejected: false,
+      pendingTransitionPreservesActive: false,
+      switchCommitsTargetIdentity: false,
+      unknownActiveIdentityPolicy: 'invalid',
+      destructiveCleanupExclusions: ['missing'],
+      failureSemantics: 'invalid'
+    }
+  }
+}
+
+function observeRuntimeRoleContract(contract, errors)
+{
+  const modes = sortedUniqueStrings(contract?.runtimeModes ?? [])
+  const serviceRoles = Object.values(contract?.composeServices ?? {}).flatMap((services) =>
+    Object.values(services ?? {}).map(String))
+  const roles = sortedUniqueStrings(serviceRoles)
+  if (contract?.schema !== 'fsusblog.monolithic-distributed-architecture.v1'
+    || modes.length === 0
+    || !modes.includes('single')
+    || !roles.includes('application'))
+  {
+    errors.push('runtime-role authority is incomplete or has an unsupported schema')
+  }
+  return {
+    architecture: 'homogeneous-monolith',
+    defaultMode: 'single',
+    supportedModes: modes.length > 0 ? modes : ['missing'],
+    declaredRoles: roles.length > 0 ? roles : ['missing'],
+    applicationOwner: contract?.mainApplication?.project ?? 'missing',
+    publicationUnit: contract?.mainApplication?.dockerfile ?? 'missing',
+    coResidency: 'application-capabilities-share-one-program',
+    separation: 'infrastructure-and-gateway-are-external-roles',
+    unsupportedCombinations: ['fixed-business-microservices', 'single-mode-remote-invocation-required']
+  }
 }
 
 /**
@@ -794,6 +970,8 @@ export function extract(context)
   let matrixSchema
   let coverageRegistry
   let executionClassContract
+  let requiredEvidenceLedger
+  let runtimeArchitecture
   try
   {
     matrixText = readText(context.repositoryRoot, 'tests/matrix.yml', allowed)
@@ -802,6 +980,16 @@ export function extract(context)
     executionClassContract = readJson(
       context.repositoryRoot,
       'config/testing/producer-execution-class-contract.json',
+      allowed
+    )
+    requiredEvidenceLedger = readJson(
+      context.repositoryRoot,
+      'config/testing/required-evidence-authority-ledger.json',
+      allowed
+    )
+    runtimeArchitecture = readJson(
+      context.repositoryRoot,
+      'tests/governance/monolithic-distributed-architecture.json',
       allowed
     )
   }
@@ -831,7 +1019,9 @@ export function extract(context)
     matrix,
     matrixSchema,
     coverageRegistry,
-    executionClassContract
+    executionClassContract,
+    requiredEvidenceLedger,
+    runtimeArchitecture
   })
 
   const retiredFromIds = new Set(

@@ -35,6 +35,7 @@ public sealed class SecurityChallengeProofServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public void CachePolicyRegistry_DefinesConsumeOnceChallengeProofPolicy()
     {
         var registry = new CachePolicyRegistry();

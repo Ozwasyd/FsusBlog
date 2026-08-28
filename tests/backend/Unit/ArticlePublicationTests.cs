@@ -9,6 +9,7 @@ public sealed class ArticlePublicationTests
     private static readonly DateTime s_now = new(2026, 5, 18, 12, 0, 0, DateTimeKind.Utc);
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void IsPubliclyVisible_PublishedArticleWithPastPublishTime_ReturnsTrue()
     {
         var article = new Article
@@ -25,6 +26,7 @@ public sealed class ArticlePublicationTests
     [InlineData(ArticleStatus.Scheduled)]
     [InlineData(ArticleStatus.Archived)]
     [InlineData(ArticleStatus.Deleted)]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Boundary)]
     public void IsPubliclyVisible_NonPublishedState_ReturnsFalse(ArticleStatus status)
     {
         var article = new Article
@@ -38,6 +40,7 @@ public sealed class ArticlePublicationTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "content-lifecycle-fail-closed")]
     public void IsPubliclyVisible_FuturePublishedAt_ReturnsFalse()
     {
         var article = new Article
@@ -50,6 +53,7 @@ public sealed class ArticlePublicationTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "content-lifecycle-fail-closed")]
     public void IsPubliclyVisible_FutureScheduledPublishAt_ReturnsFalse()
     {
         var article = new Article
@@ -63,6 +67,7 @@ public sealed class ArticlePublicationTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "content-lifecycle-fail-closed")]
     public void IsPubliclyVisible_DeletedArticle_ReturnsFalse()
     {
         var article = new Article

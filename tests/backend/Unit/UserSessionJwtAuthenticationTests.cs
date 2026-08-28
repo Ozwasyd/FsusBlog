@@ -63,6 +63,7 @@ public sealed class UserSessionJwtAuthenticationTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task AdminEndpoint_KeepsIndependentAdminSessionValidationPath()
     {
         var userValidator = Substitute.For<IUserSessionValidationService>();
@@ -134,6 +135,7 @@ public sealed class UserSessionJwtAuthenticationTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public async Task ProtectedEndpoint_RejectsUnknownKidWithoutTryingEveryKey()
     {
         var userValidator = Substitute.For<IUserSessionValidationService>();
@@ -163,6 +165,7 @@ public sealed class UserSessionJwtAuthenticationTests
     [InlineData("expired")]
     [InlineData("wrong-signing-key")]
     [InlineData("tampered")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public async Task ProtectedEndpoint_RejectsInvalidAccessTokenBeforeSessionValidation(string scenario)
     {
         var userValidator = Substitute.For<IUserSessionValidationService>();

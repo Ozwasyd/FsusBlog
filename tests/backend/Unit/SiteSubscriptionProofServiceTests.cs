@@ -28,6 +28,7 @@ public sealed class SiteSubscriptionProofServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public void CachePolicyRegistry_DefinesConsumeOnceSubscriptionProofPolicy()
     {
         var registry = new CachePolicyRegistry();

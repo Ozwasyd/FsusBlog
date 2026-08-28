@@ -77,6 +77,7 @@ public sealed class BinaryTransportHotPathContractTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Boundary)]
     public async Task BinaryRequestBinder_TruncatedPayloadReturnsRentedLeaseImmediately()
     {
         var aeds = new AedsEncoder();
@@ -101,6 +102,7 @@ public sealed class BinaryTransportHotPathContractTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-wire-fail-closed")]
     public async Task ApiBinaryResponseMiddleware_ReturnsSuccessfulLeaseWithoutResponseCompletion()
     {
         var aeds = new AedsEncoder();
@@ -135,6 +137,7 @@ public sealed class BinaryTransportHotPathContractTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task ApiBinaryResponseMiddleware_ReturnsLeaseWhenHandlerThrows()
     {
         var aeds = new AedsEncoder();
@@ -163,6 +166,7 @@ public sealed class BinaryTransportHotPathContractTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task ApiBinaryResponseMiddleware_ReturnsLeaseWhenClientDisconnectsAfterBinding()
     {
         var aeds = new AedsEncoder();
@@ -194,6 +198,7 @@ public sealed class BinaryTransportHotPathContractTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task BinaryRequestPayload_EarlyDisposeAndPipelineCleanupReturnLeaseOnce()
     {
         var aeds = new AedsEncoder();
@@ -274,6 +279,7 @@ public sealed class BinaryTransportHotPathContractTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Boundary)]
     public async Task BinaryRequestBinder_CancellationAfterHeaderReturnsRentedLease()
     {
         var aeds = new AedsEncoder();

@@ -12,6 +12,7 @@ public class CachePolicyTests
         new(CachePolicyId.ArticleList, domain, resource, TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(10));
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void BuildKey_DefaultIdentity_IncludesDefaultWord()
     {
         var policy = MakePolicy();
@@ -20,6 +21,7 @@ public class CachePolicyTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void BuildKey_NormalIdentity_IncludesIdentity()
     {
         var policy = MakePolicy("blog", "article-detail");
@@ -28,6 +30,7 @@ public class CachePolicyTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void BuildKey_WithVersion_AppendsSuffix()
     {
         var policy = MakePolicy();
@@ -36,6 +39,7 @@ public class CachePolicyTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public void BuildKey_EmptyIdentity_UsesDefault()
     {
         var policy = MakePolicy();
@@ -44,6 +48,7 @@ public class CachePolicyTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public void BuildKey_NullVersion_NoVersionSuffix()
     {
         var policy = MakePolicy("sys", "seo");
@@ -68,6 +73,7 @@ public class CachePolicyRegistryTests
     [InlineData(CachePolicyId.SystemSeo)]
     [InlineData(CachePolicyId.AdminStats)]
     [InlineData(CachePolicyId.SecurityBlockedUser)]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void TryGet_KnownPolicyId_ReturnsTrue(CachePolicyId id)
     {
         bool found = _registry.TryGet(id, out var policy);
@@ -76,6 +82,7 @@ public class CachePolicyRegistryTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "security-policy-fail-closed")]
     public void TryGet_UnknownPolicyId_ReturnsFalse()
     {
         bool found = _registry.TryGet((CachePolicyId)9999, out _);
@@ -83,6 +90,7 @@ public class CachePolicyRegistryTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public void AllPolicies_HaveNonEmptyDomainAndResource()
     {
         foreach (CachePolicyId id in Enum.GetValues<CachePolicyId>())
@@ -96,6 +104,7 @@ public class CachePolicyRegistryTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void SecurityCriticalPolicies_HaveSecurityDomain()
     {
         foreach (CachePolicyId id in Enum.GetValues<CachePolicyId>())
@@ -108,6 +117,7 @@ public class CachePolicyRegistryTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void SecurityBlacklistUser_UsesNonExpiringL2Cache()
     {
         Assert.True(_registry.TryGet(CachePolicyId.SecurityBlacklistUser, out var policy));
@@ -116,6 +126,7 @@ public class CachePolicyRegistryTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public void SecurityChallengeVerifyRateLimit_UsesSecurityCriticalTtlPolicy()
     {
         Assert.True(
@@ -132,6 +143,7 @@ public class CachePolicyRegistryTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ArticleSearchVersion_UsesLongLivedVersionCounterPolicy()
     {
         Assert.True(Enum.TryParse("ArticleSearchVersion", out CachePolicyId policyId));
