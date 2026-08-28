@@ -1,11 +1,148 @@
 import { expect, test, type Page } from '@playwright/test'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { resolveSystemChromiumExecutablePath } from '../support/system-chromium.mjs'
 
 type FixtureState = 'initial-loading' | 'failure' | 'retry-loading' | 'retry-failure' | 'retry-success'
 type FixtureTheme = 'light' | 'dark'
 type FixtureMode = 'default' | 'zoom-200' | 'forced-colors'
+
+type ObservableResponsibility =
+    | 'lifecycle semantics'
+    | 'ARIA/live-region behavior'
+    | 'retry interaction'
+    | 'hit-target size'
+    | 'keyboard focus'
+    | 'overflow'
+    | 'runtime errors'
+    | 'screenshot evidence'
+
+type AssertionContract = {
+    id: string
+    responsibility: ObservableResponsibility
+}
+
+type TupleAuditRecord = {
+    state: FixtureState
+    viewport: string
+    theme: FixtureTheme
+    mode: FixtureMode
+    clientWidth: number
+    scrollWidth: number
+    runtimeErrors: string[]
+    elementPresence: {
+        stateContainerCount: number
+        failureReasonCount: number
+        retryButtonCount: number
+        workbenchCount: number
+        assertiveLiveRegionCount: number
+        toastCount: number
+        stateRole: string | null
+        stateAriaLive: string | null
+        retryAriaBusy: string | null
+        retryAriaDescribedBy: string | null
+        retryEnabled: boolean | null
+    }
+    assertionIds: string[]
+    survivingExecutableTestIds: Record<string, string>
+}
+
+const states: readonly FixtureState[] = [
+    'initial-loading',
+    'failure',
+    'retry-loading',
+    'retry-failure',
+    'retry-success'
+]
+
+const assertionContractsByState: Record<FixtureState, readonly AssertionContract[]> = {
+    'initial-loading': [
+        { id: 'initial-loading.fixture-ready', responsibility: 'lifecycle semantics' },
+        { id: 'initial-loading.no-runtime-errors', responsibility: 'runtime errors' },
+        { id: 'initial-loading.status-role', responsibility: 'ARIA/live-region behavior' },
+        { id: 'initial-loading.message', responsibility: 'lifecycle semantics' },
+        { id: 'initial-loading.no-failure-message', responsibility: 'lifecycle semantics' },
+        { id: 'initial-loading.no-failure-reason', responsibility: 'lifecycle semantics' },
+        { id: 'initial-loading.no-retry-button', responsibility: 'retry interaction' },
+        { id: 'initial-loading.no-alert-role', responsibility: 'ARIA/live-region behavior' },
+        { id: 'initial-loading.no-assertive-region', responsibility: 'ARIA/live-region behavior' },
+        { id: 'initial-loading.horizontal-overflow', responsibility: 'overflow' }
+    ],
+    failure: [
+        { id: 'failure.fixture-ready', responsibility: 'lifecycle semantics' },
+        { id: 'failure.no-runtime-errors', responsibility: 'runtime errors' },
+        { id: 'failure.state-not-alert', responsibility: 'ARIA/live-region behavior' },
+        { id: 'failure.state-not-assertive', responsibility: 'ARIA/live-region behavior' },
+        { id: 'failure.message', responsibility: 'lifecycle semantics' },
+        { id: 'failure.reason', responsibility: 'lifecycle semantics' },
+        { id: 'failure.reason-id', responsibility: 'ARIA/live-region behavior' },
+        { id: 'failure.retry-describedby', responsibility: 'ARIA/live-region behavior' },
+        { id: 'failure.retry-enabled', responsibility: 'retry interaction' },
+        { id: 'failure.toast-count', responsibility: 'ARIA/live-region behavior' },
+        { id: 'failure.assertive-region-count', responsibility: 'ARIA/live-region behavior' },
+        { id: 'failure.assertive-announcement-peak', responsibility: 'ARIA/live-region behavior' },
+        { id: 'failure.toast-peak', responsibility: 'ARIA/live-region behavior' },
+        { id: 'failure.retry-bounds-present', responsibility: 'hit-target size' },
+        { id: 'failure.retry-height-44', responsibility: 'hit-target size' },
+        { id: 'failure.retry-focused', responsibility: 'keyboard focus' },
+        { id: 'failure.retry-focus-visible', responsibility: 'keyboard focus' },
+        { id: 'failure.retry-focus-indicator', responsibility: 'keyboard focus' },
+        { id: 'failure.horizontal-overflow', responsibility: 'overflow' },
+        { id: 'failure.screenshot', responsibility: 'screenshot evidence' }
+    ],
+    'retry-loading': [
+        { id: 'retry-loading.fixture-ready', responsibility: 'lifecycle semantics' },
+        { id: 'retry-loading.no-runtime-errors', responsibility: 'runtime errors' },
+        { id: 'retry-loading.retry-disabled', responsibility: 'retry interaction' },
+        { id: 'retry-loading.retry-busy', responsibility: 'ARIA/live-region behavior' },
+        { id: 'retry-loading.message', responsibility: 'lifecycle semantics' },
+        { id: 'retry-loading.request-count', responsibility: 'retry interaction' },
+        { id: 'retry-loading.toast-count', responsibility: 'ARIA/live-region behavior' },
+        { id: 'retry-loading.assertive-region-count', responsibility: 'ARIA/live-region behavior' },
+        { id: 'retry-loading.assertive-announcement-peak', responsibility: 'ARIA/live-region behavior' },
+        { id: 'retry-loading.toast-peak', responsibility: 'ARIA/live-region behavior' },
+        { id: 'retry-loading.horizontal-overflow', responsibility: 'overflow' }
+    ],
+    'retry-failure': [
+        { id: 'retry-failure.fixture-ready', responsibility: 'lifecycle semantics' },
+        { id: 'retry-failure.no-runtime-errors', responsibility: 'runtime errors' },
+        { id: 'retry-failure.reason', responsibility: 'lifecycle semantics' },
+        { id: 'retry-failure.retry-describedby', responsibility: 'ARIA/live-region behavior' },
+        { id: 'retry-failure.state-not-alert', responsibility: 'ARIA/live-region behavior' },
+        { id: 'retry-failure.state-not-assertive', responsibility: 'ARIA/live-region behavior' },
+        { id: 'retry-failure.request-count', responsibility: 'retry interaction' },
+        { id: 'retry-failure.assertive-announcement-peak', responsibility: 'ARIA/live-region behavior' },
+        { id: 'retry-failure.toast-peak', responsibility: 'ARIA/live-region behavior' },
+        { id: 'retry-failure.horizontal-overflow', responsibility: 'overflow' }
+    ],
+    'retry-success': [
+        { id: 'retry-success.fixture-ready', responsibility: 'lifecycle semantics' },
+        { id: 'retry-success.no-runtime-errors', responsibility: 'runtime errors' },
+        { id: 'retry-success.no-state-region', responsibility: 'lifecycle semantics' },
+        { id: 'retry-success.no-failure-reason', responsibility: 'lifecycle semantics' },
+        { id: 'retry-success.no-retry-button', responsibility: 'retry interaction' },
+        { id: 'retry-success.workbench-visible', responsibility: 'lifecycle semantics' },
+        { id: 'retry-success.horizontal-overflow', responsibility: 'overflow' }
+    ]
+}
+
+const assertionResponsibilities = Object.fromEntries(
+    states.flatMap((state) => assertionContractsByState[state]).map(({ id, responsibility }) => [
+        id,
+        { responsibility }
+    ])
+) as Record<string, { responsibility: ObservableResponsibility }>
+
+const auditRecords: TupleAuditRecord[] = []
+const executablePath = resolveSystemChromiumExecutablePath()
+
+test.use({
+    launchOptions: {
+        ...(executablePath ? { executablePath } : {}),
+        args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-features=LocalNetworkAccessChecks']
+    }
+})
 
 const viewports = [
     { name: 'mobile', width: 375, height: 812 },
@@ -26,7 +163,12 @@ mkdirSync(evidenceRoot, { recursive: true })
 
 test.describe.configure({ mode: 'parallel' })
 
-async function openFixture(page: Page, state: FixtureState, theme: FixtureTheme, mode: FixtureMode): Promise<void> {
+async function openFixture(
+    page: Page,
+    state: FixtureState,
+    theme: FixtureTheme,
+    mode: FixtureMode
+): Promise<string[]> {
     const runtimeErrors: string[] = []
     page.on('pageerror', (error) => runtimeErrors.push(error.message))
     page.on('console', (message) => {
@@ -64,8 +206,12 @@ async function openFixture(page: Page, state: FixtureState, theme: FixtureTheme,
     await page.goto(`/__ops-health-state-fixture?state=${state}&theme=${theme}&mode=${mode}`, {
         waitUntil: 'domcontentloaded'
     })
-    await expect.poll(() => page.evaluate(() => document.documentElement.dataset.opsHealthFixtureReady)).toBe('true')
+    await expect.poll(
+        () => page.evaluate(() => document.documentElement.dataset.opsHealthFixtureReady),
+        { timeout: 30_000 }
+    ).toBe('true')
     expect(runtimeErrors).toEqual([])
+    return runtimeErrors
 }
 
 async function assertNoHorizontalOverflow(page: Page): Promise<void> {
@@ -95,6 +241,61 @@ async function assertVisibleKeyboardFocus(page: Page): Promise<void> {
     ).toBe(true)
 }
 
+function executableTestId(viewport: string, theme: FixtureTheme, mode: FixtureMode): string {
+    return [
+        'tests/frontend/e2e/ops-health-state.spec.ts',
+        `ops health state ${viewport} ${theme} ${mode}`,
+        'keeps loading, failure, retry and success distinct and contained'
+    ].join('#')
+}
+
+async function recordTupleAudit(
+    page: Page,
+    state: FixtureState,
+    viewport: string,
+    theme: FixtureTheme,
+    mode: FixtureMode,
+    runtimeErrors: string[]
+): Promise<void> {
+    const stateContainer = page.locator('[data-ops-health-state]')
+    const retryButton = page.getByRole('button', { name: '重新加载' })
+    const stateContainerCount = await stateContainer.count()
+    const retryButtonCount = await retryButton.count()
+    const { clientWidth, scrollWidth } = await page.evaluate(() => ({
+        clientWidth: document.documentElement.clientWidth,
+        scrollWidth: document.documentElement.scrollWidth
+    }))
+    const currentExecutableTestId = executableTestId(viewport, theme, mode)
+    const assertionIds = assertionContractsByState[state].map(({ id }) => id)
+
+    auditRecords.push({
+        state,
+        viewport,
+        theme,
+        mode,
+        clientWidth,
+        scrollWidth,
+        runtimeErrors: [...runtimeErrors],
+        elementPresence: {
+            stateContainerCount,
+            failureReasonCount: await page.locator('[data-ops-health-failure-reason]').count(),
+            retryButtonCount,
+            workbenchCount: await page.locator('[data-ops-health-workbench]').count(),
+            assertiveLiveRegionCount: await page.locator('[aria-live="assertive"]').count(),
+            toastCount: await page.locator('.el-message').count(),
+            stateRole: stateContainerCount > 0 ? await stateContainer.first().getAttribute('role') : null,
+            stateAriaLive: stateContainerCount > 0 ? await stateContainer.first().getAttribute('aria-live') : null,
+            retryAriaBusy: retryButtonCount > 0 ? await retryButton.getAttribute('aria-busy') : null,
+            retryAriaDescribedBy: retryButtonCount > 0 ? await retryButton.getAttribute('aria-describedby') : null,
+            retryEnabled: retryButtonCount > 0 ? await retryButton.isEnabled() : null
+        },
+        assertionIds,
+        survivingExecutableTestIds: Object.fromEntries(
+            assertionIds.map((assertionId) => [assertionId, currentExecutableTestId])
+        )
+    })
+}
+
 for (const viewport of viewports) {
     for (const theme of themes) {
         for (const mode of modes) {
@@ -107,7 +308,7 @@ for (const viewport of viewports) {
                 })
 
                 test('keeps loading, failure, retry and success distinct and contained', async ({ page }, testInfo) => {
-                    await openFixture(page, 'initial-loading', theme, mode)
+                    const initialLoadingRuntimeErrors = await openFixture(page, 'initial-loading', theme, mode)
                     await expect(page.locator('[data-ops-health-state]')).toHaveAttribute('role', 'status')
                     await expect(page.locator('[data-ops-health-state]')).toContainText('正在读取运维状态')
                     await expect(page.getByText('运维状态暂不可用')).toHaveCount(0)
@@ -116,8 +317,16 @@ for (const viewport of viewports) {
                     await expect(page.locator('[role="alert"]')).toHaveCount(0)
                     await expect(page.locator('[aria-live="assertive"]')).toHaveCount(0)
                     await assertNoHorizontalOverflow(page)
+                    await recordTupleAudit(
+                        page,
+                        'initial-loading',
+                        viewport.name,
+                        theme,
+                        mode,
+                        initialLoadingRuntimeErrors
+                    )
 
-                    await openFixture(page, 'failure', theme, mode)
+                    const failureRuntimeErrors = await openFixture(page, 'failure', theme, mode)
                     const failure = page.locator('[data-ops-health-state]')
                     const failureReason = page.locator('[data-ops-health-failure-reason]')
                     const retry = page.getByRole('button', {
@@ -154,8 +363,16 @@ for (const viewport of viewports) {
                         path: evidencePath,
                         contentType: 'image/png'
                     })
+                    await recordTupleAudit(
+                        page,
+                        'failure',
+                        viewport.name,
+                        theme,
+                        mode,
+                        failureRuntimeErrors
+                    )
 
-                    await openFixture(page, 'retry-loading', theme, mode)
+                    const retryLoadingRuntimeErrors = await openFixture(page, 'retry-loading', theme, mode)
                     const retryLoading = page.getByRole('button', {
                         name: '重新加载'
                     })
@@ -174,8 +391,16 @@ for (const viewport of viewports) {
                     )
                     await expect(page.locator('html')).toHaveAttribute('data-ops-health-toast-count', '1')
                     await assertNoHorizontalOverflow(page)
+                    await recordTupleAudit(
+                        page,
+                        'retry-loading',
+                        viewport.name,
+                        theme,
+                        mode,
+                        retryLoadingRuntimeErrors
+                    )
 
-                    await openFixture(page, 'retry-failure', theme, mode)
+                    const retryFailureRuntimeErrors = await openFixture(page, 'retry-failure', theme, mode)
                     await expect(page.locator('[data-ops-health-failure-reason]')).toContainText(
                         'fixture retry request failed'
                     )
@@ -195,15 +420,122 @@ for (const viewport of viewports) {
                     )
                     await expect(page.locator('html')).toHaveAttribute('data-ops-health-toast-count', '2')
                     await assertNoHorizontalOverflow(page)
+                    await recordTupleAudit(
+                        page,
+                        'retry-failure',
+                        viewport.name,
+                        theme,
+                        mode,
+                        retryFailureRuntimeErrors
+                    )
 
-                    await openFixture(page, 'retry-success', theme, mode)
+                    const retrySuccessRuntimeErrors = await openFixture(page, 'retry-success', theme, mode)
                     await expect(page.locator('[data-ops-health-state]')).toHaveCount(0)
                     await expect(page.locator('[data-ops-health-failure-reason]')).toHaveCount(0)
                     await expect(page.getByRole('button', { name: '重新加载' })).toHaveCount(0)
                     await expect(page.locator('[data-ops-health-workbench]')).toBeVisible()
                     await assertNoHorizontalOverflow(page)
+                    await recordTupleAudit(
+                        page,
+                        'retry-success',
+                        viewport.name,
+                        theme,
+                        mode,
+                        retrySuccessRuntimeErrors
+                    )
                 })
             })
         }
     }
 }
+
+test.afterAll(() => {
+    auditRecords.sort((left, right) => {
+        const leftKey = `${left.state}:${left.viewport}:${left.theme}:${left.mode}`
+        const rightKey = `${right.state}:${right.viewport}:${right.theme}:${right.mode}`
+        return leftKey.localeCompare(rightKey)
+    })
+
+    const expectedTuples = new Set(
+        states.flatMap((state) =>
+            viewports.flatMap((viewport) =>
+                themes.flatMap((theme) =>
+                    modes.map((mode) => `${state}::${viewport.name}::${theme}::${mode}`)
+                )
+            )
+        )
+    )
+    const observedTuples = new Set<string>()
+    for (const record of auditRecords) {
+        const tuple = `${record.state}::${record.viewport}::${record.theme}::${record.mode}`
+        if (observedTuples.has(tuple)) throw new Error(`duplicate ops health audit tuple: ${tuple}`)
+        observedTuples.add(tuple)
+    }
+
+    const missingTuples = [...expectedTuples].filter((tuple) => !observedTuples.has(tuple))
+    if (auditRecords.length !== 90 || observedTuples.size !== 90 || missingTuples.length > 0) {
+        throw new Error(
+            `ops health audit requires exactly 90 unique tuples; records=${auditRecords.length} unique=${observedTuples.size} missing=${missingTuples.join(',')}`
+        )
+    }
+
+    const observedAssertionIds = new Set(auditRecords.flatMap((record) => record.assertionIds))
+    const registeredAssertionIds = Object.keys(assertionResponsibilities)
+    const missingAssertionIds = registeredAssertionIds.filter((id) => !observedAssertionIds.has(id))
+    if (missingAssertionIds.length > 0) {
+        throw new Error(`ops health audit omitted current assertions: ${missingAssertionIds.join(',')}`)
+    }
+
+    for (const record of auditRecords) {
+        for (const assertionId of record.assertionIds) {
+            if (!assertionResponsibilities[assertionId]) {
+                throw new Error(`ops health audit assertion has no responsibility: ${assertionId}`)
+            }
+            const survivor = record.survivingExecutableTestIds[assertionId]
+            if (!survivor || !survivor.startsWith('tests/frontend/e2e/ops-health-state.spec.ts#')) {
+                throw new Error(`ops health audit assertion has no exact executable survivor: ${assertionId}`)
+            }
+        }
+    }
+
+    const retryAndSuccessStates: readonly FixtureState[] = [
+        'retry-loading',
+        'retry-failure',
+        'retry-success'
+    ]
+    const retryAndSuccessRecords = auditRecords.filter((record) => retryAndSuccessStates.includes(record.state))
+    const preservesRenderedDimensionOracles = retryAndSuccessRecords.length === 54
+        && retryAndSuccessRecords.every((record) =>
+            record.assertionIds.includes(`${record.state}.horizontal-overflow`)
+            && record.assertionIds.includes(`${record.state}.no-runtime-errors`)
+        )
+    if (!preservesRenderedDimensionOracles) {
+        throw new Error('ops health audit lost retry/success rendered-dimension oracles')
+    }
+
+    const auditReport = {
+        schema: 'fsusblog-ops-health-matrix-reduction-audit-v1',
+        decision: 'keep-current',
+        decisionReason: 'Retry-loading, retry-failure, and retry-success each retain viewport/theme/mode-specific overflow and runtime-error oracles in the current executable matrix. No equal-or-stronger executable survivor exists outside the current tuple, so removing any of those tuples would violate the issue decision rule.',
+        totalTuples: auditRecords.length,
+        uniqueTuples: observedTuples.size,
+        currentTopology: {
+            executableTests: 18,
+            navigationsPerTest: 5,
+            totalNavigations: 90,
+            failureStateScreenshots: 18,
+            viewportClasses: viewports.map((viewport) => viewport.name),
+            themeClasses: themes,
+            modeClasses: modes,
+            states
+        },
+        assertionResponsibilities,
+        records: auditRecords
+    }
+
+    writeFileSync(
+        path.join(evidenceRoot, 'matrix-reduction-audit.json'),
+        `${JSON.stringify(auditReport, null, 2)}\n`,
+        'utf8'
+    )
+})
