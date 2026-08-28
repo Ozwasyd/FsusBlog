@@ -113,7 +113,7 @@
     },
     {
       "id": "SchemaMigrationPostgresCollectionB",
-      "estimatedFacts": 339,
+      "estimatedFacts": 350,
       "tests": [
         {
           "path": "Integration/AccountEnrollmentIntegrationTests.cs",
@@ -214,6 +214,10 @@
         {
           "path": "Integration/UserSessionRevocationIntegrationTests.cs",
           "class": "UserSessionRevocationIntegrationTests"
+        },
+        {
+          "path": "Integration/UserSessionSensitiveEndpointIntegrationTests.cs",
+          "class": "UserSessionSensitiveEndpointIntegrationTests"
         },
         {
           "path": "Unit/AdminConsistencyContractTests.cs",
