@@ -31,6 +31,14 @@ const accessibilityPath = path.join(repoRoot, 'src/frontend/src/components/admin
 const productionFixturePath = path.join(repoRoot, 'tests/frontend/fixtures/articleEditorProductionVisual.ts');
 const productionFixtureContractPath = path.join(repoRoot, 'tests/frontend/fixtures/article-editor-production-contract.json');
 const productionFixtureSpecPath = path.join(repoRoot, 'tests/frontend/e2e/article-editor-production-fixture.spec.ts');
+const openArticleRegistryPath = path.join(
+    repoRoot,
+    'src/frontend/src/services/authoring/openArticleDocumentRegistry.ts'
+);
+const openArticleRegistryTestPath = path.join(
+    repoRoot,
+    'tests/frontend/unit/authoring/openArticleDocumentRegistry.test.ts'
+);
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json');
 
 function fail(file, line, message)
@@ -62,6 +70,8 @@ const accessibility = read(accessibilityPath);
 const productionFixture = read(productionFixturePath);
 const productionFixtureContract = JSON.parse(read(productionFixtureContractPath));
 const productionFixtureSpec = read(productionFixtureSpecPath);
+const openArticleRegistry = read(openArticleRegistryPath);
+const openArticleRegistryTest = read(openArticleRegistryTestPath);
 
 for (const [file, source, tokens] of [
     [writePath, write, [
@@ -151,6 +161,136 @@ for (const token of requiredWriteTokens)
     if (!write.includes(token))
     {
         fail(writePath, 1, `Article editor workspace contract is missing ${token}`);
+    }
+}
+
+for (const token of [
+    "openArticleDocumentRegistrySchema = 'fsusblog.open-article-document-registry.v1'",
+    "openArticleDocumentCommandSchema = 'fsusblog.open-article-document-command.v1'",
+    "kind: 'open-or-activate'",
+    "kind: 'request-close'",
+    "kind: 'replace-draft-identity'",
+    "kind: 'detach-on-final-close'",
+    "kind: 'update-group-ownership'",
+    'expectedRevision: number;',
+    'idempotencyKey: string;',
+    'verifyOpenArticleDocumentRegistryState',
+    'replayOpenArticleDocumentCommands'
+])
+{
+    if (!openArticleRegistry.includes(token))
+    {
+        fail(openArticleRegistryPath, 1, `Open article registry contract is missing ${token}`);
+    }
+}
+
+for (const token of [
+    'title:',
+    'route:',
+    'slug:',
+    'sourceHash:',
+    'markdownBody',
+    'undoStack',
+    'parserState',
+    'projectionState',
+    'renderCache',
+    'attachmentBytes',
+    'localStorage',
+    'sessionStorage'
+])
+{
+    if (openArticleRegistry.includes(token))
+    {
+        fail(
+            openArticleRegistryPath,
+            lineOf(openArticleRegistry, token),
+            `Open article registry must not use ${token} as identity or copied editor state`
+        );
+    }
+}
+
+for (const token of [
+    "['route', '/admin/article/write?id=701']",
+    "['title', 'Identity by title']",
+    "['sourceHash', 'identity-by-hash']",
+    "['arrayIndex', 0]",
+    "['markdownBody', '# copied body']",
+    "['undoStack', ['copied-history']]",
+    'rejected-idempotency-conflict',
+    'rejected-cas',
+    'rejected-preview-risk',
+    'verifyOpenArticleDocumentRegistryState',
+    'replayOpenArticleDocumentCommands'
+])
+{
+    if (!openArticleRegistryTest.includes(token))
+    {
+        fail(openArticleRegistryTestPath, 1, `Open article registry verifier is missing ${token}`);
+    }
+}
+
+const registryOwnerRoots = [
+    path.join(repoRoot, 'src/frontend/src'),
+    path.join(repoRoot, 'src/backend'),
+    path.join(repoRoot, 'src/shared'),
+    path.join(repoRoot, 'tests/frontend'),
+    path.join(repoRoot, 'docs')
+];
+const registryOwnerFiles = [];
+const collectFiles = directory =>
+{
+    if (!fs.existsSync(directory))
+    {
+        return;
+    }
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true }))
+    {
+        const entryPath = path.join(directory, entry.name);
+        if (entry.isDirectory())
+        {
+            collectFiles(entryPath);
+        }
+        else if (/\.(?:cs|json|md|mjs|ts|vue)$/u.test(entry.name))
+        {
+            registryOwnerFiles.push(entryPath);
+        }
+    }
+};
+registryOwnerRoots.forEach(collectFiles);
+
+const registryClassOwners = registryOwnerFiles.filter(file => (
+    file.startsWith(path.join(repoRoot, 'src'))
+    && read(file).includes('class OpenArticleDocumentRegistry')
+));
+if (
+    registryClassOwners.length !== 1
+    || path.resolve(registryClassOwners[0] ?? '') !== path.resolve(openArticleRegistryPath)
+)
+{
+    fail(
+        openArticleRegistryPath,
+        1,
+        `OpenArticleDocumentRegistry must have exactly one production owner; found ${registryClassOwners.map(rel).join(', ')}`
+    );
+}
+
+for (const file of registryOwnerFiles)
+{
+    if (path.resolve(file) === path.resolve(openArticleRegistryPath))
+    {
+        continue;
+    }
+    const source = read(file);
+    for (const pattern of [
+        /articleTo(?:Tab|Session|Group)(?:Id|Ref)?\s*=\s*new Map/iu,
+        /routeLocalArticle(?:Store|Registry)/iu,
+        /mirrorArticleSession(?:Map|Registry)/iu
+    ])
+    {
+        if (pattern.test(source))
+        {
+            fail(file, 1, `Open article registry has a forbidden second authority: ${pattern}`);
+        }
     }
 }
 
