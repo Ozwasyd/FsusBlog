@@ -128,3 +128,18 @@ expiry
 | notification stream | Session 撤销继续只按账号发布低信息量事件，不携带 session/credential 标识；客户端回查服务端权威状态 |
 | binary | auth/session/MFA/Passkey 只走 AEDS；错误使用稳定低信息量类别，不增加公开 JSON fallback |
 | migration | legacy true/false 与 remember-me 行正确回填；迁移重复执行安全；旧行不会获得永久 step-up |
+
+## Current session duration modes
+
+<!-- fsus-doc-claim
+claimId: authentication-session-permission.duration-modes
+behaviorId: authentication-session-permission
+claimType: generated-section
+generatedSectionId: auth.session.duration-modes
+render: enum-set
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN auth.session.duration-modes -->
+- `browser_session`
+- `persistent_30d`
+<!-- FSUSBLOG-GENERATED:END auth.session.duration-modes -->

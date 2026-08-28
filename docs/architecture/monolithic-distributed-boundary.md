@@ -52,3 +52,20 @@ node tools/run-test-matrix.mjs validate
 - #115 多节点部署、观测与故障治理
 
 因此 capability 注册、职责调度、状态协调、透明调用和故障治理可以分别演进，但都必须服从一个程序、一个发布物、一个业务入口的边界。
+## Current execution classes
+
+<!-- fsus-doc-claim
+claimId: browserless-production-correctness.execution-classes
+behaviorId: browserless-production-correctness
+claimType: generated-section
+generatedSectionId: testing.execution-classes
+render: key-value-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN testing.execution-classes -->
+| Key | Value |
+| --- | --- |
+| byEvidenceClass | {"browser-contract":"correctness","correctness":"correctness","diagnostic":"diagnostic"} |
+| qualificationEligible | {"browser-contract":true,"correctness":true,"diagnostic":false} |
+| requires | {"browser-contract":["producerId","schedulerRunId","sourceIdentity"],"correctness":["producerId","schedulerRunId","sourceIdentity"]} |
+<!-- FSUSBLOG-GENERATED:END testing.execution-classes -->

@@ -47,3 +47,16 @@ node tools/release/release-id.mjs --check
 ```
 
 These commands validate the contract only. They do not build, push or deploy an image.
+## Current release-final inputs
+
+<!-- fsus-doc-claim
+claimId: browserless-production-correctness.final-inputs
+behaviorId: browserless-production-correctness
+claimType: generated-section
+generatedSectionId: release.final-input-schemas
+render: enum-set
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN release.final-input-schemas -->
+- `fsusblog.release-final-evidence-inputs.v1`
+<!-- FSUSBLOG-GENERATED:END release.final-input-schemas -->

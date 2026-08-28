@@ -61,3 +61,22 @@ node tools/run-test-matrix.mjs validate
 ```
 
 Local validation checks contracts and fixtures only. It does not start production slots or switch live traffic.
+## Current production bundle ordering
+
+<!-- fsus-doc-claim
+claimId: browserless-production-correctness.bundle-order
+behaviorId: browserless-production-correctness
+claimType: generated-section
+generatedSectionId: release.production-bundle-order
+render: key-value-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN release.production-bundle-order -->
+| Key | Value |
+| --- | --- |
+| bundleIds | ["backend-tests","build-static","frontend-tests","performance-evidence","runtime-browser"] |
+| edges | ["backend-tests->performance-evidence","build-static->performance-evidence","frontend-tests->performance-evidence","runtime-browser->performance-evidence"] |
+| hasDependencyEdges | true |
+| profileId | production |
+| topoOrderConstraints | ["after:performance-evidence\|requires:backend-tests","after:performance-evidence\|requires:build-static","after:performance-evidence\|requires:frontend-tests","after:performance-evidence\|requires:runtime-browser"] |
+<!-- FSUSBLOG-GENERATED:END release.production-bundle-order -->

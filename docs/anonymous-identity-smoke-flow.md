@@ -91,3 +91,20 @@ Attach the smoke notes to the issue or release evidence with:
 - anonymous-disabled rejection status
 - moderation review screenshot or exported queue item with nullable user id and actor signals
 - ZK-Prod smoke summary path, trace id, business state, and either expected-unavailable reason or sanitized real proof -> ticket -> submit -> pending evidence with local artifact path/SHA bindings
+
+## Current authentication methods
+
+<!-- fsus-doc-claim
+claimId: authentication-session-permission.methods
+behaviorId: authentication-session-permission
+claimType: generated-section
+generatedSectionId: auth.methods.active
+render: enum-set
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN auth.methods.active -->
+- `enrollment`
+- `other`
+- `passkey`
+- `recovery_key`
+<!-- FSUSBLOG-GENERATED:END auth.methods.active -->

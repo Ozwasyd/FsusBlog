@@ -95,3 +95,22 @@ outbox 事件同时在列和 payload 中保存精确坐标；消费者只处理�
 需要降级时，先停止定时发布 worker 和 outbox 消费（保留待处理事件），再将应用流量
 切回兼容旧列的代码并暂时隐藏回滚入口；数据库新增列和索引保持不删除。恢复新代码后重新启动 worker，
 按事件内精确坐标继续投影，不需要重启 PostgreSQL 或 Redis。
+## Current publication coordinates
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.publication-coordinates
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.article.publication-coordinates
+render: enum-set
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN content.article.publication-coordinates -->
+- `publicationId`
+- `publicationNo`
+- `responsibilitySnapshotId`
+- `responsibilityVersion`
+- `revisionId`
+- `revisionNo`
+- `rightsSnapshotId`
+<!-- FSUSBLOG-GENERATED:END content.article.publication-coordinates -->

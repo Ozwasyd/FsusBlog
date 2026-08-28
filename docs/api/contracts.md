@@ -2441,3 +2441,143 @@ origin fail closed without changing assignment or fencing state.
 计划、当前 grant、Hook 元数据、有界执行指标/日志/错误和逐节点状态；不得返回 package
 bytes、signature、未裁剪 manifest 或异常 message。非当前节点未提交运行态时必须返回
 `not-reported`，不能伪装为 healthy/loaded/cluster-consistent。
+
+## Current cache policy catalog
+
+### Current AEDS version
+
+<!-- fsus-doc-claim
+claimId: binary-api-aeds-contract.aeds-version
+behaviorId: binary-api-aeds-contract
+claimType: generated-section
+generatedSectionId: api.aeds-version
+render: scalar
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN api.aeds-version -->
+2
+<!-- FSUSBLOG-GENERATED:END api.aeds-version -->
+
+### Current article transitions
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.article-transitions
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.article.allowed-transitions
+render: transition-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN content.article.allowed-transitions -->
+| From | To | Guard |
+| --- | --- | --- |
+| Archived | Archived | Create |
+| Archived | Archived | Rollback |
+| Archived | Archived | Update |
+| Archived | Draft | Rollback |
+| Archived | Draft | Update |
+| Archived | Published | Rollback |
+| Archived | Published | Update |
+| Archived | Scheduled | Update |
+| Deleted | Published | Restore |
+| Draft | Archived | Rollback |
+| Draft | Archived | Update |
+| Draft | Draft | Create |
+| Draft | Draft | Rollback |
+| Draft | Draft | Update |
+| Draft | Published | Rollback |
+| Draft | Published | Update |
+| Draft | Scheduled | Update |
+| Published | Archived | Rollback |
+| Published | Archived | Update |
+| Published | Draft | Rollback |
+| Published | Draft | Update |
+| Published | Published | Create |
+| Published | Published | Rollback |
+| Published | Published | ScheduledPublish |
+| Published | Published | Update |
+| Published | Scheduled | Update |
+| Scheduled | Archived | Rollback |
+| Scheduled | Archived | Update |
+| Scheduled | Draft | Rollback |
+| Scheduled | Draft | Update |
+| Scheduled | Published | Rollback |
+| Scheduled | Published | ScheduledPublish |
+| Scheduled | Published | Update |
+| Scheduled | Scheduled | Create |
+| Scheduled | Scheduled | Update |
+<!-- FSUSBLOG-GENERATED:END content.article.allowed-transitions -->
+
+<!-- fsus-doc-claim
+claimId: configuration-error-security-policy.cache-policies
+behaviorId: configuration-error-security-policy
+claimType: generated-section
+generatedSectionId: api.security-cache-policies
+render: key-value-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN api.security-cache-policies -->
+| Key | Value |
+| --- | --- |
+| AccountSnapshot | {"class":"security-critical","domain":"sec","id":"AccountSnapshot","l1Ttl":{"unit":"seconds","value":30},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"account-snapshot","securityCritical":true} |
+| AccountSnapshotVersion | {"class":"security-critical","domain":"sec","id":"AccountSnapshotVersion","l1Ttl":{"unit":"minutes","value":5},"l2Ttl":{"unit":"days","value":7},"negativeTtl":{"state":"null"},"resource":"account-snapshot-version","securityCritical":true} |
+| AdminStats | {"class":"admin","domain":"admin","id":"AdminStats","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"stats","securityCritical":false} |
+| AdminStatsFrame | {"class":"admin","domain":"admin","id":"AdminStatsFrame","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"stats-frame","securityCritical":false} |
+| AdminStatsOverview | {"class":"admin","domain":"admin","id":"AdminStatsOverview","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"stats-overview","securityCritical":false} |
+| AdminStatsRecentComments | {"class":"admin","domain":"admin","id":"AdminStatsRecentComments","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"minutes","value":5},"negativeTtl":{"state":"null"},"resource":"stats-recent-comments","securityCritical":false} |
+| AdminStatsRegions | {"class":"admin","domain":"admin","id":"AdminStatsRegions","l1Ttl":{"unit":"minutes","value":5},"l2Ttl":{"unit":"minutes","value":30},"negativeTtl":{"state":"null"},"resource":"stats-regions","securityCritical":false} |
+| AnonymousCommentPolicyVersion | {"class":"security-critical","domain":"sec","id":"AnonymousCommentPolicyVersion","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"days","value":7},"negativeTtl":{"state":"null"},"resource":"anonymous-comment-policy-version","securityCritical":true} |
+| AnonymousCommentTicket | {"class":"security-critical","domain":"sec","id":"AnonymousCommentTicket","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":2},"negativeTtl":{"state":"null"},"resource":"anonymous-comment-ticket","securityCritical":true} |
+| ArticleDetail | {"class":"blog","domain":"blog","id":"ArticleDetail","l1Ttl":{"unit":"minutes","value":5},"l2Ttl":{"unit":"hours","value":1},"negativeTtl":{"unit":"minutes","value":5},"resource":"article-detail","securityCritical":false} |
+| ArticleDetailFrame | {"class":"blog","domain":"blog","id":"ArticleDetailFrame","l1Ttl":{"unit":"minutes","value":5},"l2Ttl":{"unit":"hours","value":1},"negativeTtl":{"state":"null"},"resource":"article-detail-frame","securityCritical":false} |
+| ArticleHot | {"class":"blog","domain":"blog","id":"ArticleHot","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"article-hot","securityCritical":false} |
+| ArticleHotFrame | {"class":"blog","domain":"blog","id":"ArticleHotFrame","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"article-hot-frame","securityCritical":false} |
+| ArticleList | {"class":"blog","domain":"blog","id":"ArticleList","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"article-list","securityCritical":false} |
+| ArticleListCount | {"class":"blog","domain":"blog","id":"ArticleListCount","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"minutes","value":30},"negativeTtl":{"state":"null"},"resource":"article-list-count","securityCritical":false} |
+| ArticleListFrame | {"class":"blog","domain":"blog","id":"ArticleListFrame","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"article-list-frame","securityCritical":false} |
+| ArticleListVersion | {"class":"blog","domain":"blog","id":"ArticleListVersion","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"days","value":7},"negativeTtl":{"state":"null"},"resource":"article-list-version","securityCritical":false} |
+| ArticleRss | {"class":"blog","domain":"blog","id":"ArticleRss","l1Ttl":{"unit":"minutes","value":3},"l2Ttl":{"unit":"minutes","value":30},"negativeTtl":{"state":"null"},"resource":"article-rss","securityCritical":false} |
+| ArticleSearch | {"class":"blog","domain":"blog","id":"ArticleSearch","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"article-search","securityCritical":false} |
+| ArticleSearchVersion | {"class":"blog","domain":"blog","id":"ArticleSearchVersion","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"days","value":7},"negativeTtl":{"state":"null"},"resource":"article-search-version","securityCritical":false} |
+| ArticleViewLock | {"class":"security-critical","domain":"sec","id":"ArticleViewLock","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"hours","value":1},"negativeTtl":{"state":"null"},"resource":"article-view-lock","securityCritical":true} |
+| BackgroundWorkerLease | {"class":"runtime","domain":"runtime","id":"BackgroundWorkerLease","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"seconds","value":30},"negativeTtl":{"state":"null"},"resource":"worker-lease","securityCritical":false} |
+| CategoryFrame | {"class":"blog","domain":"blog","id":"CategoryFrame","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"category-frame","securityCritical":false} |
+| CommentCursor | {"class":"blog","domain":"blog","id":"CommentCursor","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"minutes","value":5},"negativeTtl":{"state":"null"},"resource":"comment-cursor","securityCritical":false} |
+| CommentCursorFrame | {"class":"blog","domain":"blog","id":"CommentCursorFrame","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"minutes","value":5},"negativeTtl":{"state":"null"},"resource":"comment-cursor-frame","securityCritical":false} |
+| CommentCursorVersion | {"class":"blog","domain":"blog","id":"CommentCursorVersion","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"days","value":7},"negativeTtl":{"state":"null"},"resource":"comment-cursor-version","securityCritical":false} |
+| HumanReadProof | {"class":"security-critical","domain":"sec","id":"HumanReadProof","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"days","value":1},"negativeTtl":{"state":"null"},"resource":"human-read-proof","securityCritical":true} |
+| MessageUnread | {"class":"msg","domain":"msg","id":"MessageUnread","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"days","value":3},"negativeTtl":{"state":"null"},"resource":"unread","securityCritical":false} |
+| NotificationStreamDrillNonce | {"class":"security-critical","domain":"sec","id":"NotificationStreamDrillNonce","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":1},"negativeTtl":{"state":"null"},"resource":"notification-drill-nonce","securityCritical":true} |
+| PublicAotBackfillLease | {"class":"public","domain":"public","id":"PublicAotBackfillLease","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"seconds","value":30},"negativeTtl":{"state":"null"},"resource":"aot-backfill-lease","securityCritical":false} |
+| PublicAotDocument | {"class":"public","domain":"public","id":"PublicAotDocument","l1Ttl":{"unit":"minutes","value":30},"l2Ttl":{"unit":"days","value":30},"negativeTtl":{"state":"null"},"resource":"aot-doc","securityCritical":false} |
+| PublicAotRegistry | {"class":"public","domain":"public","id":"PublicAotRegistry","l1Ttl":{"unit":"minutes","value":5},"l2Ttl":{"unit":"days","value":30},"negativeTtl":{"state":"null"},"resource":"aot-registry","securityCritical":false} |
+| RelatedReading | {"class":"blog","domain":"blog","id":"RelatedReading","l1Ttl":{"unit":"minutes","value":5},"l2Ttl":{"unit":"minutes","value":30},"negativeTtl":{"state":"null"},"resource":"related-reading","securityCritical":false} |
+| SecurityBlacklistUser | {"class":"security-critical","domain":"sec","id":"SecurityBlacklistUser","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"infinite","value":-1},"negativeTtl":{"state":"null"},"resource":"blacklist-user","securityCritical":true} |
+| SecurityBlockedUser | {"class":"security-critical","domain":"sec","id":"SecurityBlockedUser","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"minutes","value":20},"negativeTtl":{"state":"null"},"resource":"blocked-user","securityCritical":true} |
+| SecurityChallengeEnvelope | {"class":"security-critical","domain":"sec","id":"SecurityChallengeEnvelope","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":5},"negativeTtl":{"state":"null"},"resource":"challenge-envelope","securityCritical":true} |
+| SecurityChallengeProof | {"class":"security-critical","domain":"sec","id":"SecurityChallengeProof","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":5},"negativeTtl":{"state":"null"},"resource":"challenge-proof","securityCritical":true} |
+| SecurityChallengeVerifyRateLimit | {"class":"security-critical","domain":"sec","id":"SecurityChallengeVerifyRateLimit","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":2},"negativeTtl":{"state":"null"},"resource":"challenge-verify-rate","securityCritical":true} |
+| SecurityMfaChallenge | {"class":"security-critical","domain":"sec","id":"SecurityMfaChallenge","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"mfa-challenge","securityCritical":true} |
+| SecurityMfaProof | {"class":"security-critical","domain":"sec","id":"SecurityMfaProof","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"mfa-proof","securityCritical":true} |
+| SecurityPasskeyAuthChallenge | {"class":"security-critical","domain":"sec","id":"SecurityPasskeyAuthChallenge","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":5},"negativeTtl":{"state":"null"},"resource":"pk-auth","securityCritical":true} |
+| SecurityPasskeyRegChallenge | {"class":"security-critical","domain":"sec","id":"SecurityPasskeyRegChallenge","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":5},"negativeTtl":{"state":"null"},"resource":"pk-reg","securityCritical":true} |
+| SecurityPerceptionChallenge | {"class":"security-critical","domain":"sec","id":"SecurityPerceptionChallenge","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":5},"negativeTtl":{"state":"null"},"resource":"perception-challenge","securityCritical":true} |
+| SecurityPoSpaceChallenge | {"class":"security-critical","domain":"sec","id":"SecurityPoSpaceChallenge","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":5},"negativeTtl":{"state":"null"},"resource":"pospace-challenge","securityCritical":true} |
+| SecurityPowProof | {"class":"security-critical","domain":"sec","id":"SecurityPowProof","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":5},"negativeTtl":{"state":"null"},"resource":"pow-proof","securityCritical":true} |
+| SecurityPowRisk | {"class":"security-critical","domain":"sec","id":"SecurityPowRisk","l1Ttl":{"unit":"seconds","value":10},"l2Ttl":{"unit":"minutes","value":2},"negativeTtl":{"state":"null"},"resource":"pow-risk","securityCritical":true} |
+| SecurityRecoveryKeyAttempt | {"class":"security-critical","domain":"sec","id":"SecurityRecoveryKeyAttempt","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"rk-attempt","securityCritical":true} |
+| SecurityRecoveryKeySession | {"class":"security-critical","domain":"sec","id":"SecurityRecoveryKeySession","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"rk-session","securityCritical":true} |
+| SecurityUserSessionValidation | {"class":"security-critical","domain":"sec","id":"SecurityUserSessionValidation","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":2},"negativeTtl":{"state":"null"},"resource":"user-session-validation","securityCritical":true} |
+| SiteSubscriptionUnsubscribeProof | {"class":"security-critical","domain":"sec","id":"SiteSubscriptionUnsubscribeProof","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":15},"negativeTtl":{"state":"null"},"resource":"site-subscription-unsubscribe-proof","securityCritical":true} |
+| SystemCompliance | {"class":"sys","domain":"sys","id":"SystemCompliance","l1Ttl":{"unit":"minutes","value":10},"l2Ttl":{"unit":"days","value":1},"negativeTtl":{"state":"null"},"resource":"compliance","securityCritical":false} |
+| SystemPage | {"class":"sys","domain":"sys","id":"SystemPage","l1Ttl":{"unit":"minutes","value":10},"l2Ttl":{"unit":"days","value":1},"negativeTtl":{"unit":"minutes","value":2},"resource":"page","securityCritical":false} |
+| SystemSeo | {"class":"sys","domain":"sys","id":"SystemSeo","l1Ttl":{"unit":"minutes","value":10},"l2Ttl":{"unit":"days","value":1},"negativeTtl":{"state":"null"},"resource":"seo","securityCritical":false} |
+| TagFrame | {"class":"blog","domain":"blog","id":"TagFrame","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"tag-frame","securityCritical":false} |
+| TaxonomyFrameVersion | {"class":"blog","domain":"blog","id":"TaxonomyFrameVersion","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"days","value":7},"negativeTtl":{"state":"null"},"resource":"taxonomy-frame-version","securityCritical":false} |
+| TopArticles | {"class":"blog","domain":"blog","id":"TopArticles","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"hours","value":2},"negativeTtl":{"state":"null"},"resource":"top-articles","securityCritical":false} |
+| TopArticlesFrame | {"class":"blog","domain":"blog","id":"TopArticlesFrame","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"hours","value":2},"negativeTtl":{"state":"null"},"resource":"top-articles-frame","securityCritical":false} |
+| UserCommentCursor | {"class":"blog","domain":"blog","id":"UserCommentCursor","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"minutes","value":5},"negativeTtl":{"state":"null"},"resource":"user-comment-cursor","securityCritical":false} |
+| UserCommentCursorFrame | {"class":"blog","domain":"blog","id":"UserCommentCursorFrame","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"minutes","value":5},"negativeTtl":{"state":"null"},"resource":"user-comment-cursor-frame","securityCritical":false} |
+| UserCommentCursorVersion | {"class":"blog","domain":"blog","id":"UserCommentCursorVersion","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"days","value":7},"negativeTtl":{"state":"null"},"resource":"user-comment-cursor-version","securityCritical":false} |
+| VisitLock | {"class":"security-critical","domain":"sec","id":"VisitLock","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":30},"negativeTtl":{"state":"null"},"resource":"visit-lock","securityCritical":true} |
+<!-- FSUSBLOG-GENERATED:END api.security-cache-policies -->

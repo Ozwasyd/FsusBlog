@@ -52,3 +52,20 @@ node --test tests/tools/appsettings-authority.test.mjs
 The checker rejects another full `appsettings*.example.json`, redundant or undeclared development leaves, unexpected production sections, non-empty fail-closed values, production examples containing non-placeholder secrets, and consumers that use a non-canonical operator template name.
 
 This ownership cleanup does not weaken startup validation or change security, privacy, ZK, database, rollout, frontend, or backend runtime semantics.
+
+## Current allowed configuration values
+
+<!-- fsus-doc-claim
+claimId: configuration-error-security-policy.allowed-values
+behaviorId: configuration-error-security-policy
+claimType: generated-section
+generatedSectionId: configuration.allowed-values
+render: key-value-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN configuration.allowed-values -->
+| Key | Value |
+| --- | --- |
+| key_416e7469437261776c65723a4d6f6465 | {"identity":"AntiCrawler:Mode","value":["disabled","observe","enforce","strict","lockdown"]} |
+| key_53656375726974793a416e7469437261776c65723a4d6f6465 | {"identity":"Security:AntiCrawler:Mode","value":["disabled","observe","enforce","strict","lockdown"]} |
+<!-- FSUSBLOG-GENERATED:END configuration.allowed-values -->
