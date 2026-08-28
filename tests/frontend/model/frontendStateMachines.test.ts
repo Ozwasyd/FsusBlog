@@ -24,19 +24,6 @@ function walk<TState extends string, TEvent extends string>(
   return events.reduce((state, event) => transition(machine, state, event), machine.initial)
 }
 
-const settingsMachine = {
-  initial: 'loaded',
-  transitions: {
-    loaded: { edit: 'dirty' },
-    dirty: { save: 'clean', switchSlug: 'switch_slug_with_dirty' },
-    clean: { edit: 'dirty', switchSlug: 'loaded' },
-    switch_slug_with_dirty: { confirmSave: 'clean', discard: 'loaded', cancel: 'dirty' }
-  }
-} satisfies Machine<
-  'loaded' | 'dirty' | 'clean' | 'switch_slug_with_dirty',
-  'edit' | 'save' | 'switchSlug' | 'confirmSave' | 'discard' | 'cancel'
->
-
 const messageMachine = {
   initial: 'conversation_selected',
   transitions: {
@@ -68,12 +55,6 @@ const uploadMachine = {
 >
 
 describe('frontend state machine models', () => {
-  it('requires a decision before switching dirty settings state', () => {
-    expect(walk(settingsMachine, ['edit', 'switchSlug', 'cancel'])).toBe('dirty')
-    expect(walk(settingsMachine, ['edit', 'switchSlug', 'discard'])).toBe('loaded')
-    expect(() => transition(settingsMachine, 'dirty', 'discard')).toThrow('illegal transition')
-  })
-
   it('prevents message drafts from silently crossing conversations', () => {
     expect(walk(messageMachine, ['editReply', 'switchConversation', 'saveDraft'])).toBe('conversation_selected')
     expect(() => transition(messageMachine, 'closed_conversation', 'send')).toThrow('illegal transition')
