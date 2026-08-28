@@ -2847,6 +2847,43 @@
             ]
         },
         {
+            "file": "tests/tools/test-quality-engine.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "test-quality-engine",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/test-quality-engine",
+                "output": ".tmp/test-governance/results/{checkId}/test-quality-engine.json"
+            }
+        },
+        {
+            "file": "tests/tools/test-replacement-transaction.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "migration",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "test-replacement-transaction",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/test-replacement-transaction",
+                "output": ".tmp/test-governance/results/{checkId}/test-replacement-transaction.json"
+            }
+        },
+        {
             "file": "tests/tools/test-suite-convergence.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",

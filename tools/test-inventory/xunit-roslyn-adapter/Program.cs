@@ -695,7 +695,6 @@ internal static class XunitAdapterProgram
     {
         var frameworks = new List<string>();
         string? dotnetRoot = ResolveDotnetRoot();
-        string runtimeConfig = Path.Combine(outputDirectory, "*.runtimeconfig.json");
         foreach (string file in Directory.EnumerateFiles(outputDirectory, "*.runtimeconfig.json"))
         {
             try
@@ -706,7 +705,7 @@ internal static class XunitAdapterProgram
                 {
                     string name = framework.GetProperty("name").GetString() ?? "";
                     string version = framework.GetProperty("version").GetString() ?? "";
-                    if (name == "Microsoft.AspNetCore.App")
+                    if (name == "Microsoft.AspNetCore.App" && dotnetRoot is not null)
                     {
                         string shared = Path.Combine(dotnetRoot, "shared", name, version);
                         if (Directory.Exists(shared))
@@ -731,7 +730,7 @@ internal static class XunitAdapterProgram
                 // Ignore unreadable runtime configs; NETCore.App ref pack still covers the BCL.
             }
         }
-        if (frameworks.Count == 0)
+        if (frameworks.Count == 0 && dotnetRoot is not null)
         {
             string fallback = Path.Combine(dotnetRoot, "shared", "Microsoft.AspNetCore.App");
             if (Directory.Exists(fallback))
@@ -753,7 +752,11 @@ internal static class XunitAdapterProgram
         string? dotnet = FindOnPath("dotnet");
         if (dotnet is not null)
         {
-            candidates.Add(Path.GetDirectoryName(Path.GetDirectoryName(dotnet)) ?? "");
+            FileInfo info = new(dotnet);
+            string resolved = info.LinkTarget is null
+                ? dotnet
+                : Path.GetFullPath(Path.Combine(info.DirectoryName ?? "", info.LinkTarget));
+            candidates.Add(Path.GetDirectoryName(resolved) ?? "");
         }
         candidates.Add("/usr/share/dotnet");
         candidates.Add("/usr/lib/dotnet");
@@ -802,7 +805,7 @@ internal static class XunitAdapterProgram
             if (info.LinkTarget is not null)
             {
                 string resolved = Path.GetFullPath(Path.Combine(info.DirectoryName ?? "", info.LinkTarget));
-                string root = Path.GetDirectoryName(Path.GetDirectoryName(resolved)) ?? "";
+                string root = Path.GetDirectoryName(resolved) ?? "";
                 if (Directory.Exists(Path.Combine(root, "shared")))
                     return root;
             }
@@ -1152,6 +1155,8 @@ internal static class XunitAdapterProgram
         Compilation compilation,
         HashSet<ISymbol> visited)
     {
+        if (callsTestMethod)
+            return false;
         if (IsDirectAssertionCandidate(target, callsTestMethod))
             return true;
         if (AssemblyKind(target) != "test" || !visited.Add(target.OriginalDefinition))
@@ -1190,19 +1195,15 @@ internal static class XunitAdapterProgram
     private static bool IsDirectAssertionCandidate(IMethodSymbol target, bool callsTestMethod)
     {
         if (callsTestMethod)
-            return true;
+            return false;
         string name = target.Name;
-        if (name.StartsWith("Assert", StringComparison.Ordinal))
-            return true;
-        if (name.StartsWith("Should", StringComparison.Ordinal))
-            return true;
         string containing = target.ContainingType?.ToDisplayString() ?? "";
         return containing == "Xunit.Assert"
+            || containing == "Xunit.Record"
             || containing.StartsWith("FluentAssertions", StringComparison.Ordinal)
             || containing == "NSubstitute.Received"
             || (containing == "NSubstitute.SubstituteExtensions"
-                && name is "Received" or "DidNotReceive" or "ReceivedWithAnyArgs" or "DidNotReceiveWithAnyArgs")
-            || name is "expect" or "assert";
+                && name is "Received" or "DidNotReceive" or "ReceivedWithAnyArgs" or "DidNotReceiveWithAnyArgs");
     }
 
     public static void WriteReport(Result result)

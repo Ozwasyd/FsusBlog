@@ -169,9 +169,9 @@ test('expression-bodied assertions and test forwarders retain executable oracle 
     assert.deepEqual(direct.returnStatements, ['Assert.Equal(4, Add(2, 2))']);
 
     const forwarder = factsOf(report, 'ExpressionBodiedForwarder_CarriesAssertionRelation');
-    assert.ok(forwarder.assertionCandidates.some((entry) => (
-        entry.methodName === 'PlainFactTarget'
-        && entry.callsTestMethod === true
+    assert.equal(forwarder.assertionCandidates.length, 0);
+    assert.ok(forwarder.invocations.some((entry) => (
+        entry.methodName === 'PlainFactTarget' && entry.callsTestMethod === true
     )));
 
     const helperCaller = factsOf(report, 'AssertionHelperCaller_CarriesTransitiveOracle');

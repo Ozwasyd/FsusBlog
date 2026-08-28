@@ -2850,7 +2850,7 @@
         },
         {
             "id": "test-retention-classification",
-            "description": "Test retention classification is covered by a static audit that maps test files to must-keep, conditional, review-candidate, or obsolete-candidate classes.",
+            "description": "Test retention classification is covered by a case-level static audit over canonical inventory, oracle/quality facts and catalog ownership; test replacement is an atomic plan, verify, apply and rollback transaction.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
@@ -2863,8 +2863,8 @@
                 "tests/tools/security-worker-admission.test.mjs"
             ],
             "assertionType": "static",
-            "failClosedRule": "matrix-validate requires both the tracked before snapshot and current retention audit to be declared by static-governance; final authority rejects a missing source binding, undeclared test/assertion loss, catalog loss, a producer runId that differs from the production checkpoint, or an audit generated before checkpoint completion.",
-            "minimumRequirement": "The before snapshot must bind commit/worktree fingerprint and preserve test/assertion/tier/coverage/timing/failure plus matrix artifact, release evidence, requirement catalog, three-scope coverage, and critical mutation identity; the current audit must preserve or explicitly replace those dimensions.",
+            "failClosedRule": "matrix-validate requires both the tracked before snapshot and current case-level retention audit to be declared by static-governance; final authority rejects unresolved or failed quality, missing source binding, undeclared test/assertion loss, partial catalog updates, incompatible replacement dimensions, duplicate transactions, failed apply verification, or an audit generated before checkpoint completion.",
+            "minimumRequirement": "The before snapshot must bind commit/worktree fingerprint and preserve test/assertion/tier/coverage/timing/failure plus matrix artifact, release evidence, requirement catalog, three-scope coverage, and critical mutation identity; every deletion, rename, merge, parameterization, split or support move must atomically preserve or explicitly retire each case and assertion with rollback on any verification failure.",
             "tierIds": [
                 "static-governance"
             ]
@@ -2886,15 +2886,15 @@
         },
         {
             "id": "test-quality-lint",
-            "description": "Test Quality Lint is covered by runtime artifacts that exercise the named behavior.",
+            "description": "Canonical case-level test quality is derived from adapter-resolved symbols, AST/control-flow facts and a closed versioned policy after the isolated multi-framework adversarial conformance corpus passes.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
                 ".tmp/release-evidence/test-quality-summary.json"
             ],
             "assertionType": "static",
-            "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-            "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
+            "failClosedRule": "The producer must run conformance first and then reject unresolved symbols, unknown assertion APIs, zero-outcome cases, early exits, test-to-test calls, discoverable workers, weak oracles, undeclared dynamic cases, stale bindings, non-exact waivers and any tampered case/count/first-failure projection.",
+            "minimumRequirement": "The sealed fsusblog.test-quality.v2 artifact must cover every canonical inventory case exactly once, bind inventory/adapters/oracle/policy/conformance digests, preserve exact source spans and be independently recomputable without retry overwrite.",
             "tierIds": [
                 "test-quality-lint"
             ]

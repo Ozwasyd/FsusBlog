@@ -7,11 +7,15 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { inventorySourceFiles, loadCanonicalInventory } from './test-inventory/api.mjs';
+import { buildOracleFacts } from './test-quality/oracle-facts.mjs';
+import { evaluateQuality, loadQualityPolicy } from './test-quality/policy.mjs';
 import { parseMatrix } from './test-matrix/parse-matrix.mjs';
 import {
     auditTestRecords,
     buildRetentionCatalogSnapshot,
+    compactRetentionKey,
     compactRetentionBaseline,
+    decodeCompactRetentionIndex,
     inferTierIdsForFile,
     normalizeReplacementManifest,
     retentionSourceState,
@@ -22,7 +26,14 @@ import {
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'));
 const defaultOut = path.join(root, '.tmp/release-evidence/test-retention-audit.json');
-const retentionClasses = new Set(['must-keep', 'conditional', 'redundant-candidate', 'obsolete']);
+const retentionClasses = new Set([
+    'must-keep',
+    'conditional',
+    'review-candidate',
+    'replaceable-candidate',
+    'obsolete-candidate',
+    'blocked-quality'
+]);
 
 function parseArgs(argv)
 {
@@ -133,7 +144,7 @@ function commandReferencedFiles(command)
     return refs;
 }
 
-function assertionEstimate(file, inventory)
+function testCaseEstimate(file, inventory)
 {
     if (!/\.(cs|ts|mjs|js)$/.test(file))
     {
@@ -287,7 +298,7 @@ async function buildAudit({ runId = null } = {})
         }
         if (/(Contract|Governance|Security|Auth|Aeds|Binary|Protocol|Policy|Release|QualityGate|Matrix|Coverage|Endpoint|Permission|Po[wW]|Passkey|Privacy|Anonymous|Concurrency|Hydration|Public|Upload|Session)/.test(file))
         {
-            reasons.push('risk-contract-keyword');
+            reasons.push('review-required-risk-name');
         }
         if (/tests\/frontend\/(e2e|checks\/(perf|resilience|security|runtime)|benchmarks)\//.test(file) || /tools\/test\/lanes\/(backend-qps|load|resilience|visual|acceptance|cross-browser|production|release)/.test(file))
         {
@@ -307,7 +318,7 @@ async function buildAudit({ runId = null } = {})
         {
             retentionClass = 'conditional';
         }
-        if (coverageIds.length > 0 || reasons.includes('matrix-command-entrypoint') || reasons.includes('test-support-referenced') || reasons.includes('must-keep-tier-evidence') || reasons.includes('risk-contract-keyword'))
+        if (coverageIds.length > 0 || reasons.includes('matrix-command-entrypoint') || reasons.includes('test-support-referenced') || reasons.includes('must-keep-tier-evidence'))
         {
             retentionClass = 'must-keep';
         }
@@ -319,31 +330,61 @@ async function buildAudit({ runId = null } = {})
             coverageIds,
             tierIds,
             referencedBy: textReferences,
-            assertionEstimate: assertionEstimate(file, canonicalInventory)
+            testCaseEstimate: testCaseEstimate(file, canonicalInventory)
         };
     });
-
-    const counts = files.reduce((acc, file) =>
-    {
-        acc[file.retentionClass] = (acc[file.retentionClass] ?? 0) + 1;
-        acc.assertionEstimate += file.assertionEstimate;
-        return acc;
-    }, { totalFiles: files.length, assertionEstimate: 0 });
-
-    const reviewCandidates = files.filter((file) => file.retentionClass === 'review-candidate').map((file) => file.path);
     const fileMetadata = new Map(files.map((file) => [file.path, {
         coverageIds: file.coverageIds,
         tierIds: file.tierIds,
         retentionClass: file.retentionClass
     }]));
+    const oracleFacts = buildOracleFacts(canonicalInventory, { root });
+    const qualityResult = evaluateQuality({
+        inventory: canonicalInventory,
+        oracleFacts,
+        policy: loadQualityPolicy(root)
+    });
     const testRecords = await auditTestRecords({
         root,
         files: auditedFiles,
         fileMetadata,
         timingHistory: loadTimingHistory(),
         failureHistory: loadFailureHistory(),
-        inventory: canonicalInventory
+        inventory: canonicalInventory,
+        oracleFacts,
+        qualityResult
     });
+    const fileClassRank = new Map([
+        ['blocked-quality', 0],
+        ['must-keep', 1],
+        ['conditional', 2],
+        ['review-candidate', 3],
+        ['replaceable-candidate', 4],
+        ['obsolete-candidate', 5]
+    ]);
+    for (const file of files)
+    {
+        const ownedRecords = testRecords.filter((record) => record.path === file.path);
+        if (ownedRecords.length === 0)
+        {
+            continue;
+        }
+        file.caseRetention = ownedRecords.map((record) => ({
+            testId: record.id,
+            retentionClass: record.retentionClass,
+            qualityOutcome: record.qualityOutcome
+        }));
+        file.retentionClass = ownedRecords
+            .map((record) => record.retentionClass)
+            .sort((left, right) => (fileClassRank.get(left) ?? 99) - (fileClassRank.get(right) ?? 99))[0];
+    }
+    const counts = files.reduce((acc, file) =>
+    {
+        acc[file.retentionClass] = (acc[file.retentionClass] ?? 0) + 1;
+        acc.testCaseEstimate += file.testCaseEstimate;
+        return acc;
+    }, { totalFiles: files.length, testCaseEstimate: 0 });
+    const reviewCandidates = files.filter((file) => file.retentionClass === 'review-candidate').map((file) => file.path);
     const candidateReviews = reviewCandidateFiles(reviewCandidates, testRecords);
     const replaceableReviews = candidateReviews.filter((review) => review.decision === 'replaceable');
     const retentionGovernance = matrix.governance?.retention ?? {};
@@ -356,7 +397,13 @@ async function buildAudit({ runId = null } = {})
     {
         tierIds: matrix.tiers.map((tier) => tier.id),
         coverageIds: (coverageRegistry.entries ?? []).map((entry) => entry.id),
-        tierReplacements: matrix.governance?.retiredTiers ?? []
+        tierReplacements: matrix.governance?.retiredTiers ?? [],
+        historicalAssertionTargetKeys: fs.existsSync(path.join(root, 'tests/test-retention-before.json'))
+            ? decodeCompactRetentionIndex(
+                JSON.parse(fs.readFileSync(path.join(root, 'tests/test-retention-before.json'), 'utf8'))?.assertionIndex,
+                'before snapshot assertion index'
+            )
+            : []
     }
     );
     const retainedCoverageIds = [...new Set(testRecords.flatMap((record) => record.coverageIds))].sort();
@@ -763,7 +810,7 @@ try
         fs.writeFileSync(options.captureBefore, `${JSON.stringify(baseline)}\n`);
         console.log(`[test-retention] captured before snapshot ${toRepoPath(options.captureBefore)} commit=${baseline.sourceState.commit} fingerprint=${baseline.sourceState.worktreeFingerprint}`);
     }
-    console.log(`[test-retention] ok files=${audit.counts.totalFiles} tests=${audit.testRecords.length} assertions=${audit.counts.assertionEstimate} mustKeep=${audit.counts['must-keep'] ?? 0} conditional=${audit.counts.conditional ?? 0} review=${audit.counts['review-candidate'] ?? 0} replaceable=${audit.replaceableCandidates.length} obsolete=${audit.counts['obsolete-candidate'] ?? 0}`);
+    console.log(`[test-retention] ok files=${audit.counts.totalFiles} tests=${audit.testRecords.length} testCases=${audit.counts.testCaseEstimate} mustKeep=${audit.counts['must-keep'] ?? 0} conditional=${audit.counts.conditional ?? 0} blockedQuality=${audit.counts['blocked-quality'] ?? 0} review=${audit.counts['review-candidate'] ?? 0} replaceable=${audit.replaceableCandidates.length} obsolete=${audit.counts['obsolete-candidate'] ?? 0}`);
 }
 catch (error)
 {

@@ -3,10 +3,10 @@
     "generatedBy": "tools/test/generate-correctness-attempt-producers.mjs",
     "sourceDigests": {
         "config/testing/release-reliability-scenario-catalog.json": "sha256:b61558320c2c55f860dc4606b4680ca41085179b1b219053869d0296c301b354",
-        "tests/matrix.yml": "sha256:b8f2f3e05af13a2fa35bcea7fe5d0547b9bab8f724b33aa691575c9059b5adbd",
+        "tests/matrix.yml": "sha256:18d133f6a44197abdbc42039c4b9c5a5248f7cdb71d118b952c028cdee165ce9",
         "tools/test-matrix/production-fresh-run-bound-outputs.mjs": "sha256:68c78054efb4a77b9e368fb079a9bb749b8edff24bc6d8375f7970555292c638",
         "config/testing/replay-qualification-producers.json": "sha256:5610b07e0acb3862fff2d4a4d294993f8e3e181398a80b14c4589f43d4855398",
-        "config/testing/test-execution-envelope-applicability.json": "sha256:6496adc518796e2e19ee8d047f199861dfb1e54d6cf9e611d3925e2349279b34",
+        "config/testing/test-execution-envelope-applicability.json": "sha256:51e620f4a2c671245074675f3eca0e8bac560ec3c6b76e208f8403a8afc5940b",
         "tools/test/attempt-runner.mjs": "sha256:53cdf7bdd46a4147400e3393decf29017534babc3ddfa6eb3446743de7018451",
         "tools/test/temporal-context.mjs": "sha256:982bee7411c0fb1c206d09a3bb21c9898ecca0d6564518e76d11f8768164cd66"
     },
@@ -6142,5 +6142,5 @@
             }
         }
     ],
-    "contentDigest": "sha256:72a25d41172c5884b4e2284745dd3a836f73e0cec691f1f2dc1de2d9b442e5cb"
+    "contentDigest": "sha256:1d298d3ace7f9ab9cc9ee8faa4ccc4d2d50af0eaa5532ae456abfc02f52347c4"
 }

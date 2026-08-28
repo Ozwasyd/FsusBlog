@@ -7984,6 +7984,7 @@
             "evidenceClass": "correctness",
             "executionClass": "static-governance",
             "allowedEnvironment": [
+                "DOTNET_ROOT",
                 "PATH"
             ],
             "requiredServices": [],

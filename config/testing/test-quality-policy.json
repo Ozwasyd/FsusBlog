@@ -1,0 +1,60 @@
+{
+    "schema": "fsusblog.test-quality-policy.v1",
+    "version": "2026-08-26",
+    "rules": [
+        "TQ-UNRESOLVED-FACTS",
+        "TQ-ZERO-OUTCOME",
+        "TQ-EARLY-RETURN",
+        "TQ-UNREACHABLE-ORACLE",
+        "TQ-TEST-TO-TEST",
+        "TQ-DISCOVERABLE-WORKER",
+        "TQ-CONSTANT-ORACLE",
+        "TQ-SELF-COMPARE",
+        "TQ-UNINFORMATIVE-ORACLE",
+        "TQ-ACTUAL-AS-EXPECTED",
+        "TQ-CONTRACT-ORACLE",
+        "TQ-HTTP-200-ONLY-CRITICAL",
+        "TQ-SNAPSHOT-ONLY-CRITICAL"
+    ],
+    "contractVocabulary": {
+        "bound": [
+            "clamp",
+            "capacity",
+            "limit",
+            "bound"
+        ],
+        "performance": [
+            "p95",
+            "p99",
+            "latency",
+            "allocation",
+            "performance"
+        ],
+        "cache": [
+            "cache",
+            "cached",
+            "once",
+            "single-read"
+        ],
+        "atomicity": [
+            "atomic",
+            "linearizable",
+            "exactly-once",
+            "idempotent",
+            "cas"
+        ],
+        "negative": [
+            "skip",
+            "reject",
+            "filter",
+            "drop",
+            "remove"
+        ],
+        "forbidden-path": [
+            "non-blocking",
+            "no-scan",
+            "no-retry"
+        ]
+    },
+    "waivers": []
+}

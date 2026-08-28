@@ -1,0 +1,11 @@
+import { expect, test } from 'vitest'
+
+import { load } from '../../../../src/subject'
+
+test('security http only', () => {
+    expect(load()).toBe(200)
+})
+
+test('security snapshot only', () => {
+    expect({ value: load() }).toMatchSnapshot()
+})
