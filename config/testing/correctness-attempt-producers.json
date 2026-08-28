@@ -3,10 +3,10 @@
     "generatedBy": "tools/test/generate-correctness-attempt-producers.mjs",
     "sourceDigests": {
         "config/testing/release-reliability-scenario-catalog.json": "sha256:b61558320c2c55f860dc4606b4680ca41085179b1b219053869d0296c301b354",
-        "tests/matrix.yml": "sha256:53a081b8579e35c20c70d956b74458c23a0542368bba2a10025889c758f66d7a",
+        "tests/matrix.yml": "sha256:e64a635c471afca9e240172794b53d4455246f677cc9072644cf3b2de97e8985",
         "tools/test-matrix/production-fresh-run-bound-outputs.mjs": "sha256:68c78054efb4a77b9e368fb079a9bb749b8edff24bc6d8375f7970555292c638",
         "config/testing/replay-qualification-producers.json": "sha256:5610b07e0acb3862fff2d4a4d294993f8e3e181398a80b14c4589f43d4855398",
-        "config/testing/test-execution-envelope-applicability.json": "sha256:be27b0642a6f89010309ac92cd83aba103e05e2cbfe59dbc62102f042bed3354",
+        "config/testing/test-execution-envelope-applicability.json": "sha256:2fb79a637bf3d0509a98e234c1702afc56210a09008b5b18947da1df2e486c1a",
         "tools/test/attempt-runner.mjs": "sha256:53cdf7bdd46a4147400e3393decf29017534babc3ddfa6eb3446743de7018451",
         "tools/test/temporal-context.mjs": "sha256:982bee7411c0fb1c206d09a3bb21c9898ecca0d6564518e76d11f8768164cd66"
     },
@@ -1979,6 +1979,35 @@
             ],
             "authorityBindings": {
                 "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:integrity-proof-verification",
+                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
+                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
+            }
+        },
+        {
+            "producerId": "matrix:legacy-20260517-real-dump",
+            "domain": "test-producers",
+            "producerKind": "unit",
+            "sourceAuthority": "tests/matrix.yml",
+            "canonicalCommand": "node tools/test/run-legacy-real-dump-producer.mjs",
+            "logicalTierIds": [
+                "legacy-20260517-real-dump"
+            ],
+            "policyId": "correctness-first-attempt",
+            "allowedRetries": 0,
+            "firstFailureBlocksQualification": true,
+            "frameworkRetrySetting": 0,
+            "artifactOwner": "ServerContractAgent",
+            "executionOwner": "tools/run-test-matrix.mjs",
+            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
+            "migrationState": "migrated",
+            "qualificationEligible": true,
+            "externalAuthorityKinds": [
+                "execution-envelope",
+                "replay-plan",
+                "temporal-context"
+            ],
+            "authorityBindings": {
+                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:legacy-20260517-real-dump",
                 "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
                 "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
             }
@@ -6229,5 +6258,5 @@
             }
         }
     ],
-    "contentDigest": "sha256:359844d85c7ffd84b7b25892f67712ae8b3a141d5a50b82ab4f084777efc6721"
+    "contentDigest": "sha256:ed1f3c3c67b403ff4b0a17f3cd16cc53d393f25cf572c1658eabe97331804b9c"
 }

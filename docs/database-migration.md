@@ -169,6 +169,16 @@ Before running this upgrade in production:
 3. Run `tools/db/verify-legacy-upgrade-20260517.sh` with `FSUS_LEGACY_20260517_DUMP_GZ` pointing to the local dump file.
 4. Confirm the migration can run twice without duplicate rows in migration history, `article_body`, `article_view_seed`, `msg_conversation`, `msg_message`, or `msg_participant_state`.
 
+The real dump test is not a member of ordinary `Category=Integration` execution.
+Its only owner is the local-only `legacy-20260517-real-dump` producer. Before
+invoking the verifier, set `FSUS_LEGACY_20260517_DUMP_SHA256` to the SHA-256 of
+the decompressed custom dump and pin the local PostgreSQL image with
+`FSUS_SCHEMA_MIGRATION_POSTGRES_IMAGE` plus
+`FSUS_SCHEMA_MIGRATION_POSTGRES_IMAGE_ID`. The producer fails before execution
+when the enable flag, dump, source commit, or PostgreSQL image identity differs;
+after execution it accepts only the exact test's TRX row with restore, two
+migration runs, retained legacy counts, and postcondition evidence.
+
 The migration expands safe columns before CodeFirst synchronization:
 
 - `article.title`: `varchar(200)` to `varchar(256)`

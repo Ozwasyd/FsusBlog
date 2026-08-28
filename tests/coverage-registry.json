@@ -1052,6 +1052,23 @@
             ]
         },
         {
+            "id": "native-groth16-p99",
+            "description": "The atomic native Groth16 verifier P99 producer executes its exact test member once and retains verified per-sample evidence.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                ".tmp/backend-perf/native-p99/preflight.json",
+                ".tmp/backend-perf/native-p99/measurement.json",
+                ".tmp/backend-perf/native-p99/summary.json"
+            ],
+            "assertionType": "perf",
+            "failClosedRule": "The producer rejects source, Release test assembly, native MCL library, verifying-key fixture, measurement isolation, TRX membership, sample count, Verified outcome, p99, or threshold drift.",
+            "minimumRequirement": "Ordinary unit plans keep the member not-selected; backend-perf records planned to executed outcome for exactly one test with one warmup, 32 verified samples, and p99 no greater than 50ms.",
+            "tierIds": [
+                "backend-perf"
+            ]
+        },
+        {
             "id": "benchmarkdotnet-regression",
             "description": "Benchmarkdotnet Regression is covered by runtime artifacts that exercise the named behavior.",
             "owner": "ServerContractAgent",
@@ -4805,7 +4822,8 @@
                 ".tmp/security/perception-character-v3/release-gate/perception-character-v3-benchmark-report.json",
                 ".tmp/security/perception-character-v3/release-gate/perception-character-v3-migration-receipt.json",
                 ".tmp/security/perception-character-v3/release-gate/implementation-verification-receipt.json",
-                ".tmp/security/perception-character-v3/release-gate/independent-review-receipt.json"
+                ".tmp/security/perception-character-v3/release-gate/independent-review-receipt.json",
+                ".tmp/test-results/backend/perception-character-v3-redis-producer.json"
             ],
             "assertionType": "integration",
             "failClosedRule": "Reject undersized, duplicate, biased, over-budget or baseline-readable corpus; stored-DEFLATE visual output; old formats; corrupt or wrong-key pools; repeat leases; non-idempotent cutover; insufficient CPU/allocation ratios; pre-admission allocation or leases; sensitive evidence; receipt digest drift; and any high or critical independent finding.",
@@ -4969,6 +4987,25 @@
             "minimumRequirement": "The complete FsusUI test-only corpus runs in Chromium, Firefox and WebKit against one real Release frontend, Kestrel and PostgreSQL runtime within the six minute median budget.",
             "tierIds": [
                 "production-xss-release"
+            ]
+        },
+        {
+            "id": "backend-legacy-20260517-real-dump",
+            "description": "The private 20260517 PostgreSQL custom dump is restored once, migrated twice, and checked against retained legacy counts and current postconditions by one dedicated producer.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                ".tmp/test-results/backend/legacy-20260517-real-dump/semantic-outcome.json",
+                "tests/backend/Integration/SchemaMigrationIntegrationTests.cs",
+                "tools/test/legacy-real-dump-contract.mjs",
+                "tools/test/run-legacy-real-dump-producer.mjs",
+                "tests/tools/legacy-real-dump-producer.test.mjs"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Reject missing enablement, dump path or digest, unreadable or mismatched dump bytes, source or PostgreSQL image drift, restore or migration failure, a non-exact test selection, or Passed TRX without restore, two migrations, legacy counts and postcondition evidence.",
+            "minimumRequirement": "The ordinary integration plan records the canonical test ID as not-selected; the dedicated producer alone records planned to executed to passed or failed and binds the source SHA, dump SHA-256, PostgreSQL image ID, server version and exact TRX result.",
+            "tierIds": [
+                "legacy-20260517-real-dump"
             ]
         }
     ]

@@ -4970,7 +4970,7 @@
             "replacementTestIds": [
                 "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_UpgradesLegacy20260517RealDump_WhenProvided"
             ],
-            "reason": "The real external dump verification keeps the same restore, double-migration and common-upgrade oracles while the dump path becomes its only required invocation input; the redundant enable flag and old enabled-suffix identity are removed."
+            "reason": "The stable Provided-suffix test keeps the same real restore, double-migration and common-upgrade oracles while ownership moves out of ordinary integration discovery into the exact-one legacy-20260517-real-dump producer; explicit enablement, dump digest, source SHA and PostgreSQL identity now fail closed."
         },
         {
             "id": "xunit:tests/backend/Unit/AdminAnonymousAccountGovernanceContractTests.cs#AdminAnonymousAccountGovernanceContractTests.AdminAccountListContract_UsesAnonymousAccountFields",
@@ -9157,7 +9157,7 @@
             "replacementTestIds": [
                 "xunit:tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs#NativeGroth16ZkProofBackendTests.MclGroth16VerifierLibrary_VerifyP99StaysInsideNativeBudget"
             ],
-            "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
+            "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary; backend-perf-native-p99 is its exact-one execution owner and ordinary unit plans keep it not-selected."
         },
         {
             "id": "xunit:tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs#NativeGroth16PublicInputCodec.NativeGroth16ZkProofBackend_NativeExceptionRejectsWithoutThrowingOrLoggingSensitiveInputs",

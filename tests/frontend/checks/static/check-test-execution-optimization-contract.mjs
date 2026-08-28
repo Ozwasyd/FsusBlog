@@ -624,12 +624,13 @@ requireIncludes('tools/coverage/collect-backend-coverage.sh', [
     'find "$RESULTS_DIR" -mindepth 1 -maxdepth 1 -print0',
     '--no-build'
 ]);
-const ordinaryBackendFilter = 'Category!=Integration&Category!=ApiIntegration&Category!=Concurrency&Category!=Performance&Category!=Property&Category!=GoldenContract&Category!=SecurityStateMachine';
+const ordinaryBackendFilter = 'Category!=Integration&Category!=ApiIntegration&Category!=Concurrency&Category!=Performance&Category!=Property&Category!=GoldenContract&Category!=SecurityStateMachine&Fixture!=LocalRedis';
 if (!suiteSupportSource.includes(`BACKEND_ORDINARY_TEST_FILTER="\${FSUSBLOG_BACKEND_ORDINARY_TEST_FILTER:-${ordinaryBackendFilter}}"`))
 {
     errors.push('backend ordinary and coverage lanes must share a fail-closed filter that excludes every dedicated special suite');
 }
-if (!suiteSupportSource.includes('RunBackendDotnetFilterOnly "$BACKEND_ORDINARY_TEST_FILTER"'))
+if (!suiteSupportSource.includes('PrepareBackendPlatformPlan backend-unit "$BACKEND_ORDINARY_TEST_FILTER"')
+    && !suiteSupportSource.includes('RunBackendDotnetFilterOnly "$BACKEND_ORDINARY_TEST_FILTER"'))
 {
     errors.push('backend ordinary lane must consume BACKEND_ORDINARY_TEST_FILTER');
 }

@@ -611,6 +611,14 @@
             "fixtureMutatorAllowed": false
         },
         {
+            "tierId": "legacy-20260517-real-dump",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
             "tierId": "load",
             "executionClass": "load",
             "fixtureProfile": "scale-xs",
@@ -1147,5 +1155,5 @@
             "fixtureMutatorAllowed": false
         }
     ],
-    "digest": "sha256:3a706c3595720d1286583b15f44a230a82c03038726f68314699abebbd3ddb5d"
+    "digest": "sha256:b2b75b00acd3dd2aa5252b4f0d85080142a76b20e76d3b09e732a459fab90ab9"
 }

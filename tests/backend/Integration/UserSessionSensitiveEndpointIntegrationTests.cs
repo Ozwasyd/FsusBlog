@@ -106,7 +106,7 @@ public sealed class UserSessionSensitiveEndpointIntegrationTests(PostgresSchemaM
     [InlineData("jwt")]
     [InlineData("idle")]
     [InlineData("absolute")]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative)]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "session-expiration-enforcement")]
     public async Task ExpiredTokenOrSession_IsRejectedBeforeBusinessWithNoDatabaseWrite(string scenarioName)
     {
         await using ScenarioContext scenario = await CreateScenarioAsync();
@@ -145,7 +145,7 @@ public sealed class UserSessionSensitiveEndpointIntegrationTests(PostgresSchemaM
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative)]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "session-authentication-context-coherence")]
     public async Task ForgedFullAuthClaimsAgainstLowStrengthDatabaseSession_AreRejectedWithoutSideEffects()
     {
         await using ScenarioContext scenario = await CreateScenarioAsync();
@@ -169,7 +169,7 @@ public sealed class UserSessionSensitiveEndpointIntegrationTests(PostgresSchemaM
     [Theory]
     [InlineData("wrong-session-id")]
     [InlineData("wrong-user-id")]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative)]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "session-principal-binding")]
     public async Task WrongSessionOrUserIdentity_IsRejectedWithoutSideEffects(string scenarioName)
     {
         await using ScenarioContext scenario = await CreateScenarioAsync();

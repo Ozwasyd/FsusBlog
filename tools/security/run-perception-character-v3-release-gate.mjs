@@ -134,7 +134,7 @@ function main()
             '-c', 'Release',
             '--no-restore',
             '--filter',
-            'FullyQualifiedName~PerceptionCharacterV3Tests|FullyQualifiedName~PerceptionCharacterV3ArtifactPoolTests|FullyQualifiedName~PerceptionCharacterV3ResourcePlannerTests|FullyQualifiedName~SecurityChallengeOrchestratorTests|FullyQualifiedName~SecurityChallengeProtocolActivationGuardTests|FullyQualifiedName~PerceptionCharacterV3ContractCutoverTests',
+            '(FullyQualifiedName~PerceptionCharacterV3Tests|FullyQualifiedName~PerceptionCharacterV3ArtifactPoolTests|FullyQualifiedName~PerceptionCharacterV3ResourcePlannerTests|FullyQualifiedName~SecurityChallengeOrchestratorTests|FullyQualifiedName~SecurityChallengeProtocolActivationGuardTests|FullyQualifiedName~PerceptionCharacterV3ContractCutoverTests)&Fixture!=LocalRedis',
             '--logger', 'console;verbosity=minimal'
         ]);
         run('redis-cutover-pool', 'bash', [

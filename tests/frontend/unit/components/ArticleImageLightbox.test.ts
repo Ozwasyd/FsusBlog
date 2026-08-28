@@ -67,11 +67,61 @@ describe('ArticleImageLightbox Overlay migration (#1788)', () => {
     await nextTick()
 
     expect(wrapper.find('.el-overlay').exists()).toBe(true)
-    expect(wrapper.find('[data-article-lightbox="true"]').exists()).toBe(true)
+    const dialog = wrapper.find('[data-article-lightbox="true"]')
+    expect(dialog.exists()).toBe(true)
+    expect(dialog.attributes('role')).toBe('dialog')
+    expect(dialog.attributes('aria-modal')).toBe('true')
+    expect(dialog.attributes('data-fsus-material')).toBe('glass')
+    expect(dialog.attributes('aria-label')).toBe('查看大图')
     expect(wrapper.find('.article-image-lightbox img').attributes('alt')).toBe('First figure')
+    expect(wrapper.find('.article-image-lightbox img').attributes('src')).toBe('/fixtures/one.svg')
     expect(wrapper.find('figcaption').text()).toBe('First figure')
     expect(wrapper.html()).not.toMatch(/image-viewer|ElImageViewer/i)
 
+    wrapper.unmount()
+  })
+
+  it('renders navigation controls conditionally based on image count', async () => {
+    const singleWrapper = mountLightbox({
+      images: [{ src: '/fixtures/single.svg', alt: 'Single figure' }],
+      activeIndex: 0
+    })
+    await flushPromises()
+    await nextTick()
+
+    expect(singleWrapper.find('.article-image-lightbox__close').exists()).toBe(true)
+    expect(singleWrapper.find('.article-image-lightbox__nav--prev').exists()).toBe(false)
+    expect(singleWrapper.find('.article-image-lightbox__nav--next').exists()).toBe(false)
+    singleWrapper.unmount()
+
+    const multiWrapper = mountLightbox({
+      images: [
+        { src: '/fixtures/one.svg', alt: 'First' },
+        { src: '/fixtures/two.svg', alt: 'Second' }
+      ],
+      activeIndex: 0
+    })
+    await flushPromises()
+    await nextTick()
+
+    expect(multiWrapper.find('.article-image-lightbox__close').exists()).toBe(true)
+    expect(multiWrapper.find('.article-image-lightbox__nav--prev').exists()).toBe(true)
+    expect(multiWrapper.find('.article-image-lightbox__nav--next').exists()).toBe(true)
+    expect(multiWrapper.find('.article-image-lightbox__nav--prev').attributes('aria-label')).toBe('上一张')
+    expect(multiWrapper.find('.article-image-lightbox__nav--next').attributes('aria-label')).toBe('下一张')
+    multiWrapper.unmount()
+  })
+
+  it('handles empty images gracefully without rendering overlay', async () => {
+    const wrapper = mountLightbox({
+      images: [],
+      activeIndex: 0
+    })
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.find('.el-overlay').exists()).toBe(false)
+    expect(wrapper.find('[data-article-lightbox="true"]').exists()).toBe(false)
     wrapper.unmount()
   })
 
@@ -86,6 +136,8 @@ describe('ArticleImageLightbox Overlay migration (#1788)', () => {
     await wrapper.setProps({ activeIndex: 1 })
     await nextTick()
     expect(wrapper.find('.article-image-lightbox img').attributes('alt')).toBe('Second figure')
+    expect(wrapper.find('.article-image-lightbox img').attributes('src')).toBe('/fixtures/two.svg')
+    expect(wrapper.find('figcaption').text()).toBe('Second figure')
 
     await wrapper.get('.article-image-lightbox__nav--prev').trigger('click')
     expect(wrapper.emitted('previous')).toHaveLength(1)
