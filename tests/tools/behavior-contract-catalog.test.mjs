@@ -6,6 +6,7 @@ import path from 'node:path'
 import test from 'node:test'
 import {
   digestCatalog,
+  digestDocumentOwnership,
   loadCatalog,
   loadSchema,
   validateBehaviorReferences,
@@ -54,6 +55,59 @@ reject('rejects roles on one-owner behaviors', (catalog) => {
 reject('rejects many-owner behaviors without at least two roles', (catalog) => {
   catalog.contracts[0].implementationOwnerCardinality = 'many'
   catalog.contracts[0].allowedImplementationOwnerRoles = ['only']
+})
+
+reject('rejects a protocol document authority missing from lifecycle ownership', (catalog) => {
+  const contract = catalog.contracts.find((entry) => entry.id === 'binary-api-aeds-contract')
+  contract.documentAuthorities[0].owner = 'release'
+})
+reject('rejects a manual protocol document inventory omission', (catalog) => {
+  const contract = catalog.contracts.find((entry) => entry.id === 'binary-api-aeds-contract')
+  contract.documentAuthorities.pop()
+})
+reject('rejects duplicate protocol document owners', (catalog) => {
+  const contract = catalog.contracts.find((entry) => entry.id === 'binary-api-aeds-contract')
+  contract.documentAuthorities.push(structuredClone(contract.documentAuthorities[0]))
+})
+reject('rejects error authority overlap with the protocol domain', (catalog) => {
+  const contract = catalog.contracts.find((entry) => entry.id === 'binary-api-aeds-contract')
+  contract.documentAuthorities.find((entry) => entry.path === 'docs/api/schemas-and-errors.md')
+    .sectionIds.push('api.domain-errors-active')
+})
+reject('rejects unknown cross-domain error owner references', (catalog) => {
+  const contract = catalog.contracts.find((entry) => entry.id === 'binary-api-aeds-contract')
+  contract.crossDomainReferences[0].behaviorId = 'missing-error-owner'
+})
+
+test('protocol release and deployment domains have exact document and extractor ownership', () => {
+  const catalog = loadCatalog()
+  for (const domain of ['protocol', 'release', 'deployment']) assert.ok(catalog.domains.includes(domain))
+  const expected = new Map([
+    ['binary-api-aeds-contract', 'openapi-aeds-fact-extractor'],
+    ['release-final-aggregate-contract', 'test-matrix-fact-extractor'],
+    ['deployment-blue-green-runtime-role', 'test-matrix-fact-extractor']
+  ])
+  for (const [behaviorId, extractorId] of expected) {
+    const contract = catalog.contracts.find((entry) => entry.id === behaviorId)
+    assert.equal(contract.factExtractorId, extractorId)
+    assert.deepEqual(contract.documentAuthorities.map((entry) => entry.path).sort(), [...contract.documents].sort())
+    assert.ok(contract.documentAuthorities.every((entry) => entry.proofIds.length > 0))
+  }
+  const protocol = catalog.contracts.find((entry) => entry.id === 'binary-api-aeds-contract')
+  assert.deepEqual(
+    protocol.documentAuthorities.find((entry) => entry.path === 'docs/api/schemas-and-errors.md').sectionIds,
+    ['api.operation-count']
+  )
+  assert.deepEqual(protocol.crossDomainReferences.map((entry) => entry.behaviorId), ['configuration-error-security-policy'])
+  const lifecycle = JSON.parse(readFileSync(path.join(root, 'config/development/document-lifecycle.json'), 'utf8'))
+  const digest = digestDocumentOwnership(catalog, lifecycle)
+  assert.match(digest, /^[a-f0-9]{64}$/u)
+  const moved = structuredClone(lifecycle)
+  moved.pathMigrations[0].to = 'docs/api.md'
+  assert.notEqual(digestDocumentOwnership(catalog, moved), digest)
+  const ownershipDrift = structuredClone(catalog)
+  ownershipDrift.contracts.find((entry) => entry.id === 'binary-api-aeds-contract').documentAuthorities[0].anchor = 'protocol.changed'
+  assert.notEqual(digestDocumentOwnership(ownershipDrift, lifecycle), digest)
 })
 
 test('schema and loader enums cannot drift independently', () => {

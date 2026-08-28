@@ -64,7 +64,9 @@
       "requiredBuildArtifact": null,
       "hermeticPolicy": "declared-inputs",
       "ownedBehaviorIds": [
-        "browserless-production-correctness"
+        "browserless-production-correctness",
+        "release-final-aggregate-contract",
+        "deployment-blue-green-runtime-role"
       ]
     },
     {

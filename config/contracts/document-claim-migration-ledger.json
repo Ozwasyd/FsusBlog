@@ -525,6 +525,39 @@
                     ]
                 }
             ]
+        },
+        {
+            "scopeId": "protocol-release-deployment-ownership",
+            "behaviorIds": [
+                "release-final-aggregate-contract",
+                "deployment-blue-green-runtime-role"
+            ],
+            "entries": [
+                {
+                    "behaviorId": "release-final-aggregate-contract",
+                    "documentPath": "docs/testing.md",
+                    "claimIds": [],
+                    "generatedSectionIds": []
+                },
+                {
+                    "behaviorId": "release-final-aggregate-contract",
+                    "documentPath": "docs/releases/release-identity.md",
+                    "claimIds": [],
+                    "generatedSectionIds": []
+                },
+                {
+                    "behaviorId": "deployment-blue-green-runtime-role",
+                    "documentPath": "docs/releases/blue-green-deployment-runbook.md",
+                    "claimIds": [],
+                    "generatedSectionIds": []
+                },
+                {
+                    "behaviorId": "deployment-blue-green-runtime-role",
+                    "documentPath": "docs/architecture/monolithic-distributed-boundary.md",
+                    "claimIds": [],
+                    "generatedSectionIds": []
+                }
+            ]
         }
     ]
 }

@@ -26,7 +26,7 @@ export const contractFieldKeys = [
     'coverageIds',
     'documents'
 ];
-export const optionalContractFieldKeys = ['evidenceStage', 'runtimeEvidence', 'mutationPolicy'];
+export const optionalContractFieldKeys = ['evidenceStage', 'runtimeEvidence', 'mutationPolicy', 'documentAuthorities', 'crossDomainReferences'];
 
 const fail = (message) =>
 {
@@ -48,6 +48,31 @@ const exactKeys = (value, keys, label) =>
 const stable = (value) => Array.isArray(value) ? value.map(stable) : isPlainObject(value) ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])])) : value;
 export const canonicalize = (value) => JSON.stringify(stable(value));
 export const digestCatalog = (catalog) => createHash('sha256').update(canonicalize(catalog), 'utf8').digest('hex');
+export const documentOwnershipProjection = (catalog, lifecyclePolicy) => ({
+    schema: 'fsusblog.behavior-document-ownership.v1',
+    domains: [...catalog.domains].sort(),
+    behaviors: catalog.contracts
+        .filter((contract) => ['protocol', 'release', 'deployment'].includes(contract.domain))
+        .map((contract) => ({
+            behaviorId: contract.id,
+            domain: contract.domain,
+            extractorId: contract.factExtractorId,
+            documents: structuredClone(contract.documentAuthorities ?? []),
+            crossDomainReferences: structuredClone(contract.crossDomainReferences ?? [])
+        }))
+        .sort((left, right) => left.behaviorId.localeCompare(right.behaviorId)),
+    lifecycle: {
+        documents: lifecyclePolicy.documents
+            .filter((entry) => catalog.contracts.some((contract) => contract.documents.includes(entry.path)))
+            .map((entry) => ({ path: entry.path, status: entry.status, owner: entry.owner, supersedes: entry.supersedes, supersededBy: entry.supersededBy }))
+            .sort((left, right) => left.path.localeCompare(right.path)),
+        pathMigrations: [...(lifecyclePolicy.pathMigrations ?? [])]
+            .map((entry) => ({ from: entry.from, to: entry.to, issue: entry.issue ?? null }))
+            .sort((left, right) => left.from.localeCompare(right.from))
+    }
+});
+export const digestDocumentOwnership = (catalog, lifecyclePolicy) =>
+    createHash('sha256').update(canonicalize(documentOwnershipProjection(catalog, lifecyclePolicy)), 'utf8').digest('hex');
 export const loadCatalog = (catalogPath = path.join(root, catalogRelative)) => JSON.parse(readFileSync(catalogPath, 'utf8'));
 export const loadSchema = (schemaPath = path.join(root, schemaRelative)) => JSON.parse(readFileSync(schemaPath, 'utf8'));
 
@@ -127,7 +152,10 @@ export function validateCatalog(catalog, repositoryRoot = root)
         extractors.set(extractor.id, extractor);
     }
     const coverage = new Set(readJson('tests/coverage-registry.json', repositoryRoot).entries.map((entry) => entry.id));
-    const lifecycle = new Map(readJson('config/development/document-lifecycle.json', repositoryRoot).documents.map((document) => [document.path, document]));
+    const lifecyclePolicy = readJson('config/development/document-lifecycle.json', repositoryRoot);
+    const lifecycle = new Map(lifecyclePolicy.documents.map((document) => [document.path, document]));
+    const migratedFromPaths = new Set((lifecyclePolicy.pathMigrations ?? []).map((entry) => entry.from));
+    let generatedSectionCatalog = null;
     if (!Array.isArray(catalog.contracts) || catalog.contracts.length === 0)
     {
         fail('contracts must be a non-empty list');
@@ -235,6 +263,70 @@ export function validateCatalog(catalog, repositoryRoot = root)
                 fail(`${contract.id} migration-only or retired behavior cannot reference current documentation`);
             }
         }
+        if (Object.hasOwn(contract, 'documentAuthorities'))
+        {
+            if (!Array.isArray(contract.documentAuthorities) || contract.documentAuthorities.length === 0)
+            {
+                fail(`${contract.id}.documentAuthorities must be non-empty`);
+            }
+            const authorityPaths = [];
+            for (const authority of contract.documentAuthorities)
+            {
+                exactKeys(authority, ['path', 'owner', 'anchor', 'claimIds', 'sectionIds', 'proofIds'], `${contract.id}.documentAuthority`);
+                const lifecycleDocument = lifecycle.get(authority.path);
+                if (!lifecycleDocument || lifecycleDocument.status !== 'current' || lifecycleDocument.owner !== authority.owner)
+                {
+                    fail(`${contract.id} document authority ${authority.path} conflicts with current lifecycle owner`);
+                }
+                if (!contract.documents.includes(authority.path)) fail(`${contract.id} authority path is outside documents: ${authority.path}`);
+                if (migratedFromPaths.has(authority.path)) fail(`${contract.id} archived/moved path cannot remain a current authority: ${authority.path}`);
+                if (!/^[a-z][a-z0-9.-]*$/u.test(authority.anchor)) fail(`${contract.id} has invalid authority anchor`);
+                uniqueStrings(authority.claimIds, `${contract.id}.${authority.path}.claimIds`);
+                uniqueStrings(authority.sectionIds, `${contract.id}.${authority.path}.sectionIds`);
+                uniqueStrings(authority.proofIds, `${contract.id}.${authority.path}.proofIds`, { min: 1 });
+                if (authority.claimIds.length === 0 && authority.sectionIds.length === 0) fail(`${contract.id} authority ${authority.path} has no required claim/section`);
+                authorityPaths.push(authority.path);
+            }
+            if (new Set(authorityPaths).size !== authorityPaths.length || authorityPaths.sort().join('\0') !== [...contract.documents].sort().join('\0'))
+            {
+                fail(`${contract.id}.documentAuthorities must exactly own contract documents`);
+            }
+        }
+        else if (['protocol', 'release', 'deployment'].includes(contract.domain))
+        {
+            fail(`${contract.id} requires exact documentAuthorities in ${contract.domain}`);
+        }
+        if (Object.hasOwn(contract, 'crossDomainReferences'))
+        {
+            generatedSectionCatalog ??= readJson('config/contracts/generated-fact-sections.json', repositoryRoot);
+            if (!Array.isArray(contract.crossDomainReferences)) fail(`${contract.id}.crossDomainReferences must be a list`);
+            for (const reference of contract.crossDomainReferences)
+            {
+                exactKeys(reference, ['domain', 'behaviorId', 'documentPath', 'factIds'], `${contract.id}.crossDomainReference`);
+                if (reference.domain === contract.domain) fail(`${contract.id} cross-domain reference must target another domain`);
+                if (!catalog.domains.includes(reference.domain)) fail(`${contract.id} references unknown domain ${reference.domain}`);
+                const target = catalog.contracts.find((entry) => entry.id === reference.behaviorId);
+                if (!target || target.domain !== reference.domain || !target.documents.includes(reference.documentPath))
+                {
+                    fail(`${contract.id} cross-domain reference has no exact target owner`);
+                }
+                const referenceOwners = generatedSectionCatalog.sections.filter((section) =>
+                    section.behaviorId === reference.behaviorId
+                    && section.documentPath === reference.documentPath
+                    && reference.factIds.includes(section.factPath));
+                if (referenceOwners.length !== reference.factIds.length
+                    || new Set(referenceOwners.map((section) => section.factPath)).size !== reference.factIds.length)
+                {
+                    fail(`${contract.id} cross-domain facts lack exact-one generated owner`);
+                }
+                const localSectionIds = new Set((contract.documentAuthorities ?? []).flatMap((authority) => authority.sectionIds));
+                if (referenceOwners.some((section) => localSectionIds.has(section.sectionId)))
+                {
+                    fail(`${contract.id} duplicates cross-domain fact ownership from ${reference.behaviorId}`);
+                }
+                uniqueStrings(reference.factIds, `${contract.id}.crossDomainReference.factIds`, { min: 1 });
+            }
+        }
         if (contract.status === 'active')
         {
             if (!contract.factExtractorId || contract.requiredTestKinds.length === 0 && contract.documentationPolicy === 'required')
@@ -271,7 +363,7 @@ export function validateCatalog(catalog, repositoryRoot = root)
             }
         }
     }
-    return { digest: digestCatalog(catalog), ids };
+    return { digest: digestCatalog(catalog), ownershipDigest: digestDocumentOwnership(catalog, lifecyclePolicy), ids };
 }
 
 const walk = (directory, out = []) =>
@@ -311,7 +403,9 @@ export function validateBehaviorReferences(catalog, repositoryRoot = root)
         'releaseQualification',
         'implementationOwnerCardinality',
         'allowedImplementationOwnerRoles',
-        'implementationOwners'
+        'implementationOwners',
+        'documentAuthorities',
+        'crossDomainReferences'
     ]);
     const catalogOnlyFields = new Set([
         'factExtractorId',
@@ -321,7 +415,9 @@ export function validateBehaviorReferences(catalog, repositoryRoot = root)
         'releaseQualification',
         'implementationOwnerCardinality',
         'allowedImplementationOwnerRoles',
-        'implementationOwners'
+        'implementationOwners',
+        'documentAuthorities',
+        'crossDomainReferences'
     ]);
     const assertNoBehaviorFields = (value, relative) =>
     {
