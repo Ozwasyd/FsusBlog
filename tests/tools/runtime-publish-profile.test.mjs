@@ -1200,7 +1200,7 @@ test('matrix runner retains a structured failed result from a non-zero executor'
     assert.deepEqual(validateRuntimeMatrixEvidence(evidence, { requireComplete: false }), []);
 });
 
-test('matrix runner resumes only failed schedule keys and retains every attempt', (t) =>
+test('matrix runner rejects reuse of failed schedule keys', (t) =>
 {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-runtime-matrix-resume-'));
     t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
@@ -1233,13 +1233,14 @@ test('matrix runner resumes only failed schedule keys and retains every attempt'
     const resumed = spawnSync(process.execPath, [
         path.join(root, 'tools/runtime-profiles/run-runtime-publish-matrix.mjs'),
         ...commonArgs,
-        '--resume-from', output
+        '--reuse-clean-from', output
     ], { cwd: root, encoding: 'utf8', timeout: 30_000 });
-    assert.equal(resumed.status, 0, resumed.stderr);
+    assert.notEqual(resumed.status, 0, resumed.stderr);
+    assert.match(resumed.stderr, /cannot re-execute failed schedule keys/u);
     const evidence = JSON.parse(fs.readFileSync(output, 'utf8'));
-    assert.equal(evidence.runs.length, 3);
+    assert.equal(evidence.runs.length, 2);
     const resumedKey = evidence.runs.filter((run) => run.identity.round === failedIdentity.round && run.identity.profileId === failedIdentity.profileId);
-    assert.deepEqual(resumedKey.map((run) => run.status), ['failed', 'ok']);
+    assert.deepEqual(resumedKey.map((run) => run.status), ['failed']);
     const untouched = evidence.runs.filter((run) => run.identity.profileId !== failedIdentity.profileId);
     assert.equal(untouched.length, 1);
     assert.equal(untouched[0].status, 'ok');
@@ -1248,7 +1249,7 @@ test('matrix runner resumes only failed schedule keys and retains every attempt'
     const wrongIdentity = spawnSync(process.execPath, [
         path.join(root, 'tools/runtime-profiles/run-runtime-publish-matrix.mjs'),
         ...commonArgs.map((value) => value === commitSha ? 'f'.repeat(40) : value),
-        '--resume-from', output
+        '--reuse-clean-from', output
     ], { cwd: root, encoding: 'utf8', timeout: 30_000 });
     assert.notEqual(wrongIdentity.status, 0);
     assert.match(wrongIdentity.stderr, /identity\.commitSha does not match/u);
@@ -1256,7 +1257,7 @@ test('matrix runner resumes only failed schedule keys and retains every attempt'
     const wrongFixture = spawnSync(process.execPath, [
         path.join(root, 'tools/runtime-profiles/run-runtime-publish-matrix.mjs'),
         ...commonArgs.map((value) => value === fixtureId ? 'other-production-fixture' : value),
-        '--resume-from', output
+        '--reuse-clean-from', output
     ], { cwd: root, encoding: 'utf8', timeout: 30_000 });
     assert.notEqual(wrongFixture.status, 0);
     assert.match(wrongFixture.stderr, /identity\.fixtureId does not match/u);
@@ -1276,7 +1277,7 @@ test('matrix runner resumes only failed schedule keys and retains every attempt'
     const wrongManifest = spawnSync(process.execPath, [
         path.join(root, 'tools/runtime-profiles/run-runtime-publish-matrix.mjs'),
         ...commonArgs,
-        '--resume-from', manifestDriftFile
+        '--reuse-clean-from', manifestDriftFile
     ], { cwd: root, encoding: 'utf8', timeout: 30_000 });
     assert.notEqual(wrongManifest.status, 0);
     assert.match(wrongManifest.stderr, /identity\.profileManifestDigest does not match/u);
@@ -1297,7 +1298,7 @@ test('matrix runner resumes only failed schedule keys and retains every attempt'
     const wrongHardware = spawnSync(process.execPath, [
         path.join(root, 'tools/runtime-profiles/run-runtime-publish-matrix.mjs'),
         ...commonArgs,
-        '--resume-from', hardwareDriftFile
+        '--reuse-clean-from', hardwareDriftFile
     ], { cwd: root, encoding: 'utf8', timeout: 30_000 });
     assert.notEqual(wrongHardware.status, 0);
     assert.match(wrongHardware.stderr, /identity\.hardwareDigest does not match/u);
@@ -1321,7 +1322,7 @@ test('matrix runner resumes only failed schedule keys and retains every attempt'
     const wrongSchedule = spawnSync(process.execPath, [
         path.join(root, 'tools/runtime-profiles/run-runtime-publish-matrix.mjs'),
         ...commonArgs,
-        '--resume-from', scheduleDriftFile
+        '--reuse-clean-from', scheduleDriftFile
     ], { cwd: root, encoding: 'utf8', timeout: 30_000 });
     assert.notEqual(wrongSchedule.status, 0);
     assert.match(wrongSchedule.stderr, /schedule does not match/u);

@@ -78,7 +78,7 @@ function temporalContextForProducer(planDocument, producerId)
 
 function bindProducerResultTemporalArtifacts(producerId, temporalContext, result)
 {
-    if (!temporalContext)
+    if (!temporalContext || result?.structuralOnly === true)
     {
         return null;
     }
@@ -100,6 +100,10 @@ function verifyProducerResultTemporalArtifacts(producerId, result)
     const temporalArtifacts = result?.temporalArtifacts;
     if (!temporalArtifacts)
     {
+        if (result?.structuralOnly === true)
+        {
+            return null;
+        }
         if (process.env.FSUSBLOG_TEMPORAL_CONTEXT_JSON
         || process.env.FSUSBLOG_TEMPORAL_CONTEXT_FILE)
         {

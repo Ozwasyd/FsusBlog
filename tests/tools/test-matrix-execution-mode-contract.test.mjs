@@ -25,7 +25,10 @@ const {
 const { parseMatrix } = await import(
     pathToFileURL(path.join(root, 'tools/test-matrix/parse-matrix.mjs')).href
 );
-const { renderTestingDocs, resolveCiJobExecution } = await import(
+const {
+    renderTestingDocs,
+    resolveCiJobExecution
+} = await import(
     pathToFileURL(path.join(root, 'tools/docs/generate-testing-docs.mjs')).href
 );
 

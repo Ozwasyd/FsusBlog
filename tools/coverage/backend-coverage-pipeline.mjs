@@ -103,6 +103,14 @@ function walk(directory, predicate) {
 }
 
 function serializedTransportRoot(directory, file) {
+  const relativeParts = path.relative(directory, file).split(path.sep)
+  if (relativeParts.length === 4
+    && relativeParts[0].startsWith('_')
+    && relativeParts[1] === 'In'
+    && relativeParts[2]
+    && relativeParts[3] === rawName) {
+    return path.join(directory, relativeParts[0])
+  }
   let current = path.dirname(file)
   while (current !== directory && current.startsWith(`${directory}${path.sep}`)) {
     if (path.basename(current).startsWith('_ser')) return current

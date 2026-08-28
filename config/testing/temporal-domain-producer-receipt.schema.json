@@ -19,37 +19,75 @@
         "contentDigest"
     ],
     "properties": {
-        "schema": { "const": "fsusblog.temporal-domain-producer-receipt.v1" },
-        "producerId": { "$ref": "#/$defs/id" },
-        "fixtureIdentity": { "type": "object" },
-        "contextDigest": { "$ref": "#/$defs/digest" },
-        "catalogDigest": { "$ref": "#/$defs/digest" },
-        "shapeId": { "$ref": "#/$defs/id" },
-        "shapeDigest": { "$ref": "#/$defs/digest" },
+        "schema": {
+            "const": "fsusblog.temporal-domain-producer-receipt.v1"
+        },
+        "producerId": {
+            "$ref": "#/$defs/id"
+        },
+        "fixtureIdentity": {
+            "type": "object"
+        },
+        "contextDigest": {
+            "$ref": "#/$defs/digest"
+        },
+        "catalogDigest": {
+            "$ref": "#/$defs/digest"
+        },
+        "shapeId": {
+            "$ref": "#/$defs/id"
+        },
+        "shapeDigest": {
+            "$ref": "#/$defs/digest"
+        },
         "roles": {
             "type": "array",
             "maxItems": 1000,
             "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["roleId", "expectedBusinessState", "digest"],
+                "required": [
+                    "roleId",
+                    "expectedBusinessState",
+                    "digest"
+                ],
                 "properties": {
-                    "roleId": { "$ref": "#/$defs/id" },
-                    "expectedBusinessState": { "$ref": "#/$defs/id" },
-                    "digest": { "$ref": "#/$defs/digest" }
+                    "roleId": {
+                        "$ref": "#/$defs/id"
+                    },
+                    "expectedBusinessState": {
+                        "$ref": "#/$defs/id"
+                    },
+                    "digest": {
+                        "$ref": "#/$defs/digest"
+                    }
                 }
             }
         },
         "invariantIds": {
             "type": "array",
-            "items": { "$ref": "#/$defs/id" }
+            "items": {
+                "$ref": "#/$defs/id"
+            }
         },
-        "semanticDigest": { "$ref": "#/$defs/digest" },
-        "resolvedArtifactDigest": { "$ref": "#/$defs/digest" },
-        "contentDigest": { "$ref": "#/$defs/digest" }
+        "semanticDigest": {
+            "$ref": "#/$defs/digest"
+        },
+        "resolvedArtifactDigest": {
+            "$ref": "#/$defs/digest"
+        },
+        "contentDigest": {
+            "$ref": "#/$defs/digest"
+        }
     },
     "$defs": {
-        "id": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$" },
-        "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+        "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+        },
+        "digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        }
     }
 }

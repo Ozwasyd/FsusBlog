@@ -200,12 +200,10 @@ COPY ["src/core/FsusBlog.Core.csproj", "src/core/"]
 COPY ["src/shared/FsusBlog.Shared.csproj", "src/shared/"]
 COPY ["tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj", "tools/architecture/FsusBlog.DiLifetimeAnalyzer/"]
 
-RUN sh -lc 'for i in 1 2 3; do dotnet restore "./src/backend/FsusBlog.Server.csproj" --runtime "$TARGET_RUNTIME" /p:PublishReadyToRun="$PUBLISH_READY_TO_RUN" /p:ReadyToRunUseCrossgen2="$PUBLISH_READY_TO_RUN" && exit 0; echo "dotnet restore retry $i failed"; sleep 5; done; exit 1'
+RUN dotnet restore "./src/backend/FsusBlog.Server.csproj" --runtime "$TARGET_RUNTIME" /p:PublishReadyToRun="$PUBLISH_READY_TO_RUN" /p:ReadyToRunUseCrossgen2="$PUBLISH_READY_TO_RUN"
 
 COPY . .
 WORKDIR "/src/src/backend"
-
-RUN sh -lc 'for i in 1 2 3; do dotnet build "./FsusBlog.Server.csproj" -c "$BUILD_CONFIGURATION" -r "$TARGET_RUNTIME" -o /app/build --no-restore && exit 0; echo "dotnet build retry $i failed"; sleep 5; done; exit 1'
 
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
@@ -218,7 +216,7 @@ ARG TIERED_PGO=true
 ARG QUICK_JIT_FOR_LOOPS=true
 ARG SERVER_GC=true
 ARG NATIVE_AOT=false
-RUN sh -lc 'for i in 1 2 3; do dotnet publish "./FsusBlog.Server.csproj" \
+RUN dotnet publish "./FsusBlog.Server.csproj" \
     -c "$BUILD_CONFIGURATION" \
     -r "$TARGET_RUNTIME" \
     -o /app/publish \
@@ -237,7 +235,7 @@ RUN sh -lc 'for i in 1 2 3; do dotnet publish "./FsusBlog.Server.csproj" \
     /p:TieredCompilationQuickJitForLoops="$QUICK_JIT_FOR_LOOPS" \
     /p:ServerGarbageCollection="$SERVER_GC" \
     /p:PublishReadyToRun="$PUBLISH_READY_TO_RUN" \
-    /p:ReadyToRunUseCrossgen2="$PUBLISH_READY_TO_RUN" && exit 0; echo "dotnet publish retry $i failed"; sleep 5; done; exit 1'
+    /p:ReadyToRunUseCrossgen2="$PUBLISH_READY_TO_RUN"
 
 ARG ZK_NATIVE_ARTIFACT_DIR=build/artifacts/native-zk
 RUN sh -lc 'set -eu; \
@@ -255,7 +253,7 @@ RUN sh -lc 'set -eu; \
 FROM build AS publish-debug
 ARG BUILD_CONFIGURATION=Debug
 ARG TARGET_RUNTIME=linux-musl-x64
-RUN sh -lc 'for i in 1 2 3; do dotnet publish "./FsusBlog.Server.csproj" \
+RUN dotnet publish "./FsusBlog.Server.csproj" \
     -c "$BUILD_CONFIGURATION" \
     -r "$TARGET_RUNTIME" \
     -o /app/publish \
@@ -264,7 +262,7 @@ RUN sh -lc 'for i in 1 2 3; do dotnet publish "./FsusBlog.Server.csproj" \
     /p:UseAppHost=false \
     /p:TieredPGO=false \
     /p:TieredCompilation=true \
-    /p:PublishReadyToRun=false && exit 0; echo "dotnet publish debug retry $i failed"; sleep 5; done; exit 1'
+    /p:PublishReadyToRun=false
 
 ## =========================================================================
 # 阶段 3：前端 Vue 构建
@@ -302,9 +300,7 @@ RUN --mount=type=secret,id=github_packages_token \
         --no-fund \
         --no-update-notifier \
         --progress=false \
-        --fetch-retries=5 \
-        --fetch-retry-mintimeout=2000 \
-        --fetch-retry-maxtimeout=20000'
+        --fetch-retries=0'
 
 ARG FSUSBLOG_RELEASE_ID=local-unversioned
 ENV VITE_FSUSBLOG_BUILD_ID=${FSUSBLOG_RELEASE_ID} \

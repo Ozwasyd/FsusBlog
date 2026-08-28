@@ -1,0 +1,25 @@
+{
+    "schema": "fsusblog.outcome-failure-taxonomy.v1",
+    "kinds": [
+        { "kind": "contract.ambiguous-evidence", "requiredIdentity": ["producerId", "evidenceId"], "owner": "outcome-contract", "proofTestId": "outcome:taxonomy" },
+        { "kind": "contract.identity", "requiredIdentity": ["producerId", "identityField"], "owner": "outcome-contract", "proofTestId": "outcome:taxonomy" },
+        { "kind": "contract.missing-evidence", "requiredIdentity": ["producerId", "evidenceId"], "owner": "outcome-contract", "proofTestId": "outcome:taxonomy" },
+        { "kind": "contract.schema", "requiredIdentity": ["producerId", "schemaPath"], "owner": "outcome-contract", "proofTestId": "outcome:taxonomy" },
+        { "kind": "determinism.clock-drift", "requiredIdentity": ["producerId", "temporalContextDigest"], "owner": "test-determinism", "proofTestId": "outcome:taxonomy" },
+        { "kind": "determinism.execution-plan-drift", "requiredIdentity": ["producerId", "replayPlanDigest"], "owner": "test-determinism", "proofTestId": "outcome:taxonomy" },
+        { "kind": "determinism.order-dependent", "requiredIdentity": ["producerId", "testId"], "owner": "test-determinism", "proofTestId": "outcome:taxonomy" },
+        { "kind": "determinism.outcome-drift", "requiredIdentity": ["producerId", "semanticPayloadDigest"], "owner": "outcome-contract", "proofTestId": "outcome:taxonomy" },
+        { "kind": "determinism.seed-drift", "requiredIdentity": ["producerId", "replayPlanDigest"], "owner": "test-determinism", "proofTestId": "outcome:taxonomy" },
+        { "kind": "infra.browser-crash", "requiredIdentity": ["producerId", "attemptNumber"], "owner": "test-runtime", "proofTestId": "outcome:taxonomy" },
+        { "kind": "infra.environment-mismatch", "requiredIdentity": ["producerId", "executionEnvelopeDigest"], "owner": "test-runtime", "proofTestId": "outcome:taxonomy" },
+        { "kind": "infra.network-policy", "requiredIdentity": ["producerId", "executionEnvelopeDigest"], "owner": "test-runtime", "proofTestId": "outcome:taxonomy" },
+        { "kind": "infra.process-launch", "requiredIdentity": ["producerId", "attemptNumber"], "owner": "test-runtime", "proofTestId": "outcome:taxonomy" },
+        { "kind": "infra.process-signal", "requiredIdentity": ["producerId", "attemptNumber"], "owner": "test-runtime", "proofTestId": "outcome:taxonomy" },
+        { "kind": "infra.resource-exhaustion", "requiredIdentity": ["producerId", "executionEnvelopeDigest"], "owner": "test-runtime", "proofTestId": "outcome:taxonomy" },
+        { "kind": "infra.runtime-cleanup", "requiredIdentity": ["producerId", "attemptNumber"], "owner": "test-runtime", "proofTestId": "outcome:taxonomy" },
+        { "kind": "infra.service-readiness", "requiredIdentity": ["producerId", "executionEnvelopeDigest"], "owner": "test-runtime", "proofTestId": "outcome:taxonomy" },
+        { "kind": "infra.toolchain-mismatch", "requiredIdentity": ["producerId", "toolchainDigest"], "owner": "test-runtime", "proofTestId": "outcome:taxonomy" },
+        { "kind": "product.assertion", "requiredIdentity": ["producerId", "assertionId"], "owner": "producer-adapter", "proofTestId": "outcome:taxonomy" },
+        { "kind": "product.state-mismatch", "requiredIdentity": ["producerId", "semanticId"], "owner": "producer-adapter", "proofTestId": "outcome:taxonomy" }
+    ]
+}

@@ -7,7 +7,7 @@ namespace FsusBlog.Server.Tests.Unit;
 [Trait("Category", "Property")]
 public sealed class BackendPropertyTests
 {
-    private const int Seed = 40721;
+    private const string Source = "tests/backend/Unit/BackendPropertyTests.cs";
 
     [Fact]
     public void AedsRoundTripProperty_PreservesPayloadAndFrameType()
@@ -18,10 +18,13 @@ public sealed class BackendPropertyTests
                 frameType != AedsFrameType.Unknown
                 && !frameType.ToString().StartsWith("Retired", StringComparison.Ordinal))
             .ToArray();
+        int seed = ReplaySeed(
+            $"xunit:{Source}#AedsRoundTripProperty_PreservesPayloadAndFrameType",
+            "backend-aeds-roundtrip-payloads");
 
         foreach (AedsFrameType frameType in frameTypes)
         {
-            foreach (byte[] payload in GeneratePayloads((int)frameType + Seed))
+            foreach (byte[] payload in GeneratePayloads(unchecked((int)frameType + seed)))
             {
                 byte[] frame = encoder.Encode(frameType, payload);
                 var decoded = encoder.TryDecode(frame);
@@ -38,7 +41,10 @@ public sealed class BackendPropertyTests
     public void AedsTruncationProperty_ReturnsProtocolFailureInsteadOfThrowing()
     {
         var encoder = new AedsEncoder();
-        byte[] payload = GeneratePayloads(Seed).Last();
+        int seed = ReplaySeed(
+            $"xunit:{Source}#AedsTruncationProperty_ReturnsProtocolFailureInsteadOfThrowing",
+            "backend-aeds-truncation-payloads");
+        byte[] payload = GeneratePayloads(seed).Last();
         byte[] frame = encoder.Encode(AedsFrameType.ArticleDetail, payload);
 
         for (int length = 0; length < frame.Length; length++)
@@ -54,7 +60,10 @@ public sealed class BackendPropertyTests
     public void AedsBitFlipProperty_DetectsPayloadCorruption()
     {
         var encoder = new AedsEncoder();
-        byte[] frame = encoder.Encode(AedsFrameType.ApiError, GeneratePayloads(Seed + 1).Last());
+        int seed = ReplaySeed(
+            $"xunit:{Source}#AedsBitFlipProperty_DetectsPayloadCorruption",
+            "backend-aeds-bitflip-payloads");
+        byte[] frame = encoder.Encode(AedsFrameType.ApiError, GeneratePayloads(seed).Last());
 
         for (int offset = AedsFrameHeader.Size; offset < frame.Length; offset += 3)
         {
@@ -130,6 +139,30 @@ public sealed class BackendPropertyTests
             random.NextBytes(payload);
             yield return payload;
         }
+    }
+
+    private static int ReplaySeed(string canonicalTestId, string streamId)
+    {
+        string document = Environment.GetEnvironmentVariable("FSUSBLOG_RANDOM_STREAMS_JSON")
+            ?? throw new InvalidOperationException(
+                "backend property correctness requires sealed FSUSBLOG_RANDOM_STREAMS_JSON");
+        using var streams = System.Text.Json.JsonDocument.Parse(document);
+        string key = $"{canonicalTestId}\0{streamId}";
+        if (!streams.RootElement.TryGetProperty(key, out var value))
+        {
+            throw new InvalidOperationException($"backend property replay stream is missing: {streamId}");
+        }
+        string seed = value.GetString() ?? string.Empty;
+        if (!seed.StartsWith("seed256:", StringComparison.Ordinal)
+            || seed.Length != "seed256:".Length + 64)
+        {
+            throw new InvalidOperationException($"backend property replay stream is invalid: {streamId}");
+        }
+        uint value32 = uint.Parse(
+            seed.AsSpan("seed256:".Length, 8),
+            System.Globalization.NumberStyles.HexNumber,
+            System.Globalization.CultureInfo.InvariantCulture);
+        return unchecked((int)value32);
     }
 
     private static int[] ExpandUploadedRanges(IEnumerable<(int Start, int End)> ranges, int partCount)

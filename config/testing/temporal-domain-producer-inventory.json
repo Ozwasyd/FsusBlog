@@ -8,55 +8,206 @@
             "shapeId": "auth-security-messaging-account-lifecycle",
             "implementations": [
                 "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs",
+                "src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs",
                 "src/backend/Services/Fixtures/AuthFixtureSeeder.cs",
+                "tests/frontend/support/session-fixtures.mjs",
                 "tools/test-fixtures/producers/auth-session-producer.mjs"
             ],
             "fieldMappings": [
-                { "field": "jwt.auth-time", "roleId": "session.auth-time", "consumer": "jwt-validation" },
-                { "field": "jwt.iat", "roleId": "session.authenticated", "consumer": "jwt-validation" },
-                { "field": "jwt.nbf", "roleId": "session.authenticated", "consumer": "jwt-validation" },
-                { "field": "jwt.exp", "roleId": "session.access-token-expiry", "consumer": "jwt-validation" },
-                { "field": "sys-user.createtime", "roleId": "session.created", "consumer": "postgres-auth" },
-                { "field": "sys-user.privacy-initialized-at", "roleId": "session.created", "consumer": "postgres-auth" },
-                { "field": "sys-user-session.createdat", "roleId": "session.created", "consumer": "postgres-auth" },
-                { "field": "sys-user-session.authenticated-at-utc", "roleId": "session.authenticated", "consumer": "session-validation" },
-                { "field": "sys-user-session.lastseenat", "roleId": "session.last-seen", "consumer": "session-validation" },
-                { "field": "sys-user-session.idleexpiresat", "roleId": "session.idle-expiry", "consumer": "session-validation" },
-                { "field": "sys-user-session.persistent-idleexpiresat", "roleId": "session.persistent-idle-expiry", "consumer": "session-validation" },
-                { "field": "sys-user-session.absoluteexpiresat", "roleId": "session.absolute-expiry", "consumer": "session-validation" },
-                { "field": "sys-user-session.refresh-rotated-at-utc", "roleId": "session.refresh-issued", "consumer": "refresh-validation" },
-                { "field": "sys-user-session.revokedat", "roleId": "session.revoked", "consumer": "revocation-validation" },
-                { "field": "admin-session.createdatutc", "roleId": "session.created", "consumer": "admin-session-validation" },
-                { "field": "admin-session.lastseenatutc", "roleId": "session.last-seen", "consumer": "admin-session-validation" },
-                { "field": "admin-session.standard-idleexpiresatutc", "roleId": "session.admin-standard-idle-expiry", "consumer": "admin-session-validation" },
-                { "field": "admin-session.standard-absoluteexpiresatutc", "roleId": "session.admin-standard-absolute-expiry", "consumer": "admin-session-validation" },
-                { "field": "admin-session.persistent-idleexpiresatutc", "roleId": "session.admin-persistent-idle-expiry", "consumer": "admin-session-validation" },
-                { "field": "admin-session.persistent-absoluteexpiresatutc", "roleId": "session.admin-persistent-absolute-expiry", "consumer": "admin-session-validation" },
-                { "field": "mfa.challenge-expiry", "roleId": "mfa.challenge-expiry", "consumer": "mfa-validation" },
-                { "field": "mfa.proof-expiry", "roleId": "mfa.proof-expiry", "consumer": "mfa-validation" },
-                { "field": "webauthn.challenge-expiry", "roleId": "webauthn.challenge-expiry", "consumer": "webauthn-validation" },
-                { "field": "recovery.enrolled", "roleId": "recovery.enrolled", "consumer": "recovery-validation" }
+                {
+                    "field": "jwt.auth-time",
+                    "roleId": "session.auth-time",
+                    "consumer": "jwt-validation"
+                },
+                {
+                    "field": "jwt.iat",
+                    "roleId": "session.authenticated",
+                    "consumer": "jwt-validation"
+                },
+                {
+                    "field": "jwt.nbf",
+                    "roleId": "session.authenticated",
+                    "consumer": "jwt-validation"
+                },
+                {
+                    "field": "jwt.exp",
+                    "roleId": "session.access-token-expiry",
+                    "consumer": "jwt-validation"
+                },
+                {
+                    "field": "sys-user.createtime",
+                    "roleId": "session.created",
+                    "consumer": "postgres-auth"
+                },
+                {
+                    "field": "sys-user.privacy-initialized-at",
+                    "roleId": "session.created",
+                    "consumer": "postgres-auth"
+                },
+                {
+                    "field": "sys-user-session.createdat",
+                    "roleId": "session.created",
+                    "consumer": "postgres-auth"
+                },
+                {
+                    "field": "sys-user-session.authenticated-at-utc",
+                    "roleId": "session.authenticated",
+                    "consumer": "session-validation"
+                },
+                {
+                    "field": "sys-user-session.lastseenat",
+                    "roleId": "session.last-seen",
+                    "consumer": "session-validation"
+                },
+                {
+                    "field": "sys-user-session.standard-idleexpiresat",
+                    "roleId": "session.idle-expiry",
+                    "consumer": "session-validation"
+                },
+                {
+                    "field": "sys-user-session.standard-absoluteexpiresat",
+                    "roleId": "session.absolute-expiry",
+                    "consumer": "session-validation"
+                },
+                {
+                    "field": "sys-user-session.remember-me-idleexpiresat",
+                    "roleId": "session.persistent-idle-expiry",
+                    "consumer": "session-validation"
+                },
+                {
+                    "field": "sys-user-session.remember-me-absoluteexpiresat",
+                    "roleId": "session.persistent-absolute-expiry",
+                    "consumer": "session-validation"
+                },
+                {
+                    "field": "sys-user-session.refresh-rotated-at-utc",
+                    "roleId": "session.refresh-issued",
+                    "consumer": "refresh-validation"
+                },
+                {
+                    "field": "sys-user-session.revokedat",
+                    "roleId": "session.revoked",
+                    "consumer": "revocation-validation"
+                },
+                {
+                    "field": "admin-session.createdatutc",
+                    "roleId": "session.created",
+                    "consumer": "admin-session-validation"
+                },
+                {
+                    "field": "admin-session.lastseenatutc",
+                    "roleId": "session.last-seen",
+                    "consumer": "admin-session-validation"
+                },
+                {
+                    "field": "admin-session.standard-idleexpiresatutc",
+                    "roleId": "session.admin-standard-idle-expiry",
+                    "consumer": "admin-session-validation"
+                },
+                {
+                    "field": "admin-session.standard-absoluteexpiresatutc",
+                    "roleId": "session.admin-standard-absolute-expiry",
+                    "consumer": "admin-session-validation"
+                },
+                {
+                    "field": "admin-session.persistent-idleexpiresatutc",
+                    "roleId": "session.admin-persistent-idle-expiry",
+                    "consumer": "admin-session-validation"
+                },
+                {
+                    "field": "admin-session.persistent-absoluteexpiresatutc",
+                    "roleId": "session.admin-persistent-absolute-expiry",
+                    "consumer": "admin-session-validation"
+                },
+                {
+                    "field": "mfa.challenge-expiry",
+                    "roleId": "mfa.challenge-expiry",
+                    "consumer": "mfa-validation"
+                },
+                {
+                    "field": "mfa.proof-expiry",
+                    "roleId": "mfa.proof-expiry",
+                    "consumer": "mfa-validation"
+                },
+                {
+                    "field": "webauthn.challenge-expiry",
+                    "roleId": "webauthn.challenge-expiry",
+                    "consumer": "webauthn-validation"
+                },
+                {
+                    "field": "recovery.enrolled",
+                    "roleId": "recovery.enrolled",
+                    "consumer": "recovery-validation"
+                }
             ]
         },
         {
             "producerId": "security-state",
             "shapeId": "auth-security-messaging-account-lifecycle",
             "implementations": [
-                "tools/test-fixtures/producers/security-fixture-producer.mjs"
+                "tests/frontend/support/session-fixtures.mjs"
             ],
             "fieldMappings": [
-                { "field": "risk.occurred-at", "roleId": "security.risk-occurred", "consumer": "risk-policy" },
-                { "field": "risk.expires-at", "roleId": "security.risk-expiry", "consumer": "risk-policy" },
-                { "field": "pow.window-start", "roleId": "security.pow-window-start", "consumer": "pow-policy" },
-                { "field": "pow.window-end", "roleId": "security.pow-window-end", "consumer": "pow-policy" },
-                { "field": "rate-limit.window-start", "roleId": "security.rate-limit-window-start", "consumer": "rate-limit-policy" },
-                { "field": "rate-limit.window-end", "roleId": "security.rate-limit-window-end", "consumer": "rate-limit-policy" },
-                { "field": "ban.started-at", "roleId": "security.ban-start", "consumer": "ban-policy" },
-                { "field": "ban.ends-at", "roleId": "security.ban-end", "consumer": "ban-policy" },
-                { "field": "credential.issued-at", "roleId": "security.credential-issued", "consumer": "credential-policy" },
-                { "field": "credential.expires-at", "roleId": "security.credential-expiry", "consumer": "credential-policy" },
-                { "field": "credential.revoked-at", "roleId": "security.credential-revoked", "consumer": "credential-policy" },
-                { "field": "nullifier.issued-at", "roleId": "security.nullifier-issued", "consumer": "nullifier-policy" }
+                {
+                    "field": "risk.occurred-at",
+                    "roleId": "security.risk-occurred",
+                    "consumer": "risk-policy"
+                },
+                {
+                    "field": "risk.expires-at",
+                    "roleId": "security.risk-expiry",
+                    "consumer": "risk-policy"
+                },
+                {
+                    "field": "pow.window-start",
+                    "roleId": "security.pow-window-start",
+                    "consumer": "pow-policy"
+                },
+                {
+                    "field": "pow.window-end",
+                    "roleId": "security.pow-window-end",
+                    "consumer": "pow-policy"
+                },
+                {
+                    "field": "rate-limit.window-start",
+                    "roleId": "security.rate-limit-window-start",
+                    "consumer": "rate-limit-policy"
+                },
+                {
+                    "field": "rate-limit.window-end",
+                    "roleId": "security.rate-limit-window-end",
+                    "consumer": "rate-limit-policy"
+                },
+                {
+                    "field": "ban.started-at",
+                    "roleId": "security.ban-start",
+                    "consumer": "ban-policy"
+                },
+                {
+                    "field": "ban.ends-at",
+                    "roleId": "security.ban-end",
+                    "consumer": "ban-policy"
+                },
+                {
+                    "field": "credential.issued-at",
+                    "roleId": "security.credential-issued",
+                    "consumer": "credential-policy"
+                },
+                {
+                    "field": "credential.expires-at",
+                    "roleId": "security.credential-expiry",
+                    "consumer": "credential-policy"
+                },
+                {
+                    "field": "credential.revoked-at",
+                    "roleId": "security.credential-revoked",
+                    "consumer": "credential-policy"
+                },
+                {
+                    "field": "nullifier.issued-at",
+                    "roleId": "security.nullifier-issued",
+                    "consumer": "nullifier-policy"
+                }
             ]
         },
         {
@@ -66,27 +217,111 @@
                 "tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs"
             ],
             "fieldMappings": [
-                { "field": "conversation.createdat", "roleId": "message.created", "consumer": "message-query" },
-                { "field": "conversation.updatedat", "roleId": "message.reply-created", "consumer": "message-query" },
-                { "field": "conversation.lastmessageat", "roleId": "message.reply-created", "consumer": "message-query" },
-                { "field": "message.createdat", "roleId": "message.created", "consumer": "message-query" },
-                { "field": "message.reply-createdat", "roleId": "message.reply-created", "consumer": "message-query" },
-                { "field": "participant.lastreadat", "roleId": "message.read", "consumer": "read-state" },
-                { "field": "participant.updatedat", "roleId": "message.read", "consumer": "read-state" },
-                { "field": "message.deletedat", "roleId": "message.deleted", "consumer": "message-query" },
-                { "field": "thread.order", "roleId": "message.thread-order", "consumer": "message-query" },
-                { "field": "outbox.createdat", "roleId": "outbox.event-created", "consumer": "outbox-delivery" },
-                { "field": "notification.event-time", "roleId": "notification.event", "consumer": "notification-stream" },
-                { "field": "notification.ack-time", "roleId": "notification.ack", "consumer": "notification-stream" },
-                { "field": "notification.sequence-time", "roleId": "notification.stream-sequence", "consumer": "notification-stream" },
-                { "field": "notification.resume-time", "roleId": "notification.resume", "consumer": "notification-stream" },
-                { "field": "notification.backlog-time", "roleId": "notification.backlog", "consumer": "notification-stream" },
-                { "field": "profile.createdat", "roleId": "profile.created", "consumer": "account-profile" },
-                { "field": "profile.updatedat", "roleId": "profile.updated", "consumer": "account-profile" },
-                { "field": "preference.revision-time", "roleId": "preference.revision", "consumer": "preference-sync" },
-                { "field": "preference.conflict-time", "roleId": "preference.conflict", "consumer": "preference-sync" },
-                { "field": "preference.device-sync-time", "roleId": "preference.device-sync", "consumer": "preference-sync" },
-                { "field": "audit.occurred-at", "roleId": "audit.occurred", "consumer": "audit-projection" }
+                {
+                    "field": "conversation.createdat",
+                    "roleId": "message.created",
+                    "consumer": "message-query"
+                },
+                {
+                    "field": "conversation.updatedat",
+                    "roleId": "message.reply-created",
+                    "consumer": "message-query"
+                },
+                {
+                    "field": "conversation.lastmessageat",
+                    "roleId": "message.reply-created",
+                    "consumer": "message-query"
+                },
+                {
+                    "field": "message.createdat",
+                    "roleId": "message.created",
+                    "consumer": "message-query"
+                },
+                {
+                    "field": "message.reply-createdat",
+                    "roleId": "message.reply-created",
+                    "consumer": "message-query"
+                },
+                {
+                    "field": "participant.lastreadat",
+                    "roleId": "message.read",
+                    "consumer": "read-state"
+                },
+                {
+                    "field": "participant.updatedat",
+                    "roleId": "message.read",
+                    "consumer": "read-state"
+                },
+                {
+                    "field": "message.deletedat",
+                    "roleId": "message.deleted",
+                    "consumer": "message-query"
+                },
+                {
+                    "field": "thread.order",
+                    "roleId": "message.thread-order",
+                    "consumer": "message-query"
+                },
+                {
+                    "field": "outbox.createdat",
+                    "roleId": "outbox.event-created",
+                    "consumer": "outbox-delivery"
+                },
+                {
+                    "field": "notification.event-time",
+                    "roleId": "notification.event",
+                    "consumer": "notification-stream"
+                },
+                {
+                    "field": "notification.ack-time",
+                    "roleId": "notification.ack",
+                    "consumer": "notification-stream"
+                },
+                {
+                    "field": "notification.sequence-time",
+                    "roleId": "notification.stream-sequence",
+                    "consumer": "notification-stream"
+                },
+                {
+                    "field": "notification.resume-time",
+                    "roleId": "notification.resume",
+                    "consumer": "notification-stream"
+                },
+                {
+                    "field": "notification.backlog-time",
+                    "roleId": "notification.backlog",
+                    "consumer": "notification-stream"
+                },
+                {
+                    "field": "profile.createdat",
+                    "roleId": "profile.created",
+                    "consumer": "account-profile"
+                },
+                {
+                    "field": "profile.updatedat",
+                    "roleId": "profile.updated",
+                    "consumer": "account-profile"
+                },
+                {
+                    "field": "preference.revision-time",
+                    "roleId": "preference.revision",
+                    "consumer": "preference-sync"
+                },
+                {
+                    "field": "preference.conflict-time",
+                    "roleId": "preference.conflict",
+                    "consumer": "preference-sync"
+                },
+                {
+                    "field": "preference.device-sync-time",
+                    "roleId": "preference.device-sync",
+                    "consumer": "preference-sync"
+                },
+                {
+                    "field": "audit.occurred-at",
+                    "roleId": "audit.occurred",
+                    "consumer": "audit-projection"
+                }
             ]
         }
     ]

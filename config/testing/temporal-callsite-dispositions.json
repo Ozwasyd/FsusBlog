@@ -761,19 +761,6 @@
             "semanticEffect": "excluded"
         },
         {
-            "callSiteId": "session-fixtures.auth-business-epoch-normalization",
-            "path": "tests/frontend/support/session-fixtures.mjs",
-            "symbol": "resolveBusinessEpochUtc",
-            "sourceAnchor": "    return new Date(businessMs).toISOString().replace(/\\.(\\d{3})\\d*Z$/u, '.$1Z');",
-            "api": "new Date(value)",
-            "clockKind": "business-wall",
-            "authorityKind": "canonical-business-epoch",
-            "disposition": "business-wall",
-            "ingress": "canonical-injected",
-            "owner": "auth-session",
-            "semanticEffect": "included"
-        },
-        {
             "callSiteId": "session-fixtures.auth-manifest.generated-at",
             "path": "tests/frontend/support/session-fixtures.mjs",
             "symbol": "persistAuthFixtureManifest",

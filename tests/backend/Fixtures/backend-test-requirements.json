@@ -141,6 +141,7 @@
       "risk": "critical",
       "requirements": [
         "BACKEND-TRACEABILITY",
+        "BACKEND-SEARCH-INDEX-UTF8-SCALAR-OWNER",
         "BACKEND-TEST-IMPACT",
         "BACKEND-FLAKY-GOVERNANCE",
         "BACKEND-TIME-BUDGETS",
@@ -156,6 +157,10 @@
       "evidencePaths": [
         "tools/check-backend-test-governance.mjs",
         "tools/check-test-matrix.mjs",
+        "src/backend/Services/SearchIndexService.Dictionary.cs",
+        "src/backend/Properties/AssemblyInfo.cs",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "tests/backend/Unit/SearchIndexServiceTests.cs",
         "tests/backend/Unit/CoverageScriptContractTests.cs",
         "tests/backend/Unit/TestInfrastructure/BackendTestPathsTests.cs",
         "tests/tools/backend-trx-contract.test.mjs",
@@ -1014,6 +1019,19 @@
       "evidencePaths": [
         "tests/backend/Fixtures/aeds-golden-catalog.json",
         "tests/backend/Unit/BackendGoldenCatalogTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-SEARCH-INDEX-UTF8-SCALAR-OWNER",
+      "risk": "high",
+      "coverage": "SearchIndexService.GetUtf8ScalarLength is the single production internal owner consumed by tokenizer, dictionary compiler and runtime reader; SearchIndexServiceTests.GetUtf8ScalarLength_ReturnsCorrectRuneLength directly asserts all 10 leading-byte boundaries and a compiled read-path test covers valid 2/3/4-byte dictionary terms",
+      "evidencePaths": [
+        "src/backend/Services/SearchIndexService.Dictionary.cs",
+        "src/backend/Properties/AssemblyInfo.cs",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "tests/backend/Unit/SearchIndexServiceTests.cs",
+        "tools/test/search-index-utf8-scalar-governance.mjs",
+        "tests/test-retention-replacements.json"
       ]
     },
     {

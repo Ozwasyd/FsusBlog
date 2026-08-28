@@ -94,6 +94,7 @@
     "visualInputs": {
         "capture": [
             "config/docs/public-preview-screenshots.json",
+            "src/frontend/playwright.config.ts",
             "tests/browser-contract/public-preview-gallery.mjs",
             "tests/frontend/e2e/manual/manual-layout-screenshots.spec.ts",
             "tests/frontend/support/playwright",

@@ -117,6 +117,24 @@
             "pathType": "file"
         },
         {
+            "id": "playwright-replay-decision",
+            "owner": "test-execution-replay-governance",
+            "canonicalPath": "config/testing/playwright-replay-decision.json",
+            "pathType": "file"
+        },
+        {
+            "id": "random-stream-consumer-inventory",
+            "owner": "test-execution-replay-governance",
+            "canonicalPath": "config/testing/random-stream-consumers.json",
+            "pathType": "file"
+        },
+        {
+            "id": "replay-qualification-producer-inventory",
+            "owner": "test-execution-replay-governance",
+            "canonicalPath": "config/testing/replay-qualification-producers.json",
+            "pathType": "file"
+        },
+        {
             "id": "fsusui-test-baseline",
             "owner": "frontend-test-governance",
             "canonicalPath": "config/testing/fsusui-baseline.json",
@@ -228,6 +246,169 @@
             ],
             "validationCommand": "node --test tests/tools/mutation-envelope-catalog.test.mjs",
             "changePolicy": "manual-update-with-mutation-envelope-catalog-validation",
+            "status": "manual"
+        },
+        {
+            "id": "test-execution-envelope-policy-schema",
+            "owner": "test-execution-envelope-governance",
+            "canonicalPath": "config/schemas/test-execution-envelope-policy.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "playwright-browser-identity-policy-schema",
+            "owner": "test-execution-envelope-governance",
+            "canonicalPath": "config/schemas/playwright-browser-identity-policy.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/test/playwright-browser-identity.mjs",
+                "tests/tools/playwright-browser-identity.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/playwright-browser-identity.test.mjs",
+            "changePolicy": "manual-update-with-managed-browser-identity-validation",
+            "status": "manual"
+        },
+        {
+            "id": "playwright-browser-identity-policy",
+            "owner": "test-execution-envelope-governance",
+            "canonicalPath": "config/testing/playwright-browser-identity-policy.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/test/playwright-browser-identity.mjs",
+                "tests/browser-contract/run.mjs",
+                "tests/tools/playwright-browser-identity.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/playwright-browser-identity.test.mjs",
+            "changePolicy": "manual-update-with-managed-browser-identity-validation",
+            "status": "manual"
+        },
+        {
+            "id": "test-execution-envelope-applicability-schema",
+            "owner": "test-execution-envelope-governance",
+            "canonicalPath": "config/schemas/test-execution-envelope-applicability.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "test-execution-envelope-receipt-schema",
+            "owner": "test-execution-envelope-governance",
+            "canonicalPath": "config/schemas/test-execution-envelope-receipt.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/test/execution-envelope-receipt.mjs",
+                "tools/test/verify-execution-envelope.mjs",
+                "tests/tools/execution-envelope-receipt.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/execution-envelope-receipt.test.mjs",
+            "changePolicy": "manual-update-with-independent-receipt-verification",
+            "status": "manual"
+        },
+        {
+            "id": "test-execution-network-policy-schema",
+            "owner": "test-execution-envelope-governance",
+            "canonicalPath": "config/schemas/test-execution-network-policy.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "test-execution-service-catalog-schema",
+            "owner": "test-execution-envelope-governance",
+            "canonicalPath": "config/schemas/test-execution-service-catalog.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "test-execution-envelope-policy",
+            "owner": "test-execution-envelope-governance",
+            "canonicalPath": "config/testing/test-execution-envelope-policy.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/test/run-deterministic-command.mjs",
+                "tools/test-matrix/execution-envelope-policy.mjs",
+                "tools/testing/generate-test-execution-envelope-applicability.mjs",
+                "tests/tools/execution-envelope-policy.test.mjs"
+            ],
+            "validationCommand": "node tools/testing/generate-test-execution-envelope-applicability.mjs --check && node --test tests/tools/execution-envelope-policy.test.mjs",
+            "changePolicy": "regenerate-from-tests-matrix-and-producer-contract",
+            "status": "generated"
+        },
+        {
+            "id": "test-execution-envelope-applicability-generator",
+            "owner": "test-execution-envelope-governance",
+            "canonicalPath": "tools/testing/generate-test-execution-envelope-applicability.mjs",
+            "pathType": "file",
+            "consumers": [
+                "config/testing/test-execution-envelope-applicability.json",
+                "tests/matrix.yml",
+                "config/testing/producer-execution-class-contract.json"
+            ],
+            "validationCommand": "node tools/testing/generate-test-execution-envelope-applicability.mjs --check",
+            "changePolicy": "manual-update-with-generated-catalog-validation",
+            "status": "manual"
+        },
+        {
+            "id": "test-execution-envelope-applicability",
+            "owner": "test-execution-envelope-governance",
+            "canonicalPath": "config/testing/test-execution-envelope-applicability.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/test/run-deterministic-command.mjs",
+                "tools/test-matrix/execution-envelope-policy.mjs",
+                "tests/tools/execution-envelope-policy.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/execution-envelope-policy.test.mjs",
+            "changePolicy": "manual-update-with-execution-envelope-contract-validation",
+            "status": "manual"
+        },
+        {
+            "id": "test-execution-network-policy",
+            "owner": "test-execution-envelope-governance",
+            "canonicalPath": "config/testing/test-execution-network-policy.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/test/execution-envelope-network.mjs",
+                "tools/test/run-deterministic-command.mjs",
+                "tests/tools/execution-envelope-network.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/execution-envelope-network.test.mjs tests/tools/execution-envelope-runner-integration.test.mjs",
+            "changePolicy": "manual-update-with-execution-envelope-contract-validation",
+            "status": "manual"
+        },
+        {
+            "id": "test-execution-service-catalog",
+            "owner": "test-execution-envelope-governance",
+            "canonicalPath": "config/testing/test-execution-service-catalog.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/bootstrap-acceptance-env.sh",
+                "tools/test/execution-envelope-services.mjs",
+                "tests/tools/execution-envelope-services.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/execution-envelope-services.test.mjs",
+            "changePolicy": "manual-update-with-execution-envelope-contract-validation",
+            "status": "manual"
+        },
+        {
+            "id": "test-execution-envelope-receipt-sealer",
+            "owner": "test-execution-envelope-governance",
+            "canonicalPath": "tools/test/execution-envelope-receipt.mjs",
+            "pathType": "file",
+            "consumers": [
+                "tools/test/run-deterministic-command.mjs",
+                "tools/test/verify-execution-envelope.mjs",
+                "tests/tools/execution-envelope-receipt.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/execution-envelope-receipt.test.mjs tests/tools/execution-envelope-runner-integration.test.mjs",
+            "changePolicy": "manual-update-with-independent-receipt-verification",
+            "status": "manual"
+        },
+        {
+            "id": "test-execution-envelope-independent-verifier",
+            "owner": "test-execution-envelope-governance",
+            "canonicalPath": "tools/test/verify-execution-envelope.mjs",
+            "pathType": "file",
+            "consumers": [
+                "tests/tools/execution-envelope-receipt.test.mjs",
+                "docs/testing.md"
+            ],
+            "validationCommand": "node --test tests/tools/execution-envelope-receipt.test.mjs",
+            "changePolicy": "manual-update-with-sealer-verifier-separation",
             "status": "manual"
         },
         {
@@ -463,6 +644,30 @@
             "owner": "test-observation-ledger",
             "canonicalPath": "config/schemas/test-observation-artifact.schema.json",
             "pathType": "file"
+        },
+        {
+            "id": "test-execution-replay-plan-schema",
+            "owner": "test-replay-governance",
+            "canonicalPath": "config/schemas/test-execution-replay-plan.schema.json",
+            "pathType": "file",
+            "purpose": "Closed framework-neutral replay plan contract for canonical test identity, entropy streams, order, shards, workers and command binding.",
+            "consumers": [
+                "tools/test/execution-replay-contract.mjs",
+                "tests/tools/execution-replay-contract.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/execution-replay-contract.test.mjs"
+        },
+        {
+            "id": "test-execution-replay-receipt-schema",
+            "owner": "test-replay-governance",
+            "canonicalPath": "config/schemas/test-execution-replay-receipt.schema.json",
+            "pathType": "file",
+            "purpose": "Closed actual replay receipt contract for observed test order, shard and worker membership, entropy streams, admission sequence and process outcome.",
+            "consumers": [
+                "tools/test/execution-replay-contract.mjs",
+                "tests/tools/execution-replay-contract.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/execution-replay-contract.test.mjs"
         },
         {
             "id": "behavior-test-evidence-schema",

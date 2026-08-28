@@ -411,12 +411,18 @@ ContainerIp() {
 }
 
 RestorePostgres() {
+    local postgresImage
+    postgresImage="$(node "$ROOT_DIR/tools/test/execution-envelope-services.mjs" --image-reference postgres)"
+    docker image inspect "$postgresImage" >/dev/null 2>&1 || {
+        AddBlocker "postgres-pinned-image-missing"
+        return
+    }
     docker run -d \
         --name "$postgres_container" \
         -e POSTGRES_USER=fsusblog \
         -e POSTGRES_PASSWORD=fsusblog_dev \
         -e POSTGRES_DB=fsusblog \
-        postgres:16-alpine >/dev/null
+        "$postgresImage" >/dev/null
 
     WaitForPostgres || {
         AddBlocker "postgres-restore-container-not-ready"
@@ -440,6 +446,12 @@ RestorePostgres() {
 
 RestoreRedis() {
     local redisData="$WORK_DIR/redis-data"
+    local redisImage
+    redisImage="$(node "$ROOT_DIR/tools/test/execution-envelope-services.mjs" --image-reference redis)"
+    docker image inspect "$redisImage" >/dev/null 2>&1 || {
+        AddBlocker "redis-pinned-image-missing"
+        return
+    }
     mkdir -p "$redisData"
 
     if [[ -d "$REDIS_BACKUP" ]]; then
@@ -452,7 +464,7 @@ RestoreRedis() {
     docker run -d \
         --name "$redis_container" \
         -v "$redisData:/data" \
-        redis:7-alpine redis-server --save "" --appendonly no >/dev/null
+        "$redisImage" redis-server --save "" --appendonly no >/dev/null
 
     WaitForRedis || {
         AddBlocker "redis-restore-container-not-ready"
