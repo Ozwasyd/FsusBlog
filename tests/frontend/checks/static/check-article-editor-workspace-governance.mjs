@@ -39,6 +39,14 @@ const openArticleRegistryTestPath = path.join(
     repoRoot,
     'tests/frontend/unit/authoring/openArticleDocumentRegistry.test.ts'
 );
+const authoringSessionHostPath = path.join(
+    repoRoot,
+    'src/frontend/src/services/authoring/authoringSessionHost.ts'
+);
+const authoringSessionHostTestPath = path.join(
+    repoRoot,
+    'tests/frontend/unit/authoring/authoringSessionHost.test.ts'
+);
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json');
 
 function fail(file, line, message)
@@ -72,6 +80,8 @@ const productionFixtureContract = JSON.parse(read(productionFixtureContractPath)
 const productionFixtureSpec = read(productionFixtureSpecPath);
 const openArticleRegistry = read(openArticleRegistryPath);
 const openArticleRegistryTest = read(openArticleRegistryTestPath);
+const authoringSessionHost = read(authoringSessionHostPath);
+const authoringSessionHostTest = read(authoringSessionHostTestPath);
 
 for (const [file, source, tokens] of [
     [writePath, write, [
@@ -292,6 +302,100 @@ for (const file of registryOwnerFiles)
             fail(file, 1, `Open article registry has a forbidden second authority: ${pattern}`);
         }
     }
+}
+
+for (const token of [
+    "authoringSessionHostSchema = 'fsusblog.authoring-session-host.v1'",
+    "authoringSessionSnapshotSchema = 'fsusblog.authoring-session-snapshot-refs.v1'",
+    "authoringSessionResourcePolicySchema = 'fsusblog.authoring-session-resource-policy.v1'",
+    "| 'evicted-with-recoverable-state'",
+    "priorityFacts: readonly ['active', 'recovery', 'conflict', 'pending-attachment', 'saving', 'dirty', 'nearby', 'recently-used']",
+    "prohibitedFacts: readonly ['title', 'source-size', 'array-position', 'route']",
+    'selectionDirection:',
+    'historyRef:',
+    'activeNodeRef:',
+    'scrollAnchorRef:',
+    'outlineRef:',
+    'searchRef:',
+    'attachmentStateRef:',
+    'lastValidRenderRef:',
+    'draftStateRef:',
+    'crashJournalRef:',
+    'cancelTasks(hosted)',
+    'verifyAuthoringSessionHostState',
+    'sessionsByRef = new Map<string, HostedSession>()'
+])
+{
+    if (!authoringSessionHost.includes(token))
+    {
+        fail(authoringSessionHostPath, 1, `Authoring session host contract is missing ${token}`);
+    }
+}
+
+for (const pattern of [
+    /articleToSession/iu,
+    /:key\s*=\s*["']?articleId/iu,
+    /\buseRoute\s*\(/u,
+    /\broute\.(?:params|query|path|fullPath)\b/u,
+    /\b(?:localStorage|sessionStorage)\b/u,
+    /\b(?:markdownBody|undoStack|parserState|projectionState)\b/u,
+    /\ballSessionsActive\b/u,
+    /one\s+Pinia\s+store\s+per\s+article/iu
+])
+{
+    if (pattern.test(authoringSessionHost))
+    {
+        fail(
+            authoringSessionHostPath,
+            1,
+            `Authoring session host crosses its session-ref/resource boundary: ${pattern}`
+        );
+    }
+}
+
+for (const token of [
+    'for (const count of [0, 1, 20, 100])',
+    "documentContext: { sourceRevision: 'source-revision:shared' }",
+    "expect(suspended?.lifecycleState).toBe('suspended')",
+    "expect(receipt.restoreValidation.status).toBe('validated')",
+    "['dirty', 'saving', 'conflict', 'recovery', 'pendingAttachments']",
+    'expect(taskAbort.signal.aborted).toBe(true)',
+    "['permission'",
+    "['delete'",
+    "'draft replacement'",
+    "['source revision'",
+    "expect(receipt.action).toBe('group-ownership')",
+    "':key=articleId'",
+    "'markdownBody'",
+    "'undoStack'",
+    "'allSessionsActive'",
+    "'route-local-fallback'",
+    "'one Pinia store per article'",
+    'snapshotTamper',
+    'receiptTamper',
+    'resourceTamper'
+])
+{
+    if (!authoringSessionHostTest.includes(token))
+    {
+        fail(authoringSessionHostTestPath, 1, `Authoring session host verifier is missing ${token}`);
+    }
+}
+
+const sessionHostClassOwners = registryOwnerFiles.filter(file => (
+    file.startsWith(path.join(repoRoot, 'src'))
+    && read(file).includes('class AuthoringSessionHost')
+));
+if (
+    sessionHostClassOwners.length !== 1
+    || path.resolve(sessionHostClassOwners[0] ?? '') !== path.resolve(authoringSessionHostPath)
+)
+{
+    fail(
+        authoringSessionHostPath,
+        1,
+        `AuthoringSessionHost must have exactly one production owner; found ${sessionHostClassOwners.map(rel).join(', ')}`
+    );
 }
 
 for (const token of [

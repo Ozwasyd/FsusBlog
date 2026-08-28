@@ -75,6 +75,7 @@ export function useAuthLogin() {
   const requiresMfa = ref(false)
   const rememberMe = ref(true)
   let verifySubmitting = false
+  let active = true
 
   const isProcessing = computed(() => loading.value)
 
@@ -97,12 +98,17 @@ export function useAuthLogin() {
     verifySubmitting = true
     try {
       const result = await verifyTask.run(
-        async () =>
-          await verifyMfaChallenge({
+        async (signal) => {
+          const response = await verifyMfaChallenge({
             challengeToken: mfaChallengeToken.value,
             code: mfaMode.value === 'totp' ? mfaCode.value.trim() : undefined,
             recoveryCode: mfaMode.value === 'recovery' ? mfaRecoveryCode.value.trim() : undefined
-          }),
+          }, { signal })
+          if (signal.aborted) {
+            throw new DOMException('The operation was aborted.', 'AbortError')
+          }
+          return response
+        },
         {
           fallbackMessage: '验证码无效，请重试',
           onError: (error) => {
@@ -110,6 +116,10 @@ export function useAuthLogin() {
           }
         }
       )
+
+      if (!active) {
+        return
+      }
 
       if (!result) {
         errorMessage.value = verifyTask.errorMessage.value || '验证码无效，请重试'
@@ -125,8 +135,15 @@ export function useAuthLogin() {
         return
       }
 
+      if (!active) {
+        return
+      }
+
       setRiskPhase('normal')
       await authBroadcastRuntime.broadcastLogin()
+      if (!active) {
+        return
+      }
       requiresMfa.value = false
       mfaChallengeToken.value = ''
       mfaMode.value = 'totp'
@@ -147,6 +164,7 @@ export function useAuthLogin() {
   }
 
   onUnmounted(() => {
+    active = false
     verifyTask.cancel()
   })
 
@@ -158,6 +176,7 @@ export function useAuthLogin() {
     isProcessing,
     handleMfaVerify,
     requiresMfa,
+    mfaChallengeToken,
     mfaMode,
     mfaCode,
     mfaRecoveryCode

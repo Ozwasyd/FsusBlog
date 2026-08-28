@@ -265,6 +265,14 @@ When `FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1` is enabled, application code must not 
 
 `20260826-post-content-asset-id-cutover` 是 exclusive、transactional 的一次性 Contract migration。它在同一事务中建立 `content_asset`、`content_asset_reference` 与 `content_asset_cleanup_queue`，然后从 current article、draft、revision、旧引用记录与 public asset root 枚举完整资产集。每个文件必须现场重算 byte length、SHA-256、MIME/extension 和图片尺寸；文件缺失、无法识别的本地 URL/媒体或 storage-key/hash 冲突都会列出定位键并回滚整个 migration。
 
+`20260828-post-authoring-canvas-document` 是 additive、transactional 的
+Post-CodeFirst Expand migration。它建立 normalized private canvas document、
+node、frame membership、edge、receipt 与 idempotency tables；closed checks、
+owner/site index、document-scoped foreign keys 和 digest constraints 与
+[authoring canvas document boundary](architecture/authoring-canvas-document-boundary.md)
+一致。该 migration 不复制 article content，不建立 article/relation/property
+foreign key，也不导入 transient graph positions。
+
 文件名为 canonical N-format UUID 时复用该 `AssetId`；为既有资产兼容也接受 canonical D-format，其余文件分配新 ID。最终引用边只从当前 source 内容重建。旧 cleanup due/retry/error 状态会迁移到 AssetId queue，但最终仍有引用的资产会取消清理并回到 `active`。验证通过后迁移删除四张 URL-identity 旧表；运行时不双写、不建 view/trigger alias，也不在新表缺行时回扫旧结构。Rollback 只能从已验证的 pre-cutover backup/WAL 恢复到隔离环境；不得在 live schema 重建 URL-identity 表。
 
 ## Read Event Retirement

@@ -45,6 +45,11 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
 {
     private const string Legacy20260517Fixture = "legacy-20260517-minimal.sql";
     private const string Legacy20260517DumpEnv = "FSUS_LEGACY_20260517_DUMP";
+    private const string Legacy20260517DumpDigestEnv = "FSUS_LEGACY_20260517_DUMP_SHA256";
+    private const string Legacy20260517DumpProducer = "legacy-20260517-real-dump";
+    private const string Legacy20260517DumpTestId =
+        "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_UpgradesLegacy20260517RealDump_WhenProvided";
+    private const string Legacy20260517DumpTestsEnv = "FSUS_ENABLE_LEGACY_DUMP_TESTS";
 
     [Fact]
     public async Task RunAsync_UpgradesVarcharContentAssetPrototypeAndBackfillsEverySource()
@@ -1830,18 +1835,41 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
     }
 
     [Fact]
+    [Trait("Fixture", "Legacy20260517RealDump")]
     public async Task RunAsync_UpgradesLegacy20260517RealDump_WhenProvided()
     {
+        if (!string.Equals(
+                Environment.GetEnvironmentVariable(Legacy20260517DumpTestsEnv),
+                "1",
+                StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"Set {Legacy20260517DumpTestsEnv}=1 through the dedicated {Legacy20260517DumpProducer} producer.");
+        }
+
         string? dumpPath = Environment.GetEnvironmentVariable(Legacy20260517DumpEnv);
         if (string.IsNullOrWhiteSpace(dumpPath))
         {
-            return;
+            throw new InvalidOperationException(
+                $"Set {Legacy20260517DumpEnv} to the decompressed 20260517 custom dump path.");
         }
 
         if (!File.Exists(dumpPath))
         {
-            throw new FileNotFoundException($"Set {Legacy20260517DumpEnv} to the decompressed 20260517 custom dump path.");
+            throw new FileNotFoundException(
+                $"Set {Legacy20260517DumpEnv} to the decompressed 20260517 custom dump path.",
+                dumpPath);
         }
+
+        string expectedDumpDigest = Environment.GetEnvironmentVariable(Legacy20260517DumpDigestEnv)
+            ?? throw new InvalidOperationException($"Set {Legacy20260517DumpDigestEnv} through the dedicated producer.");
+        string actualDumpDigest;
+        await using (FileStream dumpStream = File.OpenRead(dumpPath))
+        {
+            actualDumpDigest = Convert.ToHexString(
+                await SHA256.HashDataAsync(dumpStream)).ToLowerInvariant();
+        }
+        Assert.Equal(expectedDumpDigest, actualDumpDigest);
 
         string databaseName = await fixture.CreateDatabaseAsync();
         string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
@@ -1853,6 +1881,32 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         await RunMigrationsAsync(connectionString);
 
         await AssertLegacy20260517CommonUpgradeAsync(connectionString, legacyCounts);
+
+        string postgresServerVersion = await fixture.QueryScalarAsync<string>(
+            connectionString,
+            "SHOW server_version;");
+        var executionEvidence = new
+        {
+            schema = "fsusblog.legacy-20260517-real-dump-runtime-evidence.v1",
+            producerId = Legacy20260517DumpProducer,
+            testId = Legacy20260517DumpTestId,
+            fullyQualifiedName =
+                "FsusBlog.Server.Tests.SchemaMigrationIntegrationTests.RunAsync_UpgradesLegacy20260517RealDump_WhenProvided",
+            sourceSha = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_SOURCE_COMMIT"),
+            dumpSha256 = actualDumpDigest,
+            postgres = new
+            {
+                imageReference = Environment.GetEnvironmentVariable("FSUS_SCHEMA_MIGRATION_POSTGRES_IMAGE"),
+                imageId = Environment.GetEnvironmentVariable("FSUS_SCHEMA_MIGRATION_POSTGRES_IMAGE_ID"),
+                serverVersion = postgresServerVersion
+            },
+            restoreCompleted = true,
+            migrationExecutionCount = 2,
+            postconditionsVerified = true,
+            legacyCounts
+        };
+        Console.WriteLine(
+            $"fsusblog-legacy-real-dump-evidence {JsonSerializer.Serialize(executionEvidence)}");
     }
 
     [Theory]
