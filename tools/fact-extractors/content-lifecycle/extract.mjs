@@ -108,8 +108,8 @@ function validateCausalFact(key, fact)
   {
     failures.push(`${key} causal fact fields are not closed`)
   }
-  if (fact.factId !== expectedId || fact.schemaVersion !== 1 || fact.direction !== 'forward'
-    || fact.truthValue !== true || fact.conflictStatus !== 'consistent')
+  if (fact.factId !== expectedId || fact.schemaVersion !== 1 || fact.direction !== 'subject-to-object'
+    || fact.truthValue !== 'true' || fact.conflictStatus !== 'consistent')
   {
     failures.push(`${key} causal identity/truth/conflict fields are invalid`)
   }

@@ -100,4 +100,4 @@ claimType: binary-relation
 factPath: facts.article.delete.causal
 render: relation-subject-predicate-object
 -->
-soft delete preserves current revision publication pointer and immutable history without creating revision publication or tombstone。
+soft delete preserves current revision publication pointer and immutable history without creating revision publication or tombstone when the current non-deleted row wins the row-version guarded dedicated delete flow。

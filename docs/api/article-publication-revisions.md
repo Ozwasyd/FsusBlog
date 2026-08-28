@@ -140,7 +140,7 @@ claimType: binary-relation
 factPath: facts.article.scheduled.preDueCurrent
 render: relation-subject-predicate-object
 -->
-scheduled transition before due preserves old current publication coordinate；条件是已有 current publication 且 pending publication 尚未 due。
+scheduled transition before due preserves old current publication coordinate when an article already has a current publication and pendingPublicationAt is still in the future。
 
 <!-- fsus-doc-claim
 claimId: article-comment-lifecycle-outbox.scheduled-due
@@ -149,7 +149,7 @@ claimType: binary-relation
 factPath: facts.article.scheduled.dueTransition
 render: relation-subject-predicate-object
 -->
-scheduled due transition creates new publication coordinate and switches current pointer without creating another revision。
+scheduled due transition creates new publication coordinate and switches current pointer without creating another revision when scheduledPublishAt or pendingPublicationAt is at or before the worker current time。
 
 <!-- fsus-doc-claim
 claimId: article-comment-lifecycle-outbox.scheduled-stale
@@ -158,7 +158,7 @@ claimType: binary-relation
 factPath: facts.article.scheduled.replaceCancelStale
 render: relation-subject-predicate-object
 -->
-replacement cancellation or stale schedule does-not-switch current publication pointer before a due row is successfully claimed。
+replacement cancellation or stale schedule does-not-switch current publication pointer before a due row is successfully claimed when the due predicate no longer matches or the row loses the FOR UPDATE SKIP LOCKED claim。
 
 <!-- fsus-doc-claim
 claimId: article-comment-lifecycle-outbox.restore-causal
@@ -167,4 +167,4 @@ claimType: binary-relation
 factPath: facts.article.restore.causal
 render: relation-subject-predicate-object
 -->
-restore creates new publication coordinate without reviving the old publication or creating a new revision。
+restore creates new publication coordinate without reviving the old publication or creating a new revision when a soft-deleted article is restored from its existing current revision。

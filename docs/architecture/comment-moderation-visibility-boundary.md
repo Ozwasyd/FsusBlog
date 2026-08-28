@@ -77,7 +77,7 @@ claimType: binary-relation
 factPath: facts.comment.deletedRoot.publicDescendants
 render: relation-subject-predicate-object
 -->
-deleted root does-not-hide independently visible direct and recursive descendants while the root is a deleted placeholder；每个 descendant 仍须独立满足 Approved 与 region visibility 条件。
+deleted root does-not-hide independently visible direct and recursive descendants while the root is a deleted placeholder when each descendant remains Approved region-visible and belongs to the same published article。
 
 <!-- fsus-doc-claim
 claimId: article-comment-lifecycle-outbox.deleted-root-admin
@@ -86,4 +86,4 @@ claimType: binary-relation
 factPath: facts.comment.deletedRoot.adminDescendants
 render: relation-subject-predicate-object
 -->
-deleted root does-not-hide direct or recursive descendant entities from the admin and attributable projections。
+deleted root does-not-hide direct or recursive descendant entities from the admin and attributable projections when the projection is authorized for administrative or author attribution access。

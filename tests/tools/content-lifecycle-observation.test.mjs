@@ -43,9 +43,9 @@ function sampleObservation(overrides = {})
     subject,
     predicate,
     object,
-    direction: 'forward',
+    direction: 'subject-to-object',
     condition,
-    truthValue: true,
+    truthValue: 'true',
     scope,
     conflictStatus: 'consistent',
     sourceRanges: {
