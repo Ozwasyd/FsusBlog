@@ -8,6 +8,11 @@ CMAKE_ROOT="${CACHE_ROOT}/cmake/${CMAKE_VERSION}"
 CMAKE_BIN="${CMAKE_ROOT}/bin/cmake"
 LOCK_FILE="${CACHE_ROOT}/cmake/${CMAKE_VERSION}.lock"
 
+IsValidCmakeCache() {
+    [[ -x "${CMAKE_BIN}" ]] &&
+        [[ "$("${CMAKE_BIN}" --version 2>/dev/null | head -n 1)" == "cmake version ${CMAKE_VERSION}" ]]
+}
+
 case "$(uname -m)" in
     x86_64 | amd64)
         ARCHIVE_ARCH="x86_64"
@@ -23,7 +28,7 @@ case "$(uname -m)" in
         ;;
 esac
 
-if [[ -x "${CMAKE_BIN}" ]]; then
+if IsValidCmakeCache; then
     printf '%s\n' "${CMAKE_BIN}"
     exit 0
 fi
@@ -39,9 +44,13 @@ mkdir -p "$(dirname "${CMAKE_ROOT}")"
 exec 9>"${LOCK_FILE}"
 flock 9
 
-if [[ -x "${CMAKE_BIN}" ]]; then
+if IsValidCmakeCache; then
     printf '%s\n' "${CMAKE_BIN}"
     exit 0
+fi
+
+if [[ -e "${CMAKE_ROOT}" || -L "${CMAKE_ROOT}" ]]; then
+    rm -rf "${CMAKE_ROOT}"
 fi
 
 ARCHIVE_NAME="cmake-${CMAKE_VERSION}-linux-${ARCHIVE_ARCH}.tar.gz"
