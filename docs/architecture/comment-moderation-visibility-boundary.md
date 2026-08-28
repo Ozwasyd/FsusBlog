@@ -22,3 +22,21 @@ The extraction does not change endpoint, response, region, or moderation
 semantics. A runtime rollback can disable the anti-spam provider or its
 automatic disposition policy without restarting; region visibility persistence
 continues independently.
+## Current public visibility mapping
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.public-visibility
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.comment.public-visibility
+render: key-value-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN content.comment.public-visibility -->
+| Key | Value |
+| --- | --- |
+| Approved | true |
+| Hidden | false |
+| Pending | false |
+| Rejected | false |
+<!-- FSUSBLOG-GENERATED:END content.comment.public-visibility -->

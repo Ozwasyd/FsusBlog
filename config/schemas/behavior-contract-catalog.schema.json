@@ -180,6 +180,18 @@
                         "pattern": "^docs/"
                     }
                 },
+                "evidenceStage": {
+                    "enum": ["pre-runtime", "post-runtime"]
+                },
+                "runtimeEvidence": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["producerTierId", "observationSchema"],
+                    "properties": {
+                        "producerTierId": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+                        "observationSchema": { "type": "string", "pattern": "^fsusblog\\.[a-z0-9.-]+\\.v[0-9]+$" }
+                    }
+                },
                 "mutationPolicy": {
                     "type": "object",
                     "additionalProperties": false,

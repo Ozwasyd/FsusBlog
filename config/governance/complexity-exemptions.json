@@ -10,14 +10,6 @@
             "sourceFingerprint": "sha256:a6925a5fedb339bae5566223f7c5f5f57d8cb7499c777f48ed0544316d38a27f"
         },
         {
-            "file": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Serving.cs",
-            "owner": "ServerContractAgent:public-hot-read",
-            "reason": "Temporary bounded bridge while public-hot serving imports are split along the existing route and artifact boundaries",
-            "expires": "2026-09-22",
-            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2792",
-            "sourceFingerprint": "sha256:cf73c05402813328663f85bb51dea6f0e8d0e848df58c1329c52355d2de627f9"
-        },
-        {
             "file": "src/backend/Services/Fixtures/AccountProfilePreferenceFixtureService.cs",
             "owner": "TestFixtureAgent:account-profile-preferences",
             "reason": "Temporary bounded profile and preference fixture aggregate while lifecycle ports are split along the existing profile and locale owner boundaries",
@@ -48,14 +40,6 @@
             "expires": "2026-09-22",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2156",
             "sourceFingerprint": "sha256:529967d5d67f2e5c797f27c2bc58e67351ae2b6d379b652937b6f3e0a96b9dd5"
-        },
-        {
-            "file": "tests/backend/Helpers/TestInfrastructure/PublicAotCrashWorkerProgram.cs",
-            "owner": "ServerContractAgent:public-aot",
-            "reason": "Temporary bounded bridge while the multi-scenario Public AOT crash worker is split along its existing scenario-owner boundaries",
-            "expires": "2026-09-22",
-            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2792",
-            "sourceFingerprint": "sha256:975fc1f35417b2575fb01931577c683ebbda7caa585b3937a26a0ff39a501a3a"
         },
         {
             "file": "tests/backend/Integration/AccountProfilePreferenceFixturePostgresTests.cs",
@@ -98,22 +82,6 @@
             "sourceFingerprint": "sha256:76a6c6f7829e3b1fe94cc8a6696ed44e61625d97181bec0fd62a529f7adf2962"
         },
         {
-            "file": "tests/backend/Unit/FileServiceTests.cs",
-            "owner": "ServerContractAgent:file-service",
-            "reason": "Temporary bounded bridge while file-service tests are split by request, privacy, and lifecycle contract ownership",
-            "expires": "2026-09-22",
-            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2792",
-            "sourceFingerprint": "sha256:60a9c4c872646f1912f93c4cf3d43e77115c19a1b1127841624f99151ec208ec"
-        },
-        {
-            "file": "tests/backend/Unit/NotificationStreamConnectionManagerTests.cs",
-            "owner": "ServerContractAgent:notification-stream",
-            "reason": "Temporary bounded bridge while notification stream manager tests are split by pool, queue, and connection lifecycle ownership",
-            "expires": "2026-09-22",
-            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2792",
-            "sourceFingerprint": "sha256:b889c3f8c6f4f75de0ba78d48e5a180f1b9f6bdba79a99efeb0a9700eab3b1b0"
-        },
-        {
             "file": "tests/frontend/support/session-fixtures.mjs",
             "owner": "TestFixtureAgent:temporal-roles",
             "reason": "Temporary browser session projection bridge while standard and persistent semantic role adapters are decomposed",
@@ -138,14 +106,6 @@
             "sourceFingerprint": "sha256:51d0c626d30c92af0557842f30d57dbdb9613fb2e4371a8c600ebc4995ea313f"
         },
         {
-            "file": "tests/tools/backend-production-shards.test.mjs",
-            "owner": "ServerContractAgent:backend-production",
-            "reason": "Temporary bounded bridge while backend production shard contracts are split by plan, runtime, and evidence ownership",
-            "expires": "2026-09-22",
-            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2792",
-            "sourceFingerprint": "sha256:37c553b6e113c3d1396e70512e9f45c43a6170a96476779dfd037961eeed077a"
-        },
-        {
             "file": "tests/tools/fixture-orchestrator.test.mjs",
             "owner": "TestFixtureAgent:auth-session",
             "reason": "Temporary DAG allocation coverage bridge while producer receipt and consumer identity wave tests are split into focused modules",
@@ -154,36 +114,12 @@
             "sourceFingerprint": "sha256:8a1113dea99bac73a6d51023da1268bf5f87e0e65b4453c359324a21607e5435"
         },
         {
-            "file": "tests/tools/local-production-profile.test.mjs",
-            "owner": "ServerContractAgent:test-topology",
-            "reason": "Temporary coverage bridge while Production topology assertions are decomposed into authority-specific contract tests",
-            "expires": "2026-09-22",
-            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2792",
-            "sourceFingerprint": "sha256:a402b3ca42612a440363e621ff37f23eba776966f347e05e5a0e9f562a2242ff"
-        },
-        {
             "file": "tests/tools/security-fixture-profile-e2e.test.mjs",
             "owner": "TestInfrastructureAgent:security-fixtures",
             "reason": "Temporary profile acceptance harness while auth allocation and the three security family adapters are split into reusable test owners after cutover",
             "expires": "2026-09-22",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2156",
             "sourceFingerprint": "sha256:eff178a3892f5899a3cdf8ed0f8dd5acfaee6bb159ea8512177966e1a5c03d43"
-        },
-        {
-            "file": "tools/check-backend-test-governance.mjs",
-            "owner": "ServerContractAgent:backend-test-governance",
-            "reason": "Temporary bounded bridge while backend governance requirement data is moved behind its existing profile and evidence owners",
-            "expires": "2026-09-22",
-            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2792",
-            "sourceFingerprint": "sha256:2dc7b06a5c9f63c94f9a02dd6e2f8496e89af0ae7e6e3ea8898b980f5e752031"
-        },
-        {
-            "file": "tools/governance/repository-governance-authority.mjs",
-            "owner": "ServerContractAgent:repository-governance",
-            "reason": "Temporary bounded bridge until receipt identity and CLI orchestration are split without weakening content-addressed verification",
-            "expires": "2026-09-22",
-            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2792",
-            "sourceFingerprint": "sha256:b89af7bf42d1e15505d22581b86250c6373215fdd386255f70da56203893483a"
         },
         {
             "file": "tools/test-fixtures/producers/auth-session-producer.mjs",
@@ -207,15 +143,7 @@
             "reason": "Temporary fixture postcondition aggregate while temporal session invariants move into producer-scoped validators",
             "expires": "2026-09-27",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2530",
-            "sourceFingerprint": "sha256:cd2aa8a13d4ef8f694d19de35ca305998789bc651f003fcbc8712f19a2efa8a8"
-        },
-        {
-            "file": "tools/test-inventory/xunit-roslyn-adapter/Program.cs",
-            "owner": "ServerContractAgent:test-inventory",
-            "reason": "Temporary bounded bridge while the Roslyn test inventory adapter is split into parser, projection, and entrypoint owners",
-            "expires": "2026-09-22",
-            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2792",
-            "sourceFingerprint": "sha256:dd4897e71d8668cde55125b8dfb32b0c26fbccf10ee18b0995e29f6d6ef15fb8"
+            "sourceFingerprint": "sha256:83686bea12a8245d803a35d0ade398d78d112e8d1aa30cbec9f57a629d29fa24"
         },
         {
             "file": "tools/test/temporal-role-resolver.mjs",

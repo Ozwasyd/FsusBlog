@@ -1,6 +1,6 @@
-// Generated from config/contracts/behavior-contracts.json; digest 8cca390a3505ffe262c115422a9421f05f87c4f69427d523d67dd0f91e13c901; do not edit by hand.
+// Generated from config/contracts/behavior-contracts.json; digest 6751b721ba30f13ffbc0e290224f8aef1d656684408af6503a618949b56539ee; do not edit by hand.
 
-export const BEHAVIOR_CONTRACT_CATALOG_DIGEST = '8cca390a3505ffe262c115422a9421f05f87c4f69427d523d67dd0f91e13c901' as const
+export const BEHAVIOR_CONTRACT_CATALOG_DIGEST = '6751b721ba30f13ffbc0e290224f8aef1d656684408af6503a618949b56539ee' as const
 export const BEHAVIOR_CONTRACTS = [
   {
     "id": "test-asset-audit-reconciliation",
@@ -21,6 +21,7 @@ export const BEHAVIOR_CONTRACTS = [
       "safety"
     ],
     "releaseQualification": true,
+    "evidenceStage": "pre-runtime",
     "coverageIds": [
       "test-asset-audit-reconciliation"
     ],
@@ -47,6 +48,7 @@ export const BEHAVIOR_CONTRACTS = [
       "safety"
     ],
     "releaseQualification": true,
+    "evidenceStage": "pre-runtime",
     "coverageIds": [
       "code-intent-governance"
     ],
@@ -74,6 +76,7 @@ export const BEHAVIOR_CONTRACTS = [
       "safety"
     ],
     "releaseQualification": true,
+    "evidenceStage": "pre-runtime",
     "coverageIds": [
       "document-lifecycle-governance"
     ],
@@ -100,11 +103,17 @@ export const BEHAVIOR_CONTRACTS = [
       "safety"
     ],
     "releaseQualification": true,
+    "evidenceStage": "pre-runtime",
     "coverageIds": [
       "binary-api-aeds-contract"
     ],
     "documents": [
-      "docs/api/contracts.md"
+      "docs/api.md",
+      "docs/api/aeds-only-policy.md",
+      "docs/api/contracts.md",
+      "docs/api/quick-reference.md",
+      "docs/api/schemas-and-errors.md",
+      "docs/api/stability.md"
     ],
     "mutationPolicy": {
       "mutationRequired": true,
@@ -134,11 +143,21 @@ export const BEHAVIOR_CONTRACTS = [
       "safety"
     ],
     "releaseQualification": true,
+    "evidenceStage": "post-runtime",
+    "runtimeEvidence": {
+      "producerTierId": "production-correctness",
+      "observationSchema": "fsusblog.browserless-correctness-receipt.v1"
+    },
     "coverageIds": [
       "browserless-production-correctness"
     ],
     "documents": [
-      "docs/testing.md"
+      "docs/testing.md",
+      "docs/releases/release-identity.md",
+      "docs/releases/blue-green-deployment-runbook.md",
+      "docs/architecture/monolithic-distributed-boundary.md",
+      "docs/architecture.md",
+      "docs/architecture/overview.md"
     ]
   },
   {
@@ -161,10 +180,13 @@ export const BEHAVIOR_CONTRACTS = [
       "safety"
     ],
     "releaseQualification": true,
+    "evidenceStage": "pre-runtime",
     "coverageIds": [
       "authentication-session-permission"
     ],
     "documents": [
+      "docs/anonymous-identity-smoke-flow.md",
+      "docs/architecture/decisions/ADR-Anonymous-Credential-Blind-Issuance.md",
       "docs/security/user-session-authentication-context.md",
       "docs/security.md"
     ],
@@ -196,6 +218,7 @@ export const BEHAVIOR_CONTRACTS = [
       "operational"
     ],
     "releaseQualification": true,
+    "evidenceStage": "pre-runtime",
     "coverageIds": [
       "configuration-error-security-policy"
     ],
@@ -203,7 +226,8 @@ export const BEHAVIOR_CONTRACTS = [
       "docs/security.md",
       "docs/configuration-layout.md",
       "docs/configuration/appsettings-authority.md",
-      "docs/api/schemas-and-errors.md"
+      "docs/api/schemas-and-errors.md",
+      "docs/api/contracts.md"
     ],
     "mutationPolicy": {
       "mutationRequired": true,
@@ -231,6 +255,7 @@ export const BEHAVIOR_CONTRACTS = [
       "safety"
     ],
     "releaseQualification": true,
+    "evidenceStage": "pre-runtime",
     "coverageIds": [
       "article-comment-lifecycle-outbox"
     ],
@@ -238,7 +263,19 @@ export const BEHAVIOR_CONTRACTS = [
       "docs/api/design.md",
       "docs/api/contracts.md",
       "docs/api/article-publication-revisions.md",
-      "docs/moderation.md"
+      "docs/moderation.md",
+      "docs/architecture/article-asset-reference-lifecycle.md",
+      "docs/architecture/article-deletion-lifecycle.md",
+      "docs/architecture/article-mutation-outbox-claim-lease.md",
+      "docs/architecture/article-mutation-outbox-versioning.md",
+      "docs/architecture/article-mutation-side-effect-boundaries.md",
+      "docs/architecture/article-revision-concurrency.md",
+      "docs/architecture/comment-attribution-privacy-boundary.md",
+      "docs/architecture/comment-command-boundary.md",
+      "docs/architecture/comment-moderation-visibility-boundary.md",
+      "docs/architecture/comment-mutation-outbox.md",
+      "docs/architecture/comment-notification-boundary.md",
+      "docs/architecture/comment-query-boundary.md"
     ],
     "mutationPolicy": {
       "mutationRequired": true,

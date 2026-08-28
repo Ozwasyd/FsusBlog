@@ -34,3 +34,23 @@ SET not_before_utc = (now() AT TIME ZONE 'utc') + interval '7 days',
 ```
 
 This is the conservative rollback path: article database deletion stays committed, retained history and files remain intact, and cleanup resumes when queue deadlines are restored.
+## Current deletion semantics
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.delete-semantics
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.article.delete-semantics
+render: key-value-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN content.article.delete-semantics -->
+| Key | Value |
+| --- | --- |
+| enterVia | dedicated-delete-flow |
+| ordinaryTransitionTarget | forbidden |
+| outboxEventType | deleted |
+| permanentDeleteEventType | permanently-deleted |
+| softDelete | true |
+| status | Deleted |
+<!-- FSUSBLOG-GENERATED:END content.article.delete-semantics -->

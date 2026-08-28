@@ -22,3 +22,23 @@ semantics. Both `ICommentEndpointService` and the core bridge's
 `ICommentCommandService` resolve to the same scoped command implementation.
 Rollback can independently disable anonymous policy or automatic moderation
 while public create/delete commands remain available.
+## Current thread invariants
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.thread-invariants
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.comment.thread-invariants
+render: key-value-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN content.comment.thread-invariants -->
+| Key | Value |
+| --- | --- |
+| depth | max(1, parent.Depth + 1) |
+| parentMustBePubliclyApprovedVisible | true |
+| replyToCommentIdDefaultsToParent | true |
+| requestedRootMustMatchComputed | true |
+| rootId | parent.RootId ?? parent.Id |
+| rootRequiresParent | true |
+<!-- FSUSBLOG-GENERATED:END content.comment.thread-invariants -->

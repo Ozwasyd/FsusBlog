@@ -93,3 +93,22 @@ if an instance is fenced or terminated, their database leases expire and remain 
 nullable Expand columns are retained and ignored by N-1 code. Keep the active-release fence in place,
 wait at least one configured lease, and switch to the retained compatible worker. Do not delete edge
 receipts or reset retry counts. Re-enable only after the selected worker owns the active release.
+## Current required outbox edges
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.required-edges
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.article.required-outbox-edges
+render: enum-set
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN content.article.required-outbox-edges -->
+- `article-detail-aeds`
+- `http-cache-invalidation`
+- `public-aot-invalidation`
+- `public-artifact-revocation`
+- `public-hot-read`
+- `search-projection`
+- `taxonomy-projection`
+<!-- FSUSBLOG-GENERATED:END content.article.required-outbox-edges -->

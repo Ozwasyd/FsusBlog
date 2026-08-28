@@ -681,3 +681,37 @@ manifest summary、permission plan、versioned config、bounded metrics/logs/err
 `plugin_action_validation_failed`、`plugin_config_version_conflict`、
 `plugin_lifecycle_conflict`、`plugin_runtime_action_failed`。包内容、Schema path、
 runtime exception message、日志正文和签名细节不得进入 `ApiError`。
+
+## Current public error categories
+
+### Current operation count
+
+<!-- fsus-doc-claim
+claimId: binary-api-aeds-contract.operation-count
+behaviorId: binary-api-aeds-contract
+claimType: generated-section
+generatedSectionId: api.operation-count
+render: scalar
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN api.operation-count -->
+262
+<!-- FSUSBLOG-GENERATED:END api.operation-count -->
+
+<!-- fsus-doc-claim
+claimId: configuration-error-security-policy.public-errors
+behaviorId: configuration-error-security-policy
+claimType: generated-section
+generatedSectionId: api.public-error-codes
+render: enum-set
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN api.public-error-codes -->
+- `Conflict`
+- `Forbidden`
+- `InfraFailure`
+- `NotFound`
+- `Unauthorized`
+- `Unknown`
+- `Validation`
+<!-- FSUSBLOG-GENERATED:END api.public-error-codes -->

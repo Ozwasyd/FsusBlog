@@ -4502,6 +4502,45 @@
             ]
         },
         {
+            "id": "behavior-document-consistency-final",
+            "description": "The final deterministic Behavior/document gate aggregates sealed catalog, owner, fact, test, document, mutation and pre/post-runtime authorities, audits legacy residue and DAG cycles, and emits one recomputable report.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "tools/docs/behavior-document-consistency-final.mjs",
+                "tools/test/bundles/behavior-document-consistency-final.sh",
+                "config/schemas/behavior-document-consistency-final-report.schema.json",
+                "tests/tools/behavior-document-consistency-final.test.mjs",
+                "tests/matrix.yml"
+            ],
+            "assertionType": "static",
+            "failClosedRule": "Reject any missing or tampered sealed authority, cross-run/source/worktree/build/candidate identity, incomplete per-behavior edge, migration-ledger mismatch, survived required mutation, spawn-before-receipt count, active legacy self-attestation field, dependency SCC or duplicate summary authority.",
+            "minimumRequirement": "The report must be derivable from sealed inputs, cover every active release behavior owner-to-fact-to-test-to-doc-to-mutation/runtime edge, contain all authority and receipt digests, and remain a mandatory release-final evidence input without parsing or repairing producers inside release-final.",
+            "tierIds": [
+                "behavior-document-consistency-final"
+            ]
+        },
+        {
+            "id": "behavior-evidence-post-runtime",
+            "description": "One candidate-bound seal joins the verified pre-runtime BehaviorGraph receipt with current-run production correctness and Browser Contract observations before release-final may start.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "tools/test-matrix/behavior-evidence-post-runtime.mjs",
+                "tools/test/bundles/behavior-evidence-post-runtime.sh",
+                "tools/release/release-final-domain-evidence.mjs",
+                "config/schemas/behavior-evidence-post-runtime-receipt.schema.json",
+                "tests/tools/behavior-evidence-post-runtime.test.mjs",
+                "tests/matrix.yml"
+            ],
+            "assertionType": "static",
+            "failClosedRule": "Reject missing, duplicate, diagnostic, stale, cross-run, cross-source, cross-build or cross-candidate observations; release-final cannot search downloaded/latest receipts or start before this seal succeeds.",
+            "minimumRequirement": "The unique post-runtime tier must consume exact configured pre-runtime, correctness and Browser Contract receipts, bind their run/source/worktree/build/candidate identities, publish releaseFinalSpawnCountBeforeReceipt=0, and be a canonical release-final evidence input.",
+            "tierIds": [
+                "behavior-evidence-post-runtime"
+            ]
+        },
+        {
             "id": "document-lifecycle-governance",
             "description": "Every docs file has explicit status, owner, issue and supersession metadata; current authority, semantic naming, generated producers, links and path migrations are fail-closed.",
             "owner": "ServerContractAgent",

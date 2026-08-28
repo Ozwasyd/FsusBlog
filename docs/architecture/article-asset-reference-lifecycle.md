@@ -43,3 +43,19 @@ SET not_before_utc = (now() AT TIME ZONE 'utc') + interval '7 days',
 ```
 
 This leaves authoring and deletion available while retaining files. Do not delete ledger rows to pause cleanup. Application rollback must preserve both new tables; old binaries ignore them, while returning to the new binary rebuilds the ledger before consuming queued work.
+## Current rights fields
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.rights-fields
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.article.rights-fields
+render: enum-set
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN content.article.rights-fields -->
+- `copyPolicy`
+- `enabled`
+- `licenseType`
+- `rightsSnapshotId`
+<!-- FSUSBLOG-GENERATED:END content.article.rights-fields -->

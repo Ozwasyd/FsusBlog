@@ -814,3 +814,48 @@ budget 双重限制。控制面不返回 package bytes、签名、unredacted man
 Cookie/JWT/Passkey、raw header 或异常 message。权限撤销在下一次 Host API demand
 生效；隔离会卸载 Hook、清 grant 并取消后续 runtime 调用，不需重启或放宽 PoW、
 `X-Fsus-*`、notification stream 与统一 AEDS error 边界。
+
+## Current generated security catalogs
+
+<!-- fsus-doc-claim
+claimId: authentication-session-permission.admin-permissions
+behaviorId: authentication-session-permission
+claimType: generated-section
+generatedSectionId: auth.admin.permissions
+render: enum-set
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN auth.admin.permissions -->
+- `admin.manage`
+- `anonymous.comment.configure`
+- `anonymous.credential.revoke`
+- `anonymous.nullifier.block`
+- `article.publish`
+- `article.write`
+- `audit.investigate`
+- `audit.read`
+- `comment.moderate`
+- `system.config`
+<!-- FSUSBLOG-GENERATED:END auth.admin.permissions -->
+
+<!-- fsus-doc-claim
+claimId: configuration-error-security-policy.challenge-kinds
+behaviorId: configuration-error-security-policy
+claimType: generated-section
+generatedSectionId: security.challenge.kinds
+render: enum-set
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN security.challenge.kinds -->
+- `adminPasskeyStepUpV1`
+- `anonymousCredentialProofV1`
+- `argon2idPoSpaceV1`
+- `humanReadProofV1`
+- `passkeyStepUpV1`
+- `perceptionCharacterV3`
+- `perceptionLocalizationV2`
+- `perceptionMicroInteractionV2`
+- `recoveryKeyProofV1`
+- `sha256PowV1`
+- `zkAnonymousCommentProofV1`
+<!-- FSUSBLOG-GENERATED:END security.challenge.kinds -->

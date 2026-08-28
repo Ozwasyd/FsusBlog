@@ -1,5 +1,6 @@
 import path from 'node:path';
 import process from 'node:process';
+import fs from 'node:fs';
 
 import { readEvidenceDocument } from '../test-matrix/content-addressed-evidence-store.mjs';
 import {
@@ -9,6 +10,12 @@ import {
 import {
     loadCanonicalReleaseFinalEvidenceInputs
 } from '../test-matrix/release-final-evidence-contract.mjs';
+import {
+    validatePostRuntimeReceipt
+} from '../test-matrix/behavior-evidence-post-runtime.mjs';
+import {
+    validateFinalReport
+} from '../docs/behavior-document-consistency-final.mjs';
 
 import { requirePublicPreviewReleaseEvidence } from './public-preview-release-evidence.mjs';
 import {
@@ -23,6 +30,43 @@ export function createReleaseFinalDomainEvidence({
     sha256Hex
 })
 {
+    const postRuntimeFile = path.resolve(
+        repositoryRoot,
+        process.env.FSUSBLOG_BEHAVIOR_POST_RUNTIME_RECEIPT
+            ?? '.tmp/behavior-evidence-post-runtime/receipt.json'
+    );
+    if (!fs.existsSync(postRuntimeFile) || !fs.statSync(postRuntimeFile).isFile())
+    {
+        throw new Error('post-runtime behavior evidence receipt is required at its exact configured path');
+    }
+    const postRuntimeReceipt = readEvidenceDocument(postRuntimeFile);
+    validatePostRuntimeReceipt(postRuntimeReceipt);
+    if (postRuntimeReceipt.status !== 'ok')
+    {
+        throw new Error(`post-runtime behavior evidence is not qualified: ${postRuntimeReceipt.failureReasons.join('; ')}`);
+    }
+    if (postRuntimeReceipt.sourceIdentity?.commit !== manifest.commitSha)
+    {
+        throw new Error('post-runtime behavior evidence source commit mismatch');
+    }
+    const consistencyFinalFile = path.resolve(
+        repositoryRoot,
+        process.env.FSUSBLOG_BEHAVIOR_CONSISTENCY_FINAL_REPORT
+            ?? '.tmp/behavior-document-consistency-final/report.json'
+    );
+    if (!fs.existsSync(consistencyFinalFile) || !fs.statSync(consistencyFinalFile).isFile())
+    {
+        throw new Error('behavior/document final consistency report is required at its exact configured path');
+    }
+    const consistencyFinalReport = readEvidenceDocument(consistencyFinalFile);
+    validateFinalReport(consistencyFinalReport);
+    if (consistencyFinalReport.status !== 'ok'
+        || consistencyFinalReport.sourceIdentity?.commit !== manifest.commitSha
+        || consistencyFinalReport.receiptDigests?.postRuntime !== postRuntimeReceipt.contentDigest)
+    {
+        throw new Error('behavior/document final consistency report identity or qualification mismatch');
+    }
+
     const correctness = findReceiptFile(
         'fsusblog.browserless-correctness-receipt.v1',
         [
@@ -51,6 +95,11 @@ export function createReleaseFinalDomainEvidence({
             'Browser Contract receipt is required; release-final fails closed without it'
         );
     }
+    if (postRuntimeReceipt.candidateIdentity?.browserContractDigest
+        !== browserContract.receipt.contentDigest)
+    {
+        throw new Error('post-runtime behavior evidence browser candidate mismatch');
+    }
 
     const publicPreview = requirePublicPreviewReleaseEvidence({
         commitSha: manifest.commitSha,
@@ -72,6 +121,11 @@ export function createReleaseFinalDomainEvidence({
     if (!build)
     {
         throw new Error('immutable #1078 production build receipt is required');
+    }
+    if (postRuntimeReceipt.candidateIdentity?.buildReceiptDigest
+        !== build.receipt.contentDigest)
+    {
+        throw new Error('post-runtime behavior evidence build candidate mismatch');
     }
     const canonicalInputs = loadCanonicalReleaseFinalEvidenceInputs().inputs;
     const releaseDomainLedger = readEvidenceDocument(path.join(
@@ -125,6 +179,10 @@ export function createReleaseFinalDomainEvidence({
             correctnessReceiptPath: correctness.file,
             browserContractReceipt: browserContract.receipt,
             browserContractReceiptPath: browserContract.file,
+            postRuntimeReceipt,
+            postRuntimeReceiptPath: postRuntimeFile,
+            consistencyFinalReport,
+            consistencyFinalReportPath: consistencyFinalFile,
             releaseDomainProjectionReceipts,
             releaseReliabilityQualifiedReceipt
         }),

@@ -923,3 +923,20 @@ snapshot，对其它节点明确展示 `not-reported`，因此只有单节点真
 lifecycle 推进到 Quarantined、移除 Hook、清空 grant，并保留低基数错误证据。
 无需重启的回退是针对单插件执行 disable/quarantine；匿名、登录、admin session、
 notification stream 和其它 binary routes 不改变。
+## Current candidate admission predecessors
+
+<!-- fsus-doc-claim
+claimId: browserless-production-correctness.predecessors
+behaviorId: browserless-production-correctness
+claimType: generated-section
+generatedSectionId: testing.candidate-predecessors
+render: key-value-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN testing.candidate-predecessors -->
+| Key | Value |
+| --- | --- |
+| executionDependsOn | {"production":["production-correctness"],"production-correctness":["backend-qps","behavior-doc-static-admission","behavior-evidence-pre-runtime","bootstrap","coverage-gate","endpoint-depth","fast","frontend-render-structure","integration","load","native-smoke","perception-v2-redteam-pr","production-build-artifacts","release","release-evidence","resilience","security","ux-viewport-plan-progress","wasm-fuzz-regression"]} |
+| requiresEvidenceFrom | {"ci":["fast","integration"],"fast":["app-config-local-tuning","backend-fast","frontend-build","frontend-property-model-perf","frontend-runtime-contracts","frontend-static-governance","frontend-unit-shard","integrity-proof-verification","public-hydration-fast","static-governance"],"release-final":["behavior-document-consistency-final","behavior-evidence-post-runtime","behavior-evidence-pre-runtime","browser-contract","coverage-gate-strict","native-fuzz-sanitizer","perception-character-v3-release-gate","production-correctness","production-xss-release","release-admin-console","release-aot-generation","release-auth-flow","release-authoring-flow","release-closeout","release-error-boundary","release-final-flaky-governance","release-final-shard-completeness","release-private-preview","release-reliability-fresh","release-static-asset-digest-coherence","test-quality-lint"]} |
+| targets | ["ci","fast","production","production-correctness","release-final"] |
+<!-- FSUSBLOG-GENERATED:END testing.candidate-predecessors -->

@@ -921,3 +921,20 @@ startup-mode rollback for the next process generation.
 远端节点推断成已加载；权限分类、隔离状态与 `not-reported` 节点状态均以服务端
 快照为准。安装、权限、配置与生命周期写入必须叠加独立 admin principal、
 `system.config`、固定 IP 限流和一次性 admin step-up。
+## Current article lifecycle states
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.article-states
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.article.states
+render: enum-set
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN content.article.states -->
+- `Archived`
+- `Deleted`
+- `Draft`
+- `Published`
+- `Scheduled`
+<!-- FSUSBLOG-GENERATED:END content.article.states -->

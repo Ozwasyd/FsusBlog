@@ -17,41 +17,9 @@ using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Shared.Contracts.Outputs;
 
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 
 namespace FsusBlog.Server.Infrastructure.PublicReadArtifacts;
-
-public static class PublicHotReadFastPathExtensions
-{
-    public static IApplicationBuilder UseFsusPublicHotReadFastPath(this IApplicationBuilder app)
-    {
-        var store = app.ApplicationServices.GetRequiredService<PublicHotReadStore>();
-        var options = app.ApplicationServices.GetRequiredService<IOptions<PublicHotReadOptions>>().Value;
-        var counters = app.ApplicationServices.GetRequiredService<PublicHotReadCounters>();
-        var env = app.ApplicationServices.GetRequiredService<IWebHostEnvironment>();
-        var configuration = app.ApplicationServices.GetService<IConfiguration>();
-
-        return app.Use((ctx, next) =>
-        {
-            bool isDevelopment = PublicWebRuntime
-                .ShouldUseDevelopmentCspPolicy(env, configuration);
-            PublicHotReadRequestFeature? feature = ctx.Features.Get<PublicHotReadRequestFeature>();
-            return feature is null
-                ? next(ctx)
-                : PublicHotReadFastPath.TryServeClassifiedAsync(
-                    ctx,
-                    next,
-                    store,
-                    options,
-                    counters,
-                    feature,
-                    isDevelopment);
-        });
-    }
-}
 
 // Design reference: docs/api/design.md "pathKey 与 routeKey 映射" and "L0 artifact HTTP 语义".
 public static partial class PublicHotReadFastPath

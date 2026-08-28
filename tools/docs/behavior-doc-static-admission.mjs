@@ -57,6 +57,7 @@ import {
     scanDocClaimGovernance,
     validateDocClaimSchemaContract
 } from './doc-claim.mjs';
+import { validateRepositoryMigrationLedger } from './check-document-claim-migration-ledger.mjs';
 import {
     loadCatalog as loadGeneratedSectionCatalog
 } from './generated-fact-sections/catalog.mjs';
@@ -401,6 +402,7 @@ export async function runBehaviorDocStaticAdmission({
             throw new Error(`DocClaim governance failed: ${claimViolations[0].message}`);
         }
         const claimReceipt = parseRepositoryClaims(repositoryRoot);
+        validateRepositoryMigrationLedger(repositoryRoot);
         base.authorityDigests = authorityDigests(repositoryRoot, catalog, claimReceipt);
 
         const owner = formatOwnerBindingReport(scanBehaviorOwnerBindings({
