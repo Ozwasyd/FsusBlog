@@ -53,6 +53,15 @@ function digestReceipt(receipt)
         .digest('hex')}`;
 }
 
+function digestReceiptWithNullField(receipt)
+{
+    const content = structuredClone(receipt);
+    content.contentDigest = null;
+    return createHash('sha256')
+        .update(JSON.stringify(stable(content)), 'utf8')
+        .digest('hex');
+}
+
 function makeCatalog(overrides = {})
 {
     return {
@@ -316,7 +325,7 @@ function makeStaticAdmission({ status = 'ok', candidateSpawnCount = 0, sourceCom
         failureReasons: status === 'ok' ? [] : ['admission failure'],
         contentDigest: null
     };
-    receipt.contentDigest = digestReceipt(receipt);
+    receipt.contentDigest = digestReceiptWithNullField(receipt);
     return receipt;
 }
 
@@ -514,6 +523,37 @@ test('happy path produces qualified pre-runtime receipt with stable digest', () 
         expectedCommit: SOURCE_COMMIT,
         expectedWorktreeFingerprint: WORKTREE_FP
     });
+});
+
+test('static admission accepts only its canonical null-field digest convention', () =>
+{
+    const inputs = happyBundle();
+    inputs.staticAdmissionReceipt.contentDigest = digestReceipt(inputs.staticAdmissionReceipt);
+    assert.throws(
+        () => join(inputs),
+        /static admission receipt contentDigest mismatch/u
+    );
+});
+
+test('test and mutation evidence reject the static admission digest convention', () =>
+{
+    const testInputs = happyBundle();
+    testInputs.testEvidenceReceipt.contentDigest = digestReceiptWithNullField(
+        testInputs.testEvidenceReceipt
+    );
+    assert.throws(
+        () => join(testInputs),
+        /test evidence receipt contentDigest mismatch/u
+    );
+
+    const mutationInputs = happyBundle();
+    mutationInputs.mutationEvidenceReceipt.contentDigest = digestReceiptWithNullField(
+        mutationInputs.mutationEvidenceReceipt
+    );
+    assert.throws(
+        () => join(mutationInputs),
+        /mutation evidence receipt contentDigest mismatch/u
+    );
 });
 
 test('counterexample 1: boundary test not executed but file exists fails gate and refuses runtime spawn', () =>

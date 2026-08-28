@@ -123,13 +123,14 @@ function requireField(value, label)
     return value;
 }
 
-function requireDigestMatch(receipt, label)
+function requireDigestMatch(receipt, label, convention = 'omitted-field')
 {
-    const expected = digestValue(
-        Object.fromEntries(Object.entries(receipt).filter(([key]) => key !== 'contentDigest'))
-    );
+    const content = convention === 'null-field'
+        ? { ...receipt, contentDigest: null }
+        : Object.fromEntries(Object.entries(receipt).filter(([key]) => key !== 'contentDigest'));
+    const expected = digestValue(content);
     const actual = normalizeDigest(receipt.contentDigest);
-    if (actual !== expected && receipt.contentDigest !== expected && receipt.contentDigest !== `sha256:${expected}`)
+    if (actual !== expected)
     {
         fail(`${label} contentDigest mismatch`);
     }
@@ -396,7 +397,7 @@ export function joinBehaviorEvidencePreRuntime(options = {})
     {
         fail('static admission receipt schema mismatch');
     }
-    requireDigestMatch(admission, 'static admission receipt');
+    requireDigestMatch(admission, 'static admission receipt', 'null-field');
     if (admission.status !== 'ok')
     {
         fail(`static admission receipt status is not ok: ${admission.status}`);
