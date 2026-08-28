@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { digestPath, computeConsumedInputDigests } from '../identity.mjs'
 import { digestValue, isPlainObject, stable } from '../lib/canonicalize.mjs'
@@ -358,4 +358,84 @@ export function sealCurrentRunInput(value)
   delete sealed.contentDigest
   sealed.contentDigest = digestValue(sealed)
   return sealed
+}
+
+function parseCliArguments(argv)
+{
+  const command = argv[0]
+  if (!['produce', 'verify'].includes(command)) fail('command must be produce or verify')
+  const options = { rawReceipts: [], claimReceipts: [] }
+  for (let index = 1; index < argv.length; index += 1)
+  {
+    const argument = argv[index]
+    const value = argv[index + 1]
+    if (!value || value.startsWith('--')) fail(`${argument} requires a value`)
+    if (argument === '--candidate-plan') options.candidatePlan = value
+    else if (argument === '--pre-runtime') options.preRuntimeReceipt = value
+    else if (argument === '--claim') options.claimReceipts.push(value)
+    else if (argument === '--raw') options.rawReceipts.push(value)
+    else if (argument === '--receipt') options.receipt = value
+    else if (argument === '--out') options.out = value
+    else fail(`unknown argument ${argument}`)
+    index += 1
+  }
+  for (const [field, value] of [
+    ['--candidate-plan', options.candidatePlan],
+    ['--pre-runtime', options.preRuntimeReceipt]
+  ])
+  {
+    if (!value) fail(`${field} is required`)
+  }
+  if (options.claimReceipts.length === 0) fail('at least one explicit --claim receipt is required')
+  if (options.rawReceipts.length === 0) fail('at least one explicit --raw receipt is required')
+  if (command === 'verify' && !options.receipt) fail('--receipt is required for verify')
+  return { command, options }
+}
+
+function resolveOutput(repositoryRoot, output)
+{
+  requireString(output, 'output path')
+  const rootResolved = path.resolve(repositoryRoot)
+  const absolute = path.resolve(rootResolved, output)
+  if (!absolute.startsWith(`${rootResolved}${path.sep}`)) fail('output path escapes repository')
+  const relative = path.relative(rootResolved, absolute).replaceAll(path.sep, '/')
+  if (!relative.endsWith('.json') || unsafeReferencePattern.test(relative))
+  {
+    fail('output must be an explicit current-run JSON path')
+  }
+  return { absolute, relative }
+}
+
+export function runPostRuntimeObservationCli({
+  argv,
+  producerId,
+  produce,
+  verify,
+  defaultOutput,
+  repositoryRoot = defaultRoot
+})
+{
+  const { command, options } = parseCliArguments(argv)
+  const inputs = {
+    repositoryRoot,
+    candidatePlan: options.candidatePlan,
+    preRuntimeReceipt: options.preRuntimeReceipt,
+    claimReceipts: options.claimReceipts,
+    rawReceipts: options.rawReceipts
+  }
+  if (command === 'verify')
+  {
+    const receipt = verify({ ...inputs, receipt: options.receipt })
+    console.log(`[post-runtime-observation] verified producer=${producerId} receipt=${options.receipt}`)
+    return receipt
+  }
+
+  const output = resolveOutput(repositoryRoot, options.out ?? defaultOutput)
+  const receipt = produce(inputs)
+  if (receipt.status !== 'ok') fail(`${producerId} failed: ${receipt.failureReasons.join('; ')}`)
+  mkdirSync(path.dirname(output.absolute), { recursive: true })
+  writeFileSync(output.absolute, `${JSON.stringify(receipt, null, 2)}\n`)
+  verify({ ...inputs, receipt: output.relative })
+  console.log(`[post-runtime-observation] produced producer=${producerId} receipt=${output.relative}`)
+  return receipt
 }

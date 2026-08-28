@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
 import test from 'node:test'
 
 import { digestValue } from '../../tools/fact-extractors/lib/canonicalize.mjs'
@@ -194,4 +197,45 @@ test('release verifier rejects output tamper and cross-run plans', () =>
   const failed = produceReleaseDeploymentObservation(crossRun)
   assert.equal(failed.status, 'failed')
   assert.ok(failed.failureReasons.some((reason) => /identity does not match/u.test(reason)))
+})
+
+test('release producer CLI consumes only explicit current-run inputs and independently verifies output', (context) =>
+{
+  mkdirSync(path.join(root, '.tmp'), { recursive: true })
+  const directory = mkdtempSync(path.join(root, '.tmp', 'release-observation-explicit-'))
+  context.after(() => rmSync(directory, { recursive: true, force: true }))
+  const relative = (name) => path.relative(root, path.join(directory, name)).replaceAll(path.sep, '/')
+  const write = (name, value) => writeFileSync(path.join(directory, name), `${JSON.stringify(value, null, 2)}\n`)
+  const inputs = fixtureInputs()
+
+  inputs.rawReceipts = inputs.rawReceipts.map((raw, index) =>
+  {
+    const name = `raw-${index}.json`
+    const sealed = sealCurrentRunInput({ ...raw, rawRef: relative(name) })
+    write(name, sealed)
+    return relative(name)
+  })
+  write('plan.json', inputs.candidatePlan)
+  write('pre-runtime.json', inputs.preRuntimeReceipt)
+  inputs.claimReceipts.forEach((receipt, index) => write(`claim-${index}.json`, receipt))
+
+  const cli = path.join(root, 'tools/fact-extractors/post-runtime/release-deployment.mjs')
+  const output = relative('receipt.json')
+  const commonArguments = [
+    '--candidate-plan', relative('plan.json'),
+    '--pre-runtime', relative('pre-runtime.json'),
+    ...inputs.claimReceipts.flatMap((_, index) => ['--claim', relative(`claim-${index}.json`)]),
+    ...inputs.rawReceipts.flatMap((raw) => ['--raw', raw])
+  ]
+  const produced = spawnSync(process.execPath, [cli, 'produce', ...commonArguments, '--out', output], {
+    cwd: root,
+    encoding: 'utf8'
+  })
+  assert.equal(produced.status, 0, produced.stderr)
+  const verified = spawnSync(process.execPath, [cli, 'verify', ...commonArguments, '--receipt', output], {
+    cwd: root,
+    encoding: 'utf8'
+  })
+  assert.equal(verified.status, 0, verified.stderr)
+  assert.equal(JSON.parse(readFileSync(path.join(root, output), 'utf8')).status, 'ok')
 })
