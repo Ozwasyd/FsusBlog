@@ -495,7 +495,7 @@ function createFixture(t, {
       timeoutSeconds: timing.hostInterruptionTimeoutSeconds
     }
   })
-  return { root, plan, log: path.join(root, 'records.jsonl'), bin: path.join(root, 'bin') }
+  return { root, plan, log: path.join(root, 'records.jsonl'), bin: path.join(root, 'bin'), timing }
 }
 
 function installContinuationModeFixture(orchestrator) {
@@ -532,7 +532,7 @@ function installContinuationModeFixture(orchestrator) {
 }
 
 async function runRehearsal(fixture, mode, overrides = {}) {
-  const timing = machineTiming()
+  const timing = fixture.timing
   const child = spawn('bash', [
     path.join(fixture.root, 'tools/deployment/zero-downtime-rehearsal.sh'),
     '--plan', fixture.plan,
