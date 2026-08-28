@@ -479,6 +479,11 @@ export function validateFixtureVariantCatalog({
         {
             errors.push(`variant ${id} ownerProducerId must match capability owner ${capability.ownerProducerId}`);
         }
+        const capabilityValidityClasses = capability?.validityClasses ?? FIXTURE_VALIDITY_CLASSES;
+        if (!capabilityValidityClasses.includes(variant.validityClass))
+        {
+            errors.push(`variant ${id} validityClass is not allowed by capability ${variant.capabilityId}`);
+        }
         if (!writerContracts.has(variant.writerContractId))
         {
             errors.push(`variant ${id} references unknown writer contract ${variant.writerContractId}`);
@@ -577,9 +582,17 @@ export function validateFixtureVariantCatalog({
         {
             errors.push(`capability ${capability.id} has no registered fixture variant`);
         }
-        if (!canonicalByCapability.has(capability.id) && !/^(?:development\.demo\.dataset|scale\.)/u.test(capability.id))
+        const capabilityValidityClasses = capability.validityClasses ?? FIXTURE_VALIDITY_CLASSES;
+        if (capabilityValidityClasses.includes('canonical-positive')
+            && !canonicalByCapability.has(capability.id)
+            && !/^(?:development\.demo\.dataset|scale\.)/u.test(capability.id))
         {
             errors.push(`capability ${capability.id} has no canonical-positive variant`);
+        }
+        if (!capabilityValidityClasses.includes('canonical-positive')
+            && canonicalByCapability.has(capability.id))
+        {
+            errors.push(`negative-only capability ${capability.id} cannot register a canonical-positive variant`);
         }
     }
     for (const capability of capabilities)
@@ -1909,6 +1922,13 @@ export function validateFixtureCatalogs({
         if (!['immutable', 'scenario-owned'].includes(item.mutability))
         {
             errors.push(`capability ${item.id} has invalid mutability`);
+        }
+        const validityClasses = item.validityClasses ?? FIXTURE_VALIDITY_CLASSES;
+        if (!sortedUnique(validityClasses)
+            || validityClasses.length === 0
+            || validityClasses.some((value) => !FIXTURE_VALIDITY_CLASSES.includes(value)))
+        {
+            errors.push(`capability ${item.id} validityClasses must be sorted, unique and known`);
         }
     }
     for (const item of producers)

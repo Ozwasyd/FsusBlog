@@ -74,6 +74,42 @@
             ]
         },
         {
+            "id": "audit-records",
+            "strategy": "transaction-fixture",
+            "reuseVerifier": "fixture-receipt",
+            "implementationPaths": [
+                "src/backend/Modules/Endpoints/LocalAuditFixtureEndpoints.cs",
+                "src/backend/Services/Fixtures/AuditFixtureProducer.cs",
+                "tools/test-fixtures/producers/audit-producer.mjs"
+            ],
+            "provides": [
+                "audit.chain-multi-record",
+                "audit.empty",
+                "audit.high-value",
+                "audit.investigation-page",
+                "audit.legal-hold-eligible",
+                "audit.pseudonym-retention",
+                "audit.single-valid",
+                "audit.tamper-negative",
+                "audit.unknown-action-negative"
+            ],
+            "consumes": [],
+            "stateDomains": [
+                "postgres.audit"
+            ],
+            "receiptPostconditions": [
+                "audit-chain-multi-record",
+                "audit-empty",
+                "audit-high-value",
+                "audit-investigation-page",
+                "audit-legal-hold-eligible",
+                "audit-pseudonym-retention",
+                "audit-single-valid",
+                "audit-tamper-negative",
+                "audit-unknown-action-negative"
+            ]
+        },
+        {
             "id": "auth-session",
             "strategy": "transaction-fixture",
             "reuseVerifier": "fixture-receipt",

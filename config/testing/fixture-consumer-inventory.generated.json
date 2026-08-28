@@ -2304,6 +2304,18 @@
             "source": "tools/test-fixtures/producers/account-profile-preference-producer.mjs"
         },
         {
+            "producerId": "audit-records",
+            "source": "src/backend/Modules/Endpoints/LocalAuditFixtureEndpoints.cs"
+        },
+        {
+            "producerId": "audit-records",
+            "source": "src/backend/Services/Fixtures/AuditFixtureProducer.cs"
+        },
+        {
+            "producerId": "audit-records",
+            "source": "tools/test-fixtures/producers/audit-producer.mjs"
+        },
+        {
             "producerId": "auth-session",
             "source": "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs"
         },

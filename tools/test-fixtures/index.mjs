@@ -11,6 +11,7 @@ export {
   createProducerContext
 } from './orchestrator.mjs'
 export {
+  createAuditRecordsPort,
   createDefaultProducerPorts,
   createPortsForProducerIds
 } from './producers/catalog-ports.mjs'

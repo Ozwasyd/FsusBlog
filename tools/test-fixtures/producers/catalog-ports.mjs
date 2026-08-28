@@ -584,6 +584,7 @@ export function createDefaultProducerPorts(catalogs = readFixtureCatalogs())
         createScaleDataPort(catalogs),
         createSecurityStatePort(catalogs),
         createAccountProfilePreferencePort(catalogs),
+        createAuditRecordsPort(catalogs),
         createAccountMessagingPort(catalogs),
         createCommentModerationPort(catalogs)
     ];

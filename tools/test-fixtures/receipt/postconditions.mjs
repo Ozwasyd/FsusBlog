@@ -565,8 +565,96 @@ function verifyModerationPolicy(ctx) {
   return pass(id, { ids: owned.ids })
 }
 
+function verifyAudit(id) {
+  const capabilityId = id.replace(/^audit-/u, 'audit.')
+  return (ctx) => {
+    const db = ctx.observations?.database
+    if (!db) return fail(id, 'database observation required')
+    if (typeof db.owner !== 'string' || !db.owner.startsWith('audit-fixture:')) {
+      return fail(id, 'audit owner identity is missing')
+    }
+    if (!/^[0-9a-f]{64}$/u.test(String(db.policyDigest ?? ''))
+      || !/^[0-9a-f]{64}$/u.test(String(db.semanticRecordSetDigest ?? ''))) {
+      return fail(id, 'audit policy or semantic record-set digest is missing')
+    }
+    if (capabilityId === 'audit.empty') {
+      return Number(db.recordCount ?? -1) === 0 && (db.entities ?? []).length === 0
+        ? pass(id, { recordCount: 0 })
+        : fail(id, 'audit.empty must prove zero owned records')
+    }
+    if (capabilityId === 'audit.tamper-negative'
+      || capabilityId === 'audit.unknown-action-negative') {
+      const cases = (db.negativeCases ?? []).filter((item) => capabilityId === 'audit.tamper-negative'
+        ? item.mutationId !== 'unknown-action'
+        : item.mutationId === 'unknown-action')
+      if (cases.length === 0) return fail(id, 'isolated negative audit evidence is missing')
+      if (cases.some((item) => item.isolated !== true
+        || item.expectedReason !== item.actualReason
+        || !item.mutatedField)) {
+        return fail(id, 'negative audit evidence lacks a unique stable reason')
+      }
+      return pass(id, { cases: cases.length })
+    }
+
+    const records = entitiesOf(db, 'audit-record').filter((item) => item.fields?.capability === capabilityId)
+    const owned = requireOwnedIds(records, id)
+    if (!owned.ok) return fail(id, owned.reason)
+    for (const record of records) {
+      const fields = record.fields ?? {}
+      if (!/^[0-9]{8}$/u.test(String(fields.chainId ?? ''))
+        || !/^[0-9a-f]{64}$/u.test(String(fields.recordHash ?? ''))
+        || !/^[0-9a-f]{64}$/u.test(String(fields.recordMacDigest ?? ''))) {
+        return fail(id, `audit record ${record.id} lacks chain/hash/MAC evidence`)
+      }
+    }
+    if (capabilityId === 'audit.chain-multi-record' && records.length < 4) {
+      return fail(id, 'audit chain matrix requires same-day and cross-day records')
+    }
+    if (capabilityId === 'audit.investigation-page' && records.length < 3) {
+      return fail(id, 'audit investigation page requires a stable multi-record page')
+    }
+    if (capabilityId === 'audit.investigation-page') {
+      const query = db.query
+      if (!query || query.total !== 3 || query.cursorBound !== true
+        || query.orderedDescending !== true || query.piiRedacted !== true
+        || query.chainVerified !== true) {
+        return fail(id, 'audit investigation page lacks verified production query evidence')
+      }
+    }
+    if (capabilityId === 'audit.legal-hold-eligible') {
+      const retention = db.retention ?? []
+      if (!retention.some((item) => item.legalHoldAllowed === true)
+        || retention.some((item) => item.eligibleHoldActiveBeforeExpiry !== true
+          || item.eligibleHoldInactiveAtExpiry !== true
+          || item.ineligibleHoldReason !== 'audit_legal_hold_not_allowed')) {
+        return fail(id, 'audit legal-hold production boundary evidence is missing')
+      }
+    }
+    if (capabilityId === 'audit.high-value' && records.some((item) => item.fields?.highValue !== true)) {
+      return fail(id, 'audit high-value record did not use durable classification')
+    }
+    if (capabilityId === 'audit.pseudonym-retention'
+      && records.some((item) => item.fields?.payloadProtected !== true)) {
+      return fail(id, 'audit pseudonym record did not use production payload protection')
+    }
+    if (capabilityId === 'audit.pseudonym-retention' && !(db.retention ?? []).length) {
+      return fail(id, 'audit pseudonym record lacks production retention boundary evidence')
+    }
+    return pass(id, { recordIds: owned.ids })
+  }
+}
+
 /** Built-in machine postcondition verifiers keyed by catalog postconditionId. */
 export const POSTCONDITION_VERIFIERS = Object.freeze({
+  'audit-chain-multi-record': verifyAudit('audit-chain-multi-record'),
+  'audit-empty': verifyAudit('audit-empty'),
+  'audit-high-value': verifyAudit('audit-high-value'),
+  'audit-investigation-page': verifyAudit('audit-investigation-page'),
+  'audit-legal-hold-eligible': verifyAudit('audit-legal-hold-eligible'),
+  'audit-pseudonym-retention': verifyAudit('audit-pseudonym-retention'),
+  'audit-single-valid': verifyAudit('audit-single-valid'),
+  'audit-tamper-negative': verifyAudit('audit-tamper-negative'),
+  'audit-unknown-action-negative': verifyAudit('audit-unknown-action-negative'),
   'article-published': verifyArticlePublished,
   'article-archived': verifyArticleStatus('article-archived', 'archived', { allowMissingPublication: true }),
   'article-deleted': verifyArticleStatus('article-deleted', 'deleted', { allowMissingPublication: true }),

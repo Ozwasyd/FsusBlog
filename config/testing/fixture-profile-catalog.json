@@ -64,6 +64,47 @@
             "requiresFreshNamespace": true
         },
         {
+            "id": "audit-canonical",
+            "capabilities": [
+                "audit.chain-multi-record",
+                "audit.high-value",
+                "audit.investigation-page",
+                "audit.legal-hold-eligible",
+                "audit.pseudonym-retention",
+                "audit.single-valid"
+            ],
+            "allowedExecutionClasses": [
+                "runtime",
+                "security"
+            ],
+            "isDestructive": false,
+            "requiresFreshNamespace": true
+        },
+        {
+            "id": "audit-empty",
+            "capabilities": [
+                "audit.empty"
+            ],
+            "allowedExecutionClasses": [
+                "runtime",
+                "security"
+            ],
+            "isDestructive": false,
+            "requiresFreshNamespace": true
+        },
+        {
+            "id": "audit-negative",
+            "capabilities": [
+                "audit.tamper-negative",
+                "audit.unknown-action-negative"
+            ],
+            "allowedExecutionClasses": [
+                "security"
+            ],
+            "isDestructive": false,
+            "requiresFreshNamespace": true
+        },
+        {
             "id": "auth-basic",
             "capabilities": [
                 "auth.admin.full-permission",
