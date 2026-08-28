@@ -1,11 +1,40 @@
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import {
   isExternalBehaviorDocAdmissionDependency
 } from '../../test-matrix/behavior-doc-static-admission-contract.mjs'
 import { parseMatrix, tierExecutionDependencies } from '../../test-matrix/parse-matrix.mjs'
 import { digestText, digestValue } from '../lib/canonicalize.mjs'
+import {
+  abortGatewayTransition,
+  beginGatewayTransition,
+  createEmptySlotState,
+  markGatewayRollbackRequired,
+  recordSlotStart,
+  recordSlotStop,
+  reserveRuntimeGeneration,
+  setActiveSlot,
+  SLOT_STATE_SCHEMA,
+  validateSlotState
+} from '../../deployment/slot-lib.mjs'
+import {
+  createRolloutState,
+  failRolloutStage,
+  ROLLOUT_SCHEMA,
+  ROLLOUT_STAGES,
+  startRolloutStage
+} from '../../deployment/release-rollout-lib.mjs'
+import { planReleaseAssetGc, RELEASE_GC_STATE_SCHEMA } from '../../storage/release-gc.mjs'
+import { RELEASE_ASSET_MANIFEST_SCHEMA } from '../../storage/release-assets.mjs'
+import {
+  buildReleaseFinalizerPlan,
+  validateCanonicalReleaseFinalEvidenceInputs
+} from '../../test-matrix/release-final-evidence-contract.mjs'
+import { validateRequiredEvidenceCatalog } from '../../test-matrix/required-evidence-catalog.mjs'
+import { adaptReleaseFinalizerSemanticOutcome } from '../../test-matrix/outcomes/release-finalizer-adapter.mjs'
+import { postRuntimeReceiptSchema } from '../../test-matrix/behavior-evidence-post-runtime.mjs'
 
 const requiredFactKeys = Object.freeze([
   'test.topology.profiles',
@@ -22,7 +51,9 @@ const requiredFactKeys = Object.freeze([
   'release-final.required-input-schemas',
   'release-final.output-schema',
   'release-final.summary-tiers',
+  'release-final.aggregate-contract',
   'deployment.runtime-role-contract',
+  'deployment.blue-green-contract',
   'production-fresh.bundle-ordering'
 ])
 
@@ -185,6 +216,239 @@ function collectCoverageIds(coverageRegistry)
 {
   const entries = Array.isArray(coverageRegistry?.entries) ? coverageRegistry.entries : []
   return sortedUniqueStrings(entries.map((entry) => entry?.id).filter(Boolean))
+}
+
+function captureError(callback)
+{
+  try
+  {
+    callback()
+    return 'unexpectedly-accepted'
+  }
+  catch (error)
+  {
+    return error instanceof Error ? error.message : String(error)
+  }
+}
+
+function observeBlueGreenFacts(moduleSources)
+{
+  const at = '2026-01-01T00:00:00Z'
+  const digestA = `sha256:${'a'.repeat(64)}`
+  const digestB = `sha256:${'b'.repeat(64)}`
+  const releaseA = `20260101000000-${'a'.repeat(12)}`
+  const releaseB = `20260101000001-${'b'.repeat(12)}`
+  const state = createEmptySlotState(at)
+  reserveRuntimeGeneration(state, { slot: 'blue', reservedAt: at })
+  recordSlotStart(state, { slot: 'blue', releaseId: releaseA, imageDigest: digestA,
+    imageRef: `registry.example/fsusblog@${digestA}`, deploymentGeneration: 1, startedAt: at })
+  reserveRuntimeGeneration(state, { slot: 'green', reservedAt: at })
+  recordSlotStart(state, { slot: 'green', releaseId: releaseB, imageDigest: digestB,
+    imageRef: `registry.example/fsusblog@${digestB}`, deploymentGeneration: 2, startedAt: at })
+  setActiveSlot(state, { slot: 'blue', kind: 'bootstrap', changedAt: at })
+  const stopActiveError = captureError(() => recordSlotStop(structuredClone(state), { slot: 'blue', stoppedAt: at }))
+  const unknownIdentity = structuredClone(state)
+  unknownIdentity.activeReleaseId = releaseB
+  const unknownIdentityError = captureError(() => validateSlotState(unknownIdentity))
+  const switching = structuredClone(state)
+  beginGatewayTransition(switching, { slot: 'green', releaseId: releaseB, imageDigest: digestB, kind: 'switch', startedAt: at })
+  const aborted = structuredClone(switching)
+  abortGatewayTransition(aborted, { abortedAt: at, message: 'probe-failure' })
+  const rollbackRequired = structuredClone(switching)
+  markGatewayRollbackRequired(rollbackRequired, { failedAt: at, message: 'probe-failure' })
+
+  const rollout = createRolloutState({
+    rolloutId: 'runtime-observation-rollout',
+    kind: 'deploy',
+    manifestPath: '/runtime-observation/release.json',
+    source: { slot: 'blue', releaseId: releaseA, imageDigest: digestA, runtimeGeneration: 1 },
+    target: { slot: 'green', releaseId: releaseB, imageDigest: digestB, runtimeGeneration: 2 },
+    createdAtUtc: at
+  })
+  startRolloutStage(rollout, ROLLOUT_STAGES[0], at)
+  failRolloutStage(rollout, ROLLOUT_STAGES[0], { failedAtUtc: at, errorCode: 'probe_failure' })
+
+  const store = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-gc-observation-'))
+  let activeAssetProtection
+  try
+  {
+    for (const releaseId of [releaseA, releaseB])
+    {
+      const releaseDirectory = path.join(store, 'releases', releaseId)
+      mkdirSync(releaseDirectory, { recursive: true })
+      const manifest = {
+        compatibilityFile: null,
+        files: [],
+        frontendBuildId: releaseId,
+        releaseId,
+        schema: RELEASE_ASSET_MANIFEST_SCHEMA,
+        slot: releaseId === releaseA ? 'blue' : 'green'
+      }
+      writeFileSync(path.join(releaseDirectory, 'asset-manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`)
+    }
+    mkdirSync(path.join(store, 'objects'), { recursive: true })
+    const gcPlan = planReleaseAssetGc({ storeDirectory: store, state: {
+      schema: RELEASE_GC_STATE_SCHEMA,
+      activeReleaseId: releaseA,
+      previousReleaseId: releaseB,
+      drainingReleaseIds: [], retentionReleaseIds: [], referencedReleaseIds: [],
+      minimumRetainedReleaseCount: 2
+    } })
+    activeAssetProtection = gcPlan.releases.find((release) => release.releaseId === releaseA)
+  }
+  finally
+  {
+    rmSync(store, { recursive: true, force: true })
+  }
+
+  return {
+    authorityModules: Object.fromEntries(Object.entries(moduleSources).map(([id, source]) => [id, {
+      sourcePath: source.path,
+      sourceDigest: digestText(source.text)
+    }])),
+    proofIds: [
+      'release-assets.active-release-retained',
+      'rollout.failed-stage-recovery-derived',
+      'slot.active-stop-rejected',
+      'slot.gateway-transition-state-derived',
+      'slot.identity-mismatch-rejected'
+    ],
+    slotStateSchema: SLOT_STATE_SCHEMA,
+    rolloutStateSchema: ROLLOUT_SCHEMA,
+    slots: Object.keys(state.slots).sort(),
+    activeIdentity: ['activeImageDigest', 'activeReleaseId', 'activeSlot'],
+    switchState: switching.status,
+    rollbackRequiredState: rollbackRequired.status,
+    abortedTransitionStatus: aborted.lastTrafficTransition.status,
+    stopActiveResult: stopActiveError,
+    unknownIdentityResult: unknownIdentityError,
+    rolloutFailureState: rollout.status,
+    rolloutRecoveryAction: rollout.recovery.action,
+    rolloutStages: ROLLOUT_STAGES,
+    activeAssetAction: activeAssetProtection.action,
+    activeAssetReasons: activeAssetProtection.reasons,
+    runtimeProtectionAuthorityState: 'observed-in-slot-state-machine-probe',
+    artifactProtectionAuthorityState: 'observed-in-release-gc-plan-probe',
+    schemaProtectionAuthorityState: 'not-expressed-by-current-authorities',
+    volumeProtectionAuthorityState: 'not-expressed-by-current-authorities',
+    claimEligibilityReasons: [
+      'runtime-ownership-authority-conflict',
+      'schema-protection-authority-missing',
+      'volume-protection-authority-missing'
+    ],
+    claimEligible: false,
+    authorityState: 'conflict-unknown'
+  }
+}
+
+function observeReleaseFinalFacts({ matrix, canonical, ledger, dispositionLedger, repositoryRoot,
+  moduleSources, sourceCommit, worktreeFingerprint, buildIdentity })
+{
+  const plan = buildReleaseFinalizerPlan(matrix, 'release-final', canonical)
+  const errors = [
+    ...validateCanonicalReleaseFinalEvidenceInputs(canonical),
+    ...(plan.errors ?? []),
+    ...validateRequiredEvidenceCatalog(ledger, {
+      canonicalInputs: canonical.inputs,
+      dispositionLedger,
+      root: repositoryRoot
+    })
+  ]
+  if (errors.length > 0)
+  {
+    throw new Error(`release-final authority validation failed: ${errors.join('; ')}`)
+  }
+
+  const digest = (value) => `sha256:${digestText(value)}`
+  const sourceRefs = Object.values(moduleSources).map((source) => ({
+    kind: 'repository-authority',
+    path: source.path,
+    digest: digest(source.text)
+  }))
+  const identity = {
+    buildIdentity: digest(JSON.stringify(buildIdentity)),
+    executionEnvelopeDigest: digest('release-final-observation-envelope'),
+    producerId: 'release-finalizer-semantic-outcome',
+    replayPlanDigest: digest(JSON.stringify(plan)),
+    schedulerRunId: 'release-final-observation-run',
+    sourceCommit,
+    temporalContextDigest: digest('release-final-observation-temporal-context'),
+    toolchainDigest: digest('release-final-observation-toolchain'),
+    worktreeFingerprint: `sha256:${worktreeFingerprint}`
+  }
+  const attemptEligibility = {
+    aggregateDigest: digest('release-final-observation-aggregate'),
+    attemptDigest: digest('release-final-observation-attempt'),
+    attemptNumber: 1,
+    cleanFirstAttempt: true,
+    firstFailure: false,
+    qualificationEligible: true
+  }
+  const semanticPlan = { inputIds: plan.inputTierIds, outputIds: [plan.outputReceiptSchema] }
+  const completeEvidence = {
+    consumedIds: plan.inputTierIds,
+    verifiedIds: plan.inputTierIds,
+    failedIds: [],
+    blockedIds: [],
+    producedOutputIds: [plan.outputReceiptSchema],
+    outputDigests: { [plan.outputReceiptSchema]: digest('release-final-observation-output') }
+  }
+  const successful = adaptReleaseFinalizerSemanticOutcome({
+    identity, inputAuthorityRefs: sourceRefs, attemptEligibility,
+    plan: semanticPlan, evidence: completeEvidence
+  })
+  const missingInput = adaptReleaseFinalizerSemanticOutcome({
+    identity, inputAuthorityRefs: sourceRefs, attemptEligibility, plan: semanticPlan,
+    evidence: {
+      ...completeEvidence,
+      consumedIds: plan.inputTierIds.slice(0, -1),
+      verifiedIds: plan.inputTierIds.slice(0, -1)
+    }
+  })
+  const postRuntimeAuthority = ledger.entries.find((entry) =>
+    entry.authorityId === 'behavior-evidence-post-runtime')
+  if (postRuntimeAuthority?.receiptSchema !== postRuntimeReceiptSchema)
+  {
+    throw new Error('post-runtime seal schema conflicts with the required-evidence catalog')
+  }
+
+  return {
+    authorityModules: Object.fromEntries(Object.entries(moduleSources).map(([id, source]) => [id, {
+      sourcePath: source.path,
+      sourceDigest: digest(source.text)
+    }])),
+    planSchema: plan.schema,
+    targetTier: plan.target,
+    selectedTierIds: plan.selectedTierIds,
+    inputTierIds: plan.inputTierIds,
+    inputCount: plan.inputTierIds.length,
+    inputContractSchema: plan.inputContractSchema,
+    outputReceiptSchema: plan.outputReceiptSchema,
+    artifactOnly: plan.artifactOnly,
+    executesTestCommands: plan.executesTestCommands,
+    requiredEvidenceCatalog: {
+      schema: ledger.schema,
+      contentDigest: ledger.contentDigest,
+      authorityIds: ledger.entries.map((entry) => entry.authorityId),
+      locatorBindingKeys: ledger.entries.map((entry) => entry.locatorBindingKey).sort()
+    },
+    postRuntimeSeal: {
+      authorityId: postRuntimeAuthority.authorityId,
+      receiptSchema: postRuntimeReceiptSchema,
+      exactness: postRuntimeAuthority.exactness
+    },
+    semanticAdapterContractProbe: {
+      completeMembershipStatus: successful.outcome.status,
+      missingMembershipStatus: missingInput.outcome.status,
+      missingInputReasonKinds: sortedUniqueStrings(
+        missingInput.outcome.reasons.map((reason) => reason.kind)),
+      producerAuthorityId: successful.producerAuthorityId
+    },
+    currentRunBindingState: 'not-observed-by-static-authority-extractor',
+    publishGateState: 'blocked-current-run-binding-unverified',
+    claimEligible: false,
+    authorityState: 'conflict-unknown'
+  }
 }
 
 function walkFiles(directory, out = [])
@@ -918,6 +1182,50 @@ export function extract(context)
   {
     return failResult(['topology facts map missing'])
   }
+  const releaseFinalPaths = {
+    requiredEvidenceLedger: 'config/testing/required-evidence-authority-ledger.json',
+    dispositionLedger: 'config/testing/release-domain-assertion-dispositions.json',
+    evidenceContract: 'tools/test-matrix/release-final-evidence-contract.mjs',
+    evidenceCatalog: 'tools/test-matrix/required-evidence-catalog.mjs',
+    semanticOutcome: 'tools/test-matrix/outcomes/release-finalizer-adapter.mjs',
+    adapterSupport: 'tools/test-matrix/outcomes/adapter-support.mjs',
+    outcomeContract: 'tools/test-matrix/outcomes/outcome-contract.mjs',
+    releaseDomainLedger: 'tools/test-matrix/release-domain-ledger.mjs',
+    failureTaxonomy: 'config/testing/outcome-failure-taxonomy.json',
+    fieldDispositions: 'config/testing/outcome-field-dispositions.json',
+    attemptProvenance: 'tools/test/attempt-provenance.mjs',
+    postRuntimeSeal: 'tools/test-matrix/behavior-evidence-post-runtime.mjs'
+  }
+  const releaseFinalSources = Object.fromEntries(Object.entries(releaseFinalPaths).map(([id, sourcePath]) => [id, {
+    path: sourcePath,
+    text: readText(context.repositoryRoot, sourcePath, allowed)
+  }]))
+  const releaseFinalLedger = JSON.parse(releaseFinalSources.requiredEvidenceLedger.text)
+  const canonicalReleaseFinalInputs = sortedUniqueStrings(releaseFinalLedger.entries
+    .filter((entry) => entry.allowDiagnostic !== true)
+    .flatMap((entry) => entry.producerTierIds ?? []))
+  try
+  {
+    facts['release-final.aggregate-contract'] = observeReleaseFinalFacts({
+      matrix,
+      canonical: {
+        schema: 'fsusblog.release-final-evidence-inputs.v1',
+        targetTier: 'release-final',
+        inputs: canonicalReleaseFinalInputs
+      },
+      ledger: releaseFinalLedger,
+      dispositionLedger: JSON.parse(releaseFinalSources.dispositionLedger.text),
+      repositoryRoot: context.repositoryRoot,
+      moduleSources: releaseFinalSources,
+      sourceCommit: context.sourceCommit,
+      worktreeFingerprint: context.worktreeFingerprint,
+      buildIdentity: context.buildIdentity
+    })
+  }
+  catch (error)
+  {
+    return failResult([error instanceof Error ? error.message : String(error)])
+  }
   facts['deployment.runtime-role-contract'] = {
     schema: runtimeObservation.schema,
     modes: Object.fromEntries(runtimeModes.map((mode) => [mode.id, {
@@ -935,6 +1243,20 @@ export function extract(context)
     observationDigest: runtimeObservation.observationDigest,
     artifactDigest: runtimeArtifactDigest
   }
+  const blueGreenModulePaths = {
+    slot: 'tools/deployment/slot-lib.mjs',
+    rollout: 'tools/deployment/release-rollout-lib.mjs',
+    releaseAssetsGc: 'tools/storage/release-gc.mjs'
+  }
+  facts['deployment.blue-green-contract'] = observeBlueGreenFacts(Object.fromEntries(
+    Object.entries(blueGreenModulePaths).map(([id, sourcePath]) => [id, {
+      path: sourcePath,
+      text: readText(context.repositoryRoot, sourcePath, allowed)
+    }])
+  ))
+  built.observations.topologyDigest = digestValue(
+    Object.fromEntries(requiredFactKeys.map((key) => [key, facts[key]]))
+  )
   for (const key of requiredFactKeys)
   {
     if (!Object.hasOwn(facts, key))
