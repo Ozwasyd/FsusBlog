@@ -30,6 +30,7 @@ export const docClaimVerificationSchema = 'fsusblog.doc-claim-verification-recei
 export const generatedSectionCheckSchema = 'fsusblog.generated-section-check-receipt.v1'
 export const mutationEvidenceSchema = 'fsusblog.mutation-evidence-receipt.v1'
 export const catalogSchema = 'fsusblog.behavior-contract-catalog.v1'
+export const factExtractorRegistrySchema = 'fsusblog.behavior-fact-extractor-registry.v1'
 
 export const forbiddenJoinFields = Object.freeze([
   'lastVerifiedCommit',
@@ -429,6 +430,64 @@ function validateFactObservation (receipt)
   return receipt
 }
 
+function validateFactExtractorRegistry (registry)
+{
+  if (!isPlainObject(registry)) fail('fact extractor registry must be an object')
+  if (registry.schema !== factExtractorRegistrySchema)
+  {
+    fail(`fact extractor registry schema must be ${factExtractorRegistrySchema}`)
+  }
+  if (registry.digestAlgorithm !== 'sha256' || registry.canonicalSerialization !== 'json-utf8-v1')
+  {
+    fail('fact extractor registry canonical identity is invalid')
+  }
+  if (!Array.isArray(registry.extractors) || registry.extractors.length === 0)
+  {
+    fail('fact extractor registry extractors must be a non-empty list')
+  }
+
+  const byId = new Map()
+  for (const extractor of registry.extractors)
+  {
+    if (!isPlainObject(extractor) || !behaviorIdPattern.test(String(extractor.id ?? '')))
+    {
+      fail('fact extractor registry contains an invalid extractor')
+    }
+    if (byId.has(extractor.id)) fail(`fact extractor registry contains duplicate extractor ${extractor.id}`)
+    if (!Array.isArray(extractor.ownedBehaviorIds) || extractor.ownedBehaviorIds.length === 0)
+    {
+      fail(`fact extractor registry ${extractor.id} ownedBehaviorIds required`)
+    }
+    const requiredBuildArtifact = extractor.requiredBuildArtifact
+    if (extractor.kind === 'compiled-assembly')
+    {
+      if (extractor.hermeticPolicy !== 'exact-build-receipt'
+        || typeof requiredBuildArtifact !== 'string'
+        || requiredBuildArtifact.length === 0)
+      {
+        fail(`fact extractor registry ${extractor.id} compiled build authority is invalid`)
+      }
+    }
+    else if (requiredBuildArtifact != null)
+    {
+      fail(`fact extractor registry ${extractor.id} source-only authority cannot require a build artifact`)
+    }
+    byId.set(extractor.id, extractor)
+  }
+  return { digest: digestValue(registry), byId }
+}
+
+function validateBuildIdentityShape (buildIdentity)
+{
+  if (!isPlainObject(buildIdentity)) return false
+  const keys = Object.keys(buildIdentity).sort()
+  if (keys.join('\0') !== ['artifactDigest', 'artifactId', 'receiptDigest'].join('\0')) return false
+  return typeof buildIdentity.artifactId === 'string'
+    && buildIdentity.artifactId.length > 0
+    && digestPattern.test(buildIdentity.receiptDigest)
+    && digestPattern.test(buildIdentity.artifactDigest)
+}
+
 function validateParseReceipt (receipt)
 {
   if (!isPlainObject(receipt)) fail('doc-claim parse receipt must be an object')
@@ -617,6 +676,11 @@ export function joinBehaviorGraph (options = {})
 {
   const catalog = loadJsonInput(options.catalog, 'catalog')
   const catalogDigest = validateCatalog(catalog)
+  const factExtractorRegistry = loadJsonInput(options.factExtractorRegistry, 'factExtractorRegistry')
+  const {
+    digest: factExtractorRegistryDigest,
+    byId: factExtractorsById
+  } = validateFactExtractorRegistry(factExtractorRegistry)
 
   const ownerReceipt = validateOwnerReceipt(loadJsonInput(options.ownerReceipt, 'ownerReceipt'))
   const testEvidence = validateTestEvidenceReceipt(loadJsonInput(options.testEvidenceReceipt, 'testEvidenceReceipt'))
@@ -739,40 +803,74 @@ export function joinBehaviorGraph (options = {})
     }
   }
 
-  // Build identity: if any fact observation declares a build, all ok facts for active behaviors must match.
-  let buildIdentity = null
+  // Build identity is owned per extractor. Source-only extractors must not invent
+  // one global build, while each compiled extractor must bind its own exact
+  // canonical artifact receipt and digest from the registry authority.
+  const buildIdentities = {}
+  const factReceiptsByExtractor = new Map()
   for (const receipt of factReceipts)
   {
-    if (receipt.buildIdentity != null)
+    if (receipt.registryDigest !== factExtractorRegistryDigest)
     {
-      if (buildIdentity == null)
+      const reason = `fact:${receipt.extractorId} registryDigest does not match fact extractor registry (identity exact match)`
+      pushLocator(conflicts, 'identity-mismatch', null, `registry:${receipt.extractorId}`, reason)
+      failureReasons.push(reason)
+    }
+
+    const extractor = factExtractorsById.get(receipt.extractorId)
+    if (extractor == null)
+    {
+      const reason = `fact:${receipt.extractorId} is not owned by the fact extractor registry`
+      pushLocator(conflicts, 'identity-mismatch', null, `registry:${receipt.extractorId}`, reason)
+      failureReasons.push(reason)
+      continue
+    }
+    if (receipt.behaviorIds.some((behaviorId) => !extractor.ownedBehaviorIds.includes(behaviorId)))
+    {
+      const reason = `fact:${receipt.extractorId} behaviorIds exceed its registry authority`
+      pushLocator(conflicts, 'identity-mismatch', null, `registry:${receipt.extractorId}`, reason)
+      failureReasons.push(reason)
+    }
+
+    const prior = factReceiptsByExtractor.get(receipt.extractorId)
+    if (prior != null)
+    {
+      const sameBuild = canonicalize(prior.buildIdentity) === canonicalize(receipt.buildIdentity)
+      const reason = sameBuild
+        ? `fact:${receipt.extractorId} appears more than once in the receipt cohort`
+        : `fact:${receipt.extractorId} has conflicting build identities within one extractor authority`
+      pushLocator(conflicts, 'identity-mismatch', null, `build:${receipt.extractorId}`, reason)
+      failureReasons.push(reason)
+      continue
+    }
+    factReceiptsByExtractor.set(receipt.extractorId, receipt)
+
+    if (extractor.requiredBuildArtifact == null)
+    {
+      if (receipt.buildIdentity != null)
       {
-        buildIdentity = { ...receipt.buildIdentity }
-      }
-      else if (
-        buildIdentity.artifactId !== receipt.buildIdentity.artifactId
-        || buildIdentity.receiptDigest !== receipt.buildIdentity.receiptDigest
-        || buildIdentity.artifactDigest !== receipt.buildIdentity.artifactDigest
-      )
-      {
-        const reason = `fact:${receipt.extractorId} buildIdentity conflicts with other observations`
+        const reason = `fact:${receipt.extractorId} source-only extractor must not declare buildIdentity`
         pushLocator(conflicts, 'identity-mismatch', null, `build:${receipt.extractorId}`, reason)
         failureReasons.push(reason)
       }
+      continue
     }
-  }
-  // Observations that omit build while others declare one are refused (old build / mixed identity).
-  if (buildIdentity != null)
-  {
-    for (const receipt of factReceipts)
+
+    if (!validateBuildIdentityShape(receipt.buildIdentity))
     {
-      if (receipt.buildIdentity == null)
-      {
-        const reason = `fact:${receipt.extractorId} missing buildIdentity while join requires build identity`
-        pushLocator(conflicts, 'identity-mismatch', null, `build:${receipt.extractorId}`, reason)
-        failureReasons.push(reason)
-      }
+      const reason = `fact:${receipt.extractorId} missing required compiled buildIdentity for ${extractor.requiredBuildArtifact}`
+      pushLocator(conflicts, 'identity-mismatch', null, `build:${receipt.extractorId}`, reason)
+      failureReasons.push(reason)
+      continue
     }
+    if (receipt.buildIdentity.artifactId !== extractor.requiredBuildArtifact)
+    {
+      const reason = `fact:${receipt.extractorId} buildIdentity artifactId does not match required build authority ${extractor.requiredBuildArtifact}`
+      pushLocator(conflicts, 'identity-mismatch', null, `build:${receipt.extractorId}`, reason)
+      failureReasons.push(reason)
+      continue
+    }
+    buildIdentities[receipt.extractorId] = { ...receipt.buildIdentity }
   }
 
   // Producer failures fail closed — never fall back to older receipts.
@@ -1438,8 +1536,9 @@ export function joinBehaviorGraph (options = {})
       commit: sourceCommit,
       worktreeFingerprint
     },
-    buildIdentity,
+    buildIdentities: stable(buildIdentities),
     catalogDigest,
+    registryDigest: factExtractorRegistryDigest,
     extractorDigests,
     rendererDigests,
     inputDigests: {
@@ -1476,7 +1575,7 @@ export function joinBehaviorGraph (options = {})
   return receipt
 }
 
-export function validateBehaviorGraphReceipt (receipt)
+export function validateBehaviorGraphReceipt (receipt, options = {})
 {
   if (!isPlainObject(receipt)) fail('behavior graph receipt must be an object')
   if (receipt.schema !== behaviorGraphSchema) fail(`unexpected schema ${receipt.schema}`)
@@ -1490,6 +1589,36 @@ export function validateBehaviorGraphReceipt (receipt)
   if (receipt.status === 'failed' && receipt.failureReasons.length === 0)
   {
     fail('behavior graph status=failed requires failureReasons')
+  }
+  if (!isPlainObject(receipt.buildIdentities)) fail('behavior graph buildIdentities must be an object')
+  if (!digestPattern.test(String(receipt.registryDigest ?? ''))) fail('behavior graph registryDigest invalid')
+  for (const [extractorId, buildIdentity] of Object.entries(receipt.buildIdentities))
+  {
+    if (!behaviorIdPattern.test(extractorId) || !validateBuildIdentityShape(buildIdentity))
+    {
+      fail(`behavior graph buildIdentities.${extractorId} invalid`)
+    }
+  }
+  if (options.factExtractorRegistry != null)
+  {
+    const registry = loadJsonInput(options.factExtractorRegistry, 'factExtractorRegistry')
+    const { digest, byId } = validateFactExtractorRegistry(registry)
+    if (receipt.registryDigest !== digest) fail('behavior graph registryDigest does not match registry authority')
+    const expected = [...byId.values()]
+      .filter((extractor) => extractor.requiredBuildArtifact != null)
+      .map((extractor) => extractor.id)
+      .sort()
+    if (Object.keys(receipt.buildIdentities).sort().join('\0') !== expected.join('\0'))
+    {
+      fail('behavior graph buildIdentities do not exactly cover compiled extractor authorities')
+    }
+    for (const extractorId of expected)
+    {
+      if (receipt.buildIdentities[extractorId].artifactId !== byId.get(extractorId).requiredBuildArtifact)
+      {
+        fail(`behavior graph buildIdentities.${extractorId} does not match registry authority`)
+      }
+    }
   }
   return receipt
 }
