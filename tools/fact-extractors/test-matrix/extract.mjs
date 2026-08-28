@@ -1257,6 +1257,14 @@ export function extract(context)
   built.observations.topologyDigest = digestValue(
     Object.fromEntries(requiredFactKeys.map((key) => [key, facts[key]]))
   )
+  // Hyphen-free aliases mirror the exact fields bound by controlled prose claims.
+  built.observations.releaseFinalAggregate = {
+    executesTestCommands: facts['release-final.aggregate-contract'].executesTestCommands,
+    artifactOnly: facts['release-final.aggregate-contract'].artifactOnly
+  }
+  built.observations.deploymentBlueGreen = {
+    claimEligible: facts['deployment.blue-green-contract'].claimEligible
+  }
   for (const key of requiredFactKeys)
   {
     if (!Object.hasOwn(facts, key))

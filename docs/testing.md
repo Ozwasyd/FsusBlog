@@ -1607,6 +1607,24 @@ ZK contract/provenance 分类与 hash bindings、静态 evidence classification�
 - [operations.md](operations.md) — 发布门控与滚动更新
 - `tests/backend/TESTING.md` — 洁净性约定完整版
 - `tools/test.sh` — 测试入口脚本
+## Release-final finalizer authority
+
+<!-- fsus-doc-claim
+claimId: release-final-aggregate-contract.finalizer-authority
+behaviorId: release-final-aggregate-contract
+claimType: generated-section
+generatedSectionId: release.finalizer-authority
+render: key-value-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN release.finalizer-authority -->
+| Key | Value |
+| --- | --- |
+| commandDigest | 6be786224f86a02f00489b84e3e8ba412b6dcf806495b4852e6b403562930b81 |
+| commandEntrypoint | tools/test/lanes/release-final.sh |
+| commandKind | finalizer |
+| id | release-final |
+<!-- FSUSBLOG-GENERATED:END release.finalizer-authority -->
 ## Current test tiers
 
 <!-- fsus-doc-claim

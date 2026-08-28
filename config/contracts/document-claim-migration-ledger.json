@@ -557,26 +557,45 @@
                 {
                     "behaviorId": "release-final-aggregate-contract",
                     "documentPath": "docs/testing.md",
-                    "claimIds": [],
-                    "generatedSectionIds": []
+                    "claimIds": [
+                        "release-final-aggregate-contract.finalizer-authority"
+                    ],
+                    "generatedSectionIds": [
+                        "release.finalizer-authority"
+                    ]
                 },
                 {
                     "behaviorId": "release-final-aggregate-contract",
                     "documentPath": "docs/releases/release-identity.md",
-                    "claimIds": [],
-                    "generatedSectionIds": []
+                    "claimIds": [
+                        "release-final-aggregate-contract.aggregate-only",
+                        "release-final-aggregate-contract.aggregate-artifact-only",
+                        "release-final-aggregate-contract.aggregate-contract"
+                    ],
+                    "generatedSectionIds": [
+                        "release.aggregate-contract"
+                    ]
                 },
                 {
                     "behaviorId": "deployment-blue-green-runtime-role",
                     "documentPath": "docs/releases/blue-green-deployment-runbook.md",
-                    "claimIds": [],
-                    "generatedSectionIds": []
+                    "claimIds": [
+                        "deployment-blue-green-runtime-role.claims-blocked-until-authority-verified",
+                        "deployment-blue-green-runtime-role.blue-green-contract"
+                    ],
+                    "generatedSectionIds": [
+                        "deployment.blue-green-contract"
+                    ]
                 },
                 {
                     "behaviorId": "deployment-blue-green-runtime-role",
                     "documentPath": "docs/architecture/monolithic-distributed-boundary.md",
-                    "claimIds": [],
-                    "generatedSectionIds": []
+                    "claimIds": [
+                        "deployment-blue-green-runtime-role.runtime-roles"
+                    ],
+                    "generatedSectionIds": [
+                        "deployment.runtime-roles"
+                    ]
                 }
             ]
         }
