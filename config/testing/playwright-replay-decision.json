@@ -25,7 +25,7 @@
     },
     "configuration": {
         "configPath": "src/frontend/playwright.config.ts",
-        "configDigest": "sha256:aac1eaa9009d2fef90af5c900c33df7e72010176b5d291476bea8e8a62b6dd97",
+        "configDigest": "sha256:12066ef806f7a674a0c948f5f121b0dd024d90d110c58f17148d2dc17d0e542a",
         "globalSetupPath": "tests/frontend/support/playwright/global-setup.ts",
         "globalSetupDigest": "sha256:ef628ff9ff6a3e0097b4c88b52c5db6830e6e20a9a20dcad67282e63372ec566",
         "globalTeardown": null
@@ -45,5 +45,5 @@
             "test-list-public-cli"
         ]
     },
-    "contentDigest": "sha256:50bbb262d4b9fee6bee11f05ece18951f3a132a281fc11e822c4d13c2833751b"
+    "contentDigest": "sha256:103024a238b0be1bf7a87df72f17e2f263ecc5f0a44da81bd44e6ce5435e355b"
 }
