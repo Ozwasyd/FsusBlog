@@ -562,6 +562,7 @@ const filterEntryDefinition = definePublicEntry({
             filterType,
             labelText: getPublicFilterLabel(filterType),
             currentName: title,
+            description: null,
             loadingMeta: false,
             loadingArticles: false,
             isPowCalculating: false,

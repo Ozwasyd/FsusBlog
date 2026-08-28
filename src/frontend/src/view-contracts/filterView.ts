@@ -47,7 +47,7 @@ export function createFilterPageViewContract(view: {
   filterType: PublicFilterType;
   labelText: string;
   currentName: string;
-  description?: string | null;
+  description: string | null;
   loadingMeta: boolean;
   loadingArticles: boolean;
   isPowCalculating: boolean;
@@ -96,13 +96,13 @@ export function createFilterPageViewContract(view: {
 function createFilterHeaderViewContract(view: {
   labelText: string;
   currentName: string;
-  description?: string | null;
+  description: string | null;
   loadingMeta: boolean;
 }): FilterHeaderViewContract {
   return {
     labelText: view.labelText,
     currentName: view.currentName,
-    description: view.description ?? null,
+    description: view.description,
     loadingMeta: view.loadingMeta
   };
 }

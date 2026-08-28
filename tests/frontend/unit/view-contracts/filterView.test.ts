@@ -10,6 +10,7 @@ function createView(filterType: PublicFilterType, currentName: string, overrides
     filterType,
     labelText: filterType === PUBLIC_FILTER_TYPE.search ? '搜索' : filterType === PUBLIC_FILTER_TYPE.tag ? '标签' : '分类',
     currentName,
+    description: null,
     loadingMeta: false,
     loadingArticles: false,
     isPowCalculating: false,
@@ -70,12 +71,6 @@ describe('createFilterPageViewContract', () => {
     })
 
     expect(view.header.description).toBe('关于系统架构与设计的深度文章')
-  })
-
-  it('defaults header description to null when omitted or undefined', () => {
-    const view = createView(PUBLIC_FILTER_TYPE.tag, 'TypeScript')
-
-    expect(view.header.description).toBeNull()
   })
 
   it('sets header description to null when explicitly null', () => {

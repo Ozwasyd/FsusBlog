@@ -655,6 +655,7 @@ export function useFilterView() {
         filterType: filterType.value,
         labelText: labelText.value,
         currentName: currentName.value,
+        description: null,
         loadingMeta: loadingMeta.value,
         loadingArticles: loadingArticles.value,
         isPowCalculating: powProvider.isCalculating.value,
