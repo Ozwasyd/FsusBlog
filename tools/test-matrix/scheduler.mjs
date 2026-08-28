@@ -5332,6 +5332,8 @@ async function runDagUnlocked(options)
             runId,
             runDirectory
         };
+        const requiresProcessRegistration =
+            resourceEnforcer.mode === 'enforced' || Boolean(options.registerManagedProcess);
         let execution;
         if (options.executeTier)
         {
@@ -5352,11 +5354,11 @@ async function runDagUnlocked(options)
                 Number(tier.terminationGraceMs) > 0
                     ? Number(tier.terminationGraceMs)
                     : terminationGraceMs,
-                suspendForAttach: resourceEnforcer.mode === 'enforced' || Boolean(options.registerManagedProcess),
+                suspendForAttach: requiresProcessRegistration,
                 durableContainment: Boolean(options.registerManagedProcess)
             });
         }
-        if (execution.child)
+        if (execution.child && requiresProcessRegistration)
         {
             try
             {
