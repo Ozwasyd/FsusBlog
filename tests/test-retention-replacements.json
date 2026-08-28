@@ -7344,6 +7344,20 @@
             "reason": "The real PostgreSQL recovery-code owner now carries the MFA-to-session transition: only the CAS winner receives access and refresh tokens while every loser remains sessionless."
         },
         {
+            "id": "xunit:tests/backend/Unit/BackendAuthStateMachineTests.cs#BackendAuthStateMachineTests.SensitiveEndpointAccess_IsBoundToLiveFullSession",
+            "path": "tests/backend/Unit/BackendAuthStateMachineTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Integration/UserSessionSensitiveEndpointIntegrationTests.cs#UserSessionSensitiveEndpointIntegrationTests.CurrentFullAuthSession_RealLoginAndMappedEndpointExecuteBusinessAction",
+                "xunit:tests/backend/Integration/UserSessionSensitiveEndpointIntegrationTests.cs#UserSessionSensitiveEndpointIntegrationTests.MfaPendingWithoutPersistedSession_IsRejectedBeforeBusinessWithNoDatabaseWrite",
+                "xunit:tests/backend/Integration/UserSessionSensitiveEndpointIntegrationTests.cs#UserSessionSensitiveEndpointIntegrationTests.RevokedOrLoggedOutSession_IsRejectedBeforeBusinessWithNoDatabaseWrite",
+                "xunit:tests/backend/Integration/UserSessionSensitiveEndpointIntegrationTests.cs#UserSessionSensitiveEndpointIntegrationTests.ExpiredTokenOrSession_IsRejectedBeforeBusinessWithNoDatabaseWrite",
+                "xunit:tests/backend/Integration/UserSessionSensitiveEndpointIntegrationTests.cs#UserSessionSensitiveEndpointIntegrationTests.ForgedFullAuthClaimsAgainstLowStrengthDatabaseSession_AreRejectedWithoutSideEffects",
+                "xunit:tests/backend/Integration/UserSessionSensitiveEndpointIntegrationTests.cs#UserSessionSensitiveEndpointIntegrationTests.WrongSessionOrUserIdentity_IsRejectedWithoutSideEffects",
+                "xunit:tests/backend/Integration/UserSessionSensitiveEndpointIntegrationTests.cs#UserSessionSensitiveEndpointIntegrationTests.RefreshRotation_RejectsOldRefreshAuthorityAndCurrentAccessExecutesBusinessAction"
+            ],
+            "reason": "PostgreSQL-backed login and session commands now drive real JWT validation through the mapped protected account-mutation endpoint, including authoritative context, expiry, revocation, identity, refresh, business-execution, and zero-side-effect evidence."
+        },
+        {
             "id": "xunit:tests/backend/Unit/BackendConcurrencyModelTests.cs#BackendConcurrencyModelTests.PasskeyRegistrationLimitRace_StopsAtConfiguredLimit",
             "path": "tests/backend/Unit/BackendConcurrencyModelTests.cs",
             "replacementTestIds": [
