@@ -76,9 +76,9 @@ test('rejects unknown owner and delivery class', () => {
 })
 
 test('loaded schema rejects missing fields and additional properties', () => {
-  assert.match(mutate((value) => { delete value.queues[0].failureSemantics }).join('\n'), /missing required property failureSemantics/u)
-  assert.match(mutate((value) => { value.queues[0].wildcardSuppression = '*' }).join('\n'), /additional property wildcardSuppression/u)
-  assert.match(mutate((value) => { value.queues[0].classProof.wildcardSuppression = '*' }).join('\n'), /must match exactly one schema variant/u)
+  assert.match(mutate((value) => { delete value.queues[0].failureSemantics }).join('\n'), /required property 'failureSemantics'/u)
+  assert.match(mutate((value) => { value.queues[0].wildcardSuppression = '*' }).join('\n'), /additional properties/u)
+  assert.match(mutate((value) => { value.queues[0].classProof.wildcardSuppression = '*' }).join('\n'), /additional properties|oneOf/u)
 })
 
 test('rejects incomplete class-specific proofs', () => {

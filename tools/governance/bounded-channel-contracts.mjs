@@ -5,7 +5,10 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { maskCSharp } from '../architecture/backend-physical-topology/csharp-mask.mjs'
+import { validateJsonSchema } from '../test-matrix/schema-validator/validate.mjs'
+import { discoverBoundedChannels } from './bounded-channel-discovery.mjs'
+
+export { discoverBoundedChannels } from './bounded-channel-discovery.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 export const defaultCatalogPath = path.join(root, 'config/testing/bounded-channel-delivery-contracts.json')
@@ -13,120 +16,6 @@ const deliveryClasses = new Set(['required', 'best-effort', 'coalescible', 'repl
 const dispositionKinds = new Set(['implemented', 'not-applicable', 'successor-required'])
 const publicHotAuthorities = [1629, 1630, 1631]
   .map((issue) => `https://github.com/Ozwasyd/FsusBlog/issues/${issue}`)
-
-function repositoryPath(file) {
-  return path.relative(root, file).split(path.sep).join('/')
-}
-
-function sourceFiles(directory) {
-  const files = []
-  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-    const absolute = path.join(directory, entry.name)
-    if (entry.isDirectory() && !['bin', 'obj', 'node_modules'].includes(entry.name)) files.push(...sourceFiles(absolute))
-    else if (entry.isFile() && entry.name.endsWith('.cs')) files.push(absolute)
-  }
-  return files.sort()
-}
-
-function matchingBrace(source, open) {
-  let depth = 0
-  for (let index = open; index < source.length; index++) {
-    if (source[index] === '{') depth++
-    if (source[index] === '}' && --depth === 0) return index
-  }
-  return source.length - 1
-}
-
-function channelFactories(masked) {
-  const signature = /\b(?:public|private|internal|protected)\s+(?:static\s+)?Channel\s*<[^>{};]+>\s+(?<name>[A-Za-z_]\w*)\s*\([^)]*\)\s*(?<body>=>|\{)/gu
-  const factories = []
-  for (const match of masked.matchAll(signature)) {
-    const bodyStart = match.index + match[0].length
-    const end = match.groups.body === '=>'
-      ? masked.indexOf(';', bodyStart)
-      : matchingBrace(masked, bodyStart - 1)
-    factories.push({ name: match.groups.name, start: match.index, end, body: masked.slice(bodyStart, end) })
-  }
-  let changed = true
-  const bounded = new Set(factories.filter((factory) => factory.body.includes('Channel.CreateBounded')).map((factory) => factory.name))
-  while (changed) {
-    changed = false
-    for (const factory of factories) {
-      if (bounded.has(factory.name)) continue
-      if ([...bounded].some((name) => new RegExp(`\\b${name}\\s*\\(`, 'u').test(factory.body))) {
-        bounded.add(factory.name); changed = true
-      }
-    }
-  }
-  return factories.filter((factory) => bounded.has(factory.name))
-}
-
-function inside(position, ranges) {
-  return ranges.some((range) => position >= range.start && position <= range.end)
-}
-
-function assignmentTarget(masked, position) {
-  const prefix = masked.slice(Math.max(0, position - 240), position)
-  return prefix.match(/(?<target>[A-Za-z_]\w*)\s*=\s*$/u)?.groups.target ?? null
-}
-
-function containingType(masked, position) {
-  const declaration = /\b(?:class|record|struct)\s+(?<name>[A-Za-z_]\w*)[^;{]*\{/gu
-  let owner = null
-  for (const match of masked.matchAll(declaration)) {
-    const open = match.index + match[0].lastIndexOf('{')
-    if (open > position) break
-    if (matchingBrace(masked, open) >= position) owner = match.groups.name
-  }
-  return owner
-}
-
-function lineNumber(source, position) {
-  return source.slice(0, position).split('\n').length
-}
-
-export function discoverBoundedChannels({ sourceRoot = path.join(root, 'src'), sources = null } = {}) {
-  const documents = sources instanceof Map
-    ? [...sources.entries()].map(([file, source]) => ({ file, source }))
-    : sourceFiles(sourceRoot).map((file) => ({ file: repositoryPath(file), source: fs.readFileSync(file, 'utf8') }))
-  const discovered = []
-  for (const document of documents.sort((left, right) => left.file.localeCompare(right.file))) {
-    const masked = maskCSharp(document.source)
-    const factories = channelFactories(masked)
-    const directPattern = /\bChannel\s*\.\s*CreateBounded\s*</gu
-    for (const match of masked.matchAll(directPattern)) {
-      if (inside(match.index, factories)) continue
-      const target = assignmentTarget(masked, match.index)
-      if (!target) throw new Error(`${document.file}:${lineNumber(document.source, match.index)} bounded channel has no stable assignment owner`)
-      discovered.push(buildDiscovery(document, masked, match.index, target, 'direct', null, masked.slice(match.index, match.index + 600)))
-    }
-    for (const factory of factories) {
-      const callPattern = new RegExp(`\\b${factory.name}\\s*\\(`, 'gu')
-      for (const match of masked.matchAll(callPattern)) {
-        if (inside(match.index, factories)) continue
-        const target = assignmentTarget(masked, match.index)
-        if (!target) throw new Error(`${document.file}:${lineNumber(document.source, match.index)} bounded factory call has no stable assignment owner`)
-        discovered.push(buildDiscovery(document, masked, match.index, target, factory.body.includes('Channel.CreateBounded') ? 'wrapped' : 'indirect', factory.name, factory.body))
-      }
-    }
-  }
-  return discovered.sort((left, right) => left.discoveryKey.localeCompare(right.discoveryKey))
-}
-
-function buildDiscovery(document, masked, position, target, creationKind, factory, creationSource) {
-  const ownerType = containingType(masked, position)
-  if (!ownerType) throw new Error(`${document.file}:${lineNumber(document.source, position)} bounded channel has no containing type`)
-  return {
-    discoveryKey: `${document.file}#${ownerType}.${target}`,
-    file: document.file,
-    ownerType,
-    target,
-    creationKind,
-    factory,
-    fullMode: creationSource.match(/FullMode\s*=\s*BoundedChannelFullMode\.(?<mode>[A-Za-z]+)/u)?.groups.mode ?? null,
-    line: lineNumber(document.source, position)
-  }
-}
 
 function canonical(value) {
   if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`
@@ -140,37 +29,6 @@ export function deliveryCatalogDigest(queues) {
 
 function presentString(value) {
   return typeof value === 'string' && value.trim().length > 0
-}
-
-function validateSchemaValue(schemaRoot, schema, value, location = '$') {
-  if (schema.$ref) {
-    const target = schema.$ref.split('/').slice(1).reduce((current, key) => current?.[key], schemaRoot)
-    return target ? validateSchemaValue(schemaRoot, target, value, location) : [`${location} has unresolved schema reference ${schema.$ref}`]
-  }
-  if (schema.oneOf) {
-    const matches = schema.oneOf
-      .map((candidate) => validateSchemaValue(schemaRoot, candidate, value, location))
-      .filter((candidateErrors) => candidateErrors.length === 0)
-    return matches.length === 1 ? [] : [`${location} must match exactly one schema variant`]
-  }
-  const errors = []
-  if (schema.const !== undefined && value !== schema.const) errors.push(`${location} must equal ${schema.const}`)
-  if (schema.enum && !schema.enum.includes(value)) errors.push(`${location} has invalid enum value`)
-  if (schema.type === 'object') {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return [`${location} must be an object`]
-    for (const key of schema.required ?? []) if (!(key in value)) errors.push(`${location} missing required property ${key}`)
-    if (schema.additionalProperties === false) for (const key of Object.keys(value)) if (!(key in (schema.properties ?? {}))) errors.push(`${location} has additional property ${key}`)
-    for (const [key, child] of Object.entries(schema.properties ?? {})) if (key in value) errors.push(...validateSchemaValue(schemaRoot, child, value[key], `${location}.${key}`))
-  } else if (schema.type === 'array') {
-    if (!Array.isArray(value)) return [`${location} must be an array`]
-    if (schema.minItems && value.length < schema.minItems) errors.push(`${location} requires at least ${schema.minItems} items`)
-    if (schema.uniqueItems && new Set(value.map(canonical)).size !== value.length) errors.push(`${location} must contain unique items`)
-    value.forEach((item, index) => errors.push(...validateSchemaValue(schemaRoot, schema.items ?? {}, item, `${location}[${index}]`)))
-  } else if (schema.type === 'string') {
-    if (typeof value !== 'string' || (schema.minLength && value.length < schema.minLength)) errors.push(`${location} must be a non-empty string`)
-    else if (schema.pattern && !new RegExp(schema.pattern, 'u').test(value)) errors.push(`${location} does not match ${schema.pattern}`)
-  }
-  return errors
 }
 
 function validateReference(reference, label, errors, readSource) {
@@ -204,7 +62,7 @@ export function validateBoundedChannelCatalog(catalogPath = defaultCatalogPath, 
   const schemaPath = path.join(root, 'config/testing/bounded-channel-delivery-contracts.schema.json')
   const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'))
   if (schema.$id !== 'https://fsus.blog/schemas/testing/bounded-channel-delivery-contracts.schema.json') errors.push('bounded channel schema authority is unknown')
-  errors.push(...validateSchemaValue(schema, schema, catalog))
+  errors.push(...validateJsonSchema(catalog, schema))
   rejectUnknownKeys(catalog, new Set(['schema', 'digest', 'queues']), 'catalog', errors)
   if (catalog.schema !== 'fsusblog.bounded-channel-delivery-contracts.v1') errors.push('catalog schema is unknown')
   if (!Array.isArray(catalog.queues)) return [...errors, 'catalog queues must be an array']
