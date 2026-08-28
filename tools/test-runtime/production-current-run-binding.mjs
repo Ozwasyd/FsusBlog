@@ -109,6 +109,10 @@ export const maxConcurrency = 2;
 
 export function productionRuntimeEnvironment()
 {
+    const buildLayout = resolveProductionBuildLayout({
+        root: repositoryRoot,
+        runId: identityAuthority.identity.runId
+    });
     const inventory = loadRandomStreamInventory();
     const streams = Object.fromEntries(inventory.consumers.map((consumer) =>
     {
@@ -116,6 +120,7 @@ export function productionRuntimeEnvironment()
         return [`${consumer.canonicalTestId}\u0000${consumer.streamId}`, stream.derivedSeed];
     }));
     return Object.freeze({
+        FSUSBLOG_PRODUCTION_BUILD_ROOT: buildLayout.runRoot,
         FSUSBLOG_RANDOM_STREAMS_JSON: JSON.stringify(streams),
         FSUSBLOG_REPLAY_ROOT_SEED: identityAuthority.replay.rootSeed,
         FSUSBLOG_REPLAY_EVIDENCE_CLASS: 'correctness',

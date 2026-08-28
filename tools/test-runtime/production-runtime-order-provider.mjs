@@ -7,6 +7,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { digestCanonical } from '../test-fixtures/receipt/canonical.mjs';
+import { resolveProductionBuildLayout } from '../test-matrix/production-build-layout.mjs';
 
 import { normalizeRuntimeIdentity } from './contract.mjs';
 import { RuntimeExecutionSession } from './runtime-execution-session.mjs';
@@ -85,6 +86,25 @@ function assertBinding(binding)
         throw new Error('runtime-order binding maxConcurrency must prove cap > 1');
     }
     return maxConcurrency;
+}
+
+export function validateProductionRuntimeEnvironment({ repositoryRoot, runId, environment })
+{
+    if (!environment || typeof environment !== 'object')
+    {
+        throw new Error('production binding returned no sealed replay environment');
+    }
+    const expectedRoot = resolveProductionBuildLayout({ root: repositoryRoot, runId }).runRoot;
+    const suppliedRoot = String(environment.FSUSBLOG_PRODUCTION_BUILD_ROOT ?? '').trim();
+    if (!suppliedRoot)
+    {
+        throw new Error('production binding returned no current run-bound production build root');
+    }
+    if (path.resolve(suppliedRoot) !== expectedRoot)
+    {
+        throw new Error('production binding returned a stale or cross-run production build root');
+    }
+    return Object.freeze({ ...environment, FSUSBLOG_PRODUCTION_BUILD_ROOT: expectedRoot });
 }
 
 export async function createRuntimeOrderProvider()
@@ -168,13 +188,14 @@ export async function createRuntimeOrderProvider()
             let primaryFailure = null;
             try
             {
-                const runtimeEnvironment = typeof binding.productionRuntimeEnvironment === 'function'
+                const suppliedRuntimeEnvironment = typeof binding.productionRuntimeEnvironment === 'function'
                     ? await binding.productionRuntimeEnvironment({ identity: owned.session.identity, plan })
                     : null;
-                if (!runtimeEnvironment || typeof runtimeEnvironment !== 'object')
-                {
-                    throw new Error(`${plan.planId} production binding returned no sealed replay environment`);
-                }
+                const runtimeEnvironment = validateProductionRuntimeEnvironment({
+                    repositoryRoot,
+                    runId: immutableIdentity.runId,
+                    environment: suppliedRuntimeEnvironment
+                });
                 await run(path.join(repositoryRoot, 'tools/test/bundles/runtime-browser.sh'), [], {
                     cwd: repositoryRoot,
                     signal,

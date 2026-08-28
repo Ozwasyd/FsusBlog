@@ -6,6 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { createProductionBoundaryCollector } from '../../tools/test-runtime/production-boundary-collector.mjs';
+import { validateProductionRuntimeEnvironment } from '../../tools/test-runtime/production-runtime-order-provider.mjs';
 import { RuntimeExecutionSession } from '../../tools/test-runtime/runtime-execution-session.mjs';
 
 import { digest, noSideEffects, runtimeIdentity } from './support/runtime-state-fixture.mjs';
@@ -135,4 +136,33 @@ test('canonical runtime-order command uses shipped binding and fails closed with
     assert.notEqual(error.status, 0);
     assert.match(error.stderr, /FSUSBLOG_RUNTIME_ORDER_IDENTITY_FILE/);
     assert.equal(fs.existsSync(output), false);
+});
+
+test('canonical provider propagates only the exact current run-bound production build root', () =>
+{
+    const repositoryRoot = path.resolve('.');
+    const runId = 'runtime-state-provider-root';
+    const expectedRoot = path.join(repositoryRoot, '.tmp', 'build', runId);
+    const environment = validateProductionRuntimeEnvironment({
+        repositoryRoot,
+        runId,
+        environment: {
+            FSUSBLOG_PRODUCTION_BUILD_ROOT: expectedRoot,
+            FSUSBLOG_REPLAY_EVIDENCE_CLASS: 'correctness'
+        }
+    });
+    assert.equal(environment.FSUSBLOG_PRODUCTION_BUILD_ROOT, expectedRoot);
+    assert.equal(environment.FSUSBLOG_REPLAY_EVIDENCE_CLASS, 'correctness');
+    assert.throws(
+        () => validateProductionRuntimeEnvironment({ repositoryRoot, runId, environment: {} }),
+        /no current run-bound production build root/
+    );
+    assert.throws(
+        () => validateProductionRuntimeEnvironment({
+            repositoryRoot,
+            runId,
+            environment: { FSUSBLOG_PRODUCTION_BUILD_ROOT: path.join(repositoryRoot, '.tmp', 'build', 'another-run') }
+        }),
+        /stale or cross-run production build root/
+    );
 });
