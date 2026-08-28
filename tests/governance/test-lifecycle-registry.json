@@ -3236,6 +3236,22 @@
             ]
         },
         {
+            "file": "tests/tools/bounded-channel-contracts.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "bounded-channel-contracts",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
+        },
+        {
             "file": "tests/tools/browser-diagnostics-release-runtime.test.mjs",
             "owner": "manual-diagnostic:tests/tools/browser-diagnostics-release-runtime.test.mjs",
             "executionCategory": "manual-diagnostic",
