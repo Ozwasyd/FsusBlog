@@ -157,7 +157,7 @@ npm run build:wasm
 node ../../tools/frontend/ensure-wasm.mjs status
 ```
 
-构建并发度由在线 CPU/可用内存和 scheduler grant 动态推导。Binaryen/CMake bootstrap 使用 `.tmp/dependency-cache`、文件锁和 SHA-256；fresh output cleanup 不删除受控 dependency cache。Canonical WASM Docker producer 将 BuildKit cache mount 与真实读写目录逐项严格对齐（`/.tmp/dependency-cache`、`/.cache/emscripten`、`/.cache/vcpkg/downloads`、`/.cache/vcpkg/archives`）。四类 mount 共用由 pinned emsdk/CMake/Binaryen、vcpkg commit、`wasm32-emscripten` triplet 与 image-codec dependency feature 约束的 cache identity，因此源码层失效时可复用已验证的工具链与第三方依赖缓存；损坏的受控工具缓存必须在锁内重建。Cache 仍不作为 artifact correctness authority。
+构建并发度由在线 CPU/可用内存和 scheduler grant 动态推导。Binaryen/CMake bootstrap 使用 `.tmp/dependency-cache`、文件锁和 SHA-256；fresh output cleanup 不删除受控 dependency cache。
 
 定向验证：
 

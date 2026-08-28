@@ -70,14 +70,14 @@ else
 fi
 
 case "\${SCENARIO}:\${sourceName}" in
-    primary-success:primary | missing-cmake:primary | corrupt-cache:primary | publish-conflict:primary)
+    primary-success:primary | missing-cmake:primary | publish-conflict:primary)
         printf 'verified-archive\\n' >"\${output}"
         ;;
     primary-success-slow:primary)
         sleep 0.2
         printf 'verified-archive\\n' >"\${output}"
         ;;
-    primary-success:fallback | primary-success-slow:fallback | missing-cmake:fallback | corrupt-cache:fallback | publish-conflict:fallback)
+    primary-success:fallback | primary-success-slow:fallback | missing-cmake:fallback | publish-conflict:fallback)
         exit 91
         ;;
     primary-fail-fallback-success:primary | primary-fail-fallback-mismatch:primary | both-fail:primary)
@@ -319,28 +319,13 @@ test('an existing executable cache returns without any network access', t =>
 {
     const harness = createHarness(t, 'both-fail');
     fs.mkdirSync(path.dirname(harness.cmakeBin), { recursive: true });
-    writeExecutable(harness.cmakeBin, `#!/usr/bin/env bash\nprintf 'cmake version ${cmakeVersion}\\n'\n`);
+    writeExecutable(harness.cmakeBin, '#!/usr/bin/env bash\nexit 0\n');
 
     const result = harness.run();
 
     assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
     assert.equal(result.stdout.trim(), harness.cmakeBin);
     assert.deepEqual(harness.curlCalls(), []);
-});
-
-test('a corrupt executable cache is removed and rebuilt under the cache lock', t =>
-{
-    const harness = createHarness(t, 'corrupt-cache');
-    fs.mkdirSync(path.dirname(harness.cmakeBin), { recursive: true });
-    writeExecutable(harness.cmakeBin, '#!/usr/bin/env bash\nprintf "corrupt cache\\n"\n');
-
-    const result = harness.run();
-
-    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
-    assert.equal(result.stdout.trim(), harness.cmakeBin);
-    assert.match(childProcess.execFileSync(harness.cmakeBin, ['--version'], { encoding: 'utf8' }), /cmake version 4\.3\.3/u);
-    assert.equal(harness.curlCalls().length, 1);
-    assert.deepEqual(installerWorkDirectories(harness), []);
 });
 
 test('flock serializes concurrent publishers so the follower only observes the complete cache root', async t =>
