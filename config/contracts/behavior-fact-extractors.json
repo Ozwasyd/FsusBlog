@@ -47,7 +47,7 @@
     },
     {
       "id": "test-matrix-fact-extractor",
-      "kind": "matrix-projection",
+      "kind": "compiled-assembly",
       "entrypoint": "tools/fact-extractors/test-matrix/extract.mjs",
       "consumedInputs": [
         "tests/matrix.yml",
@@ -55,14 +55,19 @@
         "tests/coverage-registry.json",
         "config/testing/producer-execution-class-contract.json",
         "tools/test-matrix/behavior-doc-static-admission-contract.mjs",
+        "src/backend/Infrastructure/RuntimeModes/RuntimeModeOptions.cs",
+        "src/backend/Infrastructure/Distributed/Cluster/ClusterMembershipOptions.cs",
+        "src/backend/Infrastructure/Distributed/Cluster/ClusterMembershipContracts.cs",
+        "tools/contracts/FsusBlog.RuntimeRoleObservation/Models.cs",
+        "tools/contracts/FsusBlog.RuntimeRoleObservation/Program.cs",
         "tools/test/lanes",
         "src/frontend/package.json",
         "tools/docs/generate-testing-docs.mjs",
         "tools/test/lanes/release-final.sh"
       ],
       "outputSchema": "fsusblog.fact-observation-receipt.v1",
-      "requiredBuildArtifact": null,
-      "hermeticPolicy": "declared-inputs",
+      "requiredBuildArtifact": "runtime-role-observation",
+      "hermeticPolicy": "exact-build-receipt",
       "ownedBehaviorIds": [
         "browserless-production-correctness",
         "release-final-aggregate-contract",

@@ -22,6 +22,7 @@ const requiredFactKeys = Object.freeze([
   'release-final.required-input-schemas',
   'release-final.output-schema',
   'release-final.summary-tiers',
+  'deployment.runtime-role-contract',
   'production-fresh.bundle-ordering'
 ])
 
@@ -769,6 +770,64 @@ export function extract(context)
   }
 
   const allowed = allowedInputSet(extractor)
+  const runtimeIdentity = context.buildIdentity
+  if (runtimeIdentity?.artifactId !== 'runtime-role-observation'
+    || !/^[a-f0-9]{64}$/u.test(String(runtimeIdentity.artifactDigest ?? ''))
+    || !/^[a-f0-9]{64}$/u.test(String(runtimeIdentity.receiptDigest ?? '')))
+  {
+    return failResult(['test-matrix-fact-extractor requires exact runtime-role-observation buildIdentity'])
+  }
+  const runtimeRelative = '.tmp/contracts/runtime-role/runtime-role-observation.json'
+  const runtimeAbsolute = path.join(context.repositoryRoot, runtimeRelative)
+  if (!existsSync(runtimeAbsolute))
+  {
+    return failResult([`missing sealed runtime-role observation ${runtimeRelative}`])
+  }
+  const runtimeBytes = readFileSync(runtimeAbsolute)
+  const runtimeArtifactDigest = createHash('sha256').update(runtimeBytes).digest('hex')
+  if (runtimeArtifactDigest !== runtimeIdentity.artifactDigest)
+  {
+    return failResult(['runtime-role observation artifact digest mismatch'])
+  }
+  const expectedRuntimeReceiptDigest = digestValue({
+    schema: 'fsusblog.runtime-role-observation-build-receipt.v1',
+    artifactId: 'runtime-role-observation',
+    artifactPath: runtimeRelative,
+    artifactDigest: runtimeArtifactDigest,
+    configuration: 'Release'
+  })
+  if (runtimeIdentity.receiptDigest !== expectedRuntimeReceiptDigest)
+  {
+    return failResult(['runtime-role observation build receipt digest mismatch'])
+  }
+  let runtimeObservation
+  try
+  {
+    runtimeObservation = JSON.parse(runtimeBytes.toString('utf8'))
+  }
+  catch (error)
+  {
+    return failResult([`runtime-role observation parse failed: ${error instanceof Error ? error.message : String(error)}`])
+  }
+  const runtimeModes = Array.isArray(runtimeObservation?.modes) ? runtimeObservation.modes : []
+  const runtimeUnsigned = {
+    schema: runtimeObservation?.schema,
+    modes: runtimeObservation?.modes,
+    staticRoleCapabilities: runtimeObservation?.staticRoleCapabilities,
+    unsupportedCombinations: runtimeObservation?.unsupportedCombinations,
+    ownership: runtimeObservation?.ownership
+  }
+  const runtimeContentDigest = createHash('sha256')
+    .update(JSON.stringify(runtimeUnsigned), 'utf8').digest('hex')
+  if (runtimeObservation?.schema !== 'fsusblog.runtime-role-observation.v1'
+    || runtimeObservation?.observationDigest !== runtimeContentDigest
+    || runtimeModes.map((mode) => mode.id).sort().join(',') !== 'adaptive,single,static-role'
+    || runtimeObservation?.ownership?.authorityState !== 'conflict-unknown'
+    || !Array.isArray(runtimeObservation?.unsupportedCombinations)
+    || runtimeObservation.unsupportedCombinations.some((entry) => entry.errorCode === 'unexpectedly-accepted'))
+  {
+    return failResult(['runtime-role observation is partial, conflicting, or unsupported'])
+  }
   for (const source of declaredFactSources)
   {
     if (!allowed.has(source))
@@ -858,6 +917,23 @@ export function extract(context)
   if (facts == null || typeof facts !== 'object')
   {
     return failResult(['topology facts map missing'])
+  }
+  facts['deployment.runtime-role-contract'] = {
+    schema: runtimeObservation.schema,
+    modes: Object.fromEntries(runtimeModes.map((mode) => [mode.id, {
+      staticRoles: mode.staticRoles.length > 0 ? mode.staticRoles : ['none'],
+      clusterMembershipEnabled: mode.clusterMembershipEnabled,
+      adaptiveSchedulerEnabled: mode.adaptiveSchedulerEnabled,
+      distributedInvalidationEnabled: mode.distributedInvalidationEnabled,
+      localInvocationOnly: mode.localInvocationOnly,
+      roleCombinationState: mode.roleCombinationState
+    }])),
+    staticRoleCapabilities: runtimeObservation.staticRoleCapabilities,
+    unsupportedCombinations: Object.fromEntries(
+      runtimeObservation.unsupportedCombinations.map((entry) => [entry.id, entry.errorCode])),
+    ownership: runtimeObservation.ownership,
+    observationDigest: runtimeObservation.observationDigest,
+    artifactDigest: runtimeArtifactDigest
   }
   for (const key of requiredFactKeys)
   {

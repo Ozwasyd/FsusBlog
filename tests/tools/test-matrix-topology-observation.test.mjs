@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, cpSync, existsSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -17,8 +18,10 @@ import {
   TEST_MATRIX_DECLARED_FACT_SOURCES,
   TEST_MATRIX_CONSUMER_INPUTS
 } from '../../tools/fact-extractors/test-matrix/extract.mjs'
+import { produceRuntimeRoleObservation } from '../../tools/contracts/lib/runtime-role-observation.mjs'
 
 const extractorId = 'test-matrix-fact-extractor'
+const runtimeRoleBuild = produceRuntimeRoleObservation({ repositoryRoot: root })
 
 function registryExtractor()
 {
@@ -62,6 +65,7 @@ function fixtureRepository(options = {})
   {
     write(directory, 'tests/matrix.yml', options.matrixText)
   }
+  copy(directory, '.tmp/contracts/runtime-role/runtime-role-observation.json')
   return directory
 }
 
@@ -70,6 +74,7 @@ function extractFrom(repositoryRoot, extractorOverrides = {})
   const base = registryExtractor()
   return extractTestMatrix({
     repositoryRoot,
+    buildIdentity: runtimeRoleBuild.buildIdentity,
     extractor: {
       ...base,
       ...extractorOverrides,
@@ -182,10 +187,10 @@ test('test-matrix-fact-extractor is registered for browserless-production-correc
   const ownership = validateOwnershipAgainstBehaviorCatalog(registry, loadCatalog(), root)
   assert.equal(ownership.behaviorOwners.get('browserless-production-correctness'), extractorId)
   const extractor = registryExtractor()
-  assert.equal(extractor.kind, 'matrix-projection')
+  assert.equal(extractor.kind, 'compiled-assembly')
   assert.equal(extractor.entrypoint, 'tools/fact-extractors/test-matrix/extract.mjs')
-  assert.equal(extractor.hermeticPolicy, 'declared-inputs')
-  assert.equal(extractor.requiredBuildArtifact, null)
+  assert.equal(extractor.hermeticPolicy, 'exact-build-receipt')
+  assert.equal(extractor.requiredBuildArtifact, 'runtime-role-observation')
   for (const source of TEST_MATRIX_DECLARED_FACT_SOURCES)
   {
     assert.ok(extractor.consumedInputs.includes(source), `missing fact source ${source}`)
@@ -194,13 +199,13 @@ test('test-matrix-fact-extractor is registered for browserless-production-correc
   {
     assert.ok(extractor.consumedInputs.includes(consumer), `missing consumer input ${consumer}`)
   }
-  assert.equal(TEST_MATRIX_REQUIRED_FACT_KEYS.length, 15)
+  assert.equal(TEST_MATRIX_REQUIRED_FACT_KEYS.length, 16)
 })
 
 test('live matrix projects typed topology / release-final / production-fresh facts', async () =>
 {
-  const first = await runExtractor({ extractorId, repositoryRoot: root, useCache: false })
-  const second = await runExtractor({ extractorId, repositoryRoot: root, useCache: false })
+  const first = await runExtractor({ extractorId, repositoryRoot: root, useCache: false, buildIdentity: runtimeRoleBuild.buildIdentity })
+  const second = await runExtractor({ extractorId, repositoryRoot: root, useCache: false, buildIdentity: runtimeRoleBuild.buildIdentity })
   assert.equal(first.receipt.status, 'ok', first.receipt.failureReasons?.join('\n'))
   assertDeterministicSemanticDigest(first.receipt, second.receipt)
   const facts = first.receipt.observations.facts
@@ -218,6 +223,8 @@ test('live matrix projects typed topology / release-final / production-fresh fac
   assert.ok(!staticPredecessors.includes('backend-tests'))
   assert.ok(facts['test.static-governance.membership'].bundleMemberships.includes('production.frontend-tests'))
   assert.equal(facts['release-final.finalizer-authority'].commandEntrypoint, 'tools/test/lanes/release-final.sh')
+  assert.equal(facts['deployment.runtime-role-contract'].ownership.authorityState, 'conflict-unknown')
+  assert.deepEqual(Object.keys(facts['deployment.runtime-role-contract'].modes).sort(), ['adaptive', 'single', 'static-role'])
   assert.equal(facts['release-final.output-schema'], 'fsusblog.release-final-test-evidence-binding.v1')
   assert.ok(facts['release-final.required-input-schemas'].includes('fsusblog.release-final-evidence-inputs.v1'))
   assert.ok(facts['production-fresh.bundle-ordering'].bundleIds.includes('frontend-tests'))
@@ -242,7 +249,7 @@ test('1) static-governance follows BehaviorDoc admission with no backend predece
   assert.equal(result.status, 'ok', result.failureReasons?.join('\n'))
   const membership = result.observations.facts['test.static-governance.membership']
   const predecessors = membership.predecessors?.['static-governance'] ?? []
-  assert.deepEqual(predecessors, ['behavior-doc-static-admission'])
+  assert.deepEqual(predecessors, ['behavior-doc-static-admission', 'test-inventory'])
   assert.ok(!predecessors.includes('backend-unit'))
   // The physical frontend bundle is released only by the external static admission.
   assert.ok(membership.bundleMemberships.includes('production.frontend-tests'))
@@ -425,9 +432,46 @@ test('8) extractor refuses docs/testing as fact source', () =>
     }
     // Ensure the forbidden input file exists for the read attempt path.
     assert.ok(existsSync(path.join(directory, 'docs/testing.generated.md')))
-    const result = extractTestMatrix({ repositoryRoot: directory, extractor })
+    const result = extractTestMatrix({ repositoryRoot: directory, extractor, buildIdentity: runtimeRoleBuild.buildIdentity })
     assert.equal(result.status, 'failed')
     assert.ok(result.failureReasons.some((reason) => /docs\/testing|refuses/u.test(reason)))
+  }
+  finally
+  {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('runtime-role observation requires exact receipt and rejects semantic tamper', () =>
+{
+  const directory = fixtureRepository()
+  try
+  {
+    const extractor = registryExtractor()
+    const missingIdentity = extractTestMatrix({ repositoryRoot: directory, extractor })
+    assert.equal(missingIdentity.status, 'failed')
+    assert.match(missingIdentity.failureReasons.join('\n'), /exact runtime-role-observation buildIdentity/iu)
+
+    const artifact = path.join(directory, '.tmp/contracts/runtime-role/runtime-role-observation.json')
+    const observation = JSON.parse(readFileSync(artifact, 'utf8'))
+    observation.staticRoleCapabilities.web = ['tampered.capability']
+    const unsigned = {
+      schema: observation.schema,
+      modes: observation.modes,
+      staticRoleCapabilities: observation.staticRoleCapabilities,
+      unsupportedCombinations: observation.unsupportedCombinations,
+      ownership: observation.ownership
+    }
+    observation.observationDigest = createHash('sha256').update(JSON.stringify(unsigned)).digest('hex')
+    writeFileSync(artifact, `${JSON.stringify(observation, null, 2)}\n`)
+    const artifactDigest = createHash('sha256').update(readFileSync(artifact)).digest('hex')
+    const semanticTamper = extractTestMatrix({
+      repositoryRoot: directory,
+      extractor,
+      buildIdentity: { ...runtimeRoleBuild.buildIdentity, artifactDigest }
+    })
+    assert.equal(semanticTamper.status, 'failed')
+    assert.match(semanticTamper.failureReasons.join('\n'), /build receipt digest mismatch/iu)
   }
   finally
   {
@@ -503,8 +547,8 @@ test('reordering dependency edges changes topologyDigest', () =>
 
 test('semantic digest is stable across identical live runs', async () =>
 {
-  const first = await runExtractor({ extractorId, repositoryRoot: root, useCache: false })
-  const second = await runExtractor({ extractorId, repositoryRoot: root, useCache: false })
+  const first = await runExtractor({ extractorId, repositoryRoot: root, useCache: false, buildIdentity: runtimeRoleBuild.buildIdentity })
+  const second = await runExtractor({ extractorId, repositoryRoot: root, useCache: false, buildIdentity: runtimeRoleBuild.buildIdentity })
   assert.equal(first.receipt.status, 'ok')
   assert.equal(semanticDigestFromReceipt(first.receipt), semanticDigestFromReceipt(second.receipt))
 })
