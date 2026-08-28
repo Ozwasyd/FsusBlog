@@ -127,7 +127,7 @@
             "reason": "Temporary DAG allocation coverage bridge while producer receipt and consumer identity wave tests are split into focused modules",
             "expires": "2026-09-27",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2150",
-            "sourceFingerprint": "sha256:e1b22128ffff9b9fce0bd9b118ab332404c33d43f850789e447d18c59d97313e"
+            "sourceFingerprint": "sha256:3fec1cc467d30146298a861940cd20370a93e1e5a3808443cbf7ef5865614c74"
         },
         {
             "file": "tests/tools/local-production-profile.test.mjs",
