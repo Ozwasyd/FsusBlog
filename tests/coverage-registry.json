@@ -1052,6 +1052,23 @@
             ]
         },
         {
+            "id": "native-groth16-p99",
+            "description": "The atomic native Groth16 verifier P99 producer executes its exact test member once and retains verified per-sample evidence.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                ".tmp/backend-perf/native-p99/preflight.json",
+                ".tmp/backend-perf/native-p99/measurement.json",
+                ".tmp/backend-perf/native-p99/summary.json"
+            ],
+            "assertionType": "perf",
+            "failClosedRule": "The producer rejects source, Release test assembly, native MCL library, verifying-key fixture, measurement isolation, TRX membership, sample count, Verified outcome, p99, or threshold drift.",
+            "minimumRequirement": "Ordinary unit plans keep the member not-selected; backend-perf records planned to executed outcome for exactly one test with one warmup, 32 verified samples, and p99 no greater than 50ms.",
+            "tierIds": [
+                "backend-perf"
+            ]
+        },
+        {
             "id": "benchmarkdotnet-regression",
             "description": "Benchmarkdotnet Regression is covered by runtime artifacts that exercise the named behavior.",
             "owner": "ServerContractAgent",
