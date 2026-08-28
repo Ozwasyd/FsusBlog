@@ -293,6 +293,37 @@
             "reason": "The generated Behavior catalog sources, schemas, projections and documentation authorities must change atomically with their post-runtime observation and governance tooling while preserving existing external JSON, document, environment and tooling identifiers; internal C#, JavaScript and Shell symbols remain governed by the repository mapping."
         },
         {
+            "id": "auth-security-doc-exactness-authority",
+            "authorityExceptionId": "json-api-field",
+            "paths": [
+                "config/contracts/behavior-fact-extractors.json",
+                "config/contracts/document-claim-migration-ledger.json",
+                "config/contracts/generated-fact-sections.json",
+                "docs/api/schemas-and-errors.md",
+                "docs/architecture/overview.md",
+                "docs/security.md",
+                "docs/security/user-session-authentication-context.md",
+                "tools/docs/auth-security-doc-exactness.mjs",
+                "tools/docs/behavior-doc-exactness.mjs",
+                "tools/docs/generated-fact-sections/renderers.mjs",
+                "tools/docs/prose-claim-verifier/renderers.mjs",
+                "tools/fact-extractors/auth-session-permission/extract.mjs",
+                "tools/fact-extractors/config-error-security-policy/extract.mjs"
+            ],
+            "externalPattern": "^[A-Za-z][A-Za-z0-9_-]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "auth_security_doc_exactness",
+                "internal": "authSecurityDocExactness"
+            },
+            "negative": {
+                "external": "auth_security_doc_exactness",
+                "internal": "auth_security_doc_exactness"
+            },
+            "reason": "The typed auth/security observations, exact migration ledger, generated and controlled-prose authorities, and terminal verifier must change atomically while preserving their existing external JSON, document and tooling identifiers; internal JavaScript and C# symbols remain governed by the repository mapping."
+        },
+        {
             "id": "pre-runtime-fact-build-identity-authority",
             "authorityExceptionId": "json-api-field",
             "paths": [
