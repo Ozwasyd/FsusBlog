@@ -7038,6 +7038,7 @@ tiers:
               src/frontend/wasm/build.sh,
               docs/zk/trusted-setup-ceremony.md,
               tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs,
+              tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs,
               tests/backend/Unit/ActorResolverBehaviorTests.cs,
               tests/backend/Unit/AnonymousCommentPolicyTests.cs,
               tests/backend/Unit/AnonymousIdentitySerializationTests.cs,
