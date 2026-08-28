@@ -4822,7 +4822,8 @@
                 ".tmp/security/perception-character-v3/release-gate/perception-character-v3-benchmark-report.json",
                 ".tmp/security/perception-character-v3/release-gate/perception-character-v3-migration-receipt.json",
                 ".tmp/security/perception-character-v3/release-gate/implementation-verification-receipt.json",
-                ".tmp/security/perception-character-v3/release-gate/independent-review-receipt.json"
+                ".tmp/security/perception-character-v3/release-gate/independent-review-receipt.json",
+                ".tmp/test-results/backend/perception-character-v3-redis-producer.json"
             ],
             "assertionType": "integration",
             "failClosedRule": "Reject undersized, duplicate, biased, over-budget or baseline-readable corpus; stored-DEFLATE visual output; old formats; corrupt or wrong-key pools; repeat leases; non-idempotent cutover; insufficient CPU/allocation ratios; pre-admission allocation or leases; sensitive evidence; receipt digest drift; and any high or critical independent finding.",
