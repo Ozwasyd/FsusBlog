@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Collections.ObjectModel;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
@@ -239,6 +240,7 @@ public sealed class EndpointSecurityTestServer : IDisposable
         IAdminPrincipalService adminPrincipals,
         IArticleEndpointService articles,
         IAuditEventService auditEvents,
+        ICommentEndpointService comments,
         IUserSessionCommandService sessions,
         IPasskeyService passkeys,
         IPowService pow,
@@ -256,6 +258,7 @@ public sealed class EndpointSecurityTestServer : IDisposable
         AdminPrincipals = adminPrincipals;
         Articles = articles;
         AuditEvents = auditEvents;
+        Comments = comments;
         Sessions = sessions;
         Passkeys = passkeys;
         Pow = pow;
@@ -279,6 +282,11 @@ public sealed class EndpointSecurityTestServer : IDisposable
     }
 
     public IAuditEventService AuditEvents
+    {
+        get;
+    }
+
+    public ICommentEndpointService Comments
     {
         get;
     }
@@ -348,6 +356,7 @@ public sealed class EndpointSecurityTestServer : IDisposable
         => AdminPrincipals.ReceivedCalls().Count()
            + Articles.ReceivedCalls().Count()
            + AuditEvents.ReceivedCalls().Count()
+           + Comments.ReceivedCalls().Count()
            + Sessions.ReceivedCalls().Count()
            + Passkeys.ReceivedCalls().Count()
            + Pow.ReceivedCalls().Count()
@@ -383,6 +392,7 @@ public sealed class EndpointSecurityTestServer : IDisposable
         AdminPrincipals.ClearReceivedCalls();
         Articles.ClearReceivedCalls();
         AuditEvents.ClearReceivedCalls();
+        Comments.ClearReceivedCalls();
         Sessions.ClearReceivedCalls();
         Passkeys.ClearReceivedCalls();
         Pow.ClearReceivedCalls();
@@ -412,6 +422,8 @@ public sealed class EndpointSecurityTestServer : IDisposable
         var auditEvents = Substitute.For<IAuditEventService>();
         auditEvents.RecordHighValueAsync(Arg.Any<AuditEvent>(), Arg.Any<CancellationToken>())
             .Returns(Task.CompletedTask);
+        var comments = Substitute.For<ICommentEndpointService>();
+        comments.DeleteCommentAsAccountAsync(Arg.Any<long>(), 42, Arg.Any<string>()).Returns(true);
         var sessions = Substitute.For<IUserSessionCommandService>();
         sessions.RevokeSessionAsync(
                 42,
@@ -472,6 +484,9 @@ public sealed class EndpointSecurityTestServer : IDisposable
             false,
             null,
             AccountSubjectHash: AccountSubjectHash)));
+        var userSessionValidator = Substitute.For<IUserSessionValidationService>();
+        userSessionValidator.ValidateAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(UserSessionValidationResult.Valid));
         var cache = Substitute.For<IUnifiedCache>();
         cache.GetStringAsync(
                 Arg.Any<CachePolicyId>(),
@@ -542,8 +557,10 @@ public sealed class EndpointSecurityTestServer : IDisposable
         builder.Services.AddSingleton(adminPrincipals);
         builder.Services.AddSingleton(articles);
         builder.Services.AddSingleton(auditEvents);
+        builder.Services.AddSingleton(comments);
         builder.Services.AddSingleton(sessions);
         builder.Services.AddSingleton(passkeys);
+        builder.Services.AddSingleton(userSessionValidator);
         builder.Services.AddTransient<CommentRiskActionFilter>();
         builder.Services.AddTransient<RequiresRiskControlFilter>();
         builder.Services.AddTransient<RequiresPowFilter>();
@@ -553,6 +570,7 @@ public sealed class EndpointSecurityTestServer : IDisposable
         WebApplication app = builder.Build();
         app.UseMiddleware<ApiBinaryResponseMiddleware>();
         app.UseRouting();
+        app.UseAuthentication();
         app.Use(ApplyTestRequestContextAsync);
         app.UseRateLimiter();
         app.UseMiddleware<BannedUserMiddleware>();
@@ -569,6 +587,7 @@ public sealed class EndpointSecurityTestServer : IDisposable
             adminPrincipals,
             articles,
             auditEvents,
+            comments,
             sessions,
             passkeys,
             pow,
@@ -595,6 +614,20 @@ public sealed class EndpointSecurityTestServer : IDisposable
 
     public static void AddAnonymousAccount(HttpRequestMessage request)
         => request.Headers.Add("X-Test-Principal", "anonymous-account");
+
+    public string IssueAnonymousAccountAccessToken(string sessionId = "account-session-42")
+        => _application.Services.GetRequiredService<IJwtHelper>().GenerateAccessToken(
+            new User
+            {
+                Id = 42,
+                IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
+                AccountSubjectHash = AccountSubjectHash
+            },
+            sessionId,
+            mfaVerified: true).Token;
+
+    public static void AddAnonymousAccountAccessToken(HttpRequestMessage request, string accessToken)
+        => request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
     public static void AddRestrictedAnonymousAccount(HttpRequestMessage request)
     {

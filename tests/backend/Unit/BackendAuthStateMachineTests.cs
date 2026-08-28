@@ -53,15 +53,6 @@ public sealed class BackendAuthStateMachineTests
     }
 
     [Theory]
-    [InlineData(AccountState.Active, true)]
-    [InlineData(AccountState.Banned, false)]
-    [InlineData(AccountState.Deleted, false)]
-    public void BannedAndDeletedUsers_HaveNoWriteBoundary(AccountState accountState, bool expectedCanWrite)
-    {
-        Assert.Equal(expectedCanWrite, CanWrite(accountState));
-    }
-
-    [Theory]
     [InlineData(AuthState.Authenticated, true)]
     [InlineData(AuthState.Refreshed, true)]
     [InlineData(AuthState.MfaRequired, false)]
@@ -80,9 +71,6 @@ public sealed class BackendAuthStateMachineTests
 
     private static bool CanAccessSensitiveEndpoint(AuthState state)
         => state is AuthState.Authenticated or AuthState.Refreshed;
-
-    private static bool CanWrite(AccountState state)
-        => state == AccountState.Active;
 
     public enum AuthState
     {
@@ -111,12 +99,5 @@ public sealed class BackendAuthStateMachineTests
         Logout,
         Revoke,
         Expire
-    }
-
-    public enum AccountState
-    {
-        Active,
-        Banned,
-        Deleted
     }
 }
