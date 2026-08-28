@@ -390,6 +390,28 @@
             "reason": "The pre-runtime BehaviorGraph receipt schemas, join CLI and shell bundle must migrate atomically while preserving their existing external JSON, command-line and environment identifiers; internal JavaScript and Shell symbols remain governed by the repository mapping."
         },
         {
+            "id": "runtime-role-observation-authority",
+            "authorityExceptionId": "json-api-field",
+            "paths": [
+                "tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj",
+                "tools/contracts/FsusBlog.RuntimeRoleObservation/Models.cs",
+                "tools/contracts/FsusBlog.RuntimeRoleObservation/Program.cs",
+                "tools/contracts/lib/runtime-role-observation.mjs"
+            ],
+            "externalPattern": "^[A-Za-z][A-Za-z0-9_-]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "runtime-role-observation",
+                "internal": "runtimeRoleObservation"
+            },
+            "negative": {
+                "external": "runtime-role-observation",
+                "internal": "runtime-role-observation"
+            },
+            "reason": "The compiled runtime-role observation producer and its JavaScript adapter must preserve their exact external artifact spelling while internal C# and JavaScript symbols remain governed by the repository mapping."
+        },
+        {
             "id": "dotnet-configuration-environment",
             "authorityExceptionId": "environment-variable",
             "paths": [
