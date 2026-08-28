@@ -297,6 +297,7 @@ internal static partial class PublicWebRuntime
         app.MapLocalAuthFixtureEndpoints();
         app.MapLocalPublicContentFixtureEndpoints();
         app.MapLocalDemoFixtureEndpoints();
+        app.MapLocalSecurityFixtureEndpoints();
         app.MapNotificationStreamDrillEndpoints();
         app.MapReleaseSchemaQualificationEndpoints();
         app.MapProductionHealthEndpoints();

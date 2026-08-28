@@ -31,14 +31,12 @@ export function buildMixedWindowPlan() {
       notification: {
         minimumDurationMs: 30_000,
         command: 'npm run check:load:notification-stream-pressure',
-        securityResetCommand: 'bash tools/test/lanes/reset-security-runtime-state.sh "pre mixed notification stream pressure"',
         cpuWeight: 1,
         memoryWeight: 1
       },
       qps: {
         modes: [...qpsModes],
         publicApiCommand: 'npm run check:load:public-api',
-        securityResetCommand: 'bash tools/test/lanes/reset-security-runtime-state.sh "pre mixed public API load"',
         cpuWeight: 1,
         memoryWeight: 1
       },
@@ -385,10 +383,9 @@ async function runLoadWarmup(declaration, resource) {
   }
 }
 
-async function runPublicApi(commandName, securityResetCommand, env) {
+async function runPublicApi(commandName, env) {
   const cohortStartedAt = Date.now()
   const evidenceFile = path.join(performanceOutputRoot, 'load-public-api.json')
-  await command(securityResetCommand, { env })
   await command(commandName, {
     cwd: path.join(root, 'src/frontend'),
     env: {
@@ -415,7 +412,6 @@ async function runNotification(declaration, resource) {
   const cohortStartedAt = Date.now()
   const frontend = path.join(root, 'src/frontend')
   const evidenceFile = path.join(performanceOutputRoot, 'notification-stream-pressure.json')
-  await command(declaration.securityResetCommand, { env: cohortEnvironment(resource) })
   await command(declaration.command, {
     cwd: frontend,
     env: {
@@ -525,7 +521,6 @@ async function runQps(resource, declaration) {
   const capacity = resolveQpsWorkerCapacity({ resource, modeCount: qpsModes.length })
   const publicApiPromise = runPublicApi(
     declaration.publicApiCommand,
-    declaration.securityResetCommand,
     cohortEnvironment(resource)
   )
     .catch((error) => ({

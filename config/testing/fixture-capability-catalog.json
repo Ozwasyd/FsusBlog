@@ -145,7 +145,20 @@
             "dependsOn": [
                 "auth.user.active"
             ],
-            "conflictsWith": [],
+            "conflictsWith": [
+                "security.audit.active-window",
+                "security.credential.active",
+                "security.credential.revoked",
+                "security.issuance.replay-observed",
+                "security.nullifier.blocked",
+                "security.pow.elevated",
+                "security.rate-limit.blocked",
+                "security.rate-limit.near-limit",
+                "security.risk.escalated",
+                "security.risk.low",
+                "security.subject.banned",
+                "security.subject.unbanned"
+            ],
             "postconditionIds": [
                 "user-mfa-enabled"
             ],
@@ -653,22 +666,152 @@
             "mutability": "immutable"
         },
         {
-            "id": "security.credential.revoked",
+            "id": "security.audit.active-window",
             "ownerProducerId": "security-state",
             "stateDomains": [
                 "fixture.security-state",
+                "postgres.audit",
+                "postgres.outbox",
                 "postgres.security",
-                "redis.rate-limit"
+                "redis.cache.private"
             ],
             "dependsOn": [
                 "auth.user.active"
             ],
-            "conflictsWith": [],
+            "conflictsWith": [
+                "security.clean"
+            ],
+            "postconditionIds": [
+                "audit-active-window"
+            ],
+            "resetContractId": "owned-receipt-exact",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "security.clean",
+            "ownerProducerId": "security-state",
+            "stateDomains": [
+                "fixture.security-state",
+                "postgres.audit",
+                "postgres.auth",
+                "postgres.outbox",
+                "postgres.security",
+                "redis.cache.private",
+                "redis.rate-limit"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [
+                "security.audit.active-window",
+                "security.credential.active",
+                "security.credential.revoked",
+                "security.issuance.replay-observed",
+                "security.nullifier.blocked",
+                "security.pow.elevated",
+                "security.rate-limit.blocked",
+                "security.rate-limit.near-limit",
+                "security.risk.escalated",
+                "security.risk.low",
+                "security.subject.banned",
+                "security.subject.unbanned"
+            ],
+            "postconditionIds": [
+                "security-clean"
+            ],
+            "resetContractId": "owned-receipt-exact",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "security.credential.active",
+            "ownerProducerId": "security-state",
+            "stateDomains": [
+                "fixture.security-state",
+                "postgres.audit",
+                "postgres.outbox",
+                "postgres.security",
+                "redis.cache.private"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [
+                "security.clean"
+            ],
+            "postconditionIds": [
+                "credential-active"
+            ],
+            "resetContractId": "owned-receipt-exact",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "security.credential.revoked",
+            "ownerProducerId": "security-state",
+            "stateDomains": [
+                "fixture.security-state",
+                "postgres.audit",
+                "postgres.outbox",
+                "postgres.security",
+                "redis.cache.private"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [
+                "security.clean"
+            ],
             "postconditionIds": [
                 "credential-revoked"
             ],
-            "resetContractId": "owned-namespace",
-            "scope": "namespace",
+            "resetContractId": "owned-receipt-exact",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "security.issuance.replay-observed",
+            "ownerProducerId": "security-state",
+            "stateDomains": [
+                "fixture.security-state",
+                "postgres.audit",
+                "postgres.outbox",
+                "postgres.security",
+                "redis.cache.private"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [
+                "security.clean"
+            ],
+            "postconditionIds": [
+                "issuance-replay-observed"
+            ],
+            "resetContractId": "owned-receipt-exact",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "security.nullifier.blocked",
+            "ownerProducerId": "security-state",
+            "stateDomains": [
+                "fixture.security-state",
+                "postgres.audit",
+                "postgres.outbox",
+                "postgres.security",
+                "redis.cache.private"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [
+                "security.clean"
+            ],
+            "postconditionIds": [
+                "nullifier-blocked"
+            ],
+            "resetContractId": "owned-receipt-exact",
+            "scope": "run",
             "mutability": "scenario-owned"
         },
         {
@@ -677,34 +820,102 @@
             "stateDomains": [
                 "fixture.security-state",
                 "postgres.security",
+                "redis.cache.private",
                 "redis.rate-limit"
             ],
             "dependsOn": [],
-            "conflictsWith": [],
+            "conflictsWith": [
+                "security.clean"
+            ],
             "postconditionIds": [
                 "pow-elevated"
             ],
-            "resetContractId": "owned-namespace",
-            "scope": "namespace",
+            "resetContractId": "owned-receipt-exact",
+            "scope": "run",
             "mutability": "scenario-owned"
         },
         {
-            "id": "security.risk-escalated",
+            "id": "security.rate-limit.blocked",
             "ownerProducerId": "security-state",
             "stateDomains": [
                 "fixture.security-state",
                 "postgres.security",
+                "redis.cache.private",
+                "redis.rate-limit"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [
+                "security.clean"
+            ],
+            "postconditionIds": [
+                "rate-limit-blocked"
+            ],
+            "resetContractId": "owned-receipt-exact",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "security.rate-limit.near-limit",
+            "ownerProducerId": "security-state",
+            "stateDomains": [
+                "fixture.security-state",
+                "postgres.security",
+                "redis.cache.private",
+                "redis.rate-limit"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [
+                "security.clean"
+            ],
+            "postconditionIds": [
+                "rate-limit-near-limit"
+            ],
+            "resetContractId": "owned-receipt-exact",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "security.risk.escalated",
+            "ownerProducerId": "security-state",
+            "stateDomains": [
+                "fixture.security-state",
+                "postgres.security",
+                "redis.cache.private",
                 "redis.rate-limit"
             ],
             "dependsOn": [
                 "auth.user.active"
             ],
-            "conflictsWith": [],
+            "conflictsWith": [
+                "security.clean"
+            ],
             "postconditionIds": [
                 "risk-escalated"
             ],
-            "resetContractId": "owned-namespace",
-            "scope": "namespace",
+            "resetContractId": "owned-receipt-exact",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "security.risk.low",
+            "ownerProducerId": "security-state",
+            "stateDomains": [
+                "fixture.security-state",
+                "postgres.security",
+                "redis.cache.private",
+                "redis.rate-limit"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [
+                "security.clean"
+            ],
+            "postconditionIds": [
+                "risk-low"
+            ],
+            "resetContractId": "owned-receipt-exact",
+            "scope": "run",
             "mutability": "scenario-owned"
         },
         {
@@ -712,18 +923,47 @@
             "ownerProducerId": "security-state",
             "stateDomains": [
                 "fixture.security-state",
+                "postgres.audit",
+                "postgres.auth",
+                "postgres.outbox",
                 "postgres.security",
-                "redis.rate-limit"
+                "redis.cache.private"
             ],
             "dependsOn": [
                 "auth.user.active"
             ],
-            "conflictsWith": [],
+            "conflictsWith": [
+                "security.clean"
+            ],
             "postconditionIds": [
                 "subject-banned"
             ],
-            "resetContractId": "owned-namespace",
-            "scope": "namespace",
+            "resetContractId": "owned-receipt-exact",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "security.subject.unbanned",
+            "ownerProducerId": "security-state",
+            "stateDomains": [
+                "fixture.security-state",
+                "postgres.audit",
+                "postgres.auth",
+                "postgres.outbox",
+                "postgres.security",
+                "redis.cache.private"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [
+                "security.clean"
+            ],
+            "postconditionIds": [
+                "subject-unbanned"
+            ],
+            "resetContractId": "owned-receipt-exact",
+            "scope": "run",
             "mutability": "scenario-owned"
         },
         {

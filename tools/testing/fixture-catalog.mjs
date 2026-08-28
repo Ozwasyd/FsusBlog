@@ -1405,7 +1405,6 @@ export function planFixtureMutation(profileId, catalogs = readFixtureCatalogs())
     const requiresDemoSeed = expanded.capabilities.includes('development.demo.dataset');
     const requiresSecurityState = expanded.capabilities.some((id) => byCapability.get(id)?.ownerProducerId === 'security-state');
     // Catalog has no dedicated security-runtime-reset capability yet; fail closed to zero.
-    const requiresSecurityReset = expanded.capabilities.some((id) => id === 'security.runtime-reset');
     const mutationPolicy = profileId === 'none' || expanded.capabilities.length === 0
         ? 'zero-mutation'
         : profile.isDestructive
@@ -1423,7 +1422,6 @@ export function planFixtureMutation(profileId, catalogs = readFixtureCatalogs())
         requiresPublicFixtures,
         requiresDemoSeed,
         requiresSecurityState,
-        requiresSecurityReset,
         allowedExecutionClasses: Object.freeze([...(profile.allowedExecutionClasses ?? [])])
     });
 }
@@ -1580,7 +1578,6 @@ export function resolveFixtureProfile({
         requiresPublicFixtures: plan.requiresPublicFixtures,
         requiresDemoSeed: plan.requiresDemoSeed,
         requiresSecurityState: plan.requiresSecurityState,
-        requiresSecurityReset: plan.requiresSecurityReset,
         sealed: profileSource === 'matrix'
             ? Object.freeze({
         fixtureProfileId: requestedId,
@@ -1755,7 +1752,6 @@ export function writeFixtureProfileReceipt(file, plan, {
         requiresAuthFixtures: plan.requiresAuthFixtures,
         requiresPublicFixtures: plan.requiresPublicFixtures,
         requiresDemoSeed: plan.requiresDemoSeed,
-        requiresSecurityReset: plan.requiresSecurityReset,
         // environment-ready references FixtureReceipt v2 digests; URLs/containers are not completeness proof.
         fixtureReceiptPath,
         fixtureReceiptDigest,

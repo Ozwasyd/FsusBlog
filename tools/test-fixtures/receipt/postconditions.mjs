@@ -8,6 +8,7 @@
 
 import { readFixtureCatalogs } from '../../testing/fixture-catalog.mjs'
 import { freezeDeep, plainObject } from './canonical.mjs'
+import { securityPostconditionVerifiers } from './security-postconditions.mjs'
 
 function fail(id, reason) {
   return Object.freeze({ ok: false, postconditionId: id, reason })
@@ -309,29 +310,6 @@ function verifyScale(id) {
   }
 }
 
-function verifySecurity(id, field) {
-  return (ctx) => {
-    const db = ctx.observations?.database
-    const redis = ctx.observations?.redis
-    if (!db) return fail(id, 'database observation required')
-    const subjects = entitiesOf(db, 'security-subject').concat(entitiesOf(db, 'user'))
-    const owned = requireOwnedIds(subjects, id)
-    if (!owned.ok) return fail(id, owned.reason)
-    for (const subject of subjects) {
-      if (subject.fields?.[field] !== true && subject.fields?.state !== field) {
-        if (subject.postconditionId !== id) {
-          return fail(id, `security subject ${subject.id} missing ${field}`)
-        }
-      }
-    }
-    if (redis && field === 'riskEscalated') {
-      const keys = (redis.keys ?? []).filter((item) => item.present === true && /risk|pow/i.test(String(item.key ?? item.domain ?? '')))
-      if (keys.length === 0) return fail(id, 'security redis risk keys missing')
-    }
-    return pass(id, { ids: owned.ids })
-  }
-}
-
 function verifyRevisionHistory(ctx) {
   const id = 'article-revision-history'
   const db = ctx.observations?.database
@@ -561,10 +539,7 @@ export const POSTCONDITION_VERIFIERS = Object.freeze({
   'scale-s': verifyScale('scale-s'),
   'scale-m': verifyScale('scale-m'),
   'scale-l': verifyScale('scale-l'),
-  'credential-revoked': verifySecurity('credential-revoked', 'credentialRevoked'),
-  'pow-elevated': verifySecurity('pow-elevated', 'powElevated'),
-  'risk-escalated': verifySecurity('risk-escalated', 'riskEscalated'),
-  'subject-banned': verifySecurity('subject-banned', 'banned')
+  ...securityPostconditionVerifiers
 })
 
 /**

@@ -260,23 +260,9 @@
                 {
                     "proofKind": "static-analyzer",
                     "operation": "reads",
-                    "domain": "postgres.security",
-                    "source": "tools/bootstrap-acceptance-env.sh",
-                    "ruleId": "postgres.security.reads"
-                },
-                {
-                    "proofKind": "static-analyzer",
-                    "operation": "reads",
                     "domain": "redis.cache.public",
                     "source": "tools/bootstrap-acceptance-env.sh",
                     "ruleId": "redis.cache.public.reads"
-                },
-                {
-                    "proofKind": "static-analyzer",
-                    "operation": "reads",
-                    "domain": "redis.rate-limit",
-                    "source": "tools/bootstrap-acceptance-env.sh",
-                    "ruleId": "redis.rate-limit.reads"
                 },
                 {
                     "proofKind": "static-analyzer",
@@ -316,23 +302,9 @@
                 {
                     "proofKind": "static-analyzer",
                     "operation": "deletes",
-                    "domain": "postgres.security",
-                    "source": "tools/bootstrap-acceptance-env.sh",
-                    "ruleId": "postgres.security.deletes"
-                },
-                {
-                    "proofKind": "static-analyzer",
-                    "operation": "deletes",
                     "domain": "redis.cache.public",
                     "source": "tools/bootstrap-acceptance-env.sh",
                     "ruleId": "redis.cache.public.deletes"
-                },
-                {
-                    "proofKind": "static-analyzer",
-                    "operation": "deletes",
-                    "domain": "redis.rate-limit",
-                    "source": "tools/bootstrap-acceptance-env.sh",
-                    "ruleId": "redis.rate-limit.deletes"
                 },
                 {
                     "proofKind": "static-analyzer",
@@ -427,34 +399,6 @@
                     "domain": "all-declared-access",
                     "assertionId": "security-runtime-core",
                     "verifier": "tools/test/bundles/bundle-steps.mjs"
-                },
-                {
-                    "proofKind": "static-analyzer",
-                    "operation": "reads",
-                    "domain": "postgres.security",
-                    "source": "tools/test/lanes/_suite-support.sh#ResetSecurityRuntimeState",
-                    "ruleId": "postgres.security.reads"
-                },
-                {
-                    "proofKind": "static-analyzer",
-                    "operation": "reads",
-                    "domain": "redis.rate-limit",
-                    "source": "tools/test/lanes/_suite-support.sh#ResetSecurityRuntimeState",
-                    "ruleId": "redis.rate-limit.reads"
-                },
-                {
-                    "proofKind": "static-analyzer",
-                    "operation": "deletes",
-                    "domain": "postgres.security",
-                    "source": "tools/test/lanes/_suite-support.sh#ResetSecurityRuntimeState",
-                    "ruleId": "postgres.security.deletes"
-                },
-                {
-                    "proofKind": "static-analyzer",
-                    "operation": "deletes",
-                    "domain": "redis.rate-limit",
-                    "source": "tools/test/lanes/_suite-support.sh#ResetSecurityRuntimeState",
-                    "ruleId": "redis.rate-limit.deletes"
                 }
             ]
         },
@@ -903,34 +847,6 @@
                     "domain": "all-declared-access",
                     "assertionId": "resilience",
                     "verifier": "tools/test/bundles/bundle-steps.mjs"
-                },
-                {
-                    "proofKind": "static-analyzer",
-                    "operation": "reads",
-                    "domain": "postgres.security",
-                    "source": "tools/test/lanes/_suite-support.sh#ResetSecurityRuntimeState",
-                    "ruleId": "postgres.security.reads"
-                },
-                {
-                    "proofKind": "static-analyzer",
-                    "operation": "reads",
-                    "domain": "redis.rate-limit",
-                    "source": "tools/test/lanes/_suite-support.sh#ResetSecurityRuntimeState",
-                    "ruleId": "redis.rate-limit.reads"
-                },
-                {
-                    "proofKind": "static-analyzer",
-                    "operation": "deletes",
-                    "domain": "postgres.security",
-                    "source": "tools/test/lanes/_suite-support.sh#ResetSecurityRuntimeState",
-                    "ruleId": "postgres.security.deletes"
-                },
-                {
-                    "proofKind": "static-analyzer",
-                    "operation": "deletes",
-                    "domain": "redis.rate-limit",
-                    "source": "tools/test/lanes/_suite-support.sh#ResetSecurityRuntimeState",
-                    "ruleId": "redis.rate-limit.deletes"
                 }
             ],
             "operationOverlaps": [

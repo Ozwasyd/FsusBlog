@@ -1,19 +1,12 @@
 #!/usr/bin/env node
 
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-
 import { decodeApiErrorFrame, decodeAedsFrame } from '../../support/aeds-envelope.mjs';
-import { buildPowHeaders, fetchChallenge } from '../../support/auth-helpers.mjs';
+import { buildPowHeaders } from '../../support/auth-helpers.mjs';
 import { isDirectExecution, reportDirectFailure } from '../../support/direct-execution.mjs';
 import { fetchWithTimeout, probeReachable, parseTimeoutMs } from '../../support/http.mjs';
 
 const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568';
 const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, 15000);
-const execFileAsync = promisify(execFile);
-const resetSecurityTestState = process.env.FSUSBLOG_RESET_SECURITY_TEST_STATE !== '0';
-const redisContainer = process.env.FSUSBLOG_REDIS_CONTAINER || process.env.FSUSBLOG_REDIS_CONTAINER_NAME || 'fsusblog-redis';
-const maxDeterministicPowDifficulty = Number.parseInt(process.env.FSUSBLOG_ACCEPTANCE_POW_MAX_DIFFICULTY ?? '20', 10) || 20;
 
 const successChecks = [
     ['article list', '/api/binary/article/list/home/1/3.aeds', 1],
@@ -42,66 +35,6 @@ function assert(condition, message)
     }
 }
 
-function delay(ms)
-{
-    return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function resetLocalSecurityRiskState()
-{
-    if (!resetSecurityTestState)
-    {
-        return;
-    }
-
-    try
-    {
-        await execFileAsync('docker', [
-            'exec',
-            redisContainer,
-            'sh',
-            '-c',
-            "redis-cli --scan --pattern '*fsus:sec:pow-risk:*' | xargs -r redis-cli DEL"
-        ], { timeout: 5000 });
-    }
-    catch
-    {
-    // Non-local environments may not use the developer docker container.
-    }
-}
-
-async function waitForDeterministicPow(label)
-{
-    let lastDifficulty = 'unknown';
-    for (let attempt = 0; attempt < 30; attempt += 1)
-    {
-        try
-        {
-            const challenge = await fetchChallenge(5000);
-            const difficulty = Number(challenge.difficulty ?? challenge.Difficulty ?? 999);
-            lastDifficulty = Number.isFinite(difficulty) ? String(difficulty) : 'unknown';
-            if (difficulty <= maxDeterministicPowDifficulty)
-            {
-                return;
-            }
-        }
-        catch
-        {
-            lastDifficulty = 'unreachable';
-        }
-
-        await delay(1000);
-    }
-
-    throw new Error(`${label} pow difficulty did not settle below ${maxDeterministicPowDifficulty}; last=${lastDifficulty}`);
-}
-
-async function resetAndWaitForPublicReadBudget()
-{
-    await resetLocalSecurityRiskState();
-    await waitForDeterministicPow('binary contract smoke');
-}
-
 async function fetchBinary(name, path)
 {
     let response = await fetchWithTimeout(`${baseUrl}${path}`, {
@@ -109,7 +42,6 @@ async function fetchBinary(name, path)
     }, requestTimeoutMs);
     if (response.status === 428)
     {
-        await resetAndWaitForPublicReadBudget();
         const powHeaders = await buildPowHeaders(`binary-contract-${name}`, requestTimeoutMs);
         response = await fetchWithTimeout(`${baseUrl}${path}`, {
             headers: {

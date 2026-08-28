@@ -39,7 +39,10 @@
         "tools/data-scale/cleanup.sh",
         "tools/data-scale/probe.sh",
         "tests/frontend/support/session-fixtures.mjs",
-        "tests/frontend/support/playwright/acceptance-shared.ts"
+        "tests/frontend/support/playwright/acceptance-shared.ts",
+        "src/backend/Modules/Endpoints/LocalSecurityFixtureEndpoints.cs",
+        "src/backend/Services/Fixtures/SecurityFixtureCompositionRoot.cs",
+        "tools/test-fixtures/producers/security-fixture-producer.mjs"
     ],
     "entries": [
         {
