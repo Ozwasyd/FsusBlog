@@ -61,3 +61,41 @@ test('file-tree observer rejects escape, dangling and unsupported entries', asyn
     fs.symlinkSync('missing', path.join(item.root, 'dangling'));
     await assert.rejects(observeFileTree({ domain, identity, context: { handles: { [domain]: item.handle } } }), /dangling/);
 });
+
+test('file-tree observer records a producer-declared absent domain without requiring a root', async () =>
+{
+    const authorityDigest = digestCanonical({ authority: 'before-runtime' });
+    const handle = {
+        owner: { runId: identity.runId, attemptId: identity.attemptId, sessionId: identity.sessionId, domain },
+        catalogDigest: identity.catalogDigest,
+        namespace: 'runtime-order-session',
+        observationStatus: 'absent',
+        absenceAuthorityDigest: authorityDigest
+    };
+    const counters = { writes: 0, networkMutations: 0, tokenRefreshes: 0, repairs: 0, lifecycleTransitions: 0 };
+    const observed = await observeFileTree({
+        domain,
+        identity,
+        context: {
+            handles: { [domain]: handle },
+            ports: {
+                absence: {
+                    readonly: true,
+                    readSideEffectCounters: async () => counters,
+                    readDeclaredAbsence: async () => ({
+                        status: 'absent',
+                        domain,
+                        namespace: handle.namespace,
+                        authorityDigest,
+                        reasonCode: 'before-runtime',
+                        producerRef: 'production-observer-authority'
+                    })
+                }
+            }
+        }
+    });
+
+    assert.equal(observed.semantic.kind, 'file-tree');
+    assert.equal(observed.semantic.observationStatus, 'absent');
+    assert.equal(observed.semantic.authorityDigest, authorityDigest);
+});

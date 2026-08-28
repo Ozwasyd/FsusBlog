@@ -8,6 +8,7 @@ import { requireSafeId } from '../../test-runtime/contract.mjs';
 import {
     assertOwnedHandle,
     normalizedObserverResult,
+    observeDeclaredAbsence,
     stableRecords,
     zeroObserverSideEffects
 } from './common.mjs';
@@ -53,6 +54,11 @@ function semanticMode(stat)
 export async function observeFileTree({ domain, identity, context })
 {
     const handle = assertOwnedHandle(context?.handles?.[domain], identity, domain, 'file-tree root handle');
+    const absent = await observeDeclaredAbsence({ domain, identity, context, kind: 'file-tree', handle });
+    if (absent)
+    {
+        return absent;
+    }
     const root = path.resolve(handle.root ?? '');
     const sessionRoot = path.resolve(handle.sessionRoot ?? '');
     if (!root || !sessionRoot || !contained(sessionRoot, root) || root === sessionRoot)
