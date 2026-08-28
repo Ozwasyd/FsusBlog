@@ -2,10 +2,10 @@
     "schema": "fsusblog.correctness-attempt-producers.v1",
     "generatedBy": "tools/test/generate-correctness-attempt-producers.mjs",
     "sourceDigests": {
-        "config/testing/release-reliability-scenario-catalog.json": "sha256:52e9ab5d7a5af66cb9da9865394ca470f5c2dbdae676afd550bcdd20d9887ade",
-        "tests/matrix.yml": "sha256:008853ccaa525cf5789c8ecf918460868d4cf01f5ca3a22463d0cdd0f74e56c5",
+        "config/testing/release-reliability-scenario-catalog.json": "sha256:b61558320c2c55f860dc4606b4680ca41085179b1b219053869d0296c301b354",
+        "tests/matrix.yml": "sha256:b8f2f3e05af13a2fa35bcea7fe5d0547b9bab8f724b33aa691575c9059b5adbd",
         "tools/test-matrix/production-fresh-run-bound-outputs.mjs": "sha256:68c78054efb4a77b9e368fb079a9bb749b8edff24bc6d8375f7970555292c638",
-        "config/testing/replay-qualification-producers.json": "sha256:0bdc322a88378d5ff8883541f79445a3b612edf29c87110fda12df3c745c57e4",
+        "config/testing/replay-qualification-producers.json": "sha256:5610b07e0acb3862fff2d4a4d294993f8e3e181398a80b14c4589f43d4855398",
         "config/testing/test-execution-envelope-applicability.json": "sha256:6496adc518796e2e19ee8d047f199861dfb1e54d6cf9e611d3925e2349279b34",
         "tools/test/attempt-runner.mjs": "sha256:53cdf7bdd46a4147400e3393decf29017534babc3ddfa6eb3446743de7018451",
         "tools/test/temporal-context.mjs": "sha256:982bee7411c0fb1c206d09a3bb21c9898ecca0d6564518e76d11f8768164cd66"
@@ -6142,5 +6142,5 @@
             }
         }
     ],
-    "contentDigest": "sha256:ee51f69377c38e4caa2879477e540aba2c8d42d4d786c1636335ca132f3f352b"
+    "contentDigest": "sha256:72a25d41172c5884b4e2284745dd3a836f73e0cec691f1f2dc1de2d9b442e5cb"
 }
