@@ -57,6 +57,7 @@ StaticAppsettingsAuthority() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/con
 StaticBackendConfigurationContract() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/configuration/check-backend-configuration-contract.mjs"; }
 StaticMonolithicDistributedArchitecture() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-monolithic-distributed-architecture.mjs"; }
 StaticBehaviorMutationGovernance() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-behavior-mutation-governance.mjs"; }
+StaticFixtureMutationRecoveryGovernance() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-fixture-mutation-recovery-governance.mjs"; }
 StaticCsharpStyle() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/dotnet/check-csharp-style.mjs" --mode full
 }
@@ -74,6 +75,7 @@ TEST_ASSET_BEHAVIOR_FILES=(
     "$ROOT_DIR/tests/tools/cross-stack-receipt-join.test.mjs"
     "$ROOT_DIR/tests/tools/content-addressed-build-cache.test.mjs"
     "$ROOT_DIR/tests/tools/dotnet-build-server-cleanup.test.mjs"
+    "$ROOT_DIR/tests/tools/fixture-mutation-recovery.test.mjs"
     "$ROOT_DIR/tests/tools/no-global-dotnet-build-server-shutdown.test.mjs"
     "$ROOT_DIR/tests/tools/physical-execution-process-tree.test.mjs"
     "$ROOT_DIR/tests/tools/frontend-vitest-rolling-shards.test.mjs"
@@ -121,6 +123,7 @@ RunApplicationStaticPrechecksPhase() {
         backend-configuration-contract StaticBackendConfigurationContract \
         monolithic-distributed-architecture StaticMonolithicDistributedArchitecture \
         behavior-mutation-governance StaticBehaviorMutationGovernance \
+        fixture-mutation-recovery-governance StaticFixtureMutationRecoveryGovernance \
         line-endings StaticLineEndings \
         csharp-style StaticCsharpStyle \
         label-governance StaticLabelGovernance

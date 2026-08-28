@@ -17,6 +17,50 @@ node --test tests/tools/bounded-channel-contracts.test.mjs
 
 `config/testing/runtime-state-domain-catalog.json` is the sole runtime-state access authority. Domains must come from `config/testing/runtime-state-domain-registry.json`; executable runtime steps declare reads, writes, deletes, invalidations, creates, resets, predecessors, postconditions, and machine-verifiable source/test evidence. Coordination-only steps use `stateAccess: none`. The catalog is exact in both directions against `runtimeSteps()` and its validator runs as matrix governance; neither scheduler, lane scripts, nor documentation may keep a second conflict table. Runtime bundle producers write source/run-bound reset receipts after observing their real postconditions, and every `resetBefore`/`resetAfter` consumer verifies the receipt identity plus observation digests before proceeding.
 
+## Fixture mutation and exact-recovery qualification
+
+`tools/test-fixtures/mutation-recovery/` is the only test-only semantic observation,
+mutation and same-profile recovery authority. It consumes the verified current
+`fsusblog.fixture-receipt.v2`, the sealed producer plan and
+`config/testing/fixture-mutation-envelope-catalog.json`; it never copies expected
+fixture values from producer source. A snapshot request binds run/source/profile,
+catalog and receipt digests, temporal context, provider, service generation and the
+observed backend/database/Redis runtime identity. The observer streams receipt-owned
+entities, relations, outbox rows, exact Redis TTL/generation, media byte digests and
+API/service projections together with explicitly catalogued nonowned sentinels into
+content-addressed bounded shards.
+The observer must stream records in canonical semantic-key order; duplicate or
+out-of-order input fails instead of being accumulated and resorted in memory.
+
+Every observed field has one closed disposition: `semantic`, `execution-identity`,
+`location`, `diagnostic-volatile` or `secret-redacted`. Semantic timestamps bind a
+#1730 role; volatile process/location facts do not affect equality; protected values
+retain only presence, type and digest. Unknown dispositions and unclassified fields
+fail closed. Comparison reports missing/extra records plus field, relation, version,
+TTL, byte and projection changes. Mutated state must contain at least one declared
+drift and no other or nonowned drift; after reprepare, semantic diff must be empty,
+not merely row-count-equal.
+
+The five provider adapters resolve semantic roles to one exact receipt-owned target.
+Database ports receive only a closed operation ID and parameter values; Redis ports
+receive exact keys and never a wildcard; filesystem targets are relative to a
+verified real fixture root and reject symlink, junction or reparse escapes. Each
+single-fault attempt writes an append-only digest-bound journal holding redacted
+target references and a recovery reference, never SQL, user text, secret material or
+absolute paths. Duplicate attempts fail instead of extending TTL or applying damage
+again.
+
+`runMutationRecovery` fixes the sequence to verified prepare, baseline snapshot,
+single mutation, expected-only diff, canonical reprepare with the identical sealed
+profile plan, then exact recovery comparison. The backend PID/start identity and
+database/Redis generations must remain unchanged. The runner has no restart,
+container recreation, global cleanup/reset, cache flush, manual repair or retry
+capability. Cancellation or failure restores only the active test-owned before-state;
+if that restore fails, the thrown failure retains an explicit recovery obligation.
+The independent receipt verifier rejects identity drift, missing cases, retry,
+forbidden operations and evidence tamper. Static governance is enforced by
+`tools/governance/check-fixture-mutation-recovery-governance.mjs`.
+
 FsusBlog 采用机器可读测试 DAG。`tests/matrix.yml` 是唯一测试拓扑源，`tools/run-test-matrix.mjs` 负责 `preflight` / `validate` / `list` / `plan` / `run` / `ci-plan` / `evidence-plan`，`tools/docs/generate-testing-docs.mjs` 是唯一测试文档 producer，`tools/test.sh` 是唯一公开 shell 入口并代理到 runner。lane 脚本只能执行一个已由 matrix 声明的叶节点；共享 shell 文件是 source-only 能力库，不得包含 tier 分派、依赖关系或另一个命令清单。后端 profile、mutation、security static/runtime 和 cross-stack static/runtime 都由 matrix 或 production bundle 投影到同一组叶节点，不能通过兼容 alias 再建一套拓扑。
 
 `config/testing/fsusui-baseline.json` 是本地与 CI 测试消费 FsusUI source/theme
