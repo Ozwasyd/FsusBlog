@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { digestCanonical } from '../../tools/test-fixtures/receipt/canonical.mjs';
+import { digestCanonical, freezeDeep } from '../../tools/test-fixtures/receipt/canonical.mjs';
 import { verifySealedDocument } from '../../tools/test-runtime/contract.mjs';
 import { composeRuntimeOrderIdentity } from '../../tools/test-runtime/runtime-order-identity.mjs';
 
@@ -54,4 +54,16 @@ test('runtime-order identity rejects an incomplete or non-canonical source ident
         executionEnvelopePolicy: value.executionEnvelopePolicy,
         catalogDigest: value.identity.catalogDigest
     }), /sourceCommit/u);
+});
+
+test('runtime-order authority bindings compare canonically after sealed key sorting', () =>
+{
+    const liveBinding = {
+        file: 'config/testing/fixture-profile-catalog.json',
+        digest: digest('fixture-file')
+    };
+    const sealedBinding = freezeDeep(liveBinding);
+
+    assert.notEqual(JSON.stringify(liveBinding), JSON.stringify(sealedBinding));
+    assert.equal(digestCanonical(liveBinding), digestCanonical(sealedBinding));
 });

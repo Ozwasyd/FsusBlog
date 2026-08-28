@@ -212,7 +212,7 @@ export function verifyRuntimeOrderIdentityAuthority({ root, file })
         throw new Error('runtime-order replay qualification drifted');
     }
     const fixtures = fixtureAuthorityPaths.map((fixture) => fileBinding(repositoryRoot, fixture, `fixture authority ${fixture}`));
-    if (JSON.stringify(fixtures) !== JSON.stringify(document.fixtureAuthorities)
+    if (digestCanonical(fixtures) !== digestCanonical(document.fixtureAuthorities)
       || identity.fixtureDigest !== digestCanonical({
           schema: 'fsusblog.runtime-order-fixture-authorities.v1', files: fixtures
       }))
@@ -220,7 +220,7 @@ export function verifyRuntimeOrderIdentityAuthority({ root, file })
         throw new Error('runtime-order fixture authority drifted');
     }
     const envelope = fileBinding(repositoryRoot, 'config/testing/test-execution-envelope-policy.json', 'execution envelope policy');
-    if (JSON.stringify(envelope) !== JSON.stringify(document.executionEnvelopePolicy)
+    if (digestCanonical(envelope) !== digestCanonical(document.executionEnvelopePolicy)
       || identity.envelopeDigest !== digestCanonical({
           schema: 'fsusblog.runtime-order-execution-envelope-authority.v1', policy: envelope
       }))
