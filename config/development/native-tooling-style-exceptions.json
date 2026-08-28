@@ -293,6 +293,31 @@
             "reason": "The generated Behavior catalog sources, schemas, projections and documentation authorities must change atomically with their post-runtime observation and governance tooling while preserving existing external JSON, document, environment and tooling identifiers; internal C#, JavaScript and Shell symbols remain governed by the repository mapping."
         },
         {
+            "id": "pre-runtime-fact-build-identity-authority",
+            "authorityExceptionId": "json-api-field",
+            "paths": [
+                "config/schemas/behavior-evidence-pre-runtime-receipt.schema.json",
+                "config/schemas/behavior-graph-receipt.schema.json",
+                "tools/contracts/behavior-graph-join.mjs",
+                "tools/contracts/check-behavior-graph.mjs",
+                "tools/docs/doc-claim-staleness-mutation/runner.mjs",
+                "tools/test-matrix/behavior-evidence-pre-runtime.mjs",
+                "tools/test/bundles/behavior-evidence-pre-runtime.sh"
+            ],
+            "externalPattern": "^[A-Za-z][A-Za-z0-9_-]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "pre_runtime_fact_build_identities",
+                "internal": "preRuntimeFactBuildIdentities"
+            },
+            "negative": {
+                "external": "pre_runtime_fact_build_identities",
+                "internal": "pre_runtime_fact_build_identities"
+            },
+            "reason": "The pre-runtime BehaviorGraph receipt schemas, join CLI and shell bundle must migrate atomically while preserving their existing external JSON, command-line and environment identifiers; internal JavaScript and Shell symbols remain governed by the repository mapping."
+        },
+        {
             "id": "dotnet-configuration-environment",
             "authorityExceptionId": "environment-variable",
             "paths": [
