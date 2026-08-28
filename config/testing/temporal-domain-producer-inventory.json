@@ -8,7 +8,9 @@
             "shapeId": "auth-security-messaging-account-lifecycle",
             "implementations": [
                 "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs",
+                "src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs",
                 "src/backend/Services/Fixtures/AuthFixtureSeeder.cs",
+                "tests/frontend/support/session-fixtures.mjs",
                 "tools/test-fixtures/producers/auth-session-producer.mjs"
             ],
             "fieldMappings": [
