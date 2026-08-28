@@ -12,6 +12,15 @@ import {
     readEvidenceDocument as readJson
 } from '../test-matrix/content-addressed-evidence-store.mjs';
 import { validateLocalProfileCheckpointEvidence } from '../test-matrix/scheduler.mjs';
+import {
+    locateCurrentRunEvidence,
+    verifyCurrentRunEvidenceBinding
+} from '../test/current-run-evidence-locator.mjs';
+import { validateEvidenceLocatorRegistry } from '../test/evidence-location-contract.mjs';
+import {
+    releaseFinalDirectConsumerIds,
+    resolveEvidenceReferencePayload
+} from '../test/current-run-evidence-publication.mjs';
 
 import { validateFontLicenseEvidence } from './font-license-evidence.mjs';
 import {
@@ -24,21 +33,6 @@ import { validateReleaseManifest } from './release-manifest.mjs';
 import { writeJsonAtomic } from './test-evidence-receipts.mjs';
 import { validateThemeCssSafetyEvidence } from './theme-css-safety-evidence.mjs';
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
-
-function latestManifest()
-{
-    const baseDir = path.join(root, '.tmp/release-evidence');
-    if (!fs.existsSync(baseDir))
-    {
-        return null;
-    }
-    return fs.readdirSync(baseDir, { withFileTypes: true })
-        .filter((entry) => entry.isDirectory())
-        .map((entry) => path.join(baseDir, entry.name, 'manifest.json'))
-        .filter((file) => fs.existsSync(file))
-        .map((file) => ({ file, mtimeMs: fs.statSync(file).mtimeMs }))
-        .sort((a, b) => b.mtimeMs - a.mtimeMs)[0]?.file ?? null;
-}
 
 function artifactPath(manifestFile, artifact)
 {
@@ -76,43 +70,56 @@ function listJsonFiles(dir)
     return files.sort();
 }
 
-function findReceiptFile(schema, preferredFiles, expectedCommit, { requireExactOne = false } = {})
+const directEvidenceContract = Object.freeze({
+    'evidence-consumer.release-final.direct.behavior-consistency': ['behaviorConsistency', 'fsusblog.behavior-document-consistency-final-report.v1'],
+    'evidence-consumer.release-final.direct.behavior-post-runtime': ['behaviorPostRuntime', 'fsusblog.behavior-evidence-post-runtime-receipt.v1'],
+    'evidence-consumer.release-final.direct.browser-contract': ['browserContract', 'fsusblog.browser-contract-receipt.v2'],
+    'evidence-consumer.release-final.direct.browserless-correctness': ['browserlessCorrectness', 'fsusblog.browserless-correctness-receipt.v1'],
+    'evidence-consumer.release-final.direct.production-build': ['productionBuild', 'fsusblog.ci-production-build-receipt.v1'],
+    'evidence-consumer.release-final.direct.public-preview': ['publicPreview', 'fsusblog.public-preview-screenshot-verification.v1']
+});
+
+export function locateReleaseFinalDirectEvidence({ context, parentPath, registry, repositoryRoot = root })
 {
-    const candidates = [
-        ...preferredFiles.filter(Boolean).map((file) => path.resolve(root, file)),
-        ...listJsonFiles(path.join(root, '.tmp/downloaded-artifacts'))
-    ];
-    const matches = [];
-    for (const file of [...new Set(candidates)])
+    const parentEntry = registry.entries.find((entry) =>
+        entry.consumerId === 'evidence-consumer.release.release-final-domain-evidence');
+    const parentLocated = locateCurrentRunEvidence({ context, registry, registryEntry: parentEntry,
+        repositoryRoot, explicitInputs: [parentPath] });
+    verifyCurrentRunEvidenceBinding(parentLocated.bindingReceipt,
+        { context, registry, registryEntry: parentEntry, repositoryRoot });
+    const children = parentLocated.receipt.children ?? [];
+    const expectedAuthorities = releaseFinalDirectConsumerIds.map((consumerId) =>
+        registry.entries.find((entry) => entry.consumerId === consumerId)?.authorityId).sort();
+    const actualAuthorities = children.map((child) => child.authorityId).sort();
+    if (JSON.stringify(actualAuthorities) !== JSON.stringify(expectedAuthorities))
     {
-        if (!fs.existsSync(file) || !fs.statSync(file).isFile())
-        {
-            continue;
-        }
-        try
-        {
-            const receipt = readJson(file);
-            if (receipt?.schema !== schema)
-            {
-                continue;
-            }
-            const commit = receipt.sourceState?.commit ?? receipt.releaseCommit ?? receipt.sourceCommit ?? null;
-            if (expectedCommit && commit !== expectedCommit)
-            {
-                continue;
-            }
-            matches.push({ file, receipt });
-        }
-        catch
-        {
-            // Ignore unrelated JSON artifacts while locating an exact receipt schema.
-        }
+        throw new Error('release-final parent does not contain the exact direct authority set');
     }
-    if (requireExactOne && matches.length > 1)
+    const directEvidence = {};
+    for (const child of children)
     {
-        throw new Error(`ambiguous ${schema} receipts: ${matches.map(({ file }) => path.relative(root, file)).join(', ')}`);
+        const entry = registry.entries.find((candidate) => candidate.authorityId === child.authorityId);
+        const located = locateCurrentRunEvidence({ context, registry, registryEntry: entry,
+            repositoryRoot, explicitInputs: [child.path] });
+        verifyCurrentRunEvidenceBinding(located.bindingReceipt,
+            { context, registry, registryEntry: entry, repositoryRoot });
+        if (located.bindingReceipt.inputDigest !== child.inputDigest
+            || located.receipt.producerReceiptDigest !== child.producerReceiptDigest)
+        {
+            throw new Error(`release-final parent child binding mismatch: ${child.authorityId}`);
+        }
+        const resolved = resolveEvidenceReferencePayload(located.receipt,
+            { repositoryRoot, ownedRoots: context.ownedRoots });
+        const [key, schema] = directEvidenceContract[entry.consumerId] ?? [];
+        if (!key || resolved.payload?.schema !== schema)
+        {
+            throw new Error(`release-final direct payload schema mismatch: ${entry.consumerId}`);
+        }
+        directEvidence[key] = { file: resolved.file, receipt: resolved.payload,
+            locatorBindingReceipt: located.bindingReceipt,
+            payloadDigest: located.receipt.payload.digest };
     }
-    return matches[0] ?? null;
+    return { directEvidence, parentBindingReceipt: parentLocated.bindingReceipt };
 }
 
 function validateManifest(manifest, manifestFile)
@@ -470,33 +477,6 @@ async function runSelfTest()
     }
     fs.writeFileSync(fontLicenseFile, fontLicenseFixture);
 
-    const duplicateContractA = path.join(tmp, 'browser-contract-a.json');
-    const duplicateContractB = path.join(tmp, 'browser-contract-b.json');
-    const contractIdentity = {
-        schema: 'fsusblog.browser-contract-receipt.v2',
-        sourceState: { commit, worktreeFingerprint: 'f'.repeat(64) }
-    };
-    fs.writeFileSync(duplicateContractA, `${JSON.stringify(contractIdentity)}\n`);
-    fs.writeFileSync(duplicateContractB, `${JSON.stringify(contractIdentity)}\n`);
-    let ambiguousContractRejected = false;
-    try
-    {
-        findReceiptFile(
-            'fsusblog.browser-contract-receipt.v2',
-            [duplicateContractA, duplicateContractB],
-            commit,
-            { requireExactOne: true }
-        );
-    }
-    catch (error)
-    {
-        ambiguousContractRejected = /ambiguous fsusblog\.browser-contract-receipt\.v2 receipts/u.test(error.message);
-    }
-    if (!ambiguousContractRejected)
-    {
-        fail(['self-test expected ambiguous Browser Contract receipts to fail closed']);
-    }
-
     const visualGateSkipFile = path.join(tmp, 'visual-gate-skip.json');
     const diagnosticVisualGateSkip = {
         schema: 'fsusblog.visual-gate-skip.v1',
@@ -626,16 +606,49 @@ if (process.argv[1] === fileURLToPath(import.meta.url))
     {
         fail(['--local-profile-checkpoint requires a path']);
     }
-    const manifestArg = args.find((arg, index) => !arg.startsWith('--') && index !== checkpointOption + 1);
-    const manifestFile = manifestArg ? path.resolve(manifestArg) : latestManifest();
-    if (!manifestFile)
+    const contextOption = args.indexOf('--current-run-context');
+    const bindingOption = args.indexOf('--manifest-binding');
+    const domainBindingOption = args.indexOf('--domain-binding');
+    if (contextOption < 0 || !args[contextOption + 1]
+        || bindingOption < 0 || !args[bindingOption + 1]
+        || domainBindingOption < 0 || !args[domainBindingOption + 1])
     {
-        fail(['manifest path is required or .tmp/release-evidence must contain a manifest']);
+        fail(['--current-run-context, --manifest-binding, and --domain-binding are required']);
+    }
+    const context = readJson(path.resolve(args[contextOption + 1]));
+    const registry = readJson(path.join(root, 'config/testing/evidence-locator-registry.json'));
+    validateEvidenceLocatorRegistry(registry);
+    const registryEntry = registry.entries.find((entry) =>
+        entry.consumerId === 'evidence-consumer.release.check-release-final');
+    let locatedManifest;
+    try
+    {
+        locatedManifest = locateCurrentRunEvidence({ context, registry, registryEntry, repositoryRoot: root,
+            explicitInputs: [args[bindingOption + 1]] });
+        verifyCurrentRunEvidenceBinding(locatedManifest.bindingReceipt,
+            { context, registry, registryEntry, repositoryRoot: root });
+    }
+    catch (error)
+    {
+        fail([`manifest locator: ${error instanceof Error ? error.message : String(error)}`]);
+    }
+    const resolvedManifest = resolveEvidenceReferencePayload(locatedManifest.receipt,
+        { repositoryRoot: root, ownedRoots: context.ownedRoots });
+    const manifestFile = resolvedManifest.file;
+    let locatedDomain;
+    try
+    {
+        locatedDomain = locateReleaseFinalDirectEvidence({ context,
+            parentPath: args[domainBindingOption + 1], registry });
+    }
+    catch (error)
+    {
+        fail([`direct evidence locator: ${error instanceof Error ? error.message : String(error)}`]);
     }
 
     const bindingFile = path.join(root, '.tmp/release-evidence/release-final-test-evidence-binding.json');
     fs.rmSync(bindingFile, { force: true });
-    const manifest = readJson(manifestFile);
+    const manifest = resolvedManifest.payload;
     const errors = validateManifest(manifest, manifestFile);
     if (localProfileCheckpoint)
     {
@@ -646,9 +659,16 @@ if (process.argv[1] === fileURLToPath(import.meta.url))
     try
     {
         const testEvidence = createReleaseFinalDomainEvidence({
+            directEvidence: locatedDomain.directEvidence,
+            locatorEvidence: {
+                manifestBindingReceipt: locatedManifest.bindingReceipt,
+                manifestInputDigest: locatedManifest.receipt.payload.digest,
+                directParentBindingReceipt: locatedDomain.parentBindingReceipt,
+                directInputDigests: Object.fromEntries(Object.entries(locatedDomain.directEvidence)
+                    .map(([key, value]) => [key, value.payloadDigest]))
+            },
             manifest,
             repositoryRoot: root,
-            findReceiptFile,
             sha256Hex
         });
         testEvidenceBinding = testEvidence.binding;
