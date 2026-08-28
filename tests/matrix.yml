@@ -3476,6 +3476,8 @@ tiers:
               tools/test/run-legacy-real-dump-producer.mjs,
               tests/tools/legacy-real-dump-producer.test.mjs,
               docs/database-migration.md,
+              docs/operations.md,
+              docs/testing.md,
           ]
       ciJob: integration-runtime
       localOnly: true
@@ -3497,6 +3499,8 @@ tiers:
               tests/coverage-registry.json,
               tests/backend/Fixtures/backend-test-requirements.json,
               docs/database-migration.md,
+              docs/operations.md,
+              docs/testing.md,
           ]
       triggerCoverage: [backend-legacy-20260517-real-dump]
       triggerReason: real 20260517 dump producer, migration path, or identity evidence contract changed

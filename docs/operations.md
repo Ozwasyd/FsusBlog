@@ -434,10 +434,18 @@ Legacy PostgreSQL upgrades from the 2026-05-17 profile are documented in `docs/d
 
 ```bash
 FSUS_LEGACY_20260517_DUMP_GZ=.tmp/db_blog_20260517000000fjyfe.sql.gz \
+FSUS_LEGACY_20260517_DUMP_SHA256=<sha256-of-decompressed-custom-dump> \
+FSUS_SCHEMA_MIGRATION_POSTGRES_IMAGE=postgres:18-alpine \
+FSUS_SCHEMA_MIGRATION_POSTGRES_IMAGE_ID=<docker-sha256-image-id> \
   tools/db/verify-legacy-upgrade-20260517.sh
 ```
 
-The verifier restores the dump into the schema migration integration test container, runs `SchemaMigrationRunner.RunAsync()` twice, and checks content, messaging, visit-log, refresh-token cleanup, length alignment and migration-history idempotency.
+The verifier delegates to the single `legacy-20260517-real-dump` producer. It
+restores the dump into the schema migration integration test container, runs
+`SchemaMigrationRunner.RunAsync()` twice, checks content, messaging, visit-log,
+refresh-token cleanup, length alignment and migration-history idempotency, and
+writes source/dump/PostgreSQL-bound semantic evidence. Ordinary integration
+records this exact test as `not-selected`.
 
 Online changes follow [Online Database Migration Protocol](online-database-migration.md) and [Online Migration Operations](online-database-migration-operations.md). Expand remains compatible with N/N-1 and rolls back by keeping the additive schema. Backfill pauses at its durable token without restarting the web process. Before Contract, stop the explicit command and keep the bridge; after destructive Contract, code rollback cannot recreate removed data, so isolate the affected write path and restore the verified backup into an isolated database before selecting a compatible release/database pair. Never edit migration history or progress rows to force readiness.
 
