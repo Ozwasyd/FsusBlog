@@ -7,6 +7,9 @@ import { digestPath, sealSourceIdentity } from '../fact-extractors/identity.mjs'
 import { readFactObservationReceipt } from '../fact-extractors/reader.mjs'
 import { digestValue, parseRepositoryClaims } from './doc-claim.mjs'
 import { verifyProseClaims } from './prose-claim-verifier/verifier.mjs'
+import { resolveFactPath } from './generated-fact-sections/catalog.mjs'
+import { renderSectionBody } from './generated-fact-sections/generator.mjs'
+import { parseGeneratedMarkers } from './generated-fact-sections/markers.mjs'
 import {
     validateMigrationLedgerData,
     validateRepositoryMigrationLedger
@@ -162,19 +165,37 @@ export function runContentNegativeClasses({ repositoryRoot = root, observationRe
         validateMigrationLedgerData(candidate)
     }))
 
-    mutateLedger('required-outbox-edge-drift', (candidate) =>
+    const mutateGeneratedFact = (id, sectionId, mutate) => cases.push(mustFail(id, () =>
     {
-        const section = candidate.sectionCatalog.sections.find((entry) => entry.sectionId === 'content.article.required-outbox-edges')
-        section.sectionId = 'content.article.required-outbox-edges.changed'
-    })
-    mutateLedger('article-transition-reversal', (candidate) =>
+        const section = input.sectionCatalog.sections.find((entry) => entry.sectionId === sectionId)
+        if (!section) throw new Error(`missing generated section ${sectionId}`)
+        const value = structuredClone(resolveFactPath(observationReceipt.observations, section.factPath))
+        mutate(value)
+        const expected = renderSectionBody(section, value).replace(/\n+$/u, '')
+        const source = readFileSync(path.join(repositoryRoot, section.documentPath), 'utf8')
+        const marker = parseGeneratedMarkers(source, section.documentPath)
+            .find((entry) => entry.sectionId === sectionId)
+        if (!marker) throw new Error(`missing generated marker ${sectionId}`)
+        const actual = marker.body.replace(/\n+$/u, '')
+        if (actual !== expected) throw new Error(`generated section drift detected for ${sectionId}`)
+    }))
+
+    mutateGeneratedFact('required-outbox-edge-drift', 'content.article.required-outbox-edges', (value) =>
     {
-        candidate.claims = candidate.claims.filter((claim) => claim.declaration.claimId !== 'article-comment-lifecycle-outbox.article-transitions')
+        value.push('new-required-edge')
     })
-    mutateLedger('rollback-restore-delete-coordinate-omission', (candidate) =>
+    mutateGeneratedFact('article-transition-reversal', 'content.article.allowed-transitions', (value) =>
     {
-        candidate.claims = candidate.claims.filter((claim) => claim.declaration.claimId !== 'article-comment-lifecycle-outbox.rollback-causal')
+        value.splice(value.indexOf('Update:Published->Archived'), 1)
     })
+    cases.push(mustFail('rollback-restore-delete-coordinate-omission', () =>
+    {
+        const claims = structuredClone(contentClaims)
+        claims.find((claim) => claim.declaration.claimId === 'article-comment-lifecycle-outbox.rollback-causal')
+            .location.bodyText = 'rollback creates a new publication coordinate from a historical revision while preserving immutable history'
+        const result = verifyProseClaims({ claims, receipts: [observationReceipt] })
+        if (!result.ok) throw new Error(result.diagnostics[0].code)
+    }))
     mutateLedger('overbroad-prose-claim', (candidate) =>
     {
         const keep = 'article-comment-lifecycle-outbox.scheduled-pre-due'
@@ -218,22 +239,18 @@ export function runContentNegativeClasses({ repositoryRoot = root, observationRe
         if (!result.ok) throw new Error(result.diagnostics[0].code)
     }))
 
-    for (const id of [
-        'comment-public-admin-visibility-drift',
-        'reply-notification-condition-drift',
-        'privacy-forbidden-field-drift'
-    ])
+    mutateGeneratedFact('comment-public-admin-visibility-drift', 'content.comment.public-visibility', (value) =>
     {
-        mutateLedger(id, (candidate) =>
-        {
-            const target = id === 'comment-public-admin-visibility-drift'
-                ? 'article-comment-lifecycle-outbox.comment-admin-visibility'
-                : id === 'reply-notification-condition-drift'
-                    ? 'article-comment-lifecycle-outbox.notification'
-                    : 'article-comment-lifecycle-outbox.forbidden-fields'
-            candidate.claims = candidate.claims.filter((claim) => claim.declaration.claimId !== target)
-        })
-    }
+        value.Pending = true
+    })
+    mutateGeneratedFact('reply-notification-condition-drift', 'content.comment.notification', (value) =>
+    {
+        value.publishAdded = 'any-comment-status'
+    })
+    mutateGeneratedFact('privacy-forbidden-field-drift', 'content.comment.persisted-fields', (value) =>
+    {
+        value.push('userId')
+    })
 
     cases.push(mustFail('compat-waiver-self-certification-residue', () =>
     {
