@@ -111,7 +111,22 @@ const chromiumLaunchOptions: {
     '--no-sandbox',
     '--disable-dev-shm-usage',
     ...(process.env.FSUSBLOG_PUBLIC_PREVIEW_DOCS_CAPTURE === '1'
-      ? ['--disable-gpu', '--disable-lcd-text', '--disable-font-subpixel-positioning']
+      ? [
+          '--disable-gpu',
+          '--disable-gpu-rasterization',
+          '--disable-checker-imaging',
+          '--disable-lcd-text',
+          '--disable-font-subpixel-positioning',
+          '--disable-skia-runtime-opts',
+          '--disable-oop-rasterization',
+          '--disable-partial-raster',
+          '--disable-threaded-animation',
+          '--disable-threaded-scrolling',
+          '--disable-zero-copy',
+          '--force-device-scale-factor=1',
+          '--force-color-profile=srgb',
+          '--num-raster-threads=1'
+        ]
       : [])
   ]
 }

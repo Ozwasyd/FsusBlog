@@ -56,7 +56,7 @@
       "rewrite": [
         { "before": "production correctness dependency closure is completely browserless", "replacementTestIds": ["node-test:tests/tools/browserless-correctness-contract.test.mjs#production-correctness-dependency-closure-has-no-browser-capability"] },
         { "before": "release final contains exactly one declared browser tier", "replacementTestIds": ["node-test:tests/tools/browserless-correctness-contract.test.mjs#release-closeout-binds-one-immutable-browser-contract-without-adding-it-to-correctness"] },
-        { "before": "every browser-launching tier declares the browser resource boundary", "replacementTestIds": ["node-test:tests/tools/browserless-correctness-contract.test.mjs#every-browser-capable-tier-declares-the-browser-resource-boundary"] },
+        { "before": "every browser-launching tier declares the browser resource boundary", "replacementTestIds": ["node-test:tests/tools/test-matrix-resource-contract.test.mjs#browser-capable-tiers-cannot-hide-outside-browser-resources"] },
         { "before": "smart gate selects Browser Contract only for its explicit boundary", "replacementTestIds": ["node-test:tests/tools/browserless-correctness-contract.test.mjs#smart-gate-behavior-selects-browser-work-only-for-declared-boundary-inputs"] }
       ],
       "delete": [

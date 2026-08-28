@@ -53,6 +53,64 @@
     },
     "actionRegistry": "config/testing/release-reliability-lifecycle-action-registry.json",
     "lifecycleSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+    "schedulerTimeoutPolicies": [
+        {
+            "id": "release-soak-outer",
+            "measurementBudgetMs": 375000,
+            "startupMarginMs": 45000,
+            "finalizationMarginMs": 45000,
+            "terminationMarginMs": 15000,
+            "outerTimeoutMs": 480000
+        },
+        {
+            "id": "release-load-peak-outer",
+            "measurementBudgetMs": 120000,
+            "startupMarginMs": 25000,
+            "finalizationMarginMs": 25000,
+            "terminationMarginMs": 10000,
+            "outerTimeoutMs": 180000
+        },
+        {
+            "id": "release-load-burst-outer",
+            "measurementBudgetMs": 60000,
+            "startupMarginMs": 25000,
+            "finalizationMarginMs": 25000,
+            "terminationMarginMs": 10000,
+            "outerTimeoutMs": 120000
+        },
+        {
+            "id": "release-data-scale-outer",
+            "measurementBudgetMs": 600000,
+            "startupMarginMs": 20000,
+            "finalizationMarginMs": 30000,
+            "terminationMarginMs": 10000,
+            "outerTimeoutMs": 660000
+        },
+        {
+            "id": "release-mutation-outer",
+            "measurementBudgetMs": 900000,
+            "startupMarginMs": 20000,
+            "finalizationMarginMs": 30000,
+            "terminationMarginMs": 10000,
+            "outerTimeoutMs": 960000
+        },
+        {
+            "id": "release-memory-retention-outer",
+            "measurementBudgetMs": 315000,
+            "startupMarginMs": 30000,
+            "finalizationMarginMs": 60000,
+            "terminationMarginMs": 15000,
+            "outerTimeoutMs": 420000
+        },
+        {
+            "id": "release-handle-retention-outer",
+            "measurementBudgetMs": 285000,
+            "startupMarginMs": 30000,
+            "finalizationMarginMs": 30000,
+            "terminationMarginMs": 15000,
+            "outerTimeoutMs": 360000
+        }
+    ],
     "scenarios": [
         {
             "id": "release-soak-min",
@@ -93,6 +151,23 @@
                 "countsAsReleaseFinal": true
             },
             "resourceClass": "database",
+            "scheduler": {
+                "resourceClass": "database",
+                "cpuWeight": 2,
+                "memoryWeight": 2,
+                "minCpuUnits": 2,
+                "exclusiveResources": [
+                    "database",
+                    "resource-counters",
+                    "runtime-http"
+                ],
+                "countedResources": {},
+                "maxParallel": 1,
+                "parallelizable": false,
+                "cost": "high",
+                "timeoutPolicyId": "release-soak-outer"
+            },
+            "schedulerProfileDigest": "sha256:3b0378e274e8ea4ac7da47e83440f0a2395109c7f4759e0fa46cd6474c58f794",
             "identityTools": [
                 "bash",
                 "docker",
@@ -201,6 +276,23 @@
                 }
             },
             "resourceClass": "benchmark",
+            "scheduler": {
+                "resourceClass": "benchmark",
+                "cpuWeight": 2,
+                "memoryWeight": 1,
+                "minCpuUnits": 2,
+                "exclusiveResources": [
+                    "network",
+                    "performance-counters",
+                    "runtime-http"
+                ],
+                "countedResources": {},
+                "maxParallel": 1,
+                "parallelizable": false,
+                "cost": "high",
+                "timeoutPolicyId": "release-load-peak-outer"
+            },
+            "schedulerProfileDigest": "sha256:cd591c614cc52589e50baf91ff07fb1fed2e3df1b88efc37ad01827a06da5509",
             "identityTools": [
                 "bash",
                 "docker",
@@ -313,6 +405,23 @@
                 }
             },
             "resourceClass": "benchmark",
+            "scheduler": {
+                "resourceClass": "benchmark",
+                "cpuWeight": 4,
+                "memoryWeight": 2,
+                "minCpuUnits": 4,
+                "exclusiveResources": [
+                    "network",
+                    "performance-counters",
+                    "runtime-http"
+                ],
+                "countedResources": {},
+                "maxParallel": 1,
+                "parallelizable": false,
+                "cost": "high",
+                "timeoutPolicyId": "release-load-burst-outer"
+            },
+            "schedulerProfileDigest": "sha256:1165ec779581408850a684984512bf6ffaad558c850a58bb0a044d5b4aa0ae95",
             "identityTools": [
                 "bash",
                 "docker",
@@ -426,6 +535,24 @@
                 "concurrency": 2
             },
             "resourceClass": "database",
+            "scheduler": {
+                "resourceClass": "database",
+                "cpuWeight": 2,
+                "memoryWeight": 4,
+                "minCpuUnits": 2,
+                "exclusiveResources": [
+                    "data-scale-artifacts",
+                    "data-scale-postgres",
+                    "data-scale-redis",
+                    "data-scale-runtime"
+                ],
+                "countedResources": {},
+                "maxParallel": 1,
+                "parallelizable": false,
+                "cost": "high",
+                "timeoutPolicyId": "release-data-scale-outer"
+            },
+            "schedulerProfileDigest": "sha256:fad85b52a56a048d25c8f830abb931f749ab6700f3d7d57fcad7d2391ee8bc60",
             "identityTools": [
                 "bash",
                 "docker",
@@ -525,6 +652,23 @@
                 "releaseParity": true
             },
             "resourceClass": "cpu",
+            "scheduler": {
+                "resourceClass": "cpu",
+                "cpuWeight": 4,
+                "memoryWeight": 4,
+                "minCpuUnits": 4,
+                "exclusiveResources": [
+                    "build-artifacts",
+                    "cpu",
+                    "mutation-output"
+                ],
+                "countedResources": {},
+                "maxParallel": 1,
+                "parallelizable": false,
+                "cost": "high",
+                "timeoutPolicyId": "release-mutation-outer"
+            },
+            "schedulerProfileDigest": "sha256:40abec554de99a27750299e4e29431352f2eb8f6392a9109f22ef4fea983201e",
             "identityTools": [
                 "bash",
                 "dotnet",
@@ -633,6 +777,23 @@
                 "policy": "config/deployment/zero-downtime-resource-policy.json"
             },
             "resourceClass": "database",
+            "scheduler": {
+                "resourceClass": "database",
+                "cpuWeight": 2,
+                "memoryWeight": 2,
+                "minCpuUnits": 2,
+                "exclusiveResources": [
+                    "database",
+                    "resource-counters",
+                    "runtime-http"
+                ],
+                "countedResources": {},
+                "maxParallel": 1,
+                "parallelizable": false,
+                "cost": "high",
+                "timeoutPolicyId": "release-memory-retention-outer"
+            },
+            "schedulerProfileDigest": "sha256:ec9e5178e1c18d515097a6dc0ccc5766e8c9b3623a9aa2fc615ab4fcf7e9fc5e",
             "identityTools": [
                 "bash",
                 "docker",
@@ -733,6 +894,23 @@
                 "policy": "config/deployment/zero-downtime-resource-policy.json"
             },
             "resourceClass": "database",
+            "scheduler": {
+                "resourceClass": "database",
+                "cpuWeight": 2,
+                "memoryWeight": 2,
+                "minCpuUnits": 2,
+                "exclusiveResources": [
+                    "database",
+                    "resource-counters",
+                    "runtime-http"
+                ],
+                "countedResources": {},
+                "maxParallel": 1,
+                "parallelizable": false,
+                "cost": "high",
+                "timeoutPolicyId": "release-handle-retention-outer"
+            },
+            "schedulerProfileDigest": "sha256:eddf006c4d01c34d2c0cab52c6d6feb955fa7b2b7186b87ccaf8aafa768c57ff",
             "identityTools": [
                 "bash",
                 "docker",

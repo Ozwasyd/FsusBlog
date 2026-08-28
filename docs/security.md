@@ -340,7 +340,19 @@ PostgreSQL commit 与 HTTP `Set-Cookie` 无法组成分布式原子事务。双�
 
 JWT 签发结果必须同时携带 access token 字符串与其绝对 `ExpiresAtUtc`；普通登录、刷新轮换、MFA 登录、Passkey 登录以及 admin bootstrap/login 都把该同一绝对时间传给 Cookie 写入层。`AuthCookieService` 不读取 `Jwt` 配置，也不反向解析 JWT；AccessToken Cookie 的 `Expires` 必须与 JWT `exp` 的 UTC 秒边界一致，不能晚于 token，也不能继续使用独立的 15 分钟常量。通过可热重载 configuration provider 修改 `Jwt:AccessTokenExpiresMinutes` 只影响后续新签发 token；需要无重启回退时可恢复为 15，已签发 token 和其 Cookie 继续保持原同源生命周期，无需批量改写现有 Cookie。仅由环境变量提供配置且不支持 reload 的部署仍需按常规滚动发布应用新配置。
 
-本地认证 fixture 也遵守同一绝对期限边界：它从 `user.storage-state.json` / `admin.storage-state.json` 读取各自 access Cookie 的 Unix expiry，并原样交给 `AuthCookieService`，不得用当前时间或 JWT 配置重新计算。fixture refresh runner 只会从 `Development` 且显式启用的 loopback + shared-secret 端点解析；默认实现仅通过 `node` 的 `ArgumentList` 执行仓库内固定 `tests/frontend/fixtures/prepare-auth-smoke-users.mjs`，设有 60 秒超时、取消和非零退出处理，并丢弃 stdout/stderr 内容。runner 失败发生在任何 Cookie 写入之前，只返回固定错误；Production 不映射该端点，也不得解析或调用 runner。测试可通过 DI 注入无进程 fake runner，但不能把请求、配置或环境变量中的 executable/script path 引入默认执行链。
+本地认证 fixture 也遵守同一绝对期限边界：它从 `user.storage-state.json` / `admin.storage-state.json` 读取各自 access Cookie 的 Unix expiry，并原样交给 `AuthCookieService`，不得用当前时间或 JWT 配置重新计算。fixture refresh runner 只会从 `Development` 且显式启用的 loopback + shared-secret 端点解析；默认实现仅通过 `node` 的 `ArgumentList` 执行仓库内固定 `tests/frontend/fixtures/prepare-auth-smoke-users.mjs`，设有 60 秒超时、取消和非零退出处理，并丢弃 stdout/stderr 内容。runner 失败发生在任何 Cookie 写入之前，只返回固定错误。
+
+新的 `auth-session` 权威 producer 不执行脚本。它的
+`/api/local/auth-fixture/prepare` 与 `/api/local/auth-fixture/verify` 只在
+`Development` 且 `fsus:allowLocalAuthFixture=true` 时映射，同时要求 loopback、
+constant-time shared-secret 校验与已封存的 test temporal context。前者只调用
+test-only backend composition root 的 identity/MFA/WebAuthn/session/admin lifecycle
+ports，后者重新查询 application read model 并绑定 receipt digest。两个
+端点均不返回 token、Cookie、MFA/recovery secret 或 authenticator private
+material，且不允许修改 ban/risk/PoW/credential-issuance 状态。Production
+不映射 refresh、prepare 或 verify 端点，也不得解析或调用对应 runner/ports。
+测试可通过 DI 注入无进程 fake，但不能把请求、配置或环境变量中的
+executable/script path 引入默认执行链。
 
 **生产启动保护**：如果 JWT 密钥与已知占位值相同，服务器拒绝启动，防止弱密钥上线。
 

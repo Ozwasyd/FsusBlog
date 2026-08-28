@@ -1,3 +1,4 @@
+# docs/testing.generated.md is generated from this source by tools/docs/generate-testing-docs.mjs.
 version: fsusblog-test-matrix-v2
 namespaceTemplate: ${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}-${MATRIX_JOB:-local}-${MATRIX_SHARD:-0}
 governance:
@@ -1476,6 +1477,7 @@ tiers:
           - backend-auth-mfa-pow-session-state-machine
           - backend-race-idempotency-model
           - backend-fault-race-readiness
+          - backend-search-index-utf8-scalar-owner
           - backend-audit-behavior
           - backend-operations-readiness-behavior
           - backend-public-aot-artifact-behavior
@@ -1523,6 +1525,10 @@ tiers:
           - tests/backend/Fixtures/platform-runtime-governance/runtime-return.fixture.cs.txt
           - tests/backend/Unit/FsusHostRuntimeTuningTests.cs
           - tests/backend/Unit/PodBinaryCodecBatchAllocationTests.cs
+          - src/backend/Services/SearchIndexService.Dictionary.cs
+          - src/backend/Properties/AssemblyInfo.cs
+          - tests/backend/FsusBlog.Server.Tests.csproj
+          - tests/backend/Unit/SearchIndexServiceTests.cs
           - tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs
           - tests/backend/Unit/UserSecurityStepUpServiceTests.cs
           - tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs
@@ -7592,14 +7598,19 @@ tiers:
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-soak-min
       executionDependsOn: [behavior-doc-static-admission]
       services: []
-      parallelizable: true
-      exclusiveResources: []
+      timeoutPolicyId: release-soak-outer
+      maxParallel: 1
+      countedResources: {}
+      schedulerProfileDigest: sha256:3b0378e274e8ea4ac7da47e83440f0a2395109c7f4759e0fa46cd6474c58f794
+      schedulerAuthority: release-reliability-scenario-catalog
+      parallelizable: false
+      exclusiveResources: [database, resource-counters, runtime-http]
       phase: 5
-      cost: low
-      resourceClass: io
-      cpuWeight: 1
-      memoryWeight: 1
-      minCpuUnits: 1
+      cost: high
+      resourceClass: database
+      cpuWeight: 2
+      memoryWeight: 2
+      minCpuUnits: 2
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -7607,7 +7618,7 @@ tiers:
       evidenceClass: diagnostic
       qualificationEligible: false
       cacheProfile: none
-      timeoutMinutes: 5
+      timeoutMinutes: 8
       shardable: false
       defaultShards: 1
       risk: critical
@@ -7626,9 +7637,9 @@ tiers:
       manualOnly: true
 
     - id: release-load-peak
-      executionClass: runtime
+      executionClass: benchmark
       fixtureProfile: none
-      fixtureProfileReason: none-runtime
+      fixtureProfileReason: none-benchmark
       fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
       fixtureMutatorAllowed: false
       owner: ServerContractAgent
@@ -7636,14 +7647,19 @@ tiers:
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-load-peak
       executionDependsOn: [behavior-doc-static-admission]
       services: []
-      parallelizable: true
-      exclusiveResources: []
+      timeoutPolicyId: release-load-peak-outer
+      maxParallel: 1
+      countedResources: {}
+      schedulerProfileDigest: sha256:cd591c614cc52589e50baf91ff07fb1fed2e3df1b88efc37ad01827a06da5509
+      schedulerAuthority: release-reliability-scenario-catalog
+      parallelizable: false
+      exclusiveResources: [network, performance-counters, runtime-http]
       phase: 5
-      cost: low
-      resourceClass: io
-      cpuWeight: 1
+      cost: high
+      resourceClass: benchmark
+      cpuWeight: 2
       memoryWeight: 1
-      minCpuUnits: 1
+      minCpuUnits: 2
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -7651,7 +7667,7 @@ tiers:
       evidenceClass: diagnostic
       qualificationEligible: false
       cacheProfile: none
-      timeoutMinutes: 5
+      timeoutMinutes: 3
       shardable: false
       defaultShards: 1
       risk: critical
@@ -7675,9 +7691,9 @@ tiers:
       manualOnly: true
 
     - id: release-load-burst
-      executionClass: runtime
+      executionClass: benchmark
       fixtureProfile: none
-      fixtureProfileReason: none-runtime
+      fixtureProfileReason: none-benchmark
       fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
       fixtureMutatorAllowed: false
       owner: ServerContractAgent
@@ -7685,14 +7701,19 @@ tiers:
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-load-burst
       executionDependsOn: [behavior-doc-static-admission]
       services: []
-      parallelizable: true
-      exclusiveResources: []
+      timeoutPolicyId: release-load-burst-outer
+      maxParallel: 1
+      countedResources: {}
+      schedulerProfileDigest: sha256:1165ec779581408850a684984512bf6ffaad558c850a58bb0a044d5b4aa0ae95
+      schedulerAuthority: release-reliability-scenario-catalog
+      parallelizable: false
+      exclusiveResources: [network, performance-counters, runtime-http]
       phase: 5
-      cost: low
-      resourceClass: io
-      cpuWeight: 1
-      memoryWeight: 1
-      minCpuUnits: 1
+      cost: high
+      resourceClass: benchmark
+      cpuWeight: 4
+      memoryWeight: 2
+      minCpuUnits: 4
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -7700,7 +7721,7 @@ tiers:
       evidenceClass: diagnostic
       qualificationEligible: false
       cacheProfile: none
-      timeoutMinutes: 5
+      timeoutMinutes: 2
       shardable: false
       defaultShards: 1
       risk: critical
@@ -7734,14 +7755,19 @@ tiers:
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-data-scale-m
       executionDependsOn: [behavior-doc-static-admission]
       services: []
-      parallelizable: true
-      exclusiveResources: []
+      timeoutPolicyId: release-data-scale-outer
+      maxParallel: 1
+      countedResources: {}
+      schedulerProfileDigest: sha256:fad85b52a56a048d25c8f830abb931f749ab6700f3d7d57fcad7d2391ee8bc60
+      schedulerAuthority: release-reliability-scenario-catalog
+      parallelizable: false
+      exclusiveResources: [data-scale-artifacts, data-scale-postgres, data-scale-redis, data-scale-runtime]
       phase: 5
-      cost: low
-      resourceClass: io
-      cpuWeight: 1
-      memoryWeight: 1
-      minCpuUnits: 1
+      cost: high
+      resourceClass: database
+      cpuWeight: 2
+      memoryWeight: 4
+      minCpuUnits: 2
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -7749,7 +7775,7 @@ tiers:
       evidenceClass: diagnostic
       qualificationEligible: false
       cacheProfile: none
-      timeoutMinutes: 5
+      timeoutMinutes: 11
       shardable: false
       defaultShards: 1
       risk: critical
@@ -7778,14 +7804,19 @@ tiers:
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-mutation-critical-slice
       executionDependsOn: [behavior-doc-static-admission]
       services: []
-      parallelizable: true
-      exclusiveResources: []
+      timeoutPolicyId: release-mutation-outer
+      maxParallel: 1
+      countedResources: {}
+      schedulerProfileDigest: sha256:40abec554de99a27750299e4e29431352f2eb8f6392a9109f22ef4fea983201e
+      schedulerAuthority: release-reliability-scenario-catalog
+      parallelizable: false
+      exclusiveResources: [build-artifacts, cpu, mutation-output]
       phase: 5
-      cost: low
-      resourceClass: io
-      cpuWeight: 1
-      memoryWeight: 1
-      minCpuUnits: 1
+      cost: high
+      resourceClass: cpu
+      cpuWeight: 4
+      memoryWeight: 4
+      minCpuUnits: 4
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -7793,7 +7824,7 @@ tiers:
       evidenceClass: diagnostic
       qualificationEligible: false
       cacheProfile: none
-      timeoutMinutes: 5
+      timeoutMinutes: 16
       shardable: false
       defaultShards: 1
       risk: critical
@@ -7830,14 +7861,19 @@ tiers:
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-memory-leak-budget
       executionDependsOn: [behavior-doc-static-admission]
       services: []
-      parallelizable: true
-      exclusiveResources: []
+      timeoutPolicyId: release-memory-retention-outer
+      maxParallel: 1
+      countedResources: {}
+      schedulerProfileDigest: sha256:ec9e5178e1c18d515097a6dc0ccc5766e8c9b3623a9aa2fc615ab4fcf7e9fc5e
+      schedulerAuthority: release-reliability-scenario-catalog
+      parallelizable: false
+      exclusiveResources: [database, resource-counters, runtime-http]
       phase: 5
-      cost: low
-      resourceClass: io
-      cpuWeight: 1
-      memoryWeight: 1
-      minCpuUnits: 1
+      cost: high
+      resourceClass: database
+      cpuWeight: 2
+      memoryWeight: 2
+      minCpuUnits: 2
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -7845,7 +7881,7 @@ tiers:
       evidenceClass: diagnostic
       qualificationEligible: false
       cacheProfile: none
-      timeoutMinutes: 5
+      timeoutMinutes: 7
       shardable: false
       defaultShards: 1
       risk: critical
@@ -7878,14 +7914,19 @@ tiers:
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-open-handle-budget
       executionDependsOn: [behavior-doc-static-admission]
       services: []
-      parallelizable: true
-      exclusiveResources: []
+      timeoutPolicyId: release-handle-retention-outer
+      maxParallel: 1
+      countedResources: {}
+      schedulerProfileDigest: sha256:eddf006c4d01c34d2c0cab52c6d6feb955fa7b2b7186b87ccaf8aafa768c57ff
+      schedulerAuthority: release-reliability-scenario-catalog
+      parallelizable: false
+      exclusiveResources: [database, resource-counters, runtime-http]
       phase: 5
-      cost: low
-      resourceClass: io
-      cpuWeight: 1
-      memoryWeight: 1
-      minCpuUnits: 1
+      cost: high
+      resourceClass: database
+      cpuWeight: 2
+      memoryWeight: 2
+      minCpuUnits: 2
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -7893,7 +7934,7 @@ tiers:
       evidenceClass: diagnostic
       qualificationEligible: false
       cacheProfile: none
-      timeoutMinutes: 5
+      timeoutMinutes: 6
       shardable: false
       defaultShards: 1
       risk: critical
@@ -7933,9 +7974,9 @@ tiers:
       phase: 5
       cost: high
       resourceClass: benchmark
-      cpuWeight: 1
-      memoryWeight: 1
-      minCpuUnits: 1
+      cpuWeight: 4
+      memoryWeight: 4
+      minCpuUnits: 4
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: true
@@ -7969,6 +8010,11 @@ tiers:
               tools/test/release-reliability-lifecycle.mjs,
               tools/test/verify-release-reliability-lifecycle-action.mjs,
               tools/test/verify-release-reliability-receipt.mjs,
+              tools/test-matrix/generate-release-reliability-scheduler-projection.mjs,
+              tools/test-matrix/release-reliability-scheduler-projection.mjs,
+              tests/tools/reliability-scheduler-conflicts.test.mjs,
+              tests/tools/reliability-scheduler-projection.test.mjs,
+              tests/tools/reliability-timeout-projection.test.mjs,
               tests/tools/release-reliability-process-tree.test.mjs,
               tests/tools/release-reliability-cancellation.test.mjs,
               tools/release/release-reliability-qualified-receipt.mjs,
@@ -8977,6 +9023,10 @@ tiers:
       evidence:
           [
               tests/backend/Fixtures/backend-test-requirements.json,
+              src/backend/Services/SearchIndexService.Dictionary.cs,
+              tests/backend/Unit/SearchIndexServiceTests.cs,
+              tools/test/csharp-source-mask.mjs,
+              tools/test/search-index-utf8-scalar-governance.mjs,
               tests/backend/Unit/CoverageScriptContractTests.cs,
               tests/backend/Unit/TestInfrastructure/BackendTestPathsTests.cs,
               tests/tools/backend-trx-contract.test.mjs,

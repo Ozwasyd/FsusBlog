@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 // fixture-catalog: consumer auth-session-runtime auth-basic
-// fixture-catalog: producer auth-session
 // fixture-catalog: producer security-state
 
 import { spawnSync } from 'node:child_process';

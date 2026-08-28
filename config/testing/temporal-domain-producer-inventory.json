@@ -9,7 +9,9 @@
             "implementations": [
                 "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs",
                 "src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs",
-                "tests/frontend/support/session-fixtures.mjs"
+                "src/backend/Services/Fixtures/AuthFixtureSeeder.cs",
+                "tests/frontend/support/session-fixtures.mjs",
+                "tools/test-fixtures/producers/auth-session-producer.mjs"
             ],
             "fieldMappings": [
                 {

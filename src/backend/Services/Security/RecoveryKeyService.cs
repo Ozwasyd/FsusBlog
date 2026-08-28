@@ -60,8 +60,11 @@ public sealed class RecoveryKeyService(
     IConfiguration configuration,
     IPasskeyService passkeys,
     ILogger<RecoveryKeyService> logger,
-    IUserSessionValidationCache userSessionValidationCache) : IRecoveryKeyService
+    IUserSessionValidationCache userSessionValidationCache,
+    TimeProvider? timeProvider = null) : IRecoveryKeyService
 {
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+
     private const string RecoveryKeyPrefix = "frk_";
     private const char RecoveryKeySeparator = '_';
     private const int RecoveryKeyLookupBytes = 16;
@@ -131,7 +134,7 @@ public sealed class RecoveryKeyService(
                 return;
             }
 
-            DateTime now = DateTime.UtcNow;
+            DateTime now = _timeProvider.GetUtcNow().UtcDateTime;
             int consumed = await db.Updateable<RecoveryKeyCredential>()
                 .SetColumns(k => k.UsedAt == now)
                 .Where(k => k.Id == credential.Id && k.UsedAt == null && k.RevokedAt == null)
@@ -254,7 +257,7 @@ public sealed class RecoveryKeyService(
                 return Result<RecoveryKeySession>.Failure(ErrorCode.Unauthorized, "RECOVERY_SESSION_INVALID");
             }
 
-            DateTime now = DateTime.UtcNow;
+            DateTime now = _timeProvider.GetUtcNow().UtcDateTime;
             if (envelope.Session.ExpiresAtUtc <= now)
             {
                 await invalidation.RemoveAsync(CachePolicyId.SecurityRecoveryKeySession, identity, cancellationToken).ConfigureAwait(false);
@@ -323,7 +326,7 @@ public sealed class RecoveryKeyService(
                 return Result<RecoveryPasskeyBindOutcome>.Failure(ErrorCode.Unauthorized, "RECOVERY_SESSION_INVALID");
             }
 
-            DateTime now = DateTime.UtcNow;
+            DateTime now = _timeProvider.GetUtcNow().UtcDateTime;
             if (envelope.Session.ExpiresAtUtc <= now)
             {
                 await invalidation.RemoveAsync(CachePolicyId.SecurityRecoveryKeySession, identity, cancellationToken).ConfigureAwait(false);
@@ -463,7 +466,8 @@ public sealed class RecoveryKeyService(
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        TimeSpan remaining = replacement.Session.ExpiresAtUtc - DateTime.UtcNow;
+        TimeSpan remaining = replacement.Session.ExpiresAtUtc -
+            _timeProvider.GetUtcNow().UtcDateTime;
         if (remaining <= TimeSpan.Zero)
         {
             return false;
@@ -517,7 +521,7 @@ public sealed class RecoveryKeyService(
             return Result<RecoveryKeyCreateResponseCoreModel>.Failure(ErrorCode.NotFound, "用户不存在");
         }
 
-        DateTime now = DateTime.UtcNow;
+        DateTime now = _timeProvider.GetUtcNow().UtcDateTime;
         RecoveryKeyCredential? active = await db.Queryable<RecoveryKeyCredential>()
             .Where(k => k.AccountId == accountId && k.UsedAt == null && k.RevokedAt == null)
             .OrderBy(k => k.KeyVersion, OrderByType.Desc)

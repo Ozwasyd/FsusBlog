@@ -11,11 +11,7 @@
                 "redis.session"
             ],
             "dependsOn": [],
-            "conflictsWith": [
-                "auth.admin.full-permission",
-                "auth.admin.partial-permission",
-                "auth.admin.read-only"
-            ],
+            "conflictsWith": [],
             "postconditionIds": [
                 "admin-disabled"
             ],
@@ -32,11 +28,7 @@
                 "redis.session"
             ],
             "dependsOn": [],
-            "conflictsWith": [
-                "auth.admin.disabled",
-                "auth.admin.partial-permission",
-                "auth.admin.read-only"
-            ],
+            "conflictsWith": [],
             "postconditionIds": [
                 "admin-full-permission"
             ],
@@ -53,11 +45,7 @@
                 "redis.session"
             ],
             "dependsOn": [],
-            "conflictsWith": [
-                "auth.admin.disabled",
-                "auth.admin.full-permission",
-                "auth.admin.read-only"
-            ],
+            "conflictsWith": [],
             "postconditionIds": [
                 "admin-partial-permission"
             ],
@@ -74,13 +62,25 @@
                 "redis.session"
             ],
             "dependsOn": [],
-            "conflictsWith": [
-                "auth.admin.disabled",
-                "auth.admin.full-permission",
-                "auth.admin.partial-permission"
-            ],
+            "conflictsWith": [],
             "postconditionIds": [
                 "admin-read-only"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "auth.admin.root-bootstrap-empty",
+            "ownerProducerId": "auth-session",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "admin-root-bootstrap-empty"
             ],
             "resetContractId": "owned-namespace",
             "scope": "namespace",
@@ -94,9 +94,7 @@
                 "postgres.auth"
             ],
             "dependsOn": [],
-            "conflictsWith": [
-                "auth.user.deleted"
-            ],
+            "conflictsWith": [],
             "postconditionIds": [
                 "user-active"
             ],
@@ -112,11 +110,25 @@
                 "postgres.auth"
             ],
             "dependsOn": [],
-            "conflictsWith": [
-                "auth.user.active"
-            ],
+            "conflictsWith": [],
             "postconditionIds": [
                 "user-deleted"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "auth.user.mfa-disabled",
+            "ownerProducerId": "auth-session",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "user-mfa-disabled"
             ],
             "resetContractId": "owned-namespace",
             "scope": "namespace",
@@ -136,6 +148,39 @@
             "conflictsWith": [],
             "postconditionIds": [
                 "user-mfa-enabled"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "auth.user.passkey-enabled",
+            "ownerProducerId": "auth-session",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth",
+                "redis.session"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "user-passkey-enabled"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "auth.user.recovery-enabled",
+            "ownerProducerId": "auth-session",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "user-recovery-enabled"
             ],
             "resetContractId": "owned-namespace",
             "scope": "namespace",
@@ -682,6 +727,23 @@
             "mutability": "scenario-owned"
         },
         {
+            "id": "session.expired",
+            "ownerProducerId": "auth-session",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth",
+                "redis.session"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "session-expired"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "scenario-owned"
+        },
+        {
             "id": "session.multi-device",
             "ownerProducerId": "auth-session",
             "stateDomains": [
@@ -689,12 +751,61 @@
                 "postgres.auth",
                 "redis.session"
             ],
-            "dependsOn": [
-                "auth.user.active"
-            ],
+            "dependsOn": [],
             "conflictsWith": [],
             "postconditionIds": [
                 "session-multi-device"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "session.refresh-rotated",
+            "ownerProducerId": "auth-session",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth",
+                "redis.session"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "session-refresh-rotated"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "session.remembered",
+            "ownerProducerId": "auth-session",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth",
+                "redis.session"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "session-remembered"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "session.revoked",
+            "ownerProducerId": "auth-session",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth",
+                "redis.session"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "session-revoked"
             ],
             "resetContractId": "owned-namespace",
             "scope": "namespace",
@@ -708,9 +819,7 @@
                 "postgres.auth",
                 "redis.session"
             ],
-            "dependsOn": [
-                "auth.user.active"
-            ],
+            "dependsOn": [],
             "conflictsWith": [],
             "postconditionIds": [
                 "session-single-device"

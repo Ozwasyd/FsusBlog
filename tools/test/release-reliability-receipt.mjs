@@ -1029,6 +1029,10 @@ function validateScenarioForQualification(result, {
         'stderrLog',
         'processTreeReceipt'
     ];
+    if (Object.hasOwn(result.producer ?? {}, 'schedulerGrant'))
+    {
+        producerKeys.push('schedulerGrant');
+    }
     const commandToolId = path.basename(scenario.command.executable).replace(/\.exe$/iu, '');
     const expectedExecutable = identity.tools.find((tool) => tool.id === commandToolId)?.executable;
     const measurementActionId = scenario.isolation.lifecycle.measurement;
@@ -1053,6 +1057,16 @@ function validateScenarioForQualification(result, {
         || result.producer.processTreeReceipt?.status !== 'passed'
         || result.producer.processTreeReceipt?.postObservation !== 'zero-members'
         || result.producer.processTreeReceipt?.logComplete !== true
+        || (Object.hasOwn(catalog, 'schedulerTimeoutPolicies')
+            && (result.producer.schedulerGrant?.status !== 'granted'
+                || result.producer.schedulerGrant?.scenarioId !== scenario.id
+                || result.producer.schedulerGrant?.runId !== runId
+                || typeof result.producer.schedulerGrant?.schedulerRunId !== 'string'
+                || !result.producer.schedulerGrant.schedulerRunId
+                || result.producer.schedulerGrant?.profileDigest
+                    !== scenario.schedulerProfileDigest
+                || result.producer.schedulerGrant?.granted?.cpuUnits
+                    < scenario.scheduler.minCpuUnits))
         || JSON.stringify(result.producer.processTreeReceipt)
             !== JSON.stringify(result.lifecycle.actions.find(
                 (record) => record.phase === 'measurement'

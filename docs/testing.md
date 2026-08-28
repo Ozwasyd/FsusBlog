@@ -49,6 +49,31 @@ CPU、Node process 与 connection setup 只用于性能观察，绝不参与 cor
 
 数据库 fixture 必须保留生产字段语义、约束和安全版本。例如 recovery-key limiter 由对应 service/contract tests 证明 attempt/window/lockout；subscription fixture 保留 `user_id`、`public_handle`、`hash_version` 和 proof 校验；demo seed 只能生成开发数据且不能绕过 production schema。静态文本检查不能替代事务、并发、幂等、迁移失败或 `WebApplicationFactory` 行为测试。
 
+`auth-session` 是 user/MFA/WebAuthn/session/admin capability 的唯一
+`transaction-fixture` owner。它按 run、namespace 与 semantic role 为互斥状态
+派生独立 identity，只编排受限后端 lifecycle ports；Node producer 不连接
+PostgreSQL/Redis、不签 JWT，也不拥有 ban、risk、PoW 或 credential issuance
+状态。Passkey capability 必须经过 production FIDO validation 与受控
+authenticator，不存在 accept-any 分支。普通 producer receipt 只保留 public
+identity/state/digest 与 read-model postcondition；token、MFA secret、recovery
+material 和 authenticator private material 不进入 receipt 或日志。每个结果还必须
+通过独立 `/api/local/auth-fixture/verify` read port 绑定完整 receipt digest，
+partial 或 self-reported observation 不发布 verified receipt。
+
+需要同一 capability 的多个独立 identity 时，consumer producer 必须在自身
+normalized port 的 `identityRoleRequests` 声明
+`ownerProducerId`、`consumerProducerId`、`role` 与其 catalog-declared
+`capabilityId`。当前只允许分配 `auth.user.active` 与
+`auth.admin.full-permission`；orchestrator 把所有 planned consumer request 一次性交给
+`auth-session`，并将排序后的完整 request list 纳入 auth plan digest。prepare
+阶段输出 `fsusblog.fixture-identity-prepare-reference.v1`，明确标为
+`verified: false`；consumer 不得改写 owner 或自行构造 fallback identity。verify
+阶段取得 auth-session 的 sealed `ProducerReceipt` 后，调用
+`projectVerifiedIdentityReferences` 生成 consumer-scoped
+`fsusblog.fixture-identity-references.v1`。每个 verified reference 绑定
+prepare-reference digest、producer-result digest 与 `sourceReceiptDigest`，且只能投影
+该 consumer 预先声明的 role。
+
 测试删除或合并时，先在 retention ledger 中给出仍存活的 replacement IDs，再更新 requirement、coverage 与 matrix。没有等价可执行断言时不得用文档、fixture 文件存在性或历史 evidence 替代测试。
 
 性能测试资产统一放在 `tests/performance/`，不再保留旧短名测试根。`browser-contract` 是 release correctness 的最小浏览器契约，而 `browser-diagnostics` 是 scheduled/manual 的诊断集合；两者的命令、artifact 和结论互不替代，diagnostics 失败不能伪装成 correctness 通过，contract 通过也不能覆盖 diagnostics 的独立风险报告。
@@ -249,6 +274,8 @@ Matrix 的可选 topology metadata 只描述“同一 FsusBlog 程序、同一�
 Public AOT lease 的聚焦回归位于 `PublicAotBackfillLeaseTests`、`PublicAotArtifactStoreBoundaryTests`、`PublicAotBackfillSchedulerTests` 与 `PublicAotSsrRuntimeStateTests`。双节点模拟必须让两个独立 `PublicAotBackfillLease` 实例共享同一个 lease store，并断言同一 route/asset/session 同时只有一个 holder；随后推进受控时间越过 TTL，证明第二节点可接管且旧 holder 的迟到 release 不能删除新 token。单机用例必须断言 local handle 不调用 cache port。artifact store 用例在 active-release commit guard 回调后切换 frontend asset version，证明最后一道校验拒绝 stale write。lease contention/loss 与 quarantine-before-acquire 只计协调 drop，不得增加 renderer/circuit failure；公开请求仍由既有 shell tests 证明 cold miss 返回 SPA fallback 而不等待 backfill。
 
 外层 matrix scheduler 与 bundle 内 weighted DAG 对 `exclusiveResources` 使用同一集合交集语义：active step 和当前 admission wave 已选 step 都只锁住自己声明的资源名。`build-output` 不会阻止无资源声明的静态检查或使用 `benchmark-window` 的独立步骤；两个写同一输出目录、同一 benchmark window 或同一数据库写窗口的步骤仍严格串行。coordination-only step 不占 CPU/内存且禁止声明资源锁。发生冲突时 bundle 日志写出 `exclusiveResource`、`heldBy` 与 holder state，资源在成功或失败 settle 后都由 active record 删除，独立失败继续聚合。
+
+Release Reliability 的七个 single-scenario diagnostic tier 不自行拥有 scheduler 数值。`config/testing/release-reliability-scenario-catalog.json` 中每个 scenario 的 `scheduler` 与 `schedulerTimeoutPolicies` 是唯一 authority，`tools/test-matrix/generate-release-reliability-scheduler-projection.mjs` 将 resource class、CPU/内存权重、minimum CPU、exclusive/countable resources、并行上限、cost 与 outer timeout 投影到 `tests/matrix.yml`；matrix validation 对字段和 profile digest 逐项 exact match。完整 `release-reliability-fresh` 在外层全局 nonparallel，内部只按 catalog 顺序运行；每个 scenario 启动前重新读取 outer scheduler 的 actual grant、验证 `minCpuUnits` 并将 sealed grant receipt 纳入 scenario result。排他等待证据必须同时记录具体 resource 与 holder，不能只记录泛化的 capacity。
 
 本地 fresh production 的五个物理 bundle 只保存相对资源意图。time zero 的 build、backend、frontend、runtime 都声明启动 CPU `1`，启动 memory weight 为 `3/4/2/5`、优先级为 `3/4/3/4`；稳态 `minCpuUnits` 为 `2/2/1/1`，后置 performance 为 `1`。启动 admission 先按 priority、critical-path deadline weight、稳定 ID 排序，再在实时 CPU/free memory 内成波放行，因此不受 YAML 数组顺序影响。4 CPU 机器首波得到 `1/1/1/1`；5 CPU 的额外槽按启动优先级给 backend，形成 `1/2/1/1`；更多 CPU 仍从机器资源和相对策略计算，并在 sibling 结束后继续扩容。runtime 内两个 build marker 等待节点是零 CPU / 零内存协调节点，bootstrap-free contract/security 可以在等待期间使用实时 grant。核心数、free memory 或 reserve 变化时，解析结果和各 bundle 内部 worker 数随之变化；无法满足启动保底时记录 `waiting-for-startup-capacity`，低于 profile 的 4 CPU 支持下限则在执行前 fail closed。
 

@@ -4,6 +4,9 @@ using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.RuntimeModes;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Infrastructure.Testing;
+using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Modules.Endpoints;
+using FsusBlog.Server.Services.Fixtures;
 
 OnlineSchemaMigrationCommand command;
 try
@@ -45,6 +48,18 @@ if (command.Kind != OnlineSchemaMigrationCommandKind.Serve)
 builder.ConfigureFsusKestrelSingleProcessRuntime();
 TimeProvider? testBusinessTimeProvider = TestTemporalRuntimeContext.Configure(builder);
 builder.ConfigureFsusApplication(testBusinessTimeProvider);
+if (builder.Environment.IsDevelopment() &&
+    builder.Configuration.GetValue<bool>(
+        LocalAuthFixtureEndpoints.AllowLocalAuthFixtureConfigurationKey))
+{
+    builder.Services.AddScoped<IAuthFixtureSeeder, AuthFixtureSeeder>();
+    builder.Services.AddScoped<IAuthFixtureLifecycleRepository,
+        SqlSugarAuthFixtureLifecycleRepository>();
+    builder.Services.AddScoped<IControlledWebAuthnAuthenticator, ControlledWebAuthnAuthenticator>();
+    builder.Services.AddScoped<IUserSessionFixtureLoginWorkflow>(serviceProvider =>
+        (IUserSessionFixtureLoginWorkflow)serviceProvider
+            .GetRequiredService<IUserLoginWorkflowService>());
+}
 builder.Services.ApplyFsusRuntimeModeGates(builder.Configuration);
 builder.Services.AddOnlineSchemaMigrationControlPlane(builder.Configuration);
 if (command.Kind == OnlineSchemaMigrationCommandKind.Serve && builder.Environment.IsProduction())
