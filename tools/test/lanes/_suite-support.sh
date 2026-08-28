@@ -1359,14 +1359,6 @@ RunBackendTestGovernanceOnly() {
     WriteBackendSplitSummary backend-test-governance governance
 }
 
-RunBackendPerfOnly() {
-    local trxLane="${1:-backend-perf}"
-    RunBackendPerfGovernanceOnly
-    RunBackendPerfNativeP99Only "$trxLane"
-    RunBackendPerfReadinessBuildOnly
-    WriteBackendSplitSummary backend-perf native-p99-and-benchmark-project-release-build
-}
-
 RunBackendPerfGovernanceOnly() {
     local -a failures=()
     RunBackendTestGovernanceCheckOnce || failures+=(backend-test-governance)
@@ -1380,9 +1372,39 @@ RunBackendPerfGovernanceOnly() {
 
 RunBackendPerfNativeP99Only() {
     local trxLane="${1:-backend-perf}"
-    FSUSBLOG_RUN_PERFORMANCE_TESTS=1 RunBackendDotnetFilterOnly \
+    local evidenceRoot="$ROOT_DIR/.tmp/backend-perf/native-p99"
+    local preflightFile="$evidenceRoot/preflight.json"
+    local evidenceFile="$evidenceRoot/measurement.json"
+    local summaryFile="$evidenceRoot/summary.json"
+    local trxFile
+    local testStatus=0
+    trxFile="$(BackendTrxFile "$trxLane")"
+
+    EnsureBackendFilteredBuild
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/native-p99-producer-contract.mjs" prepare \
+        --root "$ROOT_DIR" \
+        --preflight "$preflightFile" \
+        --evidence "$evidenceFile" \
+        --summary "$summaryFile" \
+        --trx "$trxFile"
+    export FSUSBLOG_NATIVE_P99_EVIDENCE_PATH="$evidenceFile"
+    if RunBackendDotnetFilterOnly \
         "FullyQualifiedName=FsusBlog.Server.Tests.Unit.NativeGroth16ZkProofBackendTests.MclGroth16VerifierLibrary_VerifyP99StaysInsideNativeBudget" \
-        "$trxLane"
+        "$trxLane"; then
+        testStatus=0
+    else
+        testStatus=$?
+    fi
+    if ! Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/native-p99-producer-contract.mjs" verify \
+        --root "$ROOT_DIR" \
+        --preflight "$preflightFile" \
+        --evidence "$evidenceFile" \
+        --summary "$summaryFile" \
+        --trx "$trxFile" \
+        --test-exit-code "$testStatus"; then
+        return 1
+    fi
+    return "$testStatus"
 }
 
 RunBackendPerfReadinessBuildOnly() {

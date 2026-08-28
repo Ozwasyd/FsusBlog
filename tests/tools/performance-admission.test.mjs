@@ -10,6 +10,7 @@ const { wrapTaskScopedMeasurementCommand } = await import(new URL("../../tools/t
 const { bindMeasurementNoiseAuthority, createLinuxMeasurementCollector, evaluateMeasurementObservation, readMeasurementNoiseAuthoritySequence, readMeasurementNoisePolicy, validateMeasurementNoiseReceipt } = await import(new URL("../../tools/test/measurement-noise-envelope.mjs", import.meta.url));
 const { collectMeasurementQualificationRequests, finalizeMeasurementQualificationRequests, measurementQualificationRequestEnvironment, registerOrFinalizeMeasurementProduct } = await import(new URL("../../tools/test/measurement-product-conclusion.mjs", import.meta.url));
 const { measurementEnvelopeOwnerEnvironment, runWithPerformanceAdmission } = await import(new URL("../../tools/test/performance-admission.mjs", import.meta.url));
+const { nativeP99SourceContractErrors, nativeP99TestId, validateNativeP99Bindings, validateNativeP99Evidence } = await import(new URL("../../tools/test/native-p99-producer-contract.mjs", import.meta.url));
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const taskFixture = path.join(root, 'tests/tools/fixtures/measurement-task.mjs');
@@ -502,4 +503,130 @@ test('Production measurement steps own the envelope and direct lane wrappers inh
             `${file} must publish only after performance admission reaches a terminal receipt`
         );
     }
+});
+
+function validNativeP99Measurement()
+{
+    return {
+        schema: 'fsusblog.native-groth16-p99-measurement.v1',
+        status: 'passed',
+        testId: nativeP99TestId,
+        warmupCount: 1,
+        sampleCount: 32,
+        thresholdMs: 50,
+        p99Ms: 32,
+        samples: Array.from({ length: 32 }, (_, index) => ({ index, elapsedMs: index + 1, verified: true })),
+        testAssembly: { sha256: 'assembly-a' }
+    };
+}
+
+test('native P99 evidence requires 32 verified measurements and the unchanged 50ms budget', () =>
+{
+    const valid = validNativeP99Measurement();
+    assert.deepEqual(validateNativeP99Evidence(valid, { testAssemblySha256: 'assembly-a' }), []);
+
+    const partial = structuredClone(valid);
+    partial.samples.length = 31;
+    partial.sampleCount = 31;
+    assert.match(validateNativeP99Evidence(partial).join('\n'), /exactly 32 samples/u);
+
+    const unverified = structuredClone(valid);
+    unverified.samples[7].verified = false;
+    assert.match(validateNativeP99Evidence(unverified).join('\n'), /every native P99 sample/u);
+
+    const overBudget = structuredClone(valid);
+    overBudget.samples[31].elapsedMs = 51;
+    overBudget.p99Ms = 51;
+    assert.match(validateNativeP99Evidence(overBudget).join('\n'), /exceeds 50ms/u);
+
+    const emptyPass = structuredClone(valid);
+    emptyPass.samples = [];
+    emptyPass.sampleCount = 0;
+    assert.match(validateNativeP99Evidence(emptyPass).join('\n'), /exactly 32 samples/u);
+
+    assert.match(
+        validateNativeP99Evidence(valid, { testAssemblySha256: 'assembly-b' }).join('\n'),
+        /assembly identity/u
+    );
+});
+
+test('native P99 preflight fails closed on build, MCL, fixture, source, or isolation drift', () =>
+{
+    const files = new Map([
+        ['/assembly', 'assembly-a'],
+        ['/managed-mcl', 'managed-a'],
+        ['/native-mcl', 'native-a'],
+        ['/fixture', 'fixture-a']
+    ]);
+    const preflight = {
+        schema: 'fsusblog.native-groth16-p99-preflight.v1',
+        status: 'ready',
+        source: { commit: 'a'.repeat(40), digest: 'b'.repeat(64) },
+        build: { testAssembly: { path: '/assembly', sha256: 'assembly-a' } },
+        nativeMcl: {
+            managed: { path: '/managed-mcl', sha256: 'managed-a' },
+            native: { path: '/native-mcl', sha256: 'native-a' }
+        },
+        verifyingKeyFixture: { sourcePath: '/fixture', sourceSha256: 'fixture-a' },
+        isolation: { measurementEnvelopeOwner: 'local-simulated-owner', exclusiveResource: 'benchmark-window' }
+    };
+    const options = { exists: (file) => files.has(file), digest: (file) => files.get(file) };
+    assert.deepEqual(validateNativeP99Bindings(preflight, options), []);
+
+    files.delete('/native-mcl');
+    assert.match(validateNativeP99Bindings(preflight, options).join('\n'), /native MCL library binding is missing/u);
+    files.set('/native-mcl', 'native-a');
+    files.set('/fixture', 'fixture-drift');
+    assert.match(validateNativeP99Bindings(preflight, options).join('\n'), /verifying-key fixture identity drifted/u);
+    files.set('/fixture', 'fixture-a');
+    assert.match(
+        validateNativeP99Bindings({ ...preflight, source: {} }, options).join('\n'),
+        /source identity is missing/u
+    );
+    assert.match(
+        validateNativeP99Bindings({ ...preflight, isolation: {} }, options).join('\n'),
+        /measurement isolation identity is missing/u
+    );
+});
+
+test('native P99 member stays exact-one, ordinary-excluded, atomic, and measurement-isolated', () =>
+{
+    const sources = {
+        testSource: fs.readFileSync(path.join(root, 'tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs'), 'utf8'),
+        suiteSource: fs.readFileSync(path.join(root, 'tools/test/lanes/_suite-support.sh'), 'utf8'),
+        atomicSource: fs.readFileSync(path.join(root, 'tools/test/lanes/backend-perf-native-p99.sh'), 'utf8'),
+        matrixSource: fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'),
+        workflowSource: fs.readFileSync(path.join(root, '.github/workflows/quality-gate.yml'), 'utf8')
+    };
+    assert.deepEqual(nativeP99SourceContractErrors(sources), []);
+    assert.match(
+        nativeP99SourceContractErrors({ ...sources, testSource: `${sources.testSource}\n// FSUSBLOG_RUN_PERFORMANCE_TESTS` }).join('\n'),
+        /still consumes/u
+    );
+    assert.match(
+        nativeP99SourceContractErrors({ ...sources, suiteSource: sources.suiteSource.replace('Category!=Performance', 'Category=Performance') }).join('\n'),
+        /ordinary backend filter/u
+    );
+    assert.match(
+        nativeP99SourceContractErrors({ ...sources, suiteSource: `${sources.suiteSource}\n# ${nativeP99TestId}` }).join('\n'),
+        /exactly one suite member/u
+    );
+    assert.match(
+        nativeP99SourceContractErrors({ ...sources, suiteSource: `${sources.suiteSource}\nRunBackendPerfOnly() { :; }` }).join('\n'),
+        /legacy RunBackendPerfOnly/u
+    );
+    assert.match(
+        nativeP99SourceContractErrors({
+            ...sources,
+            matrixSource: sources.matrixSource.replace(
+                /(\n    - id: backend-perf\n[\s\S]*?)exclusiveResources: \[benchmark-window\]/u,
+                '$1exclusiveResources: []'
+            )
+        }).join('\n'),
+        /benchmark window/u
+    );
+    assert.match(
+        nativeP99SourceContractErrors({ ...sources, workflowSource: '' }).join('\n'),
+        /CI must invoke/u
+    );
 });

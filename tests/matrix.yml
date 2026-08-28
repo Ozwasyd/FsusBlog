@@ -6372,6 +6372,7 @@ tiers:
               tools/test/ensure-benchmark-release-build.sh,
               tools/test-matrix/dotnet-build-server-cleanup.mjs,
               tools/test/run-with-dotnet-release-build-lock.sh,
+              tools/test/native-p99-producer-contract.mjs,
               tools/test/lanes/perf-regression.sh,
               tools/test/lanes,
           ]
@@ -6386,16 +6387,22 @@ tiers:
       risk: high
       cadence: pr
       requiredFor: production
-      coverage: [benchmarkdotnet-readiness]
+      coverage: [benchmarkdotnet-readiness, native-groth16-p99]
       artifacts:
           [
               .tmp/backend-perf,
               .tmp/backend-perf/measurement-noise.json,
+              .tmp/backend-perf/native-p99/preflight.json,
+              .tmp/backend-perf/native-p99/measurement.json,
+              .tmp/backend-perf/native-p99/summary.json,
           ]
       evidence:
           [
               .tmp/backend-perf/summary.json,
               .tmp/backend-perf/measurement-noise.json,
+              .tmp/backend-perf/native-p99/preflight.json,
+              .tmp/backend-perf/native-p99/measurement.json,
+              .tmp/backend-perf/native-p99/summary.json,
           ]
       ciJob: perf-regression
       localOnly: false

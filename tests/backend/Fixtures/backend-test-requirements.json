@@ -241,7 +241,8 @@
       "requirements": [
         "BACKEND-PERF-BENCHMARKS",
         "BACKEND-LOAD-STRESS-CAPACITY",
-        "BACKEND-HOTPATH-EXECUTABLE-MEASUREMENT"
+        "BACKEND-HOTPATH-EXECUTABLE-MEASUREMENT",
+        "BACKEND-NATIVE-GROTH16-P99"
       ],
       "evidencePaths": [
         "benchmarks/core/FsusBlog.Core.Benchmarks.csproj",
@@ -257,7 +258,10 @@
         "benchmarks/core/ContentFilterBenchmarks.cs",
         "tests/performance/backend-hotpath-budgets.json",
         "tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs",
-        "benchmarks/core/RateLimiterRejectionSamplerBenchmarks.cs"
+        "benchmarks/core/RateLimiterRejectionSamplerBenchmarks.cs",
+        "tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs",
+        "tools/test/native-p99-producer-contract.mjs",
+        "tools/test/lanes/backend-perf-native-p99.sh"
       ]
     },
     {
@@ -571,6 +575,19 @@
         "tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs",
         "tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs",
         "benchmarks/core/RateLimiterRejectionSamplerBenchmarks.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-NATIVE-GROTH16-P99",
+      "risk": "high",
+      "coverage": "The ordinary unit lane excludes the native P99 member while backend-perf executes it exactly once with bound Release assembly, native MCL, verifying-key fixture, measurement isolation, one warmup, 32 verified samples, and a 50ms p99 budget",
+      "evidencePaths": [
+        "tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs",
+        "tools/test/native-p99-producer-contract.mjs",
+        "tools/test/lanes/backend-perf-native-p99.sh",
+        ".tmp/backend-perf/native-p99/preflight.json",
+        ".tmp/backend-perf/native-p99/measurement.json",
+        ".tmp/backend-perf/native-p99/summary.json"
       ]
     },
     {
