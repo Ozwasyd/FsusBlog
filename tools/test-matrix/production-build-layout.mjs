@@ -968,7 +968,8 @@ export function productionBuildRunIsActive(root, runId)
                     sourceState: {
                         commit: owner.sourceCommit,
                         worktreeFingerprint: owner.worktreeFingerprint
-                    }
+                    },
+                    budgetPolicyDigest: stored.budgetPolicyDigest ?? null
                 })
                 : null
         });
