@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const canonicalFile = path.join(root, 'tests/fixtures/test-matrix/release-final-evidence-inputs.json');
 const contractFile = path.join(root, 'tests/fixtures/test-matrix/release-final-evidence-contract.json');
-const expectedInputCount = 22;
+const expectedInputCount = 21;
 export const releaseFinalizerCommand = 'tools/test/lanes/release-final.sh';
 export const releaseFinalizerOutputReceiptSchema =
     'fsusblog.release-final-test-evidence-binding.v1';
