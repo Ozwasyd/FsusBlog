@@ -945,8 +945,8 @@ export function productionFreshGovernanceOutputs(layout)
         [/^bundles\/runtime-browser\/steps\/+[^/]+$/u, 'runtime-schedule-step-runner'],
         [/^reports\/trx\/backend\/production\/discovery\/+[^/]+$/u, 'backend-discovery-runner'],
         [/^artifacts\/security\/sbom\/+[^/]+$/u, 'security-static'],
-        [/^artifacts\/security\/supply-chain\/+[^/]+$/u, 'security-static'],
-        [/^artifacts\/perception-v2\/+[^/]+$/u, 'build-static'],
+        [/^artifacts\/security\/supply-chain\/.+$/u, 'security-static'],
+        [/^artifacts\/perception-v2\/.+$/u, 'build-static'],
         [/^release-evidence\/public-hydration-matrix-fast-summary\.json$/u, 'release-public-hydration'],
         [/^release-evidence\/ux-viewport-summary\.json$/u, 'ux-viewport-runner']
     ];

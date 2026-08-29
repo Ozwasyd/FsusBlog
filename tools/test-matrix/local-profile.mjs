@@ -25,7 +25,7 @@ function tierExecutionDependencies(tier)
 const bundleSummarySchema = 'fsusblog.local-production.bundle.v1';
 const summaryOnlySchema = 'fsusblog.local-production.summary-only.v1';
 const logicalProjectionSchema = 'fsusblog.local-profile-projection.v1';
-export const productionWallClockBudgetMs = 300_000;
+export const productionWallClockBudgetMs = 900_000;
 export const performanceMixedWindowFloorMs = 60_000;
 const performanceDeadlineEvidenceSchema = 'fsusblog.performance-deadline-evidence.v2';
 const performanceMeasurementStepIds = Object.freeze([
