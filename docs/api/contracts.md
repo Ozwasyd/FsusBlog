@@ -385,19 +385,6 @@ WebAuthn Level 3 Signal API 是浏览器侧 best-effort 副作用，不属于账
 
 后台控制面身份独立于 `sys_user`，只使用 admin principal / session / passkey 表。首次 root admin bootstrap 必须带 `X-Fsus-Admin-Bootstrap-Token`，该 token 只从 `FSUSBLOG_ADMIN_BOOTSTRAP_TOKEN` 或 `Admin:BootstrapToken` 读取；存在 active root admin 后 bootstrap 端点固定拒绝。`X-Fsus-Admin-Handle` 只在 bootstrap begin 指定后台 handle，不写入匿名账号。所有后台控制面端点必须校验 `identity_kind=admin_principal` 与具体 `admin_permission` claim，不得接受 legacy `sys_user.role=admin`。
 
-| 方法 | 路径 | 请求 / 响应 frame | 权限 |
-| ------ | ------ | ------------------- | ------ |
-| POST | `/api/binary/auth/admin/bootstrap/passkey/begin` | 响应 `PasskeyRegisterBegin` | 匿名 + bootstrap token |
-| POST | `/api/binary/auth/admin/bootstrap/passkey/complete` | 请求 `PasskeyRegisterCompleteRequest`，响应 `EmptySuccess` | 匿名 + bootstrap token |
-| POST | `/api/binary/auth/admin/login/passkey/begin` | 响应 `PasskeyLoginBegin` | 匿名 |
-| POST | `/api/binary/auth/admin/login/passkey/complete` | 请求 `PasskeyLoginCompleteRequest`，响应 `EmptySuccess` | 匿名 |
-| POST | `/api/binary/auth/admin/step-up/passkey/begin` | 响应 `PasskeyLoginBegin` | admin principal + `admin.manage` |
-| POST | `/api/binary/auth/admin/step-up/passkey/complete` | 请求 `PasskeyLoginCompleteRequest`，响应 `MfaChallengeResult` | admin principal + `admin.manage` |
-| GET | `/api/binary/auth/admin/me` | 响应 `AdminPrincipalSnapshot` | admin principal + `admin.manage` |
-| POST | `/api/binary/auth/admin/logout` | 响应 `EmptySuccess` | admin principal + `admin.manage` |
-| GET | `/api/binary/auth/admin/sessions` | 响应 `AdminSessionList` | admin principal + `admin.manage` |
-| POST | `/api/binary/auth/admin/sessions/{sessionId}/revoke` | 响应 `EmptySuccess` | admin principal + `admin.manage` |
-| POST | `/api/binary/auth/admin/sessions/revoke-others` | 响应 `EmptySuccess` | admin principal + `admin.manage` |
 
 admin 登录只接受 Passkey/Security Key assertion。成功会写入独立 `AdminAccessToken` / `AdminSessionId` Cookie；生产读取只接受 `__Host-AdminAccessToken` / `__Host-AdminSessionId`，未前缀 admin Cookie 只在清理路径删除，不作为认证 fallback。JWT 必须包含 `identity_kind=admin_principal`、`admin_id`、`admin_sid` 与多值 `admin_permission` claim，不得签发 `ClaimTypes.Role` / `role=admin` 兼容 claim，也不得把 role claim 作为后台授权来源。请求期认证必须按 `admin_sid` 回查 `admin_session` 并校验 principal active、session 未撤销、idle/absolute 未过期、`AccessTokenHash` 与当前 token 匹配、session principal id 与 `admin_id` 一致；失败返回未认证/未授权并删除 admin session cookies，成功时只通过 row-version、旧 token hash 和旧过期时间谓词更新 `LastSeenAtUtc`，stale 更新按 session conflict 处理。`GET /api/binary/auth/admin/me` 从已验证的 admin principal claims 生成 `AdminPrincipalSnapshot`，用于前端从 HttpOnly Cookie 恢复 independent admin workspace，不得退回 legacy `sys_user.role=admin`。admin-sensitive step-up 只接受 `/api/binary/auth/admin/step-up/passkey/begin|complete` 的管理员 Passkey 再认证，不读取普通 `sys_user` MFA 状态，也不接受普通用户 MFA proof。
 
@@ -967,14 +954,6 @@ Submit 同样受 `read_proof` 专用限流保护。限流 key 是 path + 一分�
 
 管理端分类和标签写入均使用 binary mutation path。创建成功响应 `MutationId`，编辑器可用返回的 `id` 立即选中新建分类或关联新建标签，不能只依赖刷新列表后按名称猜测；更新和删除成功响应 `EmptySuccess`：
 
-| 方法 | 路径 | 请求 frame | 响应 frame |
-| ------ | ------ | ------------ | ------------ |
-| POST | `/api/binary/category` | `CategoryWriteRequest` | `MutationId` |
-| PUT | `/api/binary/category/{id}` | `CategoryWriteRequest` | `EmptySuccess` |
-| DELETE | `/api/binary/category/{id}` | — | `EmptySuccess` |
-| POST | `/api/binary/tag` | `TagWriteRequest` | `MutationId` |
-| PUT | `/api/binary/tag/{id}` | `TagWriteRequest` | `EmptySuccess` |
-| DELETE | `/api/binary/tag/{id}` | — | `EmptySuccess` |
 
 上述六个 admin mutation 只有在 PublicHot `required-taxonomy` dirty generation 已持久化且 typed delivery receipt 允许成功后才返回成功。bounded channel 已满时，持久化的 `persisted-dirty` receipt 仍授权成功并由 full rebuild 恢复；delivery result 为 `cancelled`、`closed` 或 `failed` 时返回 HTTP `500` + AEDS `ApiError(Code=InfraFailure)`，不得返回 `MutationId` / `EmptySuccess`。该失败可能发生在 taxonomy 数据库写入已经提交之后，不表示事务回滚。客户端必须先重读 `/api/binary/author/taxonomy/categories` 或 `/api/binary/author/taxonomy/tags` 再决定是否重试，尤其不能盲目重放 create。运维恢复 Redis 后按 [PublicHot recovery runbook](../architecture/public-aot-runtime-state-boundary.md#recovery-runbook) 触发或等待 full rebuild。
 
@@ -2025,16 +2004,6 @@ X-Fsus-Pow-Answer: <nonce 值>
 
 公开分发端点只暴露 `published` 且到达发布时间的文章；`draft`、`scheduled`、`archived`、`deleted` 不得出现在 feed、sitemap、related-reading、搜索索引或 PublicAOT 公开缓存中。
 
-| 方法 | 路径 | 响应 | 说明 |
-| ------ | ------ | ------ | ------ |
-| GET | `/feed/rss.xml` | `application/rss+xml` | RSS 2.0，包含 title、canonical URL、summary、author、published/update time、cover enclosure |
-| GET | `/api/Article/rss` | `application/rss+xml` | 历史兼容路径，内容等同 `/feed/rss.xml` |
-| GET | `/feed/atom.xml` | `application/atom+xml` | Atom feed |
-| GET | `/feed/feed.json` | `application/feed+json` | JSON Feed 1.1 |
-| GET | `/sitemap.xml` | `application/xml` | 首页、文章、归档、关于、隐私政策、用户守则、版权声明、分类、标签；排除登录、用户、admin |
-| GET | `/sitemap/{page}.xml` | `application/xml` | 仅当根 sitemap 达到容量边界并输出 index 时提供对应子 urlset；无效页返回 404 |
-| GET | `/robots.txt` | `text/plain` | 声明 sitemap，并拒绝私有路由 |
-| GET | `/api/binary/article/{articleId}/related.aeds` | `AedsFrameType.ArticleRelatedReading` | 基于分类、标签、全文关键词和发布时间的公开延伸阅读 |
 
 feed、sitemap 与 robots 响应使用 `Cache-Control: public, max-age=60, stale-while-revalidate=300` 并挂载 OutputCache ArticleList/Seo tag；端点不按正文手写 ETag，也不在请求线程解析 `If-None-Match`。RSS channel 的 copyright 来源于合规配置；`robots.txt` 明确禁止 `/api/`、`/user`、`/admin`、搜索索引二进制与 patch 目录，同时保留 `/api/public/`、`/feed/`、`/sitemap.xml` 与公开路由可抓取。
 
@@ -2056,10 +2025,6 @@ urlset 每页上限为 45,000，超过后根 `/sitemap.xml` 改为 sitemap index
 
 订阅表单使用 AEDS，不保存明文 email；服务端只写入由 `Subscription:EmailHashPepper` 派生的 `HMAC-SHA256(normalizedEmail)` keyed lookup identifier、`hash_version` 与归一化 channel。该值仅用于本部署内去重/查找，不是明文 email，也不是跨环境或跨系统稳定身份标识；旧裸 `SHA256(normalizedEmail)` 只允许在迁移期作为一次性匹配来源并在下一次写入时升级到当前 HMAC。公开退订必须额外携带一次性 `X-Fsus-Subscription-Proof`，proof 由服务内部签发并可交给受控外部投递域发送，绑定 keyed email hash 与 channel；当前公开 API 不提供明文 email 查询或无 proof 退订入口。
 
-| 方法 | 路径 | 请求帧 | 响应帧 | 说明 |
-| ------ | ------ | -------- | -------- | ------ |
-| POST | `/api/binary/subscriptions` | `SiteSubscriptionRequest` | `SiteSubscriptionResponse` | 启用订阅，响应只包含 `subscribed=true` 与归一化 channel |
-| DELETE | `/api/binary/subscriptions` | `SiteSubscriptionRequest` + `X-Fsus-Subscription-Proof` | `SiteSubscriptionResponse` | 退订；缺失、重放、过期或绑定不匹配返回 428 + `ApiError` frame，DB 不更新 |
 
 `SiteSubscriptionRequest` payload 是 `SiteSubscriptionRequestPod`：fixed UTF-8 `Email(256)` + `Channel(32)`。`SiteSubscriptionResponse` payload 是 `SiteSubscriptionResponsePod`：`subscribed:byte`、`unsubscribed:byte`、reserved、fixed UTF-8 `Channel(32)`。非法 email 返回 HTTP 400 + `ApiError` frame，响应不得回显明文 email。退订 proof 不进入 AEDS payload，cache key 只使用 proof token hash，不包含原始 email；DELETE 先按绑定的 `email_hash` + `channel` 非消费校验 proof，只有 `site_subscription` 更新成功后才提交一次性消费，DB 失败或请求取消时 proof 保持可重试。
 
@@ -2141,18 +2106,6 @@ Rollback request frame `ArticleRevisionRollbackRequest(213)` 的 payload 是 AED
 
 服务端在同一 PostgreSQL 事务中执行 base revision CAS、复制源 revision 的正文/分类/标签、复制源 rights 与 responsibility 到新 snapshot 绑定、创建新 revision/release，并写只引用新坐标的 mutation outbox。新 revision 持久化 `rollback_source_revision_id`、执行 admin principal 与 `rollback_reason`；源 revision/publication 永不更新或重新启用。base 冲突返回 `409 article_revision_conflict`，缺少完整历史绑定返回 `Validation/details=article_revision_package_incomplete`，非法目标与原因分别返回 `article_rollback_status_invalid`、`article_rollback_reason_invalid`；所有失败分支均不得留下 revision、snapshot、release、公开 artifact 或 outbox。Draft/Archived release 是不可变非公开坐标，只有 Published rollback 进入公开读取；AOT/search/feed/binary cache 与 notification stream 只消费新 outbox 坐标。
 
-| 方法 | 路径 | 说明 |
-| ------ | ------ | ------ |
-| POST | `/api/binary/author/drafts` | 保存服务端草稿；payload 包含 `expectedServerRevision`、`baseRevisionId`、`status`、`scheduledPublishAt` 与完整 `rights`。新建用 `null`，已有草稿必须精确匹配；成功原子递增 `serverRevision`，相同 client/content 重试不重复递增 |
-| GET | `/api/binary/author/drafts/{draftKey}` | 读取服务端草稿；不存在时返回 `success=true,data=null`，存在时原样返回 `serverRevision`、`baseRevisionId`、`updatedAt`、`clientRevision`、发布状态与 `rights` |
-| DELETE | `/api/binary/author/drafts/{draftKey}?expectedServerRevision={revision}` | 按服务端版本条件丢弃草稿；stale 版本返回 `409 draft_conflict` 且不删除，成功后编辑器按 identity/article scope 清除未确认正文 journal |
-| POST | `/api/binary/author/preview` | admin-only 私有预览，输出规范化结构数据、source identity 与发布前 issues，不含 HTML，不写 PublicAOT cache |
-| POST | `/api/binary/author/prepublish-check` | 发布前检查标题、SEO 描述、封面 URL、Markdown 结构、链接、图片 alt 与危险 HTML |
-| GET | `/api/binary/author/articles/{articleId}/revisions` | 最近 50 条修订摘要；actor 字段为 `createdByAdminPrincipalId`，rollback revision 额外返回源 revision 与原因 |
-| GET | `/api/binary/author/articles/{articleId}/revisions/{revisionId}` | 可读历史版本包：正文/分类/标签 metadata、rights snapshot、responsibility snapshot、关联 release、rollback provenance 与 `packageComplete` |
-| GET | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/responsibility` | `ArticleResponsibilityHistory(228)`；按版本倒序返回该 revision 的 append-only 责任快照历史与 previous 指针 |
-| POST | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/rollback` | request frame `ArticleRevisionRollbackRequest(213)`；基于完整历史包创建新 revision/release；必须携带 `X-Fsus-Mfa-Proof` |
-| PUT | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/responsibility` | 携带 `expectedVersion` CAS 并只追加快照；成功返回 snapshot/version/previous/publication 坐标，冲突返回 `409 article_responsibility_version_conflict` |
 
 草稿 `draft_conflict` 使用 HTTP 409 `ApiError(251)`；`details` 是有界 JSON `{currentServerRevision,currentUpdatedAt,titleSummary}`，不包含正文、摘要、封面、分类标签、rights、article revision 或任何身份材料。双标签页、乱序自动保存和 stale discard 都走同一失败面；客户端不得自动重放冲突 mutation。普通网络失败可用原 `clientRevision + expectedServerRevision` 重试，服务端用内容一致性识别已成功但响应丢失的幂等重试。
 | POST | `/api/binary/author/articles/{articleId}/assets/reindex` | 从正文和封面重建资产引用 |
@@ -2414,12 +2367,6 @@ origin fail closed without changing assignment or fencing state.
 
 插件管理只注册于独立 admin principal 的 authoring surface：
 
-| Method | Path | Request frame | Response frame |
-| --- | --- | --- | --- |
-| `GET` | `/api/binary/author/plugins` | none | `PluginAdminSnapshot` (233) |
-| `GET` | `/api/binary/author/plugins/{pluginId}` | none | `PluginAdminSnapshot` (233) |
-| `POST` | `/api/binary/author/plugins/install` | `PluginPackageInstallRequest` (232) | `PluginAdminSnapshot` (233) |
-| `POST` | `/api/binary/author/plugins/{pluginId}/actions` | `PluginAdminMutationRequest` (234) | `PluginAdminSnapshot` (233) |
 
 安装 request payload 是未经文本转码的完整 `.fspkg` bytes，受 package reader 的
 32 MiB、entry count、path、checksum、signature 和 manifest 约束；还必须携带

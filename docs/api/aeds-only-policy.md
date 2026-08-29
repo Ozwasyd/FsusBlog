@@ -140,3 +140,48 @@ render: scalar
 <!-- FSUSBLOG-GENERATED:BEGIN api.protocol -->
 AEDS
 <!-- FSUSBLOG-GENERATED:END api.protocol -->
+
+### Current protocol state partitions
+
+Active frame identities, retired numeric values and migration-only reservations are disjoint
+parts of the observed protocol. A frame name containing historical terminology is not retired
+unless the typed partition says so; migration-only reservations are not current frames.
+
+<!-- fsus-doc-claim
+claimId: binary-api-aeds-contract.aeds-only
+behaviorId: binary-api-aeds-contract
+claimType: boolean
+factPath: protocolStates.aedsOnly
+render: boolean-affirmed
+-->
+
+The current public protocol sets `aedsOnly` to `true`.
+
+<!-- fsus-doc-claim
+claimId: binary-api-aeds-contract.migration-only-state
+behaviorId: binary-api-aeds-contract
+claimType: failure-mode
+factPath: protocolStates.migrationOnlyState
+render: failure-mode-code
+-->
+
+The migration-only partition state is `present`; its IDs remain separate from active frame identities and retired numeric values.
+
+<!-- fsus-doc-claim
+claimId: binary-api-aeds-contract.protocol-states
+behaviorId: binary-api-aeds-contract
+claimType: generated-section
+generatedSectionId: api.protocol-states
+render: key-value-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN api.protocol-states -->
+| Key | Value |
+| --- | --- |
+| activeFrameIds | ["AccountConversationReplyRequest","AdminCacheActionRequest","AdminCacheActionResponse","AdminChangeUserStatusRequest","AdminConversationDetail","AdminConversationList","AdminPrincipalSnapshot","AdminSessionList","AdminStats","AdminUserList","AiAssistRequest","AiAssistResponse","AnonymousCommentCreateRequest","AnonymousCommentCreateResult","AnonymousCommentTicketRequest","AnonymousCommentTicketResponse","AnonymousCredentialRevocationDelta","AnonymousCredentialRevocationSnapshot","AnonymousCredentialRootSnapshot","AnonymousGovernanceActionRequest","AnonymousGovernanceActionResponse","AnonymousPrivacyStateSnapshot","AntiCrawlerListEntryDeleteResponse","AntiCrawlerListEntryList","AntiCrawlerListEntryRequest","AntiCrawlerListEntryResponse","AntiCrawlerOptionsUpdateRequest","AntiCrawlerOverview","AntiCrawlerPolicySnapshot","AntiCrawlerRuleDeleteResponse","AntiCrawlerRuleList","AntiCrawlerRuleRequest","AntiCrawlerRuleResponse","AntiCrawlerSimulationRequest","AntiCrawlerSimulationResult","ApiError","ArticleDetail","ArticleFeatured","ArticleHot","ArticleList","ArticlePreviewRequest","ArticlePreviewResponse","ArticleRelatedReading","ArticleResponsibilityHistory","ArticleResponsibilityRequest","ArticleResponsibilityResponse","ArticleRevisionDetail","ArticleRevisionList","ArticleRevisionRollbackRequest","ArticleRevisionRollbackResponse","ArticleSearch","ArticleWriteRequest","AssetCleanupResponse","AssetLibraryList","AuditLogDetail","AuditLogList","AuditLogSummary","AuditTamperVerifyResponse","AuthAnonymousBootstrapRequest","AuthDeleteAccountRequest","AuthLoginFlow","AuthSessionList","AuthUpdatePublicHandleRequest","AuthorAnalytics","AuthorDraftDiscardResponse","AuthorDraftResponse","AuthorDraftSaveRequest","AuthorTaxonomyCategoryList","AuthorTaxonomyTagList","BackupStatus","BlindCredentialIssueRequest","BlindCredentialIssueResponse","BlindCredentialIssuerMetadata","CacheDiagnostics","CategoryList","CategoryWriteRequest","ClusterLeaseReleaseRequest","ClusterNodeStateRequest","ClusterRuntimeSnapshot","ClusterSchedulerStateRequest","CommentAppealDecisionRequest","CommentAppealDecisionResult","CommentArticleCursor","CommentAuthorAppealRequest","CommentAuthorEditRequest","CommentAuthorMutationResult","CommentAuthorStatusRequest","CommentAuthorStatusResult","CommentAuthorView","CommentChildCursor","CommentCreateResult","CommentCreateV2Request","CommentManagementChallengeRequest","CommentManagementChallengeResponse","CommentModerationBulkRequest","CommentModerationBulkResponse","CommentModerationClaimMutationRequest","CommentModerationClaimRequest","CommentModerationClaimResponse","CommentModerationQueue","CommentModerationRequest","CommentModerationResult","CommentModerationTimeline","CommentPermalinkContext","CommentPolicySnapshot","CommentPolicyUpdateRequest","CommentReportRequest","CommentReportResult","CommentRevisionList","CommentThreadReplyCursor","CommentTreeRootCursor","CommentUserCursor","ContentBackupExport","ContentExport","ContentImportRequest","ContentImportResponse","ConversationCreateRequest","ConversationDetail","ConversationDetailV2","ConversationDetailV3","ConversationList","ConversationMessage","ConversationReadRequest","ConversationReplyRequest","ConversationStatusMutationResult","ConversationStatusRequest","CrawlerRangeSyncResponse","CrawlerRangesAdminStatus","CurrentUserSnapshot","DangerousOperationPolicy","EmptySuccess","FileDeleteRequest","HumanReadChallengeRequest","HumanReadChallengeResponse","HumanReadSubmitRequest","HumanReadSubmitResponse","IdentityAccountSnapshot","IntegrityFixPreview","IntegrityFixRequest","IntegrityFixResponse","IntegrityReport","MfaChallengeResult","MfaChallengeStartRequest","MfaChallengeVerifyRequest","MfaPasswordProofRequest","MfaProfile","MfaSetupStart","MfaSetupVerify","MfaSetupVerifyRequest","ModerationDictionaryReloadResponse","ModerationDictionarySnapshot","ModerationDictionaryStateRequest","ModerationEffectivePolicy","ModerationEffectivePolicyPreviewRequest","ModerationModelRuntimeRequest","ModerationModelStatus","ModerationOverview","ModerationPolicyTemplateList","ModerationRegionGroupList","ModerationRegionList","ModerationReplayPreview","ModerationReplayPreviewRequest","ModerationRuntimeGlobalStateRequest","ModerationRuntimeRegionStateRequest","ModerationRuntimeStatus","MutationId","NotificationEvent","NotificationHeartbeat","OpsHealth","PageContent","PageContentUpdateRequest","PasskeyCredentialFriendlyNameUpdateRequest","PasskeyCredentialList","PasskeyLoginBegin","PasskeyLoginCompleteRequest","PasskeyRegisterBegin","PasskeyRegisterCompleteRequest","PasskeySignalState","PerceptionSealedChallengeV2","PerceptionSealedResultV2","PluginAdminMutationRequest","PluginAdminSnapshot","PluginPackageInstallRequest","PowChallenge","PowOptionsUpdateRequest","PowOverview","PowPolicySnapshot","PrepublishCheckRequest","PrepublishCheckResponse","PublicAotBootstrap","RecentCommentStats","RecoveryKeyCreateResponse","RecoveryKeySessionRequest","RecoveryKeyVerifyRequest","RecoveryKeyVerifyResponse","RegionPolicySummaryList","RegionStats","RetiredCredentialSpecificRevocationRequest","RetiredCredentialSpecificRevocationResponse","RumMetricBatchRequest","RumMetricIngestResponse","SecurityChallengeAssignment","SecurityChallengeCancelRequest","SecurityChallengeEnvelope","SecurityChallengeIssueRequest","SecurityChallengeIssueResponse","SecurityChallengeVerifyRequest","SecurityChallengeVerifyResponse","SecurityOverview","SecurityRiskEventList","SecurityRiskResetRequest","SecurityRiskResetResponse","SecurityRiskSnapshotList","SeoConfig","SeoConfigUpdateRequest","SiteComplianceConfig","SiteComplianceConfigUpdateRequest","SiteSubscriptionRequest","SiteSubscriptionResponse","SystemMessageRequest","TagList","TagWriteRequest","TrashClearResponse","UploadComplete","UploadCompleteRequest","UploadInit","UploadInitRequest","UploadPartAck","UploadPartMap","UploadStatus","UserLocalePreference","UserLocalePreferenceUpdateRequest"] |
+| aedsOnly | true |
+| migrationOnlyFrameIds | ["Reserved177","Reserved178"] |
+| migrationOnlyState | present |
+| retiredFrameValues | [40,43,44,45,46,180,181] |
+| supportedVersions | [2] |
+<!-- FSUSBLOG-GENERATED:END api.protocol-states -->

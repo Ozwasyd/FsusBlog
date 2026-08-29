@@ -24,13 +24,25 @@ internal sealed record AedsEndpointContract(
 
 internal sealed class AedsEndpointContractCatalog
 {
-    public required string Schema { get; init; }
+    public required string Schema
+    {
+        get; init;
+    }
 
-    public required string Protocol { get; init; }
+    public required string Protocol
+    {
+        get; init;
+    }
 
-    public required int AedsVersion { get; init; }
+    public required int AedsVersion
+    {
+        get; init;
+    }
 
-    public required IReadOnlyList<AedsEndpointContract> Operations { get; init; }
+    public required IReadOnlyList<AedsEndpointContract> Operations
+    {
+        get; init;
+    }
 
     public static AedsEndpointContractCatalog Load(string path)
     {
@@ -55,7 +67,7 @@ internal sealed class AedsEndpointContractCatalog
 
         return new AedsEndpointContractCatalog
         {
-            Schema = document.Schema,
+            Schema = document.Schema ?? throw new InvalidOperationException("contracts schema required"),
             Protocol = document.Protocol ?? "AEDS",
             AedsVersion = document.AedsVersion ?? 2,
             Operations = document.Operations
@@ -88,87 +100,271 @@ internal sealed class AedsEndpointContractCatalog
 
 internal sealed class AedsEndpointContractCatalogDocument
 {
-    public string? Schema { get; set; }
+    public string? Schema
+    {
+        get; set;
+    }
 
-    public string? Protocol { get; set; }
+    public string? Protocol
+    {
+        get; set;
+    }
 
-    public int? AedsVersion { get; set; }
+    public int? AedsVersion
+    {
+        get; set;
+    }
 
-    public List<AedsEndpointContractDocument>? Operations { get; set; }
+    public List<AedsEndpointContractDocument>? Operations
+    {
+        get; set;
+    }
 }
 
 internal sealed class AedsEndpointContractDocument
 {
-    public string? Method { get; set; }
+    public string? Method
+    {
+        get; set;
+    }
 
-    public string? Path { get; set; }
+    public string? Path
+    {
+        get; set;
+    }
 
-    public string? OperationId { get; set; }
+    public string? OperationId
+    {
+        get; set;
+    }
 
-    public string? RequestFrame { get; set; }
+    public string? RequestFrame
+    {
+        get; set;
+    }
 
-    public string? ResponseFrame { get; set; }
+    public string? ResponseFrame
+    {
+        get; set;
+    }
 
-    public string? ErrorFrame { get; set; }
+    public string? ErrorFrame
+    {
+        get; set;
+    }
 
-    public int? SuccessStatus { get; set; }
+    public int? SuccessStatus
+    {
+        get; set;
+    }
 }
 
 internal sealed class ObservationDocument
 {
-    public required string Schema { get; init; }
+    public required string Schema
+    {
+        get; init;
+    }
 
-    public required string Protocol { get; init; }
+    public required string Protocol
+    {
+        get; init;
+    }
 
-    public required int AedsVersion { get; init; }
+    public required int AedsVersion
+    {
+        get; init;
+    }
 
-    public required int OperationCount { get; init; }
+    public required int OperationCount
+    {
+        get; init;
+    }
 
-    public required IReadOnlyList<string> OperationKeys { get; init; }
+    public required IReadOnlyList<string> OperationKeys
+    {
+        get; init;
+    }
 
-    public required IReadOnlyList<ObservationOperation> Operations { get; init; }
+    public required IReadOnlyList<ObservationOperation> Operations
+    {
+        get; init;
+    }
 
-    public required string ObservationDigest { get; init; }
+    public required ProtocolStateCatalog ProtocolStates
+    {
+        get; init;
+    }
+
+    public required ErrorAuthorityBinding ErrorAuthority
+    {
+        get; init;
+    }
+
+    public required string ObservationDigest
+    {
+        get; init;
+    }
 }
 
 internal sealed class ObservationOperation
 {
-    public required string Method { get; init; }
+    public required string Method
+    {
+        get; init;
+    }
 
-    public required string Path { get; init; }
+    public required string Path
+    {
+        get; init;
+    }
 
-    public required string OperationId { get; init; }
+    public required string OperationId
+    {
+        get; init;
+    }
 
-    public required string Protocol { get; init; }
+    public required string Protocol
+    {
+        get; init;
+    }
 
-    public required int AedsVersion { get; init; }
+    public required int AedsVersion
+    {
+        get; init;
+    }
 
-    public string? RequestFrame { get; init; }
+    public string? RequestFrame
+    {
+        get; init;
+    }
 
-    public required string ResponseFrame { get; init; }
+    public required string ResponseFrame
+    {
+        get; init;
+    }
 
-    public required string ErrorFrame { get; init; }
+    public required string ErrorFrame
+    {
+        get; init;
+    }
 
-    public required string Auth { get; init; }
+    public required string Auth
+    {
+        get; init;
+    }
 
-    public required string Permission { get; init; }
+    public required string Permission
+    {
+        get; init;
+    }
 
-    public required bool Pow { get; init; }
+    public required bool Pow
+    {
+        get; init;
+    }
 
-    public required string RateLimit { get; init; }
+    public required string RateLimit
+    {
+        get; init;
+    }
 
-    public required string Cache { get; init; }
+    public required string Cache
+    {
+        get; init;
+    }
 
-    public required int SuccessStatus { get; init; }
+    public required int SuccessStatus
+    {
+        get; init;
+    }
 
-    public string? SourceIdentity { get; init; }
+    public required OperationRequestContract Request
+    {
+        get; init;
+    }
+
+    public required IReadOnlyList<OperationResponseContract> Responses
+    {
+        get; init;
+    }
+
+    public required IReadOnlyList<string> PublicErrorRefs
+    {
+        get; init;
+    }
+
+    public required string PublicErrorRefState
+    {
+        get; init;
+    }
+
+    public required string ErrorAuthorityBehaviorId
+    {
+        get; init;
+    }
+
+    public required string ResultPlacement
+    {
+        get; init;
+    }
+
+    public required string ProtocolState
+    {
+        get; init;
+    }
+
+    public string? SourceIdentity
+    {
+        get; init;
+    }
 }
+
+internal sealed record OperationRequestContract(
+    string Source,
+    string? SchemaRef,
+    bool Required,
+    bool Nullable,
+    IReadOnlyList<string> RequiredFields,
+    IReadOnlyList<RouteParameterContract> Parameters,
+    string FieldSetState,
+    string BoundsState,
+    string UnionState);
+
+internal sealed record RouteParameterContract(
+    string Name,
+    string Source,
+    string SchemaRef,
+    bool Required,
+    bool Nullable);
+
+internal sealed record OperationResponseContract(
+    int? Status,
+    string SchemaRef,
+    string ContentType,
+    string ResultPlacement,
+    bool Nullable);
+
+internal sealed record ProtocolStateCatalog(
+    IReadOnlyList<int> SupportedVersions,
+    IReadOnlyList<string> ActiveFrameIds,
+    IReadOnlyList<int> RetiredFrameValues,
+    IReadOnlyList<string> MigrationOnlyFrameIds,
+    bool AedsOnly);
+
+internal sealed record ErrorAuthorityBinding(
+    string BehaviorId,
+    string CatalogDigest,
+    string DocumentPath,
+    IReadOnlyList<string> FactIds);
 
 internal static class ObservationMerger
 {
     public static ObservationDocument Merge(
         IReadOnlyList<ObservedOperation> observed,
-        AedsEndpointContractCatalog contracts)
+        AedsEndpointContractCatalog contracts,
+        ProtocolStateCatalog protocolStates,
+        ErrorAuthorityBinding errorAuthority)
     {
         Dictionary<string, AedsEndpointContract> byKey = contracts.Operations
             .GroupBy(static item => MatchKey(item.Method, item.Path), StringComparer.Ordinal)
@@ -257,18 +453,41 @@ internal static class ObservationMerger
                 RateLimit = live.RateLimit,
                 Cache = live.Cache,
                 SuccessStatus = contract.SuccessStatus,
+                Request = BuildRequest(contract.RequestFrame, live.Path),
+                Responses =
+                [
+                    new OperationResponseContract(
+                        contract.SuccessStatus,
+                        $"aeds://frame/{contract.ResponseFrame}",
+                        "application/octet-stream",
+                        "aeds.frame.payload",
+                        false),
+                    new OperationResponseContract(
+                        null,
+                        $"aeds://frame/{contract.ErrorFrame}",
+                        "application/octet-stream",
+                        "aeds.frame.payload",
+                        false)
+                ],
+                PublicErrorRefs = ["configuration-error-security-policy:error-transport-mappings:ApiError"],
+                PublicErrorRefState = "transport-frame-authority-only",
+                ErrorAuthorityBehaviorId = "configuration-error-security-policy",
+                ResultPlacement = "aeds.frame.payload",
+                ProtocolState = "active-aeds-only",
                 SourceIdentity = live.SourceIdentity
             });
         }
 
         var document = new ObservationDocument
         {
-            Schema = "fsusblog.api-aeds-observation.v1",
+            Schema = "fsusblog.api-aeds-observation.v2",
             Protocol = contracts.Protocol,
             AedsVersion = contracts.AedsVersion,
             OperationCount = operations.Count,
             OperationKeys = operations.Select(static item => MatchKey(item.Method, item.Path)).ToArray(),
             Operations = operations,
+            ProtocolStates = protocolStates,
+            ErrorAuthority = errorAuthority,
             ObservationDigest = string.Empty
         };
 
@@ -279,7 +498,9 @@ internal static class ObservationMerger
             document.AedsVersion,
             document.OperationCount,
             document.OperationKeys,
-            Operations = document.Operations
+            Operations = document.Operations,
+            document.ProtocolStates,
+            document.ErrorAuthority
         });
         string digest = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(canonical)))
             .ToLowerInvariant();
@@ -292,8 +513,33 @@ internal static class ObservationMerger
             OperationCount = document.OperationCount,
             OperationKeys = document.OperationKeys,
             Operations = document.Operations,
+            ProtocolStates = document.ProtocolStates,
+            ErrorAuthority = document.ErrorAuthority,
             ObservationDigest = digest
         };
+    }
+
+    private static OperationRequestContract BuildRequest(string? requestFrame, string route)
+    {
+        IReadOnlyList<RouteParameterContract> parameters = System.Text.RegularExpressions.Regex
+            .Matches(route, @"\{([A-Za-z_][A-Za-z0-9_]*)(?::([^}]+))?\}")
+            .Select(match => new RouteParameterContract(
+                match.Groups[1].Value,
+                "path",
+                match.Groups[2].Success ? $"route://{match.Groups[2].Value}" : "route://string",
+                true,
+                false))
+            .ToArray();
+        return new OperationRequestContract(
+            requestFrame is null ? "none" : "aeds-frame-body",
+            requestFrame is null ? null : $"aeds://frame/{requestFrame}",
+            requestFrame is not null,
+            false,
+            [],
+            parameters,
+            requestFrame is null ? "not-applicable" : "opaque-aeds-frame",
+            requestFrame is null ? "not-applicable" : "opaque-aeds-frame",
+            requestFrame is null ? "not-applicable" : "opaque-aeds-frame");
     }
 
     internal static string MatchKey(string method, string path)

@@ -223,7 +223,9 @@ test('repository registry owns each active behavior exactly once', () =>
     const registry = loadRegistry();
     const result = validateOwnershipAgainstBehaviorCatalog(registry, loadCatalog(), root);
     assert.match(result.digest, /^[a-f0-9]{64}$/u);
-    assert.equal(result.behaviorOwners.size, 8);
+    assert.equal(result.behaviorOwners.size, 10);
+    assert.equal(result.behaviorOwners.get('release-final-aggregate-contract'), 'test-matrix-fact-extractor');
+    assert.equal(result.behaviorOwners.get('deployment-blue-green-runtime-role'), 'test-matrix-fact-extractor');
     const check = spawnSync(process.execPath, [checker], { cwd: root, encoding: 'utf8' });
     assert.equal(check.status, 0, check.stderr || check.stdout);
     assert.match(check.stdout, /registry, ownership, receipt schema/u);

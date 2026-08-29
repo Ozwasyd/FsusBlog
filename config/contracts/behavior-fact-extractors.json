@@ -47,7 +47,7 @@
     },
     {
       "id": "test-matrix-fact-extractor",
-      "kind": "matrix-projection",
+      "kind": "compiled-assembly",
       "entrypoint": "tools/fact-extractors/test-matrix/extract.mjs",
       "consumedInputs": [
         "tests/matrix.yml",
@@ -55,16 +55,38 @@
         "tests/coverage-registry.json",
         "config/testing/producer-execution-class-contract.json",
         "tools/test-matrix/behavior-doc-static-admission-contract.mjs",
+        "src/backend/Infrastructure/RuntimeModes/RuntimeModeOptions.cs",
+        "src/backend/Infrastructure/Distributed/Cluster/ClusterMembershipOptions.cs",
+        "src/backend/Infrastructure/Distributed/Cluster/ClusterMembershipContracts.cs",
+        "tools/contracts/FsusBlog.RuntimeRoleObservation/Models.cs",
+        "tools/contracts/FsusBlog.RuntimeRoleObservation/Program.cs",
+        "tools/deployment/slot-lib.mjs",
+        "tools/deployment/release-rollout-lib.mjs",
+        "tools/storage/release-gc.mjs",
+        "config/testing/required-evidence-authority-ledger.json",
+        "config/testing/release-domain-assertion-dispositions.json",
+        "tools/test-matrix/release-final-evidence-contract.mjs",
+        "tools/test-matrix/required-evidence-catalog.mjs",
+        "tools/test-matrix/release-domain-ledger.mjs",
+        "tools/test-matrix/outcomes/release-finalizer-adapter.mjs",
+        "tools/test-matrix/outcomes/adapter-support.mjs",
+        "tools/test-matrix/outcomes/outcome-contract.mjs",
+        "config/testing/outcome-failure-taxonomy.json",
+        "config/testing/outcome-field-dispositions.json",
+        "tools/test/attempt-provenance.mjs",
+        "tools/test-matrix/behavior-evidence-post-runtime.mjs",
         "tools/test/lanes",
         "src/frontend/package.json",
         "tools/docs/generate-testing-docs.mjs",
         "tools/test/lanes/release-final.sh"
       ],
       "outputSchema": "fsusblog.fact-observation-receipt.v1",
-      "requiredBuildArtifact": null,
-      "hermeticPolicy": "declared-inputs",
+      "requiredBuildArtifact": "runtime-role-observation",
+      "hermeticPolicy": "exact-build-receipt",
       "ownedBehaviorIds": [
-        "browserless-production-correctness"
+        "browserless-production-correctness",
+        "release-final-aggregate-contract",
+        "deployment-blue-green-runtime-role"
       ]
     },
     {
@@ -72,8 +94,10 @@
       "kind": "compiled-assembly",
       "entrypoint": "tools/fact-extractors/openapi-aeds/extract.mjs",
       "consumedInputs": [
+        "config/contracts/behavior-contracts.json",
         "src/shared/Contracts/Validation/aeds-endpoint-contracts.json",
         "src/shared/Contracts/Validation/aeds-protocol.json",
+        "tools/contracts/behavior-contract-catalog.mjs",
         "tools/contracts/FsusBlog.OpenApiObservation/Program.cs"
       ],
       "outputSchema": "fsusblog.fact-observation-receipt.v1",

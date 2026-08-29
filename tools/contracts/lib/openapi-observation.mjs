@@ -194,9 +194,9 @@ export function validateObservationAgainstProtocol(observation, protocol = loadP
     const operationIds = new Set();
     const methodPaths = new Set();
 
-    if (!observation || observation.schema !== 'fsusblog.api-aeds-observation.v1')
+    if (!observation || observation.schema !== 'fsusblog.api-aeds-observation.v2')
     {
-        errors.push('observation schema must be fsusblog.api-aeds-observation.v1');
+        errors.push('observation schema must be fsusblog.api-aeds-observation.v2');
         return errors;
     }
     if (observation.protocol !== 'AEDS')
@@ -211,6 +211,14 @@ export function validateObservationAgainstProtocol(observation, protocol = loadP
     {
         errors.push('observation operations empty');
         return errors;
+    }
+    const states = observation.protocolStates;
+    if (states?.aedsOnly !== true
+        || JSON.stringify(states?.supportedVersions) !== JSON.stringify([Number(protocol.header?.version ?? 2)])
+        || !Array.isArray(states?.activeFrameIds) || states.activeFrameIds.length === 0
+        || !Array.isArray(states?.retiredFrameValues) || !Array.isArray(states?.migrationOnlyFrameIds))
+    {
+        errors.push('closed active/retired/migration/AEDS-only protocol states missing');
     }
 
     for (const op of observation.operations)
@@ -284,6 +292,28 @@ export function validateObservationAgainstProtocol(observation, protocol = loadP
         if (!op.permission)
         {
             errors.push(`${key} missing permission classification`);
+        }
+        if (!op.request || !['none', 'aeds-frame-body'].includes(op.request.source)
+            || typeof op.request.required !== 'boolean' || typeof op.request.nullable !== 'boolean'
+            || !Array.isArray(op.request.requiredFields) || op.request.requiredFields.length !== 0
+            || !Array.isArray(op.request.parameters)
+            || !['not-applicable', 'opaque-aeds-frame'].includes(op.request.fieldSetState)
+            || !['not-applicable', 'opaque-aeds-frame'].includes(op.request.boundsState)
+            || !['not-applicable', 'opaque-aeds-frame'].includes(op.request.unionState))
+        {
+            errors.push(`${key} typed request contract missing`);
+        }
+        if (!Array.isArray(op.responses) || op.responses.length !== 2
+            || op.responses.some((response) => response.resultPlacement !== 'aeds.frame.payload'
+                || response.contentType !== 'application/octet-stream'))
+        {
+            errors.push(`${key} typed response/result placement missing`);
+        }
+        if (op.errorAuthorityBehaviorId !== 'configuration-error-security-policy'
+            || op.publicErrorRefState !== 'transport-frame-authority-only'
+            || JSON.stringify(op.publicErrorRefs) !== JSON.stringify(['configuration-error-security-policy:error-transport-mappings:ApiError']))
+        {
+            errors.push(`${key} public error authority reference invalid`);
         }
     }
     return errors;

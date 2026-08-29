@@ -6,6 +6,7 @@ import { digestCatalog } from '../contracts/behavior-contract-catalog.mjs'
 import { digestValue } from '../fact-extractors/identity.mjs'
 import { readFactObservationReceipt } from '../fact-extractors/reader.mjs'
 import { resolveFactPath } from './generated-fact-sections/catalog.mjs'
+import { applyProjection } from './prose-claim-verifier/renderers.mjs'
 
 export const behaviorDocExactnessSchema = 'fsusblog.behavior-doc-exactness-receipt.v2'
 
@@ -159,14 +160,16 @@ export function buildBehaviorDocExactnessReceipt({
       const ownerExtractor = section?.extractorId ?? contract.factExtractorId
       if (ownerExtractor !== contract.factExtractorId) failures.push(`claim ${declaration.claimId} has conflicting extractor owner ${ownerExtractor}`)
       const ownerReceipt = observations.get(ownerExtractor)
-      const fact = ownerReceipt ? resolveFactPath(ownerReceipt.observations, factPath) : undefined
+      const sourceFact = ownerReceipt ? resolveFactPath(ownerReceipt.observations, factPath) : undefined
+      const fact = sourceFact === undefined ? undefined : applyProjection(sourceFact, declaration.projection)
       if (fact === undefined) failures.push(`claim ${declaration.claimId} references missing observation ${factPath}`)
       const lifecycleEntry = lifecycleByPath.get(claim.location.documentPath)
       if (!lifecycleEntry || lifecycleEntry.status !== 'current') failures.push(`claim ${declaration.claimId} is not in a current document`)
       rows.push({ behaviorId: BehaviorId(contract.id), domain: contract.domain, currentAuthority: claim.location.documentPath,
         documentOwner: lifecycleEntry?.owner ?? 'missing', claimId: declaration.claimId, claimType: declaration.claimType,
         sectionId: section?.sectionId ?? null, ownership: section ? 'generated' : 'prose', extractorId: ownerExtractor,
-        observationId: factPath, sourceRange: `${claim.location.claimStartLine}:${claim.location.claimEndLine}`,
+        observationId: declaration.projection ? `${factPath}#${declaration.projection}` : factPath,
+        sourceRange: `${claim.location.claimStartLine}:${claim.location.claimEndLine}`,
         requiredTestKinds: [...contract.requiredTestKinds].sort(), mutationRequired: contract.mutationPolicy?.mutationRequired === true,
         evidence: ownerReceipt && fact !== undefined ? evidenceForFact(ownerReceipt, fact) : { factMetadata: [], consumedInputs: [] },
         documentDigest: readDocumentDigest(repositoryRoot, claim.location.documentPath) })
