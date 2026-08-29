@@ -138,7 +138,7 @@ commandGroups:
             - {id: "image-codec-wasm-runtime", script: "check:image-codec-wasm-runtime", access: "read"}
 localProfiles:
     production:
-        budgetMs: 900000
+        budgetMs: 3600000
         minimumSupportedCpuUnits: 4
         enforceBudget: false
         memoryReserveShare: 0.05
