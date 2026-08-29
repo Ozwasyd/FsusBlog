@@ -8105,7 +8105,7 @@ tiers:
       timeoutPolicyId: release-data-scale-outer
       maxParallel: 1
       countedResources: {}
-      schedulerProfileDigest: sha256:fad85b52a56a048d25c8f830abb931f749ab6700f3d7d57fcad7d2391ee8bc60
+      schedulerProfileDigest: sha256:bdb7957a6dc8d228058f22615459edbb75e350fa50da22e80ae3991ab95660ab
       schedulerAuthority: release-reliability-scenario-catalog
       parallelizable: false
       exclusiveResources: [data-scale-artifacts, data-scale-postgres, data-scale-redis, data-scale-runtime]
@@ -8122,7 +8122,7 @@ tiers:
       evidenceClass: diagnostic
       qualificationEligible: false
       cacheProfile: none
-      timeoutMinutes: 11
+      timeoutMinutes: 22
       shardable: false
       defaultShards: 1
       risk: critical
