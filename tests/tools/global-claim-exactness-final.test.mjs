@@ -18,6 +18,7 @@ import { produceConfigErrorSecurityObservation } from '../../tools/contracts/lib
 import { produceContentLifecycleObservation } from '../../tools/contracts/lib/content-lifecycle-observation.mjs'
 import { produceOpenApiObservation } from '../../tools/contracts/lib/openapi-observation.mjs'
 import { produceRuntimeRoleObservation } from '../../tools/contracts/lib/runtime-role-observation.mjs'
+import { sealSourceIdentity } from '../../tools/fact-extractors/identity.mjs'
 import { runExtractor } from '../../tools/fact-extractors/runner.mjs'
 import { sealReceipt } from '../../tools/fact-extractors/receipt.mjs'
 
@@ -46,7 +47,12 @@ let receiptDir
 test.before(async () =>
 {
     receiptDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-global-exactness-'))
-    for (const extractorId of extractorIds)
+    // Warm every compiled producer first so no build mutates the worktree
+    // between extractor identities; then run each extractor and converge all
+    // receipts onto one shared source identity (concurrent test files may
+    // legitimately shift the untracked fingerprint mid-run; a shifted
+    // extractor is simply re-run against the converged identity).
+    const run = async (extractorId) =>
     {
         const buildIdentity = buildProviders[extractorId] ? buildProviders[extractorId]() : null
         const { receipt } = await runExtractor({
@@ -56,6 +62,36 @@ test.before(async () =>
             useCache: false
         })
         if (receipt.status !== 'ok') assert.fail(`${extractorId} failed: ${receipt.failureReasons.join('; ')}`)
+        return receipt
+    }
+    for (const extractorId of Object.keys(buildProviders))
+    {
+        buildProviders[extractorId]()
+    }
+    const byExtractor = new Map()
+    for (const extractorId of extractorIds)
+    {
+        byExtractor.set(extractorId, await run(extractorId))
+    }
+    const identityOf = (receipt) => `${receipt.sourceCommit}:${receipt.worktreeFingerprint}`
+    for (let pass = 0; pass < 2; pass += 1)
+    {
+        const identities = new Set([...byExtractor.values()].map(identityOf))
+        if (identities.size === 1) break
+        const current = sealSourceIdentity(root)
+        for (const extractorId of extractorIds)
+        {
+            const receipt = byExtractor.get(extractorId)
+            if (identityOf(receipt) !== `${current.sourceCommit}:${current.worktreeFingerprint}`)
+            {
+                byExtractor.set(extractorId, await run(extractorId))
+            }
+        }
+    }
+    const identities = new Set([...byExtractor.values()].map(identityOf))
+    assert.equal(identities.size, 1, 'all extractor receipts must share one source identity')
+    for (const [extractorId, receipt] of byExtractor)
+    {
         fs.writeFileSync(path.join(receiptDir, `${extractorId}.json`), JSON.stringify(receipt))
     }
     receipts = fs.readdirSync(receiptDir).map((entry) => path.join(receiptDir, entry))

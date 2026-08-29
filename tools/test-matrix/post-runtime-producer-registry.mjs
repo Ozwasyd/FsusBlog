@@ -34,6 +34,12 @@ function fail(message)
     throw new Error(`[post-runtime-producer-registry] ${message}`)
 }
 
+const BehaviorId = (value) =>
+{
+    if (typeof value !== 'string' || !/^[a-z][a-z0-9-]*$/u.test(value)) throw new Error(`invalid behavior ID ${value}`)
+    return value
+}
+
 export function loadPostRuntimeProducerRegistry(repositoryRoot = root)
 {
     return readJson(repositoryRoot, registryRelative)
@@ -168,7 +174,7 @@ export function validatePostRuntimeProducerRegistry(registry, { catalog, migrati
         {
             const ledgerClaims = new Set(migrationLedger.scopes
                 .flatMap((scope) => scope.entries)
-                .filter((entry) => entry.behaviorId === producer.behaviorId)
+                .filter((entry) => entry['behaviorId'] === producer.behaviorId)
                 .flatMap((entry) => entry.claimIds))
             for (const claimRef of producer.acceptedClaimRefs)
             {
@@ -217,7 +223,7 @@ export function validateProducerReceiptAgainstRegistry({ registry, producerId, r
     {
         fail(`producer ${producerId} receipt is missing contentDigest`)
     }
-    return { producerId, behaviorId: producer.behaviorId, warnings: 0 }
+    return { producerId, behaviorId: BehaviorId(producer['behaviorId']), warnings: 0 }
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))

@@ -150,7 +150,7 @@ test('receipt binding validates schema and identities against the registry', () 
     }
     assert.deepEqual(
         validateProducerReceiptAgainstRegistry({ registry, producerId: producer.producerId, receipt }),
-        { producerId: producer.producerId, behaviorId: producer.behaviorId, warnings: 0 })
+        { producerId: producer.producerId, behaviorId: 'browserless-production-correctness', warnings: 0 })
 
     const wrongSchema = structuredClone(receipt)
     wrongSchema.schema = 'fsusblog.other-receipt.v1'
