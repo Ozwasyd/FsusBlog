@@ -926,6 +926,20 @@ function validateMatrixSchema(matrix)
     }
 }
 
+// BEHAVIOR-OWNER: release-final-aggregate-contract
+function validateReleaseFinalAggregateAuthorities(matrix)
+{
+    return Object.keys(matrix.finalizerAuthorities ?? {}).sort().flatMap((authorityId) =>
+        buildReleaseFinalizerPlan(matrix, authorityId).errors
+            .map((error) => `finalizerAuthorities.${authorityId}: ${error}`));
+}
+
+// BEHAVIOR-OWNER: deployment-blue-green-runtime-role
+function validateDeploymentDomainAuthorities(matrix)
+{
+    return validateReleaseDomainMatrix(root, matrix);
+}
+
 function validateMatrix(matrix)
 {
     const errors = [];
@@ -976,11 +990,7 @@ function validateMatrix(matrix)
         errors.push(...buildReceiptReachabilityPlan(matrix, authorityId, { root }).errors
             .map((error) => `receiptAuthorities.${authorityId}: ${error}`));
     }
-    for (const authorityId of Object.keys(matrix.finalizerAuthorities ?? {}).sort())
-    {
-        errors.push(...buildReleaseFinalizerPlan(matrix, authorityId).errors
-            .map((error) => `finalizerAuthorities.${authorityId}: ${error}`));
-    }
+    errors.push(...validateReleaseFinalAggregateAuthorities(matrix));
     if (!Array.isArray(matrix.tiers) || matrix.tiers.length === 0)
     {
         errors.push('tiers must be a non-empty list');
@@ -1419,7 +1429,7 @@ function validateMatrix(matrix)
     }
 
     errors.push(...validateFrontendFastSplit(matrix, byId));
-    errors.push(...validateReleaseDomainMatrix(root, matrix));
+    errors.push(...validateDeploymentDomainAuthorities(matrix));
     errors.push(...validateBehaviorDocStaticAdmissionMatrix(matrix, { repositoryRoot: root }));
     errors.push(...validateLocalProfiles(matrix.localProfiles, matrix.tiers));
     errors.push(...validateCoverageRegistry(matrix));

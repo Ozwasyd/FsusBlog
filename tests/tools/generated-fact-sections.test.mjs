@@ -407,6 +407,15 @@ test('counter-example: manual deletion of a generated row fails check', () =>
     }
 });
 
+test('receipt-canonical empty set {count:0} obeys render-empty without becoming a map row', () =>
+{
+    assert.equal(RendererRegistry.render('enum-set', { count: 0 }, { emptyPolicy: 'render-empty' }), '_empty set_')
+    assert.throws(
+        () => RendererRegistry.render('enum-set', { count: 0 }, { emptyPolicy: 'fail' }),
+        /empty observation rejected/u
+    )
+})
+
 test('counter-example: tampered generated value with only lastVerifiedCommit change still fails', () =>
 {
     const directory = fixtureRoot();

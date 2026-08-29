@@ -21,6 +21,7 @@ import { createReleaseManifest, writeReleaseManifestAtomic } from '../../tools/r
 import { createSpaManifestDescriptor } from '../../tools/storage/create-spa-manifest-descriptor.mjs'
 import { materializeReleaseAssets } from '../../tools/storage/release-assets.mjs'
 import { boundedSemanticScale } from './support/timing-policy.mjs'
+import { createRolloutState, writeRolloutStateAtomic } from '../../tools/deployment/release-rollout-lib.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 const commitSha = '0123456789abcdef0123456789abcdef01234567';
@@ -242,6 +243,20 @@ test('slot scripts coexist, remain idempotent, preserve active slot on candidate
   ])
   assert.equal(greenAgain.status, 0, greenAgain.stderr)
   assert.equal(lastJson(greenAgain.stdout).status, 'already-running')
+  const durableSlots = readSlotState(fixture.stateFile, { allowMissing: false })
+  const rolloutFile = path.join(fixture.directory, 'rollout-state.json')
+  writeRolloutStateAtomic(rolloutFile, createRolloutState({
+    rolloutId: 'deployment-slots-test', manifestPath: greenManifest,
+    source: {
+      slot: 'blue', releaseId: blueRelease, imageDigest: blueDigest,
+      runtimeGeneration: durableSlots.slots.blue.deploymentGeneration
+    },
+    target: {
+      slot: 'green', releaseId: greenRelease, imageDigest: greenDigest,
+      runtimeGeneration: durableSlots.slots.green.deploymentGeneration
+    },
+    createdAtUtc: '2026-07-11T03:00:00.000Z'
+  }))
 
   const status = runSlot(fixture, 'slot-status.sh', ['--state-file', fixture.stateFile])
   assert.equal(status.status, 0, status.stderr)
@@ -258,30 +273,35 @@ test('slot scripts coexist, remain idempotent, preserve active slot on candidate
   assert.equal(snapshot.lastTrafficTransition.kind, 'bootstrap')
 
   const activeStop = runSlot(fixture, 'slot-stop.sh', [
-    '--slot', 'blue', '--env-file', fixture.envFile, '--state-file', fixture.stateFile
+    '--slot', 'blue', '--env-file', fixture.envFile, '--state-file', fixture.stateFile,
+    '--rollout-state', rolloutFile
   ])
   assert.notEqual(activeStop.status, 0)
   assert.match(activeStop.stderr, /refusing to stop active slot blue/u)
 
   const directStop = runSlot(fixture, 'slot-stop.sh', [
-    '--slot', 'green', '--env-file', fixture.envFile, '--state-file', fixture.stateFile
+    '--slot', 'green', '--env-file', fixture.envFile, '--state-file', fixture.stateFile,
+    '--rollout-state', rolloutFile
   ], { FSUSBLOG_ROLLOUT_ENTRY: '0' })
   assert.notEqual(directStop.status, 0)
   assert.match(directStop.stderr, /slot-stop is internal/u)
 
   const stopGreen = runSlot(fixture, 'slot-stop.sh', [
-    '--slot', 'green', '--env-file', fixture.envFile, '--state-file', fixture.stateFile
+    '--slot', 'green', '--env-file', fixture.envFile, '--state-file', fixture.stateFile,
+    '--rollout-state', rolloutFile
   ])
   assert.equal(stopGreen.status, 0, stopGreen.stderr)
   const stopGreenAgain = runSlot(fixture, 'slot-stop.sh', [
-    '--slot', 'green', '--env-file', fixture.envFile, '--state-file', fixture.stateFile
+    '--slot', 'green', '--env-file', fixture.envFile, '--state-file', fixture.stateFile,
+    '--rollout-state', rolloutFile
   ])
   assert.equal(stopGreenAgain.status, 0, stopGreenAgain.stderr)
   assert.equal(JSON.parse(stopGreenAgain.stdout).status, 'already-stopped')
 
   const failedHealth = runSlot(fixture, 'slot-start.sh', [
     '--slot', 'green', '--release-manifest', greenManifest,
-    '--env-file', fixture.envFile, '--state-file', fixture.stateFile
+    '--env-file', fixture.envFile, '--state-file', fixture.stateFile,
+    '--rollout-state', rolloutFile, '--deployment-generation', String(durableSlots.slots.green.deploymentGeneration)
   ], { FAKE_HEALTH_FAIL_SLOT: 'green', FSUSBLOG_SLOT_HEALTH_TIMEOUT_SECONDS: '1' })
   assert.notEqual(failedHealth.status, 0)
   const afterFailure = runSlot(fixture, 'slot-status.sh', ['--state-file', fixture.stateFile])
@@ -289,7 +309,7 @@ test('slot scripts coexist, remain idempotent, preserve active slot on candidate
   assert.equal(failureSnapshot.slots.blue.running, true)
   assert.equal(failureSnapshot.slots.blue.release.releaseId, blueRelease)
   assert.equal(failureSnapshot.slots.green.running, false)
-  assert.equal(failureSnapshot.runtimeGeneration, 3)
+  assert.equal(failureSnapshot.runtimeGeneration, durableSlots.runtimeGeneration)
   assert.equal(failureSnapshot.lastTransition.status, 'failed')
   assert.equal(failureSnapshot.lastTrafficTransition.kind, 'bootstrap')
 

@@ -10,6 +10,7 @@ const unsafePathPattern = /(?:^|\/)(?:\.\.?)(?:\/|$)|[*?\[\]{}!]/u;
 const forbiddenSelectionKey = /(?:age|ctime|fallback|glob|latest|mtime|newest|priority|scan|search|ttl)/iu;
 const requiredContextIdentity = Object.freeze([
     'attemptId',
+    'buildIdentity',
     'candidateIdentity',
     'schedulerRunId',
     'sourceCommit',
@@ -100,7 +101,7 @@ export function validateEvidenceLocatorRegistry(registry)
     for (const [index, entry] of registry.entries.entries())
     {
         const field = `entries[${index}]`;
-        for (const name of ['consumerId', 'authorityId', 'producerId', 'receiptSchema', 'producerCommand', 'outputBinding'])
+        for (const name of ['consumerId', 'authorityId', 'producerId', 'receiptSchema', 'producerCommand', 'outputBindingKey'])
         {
             assertString(entry[name], `${field}.${name}`);
         }
@@ -113,8 +114,10 @@ export function validateEvidenceLocatorRegistry(registry)
         assert(Array.isArray(entry.requiredIdentityFields), `${field}.requiredIdentityFields must be an array`);
         assert(requiredContextIdentity.every((name) => entry.requiredIdentityFields.includes(name)),
             `${field}.requiredIdentityFields omit current-run identity`);
-        assert(Array.isArray(entry.requiredDigestFields) && entry.requiredDigestFields.includes('contentDigest'),
-            `${field}.requiredDigestFields must include contentDigest`);
+        assert(Array.isArray(entry.requiredDigestFields)
+            && entry.requiredDigestFields.includes('contentDigest')
+            && entry.requiredDigestFields.includes('producerReceiptDigest'),
+        `${field}.requiredDigestFields must include contentDigest and producerReceiptDigest`);
         assert(Array.isArray(entry.allowedRoots) && entry.allowedRoots.length > 0, `${field}.allowedRoots must be non-empty`);
         assert(new Set(entry.allowedRoots).size === entry.allowedRoots.length, `${field}.allowedRoots must be unique`);
         entry.allowedRoots.forEach((root, rootIndex) => assertSafeRoot(root, `${field}.allowedRoots[${rootIndex}]`));

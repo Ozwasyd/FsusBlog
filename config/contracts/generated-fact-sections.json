@@ -1,125 +1,847 @@
 {
-  "schema": "fsusblog.generated-fact-section-catalog.v1",
-  "digestAlgorithm": "sha256",
-  "canonicalSerialization": "json-utf8-v1",
-  "sections": [
-    {
-      "sectionId": "auth.methods.active",
-      "documentPath": "docs/anonymous-identity-smoke-flow.md",
-      "renderer": "enum-set",
-      "extractorId": "auth-session-permission-fact-extractor",
-      "behaviorId": "authentication-session-permission",
-      "factPath": "facts.auth.authentication-methods.active",
-      "orderPolicy": "ordinal",
-      "emptyPolicy": "fail"
-    },
-    {
-      "sectionId": "auth.strengths.active",
-      "documentPath": "docs/architecture/decisions/ADR-Anonymous-Credential-Blind-Issuance.md",
-      "renderer": "enum-set",
-      "extractorId": "auth-session-permission-fact-extractor",
-      "behaviorId": "authentication-session-permission",
-      "factPath": "facts.auth.authentication-strengths.active",
-      "orderPolicy": "ordinal",
-      "emptyPolicy": "fail"
-    },
-    {
-      "sectionId": "auth.session.duration-modes",
-      "documentPath": "docs/security/user-session-authentication-context.md",
-      "renderer": "enum-set",
-      "extractorId": "auth-session-permission-fact-extractor",
-      "behaviorId": "authentication-session-permission",
-      "factPath": "facts.auth.session.duration-modes.modes",
-      "orderPolicy": "ordinal",
-      "emptyPolicy": "fail"
-    },
-    {
-      "sectionId": "auth.admin.permissions",
-      "documentPath": "docs/security.md",
-      "renderer": "enum-set",
-      "extractorId": "auth-session-permission-fact-extractor",
-      "behaviorId": "authentication-session-permission",
-      "factPath": "facts.admin.permissions.all",
-      "orderPolicy": "ordinal",
-      "emptyPolicy": "fail"
-    },
-    {
-      "sectionId": "security.challenge.kinds",
-      "documentPath": "docs/security.md",
-      "renderer": "enum-set",
-      "extractorId": "config-error-security-policy-fact-extractor",
-      "behaviorId": "configuration-error-security-policy",
-      "factPath": "facts.security.challenge-kinds.active",
-      "orderPolicy": "ordinal",
-      "emptyPolicy": "fail"
-    },
-    {
-      "sectionId": "configuration.keys",
-      "documentPath": "docs/configuration-layout.md",
-      "renderer": "key-value-table",
-      "extractorId": "config-error-security-policy-fact-extractor",
-      "behaviorId": "configuration-error-security-policy",
-      "factPath": "facts.configuration.keys",
-      "orderPolicy": "ordinal",
-      "emptyPolicy": "fail"
-    },
-    {
-      "sectionId": "configuration.allowed-values",
-      "documentPath": "docs/configuration/appsettings-authority.md",
-      "renderer": "key-value-table",
-      "extractorId": "config-error-security-policy-fact-extractor",
-      "behaviorId": "configuration-error-security-policy",
-      "factPath": "facts.configuration.allowed-values",
-      "orderPolicy": "ordinal",
-      "emptyPolicy": "fail"
-    },
-    {
-      "sectionId": "api.public-error-codes",
-      "documentPath": "docs/api/schemas-and-errors.md",
-      "renderer": "enum-set",
-      "extractorId": "config-error-security-policy-fact-extractor",
-      "behaviorId": "configuration-error-security-policy",
-      "factPath": "facts.error-codes.public",
-      "orderPolicy": "ordinal",
-      "emptyPolicy": "fail"
-    },
-    {
-      "sectionId": "api.security-cache-policies",
-      "documentPath": "docs/api/contracts.md",
-      "renderer": "key-value-table",
-      "extractorId": "config-error-security-policy-fact-extractor",
-      "behaviorId": "configuration-error-security-policy",
-      "factPath": "facts.security.cache-policy-classes",
-      "orderPolicy": "ordinal",
-      "emptyPolicy": "fail"
-    },
-    { "sectionId": "content.article.states", "documentPath": "docs/api/design.md", "renderer": "enum-set", "extractorId": "content-lifecycle-fact-extractor", "behaviorId": "article-comment-lifecycle-outbox", "factPath": "facts.article.lifecycle.states", "orderPolicy": "ordinal", "emptyPolicy": "fail" },
-    { "sectionId": "content.article.allowed-transitions", "documentPath": "docs/api/contracts.md", "renderer": "transition-table", "extractorId": "content-lifecycle-fact-extractor", "behaviorId": "article-comment-lifecycle-outbox", "factPath": "facts.article.lifecycle.allowed-transitions", "orderPolicy": "ordinal", "emptyPolicy": "fail" },
-    { "sectionId": "content.article.publication-coordinates", "documentPath": "docs/api/article-publication-revisions.md", "renderer": "enum-set", "extractorId": "content-lifecycle-fact-extractor", "behaviorId": "article-comment-lifecycle-outbox", "factPath": "facts.article.publication.required-coordinates", "orderPolicy": "ordinal", "emptyPolicy": "fail" },
-    { "sectionId": "content.comment.states", "documentPath": "docs/moderation.md", "renderer": "enum-set", "extractorId": "content-lifecycle-fact-extractor", "behaviorId": "article-comment-lifecycle-outbox", "factPath": "facts.comment.moderation.states", "orderPolicy": "ordinal", "emptyPolicy": "fail" },
-    { "sectionId": "content.article.rights-fields", "documentPath": "docs/architecture/article-asset-reference-lifecycle.md", "renderer": "enum-set", "extractorId": "content-lifecycle-fact-extractor", "behaviorId": "article-comment-lifecycle-outbox", "factPath": "facts.article.rights.required-fields", "orderPolicy": "ordinal", "emptyPolicy": "fail" },
-    { "sectionId": "content.article.delete-semantics", "documentPath": "docs/architecture/article-deletion-lifecycle.md", "renderer": "key-value-table", "extractorId": "content-lifecycle-fact-extractor", "behaviorId": "article-comment-lifecycle-outbox", "factPath": "facts.article.delete.semantics", "orderPolicy": "ordinal", "emptyPolicy": "fail" },
-    { "sectionId": "content.article.required-outbox-edges", "documentPath": "docs/architecture/article-mutation-outbox-claim-lease.md", "renderer": "enum-set", "extractorId": "content-lifecycle-fact-extractor", "behaviorId": "article-comment-lifecycle-outbox", "factPath": "facts.article.outbox.required-edges", "orderPolicy": "ordinal", "emptyPolicy": "fail" },
-    { "sectionId": "content.article.outbox-events", "documentPath": "docs/architecture/article-mutation-outbox-versioning.md", "renderer": "enum-set", "extractorId": "content-lifecycle-fact-extractor", "behaviorId": "article-comment-lifecycle-outbox", "factPath": "facts.article.outbox.event-types", "orderPolicy": "ordinal", "emptyPolicy": "fail" },
-    { "sectionId": "content.article.optional-outbox-edges", "documentPath": "docs/architecture/article-mutation-side-effect-boundaries.md", "renderer": "enum-set", "extractorId": "content-lifecycle-fact-extractor", "behaviorId": "article-comment-lifecycle-outbox", "factPath": "facts.article.outbox.optional-edges", "orderPolicy": "ordinal", "emptyPolicy": "fail" },
-    { "sectionId": "content.article.rollback-semantics", "documentPath": "docs/architecture/article-revision-concurrency.md", "renderer": "key-value-table", "extractorId": "content-lifecycle-fact-extractor", "behaviorId": "article-comment-lifecycle-outbox", "factPath": "facts.article.rollback.semantics", "orderPolicy": "ordinal", "emptyPolicy": "fail" },
-    { "sectionId": "content.comment.persisted-fields", "documentPath": "docs/architecture/comment-attribution-privacy-boundary.md", "renderer": "enum-set", "extractorId": "content-lifecycle-fact-extractor", "behaviorId": "article-comment-lifecycle-outbox", "factPath": "facts.comment.privacy.persisted-fields", "orderPolicy": "ordinal", "emptyPolicy": "fail" },
-    { "sectionId": "content.comment.thread-invariants", "documentPath": "docs/architecture/comment-command-boundary.md", "renderer": "key-value-table", "extractorId": "content-lifecycle-fact-extractor", "behaviorId": "article-comment-lifecycle-outbox", "factPath": "facts.comment.thread.root-parent-invariants", "orderPolicy": "ordinal", "emptyPolicy": "fail" },
-    { "sectionId": "content.comment.public-visibility", "documentPath": "docs/architecture/comment-moderation-visibility-boundary.md", "renderer": "key-value-table", "extractorId": "content-lifecycle-fact-extractor", "behaviorId": "article-comment-lifecycle-outbox", "factPath": "facts.comment.public-visibility.states", "orderPolicy": "ordinal", "emptyPolicy": "fail" },
-    { "sectionId": "content.comment.required-outbox-edges", "documentPath": "docs/architecture/comment-mutation-outbox.md", "renderer": "key-value-table", "extractorId": "content-lifecycle-fact-extractor", "behaviorId": "article-comment-lifecycle-outbox", "factPath": "facts.comment.outbox.required-edges", "orderPolicy": "ordinal", "emptyPolicy": "fail" },
-    { "sectionId": "content.comment.notification", "documentPath": "docs/architecture/comment-notification-boundary.md", "renderer": "key-value-table", "extractorId": "content-lifecycle-fact-extractor", "behaviorId": "article-comment-lifecycle-outbox", "factPath": "facts.comment.notification.conditions", "orderPolicy": "ordinal", "emptyPolicy": "fail" },
-    { "sectionId": "content.comment.max-depth", "documentPath": "docs/architecture/comment-query-boundary.md", "renderer": "key-value-table", "extractorId": "content-lifecycle-fact-extractor", "behaviorId": "article-comment-lifecycle-outbox", "factPath": "facts.comment.thread.max-depth", "orderPolicy": "ordinal", "emptyPolicy": "fail" },
-    { "sectionId": "api.operations", "documentPath": "docs/api.md", "renderer": "key-value-table", "extractorId": "openapi-aeds-fact-extractor", "behaviorId": "binary-api-aeds-contract", "factPath": "operations", "orderPolicy": "ordinal", "emptyPolicy": "fail" },
-    { "sectionId": "api.protocol", "documentPath": "docs/api/aeds-only-policy.md", "renderer": "scalar", "extractorId": "openapi-aeds-fact-extractor", "behaviorId": "binary-api-aeds-contract", "factPath": "protocol", "orderPolicy": "not-applicable", "emptyPolicy": "fail" },
-    { "sectionId": "api.aeds-version", "documentPath": "docs/api/contracts.md", "renderer": "scalar", "extractorId": "openapi-aeds-fact-extractor", "behaviorId": "binary-api-aeds-contract", "factPath": "aedsVersion", "orderPolicy": "not-applicable", "emptyPolicy": "fail" },
-    { "sectionId": "api.operation-keys", "documentPath": "docs/api/quick-reference.md", "renderer": "enum-set", "extractorId": "openapi-aeds-fact-extractor", "behaviorId": "binary-api-aeds-contract", "factPath": "operationKeys", "orderPolicy": "ordinal", "emptyPolicy": "fail" },
-    { "sectionId": "api.operation-count", "documentPath": "docs/api/schemas-and-errors.md", "renderer": "scalar", "extractorId": "openapi-aeds-fact-extractor", "behaviorId": "binary-api-aeds-contract", "factPath": "operationCount", "orderPolicy": "not-applicable", "emptyPolicy": "fail" },
-    { "sectionId": "api.observation-digest", "documentPath": "docs/api/stability.md", "renderer": "scalar", "extractorId": "openapi-aeds-fact-extractor", "behaviorId": "binary-api-aeds-contract", "factPath": "observationDigest", "orderPolicy": "not-applicable", "emptyPolicy": "fail" },
-    { "sectionId": "testing.tiers", "documentPath": "docs/testing.md", "renderer": "enum-set", "extractorId": "test-matrix-fact-extractor", "behaviorId": "browserless-production-correctness", "factPath": "facts.test.topology.tiers", "orderPolicy": "ordinal", "emptyPolicy": "fail" },
-    { "sectionId": "release.final-input-schemas", "documentPath": "docs/releases/release-identity.md", "renderer": "enum-set", "extractorId": "test-matrix-fact-extractor", "behaviorId": "browserless-production-correctness", "factPath": "facts.release-final.required-input-schemas", "orderPolicy": "ordinal", "emptyPolicy": "fail" },
-    { "sectionId": "release.production-bundle-order", "documentPath": "docs/releases/blue-green-deployment-runbook.md", "renderer": "key-value-table", "extractorId": "test-matrix-fact-extractor", "behaviorId": "browserless-production-correctness", "factPath": "facts.production-fresh.bundle-ordering", "orderPolicy": "ordinal", "emptyPolicy": "fail" },
-    { "sectionId": "testing.execution-classes", "documentPath": "docs/architecture/monolithic-distributed-boundary.md", "renderer": "key-value-table", "extractorId": "test-matrix-fact-extractor", "behaviorId": "browserless-production-correctness", "factPath": "facts.test.execution-classes", "orderPolicy": "ordinal", "emptyPolicy": "fail" },
-    { "sectionId": "testing.candidate-predecessors", "documentPath": "docs/architecture.md", "renderer": "key-value-table", "extractorId": "test-matrix-fact-extractor", "behaviorId": "browserless-production-correctness", "factPath": "facts.test.candidate-admission-predecessors", "orderPolicy": "ordinal", "emptyPolicy": "fail" },
-    { "sectionId": "testing.dependency-edges", "documentPath": "docs/architecture/overview.md", "renderer": "enum-set", "extractorId": "test-matrix-fact-extractor", "behaviorId": "browserless-production-correctness", "factPath": "facts.test.topology.dependencies.edges", "orderPolicy": "ordinal", "emptyPolicy": "fail" }
-  ]
+    "schema": "fsusblog.generated-fact-section-catalog.v1",
+    "digestAlgorithm": "sha256",
+    "canonicalSerialization": "json-utf8-v1",
+    "sections": [
+        {
+            "sectionId": "api.aeds-version",
+            "documentPath": "docs/api/contracts.md",
+            "renderer": "scalar",
+            "extractorId": "openapi-aeds-fact-extractor",
+            "behaviorId": "binary-api-aeds-contract",
+            "factPath": "aedsVersion",
+            "orderPolicy": "not-applicable",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "api.domain-errors-active",
+            "documentPath": "docs/api/schemas-and-errors.md",
+            "renderer": "key-value-table",
+            "extractorId": "config-error-security-policy-fact-extractor",
+            "behaviorId": "configuration-error-security-policy",
+            "factPath": "facts.error-codes.domain.active",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "api.domain-errors-migration-only",
+            "documentPath": "docs/api/schemas-and-errors.md",
+            "renderer": "key-value-table",
+            "extractorId": "config-error-security-policy-fact-extractor",
+            "behaviorId": "configuration-error-security-policy",
+            "factPath": "facts.error-codes.domain.migrationOnly",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "render-empty"
+        },
+        {
+            "sectionId": "api.domain-errors-retired",
+            "documentPath": "docs/api/schemas-and-errors.md",
+            "renderer": "key-value-table",
+            "extractorId": "config-error-security-policy-fact-extractor",
+            "behaviorId": "configuration-error-security-policy",
+            "factPath": "facts.error-codes.domain.retired",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "render-empty"
+        },
+        {
+            "sectionId": "api.error-transport-mappings",
+            "documentPath": "docs/api/schemas-and-errors.md",
+            "renderer": "key-value-table",
+            "extractorId": "config-error-security-policy-fact-extractor",
+            "behaviorId": "configuration-error-security-policy",
+            "factPath": "facts.error-codes.transport-mapping",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "api.error-authority-reference",
+            "documentPath": "docs/api/schemas-and-errors.md",
+            "renderer": "key-value-table",
+            "extractorId": "openapi-aeds-fact-extractor",
+            "behaviorId": "binary-api-aeds-contract",
+            "factPath": "errorAuthority",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "api.observation-digest",
+            "documentPath": "docs/api/stability.md",
+            "renderer": "scalar",
+            "extractorId": "openapi-aeds-fact-extractor",
+            "behaviorId": "binary-api-aeds-contract",
+            "factPath": "observationDigest",
+            "orderPolicy": "not-applicable",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "api.operation-count",
+            "documentPath": "docs/api/schemas-and-errors.md",
+            "renderer": "scalar",
+            "extractorId": "openapi-aeds-fact-extractor",
+            "behaviorId": "binary-api-aeds-contract",
+            "factPath": "operationCount",
+            "orderPolicy": "not-applicable",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "api.operation-keys",
+            "documentPath": "docs/api/quick-reference.md",
+            "renderer": "enum-set",
+            "extractorId": "openapi-aeds-fact-extractor",
+            "behaviorId": "binary-api-aeds-contract",
+            "factPath": "operationKeys",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "api.operations",
+            "documentPath": "docs/api.md",
+            "renderer": "key-value-table",
+            "extractorId": "openapi-aeds-fact-extractor",
+            "behaviorId": "binary-api-aeds-contract",
+            "factPath": "operations",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "api.protocol",
+            "documentPath": "docs/api/aeds-only-policy.md",
+            "renderer": "scalar",
+            "extractorId": "openapi-aeds-fact-extractor",
+            "behaviorId": "binary-api-aeds-contract",
+            "factPath": "protocol",
+            "orderPolicy": "not-applicable",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "api.protocol-states",
+            "documentPath": "docs/api/aeds-only-policy.md",
+            "renderer": "key-value-table",
+            "extractorId": "openapi-aeds-fact-extractor",
+            "behaviorId": "binary-api-aeds-contract",
+            "factPath": "protocolStates",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "api.public-error-codes",
+            "documentPath": "docs/api/schemas-and-errors.md",
+            "renderer": "enum-set",
+            "extractorId": "config-error-security-policy-fact-extractor",
+            "behaviorId": "configuration-error-security-policy",
+            "factPath": "facts.error-codes.public",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "api.security-cache-policies",
+            "documentPath": "docs/api/contracts.md",
+            "renderer": "key-value-table",
+            "extractorId": "config-error-security-policy-fact-extractor",
+            "behaviorId": "configuration-error-security-policy",
+            "factPath": "facts.security.cache-policy-classes",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "auth.admin.permissions",
+            "documentPath": "docs/security.md",
+            "renderer": "enum-set",
+            "extractorId": "auth-session-permission-fact-extractor",
+            "behaviorId": "authentication-session-permission",
+            "factPath": "facts.admin.permissions.all",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "auth.admin.permissions-partial-policy",
+            "documentPath": "docs/security.md",
+            "renderer": "key-value-table",
+            "extractorId": "auth-session-permission-fact-extractor",
+            "behaviorId": "authentication-session-permission",
+            "factPath": "facts.admin.permissions.partial-policy",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "auth.admin.permissions-read-only",
+            "documentPath": "docs/security.md",
+            "renderer": "enum-set",
+            "extractorId": "auth-session-permission-fact-extractor",
+            "behaviorId": "authentication-session-permission",
+            "factPath": "facts.admin.permissions.read-only",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "auth.credential-session-revocation",
+            "documentPath": "docs/security/user-session-authentication-context.md",
+            "renderer": "key-value-table",
+            "extractorId": "auth-session-permission-fact-extractor",
+            "behaviorId": "authentication-session-permission",
+            "factPath": "facts.auth.credential-session-revocation",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "auth.methods.active",
+            "documentPath": "docs/anonymous-identity-smoke-flow.md",
+            "renderer": "enum-set",
+            "extractorId": "auth-session-permission-fact-extractor",
+            "behaviorId": "authentication-session-permission",
+            "factPath": "facts.auth.authentication-methods.active",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "auth.mfa.states",
+            "documentPath": "docs/security/user-session-authentication-context.md",
+            "renderer": "enum-set",
+            "extractorId": "auth-session-permission-fact-extractor",
+            "behaviorId": "authentication-session-permission",
+            "factPath": "facts.auth.mfa.states",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "auth.passkey.states",
+            "documentPath": "docs/security/user-session-authentication-context.md",
+            "renderer": "key-value-table",
+            "extractorId": "auth-session-permission-fact-extractor",
+            "behaviorId": "authentication-session-permission",
+            "factPath": "facts.auth.passkey.states",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "auth.recovery.states",
+            "documentPath": "docs/security/user-session-authentication-context.md",
+            "renderer": "enum-set",
+            "extractorId": "auth-session-permission-fact-extractor",
+            "behaviorId": "authentication-session-permission",
+            "factPath": "facts.auth.recovery.states",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "auth.session.absolute-expiry-policy",
+            "documentPath": "docs/security/user-session-authentication-context.md",
+            "renderer": "key-value-table",
+            "extractorId": "auth-session-permission-fact-extractor",
+            "behaviorId": "authentication-session-permission",
+            "factPath": "facts.auth.session.absolute-expiry-policy",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "auth.session.duration-modes",
+            "documentPath": "docs/security/user-session-authentication-context.md",
+            "renderer": "enum-set",
+            "extractorId": "auth-session-permission-fact-extractor",
+            "behaviorId": "authentication-session-permission",
+            "factPath": "facts.auth.session.duration-modes.modes",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "auth.session.idle-expiry-policy",
+            "documentPath": "docs/security/user-session-authentication-context.md",
+            "renderer": "key-value-table",
+            "extractorId": "auth-session-permission-fact-extractor",
+            "behaviorId": "authentication-session-permission",
+            "factPath": "facts.auth.session.idle-expiry-policy",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "auth.session.refresh-context",
+            "documentPath": "docs/security/user-session-authentication-context.md",
+            "renderer": "key-value-table",
+            "extractorId": "auth-session-permission-fact-extractor",
+            "behaviorId": "authentication-session-permission",
+            "factPath": "facts.auth.refresh.context-preservation",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "auth.step-up.binding",
+            "documentPath": "docs/security/user-session-authentication-context.md",
+            "renderer": "enum-set",
+            "extractorId": "auth-session-permission-fact-extractor",
+            "behaviorId": "authentication-session-permission",
+            "factPath": "facts.auth.step-up.binding.fields",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "auth.step-up.freshness",
+            "documentPath": "docs/security/user-session-authentication-context.md",
+            "renderer": "key-value-table",
+            "extractorId": "auth-session-permission-fact-extractor",
+            "behaviorId": "authentication-session-permission",
+            "factPath": "facts.auth.step-up.freshness",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "auth.strengths.active",
+            "documentPath": "docs/architecture/decisions/ADR-Anonymous-Credential-Blind-Issuance.md",
+            "renderer": "enum-set",
+            "extractorId": "auth-session-permission-fact-extractor",
+            "behaviorId": "authentication-session-permission",
+            "factPath": "facts.auth.authentication-strengths.active",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "configuration.allowed-values",
+            "documentPath": "docs/configuration/appsettings-authority.md",
+            "renderer": "key-value-table",
+            "extractorId": "config-error-security-policy-fact-extractor",
+            "behaviorId": "configuration-error-security-policy",
+            "factPath": "facts.configuration.allowed-values",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "configuration.defaults",
+            "documentPath": "docs/configuration-layout.md",
+            "renderer": "key-value-table",
+            "extractorId": "config-error-security-policy-fact-extractor",
+            "behaviorId": "configuration-error-security-policy",
+            "factPath": "facts.configuration.defaults",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "configuration.keys",
+            "documentPath": "docs/configuration-layout.md",
+            "renderer": "key-value-table",
+            "extractorId": "config-error-security-policy-fact-extractor",
+            "behaviorId": "configuration-error-security-policy",
+            "factPath": "facts.configuration.keys",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "configuration.required-production-values",
+            "documentPath": "docs/configuration-layout.md",
+            "renderer": "key-value-table",
+            "extractorId": "config-error-security-policy-fact-extractor",
+            "behaviorId": "configuration-error-security-policy",
+            "factPath": "facts.configuration.required-production-values",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "render-empty"
+        },
+        {
+            "sectionId": "content.article.admin-visibility",
+            "documentPath": "docs/architecture/article-deletion-lifecycle.md",
+            "renderer": "enum-set",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.article.admin-visibility.states",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.article.allowed-transitions",
+            "documentPath": "docs/api/contracts.md",
+            "renderer": "transition-table",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.article.lifecycle.allowed-transitions",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.article.delete-semantics",
+            "documentPath": "docs/architecture/article-deletion-lifecycle.md",
+            "renderer": "key-value-table",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.article.delete.semantics",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.article.forbidden-transitions",
+            "documentPath": "docs/api/contracts.md",
+            "renderer": "transition-table",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.article.lifecycle.forbidden-transitions",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.article.optional-outbox-edges",
+            "documentPath": "docs/architecture/article-mutation-side-effect-boundaries.md",
+            "renderer": "enum-set",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.article.outbox.optional-edges",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.article.outbox-events",
+            "documentPath": "docs/architecture/article-mutation-outbox-versioning.md",
+            "renderer": "enum-set",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.article.outbox.event-types",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.article.outbox-terminal-states",
+            "documentPath": "docs/architecture/article-mutation-outbox-versioning.md",
+            "renderer": "enum-set",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.article.outbox.terminal-states",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.article.public-visibility",
+            "documentPath": "docs/architecture/article-deletion-lifecycle.md",
+            "renderer": "key-value-table",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.article.public-visibility.states",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.article.publication-coordinates",
+            "documentPath": "docs/api/article-publication-revisions.md",
+            "renderer": "enum-set",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.article.publication.required-coordinates",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.article.required-outbox-edges",
+            "documentPath": "docs/architecture/article-mutation-outbox-claim-lease.md",
+            "renderer": "enum-set",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.article.outbox.required-edges",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.article.responsibility",
+            "documentPath": "docs/api/article-publication-revisions.md",
+            "renderer": "key-value-table",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.article.responsibility.requirement",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.article.restore-semantics",
+            "documentPath": "docs/api/article-publication-revisions.md",
+            "renderer": "key-value-table",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.article.restore.semantics",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.article.rights-fields",
+            "documentPath": "docs/architecture/article-asset-reference-lifecycle.md",
+            "renderer": "enum-set",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.article.rights.required-fields",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.article.rollback-semantics",
+            "documentPath": "docs/architecture/article-revision-concurrency.md",
+            "renderer": "key-value-table",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.article.rollback.semantics",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.article.scheduled-boundary",
+            "documentPath": "docs/api/article-publication-revisions.md",
+            "renderer": "key-value-table",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.article.scheduled.boundary",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.article.states",
+            "documentPath": "docs/api/design.md",
+            "renderer": "enum-set",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.article.lifecycle.states",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.comment.admin-visibility",
+            "documentPath": "docs/architecture/comment-moderation-visibility-boundary.md",
+            "renderer": "enum-set",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.comment.admin-visibility.states",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.comment.allowed-transitions",
+            "documentPath": "docs/moderation.md",
+            "renderer": "transition-table",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.comment.moderation.allowed-transitions",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.comment.appeal-source-states",
+            "documentPath": "docs/moderation.md",
+            "renderer": "enum-set",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.comment.appeal.allowed-source-states",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.comment.child-limit",
+            "documentPath": "docs/architecture/comment-command-boundary.md",
+            "renderer": "key-value-table",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.comment.thread.child-limit",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.comment.edit-delete-version",
+            "documentPath": "docs/architecture/comment-command-boundary.md",
+            "renderer": "key-value-table",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.comment.edit-delete.version-semantics",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.comment.forbidden-fields",
+            "documentPath": "docs/architecture/comment-attribution-privacy-boundary.md",
+            "renderer": "enum-set",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.comment.privacy.forbidden-exact-fields",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.comment.forbidden-transitions",
+            "documentPath": "docs/moderation.md",
+            "renderer": "transition-table",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.comment.moderation.forbidden-transitions",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.comment.max-depth",
+            "documentPath": "docs/architecture/comment-query-boundary.md",
+            "renderer": "key-value-table",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.comment.thread.max-depth",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.comment.notification",
+            "documentPath": "docs/architecture/comment-notification-boundary.md",
+            "renderer": "key-value-table",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.comment.notification.conditions",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.comment.outbox-consumers",
+            "documentPath": "docs/architecture/comment-mutation-outbox.md",
+            "renderer": "enum-set",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.comment.outbox.consumer-registry",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.comment.outbox-terminal-states",
+            "documentPath": "docs/architecture/comment-mutation-outbox.md",
+            "renderer": "enum-set",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.comment.outbox.terminal-states",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.comment.persisted-fields",
+            "documentPath": "docs/architecture/comment-attribution-privacy-boundary.md",
+            "renderer": "enum-set",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.comment.privacy.persisted-fields",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.comment.public-visibility",
+            "documentPath": "docs/architecture/comment-moderation-visibility-boundary.md",
+            "renderer": "key-value-table",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.comment.public-visibility.states",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.comment.region-visibility",
+            "documentPath": "docs/architecture/comment-moderation-visibility-boundary.md",
+            "renderer": "key-value-table",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.comment.region.visibility-states",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.comment.required-outbox-edges",
+            "documentPath": "docs/architecture/comment-mutation-outbox.md",
+            "renderer": "key-value-table",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.comment.outbox.required-edges",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.comment.states",
+            "documentPath": "docs/moderation.md",
+            "renderer": "enum-set",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.comment.moderation.states",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "content.comment.thread-invariants",
+            "documentPath": "docs/architecture/comment-command-boundary.md",
+            "renderer": "key-value-table",
+            "extractorId": "content-lifecycle-fact-extractor",
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "factPath": "facts.comment.thread.root-parent-invariants",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "governance.intent-entry-count",
+            "documentPath": "docs/development/code-intent-governance.md",
+            "renderer": "scalar",
+            "extractorId": "code-intent-fact-extractor",
+            "behaviorId": "code-intent-governance",
+            "factPath": "intentEntryCount",
+            "orderPolicy": "not-applicable",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "release.final-input-schemas",
+            "documentPath": "docs/releases/release-identity.md",
+            "renderer": "enum-set",
+            "extractorId": "test-matrix-fact-extractor",
+            "behaviorId": "browserless-production-correctness",
+            "factPath": "facts.release-final.required-input-schemas",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "release.production-bundle-order",
+            "documentPath": "docs/releases/blue-green-deployment-runbook.md",
+            "renderer": "key-value-table",
+            "extractorId": "test-matrix-fact-extractor",
+            "behaviorId": "browserless-production-correctness",
+            "factPath": "facts.production-fresh.bundle-ordering",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "security.challenge.fail-modes",
+            "documentPath": "docs/security.md",
+            "renderer": "key-value-table",
+            "extractorId": "config-error-security-policy-fact-extractor",
+            "behaviorId": "configuration-error-security-policy",
+            "factPath": "facts.security.fail-open-closed-modes",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "security.challenge.kinds",
+            "documentPath": "docs/security.md",
+            "renderer": "enum-set",
+            "extractorId": "config-error-security-policy-fact-extractor",
+            "behaviorId": "configuration-error-security-policy",
+            "factPath": "facts.security.challenge-kinds.active",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "security.challenge.numeric-boundaries",
+            "documentPath": "docs/security.md",
+            "renderer": "key-value-table",
+            "extractorId": "config-error-security-policy-fact-extractor",
+            "behaviorId": "configuration-error-security-policy",
+            "factPath": "facts.security.numeric-boundaries",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "security.challenge.rate-policies",
+            "documentPath": "docs/security.md",
+            "renderer": "key-value-table",
+            "extractorId": "config-error-security-policy-fact-extractor",
+            "behaviorId": "configuration-error-security-policy",
+            "factPath": "facts.security.rate-limit-policies",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "security.challenge.retired-kinds",
+            "documentPath": "docs/security.md",
+            "renderer": "enum-set",
+            "extractorId": "config-error-security-policy-fact-extractor",
+            "behaviorId": "configuration-error-security-policy",
+            "factPath": "facts.security.challenge-retired-kinds",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "render-empty"
+        },
+        {
+            "sectionId": "security.challenge.verification-window",
+            "documentPath": "docs/security.md",
+            "renderer": "key-value-table",
+            "extractorId": "config-error-security-policy-fact-extractor",
+            "behaviorId": "configuration-error-security-policy",
+            "factPath": "facts.security.challenge-verification-window",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "testing.candidate-predecessors",
+            "documentPath": "docs/architecture.md",
+            "renderer": "key-value-table",
+            "extractorId": "test-matrix-fact-extractor",
+            "behaviorId": "browserless-production-correctness",
+            "factPath": "facts.test.candidate-admission-predecessors",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "testing.coverage-entry-count",
+            "documentPath": "docs/testing.md",
+            "renderer": "scalar",
+            "extractorId": "test-asset-audit-fact-extractor",
+            "behaviorId": "test-asset-audit-reconciliation",
+            "factPath": "coverageEntryCount",
+            "orderPolicy": "not-applicable",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "testing.dependency-edges",
+            "documentPath": "docs/architecture/overview.md",
+            "renderer": "enum-set",
+            "extractorId": "test-matrix-fact-extractor",
+            "behaviorId": "browserless-production-correctness",
+            "factPath": "facts.test.topology.dependencies.edges",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "testing.execution-classes",
+            "documentPath": "docs/architecture/monolithic-distributed-boundary.md",
+            "renderer": "key-value-table",
+            "extractorId": "test-matrix-fact-extractor",
+            "behaviorId": "browserless-production-correctness",
+            "factPath": "facts.test.execution-classes",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "testing.tiers",
+            "documentPath": "docs/testing.md",
+            "renderer": "enum-set",
+            "extractorId": "test-matrix-fact-extractor",
+            "behaviorId": "browserless-production-correctness",
+            "factPath": "facts.test.topology.tiers",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "release.aggregate-contract",
+            "documentPath": "docs/releases/release-identity.md",
+            "renderer": "key-value-table",
+            "extractorId": "test-matrix-fact-extractor",
+            "behaviorId": "release-final-aggregate-contract",
+            "factPath": "facts.release-final.aggregate-contract",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "release.finalizer-authority",
+            "documentPath": "docs/testing.md",
+            "renderer": "key-value-table",
+            "extractorId": "test-matrix-fact-extractor",
+            "behaviorId": "release-final-aggregate-contract",
+            "factPath": "facts.release-final.finalizer-authority",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "deployment.blue-green-contract",
+            "documentPath": "docs/releases/blue-green-deployment-runbook.md",
+            "renderer": "key-value-table",
+            "extractorId": "test-matrix-fact-extractor",
+            "behaviorId": "deployment-blue-green-runtime-role",
+            "factPath": "facts.deployment.blue-green-contract",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        },
+        {
+            "sectionId": "deployment.runtime-roles",
+            "documentPath": "docs/architecture/monolithic-distributed-boundary.md",
+            "renderer": "key-value-table",
+            "extractorId": "test-matrix-fact-extractor",
+            "behaviorId": "deployment-blue-green-runtime-role",
+            "factPath": "facts.deployment.runtime-role-contract",
+            "orderPolicy": "ordinal",
+            "emptyPolicy": "fail"
+        }
+    ]
 }

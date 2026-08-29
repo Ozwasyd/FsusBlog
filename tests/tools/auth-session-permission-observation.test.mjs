@@ -34,11 +34,47 @@ function writeObservation(repositoryRoot, observation)
   }
 }
 
+const relationIds = [
+  'auth.relation.mfa-enabled-step-up-method',
+  'auth.relation.passkey-auth-strength',
+  'auth.relation.passkey-delete-does-not-revoke-unbound-sessions',
+  'auth.relation.passkey-delete-revokes-bound-sessions',
+  'auth.relation.passkey-is-not-totp',
+  'auth.relation.recovery-auth-strength',
+  'auth.relation.recovery-does-not-mint-step-up',
+  'auth.relation.refresh-does-not-rebuild-step-up',
+  'auth.relation.refresh-preserves-auth-context',
+  'auth.relation.step-up-binding',
+  'auth.relation.step-up-consume-once'
+]
+
+function sampleRelations()
+{
+  return {
+    schema: 'fsusblog.auth-session-relation-catalog.v1',
+    version: 1,
+    closed: true,
+    entries: relationIds.map((relationId) => ({
+      relationId,
+      subject: `${relationId}.subject`,
+      predicate: 'relates-to',
+      object: `${relationId}.object`,
+      direction: 'subject-to-object',
+      condition: 'typed-condition',
+      truthValue: relationId.includes('does-not') || relationId.includes('is-not') ? 'false' : 'true',
+      scope: { account: 'current-account', session: 'bound-session', action: 'declared-action', credentialMethod: 'declared-subject' },
+      sourceOwner: 'src/backend/Services/Security/Authority.cs',
+      sourceRange: 'Authority.Member',
+      proofTests: ['AuthorityTests.ProvesRelation']
+    }))
+  }
+}
+
 function sampleObservation(overrides = {})
 {
   const { facts: factOverrides, ...rest } = overrides
   return {
-    schema: 'fsusblog.auth-session-permission-observation.v1',
+    schema: 'fsusblog.auth-session-permission-observation.v2',
     source: 'compiled-production-constants',
     status: 'ok',
     failureReasons: [],
@@ -132,6 +168,7 @@ function sampleObservation(overrides = {})
           'step_up_proof_invalid'
         ]
       },
+      'auth.relations': sampleRelations(),
       'admin.permissions.all': [
         'admin.manage',
         'anonymous.comment.configure',
@@ -216,6 +253,7 @@ test('positive sample observation extracts typed auth/session/admin facts', () =
     assert.equal(result.observations.facts['auth.step-up.consume-once'], true)
     assert.equal(result.observations.facts['auth.authentication-strengths'].legacy.writeAllowed, false)
     assert.equal(result.observations.facts['auth.authentication-strengths'].legacy.readMigrationOnly, true)
+    assert.equal(result.observations.facts['auth.relations'].closed, true)
   }
   finally
   {
@@ -475,10 +513,46 @@ test('naked duration without unit fails', () =>
   }
 })
 
+test('direction, condition, proof, closed-set and tamper classes fail closed', () =>
+{
+  const directory = mkdtempSync(path.join(os.tmpdir(), 'auth-session-obs-'))
+  try
+  {
+    const missing = sampleRelations()
+    missing.entries = missing.entries.slice(1)
+    assert.ok(runExtract(directory, sampleObservation({ facts: { 'auth.relations': missing } }))
+      .failureReasons.some((reason) => /missing required auth relation/iu.test(reason)))
+
+    const reversed = sampleRelations()
+    reversed.entries[0].direction = ''
+    assert.ok(runExtract(directory, sampleObservation({ facts: { 'auth.relations': reversed } }))
+      .failureReasons.some((reason) => /missing direction/iu.test(reason)))
+
+    const unconditioned = sampleRelations()
+    unconditioned.entries[0].condition = ''
+    assert.ok(runExtract(directory, sampleObservation({ facts: { 'auth.relations': unconditioned } }))
+      .failureReasons.some((reason) => /missing condition/iu.test(reason)))
+
+    const unproved = sampleRelations()
+    unproved.entries[0].proofTests = []
+    assert.ok(runExtract(directory, sampleObservation({ facts: { 'auth.relations': unproved } }))
+      .failureReasons.some((reason) => /missing proofTests/iu.test(reason)))
+
+    const alias = sampleRelations()
+    alias.entries.push({ ...alias.entries[0], relationId: 'auth.relation.current-equivalent-alias' })
+    assert.ok(runExtract(directory, sampleObservation({ facts: { 'auth.relations': alias } }))
+      .failureReasons.some((reason) => /unexpected auth relation/iu.test(reason)))
+  }
+  finally
+  {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
 test('compiled observation host produces sealed production facts (live)', { timeout: 600_000 }, () =>
 {
   const produced = produceAuthSessionObservation({ repositoryRoot: root, rebuild: true })
-  assert.equal(produced.observation.schema, 'fsusblog.auth-session-permission-observation.v1')
+  assert.equal(produced.observation.schema, 'fsusblog.auth-session-permission-observation.v2')
   assert.equal(produced.observation.status, 'ok')
   assert.ok(produced.observation.facts['admin.permissions.all'].includes('audit.investigate'))
   assert.equal(produced.observation.facts['auth.step-up.freshness'].default.value, 5)
@@ -491,6 +565,7 @@ test('compiled observation host produces sealed production facts (live)', { time
     !produced.observation.facts['auth.authentication-strengths'].active.some((value) => value.startsWith('legacy_'))
   )
   assert.equal(produced.observation.facts['auth.authentication-strengths'].legacy.writeAllowed, false)
+  assert.equal(produced.observation.facts['auth.relations'].closed, true)
   assert.equal(produced.buildIdentity.artifactId, 'auth-session-permission-observation')
 
   const extracted = extractAuthSession({

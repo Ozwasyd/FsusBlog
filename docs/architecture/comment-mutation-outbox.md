@@ -72,3 +72,32 @@ render: key-value-table
 | CommentReplyNotificationRequested | ["site-notification"] |
 | CommentVisibilityChanged | ["audit-projection","cache-version","realtime-stream"] |
 <!-- FSUSBLOG-GENERATED:END content.comment.required-outbox-edges -->
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.comment-outbox-consumers
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.comment.outbox-consumers
+render: enum-set
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN content.comment.outbox-consumers -->
+- `audit-projection`
+- `cache-version`
+- `model-moderation`
+- `realtime-stream`
+- `site-notification`
+<!-- FSUSBLOG-GENERATED:END content.comment.outbox-consumers -->
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.comment-outbox-terminal-states
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.comment.outbox-terminal-states
+render: enum-set
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN content.comment.outbox-terminal-states -->
+- `completed`
+- `poison`
+- `processed`
+- `terminal-failed`
+<!-- FSUSBLOG-GENERATED:END content.comment.outbox-terminal-states -->

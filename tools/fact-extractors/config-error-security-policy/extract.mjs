@@ -4,7 +4,9 @@ import path from 'node:path'
 
 const observationRelative = '.tmp/contracts/config-error-security/config-error-security-policy-observation.json'
 const expectedArtifactId = 'config-error-security-policy-observation'
-const expectedSchema = 'fsusblog.config-error-security-policy-observation.v1'
+const expectedSchema = 'fsusblog.config-error-security-policy-observation.v2'
+const expectedDomainErrorSchema = 'fsusblog.domain-error-catalog.v1'
+const expectedChallengeWindowSchema = 'fsusblog.security-challenge-verification-window.v1'
 
 const requiredFactKeys = Object.freeze([
   'configuration.keys',
@@ -13,8 +15,10 @@ const requiredFactKeys = Object.freeze([
   'configuration.required-production-values',
   'error-codes.public',
   'error-codes.transport-mapping',
+  'error-codes.domain',
   'security.challenge-kinds',
   'security.challenge-retired-kinds',
+  'security.challenge-verification-window',
   'security.rate-limit-policies',
   'security.cache-policy-classes',
   'security.fail-open-closed-modes',
@@ -63,6 +67,165 @@ function isRangeBoundary(value)
     && typeof value.inclusiveMin === 'boolean'
     && typeof value.inclusiveMax === 'boolean'
     && typeof value.bound === 'string'
+}
+
+function validateDomainErrors(domainErrors, transport, failureReasons)
+{
+  if (domainErrors?.schema !== expectedDomainErrorSchema || domainErrors?.version !== 1 || domainErrors?.closed !== true)
+  {
+    failureReasons.push(`error-codes.domain must be closed ${expectedDomainErrorSchema}`)
+    return
+  }
+  for (const partition of ['active', 'retired', 'migrationOnly'])
+  {
+    if (domainErrors[partition] == null || typeof domainErrors[partition] !== 'object' || Array.isArray(domainErrors[partition]))
+    {
+      failureReasons.push(`error-codes.domain.${partition} must be a typed map`)
+    }
+  }
+  if (domainErrors.active == null || typeof domainErrors.active !== 'object') return
+
+  const requiredDomains = new Set(['auth', 'session', 'passkey', 'mfa', 'recovery', 'step-up', 'pow', 'security-challenge'])
+  const identities = new Set()
+  for (const [identity, entry] of Object.entries(domainErrors.active))
+  {
+    if (!/^[a-z][a-z0-9-]*(?:\.[a-z0-9-]+){2,}$/u.test(identity)
+      || /(?:compat|alias|current-equivalent|manual)/iu.test(identity))
+    {
+      failureReasons.push(`invalid or compatibility domain error identity ${identity}`)
+      continue
+    }
+    if (identities.has(identity)) failureReasons.push(`duplicate domain error identity ${identity}`)
+    identities.add(identity)
+    if (entry?.stableCode !== identity) failureReasons.push(`${identity} stableCode mismatch`)
+    requiredDomains.delete(entry?.domain)
+    for (const key of ['domain', 'operation', 'condition', 'retryability', 'failMode', 'sourceOwner', 'sourceRange'])
+    {
+      if (typeof entry?.[key] !== 'string' || entry[key].length === 0)
+      {
+        failureReasons.push(`${identity} missing ${key}`)
+      }
+    }
+    if (entry?.status !== 'active') failureReasons.push(`${identity} active partition entry must have status=active`)
+    if (entry?.message != null || entry?.messageText != null) failureReasons.push(`${identity} must not use message text as identity`)
+    if (!['fail-open', 'fail-closed'].includes(entry?.failMode)) failureReasons.push(`${identity} has invalid failMode`)
+    if (!isSortedUniqueStrings(entry?.proofTests)) failureReasons.push(`${identity} missing proofTests`)
+    const mapping = entry?.transport
+    if (mapping == null || typeof mapping !== 'object'
+      || !Number.isInteger(mapping.httpStatus)
+      || mapping.aedsFrame !== 'Error'
+      || typeof mapping.aedsErrorCode !== 'string')
+    {
+      failureReasons.push(`${identity} has unknown or unmapped transport`)
+      continue
+    }
+    const canonical = transport?.[`code:${mapping.aedsErrorCode}`]
+    if (canonical == null || canonical.httpStatus !== mapping.httpStatus)
+    {
+      failureReasons.push(`${identity} transport mapping conflicts with production ErrorCode policy`)
+    }
+  }
+  for (const domain of requiredDomains) failureReasons.push(`error-codes.domain missing active ${domain} coverage`)
+
+  for (const partition of ['retired', 'migrationOnly'])
+  {
+    for (const [identity, entry] of Object.entries(domainErrors[partition] ?? {}))
+    {
+      const expectedStatus = partition === 'retired' ? 'retired' : 'migration-only'
+      if (entry?.status !== expectedStatus) failureReasons.push(`${identity} ${partition} status mismatch`)
+      if (Object.hasOwn(domainErrors.active, identity)) failureReasons.push(`${identity} must not be both active and ${partition}`)
+    }
+  }
+}
+
+function validateChallengeVerificationWindow(window, activeKinds, failureReasons)
+{
+  if (window?.schema !== expectedChallengeWindowSchema || window?.version !== 1 || window?.closed !== true)
+  {
+    failureReasons.push(`security.challenge-verification-window must be closed ${expectedChallengeWindowSchema}`)
+    return
+  }
+  if (window.factId !== 'security.challenge.verify-attempt-window')
+  {
+    failureReasons.push('challenge verification window has wrong stable factId')
+  }
+  if (!['fixed-bucket', 'sliding-expiry-counter'].includes(window.windowType))
+  {
+    failureReasons.push('challenge verification window has unknown windowType')
+  }
+  if (!isBoundary(window.duration) || window.duration.value <= 0)
+  {
+    failureReasons.push('challenge verification window must have non-zero typed duration and boundary')
+  }
+  const unitMilliseconds = { milliseconds: 1, seconds: 1000, minutes: 60000, hours: 3600000 }
+  const durationMilliseconds = window?.duration
+    ? window.duration.value * (unitMilliseconds[window.duration.unit] ?? Number.NaN)
+    : Number.NaN
+  if (!Number.isFinite(durationMilliseconds) || window.durationMilliseconds !== durationMilliseconds)
+  {
+    failureReasons.push('challenge verification window canonical duration mismatch')
+  }
+  if (!isBoundary(window.cacheExpiry) || window.cacheExpiry.value <= 0)
+  {
+    failureReasons.push('challenge verification cache expiry must have non-zero typed duration and boundary')
+  }
+  const cacheExpiryMilliseconds = window?.cacheExpiry
+    ? window.cacheExpiry.value * (unitMilliseconds[window.cacheExpiry.unit] ?? Number.NaN)
+    : Number.NaN
+  if (!Number.isFinite(cacheExpiryMilliseconds) || window.cacheExpiryMilliseconds !== cacheExpiryMilliseconds)
+  {
+    failureReasons.push('challenge verification cache expiry canonical duration mismatch')
+  }
+  if (window.cacheExpiryFactId !== 'security.challenge.verify-attempt-cache-expiry'
+    || window.cacheExpiryFactId === window.factId)
+  {
+    failureReasons.push('challenge window and cache expiry require distinct stable fact IDs')
+  }
+  if (window.maxAttemptsFactId !== 'security.challenge.verify-max-attempts'
+    || !isBoundary(window.maxAttempts)
+    || window.maxAttempts.unit !== 'attempts')
+  {
+    failureReasons.push('challenge max attempts must be an independent typed fact')
+  }
+  if (window.failModeFactId !== 'security.challenge.verify-fail-mode'
+    || !['fail-open', 'fail-closed'].includes(window.failMode))
+  {
+    failureReasons.push('challenge verification fail mode must be an independent typed fact')
+  }
+  if (typeof window.startsAt !== 'string' || window.startsAt.length === 0
+    || typeof window.boundary !== 'string' || window.boundary.length === 0
+    || typeof window.relation !== 'string' || window.relation.length === 0)
+  {
+    failureReasons.push('challenge verification window missing start/boundary/relation semantics')
+  }
+  const relation = window['window-relation']
+  if (relation?.relationId !== 'security.challenge.verify-window-distinct-from-cache-expiry'
+    || relation?.subject !== window.factId
+    || relation?.predicate !== 'is-distinct-from'
+    || relation?.object !== window.cacheExpiryFactId
+    || relation?.direction !== 'subject-to-object'
+    || relation?.truthValue !== 'true'
+    || typeof relation?.condition !== 'string'
+    || relation.condition.length === 0)
+  {
+    failureReasons.push('challenge verification window/cache relation is incomplete or reversed')
+  }
+  if (!isSortedUniqueStrings(window.challengeKinds)
+    || !Array.isArray(activeKinds)
+    || window.challengeKinds.length !== activeKinds.length
+    || window.challengeKinds.some((kind, index) => kind !== activeKinds[index]))
+  {
+    failureReasons.push('challenge verification window scope must exactly match active challenge kinds')
+  }
+  if (typeof window.challengeManifestVersion !== 'string' || window.challengeManifestVersion.length === 0)
+  {
+    failureReasons.push('challenge verification window missing challenge version scope')
+  }
+  if (typeof window.sourceOwner !== 'string' || typeof window.sourceRange !== 'string'
+    || !isSortedUniqueStrings(window.proofTests))
+  {
+    failureReasons.push('challenge verification window missing source/proof binding')
+  }
 }
 
 function receiptMapKey(key)
@@ -275,6 +438,7 @@ export function extract(context)
   {
     failureReasons.push('error-codes.transport-mapping must be a non-empty map')
   }
+  validateDomainErrors(facts['error-codes.domain'], transport, failureReasons)
 
   // challenges
   const challengeKinds = facts['security.challenge-kinds']
@@ -301,6 +465,7 @@ export function extract(context)
       failureReasons.push(`retired challenge kinds must not be listed active: ${retiredInActive.join(',')}`)
     }
   }
+  validateChallengeVerificationWindow(facts['security.challenge-verification-window'], activeKinds, failureReasons)
 
   // rate limits
   const ratePolicies = facts['security.rate-limit-policies']
@@ -519,12 +684,19 @@ export function extract(context)
     'configuration.required-production-values': facts['configuration.required-production-values'],
     'error-codes.public': facts['error-codes.public'],
     'error-codes.transport-mapping': facts['error-codes.transport-mapping'],
+    'error-codes.domain': facts['error-codes.domain'],
     'security.challenge-kinds': facts['security.challenge-kinds'],
     'security.challenge-retired-kinds': facts['security.challenge-retired-kinds'],
+    'security.challenge-verification-window': facts['security.challenge-verification-window'],
     'security.rate-limit-policies': facts['security.rate-limit-policies'],
     'security.cache-policy-classes': facts['security.cache-policy-classes'],
     'security.fail-open-closed-modes': facts['security.fail-open-closed-modes'],
     'security.numeric-boundaries': facts['security.numeric-boundaries'],
+    securityPolicyClaims: {
+      windowCacheRelation: facts['security.challenge-verification-window']['window-relation'],
+      challengeVerifyFailMode: facts['security.fail-open-closed-modes']['security-challenge-verify'],
+      rateLimiterFailMode: facts['security.fail-open-closed-modes']['rate-limiter-rejection']
+    },
     'frontend.projection': frontendProjection
   }
   const observations = {
