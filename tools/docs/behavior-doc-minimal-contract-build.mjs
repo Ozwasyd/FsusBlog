@@ -274,14 +274,25 @@ export function validateMinimalContractBuildReceipt(receipt, {
 
 export function buildIdentitiesFromMinimalReceipt(receipt) {
   validateMinimalContractBuildReceipt(receipt)
-  return Object.fromEntries(Object.entries(receipt.artifacts).map(([artifactId, artifact]) => [
-    artifactId,
-    {
+  return Object.fromEntries(Object.entries(receipt.artifacts).map(([artifactId, artifact]) => {
+    const declaration = hostDeclarations[artifactId];
+    if (declaration == null) throw new Error(`minimal contract build has unknown artifact ${artifactId}`)
+    const receiptBody = {
+      schema: `fsusblog.${artifactId}-build-receipt.v1`,
       artifactId,
-      receiptDigest: receipt.contentDigest,
-      artifactDigest: artifact.artifactDigest
+      artifactPath: declaration.output,
+      artifactDigest: artifact.artifactDigest,
+      configuration: 'Release'
     }
-  ]))
+    return [
+      artifactId,
+      {
+        artifactId,
+        receiptDigest: digestValue(receiptBody),
+        artifactDigest: artifact.artifactDigest
+      }
+    ]
+  }))
 }
 
 function reusableReceipt({
