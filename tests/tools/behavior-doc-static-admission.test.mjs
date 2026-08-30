@@ -8,7 +8,7 @@ import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const { parseWorkflow, validateBehaviorDocStaticAdmissionTopology } = await import(new URL("../../tools/check-workflow-matrix-sync.mjs", import.meta.url));
-const { hostDeclarations, runMinimalContractBuild } = await import(new URL("../../tools/docs/behavior-doc-minimal-contract-build.mjs", import.meta.url));
+const { buildIdentitiesFromMinimalReceipt, hostDeclarations, runMinimalContractBuild } = await import(new URL("../../tools/docs/behavior-doc-minimal-contract-build.mjs", import.meta.url));
 const { behaviorDocAdmissionReceiptSchema, validateBehaviorDocStaticAdmissionReceipt } = await import(new URL("../../tools/docs/behavior-doc-static-admission.mjs", import.meta.url));
 const { digestValue, sealSourceIdentity } = await import(new URL("../../tools/fact-extractors/identity.mjs", import.meta.url));
 const { loadRegistry } = await import(new URL("../../tools/fact-extractors/registry.mjs", import.meta.url));
@@ -68,6 +68,25 @@ function fakeMinimalReceipt(runId, source)
         failureReasons: []
     });
 }
+
+test('minimal build identity binds the child build receipt digest', () =>
+{
+    const receipt = fakeMinimalReceipt('minimal-build-identity', {
+        sourceCommit: 'a'.repeat(40),
+        worktreeFingerprint: 'b'.repeat(64)
+    });
+    const identity = buildIdentitiesFromMinimalReceipt(receipt)['runtime-role-observation'];
+    const expectedReceiptDigest = digestValue({
+        schema: 'fsusblog.runtime-role-observation-build-receipt.v1',
+        artifactId: 'runtime-role-observation',
+        artifactPath: hostDeclarations['runtime-role-observation'].output,
+        artifactDigest: receipt.artifacts['runtime-role-observation'].artifactDigest,
+        configuration: 'Release'
+    });
+
+    assert.equal(identity.receiptDigest, expectedReceiptDigest);
+    assert.notEqual(identity.receiptDigest, receipt.contentDigest);
+});
 
 function validAdmissionReceipt({
     runId = 'behavior-doc-test',
@@ -185,7 +204,7 @@ function copyMinimalBuildFixture(repositoryRoot)
         const source = path.join(root, relative);
         const destination = path.join(repositoryRoot, relative);
         fs.mkdirSync(path.dirname(destination), { recursive: true });
-        fs.copyFileSync(source, destination);
+        fs.cpSync(source, destination, { recursive: true });
     }
 }
 
@@ -423,7 +442,10 @@ test('minimal contract build uses only a content-addressed root and never ambien
         },
         spawn: fakeSpawn
     });
-    assert.equal(invocations.filter((args) => args[1] === 'run').length, 4);
+    assert.equal(
+        invocations.filter((args) => args[1] === 'run').length,
+        Object.keys(hostDeclarations).length
+    );
     assert.match(result.receipt.buildRoot, /^\.tmp\/behavior-doc-contract-builds\/[a-f0-9]{64}$/u);
     assert.equal(fs.readFileSync(ambient, 'utf8'), '{"stale":true}\n');
 });
@@ -524,9 +546,10 @@ process.stdout.write(JSON.stringify({
     assert.equal(first.buildRoot, second.buildRoot);
     assert.deepEqual([first.cacheHit, second.cacheHit].sort(), [false, true]);
 
+    const hostCount = Object.keys(hostDeclarations).length;
     let logLines = fs.readFileSync(invocationLog, 'utf8').trim().split(/\r?\n/u);
-    assert.equal(logLines.filter((line) => line.startsWith('start ')).length, 4);
-    assert.equal(logLines.filter((line) => line.startsWith('end ')).length, 4);
+    assert.equal(logLines.filter((line) => line.startsWith('start ')).length, hostCount);
+    assert.equal(logLines.filter((line) => line.startsWith('end ')).length, hostCount);
     assert.deepEqual(fs.readdirSync(activeRoot), []);
 
     const corruptedArtifact = Object.values(first.receipt.artifacts)[0];
@@ -540,8 +563,8 @@ process.stdout.write(JSON.stringify({
     assert.equal(repaired.cacheHit, false);
     assert.equal(repaired.runId, 'concurrent-admission-repair');
     logLines = fs.readFileSync(invocationLog, 'utf8').trim().split(/\r?\n/u);
-    assert.equal(logLines.filter((line) => line.startsWith('start ')).length, 8);
-    assert.equal(logLines.filter((line) => line.startsWith('end ')).length, 8);
+    assert.equal(logLines.filter((line) => line.startsWith('start ')).length, hostCount * 2);
+    assert.equal(logLines.filter((line) => line.startsWith('end ')).length, hostCount * 2);
     assert.deepEqual(fs.readdirSync(activeRoot), []);
 
     const buildCache = path.join(repositoryRoot, '.tmp/behavior-doc-contract-builds');
