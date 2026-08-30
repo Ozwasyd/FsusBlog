@@ -912,6 +912,8 @@ jobs:
                       .tmp/fixtures/*/homogeneous-two-node/**
                       .tmp/runtime/integration.json
                       .tmp/runtime-scenario-host/**
+                      .tmp/test-results/backend/integration/legacy-real-dump-membership.json
+                      .tmp/test-results/backend/legacy-20260517-real-dump/**
                       .tmp/scale/**
                       .tmp/release-evidence/rights-v3-test-matrix.json
                       .tmp/release-evidence/jobs/**
@@ -1135,6 +1137,7 @@ jobs:
                       .tmp/fuzz/**
                       .tmp/security/perception-character-v3/release-gate/**
                       .tmp/security/perception-v2/**
+                      .tmp/test-results/backend/perception-character-v3-redis-producer.json
                       .tmp/release-evidence/fuzz-seeds.json
                       .tmp/release-evidence/jobs/**
 
