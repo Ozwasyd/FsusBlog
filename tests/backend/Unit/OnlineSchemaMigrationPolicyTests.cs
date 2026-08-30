@@ -341,6 +341,7 @@ public sealed class OnlineSchemaMigrationPolicyTests
             ThemeActivationRuntimeMigrationDefinitions.MigrationId,
             CustomizationMigrationDefinitions.MigrationId,
             AuthoringCanvasDocumentMigrationDefinitions.MigrationId,
+            TaxonomyDescriptionMigrationDefinitions.MigrationId,
             ContentAssetCutoverMigrationDefinitions.PrototypeShapeMigrationId,
             ContentAssetCutoverMigrationDefinitions.MigrationId
         };

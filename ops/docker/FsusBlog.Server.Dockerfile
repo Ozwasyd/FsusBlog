@@ -129,8 +129,8 @@ ENV FSUSBLOG_DEPENDENCY_CACHE_ROOT=/.tmp/dependency-cache \
     VCPKG_DEFAULT_BINARY_CACHE=/.cache/vcpkg/archives
 
 COPY tools/vcpkg-overlays/ /work/tools/vcpkg-overlays/
-COPY tools/frontend/ /work/tools/frontend/
-COPY tools/frontend/ /tools/frontend/
+COPY tools/frontend/install-wasm-codec-deps.sh /work/tools/frontend/install-wasm-codec-deps.sh
+COPY tools/frontend/ensure-cmake.sh /work/tools/frontend/ensure-cmake.sh
 
 RUN --mount=type=cache,id=fsusblog-vcpkg-downloads-${FSUSBLOG_WASM_CACHE_IDENTITY}-${VCPKG_COMMIT},target=/.cache/vcpkg/downloads,sharing=locked \
     --mount=type=cache,id=fsusblog-vcpkg-archives-${FSUSBLOG_WASM_CACHE_IDENTITY}-${VCPKG_COMMIT},target=/.cache/vcpkg/archives,sharing=locked \
@@ -148,15 +148,22 @@ RUN --mount=type=cache,id=fsusblog-wasm-dependency-${FSUSBLOG_WASM_CACHE_IDENTIT
 ENV FSUSBLOG_WASM_CMAKE=/.tmp/dependency-cache/cmake/4.3.3/bin/cmake
 
 ARG FSUSBLOG_ZK_PRODUCTION_ENABLED=0
-COPY artifacts/zk/comment-v5/ /work/artifacts/zk/comment-v5/
+ARG FSUSBLOG_WASM_IMAGE_CODEC_ENABLE=ON
+COPY ops/docker/wasm-producer-inputs.json /work/ops/docker/wasm-producer-inputs.json
+COPY tools/frontend/wasm-producer-inputs.mjs /work/tools/frontend/wasm-producer-inputs.mjs
+COPY tools/frontend/ensure-binaryen.sh /work/tools/frontend/ensure-binaryen.sh
+COPY tools/frontend/ensure-wasm.mjs /work/tools/frontend/ensure-wasm.mjs
+COPY tools/frontend/wasm-build-receipt.mjs /work/tools/frontend/wasm-build-receipt.mjs
+COPY tools/frontend/write-comment-privacy-prover-manifest.mjs /work/tools/frontend/write-comment-privacy-prover-manifest.mjs
 COPY security/zk/contracts/comment-v5-circuit.manifest.json /work/security/zk/contracts/comment-v5-circuit.manifest.json
 COPY security/zk/provenance/comment-v5-trusted-setup.manifest.json /work/security/zk/provenance/comment-v5-trusted-setup.manifest.json
 COPY config/zk/anonymous-comment-v5-verifying-key.manifest.json /work/config/zk/anonymous-comment-v5-verifying-key.manifest.json
 COPY tools/security/comment-privacy-build-contract.mjs /work/tools/security/comment-privacy-build-contract.mjs
-COPY src/frontend/ /work/src/frontend/
+COPY src/frontend/wasm/ /work/src/frontend/wasm/
 ENV FSUSBLOG_FRONTEND_WASM_ROOT=/work/src/frontend/public/wasm
 ENV FSUSBLOG_REPOSITORY_ROOT=/work
 ENV FSUSBLOG_ZK_PRODUCTION_ENABLED=${FSUSBLOG_ZK_PRODUCTION_ENABLED}
+ENV FSUSBLOG_WASM_IMAGE_CODEC_ENABLE=${FSUSBLOG_WASM_IMAGE_CODEC_ENABLE}
 
 RUN --mount=type=cache,id=fsusblog-wasm-dependency-${FSUSBLOG_WASM_CACHE_IDENTITY}-${VCPKG_COMMIT},target=/.tmp/dependency-cache,sharing=locked \
     --mount=type=cache,id=fsusblog-emscripten-${FSUSBLOG_WASM_CACHE_IDENTITY}-${VCPKG_COMMIT},target=/.cache/emscripten,sharing=locked \

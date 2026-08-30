@@ -1,0 +1,130 @@
+{
+    "schema": "fsusblog.wasm-producer-inputs.v1",
+    "producerStage": "wasm-builder",
+    "compileCommand": "bash ./wasm/build.sh",
+    "buildArguments": {
+        "FSUSBLOG_WASM_CACHE_IDENTITY": "e47619f7dafc7f6ab823daf36e1bd97c8f6f38db6333154e46d9110068daaa9e",
+        "FSUSBLOG_WASM_IMAGE_CODEC_ENABLE": "ON",
+        "FSUSBLOG_ZK_PRODUCTION_ENABLED": "0",
+        "VCPKG_COMMIT": "eae1680538b86f962455c27abca2aad0dc304a4d"
+    },
+    "inputs": [
+        {
+            "path": "tools/vcpkg-overlays/",
+            "destination": "/work/tools/vcpkg-overlays/",
+            "kind": "tree",
+            "phase": "dependencies"
+        },
+        {
+            "path": "tools/frontend/install-wasm-codec-deps.sh",
+            "destination": "/work/tools/frontend/install-wasm-codec-deps.sh",
+            "kind": "file",
+            "phase": "dependencies"
+        },
+        {
+            "path": "tools/frontend/ensure-cmake.sh",
+            "destination": "/work/tools/frontend/ensure-cmake.sh",
+            "kind": "file",
+            "phase": "dependencies"
+        },
+        {
+            "path": "ops/docker/wasm-producer-inputs.json",
+            "destination": "/work/ops/docker/wasm-producer-inputs.json",
+            "kind": "file",
+            "phase": "compile"
+        },
+        {
+            "path": "tools/frontend/wasm-producer-inputs.mjs",
+            "destination": "/work/tools/frontend/wasm-producer-inputs.mjs",
+            "kind": "file",
+            "phase": "compile"
+        },
+        {
+            "path": "tools/frontend/ensure-binaryen.sh",
+            "destination": "/work/tools/frontend/ensure-binaryen.sh",
+            "kind": "file",
+            "phase": "compile"
+        },
+        {
+            "path": "tools/frontend/ensure-wasm.mjs",
+            "destination": "/work/tools/frontend/ensure-wasm.mjs",
+            "kind": "file",
+            "phase": "compile"
+        },
+        {
+            "path": "tools/frontend/wasm-build-receipt.mjs",
+            "destination": "/work/tools/frontend/wasm-build-receipt.mjs",
+            "kind": "file",
+            "phase": "compile"
+        },
+        {
+            "path": "tools/frontend/write-comment-privacy-prover-manifest.mjs",
+            "destination": "/work/tools/frontend/write-comment-privacy-prover-manifest.mjs",
+            "kind": "file",
+            "phase": "compile"
+        },
+        {
+            "path": "tools/security/comment-privacy-build-contract.mjs",
+            "destination": "/work/tools/security/comment-privacy-build-contract.mjs",
+            "kind": "file",
+            "phase": "compile"
+        },
+        {
+            "path": "security/zk/contracts/comment-v5-circuit.manifest.json",
+            "destination": "/work/security/zk/contracts/comment-v5-circuit.manifest.json",
+            "kind": "file",
+            "phase": "compile"
+        },
+        {
+            "path": "security/zk/provenance/comment-v5-trusted-setup.manifest.json",
+            "destination": "/work/security/zk/provenance/comment-v5-trusted-setup.manifest.json",
+            "kind": "file",
+            "phase": "compile"
+        },
+        {
+            "path": "config/zk/anonymous-comment-v5-verifying-key.manifest.json",
+            "destination": "/work/config/zk/anonymous-comment-v5-verifying-key.manifest.json",
+            "kind": "file",
+            "phase": "compile"
+        },
+        {
+            "path": "src/frontend/wasm/",
+            "destination": "/work/src/frontend/wasm/",
+            "kind": "tree",
+            "phase": "compile",
+            "excludedTopLevelDirectories": [
+                ".artifacts",
+                ".cmake",
+                ".emscripten-cache",
+                "build",
+                "build-basic",
+                "build-pow-relaxed",
+                "build-pow-threads",
+                "build-simd",
+                "stage"
+            ]
+        }
+    ],
+    "productionZkConditionalInputs": [
+        {
+            "manifest": "security/zk/provenance/comment-v5-trusted-setup.manifest.json",
+            "jsonPointer": "/phase2/transcript_path"
+        },
+        {
+            "manifest": "security/zk/provenance/comment-v5-trusted-setup.manifest.json",
+            "jsonPointer": "/artifacts/r1cs/path"
+        },
+        {
+            "manifest": "security/zk/provenance/comment-v5-trusted-setup.manifest.json",
+            "jsonPointer": "/artifacts/proving_key/path"
+        },
+        {
+            "manifest": "security/zk/provenance/comment-v5-trusted-setup.manifest.json",
+            "jsonPointer": "/artifacts/verifying_key/path"
+        },
+        {
+            "manifest": "security/zk/provenance/comment-v5-trusted-setup.manifest.json",
+            "jsonPointer": "/artifacts/wasm_prover_bundle/path"
+        }
+    ]
+}

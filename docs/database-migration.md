@@ -85,6 +85,18 @@ operators disable affected plugins through the Registry lifecycle without restar
 healthy nodes. Dropping the table is not a rollback path because it destroys package
 and lifecycle evidence.
 
+## Taxonomy Description Expand
+
+`20260829-post-taxonomy-descriptions` additively creates nullable
+`category.description` and `tag.description` columns as `varchar(500)`. Existing
+rows remain `NULL`; no backfill or description index is required. Values are stored
+as plain text, and the migration does not change the existing taxonomy name indexes,
+public count/projection tables, or CategoryList/TagList wire payloads.
+
+The descriptor is an online Expand with compatible-code rollback. An older release
+ignores both columns, so rollback leaves them in place rather than dropping stored
+descriptions.
+
 ## Zero-Downtime Migration Qualification
 
 Release migration qualification is an isolated Test-topology gate around the production

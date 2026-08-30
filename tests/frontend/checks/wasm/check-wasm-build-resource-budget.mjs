@@ -181,9 +181,11 @@ for (const cacheTarget of [
 }
 assert.match(buildWasmArtifactSource, /FSUSBLOG_ZK_PRODUCTION_ENABLED/u,
   'the Wasm artifact producer must forward the explicit production-ZK build gate');
+assert.match(buildWasmArtifactSource, /FSUSBLOG_WASM_IMAGE_CODEC_ENABLE/u,
+  'the Wasm artifact producer must forward the explicit image-codec feature identity');
 assert.ok(
   serverDockerfileSource.indexOf('bash /work/tools/frontend/install-wasm-codec-deps.sh')
-    < serverDockerfileSource.indexOf('COPY src/frontend/ /work/src/frontend/'),
+    < serverDockerfileSource.indexOf('COPY src/frontend/wasm/ /work/src/frontend/wasm/'),
   'codec dependency installation must stay cacheable independently of frontend source changes'
 );
 assert.match(bootstrapSource, /\.tmp\/dependency-cache/u);
