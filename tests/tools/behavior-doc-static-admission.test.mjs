@@ -745,18 +745,29 @@ test('matrix validation binds scheduler identity while plan-only paths never est
     t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
     const matrixFile = path.join(directory, 'matrix.yml');
     const marker = path.join(directory, 'dotnet-invoked');
-    const identityEvidence = path.join(directory, 'identity-evidence.jsonl');
+    const deniedIdentityEvidence = path.join(directory, 'identity-evidence.jsonl');
     const inventoryEvidenceDirectory = path.join(
         root,
         '.tmp/behavior-doc-static-admission-fixtures',
         path.basename(directory)
     );
-    const inventoryEvidence = path.join(inventoryEvidenceDirectory, 'inventory-evidence.json');
+    const identityEvidence = path.join(
+        inventoryEvidenceDirectory,
+        'identity',
+        'identity-evidence.jsonl'
+    );
+    const inventoryEvidence = path.join(
+        inventoryEvidenceDirectory,
+        'inventory',
+        'inventory-evidence.json'
+    );
+    const identityEvidenceRelative = path.relative(root, identityEvidence).replaceAll('\\', '/');
     const inventoryEvidenceRelative = path.relative(root, inventoryEvidence).replaceAll('\\', '/');
     const identityProbe = path.join(directory, 'identity-probe.mjs');
     const inventoryProbe = path.join(directory, 'inventory-probe.mjs');
     t.after(() => fs.rmSync(inventoryEvidenceDirectory, { recursive: true, force: true }));
     fs.writeFileSync(identityProbe, [
+        "import assert from 'node:assert/strict';",
         "import fs from 'node:fs';",
         'const identity = {',
         '    runId: process.env.FSUSBLOG_TEST_RUN_ID,',
@@ -767,6 +778,10 @@ test('matrix validation binds scheduler identity while plan-only paths never est
         '{',
         "    throw new Error('matrix prerequisite identity is incomplete');",
         '}',
+        'assert.throws(',
+        `    () => fs.appendFileSync(${JSON.stringify(deniedIdentityEvidence)}, 'undeclared'),`,
+        "    (error) => ['EACCES', 'EROFS'].includes(error?.code)",
+        ');',
         `fs.appendFileSync(${JSON.stringify(identityEvidence)}, \`\${JSON.stringify(identity)}\\n\`);`,
         "fs.mkdirSync('.tmp/release-evidence', { recursive: true });",
         "fs.writeFileSync('.tmp/release-evidence/test-plan.json',",
@@ -783,7 +798,7 @@ test('matrix validation binds scheduler identity while plan-only paths never est
         '{',
         "    throw new Error('test inventory identity is incomplete');",
         '}',
-        `fs.mkdirSync(${JSON.stringify(inventoryEvidenceDirectory)}, { recursive: true });`,
+        `fs.mkdirSync(${JSON.stringify(path.dirname(inventoryEvidence))}, { recursive: true });`,
         `fs.writeFileSync(${JSON.stringify(inventoryEvidence)}, \`\${JSON.stringify(identity)}\\n\`);`
     ].join('\n'));
     const fakeBin = path.join(directory, 'bin');
@@ -805,6 +820,7 @@ test('matrix validation binds scheduler identity while plan-only paths never est
         '--projection-directory .tmp/physical-execution-projections',
         '--path tools/test/run-deterministic-command.mjs',
         '--output .tmp/release-evidence/test-plan.json',
+        `--output ${JSON.stringify(identityEvidenceRelative)}`,
         '--test-id matrix-validate',
         '--',
         JSON.stringify(process.execPath),
@@ -868,6 +884,7 @@ test('matrix validation binds scheduler identity while plan-only paths never est
         assert.match(identity.commit, /^[a-f0-9]{40}$/u);
         assert.match(identity.worktreeFingerprint, /^(?:sha256:)?[a-f0-9]{64}$/u);
     }
+    assert.equal(fs.existsSync(deniedIdentityEvidence), false);
 
     const plan = spawnSync(process.execPath, [
         'tools/run-test-matrix.mjs',
