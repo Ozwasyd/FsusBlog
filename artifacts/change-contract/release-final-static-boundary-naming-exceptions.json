@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/release-final-static-boundary.mjs"
+            ],
+            "reason": "preserve caller-visible CLI, schema, test ID and shell environment spellings while sealing the finalizer boundary"
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/release-final.sh"
+            ],
+            "reason": "preserve caller-visible release-final environment keys while removing producer and repair capabilities"
+        }
+    ]
+}
