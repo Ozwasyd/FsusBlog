@@ -332,6 +332,132 @@ function validatePostMergeRepairFixture(fixtureRepository) {
     })
 }
 
+function postMergeExternalNamingRepairBody() {
+    return pullRequestBody({
+        type: 'fix',
+        externalNaming: true,
+        externalExceptionManifest: 'artifacts/change-contract/external-naming-repair.json',
+        externalExceptionId: 'none',
+        externalExceptionPaths: 'none',
+        externalExceptionReason: 'none',
+        audience: 'internal',
+        category: 'Internal/Tooling',
+        summary: 'repair omitted external naming evidence'
+    })
+}
+
+function createPostMergeExternalNamingRepairFixture({
+    mutateManifest = null,
+    mutateArtifact = null,
+    laterSourceChange = false,
+    unmerged = false
+} = {}) {
+    const repository = mkdtempSync(join(tmpdir(), 'fsusblog-post-merge-external-naming-repair-'))
+    execFileSync('git', ['init', '-q', '-b', 'master'], { cwd: repository })
+    execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: repository })
+    execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: repository })
+    const sourcePath = 'tools/docs/behavior-doc-static-admission.mjs'
+    const artifactPath = 'artifacts/change-contract/external-naming.json'
+    const repairPath = 'artifacts/change-contract/external-naming-repair.json'
+    const reason = 'preserve caller-visible environment variables while moving receipt publication'
+    writeRepositoryFile(repository, sourcePath, 'const mode = process.env.FSUSBLOG_MODE\n')
+    const originalBase = commitFixture(repository, 'fixture original base')
+
+    execFileSync('git', ['checkout', '-qb', 'feature'], { cwd: repository })
+    writeRepositoryFile(repository, sourcePath, 'const mode = process.env.FSUSBLOG_RUNTIME_MODE\n')
+    const originalHead = commitFixture(repository, 'fixture changed naming surface')
+    execFileSync('git', ['checkout', '-q', 'master'], { cwd: repository })
+    execFileSync('git', [
+        'merge',
+        '--no-ff',
+        '-qm',
+        'Merge pull request #3031 from fixture/naming-source',
+        'feature'
+    ], { cwd: repository })
+    const mergeCommit = execFileSync(
+        'git',
+        ['rev-parse', 'HEAD'],
+        { cwd: repository, encoding: 'utf8' }
+    ).trim()
+    if (laterSourceChange) {
+        writeRepositoryFile(repository, sourcePath, 'const mode = process.env.FSUSBLOG_LATER_MODE\n')
+        commitFixture(repository, 'fixture later source change')
+    }
+    const base = unmerged ? originalHead : execFileSync(
+        'git',
+        ['rev-parse', 'HEAD'],
+        { cwd: repository, encoding: 'utf8' }
+    ).trim()
+    execFileSync('git', ['checkout', '-q', '-b', 'candidate', base], { cwd: repository })
+
+    const artifact = {
+        schema: changeContract.evidenceSchemas.externalNamingExceptions,
+        exceptions: [
+            {
+                id: 'environment-variable',
+                paths: [sourcePath],
+                reason
+            }
+        ]
+    }
+    if (mutateArtifact) mutateArtifact(artifact)
+    writeRepositoryFile(repository, artifactPath, `${JSON.stringify(artifact, null, 4)}\n`)
+    const sourceDigest = fileSha256(repository, sourcePath)
+    const manifest = {
+        schema: changeContract.evidenceSchemas.postMergeExternalNamingEvidenceRepair,
+        repository: changeContract.repository,
+        originalPullRequest: 3031,
+        originalBase,
+        originalHead,
+        mergeCommit,
+        source: {
+            path: sourcePath,
+            candidateSha256: createHash('sha256')
+                .update(execFileSync('git', ['show', `${originalHead}:${sourcePath}`], { cwd: repository }))
+                .digest('hex'),
+            currentSha256: sourceDigest
+        },
+        namingSurface: {
+            id: 'environment-variable',
+            reason
+        },
+        missingArtifact: {
+            path: artifactPath,
+            sha256: fileSha256(repository, artifactPath)
+        }
+    }
+    if (mutateManifest) mutateManifest(manifest, {
+        repository,
+        originalBase,
+        originalHead,
+        mergeCommit,
+        sourcePath,
+        artifactPath,
+        repairPath
+    })
+    writeRepositoryFile(repository, repairPath, `${JSON.stringify(manifest, null, 4)}\n`)
+    const head = commitFixture(repository, 'fixture post-merge naming repair')
+    return { repository, base, head }
+}
+
+function validatePostMergeExternalNamingRepairFixture(fixtureRepository) {
+    return validatePrContract({
+        title: 'fix(governance): repair omitted external naming evidence',
+        body: postMergeExternalNamingRepairBody(),
+        labels: ['release-note:internal'],
+        actor: 'maintainer',
+        changedFiles: changedFilesBetween(
+            fixtureRepository.repository,
+            fixtureRepository.base,
+            fixtureRepository.head
+        ),
+        root: fixtureRepository.repository,
+        base: fixtureRepository.base,
+        head: fixtureRepository.head,
+        authorityRoot: root
+    })
+}
+
 test('registry is the unique ordered type/scope source consumed by commitlint', () => {
     assert.deepEqual(changeContract.commitTypes, [
         'feat', 'fix', 'perf', 'refactor', 'style', 'test', 'docs', 'build', 'ci', 'chore', 'security', 'revert'
@@ -355,6 +481,14 @@ test('registry is the unique ordered type/scope source consumed by commitlint', 
     assert.equal(
         repairSchema.properties.schema.const,
         changeContract.evidenceSchemas.postMergeGeneratedOutputRepair
+    )
+    const namingRepairSchema = JSON.parse(readFileSync(
+        resolve(root, 'config/schemas/post-merge-external-naming-evidence-repair.schema.json'),
+        'utf8'
+    ))
+    assert.equal(
+        namingRepairSchema.properties.schema.const,
+        changeContract.evidenceSchemas.postMergeExternalNamingEvidenceRepair
     )
     assert.deepEqual(changeContract.generatedOutputRepairProducers.map((entry) => entry.id), [
         'testing-docs'
@@ -732,6 +866,103 @@ test('post-merge generated repair rejects changed sources, unchanged outputs, an
     const tampered = createPostMergeRepairFixture({ outputMode: 'tampered' })
     assert.ok(validatePostMergeRepairFixture(tampered).some(
         (error) => error.includes('output bytes are not canonical')
+    ))
+})
+
+test('post-merge external naming repair binds exact history, source identity, surface, and missing artifact', () => {
+    const repair = createPostMergeExternalNamingRepairFixture()
+    assert.deepEqual(validatePostMergeExternalNamingRepairFixture(repair), [])
+})
+
+test('post-merge external naming repair rejects unmerged and wrong repository or history identities', () => {
+    const unmerged = createPostMergeExternalNamingRepairFixture({ unmerged: true })
+    assert.ok(validatePostMergeExternalNamingRepairFixture(unmerged).some(
+        (error) => error.includes('mergeCommit must be an ancestor')
+    ))
+
+    const wrongRepository = createPostMergeExternalNamingRepairFixture({
+        mutateManifest: (manifest) => { manifest.repository = 'Wrong/Repository' }
+    })
+    assert.ok(validatePostMergeExternalNamingRepairFixture(wrongRepository).some(
+        (error) => error.includes('repository must be Ozwasyd/FsusBlog')
+    ))
+
+    for (const [field, mutate, message] of [
+        ['base', (manifest) => { manifest.originalBase = manifest.originalHead }, 'parents must exactly match'],
+        ['head', (manifest) => { manifest.originalHead = manifest.originalBase }, 'parents must exactly match'],
+        ['merge', (manifest) => { manifest.mergeCommit = manifest.originalHead }, 'parents must exactly match']
+    ]) {
+        const wrong = createPostMergeExternalNamingRepairFixture({ mutateManifest: mutate })
+        assert.ok(
+            validatePostMergeExternalNamingRepairFixture(wrong).some((error) => error.includes(message)),
+            field
+        )
+    }
+})
+
+test('post-merge external naming repair rejects stale blobs, source drift, and wrong ownership', () => {
+    const staleCandidate = createPostMergeExternalNamingRepairFixture({
+        mutateManifest: (manifest) => { manifest.source.candidateSha256 = '0'.repeat(64) }
+    })
+    assert.ok(validatePostMergeExternalNamingRepairFixture(staleCandidate).some(
+        (error) => error.includes('source blob identity drifted')
+    ))
+    const staleCurrent = createPostMergeExternalNamingRepairFixture({
+        mutateManifest: (manifest) => { manifest.source.currentSha256 = '1'.repeat(64) }
+    })
+    assert.ok(validatePostMergeExternalNamingRepairFixture(staleCurrent).some(
+        (error) => error.includes('source blob identity drifted')
+    ))
+    const changedSource = createPostMergeExternalNamingRepairFixture({ laterSourceChange: true })
+    const changedSourceErrors = validatePostMergeExternalNamingRepairFixture(changedSource)
+    assert.ok(changedSourceErrors.some((error) => error.includes('source blob identity drifted')))
+    assert.ok(changedSourceErrors.some((error) => error.includes('source revision changed')))
+
+    const wrongPath = createPostMergeExternalNamingRepairFixture({
+        mutateManifest: (manifest) => { manifest.source.path = 'docs/testing.md' }
+    })
+    assert.ok(validatePostMergeExternalNamingRepairFixture(wrongPath).some(
+        (error) => error.includes('outside registered surface')
+    ))
+    const wrongSurface = createPostMergeExternalNamingRepairFixture({
+        mutateManifest: (manifest) => { manifest.namingSurface.id = 'unknown-surface' }
+    })
+    assert.ok(validatePostMergeExternalNamingRepairFixture(wrongSurface).some(
+        (error) => error.includes('surface is not registered')
+    ))
+})
+
+test('post-merge external naming repair rejects malformed, extra, missing, and stale artifact evidence', () => {
+    const extraField = createPostMergeExternalNamingRepairFixture({
+        mutateManifest: (manifest) => { manifest.unexpected = true }
+    })
+    assert.ok(validatePostMergeExternalNamingRepairFixture(extraField).some(
+        (error) => error.includes('unsupported fields')
+    ))
+    const missingField = createPostMergeExternalNamingRepairFixture({
+        mutateManifest: (manifest) => { delete manifest.repository }
+    })
+    assert.ok(validatePostMergeExternalNamingRepairFixture(missingField).some(
+        (error) => error.includes('unsupported fields')
+    ))
+    const staleArtifact = createPostMergeExternalNamingRepairFixture({
+        mutateManifest: (manifest) => { manifest.missingArtifact.sha256 = '2'.repeat(64) }
+    })
+    assert.ok(validatePostMergeExternalNamingRepairFixture(staleArtifact).some(
+        (error) => error.includes('missingArtifact digest is stale')
+    ))
+    const missingArtifact = createPostMergeExternalNamingRepairFixture({
+        mutateManifest: (manifest) => {
+            manifest.missingArtifact.path = 'artifacts/change-contract/not-created.json'
+        }
+    })
+    const missingArtifactErrors = validatePostMergeExternalNamingRepairFixture(missingArtifact)
+    assert.ok(missingArtifactErrors.some((error) => error.includes('must be changed by the candidate')))
+    const extraDeclaration = createPostMergeExternalNamingRepairFixture({
+        mutateArtifact: (artifact) => artifact.exceptions.push(structuredClone(artifact.exceptions[0]))
+    })
+    assert.ok(validatePostMergeExternalNamingRepairFixture(extraDeclaration).some(
+        (error) => error.includes('exactly one exception')
     ))
 })
 

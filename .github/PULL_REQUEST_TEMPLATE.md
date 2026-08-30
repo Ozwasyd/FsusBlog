@@ -54,7 +54,7 @@ For a `Format-only` change, complete every field. The idempotence evidence must 
 
 ## External Naming Exception
 
-For a checked `External naming exception`, point to one changed repository-relative JSON manifest using `fsusblog.external-naming-exceptions.v1`. Each entry binds one registered exception ID to its own changed paths and substantive reason; the union must exactly cover every changed registered naming surface. Use `none` otherwise.
+For a checked `External naming exception`, point to one changed repository-relative JSON manifest using `fsusblog.external-naming-exceptions.v1`. Each entry binds one registered exception ID to its own changed paths and substantive reason; the union must exactly cover every changed registered naming surface. A missing manifest already named by an authoritative merged PR may instead use `fsusblog.post-merge-external-naming-evidence-repair.v1`; that strict repair binds immutable merge history, unchanged source blob/revision identity, the registered surface, and the exact missing artifact without changing the source again. Use `none` otherwise.
 
 - Exceptions manifest:
 
