@@ -1,7 +1,11 @@
 import { FrameType } from '@wasm/protocol/frame'
 import { requestBinaryOnly } from '@/composition/binaryTransport'
 import type { CategoryItem } from '@/contracts/binaryApi'
-import { encodeAedsFrame, encodeNameMutationRequest } from './binaryFrame'
+import {
+  encodeAedsFrame,
+  encodeTaxonomyMetadataMutationRequest,
+  type TaxonomyMetadataMutationRequest
+} from './binaryFrame'
 
 export type { CategoryItem } from '@/contracts/binaryApi'
 
@@ -29,7 +33,7 @@ export const getCategories = (config?: { signal?: AbortSignal }) =>
  * 创建分类
  * 安全性保障：接入 PoW 算力校验，防止针对管理接口的自动化撞库或 CSRF 批量篡改
  */
-export const createCategory = (name: string, config?: RequestInit) =>
+export const createCategory = (request: string | TaxonomyMetadataMutationRequest, config?: RequestInit) =>
   requestBinaryOnly<{ id: number }>({
     binaryRoute: { operationId: 'binary_post_category' },
     frameType: FrameType.MutationId,
@@ -38,7 +42,7 @@ export const createCategory = (name: string, config?: RequestInit) =>
       ...config,
       method: 'POST',
       requiresPow: true,
-      body: encodeAedsFrame(FrameType.CategoryWriteRequest, encodeNameMutationRequest(name))
+      body: encodeAedsFrame(FrameType.CategoryWriteRequest, encodeTaxonomyMetadataMutationRequest(toMetadataRequest(request)))
     }
   })
 
@@ -46,7 +50,7 @@ export const createCategory = (name: string, config?: RequestInit) =>
  * 更新分类
  * 安全性保障：强制要求算力证明，确保操作出自真实的管理员交互
  */
-export const updateCategory = (id: number, name: string, config?: RequestInit) =>
+export const updateCategory = (id: number, request: string | TaxonomyMetadataMutationRequest, config?: RequestInit) =>
   requestBinaryOnly<null>({
     binaryRoute: { operationId: 'binary_put_category_id_int', params: { id } },
     frameType: FrameType.EmptySuccess,
@@ -55,7 +59,7 @@ export const updateCategory = (id: number, name: string, config?: RequestInit) =
       ...config,
       method: 'PUT',
       requiresPow: true,
-      body: encodeAedsFrame(FrameType.CategoryWriteRequest, encodeNameMutationRequest(name))
+      body: encodeAedsFrame(FrameType.CategoryWriteRequest, encodeTaxonomyMetadataMutationRequest(toMetadataRequest(request)))
     }
   })
 
@@ -74,3 +78,7 @@ export const deleteCategory = (id: number, config?: RequestInit) =>
       requiresPow: true
     }
   })
+
+function toMetadataRequest(request: string | TaxonomyMetadataMutationRequest): TaxonomyMetadataMutationRequest {
+  return typeof request === 'string' ? { name: request, description: null } : request
+}
