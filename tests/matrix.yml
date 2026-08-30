@@ -669,6 +669,17 @@ tiers:
               tools/test-matrix/produce-behavior-test-evidence.mjs,
               tools/test-matrix/verify-behavior-test-evidence.mjs,
               tools/test/lanes/behavior-test-evidence.sh,
+              tests/backend/Integration/UserSessionSensitiveEndpointIntegrationTests.cs,
+              tests/backend/Unit/BinaryTransportHotPathContractTests.cs,
+              tests/backend/Unit/CommentMutationOutboxPostgresTests.cs,
+              tests/backend/Unit/ProductionStartupValidatorTests.cs,
+              tests/backend/Unit/UserSessionJwtAuthenticationTests.cs,
+              tests/tools/code-intent.test.mjs,
+              tests/tools/document-lifecycle.test.mjs,
+              tests/tools/release-reliability-receipt.test.mjs,
+              tests/tools/test-asset-audit.test.mjs,
+              tests/tools/test-matrix-topology.test.mjs,
+              tests/tools/zero-downtime-rehearsal.test.mjs,
           ]
       ciJob: behavior-test-evidence
       localOnly: false
