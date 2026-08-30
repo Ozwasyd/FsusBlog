@@ -541,6 +541,26 @@ test('exact-union requirement governance remains a pure JSON and evidence-path c
     assert.doesNotMatch(method, /FsusBlog\.Server|WebApplication|ServiceCollection|BuildServiceProvider|Process\.|Assembly\.|Activator\./u);
 });
 
+test('backend requirement profiles treat generated evidence as matrix-owned output', () =>
+{
+    const source = fs.readFileSync(path.join(root, 'tools/check-backend-test-governance.mjs'), 'utf8');
+    assert.match(
+        source,
+        /for \(const path of profile\.evidencePaths \|\| \[\]\)[\s\S]*?requireEvidencePath\(path\);/u
+    );
+    assert.doesNotMatch(
+        source,
+        /for \(const path of profile\.evidencePaths \|\| \[\]\)[\s\S]{0,120}?requireFile\(path\);/u
+    );
+});
+
+test('Perception evidence finalizer resolves non-ASCII repository paths from file URLs', () =>
+{
+    const source = fs.readFileSync(path.join(root, 'tools/security/check-perception-v2-e2e-evidence.mjs'), 'utf8');
+    assert.match(source, /fileURLToPath\(import\.meta\.url\)/u);
+    assert.doesNotMatch(source, /new URL\(import\.meta\.url\)\.pathname/u);
+});
+
 test('backend bundle delegates shard sizing to the runtime CPU budget without fail-fast controls', () =>
 {
     const source = fs.readFileSync(path.join(root, 'tools/test/bundles/run-bundle.mjs'), 'utf8');

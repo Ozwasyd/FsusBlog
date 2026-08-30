@@ -70,7 +70,7 @@ const productionDotnet = productionBuildLayout
 const testAssembly = productionDotnet
   ? path.relative(root, productionDotnet.testDll).replaceAll(path.sep, '/')
   : 'tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll'
-const productionBaseFilter = 'Category!=Integration&Category!=Performance'
+const productionBaseFilter = 'Category!=Integration&Category!=Performance&Fixture!=LocalRedis'
 const productionFilter = composeBackendPlatformFilter(productionBaseFilter)
 const projectedCategories = [
   'ApiIntegration',
@@ -874,7 +874,10 @@ function projectProductionBaseUnionRecords(records) {
     throw new Error('backend production union projection requires authoritative VSTest records')
   }
   const excludedCategories = new Set(['Integration', 'Performance'])
-  const included = records.filter((record) => !(record.traits?.Category ?? []).some((value) => excludedCategories.has(value)))
+  const included = records.filter((record) => (
+    !(record.traits?.Category ?? []).some((value) => excludedCategories.has(value))
+    && !(record.traits?.Fixture ?? []).includes('LocalRedis')
+  ))
   if (included.length === 0 || included.length === records.length) {
     throw new Error('backend production union trait projection must include tests and exclude Integration/Performance tests')
   }
