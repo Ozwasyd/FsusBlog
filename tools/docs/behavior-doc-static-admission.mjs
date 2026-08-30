@@ -332,6 +332,21 @@ function writeReceipt(file, receipt)
     fs.renameSync(temporary, file);
 }
 
+export function writeFactObservationReceipts(componentsDirectory, observationReceipts)
+{
+    for (const observationReceipt of observationReceipts)
+    {
+        writeReceipt(
+            path.join(
+                componentsDirectory,
+                'fact-observations',
+                `${observationReceipt.extractorId}.json`
+            ),
+            observationReceipt
+        );
+    }
+}
+
 export async function runBehaviorDocStaticAdmission({
     repositoryRoot = root,
     runId = process.env.FSUSBLOG_TEST_RUN_ID || `local-${process.pid}`,
@@ -463,6 +478,11 @@ export async function runBehaviorDocStaticAdmission({
                 contentDigest: result.receipt.contentDigest
             };
         }
+        // Preserve successful current-source observations before downstream
+        // generated-section admission. A drift failure must retain the exact
+        // receipts required by the canonical generator without weakening the
+        // admission result or discovering a different/latest observation.
+        writeFactObservationReceipts(componentsDirectory, observationReceipts);
 
         const generatedGovernance = scanGeneratedFactSectionGovernance(repositoryRoot);
         if (generatedGovernance.length > 0)
@@ -561,17 +581,6 @@ export async function runBehaviorDocStaticAdmission({
         writeReceipt(path.join(componentsDirectory, 'doc-claim-parse.json'), claimReceipt);
         writeReceipt(path.join(componentsDirectory, 'doc-claim-verification.json'), proseReceipt);
         writeReceipt(path.join(componentsDirectory, 'generated-section-check.json'), generatedReceipt);
-        for (const observationReceipt of observationReceipts)
-        {
-            writeReceipt(
-                path.join(
-                    componentsDirectory,
-                    'fact-observations',
-                    `${observationReceipt.extractorId}.json`
-                ),
-                observationReceipt
-            );
-        }
 
         base.status = 'ok';
     }

@@ -2,13 +2,14 @@
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { collectAuditCoverage } from './test-asset-audit/coverage.mjs';
 import { executeAuditLayers, summarizeAuditLayers } from './test-asset-audit/execution.mjs';
 import { buildAuditInventory, compareAuditSnapshots } from './test-asset-audit/inventory.mjs';
 import { detectAuditPreflight } from './test-asset-audit/preflight.mjs';
 
-const root = path.resolve(new URL('../..', import.meta.url).pathname);
+const root = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const profilePath = path.join(root, 'config/testing/test-asset-audit-profile.json');
 const auditRoot = path.resolve(process.env.FSUSBLOG_TEST_ASSET_AUDIT_DIR || path.join(root, '.tmp/test-asset-audit'));
 
