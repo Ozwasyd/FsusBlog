@@ -26,8 +26,15 @@ function registryEntry(overrides = {})
         requiredDigestFields: ['contentDigest', 'producerReceiptDigest'],
         expectedCardinality: 'exact-one',
         allowedRoots: ['artifacts/quality-gate'],
+        publicationMode: 'embedded',
+        producerSource: 'tools/ci/summarize-quality-gate.mjs',
+        producerCallsite: 'tools/ci/summarize-quality-gate.mjs',
+        producerBindingClass: 'cli',
+        producerExecutable: 'node tools/ci/summarize-quality-gate.mjs',
         producerCommand: 'node tools/ci/summarize-quality-gate.mjs',
         outputBindingKey: 'FSUSBLOG_QUALITY_GATE_SUMMARY_PATH',
+        handoffBindingKey: 'FSUSBLOG_QUALITY_GATE_SUMMARY_HANDOFF_PATH',
+        checkpointCommand: 'node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer quality-gate-summary',
         ...overrides
     };
 }
@@ -73,7 +80,16 @@ test('registry rejects fallback modes insufficient identity wildcard roots and a
         [registryEntry({ requiredDigestFields: [] }), /contentDigest/u],
         [registryEntry({ requiredDigestFields: ['contentDigest'] }), /producerReceiptDigest/u],
         [registryEntry({ outputBindingKey: '' }), /outputBindingKey/u],
+        [registryEntry({ handoffBindingKey: '' }), /handoffBindingKey/u],
+        [registryEntry({ publicationMode: 'invalid' }), /unsupported/u],
+        [registryEntry({ producerSource: '' }), /producerSource/u],
+        [registryEntry({ producerCallsite: '' }), /producerCallsite/u],
+        [registryEntry({ producerBindingClass: 'invalid' }), /producerBindingClass/u],
+        [registryEntry({ producerExecutable: '' }), /producerExecutable/u],
         [registryEntry({ producerCommand: '' }), /producerCommand/u],
+        [registryEntry({ checkpointCommand: '' }), /checkpointCommand/u],
+        [registryEntry({ publicationMode: 'hooked', payloadBindingKey: 'FSUSBLOG_PAYLOAD_PATH',
+            receiptSchema: 'payload.v1' }), /current-run reference schema/u],
         [registryEntry({ allowedRoots: ['artifacts/**'] }), /exact repository-relative/u],
         [registryEntry({ ageTtlSeconds: 60 }), /forbidden selection policy/u]
     ];

@@ -1569,10 +1569,40 @@ orphan finding 以及 scan/content digest 漂移都 fail closed。ledger 是迁�
 inventory，不会修改或替代现有 selection code；实际 locator 与 consumer 迁移
 仍由后续依赖工作完成。
 
+Registry 同时为每个 authority 声明唯一 `outputBindingKey`、producer source、
+canonical caller、可执行 `producerCommand` 与 `checkpointCommand`。45 个 CLI、18 个
+library caller 与 2 个 workflow producer identity 都绑定到实际 caller；Node producer
+在原进程中加载 terminal hook，shell producer 由当前 shell 的 `EXIT` trap 完成同一
+绑定。Hook 在 attempt 开始时要求 payload/ref 均不存在；只有本次 producer 写出的
+payload 可在 terminal success 后发布 `fsusblog.current-run-evidence-reference.v1`。
+缺失输出、失败、cancel，以及把旧 attempt/run identity 的 payload 包进新 ref，都
+fail closed。
+
+Publication 的每个 `prepared`、`receipt-prepared`、`finalized` 或 `aborted` state 都是
+content-addressed sealed document；sealed pointer 通过 atomic rename 指向 exact state。
+明确 recovery 会把未产生 receipt 的 session 封为 `aborted`，或在 staged/final bytes
+与 producer 给出的 `inputDigest` 完全一致时完成 `receipt-prepared` session。Terminal
+handoff 同时暴露 exact path、input/receipt-content/producer-receipt digest 和完整
+run/attempt/source/worktree/candidate/build identity。Scheduler 在 run-start 创建本轮
+reference block，resume 只保留同一 attempt 的 refs，并在真实 `recordSettled` success
+路径消费 handoff；legacy、old-attempt、duplicate 或 digest drift 都 fail closed。
+Parent 只保存 child ref descriptor，不复制 payload。所有路径都由 context/binding
+明确给出，不扫描目录。Downloaded artifacts 只能通过
+`fsusblog.current-run-evidence-transport-manifest.v1` 映射回原 run/source/authority/digest；
+archive 打包与解压都核验 entry list、path safety 与 digest，mtime 变化不影响 authority。
+quality-gate、aggregate、flaky、public-preview 与 downloaded release manifest 等非
+release-final consumers 与本地使用同一 locator；缺失、重复 mapping、origin/digest mismatch
+或 local+downloaded 歧义都 fail closed。Consumer receipt 必须同时引用 transport manifest
+与 locator binding digest。Diagnostic browse 不得生成 correctness binding。本地与 CI 使用同一 locator 与
+verifier；CI 只增加 transport 证明，不另建选择规则。age/TTL 不参与 correctness。
+`node tools/test/generate-evidence-location-governance.mjs --check` 已纳入
+validate-matrix / quality 入口，并与 ledger、registry、consumer call sites 双向
+exact。负向矩阵与 mutation fixtures 证明 latest/mtime/first-match/fallback 无法复活。
+
 focused 回归入口：
 
 ```bash
-node --test tests/tools/evidence-location-contract.test.mjs tests/tools/evidence-location-governance.test.mjs
+node --test tests/tools/evidence-location-contract.test.mjs tests/tools/evidence-location-governance.test.mjs tests/tools/current-run-evidence-publication.test.mjs tests/tools/current-run-evidence-scheduler.test.mjs tests/tools/current-run-evidence-transport.test.mjs tests/tools/current-run-evidence-locator-negative-matrix.test.mjs
 ```
 
 ## Node governance canonical suites

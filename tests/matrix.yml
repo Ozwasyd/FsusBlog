@@ -2584,8 +2584,24 @@ tiers:
           - tools/test/evidence-location-contract.mjs
           - tools/test/evidence-location-scanner.mjs
           - tools/test/generate-evidence-location-governance.mjs
+          - tools/test/current-run-evidence-publication.mjs
+          - tools/test/current-run-evidence-checkpoint.mjs
+          - tools/test/run-current-run-evidence-producer.mjs
+          - tools/test/current-run-evidence-producer-hook.mjs
+          - tools/test/current-run-evidence-producer-hook.bash
+          - tools/test/publish-current-run-evidence-reference.mjs
+          - tools/test/publish-release-final-evidence-parent.mjs
+          - tools/test/attach-current-run-evidence-checkpoint.mjs
+          - tools/test/current-run-evidence-transport.mjs
+          - tools/test/run-current-run-evidence-transport.mjs
           - tests/tools/evidence-location-contract.test.mjs
           - tests/tools/evidence-location-governance.test.mjs
+          - tests/tools/current-run-evidence-publication.test.mjs
+          - tests/tools/current-run-evidence-scheduler.test.mjs
+          - tests/tools/current-run-evidence-transport.test.mjs
+          - tests/tools/current-run-evidence-locator-negative-matrix.test.mjs
+          - tools/test/generate-current-run-evidence-location-acceptance.mjs
+          - config/testing/current-run-evidence-location-acceptance.json
           - security/evidence-contracts/release-bundle-storage.json
           - security/matrices/privacy-zk-comment.yml
           - tests/fixtures/evidence/anonymous-eligibility-anonymity-set.json
