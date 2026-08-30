@@ -1,8 +1,8 @@
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
-import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
 
 import commitlintConfig from '../../commitlint.config.mjs'
 import { changeContract } from './change-contract-registry.mjs'
@@ -846,6 +846,7 @@ export function parsePrBody(body) {
         generatedOutputs: fieldValue(generated, 'Generated outputs', errors),
         generatedDigest: fieldValue(generated, 'Digest/evidence', errors),
         automationIdentity: fieldValue(generated, 'Automation identity', errors),
+        externalExceptionManifest: fieldValue(externalNaming, 'Exceptions manifest', errors),
         externalExceptionId: fieldValue(externalNaming, 'Exception ID', errors),
         externalExceptionPaths: fieldValue(externalNaming, 'Affected paths', errors),
         externalExceptionReason: fieldValue(externalNaming, 'Reason', errors),
@@ -915,7 +916,7 @@ function globMatches(path, glob) {
     return new RegExp(`${pattern}$`, 'u').test(path)
 }
 
-function validateExternalNaming(parsedBody, changedFiles, authorityRoot, errors) {
+function validateExternalNaming(parsedBody, { root, head, changedFiles, authorityRoot }, errors) {
     if (!authorityRoot) {
         if (parsedBody.classifications['External naming exception']) {
             errors.push('External naming exception requires trusted repository context')
@@ -941,6 +942,91 @@ function validateExternalNaming(parsedBody, changedFiles, authorityRoot, errors)
     if (!declared) {
         if (governedChanges.length > 0) {
             errors.push(`changes to registered external naming surfaces require External naming exception classification: ${governedChanges.join(', ')}`)
+        }
+        return
+    }
+
+    const manifestPath = parsedBody.externalExceptionManifest
+    const usesManifest = substantiveField(manifestPath) && manifestPath !== 'none'
+    if (usesManifest) {
+        for (const [field, value] of [
+            ['Exception ID', parsedBody.externalExceptionId],
+            ['Affected paths', parsedBody.externalExceptionPaths],
+            ['Reason', parsedBody.externalExceptionReason]
+        ]) {
+            if (value !== null && value !== 'none') {
+                errors.push(`External naming ${field} cannot be combined with Exceptions manifest`)
+            }
+        }
+        const manifest = loadEvidence({
+            root,
+            head,
+            path: manifestPath,
+            changedFiles,
+            schema: changeContract.evidenceSchemas.externalNamingExceptions,
+            label: 'External naming Exceptions manifest',
+            errors
+        })
+        if (!manifest) return
+        if (!sameStrings(Object.keys(manifest), ['schema', 'exceptions'])) {
+            errors.push('External naming Exceptions manifest contains unsupported fields')
+        }
+        const declarations = Array.isArray(manifest.exceptions) ? manifest.exceptions : []
+        if (declarations.length === 0) {
+            errors.push('External naming Exceptions manifest requires at least one exception')
+            return
+        }
+        const declaredIds = []
+        const declaredPaths = []
+        for (const declaration of declarations) {
+            if (!declaration || typeof declaration !== 'object' || Array.isArray(declaration)) {
+                errors.push('External naming manifest exceptions must be objects')
+                continue
+            }
+            if (!sameStrings(Object.keys(declaration), ['id', 'paths', 'reason'])) {
+                errors.push('External naming manifest exception contains unsupported fields')
+            }
+            const id = declaration?.id
+            const entry = exceptions.find((candidate) => candidate.id === id)
+            if (typeof id !== 'string' || id.trim().length === 0) {
+                errors.push('External naming manifest exception requires an ID')
+            } else if (!entry) {
+                errors.push(`External naming Exception ID is not registered: ${id}`)
+            }
+            if (declaredIds.includes(id)) errors.push(`External naming Exception ID is declared more than once: ${id}`)
+            declaredIds.push(id)
+
+            const paths = Array.isArray(declaration?.paths) ? declaration.paths : []
+            if (
+                paths.length === 0
+                || !paths.every((path) => typeof path === 'string' && repositoryPathPattern.test(path))
+            ) {
+                errors.push(`External naming exception ${id ?? 'missing'} requires repository-relative paths`)
+            }
+            if (new Set(paths).size !== paths.length) {
+                errors.push(`External naming exception ${id ?? 'missing'} paths must be unique`)
+            }
+            if (
+                typeof declaration?.reason !== 'string'
+                || !substantiveField(declaration.reason)
+                || declaration.reason === 'none'
+                || declaration.reason.trim().length < 12
+            ) {
+                errors.push(`External naming exception ${id ?? 'missing'} requires a substantive Reason`)
+            }
+            for (const path of paths) {
+                if (declaredPaths.includes(path)) {
+                    errors.push(`External naming path is assigned to more than one exception: ${path}`)
+                }
+                declaredPaths.push(path)
+                if (!changedFiles.includes(path)) errors.push(`External naming affected path is not changed in this PR: ${path}`)
+                if (entry && !entry.paths.some((glob) => globMatches(path, glob))) {
+                    errors.push(`External naming path is outside registered exception ${entry.id}: ${path}`)
+                }
+            }
+        }
+        if (!sameStrings(declaredPaths, governedChanges)) {
+            errors.push('External naming manifest paths must exactly match all changed registered naming surfaces')
         }
         return
     }
@@ -1038,7 +1124,7 @@ function validateChangedPaths(parsedTitle, parsedBody, changedFiles, context, er
         }
     }
 
-    validateExternalNaming(parsedBody, changedFiles, context.authorityRoot, errors)
+    validateExternalNaming(parsedBody, context, errors)
 }
 
 function validateTrustedPolicyFiles({ root, head, authorityRoot, changedFiles }, errors) {
@@ -1211,11 +1297,12 @@ export function validatePrContract({
 
     if (!parsedBody.classifications['External naming exception']) {
         for (const [field, value] of [
+            ['External naming Exceptions manifest', parsedBody.externalExceptionManifest],
             ['External naming Exception ID', parsedBody.externalExceptionId],
             ['External naming Affected paths', parsedBody.externalExceptionPaths],
             ['External naming Reason', parsedBody.externalExceptionReason]
         ]) {
-            if (value !== 'none') errors.push(`${field} must be none unless External naming exception is checked`)
+            if (value !== null && value !== 'none') errors.push(`${field} must be none unless External naming exception is checked`)
         }
     }
 
@@ -1668,6 +1755,7 @@ export function validateRepositorySources(root) {
         ...changeContract.trustedPolicyFiles,
         '.git-blame-ignore-revs',
         'config/development/authoritative-development-docs.json',
+        'config/schemas/external-naming-exceptions.schema.json',
         'docs/development/change-contract.md',
         'docs/development/native-tooling-style-enforcement.md',
         'docs/repository-governance.md',
@@ -1731,6 +1819,8 @@ export function validateRepositorySources(root) {
         '- Rollback:',
         '- Deferred work:',
         '- Known limitations:',
+        '- Exceptions manifest:',
+        'fsusblog.external-naming-exceptions.v1',
         'fsusblog.performance-claim-evidence.v1',
         'Category: none',
         'owner-controlled direct push'

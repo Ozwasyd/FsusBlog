@@ -150,6 +150,7 @@ export const changeContract = Object.freeze({
     generatedOutputRepairProducers,
     trustedPolicyFiles,
     evidenceSchemas: Object.freeze({
+        externalNamingExceptions: 'fsusblog.external-naming-exceptions.v1',
         formatIdempotence: 'fsusblog.format-idempotence-evidence.v1',
         generatedOutput: 'fsusblog.generated-output-binding.v1',
         generatedOutputRepair: 'fsusblog.generated-output-repair-binding.v1',

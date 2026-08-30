@@ -122,7 +122,7 @@
             "id": "node-test:tests/tools/local-production-profile.test.mjs#local-production-reserves-the-declared-profile-memory-bu-820abdfce8",
             "path": "tests/tools/local-production-profile.test.mjs",
             "replacementTestIds": [
-                "node-test:tests/tools/local-production-profile.test.mjs#collectlogicaltierids-returns-the-complete-dependency-an-50c12003bd"
+                "node-test:tests/tools/local-production-profile-resources.test.mjs#collectlogicaltierids-returns-the-complete-dependency-an-50c12003bd"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -130,7 +130,7 @@
             "id": "node-test:tests/tools/local-production-profile.test.mjs#physical-bundle-dag-preserves-dependencies-resources-and-8df2bdcbe3",
             "path": "tests/tools/local-production-profile.test.mjs",
             "replacementTestIds": [
-                "node-test:tests/tools/local-production-profile.test.mjs#physical-bundle-dag-preserves-dependencies-and-derives-d-73eaaf4040"
+                "node-test:tests/tools/local-production-profile-evidence.test.mjs#physical-bundle-dag-preserves-dependencies-and-derives-d-73eaaf4040"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -138,7 +138,7 @@
             "id": "node-test:tests/tools/local-production-profile.test.mjs#post-build-production-evidence-stays-out-of-the-build-bu-b391bbb22a",
             "path": "tests/tools/local-production-profile.test.mjs",
             "replacementTestIds": [
-                "node-test:tests/tools/local-production-profile.test.mjs#production-evidence-is-assigned-to-the-earliest-safe-phy-f9723052f7"
+                "node-test:tests/tools/local-production-profile-bundles.test.mjs#production-evidence-is-assigned-to-the-earliest-safe-phy-f9723052f7"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -172,7 +172,7 @@
             "path": "tests/tools/production-dag-closure.test.mjs",
             "replacementTestIds": [
                 "node-script:tools/check-test-matrix.mjs",
-                "node-test:tests/tools/local-production-profile.test.mjs#physical-bundle-dag-preserves-dependencies-and-derives-d-73eaaf4040"
+                "node-test:tests/tools/local-production-profile-evidence.test.mjs#physical-bundle-dag-preserves-dependencies-and-derives-d-73eaaf4040"
             ],
             "reason": "Structured matrix validation and the physical production DAG behavior test own closure and dependency semantics without a second manual-only traversal."
         },
@@ -7068,7 +7068,7 @@
             "id": "xunit:tests/backend/Unit/AuthoringWorkflowServiceTests.cs#AuthoringWorkflowServiceTests.RebuildAssetLibraryAsync_SourceUsesTransactionAndLocks",
             "path": "tests/backend/Unit/AuthoringWorkflowServiceTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/AuthoringWorkflowServiceTests.cs#AuthoringWorkflowServiceTests.RebuildAssetLibraryAsync_RuntimeUsesTransactionAndLocks"
+                "xunit:tests/backend/Unit/AuthoringWorkflowServiceTests.cs#AuthoringWorkflowServiceTests.AssetLibraryRuntime_HasNoSecondRebuildOwner"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -7076,7 +7076,7 @@
             "id": "xunit:tests/backend/Unit/AuthoringWorkflowServiceTests.cs#AuthoringWorkflowServiceTests.ReindexAssetsAsync_SourceUsesArticleScopedAssetPath",
             "path": "tests/backend/Unit/AuthoringWorkflowServiceTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/AuthoringWorkflowServiceTests.cs#AuthoringWorkflowServiceTests.ReindexAssetsAsync_RuntimeUsesArticleScopedAssetPath"
+                "xunit:tests/backend/Unit/AuthoringWorkflowServiceTests.cs#AuthoringWorkflowServiceTests.ReindexAssetsAsync_RuntimeUsesCanonicalLedgerProjection"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -8398,7 +8398,7 @@
             "id": "xunit:tests/backend/Unit/FileServiceTests.cs#CapturingLogger.IsAllowedExtension_ReturnsExpected",
             "path": "tests/backend/Unit/FileServiceTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.IsAllowedExtension_ReturnsExpected"
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FileServiceValidationTests.IsAllowedExtension_ReturnsExpected"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -8406,7 +8406,7 @@
             "id": "xunit:tests/backend/Unit/FileServiceTests.cs#CapturingLogger.IsMimeCompatibleWithFormat_ReturnsExpected",
             "path": "tests/backend/Unit/FileServiceTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.IsMimeCompatibleWithFormat_ReturnsExpected"
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FileServiceValidationTests.IsMimeCompatibleWithFormat_ReturnsExpected"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -8414,7 +8414,7 @@
             "id": "xunit:tests/backend/Unit/FileServiceTests.cs#CapturingLogger.IsSupportedImageMime_ReturnsExpected",
             "path": "tests/backend/Unit/FileServiceTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.IsSupportedImageMime_ReturnsExpected"
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FileServiceValidationTests.IsSupportedImageMime_ReturnsExpected"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -8422,7 +8422,7 @@
             "id": "xunit:tests/backend/Unit/FileServiceTests.cs#CapturingLogger.IsValidSha256_ReturnsExpected",
             "path": "tests/backend/Unit/FileServiceTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.IsValidSha256_ReturnsExpected"
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FileServiceValidationTests.IsValidSha256_ReturnsExpected"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -8430,7 +8430,7 @@
             "id": "xunit:tests/backend/Unit/FileServiceTests.cs#CapturingLogger.NormalizeExtension_ReturnsExpected",
             "path": "tests/backend/Unit/FileServiceTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.NormalizeExtension_ReturnsExpected"
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FileServiceValidationTests.NormalizeExtension_ReturnsExpected"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -8438,7 +8438,7 @@
             "id": "xunit:tests/backend/Unit/FileServiceTests.cs#CapturingLogger.NormalizeHash_ReturnsExpected",
             "path": "tests/backend/Unit/FileServiceTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.NormalizeHash_ReturnsExpected"
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FileServiceValidationTests.NormalizeHash_ReturnsExpected"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -8521,8 +8521,8 @@
             "replacementTestIds": [
                 "xunit:tests/backend/Unit/SecurityHardening/UploadBoundaryTests.cs#UploadBoundaryTests.FileService_RejectsAvifAndTraversalAtServiceBoundary",
                 "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.InitUploadAsync_InvalidRequest_ReturnsExpectedFailure",
-                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.IsAllowedExtension_ReturnsExpected",
-                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.IsSupportedImageMime_ReturnsExpected"
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FileServiceValidationTests.IsAllowedExtension_ReturnsExpected",
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FileServiceValidationTests.IsSupportedImageMime_ReturnsExpected"
             ],
             "reason": "Actual upload initialization and extension/MIME classifiers reject AVIF without inspecting static-file provider source."
         },
@@ -8707,11 +8707,10 @@
             "id": "xunit:tests/backend/Unit/InformationDisclosureHardeningContractTests.cs#InformationDisclosureHardeningContractTests.InfrastructureLogs_RedactFailureContext",
             "path": "tests/backend/Unit/InformationDisclosureHardeningContractTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.StructuredSecurityLogField_IsSanitizedBeforeLoggerReceivesIt",
                 "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.StartupValidationReport_ContainsRequirementStateButNotConfiguredSecretValues",
                 "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
             ],
-            "reason": "Captured structured state and serialized startup evidence cover observable disclosure; the scoped analyzer owns sensitive template regressions."
+            "reason": "Serialized startup evidence covers observable disclosure while the scoped analyzer owns sensitive template regressions."
         },
         {
             "id": "xunit:tests/backend/Unit/InformationDisclosureHardeningContractTests.cs#InformationDisclosureHardeningContractTests.LocalFixtureHealthAndStartup_DoNotExposeDetailedErrors",
@@ -8806,10 +8805,9 @@
             "id": "xunit:tests/backend/Unit/InjectionHardeningContractTests.cs#InjectionHardeningContractTests.UserControlledLogFields_AreSanitizedBeforeStructuredLogging",
             "path": "tests/backend/Unit/InjectionHardeningContractTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.StructuredSecurityLogField_IsSanitizedBeforeLoggerReceivesIt",
                 "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
             ],
-            "reason": "The logger sink observes escaped control characters, while the Roslyn rule rejects raw sensitive structured placeholders."
+            "reason": "The scoped analyzer rejects raw sensitive structured placeholders without relying on the retired logger sink fixture."
         },
         {
             "id": "xunit:tests/backend/Unit/InputValidationDosHardeningContractTests.cs#InputValidationDosHardeningContractTests.ContentFilterAndAuthoring_BoundTextBeforeLargeAllocations",
@@ -11769,7 +11767,7 @@
             "id": "xunit:tests/backend/Unit/NotificationStreamConnectionManagerTests.cs#SharedNotificationStreamFrameExtendedTests.Retain_ThenRelease_DoesNotReturnToPool",
             "path": "tests/backend/Unit/NotificationStreamConnectionManagerTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/NotificationStreamConnectionManagerTests.cs#SharedNotificationStreamFrameExtendedTests.FromOwnedBuffer_RetainDefersPoolReturnUntilFinalRelease"
+                "xunit:tests/backend/Unit/NotificationStreamFrameContractTests.cs#SharedNotificationStreamFrameExtendedTests.FromOwnedBuffer_RetainDefersPoolReturnUntilFinalRelease"
             ],
             "reason": "The zero-oracle FromArray test is replaced by a tracking-pool owner that proves the first release preserves the payload, the final release returns the same buffer exactly once with clearArray=true, and over-release cannot return it twice."
         },

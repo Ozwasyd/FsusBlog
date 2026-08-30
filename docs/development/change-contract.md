@@ -108,7 +108,7 @@ parser 按 Markdown section 读取字段：heading 必须唯一且位于真实�
 
 - `Behavior change`、`Format-only`、`Naming-only` 互斥；后两者必须使用 `style` title。
 - `Generated output`、`Public contract change`、`External naming exception` 是补充分类。
-- `External naming exception` 必须填写 #1157 registry 中的 exact exception ID、受影响 repository-relative paths 和不可采用内部命名的具体原因；checker 将 ID、path scope 与 changed files 绑定。
+- `External naming exception` 必须填写一个本 PR 已修改的 repository-relative JSON manifest，schema 为 `fsusblog.external-naming-exceptions.v1`。每个 entry 独立填写 #1157 registry 中的 exact exception ID、受影响 paths 和不可采用内部命名的具体原因；checker 逐项绑定 ID/path scope，并要求所有 entry 的 path union 精确等于 changed files 中全部已登记命名 surface。重复 ID、跨 entry 重复 path、未变更 path、越界 path 和未覆盖 surface 均 fail closed；不得用一个宽泛 ID 覆盖无关路径。
 - generated diff 默认使用 `atomic` 模式：generator source 与 output 同 PR，并列出 source、outputs 和 changed JSON binding manifest。
 - generated binding manifest 使用 `fsusblog.generated-output-binding.v1`，至少包含 generator source paths、每个 output 的 repository-relative path 与由 head blob 重新计算的 SHA-256；manifest 自身必须是本 PR changed path，但作为关系证据不递归绑定自身，任意 64 位占位值或未解析 evidence 文件不能通过。
 - `post-merge-repair` 只修复已合并 source 变更遗漏的 generated output；`fsusblog.generated-output-repair-binding.v1` 必须显式绑定 source revision、对应 PR 及 merge revision、当前 source/generator blob digest、registry 内的 canonical generator identity/command，以及 output 的 base/expected/current digest。trusted checker 验证 source/merge 是当前 PR base 的 ancestor、source commit 直接产生且 PR 确实遗漏该 drift，并在隔离 worktree 中对 source parent、source revision 和 candidate head 重跑 canonical producer。repair PR 不得改 source，必须改全部且仅改 registry 声明的 outputs；`latest`、mtime、任意历史 source、unchanged output、多余 output 或手改结果都 fail closed。
@@ -118,6 +118,30 @@ parser 按 Markdown section 读取字段：heading 必须唯一且位于真实�
 - tracking issue 可以和 child issue 同时关联，但 `Closes` 只写本次实际完成的 child。
 
 PR description 不能用“顺便”扩张 scope。模板复选框是机器输入，不替代测试结果与 reviewer 判断。
+
+External naming manifest 例如：
+
+```json
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "c-abi-wasm-export",
+            "paths": [
+                "src/frontend/wasm/aeds/src/exports.cpp"
+            ],
+            "reason": "preserve the caller-visible C ABI spelling"
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/example.sh"
+            ],
+            "reason": "preserve the caller-visible process environment key"
+        }
+    ]
+}
+```
 
 S/M/R/C 只允许 `perf` PR title，并且一个 PR 必须只有一个绑定的 perf commit。`Evidence path` 是本 PR changed path 中的 `fsusblog.performance-claim-evidence.v1` JSON manifest，至少包含：
 
