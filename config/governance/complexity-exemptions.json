@@ -71,7 +71,7 @@
             "reason": "Temporary session temporal role coverage bridge while cookie expiry cases are split by standard and persistent lifetime policy",
             "expires": "2026-09-27",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2530",
-            "sourceFingerprint": "sha256:7d229db50b46d1e9607f902bd4aedf6faa910b378c4b5d0f5698ee745871f3b2"
+            "sourceFingerprint": "sha256:e260506453367917cc4f41b65058e6af5cd8cf3827e1da37237bee27474cdfa8"
         },
         {
             "file": "tests/backend/Unit/AuthFixtureCompositionRootTests.cs",
@@ -119,7 +119,7 @@
             "reason": "Temporary DAG allocation coverage bridge while producer receipt and consumer identity wave tests are split into focused modules",
             "expires": "2026-09-27",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2150",
-            "sourceFingerprint": "sha256:8a1113dea99bac73a6d51023da1268bf5f87e0e65b4453c359324a21607e5435"
+            "sourceFingerprint": "sha256:d62e82b75b6334cd5d77ca33f12f737abc6ee7c32a4c7679bb050e26f76a7f0e"
         },
         {
             "file": "tests/tools/security-fixture-profile-e2e.test.mjs",
@@ -168,6 +168,70 @@
             "expires": "2026-09-27",
             "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2530",
             "sourceFingerprint": "sha256:bf0c9544ff8dd0d176aafa493ad651d4497ad11e26696cf3f8960ef5a29b4601"
+        },
+        {
+            "file": "src/migration/Definitions/SecurityAndProjectionMigrationDefinitions.cs",
+            "owner": "SchemaMigrationOwner:migration-definitions",
+            "reason": "Temporary migration-only definition aggregate delivered by #2212 assembly extraction; responsibilities are the relocated legacy descriptors and split is deferred to the offline CLI work (#1761)",
+            "expires": "2026-10-14",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2212",
+            "sourceFingerprint": "sha256:49c8cf6c05e1ac5e6133ad1ea904a3d7a54ac1dea8d975d9bf02ace31fee9147"
+        },
+        {
+            "file": "src/migration/SchemaMigrationDdlPrimitives.cs",
+            "owner": "SchemaMigrationOwner:ddl-primitives",
+            "reason": "Temporary migration-only DDL primitive aggregate delivered by #2212 assembly extraction; provider dialect surface is intentionally consolidated and split is deferred to the offline CLI work (#1761)",
+            "expires": "2026-10-14",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2212",
+            "sourceFingerprint": "sha256:e9c0be62bb53fda9ed201e8d7d85be51ee9535cf1f16982c2426cafad73629aa"
+        },
+        {
+            "file": "tools/ci/summarize-quality-gate.mjs",
+            "owner": "TestEvidenceOwner:quality-gate-summary",
+            "reason": "Temporary quality-gate summary aggregate while transport-manifest consumers delivered by #2018 settle; split along receipt-consumer boundaries is tracked by the evidence-location terminal work",
+            "expires": "2026-10-14",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2018",
+            "sourceFingerprint": "sha256:69c754b00931d32f00349adb038874d6de68ed2cab78c0ff5864b382c135893b"
+        },
+        {
+            "file": "tools/contracts/cross-authority-dag.mjs",
+            "owner": "RepositoryGovernanceOwner:cross-authority-dag",
+            "reason": "Temporary cross-authority DAG contract module whose cycle search grows with the authority graph delivered by #3064; split along authority-kind boundaries is deferred until the DAG registry stabilizes",
+            "expires": "2026-10-14",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/3064",
+            "sourceFingerprint": "sha256:43f777088a37f29f1012852309268c023f019c0c407a1f04138e34c9e174c22f"
+        },
+        {
+            "file": "tools/run-test-matrix.mjs",
+            "owner": "TestMatrixOwner:run-matrix",
+            "reason": "Temporary manifest-registry growth from the evidence-location governance hook delivered by #2019; split is deferred until the matrix lane registration stabilizes",
+            "expires": "2026-10-14",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2019",
+            "sourceFingerprint": "sha256:656cb7f5e5b225610acc53c4f4b40f21c990a5dbbcd37d13c557b7fa54640146"
+        },
+        {
+            "file": "tools/test-matrix/scheduler.mjs",
+            "owner": "TestMatrixOwner:scheduler",
+            "reason": "Temporary scheduler import growth from the evidence-location governance hook delivered by #2019; import boundary split is deferred until the matrix lane registration stabilizes",
+            "expires": "2026-10-14",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2019",
+            "sourceFingerprint": "sha256:a5c643d017f03043767c20fe384179652a2f17cda5495da14d915fa17ce5cd1b"
+        },
+        {
+            "file": "tools/test/current-run-evidence-publication.mjs",
+            "owner": "TestEvidenceOwner:current-run-publication",
+            "reason": "Temporary publication module surface delivered by #2017 explicit evidence refs; split along producer/checkpoint boundaries is tracked by the evidence-location terminal work",
+            "expires": "2026-10-14",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2017",
+            "sourceFingerprint": "sha256:c5669e21e4b6726981d4838e11e0e067e90510cae7532bf51038920eea5acf2a"
+        },
+        {
+            "file": "tools/test/current-run-evidence-transport.mjs",
+            "owner": "TestEvidenceOwner:current-run-transport",
+            "reason": "Temporary transport module surface delivered by #2018 transport manifests; split along pack/extract boundaries is tracked by the evidence-location terminal work",
+            "expires": "2026-10-14",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2018",
+            "sourceFingerprint": "sha256:bbcfc0d55ae156f16b13e5da851a7afe69eeb677aaeba8a4ba2cf29ead088953"
         }
     ]
 }
