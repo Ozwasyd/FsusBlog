@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/docs/behavior-document-consistency-final.mjs"
+            ],
+            "reason": "The scanner must recognize existing process environment spellings while keeping its internal JavaScript identifiers in repository style."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/behavior-document-consistency-final-report.schema.json",
+                "tests/fixtures/governance/change-contract/issue-3060-external-naming-exceptions.json"
+            ],
+            "reason": "The report schema and this review manifest preserve their externally consumed JSON field spellings while implementation symbols remain internal-style names."
+        }
+    ]
+}
