@@ -103,7 +103,9 @@ fs.writeFileSync(process.env.FSUSBLOG_TEST_STUB_CAPTURE, JSON.stringify({
   prepareState: options['prepare-state'],
   skipVerify: options['skip-verify'],
   fixtureReceiptRequested: Object.hasOwn(options, 'fixture-receipt'),
-  outputRequested: Object.hasOwn(options, 'out')
+  outputRequested: Object.hasOwn(options, 'out'),
+  publicContentSecret: process.env.FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET,
+  authSecret: process.env.FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET
 }))
 process.stdout.write(JSON.stringify(prepareState) + '\\n')
 `);
@@ -612,6 +614,7 @@ test('shell dual paths and prepare package scripts are gone', () =>
     const bootstrap = readFileSync(path.join(root, 'tools/bootstrap-acceptance-env.sh'), 'utf8');
     const start = readFileSync(path.join(root, 'tools/dev/start.sh'), 'utf8');
     const suite = readFileSync(path.join(root, 'tools/test/lanes/_suite-support.sh'), 'utf8');
+    const fixtureCli = readFileSync(path.join(root, 'tools/test-fixtures/cli.mjs'), 'utf8');
     const pkg = JSON.parse(readFileSync(path.join(root, 'src/frontend/package.json'), 'utf8'));
     const publicProducer = readFileSync(path.join(root, 'tools/test-fixtures/producers/public-content-producer.mjs'), 'utf8');
 
@@ -633,6 +636,10 @@ test('shell dual paths and prepare package scripts are gone', () =>
     assert.equal(pkg.scripts['prepare:playwright:sessions'], undefined);
     assert.doesNotMatch(publicProducer, /using direct DB seed|seedPublicFixturesViaApi|buildSeededArticleFallback/);
     assert.match(publicProducer, /transaction-fixture/);
+    assert.match(
+        fixtureCli,
+        /FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET[\s\S]*handles\.localPublicContentFixtureSecret/u
+    );
 });
 
 test('acceptance bootstrap non-none boundary writes prepare-state without requesting FixtureReceipt', (context) =>
@@ -654,6 +661,8 @@ export FSUSBLOG_RELEASE_ID=20260826000000-aaaaaaaaaaaa
 export FSUSBLOG_TEST_HUMAN_READ_PROOF_SIGNING_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
 export FSUSBLOG_TEST_HUMAN_READ_PROOF_DEDUP_KEY=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=
 export FSUSBLOG_TEST_READ_ANALYTICS_NOISE_KEY=CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=
+export FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET=public-content-secret
+export FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET=auth-secret
 export FSUSBLOG_NODE="$FSUSBLOG_TEST_STUB_NODE"
 source ./tools/bootstrap-acceptance-env.sh
 FIXTURE_PROFILE_ID=acceptance-representative
@@ -691,7 +700,9 @@ InvokeFixtureOrchestrator
         prepareState,
         skipVerify: true,
         fixtureReceiptRequested: false,
-        outputRequested: false
+        outputRequested: false,
+        publicContentSecret: 'public-content-secret',
+        authSecret: 'auth-secret'
     });
 });
 
@@ -733,7 +744,8 @@ InvokeLaneFixtureOrchestrator
         prepareState,
         skipVerify: true,
         fixtureReceiptRequested: false,
-        outputRequested: false
+        outputRequested: false,
+        publicContentSecret: 'fsusblog-local-public-content-fixture-secret-lane-fixture-boundary-lane-fixture-boundary-run'
     });
 });
 

@@ -202,6 +202,10 @@ function buildExecutionIdentity(options)
 function buildPrivateRuntimeHandles()
 {
     const handles = {};
+    if (process.env.FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET)
+    {
+        handles.localPublicContentFixtureSecret = process.env.FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET;
+    }
     if (process.env.FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET)
     {
         handles.localAuthFixtureSecret = process.env.FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET;

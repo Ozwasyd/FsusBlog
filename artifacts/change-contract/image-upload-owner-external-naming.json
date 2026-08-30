@@ -1,0 +1,24 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "config/testing/random-stream-consumers.json",
+                "tests/backend/Fixtures/backend-test-requirements.json",
+                "tests/governance/frontend-test-layout.json",
+                "tests/test-replacement-transactions/issue-2376.json"
+            ],
+            "reason": "preserve serialized test-governance keys and caller-visible test identifiers while migrating their unique runtime owners"
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md",
+                "tests/coverage-registry.json"
+            ],
+            "reason": "preserve the registered external identifiers in generated testing documentation and coverage ownership records"
+        }
+    ]
+}

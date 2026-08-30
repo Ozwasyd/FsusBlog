@@ -1174,6 +1174,7 @@ tiers:
       requiredFor: fast
       coverage:
           - frontend-unit
+          - frontend-image-upload-runtime
           - frontend-public-shell-sticky-geometry
           - frontend-public-home-editorial
           - frontend-public-content-driven-covers
@@ -1197,6 +1198,7 @@ tiers:
           - .tmp/frontend/timings/frontend-unit-shard.json
           - .tmp/test-results/evidence-producers/frontend-unit-shard
           - .tmp/test-results/release-domain-assertions/frontend-unit-shard
+          - tests/frontend/unit/composables/useImageUploadRuntime.test.ts
           - src/frontend/src/components/public/usePublicStickyGeometry.ts
           - tests/frontend/unit/components/usePublicStickyGeometry.test.ts
           - tests/public-shell-sticky-geometry-evidence.json
@@ -1287,7 +1289,11 @@ tiers:
               src/frontend/vitest.perf.config.ts,
               src/frontend/src,
               tests/frontend/property,
-              tests/frontend/model,
+              tests/frontend/unit/composables/useAuthLogin.test.ts,
+              tests/frontend/unit/composables/useAdminArticleWrite.authoringGates.test.ts,
+              tests/frontend/unit/composables/useAdminSettingsPage.test.ts,
+              tests/frontend/unit/composables/useAccountMessagesInbox.draftIsolation.test.ts,
+              tests/frontend/unit/composables/useImageUploadRuntime.test.ts,
               tests/frontend/benchmarks,
               tools/test/lanes/frontend-property-model-perf.sh,
               tools/test/lanes,
