@@ -39,7 +39,7 @@ export const requiredBackendClasses = [
   'AnonymousCredentialRootLifecycleTests',
   'AnonymousCredentialRevocationArtifactServiceTests',
   'AnonymousCredentialRootEndpointTests',
-  'AnonymousPrivacyConcurrencyTests'
+  'CommentMutationOutboxAnonymousPostgresTests'
 ]
 
 const baselineFrontendFiles = [

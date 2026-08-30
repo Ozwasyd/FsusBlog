@@ -3680,7 +3680,7 @@
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
                 "mode": "delegated-command",
-                "command": "dotnet test ../../tests/backend/FsusBlog.Server.Tests.csproj --filter \"FullyQualifiedName~AnonymousCommentTicketServiceTests|FullyQualifiedName~AnonymousCommentSubmitTests|FullyQualifiedName~ZkAnonymousProofVerifierContractTests|FullyQualifiedName~AnonymousCommentGovernanceContractTests|FullyQualifiedName~AnonymousCommentModerationPipelineTests|FullyQualifiedName~RejectIdentifiedPrincipalFilterTests|FullyQualifiedName~PodBinaryCodecTests|FullyQualifiedName~BackendGoldenCatalogTests|FullyQualifiedName~AnonymousCredentialRootLifecycleTests|FullyQualifiedName~AnonymousCredentialRevocationArtifactServiceTests|FullyQualifiedName~AnonymousCredentialRootEndpointTests|FullyQualifiedName~AnonymousPrivacyConcurrencyTests\"",
+                "command": "dotnet test ../../tests/backend/FsusBlog.Server.Tests.csproj --filter \"FullyQualifiedName~AnonymousCommentTicketServiceTests|FullyQualifiedName~AnonymousCommentTicketRedisConcurrencyTests|FullyQualifiedName~AnonymousCommentSubmitTests|FullyQualifiedName~ZkAnonymousProofVerifierContractTests|FullyQualifiedName~AnonymousCommentGovernanceContractTests|FullyQualifiedName~AnonymousCommentModerationPipelineTests|FullyQualifiedName~RejectIdentifiedPrincipalFilterTests|FullyQualifiedName~PodBinaryCodecTests|FullyQualifiedName~BackendGoldenCatalogTests|FullyQualifiedName~AnonymousCredentialRootLifecycleTests|FullyQualifiedName~AnonymousCredentialRevocationArtifactServiceTests|FullyQualifiedName~AnonymousCredentialRootEndpointTests|FullyQualifiedName~CommentMutationOutboxAnonymousPostgresTests\"",
                 "implementation": "tests/backend/FsusBlog.Server.Tests.cs",
                 "executionKey": "governance:check:privacy-zk-backend-complete",
                 "receiptCompatible": true
@@ -3710,7 +3710,7 @@
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
                 "mode": "delegated-command",
-                "command": "dotnet test ../../tests/backend/FsusBlog.Server.Tests.csproj -c Release --filter \"(FullyQualifiedName~AnonymousCommentTicketServiceTests|FullyQualifiedName~AnonymousCommentSubmitTests|FullyQualifiedName~AnonymousCommentModerationPipelineTests|FullyQualifiedName~RejectIdentifiedPrincipalFilterTests|FullyQualifiedName~PodBinaryCodecTests|FullyQualifiedName~BackendGoldenCatalogTests|FullyQualifiedName~AnonymousCredentialRootLifecycleTests|FullyQualifiedName~AnonymousCredentialRevocationArtifactServiceTests|FullyQualifiedName~AnonymousCredentialRootEndpointTests|FullyQualifiedName~AnonymousPrivacyConcurrencyTests)&Category!=Performance\"",
+                "command": "dotnet test ../../tests/backend/FsusBlog.Server.Tests.csproj -c Release --filter \"(FullyQualifiedName~AnonymousCommentTicketServiceTests|FullyQualifiedName~AnonymousCommentTicketRedisConcurrencyTests|FullyQualifiedName~AnonymousCommentSubmitTests|FullyQualifiedName~AnonymousCommentModerationPipelineTests|FullyQualifiedName~RejectIdentifiedPrincipalFilterTests|FullyQualifiedName~PodBinaryCodecTests|FullyQualifiedName~BackendGoldenCatalogTests|FullyQualifiedName~AnonymousCredentialRootLifecycleTests|FullyQualifiedName~AnonymousCredentialRevocationArtifactServiceTests|FullyQualifiedName~AnonymousCredentialRootEndpointTests|FullyQualifiedName~CommentMutationOutboxAnonymousPostgresTests)&Category!=Performance\"",
                 "implementation": "tests/backend/FsusBlog.Server.Tests.cs",
                 "executionKey": "governance:check:privacy-zk-backend-functional",
                 "receiptCompatible": true
@@ -3740,7 +3740,7 @@
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
                 "mode": "delegated-command",
-                "command": "dotnet test ../../tests/backend/FsusBlog.Server.Tests.csproj --filter FullyQualifiedName~AnonymousPrivacyConcurrencyTests",
+                "command": "dotnet test ../../tests/backend/FsusBlog.Server.Tests.csproj --filter \"(FullyQualifiedName~CommentMutationOutboxAnonymousPostgresTests|FullyQualifiedName~AnonymousCommentTicketRedisConcurrencyTests|FullyQualifiedName~AnonymousCredentialRootLifecycleTests|FullyQualifiedName~NativeGroth16ZkProofBackendTests)&Category!=Performance\"",
                 "implementation": "tests/backend/FsusBlog.Server.Tests.cs",
                 "executionKey": "governance:check:privacy-zk-concurrency",
                 "receiptCompatible": true
