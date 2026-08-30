@@ -5,10 +5,16 @@
             "id": "environment-variable",
             "paths": [
                 "tools/test/execution-envelope-environment.mjs",
-                "tools/test/execution-envelope-network.mjs",
-                "tools/test/run-matrix-governance-once.sh"
+                "tools/test/execution-envelope-network.mjs"
             ],
             "reason": "preserve caller-visible FSUSBLOG environment names while fixing the correctness execution boundary"
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/run-matrix-governance-once.sh"
+            ],
+            "reason": "preserve caller-visible FSUSBLOG environment names in the canonical matrix governance shell producer"
         },
         {
             "id": "github-actions-schema",
@@ -18,7 +24,7 @@
             "reason": "preserve GitHub Actions workflow keys and expressions while aligning uploaded matrix artifacts"
         },
         {
-            "id": "css-like-contract",
+            "id": "search-index-utf8-scalar-owner",
             "paths": [
                 "docs/testing.generated.md"
             ],
