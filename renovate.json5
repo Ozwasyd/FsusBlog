@@ -1,0 +1,35 @@
+{
+    "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+    "automerge": false,
+    "automergeType": "pr",
+    "platformAutomerge": true,
+    "ignoreTests": false,
+    "dependencyDashboardApproval": false,
+    "packageRules": [
+        {
+            "description": "Platform-automerge major, minor, patch, digest and lockfile maintenance after required checks succeed.",
+            "matchUpdateTypes": [
+                "major",
+                "minor",
+                "patch",
+                "digest",
+                "lockFileMaintenance"
+            ],
+            "automerge": true,
+            "automergeType": "pr",
+            "platformAutomerge": true
+        }
+    ],
+    "lockFileMaintenance": {
+        "enabled": true,
+        "automerge": true,
+        "automergeType": "pr",
+        "platformAutomerge": true
+    },
+    "vulnerabilityAlerts": {
+        "enabled": true,
+        "automerge": true,
+        "automergeType": "pr",
+        "platformAutomerge": true
+    }
+}

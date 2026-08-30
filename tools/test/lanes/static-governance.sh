@@ -79,6 +79,12 @@ StaticDependencyRequiredChecks() {
         --fixtures "$ROOT_DIR/tests/fixtures/governance/dependency-required-checks.json"
     Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/dependency-required-checks.test.mjs"
 }
+StaticDependencyAutomerge() {
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-dependency-automerge.mjs" --root "$ROOT_DIR"
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-dependency-automerge.mjs" \
+        --fixtures "$ROOT_DIR/tests/fixtures/governance/dependency-automerge.json"
+    Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/dependency-automerge.test.mjs"
+}
 TEST_ASSET_BEHAVIOR_FILES=(
     "$ROOT_DIR/tests/tools/artifact-digest-table.test.mjs"
     "$ROOT_DIR/tests/tools/async-log-pipeline.test.mjs"
@@ -148,6 +154,7 @@ RunApplicationStaticPrechecksPhase() {
         fixture-mutation-recovery-governance StaticFixtureMutationRecoveryGovernance \
         central-package-management StaticCentralPackageManagement \
         dependency-required-checks StaticDependencyRequiredChecks \
+        dependency-automerge StaticDependencyAutomerge \
         line-endings StaticLineEndings \
         csharp-style StaticCsharpStyle \
         label-governance StaticLabelGovernance

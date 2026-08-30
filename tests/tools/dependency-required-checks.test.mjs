@@ -24,7 +24,7 @@ function successRuns(names)
 }
 
 test('required-checks catalog matches workflows and simulated branch protection', () => {
-    const result = auditRequiredChecks(root);
+    const result = auditRequiredChecks(root, { forbidAutomerge: false });
     assert.deepEqual(result.errors, []);
     assert.equal(result.catalog.schema, 'fsusblog.dependency-required-checks.v1');
     for (const name of result.catalog.branchProtection.contexts)
@@ -93,15 +93,8 @@ test('local branch protection simulation rejects catalog drift', () => {
     assert.ok(errors.some((error) => error.code === 'branch-protection-missing-catalog-check'));
 });
 
-test('required-checks contract does not enable automerge or freshness workflows', () => {
+test('required-checks catalog does not encode automerge or freshness workflows', () => {
     const serialized = JSON.stringify(catalog);
     assert.equal(serialized.includes('automerge'), false);
     assert.equal(fs.existsSync(path.join(root, '.github/workflows/dependency-freshness.yml')), false);
-    const renovatePath = path.join(root, 'renovate.json5');
-    if (fs.existsSync(renovatePath))
-    {
-        const renovate = JSON.parse(fs.readFileSync(renovatePath, 'utf8'));
-        assert.notEqual(renovate.automerge, true);
-        assert.equal((renovate.packageRules ?? []).some((rule) => rule.automerge === true), false);
-    }
 });

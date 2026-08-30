@@ -167,6 +167,8 @@ includes('docs/repository-governance.md', contents.get('docs/repository-governan
 includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'Quality Gate / Production Summary')
 includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'Quality Gate / Fast Backend DAG')
 includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'config/dependencies/required-checks.json')
+includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'platformAutomerge')
+includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'dependency-blocked')
 includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'skipped')
 includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'Dependency Review / Dependency Review')
 includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'CodeQL / Analyze (csharp)')

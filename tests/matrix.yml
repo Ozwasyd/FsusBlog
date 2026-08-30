@@ -2499,6 +2499,11 @@ tiers:
           - tools/governance/check-dependency-required-checks.mjs
           - tests/fixtures/governance/dependency-required-checks.json
           - tests/tools/dependency-required-checks.test.mjs
+          - renovate.json5
+          - tools/governance/dependency-automerge.mjs
+          - tools/governance/check-dependency-automerge.mjs
+          - tests/fixtures/governance/dependency-automerge.json
+          - tests/tools/dependency-automerge.test.mjs
           - .gitattributes
           - tools/style/line-ending-invariant.mjs
           - tests/tools/line-endings.test.mjs

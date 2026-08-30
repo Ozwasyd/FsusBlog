@@ -102,7 +102,7 @@ export function runRequiredChecksFixtures(catalog, fixtures, context)
 
 function parseArguments(argv)
 {
-    const options = { root: defaultRoot, fixtures: null, forbidAutomerge: true };
+    const options = { root: defaultRoot, fixtures: null, forbidAutomerge: false };
     for (let index = 0; index < argv.length; index += 1)
     {
         const argument = argv[index];
@@ -117,6 +117,10 @@ function parseArguments(argv)
         else if (argument === '--allow-automerge')
         {
             options.forbidAutomerge = false;
+        }
+        else if (argument === '--forbid-automerge')
+        {
+            options.forbidAutomerge = true;
         }
         else
         {
@@ -139,7 +143,7 @@ export function auditRequiredChecks(root, options = {})
         root,
         workflowChecks: discoverWorkflowChecks(root),
         branchProtection: catalog.branchProtection,
-        forbidAutomerge: options.forbidAutomerge !== false
+        forbidAutomerge: options.forbidAutomerge === true
     }));
     return { catalog, errors };
 }
@@ -158,7 +162,7 @@ function main()
         const failures = runRequiredChecksFixtures(catalog, fixtures, {
             root: options.root,
             workflowChecks: discoverWorkflowChecks(options.root),
-            forbidAutomerge: options.forbidAutomerge !== false
+            forbidAutomerge: options.forbidAutomerge === true
         });
         if (failures.length > 0)
         {

@@ -3,7 +3,7 @@
     "generatedBy": "tools/governance/check-rule-platform.mjs --write-registry",
     "inventory": {
         "packageScriptCount": 214,
-        "implementationCount": 408
+        "implementationCount": 409
     },
     "rules": [
         {
@@ -13320,6 +13320,35 @@
                 "mode": "delegated-implementation",
                 "implementation": "tools/governance/check-dead-code-audit-index.mjs",
                 "executionKey": "governance:file:tools/governance/check-dead-code-audit-index.mjs",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Implementation.ToolsGovernanceCheckDependencyAutomergeMjs",
+            "externalId": "tools/governance/check-dependency-automerge.mjs",
+            "symbol": "CheckToolsGovernanceCheckDependencyAutomerge",
+            "owner": "RepositoryGovernanceOwner",
+            "category": "repository-governance",
+            "engine": "parser",
+            "sourceScopes": [
+                "tools/governance/check-dependency-automerge.mjs",
+                "config/**",
+                "docs/**",
+                "tools/**",
+                "tests/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/governance/check-dependency-automerge.mjs",
+                "executionKey": "governance:file:tools/governance/check-dependency-automerge.mjs",
                 "receiptCompatible": true
             }
         },

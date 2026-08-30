@@ -23,7 +23,10 @@
                 "tools/governance/dependency-required-checks.mjs",
                 "tools/governance/validate-dependency-required-checks.mjs",
                 "tools/governance/check-dependency-required-checks.mjs",
-                "tests/tools/dependency-required-checks.test.mjs"
+                "tools/governance/dependency-automerge.mjs",
+                "tools/governance/check-dependency-automerge.mjs",
+                "tests/tools/dependency-required-checks.test.mjs",
+                "tests/tools/dependency-automerge.test.mjs"
             ],
             "validationCommand": "node tools/governance/check-dependency-required-checks.mjs --root . --fixtures tests/fixtures/governance/dependency-required-checks.json",
             "changePolicy": "manual-update-with-negative-mutation-and-local-branch-protection-simulation",
@@ -40,6 +43,19 @@
             ],
             "validationCommand": "node tools/governance/check-dependency-required-checks.mjs --root . --fixtures tests/fixtures/governance/dependency-required-checks.json",
             "changePolicy": "manual-update-with-closed-schema-validation",
+            "status": "manual"
+        },
+        {
+            "id": "renovate-platform-automerge",
+            "owner": "dependency-update-governance",
+            "canonicalPath": "renovate.json5",
+            "pathType": "file",
+            "consumers": [
+                "tools/governance/check-dependency-automerge.mjs",
+                "tests/tools/dependency-automerge.test.mjs"
+            ],
+            "validationCommand": "node tools/governance/check-dependency-automerge.mjs --root . --fixtures tests/fixtures/governance/dependency-automerge.json",
+            "changePolicy": "manual-update-with-local-platform-automerge-simulation",
             "status": "manual"
         },
         {

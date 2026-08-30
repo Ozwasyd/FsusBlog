@@ -3481,6 +3481,27 @@
             ]
         },
         {
+            "id": "dependency-platform-automerge",
+            "description": "Governed Renovate PRs platform-automerge only after the required-checks catalog is all-success, the branch is current and mergeable, and draft, conflict, blocking labels, failed checks, stale bases, security bypasses and outdated targets fail closed.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "renovate.json5",
+                "tools/governance/dependency-automerge.mjs",
+                "tools/governance/check-dependency-automerge.mjs",
+                "tests/fixtures/governance/dependency-automerge.json",
+                "tests/tools/dependency-automerge.test.mjs",
+                "config/dependencies/required-checks.json",
+                "docs/repository-governance.md"
+            ],
+            "assertionType": "contract",
+            "failClosedRule": "Reject draft, merge conflict, blocking labels, skipped/neutral/missing/failed required checks, stale default-branch bases, branch automerge or direct push, outdated targets, merge windows, and copied required-check names in Renovate.",
+            "minimumRequirement": "Local simulation fixtures must prove patch/minor, major, digest and lockfile maintenance merge when all-green, and must kill draft, conflict, failed checks, stale bases, security bypass and stale targets without closing or downgrading.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
             "id": "backend-online-schema-migration-protocol",
             "description": "Online schema changes follow classified Expand, resumable Backfill and gated Contract phases while every destructive step carries a source-bound rollback-window proof.",
             "owner": "ServerContractAgent",

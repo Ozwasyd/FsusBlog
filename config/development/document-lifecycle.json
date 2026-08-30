@@ -626,7 +626,8 @@
             "status": "current",
             "owner": "backend",
             "relatedIssues": [
-                1977
+                1977,
+                1978
             ],
             "supersedes": [],
             "supersededBy": null
@@ -1663,7 +1664,8 @@
             "status": "current",
             "owner": "governance",
             "relatedIssues": [
-                1977
+                1977,
+                1978
             ],
             "supersedes": [],
             "supersededBy": null
@@ -1672,7 +1674,9 @@
             "path": "docs/repository-labels.md",
             "status": "current",
             "owner": "governance",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1978
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -1764,7 +1768,8 @@
                 1013,
                 1014,
                 1430,
-                1977
+                1977,
+                1978
             ],
             "supersedes": [],
             "supersededBy": null
