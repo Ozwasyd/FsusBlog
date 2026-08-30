@@ -8,6 +8,8 @@ import process from 'node:process';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { behaviorTest } from '../../tools/contracts/behavior-test.mjs';
+
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const {
     collectRunIdentity,
@@ -816,7 +818,7 @@ function qualifiedReceipt(identity = completeIdentity(), results = scenarioResul
     return { receipt, timeline };
 }
 
-test('aggregate stores only sealed result and original evidence references', () =>
+behaviorTest('release-final-aggregate-contract', 'positive', 'aggregate stores only sealed result and original evidence references', () =>
 {
     const { receipt } = qualifiedReceipt();
     assert.equal(receipt.status, 'candidate', receipt.failure);
@@ -892,7 +894,10 @@ test('identity precondition failures still produce sealed partial timeline and f
     assert.match(receipt.failure, /run identity is incomplete/u);
 });
 
-test('missing, duplicate, extra, cancelled, partial, and cross-run results cannot qualify', () =>
+behaviorTest('release-final-aggregate-contract', 'negative', {
+    title: 'missing, duplicate, extra, cancelled, partial, and cross-run results cannot qualify',
+    invariantIds: ['release-final-shard-completeness']
+}, () =>
 {
     const catalog = fixtureCatalog();
     const identity = completeIdentity();
