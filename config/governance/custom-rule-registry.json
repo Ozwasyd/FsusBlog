@@ -3,7 +3,7 @@
     "generatedBy": "tools/governance/check-rule-platform.mjs --write-registry",
     "inventory": {
         "packageScriptCount": 214,
-        "implementationCount": 623
+        "implementationCount": 415
     },
     "rules": [
         {
@@ -12256,6 +12256,94 @@
             "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
         },
         {
+            "id": "Implementation.ToolsDbCheckMigrationAssemblyBoundaryMjs",
+            "externalId": "tools/db/check-migration-assembly-boundary.mjs",
+            "symbol": "CheckToolsDbCheckMigrationAssemblyBoundary",
+            "owner": "RepositoryGovernanceOwner",
+            "category": "repository-governance",
+            "engine": "parser",
+            "sourceScopes": [
+                "tools/db/check-migration-assembly-boundary.mjs",
+                "config/**",
+                "docs/**",
+                "tools/**",
+                "tests/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/db/check-migration-assembly-boundary.mjs",
+                "executionKey": "governance:file:tools/db/check-migration-assembly-boundary.mjs",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Implementation.ToolsDbCheckMigrationTerminalGovernanceMjs",
+            "externalId": "tools/db/check-migration-terminal-governance.mjs",
+            "symbol": "CheckToolsDbCheckMigrationTerminalGovernance",
+            "owner": "RepositoryGovernanceOwner",
+            "category": "repository-governance",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tools/db/check-migration-terminal-governance.mjs",
+                "config/**",
+                "docs/**",
+                "tools/**",
+                "tests/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/db/check-migration-terminal-governance.mjs",
+                "executionKey": "governance:file:tools/db/check-migration-terminal-governance.mjs",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Implementation.ToolsDbCheckServerMigrationCutoverMjs",
+            "externalId": "tools/db/check-server-migration-cutover.mjs",
+            "symbol": "CheckToolsDbCheckServerMigrationCutover",
+            "owner": "RepositoryGovernanceOwner",
+            "category": "repository-governance",
+            "engine": "text",
+            "sourceScopes": [
+                "tools/db/check-server-migration-cutover.mjs",
+                "config/**",
+                "docs/**",
+                "tools/**",
+                "tests/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/db/check-server-migration-cutover.mjs",
+                "executionKey": "governance:file:tools/db/check-server-migration-cutover.mjs",
+                "receiptCompatible": true
+            },
+            "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
+        },
+        {
             "id": "Implementation.ToolsDeploymentCheckChallengeKindCutoverRolloutContractMjs",
             "externalId": "tools/deployment/check-challenge-kind-cutover-rollout-contract.mjs",
             "symbol": "CheckToolsDeploymentCheckChallengeKindCutoverRolloutContract",
@@ -13353,6 +13441,35 @@
             }
         },
         {
+            "id": "Implementation.ToolsGovernanceCheckDependencyFreshnessMjs",
+            "externalId": "tools/governance/check-dependency-freshness.mjs",
+            "symbol": "CheckToolsGovernanceCheckDependencyFreshness",
+            "owner": "RepositoryGovernanceOwner",
+            "category": "repository-governance",
+            "engine": "parser",
+            "sourceScopes": [
+                "tools/governance/check-dependency-freshness.mjs",
+                "config/**",
+                "docs/**",
+                "tools/**",
+                "tests/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/governance/check-dependency-freshness.mjs",
+                "executionKey": "governance:file:tools/governance/check-dependency-freshness.mjs",
+                "receiptCompatible": true
+            }
+        },
+        {
             "id": "Implementation.ToolsGovernanceCheckDependencyRequiredChecksMjs",
             "externalId": "tools/governance/check-dependency-required-checks.mjs",
             "symbol": "CheckToolsGovernanceCheckDependencyRequiredChecks",
@@ -13378,6 +13495,35 @@
                 "mode": "delegated-implementation",
                 "implementation": "tools/governance/check-dependency-required-checks.mjs",
                 "executionKey": "governance:file:tools/governance/check-dependency-required-checks.mjs",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Implementation.ToolsGovernanceCheckDependencyUpdateSurfaceMjs",
+            "externalId": "tools/governance/check-dependency-update-surface.mjs",
+            "symbol": "CheckToolsGovernanceCheckDependencyUpdateSurface",
+            "owner": "RepositoryGovernanceOwner",
+            "category": "repository-governance",
+            "engine": "parser",
+            "sourceScopes": [
+                "tools/governance/check-dependency-update-surface.mjs",
+                "config/**",
+                "docs/**",
+                "tools/**",
+                "tests/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/governance/check-dependency-update-surface.mjs",
+                "executionKey": "governance:file:tools/governance/check-dependency-update-surface.mjs",
                 "receiptCompatible": true
             }
         },
@@ -13466,6 +13612,35 @@
                 "mode": "delegated-implementation",
                 "implementation": "tools/governance/check-operations-layout.mjs",
                 "executionKey": "governance:file:tools/governance/check-operations-layout.mjs",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Implementation.ToolsGovernanceCheckRenovateControlledSimulationMjs",
+            "externalId": "tools/governance/check-renovate-controlled-simulation.mjs",
+            "symbol": "CheckToolsGovernanceCheckRenovateControlledSimulation",
+            "owner": "RepositoryGovernanceOwner",
+            "category": "repository-governance",
+            "engine": "parser",
+            "sourceScopes": [
+                "tools/governance/check-renovate-controlled-simulation.mjs",
+                "config/**",
+                "docs/**",
+                "tools/**",
+                "tests/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/governance/check-renovate-controlled-simulation.mjs",
+                "executionKey": "governance:file:tools/governance/check-renovate-controlled-simulation.mjs",
                 "receiptCompatible": true
             }
         },
