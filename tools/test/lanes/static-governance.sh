@@ -15,6 +15,8 @@ StaticCurrentSchemaAuthority() {
     Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/migration-assembly-boundary.test.mjs"
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/db/check-server-migration-cutover.mjs"
     Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/server-migration-cutover.test.mjs"
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/db/check-migration-terminal-governance.mjs"
+    Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/migration-terminal-governance.test.mjs"
 }
 StaticPerceptionCharacterV3Cutover() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/contracts/generate-perception-character-v3-release-target.mjs" --check
