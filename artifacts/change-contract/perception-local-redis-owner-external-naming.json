@@ -1,0 +1,36 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/perception-redis-producer.mjs"
+            ],
+            "reason": "preserve caller-visible Redis fixture environment keys while extending the canonical producer and governance"
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/perception-character-v3-redis-fixture.sh"
+            ],
+            "reason": "preserve exported LocalRedis process environment spellings at the canonical shell runner boundary"
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/backend/Fixtures/backend-test-requirements.json"
+            ],
+            "reason": "preserve generated and registry JSON field spellings consumed by test governance tooling"
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md",
+                "tests/coverage-registry.json",
+                "tools/check-backend-test-governance.mjs"
+            ],
+            "reason": "preserve the registered external identifiers in the shared generated testing, coverage and backend governance surfaces"
+        }
+    ]
+}

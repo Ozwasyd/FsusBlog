@@ -53,8 +53,9 @@ fi
 
 trx_dir="$ROOT_DIR/.tmp/test-results/backend"
 trx_file="$trx_dir/perception-character-v3-redis-${run_suffix}.trx"
+redis_lua_case_evidence="$trx_dir/perception-character-v3-redis-lua-cases-${run_suffix}.json"
 mkdir -p "$trx_dir"
-rm -f "$trx_file"
+rm -f "$trx_file" "$redis_lua_case_evidence"
 
 output_receipt="$ROOT_DIR/.tmp/test-results/backend/perception-character-v3-redis-producer.json"
 configuration="${FSUSBLOG_TEST_CONFIGURATION:-Release}"
@@ -62,8 +63,7 @@ test_assembly="$ROOT_DIR/tests/backend/bin/$configuration/net10.0/FsusBlog.Serve
 source_commit="${FSUSBLOG_TEST_SOURCE_COMMIT:-$(git rev-parse HEAD)}"
 source_fingerprint="${FSUSBLOG_TEST_SOURCE_FINGERPRINT:-$(node --input-type=module -e 'import { snapshotGitWorktree } from "./tools/test-matrix/scheduler.mjs"; process.stdout.write((await snapshotGitWorktree(process.argv[1])).fingerprint)' "$ROOT_DIR")}"
 
-test_id="FsusBlog.Server.Tests.Unit.PerceptionCharacterV3Tests.ArtifactPoolBurnSurvivesCancellationProcessInterruptionAndAmbiguousReply"
-filter="Fixture=LocalRedis&FullyQualifiedName=${test_id}"
+filter="$("${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/perception-redis-producer.mjs" --print-filter)"
 
 if docker exec "$container" redis-cli --raw --scan --pattern "${redis_prefix}*" | grep -q .; then
     echo "[perception-redis-fixture] ERROR: Redis prefix is polluted before the test: $redis_prefix" >&2
@@ -79,8 +79,10 @@ redis_lua_calls_before="$(RedisLuaCalls)"
 test_status=0
 
 FSUSBLOG_TEST_REDIS="127.0.0.1:${port},abortConnect=true" \
-FSUSBLOG_TEST_REDIS_PREFIX="$redis_prefix" \
-dotnet test "$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj" \
+    FSUSBLOG_TEST_REDIS_PREFIX="$redis_prefix" \
+    FSUSBLOG_TEST_LOCAL_REDIS_RUN_ID="$run_suffix" \
+    FSUSBLOG_TEST_REDIS_CASE_EVIDENCE="$redis_lua_case_evidence" \
+    dotnet test "$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj" \
     --configuration "$configuration" \
     --no-restore \
     --filter "$filter" \
@@ -106,6 +108,7 @@ producer_status=0
     --source-fingerprint "$source_fingerprint" \
     --redis-lua-calls-before "$redis_lua_calls_before" \
     --redis-lua-calls-after "$redis_lua_calls_after" \
+    --redis-lua-case-evidence "$redis_lua_case_evidence" \
     --cleanup-verified "$cleanup_verified" \
     --output "$output_receipt" || producer_status=$?
 
