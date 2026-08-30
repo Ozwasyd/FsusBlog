@@ -12,7 +12,6 @@
         {
             "id": "json-wire-key",
             "paths": [
-                "config/configuration-ownership.json",
                 "config/schemas/external-naming-exceptions.schema.json"
             ],
             "reason": "preserve serialized JSON schema and ownership keys at their external contract boundary"
