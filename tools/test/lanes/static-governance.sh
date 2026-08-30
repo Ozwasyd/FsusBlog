@@ -64,6 +64,11 @@ StaticCsharpStyle() {
 StaticLineEndings() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/style/line-ending-invariant.mjs"
 }
+StaticCentralPackageManagement() {
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-central-package-management.mjs" --root "$ROOT_DIR"
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-central-package-management.mjs" \
+        --fixtures "$ROOT_DIR/tests/fixtures/governance/central-package-management.json"
+}
 TEST_ASSET_BEHAVIOR_FILES=(
     "$ROOT_DIR/tests/tools/artifact-digest-table.test.mjs"
     "$ROOT_DIR/tests/tools/async-log-pipeline.test.mjs"
@@ -129,6 +134,7 @@ RunApplicationStaticPrechecksPhase() {
         monolithic-distributed-architecture StaticMonolithicDistributedArchitecture \
         behavior-mutation-governance StaticBehaviorMutationGovernance \
         fixture-mutation-recovery-governance StaticFixtureMutationRecoveryGovernance \
+        central-package-management StaticCentralPackageManagement \
         line-endings StaticLineEndings \
         csharp-style StaticCsharpStyle \
         label-governance StaticLabelGovernance

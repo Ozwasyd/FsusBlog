@@ -82,6 +82,10 @@ function fakeMinimalReceipt(runId, source)
             {
                 path: 'Directory.Build.props',
                 digest: 'e'.repeat(64)
+            },
+            {
+                path: 'Directory.Packages.props',
+                digest: 'f'.repeat(64)
             }
         ],
         artifacts: Object.fromEntries(Object.entries(hostDeclarations).map(([artifactId, declaration]) => [
@@ -222,6 +226,7 @@ function copyMinimalBuildFixture(repositoryRoot)
     const copiedPaths = new Set([
         'config/contracts/behavior-fact-extractors.json',
         'Directory.Build.props',
+        'Directory.Packages.props',
         'FsusBlog.slnx',
         'src/backend/FsusBlog.Server.csproj',
         'src/core/FsusBlog.Core.csproj',
