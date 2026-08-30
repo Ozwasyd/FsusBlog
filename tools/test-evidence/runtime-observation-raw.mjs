@@ -14,7 +14,8 @@ import {
 } from '../fact-extractors/post-runtime/adapter.mjs'
 import {
   loadPostRuntimeProducerRegistry,
-  root
+  root,
+  validateProducerReceiptAgainstRegistry
 } from '../test-matrix/post-runtime-producer-registry.mjs'
 import { verifyReceipt as verifyProbeReceipt } from './runtime-observation-probes.mjs'
 
@@ -155,6 +156,8 @@ export function projectProbeRaw({ candidatePlan, probeReceipt, repositoryRoot = 
   const planned = plan.observations.find(({ classId }) => classId === probe.kind)
   if (!planned) fail(`candidate plan does not own ${probe.kind}`)
   const registry = loadPostRuntimeProducerRegistry(repositoryRoot)
+  const producer = registry.producers.find(({ producerId }) => producerId === plan.producerId)
+  if (!producer) fail('candidate plan producer is absent from registry')
   const definition = registry.observationClasses[probe.kind]
   const build = explicitJson(plan.build.receipt, 'production build receipt', repositoryRoot).value
   const sourceState = exactSource(plan, probe, build, definition.schema, repositoryRoot)
@@ -166,6 +169,7 @@ export function projectProbeRaw({ candidatePlan, probeReceipt, repositoryRoot = 
   return seal({
     schema: definition.schema,
     producerId: plan.producerId,
+    toolVersion: producer.toolVersion,
     sourceState,
     executionClass: 'correctness',
     evidenceClass: 'correctness',
@@ -175,6 +179,7 @@ export function projectProbeRaw({ candidatePlan, probeReceipt, repositoryRoot = 
     outcome: 'passed',
     recovered: false,
     modes: planned.requiredModes,
+    terminal: { timeout: false, cancelled: false, processTreeTerminated: false, priorAttemptDigest: null },
     semanticFacts,
     candidatePlanRef: planInput.ref,
     sourceReceiptRef: probeInput.ref,
@@ -187,11 +192,14 @@ export function verifyProjectedRaw(receiptPath, repositoryRoot = root)
 {
   const input = fileReference(receiptPath, repositoryRoot, 'projected raw receipt')
   const receipt = input.value
-  if (!probeClasses.has(Object.entries(loadPostRuntimeProducerRegistry(repositoryRoot).observationClasses)
-    .find(([, definition]) => definition.schema === receipt.schema)?.[0]))
+  const registry = loadPostRuntimeProducerRegistry(repositoryRoot)
+  const receiptClass = Object.entries(registry.observationClasses)
+    .find(([, definition]) => definition.schema === receipt.schema)?.[0]
+  if (!probeClasses.has(receiptClass))
   {
     fail('projected receipt schema is not owned by a real runtime probe')
   }
+  validateProducerReceiptAgainstRegistry({ registry, producerId: receipt.producerId, receipt, classId: receiptClass })
   for (const reference of [receipt.candidatePlanRef, receipt.sourceReceiptRef])
   {
     const current = fileReference(reference?.path, repositoryRoot, 'projected dependency')

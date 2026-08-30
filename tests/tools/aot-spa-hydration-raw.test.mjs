@@ -5,7 +5,11 @@ import test from 'node:test'
 
 import { createProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs'
 import { produceClassReceipt, seal } from '../../tools/fact-extractors/post-runtime/adapter.mjs'
-import { projectAotSpaHydrationRaw, verifyAotSpaHydrationRaw } from '../../tools/test-evidence/aot-spa-hydration-raw.mjs'
+import {
+  produceAotSpaHydrationSourceBundle,
+  projectAotSpaHydrationRaw,
+  verifyAotSpaHydrationRaw
+} from '../../tools/test-evidence/aot-spa-hydration-raw.mjs'
 import { loadPostRuntimeProducerRegistry, root } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
 
 const commit = 'a'.repeat(40)
@@ -107,13 +111,15 @@ function fixture(context)
       documentStatus: 200, failedRequests: [], manifestResourcesMatched: true
     }))
   }
-  return { planPath, rawOutput, evidence, build, buildPath }
+  const sourceBundle = produceAotSpaHydrationSourceBundle({ candidatePlan: planPath, evidence, repositoryRoot: root })
+  const sourceBundlePath = write('aot-source-bundle.json', sourceBundle)
+  return { planPath, rawOutput, evidence, sourceBundlePath, build, buildPath }
 }
 
 test('projects and independently reopens the exact current-run evidence set', (context) =>
 {
   const value = fixture(context)
-  const receipt = projectAotSpaHydrationRaw({ candidatePlan: value.planPath, evidence: value.evidence, repositoryRoot: root })
+  const receipt = projectAotSpaHydrationRaw({ candidatePlan: value.planPath, sourceReceipt: value.sourceBundlePath, repositoryRoot: root })
   fs.writeFileSync(path.join(root, value.rawOutput), `${JSON.stringify(receipt)}\n`)
   const verified = verifyAotSpaHydrationRaw(value.rawOutput, root)
   assert.equal(verified.schema, 'fsusblog.observation.aot-spa-hydration.v1')
@@ -136,8 +142,10 @@ test('rejects a server/client route mismatch before qualification', (context) =>
   const evidence = JSON.parse(fs.readFileSync(file, 'utf8'))
   evidence.facts.route = '/archive'
   fs.writeFileSync(file, `${JSON.stringify(evidence)}\n`)
+  const sourceBundle = produceAotSpaHydrationSourceBundle({ candidatePlan: value.planPath, evidence: value.evidence, repositoryRoot: root })
+  fs.writeFileSync(path.join(root, value.sourceBundlePath), `${JSON.stringify(sourceBundle)}\n`)
   assert.throws(() => projectAotSpaHydrationRaw({
-    candidatePlan: value.planPath, evidence: value.evidence, repositoryRoot: root
+    candidatePlan: value.planPath, sourceReceipt: value.sourceBundlePath, repositoryRoot: root
   }), /identities are not coherent/u)
 })
 
@@ -148,15 +156,17 @@ test('rejects cross-candidate evidence identities', (context) =>
   const evidence = JSON.parse(fs.readFileSync(file, 'utf8'))
   evidence.sourceState.runId = 'stale-run'
   fs.writeFileSync(file, `${JSON.stringify(evidence)}\n`)
+  const sourceBundle = produceAotSpaHydrationSourceBundle({ candidatePlan: value.planPath, evidence: value.evidence, repositoryRoot: root })
+  fs.writeFileSync(path.join(root, value.sourceBundlePath), `${JSON.stringify(sourceBundle)}\n`)
   assert.throws(() => projectAotSpaHydrationRaw({
-    candidatePlan: value.planPath, evidence: value.evidence, repositoryRoot: root
+    candidatePlan: value.planPath, sourceReceipt: value.sourceBundlePath, repositoryRoot: root
   }), /locale evidence does not exact-match/u)
 })
 
 test('verifier rejects evidence bytes changed after projection', (context) =>
 {
   const value = fixture(context)
-  const receipt = projectAotSpaHydrationRaw({ candidatePlan: value.planPath, evidence: value.evidence, repositoryRoot: root })
+  const receipt = projectAotSpaHydrationRaw({ candidatePlan: value.planPath, sourceReceipt: value.sourceBundlePath, repositoryRoot: root })
   fs.writeFileSync(path.join(root, value.rawOutput), `${JSON.stringify(receipt)}\n`)
   fs.appendFileSync(path.join(root, value.evidence.network), ' ')
   assert.throws(() => verifyAotSpaHydrationRaw(value.rawOutput, root), /network evidence bytes changed/u)
@@ -165,7 +175,7 @@ test('verifier rejects evidence bytes changed after projection', (context) =>
 test('verifier rejects immutable production manifest drift', (context) =>
 {
   const value = fixture(context)
-  const receipt = projectAotSpaHydrationRaw({ candidatePlan: value.planPath, evidence: value.evidence, repositoryRoot: root })
+  const receipt = projectAotSpaHydrationRaw({ candidatePlan: value.planPath, sourceReceipt: value.sourceBundlePath, repositoryRoot: root })
   fs.writeFileSync(path.join(root, value.rawOutput), `${JSON.stringify(receipt)}\n`)
   const file = path.join(path.dirname(path.join(root, value.buildPath)), 'frontend-dist', '.vite', 'manifest.json')
   fs.chmodSync(file, 0o644)

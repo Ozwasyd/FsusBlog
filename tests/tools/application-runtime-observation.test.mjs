@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
@@ -94,7 +95,8 @@ function fixture(context)
     mutationAggregate: { killed: 1, total: 1 }, residue: [], proseVerification: {},
     status: 'ok', failureReasons: []
   })
-  const claims = produceAcceptedClaims({ terminalReceipt: terminal, repositoryRoot: root })
+  write('terminal.json', terminal)
+  const claims = produceAcceptedClaims({ terminalReceipt: relative('terminal.json'), repositoryRoot: root })
   const pre = seal({
     schema: 'fsusblog.behavior-evidence-pre-runtime-receipt.v1', scope: 'pre-runtime',
     runIdentity: 'run-1', sourceIdentity: { commit, worktreeFingerprint: `sha256:${fingerprint}` },
@@ -128,6 +130,12 @@ function fixture(context)
   write('plan.json', plan)
   const registry = JSON.parse(fs.readFileSync(path.join(root, 'config/testing/post-runtime-producer-registry.json'), 'utf8'))
   const producer = registry.producers[0]
+  const ref = (name) => {
+    const relativePath = relative(name)
+    const bytes = fs.readFileSync(path.join(root, relativePath))
+    const value = JSON.parse(bytes.toString('utf8'))
+    return { path: relativePath, fileDigest: `sha256:${createHash('sha256').update(bytes).digest('hex')}`, contentDigest: value.contentDigest }
+  }
   const classReceipts = {}
   for (const classId of classIds)
   {
@@ -137,10 +145,15 @@ function fixture(context)
       runId: plan.candidate.runId, browserIdentity: plan.candidate.browserId,
       releaseId: plan.candidate.releaseId, rolloutId: plan.candidate.rolloutId,
       artifactDigest: digest('f'), slot: 'standby' }
+    write(`${classId}-source.json`, seal({ schema: `fsusblog.${classId}.source.v1`, classId, status: 'passed' }))
     const result = seal({ schema: registry.observationClasses[classId].schema,
-      producerId: producer.producerId, sourceState: identity, executionClass: 'correctness',
+      producerId: producer.producerId, toolVersion: producer.toolVersion, sourceState: identity, executionClass: 'correctness',
       evidenceClass: 'correctness', qualificationEligible: true, planned: true, executed: true,
-      outcome: 'passed', recovered: false, modes, semanticFacts: semanticFacts(classId) })
+      outcome: 'passed', recovered: false, modes,
+      terminal: { timeout: false, cancelled: false, processTreeTerminated: false, priorAttemptDigest: null },
+      semanticFacts: semanticFacts(classId), candidatePlanRef: ref('plan.json'),
+      sourceReceiptRef: ref(`${classId}-source.json`), canonicalRerunCommand: `run ${classId}`,
+      independentVerifyCommand: `verify ${classId}` })
     write(`${classId}.json`, result)
     classReceipts[classId] = produceClassReceipt({ candidatePlan: relative('plan.json'), classId,
       result: paths[classId], repositoryRoot: root })

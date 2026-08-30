@@ -20,7 +20,8 @@ import {
 } from '../release/test-evidence-receipts.mjs'
 import {
   loadPostRuntimeProducerRegistry,
-  root
+  root,
+  validateProducerReceiptAgainstRegistry
 } from '../test-matrix/post-runtime-producer-registry.mjs'
 
 const classId = 'browser-behavior-contract'
@@ -280,9 +281,13 @@ export function projectBrowserContractRaw({ candidatePlan, browserContractReceip
   const sourceState = exactIdentities(plan, browserInput.value, buildBinding, repositoryRoot)
   const semanticFacts = browserSemanticFacts(browserInput.value, publicPreviewInput.value)
   if (semanticFacts.consoleClean !== true) fail('Browser Contract console/network audit is not clean')
+  const registry = loadPostRuntimeProducerRegistry(repositoryRoot)
+  const producer = registry.producers.find(({ producerId }) => producerId === plan.producerId)
+  if (!producer) fail('candidate plan producer is absent from registry')
   return seal({
     schema: planned.schema,
     producerId: plan.producerId,
+    toolVersion: producer.toolVersion,
     sourceState,
     executionClass: 'correctness',
     evidenceClass: 'correctness',
@@ -292,11 +297,10 @@ export function projectBrowserContractRaw({ candidatePlan, browserContractReceip
     outcome: 'passed',
     recovered: false,
     modes: planned.requiredModes,
+    terminal: { timeout: false, cancelled: false, processTreeTerminated: false, priorAttemptDigest: null },
     semanticFacts,
     candidatePlanRef: planInput.ref,
     sourceReceiptRef: browserInput.ref,
-    buildReceiptRef: buildInput.ref,
-    publicPreviewEvidenceRef: publicPreviewInput.ref,
     canonicalRerunCommand: `node tools/test-evidence/browser-contract-observation-raw.mjs project --candidate-plan ${planInput.ref.path} --browser-contract ${browserInput.ref.path} --out ${planned.receiptPath}`,
     independentVerifyCommand: `node tools/test-evidence/browser-contract-observation-raw.mjs verify --receipt ${planned.receiptPath}`
   })
@@ -308,10 +312,10 @@ export function verifyBrowserContractRaw(receiptPath, repositoryRoot = root)
   const receipt = input.value
   for (const [field, label] of [
     ['candidatePlanRef', 'candidate plan dependency'],
-    ['sourceReceiptRef', 'Browser Contract dependency'],
-    ['buildReceiptRef', 'production build dependency'],
-    ['publicPreviewEvidenceRef', 'public-preview dependency']
+    ['sourceReceiptRef', 'Browser Contract dependency']
   ]) assertReference(receipt[field], repositoryRoot, label)
+  const registry = loadPostRuntimeProducerRegistry(repositoryRoot)
+  validateProducerReceiptAgainstRegistry({ registry, producerId: receipt.producerId, receipt, classId })
   const plan = validateCandidatePlan(explicitJson(receipt.candidatePlanRef.path, 'candidate plan', repositoryRoot).value, { repositoryRoot })
   const planned = plan.observations.find((entry) => entry.classId === classId)
   if (!planned || input.ref.path !== planned.receiptPath) fail('browser raw receipt path does not exact-match candidate plan')

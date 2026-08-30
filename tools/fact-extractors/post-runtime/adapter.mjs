@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
@@ -9,7 +10,9 @@ import { assertPreRuntimeQualified } from '../../test-matrix/behavior-evidence-p
 import {
   loadPostRuntimeProducerRegistry,
   root as defaultRoot,
-  validatePostRuntimeProducerRegistry
+  validateAcceptedClaimsReceiptAgainstRegistry,
+  validatePostRuntimeProducerRegistry,
+  validateProducerReceiptAgainstRegistry
 } from '../../test-matrix/post-runtime-producer-registry.mjs'
 import { validateSemanticFacts } from './semantic-contracts.mjs'
 
@@ -91,9 +94,11 @@ function requiredModes(producer, classId)
 
 export function produceAcceptedClaims({ terminalReceipt, repositoryRoot = defaultRoot })
 {
-  const terminal = explicitJson(terminalReceipt, 'terminal receipt', repositoryRoot).value
+  const terminalInput = explicitJson(terminalReceipt, 'terminal receipt', repositoryRoot)
+  if (terminalInput.relative === null) fail('accepted claims require a persisted terminal receipt path')
+  const terminal = terminalInput.value
   validateGlobalClaimExactnessReceipt(terminal)
-  const { producer } = authority(repositoryRoot)
+  const { registry, producer } = authority(repositoryRoot)
   const ledger = JSON.parse(readFileSync(path.join(repositoryRoot, 'config/contracts/document-claim-migration-ledger.json'), 'utf8'))
   if (normalizedDigest(terminal.source?.migrationLedgerDigest) !== digestValue(ledger))
   {
@@ -123,7 +128,13 @@ export function produceAcceptedClaims({ terminalReceipt, repositoryRoot = defaul
       worktreeFingerprint: prefixedDigest(terminal.source.worktreeFingerprint)
     },
     producerId: producer.producerId,
-    terminalReceiptDigest: prefixedDigest(terminal.contentDigest),
+    toolVersion: registry.receiptSemantics.acceptedClaimsToolVersion,
+    terminalReceiptRef: {
+      path: terminalInput.relative,
+      fileDigest: `sha256:${createHash('sha256').update(readFileSync(path.join(repositoryRoot, terminalInput.relative))).digest('hex')}`,
+      contentDigest: prefixedDigest(terminal.contentDigest),
+      schema: terminal.schema
+    },
     migrationLedgerDigest: prefixedDigest(terminal.source.migrationLedgerDigest),
     claims,
     status: 'accepted'
@@ -132,14 +143,13 @@ export function produceAcceptedClaims({ terminalReceipt, repositoryRoot = defaul
 
 export function validateAcceptedClaims(receipt, { repositoryRoot = defaultRoot } = {})
 {
-  if (receipt?.schema !== acceptedClaimsSchema || receipt.status !== 'accepted') fail('accepted-claims receipt schema/status mismatch')
-  verifySeal(receipt, 'accepted-claims receipt')
-  const { producer } = authority(repositoryRoot)
-  const actual = (receipt.claims ?? []).map(({ claimId }) => claimId).sort()
-  if (JSON.stringify(actual) !== JSON.stringify([...producer.acceptedClaimRefs].sort()))
-  {
-    fail('accepted claim set does not exact-match #2206 registry')
-  }
+  const { registry, producer } = authority(repositoryRoot)
+  validateAcceptedClaimsReceiptAgainstRegistry({
+    registry,
+    producerId: producer.producerId,
+    receipt,
+    repositoryRoot
+  })
   return receipt
 }
 
@@ -250,8 +260,7 @@ export function produceClassReceipt({ candidatePlan, classId, result, repository
   const { registry, producer } = authority(repositoryRoot)
   const definition = registry.observationClasses[classId]
   if (!definition) fail(`unknown observation class ${classId}`)
-  if (input.value.schema !== definition.schema) fail(`${classId} result schema mismatch`)
-  verifySeal(input.value, `${classId} result`)
+  validateProducerReceiptAgainstRegistry({ registry, producerId: producer.producerId, receipt: input.value, classId })
   const planned = plan.observations.find((entry) => entry.classId === classId)
   if (!planned || input.relative !== planned.receiptPath) fail(`${classId} result path does not match candidate plan`)
   const source = input.value.sourceState ?? input.value.sourceIdentity ?? {}
@@ -283,13 +292,6 @@ export function produceClassReceipt({ candidatePlan, classId, result, repository
     {
       fail(`${classId} ${field} does not match candidate plan`)
     }
-  }
-  if (input.value.producerId !== producer.producerId
-    || input.value.executionClass !== 'correctness' || input.value.evidenceClass !== 'correctness'
-    || input.value.qualificationEligible !== true || input.value.planned !== true
-    || input.value.executed !== true || input.value.outcome !== 'passed' || input.value.recovered !== false)
-  {
-    fail(`${classId} result is not a clean qualification execution`)
   }
   const modes = [...(input.value.modes ?? [])].sort()
   if (JSON.stringify(modes) !== JSON.stringify(planned.requiredModes)) fail(`${classId} result modes do not exact-match registry`)

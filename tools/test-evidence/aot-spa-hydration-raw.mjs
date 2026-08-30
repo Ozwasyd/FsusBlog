@@ -16,10 +16,12 @@ import {
 import { validateSemanticFacts } from '../fact-extractors/post-runtime/semantic-contracts.mjs'
 import {
   loadPostRuntimeProducerRegistry,
-  root
+  root,
+  validateProducerReceiptAgainstRegistry
 } from '../test-matrix/post-runtime-producer-registry.mjs'
 
 const classId = 'aot-spa-hydration'
+export const sourceBundleSchema = 'fsusblog.aot-spa-hydration-source-bundle.v1'
 const unsafePathPattern = /(?:^|[/\\])(?:latest|history|historical)(?:[/\\]|$)/iu
 const digestPattern = /^sha256:[a-f0-9]{64}$/u
 const evidenceKeys = Object.freeze([
@@ -260,20 +262,63 @@ function verifyBuild(plan, repositoryRoot)
   return result.receipt
 }
 
-export function projectAotSpaHydrationRaw({ candidatePlan, evidence, repositoryRoot = root })
+export function produceAotSpaHydrationSourceBundle({ candidatePlan, evidence, repositoryRoot = root })
+{
+  const { input: candidate, plan } = planInput(candidatePlan, repositoryRoot)
+  const inputs = loadInputs(evidence, repositoryRoot)
+  return seal({
+    schema: sourceBundleSchema,
+    sourceState: plan.sourceState,
+    candidatePlanRef: candidate.ref,
+    evidenceRefs: Object.fromEntries(evidenceKeys.map((key) => [key, {
+      ...inputs[key].ref,
+      contentDigest: inputs[key].value?.contentDigest ?? null
+    }])),
+    canonicalRerunCommand: `node tools/test-evidence/aot-spa-hydration-raw.mjs bundle --candidate-plan ${candidate.ref.path} ${evidenceKeys.map((key) => `--${key.replace(/[A-Z]/gu, (letter) => `-${letter.toLowerCase()}`)} ${inputs[key].ref.path}`).join(' ')}`
+  })
+}
+
+function loadSourceBundle(sourceReceipt, plan, repositoryRoot)
+{
+  const source = explicitFile(sourceReceipt, 'AOT source bundle', repositoryRoot, { json: true })
+  source.ref.contentDigest = source.value.contentDigest
+  if (source.value.schema !== sourceBundleSchema
+    || seal(Object.fromEntries(Object.entries(source.value).filter(([key]) => key !== 'contentDigest'))).contentDigest !== source.value.contentDigest
+    || source.value.candidatePlanRef?.contentDigest !== plan.contentDigest)
+  {
+    fail('AOT source bundle schema, seal, or candidate binding mismatch')
+  }
+  const evidence = Object.fromEntries(evidenceKeys.map((key) => {
+    const reference = source.value.evidenceRefs?.[key]
+    const current = explicitFile(reference?.path, `${key} evidence`, repositoryRoot, { json: key !== 'serverHtml' })
+    if (current.ref.fileDigest !== reference?.fileDigest
+      || (reference?.contentDigest ?? null) !== (current.value?.contentDigest ?? null))
+    {
+      fail(`${key} evidence bytes changed after source bundling`)
+    }
+    return [key, reference.path]
+  }))
+  return { source, evidence }
+}
+
+export function projectAotSpaHydrationRaw({ candidatePlan, sourceReceipt, repositoryRoot = root })
 {
   const { input: candidate, plan } = planInput(candidatePlan, repositoryRoot)
   const planned = plan.observations.find((entry) => entry.classId === classId)
   if (!planned) fail('candidate plan does not own aot-spa-hydration')
   const registry = loadPostRuntimeProducerRegistry(repositoryRoot)
   const definition = registry.observationClasses[classId]
+  const producer = registry.producers.find(({ producerId }) => producerId === plan.producerId)
+  if (!producer) fail('candidate plan producer is absent from registry')
   const buildReceipt = verifyBuild(plan, repositoryRoot)
-  const inputs = loadInputs(evidence, repositoryRoot)
+  const source = loadSourceBundle(sourceReceipt, plan, repositoryRoot)
+  const inputs = loadInputs(source.evidence, repositoryRoot)
   const semanticFacts = normalizedFacts(inputs, plan, buildReceipt)
   validateSemanticFacts(classId, semanticFacts)
   return seal({
     schema: definition.schema,
     producerId: plan.producerId,
+    toolVersion: producer.toolVersion,
     sourceState: {
       sourceCommit: plan.sourceState.commit,
       worktreeFingerprint: plan.sourceState.worktreeFingerprint,
@@ -294,9 +339,11 @@ export function projectAotSpaHydrationRaw({ candidatePlan, evidence, repositoryR
     outcome: 'passed',
     recovered: false,
     modes: planned.requiredModes,
+    terminal: { timeout: false, cancelled: false, processTreeTerminated: false, priorAttemptDigest: null },
     semanticFacts,
     candidatePlanRef: candidate.ref,
-    evidenceRefs: Object.fromEntries(evidenceKeys.map((key) => [key, inputs[key].ref])),
+    sourceReceiptRef: source.source.ref,
+    canonicalRerunCommand: `node tools/test-evidence/aot-spa-hydration-raw.mjs project --candidate-plan ${candidate.ref.path} --source ${source.source.ref.path} --out ${planned.receiptPath}`,
     independentVerifyCommand: `node tools/test-evidence/aot-spa-hydration-raw.mjs verify --receipt ${planned.receiptPath}`
   })
 }
@@ -311,15 +358,8 @@ export function verifyAotSpaHydrationRaw(receiptPath, repositoryRoot = root)
   {
     fail('raw receipt schema or content digest mismatch')
   }
-  const evidence = Object.fromEntries(evidenceKeys.map((key) => {
-    const reference = receipt.evidenceRefs?.[key]
-    const current = explicitFile(reference?.path, `${key} evidence`, repositoryRoot, { json: key !== 'serverHtml' })
-    if (!digestPattern.test(String(reference?.fileDigest ?? '')) || current.ref.fileDigest !== reference.fileDigest)
-    {
-      fail(`${key} evidence bytes changed after projection`)
-    }
-    return [key, reference.path]
-  }))
+  const registry = loadPostRuntimeProducerRegistry(repositoryRoot)
+  validateProducerReceiptAgainstRegistry({ registry, producerId: receipt.producerId, receipt, classId })
   const candidate = explicitFile(receipt.candidatePlanRef?.path, 'candidate plan', repositoryRoot, { json: true })
   if (candidate.ref.fileDigest !== receipt.candidatePlanRef?.fileDigest
     || candidate.value.contentDigest !== receipt.candidatePlanRef?.contentDigest)
@@ -328,7 +368,7 @@ export function verifyAotSpaHydrationRaw(receiptPath, repositoryRoot = root)
   }
   const replay = projectAotSpaHydrationRaw({
     candidatePlan: receipt.candidatePlanRef.path,
-    evidence,
+    sourceReceipt: receipt.sourceReceiptRef.path,
     repositoryRoot
   })
   if (replay.contentDigest !== receipt.contentDigest) fail('AOT raw receipt replay mismatch')
@@ -338,10 +378,18 @@ export function verifyAotSpaHydrationRaw(receiptPath, repositoryRoot = root)
 function main()
 {
   const parsed = options(process.argv.slice(2))
-  if (parsed.command === 'project')
+  if (parsed.command === 'bundle')
   {
     const evidence = Object.fromEntries(evidenceKeys.map((key) => [key, parsed[key.replace(/[A-Z]/gu, (letter) => `-${letter.toLowerCase()}`)]]))
-    const receipt = projectAotSpaHydrationRaw({ candidatePlan: parsed['candidate-plan'], evidence })
+    const receipt = produceAotSpaHydrationSourceBundle({ candidatePlan: parsed['candidate-plan'], evidence })
+    if (!parsed.out) fail('source bundle requires --out')
+    writeReceipt(parsed.out, receipt, root)
+    process.stdout.write(`[aot-spa-hydration-raw] bundled path=${parsed.out} digest=${receipt.contentDigest}\n`)
+    return
+  }
+  if (parsed.command === 'project')
+  {
+    const receipt = projectAotSpaHydrationRaw({ candidatePlan: parsed['candidate-plan'], sourceReceipt: parsed.source })
     const plan = explicitJson(parsed['candidate-plan'], 'candidate plan', root).value
     const planned = plan.observations.find((entry) => entry.classId === classId)
     if (!parsed.out || parsed.out !== planned?.receiptPath) fail('raw output path must exact-match the candidate plan')
@@ -356,7 +404,7 @@ function main()
     process.stdout.write(`[aot-spa-hydration-raw] verified digest=${receipt.contentDigest}\n`)
     return
   }
-  fail('usage: project --candidate-plan <path> --manifest <json> --publication <json> --locale <json> --data <json> --server-html <html> --hydrated-dom <json> --client <json> --network <json> --out <planned-path> or verify --receipt <path>')
+  fail('usage: bundle --candidate-plan <path> --manifest <json> --publication <json> --locale <json> --data <json> --server-html <html> --hydrated-dom <json> --client <json> --network <json> --out <source-bundle> or project --candidate-plan <path> --source <source-bundle> --out <planned-path> or verify --receipt <path>')
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))

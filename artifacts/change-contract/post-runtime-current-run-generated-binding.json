@@ -6,7 +6,7 @@
   "outputs": [
     {
       "path": "config/testing/correctness-attempt-producers.json",
-      "sha256": "732385e76b48607e179fcb216b77bcace29699cc8b576eda9c6067abd0646364"
+      "sha256": "ee02305225f1cdc0ce48116645b537597ba8c1760940027d650e71b63176658f"
     },
     {
       "path": "config/testing/fixture-profile-matrix.generated.json",
@@ -26,11 +26,11 @@
     },
     {
       "path": "docs/testing.generated.md",
-      "sha256": "ad7fb370e8fb9bd04b103d28bde8fc63e010b753461ccf2eb6186838221e78d3"
+      "sha256": "6934b2426f055a26620e62755b517c3fe03c8aa7cdcd7346d37986a1cfd3902b"
     },
     {
       "path": "docs/testing.md",
-      "sha256": "99ced7ad596ce1f934a139f2984a0054b9ab568bcbeb8aa500c4b63060547d4a"
+      "sha256": "ef4dc038652fb5bd46a64ea60e53a530c89ebce762223b1c7e0b10e38b9e4841"
     }
   ]
 }

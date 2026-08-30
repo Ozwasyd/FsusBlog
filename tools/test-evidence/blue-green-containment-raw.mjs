@@ -15,11 +15,13 @@ import {
 } from '../fact-extractors/post-runtime/adapter.mjs'
 import {
   loadPostRuntimeProducerRegistry,
-  root
+  root,
+  validateProducerReceiptAgainstRegistry
 } from '../test-matrix/post-runtime-producer-registry.mjs'
 import { productionBuildBinding } from '../release/test-evidence-receipts.mjs'
 
 export const sourceReceiptSchema = 'fsusblog.blue-green-containment-source-receipt.v1'
+export const sourceBundleSchema = 'fsusblog.blue-green-containment-source-bundle.v1'
 export const failureReceiptSchema = 'fsusblog.observation.blue-green-containment.failure.v1'
 
 const classId = 'blue-green-containment'
@@ -141,7 +143,9 @@ function planContext(candidatePlan, repositoryRoot)
   if (!planned) fail('candidate plan does not own blue-green-containment')
   const registry = loadPostRuntimeProducerRegistry(repositoryRoot)
   const definition = registry.observationClasses[classId]
+  const producer = registry.producers.find(({ producerId }) => producerId === plan.producerId)
   if (!definition || planned.schema !== definition.schema) fail('candidate plan blue-green schema authority mismatch')
+  if (!producer) fail('candidate plan producer is absent from registry')
   const build = explicitJson(plan.build.receipt, 'production build receipt', repositoryRoot).value
   const buildBinding = productionBuildBinding(build, plan.build.receipt)
   if (buildBinding.receiptContentDigest !== plan.build.receiptContentDigest
@@ -155,7 +159,12 @@ function planContext(candidatePlan, repositoryRoot)
     plan,
     planned,
     definition,
-    candidatePlanRef: input.ref,
+    toolVersion: producer.toolVersion,
+    candidatePlanRef: {
+      path: input.ref.path,
+      fileDigest: input.ref.fileDigest,
+      contentDigest: input.ref.contentDigest
+    },
     toolchainIdentity: semanticDigest(build.toolchain ?? build.producer)
   }
 }
@@ -458,7 +467,7 @@ function crossValidate(byRole, candidateReleaseId)
   return { before, after }
 }
 
-export function produceBlueGreenContainmentRaw({
+export function produceBlueGreenContainmentSourceBundle({
   candidatePlan,
   deploymentId,
   sourceReceipts,
@@ -467,6 +476,49 @@ export function produceBlueGreenContainmentRaw({
 {
   const context = planContext(candidatePlan, repositoryRoot)
   const { expected, byRole } = loadSources(sourceReceipts, context, deploymentId, repositoryRoot)
+  return seal({
+    schema: sourceBundleSchema,
+    sourceState: expected,
+    deploymentId,
+    candidatePlanRef: context.candidatePlanRef,
+    sourceReceiptRefs: roles.map((role) => ({ role, ...byRole.get(role).ref })),
+    canonicalRerunCommand: `node tools/test-evidence/blue-green-containment-raw.mjs bundle --candidate-plan ${candidatePlan} --deployment-id ${deploymentId} ${sourceReceipts.map((receipt) => `--source-receipt ${receipt}`).join(' ')}`
+  })
+}
+
+function loadSourceBundle(sourceReceipt, context, repositoryRoot)
+{
+  const input = safeInput(sourceReceipt, repositoryRoot, 'blue-green source bundle')
+  const bundle = input.value
+  if (bundle.schema !== sourceBundleSchema) fail('blue-green source bundle schema mismatch')
+  verifySeal(bundle, 'blue-green source bundle')
+  if (bundle.candidatePlanRef?.fileDigest !== context.candidatePlanRef.fileDigest
+    || bundle.candidatePlanRef?.contentDigest !== context.candidatePlanRef.contentDigest)
+  {
+    fail('blue-green source bundle candidate binding mismatch')
+  }
+  const sourceReceipts = bundle.sourceReceiptRefs?.map((reference) => {
+    const current = safeInput(reference?.path, repositoryRoot, `${reference?.role ?? 'unknown'} source receipt`)
+    if (current.ref.fileDigest !== reference?.fileDigest
+      || current.ref.contentDigest !== reference?.contentDigest || current.ref.schema !== reference?.schema)
+    {
+      fail(`source receipt reference digest mismatch: ${reference?.path ?? '<missing>'}`)
+    }
+    return reference.path
+  })
+  return { input, bundle, sourceReceipts }
+}
+
+export function produceBlueGreenContainmentRaw({
+  candidatePlan,
+  sourceReceipt,
+  repositoryRoot = root
+})
+{
+  const context = planContext(candidatePlan, repositoryRoot)
+  const source = loadSourceBundle(sourceReceipt, context, repositoryRoot)
+  const deploymentId = source.bundle.deploymentId
+  const { expected, byRole } = loadSources(source.sourceReceipts, context, deploymentId, repositoryRoot)
   const { before, after } = crossValidate(byRole, context.plan.candidate.releaseId)
   const digestFor = (role) => semanticDigest(byRole.get(role).observation)
   const facts = {
@@ -500,6 +552,7 @@ export function produceBlueGreenContainmentRaw({
   return seal({
     schema: context.definition.schema,
     producerId: context.plan.producerId,
+    toolVersion: context.toolVersion,
     sourceState: expected,
     executionClass: 'correctness',
     evidenceClass: 'correctness',
@@ -509,10 +562,15 @@ export function produceBlueGreenContainmentRaw({
     outcome: 'passed',
     recovered: false,
     modes: context.planned.requiredModes,
+    terminal: { timeout: false, cancelled: false, processTreeTerminated: false, priorAttemptDigest: null },
     semanticFacts: facts,
     candidatePlanRef: context.candidatePlanRef,
-    sourceReceiptRefs: roles.map((role) => ({ role, ...byRole.get(role).ref })),
-    canonicalRerunCommand: `node tools/test-evidence/blue-green-containment-raw.mjs produce --candidate-plan ${candidatePlan} --deployment-id ${deploymentId} ${sourceReceipts.map((receipt) => `--source-receipt ${receipt}`).join(' ')} --out ${context.planned.receiptPath}`,
+    sourceReceiptRef: {
+      path: source.input.ref.path,
+      fileDigest: source.input.ref.fileDigest,
+      contentDigest: source.input.ref.contentDigest
+    },
+    canonicalRerunCommand: `node tools/test-evidence/blue-green-containment-raw.mjs produce --candidate-plan ${candidatePlan} --source ${source.input.ref.path} --out ${context.planned.receiptPath}`,
     independentVerifyCommand: `node tools/test-evidence/blue-green-containment-raw.mjs verify --receipt ${context.planned.receiptPath}`
   })
 }
@@ -526,6 +584,8 @@ export function verifyBlueGreenContainmentRaw(receiptPath, repositoryRoot = root
     fail('projected receipt schema is not blue-green-containment')
   }
   verifySeal(receipt, 'blue-green projected receipt')
+  const registry = loadPostRuntimeProducerRegistry(repositoryRoot)
+  validateProducerReceiptAgainstRegistry({ registry, producerId: receipt.producerId, receipt, classId })
   const context = planContext(receipt.candidatePlanRef?.path, repositoryRoot)
   if (receiptPath.replaceAll('\\', '/') !== context.planned.receiptPath)
   {
@@ -536,19 +596,9 @@ export function verifyBlueGreenContainmentRaw(receiptPath, repositoryRoot = root
   {
     fail('candidate plan reference digest mismatch')
   }
-  const sourceReceipts = receipt.sourceReceiptRefs?.map((reference) => {
-    const current = safeInput(reference.path, repositoryRoot, `${reference.role ?? 'unknown'} source receipt`)
-    if (current.ref.fileDigest !== reference.fileDigest
-      || current.ref.contentDigest !== reference.contentDigest || current.ref.schema !== reference.schema)
-    {
-      fail(`source receipt reference digest mismatch: ${reference.path}`)
-    }
-    return reference.path
-  })
   const replay = produceBlueGreenContainmentRaw({
     candidatePlan: receipt.candidatePlanRef.path,
-    deploymentId: receipt.sourceState?.deploymentId,
-    sourceReceipts,
+    sourceReceipt: receipt.sourceReceiptRef.path,
     repositoryRoot
   })
   if (replay.contentDigest !== receipt.contentDigest) fail('blue-green projected receipt replay mismatch')
@@ -658,6 +708,17 @@ function failurePath(output)
 function main()
 {
   const parsed = options(process.argv.slice(2))
+  if (parsed.command === 'bundle')
+  {
+    const receipt = produceBlueGreenContainmentSourceBundle({
+      candidatePlan: parsed['candidate-plan'], deploymentId: parsed['deployment-id'],
+      sourceReceipts: parsed.sourceReceipts, repositoryRoot: root
+    })
+    if (!parsed.out) fail('source bundle requires --out')
+    writeReceipt(parsed.out, receipt, root)
+    process.stdout.write(`[blue-green-containment-raw] bundled path=${parsed.out} digest=${receipt.contentDigest}\n`)
+    return
+  }
   if (parsed.command === 'verify')
   {
     const receipt = verifyBlueGreenContainmentRaw(parsed.receipt, root)
@@ -670,13 +731,12 @@ function main()
     process.stdout.write(`[blue-green-containment-raw] verified failure digest=${receipt.contentDigest}\n`)
     return
   }
-  if (parsed.command !== 'produce') fail('usage: produce --candidate-plan <path> --deployment-id <id> --source-receipt <path>... --out <planned-path> or verify --receipt <path>')
+  if (parsed.command !== 'produce') fail('usage: bundle --candidate-plan <path> --deployment-id <id> --source-receipt <path>... --out <source-bundle> or produce --candidate-plan <path> --source <source-bundle> --out <planned-path> or verify --receipt <path>')
   try
   {
     const receipt = produceBlueGreenContainmentRaw({
       candidatePlan: parsed['candidate-plan'],
-      deploymentId: parsed['deployment-id'],
-      sourceReceipts: parsed.sourceReceipts,
+      sourceReceipt: parsed.source,
       repositoryRoot: root
     })
     const context = planContext(parsed['candidate-plan'], root)
@@ -690,8 +750,8 @@ function main()
     if (typeof parsed.out === 'string' && parsed.out.endsWith('.json') && !forbiddenPathPattern.test(parsed.out))
     {
       const failure = buildFailureReceipt({
-        candidatePlan: parsed['candidate-plan'], deploymentId: parsed['deployment-id'],
-        sourceReceipts: parsed.sourceReceipts, output: parsed.out, error, repositoryRoot: root
+        candidatePlan: parsed['candidate-plan'], deploymentId: parsed['deployment-id'] ?? '<from-source-bundle>',
+        sourceReceipts: parsed.source ? [parsed.source] : parsed.sourceReceipts, output: parsed.out, error, repositoryRoot: root
       })
       const output = failurePath(parsed.out)
       writeReceipt(output, failure, root)

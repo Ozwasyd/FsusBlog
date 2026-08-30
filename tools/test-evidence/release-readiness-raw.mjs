@@ -14,7 +14,11 @@ import {
   writeReceipt
 } from '../fact-extractors/post-runtime/adapter.mjs'
 import { validateReleaseManifest } from '../release/release-manifest.mjs'
-import { root } from '../test-matrix/post-runtime-producer-registry.mjs'
+import {
+  loadPostRuntimeProducerRegistry,
+  root,
+  validateProducerReceiptAgainstRegistry
+} from '../test-matrix/post-runtime-producer-registry.mjs'
 
 export const releaseReadinessSourceSchema = 'fsusblog.release-identity-readiness-current-run.v1'
 export const releaseReadinessObservationSchema = 'fsusblog.observation.release-identity-readiness.v1'
@@ -446,6 +450,9 @@ export function projectReleaseReadinessRaw({ candidatePlan, sourceReceipt, repos
     fail('candidate plan does not own release-identity-readiness')
   }
   const { source, manifest, build, versionDigest } = validated
+  const registry = loadPostRuntimeProducerRegistry(repositoryRoot)
+  const producer = registry.producers.find(({ producerId }) => producerId === plan.producerId)
+  if (!producer) fail('candidate plan producer is absent from registry')
   const readiness = source.observations.readiness
   const facts = {
     imageDigest: manifest.manifest.imageDigest,
@@ -469,6 +476,7 @@ export function projectReleaseReadinessRaw({ candidatePlan, sourceReceipt, repos
   return seal({
     schema: releaseReadinessObservationSchema,
     producerId: plan.producerId,
+    toolVersion: producer.toolVersion,
     sourceState: {
       ...source.sourceState,
       schemaIdentity: releaseReadinessObservationSchema,
@@ -482,10 +490,10 @@ export function projectReleaseReadinessRaw({ candidatePlan, sourceReceipt, repos
     outcome: 'passed',
     recovered: false,
     modes: planned.requiredModes,
+    terminal: { timeout: false, cancelled: false, processTreeTerminated: false, priorAttemptDigest: null },
     semanticFacts: facts,
     candidatePlanRef: planInput.ref,
     sourceReceiptRef: sourceInput.ref,
-    manifestRef: manifest.ref,
     canonicalRerunCommand: source.provenance.rerunCommand,
     independentVerifyCommand: `node tools/test-evidence/release-readiness-raw.mjs verify --receipt ${planned.receiptPath}`
   })
@@ -496,10 +504,11 @@ export function verifyReleaseReadinessRaw(receiptPath, repositoryRoot = root)
   const input = currentJson(receiptPath, 'release readiness raw receipt', repositoryRoot)
   if (input.value.schema !== releaseReadinessObservationSchema) fail('raw receipt schema mismatch')
   verifySeal(input.value, 'release readiness raw receipt')
+  const registry = loadPostRuntimeProducerRegistry(repositoryRoot)
+  validateProducerReceiptAgainstRegistry({ registry, producerId: input.value.producerId, receipt: input.value, classId: 'release-identity-readiness' })
   for (const [label, reference] of [
     ['candidate plan', input.value.candidatePlanRef],
-    ['source receipt', input.value.sourceReceiptRef],
-    ['release manifest', input.value.manifestRef]
+    ['source receipt', input.value.sourceReceiptRef]
   ])
   {
     const current = currentJson(reference?.path, label, repositoryRoot)

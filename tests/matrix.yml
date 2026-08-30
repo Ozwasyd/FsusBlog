@@ -864,14 +864,26 @@ tiers:
       cadence: release-manual
       requiredFor: release-final
       coverage: []
-      artifacts: [.tmp/post-runtime-observations]
+      artifacts: [.tmp/post-runtime-sources, .tmp/post-runtime-raw, .tmp/post-runtime-observations]
       evidence:
           [
               .tmp/post-runtime-raw,
+              .tmp/post-runtime-sources,
               .tmp/post-runtime-observations,
               config/testing/post-runtime-producer-registry.json,
               tools/fact-extractors/post-runtime,
+              tools/test-evidence/aot-spa-hydration-raw.mjs,
+              tools/test-evidence/blue-green-containment-raw.mjs,
+              tools/test-evidence/browser-contract-observation-raw.mjs,
+              tools/test-evidence/release-readiness-raw.mjs,
+              tools/test-evidence/runtime-observation-raw.mjs,
+              tools/test/bundles/post-runtime-observation-producers.sh,
               tools/test/lanes/post-runtime-observation-producers.sh,
+              tests/tools/aot-spa-hydration-raw.test.mjs,
+              tests/tools/blue-green-containment-raw.test.mjs,
+              tests/tools/browser-contract-observation-raw.test.mjs,
+              tests/tools/release-readiness-raw.test.mjs,
+              tests/tools/post-runtime-observation-producers.test.mjs,
           ]
       ciJob: release-final
       localOnly: false

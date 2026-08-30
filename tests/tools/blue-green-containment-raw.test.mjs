@@ -13,6 +13,7 @@ import {
   buildFailureReceipt,
   failureReceiptSchema,
   produceBlueGreenContainmentRaw,
+  produceBlueGreenContainmentSourceBundle,
   sourceReceiptSchema,
   verifyBlueGreenFailureReceipt,
   verifyBlueGreenContainmentRaw
@@ -214,10 +215,31 @@ function fixture(context)
     observation: values[role],
     canonicalRerunCommand: `run-blue-green-role ${role}`
   })))
+  const sourceBundlePath = write(directory, 'source-bundle.json', produceBlueGreenContainmentSourceBundle({
+    candidatePlan: planPath, deploymentId, sourceReceipts: sourcePaths, repositoryRoot: root
+  }))
   return {
-    directory, plan, planPath, outputPath, sourcePaths,
+    directory, plan, planPath, outputPath, sourcePaths, sourceBundlePath,
     pathFor: (role) => sourcePaths[roles.indexOf(role)]
   }
+}
+
+function refreshSourceBundle(value)
+{
+  const bundle = produceBlueGreenContainmentSourceBundle({
+    candidatePlan: value.planPath, deploymentId, sourceReceipts: value.sourcePaths, repositoryRoot: root
+  })
+  fs.writeFileSync(path.join(root, value.sourceBundlePath), `${JSON.stringify(bundle, null, 2)}\n`)
+  return value.sourceBundlePath
+}
+
+function produce(value)
+{
+  return produceBlueGreenContainmentRaw({
+    candidatePlan: value.planPath,
+    sourceReceipt: value.sourceBundlePath,
+    repositoryRoot: root
+  })
 }
 
 function rewrite(relative, mutate)
@@ -233,16 +255,11 @@ function rewrite(relative, mutate)
 test('projects and independently replays exact blue-green containment identities', (context) =>
 {
   const value = fixture(context)
-  const receipt = produceBlueGreenContainmentRaw({
-    candidatePlan: value.planPath,
-    deploymentId,
-    sourceReceipts: value.sourcePaths,
-    repositoryRoot: root
-  })
+  const receipt = produce(value)
   assert.equal(receipt.qualificationEligible, true)
   assert.equal(receipt.outcome, 'passed')
   assert.deepEqual(receipt.modes, ['boundary', 'failure'])
-  assert.deepEqual(receipt.sourceReceiptRefs.map(({ role }) => role), roles)
+  assert.equal(receipt.sourceReceiptRef.path, value.sourceBundlePath)
   assert.equal(receipt.semanticFacts.activeReleaseProtected, true)
   assert.equal(receipt.semanticFacts.splitBrainAbsent, true)
   assert.equal(receipt.semanticFacts.cleanupInactiveOnly, true)
@@ -254,13 +271,13 @@ test('projects and independently replays exact blue-green containment identities
 test('requires exact-one source receipt for every containment role', (context) =>
 {
   const value = fixture(context)
-  assert.throws(() => produceBlueGreenContainmentRaw({
+  assert.throws(() => produceBlueGreenContainmentSourceBundle({
     candidatePlan: value.planPath,
     deploymentId,
     sourceReceipts: value.sourcePaths.slice(1),
     repositoryRoot: root
   }), /closure must be exact-one/u)
-  assert.throws(() => produceBlueGreenContainmentRaw({
+  assert.throws(() => produceBlueGreenContainmentSourceBundle({
     candidatePlan: value.planPath,
     deploymentId,
     sourceReceipts: [...value.sourcePaths.slice(0, -1), value.pathFor('state-before')],
@@ -293,24 +310,17 @@ for (const [name, role, mutate, expected] of invalidCases)
   {
     const value = fixture(context)
     rewrite(value.pathFor(role), mutate)
-    assert.throws(() => produceBlueGreenContainmentRaw({
-      candidatePlan: value.planPath,
-      deploymentId,
-      sourceReceipts: value.sourcePaths,
-      repositoryRoot: root
-    }), expected)
+    assert.throws(() => {
+      refreshSourceBundle(value)
+      produce(value)
+    }, expected)
   })
 }
 
 test('independent verifier rejects source-receipt byte tamper', (context) =>
 {
   const value = fixture(context)
-  const receipt = produceBlueGreenContainmentRaw({
-    candidatePlan: value.planPath,
-    deploymentId,
-    sourceReceipts: value.sourcePaths,
-    repositoryRoot: root
-  })
+  const receipt = produce(value)
   write(value.directory, 'blue-green-containment.json', receipt)
   fs.appendFileSync(path.join(root, value.pathFor('terminal')), ' ')
   assert.throws(() => verifyBlueGreenContainmentRaw(value.outputPath, root), /reference digest mismatch/u)
@@ -319,7 +329,7 @@ test('independent verifier rejects source-receipt byte tamper', (context) =>
 test('source and output paths reject history/latest fallback', (context) =>
 {
   const value = fixture(context)
-  assert.throws(() => produceBlueGreenContainmentRaw({
+  assert.throws(() => produceBlueGreenContainmentSourceBundle({
     candidatePlan: value.planPath,
     deploymentId,
     sourceReceipts: [...value.sourcePaths.slice(0, -1), '.tmp/history/terminal.json'],
@@ -337,7 +347,7 @@ test('failure receipt remains sealed, privacy-safe, and never qualification elig
   const result = spawnSync(process.execPath, [
     path.join(root, 'tools/test-evidence/blue-green-containment-raw.mjs'),
     'produce', '--candidate-plan', value.planPath, '--deployment-id', deploymentId,
-    ...value.sourcePaths.flatMap((source) => ['--source-receipt', source]),
+    '--source', value.sourceBundlePath,
     '--out', value.outputPath
   ], { cwd: root, encoding: 'utf8' })
   assert.notEqual(result.status, 0)
@@ -350,7 +360,7 @@ test('failure receipt remains sealed, privacy-safe, and never qualification elig
   assert.equal(failure.recovered, false)
   assert.equal(failure.privacySafe, true)
   assert.match(failure.contentDigest, /^sha256:[a-f0-9]{64}$/u)
-  assert.equal(failure.sourceReceiptRefs.length, roles.length)
+  assert.equal(failure.sourceReceiptRefs.length, 1)
   assert.equal(verifyBlueGreenFailureReceipt(failurePath, root).contentDigest, failure.contentDigest)
 })
 
