@@ -268,7 +268,7 @@ correctness network 默认 deny，Linux 为每个 attempt 加载 systemd `IPAddr
 
 acceptance 五项 service 的版本、image digest、topology、port/network namespace 与 resource limit 以 `config/testing/test-execution-service-catalog.json` 为唯一目录。PostgreSQL/Redis 只接受目录中的 digest-pinned local image；bootstrap 不在 test phase pull image，缺少时直接失败，应先在独立 restore/preparation 阶段预载。bootstrap 将实际 roster 写到 `FSUSBLOG_TEST_SERVICE_ENVELOPE_FILE`，runner 仅在 planned/actual 全字段一致时接受。
 
-每个 correctness attempt 在 child 启动前写入 planned execution envelope，postflight 聚合 env/executable、browser/rendering、service/topology、directory/filesystem、network 与适用 host facts 后封存 `fsusblog.test-execution-envelope-receipt.v1`。`tools/test/verify-execution-envelope.mjs --plan <plan> --receipt <receipt>` 以独立路径验证 schema、planned/actual exact match、fragment/self digest 与 run/source/attempt identity；仅在该验证通过后，同一 envelope/receipt digest 才能绑定 producer receipt、temporal replay plan 与 release evidence。
+每个 correctness attempt 在 child 启动前写入 planned execution envelope，postflight 聚合 env/executable、browser/rendering、service/topology、directory/filesystem、network 与适用 host facts 后封存 `fsusblog.test-execution-envelope-receipt.v1`。`tools/test/verify-execution-envelope.mjs --plan <plan> --receipt <receipt>` 以独立路径验证当前 policy/catalog/receipt-schema identity、applicability 完整性、planned/actual exact match、精确 fragment/self digest 集与 run/source/attempt identity；只有 catalog 明确标记 `not-applicable` 的 domain 才能携带对应缺省理由。仅在该验证通过后，同一 envelope/receipt digest 才能绑定 producer receipt、temporal replay plan 与 release evidence。
 测试执行 replay 的 qualification producer 闭包由
 `config/testing/replay-qualification-producers.json` 唯一声明。xUnit 适配器通过
 `xunit.runner.utility` front controller 取得真实 assembly、collection 与 test-case
