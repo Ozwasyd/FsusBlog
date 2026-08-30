@@ -5,7 +5,8 @@
             "id": "json-wire-key",
             "paths": [
                 "config/schemas/cross-authority-dag-receipt.schema.json",
-                "config/schemas/cross-authority-dag.schema.json"
+                "config/schemas/cross-authority-dag.schema.json",
+                "tests/governance/test-lifecycle-registry.json"
             ],
             "reason": "The new JSON Schema and receipt keys are caller-visible wire identifiers; internal JavaScript symbols continue to follow repository naming rules."
         },

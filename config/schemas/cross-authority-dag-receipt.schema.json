@@ -14,6 +14,8 @@
         "selfLoops",
         "duplicateAuthorities",
         "orphanNodeIds",
+        "behaviorOrphans",
+        "missingBehaviorLayers",
         "missingEdges",
         "backEdges",
         "invalidEdges",
@@ -95,6 +97,48 @@
                 "minLength": 1
             }
         },
+        "behaviorOrphans": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "behaviorId",
+                    "nodeId"
+                ],
+                "properties": {
+                    "behaviorId": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9-]*$"
+                    },
+                    "nodeId": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            }
+        },
+        "missingBehaviorLayers": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "behaviorId",
+                    "kind"
+                ],
+                "properties": {
+                    "behaviorId": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9-]*$"
+                    },
+                    "kind": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            }
+        },
         "missingEdges": {
             "type": "array",
             "items": {
@@ -102,12 +146,17 @@
                 "additionalProperties": false,
                 "required": [
                     "nodeId",
+                    "behaviorId",
                     "predecessorKind"
                 ],
                 "properties": {
                     "nodeId": {
                         "type": "string",
                         "minLength": 1
+                    },
+                    "behaviorId": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9-]*$"
                     },
                     "predecessorKind": {
                         "type": "string",

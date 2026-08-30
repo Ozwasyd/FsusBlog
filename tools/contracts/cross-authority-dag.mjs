@@ -365,13 +365,29 @@ export function analyzeAuthorityDag (input)
   const missingEdges = []
   for (const node of graph.nodes)
   {
-    const predecessorKinds = new Set((incoming.get(node.id) ?? []).map((entry) => entry.kind))
-    for (const requiredKind of requiredPredecessorKinds[node.kind])
+    for (const behaviorId of node.behaviorIds)
     {
-      if (predecessorKinds.has(requiredKind)) continue
-      const missing = { nodeId: node.id, predecessorKind: requiredKind }
-      missingEdges.push(missing)
-      pushFailure(failures, 'missing-predecessor', node.id, requiredKind)
+      const behaviorPredecessorKinds = new Set((incoming.get(node.id) ?? [])
+        .filter((entry) => entry.behaviorIds.includes(behaviorId))
+        .map((entry) => entry.kind))
+      for (const requiredKind of requiredPredecessorKinds[node.kind])
+      {
+        if (behaviorPredecessorKinds.has(requiredKind)) continue
+        const missing = { nodeId: node.id, behaviorId, predecessorKind: requiredKind }
+        missingEdges.push(missing)
+        pushFailure(failures, 'missing-predecessor', node.id, behaviorId, requiredKind)
+      }
+    }
+  }
+
+  const missingBehaviorLayers = []
+  for (const behaviorId of [...catalogBehaviors].sort())
+  {
+    for (const kind of requiredKinds)
+    {
+      if (nodesByKind.get(kind).some((node) => node.behaviorIds.includes(behaviorId))) continue
+      missingBehaviorLayers.push({ behaviorId, kind })
+      pushFailure(failures, 'missing-behavior-layer', behaviorId, kind)
     }
   }
 
@@ -396,6 +412,39 @@ export function analyzeAuthorityDag (input)
     .sort()
   for (const nodeId of orphanNodeIds) pushFailure(failures, 'orphan', nodeId)
 
+  const behaviorOrphans = []
+  if (catalogNode && finalizerNode)
+  {
+    for (const behaviorId of [...catalogBehaviors].sort())
+    {
+      const behaviorAdjacency = new Map([...nodesById.keys()].map((id) => [id, []]))
+      const behaviorReverseAdjacency = new Map([...nodesById.keys()].map((id) => [id, []]))
+      for (const edge of graph.edges)
+      {
+        const source = nodesById.get(edge.from)
+        const target = nodesById.get(edge.to)
+        if (!source || !target
+          || !source.behaviorIds.includes(behaviorId)
+          || !target.behaviorIds.includes(behaviorId)) continue
+        behaviorAdjacency.get(source.id).push(target.id)
+        behaviorReverseAdjacency.get(target.id).push(source.id)
+      }
+      const behaviorReachableFromCatalog = catalogNode.behaviorIds.includes(behaviorId)
+        ? reachableFrom(catalogNode.id, behaviorAdjacency)
+        : new Set()
+      const behaviorCanReachFinalizer = finalizerNode.behaviorIds.includes(behaviorId)
+        ? reachableFrom(finalizerNode.id, behaviorReverseAdjacency)
+        : new Set()
+      for (const node of graph.nodes)
+      {
+        if (!node.behaviorIds.includes(behaviorId)) continue
+        if (behaviorReachableFromCatalog.has(node.id) && behaviorCanReachFinalizer.has(node.id)) continue
+        behaviorOrphans.push({ behaviorId, nodeId: node.id })
+        pushFailure(failures, 'behavior-orphan', behaviorId, node.id)
+      }
+    }
+  }
+
   if (catalogNode && (incoming.get(catalogNode.id) ?? []).length !== 0)
   {
     pushFailure(failures, 'catalog-has-predecessor', catalogNode.id)
@@ -417,8 +466,13 @@ export function analyzeAuthorityDag (input)
     selfLoops: selfLoops.sort((left, right) => left.from.localeCompare(right.from)),
     duplicateAuthorities,
     orphanNodeIds,
+    behaviorOrphans: behaviorOrphans.sort((left, right) =>
+      `${left.behaviorId}\0${left.nodeId}`.localeCompare(`${right.behaviorId}\0${right.nodeId}`)),
+    missingBehaviorLayers: missingBehaviorLayers.sort((left, right) =>
+      `${left.behaviorId}\0${left.kind}`.localeCompare(`${right.behaviorId}\0${right.kind}`)),
     missingEdges: missingEdges.sort((left, right) =>
-      `${left.nodeId}\0${left.predecessorKind}`.localeCompare(`${right.nodeId}\0${right.predecessorKind}`)),
+      `${left.nodeId}\0${left.behaviorId}\0${left.predecessorKind}`
+        .localeCompare(`${right.nodeId}\0${right.behaviorId}\0${right.predecessorKind}`)),
     backEdges: backEdges.sort((left, right) =>
       `${left.from}\0${left.to}`.localeCompare(`${right.from}\0${right.to}`)),
     invalidEdges: invalidEdges.sort((left, right) =>
@@ -457,6 +511,10 @@ export function validateAuthorityDagReceipt (graph, receipt)
   if (canonicalizeAuthorityDagValue(receipt) !== canonicalizeAuthorityDagValue(expected))
   {
     fail('receipt does not replay from the supplied authority graph')
+  }
+  if (expected.status !== 'ok')
+  {
+    fail('replayed authority graph is not qualified; receipt status must be ok')
   }
   return receipt
 }

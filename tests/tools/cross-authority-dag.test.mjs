@@ -16,12 +16,13 @@ import {
 const root = path.resolve(import.meta.dirname, '../..')
 const analyzerPath = path.join(root, 'tools/contracts/cross-authority-dag.mjs')
 const behaviorId = 'browserless-production-correctness'
+const secondaryBehaviorId = 'release-final-aggregate-contract'
 
-const node = (id, kind, authorityId) => ({
+const node = (id, kind, authorityId, behaviorIds = [behaviorId]) => ({
   id,
   kind,
   authorityId,
-  behaviorIds: [behaviorId]
+  behaviorIds
 })
 
 const edge = (from, to, relation) => ({ from, to, relation })
@@ -66,6 +67,67 @@ function completeGraph ()
   }
 }
 
+function completeTwoBehaviorGraph ()
+{
+  const both = [behaviorId, secondaryBehaviorId]
+  return {
+    schema: authorityDagSchema,
+    digestAlgorithm: 'sha256',
+    canonicalSerialization: 'json-utf8-v1',
+    nodes: [
+      node('catalog:behavior', 'behavior-catalog', 'config/contracts/behavior-contracts.json', both),
+      node('implementation:runtime-a', 'implementation-owner', 'src/backend/Program.cs#runtime-a'),
+      node('implementation:runtime-b', 'implementation-owner', 'src/backend/Program.cs#runtime-b', [secondaryBehaviorId]),
+      node('extractor:test-matrix-a', 'fact-extractor', 'tools/fact-extractors/test-matrix/extract-a.mjs'),
+      node('extractor:test-matrix-b', 'fact-extractor', 'tools/fact-extractors/test-matrix/extract-b.mjs', [secondaryBehaviorId]),
+      node('producer:document-a', 'document-evidence-producer', 'tools/docs/doc-claim-a.mjs'),
+      node('producer:document-b', 'document-evidence-producer', 'tools/docs/doc-claim-b.mjs', [secondaryBehaviorId]),
+      node('producer:test-a', 'test-evidence-producer', 'tools/test-matrix/produce-test-a.mjs'),
+      node('producer:test-b', 'test-evidence-producer', 'tools/test-matrix/produce-test-b.mjs', [secondaryBehaviorId]),
+      node('producer:mutation-a', 'mutation-evidence-producer', 'tools/test-matrix/produce-mutation-a.mjs'),
+      node('producer:mutation-b', 'mutation-evidence-producer', 'tools/test-matrix/produce-mutation-b.mjs', [secondaryBehaviorId]),
+      node('joiner:pre-runtime', 'pre-runtime-joiner', 'tools/test-matrix/behavior-evidence-pre-runtime.mjs', both),
+      node('producer:runtime-a', 'runtime-evidence-producer', 'tools/run-test-matrix.mjs#runtime-a'),
+      node('producer:runtime-b', 'runtime-evidence-producer', 'tools/run-test-matrix.mjs#runtime-b', [secondaryBehaviorId]),
+      node('joiner:post-runtime', 'post-runtime-joiner', 'tools/test-matrix/behavior-evidence-post-runtime.mjs', both),
+      node('finalizer:release', 'release-finalizer', 'tools/test/lanes/release-final.sh', both)
+    ],
+    edges: [
+      edge('catalog:behavior', 'implementation:runtime-a', 'declares-owner'),
+      edge('catalog:behavior', 'implementation:runtime-b', 'declares-owner'),
+      edge('catalog:behavior', 'extractor:test-matrix-a', 'declares-extractor'),
+      edge('catalog:behavior', 'extractor:test-matrix-b', 'declares-extractor'),
+      edge('implementation:runtime-a', 'extractor:test-matrix-a', 'exposes-implementation'),
+      edge('implementation:runtime-b', 'extractor:test-matrix-b', 'exposes-implementation'),
+      edge('implementation:runtime-a', 'producer:document-a', 'binds-document-evidence'),
+      edge('implementation:runtime-b', 'producer:document-b', 'binds-document-evidence'),
+      edge('extractor:test-matrix-a', 'producer:document-a', 'produces-document-facts'),
+      edge('extractor:test-matrix-b', 'producer:document-b', 'produces-document-facts'),
+      edge('implementation:runtime-a', 'producer:test-a', 'binds-test-evidence'),
+      edge('implementation:runtime-b', 'producer:test-b', 'binds-test-evidence'),
+      edge('extractor:test-matrix-a', 'producer:test-a', 'produces-test-facts'),
+      edge('extractor:test-matrix-b', 'producer:test-b', 'produces-test-facts'),
+      edge('implementation:runtime-a', 'producer:mutation-a', 'binds-mutation-evidence'),
+      edge('implementation:runtime-b', 'producer:mutation-b', 'binds-mutation-evidence'),
+      edge('producer:test-a', 'producer:mutation-a', 'produces-mutation-evidence'),
+      edge('producer:test-b', 'producer:mutation-b', 'produces-mutation-evidence'),
+      edge('producer:document-a', 'joiner:pre-runtime', 'seals-pre-runtime'),
+      edge('producer:document-b', 'joiner:pre-runtime', 'seals-pre-runtime'),
+      edge('producer:test-a', 'joiner:pre-runtime', 'seals-pre-runtime'),
+      edge('producer:test-b', 'joiner:pre-runtime', 'seals-pre-runtime'),
+      edge('producer:mutation-a', 'joiner:pre-runtime', 'seals-pre-runtime'),
+      edge('producer:mutation-b', 'joiner:pre-runtime', 'seals-pre-runtime'),
+      edge('joiner:pre-runtime', 'producer:runtime-a', 'admits-runtime'),
+      edge('joiner:pre-runtime', 'producer:runtime-b', 'admits-runtime'),
+      edge('joiner:pre-runtime', 'joiner:post-runtime', 'supplies-pre-runtime'),
+      edge('producer:runtime-a', 'joiner:post-runtime', 'seals-post-runtime'),
+      edge('producer:runtime-b', 'joiner:post-runtime', 'seals-post-runtime'),
+      edge('joiner:pre-runtime', 'finalizer:release', 'supplies-pre-runtime'),
+      edge('joiner:post-runtime', 'finalizer:release', 'supplies-post-runtime')
+    ]
+  }
+}
+
 const failureCodes = (receipt) => receipt.failureReasons.map((reason) => reason.split(':')[0])
 
 test('complete cross-authority graph is a canonical acyclic chain', () =>
@@ -79,6 +141,8 @@ test('complete cross-authority graph is a canonical acyclic chain', () =>
   assert.deepEqual(receipt.selfLoops, [])
   assert.deepEqual(receipt.duplicateAuthorities, [])
   assert.deepEqual(receipt.orphanNodeIds, [])
+  assert.deepEqual(receipt.behaviorOrphans, [])
+  assert.deepEqual(receipt.missingBehaviorLayers, [])
   assert.deepEqual(receipt.missingEdges, [])
   assert.deepEqual(receipt.backEdges, [])
   assert.match(receipt.graphDigest, /^[a-f0-9]{64}$/u)
@@ -87,6 +151,42 @@ test('complete cross-authority graph is a canonical acyclic chain', () =>
     receipt.nodes.map(({ kind, layer }) => [kind, layer]),
     receipt.nodes.map(({ kind }) => [kind, authorityLayers[kind]])
   )
+})
+
+test('every catalog behavior must remain closed through every authority layer', () =>
+{
+  const graph = completeGraph()
+  graph.nodes.find(({ kind }) => kind === 'behavior-catalog').behaviorIds.push(secondaryBehaviorId)
+  const receipt = analyzeAuthorityDag(graph)
+  assert.equal(receipt.status, 'failed')
+  assert.equal(receipt.missingBehaviorLayers.length, Object.keys(authorityLayers).length - 1)
+  assert.ok(receipt.missingBehaviorLayers.some(({ behaviorId, kind }) =>
+    behaviorId === secondaryBehaviorId && kind === 'release-finalizer'))
+  assert.ok(failureCodes(receipt).includes('missing-behavior-layer'))
+  assert.throws(() => assertAuthorityDag(graph), /missing-behavior-layer/u)
+})
+
+test('two catalog behaviors pass only with independent complete edge closure', () =>
+{
+  const receipt = assertAuthorityDag(completeTwoBehaviorGraph())
+  assert.equal(receipt.status, 'ok')
+  assert.deepEqual(receipt.missingBehaviorLayers, [])
+  assert.deepEqual(receipt.missingEdges, [])
+  assert.deepEqual(receipt.behaviorOrphans, [])
+})
+
+test('required predecessor edges are checked per behavior rather than by kind intersection', () =>
+{
+  const graph = completeTwoBehaviorGraph()
+  graph.edges = graph.edges.filter(({ from, to }) =>
+    !(from === 'extractor:test-matrix-b' && to === 'producer:test-b'))
+  const receipt = analyzeAuthorityDag(graph)
+  assert.equal(receipt.status, 'failed')
+  assert.ok(receipt.missingEdges.some(({ nodeId, behaviorId, predecessorKind }) =>
+    nodeId === 'producer:test-b'
+    && behaviorId === secondaryBehaviorId
+    && predecessorKind === 'fact-extractor'))
+  assert.ok(failureCodes(receipt).includes('missing-predecessor'))
 })
 
 test('Tarjan analysis reports an SCC and a finalizer-to-catalog back edge', () =>
@@ -167,7 +267,8 @@ test('mutation suite kills authority, kind, edge and behavior identity drift', (
     (graph) => { graph.nodes.find(({ id }) => id === 'producer:runtime').kind = 'test-evidence-producer' },
     (graph) => { graph.edges = graph.edges.filter(({ to }) => to !== 'finalizer:release') },
     (graph) => { graph.edges.find(({ to }) => to === 'producer:runtime').relation = 'supplies-post-runtime' },
-    (graph) => { graph.nodes.find(({ id }) => id === 'producer:runtime').behaviorIds = ['unknown-runtime-behavior'] }
+    (graph) => { graph.nodes.find(({ id }) => id === 'producer:runtime').behaviorIds = ['unknown-runtime-behavior'] },
+    (graph) => { graph.nodes.find(({ kind }) => kind === 'behavior-catalog').behaviorIds.push(secondaryBehaviorId) }
   ]
   for (const mutate of mutations)
   {
@@ -203,6 +304,15 @@ test('canonical replay ignores input ordering but rejects semantic or receipt dr
   const semanticDrift = completeGraph()
   semanticDrift.nodes.find(({ id }) => id === 'producer:runtime').authorityId += '#v2'
   assert.throws(() => validateAuthorityDagReceipt(semanticDrift, receipt), /does not replay/u)
+
+  const failedGraph = completeGraph()
+  failedGraph.edges.push(edge('finalizer:release', 'catalog:behavior', 'reruns-producer'))
+  const failedReceipt = analyzeAuthorityDag(failedGraph)
+  assert.equal(failedReceipt.status, 'failed')
+  assert.throws(
+    () => validateAuthorityDagReceipt(failedGraph, failedReceipt),
+    /receipt status must be ok/u
+  )
 })
 
 test('CLI validates a sealed replay without executing any producer', () =>
@@ -222,6 +332,19 @@ test('CLI validates a sealed replay without executing any producer', () =>
     })
     assert.equal(result.status, 0, result.stderr)
     assert.match(result.stdout, /ok nodes=10 edges=17 digest=[a-f0-9]{64}/u)
+
+    const failedGraph = completeGraph()
+    failedGraph.edges.push(edge('finalizer:release', 'catalog:behavior', 'reruns-producer'))
+    const failedReceipt = analyzeAuthorityDag(failedGraph)
+    writeFileSync(graphPath, `${JSON.stringify(failedGraph)}\n`)
+    writeFileSync(receiptPath, `${JSON.stringify(failedReceipt)}\n`)
+    const failed = spawnSync('node', [analyzerPath, '--graph', graphPath, '--receipt', receiptPath], {
+      cwd: root,
+      encoding: 'utf8'
+    })
+    assert.notEqual(failed.status, 0)
+    assert.doesNotMatch(failed.stdout, /\bok\b/u)
+    assert.match(failed.stderr, /receipt status must be ok/u)
   }
   finally
   {
