@@ -10,6 +10,7 @@ import {
   sealSourceIdentity
 } from '../fact-extractors/identity.mjs'
 import { loadRegistry } from '../fact-extractors/registry.mjs'
+import { observeRuntimeRoleDeploymentAuthority } from '../governance/check-monolithic-distributed-architecture.mjs'
 
 export const minimalContractBuildSchema =
   'fsusblog.behavior-doc-minimal-contract-build-receipt.v1'
@@ -19,31 +20,36 @@ const hostDeclarations = Object.freeze({
     project: 'tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj',
     output: '.tmp/contracts/runtime-role/runtime-role-observation.json',
     cacheFile: 'observations/runtime-role-observation.json',
-    repositoryRootArgument: false
+    repositoryRootArgument: false,
+    buildReceiptSchema: 'fsusblog.runtime-role-observation-build-receipt.v2'
   },
   'openapi-aeds-observation': {
     project: 'tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj',
     output: '.tmp/contracts/openapi/api-aeds-observation.json',
     cacheFile: 'observations/openapi-aeds-observation.json',
-    repositoryRootArgument: true
+    repositoryRootArgument: true,
+    buildReceiptSchema: 'fsusblog.openapi-aeds-observation-build-receipt.v1'
   },
   'auth-session-permission-observation': {
     project: 'tools/contracts/FsusBlog.AuthSessionObservation/FsusBlog.AuthSessionObservation.csproj',
     output: '.tmp/contracts/auth-session/auth-session-permission-observation.json',
     cacheFile: 'observations/auth-session-permission-observation.json',
-    repositoryRootArgument: false
+    repositoryRootArgument: false,
+    buildReceiptSchema: 'fsusblog.auth-session-permission-observation-build-receipt.v1'
   },
   'config-error-security-policy-observation': {
     project: 'tools/contracts/FsusBlog.ConfigErrorSecurityObservation/FsusBlog.ConfigErrorSecurityObservation.csproj',
     output: '.tmp/contracts/config-error-security/config-error-security-policy-observation.json',
     cacheFile: 'observations/config-error-security-policy-observation.json',
-    repositoryRootArgument: true
+    repositoryRootArgument: true,
+    buildReceiptSchema: 'fsusblog.config-error-security-policy-observation-build-receipt.v1'
   },
   'content-lifecycle-observation': {
     project: 'tools/contracts/FsusBlog.ContentLifecycleObservation/FsusBlog.ContentLifecycleObservation.csproj',
     output: '.tmp/contracts/content-lifecycle/content-lifecycle-observation.json',
     cacheFile: 'observations/content-lifecycle-observation.json',
-    repositoryRootArgument: false
+    repositoryRootArgument: false,
+    buildReceiptSchema: 'fsusblog.content-lifecycle-observation-build-receipt.v1'
   }
 })
 const cacheRelative = '.tmp/behavior-doc-contract-builds'
@@ -258,10 +264,31 @@ export function validateMinimalContractBuildReceipt(receipt, {
     const expectedArtifactPath = cachedArtifactPath(receipt.buildRoot, declaration)
     if (artifact?.project !== declaration.project
       || artifact?.path !== expectedArtifactPath
-      || !hasExactKeys(artifact, ['project', 'projectDigest', 'path', 'artifactDigest'])
+      || !hasExactKeys(artifact, ['project', 'projectDigest', 'path', 'artifactDigest', 'buildReceipt'])
       || !/^[a-f0-9]{64}$/u.test(artifact?.projectDigest ?? '')
       || !/^[a-f0-9]{64}$/u.test(artifact?.artifactDigest ?? '')) {
       throw new Error(`minimal contract build artifact ${artifactId} is invalid`)
+    }
+    const expectedReceiptKeys = artifactId === 'runtime-role-observation'
+      ? [
+          'schema', 'artifactId', 'artifactPath', 'artifactDigest', 'configuration',
+          'deploymentAuthoritySchema', 'deploymentAuthorityContentDigest',
+          'deploymentObservationDigest'
+        ]
+      : ['schema', 'artifactId', 'artifactPath', 'artifactDigest', 'configuration']
+    if (!hasExactKeys(artifact.buildReceipt, expectedReceiptKeys)
+      || artifact.buildReceipt.schema !== declaration.buildReceiptSchema
+      || artifact.buildReceipt.artifactId !== artifactId
+      || artifact.buildReceipt.artifactPath !== declaration.output
+      || artifact.buildReceipt.artifactDigest !== artifact.artifactDigest
+      || artifact.buildReceipt.configuration !== 'Release') {
+      throw new Error(`minimal contract build artifact ${artifactId} receipt is invalid`)
+    }
+    if (artifactId === 'runtime-role-observation'
+      && (artifact.buildReceipt.deploymentAuthoritySchema !== 'fsusblog.monolithic-distributed-architecture.v2'
+        || !/^sha256:[a-f0-9]{64}$/u.test(artifact.buildReceipt.deploymentAuthorityContentDigest ?? '')
+        || !/^sha256:[a-f0-9]{64}$/u.test(artifact.buildReceipt.deploymentObservationDigest ?? ''))) {
+      throw new Error('minimal contract build runtime-role deployment receipt is incomplete')
     }
     if (repositoryRoot !== null
       && (artifactDigest(repositoryRoot, artifact.project) !== artifact.projectDigest
@@ -277,18 +304,11 @@ export function buildIdentitiesFromMinimalReceipt(receipt) {
   return Object.fromEntries(Object.entries(receipt.artifacts).map(([artifactId, artifact]) => {
     const declaration = hostDeclarations[artifactId]
     if (declaration == null) throw new Error(`minimal contract build has unknown artifact ${artifactId}`)
-    const receiptBody = {
-      schema: `fsusblog.${artifactId}-build-receipt.v1`,
-      artifactId,
-      artifactPath: declaration.output,
-      artifactDigest: artifact.artifactDigest,
-      configuration: 'Release'
-    }
     return [
       artifactId,
       {
         artifactId,
-        receiptDigest: digestValue(receiptBody),
+        receiptDigest: digestValue(artifact.buildReceipt),
         artifactDigest: artifact.artifactDigest
       }
     ]
@@ -419,11 +439,26 @@ export function runMinimalContractBuild({
       fs.mkdirSync(stagingRoot)
 
       const artifacts = {}
+      const deploymentObservation = observeRuntimeRoleDeploymentAuthority({ root: repositoryRoot })
+      if (!deploymentObservation.ownership?.claimEligible) {
+        throw new Error(
+          `minimal contract runtime-role deployment authority is not claim eligible: ${(deploymentObservation.ownership?.failureReasons ?? []).join('; ')}`
+        )
+      }
       for (const artifactId of declaredArtifactIds) {
         const declaration = hostDeclarations[artifactId]
         const stagedOutput = path.join(stagingRoot, declaration.cacheFile)
         fs.mkdirSync(path.dirname(stagedOutput), { recursive: true })
         const applicationArgs = ['--output', stagedOutput]
+        if (artifactId === 'runtime-role-observation') {
+          const deploymentOutput = path.join(
+            stagingRoot,
+            'observations/runtime-role-deployment-observation.json'
+          )
+          fs.mkdirSync(path.dirname(deploymentOutput), { recursive: true })
+          fs.writeFileSync(deploymentOutput, `${JSON.stringify(deploymentObservation, null, 2)}\n`)
+          applicationArgs.push('--deployment-observation', deploymentOutput)
+        }
         if (declaration.repositoryRootArgument) {
           applicationArgs.push('--repository-root', repositoryRoot)
         }
@@ -464,6 +499,33 @@ export function runMinimalContractBuild({
         if (!fs.existsSync(stagedOutput)) {
           throw new Error(`minimal contract host ${artifactId} produced no observation`)
         }
+        const artifactBytes = fs.readFileSync(stagedOutput, 'utf8')
+        const artifactObservation = JSON.parse(artifactBytes)
+        if (artifactId === 'runtime-role-observation'
+          && (artifactObservation.schema !== 'fsusblog.runtime-role-observation.v2'
+            || artifactObservation.deploymentAuthority?.authoritySchema
+              !== deploymentObservation.authoritySchema
+            || artifactObservation.deploymentAuthority?.authorityContentDigest
+              !== deploymentObservation.authorityContentDigest
+            || artifactObservation.deploymentAuthority?.observationDigest
+              !== deploymentObservation.observationDigest)) {
+          throw new Error('minimal contract runtime-role observation did not bind deployment authority')
+        }
+        const artifactDigestValue = digestPath(stagingRoot, declaration.cacheFile)
+        const buildReceipt = {
+          schema: declaration.buildReceiptSchema,
+          artifactId,
+          artifactPath: declaration.output,
+          artifactDigest: artifactDigestValue,
+          configuration: 'Release',
+          ...(artifactId === 'runtime-role-observation'
+            ? {
+                deploymentAuthoritySchema: artifactObservation.deploymentAuthority?.authoritySchema,
+                deploymentAuthorityContentDigest: artifactObservation.deploymentAuthority?.authorityContentDigest,
+                deploymentObservationDigest: artifactObservation.deploymentAuthority?.observationDigest
+              }
+            : {})
+        }
         artifacts[artifactId] = {
           project: declaration.project,
           projectDigest: artifactDigest(repositoryRoot, declaration.project),
@@ -471,7 +533,8 @@ export function runMinimalContractBuild({
             path.posix.join(cacheRelative, buildKey),
             declaration
           ),
-          artifactDigest: digestPath(stagingRoot, declaration.cacheFile)
+          artifactDigest: artifactDigestValue,
+          buildReceipt
         }
       }
 

@@ -222,9 +222,15 @@ test('deployment authority rejects a second final process entrypoint', () =>
     assert.ok(observation.ownership.failureReasons.some((reason) => reason.includes('exactly the authority-owned')));
 });
 
-test('deployment authority rejects sharing a slot-private data volume', () =>
+test('deployment authority rejects resealed cross-scope slot-private volume identity', () =>
 {
     const root = createAuthorityFixture();
+    const policyPath = path.join(root, 'tests/governance/monolithic-distributed-architecture.json');
+    const policy = JSON.parse(readFileSync(policyPath, 'utf8'));
+    policy.blueGreenMounts['/app/data'].source = 'fsus-storage';
+    policy.blueGreenMounts['/app/data'].volumeName = '${FSUSBLOG_STORAGE_VOLUME:-fsusblog-storage}';
+    resealPolicy(policy);
+    writeFileSync(policyPath, `${JSON.stringify(policy, null, 4)}\n`);
     const compose = path.join(root, 'ops/docker/docker-compose.production.yml');
     const source = readFileSync(compose, 'utf8').replace(
         'fsus-slot-data:/app/data',
@@ -233,7 +239,21 @@ test('deployment authority rejects sharing a slot-private data volume', () =>
     writeFileSync(compose, source);
     const observation = observeRuntimeRoleDeploymentAuthority({ root });
     assert.equal(observation.ownership.claimEligible, false);
-    assert.ok(observation.ownership.failureReasons.some((reason) => reason.includes('/app/data conflicts')));
+    assert.ok(observation.ownership.failureReasons.some((reason) =>
+        reason.includes('/app/data slot-private identity must be slot-specific')
+        || reason.includes('identity crosses slot-private and shared scope')));
+});
+
+test('deployment authority rejects a missing Dockerfile in a freshly sealed observation', () =>
+{
+    const root = createAuthorityFixture();
+    rmSync(path.join(root, 'ops/docker/FsusBlog.Server.Dockerfile'));
+    const observation = observeRuntimeRoleDeploymentAuthority({ root });
+    assert.equal(observation.schema, 'fsusblog.runtime-role-deployment-observation.v1');
+    assert.match(observation.observationDigest, /^sha256:[a-f0-9]{64}$/u);
+    assert.equal(observation.ownership.claimEligible, false);
+    assert.ok(observation.ownership.failureReasons.some((reason) =>
+        reason.includes('cannot read ops/docker/FsusBlog.Server.Dockerfile')));
 });
 
 test('deployment authority rejects a resealed but reversed role-separation claim', () =>

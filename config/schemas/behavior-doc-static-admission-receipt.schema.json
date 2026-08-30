@@ -292,6 +292,10 @@
             "type": "string",
             "pattern": "^[a-f0-9]{64}$"
         },
+        "prefixedDigest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+        },
         "factObservation": {
             "type": "object",
             "additionalProperties": false,
@@ -409,19 +413,19 @@
                     ],
                     "properties": {
                         "runtime-role-observation": {
-                            "$ref": "#/$defs/minimalArtifact"
+                            "$ref": "#/$defs/runtimeRoleMinimalArtifact"
                         },
                         "openapi-aeds-observation": {
-                            "$ref": "#/$defs/minimalArtifact"
+                            "$ref": "#/$defs/genericMinimalArtifact"
                         },
                         "auth-session-permission-observation": {
-                            "$ref": "#/$defs/minimalArtifact"
+                            "$ref": "#/$defs/genericMinimalArtifact"
                         },
                         "config-error-security-policy-observation": {
-                            "$ref": "#/$defs/minimalArtifact"
+                            "$ref": "#/$defs/genericMinimalArtifact"
                         },
                         "content-lifecycle-observation": {
-                            "$ref": "#/$defs/minimalArtifact"
+                            "$ref": "#/$defs/genericMinimalArtifact"
                         }
                     }
                 },
@@ -437,14 +441,15 @@
                 }
             }
         },
-        "minimalArtifact": {
+        "genericMinimalArtifact": {
             "type": "object",
             "additionalProperties": false,
             "required": [
                 "project",
                 "projectDigest",
                 "path",
-                "artifactDigest"
+                "artifactDigest",
+                "buildReceipt"
             ],
             "properties": {
                 "project": {
@@ -460,7 +465,81 @@
                 },
                 "artifactDigest": {
                     "$ref": "#/$defs/digest"
+                },
+                "buildReceipt": {
+                    "$ref": "#/$defs/genericMinimalBuildReceipt"
                 }
+            }
+        },
+        "runtimeRoleMinimalArtifact": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "project",
+                "projectDigest",
+                "path",
+                "artifactDigest",
+                "buildReceipt"
+            ],
+            "properties": {
+                "project": {
+                    "const": "tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj"
+                },
+                "projectDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "path": {
+                    "type": "string",
+                    "pattern": "^\\.tmp/behavior-doc-contract-builds/[a-f0-9]{64}/observations/runtime-role-observation\\.json$"
+                },
+                "artifactDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "buildReceipt": {
+                    "$ref": "#/$defs/runtimeRoleMinimalBuildReceipt"
+                }
+            }
+        },
+        "genericMinimalBuildReceipt": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema",
+                "artifactId",
+                "artifactPath",
+                "artifactDigest",
+                "configuration"
+            ],
+            "properties": {
+                "schema": { "type": "string", "pattern": "^fsusblog\\.[a-z0-9-]+-build-receipt\\.v1$" },
+                "artifactId": { "type": "string", "minLength": 1 },
+                "artifactPath": { "type": "string", "minLength": 1 },
+                "artifactDigest": { "$ref": "#/$defs/digest" },
+                "configuration": { "const": "Release" }
+            }
+        },
+        "runtimeRoleMinimalBuildReceipt": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema",
+                "artifactId",
+                "artifactPath",
+                "artifactDigest",
+                "configuration",
+                "deploymentAuthoritySchema",
+                "deploymentAuthorityContentDigest",
+                "deploymentObservationDigest"
+            ],
+            "properties": {
+                "schema": { "const": "fsusblog.runtime-role-observation-build-receipt.v2" },
+                "artifactId": { "const": "runtime-role-observation" },
+                "artifactPath": { "const": ".tmp/contracts/runtime-role/runtime-role-observation.json" },
+                "artifactDigest": { "$ref": "#/$defs/digest" },
+                "configuration": { "const": "Release" },
+                "deploymentAuthoritySchema": { "const": "fsusblog.monolithic-distributed-architecture.v2" },
+                "deploymentAuthorityContentDigest": { "$ref": "#/$defs/prefixedDigest" },
+                "deploymentObservationDigest": { "$ref": "#/$defs/prefixedDigest" }
             }
         },
         "generatedResult": {

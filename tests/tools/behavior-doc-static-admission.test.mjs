@@ -97,7 +97,21 @@ function fakeMinimalReceipt(runId, source)
                     `.tmp/behavior-doc-contract-builds/${'b'.repeat(64)}`,
                     declaration.cacheFile
                 ),
-                artifactDigest: 'd'.repeat(64)
+                artifactDigest: 'd'.repeat(64),
+                buildReceipt: {
+                    schema: declaration.buildReceiptSchema,
+                    artifactId,
+                    artifactPath: declaration.output,
+                    artifactDigest: 'd'.repeat(64),
+                    configuration: 'Release',
+                    ...(artifactId === 'runtime-role-observation'
+                        ? {
+                            deploymentAuthoritySchema: 'fsusblog.monolithic-distributed-architecture.v2',
+                            deploymentAuthorityContentDigest: `sha256:${'1'.repeat(64)}`,
+                            deploymentObservationDigest: `sha256:${'2'.repeat(64)}`
+                        }
+                        : {})
+                }
             }
         ])),
         status: 'ok',
@@ -113,11 +127,14 @@ test('minimal build identity binds the child build receipt digest', () =>
     });
     const identity = buildIdentitiesFromMinimalReceipt(receipt)['runtime-role-observation'];
     const expectedReceiptDigest = digestValue({
-        schema: 'fsusblog.runtime-role-observation-build-receipt.v1',
+        schema: 'fsusblog.runtime-role-observation-build-receipt.v2',
         artifactId: 'runtime-role-observation',
         artifactPath: hostDeclarations['runtime-role-observation'].output,
         artifactDigest: receipt.artifacts['runtime-role-observation'].artifactDigest,
-        configuration: 'Release'
+        configuration: 'Release',
+        deploymentAuthoritySchema: 'fsusblog.monolithic-distributed-architecture.v2',
+        deploymentAuthorityContentDigest: `sha256:${'1'.repeat(64)}`,
+        deploymentObservationDigest: `sha256:${'2'.repeat(64)}`
     });
 
     assert.equal(identity.receiptDigest, expectedReceiptDigest);
@@ -467,7 +484,21 @@ test('minimal contract build uses only a content-addressed root and never ambien
         assert.equal(args.includes('--no-build'), false);
         assert.equal(args.some((value) => String(value).includes('/bin/Release/')), false);
         fs.mkdirSync(path.dirname(args[outputIndex + 1]), { recursive: true });
-        fs.writeFileSync(args[outputIndex + 1], '{"schema":"fixture"}\n');
+        const deploymentIndex = args.indexOf('--deployment-observation');
+        const runtime = deploymentIndex >= 0;
+        const deployment = runtime
+            ? JSON.parse(fs.readFileSync(args[deploymentIndex + 1], 'utf8'))
+            : null;
+        fs.writeFileSync(args[outputIndex + 1], runtime
+            ? `${JSON.stringify({
+                schema: 'fsusblog.runtime-role-observation.v2',
+                deploymentAuthority: {
+                    authoritySchema: deployment.authoritySchema,
+                    authorityContentDigest: deployment.authorityContentDigest,
+                    observationDigest: deployment.observationDigest
+                }
+            })}\n`
+            : '{"schema":"fixture"}\n');
         return { status: 0, stdout: '', stderr: '' };
     };
     const result = runMinimalContractBuild({
@@ -506,10 +537,19 @@ if [[ "\${1:-}" == "--version" ]]; then
   exit 0
 fi
 output=""
+deployment=""
+runtime="0"
 while (( $# > 0 )); do
   if [[ "$1" == "--output" ]]; then
     output="$2"
-    break
+    shift 2
+    continue
+  fi
+  if [[ "$1" == "--deployment-observation" ]]; then
+    runtime="1"
+    deployment="$2"
+    shift 2
+    continue
   fi
   shift
 done
@@ -521,7 +561,22 @@ touch "$active"
 trap 'rm -f "$active"' EXIT
 sleep 0.08
 mkdir -p "$(dirname "$output")"
-printf '{"schema":"fixture"}\\n' > "$output"
+if [[ "$runtime" == "1" ]]; then
+  node --input-type=module --eval '
+    import fs from "node:fs";
+    const deployment = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+    fs.writeFileSync(process.argv[2], JSON.stringify({
+      schema: "fsusblog.runtime-role-observation.v2",
+      deploymentAuthority: {
+        authoritySchema: deployment.authoritySchema,
+        authorityContentDigest: deployment.authorityContentDigest,
+        observationDigest: deployment.observationDigest
+      }
+    }) + "\\n");
+  ' "$deployment" "$output"
+else
+  printf '{"schema":"fixture"}\\n' > "$output"
+fi
 printf 'end %s\\n' "$$" >> "\${FSUSBLOG_FAKE_DOTNET_LOG}"
 `);
     fs.chmodSync(fakeDotnet, 0o755);

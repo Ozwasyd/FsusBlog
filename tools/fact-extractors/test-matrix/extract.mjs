@@ -1151,16 +1151,52 @@ export function extract(context)
   {
     return failResult(['runtime-role observation is partial, conflicting, or unsupported'])
   }
-  for (const source of Object.values(runtimeObservation.deploymentAuthority.sourceDigests ?? {}))
+  const expectedDeploymentSources = {
+    policy: 'tests/governance/monolithic-distributed-architecture.json',
+    project: 'src/backend/FsusBlog.Server.csproj',
+    dockerfile: 'ops/docker/FsusBlog.Server.Dockerfile',
+    productionCompose: 'ops/docker/docker-compose.production.yml'
+  }
+  const deploymentSources = runtimeObservation.deploymentAuthority.sourceDigests
+  if (deploymentSources == null || typeof deploymentSources !== 'object' || Array.isArray(deploymentSources)
+    || Object.keys(deploymentSources).sort().join('\0') !== Object.keys(expectedDeploymentSources).sort().join('\0'))
   {
-    if (!allowed.has(source?.path))
+    return failResult(['runtime-role deployment source roster is not exact'])
+  }
+  try
+  {
+    for (const [id, expectedPath] of Object.entries(expectedDeploymentSources))
     {
-      return failResult([`runtime-role deployment source is undeclared: ${String(source?.path)}`])
+      const source = deploymentSources[id]
+      if (source == null || typeof source !== 'object' || Array.isArray(source)
+        || Object.keys(source).sort().join('\0') !== 'digest\0path'
+        || source.path !== expectedPath
+        || !/^[a-f0-9]{64}$/u.test(String(source.digest ?? ''))
+        || !allowed.has(source.path))
+      {
+        return failResult([`runtime-role deployment source shape is invalid: ${id}`])
+      }
+      if (digestText(readText(context.repositoryRoot, source.path, allowed)) !== source.digest)
+      {
+        return failResult([`runtime-role deployment source digest mismatch: ${source.path}`])
+      }
     }
-    if (digestText(readText(context.repositoryRoot, source.path, allowed)) !== source.digest)
+    const policy = JSON.parse(readText(
+      context.repositoryRoot,
+      expectedDeploymentSources.policy,
+      allowed
+    ))
+    const { contentDigest, ...unsignedPolicy } = policy
+    if (policy.schema !== runtimeObservation.deploymentAuthority.authoritySchema
+      || contentDigest !== runtimeObservation.deploymentAuthority.authorityContentDigest
+      || contentDigest !== `sha256:${digestValue(unsignedPolicy)}`)
     {
-      return failResult([`runtime-role deployment source digest mismatch: ${source.path}`])
+      return failResult(['runtime-role deployment policy authority digest mismatch'])
     }
+  }
+  catch (error)
+  {
+    return failResult([`runtime-role deployment source validation failed: ${error instanceof Error ? error.message : String(error)}`])
   }
   const expectedRuntimeReceiptDigest = digestValue({
     schema: 'fsusblog.runtime-role-observation-build-receipt.v2',

@@ -132,6 +132,13 @@ internal static class RuntimeRoleObservationHost
 
     private static RuntimeRoleDeploymentProbe ReadDeploymentProbe(string path)
     {
+        var expectedSources = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["policy"] = "tests/governance/monolithic-distributed-architecture.json",
+            ["project"] = "src/backend/FsusBlog.Server.csproj",
+            ["dockerfile"] = "ops/docker/FsusBlog.Server.Dockerfile",
+            ["productionCompose"] = "ops/docker/docker-compose.production.yml"
+        };
         byte[] bytes = File.ReadAllBytes(path);
         using JsonDocument document = JsonDocument.Parse(bytes);
         JsonElement root = document.RootElement;
@@ -164,14 +171,74 @@ internal static class RuntimeRoleObservationHost
             ?? throw new InvalidOperationException("runtime_role_deployment_observation_invalid");
         if (probe.Schema != "fsusblog.runtime-role-deployment-observation.v1"
             || probe.AuthoritySchema != "fsusblog.monolithic-distributed-architecture.v2"
-            || !probe.AuthorityContentDigest.StartsWith("sha256:", StringComparison.Ordinal)
+            || !IsSha256Digest(probe.AuthorityContentDigest, prefixed: true)
             || probe.Ownership.AuthorityState != "closed-current"
             || !probe.Ownership.ClaimEligible
             || probe.Ownership.FailureReasons.Count != 0)
         {
             throw new InvalidOperationException("runtime_role_deployment_observation_not_claim_eligible");
         }
+        if (!probe.SourceDigests.Keys.Order(StringComparer.Ordinal)
+                .SequenceEqual(expectedSources.Keys.Order(StringComparer.Ordinal), StringComparer.Ordinal))
+        {
+            throw new InvalidOperationException("runtime_role_deployment_source_roster_invalid");
+        }
+
+        string repositoryRoot = Path.GetFullPath(Directory.GetCurrentDirectory());
+        string rootBoundary = repositoryRoot.EndsWith(Path.DirectorySeparatorChar)
+            ? repositoryRoot
+            : repositoryRoot + Path.DirectorySeparatorChar;
+        foreach ((string id, string expectedPath) in expectedSources)
+        {
+            SourceDigestObservation source = probe.SourceDigests[id];
+            if (!string.Equals(source.Path, expectedPath, StringComparison.Ordinal)
+                || !IsSha256Digest(source.Digest, prefixed: false))
+            {
+                throw new InvalidOperationException($"runtime_role_deployment_source_shape_invalid:{id}");
+            }
+            string absolutePath = Path.GetFullPath(Path.Combine(repositoryRoot, source.Path));
+            if (!absolutePath.StartsWith(rootBoundary, StringComparison.Ordinal)
+                || !File.Exists(absolutePath))
+            {
+                throw new InvalidOperationException($"runtime_role_deployment_source_missing:{id}");
+            }
+            string liveDigest = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(absolutePath)))
+                .ToLowerInvariant();
+            if (!string.Equals(source.Digest, liveDigest, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException($"runtime_role_deployment_source_digest_mismatch:{id}");
+            }
+        }
+
+        string policyPath = Path.Combine(repositoryRoot, expectedSources["policy"]);
+        using JsonDocument policyDocument = JsonDocument.Parse(File.ReadAllBytes(policyPath));
+        JsonElement policyRoot = policyDocument.RootElement;
+        string? policySchema = policyRoot.GetProperty("schema").GetString();
+        string? policyContentDigest = policyRoot.GetProperty("contentDigest").GetString();
+        string computedPolicyDigest = "sha256:" + Convert.ToHexString(SHA256.HashData(
+            Encoding.UTF8.GetBytes(CanonicalObjectWithout(policyRoot, "contentDigest")))).ToLowerInvariant();
+        if (!string.Equals(policySchema, probe.AuthoritySchema, StringComparison.Ordinal)
+            || !string.Equals(policyContentDigest, probe.AuthorityContentDigest, StringComparison.Ordinal)
+            || !string.Equals(policyContentDigest, computedPolicyDigest, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("runtime_role_deployment_policy_authority_mismatch");
+        }
         return probe;
+    }
+
+    private static bool IsSha256Digest(string? value, bool prefixed)
+    {
+        string candidate = value ?? string.Empty;
+        if (prefixed && candidate.StartsWith("sha256:", StringComparison.Ordinal))
+        {
+            candidate = candidate[7..];
+        }
+        else if (prefixed)
+        {
+            return false;
+        }
+        return candidate.Length == 64 && candidate.All(static character =>
+            character is >= '0' and <= '9' or >= 'a' and <= 'f');
     }
 
     private static SchemaOverlapObservation ObserveSchemaOverlap()

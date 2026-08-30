@@ -1,7 +1,8 @@
 {
   "schema": "fsusblog.generated-output-binding.v1",
   "sources": [
-    "tools/fact-extractors/test-matrix/extract.mjs"
+    "tools/fact-extractors/test-matrix/extract.mjs",
+    "tools/governance/check-monolithic-distributed-architecture.mjs"
   ],
   "outputs": [
     {
@@ -10,7 +11,7 @@
     },
     {
       "path": "docs/releases/blue-green-deployment-runbook.md",
-      "sha256": "52534b62bd6280c5cac9255100f92d173f5786d3a4d210f38015c19db8000f4d"
+      "sha256": "e5a1860049e31fe0dff96f206b183468afbf1b692fbf2e1153948e38b9d0e1ee"
     }
   ]
 }

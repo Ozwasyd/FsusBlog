@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, cpSync, existsSync } from 'node:fs'
 import os from 'node:os'
@@ -19,7 +20,11 @@ import {
   TEST_MATRIX_DECLARED_FACT_SOURCES,
   TEST_MATRIX_CONSUMER_INPUTS
 } from '../../tools/fact-extractors/test-matrix/extract.mjs'
-import { produceRuntimeRoleObservation } from '../../tools/contracts/lib/runtime-role-observation.mjs'
+import {
+  produceRuntimeRoleObservation,
+  runtimeRoleDeploymentObservationRelative,
+  runtimeRoleProject
+} from '../../tools/contracts/lib/runtime-role-observation.mjs'
 
 const extractorId = 'test-matrix-fact-extractor'
 const runtimeRoleBuild = produceRuntimeRoleObservation({ repositoryRoot: root })
@@ -45,6 +50,45 @@ function copy(repositoryRoot, relative)
   const target = path.join(repositoryRoot, relative)
   mkdirSync(path.dirname(target), { recursive: true })
   cpSync(source, target, { recursive: true })
+}
+
+function resealRuntimeObservation(observation)
+{
+  const unsigned = {
+    schema: observation.schema,
+    modes: observation.modes,
+    staticRoleCapabilities: observation.staticRoleCapabilities,
+    unsupportedCombinations: observation.unsupportedCombinations,
+    ownership: observation.ownership,
+    deploymentAuthority: observation.deploymentAuthority,
+    schemaOverlap: observation.schemaOverlap
+  }
+  observation.observationDigest = createHash('sha256').update(JSON.stringify(unsigned)).digest('hex')
+}
+
+function canonical(value)
+{
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`
+  if (value && typeof value === 'object')
+  {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}`
+  }
+  return JSON.stringify(value)
+}
+
+function extractMutatedRuntimeObservation(directory, mutate)
+{
+  const artifact = path.join(directory, '.tmp/contracts/runtime-role/runtime-role-observation.json')
+  const observation = JSON.parse(readFileSync(artifact, 'utf8'))
+  mutate(observation)
+  resealRuntimeObservation(observation)
+  writeFileSync(artifact, `${JSON.stringify(observation, null, 2)}\n`)
+  const artifactDigest = createHash('sha256').update(readFileSync(artifact)).digest('hex')
+  return extractTestMatrix({
+    repositoryRoot: directory,
+    extractor: registryExtractor(),
+    buildIdentity: { ...runtimeRoleBuild.buildIdentity, artifactDigest }
+  })
 }
 
 function fixtureRepository(options = {})
@@ -99,6 +143,7 @@ function fixtureRepository(options = {})
     write(directory, 'tests/matrix.yml', options.matrixText)
   }
   copy(directory, '.tmp/contracts/runtime-role/runtime-role-observation.json')
+  copy(directory, runtimeRoleDeploymentObservationRelative)
   return directory
 }
 
@@ -554,6 +599,67 @@ test('runtime-role observation requires exact receipt and rejects semantic tampe
     })
     assert.equal(semanticTamper.status, 'failed')
     assert.match(semanticTamper.failureReasons.join('\n'), /build receipt digest mismatch/iu)
+  }
+  finally
+  {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('runtime-role deployment source roster, live digests, and policy authority fail closed', () =>
+{
+  for (const [label, mutate, pattern] of [
+    [
+      'missing roster member',
+      (observation) => { delete observation.deploymentAuthority.sourceDigests.dockerfile },
+      /source roster is not exact/iu
+    ],
+    [
+      'stale source digest',
+      (observation) => { observation.deploymentAuthority.sourceDigests.dockerfile.digest = '0'.repeat(64) },
+      /source digest mismatch/iu
+    ],
+    [
+      'tampered authority binding',
+      (observation) => { observation.deploymentAuthority.authorityContentDigest = `sha256:${'0'.repeat(64)}` },
+      /policy authority digest mismatch/iu
+    ]
+  ])
+  {
+    const directory = fixtureRepository()
+    try
+    {
+      const result = extractMutatedRuntimeObservation(directory, mutate)
+      assert.equal(result.status, 'failed', label)
+      assert.match(result.failureReasons.join('\n'), pattern, label)
+    }
+    finally
+    {
+      rmSync(directory, { recursive: true, force: true })
+    }
+  }
+})
+
+test('compiled runtime-role host rejects a resealed deployment observation with an incomplete source roster', () =>
+{
+  const directory = fixtureRepository()
+  try
+  {
+    const deploymentPath = path.join(directory, runtimeRoleDeploymentObservationRelative)
+    const deployment = JSON.parse(readFileSync(deploymentPath, 'utf8'))
+    delete deployment.sourceDigests.dockerfile
+    const { observationDigest: _observationDigest, ...unsigned } = deployment
+    deployment.observationDigest = `sha256:${createHash('sha256').update(canonical(unsigned)).digest('hex')}`
+    writeFileSync(deploymentPath, `${JSON.stringify(deployment, null, 2)}\n`)
+    const output = path.join(directory, '.tmp/contracts/runtime-role/rejected.json')
+    const run = spawnSync('dotnet', [
+      'run', '--project', path.join(root, runtimeRoleProject), '-c', 'Release', '--no-build', '--',
+      '--deployment-observation', deploymentPath,
+      '--output', output
+    ], { cwd: directory, encoding: 'utf8' })
+    assert.notEqual(run.status, 0)
+    assert.match(`${run.stdout}\n${run.stderr}`, /runtime_role_deployment_source_roster_invalid/iu)
+    assert.equal(existsSync(output), false)
   }
   finally
   {

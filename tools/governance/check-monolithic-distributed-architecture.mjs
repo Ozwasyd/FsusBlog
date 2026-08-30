@@ -161,6 +161,7 @@ function validatePolicy(policy)
     {
         errors.push('blueGreenMounts must classify the complete production application mount set');
     }
+    const mountIdentities = new Map();
     for (const [target, mount] of Object.entries(mounts))
     {
         exactKeys(mount, ['access', 'protection', 'scope', 'source', 'volumeName'], `blueGreenMounts.${target}`, errors);
@@ -171,6 +172,31 @@ function validatePolicy(policy)
             || !(mount.volumeName === null || typeof mount.volumeName === 'string'))
         {
             errors.push(`blueGreenMounts.${target} contains an invalid closed classification`);
+        }
+        if (mount.scope === 'slot-private'
+            && (typeof mount.volumeName !== 'string'
+                || !mount.volumeName.includes('${FSUSBLOG_SLOT_')))
+        {
+            errors.push(`blueGreenMounts.${target} slot-private identity must be slot-specific`);
+        }
+        if (mount.scope !== 'slot-private'
+            && (String(mount.source).includes('${FSUSBLOG_SLOT_')
+                || String(mount.volumeName ?? '').includes('${FSUSBLOG_SLOT_')))
+        {
+            errors.push(`blueGreenMounts.${target} non-slot-private identity must not be slot-specific`);
+        }
+        for (const [kind, identity] of [['source', mount.source], ['volumeName', mount.volumeName]])
+        {
+            if (typeof identity !== 'string' || identity.length === 0) continue;
+            const key = `${kind}\0${identity}`;
+            const prior = mountIdentities.get(key) ?? [];
+            if (prior.some((entry) => entry.scope !== mount.scope
+                && (entry.scope === 'slot-private' || mount.scope === 'slot-private')))
+            {
+                errors.push(`blueGreenMounts.${target} ${kind} identity crosses slot-private and shared scope`);
+            }
+            prior.push({ target, scope: mount.scope });
+            mountIdentities.set(key, prior);
         }
     }
     const composeServices = object(policy?.composeServices);
