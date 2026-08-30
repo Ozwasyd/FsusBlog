@@ -15,7 +15,7 @@
         "evidence-selection.schema-search",
         "evidence-selection.timestamp-sort"
     ],
-    "scanDigest": "sha256:dfe7b93d97749b393fb300c761a0da88ba4781243eb94489909edb09b06b4324",
+    "scanDigest": "sha256:428bb8617e2ae9a153ab8ef183919867b24159069e4d2a629b5f45b7bb285c32",
     "entries": [
         {
             "findingId": "796fa8284a86adb9",
@@ -172,6 +172,30 @@
             "action": "close exact location and rule as non-evidence behavior",
             "owner": "test-evidence-governance",
             "proofTest": "tests/tools/evidence-location-governance.test.mjs#30c58725d53e9217"
+        },
+        {
+            "findingId": "afeac4cab06c14e1",
+            "consumerId": "evidence-consumer.config.configuration-ownership",
+            "location": "config/configuration-ownership.json:1628",
+            "oldSelectionRule": "evidence-selection.latest-newest",
+            "classification": "not-evidence",
+            "newAuthorityId": null,
+            "locatorMode": "not-applicable",
+            "action": "close exact location and rule as non-evidence behavior",
+            "owner": "test-evidence-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#afeac4cab06c14e1"
+        },
+        {
+            "findingId": "39fdf0af08e0dd7a",
+            "consumerId": "evidence-consumer.config.configuration-ownership",
+            "location": "config/configuration-ownership.json:1628",
+            "oldSelectionRule": "evidence-selection.pointer-without-identity",
+            "classification": "not-evidence",
+            "newAuthorityId": null,
+            "locatorMode": "not-applicable",
+            "action": "close exact location and rule as non-evidence behavior",
+            "owner": "test-evidence-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#39fdf0af08e0dd7a"
         },
         {
             "findingId": "347fe2c76d49ef65",
@@ -964,6 +988,30 @@
             "action": "close exact location and rule as non-evidence behavior",
             "owner": "test-evidence-governance",
             "proofTest": "tests/tools/evidence-location-governance.test.mjs#0f7db23ddce260df"
+        },
+        {
+            "findingId": "2ac715a193caf1ba",
+            "consumerId": "evidence-consumer.db.generate-migration-assembly-receipt",
+            "location": "tools/db/generate-migration-assembly-receipt.mjs:30",
+            "oldSelectionRule": "evidence-selection.directory-scan",
+            "classification": "correctness-selection",
+            "newAuthorityId": "evidence-consumer.db.generate-migration-assembly-receipt.current-run",
+            "locatorMode": "explicit-run-path",
+            "action": "migrate consumer to its registered current-run authority after locator implementation",
+            "owner": "test-evidence-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#2ac715a193caf1ba"
+        },
+        {
+            "findingId": "5000dc73e5e54936",
+            "consumerId": "evidence-consumer.db.generate-migration-assembly-receipt",
+            "location": "tools/db/generate-migration-assembly-receipt.mjs:62",
+            "oldSelectionRule": "evidence-selection.first-match",
+            "classification": "correctness-selection",
+            "newAuthorityId": "evidence-consumer.db.generate-migration-assembly-receipt.current-run",
+            "locatorMode": "explicit-run-path",
+            "action": "migrate consumer to its registered current-run authority after locator implementation",
+            "owner": "test-evidence-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#5000dc73e5e54936"
         },
         {
             "findingId": "3e6e059e26699786",
@@ -4206,5 +4254,5 @@
             "proofTest": "tests/tools/evidence-location-governance.test.mjs#2ef6d583f3eff507"
         }
     ],
-    "contentDigest": "sha256:c1f515e0dc9a042c483f90b5413f651151d09bcb17a0b74a25456aba0cce24ef"
+    "contentDigest": "sha256:c1f5e9c7a2af36c405922e586885b50a254c2efef5cbc22d3685e0360c05b08e"
 }
