@@ -26,6 +26,16 @@ public sealed class SchemaModelInspectorTests
         Assert.Contains("createtime", article.Columns.Keys);
         Assert.DoesNotContain("content", article.Columns.Keys);
 
+        SchemaColumnModel categoryDescription = snapshot.Tables["category"].Columns["description"];
+        Assert.True(categoryDescription.IsNullable);
+        Assert.Equal(500, categoryDescription.MaxLength);
+        Assert.Equal("character varying", categoryDescription.DataType);
+
+        SchemaColumnModel tagDescription = snapshot.Tables["tag"].Columns["description"];
+        Assert.True(tagDescription.IsNullable);
+        Assert.Equal(500, tagDescription.MaxLength);
+        Assert.Equal("character varying", tagDescription.DataType);
+
         SchemaTableModel userSession = snapshot.Tables["sys_user_session"];
         Assert.Contains("idleexpiresat", userSession.Columns.Keys);
         Assert.Contains("absoluteexpiresat", userSession.Columns.Keys);
