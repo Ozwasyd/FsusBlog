@@ -1,0 +1,29 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/coverage-registry.json"
+            ],
+            "reason": "preserve canonical producer and coverage identifiers shared with generated testing documentation"
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md",
+                "tests/backend/Fixtures/backend-test-requirements.json"
+            ],
+            "reason": "preserve registered lifecycle requirement and generated document identifiers across governance owners"
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/governance/change-contract/issue-2362-external-naming-exceptions.json",
+                "tests/test-replacement-transactions/issue-2362.json"
+            ],
+            "reason": "preserve serialized transaction and exception manifest keys at the JSON contract boundary"
+        }
+    ]
+}
