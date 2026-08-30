@@ -278,7 +278,15 @@ export function buildIdentitiesFromMinimalReceipt(receipt) {
     artifactId,
     {
       artifactId,
-      receiptDigest: receipt.contentDigest,
+      receiptDigest: artifactId === 'runtime-role-observation'
+        ? digestValue({
+            schema: 'fsusblog.runtime-role-observation-build-receipt.v1',
+            artifactId,
+            artifactPath: hostDeclarations[artifactId].output,
+            artifactDigest: artifact.artifactDigest,
+            configuration: 'Release'
+          })
+        : receipt.contentDigest,
       artifactDigest: artifact.artifactDigest
     }
   ]))
