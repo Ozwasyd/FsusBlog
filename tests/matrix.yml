@@ -8930,11 +8930,13 @@ tiers:
           [
               .tmp/release-evidence/*/manifest.json,
               .tmp/release-evidence/browserless-correctness-receipt.json,
+              .tmp/runtime-observation-probes,
           ]
       evidence:
           [
               .tmp/release-evidence/*/manifest.json,
               .tmp/release-evidence/browserless-correctness-receipt.json,
+              .tmp/runtime-observation-probes,
               tests/matrix.yml,
               tools/test.sh,
               tools/test/lanes,
@@ -8943,6 +8945,10 @@ tiers:
               tools/ci/summarize-quality-gate.mjs,
               tools/test/lanes/browser-runtime-risk-diagnostics.sh,
               tools/test/lanes/production-correctness-receipt.sh,
+              tools/test/lanes/runtime-observation-probes.sh,
+              tools/test-evidence/runtime-observation-probes.mjs,
+              tools/test-evidence/runtime-observation-raw.mjs,
+              tests/tools/runtime-observation-probes.test.mjs,
               tools/release/test-evidence-receipts.mjs,
               tools/release/test-evidence-receipts-cli.mjs,
               .github/workflows/quality-gate.yml,

@@ -7,6 +7,7 @@ RUN_ID="${FSUSBLOG_TEST_RUN_ID:?FSUSBLOG_TEST_RUN_ID is required}"
 PLAN_DIR="${FSUSBLOG_POST_RUNTIME_PLAN_DIR:-$ROOT_DIR/.tmp/post-runtime-plan/$RUN_ID}"
 RAW_DIR="${FSUSBLOG_POST_RUNTIME_RAW_DIR:-$ROOT_DIR/.tmp/post-runtime-raw/$RUN_ID}"
 OUT_DIR="${FSUSBLOG_POST_RUNTIME_OBSERVATION_DIR:-$ROOT_DIR/.tmp/post-runtime-observations/$RUN_ID}"
+PROBE_DIR="${FSUSBLOG_RUNTIME_OBSERVATION_PROBE_DIR:-$ROOT_DIR/.tmp/runtime-observation-probes/$RUN_ID}"
 
 classes=(
     aot-spa-hydration
@@ -19,6 +20,13 @@ classes=(
 )
 
 mkdir -p "$OUT_DIR/classes"
+for class_id in route-response-error session-cookie-runtime cache-search-outbox-convergence; do
+    "$NODE_BIN" "$ROOT_DIR/tools/test-evidence/runtime-observation-raw.mjs" project-probe \
+        --candidate-plan "$PLAN_DIR/candidate-plan.json" \
+        --probe "$PROBE_DIR/$class_id.json" \
+        --out "$RAW_DIR/$class_id.json"
+done
+
 for class_id in "${classes[@]}"; do
     "$NODE_BIN" "$ROOT_DIR/tools/fact-extractors/post-runtime/current-run.mjs" class-receipt \
         --receipt "$PLAN_DIR/candidate-plan.json" \
