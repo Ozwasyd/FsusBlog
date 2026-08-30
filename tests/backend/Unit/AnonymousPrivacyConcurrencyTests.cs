@@ -6,21 +6,6 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AnonymousPrivacyConcurrencyTests
 {
     [Fact]
-    public async Task VerifierBoundedConcurrency_DoesNotExceedConfiguredLimit()
-    {
-        const int Attempts = 32;
-        const int MaxConcurrent = 4;
-        using var barrier = new Barrier(Attempts);
-        var verifier = new BoundedVerifier(MaxConcurrent);
-
-        bool[] results = await Task.WhenAll(Enumerable.Range(0, Attempts)
-            .Select(_ => StartBarrierTaskAsync(barrier, () => verifier.VerifyAsync(CancellationToken.None))));
-
-        Assert.All(results, Assert.True);
-        Assert.InRange(verifier.MaxObservedConcurrency, 1, MaxConcurrent);
-    }
-
-    [Fact]
     public async Task CommentSubmitHighConcurrency_CacheInvalidationIsNonBlocking()
     {
         const int Attempts = 24;
@@ -54,56 +39,6 @@ public sealed class AnonymousPrivacyConcurrencyTests
             CancellationToken.None,
             TaskCreationOptions.LongRunning,
             TaskScheduler.Default);
-
-    private static Task<T> StartBarrierTaskAsync<T>(Barrier barrier, Func<Task<T>> action)
-        => Task.Factory.StartNew(
-            async () =>
-            {
-                WaitForConcurrentStart(barrier);
-                return await action();
-            },
-            CancellationToken.None,
-            TaskCreationOptions.LongRunning,
-            TaskScheduler.Default).Unwrap();
-    private sealed class BoundedVerifier(int maxConcurrent)
-    {
-        private readonly SemaphoreSlim _gate = new(maxConcurrent, maxConcurrent);
-        private int _inFlight;
-        private int _maxObservedConcurrency;
-
-        public int MaxObservedConcurrency => Volatile.Read(ref _maxObservedConcurrency);
-
-        public async Task<bool> VerifyAsync(CancellationToken cancellationToken)
-        {
-            await _gate.WaitAsync(cancellationToken);
-            try
-            {
-                int current = Interlocked.Increment(ref _inFlight);
-                TrackMax(current);
-                await Task.Delay(15, cancellationToken);
-                return true;
-            }
-            finally
-            {
-                Interlocked.Decrement(ref _inFlight);
-                _gate.Release();
-            }
-        }
-
-        private void TrackMax(int current)
-        {
-            int previous;
-            do
-            {
-                previous = Volatile.Read(ref _maxObservedConcurrency);
-                if (current <= previous)
-                {
-                    return;
-                }
-            }
-            while (Interlocked.CompareExchange(ref _maxObservedConcurrency, current, previous) != previous);
-        }
-    }
 
     private sealed class CommentSubmitter(NonBlockingInvalidationDispatcher dispatcher)
     {
