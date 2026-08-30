@@ -14,7 +14,6 @@
                 "tests/frontend/benchmarks",
                 "tests/frontend/checks",
                 "tests/frontend/e2e",
-                "tests/frontend/model",
                 "tests/frontend/property",
                 "tests/frontend/typecheck",
                 "tests/frontend/unit",

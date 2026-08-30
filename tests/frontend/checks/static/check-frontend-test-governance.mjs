@@ -570,7 +570,7 @@ if (
     fail('vite dev server fs allow must include real node_modules and local FsusUI wasm dist paths for manual screenshot assets');
 }
 
-for (const dir of ['tests/frontend/property', 'tests/frontend/model', 'tests/frontend/benchmarks'])
+for (const dir of ['tests/frontend/property', 'tests/frontend/benchmarks'])
 {
     requireFile(dir);
 }

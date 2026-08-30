@@ -137,14 +137,32 @@
     "nonRandomDeclarations": [
         {
             "producerId": "frontend-property-model-perf",
-            "canonicalTestId": "vitest:tests/frontend/model/frontendStateMachines.test.ts#frontend-state-machine-models",
-            "entrypoint": "src/frontend/vitest.model.config.ts",
+            "canonicalTestId": "vitest:tests/frontend/unit/composables/useAuthLogin.test.ts#executes-the-full-post-auth-sequence-in-strict-order-upo-94d4d23491",
+            "entrypoint": "tests/frontend/unit/composables/useAuthLogin.test.ts",
             "randomStreams": []
         },
         {
             "producerId": "frontend-property-model-perf",
-            "canonicalTestId": "vitest:tests/frontend/model/frontendStateMachines.test.ts#deterministic-transition-contracts",
-            "entrypoint": "tests/frontend/model/frontendStateMachines.test.ts",
+            "canonicalTestId": "vitest:tests/frontend/unit/composables/useAdminArticleWrite.authoringGates.test.ts#edit-autosave-draft-save-only-calls-draft-owner-and-neve-473d5953c9",
+            "entrypoint": "tests/frontend/unit/composables/useAdminArticleWrite.authoringGates.test.ts",
+            "randomStreams": []
+        },
+        {
+            "producerId": "frontend-property-model-perf",
+            "canonicalTestId": "vitest:tests/frontend/unit/composables/useAdminSettingsPage.test.ts#requires-user-decision-and-opens-prompt-when-attempting--ee72190767",
+            "entrypoint": "tests/frontend/unit/composables/useAdminSettingsPage.test.ts",
+            "randomStreams": []
+        },
+        {
+            "producerId": "frontend-property-model-perf",
+            "canonicalTestId": "vitest:tests/frontend/unit/composables/useAccountMessagesInbox.draftIsolation.test.ts#strictly-isolates-drafts-between-conversations-when-savi-31b7336a5b",
+            "entrypoint": "tests/frontend/unit/composables/useAccountMessagesInbox.draftIsolation.test.ts",
+            "randomStreams": []
+        },
+        {
+            "producerId": "frontend-property-model-perf",
+            "canonicalTestId": "vitest:tests/frontend/unit/composables/useImageUploadRuntime.test.ts#runs-compression-and-hashing-before-init-uploads-every-r-df69efa80b",
+            "entrypoint": "tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
             "randomStreams": []
         }
     ],
