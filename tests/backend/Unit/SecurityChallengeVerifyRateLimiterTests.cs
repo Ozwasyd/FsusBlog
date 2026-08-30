@@ -13,7 +13,6 @@ public sealed class SecurityChallengeVerifyRateLimiterTests
     private static readonly DateTimeOffset s_baselineNow = new(2026, 6, 20, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public async Task TryAcquireAsync_UsesSharedUnifiedCacheWindowCounterWithoutRawIdentity()
     {
         Type limiterType = typeof(SecurityChallengeProofService).Assembly.GetType(
@@ -51,7 +50,6 @@ public sealed class SecurityChallengeVerifyRateLimiterTests
     }
 
     [Fact]
-    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public async Task TryAcquireAsync_TimeBoundaryDoesNotResetCounterIdentity()
     {
         Type limiterType = typeof(SecurityChallengeProofService).Assembly.GetType(
@@ -77,7 +75,6 @@ public sealed class SecurityChallengeVerifyRateLimiterTests
     }
 
     [Fact]
-    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public void SecurityChallengeVerifyRateLimiter_DoesNotKeepLocalGrowingCollections()
     {
         Type limiterType = typeof(SecurityChallengeProofService).Assembly.GetType(

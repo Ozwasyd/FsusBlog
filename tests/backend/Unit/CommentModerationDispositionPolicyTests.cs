@@ -24,7 +24,6 @@ public sealed class CommentModerationDispositionPolicyTests
     [InlineData(CommentModerationStatus.Hidden, CommentModerationStatus.Approved, true)]
     [InlineData(CommentModerationStatus.Hidden, CommentModerationStatus.Rejected, true)]
     [InlineData(CommentModerationStatus.Hidden, CommentModerationStatus.Hidden, false)]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Boundary)]
     public void TransitionMatrix_ExplicitlyCoversEveryKnownStatePair(
         CommentModerationStatus from,
         CommentModerationStatus to,

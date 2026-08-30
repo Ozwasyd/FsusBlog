@@ -177,23 +177,19 @@ function finalizeBehaviorSelection({
             const behaviorTestBindings = testBindings.filter(
                 (b) => b.behaviorId === entry.behaviorId
             );
-            // Keep the physical mutation scope identical to the binding receipt.
-            // A class-only filter would also execute unbound sibling tests, allowing
-            // them to cover or kill mutants without a canonical behavior binding.
+            // Derive FullyQualifiedName~ filters from test binding class names.
             const testFilters = [...new Set(
                 behaviorTestBindings.map((b) =>
                 {
                     const fqn = String(b.fullyQualifiedName ?? '');
                     const testId = String(b.canonicalTestId ?? '');
-                    const canonicalParts = testId.match(/^xunit-trx:([^#]+)#([^#]+)$/u);
-                    const canonicalFqn = canonicalParts
-                        ? `${canonicalParts[1]}.${canonicalParts[2]}`
-                        : fqn;
-                    return canonicalFqn.trim();
+                    const canonicalClass = testId.match(/^xunit-trx:([^#]+)#/u)?.[1];
+                    const className = canonicalClass ?? fqn.split('.').at(-2) ?? '';
+                    return className.trim();
                 }).filter(Boolean)
             )].sort();
             const filterExpression = testFilters
-                .map((test) => `FullyQualifiedName~${test}`)
+                .map((cls) => `FullyQualifiedName~${cls}`)
                 .join('|');
             const mutateFiles = [...new Set(
                 entry.owners
@@ -240,7 +236,7 @@ function finalizeBehaviorSelection({
     const mutateFiles = [...new Set(behaviors.flatMap((b) => b.mutateFiles))].sort();
     const testFilter = [...new Set(
         behaviors.flatMap((b) => b.testFilters)
-    )].sort().map((test) => `FullyQualifiedName~${test}`).join('|');
+    )].sort().map((cls) => `FullyQualifiedName~${cls}`).join('|');
 
     // Source project closures.
     const sourceProjects = [...new Set(
@@ -266,7 +262,7 @@ function finalizeBehaviorSelection({
             behaviors: projectBehaviors.map(({ behaviorId, risk }) => ({ behaviorId, risk })),
             mutateFiles: projectMutateFiles,
             testFilters: projectTestFilters,
-            testFilter: projectTestFilters.map((test) => `FullyQualifiedName~${test}`).join('|')
+            testFilter: projectTestFilters.map((cls) => `FullyQualifiedName~${cls}`).join('|')
         };
     });
 
@@ -562,11 +558,6 @@ export function createChangedCriticalStrykerConfig(selection, toolPolicy, source
             configuration: toolPolicy.defaults.configuration,
             'test-case-filter': closure.testFilter,
             'mutation-level': toolPolicy.defaults.mutationLevel,
-            // The selected closure can contain Docker/PostgreSQL tests whose
-            // lease semantics are part of the behavior under qualification.
-            // Parallel mutant workers would turn host contention into an
-            // unrelated kill, so the authority records a serialized topology.
-            concurrency: 1,
             thresholds: toolPolicy.defaults.thresholds,
             'break-on-initial-test-failure': true,
             reporters: ['progress', 'html', 'json'],

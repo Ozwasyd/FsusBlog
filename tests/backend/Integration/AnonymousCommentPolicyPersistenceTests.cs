@@ -18,7 +18,6 @@ namespace FsusBlog.Server.Tests;
 public sealed class AnonymousCommentPolicyPersistenceTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
-    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task PolicySnapshot_LoadsPersistsInvalidatesAndReloadsAcrossServiceInstances()
     {
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);

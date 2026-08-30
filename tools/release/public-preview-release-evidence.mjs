@@ -1,22 +1,14 @@
-import process from 'node:process';
-
 import { validatePublicPreviewEvidenceBinding } from './test-evidence-receipts.mjs';
 
 export function requirePublicPreviewReleaseEvidence({
     commitSha,
     browserContractReceipt,
-    findReceiptFile,
+    evidence,
     sha256Hex,
-    environment = process.env
 })
 {
-    const publicPreview = findReceiptFile(
-        'fsusblog.public-preview-screenshot-verification.v1',
-        [environment.FSUSBLOG_PUBLIC_PREVIEW_SCREENSHOT_EVIDENCE, '.tmp/release-evidence/public-preview-screenshots.json'],
-        commitSha,
-        { requireExactOne: true }
-    );
-    if (!publicPreview)
+    const publicPreview = evidence;
+    if (publicPreview?.receipt?.schema !== 'fsusblog.public-preview-screenshot-verification.v1')
     {
         throw new Error('public-preview screenshot evidence is required; release-final fails closed without local evidence');
     }

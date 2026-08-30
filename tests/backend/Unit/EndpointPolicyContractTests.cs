@@ -33,7 +33,6 @@ public sealed class EndpointPolicyContractTests
 
     [Fact]
     [Trait("ShardAffinity", "EndpointContractApplication")]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task CriticalEndpointMetadata_ComesFromFinalEndpointDataSource()
     {
         await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
@@ -173,7 +172,6 @@ public sealed class EndpointPolicyContractTests
 
     [Fact]
     [Trait("ShardAffinity", "EndpointContractApplication")]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task CommentModerationEndpoints_RequireCommentModeratePermission()
     {
         await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
@@ -291,7 +289,6 @@ public sealed class EndpointPolicyContractTests
 
     [Fact]
     [Trait("ShardAffinity", "EndpointContractApplication")]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task BinaryArticleAdminRoutes_AreUnderAdminPrefix()
     {
         await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();

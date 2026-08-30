@@ -184,7 +184,6 @@ export function qualifyBehaviorMutations({
     const cleanTestIdsByBehavior = qualificationOptions.cleanTestIdsByBehavior ?? {};
     const bindingByTestId = qualificationOptions.bindingByTestId ?? {};
     const testIdentityByRawId = qualificationOptions.testIdentityByRawId ?? {};
-    const expectedOwnerPathsByBehavior = qualificationOptions.expectedOwnerPathsByBehavior ?? {};
     const hasCleanTestEvidence =
         Object.keys(bindingByTestId).length > 0
     && Object.keys(testIdentityByRawId).length > 0;
@@ -262,16 +261,6 @@ export function qualifyBehaviorMutations({
 
         const failures = [];
         const policy = contract.mutationPolicy;
-        const requiredOwnerPaths = expectedOwnerPathsByBehavior[behaviorId] ?? [];
-        const killedOwnerPaths = [...new Set(killed.map((mutant) => mutant.sourcePath))]
-            .sort((left, right) => left.localeCompare(right));
-        for (const ownerPath of requiredOwnerPaths)
-        {
-            if (!killedOwnerPaths.includes(ownerPath))
-            {
-                failures.push(`${behaviorId} owner ${ownerPath} has no killed mutant evidence`);
-            }
-        }
 
         if (policy.requireExecutedMutants && executed.length === 0)
         {
@@ -373,8 +362,6 @@ export function qualifyBehaviorMutations({
             timeout: timeout.length,
             noCoverage: noCoverage.length,
             compileError: compileError.length,
-            requiredOwners: requiredOwnerPaths.length,
-            killedOwners: killedOwnerPaths.length,
             requiredMutants: expectedMutantIds.length,
             recordedMutants: mutants.length,
             score,

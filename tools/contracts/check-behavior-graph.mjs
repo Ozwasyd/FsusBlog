@@ -31,6 +31,7 @@ function parseArgs (argv)
 {
   const options = {
     catalog: null,
+    factExtractorRegistry: null,
     owner: null,
     testEvidence: null,
     docClaimParse: null,
@@ -53,6 +54,7 @@ function parseArgs (argv)
       return path.resolve(root, value)
     }
     if (argument === '--catalog') options.catalog = next()
+    else if (argument === '--fact-extractor-registry') options.factExtractorRegistry = next()
     else if (argument === '--owner') options.owner = next()
     else if (argument === '--test-evidence') options.testEvidence = next()
     else if (argument === '--doc-claim-parse') options.docClaimParse = next()
@@ -78,6 +80,7 @@ Does not scan source, parse Markdown, run tests, or invoke extractors.
 
 Options:
   --catalog <path>
+  --fact-extractor-registry <path>
   --owner <path>
   --test-evidence <path>
   --doc-claim-parse <path>
@@ -109,6 +112,7 @@ try
 {
   const receipt = joinBehaviorGraph({
     catalog: requirePath(options.catalog, '--catalog'),
+    factExtractorRegistry: requirePath(options.factExtractorRegistry, '--fact-extractor-registry'),
     ownerReceipt: requirePath(options.owner, '--owner'),
     testEvidenceReceipt: requirePath(options.testEvidence, '--test-evidence'),
     docClaimParseReceipt: requirePath(options.docClaimParse, '--doc-claim-parse'),

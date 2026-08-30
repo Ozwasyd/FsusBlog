@@ -16,7 +16,6 @@ public sealed class MfaChallengeServiceTests
     private static readonly string s_lockedSubjectHash = new string('c', AccountSubjectHashRequirement.Sha256HexLength);
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public async Task RecordFailureAsync_SameAccountSubjectHashSharesCounterAcrossAccountIds()
     {
         var cache = new RecordingCounterCache();
@@ -45,7 +44,6 @@ public sealed class MfaChallengeServiceTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public async Task RecordFailureAsync_NormalizesSubjectHashBeforeBuildingCounterKey()
     {
         var cache = new RecordingCounterCache();
@@ -68,7 +66,6 @@ public sealed class MfaChallengeServiceTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public async Task RecordFailureAsync_UsesSingleAtomicCounterSnapshot()
     {
         var cache = new RecordingCounterCache();
@@ -97,7 +94,6 @@ public sealed class MfaChallengeServiceTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public async Task RecordFailureAsync_LockDecisionUsesAtomicSubjectCount()
     {
         var cache = new RecordingCounterCache();
@@ -122,7 +118,6 @@ public sealed class MfaChallengeServiceTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public void MfaFailureLimiter_UsesStableAccountSubjectHashAndAccountAuditField()
     {
         string[] ticket = typeof(MfaChallengeTicket).GetProperties().Select(static property => property.Name).ToArray();
@@ -146,7 +141,6 @@ public sealed class MfaChallengeServiceTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public void MfaFailureLimiter_StaticLegacyUserIdResidueDoesNotReturn()
     {
         string runtimeShape = RuntimeMetadataInspection.DescribeType(typeof(MfaChallengeService));
@@ -156,7 +150,6 @@ public sealed class MfaChallengeServiceTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public void MfaTickets_AreSignedAndLegacyTicketsRejected()
     {
         var configuration = new ConfigurationBuilder()
@@ -201,7 +194,6 @@ public sealed class MfaChallengeServiceTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task MfaProofTokens_AreBoundToSubjectActionAndCryptographicRandomness()
     {
         var cache = new RecordingCounterCache();
@@ -243,7 +235,6 @@ public sealed class MfaChallengeServiceTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public async Task MfaProofTokens_AreOneTimeAndRejectCrossAccountSubjectSessionAndActionUse()
     {
         var cache = new RecordingCounterCache();

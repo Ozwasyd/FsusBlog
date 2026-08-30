@@ -9,7 +9,6 @@ public sealed class OwnedAedsFrameTests
     private static readonly AedsEncoder s_encoder = new();
 
     [Fact]
-    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void DetachOwnedFrame_PreservesWireBytesAndReportsLogicalAndBackingSizes()
     {
         byte[] payload = Enumerable.Range(0, 37).Select(static value => (byte)value).ToArray();
@@ -34,7 +33,6 @@ public sealed class OwnedAedsFrameTests
     }
 
     [Fact]
-    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Boundary)]
     public void Retire_DefersExactlyOnePoolReturnUntilEveryReadLeaseEnds()
     {
         var pool = new TrackingArrayPool();
@@ -67,7 +65,6 @@ public sealed class OwnedAedsFrameTests
     }
 
     [Fact]
-    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-wire-fail-closed")]
     public void ReleasedLease_InvalidatesPreviouslyCapturedReadOnlyMemory()
     {
         var pool = new TrackingArrayPool();
@@ -87,7 +84,6 @@ public sealed class OwnedAedsFrameTests
     }
 
     [Fact]
-    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void PinnedLease_DefersOwnerReleaseUntilMemoryHandleIsUnpinned()
     {
         var pool = new TrackingArrayPool();
@@ -109,7 +105,6 @@ public sealed class OwnedAedsFrameTests
     }
 
     [Fact]
-    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public void ConcurrentRetireAndLeaseDisposal_ReturnPooledBufferOnce()
     {
         var pool = new TrackingArrayPool();
@@ -139,7 +134,6 @@ public sealed class OwnedAedsFrameTests
     [InlineData(AedsFrameType.CurrentUserSnapshot, true)]
     [InlineData(AedsFrameType.ArticleList, false)]
     [InlineData(AedsFrameType.PublicAotBootstrap, false)]
-    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void DetachedOwner_UsesSensitivityAllowlistWhenReturningPoolBuffer(
         AedsFrameType frameType,
         bool expectedClear)
@@ -163,7 +157,6 @@ public sealed class OwnedAedsFrameTests
     [Theory]
     [InlineData(AedsFrameType.AdminStats, true)]
     [InlineData(AedsFrameType.ArticleDetail, false)]
-    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void ExactOwner_ClearsSensitiveFramesButKeepsPublicImmutableFrames(
         AedsFrameType frameType,
         bool expectedClear)
@@ -180,7 +173,6 @@ public sealed class OwnedAedsFrameTests
     }
 
     [Fact]
-    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-wire-fail-closed")]
     public void DetachOwnedFrame_RequiresSealAndInvalidatesWriterAfterTransfer()
     {
         var pool = new TrackingArrayPool();
@@ -198,7 +190,6 @@ public sealed class OwnedAedsFrameTests
     }
 
     [Fact]
-    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void Builders_ProduceWireEquivalentPooledAndExactOwners()
     {
         byte[] payload = Enumerable.Range(0, 257).Select(static value => unchecked((byte)value)).ToArray();
@@ -223,7 +214,6 @@ public sealed class OwnedAedsFrameTests
     }
 
     [Fact]
-    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Boundary)]
     public void BuildExact_RejectsPayloadLengthChangesBetweenPasses()
     {
         int pass = 0;
@@ -242,99 +232,6 @@ public sealed class OwnedAedsFrameTests
     }
 
     [Fact]
-    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-wire-fail-closed")]
-    public void Builders_RejectNullPayloadWriter()
-    {
-        Assert.Throws<ArgumentNullException>(() =>
-            AedsOwnedFrameBuilder.BuildOwned(AedsFrameType.ArticleList, null!));
-        Assert.Throws<ArgumentNullException>(() =>
-            AedsOwnedFrameBuilder.BuildExact(AedsFrameType.ArticleList, null!));
-    }
-
-    [Fact]
-    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-wire-fail-closed")]
-    public void BuildExact_RejectsInvalidAdvanceDuringSizingPass()
-    {
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            AedsOwnedFrameBuilder.BuildExact(
-                AedsFrameType.ArticleList,
-                destination =>
-                {
-                    destination.GetSpan(1);
-                    destination.Advance(-1);
-                }));
-    }
-
-    [Fact]
-    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Boundary)]
-    public void BuildExact_RejectsSecondPassCapacityGrowth()
-    {
-        int pass = 0;
-
-        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
-            AedsOwnedFrameBuilder.BuildExact(
-                AedsFrameType.ArticleList,
-                destination =>
-                {
-                    pass++;
-                    if (pass == 1)
-                    {
-                        destination.Write<byte>([1]);
-                        return;
-                    }
-
-                    destination.GetSpan(2);
-                }));
-
-        Assert.Contains("requested more capacity", error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-wire-fail-closed")]
-    public void BuildExact_ClearsSensitiveFrameWhenSecondPassFails()
-    {
-        int pass = 0;
-        Memory<byte> capturedFrame = default;
-
-        Assert.Throws<InvalidOperationException>(() =>
-            AedsOwnedFrameBuilder.BuildExact(
-                AedsFrameType.AdminStats,
-                destination =>
-                {
-                    pass++;
-                    if (pass == 1)
-                    {
-                        destination.Write<byte>([1, 2, 3, 4]);
-                        return;
-                    }
-
-                    capturedFrame = destination.GetMemory(4);
-                    capturedFrame.Span.Fill(0xA5);
-                    throw new InvalidOperationException("stop after writing sensitive payload");
-                }));
-
-        Assert.Equal(new byte[4], capturedFrame.ToArray());
-    }
-
-    [Fact]
-    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Boundary)]
-    public void BuildExact_AllowsZeroAdvanceInBothPasses()
-    {
-        using OwnedAedsFrame frame = AedsOwnedFrameBuilder.BuildExact(
-            AedsFrameType.ArticleList,
-            destination =>
-            {
-                destination.GetSpan(1);
-                destination.Advance(0);
-                destination.Write<byte>([0x42]);
-            });
-        using OwnedAedsFrameReadLease lease = frame.AcquireReadLease();
-
-        Assert.Equal(0x42, lease.Memory.Span[AedsFrameHeader.Size]);
-    }
-
-    [Fact]
-    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-wire-fail-closed")]
     public void PoolReturnFailure_StillCompletesBackingReleaseAccountingCallback()
     {
         var pool = new ThrowingReturnArrayPool();

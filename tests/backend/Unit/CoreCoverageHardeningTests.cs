@@ -75,7 +75,6 @@ public sealed class CoreCoverageHardeningTests
     }
 
     [Fact]
-    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-owned-frame-fail-closed")]
     public void AedsDecoderValidator_ReturnsFailureWhenDecodeFails()
     {
         var encoder = new FakeEncoder
@@ -91,7 +90,6 @@ public sealed class CoreCoverageHardeningTests
     }
 
     [Fact]
-    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-owned-frame-fail-closed")]
     public void AedsDecoderValidator_ReturnsFailureWhenFrameTypeMismatches()
     {
         var encoder = FakeEncoder.Success(new AedsDecodeResult(
@@ -107,7 +105,6 @@ public sealed class CoreCoverageHardeningTests
     }
 
     [Fact]
-    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-owned-frame-fail-closed")]
     public void AedsDecoderValidator_ReturnsFailureWhenVersionMismatches()
     {
         var encoder = FakeEncoder.Success(new AedsDecodeResult(
@@ -123,7 +120,6 @@ public sealed class CoreCoverageHardeningTests
     }
 
     [Fact]
-    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-owned-frame-fail-closed")]
     public void AedsDecoderValidator_ReturnsFailureWhenFlagsMismatches()
     {
         var encoder = FakeEncoder.Success(new AedsDecodeResult(
@@ -139,7 +135,6 @@ public sealed class CoreCoverageHardeningTests
     }
 
     [Fact]
-    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-owned-frame-fail-closed")]
     public void AedsDecoderValidator_ReturnsFailureWhenPayloadLengthMismatches()
     {
         var encoder = FakeEncoder.Success(new AedsDecodeResult(
@@ -155,7 +150,6 @@ public sealed class CoreCoverageHardeningTests
     }
 
     [Fact]
-    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-owned-frame-fail-closed")]
     public void AedsDecoderValidator_ReturnsFailureWhenPayloadContentMismatches()
     {
         var encoder = FakeEncoder.Success(new AedsDecodeResult(

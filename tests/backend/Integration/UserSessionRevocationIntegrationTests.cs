@@ -37,7 +37,6 @@ public sealed class UserSessionRevocationIntegrationTests(
     PublicHotDeliveryRedisFixture redisFixture) : IClassFixture<PublicHotDeliveryRedisFixture>
 {
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "session-revocation-enforcement")]
     public async Task RevokeSession_RejectsPreviouslyIssuedPrincipalAfterCacheWasWarm()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -60,7 +59,6 @@ public sealed class UserSessionRevocationIntegrationTests(
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "session-revocation-enforcement")]
     public async Task RevokeOtherSessions_InvalidatesOthersAndKeepsCurrentSessionValid()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -94,7 +92,6 @@ public sealed class UserSessionRevocationIntegrationTests(
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "session-revocation-enforcement")]
     public async Task RevokeAllSessions_InvalidatesEveryWarmPrincipalWithSecurityReason()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -129,7 +126,6 @@ public sealed class UserSessionRevocationIntegrationTests(
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "session-revocation-enforcement")]
     public async Task RevokeSessionsByCredential_RevokesOnlyExactAccountCredentialBinding()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -168,7 +164,6 @@ public sealed class UserSessionRevocationIntegrationTests(
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public async Task RefreshReplay_RevokesSessionAndImmediatelyRejectsOldPrincipal()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -196,7 +191,6 @@ public sealed class UserSessionRevocationIntegrationTests(
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public async Task RefreshReplay_RevokesOnlyTargetSessionAndDoesNotTreatDeviceSignalAsAuthority()
     {
         using SqlSugarClient db = await CreateDbAsync();

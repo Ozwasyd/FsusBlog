@@ -11,9 +11,9 @@ const knownStatuses = ['CompileError', 'Ignored', 'Killed', 'NoCoverage', 'Survi
 const executedStatuses = new Set(['Killed', 'Survived', 'Timeout']);
 const terminalStatuses = new Set(knownStatuses);
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
-const supportedStrykerNetVersion = '4.14.2-fsusblog.2';
+const supportedStrykerNetVersion = '4.14.2';
 
-// Reviewed against the repository overlay on dotnet-stryker@4.14.2.
+// Reviewed against dotnet-stryker@4.14.2.
 // Source revision: cc7fdf3433025a4b63c2c091c07b2177d117359e.
 function strykerNet4142OperatorAllowlist()
 {
@@ -1198,7 +1198,6 @@ function referencedTestIdentities(inventory)
 
 export function createStrykerAuthority({
     report,
-    physicalReport = report,
     rawReport,
     reportPath,
     reportAbsolutePath,
@@ -1217,8 +1216,7 @@ export function createStrykerAuthority({
 })
 {
     const summary = validateStrykerReport(report);
-    validateStrykerReport(physicalReport);
-    const reportBytes = rawJsonBytes(physicalReport, rawReport, 'raw Stryker report');
+    const reportBytes = rawJsonBytes(report, rawReport, 'raw Stryker report');
     const configBytes = rawJsonBytes(config, rawConfig, 'raw Stryker config');
     const traceBytes = Buffer.isBuffer(rawTrace) ? rawTrace : Buffer.from(rawTrace ?? '');
     if (traceBytes.length === 0)

@@ -56,9 +56,7 @@ function fixtureRoot()
         'tools/fact-extractors/openapi-aeds/extract.mjs',
         'tools/fact-extractors/auth-session-permission/extract.mjs',
         'tools/fact-extractors/config-error-security-policy/extract.mjs',
-        'tools/fact-extractors/content-lifecycle/extract.mjs',
-        'tools/fact-extractors/post-runtime/application-runtime.mjs',
-        'tools/fact-extractors/post-runtime/release-deployment.mjs'
+        'tools/fact-extractors/content-lifecycle/extract.mjs'
     ])
     {
         const target = path.join(directory, relative);
@@ -330,14 +328,14 @@ behaviorTest('code-intent-governance', 'positive', 'pw title', async () => {})
     assert.equal(typeof behaviorTest, 'function');
 });
 
-test('repository active pre-runtime behaviors have formal source bindings for every required kind', () =>
+test('repository active behaviors have formal source bindings for every required kind', () =>
 {
     const report = formatBehaviorTestBindingReport(scanBehaviorTestBindings({ repositoryRoot: root }));
     assert.equal(report.errors.length, 0, report.errors.join('\n'));
     assert.equal(report.status, 'ok');
     assert.ok(report.bindingCount >= 10);
     const catalog = loadCatalog();
-    for (const contract of catalog.contracts.filter((entry) => entry.status === 'active' && entry.evidenceStage === 'pre-runtime'))
+    for (const contract of catalog.contracts.filter((entry) => entry.status === 'active'))
     {
         for (const kind of contract.requiredTestKinds)
         {
@@ -348,28 +346,6 @@ test('repository active pre-runtime behaviors have formal source bindings for ev
         }
     }
     execFileSync(process.execPath, [checker, '--mode', 'bindings'], { cwd: root, stdio: 'inherit' });
-});
-
-test('post-runtime behaviors are excluded from the pre-runtime source-binding and evidence closure', () =>
-{
-    const directory = fixtureRoot();
-    try
-    {
-        seedRequiredBindings(directory);
-        const catalog = loadFixtureCatalog(directory);
-        const scan = scanBehaviorTestBindings({ repositoryRoot: directory, catalog });
-        for (const behaviorId of [
-            'application-runtime-semantic-coherence',
-            'release-deployment-runtime-containment'
-        ])
-        {
-            assert.ok(!scan.errors.some((error) => error.includes(`${behaviorId} missing source binding`)));
-        }
-    }
-    finally
-    {
-        rmSync(directory, { recursive: true, force: true });
-    }
 });
 
 test('1) behavior requires boundary but only positive test fails exact coverage', () =>

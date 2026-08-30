@@ -26,7 +26,7 @@ function inputs(mutants)
 {
     const report = { schemaVersion: '2', thresholds: { high: 85, low: 70 }, files: { 'Algorithms/AedsEncoder.cs': { language: 'cs', source: 'return a;\nreturn b;\nreturn c;', mutants } }, testFiles: { 'tests/backend/Unit/AedsEncoderTests.cs': { tests: [{ id: testId, name: testName }] } } };
     const executed = mutants.filter(({ status }) => ['Killed', 'Survived', 'Timeout'].includes(status));
-    const traceLines = ['2026-07-11T00:59:59.0000000Z  [DBG] Stryker starting, version: "4.14.2-fsusblog.2" (e60f399b)', '2026-07-11T01:00:00.0000000Z  [DBG] Stryker started with options: StrykerOptions { ReportPath: "/repo/.tmp/mutation/reports", ReportFileName: "backend-mutation-critical", TestCaseFilter: "FullyQualifiedName~AedsEncoderTests" } (fac41b16)'];
+    const traceLines = ['2026-07-11T00:59:59.0000000Z  [DBG] Stryker starting, version: "4.14.2" (e60f399b)', '2026-07-11T01:00:00.0000000Z  [DBG] Stryker started with options: StrykerOptions { ReportPath: "/repo/.tmp/mutation/reports", ReportFileName: "backend-mutation-critical", TestCaseFilter: "FullyQualifiedName~AedsEncoderTests" } (fac41b16)'];
     for (const [index, mutant] of executed.entries())
     {
         const stamp = `2026-07-11T01:00:${String(index + 1).padStart(2, '0')}`;

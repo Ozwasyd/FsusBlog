@@ -25,7 +25,6 @@ const frameworkFiles = new Set([
     'tools/fact-extractors/identity.mjs',
     'tools/fact-extractors/governance.mjs',
     'tools/fact-extractors/check-behavior-fact-extractors.mjs',
-    'tools/fact-extractors/post-runtime/registry.mjs',
     'tools/fact-extractors/lib/canonicalize.mjs'
 ])
 
@@ -81,9 +80,8 @@ export function scanExtractorSources(repositoryRoot = root, registry = loadRegis
     const entrypoints = new Map(registry.extractors.map((extractor) => [extractor.entrypoint.replaceAll('\\', '/'), extractor.id]))
     const seedFiles = walkFiles(path.join(repositoryRoot, 'tools/fact-extractors/seeds'))
     const libFiles = walkFiles(path.join(repositoryRoot, 'tools/fact-extractors/lib'))
-    const postRuntimeFiles = walkFiles(path.join(repositoryRoot, 'tools/fact-extractors/post-runtime'))
 
-    for (const absolute of [...seedFiles, ...libFiles, ...postRuntimeFiles])
+    for (const absolute of [...seedFiles, ...libFiles])
     {
         const relative = relativeOf(repositoryRoot, absolute)
         const source = readFileSync(absolute, 'utf8')
@@ -96,9 +94,7 @@ export function scanExtractorSources(repositoryRoot = root, registry = loadRegis
                 errors.push(`${relative}: forbidden docs/Markdown or self-proving token (${pattern})`)
             }
         }
-        for (const pattern of extractorId || !relative.includes('/post-runtime/')
-            ? forbiddenInputTokenPatterns
-            : [])
+        for (const pattern of forbiddenInputTokenPatterns)
         {
             if (pattern.test(source))
             {

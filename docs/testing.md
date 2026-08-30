@@ -89,6 +89,13 @@ worktree、完整 commit 与生成后的 theme dist。
 
 准入 receipt 绑定 run、commit、FactObservation worktree fingerprint、toolchain、catalog/claim/extractor/renderer digest、owner 结果、全部 fact observation、minimal build、generated/prose/mutation 结果和 `candidateSpawnCountBeforeReceipt: 0`，并以 `contentDigest` 封存；同一 admission artifact 同时发布被主 receipt 逐项 digest 绑定的 implementation-owner、DocClaim parse/verification、generated-section 和 fact-observation companion receipts，后继 authority 不得从不存在的平行 `.tmp` producer 目录猜测这些输入。本地 Production Fresh runner 先取得同一 candidate/run 的 repository lease 和 capacity reservation，再在 reservation live guard 内生成并校验该 receipt；BehaviorDoc cache 命中与未命中都按 catalog 中的 worst-case build/staging/retention demand 预留，不得消耗 safety headroom，host temp demand 同时覆盖 process-unique DocClaim staleness mutation fixture repositories。admission 完成后必须用 lease 的同一 `snapshotSourceState` authority 重取 commit/worktree fingerprint 并精确匹配，不能直接比较 BehaviorDoc extractor 的另一套 fingerprint；漂移在 cleanup 和 producer 前 fail closed。receipt 仍先于 cleanup、candidate output root 和 scheduler child spawn，随后在每个 physical bundle admission 前重验 source/worktree/digest。非 Fresh 本地 profile 保持无 capacity authority 的静态准入顺序。GitHub Actions 通过独立 prerequisite job 生成同一 artifact；每个候选 job 必须使用 `.github/actions/consume-behavior-doc-admission` 下载并验证 producer 输出后才可调用 `tools/test.sh`。docs-only、source-only 和其他 smart-gate 计划都不能省略该节点，package script 也不得直接暴露其内部 authority 形成旁路。
 
+Content lifecycle 的 current-run terminal evidence 由 `tools/docs/content-doc-exactness.mjs`
+生成：generated claim 与 prose claim 分开计数，prose 必须逐项 verified，closed mutation roster 中
+scheduled/rollback/restore/delete/visibility/moderation/privacy/outbox 及治理退化类必须全部
+killed，missing/extra/conflict/stale/residue 必须为零。`verify` 不信任 terminal 自报数字；本地与
+CI 都显式传入 admission、prose、generated、content observation、mutation 五类 component，重算
+rows、authority digests、ledger closure 与最终 seal 后才接受。
+
 `production-correctness` 与 `production` 在 scheduler、runtime cleanup、cache/.tmp 清理、磁盘 reservation、namespace 准备或 producer spawn 前，必须取得以 canonical repository root 和 `production-fresh` 为键的仓库级独占 lease。candidate identity 绑定本轮真实 commit、worktree fingerprint、profile target tier 与固定 `production-fresh` namespace；owner process/start/executable/command 与 Unix process group 或 Windows Job Object authority 复用 scheduler verifier。Windows 必须在 acquisition 前证明 named Job member query 可用，release 时对稳定双快照中的每个成员收集完整 process identity，除 owner 外仍有成员或 query 不可验证都不得释放。第二个 Fresh 对可验证 owner fail-fast 且文件、进程、container、port 与 spawn 均零变化；owner 损坏或无法验证时 fail closed。stale reclaim 与 heartbeat/finalize 使用 owner token、content digest CAS；lease 只在 producer descendants、postflight、证据封存和 cache 恢复结束，写入 terminal receipt 后释放。
 
 Fresh cache preservation 在取得上述 lease 后、任何新 `.tmp` cleanup 或 producer spawn 前，先扫描 common Git directory 中、按 canonical repository root 隔离的 durable transaction journal。事务状态只允许 `prepared`、`evacuating`、`evacuated`、`fresh-root-cleared`、`restoring`、`restored`、`committed`、`aborted`、`recovery-required`；每次 journal 写入执行 file fsync、atomic rename 和 parent-directory fsync，每次 cache rename 同步 fsync source/holding parent。holding 固定在物理 `.tmp` 同文件系统的外部 sibling，并只登记现有四项 cache allowlist（Emscripten、dependency、.NET data cache、run-bound build roots）。只读 terminal `test-runs` 不是可复用 cache，不得 rename 到 holding；cleanup 通过 exact path 原地跳过并在删除前后复核 tree digest、mode、uid/gid 与目录 identity，保证 run B 不删除、移动、chmod 或改写 run A 的已封存 correctness evidence。除此以外的 TRX、coverage、summary、checkpoint 与 correctness output 不得登记。恢复只读取 journal 中的 exact original/holding path，不按 PID、mtime 或目录名猜测，并逐项复核 tree digest、mode、uid/gid、symlink/hardlink 边界和 #1675 owner identity；holding tamper、未知/损坏状态、目标重建、条目缺失、跨文件系统 rename、fsync 不可用、磁盘满或权限失败全部写入 `recovery-required` 并在 cleanup/spawn 前 fail closed。`committed`/`aborted` journal 作为 terminal receipt 保留 pre/post digest、动作、crash injection point 和 final state；cache 后续合法变化不会被旧 terminal receipt 冻结。
@@ -179,6 +186,17 @@ Prepare 结果逐 capability 绑定 database/API/cache/outbox/stream 的 exact o
 性能测试资产统一放在 `tests/performance/`，不再保留旧短名测试根。`browser-contract` 是 release correctness 的最小浏览器契约，而 `browser-diagnostics` 是 scheduled/manual 的诊断集合；两者的命令、artifact 和结论互不替代，diagnostics 失败不能伪装成 correctness 通过，contract 通过也不能覆盖 diagnostics 的独立风险报告。
 
 `tests/coverage-registry.json` 是 matrix `coverage[]` 的机器可读索引。每个 coverage id 必须声明 `description`、`owner`、`risk`、`evidencePaths`、`assertionType`、`failClosedRule` 和 `minimumRequirement`；`description` 必须描述实际覆盖语义，不能保留 `Coverage contract for ...` 这类模板句，`minimumRequirement` 必须写明最低可接受断言或 evidence 形态，不能只重复 tier 类型。`tools/run-test-matrix.mjs validate` 会拒绝未注册的 coverage id、未被对应 tier artifact/evidence 声明的 evidence path、未使用的 registry id，拒绝只指向 unit/property 测试文件却标成非 `unit` 的明显 assertionType 错配，也会拒绝 `runtime` / `browser` / `perf` / `fuzz` / `mutation` 类型只指向静态 docs/source 文件的条目。该 registry 不替代测试本体，只把“这个 coverage 标签由什么证据证明”变成 fail-closed 合同。
+
+<!-- fsus-doc-claim
+claimId: test-asset-audit-reconciliation.coverage-entry-count
+behaviorId: test-asset-audit-reconciliation
+claimType: generated-section
+generatedSectionId: testing.coverage-entry-count
+render: scalar
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN testing.coverage-entry-count -->
+257
+<!-- FSUSBLOG-GENERATED:END testing.coverage-entry-count -->
 
 `config/testing/content-shape-catalog.json` 是 Unicode、script、正负 eligibility
 与 content consumer applicability 的唯一可编辑 `ContentShapeCatalog`。
@@ -304,17 +322,6 @@ action deadline 只来自 `config/testing/release-reliability-lifecycle-action-r
 
 测试瘦身只允许基于机器证据推进。`static-governance` 的 `test-assets` phase 会先且仅先运行一次 `tools/check-test-retention.mjs`，完整写入 matrix 声明的 canonical `.tmp/release-evidence/test-retention-audit.json`，再让 lifecycle 与 test-asset audit 通过 `--audit-input` 消费同一份 source/run-bound artifact；二者不得在该 phase 内启动第二次 retention scan 或生成 lane-local 输入。CI 直接执行这个 canonical tier，不再在 tier 之后补跑另一套 test-asset audit。standalone lifecycle 或 audit 仍可自行生成诊断 retention，但不能成为 release authority。audit 不再用文件名、大小或 regex `assertionEstimate` 作决策；它对 canonical `testCaseEstimate` 中的每个 case 消费 inventory、resolved oracle facts、quality outcome、production owner、requirement、coverage 与 matrix tier，归类为 `must-keep`、`conditional`、`review-candidate`、`replaceable-candidate`、`obsolete-candidate` 或 `blocked-quality`。风险名称只能触发 `review-required-risk-name`，不能自动提升或删除；无法解析的 oracle 或质量失败必须阻断 replacement，不得生成 `behavior:<name>` 占位断言。每个 case 保存 framework、runtime boundary、production symbols、tier 调用次数、p50/p95、coverage/requirement IDs、resolved assertion targets、quality violations、失败历史、唯一证据与 replacement IDs；没有计时或历史样本时必须显式记录证据缺失，不能伪造为零。`catalogSnapshot` 同时保存 matrix tier/artifact/evidence、coverage registry、backend requirement catalog 与 release-evidence 路径及其源文件 SHA-256。producer 元数据记录 `runId`、`sourceState` 与 `generatedAt`；矩阵内执行自动继承 `FSUSBLOG_TEST_RUN_ID`，而 standalone audit 的 `runId=null` 只能用于诊断。只有 coverage registry、resolved assertion、critical mutation slice 与 matrix/requirement/release-artifact 维度均不下降，且 replacement transaction 为每个旧 test ID 和 assertion 给出存活 replacement 或显式 retirement，才允许变更。
 
-<!-- fsus-doc-claim
-claimId: testing.test-asset-audit-catalog
-behaviorId: test-asset-audit-reconciliation
-claimType: generated-section
-generatedSectionId: testing.test-asset-audit-catalog
-render: scalar
--->
-<!-- FSUSBLOG-GENERATED:BEGIN testing.test-asset-audit-catalog -->
-fsusblog.coverage-registry.v1
-<!-- FSUSBLOG-GENERATED:END testing.test-asset-audit-catalog -->
-
 权威 before snapshot 固定为 `tests/test-retention-before.json`。它由删测前的完整 audit 压缩生成，绑定当时的完整 commit 与 tracked worktree fingerprint，并内嵌 backend/frontend/merged coverage 基线和 `backend-mutation` / `release-mutation-critical-slice` scope identity。仓库一旦存在该文件，capture 命令会拒绝向任何路径再次捕获 before。若从已保存的 clean audit 迁移，`--audit-input` 会先验证 matrix、coverage registry、requirement catalog 与 coverage baseline 和该 audit commit 完全一致。后续历史 replacement 条目只作为前序声明被继承；当前删除必须由 lifecycle registry、post-baseline manifest、replacement ledger 与 suite-convergence 正负测试持续证明，不再生成一次性的 optimization campaign 报告。
 
 local production 的 backend union 由 `tools/test/run-backend-production-shards.mjs` 执行。脚本先用 `Category!=Integration&Category!=Performance` 发现本轮全部测试，再按完整测试方法名生成确定性、互斥的分片；每个分片使用同一次 fresh build 的独立 DLL 复制，避免 Coverlet 并发插桩同一文件。成功条件不是“两个命令均返回 0”，而是各 TRX 的逐方法用例计数与 discovery 完全一致、所有 outcome 均为 `Passed`。每个分片只生成 Coverlet JSON 与紧凑 identity sidecar；sidecar 绑定 run/source fingerprint、raw digest、module/source universe。只有 shard universe 完整且 binding 一致，才允许合并权威 Coverlet JSON，并从内存中的 merged result 一次性生成最终 Cobertura 和 Summary。`.tmp/dependency-cache/dotnet` 只保存 NuGet/.NET 工具依赖缓存，可跨 fresh 保留；编译输出统一写入 `.tmp/build/<run-id>`，新 fresh run 通过新根获得空状态，TRX、coverage、checkpoint 与 release evidence 仍逐轮重建，不能作为历史结果复用。布局、锁与 GC 契约见 [`testing/issue-1069-run-bound-production-builds.md`](testing/issue-1069-run-bound-production-builds.md)。
@@ -400,13 +407,11 @@ node tools/run-test-matrix.mjs validate
 node tools/check-browser-test-migration.mjs
 ```
 
-Mutation qualification authority 生成的 Stryker config 固定 `concurrency: 1`，避免 Docker/PostgreSQL lease 测试的主机争用被误记为不相干 mutant 的 kill；该 physical topology 由 config digest 与 independent verifier 封存，不得在执行时放宽。
-
-mutation 使用仓库锁定的 Stryker.NET `4.14.2-fsusblog.2` producer。其基线是 official `dotnet-stryker@4.14.2` commit `cc7fdf3433025a4b63c2c091c07b2177d117359e`；`tools/mutation/stryker-tool.mjs` 校验 official archive SHA-256、manifest 与 patch digest，只在 `.tmp/` staging copy 应用版本化 overlay、运行 fork focused tests 并 pack/install。overlay 在 mutant 注册前只对已证明危险的 block、pattern、XOR candidate 做 Roslyn semantic compile-valid 校验，并拒绝可静态证明把 canonical bounded `for` loop 进度反转为远离 bound 的 replacement；不确定或合法 candidate 必须保留，最终 combined compile rollback 继续 fail closed。nightly `backend-mutation` 从 solution 根发现 Core/Server 可变项目，读取 `config/testing/mutation/default.json` 的项目根相对 glob，保留 Core/security/binary/cache/service 全范围并写入 `.tmp/mutation/backend`；`release-mutation-critical-slice` 从 `src/core` source-project context 启动，以 `tests/backend/FsusBlog.Server.Tests.csproj` 为 test project，读取 `config/testing/mutation/critical.json` 中经审阅的 AEDS v2 wire-frame 核心 `Algorithms/AedsEncoder.cs`，并只选择直接覆盖该范围的 `AedsEncoderTests`，写入 `.tmp/mutation/backend-critical`。两者均继续保留，changed-critical 能力不承担退役任一既有 lane 的 authority。
+mutation 使用仓库锁定的 Stryker.NET `4.14.2`。nightly `backend-mutation` 从 solution 根发现 Core/Server 可变项目，读取 `config/testing/mutation/default.json` 的项目根相对 glob，保留 Core/security/binary/cache/service 全范围并写入 `.tmp/mutation/backend`；`release-mutation-critical-slice` 从 `src/core` source-project context 启动，以 `tests/backend/FsusBlog.Server.Tests.csproj` 为 test project，读取 `config/testing/mutation/critical.json` 中经审阅的 AEDS v2 wire-frame 核心 `Algorithms/AedsEncoder.cs`，并只选择直接覆盖该范围的 `AedsEncoderTests`，写入 `.tmp/mutation/backend-critical`。两者均继续保留，changed-critical 能力不承担退役任一既有 lane 的 authority。
 
 `backend-mutation-changed-critical` 已收敛为自动、按 behavior、逐 mutant 的 per-behavior mutation qualification producer：`tests/matrix.yml` tier 声明 `cadence: pr`、`requiredFor: production`，不再允许 `manualOnly`、`requiredFor: none` 或 `release-manual`。版本化 `config/testing/mutation/changed-critical-domains.v1.json` 声明 mutation domain 的 repo-root source patterns、test owners、risk 和 mutation policy；`config/testing/mutation/behavior-mutation-owners.v1.json` 与事实抽取 registry 派生 C# implementation-owner closure。`scope=release` 必须运行四个 required release behaviors（binary-api-aeds-contract、authentication-session-permission、configuration-error-security-policy、article-comment-lifecycle-outbox）的全部 required critical mutants，零 manual-only/changed-only 遗漏；`scope=pr` 按 changed closure 选择受影响 behaviors，但 docs、binding receipt、BehaviorCatalog、mutation tooling、governance checker 与 matrix 等 governance-sensitive 路径变化时仍触发完整 required closure，不能以 source implementation 未改为由跳过。selector 输入 changed paths、source commit 与 worktree fingerprint，从 BehaviorCatalog、#2185 behavior-test bindings 与 implementation-owner receipt 派生 exact mutants/test commands，计算 closure digest；无相关关键变更时只写结构化 empty selection/run evidence，不创建 Stryker 物理进程。
 
-所有 Stryker authority 都绑定实际 semantic mutant inventory，而非仅保存 count 或 raw report digest。每个 canonical mutant ID 只由 repository-relative source file、完整 source digest、operator、精确位置、original/replacement digest 稳定派生；source digest 必须覆盖 report 中未 trim、未规范化换行的完整 source string，original 必须直接按同一 string 的原始 `LF` / `CRLF` offset 切片，replacement digest 必须区分空字符串、空白和非空文本。缺失或非 string replacement 与合法空 replacement 是不同状态。operator 必须命中从仓库锁定的 Stryker.NET `4.14.2-fsusblog.2` producer 源码审阅出的有限 allowlist，verbose trace 也必须包含唯一且完全匹配的 `Stryker starting, version: "4.14.2-fsusblog.2"` 记录；producer 版本或 operator 未知时 fail closed。Stryker raw mutant ID 仅作为同一物理 run 的 report-to-trace join key，绝不能把数组下标或 raw ID 当作 canonical identity。authority 的 `plannedMutantIds`、`executedMutantIds` 与各 terminal status 集合必须排序、唯一且互斥；每个 planned mutant 恰好进入一个 terminal 集合。`inventoryDigest` 绑定完整 inventory，`executionMatrixDigest` 绑定 mutant-to-status/test execution matrix，因此 report 数组重排不改变语义 digest，而相同 count/score 的不同 mutant、source、replacement 或 test relationship 必然改变 digest。
+所有 Stryker authority 都绑定实际 semantic mutant inventory，而非仅保存 count 或 raw report digest。每个 canonical mutant ID 只由 repository-relative source file、完整 source digest、operator、精确位置、original/replacement digest 稳定派生；source digest 必须覆盖 report 中未 trim、未规范化换行的完整 source string，original 必须直接按同一 string 的原始 `LF` / `CRLF` offset 切片，replacement digest 必须区分空字符串、空白和非空文本。缺失或非 string replacement 与合法空 replacement 是不同状态。operator 必须命中从仓库锁定的 Stryker.NET `4.14.2` producer 源码审阅出的有限 allowlist，verbose trace 也必须包含唯一且完全匹配的 `Stryker starting, version: "4.14.2"` 记录；producer 版本或 operator 未知时 fail closed。Stryker raw mutant ID 仅作为同一物理 run 的 report-to-trace join key，绝不能把数组下标或 raw ID 当作 canonical identity。authority 的 `plannedMutantIds`、`executedMutantIds` 与各 terminal status 集合必须排序、唯一且互斥；每个 planned mutant 恰好进入一个 terminal 集合。`inventoryDigest` 绑定完整 inventory，`executionMatrixDigest` 绑定 mutant-to-status/test execution matrix，因此 report 数组重排不改变语义 digest，而相同 count/score 的不同 mutant、source、replacement 或 test relationship 必然改变 digest。
 
 `release-mutation-critical-slice` 还使用 `config/testing/mutation/inventory-retention.json` 作为唯一的 planned inventory baseline 和 retirement ledger。它把 baseline mutant IDs 的不可变 digest、最小 planned/executed 数量、required operator/source region，以及 `Ignored`、`CompileError`、`NoCoverage` 的独立占比上限绑定到实际 authority。baseline 中消失的 mutant 必须逐项提供非泛化 reason code，并提供 replacement mutant IDs 或实际 executed proof test IDs；`refactor` 不是有效 reason，source refactor 必须给出 exact old-to-new mapping。新 mutant 可以直接加入本轮 inventory，绝不自动改写 baseline。lane 在 authority 后运行 `node tools/test/check-mutation-inventory.mjs --authority .tmp/mutation/backend-critical/authority.json`，原子写入 `inventory-retention.json`；其 candidate identity 同时绑定实际 inventory digest、policy digest 和 retirement ledger digest，因此高 score 无法补偿 inventory、operator 或 source-region 的退化。
 
@@ -1231,26 +1236,6 @@ tools/operations/check-release-evidence-manifest.mjs --require-ok
 
 ### `release-final` — final publish credential
 
-<!-- fsus-doc-claim
-claimId: release.finalizer-contract
-behaviorId: browserless-production-correctness
-claimType: generated-section
-generatedSectionId: release.finalizer-contract
-render: key-value-table
-anchor: release-final-final-publish-credential
--->
-<!-- FSUSBLOG-GENERATED:BEGIN release.finalizer-contract -->
-| Key | Value |
-| --- | --- |
-| evidenceBinding | current-run-exact |
-| executionMode | summary |
-| fallbackProducerAllowed | false |
-| ownership | finalizer-only |
-| producerSpawnAllowed | false |
-| publishCredentialGate | required-before-success |
-| terminalStates | ["failed","succeeded"] |
-<!-- FSUSBLOG-GENERATED:END release.finalizer-contract -->
-
 `release-final` 是唯一最终发布凭据。它是 `tests/matrix.yml` 中的 first-class tier，但标记为 `manualOnly`，不会作为 PR/push Quality Gate 的默认 job。发布候选必须显式运行：
 
 ```bash
@@ -1368,9 +1353,8 @@ authority JSON/status 都不能获得资格。
 
 该双层执行以 66 个 `AedsEncoder` planned mutants 和固定代表 subset 控制
 成本；required operators 是本 authority 中可执行的七类 operator，
-Stryker repo producer 在注册前拒绝 compile-invalid 或可证明非终止的 candidate；
-任何仍进入 report 的 `Ignored`、`CompileError` 或 `Timeout` 都不能伪装成可执行 parity。
-policy 不是百分比抽样，也不允许
+Stryker 4.14.2 自身标为 `Ignored` 的 block-removal 和唯一
+`CompileError` 不伪装成可执行 parity。policy 不是百分比抽样，也不允许
 运行时随机选择。即时回退是把
 `FSUSBLOG_RELEASE_MUTATION_PARITY` 设为 `0`，这只用于本地诊断或紧急
 回退，并会使 release-final 缺 required parity receipt，不能获得发布资格。
@@ -1415,17 +1399,20 @@ closure）同样失败**。shard 遗漏、duplicate testId、多跑、result
 missing、failed/cancelled/timeout、binding drift 与 framework adapter
 mismatch 全部 fail closed。
 
-### evidenceStage 分界
+### evidenceStage 代理
 
-BehaviorCatalog 对每个 contract 显式声明 `evidenceStage`。原有八个
-static governance / contract / unit 行为是 `pre-runtime`；
-`application-runtime-semantic-coherence` 与
-`release-deployment-runtime-containment` 是 `post-runtime`。pre-runtime gate
-只聚合前者，后者必须由同一
-`behavior-fact-extractors.json` registry 中的 `runtime-receipt-adapter`
-消费显式 current-run raw receipts；静态 extractor runner 会拒绝执行它们。
-两类 stage 不能用缺省值、job 成功、artifact/file/HTTP 存在性或
-diagnostic 结果互相代理。
+catalog 全仓不存在 `evidenceStage` 字段（`rg evidenceStage` 零命中），
+且 #2186 固定约束禁止修改 catalog/DocClaim 语义，因此 producer 以
+`status === 'active' && releaseQualification === true` 代理
+`evidenceStage=pre-runtime && releaseQualification=true`。当前 8 个
+active+releaseQualification contracts（test-asset-audit-reconciliation、
+code-intent-governance、document-lifecycle-governance、
+binary-api-aeds-contract、browserless-production-correctness、
+authentication-session-permission、configuration-error-security-policy、
+article-comment-lifecycle-outbox）全部是 static governance / contract /
+unit 级 pre-runtime 行为，没有 post-runtime（browser/load/soak/nightly）
+behavior 被误纳入。若未来 catalog 增加 post-runtime behavior，必须先行
+引入 evidenceStage 语义并收紧代理，不能在本 producer 内合成。
 
 独立 verifier `tools/test-matrix/verify-behavior-test-evidence.mjs` 重读
 raw results、bindings、catalog、test plan receipt 与 receipt，重算
@@ -1620,6 +1607,24 @@ ZK contract/provenance 分类与 hash bindings、静态 evidence classification�
 - [operations.md](operations.md) — 发布门控与滚动更新
 - `tests/backend/TESTING.md` — 洁净性约定完整版
 - `tools/test.sh` — 测试入口脚本
+## Release-final finalizer authority
+
+<!-- fsus-doc-claim
+claimId: release-final-aggregate-contract.finalizer-authority
+behaviorId: release-final-aggregate-contract
+claimType: generated-section
+generatedSectionId: release.finalizer-authority
+render: key-value-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN release.finalizer-authority -->
+| Key | Value |
+| --- | --- |
+| commandDigest | 6be786224f86a02f00489b84e3e8ba412b6dcf806495b4852e6b403562930b81 |
+| commandEntrypoint | tools/test/lanes/release-final.sh |
+| commandKind | finalizer |
+| id | release-final |
+<!-- FSUSBLOG-GENERATED:END release.finalizer-authority -->
 ## Current test tiers
 
 <!-- fsus-doc-claim
@@ -1707,6 +1712,7 @@ render: enum-set
 - `homogeneous-two-node-fixture`
 - `integration`
 - `integrity-proof-verification`
+- `legacy-20260517-real-dump`
 - `load`
 - `load-2x-peak`
 - `load-baseline`
@@ -1720,6 +1726,8 @@ render: enum-set
 - `perception-v2-redteam-pr`
 - `perception-v2-test-matrix`
 - `performance-evidence-summary`
+- `post-runtime-candidate-plan`
+- `post-runtime-observation-producers`
 - `pr-smart-gate-plan`
 - `privacy-zk-comment-matrix`
 - `production`

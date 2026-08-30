@@ -137,16 +137,16 @@ test('ledger rejects missing duplicate orphan and newly discovered findings', ()
     assert.throws(() => validateEvidenceLocationMigrationLedger(stale, { scan: changedScan }), /missing from migration ledger/u);
 });
 
-test('ledger explicitly covers release final quality gate aggregates flaky public preview and downloads', () =>
+test('ledger covers remaining selectors and registry owns migrated public preview', () =>
 {
     const ledger = load('evidence-location-migration-ledger.json');
+    const registry = load('evidence-locator-registry.json');
     const requiredPrograms = [
         '.github/workflows/quality-gate.yml',
         'tools/ci/check-flaky-evidence.mjs',
         'tools/ci/summarize-quality-gate.mjs',
         'tools/operations/check-release-evidence-manifest.mjs',
         'tools/release/check-release-final.mjs',
-        'tools/release/public-preview-release-evidence.mjs',
         'tools/release/test-evidence-receipts-cli.mjs',
         'tools/test/aggregate-data-scale-evidence.mjs',
         'tools/test/aggregate-performance-evidence.mjs'
@@ -158,9 +158,11 @@ test('ledger explicitly covers release final quality gate aggregates flaky publi
         assert(entries.every((entry) => entry.classification === 'correctness-selection'),
             `required consumer ${file} is not classified as correctness selection`);
     }
+    assert(registry.entries.some((entry) =>
+        entry.consumerId === 'evidence-consumer.release-final.direct.public-preview'
+        && entry.receiptSchema === 'fsusblog.current-run-evidence-reference.v1'));
     assert(ledger.entries.some((entry) => entry.oldSelectionRule === 'evidence-selection.downloaded-artifacts-scan'));
     assert(ledger.entries.some((entry) => entry.oldSelectionRule === 'evidence-selection.local-downloaded-priority'));
-    assert(ledger.entries.some((entry) => entry.oldSelectionRule === 'evidence-selection.schema-search'));
 });
 
 test('false positives and helper calls retain exact rule and actual consumer locations', () =>

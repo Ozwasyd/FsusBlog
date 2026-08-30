@@ -156,6 +156,7 @@ localProfiles:
                       validate-matrix,
                       pr-smart-gate-plan,
                       production-build-artifacts,
+                      post-runtime-candidate-plan,
                       public-hydration-fast,
                       app-config-local-tuning,
                       wasm-fuzz-regression,
@@ -726,10 +727,12 @@ tiers:
       artifacts:
           [
               .tmp/behavior-evidence-pre-runtime/receipt.json,
+              .tmp/behavior-evidence-pre-runtime/global-claim-exactness.json,
           ]
       evidence:
           [
               .tmp/behavior-evidence-pre-runtime/receipt.json,
+              .tmp/behavior-evidence-pre-runtime/global-claim-exactness.json,
               .tmp/behavior-doc-static-admission/receipt.json,
               .tmp/behavior-test-evidence/receipt.json,
               .tmp/mutation/changed-critical,
@@ -752,6 +755,108 @@ tiers:
       retentionClass: must-keep
       triggerReason: every runtime/browser/production/release candidate requires a source-bound BehaviorGraph pre-runtime evidence receipt joining static admission, current-run test evidence, and per-behavior mutation evidence before any candidate can start
 
+    - id: post-runtime-candidate-plan
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
+      owner: ServerContractAgent
+      qualificationEligible: true
+      command: bash tools/test/lanes/post-runtime-candidate-plan.sh
+      outputReceiptSchema: fsusblog.post-runtime-candidate-plan.v1
+      executionDependsOn: [behavior-evidence-pre-runtime, production-build-artifacts]
+      requiresEvidenceFrom: [behavior-evidence-pre-runtime, production-build-artifacts]
+      services: []
+      parallelizable: false
+      exclusiveResources: [post-runtime-candidate-plan]
+      phase: 2
+      cost: low
+      resourceClass: io
+      cpuWeight: 1
+      memoryWeight: 1
+      minCpuUnits: 1
+      maxParallel: 1
+      requiresBootstrap: none
+      requiresNode: true
+      requiresDotnet: false
+      requiresPlaywright: none
+      cacheProfile: none
+      timeoutMinutes: 5
+      shardable: false
+      defaultShards: 1
+      risk: critical
+      cadence: pr
+      requiredFor: production
+      coverage: []
+      artifacts: [.tmp/post-runtime-plan]
+      evidence:
+          [
+              .tmp/post-runtime-plan,
+              .tmp/behavior-evidence-pre-runtime/global-claim-exactness.json,
+              config/testing/post-runtime-producer-registry.json,
+              tools/fact-extractors/post-runtime/current-run.mjs,
+              tools/test/lanes/post-runtime-candidate-plan.sh,
+          ]
+      ciJob: production-build-artifacts
+      localOnly: false
+      nightlyOnly: false
+      prDefault: true
+      smartGateMode: always
+      retentionClass: must-keep
+      triggerReason: every runtime candidate requires one source/build/run-bound plan before runtime, browser, or deployment producers start
+
+    - id: post-runtime-observation-producers
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
+      owner: ServerContractAgent
+      qualificationEligible: true
+      command: bash tools/test/lanes/post-runtime-observation-producers.sh
+      outputReceiptSchema: fsusblog.post-runtime-observation-receipt.v1
+      executionDependsOn: [post-runtime-candidate-plan, browser-contract, production-correctness]
+      requiresEvidenceFrom: [post-runtime-candidate-plan, browser-contract, production-correctness]
+      services: []
+      parallelizable: false
+      exclusiveResources: [post-runtime-observation-producers]
+      phase: 5
+      cost: low
+      resourceClass: io
+      cpuWeight: 1
+      memoryWeight: 1
+      minCpuUnits: 1
+      maxParallel: 1
+      requiresBootstrap: none
+      requiresNode: true
+      requiresDotnet: false
+      requiresPlaywright: none
+      evidenceClass: correctness
+      cacheProfile: none
+      timeoutMinutes: 5
+      shardable: false
+      defaultShards: 1
+      risk: critical
+      cadence: release-manual
+      requiredFor: release-final
+      coverage: []
+      artifacts: [.tmp/post-runtime-observations]
+      evidence:
+          [
+              .tmp/post-runtime-raw,
+              .tmp/post-runtime-observations,
+              config/testing/post-runtime-producer-registry.json,
+              tools/fact-extractors/post-runtime,
+              tools/test/lanes/post-runtime-observation-producers.sh,
+          ]
+      ciJob: release-final
+      localOnly: false
+      nightlyOnly: false
+      manualOnly: true
+      retentionClass: must-keep
+      triggerReason: seven canonical class owners must publish exact planned current-run semantic receipts before the post-runtime behavior join
+
     - id: behavior-evidence-post-runtime
       executionClass: coordination
       fixtureProfile: none
@@ -763,9 +868,9 @@ tiers:
       command: bash tools/test/bundles/behavior-evidence-post-runtime.sh
       outputReceiptSchema: fsusblog.behavior-evidence-post-runtime-receipt.v1
       executionDependsOn:
-          [behavior-evidence-pre-runtime, browser-contract, production-correctness]
+          [behavior-evidence-pre-runtime, browser-contract, production-correctness, post-runtime-observation-producers]
       requiresEvidenceFrom:
-          [behavior-evidence-pre-runtime, browser-contract, production-correctness]
+          [behavior-evidence-pre-runtime, browser-contract, production-correctness, post-runtime-observation-producers]
       services: []
       parallelizable: false
       exclusiveResources: [behavior-evidence-post-runtime]
@@ -796,6 +901,7 @@ tiers:
               .tmp/behavior-evidence-pre-runtime/receipt.json,
               .tmp/browser-contract/receipt.json,
               .tmp/release-evidence/browserless-correctness-receipt.json,
+              .tmp/post-runtime-observations,
               config/contracts/behavior-contracts.json,
               config/schemas/behavior-evidence-post-runtime-receipt.schema.json,
               tools/release/release-final-domain-evidence.mjs,
@@ -2736,6 +2842,8 @@ tiers:
           - tools/fact-extractors/content-lifecycle/extract.mjs
           - tools/contracts/lib/content-lifecycle-observation.mjs
           - tests/tools/content-lifecycle-observation.test.mjs
+          - tools/docs/content-doc-exactness.mjs
+          - tests/tools/content-doc-exactness.test.mjs
       ciJob: fast-static-governance
       localOnly: false
       nightlyOnly: false
@@ -8764,6 +8872,7 @@ tiers:
           [
               behavior-doc-static-admission,
               behavior-evidence-pre-runtime,
+              post-runtime-candidate-plan,
               fast,
               coverage-gate,
               production-build-artifacts,

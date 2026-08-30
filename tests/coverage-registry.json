@@ -4930,11 +4930,13 @@
                 "tools/contracts/FsusBlog.ContentLifecycleObservation/Program.cs",
                 "tools/fact-extractors/content-lifecycle/extract.mjs",
                 "tools/contracts/lib/content-lifecycle-observation.mjs",
-                "tests/tools/content-lifecycle-observation.test.mjs"
+                "tests/tools/content-lifecycle-observation.test.mjs",
+                "tools/docs/content-doc-exactness.mjs",
+                "tests/tools/content-doc-exactness.test.mjs"
             ],
             "assertionType": "contract",
-            "failClosedRule": "Observation must fail when entity/policy/projection diverge, public/admin visibility collapse, required/optional outbox edges overlap, producer/dispatcher consumer sets diverge, max-depth loses units/boundaries, privacy forbidden fields leave the formal contract, or docs/yaml expected tables are treated as authority.",
-            "minimumRequirement": "Focused tests cover added outbox required edge, removed transition, public reader/Hidden conflict, max-depth change, privacy forbidden field addition, restore publication semantics, producer/dispatcher edge mismatch, and refusal to read test expected transition tables.",
+            "failClosedRule": "Observation and document exactness must fail when entity/policy/projection diverge, public/admin visibility collapse, required/optional outbox edges overlap, producer/dispatcher consumer sets diverge, max-depth loses units/boundaries, privacy forbidden fields leave the formal contract, docs/yaml expected tables become authority, or a re-sealed terminal receipt disagrees with independently reread components.",
+            "minimumRequirement": "Focused tests cover added outbox required edge, removed transition, public reader/Hidden conflict, max-depth change, privacy forbidden field addition, scheduled/rollback/restore/delete causal coordinates, deleted-root descendants, producer/dispatcher edge mismatch, the closed exactness mutation roster, independent terminal recomputation, and refusal to read test expected transition tables.",
             "tierIds": [
                 "static-governance"
             ]

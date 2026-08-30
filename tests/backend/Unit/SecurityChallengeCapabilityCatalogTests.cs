@@ -10,7 +10,6 @@ namespace FsusBlog.Tests.Unit;
 public sealed class SecurityChallengeCapabilityCatalogTests
 {
     [Fact]
-    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Catalog_CoversEveryEnumAndKeepsFiveStatesIndependent()
     {
         SecurityChallengeKind[] kinds = Enum.GetValues<SecurityChallengeKind>();
@@ -52,7 +51,6 @@ public sealed class SecurityChallengeCapabilityCatalogTests
     }
 
     [Fact]
-    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public void Resolve_AllowsShaPowAcrossUiAndHeadlessButRejectsOldManifest()
     {
         SecurityChallengeCapabilityResolution ui = SecurityChallengeCapabilityCatalog.Resolve(
@@ -76,7 +74,6 @@ public sealed class SecurityChallengeCapabilityCatalogTests
     }
 
     [Fact]
-    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void PolicyService_AllowsPoSpaceAfterExecutorAndHostsAreRegistered()
     {
         var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
@@ -94,7 +91,6 @@ public sealed class SecurityChallengeCapabilityCatalogTests
     }
 
     [Fact]
-    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void PolicyService_AcceptsOrderedTwoMemberAndSingleMemberSnapshots()
     {
         var service = new SecurityAdminPolicyService(CreateCharacterProviderEnabledConfiguration());
@@ -111,7 +107,6 @@ public sealed class SecurityChallengeCapabilityCatalogTests
     }
 
     [Fact]
-    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "security-policy-fail-closed")]
     public void PolicyService_RejectsSnapshotWhenAnyOrderedMemberIsUnavailable()
     {
         var service = new SecurityAdminPolicyService(CreateCharacterProviderEnabledConfiguration());
@@ -125,7 +120,6 @@ public sealed class SecurityChallengeCapabilityCatalogTests
     }
 
     [Fact]
-    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "security-policy-fail-closed")]
     public void PolicyService_RejectsDuplicateOverLimitAndNoncanonicalSets()
     {
         var service = new SecurityAdminPolicyService(CreateCharacterProviderEnabledConfiguration());
@@ -145,7 +139,6 @@ public sealed class SecurityChallengeCapabilityCatalogTests
     }
 
     [Fact]
-    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "security-policy-fail-closed")]
     public void PolicyService_RejectsCharacterSnapshotWhenRuntimeProviderIsDisabled()
     {
         var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());

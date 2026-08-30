@@ -56,3 +56,16 @@ render: enum-set
 - `trash-cleared`
 - `updated`
 <!-- FSUSBLOG-GENERATED:END content.article.outbox-events -->
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.outbox-terminal-states
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.article.outbox-terminal-states
+render: enum-set
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN content.article.outbox-terminal-states -->
+- `completed`
+- `failed`
+- `skipped`
+<!-- FSUSBLOG-GENERATED:END content.article.outbox-terminal-states -->

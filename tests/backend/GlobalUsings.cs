@@ -6,7 +6,6 @@ global using FsusBlog.Server.Interfaces;
 global using FsusBlog.Server.Services;
 global using FsusBlog.Server.Services.Security;
 global using FsusBlog.Server.Tests.TestInfrastructure;
-global using FsusBlog.Shared.Contracts.Governance;
 global using FsusBlog.Shared.Contracts.Models;
 global using FsusBlog.Shared.Contracts.Outputs;
 global using FsusBlog.Shared.Contracts.Validation;

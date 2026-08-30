@@ -12,26 +12,27 @@ FsusBlog 的架构定义是**单体分布式**（Homogeneous Binary, Heterogeneo
 
 ## 运行模式
 
+运行模式的唯一权威是 compiled `RuntimeModeOptions` observation；模式集合、职责组合与 unsupported combinations 由下方 generated section 表达，正文不再维护手写模式表或第二份 role 映射。
+
 <!-- fsus-doc-claim
-claimId: deployment.runtime-role-contract
-behaviorId: browserless-production-correctness
+claimId: deployment-blue-green-runtime-role.runtime-roles
+behaviorId: deployment-blue-green-runtime-role
 claimType: generated-section
-generatedSectionId: deployment.runtime-role-contract
+generatedSectionId: deployment.runtime-roles
 render: key-value-table
 -->
-<!-- FSUSBLOG-GENERATED:BEGIN deployment.runtime-role-contract -->
+
+<!-- FSUSBLOG-GENERATED:BEGIN deployment.runtime-roles -->
 | Key | Value |
 | --- | --- |
-| applicationOwner | src/backend/FsusBlog.Server.csproj |
-| architecture | homogeneous-monolith |
-| coResidency | application-capabilities-share-one-program |
-| declaredRoles | ["application","gateway","infrastructure"] |
-| defaultMode | single |
-| publicationUnit | ops/docker/FsusBlog.Server.Dockerfile |
-| separation | infrastructure-and-gateway-are-external-roles |
-| supportedModes | ["adaptive","single","static-role"] |
-| unsupportedCombinations | ["fixed-business-microservices","single-mode-remote-invocation-required"] |
-<!-- FSUSBLOG-GENERATED:END deployment.runtime-role-contract -->
+| artifactDigest | 2daec8debec316450e9c2f1f578755233b908077727302c5044f7eb4388197b1 |
+| modes | {"adaptive":{"adaptiveSchedulerEnabled":true,"clusterMembershipEnabled":true,"distributedInvalidationEnabled":true,"localInvocationOnly":true,"roleCombinationState":"optional-ignored","staticRoles":["none"]},"single":{"adaptiveSchedulerEnabled":false,"clusterMembershipEnabled":false,"distributedInvalidationEnabled":false,"localInvocationOnly":true,"roleCombinationState":"optional-ignored","staticRoles":["none"]},"static-role":{"adaptiveSchedulerEnabled":false,"clusterMembershipEnabled":true,"distributedInvalidationEnabled":true,"localInvocationOnly":true,"roleCombinationState":"explicit-required","staticRoles":["audit","content","maintenance","security","web"]}} |
+| observationDigest | e1eb2f48af35e82ee05e5733aa4bc3d2b5bb3f9309f2fd5a1463a94452027363 |
+| ownership | {"authorityState":"conflict-unknown","coResidency":"local-invocation-only","container":"not-expressed-by-runtime-authority","process":"not-expressed-by-runtime-authority","separation":"not-expressed-by-runtime-authority","service":"not-expressed-by-runtime-authority"} |
+| schema | fsusblog.runtime-role-observation.v1 |
+| staticRoleCapabilities | {"audit":["comment.audit"],"content":["media.processor","search.indexer"],"maintenance":["media.processor","scheduler.worker"],"security":["antispam.inference","comment.audit"],"web":["admin.ui","comment.api","search.query","web.api"]} |
+| unsupportedCombinations | {"static-role-empty":"runtime_static_roles_required","static-role-unknown":"runtime_static_role_invalid:unknown","unknown-mode":"runtime_mode_invalid:unsupported"} |
+<!-- FSUSBLOG-GENERATED:END deployment.runtime-roles -->
 
 三种模式使用同一套 FsusBlog 程序和同一发布物。远端依赖临时异常时，节点保留本地失效与权威数据回退，transport 自行重试，不需要切换业务发布物；若要完全关闭集群组件，必须把 `Runtime:Mode` 改回 `single` 并滚动重启，因为 hosted service 的 DI 组合在启动时确定。`single` 模式的本地 publisher 必须先于 Redis transport 注册分支，保证无远程热路径。
 

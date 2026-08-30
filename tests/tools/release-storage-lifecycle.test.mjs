@@ -270,7 +270,17 @@ test('GC dry-run is locked and protects active previous draining retention and r
     assert.equal(fs.existsSync(path.join(store, 'releases', releases[0][0])), true);
     assert.equal(fs.existsSync(path.join(store, '.gc.lock')), false);
 
-    const applied = executeReleaseAssetGc({ storeDirectory: store, state, apply: true });
+    const activeProtection = {
+        releaseId: releases[1][0], slot: 'green', imageDigest: `sha256:${'a'.repeat(64)}`,
+        deploymentGeneration: 2, rolloutId: 'release-storage-lifecycle-test'
+    };
+    const applied = executeReleaseAssetGc({
+        storeDirectory: store,
+        state,
+        apply: true,
+        activeProtection,
+        refreshProtection: () => activeProtection
+    });
     assert.equal(applied.status, 'ok');
     assert.equal(fs.existsSync(path.join(store, 'releases', releases[0][0])), false);
     assert.equal(fs.existsSync(path.join(store, 'releases', releases[1][0])), true);

@@ -15,7 +15,6 @@ public sealed class ArticleStatusTransitionIntegrationTests(PostgresSchemaMigrat
     private static readonly DateTime s_now = new(2026, 7, 19, 8, 0, 0, DateTimeKind.Utc);
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task Writer_ValidatesPersistedSourceAndAppliesArchiveAndRestoreWithFixedTime()
     {
         string databaseName = await fixture.CreateDatabaseAsync();
@@ -160,7 +159,6 @@ public sealed class ArticleStatusTransitionIntegrationTests(PostgresSchemaMigrat
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "content-lifecycle-fail-closed")]
     public async Task Writer_RejectsDeletedTargetBeforeMutatingPostgres()
     {
         string databaseName = await fixture.CreateDatabaseAsync();

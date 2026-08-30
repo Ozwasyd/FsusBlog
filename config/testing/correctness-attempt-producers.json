@@ -3,10 +3,10 @@
     "generatedBy": "tools/test/generate-correctness-attempt-producers.mjs",
     "sourceDigests": {
         "config/testing/release-reliability-scenario-catalog.json": "sha256:b61558320c2c55f860dc4606b4680ca41085179b1b219053869d0296c301b354",
-        "tests/matrix.yml": "sha256:c8eda8b94ebafc89350020c94ef87b770db390356552cf36fa5ad8a7ec4f93bf",
+        "tests/matrix.yml": "sha256:a4de1967cf4aa0f0a1afc9107736b8a4dbf4ee867d4191df2e3deb89d5b3fcdd",
         "tools/test-matrix/production-fresh-run-bound-outputs.mjs": "sha256:68c78054efb4a77b9e368fb079a9bb749b8edff24bc6d8375f7970555292c638",
         "config/testing/replay-qualification-producers.json": "sha256:5610b07e0acb3862fff2d4a4d294993f8e3e181398a80b14c4589f43d4855398",
-        "config/testing/test-execution-envelope-applicability.json": "sha256:88bfc4735a86db31cff8235c47bac119aaf855adb4d55af3c1b11992270a1bc9",
+        "config/testing/test-execution-envelope-applicability.json": "sha256:ba9e3aeb14e9ceda3fa966a9efef8ae807e26246f939646bf2ad9f4738f39468",
         "tools/test/attempt-runner.mjs": "sha256:53cdf7bdd46a4147400e3393decf29017534babc3ddfa6eb3446743de7018451",
         "tools/test/temporal-context.mjs": "sha256:982bee7411c0fb1c206d09a3bb21c9898ecca0d6564518e76d11f8768164cd66"
     },
@@ -2356,6 +2356,64 @@
             ],
             "authorityBindings": {
                 "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:performance-evidence-summary",
+                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
+                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
+            }
+        },
+        {
+            "producerId": "matrix:post-runtime-candidate-plan",
+            "domain": "test-producers",
+            "producerKind": "integration",
+            "sourceAuthority": "tests/matrix.yml",
+            "canonicalCommand": "bash tools/test/lanes/post-runtime-candidate-plan.sh",
+            "logicalTierIds": [
+                "post-runtime-candidate-plan"
+            ],
+            "policyId": "correctness-first-attempt",
+            "allowedRetries": 0,
+            "firstFailureBlocksQualification": true,
+            "frameworkRetrySetting": 0,
+            "artifactOwner": "ServerContractAgent",
+            "executionOwner": "tools/run-test-matrix.mjs",
+            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
+            "migrationState": "migrated",
+            "qualificationEligible": true,
+            "externalAuthorityKinds": [
+                "execution-envelope",
+                "replay-plan",
+                "temporal-context"
+            ],
+            "authorityBindings": {
+                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:post-runtime-candidate-plan",
+                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
+                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
+            }
+        },
+        {
+            "producerId": "matrix:post-runtime-observation-producers",
+            "domain": "test-producers",
+            "producerKind": "integration",
+            "sourceAuthority": "tests/matrix.yml",
+            "canonicalCommand": "bash tools/test/lanes/post-runtime-observation-producers.sh",
+            "logicalTierIds": [
+                "post-runtime-observation-producers"
+            ],
+            "policyId": "correctness-first-attempt",
+            "allowedRetries": 0,
+            "firstFailureBlocksQualification": true,
+            "frameworkRetrySetting": 0,
+            "artifactOwner": "ServerContractAgent",
+            "executionOwner": "tools/run-test-matrix.mjs",
+            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
+            "migrationState": "migrated",
+            "qualificationEligible": true,
+            "externalAuthorityKinds": [
+                "execution-envelope",
+                "replay-plan",
+                "temporal-context"
+            ],
+            "authorityBindings": {
+                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:post-runtime-observation-producers",
                 "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
                 "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
             }
@@ -6229,5 +6287,5 @@
             }
         }
     ],
-    "contentDigest": "sha256:903ca99929e6e2d5a8e1f092626113057cb26fc5a791334bdd384c8d82c36b7a"
+    "contentDigest": "sha256:ae13f8ec8b3a5e1f9ba1b98e14b9008d7829e4f07a3767bdbf7768d246b077d3"
 }

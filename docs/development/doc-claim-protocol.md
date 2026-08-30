@@ -69,6 +69,11 @@ rationale
 - `enum-set`, `ordered-set`, `map`, and `transition-set` must use `generated-section` for exact tabular facts; free-prose fuzzy comparison is rejected.
 - Unknown `claimType` values fail; they are never defaulted to `scalar`.
 
+DocClaim 的 `claimType` 描述语义 render；exactness ownership 另按闭集分成
+`generated-section` 与 `prose-claim`：前者只有 generator receipt 可以证明，后者是所有
+非 `generated-section` 的 executable claim，只有 `ProseClaimVerifier` 可以计入
+`verifiedClaimCount`。generated section 的数量、存在或通过状态不得折算成 prose 已验证数量。
+
 ## Location rules
 
 - Each non-generated claim binds the next non-empty Markdown paragraph, list, or table.
@@ -207,6 +212,18 @@ node --test tests/tools/generated-fact-sections.test.mjs
 
 ## Verification
 
+[`config/contracts/document-claim-migration-ledger.json`](../../config/contracts/document-claim-migration-ledger.json)
+覆盖 BehaviorCatalog 中全部 `active` 且 `documentationPolicy: required` 的 behavior。checker
+双向核对 behavior、current lifecycle document、claim ID 与 generated section ID：漏项、额外项、
+重复项、historical owner、错误 marker anchor 或已退役副本都 fail closed。
+
+Content domain 的 terminal exactness gate 是
+[`tools/docs/content-doc-exactness.mjs`](../../tools/docs/content-doc-exactness.mjs)。它从 current
+admission 的 prose/generated/content observation 产生 13 类 mutation evidence，再把每个 claim
+绑定到 current authority、heading path、source range、document digest 与 component digest。独立
+`verify` 必须显式重读同一组 component files 并重算完整 terminal receipt；只重签 self-reported
+counter、row 或 authority digest 不能通过。
+
 ```bash
 node tools/docs/check-doc-claim.mjs
 node --test tests/tools/doc-claim.test.mjs
@@ -214,4 +231,8 @@ node tools/docs/generate-fact-sections.mjs --check
 node --test tests/tools/generated-fact-sections.test.mjs
 node tools/docs/check-prose-claims.mjs --governance-only
 node --test tests/tools/prose-claim-verifier.test.mjs
+node tools/docs/content-doc-exactness.mjs mutate --observation path/to/content-observation.json --out path/to/mutation.json
+node tools/docs/content-doc-exactness.mjs produce --admission path/to/admission.json --prose path/to/prose.json --generated path/to/generated.json --observation path/to/content-observation.json --mutation path/to/mutation.json --out path/to/terminal.json
+node tools/docs/content-doc-exactness.mjs verify --receipt path/to/terminal.json --admission path/to/admission.json --prose path/to/prose.json --generated path/to/generated.json --observation path/to/content-observation.json --mutation path/to/mutation.json
+node --test tests/tools/content-doc-exactness.test.mjs
 ```

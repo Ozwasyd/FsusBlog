@@ -52,7 +52,6 @@ public sealed class JwtHelperTests
     // ─── GenerateAccessToken ──────────────────────────────────────────────
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public void GenerateAccessToken_ReturnsNonEmptyString()
     {
         var helper = CreateHelper();
@@ -61,7 +60,6 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public void GenerateAccessToken_UsesInjectedBusinessWallClockWithoutHostUtcNow()
     {
         TestTemporalContext temporal = TestTemporalContext.CreateCanonical();
@@ -85,7 +83,6 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void GenerateAccessToken_ProducesValidJwtWithThreeParts()
     {
         var helper = CreateHelper();
@@ -95,7 +92,6 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void GenerateAccessToken_BindsCurrentKeyVersionAsKid()
     {
         string token = CreateHelper().GenerateAccessToken(TestUser());
@@ -107,7 +103,6 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void GenerateAccessToken_ContainsUserIdClaim()
     {
         var helper = CreateHelper();
@@ -121,7 +116,6 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void GenerateAccessToken_OmitsRoleAndUsernameClaimsForUserTokens()
     {
         using var _ = SetAnonymousIdentityMode(null);
@@ -134,7 +128,6 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public void GenerateAccessToken_AnonymousIdentityMode_DoesNotCarryLegacyAdminRole()
     {
         using var _ = SetAnonymousIdentityMode("1");
@@ -150,7 +143,6 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void GenerateAccessToken_UsesPersistedSubjectAcrossAccountIdsAndHandleChanges()
     {
         var helper = CreateHelper();
@@ -178,7 +170,6 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void GenerateAccessToken_IncludesAccountSubjectHashClaim()
     {
         var helper = CreateHelper();
@@ -196,7 +187,6 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public void GenerateAccessToken_MissingPhysicalSubjectFailsClosed()
     {
         var helper = CreateHelper();
@@ -210,7 +200,6 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public void GenerateAdminAccessToken_UsesAdminPrincipalAndPermissionClaimsWithoutLegacyRole()
     {
         var helper = CreateHelper();
@@ -241,7 +230,6 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void GenerateAccessToken_WithSessionId_IncludesSessionClaim()
     {
         var helper = CreateHelper();
@@ -254,7 +242,6 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public void GenerateAccessToken_WithoutSessionId_OmitsSessionClaim()
     {
         var helper = CreateHelper();
@@ -265,7 +252,6 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public void GenerateAccessToken_WithEmptySessionId_OmitsSessionClaim()
     {
         var helper = CreateHelper();
@@ -276,7 +262,6 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void GenerateAccessToken_MfaVerifiedTrue_SetsMfaClaim1()
     {
         var helper = CreateHelper();
@@ -289,7 +274,6 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void GenerateAccessToken_MfaVerifiedFalse_SetsMfaClaim0()
     {
         var helper = CreateHelper();
@@ -302,7 +286,6 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void GenerateAccessToken_StructuredAuthenticationContext_PreservesSafeProvenanceOnly()
     {
         var helper = CreateHelper();
@@ -326,7 +309,6 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void GenerateAccessToken_RestrictedSessionCarriesExplicitModeClaim()
     {
         var helper = CreateHelper();
@@ -343,7 +325,6 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void GenerateAccessToken_UsesConfiguredIssuerAndAudience()
     {
         var helper = CreateHelper(issuer: "my-issuer", audience: "my-audience");
@@ -359,7 +340,6 @@ public sealed class JwtHelperTests
     [InlineData(15)]
     [InlineData(60)]
     [Trait("Category", "SecurityStateMachine")]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public void GenerateAccessToken_ReturnedExpiryMatchesJwtAndConfiguredMinutes(int expiresMinutes)
     {
         var helper = CreateHelper(expiresMinutes: expiresMinutes);
@@ -373,7 +353,6 @@ public sealed class JwtHelperTests
 
     [Fact]
     [Trait("Category", "SecurityStateMachine")]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public void GenerateAccessToken_ReloadableExpiryChangeAppliesToNextIssueWithoutRestart()
     {
         var configuration = new ConfigurationManager();
@@ -395,7 +374,6 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void GenerateAdminAccessToken_OmitsRoleClaimAndCarriesAdminPrincipalClaims()
     {
         var helper = CreateHelper();
@@ -433,7 +411,6 @@ public sealed class JwtHelperTests
     // ─── GenerateRefreshToken ─────────────────────────────────────────────
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public void GenerateRefreshToken_ReturnsNonEmptyString()
     {
         string token = CreateHelper().GenerateRefreshToken();
@@ -441,7 +418,6 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void GenerateRefreshToken_ContainsNoUrlUnsafeChars()
     {
         string token = CreateHelper().GenerateRefreshToken();
@@ -451,7 +427,6 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void GenerateRefreshToken_ProducesDifferentValueEachCall()
     {
         var helper = CreateHelper();
@@ -462,7 +437,6 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void GenerateRefreshToken_IsBase64UrlSafe()
     {
         string token = CreateHelper().GenerateRefreshToken();
@@ -472,7 +446,6 @@ public sealed class JwtHelperTests
 
     [Fact]
     [Trait("Category", "SecurityStateMachine")]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void SigningKeyRing_ResolvesOnlyCurrentOrActiveMatchingKid()
     {
         DateTimeOffset now = DateTimeOffset.UtcNow;
@@ -501,7 +474,6 @@ public sealed class JwtHelperTests
 
     [Fact]
     [Trait("Category", "SecurityStateMachine")]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public void SigningKeyRing_AllowsMissingKidOnlyInsideExplicitLegacyWindow()
     {
         DateTimeOffset now = DateTimeOffset.UtcNow;

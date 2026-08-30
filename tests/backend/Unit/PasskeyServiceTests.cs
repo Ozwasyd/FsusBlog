@@ -52,7 +52,6 @@ public sealed class PasskeyServiceTests
 
     [Theory]
     [MemberData(nameof(PasskeyPolicyCases))]
-    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public void CachePolicyRegistry_PasskeyPolicies_PreserveSecurityContract(
         CachePolicyId id,
         string expectedDomain,

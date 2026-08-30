@@ -14,96 +14,43 @@ function assertEqual(actual, expected, label)
     }
 }
 
-function canonicalReportPath(file, sourceProject)
-{
-    const normalizedFile = file.replaceAll('\\', '/').replace(/^\.\//u, '');
-    const normalizedProject = sourceProject.replaceAll('\\', '/').replace(/^\/+|\/+$/gu, '');
-    const projectMarker = `/${normalizedProject}/`;
-    const markerIndex = normalizedFile.lastIndexOf(projectMarker);
-    if (markerIndex >= 0)
-    {
-        return normalizedFile.slice(markerIndex + projectMarker.length);
-    }
-    if (normalizedFile.startsWith(`${normalizedProject}/`))
-    {
-        return normalizedFile.slice(normalizedProject.length + 1);
-    }
-    return normalizedFile.replace(/^\/+/u, '');
-}
-
-export function scopeMutationReport(report, mutateFiles, sourceProject)
+function scopeMutationReport(report, mutateFiles, sourceProject)
 {
     const normalizedMutateFiles = mutateFiles.map((path) => path.replaceAll('\\', '/'));
-    const selected = new Set(normalizedMutateFiles);
-    const selectedFiles = new Map();
-    const outOfScope = [];
-    const invalidOutOfScope = [];
+    const selectedFiles = [];
+    const unexpected = [];
     for (const [file, value] of Object.entries(report.files ?? {}))
     {
-        const canonicalFile = canonicalReportPath(file, sourceProject);
-        if (selected.has(canonicalFile))
+        const normalizedFile = file.replaceAll('\\', '/');
+        const selected = normalizedMutateFiles.some(
+            (path) => normalizedFile === path || normalizedFile.endsWith(`/${path}`)
+        );
+        if (selected)
         {
-            if (selectedFiles.has(canonicalFile))
-            {
-                throw new Error(`raw report duplicates selected mutate file ${sourceProject}/${canonicalFile}`);
-            }
-            selectedFiles.set(canonicalFile, { file, value });
+            selectedFiles.push(normalizedFile);
             continue;
         }
         for (const mutant of value?.mutants ?? [])
         {
-            const record = {
-                sourceFile: `${sourceProject}/${canonicalFile}`,
-                rawMutantId: String(mutant?.id ?? ''),
-                status: String(mutant?.status ?? '')
-            };
-            outOfScope.push(record);
-            if (!['CompileError', 'Ignored'].includes(record.status))
-            {
-                invalidOutOfScope.push(record);
-            }
+            unexpected.push(`${file}#${mutant.id}:${mutant.status}`);
         }
     }
     for (const mutateFile of normalizedMutateFiles)
     {
-        if (!selectedFiles.has(mutateFile))
+        if (!selectedFiles.some((file) => file.endsWith(`/${mutateFile}`) || file === mutateFile))
         {
             throw new Error(
                 `raw report is missing selected mutate file ${sourceProject}/${mutateFile}`
             );
         }
     }
-    if (invalidOutOfScope.length > 0)
+    if (unexpected.length > 0)
     {
         throw new Error(
-            'raw report executed or scored mutants outside selected closure: '
-            + invalidOutOfScope.map((entry) =>
-                `${entry.sourceFile}#${entry.rawMutantId}:${entry.status}`).join(', ')
+            `raw report planned mutants outside selected closure: ${unexpected.join(', ')}`
         );
     }
-    outOfScope.sort((left, right) =>
-        left.sourceFile.localeCompare(right.sourceFile)
-        || left.rawMutantId.localeCompare(right.rawMutantId)
-        || left.status.localeCompare(right.status)
-    );
-    const files = Object.fromEntries(
-        normalizedMutateFiles.map((path) =>
-        {
-            const entry = selectedFiles.get(path);
-            return [entry.file, entry.value];
-        })
-    );
-    return {
-        report: { ...report, files },
-        diagnostics: {
-            classification: 'stryker-safe-mode-pre-filter',
-            mutantCount: outOfScope.length,
-            compileError: outOfScope.filter(({ status }) => status === 'CompileError').length,
-            ignored: outOfScope.filter(({ status }) => status === 'Ignored').length,
-            sourceFiles: [...new Set(outOfScope.map(({ sourceFile }) => sourceFile))].sort(),
-            digest: sha256(canonicalJson(outOfScope))
-        }
-    };
+    return report;
 }
 
 function executionMatrix(inventory)
@@ -195,14 +142,13 @@ export function createChangedCriticalMutationAuthority({
             closure.testFilter,
             `${run.sourceProject} test filter`
         );
-        const scoped = scopeMutationReport(
+        const scopedReport = scopeMutationReport(
             run.report,
             closure.mutateFiles,
             run.sourceProject
         );
         const authority = createStrykerAuthority({
-            report: scoped.report,
-            physicalReport: run.report,
+            report: scopedReport,
             rawReport: run.rawReport,
             reportPath: run.paths.report,
             reportAbsolutePath: run.reportAbsolutePath
@@ -239,7 +185,6 @@ export function createChangedCriticalMutationAuthority({
                 path: run.paths.trace,
                 sha256: sha256(run.rawTrace)
             },
-            outOfScopeDiagnostics: scoped.diagnostics,
             traceExecution: authority.traceExecution,
             mutateFiles: closure.mutateFiles,
             testFilter: closure.testFilter,
@@ -309,28 +254,6 @@ export function createChangedCriticalMutationAuthority({
             noCoverage: statuses.NoCoverage,
             compileError: statuses.CompileError,
             ignored: statuses.Ignored
-        },
-        outOfScopeDiagnostics: {
-            classification: 'stryker-safe-mode-pre-filter',
-            mutantCount: runAuthorities.reduce(
-                (total, run) => total + run.outOfScopeDiagnostics.mutantCount,
-                0
-            ),
-            compileError: runAuthorities.reduce(
-                (total, run) => total + run.outOfScopeDiagnostics.compileError,
-                0
-            ),
-            ignored: runAuthorities.reduce(
-                (total, run) => total + run.outOfScopeDiagnostics.ignored,
-                0
-            ),
-            sourceFiles: [...new Set(runAuthorities.flatMap(
-                (run) => run.outOfScopeDiagnostics.sourceFiles
-            ))].sort(),
-            digest: sha256(canonicalJson(runAuthorities.map((run) => ({
-                sourceProject: run.sourceProject,
-                diagnostics: run.outOfScopeDiagnostics
-            }))))
         },
         inventory: combinedInventory,
         testIdentities: combinedTestIdentities(runAuthorities),

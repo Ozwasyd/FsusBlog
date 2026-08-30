@@ -30,7 +30,6 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task RotateRefreshTokenAsync_ConcurrentCasHasOneWinnerThenTombstoneReplayCompromisesOnlyFamily()
     {
         const string RawRefreshToken = "issue-1185-original-refresh-token";
@@ -100,7 +99,6 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task RotateRefreshTokenAsync_ContinuousGenerationsPersistBoundedHashOnlyLineage()
     {
         const string GenerationZeroToken = "issue-1185-generation-zero";
@@ -153,7 +151,6 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public async Task RotateRefreshTokenAsync_WrongSessionIdCompromisesTokenFamilyOnly()
     {
         const string TargetToken = "issue-1185-mismatch-target";
@@ -180,7 +177,6 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task RefreshTokenAsync_ConcurrentTabsAllowOneRotationWithoutRevokingSessionFamily()
     {
         const string RawRefreshToken = "issue-1040-original-refresh-token";
@@ -278,7 +274,6 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task VerifyMfaOrRecoveryCodeAsync_ConcurrentConsumptionPersistsExactlyOnce()
     {
         await VerifyConcurrentRecoveryCodeConsumptionAsync(participantCount: 2);

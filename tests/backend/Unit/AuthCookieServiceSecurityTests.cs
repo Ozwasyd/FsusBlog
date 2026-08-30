@@ -16,7 +16,6 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AuthCookieServiceSecurityTests
 {
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void SetTokenCookies_Production_UsesHostPrefixedSecureHttpOnlyStrictCookies()
     {
         var service = new AuthCookieService(CreateConfiguration());
@@ -33,7 +32,6 @@ public sealed class AuthCookieServiceSecurityTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void SetTokenCookies_Production_IgnoresInsecureCookieBypass()
     {
         var service = new AuthCookieService(CreateConfiguration(new Dictionary<string, string?>
@@ -50,7 +48,6 @@ public sealed class AuthCookieServiceSecurityTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public void SetTokenCookies_NullSessionId_DoesNotWriteSessionCookie()
     {
         var service = new AuthCookieService(CreateConfiguration());
@@ -65,7 +62,6 @@ public sealed class AuthCookieServiceSecurityTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public void SetTokenCookies_BrowserSession_OmitsPersistentExpiryFromAllUserCookies()
     {
         var service = new AuthCookieService(CreateConfiguration());
@@ -96,7 +92,6 @@ public sealed class AuthCookieServiceSecurityTests
     [InlineData(15)]
     [InlineData(60)]
     [Trait("Category", "SecurityStateMachine")]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public void AccessTokenCookies_UseExactIssuedJwtExpiry_ForOrdinaryAndAdminTokens(int expiresMinutes)
     {
         var jwt = new JwtHelper(Options.Create(new JwtSettings
@@ -147,7 +142,6 @@ public sealed class AuthCookieServiceSecurityTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void ClearTokenCookies_DeletesPlainAndHostPrefixedCookies()
     {
         var service = new AuthCookieService(CreateConfiguration());
@@ -172,7 +166,6 @@ public sealed class AuthCookieServiceSecurityTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public void ClearUserSessionCookies_DoesNotClearIndependentAdminSessionCookies()
     {
         var service = new AuthCookieService(CreateConfiguration());
@@ -188,7 +181,6 @@ public sealed class AuthCookieServiceSecurityTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void ClearTokenCookies_HostPrefixedDeletesUsePrefixCompatibleAttributes()
     {
         var service = new AuthCookieService(CreateConfiguration());
@@ -204,7 +196,6 @@ public sealed class AuthCookieServiceSecurityTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void ReadRefreshToken_PrefersHostPrefixedCookieOverPlainCookie()
     {
         var service = new AuthCookieService(CreateConfiguration(), ProductionEnv());
@@ -217,7 +208,6 @@ public sealed class AuthCookieServiceSecurityTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public void ReadTokenCookies_ProductionRejectsLegacyPlainCookies()
     {
         var service = new AuthCookieService(CreateConfiguration(new Dictionary<string, string?>
@@ -241,7 +231,6 @@ public sealed class AuthCookieServiceSecurityTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void ReadTokenCookies_ProductionAcceptsHostPrefixedCookies()
     {
         var service = new AuthCookieService(CreateConfiguration(), ProductionEnv());
@@ -262,7 +251,6 @@ public sealed class AuthCookieServiceSecurityTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public void ReadTokenCookies_MissingOrEmptyValuesReturnNoCredential()
     {
         var service = new AuthCookieService(CreateConfiguration(), ProductionEnv());
@@ -288,7 +276,6 @@ public sealed class AuthCookieServiceSecurityTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public void ReadTokenCookies_DevelopmentRejectsLegacyPlainCookieFallback()
     {
         var disabled = new AuthCookieService(CreateConfiguration(new Dictionary<string, string?>
@@ -317,7 +304,6 @@ public sealed class AuthCookieServiceSecurityTests
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void ReadTokenCookies_DevelopmentAcceptsCurrentInsecureTransportCookiesWhenConfigured()
     {
         var service = new AuthCookieService(CreateConfiguration(new Dictionary<string, string?>

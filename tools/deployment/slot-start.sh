@@ -7,6 +7,7 @@ SLOT=""
 RELEASE_MANIFEST=""
 PRODUCTION_BUILD_RECEIPT=""
 PRE_RESERVED_GENERATION=""
+ROLLOUT_STATE_FILE="${FSUSBLOG_ROLLOUT_STATE_FILE:-}"
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --slot)
@@ -37,6 +38,11 @@ while [[ $# -gt 0 ]]; do
         --deployment-generation)
             [[ $# -ge 2 ]] || SlotFail "--deployment-generation requires a value"
             PRE_RESERVED_GENERATION="$2"
+            shift 2
+            ;;
+        --rollout-state)
+            [[ $# -ge 2 ]] || SlotFail "--rollout-state requires a path"
+            ROLLOUT_STATE_FILE="$2"
             shift 2
             ;;
         *) SlotFail "unknown argument: $1" ;;
@@ -147,11 +153,19 @@ fi
     SlotFail "reserved candidate runtime generation is invalid"
 
 if [[ "$(jq -r '.running' <<<"$before")" == "true" ]]; then
-    SlotCompose down --remove-orphans >/dev/null ||
-        SlotFail "unable to remove stale inactive runtime before candidate start"
-    node "$ROOT_DIR/tools/deployment/slot-state.mjs" record-stop \
-        --state "$SLOT_STATE_FILE" --slot "$SLOT" >/dev/null ||
-        SlotFail "unable to record stale inactive runtime removal"
+    SlotFail "refusing to replace a running inactive runtime; recover its exact owning rollout first"
+fi
+
+cleanup_owned_candidate=0
+if [[ -n "$ROLLOUT_STATE_FILE" && -f "$ROLLOUT_STATE_FILE" ]]; then
+    if node "$ROOT_DIR/tools/deployment/verify-destructive-operation.mjs" runtime-candidate-cleanup \
+        --slot-state "$SLOT_STATE_FILE" --rollout-state "$ROLLOUT_STATE_FILE" \
+        --slot "$SLOT" --release "$FSUSBLOG_RELEASE_ID" --digest "$FSUSBLOG_IMAGE_DIGEST" \
+        --generation "$FSUSBLOG_DEPLOYMENT_GENERATION" >/dev/null; then
+        cleanup_owned_candidate=1
+    else
+        SlotFail "candidate identity is not owned by the durable current rollout"
+    fi
 fi
 
 deploy_args=(
@@ -165,8 +179,10 @@ deploy_args=(
     --project-name "$FSUSBLOG_COMPOSE_PROJECT_NAME"
 )
 if ! FSUSBLOG_INTERNAL_SLOT_OPERATION=1 "$ROOT_DIR/tools/deploy-production.sh" "${deploy_args[@]}"; then
-    SlotCompose down --remove-orphans >/dev/null 2>&1 || true
-    node "$ROOT_DIR/tools/deployment/slot-state.mjs" record-stop --state "$SLOT_STATE_FILE" --slot "$SLOT" >/dev/null 2>&1 || true
+    if [[ "$cleanup_owned_candidate" == "1" ]]; then
+        SlotCompose down --remove-orphans >/dev/null 2>&1 || true
+        node "$ROOT_DIR/tools/deployment/slot-state.mjs" record-stop --state "$SLOT_STATE_FILE" --slot "$SLOT" >/dev/null 2>&1 || true
+    fi
     RecordFailedStart "candidate deploy failed"
     SlotFail "candidate deploy failed; active slot was not changed"
 fi
@@ -187,8 +203,10 @@ while ((SECONDS < deadline)); do
 done
 
 if [[ "$healthy" != "1" ]]; then
-    SlotCompose down --remove-orphans >/dev/null 2>&1 || true
-    node "$ROOT_DIR/tools/deployment/slot-state.mjs" record-stop --state "$SLOT_STATE_FILE" --slot "$SLOT" >/dev/null 2>&1 || true
+    if [[ "$cleanup_owned_candidate" == "1" ]]; then
+        SlotCompose down --remove-orphans >/dev/null 2>&1 || true
+        node "$ROOT_DIR/tools/deployment/slot-state.mjs" record-stop --state "$SLOT_STATE_FILE" --slot "$SLOT" >/dev/null 2>&1 || true
+    fi
     RecordFailedStart "candidate liveness/readiness timeout"
     SlotFail "candidate health probes timed out; active slot was not changed"
 fi
@@ -198,10 +216,8 @@ if [[ "$(jq -r '.running and .identityMatchesSlot and .loopbackOnly' <<<"$after"
 "$(jq -r '.release.releaseId' <<<"$after")" != "$FSUSBLOG_RELEASE_ID" ||
 "$(jq -r '.release.imageRef' <<<"$after")" != "$FSUSBLOG_IMAGE_REF" ||
 "$(jq -r '.release.imageDigest' <<<"$after")" != "$FSUSBLOG_IMAGE_DIGEST" ]]; then
-    SlotCompose down --remove-orphans >/dev/null 2>&1 || true
-    node "$ROOT_DIR/tools/deployment/slot-state.mjs" record-stop --state "$SLOT_STATE_FILE" --slot "$SLOT" >/dev/null 2>&1 || true
     RecordFailedStart "candidate runtime identity mismatch"
-    SlotFail "candidate runtime identity mismatch; active slot was not changed"
+    SlotFail "candidate runtime identity mismatch; unknown-owned runtime was preserved"
 fi
 
 if ! node "$ROOT_DIR/tools/deployment/slot-state.mjs" record-start \

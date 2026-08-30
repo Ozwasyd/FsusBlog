@@ -31,7 +31,6 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task CreatePublicCommentAsync_ConcurrentSameMutationCreatesExactlyOnceAndReplaysResult()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -73,7 +72,6 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "content-lifecycle-fail-closed")]
     public async Task CreatePublicCommentAsync_SameMutationDifferentContentReturnsConflictWithoutSecondWrite()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -103,7 +101,6 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "content-lifecycle-fail-closed")]
     public async Task CreateAnonymousCommentAsync_SameTicketReplaysAndChangedContentConflicts()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -141,7 +138,6 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task DeleteCommentAsync_ConcurrentWritersProduceOneDeleteAndOneInvalidation()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -187,7 +183,6 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "content-lifecycle-fail-closed")]
     public async Task DeleteCommentAsync_DatabaseFailureRollsBackAndSkipsInvalidation()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -223,7 +218,6 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "content-lifecycle-fail-closed")]
     public async Task DeleteCommentAsync_DeletedArticleTargetIsInvisibleAndProducesNoSideEffects()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -244,7 +238,6 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task ModerateCommentAsync_ConcurrentCasAllowsOneWriteAndOneInvalidation()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -304,7 +297,6 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Boundary)]
     public async Task ModerateCommentAsync_TransitionMatrixPersistsOnlyAllowedPairs()
     {
         string connectionString = await CreateDatabaseAsync();

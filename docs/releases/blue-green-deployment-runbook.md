@@ -4,32 +4,6 @@ This runbook is the current authority for slot lifecycle, atomic gateway switchi
 
 ## Slot model
 
-<!-- fsus-doc-claim
-claimId: deployment.blue-green-contract
-behaviorId: browserless-production-correctness
-claimType: generated-section
-generatedSectionId: deployment.blue-green-contract
-render: key-value-table
-anchor: slot-model
--->
-<!-- FSUSBLOG-GENERATED:BEGIN deployment.blue-green-contract -->
-| Key | Value |
-| --- | --- |
-| activeIdentityFields | ["activeImageDigest","activeReleaseId","activeSlot"] |
-| activeStopRejected | true |
-| destructiveCleanupExclusions | ["active-artifact","active-process","active-runtime","shared-schema","shared-volume"] |
-| failureSemantics | preserve-or-restore-active-identity |
-| operations | ["bootstrap","rollback","switch"] |
-| pendingTransitionPreservesActive | true |
-| slots | ["blue","green"] |
-| stableStates | ["stable"] |
-| standbyIdentityFields | ["imageDigest","releaseId","slot"] |
-| stateSchema | fsusblog.deployment-slots.v1 |
-| switchCommitsTargetIdentity | true |
-| transitionStates | ["rollback_required","switching"] |
-| unknownActiveIdentityPolicy | fail-closed |
-<!-- FSUSBLOG-GENERATED:END deployment.blue-green-contract -->
-
 Only `blue` and `green` are valid slots. Each slot has a distinct loopback port, Compose project, container name, immutable release identity, runtime generation and instance-local log/cache/temp roots. PostgreSQL, Redis, uploads, DataProtection keys and append-only release storage remain shared according to their own lifecycle contracts.
 
 A slot progresses through `Starting -> Candidate -> Ready -> Active -> Draining -> Stopped`. Readiness requires a positive runtime generation plus startup, dependency, schema compatibility, release identity and storage checks. Repeating the same valid transition is idempotent; an identity or generation mismatch fails closed.
@@ -106,3 +80,51 @@ render: key-value-table
 | profileId | production |
 | topoOrderConstraints | ["after:performance-evidence\|requires:backend-tests","after:performance-evidence\|requires:build-static","after:performance-evidence\|requires:frontend-tests","after:performance-evidence\|requires:runtime-browser"] |
 <!-- FSUSBLOG-GENERATED:END release.production-bundle-order -->
+
+## Observed blue/green authority
+
+<!-- fsus-doc-claim
+claimId: deployment-blue-green-runtime-role.claims-blocked-until-authority-verified
+behaviorId: deployment-blue-green-runtime-role
+claimType: boolean
+factPath: deploymentBlueGreen.claimEligible
+render: boolean-negated
+-->
+
+Release claims for this behavior stay false until schema and volume protection authorities are observed and ownership leaves conflict-unknown; an unknown or ambiguous active identity fails closed and blocks the operation.
+
+<!-- fsus-doc-claim
+claimId: deployment-blue-green-runtime-role.blue-green-contract
+behaviorId: deployment-blue-green-runtime-role
+claimType: generated-section
+generatedSectionId: deployment.blue-green-contract
+render: key-value-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN deployment.blue-green-contract -->
+| Key | Value |
+| --- | --- |
+| abortedTransitionStatus | failed |
+| activeAssetAction | retain |
+| activeAssetReasons | ["active","minimum-retention-count"] |
+| activeIdentity | ["activeImageDigest","activeReleaseId","activeSlot"] |
+| artifactProtectionAuthorityState | observed-in-release-gc-plan-probe |
+| authorityModules | {"releaseAssetsGc":{"sourceDigest":"6b81a4b46d4d479479bb37ff85d79ac18a016b4872384f94fcb5fcc7416c02b3","sourcePath":"tools/storage/release-gc.mjs"},"rollout":{"sourceDigest":"cbb0f9a9189c24adb9266a7d11e4ff69f1b40f6ec090d565bdd4788335e17d0b","sourcePath":"tools/deployment/release-rollout-lib.mjs"},"slot":{"sourceDigest":"a8ec1666cf92eee86e02d652b90cdcbedb04f1470d01ab66fa25a37cf7931d73","sourcePath":"tools/deployment/slot-lib.mjs"}} |
+| authorityState | conflict-unknown |
+| claimEligibilityReasons | ["runtime-ownership-authority-conflict","schema-protection-authority-missing","volume-protection-authority-missing"] |
+| claimEligible | false |
+| proofIds | ["release-assets.active-release-retained","rollout.failed-stage-recovery-derived","slot.active-stop-rejected","slot.gateway-transition-state-derived","slot.identity-mismatch-rejected"] |
+| rollbackRequiredState | rollback_required |
+| rolloutFailureState | recovery_required |
+| rolloutRecoveryAction | preserve-source-stop-candidate |
+| rolloutStages | ["manifest-validate","capacity-preflight","backup-restore-gate","expand-migration","asset-materialize","candidate-start","candidate-readiness","candidate-smoke","compatibility-smoke","gateway-switch","source-drain","active-fence","public-verify","source-stop","release-evidence"] |
+| rolloutStateSchema | fsusblog.release-rollout-state.v1 |
+| runtimeProtectionAuthorityState | observed-in-slot-state-machine-probe |
+| schemaProtectionAuthorityState | not-expressed-by-current-authorities |
+| slotStateSchema | fsusblog.deployment-slots.v1 |
+| slots | ["blue","green"] |
+| stopActiveResult | refusing to stop active slot blue |
+| switchState | switching |
+| unknownIdentityResult | active release identity does not match slot record |
+| volumeProtectionAuthorityState | not-expressed-by-current-authorities |
+<!-- FSUSBLOG-GENERATED:END deployment.blue-green-contract -->

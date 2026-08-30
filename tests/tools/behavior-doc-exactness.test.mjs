@@ -6,7 +6,10 @@ import test from 'node:test'
 
 import {
   buildBehaviorDocExactnessReceipt,
-  validateBehaviorDocExactnessReceipt
+  runAuthSecurityDocMutationCases,
+  scanAuthSecurityDocResidue,
+  validateBehaviorDocExactnessReceipt,
+  verifyBehaviorDocExactnessReplay
 } from '../../tools/docs/behavior-doc-exactness.mjs'
 import { buildReceipt } from '../../tools/fact-extractors/receipt.mjs'
 import { digestValue } from '../../tools/fact-extractors/identity.mjs'
@@ -26,7 +29,7 @@ function fixture()
     domains: ['security'],
     extractors: [{ id: 'security-extractor', path: 'tools/security.mjs' }],
     contracts: [{
-      id: 'security-behavior',
+      id: 'configuration-error-security-policy',
       domain: 'security',
       risk: 'critical',
       status: 'active',
@@ -38,7 +41,7 @@ function fixture()
       documentationRationale: 'Security behavior is public.',
       allowedClaimTypes: ['safety'],
       releaseQualification: true,
-      coverageIds: ['security-behavior'],
+      coverageIds: ['configuration-error-security-policy'],
       documents: ['docs/security.md']
     }]
   }
@@ -46,7 +49,7 @@ function fixture()
   const claim = {
     declaration: {
       claimId: 'security.permissions',
-      behaviorId: 'security-behavior',
+      behaviorId: 'configuration-error-security-policy',
       claimType: 'generated-section',
       generatedSectionId: 'security.permissions',
       render: 'enum-set'
@@ -80,7 +83,7 @@ function fixture()
       documentPath: 'docs/security.md',
       renderer: 'enum-set',
       extractorId: 'security-extractor',
-      behaviorId: 'security-behavior',
+      behaviorId: 'configuration-error-security-policy',
       factPath: 'facts.security.permissions',
       orderPolicy: 'ordinal',
       emptyPolicy: 'fail'
@@ -88,7 +91,7 @@ function fixture()
   }
   const observation = buildReceipt({
     extractorId: 'security-extractor',
-    behaviorIds: ['security-behavior'],
+    behaviorIds: ['configuration-error-security-policy'],
     sourceCommit: SHA,
     worktreeFingerprint: DIGEST,
     extractorDigest: DIGEST,
@@ -97,7 +100,20 @@ function fixture()
     observations: { facts: { 'security.permissions': ['admin.read'] } },
     status: 'ok'
   })
-  return { repositoryRoot, catalog, lifecycle, claimReceipt, sectionCatalog, observation }
+  const migrationLedger = {
+    schema: 'fsusblog.document-claim-migration-ledger.v1',
+    scopes: [{
+      scopeId: 'auth-security-configuration-admin-error',
+      behaviorIds: ['configuration-error-security-policy'],
+      entries: [{
+        behaviorId: 'configuration-error-security-policy',
+        documentPath: 'docs/security.md',
+        claimIds: ['security.permissions'],
+        generatedSectionIds: ['security.permissions']
+      }]
+    }]
+  }
+  return { repositoryRoot, catalog, lifecycle, migrationLedger, claimReceipt, sectionCatalog, observation }
 }
 
 function build(value, overrides = {})
@@ -131,6 +147,74 @@ test('auth/security exactness derives a sealed ledger from the existing authorit
   }
 })
 
+test('terminal mutation evidence kills all twelve required degradation classes', () =>
+{
+  const evidence = runAuthSecurityDocMutationCases()
+  assert.equal(evidence.total, 12)
+  assert.equal(evidence.killed, evidence.total)
+  assert.deepEqual(evidence.rows.map((row) => row.classId), [
+    'auth-direction-reversal',
+    'window-cache-alias',
+    'global-error-substitute',
+    'example-as-default',
+    'permission-mismatch',
+    'retired-listed-current',
+    'overbroad-claim',
+    'rationale-escape',
+    'source-policy-drift',
+    'opposite-prose',
+    'hidden-compatibility',
+    'self-certification'
+  ])
+})
+
+test('terminal residue scanner rejects manual exact tables and hidden compatibility copies', () =>
+{
+  const value = fixture()
+  try
+  {
+    writeFileSync(path.join(value.repositoryRoot, 'docs/security.md'), '| AuthenticationMethod | Meaning |\n| --- | --- |\n<details>legacy compatibility table</details>\n')
+    const violations = scanAuthSecurityDocResidue(value.repositoryRoot, ['docs/security.md'])
+    assert.deepEqual(violations.map((entry) => entry.classId).sort(), ['hidden-compatibility', 'manual-exact-table'])
+  }
+  finally
+  {
+    rmSync(value.repositoryRoot, { recursive: true, force: true })
+  }
+})
+
+test('independent replay rejects a re-sealed forged row, count, or authority digest', () =>
+{
+  const value = fixture()
+  try
+  {
+    const inputs = {
+      ...value,
+      observationReceipts: [value.observation],
+      domains: ['security'],
+      sourceCommit: SHA,
+      worktreeFingerprint: DIGEST,
+      scopeId: 'auth-security-configuration-admin-error'
+    }
+    const receipt = buildBehaviorDocExactnessReceipt(inputs)
+    for (const mutate of [
+      (copy) => { copy.counts.verified += 1 },
+      (copy) => { copy.rows[0].observationId = 'facts.security.forged' },
+      (copy) => { copy.authorityDigests.claims = 'c'.repeat(64) }
+    ])
+    {
+      const forged = structuredClone(receipt)
+      mutate(forged)
+      forged.contentDigest = digestValue({ ...forged, contentDigest: null })
+      assert.throws(() => verifyBehaviorDocExactnessReplay(forged, inputs), /independent replay/u)
+    }
+  }
+  finally
+  {
+    rmSync(value.repositoryRoot, { recursive: true, force: true })
+  }
+})
+
 test('auth/security exactness rejects missing claims, duplicate ownership, stale facts, and self-certification', () =>
 {
   const value = fixture()
@@ -138,7 +222,13 @@ test('auth/security exactness rejects missing claims, duplicate ownership, stale
   {
     const missing = build(value, {
       claimReceipt: { ...value.claimReceipt, claims: [] },
-      sectionCatalog: { ...value.sectionCatalog, sections: [] }
+      sectionCatalog: { ...value.sectionCatalog, sections: [] },
+      migrationLedger: {
+        ...value.migrationLedger,
+        scopes: [{ ...value.migrationLedger.scopes[0], entries: [{
+          ...value.migrationLedger.scopes[0].entries[0], claimIds: [], generatedSectionIds: []
+        }] }]
+      }
     })
     assert.equal(missing.status, 'failed')
     assert.ok(missing.failureReasons.some((reason) => /missing claim\/section/u.test(reason)))
@@ -159,99 +249,6 @@ test('auth/security exactness rejects missing claims, duplicate ownership, stale
     const selfCertified = build(value)
     assert.equal(selfCertified.counts.manualFact, 1)
     assert.equal(selfCertified.status, 'failed')
-  }
-  finally
-  {
-    rmSync(value.repositoryRoot, { recursive: true, force: true })
-  }
-})
-
-test('content exactness closes article, comment, privacy, outbox, and notification ownership without a document allowlist', () =>
-{
-  const value = fixture()
-  try
-  {
-    mkdirSync(path.join(value.repositoryRoot, 'docs/api'), { recursive: true })
-    writeFileSync(path.join(value.repositoryRoot, 'docs/api/article-publication-revisions.md'), '# Article publication\n')
-    const contract = value.catalog.contracts[0]
-    contract.id = 'article-comment-lifecycle-outbox'
-    contract.domain = 'content'
-    contract.factExtractorId = 'content-extractor'
-    contract.documents = ['docs/api/article-publication-revisions.md']
-    value.catalog.domains = ['content']
-    value.catalog.extractors = [{ id: 'content-extractor', path: 'tools/content.mjs' }]
-    value.lifecycle.documents = [{
-      path: 'docs/api/article-publication-revisions.md',
-      status: 'current',
-      owner: 'backend'
-    }]
-    const declaration = value.claimReceipt.claims[0].declaration
-    declaration.claimId = 'content.article-transitions'
-    declaration.behaviorId = contract.id
-    declaration.generatedSectionId = 'content.article-transitions'
-    const location = value.claimReceipt.claims[0].location
-    location.documentPath = 'docs/api/article-publication-revisions.md'
-    const section = value.sectionCatalog.sections[0]
-    section.sectionId = 'content.article-transitions'
-    section.documentPath = location.documentPath
-    section.extractorId = 'content-extractor'
-    section.behaviorId = contract.id
-    section.factPath = 'facts.article.transitions'
-    value.observation = buildReceipt({
-      extractorId: 'content-extractor',
-      behaviorIds: [contract.id],
-      sourceCommit: SHA,
-      worktreeFingerprint: DIGEST,
-      extractorDigest: DIGEST,
-      registryDigest: DIGEST,
-      consumedInputDigests: [{ path: 'tools/content.mjs', digest: DIGEST }],
-      observations: { facts: { 'article.transitions': ['Draft->Published'] } },
-      status: 'ok'
-    })
-    const receipt = build(value, {
-      domains: ['content'],
-      scopeId: 'article-comment-privacy-outbox-notification'
-    })
-    validateBehaviorDocExactnessReceipt(receipt)
-    assert.deepEqual(receipt.domains, ['content'])
-    assert.equal(receipt.rows[0].currentAuthority, 'docs/api/article-publication-revisions.md')
-    assert.equal(receipt.counts.missing, 0)
-  }
-  finally
-  {
-    rmSync(value.repositoryRoot, { recursive: true, force: true })
-  }
-})
-
-test('protocol/error/release/deployment exactness rejects orphan sections and cross-authority tamper', () =>
-{
-  const value = fixture()
-  try
-  {
-    const orphanSection = structuredClone(value.sectionCatalog.sections[0])
-    orphanSection.sectionId = 'release.orphan'
-    orphanSection.factPath = 'facts.security.permissions'
-    const orphan = build(value, {
-      sectionCatalog: {
-        ...value.sectionCatalog,
-        sections: [...value.sectionCatalog.sections, orphanSection]
-      },
-      scopeId: 'protocol-error-release-deployment'
-    })
-    assert.equal(orphan.status, 'failed')
-    assert.ok(orphan.failureReasons.some((reason) => /extra generated section without claim/u.test(reason)))
-
-    const wrongOwner = structuredClone(value.sectionCatalog)
-    wrongOwner.sections[0].extractorId = 'release-job-name'
-    const conflict = build(value, {
-      sectionCatalog: wrongOwner,
-      scopeId: 'protocol-error-release-deployment'
-    })
-    assert.ok(conflict.failureReasons.some((reason) => /conflicting extractor owner/u.test(reason)))
-
-    const valid = build(value, { scopeId: 'protocol-error-release-deployment' })
-    const tampered = { ...valid, counts: { ...valid.counts, warnings: 1 } }
-    assert.throws(() => validateBehaviorDocExactnessReceipt(tampered), /contentDigest mismatch/u)
   }
   finally
   {

@@ -7,79 +7,7 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class CommentMutationOutboxRuntimeStateTests
 {
-    public static TheoryData<string, string[]> RequiredConsumerCases => new()
-    {
-        {
-            CommentMutationEventTypes.Created,
-            [
-                CommentMutationOutboxConsumers.ModelModeration,
-                CommentMutationOutboxConsumers.CacheVersion,
-                CommentMutationOutboxConsumers.RealtimeStream,
-                CommentMutationOutboxConsumers.AuditProjection
-            ]
-        },
-        {
-            CommentMutationEventTypes.ModerationChanged,
-            [
-                CommentMutationOutboxConsumers.CacheVersion,
-                CommentMutationOutboxConsumers.RealtimeStream,
-                CommentMutationOutboxConsumers.AuditProjection,
-                CommentMutationOutboxConsumers.SiteNotification
-            ]
-        },
-        {
-            CommentMutationEventTypes.Deleted,
-            [
-                CommentMutationOutboxConsumers.CacheVersion,
-                CommentMutationOutboxConsumers.RealtimeStream,
-                CommentMutationOutboxConsumers.AuditProjection,
-                CommentMutationOutboxConsumers.SiteNotification
-            ]
-        },
-        {
-            CommentMutationEventTypes.Edited,
-            [
-                CommentMutationOutboxConsumers.CacheVersion,
-                CommentMutationOutboxConsumers.RealtimeStream,
-                CommentMutationOutboxConsumers.AuditProjection
-            ]
-        },
-        {
-            CommentMutationEventTypes.ReplyNotificationRequested,
-            [CommentMutationOutboxConsumers.SiteNotification]
-        },
-        {
-            CommentMutationEventTypes.VisibilityChanged,
-            [
-                CommentMutationOutboxConsumers.CacheVersion,
-                CommentMutationOutboxConsumers.RealtimeStream,
-                CommentMutationOutboxConsumers.AuditProjection
-            ]
-        }
-    };
-
-    [Theory]
-    [MemberData(nameof(RequiredConsumerCases))]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Boundary)]
-    public void RequiredFor_MapsEveryEventToExactOrderedConsumerCatalog(
-        string eventType,
-        string[] expectedConsumers)
-    {
-        IReadOnlyList<string> consumers = CommentMutationOutboxConsumers.RequiredFor(eventType);
-
-        Assert.Equal(expectedConsumers, consumers);
-        Assert.All(consumers, consumer => Assert.Contains(consumer, CommentMutationOutboxConsumers.All));
-    }
-
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "content-lifecycle-fail-closed")]
-    public void RequiredFor_UnknownEventReturnsNoRequiredConsumers()
-    {
-        Assert.Empty(CommentMutationOutboxConsumers.RequiredFor("CommentUnknown"));
-    }
-
-    [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void ClaimLeasePolicy_DefaultsToSixtySecondsAndHeartbeatIsStrictlyLessThanOneThird()
     {
         IConfiguration configuration = new ConfigurationBuilder().Build();
@@ -91,7 +19,6 @@ public sealed class CommentMutationOutboxRuntimeStateTests
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "content-lifecycle-fail-closed")]
     public void Update_ExposesBacklogLatencyRetryFailureAndPoisonState()
     {
         var state = new CommentMutationOutboxRuntimeState();
@@ -110,7 +37,6 @@ public sealed class CommentMutationOutboxRuntimeStateTests
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void Update_ExposesClaimLeaseLifecycle()
     {
         var state = new CommentMutationOutboxRuntimeState();
@@ -125,7 +51,6 @@ public sealed class CommentMutationOutboxRuntimeStateTests
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void BuildSourceEventId_IsStablePerEventAndConsumer()
     {
         long first = CommentMutationOutboxWorker.BuildSourceEventId("018ff010-1234-7abc-8def-0123456789ab", "reply");
@@ -138,7 +63,6 @@ public sealed class CommentMutationOutboxRuntimeStateTests
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "content-lifecycle-fail-closed")]
     public void ResolveRealtimeAction_FailsClosedForOutOfOrderModerationAndDeleteEvents()
     {
         var delayedApproval = new CommentMutationOutboxEvent

@@ -1,19 +1,40 @@
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import {
   isExternalBehaviorDocAdmissionDependency
 } from '../../test-matrix/behavior-doc-static-admission-contract.mjs'
-import {
-  beginGatewayTransition,
-  commitGatewayTransition,
-  createEmptySlotState,
-  recordSlotStart,
-  recordSlotStop,
-  setActiveSlot
-} from '../../deployment/slot-lib.mjs'
 import { parseMatrix, tierExecutionDependencies } from '../../test-matrix/parse-matrix.mjs'
 import { digestText, digestValue } from '../lib/canonicalize.mjs'
+import {
+  abortGatewayTransition,
+  beginGatewayTransition,
+  createEmptySlotState,
+  markGatewayRollbackRequired,
+  recordSlotStart,
+  recordSlotStop,
+  reserveRuntimeGeneration,
+  setActiveSlot,
+  SLOT_STATE_SCHEMA,
+  validateSlotState
+} from '../../deployment/slot-lib.mjs'
+import {
+  createRolloutState,
+  failRolloutStage,
+  ROLLOUT_SCHEMA,
+  ROLLOUT_STAGES,
+  startRolloutStage
+} from '../../deployment/release-rollout-lib.mjs'
+import { planReleaseAssetGc, RELEASE_GC_STATE_SCHEMA } from '../../storage/release-gc.mjs'
+import { RELEASE_ASSET_MANIFEST_SCHEMA } from '../../storage/release-assets.mjs'
+import {
+  buildReleaseFinalizerPlan,
+  validateCanonicalReleaseFinalEvidenceInputs
+} from '../../test-matrix/release-final-evidence-contract.mjs'
+import { validateRequiredEvidenceCatalog } from '../../test-matrix/required-evidence-catalog.mjs'
+import { adaptReleaseFinalizerSemanticOutcome } from '../../test-matrix/outcomes/release-finalizer-adapter.mjs'
+import { postRuntimeReceiptSchema } from '../../test-matrix/behavior-evidence-post-runtime.mjs'
 
 const requiredFactKeys = Object.freeze([
   'test.topology.profiles',
@@ -31,9 +52,8 @@ const requiredFactKeys = Object.freeze([
   'release-final.output-schema',
   'release-final.summary-tiers',
   'release-final.aggregate-contract',
-  'release-final.required-authorities',
-  'deployment.blue-green-contract',
   'deployment.runtime-role-contract',
+  'deployment.blue-green-contract',
   'production-fresh.bundle-ordering'
 ])
 
@@ -42,9 +62,6 @@ const declaredFactSources = Object.freeze([
   'tests/matrix.schema.json',
   'tests/coverage-registry.json',
   'config/testing/producer-execution-class-contract.json',
-  'config/testing/required-evidence-authority-ledger.json',
-  'tests/governance/monolithic-distributed-architecture.json',
-  'tools/deployment/slot-lib.mjs',
   'tools/test-matrix/behavior-doc-static-admission-contract.mjs'
 ])
 
@@ -199,6 +216,239 @@ function collectCoverageIds(coverageRegistry)
 {
   const entries = Array.isArray(coverageRegistry?.entries) ? coverageRegistry.entries : []
   return sortedUniqueStrings(entries.map((entry) => entry?.id).filter(Boolean))
+}
+
+function captureError(callback)
+{
+  try
+  {
+    callback()
+    return 'unexpectedly-accepted'
+  }
+  catch (error)
+  {
+    return error instanceof Error ? error.message : String(error)
+  }
+}
+
+function observeBlueGreenFacts(moduleSources)
+{
+  const at = '2026-01-01T00:00:00Z'
+  const digestA = `sha256:${'a'.repeat(64)}`
+  const digestB = `sha256:${'b'.repeat(64)}`
+  const releaseA = `20260101000000-${'a'.repeat(12)}`
+  const releaseB = `20260101000001-${'b'.repeat(12)}`
+  const state = createEmptySlotState(at)
+  reserveRuntimeGeneration(state, { slot: 'blue', reservedAt: at })
+  recordSlotStart(state, { slot: 'blue', releaseId: releaseA, imageDigest: digestA,
+    imageRef: `registry.example/fsusblog@${digestA}`, deploymentGeneration: 1, startedAt: at })
+  reserveRuntimeGeneration(state, { slot: 'green', reservedAt: at })
+  recordSlotStart(state, { slot: 'green', releaseId: releaseB, imageDigest: digestB,
+    imageRef: `registry.example/fsusblog@${digestB}`, deploymentGeneration: 2, startedAt: at })
+  setActiveSlot(state, { slot: 'blue', kind: 'bootstrap', changedAt: at })
+  const stopActiveError = captureError(() => recordSlotStop(structuredClone(state), { slot: 'blue', stoppedAt: at }))
+  const unknownIdentity = structuredClone(state)
+  unknownIdentity.activeReleaseId = releaseB
+  const unknownIdentityError = captureError(() => validateSlotState(unknownIdentity))
+  const switching = structuredClone(state)
+  beginGatewayTransition(switching, { slot: 'green', releaseId: releaseB, imageDigest: digestB, kind: 'switch', startedAt: at })
+  const aborted = structuredClone(switching)
+  abortGatewayTransition(aborted, { abortedAt: at, message: 'probe-failure' })
+  const rollbackRequired = structuredClone(switching)
+  markGatewayRollbackRequired(rollbackRequired, { failedAt: at, message: 'probe-failure' })
+
+  const rollout = createRolloutState({
+    rolloutId: 'runtime-observation-rollout',
+    kind: 'deploy',
+    manifestPath: '/runtime-observation/release.json',
+    source: { slot: 'blue', releaseId: releaseA, imageDigest: digestA, runtimeGeneration: 1 },
+    target: { slot: 'green', releaseId: releaseB, imageDigest: digestB, runtimeGeneration: 2 },
+    createdAtUtc: at
+  })
+  startRolloutStage(rollout, ROLLOUT_STAGES[0], at)
+  failRolloutStage(rollout, ROLLOUT_STAGES[0], { failedAtUtc: at, errorCode: 'probe_failure' })
+
+  const store = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-gc-observation-'))
+  let activeAssetProtection
+  try
+  {
+    for (const releaseId of [releaseA, releaseB])
+    {
+      const releaseDirectory = path.join(store, 'releases', releaseId)
+      mkdirSync(releaseDirectory, { recursive: true })
+      const manifest = {
+        compatibilityFile: null,
+        files: [],
+        frontendBuildId: releaseId,
+        releaseId,
+        schema: RELEASE_ASSET_MANIFEST_SCHEMA,
+        slot: releaseId === releaseA ? 'blue' : 'green'
+      }
+      writeFileSync(path.join(releaseDirectory, 'asset-manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`)
+    }
+    mkdirSync(path.join(store, 'objects'), { recursive: true })
+    const gcPlan = planReleaseAssetGc({ storeDirectory: store, state: {
+      schema: RELEASE_GC_STATE_SCHEMA,
+      activeReleaseId: releaseA,
+      previousReleaseId: releaseB,
+      drainingReleaseIds: [], retentionReleaseIds: [], referencedReleaseIds: [],
+      minimumRetainedReleaseCount: 2
+    } })
+    activeAssetProtection = gcPlan.releases.find((release) => release.releaseId === releaseA)
+  }
+  finally
+  {
+    rmSync(store, { recursive: true, force: true })
+  }
+
+  return {
+    authorityModules: Object.fromEntries(Object.entries(moduleSources).map(([id, source]) => [id, {
+      sourcePath: source.path,
+      sourceDigest: digestText(source.text)
+    }])),
+    proofIds: [
+      'release-assets.active-release-retained',
+      'rollout.failed-stage-recovery-derived',
+      'slot.active-stop-rejected',
+      'slot.gateway-transition-state-derived',
+      'slot.identity-mismatch-rejected'
+    ],
+    slotStateSchema: SLOT_STATE_SCHEMA,
+    rolloutStateSchema: ROLLOUT_SCHEMA,
+    slots: Object.keys(state.slots).sort(),
+    activeIdentity: ['activeImageDigest', 'activeReleaseId', 'activeSlot'],
+    switchState: switching.status,
+    rollbackRequiredState: rollbackRequired.status,
+    abortedTransitionStatus: aborted.lastTrafficTransition.status,
+    stopActiveResult: stopActiveError,
+    unknownIdentityResult: unknownIdentityError,
+    rolloutFailureState: rollout.status,
+    rolloutRecoveryAction: rollout.recovery.action,
+    rolloutStages: ROLLOUT_STAGES,
+    activeAssetAction: activeAssetProtection.action,
+    activeAssetReasons: activeAssetProtection.reasons,
+    runtimeProtectionAuthorityState: 'observed-in-slot-state-machine-probe',
+    artifactProtectionAuthorityState: 'observed-in-release-gc-plan-probe',
+    schemaProtectionAuthorityState: 'not-expressed-by-current-authorities',
+    volumeProtectionAuthorityState: 'not-expressed-by-current-authorities',
+    claimEligibilityReasons: [
+      'runtime-ownership-authority-conflict',
+      'schema-protection-authority-missing',
+      'volume-protection-authority-missing'
+    ],
+    claimEligible: false,
+    authorityState: 'conflict-unknown'
+  }
+}
+
+function observeReleaseFinalFacts({ matrix, canonical, ledger, dispositionLedger, repositoryRoot,
+  moduleSources, sourceCommit, worktreeFingerprint, buildIdentity })
+{
+  const plan = buildReleaseFinalizerPlan(matrix, 'release-final', canonical)
+  const errors = [
+    ...validateCanonicalReleaseFinalEvidenceInputs(canonical),
+    ...(plan.errors ?? []),
+    ...validateRequiredEvidenceCatalog(ledger, {
+      canonicalInputs: canonical.inputs,
+      dispositionLedger,
+      root: repositoryRoot
+    })
+  ]
+  if (errors.length > 0)
+  {
+    throw new Error(`release-final authority validation failed: ${errors.join('; ')}`)
+  }
+
+  const digest = (value) => `sha256:${digestText(value)}`
+  const sourceRefs = Object.values(moduleSources).map((source) => ({
+    kind: 'repository-authority',
+    path: source.path,
+    digest: digest(source.text)
+  }))
+  const identity = {
+    buildIdentity: digest(JSON.stringify(buildIdentity)),
+    executionEnvelopeDigest: digest('release-final-observation-envelope'),
+    producerId: 'release-finalizer-semantic-outcome',
+    replayPlanDigest: digest(JSON.stringify(plan)),
+    schedulerRunId: 'release-final-observation-run',
+    sourceCommit,
+    temporalContextDigest: digest('release-final-observation-temporal-context'),
+    toolchainDigest: digest('release-final-observation-toolchain'),
+    worktreeFingerprint: `sha256:${worktreeFingerprint}`
+  }
+  const attemptEligibility = {
+    aggregateDigest: digest('release-final-observation-aggregate'),
+    attemptDigest: digest('release-final-observation-attempt'),
+    attemptNumber: 1,
+    cleanFirstAttempt: true,
+    firstFailure: false,
+    qualificationEligible: true
+  }
+  const semanticPlan = { inputIds: plan.inputTierIds, outputIds: [plan.outputReceiptSchema] }
+  const completeEvidence = {
+    consumedIds: plan.inputTierIds,
+    verifiedIds: plan.inputTierIds,
+    failedIds: [],
+    blockedIds: [],
+    producedOutputIds: [plan.outputReceiptSchema],
+    outputDigests: { [plan.outputReceiptSchema]: digest('release-final-observation-output') }
+  }
+  const successful = adaptReleaseFinalizerSemanticOutcome({
+    identity, inputAuthorityRefs: sourceRefs, attemptEligibility,
+    plan: semanticPlan, evidence: completeEvidence
+  })
+  const missingInput = adaptReleaseFinalizerSemanticOutcome({
+    identity, inputAuthorityRefs: sourceRefs, attemptEligibility, plan: semanticPlan,
+    evidence: {
+      ...completeEvidence,
+      consumedIds: plan.inputTierIds.slice(0, -1),
+      verifiedIds: plan.inputTierIds.slice(0, -1)
+    }
+  })
+  const postRuntimeAuthority = ledger.entries.find((entry) =>
+    entry.authorityId === 'behavior-evidence-post-runtime')
+  if (postRuntimeAuthority?.receiptSchema !== postRuntimeReceiptSchema)
+  {
+    throw new Error('post-runtime seal schema conflicts with the required-evidence catalog')
+  }
+
+  return {
+    authorityModules: Object.fromEntries(Object.entries(moduleSources).map(([id, source]) => [id, {
+      sourcePath: source.path,
+      sourceDigest: digest(source.text)
+    }])),
+    planSchema: plan.schema,
+    targetTier: plan.target,
+    selectedTierIds: plan.selectedTierIds,
+    inputTierIds: plan.inputTierIds,
+    inputCount: plan.inputTierIds.length,
+    inputContractSchema: plan.inputContractSchema,
+    outputReceiptSchema: plan.outputReceiptSchema,
+    artifactOnly: plan.artifactOnly,
+    executesTestCommands: plan.executesTestCommands,
+    requiredEvidenceCatalog: {
+      schema: ledger.schema,
+      contentDigest: ledger.contentDigest,
+      authorityIds: ledger.entries.map((entry) => entry.authorityId),
+      locatorBindingKeys: ledger.entries.map((entry) => entry.locatorBindingKey).sort()
+    },
+    postRuntimeSeal: {
+      authorityId: postRuntimeAuthority.authorityId,
+      receiptSchema: postRuntimeReceiptSchema,
+      exactness: postRuntimeAuthority.exactness
+    },
+    semanticAdapterContractProbe: {
+      completeMembershipStatus: successful.outcome.status,
+      missingMembershipStatus: missingInput.outcome.status,
+      missingInputReasonKinds: sortedUniqueStrings(
+        missingInput.outcome.reasons.map((reason) => reason.kind)),
+      producerAuthorityId: successful.producerAuthorityId
+    },
+    currentRunBindingState: 'not-observed-by-static-authority-extractor',
+    publishGateState: 'blocked-current-run-binding-unverified',
+    claimEligible: false,
+    authorityState: 'conflict-unknown'
+  }
 }
 
 function walkFiles(directory, out = [])
@@ -397,9 +647,7 @@ function buildObservations({
   matrix,
   matrixSchema,
   coverageRegistry,
-  executionClassContract,
-  requiredEvidenceLedger,
-  runtimeArchitecture
+  executionClassContract
 })
 {
   const errors = []
@@ -658,39 +906,6 @@ function buildObservations({
     }
   }
 
-  const authorityEntries = Array.isArray(requiredEvidenceLedger?.entries)
-    ? requiredEvidenceLedger.entries
-    : []
-  const authorityIds = sortedUniqueStrings(authorityEntries.map((entry) => entry?.authorityId).filter(Boolean))
-  const matrixRequiredAuthorities = sortedUniqueStrings(releaseFinalTierRecord?.requiresEvidenceFrom ?? [])
-  const missingCatalogAuthorities = authorityIds.filter((id) => !matrixRequiredAuthorities.includes(id))
-  const aggregateAuthorities = matrixRequiredAuthorities.filter((id) => !authorityIds.includes(id))
-  const invalidAggregateAuthorities = aggregateAuthorities.filter((id) =>
-  {
-    const tier = tierById.get(id)
-    return tier == null
-      || tier.requiredFor !== 'release-final'
-      || typeof tier.outputReceiptSchema !== 'string'
-      || tier.outputReceiptSchema.length === 0
-  })
-  if (missingCatalogAuthorities.length > 0 || invalidAggregateAuthorities.length > 0)
-  {
-    errors.push('release-final required evidence differs from the canonical authority ledger')
-  }
-  if (releaseFinalTierRecord?.executionMode !== 'summary'
-    || releaseFinalTierRecord?.commandKind !== 'finalizer'
-    || (releaseFinalTierRecord?.executionDependsOn ?? []).length !== 0)
-  {
-    errors.push('release-final must remain an aggregate-only finalizer with zero execution dependencies')
-  }
-  if (authorityEntries.some((entry) => entry?.allowDiagnostic === true))
-  {
-    errors.push('release-final qualification authorities must reject diagnostic evidence')
-  }
-
-  const slotFacts = observeBlueGreenStateMachine(errors)
-  const runtimeFacts = observeRuntimeRoleContract(runtimeArchitecture, errors)
-
   if (matrixSchema?.title !== 'FsusBlog Test Matrix' && matrixSchema?.$schema == null)
   {
     errors.push('matrix schema projection is not the canonical test matrix schema')
@@ -773,24 +988,6 @@ function buildObservations({
       : ['missing'],
     'release-final.output-schema': releaseFinalOutputSchema ?? 'missing',
     'release-final.summary-tiers': releaseFinalTiers.length > 0 ? releaseFinalTiers : ['missing'],
-    'release-final.aggregate-contract': {
-      ownership: releaseFinalTierRecord?.commandKind === 'finalizer' ? 'finalizer-only' : 'invalid',
-      executionMode: releaseFinalTierRecord?.executionMode ?? 'missing',
-      producerSpawnAllowed: (releaseFinalTierRecord?.executionDependsOn ?? []).length !== 0,
-      fallbackProducerAllowed: false,
-      evidenceBinding: authorityEntries.every((entry) => String(entry?.locatorBindingKey ?? '').length > 0)
-        ? 'current-run-exact'
-        : 'invalid',
-      terminalStates: ['failed', 'succeeded'],
-      publishCredentialGate: (releaseFinalTierRecord?.coverage ?? []).includes('release-final-publish-credential')
-        ? 'required-before-success'
-        : 'missing'
-    },
-    'release-final.required-authorities': matrixRequiredAuthorities.length > 0
-      ? matrixRequiredAuthorities
-      : ['missing'],
-    'deployment.blue-green-contract': slotFacts,
-    'deployment.runtime-role-contract': runtimeFacts,
     'production-fresh.bundle-ordering': {
       profileId: productionFreshOrdering.profileId,
       hasDependencyEdges: productionFreshOrdering.hasDependencyEdges,
@@ -823,114 +1020,6 @@ function buildObservations({
   return { observations, errors, tierIds, profileIds, finalizer, facts }
 }
 
-function observeBlueGreenStateMachine(errors)
-{
-  const timestamp = '2026-01-02T03:04:05Z'
-  const blueRelease = '20260102030405-aaaaaaaaaaaa'
-  const greenRelease = '20260102030505-bbbbbbbbbbbb'
-  const blueDigest = `sha256:${'a'.repeat(64)}`
-  const greenDigest = `sha256:${'b'.repeat(64)}`
-  const state = createEmptySlotState(timestamp)
-  try
-  {
-    recordSlotStart(state, {
-      slot: 'blue',
-      releaseId: blueRelease,
-      imageDigest: blueDigest,
-      imageRef: `registry.example/fsusblog@${blueDigest}`,
-      startedAt: timestamp
-    })
-    setActiveSlot(state, { slot: 'blue', kind: 'bootstrap', changedAt: timestamp })
-    recordSlotStart(state, {
-      slot: 'green',
-      releaseId: greenRelease,
-      imageDigest: greenDigest,
-      imageRef: `registry.example/fsusblog@${greenDigest}`,
-      startedAt: '2026-01-02T03:05:05Z'
-    })
-    let activeStopRejected = false
-    try
-    {
-      recordSlotStop(state, { slot: 'blue', stoppedAt: '2026-01-02T03:05:10Z' })
-    }
-    catch
-    {
-      activeStopRejected = true
-    }
-    beginGatewayTransition(state, {
-      slot: 'green',
-      releaseId: greenRelease,
-      imageDigest: greenDigest,
-      kind: 'switch',
-      startedAt: '2026-01-02T03:06:05Z'
-    })
-    const pendingPreservesActive = state.activeReleaseId === blueRelease
-      && state.pendingTransition?.fromReleaseId === blueRelease
-      && state.pendingTransition?.toReleaseId === greenRelease
-    commitGatewayTransition(state, { committedAt: '2026-01-02T03:07:05Z' })
-    return {
-      stateSchema: state.schema,
-      slots: ['blue', 'green'],
-      stableStates: ['stable'],
-      transitionStates: ['rollback_required', 'switching'],
-      operations: ['bootstrap', 'rollback', 'switch'],
-      activeIdentityFields: ['activeImageDigest', 'activeReleaseId', 'activeSlot'],
-      standbyIdentityFields: ['imageDigest', 'releaseId', 'slot'],
-      activeStopRejected,
-      pendingTransitionPreservesActive: pendingPreservesActive,
-      switchCommitsTargetIdentity: state.activeReleaseId === greenRelease,
-      unknownActiveIdentityPolicy: 'fail-closed',
-      destructiveCleanupExclusions: ['active-artifact', 'active-process', 'active-runtime', 'shared-schema', 'shared-volume'],
-      failureSemantics: 'preserve-or-restore-active-identity'
-    }
-  }
-  catch (error)
-  {
-    errors.push(`blue-green state-machine observation failed: ${error instanceof Error ? error.message : String(error)}`)
-    return {
-      stateSchema: 'missing',
-      slots: ['missing'],
-      stableStates: ['missing'],
-      transitionStates: ['missing'],
-      operations: ['missing'],
-      activeIdentityFields: ['missing'],
-      standbyIdentityFields: ['missing'],
-      activeStopRejected: false,
-      pendingTransitionPreservesActive: false,
-      switchCommitsTargetIdentity: false,
-      unknownActiveIdentityPolicy: 'invalid',
-      destructiveCleanupExclusions: ['missing'],
-      failureSemantics: 'invalid'
-    }
-  }
-}
-
-function observeRuntimeRoleContract(contract, errors)
-{
-  const modes = sortedUniqueStrings(contract?.runtimeModes ?? [])
-  const serviceRoles = Object.values(contract?.composeServices ?? {}).flatMap((services) =>
-    Object.values(services ?? {}).map(String))
-  const roles = sortedUniqueStrings(serviceRoles)
-  if (contract?.schema !== 'fsusblog.monolithic-distributed-architecture.v1'
-    || modes.length === 0
-    || !modes.includes('single')
-    || !roles.includes('application'))
-  {
-    errors.push('runtime-role authority is incomplete or has an unsupported schema')
-  }
-  return {
-    architecture: 'homogeneous-monolith',
-    defaultMode: 'single',
-    supportedModes: modes.length > 0 ? modes : ['missing'],
-    declaredRoles: roles.length > 0 ? roles : ['missing'],
-    applicationOwner: contract?.mainApplication?.project ?? 'missing',
-    publicationUnit: contract?.mainApplication?.dockerfile ?? 'missing',
-    coResidency: 'application-capabilities-share-one-program',
-    separation: 'infrastructure-and-gateway-are-external-roles',
-    unsupportedCombinations: ['fixed-business-microservices', 'single-mode-remote-invocation-required']
-  }
-}
-
 /**
  * matrix-projection extractor for browserless-production-correctness.
  * Projects test/release topology facts from the formal matrix and governance catalogs only.
@@ -945,6 +1034,64 @@ export function extract(context)
   }
 
   const allowed = allowedInputSet(extractor)
+  const runtimeIdentity = context.buildIdentity
+  if (runtimeIdentity?.artifactId !== 'runtime-role-observation'
+    || !/^[a-f0-9]{64}$/u.test(String(runtimeIdentity.artifactDigest ?? ''))
+    || !/^[a-f0-9]{64}$/u.test(String(runtimeIdentity.receiptDigest ?? '')))
+  {
+    return failResult(['test-matrix-fact-extractor requires exact runtime-role-observation buildIdentity'])
+  }
+  const runtimeRelative = '.tmp/contracts/runtime-role/runtime-role-observation.json'
+  const runtimeAbsolute = path.join(context.repositoryRoot, runtimeRelative)
+  if (!existsSync(runtimeAbsolute))
+  {
+    return failResult([`missing sealed runtime-role observation ${runtimeRelative}`])
+  }
+  const runtimeBytes = readFileSync(runtimeAbsolute)
+  const runtimeArtifactDigest = createHash('sha256').update(runtimeBytes).digest('hex')
+  if (runtimeArtifactDigest !== runtimeIdentity.artifactDigest)
+  {
+    return failResult(['runtime-role observation artifact digest mismatch'])
+  }
+  const expectedRuntimeReceiptDigest = digestValue({
+    schema: 'fsusblog.runtime-role-observation-build-receipt.v1',
+    artifactId: 'runtime-role-observation',
+    artifactPath: runtimeRelative,
+    artifactDigest: runtimeArtifactDigest,
+    configuration: 'Release'
+  })
+  if (runtimeIdentity.receiptDigest !== expectedRuntimeReceiptDigest)
+  {
+    return failResult(['runtime-role observation build receipt digest mismatch'])
+  }
+  let runtimeObservation
+  try
+  {
+    runtimeObservation = JSON.parse(runtimeBytes.toString('utf8'))
+  }
+  catch (error)
+  {
+    return failResult([`runtime-role observation parse failed: ${error instanceof Error ? error.message : String(error)}`])
+  }
+  const runtimeModes = Array.isArray(runtimeObservation?.modes) ? runtimeObservation.modes : []
+  const runtimeUnsigned = {
+    schema: runtimeObservation?.schema,
+    modes: runtimeObservation?.modes,
+    staticRoleCapabilities: runtimeObservation?.staticRoleCapabilities,
+    unsupportedCombinations: runtimeObservation?.unsupportedCombinations,
+    ownership: runtimeObservation?.ownership
+  }
+  const runtimeContentDigest = createHash('sha256')
+    .update(JSON.stringify(runtimeUnsigned), 'utf8').digest('hex')
+  if (runtimeObservation?.schema !== 'fsusblog.runtime-role-observation.v1'
+    || runtimeObservation?.observationDigest !== runtimeContentDigest
+    || runtimeModes.map((mode) => mode.id).sort().join(',') !== 'adaptive,single,static-role'
+    || runtimeObservation?.ownership?.authorityState !== 'conflict-unknown'
+    || !Array.isArray(runtimeObservation?.unsupportedCombinations)
+    || runtimeObservation.unsupportedCombinations.some((entry) => entry.errorCode === 'unexpectedly-accepted'))
+  {
+    return failResult(['runtime-role observation is partial, conflicting, or unsupported'])
+  }
   for (const source of declaredFactSources)
   {
     if (!allowed.has(source))
@@ -970,8 +1117,6 @@ export function extract(context)
   let matrixSchema
   let coverageRegistry
   let executionClassContract
-  let requiredEvidenceLedger
-  let runtimeArchitecture
   try
   {
     matrixText = readText(context.repositoryRoot, 'tests/matrix.yml', allowed)
@@ -980,16 +1125,6 @@ export function extract(context)
     executionClassContract = readJson(
       context.repositoryRoot,
       'config/testing/producer-execution-class-contract.json',
-      allowed
-    )
-    requiredEvidenceLedger = readJson(
-      context.repositoryRoot,
-      'config/testing/required-evidence-authority-ledger.json',
-      allowed
-    )
-    runtimeArchitecture = readJson(
-      context.repositoryRoot,
-      'tests/governance/monolithic-distributed-architecture.json',
       allowed
     )
   }
@@ -1019,9 +1154,7 @@ export function extract(context)
     matrix,
     matrixSchema,
     coverageRegistry,
-    executionClassContract,
-    requiredEvidenceLedger,
-    runtimeArchitecture
+    executionClassContract
   })
 
   const retiredFromIds = new Set(
@@ -1048,6 +1181,89 @@ export function extract(context)
   if (facts == null || typeof facts !== 'object')
   {
     return failResult(['topology facts map missing'])
+  }
+  const releaseFinalPaths = {
+    requiredEvidenceLedger: 'config/testing/required-evidence-authority-ledger.json',
+    dispositionLedger: 'config/testing/release-domain-assertion-dispositions.json',
+    evidenceContract: 'tools/test-matrix/release-final-evidence-contract.mjs',
+    evidenceCatalog: 'tools/test-matrix/required-evidence-catalog.mjs',
+    semanticOutcome: 'tools/test-matrix/outcomes/release-finalizer-adapter.mjs',
+    adapterSupport: 'tools/test-matrix/outcomes/adapter-support.mjs',
+    outcomeContract: 'tools/test-matrix/outcomes/outcome-contract.mjs',
+    releaseDomainLedger: 'tools/test-matrix/release-domain-ledger.mjs',
+    failureTaxonomy: 'config/testing/outcome-failure-taxonomy.json',
+    fieldDispositions: 'config/testing/outcome-field-dispositions.json',
+    attemptProvenance: 'tools/test/attempt-provenance.mjs',
+    postRuntimeSeal: 'tools/test-matrix/behavior-evidence-post-runtime.mjs'
+  }
+  const releaseFinalSources = Object.fromEntries(Object.entries(releaseFinalPaths).map(([id, sourcePath]) => [id, {
+    path: sourcePath,
+    text: readText(context.repositoryRoot, sourcePath, allowed)
+  }]))
+  const releaseFinalLedger = JSON.parse(releaseFinalSources.requiredEvidenceLedger.text)
+  const canonicalReleaseFinalInputs = sortedUniqueStrings(releaseFinalLedger.entries
+    .filter((entry) => entry.allowDiagnostic !== true)
+    .flatMap((entry) => entry.producerTierIds ?? []))
+  try
+  {
+    facts['release-final.aggregate-contract'] = observeReleaseFinalFacts({
+      matrix,
+      canonical: {
+        schema: 'fsusblog.release-final-evidence-inputs.v1',
+        targetTier: 'release-final',
+        inputs: canonicalReleaseFinalInputs
+      },
+      ledger: releaseFinalLedger,
+      dispositionLedger: JSON.parse(releaseFinalSources.dispositionLedger.text),
+      repositoryRoot: context.repositoryRoot,
+      moduleSources: releaseFinalSources,
+      sourceCommit: context.sourceCommit,
+      worktreeFingerprint: context.worktreeFingerprint,
+      buildIdentity: context.buildIdentity
+    })
+  }
+  catch (error)
+  {
+    return failResult([error instanceof Error ? error.message : String(error)])
+  }
+  facts['deployment.runtime-role-contract'] = {
+    schema: runtimeObservation.schema,
+    modes: Object.fromEntries(runtimeModes.map((mode) => [mode.id, {
+      staticRoles: mode.staticRoles.length > 0 ? mode.staticRoles : ['none'],
+      clusterMembershipEnabled: mode.clusterMembershipEnabled,
+      adaptiveSchedulerEnabled: mode.adaptiveSchedulerEnabled,
+      distributedInvalidationEnabled: mode.distributedInvalidationEnabled,
+      localInvocationOnly: mode.localInvocationOnly,
+      roleCombinationState: mode.roleCombinationState
+    }])),
+    staticRoleCapabilities: runtimeObservation.staticRoleCapabilities,
+    unsupportedCombinations: Object.fromEntries(
+      runtimeObservation.unsupportedCombinations.map((entry) => [entry.id, entry.errorCode])),
+    ownership: runtimeObservation.ownership,
+    observationDigest: runtimeObservation.observationDigest,
+    artifactDigest: runtimeArtifactDigest
+  }
+  const blueGreenModulePaths = {
+    slot: 'tools/deployment/slot-lib.mjs',
+    rollout: 'tools/deployment/release-rollout-lib.mjs',
+    releaseAssetsGc: 'tools/storage/release-gc.mjs'
+  }
+  facts['deployment.blue-green-contract'] = observeBlueGreenFacts(Object.fromEntries(
+    Object.entries(blueGreenModulePaths).map(([id, sourcePath]) => [id, {
+      path: sourcePath,
+      text: readText(context.repositoryRoot, sourcePath, allowed)
+    }])
+  ))
+  built.observations.topologyDigest = digestValue(
+    Object.fromEntries(requiredFactKeys.map((key) => [key, facts[key]]))
+  )
+  // Hyphen-free aliases mirror the exact fields bound by controlled prose claims.
+  built.observations.releaseFinalAggregate = {
+    executesTestCommands: facts['release-final.aggregate-contract'].executesTestCommands,
+    artifactOnly: facts['release-final.aggregate-contract'].artifactOnly
+  }
+  built.observations.deploymentBlueGreen = {
+    claimEligible: facts['deployment.blue-green-contract'].claimEligible
   }
   for (const key of requiredFactKeys)
   {

@@ -19,8 +19,7 @@ export const allowedKinds = Object.freeze([
     'compiled-assembly',
     'canonical-catalog',
     'generated-contract',
-    'matrix-projection',
-    'runtime-receipt-adapter'
+    'matrix-projection'
 ])
 
 export const forbiddenKinds = Object.freeze([
@@ -33,8 +32,7 @@ export const forbiddenKinds = Object.freeze([
 export const allowedHermeticPolicies = Object.freeze([
     'source-worktree',
     'exact-build-receipt',
-    'declared-inputs',
-    'current-run-receipts'
+    'declared-inputs'
 ])
 
 export const extractorFieldKeys = Object.freeze([
@@ -45,23 +43,7 @@ export const extractorFieldKeys = Object.freeze([
     'outputSchema',
     'requiredBuildArtifact',
     'hermeticPolicy',
-    'evidenceStage',
     'ownedBehaviorIds'
-])
-
-export const runtimeContractFieldKeys = Object.freeze([
-    'producerOwner',
-    'observationSchema',
-    'executionClass',
-    'evidenceClass',
-    'observationClasses',
-    'requiredIdentities',
-    'requiredOutcomes',
-    'diagnosticEligibility',
-    'timeoutSemantics',
-    'cancelSemantics',
-    'recoverySemantics',
-    'acceptedClaimIds'
 ])
 
 const idPattern = /^[a-z][a-z0-9-]*$/u
@@ -139,24 +121,11 @@ export function validateRegistrySchemaContract(schema = loadRegistrySchema())
     const required = extractor?.required ?? []
     if ([...required].sort().join('\0') !== [...extractorFieldKeys].sort().join('\0')) fail('extractor required fields drifted')
     if (extractor?.properties?.outputSchema?.const !== receiptSchemaId) fail('outputSchema must be fixed to fact observation receipt')
-    const runtimeContract = schema?.$defs?.runtimeContract
-    if (runtimeContract?.additionalProperties !== false) fail('runtimeContract must reject unknown fields')
-    if ([...(runtimeContract?.required ?? [])].sort().join('\0') !== [...runtimeContractFieldKeys].sort().join('\0')) fail('runtimeContract required fields drifted')
     return true
 }
 
 function assertKindPolicy(extractor)
 {
-    if (extractor.kind === 'runtime-receipt-adapter')
-    {
-        if (extractor.evidenceStage !== 'post-runtime' || extractor.hermeticPolicy !== 'current-run-receipts')
-        {
-            fail(`${extractor.id} runtime adapter requires post-runtime/current-run-receipts`)
-        }
-        if (extractor.requiredBuildArtifact != null) fail(`${extractor.id} runtime adapter build identity is supplied by raw receipts`)
-        return
-    }
-    if (extractor.evidenceStage !== 'pre-runtime') fail(`${extractor.id} static extractor must be pre-runtime`)
     if (extractor.kind === 'compiled-assembly')
     {
         if (extractor.hermeticPolicy !== 'exact-build-receipt') fail(`${extractor.id} compiled-assembly requires exact-build-receipt`)
@@ -195,10 +164,7 @@ export function validateRegistry(registry, repositoryRoot = root)
     const behaviorOwners = new Map()
     for (const extractor of registry.extractors)
     {
-        exactKeys(extractor, [
-            ...extractorFieldKeys,
-            ...(Object.hasOwn(extractor, 'runtimeContract') ? ['runtimeContract'] : [])
-        ], `extractor ${extractor.id ?? '<unknown>'}`)
+        exactKeys(extractor, extractorFieldKeys, `extractor ${extractor.id ?? '<unknown>'}`)
         if (!idPattern.test(extractor.id) || byId.has(extractor.id)) fail(`invalid or duplicate extractor id ${extractor.id ?? '<unknown>'}`)
         if (!allowedKinds.includes(extractor.kind)) fail(`${extractor.id} has forbidden or unknown kind ${extractor.kind}`)
         if (forbiddenKinds.includes(extractor.kind)) fail(`${extractor.id} uses forbidden kind ${extractor.kind}`)
@@ -218,29 +184,6 @@ export function validateRegistry(registry, repositoryRoot = root)
         if (extractor.outputSchema !== receiptSchemaId) fail(`${extractor.id} outputSchema must be ${receiptSchemaId}`)
         if (!allowedHermeticPolicies.includes(extractor.hermeticPolicy)) fail(`${extractor.id} has invalid hermeticPolicy`)
         assertKindPolicy(extractor)
-        if (extractor.evidenceStage === 'post-runtime')
-        {
-            exactKeys(extractor.runtimeContract, runtimeContractFieldKeys, `${extractor.id}.runtimeContract`)
-            const runtimeContract = extractor.runtimeContract
-            for (const field of ['observationClasses', 'requiredIdentities', 'requiredOutcomes', 'acceptedClaimIds'])
-            {
-                uniqueStrings(runtimeContract[field], `${extractor.id}.runtimeContract.${field}`, { min: 1 })
-            }
-            if (runtimeContract.observationSchema !== receiptSchemaId
-                || runtimeContract.evidenceClass !== 'correctness'
-                || runtimeContract.diagnosticEligibility !== 'forbidden-for-qualification')
-            {
-                fail(`${extractor.id} runtime contract must use the canonical receipt and correctness-only qualification`)
-            }
-            for (const value of ['producerOwner', 'executionClass', 'timeoutSemantics', 'cancelSemantics', 'recoverySemantics'])
-            {
-                if (!idPattern.test(runtimeContract[value])) fail(`${extractor.id}.runtimeContract.${value} must be a stable ID`)
-            }
-        }
-        else if (Object.hasOwn(extractor, 'runtimeContract'))
-        {
-            fail(`${extractor.id} pre-runtime extractor must not declare runtimeContract`)
-        }
         uniqueStrings(extractor.ownedBehaviorIds, `${extractor.id}.ownedBehaviorIds`, { min: 1 })
         for (const behaviorId of extractor.ownedBehaviorIds)
         {
@@ -302,10 +245,6 @@ export function validateOwnershipAgainstBehaviorCatalog(registry, catalog = load
         if (contract.factExtractorId !== owner)
         {
             fail(`active behavior ${contract.id} factExtractorId=${contract.factExtractorId} but registry owner is ${owner}`)
-        }
-        if (contract.evidenceStage !== byId.get(owner).evidenceStage)
-        {
-            fail(`active behavior ${contract.id} evidenceStage does not match extractor ${owner}`)
         }
         if (!byId.has(contract.factExtractorId))
         {

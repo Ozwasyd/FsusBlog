@@ -17,7 +17,9 @@ return ConfigErrorSecurityObservationHost.Run(args);
 
 internal static class ConfigErrorSecurityObservationHost
 {
-    private const string ObservationSchema = "fsusblog.config-error-security-policy-observation.v1";
+    private const string ObservationSchema = "fsusblog.config-error-security-policy-observation.v2";
+    private const string DomainErrorSchema = "fsusblog.domain-error-catalog.v1";
+    private const string ChallengeWindowSchema = "fsusblog.security-challenge-verification-window.v1";
 
     private static readonly JsonSerializerOptions s_json = new()
     {
@@ -123,8 +125,10 @@ internal static class ConfigErrorSecurityObservationHost
                 ["configuration.required-production-values"] = configurationFacts["configuration.required-production-values"]!.DeepClone(),
                 ["error-codes.public"] = errorFacts["error-codes.public"]!.DeepClone(),
                 ["error-codes.transport-mapping"] = errorFacts["error-codes.transport-mapping"]!.DeepClone(),
+                ["error-codes.domain"] = errorFacts["error-codes.domain"]!.DeepClone(),
                 ["security.challenge-kinds"] = securityFacts["security.challenge-kinds"]!.DeepClone(),
                 ["security.challenge-retired-kinds"] = securityFacts["security.challenge-retired-kinds"]!.DeepClone(),
+                ["security.challenge-verification-window"] = securityFacts["security.challenge-verification-window"]!.DeepClone(),
                 ["security.rate-limit-policies"] = securityFacts["security.rate-limit-policies"]!.DeepClone(),
                 ["security.cache-policy-classes"] = securityFacts["security.cache-policy-classes"]!.DeepClone(),
                 ["security.fail-open-closed-modes"] = securityFacts["security.fail-open-closed-modes"]!.DeepClone(),
@@ -451,10 +455,42 @@ internal static class ConfigErrorSecurityObservationHost
             };
         }
 
+        var activeDomainErrors = new JsonObject
+        {
+            ["auth.login.request-invalid"] = DomainError("auth.login.request-invalid", "auth", "login", "request contract is invalid", ErrorCode.Validation, "not-retryable", "fail-closed", "BinaryEndpoints.Auth", "BinaryEndpoints.HandleLoginAsync", ["BinaryAuthEndpointTests.Login_InvalidRequest_ReturnsValidation"]),
+            ["auth.login.authentication-failed"] = DomainError("auth.login.authentication-failed", "auth", "login", "credential verification fails", ErrorCode.Unauthorized, "retry-after-new-credential", "fail-closed", "UserLoginWorkflowService", "UserLoginWorkflowService.LoginAsync", ["UserBootstrapLoginMfaBoundaryTests.Login_InvalidCredential_FailsClosed"]),
+            ["auth.session.not-found"] = DomainError("auth.session.not-found", "session", "lookup", "bound session does not exist", ErrorCode.Unauthorized, "not-retryable", "fail-closed", "UserSessionValidationService", "UserSessionValidationService.ValidateAsync", ["UserSessionAuthenticationContextTests.MissingSession_IsRejected"]),
+            ["auth.session.revoked"] = DomainError("auth.session.revoked", "session", "validation", "bound session is revoked", ErrorCode.Unauthorized, "not-retryable", "fail-closed", "UserSessionValidationService", "UserSessionValidationService.ValidateAsync", ["UserSessionAuthenticationContextTests.RevokedSession_IsRejected"]),
+            ["auth.refresh.context-invalid"] = DomainError("auth.refresh.context-invalid", "session", "refresh", "persisted authentication context is missing or inconsistent", ErrorCode.Unauthorized, "reauthenticate", "fail-closed", "UserSessionCommandService", "UserSessionCommandService.RefreshSessionAsync", ["UserSessionAuthenticationContextTests.Refresh_InvalidContext_FailsClosed"]),
+            ["auth.refresh.token-replay"] = DomainError("auth.refresh.token-replay", "session", "refresh", "refresh token generation has already been consumed", ErrorCode.Unauthorized, "reauthenticate", "fail-closed", "UserSessionCommandService", "UserSessionCommandService.RefreshSessionAsync", ["RefreshTokenLineageTests.Replay_RevokesFamily"]),
+            ["auth.passkey.assertion-invalid"] = DomainError("auth.passkey.assertion-invalid", "passkey", "authenticate", "WebAuthn assertion validation fails", ErrorCode.Unauthorized, "retry-after-new-challenge", "fail-closed", "PasskeyService", "PasskeyService.CompleteAuthenticationAsync", ["PasskeyServiceTests.InvalidAssertion_IsRejected"]),
+            ["auth.passkey.challenge-expired"] = DomainError("auth.passkey.challenge-expired", "passkey", "authenticate", "Passkey challenge is absent, consumed, or expired", ErrorCode.Unauthorized, "retry-after-new-challenge", "fail-closed", "PasskeyService", "PasskeyService.CompleteAuthenticationAsync", ["PasskeyServiceTests.ExpiredChallenge_IsRejected"]),
+            ["auth.mfa.code-invalid"] = DomainError("auth.mfa.code-invalid", "mfa", "totp-verify", "TOTP or recovery code verification fails", ErrorCode.Unauthorized, "retry-within-attempt-policy", "fail-closed", "UserService", "UserService.VerifyMfaOrRecoveryCodeAsync", ["MfaChallengeServiceTests.InvalidCode_IsRejected"]),
+            ["auth.recovery.proof-invalid"] = DomainError("auth.recovery.proof-invalid", "recovery", "verify", "Recovery Key proof verification fails", ErrorCode.Unauthorized, "retry-after-new-session", "fail-closed", "RecoveryKeyService", "RecoveryKeyService.VerifyAsync", ["RecoveryKeyServiceTests.InvalidProof_IsRejected"]),
+            ["auth.step-up.proof-required"] = DomainError("auth.step-up.proof-required", "step-up", "authorize", "sensitive action has no matching proof", ErrorCode.Forbidden, "retry-after-step-up", "fail-closed", "UserSecurityStepUpService", "UserSecurityStepUpService.VerifyAsync", ["UserSecurityStepUpServiceTests.MissingProof_IsRejected"]),
+            ["auth.step-up.proof-invalid-or-consumed"] = DomainError("auth.step-up.proof-invalid-or-consumed", "step-up", "authorize", "proof binding mismatches or proof was consumed or expired", ErrorCode.Forbidden, "retry-after-step-up", "fail-closed", "MfaChallengeService", "MfaChallengeService.ValidateAndConsumeProofTokenAsync", ["UserSecurityStepUpServiceTests.MfaProof_IsBoundToSessionActionAndConsumedOnce"]),
+            ["security.pow.challenge-invalid"] = DomainError("security.pow.challenge-invalid", "pow", "verify", "PoW challenge, signature, binding, or nonce is invalid", ErrorCode.Forbidden, "retry-after-new-challenge", "fail-closed", "RedisPowService", "RedisPowService.ValidateAsync", ["PowSecurityTests.InvalidChallenge_IsRejected"]),
+            ["security.pow.challenge-expired"] = DomainError("security.pow.challenge-expired", "pow", "verify", "PoW challenge lifetime has elapsed", ErrorCode.Forbidden, "retry-after-new-challenge", "fail-closed", "RedisPowService", "RedisPowService.ValidateAsync", ["PowSecurityTests.ExpiredChallenge_IsRejected"]),
+            ["security.challenge.request-invalid"] = DomainError("security.challenge.request-invalid", "security-challenge", "issue-or-verify", "AEDS request contract or required binding is invalid", ErrorCode.Validation, "retry-after-correction", "fail-closed", "BinaryEndpoints.SecurityChallenge", "BinaryEndpoints.HandleSecurityChallengeVerifyAsync", ["SecurityChallengeBinaryEndpointTests.Verify_InvalidRequest_ReturnsValidation"]),
+            ["security.challenge.kind-unsupported"] = DomainError("security.challenge.kind-unsupported", "security-challenge", "verify", "challenge kind or capability version is unsupported", ErrorCode.Validation, "retry-after-capability-refresh", "fail-closed", "SecurityChallengeContracts", "SecurityChallengeContracts.SupportedKinds", ["SecurityChallengeContractTests.UnsupportedKind_IsRejected"]),
+            ["security.challenge.verification-failed"] = DomainError("security.challenge.verification-failed", "security-challenge", "verify", "provider verification or attempt admission fails", ErrorCode.Forbidden, "retry-after-new-challenge", "fail-closed", "BinaryEndpoints.SecurityChallenge", "BinaryEndpoints.HandleSecurityChallengeVerifyAsync", ["SecurityChallengeBinaryEndpointTests.VerifyFailure_IsGeneric"]),
+            ["security.challenge.capability-conflict"] = DomainError("security.challenge.capability-conflict", "security-challenge", "issue", "client capability manifest cannot satisfy the selected challenge", ErrorCode.Conflict, "retry-after-capability-refresh", "fail-closed", "BinaryEndpoints.SecurityChallenge", "BinaryEndpoints.HandleSecurityChallengeIssueAsync", ["SecurityChallengeBinaryEndpointTests.CapabilityMismatch_ReturnsConflict"]),
+            ["security.challenge.state-unavailable"] = DomainError("security.challenge.state-unavailable", "security-challenge", "verify", "required challenge state is unavailable", ErrorCode.InfraFailure, "retry-after-new-challenge", "fail-closed", "SecurityChallengeOrchestrator", "SecurityChallengeOrchestrator.VerifyAsync", ["SecurityChallengeBinaryEndpointTests.StateUnavailable_FailsClosed"])
+        };
+
         return new JsonObject
         {
             ["error-codes.public"] = ToJsonArray(publicCodes),
-            ["error-codes.transport-mapping"] = SortObject(transport)
+            ["error-codes.transport-mapping"] = SortObject(transport),
+            ["error-codes.domain"] = new JsonObject
+            {
+                ["schema"] = DomainErrorSchema,
+                ["version"] = 1,
+                ["closed"] = true,
+                ["active"] = SortObject(activeDomainErrors),
+                ["retired"] = new JsonObject(),
+                ["migrationOnly"] = new JsonObject()
+            }
         };
     }
 
@@ -527,6 +563,42 @@ internal static class ConfigErrorSecurityObservationHost
                 ["cacheExpiry"] = Boundary(2, "minutes", true, true),
                 ["failMode"] = "fail-closed"
             }
+        };
+
+        JsonObject challengeVerificationWindow = new()
+        {
+            ["schema"] = ChallengeWindowSchema,
+            ["version"] = 1,
+            ["closed"] = true,
+            ["factId"] = "security.challenge.verify-attempt-window",
+            ["windowType"] = "sliding-expiry-counter",
+            ["duration"] = Boundary(2, "minutes", true, true),
+            ["durationMilliseconds"] = 120_000,
+            ["startsAt"] = "first-counter-increment",
+            ["boundary"] = "count-less-than-or-equal-max-attempts",
+            ["challengeKinds"] = ToJsonArray(activeKinds),
+            ["challengeManifestVersion"] = SecurityChallengeCapabilityCatalog.ManifestVersion,
+            ["cacheExpiryFactId"] = "security.challenge.verify-attempt-cache-expiry",
+            ["cacheExpiry"] = Boundary(2, "minutes", true, true),
+            ["cacheExpiryMilliseconds"] = 120_000,
+            ["maxAttemptsFactId"] = "security.challenge.verify-max-attempts",
+            ["maxAttempts"] = Boundary(3, "attempts", true, true),
+            ["failModeFactId"] = "security.challenge.verify-fail-mode",
+            ["failMode"] = "fail-closed",
+            ["relation"] = "window-duration-and-cache-expiry-are-distinct-facts-with-equal-current-duration",
+            ["window-relation"] = new JsonObject
+            {
+                ["relationId"] = "security.challenge.verify-window-distinct-from-cache-expiry",
+                ["subject"] = "security.challenge.verify-attempt-window",
+                ["predicate"] = "is-distinct-from",
+                ["object"] = "security.challenge.verify-attempt-cache-expiry",
+                ["direction"] = "subject-to-object",
+                ["condition"] = "current sliding-expiry-counter policy",
+                ["truthValue"] = "true"
+            },
+            ["sourceOwner"] = "src/backend/Services/Security/SecurityChallengeVerifyRateLimiter.cs",
+            ["sourceRange"] = "SecurityChallengeVerifyRateLimiter.TryAcquireAsync",
+            ["proofTests"] = ToJsonArray(["SecurityChallengeVerifyRateLimiterTests"])
         };
 
         var cacheClasses = new JsonObject();
@@ -602,10 +674,45 @@ internal static class ConfigErrorSecurityObservationHost
                 ["manifestVersion"] = SecurityChallengeCapabilityCatalog.ManifestVersion
             },
             ["security.challenge-retired-kinds"] = ToJsonArray(retiredKinds),
+            ["security.challenge-verification-window"] = challengeVerificationWindow,
             ["security.rate-limit-policies"] = SortObject(ratePolicies),
             ["security.cache-policy-classes"] = SortObject(cacheClasses),
             ["security.fail-open-closed-modes"] = SortObject(failModes),
             ["security.numeric-boundaries"] = SortObject(numericBoundaries)
+        };
+    }
+
+    private static JsonObject DomainError(
+        string stableCode,
+        string domain,
+        string operation,
+        string condition,
+        ErrorCode errorCode,
+        string retryability,
+        string failMode,
+        string sourceOwner,
+        string sourceRange,
+        IReadOnlyList<string> proofTests)
+    {
+        int httpStatus = ApiErrorSemanticMapper.MapStatusCode(ErrorDetail.Create(errorCode, stableCode));
+        return new JsonObject
+        {
+            ["stableCode"] = stableCode,
+            ["domain"] = domain,
+            ["operation"] = operation,
+            ["condition"] = condition,
+            ["transport"] = new JsonObject
+            {
+                ["httpStatus"] = httpStatus,
+                ["aedsFrame"] = "Error",
+                ["aedsErrorCode"] = errorCode.ToString()
+            },
+            ["retryability"] = retryability,
+            ["failMode"] = failMode,
+            ["status"] = "active",
+            ["sourceOwner"] = sourceOwner,
+            ["sourceRange"] = sourceRange,
+            ["proofTests"] = ToJsonArray(proofTests.OrderBy(static value => value, StringComparer.Ordinal).ToArray())
         };
     }
 

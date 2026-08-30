@@ -57,7 +57,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     // ─── CreateCommentAsync early returns ────────────────────────────────────
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Boundary)]
     public async Task CreateComment_ArticleIdZero_ReturnsFalse()
     {
         var svc = BuildService();
@@ -67,7 +66,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task CreateComment_NegativeArticleId_ReturnsFalse()
     {
         var svc = BuildService();
@@ -77,7 +75,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Boundary)]
     public async Task CreateComment_EmptyContent_ReturnsFalse()
     {
         var svc = BuildService();
@@ -90,7 +87,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     [InlineData("not-numeric", "not-a-number")]
     [InlineData("zero", "0")]
     [InlineData("negative", "-1")]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Boundary)]
     public async Task CreateComment_ParentIdBoundary_ReturnsFalseWithoutSideEffects(
         string caseName,
         string parentId)
@@ -132,7 +128,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     [Theory]
     [InlineData("not-numeric", "abc")]
     [InlineData("negative", "-5")]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Boundary)]
     public async Task CreateComment_RootIdBoundary_ReturnsFalseWithoutSideEffects(
         string caseName,
         string rootId)
@@ -178,7 +173,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "content-lifecycle-fail-closed")]
     public async Task CreateComment_InvalidReplyToCommentId_ReturnsFalse()
     {
         var svc = BuildService();
@@ -188,7 +182,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Boundary)]
     public async Task CreateComment_NullContent_ReturnsFalse()
     {
         var svc = BuildService();
@@ -200,7 +193,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     // ─── GetCommentThreadsByCursorAsync guard ────────────────────────────────
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Boundary)]
     public async Task GetCommentThreads_ArticleIdZero_ReturnsEmpty()
     {
         var svc = BuildQueryService();
@@ -211,7 +203,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Boundary)]
     public async Task GetCommentThreads_NegativeArticleId_ReturnsEmpty()
     {
         var svc = BuildQueryService();
@@ -224,7 +215,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     // ─── GetThreadRepliesByCursorAsync guard ─────────────────────────────────
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Boundary)]
     public async Task GetThreadReplies_ArticleIdZero_ReturnsEmpty()
     {
         var svc = BuildQueryService();
@@ -233,7 +223,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Boundary)]
     public async Task GetThreadReplies_RootIdZero_ReturnsEmpty()
     {
         var svc = BuildQueryService();
@@ -242,7 +231,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Boundary)]
     public async Task GetThreadReplies_NegativeRootId_ReturnsEmpty()
     {
         var svc = BuildQueryService();
@@ -251,7 +239,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Boundary)]
     public async Task GetThreadReplies_BothNegative_ReturnsEmpty()
     {
         var svc = BuildQueryService();
@@ -263,7 +250,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     // ─── GetAttributableCommentsAsync guard ─────────────────────────────────
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Boundary)]
     public async Task GetAttributableComments_UserIdZero_ReturnsEmpty()
     {
         var svc = BuildQueryService();
@@ -274,7 +260,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Boundary)]
     public async Task GetAttributableComments_NegativeUserId_ReturnsEmpty()
     {
         var svc = BuildQueryService();
@@ -286,7 +271,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     // ─── GetCommentsByCursorAsync delegates to GetCommentThreads ─────────────
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Boundary)]
     public async Task GetCommentsByCursor_ArticleIdZero_ReturnsEmpty()
     {
         var svc = BuildQueryService();
@@ -296,7 +280,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Boundary)]
     public async Task GetCommentsByCursor_NegativeArticleId_ReturnsEmpty()
     {
         var svc = BuildQueryService();
@@ -305,7 +288,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void CommentCursorQueries_UseIndexedKeysetPredicates()
     {
         string roots = RuntimeMetadataInspection.DescribeDeclaredMethodContaining(
@@ -332,7 +314,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Boundary)]
     public void CommentThreadPreviewQuery_UsesSqlPerRootWindowLimit()
     {
         string runtimeShape = RuntimeMetadataInspection.DescribeDeclaredMethodContaining(
@@ -346,7 +327,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void PublicReplyReadQueries_DoNotProjectReplyToUserIdForAuthorNames()
     {
         string repliesQuery = RuntimeMetadataInspection.DescribeDeclaredMethodContaining(
@@ -389,7 +369,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     [InlineData(null, 8, null)]
     [InlineData(null, null, null)]
     [InlineData(7, 7, null)]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(
         int? targetAuthorAccountId,
         int? replyingActorAccountId,
@@ -403,7 +382,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task ApprovedReplyNotification_UsesTransitionScopedIdentityAndCarriesCommentLocation()
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
@@ -498,7 +476,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     [InlineData("   ", "")]
     [InlineData("hello", "hello")]
     [InlineData("  trimmed  ", "trimmed")]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void NormalizeCommentContent_ReturnsExpected(string? input, string expected)
     {
         var result = InvokePrivateStatic<string>("NormalizeCommentContent", [input]);
@@ -506,7 +483,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Boundary)]
     public void NormalizeCommentContent_DoesNotTruncateOversizedInput()
     {
         string longContent = new string('a', 5000);
@@ -518,7 +494,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     [InlineData("hello", true)]
     [InlineData("", false)]
     [InlineData("   ", false)]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Boundary)]
     public void IsCommentContentWithinLimit_ReturnsExpectedForBasicInputs(string content, bool expected)
     {
         var result = InvokeAttributionPrivateStatic<bool>("IsContentWithinLimit", [content, AnonymousCommentPolicySnapshot.Default]);
@@ -526,7 +501,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Boundary)]
     public void IsCommentContentWithinLimit_RejectsOverCharacterLimit()
     {
         string longContent = new('a', AnonymousCommentPolicySnapshot.Default.CommentMaxChars + 1);
@@ -535,7 +509,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     }
 
     [Fact]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Boundary)]
     public void IsCommentContentWithinLimit_RejectsOverUtf8ByteLimit()
     {
         string longContent = new('你', (AnonymousCommentPolicySnapshot.Default.CommentMaxUtf8Bytes / 3) + 1);
@@ -546,7 +519,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     [Theory]
     [InlineData(true, "content", "该回复已删除")]
     [InlineData(false, "original", "original")]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void ToDisplayContent_ReturnsExpected(bool isDeleted, string content, string expected)
     {
         MethodInfo method = typeof(CommentQueryService).GetMethod(
@@ -565,7 +537,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     [InlineData("abc", false)]
     [InlineData("123", true)]
     [InlineData("9999999", true)]
-    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void TryParsePositiveCommentId_ReturnsExpected(string? raw, bool expectedSuccess)
     {
         var method = typeof(CommentCommandService).GetMethod("TryParsePositiveCommentId", BindingFlags.NonPublic | BindingFlags.Static)!;

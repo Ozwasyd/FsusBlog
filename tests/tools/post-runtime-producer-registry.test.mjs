@@ -1,88 +1,170 @@
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
 import test from 'node:test'
 
-import { loadCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs'
-import { parseRepositoryClaims } from '../../tools/docs/doc-claim.mjs'
-import { loadRegistry } from '../../tools/fact-extractors/registry.mjs'
-import { runExtractor } from '../../tools/fact-extractors/runner.mjs'
 import {
-  allowedObservationClasses,
-  validatePostRuntimeProducerContracts
-} from '../../tools/fact-extractors/post-runtime/registry.mjs'
+    loadPostRuntimeProducerRegistry,
+    postRuntimeRegistrySchema,
+    requiredPostRuntimeBehaviors,
+    root,
+    validatePostRuntimeProducerRegistry,
+    validateProducerReceiptAgainstRegistry
+} from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
 
-test('post-runtime release behaviors derive exact-one producers from the existing catalog and registry', () =>
+const catalog = JSON.parse(fs.readFileSync(path.join(root, 'config/contracts/behavior-contracts.json'), 'utf8'))
+const migrationLedger = JSON.parse(fs.readFileSync(path.join(root, 'config/contracts/document-claim-migration-ledger.json'), 'utf8'))
+const registry = loadPostRuntimeProducerRegistry(root)
+
+function tampered(modifier)
 {
-  const result = validatePostRuntimeProducerContracts({ claimReceipt: parseRepositoryClaims() })
-  assert.equal(result.status, 'ok', result.errors.join('\n'))
-  assert.deepEqual(result.behaviorIds, [
-    'application-runtime-semantic-coherence',
-    'release-deployment-runtime-containment'
-  ])
-  assert.deepEqual(result.producerIds, [
-    'application-runtime-observation-producer',
-    'release-deployment-observation-producer'
-  ])
-  assert.deepEqual(allowedObservationClasses, [
-    'route-response-error-semantics',
-    'aot-hydration-coherence',
-    'cache-search-outbox-convergence',
-    'session-cookie-runtime-coherence',
-    'browser-behavior-contract',
-    'release-identity-readiness',
-    'blue-green-switch-rollback-containment'
-  ])
+    const clone = structuredClone(registry)
+    modifier(clone)
+    return clone
+}
+
+test('registry derives required behaviors from the BehaviorCatalog and validates exact-one', () =>
+{
+    const behaviors = requiredPostRuntimeBehaviors(catalog)
+    assert.ok(behaviors.includes('browserless-production-correctness'))
+    const summary = validatePostRuntimeProducerRegistry(registry, { catalog, migrationLedger })
+    assert.equal(summary.schema, postRuntimeRegistrySchema)
+    assert.equal(summary.producerCount, behaviors.length)
+    assert.equal(summary.warnings, 0)
 })
 
-test('missing, duplicate, orphan, shortcut, diagnostic, identity, and claim mappings fail closed', () =>
+test('missing producer/schema for a post-runtime behavior fails closed', () =>
 {
-  const catalog = loadCatalog()
-  const registry = loadRegistry()
-  const claims = parseRepositoryClaims()
-
-  const missing = structuredClone(registry)
-  missing.extractors = missing.extractors.filter((entry) => entry.id !== 'application-runtime-observation-producer')
-  const missingResult = validatePostRuntimeProducerContracts({ registry: missing, catalog, claimReceipt: claims })
-  assert.ok(missingResult.errors.some((error) => /has no producer/u.test(error)))
-
-  const duplicate = structuredClone(registry)
-  duplicate.extractors.find((entry) => entry.id === 'release-deployment-observation-producer')
-    .ownedBehaviorIds = ['application-runtime-semantic-coherence']
-  assert.throws(
-    () => validatePostRuntimeProducerContracts({ registry: duplicate, catalog, claimReceipt: claims }),
-    /dual extractor owners/u
-  )
-
-  const shortcut = structuredClone(registry)
-  shortcut.extractors.find((entry) => entry.id === 'application-runtime-observation-producer')
-    .runtimeContract.observationClasses.push('http-200')
-  const shortcutResult = validatePostRuntimeProducerContracts({ registry: shortcut, catalog, claimReceipt: claims })
-  assert.ok(shortcutResult.errors.some((error) => /unknown observation class|shortcut/u.test(error)))
-
-  const missingIdentity = structuredClone(registry)
-  missingIdentity.extractors.find((entry) => entry.id === 'application-runtime-observation-producer')
-    .runtimeContract.requiredIdentities = ['artifact']
-  const identityResult = validatePostRuntimeProducerContracts({ registry: missingIdentity, catalog, claimReceipt: claims })
-  assert.ok(identityResult.errors.some((error) => /missing identity source-worktree/u.test(error)))
-
-  const unknownClaim = structuredClone(registry)
-  unknownClaim.extractors.find((entry) => entry.id === 'application-runtime-observation-producer')
-    .runtimeContract.acceptedClaimIds = ['missing.claim']
-  const claimResult = validatePostRuntimeProducerContracts({ registry: unknownClaim, catalog, claimReceipt: claims })
-  assert.ok(claimResult.errors.some((error) => /unknown claim/u.test(error)))
-
-  const diagnostic = structuredClone(registry)
-  diagnostic.extractors.find((entry) => entry.id === 'application-runtime-observation-producer')
-    .runtimeContract.diagnosticEligibility = 'accepted'
-  assert.throws(
-    () => validatePostRuntimeProducerContracts({ registry: diagnostic, catalog, claimReceipt: claims }),
-    /correctness-only qualification/u
-  )
+    assert.throws(
+        () => validatePostRuntimeProducerRegistry(tampered((clone) => clone.producers.pop()), { catalog }),
+        /has no producer mapping/u)
 })
 
-test('static runner cannot execute a registered post-runtime adapter', async () =>
+test('two producers for the same behavior fail closed', () =>
 {
-  await assert.rejects(
-    () => runExtractor({ extractorId: 'application-runtime-observation-producer', useCache: false }),
-    /post-runtime adapter/u
-  )
+    assert.throws(
+        () => validatePostRuntimeProducerRegistry(tampered((clone) => clone.producers.push(structuredClone(clone.producers[0]))), { catalog }),
+        /mapped by two producers/u)
+})
+
+test('artifact path or job name based mapping fields fail closed', () =>
+{
+    assert.throws(
+        () => validatePostRuntimeProducerRegistry(tampered((clone) => { clone.producers[0].artifactPath = '.tmp/receipt.json' }), { catalog }),
+        /forbidden field artifactPath/u)
+    assert.throws(
+        () => validatePostRuntimeProducerRegistry(tampered((clone) => { clone.producers[0].jobName = 'ci-release-final' }), { catalog }),
+        /forbidden field jobName/u)
+})
+
+test('existence shortcut observation classes fail closed', () =>
+{
+    assert.throws(
+        () => validatePostRuntimeProducerRegistry(tampered((clone) =>
+        {
+            clone.observationClasses['http-200-class'] = {
+                schema: 'fsusblog.observation.http200.v1',
+                requiredIdentityFields: ['contentDigest'],
+                allowedModes: ['positive'],
+                existenceShortcutForbidden: false
+            }
+        }), { catalog }),
+        /must forbid existence shortcuts/u)
+})
+
+test('diagnostic qualification fails closed', () =>
+{
+    assert.throws(
+        () => validatePostRuntimeProducerRegistry(tampered((clone) => { clone.producers[0].diagnosticEligible = true }), { catalog }),
+        /never accept diagnostic evidence/u)
+    assert.throws(
+        () => validatePostRuntimeProducerRegistry(tampered((clone) => { clone.producers[0].executionClass = 'diagnostic' }), { catalog }),
+        /cannot satisfy qualification/u)
+})
+
+test('missing required identity binding fails closed', () =>
+{
+    assert.throws(
+        () => validatePostRuntimeProducerRegistry(tampered((clone) =>
+        {
+            clone.producers[0].requiredIdentities = ['schedulerRunId']
+        }), { catalog }),
+        /must bind source identity/u)
+    assert.throws(
+        () => validatePostRuntimeProducerRegistry(tampered((clone) =>
+        {
+            delete clone.observationClasses['route-response-error'].requiredIdentityFields
+        }), { catalog }),
+        /must bind contentDigest/u)
+})
+
+test('unknown observation type and orphan claim mapping fail closed', () =>
+{
+    assert.throws(
+        () => validatePostRuntimeProducerRegistry(tampered((clone) =>
+        {
+            clone.producers[0].requiredObservations.positive.push('screenshot-present')
+        }), { catalog }),
+        /unknown observation class screenshot-present/u)
+    assert.throws(
+        () => validatePostRuntimeProducerRegistry(registry, { catalog, migrationLedger: tamperedLedger() }),
+        /orphan claim/u)
+
+    function tamperedLedger()
+    {
+        const clone = structuredClone(migrationLedger)
+        for (const scope of clone.scopes)
+        {
+            for (const entry of scope.entries)
+            {
+                if (entry.behaviorId === 'browserless-production-correctness') entry.claimIds = ['browserless-production-correctness.tiers']
+            }
+        }
+        return clone
+    }
+})
+
+test('manual owner/waiver fields and stale schema fail closed', () =>
+{
+    assert.throws(
+        () => validatePostRuntimeProducerRegistry(tampered((clone) => { clone.producers[0].waiver = true }), { catalog }),
+        /forbidden field waiver/u)
+    assert.throws(
+        () => validatePostRuntimeProducerRegistry(tampered((clone) => { clone.schema = 'fsusblog.post-runtime-producer-registry.v0' }), { catalog }),
+        /unexpected registry schema/u)
+})
+
+test('receipt binding validates schema and identities against the registry', () =>
+{
+    const producer = registry.producers[0]
+    const receipt = {
+        schema: producer.observationSchema,
+        sourceState: {
+            sourceCommit: 'a'.repeat(64),
+            worktreeFingerprint: 'b'.repeat(64),
+            buildIdentity: { artifactId: 'x', receiptDigest: `sha256:${'c'.repeat(64)}` },
+            schedulerRunId: 'run-1',
+            producerId: producer.producerId
+        },
+        contentDigest: `sha256:${'d'.repeat(64)}`
+    }
+    assert.deepEqual(
+        validateProducerReceiptAgainstRegistry({ registry, producerId: producer.producerId, receipt }),
+        { producerId: producer.producerId, behaviorId: 'browserless-production-correctness', warnings: 0 })
+
+    const wrongSchema = structuredClone(receipt)
+    wrongSchema.schema = 'fsusblog.other-receipt.v1'
+    assert.throws(
+        () => validateProducerReceiptAgainstRegistry({ registry, producerId: producer.producerId, receipt: wrongSchema }),
+        /does not match producer schema/u)
+
+    const missingIdentity = structuredClone(receipt)
+    delete missingIdentity.sourceState.worktreeFingerprint
+    assert.throws(
+        () => validateProducerReceiptAgainstRegistry({ registry, producerId: producer.producerId, receipt: missingIdentity }),
+        /missing required identity worktreeFingerprint/u)
+
+    assert.throws(
+        () => validateProducerReceiptAgainstRegistry({ registry, producerId: 'unknown-producer', receipt }),
+        /unknown producer/u)
 })

@@ -1585,6 +1585,7 @@ export function createReleaseFinalTestEvidenceBinding({
     consistencyFinalReportPath,
     releaseDomainProjectionReceipts,
     releaseReliabilityQualifiedReceipt,
+    locatorEvidence = null,
     now = () => new Date()
 })
 {
@@ -1660,6 +1661,7 @@ export function createReleaseFinalTestEvidenceBinding({
             ),
             releaseDomains
         },
+        locatorEvidence: locatorEvidence ? structuredClone(locatorEvidence) : null,
         generatedAt: now().toISOString()
     });
 }
@@ -1722,6 +1724,21 @@ export function validateReleaseFinalTestEvidenceBinding(binding)
     errors.push(...validateReleaseDomainProjectionBindings(
         binding?.receipts?.releaseDomains
     ));
+    if (binding?.locatorEvidence !== null)
+    {
+        if (!isDigest(binding?.locatorEvidence?.manifestInputDigest)
+            || !isDigest(binding?.locatorEvidence?.manifestBindingReceipt?.bindingDigest)
+            || !isDigest(binding?.locatorEvidence?.directParentBindingReceipt?.bindingDigest))
+        {
+            errors.push('release-final locator evidence digests are invalid');
+        }
+        const directDigests = binding?.locatorEvidence?.directInputDigests;
+        if (!directDigests || Object.keys(directDigests).length !== 6
+            || Object.values(directDigests).some((digest) => !isDigest(digest)))
+        {
+            errors.push('release-final locator direct input digests are incomplete');
+        }
+    }
     return errors;
 }
 

@@ -1,6 +1,6 @@
-// Generated from config/contracts/behavior-contracts.json; digest 05c3c7b07e2f4682a53905a383ad4b713f9bc98d5a72b30410c29ce251f1945e; do not edit by hand.
+// Generated from config/contracts/behavior-contracts.json; digest 05fc7505ff1df2050454549f5ac0eca67a22029a5247b5508d5f674c6350edff; do not edit by hand.
 
-export const BEHAVIOR_CONTRACT_CATALOG_DIGEST = '05c3c7b07e2f4682a53905a383ad4b713f9bc98d5a72b30410c29ce251f1945e' as const
+export const BEHAVIOR_CONTRACT_CATALOG_DIGEST = '05fc7505ff1df2050454549f5ac0eca67a22029a5247b5508d5f674c6350edff' as const
 export const BEHAVIOR_CONTRACTS = [
   {
     "id": "test-asset-audit-reconciliation",
@@ -86,7 +86,7 @@ export const BEHAVIOR_CONTRACTS = [
   },
   {
     "id": "binary-api-aeds-contract",
-    "domain": "api",
+    "domain": "protocol",
     "risk": "critical",
     "status": "active",
     "implementationOwnerCardinality": "one",
@@ -114,6 +114,117 @@ export const BEHAVIOR_CONTRACTS = [
       "docs/api/quick-reference.md",
       "docs/api/schemas-and-errors.md",
       "docs/api/stability.md"
+    ],
+    "documentAuthorities": [
+      {
+        "path": "docs/api.md",
+        "owner": "backend",
+        "anchor": "protocol.operations",
+        "claimIds": [
+          "binary-api-aeds-contract.operation-active-state",
+          "binary-api-aeds-contract.operations",
+          "binary-api-aeds-contract.request-non-nullable",
+          "binary-api-aeds-contract.request-required",
+          "binary-api-aeds-contract.request-source",
+          "binary-api-aeds-contract.response-non-nullable",
+          "binary-api-aeds-contract.response-result-placement"
+        ],
+        "sectionIds": [
+          "api.operations"
+        ],
+        "proofIds": [
+          "binary-api-aeds-contract"
+        ]
+      },
+      {
+        "path": "docs/api/aeds-only-policy.md",
+        "owner": "backend",
+        "anchor": "protocol.aeds-only",
+        "claimIds": [
+          "binary-api-aeds-contract.aeds-only",
+          "binary-api-aeds-contract.migration-only-state",
+          "binary-api-aeds-contract.protocol",
+          "binary-api-aeds-contract.protocol-states"
+        ],
+        "sectionIds": [
+          "api.protocol",
+          "api.protocol-states"
+        ],
+        "proofIds": [
+          "binary-api-aeds-contract"
+        ]
+      },
+      {
+        "path": "docs/api/contracts.md",
+        "owner": "backend",
+        "anchor": "protocol.aeds-contract",
+        "claimIds": [
+          "binary-api-aeds-contract.aeds-version"
+        ],
+        "sectionIds": [
+          "api.aeds-version"
+        ],
+        "proofIds": [
+          "binary-api-aeds-contract"
+        ]
+      },
+      {
+        "path": "docs/api/quick-reference.md",
+        "owner": "backend",
+        "anchor": "protocol.operation-keys",
+        "claimIds": [
+          "binary-api-aeds-contract.operation-keys"
+        ],
+        "sectionIds": [
+          "api.operation-keys"
+        ],
+        "proofIds": [
+          "binary-api-aeds-contract"
+        ]
+      },
+      {
+        "path": "docs/api/schemas-and-errors.md",
+        "owner": "backend",
+        "anchor": "protocol.operation-count",
+        "claimIds": [
+          "binary-api-aeds-contract.error-authority-reference",
+          "binary-api-aeds-contract.operation-count",
+          "binary-api-aeds-contract.public-error-authority-owner",
+          "binary-api-aeds-contract.public-error-reference-state"
+        ],
+        "sectionIds": [
+          "api.error-authority-reference",
+          "api.operation-count"
+        ],
+        "proofIds": [
+          "binary-api-aeds-contract"
+        ]
+      },
+      {
+        "path": "docs/api/stability.md",
+        "owner": "backend",
+        "anchor": "protocol.observation-identity",
+        "claimIds": [
+          "binary-api-aeds-contract.observation-digest"
+        ],
+        "sectionIds": [
+          "api.observation-digest"
+        ],
+        "proofIds": [
+          "binary-api-aeds-contract"
+        ]
+      }
+    ],
+    "crossDomainReferences": [
+      {
+        "domain": "security",
+        "behaviorId": "configuration-error-security-policy",
+        "documentPath": "docs/api/schemas-and-errors.md",
+        "factIds": [
+          "facts.error-codes.domain.active",
+          "facts.error-codes.transport-mapping"
+        ]
+      }
     ],
     "mutationPolicy": {
       "mutationRequired": true,
@@ -143,7 +254,11 @@ export const BEHAVIOR_CONTRACTS = [
       "safety"
     ],
     "releaseQualification": true,
-    "evidenceStage": "pre-runtime",
+    "evidenceStage": "post-runtime",
+    "runtimeEvidence": {
+      "producerTierId": "production-correctness",
+      "observationSchema": "fsusblog.browserless-correctness-receipt.v1"
+    },
     "coverageIds": [
       "browserless-production-correctness"
     ],
@@ -154,6 +269,127 @@ export const BEHAVIOR_CONTRACTS = [
       "docs/architecture/monolithic-distributed-boundary.md",
       "docs/architecture.md",
       "docs/architecture/overview.md"
+    ]
+  },
+  {
+    "id": "release-final-aggregate-contract",
+    "domain": "release",
+    "risk": "critical",
+    "status": "active",
+    "implementationOwnerCardinality": "one",
+    "allowedImplementationOwnerRoles": [],
+    "factExtractorId": "test-matrix-fact-extractor",
+    "requiredTestKinds": [
+      "positive",
+      "negative"
+    ],
+    "documentationPolicy": "required",
+    "documentationRationale": "Current release documentation states the aggregate-only finalizer and current-run evidence contract.",
+    "allowedClaimTypes": [
+      "operational",
+      "safety"
+    ],
+    "releaseQualification": true,
+    "evidenceStage": "pre-runtime",
+    "coverageIds": [
+      "release-final-publish-credential"
+    ],
+    "documents": [
+      "docs/testing.md",
+      "docs/releases/release-identity.md"
+    ],
+    "documentAuthorities": [
+      {
+        "path": "docs/testing.md",
+        "owner": "release",
+        "anchor": "release.finalizer-contract",
+        "claimIds": [
+          "release-final-aggregate-contract.finalizer"
+        ],
+        "sectionIds": [
+          "release.finalizer-contract"
+        ],
+        "proofIds": [
+          "release-final-coverage-thresholds",
+          "release-final-shard-completeness"
+        ]
+      },
+      {
+        "path": "docs/releases/release-identity.md",
+        "owner": "release",
+        "anchor": "release.current-run-identity",
+        "claimIds": [
+          "release-final-aggregate-contract.current-run-binding"
+        ],
+        "sectionIds": [
+          "release.current-run-binding"
+        ],
+        "proofIds": [
+          "immutable-release-identity",
+          "release-final-publish-credential"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "deployment-blue-green-runtime-role",
+    "domain": "deployment",
+    "risk": "critical",
+    "status": "active",
+    "implementationOwnerCardinality": "one",
+    "allowedImplementationOwnerRoles": [],
+    "factExtractorId": "test-matrix-fact-extractor",
+    "requiredTestKinds": [
+      "positive",
+      "negative",
+      "concurrency"
+    ],
+    "documentationPolicy": "required",
+    "documentationRationale": "Current deployment documentation states blue-green active-release protection and runtime-role composition.",
+    "allowedClaimTypes": [
+      "operational",
+      "safety"
+    ],
+    "releaseQualification": true,
+    "evidenceStage": "pre-runtime",
+    "coverageIds": [
+      "blue-green-slot-orchestration",
+      "deployment-runtime-lifecycle"
+    ],
+    "documents": [
+      "docs/releases/blue-green-deployment-runbook.md",
+      "docs/architecture/monolithic-distributed-boundary.md"
+    ],
+    "documentAuthorities": [
+      {
+        "path": "docs/releases/blue-green-deployment-runbook.md",
+        "owner": "release",
+        "anchor": "deployment.blue-green-contract",
+        "claimIds": [
+          "deployment-blue-green-runtime-role.blue-green"
+        ],
+        "sectionIds": [
+          "deployment.blue-green-contract"
+        ],
+        "proofIds": [
+          "blue-green-slot-orchestration",
+          "blue-green-release-storage-lifecycle"
+        ]
+      },
+      {
+        "path": "docs/architecture/monolithic-distributed-boundary.md",
+        "owner": "backend",
+        "anchor": "deployment.runtime-role-contract",
+        "claimIds": [
+          "deployment-blue-green-runtime-role.runtime-role"
+        ],
+        "sectionIds": [
+          "deployment.runtime-role-contract"
+        ],
+        "proofIds": [
+          "deployment-runtime-lifecycle"
+        ]
+      }
     ]
   },
   {
@@ -279,68 +515,6 @@ export const BEHAVIOR_CONTRACTS = [
       "requireExecutedMutants": true,
       "allowedEquivalentMutantPolicy": "none"
     }
-  },
-  {
-    "id": "application-runtime-semantic-coherence",
-    "domain": "runtime",
-    "risk": "critical",
-    "status": "active",
-    "implementationOwnerCardinality": "one",
-    "allowedImplementationOwnerRoles": [],
-    "factExtractorId": "application-runtime-observation-producer",
-    "requiredTestKinds": [
-      "positive",
-      "negative",
-      "boundary"
-    ],
-    "documentationPolicy": "required",
-    "documentationRationale": "Current runtime, API, security, and content claims define the semantic application candidate contract.",
-    "allowedClaimTypes": [
-      "behavioral",
-      "safety",
-      "operational"
-    ],
-    "releaseQualification": true,
-    "evidenceStage": "post-runtime",
-    "coverageIds": [
-      "browserless-production-correctness"
-    ],
-    "documents": [
-      "docs/testing.md",
-      "docs/security.md",
-      "docs/api/article-publication-revisions.md"
-    ]
-  },
-  {
-    "id": "release-deployment-runtime-containment",
-    "domain": "deployment",
-    "risk": "critical",
-    "status": "active",
-    "implementationOwnerCardinality": "one",
-    "allowedImplementationOwnerRoles": [],
-    "factExtractorId": "release-deployment-observation-producer",
-    "requiredTestKinds": [
-      "positive",
-      "negative",
-      "boundary"
-    ],
-    "documentationPolicy": "required",
-    "documentationRationale": "Current release and deployment claims define release readiness and blue-green containment.",
-    "allowedClaimTypes": [
-      "behavioral",
-      "safety",
-      "operational"
-    ],
-    "releaseQualification": true,
-    "evidenceStage": "post-runtime",
-    "coverageIds": [
-      "blue-green-slot-orchestration"
-    ],
-    "documents": [
-      "docs/testing.md",
-      "docs/releases/blue-green-deployment-runbook.md",
-      "docs/architecture/monolithic-distributed-boundary.md"
-    ]
   }
 ] as const
 export type BehaviorId = typeof BEHAVIOR_CONTRACTS[number]['id']

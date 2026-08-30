@@ -33,7 +33,6 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
 {
     [Fact]
     [Trait("ShardAffinity", "EndpointContractApplication")]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task AdminSessionManagementEndpoints_AreAdminManageOnlyAndClearOnlyAdminCookies()
     {
         await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
@@ -69,7 +68,6 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public async Task LogoutAdminSessionAsync_RevokesCurrentSessionWithLogoutReason()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -85,7 +83,6 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public void AdminSessionEntity_ExposesRowVersionForRevokeGuards()
     {
         PropertyInfo rowVersion = Assert.IsAssignableFrom<PropertyInfo>(typeof(AdminSession).GetProperty("RowVersion"));
@@ -95,7 +92,6 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public void AdminSessionRevoke_RuntimePathUsesRowVersionConflictAndAudit()
     {
         string revoke = RuntimeMetadataInspection.DescribeMethods(
@@ -113,7 +109,6 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public void AdminSessionManagement_RuntimePathBoundsListAndBatchRevokesOthers()
     {
         int listLimit = (int)typeof(AdminPrincipalService)
@@ -152,7 +147,6 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public async Task RevokeAdminSessionAsync_RepeatedRevokeWritesOnlyOneAuditAndPreservesFirstReason()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -172,7 +166,6 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public async Task RevokeOtherAdminSessionsAsync_RevokesOtherSessionsAndKeepsCurrent()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -198,7 +191,6 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-session-fail-closed")]
     public async Task GetAdminSessionsAsync_ReturnsCurrentAndRevokedFlags()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -220,7 +212,6 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task GetAdminSessionsAsync_ReturnsAtMostRecentFiftySessions()
     {
         using SqlSugarClient db = await CreateDbAsync();

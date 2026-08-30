@@ -112,7 +112,6 @@ public sealed class FsusAntiSpamModelRuntimeLoaderTests : IDisposable
     }
 
     [Fact]
-    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ProductionSurfaces_DoNotExposeExternalAntiSpamProviders()
     {
         string[] forbidden =

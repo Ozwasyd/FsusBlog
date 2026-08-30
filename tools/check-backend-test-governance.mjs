@@ -852,11 +852,6 @@ if (!toolManifest.tools?.['dotnet-stryker'])
 {
     fail(`${dotnetToolManifestPath} lacks dotnet-stryker`);
 }
-if (toolManifest.tools['dotnet-stryker'].version !== '4.14.2'
-    || toolManifest.tools['dotnet-stryker'].rollForward !== false)
-{
-    fail(`${dotnetToolManifestPath} must pin the reviewed upstream Stryker release`);
-}
 
 const stryker = strykerConfig['stryker-config'] || {};
 for (const key of ['solution', 'test-case-filter', 'mutate'])

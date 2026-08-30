@@ -53,9 +53,19 @@ const expectedRepositoryOwners = Object.freeze([
     symbol: 'extract'
   },
   {
+    behaviorId: 'deployment-blue-green-runtime-role',
+    sourcePath: 'tools/run-test-matrix.mjs',
+    symbol: 'validateDeploymentDomainAuthorities'
+  },
+  {
     behaviorId: 'document-lifecycle-governance',
     sourcePath: 'tools/docs/document-lifecycle.mjs',
     symbol: 'ValidateDocumentLifecycle'
+  },
+  {
+    behaviorId: 'release-final-aggregate-contract',
+    sourcePath: 'tools/run-test-matrix.mjs',
+    symbol: 'validateReleaseFinalAggregateAuthorities'
   },
   {
     behaviorId: 'test-asset-audit-reconciliation',
@@ -68,6 +78,7 @@ function fixtureRoot() {
   const directory = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-behavior-owner-'))
   for (const relative of [
     'config/contracts/behavior-contracts.json',
+    'config/contracts/generated-fact-sections.json',
     'config/schemas/behavior-contract-catalog.schema.json',
     'tests/coverage-registry.json',
     'config/development/document-lifecycle.json'
@@ -96,7 +107,15 @@ function seedRequiredOwners(repositoryRoot) {
   write(repositoryRoot, 'tools/test/run-test-asset-audit.mjs', '// BEHAVIOR-OWNER: test-asset-audit-reconciliation\nfunction main() {}\n')
   write(repositoryRoot, 'tools/governance/check-code-intent.mjs', '// BEHAVIOR-OWNER: code-intent-governance\nexport function checkCodeIntent() {}\n')
   write(repositoryRoot, 'tools/docs/document-lifecycle.mjs', '// BEHAVIOR-OWNER: document-lifecycle-governance\nexport function ValidateDocumentLifecycle() {}\n')
-  write(repositoryRoot, 'tools/run-test-matrix.mjs', '// BEHAVIOR-OWNER: browserless-production-correctness\nasync function main() {}\n')
+  write(repositoryRoot, 'tools/run-test-matrix.mjs', [
+    '// BEHAVIOR-OWNER: browserless-production-correctness',
+    'async function main() {}',
+    '// BEHAVIOR-OWNER: release-final-aggregate-contract',
+    'function validateReleaseFinalAggregateAuthorities() {}',
+    '// BEHAVIOR-OWNER: deployment-blue-green-runtime-role',
+    'function validateDeploymentDomainAuthorities() {}',
+    ''
+  ].join('\n'))
 }
 
 function seedOwnerEntrypointsWithoutMarkers(repositoryRoot) {

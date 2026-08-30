@@ -297,10 +297,7 @@ export function validateBehaviorDocStaticAdmissionReceipt(receipt, {
         const registry = loadRegistry(
             path.join(expectedWorktree, 'config/contracts/behavior-fact-extractors.json')
         );
-        const expectedExtractorIds = registry.extractors
-            .filter((extractor) => extractor.evidenceStage === 'pre-runtime')
-            .map((extractor) => extractor.id)
-            .sort();
+        const expectedExtractorIds = registry.extractors.map((extractor) => extractor.id).sort();
         const actualExtractorIds = Object.keys(receipt.factObservations).sort();
         if (JSON.stringify(actualExtractorIds) !== JSON.stringify(expectedExtractorIds))
         {
@@ -442,7 +439,7 @@ export async function runBehaviorDocStaticAdmission({
         base.minimalContractBuild = minimalBuild.receipt;
 
         const observationReceipts = [];
-        for (const extractor of registry.extractors.filter((entry) => entry.evidenceStage === 'pre-runtime'))
+        for (const extractor of registry.extractors)
         {
             const buildIdentity = extractor.requiredBuildArtifact === null
                 ? null
@@ -519,14 +516,15 @@ export async function runBehaviorDocStaticAdmission({
         {
             throw new Error(`prose verification failed: ${proseResult.diagnostics[0]?.message}`);
         }
+        const proseClaims = claimReceipt.claims
+            .filter((claim) => claim.declaration.claimType !== 'generated-section');
         const proseReceipt = sealDocClaimVerificationReceipt({
             sourceCommit: sourceIdentity.sourceCommit,
             worktreeFingerprint: sourceIdentity.worktreeFingerprint,
             catalogDigest: digestCatalog(catalog),
             parseReceiptDigest: claimReceipt.contentDigest,
             factObservationDigests,
-            results: claimReceipt.claims
-                .filter((claim) => claim.declaration.claimType !== 'generated-section')
+            results: proseClaims
                 .map((claim) => ({
                     claimId: claim.declaration.claimId,
                     behaviorId: BehaviorId(claim.declaration.behaviorId),
@@ -542,7 +540,7 @@ export async function runBehaviorDocStaticAdmission({
         });
         base.prose = {
             status: 'ok',
-            verifiedClaimCount: claimReceipt.claims.length,
+            verifiedClaimCount: proseClaims.length,
             contentDigest: proseReceipt.contentDigest
         };
 

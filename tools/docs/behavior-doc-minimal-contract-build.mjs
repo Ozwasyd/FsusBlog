@@ -15,6 +15,12 @@ export const minimalContractBuildSchema =
   'fsusblog.behavior-doc-minimal-contract-build-receipt.v1'
 
 const hostDeclarations = Object.freeze({
+  'runtime-role-observation': {
+    project: 'tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj',
+    output: '.tmp/contracts/runtime-role/runtime-role-observation.json',
+    cacheFile: 'observations/runtime-role-observation.json',
+    repositoryRootArgument: false
+  },
   'openapi-aeds-observation': {
     project: 'tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj',
     output: '.tmp/contracts/openapi/api-aeds-observation.json',

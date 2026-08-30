@@ -153,7 +153,6 @@ public class AedsDecoderValidatorTests
     [InlineData(AedsFrameType.ArticleList)]
     [InlineData(AedsFrameType.ArticleDetail)]
     [InlineData(AedsFrameType.AdminStats)]
-    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Boundary)]
     public void ValidateRoundTrip_WithEmptyPayload_Succeeds(AedsFrameType frameType)
     {
         Result result = s_validator.ValidateRoundTrip(frameType, ReadOnlySpan<byte>.Empty);
@@ -161,7 +160,6 @@ public class AedsDecoderValidatorTests
     }
 
     [Fact]
-    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void ValidateRoundTrip_WithPayload_Succeeds()
     {
         byte[] payload = [1, 2, 3, 4, 5, 6, 7, 8];
@@ -170,7 +168,6 @@ public class AedsDecoderValidatorTests
     }
 
     [Fact]
-    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void ValidateRoundTrip_WithVersionAndFlags_Succeeds()
     {
         byte[] payload = [0xDE, 0xAD];
@@ -179,7 +176,6 @@ public class AedsDecoderValidatorTests
     }
 
     [Fact]
-    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-wire-fail-closed")]
     public void ValidateRoundTrip_CorruptPayload_ReturnsMismatch()
     {
         // Encode a frame, then corrupt it and try to validate

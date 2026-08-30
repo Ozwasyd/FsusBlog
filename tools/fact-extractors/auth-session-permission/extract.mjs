@@ -4,7 +4,8 @@ import path from 'node:path'
 
 const observationRelative = '.tmp/contracts/auth-session/auth-session-permission-observation.json'
 const expectedArtifactId = 'auth-session-permission-observation'
-const expectedSchema = 'fsusblog.auth-session-permission-observation.v1'
+const expectedSchema = 'fsusblog.auth-session-permission-observation.v2'
+const expectedRelationSchema = 'fsusblog.auth-session-relation-catalog.v1'
 
 const requiredFactKeys = Object.freeze([
   'auth.authentication-methods',
@@ -20,6 +21,7 @@ const requiredFactKeys = Object.freeze([
   'auth.mfa.states',
   'auth.recovery.states',
   'auth.credential-session-revocation',
+  'auth.relations',
   'admin.permissions.all',
   'admin.permissions.read-only',
   'admin.permissions.partial-policy',
@@ -52,6 +54,65 @@ function isDuration(value)
     && Number.isFinite(value.value)
     && typeof value.unit === 'string'
     && value.unit.length > 0
+}
+
+function validateRelations(relations, failureReasons)
+{
+  if (relations?.schema !== expectedRelationSchema || relations?.version !== 1 || relations?.closed !== true)
+  {
+    failureReasons.push(`auth.relations must be closed ${expectedRelationSchema}`)
+    return
+  }
+  if (!Array.isArray(relations.entries) || relations.entries.length === 0)
+  {
+    failureReasons.push('auth.relations.entries must be non-empty')
+    return
+  }
+  const expected = new Set([
+    'auth.relation.mfa-enabled-step-up-method',
+    'auth.relation.passkey-auth-strength',
+    'auth.relation.passkey-is-not-totp',
+    'auth.relation.recovery-auth-strength',
+    'auth.relation.recovery-does-not-mint-step-up',
+    'auth.relation.step-up-binding',
+    'auth.relation.step-up-consume-once',
+    'auth.relation.refresh-preserves-auth-context',
+    'auth.relation.refresh-does-not-rebuild-step-up',
+    'auth.relation.passkey-delete-revokes-bound-sessions',
+    'auth.relation.passkey-delete-does-not-revoke-unbound-sessions'
+  ])
+  const required = new Set(expected)
+  const ids = new Set()
+  for (const relation of relations.entries)
+  {
+    const id = relation?.relationId
+    if (typeof id !== 'string' || !/^auth\.relation\.[a-z0-9-]+$/u.test(id))
+    {
+      failureReasons.push('auth relation missing stable relationId')
+      continue
+    }
+    if (ids.has(id)) failureReasons.push(`duplicate auth relation ${id}`)
+    if (!expected.has(id)) failureReasons.push(`unexpected auth relation ${id}`)
+    ids.add(id)
+    required.delete(id)
+    for (const key of ['subject', 'predicate', 'object', 'direction', 'condition', 'sourceOwner', 'sourceRange'])
+    {
+      if (typeof relation[key] !== 'string' || relation[key].length === 0)
+      {
+        failureReasons.push(`${id} missing ${key}`)
+      }
+    }
+    if (!['true', 'false', 'conditional', 'unknown', 'not-applicable'].includes(relation.truthValue))
+    {
+      failureReasons.push(`${id} has invalid truthValue`)
+    }
+    if (relation.scope == null || typeof relation.scope !== 'object' || Array.isArray(relation.scope))
+    {
+      failureReasons.push(`${id} missing typed scope`)
+    }
+    if (!isSortedUniqueStrings(relation.proofTests)) failureReasons.push(`${id} missing proofTests`)
+  }
+  for (const id of required) failureReasons.push(`missing required auth relation ${id}`)
 }
 
 /**
@@ -255,6 +316,8 @@ export function extract(context)
   {
     failureReasons.push('auth.credential-session-revocation.transitions must be a non-empty transition graph')
   }
+
+  validateRelations(facts['auth.relations'], failureReasons)
   if (!isSortedUniqueStrings(revocation?.failureModes))
   {
     failureReasons.push('auth.credential-session-revocation.failureModes must be a sorted unique set')
@@ -313,6 +376,25 @@ export function extract(context)
   const transitions = Object.fromEntries(
     revocation.transitions.map(({ id, ...transition }) => [id, transition])
   )
+  const relations = {
+    ...facts['auth.relations'],
+    entries: Object.fromEntries(
+      facts['auth.relations'].entries.map(({ relationId, ...relation }) => [relationId, { relationId, ...relation }])
+    )
+  }
+  const relationClaims = {
+    mfaEnabledStepUpMethod: relations.entries['auth.relation.mfa-enabled-step-up-method'],
+    passkeyAuthStrength: relations.entries['auth.relation.passkey-auth-strength'],
+    passkeyIsNotTotp: relations.entries['auth.relation.passkey-is-not-totp'],
+    recoveryAuthStrength: relations.entries['auth.relation.recovery-auth-strength'],
+    recoveryDoesNotMintStepUp: relations.entries['auth.relation.recovery-does-not-mint-step-up'],
+    stepUpBinding: relations.entries['auth.relation.step-up-binding'],
+    stepUpConsumeOnce: relations.entries['auth.relation.step-up-consume-once'],
+    refreshPreservesAuthContext: relations.entries['auth.relation.refresh-preserves-auth-context'],
+    refreshDoesNotRebuildStepUp: relations.entries['auth.relation.refresh-does-not-rebuild-step-up'],
+    passkeyDeleteRevokesBoundSessions: relations.entries['auth.relation.passkey-delete-revokes-bound-sessions'],
+    passkeyDeleteDoesNotRevokeUnboundSessions: relations.entries['auth.relation.passkey-delete-does-not-revoke-unbound-sessions']
+  }
   const observationFacts = {
     'auth.authentication-methods': facts['auth.authentication-methods'],
     'auth.authentication-strengths': facts['auth.authentication-strengths'],
@@ -330,6 +412,8 @@ export function extract(context)
       transitions,
       failureModes: revocation.failureModes
     },
+    'auth.relations': relations,
+    authRelationClaims: relationClaims,
     'admin.permissions.all': facts['admin.permissions.all'],
     'admin.permissions.read-only': facts['admin.permissions.read-only'],
     'admin.permissions.partial-policy': facts['admin.permissions.partial-policy'],

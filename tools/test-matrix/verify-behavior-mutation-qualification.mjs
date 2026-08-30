@@ -603,12 +603,6 @@ export function verifyBehaviorMutationQualification(options)
     if (receipt && selection && authority && behaviorCatalog && testBindingScan)
     {
         const expectedByBehavior = expectedAttributionMutantIdsByBehavior(selection, authority);
-        const expectedOwnerPathsByBehavior = Object.fromEntries(
-            selection.behaviors.map((behavior) => [
-                behavior.behaviorId,
-                [...new Set(behavior.mutateFiles ?? [])].sort((left, right) => left.localeCompare(right))
-            ])
-        );
         const cleanCanonical = cleanCanonicalTestIds(behaviorTestEvidence);
         const bindingByTestId = Object.fromEntries(
             [...new Map(
@@ -632,7 +626,6 @@ export function verifyBehaviorMutationQualification(options)
             behaviorIds: selection.behaviors.map(({ behaviorId }) => behaviorId),
             qualificationOptions: {
                 expectedMutantIdsByBehavior: expectedByBehavior,
-                expectedOwnerPathsByBehavior,
                 cleanTestIdsByBehavior,
                 bindingByTestId,
                 testIdentityByRawId
