@@ -2,8 +2,6 @@ using System.Collections.Concurrent;
 using System.Data;
 using System.Reflection;
 
-using FsusBlog.Server.Infrastructure.Helpers;
-
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.SchemaMigration;
@@ -11,6 +9,7 @@ namespace FsusBlog.Server.Infrastructure.SchemaMigration;
 public interface ISchemaModelInspector
 {
     IReadOnlyList<Type> GetManagedEntityTypes();
+    CurrentSchemaCanonicalModel BuildCanonicalModel(IReadOnlyList<Type> entityTypes);
     SchemaModelSnapshot BuildExpectedModel(IReadOnlyList<Type> entityTypes);
     Task<SchemaModelSnapshot> ReadActualModelAsync(ISqlSugarClient db, CancellationToken cancellationToken);
     Task ValidateAsync(
@@ -22,76 +21,28 @@ public interface ISchemaModelInspector
 
 public sealed class SchemaModelInspector : ISchemaModelInspector
 {
-    private static readonly NullabilityInfoContext s_nullabilityContext = new();
     private static readonly Lazy<IReadOnlyList<Type>> s_managedEntityTypes = new(
         () => typeof(SchemaModelInspector).Assembly
             .GetTypes()
-            .Where(static type => type.GetCustomAttribute<SugarTable>() is not null)
+            .Where(static type => type.GetCustomAttribute<SugarTable>(inherit: false) is not null)
             .OrderBy(static type => type.FullName, StringComparer.Ordinal)
             .ToArray());
-    private static readonly ConcurrentDictionary<string, SchemaModelSnapshot> s_expectedModelCache = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, CurrentSchemaCanonicalModel> s_canonicalModelCache = new(StringComparer.Ordinal);
 
     public IReadOnlyList<Type> GetManagedEntityTypes()
         => s_managedEntityTypes.Value;
 
+    public CurrentSchemaCanonicalModel BuildCanonicalModel(IReadOnlyList<Type> entityTypes)
+        => s_canonicalModelCache.GetOrAdd(
+            BuildEntityTypeCacheKey(entityTypes),
+            _ => CurrentSchemaCanonicalAuthority.Extract(entityTypes));
+
     public SchemaModelSnapshot BuildExpectedModel(IReadOnlyList<Type> entityTypes)
-        => s_expectedModelCache.GetOrAdd(BuildEntityTypeCacheKey(entityTypes), _ => BuildExpectedModelCore(entityTypes));
+        => CurrentSchemaCanonicalAuthority.Generate(BuildCanonicalModel(entityTypes)).Schema;
 
-    private static SchemaModelSnapshot BuildExpectedModelCore(IReadOnlyList<Type> entityTypes)
-    {
-        var tables = new Dictionary<string, SchemaTableModel>(StringComparer.Ordinal);
-        foreach (Type entityType in entityTypes)
-        {
-            SugarTable tableAttribute = entityType.GetCustomAttribute<SugarTable>()
-                ?? throw new InvalidOperationException($"Type {entityType.FullName} is missing SugarTable.");
-            string tableName = NormalizeIdentifier(tableAttribute.TableName);
-
-            var columns = new Dictionary<string, SchemaColumnModel>(StringComparer.Ordinal);
-            foreach (PropertyInfo property in entityType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
-            {
-                SugarColumn? columnAttribute = property.GetCustomAttribute<SugarColumn>();
-                if (columnAttribute?.IsIgnore == true)
-                {
-                    continue;
-                }
-
-                if (property.GetCustomAttribute<Navigate>() is not null)
-                {
-                    continue;
-                }
-
-                string columnName = NormalizeIdentifier(
-                    string.IsNullOrWhiteSpace(columnAttribute?.ColumnName)
-                        ? property.Name
-                        : columnAttribute.ColumnName);
-
-                columns[columnName] = BuildColumnModel(property, columnAttribute, columnName);
-            }
-
-            string[] indexes = entityType
-                .GetCustomAttributesData()
-                .Where(static attribute =>
-                    string.Equals(attribute.AttributeType.Name, "SugarIndex", StringComparison.Ordinal)
-                    || string.Equals(attribute.AttributeType.Name, "SugarIndexAttribute", StringComparison.Ordinal))
-                .Select(static attribute => attribute.ConstructorArguments.Count > 0
-                    ? Convert.ToString(attribute.ConstructorArguments[0].Value)
-                    : null)
-                .Where(static name => !string.IsNullOrWhiteSpace(name))
-                .Select(static name => NormalizeIdentifier(name!))
-                .Distinct(StringComparer.Ordinal)
-                .OrderBy(static name => name, StringComparer.Ordinal)
-                .ToArray();
-
-            tables[tableName] = new SchemaTableModel(tableName, columns, indexes);
-        }
-
-        return new SchemaModelSnapshot(tables);
-    }
-
-    private static string BuildEntityTypeCacheKey(IReadOnlyList<Type> entityTypes)
-        => string.Join('|', entityTypes.Select(static type => type.AssemblyQualifiedName ?? type.FullName ?? type.Name));
-
-    public async Task<SchemaModelSnapshot> ReadActualModelAsync(ISqlSugarClient db, CancellationToken cancellationToken)
+    public async Task<SchemaModelSnapshot> ReadActualModelAsync(
+        ISqlSugarClient db,
+        CancellationToken cancellationToken)
     {
         DataTable tableRows = await db.Ado.GetDataTableAsync("""
             SELECT table_name
@@ -102,8 +53,8 @@ public sealed class SchemaModelInspector : ISchemaModelInspector
         var tables = new Dictionary<string, SchemaTableModel>(StringComparer.Ordinal);
         foreach (DataRow row in tableRows.Rows)
         {
-            string tableName = NormalizeIdentifier(Convert.ToString(row["table_name"])!);
-            tables[tableName] = new SchemaTableModel(tableName, new Dictionary<string, SchemaColumnModel>(StringComparer.Ordinal), []);
+            string tableName = CurrentSchemaCanonicalAuthority.NormalizeIdentifier(Convert.ToString(row["table_name"])!);
+            tables[tableName] = NewActualTable(tableName, [], []);
         }
 
         DataTable columnRows = await db.Ado.GetDataTableAsync("""
@@ -133,7 +84,7 @@ public sealed class SchemaModelInspector : ISchemaModelInspector
 
         foreach (DataRow row in columnRows.Rows)
         {
-            string tableName = NormalizeIdentifier(Convert.ToString(row["table_name"])!);
+            string tableName = CurrentSchemaCanonicalAuthority.NormalizeIdentifier(Convert.ToString(row["table_name"])!);
             if (!tables.TryGetValue(tableName, out SchemaTableModel? table))
             {
                 continue;
@@ -141,12 +92,11 @@ public sealed class SchemaModelInspector : ISchemaModelInspector
 
             string dataType = Convert.ToString(row["data_type"]) ?? string.Empty;
             string udtName = Convert.ToString(row["udt_name"]) ?? string.Empty;
-            string actualType = NormalizeActualType(dataType, udtName);
-            string columnName = NormalizeIdentifier(Convert.ToString(row["column_name"])!);
+            string columnName = CurrentSchemaCanonicalAuthority.NormalizeIdentifier(Convert.ToString(row["column_name"])!);
             bool isNullable = string.Equals(Convert.ToString(row["is_nullable"]), "YES", StringComparison.OrdinalIgnoreCase);
-            string? columnDefault = row["column_default"] is DBNull ? null : Convert.ToString(row["column_default"]);
+            string? rawDefault = row["column_default"] is DBNull ? null : Convert.ToString(row["column_default"]);
             bool isIdentity = row["identity_generation"] is not DBNull
-                || (!string.IsNullOrWhiteSpace(columnDefault) && columnDefault.Contains("nextval(", StringComparison.OrdinalIgnoreCase));
+                || (!string.IsNullOrWhiteSpace(rawDefault) && rawDefault.Contains("nextval(", StringComparison.OrdinalIgnoreCase));
             bool isPrimaryKey = Convert.ToBoolean(row["is_primary_key"]);
             int? maxLength = row["character_maximum_length"] is DBNull ? null : Convert.ToInt32(row["character_maximum_length"]);
 
@@ -156,27 +106,123 @@ public sealed class SchemaModelInspector : ISchemaModelInspector
                 isPrimaryKey,
                 isIdentity,
                 maxLength,
-                actualType);
+                NormalizePostgresSemanticType(dataType, udtName),
+                isIdentity ? null : NormalizePostgresDefault(rawDefault),
+                "none",
+                Owner: new SchemaOwnerModel("postgresql", $"public.{tableName}.{columnName}"));
         }
 
         DataTable indexRows = await db.Ado.GetDataTableAsync("""
-            SELECT tablename, indexname
-            FROM pg_indexes
-            WHERE schemaname = 'public';
+            SELECT
+                table_rel.relname AS table_name,
+                index_rel.relname AS index_name,
+                index_meta.indisunique AS is_unique,
+                COALESCE(string_agg(column_meta.attname, ',' ORDER BY index_column.ordinality), '') AS columns
+            FROM pg_index index_meta
+            JOIN pg_class table_rel ON table_rel.oid = index_meta.indrelid
+            JOIN pg_namespace table_namespace ON table_namespace.oid = table_rel.relnamespace
+            JOIN pg_class index_rel ON index_rel.oid = index_meta.indexrelid
+            CROSS JOIN LATERAL unnest(index_meta.indkey) WITH ORDINALITY AS index_column(attnum, ordinality)
+            LEFT JOIN pg_attribute column_meta
+              ON column_meta.attrelid = table_rel.oid
+             AND column_meta.attnum = index_column.attnum
+            WHERE table_namespace.nspname = 'public'
+            GROUP BY table_rel.relname, index_rel.relname, index_meta.indisunique;
             """).ConfigureAwait(false);
 
         foreach (DataRow row in indexRows.Rows)
         {
-            string tableName = NormalizeIdentifier(Convert.ToString(row["tablename"])!);
+            string tableName = CurrentSchemaCanonicalAuthority.NormalizeIdentifier(Convert.ToString(row["table_name"])!);
+            if (tables.TryGetValue(tableName, out SchemaTableModel? table))
+            {
+                string indexName = CurrentSchemaCanonicalAuthority.NormalizeIdentifier(Convert.ToString(row["index_name"])!);
+                string[] columns = ParseIdentifierList(Convert.ToString(row["columns"]));
+                table.Indexes.Add(indexName);
+                ((Dictionary<string, SchemaIndexModel>)table.IndexDefinitions).Add(
+                    indexName,
+                    new SchemaIndexModel(indexName, Convert.ToBoolean(row["is_unique"]), columns));
+            }
+        }
+
+        DataTable constraintRows = await db.Ado.GetDataTableAsync("""
+            SELECT
+                table_rel.relname AS table_name,
+                constraint_meta.conname AS constraint_name,
+                constraint_meta.contype AS constraint_type,
+                COALESCE((
+                    SELECT string_agg(column_meta.attname, ',' ORDER BY constraint_column.ordinality)
+                    FROM unnest(constraint_meta.conkey) WITH ORDINALITY AS constraint_column(attnum, ordinality)
+                    JOIN pg_attribute column_meta
+                      ON column_meta.attrelid = constraint_meta.conrelid
+                     AND column_meta.attnum = constraint_column.attnum
+                ), '') AS columns,
+                referenced_rel.relname AS referenced_table,
+                COALESCE((
+                    SELECT string_agg(column_meta.attname, ',' ORDER BY referenced_column.ordinality)
+                    FROM unnest(constraint_meta.confkey) WITH ORDINALITY AS referenced_column(attnum, ordinality)
+                    JOIN pg_attribute column_meta
+                      ON column_meta.attrelid = constraint_meta.confrelid
+                     AND column_meta.attnum = referenced_column.attnum
+                ), '') AS referenced_columns,
+                CASE
+                    WHEN constraint_meta.contype = 'c'
+                    THEN pg_get_expr(constraint_meta.conbin, constraint_meta.conrelid)
+                    ELSE NULL
+                END AS expression
+            FROM pg_constraint constraint_meta
+            JOIN pg_class table_rel ON table_rel.oid = constraint_meta.conrelid
+            JOIN pg_namespace table_namespace ON table_namespace.oid = table_rel.relnamespace
+            LEFT JOIN pg_class referenced_rel ON referenced_rel.oid = constraint_meta.confrelid
+            WHERE table_namespace.nspname = 'public'
+              AND constraint_meta.contype IN ('p', 'u', 'f', 'c');
+            """).ConfigureAwait(false);
+
+        foreach (DataRow row in constraintRows.Rows)
+        {
+            string tableName = CurrentSchemaCanonicalAuthority.NormalizeIdentifier(Convert.ToString(row["table_name"])!);
             if (!tables.TryGetValue(tableName, out SchemaTableModel? table))
             {
                 continue;
             }
 
-            table.Indexes.Add(NormalizeIdentifier(Convert.ToString(row["indexname"])!));
+            string physicalName = CurrentSchemaCanonicalAuthority.NormalizeIdentifier(Convert.ToString(row["constraint_name"])!);
+            string kind = Convert.ToString(row["constraint_type"]) switch
+            {
+                "p" => "primary-key",
+                "u" => "unique",
+                "f" => "foreign-key",
+                "c" => "check",
+                string unknown => throw new InvalidOperationException($"Unsupported PostgreSQL current schema constraint type: {unknown}."),
+                null => throw new InvalidOperationException("PostgreSQL current schema constraint type is null.")
+            };
+            string name = kind == "primary-key" ? $"pk_{tableName}" : physicalName;
+            string[] columns = ParseIdentifierList(Convert.ToString(row["columns"]));
+            string? referencedTable = row["referenced_table"] is DBNull
+                ? null
+                : CurrentSchemaCanonicalAuthority.NormalizeIdentifier(Convert.ToString(row["referenced_table"])!);
+            string[] referencedColumns = ParseIdentifierList(Convert.ToString(row["referenced_columns"]));
+            string? expression = row["expression"] is DBNull ? null : Convert.ToString(row["expression"])?.Trim();
+            ((Dictionary<string, SchemaConstraintModel>)table.Constraints).TryAdd(
+                name,
+                new SchemaConstraintModel(
+                    name,
+                    kind,
+                    columns,
+                    referencedTable,
+                    referencedColumns.Length == 0 ? null : referencedColumns,
+                    expression));
         }
 
-        return new SchemaModelSnapshot(tables);
+        foreach ((string tableName, SchemaTableModel table) in tables.ToArray())
+        {
+            var constraints = (Dictionary<string, SchemaConstraintModel>)table.Constraints;
+            foreach (SchemaIndexModel index in table.IndexDefinitions.Values.Where(static index => index.IsUnique))
+            {
+                constraints.TryAdd(index.Name, new SchemaConstraintModel(index.Name, "unique", index.Columns));
+            }
+        }
+
+        return new SchemaModelSnapshot(tables, provider: SchemaProviderKind.PostgreSql);
     }
 
     public async Task ValidateAsync(
@@ -187,80 +233,7 @@ public sealed class SchemaModelInspector : ISchemaModelInspector
     {
         SchemaModelSnapshot expected = BuildExpectedModel(entityTypes);
         SchemaModelSnapshot actual = await ReadActualModelAsync(db, cancellationToken).ConfigureAwait(false);
-        var errors = new List<string>();
-
-        foreach ((string tableName, SchemaTableModel expectedTable) in expected.Tables)
-        {
-            if (!actual.Tables.TryGetValue(tableName, out SchemaTableModel? actualTable))
-            {
-                errors.Add($"缺少表: {tableName}");
-                continue;
-            }
-
-            foreach ((string columnName, SchemaColumnModel expectedColumn) in expectedTable.Columns)
-            {
-                if (!actualTable.Columns.TryGetValue(columnName, out SchemaColumnModel? actualColumn))
-                {
-                    errors.Add($"表 {tableName} 缺少列: {columnName}");
-                    continue;
-                }
-
-                if (actualColumn.IsNullable != expectedColumn.IsNullable)
-                {
-                    errors.Add($"表 {tableName} 列 {columnName} 的 NULL 约束不匹配。期望 {(expectedColumn.IsNullable ? "NULL" : "NOT NULL")}，实际 {(actualColumn.IsNullable ? "NULL" : "NOT NULL")}。");
-                }
-
-                if (actualColumn.IsPrimaryKey != expectedColumn.IsPrimaryKey)
-                {
-                    errors.Add($"表 {tableName} 列 {columnName} 的主键标记不匹配。");
-                }
-
-                if (actualColumn.IsIdentity != expectedColumn.IsIdentity)
-                {
-                    errors.Add($"表 {tableName} 列 {columnName} 的 identity 标记不匹配。");
-                }
-
-                if (expectedColumn.MaxLength is int expectedLength && actualColumn.MaxLength != expectedLength)
-                {
-                    errors.Add($"表 {tableName} 列 {columnName} 的长度不匹配。期望 {expectedLength}，实际 {actualColumn.MaxLength?.ToString() ?? "NULL"}。");
-                }
-
-                if (!string.IsNullOrWhiteSpace(expectedColumn.DataType)
-                    && !string.Equals(actualColumn.DataType, expectedColumn.DataType, StringComparison.Ordinal))
-                {
-                    errors.Add($"表 {tableName} 列 {columnName} 的类型不匹配。期望 {expectedColumn.DataType}，实际 {actualColumn.DataType}。");
-                }
-            }
-
-            string[] extraColumns = actualTable.Columns.Keys
-                .Except(expectedTable.Columns.Keys, StringComparer.Ordinal)
-                .OrderBy(static name => name, StringComparer.Ordinal)
-                .ToArray();
-            for (int i = 0; i < extraColumns.Length; i++)
-            {
-                errors.Add($"表 {tableName} 存在未声明的旧列: {extraColumns[i]}");
-            }
-
-            string[] missingIndexes = expectedTable.Indexes
-                .Except(actualTable.Indexes, StringComparer.Ordinal)
-                .OrderBy(static name => name, StringComparer.Ordinal)
-                .ToArray();
-            for (int i = 0; i < missingIndexes.Length; i++)
-            {
-                errors.Add($"表 {tableName} 缺少索引: {missingIndexes[i]}");
-            }
-        }
-
-        HashSet<string> allowedTables = [.. expected.Tables.Keys, .. allowedExtraTables.Select(NormalizeIdentifier)];
-        string[] extraTables = actual.Tables.Keys
-            .Except(allowedTables, StringComparer.Ordinal)
-            .OrderBy(static name => name, StringComparer.Ordinal)
-            .ToArray();
-        for (int i = 0; i < extraTables.Length; i++)
-        {
-            errors.Add($"存在未声明的旧表: {extraTables[i]}");
-        }
-
+        IReadOnlyList<string> errors = SchemaModelComparer.Compare(expected, actual, allowedExtraTables);
         if (errors.Count > 0)
         {
             throw new InvalidOperationException($"Schema migration validation failed:{Environment.NewLine}- {string.Join($"{Environment.NewLine}- ", errors)}");
@@ -268,114 +241,56 @@ public sealed class SchemaModelInspector : ISchemaModelInspector
     }
 
     internal static string NormalizeIdentifier(string name)
-        => TextHelpers.LowerTrimmed(name) ?? string.Empty;
+        => CurrentSchemaCanonicalAuthority.NormalizeIdentifier(name);
 
-    private static SchemaColumnModel BuildColumnModel(PropertyInfo property, SugarColumn? columnAttribute, string columnName)
-    {
-        bool isNullable = DetermineNullability(property, columnAttribute);
-        bool isPrimaryKey = columnAttribute?.IsPrimaryKey == true;
-        bool isIdentity = columnAttribute?.IsIdentity == true;
-        int? maxLength = columnAttribute?.Length > 0 ? columnAttribute.Length : null;
-        string dataType = ResolveExpectedType(property, columnAttribute);
+    private static string BuildEntityTypeCacheKey(IReadOnlyList<Type> entityTypes)
+        => string.Join('|', entityTypes.Select(static type => type.AssemblyQualifiedName ?? type.FullName ?? type.Name));
 
-        return new SchemaColumnModel(columnName, isNullable, isPrimaryKey, isIdentity, maxLength, dataType);
-    }
+    private static SchemaTableModel NewActualTable(
+        string tableName,
+        Dictionary<string, SchemaColumnModel> columns,
+        IEnumerable<string> indexes,
+        IReadOnlyDictionary<string, SchemaConstraintModel>? constraints = null)
+        => new(
+            tableName,
+            columns,
+            indexes,
+            constraints: constraints,
+            owner: new SchemaOwnerModel("postgresql", $"public.{tableName}"));
 
-    private static bool DetermineNullability(PropertyInfo property, SugarColumn? columnAttribute)
-    {
-        if (columnAttribute?.IsNullable == true)
-        {
-            return true;
-        }
-
-        Type propertyType = property.PropertyType;
-        if (!propertyType.IsValueType)
-        {
-            NullabilityInfo info = s_nullabilityContext.Create(property);
-            return info.WriteState != NullabilityState.NotNull;
-        }
-
-        return Nullable.GetUnderlyingType(propertyType) is not null;
-    }
-
-    private static string ResolveExpectedType(PropertyInfo property, SugarColumn? columnAttribute)
-    {
-        if (!string.IsNullOrWhiteSpace(columnAttribute?.ColumnDataType))
-        {
-            return NormalizeDeclaredType(columnAttribute.ColumnDataType);
-        }
-
-        Type propertyType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
-        if (propertyType == typeof(int))
-        {
-            return "integer";
-        }
-
-        if (propertyType == typeof(long))
-        {
-            return "bigint";
-        }
-
-        if (propertyType == typeof(bool))
-        {
-            return "boolean";
-        }
-
-        if (propertyType == typeof(DateTime))
-        {
-            return "timestamp without time zone";
-        }
-
-        if (propertyType == typeof(string))
-        {
-            return columnAttribute?.Length > 0 ? "character varying" : string.Empty;
-        }
-
-        if (propertyType.IsEnum)
-        {
-            return "integer";
-        }
-
-        return string.Empty;
-    }
-
-    private static string NormalizeDeclaredType(string type)
-        => (TextHelpers.LowerTrimmed(type) ?? string.Empty) switch
-        {
-            "timestamp" => "timestamp without time zone",
-            var value => value
-        };
-
-    private static string NormalizeActualType(string dataType, string udtName)
+    private static string NormalizePostgresSemanticType(string dataType, string udtName)
     {
         if (string.Equals(dataType, "ARRAY", StringComparison.OrdinalIgnoreCase))
         {
-            return udtName.ToLowerInvariant();
+            throw new InvalidOperationException($"Unsupported PostgreSQL current schema array type: {udtName}.");
+        }
+        return SchemaPhysicalTypeProjection.NormalizeDeclaredSemantic(dataType);
+    }
+
+    private static string? NormalizePostgresDefault(string? rawDefault)
+    {
+        if (string.IsNullOrWhiteSpace(rawDefault))
+        {
+            return null;
         }
 
-        return TextHelpers.LowerTrimmed(dataType) ?? string.Empty;
+        string value = rawDefault.Trim();
+        int cast = value.IndexOf("::", StringComparison.Ordinal);
+        if (cast >= 0)
+        {
+            value = value[..cast];
+        }
+        if (value.Length >= 2 && value[0] == '\'' && value[^1] == '\'')
+        {
+            value = value[1..^1].Replace("''", "'", StringComparison.Ordinal);
+        }
+        return string.Equals(value, "NULL", StringComparison.OrdinalIgnoreCase) ? null : value;
     }
-}
 
-public sealed class SchemaModelSnapshot(IReadOnlyDictionary<string, SchemaTableModel> tables)
-{
-    public IReadOnlyDictionary<string, SchemaTableModel> Tables { get; } = tables;
+    private static string[] ParseIdentifierList(string? value)
+        => string.IsNullOrWhiteSpace(value)
+            ? []
+            : value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(CurrentSchemaCanonicalAuthority.NormalizeIdentifier)
+                .ToArray();
 }
-
-public sealed class SchemaTableModel(
-    string name,
-    Dictionary<string, SchemaColumnModel> columns,
-    IEnumerable<string> indexes)
-{
-    public string Name { get; } = name;
-    public Dictionary<string, SchemaColumnModel> Columns { get; } = columns;
-    public HashSet<string> Indexes { get; } = [.. indexes];
-}
-
-public sealed record SchemaColumnModel(
-    string Name,
-    bool IsNullable,
-    bool IsPrimaryKey,
-    bool IsIdentity,
-    int? MaxLength,
-    string DataType);
