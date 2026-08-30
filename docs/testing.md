@@ -195,7 +195,7 @@ generatedSectionId: testing.coverage-entry-count
 render: scalar
 -->
 <!-- FSUSBLOG-GENERATED:BEGIN testing.coverage-entry-count -->
-258
+259
 <!-- FSUSBLOG-GENERATED:END testing.coverage-entry-count -->
 
 `config/testing/content-shape-catalog.json` 是 Unicode、script、正负 eligibility
