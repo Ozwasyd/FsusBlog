@@ -459,6 +459,7 @@ export function selectChangedCriticalMutation({
             rawToolPolicy,
             sourceState: normalizedSourceState,
             ownerReceipt,
+            implementationOwnerClosure,
             behaviorCatalog,
             testBindingScan,
             rawTestBindingScan,

@@ -37,6 +37,7 @@ dotnet_sdk_version="$(dotnet --version)"
 fingerprint_args=(
     --root "$ROOT_DIR"
     --path Directory.Build.props
+    --path Directory.Packages.props
     --path tools/build-with-data-env.sh
     --path tools/test/ensure-benchmark-release-build.sh
     --path tools/test/run-with-dotnet-release-build-lock.sh

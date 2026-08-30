@@ -198,6 +198,7 @@ CREATE_ARGS=(
     --finished-at "$FINISHED_AT"
     --duration-ms "$DURATION_MS"
     --input Directory.Build.props
+    --input Directory.Packages.props
     --input FsusBlog.slnx
     --input .gitignore
     --input .dockerignore
