@@ -141,6 +141,23 @@ public sealed class SchemaModelInspectorTests
     }
 
     [Fact]
+    public void CurrentSchemaMismatch_IsFailClosedAndWriteFree()
+    {
+        var mismatch = new CurrentSchemaMismatchException(
+            expectedDigest: "abc",
+            actualDigest: "def",
+            mismatchRef: "fsusblog.current-schema.mismatch",
+            errors: ["missing table article"]);
+
+        Assert.Contains("schema_current_mismatch", mismatch.Message, StringComparison.Ordinal);
+        Assert.Contains("expectedDigest=abc", mismatch.Message, StringComparison.Ordinal);
+        Assert.Contains("actualDigest=def", mismatch.Message, StringComparison.Ordinal);
+        Assert.Equal("fsusblog.current-schema.mismatch", mismatch.MismatchRef);
+        Assert.Equal("abc", mismatch.ExpectedDigest);
+        Assert.Equal("def", mismatch.ActualDigest);
+    }
+
+    [Fact]
     public void ProjectionAndIndependentVerifier_RejectOldIdentityAndTampering()
     {
         CurrentSchemaCanonicalModel canonical = CurrentSchemaCanonicalAuthority.Extract([typeof(SyntheticEntity)]);

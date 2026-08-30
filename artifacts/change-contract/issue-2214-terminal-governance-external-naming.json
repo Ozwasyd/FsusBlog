@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/db/check-migration-terminal-governance.mjs"
+            ],
+            "reason": "Process environment spelling is external while option variables remain internal."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/static-governance.sh"
+            ],
+            "reason": "Exported shell variables retain process-level spelling; local aliases use camelCase."
+        }
+    ]
+}

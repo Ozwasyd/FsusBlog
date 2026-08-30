@@ -40,6 +40,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\backend\FsusBlog.Server.csproj" />
     <ProjectReference Include="..\..\src\core\FsusBlog.Core.csproj" />
+    <ProjectReference Include="..\..\src\migration\FsusBlog.Migration.csproj" />
     <ProjectReference Include="..\..\src\shared\FsusBlog.Shared.csproj" />
     <ProjectReference Include="..\..\tools\architecture\FsusBlog.DiLifetimeAnalyzer\FsusBlog.DiLifetimeAnalyzer.csproj" />
   </ItemGroup>
@@ -48,6 +49,10 @@
     <None Update="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
     <Compile Remove="Fixtures\security-source-analysis\*.cs" />
     <None Include="Fixtures\security-source-analysis\*.cs" />
+    <Compile Remove="Integration\SchemaMigrationIntegrationTests.cs" />
+    <None Include="Integration\SchemaMigrationIntegrationTests.cs" />
+    <Compile Remove="Integration\AccountSubjectHashMigrationIntegrationTests.cs" />
+    <None Include="Integration\AccountSubjectHashMigrationIntegrationTests.cs" />
   </ItemGroup>
 
 </Project>
