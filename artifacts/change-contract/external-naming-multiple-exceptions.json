@@ -2,6 +2,13 @@
     "schema": "fsusblog.external-naming-exceptions.v1",
     "exceptions": [
         {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/change-contract.md"
+            ],
+            "reason": "preserve documented caller-visible selector and custom-property spellings without treating them as internal symbols"
+        },
+        {
             "id": "environment-variable",
             "paths": [
                 "tools/governance/change-contract-registry.mjs",
