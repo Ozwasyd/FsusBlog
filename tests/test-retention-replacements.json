@@ -6021,6 +6021,14 @@
             "reason": "The in-test string cache is replaced by the real lifecycle reader, root service and PostgreSQL store, with concurrent verifier reads and SQL instrumentation proving one authoritative load for the published generation."
         },
         {
+            "id": "xunit:tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs#FsusBlog.Server.Tests.Unit.AnonymousPrivacyConcurrencyTests.VerifierBoundedConcurrency_DoesNotExceedConfiguredLimit#case-0000",
+            "path": "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs#FsusBlog.Server.Tests.Unit.NativeGroth16ZkProofBackendTests.ProductionZkProofVerifier_NativeBackendUsesExistingConcurrencyGate#case-0000"
+            ],
+            "reason": "The in-test semaphore model is replaced by the real production verifier and a passive backend probe, with barrier-started calls proving configured backend in-flight limits, queued completion, slot release, configuration bounds, singleton DI sharing and exact public-input forwarding."
+        },
+        {
             "id": "xunit:tests/backend/Unit/AnonymousPrivacyMatrixTests.cs#AnonymousPrivacyMatrixTests.PrivacyZkBackendGate_CoversRevocationAccumulatorAndWitnessTests",
             "path": "tests/backend/Unit/AnonymousPrivacyMatrixTests.cs",
             "replacementTestIds": [
