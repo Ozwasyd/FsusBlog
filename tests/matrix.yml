@@ -543,6 +543,7 @@ tiers:
       cacheInputs:
           [
               Directory.Build.props,
+              Directory.Packages.props,
               FsusBlog.slnx,
               config/contracts/behavior-contracts.json,
               config/contracts/behavior-fact-extractors.json,
@@ -663,6 +664,17 @@ tiers:
               config/schemas/behavior-test-evidence.schema.json,
               src/shared/Contracts/Governance/BehaviorTestKind.cs,
               src/shared/Contracts/Governance/CoversBehaviorAttribute.cs,
+              tests/backend/Integration/UserSessionSensitiveEndpointIntegrationTests.cs,
+              tests/backend/Unit/BinaryTransportHotPathContractTests.cs,
+              tests/backend/Unit/CommentMutationOutboxPostgresTests.cs,
+              tests/backend/Unit/ProductionStartupValidatorTests.cs,
+              tests/backend/Unit/UserSessionJwtAuthenticationTests.cs,
+              tests/tools/code-intent.test.mjs,
+              tests/tools/document-lifecycle.test.mjs,
+              tests/tools/release-reliability-receipt.test.mjs,
+              tests/tools/test-asset-audit.test.mjs,
+              tests/tools/test-matrix-topology.test.mjs,
+              tests/tools/zero-downtime-rehearsal.test.mjs,
               tools/contracts/behavior-test.mjs,
               tools/contracts/behavior-test-binding.mjs,
               tools/test-observations,
@@ -1144,6 +1156,7 @@ tiers:
       triggerPaths:
           [
               Directory.Build.props,
+              Directory.Packages.props,
               FsusBlog.slnx,
               global.json,
               src/backend/**,
@@ -1280,6 +1293,7 @@ tiers:
       requiredFor: fast
       coverage:
           - frontend-unit
+          - frontend-image-upload-runtime
           - frontend-public-shell-sticky-geometry
           - frontend-public-home-editorial
           - frontend-public-content-driven-covers
@@ -1303,6 +1317,7 @@ tiers:
           - .tmp/frontend/timings/frontend-unit-shard.json
           - .tmp/test-results/evidence-producers/frontend-unit-shard
           - .tmp/test-results/release-domain-assertions/frontend-unit-shard
+          - tests/frontend/unit/composables/useImageUploadRuntime.test.ts
           - src/frontend/src/components/public/usePublicStickyGeometry.ts
           - tests/frontend/unit/components/usePublicStickyGeometry.test.ts
           - tests/public-shell-sticky-geometry-evidence.json
@@ -1393,7 +1408,11 @@ tiers:
               src/frontend/vitest.perf.config.ts,
               src/frontend/src,
               tests/frontend/property,
-              tests/frontend/model,
+              tests/frontend/unit/composables/useAuthLogin.test.ts,
+              tests/frontend/unit/composables/useAdminArticleWrite.authoringGates.test.ts,
+              tests/frontend/unit/composables/useAdminSettingsPage.test.ts,
+              tests/frontend/unit/composables/useAccountMessagesInbox.draftIsolation.test.ts,
+              tests/frontend/unit/composables/useImageUploadRuntime.test.ts,
               tests/frontend/benchmarks,
               tools/test/lanes/frontend-property-model-perf.sh,
               tools/test/lanes,
@@ -1670,6 +1689,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               benchmarks/core,
               src/backend,
@@ -1731,6 +1751,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend,
               src/core,
@@ -1756,11 +1777,13 @@ tiers:
       requiredFor: fast
       coverage:
           - backend-unit
+          - backend-upload-range-completion
           - blue-green-slot-orchestration
           - backend-runtime-fallback-retirement-a3
           - backend-physical-account-subject-retirement
           - deployment-runtime-lifecycle
           - backend-online-schema-migration-protocol
+          - current-schema-canonical-authority
           - backend-typed-schema-ddl-providers
           - blue-green-release-storage-lifecycle
           - atomic-idempotent-upload-commit
@@ -1832,6 +1855,7 @@ tiers:
           - tests/backend/legacy-identity-retirement-evidence.json
           - docs/security.md
           - docs/database-migration.md
+          - docs/online-database-migration.md
           - docs/architecture.md
           - docs/anonymous-identity-smoke-flow.md
           - tests/backend/Unit/DeploymentRuntimeStateTests.cs
@@ -1840,6 +1864,9 @@ tiers:
           - src/backend/Infrastructure/NotificationStream/NotificationStreamConnectionManager.cs
           - src/backend/Infrastructure/NotificationStream/NotificationStreamFrame.cs
           - tests/backend/Unit/OnlineSchemaMigrationPolicyTests.cs
+          - src/backend/Infrastructure/SchemaMigration/CurrentSchemaCanonicalModel.cs
+          - src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs
+          - tests/backend/Unit/SchemaModelInspectorTests.cs
           - tests/backend/Unit/OnlineSchemaMigrationCompatibilityTests.cs
           - tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs
           - tests/backend/Unit/SchemaCompatibilityCoordinateTests.cs
@@ -1979,6 +2006,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend/Infrastructure/Distributed,
               src/backend/Infrastructure/PublicAot/PublicAotBackfillLease.cs,
@@ -2300,6 +2328,7 @@ tiers:
           - dead-code-audit-governance
           - deployment-runtime-lifecycle
           - backend-online-schema-migration-protocol
+          - current-schema-canonical-authority
           - public-representation-coordinate-closed-loop
           - backend-typed-schema-ddl-providers
           - blue-green-release-storage-lifecycle
@@ -2457,6 +2486,11 @@ tiers:
           - src/backend/Infrastructure/Operations/ReleaseIdContract.Generated.cs
           - src/backend/Infrastructure/Operations/ReleaseId.cs
           - src/backend/Infrastructure/SchemaMigration/SchemaCompatibilityCoordinate.cs
+          - src/backend/Infrastructure/SchemaMigration/CurrentSchemaCanonicalModel.cs
+          - src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs
+          - tests/backend/Unit/SchemaModelInspectorTests.cs
+          - tools/db/check-current-schema-authority.mjs
+          - tests/tools/current-schema-authority.test.mjs
           - src/shared/Contracts/Validation/schema-compatibility-coordinate.json
           - src/frontend/src/generated/releaseIdContract.ts
           - src/frontend/public/generated/release-id-contract.js
@@ -2566,12 +2600,15 @@ tiers:
           - docs/testing/issue-1174-csharp-entrypoint-ownership.md
           - .editorconfig
           - Directory.Build.props
+          - Directory.Packages.props
           - .git-blame-ignore-revs
           - config/development/csharp-style-policy.json
           - config/development/csharp-style-baseline.json
           - tools/dotnet/check-csharp-style.mjs
           - tests/tools/csharp-style.test.mjs
           - docs/development/csharp-style-enforcement.md
+          - tools/governance/check-central-package-management.mjs
+          - tests/fixtures/governance/central-package-management.json
           - .gitattributes
           - tools/style/line-ending-invariant.mjs
           - tests/tools/line-endings.test.mjs
@@ -3049,6 +3086,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend,
               src/core,
@@ -5968,6 +6006,7 @@ tiers:
       cacheInputs:
           [
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               benchmarks/core,
               src/backend,
@@ -6044,6 +6083,7 @@ tiers:
       cacheInputs:
           [
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               benchmarks/core,
               src/backend,
@@ -6557,6 +6597,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               benchmarks/core,
               src/backend,
@@ -6627,6 +6668,7 @@ tiers:
       cacheInputs:
           [
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               benchmarks/core,
               src/backend,
@@ -7241,8 +7283,12 @@ tiers:
               tools/security/comment-privacy-build-contract.mjs,
               src/frontend/wasm/build.sh,
               docs/zk/trusted-setup-ceremony.md,
+              tests/backend/Unit/AnonymousCommentTicketEndpointFilterTests.cs,
+              tests/backend/Unit/AnonymousCommentTicketRedisConcurrencyTests.cs,
+              tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs,
               tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs,
               tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs,
+              tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs,
               tests/backend/Unit/ActorResolverBehaviorTests.cs,
               tests/backend/Unit/AnonymousCommentPolicyTests.cs,
               tests/backend/Unit/AnonymousIdentitySerializationTests.cs,
@@ -7356,6 +7402,7 @@ tiers:
       cacheInputs:
           [
               tests/backend/Unit/PerceptionCharacterV3ArtifactPoolTests.cs,
+              tests/backend/Unit/PerceptionCharacterV3Tests.cs,
               tests/tools/perception-character-v3-redis-fixture.test.mjs,
               tools/test/lanes/perception-character-v3-release-gate.sh,
               tools/test/perception-character-v3-redis-fixture.sh,
@@ -7388,6 +7435,7 @@ tiers:
               .tmp/security/perception-character-v3/release-gate/independent-review-receipt.json,
               .tmp/test-results/backend/perception-character-v3-redis-producer.json,
               tests/backend/Unit/PerceptionCharacterV3ArtifactPoolTests.cs,
+              tests/backend/Unit/PerceptionCharacterV3Tests.cs,
               tests/tools/perception-character-v3-redis-fixture.test.mjs,
               tools/test/perception-character-v3-redis-fixture.sh,
               tools/test/perception-redis-producer.mjs,
@@ -9099,6 +9147,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend,
               src/core,
@@ -9176,6 +9225,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend,
               src/core,
@@ -9261,6 +9311,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend,
               src/core,
@@ -9304,6 +9355,9 @@ tiers:
           - .tmp/backend-concurrency/summary.json
           - tests/backend/Unit/FileServiceTests.cs
           - tests/backend/Fixtures/backend-test-requirements.json
+          - tests/backend/Unit/AnonymousCommentTicketRedisConcurrencyTests.cs
+          - tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs
+          - tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs
           - tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs
           - tests/backend/Unit/SubscriptionEndpointsContractTests.cs
           - tests/backend/Integration/DemoFixtureSeederCleanupIntegrationTests.cs
@@ -9358,6 +9412,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend,
               src/core,
@@ -9379,7 +9434,7 @@ tiers:
       risk: high
       cadence: pr
       requiredFor: fast
-      coverage: [backend-property-protocol-cache-upload]
+      coverage: [backend-property-protocol-cache]
       artifacts:
           [
               .tmp/backend-property,
@@ -9419,6 +9474,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend,
               src/core,
@@ -9505,6 +9561,7 @@ tiers:
               tests/backend/Unit/SearchIndexServiceTests.cs,
               tools/test/csharp-source-mask.mjs,
               tools/test/search-index-utf8-scalar-governance.mjs,
+              tests/tools/backend-test-governance-cpm.test.mjs,
               tests/backend/Unit/CoverageScriptContractTests.cs,
               tests/backend/Unit/TestInfrastructure/BackendTestPathsTests.cs,
               tests/tools/backend-trx-contract.test.mjs,

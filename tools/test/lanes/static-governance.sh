@@ -7,6 +7,10 @@ StaticEvidencePlan() { Run "$ROOT_DIR/tools/test/run-matrix-governance-once.sh" 
 StaticAedsPolicy() { Run "$ROOT_DIR/tools/check-aeds-only-policy.sh"; }
 StaticIntegrityDocs() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-integrity-proof-docs.mjs"; }
 StaticImplementationDrift() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-doc-implementation-drift.mjs"; }
+StaticCurrentSchemaAuthority() {
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/db/check-current-schema-authority.mjs"
+    Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/current-schema-authority.test.mjs"
+}
 StaticPerceptionCharacterV3Cutover() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/contracts/generate-perception-character-v3-release-target.mjs" --check
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/contracts/check-perception-character-v3-retirement.mjs"
@@ -64,11 +68,17 @@ StaticCsharpStyle() {
 StaticLineEndings() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/style/line-ending-invariant.mjs"
 }
+StaticCentralPackageManagement() {
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-central-package-management.mjs" --root "$ROOT_DIR"
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-central-package-management.mjs" \
+        --fixtures "$ROOT_DIR/tests/fixtures/governance/central-package-management.json"
+}
 TEST_ASSET_BEHAVIOR_FILES=(
     "$ROOT_DIR/tests/tools/artifact-digest-table.test.mjs"
     "$ROOT_DIR/tests/tools/async-log-pipeline.test.mjs"
     "$ROOT_DIR/tests/tools/backend-coverage-collector-layout.test.mjs"
     "$ROOT_DIR/tests/tools/backend-coverage-pipeline.test.mjs"
+    "$ROOT_DIR/tests/tools/backend-test-governance-cpm.test.mjs"
     "$ROOT_DIR/tests/tools/behavior-doc-static-admission.test.mjs"
     "$ROOT_DIR/tests/tools/behavior-evidence-pre-runtime.test.mjs"
     "$ROOT_DIR/tests/tools/coverage-merge-parallelism.test.mjs"
@@ -119,6 +129,7 @@ RunApplicationStaticPrechecksPhase() {
         aeds-policy StaticAedsPolicy \
         integrity-docs StaticIntegrityDocs \
         implementation-drift StaticImplementationDrift \
+        current-schema-authority StaticCurrentSchemaAuthority \
         perception-character-v3-cutover StaticPerceptionCharacterV3Cutover \
         background-services StaticBackgroundServices \
         backend-physical-topology StaticBackendPhysicalTopology \
@@ -129,6 +140,7 @@ RunApplicationStaticPrechecksPhase() {
         monolithic-distributed-architecture StaticMonolithicDistributedArchitecture \
         behavior-mutation-governance StaticBehaviorMutationGovernance \
         fixture-mutation-recovery-governance StaticFixtureMutationRecoveryGovernance \
+        central-package-management StaticCentralPackageManagement \
         line-endings StaticLineEndings \
         csharp-style StaticCsharpStyle \
         label-governance StaticLabelGovernance

@@ -437,6 +437,33 @@ public sealed class AnonymousCommentTicketServiceTests
             cache);
     }
 
+    internal static AnonymousCommentTicketService CreateServiceForCache(
+        ICacheRawWriter cacheWriter,
+        ICacheOneTimeStore oneTimeStore,
+        ICacheRawReader cacheReader,
+        TimeProvider timeProvider)
+        => new(
+            cacheWriter,
+            oneTimeStore,
+            new FixedRootService(Result<AnonymousCredentialRootSnapshotCoreModel>.Success(CreateRootSnapshot(timeProvider))),
+            new RecordingProofService(ZkProofVerificationResult.Success()),
+            new RecordingNullifierService(),
+            new FixedCommentPolicyService(new AnonymousCommentPolicySnapshot(
+                true,
+                true,
+                true,
+                CommentAuthorModes.ZkAnonymous,
+                AnonymousCommentPolicySnapshot.DefaultDisplayLanguages)
+            {
+                SnapshotHash = s_policyHash
+            }),
+            BuildConfiguration(),
+            timeProvider,
+            cacheReader);
+
+    internal static AnonymousCommentTicketRequestCoreModel CreateValidRequest()
+        => ValidRequest();
+
     private static AnonymousCommentTicketRequestCoreModel ValidRequest()
         => new(
             ArticleId: 42,

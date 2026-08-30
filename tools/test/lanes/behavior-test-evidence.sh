@@ -82,6 +82,7 @@ for test_file in "${NODE_TEST_FILES[@]}"; do
         --closure-path tests/backend/Unit/CommentMutationOutboxPostgresTests.cs \
         --closure-path tests/backend/Unit/ProductionStartupValidatorTests.cs \
         --closure-path tests/backend/Unit/UserSessionJwtAuthenticationTests.cs \
+        --closure-path tests/backend/Integration/UserSessionSensitiveEndpointIntegrationTests.cs \
         --closure-path tests/tools/code-intent.test.mjs \
         --closure-path tests/tools/document-lifecycle.test.mjs \
         --closure-path tests/tools/release-reliability-receipt.test.mjs \
@@ -134,6 +135,7 @@ node "$ROOT_DIR/tools/test-observations/cli.mjs" adapt \
     --closure-path tests/backend/Unit/CommentMutationOutboxPostgresTests.cs \
     --closure-path tests/backend/Unit/ProductionStartupValidatorTests.cs \
     --closure-path tests/backend/Unit/UserSessionJwtAuthenticationTests.cs \
+    --closure-path tests/backend/Integration/UserSessionSensitiveEndpointIntegrationTests.cs \
     --closure-path tests/tools/code-intent.test.mjs \
     --closure-path tests/tools/document-lifecycle.test.mjs \
     --closure-path tests/tools/release-reliability-receipt.test.mjs \

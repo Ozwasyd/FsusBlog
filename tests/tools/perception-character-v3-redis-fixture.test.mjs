@@ -8,13 +8,28 @@ import { fileURLToPath } from 'node:url';
 
 import {
     CANONICAL_LOCAL_REDIS_TESTS,
-    MANDATORY_BURN_FILTER,
+    LOCAL_REDIS_FILTER,
+    LOCAL_REDIS_PLANNED_TESTS,
     MANDATORY_BURN_TEST,
     parseTrxResults,
+    REDIS_LUA_CASE_IDS,
+    REDIS_LUA_TEST,
     reconcileLocalRedisOutcome
 } from '../../tools/test/perception-redis-producer.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+
+function redisLuaCaseEvidence(overrides = {})
+{
+    return {
+        schema: 'fsusblog.perception-character-v3-redis-lua-cases.v1',
+        testId: REDIS_LUA_TEST,
+        runId: 'test-run',
+        prefixNamespace: 'test:perception-v3-local-redis:test-run:redis-lua:',
+        cases: REDIS_LUA_CASE_IDS.map((id) => ({ id, outcome: 'passed' })),
+        ...overrides
+    };
+}
 
 function runFixtureWithDockerStub({ port = '127.0.0.1:6379', pingReady = false } = {})
 {
@@ -63,18 +78,29 @@ test('canonical LocalRedis producer registers all four Perception V3 tests under
     );
     assert.ok(
         CANONICAL_LOCAL_REDIS_TESTS.includes(
-            'FsusBlog.Server.Tests.Unit.PerceptionCharacterV3Tests.ProviderRejectsCrossNamespaceReplay'
+            REDIS_LUA_TEST
         )
+    );
+    assert.deepEqual(LOCAL_REDIS_PLANNED_TESTS, [MANDATORY_BURN_TEST, REDIS_LUA_TEST]);
+    assert.equal(
+        LOCAL_REDIS_FILTER,
+        `Fixture=LocalRedis&(FullyQualifiedName=${MANDATORY_BURN_TEST}|FullyQualifiedName=${REDIS_LUA_TEST})`
     );
 });
 
 test('ordinary backend test filter excludes Fixture=LocalRedis to prevent false-green unit runs', () =>
 {
     const suiteSupport = fs.readFileSync(path.join(root, 'tools/test/lanes/_suite-support.sh'), 'utf8');
+    const productionRunner = fs.readFileSync(path.join(root, 'tools/test/run-backend-production-shards.mjs'), 'utf8');
     assert.match(
         suiteSupport,
         /BACKEND_ORDINARY_TEST_FILTER="[^"]*Fixture!=LocalRedis[^"]*"/u,
         'suite support must exclude Fixture=LocalRedis from ordinary backend test filter'
+    );
+    assert.match(
+        productionRunner,
+        /productionBaseFilter = '[^']*Fixture!=LocalRedis[^']*'/u,
+        'production union must exclude Fixture=LocalRedis for the canonical Redis producer'
     );
 });
 
@@ -100,6 +126,28 @@ test('ArtifactPoolBurn test fails closed and contains no early return on missing
     );
 });
 
+test('RedisLua state and device authority test fails closed and binds canonical prefix and case evidence', () =>
+{
+    const testFile = fs.readFileSync(
+        path.join(root, 'tests/backend/Unit/PerceptionCharacterV3Tests.cs'),
+        'utf8'
+    );
+    const methodIndex = testFile.indexOf('RedisLua_IsLinearizableBoundedBindingAwareAndFailClosed');
+    assert.ok(methodIndex > 0, 'RedisLua test method must exist');
+
+    const methodBody = testFile.slice(methodIndex, testFile.indexOf('private static SecurityChallengeKind Parse', methodIndex));
+    assert.doesNotMatch(
+        methodBody,
+        /if\s*\(\s*string\.IsNullOrWhiteSpace\s*\(\s*connectionString\s*\)\s*\)\s*return\s*;/u,
+        'RedisLua test must not return early on empty connection string'
+    );
+    assert.match(methodBody, /FSUSBLOG_TEST_REDIS environment variable is not set/u);
+    assert.match(methodBody, /FSUSBLOG_TEST_REDIS_PREFIX environment variable is not set/u);
+    assert.match(methodBody, /FSUSBLOG_TEST_REDIS_CASE_EVIDENCE environment variable is not set/u);
+    assert.match(methodBody, /redisPrefixRoot \+ "redis-lua:"/u);
+    assert.match(methodBody, /fsusblog\.perception-character-v3-redis-lua-cases\.v1/u);
+});
+
 test('perception-character-v3-redis-fixture.sh binds fail-closed container lifecycle and outcome reconciliation', () =>
 {
     const script = fs.readFileSync(
@@ -112,6 +160,8 @@ test('perception-character-v3-redis-fixture.sh binds fail-closed container lifec
     assert.match(script, /redis-cli ping/u);
     assert.match(script, /FSUSBLOG_TEST_REDIS=/u);
     assert.match(script, /FSUSBLOG_TEST_REDIS_PREFIX=/u);
+    assert.match(script, /FSUSBLOG_TEST_REDIS_CASE_EVIDENCE=/u);
+    assert.match(script, /--print-filter/u);
     assert.match(script, /redis-cli --raw --scan --pattern/u);
     assert.match(script, /RedisLuaCalls/u);
     assert.match(script, /snapshotGitWorktree/u);
@@ -156,6 +206,7 @@ test('reconcileLocalRedisOutcome parses passing TRX and produces conforming rece
 <TestRun id="00000000-0000-0000-0000-000000000000" name="LocalRedis" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
   <Results>
     <UnitTestResult executionId="11111111-1111-1111-1111-111111111111" testId="ad61e41f-0cd3-9308-0db2-3b9922d07109" testName="${MANDATORY_BURN_TEST}" outcome="Passed" duration="00:00:00.4200000" />
+    <UnitTestResult executionId="22222222-2222-2222-2222-222222222222" testId="bd61e41f-0cd3-9308-0db2-3b9922d07109" testName="${REDIS_LUA_TEST}" outcome="Passed" duration="00:00:00.8400000" />
   </Results>
 </TestRun>`;
 
@@ -165,11 +216,12 @@ test('reconcileLocalRedisOutcome parses passing TRX and produces conforming rece
         endpoint: '127.0.0.1:6379',
         testAssembly: 'tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll',
         testAssemblyDigest: `sha256:${'a'.repeat(64)}`,
-        filter: MANDATORY_BURN_FILTER,
+        filter: LOCAL_REDIS_FILTER,
         prefixNamespace: 'test:perception-v3-local-redis:test-run:',
         cleanupVerified: true,
         redisLuaCallsBefore: 1,
         redisLuaCallsAfter: 2,
+        redisLuaCaseEvidence: redisLuaCaseEvidence(),
         runId: 'test-run',
         sourceCommit: 'test-commit',
         sourceFingerprint: `sha256:${'b'.repeat(64)}`
@@ -177,12 +229,16 @@ test('reconcileLocalRedisOutcome parses passing TRX and produces conforming rece
 
     assert.equal(receipt.schema, 'fsusblog.perception-character-v3-redis-fixture.v1');
     assert.equal(receipt.status, 'passed');
-    assert.equal(receipt.totalExecuted, 1);
-    assert.deepEqual(receipt.plannedTestIds, [MANDATORY_BURN_TEST]);
+    assert.equal(receipt.totalExecuted, 2);
+    assert.deepEqual(receipt.plannedTestIds, [MANDATORY_BURN_TEST, REDIS_LUA_TEST]);
     assert.equal(receipt.mandatoryTestOutcome, 'Passed');
     assert.equal(receipt.tests[0].executionStatus, 'executed');
     assert.equal(receipt.tests[0].fullyQualifiedName, MANDATORY_BURN_TEST);
     assert.equal(receipt.tests[0].outcome, 'Passed');
+    assert.equal(receipt.tests[1].fullyQualifiedName, REDIS_LUA_TEST);
+    assert.equal(receipt.tests[1].outcome, 'Passed');
+    assert.equal(receipt.redisLuaCaseEvidence.identityMatches, true);
+    assert.equal(receipt.redisLuaCaseEvidence.cases.length, REDIS_LUA_CASE_IDS.length);
     assert.equal(receipt.container, 'fsusblog-perception-v3-redis-test');
     assert.equal(receipt.endpoint, '127.0.0.1:6379');
 });
@@ -200,11 +256,12 @@ test('reconcileLocalRedisOutcome records missing, failed, no-Redis-call and clea
         endpoint: '127.0.0.1:6379',
         testAssembly: 'tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll',
         testAssemblyDigest: `sha256:${'a'.repeat(64)}`,
-        filter: MANDATORY_BURN_FILTER,
+        filter: LOCAL_REDIS_FILTER,
         prefixNamespace: 'test:perception-v3-local-redis:test-run:',
         cleanupVerified: true,
         redisLuaCallsBefore: 1,
         redisLuaCallsAfter: 2,
+        redisLuaCaseEvidence: redisLuaCaseEvidence(),
         runId: 'test-run',
         sourceCommit: 'test-commit',
         sourceFingerprint: `sha256:${'b'.repeat(64)}`
@@ -242,4 +299,55 @@ test('reconcileLocalRedisOutcome records missing, failed, no-Redis-call and clea
     });
     assert.equal(cleanupFailureReceipt.status, 'failed');
     assert.ok(cleanupFailureReceipt.failureCodes.includes('prefix-cleanup-not-verified'));
+});
+
+test('reconcileLocalRedisOutcome rejects missing, partial, failed and cross-run RedisLua case evidence', () =>
+{
+    const passingTrx = `<?xml version="1.0" encoding="utf-8"?>
+<TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010"><Results>
+  <UnitTestResult testId="1" testName="${MANDATORY_BURN_TEST}" outcome="Passed" duration="00:00:00.1" />
+  <UnitTestResult testId="2" testName="${REDIS_LUA_TEST}" outcome="Passed" duration="00:00:00.2" />
+</Results></TestRun>`;
+    const common = {
+        trxContent: passingTrx,
+        container: 'test',
+        endpoint: '127.0.0.1:6379',
+        testAssembly: 'tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll',
+        testAssemblyDigest: `sha256:${'a'.repeat(64)}`,
+        filter: LOCAL_REDIS_FILTER,
+        prefixNamespace: 'test:perception-v3-local-redis:test-run:',
+        cleanupVerified: true,
+        redisLuaCallsBefore: 1,
+        redisLuaCallsAfter: 2,
+        runId: 'test-run',
+        sourceCommit: 'test-commit',
+        sourceFingerprint: `sha256:${'b'.repeat(64)}`
+    };
+
+    const missing = reconcileLocalRedisOutcome({ ...common, redisLuaCaseEvidence: null });
+    assert.equal(missing.status, 'failed');
+    assert.ok(missing.failureCodes.includes('redis-lua-case-evidence-missing'));
+
+    const partial = reconcileLocalRedisOutcome({
+        ...common,
+        redisLuaCaseEvidence: redisLuaCaseEvidence({ cases: redisLuaCaseEvidence().cases.slice(0, -1) })
+    });
+    assert.equal(partial.status, 'failed');
+    assert.ok(partial.failureCodes.includes('redis-lua-case-inventory-mismatch'));
+
+    const failedCases = redisLuaCaseEvidence().cases.map((entry, index) =>
+        index === 0 ? { ...entry, outcome: 'failed' } : entry);
+    const failed = reconcileLocalRedisOutcome({
+        ...common,
+        redisLuaCaseEvidence: redisLuaCaseEvidence({ cases: failedCases })
+    });
+    assert.equal(failed.status, 'failed');
+    assert.ok(failed.failureCodes.includes('redis-lua-case-not-passed'));
+
+    const crossRun = reconcileLocalRedisOutcome({
+        ...common,
+        redisLuaCaseEvidence: redisLuaCaseEvidence({ runId: 'stale-run' })
+    });
+    assert.equal(crossRun.status, 'failed');
+    assert.ok(crossRun.failureCodes.includes('redis-lua-case-identity-mismatch'));
 });

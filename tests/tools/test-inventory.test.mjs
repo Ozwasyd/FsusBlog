@@ -291,7 +291,10 @@ test('quality and retention consumers no longer own private walk or file-discove
         assert.doesNotMatch(source, /testFilePattern/u, `${consumer} must not own a test-file regex`);
     }
     const qualitySource = readFileSync(path.join(repositoryRoot, 'tools/ci/check-test-quality.mjs'), 'utf8');
-    assert.match(qualitySource, /loadCanonicalInventory\(root\)/u);
+    assert.match(
+        qualitySource,
+        /loadCanonicalInventory\(root,\s*\{\s*requireArtifact:\s*true,\s*runAdapters:\s*false\s*\}\)/u
+    );
     const retentionSource = readFileSync(path.join(repositoryRoot, 'tools/check-test-retention.mjs'), 'utf8');
     assert.match(retentionSource, /inventorySourceFiles\(root\)/u);
     const auditSource = readFileSync(path.join(repositoryRoot, 'tools/test-retention/audit.mjs'), 'utf8');

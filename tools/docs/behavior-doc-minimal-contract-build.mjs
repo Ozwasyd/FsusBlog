@@ -274,22 +274,25 @@ export function validateMinimalContractBuildReceipt(receipt, {
 
 export function buildIdentitiesFromMinimalReceipt(receipt) {
   validateMinimalContractBuildReceipt(receipt)
-  return Object.fromEntries(Object.entries(receipt.artifacts).map(([artifactId, artifact]) => [
-    artifactId,
-    {
+  return Object.fromEntries(Object.entries(receipt.artifacts).map(([artifactId, artifact]) => {
+    const declaration = hostDeclarations[artifactId]
+    if (declaration == null) throw new Error(`minimal contract build has unknown artifact ${artifactId}`)
+    const receiptBody = {
+      schema: `fsusblog.${artifactId}-build-receipt.v1`,
       artifactId,
-      receiptDigest: artifactId === 'runtime-role-observation'
-        ? digestValue({
-            schema: 'fsusblog.runtime-role-observation-build-receipt.v1',
-            artifactId,
-            artifactPath: hostDeclarations[artifactId].output,
-            artifactDigest: artifact.artifactDigest,
-            configuration: 'Release'
-          })
-        : receipt.contentDigest,
-      artifactDigest: artifact.artifactDigest
+      artifactPath: declaration.output,
+      artifactDigest: artifact.artifactDigest,
+      configuration: 'Release'
     }
-  ]))
+    return [
+      artifactId,
+      {
+        artifactId,
+        receiptDigest: digestValue(receiptBody),
+        artifactDigest: artifact.artifactDigest
+      }
+    ]
+  }))
 }
 
 function reusableReceipt({
@@ -372,6 +375,7 @@ export function runMinimalContractBuild({
     ...Object.values(hostDeclarations).map((entry) => entry.project),
     'config/contracts/behavior-fact-extractors.json',
     'Directory.Build.props',
+    'Directory.Packages.props',
     'FsusBlog.slnx',
     'src/backend/FsusBlog.Server.csproj',
     'src/core/FsusBlog.Core.csproj',

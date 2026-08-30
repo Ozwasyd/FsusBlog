@@ -2,6 +2,14 @@
     "schema": "fsusblog.test-retention-replacements.v1",
     "deletedTests": [
         {
+            "id": "xunit:tests/backend/Unit/BackendPropertyTests.cs#BackendPropertyTests.UploadRangeProperty_NormalizesOverlapAndRequiresAllPartsForComplete",
+            "path": "tests/backend/Unit/BackendPropertyTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.UploadPartMapAndCompletion_TrackRealUploadedPartsAcrossGapsRetriesAndRestart"
+            ],
+            "reason": "The replacement drives persisted FileService upload sessions through real part-map, status, retry, restart, incomplete-completion and successful-completion behavior instead of normalizing arbitrary ranges with test-only helpers."
+        },
+        {
             "id": "node-script:tests/frontend/fixtures/ux-viewport-legacy/runtime/tests/frontend/support/fixture-paths.mjs",
             "path": "tests/frontend/fixtures/ux-viewport-legacy/runtime/tests/frontend/support/fixture-paths.mjs",
             "replacementTestIds": [
@@ -122,7 +130,7 @@
             "id": "node-test:tests/tools/local-production-profile.test.mjs#local-production-reserves-the-declared-profile-memory-bu-820abdfce8",
             "path": "tests/tools/local-production-profile.test.mjs",
             "replacementTestIds": [
-                "node-test:tests/tools/local-production-profile.test.mjs#collectlogicaltierids-returns-the-complete-dependency-an-50c12003bd"
+                "node-test:tests/tools/local-production-profile-resources.test.mjs#collectlogicaltierids-returns-the-complete-dependency-an-50c12003bd"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -130,7 +138,7 @@
             "id": "node-test:tests/tools/local-production-profile.test.mjs#physical-bundle-dag-preserves-dependencies-resources-and-8df2bdcbe3",
             "path": "tests/tools/local-production-profile.test.mjs",
             "replacementTestIds": [
-                "node-test:tests/tools/local-production-profile.test.mjs#physical-bundle-dag-preserves-dependencies-and-derives-d-73eaaf4040"
+                "node-test:tests/tools/local-production-profile-evidence.test.mjs#physical-bundle-dag-preserves-dependencies-and-derives-d-73eaaf4040"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -138,7 +146,7 @@
             "id": "node-test:tests/tools/local-production-profile.test.mjs#post-build-production-evidence-stays-out-of-the-build-bu-b391bbb22a",
             "path": "tests/tools/local-production-profile.test.mjs",
             "replacementTestIds": [
-                "node-test:tests/tools/local-production-profile.test.mjs#production-evidence-is-assigned-to-the-earliest-safe-phy-f9723052f7"
+                "node-test:tests/tools/local-production-profile-bundles.test.mjs#production-evidence-is-assigned-to-the-earliest-safe-phy-f9723052f7"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -172,7 +180,7 @@
             "path": "tests/tools/production-dag-closure.test.mjs",
             "replacementTestIds": [
                 "node-script:tools/check-test-matrix.mjs",
-                "node-test:tests/tools/local-production-profile.test.mjs#physical-bundle-dag-preserves-dependencies-and-derives-d-73eaaf4040"
+                "node-test:tests/tools/local-production-profile-evidence.test.mjs#physical-bundle-dag-preserves-dependencies-and-derives-d-73eaaf4040"
             ],
             "reason": "Structured matrix validation and the physical production DAG behavior test own closure and dependency semantics without a second manual-only traversal."
         },
@@ -5979,6 +5987,15 @@
             "reason": "Real POD round trips, principal behavior and actor projection replace regex searches over frame enums and other test method names."
         },
         {
+            "id": "xunit:tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs#FsusBlog.Server.Tests.Unit.AnonymousPrivacyConcurrencyTests.AnonymousTicketEndpointCheapReject_SkipsExpensiveProofWorkUnderLoad#case-0000",
+            "path": "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AnonymousCommentTicketEndpointFilterTests.cs#FsusBlog.Server.Tests.Unit.AnonymousCommentTicketEndpointFilterTests.RealEndpoint_CleanValidRequestEntersDecodeProofNullifierAndTicketStore#case-0000",
+                "xunit:tests/backend/Unit/AnonymousCommentTicketEndpointFilterTests.cs#FsusBlog.Server.Tests.Unit.AnonymousCommentTicketEndpointFilterTests.RealEndpoint_ConcurrentIdentityContaminationNeverEntersExpensiveBoundaries#case-0000"
+            ],
+            "reason": "The production anonymous-ticket route, strong-anonymous endpoint filter, real AEDS binder and real ticket service now prove that identity contamination rejects before root, proof, nullifier and ticket-store boundaries under ordinary, malformed and concurrent requests, with a clean positive control."
+        },
+        {
             "id": "xunit:tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs#AnonymousPrivacyConcurrencyTests.SameNullifierAndScopeConcurrentSubmit_AllowsOnlyPolicyLimit",
             "path": "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
             "replacementTestIds": [
@@ -5986,6 +6003,30 @@
                 "xunit:tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs#AnonymousNullifierPostgresConcurrencyTests.CreateStrongAnonymousCommentAsync_SameNullifierRaceCommitsOnlyAllowedComments"
             ],
             "reason": "The in-memory dictionary and lock limiter is replaced by PostgreSQL concurrency tests covering atomic nullifier scope limits and transactional anonymous comment submission."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs#FsusBlog.Server.Tests.Unit.AnonymousPrivacyConcurrencyTests.SameTicketConcurrentConsume_SucceedsOnce#case-0000",
+            "path": "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AnonymousCommentTicketRedisConcurrencyTests.cs#FsusBlog.Server.Tests.Unit.AnonymousCommentTicketRedisConcurrencyTests.ConsumeTicketAsync_RealRedisL2RaceReturnsExactlyOnePayloadAndConverges#case-0000"
+            ],
+            "reason": "The in-test dictionary ticket store is replaced by the real ticket service and unified cache over Redis GETDEL, with a sixteen-request barrier, one identity-exact payload and converged raw, hashed, registry and L1 state."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs#FsusBlog.Server.Tests.Unit.AnonymousPrivacyConcurrencyTests.RootSnapshotHighFrequencyRead_UsesCachedSnapshot#case-0000",
+            "path": "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs#FsusBlog.Server.Tests.Unit.AnonymousCredentialRootLifecycleTests.RootLifecycle_HighFrequencyReaderAndVerifierReuseSingleAuthoritativeGeneration#case-0000"
+            ],
+            "reason": "The in-test string cache is replaced by the real lifecycle reader, root service and PostgreSQL store, with concurrent verifier reads and SQL instrumentation proving one authoritative load for the published generation."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs#FsusBlog.Server.Tests.Unit.AnonymousPrivacyConcurrencyTests.VerifierBoundedConcurrency_DoesNotExceedConfiguredLimit#case-0000",
+            "path": "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs#FsusBlog.Server.Tests.Unit.NativeGroth16ZkProofBackendTests.ProductionZkProofVerifier_NativeBackendUsesExistingConcurrencyGate#case-0000"
+            ],
+            "reason": "The in-test semaphore model is replaced by the real production verifier and a passive backend probe, with barrier-started calls proving configured backend in-flight limits, queued completion, slot release, configuration bounds, singleton DI sharing and exact public-input forwarding."
         },
         {
             "id": "xunit:tests/backend/Unit/AnonymousPrivacyMatrixTests.cs#AnonymousPrivacyMatrixTests.PrivacyZkBackendGate_CoversRevocationAccumulatorAndWitnessTests",
@@ -7068,7 +7109,7 @@
             "id": "xunit:tests/backend/Unit/AuthoringWorkflowServiceTests.cs#AuthoringWorkflowServiceTests.RebuildAssetLibraryAsync_SourceUsesTransactionAndLocks",
             "path": "tests/backend/Unit/AuthoringWorkflowServiceTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/AuthoringWorkflowServiceTests.cs#AuthoringWorkflowServiceTests.RebuildAssetLibraryAsync_RuntimeUsesTransactionAndLocks"
+                "xunit:tests/backend/Unit/AuthoringWorkflowServiceTests.cs#AuthoringWorkflowServiceTests.AssetLibraryRuntime_HasNoSecondRebuildOwner"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -7076,7 +7117,7 @@
             "id": "xunit:tests/backend/Unit/AuthoringWorkflowServiceTests.cs#AuthoringWorkflowServiceTests.ReindexAssetsAsync_SourceUsesArticleScopedAssetPath",
             "path": "tests/backend/Unit/AuthoringWorkflowServiceTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/AuthoringWorkflowServiceTests.cs#AuthoringWorkflowServiceTests.ReindexAssetsAsync_RuntimeUsesArticleScopedAssetPath"
+                "xunit:tests/backend/Unit/AuthoringWorkflowServiceTests.cs#AuthoringWorkflowServiceTests.ReindexAssetsAsync_RuntimeUsesCanonicalLedgerProjection"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -8398,7 +8439,7 @@
             "id": "xunit:tests/backend/Unit/FileServiceTests.cs#CapturingLogger.IsAllowedExtension_ReturnsExpected",
             "path": "tests/backend/Unit/FileServiceTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.IsAllowedExtension_ReturnsExpected"
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FileServiceValidationTests.IsAllowedExtension_ReturnsExpected"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -8406,7 +8447,7 @@
             "id": "xunit:tests/backend/Unit/FileServiceTests.cs#CapturingLogger.IsMimeCompatibleWithFormat_ReturnsExpected",
             "path": "tests/backend/Unit/FileServiceTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.IsMimeCompatibleWithFormat_ReturnsExpected"
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FileServiceValidationTests.IsMimeCompatibleWithFormat_ReturnsExpected"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -8414,7 +8455,7 @@
             "id": "xunit:tests/backend/Unit/FileServiceTests.cs#CapturingLogger.IsSupportedImageMime_ReturnsExpected",
             "path": "tests/backend/Unit/FileServiceTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.IsSupportedImageMime_ReturnsExpected"
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FileServiceValidationTests.IsSupportedImageMime_ReturnsExpected"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -8422,7 +8463,7 @@
             "id": "xunit:tests/backend/Unit/FileServiceTests.cs#CapturingLogger.IsValidSha256_ReturnsExpected",
             "path": "tests/backend/Unit/FileServiceTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.IsValidSha256_ReturnsExpected"
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FileServiceValidationTests.IsValidSha256_ReturnsExpected"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -8430,7 +8471,7 @@
             "id": "xunit:tests/backend/Unit/FileServiceTests.cs#CapturingLogger.NormalizeExtension_ReturnsExpected",
             "path": "tests/backend/Unit/FileServiceTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.NormalizeExtension_ReturnsExpected"
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FileServiceValidationTests.NormalizeExtension_ReturnsExpected"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -8438,7 +8479,7 @@
             "id": "xunit:tests/backend/Unit/FileServiceTests.cs#CapturingLogger.NormalizeHash_ReturnsExpected",
             "path": "tests/backend/Unit/FileServiceTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.NormalizeHash_ReturnsExpected"
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FileServiceValidationTests.NormalizeHash_ReturnsExpected"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
@@ -8521,8 +8562,8 @@
             "replacementTestIds": [
                 "xunit:tests/backend/Unit/SecurityHardening/UploadBoundaryTests.cs#UploadBoundaryTests.FileService_RejectsAvifAndTraversalAtServiceBoundary",
                 "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.InitUploadAsync_InvalidRequest_ReturnsExpectedFailure",
-                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.IsAllowedExtension_ReturnsExpected",
-                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.IsSupportedImageMime_ReturnsExpected"
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FileServiceValidationTests.IsAllowedExtension_ReturnsExpected",
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FileServiceValidationTests.IsSupportedImageMime_ReturnsExpected"
             ],
             "reason": "Actual upload initialization and extension/MIME classifiers reject AVIF without inspecting static-file provider source."
         },
@@ -8707,11 +8748,10 @@
             "id": "xunit:tests/backend/Unit/InformationDisclosureHardeningContractTests.cs#InformationDisclosureHardeningContractTests.InfrastructureLogs_RedactFailureContext",
             "path": "tests/backend/Unit/InformationDisclosureHardeningContractTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.StructuredSecurityLogField_IsSanitizedBeforeLoggerReceivesIt",
                 "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.StartupValidationReport_ContainsRequirementStateButNotConfiguredSecretValues",
                 "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
             ],
-            "reason": "Captured structured state and serialized startup evidence cover observable disclosure; the scoped analyzer owns sensitive template regressions."
+            "reason": "Serialized startup evidence covers observable disclosure while the scoped analyzer owns sensitive template regressions."
         },
         {
             "id": "xunit:tests/backend/Unit/InformationDisclosureHardeningContractTests.cs#InformationDisclosureHardeningContractTests.LocalFixtureHealthAndStartup_DoNotExposeDetailedErrors",
@@ -8806,10 +8846,9 @@
             "id": "xunit:tests/backend/Unit/InjectionHardeningContractTests.cs#InjectionHardeningContractTests.UserControlledLogFields_AreSanitizedBeforeStructuredLogging",
             "path": "tests/backend/Unit/InjectionHardeningContractTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.StructuredSecurityLogField_IsSanitizedBeforeLoggerReceivesIt",
                 "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
             ],
-            "reason": "The logger sink observes escaped control characters, while the Roslyn rule rejects raw sensitive structured placeholders."
+            "reason": "The scoped analyzer rejects raw sensitive structured placeholders without relying on the retired logger sink fixture."
         },
         {
             "id": "xunit:tests/backend/Unit/InputValidationDosHardeningContractTests.cs#InputValidationDosHardeningContractTests.ContentFilterAndAuthoring_BoundTextBeforeLargeAllocations",
@@ -11769,7 +11808,7 @@
             "id": "xunit:tests/backend/Unit/NotificationStreamConnectionManagerTests.cs#SharedNotificationStreamFrameExtendedTests.Retain_ThenRelease_DoesNotReturnToPool",
             "path": "tests/backend/Unit/NotificationStreamConnectionManagerTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/NotificationStreamConnectionManagerTests.cs#SharedNotificationStreamFrameExtendedTests.FromOwnedBuffer_RetainDefersPoolReturnUntilFinalRelease"
+                "xunit:tests/backend/Unit/NotificationStreamFrameContractTests.cs#SharedNotificationStreamFrameExtendedTests.FromOwnedBuffer_RetainDefersPoolReturnUntilFinalRelease"
             ],
             "reason": "The zero-oracle FromArray test is replaced by a tracking-pool owner that proves the first release preserves the payload, the final release returns the same buffer exactly once with clearArray=true, and over-release cannot return it twice."
         },
@@ -11818,6 +11857,63 @@
                 "xunit:tests/backend/Unit/PublicAotFileShellCacheTests.cs#FsusBlog.Server.Tests.PublicAotFileShellCacheTests.Recovery_RealProcessCrashAtDurableState_RestartsIdempotently#case-0004"
             ],
             "reason": "The empty Passed crash-worker Fact is removed from xUnit discovery. Its five durable-state cases remain in the sole parent Theory, which now launches the argument-closed command worker, binds fresh child executable/assembly/command/PID/state/root/output evidence, observes the requested durable-state marker and performs two idempotent recovery passes."
+        },
+        {
+            "id": "vitest:tests/frontend/model/frontendStateMachines.test.ts#guards-mfa-and-recovery-code-auth-paths-0d2d048807",
+            "path": "tests/frontend/model/frontendStateMachines.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/composables/useAuthLogin.test.ts#does-not-trigger-api-session-commit-broadcast-or-navigat-3216e4647c",
+                "vitest:tests/frontend/unit/composables/useAuthLogin.test.ts#executes-the-full-post-auth-sequence-in-strict-order-upo-94d4d23491",
+                "vitest:tests/frontend/unit/composables/useAuthLogin.test.ts#keeps-mfa-state-intact-and-aborts-side-effects-on-verifi-eb84b377ca"
+            ],
+            "reason": "The real authentication composable now proves MFA and recovery verification gates, failure preservation and the post-verification session commit sequence."
+        },
+        {
+            "id": "vitest:tests/frontend/model/frontendStateMachines.test.ts#separates-draft-save-from-publish-confirmation-in-markdo-67295a3541",
+            "path": "tests/frontend/model/frontendStateMachines.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/composables/useAdminArticleWrite.authoringGates.test.ts#blocks-publication-when-prepublish-check-finds-blocking--dd81d20680",
+                "vitest:tests/frontend/unit/composables/useAdminArticleWrite.authoringGates.test.ts#edit-autosave-draft-save-only-calls-draft-owner-and-neve-473d5953c9",
+                "vitest:tests/frontend/unit/composables/useAdminArticleWrite.authoringGates.test.ts#mounts-articlewritecommandbar-and-verifies-save-draft-vs-3ada0b8c60"
+            ],
+            "reason": "The real article authoring composable and mounted command bar prove draft-only saves, publication gates and explicit publish confirmation wiring."
+        },
+        {
+            "id": "vitest:tests/frontend/model/frontendStateMachines.test.ts#requires-a-decision-before-switching-dirty-settings-stat-ca1a7f94d0",
+            "path": "tests/frontend/model/frontendStateMachines.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/composables/useAdminSettingsPage.test.ts#cancels-pending-switch-on-cancelpageswitch-leaving-dirty-87d4c44e29",
+                "vitest:tests/frontend/unit/composables/useAdminSettingsPage.test.ts#discards-dirty-changes-on-discardpagechangesandswitch-an-23f0fc3770",
+                "vitest:tests/frontend/unit/composables/useAdminSettingsPage.test.ts#requires-user-decision-and-opens-prompt-when-attempting--ee72190767",
+                "vitest:tests/frontend/unit/composables/useAdminSettingsPage.test.ts#saves-dirty-changes-on-savepageandswitch-refreshes-cache-1e86cca7c0"
+            ],
+            "reason": "The real settings composable proves the dirty-switch prompt and its cancel, discard and save decisions against page state and API effects."
+        },
+        {
+            "id": "vitest:tests/frontend/model/frontendStateMachines.test.ts#prevents-message-drafts-from-silently-crossing-conversat-ccf82aefbb",
+            "path": "tests/frontend/model/frontendStateMachines.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/composables/useAccountMessagesInbox.draftIsolation.test.ts#does-not-append-a-late-a-reply-into-b-or-clear-the-saved-66fb030737",
+                "vitest:tests/frontend/unit/composables/useAccountMessagesInbox.draftIsolation.test.ts#prompts-and-holds-pending-switch-when-current-conversati-81021a1152",
+                "vitest:tests/frontend/unit/composables/useAccountMessagesInbox.draftIsolation.test.ts#strictly-isolates-drafts-between-conversations-when-savi-31b7336a5b"
+            ],
+            "reason": "The real inbox composable proves per-conversation draft isolation, the pending-switch decision and late reply isolation."
+        },
+        {
+            "id": "vitest:tests/frontend/model/frontendStateMachines.test.ts#keeps-upload-resume-and-abandon-transitions-explicit-8108b9de05",
+            "path": "tests/frontend/model/frontendStateMachines.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/composables/useImageUploadRuntime.test.ts#clears-local-state-and-calls-abort-once-even-when-abort--31bb659686",
+                "vitest:tests/frontend/unit/composables/useImageUploadRuntime.test.ts#does-not-call-the-api-when-abandoning-without-an-active--62e402aca1",
+                "vitest:tests/frontend/unit/composables/useImageUploadRuntime.test.ts#does-not-let-a-late-part-acknowledgement-overwrite-a-new-168c3ea8e4",
+                "vitest:tests/frontend/unit/composables/useImageUploadRuntime.test.ts#initializes-a-new-identity-when-a-stored-snapshot-is-tam-d9de0bc259",
+                "vitest:tests/frontend/unit/composables/useImageUploadRuntime.test.ts#initializes-a-new-identity-when-stored-session-status-lo-3b8c397aa5",
+                "vitest:tests/frontend/unit/composables/useImageUploadRuntime.test.ts#pauses-after-part-retry-exhaustion-while-retaining-the-r-1c6167442c",
+                "vitest:tests/frontend/unit/composables/useImageUploadRuntime.test.ts#resumes-the-same-file-and-options-with-the-stored-identi-864a2de695",
+                "vitest:tests/frontend/unit/composables/useImageUploadRuntime.test.ts#runs-compression-and-hashing-before-init-uploads-every-r-df69efa80b",
+                "vitest:tests/frontend/unit/composables/useImageUploadRuntime.test.ts#shows-resume-and-abandon-only-for-the-corresponding-runt-ecc8235d4c"
+            ],
+            "reason": "The real upload composable, API calls, local resume snapshot and mounted options panel prove fresh upload, pause, resume, complete, abort cleanup and late-response isolation."
         }
     ],
     "assertionReplacements": [

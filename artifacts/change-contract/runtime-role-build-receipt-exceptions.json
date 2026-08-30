@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/behavior-doc-static-admission-receipt.schema.json"
+            ],
+            "reason": "preserve serialized receipt schema keys at the external JSON contract boundary"
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/docs/behavior-doc-minimal-contract-build.mjs"
+            ],
+            "reason": "preserve caller-visible process environment keys while updating the receipt producer"
+        }
+    ]
+}

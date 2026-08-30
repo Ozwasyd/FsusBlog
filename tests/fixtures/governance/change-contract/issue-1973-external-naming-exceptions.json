@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/ContentAssetLibraryProjectionReader.cs"
+            ],
+            "reason": "preserve caller-visible process configuration spellings in the changed C# naming surface"
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/governance/change-contract/issue-1973-external-naming-exceptions.json"
+            ],
+            "reason": "preserve the serialized exception manifest keys at the JSON contract boundary"
+        }
+    ]
+}

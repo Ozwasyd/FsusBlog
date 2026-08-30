@@ -195,7 +195,7 @@ generatedSectionId: testing.coverage-entry-count
 render: scalar
 -->
 <!-- FSUSBLOG-GENERATED:BEGIN testing.coverage-entry-count -->
-257
+259
 <!-- FSUSBLOG-GENERATED:END testing.coverage-entry-count -->
 
 `config/testing/content-shape-catalog.json` 是 Unicode、script、正负 eligibility
@@ -268,7 +268,7 @@ correctness network 默认 deny，Linux 为每个 attempt 加载 systemd `IPAddr
 
 acceptance 五项 service 的版本、image digest、topology、port/network namespace 与 resource limit 以 `config/testing/test-execution-service-catalog.json` 为唯一目录。PostgreSQL/Redis 只接受目录中的 digest-pinned local image；bootstrap 不在 test phase pull image，缺少时直接失败，应先在独立 restore/preparation 阶段预载。bootstrap 将实际 roster 写到 `FSUSBLOG_TEST_SERVICE_ENVELOPE_FILE`，runner 仅在 planned/actual 全字段一致时接受。
 
-每个 correctness attempt 在 child 启动前写入 planned execution envelope，postflight 聚合 env/executable、browser/rendering、service/topology、directory/filesystem、network 与适用 host facts 后封存 `fsusblog.test-execution-envelope-receipt.v1`。`tools/test/verify-execution-envelope.mjs --plan <plan> --receipt <receipt>` 以独立路径验证 schema、planned/actual exact match、fragment/self digest 与 run/source/attempt identity；仅在该验证通过后，同一 envelope/receipt digest 才能绑定 producer receipt、temporal replay plan 与 release evidence。
+每个 correctness attempt 在 child 启动前写入 planned execution envelope，postflight 聚合 env/executable、browser/rendering、service/topology、directory/filesystem、network 与适用 host facts 后封存 `fsusblog.test-execution-envelope-receipt.v1`。`tools/test/verify-execution-envelope.mjs --plan <plan> --receipt <receipt>` 以独立路径验证当前 policy/catalog/receipt-schema identity、applicability 完整性、planned/actual exact match、精确 fragment/self digest 集与 run/source/attempt identity；只有 catalog 明确标记 `not-applicable` 的 domain 才能携带对应缺省理由。仅在该验证通过后，同一 envelope/receipt digest 才能绑定 producer receipt、temporal replay plan 与 release evidence。
 测试执行 replay 的 qualification producer 闭包由
 `config/testing/replay-qualification-producers.json` 唯一声明。xUnit 适配器通过
 `xunit.runner.utility` front controller 取得真实 assembly、collection 与 test-case
@@ -324,7 +324,7 @@ action deadline 只来自 `config/testing/release-reliability-lifecycle-action-r
 
 权威 before snapshot 固定为 `tests/test-retention-before.json`。它由删测前的完整 audit 压缩生成，绑定当时的完整 commit 与 tracked worktree fingerprint，并内嵌 backend/frontend/merged coverage 基线和 `backend-mutation` / `release-mutation-critical-slice` scope identity。仓库一旦存在该文件，capture 命令会拒绝向任何路径再次捕获 before。若从已保存的 clean audit 迁移，`--audit-input` 会先验证 matrix、coverage registry、requirement catalog 与 coverage baseline 和该 audit commit 完全一致。后续历史 replacement 条目只作为前序声明被继承；当前删除必须由 lifecycle registry、post-baseline manifest、replacement ledger 与 suite-convergence 正负测试持续证明，不再生成一次性的 optimization campaign 报告。
 
-local production 的 backend union 由 `tools/test/run-backend-production-shards.mjs` 执行。脚本先用 `Category!=Integration&Category!=Performance` 发现本轮全部测试，再按完整测试方法名生成确定性、互斥的分片；每个分片使用同一次 fresh build 的独立 DLL 复制，避免 Coverlet 并发插桩同一文件。成功条件不是“两个命令均返回 0”，而是各 TRX 的逐方法用例计数与 discovery 完全一致、所有 outcome 均为 `Passed`。每个分片只生成 Coverlet JSON 与紧凑 identity sidecar；sidecar 绑定 run/source fingerprint、raw digest、module/source universe。只有 shard universe 完整且 binding 一致，才允许合并权威 Coverlet JSON，并从内存中的 merged result 一次性生成最终 Cobertura 和 Summary。`.tmp/dependency-cache/dotnet` 只保存 NuGet/.NET 工具依赖缓存，可跨 fresh 保留；编译输出统一写入 `.tmp/build/<run-id>`，新 fresh run 通过新根获得空状态，TRX、coverage、checkpoint 与 release evidence 仍逐轮重建，不能作为历史结果复用。布局、锁与 GC 契约见 [`testing/issue-1069-run-bound-production-builds.md`](testing/issue-1069-run-bound-production-builds.md)。
+local production 的 backend union 由 `tools/test/run-backend-production-shards.mjs` 执行。脚本先用 `Category!=Integration&Category!=Performance&Fixture!=LocalRedis` 发现本轮全部测试，再按完整测试方法名生成确定性、互斥的分片；每个分片使用同一次 fresh build 的独立 DLL 复制，避免 Coverlet 并发插桩同一文件。成功条件不是“两个命令均返回 0”，而是各 TRX 的逐方法用例计数与 discovery 完全一致、所有 outcome 均为 `Passed`。每个分片只生成 Coverlet JSON 与紧凑 identity sidecar；sidecar 绑定 run/source fingerprint、raw digest、module/source universe。只有 shard universe 完整且 binding 一致，才允许合并权威 Coverlet JSON，并从内存中的 merged result 一次性生成最终 Cobertura 和 Summary。`.tmp/dependency-cache/dotnet` 只保存 NuGet/.NET 工具依赖缓存，可跨 fresh 保留；编译输出统一写入 `.tmp/build/<run-id>`，新 fresh run 通过新根获得空状态，TRX、coverage、checkpoint 与 release evidence 仍逐轮重建，不能作为历史结果复用。布局、锁与 GC 契约见 [`testing/issue-1069-run-bound-production-builds.md`](testing/issue-1069-run-bound-production-builds.md)。
 
 同一 run 的物理 artifact 内容摘要由单一、source-bound 表生成，bundle member 与 logical tier 通过 artifact ID 引用复用；表最终副本和自身 content digest 一并进入 release evidence/checkpoint。缓存只用 inode/size/mtime/ctime 等判定是否需要重新读取，权威值始终是内容 SHA-256 或确定性目录树 fingerprint。详见 [`testing/issue-1070-production-artifact-digest-table.md`](testing/issue-1070-production-artifact-digest-table.md)。
 
@@ -418,6 +418,8 @@ mutation 使用仓库锁定的 Stryker.NET `4.14.2`。nightly `backend-mutation`
 authority 从 raw report 的 `testFiles[*].tests` 建立唯一 raw GUID 到真实 fully-qualified test name 的映射；每个 `coveredBy` / `killedBy` GUID 都必须解析，inventory 同时保留 raw GUID/FQN binding，`executedTestIds` 只使用真实 FQN 并据此核对 `test-case-filter`，配置字符串不能填补空缺执行事实。`Killed`、`Survived`、`Timeout` 的 `durationMs` 必须来自同一 verbose trace 中严格配对的 `Runner ... Testing` batch 与 terminal `Test run for` 时间戳，batch 内每个 raw mutant 共享该次实测时长并绑定 `traceBatchId`；`Ignored` / `NoCoverage` 使用 `durationMs: null` 与 `durationState: "not-executed"`，`CompileError` 使用 `durationMs: null` 与 `durationState: "not-reported-for-compile-error"`，不得伪造 `0`。authority 同时保留 raw report/trace digest、完整 trace batch inventory 与 batch digest。unknown status/operator、缺 source/location/replacement/test identity、重复 raw/canonical ID、缺失/重复/额外/乱序/未终止或反向时间戳 trace batch、executed mutant 的空 duration、NoCoverage 伪装为 executed、实际 source 超出 `mutate` scope，或 trace report path/filter/terminal score 与本轮 report/config 不一致都 fail closed。
 
 changed-critical authority 进一步绑定 source/worktree identity、catalog/selection/generated config、mutate file list、test filter、closure digest，以及每个 physical source-project run 的 raw report/trace、完整 inventory/terminal sets/test identities/trace batches/digests，并以同一规则聚合全局 inventory。旧 report 或 trace bytes、错误 source identity、catalog/config drift 或非空 closure 的零 executed mutants 均由 `tools/test/changed-critical-mutation-evidence.mjs` validator 拒绝；surviving mutants 继续显式保留供处置，不能被 line coverage 或测试数量替代。per-behavior producer `tools/test-matrix/produce-behavior-mutation-qualification.mjs` 执行本轮 clean source/worktree/build/test plan，消费本轮 #2185 bindings 与 #2186 behavior-test evidence（cross-run/main/latest 一律拒绝），按 behavior 记录每个 mutant 的 mutant ID、source owner/location、expected killed test IDs/kinds、actual raw result、killed/survived/error/timeout、attempt/provenance 与 content digest，并封存既有 #1751 `fsusblog.mutation-evidence-receipt.v1` schema 的 qualification receipt（不建立第二格式）。独立 verifier `tools/test-matrix/verify-behavior-mutation-qualification.mjs` 重新派生 selector、bindings、raw results、mutant coverage 与 qualification，任何 survived/error/timeout/missing/duplicate/multiple/0-result、selector/binding/source drift、tamper、global score pass、history reuse、mutant allowlist 或 manual override 都逐 behavior fail closed；missing tool/runtime/input 只输出 canonical producer command 并失败，绝不降级 manual approval 或 warning success。required tests 必须实际运行且 clean-first-attempt，skipped/blocked/diagnostic/recovered 测试不能 kill 资格。static governance `tools/governance/check-behavior-mutation-governance.mjs` 禁止 manualOnly required behavior、requiredFor none、global score pass、history reuse、mutant allowlist 与 manual override，并已接入 repository governance authority 与 static-governance lane。调用方必须提供 `FSUSBLOG_CHANGED_CRITICAL_PATHS_FILE`、`FSUSBLOG_TEST_SOURCE_COMMIT`、`FSUSBLOG_TEST_SOURCE_FINGERPRINT`、`FSUSBLOG_TEST_RUN_ID`、`FSUSBLOG_BEHAVIOR_OWNER_RECEIPT`、`FSUSBLOG_BEHAVIOR_TEST_BINDINGS`、`FSUSBLOG_TEST_PLAN` 与 `FSUSBLOG_BEHAVIOR_TEST_EVIDENCE`，并按 `FSUSBLOG_MUTATION_SCOPE=pr|release` 执行 `./tools/test/lanes/backend-mutation-changed-critical.sh`。`tests/tools/fixtures/changed-critical-mutation-smoke.json` 提供 authentication 与 canonical-rights 两个非 AEDS domain 的本地物理 smoke 输入。该过滤器不得扩展到依赖 `.tmp` release evidence 的无关治理测试，fresh 清理后的 mutation discovery 仍必须自足。critical 运行不能用 full 历史输出替代；solution mode 也禁止用 `project` 键错误地把 test-project 路径固定为被测项目。三者保持 `Debug` configuration，并由 mutation runner 导出专用 MSBuild 标记 `FSUSBLOG_MUTATION_BUILD=1`；由于该版本在 .NET 10 下无法回滚 ASP.NET OpenAPI XML source generator 的 checksum interceptor，`FsusBlog.Server.csproj` 仅在该标记存在时移除 generator analyzer，普通 Debug/Release 的 OpenAPI 行为及业务 mutate scope 不变。阈值由各 config 或 catalog 的 `thresholds.{high,low,break}` 声明，动态输出通过受支持的 `--output` CLI 参数指定；authority producer 额外启用 `--log-to-file --verbosity trace`，固定 critical tier 原子写入 `.tmp/mutation/backend-critical/authority.json`。配置不得重新加入旧版顶层 `threshold-*` 或 `output` 键，solution-context mutate path 不得带 `src/` 前缀；`backend-test-governance` 会 fail closed。
+
+OpenAPI analyzer 的 build-path identity 只从 Central Package Management 取值：`Directory.Packages.props` 必须唯一绑定 `Microsoft.AspNetCore.OpenApi` `10.0.9`，不得再用同 package ID 的 `Update`、`VersionOverride` 或 child metadata 建立第二 authority。`FsusBlog.Server.csproj` 的对应 `PackageReference` 必须是唯一 `Include`，不得声明 `Update`、`Version` 或 `VersionOverride`，且必须精确保留 attribute `GeneratePathProperty="true"`。缺失、错版、重复 central entry 或 project-local version authority 都由 `backend-test-governance` fail closed。
 
 `test-lifecycle` 为每个 Node test file/test ID 解析唯一 physical owner 与 execution category；projection 与 summary 不得执行 producer，unowned 或重复 owner 直接失败。`test-retention` 和 `suite-convergence` 共同校验 test/assertion/coverage universe、replacement chain 与 source identity；matrix validator 校验动态拓扑而不冻结 tier 数量。Browser test isolation 由 `check-browser-test-migration.mjs` 持续扫描，禁止 E2E 直接控制 SQL、Redis、Docker 或子进程。性能耗时只进入 scheduler/benchmark 的本轮证据，不再作为测试是否保留或是否 obsolete 的依据。
 
@@ -513,7 +515,7 @@ migration、legacy counts 与 postconditions 都进入同一 TRX runtime evidenc
 后，`planned -> executed -> passed` 才成立；任何缺失、identity drift、restore
 或 migration failure 都 fail closed。
 
-xUnit 通过 `tests/backend/xunit.runner.json` 固定 `stopOnFail=false`，单次运行会收集全部测试失败；filtered tier 先复用一次 `backend-filtered-build`，随后统一 `dotnet test --no-build`。每个 ordinary/special/filtered lane 都写入 `.tmp/test-results/backend/<lane>.trx`，retention audit 以稳定 `Class.Method` identity 汇总真实 p50、p95 与失败历史。所有使用 `PostgresSchemaMigrationFixture` 的测试类必须进入 `SchemaMigrationPostgresCollectionA/B` 之一；两个 collection 各自持有隔离 Postgres container，每个测试仍创建唯一数据库。`postgres-test-collections.json` 当前登记 80 个 fixture-backed class、553 个估算 case，checker 从源码重新发现 class 与 `Fact`/`Theory` case，拒绝漏 annotation、重复/遗漏 manifest 或 `estimatedFacts` 漂移。Production fresh 只由物理 `backend-tests` bundle 生成一套 run/source-bound Release server/test artifact，随后一次 discovery 和 exact-union 统一消费；`BackendTestGovernanceTests.Issue40Requirements_HaveEvidenceAndRiskTraceability` 保留原测试 ID、原断言与 coverage，并作为普通 union 成员执行，不再分裂独立 postlude testhost 或数据库 namespace。Rights、Integrity、Cross-stack、Privacy/ZK 只消费同轮 summary/receipt/digest projection，不得触发兼容性 Debug build。`backend-production-build-authority` 根据受版本控制的 consumer inventory fail closed 拒绝回归。production union 从物理 `backend-tests` bundle 的实时 CPU 与内存配额生成互斥且穷尽的 testhost topology：默认 testhost 上限为 `min(max(2, floor(sqrt(cpuBudget))), cpuBudget, floor(memoryGiB / 1GiB), 12)`，再结合 discovered class/affinity unit、cold application/class startup penalty、Docker/PostgreSQL dependency weight 形成 machine-readable workload model；低于 2 CPU 或 2 GiB 时 fail closed。testhost 数、每 host processor 数和 rolling partition 数是三个独立维度：每个 host 至少保留 1 GiB，CPU 按商和余数（或诊断 weighted mode）分配并精确耗尽当前 admitted grant，partition 默认是 testhost 的两倍并受不可拆 planning unit 数限制。外层 grant 扩张时只在最新 CPU/内存余量内新增 slot，收缩到 active allocation 以下会 fail closed。`FSUSBLOG_BACKEND_PRODUCTION_SHARDS`、`FSUSBLOG_BACKEND_PARTITION_MULTIPLIER`、`FSUSBLOG_BACKEND_PROCESSOR_ALLOCATION_MODE` / legacy exact `FSUSBLOG_BACKEND_SHARD_PROCESSORS` 只用于诊断，summary 会记录公式、模型输入、候选 score、初始/潜在 topology 和 override 来源，不得把任何机器的 host 数写成 production 常量。高系统 load 不会把 testhost 静默降为单线程，资源冲突与内存门禁由外层 scheduler 负责。
+xUnit 通过 `tests/backend/xunit.runner.json` 固定 `stopOnFail=false`，单次运行会收集全部测试失败；filtered tier 先复用一次 `backend-filtered-build`，随后统一 `dotnet test --no-build`。每个 ordinary/special/filtered lane 都写入 `.tmp/test-results/backend/<lane>.trx`，retention audit 以稳定 `Class.Method` identity 汇总真实 p50、p95 与失败历史。所有使用 `PostgresSchemaMigrationFixture` 的测试类必须进入 `SchemaMigrationPostgresCollectionA/B` 之一；两个 collection 各自持有隔离 Postgres container，每个测试仍创建唯一数据库。`postgres-test-collections.json` 当前登记 87 个 fixture-backed class、606 个估算 case，checker 从源码重新发现 class 与 `Fact`/`Theory` case，拒绝漏 annotation、重复/遗漏 manifest 或 `estimatedFacts` 漂移。ordinary backend lane 与 Production union 都排除 `Fixture=LocalRedis`；四个 Redis case 只由 canonical LocalRedis producer 在隔离 Redis container 下执行，缺少 `FSUSBLOG_TEST_REDIS` 时仍 fail closed。Production fresh 只由物理 `backend-tests` bundle 生成一套 run/source-bound Release server/test artifact，随后一次 discovery 和 exact-union 统一消费；`BackendTestGovernanceTests.Issue40Requirements_HaveEvidenceAndRiskTraceability` 保留原测试 ID、原断言与 coverage，并作为普通 union 成员执行，不再分裂独立 postlude testhost 或数据库 namespace。Rights、Integrity、Cross-stack、Privacy/ZK 只消费同轮 summary/receipt/digest projection，不得触发兼容性 Debug build。`backend-production-build-authority` 根据受版本控制的 consumer inventory fail closed 拒绝回归。production union 从物理 `backend-tests` bundle 的实时 CPU 与内存配额生成互斥且穷尽的 testhost topology：默认 testhost 上限为 `min(max(2, floor(sqrt(cpuBudget))), cpuBudget, floor(memoryGiB / 1GiB), 12)`，再结合 discovered class/affinity unit、cold application/class startup penalty、Docker/PostgreSQL dependency weight 形成 machine-readable workload model；低于 2 CPU 或 2 GiB 时 fail closed。testhost 数、每 host processor 数和 rolling partition 数是三个独立维度：每个 host 至少保留 1 GiB，CPU 按商和余数（或诊断 weighted mode）分配并精确耗尽当前 admitted grant，partition 默认是 testhost 的两倍并受不可拆 planning unit 数限制。外层 grant 扩张时只在最新 CPU/内存余量内新增 slot，收缩到 active allocation 以下会 fail closed。`FSUSBLOG_BACKEND_PRODUCTION_SHARDS`、`FSUSBLOG_BACKEND_PARTITION_MULTIPLIER`、`FSUSBLOG_BACKEND_PROCESSOR_ALLOCATION_MODE` / legacy exact `FSUSBLOG_BACKEND_SHARD_PROCESSORS` 只用于诊断，summary 会记录公式、模型输入、候选 score、初始/潜在 topology 和 override 来源，不得把任何机器的 host 数写成 production 常量。高系统 load 不会把 testhost 静默降为单线程，资源冲突与内存门禁由外层 scheduler 负责。
 
 backend xUnit 的平台成员资格由 `tools/test/backend-platform-selection.mjs` 唯一投影。测试使用稳定 `[Trait("Platform", "Unix")]` 声明 Unix-only；ordinary、CI 与 Production 从同一规则生成 filter：Windows plan 将该 test ID 记录为 `not-selected`，Linux/macOS plan 必须把它记录为 `planned` 并由 TRX 对账为 `passed` 或 `failed`。ordinary lane 分别写入 `.tmp/backend-unit/platform-membership-plan.json` 与 `platform-membership-outcome.json`，保存 VSTest test ID、FQN、display name、source assembly 与语义结果；Windows 记录不声明 assertion count。需要实际权限值的测试再声明 `[Trait("PlatformEvidence", "UnixMode")]`，并在同一 TRX result 中写入 typed runtime receipt；只有实际 fresh/effective `0700`、过宽 `0777` existing root 收敛、六个 group/other deny 与 owner create/read/delete 均成立时，`passed` outcome 才可签发。六条 upload request path 使用 `[Trait("PlatformEvidence", "UnixRequestPath")]`：plan 必须逐 case 保留 complete、abort、expired-status、expired-part-map、expired-part、expired-token 的唯一 identity，TRX receipt 必须逐条证明 expiration root 不可枚举、真实 public request 结果及 session/index postcondition；complete 还证明 manifest、owner、token digest、retry 与错误 owner/token 行为，其他 case 则证明 cleanup 完成。物理路径逃逸使用 `[Trait("PlatformEvidence", "UnixSymlinkBoundary")]`：receipt 绑定不泄露绝对路径的 root/link/target SHA-256 identity，要求真实 root 外链接被拒绝且 output 为空、同形 root 内链接正常解析、target identity 匹配并完成 link cleanup。带 platform trait 的测试不得通过 runtime `return`、skip 或 warning 伪装 Passed，runtime receipt 也不得脱离对应 evidence trait；`backend-test-governance` 使用正反 fixture 持续拒绝这些路径。Unix 文件权限设置不可用、mode 读取失败、权限未生效、目录仍可枚举、symlink identity/关系/清理不成立、六条成员缺失或 request postcondition 不成立时均由测试或 evidence reconciliation 失败。
 
@@ -1399,20 +1401,37 @@ closure）同样失败**。shard 遗漏、duplicate testId、多跑、result
 missing、failed/cancelled/timeout、binding drift 与 framework adapter
 mismatch 全部 fail closed。
 
-### evidenceStage 代理
+### evidenceStage 路由与 post-runtime receipt contract
 
-catalog 全仓不存在 `evidenceStage` 字段（`rg evidenceStage` 零命中），
-且 #2186 固定约束禁止修改 catalog/DocClaim 语义，因此 producer 以
-`status === 'active' && releaseQualification === true` 代理
-`evidenceStage=pre-runtime && releaseQualification=true`。当前 8 个
-active+releaseQualification contracts（test-asset-audit-reconciliation、
-code-intent-governance、document-lifecycle-governance、
-binary-api-aeds-contract、browserless-production-correctness、
-authentication-session-permission、configuration-error-security-policy、
-article-comment-lifecycle-outbox）全部是 static governance / contract /
-unit 级 pre-runtime 行为，没有 post-runtime（browser/load/soak/nightly）
-behavior 被误纳入。若未来 catalog 增加 post-runtime behavior，必须先行
-引入 evidenceStage 语义并收紧代理，不能在本 producer 内合成。
+BehaviorCatalog 的 active release behaviors 必须显式声明
+`evidenceStage=pre-runtime` 或 `post-runtime`。pre-runtime producer 只消费
+前一类；后一类由 `config/testing/post-runtime-producer-registry.json`
+从 catalog 自动枚举并建立 exact-one producer/schema/claim mapping，禁止用
+active/releaseQualification 的宽集合代理或在 consumer 中维护第二份 behavior
+清单。
+
+registry v2 对每个 observation class 固定 exact positive/negative/boundary/
+failure membership、producer `toolVersion`、source/build/candidate/runtime
+identity 与 canonical content digest。raw receipt 沿用
+`fsusblog.post-runtime-observation-result-envelope.v1` 包装各 class schema；
+只有 planned/executed clean correctness、`outcome=passed`、非 diagnostic、
+非 recovered 且 terminal timeout/cancel/process-tree 状态一致的 receipt 可进入
+qualification。failed、timed-out、cancelled 与 recovered receipt 可保留诊断，
+但不能满足 release behavior；v1 registry/receipt 不接受兼容降级。
+
+`fsusblog.post-runtime-accepted-claims.v1` 只承接 #2205 已接受 terminal
+authority。validator 通过显式 current-run path 重读
+`fsusblog.global-claim-exactness-terminal-receipt.v1`，重算 file SHA-256 与
+canonical content digest，并重放 terminal validator；source/worktree、
+migration-ledger digest、producer/tool version 与完整 claim set 必须 exact
+一致。validator 只读现有 terminal receipt，不运行或修复上游 evidence。
+
+Focused validation：
+
+```bash
+node tools/test-matrix/post-runtime-producer-registry.mjs
+node --test tests/tools/post-runtime-producer-registry.test.mjs
+```
 
 独立 verifier `tools/test-matrix/verify-behavior-test-evidence.mjs` 重读
 raw results、bindings、catalog、test plan receipt 与 receipt，重算

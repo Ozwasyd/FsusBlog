@@ -51,6 +51,204 @@
             "pathType": "file"
         },
         {
+            "id": "external-naming-exceptions-schema",
+            "owner": "repository-governance",
+            "canonicalPath": "config/schemas/external-naming-exceptions.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/governance/change-contract.mjs",
+                "tests/tools/change-contract.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/change-contract.test.mjs",
+            "changePolicy": "manual-update-with-negative-fixture-validation",
+            "status": "manual"
+        },
+        {
+            "id": "post-merge-generated-output-repair-schema",
+            "owner": "repository-governance",
+            "canonicalPath": "config/schemas/post-merge-generated-output-repair.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/governance/change-contract.mjs",
+                "tests/tools/change-contract.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/change-contract.test.mjs",
+            "changePolicy": "manual-update-with-history-and-replay-validation",
+            "status": "manual"
+        },
+        {
+            "id": "post-merge-external-naming-evidence-repair-schema",
+            "owner": "repository-governance",
+            "canonicalPath": "config/schemas/post-merge-external-naming-evidence-repair.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/governance/change-contract.mjs",
+                "tests/tools/change-contract.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/change-contract.test.mjs",
+            "changePolicy": "manual-update-with-exact-history-and-blob-validation",
+            "status": "manual"
+        },
+        {
+            "id": "document-claim-migration-ledger",
+            "owner": "documentation-claim-governance",
+            "canonicalPath": "config/contracts/document-claim-migration-ledger.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/docs/check-document-claim-migration-ledger.mjs",
+                "tools/docs/behavior-document-consistency-final.mjs",
+                "tests/tools/document-claim-migration-ledger.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/document-claim-migration-ledger.test.mjs",
+            "changePolicy": "manual-update-with-exactness-validation",
+            "status": "manual"
+        },
+        {
+            "id": "document-claim-migration-ledger-schema",
+            "owner": "documentation-claim-governance",
+            "canonicalPath": "config/schemas/document-claim-migration-ledger.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/docs/check-document-claim-migration-ledger.mjs",
+                "tests/tools/document-claim-migration-ledger.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/document-claim-migration-ledger.test.mjs",
+            "changePolicy": "manual-update-with-negative-fixture-validation",
+            "status": "manual"
+        },
+        {
+            "id": "destructive-operation-authority",
+            "owner": "release-deployment-governance",
+            "canonicalPath": "config/deployment/destructive-operation-authority.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/deployment/destructive-operation-authority.mjs",
+                "tools/deployment/check-destructive-operation-authority.mjs",
+                "tests/tools/destructive-operation-authority.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/destructive-operation-authority.test.mjs",
+            "changePolicy": "manual-update-with-fail-closed-runtime-validation",
+            "status": "manual"
+        },
+        {
+            "id": "behavior-document-consistency-final-report-schema",
+            "owner": "behavior-test-evidence-binding",
+            "canonicalPath": "config/schemas/behavior-document-consistency-final-report.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/docs/behavior-document-consistency-final.mjs",
+                "tests/tools/behavior-document-consistency-final.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/behavior-document-consistency-final.test.mjs",
+            "changePolicy": "manual-update-with-negative-fixture-validation",
+            "status": "manual"
+        },
+        {
+            "id": "behavior-evidence-post-runtime-receipt-schema",
+            "owner": "behavior-test-evidence-binding",
+            "canonicalPath": "config/schemas/behavior-evidence-post-runtime-receipt.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/test-matrix/behavior-evidence-post-runtime.mjs",
+                "tests/tools/behavior-evidence-post-runtime.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/behavior-evidence-post-runtime.test.mjs",
+            "changePolicy": "manual-update-with-negative-fixture-validation",
+            "status": "manual"
+        },
+        {
+            "id": "media-negative-corpus-plan-schema",
+            "owner": "media-fixture-governance",
+            "canonicalPath": "config/schemas/media-negative-corpus-plan.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/test-fixtures/media-negative-corpus.mjs",
+                "tests/tools/media-negative-corpus.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/media-negative-corpus.test.mjs",
+            "changePolicy": "manual-update-with-negative-fixture-validation",
+            "status": "manual"
+        },
+        {
+            "id": "media-shape-catalog-schema",
+            "owner": "media-fixture-governance",
+            "canonicalPath": "config/schemas/media-shape-catalog.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/test-fixtures/media-shape-catalog.mjs",
+                "tests/tools/media-shape-catalog.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/media-shape-catalog.test.mjs",
+            "changePolicy": "manual-update-with-negative-fixture-validation",
+            "status": "manual"
+        },
+        {
+            "id": "media-negative-corpus-plan",
+            "owner": "media-fixture-governance",
+            "canonicalPath": "config/testing/media-negative-corpus-plan.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/test-fixtures/media-negative-corpus.mjs",
+                "tests/tools/media-negative-corpus.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/media-negative-corpus.test.mjs",
+            "changePolicy": "manual-update-with-negative-fixture-validation",
+            "status": "manual"
+        },
+        {
+            "id": "media-shape-catalog",
+            "owner": "media-fixture-governance",
+            "canonicalPath": "config/testing/media-shape-catalog.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/test-fixtures/media-shape-catalog.mjs",
+                "tests/tools/media-shape-catalog.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/media-shape-catalog.test.mjs",
+            "changePolicy": "manual-update-with-negative-fixture-validation",
+            "status": "manual"
+        },
+        {
+            "id": "post-runtime-observation-result-schema",
+            "owner": "behavior-test-evidence-binding",
+            "canonicalPath": "config/schemas/post-runtime-observation-result.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/test-matrix/post-runtime-producer-registry.mjs",
+                "tests/tools/post-runtime-producer-registry.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/post-runtime-producer-registry.test.mjs",
+            "changePolicy": "manual-update-with-negative-fixture-validation",
+            "status": "manual"
+        },
+        {
+            "id": "post-runtime-accepted-claims-schema",
+            "owner": "behavior-test-evidence-binding",
+            "canonicalPath": "config/schemas/post-runtime-accepted-claims.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/test-matrix/post-runtime-producer-registry.mjs",
+                "tests/tools/post-runtime-producer-registry.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/post-runtime-producer-registry.test.mjs",
+            "changePolicy": "manual-update-with-negative-fixture-validation",
+            "status": "manual"
+        },
+        {
+            "id": "post-runtime-producer-registry",
+            "owner": "behavior-test-evidence-binding",
+            "canonicalPath": "config/testing/post-runtime-producer-registry.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/test-matrix/post-runtime-producer-registry.mjs",
+                "tools/test-matrix/behavior-evidence-post-runtime.mjs",
+                "tests/tools/post-runtime-producer-registry.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/post-runtime-producer-registry.test.mjs",
+            "changePolicy": "manual-update-with-exact-set-validation",
+            "status": "manual"
+        },
+        {
             "id": "behavior-graph-receipt-schema",
             "owner": "behavior-contract-governance",
             "canonicalPath": "config/schemas/behavior-graph-receipt.schema.json",

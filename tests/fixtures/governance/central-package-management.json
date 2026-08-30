@@ -1,0 +1,207 @@
+{
+    "schema": "fsusblog.central-package-management-fixtures.v1",
+    "cases": [
+        {
+            "id": "valid-central-authority",
+            "snapshot": {
+                "centralXml": "<Project><PropertyGroup><ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally></PropertyGroup><ItemGroup><PackageVersion Include=\"Example.Package\" Version=\"1.2.3\" /></ItemGroup></Project>",
+                "projects": [
+                    {
+                        "path": "src/example/Example.csproj",
+                        "xml": "<Project><ItemGroup><PackageReference Include=\"Example.Package\" /></ItemGroup></Project>",
+                        "lockPath": "src/example/packages.lock.json",
+                        "lock": {
+                            "version": 2,
+                            "dependencies": {
+                                "net10.0": {
+                                    "Example.Package": {
+                                        "type": "Direct",
+                                        "requested": "[1.2.3, )",
+                                        "resolved": "1.2.3"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                ]
+            },
+            "expectedCodes": []
+        },
+        {
+            "id": "reject-inline-project-version",
+            "snapshot": {
+                "centralXml": "<Project><PropertyGroup><ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally></PropertyGroup><ItemGroup><PackageVersion Include=\"Example.Package\" Version=\"1.2.3\" /></ItemGroup></Project>",
+                "projects": [
+                    {
+                        "path": "src/example/Example.csproj",
+                        "xml": "<Project><ItemGroup><PackageReference Include=\"Example.Package\" Version=\"1.2.3\" /></ItemGroup></Project>",
+                        "lockPath": "src/example/packages.lock.json",
+                        "lock": { "version": 2, "dependencies": {} }
+                    }
+                ]
+            },
+            "expectedCodes": ["project-package-version"]
+        },
+        {
+            "id": "reject-nested-project-version",
+            "snapshot": {
+                "centralXml": "<Project><PropertyGroup><ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally></PropertyGroup><ItemGroup><PackageVersion Include=\"Example.Package\" Version=\"1.2.3\" /></ItemGroup></Project>",
+                "projects": [
+                    {
+                        "path": "src/example/Example.csproj",
+                        "xml": "<Project><ItemGroup><PackageReference Include=\"Example.Package\"><Version>1.2.3</Version></PackageReference></ItemGroup></Project>",
+                        "lockPath": "src/example/packages.lock.json",
+                        "lock": { "version": 2, "dependencies": {} }
+                    }
+                ]
+            },
+            "expectedCodes": ["project-package-version"]
+        },
+        {
+            "id": "reject-version-override",
+            "snapshot": {
+                "centralXml": "<Project><PropertyGroup><ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally></PropertyGroup><ItemGroup><PackageVersion Include=\"Example.Package\" Version=\"1.2.3\" /></ItemGroup></Project>",
+                "projects": [
+                    {
+                        "path": "src/example/Example.csproj",
+                        "xml": "<Project><ItemGroup><PackageReference Include=\"Example.Package\" VersionOverride=\"1.2.3\" /></ItemGroup></Project>",
+                        "lockPath": "src/example/packages.lock.json",
+                        "lock": { "version": 2, "dependencies": {} }
+                    }
+                ]
+            },
+            "expectedCodes": ["project-version-override"]
+        },
+        {
+            "id": "reject-duplicate-central-package",
+            "snapshot": {
+                "centralXml": "<Project><PropertyGroup><ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally></PropertyGroup><ItemGroup><PackageVersion Include=\"Example.Package\" Version=\"1.2.3\" /><PackageVersion Include=\"example.package\" Version=\"1.2.3\" /></ItemGroup></Project>",
+                "projects": [
+                    {
+                        "path": "src/example/Example.csproj",
+                        "xml": "<Project><ItemGroup><PackageReference Include=\"Example.Package\" /></ItemGroup></Project>",
+                        "lockPath": "src/example/packages.lock.json",
+                        "lock": { "version": 2, "dependencies": {} }
+                    }
+                ]
+            },
+            "expectedCodes": ["central-package-duplicate"]
+        },
+        {
+            "id": "reject-floating-central-version",
+            "snapshot": {
+                "centralXml": "<Project><PropertyGroup><ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally></PropertyGroup><ItemGroup><PackageVersion Include=\"Example.Package\" Version=\"1.*\" /></ItemGroup></Project>",
+                "projects": [
+                    {
+                        "path": "src/example/Example.csproj",
+                        "xml": "<Project><ItemGroup><PackageReference Include=\"Example.Package\" /></ItemGroup></Project>",
+                        "lockPath": "src/example/packages.lock.json",
+                        "lock": { "version": 2, "dependencies": {} }
+                    }
+                ]
+            },
+            "expectedCodes": ["central-version-not-exact-stable"]
+        },
+        {
+            "id": "reject-prerelease-central-version",
+            "snapshot": {
+                "centralXml": "<Project><PropertyGroup><ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally></PropertyGroup><ItemGroup><PackageVersion Include=\"Example.Package\" Version=\"1.2.3-preview.1\" /></ItemGroup></Project>",
+                "projects": [
+                    {
+                        "path": "src/example/Example.csproj",
+                        "xml": "<Project><ItemGroup><PackageReference Include=\"Example.Package\" /></ItemGroup></Project>",
+                        "lockPath": "src/example/packages.lock.json",
+                        "lock": { "version": 2, "dependencies": {} }
+                    }
+                ]
+            },
+            "expectedCodes": ["central-version-not-exact-stable"]
+        },
+        {
+            "id": "reject-uncentralized-package",
+            "snapshot": {
+                "centralXml": "<Project><PropertyGroup><ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally></PropertyGroup></Project>",
+                "projects": [
+                    {
+                        "path": "src/example/Example.csproj",
+                        "xml": "<Project><ItemGroup><PackageReference Include=\"Example.Package\" /></ItemGroup></Project>",
+                        "lockPath": "src/example/packages.lock.json",
+                        "lock": { "version": 2, "dependencies": {} }
+                    }
+                ]
+            },
+            "expectedCodes": ["project-package-uncentralized"]
+        },
+        {
+            "id": "reject-unreferenced-central-package",
+            "snapshot": {
+                "centralXml": "<Project><PropertyGroup><ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally></PropertyGroup><ItemGroup><PackageVersion Include=\"Example.Package\" Version=\"1.2.3\" /></ItemGroup></Project>",
+                "projects": [
+                    {
+                        "path": "src/example/Example.csproj",
+                        "xml": "<Project />",
+                        "lockPath": "src/example/packages.lock.json",
+                        "lock": { "version": 2, "dependencies": {} }
+                    }
+                ]
+            },
+            "expectedCodes": ["central-package-unreferenced"]
+        },
+        {
+            "id": "reject-missing-project-lock",
+            "snapshot": {
+                "centralXml": "<Project><PropertyGroup><ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally></PropertyGroup><ItemGroup><PackageVersion Include=\"Example.Package\" Version=\"1.2.3\" /></ItemGroup></Project>",
+                "projects": [
+                    {
+                        "path": "src/example/Example.csproj",
+                        "xml": "<Project><ItemGroup><PackageReference Include=\"Example.Package\" /></ItemGroup></Project>",
+                        "lockPath": "src/example/packages.lock.json",
+                        "lock": null
+                    }
+                ]
+            },
+            "expectedCodes": ["project-lock-missing"]
+        },
+        {
+            "id": "reject-disabled-central-management",
+            "snapshot": {
+                "centralXml": "<Project><PropertyGroup><ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally></PropertyGroup><ItemGroup><PackageVersion Include=\"Example.Package\" Version=\"1.2.3\" /></ItemGroup></Project>",
+                "projects": [
+                    {
+                        "path": "src/example/Example.csproj",
+                        "xml": "<Project><ItemGroup><PackageReference Include=\"Example.Package\" /></ItemGroup></Project>",
+                        "lockPath": "src/example/packages.lock.json",
+                        "lock": { "version": 2, "dependencies": {} }
+                    }
+                ]
+            },
+            "expectedCodes": ["central-management-disabled"]
+        },
+        {
+            "id": "reject-direct-lock-version-drift",
+            "snapshot": {
+                "centralXml": "<Project><PropertyGroup><ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally></PropertyGroup><ItemGroup><PackageVersion Include=\"Example.Package\" Version=\"1.2.3\" /></ItemGroup></Project>",
+                "projects": [
+                    {
+                        "path": "src/example/Example.csproj",
+                        "xml": "<Project><ItemGroup><PackageReference Include=\"Example.Package\" /></ItemGroup></Project>",
+                        "lockPath": "src/example/packages.lock.json",
+                        "lock": {
+                            "version": 2,
+                            "dependencies": {
+                                "net10.0": {
+                                    "Example.Package": {
+                                        "type": "Direct",
+                                        "requested": "[1.2.3, )",
+                                        "resolved": "1.2.4"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                ]
+            },
+            "expectedCodes": ["lock-direct-version-drift"]
+        }
+    ]
+}

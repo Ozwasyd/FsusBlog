@@ -9,7 +9,10 @@ import {
     verifyPlatformRuntimeGovernance,
     verifyPublicAotCrashWorkerGovernance
 } from './backend-test-runtime-governance.mjs';
-import { factWrapperContracts } from './backend-test-governance-contracts.mjs';
+import {
+    factWrapperContracts,
+    verifyCentralOpenApiPackageContract
+} from './backend-test-governance-contracts.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const requirementCatalogPath = 'tests/backend/Fixtures/backend-test-requirements.json';
@@ -36,6 +39,7 @@ const matrixTierCommands = new Map(parseMatrix(matrix).tiers.map((tier) => [tier
 const testSh = readFileSync(resolve(root, 'tools/test.sh'), 'utf8');
 const legacyTest = readFileSync(resolve(root, 'tools/test/lanes/_suite-support.sh'), 'utf8');
 const serverProject = readFileSync(resolve(root, 'src/backend/FsusBlog.Server.csproj'), 'utf8');
+const centralPackages = readFileSync(resolve(root, 'Directory.Packages.props'), 'utf8');
 const dotnetToolManifestPath = '.config/dotnet-tools.json';
 const defaultStrykerConfigPath = 'config/testing/mutation/default.json';
 const criticalStrykerConfigRepoPath = 'config/testing/mutation/critical.json';
@@ -488,6 +492,7 @@ function scanLocalRedisFixtureGovernance(relativePath, source)
 
         if (
             (match[2] === 'ArtifactPoolBurnSurvivesCancellationProcessInterruptionAndAmbiguousReply' ||
+             match[2] === 'RedisLua_IsLinearizableBoundedBindingAwareAndFailClosed' ||
              relativePath.includes('local-redis-fixture-governance')) &&
             bodySource.includes('FSUSBLOG_TEST_REDIS') &&
             /\breturn\s*;/u.test(body)
@@ -768,7 +773,7 @@ for (const profile of requirementCatalog.profiles || [])
 
     for (const path of profile.evidencePaths || [])
     {
-        requireFile(path);
+        requireEvidencePath(path);
     }
 }
 
@@ -939,7 +944,6 @@ if (!legacyTest.includes('"$ROOT_DIR/src/core"'))
     fail('critical mutation runner must execute from the Core source-project directory');
 }
 for (const contract of [
-    'PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" GeneratePathProperty="true"',
     'Target Name="DisableCompileTimeOpenApiXmlGeneratorForMutation"',
     "Condition=\"'$(FSUSBLOG_MUTATION_BUILD)' == '1'\"",
     'Analyzer Remove="$(PkgMicrosoft_AspNetCore_OpenApi)/analyzers/dotnet/cs/Microsoft.AspNetCore.OpenApi.SourceGenerators.dll"'
@@ -949,6 +953,10 @@ for (const contract of [
     {
         fail(`Stryker build must disable only the incompatible OpenAPI XML source generator: missing ${contract}`);
     }
+}
+for (const error of verifyCentralOpenApiPackageContract(centralPackages, serverProject))
+{
+    fail(`Stryker OpenAPI build contract is invalid: ${error}`);
 }
 
 for (const path of [

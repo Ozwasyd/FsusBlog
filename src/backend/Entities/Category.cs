@@ -18,6 +18,12 @@ public class Category
     [SugarColumn(Length = 128)]
     public string Name { get; set; } = string.Empty;
 
+    [SugarColumn(Length = 500, IsNullable = true)]
+    public string? Description
+    {
+        get; set;
+    }
+
     // 数据库表中没有 "Articles" 这一列
     [SugarColumn(IsIgnore = true)]
     public List<Article> Articles { get; set; } = null!;
@@ -38,6 +44,12 @@ public class Tag
 
     [SugarColumn(Length = 128)]
     public string Name { get; set; } = string.Empty;
+
+    [SugarColumn(Length = 500, IsNullable = true)]
+    public string? Description
+    {
+        get; set;
+    }
 
     //如上
     [SugarColumn(IsIgnore = true)]

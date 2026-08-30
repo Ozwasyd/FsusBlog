@@ -760,6 +760,93 @@ test('tests/docs/generated artifacts cannot forge execution evidence without pro
     }
 });
 
+test('xUnit theory binding requires every reported case to pass', () =>
+{
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-behavior-theory-'));
+    try
+    {
+        const parsed = parseBehaviorBindingsFromSource({
+            source: `public sealed class DeploymentTheoryTests
+{
+    [CoversBehavior("deployment-blue-green-runtime-role", BehaviorTestKind.Negative, InvariantId = "deployment-mode-failure-continuation")]
+    [Theory]
+    public Task ContinuesAfterFailure(string mode) => Task.CompletedTask;
+}
+`,
+            relativePath: 'tests/backend/Unit/DeploymentTheoryTests.cs',
+            catalogDigest: 'd'.repeat(64)
+        });
+        assert.deepEqual(parsed.errors, []);
+        const bindingsScan = { bindings: parsed.bindings, errors: [] };
+        const catalog = {
+            contracts: [{
+                id: 'deployment-blue-green-runtime-role',
+                status: 'active',
+                requiredTestKinds: ['negative']
+            }]
+        };
+        const artifactFor = (name, secondOutcome) =>
+        {
+            const reportFile = path.join(directory, `${name}.trx`);
+            writeFileSync(reportFile, `<TestRun><TestDefinitions>
+<UnitTest id="case-a"><TestMethod className="FsusBlog.Tests.DeploymentTheoryTests" name="ContinuesAfterFailure" /></UnitTest>
+<UnitTest id="case-b"><TestMethod className="FsusBlog.Tests.DeploymentTheoryTests" name="ContinuesAfterFailure" /></UnitTest>
+</TestDefinitions><Results>
+<UnitTestResult testId="case-a" testName="FsusBlog.Tests.DeploymentTheoryTests.ContinuesAfterFailure(mode: &quot;normal&quot;)" outcome="Passed" duration="00:00:00.001" />
+<UnitTestResult testId="case-b" testName="FsusBlog.Tests.DeploymentTheoryTests.ContinuesAfterFailure(mode: &quot;rollback&quot;)" outcome="${secondOutcome}" duration="00:00:00.001">${secondOutcome === 'Passed' ? '' : '<Output><ErrorInfo><Message>fixture failure</Message></ErrorInfo></Output>'}</UnitTestResult>
+</Results></TestRun>`);
+            const artifact = createObservationArtifact({
+                framework: 'xunit-trx',
+                reportFile,
+                evidenceReference: path.basename(reportFile),
+                suite: 'DeploymentTheoryTests',
+                partition: 'fixture',
+                metadata: {
+                    sourceState: {
+                        commit: 'a'.repeat(40),
+                        worktreeFingerprint: `sha256:${'b'.repeat(64)}`
+                    },
+                    sourceClosureDigest: `sha256:${'c'.repeat(64)}`,
+                    runner: { os: 'linux', arch: 'x64', runtime: 'dotnet-test', browser: null, project: null },
+                    run: { id: 'theory-run', attemptKind: 'primary', evidenceClass: 'correctness' }
+                },
+                observedAt: '2026-08-29T00:00:00.000Z'
+            });
+            const artifactFile = path.join(directory, `${name}.json`);
+            writeFileSync(artifactFile, `${JSON.stringify(artifact, null, 2)}\n`);
+            return artifactFile;
+        };
+
+        const passing = joinBehaviorTestEvidence({
+            repositoryRoot: directory,
+            catalog,
+            bindingsScan,
+            observations: [artifactFor('passing', 'Passed')],
+            evidenceRoot: directory
+        });
+        assert.deepEqual(passing.errors, []);
+        assert.equal(passing.evidence[0].executed, true);
+        assert.equal(passing.evidence[0].outcome, 'passed');
+        assert.notEqual(passing.evidence[0].rawResultDigest, `sha256:${'0'.repeat(64)}`);
+        assert.doesNotThrow(() => validateExactBehaviorCoverage(passing));
+
+        const failing = joinBehaviorTestEvidence({
+            repositoryRoot: directory,
+            catalog,
+            bindingsScan,
+            observations: [artifactFor('failing', 'Failed')],
+            evidenceRoot: directory
+        });
+        assert.equal(failing.evidence[0].executed, true);
+        assert.equal(failing.evidence[0].outcome, 'failed');
+        assert.throws(() => validateExactBehaviorCoverage(failing));
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
 test('real concurrency harness executes workers concurrently and is required for concurrency kind', async () =>
 {
     const order = [];

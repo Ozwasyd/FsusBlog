@@ -48,7 +48,9 @@ const policy = {
 
 function fixture()
 {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-browser-identity-'));
+    const root = fs.realpathSync(
+        fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-browser-identity-'))
+    );
     const frontendRoot = path.join(root, 'src/frontend');
     const executablePath = path.join(root, 'managed/chromium-1217/chrome');
     const packageFile = path.join(frontendRoot, 'node_modules/@playwright/test/package.json');

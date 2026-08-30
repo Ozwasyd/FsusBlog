@@ -3,7 +3,7 @@
     "generatedBy": "tools/test/generate-correctness-attempt-producers.mjs",
     "sourceDigests": {
         "config/testing/release-reliability-scenario-catalog.json": "sha256:b61558320c2c55f860dc4606b4680ca41085179b1b219053869d0296c301b354",
-        "tests/matrix.yml": "sha256:6523ed28d85ff82b59bb6272006d25809d6cc816b9dab603860333e5d73e19da",
+        "tests/matrix.yml": "sha256:7aeeaa63ffc589ce9d965d939e153095ce3f081bb0e21129f22b7094ef5a102f",
         "tools/test-matrix/production-fresh-run-bound-outputs.mjs": "sha256:68c78054efb4a77b9e368fb079a9bb749b8edff24bc6d8375f7970555292c638",
         "config/testing/replay-qualification-producers.json": "sha256:5610b07e0acb3862fff2d4a4d294993f8e3e181398a80b14c4589f43d4855398",
         "config/testing/test-execution-envelope-applicability.json": "sha256:ba9e3aeb14e9ceda3fa966a9efef8ae807e26246f939646bf2ad9f4738f39468",
@@ -6287,5 +6287,5 @@
             }
         }
     ],
-    "contentDigest": "sha256:12f02dc3fed3422ac1140110751e11fdf8fe4d074a63db99cc935e4970392d81"
+    "contentDigest": "sha256:d1f18514cbe471354e8272389c060566d549143b1bf0a6a27e433ecef23e58b5"
 }

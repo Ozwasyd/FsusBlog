@@ -879,8 +879,8 @@
             ]
         },
         {
-            "id": "backend-property-protocol-cache-upload",
-            "description": "Backend Property Protocol Cache Upload is covered by unit/property tests that exercise the named behavior.",
+            "id": "backend-property-protocol-cache",
+            "description": "Backend protocol and cache properties are covered by unit/property tests that exercise the named behavior.",
             "owner": "ServerContractAgent",
             "risk": "high",
             "evidencePaths": [
@@ -891,6 +891,21 @@
             "minimumRequirement": "The referenced unit or property test evidence must execute assertions for this behavior, not merely prove that a source file exists.",
             "tierIds": [
                 "backend-property"
+            ]
+        },
+        {
+            "id": "backend-upload-range-completion",
+            "description": "Real FileService upload sessions expose exact uploaded-part ranges and lowest-gap hints, preserve them across retries and restart, reject incomplete completion without terminal side effects, and finalize a complete upload exactly once.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "tests/backend/Unit/FileServiceTests.cs"
+            ],
+            "assertionType": "unit",
+            "failClosedRule": "Reject unsorted, overlapping or duplicate ranges, a next-part hint other than the lowest missing part, incomplete finalization side effects, lost checkpoint state or duplicate completed results.",
+            "minimumRequirement": "The backend unit lane must drive FileService session initialization, real part uploads, part-map and status reads, incomplete completion, restart recovery and successful completion through public service methods.",
+            "tierIds": [
+                "backend-unit"
             ]
         },
         {
@@ -1007,7 +1022,8 @@
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
-                "tests/backend/Fixtures/backend-test-requirements.json"
+                "tests/backend/Fixtures/backend-test-requirements.json",
+                "tests/tools/backend-test-governance-cpm.test.mjs"
             ],
             "assertionType": "static",
             "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
@@ -1499,6 +1515,21 @@
             "tierIds": [
                 "frontend-unit-shard",
                 "coverage-frontend"
+            ]
+        },
+        {
+            "id": "frontend-image-upload-runtime",
+            "description": "The real image upload composable and options panel prove ordered compression, hashing, session recovery, missing-part upload, completion, abort cleanup and late-response isolation through API and storage postconditions.",
+            "owner": "InteropGlueAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+            ],
+            "assertionType": "unit",
+            "failClosedRule": "Reject completion before every required part acknowledgement, stale session or token reuse, incomplete abort cleanup, or a late response that revives an abandoned attempt.",
+            "minimumRequirement": "Executable composable tests must cover fresh success, retry exhaustion, missing-part resume, stale or tampered recovery, abort success, failure and no-active behavior, late acknowledgement isolation, and mounted panel action wiring.",
+            "tierIds": [
+                "frontend-unit-shard"
             ]
         },
         {
@@ -2001,8 +2032,12 @@
                 "security/matrices/privacy-zk-comment.yml",
                 "tools/security/check-security-matrices.mjs",
                 "tools/test/lanes/privacy-zk-comment-matrix.sh",
+                "tests/backend/Unit/AnonymousCommentTicketEndpointFilterTests.cs",
+                "tests/backend/Unit/AnonymousCommentTicketRedisConcurrencyTests.cs",
+                "tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs",
                 "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
                 "tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs",
+                "tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs",
                 "tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts",
                 "tests/frontend/unit/privacy/commentPrivacyWorkerClient.test.ts",
                 "tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts",
@@ -3399,6 +3434,28 @@
                 "resilience",
                 "static-governance",
                 "production"
+            ]
+        },
+        {
+            "id": "current-schema-canonical-authority",
+            "description": "One recomputable provider-neutral current schema model drives runtime reflection, generated projection and migration-target adapters with sealed source/content identity and dialect-specific physical projections.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "src/backend/Infrastructure/SchemaMigration/CurrentSchemaCanonicalModel.cs",
+                "src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs",
+                "tests/backend/Unit/SchemaModelInspectorTests.cs",
+                "tools/db/check-current-schema-authority.mjs",
+                "tests/tools/current-schema-authority.test.mjs",
+                "docs/database-migration.md",
+                "docs/online-database-migration.md"
+            ],
+            "assertionType": "contract",
+            "failClosedRule": "Reject inherited or attributed mapping loss, ignored-member admission, unknown types or converters, duplicate owners, semantic/default/constraint/index drift, provider-dialect confusion, stale projection identity, benchmark identity mismatch, tampering, migration-catalog authority, fixture reconstruction, hand-written inventory or a second generator.",
+            "minimumRequirement": "Focused unit and static mutation tests independently recompute runtime, generated and migration-target projections from one sealed canonical input, compare PostgreSQL/MySQL/SQLite physical spellings without changing semantic identity, and enter readiness warmup plus sampling only after exact equivalence.",
+            "tierIds": [
+                "backend-unit",
+                "static-governance"
             ]
         },
         {
@@ -4813,7 +4870,7 @@
         },
         {
             "id": "perception-character-v3-breaking-release",
-            "description": "Breaking PerceptionCharacterV3 release is independently verified against deterministic visual/audio corpus budgets, one-time encrypted pool issuance, retired-format rejection, real Redis cutover idempotency and pool-path resource ratios.",
+            "description": "Breaking PerceptionCharacterV3 release is independently verified against deterministic visual/audio corpus budgets, one-time encrypted pool issuance, retired-format rejection, real Redis cutover idempotency, pool-path resource ratios and exact-per-test LocalRedis device/state linearizability cases.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
@@ -4823,11 +4880,12 @@
                 ".tmp/security/perception-character-v3/release-gate/perception-character-v3-migration-receipt.json",
                 ".tmp/security/perception-character-v3/release-gate/implementation-verification-receipt.json",
                 ".tmp/security/perception-character-v3/release-gate/independent-review-receipt.json",
-                ".tmp/test-results/backend/perception-character-v3-redis-producer.json"
+                ".tmp/test-results/backend/perception-character-v3-redis-producer.json",
+                "tests/backend/Unit/PerceptionCharacterV3Tests.cs"
             ],
             "assertionType": "integration",
-            "failClosedRule": "Reject undersized, duplicate, biased, over-budget or baseline-readable corpus; stored-DEFLATE visual output; old formats; corrupt or wrong-key pools; repeat leases; non-idempotent cutover; insufficient CPU/allocation ratios; pre-admission allocation or leases; sensitive evidence; receipt digest drift; and any high or critical independent finding.",
-            "minimumRequirement": "One clean-checkout physical gate must generate at least 10000 visual and 2000 audio artifacts, execute the pool benchmark and real Redis cutover twice, bind exact commands and evidence hashes to one full commit and release target, and emit convergent implementation and independent-review receipts without duplicating corpus or benchmark work.",
+            "failClosedRule": "Reject undersized, duplicate, biased, over-budget or baseline-readable corpus; stored-DEFLATE visual output; old formats; corrupt or wrong-key pools; repeat leases; non-idempotent cutover; missing, duplicate, partial, failed or cross-run LocalRedis test/case evidence; absent Lua execution or prefix cleanup; insufficient CPU/allocation ratios; pre-admission allocation or leases; sensitive evidence; receipt digest drift; and any high or critical independent finding.",
+            "minimumRequirement": "One clean-checkout physical gate must generate at least 10000 visual and 2000 audio artifacts, execute the pool benchmark and real Redis cutover twice, execute each planned canonical LocalRedis test exactly once with the complete source-bound case inventory and verified isolated-prefix cleanup, bind exact commands and evidence hashes to one full commit and release target, and emit convergent implementation and independent-review receipts without duplicating corpus, benchmark or Redis fixture work.",
             "tierIds": [
                 "perception-character-v3-release-gate"
             ]

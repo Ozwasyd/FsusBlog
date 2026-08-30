@@ -52,6 +52,92 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
     private const string Legacy20260517DumpTestsEnv = "FSUS_ENABLE_LEGACY_DUMP_TESTS";
 
     [Fact]
+    public async Task RunAsync_AddsOptionalTaxonomyDescriptionsAndPreservesTaxonomyContracts()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await RunMigrationsAsync(connectionString);
+
+        Assert.Equal(
+            "YES|character varying|500",
+            await ReadColumnDefinitionAsync(connectionString, "category", "description"));
+        Assert.Equal(
+            "YES|character varying|500",
+            await ReadColumnDefinitionAsync(connectionString, "tag", "description"));
+
+        int categoryId = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "INSERT INTO category(name) VALUES ('taxonomy-description-category') RETURNING id;");
+        int tagId = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "INSERT INTO tag(name) VALUES ('taxonomy-description-tag') RETURNING id;");
+        string invariantSignature = await ReadTaxonomyInvariantSignatureAsync(connectionString);
+        Assert.Contains("CREATE UNIQUE INDEX uq_category_name", invariantSignature, StringComparison.Ordinal);
+        Assert.Contains("CREATE UNIQUE INDEX uq_tag_name", invariantSignature, StringComparison.Ordinal);
+        Assert.DoesNotContain("(description", invariantSignature, StringComparison.OrdinalIgnoreCase);
+
+        using (SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString))
+        {
+            Assert.Null((await db.Queryable<Category>().SingleAsync(item => item.Id == categoryId)).Description);
+            Assert.Null((await db.Queryable<Tag>().SingleAsync(item => item.Id == tagId)).Description);
+        }
+
+        await fixture.ExecuteAsync(connectionString, $"""
+            DELETE FROM {SchemaMigrationRunner.HistoryTableName}
+            WHERE migration_id = '{TaxonomyDescriptionMigrationDefinitions.MigrationId}';
+            ALTER TABLE category DROP COLUMN description;
+            ALTER TABLE tag DROP COLUMN description;
+            """);
+
+        await RunMigrationsAsync(connectionString);
+
+        Assert.Equal(
+            "YES|character varying|500",
+            await ReadColumnDefinitionAsync(connectionString, "category", "description"));
+        Assert.Equal(
+            "YES|character varying|500",
+            await ReadColumnDefinitionAsync(connectionString, "tag", "description"));
+        Assert.Equal(invariantSignature, await ReadTaxonomyInvariantSignatureAsync(connectionString));
+
+        string description = "<b>plain</b> " + new string('界', 487);
+        Assert.Equal(500, description.Length);
+        using (SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString))
+        {
+            Category category = await db.Queryable<Category>().SingleAsync(item => item.Id == categoryId);
+            Tag tag = await db.Queryable<Tag>().SingleAsync(item => item.Id == tagId);
+            Assert.Null(category.Description);
+            Assert.Null(tag.Description);
+
+            category.Description = description;
+            tag.Description = description;
+            Assert.Equal(1, await db.Updateable(category)
+                .UpdateColumns(static item => new { item.Description })
+                .ExecuteCommandAsync());
+            Assert.Equal(1, await db.Updateable(tag)
+                .UpdateColumns(static item => new { item.Description })
+                .ExecuteCommandAsync());
+
+            Assert.Equal(
+                description,
+                (await db.Queryable<Category>().SingleAsync(item => item.Id == categoryId)).Description);
+            Assert.Equal(
+                description,
+                (await db.Queryable<Tag>().SingleAsync(item => item.Id == tagId)).Description);
+
+            category.Description = new string('界', 501);
+            await Assert.ThrowsAnyAsync<Exception>(() => db.Updateable(category)
+                .UpdateColumns(static item => new { item.Description })
+                .ExecuteCommandAsync());
+
+            Assert.Equal(1, await db.Deleteable<Category>().Where(item => item.Id == categoryId).ExecuteCommandAsync());
+            Assert.Equal(1, await db.Deleteable<Tag>().Where(item => item.Id == tagId).ExecuteCommandAsync());
+            Assert.Equal(0, await db.Queryable<Category>().CountAsync(item => item.Id == categoryId));
+            Assert.Equal(0, await db.Queryable<Tag>().CountAsync(item => item.Id == tagId));
+        }
+    }
+
+    [Fact]
     public async Task RunAsync_UpgradesVarcharContentAssetPrototypeAndBackfillsEverySource()
     {
         string databaseName = await fixture.CreateDatabaseAsync();
@@ -2900,6 +2986,43 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             WHERE table_schema = 'public'
               AND table_name = '{tableName}'
               AND column_name = '{columnName}';
+            """);
+
+    private async Task<string> ReadColumnDefinitionAsync(
+        string connectionString,
+        string tableName,
+        string columnName)
+        => await fixture.QueryScalarAsync<string>(
+            connectionString,
+            $"""
+            SELECT is_nullable || '|' || data_type || '|' || character_maximum_length::text
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = '{tableName}'
+              AND column_name = '{columnName}';
+            """);
+
+    private async Task<string> ReadTaxonomyInvariantSignatureAsync(string connectionString)
+        => await fixture.QueryScalarAsync<string>(
+            connectionString,
+            """
+            WITH objects AS (
+                SELECT 'index|' || tablename || '|' || indexname || '|' || indexdef AS value
+                FROM pg_indexes
+                WHERE schemaname = 'public' AND tablename IN ('category', 'tag')
+
+                UNION ALL
+
+                SELECT 'column|' || table_name || '|' || ordinal_position::text || '|'
+                    || column_name || '|' || data_type || '|' || is_nullable AS value
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name IN (
+                      'category_public_article_count',
+                      'tag_public_article_count',
+                      'article_public_taxonomy_projection')
+            )
+            SELECT string_agg(value, E'\n' ORDER BY value) FROM objects;
             """);
 
     private async Task<bool> TriggerExistsAsync(string connectionString, string tableName, string triggerName)
