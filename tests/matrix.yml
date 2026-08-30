@@ -7187,7 +7187,7 @@ tiers:
               tests/backend/Unit/AnonymousCommentTicketEndpointFilterTests.cs,
               tests/backend/Unit/AnonymousCommentTicketRedisConcurrencyTests.cs,
               tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs,
-              tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs,
+              tests/backend/Unit/CommentMutationOutboxAnonymousPostgresTests.cs,
               tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs,
               tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs,
               tests/backend/Unit/ActorResolverBehaviorTests.cs,

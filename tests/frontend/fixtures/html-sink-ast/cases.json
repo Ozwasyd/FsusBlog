@@ -30,6 +30,12 @@
     "expected": { "sink": "dom-innerHTML-write", "line": 1, "column": 1 }
   },
   {
+    "id": "concatenated-inner-html",
+    "filePath": "fixture.ts",
+    "source": "node['inner' + 'HTML'] = unsafe\n",
+    "expected": { "sink": "dom-innerHTML-write", "line": 1, "column": 1 }
+  },
+  {
     "id": "outer-html",
     "filePath": "fixture.ts",
     "source": "node.outerHTML = unsafe\n",
@@ -60,6 +66,18 @@
     "expected": { "sink": "dom-document-write", "line": 1, "column": 1 }
   },
   {
+    "id": "document-writeln",
+    "filePath": "fixture.ts",
+    "source": "document.writeln(unsafe)\n",
+    "expected": { "sink": "dom-document-write", "line": 1, "column": 1 }
+  },
+  {
+    "id": "destructured-document-write",
+    "filePath": "fixture.ts",
+    "source": "const { write } = document\nwrite(unsafe)\n",
+    "expected": { "sink": "dom-document-write", "line": 2, "column": 1 }
+  },
+  {
     "id": "contextual-fragment",
     "filePath": "fixture.ts",
     "source": "range.createContextualFragment(unsafe)\n",
@@ -88,6 +106,12 @@
     "filePath": "fixture.ts",
     "source": "const { insertAdjacentHTML: commit } = node\ncommit('beforeend', unsafe)\n",
     "expected": { "sink": "dom-insertAdjacentHTML", "line": 2, "column": 1 }
+  },
+  {
+    "id": "typescript-parse-error",
+    "filePath": "fixture.ts",
+    "source": "const x = {\n",
+    "expected": { "sink": "typescript-parse-error", "line": 2, "column": 1 }
   },
   {
     "id": "safe-vue-interpolation",
