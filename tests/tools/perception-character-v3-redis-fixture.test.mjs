@@ -71,10 +71,16 @@ test('canonical LocalRedis producer registers all four Perception V3 tests under
 test('ordinary backend test filter excludes Fixture=LocalRedis to prevent false-green unit runs', () =>
 {
     const suiteSupport = fs.readFileSync(path.join(root, 'tools/test/lanes/_suite-support.sh'), 'utf8');
+    const productionRunner = fs.readFileSync(path.join(root, 'tools/test/run-backend-production-shards.mjs'), 'utf8');
     assert.match(
         suiteSupport,
         /BACKEND_ORDINARY_TEST_FILTER="[^"]*Fixture!=LocalRedis[^"]*"/u,
         'suite support must exclude Fixture=LocalRedis from ordinary backend test filter'
+    );
+    assert.match(
+        productionRunner,
+        /productionBaseFilter = '[^']*Fixture!=LocalRedis[^']*'/u,
+        'production union must exclude Fixture=LocalRedis for the canonical Redis producer'
     );
 });
 
