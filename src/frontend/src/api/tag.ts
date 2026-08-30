@@ -1,7 +1,11 @@
 import { FrameType } from '@wasm/protocol/frame'
 import { requestBinaryOnly } from '@/composition/binaryTransport'
 import type { TagItem } from '@/contracts/binaryApi'
-import { encodeAedsFrame, encodeNameMutationRequest } from './binaryFrame'
+import {
+  encodeAedsFrame,
+  encodeTaxonomyMetadataMutationRequest,
+  type TaxonomyMetadataMutationRequest
+} from './binaryFrame'
 
 export type { TagItem } from '@/contracts/binaryApi'
 
@@ -29,7 +33,7 @@ export const getTags = (config?: { signal?: AbortSignal }) =>
  * 创建标签
  * 创建请求必须携带 PoW 证明。
  */
-export const createTag = (name: string, config?: RequestInit) =>
+export const createTag = (request: string | TaxonomyMetadataMutationRequest, config?: RequestInit) =>
   requestBinaryOnly<{ id: number }>({
     binaryRoute: { operationId: 'binary_post_tag' },
     frameType: FrameType.MutationId,
@@ -38,7 +42,7 @@ export const createTag = (name: string, config?: RequestInit) =>
       ...config,
       method: 'POST',
       requiresPow: true,
-      body: encodeAedsFrame(FrameType.TagWriteRequest, encodeNameMutationRequest(name))
+      body: encodeAedsFrame(FrameType.TagWriteRequest, encodeTaxonomyMetadataMutationRequest(toMetadataRequest(request)))
     }
   })
 
@@ -46,7 +50,7 @@ export const createTag = (name: string, config?: RequestInit) =>
  * 更新标签
  * 安全性保障：强制算力挑战，确保操作出自真实的管理员交互
  */
-export const updateTag = (id: number, name: string, config?: RequestInit) =>
+export const updateTag = (id: number, request: string | TaxonomyMetadataMutationRequest, config?: RequestInit) =>
   requestBinaryOnly<null>({
     binaryRoute: { operationId: 'binary_put_tag_id_int', params: { id } },
     frameType: FrameType.EmptySuccess,
@@ -55,7 +59,7 @@ export const updateTag = (id: number, name: string, config?: RequestInit) =>
       ...config,
       method: 'PUT',
       requiresPow: true,
-      body: encodeAedsFrame(FrameType.TagWriteRequest, encodeNameMutationRequest(name))
+      body: encodeAedsFrame(FrameType.TagWriteRequest, encodeTaxonomyMetadataMutationRequest(toMetadataRequest(request)))
     }
   })
 
@@ -74,3 +78,7 @@ export const deleteTag = (id: number, config?: RequestInit) =>
       requiresPow: true
     }
   })
+
+function toMetadataRequest(request: string | TaxonomyMetadataMutationRequest): TaxonomyMetadataMutationRequest {
+  return typeof request === 'string' ? { name: request, description: null } : request
+}

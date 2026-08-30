@@ -269,6 +269,8 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 30 | `PowChallenge` | `PowChallengePod` | `GET /api/binary/auth/pow-challenge` |
 | 31 | `UploadInitRequest` | `UploadInitRequestPod` | `POST /api/binary/upload/init` 请求体 |
 | 32 | `UploadCompleteRequest` | `UploadCompleteRequestPod` | `POST /api/binary/upload/{id}/complete` 请求体 |
+| 33 | `CategoryWriteRequest` | current `TaxonomyMetadataMutationRequestPod` + description blob；legacy 128-byte `NameMutationRequestPod` accepted during migration | `POST /api/binary/category`、`PUT /api/binary/category/{id:int}` 请求体 |
+| 34 | `TagWriteRequest` | current `TaxonomyMetadataMutationRequestPod` + description blob；legacy 128-byte `NameMutationRequestPod` accepted during migration | `POST /api/binary/tag`、`PUT /api/binary/tag/{id:int}` 请求体 |
 | 35 | `SeoConfigUpdateRequest` | `SeoConfigPod` | `PUT /api/binary/system/seo` 请求体 |
 | 36 | `PageContentUpdateRequest` | `PageContentPod` | `PUT /api/binary/system/page` 请求体 |
 | 63 | `PasskeyRegisterBegin` | `PasskeyRegisterBeginPod` | 普通注册与首枚 enrollment/admin bootstrap begin 复用；POD 字段使用 `accountHandle`/`accountName`/`accountDisplayName` |
