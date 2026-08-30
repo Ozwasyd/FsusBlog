@@ -1,64 +1,206 @@
 {
-    "schema": "fsusblog.post-runtime-producer-registry.v1",
+    "schema": "fsusblog.post-runtime-producer-registry.v2",
     "digestAlgorithm": "sha256",
     "canonicalSerialization": "json-utf8-v1",
+    "receiptSemantics": {
+        "observationEnvelopeSchema": "fsusblog.post-runtime-observation-result-envelope.v1",
+        "acceptedClaimsSchema": "fsusblog.post-runtime-accepted-claims.v1",
+        "acceptedClaimsToolVersion": "post-runtime-accepted-claims@1",
+        "acceptedTerminalSchema": "fsusblog.global-claim-exactness-terminal-receipt.v1",
+        "requiredModes": [
+            "positive",
+            "negative",
+            "boundary",
+            "failure"
+        ],
+        "qualifyingEnvelope": {
+            "executionClass": "correctness",
+            "evidenceClass": "correctness",
+            "qualificationEligible": true,
+            "planned": true,
+            "executed": true,
+            "outcome": "passed",
+            "recovered": false
+        },
+        "terminalOutcomes": {
+            "passed": {
+                "timeout": false,
+                "cancelled": false,
+                "processTreeTerminated": false
+            },
+            "failed": {
+                "timeout": false,
+                "cancelled": false,
+                "processTreeTerminated": false
+            },
+            "timed-out": {
+                "timeout": true,
+                "cancelled": false,
+                "processTreeTerminated": true
+            },
+            "cancelled": {
+                "timeout": false,
+                "cancelled": true,
+                "processTreeTerminated": true
+            }
+        }
+    },
     "observationClasses": {
         "route-response-error": {
             "schema": "fsusblog.observation.route-response-error.v1",
-            "requiredIdentityFields": ["sourceCommit", "worktreeFingerprint", "buildIdentity", "candidateId", "contentDigest"],
-            "allowedModes": ["positive", "negative", "boundary", "failure"],
+            "requiredIdentityFields": [
+                "sourceCommit",
+                "worktreeFingerprint",
+                "buildIdentity",
+                "candidateId",
+                "contentDigest"
+            ],
+            "allowedModes": [
+                "positive",
+                "negative",
+                "boundary",
+                "failure"
+            ],
             "existenceShortcutForbidden": true
         },
         "aot-spa-hydration": {
             "schema": "fsusblog.observation.aot-spa-hydration.v1",
-            "requiredIdentityFields": ["sourceCommit", "worktreeFingerprint", "buildIdentity", "artifactDigest", "contentDigest"],
-            "allowedModes": ["positive", "negative", "boundary", "failure"],
+            "requiredIdentityFields": [
+                "sourceCommit",
+                "worktreeFingerprint",
+                "buildIdentity",
+                "artifactDigest",
+                "contentDigest"
+            ],
+            "allowedModes": [
+                "positive",
+                "negative",
+                "boundary",
+                "failure"
+            ],
             "existenceShortcutForbidden": true
         },
         "cache-search-outbox-convergence": {
             "schema": "fsusblog.observation.cache-search-outbox.v1",
-            "requiredIdentityFields": ["sourceCommit", "worktreeFingerprint", "buildIdentity", "runId", "contentDigest"],
-            "allowedModes": ["positive", "negative", "boundary", "failure"],
+            "requiredIdentityFields": [
+                "sourceCommit",
+                "worktreeFingerprint",
+                "buildIdentity",
+                "runId",
+                "contentDigest"
+            ],
+            "allowedModes": [
+                "positive",
+                "negative",
+                "boundary",
+                "failure"
+            ],
             "existenceShortcutForbidden": true
         },
         "session-cookie-runtime": {
             "schema": "fsusblog.observation.session-cookie-runtime.v1",
-            "requiredIdentityFields": ["sourceCommit", "worktreeFingerprint", "buildIdentity", "candidateId", "contentDigest"],
-            "allowedModes": ["positive", "negative", "boundary", "failure"],
+            "requiredIdentityFields": [
+                "sourceCommit",
+                "worktreeFingerprint",
+                "buildIdentity",
+                "candidateId",
+                "contentDigest"
+            ],
+            "allowedModes": [
+                "positive",
+                "negative",
+                "boundary",
+                "failure"
+            ],
             "existenceShortcutForbidden": true
         },
         "browser-behavior-contract": {
             "schema": "fsusblog.browser-contract-receipt.v2",
-            "requiredIdentityFields": ["sourceCommit", "worktreeFingerprint", "buildIdentity", "browserIdentity", "contentDigest"],
-            "allowedModes": ["positive", "negative", "boundary", "failure"],
+            "requiredIdentityFields": [
+                "sourceCommit",
+                "worktreeFingerprint",
+                "buildIdentity",
+                "browserIdentity",
+                "contentDigest"
+            ],
+            "allowedModes": [
+                "positive",
+                "negative",
+                "boundary",
+                "failure"
+            ],
             "existenceShortcutForbidden": true
         },
         "release-identity-readiness": {
             "schema": "fsusblog.observation.release-identity-readiness.v1",
-            "requiredIdentityFields": ["sourceCommit", "worktreeFingerprint", "releaseId", "slot", "contentDigest"],
-            "allowedModes": ["positive", "negative", "boundary", "failure"],
+            "requiredIdentityFields": [
+                "sourceCommit",
+                "worktreeFingerprint",
+                "releaseId",
+                "slot",
+                "contentDigest"
+            ],
+            "allowedModes": [
+                "positive",
+                "negative",
+                "boundary",
+                "failure"
+            ],
             "existenceShortcutForbidden": true
         },
         "blue-green-containment": {
             "schema": "fsusblog.observation.blue-green-containment.v1",
-            "requiredIdentityFields": ["sourceCommit", "worktreeFingerprint", "releaseId", "rolloutId", "contentDigest"],
-            "allowedModes": ["positive", "negative", "boundary", "failure"],
+            "requiredIdentityFields": [
+                "sourceCommit",
+                "worktreeFingerprint",
+                "releaseId",
+                "rolloutId",
+                "contentDigest"
+            ],
+            "allowedModes": [
+                "positive",
+                "negative",
+                "boundary",
+                "failure"
+            ],
             "existenceShortcutForbidden": true
         }
     },
     "producers": [
         {
             "producerId": "production-correctness-scheduler",
+            "toolVersion": "production-correctness-scheduler@1",
             "owner": "tools/run-test-matrix.mjs",
             "behaviorId": "browserless-production-correctness",
             "observationSchema": "fsusblog.browserless-correctness-receipt.v1",
             "executionClass": "correctness",
-            "requiredIdentities": ["sourceCommit", "worktreeFingerprint", "buildIdentity", "schedulerRunId", "producerId"],
+            "requiredIdentities": [
+                "sourceCommit",
+                "worktreeFingerprint",
+                "buildIdentity",
+                "schedulerRunId",
+                "producerId"
+            ],
             "requiredObservations": {
-                "positive": ["browser-behavior-contract", "release-identity-readiness", "route-response-error", "cache-search-outbox-convergence"],
-                "negative": ["route-response-error", "session-cookie-runtime", "browser-behavior-contract"],
-                "boundary": ["aot-spa-hydration", "blue-green-containment"],
-                "failure": ["blue-green-containment", "session-cookie-runtime"]
+                "positive": [
+                    "browser-behavior-contract",
+                    "release-identity-readiness",
+                    "route-response-error",
+                    "cache-search-outbox-convergence"
+                ],
+                "negative": [
+                    "route-response-error",
+                    "session-cookie-runtime",
+                    "browser-behavior-contract"
+                ],
+                "boundary": [
+                    "aot-spa-hydration",
+                    "blue-green-containment"
+                ],
+                "failure": [
+                    "blue-green-containment",
+                    "session-cookie-runtime"
+                ]
             },
             "diagnosticEligible": false,
             "timeoutPolicy": "per-producer budget from config/testing/correctness-budget-policy.json with physical process-tree termination",
