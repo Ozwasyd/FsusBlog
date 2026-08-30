@@ -20,11 +20,33 @@
     },
     "currentExceptions": [
         {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/post-merge-external-naming-evidence-repair.schema.json"
+            ],
+            "reason": "preserve caller-visible schema field spellings while adding exact post-merge repair validation"
+        },
+        {
             "id": "content-doc-exactness-authority",
             "paths": [
                 "docs/architecture/repository-layout.md"
             ],
             "reason": "preserve repository layout authority identifiers while documenting exact post-merge naming evidence repair ownership"
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/change-contract.md"
+            ],
+            "reason": "preserve documented caller-visible contract tokens while defining strict post-merge evidence repair semantics"
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/governance/change-contract-registry.mjs",
+                "tools/governance/change-contract.mjs"
+            ],
+            "reason": "preserve caller-visible process environment spellings while adding the independent post-merge repair verifier"
         }
     ]
 }
