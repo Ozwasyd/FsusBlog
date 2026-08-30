@@ -44,6 +44,93 @@ const allowedReleaseFinalizerLines = [
 const forbiddenFinalizerCapability =
     /(?:create-correctness|publish-release-final-evidence-parent|run-matrix-governance-once|check-job-summaries|check-flaky-|repository-governance-authority|check-release-evidence-manifest|(?:^|[\s/_.-])(?:producer|repair|parser|mutation|governance)(?:[\s/_.-]|$))/u;
 
+function parseCommandArgv(command)
+{
+    if (typeof command !== 'string' || command.trim().length === 0)
+    {
+        return [];
+    }
+    const argv = [];
+    let token = '';
+    let quote = null;
+    let escaped = false;
+    for (const character of command.trim())
+    {
+        if (escaped)
+        {
+            token += character;
+            escaped = false;
+            continue;
+        }
+        if (character === '\\' && quote !== "'")
+        {
+            escaped = true;
+            continue;
+        }
+        if (quote)
+        {
+            if (character === quote)
+            {
+                quote = null;
+            }
+            else
+            {
+                token += character;
+            }
+            continue;
+        }
+        if (character === "'" || character === '"')
+        {
+            quote = character;
+            continue;
+        }
+        if (/\s/u.test(character))
+        {
+            if (token.length > 0)
+            {
+                argv.push(token);
+                token = '';
+            }
+            continue;
+        }
+        token += character;
+    }
+    if (escaped || quote)
+    {
+        return [];
+    }
+    if (token.length > 0)
+    {
+        argv.push(token);
+    }
+    return argv;
+}
+
+function isReleaseFinalizerPath(value)
+{
+    if (typeof value !== 'string' || path.posix.isAbsolute(value))
+    {
+        return false;
+    }
+    return path.posix.normalize(value.replaceAll('\\', '/')) === releaseFinalizerCommand;
+}
+
+function commandInvokesReleaseFinalizer(command)
+{
+    const argv = parseCommandArgv(command);
+    if (isReleaseFinalizerPath(argv[0]))
+    {
+        return true;
+    }
+    const executable = path.posix.basename(argv[0] ?? '');
+    if (executable !== 'bash')
+    {
+        return false;
+    }
+    const script = argv.slice(1).find((argument) => !argument.startsWith('-'));
+    return isReleaseFinalizerPath(script);
+}
+
 function validateScriptSource(scriptSource)
 {
     const errors = [];
@@ -90,7 +177,7 @@ export function validateReleaseFinalStaticBoundary({ matrix, scriptSource })
 
     const releaseFinalizerTiers = (matrix?.tiers ?? []).filter((tier) => (
         tier?.id === 'release-final'
-        || tier?.command === releaseFinalizerCommand
+        || commandInvokesReleaseFinalizer(tier?.command)
         || tier?.summaryAuthority === 'release-final'
     ));
     if (releaseFinalizerTiers.length !== 1 || releaseFinalizerTiers[0]?.id !== 'release-final')
@@ -106,7 +193,7 @@ export function validateReleaseFinalStaticBoundary({ matrix, scriptSource })
         .filter(([key, authority]) => (
             key === 'release-final'
             || authority?.id === 'release-final'
-            || authority?.command === releaseFinalizerCommand
+            || commandInvokesReleaseFinalizer(authority?.command)
             || authority?.summaryTierIds?.includes('release-final')
         ));
     if (

@@ -5,6 +5,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs';
+import { validateEvidenceExecutionDeclaration } from '../../tools/test-matrix/projection-declaration.mjs';
 import {
     buildReleaseFinalizerSpawnDecision,
     validateReleaseFinalStaticBoundary
@@ -127,6 +128,41 @@ test('duplicate finalizer command, authority alias, and shadow tier fail closed'
             mutate(mutated);
             const errors = validateReleaseFinalStaticBoundary({ matrix: mutated, scriptSource });
             assert.match(errors.join('\n'), diagnostic);
+            assert.equal(
+                buildReleaseFinalizerSpawnDecision({ sealState: 'accepted', boundaryErrors: errors }).spawnCount,
+                0
+            );
+        });
+    }
+});
+
+test('generic execute tiers cannot hide finalizer path aliases', async (context) =>
+{
+    const commandAliases = [
+        './tools/test/lanes/release-final.sh',
+        'tools/test/lanes/./release-final.sh',
+        'bash tools/test/lanes/release-final.sh'
+    ];
+
+    for (const [index, command] of commandAliases.entries())
+    {
+        await context.test(command, () =>
+        {
+            const mutated = structuredClone(matrix);
+            const aliasTier = {
+                id: `release-final-path-alias-${index + 1}`,
+                executionMode: 'execute',
+                commandKind: 'producer',
+                command
+            };
+            assert.deepEqual(validateEvidenceExecutionDeclaration(aliasTier, mutated), []);
+            mutated.tiers.push(aliasTier);
+
+            const errors = validateReleaseFinalStaticBoundary({ matrix: mutated, scriptSource });
+            assert.match(
+                errors.join('\n'),
+                new RegExp(`exactly one release-final tier[\\s\\S]*${aliasTier.id}`, 'u')
+            );
             assert.equal(
                 buildReleaseFinalizerSpawnDecision({ sealState: 'accepted', boundaryErrors: errors }).spawnCount,
                 0
