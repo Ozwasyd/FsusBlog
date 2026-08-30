@@ -54,11 +54,9 @@ For a `Format-only` change, complete every field. The idempotence evidence must 
 
 ## External Naming Exception
 
-For a checked `External naming exception`, use one registered exception ID, list the affected repository paths, and explain why the external spelling cannot follow the internal convention. Use `none` for all three fields otherwise.
+For a checked `External naming exception`, point to one changed repository-relative JSON manifest using `fsusblog.external-naming-exceptions.v1`. Each entry binds one registered exception ID to its own changed paths and substantive reason; the union must exactly cover every changed registered naming surface. Use `none` otherwise.
 
-- Exception ID:
-- Affected paths:
-- Reason:
+- Exceptions manifest:
 
 ## Documentation / Intent
 

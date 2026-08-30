@@ -75,6 +75,7 @@ function pullRequestBody({
     generated = false,
     publicContract = false,
     externalNaming = false,
+    externalExceptionManifest = 'none',
     audience = 'user-facing',
     category = 'Added',
     summary = null,
@@ -133,6 +134,7 @@ Closes #1163
 
 ## External Naming Exception
 
+- Exceptions manifest: ${externalNaming ? externalExceptionManifest : 'none'}
 - Exception ID: ${externalNaming ? externalExceptionId : 'none'}
 - Affected paths: ${externalNaming ? externalExceptionPaths : 'none'}
 - Reason: ${externalNaming ? externalExceptionReason : 'none'}
@@ -195,6 +197,14 @@ test('registry is the unique ordered type/scope source consumed by commitlint', 
     assert.equal(new Set(changeContract.commitScopes).size, changeContract.commitScopes.length)
     assert.deepEqual(commitlintConfig.rules['type-enum'][2], changeContract.commitTypes)
     assert.deepEqual(commitlintConfig.rules['scope-enum'][2], changeContract.commitScopes)
+    const externalNamingSchema = JSON.parse(readFileSync(
+        resolve(root, 'config/schemas/external-naming-exceptions.schema.json'),
+        'utf8'
+    ))
+    assert.equal(
+        externalNamingSchema.properties.schema.const,
+        changeContract.evidenceSchemas.externalNamingExceptions
+    )
 })
 
 test('valid commit fixtures cover ordinary, perf, revert, security, breaking, and mechanical messages', () => {
@@ -505,6 +515,22 @@ test('external naming exception binds a trusted registry ID to changed paths', (
         authorityRoot: root
     })
     assert.deepEqual(accepted, [])
+    const legacyBody = pullRequestBody({
+        type: 'refactor',
+        externalNaming: true,
+        audience: 'internal',
+        category: 'Internal/Tooling',
+        summary: 'preserve exported decoder adapter'
+    }).replace('- Exceptions manifest: none\n', '')
+    assert.deepEqual(validatePrContract({
+        title,
+        body: legacyBody,
+        labels: ['release-note:internal'],
+        actor: 'maintainer',
+        changedFiles,
+        root,
+        authorityRoot: root
+    }), [])
 
     const missingClassification = validatePrContract({
         title,
@@ -558,6 +584,118 @@ test('external naming exception binds a trusted registry ID to changed paths', (
         authorityRoot: root
     })
     assert.ok(partialBinding.some((error) => error.includes('exactly match all changed registered naming surfaces')))
+})
+
+test('external naming manifest binds multiple exception IDs to disjoint governed paths', () => {
+    const repository = mkdtempSync(join(tmpdir(), 'fsusblog-external-naming-pr-'))
+    execFileSync('git', ['init', '-q'], { cwd: repository })
+    execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: repository })
+    execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: repository })
+    const changedFiles = [
+        'src/frontend/wasm/aeds/src/exports.cpp',
+        'tools/bootstrap-acceptance-env.sh',
+        'tools/test/bundles/runtime-environment.mjs',
+        'artifacts/change-contract/external-naming-exceptions.json'
+    ]
+    for (const path of changedFiles.slice(0, -1)) writeRepositoryFile(repository, path, 'fixture\n')
+    writeRepositoryFile(repository, changedFiles.at(-1), `${JSON.stringify({
+        schema: changeContract.evidenceSchemas.externalNamingExceptions,
+        exceptions: [
+            {
+                id: 'c-abi-wasm-export',
+                paths: ['src/frontend/wasm/aeds/src/exports.cpp'],
+                reason: 'preserve the caller-visible C ABI spelling'
+            },
+            {
+                id: 'acceptance-secret-runtime-environment',
+                paths: [
+                    'tools/bootstrap-acceptance-env.sh',
+                    'tools/test/bundles/runtime-environment.mjs'
+                ],
+                reason: 'preserve the run-bound secret environment keys across both owners'
+            }
+        ]
+    }, null, 4)}\n`)
+    execFileSync('git', ['add', '.'], { cwd: repository })
+    execFileSync('git', ['commit', '-qm', 'fixture candidate'], { cwd: repository })
+    const body = pullRequestBody({
+        type: 'fix',
+        externalNaming: true,
+        externalExceptionManifest: changedFiles.at(-1),
+        externalExceptionId: 'none',
+        externalExceptionPaths: 'none',
+        externalExceptionReason: 'none',
+        audience: 'internal',
+        category: 'Internal/Tooling',
+        summary: 'bind multiple external naming exceptions'
+    })
+    assert.deepEqual(validatePrContract({
+        title: 'fix(governance): bind multiple external naming exceptions',
+        body,
+        labels: ['release-note:internal'],
+        actor: 'maintainer',
+        changedFiles,
+        root: repository,
+        authorityRoot: root
+    }), [])
+})
+
+test('external naming manifest rejects broad, duplicate, and incomplete path assignments', () => {
+    const repository = mkdtempSync(join(tmpdir(), 'fsusblog-external-naming-negative-'))
+    execFileSync('git', ['init', '-q'], { cwd: repository })
+    execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: repository })
+    execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: repository })
+    const manifestPath = 'artifacts/change-contract/external-naming-exceptions.json'
+    const changedFiles = [
+        'src/frontend/wasm/aeds/src/exports.cpp',
+        'tools/bootstrap-acceptance-env.sh',
+        manifestPath
+    ]
+    for (const path of changedFiles.slice(0, -1)) writeRepositoryFile(repository, path, 'fixture\n')
+    writeRepositoryFile(repository, manifestPath, `${JSON.stringify({
+        schema: changeContract.evidenceSchemas.externalNamingExceptions,
+        exceptions: [
+            {
+                id: 'c-abi-wasm-export',
+                paths: ['src/frontend/wasm/aeds/src/exports.cpp'],
+                reason: 'preserve the caller-visible C ABI spelling'
+            },
+            {
+                id: 'shell-environment-variable',
+                paths: [
+                    'src/frontend/wasm/aeds/src/exports.cpp',
+                    'tools/not-changed.sh'
+                ],
+                reason: 'attempt to broaden one exception across unrelated owners'
+            }
+        ]
+    }, null, 4)}\n`)
+    execFileSync('git', ['add', '.'], { cwd: repository })
+    execFileSync('git', ['commit', '-qm', 'fixture candidate'], { cwd: repository })
+    const body = pullRequestBody({
+        type: 'fix',
+        externalNaming: true,
+        externalExceptionManifest: manifestPath,
+        externalExceptionId: 'none',
+        externalExceptionPaths: 'none',
+        externalExceptionReason: 'none',
+        audience: 'internal',
+        category: 'Internal/Tooling',
+        summary: 'reject broad external naming declarations'
+    })
+    const errors = validatePrContract({
+        title: 'fix(governance): reject broad external naming declarations',
+        body,
+        labels: ['release-note:internal'],
+        actor: 'maintainer',
+        changedFiles,
+        root: repository,
+        authorityRoot: root
+    })
+    assert.ok(errors.some((error) => error.includes('assigned to more than one exception')))
+    assert.ok(errors.some((error) => error.includes('outside registered exception shell-environment-variable')))
+    assert.ok(errors.some((error) => error.includes('not changed in this PR')))
+    assert.ok(errors.some((error) => error.includes('exactly match all changed registered naming surfaces')))
 })
 
 test('runtime environment exception atomically binds the canonical projection and shell executor', () => {

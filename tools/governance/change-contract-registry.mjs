@@ -129,6 +129,7 @@ export const changeContract = Object.freeze({
     generatedPathPatterns,
     trustedPolicyFiles,
     evidenceSchemas: Object.freeze({
+        externalNamingExceptions: 'fsusblog.external-naming-exceptions.v1',
         formatIdempotence: 'fsusblog.format-idempotence-evidence.v1',
         generatedOutput: 'fsusblog.generated-output-binding.v1',
         performanceClaim: 'fsusblog.performance-claim-evidence.v1'
