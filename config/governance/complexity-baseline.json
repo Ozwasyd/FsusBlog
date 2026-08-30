@@ -2963,12 +2963,6 @@
                 "responsibilityCount": 6
             }
         },
-        "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs": {
-            "category": "HandwrittenModule",
-            "excess": {
-                "typeCount": 8
-            }
-        },
         "tests/backend/Unit/AnonymousZkProdWrapperFixtureTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
