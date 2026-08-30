@@ -1,10 +1,12 @@
+using System.Reflection;
+using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 using FsusBlog.OpenApiObservation;
-using FsusBlog.Shared.Contracts.Governance;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Filters;
@@ -12,6 +14,7 @@ using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Modules.Endpoints.Binary;
+using FsusBlog.Shared.Contracts.Governance;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
@@ -88,6 +91,19 @@ internal static class OpenApiObservationHost
 
         AedsEndpointContractCatalog contracts = AedsEndpointContractCatalog.Load(contractsPath);
         IReadOnlyList<ObservedOperation> observed = ObserveEndpoints();
+        if (string.Equals(
+            Environment.GetEnvironmentVariable("FSUSBLOG_OPENAPI_DEBUG_REQUEST_TYPES"),
+            "1",
+            StringComparison.Ordinal))
+        {
+            foreach (ObservedOperation operation in observed.Where(static item => item.RequestTypes.Count > 0))
+            {
+                Console.Error.WriteLine(
+                    $"[openapi-request-type] {operation.Method} {operation.Path}: "
+                    + string.Join(',', operation.RequestTypes.Select(static item =>
+                        $"{item.Type.FullName}[{item.Encoding}:{item.ReaderIdentity}]")));
+            }
+        }
         ProtocolStateCatalog protocolStates = LoadProtocolStates(repositoryRoot);
         ErrorAuthorityBinding errorAuthority = LoadErrorAuthority(repositoryRoot);
         ObservationDocument document = ObservationMerger.Merge(observed, contracts, protocolStates, errorAuthority);
@@ -151,6 +167,8 @@ internal static class OpenApiObservationHost
                         throw new InvalidOperationException($"duplicate operationId: {operationId} for {key}");
                     }
 
+                    IReadOnlyList<ObservedRequestType> requestTypes = CompiledRequestTypeObserver.Observe(endpoint);
+                    IReadOnlyDictionary<int, IReadOnlyList<string>> errorStatuses = CompiledPublicStatusObserver.Observe(endpoint);
                     operations.Add(new ObservedOperation(
                         Method: method,
                         Path: rawPath,
@@ -160,7 +178,9 @@ internal static class OpenApiObservationHost
                         Pow: HasFilter(endpoint, typeof(RequiresPowFilter)),
                         RateLimit: endpoint.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName ?? "none",
                         Cache: ClassifyCache(endpoint),
-                        SourceIdentity: endpoint.DisplayName));
+                        SourceIdentity: endpoint.DisplayName,
+                        RequestTypes: requestTypes,
+                        CompiledErrorStatusEvidence: errorStatuses));
                 }
             }
 
@@ -424,7 +444,15 @@ internal static class OpenApiObservationHost
                 Pow: false,
                 RateLimit: policy.RequiresRateLimit ? "public_read" : "none",
                 Cache: "public-read",
-                SourceIdentity: $"public-hot-read:{policy.PolicyId}");
+                SourceIdentity: $"public-hot-read:{policy.PolicyId}",
+                RequestTypes: [],
+                CompiledErrorStatusEvidence: new SortedDictionary<int, IReadOnlyList<string>>
+                {
+                    [StatusCodes.Status406NotAcceptable] = ["compiled-middleware:ApiBinaryResponseMiddleware.accept"],
+                    [StatusCodes.Status428PreconditionRequired] = ["compiled-public-hot-read:PublicHotReadSecurityGateMiddleware"],
+                    [StatusCodes.Status429TooManyRequests] = ["compiled-public-hot-read:PublicHotReadSecurityGateMiddleware"],
+                    [StatusCodes.Status500InternalServerError] = ["compiled-middleware:GlobalExceptionMiddleware"]
+                });
         }
     }
 
@@ -444,4 +472,504 @@ internal static class OpenApiObservationHost
 
         throw new InvalidOperationException("unable to locate repository root from tool base directory");
     }
+}
+
+internal static class CompiledRequestTypeObserver
+{
+    private static readonly IReadOnlyDictionary<short, OpCode> s_opCodes = typeof(OpCodes)
+        .GetFields(BindingFlags.Public | BindingFlags.Static)
+        .Where(static field => field.FieldType == typeof(OpCode))
+        .Select(static field => (OpCode)field.GetValue(null)!)
+        .ToDictionary(static code => code.Value);
+
+    public static IReadOnlyList<ObservedRequestType> Observe(RouteEndpoint endpoint)
+    {
+        MethodInfo? handler = endpoint.Metadata.GetMetadata<MethodInfo>();
+        if (handler is null)
+        {
+            return [];
+        }
+
+        Dictionary<Type, ObservedRequestType> requestTypes = [];
+        HashSet<MethodBase> visited = [];
+        ObserveMethod(handler, requestTypes, visited, 0);
+        return requestTypes.Values
+            .Where(static item => item.Type.FullName != "FsusBlog.Server.Infrastructure.Binary.BinaryRequestPayload")
+            .OrderBy(static item => item.Type.FullName, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static void ObserveMethod(
+        MethodBase method,
+        Dictionary<Type, ObservedRequestType> requestTypes,
+        HashSet<MethodBase> visited,
+        int depth)
+    {
+        if (depth > 6 || !visited.Add(method))
+        {
+            return;
+        }
+
+        if (method is MethodInfo methodInfo)
+        {
+            AsyncStateMachineAttribute? asyncStateMachine = methodInfo.GetCustomAttribute<AsyncStateMachineAttribute>();
+            MethodInfo? moveNext = asyncStateMachine?.StateMachineType.GetMethod(
+                nameof(IAsyncStateMachine.MoveNext),
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (moveNext is not null)
+            {
+                ObserveMethod(moveNext, requestTypes, visited, depth + 1);
+            }
+        }
+
+        MethodBody? body = method.GetMethodBody();
+        byte[]? il = body?.GetILAsByteArray();
+        if (il is null)
+        {
+            return;
+        }
+
+        int offset = 0;
+        while (offset < il.Length)
+        {
+            short value = il[offset++];
+            if (value == 0xfe)
+            {
+                value = (short)(0xfe00 | il[offset++]);
+            }
+            if (!s_opCodes.TryGetValue(value, out OpCode opCode))
+            {
+                return;
+            }
+
+            if (opCode.OperandType == OperandType.InlineMethod)
+            {
+                int token = BitConverter.ToInt32(il, offset);
+                MethodBase? called = ResolveMethod(method, token);
+                if (called is not null)
+                {
+                    ObserveCall(called, requestTypes);
+                    if (ShouldRecurse(called))
+                    {
+                        ObserveMethod(called, requestTypes, visited, depth + 1);
+                    }
+                }
+            }
+            offset += OperandSize(opCode, il, offset);
+        }
+    }
+
+    private static void ObserveCall(MethodBase called, Dictionary<Type, ObservedRequestType> requestTypes)
+    {
+        if (called is not MethodInfo method)
+        {
+            return;
+        }
+
+        bool isJsonReader = method.Name is "ReadAsync" or "ReadRequestAsync" or "TryReadGovernanceJson"
+            || method.Name.StartsWith("ReadCommentManagementRequest", StringComparison.Ordinal);
+        bool isBinaryReader = method.Name.StartsWith("TryDecode", StringComparison.Ordinal)
+            || (method.Name.StartsWith("Read", StringComparison.Ordinal) && !isJsonReader);
+        bool isRequestReader = isJsonReader
+            || method.Name.StartsWith("Read", StringComparison.Ordinal)
+            || method.Name.StartsWith("TryDecode", StringComparison.Ordinal);
+        if (!isRequestReader)
+        {
+            return;
+        }
+
+        string encoding = isJsonReader ? "utf8-json" : "binary-layout";
+        string readerIdentity = $"{method.DeclaringType?.FullName}.{method.Name}";
+        if (method.IsGenericMethod)
+        {
+            foreach (Type argument in method.GetGenericArguments())
+            {
+                AddCandidate(argument, encoding, readerIdentity, requestTypes, force: isJsonReader);
+            }
+        }
+
+        if (method.Name.StartsWith("TryDecode", StringComparison.Ordinal)
+            || method.Name.StartsWith("TryRead", StringComparison.Ordinal))
+        {
+            foreach (ParameterInfo parameter in method.GetParameters().Where(static item => item.ParameterType.IsByRef))
+            {
+                AddCandidate(
+                    parameter.ParameterType.GetElementType(),
+                    encoding,
+                    readerIdentity,
+                    requestTypes,
+                    force: isBinaryReader);
+            }
+        }
+
+        if (method.Name.StartsWith("Read", StringComparison.Ordinal))
+        {
+            AddCandidate(Unwrap(method.ReturnType), encoding, readerIdentity, requestTypes);
+        }
+    }
+
+    private static void AddCandidate(
+        Type? type,
+        string encoding,
+        string readerIdentity,
+        Dictionary<Type, ObservedRequestType> requestTypes,
+        bool force = false)
+    {
+        Type? candidate = Unwrap(type);
+        if (candidate is null || candidate == typeof(void)
+            || candidate == typeof(bool) || candidate == typeof(byte[])
+            || candidate == typeof(ReadOnlyMemory<byte>) || candidate == typeof(Memory<byte>))
+        {
+            return;
+        }
+
+        if (force || candidate == typeof(string)
+            || candidate.Name.Contains("Request", StringComparison.Ordinal)
+            || candidate.Name.Contains("Payload", StringComparison.Ordinal)
+            || candidate.Name.Contains("Draft", StringComparison.Ordinal))
+        {
+            if (!requestTypes.TryGetValue(candidate, out ObservedRequestType? existing)
+                || (existing.Encoding == "binary-layout" && encoding == "utf8-json"))
+            {
+                requestTypes[candidate] = new ObservedRequestType(candidate, encoding, readerIdentity);
+            }
+        }
+    }
+
+    private static Type? Unwrap(Type? type)
+    {
+        Type? current = type;
+        while (current is not null && current.IsGenericType)
+        {
+            Type definition = current.GetGenericTypeDefinition();
+            if (definition == typeof(Task<>) || definition == typeof(ValueTask<>)
+                || definition.Name == "AedsJsonRequest`1")
+            {
+                current = current.GetGenericArguments()[0];
+                continue;
+            }
+            break;
+        }
+        return current;
+    }
+
+    private static bool ShouldRecurse(MethodBase method)
+        => method.DeclaringType?.Assembly == typeof(AuthoringEndpoints).Assembly
+            && (method.DeclaringType.Namespace?.StartsWith("FsusBlog.Server.Modules.Endpoints", StringComparison.Ordinal) ?? false);
+
+    private static MethodBase? ResolveMethod(MethodBase owner, int token)
+    {
+        try
+        {
+            Type[]? declaringArguments = owner.DeclaringType?.IsGenericType == true
+                ? owner.DeclaringType.GetGenericArguments()
+                : null;
+            Type[]? methodArguments = owner.IsGenericMethod ? owner.GetGenericArguments() : null;
+            return owner.Module.ResolveMethod(token, declaringArguments, methodArguments);
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private static int OperandSize(OpCode opCode, byte[] il, int operandOffset)
+        => opCode.OperandType switch
+        {
+            OperandType.InlineNone => 0,
+            OperandType.ShortInlineBrTarget or OperandType.ShortInlineI or OperandType.ShortInlineVar => 1,
+            OperandType.InlineVar => 2,
+            OperandType.InlineBrTarget or OperandType.InlineField or OperandType.InlineI
+                or OperandType.InlineMethod or OperandType.InlineSig or OperandType.InlineString
+                or OperandType.InlineTok or OperandType.InlineType or OperandType.ShortInlineR => 4,
+            OperandType.InlineI8 or OperandType.InlineR => 8,
+            OperandType.InlineSwitch => 4 + (BitConverter.ToInt32(il, operandOffset) * 4),
+            _ => throw new InvalidOperationException($"unsupported IL operand type {opCode.OperandType}")
+        };
+}
+
+internal static class CompiledPublicStatusObserver
+{
+    private static readonly IReadOnlyDictionary<short, OpCode> s_opCodes = typeof(OpCodes)
+        .GetFields(BindingFlags.Public | BindingFlags.Static)
+        .Where(static field => field.FieldType == typeof(OpCode))
+        .Select(static field => (OpCode)field.GetValue(null)!)
+        .ToDictionary(static code => code.Value);
+
+    public static IReadOnlyDictionary<int, IReadOnlyList<string>> Observe(RouteEndpoint endpoint)
+    {
+        MethodInfo? handler = endpoint.Metadata.GetMetadata<MethodInfo>();
+        if (handler is null)
+        {
+            return new SortedDictionary<int, IReadOnlyList<string>>();
+        }
+
+        Dictionary<int, HashSet<string>> evidence = [];
+        ObservePipelineMetadata(endpoint, evidence);
+        HashSet<MethodBase> visited = [];
+        ObserveMethod(handler, evidence, visited, 0, captureConstants: false);
+        return evidence
+            .OrderBy(static pair => pair.Key)
+            .ToDictionary(
+                static pair => pair.Key,
+                static pair => (IReadOnlyList<string>)pair.Value.OrderBy(static item => item, StringComparer.Ordinal).ToArray());
+    }
+
+    private static void ObserveMethod(
+        MethodBase method,
+        Dictionary<int, HashSet<string>> evidence,
+        HashSet<MethodBase> visited,
+        int depth,
+        bool captureConstants)
+    {
+        if (depth > 6 || !visited.Add(method))
+        {
+            return;
+        }
+
+        if (method is MethodInfo methodInfo)
+        {
+            AsyncStateMachineAttribute? asyncStateMachine = methodInfo.GetCustomAttribute<AsyncStateMachineAttribute>();
+            MethodInfo? moveNext = asyncStateMachine?.StateMachineType.GetMethod(
+                nameof(IAsyncStateMachine.MoveNext),
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (moveNext is not null)
+            {
+                ObserveMethod(moveNext, evidence, visited, depth + 1, captureConstants);
+            }
+        }
+
+        MethodBody? body = method.GetMethodBody();
+        byte[]? il = body?.GetILAsByteArray();
+        if (il is null)
+        {
+            return;
+        }
+
+        int offset = 0;
+        int? pendingStatus = null;
+        while (offset < il.Length)
+        {
+            int instructionOffset = offset;
+            short value = il[offset++];
+            if (value == 0xfe)
+            {
+                value = (short)(0xfe00 | il[offset++]);
+            }
+            if (!s_opCodes.TryGetValue(value, out OpCode opCode))
+            {
+                return;
+            }
+
+            int? constant = ReadIntegerConstant(opCode, il, offset);
+            if (constant is >= 400 and <= 599 && captureConstants)
+            {
+                Add(evidence, constant.Value, $"compiled-il:{MethodIdentity(method)}@{instructionOffset}");
+            }
+            if (constant is not null)
+            {
+                pendingStatus = constant;
+            }
+
+            if (opCode.OperandType == OperandType.InlineMethod)
+            {
+                int token = BitConverter.ToInt32(il, offset);
+                MethodBase? called = ResolveMethod(method, token);
+                if (called is not null)
+                {
+                    ObserveKnownStatus(called, evidence);
+                    if (pendingStatus is >= 400 and <= 599 && AcceptsExplicitStatus(called))
+                    {
+                        Add(
+                            evidence,
+                            pendingStatus.Value,
+                            $"compiled-call-argument:{MethodIdentity(method)}->{MethodIdentity(called)}@{instructionOffset}");
+                    }
+                    if (ShouldRecurse(called))
+                    {
+                        ObserveMethod(
+                            called,
+                            evidence,
+                            visited,
+                            depth + 1,
+                            captureConstants: called.Name.Contains("ToHttpStatus", StringComparison.Ordinal));
+                    }
+                }
+                pendingStatus = null;
+            }
+            offset += OperandSize(opCode, il, offset);
+        }
+    }
+
+    private static void ObservePipelineMetadata(
+        RouteEndpoint endpoint,
+        Dictionary<int, HashSet<string>> evidence)
+    {
+        Add(evidence, StatusCodes.Status406NotAcceptable, "compiled-middleware:ApiBinaryResponseMiddleware.accept");
+        Add(evidence, StatusCodes.Status500InternalServerError, "compiled-middleware:GlobalExceptionMiddleware");
+
+        string[] methods = endpoint.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods.ToArray() ?? [];
+        if (methods.Any(static method => !HttpMethods.IsGet(method) && !HttpMethods.IsHead(method)))
+        {
+            Add(evidence, StatusCodes.Status415UnsupportedMediaType, "compiled-middleware:ApiBinaryResponseMiddleware.content-type");
+        }
+
+        AuthorizationPolicy[] policies = endpoint.Metadata.GetOrderedMetadata<AuthorizationPolicy>().ToArray();
+        bool authenticated = policies
+            .SelectMany(static policy => policy.Requirements)
+            .Any(static requirement => requirement is DenyAnonymousAuthorizationRequirement);
+        bool admin = policies
+            .SelectMany(static policy => policy.Requirements)
+            .OfType<ClaimsAuthorizationRequirement>()
+            .Any(static requirement => requirement.ClaimType == "is_admin");
+        if (authenticated)
+        {
+            Add(evidence, StatusCodes.Status401Unauthorized, "compiled-authorization:deny-anonymous");
+            if (!admin)
+            {
+                Add(evidence, StatusCodes.Status423Locked, "compiled-middleware:BannedUserMiddleware");
+            }
+        }
+        if (admin || policies.SelectMany(static policy => policy.Requirements).OfType<ClaimsAuthorizationRequirement>().Any())
+        {
+            Add(evidence, StatusCodes.Status403Forbidden, "compiled-authorization:claim-requirement");
+        }
+
+        if (endpoint.Metadata.GetMetadata<EnableRateLimitingAttribute>() is not null)
+        {
+            Add(evidence, StatusCodes.Status429TooManyRequests, "compiled-rate-limit:EnableRateLimitingAttribute");
+        }
+
+        Type[] filters = endpoint.Metadata.GetOrderedMetadata<EndpointFilterBoundaryMetadata>()
+            .Select(static metadata => metadata.FilterType)
+            .Distinct()
+            .ToArray();
+        if (filters.Contains(typeof(RequiresPowFilter)))
+        {
+            Add(evidence, StatusCodes.Status400BadRequest, "compiled-filter:RequiresPowFilter");
+            Add(evidence, StatusCodes.Status401Unauthorized, "compiled-filter:RequiresPowFilter");
+            Add(evidence, StatusCodes.Status403Forbidden, "compiled-filter:RequiresPowFilter");
+        }
+        if (filters.Contains(typeof(RequiresRiskControlFilter)))
+        {
+            Add(evidence, StatusCodes.Status428PreconditionRequired, "compiled-filter:RequiresRiskControlFilter");
+            Add(evidence, StatusCodes.Status429TooManyRequests, "compiled-filter:RequiresRiskControlFilter");
+            Add(evidence, StatusCodes.Status500InternalServerError, "compiled-filter:RequiresRiskControlFilter");
+        }
+        if (filters.Contains(typeof(RiskAwarePublicReadFilter)))
+        {
+            Add(evidence, StatusCodes.Status428PreconditionRequired, "compiled-filter:RiskAwarePublicReadFilter");
+            Add(evidence, StatusCodes.Status429TooManyRequests, "compiled-filter:RiskAwarePublicReadFilter");
+        }
+    }
+
+    private static bool AcceptsExplicitStatus(MethodBase method)
+    {
+        string declaring = method.DeclaringType?.FullName ?? string.Empty;
+        return (declaring is "FsusBlog.Server.Infrastructure.Results.AedsJsonResults"
+                or "FsusBlog.Server.Infrastructure.Results.BinaryResults"
+                or "Microsoft.AspNetCore.Http.Results")
+            && method.GetParameters().Any(static parameter => parameter.ParameterType == typeof(int));
+    }
+
+    private static void ObserveKnownStatus(
+        MethodBase called,
+        Dictionary<int, HashSet<string>> evidence)
+    {
+        string declaring = called.DeclaringType?.FullName ?? string.Empty;
+        if (declaring != "FsusBlog.Server.Infrastructure.Results.AedsJsonResults")
+        {
+            return;
+        }
+
+        int? status = called.Name switch
+        {
+            "BadRequest" => 400,
+            "Unauthorized" => 401,
+            "NotFound" => 404,
+            "PreconditionRequired" => 428,
+            "ReadAsync" => 400,
+            _ => null
+        };
+        if (status is int value)
+        {
+            Add(evidence, value, $"compiled-call:{declaring}.{called.Name}");
+        }
+    }
+
+    private static int? ReadIntegerConstant(OpCode opCode, byte[] il, int operandOffset)
+    {
+        if (opCode == OpCodes.Ldc_I4_M1)
+            return -1;
+        if (opCode == OpCodes.Ldc_I4_0)
+            return 0;
+        if (opCode == OpCodes.Ldc_I4_1)
+            return 1;
+        if (opCode == OpCodes.Ldc_I4_2)
+            return 2;
+        if (opCode == OpCodes.Ldc_I4_3)
+            return 3;
+        if (opCode == OpCodes.Ldc_I4_4)
+            return 4;
+        if (opCode == OpCodes.Ldc_I4_5)
+            return 5;
+        if (opCode == OpCodes.Ldc_I4_6)
+            return 6;
+        if (opCode == OpCodes.Ldc_I4_7)
+            return 7;
+        if (opCode == OpCodes.Ldc_I4_8)
+            return 8;
+        if (opCode == OpCodes.Ldc_I4_S)
+            return (sbyte)il[operandOffset];
+        if (opCode == OpCodes.Ldc_I4)
+            return BitConverter.ToInt32(il, operandOffset);
+        return null;
+    }
+
+    private static void Add(Dictionary<int, HashSet<string>> evidence, int status, string source)
+    {
+        if (!evidence.TryGetValue(status, out HashSet<string>? sources))
+        {
+            sources = [];
+            evidence[status] = sources;
+        }
+        sources.Add(source);
+    }
+
+    private static bool ShouldRecurse(MethodBase method)
+        => method.DeclaringType?.Assembly == typeof(AuthoringEndpoints).Assembly
+            && (method.DeclaringType.Namespace?.StartsWith("FsusBlog.Server.Modules.Endpoints", StringComparison.Ordinal) ?? false);
+
+    private static MethodBase? ResolveMethod(MethodBase owner, int token)
+    {
+        try
+        {
+            Type[]? declaringArguments = owner.DeclaringType?.IsGenericType == true
+                ? owner.DeclaringType.GetGenericArguments()
+                : null;
+            Type[]? methodArguments = owner.IsGenericMethod ? owner.GetGenericArguments() : null;
+            return owner.Module.ResolveMethod(token, declaringArguments, methodArguments);
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private static string MethodIdentity(MethodBase method)
+        => $"{method.DeclaringType?.FullName}.{method.Name}";
+
+    private static int OperandSize(OpCode opCode, byte[] il, int operandOffset)
+        => opCode.OperandType switch
+        {
+            OperandType.InlineNone => 0,
+            OperandType.ShortInlineBrTarget or OperandType.ShortInlineI or OperandType.ShortInlineVar => 1,
+            OperandType.InlineVar => 2,
+            OperandType.InlineBrTarget or OperandType.InlineField or OperandType.InlineI
+                or OperandType.InlineMethod or OperandType.InlineSig or OperandType.InlineString
+                or OperandType.InlineTok or OperandType.InlineType or OperandType.ShortInlineR => 4,
+            OperandType.InlineI8 or OperandType.InlineR => 8,
+            OperandType.InlineSwitch => 4 + (BitConverter.ToInt32(il, operandOffset) * 4),
+            _ => throw new InvalidOperationException($"unsupported IL operand type {opCode.OperandType}")
+        };
 }

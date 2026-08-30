@@ -8,6 +8,214 @@ const observationRelative = '.tmp/contracts/openapi/api-aeds-observation.json'
 const expectedArtifactId = 'openapi-aeds-observation'
 const exactKeys = (value, expected) => value && typeof value === 'object'
   && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...expected].sort())
+const isObject = (value) => value != null && typeof value === 'object' && !Array.isArray(value)
+const isSortedUnique = (values) => Array.isArray(values)
+  && JSON.stringify(values) === JSON.stringify([...new Set(values)].sort((left, right) =>
+    typeof left === 'number' ? left - right : String(left).localeCompare(String(right))))
+const boundKeys = ['minimum', 'maximum', 'minLength', 'maxLength', 'minItems', 'maxItems', 'minProperties', 'maxProperties']
+const propertyKeys = ['name', 'type', 'required', 'nullable', 'format', 'schemaRef', 'itemType', 'itemSchemaRef', 'enumValues', 'bounds']
+const definitionKeys = ['typeIdentity', 'requiredFields', 'properties', 'oneOf', 'discriminator', 'bounds']
+const requestKeys = ['source', 'schemaRef', 'encoding', 'required', 'nullable', 'requiredFields', 'parameters', 'properties', 'definitions', 'oneOf', 'discriminator', 'bounds', 'fieldSetState', 'boundsState', 'unionState', 'schemaDigest', 'sourceTypes', 'readerIdentities']
+
+function validBound(value)
+{
+  return exactKeys(value, boundKeys)
+    && ['minimum', 'maximum'].every((key) => value[key] == null
+      || (typeof value[key] === 'string' && value[key].length > 0))
+    && boundKeys.slice(2).every((key) => value[key] == null || (Number.isInteger(value[key]) && value[key] >= 0))
+}
+
+const hasBound = (value) => boundKeys.some((key) => value[key] != null)
+const boundedProperties = (properties) => Object.fromEntries(Object.entries(properties)
+  .filter(([, property]) => hasBound(property.bounds))
+  .map(([name, property]) => [name, property.bounds]))
+
+function validProperties(properties, definitions)
+{
+  if (!isObject(properties)) return false
+  return Object.entries(properties).every(([name, property]) =>
+    exactKeys(property, propertyKeys) && property.name === name
+      && ['string', 'boolean', 'binary', 'enum', 'number', 'integer', 'array', 'object'].includes(property.type)
+      && typeof property.required === 'boolean' && typeof property.nullable === 'boolean'
+      && (property.format == null || (typeof property.format === 'string' && property.format.length > 0))
+      && (property.schemaRef == null || property.type === 'object')
+      && (property.itemType == null || ['array', 'object'].includes(property.type))
+      && (property.itemSchemaRef == null || ['array', 'object'].includes(property.type))
+      && (property.type !== 'array' || property.itemType != null)
+      && Array.isArray(property.enumValues)
+      && (property.type === 'enum') === (property.enumValues.length > 0)
+      && isSortedUnique(property.enumValues) && validBound(property.bounds)
+      && [property.schemaRef, property.itemSchemaRef].filter((value) => value != null).every((ref) =>
+        String(ref).startsWith('clr://') && Object.hasOwn(definitions, String(ref).slice('clr://'.length))))
+}
+
+function validRequest(op)
+{
+  const request = op.request
+  if (!exactKeys(request, requestKeys) || !Array.isArray(request.requiredFields)
+    || !Array.isArray(request.parameters) || !isObject(request.properties)
+    || !isObject(request.definitions) || !Array.isArray(request.oneOf)
+    || !isObject(request.bounds) || !Array.isArray(request.sourceTypes)
+    || !Array.isArray(request.readerIdentities) || request.nullable !== false) return false
+  if (!request.parameters.every((parameter) => exactKeys(parameter, ['name', 'source', 'schemaRef', 'required', 'nullable'])
+    && typeof parameter.name === 'string' && parameter.name.length > 0
+    && parameter.source === 'path' && parameter.required === true && parameter.nullable === false)
+    || new Set(request.parameters.map((parameter) => parameter.name)).size !== request.parameters.length) return false
+  if (op.requestFrame == null)
+  {
+    return request.source === 'none' && request.schemaRef === null && request.encoding === 'none'
+      && request.required === false && request.requiredFields.length === 0
+      && Object.keys(request.properties).length === 0 && Object.keys(request.definitions).length === 0
+      && request.oneOf.length === 0 && request.discriminator === null && Object.keys(request.bounds).length === 0
+      && request.fieldSetState === 'not-applicable' && request.boundsState === 'not-applicable'
+      && request.unionState === 'not-applicable' && request.schemaDigest === null
+      && request.sourceTypes.length === 0 && request.readerIdentities.length === 0
+  }
+  if (request.source !== 'aeds-frame-body' || request.schemaRef !== `aeds://request-schema/${op.operationId}`
+    || !['binary-layout', 'binary-package', 'utf8-json'].includes(request.encoding)
+    || request.required !== true || Object.keys(request.properties).length === 0
+    || request.fieldSetState !== 'closed' || request.boundsState !== 'closed'
+    || !['none', 'one-of'].includes(request.unionState)
+    || !/^[a-f0-9]{64}$/u.test(String(request.schemaDigest ?? ''))
+    || request.sourceTypes.length === 0 || request.readerIdentities.length === 0
+    || !isSortedUnique(request.requiredFields) || !isSortedUnique(request.oneOf)
+    || !isSortedUnique(request.sourceTypes) || !isSortedUnique(request.readerIdentities)
+    || !request.sourceTypes.every((identity) => typeof identity === 'string' && identity.length > 0)
+    || !request.readerIdentities.every((identity) => typeof identity === 'string' && identity.length > 0)) return false
+  const required = Object.values(request.properties).filter((property) => property.required).map((property) => property.name).sort()
+  if (JSON.stringify(required) !== JSON.stringify(request.requiredFields)
+    || !validProperties(request.properties, request.definitions)
+    || JSON.stringify(boundedProperties(request.properties)) !== JSON.stringify(request.bounds)) return false
+  for (const [identity, definition] of Object.entries(request.definitions))
+  {
+    if (!exactKeys(definition, definitionKeys) || definition.typeIdentity !== identity
+      || !isSortedUnique(definition.requiredFields) || !isSortedUnique(definition.oneOf)
+      || !isObject(definition.properties) || !isObject(definition.bounds)
+      || !validProperties(definition.properties, request.definitions)
+      || JSON.stringify(boundedProperties(definition.properties)) !== JSON.stringify(definition.bounds)
+      || !definition.oneOf.every((derived) => Object.hasOwn(request.definitions, derived))
+      || (definition.oneOf.length === 0
+        ? definition.discriminator !== null
+        : typeof definition.discriminator !== 'string' || definition.discriminator.length === 0)
+      || JSON.stringify(Object.values(definition.properties).filter((property) => property.required)
+        .map((property) => property.name).sort()) !== JSON.stringify(definition.requiredFields)) return false
+  }
+  const digest = createHash('sha256').update(JSON.stringify({
+    schemaRef: request.schemaRef,
+    requestFrame: op.requestFrame,
+    encoding: request.encoding,
+    requiredFields: request.requiredFields,
+    properties: request.properties,
+    definitions: request.definitions,
+    oneOf: request.oneOf,
+    discriminator: request.discriminator,
+    bounds: request.bounds,
+    sourceTypes: request.sourceTypes,
+    readerIdentities: request.readerIdentities
+  })).digest('hex')
+  return digest === request.schemaDigest
+    && request.oneOf.every((identity) => Object.hasOwn(request.definitions, identity))
+    && (request.oneOf.length === 0
+      ? request.discriminator === null && request.unionState === 'none'
+      : typeof request.discriminator === 'string' && request.discriminator.length > 0
+        && request.unionState === 'one-of')
+}
+
+function validResponses(op)
+{
+  if (!isSortedUnique(op.publicErrorStatuses) || op.publicErrorStatuses.length === 0
+    || !isObject(op.publicErrorStatusEvidence)) return false
+  const refs = op.publicErrorStatuses.map((status) => `configuration-error-security-policy:error-transport-mappings:${status}`)
+  if (JSON.stringify(op.publicErrorRefs) !== JSON.stringify(refs)
+    || op.publicErrorRefState !== 'operation-status-authority-bound'
+    || JSON.stringify(Object.keys(op.publicErrorStatusEvidence).sort((a, b) => Number(a) - Number(b)))
+      !== JSON.stringify(op.publicErrorStatuses.map(String))) return false
+  if (!op.publicErrorStatuses.every((status) => status >= 400 && status <= 599
+    && Array.isArray(op.publicErrorStatusEvidence[String(status)])
+    && op.publicErrorStatusEvidence[String(status)].length > 0
+    && isSortedUnique(op.publicErrorStatusEvidence[String(status)])
+    && op.publicErrorStatusEvidence[String(status)]
+      .every((source) => typeof source === 'string' && source.length > 0))) return false
+  if (!Array.isArray(op.responses) || op.responses.length !== op.publicErrorStatuses.length + 1) return false
+  const success = op.responses.filter((response) => response.kind === 'success')
+  const errors = op.responses.filter((response) => response.kind === 'error')
+  return success.length === 1 && success[0].status === Number(op.successStatus)
+    && success[0].schemaRef === `aeds://frame/${op.responseFrame}` && success[0].publicErrorRef === null
+    && JSON.stringify(errors.map((response) => response.status)) === JSON.stringify(op.publicErrorStatuses)
+    && op.responses.every((response) => exactKeys(response, ['status', 'kind', 'schemaRef', 'contentType', 'resultPlacement', 'nullable', 'publicErrorRef'])
+      && response.status != null && response.contentType === 'application/octet-stream'
+      && response.resultPlacement === 'aeds.frame.payload' && response.nullable === false)
+    && errors.every((response) => response.schemaRef === `aeds://frame/${op.errorFrame}`
+      && response.publicErrorRef === `configuration-error-security-policy:error-transport-mappings:${response.status}`)
+}
+
+const encodedKey = (prefix, identity) => `${prefix}_${Buffer.from(String(identity), 'utf8').toString('hex')}`
+const compactObject = (entries) => Object.fromEntries(entries.filter(([, value]) => value != null))
+
+function projectBounds(bounds)
+{
+  const projected = Object.fromEntries(Object.entries(bounds).filter(([, value]) => value != null))
+  return Object.keys(projected).length > 0 ? projected : null
+}
+
+function projectProperties(properties)
+{
+  return Object.fromEntries(Object.entries(properties).map(([name, property]) => [
+    encodedKey('field', name),
+    compactObject([
+      ['identity', name], ['type', property.type], ['required', property.required], ['nullable', property.nullable],
+      ['format', property.format], ['schemaRef', property.schemaRef], ['itemType', property.itemType],
+      ['itemSchemaRef', property.itemSchemaRef],
+      ['enumValues', property.enumValues.length > 0 ? property.enumValues : null],
+      ['bounds', projectBounds(property.bounds)]
+    ])
+  ]))
+}
+
+function projectRequest(request)
+{
+  const definitions = Object.fromEntries(Object.entries(request.definitions).map(([identity, definition]) => [
+    encodedKey('type', identity),
+    compactObject([
+      ['identity', identity],
+      ['requiredFields', definition.requiredFields.length > 0 ? definition.requiredFields : null],
+      ['properties', projectProperties(definition.properties)],
+      ['oneOf', definition.oneOf.length > 0 ? definition.oneOf : null],
+      ['discriminator', definition.discriminator],
+      ['bounds', Object.keys(definition.bounds).length > 0
+        ? Object.fromEntries(Object.entries(definition.bounds).map(([name, bounds]) => [encodedKey('field', name), {
+            identity: name,
+            ...projectBounds(bounds)
+          }]))
+        : null]
+    ])
+  ]))
+  return compactObject([
+    ['source', request.source], ['schemaRef', request.schemaRef], ['encoding', request.encoding],
+    ['required', request.required], ['nullable', request.nullable],
+    ['requiredFields', request.requiredFields.length > 0 ? request.requiredFields : null],
+    ['parameters', request.parameters.length > 0
+      ? Object.fromEntries(request.parameters.map((parameter) => [encodedKey('parameter', parameter.name), parameter]))
+      : null],
+    ['properties', Object.keys(request.properties).length > 0 ? projectProperties(request.properties) : null],
+    ['definitions', Object.keys(definitions).length > 0 ? definitions : null],
+    ['oneOf', request.oneOf.length > 0 ? request.oneOf : null], ['discriminator', request.discriminator],
+    ['bounds', Object.keys(request.bounds).length > 0
+      ? Object.fromEntries(Object.entries(request.bounds).map(([name, bounds]) => [encodedKey('field', name), {
+          identity: name,
+          ...projectBounds(bounds)
+        }]))
+      : null],
+    ['fieldSetState', request.fieldSetState], ['boundsState', request.boundsState], ['unionState', request.unionState],
+    ['schemaDigest', request.schemaDigest], ['sourceTypes', request.sourceTypes.length > 0 ? request.sourceTypes : null],
+    ['readerIdentities', request.readerIdentities.length > 0 ? request.readerIdentities : null]
+  ])
+}
+
+function projectResponse(response)
+{
+  return compactObject(Object.entries(response))
+}
 
 /**
  * compiled-assembly extractor for binary OpenAPI/AEDS facts.
@@ -81,11 +289,11 @@ export function extract(context)
     }
   }
 
-  if (observation?.schema !== 'fsusblog.api-aeds-observation.v2')
+  if (observation?.schema !== 'fsusblog.api-aeds-observation.v3')
   {
     return {
       status: 'failed',
-      failureReasons: ['observation schema is not fsusblog.api-aeds-observation.v2'],
+      failureReasons: ['observation schema is not fsusblog.api-aeds-observation.v3'],
       observations: {}
     }
   }
@@ -161,42 +369,16 @@ export function extract(context)
     if (!op.operationId) failureReasons.push(`${key} missing operationId`)
     if (seenOperationIds.has(op.operationId)) failureReasons.push(`duplicate operationId ${op.operationId}`)
     seenOperationIds.add(op.operationId)
-    if (!exactKeys(op.request, ['source', 'schemaRef', 'required', 'nullable', 'requiredFields', 'parameters', 'fieldSetState', 'boundsState', 'unionState'])
-      || !['none', 'aeds-frame-body'].includes(op.request.source)
-      || typeof op.request.required !== 'boolean' || typeof op.request.nullable !== 'boolean'
-      || !Array.isArray(op.request.requiredFields) || !Array.isArray(op.request.parameters)
-      || !['not-applicable', 'opaque-aeds-frame'].includes(op.request.fieldSetState)
-      || !['not-applicable', 'opaque-aeds-frame'].includes(op.request.boundsState)
-      || !['not-applicable', 'opaque-aeds-frame'].includes(op.request.unionState)
-      || op.request.nullable !== false || op.request.requiredFields.length !== 0)
+    if (!validRequest(op))
     {
       failureReasons.push(`${key} request contract is not closed and typed`)
     }
-    else if ((op.requestFrame == null && (op.request.source !== 'none' || op.request.schemaRef !== null || op.request.required !== false))
-      || (op.requestFrame != null && (op.request.source !== 'aeds-frame-body'
-        || op.request.schemaRef !== `aeds://frame/${op.requestFrame}` || op.request.required !== true)))
-    {
-      failureReasons.push(`${key} request direction/schema does not match the typed frame`)
-    }
-    if (!Array.isArray(op.responses) || op.responses.length !== 2
-      || op.responses.some((response) => !exactKeys(response, ['status', 'schemaRef', 'contentType', 'resultPlacement', 'nullable'])
-        || response.contentType !== 'application/octet-stream'
-        || response.resultPlacement !== 'aeds.frame.payload'
-        || !String(response.schemaRef ?? '').startsWith('aeds://frame/')
-        || response.nullable !== false))
+    if (!validResponses(op))
     {
       failureReasons.push(`${key} response contracts/result placement are invalid`)
     }
-    else if (op.responses[0].status !== Number(op.successStatus)
-      || op.responses[0].schemaRef !== `aeds://frame/${op.responseFrame}`
-      || op.responses[1].status !== null
-      || op.responses[1].schemaRef !== `aeds://frame/${op.errorFrame}`)
-    {
-      failureReasons.push(`${key} response status/schema direction conflicts with frame contract`)
-    }
     if (op.errorAuthorityBehaviorId !== 'configuration-error-security-policy'
-      || op.publicErrorRefState !== 'transport-frame-authority-only'
-      || JSON.stringify(op.publicErrorRefs) !== JSON.stringify(['configuration-error-security-policy:error-transport-mappings:ApiError']))
+      || op.publicErrorRefState !== 'operation-status-authority-bound')
     {
       failureReasons.push(`${key} public errors must reference the exact current error authority`)
     }
@@ -219,26 +401,15 @@ export function extract(context)
       rateLimit: String(op.rateLimit),
       cache: String(op.cache),
       successStatus: Number(op.successStatus ?? 200),
-      request: {
-        source: op.request?.source ?? 'invalid',
-        schemaRef: op.request?.schemaRef ?? 'none',
-        required: op.request?.required ?? false,
-        nullable: op.request?.nullable ?? false,
-        fieldSetState: op.request?.fieldSetState ?? 'invalid',
-        boundsState: op.request?.boundsState ?? 'invalid',
-        unionState: op.request?.unionState ?? 'invalid',
-        requiredFieldSetState: Array.isArray(op.request?.requiredFields) && op.request.requiredFields.length > 0 ? 'present' : 'empty',
-        parameterSetState: Array.isArray(op.request?.parameters) && op.request.parameters.length > 0 ? 'present' : 'empty',
-        ...(Array.isArray(op.request?.requiredFields) && op.request.requiredFields.length > 0 ? { requiredFields: op.request.requiredFields } : {}),
-        ...(Array.isArray(op.request?.parameters) && op.request.parameters.length > 0
-          ? { parameters: Object.fromEntries(op.request.parameters.map((parameter) => [parameter.name, parameter])) }
-          : {})
-      },
+      request: isObject(op.request) ? projectRequest(op.request) : { state: 'invalid' },
       responses: Object.fromEntries((Array.isArray(op.responses) ? op.responses : []).map((response, index) => [
-        response.status == null ? 'default' : `status-${response.status}-${index}`,
-        { ...response, status: response.status ?? 'default' }
+        `status-${response.status}-${index}`,
+        projectResponse(response)
       ])),
+      publicErrorStatuses: op.publicErrorStatuses,
       publicErrorRefs: op.publicErrorRefs,
+      publicErrorStatusEvidence: Object.fromEntries(Object.entries(op.publicErrorStatusEvidence ?? {})
+        .map(([status, sources]) => [`status_${status}`, sources])),
       publicErrorRefState: op.publicErrorRefState,
       errorAuthorityBehaviorId: op.errorAuthorityBehaviorId,
       resultPlacement: op.resultPlacement,

@@ -33,31 +33,105 @@ function writeObservation(repositoryRoot, observation)
 
 function sampleObservation(overrides = {})
 {
-    const typed = (operation) => ({
-        ...operation,
-        request: {
-            source: operation.requestFrame == null ? 'none' : 'aeds-frame-body',
-            schemaRef: operation.requestFrame == null ? null : `aeds://frame/${operation.requestFrame}`,
-            required: operation.requestFrame != null,
+    const emptyBounds = () => ({
+        minimum: null, maximum: null, minLength: null, maxLength: null,
+        minItems: null, maxItems: null, minProperties: null, maxProperties: null
+    });
+    const typed = (operation) =>
+    {
+        const body = operation.requestFrame != null;
+        const properties = body
+            ? {
+                metadata: {
+                    name: 'metadata', type: 'object', required: false, nullable: true,
+                    format: null, schemaRef: 'clr://FsusBlog.Shared.Contracts.ArticleMetadata',
+                    itemType: null, itemSchemaRef: null, enumValues: [], bounds: emptyBounds()
+                },
+                title: {
+                    name: 'title', type: 'string', required: true, nullable: false,
+                    format: null, schemaRef: null, itemType: null, itemSchemaRef: null,
+                    enumValues: [], bounds: { ...emptyBounds(), minLength: 1, maxLength: 200 }
+                }
+            }
+            : {};
+        const definitions = body
+            ? {
+                'FsusBlog.Shared.Contracts.ArticleMetadata': {
+                    typeIdentity: 'FsusBlog.Shared.Contracts.ArticleMetadata',
+                    requiredFields: ['category'],
+                    properties: {
+                        category: {
+                            name: 'category', type: 'string', required: true, nullable: false,
+                            format: null, schemaRef: null, itemType: null, itemSchemaRef: null,
+                            enumValues: [], bounds: emptyBounds()
+                        }
+                    },
+                    oneOf: [], discriminator: null, bounds: {}
+                }
+            }
+            : {};
+        const statuses = operation.publicErrorStatuses;
+        const request = {
+            source: body ? 'aeds-frame-body' : 'none',
+            schemaRef: body ? `aeds://request-schema/${operation.operationId}` : null,
+            encoding: body ? 'binary-layout' : 'none',
+            required: body,
             nullable: false,
-            requiredFields: [],
+            requiredFields: body ? ['title'] : [],
             parameters: [],
-            fieldSetState: operation.requestFrame == null ? 'not-applicable' : 'opaque-aeds-frame',
-            boundsState: operation.requestFrame == null ? 'not-applicable' : 'opaque-aeds-frame',
-            unionState: operation.requestFrame == null ? 'not-applicable' : 'opaque-aeds-frame'
-        },
-        responses: [
-            { status: operation.successStatus, schemaRef: `aeds://frame/${operation.responseFrame}`, contentType: 'application/octet-stream', resultPlacement: 'aeds.frame.payload', nullable: false },
-            { status: null, schemaRef: 'aeds://frame/ApiError', contentType: 'application/octet-stream', resultPlacement: 'aeds.frame.payload', nullable: false }
-        ],
-        publicErrorRefs: ['configuration-error-security-policy:error-transport-mappings:ApiError'],
-        publicErrorRefState: 'transport-frame-authority-only',
-        errorAuthorityBehaviorId: 'configuration-error-security-policy',
-        resultPlacement: 'aeds.frame.payload',
-        protocolState: 'active-aeds-only'
-    })
+            properties,
+            definitions,
+            oneOf: [],
+            discriminator: null,
+            bounds: body ? { title: properties.title.bounds } : {},
+            fieldSetState: body ? 'closed' : 'not-applicable',
+            boundsState: body ? 'closed' : 'not-applicable',
+            unionState: body ? 'none' : 'not-applicable',
+            schemaDigest: null,
+            sourceTypes: body ? ['FsusBlog.Shared.Contracts.ArticleWriteRequest'] : [],
+            readerIdentities: body ? ['FsusBlog.Server.Infrastructure.Binary.IBinaryEndpointRequestContext.ReadFrameAsync'] : []
+        };
+        if (body)
+        {
+            request.schemaDigest = sha256(Buffer.from(JSON.stringify({
+                schemaRef: request.schemaRef,
+                requestFrame: operation.requestFrame,
+                encoding: request.encoding,
+                requiredFields: request.requiredFields,
+                properties: request.properties,
+                definitions: request.definitions,
+                oneOf: request.oneOf,
+                discriminator: request.discriminator,
+                bounds: request.bounds,
+                sourceTypes: request.sourceTypes,
+                readerIdentities: request.readerIdentities
+            })));
+        }
+        return {
+            ...operation,
+            request,
+            responses: [
+                {
+                    status: operation.successStatus, kind: 'success', schemaRef: `aeds://frame/${operation.responseFrame}`,
+                    contentType: 'application/octet-stream', resultPlacement: 'aeds.frame.payload', nullable: false,
+                    publicErrorRef: null
+                },
+                ...statuses.map((status) => ({
+                    status, kind: 'error', schemaRef: 'aeds://frame/ApiError',
+                    contentType: 'application/octet-stream', resultPlacement: 'aeds.frame.payload', nullable: false,
+                    publicErrorRef: `configuration-error-security-policy:error-transport-mappings:${status}`
+                }))
+            ],
+            publicErrorRefs: statuses.map((status) => `configuration-error-security-policy:error-transport-mappings:${status}`),
+            publicErrorStatusEvidence: Object.fromEntries(statuses.map((status) => [String(status), [`compiled-test:${status}`]])),
+            publicErrorRefState: 'operation-status-authority-bound',
+            errorAuthorityBehaviorId: 'configuration-error-security-policy',
+            resultPlacement: 'aeds.frame.payload',
+            protocolState: 'active-aeds-only'
+        };
+    };
     return {
-        schema: 'fsusblog.api-aeds-observation.v2',
+        schema: 'fsusblog.api-aeds-observation.v3',
         protocol: 'AEDS',
         aedsVersion: 2,
         operationCount: 2,
@@ -91,7 +165,8 @@ function sampleObservation(overrides = {})
                 pow: false,
                 rateLimit: 'public_read',
                 cache: 'public-read',
-                successStatus: 200
+                successStatus: 200,
+                publicErrorStatuses: [404, 406, 500]
             }),
             typed({
                 method: 'POST',
@@ -107,7 +182,8 @@ function sampleObservation(overrides = {})
                 pow: true,
                 rateLimit: 'fixed_ip',
                 cache: 'no-store',
-                successStatus: 200
+                successStatus: 200,
+                publicErrorStatuses: [400, 401, 403, 406, 415, 500]
             })
         ],
         ...overrides
@@ -352,15 +428,29 @@ test('typed request, response, protocol, and error authority counterexamples fai
         ['missing request', (value) => { delete value.operations[0].request; }, /request contract/iu],
         ['incorrect request required', (value) => { value.operations[0].request.required = true; }, /request direction|request contract/iu],
         ['incorrect request nullable', (value) => { value.operations[1].request.nullable = true; }, /request contract/iu],
+        ['property nullable drift', (value) => { value.operations[1].request.properties.title.nullable = true; }, /request contract/iu],
+        ['missing nested definition', (value) => { delete value.operations[1].request.definitions['FsusBlog.Shared.Contracts.ArticleMetadata']; }, /request contract/iu],
+        ['nested required drift', (value) => { value.operations[1].request.definitions['FsusBlog.Shared.Contracts.ArticleMetadata'].requiredFields = []; }, /request contract/iu],
+        ['missing required field', (value) => { value.operations[1].request.requiredFields = []; }, /request contract/iu],
+        ['schema digest stale', (value) => { value.operations[1].request.schemaDigest = '0'.repeat(64); }, /request contract/iu],
         ['invented request field bounds', (value) => { value.operations[1].request.boundsState = 'frame-contract'; }, /request contract/iu],
-        ['invented request union', (value) => { value.operations[1].request.unionState = 'oneOf'; }, /request contract/iu],
+        ['bounds loss', (value) => { value.operations[1].request.properties.title.bounds.maxLength = null; }, /request contract/iu],
+        ['bounds projection drift', (value) => { value.operations[1].request.bounds = {}; }, /request contract/iu],
+        ['invented request union', (value) => { value.operations[1].request.unionState = 'one-of'; value.operations[1].request.oneOf = ['Missing']; }, /request contract/iu],
+        ['discriminator without union', (value) => { value.operations[1].request.discriminator = '$type'; }, /request contract/iu],
         ['invented request required field', (value) => { value.operations[1].request.requiredFields.push('frame'); }, /request contract/iu],
+        ['request direction swap', (value) => { value.operations[1].request.source = 'none'; }, /request contract/iu],
+        ['duplicate source type', (value) => { value.operations[1].request.sourceTypes.push(value.operations[1].request.sourceTypes[0]); }, /request contract/iu],
         ['missing error response', (value) => { value.operations[0].responses.pop(); }, /response contracts/iu],
-        ['success status drift', (value) => { value.operations[0].responses[0].status = 201; }, /response status/iu],
+        ['success status drift', (value) => { value.operations[0].responses[0].status = 201; }, /response contracts/iu],
         ['content type drift', (value) => { value.operations[0].responses[0].contentType = 'application/json'; }, /response contracts/iu],
-        ['response schema drift', (value) => { value.operations[0].responses[0].schemaRef = 'aeds://frame/ApiError'; }, /response status/iu],
+        ['response schema drift', (value) => { value.operations[0].responses[0].schemaRef = 'aeds://frame/ApiError'; }, /response contracts/iu],
         ['result placement drift', (value) => { value.operations[0].responses[0].resultPlacement = 'json.body'; }, /response contracts/iu],
         ['duplicate response', (value) => { value.operations[0].responses.push({ ...value.operations[0].responses[0] }); }, /response contracts/iu],
+        ['extra public status', (value) => { value.operations[0].publicErrorStatuses.push(503); }, /response contracts/iu],
+        ['missing status evidence', (value) => { delete value.operations[0].publicErrorStatusEvidence['404']; }, /response contracts/iu],
+        ['unmapped status ref', (value) => { value.operations[0].publicErrorRefs[0] = 'configuration-error-security-policy:error-transport-mappings:999'; }, /response contracts/iu],
+        ['generic error placeholder', (value) => { value.operations[0].publicErrorRefs[0] = 'configuration-error-security-policy:error-transport-mappings:ApiError'; }, /response contracts/iu],
         ['active migration overlap', (value) => { value.protocolStates.migrationOnlyFrameIds.push('ArticleDetail'); }, /protocol states conflict/iu],
         ['reserved frame in active partition', (value) => { value.protocolStates.activeFrameIds.push('Reserved178'); }, /protocol states conflict/iu],
         ['non-reserved migration frame', (value) => { value.protocolStates.migrationOnlyFrameIds.push('MigrationFrame'); }, /protocol states conflict/iu],
@@ -368,7 +458,7 @@ test('typed request, response, protocol, and error authority counterexamples fai
         ['missing migration partition', (value) => { delete value.protocolStates.migrationOnlyFrameIds; }, /protocol states missing/iu],
         ['error behavior drift', (value) => { value.operations[0].errorAuthorityBehaviorId = 'binary-api-aeds-contract'; }, /public errors/iu],
         ['invented operation error allow-list', (value) => { value.operations[0].publicErrorRefState = 'operation-allow-list'; }, /public errors/iu],
-        ['duplicate public error ref', (value) => { value.operations[0].publicErrorRefs.push(value.operations[0].publicErrorRefs[0]); }, /public errors/iu],
+        ['duplicate public error ref', (value) => { value.operations[0].publicErrorRefs.push(value.operations[0].publicErrorRefs[0]); }, /response contracts/iu],
         ['duplicate authority fact', (value) => { value.errorAuthority.factIds.push(value.errorAuthority.factIds[0]); }, /error authority binding/iu]
     ];
 

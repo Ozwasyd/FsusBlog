@@ -24,19 +24,25 @@ internal static class OpenApiProjectionWriter
                 throw new InvalidOperationException($"duplicate OpenAPI method/path {op.Method} {op.Path}");
             }
 
-            var responses = new JsonObject
+            var responses = new JsonObject();
+            foreach (OperationResponseContract response in op.Responses.OrderBy(static item => item.Status))
             {
-                [op.SuccessStatus.ToString()] = new JsonObject
+                if (response.Status is not int status)
                 {
-                    ["description"] = $"{op.ResponseFrame} AEDS frame",
-                    ["content"] = BinaryContent()
-                },
-                ["default"] = new JsonObject
-                {
-                    ["description"] = "ApiError AEDS frame",
-                    ["content"] = BinaryContent()
+                    throw new InvalidOperationException($"{op.OperationId} response status must be explicit");
                 }
-            };
+                if (responses.ContainsKey(status.ToString(System.Globalization.CultureInfo.InvariantCulture)))
+                {
+                    throw new InvalidOperationException($"{op.OperationId} duplicate response status {status}");
+                }
+                responses[status.ToString(System.Globalization.CultureInfo.InvariantCulture)] = new JsonObject
+                {
+                    ["description"] = response.Kind == "success"
+                        ? $"{op.ResponseFrame} AEDS frame"
+                        : $"{op.ErrorFrame} AEDS error frame ({status})",
+                    ["content"] = BinaryContent()
+                };
+            }
 
             var operation = new JsonObject
             {
@@ -60,6 +66,8 @@ internal static class OpenApiProjectionWriter
             operation["x-fsus-request-contract"] = JsonSerializer.SerializeToNode(op.Request);
             operation["x-fsus-response-contracts"] = JsonSerializer.SerializeToNode(op.Responses);
             operation["x-fsus-public-error-refs"] = JsonSerializer.SerializeToNode(op.PublicErrorRefs);
+            operation["x-fsus-public-error-statuses"] = JsonSerializer.SerializeToNode(op.PublicErrorStatuses);
+            operation["x-fsus-public-error-status-evidence"] = JsonSerializer.SerializeToNode(op.PublicErrorStatusEvidence);
             operation["x-fsus-public-error-ref-state"] = op.PublicErrorRefState;
             operation["x-fsus-error-authority-behavior"] = op.ErrorAuthorityBehaviorId;
             operation["x-fsus-result-placement"] = op.ResultPlacement;
@@ -106,7 +114,9 @@ internal static class OpenApiProjectionWriter
 
         return document.ToJsonString(new JsonSerializerOptions
         {
-            WriteIndented = true
+            WriteIndented = true,
+            IndentCharacter = ' ',
+            IndentSize = 4
         }) + "\n";
     }
 

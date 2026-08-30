@@ -11,7 +11,14 @@ internal sealed record ObservedOperation(
     bool Pow,
     string RateLimit,
     string Cache,
-    string? SourceIdentity);
+    string? SourceIdentity,
+    IReadOnlyList<ObservedRequestType> RequestTypes,
+    IReadOnlyDictionary<int, IReadOnlyList<string>> CompiledErrorStatusEvidence);
+
+internal sealed record ObservedRequestType(
+    Type Type,
+    string Encoding,
+    string ReaderIdentity);
 
 internal sealed record AedsEndpointContract(
     string Method,
@@ -294,6 +301,16 @@ internal sealed class ObservationOperation
         get; init;
     }
 
+    public required IReadOnlyList<int> PublicErrorStatuses
+    {
+        get; init;
+    }
+
+    public required IReadOnlyDictionary<string, IReadOnlyList<string>> PublicErrorStatusEvidence
+    {
+        get; init;
+    }
+
     public required string PublicErrorRefState
     {
         get; init;
@@ -323,13 +340,52 @@ internal sealed class ObservationOperation
 internal sealed record OperationRequestContract(
     string Source,
     string? SchemaRef,
+    string Encoding,
     bool Required,
     bool Nullable,
     IReadOnlyList<string> RequiredFields,
     IReadOnlyList<RouteParameterContract> Parameters,
+    IReadOnlyDictionary<string, RequestPropertyContract> Properties,
+    IReadOnlyDictionary<string, RequestSchemaDefinition> Definitions,
+    IReadOnlyList<string> OneOf,
+    string? Discriminator,
+    IReadOnlyDictionary<string, RequestBoundContract> Bounds,
     string FieldSetState,
     string BoundsState,
-    string UnionState);
+    string UnionState,
+    string? SchemaDigest,
+    IReadOnlyList<string> SourceTypes,
+    IReadOnlyList<string> ReaderIdentities);
+
+internal sealed record RequestSchemaDefinition(
+    string TypeIdentity,
+    IReadOnlyList<string> RequiredFields,
+    IReadOnlyDictionary<string, RequestPropertyContract> Properties,
+    IReadOnlyList<string> OneOf,
+    string? Discriminator,
+    IReadOnlyDictionary<string, RequestBoundContract> Bounds);
+
+internal sealed record RequestPropertyContract(
+    string Name,
+    string Type,
+    bool Required,
+    bool Nullable,
+    string? Format,
+    string? SchemaRef,
+    string? ItemType,
+    string? ItemSchemaRef,
+    IReadOnlyList<string> EnumValues,
+    RequestBoundContract Bounds);
+
+internal sealed record RequestBoundContract(
+    string? Minimum,
+    string? Maximum,
+    int? MinLength,
+    int? MaxLength,
+    int? MinItems,
+    int? MaxItems,
+    int? MinProperties,
+    int? MaxProperties);
 
 internal sealed record RouteParameterContract(
     string Name,
@@ -340,10 +396,12 @@ internal sealed record RouteParameterContract(
 
 internal sealed record OperationResponseContract(
     int? Status,
+    string Kind,
     string SchemaRef,
     string ContentType,
     string ResultPlacement,
-    bool Nullable);
+    bool Nullable,
+    string? PublicErrorRef);
 
 internal sealed record ProtocolStateCatalog(
     IReadOnlyList<int> SupportedVersions,
@@ -436,6 +494,10 @@ internal static class ObservationMerger
                 throw new InvalidOperationException($"{key} errorFrame must be ApiError");
             }
 
+            IReadOnlyDictionary<int, IReadOnlyList<string>> publicErrorEvidence = live.CompiledErrorStatusEvidence
+                .Where(pair => pair.Key != contract.SuccessStatus)
+                .ToDictionary(static pair => pair.Key, static pair => pair.Value);
+
             operations.Add(new ObservationOperation
             {
                 Method = live.Method,
@@ -453,24 +515,15 @@ internal static class ObservationMerger
                 RateLimit = live.RateLimit,
                 Cache = live.Cache,
                 SuccessStatus = contract.SuccessStatus,
-                Request = BuildRequest(contract.RequestFrame, live.Path),
-                Responses =
-                [
-                    new OperationResponseContract(
-                        contract.SuccessStatus,
-                        $"aeds://frame/{contract.ResponseFrame}",
-                        "application/octet-stream",
-                        "aeds.frame.payload",
-                        false),
-                    new OperationResponseContract(
-                        null,
-                        $"aeds://frame/{contract.ErrorFrame}",
-                        "application/octet-stream",
-                        "aeds.frame.payload",
-                        false)
-                ],
-                PublicErrorRefs = ["configuration-error-security-policy:error-transport-mappings:ApiError"],
-                PublicErrorRefState = "transport-frame-authority-only",
+                Request = BuildRequest(contract.RequestFrame, live.Path, operationId, live.RequestTypes),
+                Responses = BuildResponses(contract, publicErrorEvidence.Keys),
+                PublicErrorRefs = BuildPublicErrorRefs(publicErrorEvidence.Keys),
+                PublicErrorStatuses = publicErrorEvidence.Keys.Order().ToArray(),
+                PublicErrorStatusEvidence = publicErrorEvidence.ToDictionary(
+                    static pair => pair.Key.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    static pair => pair.Value,
+                    StringComparer.Ordinal),
+                PublicErrorRefState = "operation-status-authority-bound",
                 ErrorAuthorityBehaviorId = "configuration-error-security-policy",
                 ResultPlacement = "aeds.frame.payload",
                 ProtocolState = "active-aeds-only",
@@ -480,7 +533,7 @@ internal static class ObservationMerger
 
         var document = new ObservationDocument
         {
-            Schema = "fsusblog.api-aeds-observation.v2",
+            Schema = "fsusblog.api-aeds-observation.v3",
             Protocol = contracts.Protocol,
             AedsVersion = contracts.AedsVersion,
             OperationCount = operations.Count,
@@ -519,7 +572,56 @@ internal static class ObservationMerger
         };
     }
 
-    private static OperationRequestContract BuildRequest(string? requestFrame, string route)
+    private static IReadOnlyList<OperationResponseContract> BuildResponses(
+        AedsEndpointContract contract,
+        IEnumerable<int> errorStatuses)
+    {
+        List<OperationResponseContract> responses =
+        [
+            new OperationResponseContract(
+                contract.SuccessStatus,
+                "success",
+                $"aeds://frame/{contract.ResponseFrame}",
+                "application/octet-stream",
+                "aeds.frame.payload",
+                false,
+                null)
+        ];
+        responses.AddRange(errorStatuses
+            .Distinct()
+            .Where(static status => status is >= 400 and <= 599)
+            .Order()
+            .Select(status => new OperationResponseContract(
+                status,
+                "error",
+                $"aeds://frame/{contract.ErrorFrame}",
+                "application/octet-stream",
+                "aeds.frame.payload",
+                false,
+                PublicErrorRef(status))));
+        if (responses.Count == 1)
+        {
+            throw new InvalidOperationException($"{contract.OperationId} has no observed public error status");
+        }
+        return responses;
+    }
+
+    private static IReadOnlyList<string> BuildPublicErrorRefs(IEnumerable<int> statuses)
+        => statuses
+            .Distinct()
+            .Where(static status => status is >= 400 and <= 599)
+            .Order()
+            .Select(PublicErrorRef)
+            .ToArray();
+
+    private static string PublicErrorRef(int status)
+        => $"configuration-error-security-policy:error-transport-mappings:{status}";
+
+    private static OperationRequestContract BuildRequest(
+        string? requestFrame,
+        string route,
+        string operationId,
+        IReadOnlyList<ObservedRequestType> requestTypes)
     {
         IReadOnlyList<RouteParameterContract> parameters = System.Text.RegularExpressions.Regex
             .Matches(route, @"\{([A-Za-z_][A-Za-z0-9_]*)(?::([^}]+))?\}")
@@ -530,16 +632,7 @@ internal static class ObservationMerger
                 true,
                 false))
             .ToArray();
-        return new OperationRequestContract(
-            requestFrame is null ? "none" : "aeds-frame-body",
-            requestFrame is null ? null : $"aeds://frame/{requestFrame}",
-            requestFrame is not null,
-            false,
-            [],
-            parameters,
-            requestFrame is null ? "not-applicable" : "opaque-aeds-frame",
-            requestFrame is null ? "not-applicable" : "opaque-aeds-frame",
-            requestFrame is null ? "not-applicable" : "opaque-aeds-frame");
+        return RequestContractObserver.Build(requestFrame, operationId, parameters, requestTypes);
     }
 
     internal static string MatchKey(string method, string path)
