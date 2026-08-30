@@ -149,6 +149,7 @@
         "BACKEND-PERCEPTION-V2-TEST-MATRIX",
         "BACKEND-PRIVACY-ZK-COMMENT-GATE",
         "BACKEND-PLATFORM-MEMBERSHIP",
+        "BACKEND-CLAIMS-MALFORMED-USER-ID",
         "BACKEND-RELEASE-IDENTITY",
         "BACKEND-BLUE-GREEN-SLOTS",
         "BACKEND-ATOMIC-GATEWAY-SWITCH",
@@ -161,6 +162,7 @@
         "src/backend/Properties/AssemblyInfo.cs",
         "tests/backend/FsusBlog.Server.Tests.csproj",
         "tests/backend/Unit/SearchIndexServiceTests.cs",
+        "tests/backend/Unit/ClaimsAndApiResponseTests.cs",
         "tests/backend/Unit/CoverageScriptContractTests.cs",
         "tests/backend/Unit/TestInfrastructure/BackendTestPathsTests.cs",
         "tests/tools/backend-trx-contract.test.mjs",
@@ -1145,6 +1147,15 @@
         "tools/test/run-legacy-real-dump-producer.mjs",
         "tests/tools/legacy-real-dump-producer.test.mjs",
         "docs/database-migration.md"
+      ]
+    },
+    {
+      "id": "BACKEND-CLAIMS-MALFORMED-USER-ID",
+      "risk": "high",
+      "coverage": "the two named malformed NameIdentifier claim cases remain independently discoverable and return the zero fallback through the production GetUserId extension while valid, null and missing-claim owners remain separate",
+      "evidencePaths": [
+        "tests/backend/Unit/ClaimsAndApiResponseTests.cs",
+        "tests/test-retention-replacements.json"
       ]
     }
   ],

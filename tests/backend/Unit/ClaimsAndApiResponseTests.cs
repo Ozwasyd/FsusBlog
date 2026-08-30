@@ -54,19 +54,14 @@ public class ClaimsPrincipalExtensionsTests
         Assert.Equal(0, user.GetUserId());
     }
 
-    [Fact]
-    public void GetUserId_InvalidValueClaim_ReturnsZero()
+    [Theory]
+    [InlineData("not-numeric", "not-a-number")]
+    [InlineData("whitespace", "   ")]
+    public void GetUserId_MalformedClaim_ReturnsZero(string caseName, string claimValue)
     {
-        var claims = new[] { new Claim(ClaimTypes.NameIdentifier, "not-a-number") };
+        var claims = new[] { new Claim(ClaimTypes.NameIdentifier, claimValue) };
         var user = new ClaimsPrincipal(new ClaimsIdentity(claims));
-        Assert.Equal(0, user.GetUserId());
-    }
 
-    [Fact]
-    public void GetUserId_WhitespaceClaim_ReturnsZero()
-    {
-        var claims = new[] { new Claim(ClaimTypes.NameIdentifier, "   ") };
-        var user = new ClaimsPrincipal(new ClaimsIdentity(claims));
         Assert.Equal(0, user.GetUserId());
     }
 

@@ -1639,6 +1639,7 @@ tiers:
       requiredFor: fast
       coverage:
           - backend-unit
+          - backend-claims-malformed-user-id
           - blue-green-slot-orchestration
           - backend-runtime-fallback-retirement-a3
           - backend-physical-account-subject-retirement
@@ -2954,7 +2955,7 @@ tiers:
       risk: high
       cadence: pr
       requiredFor: fast
-      coverage: [backend-unit, backend-coverage]
+      coverage: [backend-unit, backend-coverage, backend-claims-malformed-user-id]
       artifacts: [.tmp/coverage/backend, .tmp/coverage/backend-merged]
       evidence:
           [
@@ -2963,6 +2964,8 @@ tiers:
               .tmp/coverage/backend-merged/coverage.cobertura.xml,
               .tmp/coverage/backend-merged/migration-evidence.json,
               tests/backend/Fixtures/backend-test-requirements.json,
+              tests/backend/Unit/ClaimsAndApiResponseTests.cs,
+              tests/test-retention-replacements.json,
               tests/tools/backend-coverage-pipeline.test.mjs,
           ]
       ciJob: fast-backend

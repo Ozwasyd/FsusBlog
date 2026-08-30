@@ -1017,6 +1017,25 @@
             ]
         },
         {
+            "id": "backend-claims-malformed-user-id",
+            "description": "Named malformed NameIdentifier claim cases execute the production GetUserId extension and preserve independent not-numeric and whitespace diagnostics alongside the valid, null and missing-claim owners.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                ".tmp/backend-unit/summary.json",
+                ".tmp/coverage/backend-merged/Summary.json",
+                "tests/backend/Unit/ClaimsAndApiResponseTests.cs",
+                "tests/test-retention-replacements.json"
+            ],
+            "assertionType": "unit",
+            "failClosedRule": "The backend unit and inventory governance paths must fail if either named malformed case disappears, stops using a real NameIdentifier ClaimsPrincipal, bypasses production GetUserId, returns a nonzero value, or absorbs the valid, null or missing-claim owners.",
+            "minimumRequirement": "Exactly two stable Theory cases cover not-a-number and three spaces, both assert zero through GetUserId, the adjacent valid owner proves 42 maps to 42, and null plus no-claim owners remain independently discoverable.",
+            "tierIds": [
+                "backend-unit",
+                "coverage-backend"
+            ]
+        },
+        {
             "id": "backend-unit",
             "description": "Backend Unit is covered by runtime artifacts that exercise the named behavior.",
             "owner": "ServerContractAgent",
