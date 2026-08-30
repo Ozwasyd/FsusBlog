@@ -2,6 +2,13 @@
     "schema": "fsusblog.external-naming-exceptions.v1",
     "exceptions": [
         {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "preserve serialized lifecycle registry keys while assigning the finalizer static suite to its canonical test owner"
+        },
+        {
             "id": "environment-variable",
             "paths": [
                 "tools/test-matrix/release-final-static-boundary.mjs"
