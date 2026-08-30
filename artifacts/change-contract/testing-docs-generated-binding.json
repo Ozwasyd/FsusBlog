@@ -5,8 +5,12 @@
   ],
   "outputs": [
     {
+      "path": "config/testing/correctness-attempt-producers.json",
+      "sha256": "39131a7020bd843bcf05fccf7d1280d63dfdf539648de619b57cfff82ba58671"
+    },
+    {
       "path": "docs/testing.generated.md",
-      "sha256": "ddd6d3fd1d7ccf62e7ef9e849a2fc7151ea19aa5320a3af008d60712648cffd6"
+      "sha256": "8c31b7192e6591b1e57c68995dc916623ae93f6dd9df1146f8e7d6fa999bbc44"
     }
   ]
 }

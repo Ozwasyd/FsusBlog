@@ -1,0 +1,35 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/execution-envelope-environment.mjs",
+                "tools/test/execution-envelope-network.mjs",
+                "tools/test/run-matrix-governance-once.sh"
+            ],
+            "reason": "preserve caller-visible FSUSBLOG environment names while fixing the correctness execution boundary"
+        },
+        {
+            "id": "github-actions-schema",
+            "paths": [
+                ".github/workflows/quality-gate.yml"
+            ],
+            "reason": "preserve GitHub Actions workflow keys and expressions while aligning uploaded matrix artifacts"
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/testing.generated.md"
+            ],
+            "reason": "preserve generated Markdown and embedded repository path spellings from the canonical matrix producer"
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json"
+            ],
+            "reason": "preserve canonical generated JSON field names while refreshing the matrix source digest binding"
+        }
+    ]
+}

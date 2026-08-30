@@ -504,11 +504,21 @@ tiers:
       coverage: [test-dag]
       artifacts:
           [
+              .tmp/ci-plan.json,
+              .tmp/docs/browser-contract-matrix.json,
+              .tmp/docs/fast-backend-matrix.json,
+              .tmp/docs/fast-frontend-unit-matrix.json,
+              .tmp/gate-logs/preflight.json,
               .tmp/release-evidence/test-plan.json,
               .tmp/physical-execution-projections/validate-matrix-matrix-governance.json,
           ]
       evidence:
           [
+              .tmp/ci-plan.json,
+              .tmp/docs/browser-contract-matrix.json,
+              .tmp/docs/fast-backend-matrix.json,
+              .tmp/docs/fast-frontend-unit-matrix.json,
+              .tmp/gate-logs/preflight.json,
               .tmp/release-evidence/test-plan.json,
               .tmp/physical-execution-projections/validate-matrix-matrix-governance.json,
           ]
