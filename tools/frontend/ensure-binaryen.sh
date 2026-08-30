@@ -2,6 +2,7 @@
 set -euo pipefail
 
 BINARYEN_VERSION="version_123"
+BINARYEN_EXPECTED_VERSION="${BINARYEN_VERSION#version_}"
 CACHE_ROOT="${FSUSBLOG_DEPENDENCY_CACHE_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/.tmp/dependency-cache}"
 BINARYEN_ROOT="${CACHE_ROOT}/binaryen/${BINARYEN_VERSION}"
 LOCK_FILE="${CACHE_ROOT}/binaryen/${BINARYEN_VERSION}.lock"
@@ -36,7 +37,7 @@ case "$(uname -s):$(uname -m)" in
 esac
 
 WASM_OPT="${BINARYEN_ROOT}/bin/${WASM_OPT_NAME}"
-if [[ -x "${WASM_OPT}" ]] && [[ "$("${WASM_OPT}" --version)" == *"123"* ]]; then
+if [[ -x "${WASM_OPT}" ]] && [[ "$("${WASM_OPT}" --version)" == *"${BINARYEN_EXPECTED_VERSION}"* ]]; then
     printf '%s\n' "${WASM_OPT}"
     exit 0
 fi
@@ -74,7 +75,7 @@ else
     }
 fi
 
-if [[ -x "${WASM_OPT}" ]] && [[ "$("${WASM_OPT}" --version)" == *"123"* ]]; then
+if [[ -x "${WASM_OPT}" ]] && [[ "$("${WASM_OPT}" --version)" == *"${BINARYEN_EXPECTED_VERSION}"* ]]; then
     printf '%s\n' "${WASM_OPT}"
     exit 0
 fi
@@ -100,7 +101,7 @@ EXTRACTED_ROOT="${WORK_DIR}/binaryen-${BINARYEN_VERSION}"
 }
 rm -rf "${BINARYEN_ROOT}"
 mv "${EXTRACTED_ROOT}" "${BINARYEN_ROOT}"
-[[ "$("${WASM_OPT}" --version)" == *"123"* ]] || {
+[[ "$("${WASM_OPT}" --version)" == *"${BINARYEN_EXPECTED_VERSION}"* ]] || {
     echo "[ensure-binaryen] installed version does not match ${BINARYEN_VERSION}" >&2
     exit 1
 }

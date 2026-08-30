@@ -37,11 +37,11 @@ StaticTestReplacementDiff() {
     local base="${FSUSBLOG_TEST_REPLACEMENT_DIFF_BASE:-origin/master}"
     local transactions=()
     mapfile -t transactions < <(git -C "$ROOT_DIR" diff --name-only "$base" HEAD -- 'tests/test-replacement-transactions/*.json')
-    if (( ${#transactions[@]} > 1 )); then
+    if ((${#transactions[@]} > 1)); then
         echo "[test-replacement] multiple current transactions are ambiguous: ${transactions[*]}" >&2
         return 1
     fi
-    if (( ${#transactions[@]} == 1 )); then
+    if ((${#transactions[@]} == 1)); then
         Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test-replacement-transaction.mjs" check-diff "$base" "${transactions[0]}"
     else
         Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test-replacement-transaction.mjs" check-diff "$base"
@@ -79,6 +79,16 @@ StaticCentralPackageManagement() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-central-package-management.mjs" --root "$ROOT_DIR"
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-central-package-management.mjs" \
         --fixtures "$ROOT_DIR/tests/fixtures/governance/central-package-management.json"
+}
+StaticDependencyUpdateSurface() {
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-dependency-update-surface.mjs" \
+        --root "$ROOT_DIR" \
+        --fixtures "$ROOT_DIR/tests/fixtures/governance/dependency-update-surface.json"
+}
+StaticDependencyFreshness() {
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-dependency-freshness.mjs" \
+        --root "$ROOT_DIR" \
+        --fixtures "$ROOT_DIR/tests/fixtures/governance/dependency-freshness.json"
 }
 TEST_ASSET_BEHAVIOR_FILES=(
     "$ROOT_DIR/tests/tools/artifact-digest-table.test.mjs"
@@ -148,6 +158,8 @@ RunApplicationStaticPrechecksPhase() {
         behavior-mutation-governance StaticBehaviorMutationGovernance \
         fixture-mutation-recovery-governance StaticFixtureMutationRecoveryGovernance \
         central-package-management StaticCentralPackageManagement \
+        dependency-update-surface StaticDependencyUpdateSurface \
+        dependency-freshness StaticDependencyFreshness \
         line-endings StaticLineEndings \
         csharp-style StaticCsharpStyle \
         label-governance StaticLabelGovernance

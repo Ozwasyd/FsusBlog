@@ -173,7 +173,8 @@ includes('docs/repository-governance.md', contents.get('docs/repository-governan
 includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'private repositories to evaluate review and branch-protection signals')
 includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'does not upload to Code Scanning while this private repository has code scanning disabled')
 includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'checks: read')
-includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'Dependabot version updates are intentionally not configured')
+includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'official Mend Renovate')
+includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'config/dependencies/update-surface.json')
 includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'Dependabot alerts')
 includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'Dependabot security')
 includes('docs/reports/open-source-readiness/v1.1.0-public-preview/readiness-checklist.md', contents.get('docs/reports/open-source-readiness/v1.1.0-public-preview/readiness-checklist.md'), 'Historical snapshot — not current master evidence.')
@@ -193,7 +194,7 @@ for (const [path, source] of contents) {
 }
 
 if (existsSync(resolve(root, '.github/dependabot.yml'))) {
-  errors.push('.github/dependabot.yml must remain absent so routine Dependabot version-update PRs stay disabled')
+  errors.push('.github/dependabot.yml must remain absent because Mend Renovate is the only routine dependency update bot')
 }
 
 if (!/pull_request:\n/.test(contents.get('.github/workflows/codeql.yml'))) {

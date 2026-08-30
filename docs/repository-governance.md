@@ -57,15 +57,30 @@ The current private-repository plan returns HTTP 403 for both classic branch pro
 
 ## Dependency And Supply-Chain Checks
 
-Dependabot version updates are intentionally not configured: the repository has no
-`.github/dependabot.yml`, so routine npm, NuGet, and GitHub Actions upgrades are
-batched by maintainers when needed instead of being opened as weekly bot pull
-requests. Repository settings must keep Dependabot alerts and Dependabot security
-updates enabled; security remediation pull requests are reviewed on their own risk
-and must not be treated as routine version-update noise.
+Repository-side routine dependency update authority is reserved exclusively for
+the official Mend Renovate GitHub App. The root `renovate.json5` is its candidate
+configuration; the exact managed surface and intentional path exclusions are registered in
+`config/dependencies/update-surface.json`. No self-hosted Renovate workflow, PAT,
+second update bot, or `.github/dependabot.yml` is permitted. Repository settings
+must keep Dependabot alerts and Dependabot security updates enabled.
 
-Every dependency change, whether submitted manually or by a security update, remains
-subject to Dependency Review, the denied-license policy, and the normal CI gates.
+The candidate config requests six-hour checks, stable exact/pinned major, minor,
+patch and digest updates, daily lock-file refreshes, and unscheduled vulnerability
+updates. It does not extend `config:recommended`, `:ignoreModulesAndTests`, or
+Renovate's default grouping presets, so real version fields under `tests/` stay
+visible; fixture and generated-evidence paths are ignored only when
+`update-surface.json` registers the exact path and reason. `fsusui-release-train`
+is a delegated manager for `config/testing/fsusui-baseline.json` and is still
+enumerated by `npm run deps:freshness`; it is not an ignore rule. Freshness is
+fail-closed and assigns each catalog item exactly one of `current`,
+`latest-target-pr`, or a dated exception in `config/dependencies/exceptions.json`.
+Updates remain
+reviewer-controlled and never automerged. The App
+installation, permissions, live Dependency Dashboard, and real update pull requests
+are `external-unverified`; local acceptance uses the official config validator,
+full dry-run, and `local-controlled-simulation` fixtures and does not claim those
+external effects occurred. Every dependency change remains subject to Dependency
+Review, the denied-license policy, and the normal CI gates.
 Dependency Review runs when pull requests change package locks, project files, or
 workflow files, blocks high-severity dependency changes, and denies the configured
 AGPL/GPL/LGPL license families.

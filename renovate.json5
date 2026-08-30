@@ -1,0 +1,223 @@
+{
+    "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+    "extends": [
+        ":dependencyDashboard",
+        ":semanticPrefixFixDepsChoreOthers"
+    ],
+    "timezone": "Asia/Shanghai",
+    "schedule": ["* 0,6,12,18 * * *"],
+    "minimumReleaseAge": "0 days",
+    "rangeStrategy": "pin",
+    "pinDigests": true,
+    "ignoreUnstable": true,
+    "automerge": false,
+    "dependencyDashboard": true,
+    "enabledManagers": [
+        "npm",
+        "nuget",
+        "dockerfile",
+        "docker-compose",
+        "github-actions",
+        "custom.regex"
+    ],
+    "docker-compose": {
+        "managerFilePatterns": [
+            "/(^|/)(?:docker-)?compose[^/]*\\.ya?ml$/",
+            "/^ops\\/development\\/dependencies\\.compose\\.ya?ml$/"
+        ]
+    },
+    "ignorePaths": [
+        "tests/frontend/fixtures/fsusui-boundary-violation/src/frontend/package.json",
+        "tools/test-inventory/xunit-roslyn-adapter/fixtures/AdapterFixtureTests/packages.lock.json"
+    ],
+    "lockFileMaintenance": {
+        "enabled": true,
+        "schedule": ["* 5 * * *"],
+        "automerge": false
+    },
+    "vulnerabilityAlerts": {
+        "enabled": true,
+        "schedule": ["at any time"],
+        "automerge": false
+    },
+    "packageRules": [
+        {
+            "description": "Keep every supported update type enabled and reviewer-controlled.",
+            "matchUpdateTypes": ["major", "minor", "patch", "pin", "digest", "lockFileMaintenance"],
+            "enabled": true,
+            "automerge": false,
+            "minimumReleaseAge": "0 days"
+        },
+        {
+            "groupName": "frontend-runtime",
+            "matchFileNames": ["src/frontend/package.json"],
+            "matchDepTypes": ["dependencies"]
+        },
+        {
+            "groupName": "frontend-test-tooling",
+            "matchManagers": ["npm"],
+            "matchFileNames": ["src/frontend/package.json"],
+            "matchDepTypes": ["devDependencies"]
+        },
+        {
+            "groupName": "frontend-test-tooling",
+            "matchManagers": ["npm"],
+            "matchFileNames": ["src/frontend/package.json"],
+            "matchDepTypes": ["overrides"],
+            "matchPackageNames": ["glob", "immutable"]
+        },
+        {
+            "groupName": "frontend-test-tooling",
+            "matchManagers": ["npm"],
+            "matchFileNames": ["tools/**/package.json"],
+            "matchDepTypes": ["devDependencies", "dependencies"]
+        },
+        {
+            "groupName": "frontend-vue-toolchain",
+            "matchPackageNames": ["vue", "@vue/compiler-sfc", "@vue/server-renderer", "vite", "@vitejs/plugin-vue", "@vitejs/plugin-vue-jsx", "typescript", "vue-tsc"]
+        },
+        {
+            "groupName": "dotnet-platform",
+            "matchPackageNames": ["Microsoft.AspNetCore.**", "Microsoft.Extensions.**", "Microsoft.OpenApi", "Microsoft.VisualStudio.Azure.Containers.Tools.Targets"]
+        },
+        {
+            "groupName": "identity-security",
+            "matchPackageNames": ["BCrypt.Net-Next", "BouncyCastle.Cryptography", "Fido2", "Konscious.Security.Cryptography.Argon2", "Microsoft.IdentityModel.**", "System.IdentityModel.Tokens.Jwt", "Nethermind.MclBindings"]
+        },
+        {
+            "groupName": "data-observability",
+            "matchPackageNames": ["MessagePack", "Microsoft.Data.Sqlite", "Npgsql", "Npgsql.OpenTelemetry", "OpenTelemetry.**", "Serilog", "Serilog.**", "SQLitePCLRaw.lib.e_sqlite3", "SqlSugarCoreNoDrive", "StackExchange.Redis"]
+        },
+        {
+            "groupName": "dotnet-test-tooling",
+            "matchPackageNames": ["BenchmarkDotNet", "coverlet.collector", "Microsoft.CodeAnalysis.**", "Microsoft.NET.Test.Sdk", "NSubstitute", "xunit", "xunit.**", "dotnet-reportgenerator-globaltool", "dotnet-coverage", "dotnet-stryker"]
+        },
+        {
+            "groupName": "dotnet-runtime",
+            "matchPackageNames": ["Jint"]
+        },
+        {
+            "groupName": "github-actions",
+            "matchManagers": ["github-actions"]
+        },
+        {
+            "groupName": "container-toolchain",
+            "matchManagers": ["dockerfile", "docker-compose", "custom.regex"],
+            "matchPackageNames": ["!microsoft/vcpkg", "!https://github.com/microsoft/vcpkg.git"]
+        },
+        {
+            "groupName": "container-toolchain",
+            "matchPackageNames": ["npm"]
+        },
+        {
+            "groupName": "vcpkg-baseline",
+            "matchPackageNames": ["microsoft/vcpkg", "https://github.com/microsoft/vcpkg.git"]
+        }
+    ],
+    "customManagers": [
+        {
+            "customType": "regex",
+            "description": "setup-node workflow inputs",
+            "managerFilePatterns": ["/^\\.github\\/workflows\\/.+\\.ya?ml$/"],
+            "matchStrings": ["uses: actions/setup-node@[^\\n]+[\\s\\S]{0,240}?node-version:\\s*['\\\"]?(?<currentValue>\\d+(?:\\.x){0,2})['\\\"]?"],
+            "depNameTemplate": "node",
+            "datasourceTemplate": "node-version",
+            "versioningTemplate": "node"
+        },
+        {
+            "customType": "regex",
+            "description": "setup-dotnet workflow inputs",
+            "managerFilePatterns": ["/^\\.github\\/workflows\\/.+\\.ya?ml$/"],
+            "matchStrings": ["uses: actions/setup-dotnet@[^\\n]+[\\s\\S]{0,240}?dotnet-version:\\s*['\\\"]?(?<currentValue>\\d+(?:\\.\\d+)?\\.x)['\\\"]?"],
+            "depNameTemplate": "dotnet-sdk",
+            "datasourceTemplate": "dotnet-version",
+            "versioningTemplate": "semver-partial"
+        },
+        {
+            "customType": "regex",
+            "description": "vcpkg rolling default-branch commit projections",
+            "managerFilePatterns": ["/^(?:docs\\/wasm\\.md|ops\\/docker\\/FsusBlog\\.Server\\.Dockerfile|ops\\/docker\\/wasm-producer-inputs\\.json|src\\/frontend\\/wasm\\/build\\.sh|tools\\/frontend\\/ensure-wasm\\.mjs)$/"],
+            "matchStrings": ["(?:VCPKG_COMMIT=|FSUSBLOG_VCPKG_COMMIT:-|[\\\"]?VCPKG_COMMIT[\\\"]?\\s*:\\s*[\\\"]|vcpkgCommit['\\\"]?\\s*[:=]\\s*['\\\"]|vcpkg commit [`\\\"])(?<currentDigest>[0-9a-f]{40})"],
+            "depNameTemplate": "microsoft/vcpkg",
+            "packageNameTemplate": "https://github.com/microsoft/vcpkg.git",
+            "datasourceTemplate": "git-refs",
+            "currentValueTemplate": "master",
+            "versioningTemplate": "git"
+        },
+        {
+            "customType": "regex",
+            "description": "Binaryen release projections",
+            "managerFilePatterns": ["/^(?:tools\\/frontend\\/ensure-binaryen\\.sh|tools\\/frontend\\/ensure-wasm\\.mjs|src\\/frontend\\/wasm\\/build\\.sh|src\\/frontend\\/wasm\\/web\\/aeds\\.ts|docs\\/wasm\\.md)$/"],
+            "matchStrings": [
+                "version_(?<currentValue>\\d{2,4})",
+                "binaryenVersion['\\\"]?\\s*[:=]\\s*['\\\"](?<currentValue>\\d{2,4})",
+                "binaryenVersion\\s*!==\\s*['\\\"](?<currentValue>\\d{2,4})",
+                "FSUSBLOG_WASM_TOOLCHAIN_BINARYEN=['\\\"](?<currentValue>\\d{2,4})",
+                "Binaryen(?: version)?[ `]+(?<currentValue>\\d{2,4})",
+                "版本不是 (?<currentValue>\\d{2,4})"
+            ],
+            "depNameTemplate": "WebAssembly/binaryen",
+            "datasourceTemplate": "github-releases",
+            "versioningTemplate": "loose"
+        },
+        {
+            "customType": "regex",
+            "description": "CMake release projections",
+            "managerFilePatterns": ["/^(?:tools\\/frontend\\/ensure-cmake\\.sh|tools\\/frontend\\/ensure-wasm\\.mjs|src\\/frontend\\/wasm\\/build\\.sh|docs\\/wasm\\.md)$/"],
+            "matchStrings": [
+                "(?:CMAKE_VERSION=|cmakeVersion['\\\"]?\\s*[:=]\\s*|CMake(?: version)?[^0-9]{0,20})['\\\"]?(?<currentValue>\\d+\\.\\d+\\.\\d+)",
+                "&&\\s*VersionLessThan\\s+['\\\"]\\$\\{version\\}['\\\"]\\s+['\\\"](?<currentValue>\\d+\\.\\d+\\.\\d+)"
+            ],
+            "depNameTemplate": "Kitware/CMake",
+            "datasourceTemplate": "github-releases",
+            "versioningTemplate": "semver"
+        },
+        {
+            "customType": "regex",
+            "description": "Pinned emsdk image projections outside Dockerfiles",
+            "managerFilePatterns": ["/^(?:tools\\/frontend\\/ensure-wasm\\.mjs|src\\/frontend\\/wasm\\/build\\.sh|docs\\/wasm\\.md)$/"],
+            "matchStrings": [
+                "(?<depName>emscripten/emsdk):(?<currentValue>\\d+\\.\\d+\\.\\d+)@(?<currentDigest>sha256:[0-9a-f]{64})",
+                "emscriptenVersion['\\\"]?\\s*[:=]\\s*['\\\"](?<currentValue>\\d+\\.\\d+\\.\\d+)"
+            ],
+            "depNameTemplate": "emscripten/emsdk",
+            "datasourceTemplate": "docker",
+            "versioningTemplate": "docker"
+        },
+        {
+            "customType": "regex",
+            "description": "pnpm runtime projections",
+            "managerFilePatterns": ["/^(?:ops\\/docker\\/FsusBlog\\.Server\\.Dockerfile|\\.github\\/workflows\\/production-image-verification\\.yml)$/"],
+            "matchStrings": ["(?:corepack (?:prepare )?pnpm@|test \\\"\\$\\(pnpm --version\\)\\\" = \\\")(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
+            "depNameTemplate": "pnpm",
+            "datasourceTemplate": "npm",
+            "versioningTemplate": "npm"
+        },
+        {
+            "customType": "regex",
+            "description": "Docker bundled npm projections",
+            "managerFilePatterns": ["/^ops\\/docker\\/FsusBlog\\.Server\\.Dockerfile$/"],
+            "matchStrings": ["test \\\"\\$\\((?:npm|npx) --version\\)\\\" = \\\"(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
+            "depNameTemplate": "npm",
+            "datasourceTemplate": "npm",
+            "versioningTemplate": "npm"
+        },
+        {
+            "customType": "regex",
+            "description": "Docker CMake path projection",
+            "managerFilePatterns": ["/^ops\\/docker\\/FsusBlog\\.Server\\.Dockerfile$/"],
+            "matchStrings": ["FSUSBLOG_WASM_CMAKE=[^\\s\\\"]*\\/cmake\\/(?<currentValue>\\d+\\.\\d+\\.\\d+)\\/bin\\/cmake"],
+            "depNameTemplate": "Kitware/CMake",
+            "datasourceTemplate": "github-releases",
+            "versioningTemplate": "semver"
+        },
+        {
+            "customType": "regex",
+            "description": "Pinned container references in shell authorities",
+            "managerFilePatterns": ["/^tools\\/(?:build-final-image|bootstrap-acceptance-env|deployment\\/check-production-openresty-config|transport\\/run-http3-local-experiment)\\.sh$/"],
+            "matchStrings": ["(?<depName>(?:mcr\\.microsoft\\.com/dotnet/(?:sdk|aspnet)|node|postgres|redis|ghcr\\.io/macbre/curl-http3|docker\\.io/openresty/openresty))(?::(?<currentValue>[A-Za-z0-9._-]+))?@(?<currentDigest>sha256:[0-9a-f]{64})"],
+            "datasourceTemplate": "docker",
+            "versioningTemplate": "docker"
+        }
+    ]
+}
