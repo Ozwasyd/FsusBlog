@@ -1577,8 +1577,10 @@ tiers:
               benchmarks/core,
               src/backend,
               src/core,
+              src/migration,
               src/shared,
               tests/backend,
+              tests/migration,
               tests/performance/backend-hotpath-budgets.json,
               tests/tools/backend-benchmark-regression.test.mjs,
               tools/check-backend-test-governance.mjs,
@@ -1638,8 +1640,10 @@ tiers:
               global.json,
               src/backend,
               src/core,
+              src/migration,
               src/shared,
               tests/backend,
+              tests/migration,
               tests/tools/backend-production-shards.test.mjs,
               tools/test/backend-platform-selection.mjs,
               tools/test/run-backend-production-shards.mjs,
@@ -1667,6 +1671,7 @@ tiers:
           - deployment-runtime-lifecycle
           - backend-online-schema-migration-protocol
           - current-schema-canonical-authority
+          - migration-assembly-boundary
           - backend-typed-schema-ddl-providers
           - blue-green-release-storage-lifecycle
           - atomic-idempotent-upload-commit
@@ -1729,6 +1734,13 @@ tiers:
           - src/backend/Services/SearchIndexService.Dictionary.cs
           - src/backend/Properties/AssemblyInfo.cs
           - tests/backend/FsusBlog.Server.Tests.csproj
+          - tests/migration/FsusBlog.Migration.Tests.csproj
+          - tests/migration/MigrationAssemblyBoundaryTests.cs
+          - src/migration/FsusBlog.Migration.csproj
+          - src/migration/SchemaMigrationPrimitives.cs
+          - src/migration/SchemaMigrationDdlPrimitives.cs
+          - src/migration/SchemaMigrationExecution.cs
+          - src/migration/SchemaMigrationManifest.cs
           - tests/backend/Unit/SearchIndexServiceTests.cs
           - tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs
           - tests/backend/Unit/UserSecurityStepUpServiceTests.cs
@@ -1754,13 +1766,13 @@ tiers:
           - tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs
           - tests/backend/Unit/SchemaCompatibilityCoordinateTests.cs
           - tests/backend/Unit/DestructiveMigrationProofTests.cs
-          - src/backend/Infrastructure/SchemaMigration/DestructiveMigrationProofs.cs
+          - src/migration/DestructiveMigrationProofs.cs
           - docs/schema-migrations/destructive-rollback-window-proofs.json
           - tests/backend/Unit/ProductionHealthTests.cs
-          - src/backend/Infrastructure/SchemaMigration/SchemaMigrationPrimitives.cs
-          - src/backend/Infrastructure/SchemaMigration/SchemaMigrationDdlPrimitives.cs
-          - tests/backend/Unit/SchemaMigrationDdlPrimitivesTests.cs
-          - tests/backend/Fixtures/schema-ddl-provider-snapshots.json
+          - src/migration/SchemaMigrationPrimitives.cs
+          - src/migration/SchemaMigrationDdlPrimitives.cs
+          - tests/migration/SchemaMigrationDdlPrimitivesTests.cs
+          - tests/migration/schema-ddl-provider-snapshots.json
           - tests/backend/Unit/ReleaseStorageLifecycleTests.cs
           - tests/backend/Unit/PublicAotFileShellCacheTests.cs
           - tests/backend/Helpers/TestInfrastructure/PublicAotCrashWorkerProgram.cs
@@ -2212,6 +2224,7 @@ tiers:
           - deployment-runtime-lifecycle
           - backend-online-schema-migration-protocol
           - current-schema-canonical-authority
+          - migration-assembly-boundary
           - public-representation-coordinate-closed-loop
           - backend-typed-schema-ddl-providers
           - blue-green-release-storage-lifecycle
@@ -2374,6 +2387,11 @@ tiers:
           - tests/backend/Unit/SchemaModelInspectorTests.cs
           - tools/db/check-current-schema-authority.mjs
           - tests/tools/current-schema-authority.test.mjs
+          - tools/db/generate-migration-assembly-receipt.mjs
+          - tools/db/check-migration-assembly-boundary.mjs
+          - tests/tools/migration-assembly-boundary.test.mjs
+          - artifacts/schema-migration/migration-assembly-receipt.json
+          - artifacts/schema-migration/migration-assembly-binding.json
           - src/shared/Contracts/Validation/schema-compatibility-coordinate.json
           - src/frontend/src/generated/releaseIdContract.ts
           - src/frontend/public/generated/release-id-contract.js
@@ -2566,8 +2584,24 @@ tiers:
           - tools/test/evidence-location-contract.mjs
           - tools/test/evidence-location-scanner.mjs
           - tools/test/generate-evidence-location-governance.mjs
+          - tools/test/current-run-evidence-publication.mjs
+          - tools/test/current-run-evidence-checkpoint.mjs
+          - tools/test/run-current-run-evidence-producer.mjs
+          - tools/test/current-run-evidence-producer-hook.mjs
+          - tools/test/current-run-evidence-producer-hook.bash
+          - tools/test/publish-current-run-evidence-reference.mjs
+          - tools/test/publish-release-final-evidence-parent.mjs
+          - tools/test/attach-current-run-evidence-checkpoint.mjs
+          - tools/test/current-run-evidence-transport.mjs
+          - tools/test/run-current-run-evidence-transport.mjs
           - tests/tools/evidence-location-contract.test.mjs
           - tests/tools/evidence-location-governance.test.mjs
+          - tests/tools/current-run-evidence-publication.test.mjs
+          - tests/tools/current-run-evidence-scheduler.test.mjs
+          - tests/tools/current-run-evidence-transport.test.mjs
+          - tests/tools/current-run-evidence-locator-negative-matrix.test.mjs
+          - tools/test/generate-current-run-evidence-location-acceptance.mjs
+          - config/testing/current-run-evidence-location-acceptance.json
           - security/evidence-contracts/release-bundle-storage.json
           - security/matrices/privacy-zk-comment.yml
           - tests/fixtures/evidence/anonymous-eligibility-anonymity-set.json
@@ -7169,7 +7203,7 @@ tiers:
               tests/backend/Unit/AnonymousCommentTicketEndpointFilterTests.cs,
               tests/backend/Unit/AnonymousCommentTicketRedisConcurrencyTests.cs,
               tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs,
-              tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs,
+              tests/backend/Unit/CommentMutationOutboxAnonymousPostgresTests.cs,
               tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs,
               tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs,
               tests/backend/Unit/ActorResolverBehaviorTests.cs,

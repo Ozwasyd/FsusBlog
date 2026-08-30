@@ -82,6 +82,14 @@
             "sourceFingerprint": "sha256:76a6c6f7829e3b1fe94cc8a6696ed44e61625d97181bec0fd62a529f7adf2962"
         },
         {
+            "file": "tests/backend/Unit/CommentMutationOutboxAnonymousPostgresTests.cs",
+            "owner": "PrivacyContractAgent:anonymous-comment-outbox",
+            "reason": "Temporary complete PostgreSQL acceptance harness while the anonymous command nullifier outbox worker and restart assertions remain colocated for issue review",
+            "expires": "2026-09-30",
+            "reviewIssue": "https://github.com/Ozwasyd/FsusBlog/issues/2362",
+            "sourceFingerprint": "sha256:7293ca533713a153f455ddeb61560a0926387a687c513c9c97105b76e80cf217"
+        },
+        {
             "file": "tests/frontend/support/session-fixtures.mjs",
             "owner": "TestFixtureAgent:temporal-roles",
             "reason": "Temporary browser session projection bridge while standard and persistent semantic role adapters are decomposed",

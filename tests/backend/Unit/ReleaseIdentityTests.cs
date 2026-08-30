@@ -252,7 +252,7 @@ public sealed class ReleaseIdentityTests
     {
         var provider = new ReleaseIdentityProvider(CreateConfiguration());
 
-        Assert.Equal(ReleaseId, SchemaMigrationRunner.ResolveAppVersion(provider));
+        Assert.Equal(ReleaseId, provider.Current.ReleaseId);
     }
 
     [Fact]
@@ -261,10 +261,7 @@ public sealed class ReleaseIdentityTests
         var provider = new ReleaseIdentityProvider(CreateConfiguration(
             new Dictionary<string, string?> { ["FSUSBLOG_RELEASE_ID"] = "v1.2.0" }));
 
-        InvalidOperationException error = Assert.Throws<InvalidOperationException>(
-            () => SchemaMigrationRunner.ResolveAppVersion(provider));
-
-        Assert.Equal("Schema migration history requires a valid runtime release identity.", error.Message);
+        Assert.False(provider.Current.Configured);
     }
 
     [Fact]

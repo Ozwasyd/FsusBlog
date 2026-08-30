@@ -1,7 +1,7 @@
 using FsusBlog.Core.Cache;
+using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
-using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Server.Tests.Unit;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -575,8 +575,8 @@ public sealed class SchemaMigrationRegistryTests
             static item => item.MigrationId == "20260629-post-article-view-projection-watermark");
         string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
         string runnerRuntime = RuntimeMetadataInspection.DescribeMethods(
-            typeof(SchemaMigrationRunner),
-            nameof(SchemaMigrationRunner.RunAsync));
+            typeof(CurrentSchemaStartupVerifier),
+            nameof(CurrentSchemaStartupVerifier.RunAsync));
 
         Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
         Assert.Contains("article_view_projection_watermark", fingerprint, StringComparison.Ordinal);

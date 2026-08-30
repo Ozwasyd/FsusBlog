@@ -1675,6 +1675,12 @@
             "pathType": "file"
         },
         {
+            "id": "current-run-evidence-location-acceptance",
+            "owner": "test-evidence-location-governance",
+            "canonicalPath": "config/testing/current-run-evidence-location-acceptance.json",
+            "pathType": "file"
+        },
+        {
             "id": "evidence-locator-registry",
             "owner": "test-evidence-location-governance",
             "canonicalPath": "config/testing/evidence-locator-registry.json",

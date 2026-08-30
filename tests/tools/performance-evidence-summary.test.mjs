@@ -89,11 +89,12 @@ function writeJson(base, relative, payload)
     fs.writeFileSync(absolute, `${JSON.stringify(payload, null, 2)}\n`);
 }
 
-function runAggregator(base)
+function runAggregator(base, env = {})
 {
     return spawnSync(process.execPath, [aggregateScript, '--root', base], {
         cwd: root,
         encoding: 'utf8',
+        env: { ...process.env, ...env },
         timeout: 10_000
     });
 }
@@ -197,29 +198,33 @@ test('correctness performance producers stay isolated from browser diagnostics',
     assert.equal(JSON.parse(fs.readFileSync(outputFile, 'utf8')).status, 'failed');
 });
 
-test('performance aggregate restores producer summaries from downloaded CI artifacts', (t) =>
+test('performance aggregate restores producer summaries from a transport manifest', (t) =>
 {
     const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-perf-summary-ci-'));
     t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    const objects = [];
     for (const [id, relative] of Object.entries(sourceFiles))
     {
-        const artifactName = id.startsWith('load-') ? 'load-smoke' : 'perf-regression';
-        const artifactRelative = id.startsWith('load-') ? relative.replace(/^\.tmp\//u, '') : relative;
-        const downloadedRelative = path.join(
-            '.tmp/downloaded-artifacts',
-            artifactName,
-            artifactRelative
-        );
-        writeJson(temp, downloadedRelative, performanceSourceFixture(id));
+        const extracted = path.join('artifacts/current-run/transport', path.basename(relative));
+        writeJson(temp, extracted, performanceSourceFixture(id));
+        objects.push({
+            authorityId: `evidence-consumer.test.aggregate-performance-evidence.${id}`,
+            archiveEntries: [{ path: extracted, extractedPath: extracted }]
+        });
     }
-
-    const result = runAggregator(temp);
+    writeJson(temp, 'artifacts/current-run/transport-manifest.json', {
+        schema: 'fsusblog.current-run-evidence-transport-manifest.v1',
+        objects
+    });
+    const result = runAggregator(temp, {
+        FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST: path.join(temp, 'artifacts/current-run/transport-manifest.json')
+    });
     assert.equal(result.status, 0, result.stderr);
     const summary = JSON.parse(fs.readFileSync(path.join(temp, '.tmp/release-evidence/perf-summary.json'), 'utf8'));
     assert.deepEqual(summary.entries.map((entry) => entry.id), [
         ...Object.keys(sourceFiles),
         'performance-saturation-v2'
     ]);
-    assert.ok(summary.entries.slice(0, 3).every((entry) => entry.sourceLocation.startsWith('.tmp/downloaded-artifacts/')));
+    assert.ok(summary.entries.slice(0, 3).every((entry) => entry.sourceLocation.includes('artifacts/current-run/transport/')));
     assert.equal(summary.entries.at(-1).sourceLocation, null);
 });

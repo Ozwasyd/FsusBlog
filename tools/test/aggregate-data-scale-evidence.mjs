@@ -55,27 +55,19 @@ function resolveSourceFile(root, source)
     {
         return direct;
     }
-
-    const downloadedRoot = path.join(root, '.tmp/downloaded-artifacts');
-    const artifactRelativePaths = [...new Set([source.path, source.path.replace(/^\.tmp\//u, '')])];
-    const matches = fs.existsSync(downloadedRoot)
-        ? fs.readdirSync(downloadedRoot, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .flatMap((entry) => artifactRelativePaths.map((relativePath) => (
-        path.join(downloadedRoot, entry.name, relativePath)
-      )))
-      .filter((candidate) => fs.existsSync(candidate))
-      .sort()
-        : [];
-    if (matches.length === 0)
+    const transport = String(process.env.FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST ?? '').trim();
+    if (transport)
     {
-        throw new Error(`missing ${source.tier} data-scale evidence: ${source.path}`);
+        const manifest = JSON.parse(fs.readFileSync(path.resolve(root, transport), 'utf8'));
+        const matches = (manifest.objects ?? [])
+            .flatMap((object) => object.archiveEntries ?? [])
+            .map((entry) => path.resolve(root, entry.extractedPath))
+            .filter((candidate) => path.basename(candidate) === path.basename(source.path));
+        if (matches.length === 1) return matches[0];
+        if (matches.length > 1)
+            throw new Error(`ambiguous ${source.tier} data-scale evidence in transport manifest`);
     }
-    if (matches.length > 1)
-    {
-        throw new Error(`ambiguous ${source.tier} data-scale evidence in downloaded artifacts`);
-    }
-    return matches[0];
+    throw new Error(`missing ${source.tier} data-scale evidence: ${source.path}`);
 }
 
 function readSummary(root, source)
