@@ -1022,7 +1022,8 @@
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
-                "tests/backend/Fixtures/backend-test-requirements.json"
+                "tests/backend/Fixtures/backend-test-requirements.json",
+                "tests/tools/backend-test-governance-cpm.test.mjs"
             ],
             "assertionType": "static",
             "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
@@ -2032,6 +2033,7 @@
                 "tools/security/check-security-matrices.mjs",
                 "tools/test/lanes/privacy-zk-comment-matrix.sh",
                 "tests/backend/Unit/AnonymousCommentTicketEndpointFilterTests.cs",
+                "tests/backend/Unit/AnonymousCommentTicketRedisConcurrencyTests.cs",
                 "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
                 "tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs",
                 "tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts",

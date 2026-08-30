@@ -7166,6 +7166,7 @@ tiers:
               src/frontend/wasm/build.sh,
               docs/zk/trusted-setup-ceremony.md,
               tests/backend/Unit/AnonymousCommentTicketEndpointFilterTests.cs,
+              tests/backend/Unit/AnonymousCommentTicketRedisConcurrencyTests.cs,
               tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs,
               tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs,
               tests/backend/Unit/ActorResolverBehaviorTests.cs,
@@ -9227,6 +9228,7 @@ tiers:
           - .tmp/backend-concurrency/summary.json
           - tests/backend/Unit/FileServiceTests.cs
           - tests/backend/Fixtures/backend-test-requirements.json
+          - tests/backend/Unit/AnonymousCommentTicketRedisConcurrencyTests.cs
           - tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs
           - tests/backend/Unit/SubscriptionEndpointsContractTests.cs
           - tests/backend/Integration/DemoFixtureSeederCleanupIntegrationTests.cs
@@ -9430,6 +9432,7 @@ tiers:
               tests/backend/Unit/SearchIndexServiceTests.cs,
               tools/test/csharp-source-mask.mjs,
               tools/test/search-index-utf8-scalar-governance.mjs,
+              tests/tools/backend-test-governance-cpm.test.mjs,
               tests/backend/Unit/CoverageScriptContractTests.cs,
               tests/backend/Unit/TestInfrastructure/BackendTestPathsTests.cs,
               tests/tools/backend-trx-contract.test.mjs,

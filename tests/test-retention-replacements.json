@@ -6005,6 +6005,14 @@
             "reason": "The in-memory dictionary and lock limiter is replaced by PostgreSQL concurrency tests covering atomic nullifier scope limits and transactional anonymous comment submission."
         },
         {
+            "id": "xunit:tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs#FsusBlog.Server.Tests.Unit.AnonymousPrivacyConcurrencyTests.SameTicketConcurrentConsume_SucceedsOnce#case-0000",
+            "path": "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AnonymousCommentTicketRedisConcurrencyTests.cs#FsusBlog.Server.Tests.Unit.AnonymousCommentTicketRedisConcurrencyTests.ConsumeTicketAsync_RealRedisL2RaceReturnsExactlyOnePayloadAndConverges#case-0000"
+            ],
+            "reason": "The in-test dictionary ticket store is replaced by the real ticket service and unified cache over Redis GETDEL, with a sixteen-request barrier, one identity-exact payload and converged raw, hashed, registry and L1 state."
+        },
+        {
             "id": "xunit:tests/backend/Unit/AnonymousPrivacyMatrixTests.cs#AnonymousPrivacyMatrixTests.PrivacyZkBackendGate_CoversRevocationAccumulatorAndWitnessTests",
             "path": "tests/backend/Unit/AnonymousPrivacyMatrixTests.cs",
             "replacementTestIds": [
