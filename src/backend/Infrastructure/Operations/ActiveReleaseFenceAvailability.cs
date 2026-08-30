@@ -14,6 +14,28 @@ public static class ActiveReleaseFenceAvailabilityPolicy
     private const int DefaultRefreshIntervalMs = 5_000;
     private const int DefaultStaleThresholdSeconds = 30;
 
+    public static bool UseSyntheticLocalFence(
+        IHostEnvironment environment,
+        IConfiguration configuration,
+        ReleaseIdentitySnapshot releaseIdentity)
+        => environment.IsDevelopment()
+            && configuration.GetValue(AllowSyntheticLocalFenceKey, false)
+            && !releaseIdentity.Configured
+            && string.Equals(releaseIdentity.ReleaseSlot, "local", StringComparison.Ordinal);
+
+    public static bool IsSyntheticLocalTicket(
+        IHostEnvironment environment,
+        IConfiguration configuration,
+        ReleaseIdentitySnapshot releaseIdentity,
+        DeploymentRuntimeSnapshot runtime,
+        ActiveReleaseExecutionTicket ticket)
+        => ticket.SyntheticLocal
+            && UseSyntheticLocalFence(environment, configuration, releaseIdentity)
+            && string.Equals(ticket.ReleaseId, releaseIdentity.ReleaseId, StringComparison.Ordinal)
+            && string.Equals(ticket.Slot, releaseIdentity.ReleaseSlot, StringComparison.Ordinal)
+            && ticket.Generation == Math.Max(1, runtime.Generation)
+            && string.Equals(ticket.ImageDigest, releaseIdentity.ImageDigest, StringComparison.Ordinal);
+
     public static TimeSpan RefreshInterval(IConfiguration configuration)
         => TimeSpan.FromMilliseconds(Math.Clamp(
             configuration.GetValue(RefreshIntervalKey, DefaultRefreshIntervalMs),

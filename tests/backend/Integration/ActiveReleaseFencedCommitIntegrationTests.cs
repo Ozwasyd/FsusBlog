@@ -1,6 +1,7 @@
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 
@@ -76,10 +77,8 @@ public sealed class ActiveReleaseFencedCommitIntegrationTests(PostgresSchemaMigr
         string connectionString = await CreateDatabaseAsync(Release41, "blue", 41, Digest41);
         using SqlSugarClient oldWorkerDb = PostgresSqlSugarTestClient.Create(connectionString);
         var executionContext = new ActiveReleaseExecutionContextAccessor();
-        var guard = new ActiveReleaseTransactionalCommitGuard(
-            executionContext,
-            new ConfigurationBuilder().AddInMemoryCollection().Build(),
-            HostEnvironment(Environments.Production));
+        IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection().Build();
+        var guard = CreateGuard(executionContext, configuration, Environments.Production);
         var mutationWritten = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var resumeAfterPause = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         ActiveReleaseExecutionTicket oldTicket = Ticket(Release41, "blue", 41, Digest41, "paused-worker-41");
@@ -277,14 +276,34 @@ public sealed class ActiveReleaseFencedCommitIntegrationTests(PostgresSchemaMigr
     }
 
     private static ActiveReleaseTransactionalCommitGuard CreateGuard()
-        => new(
+        => CreateGuard(
             new ActiveReleaseExecutionContextAccessor(),
             new ConfigurationBuilder().AddInMemoryCollection().Build(),
-            HostEnvironment(Environments.Production));
+            Environments.Production);
 
-    private static IHostEnvironment HostEnvironment(string name)
+    private static ActiveReleaseTransactionalCommitGuard CreateGuard(
+        IActiveReleaseExecutionContextAccessor executionContext,
+        IConfiguration configuration,
+        string environmentName)
     {
-        IHostEnvironment environment = Substitute.For<IHostEnvironment>();
+        IWebHostEnvironment environment = HostEnvironment(environmentName);
+        var releaseIdentity = new ReleaseIdentityProvider(configuration);
+        var deploymentRuntime = new DeploymentRuntimeState(
+            releaseIdentity,
+            configuration,
+            environment,
+            TimeProvider.System);
+        return new ActiveReleaseTransactionalCommitGuard(
+            executionContext,
+            configuration,
+            environment,
+            releaseIdentity,
+            deploymentRuntime);
+    }
+
+    private static IWebHostEnvironment HostEnvironment(string name)
+    {
+        IWebHostEnvironment environment = Substitute.For<IWebHostEnvironment>();
         environment.EnvironmentName.Returns(name);
         return environment;
     }

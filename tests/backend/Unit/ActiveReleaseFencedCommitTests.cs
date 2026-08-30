@@ -4,6 +4,7 @@ using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Services.Background;
 
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -15,16 +16,15 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ActiveReleaseFencedCommitTests
 {
+    private static readonly string s_localImageDigest = $"sha256:{new string('0', 64)}";
+
     [Fact]
     public async Task Enlist_OutsideBusinessTransaction_IsRejected()
     {
         IActiveReleaseExecutionContextAccessor executionContext = Substitute.For<IActiveReleaseExecutionContextAccessor>();
         executionContext.Current.Returns(Ticket());
         IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection().Build();
-        var guard = new ActiveReleaseTransactionalCommitGuard(
-            executionContext,
-            configuration,
-            HostEnvironment(Environments.Production));
+        var guard = CreateGuard(executionContext, configuration, Environments.Production);
         ISqlSugarClient db = Substitute.For<ISqlSugarClient>();
         IAdo ado = Substitute.For<IAdo>();
         db.Ado.Returns(ado);
@@ -47,10 +47,7 @@ public sealed class ActiveReleaseFencedCommitTests
                 ["ActiveReleaseFencedCommit:MutationEnabled"] = "false"
             })
             .Build();
-        var guard = new ActiveReleaseTransactionalCommitGuard(
-            executionContext,
-            configuration,
-            HostEnvironment(Environments.Production));
+        var guard = CreateGuard(executionContext, configuration, Environments.Production);
         ISqlSugarClient db = Substitute.For<ISqlSugarClient>();
 
         ActiveReleaseFencedCommitPausedException error =
@@ -74,26 +71,26 @@ public sealed class ActiveReleaseFencedCommitTests
     }
 
     [Fact]
-    public async Task Enlist_DevelopmentSyntheticLocalFence_DoesNotRequireDurableReleaseRow()
+    public async Task Enlist_DevelopmentSyntheticCustomLocalFence_DoesNotRequireDurableReleaseRow()
     {
         IActiveReleaseExecutionContextAccessor executionContext = Substitute.For<IActiveReleaseExecutionContextAccessor>();
+        const string ReleaseId = "20260829080000-0123456789ab";
         var ticket = new ActiveReleaseExecutionTicket(
-            "local-unversioned",
+            ReleaseId,
             "local",
             1,
-            "local-unversioned",
-            "test-process");
+            s_localImageDigest,
+            "test-process",
+            SyntheticLocal: true);
         executionContext.Current.Returns(ticket);
         IConfiguration configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                [ActiveReleaseFenceAvailabilityPolicy.AllowSyntheticLocalFenceKey] = "true"
+                [ActiveReleaseFenceAvailabilityPolicy.AllowSyntheticLocalFenceKey] = "true",
+                ["FSUSBLOG_RELEASE_ID"] = ReleaseId
             })
             .Build();
-        var guard = new ActiveReleaseTransactionalCommitGuard(
-            executionContext,
-            configuration,
-            HostEnvironment(Environments.Development));
+        var guard = CreateGuard(executionContext, configuration, Environments.Development);
         ISqlSugarClient db = Substitute.For<ISqlSugarClient>();
         IAdo ado = Substitute.For<IAdo>();
         db.Ado.Returns(ado);
@@ -111,6 +108,73 @@ public sealed class ActiveReleaseFencedCommitTests
         await ado.DidNotReceive().GetDataReaderAsync(
             Arg.Any<string>(),
             Arg.Any<SugarParameter[]>());
+    }
+
+    [Fact]
+    public void SyntheticPolicy_RejectsWrongStaleAndProductionTickets()
+    {
+        const string ReleaseId = "20260829080000-0123456789ab";
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [ActiveReleaseFenceAvailabilityPolicy.AllowSyntheticLocalFenceKey] = "true",
+                ["FSUSBLOG_RELEASE_ID"] = ReleaseId
+            })
+            .Build();
+        var releaseIdentity = new ReleaseIdentityProvider(configuration).Current;
+        IWebHostEnvironment development = HostEnvironment(Environments.Development);
+        var runtime = new DeploymentRuntimeState(
+            new ReleaseIdentityProvider(configuration),
+            configuration,
+            development,
+            TimeProvider.System).CreateSnapshot(0);
+        var exact = new ActiveReleaseExecutionTicket(
+            ReleaseId,
+            "local",
+            1,
+            s_localImageDigest,
+            "test-process",
+            SyntheticLocal: true);
+
+        Assert.True(ActiveReleaseFenceAvailabilityPolicy.IsSyntheticLocalTicket(
+            development,
+            configuration,
+            releaseIdentity,
+            runtime,
+            exact));
+        Assert.False(ActiveReleaseFenceAvailabilityPolicy.IsSyntheticLocalTicket(
+            development,
+            configuration,
+            releaseIdentity,
+            runtime,
+            exact with
+            {
+                ReleaseId = "wrong-release"
+            }));
+        Assert.False(ActiveReleaseFenceAvailabilityPolicy.IsSyntheticLocalTicket(
+            development,
+            configuration,
+            releaseIdentity,
+            runtime,
+            exact with
+            {
+                Generation = 2
+            }));
+        Assert.False(ActiveReleaseFenceAvailabilityPolicy.IsSyntheticLocalTicket(
+            development,
+            configuration,
+            releaseIdentity,
+            runtime,
+            exact with
+            {
+                SyntheticLocal = false
+            }));
+        Assert.False(ActiveReleaseFenceAvailabilityPolicy.IsSyntheticLocalTicket(
+            HostEnvironment(Environments.Production),
+            configuration,
+            releaseIdentity,
+            runtime,
+            exact));
     }
 
     [Fact]
@@ -231,9 +295,29 @@ public sealed class ActiveReleaseFencedCommitTests
             $"sha256:{new string('a', 64)}",
             "test-process");
 
-    private static IHostEnvironment HostEnvironment(string name)
+    private static ActiveReleaseTransactionalCommitGuard CreateGuard(
+        IActiveReleaseExecutionContextAccessor executionContext,
+        IConfiguration configuration,
+        string environmentName)
     {
-        IHostEnvironment environment = Substitute.For<IHostEnvironment>();
+        IWebHostEnvironment environment = HostEnvironment(environmentName);
+        var releaseIdentity = new ReleaseIdentityProvider(configuration);
+        var deploymentRuntime = new DeploymentRuntimeState(
+            releaseIdentity,
+            configuration,
+            environment,
+            TimeProvider.System);
+        return new ActiveReleaseTransactionalCommitGuard(
+            executionContext,
+            configuration,
+            environment,
+            releaseIdentity,
+            deploymentRuntime);
+    }
+
+    private static IWebHostEnvironment HostEnvironment(string name)
+    {
+        IWebHostEnvironment environment = Substitute.For<IWebHostEnvironment>();
         environment.EnvironmentName.Returns(name);
         return environment;
     }

@@ -68,7 +68,8 @@ public sealed record ActiveReleaseExecutionTicket(
     string Slot,
     long Generation,
     string ImageDigest,
-    string ProcessInstanceId)
+    string ProcessInstanceId,
+    bool SyntheticLocal = false)
 {
     public string LeaseOwner => string.Create(
         CultureInfo.InvariantCulture,
@@ -638,7 +639,8 @@ public sealed class ActiveReleaseFence(
             _local.ReleaseSlot,
             runtime.Fence.Generation,
             _local.ImageDigest,
-            _processInstanceId);
+            _processInstanceId,
+            SyntheticLocal: UseSyntheticLocalFence());
     }
 
     public async Task<bool> IsCurrentAsync(
@@ -707,10 +709,10 @@ public sealed class ActiveReleaseFence(
     }
 
     private bool UseSyntheticLocalFence()
-        => environment.IsDevelopment()
-            && configuration.GetValue(ActiveReleaseFenceAvailabilityPolicy.AllowSyntheticLocalFenceKey, false)
-            && !_local.Configured
-            && string.Equals(_local.ReleaseSlot, "local", StringComparison.Ordinal);
+        => ActiveReleaseFenceAvailabilityPolicy.UseSyntheticLocalFence(
+            environment,
+            configuration,
+            _local);
 
     private TimeSpan RefreshInterval()
         => ActiveReleaseFenceAvailabilityPolicy.RefreshInterval(configuration);
