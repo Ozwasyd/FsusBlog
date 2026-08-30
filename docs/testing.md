@@ -1593,12 +1593,16 @@ archive 打包与解压都核验 entry list、path safety 与 digest，mtime 变
 quality-gate、aggregate、flaky、public-preview 与 downloaded release manifest 等非
 release-final consumers 与本地使用同一 locator；缺失、重复 mapping、origin/digest mismatch
 或 local+downloaded 歧义都 fail closed。Consumer receipt 必须同时引用 transport manifest
-与 locator binding digest。Diagnostic browse 不得生成 correctness binding。
+与 locator binding digest。Diagnostic browse 不得生成 correctness binding。本地与 CI 使用同一 locator 与
+verifier；CI 只增加 transport 证明，不另建选择规则。age/TTL 不参与 correctness。
+`node tools/test/generate-evidence-location-governance.mjs --check` 已纳入
+validate-matrix / quality 入口，并与 ledger、registry、consumer call sites 双向
+exact。负向矩阵与 mutation fixtures 证明 latest/mtime/first-match/fallback 无法复活。
 
 focused 回归入口：
 
 ```bash
-node --test tests/tools/evidence-location-contract.test.mjs tests/tools/evidence-location-governance.test.mjs tests/tools/current-run-evidence-publication.test.mjs tests/tools/current-run-evidence-scheduler.test.mjs tests/tools/current-run-evidence-transport.test.mjs
+node --test tests/tools/evidence-location-contract.test.mjs tests/tools/evidence-location-governance.test.mjs tests/tools/current-run-evidence-publication.test.mjs tests/tools/current-run-evidence-scheduler.test.mjs tests/tools/current-run-evidence-transport.test.mjs tests/tools/current-run-evidence-locator-negative-matrix.test.mjs
 ```
 
 ## Node governance canonical suites

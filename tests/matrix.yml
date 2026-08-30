@@ -2581,6 +2581,9 @@ tiers:
           - tests/tools/current-run-evidence-publication.test.mjs
           - tests/tools/current-run-evidence-scheduler.test.mjs
           - tests/tools/current-run-evidence-transport.test.mjs
+          - tests/tools/current-run-evidence-locator-negative-matrix.test.mjs
+          - tools/test/generate-current-run-evidence-location-acceptance.mjs
+          - config/testing/current-run-evidence-location-acceptance.json
           - security/evidence-contracts/release-bundle-storage.json
           - security/matrices/privacy-zk-comment.yml
           - tests/fixtures/evidence/anonymous-eligibility-anonymity-set.json
