@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/check-backend-test-governance.mjs",
+                "tools/security/check-perception-v2-e2e-evidence.mjs",
+                "tools/test/run-backend-production-shards.mjs"
+            ],
+            "reason": "preserve caller-visible environment-variable spellings while repairing only their test-governance and producer preconditions"
+        }
+    ]
+}
