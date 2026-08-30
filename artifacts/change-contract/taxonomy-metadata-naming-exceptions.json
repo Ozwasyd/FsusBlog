@@ -1,0 +1,26 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/api/contracts.md",
+                "docs/api/quick-reference.md",
+                "docs/api/schemas-and-errors.md"
+            ],
+            "reason": "preserve documented AEDS frame, route and wire field spellings at their caller-visible contract boundary"
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Taxonomy.cs",
+                "src/core/Cache/PodBinaryCodec.Common.cs",
+                "src/core/Mapping/Models/ReadModels.cs",
+                "src/shared/Contracts/Models/CommonPods.cs",
+                "src/shared/Contracts/Validation/PodContractValidation.cs",
+                "src/shared/Contracts/Validation/PodSizeCatalog.cs"
+            ],
+            "reason": "preserve caller-visible process and contract spellings while extending the internal taxonomy mutation adapter"
+        }
+    ]
+}

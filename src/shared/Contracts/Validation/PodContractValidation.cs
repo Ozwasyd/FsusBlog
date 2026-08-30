@@ -27,6 +27,7 @@ public static class PodContractValidation
             && IsReferenceFree<EmptySuccessPod>()
             && IsReferenceFree<MutationIdPod>()
             && IsReferenceFree<NameMutationRequestPod>()
+            && IsReferenceFree<TaxonomyMetadataMutationRequestPod>()
             && IsReferenceFree<StringMutationRequestPod>()
             && IsReferenceFree<PasskeyCredentialFriendlyNameUpdateRequestPod>()
             && IsReferenceFree<ApiErrorPod>()
