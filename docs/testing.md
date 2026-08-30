@@ -1401,20 +1401,37 @@ closure）同样失败**。shard 遗漏、duplicate testId、多跑、result
 missing、failed/cancelled/timeout、binding drift 与 framework adapter
 mismatch 全部 fail closed。
 
-### evidenceStage 代理
+### evidenceStage 路由与 post-runtime receipt contract
 
-catalog 全仓不存在 `evidenceStage` 字段（`rg evidenceStage` 零命中），
-且 #2186 固定约束禁止修改 catalog/DocClaim 语义，因此 producer 以
-`status === 'active' && releaseQualification === true` 代理
-`evidenceStage=pre-runtime && releaseQualification=true`。当前 8 个
-active+releaseQualification contracts（test-asset-audit-reconciliation、
-code-intent-governance、document-lifecycle-governance、
-binary-api-aeds-contract、browserless-production-correctness、
-authentication-session-permission、configuration-error-security-policy、
-article-comment-lifecycle-outbox）全部是 static governance / contract /
-unit 级 pre-runtime 行为，没有 post-runtime（browser/load/soak/nightly）
-behavior 被误纳入。若未来 catalog 增加 post-runtime behavior，必须先行
-引入 evidenceStage 语义并收紧代理，不能在本 producer 内合成。
+BehaviorCatalog 的 active release behaviors 必须显式声明
+`evidenceStage=pre-runtime` 或 `post-runtime`。pre-runtime producer 只消费
+前一类；后一类由 `config/testing/post-runtime-producer-registry.json`
+从 catalog 自动枚举并建立 exact-one producer/schema/claim mapping，禁止用
+active/releaseQualification 的宽集合代理或在 consumer 中维护第二份 behavior
+清单。
+
+registry v2 对每个 observation class 固定 exact positive/negative/boundary/
+failure membership、producer `toolVersion`、source/build/candidate/runtime
+identity 与 canonical content digest。raw receipt 沿用
+`fsusblog.post-runtime-observation-result-envelope.v1` 包装各 class schema；
+只有 planned/executed clean correctness、`outcome=passed`、非 diagnostic、
+非 recovered 且 terminal timeout/cancel/process-tree 状态一致的 receipt 可进入
+qualification。failed、timed-out、cancelled 与 recovered receipt 可保留诊断，
+但不能满足 release behavior；v1 registry/receipt 不接受兼容降级。
+
+`fsusblog.post-runtime-accepted-claims.v1` 只承接 #2205 已接受 terminal
+authority。validator 通过显式 current-run path 重读
+`fsusblog.global-claim-exactness-terminal-receipt.v1`，重算 file SHA-256 与
+canonical content digest，并重放 terminal validator；source/worktree、
+migration-ledger digest、producer/tool version 与完整 claim set 必须 exact
+一致。validator 只读现有 terminal receipt，不运行或修复上游 evidence。
+
+Focused validation：
+
+```bash
+node tools/test-matrix/post-runtime-producer-registry.mjs
+node --test tests/tools/post-runtime-producer-registry.test.mjs
+```
 
 独立 verifier `tools/test-matrix/verify-behavior-test-evidence.mjs` 重读
 raw results、bindings、catalog、test plan receipt 与 receipt，重算
