@@ -6,7 +6,7 @@
   "outputs": [
     {
       "path": "config/testing/correctness-attempt-producers.json",
-      "sha256": "3587a422d4979af4fc8b857d208a1cdc5193d6976a078fbb40eb958686866484"
+      "sha256": "732385e76b48607e179fcb216b77bcace29699cc8b576eda9c6067abd0646364"
     },
     {
       "path": "config/testing/fixture-profile-matrix.generated.json",
