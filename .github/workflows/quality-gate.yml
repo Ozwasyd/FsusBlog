@@ -317,7 +317,7 @@ jobs:
     production-build-artifacts:
         name: Immutable Production Build Artifacts
         runs-on: ubuntu-latest
-        needs: [validate-matrix, behavior-doc-static-admission, plan-pr-risk, wasm-build-artifacts]
+        needs: [validate-matrix, behavior-doc-static-admission, behavior-evidence-pre-runtime, plan-pr-risk, wasm-build-artifacts]
         if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.production_build_artifacts == 'true'
         timeout-minutes: 35
         outputs:
@@ -334,6 +334,10 @@ jobs:
               with:
                   name: wasm-build-artifacts
                   path: src/frontend/public/wasm
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: behavior-evidence-pre-runtime
+                  path: .tmp
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -349,6 +353,7 @@ jobs:
             - run: ./tools/test.sh ci-tier production-build-artifacts --no-deps
               env:
                   FSUSBLOG_CI_PRODUCTION_BUILD_DOMAINS: ${{ needs.plan-pr-risk.outputs.production_build_domains }}
+            - run: ./tools/test.sh ci-tier post-runtime-candidate-plan --no-deps
             - id: receipt
               name: Export immutable receipt identity
               run: |
@@ -368,6 +373,8 @@ jobs:
                   include-hidden-files: true
                   path: |
                       .tmp/ci-production-build/**
+                      .tmp/post-runtime-plan/**
+                      .tmp/behavior-evidence-pre-runtime/global-claim-exactness.json
 
     coverage-merge-threshold:
         name: Coverage Merge Threshold
