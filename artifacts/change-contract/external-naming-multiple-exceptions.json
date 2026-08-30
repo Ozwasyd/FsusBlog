@@ -1,0 +1,21 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/governance/change-contract-registry.mjs",
+                "tools/governance/change-contract.mjs"
+            ],
+            "reason": "preserve caller-visible environment spellings while changing only their declaration governance"
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/configuration-ownership.json",
+                "config/schemas/external-naming-exceptions.schema.json"
+            ],
+            "reason": "preserve serialized JSON schema and ownership keys at their external contract boundary"
+        }
+    ]
+}
