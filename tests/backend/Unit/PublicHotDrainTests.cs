@@ -336,11 +336,15 @@ public sealed class PublicHotDrainTests
             store: new PublicHotReadStore(),
             revocations: new PublicArtifactRevocationRegistry());
         queue.RecordBatchStarted();
-        var participant = new PublicHotUpdateReleaseDrainParticipant(queue, TimeProvider.System);
+        var participant = new PublicHotUpdateReleaseDrainParticipant(queue, new StalledDelayTimeProvider());
 
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+        using var timeout = new CancellationTokenSource();
+        Task drain = participant.DrainAsync(timeout.Token);
+        await WaitUntilAsync(() => Task.FromResult(
+            participant.Snapshot().Blockers?.Contains("in-flight-batch-count=1", StringComparer.Ordinal) == true));
+        timeout.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => participant.DrainAsync(timeout.Token));
+            () => drain);
         ReleaseDrainParticipantSnapshot snapshot = participant.Snapshot();
         Assert.Equal("public_hot_not_quiescent", snapshot.ErrorCode);
         Assert.Contains(snapshot.Blockers!, static item => item == "in-flight-batch-count=1");
@@ -654,6 +658,27 @@ public sealed class PublicHotDrainTests
         {
             _completionStarted.TrySetResult();
             await _releaseCompletion.Task.WaitAsync(cancellationToken);
+        }
+    }
+
+    private sealed class StalledDelayTimeProvider : TimeProvider
+    {
+        public override ITimer CreateTimer(
+            TimerCallback callback,
+            object? state,
+            TimeSpan dueTime,
+            TimeSpan period)
+            => new StalledTimer();
+
+        private sealed class StalledTimer : ITimer
+        {
+            public bool Change(TimeSpan dueTime, TimeSpan period) => true;
+
+            public void Dispose()
+            {
+            }
+
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
         }
     }
 
