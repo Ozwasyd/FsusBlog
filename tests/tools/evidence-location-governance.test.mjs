@@ -165,6 +165,64 @@ test('ledger covers remaining selectors and registry owns migrated public previe
     assert(ledger.entries.some((entry) => entry.oldSelectionRule === 'evidence-selection.local-downloaded-priority'));
 });
 
+test('every registry authority declares an executable producer and exact publication bindings', () =>
+{
+    const registry = load('evidence-locator-registry.json');
+    assert(registry.entries.length > 0);
+    const outputBindings = new Set();
+    const payloadBindings = new Set();
+    const handoffBindings = new Set();
+    const sourceClasses = new Map();
+    for (const entry of registry.entries)
+    {
+        assert.match(entry.outputBindingKey, /^FSUSBLOG_[A-Z0-9_]+_EVIDENCE_PATH$/u);
+        assert(!outputBindings.has(entry.outputBindingKey), `duplicate output binding ${entry.outputBindingKey}`);
+        outputBindings.add(entry.outputBindingKey);
+        assert.match(entry.handoffBindingKey, /^FSUSBLOG_[A-Z0-9_]+_EVIDENCE_HANDOFF_PATH$/u);
+        assert(!handoffBindings.has(entry.handoffBindingKey),
+            `duplicate handoff binding ${entry.handoffBindingKey}`);
+        handoffBindings.add(entry.handoffBindingKey);
+        assert.equal(entry.checkpointCommand,
+            `node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer ${entry.consumerId}`);
+        assert(fs.existsSync(path.join(repositoryRoot, entry.producerSource)),
+            `missing producer source ${entry.producerSource}`);
+        assert(fs.existsSync(path.join(repositoryRoot, entry.producerCallsite)),
+            `missing producer callsite ${entry.producerCallsite}`);
+        sourceClasses.set(entry.producerSource, entry.producerBindingClass);
+        if (entry.producerSource !== entry.producerCallsite)
+        {
+            assert(fs.readFileSync(path.join(repositoryRoot, entry.producerCallsite), 'utf8')
+                .includes(path.basename(entry.producerSource)),
+            `canonical caller does not reference producer source: ${entry.consumerId}`);
+        }
+        const executableFile = entry.producerExecutable.split(/\s+/u)
+            .find((token, index) => index > 0 && !token.startsWith('-') && !token.includes('='));
+        assert(executableFile && fs.existsSync(path.join(repositoryRoot, executableFile)),
+            `producer executable is not a repository file: ${entry.producerExecutable}`);
+        if (entry.publicationMode === 'hooked')
+        {
+            assert.equal(entry.receiptSchema, 'fsusblog.current-run-evidence-reference.v1');
+            assert.match(entry.producerCommand,
+                new RegExp(`^FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER=${entry.consumerId.replaceAll('.', '\\.')} `, 'u'));
+            assert(entry.producerCommand.includes('current-run-evidence-producer-hook'),
+                `producer command lacks in-process terminal hook: ${entry.consumerId}`);
+            assert(entry.producerCommand.endsWith(entry.producerExecutable.slice(entry.producerExecutable.indexOf(' ') + 1))
+                || entry.producerCommand.endsWith(entry.producerExecutable),
+            `producer command does not execute canonical caller: ${entry.consumerId}`);
+            assert.match(entry.payloadBindingKey, /^FSUSBLOG_[A-Z0-9_]+_EVIDENCE_PAYLOAD_PATH$/u);
+            assert(!payloadBindings.has(entry.payloadBindingKey), `duplicate payload binding ${entry.payloadBindingKey}`);
+            payloadBindings.add(entry.payloadBindingKey);
+        }
+        else
+        {
+            assert.equal(entry.producerCommand, entry.producerExecutable);
+        }
+    }
+    assert.deepEqual(Object.fromEntries(['cli', 'library-caller', 'workflow'].map((classification) =>
+        [classification, [...sourceClasses.values()].filter((value) => value === classification).length])),
+    { cli: 45, 'library-caller': 18, workflow: 2 });
+});
+
 test('false positives and helper calls retain exact rule and actual consumer locations', () =>
 {
     const generated = generateEvidenceLocationGovernance();

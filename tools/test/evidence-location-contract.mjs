@@ -91,6 +91,22 @@ export function validateCurrentRunEvidenceContext(context)
     return context;
 }
 
+export function completeEvidenceLocatorRegistryEntry(entry)
+{
+    const outputBindingKey = entry.outputBindingKey ?? 'FSUSBLOG_TEST_EVIDENCE_PATH';
+    return {
+        publicationMode: 'embedded',
+        producerSource: 'tools/test/current-run-evidence-locator.mjs',
+        producerCallsite: 'tools/test/current-run-evidence-locator.mjs',
+        producerBindingClass: 'cli',
+        producerExecutable: entry.producerCommand ?? 'node tools/test/current-run-evidence-locator.mjs',
+        handoffBindingKey: outputBindingKey.replace(/_PATH$/u, '_HANDOFF_PATH'),
+        checkpointCommand: `node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer ${entry.consumerId}`,
+        outputBindingKey,
+        ...entry
+    };
+}
+
 export function validateEvidenceLocatorRegistry(registry)
 {
     assert(registry?.schema === EVIDENCE_LOCATOR_REGISTRY_SCHEMA, 'evidence locator registry schema mismatch');
@@ -101,9 +117,21 @@ export function validateEvidenceLocatorRegistry(registry)
     for (const [index, entry] of registry.entries.entries())
     {
         const field = `entries[${index}]`;
-        for (const name of ['consumerId', 'authorityId', 'producerId', 'receiptSchema', 'producerCommand', 'outputBindingKey'])
+        for (const name of ['consumerId', 'authorityId', 'producerId', 'receiptSchema', 'publicationMode',
+            'producerSource', 'producerCallsite', 'producerExecutable', 'producerCommand',
+            'producerBindingClass', 'outputBindingKey', 'handoffBindingKey', 'checkpointCommand'])
         {
             assertString(entry[name], `${field}.${name}`);
+        }
+        assert(['embedded', 'hooked', 'parent'].includes(entry.publicationMode),
+            `${field}.publicationMode is unsupported`);
+        assert(['cli', 'library-caller', 'workflow'].includes(entry.producerBindingClass),
+            `${field}.producerBindingClass is unsupported`);
+        if (entry.publicationMode === 'hooked')
+        {
+            assertString(entry.payloadBindingKey, `${field}.payloadBindingKey`);
+            assert(entry.receiptSchema === 'fsusblog.current-run-evidence-reference.v1',
+                `${field}.hooked receiptSchema must be the current-run reference schema`);
         }
         assert(!consumers.has(entry.consumerId), `${field}.consumerId duplicates ${entry.consumerId}`);
         assert(!authorities.has(entry.authorityId), `${field}.authorityId duplicates ${entry.authorityId}`);
