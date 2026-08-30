@@ -4,10 +4,9 @@ import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const { parseMatrix } = await import(pathToFileURL(path.join(root, 'tools/test-matrix/parse-matrix.mjs')).href);
 
 test('release-final script files do not contain recursive test or build producer invocations', () =>
 {
@@ -28,7 +27,7 @@ test('release-final script files do not contain recursive test or build producer
     }
 });
 
-test('missing evidence reports producer commands without spawning a fallback', () =>
+test('missing explicit bindings fail before finalizer or fallback spawn', () =>
 {
     const fixture = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-final-evidence-'));
     const bin = path.join(fixture, 'bin');
@@ -54,38 +53,11 @@ test('missing evidence reports producer commands without spawning a fallback', (
             FSUSBLOG_SPAWN_LOG: log,
             FSUSBLOG_NODE: process.execPath
         };
-        const matrix = parseMatrix(readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
         const finalizerRoot = path.join(fixture, 'finalizer-root');
-        for (const directory of [
-            'tools/test/lanes',
-            'tools/ci',
-            'tools/release',
-            '.tmp/release-evidence'
-        ])
-        {
-            mkdirSync(path.join(finalizerRoot, directory), { recursive: true });
-        }
+        mkdirSync(path.join(finalizerRoot, 'tools/test/lanes'), { recursive: true });
         copyFileSync(
             path.join(root, 'tools/test/lanes/release-final.sh'),
             path.join(finalizerRoot, 'tools/test/lanes/release-final.sh')
-        );
-        copyFileSync(
-            path.join(root, 'tools/ci/check-job-summaries.mjs'),
-            path.join(finalizerRoot, 'tools/ci/check-job-summaries.mjs')
-        );
-        const governanceStub = path.join(finalizerRoot, 'tools/test/run-matrix-governance-once.sh');
-        writeFileSync(governanceStub, '#!/usr/bin/env bash\nexit 0\n');
-        chmodSync(governanceStub, 0o755);
-        writeFileSync(
-            path.join(finalizerRoot, 'tools/release/test-evidence-receipts-cli.mjs'),
-            'process.exit(0);\n'
-        );
-        writeFileSync(
-            path.join(finalizerRoot, '.tmp/release-evidence/test-plan.json'),
-            `${JSON.stringify({
-                schema: 'fsusblog.release-evidence.test-plan.v1',
-                tiers: matrix.tiers
-            }, null, 2)}\n`
         );
 
         const result = spawnSync('tools/test/lanes/release-final.sh', [], {
@@ -96,12 +68,7 @@ test('missing evidence reports producer commands without spawning a fallback', (
         });
         const output = `${result.stdout}\n${result.stderr}`;
         assert.notEqual(result.status, 0, 'missing evidence must fail closed rather than report success');
-        assert.match(output, /missing job summary for required evidence tier: coverage-gate-strict/u);
-        assert.match(
-            output,
-            /\.\/tools\/test\.sh ci-tier coverage-gate-strict/u,
-            'missing evidence diagnostics must name the producer command'
-        );
+        assert.match(output, /requires explicit current-run context, manifest binding, and domain binding/u);
         assert.equal(readFileSync(log, 'utf8'), '', 'missing evidence must not execute a blocked producer command');
     }
     finally

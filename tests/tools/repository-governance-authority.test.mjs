@@ -227,7 +227,7 @@ test('ensure reuses test-asset receipt until an exact declared input changes', a
     assert.equal(fs.readFileSync(executionLog, 'utf8'), 'run\nrun\n');
 });
 
-test('Production and release-final topology consume authorities without rerunning repository-only checkers', () =>
+test('Production consumes authorities while release-final never reruns repository-only checkers', () =>
 {
     const bundle = fs.readFileSync(path.join(repositoryRoot, 'tools/test/bundles/run-bundle.mjs'), 'utf8');
     const releaseFinal = fs.readFileSync(path.join(repositoryRoot, 'tools/test/lanes/release-final.sh'), 'utf8');
@@ -243,7 +243,7 @@ test('Production and release-final topology consume authorities without rerunnin
     assert.doesNotMatch(staticLane, /StaticCsharpStyle\(\)[\s\S]*--mode changed[\s\S]*--mode full/u);
     for (const authorityId of authorityIds)
     {
-        assert.match(releaseFinal, new RegExp(`\\b${authorityId}\\b[\\s\\S]*repository-governance-authority\\.mjs[^\\n]*verify`, 'u'));
+        assert.doesNotMatch(releaseFinal, new RegExp(`\\b${authorityId}\\b`, 'u'));
     }
-    assert.doesNotMatch(releaseFinal, /repository-governance-authority\.mjs" run|repository-governance-authority\.mjs" ensure/u);
+    assert.doesNotMatch(releaseFinal, /repository-governance-authority\.mjs/u);
 });
