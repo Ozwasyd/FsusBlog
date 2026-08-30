@@ -3,7 +3,7 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { constants as fsConstants } from 'node:fs';
-import { access, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,6 +19,7 @@ import {
     validateWasmBuildReceipt,
     wasmBuildReceiptName
 } from './wasm-build-receipt.mjs';
+import { computeWasmProducerInputDescriptor } from './wasm-producer-inputs.mjs';
 
 const clientRoot = process.cwd();
 const wasmRoot = join(clientRoot, 'wasm');
@@ -27,8 +28,6 @@ const manifestPath = join(publicWasmRoot, 'wasm-manifest.aeds');
 const aedsRuntimeManifestPath = join(publicWasmRoot, 'aeds-runtime-manifest.json');
 const wasmBuildReceiptPath = join(publicWasmRoot, wasmBuildReceiptName);
 const dependencyInstallerPath = fileURLToPath(new URL('./install-wasm-codec-deps.sh', import.meta.url));
-const cmakeBootstrapPath = fileURLToPath(new URL('./ensure-cmake.sh', import.meta.url));
-const binaryenBootstrapPath = fileURLToPath(new URL('./ensure-binaryen.sh', import.meta.url));
 const buildScriptPath = join(wasmRoot, 'build.sh');
 export const wasmToolchainContract = Object.freeze({
     emscriptenVersion: '6.0.0',
@@ -126,17 +125,6 @@ const {
     buildModes,
     requiredOutputFiles
 } = wasmArtifactContract;
-const ignoredWasmDirectories = new Set([
-    '.artifacts',
-    '.cmake',
-    '.emscripten-cache',
-    'build',
-    'build-basic',
-    'build-pow-relaxed',
-    'build-pow-threads',
-    'build-simd',
-    'stage'
-]);
 
 function log(message)
 {
@@ -154,35 +142,6 @@ async function exists(path)
     {
         return false;
     }
-}
-
-async function walkFiles(rootDir, currentDir = rootDir)
-{
-    const entries = await readdir(currentDir, { withFileTypes: true });
-    const files = [];
-
-    for (const entry of entries)
-    {
-        const absolutePath = join(currentDir, entry.name);
-
-        if (entry.isDirectory())
-        {
-            if (currentDir === rootDir && ignoredWasmDirectories.has(entry.name))
-            {
-                continue;
-            }
-
-            files.push(...await walkFiles(rootDir, absolutePath));
-            continue;
-        }
-
-        if (entry.isFile())
-        {
-            files.push(absolutePath);
-        }
-    }
-
-    return files.sort((left, right) => left.localeCompare(right));
 }
 
 async function sha256File(path)
@@ -247,35 +206,15 @@ async function mapWithDynamicConcurrency(items, mapper)
 
 async function computeSourceDescriptor()
 {
-    const wasmFiles = await walkFiles(wasmRoot);
-    const sourceFiles = [
-        ...wasmFiles,
-        dependencyInstallerPath,
-        cmakeBootstrapPath,
-        binaryenBootstrapPath
-    ].sort((left, right) => left.localeCompare(right));
-
-    const descriptors = await mapWithDynamicConcurrency(sourceFiles, async (sourceFile) =>
-    {
-        const relativePath = relative(clientRoot, sourceFile).replaceAll('\\', '/');
-        const contentHash = await sha256File(sourceFile);
-        return { relativePath, contentHash };
+    const repositoryRoot = resolve(process.env.FSUSBLOG_REPOSITORY_ROOT || resolve(clientRoot, '../..'));
+    const descriptor = computeWasmProducerInputDescriptor({
+        repositoryRoot,
+        productionZkEnabled: productionZkRequested()
     });
-    const hash = createHash('sha256');
-    const manifestSourceFiles = [];
-
-    for (const { relativePath, contentHash } of descriptors)
-    {
-        hash.update(relativePath);
-        hash.update('\0');
-        hash.update(contentHash);
-        hash.update('\0');
-        manifestSourceFiles.push(relativePath);
-    }
-
     return {
-        sourceHash: hash.digest('hex'),
-        sourceFiles: manifestSourceFiles
+        sourceHash: descriptor.sourceHash,
+        sourceFiles: descriptor.sourceFiles.map((sourceFile) =>
+            relative(clientRoot, join(repositoryRoot, sourceFile)).replaceAll('\\', '/'))
     };
 }
 
