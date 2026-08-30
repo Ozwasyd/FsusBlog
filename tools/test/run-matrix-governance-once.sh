@@ -57,7 +57,6 @@ exec "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mj
     --path .github/workflows \
     --output "${FSUSBLOG_RELEASE_EVIDENCE_DIR:-.tmp/release-evidence}/test-plan.json" \
     --output .tmp/ci-plan.json \
-    --output .tmp/env/preflight.json \
     --output .tmp/gate-logs/preflight.json \
     --output "$DOCS_EVIDENCE_DIR/fast-backend-matrix.json" \
     --output "$DOCS_EVIDENCE_DIR/fast-frontend-unit-matrix.json" \
