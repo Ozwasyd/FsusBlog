@@ -3459,6 +3459,28 @@
             ]
         },
         {
+            "id": "dependency-required-checks-contract",
+            "description": "Governed dependency PRs have one machine-readable required-checks contract aligned with GitHub default-branch protection, and skipped, neutral, cancelled, timed_out or missing required checks never count as success.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "config/dependencies/required-checks.json",
+                "config/dependencies/required-checks.schema.json",
+                "tools/governance/dependency-required-checks.mjs",
+                "tools/governance/validate-dependency-required-checks.mjs",
+                "tools/governance/check-dependency-required-checks.mjs",
+                "tests/fixtures/governance/dependency-required-checks.json",
+                "tests/tools/dependency-required-checks.test.mjs",
+                "docs/repository-governance.md"
+            ],
+            "assertionType": "contract",
+            "failClosedRule": "Reject unknown GitHub check names, branch-protection drift, unregistered groups, lockfile PRs without checks, major or toolchain PRs that only run lint, and any required check whose conclusion is not success.",
+            "minimumRequirement": "Local simulation fixtures must prove patch/minor versus major/digest/lockfile select distinct exact check names and kill skipped, neutral, cancelled, timed_out and missing required checks.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
             "id": "backend-online-schema-migration-protocol",
             "description": "Online schema changes follow classified Expand, resumable Backfill and gated Contract phases while every destructive step carries a source-bound rollback-window proof.",
             "owner": "ServerContractAgent",

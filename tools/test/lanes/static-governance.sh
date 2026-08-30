@@ -73,6 +73,12 @@ StaticCentralPackageManagement() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-central-package-management.mjs" \
         --fixtures "$ROOT_DIR/tests/fixtures/governance/central-package-management.json"
 }
+StaticDependencyRequiredChecks() {
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-dependency-required-checks.mjs" --root "$ROOT_DIR"
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-dependency-required-checks.mjs" \
+        --fixtures "$ROOT_DIR/tests/fixtures/governance/dependency-required-checks.json"
+    Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/dependency-required-checks.test.mjs"
+}
 TEST_ASSET_BEHAVIOR_FILES=(
     "$ROOT_DIR/tests/tools/artifact-digest-table.test.mjs"
     "$ROOT_DIR/tests/tools/async-log-pipeline.test.mjs"
@@ -141,6 +147,7 @@ RunApplicationStaticPrechecksPhase() {
         behavior-mutation-governance StaticBehaviorMutationGovernance \
         fixture-mutation-recovery-governance StaticFixtureMutationRecoveryGovernance \
         central-package-management StaticCentralPackageManagement \
+        dependency-required-checks StaticDependencyRequiredChecks \
         line-endings StaticLineEndings \
         csharp-style StaticCsharpStyle \
         label-governance StaticLabelGovernance

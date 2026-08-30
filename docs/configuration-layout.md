@@ -9,6 +9,7 @@ FsusBlog has one generic configuration root: `config/`. Framework-discovered fil
 | Native CMake presets | `CMakePresets.json` | Native build tooling; root placement follows CMake discovery |
 | .NET local tools | `.config/dotnet-tools.json` | Standard `dotnet tool restore` discovery from the repository tree |
 | Backend configuration contract | `config/application/backend-configuration-contract.json` | Backend configuration governance; metadata only, never secret values |
+| Dependency required checks | `config/dependencies/required-checks.json` | Dependency-update governance; exact GitHub check names per group and update type |
 | Development governance manifests | `config/development/**` | Repository governance; authoritative docs and language-style policies |
 | Production SLO | `config/observability/slo.yml` | Operations and observability |
 | Zero-downtime resource policy | `config/deployment/zero-downtime-resource-policy.json` | Operations and deployment qualification |

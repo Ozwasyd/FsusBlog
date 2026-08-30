@@ -2492,6 +2492,13 @@ tiers:
           - docs/development/csharp-style-enforcement.md
           - tools/governance/check-central-package-management.mjs
           - tests/fixtures/governance/central-package-management.json
+          - config/dependencies/required-checks.json
+          - config/dependencies/required-checks.schema.json
+          - tools/governance/dependency-required-checks.mjs
+          - tools/governance/validate-dependency-required-checks.mjs
+          - tools/governance/check-dependency-required-checks.mjs
+          - tests/fixtures/governance/dependency-required-checks.json
+          - tests/tools/dependency-required-checks.test.mjs
           - .gitattributes
           - tools/style/line-ending-invariant.mjs
           - tests/tools/line-endings.test.mjs

@@ -40,8 +40,8 @@ The default branch rule should require these repository-security and quality che
 | `Change Contract / Change Contract` | Enforces the trusted-base PR title, linked issue, classification, evidence binding, release-note label, format history, and squash metadata contract. |
 | `Quality Gate / Production Summary` | Summarizes the full production-ci-gate DAG and fails when any required upstream job failed, skipped unexpectedly, or produced invalid release evidence. |
 | `Quality Gate / Validate Test Matrix` | Prevents drift between `tests/matrix.yml`, generated docs, and the GitHub Actions workflow. |
-| `Quality Gate / Fast Backend` | Covers deterministic backend unit, auth state-machine, concurrency, property, and golden tests. |
-| `Quality Gate / Fast Frontend Unit` | Covers frontend fast tests before broader browser gates. |
+| `Quality Gate / Fast Backend DAG` | Covers deterministic backend unit, auth state-machine, concurrency, property, and golden tests. |
+| `Quality Gate / Fast Frontend Unit DAG` | Covers frontend fast tests before broader browser gates. |
 | `Quality Gate / Fast Static Governance` | Covers static policy checks, API/AEDS governance, label governance, and repository workflow governance. |
 | `Quality Gate / Coverage Merge Threshold` | Keeps backend/frontend coverage evidence above the public-preview thresholds. |
 | `Quality Gate / Security Runtime` | Covers auth, MFA, PoW, CSRF/browser matrix, AEDS fuzz, and security runtime checks. |
@@ -53,7 +53,9 @@ The default branch rule should require these repository-security and quality che
 
 When GitHub branch protection cannot express the full `Quality Gate` dependency graph, requiring `Quality Gate / Production Summary` is the minimum safe branch rule because that job evaluates all required upstream jobs from the workflow's `needs` payload.
 
-The current private-repository plan returns HTTP 403 for both classic branch protection and repository rulesets. Until that external capability changes, `Change Contract` on a `master` push is a post-push audit rather than a preventive required check. Readiness and issue-closeout evidence must report that limitation explicitly and must not claim that the documented required-check set is enabled.
+The unique machine-readable required-check contract for governed dependency PRs is `config/dependencies/required-checks.json`. It maps each dependency group and update type (`major`, `minor`, `patch`, `digest`, `lockFileMaintenance`) to the exact GitHub check names above; it does not use a blanket “all CI” label and does not copy those names into Renovate configuration. Governance tests local-simulate default-branch protection, require bidirectional alignment with that contract, and treat `skipped`, `neutral`, `cancelled`, `timed_out`, and missing required checks as unsuccessful.
+
+The current private-repository plan returns HTTP 403 for both classic branch protection and repository rulesets. Until that external capability changes, `Change Contract` on a `master` push is a post-push audit rather than a preventive required check. Readiness and issue-closeout evidence must report that limitation explicitly and must not claim that the documented required-check set is enabled. Local simulation of the required-checks contract is the merge gate for this inventory.
 
 ## Dependency And Supply-Chain Checks
 
