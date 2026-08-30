@@ -120,6 +120,35 @@ test('planned and spawn-time executable observations must match exactly', () =>
     }), /executable drift/u);
 });
 
+test('spawn-time executable keeps the declared name after exact absolute identity verification', () =>
+{
+    const observedNames = [];
+    const result = prepareCorrectnessEnvironment({
+        command: ['node', '-e', '0'],
+        parentEnvironment: { PATH: '/tools' },
+        producerAllowlist: [],
+        injectedEnvironment: { FSUSBLOG_TEST_RUN_ID: 'run-1' },
+        policy,
+        catalog,
+        observeExecutable: (name) =>
+        {
+            observedNames.push(name);
+            return {
+                requestedName: name,
+                absolutePath: '/tools/node',
+                realPath: '/tools/node',
+                version: 'v1',
+                sha256: `sha256:${'a'.repeat(64)}`
+            };
+        }
+    });
+    assert.deepEqual(observedNames, ['node', '/tools/node']);
+    assert.equal(result.fragment.plannedExecutable.requestedName, 'node');
+    assert.equal(result.fragment.actualExecutable.requestedName, 'node');
+    assert.deepEqual(result.fragment.actualExecutable, result.fragment.plannedExecutable);
+    assert.deepEqual(result.command, ['/tools/node', '-e', '0']);
+});
+
 test('missing or unobservable executable fails closed', () =>
 {
     assert.throws(() => observeExecutableIdentity('missing', {

@@ -567,10 +567,18 @@ requireIncludes('tools/test/run-matrix-governance-once.sh', [
     '--key matrix-governance',
     '--execution-class correctness',
     '--producer-id "$CONSUMER_ID"',
+    '--path .git',
+    '--output .tmp/ci-plan.json',
+    '--output .tmp/gate-logs/preflight.json',
+    'node tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/ci-plan.json',
     '--test-id matrix-validate',
     '--test-id matrix-preflight',
     '--test-id matrix-evidence-plan'
 ]);
+if (read('tools/test/run-matrix-governance-once.sh').includes('--output .tmp/env/preflight.json'))
+{
+    errors.push('matrix governance output contract must not require the non-emitted .tmp/env/preflight.json');
+}
 requireIncludes('tools/bootstrap-acceptance-env.sh', [
     'tools/frontend',
     'FSUSBLOG_FIXTURE_SERVICE_GENERATION',
