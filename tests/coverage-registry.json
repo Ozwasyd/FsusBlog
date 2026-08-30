@@ -2031,6 +2031,7 @@
                 "security/matrices/privacy-zk-comment.yml",
                 "tools/security/check-security-matrices.mjs",
                 "tools/test/lanes/privacy-zk-comment-matrix.sh",
+                "tests/backend/Unit/AnonymousCommentTicketEndpointFilterTests.cs",
                 "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
                 "tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs",
                 "tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts",

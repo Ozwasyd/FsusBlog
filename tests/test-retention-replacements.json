@@ -5987,6 +5987,15 @@
             "reason": "Real POD round trips, principal behavior and actor projection replace regex searches over frame enums and other test method names."
         },
         {
+            "id": "xunit:tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs#FsusBlog.Server.Tests.Unit.AnonymousPrivacyConcurrencyTests.AnonymousTicketEndpointCheapReject_SkipsExpensiveProofWorkUnderLoad#case-0000",
+            "path": "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AnonymousCommentTicketEndpointFilterTests.cs#FsusBlog.Server.Tests.Unit.AnonymousCommentTicketEndpointFilterTests.RealEndpoint_CleanValidRequestEntersDecodeProofNullifierAndTicketStore#case-0000",
+                "xunit:tests/backend/Unit/AnonymousCommentTicketEndpointFilterTests.cs#FsusBlog.Server.Tests.Unit.AnonymousCommentTicketEndpointFilterTests.RealEndpoint_ConcurrentIdentityContaminationNeverEntersExpensiveBoundaries#case-0000"
+            ],
+            "reason": "The production anonymous-ticket route, strong-anonymous endpoint filter, real AEDS binder and real ticket service now prove that identity contamination rejects before root, proof, nullifier and ticket-store boundaries under ordinary, malformed and concurrent requests, with a clean positive control."
+        },
+        {
             "id": "xunit:tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs#AnonymousPrivacyConcurrencyTests.SameNullifierAndScopeConcurrentSubmit_AllowsOnlyPolicyLimit",
             "path": "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
             "replacementTestIds": [
