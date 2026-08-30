@@ -5,7 +5,7 @@ governance:
     retention:
         baseline: tests/test-retention-before.json
         replacementLedger: tests/test-retention-replacements.json
-        postBaselines: [tests/admin-inline-empty-state-retirement-baseline.json, tests/ci-local-matrix-retirement-baseline.json, tests/lightweight-acceptance-baseline.json, tests/moderation-regions-datalist-retirement-baseline.json, tests/public-aot-byte-shape-retirement-baseline.json, tests/public-article-reading-layout-retirement-baseline.json, tests/public-response-compression-retirement-baseline.json, tests/service-composition-registration-baseline.json, tests/test-asset-lifecycle-retirement-baseline.json, tests/test-governance-modernization-baseline.json, tests/timing-policy-retirement-baseline.json]
+        postBaselines: [tests/admin-inline-empty-state-retirement-baseline.json, tests/anonymous-nullifier-concurrency-retirement-baseline.json, tests/ci-local-matrix-retirement-baseline.json, tests/lightweight-acceptance-baseline.json, tests/moderation-regions-datalist-retirement-baseline.json, tests/public-aot-byte-shape-retirement-baseline.json, tests/public-article-reading-layout-retirement-baseline.json, tests/public-response-compression-retirement-baseline.json, tests/sensitive-endpoint-session-retirement-baseline.json, tests/service-composition-registration-baseline.json, tests/test-asset-lifecycle-retirement-baseline.json, tests/test-governance-modernization-baseline.json, tests/timing-policy-retirement-baseline.json, tests/upload-range-retirement-baseline.json]
         auditOutput: .tmp/release-evidence/test-retention-audit.json
         automaticDeletion: false
     sourceLocking:

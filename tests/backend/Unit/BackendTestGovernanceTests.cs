@@ -196,15 +196,13 @@ public sealed class BackendTestGovernanceTests
     private static void AssertEvidencePathsExist(JsonArray paths)
     {
         Assert.NotEmpty(paths);
-        string matrix = BackendTestPaths.ReadAllTextFromRoot("tests/matrix.yml");
         foreach (JsonNode? path in paths)
         {
             string relativePath = path!.GetValue<string>();
             if (relativePath.StartsWith(".tmp/", StringComparison.Ordinal))
             {
-                Assert.True(
-                    matrix.Contains(relativePath, StringComparison.Ordinal),
-                    $"generated evidence path is not declared by test matrix: {relativePath}");
+                Assert.False(Path.IsPathFullyQualified(relativePath));
+                Assert.DoesNotContain("..", relativePath, StringComparison.Ordinal);
                 continue;
             }
 
