@@ -2,6 +2,7 @@
     "name": "fsusblog-client",
     "private": true,
     "version": "0.0.0",
+    "packageManager": "npm@11.13.0",
     "type": "module",
     "scripts": {
         "generate:public-page-manifest": "node ../../tools/frontend/generate-public-page-manifest.mjs",

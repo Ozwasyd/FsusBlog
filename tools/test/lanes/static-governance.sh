@@ -73,6 +73,11 @@ StaticCentralPackageManagement() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-central-package-management.mjs" \
         --fixtures "$ROOT_DIR/tests/fixtures/governance/central-package-management.json"
 }
+StaticDependencyUpdateSurface() {
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-dependency-update-surface.mjs" \
+        --root "$ROOT_DIR" \
+        --fixtures "$ROOT_DIR/tests/fixtures/governance/dependency-update-surface.json"
+}
 TEST_ASSET_BEHAVIOR_FILES=(
     "$ROOT_DIR/tests/tools/artifact-digest-table.test.mjs"
     "$ROOT_DIR/tests/tools/async-log-pipeline.test.mjs"
@@ -141,6 +146,7 @@ RunApplicationStaticPrechecksPhase() {
         behavior-mutation-governance StaticBehaviorMutationGovernance \
         fixture-mutation-recovery-governance StaticFixtureMutationRecoveryGovernance \
         central-package-management StaticCentralPackageManagement \
+        dependency-update-surface StaticDependencyUpdateSurface \
         line-endings StaticLineEndings \
         csharp-style StaticCsharpStyle \
         label-governance StaticLabelGovernance

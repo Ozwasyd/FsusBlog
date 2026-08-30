@@ -15,6 +15,32 @@
             "pathType": "file"
         },
         {
+            "id": "dependency-update-surface",
+            "owner": "dependency-update-governance",
+            "canonicalPath": "config/dependencies/update-surface.json",
+            "pathType": "file",
+            "consumers": [
+                "renovate.json5",
+                "tools/governance/check-dependency-update-surface.mjs"
+            ],
+            "validationCommand": "node tools/governance/check-dependency-update-surface.mjs --root . --fixtures tests/fixtures/governance/dependency-update-surface.json",
+            "changePolicy": "manual-update-with-exact-surface-and-negative-fixture-validation",
+            "status": "manual"
+        },
+        {
+            "id": "dependency-update-surface-schema",
+            "owner": "dependency-update-governance",
+            "canonicalPath": "config/dependencies/update-surface.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "config/dependencies/update-surface.json",
+                "tools/governance/check-dependency-update-surface.mjs"
+            ],
+            "validationCommand": "node tools/governance/check-dependency-update-surface.mjs --root . --fixtures tests/fixtures/governance/dependency-update-surface.json",
+            "changePolicy": "manual-update-with-closed-schema-validation",
+            "status": "manual"
+        },
+        {
             "id": "behavior-contract-catalog",
             "owner": "behavior-contract-governance",
             "canonicalPath": "config/contracts/behavior-contracts.json",
