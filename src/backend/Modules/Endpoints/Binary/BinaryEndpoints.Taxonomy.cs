@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Data.Common;
 using System.Diagnostics;
+using System.Text;
 
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
@@ -122,16 +123,25 @@ public static partial class BinaryEndpoints
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
-            var nameResult = await ReadNameMutationAsync(httpContext, aeds, AedsFrameType.CategoryWriteRequest, cancellationToken);
-            if (!nameResult.IsSuccess)
+            TaxonomyMetadataMutationPayload request = await ReadTaxonomyMetadataMutationAsync(
+                httpContext,
+                aeds,
+                AedsFrameType.CategoryWriteRequest,
+                cancellationToken);
+            if (!request.IsSuccess)
             {
-                return BinaryResults.FromError(nameResult.Error, aeds);
+                return BinaryResults.FromError(request.Error, aeds);
             }
 
-            string trimmedName = nameResult.Name.Trim();
+            string trimmedName = request.Name.Trim();
             if (string.IsNullOrWhiteSpace(trimmedName))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "分类名称不能为空"), aeds);
+            }
+
+            if (!TryNormalizeTaxonomyDescription(request.Description, out string? normalizedDescription))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "分类描述不能超过 500 个 Unicode 字符"), aeds);
             }
 
             bool exists = await db.Queryable<Category>().AnyAsync(c => c.Name == trimmedName);
@@ -140,7 +150,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, $"分类“{trimmedName}”已存在"), aeds);
             }
 
-            int newId = await db.Insertable(new Category { Name = trimmedName }).ExecuteReturnIdentityAsync();
+            int newId = await CreateCategoryAsync(db, trimmedName, normalizedDescription, cancellationToken);
             if (newId <= 0)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "由于数据库写入异常，分类创建失败"), aeds);
@@ -177,16 +187,25 @@ public static partial class BinaryEndpoints
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
-            var nameResult = await ReadNameMutationAsync(httpContext, aeds, AedsFrameType.CategoryWriteRequest, cancellationToken);
-            if (!nameResult.IsSuccess)
+            TaxonomyMetadataMutationPayload request = await ReadTaxonomyMetadataMutationAsync(
+                httpContext,
+                aeds,
+                AedsFrameType.CategoryWriteRequest,
+                cancellationToken);
+            if (!request.IsSuccess)
             {
-                return BinaryResults.FromError(nameResult.Error, aeds);
+                return BinaryResults.FromError(request.Error, aeds);
             }
 
-            string trimmedName = nameResult.Name.Trim();
+            string trimmedName = request.Name.Trim();
             if (string.IsNullOrWhiteSpace(trimmedName))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "分类名称不能为空"), aeds);
+            }
+
+            if (!TryNormalizeTaxonomyDescription(request.Description, out string? normalizedDescription))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "分类描述不能超过 500 个 Unicode 字符"), aeds);
             }
 
             bool exists = await db.Queryable<Category>()
@@ -197,7 +216,13 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, $"该分类名称“{trimmedName}”已被其他分类占用"), aeds);
             }
 
-            int updateCount = await UpdateCategoryAndEnqueueProjectionAsync(db, id, trimmedName, cancellationToken);
+            int updateCount = await UpdateCategoryAndEnqueueProjectionAsync(
+                db,
+                id,
+                trimmedName,
+                normalizedDescription,
+                preserveDescription: request.IsLegacy,
+                cancellationToken);
             if (updateCount <= 0)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "操作失败：未找到对应的分类记录"), aeds);
@@ -276,16 +301,25 @@ public static partial class BinaryEndpoints
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
-            var nameResult = await ReadNameMutationAsync(httpContext, aeds, AedsFrameType.TagWriteRequest, cancellationToken);
-            if (!nameResult.IsSuccess)
+            TaxonomyMetadataMutationPayload request = await ReadTaxonomyMetadataMutationAsync(
+                httpContext,
+                aeds,
+                AedsFrameType.TagWriteRequest,
+                cancellationToken);
+            if (!request.IsSuccess)
             {
-                return BinaryResults.FromError(nameResult.Error, aeds);
+                return BinaryResults.FromError(request.Error, aeds);
             }
 
-            string trimmedName = PublicTagUrlIdentity.NormalizeDisplayName(nameResult.Name);
+            string trimmedName = PublicTagUrlIdentity.NormalizeDisplayName(request.Name);
             if (string.IsNullOrWhiteSpace(trimmedName))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "标签名称不能为空"), aeds);
+            }
+
+            if (!TryNormalizeTaxonomyDescription(request.Description, out string? normalizedDescription))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "标签描述不能超过 500 个 Unicode 字符"), aeds);
             }
 
             bool exists = await db.Queryable<Tag>().AnyAsync(t => t.Name == trimmedName)
@@ -295,7 +329,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, $"标签 [{trimmedName}] 已存在"), aeds);
             }
 
-            int newId = await db.Insertable(new Tag { Name = trimmedName }).ExecuteReturnIdentityAsync();
+            int newId = await CreateTagAsync(db, trimmedName, normalizedDescription, cancellationToken);
             if (newId <= 0)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "标签创建失败，数据库写入异常"), aeds);
@@ -332,16 +366,25 @@ public static partial class BinaryEndpoints
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
-            var nameResult = await ReadNameMutationAsync(httpContext, aeds, AedsFrameType.TagWriteRequest, cancellationToken);
-            if (!nameResult.IsSuccess)
+            TaxonomyMetadataMutationPayload request = await ReadTaxonomyMetadataMutationAsync(
+                httpContext,
+                aeds,
+                AedsFrameType.TagWriteRequest,
+                cancellationToken);
+            if (!request.IsSuccess)
             {
-                return BinaryResults.FromError(nameResult.Error, aeds);
+                return BinaryResults.FromError(request.Error, aeds);
             }
 
-            string trimmedName = PublicTagUrlIdentity.NormalizeDisplayName(nameResult.Name);
+            string trimmedName = PublicTagUrlIdentity.NormalizeDisplayName(request.Name);
             if (string.IsNullOrWhiteSpace(trimmedName))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "标签名称不能为空"), aeds);
+            }
+
+            if (!TryNormalizeTaxonomyDescription(request.Description, out string? normalizedDescription))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "标签描述不能超过 500 个 Unicode 字符"), aeds);
             }
 
             bool exists = await db.Queryable<Tag>()
@@ -353,7 +396,13 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, $"标签名称 [{trimmedName}] 已被其他记录占用"), aeds);
             }
 
-            int updateCount = await UpdateTagAndEnqueueProjectionAsync(db, id, trimmedName, cancellationToken);
+            int updateCount = await UpdateTagAndEnqueueProjectionAsync(
+                db,
+                id,
+                trimmedName,
+                normalizedDescription,
+                preserveDescription: request.IsLegacy,
+                cancellationToken);
             if (updateCount <= 0)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "目标标签不存在"), aeds);
@@ -505,10 +554,82 @@ public static partial class BinaryEndpoints
         return deleted > 0 ? TagDeleteOutcome.Deleted : TagDeleteOutcome.NotFound;
     }
 
+    private static async Task<TaxonomyMetadataMutationPayload> ReadTaxonomyMetadataMutationAsync(
+        HttpContext httpContext,
+        IAedsEncoder aeds,
+        AedsFrameType expectedFrameType,
+        CancellationToken cancellationToken)
+    {
+        using BinaryRequestPayload payload = await ReadBinaryRequestPayloadAsync(
+            httpContext,
+            aeds,
+            expectedFrameType,
+            cancellationToken,
+            maxFrameBytes: 4096);
+        if (!payload.IsSuccess)
+        {
+            return TaxonomyMetadataMutationPayload.Failure(payload.Error);
+        }
+
+        if (!PodBinaryCodec.TryDecodeTaxonomyMetadataMutationRequest(
+                payload.Payload,
+                out TaxonomyMetadataMutationRequestCoreModel request,
+                out bool isLegacy))
+        {
+            return TaxonomyMetadataMutationPayload.Failure(
+                ErrorDetail.Create(ErrorCode.Validation, "分类或标签请求体非法"));
+        }
+
+        return TaxonomyMetadataMutationPayload.Success(request.Name, request.Description, isLegacy);
+    }
+
+    internal static bool TryNormalizeTaxonomyDescription(string? description, out string? normalized)
+    {
+        normalized = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
+        return normalized is null || normalized.EnumerateRunes().Count() <= 500;
+    }
+
+    internal static Task<int> CreateCategoryAsync(
+        ISqlSugarClient db,
+        string name,
+        string? description,
+        CancellationToken cancellationToken)
+        => db.Insertable(new Category
+        {
+            Name = name,
+            Description = description
+        }).ExecuteReturnIdentityAsync(cancellationToken);
+
+    internal static Task<int> CreateTagAsync(
+        ISqlSugarClient db,
+        string name,
+        string? description,
+        CancellationToken cancellationToken)
+        => db.Insertable(new Tag
+        {
+            Name = name,
+            Description = description
+        }).ExecuteReturnIdentityAsync(cancellationToken);
+
     internal static async Task<int> UpdateCategoryAndEnqueueProjectionAsync(
         ISqlSugarClient db,
         int categoryId,
         string name,
+        CancellationToken cancellationToken)
+        => await UpdateCategoryAndEnqueueProjectionAsync(
+            db,
+            categoryId,
+            name,
+            description: null,
+            preserveDescription: true,
+            cancellationToken);
+
+    internal static async Task<int> UpdateCategoryAndEnqueueProjectionAsync(
+        ISqlSugarClient db,
+        int categoryId,
+        string name,
+        string? description,
+        bool preserveDescription,
         CancellationToken cancellationToken)
     {
         int updated = 0;
@@ -519,10 +640,19 @@ public static partial class BinaryEndpoints
                 .Where(article => article.CategoryId == categoryId)
                 .Select(article => article.Id)
                 .ToListAsync(cancellationToken);
-            updated = await db.Updateable<Category>()
-                .SetColumns(category => category.Name == name)
-                .Where(category => category.Id == categoryId)
-                .ExecuteCommandAsync(cancellationToken);
+            updated = preserveDescription
+                ? await db.Updateable<Category>()
+                    .SetColumns(category => category.Name == name)
+                    .Where(category => category.Id == categoryId)
+                    .ExecuteCommandAsync(cancellationToken)
+                : await db.Updateable<Category>()
+                    .SetColumns(category => new Category
+                    {
+                        Name = name,
+                        Description = description
+                    })
+                    .Where(category => category.Id == categoryId)
+                    .ExecuteCommandAsync(cancellationToken);
             if (updated > 0)
             {
                 await InsertTaxonomyProjectionOutboxAsync(
@@ -544,6 +674,21 @@ public static partial class BinaryEndpoints
         ISqlSugarClient db,
         int tagId,
         string name,
+        CancellationToken cancellationToken)
+        => await UpdateTagAndEnqueueProjectionAsync(
+            db,
+            tagId,
+            name,
+            description: null,
+            preserveDescription: true,
+            cancellationToken);
+
+    internal static async Task<int> UpdateTagAndEnqueueProjectionAsync(
+        ISqlSugarClient db,
+        int tagId,
+        string name,
+        string? description,
+        bool preserveDescription,
         CancellationToken cancellationToken)
     {
         int updated = 0;
@@ -601,10 +746,19 @@ public static partial class BinaryEndpoints
                 }
             }
 
-            updated = await db.Updateable<Tag>()
-                .SetColumns(tag => tag.Name == normalizedNewName)
-                .Where(tag => tag.Id == tagId)
-                .ExecuteCommandAsync(cancellationToken);
+            updated = preserveDescription
+                ? await db.Updateable<Tag>()
+                    .SetColumns(tag => tag.Name == normalizedNewName)
+                    .Where(tag => tag.Id == tagId)
+                    .ExecuteCommandAsync(cancellationToken)
+                : await db.Updateable<Tag>()
+                    .SetColumns(tag => new Tag
+                    {
+                        Name = normalizedNewName,
+                        Description = description
+                    })
+                    .Where(tag => tag.Id == tagId)
+                    .ExecuteCommandAsync(cancellationToken);
             if (updated > 0)
             {
                 await InsertTaxonomyProjectionOutboxAsync(
@@ -690,6 +844,20 @@ public static partial class BinaryEndpoints
             PublicHotArtifactDeliveryStatus.Failed => false,
             _ => false
         };
+
+    private readonly record struct TaxonomyMetadataMutationPayload(
+        bool IsSuccess,
+        string Name,
+        string? Description,
+        bool IsLegacy,
+        ErrorDetail Error)
+    {
+        public static TaxonomyMetadataMutationPayload Success(string name, string? description, bool isLegacy)
+            => new(true, name, description, isLegacy, ErrorDetail.None);
+
+        public static TaxonomyMetadataMutationPayload Failure(ErrorDetail error)
+            => new(false, string.Empty, null, false, error);
+    }
 
     internal enum TagDeleteOutcome
     {
