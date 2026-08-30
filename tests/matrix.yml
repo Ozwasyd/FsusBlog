@@ -7171,6 +7171,7 @@ tiers:
               tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs,
               tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs,
               tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs,
+              tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs,
               tests/backend/Unit/ActorResolverBehaviorTests.cs,
               tests/backend/Unit/AnonymousCommentPolicyTests.cs,
               tests/backend/Unit/AnonymousIdentitySerializationTests.cs,
@@ -9232,6 +9233,7 @@ tiers:
           - tests/backend/Fixtures/backend-test-requirements.json
           - tests/backend/Unit/AnonymousCommentTicketRedisConcurrencyTests.cs
           - tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs
+          - tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs
           - tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs
           - tests/backend/Unit/SubscriptionEndpointsContractTests.cs
           - tests/backend/Integration/DemoFixtureSeederCleanupIntegrationTests.cs

@@ -716,6 +716,7 @@
         "tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs",
         "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
         "tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs",
+        "tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs",
         "tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts",
         "tests/frontend/unit/privacy/commentPrivacyWorkerClient.test.ts",
         "tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts",
