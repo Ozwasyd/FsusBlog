@@ -401,12 +401,16 @@
                     "type": "object",
                     "additionalProperties": false,
                     "required": [
+                        "runtime-role-observation",
                         "openapi-aeds-observation",
                         "auth-session-permission-observation",
                         "config-error-security-policy-observation",
                         "content-lifecycle-observation"
                     ],
                     "properties": {
+                        "runtime-role-observation": {
+                            "$ref": "#/$defs/minimalArtifact"
+                        },
                         "openapi-aeds-observation": {
                             "$ref": "#/$defs/minimalArtifact"
                         },
