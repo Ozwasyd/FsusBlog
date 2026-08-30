@@ -33,6 +33,8 @@ test('security fixture ownership maps every capability to one producer and one c
 test('auth fixture source has no security-state ownership or security cleanup side effects', () =>
 {
     const source = read('tests/frontend/support/session-fixtures.mjs');
+    assert.match(source, /import \{ createHash, createHmac, randomBytes \} from 'node:crypto';/u);
+    assert.match(source, /function signJwt[\s\S]*createHmac\('sha256', jwtSecret\)/u);
     assert.doesNotMatch(source, /producer security-state/u);
     assert.doesNotMatch(source, /(?:banreason|riskflags|anonymous_credential_status|anonymous_credential_issuance_audit|blacklist-user|runRedisCli)/u);
 });
