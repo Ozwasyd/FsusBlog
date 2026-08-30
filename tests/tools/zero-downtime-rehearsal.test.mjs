@@ -8,6 +8,11 @@ import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
 import {
+  behaviorTest,
+  concurrencyHarnessId
+} from '../../tools/contracts/behavior-test.mjs'
+
+import {
   FAULT_CASES,
   HOST_INTERRUPTION_STAGES,
   ROLLOUT_STAGES,
@@ -172,7 +177,7 @@ if (runsFixtureShard('base')) test('plan resolution is local-only, private-file-
     /normalScenario\.baseUrl must equal observer service listen origin/u)
 })
 
-if (runsFixtureShard('normal')) test('recording subprocess fixture proves normal order, nested probes and qualification binding', async (t) => {
+if (runsFixtureShard('normal')) behaviorTest('deployment-blue-green-runtime-role', 'positive', 'recording subprocess fixture proves normal order, nested probes and qualification binding', async (t) => {
   const fixture = createFixture(t)
   const result = await runRehearsal(fixture, 'normal')
   assert.equal(result.status, 0, result.stderr)
@@ -231,7 +236,10 @@ if (runsFixtureShard('post-switch-rollback')) test('post-switch mode requires re
   assert.equal(modeEvidence.checks.find(item => item.name === 'deploy-rollout').status, 'pass')
 })
 
-if (runsFixtureShard('sigkill-resume')) test('SIGKILL mode kills an isolated process group, adopts durable state and invokes --resume', async (t) => {
+if (runsFixtureShard('sigkill-resume')) behaviorTest('deployment-blue-green-runtime-role', 'concurrency', {
+  title: 'SIGKILL mode kills an isolated process group, adopts durable state and invokes --resume',
+  concurrencyHarness: concurrencyHarnessId
+}, async (t) => {
   const fixture = createFixture(t, { delayedSetsidMs: 75 })
   const result = await runRehearsal(fixture, 'sigkill-resume')
   assert.equal(result.status, 0, result.stderr)
@@ -266,7 +274,10 @@ if (runsFixtureShard('sigkill-resume')) test('SIGKILL mode kills an isolated pro
   assert.equal(records.filter(item => item.kind === 'probe:resource').length, 4)
 })
 
-if (runsFixtureShard('all')) test('all mode aggregates a failure and continues into later isolated modes', async (t) => {
+if (runsFixtureShard('all')) behaviorTest('deployment-blue-green-runtime-role', 'negative', {
+  title: 'all mode aggregates a failure and continues into later isolated modes',
+  invariantIds: ['deployment-mode-failure-continuation']
+}, async (t) => {
   // The dedicated mode shards own the full timing/lifecycle fixtures. This
   // fresh fixture replaces only their mode bodies while retaining the real
   // all-mode selection, continuation loop and summary aggregation entry point.

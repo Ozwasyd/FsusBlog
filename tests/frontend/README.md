@@ -9,7 +9,6 @@ tree is permitted without a reasoned, path-scoped governance exception.
 - `e2e/`: Playwright specs and their colocated screenshot baselines.
 - `fixtures/`: Runtime fixture, account preparation scripts, and cross-stack contract matrices.
 - `property/`: Deterministic property tests for normalization, patch algebra, ranking, and boundary invariants.
-- `model/`: State-machine tests for interaction workflows that should not be verified only through visible-page smoke.
 - `benchmarks/`: Lightweight regression budgets that emit machine-readable evidence under `.tmp/`.
 - `support/`: Shared HTTP, auth, binary, corpus, Playwright, and Vitest runtime helpers.
   `support/unit/setup.ts` is the canonical browser-global/WASM mock setup and

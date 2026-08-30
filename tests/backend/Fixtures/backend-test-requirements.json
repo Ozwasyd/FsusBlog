@@ -1146,6 +1146,14 @@
         "tests/tools/legacy-real-dump-producer.test.mjs",
         "docs/database-migration.md"
       ]
+    },
+    {
+      "id": "FRONTEND-IMAGE-UPLOAD-RUNTIME",
+      "risk": "high",
+      "coverage": "real image upload compression, hashing, session initialization, part acknowledgement, resumable snapshot, missing-part recovery, completion, abort cleanup and late-response isolation",
+      "evidencePaths": [
+        "tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+      ]
     }
   ],
   "endpointFamilies": [
