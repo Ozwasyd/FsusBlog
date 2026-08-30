@@ -1649,7 +1649,7 @@ HashBackendInputs() {
             (
                 cd "$ROOT_DIR"
                 {
-                    for file in Directory.Build.props Directory.Build.targets; do
+                    for file in Directory.Build.props Directory.Packages.props Directory.Build.targets; do
                         if [[ -f "$file" ]]; then
                             printf '%s\0' "$file"
                         fi

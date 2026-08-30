@@ -1143,6 +1143,7 @@ EnsureBackendFilteredBuild() {
         # without turning those runtime writes into duplicate build producers.
         fingerprint="$(TestInputFingerprint \
             --path Directory.Build.props \
+            --path Directory.Packages.props \
             --path FsusBlog.slnx \
             --path tools/build-with-data-env.sh \
             --path tools/test/lanes/_suite-support.sh \
@@ -1155,6 +1156,7 @@ EnsureBackendFilteredBuild() {
         # source scan as the conservative fallback.
         fingerprint="$(TestInputFingerprint \
             --path Directory.Build.props \
+            --path Directory.Packages.props \
             --path FsusBlog.slnx \
             --path src/backend \
             --path src/core \
