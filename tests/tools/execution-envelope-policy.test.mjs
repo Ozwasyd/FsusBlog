@@ -5,6 +5,7 @@ import test from 'node:test';
 import {
     createExecutionEnvelopePolicyIdentity,
     executionEnvelopeDigest,
+    executionEnvelopePolicySchemaFile,
     loadExecutionEnvelopeApplicability,
     loadExecutionEnvelopePolicy,
     projectExecutionEnvelopeApplicability,
@@ -54,6 +55,11 @@ test('policy identity binds policy, catalog, and schema content independently', 
     const changedCatalog = structuredClone(catalog);
     changedCatalog.producers.reverse();
     assert.notEqual(executionEnvelopeDigest(changedCatalog), identity.catalogDigest);
+    assert.notEqual(createExecutionEnvelopePolicyIdentity({
+        policy,
+        catalog,
+        receiptSchemaFile: executionEnvelopePolicySchemaFile
+    }).schemaIdentity, identity.schemaIdentity);
 });
 
 test('missing, unknown, duplicate, ambiguous, and defaulted policy state fails closed', () =>

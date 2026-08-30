@@ -20,6 +20,10 @@ export const executionEnvelopeApplicabilitySchemaFile = path.join(
     root,
     'config/schemas/test-execution-envelope-applicability.schema.json'
 );
+export const executionEnvelopeReceiptSchemaFile = path.join(
+    root,
+    'config/schemas/test-execution-envelope-receipt.schema.json'
+);
 export const producerExecutionClassContractFile = path.join(
     root,
     'config/testing/producer-execution-class-contract.json'
@@ -147,6 +151,14 @@ export function loadExecutionEnvelopeApplicability(
 )
 {
     return readJson(file, 'execution envelope applicability catalog');
+}
+
+export function validateExecutionEnvelopeReceiptSchema(
+    receipt,
+    schemaFile = executionEnvelopeReceiptSchemaFile
+)
+{
+    return schemaErrors(receipt, schemaFile, 'execution envelope receipt');
 }
 
 export function executionEnvelopeEvidenceClass(tier)
@@ -572,9 +584,17 @@ export function validateExecutionEnvelopeContracts({
     return errors;
 }
 
-function schemaIdentity(policySchemaFile, applicabilitySchemaFile)
+function schemaIdentity(
+    policySchemaFile,
+    applicabilitySchemaFile,
+    receiptSchemaFile
+)
 {
-    const schemas = [policySchemaFile, applicabilitySchemaFile].map((file) => ({
+    const schemas = [
+        policySchemaFile,
+        applicabilitySchemaFile,
+        receiptSchemaFile
+    ].map((file) => ({
         file: path.relative(root, file).replaceAll('\\', '/'),
         sha256: executionEnvelopeDigest(fs.readFileSync(file))
     }));
@@ -585,7 +605,8 @@ export function createExecutionEnvelopePolicyIdentity({
     policy,
     catalog,
     policySchemaFile = executionEnvelopePolicySchemaFile,
-    applicabilitySchemaFile = executionEnvelopeApplicabilitySchemaFile
+    applicabilitySchemaFile = executionEnvelopeApplicabilitySchemaFile,
+    receiptSchemaFile = executionEnvelopeReceiptSchemaFile
 })
 {
     return Object.freeze({
@@ -593,7 +614,11 @@ export function createExecutionEnvelopePolicyIdentity({
         policyId: policy.policyId,
         policyDigest: executionEnvelopeDigest(policy),
         catalogDigest: executionEnvelopeDigest(catalog),
-        schemaIdentity: schemaIdentity(policySchemaFile, applicabilitySchemaFile)
+        schemaIdentity: schemaIdentity(
+            policySchemaFile,
+            applicabilitySchemaFile,
+            receiptSchemaFile
+        )
     });
 }
 

@@ -6,9 +6,9 @@ import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
 import {
-    sealExecutionEnvelopeReceipt,
     verifyExecutionEnvelopeReceipt
 } from './execution-envelope-receipt.mjs';
+import { executionEnvelopeDigest } from '../test-matrix/execution-envelope-policy.mjs';
 
 function options(argv)
 {
@@ -40,11 +40,7 @@ export function verifyExecutionEnvelopeFiles({ planFile, receiptFile })
 {
     const plan = readJson(planFile, 'execution envelope plan');
     const receipt = readJson(receiptFile, 'execution envelope receipt');
-    const independentlySealed = sealExecutionEnvelopeReceipt({
-        plan,
-        actual: receipt.actual
-    });
-    if (independentlySealed.receiptDigest !== receipt.receiptDigest)
+    if (executionEnvelopeDigest(plan) !== executionEnvelopeDigest(receipt.plan))
     {
         throw new Error('execution envelope plan/receipt binding failed');
     }
