@@ -70,6 +70,30 @@ and changes the database default to a value containing quote characters. The fre
 fixture inserts a `sys_user` row after the second run while omitting these columns
 and requires `anonymous_account|basic|active`.
 
+## Canonical Current Schema
+
+`CurrentSchemaCanonicalAuthority` is the only current-schema materializer. It
+extracts the current `SugarTable`/`SugarColumn`/`SugarIndex` mapping, inherited
+public properties, nullability metadata, defaults, conversions and explicit
+current constraints into a provider-neutral semantic model. Duplicate owners,
+unknown property types, unsupported converters and incomplete constraints fail
+before a projection is accepted. Ignored, navigation and `NotMapped` members never
+enter the model.
+
+Runtime reflection, `CurrentSchemaProjection` and the migration target adapter are
+independent observations of that sealed model; none reads the migration catalog,
+Markdown, test fixtures or a running database to define the target. Their shared
+identity binds model, extractor and generator versions plus source and content
+SHA-256 digests. PostgreSQL, MySQL and SQLite projections retain this semantic
+identity while recording different physical type spellings. The independent
+verifier and cold-readiness comparison reject stale identities, content tampering
+and exact table, column, type, nullability, default, constraint or index drift.
+
+`tools/db/check-current-schema-authority.mjs` prevents a second production
+extractor, hand-written table inventory, fixture reconstruction or migration
+descriptor from becoming current authority. This boundary does not move migration
+code, change descriptor SQL or alter the Server dependency graph.
+
 ## Plugin Registry
 
 `20260724-post-plugin-registry` additively creates `plugin_registry`. The table keeps
