@@ -4,6 +4,7 @@ using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Authoring;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -81,7 +82,5 @@ public sealed class ContentAssetCutoverAcceptanceTests
     }
 
     private static string ReadSource(string relativePath)
-        => File.ReadAllText(Path.Combine(
-            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../")),
-            relativePath));
+        => BackendTestPaths.ReadAllTextFromRoot(relativePath);
 }
