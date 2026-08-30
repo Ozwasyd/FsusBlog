@@ -768,7 +768,7 @@ for (const profile of requirementCatalog.profiles || [])
 
     for (const path of profile.evidencePaths || [])
     {
-        requireFile(path);
+        requireEvidencePath(path);
     }
 }
 
