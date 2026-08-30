@@ -5,22 +5,6 @@ namespace FsusBlog.Server.Tests.Unit;
 [Trait("Category", "Concurrency")]
 public sealed class AnonymousPrivacyConcurrencyTests
 {
-
-    [Fact]
-    public async Task SameTicketConcurrentConsume_SucceedsOnce()
-    {
-        const int Attempts = 24;
-        using var barrier = new Barrier(Attempts);
-        var tickets = new SingleUseTicketStore();
-        tickets.Add("ticket-1");
-
-        bool[] results = await Task.WhenAll(Enumerable.Range(0, Attempts)
-            .Select(_ => StartBarrierTask(barrier, () => tickets.TryConsume("ticket-1"))));
-
-        Assert.Equal(1, results.Count(static value => value));
-        Assert.Equal(Attempts - 1, results.Count(static value => !value));
-    }
-
     [Fact]
     public async Task RootSnapshotHighFrequencyRead_UsesCachedSnapshot()
     {
@@ -95,19 +79,6 @@ public sealed class AnonymousPrivacyConcurrencyTests
             CancellationToken.None,
             TaskCreationOptions.LongRunning,
             TaskScheduler.Default).Unwrap();
-
-
-    private sealed class SingleUseTicketStore
-    {
-        private readonly ConcurrentDictionary<string, byte> _tickets = new(StringComparer.Ordinal);
-
-        public void Add(string ticket)
-            => _tickets[ticket] = 1;
-
-        public bool TryConsume(string ticket)
-            => _tickets.TryRemove(ticket, out _);
-    }
-
     private sealed class RootSnapshotCache
     {
         private readonly object _sync = new();
