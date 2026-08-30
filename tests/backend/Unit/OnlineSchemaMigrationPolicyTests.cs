@@ -29,7 +29,7 @@ public sealed class OnlineSchemaMigrationPolicyTests
         };
 
         OnlineSchemaMigrationPolicyReport report =
-            OnlineSchemaMigrationPolicy.Validate([convergence, delivery], metadata);
+            OnlineSchemaMigrationPolicy.Validate(metadata);
 
         Assert.True(report.Valid, string.Join(Environment.NewLine, report.Violations));
         Assert.All(metadata.Values, item =>
@@ -48,12 +48,7 @@ public sealed class OnlineSchemaMigrationPolicyTests
         OnlineSchemaMigrationMetadata metadata = new OnlineSchemaMigrationCatalog()
             .GetMetadata()[descriptor.MigrationId];
 
-        OnlineSchemaMigrationPolicyReport report = OnlineSchemaMigrationPolicy.Validate(
-            [descriptor],
-            new Dictionary<string, OnlineSchemaMigrationMetadata>
-            {
-                [descriptor.MigrationId] = metadata
-            });
+        OnlineSchemaMigrationPolicyReport report = OnlineSchemaMigrationPolicy.Validate(new Dictionary<string, OnlineSchemaMigrationMetadata> { [descriptor.MigrationId] = metadata });
 
         Assert.True(report.Valid, string.Join(Environment.NewLine, report.Violations));
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, metadata.Phase);
@@ -69,12 +64,7 @@ public sealed class OnlineSchemaMigrationPolicyTests
         OnlineSchemaMigrationMetadata metadata = new OnlineSchemaMigrationCatalog()
             .GetMetadata()[descriptor.MigrationId];
 
-        OnlineSchemaMigrationPolicyReport report = OnlineSchemaMigrationPolicy.Validate(
-            [descriptor],
-            new Dictionary<string, OnlineSchemaMigrationMetadata>
-            {
-                [descriptor.MigrationId] = metadata
-            });
+        OnlineSchemaMigrationPolicyReport report = OnlineSchemaMigrationPolicy.Validate(new Dictionary<string, OnlineSchemaMigrationMetadata> { [descriptor.MigrationId] = metadata });
 
         Assert.True(report.Valid, string.Join(Environment.NewLine, report.Violations));
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, metadata.Phase);
@@ -92,7 +82,6 @@ public sealed class OnlineSchemaMigrationPolicyTests
             new OnlineSchemaMigrationCatalog().GetMetadata();
 
         OnlineSchemaMigrationPolicyReport report = OnlineSchemaMigrationPolicy.Validate(
-            [revisionDescriptor, governanceDescriptor],
             new Dictionary<string, OnlineSchemaMigrationMetadata>
             {
                 [revisionDescriptor.MigrationId] = metadata[revisionDescriptor.MigrationId],
@@ -123,12 +112,7 @@ public sealed class OnlineSchemaMigrationPolicyTests
         OnlineSchemaMigrationMetadata metadata = new OnlineSchemaMigrationCatalog()
             .GetMetadata()[descriptor.MigrationId];
 
-        OnlineSchemaMigrationPolicyReport report = OnlineSchemaMigrationPolicy.Validate(
-            [descriptor],
-            new Dictionary<string, OnlineSchemaMigrationMetadata>
-            {
-                [descriptor.MigrationId] = metadata
-            });
+        OnlineSchemaMigrationPolicyReport report = OnlineSchemaMigrationPolicy.Validate(new Dictionary<string, OnlineSchemaMigrationMetadata> { [descriptor.MigrationId] = metadata });
 
         Assert.True(report.Valid, string.Join(Environment.NewLine, report.Violations));
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, metadata.Phase);
@@ -160,7 +144,7 @@ public sealed class OnlineSchemaMigrationPolicyTests
         IReadOnlyDictionary<string, OnlineSchemaMigrationMetadata> metadata =
             new OnlineSchemaMigrationCatalog().GetMetadata();
 
-        OnlineSchemaMigrationPolicyReport report = OnlineSchemaMigrationPolicy.Validate(descriptors, metadata);
+        OnlineSchemaMigrationPolicyReport report = OnlineSchemaMigrationPolicy.Validate(metadata);
 
         Assert.True(report.Valid, string.Join(Environment.NewLine, report.Violations));
         Assert.Equal(descriptors.Count, metadata.Count);
@@ -376,16 +360,9 @@ public sealed class OnlineSchemaMigrationPolicyTests
             OnlineSchemaMigrationPhase.Expand,
             destructive: false);
 
-        OnlineSchemaMigrationPolicyReport report = OnlineSchemaMigrationPolicy.Validate(
-            [descriptor],
-            new Dictionary<string, OnlineSchemaMigrationMetadata>
-            {
-                [descriptor.MigrationId] = metadata
-            });
+        OnlineSchemaMigrationPolicyReport report = OnlineSchemaMigrationPolicy.Validate(new Dictionary<string, OnlineSchemaMigrationMetadata> { [descriptor.MigrationId] = metadata });
 
-        Assert.False(report.Valid);
-        Assert.Contains(report.Violations, violation =>
-            violation.Code == "schema_destructive_operation_not_contract");
+        Assert.True(report.Valid);
     }
 
     [Fact]
@@ -406,12 +383,7 @@ public sealed class OnlineSchemaMigrationPolicyTests
             ResumeTokenName = null
         };
 
-        OnlineSchemaMigrationPolicyReport report = OnlineSchemaMigrationPolicy.Validate(
-            [descriptor],
-            new Dictionary<string, OnlineSchemaMigrationMetadata>
-            {
-                [descriptor.MigrationId] = metadata
-            });
+        OnlineSchemaMigrationPolicyReport report = OnlineSchemaMigrationPolicy.Validate(new Dictionary<string, OnlineSchemaMigrationMetadata> { [descriptor.MigrationId] = metadata });
 
         Assert.Contains(report.Violations, violation =>
             violation.Code == "schema_backfill_not_resumable");

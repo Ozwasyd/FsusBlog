@@ -11,7 +11,6 @@ const checker = join(repoRoot, 'tools/db/check-migration-assembly-boundary.mjs')
 const fixturePaths = [
   'FsusBlog.slnx',
   'src/backend/FsusBlog.Server.csproj',
-  'src/backend/GlobalUsings.Migration.cs',
   'src/migration',
   'src/shared',
   'tests/migration',

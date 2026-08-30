@@ -65,13 +65,12 @@ only `FsusBlog.Shared`, and carries the SqlSugar provider abstraction required t
 build and test the PostgreSQL, MySQL and SQLite DDL adapters without loading the
 Server or a web host.
 
-The Server remains the runtime caller for this stage: it keeps an explicit project
-reference and its current runner/DI registration, online coordinator, schema
-inspector, lock and business-owned backfill handlers. The migration assembly does
-not reference Server endpoints, middleware, cookies, JWT, cache, hosted services,
-frontend/Public AOT, notification or business service implementations. Removing
-the Server caller dependency, changing DI, and adding an offline CLI are separate
-changes and are not part of this assembly extraction.
+Server production no longer references `FsusBlog.Migration`. Startup loads the
+#2211 current schema projection through `CurrentSchemaStartupVerifier` and
+fail-closes on digest mismatch before admission, with zero DDL or backfill. The
+online command host refuses descriptor execution from the Server process; the
+independent migration assembly remains the owner of legacy catalogs. An offline
+plan/apply/verify CLI is a separate change.
 
 `artifacts/schema-migration/migration-assembly-receipt.json` records the old/new
 project, assembly and namespace identities, every old/new source path and declared

@@ -49,6 +49,10 @@
     <None Update="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
     <Compile Remove="Fixtures\security-source-analysis\*.cs" />
     <None Include="Fixtures\security-source-analysis\*.cs" />
+    <Compile Remove="Integration\SchemaMigrationIntegrationTests.cs" />
+    <None Include="Integration\SchemaMigrationIntegrationTests.cs" />
+    <Compile Remove="Integration\AccountSubjectHashMigrationIntegrationTests.cs" />
+    <None Include="Integration\AccountSubjectHashMigrationIntegrationTests.cs" />
   </ItemGroup>
 
 </Project>

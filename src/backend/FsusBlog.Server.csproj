@@ -137,7 +137,6 @@
 
 		<ItemGroup>
 				<ProjectReference Include="..\core\FsusBlog.Core.csproj" />
-				<ProjectReference Include="..\migration\FsusBlog.Migration.csproj" />
 				<ProjectReference Include="..\shared\FsusBlog.Shared.csproj" />
 				<ProjectReference Include="..\..\tools\architecture\FsusBlog.DiLifetimeAnalyzer\FsusBlog.DiLifetimeAnalyzer.csproj"
 					OutputItemType="Analyzer"

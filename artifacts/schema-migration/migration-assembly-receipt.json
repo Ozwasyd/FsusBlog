@@ -539,7 +539,7 @@
     },
     {
       "path": "src/migration/Properties/AssemblyInfo.cs",
-      "sha256": "36d5c1037dcab82572ed7ee4344dcf1a9b0065e35c08d15276db088daebc7a21",
+      "sha256": "3499bb36662d918a32b1a1fe41ca6f7c1ffb33a00769c3918646a4286c5baf84",
       "symbols": []
     },
     {
@@ -2091,7 +2091,7 @@
       },
       {
         "newPath": "src/migration/Properties/AssemblyInfo.cs",
-        "newSha256": "36d5c1037dcab82572ed7ee4344dcf1a9b0065e35c08d15276db088daebc7a21",
+        "newSha256": "3499bb36662d918a32b1a1fe41ca6f7c1ffb33a00769c3918646a4286c5baf84",
         "oldFiles": [],
         "movedSymbols": [],
         "newSymbols": [],
@@ -2338,7 +2338,7 @@
       "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs"
     ]
   },
-  "contentDigest": "7bf29aad3beca25ee0f8e9ff59964f10025deebe6a3791813167b642792d191a",
+  "contentDigest": "15167c03369a11873aaab5fbe36f0b409842f49c26a4ccefe1f6a9f80ddaa5f1",
   "testFiles": [
     {
       "path": "tests/migration/FsusBlog.Migration.Tests.csproj",
@@ -2362,21 +2362,21 @@
     }
   ],
   "testContentDigest": "34137c7b7fd127b1407d14503a9254e160b2bd8da7ba6bec9fca489ed5cddc2f",
-  "verificationInputDigest": "d29c5dec4e61337221ee79e252ae9b5a6fd72b503ab4abd5d4951173cb98b366",
+  "verificationInputDigest": "9a665c070a27cb5b87c2e9dd87af723bae422df767aac4271fef98ecd47dc23c",
   "verificationResults": [
     {
       "command": "dotnet build src/migration/FsusBlog.Migration.csproj -c Release --no-restore",
       "status": "passed",
       "exitCode": 0,
-      "inputDigest": "d29c5dec4e61337221ee79e252ae9b5a6fd72b503ab4abd5d4951173cb98b366",
-      "summary": "0 个警告 | 0 个错误 | 已用时间 00:00:00.91"
+      "inputDigest": "9a665c070a27cb5b87c2e9dd87af723bae422df767aac4271fef98ecd47dc23c",
+      "summary": "0 个警告 | 0 个错误 | 已用时间 00:00:00.45"
     },
     {
       "command": "dotnet test tests/migration/FsusBlog.Migration.Tests.csproj -c Release --no-restore",
       "status": "passed",
       "exitCode": 0,
-      "inputDigest": "d29c5dec4e61337221ee79e252ae9b5a6fd72b503ab4abd5d4951173cb98b366",
-      "summary": "<repo>/tests/migration/bin/Release/net10.0/FsusBlog.Migration.Tests.dll (.NETCoreApp,Version=v10.0)的测试运行 | 总共 1 个测试文件与指定模式相匹配。 | 已通过! - 失败:     0，通过:    27，已跳过:     0，总计:    27，持续时间: 186 ms - FsusBlog.Migration.Tests.dll (net10.0)"
+      "inputDigest": "9a665c070a27cb5b87c2e9dd87af723bae422df767aac4271fef98ecd47dc23c",
+      "summary": "<repo>/tests/migration/bin/Release/net10.0/FsusBlog.Migration.Tests.dll (.NETCoreApp,Version=v10.0)的测试运行 | 总共 1 个测试文件与指定模式相匹配。 | 已通过! - 失败:     0，通过:    27，已跳过:     0，总计:    27，持续时间: 185 ms - FsusBlog.Migration.Tests.dll (net10.0)"
     }
   ]
 }

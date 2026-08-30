@@ -94,7 +94,7 @@ const serverProjectPath = join(root, 'src/backend/FsusBlog.Server.csproj')
 const serverProject = read('src/backend/FsusBlog.Server.csproj')
 const serverMigrationReferences = projectReferences(serverProjectPath, serverProject)
   .filter(path => path === join(root, 'src/migration/FsusBlog.Migration.csproj'))
-reject(serverMigrationReferences.length !== 1, 'Server caller must register Migration exactly once')
+reject(serverMigrationReferences.length !== 0, 'Server runtime must not reference Migration')
 
 for (const project of projects.filter(item => item.path !== join(root, 'src/migration/FsusBlog.Migration.csproj'))) {
   for (const match of project.text.matchAll(/<(Compile|Content|EmbeddedResource|None)\b[^>]*\bInclude="([^"]+)"[^>]*>/g)) {

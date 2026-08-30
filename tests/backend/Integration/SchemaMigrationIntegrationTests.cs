@@ -84,7 +84,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         }
 
         await fixture.ExecuteAsync(connectionString, $"""
-            DELETE FROM {SchemaMigrationRunner.HistoryTableName}
+            DELETE FROM {CurrentSchemaStartupVerifier.HistoryTableName}
             WHERE migration_id = '{TaxonomyDescriptionMigrationDefinitions.MigrationId}';
             ALTER TABLE category DROP COLUMN description;
             ALTER TABLE tag DROP COLUMN description;
@@ -158,7 +158,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             await File.WriteAllBytesAsync(Path.Combine(paths.PublicAssetRoot, "illustration", "cleanup.png"), png);
 
             await fixture.ExecuteAsync(connectionString, $"""
-                DELETE FROM {SchemaMigrationRunner.HistoryTableName}
+                DELETE FROM {CurrentSchemaStartupVerifier.HistoryTableName}
                 WHERE migration_id IN (
                     '{ContentAssetCutoverMigrationDefinitions.PrototypeShapeMigrationId}',
                     '{ContentAssetCutoverMigrationDefinitions.MigrationId}');
@@ -312,7 +312,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             }
 
             await fixture.ExecuteAsync(connectionString, $"""
-                DELETE FROM {SchemaMigrationRunner.HistoryTableName}
+                DELETE FROM {CurrentSchemaStartupVerifier.HistoryTableName}
                 WHERE migration_id = '{ContentAssetCutoverMigrationDefinitions.MigrationId}';
                 CREATE TABLE asset_library_item (
                     url varchar(512) PRIMARY KEY,
@@ -331,7 +331,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
                 StringComparison.Ordinal);
             Assert.True(await fixture.TableExistsAsync(connectionString, "asset_library_item"));
             int historyRows = await fixture.QueryScalarAsync<int>(connectionString, $"""
-                SELECT COUNT(1) FROM {SchemaMigrationRunner.HistoryTableName}
+                SELECT COUNT(1) FROM {CurrentSchemaStartupVerifier.HistoryTableName}
                 WHERE migration_id = '{ContentAssetCutoverMigrationDefinitions.MigrationId}';
                 """);
             Assert.Equal(0, historyRows);
@@ -388,7 +388,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             "SELECT COUNT(1) FROM sys_systemconfig WHERE key LIKE 'Page_%' OR key LIKE 'sys:page:%';");
         int historyCount = await fixture.QueryScalarAsync<int>(
             connectionString,
-            $"SELECT COUNT(1) FROM {SchemaMigrationRunner.HistoryTableName};");
+            $"SELECT COUNT(1) FROM {CurrentSchemaStartupVerifier.HistoryTableName};");
         bool auditLogExists = await fixture.TableExistsAsync(connectionString, "sys_audit_log");
         bool rumMetricExists = await fixture.TableExistsAsync(connectionString, "frontend_rum_metric");
         bool anonymousPolicyExists = await fixture.TableExistsAsync(connectionString, "anonymous_comment_policy");
@@ -1451,7 +1451,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         string databaseName = await fixture.CreateDatabaseAsync();
         string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
         await fixture.ExecuteAsync(connectionString, $"""
-            CREATE TABLE {SchemaMigrationRunner.HistoryTableName} (
+            CREATE TABLE {CurrentSchemaStartupVerifier.HistoryTableName} (
                 migration_id varchar(160) PRIMARY KEY,
                 checksum varchar(128) NOT NULL,
                 applied_at_utc timestamp NOT NULL,
@@ -1459,7 +1459,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
                 succeeded boolean NOT NULL
             );
 
-            INSERT INTO {SchemaMigrationRunner.HistoryTableName}(migration_id, checksum, applied_at_utc, app_version, succeeded)
+            INSERT INTO {CurrentSchemaStartupVerifier.HistoryTableName}(migration_id, checksum, applied_at_utc, app_version, succeeded)
             VALUES (
                 '20260518-post-authoring-workspace-tables',
                 '{LegacyAuthoringWorkspaceChecksum}',
@@ -1491,7 +1491,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             connectionString,
             $"""
             SELECT checksum
-            FROM {SchemaMigrationRunner.HistoryTableName}
+            FROM {CurrentSchemaStartupVerifier.HistoryTableName}
             WHERE migration_id = '20260518-post-authoring-workspace-tables';
             """);
 
@@ -2456,7 +2456,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
 
         int historyCount = await fixture.QueryScalarAsync<int>(
             connectionString,
-            $"SELECT COUNT(1) FROM {SchemaMigrationRunner.HistoryTableName};");
+            $"SELECT COUNT(1) FROM {CurrentSchemaStartupVerifier.HistoryTableName};");
 
         Assert.Contains("article_markdown_legacy", exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(0, historyCount);
@@ -2518,7 +2518,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
 
         int historyCount = await fixture.QueryScalarAsync<int>(
             connectionString,
-            $"SELECT COUNT(1) FROM {SchemaMigrationRunner.HistoryTableName};");
+            $"SELECT COUNT(1) FROM {CurrentSchemaStartupVerifier.HistoryTableName};");
         bool auditLogExists = await fixture.TableExistsAsync(connectionString, "sys_audit_log");
         bool rumMetricExists = await fixture.TableExistsAsync(connectionString, "frontend_rum_metric");
         bool articleTableExists = await fixture.TableExistsAsync(connectionString, "article");
@@ -2933,7 +2933,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             "SELECT COUNT(1) FROM sys_systemconfig WHERE key LIKE 'Page_%' OR key LIKE 'sys:page:%';");
         int historyCount = await fixture.QueryScalarAsync<int>(
             connectionString,
-            $"SELECT COUNT(1) FROM {SchemaMigrationRunner.HistoryTableName};");
+            $"SELECT COUNT(1) FROM {CurrentSchemaStartupVerifier.HistoryTableName};");
 
         Assert.Equal(legacyCounts.Articles, articleBodyRows);
         Assert.Equal(legacyCounts.Articles, articleViewSeedRows);
@@ -3105,7 +3105,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             "fsusblog-schema-migration-tests",
             Guid.NewGuid().ToString("N"))));
         services.AddSingleton<IArticleDetailAedsArtifactMaintenanceService, NoopArticleDetailAedsArtifactMaintenanceService>();
-        services.AddScoped<ISchemaMigrationRunner, SchemaMigrationRunner>();
+        services.AddScoped<ISchemaMigrationRunner, CurrentSchemaStartupVerifier>();
         services.AddScoped<IAuditLogStore, AuditLogStore>();
 
         return services.BuildServiceProvider(new ServiceProviderOptions

@@ -15,11 +15,11 @@
         },
         {
             "path": "artifacts/schema-migration/migration-assembly-receipt.json",
-            "sha256": "02eb43401a9f06e723e27b871fd0ec12ca08d163e67137e6daaff1189858faea"
+            "sha256": "fc07ad811c197b3be62db33e64aed63a7bed0c4ca419ed01d72cb5fe902b8302"
         },
         {
             "path": "artifacts/schema-migration/migration-assembly-binding.json",
-            "sha256": "e3e2f0a500049844d40b887fdb85aa866b92fb4882ea4d21d6babfc7aa895525"
+            "sha256": "8bb4614aa789c4627ec1ad183063bbe52e597c3c706b638de44656fbb384c076"
         }
     ]
 }

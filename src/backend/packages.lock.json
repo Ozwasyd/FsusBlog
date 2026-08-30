@@ -500,13 +500,6 @@
                     "FsusBlog.Shared": "[1.0.0, )"
                 }
             },
-            "fsusblog.migration": {
-                "type": "Project",
-                "dependencies": {
-                    "FsusBlog.Shared": "[1.0.0, )",
-                    "SqlSugarCoreNoDrive": "[5.1.4.213, )"
-                }
-            },
             "fsusblog.shared": {
                 "type": "Project"
             },
