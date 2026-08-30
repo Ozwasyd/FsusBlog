@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -76,7 +77,10 @@ const legacyRoleParts = Object.freeze([
     ['claim'], ['extractor'], ['renderer'], ['joiner'], ['cli'], ['schema'], ['feature', 'flag']
 ])
 const legacyStateParts = Object.freeze([['legacy'], ['compat'], ['compatibility'], ['deprecated']])
-const ignoredDirectoryNames = new Set(['.git', '.tmp', 'bin', 'node_modules', 'obj'])
+const ignoredDirectoryNames = new Set([
+    '.cache', '.git', '.tmp', 'bin', 'build', 'coverage', 'dist', 'node_modules', 'obj', 'out',
+    'playwright-report', 'publish', 'temp', 'test-results', 'testresults', 'tmp'
+])
 const machineSourceExtensions = /\.(?:c|cc|cpp|cs|cxx|h|hpp|js|jsx|mjs|ps1|sh|ts|tsx|vue|ya?ml)$/u
 const qualificationPathPattern = /(?:artifact|behavior|doc[-_.]?claim|evidence|fact[-_.]?extract|generated[-_.]?fact|governance|mutation|qualification|receipt|release[-_.]?final)/iu
 const machineFencePattern = /^```(bash|csharp|cs|javascript|js|json|jsonc|powershell|ps1|sh|shell|toml|typescript|ts|yaml|yml)\s*\n([\s\S]*?)^```\s*$/gimu
@@ -235,23 +239,81 @@ function scanObjectKeys(value, context, negated = false, location = '$')
     }
 }
 
-function sourceAssignments(source)
+function maskSourceLiteralsAndComments(source)
+{
+    const masked = source.split('')
+    for (let index = 0; index < source.length; index += 1)
+    {
+        let end = index
+        if (source[index] === '/' && source[index + 1] === '/')
+        {
+            end = source.indexOf('\n', index + 2)
+            if (end < 0) end = source.length
+        }
+        else if (source[index] === '/' && source[index + 1] === '*')
+        {
+            const closing = source.indexOf('*/', index + 2)
+            end = closing < 0 ? source.length : closing + 2
+        }
+        else if (source[index] === '"' || source[index] === "'" || source[index] === '`')
+        {
+            const quote = source[index]
+            end = index + 1
+            while (end < source.length)
+            {
+                if (source[end] === '\\')
+                {
+                    end += 2
+                    continue
+                }
+                if (source[end] === quote)
+                {
+                    end += 1
+                    break
+                }
+                end += 1
+            }
+            let next = end
+            while (/\s/u.test(source[next] ?? '')) next += 1
+            const content = source.slice(index + 1, Math.max(index + 1, end - 1))
+            if (source[next] === ':' && /^[A-Za-z][A-Za-z0-9_-]*$/u.test(content))
+            {
+                index = end - 1
+                continue
+            }
+        }
+        else
+        {
+            continue
+        }
+        for (let cursor = index; cursor < end; cursor += 1)
+        {
+            if (masked[cursor] !== '\n' && masked[cursor] !== '\r') masked[cursor] = ' '
+        }
+        index = end - 1
+    }
+    return masked.join('')
+}
+
+function sourceAssignments(source, masked)
 {
     const assignments = []
-    const expression = /(?:^|[,;{([.\s])(?:["']([^"']+)["']|([A-Za-z][A-Za-z0-9_-]*))\s*\??\s*(?::|=(?!=))\s*([^\n,;}]+)/gmu
+    const expression = /(?:^|[,;{([.\s])(?:["']([^"']+)["']|([A-Za-z][A-Za-z0-9_-]*))\s*\??\s*(?::|=(?!=))\s*([^\n,;}]+)/dgmu
     let match
-    while ((match = expression.exec(source)) !== null)
+    while ((match = expression.exec(masked)) !== null)
     {
+        const identifierIndex = match.indices[1] ?? match.indices[2]
+        const valueIndex = match.indices[3]
         assignments.push({
-            identifier: match[1] ?? match[2],
-            valueText: match[3],
-            line: source.slice(0, match.index).split('\n').length
+            identifier: source.slice(identifierIndex[0], identifierIndex[1]).replace(/^["']|["']$/gu, ''),
+            valueText: source.slice(valueIndex[0], valueIndex[1]),
+            index: match.index
         })
     }
     return assignments
 }
 
-function declaredIdentifiers(source)
+function declaredIdentifiers(masked)
 {
     const identifiers = []
     const expressions = [
@@ -261,29 +323,104 @@ function declaredIdentifiers(source)
     for (const expression of expressions)
     {
         let match
-        while ((match = expression.exec(source)) !== null)
+        while ((match = expression.exec(masked)) !== null)
         {
-            identifiers.push({ identifier: match[1], line: source.slice(0, match.index).split('\n').length })
+            identifiers.push({ identifier: match[1], index: match.index })
         }
     }
-    return [...new Map(identifiers.map((entry) => [`${entry.identifier}\0${entry.line}`, entry])).values()]
+    return [...new Map(identifiers.map((entry) => [`${entry.identifier}\0${entry.index}`, entry])).values()]
+}
+
+function sourceInvocations(source, masked)
+{
+    const invocations = []
+    const expression = /\b([A-Za-z][A-Za-z0-9_.-]*)\s*\(([^()\n]*)\)/dgmu
+    let match
+    while ((match = expression.exec(masked)) !== null)
+    {
+        const argumentIndex = match.indices[2]
+        const argumentsText = source.slice(argumentIndex[0], argumentIndex[1])
+        const stringArguments = []
+        const stringExpression = /(["'])(.*?)\1/gu
+        let stringMatch
+        while ((stringMatch = stringExpression.exec(argumentsText)) !== null) stringArguments.push(stringMatch[2])
+        invocations.push({
+            identifier: match[1],
+            stringArguments,
+            index: match.index
+        })
+    }
+    return invocations
+}
+
+function autoPropertyInitializers(masked)
+{
+    const initializers = []
+    const expression = /\b([A-Za-z][A-Za-z0-9_-]*)\s*\{[\t ]*(?:(?:get|init|set)\s*;[\t ]*)+\}\s*=\s*([^;\n]+)/gmu
+    let match
+    while ((match = expression.exec(masked)) !== null)
+    {
+        initializers.push({
+            identifier: match[1],
+            valueText: match[2],
+            index: match.index
+        })
+    }
+    return initializers
 }
 
 function scanMachineSource(source, context, locationPrefix = 'source')
 {
-    for (const assignment of sourceAssignments(source))
+    const masked = maskSourceLiteralsAndComments(source)
+    const lineStarts = [0]
+    for (let index = source.indexOf('\n'); index >= 0; index = source.indexOf('\n', index + 1)) lineStarts.push(index + 1)
+    const lineAt = (target) => {
+        let low = 0
+        let high = lineStarts.length
+        while (low < high)
+        {
+            const middle = Math.floor((low + high) / 2)
+            if (lineStarts[middle] <= target) low = middle + 1
+            else high = middle
+        }
+        return low
+    }
+    for (const assignment of sourceAssignments(source, masked))
     {
         scanIdentifier(assignment.identifier, assignment.valueText, {
             ...context,
-            location: `${locationPrefix}:line:${assignment.line}`
+            location: `${locationPrefix}:line:${lineAt(assignment.index)}`
         })
     }
-    for (const declaration of declaredIdentifiers(source))
+    for (const declaration of declaredIdentifiers(masked))
     {
         scanIdentifier(declaration.identifier, '', {
             ...context,
-            location: `${locationPrefix}:line:${declaration.line}`
+            location: `${locationPrefix}:line:${lineAt(declaration.index)}`
         })
+    }
+    for (const initializer of autoPropertyInitializers(masked))
+    {
+        scanIdentifier(initializer.identifier, initializer.valueText, {
+            ...context,
+            location: `${locationPrefix}:line:${lineAt(initializer.index)}`
+        })
+    }
+    for (const invocation of sourceInvocations(source, masked))
+    {
+        const invocationContext = {
+            ...context,
+            location: `${locationPrefix}:line:${lineAt(invocation.index)}`
+        }
+        scanIdentifier(invocation.identifier, '', invocationContext)
+        for (const argument of invocation.stringArguments)
+        {
+            scanValueResidue(invocation.identifier, argument, invocationContext)
+            if (legacySurfaceName(argument))
+            {
+                addFinding(context.findings, context.file, context.pathClasses, `forbidden-legacy-surface:${argument}`, invocationContext.location)
+            }
+        }
     }
 }
 
@@ -335,9 +472,63 @@ function walkFiles(repositoryRoot, relative, output, predicate = () => true)
     if (!stat.isDirectory()) return
     for (const entry of fs.readdirSync(absolute, { withFileTypes: true }))
     {
-        if (ignoredDirectoryNames.has(entry.name)) continue
+        if (ignoredDirectoryNames.has(entry.name.toLowerCase())) continue
         walkFiles(repositoryRoot, path.join(relative, entry.name), output, predicate)
     }
+}
+
+function isIgnoredOutputPath(file)
+{
+    return file.split('/').some((segment) => ignoredDirectoryNames.has(segment.toLowerCase()))
+}
+
+function trackedRepositoryFiles(repositoryRoot)
+{
+    try
+    {
+        const topLevel = execFileSync('git', ['-C', repositoryRoot, 'rev-parse', '--show-toplevel'], {
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'ignore']
+        }).trim()
+        if (path.resolve(topLevel) !== path.resolve(repositoryRoot)) return null
+        return execFileSync('git', ['-C', repositoryRoot, 'ls-files', '-z'], {
+            encoding: 'utf8',
+            maxBuffer: 64 * 1024 * 1024,
+            stdio: ['ignore', 'pipe', 'ignore']
+        })
+            .split('\0')
+            .filter(Boolean)
+            .map((file) => file.replaceAll(path.sep, '/'))
+            .filter((file) => !isIgnoredOutputPath(file))
+            .filter((file) => {
+                try
+                {
+                    return !fs.lstatSync(path.join(repositoryRoot, file)).isSymbolicLink()
+                }
+                catch
+                {
+                    return false
+                }
+            })
+    }
+    catch
+    {
+        return null
+    }
+}
+
+function collectScanFiles(repositoryRoot)
+{
+    const tracked = trackedRepositoryFiles(repositoryRoot)
+    if (tracked)
+    {
+        return tracked.filter((file) => scanRoots.some((entry) => file === entry.path || file.startsWith(`${entry.path}/`))
+            || path.posix.basename(file) === 'package.json')
+    }
+    const files = []
+    for (const entry of scanRoots) walkFiles(repositoryRoot, entry.path, files)
+    walkFiles(repositoryRoot, '.', files, (file) => path.posix.basename(file) === 'package.json')
+    return files
 }
 
 export function validateZeroLegacyScan(scan)
@@ -365,9 +556,7 @@ export function validateZeroLegacyScan(scan)
 
 export function scanZeroLegacyGovernance(repositoryRoot = root)
 {
-    const files = []
-    for (const entry of scanRoots) walkFiles(repositoryRoot, entry.path, files)
-    walkFiles(repositoryRoot, '.', files, (file) => path.posix.basename(file) === 'package.json')
+    const files = collectScanFiles(repositoryRoot)
     const uniqueFiles = [...new Set(files)].sort()
     const pathClassCounts = Object.fromEntries(zeroLegacyRequiredPathClasses.map((pathClass) => [pathClass, 0]))
     const findings = []
@@ -391,7 +580,7 @@ export function scanZeroLegacyGovernance(repositoryRoot = root)
         {
             scanDocumentFences(fs.readFileSync(absolute, 'utf8'), context)
         }
-        else if (!pathClasses.includes('tests') && machineSourceExtensions.test(file))
+        else if (machineSourceExtensions.test(file))
         {
             scanMachineSource(fs.readFileSync(absolute, 'utf8'), context)
         }

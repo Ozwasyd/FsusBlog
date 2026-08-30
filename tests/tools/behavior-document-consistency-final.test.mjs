@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -234,13 +235,46 @@ test('zero-legacy source declaration mutations cannot bypass field matching', (t
     const repositoryRoot = repositoryFixture(t, {
         'src/release/behavior-qualification.cs': 'public string LastVerifiedCommit { get; init; }\n',
         'tools/release/behavior-qualification.ts': 'receipt.last_reviewed_at = "now"\ninterface Receipt { allowStaleUntil?: string }\n',
+        'tests/release/behavior-qualification.test.mjs': 'const lastVerifiedCommit = "deadbeef"\n',
+        'tests/tools/scanner-fixture.test.mjs': 'const fixture = \'const lastVerifiedCommit = "deadbeef"\'\n',
         'docs/behavior-contract.md': '# Contract\n```yaml\nverified: true\n```\n'
     })
     const findings = scanZeroLegacyGovernance(repositoryRoot).findings
     assert.ok(findings.some((finding) => finding.file.endsWith('.cs') && finding.rule.endsWith(':lastVerifiedCommit')))
     assert.ok(findings.some((finding) => finding.file.endsWith('.ts') && finding.rule.endsWith(':lastReviewedAt')))
     assert.ok(findings.some((finding) => finding.file.endsWith('.ts') && finding.rule.endsWith(':allowStaleUntil')))
+    assert.ok(findings.some((finding) => finding.file.endsWith('.test.mjs') && finding.rule.endsWith(':lastVerifiedCommit')))
+    assert.equal(findings.some((finding) => finding.file === 'tests/tools/scanner-fixture.test.mjs'), false)
     assert.ok(findings.some((finding) => finding.file.endsWith('.md') && finding.rule.endsWith(':verified')))
+})
+
+test('zero-legacy source invocations and C# initializers cannot hide terminal residue', (t) =>
+{
+    const repositoryRoot = repositoryFixture(t, {
+        'src/release/behavior-qualification.cs': 'public bool Verified { get; init; } = true;\n',
+        'tools/release/behavior-qualification.mjs': 'spawnSync("deprecated-claim-cli", ["--run"])\nselectReceipt("latest")\n'
+    })
+    const findings = scanZeroLegacyGovernance(repositoryRoot).findings
+    assert.ok(findings.some((finding) => finding.file.endsWith('.cs') && finding.rule === 'forbidden-self-certification:verified'))
+    assert.ok(findings.some((finding) => finding.file.endsWith('.mjs') && finding.rule === 'forbidden-legacy-surface:deprecated-claim-cli'))
+    assert.ok(findings.some((finding) => finding.file.endsWith('.mjs') && finding.rule === 'forbidden-evidence-selection:selectReceipt=latest'))
+})
+
+test('zero-legacy scanner excludes untracked and ignored build or runtime outputs', (t) =>
+{
+    const repositoryRoot = repositoryFixture(t, {
+        'src/release/authoritative.mjs': 'export const currentReceipt = "receipt.json"\n',
+        'src/release/untracked.mjs': 'const lastVerifiedCommit = "deadbeef"\n',
+        'src/frontend/dist/release.mjs': 'const lastVerifiedCommit = "deadbeef"\n',
+        'tools/out/release.mjs': 'selectReceipt("latest")\n',
+        'tests/coverage/release.json': JSON.stringify({ lastVerifiedCommit: 'deadbeef' }),
+        'tests/TestResults/release.json': JSON.stringify({ lastVerifiedCommit: 'deadbeef' })
+    })
+    execFileSync('git', ['init', '--quiet'], { cwd: repositoryRoot })
+    execFileSync('git', ['add', 'src/release/authoritative.mjs'], { cwd: repositoryRoot })
+    const scan = scanZeroLegacyGovernance(repositoryRoot)
+    assert.equal(scan.scannedFileCount, 1)
+    assert.deepEqual(scan.findings, [])
 })
 
 test('zero-legacy selection and authority mutation corpus rejects latest history fallback and self-authority fields', (t) =>
