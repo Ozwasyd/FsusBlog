@@ -25,6 +25,7 @@ public static class PodSizeCatalog
     public static readonly int EmptySuccessPod = PodContractValidation.SizeOf<EmptySuccessPod>();
     public static readonly int MutationIdPod = PodContractValidation.SizeOf<MutationIdPod>();
     public static readonly int NameMutationRequestPod = PodContractValidation.SizeOf<NameMutationRequestPod>();
+    public static readonly int TaxonomyMetadataMutationRequestPod = PodContractValidation.SizeOf<TaxonomyMetadataMutationRequestPod>();
     public static readonly int StringMutationRequestPod = PodContractValidation.SizeOf<StringMutationRequestPod>();
     public static readonly int PasskeyCredentialFriendlyNameUpdateRequestPod = PodContractValidation.SizeOf<PasskeyCredentialFriendlyNameUpdateRequestPod>();
     public static readonly int ApiErrorPod = PodContractValidation.SizeOf<ApiErrorPod>();

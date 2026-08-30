@@ -91,6 +91,18 @@ public sealed class SchemaMigrationCatalogTests
                 Assert.Equal("current-20260828", catalog.CatalogId);
                 Assert.Equal(new DateOnly(2026, 8, 28), catalog.StartVersion);
                 Assert.Equal(new DateOnly(2026, 8, 28), catalog.EndVersion);
+                Assert.Collection(
+                    catalog.Dependencies,
+                    dependency =>
+                    {
+                        Assert.Equal("20260720-pre-user-session-refresh-lineage", dependency.MigrationId);
+                        Assert.Equal(SchemaMigrationPhase.PreCodeFirst, dependency.Phase);
+                    },
+                    dependency =>
+                    {
+                        Assert.Equal(ContentAssetCutoverMigrationDefinitions.MigrationId, dependency.MigrationId);
+                        Assert.Equal(SchemaMigrationPhase.PostCodeFirst, dependency.Phase);
+                    });
             },
             catalog =>
             {

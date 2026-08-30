@@ -19,8 +19,7 @@ export default defineConfig({
       '../../tests/frontend/unit/utils/**/*.test.ts',
       '../../tests/frontend/unit/composables/**/*.test.ts',
       '../../tests/frontend/unit/services/**/*.test.ts',
-      '../../tests/frontend/property/**/*.test.ts',
-      '../../tests/frontend/model/**/*.test.ts'
+      '../../tests/frontend/property/**/*.test.ts'
     ],
     setupFiles: [frontendUnitSetupFile],
     coverage: {

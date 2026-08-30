@@ -103,6 +103,24 @@ export const generatedPathPatterns = Object.freeze([
     '(?:^|/)cross-stack-contract-matrix\\.generated\\.json$'
 ])
 
+export const generatedOutputRepairProducers = Object.freeze([
+    Object.freeze({
+        id: 'testing-docs',
+        source: 'tests/matrix.yml',
+        generator: 'tools/docs/generate-testing-docs.mjs',
+        command: 'node tools/docs/generate-testing-docs.mjs --out docs/testing.generated.md',
+        executable: 'node',
+        arguments: Object.freeze([
+            'tools/docs/generate-testing-docs.mjs',
+            '--out',
+            'docs/testing.generated.md'
+        ]),
+        outputs: Object.freeze([
+            'docs/testing.generated.md'
+        ])
+    })
+])
+
 // A pull request is evaluated by the checker from its trusted base revision.
 // These files define that checker or one of its release/review adapters, so a
 // candidate PR cannot replace them while relying on the old checker to approve
@@ -127,11 +145,13 @@ export const changeContract = Object.freeze({
     machineIdentifierExceptions,
     reviewedLegacyFormatRevisions,
     generatedPathPatterns,
+    generatedOutputRepairProducers,
     trustedPolicyFiles,
     evidenceSchemas: Object.freeze({
         externalNamingExceptions: 'fsusblog.external-naming-exceptions.v1',
         formatIdempotence: 'fsusblog.format-idempotence-evidence.v1',
         generatedOutput: 'fsusblog.generated-output-binding.v1',
+        postMergeGeneratedOutputRepair: 'fsusblog.post-merge-generated-output-repair.v1',
         performanceClaim: 'fsusblog.performance-claim-evidence.v1'
     }),
     summaryMaximumLength: 100,

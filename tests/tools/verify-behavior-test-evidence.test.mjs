@@ -23,6 +23,7 @@ function fixtureRoot()
     const directory = tempDir();
     for (const relative of [
         'config/contracts/behavior-contracts.json',
+        'config/contracts/generated-fact-sections.json',
         'config/schemas/behavior-contract-catalog.schema.json',
         'config/schemas/behavior-test-evidence.schema.json',
         'tests/coverage-registry.json',

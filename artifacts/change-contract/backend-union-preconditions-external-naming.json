@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/security/check-perception-v2-e2e-evidence.mjs",
+                "tools/test/run-backend-production-shards.mjs"
+            ],
+            "reason": "preserve caller-visible environment-variable spellings while repairing only their test-governance and producer preconditions"
+        },
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "tools/check-backend-test-governance.mjs"
+            ],
+            "reason": "preserve post-runtime evidence and tooling identifiers while aligning generated evidence ownership with its authoritative producers"
+        }
+    ]
+}

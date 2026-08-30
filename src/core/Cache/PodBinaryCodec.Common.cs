@@ -5,6 +5,7 @@ using System.Text.Json;
 
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Codecs;
+using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Shared.Contracts.Models;
 
 namespace FsusBlog.Core.Cache;
@@ -128,6 +129,82 @@ public static partial class PodBinaryCodec
 
         name = PodUtf8Codec.FromFixed128(pod.Name);
         return true;
+    }
+
+    /// <summary>
+    /// Writes the <c>TaxonomyMetadataMutationRequest</c> contract to the supplied binary destination.
+    /// </summary>
+    public static void WriteTaxonomyMetadataMutationRequest(
+        TaxonomyMetadataMutationRequestCoreModel request,
+        IBufferWriter<byte> target)
+    {
+        var payload = new ArrayBufferWriter<byte>(Math.Max(128, request.Description?.Length ?? 0));
+        var mutable = new MutableTaxonomyMetadataMutationRequestPod
+        {
+            Name = EncodeFixedUtf8<FsusBlog.Shared.Contracts.Primitives.Utf8Fixed128>(request.Name),
+            Description = PodUtf8Codec.AppendSlice(request.Description, payload)
+        };
+
+        var writer = new BinaryPodWriter(target);
+        Span<MutableTaxonomyMetadataMutationRequestPod> source = stackalloc MutableTaxonomyMetadataMutationRequestPod[1];
+        source[0] = mutable;
+        writer.WritePod(MemoryMarshal.Read<TaxonomyMetadataMutationRequestPod>(MemoryMarshal.AsBytes(source)));
+        writer.WriteBytes(payload.WrittenSpan);
+    }
+
+    /// <summary>
+    /// Encodes the <c>TaxonomyMetadataMutationRequest</c> contract into a new binary payload.
+    /// </summary>
+    public static byte[] EncodeTaxonomyMetadataMutationRequest(TaxonomyMetadataMutationRequestCoreModel request)
+        => EncodeToArray(
+            Marshal.SizeOf<TaxonomyMetadataMutationRequestPod>() + sizeof(int) + (request.Description?.Length ?? 0),
+            writer => WriteTaxonomyMetadataMutationRequest(request, writer));
+
+    /// <summary>
+    /// Attempts to decode the current taxonomy metadata contract or its legacy 128-byte name-only form.
+    /// </summary>
+    public static bool TryDecodeTaxonomyMetadataMutationRequest(
+        ReadOnlyMemory<byte> source,
+        out TaxonomyMetadataMutationRequestCoreModel request,
+        out bool isLegacy)
+    {
+        if (source.Length == Marshal.SizeOf<NameMutationRequestPod>())
+        {
+            isLegacy = true;
+            if (TryDecodeNameMutationRequest(source, out string legacyName))
+            {
+                request = new TaxonomyMetadataMutationRequestCoreModel(legacyName, null);
+                return true;
+            }
+
+            request = default;
+            return false;
+        }
+
+        isLegacy = false;
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadPod(out TaxonomyMetadataMutationRequestPod pod)
+            || !reader.TryReadBytes(out ReadOnlySpan<byte> payload)
+            || !reader.IsConsumed
+            || pod.Description.Offset != 0
+            || pod.Description.Length != payload.Length)
+        {
+            request = default;
+            return false;
+        }
+
+        try
+        {
+            request = new TaxonomyMetadataMutationRequestCoreModel(
+                PodUtf8Codec.FromFixed128(pod.Name),
+                NullIfEmpty(PodUtf8Codec.ReadSlice(pod.Description, payload)));
+            return true;
+        }
+        catch (DecoderFallbackException)
+        {
+            request = default;
+            return false;
+        }
     }
 
     /// <summary>
@@ -329,6 +406,13 @@ public static partial class PodBinaryCodec
     private struct MutableNameMutationRequestPod
     {
         public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed128 Name;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableTaxonomyMetadataMutationRequestPod
+    {
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed128 Name;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Description;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

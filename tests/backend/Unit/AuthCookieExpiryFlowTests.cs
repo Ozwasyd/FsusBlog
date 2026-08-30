@@ -28,6 +28,7 @@ using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Server.Tests.Fixtures;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
 
@@ -44,12 +45,9 @@ using Microsoft.Extensions.Hosting;
 using NSubstitute;
 namespace FsusBlog.Server.Tests.Unit;
 
-[CollectionDefinition(nameof(AuthCookieExpiryFlowCollection), DisableParallelization = true)]
-public sealed class AuthCookieExpiryFlowCollection
-    : ICollectionFixture<AuthCookieExpiryFlowTests.AuthCookieExpiryFixture>;
-
-[Collection(nameof(AuthCookieExpiryFlowCollection))]
+[Collection(nameof(EnvironmentVariableCollection))]
 public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCookieExpiryFixture fixture)
+    : IClassFixture<AuthCookieExpiryFlowTests.AuthCookieExpiryFixture>
 {
     private static readonly DateTimeOffset s_userAccessTokenExpiresAtUtc =
         DateTimeOffset.FromUnixTimeSeconds(1_956_528_000);
@@ -155,18 +153,18 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
         private const string TemporalArtifactDigest =
             "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
         private readonly SemaphoreSlim _requestGate = new(1, 1);
-        private string? _previousTemporalArtifact;
-        private string? _previousTemporalArtifactDigest;
+        private ScopedEnvironmentVariables? _environment;
         private AuthCookieExpiryHarness? _successHarness;
         private AuthCookieExpiryHarness? _failureHarness;
 
         public async Task InitializeAsync()
         {
-            _previousTemporalArtifact = Environment.GetEnvironmentVariable(
-                ResolvedTemporalRoleContext.ArtifactEnvironmentVariable);
-            _previousTemporalArtifactDigest = Environment.GetEnvironmentVariable(
-                ResolvedTemporalRoleContext.ArtifactDigestEnvironmentVariable);
-            Environment.SetEnvironmentVariable(
+            _environment = new ScopedEnvironmentVariables(
+            [
+                ResolvedTemporalRoleContext.ArtifactEnvironmentVariable,
+                ResolvedTemporalRoleContext.ArtifactDigestEnvironmentVariable
+            ]);
+            _environment.Set(
                 ResolvedTemporalRoleContext.ArtifactEnvironmentVariable,
                 JsonSerializer.Serialize(new
                 {
@@ -183,7 +181,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                     },
                     contentDigest = TemporalArtifactDigest
                 }));
-            Environment.SetEnvironmentVariable(
+            _environment.Set(
                 ResolvedTemporalRoleContext.ArtifactDigestEnvironmentVariable,
                 TemporalArtifactDigest);
             _successHarness = await AuthCookieExpiryHarness.CreateAsync(
@@ -202,12 +200,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             {
                 await _successHarness.DisposeAsync();
             }
-            Environment.SetEnvironmentVariable(
-                ResolvedTemporalRoleContext.ArtifactEnvironmentVariable,
-                _previousTemporalArtifact);
-            Environment.SetEnvironmentVariable(
-                ResolvedTemporalRoleContext.ArtifactDigestEnvironmentVariable,
-                _previousTemporalArtifactDigest);
+            _environment?.Dispose();
             _requestGate.Dispose();
         }
 

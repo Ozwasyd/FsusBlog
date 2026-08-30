@@ -338,7 +338,8 @@ test('backend authoritative VSTest discovery aligns exactly with the console uni
     );
     assert.deepEqual(projectProductionUnionRecords([
         ...records,
-        { displayName: 'Example.Tests.Integration.Case', traits: { Category: ['Integration', 'Concurrency'] } }
+        { displayName: 'Example.Tests.Integration.Case', traits: { Category: ['Integration', 'Concurrency'] } },
+        { displayName: 'Example.Tests.Redis.Case', traits: { Fixture: ['LocalRedis'] } }
     ]), records);
 });
 
