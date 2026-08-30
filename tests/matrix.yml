@@ -1656,6 +1656,7 @@ tiers:
       requiredFor: fast
       coverage:
           - backend-unit
+          - backend-upload-range-completion
           - blue-green-slot-orchestration
           - backend-runtime-fallback-retirement-a3
           - backend-physical-account-subject-retirement
@@ -9274,7 +9275,7 @@ tiers:
       risk: high
       cadence: pr
       requiredFor: fast
-      coverage: [backend-property-protocol-cache-upload]
+      coverage: [backend-property-protocol-cache]
       artifacts:
           [
               .tmp/backend-property,
