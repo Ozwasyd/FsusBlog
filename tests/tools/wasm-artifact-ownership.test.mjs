@@ -9,9 +9,11 @@ import { fileURLToPath } from 'node:url';
 
 import {
     checkWasmArtifactOwnership,
+    computeWasmProducerCompileCacheKey,
     validateProductionWasmStagingContract,
     validateGeneratedPackageFreshness,
-    validateGeneratedWasmPackage
+    validateGeneratedWasmPackage,
+    validateWasmProducerInputClosure
 } from '../../tools/check-wasm-artifact-ownership.mjs';
 import {
     resolveWasmRequiredOutputFiles,
@@ -565,4 +567,124 @@ test('canonical WASM Docker producer aligns all BuildKit cache mounts with actua
 
     const ensureCmakeScript = await readFile(path.join(repoRoot, 'tools/frontend/ensure-cmake.sh'), 'utf8');
     assert.match(ensureCmakeScript, /FSUSBLOG_DEPENDENCY_CACHE_ROOT/u, 'ensure-cmake.sh must support FSUSBLOG_DEPENDENCY_CACHE_ROOT');
+});
+
+test('canonical WASM Docker producer COPY closure is bidirectionally exact', () =>
+{
+    const result = validateWasmProducerInputClosure({ repoRoot });
+    assert.equal(result.inputCount, result.copyCount);
+    assert.ok(result.fileCount > result.inputCount);
+});
+
+test('WASM producer cache key ignores non-WASM frontend and documentation edits', () =>
+{
+    const baseline = computeWasmProducerCompileCacheKey({ repoRoot });
+    for (const relativePath of [
+        'src/frontend/src/components/ArticleCard.vue',
+        'src/frontend/src/styles/article.css',
+        'tests/frontend/unit/articleAdapter.test.ts',
+        'docs/frontend/unrelated.md'
+    ])
+    {
+        const changed = computeWasmProducerCompileCacheKey({
+            repoRoot,
+            sourceOverrides: new Map([[relativePath, 'unrelated edit\n']])
+        });
+        assert.equal(changed.cacheKey, baseline.cacheKey, relativePath);
+        assert.equal(changed.inputTreeDigest, baseline.inputTreeDigest, relativePath);
+    }
+});
+
+test('WASM source, helper, overlay and security inputs change cache and receipt input identity', async () =>
+{
+    const baseline = computeWasmProducerCompileCacheKey({ repoRoot });
+    for (const relativePath of [
+        'src/frontend/wasm/aeds/src/aeds_decode.cpp',
+        'tools/frontend/ensure-binaryen.sh',
+        'tools/vcpkg-overlays/libyuv/portfile.cmake',
+        'security/zk/contracts/comment-v5-circuit.manifest.json',
+        'config/zk/anonymous-comment-v5-verifying-key.manifest.json'
+    ])
+    {
+        const current = await readFile(path.join(repoRoot, relativePath));
+        const changed = computeWasmProducerCompileCacheKey({
+            repoRoot,
+            sourceOverrides: new Map([[relativePath, Buffer.concat([current, Buffer.from('\n')])]])
+        });
+        assert.notEqual(changed.cacheKey, baseline.cacheKey, relativePath);
+        assert.notEqual(changed.inputTreeDigest, baseline.inputTreeDigest, relativePath);
+    }
+
+    for (const [name, value] of [
+        ['VCPKG_COMMIT', '1'.repeat(40)],
+        ['FSUSBLOG_WASM_CACHE_IDENTITY', '2'.repeat(64)],
+        ['FSUSBLOG_WASM_IMAGE_CODEC_ENABLE', 'OFF']
+    ])
+    {
+        const changed = computeWasmProducerCompileCacheKey({
+            repoRoot,
+            buildArguments: { [name]: value }
+        });
+        assert.notEqual(changed.cacheKey, baseline.cacheKey, name);
+    }
+});
+
+test('WASM producer closure fails closed for missing or newly read unregistered inputs', async () =>
+{
+    assert.throws(
+        () => validateWasmProducerInputClosure({
+            repoRoot,
+            sourceOverrides: new Map([['tools/frontend/ensure-binaryen.sh', null]])
+        }),
+        /input is missing/u
+    );
+
+    const buildScriptPath = 'src/frontend/wasm/build.sh';
+    const buildScript = await readFile(path.join(repoRoot, buildScriptPath), 'utf8');
+    assert.throws(
+        () => validateWasmProducerInputClosure({
+            repoRoot,
+            sourceOverrides: new Map([[
+                buildScriptPath,
+                `${buildScript}\nnode "\${REPOSITORY_ROOT}/tools/frontend/bench-pow-wasm.mjs"\n`
+            ]])
+        }),
+        /reads unregistered repository inputs: tools\/frontend\/bench-pow-wasm\.mjs/u
+    );
+});
+
+test('WASM producer closure rejects unregistered Docker reads and broad inventory directories', async () =>
+{
+    const dockerfilePath = 'ops/docker/FsusBlog.Server.Dockerfile';
+    const dockerfile = await readFile(path.join(repoRoot, dockerfilePath), 'utf8');
+    assert.throws(
+        () => validateWasmProducerInputClosure({
+            repoRoot,
+            sourceOverrides: new Map([[
+                dockerfilePath,
+                dockerfile.replace(
+                    'COPY src/frontend/wasm/ /work/src/frontend/wasm/',
+                    'COPY src/frontend/package.json /work/src/frontend/package.json\n'
+                      + 'COPY src/frontend/wasm/ /work/src/frontend/wasm/'
+                )
+            ]])
+        }),
+        /unregistered=src\/frontend\/package\.json/u
+    );
+
+    const inventoryPath = 'ops/docker/wasm-producer-inputs.json';
+    const inventory = JSON.parse(await readFile(path.join(repoRoot, inventoryPath), 'utf8'));
+    inventory.inputs.push({
+        path: 'src/frontend/',
+        destination: '/work/src/frontend/',
+        kind: 'tree',
+        phase: 'compile'
+    });
+    assert.throws(
+        () => validateWasmProducerInputClosure({
+            repoRoot,
+            sourceOverrides: new Map([[inventoryPath, `${JSON.stringify(inventory)}\n`]])
+        }),
+        /unverified broad directory/u
+    );
 });
