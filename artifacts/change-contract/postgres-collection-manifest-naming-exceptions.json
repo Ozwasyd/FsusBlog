@@ -6,7 +6,7 @@
             "paths": [
                 "tests/backend/Fixtures/postgres-test-collections.json"
             ],
-            "reason": "preserve the caller-visible PostgreSQL collection IDs and manifest JSON keys while reconciling source membership"
+            "reason": "preserve the caller-visible PostgreSQL collection IDs and manifest JSON keys while reconciling source membership and case totals"
         }
     ]
 }
