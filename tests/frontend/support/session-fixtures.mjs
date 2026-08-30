@@ -2,7 +2,7 @@
 // fixture-catalog: consumer auth-session-runtime auth-basic
 
 import { spawnSync } from 'node:child_process';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { chmod, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
