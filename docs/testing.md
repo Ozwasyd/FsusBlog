@@ -1587,13 +1587,18 @@ run/attempt/source/worktree/candidate/build identity。Scheduler 在 run-start �
 reference block，resume 只保留同一 attempt 的 refs，并在真实 `recordSettled` success
 路径消费 handoff；legacy、old-attempt、duplicate 或 digest drift 都 fail closed。
 Parent 只保存 child ref descriptor，不复制 payload。所有路径都由 context/binding
-明确给出，不扫描目录，也不改变现有 consumer selection 或 downloaded artifact
-transport。
+明确给出，不扫描目录。Downloaded artifacts 只能通过
+`fsusblog.current-run-evidence-transport-manifest.v1` 映射回原 run/source/authority/digest；
+archive 打包与解压都核验 entry list、path safety 与 digest，mtime 变化不影响 authority。
+quality-gate、aggregate、flaky、public-preview 与 downloaded release manifest 等非
+release-final consumers 与本地使用同一 locator；缺失、重复 mapping、origin/digest mismatch
+或 local+downloaded 歧义都 fail closed。Consumer receipt 必须同时引用 transport manifest
+与 locator binding digest。Diagnostic browse 不得生成 correctness binding。
 
 focused 回归入口：
 
 ```bash
-node --test tests/tools/evidence-location-contract.test.mjs tests/tools/evidence-location-governance.test.mjs tests/tools/current-run-evidence-publication.test.mjs tests/tools/current-run-evidence-scheduler.test.mjs
+node --test tests/tools/evidence-location-contract.test.mjs tests/tools/evidence-location-governance.test.mjs tests/tools/current-run-evidence-publication.test.mjs tests/tools/current-run-evidence-scheduler.test.mjs tests/tools/current-run-evidence-transport.test.mjs
 ```
 
 ## Node governance canonical suites

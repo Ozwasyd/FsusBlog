@@ -188,7 +188,6 @@
             ],
             "expectedCardinality": "exact-one",
             "allowedRoots": [
-                ".tmp/downloaded-artifacts",
                 "artifacts/current-run"
             ],
             "publicationMode": "hooked",
@@ -222,7 +221,6 @@
             ],
             "expectedCardinality": "exact-one",
             "allowedRoots": [
-                ".tmp/downloaded-artifacts",
                 "artifacts/current-run"
             ],
             "publicationMode": "hooked",
@@ -1116,7 +1114,6 @@
             ],
             "expectedCardinality": "exact-one",
             "allowedRoots": [
-                ".tmp/downloaded-artifacts",
                 "artifacts/current-run"
             ],
             "publicationMode": "hooked",
@@ -1150,7 +1147,6 @@
             ],
             "expectedCardinality": "exact-one",
             "allowedRoots": [
-                ".tmp/downloaded-artifacts",
                 "artifacts/current-run"
             ],
             "publicationMode": "hooked",
@@ -1713,7 +1709,6 @@
             ],
             "expectedCardinality": "exact-one",
             "allowedRoots": [
-                ".tmp/downloaded-artifacts",
                 "artifacts/current-run"
             ],
             "publicationMode": "hooked",
@@ -1747,7 +1742,6 @@
             ],
             "expectedCardinality": "exact-one",
             "allowedRoots": [
-                ".tmp/downloaded-artifacts",
                 "artifacts/current-run"
             ],
             "publicationMode": "hooked",
@@ -2045,7 +2039,6 @@
             ],
             "expectedCardinality": "exact-one",
             "allowedRoots": [
-                ".tmp/downloaded-artifacts",
                 "artifacts/current-run"
             ],
             "publicationMode": "hooked",
@@ -2290,5 +2283,5 @@
             "checkpointCommand": "node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer evidence-consumer.release.release-final-domain-evidence"
         }
     ],
-    "contentDigest": "sha256:37ef4bb6d42256e7dffedce56f7a116c4c64ee1767126debbc009a615b69ad30"
+    "contentDigest": "sha256:d8e065628311e2901d8fe22463a5d5149e6007d85a085bd38aaa6e7fc98fc1cb"
 }

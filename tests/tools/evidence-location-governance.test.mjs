@@ -239,7 +239,7 @@ test('false positives and helper calls retain exact rule and actual consumer loc
     assert(indirect.length > 0);
     assert(indirect.every((finding) => finding.function !== '<module>' || finding.file.startsWith('tools/')));
     assert(indirect.some((finding) => finding.file === 'tools/ci/summarize-quality-gate.mjs'
-        && ['loadJobSummaries', 'loadFlakyEvidence'].includes(finding.function)));
+        && ['loadJobSummaries', 'loadFlakyEvidence', 'readTransportOrDirectoryJson'].includes(finding.function)));
     assert(new Set(generated.ledger.entries.map((entry) => entry.classification)).size === 3);
     assert(generated.ledger.entries.some((entry) => entry.location.startsWith('src/backend/')
         && entry.classification === 'not-evidence'));

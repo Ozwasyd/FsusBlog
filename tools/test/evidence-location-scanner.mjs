@@ -20,7 +20,10 @@ const authoritySourcePaths = new Set([
     'config/testing/evidence-locator-registry.schema.json',
     'tools/test/evidence-location-contract.mjs',
     'tools/test/evidence-location-scanner.mjs',
-    'tools/test/generate-evidence-location-governance.mjs'
+    'tools/test/generate-evidence-location-governance.mjs',
+    'tools/test/current-run-evidence-locator.mjs',
+    'tools/test/current-run-evidence-transport.mjs',
+    'tools/test/run-current-run-evidence-transport.mjs'
 ]);
 const evidenceVocabulary = /(?:artifact|checkpoint|coverage|evidence|flaky|manifest|public[-_ ]preview|quality[-_ ]gate|receipt|release[-_ ]final|report|summary)/iu;
 const stableFunction = /^(?:async\s+)?function\s+([A-Za-z_$][\w$]*)|^(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/u;
