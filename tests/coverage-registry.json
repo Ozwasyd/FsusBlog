@@ -1502,6 +1502,21 @@
             ]
         },
         {
+            "id": "frontend-image-upload-runtime",
+            "description": "The real image upload composable and options panel prove ordered compression, hashing, session recovery, missing-part upload, completion, abort cleanup and late-response isolation through API and storage postconditions.",
+            "owner": "InteropGlueAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+            ],
+            "assertionType": "unit",
+            "failClosedRule": "Reject completion before every required part acknowledgement, stale session or token reuse, incomplete abort cleanup, or a late response that revives an abandoned attempt.",
+            "minimumRequirement": "Executable composable tests must cover fresh success, retry exhaustion, missing-part resume, stale or tampered recovery, abort success, failure and no-active behavior, late acknowledgement isolation, and mounted panel action wiring.",
+            "tierIds": [
+                "frontend-unit-shard"
+            ]
+        },
+        {
             "id": "frontend-unit-property-model-static",
             "description": "Frontend Unit Property Model Static is covered by runtime artifacts that exercise the named behavior.",
             "owner": "ServerContractAgent",
