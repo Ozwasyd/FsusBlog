@@ -12,8 +12,8 @@
 
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <PackageReference Include="xunit.extensibility.execution" Version="2.9.3" />
-    <PackageReference Include="xunit.v3.runner.utility" Version="3.2.2" />
+    <PackageReference Include="xunit.extensibility.execution" />
+    <PackageReference Include="xunit.v3.runner.utility" />
   </ItemGroup>
 
 </Project>

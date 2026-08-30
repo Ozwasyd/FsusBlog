@@ -375,6 +375,7 @@ export function runMinimalContractBuild({
     ...Object.values(hostDeclarations).map((entry) => entry.project),
     'config/contracts/behavior-fact-extractors.json',
     'Directory.Build.props',
+    'Directory.Packages.props',
     'FsusBlog.slnx',
     'src/backend/FsusBlog.Server.csproj',
     'src/core/FsusBlog.Core.csproj',
