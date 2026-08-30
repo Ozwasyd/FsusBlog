@@ -1,8 +1,8 @@
 using System.Collections.ObjectModel;
 using System.Text.RegularExpressions;
 
+using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Infrastructure.Operations;
-using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 
 namespace FsusBlog.Server.Infrastructure.SchemaMigration;
 

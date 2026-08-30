@@ -1,0 +1,12 @@
+{
+  "schema": "fsusblog.migration-assembly-binding.v1",
+  "receipt": "artifacts/schema-migration/migration-assembly-receipt.json",
+  "receiptSha256": "02eb43401a9f06e723e27b871fd0ec12ca08d163e67137e6daaff1189858faea",
+  "sourceContentDigest": "7bf29aad3beca25ee0f8e9ff59964f10025deebe6a3791813167b642792d191a",
+  "testContentDigest": "34137c7b7fd127b1407d14503a9254e160b2bd8da7ba6bec9fca489ed5cddc2f",
+  "verificationInputDigest": "d29c5dec4e61337221ee79e252ae9b5a6fd72b503ab4abd5d4951173cb98b366",
+  "sourceBaseCommit": "b70e6d928bf63963e17a260369b1485990f7d079",
+  "movedFileCount": 76,
+  "deletedOldPathCount": 72,
+  "verificationDigest": "b3000bb8eca83e688b212e0eb5a52efab511ca69ab3caa18a5dd679ebf5a2317"
+}

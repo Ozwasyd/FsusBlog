@@ -41,6 +41,16 @@ C# 与 TypeScript consumer 可以分别位于 Shared 和 frontend，但不得反
 `tools/docs/content-doc-exactness.mjs` 只是 current-run mutation/terminal receipt producer 与
 independent verifier，不拥有第二份 behavior、claim、state、transition 或 outbox registry。
 
+## Schema migration ownership
+
+`src/migration/` 由独立 `FsusBlog.Migration` project 拥有：legacy descriptors、catalogs、
+checksum/history、typed provider DDL 与 migration-only conversion rows 只能在该 project 和
+对应 `tests/migration/` 中编译。`src/backend/Infrastructure/SchemaMigration/` 只保留当前阶段的
+Server caller、online coordinator、lock、current-schema authority/inspector 与业务 backfill
+handlers；不得用 linked source、type forwarding、compat namespace 或 re-export 把迁移类型重新
+编入 Server。机器可读文件/符号清单与 content digest 位于
+`artifacts/schema-migration/migration-assembly-receipt.json`。
+
 ## Configuration ownership
 
 通用运行时、测试和观测配置统一放在 `config/`；只有 .NET framework tool

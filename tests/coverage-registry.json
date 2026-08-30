@@ -3459,6 +3459,34 @@
             ]
         },
         {
+            "id": "migration-assembly-boundary",
+            "description": "Legacy schema descriptors, catalogs, checksum/history execution, typed provider DDL and migration-only row conversion live in one independently buildable FsusBlog.Migration assembly without Server or web-host dependencies.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "src/migration/FsusBlog.Migration.csproj",
+                "src/migration/SchemaMigrationPrimitives.cs",
+                "src/migration/SchemaMigrationDdlPrimitives.cs",
+                "src/migration/SchemaMigrationExecution.cs",
+                "src/migration/SchemaMigrationManifest.cs",
+                "tests/migration/FsusBlog.Migration.Tests.csproj",
+                "tests/migration/MigrationAssemblyBoundaryTests.cs",
+                "tools/db/generate-migration-assembly-receipt.mjs",
+                "tools/db/check-migration-assembly-boundary.mjs",
+                "tests/tools/migration-assembly-boundary.test.mjs",
+                "artifacts/schema-migration/migration-assembly-receipt.json",
+                "artifacts/schema-migration/migration-assembly-binding.json",
+                "docs/database-migration.md"
+            ],
+            "assertionType": "contract",
+            "failClosedRule": "Reject Server, web-host, business-service or reverse graph dependencies; linked duplicates, type forwarders, compatibility namespaces, provider current-schema copies, shared legacy fields, old Server source ownership, missing provider registration, descriptor digest drift, or receipt symbol/content tamper.",
+            "minimumRequirement": "The assembly and its direct test project must build without the Server; PostgreSQL, MySQL and SQLite provider semantics plus the exact descriptor plan digest must pass, and static mutation tests must cover every forbidden re-entry and identity-tamper class.",
+            "tierIds": [
+                "backend-unit",
+                "static-governance"
+            ]
+        },
+        {
             "id": "backend-online-schema-migration-protocol",
             "description": "Online schema changes follow classified Expand, resumable Backfill and gated Contract phases while every destructive step carries a source-bound rollback-window proof.",
             "owner": "ServerContractAgent",
@@ -3478,7 +3506,7 @@
                 "tests/tools/schema-compatibility-coordinate.test.mjs",
                 "tools/release/schema-compatibility-coordinate.mjs",
                 "tests/tools/destructive-migration-proof.test.mjs",
-                "src/backend/Infrastructure/SchemaMigration/DestructiveMigrationProofs.cs",
+                "src/migration/DestructiveMigrationProofs.cs",
                 "docs/schema-migrations/destructive-rollback-window-proofs.json",
                 "docs/schema-migrations/destructive-rollback-window.md",
                 "tests/backend/online-schema-migration-evidence.json"
@@ -3523,10 +3551,10 @@
             "owner": "ServerContractAgent",
             "risk": "high",
             "evidencePaths": [
-                "src/backend/Infrastructure/SchemaMigration/SchemaMigrationPrimitives.cs",
-                "src/backend/Infrastructure/SchemaMigration/SchemaMigrationDdlPrimitives.cs",
-                "tests/backend/Unit/SchemaMigrationDdlPrimitivesTests.cs",
-                "tests/backend/Fixtures/schema-ddl-provider-snapshots.json",
+                "src/migration/SchemaMigrationPrimitives.cs",
+                "src/migration/SchemaMigrationDdlPrimitives.cs",
+                "tests/migration/SchemaMigrationDdlPrimitivesTests.cs",
+                "tests/migration/schema-ddl-provider-snapshots.json",
                 "docs/schema-migrations/typed-ddl-primitives.json"
             ],
             "assertionType": "unit",

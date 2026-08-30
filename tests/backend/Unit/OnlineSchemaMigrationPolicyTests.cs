@@ -1,6 +1,6 @@
+using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
-using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 
 using Microsoft.Extensions.Configuration;
 namespace FsusBlog.Server.Tests.Unit;

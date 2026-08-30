@@ -1,0 +1,25 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/matrix.yml",
+        "tools/db/generate-migration-assembly-receipt.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "ee9b76e3bc279d63b0760975bc6c457de76b0e0c9a595542b3baf63a623937b3"
+        },
+        {
+            "path": "docs/testing.generated.md",
+            "sha256": "681f2d25b5ec82db8869f27314a92aa83f748b7cb9c1bdf7ee0d0995703168d6"
+        },
+        {
+            "path": "artifacts/schema-migration/migration-assembly-receipt.json",
+            "sha256": "02eb43401a9f06e723e27b871fd0ec12ca08d163e67137e6daaff1189858faea"
+        },
+        {
+            "path": "artifacts/schema-migration/migration-assembly-binding.json",
+            "sha256": "e3e2f0a500049844d40b887fdb85aa866b92fb4882ea4d21d6babfc7aa895525"
+        }
+    ]
+}

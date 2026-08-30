@@ -4,14 +4,14 @@ import { readFile, readdir } from 'node:fs/promises'
 import test from 'node:test'
 
 const paths = {
-  primitives: new URL('../../src/backend/Infrastructure/SchemaMigration/SchemaMigrationPrimitives.cs', import.meta.url),
-  proofs: new URL('../../src/backend/Infrastructure/SchemaMigration/DestructiveMigrationProofs.cs', import.meta.url),
+  primitives: new URL('../../src/migration/SchemaMigrationPrimitives.cs', import.meta.url),
+  proofs: new URL('../../src/migration/DestructiveMigrationProofs.cs', import.meta.url),
   runner: new URL('../../src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs', import.meta.url),
   online: new URL('../../src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCoordinator.cs', import.meta.url),
   manifest: new URL('../../docs/schema-migrations/destructive-rollback-window-proofs.json', import.meta.url),
 }
 
-const definitionsDirectory = new URL('../../src/backend/Infrastructure/SchemaMigration/Definitions/', import.meta.url)
+const definitionsDirectory = new URL('../../src/migration/Definitions/', import.meta.url)
 const definitionFiles = (await readdir(definitionsDirectory))
   .filter(name => name.endsWith('MigrationDefinitions.cs'))
   .sort()
