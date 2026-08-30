@@ -11,13 +11,53 @@ export const CANONICAL_LOCAL_REDIS_TESTS = Object.freeze([
     'FsusBlog.Server.Tests.Unit.PerceptionCharacterV3Tests.ArtifactPoolBurnSurvivesCancellationProcessInterruptionAndAmbiguousReply',
     'FsusBlog.Server.Tests.Unit.PerceptionCharacterV3Tests.BudgetedLeaseAtomicallyAccountsExactBytesQuotasAndRetryIdentity',
     'FsusBlog.Server.Tests.Unit.PerceptionCharacterV3ContractCutoverTests.RedisStore_RetiresAllV3NamespacesAndEnvelopeIdempotently',
-    'FsusBlog.Server.Tests.Unit.PerceptionCharacterV3Tests.ProviderRejectsCrossNamespaceReplay'
+    'FsusBlog.Server.Tests.Unit.PerceptionCharacterV3Tests.RedisLua_IsLinearizableBoundedBindingAwareAndFailClosed'
 ]);
 
 export const MANDATORY_BURN_TEST =
     'FsusBlog.Server.Tests.Unit.PerceptionCharacterV3Tests.ArtifactPoolBurnSurvivesCancellationProcessInterruptionAndAmbiguousReply';
-export const MANDATORY_BURN_FILTER =
-    `Fixture=LocalRedis&FullyQualifiedName=${MANDATORY_BURN_TEST}`;
+export const REDIS_LUA_TEST =
+    'FsusBlog.Server.Tests.Unit.PerceptionCharacterV3Tests.RedisLua_IsLinearizableBoundedBindingAwareAndFailClosed';
+export const LOCAL_REDIS_PLANNED_TESTS = Object.freeze([
+    MANDATORY_BURN_TEST,
+    REDIS_LUA_TEST
+]);
+export const LOCAL_REDIS_FILTER =
+    `Fixture=LocalRedis&(${LOCAL_REDIS_PLANNED_TESTS.map((testId) => `FullyQualifiedName=${testId}`).join('|')})`;
+export const REDIS_LUA_CASE_IDS = Object.freeze([
+    'anonymous-device-issuance-reuse-and-cookie-policy',
+    'same-challenge-correct-race-exactly-one-success',
+    'wrong-attempts-bounded',
+    'wrong-then-correct-issued-order',
+    'correct-then-wrong-issued-order',
+    'binding-mutation-challenge-id',
+    'binding-mutation-envelope-id',
+    'binding-mutation-action',
+    'binding-mutation-route-key',
+    'binding-mutation-subject-hash',
+    'binding-mutation-device-binding-hash',
+    'binding-mutation-device-authority-hash',
+    'binding-mutation-client-ip-binding-hash',
+    'binding-mutation-policy-version',
+    'binding-mutation-artifact-hash',
+    'binding-mutation-representation',
+    'binding-mutation-media-type',
+    'binding-mutation-physical-width',
+    'binding-mutation-physical-height',
+    'binding-mutation-display-width',
+    'binding-mutation-display-height',
+    'binding-mutation-token-hash',
+    'expiry-semantics',
+    'revoke-semantics',
+    'create-reply-loss-readback',
+    'transition-reply-loss-readback',
+    'settlement-reply-loss-readback',
+    'ambiguous-operation-pending',
+    'stale-active-index-replacement-conflict',
+    'replace-reply-loss-readback',
+    'stale-replace-expiry',
+    'redis-unavailable-store-and-device-authority-fail-closed'
+]);
 
 function decodeXml(value)
 {
@@ -68,7 +108,8 @@ export function reconcileLocalRedisOutcome({
     cleanupVerified,
     redisLuaCallsBefore,
     redisLuaCallsAfter,
-    plannedTestIds = [MANDATORY_BURN_TEST],
+    redisLuaCaseEvidence,
+    plannedTestIds = LOCAL_REDIS_PLANNED_TESTS,
     runId,
     sourceCommit,
     sourceFingerprint
@@ -94,9 +135,9 @@ export function reconcileLocalRedisOutcome({
     {
         throw new Error('LocalRedis test assembly digest is required');
     }
-    if (filter !== MANDATORY_BURN_FILTER)
+    if (filter !== LOCAL_REDIS_FILTER)
     {
-        throw new Error(`LocalRedis producer filter must be exact: ${MANDATORY_BURN_FILTER}`);
+        throw new Error(`LocalRedis producer filter must be exact: ${LOCAL_REDIS_FILTER}`);
     }
     if (!prefixNamespace || !/^test:perception-v3-local-redis:[^:]+:$/u.test(prefixNamespace))
     {
@@ -155,6 +196,32 @@ export function reconcileLocalRedisOutcome({
         redisLuaCallsAfter <= redisLuaCallsBefore)
         failureCodes.push('no-test-redis-lua-calls');
 
+    const redisLuaCases = Array.isArray(redisLuaCaseEvidence?.cases)
+        ? redisLuaCaseEvidence.cases
+        : [];
+    const redisLuaCaseIds = redisLuaCases.map((entry) => entry?.id);
+    const duplicateRedisLuaCaseIds = redisLuaCaseIds.filter(
+        (caseId, index) => redisLuaCaseIds.indexOf(caseId) !== index
+    );
+    const missingRedisLuaCaseIds = REDIS_LUA_CASE_IDS.filter((caseId) => !redisLuaCaseIds.includes(caseId));
+    const extraRedisLuaCaseIds = redisLuaCaseIds.filter((caseId) => !REDIS_LUA_CASE_IDS.includes(caseId));
+    const failedRedisLuaCaseIds = redisLuaCases
+        .filter((entry) => entry?.outcome !== 'passed')
+        .map((entry) => entry?.id ?? null);
+    const redisLuaCaseIdentityMatches = redisLuaCaseEvidence?.schema ===
+            'fsusblog.perception-character-v3-redis-lua-cases.v1' &&
+        redisLuaCaseEvidence?.testId === REDIS_LUA_TEST &&
+        redisLuaCaseEvidence?.runId === runId &&
+        redisLuaCaseEvidence?.prefixNamespace === `${prefixNamespace}redis-lua:`;
+    if (!redisLuaCaseEvidence)
+        failureCodes.push('redis-lua-case-evidence-missing');
+    else if (!redisLuaCaseIdentityMatches)
+        failureCodes.push('redis-lua-case-identity-mismatch');
+    if (missingRedisLuaCaseIds.length > 0 || extraRedisLuaCaseIds.length > 0 || duplicateRedisLuaCaseIds.length > 0)
+        failureCodes.push('redis-lua-case-inventory-mismatch');
+    if (failedRedisLuaCaseIds.length > 0)
+        failureCodes.push('redis-lua-case-not-passed');
+
     const receipt = {
         schema: 'fsusblog.perception-character-v3-redis-fixture.v1',
         producer: 'perception-character-v3-redis-fixture',
@@ -189,6 +256,19 @@ export function reconcileLocalRedisOutcome({
             observed: Number.isSafeInteger(redisLuaCallsBefore) &&
                 Number.isSafeInteger(redisLuaCallsAfter) &&
                 redisLuaCallsAfter > redisLuaCallsBefore
+        },
+        redisLuaCaseEvidence: {
+            schema: redisLuaCaseEvidence?.schema ?? null,
+            testId: redisLuaCaseEvidence?.testId ?? null,
+            runId: redisLuaCaseEvidence?.runId ?? null,
+            prefixNamespace: redisLuaCaseEvidence?.prefixNamespace ?? null,
+            identityMatches: redisLuaCaseIdentityMatches,
+            expectedCaseIds: REDIS_LUA_CASE_IDS,
+            missingCaseIds: missingRedisLuaCaseIds,
+            extraCaseIds: extraRedisLuaCaseIds,
+            duplicateCaseIds: duplicateRedisLuaCaseIds,
+            failedCaseIds: failedRedisLuaCaseIds,
+            cases: redisLuaCases
         },
         cleanupIdentity: {
             containerName: container,
@@ -229,6 +309,11 @@ function parseArgs(argv)
 function main()
 {
     const args = parseArgs(process.argv.slice(2));
+    if (args['print-filter'] === true)
+    {
+        process.stdout.write(`${LOCAL_REDIS_FILTER}\n`);
+        return;
+    }
     const required = [
         'trx',
         'container',
@@ -241,6 +326,7 @@ function main()
         'source-fingerprint',
         'redis-lua-calls-before',
         'redis-lua-calls-after',
+        'redis-lua-case-evidence',
         'cleanup-verified',
         'output'
     ];
@@ -266,6 +352,19 @@ function main()
     }
 
     const trxContent = fs.readFileSync(trxPath, 'utf8');
+    let redisLuaCaseEvidence = null;
+    const redisLuaCaseEvidencePath = path.resolve(args['redis-lua-case-evidence']);
+    if (fs.existsSync(redisLuaCaseEvidencePath))
+    {
+        try
+        {
+            redisLuaCaseEvidence = JSON.parse(fs.readFileSync(redisLuaCaseEvidencePath, 'utf8'));
+        }
+        catch
+        {
+            redisLuaCaseEvidence = { parseFailed: true };
+        }
+    }
     const receipt = reconcileLocalRedisOutcome({
         trxContent,
         container: args.container,
@@ -277,6 +376,7 @@ function main()
         cleanupVerified: args['cleanup-verified'] === 'true',
         redisLuaCallsBefore: Number(args['redis-lua-calls-before']),
         redisLuaCallsAfter: Number(args['redis-lua-calls-after']),
+        redisLuaCaseEvidence,
         runId: args['run-id'],
         sourceCommit: args['source-commit'],
         sourceFingerprint: args['source-fingerprint']
