@@ -7157,6 +7157,7 @@ tiers:
               docs/zk/trusted-setup-ceremony.md,
               tests/backend/Unit/AnonymousCommentTicketEndpointFilterTests.cs,
               tests/backend/Unit/AnonymousCommentTicketRedisConcurrencyTests.cs,
+              tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs,
               tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs,
               tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs,
               tests/backend/Unit/ActorResolverBehaviorTests.cs,
@@ -9219,6 +9220,7 @@ tiers:
           - tests/backend/Unit/FileServiceTests.cs
           - tests/backend/Fixtures/backend-test-requirements.json
           - tests/backend/Unit/AnonymousCommentTicketRedisConcurrencyTests.cs
+          - tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs
           - tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs
           - tests/backend/Unit/SubscriptionEndpointsContractTests.cs
           - tests/backend/Integration/DemoFixtureSeederCleanupIntegrationTests.cs
