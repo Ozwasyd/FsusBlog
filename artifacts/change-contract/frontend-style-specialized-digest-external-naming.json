@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/frontend-style-policy.json"
+            ],
+            "reason": "preserve the caller-visible frontend style policy keys while refreshing the exact specialized governance command-definition digest"
+        }
+    ]
+}
