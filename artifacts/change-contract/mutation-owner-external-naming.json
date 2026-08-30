@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/mutation/behavior-mutation-owners.v1.json"
+            ],
+            "reason": "Preserve the versioned behavior IDs, source path strings, and JSON field names consumed by the mutation producer and verifier."
+        },
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "tools/test/changed-critical-mutation.mjs"
+            ],
+            "reason": "Preserve the caller-visible selection schema, behavior IDs, receipt fields, and mutation tool contract while closing the owner digest binding."
+        }
+    ]
+}
