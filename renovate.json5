@@ -11,6 +11,10 @@
     "pinDigests": true,
     "ignoreUnstable": true,
     "automerge": false,
+    "automergeType": "pr",
+    "platformAutomerge": true,
+    "ignoreTests": false,
+    "dependencyDashboardApproval": false,
     "dependencyDashboard": true,
     "enabledManagers": [
         "npm",
@@ -33,20 +37,27 @@
     "lockFileMaintenance": {
         "enabled": true,
         "schedule": ["* 5 * * *"],
-        "automerge": false
+        "automerge": true,
+        "automergeType": "pr",
+        "platformAutomerge": true
     },
     "vulnerabilityAlerts": {
         "enabled": true,
         "schedule": ["at any time"],
-        "automerge": false
+        "automerge": true,
+        "automergeType": "pr",
+        "platformAutomerge": true
     },
     "packageRules": [
         {
-            "description": "Keep every supported update type enabled and reviewer-controlled.",
+            "description": "Platform-automerge major, minor, patch, digest and lockfile maintenance after required checks succeed; pin stays reviewer-controlled.",
             "matchUpdateTypes": ["major", "minor", "patch", "pin", "digest", "lockFileMaintenance"],
             "enabled": true,
-            "automerge": false,
-            "minimumReleaseAge": "0 days"
+            "automerge": true,
+            "automergeType": "pr",
+            "platformAutomerge": true,
+            "minimumReleaseAge": "0 days",
+            "matchCurrentVersion": false
         },
         {
             "groupName": "frontend-runtime",

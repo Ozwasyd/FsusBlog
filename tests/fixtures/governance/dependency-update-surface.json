@@ -71,7 +71,8 @@
         { "id": "reject-custom-versioning-drift", "mutation": "custom-versioning-drift", "expectedCode": "config-custom-versioning" },
         { "id": "reject-recommended-preset", "mutation": "recommended-preset", "expectedCode": "config-hidden-ignore-preset" },
         { "id": "reject-broad-ignore-path", "mutation": "broad-ignore-path", "expectedCode": "config-broad-ignore-path" },
-        { "id": "reject-automerge-lockfile", "mutation": "automerge-lockfile", "expectedCode": "config-automerge" },
+        { "id": "reject-branch-automerge", "mutation": "branch-automerge", "expectedCode": "config-automerge" },
+        { "id": "reject-non-platform-automerge", "mutation": "non-platform-automerge", "expectedCode": "config-automerge" },
         { "id": "reject-missing-delegated-owner", "mutation": "missing-delegated-owner", "expectedCode": "catalog-missing-field" }
     ]
 }

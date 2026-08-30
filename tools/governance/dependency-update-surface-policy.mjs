@@ -83,10 +83,17 @@ export function validate(candidateCatalog, candidateConfig, { root, trackedFiles
         if (manager.versioningTemplate !== item.versioning) report('config-custom-versioning', `${item.id}:${manager.versioningTemplate ?? '-'}:${item.versioning}`)
     }
 
-    if (candidateConfig.automerge !== false
-        || candidateConfig.lockFileMaintenance?.automerge === true
-        || candidateConfig.vulnerabilityAlerts?.automerge === true
-        || candidateConfig.packageRules?.some(rule => rule.automerge === true)) report('config-automerge', 'automerge must remain false')
+    if (candidateConfig.automerge !== false) report('config-automerge', 'top-level automerge must stay false; enabled rules must scope update types')
+    const automergeRules = [
+        ...(candidateConfig.packageRules ?? []),
+        candidateConfig.lockFileMaintenance ?? null,
+        candidateConfig.vulnerabilityAlerts ?? null
+    ].filter(Boolean)
+    for (const rule of automergeRules) {
+        if (rule.automerge === true && !(rule.automergeType === 'pr' && rule.platformAutomerge === true)) report('config-automerge', 'automerge must use platform PR auto-merge')
+        if (rule.automergeType === 'branch') report('config-automerge', 'branch automerge (direct push) is forbidden')
+    }
+    if (!candidateConfig.lockFileMaintenance?.enabled) report('config-lockfile-maintenance', 'daily lockfile maintenance is required')
     const serialized = JSON.stringify(candidateConfig)
     if (serialized.includes('"enabled":false')) report('config-disabled-update', 'enabled:false is forbidden')
     if ('ignoreDeps' in candidateConfig) report('config-ignore-deps', 'ignoreDeps is forbidden')

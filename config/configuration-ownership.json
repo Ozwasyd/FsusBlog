@@ -1703,6 +1703,50 @@
             "owner": "test-evidence-location-governance",
             "canonicalPath": "config/testing/evidence-location-migration-ledger.schema.json",
             "pathType": "file"
+        },
+        {
+            "id": "dependency-required-checks",
+            "owner": "dependency-update-governance",
+            "canonicalPath": "config/dependencies/required-checks.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/governance/dependency-required-checks.mjs",
+                "tools/governance/validate-dependency-required-checks.mjs",
+                "tools/governance/check-dependency-required-checks.mjs",
+                "tools/governance/dependency-automerge.mjs",
+                "tools/governance/check-dependency-automerge.mjs",
+                "tests/tools/dependency-required-checks.test.mjs",
+                "tests/tools/dependency-automerge.test.mjs"
+            ],
+            "validationCommand": "node tools/governance/check-dependency-required-checks.mjs --root . --fixtures tests/fixtures/governance/dependency-required-checks.json",
+            "changePolicy": "manual-update-with-negative-mutation-and-local-branch-protection-simulation",
+            "status": "manual"
+        },
+        {
+            "id": "dependency-required-checks-schema",
+            "owner": "dependency-update-governance",
+            "canonicalPath": "config/dependencies/required-checks.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "config/dependencies/required-checks.json",
+                "tools/governance/check-dependency-required-checks.mjs"
+            ],
+            "validationCommand": "node tools/governance/check-dependency-required-checks.mjs --root . --fixtures tests/fixtures/governance/dependency-required-checks.json",
+            "changePolicy": "manual-update-with-closed-schema-validation",
+            "status": "manual"
+        },
+        {
+            "id": "renovate-platform-automerge",
+            "owner": "dependency-update-governance",
+            "canonicalPath": "renovate.json5",
+            "pathType": "file",
+            "consumers": [
+                "tools/governance/check-dependency-automerge.mjs",
+                "tests/tools/dependency-automerge.test.mjs"
+            ],
+            "validationCommand": "node tools/governance/check-dependency-automerge.mjs --root . --fixtures tests/fixtures/governance/dependency-automerge.json",
+            "changePolicy": "manual-update-with-local-platform-automerge-simulation",
+            "status": "manual"
         }
     ]
 }

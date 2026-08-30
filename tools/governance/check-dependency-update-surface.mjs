@@ -349,7 +349,8 @@ const policyMutations = {
     },
     'recommended-preset': (_catalog, config) => { config.extends = ['config:recommended'] },
     'broad-ignore-path': (_catalog, config) => { config.ignorePaths = ['**/tests/**'] },
-    'automerge-lockfile': (_catalog, config) => { config.lockFileMaintenance.automerge = true },
+    'branch-automerge': (_catalog, config) => { config.packageRules[0].automergeType = 'branch' },
+    'non-platform-automerge': (_catalog, config) => { config.packageRules[0].platformAutomerge = false },
     'missing-delegated-owner': catalog => { catalog.items = catalog.items.filter(item => item.id !== 'fsusui-baseline') }
 }
 
