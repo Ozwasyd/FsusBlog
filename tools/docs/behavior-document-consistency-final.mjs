@@ -13,17 +13,406 @@ import { validatePostRuntimeReceipt } from '../test-matrix/behavior-evidence-pos
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 export const finalReportSchema = 'fsusblog.behavior-document-consistency-final-report.v1'
 
-const forbiddenMachineFields = new Set([
-    ['last', 'Verified', 'Commit'].join(''),
-    ['maximum', 'Verification', 'Distance'].join(''),
-    ['last', 'Reviewed', 'Commit'].join(''),
-    ['last', 'Reviewed', 'At'].join(''),
-    ['content', 'Baseline', 'Sha'].join(''),
-    ['approved', 'Content', 'Digest'].join(''),
-    ['baseline', 'Value'].join(''),
-    ['ignore', 'Difference'].join(''),
-    ['allow', 'Stale', 'Until'].join('')
+export const zeroLegacyScanSchema = 'fsusblog.zero-legacy-governance-scan.v1'
+
+const scanRoots = Object.freeze([
+    Object.freeze({ path: 'config', pathClass: 'config' }),
+    Object.freeze({ path: 'docs', pathClass: 'docs' }),
+    Object.freeze({ path: 'src', pathClass: 'production' }),
+    Object.freeze({ path: 'tests', pathClass: 'tests' }),
+    Object.freeze({ path: 'tools', pathClass: 'tools' })
 ])
+
+export const zeroLegacyRequiredPathClasses = Object.freeze([
+    'config',
+    'docs',
+    'production',
+    'tests',
+    'tools',
+    'package-scripts',
+    'generated-projection',
+    'output-schema'
+])
+
+const forbiddenMachineFieldParts = Object.freeze([
+    ['last', 'verified', 'commit'],
+    ['maximum', 'verification', 'distance'],
+    ['last', 'reviewed', 'commit'],
+    ['last', 'reviewed', 'at'],
+    ['verified', 'at'],
+    ['content', 'baseline', 'sha'],
+    ['approved', 'content', 'digest'],
+    ['expected', 'value'],
+    ['baseline', 'value'],
+    ['ignore', 'difference'],
+    ['allow', 'stale', 'until'],
+    ['waiver']
+])
+const booleanSelfCertificationParts = Object.freeze([['verified'], ['reviewed']])
+const evidenceSelectionParts = Object.freeze([
+    ['latest', 'evidence'], ['latest', 'receipt'], ['latest', 'result'], ['latest', 'report'],
+    ['newest', 'evidence'], ['newest', 'receipt'], ['evidence', 'history'], ['receipt', 'history'],
+    ['historical', 'evidence'], ['history', 'fallback'], ['evidence', 'fallback'], ['receipt', 'fallback'],
+    ['fallback', 'evidence'], ['fallback', 'receipt'], ['last', 'green'], ['last', 'passing'],
+    ['evidence', 'mtime'], ['receipt', 'mtime'], ['evidence', 'ctime'], ['receipt', 'ctime'],
+    ['evidence', 'age'], ['receipt', 'age'], ['evidence', 'glob'], ['receipt', 'glob'],
+    ['evidence', 'search'], ['receipt', 'search'], ['evidence', 'scan'], ['receipt', 'scan'],
+    ['retry', 'until', 'pass'], ['retry', 'as', 'correctness']
+])
+const authorityResidueParts = Object.freeze([
+    ['self', 'certified'], ['self', 'certification'], ['self', 'certified', 'fact'],
+    ['manual', 'approved'], ['manually', 'approved'], ['checked', 'in', 'authority'],
+    ['checked', 'in', 'fact'], ['checked', 'in', 'expected'], ['checked', 'in', 'openapi'],
+    ['openapi', 'regex', 'fallback'], ['git', 'diff'], ['git', 'diff', 'synchronization'],
+    ['source', 'test', 'doc', 'diff'], ['source', 'tests', 'docs', 'changed'],
+    ['test', 'file', 'exists', 'coverage'], ['file', 'presence', 'coverage'],
+    ['source', 'patterns'], ['test', 'owners'], ['behavior', 'doc', 'parallel'],
+    ['runtime', 'pre', 'runtime', 'parallel'],
+    ['validation', 'sha'], ['expected', 'sha'], ['review', 'sha'], ['approved', 'sha'], ['baseline', 'sha'],
+    ['llm', 'qualification'], ['embedding', 'qualification'], ['human', 'review', 'qualification'],
+    ['release', 'final', 'discovery'], ['release', 'final', 'rerun'], ['release', 'final', 'repair']
+])
+const legacyRoleParts = Object.freeze([
+    ['claim'], ['extractor'], ['renderer'], ['joiner'], ['cli'], ['schema'], ['feature', 'flag']
+])
+const legacyStateParts = Object.freeze([['legacy'], ['compat'], ['compatibility'], ['deprecated']])
+const ignoredDirectoryNames = new Set(['.git', '.tmp', 'bin', 'node_modules', 'obj'])
+const machineSourceExtensions = /\.(?:c|cc|cpp|cs|cxx|h|hpp|js|jsx|mjs|ps1|sh|ts|tsx|vue|ya?ml)$/u
+const qualificationPathPattern = /(?:artifact|behavior|doc[-_.]?claim|evidence|fact[-_.]?extract|generated[-_.]?fact|governance|mutation|qualification|receipt|release[-_.]?final)/iu
+const machineFencePattern = /^```(bash|csharp|cs|javascript|js|json|jsonc|powershell|ps1|sh|shell|toml|typescript|ts|yaml|yml)\s*\n([\s\S]*?)^```\s*$/gimu
+const normalizeIdentifier = (value) => String(value).normalize('NFKC').toLowerCase().replace(/[^a-z0-9]/gu, '')
+const canonicalField = (parts) => parts.map((part, index) => index === 0 ? part : `${part[0].toUpperCase()}${part.slice(1)}`).join('')
+const fieldMap = (parts) => new Map(parts.map((entry) => [normalizeIdentifier(entry.join('')), canonicalField(entry)]))
+const forbiddenMachineFields = fieldMap(forbiddenMachineFieldParts)
+const booleanSelfCertificationFields = fieldMap(booleanSelfCertificationParts)
+const evidenceSelectionFields = fieldMap(evidenceSelectionParts)
+const authorityResidueFields = fieldMap(authorityResidueParts)
+const legacyRoles = legacyRoleParts.map((parts) => normalizeIdentifier(parts.join('')))
+const legacyStates = legacyStateParts.map((parts) => normalizeIdentifier(parts.join('')))
+
+function zeroLegacyFail(message)
+{
+    throw new Error(`[zero-legacy-governance] ${message}`)
+}
+
+function pathClassesFor(file)
+{
+    const classes = []
+    const rootEntry = scanRoots.find((entry) => file === entry.path || file.startsWith(`${entry.path}/`))
+    if (rootEntry) classes.push(rootEntry.pathClass)
+    if (path.posix.basename(file) === 'package.json') classes.push('package-scripts')
+    if (/(?:^|\/)(?:generated|projections?)(?:[-_.\/]|$)|(?:^|[-_.])generated(?:[-_.]|$)/iu.test(file)) classes.push('generated-projection')
+    if (/(?:^|\/)schemas?(?:\/|$)|\.schema\.json$/iu.test(file)) classes.push('output-schema')
+    return [...new Set(classes)].sort()
+}
+
+function addFinding(findings, file, pathClasses, rule, location)
+{
+    findings.push({ file, pathClasses, rule, location })
+}
+
+function isQualificationPath(file)
+{
+    return qualificationPathPattern.test(file)
+}
+
+function isForbiddenMachineField(normalized, qualification)
+{
+    const canonical = forbiddenMachineFields.get(normalized)
+    if (!canonical) return null
+    if (!qualification && ['expectedValue', 'baselineValue', 'verifiedAt', 'waiver'].includes(canonical)) return null
+    return canonical
+}
+
+function legacySurfaceName(value)
+{
+    const normalized = normalizeIdentifier(value)
+    if (normalized.includes('zerolegacy') || normalized.startsWith('assertnolegacy')
+        || normalized.startsWith('checknolegacy') || normalized.startsWith('rejectlegacy')) return false
+    return legacyStates.some((state) => normalized.includes(state))
+        && legacyRoles.some((role) => normalized.includes(role))
+}
+
+function evidenceSelectionField(identifier)
+{
+    const normalized = normalizeIdentifier(identifier)
+    const exact = evidenceSelectionFields.get(normalized)
+    if (exact) return exact
+    const evidenceKind = '(?:artifact|evidence|fact|mutation|receipt|report|result|runtime|trx)'
+    const selector = '(?:ctime|fallback|history|historical|latest|mtime|newest)'
+    if (new RegExp(`^(?:${selector}.*${evidenceKind}|${evidenceKind}.*${selector})$`, 'u').test(normalized)
+        || /(?:lastgreen|lastpassing|retry.*(?:correctness|pass))/u.test(normalized))
+    {
+        return identifier
+    }
+    return null
+}
+
+function authorityResidueField(identifier)
+{
+    const normalized = normalizeIdentifier(identifier)
+    const exact = authorityResidueFields.get(normalized)
+    if (exact) return exact
+    if (/(?:releasefinal).*(?:discover|parse|repair|rerun)|(?:discover|parse|repair|rerun).*(?:releasefinal)/u.test(normalized)
+        || /openapi.*regex.*fallback|regex.*openapi.*fallback/u.test(normalized)
+        || /gitdiff.*(?:sync|synchron)|(?:sync|synchron).*gitdiff/u.test(normalized))
+    {
+        return identifier
+    }
+    return null
+}
+
+function scanValueResidue(owner, rawValue, context)
+{
+    if (!context.qualification || typeof rawValue !== 'string') return
+    const value = rawValue.trim().replace(/^["']|["']$/gu, '')
+    if (!value || value.length > 512) return
+    const ownerName = normalizeIdentifier(owner)
+    if (/^(?:deny|forbidden|reject)/u.test(ownerName)) return
+    const valueName = normalizeIdentifier(value)
+    const selectionOwner = /(?:artifact|discovery|evidence|locator|mode|receipt|result|selection|source|strategy)/u.test(ownerName)
+    const authorityOwner = /(?:authority|cli|command|featureflag|input|kind|mode|path|provider|schema|source|strategy|type)/u.test(ownerName)
+    const simpleSelector = new Set(['age', 'ctime', 'fallback', 'glob', 'historical', 'history', 'latest', 'mtime', 'newest', 'scan', 'search'])
+    const selectionField = evidenceSelectionField(value)
+    if (selectionOwner && (selectionField || simpleSelector.has(valueName)))
+    {
+        addFinding(context.findings, context.file, context.pathClasses, `forbidden-evidence-selection:${selectionField ?? `${owner}=${value}`}`, context.location)
+    }
+    const authorityField = authorityResidueField(value)
+    if (authorityOwner && authorityField)
+    {
+        addFinding(context.findings, context.file, context.pathClasses, `forbidden-self-authority:${authorityField}`, context.location)
+    }
+    if (authorityOwner && legacySurfaceName(value))
+    {
+        addFinding(context.findings, context.file, context.pathClasses, `forbidden-legacy-surface:${value}`, context.location)
+    }
+}
+
+function scanIdentifier(identifier, valueText, context)
+{
+    const normalized = normalizeIdentifier(identifier)
+    const pathLike = /[./\\]/u.test(identifier)
+    const forbiddenField = isForbiddenMachineField(normalized, context.qualification)
+    if (forbiddenField)
+    {
+        addFinding(context.findings, context.file, context.pathClasses, `forbidden-machine-field:${forbiddenField}`, context.location)
+    }
+    const booleanAttestation = booleanSelfCertificationFields.get(normalized)
+    if (context.qualification && booleanAttestation && /^true\b/iu.test(String(valueText).trim()))
+    {
+        addFinding(context.findings, context.file, context.pathClasses, `forbidden-self-certification:${booleanAttestation}`, context.location)
+    }
+    const selectionField = pathLike ? null : evidenceSelectionField(identifier)
+    if (context.qualification && selectionField)
+    {
+        addFinding(context.findings, context.file, context.pathClasses, `forbidden-evidence-selection:${selectionField}`, context.location)
+    }
+    const authorityField = pathLike ? null : authorityResidueField(identifier)
+    if (context.qualification && authorityField)
+    {
+        addFinding(context.findings, context.file, context.pathClasses, `forbidden-self-authority:${authorityField}`, context.location)
+    }
+    if (!pathLike && legacySurfaceName(identifier))
+    {
+        addFinding(context.findings, context.file, context.pathClasses, `forbidden-legacy-surface:${identifier}`, context.location)
+    }
+    scanValueResidue(identifier, typeof valueText === 'string' ? valueText : '', context)
+}
+
+function scanObjectKeys(value, context, negated = false, location = '$')
+{
+    if (Array.isArray(value))
+    {
+        value.forEach((entry, index) => scanObjectKeys(entry, context, negated, `${location}[${index}]`))
+        return
+    }
+    if (!value || typeof value !== 'object') return
+    for (const [key, nested] of Object.entries(value))
+    {
+        if (!negated) scanIdentifier(key, nested, { ...context, location: `${location}.${key}` })
+        scanObjectKeys(nested, context, negated || key === 'not', `${location}.${key}`)
+    }
+}
+
+function sourceAssignments(source)
+{
+    const assignments = []
+    const expression = /(?:^|[,;{([.\s])(?:["']([^"']+)["']|([A-Za-z][A-Za-z0-9_-]*))\s*\??\s*(?::|=(?!=))\s*([^\n,;}]+)/gmu
+    let match
+    while ((match = expression.exec(source)) !== null)
+    {
+        assignments.push({
+            identifier: match[1] ?? match[2],
+            valueText: match[3],
+            line: source.slice(0, match.index).split('\n').length
+        })
+    }
+    return assignments
+}
+
+function declaredIdentifiers(source)
+{
+    const identifiers = []
+    const expressions = [
+        /\b(?:class|const|enum|function|interface|let|type|var)\s+([A-Za-z][A-Za-z0-9_-]*)/gu,
+        /\b([A-Za-z][A-Za-z0-9_-]*)\s*(?:\??\s*:|\{[\t ]*(?:get|init|set)\s*;)/gu
+    ]
+    for (const expression of expressions)
+    {
+        let match
+        while ((match = expression.exec(source)) !== null)
+        {
+            identifiers.push({ identifier: match[1], line: source.slice(0, match.index).split('\n').length })
+        }
+    }
+    return [...new Map(identifiers.map((entry) => [`${entry.identifier}\0${entry.line}`, entry])).values()]
+}
+
+function scanMachineSource(source, context, locationPrefix = 'source')
+{
+    for (const assignment of sourceAssignments(source))
+    {
+        scanIdentifier(assignment.identifier, assignment.valueText, {
+            ...context,
+            location: `${locationPrefix}:line:${assignment.line}`
+        })
+    }
+    for (const declaration of declaredIdentifiers(source))
+    {
+        scanIdentifier(declaration.identifier, '', {
+            ...context,
+            location: `${locationPrefix}:line:${declaration.line}`
+        })
+    }
+}
+
+function scanDocumentFences(source, context)
+{
+    machineFencePattern.lastIndex = 0
+    let match
+    while ((match = machineFencePattern.exec(source)) !== null)
+    {
+        const line = source.slice(0, match.index).split('\n').length
+        scanMachineSource(match[2], { ...context, qualification: true }, `fence:${match[1].toLowerCase()}:line:${line}`)
+    }
+}
+
+function scanPackageScripts(manifest, context)
+{
+    if (!manifest?.scripts || typeof manifest.scripts !== 'object' || Array.isArray(manifest.scripts)) return
+    for (const [scriptName, command] of Object.entries(manifest.scripts))
+    {
+        const location = `$.scripts.${scriptName}`
+        scanIdentifier(scriptName, command, { ...context, qualification: true, location })
+        scanMachineSource(String(command), { ...context, qualification: true }, `package-script:${scriptName}`)
+        for (const token of String(command).split(/\s+/u))
+        {
+            if (legacySurfaceName(token))
+            {
+                addFinding(context.findings, context.file, context.pathClasses, `forbidden-legacy-surface:${token}`, location)
+            }
+            const selectionField = evidenceSelectionField(token)
+            if (selectionField) addFinding(context.findings, context.file, context.pathClasses, `forbidden-evidence-selection:${selectionField}`, location)
+            const authorityField = authorityResidueField(token)
+            if (authorityField) addFinding(context.findings, context.file, context.pathClasses, `forbidden-self-authority:${authorityField}`, location)
+        }
+    }
+}
+
+function walkFiles(repositoryRoot, relative, output, predicate = () => true)
+{
+    const absolute = path.join(repositoryRoot, relative)
+    if (!fs.existsSync(absolute)) return
+    const stat = fs.lstatSync(absolute)
+    if (stat.isSymbolicLink()) return
+    if (stat.isFile())
+    {
+        const normalized = relative.replaceAll(path.sep, '/').replace(/^\.\//u, '')
+        if (predicate(normalized)) output.push(normalized)
+        return
+    }
+    if (!stat.isDirectory()) return
+    for (const entry of fs.readdirSync(absolute, { withFileTypes: true }))
+    {
+        if (ignoredDirectoryNames.has(entry.name)) continue
+        walkFiles(repositoryRoot, path.join(relative, entry.name), output, predicate)
+    }
+}
+
+export function validateZeroLegacyScan(scan)
+{
+    if (scan?.schema !== zeroLegacyScanSchema) zeroLegacyFail('scan schema mismatch')
+    if (JSON.stringify(scan.scanRoots) !== JSON.stringify(scanRoots)) zeroLegacyFail('scan roots are incomplete')
+    const pathClassKeys = Object.keys(scan.pathClassCounts ?? {}).sort()
+    if (JSON.stringify(pathClassKeys) !== JSON.stringify([...zeroLegacyRequiredPathClasses].sort())) zeroLegacyFail('path classes are incomplete')
+    if (!Number.isInteger(scan.scannedFileCount) || scan.scannedFileCount < 0) zeroLegacyFail('scanned file count is invalid')
+    if (pathClassKeys.some((key) => !Number.isInteger(scan.pathClassCounts[key]) || scan.pathClassCounts[key] < 0)) zeroLegacyFail('path class count is invalid')
+    if (!Array.isArray(scan.findings)) zeroLegacyFail('findings are invalid')
+    for (const finding of scan.findings)
+    {
+        if (!finding || typeof finding.file !== 'string' || finding.file.length === 0
+            || !Array.isArray(finding.pathClasses) || finding.pathClasses.length === 0
+            || finding.pathClasses.some((entry) => !zeroLegacyRequiredPathClasses.includes(entry))
+            || typeof finding.rule !== 'string' || finding.rule.length === 0
+            || typeof finding.location !== 'string' || finding.location.length === 0)
+        {
+            zeroLegacyFail('finding shape is invalid')
+        }
+    }
+    return scan
+}
+
+export function scanZeroLegacyGovernance(repositoryRoot = root)
+{
+    const files = []
+    for (const entry of scanRoots) walkFiles(repositoryRoot, entry.path, files)
+    walkFiles(repositoryRoot, '.', files, (file) => path.posix.basename(file) === 'package.json')
+    const uniqueFiles = [...new Set(files)].sort()
+    const pathClassCounts = Object.fromEntries(zeroLegacyRequiredPathClasses.map((pathClass) => [pathClass, 0]))
+    const findings = []
+    for (const file of uniqueFiles)
+    {
+        const pathClasses = pathClassesFor(file)
+        pathClasses.forEach((pathClass) => { pathClassCounts[pathClass] += 1 })
+        const absolute = path.join(repositoryRoot, file)
+        const context = { file, findings, pathClasses, qualification: isQualificationPath(file) }
+        if (file.endsWith('.json'))
+        {
+            try
+            {
+                const document = JSON.parse(fs.readFileSync(absolute, 'utf8'))
+                scanObjectKeys(document, context)
+                if (pathClasses.includes('package-scripts')) scanPackageScripts(document, context)
+            }
+            catch { /* Syntax belongs to the corresponding schema or package gate. */ }
+        }
+        if (pathClasses.includes('docs'))
+        {
+            scanDocumentFences(fs.readFileSync(absolute, 'utf8'), context)
+        }
+        else if (!pathClasses.includes('tests') && machineSourceExtensions.test(file))
+        {
+            scanMachineSource(fs.readFileSync(absolute, 'utf8'), context)
+        }
+        if (legacySurfaceName(file))
+        {
+            addFinding(findings, file, pathClasses, `forbidden-legacy-surface:${path.posix.basename(file)}`, 'path')
+        }
+    }
+    const uniqueFindings = [...new Map(findings.map((finding) => [
+        `${finding.file}\0${finding.rule}\0${finding.location}`,
+        finding
+    ])).values()].sort((left, right) => `${left.file}\0${left.rule}\0${left.location}`.localeCompare(`${right.file}\0${right.rule}\0${right.location}`))
+    return validateZeroLegacyScan({
+        schema: zeroLegacyScanSchema,
+        scanRoots: scanRoots.map((entry) => ({ ...entry })),
+        scannedFileCount: uniqueFiles.length,
+        pathClassCounts,
+        findings: uniqueFindings
+    })
+}
+
 const stable = (value) => Array.isArray(value)
     ? value.map(stable)
     : value && typeof value === 'object'
@@ -117,75 +506,10 @@ function duplicateSummaryAuthorities(tiers)
         .sort((left, right) => left.authority.localeCompare(right.authority))
 }
 
-function scanObjectKeys(value, file, findings, negated = false, location = '$')
-{
-    if (Array.isArray(value))
-    {
-        value.forEach((entry, index) => scanObjectKeys(entry, file, findings, negated, `${location}[${index}]`))
-        return
-    }
-    if (!value || typeof value !== 'object') return
-    for (const [key, nested] of Object.entries(value))
-    {
-        if (!negated && forbiddenMachineFields.has(key))
-        {
-            findings.push({ file, rule: `forbidden-machine-field:${key}`, location: `${location}.${key}` })
-        }
-        scanObjectKeys(nested, file, findings, negated || key === 'not', `${location}.${key}`)
-    }
-}
-
-function walkFiles(repositoryRoot, relative, output)
-{
-    const absolute = path.join(repositoryRoot, relative)
-    if (!fs.existsSync(absolute)) return
-    const stat = fs.statSync(absolute)
-    if (stat.isFile())
-    {
-        output.push(relative.replaceAll(path.sep, '/'))
-        return
-    }
-    for (const entry of fs.readdirSync(absolute, { withFileTypes: true }))
-    {
-        if (entry.name === 'node_modules' || entry.name === '.tmp' || entry.name === 'bin' || entry.name === 'obj') continue
-        walkFiles(repositoryRoot, path.join(relative, entry.name), output)
-    }
-}
-
-export function scanZeroLegacyGovernance(repositoryRoot = root)
-{
-    const files = []
-    for (const directory of ['config', 'tools/docs', 'tools/fact-extractors', 'tools/contracts', 'tools/test-matrix', 'tools/release', 'tests'])
-    {
-        walkFiles(repositoryRoot, directory, files)
-    }
-    const findings = []
-    for (const file of files.sort())
-    {
-        const absolute = path.join(repositoryRoot, file)
-        if (file.endsWith('.json'))
-        {
-            try { scanObjectKeys(JSON.parse(fs.readFileSync(absolute, 'utf8')), file, findings) }
-            catch { /* JSON parsing is owned by the corresponding schema gate. */ }
-        }
-        if (!file.startsWith('tests/')
-            && /behavior|doc-claim|fact-extractor|generated-fact|release-final-domain-evidence/u.test(file)
-            && /\.(?:mjs|js|ts|cs|sh|ya?ml)$/u.test(file))
-        {
-            const source = fs.readFileSync(absolute, 'utf8')
-            for (const field of forbiddenMachineFields)
-            {
-                const expression = new RegExp(`\\b${field}\\b\\s*[:=]`, 'u')
-                if (expression.test(source)) findings.push({ file, rule: `forbidden-machine-assignment:${field}`, location: 'source' })
-            }
-        }
-    }
-    return { scannedFileCount: files.length, findings: findings.sort((a, b) => `${a.file}\0${a.rule}`.localeCompare(`${b.file}\0${b.rule}`)) }
-}
-
 export function validateFinalReport(report)
 {
     if (report?.schema !== finalReportSchema) fail('report schema mismatch')
+    validateZeroLegacyScan(report.zeroLegacyScan)
     if (report.contentDigest !== digest(withoutDigest(report))) fail('report contentDigest mismatch')
     if (!['ok', 'failed'].includes(report.status)) fail('report status is invalid')
     if (report.status === 'ok' && report.failureReasons.length > 0) fail('ok report has failures')
@@ -299,7 +623,7 @@ export function buildFinalConsistencyReport({
     const authorityDuplicates = duplicateSummaryAuthorities(parsedMatrix.tiers)
     if (sccs.length > 0) failures.push(`matrix dependency SCCs: ${sccs.map((entry) => entry.join('+')).join(',')}`)
     if (authorityDuplicates.length > 0) failures.push(`duplicate summary authorities: ${authorityDuplicates.map((entry) => entry.authority).join(',')}`)
-    const legacy = zeroLegacyScan ?? scanZeroLegacyGovernance(root)
+    const legacy = validateZeroLegacyScan(zeroLegacyScan ?? scanZeroLegacyGovernance(root))
     if (legacy.findings.length > 0) failures.push(`zero-legacy scan found ${legacy.findings.length} active residue(s)`)
     if (admission.candidateSpawnCountBeforeReceipt !== 0 || pre.runtimeCandidateSpawnCountBeforeReceipt !== 0 || post.releaseFinalSpawnCountBeforeReceipt !== 0)
     {

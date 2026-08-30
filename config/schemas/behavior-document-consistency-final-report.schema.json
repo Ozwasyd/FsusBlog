@@ -1,37 +1,337 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "fsusblog.behavior-document-consistency-final-report.v1",
-  "type": "object",
-  "additionalProperties": false,
-  "required": ["schema", "sourceIdentity", "worktreeIdentity", "buildIdentity", "toolchainIdentity", "runtimeIdentity", "authorityDigests", "receiptDigests", "behaviorNodes", "edges", "migrationLedger", "singleMutationCoverage", "zeroLegacyScan", "dagAudit", "spawnBeforeReceipt", "status", "failureReasons", "contentDigest"],
-  "properties": {
-    "schema": { "const": "fsusblog.behavior-document-consistency-final-report.v1" },
-    "sourceIdentity": { "type": "object" },
-    "worktreeIdentity": { "type": "object" },
-    "buildIdentity": { "type": "object" },
-    "toolchainIdentity": { "type": "object" },
-    "runtimeIdentity": { "type": "object" },
-    "authorityDigests": { "type": "object", "additionalProperties": { "$ref": "#/$defs/digest" } },
-    "receiptDigests": { "type": "object" },
-    "behaviorNodes": { "type": "array", "minItems": 1, "items": { "type": "object" } },
-    "edges": { "type": "array", "minItems": 1, "items": { "type": "object" } },
-    "migrationLedger": { "type": "object" },
-    "singleMutationCoverage": { "type": "object" },
-    "zeroLegacyScan": { "type": "object" },
-    "dagAudit": { "type": "object" },
-    "spawnBeforeReceipt": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["staticCandidate", "runtimeCandidate", "releaseFinal"],
-      "properties": {
-        "staticCandidate": { "const": 0 },
-        "runtimeCandidate": { "const": 0 },
-        "releaseFinal": { "const": 0 }
-      }
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "fsusblog.behavior-document-consistency-final-report.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "sourceIdentity",
+        "worktreeIdentity",
+        "buildIdentity",
+        "toolchainIdentity",
+        "runtimeIdentity",
+        "authorityDigests",
+        "receiptDigests",
+        "behaviorNodes",
+        "edges",
+        "migrationLedger",
+        "singleMutationCoverage",
+        "zeroLegacyScan",
+        "dagAudit",
+        "spawnBeforeReceipt",
+        "status",
+        "failureReasons",
+        "contentDigest"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.behavior-document-consistency-final-report.v1"
+        },
+        "sourceIdentity": {
+            "type": "object"
+        },
+        "worktreeIdentity": {
+            "type": "object"
+        },
+        "buildIdentity": {
+            "type": "object"
+        },
+        "toolchainIdentity": {
+            "type": "object"
+        },
+        "runtimeIdentity": {
+            "type": "object"
+        },
+        "authorityDigests": {
+            "type": "object",
+            "additionalProperties": {
+                "$ref": "#/$defs/digest"
+            }
+        },
+        "receiptDigests": {
+            "type": "object"
+        },
+        "behaviorNodes": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object"
+            }
+        },
+        "edges": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object"
+            }
+        },
+        "migrationLedger": {
+            "type": "object"
+        },
+        "singleMutationCoverage": {
+            "type": "object"
+        },
+        "zeroLegacyScan": {
+            "$ref": "#/$defs/zeroLegacyScan"
+        },
+        "dagAudit": {
+            "type": "object"
+        },
+        "spawnBeforeReceipt": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "staticCandidate",
+                "runtimeCandidate",
+                "releaseFinal"
+            ],
+            "properties": {
+                "staticCandidate": {
+                    "const": 0
+                },
+                "runtimeCandidate": {
+                    "const": 0
+                },
+                "releaseFinal": {
+                    "const": 0
+                }
+            }
+        },
+        "status": {
+            "enum": [
+                "ok",
+                "failed"
+            ]
+        },
+        "failureReasons": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "contentDigest": {
+            "$ref": "#/$defs/digest"
+        }
     },
-    "status": { "enum": ["ok", "failed"] },
-    "failureReasons": { "type": "array", "items": { "type": "string" } },
-    "contentDigest": { "$ref": "#/$defs/digest" }
-  },
-  "$defs": { "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" } }
+    "$defs": {
+        "digest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "zeroLegacyScan": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema",
+                "scanRoots",
+                "scannedFileCount",
+                "pathClassCounts",
+                "findings"
+            ],
+            "properties": {
+                "schema": {
+                    "const": "fsusblog.zero-legacy-governance-scan.v1"
+                },
+                "scanRoots": {
+                    "type": "array",
+                    "minItems": 5,
+                    "maxItems": 5,
+                    "prefixItems": [
+                        {
+                            "$ref": "#/$defs/configScanRoot"
+                        },
+                        {
+                            "$ref": "#/$defs/docsScanRoot"
+                        },
+                        {
+                            "$ref": "#/$defs/productionScanRoot"
+                        },
+                        {
+                            "$ref": "#/$defs/testsScanRoot"
+                        },
+                        {
+                            "$ref": "#/$defs/toolsScanRoot"
+                        }
+                    ],
+                    "items": false
+                },
+                "scannedFileCount": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "pathClassCounts": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "config",
+                        "docs",
+                        "production",
+                        "tests",
+                        "tools",
+                        "package-scripts",
+                        "generated-projection",
+                        "output-schema"
+                    ],
+                    "properties": {
+                        "config": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "docs": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "production": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "tests": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "tools": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "package-scripts": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "generated-projection": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "output-schema": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    }
+                },
+                "findings": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "file",
+                            "pathClasses",
+                            "rule",
+                            "location"
+                        ],
+                        "properties": {
+                            "file": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "pathClasses": {
+                                "type": "array",
+                                "minItems": 1,
+                                "uniqueItems": true,
+                                "items": {
+                                    "enum": [
+                                        "config",
+                                        "docs",
+                                        "production",
+                                        "tests",
+                                        "tools",
+                                        "package-scripts",
+                                        "generated-projection",
+                                        "output-schema"
+                                    ]
+                                }
+                            },
+                            "rule": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "location": {
+                                "type": "string",
+                                "minLength": 1
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "configScanRoot": {
+            "type": "object",
+            "$ref": "#/$defs/scanRoot",
+            "unevaluatedProperties": false,
+            "properties": {
+                "path": {
+                    "const": "config"
+                },
+                "pathClass": {
+                    "const": "config"
+                }
+            }
+        },
+        "docsScanRoot": {
+            "type": "object",
+            "$ref": "#/$defs/scanRoot",
+            "unevaluatedProperties": false,
+            "properties": {
+                "path": {
+                    "const": "docs"
+                },
+                "pathClass": {
+                    "const": "docs"
+                }
+            }
+        },
+        "productionScanRoot": {
+            "type": "object",
+            "$ref": "#/$defs/scanRoot",
+            "unevaluatedProperties": false,
+            "properties": {
+                "path": {
+                    "const": "src"
+                },
+                "pathClass": {
+                    "const": "production"
+                }
+            }
+        },
+        "testsScanRoot": {
+            "type": "object",
+            "$ref": "#/$defs/scanRoot",
+            "unevaluatedProperties": false,
+            "properties": {
+                "path": {
+                    "const": "tests"
+                },
+                "pathClass": {
+                    "const": "tests"
+                }
+            }
+        },
+        "toolsScanRoot": {
+            "type": "object",
+            "$ref": "#/$defs/scanRoot",
+            "unevaluatedProperties": false,
+            "properties": {
+                "path": {
+                    "const": "tools"
+                },
+                "pathClass": {
+                    "const": "tools"
+                }
+            }
+        },
+        "scanRoot": {
+            "type": "object",
+            "required": [
+                "path",
+                "pathClass"
+            ],
+            "properties": {
+                "path": {
+                    "type": "string"
+                },
+                "pathClass": {
+                    "type": "string"
+                }
+            }
+        }
+    }
 }
