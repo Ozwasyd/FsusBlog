@@ -1,446 +1,459 @@
 {
-    "schema": "fsusblog.dependency-required-checks.v1",
-    "defaultBranch": "master",
-    "updateTypes": [
-        "major",
-        "minor",
-        "patch",
-        "digest",
-        "lockFileMaintenance"
-    ],
-    "requiredSurfaces": [
-        "FsusUI",
-        "Vue/Vite",
-        "Docker/.NET",
-        "database",
+  "schema": "fsusblog.dependency-required-checks.v1",
+  "defaultBranch": "master",
+  "updateTypes": [
+    "major",
+    "minor",
+    "patch",
+    "digest",
+    "lockFileMaintenance"
+  ],
+  "requiredSurfaces": [
+    "FsusUI",
+    "Vue/Vite",
+    "Docker/.NET",
+    "database",
+    "security",
+    "telemetry",
+    "Actions",
+    "lockfile-maintenance",
+    "toolchain"
+  ],
+  "requiredGroups": [
+    "frontend-runtime",
+    "frontend-vue-toolchain",
+    "frontend-test-tooling",
+    "dotnet-platform",
+    "dotnet-runtime",
+    "identity-security",
+    "data-observability",
+    "dotnet-test-tooling",
+    "container-toolchain",
+    "vcpkg-baseline",
+    "github-actions",
+    "lockfile-maintenance"
+  ],
+  "checks": {
+    "Change Contract / Change Contract": {
+      "workflow": "Change Contract",
+      "jobName": "Change Contract",
+      "classes": [
+        "lint"
+      ],
+      "triggers": [
+        "pull_request",
+        "push"
+      ],
+      "lintOnly": true
+    },
+    "Quality Gate / Production Summary": {
+      "workflow": "Quality Gate",
+      "jobName": "Production Summary",
+      "classes": [
+        "build",
+        "test",
         "security",
-        "telemetry",
-        "Actions",
-        "lockfile-maintenance",
-        "toolchain"
+        "production"
+      ],
+      "triggers": [
+        "pull_request",
+        "push"
+      ],
+      "lintOnly": false
+    },
+    "Quality Gate / Validate Test Matrix": {
+      "workflow": "Quality Gate",
+      "jobName": "Validate Test Matrix",
+      "classes": [
+        "test"
+      ],
+      "triggers": [
+        "pull_request",
+        "push"
+      ],
+      "lintOnly": false
+    },
+    "Quality Gate / Fast Backend DAG": {
+      "workflow": "Quality Gate",
+      "jobName": "Fast Backend DAG",
+      "classes": [
+        "build",
+        "test"
+      ],
+      "triggers": [
+        "pull_request",
+        "push"
+      ],
+      "lintOnly": false
+    },
+    "Quality Gate / Fast Frontend Unit DAG": {
+      "workflow": "Quality Gate",
+      "jobName": "Fast Frontend Unit DAG",
+      "classes": [
+        "build",
+        "test"
+      ],
+      "triggers": [
+        "pull_request",
+        "push"
+      ],
+      "lintOnly": false
+    },
+    "Quality Gate / Fast Static Governance": {
+      "workflow": "Quality Gate",
+      "jobName": "Fast Static Governance",
+      "classes": [
+        "lint"
+      ],
+      "triggers": [
+        "pull_request",
+        "push"
+      ],
+      "lintOnly": true
+    },
+    "Quality Gate / Coverage Merge Threshold": {
+      "workflow": "Quality Gate",
+      "jobName": "Coverage Merge Threshold",
+      "classes": [
+        "test"
+      ],
+      "triggers": [
+        "pull_request",
+        "push"
+      ],
+      "lintOnly": false
+    },
+    "Quality Gate / Security Runtime": {
+      "workflow": "Quality Gate",
+      "jobName": "Security Runtime",
+      "classes": [
+        "security"
+      ],
+      "triggers": [
+        "pull_request",
+        "push"
+      ],
+      "lintOnly": false
+    },
+    "Quality Gate / Release Evidence": {
+      "workflow": "Quality Gate",
+      "jobName": "Release Evidence",
+      "classes": [
+        "production"
+      ],
+      "triggers": [
+        "pull_request",
+        "push"
+      ],
+      "lintOnly": false
+    },
+    "Dependency Review / Dependency Review": {
+      "workflow": "Dependency Review",
+      "jobName": "Dependency Review",
+      "classes": [
+        "security"
+      ],
+      "triggers": [
+        "pull_request"
+      ],
+      "lintOnly": false
+    },
+    "CodeQL / Analyze (csharp)": {
+      "workflow": "CodeQL",
+      "jobName": "Analyze (csharp)",
+      "classes": [
+        "security"
+      ],
+      "triggers": [
+        "pull_request",
+        "push"
+      ],
+      "lintOnly": false
+    },
+    "CodeQL / Analyze (javascript-typescript)": {
+      "workflow": "CodeQL",
+      "jobName": "Analyze (javascript-typescript)",
+      "classes": [
+        "security"
+      ],
+      "triggers": [
+        "pull_request",
+        "push"
+      ],
+      "lintOnly": false
+    },
+    "OpenSSF Scorecard / Scorecard": {
+      "workflow": "OpenSSF Scorecard",
+      "jobName": "Scorecard",
+      "classes": [
+        "security"
+      ],
+      "triggers": [
+        "push"
+      ],
+      "lintOnly": false
+    }
+  },
+  "checkSets": {
+    "full-pr": [
+      "Change Contract / Change Contract",
+      "Quality Gate / Production Summary",
+      "Quality Gate / Validate Test Matrix",
+      "Quality Gate / Fast Backend DAG",
+      "Quality Gate / Fast Frontend Unit DAG",
+      "Quality Gate / Fast Static Governance",
+      "Quality Gate / Coverage Merge Threshold",
+      "Quality Gate / Security Runtime",
+      "Quality Gate / Release Evidence",
+      "Dependency Review / Dependency Review",
+      "CodeQL / Analyze (csharp)",
+      "CodeQL / Analyze (javascript-typescript)"
     ],
-    "requiredGroups": [
-        "frontend-runtime",
-        "frontend-vue-toolchain",
-        "frontend-test-tooling",
-        "dotnet-platform",
-        "dotnet-runtime",
-        "identity-security",
-        "data-observability",
-        "dotnet-test-tooling",
-        "container-toolchain",
-        "vcpkg-baseline",
-        "github-actions",
-        "lockfile-maintenance"
+    "frontend-patch": [
+      "Quality Gate / Production Summary",
+      "Quality Gate / Fast Frontend Unit DAG",
+      "Quality Gate / Coverage Merge Threshold",
+      "Quality Gate / Security Runtime",
+      "Dependency Review / Dependency Review",
+      "CodeQL / Analyze (javascript-typescript)"
     ],
-    "checks": {
-        "Change Contract / Change Contract": {
-            "workflow": "Change Contract",
-            "jobName": "Change Contract",
-            "classes": [
-                "lint"
-            ],
-            "triggers": [
-                "pull_request",
-                "push"
-            ],
-            "lintOnly": true
-        },
-        "Quality Gate / Production Summary": {
-            "workflow": "Quality Gate",
-            "jobName": "Production Summary",
-            "classes": [
-                "build",
-                "test",
-                "security",
-                "production"
-            ],
-            "triggers": [
-                "pull_request",
-                "push"
-            ],
-            "lintOnly": false
-        },
-        "Quality Gate / Validate Test Matrix": {
-            "workflow": "Quality Gate",
-            "jobName": "Validate Test Matrix",
-            "classes": [
-                "test"
-            ],
-            "triggers": [
-                "pull_request",
-                "push"
-            ],
-            "lintOnly": false
-        },
-        "Quality Gate / Fast Backend DAG": {
-            "workflow": "Quality Gate",
-            "jobName": "Fast Backend DAG",
-            "classes": [
-                "build",
-                "test"
-            ],
-            "triggers": [
-                "pull_request",
-                "push"
-            ],
-            "lintOnly": false
-        },
-        "Quality Gate / Fast Frontend Unit DAG": {
-            "workflow": "Quality Gate",
-            "jobName": "Fast Frontend Unit DAG",
-            "classes": [
-                "build",
-                "test"
-            ],
-            "triggers": [
-                "pull_request",
-                "push"
-            ],
-            "lintOnly": false
-        },
-        "Quality Gate / Fast Static Governance": {
-            "workflow": "Quality Gate",
-            "jobName": "Fast Static Governance",
-            "classes": [
-                "lint"
-            ],
-            "triggers": [
-                "pull_request",
-                "push"
-            ],
-            "lintOnly": true
-        },
-        "Quality Gate / Coverage Merge Threshold": {
-            "workflow": "Quality Gate",
-            "jobName": "Coverage Merge Threshold",
-            "classes": [
-                "test"
-            ],
-            "triggers": [
-                "pull_request",
-                "push"
-            ],
-            "lintOnly": false
-        },
-        "Quality Gate / Security Runtime": {
-            "workflow": "Quality Gate",
-            "jobName": "Security Runtime",
-            "classes": [
-                "security"
-            ],
-            "triggers": [
-                "pull_request",
-                "push"
-            ],
-            "lintOnly": false
-        },
-        "Quality Gate / Release Evidence": {
-            "workflow": "Quality Gate",
-            "jobName": "Release Evidence",
-            "classes": [
-                "production"
-            ],
-            "triggers": [
-                "pull_request",
-                "push"
-            ],
-            "lintOnly": false
-        },
-        "Dependency Review / Dependency Review": {
-            "workflow": "Dependency Review",
-            "jobName": "Dependency Review",
-            "classes": [
-                "security"
-            ],
-            "triggers": [
-                "pull_request"
-            ],
-            "lintOnly": false
-        },
-        "CodeQL / Analyze (csharp)": {
-            "workflow": "CodeQL",
-            "jobName": "Analyze (csharp)",
-            "classes": [
-                "security"
-            ],
-            "triggers": [
-                "pull_request",
-                "push"
-            ],
-            "lintOnly": false
-        },
-        "CodeQL / Analyze (javascript-typescript)": {
-            "workflow": "CodeQL",
-            "jobName": "Analyze (javascript-typescript)",
-            "classes": [
-                "security"
-            ],
-            "triggers": [
-                "pull_request",
-                "push"
-            ],
-            "lintOnly": false
-        },
-        "OpenSSF Scorecard / Scorecard": {
-            "workflow": "OpenSSF Scorecard",
-            "jobName": "Scorecard",
-            "classes": [
-                "security"
-            ],
-            "triggers": [
-                "push"
-            ],
-            "lintOnly": false
-        }
-    },
-    "checkSets": {
-        "full-pr": [
-            "Change Contract / Change Contract",
-            "Quality Gate / Production Summary",
-            "Quality Gate / Validate Test Matrix",
-            "Quality Gate / Fast Backend DAG",
-            "Quality Gate / Fast Frontend Unit DAG",
-            "Quality Gate / Fast Static Governance",
-            "Quality Gate / Coverage Merge Threshold",
-            "Quality Gate / Security Runtime",
-            "Quality Gate / Release Evidence",
-            "Dependency Review / Dependency Review",
-            "CodeQL / Analyze (csharp)",
-            "CodeQL / Analyze (javascript-typescript)"
-        ],
-        "frontend-patch": [
-            "Quality Gate / Production Summary",
-            "Quality Gate / Fast Frontend Unit DAG",
-            "Quality Gate / Coverage Merge Threshold",
-            "Quality Gate / Security Runtime",
-            "Dependency Review / Dependency Review",
-            "CodeQL / Analyze (javascript-typescript)"
-        ],
-        "backend-patch": [
-            "Quality Gate / Production Summary",
-            "Quality Gate / Fast Backend DAG",
-            "Quality Gate / Coverage Merge Threshold",
-            "Quality Gate / Security Runtime",
-            "Dependency Review / Dependency Review",
-            "CodeQL / Analyze (csharp)"
-        ],
-        "security-patch": [
-            "Quality Gate / Production Summary",
-            "Quality Gate / Fast Backend DAG",
-            "Quality Gate / Security Runtime",
-            "Dependency Review / Dependency Review",
-            "CodeQL / Analyze (csharp)"
-        ],
-        "actions-patch": [
-            "Quality Gate / Production Summary",
-            "Quality Gate / Fast Static Governance",
-            "Quality Gate / Validate Test Matrix",
-            "Quality Gate / Security Runtime",
-            "Change Contract / Change Contract",
-            "Dependency Review / Dependency Review"
-        ],
-        "container-patch": [
-            "Quality Gate / Production Summary",
-            "Quality Gate / Fast Backend DAG",
-            "Quality Gate / Fast Frontend Unit DAG",
-            "Quality Gate / Security Runtime",
-            "Quality Gate / Release Evidence",
-            "Dependency Review / Dependency Review"
-        ],
-        "digest-release": [
-            "Quality Gate / Production Summary",
-            "Quality Gate / Release Evidence",
-            "Quality Gate / Security Runtime",
-            "Change Contract / Change Contract",
-            "Dependency Review / Dependency Review"
-        ],
-        "lockfile": [
-            "Quality Gate / Production Summary",
-            "Quality Gate / Fast Backend DAG",
-            "Quality Gate / Fast Frontend Unit DAG",
-            "Quality Gate / Coverage Merge Threshold",
-            "Quality Gate / Security Runtime",
-            "Dependency Review / Dependency Review"
-        ]
-    },
-    "branchProtection": {
-        "strict": true,
-        "contexts": [
-            "Change Contract / Change Contract",
-            "Quality Gate / Production Summary",
-            "Quality Gate / Validate Test Matrix",
-            "Quality Gate / Fast Backend DAG",
-            "Quality Gate / Fast Frontend Unit DAG",
-            "Quality Gate / Fast Static Governance",
-            "Quality Gate / Coverage Merge Threshold",
-            "Quality Gate / Security Runtime",
-            "Quality Gate / Release Evidence",
-            "Dependency Review / Dependency Review",
-            "CodeQL / Analyze (csharp)",
-            "CodeQL / Analyze (javascript-typescript)",
-            "OpenSSF Scorecard / Scorecard"
-        ]
-    },
-    "groups": [
-        {
-            "id": "frontend-runtime",
-            "surfaces": [
-                "FsusUI",
-                "frontend-runtime"
-            ],
-            "checksByUpdateType": {
-                "major": "full-pr",
-                "minor": "frontend-patch",
-                "patch": "frontend-patch",
-                "digest": "digest-release",
-                "lockFileMaintenance": "lockfile"
-            }
-        },
-        {
-            "id": "frontend-vue-toolchain",
-            "surfaces": [
-                "Vue/Vite"
-            ],
-            "checksByUpdateType": {
-                "major": "full-pr",
-                "minor": "frontend-patch",
-                "patch": "frontend-patch",
-                "digest": "digest-release",
-                "lockFileMaintenance": "lockfile"
-            }
-        },
-        {
-            "id": "frontend-test-tooling",
-            "surfaces": [
-                "toolchain"
-            ],
-            "checksByUpdateType": {
-                "major": "full-pr",
-                "minor": "frontend-patch",
-                "patch": "frontend-patch",
-                "digest": "digest-release",
-                "lockFileMaintenance": "lockfile"
-            }
-        },
-        {
-            "id": "dotnet-platform",
-            "surfaces": [
-                "Docker/.NET"
-            ],
-            "checksByUpdateType": {
-                "major": "full-pr",
-                "minor": "backend-patch",
-                "patch": "backend-patch",
-                "digest": "digest-release",
-                "lockFileMaintenance": "lockfile"
-            }
-        },
-        {
-            "id": "dotnet-runtime",
-            "surfaces": [
-                "Docker/.NET"
-            ],
-            "checksByUpdateType": {
-                "major": "full-pr",
-                "minor": "backend-patch",
-                "patch": "backend-patch",
-                "digest": "digest-release",
-                "lockFileMaintenance": "lockfile"
-            }
-        },
-        {
-            "id": "identity-security",
-            "surfaces": [
-                "security"
-            ],
-            "checksByUpdateType": {
-                "major": "full-pr",
-                "minor": "security-patch",
-                "patch": "security-patch",
-                "digest": "digest-release",
-                "lockFileMaintenance": "lockfile"
-            }
-        },
-        {
-            "id": "data-observability",
-            "surfaces": [
-                "database",
-                "telemetry"
-            ],
-            "checksByUpdateType": {
-                "major": "full-pr",
-                "minor": "backend-patch",
-                "patch": "backend-patch",
-                "digest": "digest-release",
-                "lockFileMaintenance": "lockfile"
-            }
-        },
-        {
-            "id": "dotnet-test-tooling",
-            "surfaces": [
-                "toolchain"
-            ],
-            "checksByUpdateType": {
-                "major": "full-pr",
-                "minor": "backend-patch",
-                "patch": "backend-patch",
-                "digest": "digest-release",
-                "lockFileMaintenance": "lockfile"
-            }
-        },
-        {
-            "id": "container-toolchain",
-            "surfaces": [
-                "Docker/.NET",
-                "toolchain"
-            ],
-            "checksByUpdateType": {
-                "major": "full-pr",
-                "minor": "container-patch",
-                "patch": "container-patch",
-                "digest": "digest-release",
-                "lockFileMaintenance": "lockfile"
-            }
-        },
-        {
-            "id": "vcpkg-baseline",
-            "surfaces": [
-                "toolchain"
-            ],
-            "checksByUpdateType": {
-                "major": "full-pr",
-                "minor": "container-patch",
-                "patch": "container-patch",
-                "digest": "digest-release",
-                "lockFileMaintenance": "lockfile"
-            }
-        },
-        {
-            "id": "github-actions",
-            "surfaces": [
-                "Actions"
-            ],
-            "checksByUpdateType": {
-                "major": "full-pr",
-                "minor": "actions-patch",
-                "patch": "actions-patch",
-                "digest": "digest-release",
-                "lockFileMaintenance": "lockfile"
-            }
-        },
-        {
-            "id": "lockfile-maintenance",
-            "surfaces": [
-                "lockfile-maintenance"
-            ],
-            "checksByUpdateType": {
-                "major": "lockfile",
-                "minor": "lockfile",
-                "patch": "lockfile",
-                "digest": "lockfile",
-                "lockFileMaintenance": "lockfile"
-            }
-        }
+    "backend-patch": [
+      "Quality Gate / Production Summary",
+      "Quality Gate / Fast Backend DAG",
+      "Quality Gate / Coverage Merge Threshold",
+      "Quality Gate / Security Runtime",
+      "Dependency Review / Dependency Review",
+      "CodeQL / Analyze (csharp)"
+    ],
+    "security-patch": [
+      "Quality Gate / Production Summary",
+      "Quality Gate / Fast Backend DAG",
+      "Quality Gate / Security Runtime",
+      "Dependency Review / Dependency Review",
+      "CodeQL / Analyze (csharp)"
+    ],
+    "actions-patch": [
+      "Quality Gate / Production Summary",
+      "Quality Gate / Fast Static Governance",
+      "Quality Gate / Validate Test Matrix",
+      "Quality Gate / Security Runtime",
+      "Change Contract / Change Contract",
+      "Dependency Review / Dependency Review"
+    ],
+    "container-patch": [
+      "Quality Gate / Production Summary",
+      "Quality Gate / Fast Backend DAG",
+      "Quality Gate / Fast Frontend Unit DAG",
+      "Quality Gate / Security Runtime",
+      "Quality Gate / Release Evidence",
+      "Dependency Review / Dependency Review"
+    ],
+    "digest-release": [
+      "Quality Gate / Production Summary",
+      "Quality Gate / Release Evidence",
+      "Quality Gate / Security Runtime",
+      "Change Contract / Change Contract",
+      "Dependency Review / Dependency Review"
+    ],
+    "lockfile": [
+      "Quality Gate / Production Summary",
+      "Quality Gate / Fast Backend DAG",
+      "Quality Gate / Fast Frontend Unit DAG",
+      "Quality Gate / Coverage Merge Threshold",
+      "Quality Gate / Security Runtime",
+      "Dependency Review / Dependency Review"
     ]
+  },
+  "branchProtection": {
+    "strict": true,
+    "contexts": [
+      "Change Contract / Change Contract",
+      "Quality Gate / Production Summary",
+      "Quality Gate / Validate Test Matrix",
+      "Quality Gate / Fast Backend DAG",
+      "Quality Gate / Fast Frontend Unit DAG",
+      "Quality Gate / Fast Static Governance",
+      "Quality Gate / Coverage Merge Threshold",
+      "Quality Gate / Security Runtime",
+      "Quality Gate / Release Evidence",
+      "Dependency Review / Dependency Review",
+      "CodeQL / Analyze (csharp)",
+      "CodeQL / Analyze (javascript-typescript)",
+      "OpenSSF Scorecard / Scorecard"
+    ]
+  },
+  "groups": [
+    {
+      "id": "frontend-runtime",
+      "surfaces": [
+        "FsusUI",
+        "frontend-runtime"
+      ],
+      "checksByUpdateType": {
+        "major": "full-pr",
+        "minor": "frontend-patch",
+        "patch": "frontend-patch",
+        "digest": "digest-release",
+        "lockFileMaintenance": "lockfile"
+      }
+    },
+    {
+      "id": "frontend-vue-toolchain",
+      "surfaces": [
+        "Vue/Vite"
+      ],
+      "checksByUpdateType": {
+        "major": "full-pr",
+        "minor": "frontend-patch",
+        "patch": "frontend-patch",
+        "digest": "digest-release",
+        "lockFileMaintenance": "lockfile"
+      }
+    },
+    {
+      "id": "frontend-test-tooling",
+      "surfaces": [
+        "toolchain"
+      ],
+      "checksByUpdateType": {
+        "major": "full-pr",
+        "minor": "frontend-patch",
+        "patch": "frontend-patch",
+        "digest": "digest-release",
+        "lockFileMaintenance": "lockfile"
+      }
+    },
+    {
+      "id": "dotnet-platform",
+      "surfaces": [
+        "Docker/.NET"
+      ],
+      "checksByUpdateType": {
+        "major": "full-pr",
+        "minor": "backend-patch",
+        "patch": "backend-patch",
+        "digest": "digest-release",
+        "lockFileMaintenance": "lockfile"
+      }
+    },
+    {
+      "id": "dotnet-runtime",
+      "surfaces": [
+        "Docker/.NET"
+      ],
+      "checksByUpdateType": {
+        "major": "full-pr",
+        "minor": "backend-patch",
+        "patch": "backend-patch",
+        "digest": "digest-release",
+        "lockFileMaintenance": "lockfile"
+      }
+    },
+    {
+      "id": "identity-security",
+      "surfaces": [
+        "security"
+      ],
+      "checksByUpdateType": {
+        "major": "full-pr",
+        "minor": "security-patch",
+        "patch": "security-patch",
+        "digest": "digest-release",
+        "lockFileMaintenance": "lockfile"
+      }
+    },
+    {
+      "id": "data-observability",
+      "surfaces": [
+        "database",
+        "telemetry"
+      ],
+      "checksByUpdateType": {
+        "major": "full-pr",
+        "minor": "backend-patch",
+        "patch": "backend-patch",
+        "digest": "digest-release",
+        "lockFileMaintenance": "lockfile"
+      }
+    },
+    {
+      "id": "dotnet-test-tooling",
+      "surfaces": [
+        "toolchain"
+      ],
+      "checksByUpdateType": {
+        "major": "full-pr",
+        "minor": "backend-patch",
+        "patch": "backend-patch",
+        "digest": "digest-release",
+        "lockFileMaintenance": "lockfile"
+      }
+    },
+    {
+      "id": "container-toolchain",
+      "surfaces": [
+        "Docker/.NET",
+        "toolchain"
+      ],
+      "checksByUpdateType": {
+        "major": "full-pr",
+        "minor": "container-patch",
+        "patch": "container-patch",
+        "digest": "digest-release",
+        "lockFileMaintenance": "lockfile"
+      }
+    },
+    {
+      "id": "vcpkg-baseline",
+      "surfaces": [
+        "toolchain"
+      ],
+      "checksByUpdateType": {
+        "major": "full-pr",
+        "minor": "container-patch",
+        "patch": "container-patch",
+        "digest": "digest-release",
+        "lockFileMaintenance": "lockfile"
+      }
+    },
+    {
+      "id": "github-actions",
+      "surfaces": [
+        "Actions"
+      ],
+      "checksByUpdateType": {
+        "major": "full-pr",
+        "minor": "actions-patch",
+        "patch": "actions-patch",
+        "digest": "digest-release",
+        "lockFileMaintenance": "lockfile"
+      }
+    },
+    {
+      "id": "fsusui-release-train",
+      "surfaces": [
+        "FsusUI"
+      ],
+      "checksByUpdateType": {
+        "major": "full-pr",
+        "minor": "frontend-patch",
+        "patch": "frontend-patch",
+        "digest": "digest-release",
+        "lockFileMaintenance": "lockfile"
+      }
+    },
+    {
+      "id": "lockfile-maintenance",
+      "surfaces": [
+        "lockfile-maintenance"
+      ],
+      "checksByUpdateType": {
+        "major": "lockfile",
+        "minor": "lockfile",
+        "patch": "lockfile",
+        "digest": "lockfile",
+        "lockFileMaintenance": "lockfile"
+      }
+    }
+  ]
 }

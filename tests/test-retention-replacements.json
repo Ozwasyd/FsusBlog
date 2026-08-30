@@ -6029,6 +6029,16 @@
             "reason": "The in-test semaphore model is replaced by the real production verifier and a passive backend probe, with barrier-started calls proving configured backend in-flight limits, queued completion, slot release, configuration bounds, singleton DI sharing and exact public-input forwarding."
         },
         {
+            "id": "xunit:tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs#FsusBlog.Server.Tests.Unit.AnonymousPrivacyConcurrencyTests.CommentSubmitHighConcurrency_CacheInvalidationIsNonBlocking#case-0000",
+            "path": "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/CommentMutationOutboxAnonymousPostgresTests.cs#FsusBlog.Server.Tests.Unit.CommentMutationOutboxAnonymousPostgresTests.StrongAnonymousSubmission_OutboxCommitFailureRollsBackAllAuthoritativeRows#case-0000",
+                "xunit:tests/backend/Unit/CommentMutationOutboxAnonymousPostgresTests.cs#FsusBlog.Server.Tests.Unit.CommentMutationOutboxAnonymousPostgresTests.StrongAnonymousSubmission_WorkerRetryAndRestartPreserveCommittedCommentAndCheckpoints#case-0000",
+                "xunit:tests/backend/Unit/CommentMutationOutboxAnonymousPostgresTests.cs#FsusBlog.Server.Tests.Unit.CommentMutationOutboxAnonymousPostgresTests.StrongAnonymousSubmissions_CommitBeforeBlockedOutboxInvalidationAndDeliverExactlyOnce#case-0000"
+            ],
+            "reason": "The in-test ID generator and TaskCompletionSource bag are replaced by real concurrent strong-anonymous PostgreSQL transactions, durable comment outbox rows and the production worker, proving request completion before blocked cache delivery, atomic rollback, restart recovery and exact completed checkpoints."
+        },
+        {
             "id": "xunit:tests/backend/Unit/AnonymousPrivacyMatrixTests.cs#AnonymousPrivacyMatrixTests.PrivacyZkBackendGate_CoversRevocationAccumulatorAndWitnessTests",
             "path": "tests/backend/Unit/AnonymousPrivacyMatrixTests.cs",
             "replacementTestIds": [

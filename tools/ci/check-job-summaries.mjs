@@ -4,12 +4,16 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
+import {
+  EVIDENCE_TRANSPORT_MANIFEST_ENV,
+  listTransportedArchiveFiles
+} from '../test/current-run-evidence-transport.mjs'
+
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const releaseEvidenceRoot = path.resolve(process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR
   ?? path.join(root, '.tmp/release-evidence'))
 const summariesDir = path.join(releaseEvidenceRoot, 'jobs')
 const planFile = path.join(releaseEvidenceRoot, 'test-plan.json')
-const downloadedArtifactsDir = path.join(root, '.tmp/downloaded-artifacts')
 const allowedFailureStages = ['setup', 'restore', 'install', 'bootstrap', 'test', 'artifact', 'summary']
 const releaseBrowsers = ['chromium', 'firefox', 'webkit']
 const jobResultSchema = 'fsusblog.ci.job-result.v1'
@@ -38,28 +42,24 @@ function readJson(file) {
 }
 
 function listSummaryFiles() {
+  const transport = String(process.env[EVIDENCE_TRANSPORT_MANIFEST_ENV] ?? '').trim()
+  if (transport) {
+    return listTransportedArchiveFiles({
+      repositoryRoot: root,
+      transportManifestPath: transport,
+      authorityId: 'evidence-consumer.ci.check-job-summaries.current-run'
+    })
+  }
+  const explicit = String(process.env.FSUSBLOG_QUALITY_GATE_JOB_SUMMARIES ?? '').trim()
+  if (explicit) {
+    return JSON.parse(explicit).map((file) => path.resolve(root, file)).sort()
+  }
   const files = []
   if (fs.existsSync(summariesDir)) {
     files.push(...fs.readdirSync(summariesDir)
       .filter((name) => name.endsWith('.json'))
       .map((name) => path.join(summariesDir, name)))
   }
-
-  if (fs.existsSync(downloadedArtifactsDir)) {
-    const stack = [downloadedArtifactsDir]
-    while (stack.length > 0) {
-      const current = stack.pop()
-      for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
-        const file = path.join(current, entry.name)
-        if (entry.isDirectory()) {
-          stack.push(file)
-        } else if (entry.name.endsWith('.json') && file.includes(`${path.sep}release-evidence${path.sep}jobs${path.sep}`)) {
-          files.push(file)
-        }
-      }
-    }
-  }
-
   return [...new Set(files)].sort()
 }
 

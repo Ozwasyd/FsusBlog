@@ -74,12 +74,11 @@ public static class OnlineSchemaCompatibilityEvaluator
     public static OnlineSchemaCompatibilityReport Evaluate(
         OnlineSchemaReleaseManifest release,
         OnlineSchemaDatabaseSnapshot database,
-        IReadOnlyList<ISchemaMigrationDescriptor> descriptors,
         IReadOnlyDictionary<string, OnlineSchemaMigrationMetadata> metadata)
     {
         var issues = new List<OnlineSchemaCompatibilityIssue>();
 
-        OnlineSchemaMigrationPolicyReport policy = OnlineSchemaMigrationPolicy.Validate(descriptors, metadata);
+        OnlineSchemaMigrationPolicyReport policy = OnlineSchemaMigrationPolicy.Validate(metadata);
         foreach (OnlineSchemaMigrationPolicyViolation violation in policy.Violations)
         {
             issues.Add(new(
@@ -96,11 +95,6 @@ public static class OnlineSchemaCompatibilityEvaluator
                 OnlineSchemaCompatibilitySeverity.Error,
                 Detail: "Schema history is not available; serve cannot mutate or guess a baseline."));
         }
-
-        Dictionary<string, ISchemaMigrationDescriptor> descriptorById = descriptors
-            .GroupBy(static descriptor => descriptor.MigrationId, StringComparer.Ordinal)
-            .Where(static group => group.Count() == 1)
-            .ToDictionary(static group => group.Key, static group => group.Single(), StringComparer.Ordinal);
 
         var appliedIds = new HashSet<string>(StringComparer.Ordinal);
         foreach (IGrouping<string, OnlineSchemaMigrationHistorySnapshot> group in database.History
@@ -126,16 +120,6 @@ public static class OnlineSchemaCompatibilityEvaluator
                     applied.MigrationId,
                     "AppliedByRelease must contain a canonical deployable ReleaseId."));
             }
-            if (!descriptorById.TryGetValue(applied.MigrationId, out ISchemaMigrationDescriptor? descriptor))
-            {
-                issues.Add(new(
-                    "schema_history_unknown",
-                    OnlineSchemaCompatibilitySeverity.Error,
-                    applied.MigrationId,
-                    "The database contains a migration unknown to this release."));
-                continue;
-            }
-
             if (!applied.Succeeded)
             {
                 issues.Add(new(
@@ -143,15 +127,6 @@ public static class OnlineSchemaCompatibilityEvaluator
                     OnlineSchemaCompatibilitySeverity.Error,
                     applied.MigrationId,
                     "A recorded migration did not complete successfully."));
-            }
-
-            if (!descriptor.AcceptedChecksums.Contains(applied.Checksum))
-            {
-                issues.Add(new(
-                    "schema_history_checksum_mismatch",
-                    OnlineSchemaCompatibilitySeverity.Error,
-                    applied.MigrationId,
-                    "The applied checksum is not accepted by this release."));
             }
         }
 

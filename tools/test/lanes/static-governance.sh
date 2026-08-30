@@ -10,6 +10,13 @@ StaticImplementationDrift() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/chec
 StaticCurrentSchemaAuthority() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/db/check-current-schema-authority.mjs"
     Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/current-schema-authority.test.mjs"
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/db/generate-migration-assembly-receipt.mjs"
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/db/check-migration-assembly-boundary.mjs"
+    Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/migration-assembly-boundary.test.mjs"
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/db/check-server-migration-cutover.mjs"
+    Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/server-migration-cutover.test.mjs"
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/db/check-migration-terminal-governance.mjs"
+    Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/migration-terminal-governance.test.mjs"
 }
 StaticPerceptionCharacterV3Cutover() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/contracts/generate-perception-character-v3-release-target.mjs" --check
@@ -30,11 +37,11 @@ StaticTestReplacementDiff() {
     local base="${FSUSBLOG_TEST_REPLACEMENT_DIFF_BASE:-origin/master}"
     local transactions=()
     mapfile -t transactions < <(git -C "$ROOT_DIR" diff --name-only "$base" HEAD -- 'tests/test-replacement-transactions/*.json')
-    if (( ${#transactions[@]} > 1 )); then
+    if ((${#transactions[@]} > 1)); then
         echo "[test-replacement] multiple current transactions are ambiguous: ${transactions[*]}" >&2
         return 1
     fi
-    if (( ${#transactions[@]} == 1 )); then
+    if ((${#transactions[@]} == 1)); then
         Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test-replacement-transaction.mjs" check-diff "$base" "${transactions[0]}"
     else
         Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test-replacement-transaction.mjs" check-diff "$base"
@@ -72,6 +79,16 @@ StaticCentralPackageManagement() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-central-package-management.mjs" --root "$ROOT_DIR"
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-central-package-management.mjs" \
         --fixtures "$ROOT_DIR/tests/fixtures/governance/central-package-management.json"
+}
+StaticDependencyUpdateSurface() {
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-dependency-update-surface.mjs" \
+        --root "$ROOT_DIR" \
+        --fixtures "$ROOT_DIR/tests/fixtures/governance/dependency-update-surface.json"
+}
+StaticDependencyFreshness() {
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-dependency-freshness.mjs" \
+        --root "$ROOT_DIR" \
+        --fixtures "$ROOT_DIR/tests/fixtures/governance/dependency-freshness.json"
 }
 StaticDependencyRequiredChecks() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-dependency-required-checks.mjs" --root "$ROOT_DIR"
@@ -153,6 +170,8 @@ RunApplicationStaticPrechecksPhase() {
         behavior-mutation-governance StaticBehaviorMutationGovernance \
         fixture-mutation-recovery-governance StaticFixtureMutationRecoveryGovernance \
         central-package-management StaticCentralPackageManagement \
+        dependency-update-surface StaticDependencyUpdateSurface \
+        dependency-freshness StaticDependencyFreshness \
         dependency-required-checks StaticDependencyRequiredChecks \
         dependency-automerge StaticDependencyAutomerge \
         line-endings StaticLineEndings \

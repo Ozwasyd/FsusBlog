@@ -28,7 +28,7 @@
             "codeEvidence": [
                 "src/backend/Modules/Endpoints/SubscriptionEndpoints.cs",
                 "src/backend/Services/Subscriptions/SiteSubscriptionProofService.cs",
-                "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs#20260709-post-site-subscription-hmac-finalize",
+                "src/migration/SchemaMigrationRegistry.cs#20260709-post-site-subscription-hmac-finalize",
                 "tests/backend/Integration/SchemaMigrationIntegrationTests.cs#RunAsync_FinalizesLegacySiteSubscriptionHashes",
                 "tests/backend/Unit/SubscriptionEndpointsContractTests.cs#SubscribeAsync_RepeatedCurrentHmacSubscriptionPersistsOneEnabledRowWithoutLegacyHash",
                 "tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs#A3_2_SubscriptionRuntimeUsesOnlyCurrentHmacIdentity"
@@ -106,9 +106,9 @@
             "codeState": "retired",
             "runtimeSurface": "manual-clear-legacy-public-artifacts-action",
             "codeEvidence": [
-                "src/backend/Infrastructure/SchemaMigration/SchemaMigrationPrimitives.cs#ClearLegacyPublicArtifactsStep",
+                "src/migration/SchemaMigrationPrimitives.cs#ClearLegacyPublicArtifactsStep",
                 "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs",
-                "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs#20260709-post-clear-legacy-public-artifacts",
+                "src/migration/SchemaMigrationRegistry.cs#20260709-post-clear-legacy-public-artifacts",
                 "src/backend/Infrastructure/Operations/AdminOperationsService.cs",
                 "tests/backend/Unit/SchemaMigrationRegistryTests.cs#GetDescriptors_ClearLegacyPublicArtifacts_RunsAsOneTimeMigrationStep",
                 "tests/backend/Unit/PublicContentInvalidationFlowTests.cs#AdminCacheAction_ExposesOnlyRuntimeArticleDetailAedsV3Actions",

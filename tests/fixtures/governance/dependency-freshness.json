@@ -1,0 +1,770 @@
+{
+    "schema": "fsusblog.dependency-freshness-fixtures.v1",
+    "evidenceClass": "local-controlled-simulation",
+    "now": "2026-08-30T12:00:00.000Z",
+    "cases": [
+        {
+            "id": "accept-current",
+            "catalog": {
+                "schema": "fsusblog.dependency-update-surface.v1",
+                "items": [
+                    {
+                        "id": "npm-vue-frontend",
+                        "datasource": "npm",
+                        "packageName": "vue",
+                        "manager": "npm",
+                        "files": ["src/frontend/package.json"],
+                        "versioning": "npm",
+                        "group": "frontend-vue-toolchain",
+                        "stabilityPolicy": "stable-only",
+                        "fieldPaths": ["/dependencies/vue"]
+                    }
+                ],
+                "exclusions": []
+            },
+            "currentVersions": {
+                "npm-vue-frontend": { "currentVersion": "3.5.33", "datasource": "npm", "packageName": "vue" }
+            },
+            "registries": {
+                "npm": {
+                    "vue": { "latestStable": "3.5.33", "releasedAt": "2026-08-01T00:00:00.000Z" }
+                }
+            },
+            "expectedStatus": "pass",
+            "expected": {
+                "npm-vue-frontend": { "state": "current" }
+            }
+        },
+        {
+            "id": "accept-latest-target-pr",
+            "catalog": {
+                "schema": "fsusblog.dependency-update-surface.v1",
+                "items": [
+                    {
+                        "id": "npm-vue-frontend",
+                        "datasource": "npm",
+                        "packageName": "vue",
+                        "manager": "npm",
+                        "files": ["src/frontend/package.json"],
+                        "versioning": "npm",
+                        "group": "frontend-vue-toolchain",
+                        "stabilityPolicy": "stable-only",
+                        "fieldPaths": ["/dependencies/vue"]
+                    }
+                ],
+                "exclusions": []
+            },
+            "currentVersions": {
+                "npm-vue-frontend": { "currentVersion": "3.5.33", "datasource": "npm", "packageName": "vue" }
+            },
+            "registries": {
+                "npm": {
+                    "vue": { "latestStable": "3.6.0", "releasedAt": "2026-08-20T00:00:00.000Z" }
+                }
+            },
+            "pullRequests": [
+                {
+                    "number": 3100,
+                    "state": "open",
+                    "dependencyId": "npm-vue-frontend",
+                    "packageName": "vue",
+                    "group": "frontend-vue-toolchain",
+                    "targetVersion": "3.6.0"
+                }
+            ],
+            "expectedStatus": "pass",
+            "expected": {
+                "npm-vue-frontend": { "state": "latest-target-pr" }
+            }
+        },
+        {
+            "id": "accept-valid-exception",
+            "catalog": {
+                "schema": "fsusblog.dependency-update-surface.v1",
+                "items": [
+                    {
+                        "id": "npm-vue-frontend",
+                        "datasource": "npm",
+                        "packageName": "vue",
+                        "manager": "npm",
+                        "files": ["src/frontend/package.json"],
+                        "versioning": "npm",
+                        "group": "frontend-vue-toolchain",
+                        "stabilityPolicy": "stable-only",
+                        "fieldPaths": ["/dependencies/vue"]
+                    }
+                ],
+                "exclusions": []
+            },
+            "currentVersions": {
+                "npm-vue-frontend": { "currentVersion": "3.5.33", "datasource": "npm", "packageName": "vue" }
+            },
+            "registries": {
+                "npm": {
+                    "vue": { "latestStable": "3.6.0", "releasedAt": "2026-08-20T00:00:00.000Z" }
+                }
+            },
+            "exceptions": {
+                "schema": "fsusblog.dependency-exceptions.v1",
+                "exceptions": [
+                    {
+                        "id": "vue-renderer-cutover",
+                        "dependencyId": "npm-vue-frontend",
+                        "datasource": "npm",
+                        "packageName": "vue",
+                        "currentVersion": "3.5.33",
+                        "targetVersion": "3.6.0",
+                        "reason": "Known renderer ABI break requires a coordinated Public AOT replay; tracked with issue evidence.",
+                        "evidencePath": "docs/repository-governance.md",
+                        "owner": "frontend",
+                        "createdAt": "2026-08-20T00:00:00.000Z",
+                        "expiresAt": "2026-09-03T00:00:00.000Z",
+                        "kind": "general"
+                    }
+                ]
+            },
+            "expectedStatus": "pass",
+            "expected": {
+                "npm-vue-frontend": { "state": "exception" }
+            }
+        },
+        {
+            "id": "accept-delegated-fsusui-current",
+            "mustEnumerate": ["fsusui-baseline"],
+            "catalog": {
+                "schema": "fsusblog.dependency-update-surface.v1",
+                "items": [
+                    {
+                        "id": "fsusui-baseline",
+                        "datasource": "git-refs",
+                        "packageName": "https://github.com/Ozwasyd/FsusUI.git",
+                        "manager": "delegated",
+                        "customManager": "fsusui-release-train",
+                        "files": ["config/testing/fsusui-baseline.json"],
+                        "versioning": "git",
+                        "group": "fsusui-release-train",
+                        "stabilityPolicy": "rolling-default-branch"
+                    }
+                ],
+                "exclusions": []
+            },
+            "currentVersions": {
+                "fsusui-baseline": {
+                    "currentVersion": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "datasource": "git-refs",
+                    "packageName": "https://github.com/Ozwasyd/FsusUI.git"
+                }
+            },
+            "registries": {
+                "git-refs": {
+                    "https://github.com/Ozwasyd/FsusUI.git": {
+                        "latestStable": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "releasedAt": "2026-08-29T00:00:00.000Z"
+                    }
+                }
+            },
+            "expectedStatus": "pass",
+            "expected": {
+                "fsusui-baseline": { "state": "current" }
+            }
+        },
+        {
+            "id": "accept-repository-catalog-current-simulation",
+            "useRepositoryCatalog": true,
+            "expectedStatus": "pass"
+        },
+        {
+            "id": "reject-expired-general-exception",
+            "catalog": {
+                "schema": "fsusblog.dependency-update-surface.v1",
+                "items": [
+                    {
+                        "id": "npm-vue-frontend",
+                        "datasource": "npm",
+                        "packageName": "vue",
+                        "manager": "npm",
+                        "files": ["src/frontend/package.json"],
+                        "versioning": "npm",
+                        "group": "frontend-vue-toolchain",
+                        "stabilityPolicy": "stable-only",
+                        "fieldPaths": ["/dependencies/vue"]
+                    }
+                ],
+                "exclusions": []
+            },
+            "currentVersions": {
+                "npm-vue-frontend": { "currentVersion": "3.5.33", "datasource": "npm", "packageName": "vue" }
+            },
+            "registries": {
+                "npm": {
+                    "vue": { "latestStable": "3.6.0", "releasedAt": "2026-08-01T00:00:00.000Z" }
+                }
+            },
+            "exceptions": {
+                "schema": "fsusblog.dependency-exceptions.v1",
+                "exceptions": [
+                    {
+                        "id": "vue-expired",
+                        "dependencyId": "npm-vue-frontend",
+                        "datasource": "npm",
+                        "packageName": "vue",
+                        "currentVersion": "3.5.33",
+                        "targetVersion": "3.6.0",
+                        "reason": "Known renderer ABI break required a coordinated Public AOT replay.",
+                        "evidencePath": "docs/repository-governance.md",
+                        "owner": "frontend",
+                        "createdAt": "2026-08-01T00:00:00.000Z",
+                        "expiresAt": "2026-08-15T00:00:00.000Z",
+                        "kind": "general"
+                    }
+                ]
+            },
+            "expectedStatus": "fail",
+            "expectedCode": "behind-over-24h"
+        },
+        {
+            "id": "reject-general-exception-over-14-days",
+            "catalog": {
+                "schema": "fsusblog.dependency-update-surface.v1",
+                "items": [
+                    {
+                        "id": "npm-vue-frontend",
+                        "datasource": "npm",
+                        "packageName": "vue",
+                        "manager": "npm",
+                        "files": ["src/frontend/package.json"],
+                        "versioning": "npm",
+                        "group": "frontend-vue-toolchain",
+                        "stabilityPolicy": "stable-only",
+                        "fieldPaths": ["/dependencies/vue"]
+                    }
+                ],
+                "exclusions": []
+            },
+            "currentVersions": {
+                "npm-vue-frontend": { "currentVersion": "3.5.33", "datasource": "npm", "packageName": "vue" }
+            },
+            "registries": {
+                "npm": {
+                    "vue": { "latestStable": "3.6.0", "releasedAt": "2026-08-20T00:00:00.000Z" }
+                }
+            },
+            "exceptions": {
+                "schema": "fsusblog.dependency-exceptions.v1",
+                "exceptions": [
+                    {
+                        "id": "vue-too-long",
+                        "dependencyId": "npm-vue-frontend",
+                        "datasource": "npm",
+                        "packageName": "vue",
+                        "currentVersion": "3.5.33",
+                        "targetVersion": "3.6.0",
+                        "reason": "Known renderer ABI break requires a coordinated Public AOT replay.",
+                        "evidencePath": "docs/repository-governance.md",
+                        "owner": "frontend",
+                        "createdAt": "2026-08-01T00:00:00.000Z",
+                        "expiresAt": "2026-08-20T00:00:00.000Z",
+                        "kind": "general"
+                    }
+                ]
+            },
+            "expectedStatus": "fail",
+            "expectedCode": "exception-ttl"
+        },
+        {
+            "id": "reject-vulnerability-exception-over-72-hours",
+            "catalog": {
+                "schema": "fsusblog.dependency-update-surface.v1",
+                "items": [
+                    {
+                        "id": "npm-vue-frontend",
+                        "datasource": "npm",
+                        "packageName": "vue",
+                        "manager": "npm",
+                        "files": ["src/frontend/package.json"],
+                        "versioning": "npm",
+                        "group": "frontend-vue-toolchain",
+                        "stabilityPolicy": "stable-only",
+                        "fieldPaths": ["/dependencies/vue"]
+                    }
+                ],
+                "exclusions": []
+            },
+            "currentVersions": {
+                "npm-vue-frontend": { "currentVersion": "3.5.33", "datasource": "npm", "packageName": "vue" }
+            },
+            "registries": {
+                "npm": {
+                    "vue": { "latestStable": "3.6.0", "releasedAt": "2026-08-29T00:00:00.000Z" }
+                }
+            },
+            "exceptions": {
+                "schema": "fsusblog.dependency-exceptions.v1",
+                "exceptions": [
+                    {
+                        "id": "vue-vuln-too-long",
+                        "dependencyId": "npm-vue-frontend",
+                        "datasource": "npm",
+                        "packageName": "vue",
+                        "currentVersion": "3.5.33",
+                        "targetVersion": "3.6.0",
+                        "reason": "CVE-2026-0001 requires a coordinated frontend renderer cutover.",
+                        "evidenceUrl": "https://github.com/Ozwasyd/FsusBlog/issues/1979",
+                        "owner": "frontend",
+                        "createdAt": "2026-08-26T00:00:00.000Z",
+                        "expiresAt": "2026-08-30T00:00:00.000Z",
+                        "kind": "vulnerability"
+                    }
+                ]
+            },
+            "expectedStatus": "fail",
+            "expectedCode": "exception-ttl"
+        },
+        {
+            "id": "reject-missing-target-version",
+            "catalog": {
+                "schema": "fsusblog.dependency-update-surface.v1",
+                "items": [
+                    {
+                        "id": "npm-vue-frontend",
+                        "datasource": "npm",
+                        "packageName": "vue",
+                        "manager": "npm",
+                        "files": ["src/frontend/package.json"],
+                        "versioning": "npm",
+                        "group": "frontend-vue-toolchain",
+                        "stabilityPolicy": "stable-only",
+                        "fieldPaths": ["/dependencies/vue"]
+                    }
+                ],
+                "exclusions": []
+            },
+            "currentVersions": {
+                "npm-vue-frontend": { "currentVersion": "3.5.33", "datasource": "npm", "packageName": "vue" }
+            },
+            "registries": {
+                "npm": {
+                    "vue": { "latestStable": "3.6.0", "releasedAt": "2026-08-29T00:00:00.000Z" }
+                }
+            },
+            "exceptions": {
+                "schema": "fsusblog.dependency-exceptions.v1",
+                "exceptions": [
+                    {
+                        "id": "vue-missing-target",
+                        "dependencyId": "npm-vue-frontend",
+                        "datasource": "npm",
+                        "packageName": "vue",
+                        "currentVersion": "3.5.33",
+                        "targetVersion": "",
+                        "reason": "Known renderer ABI break requires a coordinated Public AOT replay.",
+                        "evidencePath": "docs/repository-governance.md",
+                        "owner": "frontend",
+                        "createdAt": "2026-08-29T00:00:00.000Z",
+                        "expiresAt": "2026-09-12T00:00:00.000Z",
+                        "kind": "general"
+                    }
+                ]
+            },
+            "expectedStatus": "fail",
+            "expectedCode": "exception-target-missing"
+        },
+        {
+            "id": "reject-stale-target-version",
+            "catalog": {
+                "schema": "fsusblog.dependency-update-surface.v1",
+                "items": [
+                    {
+                        "id": "npm-vue-frontend",
+                        "datasource": "npm",
+                        "packageName": "vue",
+                        "manager": "npm",
+                        "files": ["src/frontend/package.json"],
+                        "versioning": "npm",
+                        "group": "frontend-vue-toolchain",
+                        "stabilityPolicy": "stable-only",
+                        "fieldPaths": ["/dependencies/vue"]
+                    }
+                ],
+                "exclusions": []
+            },
+            "currentVersions": {
+                "npm-vue-frontend": { "currentVersion": "3.5.33", "datasource": "npm", "packageName": "vue" }
+            },
+            "registries": {
+                "npm": {
+                    "vue": { "latestStable": "3.7.0", "releasedAt": "2026-08-20T00:00:00.000Z" }
+                }
+            },
+            "exceptions": {
+                "schema": "fsusblog.dependency-exceptions.v1",
+                "exceptions": [
+                    {
+                        "id": "vue-stale-target",
+                        "dependencyId": "npm-vue-frontend",
+                        "datasource": "npm",
+                        "packageName": "vue",
+                        "currentVersion": "3.5.33",
+                        "targetVersion": "3.6.0",
+                        "reason": "Known renderer ABI break requires a coordinated Public AOT replay.",
+                        "evidencePath": "docs/repository-governance.md",
+                        "owner": "frontend",
+                        "createdAt": "2026-08-20T00:00:00.000Z",
+                        "expiresAt": "2026-09-03T00:00:00.000Z",
+                        "kind": "general"
+                    }
+                ]
+            },
+            "expectedStatus": "fail",
+            "expectedCode": "exception-target-stale"
+        },
+        {
+            "id": "reject-wildcard-exception",
+            "catalog": {
+                "schema": "fsusblog.dependency-update-surface.v1",
+                "items": [
+                    {
+                        "id": "npm-vue-frontend",
+                        "datasource": "npm",
+                        "packageName": "vue",
+                        "manager": "npm",
+                        "files": ["src/frontend/package.json"],
+                        "versioning": "npm",
+                        "group": "frontend-vue-toolchain",
+                        "stabilityPolicy": "stable-only",
+                        "fieldPaths": ["/dependencies/vue"]
+                    }
+                ],
+                "exclusions": []
+            },
+            "currentVersions": {
+                "npm-vue-frontend": { "currentVersion": "3.5.33", "datasource": "npm", "packageName": "vue" }
+            },
+            "registries": {
+                "npm": {
+                    "vue": { "latestStable": "3.6.0", "releasedAt": "2026-08-20T00:00:00.000Z" }
+                }
+            },
+            "exceptions": {
+                "schema": "fsusblog.dependency-exceptions.v1",
+                "exceptions": [
+                    {
+                        "id": "vue-wildcard",
+                        "dependencyId": "npm-*",
+                        "datasource": "npm",
+                        "packageName": "vue",
+                        "currentVersion": "3.5.33",
+                        "targetVersion": "3.6.0",
+                        "reason": "Known renderer ABI break requires a coordinated Public AOT replay.",
+                        "evidencePath": "docs/repository-governance.md",
+                        "owner": "frontend",
+                        "createdAt": "2026-08-20T00:00:00.000Z",
+                        "expiresAt": "2026-09-03T00:00:00.000Z",
+                        "kind": "general"
+                    }
+                ]
+            },
+            "expectedStatus": "fail",
+            "expectedCode": "exception-wildcard"
+        },
+        {
+            "id": "reject-group-exception",
+            "catalog": {
+                "schema": "fsusblog.dependency-update-surface.v1",
+                "items": [
+                    {
+                        "id": "npm-vue-frontend",
+                        "datasource": "npm",
+                        "packageName": "vue",
+                        "manager": "npm",
+                        "files": ["src/frontend/package.json"],
+                        "versioning": "npm",
+                        "group": "frontend-vue-toolchain",
+                        "stabilityPolicy": "stable-only",
+                        "fieldPaths": ["/dependencies/vue"]
+                    }
+                ],
+                "exclusions": []
+            },
+            "currentVersions": {
+                "npm-vue-frontend": { "currentVersion": "3.5.33", "datasource": "npm", "packageName": "vue" }
+            },
+            "registries": {
+                "npm": {
+                    "vue": { "latestStable": "3.6.0", "releasedAt": "2026-08-20T00:00:00.000Z" }
+                }
+            },
+            "exceptions": {
+                "schema": "fsusblog.dependency-exceptions.v1",
+                "exceptions": [
+                    {
+                        "id": "vue-group",
+                        "dependencyId": "npm-vue-frontend",
+                        "datasource": "npm",
+                        "packageName": "vue",
+                        "currentVersion": "3.5.33",
+                        "targetVersion": "3.6.0",
+                        "reason": "Known renderer ABI break requires a coordinated Public AOT replay.",
+                        "evidencePath": "docs/repository-governance.md",
+                        "owner": "frontend",
+                        "createdAt": "2026-08-20T00:00:00.000Z",
+                        "expiresAt": "2026-09-03T00:00:00.000Z",
+                        "kind": "general",
+                        "group": "frontend-vue-toolchain"
+                    }
+                ]
+            },
+            "expectedStatus": "fail",
+            "expectedCode": "exception-wildcard"
+        },
+        {
+            "id": "reject-behind-without-pr-or-exception",
+            "catalog": {
+                "schema": "fsusblog.dependency-update-surface.v1",
+                "items": [
+                    {
+                        "id": "npm-vue-frontend",
+                        "datasource": "npm",
+                        "packageName": "vue",
+                        "manager": "npm",
+                        "files": ["src/frontend/package.json"],
+                        "versioning": "npm",
+                        "group": "frontend-vue-toolchain",
+                        "stabilityPolicy": "stable-only",
+                        "fieldPaths": ["/dependencies/vue"]
+                    }
+                ],
+                "exclusions": []
+            },
+            "currentVersions": {
+                "npm-vue-frontend": { "currentVersion": "3.5.33", "datasource": "npm", "packageName": "vue" }
+            },
+            "registries": {
+                "npm": {
+                    "vue": { "latestStable": "3.6.0", "releasedAt": "2026-08-29T12:00:00.000Z" }
+                }
+            },
+            "expectedStatus": "fail",
+            "expectedCode": "uncovered-behind"
+        },
+        {
+            "id": "reject-closed-pr-without-successor",
+            "catalog": {
+                "schema": "fsusblog.dependency-update-surface.v1",
+                "items": [
+                    {
+                        "id": "npm-vue-frontend",
+                        "datasource": "npm",
+                        "packageName": "vue",
+                        "manager": "npm",
+                        "files": ["src/frontend/package.json"],
+                        "versioning": "npm",
+                        "group": "frontend-vue-toolchain",
+                        "stabilityPolicy": "stable-only",
+                        "fieldPaths": ["/dependencies/vue"]
+                    }
+                ],
+                "exclusions": []
+            },
+            "currentVersions": {
+                "npm-vue-frontend": { "currentVersion": "3.5.33", "datasource": "npm", "packageName": "vue" }
+            },
+            "registries": {
+                "npm": {
+                    "vue": { "latestStable": "3.6.0", "releasedAt": "2026-08-20T00:00:00.000Z" }
+                }
+            },
+            "pullRequests": [
+                {
+                    "number": 3099,
+                    "state": "closed",
+                    "dependencyId": "npm-vue-frontend",
+                    "packageName": "vue",
+                    "group": "frontend-vue-toolchain",
+                    "targetVersion": "3.6.0"
+                }
+            ],
+            "expectedStatus": "fail",
+            "expectedCode": "pr-closed-without-successor"
+        },
+        {
+            "id": "reject-manager-missing",
+            "catalog": {
+                "schema": "fsusblog.dependency-update-surface.v1",
+                "items": [
+                    {
+                        "id": "npm-vue-frontend",
+                        "datasource": "npm",
+                        "packageName": "vue",
+                        "manager": "npm",
+                        "files": ["src/frontend/package.json"],
+                        "versioning": "npm",
+                        "group": "frontend-vue-toolchain",
+                        "stabilityPolicy": "stable-only",
+                        "fieldPaths": ["/dependencies/vue"]
+                    }
+                ],
+                "exclusions": []
+            },
+            "config": {
+                "automerge": false,
+                "enabledManagers": ["nuget"],
+                "packageRules": [
+                    { "matchUpdateTypes": ["major", "minor", "patch", "pin", "digest", "lockFileMaintenance"] }
+                ]
+            },
+            "currentVersions": {
+                "npm-vue-frontend": { "currentVersion": "3.5.33", "datasource": "npm", "packageName": "vue" }
+            },
+            "registries": {
+                "npm": {
+                    "vue": { "latestStable": "3.5.33", "releasedAt": "2026-08-01T00:00:00.000Z" }
+                }
+            },
+            "expectedStatus": "fail",
+            "expectedCode": "manager-missing"
+        },
+        {
+            "id": "reject-duplicate-manager-owner",
+            "catalog": {
+                "schema": "fsusblog.dependency-update-surface.v1",
+                "items": [
+                    {
+                        "id": "npm-vue-frontend",
+                        "datasource": "npm",
+                        "packageName": "vue",
+                        "manager": "npm",
+                        "files": ["src/frontend/package.json"],
+                        "versioning": "npm",
+                        "group": "frontend-vue-toolchain",
+                        "stabilityPolicy": "stable-only",
+                        "fieldPaths": ["/dependencies/vue"]
+                    },
+                    {
+                        "id": "npm-vue-frontend-duplicate",
+                        "datasource": "npm",
+                        "packageName": "vue",
+                        "manager": "npm",
+                        "files": ["src/frontend/package.json"],
+                        "versioning": "npm",
+                        "group": "frontend-vue-toolchain",
+                        "stabilityPolicy": "stable-only",
+                        "fieldPaths": ["/dependencies/vue"]
+                    }
+                ],
+                "exclusions": []
+            },
+            "currentVersions": {
+                "npm-vue-frontend": { "currentVersion": "3.5.33", "datasource": "npm", "packageName": "vue" },
+                "npm-vue-frontend-duplicate": { "currentVersion": "3.5.33", "datasource": "npm", "packageName": "vue" }
+            },
+            "registries": {
+                "npm": {
+                    "vue": { "latestStable": "3.5.33", "releasedAt": "2026-08-01T00:00:00.000Z" }
+                }
+            },
+            "expectedStatus": "fail",
+            "expectedCode": "manager-duplicate-owner"
+        },
+        {
+            "id": "reject-disabled-update-types",
+            "catalog": {
+                "schema": "fsusblog.dependency-update-surface.v1",
+                "items": [
+                    {
+                        "id": "npm-vue-frontend",
+                        "datasource": "npm",
+                        "packageName": "vue",
+                        "manager": "npm",
+                        "files": ["src/frontend/package.json"],
+                        "versioning": "npm",
+                        "group": "frontend-vue-toolchain",
+                        "stabilityPolicy": "stable-only",
+                        "fieldPaths": ["/dependencies/vue"]
+                    }
+                ],
+                "exclusions": []
+            },
+            "config": {
+                "automerge": false,
+                "packageRules": [
+                    { "matchUpdateTypes": ["patch"] }
+                ]
+            },
+            "currentVersions": {
+                "npm-vue-frontend": { "currentVersion": "3.5.33", "datasource": "npm", "packageName": "vue" }
+            },
+            "registries": {
+                "npm": {
+                    "vue": { "latestStable": "3.5.33", "releasedAt": "2026-08-01T00:00:00.000Z" }
+                }
+            },
+            "expectedStatus": "fail",
+            "expectedCode": "config-update-type"
+        },
+        {
+            "id": "reject-registry-network-error",
+            "networkError": true,
+            "catalog": {
+                "schema": "fsusblog.dependency-update-surface.v1",
+                "items": [
+                    {
+                        "id": "npm-vue-frontend",
+                        "datasource": "npm",
+                        "packageName": "vue",
+                        "manager": "npm",
+                        "files": ["src/frontend/package.json"],
+                        "versioning": "npm",
+                        "group": "frontend-vue-toolchain",
+                        "stabilityPolicy": "stable-only",
+                        "fieldPaths": ["/dependencies/vue"]
+                    }
+                ],
+                "exclusions": []
+            },
+            "currentVersions": {
+                "npm-vue-frontend": { "currentVersion": "3.5.33", "datasource": "npm", "packageName": "vue" }
+            },
+            "expectedStatus": "fail",
+            "expectedCode": "registry-network-error"
+        },
+        {
+            "id": "reject-delegated-behind-without-ignore",
+            "mustEnumerate": ["fsusui-baseline"],
+            "catalog": {
+                "schema": "fsusblog.dependency-update-surface.v1",
+                "items": [
+                    {
+                        "id": "fsusui-baseline",
+                        "datasource": "git-refs",
+                        "packageName": "https://github.com/Ozwasyd/FsusUI.git",
+                        "manager": "delegated",
+                        "customManager": "fsusui-release-train",
+                        "files": ["config/testing/fsusui-baseline.json"],
+                        "versioning": "git",
+                        "group": "fsusui-release-train",
+                        "stabilityPolicy": "rolling-default-branch"
+                    }
+                ],
+                "exclusions": []
+            },
+            "currentVersions": {
+                "fsusui-baseline": {
+                    "currentVersion": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "datasource": "git-refs",
+                    "packageName": "https://github.com/Ozwasyd/FsusUI.git"
+                }
+            },
+            "registries": {
+                "git-refs": {
+                    "https://github.com/Ozwasyd/FsusUI.git": {
+                        "latestStable": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                        "releasedAt": "2026-08-01T00:00:00.000Z"
+                    }
+                }
+            },
+            "expectedStatus": "fail",
+            "expectedCode": "behind-over-24h"
+        }
+    ]
+}
