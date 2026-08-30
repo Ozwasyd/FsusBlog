@@ -67,8 +67,8 @@ test('accepts the checked-in PostgreSQL collection manifest', () =>
     const result = runChecker(fixture.root);
 
     assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /collections=2 classes=86 estimatedCases=582/u);
-    assert.match(result.stdout, /SchemaMigrationPostgresCollectionA:222/u);
+    assert.match(result.stdout, /collections=2 classes=86 estimatedCases=584/u);
+    assert.match(result.stdout, /SchemaMigrationPostgresCollectionA:224/u);
     assert.match(result.stdout, /SchemaMigrationPostgresCollectionB:360/u);
 });
 
