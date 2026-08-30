@@ -159,6 +159,8 @@ test('rejects an untyped behavior reference and compatibility aliases', () => {
   try {
     writeFileSync(target, 'export const reference = { behaviorId: runtimeValue }\n')
     assert.throws(() => validateBehaviorReferences(loadCatalog()), /untyped or free-string/u)
+    writeFileSync(target, 'export const reference = { behaviorId: BehaviorId(runtimeValue) }\n')
+    assert.doesNotThrow(() => validateBehaviorReferences(loadCatalog()))
     writeFileSync(target, 'export const legacy_behavior_catalog = {}\n')
     assert.throws(() => validateBehaviorReferences(loadCatalog()), /compatibility surface/u)
   } finally { rmSync(target, { force: true }) }

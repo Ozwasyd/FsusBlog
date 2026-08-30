@@ -7,6 +7,7 @@ import test from 'node:test'
 
 import { digestValue } from '../../tools/fact-extractors/lib/canonicalize.mjs'
 import {
+    BehaviorId,
     acceptedClaimsSchema,
     loadPostRuntimeProducerRegistry,
     postRuntimeRegistrySchema,
@@ -380,7 +381,11 @@ function acceptedClaimsFixture(context)
         {
             for (const claimId of entry.claimIds)
             {
-                owners.set(claimId, { claimId, behaviorId: entry.behaviorId, scopeId: scope.scopeId })
+                owners.set(claimId, {
+                    claimId,
+                    behaviorId: BehaviorId(entry.behaviorId),
+                    scopeId: scope.scopeId
+                })
             }
         }
     }
