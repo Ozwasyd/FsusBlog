@@ -2,6 +2,14 @@
     "schema": "fsusblog.test-retention-replacements.v1",
     "deletedTests": [
         {
+            "id": "xunit:tests/backend/Unit/BackendPropertyTests.cs#BackendPropertyTests.UploadRangeProperty_NormalizesOverlapAndRequiresAllPartsForComplete",
+            "path": "tests/backend/Unit/BackendPropertyTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.UploadPartMapAndCompletion_TrackRealUploadedPartsAcrossGapsRetriesAndRestart"
+            ],
+            "reason": "The replacement drives persisted FileService upload sessions through real part-map, status, retry, restart, incomplete-completion and successful-completion behavior instead of normalizing arbitrary ranges with test-only helpers."
+        },
+        {
             "id": "node-script:tests/frontend/fixtures/ux-viewport-legacy/runtime/tests/frontend/support/fixture-paths.mjs",
             "path": "tests/frontend/fixtures/ux-viewport-legacy/runtime/tests/frontend/support/fixture-paths.mjs",
             "replacementTestIds": [

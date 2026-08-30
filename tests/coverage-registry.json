@@ -879,8 +879,8 @@
             ]
         },
         {
-            "id": "backend-property-protocol-cache-upload",
-            "description": "Backend Property Protocol Cache Upload is covered by unit/property tests that exercise the named behavior.",
+            "id": "backend-property-protocol-cache",
+            "description": "Backend protocol and cache properties are covered by unit/property tests that exercise the named behavior.",
             "owner": "ServerContractAgent",
             "risk": "high",
             "evidencePaths": [
@@ -891,6 +891,21 @@
             "minimumRequirement": "The referenced unit or property test evidence must execute assertions for this behavior, not merely prove that a source file exists.",
             "tierIds": [
                 "backend-property"
+            ]
+        },
+        {
+            "id": "backend-upload-range-completion",
+            "description": "Real FileService upload sessions expose exact uploaded-part ranges and lowest-gap hints, preserve them across retries and restart, reject incomplete completion without terminal side effects, and finalize a complete upload exactly once.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "tests/backend/Unit/FileServiceTests.cs"
+            ],
+            "assertionType": "unit",
+            "failClosedRule": "Reject unsorted, overlapping or duplicate ranges, a next-part hint other than the lowest missing part, incomplete finalization side effects, lost checkpoint state or duplicate completed results.",
+            "minimumRequirement": "The backend unit lane must drive FileService session initialization, real part uploads, part-map and status reads, incomplete completion, restart recovery and successful completion through public service methods.",
+            "tierIds": [
+                "backend-unit"
             ]
         },
         {
