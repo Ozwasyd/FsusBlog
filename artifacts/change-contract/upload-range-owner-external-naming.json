@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/backend/Fixtures/backend-test-requirements.json"
+            ],
+            "reason": "preserve serialized test-governance keys and caller-visible test identifiers while migrating the unique FileService owner"
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "tests/coverage-registry.json"
+            ],
+            "reason": "preserve the registered external coverage identifiers while replacing the synthetic upload-range owner"
+        }
+    ]
+}
