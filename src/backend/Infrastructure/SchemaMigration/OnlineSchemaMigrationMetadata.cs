@@ -2,7 +2,6 @@ using System.Collections.ObjectModel;
 using System.Text.RegularExpressions;
 
 using FsusBlog.Server.Infrastructure.Operations;
-using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 
 namespace FsusBlog.Server.Infrastructure.SchemaMigration;
 
@@ -370,7 +369,7 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ResumeTokenName: null,
                 IntroducedAtCoordinate: LegacyCoordinate("20260715-read-event-retirement"),
                 ContractAfterCoordinate: LegacyCoordinate("20260715-read-event-retirement-expand"),
-                MinimumRetentionWindow: TimeSpan.FromDays(DestructiveMigrationProofs.MinimumRollbackWindowDays),
+                MinimumRetentionWindow: TimeSpan.FromDays(30),
                 Validators:
                 [
                     "destructive_rollback_window_proof",
@@ -380,9 +379,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            AccountSubjectHashOnlineBackfillHandler.ExpandMigrationId,
+            "20260711-pre-account-subject-hash-expand",
             new OnlineSchemaMigrationMetadata(
-                AccountSubjectHashOnlineBackfillHandler.ExpandMigrationId,
+                "20260711-pre-account-subject-hash-expand",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -402,16 +401,16 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            AccountSubjectHashOnlineBackfillHandler.BackfillMigrationId,
+            "20260711-post-account-subject-hash-backfill",
             new OnlineSchemaMigrationMetadata(
-                AccountSubjectHashOnlineBackfillHandler.BackfillMigrationId,
+                "20260711-post-account-subject-hash-backfill",
                 OnlineSchemaMigrationPhase.Backfill,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
                 Destructive: false,
                 RollbackMode: OnlineSchemaMigrationRollbackMode.ResumeFromCheckpoint,
                 EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
-                BatchSize: AccountSubjectHashBackfillStep.BatchSize,
+                BatchSize: 256,
                 ResumeTokenName: "last_account_id",
                 IntroducedAtCoordinate: s_onlineProtocolCoordinate,
                 ContractAfterCoordinate: null,
@@ -445,9 +444,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            ArticleAssetReferenceMigrationDefinitions.MigrationId,
+            "20260719-post-article-asset-reference-ledger",
             new OnlineSchemaMigrationMetadata(
-                ArticleAssetReferenceMigrationDefinitions.MigrationId,
+                "20260719-post-article-asset-reference-ledger",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -509,9 +508,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            MessageMutationOutboxMigrationDefinitions.MigrationId,
+            "20260719-post-message-mutation-outbox",
             new OnlineSchemaMigrationMetadata(
-                MessageMutationOutboxMigrationDefinitions.MigrationId,
+                "20260719-post-message-mutation-outbox",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -531,9 +530,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            MessageMutationIdempotencyMigrationDefinitions.MigrationId,
+            "20260719-post-message-mutation-idempotency",
             new OnlineSchemaMigrationMetadata(
-                MessageMutationIdempotencyMigrationDefinitions.MigrationId,
+                "20260719-post-message-mutation-idempotency",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -553,9 +552,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            ConversationStatusAuditMigrationDefinitions.MigrationId,
+            "20260719-post-message-status-audit",
             new OnlineSchemaMigrationMetadata(
-                ConversationStatusAuditMigrationDefinitions.MigrationId,
+                "20260719-post-message-status-audit",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -575,9 +574,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            MessageUnreadAuthorityMigrationDefinitions.MigrationId,
+            "20260719-post-message-unread-authority",
             new OnlineSchemaMigrationMetadata(
-                MessageUnreadAuthorityMigrationDefinitions.MigrationId,
+                "20260719-post-message-unread-authority",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -597,9 +596,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            MessagePrivacyRetentionMigrationDefinitions.MigrationId,
+            "20260719-post-message-unread-privacy-retention",
             new OnlineSchemaMigrationMetadata(
-                MessagePrivacyRetentionMigrationDefinitions.MigrationId,
+                "20260719-post-message-unread-privacy-retention",
                 OnlineSchemaMigrationPhase.Contract,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: true,
@@ -610,7 +609,7 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ResumeTokenName: null,
                 IntroducedAtCoordinate: LegacyCoordinate("20260719-message-privacy-retention"),
                 ContractAfterCoordinate: LegacyCoordinate("20260719-message-privacy-retention-expand"),
-                MinimumRetentionWindow: TimeSpan.FromDays(DestructiveMigrationProofs.MinimumRollbackWindowDays),
+                MinimumRetentionWindow: TimeSpan.FromDays(30),
                 Validators:
                 [
                     "destructive_rollback_window_proof",
@@ -620,9 +619,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            PasskeySignalMigrationDefinitions.MigrationId,
+            "20260720-pre-passkey-signal-version",
             new OnlineSchemaMigrationMetadata(
-                PasskeySignalMigrationDefinitions.MigrationId,
+                "20260720-pre-passkey-signal-version",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -642,9 +641,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            ArticleMutationIdempotencyMigrationDefinitions.MigrationId,
+            "20260720-post-article-mutation-idempotency",
             new OnlineSchemaMigrationMetadata(
-                ArticleMutationIdempotencyMigrationDefinitions.MigrationId,
+                "20260720-post-article-mutation-idempotency",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -664,9 +663,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            CommentMutationIdempotencyMigrationDefinitions.MigrationId,
+            "20260720-post-comment-mutation-idempotency",
             new OnlineSchemaMigrationMetadata(
-                CommentMutationIdempotencyMigrationDefinitions.MigrationId,
+                "20260720-post-comment-mutation-idempotency",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -686,9 +685,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            ArticleCommentPolicyMigrationDefinitions.MigrationId,
+            "20260720-post-article-thread-comment-policy",
             new OnlineSchemaMigrationMetadata(
-                ArticleCommentPolicyMigrationDefinitions.MigrationId,
+                "20260720-post-article-thread-comment-policy",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -710,9 +709,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            CommentRevisionManagementMigrationDefinitions.MigrationId,
+            "20260720-pre-comment-revision-management",
             new OnlineSchemaMigrationMetadata(
-                CommentRevisionManagementMigrationDefinitions.MigrationId,
+                "20260720-pre-comment-revision-management",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -733,9 +732,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            CommentGovernanceMigrationDefinitions.MigrationId,
+            "20260720-post-comment-report-appeal-timeline",
             new OnlineSchemaMigrationMetadata(
-                CommentGovernanceMigrationDefinitions.MigrationId,
+                "20260720-post-comment-report-appeal-timeline",
                 OnlineSchemaMigrationPhase.Contract,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: true,
@@ -746,7 +745,7 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ResumeTokenName: null,
                 IntroducedAtCoordinate: LegacyCoordinate("20260720-comment-report-appeal-timeline"),
                 ContractAfterCoordinate: LegacyCoordinate("20260720-comment-report-appeal-timeline-expand"),
-                MinimumRetentionWindow: TimeSpan.FromDays(DestructiveMigrationProofs.MinimumRollbackWindowDays),
+                MinimumRetentionWindow: TimeSpan.FromDays(30),
                 Validators:
                 [
                     "descriptor_policy",
@@ -757,9 +756,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            ScheduledPublishIndexMigrationDefinitions.MigrationId,
+            "20260720-post-scheduled-publish-due-index",
             new OnlineSchemaMigrationMetadata(
-                ScheduledPublishIndexMigrationDefinitions.MigrationId,
+                "20260720-post-scheduled-publish-due-index",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -779,9 +778,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            CommentModerationQueueMigrationDefinitions.MigrationId,
+            "20260720-post-comment-moderation-queue-lease",
             new OnlineSchemaMigrationMetadata(
-                CommentModerationQueueMigrationDefinitions.MigrationId,
+                "20260720-post-comment-moderation-queue-lease",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -802,9 +801,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            ArticleDraftBaseRevisionMigrationDefinitions.MigrationId,
+            "20260720-pre-article-draft-base-revision",
             new OnlineSchemaMigrationMetadata(
-                ArticleDraftBaseRevisionMigrationDefinitions.MigrationId,
+                "20260720-pre-article-draft-base-revision",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -824,9 +823,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            ArticleDraftServerRevisionMigrationDefinitions.MigrationId,
+            "20260720-pre-article-draft-server-revision",
             new OnlineSchemaMigrationMetadata(
-                ArticleDraftServerRevisionMigrationDefinitions.MigrationId,
+                "20260720-pre-article-draft-server-revision",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -847,9 +846,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            ArticleResponsibilityVersionMigrationDefinitions.MigrationId,
+            "20260720-pre-article-responsibility-version",
             new OnlineSchemaMigrationMetadata(
-                ArticleResponsibilityVersionMigrationDefinitions.MigrationId,
+                "20260720-pre-article-responsibility-version",
                 OnlineSchemaMigrationPhase.Contract,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: true,
@@ -860,7 +859,7 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ResumeTokenName: null,
                 IntroducedAtCoordinate: LegacyCoordinate("20260720-article-responsibility-version"),
                 ContractAfterCoordinate: LegacyCoordinate("20260720-article-responsibility-version-expand"),
-                MinimumRetentionWindow: TimeSpan.FromDays(DestructiveMigrationProofs.MinimumRollbackWindowDays),
+                MinimumRetentionWindow: TimeSpan.FromDays(30),
                 Validators:
                 [
                     "descriptor_policy",
@@ -872,9 +871,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            ArticleMutationOutboxVersionMigrationDefinitions.MigrationId,
+            "20260720-pre-article-mutation-outbox-version",
             new OnlineSchemaMigrationMetadata(
-                ArticleMutationOutboxVersionMigrationDefinitions.MigrationId,
+                "20260720-pre-article-mutation-outbox-version",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -895,9 +894,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            ArticleRevisionContentBlockMigrationDefinitions.MigrationId,
+            "20260720-pre-article-revision-content-blocks",
             new OnlineSchemaMigrationMetadata(
-                ArticleRevisionContentBlockMigrationDefinitions.MigrationId,
+                "20260720-pre-article-revision-content-blocks",
                 OnlineSchemaMigrationPhase.Contract,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: true,
@@ -908,7 +907,7 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ResumeTokenName: null,
                 IntroducedAtCoordinate: LegacyCoordinate("20260720-article-revision-content-blocks"),
                 ContractAfterCoordinate: LegacyCoordinate("20260720-article-revision-content-blocks-expand"),
-                MinimumRetentionWindow: TimeSpan.FromDays(DestructiveMigrationProofs.MinimumRollbackWindowDays),
+                MinimumRetentionWindow: TimeSpan.FromDays(30),
                 Validators:
                 [
                     "descriptor_policy",
@@ -921,9 +920,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            ArticleRevisionRollbackMigrationDefinitions.MigrationId,
+            "20260720-pre-article-revision-rollback-package",
             new OnlineSchemaMigrationMetadata(
-                ArticleRevisionRollbackMigrationDefinitions.MigrationId,
+                "20260720-pre-article-revision-rollback-package",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -943,9 +942,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            ArticleTimeSemanticsMigrationDefinitions.MigrationId,
+            "20260720-pre-article-time-semantics",
             new OnlineSchemaMigrationMetadata(
-                ArticleTimeSemanticsMigrationDefinitions.MigrationId,
+                "20260720-pre-article-time-semantics",
                 OnlineSchemaMigrationPhase.Contract,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: true,
@@ -956,7 +955,7 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ResumeTokenName: null,
                 IntroducedAtCoordinate: LegacyCoordinate("20260720-article-time-semantics"),
                 ContractAfterCoordinate: LegacyCoordinate("20260720-article-time-semantics-expand"),
-                MinimumRetentionWindow: TimeSpan.FromDays(DestructiveMigrationProofs.MinimumRollbackWindowDays),
+                MinimumRetentionWindow: TimeSpan.FromDays(30),
                 Validators:
                 [
                     "descriptor_policy",
@@ -967,9 +966,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            AccountEnrollmentMigrationDefinitions.MigrationId,
+            "20260720-pre-atomic-account-enrollment",
             new OnlineSchemaMigrationMetadata(
-                AccountEnrollmentMigrationDefinitions.MigrationId,
+                "20260720-pre-atomic-account-enrollment",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -989,9 +988,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            UserSessionAuthenticationContextMigrationDefinitions.MigrationId,
+            "20260720-pre-user-session-authentication-context",
             new OnlineSchemaMigrationMetadata(
-                UserSessionAuthenticationContextMigrationDefinitions.MigrationId,
+                "20260720-pre-user-session-authentication-context",
                 OnlineSchemaMigrationPhase.Contract,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: true,
@@ -1002,7 +1001,7 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ResumeTokenName: null,
                 IntroducedAtCoordinate: LegacyCoordinate("20260720-user-session-authentication-context"),
                 ContractAfterCoordinate: LegacyCoordinate("20260720-user-session-authentication-context-expand"),
-                MinimumRetentionWindow: TimeSpan.FromDays(DestructiveMigrationProofs.MinimumRollbackWindowDays),
+                MinimumRetentionWindow: TimeSpan.FromDays(30),
                 Validators:
                 [
                     "descriptor_policy",
@@ -1012,9 +1011,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            CommentMutationOutboxMigrationDefinitions.MigrationId,
+            "20260720-post-comment-mutation-outbox",
             new OnlineSchemaMigrationMetadata(
-                CommentMutationOutboxMigrationDefinitions.MigrationId,
+                "20260720-post-comment-mutation-outbox",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -1034,9 +1033,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            CommentMutationOutboxClaimLeaseMigrationDefinitions.MigrationId,
+            "20260726-post-comment-mutation-outbox-claim-lease",
             new OnlineSchemaMigrationMetadata(
-                CommentMutationOutboxClaimLeaseMigrationDefinitions.MigrationId,
+                "20260726-post-comment-mutation-outbox-claim-lease",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -1056,9 +1055,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            CommentMutationOutboxDeliveryReservationMigrationDefinitions.MigrationId,
+            "20260727-post-comment-mutation-outbox-delivery-reservation",
             new OnlineSchemaMigrationMetadata(
-                CommentMutationOutboxDeliveryReservationMigrationDefinitions.MigrationId,
+                "20260727-post-comment-mutation-outbox-delivery-reservation",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -1078,9 +1077,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            DistributedInvalidationDeliveryLedgerMigrationDefinitions.MigrationId,
+            "20260727-post-distributed-invalidation-delivery-ledger",
             new OnlineSchemaMigrationMetadata(
-                DistributedInvalidationDeliveryLedgerMigrationDefinitions.MigrationId,
+                "20260727-post-distributed-invalidation-delivery-ledger",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -1100,9 +1099,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            DistributedInvalidationFullReconcileMigrationDefinitions.MigrationId,
+            "20260809-post-distributed-invalidation-full-reconcile",
             new OnlineSchemaMigrationMetadata(
-                DistributedInvalidationFullReconcileMigrationDefinitions.MigrationId,
+                "20260809-post-distributed-invalidation-full-reconcile",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -1122,9 +1121,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            UserLocalePreferenceMigrationDefinitions.MigrationId,
+            "20260728-post-user-locale-preference",
             new OnlineSchemaMigrationMetadata(
-                UserLocalePreferenceMigrationDefinitions.MigrationId,
+                "20260728-post-user-locale-preference",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -1144,9 +1143,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            DistributedInvalidationConvergenceObligationMigrationDefinitions.MigrationId,
+            "20260726-post-distributed-invalidation-convergence-obligation",
             new OnlineSchemaMigrationMetadata(
-                DistributedInvalidationConvergenceObligationMigrationDefinitions.MigrationId,
+                "20260726-post-distributed-invalidation-convergence-obligation",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -1166,9 +1165,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            UserSessionModeMigrationDefinitions.MigrationId,
+            "20260720-pre-user-session-mode-authority",
             new OnlineSchemaMigrationMetadata(
-                UserSessionModeMigrationDefinitions.MigrationId,
+                "20260720-pre-user-session-mode-authority",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -1188,9 +1187,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            UserSessionMetadataMinimizationMigrationDefinitions.MigrationId,
+            "20260720-pre-user-session-metadata-minimization",
             new OnlineSchemaMigrationMetadata(
-                UserSessionMetadataMinimizationMigrationDefinitions.MigrationId,
+                "20260720-pre-user-session-metadata-minimization",
                 OnlineSchemaMigrationPhase.Contract,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: true,
@@ -1201,7 +1200,7 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ResumeTokenName: null,
                 IntroducedAtCoordinate: LegacyCoordinate("20260720-user-session-metadata-minimization"),
                 ContractAfterCoordinate: LegacyCoordinate("20260720-user-session-metadata-minimization-expand"),
-                MinimumRetentionWindow: TimeSpan.FromDays(DestructiveMigrationProofs.MinimumRollbackWindowDays),
+                MinimumRetentionWindow: TimeSpan.FromDays(30),
                 Validators:
                 [
                     "descriptor_policy",
@@ -1210,9 +1209,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            RefreshTokenLineageMigrationDefinitions.MigrationId,
+            "20260720-pre-user-session-refresh-lineage",
             new OnlineSchemaMigrationMetadata(
-                RefreshTokenLineageMigrationDefinitions.MigrationId,
+                "20260720-pre-user-session-refresh-lineage",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -1233,9 +1232,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            UserSessionMultiDeviceMigrationDefinitions.MigrationId,
+            "20260719-post-user-session-multi-device",
             new OnlineSchemaMigrationMetadata(
-                UserSessionMultiDeviceMigrationDefinitions.MigrationId,
+                "20260719-post-user-session-multi-device",
                 OnlineSchemaMigrationPhase.Contract,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -1246,7 +1245,7 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ResumeTokenName: null,
                 IntroducedAtCoordinate: LegacyCoordinate("20260719-user-session-multi-device"),
                 ContractAfterCoordinate: LegacyCoordinate("20260719-user-session-multi-device-expand"),
-                MinimumRetentionWindow: TimeSpan.FromDays(DestructiveMigrationProofs.MinimumRollbackWindowDays),
+                MinimumRetentionWindow: TimeSpan.FromDays(30),
                 Validators:
                 [
                     "destructive_rollback_window_proof",
@@ -1256,9 +1255,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            PluginRegistryMigrationDefinitions.MigrationId,
+            "20260724-post-plugin-registry",
             new OnlineSchemaMigrationMetadata(
-                PluginRegistryMigrationDefinitions.MigrationId,
+                "20260724-post-plugin-registry",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -1277,9 +1276,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            ThemeRegistryMigrationDefinitions.MigrationId,
+            "20260724-post-theme-registry",
             new OnlineSchemaMigrationMetadata(
-                ThemeRegistryMigrationDefinitions.MigrationId,
+                "20260724-post-theme-registry",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -1298,9 +1297,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            ThemeActivationRuntimeMigrationDefinitions.MigrationId,
+            "20260724-post-theme-runtime",
             new OnlineSchemaMigrationMetadata(
-                ThemeActivationRuntimeMigrationDefinitions.MigrationId,
+                "20260724-post-theme-runtime",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -1319,9 +1318,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            CustomizationMigrationDefinitions.MigrationId,
+            "20260725-post-customization",
             new OnlineSchemaMigrationMetadata(
-                CustomizationMigrationDefinitions.MigrationId,
+                "20260725-post-customization",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -1340,9 +1339,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            ContentAssetCutoverMigrationDefinitions.PrototypeShapeMigrationId,
+            "20260826-pre-content-asset-uuid-shape",
             new OnlineSchemaMigrationMetadata(
-                ContentAssetCutoverMigrationDefinitions.PrototypeShapeMigrationId,
+                "20260826-pre-content-asset-uuid-shape",
                 OnlineSchemaMigrationPhase.Contract,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: true,
@@ -1353,7 +1352,7 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ResumeTokenName: null,
                 IntroducedAtCoordinate: LegacyCoordinate("20260826-content-asset-uuid-shape"),
                 ContractAfterCoordinate: LegacyCoordinate("20260826-content-asset-id-backfill"),
-                MinimumRetentionWindow: TimeSpan.FromDays(DestructiveMigrationProofs.MinimumRollbackWindowDays),
+                MinimumRetentionWindow: TimeSpan.FromDays(30),
                 Validators:
                 [
                     "descriptor_policy",
@@ -1362,9 +1361,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            ContentAssetCutoverMigrationDefinitions.MigrationId,
+            "20260826-post-content-asset-id-cutover",
             new OnlineSchemaMigrationMetadata(
-                ContentAssetCutoverMigrationDefinitions.MigrationId,
+                "20260826-post-content-asset-id-cutover",
                 OnlineSchemaMigrationPhase.Contract,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: true,
@@ -1375,7 +1374,7 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ResumeTokenName: null,
                 IntroducedAtCoordinate: LegacyCoordinate("20260826-content-asset-id-cutover"),
                 ContractAfterCoordinate: LegacyCoordinate("20260826-content-asset-id-backfill"),
-                MinimumRetentionWindow: TimeSpan.FromDays(DestructiveMigrationProofs.MinimumRollbackWindowDays),
+                MinimumRetentionWindow: TimeSpan.FromDays(30),
                 Validators:
                 [
                     "descriptor_policy",
@@ -1385,9 +1384,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            AuthoringCanvasDocumentMigrationDefinitions.MigrationId,
+            "20260828-post-authoring-canvas-document",
             new OnlineSchemaMigrationMetadata(
-                AuthoringCanvasDocumentMigrationDefinitions.MigrationId,
+                "20260828-post-authoring-canvas-document",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -1408,9 +1407,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
-            TaxonomyDescriptionMigrationDefinitions.MigrationId,
+            "20260829-post-taxonomy-descriptions",
             new OnlineSchemaMigrationMetadata(
-                TaxonomyDescriptionMigrationDefinitions.MigrationId,
+                "20260829-post-taxonomy-descriptions",
                 OnlineSchemaMigrationPhase.Expand,
                 new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
                 RequiresExclusiveMode: false,
@@ -1466,97 +1465,30 @@ public sealed record OnlineSchemaMigrationPolicyReport(
     bool Valid,
     IReadOnlyList<OnlineSchemaMigrationPolicyViolation> Violations);
 
-public static partial class OnlineSchemaMigrationPolicy
+public static class OnlineSchemaMigrationPolicy
 {
-    private static readonly string[] s_destructiveSqlTokens =
-    [
-        " DROP COLUMN ",
-        " DROP TABLE ",
-        " DROP INDEX ",
-        " RENAME COLUMN ",
-        " RENAME TO ",
-        " SET NOT NULL",
-        " ALTER COLUMN ",
-        " TRUNCATE ",
-        " DELETE FROM "
-    ];
-
     public static OnlineSchemaMigrationPolicyReport Validate(
-        IReadOnlyList<ISchemaMigrationDescriptor> descriptors,
         IReadOnlyDictionary<string, OnlineSchemaMigrationMetadata> metadata)
     {
         var violations = new List<OnlineSchemaMigrationPolicyViolation>();
-        var descriptorIds = new HashSet<string>(StringComparer.Ordinal);
-
-        foreach (ISchemaMigrationDescriptor descriptor in descriptors)
+        foreach (OnlineSchemaMigrationMetadata classification in metadata.Values)
         {
-            if (!descriptorIds.Add(descriptor.MigrationId))
-            {
-                violations.Add(new(
-                    "schema_descriptor_duplicate",
-                    descriptor.MigrationId,
-                    "Migration ids must be unique."));
-                continue;
-            }
-
-            if (!metadata.TryGetValue(descriptor.MigrationId, out OnlineSchemaMigrationMetadata? classification))
-            {
-                violations.Add(new(
-                    "schema_metadata_missing",
-                    descriptor.MigrationId,
-                    "Every schema descriptor requires explicit online migration metadata."));
-                continue;
-            }
-
-            ValidateMetadata(descriptor, classification, violations);
-        }
-
-        foreach (string metadataId in metadata.Keys)
-        {
-            if (!descriptorIds.Contains(metadataId))
-            {
-                violations.Add(new(
-                    "schema_metadata_orphaned",
-                    metadataId,
-                    "Metadata references a descriptor that is not registered."));
-            }
+            ValidateMetadata(classification, violations);
         }
 
         return new OnlineSchemaMigrationPolicyReport(violations.Count == 0, violations);
     }
 
-    public static bool ContainsDestructiveOperation(ISchemaMigrationDescriptor descriptor)
-        => descriptor.Steps.Any(ContainsDestructiveOperation);
-
     private static void ValidateMetadata(
-        ISchemaMigrationDescriptor descriptor,
         OnlineSchemaMigrationMetadata metadata,
         List<OnlineSchemaMigrationPolicyViolation> violations)
     {
-        if (!string.Equals(descriptor.MigrationId, metadata.MigrationId, StringComparison.Ordinal))
-        {
-            violations.Add(new(
-                "schema_metadata_id_mismatch",
-                descriptor.MigrationId,
-                "Descriptor and metadata ids differ."));
-        }
-
         if (metadata.Compatibility.MinimumCoordinate.CompareTo(metadata.Compatibility.MaximumCoordinate) > 0)
         {
             violations.Add(new(
                 "schema_compatibility_range_invalid",
-                descriptor.MigrationId,
+                metadata.MigrationId,
                 "Compatibility release range is missing or reversed."));
-        }
-
-        bool containsDestructiveOperation = ContainsDestructiveOperation(descriptor);
-        if (containsDestructiveOperation
-            && (metadata.Phase != OnlineSchemaMigrationPhase.Contract || !metadata.Destructive))
-        {
-            violations.Add(new(
-                "schema_destructive_operation_not_contract",
-                descriptor.MigrationId,
-                "Drop, rename, tightening, rewrite, truncate, or delete operations must be explicit Contract work."));
         }
 
         if (metadata.Phase == OnlineSchemaMigrationPhase.Expand
@@ -1567,7 +1499,7 @@ public static partial class OnlineSchemaMigrationPolicy
         {
             violations.Add(new(
                 "schema_expand_not_additive",
-                descriptor.MigrationId,
+                metadata.MigrationId,
                 "Expand must remain additive, online, and code-compatible."));
         }
 
@@ -1578,7 +1510,7 @@ public static partial class OnlineSchemaMigrationPolicy
         {
             violations.Add(new(
                 "schema_backfill_not_resumable",
-                descriptor.MigrationId,
+                metadata.MigrationId,
                 "Backfill requires a bounded batch size, durable resume token, and non-destructive semantics."));
         }
 
@@ -1589,7 +1521,7 @@ public static partial class OnlineSchemaMigrationPolicy
         {
             violations.Add(new(
                 "schema_contract_gate_incomplete",
-                descriptor.MigrationId,
+                metadata.MigrationId,
                 "Contract requires a release fence, retention window, and backup/restore rollback for destructive work."));
         }
 
@@ -1597,27 +1529,8 @@ public static partial class OnlineSchemaMigrationPolicy
         {
             violations.Add(new(
                 "schema_validator_missing",
-                descriptor.MigrationId,
+                metadata.MigrationId,
                 "At least one named validator/evidence producer is required."));
         }
     }
-
-    private static bool ContainsDestructiveOperation(SchemaMigrationStep step)
-    {
-        if (step is DropColumnStep or DropTableStep or DropIndexStep or RenameColumnStep or RenameTableStep)
-        {
-            return true;
-        }
-
-        if (step is not RawSqlStep and not BackfillSqlStep and not AssertSqlStep)
-        {
-            return false;
-        }
-
-        string normalized = $" {WhitespaceRegex().Replace(step.Fingerprint, " ").ToUpperInvariant()} ";
-        return s_destructiveSqlTokens.Any(normalized.Contains);
-    }
-
-    [GeneratedRegex("\\s+", RegexOptions.CultureInvariant)]
-    private static partial Regex WhitespaceRegex();
 }

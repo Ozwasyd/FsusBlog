@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/Backend/">
     <Project Path="src/backend/FsusBlog.Server.csproj" />
+    <Project Path="src/migration/FsusBlog.Migration.csproj" />
   </Folder>
   <Folder Name="/Frontend/">
     <Project Path="src/frontend/FsusBlog.Client.esproj">
@@ -14,6 +15,7 @@
   </Folder>
   <Folder Name="/Quality/">
     <Project Path="tests/backend/FsusBlog.Server.Tests.csproj" />
+    <Project Path="tests/migration/FsusBlog.Migration.Tests.csproj" />
     <Project Path="benchmarks/core/FsusBlog.Core.Benchmarks.csproj" />
   </Folder>
   <Folder Name="/Ops/">

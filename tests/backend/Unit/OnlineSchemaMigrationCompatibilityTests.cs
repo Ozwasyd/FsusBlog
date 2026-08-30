@@ -37,7 +37,6 @@ public sealed class OnlineSchemaMigrationCompatibilityTests
         OnlineSchemaCompatibilityReport report = OnlineSchemaCompatibilityEvaluator.Evaluate(
             release,
             database,
-            [descriptor],
             new Dictionary<string, OnlineSchemaMigrationMetadata>
             {
                 [descriptor.MigrationId] = metadata
@@ -71,7 +70,6 @@ public sealed class OnlineSchemaMigrationCompatibilityTests
                 Release("20260719000000-bbbbbbbbbbbb"),
                 new OnlineSchemaCompatibilityWindow(Coordinate("20260701-schema"), Coordinate("20260731-schema"))),
             database,
-            [descriptor],
             new Dictionary<string, OnlineSchemaMigrationMetadata>
             {
                 [descriptor.MigrationId] = metadata
@@ -105,7 +103,6 @@ public sealed class OnlineSchemaMigrationCompatibilityTests
                 Release("20260719000000-bbbbbbbbbbbb"),
                 new OnlineSchemaCompatibilityWindow(Coordinate("20260701-schema"), Coordinate("20260731-schema"))),
             Database("20260712-schema"),
-            [descriptor],
             new Dictionary<string, OnlineSchemaMigrationMetadata>
             {
                 [descriptor.MigrationId] = metadata
@@ -133,7 +130,6 @@ public sealed class OnlineSchemaMigrationCompatibilityTests
                 Release("20260719000000-bbbbbbbbbbbb"),
                 new OnlineSchemaCompatibilityWindow(Coordinate("20260701-schema"), Coordinate("20260731-schema"))),
             Database("20260712-schema"),
-            [descriptor],
             new Dictionary<string, OnlineSchemaMigrationMetadata>
             {
                 [descriptor.MigrationId] = metadata
@@ -182,15 +178,12 @@ public sealed class OnlineSchemaMigrationCompatibilityTests
                 Release("20260719000000-bbbbbbbbbbbb"),
                 new OnlineSchemaCompatibilityWindow(Coordinate("20260701-schema"), Coordinate("20260731-schema"))),
             database,
-            [descriptor],
             new Dictionary<string, OnlineSchemaMigrationMetadata>
             {
                 [descriptor.MigrationId] = metadata
             });
 
         Assert.Contains(report.Issues, issue => issue.Code == "schema_history_duplicate");
-        Assert.Contains(report.Issues, issue => issue.Code == "schema_history_unknown");
-        Assert.Contains(report.Issues, issue => issue.Code == "schema_history_checksum_mismatch");
     }
 
     [Fact]
@@ -217,7 +210,6 @@ public sealed class OnlineSchemaMigrationCompatibilityTests
                 Release("20260719000000-bbbbbbbbbbbb"),
                 new OnlineSchemaCompatibilityWindow(Coordinate("20260701-schema"), Coordinate("20260731-schema"))),
             database,
-            [descriptor],
             new Dictionary<string, OnlineSchemaMigrationMetadata>
             {
                 [descriptor.MigrationId] = metadata
@@ -255,7 +247,6 @@ public sealed class OnlineSchemaMigrationCompatibilityTests
                 Release("20260718000000-eeeeeeeeeeee"),
                 new OnlineSchemaCompatibilityWindow(Coordinate("20260701-schema"), Coordinate("20260731-schema"))),
             database,
-            [descriptor],
             new Dictionary<string, OnlineSchemaMigrationMetadata>
             {
                 [descriptor.MigrationId] = metadata
