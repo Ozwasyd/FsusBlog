@@ -335,6 +335,14 @@ function gitRevisionIsAncestor(root, ancestor, descendant) {
     }
 }
 
+function gitLastRevisionForPath(root, revision, path) {
+    return execFileSync(
+        'git',
+        ['log', '-1', '--format=%H', revision, '--', path],
+        { cwd: root, encoding: 'utf8' }
+    ).trim()
+}
+
 function replayGeneratedOutput(root, revision, producer) {
     const temporaryRoot = mkdtempSync(join(tmpdir(), 'fsusblog-generated-output-repair-'))
     const worktree = join(temporaryRoot, 'worktree')
@@ -367,15 +375,19 @@ function replayGeneratedOutput(root, revision, producer) {
             ['ls-files', '--others', '--ignored', '--exclude-standard', '-z'],
             { cwd: worktree }
         ).toString('utf8').split('\x00').filter(Boolean)
-        const unexpected = [...new Set([...modified, ...untracked, ...ignored])]
+        const changedPaths = [...new Set([...modified, ...untracked, ...ignored])]
+        const unexpected = changedPaths
             .filter((path) => !producer.outputs.includes(path))
         if (unexpected.length > 0) {
             throw new Error(`producer wrote unregistered outputs: ${unexpected.join(', ')}`)
         }
-        return new Map(producer.outputs.map((path) => [
-            path,
-            createHash('sha256').update(readFileSync(resolve(worktree, path))).digest('hex')
-        ]))
+        return {
+            changedPaths,
+            outputs: new Map(producer.outputs.map((path) => [
+                path,
+                createHash('sha256').update(readFileSync(resolve(worktree, path))).digest('hex')
+            ]))
+        }
     } finally {
         let cleanupError = null
         if (existsSync(worktree)) {
@@ -716,6 +728,9 @@ export function validatePostMergeGeneratedOutputRepair(
 
         const currentSourceAtBase = blobSha256(root, base, producer.source)
         const currentSourceAtHead = blobSha256(root, head, producer.source)
+        if (gitLastRevisionForPath(root, base, producer.source) !== evidence.sourceCommit) {
+            errors.push('Post-merge generated repair sourceCommit must remain the current base owner of the trusted producer source')
+        }
         if (
             evidence.source.sha256 !== currentSourceAtBase
             || evidence.source.sha256 !== currentSourceAtHead
@@ -736,22 +751,28 @@ export function validatePostMergeGeneratedOutputRepair(
         const sourceParentReplay = replayGeneratedOutput(root, sourceParent, producer)
         const sourceRevisionReplay = replayGeneratedOutput(root, evidence.sourceCommit, producer)
         const candidateReplay = replayGeneratedOutput(root, head, producer)
+        if (sourceParentReplay.changedPaths.length !== 0) {
+            errors.push('Post-merge generated repair source parent was already out of sync with the canonical producer')
+        }
+        if (!sameStrings(sourceRevisionReplay.changedPaths, producer.outputs)) {
+            errors.push('Post-merge generated repair sourceCommit must create drift in exactly the trusted producer outputs')
+        }
         for (const output of outputs) {
             const baseDigest = blobSha256(root, base, output.path)
             const currentDigest = blobSha256(root, head, output.path)
             if (output.baseSha256 !== baseDigest) {
                 errors.push(`Post-merge generated repair base output digest is stale: ${output.path}`)
             }
-            if (output.expectedSha256 !== sourceRevisionReplay.get(output.path)) {
+            if (output.expectedSha256 !== sourceRevisionReplay.outputs.get(output.path)) {
                 errors.push(`Post-merge generated repair expected output digest is stale: ${output.path}`)
             }
             if (output.currentSha256 !== currentDigest) {
                 errors.push(`Post-merge generated repair current output digest is stale: ${output.path}`)
             }
-            if (currentDigest !== candidateReplay.get(output.path)) {
+            if (currentDigest !== candidateReplay.outputs.get(output.path)) {
                 errors.push(`Post-merge generated repair output bytes are not canonical: ${output.path}`)
             }
-            if (sourceParentReplay.get(output.path) === sourceRevisionReplay.get(output.path)) {
+            if (sourceParentReplay.outputs.get(output.path) === sourceRevisionReplay.outputs.get(output.path)) {
                 errors.push(`Post-merge generated repair sourceCommit does not change canonical output: ${output.path}`)
             }
             if (!changedFiles.includes(output.path) || baseDigest === currentDigest) {
