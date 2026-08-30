@@ -109,8 +109,9 @@ parser 按 Markdown section 读取字段：heading 必须唯一且位于真实�
 - `Behavior change`、`Format-only`、`Naming-only` 互斥；后两者必须使用 `style` title。
 - `Generated output`、`Public contract change`、`External naming exception` 是补充分类。
 - `External naming exception` 必须填写 #1157 registry 中的 exact exception ID、受影响 repository-relative paths 和不可采用内部命名的具体原因；checker 将 ID、path scope 与 changed files 绑定。
-- generated diff 与 generator source 同 PR，并列出 source、outputs 和 changed JSON binding manifest。
+- generated diff 默认使用 `atomic` 模式：generator source 与 output 同 PR，并列出 source、outputs 和 changed JSON binding manifest。
 - generated binding manifest 使用 `fsusblog.generated-output-binding.v1`，至少包含 generator source paths、每个 output 的 repository-relative path 与由 head blob 重新计算的 SHA-256；manifest 自身必须是本 PR changed path，但作为关系证据不递归绑定自身，任意 64 位占位值或未解析 evidence 文件不能通过。
+- `post-merge-repair` 只修复已合并 source 变更遗漏的 generated output；`fsusblog.generated-output-repair-binding.v1` 必须显式绑定 source revision、对应 PR 及 merge revision、当前 source/generator blob digest、registry 内的 canonical generator identity/command，以及 output 的 base/expected/current digest。trusted checker 验证 source/merge 是当前 PR base 的 ancestor、source commit 直接产生且 PR 确实遗漏该 drift，并在隔离 worktree 中对 source parent、source revision 和 candidate head 重跑 canonical producer。repair PR 不得改 source，必须改全部且仅改 registry 声明的 outputs；`latest`、mtime、任意历史 source、unchanged output、多余 output 或手改结果都 fail closed。
 - bot PR 仍须勾选 generated、填写与 PR author login 完全一致的 automation identity，并满足 title、issue、release note 和 evidence 规则；label/edit/synchronize 事件的 sender 不是 bot identity authority。
 - unrelated API、UI、database、security 和 style 变更拆分；generated output 与 source 同 PR 但单独标记 review。
 - 不设置统一行数上限；复杂度和职责 evidence 由 #1162 约束。

@@ -97,8 +97,9 @@ The matching `release-note:*` label selects the generated release category. GitH
 
 ## Generated Output
 
-For a checked `Generated output`, bind the output to its source through one repository-relative `.json` manifest path changed by this PR and conforming to `fsusblog.generated-output-binding.v1`. An authenticated bot must identify itself exactly. Use `none` otherwise.
+For a checked `Generated output`, use `atomic` when source and output change together and bind them through `fsusblog.generated-output-binding.v1`. Use `post-merge-repair` only when `fsusblog.generated-output-repair-binding.v1` identifies the exact merged source revision and pull request that omitted the output, binds current source/generator/output digests, and passes canonical regeneration. Both modes require one changed repository-relative evidence manifest. An authenticated bot must identify itself exactly. Use `none` otherwise.
 
+- Generation mode:
 - Generator source:
 - Generated outputs:
 - Digest/evidence:

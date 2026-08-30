@@ -15,6 +15,72 @@
             "pathType": "file"
         },
         {
+            "id": "generated-output-repair-binding-schema",
+            "owner": "repository-governance",
+            "canonicalPath": "config/schemas/generated-output-repair-binding.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "document-claim-migration-ledger",
+            "owner": "behavior-contract-governance",
+            "canonicalPath": "config/contracts/document-claim-migration-ledger.json",
+            "pathType": "file"
+        },
+        {
+            "id": "document-claim-migration-ledger-schema",
+            "owner": "behavior-contract-governance",
+            "canonicalPath": "config/schemas/document-claim-migration-ledger.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "behavior-document-consistency-final-report-schema",
+            "owner": "release-final-governance",
+            "canonicalPath": "config/schemas/behavior-document-consistency-final-report.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "behavior-evidence-post-runtime-receipt-schema",
+            "owner": "behavior-contract-governance",
+            "canonicalPath": "config/schemas/behavior-evidence-post-runtime-receipt.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "post-runtime-producer-registry",
+            "owner": "behavior-contract-governance",
+            "canonicalPath": "config/testing/post-runtime-producer-registry.json",
+            "pathType": "file"
+        },
+        {
+            "id": "destructive-operation-authority",
+            "owner": "operations-deployment",
+            "canonicalPath": "config/deployment/destructive-operation-authority.json",
+            "pathType": "file"
+        },
+        {
+            "id": "media-negative-corpus-plan-schema",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/schemas/media-negative-corpus-plan.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "media-negative-corpus-plan",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/testing/media-negative-corpus-plan.json",
+            "pathType": "file"
+        },
+        {
+            "id": "media-shape-catalog-schema",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/schemas/media-shape-catalog.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "media-shape-catalog",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/testing/media-shape-catalog.json",
+            "pathType": "file"
+        },
+        {
             "id": "behavior-contract-catalog",
             "owner": "behavior-contract-governance",
             "canonicalPath": "config/contracts/behavior-contracts.json",

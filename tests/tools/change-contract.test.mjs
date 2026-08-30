@@ -68,11 +68,130 @@ function writeFormatEvidence(repository, revision, paths = ['source.cs']) {
     }, null, 4)}\n`)
 }
 
+function repositoryBlobSha256(repository, revision, path) {
+    return createHash('sha256').update(execFileSync('git', ['show', `${revision}:${path}`], {
+        cwd: repository
+    })).digest('hex')
+}
+
+function createGeneratedRepairFixture({ mutateManifest = null, keepOutputStale = false } = {}) {
+    const repository = mkdtempSync(join(tmpdir(), 'fsusblog-generated-repair-pr-'))
+    execFileSync('git', ['init', '-q'], { cwd: repository })
+    execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: repository })
+    execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: repository })
+    writeRepositoryFile(repository, 'tools/docs/generate-testing-docs.mjs', `import { readFileSync, writeFileSync } from 'node:fs'
+
+const source = readFileSync('tests/matrix.yml', 'utf8')
+writeFileSync('docs/testing.generated.md', \`generated:\${source}\`)
+`)
+    writeRepositoryFile(repository, 'tests/matrix.yml', 'old\n')
+    writeRepositoryFile(repository, 'docs/testing.generated.md', 'generated:old\n')
+    execFileSync('git', ['add', '.'], { cwd: repository })
+    execFileSync('git', ['commit', '-qm', 'initial generated baseline'], { cwd: repository })
+    const initialRevision = execFileSync('git', ['rev-parse', 'HEAD'], {
+        cwd: repository,
+        encoding: 'utf8'
+    }).trim()
+
+    execFileSync('git', ['switch', '-qc', 'source-pr'], { cwd: repository })
+    writeRepositoryFile(repository, 'tests/matrix.yml', 'new\n')
+    execFileSync('git', ['add', 'tests/matrix.yml'], { cwd: repository })
+    execFileSync('git', ['commit', '-qm', 'change canonical source'], { cwd: repository })
+    const sourceRevision = execFileSync('git', ['rev-parse', 'HEAD'], {
+        cwd: repository,
+        encoding: 'utf8'
+    }).trim()
+    execFileSync('git', ['switch', '-q', 'master'], { cwd: repository })
+    execFileSync('git', [
+        'merge',
+        '--no-ff',
+        'source-pr',
+        '-m',
+        'Merge pull request #123 from fixture/source-pr'
+    ], { cwd: repository, stdio: 'ignore' })
+    const base = execFileSync('git', ['rev-parse', 'HEAD'], {
+        cwd: repository,
+        encoding: 'utf8'
+    }).trim()
+
+    execFileSync('git', ['switch', '-qc', 'repair'], { cwd: repository })
+    execFileSync(process.execPath, [
+        'tools/docs/generate-testing-docs.mjs',
+        '--out',
+        'docs/testing.generated.md'
+    ], { cwd: repository })
+    const expectedSha256 = fileSha256(repository, 'docs/testing.generated.md')
+    if (keepOutputStale) {
+        writeRepositoryFile(
+            repository,
+            'docs/testing.generated.md',
+            execFileSync('git', ['show', `${base}:docs/testing.generated.md`], {
+                cwd: repository,
+                encoding: 'utf8'
+            })
+        )
+    }
+    const manifest = {
+        schema: changeContract.evidenceSchemas.generatedOutputRepair,
+        sourceRevision,
+        sourcePullRequest: 123,
+        sourceMergeRevision: base,
+        sources: [{
+            path: 'tests/matrix.yml',
+            currentSha256: fileSha256(repository, 'tests/matrix.yml')
+        }],
+        generator: {
+            identity: 'testing-docs',
+            path: 'tools/docs/generate-testing-docs.mjs',
+            currentSha256: fileSha256(repository, 'tools/docs/generate-testing-docs.mjs'),
+            command: 'node tools/docs/generate-testing-docs.mjs --out docs/testing.generated.md'
+        },
+        outputs: [{
+            path: 'docs/testing.generated.md',
+            baseSha256: repositoryBlobSha256(repository, base, 'docs/testing.generated.md'),
+            expectedSha256,
+            currentSha256: fileSha256(repository, 'docs/testing.generated.md')
+        }]
+    }
+    mutateManifest?.(manifest, { initialRevision, sourceRevision, base })
+    writeRepositoryFile(
+        repository,
+        'artifacts/change-contract/generated-repair.json',
+        `${JSON.stringify(manifest, null, 4)}\n`
+    )
+    execFileSync('git', ['add', '.'], { cwd: repository })
+    execFileSync('git', ['commit', '-qm', 'repair generated output'], { cwd: repository })
+    const head = execFileSync('git', ['rev-parse', 'HEAD'], {
+        cwd: repository,
+        encoding: 'utf8'
+    }).trim()
+    return {
+        repository,
+        base,
+        head,
+        body: pullRequestBody({
+            type: 'fix',
+            generated: true,
+            generationMode: 'post-merge-repair',
+            generatorSource: 'tests/matrix.yml',
+            generatedOutputs: manifest.outputs.map((entry) => entry.path).join(', '),
+            generatedDigest: 'artifacts/change-contract/generated-repair.json',
+            audience: 'internal',
+            category: 'Internal/Tooling',
+            summary: 'repair generated output drift'
+        })
+    }
+}
+
 function pullRequestBody({
     type = 'feat',
     formatOnly = false,
     namingOnly = false,
     generated = false,
+    generationMode = 'atomic',
+    generatorSource = 'tools/generate.mjs',
+    generatedOutputs = 'src/generated/output.ts',
+    generatedDigest = 'artifacts/generated/binding.json',
     publicContract = false,
     externalNaming = false,
     audience = 'user-facing',
@@ -169,9 +288,10 @@ Closes #1163
 
 ## Generated Output
 
-- Generator source: ${generated ? 'tools/generate.mjs' : 'none'}
-- Generated outputs: ${generated ? 'src/generated/output.ts' : 'none'}
-- Digest/evidence: ${generated ? 'artifacts/generated/binding.json' : 'none'}
+- Generation mode: ${generated ? generationMode : 'none'}
+- Generator source: ${generated ? generatorSource : 'none'}
+- Generated outputs: ${generated ? generatedOutputs : 'none'}
+- Digest/evidence: ${generated ? generatedDigest : 'none'}
 - Automation identity: ${actor}
 
 ## Rollout / Rollback
@@ -484,6 +604,93 @@ test('generated bot exception binds source, digest, and authenticated identity',
         authorityRoot: null
     })
     assert.ok(tampered.some((error) => error.includes('Generated output digest mismatch')))
+})
+
+test('post-merge generated repair replays the exact merged source omission', () => {
+    const repair = createGeneratedRepairFixture()
+    assert.deepEqual(validatePrContract({
+        title: 'fix(governance): repair generated output drift',
+        body: repair.body,
+        labels: ['release-note:internal'],
+        actor: 'maintainer',
+        changedFiles: changedFilesBetween(repair.repository, repair.base, repair.head),
+        root: repair.repository,
+        base: repair.base,
+        head: repair.head,
+        authorityRoot: null
+    }), [])
+})
+
+test('post-merge generated repair rejects stale history, digests, commands, and outputs', () => {
+    const cases = [
+        {
+            name: 'arbitrary historical source',
+            mutateManifest: (manifest, fixture) => {
+                manifest.sourceRevision = fixture.initialRevision
+            },
+            expected: /source revision/u
+        },
+        {
+            name: 'wrong pull request',
+            mutateManifest: (manifest) => {
+                manifest.sourcePullRequest = 124
+            },
+            expected: /pull request/u
+        },
+        {
+            name: 'stale source digest',
+            mutateManifest: (manifest) => {
+                manifest.sources[0].currentSha256 = '0'.repeat(64)
+            },
+            expected: /current source digest/u
+        },
+        {
+            name: 'unregistered generator command',
+            mutateManifest: (manifest) => {
+                manifest.generator.command = 'node tools/docs/generate-testing-docs.mjs --check'
+            },
+            expected: /registered producer/u
+        },
+        {
+            name: 'wrong expected output digest',
+            mutateManifest: (manifest) => {
+                manifest.outputs[0].expectedSha256 = '0'.repeat(64)
+            },
+            expected: /expected output digest/u
+        },
+        {
+            name: 'extra output',
+            mutateManifest: (manifest) => {
+                manifest.outputs.push({
+                    path: 'docs/extra.generated.md',
+                    baseSha256: '0'.repeat(64),
+                    expectedSha256: '0'.repeat(64),
+                    currentSha256: '0'.repeat(64)
+                })
+            },
+            expected: /registered producer outputs/u
+        },
+        {
+            name: 'unchanged output',
+            keepOutputStale: true,
+            expected: /output|canonical/u
+        }
+    ]
+    for (const fixtureCase of cases) {
+        const repair = createGeneratedRepairFixture(fixtureCase)
+        const errors = validatePrContract({
+            title: 'fix(governance): repair generated output drift',
+            body: repair.body,
+            labels: ['release-note:internal'],
+            actor: 'maintainer',
+            changedFiles: changedFilesBetween(repair.repository, repair.base, repair.head),
+            root: repair.repository,
+            base: repair.base,
+            head: repair.head,
+            authorityRoot: null
+        })
+        assert.match(errors.join('\n'), fixtureCase.expected, fixtureCase.name)
+    }
 })
 
 test('external naming exception binds a trusted registry ID to changed paths', () => {

@@ -50,6 +50,7 @@ function validateEvent(eventPath) {
             actor,
             changedFiles,
             root,
+            base,
             head,
             authorityRoot: policyRoot
         })
