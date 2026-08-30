@@ -570,7 +570,7 @@
     {
       "id": "BACKEND-PROPERTY-TESTING",
       "risk": "high",
-      "coverage": "seeded deterministic property tier for protocols, cache, permissions, upload ranges",
+      "coverage": "seeded deterministic property tier for protocols, cache and permissions",
       "evidencePaths": [
         "tests/backend/Unit/BackendPropertyTests.cs"
       ]
@@ -879,7 +879,7 @@
     {
       "id": "BACKEND-UPLOAD-ASSETS",
       "risk": "high",
-      "coverage": "named invalid initialization matrix with exact validation codes/reasons and zero filesystem side effects, named WebP/JPEG/ICO initialization matrix with exact session manifest metadata and isolated storage topology, MIME mismatch, content sniffing, huge/zero-byte, dedupe, orphan cleanup, path traversal",
+      "coverage": "named invalid initialization matrix with exact validation codes/reasons and zero filesystem side effects, named WebP/JPEG/ICO initialization matrix with exact session manifest metadata and isolated storage topology, real uploaded-part ranges and next-part hints across gaps/retries/restart, incomplete completion side-effect guards, successful completion, MIME mismatch, content sniffing, huge/zero-byte, dedupe, orphan cleanup and path traversal",
       "evidencePaths": [
         "tests/backend/Unit/FileServiceTests.cs",
         "tests/backend/Unit/ReleaseStorageLifecycleTests.cs",
