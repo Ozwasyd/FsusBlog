@@ -6013,6 +6013,14 @@
             "reason": "The in-test dictionary ticket store is replaced by the real ticket service and unified cache over Redis GETDEL, with a sixteen-request barrier, one identity-exact payload and converged raw, hashed, registry and L1 state."
         },
         {
+            "id": "xunit:tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs#FsusBlog.Server.Tests.Unit.AnonymousPrivacyConcurrencyTests.RootSnapshotHighFrequencyRead_UsesCachedSnapshot#case-0000",
+            "path": "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs#FsusBlog.Server.Tests.Unit.AnonymousCredentialRootLifecycleTests.RootLifecycle_HighFrequencyReaderAndVerifierReuseSingleAuthoritativeGeneration#case-0000"
+            ],
+            "reason": "The in-test string cache is replaced by the real lifecycle reader, root service and PostgreSQL store, with concurrent verifier reads and SQL instrumentation proving one authoritative load for the published generation."
+        },
+        {
             "id": "xunit:tests/backend/Unit/AnonymousPrivacyMatrixTests.cs#AnonymousPrivacyMatrixTests.PrivacyZkBackendGate_CoversRevocationAccumulatorAndWitnessTests",
             "path": "tests/backend/Unit/AnonymousPrivacyMatrixTests.cs",
             "replacementTestIds": [

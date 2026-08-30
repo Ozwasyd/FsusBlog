@@ -6,20 +6,6 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AnonymousPrivacyConcurrencyTests
 {
     [Fact]
-    public async Task RootSnapshotHighFrequencyRead_UsesCachedSnapshot()
-    {
-        const int Reads = 48;
-        using var barrier = new Barrier(Reads);
-        var cache = new RootSnapshotCache();
-
-        string[] snapshots = await Task.WhenAll(Enumerable.Range(0, Reads)
-            .Select(_ => StartBarrierTask(barrier, cache.GetSnapshot)));
-
-        Assert.All(snapshots, snapshot => Assert.Equal("root-v1", snapshot));
-        Assert.Equal(1, cache.LoadCount);
-    }
-
-    [Fact]
     public async Task VerifierBoundedConcurrency_DoesNotExceedConfiguredLimit()
     {
         const int Attempts = 32;
@@ -79,36 +65,6 @@ public sealed class AnonymousPrivacyConcurrencyTests
             CancellationToken.None,
             TaskCreationOptions.LongRunning,
             TaskScheduler.Default).Unwrap();
-    private sealed class RootSnapshotCache
-    {
-        private readonly object _sync = new();
-        private string? _snapshot;
-        private int _loadCount;
-
-        public int LoadCount => Volatile.Read(ref _loadCount);
-
-        public string GetSnapshot()
-        {
-            string? cached = Volatile.Read(ref _snapshot);
-            if (cached is not null)
-            {
-                return cached;
-            }
-
-            lock (_sync)
-            {
-                _snapshot ??= LoadSnapshot();
-                return _snapshot;
-            }
-        }
-
-        private string LoadSnapshot()
-        {
-            Interlocked.Increment(ref _loadCount);
-            return "root-v1";
-        }
-    }
-
     private sealed class BoundedVerifier(int maxConcurrent)
     {
         private readonly SemaphoreSlim _gate = new(maxConcurrent, maxConcurrent);
