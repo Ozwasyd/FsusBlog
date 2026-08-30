@@ -1666,6 +1666,7 @@ tiers:
           - backend-physical-account-subject-retirement
           - deployment-runtime-lifecycle
           - backend-online-schema-migration-protocol
+          - current-schema-canonical-authority
           - backend-typed-schema-ddl-providers
           - blue-green-release-storage-lifecycle
           - atomic-idempotent-upload-commit
@@ -1737,6 +1738,7 @@ tiers:
           - tests/backend/legacy-identity-retirement-evidence.json
           - docs/security.md
           - docs/database-migration.md
+          - docs/online-database-migration.md
           - docs/architecture.md
           - docs/anonymous-identity-smoke-flow.md
           - tests/backend/Unit/DeploymentRuntimeStateTests.cs
@@ -1745,6 +1747,9 @@ tiers:
           - src/backend/Infrastructure/NotificationStream/NotificationStreamConnectionManager.cs
           - src/backend/Infrastructure/NotificationStream/NotificationStreamFrame.cs
           - tests/backend/Unit/OnlineSchemaMigrationPolicyTests.cs
+          - src/backend/Infrastructure/SchemaMigration/CurrentSchemaCanonicalModel.cs
+          - src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs
+          - tests/backend/Unit/SchemaModelInspectorTests.cs
           - tests/backend/Unit/OnlineSchemaMigrationCompatibilityTests.cs
           - tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs
           - tests/backend/Unit/SchemaCompatibilityCoordinateTests.cs
@@ -2206,6 +2211,7 @@ tiers:
           - dead-code-audit-governance
           - deployment-runtime-lifecycle
           - backend-online-schema-migration-protocol
+          - current-schema-canonical-authority
           - public-representation-coordinate-closed-loop
           - backend-typed-schema-ddl-providers
           - blue-green-release-storage-lifecycle
@@ -2363,6 +2369,11 @@ tiers:
           - src/backend/Infrastructure/Operations/ReleaseIdContract.Generated.cs
           - src/backend/Infrastructure/Operations/ReleaseId.cs
           - src/backend/Infrastructure/SchemaMigration/SchemaCompatibilityCoordinate.cs
+          - src/backend/Infrastructure/SchemaMigration/CurrentSchemaCanonicalModel.cs
+          - src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs
+          - tests/backend/Unit/SchemaModelInspectorTests.cs
+          - tools/db/check-current-schema-authority.mjs
+          - tests/tools/current-schema-authority.test.mjs
           - src/shared/Contracts/Validation/schema-compatibility-coordinate.json
           - src/frontend/src/generated/releaseIdContract.ts
           - src/frontend/public/generated/release-id-contract.js

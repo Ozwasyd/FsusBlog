@@ -150,6 +150,7 @@
         "BACKEND-PRIVACY-ZK-COMMENT-GATE",
         "BACKEND-PLATFORM-MEMBERSHIP",
         "BACKEND-RELEASE-IDENTITY",
+        "BACKEND-CURRENT-SCHEMA-AUTHORITY",
         "BACKEND-BLUE-GREEN-SLOTS",
         "BACKEND-ATOMIC-GATEWAY-SWITCH",
         "BACKEND-ZERO-DOWNTIME-REHEARSAL"
@@ -181,6 +182,9 @@
         "tests/tools/dead-code-audit-index.test.mjs",
         "tools/governance/check-dead-code-audit-index.mjs",
         "tests/tools/online-schema-migration-wrapper.test.mjs",
+        "tests/backend/Unit/SchemaModelInspectorTests.cs",
+        "tools/db/check-current-schema-authority.mjs",
+        "tests/tools/current-schema-authority.test.mjs",
         "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs",
         "tests/backend/Unit/ProductionHealthTests.cs",
         "tests/backend/online-schema-migration-evidence.json",
@@ -758,6 +762,19 @@
         "tests/backend/Unit/ProductionHealthTests.cs",
         "tests/backend/online-schema-migration-evidence.json",
         "tests/backend/Integration/DemoFixtureSeederCleanupIntegrationTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-CURRENT-SCHEMA-AUTHORITY",
+      "risk": "critical",
+      "coverage": "exact-one provider-neutral current schema model, runtime/generated/migration-target equivalence, inherited and attributed mappings, fail-closed owner and conversion handling, provider physical projections, sealed readiness identity and independent tamper verification",
+      "evidencePaths": [
+        "src/backend/Infrastructure/SchemaMigration/CurrentSchemaCanonicalModel.cs",
+        "src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs",
+        "tests/backend/Unit/SchemaModelInspectorTests.cs",
+        "tools/db/check-current-schema-authority.mjs",
+        "tests/tools/current-schema-authority.test.mjs",
+        "docs/database-migration.md"
       ]
     },
     {
