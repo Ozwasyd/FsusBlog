@@ -15,12 +15,6 @@
             "pathType": "file"
         },
         {
-            "id": "generated-output-repair-binding-schema",
-            "owner": "repository-governance",
-            "canonicalPath": "config/schemas/generated-output-repair-binding.schema.json",
-            "pathType": "file"
-        },
-        {
             "id": "behavior-contract-catalog",
             "owner": "behavior-contract-governance",
             "canonicalPath": "config/contracts/behavior-contracts.json",
@@ -67,6 +61,19 @@
             ],
             "validationCommand": "node --test tests/tools/change-contract.test.mjs",
             "changePolicy": "manual-update-with-negative-fixture-validation",
+            "status": "manual"
+        },
+        {
+            "id": "post-merge-generated-output-repair-schema",
+            "owner": "repository-governance",
+            "canonicalPath": "config/schemas/post-merge-generated-output-repair.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/governance/change-contract.mjs",
+                "tests/tools/change-contract.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/change-contract.test.mjs",
+            "changePolicy": "manual-update-with-history-and-replay-validation",
             "status": "manual"
         },
         {

@@ -105,16 +105,15 @@ export const generatedPathPatterns = Object.freeze([
 
 export const generatedOutputRepairProducers = Object.freeze([
     Object.freeze({
-        identity: 'testing-docs',
-        generatorPath: 'tools/docs/generate-testing-docs.mjs',
+        id: 'testing-docs',
+        source: 'tests/matrix.yml',
+        generator: 'tools/docs/generate-testing-docs.mjs',
         command: 'node tools/docs/generate-testing-docs.mjs --out docs/testing.generated.md',
+        executable: 'node',
         arguments: Object.freeze([
             'tools/docs/generate-testing-docs.mjs',
             '--out',
             'docs/testing.generated.md'
-        ]),
-        sources: Object.freeze([
-            'tests/matrix.yml'
         ]),
         outputs: Object.freeze([
             'docs/testing.generated.md'
@@ -132,7 +131,6 @@ export const trustedPolicyFiles = Object.freeze([
     '.github/release.yml',
     '.github/workflows/change-contract.yml',
     'commitlint.config.mjs',
-    'config/schemas/generated-output-repair-binding.schema.json',
     'tools/governance/change-contract-registry.mjs',
     'tools/governance/change-contract.mjs',
     'tools/governance/check-change-contract.mjs'
@@ -153,7 +151,7 @@ export const changeContract = Object.freeze({
         externalNamingExceptions: 'fsusblog.external-naming-exceptions.v1',
         formatIdempotence: 'fsusblog.format-idempotence-evidence.v1',
         generatedOutput: 'fsusblog.generated-output-binding.v1',
-        generatedOutputRepair: 'fsusblog.generated-output-repair-binding.v1',
+        postMergeGeneratedOutputRepair: 'fsusblog.post-merge-generated-output-repair.v1',
         performanceClaim: 'fsusblog.performance-claim-evidence.v1'
     }),
     summaryMaximumLength: 100,

@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const root = path.resolve(path.join(path.dirname(new URL(import.meta.url).pathname), '..', '..'))
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const runtimeEvidencePath = process.env.FSUSBLOG_PERCEPTION_RUNTIME_EVIDENCE_FILE
   ? path.resolve(process.env.FSUSBLOG_PERCEPTION_RUNTIME_EVIDENCE_FILE)
   : path.join(root, '.tmp/security/perception-v2-e2e-runtime.json')
