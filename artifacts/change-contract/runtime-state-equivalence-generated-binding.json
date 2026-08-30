@@ -1,0 +1,26 @@
+{
+  "schema": "fsusblog.generated-output-binding.v1",
+  "sources": [
+    "config/development/document-lifecycle.json",
+    "tests/coverage-registry.json",
+    "tests/matrix.yml"
+  ],
+  "outputs": [
+    {
+      "path": "config/development/document-inventory.generated.json",
+      "sha256": "9c04fad84eabcaffaa824cb8ac528c899a395c123fd33f4b9bcc73feb35f3f28"
+    },
+    {
+      "path": "config/testing/fixture-consumer-inventory.generated.json",
+      "sha256": "757ef741ec2684cc5ae7fb5267631923bba114a82a1e29c3632606c9ee5e9c92"
+    },
+    {
+      "path": "config/testing/fixture-profile-matrix.generated.json",
+      "sha256": "8548b7bd592f4af3c2975ea44f8f8990e3944b2aa2a50a388c48f87d2b808adc"
+    },
+    {
+      "path": "docs/testing.generated.md",
+      "sha256": "58a82648d78d503667bd513cae339f64d01db851b2d663796a9f6d77d3f02296"
+    }
+  ]
+}
