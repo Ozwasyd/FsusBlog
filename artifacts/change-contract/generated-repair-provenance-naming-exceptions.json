@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/change-contract.md"
+            ],
+            "reason": "preserve the documented caller-visible repair schema, command and field spellings"
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/governance/change-contract.mjs"
+            ],
+            "reason": "preserve process environment and command spellings while tightening repair provenance"
+        }
+    ]
+}

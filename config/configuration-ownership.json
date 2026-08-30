@@ -64,6 +64,19 @@
             "status": "manual"
         },
         {
+            "id": "post-merge-generated-output-repair-schema",
+            "owner": "repository-governance",
+            "canonicalPath": "config/schemas/post-merge-generated-output-repair.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/governance/change-contract.mjs",
+                "tests/tools/change-contract.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/change-contract.test.mjs",
+            "changePolicy": "manual-update-with-history-and-replay-validation",
+            "status": "manual"
+        },
+        {
             "id": "document-claim-migration-ledger",
             "owner": "documentation-claim-governance",
             "canonicalPath": "config/contracts/document-claim-migration-ledger.json",

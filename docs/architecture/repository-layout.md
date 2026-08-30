@@ -51,6 +51,11 @@ launch profile 因而位于 `ops/docker/Properties/`。根级 `configs/`、无 r
 `tools/configuration/check-configuration-layout.mjs` 拒绝。完整 ownership 表见
 [`docs/configuration-layout.md`](../configuration-layout.md)。
 
+Change Contract 的 post-merge generated repair schema 位于
+`config/schemas/post-merge-generated-output-repair.schema.json`，由
+`config/configuration-ownership.json` 显式登记；producer allowlist 只存在于 trusted
+`tools/governance/change-contract-registry.mjs`，不得从历史目录、mtime 或最新文件推断。
+
 Release Reliability 的场景与动作事实源分离：`config/testing/release-reliability-scenario-catalog.json`
 拥有 exact-seven 场景、命令语义、环境合同和结构化 lifecycle action 引用；
 `config/testing/release-reliability-lifecycle-action-registry.json` 唯一拥有 35 个动作的

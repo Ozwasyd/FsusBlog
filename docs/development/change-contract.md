@@ -109,8 +109,9 @@ parser 按 Markdown section 读取字段：heading 必须唯一且位于真实�
 - `Behavior change`、`Format-only`、`Naming-only` 互斥；后两者必须使用 `style` title。
 - `Generated output`、`Public contract change`、`External naming exception` 是补充分类。
 - `External naming exception` 必须填写一个本 PR 已修改的 repository-relative JSON manifest，schema 为 `fsusblog.external-naming-exceptions.v1`。每个 entry 独立填写 #1157 registry 中的 exact exception ID、受影响 paths 和不可采用内部命名的具体原因；checker 逐项绑定 ID/path scope，并要求所有 entry 的 path union 精确等于 changed files 中全部已登记命名 surface。重复 ID、跨 entry 重复 path、未变更 path、越界 path 和未覆盖 surface 均 fail closed；不得用一个宽泛 ID 覆盖无关路径。
-- generated diff 与 generator source 同 PR，并列出 source、outputs 和 changed JSON binding manifest。
+- generated diff 通常与 generator source 同 PR，并列出 source、outputs 和 changed JSON binding manifest。唯一例外是下述严格 post-merge repair。
 - generated binding manifest 使用 `fsusblog.generated-output-binding.v1`，至少包含 generator source paths、每个 output 的 repository-relative path 与由 head blob 重新计算的 SHA-256；manifest 自身必须是本 PR changed path，但作为关系证据不递归绑定自身，任意 64 位占位值或未解析 evidence 文件不能通过。
+- 已合并 source commit 遗漏 generated output 时，generated-only PR 使用 `fsusblog.post-merge-generated-output-repair.v1`，并且只可选择 trusted registry 中的 canonical producer。manifest 精确绑定 source commit、merged PR、merge commit、当前 source/generator blob、canonical command，以及每个 output 在当前 PR base 的 checked-in digest、source revision 重放的 expected digest 和 candidate head 的 current digest。checker 证明两个 commit 都是当前 PR base 的祖先、source commit 仍是 trusted source 在当前 base 的最后修改者、source parent 与 canonical producer 同步、source commit 只属于该 merged PR 且只在已登记 outputs 产生 drift，然后在 source parent、source revision 和 candidate head 的独立 worktree 中执行 producer。source/generator 改动、未知 command/output、额外 producer output、任意字段或 `latest`/mtime discovery、stale digest、未变化 output 和非 canonical candidate bytes 都 fail closed。
 - bot PR 仍须勾选 generated、填写与 PR author login 完全一致的 automation identity，并满足 title、issue、release note 和 evidence 规则；label/edit/synchronize 事件的 sender 不是 bot identity authority。
 - unrelated API、UI、database、security 和 style 变更拆分；generated output 与 source 同 PR 但单独标记 review。
 - 不设置统一行数上限；复杂度和职责 evidence 由 #1162 约束。

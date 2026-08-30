@@ -34,6 +34,16 @@ public readonly struct NameMutationRequestPod
 }
 
 /// <summary>
+/// Defines the fixed-layout binary header used by the <c>TaxonomyMetadataMutationRequest</c> wire contract.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct TaxonomyMetadataMutationRequestPod
+{
+    public readonly Utf8Fixed128 Name;
+    public readonly Utf8SliceRef Description;
+}
+
+/// <summary>
 /// Defines the fixed-layout binary representation used by the <c>StringMutationRequest</c> wire contract.
 /// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]

@@ -60,6 +60,7 @@ public sealed class PodSizeCatalogTests
     [Fact]
     public void CurrentFixedLayoutSizesMatchProtocolContracts()
     {
+        Assert.Equal(136, PodSizeCatalog.TaxonomyMetadataMutationRequestPod);
         Assert.Equal(84, PodSizeCatalog.ArticleDetailV3RecordPod);
         Assert.Equal(44, PodSizeCatalog.ArticleDetailV4HeaderPod);
         Assert.Equal(92, PodSizeCatalog.ArticleDetailV4RecordPod);
