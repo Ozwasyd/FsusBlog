@@ -1,0 +1,35 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/db/check-current-schema-authority.mjs"
+            ],
+            "reason": "Process environment spelling is external while option variables remain internal."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/static-governance.sh"
+            ],
+            "reason": "Exported shell variables retain process-level spelling; local aliases use camelCase."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/backend/Fixtures/backend-test-requirements.json"
+            ],
+            "reason": "Wire and schema keys remain stable while runtime adapters follow internal naming."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md",
+                "tests/coverage-registry.json"
+            ],
+            "reason": "The search UTF-8 scalar production owner, governance registry and generated test documentation must migrate atomically while preserving their existing external JSON, document and tooling identifiers; internal C# symbols remain governed by the repository mapping."
+        }
+    ]
+}

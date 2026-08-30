@@ -3436,6 +3436,28 @@
             ]
         },
         {
+            "id": "current-schema-canonical-authority",
+            "description": "One recomputable provider-neutral current schema model drives runtime reflection, generated projection and migration-target adapters with sealed source/content identity and dialect-specific physical projections.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "src/backend/Infrastructure/SchemaMigration/CurrentSchemaCanonicalModel.cs",
+                "src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs",
+                "tests/backend/Unit/SchemaModelInspectorTests.cs",
+                "tools/db/check-current-schema-authority.mjs",
+                "tests/tools/current-schema-authority.test.mjs",
+                "docs/database-migration.md",
+                "docs/online-database-migration.md"
+            ],
+            "assertionType": "contract",
+            "failClosedRule": "Reject inherited or attributed mapping loss, ignored-member admission, unknown types or converters, duplicate owners, semantic/default/constraint/index drift, provider-dialect confusion, stale projection identity, benchmark identity mismatch, tampering, migration-catalog authority, fixture reconstruction, hand-written inventory or a second generator.",
+            "minimumRequirement": "Focused unit and static mutation tests independently recompute runtime, generated and migration-target projections from one sealed canonical input, compare PostgreSQL/MySQL/SQLite physical spellings without changing semantic identity, and enter readiness warmup plus sampling only after exact equivalence.",
+            "tierIds": [
+                "backend-unit",
+                "static-governance"
+            ]
+        },
+        {
             "id": "backend-online-schema-migration-protocol",
             "description": "Online schema changes follow classified Expand, resumable Backfill and gated Contract phases while every destructive step carries a source-bound rollback-window proof.",
             "owner": "ServerContractAgent",
