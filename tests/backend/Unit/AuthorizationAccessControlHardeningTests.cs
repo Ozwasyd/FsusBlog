@@ -343,9 +343,8 @@ public sealed class AuthorizationAccessControlHardeningTests
     [Fact]
     public void FileDeleteEndpoint_AcceptsAssetIdWithoutPathNormalizer()
     {
-        string source = File.ReadAllText(Path.Combine(
-            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../")),
-            "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Files.cs"));
+        string source = BackendTestPaths.ReadAllTextFromRoot(
+            "src", "backend", "Modules", "Endpoints", "Binary", "BinaryEndpoints.Files.cs");
         Assert.Contains("AssetId.TryParse", source, StringComparison.Ordinal);
         Assert.Contains("IAssetStore assetStore", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Path.", source, StringComparison.Ordinal);

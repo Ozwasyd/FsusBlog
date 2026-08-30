@@ -1,5 +1,3 @@
-using System.Reflection;
-
 using FsusBlog.Server.Contracts.Assets;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Models.Dtos;
@@ -87,12 +85,6 @@ public sealed class AuthoringAssetLibraryRebuildTests(PostgresSchemaMigrationFix
     }
 
     private static string SourcePath<T>()
-    {
-        string repositoryRoot = Path.GetFullPath(Path.Combine(
-            Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!,
-            "../../../../../"));
-        return Path.Combine(
-            repositoryRoot,
-            "src/backend/Services/Authoring/AuthoringAssetLibraryService.cs");
-    }
+        => BackendTestPaths.FromRoot(
+            "src", "backend", "Services", "Authoring", "AuthoringAssetLibraryService.cs");
 }

@@ -1271,6 +1271,7 @@ export function backendPartitionEnvironment(env, { processors, memoryGiB, namesp
   }
   return {
     ...env,
+    FSUSBLOG_REPO_ROOT: root,
     DOTNET_PROCESSOR_COUNT: String(processors),
     FSUSBLOG_BACKEND_CPU_BUDGET: String(processors),
     FSUSBLOG_STEP_CPU_BUDGET: String(processors),
