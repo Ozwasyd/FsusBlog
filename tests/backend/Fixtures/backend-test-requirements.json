@@ -163,6 +163,7 @@
         "tests/backend/Unit/SearchIndexServiceTests.cs",
         "tests/backend/Unit/CoverageScriptContractTests.cs",
         "tests/backend/Unit/TestInfrastructure/BackendTestPathsTests.cs",
+        "tests/tools/backend-test-governance-cpm.test.mjs",
         "tests/tools/backend-trx-contract.test.mjs",
         "tests/tools/backend-production-shards.test.mjs",
         "tests/tools/perception-character-v3-redis-fixture.test.mjs",

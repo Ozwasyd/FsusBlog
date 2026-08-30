@@ -3275,6 +3275,16 @@
             ]
         },
         {
+            "file": "tests/tools/backend-test-governance-cpm.test.mjs",
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
             "file": "tests/tools/backend-qps-driver.test.mjs",
             "owner": "manual-diagnostic:tests/tools/backend-qps-driver.test.mjs",
             "executionCategory": "manual-diagnostic",
