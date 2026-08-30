@@ -81,6 +81,9 @@ function pullRequestBody({
     summary = null,
     claim = 'none',
     actor = 'none',
+    generatorSource = 'tools/generate.mjs',
+    generatedOutputs = 'src/generated/output.ts',
+    generatedDigest = 'artifacts/generated/binding.json',
     externalExceptionId = 'c-abi-wasm-export',
     externalExceptionPaths = 'src/frontend/wasm/aeds/src/exports.cpp',
     externalExceptionReason = 'preserve the caller-visible C ABI spelling',
@@ -171,9 +174,9 @@ Closes #1163
 
 ## Generated Output
 
-- Generator source: ${generated ? 'tools/generate.mjs' : 'none'}
-- Generated outputs: ${generated ? 'src/generated/output.ts' : 'none'}
-- Digest/evidence: ${generated ? 'artifacts/generated/binding.json' : 'none'}
+- Generator source: ${generated ? generatorSource : 'none'}
+- Generated outputs: ${generated ? generatedOutputs : 'none'}
+- Digest/evidence: ${generated ? generatedDigest : 'none'}
 - Automation identity: ${actor}
 
 ## Rollout / Rollback
@@ -187,6 +190,128 @@ Closes #1163
 
 All not-applicable review fields were considered for this fixture.
 `
+}
+
+function commitFixture(repository, message) {
+    execFileSync('git', ['add', '.'], { cwd: repository })
+    execFileSync('git', ['commit', '-qm', message], { cwd: repository })
+    return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repository, encoding: 'utf8' }).trim()
+}
+
+function postMergeRepairBody() {
+    return pullRequestBody({
+        type: 'fix',
+        generated: true,
+        audience: 'internal',
+        category: 'Internal/Tooling',
+        summary: 'repair omitted generated test documentation',
+        generatorSource: 'tests/matrix.yml',
+        generatedOutputs: 'docs/testing.generated.md',
+        generatedDigest: 'artifacts/change-contract/testing-docs-post-merge-repair.json'
+    })
+}
+
+function createPostMergeRepairFixture({ outputMode = 'canonical', mutateManifest = null, changeSource = false } = {}) {
+    const repository = mkdtempSync(join(tmpdir(), 'fsusblog-post-merge-generated-repair-'))
+    execFileSync('git', ['init', '-q', '-b', 'master'], { cwd: repository })
+    execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: repository })
+    execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: repository })
+    writeRepositoryFile(repository, 'tests/matrix.yml', 'base\n')
+    writeRepositoryFile(repository, 'tools/docs/generate-testing-docs.mjs', `
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+const args = process.argv.slice(2)
+const outIndex = args.indexOf('--out')
+if (outIndex < 0 || !args[outIndex + 1]) throw new Error('missing --out')
+const output = resolve(args[outIndex + 1])
+mkdirSync(dirname(output), { recursive: true })
+writeFileSync(output, \`generated:\${readFileSync('tests/matrix.yml', 'utf8')}\`)
+`.trimStart())
+    writeRepositoryFile(repository, 'docs/testing.generated.md', 'generated:base\n')
+    commitFixture(repository, 'fixture baseline')
+
+    execFileSync('git', ['checkout', '-qb', 'feature'], { cwd: repository })
+    writeRepositoryFile(repository, 'tests/matrix.yml', 'expected\n')
+    const sourceCommit = commitFixture(repository, 'fixture omitted generated source')
+    execFileSync('git', ['checkout', '-q', 'master'], { cwd: repository })
+    execFileSync('git', [
+        'merge',
+        '--no-ff',
+        '-qm',
+        'Merge pull request #2973 from fixture/generated-source',
+        'feature'
+    ], { cwd: repository })
+    const mergeCommit = execFileSync(
+        'git',
+        ['rev-parse', 'HEAD'],
+        { cwd: repository, encoding: 'utf8' }
+    ).trim()
+    const base = mergeCommit
+    const baseSha256 = fileSha256(repository, 'docs/testing.generated.md')
+
+    execFileSync('git', ['checkout', '-qb', 'candidate'], { cwd: repository })
+    if (outputMode === 'canonical') {
+        execFileSync('node', [
+            'tools/docs/generate-testing-docs.mjs',
+            '--out',
+            'docs/testing.generated.md'
+        ], { cwd: repository })
+    } else if (outputMode === 'tampered') {
+        writeRepositoryFile(repository, 'docs/testing.generated.md', 'tampered\n')
+    }
+    if (changeSource) writeRepositoryFile(repository, 'tests/matrix.yml', 'candidate-source-change\n')
+
+    const canonicalCurrent = createHash('sha256').update('generated:expected\n').digest('hex')
+    const manifest = {
+        schema: changeContract.evidenceSchemas.postMergeGeneratedOutputRepair,
+        producerId: 'testing-docs',
+        sourceCommit,
+        mergedPullRequest: 2973,
+        mergeCommit,
+        source: {
+            path: 'tests/matrix.yml',
+            sha256: fileSha256(repository, 'tests/matrix.yml')
+        },
+        generator: {
+            path: 'tools/docs/generate-testing-docs.mjs',
+            sha256: fileSha256(repository, 'tools/docs/generate-testing-docs.mjs')
+        },
+        command: 'node tools/docs/generate-testing-docs.mjs --out docs/testing.generated.md',
+        outputs: [
+            {
+                path: 'docs/testing.generated.md',
+                baseSha256,
+                expectedSha256: canonicalCurrent,
+                currentSha256: fileSha256(repository, 'docs/testing.generated.md')
+            }
+        ]
+    }
+    if (mutateManifest) mutateManifest(manifest, repository)
+    writeRepositoryFile(
+        repository,
+        'artifacts/change-contract/testing-docs-post-merge-repair.json',
+        `${JSON.stringify(manifest, null, 4)}\n`
+    )
+    const head = commitFixture(repository, 'fixture generated repair candidate')
+    return { repository, base, head, manifest }
+}
+
+function validatePostMergeRepairFixture(fixtureRepository) {
+    return validatePrContract({
+        title: 'fix(governance): repair omitted generated test documentation',
+        body: postMergeRepairBody(),
+        labels: ['release-note:internal'],
+        actor: 'maintainer',
+        changedFiles: changedFilesBetween(
+            fixtureRepository.repository,
+            fixtureRepository.base,
+            fixtureRepository.head
+        ),
+        root: fixtureRepository.repository,
+        base: fixtureRepository.base,
+        head: fixtureRepository.head,
+        authorityRoot: null
+    })
 }
 
 test('registry is the unique ordered type/scope source consumed by commitlint', () => {
@@ -205,6 +330,17 @@ test('registry is the unique ordered type/scope source consumed by commitlint', 
         externalNamingSchema.properties.schema.const,
         changeContract.evidenceSchemas.externalNamingExceptions
     )
+    const repairSchema = JSON.parse(readFileSync(
+        resolve(root, 'config/schemas/post-merge-generated-output-repair.schema.json'),
+        'utf8'
+    ))
+    assert.equal(
+        repairSchema.properties.schema.const,
+        changeContract.evidenceSchemas.postMergeGeneratedOutputRepair
+    )
+    assert.deepEqual(changeContract.generatedOutputRepairProducers.map((entry) => entry.id), [
+        'testing-docs'
+    ])
 })
 
 test('valid commit fixtures cover ordinary, perf, revert, security, breaking, and mechanical messages', () => {
@@ -494,6 +630,77 @@ test('generated bot exception binds source, digest, and authenticated identity',
         authorityRoot: null
     })
     assert.ok(tampered.some((error) => error.includes('Generated output digest mismatch')))
+})
+
+test('post-merge generated repair binds exact history and isolated canonical replays', () => {
+    const repair = createPostMergeRepairFixture()
+    assert.deepEqual(validatePostMergeRepairFixture(repair), [])
+})
+
+test('post-merge generated repair rejects open discovery, stale bindings, and unknown commands', () => {
+    const repair = createPostMergeRepairFixture({
+        mutateManifest: (manifest) => {
+            manifest.latest = 'docs/testing.generated.md'
+            manifest.command = 'node tools/docs/generate-testing-docs.mjs --latest'
+            manifest.source.sha256 = '0'.repeat(64)
+            manifest.outputs[0].baseSha256 = '1'.repeat(64)
+            manifest.outputs[0].expectedSha256 = '2'.repeat(64)
+            manifest.outputs[0].currentSha256 = '3'.repeat(64)
+        }
+    })
+    const errors = validatePostMergeRepairFixture(repair)
+    assert.ok(errors.some((error) => error.includes('contains unsupported fields')))
+    assert.ok(errors.some((error) => error.includes('command must match trusted producer')))
+    assert.ok(errors.some((error) => error.includes('source changed or its current digest is stale')))
+    assert.ok(errors.some((error) => error.includes('base output digest is stale')))
+    assert.ok(errors.some((error) => error.includes('expected output digest is stale')))
+    assert.ok(errors.some((error) => error.includes('current output digest is stale')))
+})
+
+test('post-merge generated repair rejects arbitrary history and extra outputs', () => {
+    const arbitrary = createPostMergeRepairFixture({
+        mutateManifest: (manifest, repository) => {
+            manifest.sourceCommit = execFileSync(
+                'git',
+                ['rev-list', '--max-parents=0', 'HEAD'],
+                { cwd: repository, encoding: 'utf8' }
+            ).trim()
+        }
+    })
+    assert.ok(validatePostMergeRepairFixture(arbitrary).some(
+        (error) => error.includes('sourceCommit must have exactly one parent')
+    ))
+
+    const extra = createPostMergeRepairFixture({
+        mutateManifest: (manifest, repository) => {
+            writeRepositoryFile(repository, 'docs/extra.generated.md', 'extra\n')
+            manifest.outputs.push({
+                path: 'docs/extra.generated.md',
+                baseSha256: '0'.repeat(64),
+                expectedSha256: '0'.repeat(64),
+                currentSha256: fileSha256(repository, 'docs/extra.generated.md')
+            })
+        }
+    })
+    const extraErrors = validatePostMergeRepairFixture(extra)
+    assert.ok(extraErrors.some((error) => error.includes('outputs must exactly match trusted producer')))
+})
+
+test('post-merge generated repair rejects changed sources, unchanged outputs, and non-canonical bytes', () => {
+    const changedSource = createPostMergeRepairFixture({ changeSource: true })
+    const changedSourceErrors = validatePostMergeRepairFixture(changedSource)
+    assert.ok(changedSourceErrors.some((error) => error.includes('source must not be changed in this PR')))
+    assert.ok(changedSourceErrors.some((error) => error.includes('source changed or its current digest is stale')))
+
+    const unchanged = createPostMergeRepairFixture({ outputMode: 'unchanged' })
+    const unchangedErrors = validatePostMergeRepairFixture(unchanged)
+    assert.ok(unchangedErrors.some((error) => error.includes('binding path is not changed in this PR')))
+    assert.ok(unchangedErrors.some((error) => error.includes('output must be changed by the candidate')))
+
+    const tampered = createPostMergeRepairFixture({ outputMode: 'tampered' })
+    assert.ok(validatePostMergeRepairFixture(tampered).some(
+        (error) => error.includes('output bytes are not canonical')
+    ))
 })
 
 test('external naming exception binds a trusted registry ID to changed paths', () => {
