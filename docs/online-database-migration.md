@@ -175,6 +175,12 @@ checksum mismatch, schema coordinate outside the immutable manifest window,
 required pending Expand, failed/incompatible Backfill, pending legacy bootstrap, or
 an applied Contract incompatible with N/N-1.
 
+The current target shape is not inferred from these history tables or descriptors.
+It comes from the provider-neutral canonical current schema described in
+[Database Migration Runbook](database-migration.md#canonical-current-schema); the
+runtime, generated and migration-target adapters must carry the same sealed source
+and content identity before readiness comparison can enter warmup or sampling.
+
 Public readiness exposes only `schema_incompatible`; protected diagnostics use the
 stable codes below through `OnlineSchemaCompatibilityRuntimeState`:
 

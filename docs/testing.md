@@ -515,7 +515,7 @@ migration、legacy counts 与 postconditions 都进入同一 TRX runtime evidenc
 后，`planned -> executed -> passed` 才成立；任何缺失、identity drift、restore
 或 migration failure 都 fail closed。
 
-xUnit 通过 `tests/backend/xunit.runner.json` 固定 `stopOnFail=false`，单次运行会收集全部测试失败；filtered tier 先复用一次 `backend-filtered-build`，随后统一 `dotnet test --no-build`。每个 ordinary/special/filtered lane 都写入 `.tmp/test-results/backend/<lane>.trx`，retention audit 以稳定 `Class.Method` identity 汇总真实 p50、p95 与失败历史。所有使用 `PostgresSchemaMigrationFixture` 的测试类必须进入 `SchemaMigrationPostgresCollectionA/B` 之一；两个 collection 各自持有隔离 Postgres container，每个测试仍创建唯一数据库。`postgres-test-collections.json` 当前登记 87 个 fixture-backed class、603 个估算 case，checker 从源码重新发现 class 与 `Fact`/`Theory` case，拒绝漏 annotation、重复/遗漏 manifest 或 `estimatedFacts` 漂移。ordinary backend lane 与 Production union 都排除 `Fixture=LocalRedis`；四个 Redis case 只由 canonical LocalRedis producer 在隔离 Redis container 下执行，缺少 `FSUSBLOG_TEST_REDIS` 时仍 fail closed。Production fresh 只由物理 `backend-tests` bundle 生成一套 run/source-bound Release server/test artifact，随后一次 discovery 和 exact-union 统一消费；`BackendTestGovernanceTests.Issue40Requirements_HaveEvidenceAndRiskTraceability` 保留原测试 ID、原断言与 coverage，并作为普通 union 成员执行，不再分裂独立 postlude testhost 或数据库 namespace。Rights、Integrity、Cross-stack、Privacy/ZK 只消费同轮 summary/receipt/digest projection，不得触发兼容性 Debug build。`backend-production-build-authority` 根据受版本控制的 consumer inventory fail closed 拒绝回归。production union 从物理 `backend-tests` bundle 的实时 CPU 与内存配额生成互斥且穷尽的 testhost topology：默认 testhost 上限为 `min(max(2, floor(sqrt(cpuBudget))), cpuBudget, floor(memoryGiB / 1GiB), 12)`，再结合 discovered class/affinity unit、cold application/class startup penalty、Docker/PostgreSQL dependency weight 形成 machine-readable workload model；低于 2 CPU 或 2 GiB 时 fail closed。testhost 数、每 host processor 数和 rolling partition 数是三个独立维度：每个 host 至少保留 1 GiB，CPU 按商和余数（或诊断 weighted mode）分配并精确耗尽当前 admitted grant，partition 默认是 testhost 的两倍并受不可拆 planning unit 数限制。外层 grant 扩张时只在最新 CPU/内存余量内新增 slot，收缩到 active allocation 以下会 fail closed。`FSUSBLOG_BACKEND_PRODUCTION_SHARDS`、`FSUSBLOG_BACKEND_PARTITION_MULTIPLIER`、`FSUSBLOG_BACKEND_PROCESSOR_ALLOCATION_MODE` / legacy exact `FSUSBLOG_BACKEND_SHARD_PROCESSORS` 只用于诊断，summary 会记录公式、模型输入、候选 score、初始/潜在 topology 和 override 来源，不得把任何机器的 host 数写成 production 常量。高系统 load 不会把 testhost 静默降为单线程，资源冲突与内存门禁由外层 scheduler 负责。
+xUnit 通过 `tests/backend/xunit.runner.json` 固定 `stopOnFail=false`，单次运行会收集全部测试失败；filtered tier 先复用一次 `backend-filtered-build`，随后统一 `dotnet test --no-build`。每个 ordinary/special/filtered lane 都写入 `.tmp/test-results/backend/<lane>.trx`，retention audit 以稳定 `Class.Method` identity 汇总真实 p50、p95 与失败历史。所有使用 `PostgresSchemaMigrationFixture` 的测试类必须进入 `SchemaMigrationPostgresCollectionA/B` 之一；两个 collection 各自持有隔离 Postgres container，每个测试仍创建唯一数据库。`postgres-test-collections.json` 当前登记 87 个 fixture-backed class、606 个估算 case，checker 从源码重新发现 class 与 `Fact`/`Theory` case，拒绝漏 annotation、重复/遗漏 manifest 或 `estimatedFacts` 漂移。ordinary backend lane 与 Production union 都排除 `Fixture=LocalRedis`；四个 Redis case 只由 canonical LocalRedis producer 在隔离 Redis container 下执行，缺少 `FSUSBLOG_TEST_REDIS` 时仍 fail closed。Production fresh 只由物理 `backend-tests` bundle 生成一套 run/source-bound Release server/test artifact，随后一次 discovery 和 exact-union 统一消费；`BackendTestGovernanceTests.Issue40Requirements_HaveEvidenceAndRiskTraceability` 保留原测试 ID、原断言与 coverage，并作为普通 union 成员执行，不再分裂独立 postlude testhost 或数据库 namespace。Rights、Integrity、Cross-stack、Privacy/ZK 只消费同轮 summary/receipt/digest projection，不得触发兼容性 Debug build。`backend-production-build-authority` 根据受版本控制的 consumer inventory fail closed 拒绝回归。production union 从物理 `backend-tests` bundle 的实时 CPU 与内存配额生成互斥且穷尽的 testhost topology：默认 testhost 上限为 `min(max(2, floor(sqrt(cpuBudget))), cpuBudget, floor(memoryGiB / 1GiB), 12)`，再结合 discovered class/affinity unit、cold application/class startup penalty、Docker/PostgreSQL dependency weight 形成 machine-readable workload model；低于 2 CPU 或 2 GiB 时 fail closed。testhost 数、每 host processor 数和 rolling partition 数是三个独立维度：每个 host 至少保留 1 GiB，CPU 按商和余数（或诊断 weighted mode）分配并精确耗尽当前 admitted grant，partition 默认是 testhost 的两倍并受不可拆 planning unit 数限制。外层 grant 扩张时只在最新 CPU/内存余量内新增 slot，收缩到 active allocation 以下会 fail closed。`FSUSBLOG_BACKEND_PRODUCTION_SHARDS`、`FSUSBLOG_BACKEND_PARTITION_MULTIPLIER`、`FSUSBLOG_BACKEND_PROCESSOR_ALLOCATION_MODE` / legacy exact `FSUSBLOG_BACKEND_SHARD_PROCESSORS` 只用于诊断，summary 会记录公式、模型输入、候选 score、初始/潜在 topology 和 override 来源，不得把任何机器的 host 数写成 production 常量。高系统 load 不会把 testhost 静默降为单线程，资源冲突与内存门禁由外层 scheduler 负责。
 
 backend xUnit 的平台成员资格由 `tools/test/backend-platform-selection.mjs` 唯一投影。测试使用稳定 `[Trait("Platform", "Unix")]` 声明 Unix-only；ordinary、CI 与 Production 从同一规则生成 filter：Windows plan 将该 test ID 记录为 `not-selected`，Linux/macOS plan 必须把它记录为 `planned` 并由 TRX 对账为 `passed` 或 `failed`。ordinary lane 分别写入 `.tmp/backend-unit/platform-membership-plan.json` 与 `platform-membership-outcome.json`，保存 VSTest test ID、FQN、display name、source assembly 与语义结果；Windows 记录不声明 assertion count。需要实际权限值的测试再声明 `[Trait("PlatformEvidence", "UnixMode")]`，并在同一 TRX result 中写入 typed runtime receipt；只有实际 fresh/effective `0700`、过宽 `0777` existing root 收敛、六个 group/other deny 与 owner create/read/delete 均成立时，`passed` outcome 才可签发。六条 upload request path 使用 `[Trait("PlatformEvidence", "UnixRequestPath")]`：plan 必须逐 case 保留 complete、abort、expired-status、expired-part-map、expired-part、expired-token 的唯一 identity，TRX receipt 必须逐条证明 expiration root 不可枚举、真实 public request 结果及 session/index postcondition；complete 还证明 manifest、owner、token digest、retry 与错误 owner/token 行为，其他 case 则证明 cleanup 完成。物理路径逃逸使用 `[Trait("PlatformEvidence", "UnixSymlinkBoundary")]`：receipt 绑定不泄露绝对路径的 root/link/target SHA-256 identity，要求真实 root 外链接被拒绝且 output 为空、同形 root 内链接正常解析、target identity 匹配并完成 link cleanup。带 platform trait 的测试不得通过 runtime `return`、skip 或 warning 伪装 Passed，runtime receipt 也不得脱离对应 evidence trait；`backend-test-governance` 使用正反 fixture 持续拒绝这些路径。Unix 文件权限设置不可用、mode 读取失败、权限未生效、目录仍可枚举、symlink identity/关系/清理不成立、六条成员缺失或 request postcondition 不成立时均由测试或 evidence reconciliation 失败。
 
@@ -1401,20 +1401,37 @@ closure）同样失败**。shard 遗漏、duplicate testId、多跑、result
 missing、failed/cancelled/timeout、binding drift 与 framework adapter
 mismatch 全部 fail closed。
 
-### evidenceStage 代理
+### evidenceStage 路由与 post-runtime receipt contract
 
-catalog 全仓不存在 `evidenceStage` 字段（`rg evidenceStage` 零命中），
-且 #2186 固定约束禁止修改 catalog/DocClaim 语义，因此 producer 以
-`status === 'active' && releaseQualification === true` 代理
-`evidenceStage=pre-runtime && releaseQualification=true`。当前 8 个
-active+releaseQualification contracts（test-asset-audit-reconciliation、
-code-intent-governance、document-lifecycle-governance、
-binary-api-aeds-contract、browserless-production-correctness、
-authentication-session-permission、configuration-error-security-policy、
-article-comment-lifecycle-outbox）全部是 static governance / contract /
-unit 级 pre-runtime 行为，没有 post-runtime（browser/load/soak/nightly）
-behavior 被误纳入。若未来 catalog 增加 post-runtime behavior，必须先行
-引入 evidenceStage 语义并收紧代理，不能在本 producer 内合成。
+BehaviorCatalog 的 active release behaviors 必须显式声明
+`evidenceStage=pre-runtime` 或 `post-runtime`。pre-runtime producer 只消费
+前一类；后一类由 `config/testing/post-runtime-producer-registry.json`
+从 catalog 自动枚举并建立 exact-one producer/schema/claim mapping，禁止用
+active/releaseQualification 的宽集合代理或在 consumer 中维护第二份 behavior
+清单。
+
+registry v2 对每个 observation class 固定 exact positive/negative/boundary/
+failure membership、producer `toolVersion`、source/build/candidate/runtime
+identity 与 canonical content digest。raw receipt 沿用
+`fsusblog.post-runtime-observation-result-envelope.v1` 包装各 class schema；
+只有 planned/executed clean correctness、`outcome=passed`、非 diagnostic、
+非 recovered 且 terminal timeout/cancel/process-tree 状态一致的 receipt 可进入
+qualification。failed、timed-out、cancelled 与 recovered receipt 可保留诊断，
+但不能满足 release behavior；v1 registry/receipt 不接受兼容降级。
+
+`fsusblog.post-runtime-accepted-claims.v1` 只承接 #2205 已接受 terminal
+authority。validator 通过显式 current-run path 重读
+`fsusblog.global-claim-exactness-terminal-receipt.v1`，重算 file SHA-256 与
+canonical content digest，并重放 terminal validator；source/worktree、
+migration-ledger digest、producer/tool version 与完整 claim set 必须 exact
+一致。validator 只读现有 terminal receipt，不运行或修复上游 evidence。
+
+Focused validation：
+
+```bash
+node tools/test-matrix/post-runtime-producer-registry.mjs
+node --test tests/tools/post-runtime-producer-registry.test.mjs
+```
 
 独立 verifier `tools/test-matrix/verify-behavior-test-evidence.mjs` 重读
 raw results、bindings、catalog、test plan receipt 与 receipt，重算
