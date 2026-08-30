@@ -1,6 +1,9 @@
 {
     "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-    "extends": ["config:recommended"],
+    "extends": [
+        ":dependencyDashboard",
+        ":semanticPrefixFixDepsChoreOthers"
+    ],
     "timezone": "Asia/Shanghai",
     "schedule": ["* 0,6,12,18 * * *"],
     "minimumReleaseAge": "0 days",
@@ -24,7 +27,8 @@
         ]
     },
     "ignorePaths": [
-        "tests/frontend/fixtures/fsusui-boundary-violation/src/frontend/package.json"
+        "tests/frontend/fixtures/fsusui-boundary-violation/src/frontend/package.json",
+        "tools/test-inventory/xunit-roslyn-adapter/fixtures/AdapterFixtureTests/packages.lock.json"
     ],
     "lockFileMaintenance": {
         "enabled": true,
@@ -127,7 +131,7 @@
             "matchStrings": ["uses: actions/setup-dotnet@[^\\n]+[\\s\\S]{0,240}?dotnet-version:\\s*['\\\"]?(?<currentValue>\\d+(?:\\.\\d+)?\\.x)['\\\"]?"],
             "depNameTemplate": "dotnet-sdk",
             "datasourceTemplate": "dotnet-version",
-            "versioningTemplate": "dotnet"
+            "versioningTemplate": "semver-partial"
         },
         {
             "customType": "regex",
@@ -137,7 +141,8 @@
             "depNameTemplate": "microsoft/vcpkg",
             "packageNameTemplate": "https://github.com/microsoft/vcpkg.git",
             "datasourceTemplate": "git-refs",
-            "currentValueTemplate": "master"
+            "currentValueTemplate": "master",
+            "versioningTemplate": "git"
         },
         {
             "customType": "regex",
@@ -152,7 +157,8 @@
                 "版本不是 (?<currentValue>\\d{2,4})"
             ],
             "depNameTemplate": "WebAssembly/binaryen",
-            "datasourceTemplate": "github-releases"
+            "datasourceTemplate": "github-releases",
+            "versioningTemplate": "loose"
         },
         {
             "customType": "regex",

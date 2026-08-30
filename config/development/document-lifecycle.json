@@ -1660,7 +1660,9 @@
             "path": "docs/repository-governance.md",
             "status": "current",
             "owner": "governance",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1923
+            ],
             "supersedes": [],
             "supersededBy": null
         },

@@ -261,8 +261,17 @@ function validate(candidateCatalog, candidateConfig) {
             if (!matched) report('catalog-unmatched-file', `${item.id}:${file}`)
         }
     }
+    for (const item of (candidateCatalog.items ?? []).filter(candidate => candidate.manager === 'custom.regex')) {
+        const manager = candidateConfig.customManagers?.find(candidate => candidate.description === item.customManager)
+        if (!manager) continue
+        if (manager.datasourceTemplate !== item.datasource) report('config-custom-datasource', `${item.id}:${manager.datasourceTemplate ?? '-'}:${item.datasource}`)
+        if (manager.versioningTemplate !== item.versioning) report('config-custom-versioning', `${item.id}:${manager.versioningTemplate ?? '-'}:${item.versioning}`)
+    }
 
-    if (candidateConfig.automerge !== false || candidateConfig.packageRules?.some(rule => rule.automerge === true)) report('config-automerge', 'automerge must remain false')
+    if (candidateConfig.automerge !== false
+        || candidateConfig.lockFileMaintenance?.automerge === true
+        || candidateConfig.vulnerabilityAlerts?.automerge === true
+        || candidateConfig.packageRules?.some(rule => rule.automerge === true)) report('config-automerge', 'automerge must remain false')
     const serialized = JSON.stringify(candidateConfig)
     if (serialized.includes('"enabled":false')) report('config-disabled-update', 'enabled:false is forbidden')
     if ('ignoreDeps' in candidateConfig) report('config-ignore-deps', 'ignoreDeps is forbidden')
@@ -271,10 +280,20 @@ function validate(candidateCatalog, candidateConfig) {
     if (JSON.stringify(candidateConfig.schedule) !== JSON.stringify(['* 0,6,12,18 * * *'])) report('config-schedule', 'schedule must run every six hours')
     if (!candidateConfig.lockFileMaintenance?.enabled || JSON.stringify(candidateConfig.lockFileMaintenance.schedule) !== JSON.stringify(['* 5 * * *'])) report('config-lockfile-maintenance', 'daily lockfile maintenance is required')
     if (JSON.stringify(candidateConfig.vulnerabilityAlerts?.schedule) !== JSON.stringify(['at any time'])) report('config-vulnerability-schedule', 'vulnerability updates must be unscheduled')
+    const forbiddenPresets = new Set(['config:recommended', 'config:best-practices', ':ignoreModulesAndTests', 'group:monorepos', 'group:recommended', 'workarounds:all'])
+    for (const preset of candidateConfig.extends ?? []) if (forbiddenPresets.has(preset)) report('config-hidden-ignore-preset', preset)
+    const exclusionFiles = new Set((candidateCatalog.exclusions ?? []).map(item => item.path).filter(item => !item.includes('#')))
+    for (const ignorePath of candidateConfig.ignorePaths ?? []) {
+        if (/[*?]|\*\*|\/(?:tests|test|fixtures|examples)(?:\/|$)/u.test(ignorePath) && !exclusionFiles.has(ignorePath)) report('config-broad-ignore-path', ignorePath)
+        if (!exclusionFiles.has(ignorePath)) report('config-ignore-path-unregistered', ignorePath)
+    }
+    for (const exclusion of exclusionFiles) if (!(candidateConfig.ignorePaths ?? []).includes(exclusion)) report('config-exclusion-not-ignored', exclusion)
     const updateRule = candidateConfig.packageRules?.find(rule => Array.isArray(rule.matchUpdateTypes))
     for (const updateType of ['major', 'minor', 'patch', 'pin', 'digest', 'lockFileMaintenance']) if (!updateRule?.matchUpdateTypes.includes(updateType)) report('config-update-type', updateType)
     const groups = new Set(candidateConfig.packageRules?.map(rule => rule.groupName).filter(Boolean))
+    for (const group of groups) if (['misc', 'other', 'ungrouped'].includes(group)) report('config-group-anonymous', group)
     for (const item of candidateCatalog.items ?? []) if (!groups.has(item.group)) report('config-group-missing', `${item.id}:${item.group}`)
+    if (trackedFiles.some(file => /^\.github\/workflows\/.*renovate/iu.test(file))) report('config-self-hosted-workflow', 'self-hosted Renovate workflows are forbidden')
     return errors
 }
 
@@ -410,6 +429,10 @@ for (const fixture of fixtures?.policyCases ?? []) {
     if (fixture.mutation === 'missing-dashboard-group') fixtureEvidence.dashboardSimulation.cases = fixtureEvidence.dashboardSimulation.cases.filter(item => item.target !== 'frontend-runtime')
     if (fixture.mutation === 'missing-dashboard-token-state') fixtureEvidence.dashboardSimulation.cases = fixtureEvidence.dashboardSimulation.cases.filter(item => item.id !== 'actions-zero')
     if (fixture.mutation === 'invalid-dashboard-controlled-values') fixtureEvidence.dashboardSimulation.cases.find(item => item.id === 'actions-zero').availableVersions = []
+    if (fixture.mutation === 'custom-versioning-drift') fixtureConfig.customManagers.find(item => item.description === 'Binaryen release projections').versioningTemplate = 'semver-coerced'
+    if (fixture.mutation === 'recommended-preset') fixtureConfig.extends = ['config:recommended']
+    if (fixture.mutation === 'broad-ignore-path') fixtureConfig.ignorePaths = ['**/tests/**']
+    if (fixture.mutation === 'automerge-lockfile') fixtureConfig.lockFileMaintenance.automerge = true
     const codes = [
         ...validate(fixtureCatalog, fixtureConfig),
         ...validateEvidence(fixtureCatalog, fixtureConfig, fixtureEvidence)

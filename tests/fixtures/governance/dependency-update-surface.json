@@ -16,7 +16,7 @@
     "simulationRepresentatives": [
         "npm-fingerprintjs-fingerprintjs-frontend",
         "npm-vue-frontend",
-        "npm-glob-override-frontend",
+    "npm-vitest-frontend",
         "nuget-microsoft-aspnetcore-authentication-jwtbearer",
         "nuget-bcrypt-net-next",
         "nuget-messagepack",
@@ -66,6 +66,10 @@
         { "id": "reject-disabled-update", "mutation": "disabled-update", "expectedCode": "config-disabled-update" },
         { "id": "reject-automerge", "mutation": "automerge", "expectedCode": "config-automerge" },
         { "id": "reject-prerelease", "mutation": "prerelease", "expectedCode": "config-prerelease" },
-        { "id": "reject-slow-schedule", "mutation": "slow-schedule", "expectedCode": "config-schedule" }
+        { "id": "reject-slow-schedule", "mutation": "slow-schedule", "expectedCode": "config-schedule" },
+        { "id": "reject-custom-versioning-drift", "mutation": "custom-versioning-drift", "expectedCode": "config-custom-versioning" },
+        { "id": "reject-recommended-preset", "mutation": "recommended-preset", "expectedCode": "config-hidden-ignore-preset" },
+        { "id": "reject-broad-ignore-path", "mutation": "broad-ignore-path", "expectedCode": "config-broad-ignore-path" },
+        { "id": "reject-automerge-lockfile", "mutation": "automerge-lockfile", "expectedCode": "config-automerge" }
     ]
 }

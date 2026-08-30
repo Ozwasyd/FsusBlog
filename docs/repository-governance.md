@@ -66,7 +66,11 @@ must keep Dependabot alerts and Dependabot security updates enabled.
 
 The candidate config requests six-hour checks, stable exact/pinned major, minor,
 patch and digest updates, daily lock-file refreshes, and unscheduled vulnerability
-updates. Updates remain reviewer-controlled and never automerged. The App
+updates. It does not extend `config:recommended`, `:ignoreModulesAndTests`, or
+Renovate's default grouping presets, so real version fields under `tests/` stay
+visible; fixture and generated-evidence paths are ignored only when
+`update-surface.json` registers the exact path and reason. Updates remain
+reviewer-controlled and never automerged. The App
 installation, permissions, live Dependency Dashboard, and real update pull requests
 are `external-unverified`; local acceptance uses the official config validator,
 full dry-run, and `local-controlled-simulation` fixtures and does not claim those
