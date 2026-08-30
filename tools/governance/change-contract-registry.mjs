@@ -138,6 +138,7 @@ export const trustedPolicyFiles = Object.freeze([
 
 export const changeContract = Object.freeze({
     schema: 'fsusblog.change-contract.v1',
+    repository: 'Ozwasyd/FsusBlog',
     commitTypes,
     commitScopes,
     changeClassifications,
@@ -152,6 +153,7 @@ export const changeContract = Object.freeze({
         formatIdempotence: 'fsusblog.format-idempotence-evidence.v1',
         generatedOutput: 'fsusblog.generated-output-binding.v1',
         postMergeGeneratedOutputRepair: 'fsusblog.post-merge-generated-output-repair.v1',
+        postMergeExternalNamingEvidenceRepair: 'fsusblog.post-merge-external-naming-evidence-repair.v1',
         performanceClaim: 'fsusblog.performance-claim-evidence.v1'
     }),
     summaryMaximumLength: 100,
