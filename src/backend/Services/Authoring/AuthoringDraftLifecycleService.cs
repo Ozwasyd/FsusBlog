@@ -75,13 +75,15 @@ public sealed class AuthoringDraftLifecycleService(
                 .ConfigureAwait(false);
             if (mutated)
             {
+                ArticleAssetReferenceWrite[] assetReferenceWrites = await new ArticleAssetReferenceWriteBoundary(db)
+                    .ResolveAsync(draft.MarkdownContent, draft.CoverImageUrl, cancellationToken)
+                    .ConfigureAwait(false);
                 await new ArticleAssetReferenceStore(db)
                     .ReplaceDraftAsync(
                         draft.OwnerAdminPrincipalId,
                         draft.DraftKey,
                         draft.ArticleId,
-                        draft.MarkdownContent,
-                        draft.CoverImageUrl,
+                        assetReferenceWrites,
                         cancellationToken)
                     .ConfigureAwait(false);
             }
@@ -245,16 +247,31 @@ public sealed class AuthoringDraftLifecycleService(
         CancellationToken cancellationToken = default)
     {
         string normalized = NormalizeDraftKey(draftKey, null);
-        int count = await db.Ado.ExecuteCommandAsync(
-            """
-            DELETE FROM article_draft
-            WHERE owner_admin_principal_id = @OwnerAdminPrincipalId
-              AND draft_key = @DraftKey
-              AND server_revision = @ExpectedServerRevision;
-            """,
-            new SugarParameter("@OwnerAdminPrincipalId", ownerAdminPrincipalId),
-            new SugarParameter("@DraftKey", normalized),
-            new SugarParameter("@ExpectedServerRevision", expectedServerRevision));
+        int count = 0;
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            count = await db.Ado.ExecuteCommandAsync(
+                """
+                DELETE FROM article_draft
+                WHERE owner_admin_principal_id = @OwnerAdminPrincipalId
+                  AND draft_key = @DraftKey
+                  AND server_revision = @ExpectedServerRevision;
+                """,
+                new SugarParameter("@OwnerAdminPrincipalId", ownerAdminPrincipalId),
+                new SugarParameter("@DraftKey", normalized),
+                new SugarParameter("@ExpectedServerRevision", expectedServerRevision));
+            if (count > 0)
+            {
+                await new ArticleAssetReferenceStore(db)
+                    .RemoveDraftAsync(ownerAdminPrincipalId, normalized, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }).ConfigureAwait(false);
+        if (!transaction.IsSuccess)
+        {
+            throw new InvalidOperationException("Server draft and asset references were not discarded atomically.", transaction.ErrorException);
+        }
+
         if (count > 0)
         {
             auditWriter.Write(AuditSourceCatalog.Article, "server-draft-discard", ownerAdminPrincipalId, normalized);
