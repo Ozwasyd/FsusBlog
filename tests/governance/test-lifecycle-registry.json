@@ -964,6 +964,16 @@
             }
         },
         {
+            "file": "tests/tools/current-schema-authority.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "migration"
+            ]
+        },
+        {
             "file": "tests/tools/data-reader-ordinal-analyzer.test.mjs",
             "owner": "manual-diagnostic:tests/tools/data-reader-ordinal-analyzer.test.mjs",
             "executionCategory": "manual-diagnostic",
