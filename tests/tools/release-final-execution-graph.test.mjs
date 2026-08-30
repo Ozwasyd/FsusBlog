@@ -7,6 +7,8 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { behaviorTest } from '../../tools/contracts/behavior-test.mjs';
+
 import {
     createBehaviorDocAdmissionFixture
 } from './support/behavior-doc-admission-fixture.mjs';
@@ -65,7 +67,7 @@ test('carried execution dependency contract seals every tier and command-group e
     assert.deepEqual(contract, buildExecutionDependencyContract(matrix));
 });
 
-test('independent release-final evidence contract seals the canonical exact set', () =>
+behaviorTest('release-final-aggregate-contract', 'positive', 'independent release-final evidence contract seals the canonical exact set', () =>
 {
     const canonical = loadCanonicalReleaseFinalEvidenceInputs();
     const contract = JSON.parse(readFileSync(evidenceContractFile, 'utf8'));
@@ -103,7 +105,10 @@ test('independent release-final evidence contract seals the canonical exact set'
     assert.equal(producerCheck.status, 0, `${producerCheck.stdout}\n${producerCheck.stderr}`);
 });
 
-test('fixed release-final evidence digest rejects every canonical exact-set mutation', async (context) =>
+behaviorTest('release-final-aggregate-contract', 'negative', {
+    title: 'fixed release-final evidence digest rejects every canonical exact-set mutation',
+    invariantIds: ['release-final-exact-input-set']
+}, async (context) =>
 {
     const canonical = loadCanonicalReleaseFinalEvidenceInputs();
     const mutations = [

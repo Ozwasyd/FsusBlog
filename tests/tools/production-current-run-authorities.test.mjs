@@ -165,6 +165,8 @@ function behaviorEvidenceReceipt({ runId, source = sourceState })
             worktreeFingerprint: source.worktreeFingerprint
         },
         behaviorIds: ['document-lifecycle-governance'],
+        buildIdentities: {},
+        registryDigest: `sha256:${'c'.repeat(64)}`,
         runtimeCandidateSpawnCountBeforeReceipt: 0,
         status: 'ok',
         failureReasons: [],

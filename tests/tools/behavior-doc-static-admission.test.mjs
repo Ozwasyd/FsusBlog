@@ -185,7 +185,14 @@ function copyMinimalBuildFixture(repositoryRoot)
         const source = path.join(root, relative);
         const destination = path.join(repositoryRoot, relative);
         fs.mkdirSync(path.dirname(destination), { recursive: true });
-        fs.copyFileSync(source, destination);
+        if (fs.statSync(source).isDirectory())
+        {
+            fs.cpSync(source, destination, { recursive: true });
+        }
+        else
+        {
+            fs.copyFileSync(source, destination);
+        }
     }
 }
 
@@ -423,8 +430,23 @@ test('minimal contract build uses only a content-addressed root and never ambien
         },
         spawn: fakeSpawn
     });
-    assert.equal(invocations.filter((args) => args[1] === 'run').length, 4);
+    assert.equal(
+        invocations.filter((args) => args[1] === 'run').length,
+        Object.keys(hostDeclarations).length
+    );
     assert.match(result.receipt.buildRoot, /^\.tmp\/behavior-doc-contract-builds\/[a-f0-9]{64}$/u);
+    for (const [artifactId, artifact] of Object.entries(result.receipt.artifacts))
+    {
+        const expectedReceiptDigest = digestValue({
+            schema: `fsusblog.${artifactId}-build-receipt.v1`,
+            artifactId,
+            artifactPath: hostDeclarations[artifactId].output,
+            artifactDigest: artifact.artifactDigest,
+            configuration: 'Release'
+        });
+        assert.equal(result.buildIdentities[artifactId].receiptDigest, expectedReceiptDigest);
+        assert.notEqual(result.buildIdentities[artifactId].receiptDigest, result.receipt.contentDigest);
+    }
     assert.equal(fs.readFileSync(ambient, 'utf8'), '{"stale":true}\n');
 });
 
@@ -525,8 +547,14 @@ process.stdout.write(JSON.stringify({
     assert.deepEqual([first.cacheHit, second.cacheHit].sort(), [false, true]);
 
     let logLines = fs.readFileSync(invocationLog, 'utf8').trim().split(/\r?\n/u);
-    assert.equal(logLines.filter((line) => line.startsWith('start ')).length, 4);
-    assert.equal(logLines.filter((line) => line.startsWith('end ')).length, 4);
+    assert.equal(
+        logLines.filter((line) => line.startsWith('start ')).length,
+        Object.keys(hostDeclarations).length
+    );
+    assert.equal(
+        logLines.filter((line) => line.startsWith('end ')).length,
+        Object.keys(hostDeclarations).length
+    );
     assert.deepEqual(fs.readdirSync(activeRoot), []);
 
     const corruptedArtifact = Object.values(first.receipt.artifacts)[0];
@@ -540,8 +568,14 @@ process.stdout.write(JSON.stringify({
     assert.equal(repaired.cacheHit, false);
     assert.equal(repaired.runId, 'concurrent-admission-repair');
     logLines = fs.readFileSync(invocationLog, 'utf8').trim().split(/\r?\n/u);
-    assert.equal(logLines.filter((line) => line.startsWith('start ')).length, 8);
-    assert.equal(logLines.filter((line) => line.startsWith('end ')).length, 8);
+    assert.equal(
+        logLines.filter((line) => line.startsWith('start ')).length,
+        Object.keys(hostDeclarations).length * 2
+    );
+    assert.equal(
+        logLines.filter((line) => line.startsWith('end ')).length,
+        Object.keys(hostDeclarations).length * 2
+    );
     assert.deepEqual(fs.readdirSync(activeRoot), []);
 
     const buildCache = path.join(repositoryRoot, '.tmp/behavior-doc-contract-builds');
@@ -722,12 +756,13 @@ test('matrix validation binds scheduler identity while plan-only paths never est
     t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
     const matrixFile = path.join(directory, 'matrix.yml');
     const marker = path.join(directory, 'dotnet-invoked');
-    const identityEvidence = path.join(directory, 'identity-evidence.jsonl');
     const inventoryEvidenceDirectory = path.join(
         root,
         '.tmp/behavior-doc-static-admission-fixtures',
         path.basename(directory)
     );
+    const identityEvidence = path.join(inventoryEvidenceDirectory, 'identity-evidence.jsonl');
+    const identityEvidenceRelative = path.relative(root, identityEvidence).replaceAll('\\', '/');
     const inventoryEvidence = path.join(inventoryEvidenceDirectory, 'inventory-evidence.json');
     const inventoryEvidenceRelative = path.relative(root, inventoryEvidence).replaceAll('\\', '/');
     const identityProbe = path.join(directory, 'identity-probe.mjs');
@@ -782,6 +817,7 @@ test('matrix validation binds scheduler identity while plan-only paths never est
         '--projection-directory .tmp/physical-execution-projections',
         '--path tools/test/run-deterministic-command.mjs',
         '--output .tmp/release-evidence/test-plan.json',
+        `--output ${JSON.stringify(identityEvidenceRelative)}`,
         '--test-id matrix-validate',
         '--',
         JSON.stringify(process.execPath),

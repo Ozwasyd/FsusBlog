@@ -39,6 +39,7 @@ function fixtureRoot()
     const directory = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-behavior-test-binding-'));
     for (const relative of [
         'config/contracts/behavior-contracts.json',
+        'config/contracts/generated-fact-sections.json',
         'config/schemas/behavior-contract-catalog.schema.json',
         'tests/coverage-registry.json',
         'config/development/document-lifecycle.json'
@@ -161,6 +162,26 @@ behaviorTest('article-comment-lifecycle-outbox', 'positive', 'comment positive',
     write(repositoryRoot, 'tests/tools/comment.negative.test.mjs', `
 import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
 behaviorTest('article-comment-lifecycle-outbox', 'negative', { title: 'comment negative', invariantIds: ['transactional-rollback-boundary'] }, () => {})
+`);
+    write(repositoryRoot, 'tests/tools/deployment.positive.test.mjs', `
+import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+behaviorTest('deployment-blue-green-runtime-role', 'positive', 'deployment positive', () => {})
+`);
+    write(repositoryRoot, 'tests/tools/deployment.negative.test.mjs', `
+import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+behaviorTest('deployment-blue-green-runtime-role', 'negative', { title: 'deployment negative', invariantIds: ['active-release-stop-protection'] }, () => {})
+`);
+    write(repositoryRoot, 'tests/tools/deployment.concurrency.test.mjs', `
+import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+behaviorTest('deployment-blue-green-runtime-role', 'concurrency', { title: 'deployment concurrency', concurrencyHarness: 'fsusblog.real-concurrency.v1' }, () => {})
+`);
+    write(repositoryRoot, 'tests/tools/release-final.positive.test.mjs', `
+import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+behaviorTest('release-final-aggregate-contract', 'positive', 'release final positive', () => {})
+`);
+    write(repositoryRoot, 'tests/tools/release-final.negative.test.mjs', `
+import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+behaviorTest('release-final-aggregate-contract', 'negative', { title: 'release final negative', invariantIds: ['release-final-exact-input-set'] }, () => {})
 `);
     // Install helper modules referenced by relative imports in fixture tests (not executed).
     write(repositoryRoot, 'tools/contracts/behavior-test.mjs', readFileSync(path.join(root, 'tools/contracts/behavior-test.mjs'), 'utf8'));
