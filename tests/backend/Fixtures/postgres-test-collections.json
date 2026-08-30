@@ -3,7 +3,7 @@
   "collections": [
     {
       "id": "SchemaMigrationPostgresCollectionA",
-      "estimatedFacts": 215,
+      "estimatedFacts": 222,
       "tests": [
         {
           "path": "Integration/SchemaMigrationIntegrationTests.cs",
@@ -108,12 +108,16 @@
         {
           "path": "Integration/DistributedInvalidationDeliveryLedgerIntegrationTests.cs",
           "class": "DistributedInvalidationDeliveryLedgerIntegrationTests"
+        },
+        {
+          "path": "Integration/SecurityFixtureCompositionRootIntegrationTests.cs",
+          "class": "SecurityFixtureCompositionRootIntegrationTests"
         }
       ]
     },
     {
       "id": "SchemaMigrationPostgresCollectionB",
-      "estimatedFacts": 350,
+      "estimatedFacts": 360,
       "tests": [
         {
           "path": "Integration/AccountEnrollmentIntegrationTests.cs",
@@ -387,6 +391,18 @@
         {
           "path": "Unit/DistributedInvalidationConvergenceObligationStoreTests.cs",
           "class": "DistributedInvalidationConvergenceObligationStoreTests"
+        },
+        {
+          "path": "Integration/AuthoringCanvasDocumentStoreIntegrationTests.cs",
+          "class": "AuthoringCanvasDocumentStoreIntegrationTests"
+        },
+        {
+          "path": "Unit/ContentAssetDeleteEndpointTests.cs",
+          "class": "ContentAssetDeleteEndpointIntegrationTests"
+        },
+        {
+          "path": "Unit/ContentAssetDeleteEndpointTests.cs",
+          "class": "ContentAssetUploadLedgerIntegrationTests"
         }
       ]
     }
