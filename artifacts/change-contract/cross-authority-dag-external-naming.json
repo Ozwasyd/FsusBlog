@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/cross-authority-dag-receipt.schema.json",
+                "config/schemas/cross-authority-dag.schema.json"
+            ],
+            "reason": "The new JSON Schema and receipt keys are caller-visible wire identifiers; internal JavaScript symbols continue to follow repository naming rules."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/contracts/cross-authority-dag.mjs"
+            ],
+            "reason": "The registered tooling surface preserves its caller-visible CLI and process identifiers while internal JavaScript symbols follow repository naming rules."
+        }
+    ]
+}
