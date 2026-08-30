@@ -542,6 +542,7 @@ tiers:
       cacheInputs:
           [
               Directory.Build.props,
+              Directory.Packages.props,
               FsusBlog.slnx,
               config/contracts/behavior-contracts.json,
               config/contracts/behavior-fact-extractors.json,
@@ -1038,6 +1039,7 @@ tiers:
       triggerPaths:
           [
               Directory.Build.props,
+              Directory.Packages.props,
               FsusBlog.slnx,
               global.json,
               src/backend/**,
@@ -1570,6 +1572,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               benchmarks/core,
               src/backend,
@@ -1631,6 +1634,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend,
               src/core,
@@ -1880,6 +1884,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend/Infrastructure/Distributed,
               src/backend/Infrastructure/PublicAot/PublicAotBackfillLease.cs,
@@ -2467,12 +2472,15 @@ tiers:
           - docs/testing/issue-1174-csharp-entrypoint-ownership.md
           - .editorconfig
           - Directory.Build.props
+          - Directory.Packages.props
           - .git-blame-ignore-revs
           - config/development/csharp-style-policy.json
           - config/development/csharp-style-baseline.json
           - tools/dotnet/check-csharp-style.mjs
           - tests/tools/csharp-style.test.mjs
           - docs/development/csharp-style-enforcement.md
+          - tools/governance/check-central-package-management.mjs
+          - tests/fixtures/governance/central-package-management.json
           - .gitattributes
           - tools/style/line-ending-invariant.mjs
           - tests/tools/line-endings.test.mjs
@@ -2950,6 +2958,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend,
               src/core,
@@ -5869,6 +5878,7 @@ tiers:
       cacheInputs:
           [
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               benchmarks/core,
               src/backend,
@@ -5945,6 +5955,7 @@ tiers:
       cacheInputs:
           [
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               benchmarks/core,
               src/backend,
@@ -6458,6 +6469,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               benchmarks/core,
               src/backend,
@@ -6528,6 +6540,7 @@ tiers:
       cacheInputs:
           [
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               benchmarks/core,
               src/backend,
@@ -8995,6 +9008,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend,
               src/core,
@@ -9072,6 +9086,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend,
               src/core,
@@ -9157,6 +9172,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend,
               src/core,
@@ -9254,6 +9270,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend,
               src/core,
@@ -9315,6 +9332,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend,
               src/core,

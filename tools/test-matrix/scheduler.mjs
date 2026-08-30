@@ -1367,7 +1367,7 @@ export function effectiveCacheInputs(tier)
         const frontend = tier.requiresNode === true || tier.owner === 'InteropGlueAgent' || ['frontend', 'full'].includes(tier.cacheProfile);
         if (backend)
         {
-            for (const value of ['Directory.Build.props', 'FsusBlog.slnx', 'global.json', 'src/backend', 'src/core', 'src/shared', 'tests/backend'])
+            for (const value of ['Directory.Build.props', 'Directory.Packages.props', 'FsusBlog.slnx', 'global.json', 'src/backend', 'src/core', 'src/shared', 'tests/backend'])
             {
                 inputs.add(value);
             }

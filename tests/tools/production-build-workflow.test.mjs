@@ -91,6 +91,7 @@ test('producer receipts existing lock, project and build configuration inputs', 
   assert.match(source, /--run-attempt "\$PRODUCER_RUN_ATTEMPT"/u)
   for (const input of [
     'Directory.Build.props',
+    'Directory.Packages.props',
     'FsusBlog.slnx',
     'src/backend/FsusBlog.Server.csproj',
     'src/backend/packages.lock.json',

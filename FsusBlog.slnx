@@ -41,6 +41,7 @@
     <File Path="AGENTS.md" />
     <File Path="FsusBlog.slnLaunch" />
     <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
     <File Path=".dockerignore" />
     <File Path=".gitignore" />
   </Folder>
