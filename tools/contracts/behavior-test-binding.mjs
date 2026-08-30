@@ -987,6 +987,26 @@ export function joinBehaviorTestEvidence({
         const observation = observationByTestId.get(binding.canonicalTestId);
         // Also accept vitest observation IDs that use report-relative file paths equal to sourcePath.
         let matched = observation;
+        let matchedTestIds = observation ? [binding.canonicalTestId] : [];
+        if (!matched && binding.framework === 'xunit-trx')
+        {
+            const prefix = `${binding.canonicalTestId}(`;
+            const theoryCases = [...observationByTestId.entries()]
+                .filter(([testId]) => testId.startsWith(prefix));
+            if (theoryCases.length > 0)
+            {
+                const outcomes = theoryCases.map(([, candidate]) => candidate.outcome);
+                const outcome = outcomes.every((candidate) => candidate === 'passed')
+                    ? 'passed'
+                    : outcomes.includes('failed')
+                        ? 'failed'
+                        : outcomes.includes('blocked')
+                            ? 'blocked'
+                            : 'skipped';
+                matched = { ...theoryCases[0][1], testId: binding.canonicalTestId, outcome };
+                matchedTestIds = theoryCases.map(([testId]) => testId);
+            }
+        }
         if (!matched && binding.framework === 'vitest')
         {
             for (const [testId, candidate] of observationByTestId)
@@ -994,6 +1014,7 @@ export function joinBehaviorTestEvidence({
                 if (testId.endsWith(`#${binding.fullyQualifiedName}`) && testId.startsWith('vitest:'))
                 {
                     matched = candidate;
+                    matchedTestIds = [testId];
                     break;
                 }
             }
@@ -1020,7 +1041,7 @@ export function joinBehaviorTestEvidence({
             run: matched?.run ?? run ?? { id: 'missing', attemptKind: 'primary', evidenceClass: 'missing' },
             sourceState: matched?.sourceState ?? sourceState ?? { commit: '0'.repeat(40), worktreeFingerprint: `sha256:${'0'.repeat(64)}` },
             sourceClosureDigest: matched?.sourceClosureDigest ?? sourceClosureDigest ?? `sha256:${'0'.repeat(64)}`,
-            rawResultDigest: matched ? artifacts.find((artifact) => artifact.observations.some((entry) => entry.testId === matched.testId))?.producer.digest ?? `sha256:${'0'.repeat(64)}` : `sha256:${'0'.repeat(64)}`
+            rawResultDigest: matched ? artifacts.find((artifact) => artifact.observations.some((entry) => matchedTestIds.includes(entry.testId)))?.producer.digest ?? `sha256:${'0'.repeat(64)}` : `sha256:${'0'.repeat(64)}`
         });
     }
 
