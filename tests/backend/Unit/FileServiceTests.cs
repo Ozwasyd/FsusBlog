@@ -651,6 +651,143 @@ public sealed class FileServiceTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public async Task UploadPartMapAndCompletion_TrackRealUploadedPartsAcrossGapsRetriesAndRestart()
+    {
+        ResetSessionLocks();
+        string root = CreateTempDirectory();
+        try
+        {
+            const int PartSize = 64 * 1024;
+            byte[][] parts = Enumerable.Range(0, 7)
+                .Select(partNumber => CreatePngPart(
+                    PartSize,
+                    checked((byte)(0x20 + partNumber)),
+                    includeHeader: partNumber == 0))
+                .ToArray();
+            byte[] payload = [.. parts.SelectMany(static part => part)];
+            string finalSha256 = Convert.ToHexStringLower(SHA256.HashData(payload));
+            var service = CreateService(root);
+            Result<UploadInitDto> init = await service.InitUploadSessionAsync(new UploadInitRequestDto
+            {
+                FileName = "sample.png",
+                MimeType = "image/png",
+                TargetFormat = "png",
+                TotalBytes = payload.Length,
+                ChunkSize = PartSize,
+                Sha256 = finalSha256
+            });
+            Assert.True(init.IsSuccess, init.Error.Message);
+            string uploadId = init.Value!.UploadId;
+
+            Result<UploadPartMapDto> emptyMap = await service.GetUploadPartMapAsync(uploadId);
+            Result<UploadStatusDto> emptyStatus = await service.GetUploadStatusAsync(uploadId);
+            Assert.True(emptyMap.IsSuccess, emptyMap.Error.Message);
+            Assert.Empty(emptyMap.Value!.UploadedRanges);
+            Assert.True(emptyStatus.IsSuccess, emptyStatus.Error.Message);
+            Assert.Equal(0, emptyStatus.Value!.UploadedPartCount);
+            Assert.Equal(0, emptyStatus.Value.NextPartHint);
+
+            foreach (int partNumber in new[] { 1, 0 })
+            {
+                Result<UploadPartAckDto> upload = await UploadPartAsync(service, uploadId, parts, partNumber);
+                Assert.True(upload.IsSuccess, upload.Error.Message);
+            }
+
+            Result<UploadPartMapDto> contiguousMap = await service.GetUploadPartMapAsync(uploadId);
+            Result<UploadStatusDto> contiguousStatus = await service.GetUploadStatusAsync(uploadId);
+            Assert.Equal(new[] { new UploadPartRangeDto(0, 1) }, contiguousMap.Value!.UploadedRanges);
+            Assert.Equal(2, contiguousStatus.Value!.NextPartHint);
+
+            foreach (int partNumber in new[] { 6, 3, 5 })
+            {
+                Result<UploadPartAckDto> upload = await UploadPartAsync(service, uploadId, parts, partNumber);
+                Assert.True(upload.IsSuccess, upload.Error.Message);
+            }
+
+            Result<UploadPartAckDto> duplicate = await UploadPartAsync(service, uploadId, parts, 3);
+            Assert.True(duplicate.IsSuccess, duplicate.Error.Message);
+            Assert.Equal(5, duplicate.Value!.UploadedPartCount);
+            UploadSessionRecord checkpoint = await ReadManifestAsync(root, uploadId);
+            Assert.True(checkpoint.ManifestCheckpointPartCount < duplicate.Value.UploadedPartCount);
+
+            var resumedService = CreateService(root);
+            Result<UploadPartMapDto> resumedMap = await resumedService.GetUploadPartMapAsync(uploadId);
+            Result<UploadStatusDto> resumedStatus = await resumedService.GetUploadStatusAsync(uploadId);
+            Assert.True(resumedMap.IsSuccess, resumedMap.Error.Message);
+            Assert.Equal(
+                new[]
+                {
+                    new UploadPartRangeDto(0, 1),
+                    new UploadPartRangeDto(3, 3),
+                    new UploadPartRangeDto(5, 6)
+                },
+                resumedMap.Value!.UploadedRanges);
+            Assert.True(resumedStatus.IsSuccess, resumedStatus.Error.Message);
+            Assert.Equal(5, resumedStatus.Value!.UploadedPartCount);
+            Assert.Equal(5L * PartSize, resumedStatus.Value.UploadedBytes);
+            Assert.Equal(2, resumedStatus.Value.NextPartHint);
+
+            foreach (int invalidPartNumber in new[] { -1, parts.Length })
+            {
+                Result<UploadPartAckDto> invalid = await resumedService.UploadPartAsync(
+                    uploadId,
+                    invalidPartNumber,
+                    (long)invalidPartNumber * PartSize,
+                    CreateFormFile(parts[0], $"invalid-{invalidPartNumber}"),
+                    null);
+                Assert.False(invalid.IsSuccess);
+                Assert.Equal(ErrorCode.Validation, invalid.Error.Code);
+            }
+
+            Result<UploadPartAckDto> fillFirstGap = await UploadPartAsync(resumedService, uploadId, parts, 2);
+            Assert.True(fillFirstGap.IsSuccess, fillFirstGap.Error.Message);
+            Result<UploadPartMapDto> remainingGapMap = await resumedService.GetUploadPartMapAsync(uploadId);
+            Result<UploadStatusDto> remainingGapStatus = await resumedService.GetUploadStatusAsync(uploadId);
+            Assert.Equal(
+                new[] { new UploadPartRangeDto(0, 3), new UploadPartRangeDto(5, 6) },
+                remainingGapMap.Value!.UploadedRanges);
+            Assert.Equal(4, remainingGapStatus.Value!.NextPartHint);
+
+            string finalPath = Path.Combine(GetIllustrationFolder(root), $"{uploadId}.png");
+            Result<UploadCompleteDto> incomplete = await resumedService.CompleteUploadAsync(uploadId, finalSha256);
+            Assert.False(incomplete.IsSuccess);
+            Assert.Equal(ErrorCode.Conflict, incomplete.Error.Code);
+            Assert.Equal("上传尚未完成，无法合并成品", incomplete.Error.Message);
+            Assert.False(File.Exists(finalPath));
+            Assert.True(Directory.Exists(GetSessionPath(root, uploadId)));
+            Assert.Equal("uploading", (await ReadManifestAsync(root, uploadId)).Status);
+
+            Result<UploadPartAckDto> fillLastGap = await UploadPartAsync(resumedService, uploadId, parts, 4);
+            Assert.True(fillLastGap.IsSuccess, fillLastGap.Error.Message);
+            Result<UploadPartMapDto> completedMap = await resumedService.GetUploadPartMapAsync(uploadId);
+            Result<UploadStatusDto> completedStatus = await resumedService.GetUploadStatusAsync(uploadId);
+            Assert.Equal(new[] { new UploadPartRangeDto(0, 6) }, completedMap.Value!.UploadedRanges);
+            Assert.Equal(parts.Length, completedStatus.Value!.UploadedPartCount);
+            Assert.Equal(parts.Length, completedStatus.Value.NextPartHint);
+
+            Result<UploadCompleteDto> complete = await resumedService.CompleteUploadAsync(uploadId, finalSha256);
+            Result<UploadCompleteDto> retry = await CreateService(root).CompleteUploadAsync(uploadId, finalSha256);
+            Assert.True(complete.IsSuccess, complete.Error.Message);
+            Assert.True(retry.IsSuccess, retry.Error.Message);
+            Assert.Equal(complete.Value, retry.Value);
+            Assert.Equal(uploadId, complete.Value!.UploadId);
+            Assert.Equal($"/uploads/illustration/{uploadId}.png", complete.Value.RelativeUrl);
+            Assert.Equal("image/png", complete.Value.MimeType);
+            Assert.Equal(payload.Length, complete.Value.TotalBytes);
+            Assert.True(File.Exists(finalPath));
+            Assert.Equal(payload, await File.ReadAllBytesAsync(finalPath));
+            Assert.Equal("completed", (await ReadManifestAsync(root, uploadId)).Status);
+            Assert.Single(Directory.GetFiles(GetIllustrationFolder(root), $"{uploadId}.*"));
+            Assert.Empty(Directory.GetFiles(CreateStoragePaths(root).UploadCommitRoot));
+        }
+        finally
+        {
+            ResetSessionLocks();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task UploadPartAsync_ConcurrentDistinctPartsCompleteSuccessfully()
     {
         ResetSessionLocks();
@@ -2210,6 +2347,21 @@ public sealed class FileServiceTests(ITestOutputHelper output)
     {
         var stream = new MemoryStream(payload, writable: false);
         return new FormFile(stream, 0, payload.Length, name, $"{name}.bin");
+    }
+
+    private static Task<Result<UploadPartAckDto>> UploadPartAsync(
+        FileService service,
+        string uploadId,
+        IReadOnlyList<byte[]> parts,
+        int partNumber)
+    {
+        byte[] payload = parts[partNumber];
+        return service.UploadPartAsync(
+            uploadId,
+            partNumber,
+            (long)partNumber * payload.Length,
+            CreateFormFile(payload, $"chunk{partNumber}"),
+            Convert.ToHexStringLower(SHA256.HashData(payload)));
     }
 
     private static byte[] CreatePngPart(int size, byte fill, bool includeHeader = false)
