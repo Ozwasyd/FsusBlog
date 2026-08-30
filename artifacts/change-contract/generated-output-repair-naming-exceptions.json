@@ -5,10 +5,16 @@
             "id": "css-like-contract",
             "paths": [
                 "docs/architecture/repository-layout.md",
-                "docs/development/change-contract.md",
-                "docs/testing.generated.md"
+                "docs/development/change-contract.md"
             ],
             "reason": "preserve documented caller-visible command, path and generated contract spellings while changing their governance"
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md"
+            ],
+            "reason": "preserve the generated testing documentation identifiers at their registered external contract boundary"
         },
         {
             "id": "environment-variable",
