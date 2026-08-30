@@ -87,9 +87,39 @@ export function validateReleaseFinalStaticBoundary({ matrix, scriptSource })
     const errors = validateScriptSource(scriptSource);
     const plan = buildReleaseFinalizerPlan(matrix);
     errors.push(...plan.errors.map((error) => `execution graph: ${error}`));
-    if (plan.selectedTierIds.length !== 1 || plan.selectedTierIds[0] !== 'release-final')
+
+    const releaseFinalizerTiers = (matrix?.tiers ?? []).filter((tier) => (
+        tier?.id === 'release-final'
+        || tier?.command === releaseFinalizerCommand
+        || tier?.summaryAuthority === 'release-final'
+    ));
+    if (releaseFinalizerTiers.length !== 1 || releaseFinalizerTiers[0]?.id !== 'release-final')
     {
-        errors.push('execution graph must select exactly one release-final finalizer');
+        const tierIds = releaseFinalizerTiers.map((tier) => tier?.id ?? '<missing-id>').join(', ');
+        errors.push(
+            'execution graph must expose exactly one release-final tier by id, command, and summary authority; '
+            + `got: ${tierIds || 'none'}`
+        );
+    }
+
+    const releaseFinalizerAuthorities = Object.entries(matrix?.finalizerAuthorities ?? {})
+        .filter(([key, authority]) => (
+            key === 'release-final'
+            || authority?.id === 'release-final'
+            || authority?.command === releaseFinalizerCommand
+            || authority?.summaryTierIds?.includes('release-final')
+        ));
+    if (
+        releaseFinalizerAuthorities.length !== 1
+        || releaseFinalizerAuthorities[0]?.[0] !== 'release-final'
+        || releaseFinalizerAuthorities[0]?.[1]?.id !== 'release-final'
+    )
+    {
+        const authorityKeys = releaseFinalizerAuthorities.map(([key]) => key).join(', ');
+        errors.push(
+            'execution graph must expose exactly one release-final finalizer authority by key, id, command, '
+            + `and summary tier; got: ${authorityKeys || 'none'}`
+        );
     }
     if (plan.executesTestCommands !== false)
     {

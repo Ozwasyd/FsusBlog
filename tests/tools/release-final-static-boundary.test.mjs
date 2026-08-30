@@ -93,6 +93,48 @@ test('execution graph mutation is rejected before finalizer or producer spawn', 
     );
 });
 
+test('duplicate finalizer command, authority alias, and shadow tier fail closed', async (context) =>
+{
+    const canonicalTier = matrix.tiers.find((entry) => entry.id === 'release-final');
+    const canonicalAuthority = matrix.finalizerAuthorities['release-final'];
+    const mutations = [
+        ['shadow tier', (mutated) =>
+        {
+            mutated.tiers.push({ ...structuredClone(canonicalTier), id: 'release-final-shadow' });
+        }, /exactly one release-final tier[\s\S]*release-final-shadow/u],
+        ['command alias', (mutated) =>
+        {
+            const alias = structuredClone(canonicalTier);
+            alias.id = 'release-final-command-alias';
+            alias.summaryAuthority = 'release-final-command-alias';
+            mutated.tiers.push(alias);
+        }, /exactly one release-final tier[\s\S]*release-final-command-alias/u],
+        ['authority alias', (mutated) =>
+        {
+            mutated.finalizerAuthorities['release-final-authority-alias'] = {
+                ...structuredClone(canonicalAuthority),
+                id: 'release-final-authority-alias',
+                summaryTierIds: ['release-final-authority-alias']
+            };
+        }, /exactly one release-final finalizer authority[\s\S]*release-final-authority-alias/u]
+    ];
+
+    for (const [name, mutate, diagnostic] of mutations)
+    {
+        await context.test(name, () =>
+        {
+            const mutated = structuredClone(matrix);
+            mutate(mutated);
+            const errors = validateReleaseFinalStaticBoundary({ matrix: mutated, scriptSource });
+            assert.match(errors.join('\n'), diagnostic);
+            assert.equal(
+                buildReleaseFinalizerSpawnDecision({ sealState: 'accepted', boundaryErrors: errors }).spawnCount,
+                0
+            );
+        });
+    }
+});
+
 test('unknown seal states and malformed boundary diagnostics fail closed', () =>
 {
     assert.throws(

@@ -4034,6 +4034,17 @@
             ]
         },
         {
+            "file": "tests/tools/release-final-static-boundary.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/release-final-static-boundary.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/release-final-local-profile-qualification.test.mjs",
             "owner": "manual-diagnostic:tests/tools/release-final-local-profile-qualification.test.mjs",
             "executionCategory": "manual-diagnostic",
