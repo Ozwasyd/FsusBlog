@@ -427,9 +427,12 @@ public partial class ArticleService
                     ArticleSummaryProjection.AttachGenerationVersion("article updated", summaryProjection),
                     now,
                     rollback);
+                ArticleAssetReferenceWrite[] assetReferenceWrites = await new ArticleAssetReferenceWriteBoundary(_db)
+                    .ResolveAsync(content, coverImageUrl, ct)
+                    .ConfigureAwait(false);
                 var assetReferences = new ArticleAssetReferenceStore(_db);
-                await assetReferences.ReplaceCurrentArticleAsync(id, content, coverImageUrl, ct).ConfigureAwait(false);
-                await assetReferences.ReplaceRevisionAsync(revision.Id, id, content, coverImageUrl, ct).ConfigureAwait(false);
+                await assetReferences.ReplaceCurrentArticleAsync(id, assetReferenceWrites, ct).ConfigureAwait(false);
+                await assetReferences.ReplaceRevisionAsync(revision.Id, id, assetReferenceWrites, ct).ConfigureAwait(false);
                 long rightsSnapshotId = await SaveArticleRightsAsync(
                     id,
                     revision,
