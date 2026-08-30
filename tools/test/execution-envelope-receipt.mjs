@@ -6,7 +6,11 @@ import path from 'node:path';
 
 import {
     createExecutionEnvelopePolicyIdentity,
-    executionEnvelopeDigest
+    executionEnvelopeDigest,
+    loadExecutionEnvelopeApplicability,
+    loadExecutionEnvelopePolicy,
+    resolveExecutionEnvelopeProducer,
+    validateExecutionEnvelopeReceiptSchema
 } from '../test-matrix/execution-envelope-policy.mjs';
 import {
     assertBrowserPlanActualMatch,
@@ -17,6 +21,31 @@ export const executionEnvelopeSchema = 'fsusblog.test-execution-envelope.v1';
 export const executionEnvelopeReceiptSchema =
     'fsusblog.test-execution-envelope-receipt.v1';
 const digestPattern = /^sha256:[a-f0-9]{64}$/u;
+const fragmentDomains = Object.freeze([
+    'browserRendering',
+    'directories',
+    'environment',
+    'fontsLocale',
+    'identity',
+    'network',
+    'platform',
+    'resources',
+    'services',
+    'toolchain'
+]);
+const browserNullableFields = Object.freeze([
+    'playwrightVersion', 'browserName', 'browserVersion', 'browserRevision',
+    'browserExecutableDigest', 'deviceScaleFactor', 'renderingMode',
+    'colorScheme', 'gpuMode', 'browserRenderingObservation'
+]);
+const serviceNullableFields = Object.freeze([
+    'containerRuntime', 'postgresVersion', 'postgresImageDigest',
+    'redisVersion', 'redisImageDigest', 'dockerVersion'
+]);
+const toolNullableFields = Object.freeze([
+    'npmVersion', 'dotnetSdkVersion', 'dotnetRuntimeVersion',
+    'msbuildVersion', 'cmakeVersion', 'ninjaVersion', 'compilerVersion'
+]);
 
 function canonicalize(value)
 {
@@ -303,37 +332,98 @@ function directoryValues(fragment)
     };
 }
 
-function notApplicableFields(envelope)
+function domainApplicability(applicability, domain)
+{
+    const contract = applicability?.fieldApplicability?.[domain];
+    if (!['required', 'not-applicable'].includes(contract?.status))
+    {
+        throw new Error(`execution envelope applicability is unsupported: ${domain}`);
+    }
+    if (contract.status === 'not-applicable'
+      && !String(contract.notApplicableReason ?? '').trim())
+    {
+        throw new Error(`execution envelope not-applicable reason is missing: ${domain}`);
+    }
+    return contract;
+}
+
+function notApplicableFields(envelope, applicability)
 {
     const reasons = {};
-    const browser = [
-        'playwrightVersion', 'browserName', 'browserVersion', 'browserRevision',
-        'browserExecutableDigest', 'deviceScaleFactor', 'renderingMode',
-        'colorScheme', 'gpuMode', 'browserRenderingObservation'
-    ];
-    const services = [
-        'containerRuntime', 'postgresVersion', 'postgresImageDigest',
-        'redisVersion', 'redisImageDigest', 'dockerVersion'
-    ];
-    const tools = [
-        'npmVersion', 'dotnetSdkVersion', 'dotnetRuntimeVersion',
-        'msbuildVersion', 'cmakeVersion', 'ninjaVersion', 'compilerVersion'
-    ];
-    for (const field of browser)
+    const browser = domainApplicability(applicability, 'browserRendering');
+    if (browser.status === 'not-applicable')
     {
-        if (envelope[field] === null)
+        for (const field of browserNullableFields)
         {
-            reasons[field] = 'browser-rendering-not-applicable';
+            if (envelope[field] !== null)
+            {
+                throw new Error(`execution envelope not-applicable field has a value: ${field}`);
+            }
+            reasons[field] = browser.notApplicableReason;
         }
     }
-    for (const field of services)
+    else
     {
-        if (envelope[field] === null)
+        for (const field of browserNullableFields)
         {
-            reasons[field] = 'service-not-applicable';
+            if (envelope[field] === null)
+            {
+                throw new Error(`execution envelope required field is unobservable: ${field}`);
+            }
         }
     }
-    for (const field of tools)
+
+    const services = domainApplicability(applicability, 'services');
+    if (services.status === 'not-applicable')
+    {
+        if (envelope.serviceTopology.length !== 0)
+        {
+            throw new Error('execution envelope not-applicable service topology has a value');
+        }
+        for (const field of serviceNullableFields)
+        {
+            if (envelope[field] !== null)
+            {
+                throw new Error(`execution envelope not-applicable field has a value: ${field}`);
+            }
+            reasons[field] = services.notApplicableReason;
+        }
+    }
+    else
+    {
+        for (const field of ['containerRuntime', 'dockerVersion'])
+        {
+            if (envelope[field] === null)
+            {
+                throw new Error(`execution envelope required field is unobservable: ${field}`);
+            }
+        }
+        for (const service of ['postgres', 'redis'])
+        {
+            const fields = [`${service}Version`, `${service}ImageDigest`];
+            if (applicability.requiredServices?.includes(service))
+            {
+                for (const field of fields)
+                {
+                    if (envelope[field] === null)
+                    {
+                        throw new Error(`execution envelope required field is unobservable: ${field}`);
+                    }
+                }
+                continue;
+            }
+            for (const field of fields)
+            {
+                if (envelope[field] !== null)
+                {
+                    throw new Error(`execution envelope undeclared service field has a value: ${field}`);
+                }
+                reasons[field] = `${service}-not-required-by-producer`;
+            }
+        }
+    }
+
+    for (const field of toolNullableFields)
     {
         if (envelope[field] === null)
         {
@@ -371,11 +461,19 @@ function assertFragmentAdmission({ applicability, environment, directories, netw
         {
             throw new Error(`execution envelope required observer is missing: ${domain}`);
         }
+        if (!['required', 'not-applicable'].includes(status))
+        {
+            throw new Error(`execution envelope applicability is unsupported: ${domain}`);
+        }
         if (fragment?.qualificationEligible === false
           || fragment?.plan?.qualificationEligible === false
           || fragment?.actual?.qualificationEligible === false)
         {
             throw new Error(`execution envelope diagnostic fragment is forbidden: ${domain}`);
+        }
+        if (status === 'not-applicable' && fragment)
+        {
+            throw new Error(`execution envelope not-applicable observer is present: ${domain}`);
         }
         if (domain === 'browserRendering' && fragment)
         {
@@ -414,6 +512,11 @@ export function buildExecutionEnvelope({
     if (!['planned', 'actual'].includes(phase))
     {
         throw new Error('execution envelope phase must be planned or actual');
+    }
+    if (applicability?.producerId !== identity?.producerId
+      || applicability?.policyId !== policy?.policyId)
+    {
+        throw new Error('execution envelope producer applicability identity mismatch');
     }
     assertFragmentAdmission({ applicability, environment, directories, network, browser, services }, phase);
     const policyIdentity = createExecutionEnvelopePolicyIdentity({ policy, catalog });
@@ -490,7 +593,7 @@ export function buildExecutionEnvelope({
         fragmentDigests: Object.fromEntries(Object.entries(fragmentValues)
             .map(([domain, value]) => [domain, digest(value)]))
     };
-    payload.notApplicableFields = notApplicableFields(payload);
+    payload.notApplicableFields = notApplicableFields(payload, applicability);
     const envelopeDigest = digest(payload);
     return Object.freeze({ ...payload, envelopeDigest });
 }
@@ -540,8 +643,27 @@ export function sealExecutionEnvelopeReceipt({ plan, actual })
     return Object.freeze({ ...payload, receiptDigest: digest(payload) });
 }
 
-export function verifyExecutionEnvelopeReceipt(receipt)
+export function verifyExecutionEnvelopeReceipt(
+    receipt,
+    {
+        policy = loadExecutionEnvelopePolicy(),
+        catalog = loadExecutionEnvelopeApplicability()
+    } = {}
+)
 {
+    const schemaErrors = validateExecutionEnvelopeReceiptSchema(receipt);
+    if (schemaErrors.length > 0)
+    {
+        throw new Error(
+            `execution envelope receipt schema validation failed: ${schemaErrors.join('; ')}`
+        );
+    }
+    const policyIdentity = createExecutionEnvelopePolicyIdentity({ policy, catalog });
+    const applicability = resolveExecutionEnvelopeProducer(receipt?.plan?.producerId, catalog);
+    if (applicability.policyId !== policy.policyId)
+    {
+        throw new Error('execution envelope producer policy identity mismatch');
+    }
     for (const [label, envelope] of [['plan', receipt?.plan], ['actual', receipt?.actual]])
     {
         if (envelope?.schema !== executionEnvelopeSchema
@@ -550,18 +672,49 @@ export function verifyExecutionEnvelopeReceipt(receipt)
         {
             throw new Error(`execution envelope ${label} integrity failed`);
         }
-        for (const value of Object.values(envelope.fragmentDigests ?? {}))
+        if (envelope.policyVersion !== policy.version
+          || envelope.policyDigest !== policyIdentity.policyDigest
+          || envelope.catalogDigest !== policyIdentity.catalogDigest
+          || envelope.schemaIdentity !== policyIdentity.schemaIdentity)
+        {
+            throw new Error(`execution envelope ${label} current contract identity mismatch`);
+        }
+        if (envelope.producerId !== applicability.producerId
+          || !String(envelope.schedulerRunId ?? '').trim()
+          || !String(envelope.attemptId ?? '').trim()
+          || !/^[a-f0-9]{40}$/u.test(envelope.sourceCommit ?? ''))
+        {
+            throw new Error(`execution envelope ${label} execution identity is invalid`);
+        }
+        if (JSON.stringify([...envelope.processEnvAllowlist].sort())
+          !== JSON.stringify([...applicability.allowedEnvironment].sort()))
+        {
+            throw new Error(`execution envelope ${label} environment applicability mismatch`);
+        }
+        const actualFragmentDomains = Object.keys(envelope.fragmentDigests ?? {}).sort();
+        if (JSON.stringify(actualFragmentDomains) !== JSON.stringify(fragmentDomains))
+        {
+            throw new Error(`execution envelope ${label} fragment set is incomplete`);
+        }
+        for (const value of Object.values(envelope.fragmentDigests))
         {
             if (!digestPattern.test(value))
             {
                 throw new Error(`execution envelope ${label} fragment digest is invalid`);
             }
         }
+        const expectedNotApplicable = notApplicableFields(envelope, applicability);
+        if (JSON.stringify(canonicalize(envelope.notApplicableFields))
+          !== JSON.stringify(canonicalize(expectedNotApplicable)))
+        {
+            throw new Error(`execution envelope ${label} applicability receipt mismatch`);
+        }
     }
     const paths = mismatchPaths(receipt.plan, receipt.actual);
     if (receipt?.schema !== executionEnvelopeReceiptSchema
         || receipt.verdict !== 'pass'
         || paths.length !== 0
+        || !Array.isArray(receipt.mismatchPaths)
         || receipt.mismatchPaths.length !== 0
         || receipt.envelopeDigest !== receipt.plan.envelopeDigest
         || receipt.receiptDigest !== digest(receiptPayload(receipt)))
