@@ -1,0 +1,31 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/article-asset-reference-lifecycle.md"
+            ],
+            "reason": "preserve documented database and route identifiers while the prose follows repository naming"
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/ArticleService.LifecycleAndReadModels.cs",
+                "src/backend/Services/ArticleService.Mutations.cs",
+                "src/backend/Services/ArticleService.cs",
+                "src/backend/Services/Articles/ArticleAssetReferenceStore.cs",
+                "src/backend/Services/Articles/ArticleAssetReferenceWriteBoundary.cs",
+                "src/backend/Services/Authoring/AuthoringDraftLifecycleService.cs"
+            ],
+            "reason": "preserve caller-visible process configuration spellings in changed C# naming surfaces"
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/governance/change-contract/issue-1971-external-naming-exceptions.json"
+            ],
+            "reason": "preserve the serialized exception manifest keys at the JSON contract boundary"
+        }
+    ]
+}

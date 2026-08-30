@@ -1,4 +1,5 @@
 using FsusBlog.Core.Services.Abstractions;
+using FsusBlog.Server.Contracts.Assets;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Articles;
@@ -194,6 +195,51 @@ public sealed class AuthoringDraftConcurrencyTests(PostgresSchemaMigrationFixtur
 
         Assert.True(await service.DiscardDraftAsync(7, "race-draft", second.ServerRevision, CancellationToken.None));
         Assert.Equal(0, db.Queryable<ArticleDraft>().Count());
+    }
+
+    [Fact]
+    public async Task SaveAndDiscardDraft_CommitReferenceEdgesAtomically()
+    {
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        PostgresSqlSugarTestClient.InitTables(
+            db,
+            typeof(ArticleDraft),
+            typeof(ContentAsset),
+            typeof(ContentAssetReference),
+            typeof(ContentAssetCleanupQueueItem));
+        Guid assetId = Guid.NewGuid();
+        db.Insertable(new ContentAsset
+        {
+            AssetId = assetId,
+            StorageClass = "public",
+            StorageKey = "illustration/draft.png",
+            MimeType = "image/png",
+            Extension = ".png",
+            SizeBytes = 3,
+            State = ContentAssetStates.Active,
+            CreatedAtUtc = DateTime.UtcNow,
+            UpdatedAtUtc = DateTime.UtcNow
+        }).ExecuteCommand();
+        AuthoringDraftLifecycleService service = CreateService(db);
+
+        ServerDraftResponse saved = await service.SaveDraftAsync(
+            7,
+            CreateRequest("rev-a", "![draft](/uploads/illustration/draft.png)"),
+            CancellationToken.None);
+
+        ContentAssetReference reference = Assert.Single(db.Queryable<ContentAssetReference>().ToList());
+        Assert.Equal(assetId, reference.AssetId);
+        Assert.Equal(ContentAssetSourceKinds.Draft, reference.SourceKind);
+        Assert.Equal("7:race-draft", reference.SourceKey);
+
+        Assert.True(await service.DiscardDraftAsync(
+            7,
+            "race-draft",
+            saved.ServerRevision,
+            CancellationToken.None));
+        Assert.Empty(db.Queryable<ArticleDraft>().ToList());
+        Assert.Empty(db.Queryable<ContentAssetReference>().ToList());
+        Assert.Equal(assetId, Assert.Single(db.Queryable<ContentAssetCleanupQueueItem>().ToList()).AssetId);
     }
 
     [Fact]
