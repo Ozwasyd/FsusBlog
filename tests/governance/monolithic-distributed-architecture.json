@@ -1,8 +1,13 @@
 {
-    "schema": "fsusblog.monolithic-distributed-architecture.v1",
+    "schema": "fsusblog.monolithic-distributed-architecture.v2",
+    "contentDigest": "sha256:213f87426360ba1071b2e2d8e226dd3597f5c14eadae1972bae110bb9a2d44d7",
     "mainApplication": {
         "project": "src/backend/FsusBlog.Server.csproj",
         "dockerfile": "ops/docker/FsusBlog.Server.Dockerfile",
+        "productionTarget": "final",
+        "productionEntrypoint": [
+            "./FsusBlog.Server"
+        ],
         "composeService": "fsusblog.server",
         "frontendIntegrationTokens": [
             "<SpaRoot>..\\frontend</SpaRoot>",
@@ -15,6 +20,97 @@
         "static-role",
         "adaptive"
     ],
+    "runtimeRoleOwnership": {
+        "process": "one-fsusblog-server-process-per-application-container",
+        "container": "one-application-container-per-release-slot",
+        "service": "fsusblog.server",
+        "coResidency": "selected-runtime-roles-share-process-container-and-service",
+        "separation": "blue-green-release-slots-not-runtime-role-services",
+        "supportedModes": [
+            "single",
+            "static-role",
+            "adaptive"
+        ],
+        "unsupportedDeployments": [
+            "fixed-role-business-sidecar",
+            "multiple-application-services-per-slot",
+            "per-role-container-split",
+            "per-role-process-split"
+        ],
+        "authorityState": "closed-current"
+    },
+    "blueGreenMounts": {
+        "/app/Logs": {
+            "source": "fsus-logs",
+            "volumeName": "${FSUSBLOG_SLOT_LOGS_VOLUME:?Set slot-specific logs volume}",
+            "access": "read-write",
+            "scope": "slot-private",
+            "protection": "retained-with-slot"
+        },
+        "/app/config/zk": {
+            "source": "${FSUSBLOG_ZK_CONFIG_DIR:?Set FSUSBLOG_ZK_CONFIG_DIR to the host ZK config directory}",
+            "volumeName": null,
+            "access": "read-only",
+            "scope": "operator-shared",
+            "protection": "outside-release-cleanup"
+        },
+        "/app/data": {
+            "source": "fsus-slot-data",
+            "volumeName": "${FSUSBLOG_SLOT_DATA_VOLUME:?Set slot-specific data volume}",
+            "access": "read-write",
+            "scope": "slot-private",
+            "protection": "retained-with-slot"
+        },
+        "/app/data-protection": {
+            "source": "fsus-data-protection",
+            "volumeName": "${FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME:?Set the shared DataProtection volume explicitly}",
+            "access": "read-write",
+            "scope": "shared-between-slots",
+            "protection": "outside-release-cleanup"
+        },
+        "/app/release-assets": {
+            "source": "${FSUSBLOG_RELEASE_ASSET_STORE:?Set the host append-only release asset store}/releases",
+            "volumeName": null,
+            "access": "read-only",
+            "scope": "release-artifact-store",
+            "protection": "exact-active-release-gc-authority"
+        },
+        "/app/release-derived": {
+            "source": "fsus-release-derived",
+            "volumeName": "${FSUSBLOG_SHARED_RELEASE_DERIVED_VOLUME:-fsusblog-release-derived}",
+            "access": "read-write",
+            "scope": "shared-between-slots",
+            "protection": "outside-release-cleanup"
+        },
+        "/app/release-manifest.json": {
+            "source": "${FSUSBLOG_RELEASE_MANIFEST_HOST_PATH:?Set the validated host release manifest path}",
+            "volumeName": null,
+            "access": "read-only",
+            "scope": "release-identity",
+            "protection": "identity-bound-read-only"
+        },
+        "/app/secrets/zk": {
+            "source": "${FSUSBLOG_ZK_SECRET_DIR:?Set FSUSBLOG_ZK_SECRET_DIR to the host ZK secret directory}",
+            "volumeName": null,
+            "access": "read-only",
+            "scope": "operator-shared",
+            "protection": "outside-release-cleanup"
+        },
+        "/app/storage": {
+            "source": "fsus-storage",
+            "volumeName": "${FSUSBLOG_SHARED_PUBLIC_ASSETS_VOLUME:?Set the migrated shared public-assets volume explicitly}",
+            "access": "read-write",
+            "scope": "shared-between-slots",
+            "protection": "outside-release-cleanup"
+        },
+        "/app/wwwroot/aot-cache": {
+            "source": "fsus-aot-cache",
+            "volumeName": "${FSUSBLOG_SLOT_AOT_CACHE_VOLUME:?Set slot-specific AOT cache volume}",
+            "access": "read-write",
+            "scope": "slot-private",
+            "protection": "retained-with-slot"
+        }
+    },
     "composeServices": {
         "ops/development/dependencies.compose.yml": {
             "postgres": "infrastructure",

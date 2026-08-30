@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import {
+    copyFileSync,
     mkdtempSync,
     mkdirSync,
     readdirSync,
@@ -18,8 +20,28 @@ const { checkMonolithicDistributedArchitecture } = await import(pathToFileURL(pa
     repositoryRoot,
     'tools/governance/check-monolithic-distributed-architecture.mjs'
 )).href);
+const { observeRuntimeRoleDeploymentAuthority } = await import(pathToFileURL(path.join(
+    repositoryRoot,
+    'tools/governance/check-monolithic-distributed-architecture.mjs'
+)).href);
 const sourcePolicy = path.join(repositoryRoot, 'tests/governance/monolithic-distributed-architecture.json');
 const temporaryRoots = [];
+
+function canonical(value)
+{
+    if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+    if (value && typeof value === 'object')
+    {
+        return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}`;
+    }
+    return JSON.stringify(value);
+}
+
+function resealPolicy(policy)
+{
+    const { contentDigest: _contentDigest, ...unsigned } = policy;
+    policy.contentDigest = `sha256:${createHash('sha256').update(canonical(unsigned)).digest('hex')}`;
+}
 
 function write(root, relative, contents = 'fixture\n')
 {
@@ -86,6 +108,24 @@ function createFixture()
         write(root, owner, `[boundary](${link})\n`);
     }
     return { root, policy };
+}
+
+function createAuthorityFixture()
+{
+    const root = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-runtime-role-authority-'));
+    temporaryRoots.push(root);
+    for (const relative of [
+        'tests/governance/monolithic-distributed-architecture.json',
+        'src/backend/FsusBlog.Server.csproj',
+        'ops/docker/FsusBlog.Server.Dockerfile',
+        'ops/docker/docker-compose.production.yml'
+    ])
+    {
+        const target = path.join(root, relative);
+        mkdirSync(path.dirname(target), { recursive: true });
+        copyFileSync(path.join(repositoryRoot, relative), target);
+    }
+    return root;
 }
 
 function checkFixture(root)
@@ -157,4 +197,54 @@ test('rejects a single-mode bootstrap whose local fast path is reversed', () =>
     const { root, policy } = createFixture();
     write(root, policy.singleModeGuard.bootstrap, [...policy.singleModeGuard.bootstrapOrderedTokens].reverse().join('\n'));
     assert.ok(checkFixture(root).errors.some((error) => error.includes('ordering is missing or reversed')));
+});
+
+test('deployment authority observes one process/service and exact blue-green mounts', () =>
+{
+    const root = createAuthorityFixture();
+    const observation = observeRuntimeRoleDeploymentAuthority({ root });
+    assert.equal(observation.ownership.claimEligible, true);
+    assert.equal(observation.application.processEntrypoint.join(' '), './FsusBlog.Server');
+    assert.equal(Object.keys(observation.volumeTopology).length, 10);
+});
+
+test('deployment authority rejects a second final process entrypoint', () =>
+{
+    const root = createAuthorityFixture();
+    const dockerfile = path.join(root, 'ops/docker/FsusBlog.Server.Dockerfile');
+    const source = readFileSync(dockerfile, 'utf8').replace(
+        'ENTRYPOINT ["./FsusBlog.Server"]',
+        'ENTRYPOINT ["./FsusBlog.Server"]\nENTRYPOINT ["dotnet", "Other.dll"]'
+    );
+    writeFileSync(dockerfile, source);
+    const observation = observeRuntimeRoleDeploymentAuthority({ root });
+    assert.equal(observation.ownership.claimEligible, false);
+    assert.ok(observation.ownership.failureReasons.some((reason) => reason.includes('exactly the authority-owned')));
+});
+
+test('deployment authority rejects sharing a slot-private data volume', () =>
+{
+    const root = createAuthorityFixture();
+    const compose = path.join(root, 'ops/docker/docker-compose.production.yml');
+    const source = readFileSync(compose, 'utf8').replace(
+        'fsus-slot-data:/app/data',
+        'fsus-storage:/app/data'
+    );
+    writeFileSync(compose, source);
+    const observation = observeRuntimeRoleDeploymentAuthority({ root });
+    assert.equal(observation.ownership.claimEligible, false);
+    assert.ok(observation.ownership.failureReasons.some((reason) => reason.includes('/app/data conflicts')));
+});
+
+test('deployment authority rejects a resealed but reversed role-separation claim', () =>
+{
+    const root = createAuthorityFixture();
+    const policyPath = path.join(root, 'tests/governance/monolithic-distributed-architecture.json');
+    const policy = JSON.parse(readFileSync(policyPath, 'utf8'));
+    policy.runtimeRoleOwnership.separation = 'runtime-roles-are-independent-services';
+    resealPolicy(policy);
+    writeFileSync(policyPath, `${JSON.stringify(policy, null, 4)}\n`);
+    const observation = observeRuntimeRoleDeploymentAuthority({ root });
+    assert.equal(observation.ownership.claimEligible, false);
+    assert.ok(observation.ownership.failureReasons.some((reason) => reason.includes('unsupported split deployments')));
 });

@@ -58,9 +58,17 @@ function fixtureRepository(options = {})
     'src/frontend/package.json',
     'tools/docs/generate-testing-docs.mjs',
     'tools/test-matrix/behavior-doc-static-admission-contract.mjs',
+    'tests/governance/monolithic-distributed-architecture.json',
+    'src/backend/FsusBlog.Server.csproj',
+    'ops/docker/FsusBlog.Server.Dockerfile',
+    'ops/docker/docker-compose.production.yml',
+    'tools/governance/check-monolithic-distributed-architecture.mjs',
     'tools/deployment/slot-lib.mjs',
     'tools/deployment/release-rollout-lib.mjs',
     'tools/storage/release-gc.mjs',
+    'config/deployment/destructive-operation-authority.json',
+    'tools/deployment/destructive-operation-authority.mjs',
+    'src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCompatibility.cs',
     'config/testing/required-evidence-authority-ledger.json',
     'config/testing/release-domain-assertion-dispositions.json',
     'tools/test-matrix/release-final-evidence-contract.mjs',
@@ -250,7 +258,16 @@ test('live matrix projects typed topology / release-final / production-fresh fac
   assert.ok(!staticPredecessors.includes('backend-tests'))
   assert.ok(facts['test.static-governance.membership'].bundleMemberships.includes('production.frontend-tests'))
   assert.equal(facts['release-final.finalizer-authority'].commandEntrypoint, 'tools/test/lanes/release-final.sh')
-  assert.equal(facts['deployment.runtime-role-contract'].ownership.authorityState, 'conflict-unknown')
+  const runtimeRole = facts['deployment.runtime-role-contract']
+  assert.equal(runtimeRole.ownership.authorityState, 'closed-current')
+  assert.equal(runtimeRole.ownership.claimEligible, true)
+  assert.equal(runtimeRole.ownership.process, 'one-fsusblog-server-process-per-application-container')
+  assert.equal(runtimeRole.ownership.container, 'one-application-container-per-release-slot')
+  assert.equal(runtimeRole.ownership.service, 'fsusblog.server')
+  assert.equal(runtimeRole.ownership.separation, 'blue-green-release-slots-not-runtime-role-services')
+  assert.match(runtimeRole.deploymentAuthority.observationDigest, /^sha256:[a-f0-9]{64}$/u)
+  assert.equal(runtimeRole.schemaOverlap.sourceReadiness, 'ready')
+  assert.ok(runtimeRole.schemaOverlap.missingExpandFailureCodes.includes('schema_expand_pending'))
   assert.deepEqual(Object.keys(facts['deployment.runtime-role-contract'].modes).sort(), ['adaptive', 'single', 'static-role'])
   const blueGreen = facts['deployment.blue-green-contract']
   assert.equal(blueGreen.switchState, 'switching')
@@ -261,12 +278,17 @@ test('live matrix projects typed topology / release-final / production-fresh fac
   assert.equal(blueGreen.activeAssetAction, 'retain')
   assert.ok(blueGreen.activeAssetReasons.includes('active'))
   assert.equal(blueGreen.runtimeProtectionAuthorityState, 'observed-in-slot-state-machine-probe')
-  assert.equal(blueGreen.artifactProtectionAuthorityState, 'observed-in-release-gc-plan-probe')
-  assert.equal(blueGreen.schemaProtectionAuthorityState, 'not-expressed-by-current-authorities')
-  assert.equal(blueGreen.volumeProtectionAuthorityState, 'not-expressed-by-current-authorities')
-  assert.equal(blueGreen.claimEligible, false)
-  assert.equal(blueGreen.authorityState, 'conflict-unknown')
-  assert.deepEqual(Object.keys(blueGreen.authorityModules).sort(), ['releaseAssetsGc', 'rollout', 'slot'])
+  assert.equal(blueGreen.artifactProtectionAuthorityState, 'observed-in-release-gc-and-destructive-authority-probes')
+  assert.equal(blueGreen.schemaProtectionAuthorityState, 'observed-in-online-schema-and-unsupported-cleanup-probes')
+  assert.equal(blueGreen.volumeProtectionAuthorityState, 'observed-in-deployment-topology-and-unsupported-cleanup-probes')
+  assert.equal(blueGreen.destructiveAuthority.volumeCleanupStatus, 'unsupported')
+  assert.equal(blueGreen.destructiveAuthority.schemaCleanupStatus, 'unsupported')
+  assert.equal(blueGreen.volumeScopes['slot-private'].length, 3)
+  assert.equal(blueGreen.claimEligible, true)
+  assert.equal(blueGreen.authorityState, 'closed-current')
+  assert.deepEqual(Object.keys(blueGreen.authorityModules).sort(), [
+    'destructiveOperations', 'onlineSchema', 'releaseAssetsGc', 'rollout', 'slot', 'topologyAuthority'
+  ])
   for (const authority of Object.values(blueGreen.authorityModules))
   {
     assert.match(authority.sourceDigest, /^[a-f0-9]{64}$/u)
@@ -518,7 +540,9 @@ test('runtime-role observation requires exact receipt and rejects semantic tampe
       modes: observation.modes,
       staticRoleCapabilities: observation.staticRoleCapabilities,
       unsupportedCombinations: observation.unsupportedCombinations,
-      ownership: observation.ownership
+      ownership: observation.ownership,
+      deploymentAuthority: observation.deploymentAuthority,
+      schemaOverlap: observation.schemaOverlap
     }
     observation.observationDigest = createHash('sha256').update(JSON.stringify(unsigned)).digest('hex')
     writeFileSync(artifact, `${JSON.stringify(observation, null, 2)}\n`)

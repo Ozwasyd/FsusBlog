@@ -29,6 +29,11 @@ import {
 import { planReleaseAssetGc, RELEASE_GC_STATE_SCHEMA } from '../../storage/release-gc.mjs'
 import { RELEASE_ASSET_MANIFEST_SCHEMA } from '../../storage/release-assets.mjs'
 import {
+  assertUnsupportedOperation,
+  validateDestructiveOperationAuthority,
+  verifyArtifactGcActiveIdentity
+} from '../../deployment/destructive-operation-authority.mjs'
+import {
   buildReleaseFinalizerPlan,
   validateCanonicalReleaseFinalEvidenceInputs
 } from '../../test-matrix/release-final-evidence-contract.mjs'
@@ -62,7 +67,15 @@ const declaredFactSources = Object.freeze([
   'tests/matrix.schema.json',
   'tests/coverage-registry.json',
   'config/testing/producer-execution-class-contract.json',
-  'tools/test-matrix/behavior-doc-static-admission-contract.mjs'
+  'tools/test-matrix/behavior-doc-static-admission-contract.mjs',
+  'tests/governance/monolithic-distributed-architecture.json',
+  'src/backend/FsusBlog.Server.csproj',
+  'ops/docker/FsusBlog.Server.Dockerfile',
+  'ops/docker/docker-compose.production.yml',
+  'tools/governance/check-monolithic-distributed-architecture.mjs',
+  'config/deployment/destructive-operation-authority.json',
+  'tools/deployment/destructive-operation-authority.mjs',
+  'src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCompatibility.cs'
 ])
 
 const consumerInputs = Object.freeze([
@@ -231,7 +244,15 @@ function captureError(callback)
   }
 }
 
-function observeBlueGreenFacts(moduleSources)
+function projectVolumeTopology(volumeTopology)
+{
+  return Object.fromEntries(Object.entries(volumeTopology).map(([target, value]) => [
+    target.slice(1).replaceAll('/', '.'),
+    Object.fromEntries(Object.entries({ target, ...value }).filter(([, member]) => member != null))
+  ]))
+}
+
+function observeBlueGreenFacts(moduleSources, runtimeObservation, destructiveAuthority)
 {
   const at = '2026-01-01T00:00:00Z'
   const digestA = `sha256:${'a'.repeat(64)}`
@@ -265,6 +286,27 @@ function observeBlueGreenFacts(moduleSources)
     target: { slot: 'green', releaseId: releaseB, imageDigest: digestB, runtimeGeneration: 2 },
     createdAtUtc: at
   })
+  const activeArtifactIdentity = verifyArtifactGcActiveIdentity({
+    authority: destructiveAuthority,
+    slotState: state,
+    rolloutState: rollout,
+    retentionState: {
+      activeReleaseId: releaseA,
+      previousReleaseId: releaseB,
+      drainingReleaseIds: [],
+      retentionReleaseIds: [],
+      referencedReleaseIds: [],
+      minimumRetainedReleaseCount: 2
+    }
+  })
+  const unsupportedVolumeCleanup = assertUnsupportedOperation(
+    destructiveAuthority,
+    'production-volume-cleanup'
+  )
+  const unsupportedSchemaCleanup = assertUnsupportedOperation(
+    destructiveAuthority,
+    'production-schema-cleanup'
+  )
   startRolloutStage(rollout, ROLLOUT_STAGES[0], at)
   failRolloutStage(rollout, ROLLOUT_STAGES[0], { failedAtUtc: at, errorCode: 'probe_failure' })
 
@@ -301,6 +343,18 @@ function observeBlueGreenFacts(moduleSources)
     rmSync(store, { recursive: true, force: true })
   }
 
+  const volumeTopology = runtimeObservation?.deploymentAuthority?.volumeTopology ?? {}
+  const volumeScopes = Object.fromEntries(['operator-shared', 'release-artifact-store', 'release-identity',
+    'shared-between-slots', 'slot-private'].map((scope) => [scope, Object.entries(volumeTopology)
+    .filter(([, value]) => value?.scope === scope).map(([target]) => target).sort()]))
+  const schemaOverlap = runtimeObservation?.schemaOverlap
+  const claimEligibilityReasons = []
+  if (runtimeObservation?.ownership?.claimEligible !== true) claimEligibilityReasons.push('runtime-ownership-authority-conflict')
+  if (Object.values(volumeScopes).flat().length !== 10) claimEligibilityReasons.push('volume-topology-incomplete')
+  if (unsupportedVolumeCleanup.status !== 'unsupported') claimEligibilityReasons.push('volume-cleanup-authority-conflict')
+  if (unsupportedSchemaCleanup.status !== 'unsupported') claimEligibilityReasons.push('schema-cleanup-authority-conflict')
+  if (schemaOverlap?.claimEligible !== true) claimEligibilityReasons.push('schema-overlap-authority-conflict')
+
   return {
     authorityModules: Object.fromEntries(Object.entries(moduleSources).map(([id, source]) => [id, {
       sourcePath: source.path,
@@ -327,17 +381,23 @@ function observeBlueGreenFacts(moduleSources)
     rolloutStages: ROLLOUT_STAGES,
     activeAssetAction: activeAssetProtection.action,
     activeAssetReasons: activeAssetProtection.reasons,
+    activeArtifactIdentity,
+    destructiveAuthority: {
+      schema: destructiveAuthority.schema,
+      contentDigest: destructiveAuthority.contentDigest,
+      volumeCleanupStatus: unsupportedVolumeCleanup.status,
+      schemaCleanupStatus: unsupportedSchemaCleanup.status
+    },
+    volumeTopology: projectVolumeTopology(volumeTopology),
+    volumeScopes,
+    schemaOverlap,
     runtimeProtectionAuthorityState: 'observed-in-slot-state-machine-probe',
-    artifactProtectionAuthorityState: 'observed-in-release-gc-plan-probe',
-    schemaProtectionAuthorityState: 'not-expressed-by-current-authorities',
-    volumeProtectionAuthorityState: 'not-expressed-by-current-authorities',
-    claimEligibilityReasons: [
-      'runtime-ownership-authority-conflict',
-      'schema-protection-authority-missing',
-      'volume-protection-authority-missing'
-    ],
-    claimEligible: false,
-    authorityState: 'conflict-unknown'
+    artifactProtectionAuthorityState: 'observed-in-release-gc-and-destructive-authority-probes',
+    schemaProtectionAuthorityState: 'observed-in-online-schema-and-unsupported-cleanup-probes',
+    volumeProtectionAuthorityState: 'observed-in-deployment-topology-and-unsupported-cleanup-probes',
+    ...(claimEligibilityReasons.length > 0 ? { claimEligibilityReasons } : {}),
+    claimEligible: claimEligibilityReasons.length === 0,
+    authorityState: claimEligibilityReasons.length === 0 ? 'closed-current' : 'conflict-unknown'
   }
 }
 
@@ -1053,17 +1113,6 @@ export function extract(context)
   {
     return failResult(['runtime-role observation artifact digest mismatch'])
   }
-  const expectedRuntimeReceiptDigest = digestValue({
-    schema: 'fsusblog.runtime-role-observation-build-receipt.v1',
-    artifactId: 'runtime-role-observation',
-    artifactPath: runtimeRelative,
-    artifactDigest: runtimeArtifactDigest,
-    configuration: 'Release'
-  })
-  if (runtimeIdentity.receiptDigest !== expectedRuntimeReceiptDigest)
-  {
-    return failResult(['runtime-role observation build receipt digest mismatch'])
-  }
   let runtimeObservation
   try
   {
@@ -1079,18 +1128,53 @@ export function extract(context)
     modes: runtimeObservation?.modes,
     staticRoleCapabilities: runtimeObservation?.staticRoleCapabilities,
     unsupportedCombinations: runtimeObservation?.unsupportedCombinations,
-    ownership: runtimeObservation?.ownership
+    ownership: runtimeObservation?.ownership,
+    deploymentAuthority: runtimeObservation?.deploymentAuthority,
+    schemaOverlap: runtimeObservation?.schemaOverlap
   }
   const runtimeContentDigest = createHash('sha256')
     .update(JSON.stringify(runtimeUnsigned), 'utf8').digest('hex')
-  if (runtimeObservation?.schema !== 'fsusblog.runtime-role-observation.v1'
+  if (runtimeObservation?.schema !== 'fsusblog.runtime-role-observation.v2'
     || runtimeObservation?.observationDigest !== runtimeContentDigest
     || runtimeModes.map((mode) => mode.id).sort().join(',') !== 'adaptive,single,static-role'
-    || runtimeObservation?.ownership?.authorityState !== 'conflict-unknown'
+    || runtimeObservation?.ownership?.authorityState !== 'closed-current'
+    || runtimeObservation?.ownership?.claimEligible !== true
+    || runtimeObservation?.ownership?.failureReasons?.length !== 0
+    || runtimeObservation?.deploymentAuthority?.schema !== 'fsusblog.runtime-role-deployment-observation.v1'
+    || runtimeObservation?.deploymentAuthority?.authoritySchema !== 'fsusblog.monolithic-distributed-architecture.v2'
+    || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.deploymentAuthority?.authorityContentDigest ?? ''))
+    || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.deploymentAuthority?.observationDigest ?? ''))
+    || runtimeObservation?.schemaOverlap?.authorityState !== 'observed-in-online-schema-runtime-probe'
+    || runtimeObservation?.schemaOverlap?.claimEligible !== true
     || !Array.isArray(runtimeObservation?.unsupportedCombinations)
     || runtimeObservation.unsupportedCombinations.some((entry) => entry.errorCode === 'unexpectedly-accepted'))
   {
     return failResult(['runtime-role observation is partial, conflicting, or unsupported'])
+  }
+  for (const source of Object.values(runtimeObservation.deploymentAuthority.sourceDigests ?? {}))
+  {
+    if (!allowed.has(source?.path))
+    {
+      return failResult([`runtime-role deployment source is undeclared: ${String(source?.path)}`])
+    }
+    if (digestText(readText(context.repositoryRoot, source.path, allowed)) !== source.digest)
+    {
+      return failResult([`runtime-role deployment source digest mismatch: ${source.path}`])
+    }
+  }
+  const expectedRuntimeReceiptDigest = digestValue({
+    schema: 'fsusblog.runtime-role-observation-build-receipt.v2',
+    artifactId: 'runtime-role-observation',
+    artifactPath: runtimeRelative,
+    artifactDigest: runtimeArtifactDigest,
+    configuration: 'Release',
+    deploymentAuthoritySchema: runtimeObservation.deploymentAuthority.authoritySchema,
+    deploymentAuthorityContentDigest: runtimeObservation.deploymentAuthority.authorityContentDigest,
+    deploymentObservationDigest: runtimeObservation.deploymentAuthority.observationDigest
+  })
+  if (runtimeIdentity.receiptDigest !== expectedRuntimeReceiptDigest)
+  {
+    return failResult(['runtime-role observation build receipt digest mismatch'])
   }
   for (const source of declaredFactSources)
   {
@@ -1226,6 +1310,7 @@ export function extract(context)
   {
     return failResult([error instanceof Error ? error.message : String(error)])
   }
+  const { failureReasons: runtimeOwnershipFailureReasons, ...runtimeOwnership } = runtimeObservation.ownership
   facts['deployment.runtime-role-contract'] = {
     schema: runtimeObservation.schema,
     modes: Object.fromEntries(runtimeModes.map((mode) => [mode.id, {
@@ -1239,21 +1324,45 @@ export function extract(context)
     staticRoleCapabilities: runtimeObservation.staticRoleCapabilities,
     unsupportedCombinations: Object.fromEntries(
       runtimeObservation.unsupportedCombinations.map((entry) => [entry.id, entry.errorCode])),
-    ownership: runtimeObservation.ownership,
+    ownership: {
+      ...runtimeOwnership,
+      ...(runtimeOwnershipFailureReasons.length > 0 ? { failureReasons: runtimeOwnershipFailureReasons } : {})
+    },
+    deploymentAuthority: {
+      ...runtimeObservation.deploymentAuthority,
+      volumeTopology: projectVolumeTopology(runtimeObservation.deploymentAuthority.volumeTopology)
+    },
+    schemaOverlap: runtimeObservation.schemaOverlap,
     observationDigest: runtimeObservation.observationDigest,
     artifactDigest: runtimeArtifactDigest
   }
   const blueGreenModulePaths = {
     slot: 'tools/deployment/slot-lib.mjs',
     rollout: 'tools/deployment/release-rollout-lib.mjs',
-    releaseAssetsGc: 'tools/storage/release-gc.mjs'
+    releaseAssetsGc: 'tools/storage/release-gc.mjs',
+    destructiveOperations: 'tools/deployment/destructive-operation-authority.mjs',
+    onlineSchema: 'src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCompatibility.cs',
+    topologyAuthority: 'tools/governance/check-monolithic-distributed-architecture.mjs'
+  }
+  let destructiveAuthority
+  try
+  {
+    destructiveAuthority = validateDestructiveOperationAuthority(JSON.parse(readText(
+      context.repositoryRoot,
+      'config/deployment/destructive-operation-authority.json',
+      allowed
+    )))
+  }
+  catch (error)
+  {
+    return failResult([`destructive-operation authority invalid: ${error instanceof Error ? error.message : String(error)}`])
   }
   facts['deployment.blue-green-contract'] = observeBlueGreenFacts(Object.fromEntries(
     Object.entries(blueGreenModulePaths).map(([id, sourcePath]) => [id, {
       path: sourcePath,
       text: readText(context.repositoryRoot, sourcePath, allowed)
     }])
-  ))
+  ), runtimeObservation, destructiveAuthority)
   built.observations.topologyDigest = digestValue(
     Object.fromEntries(requiredFactKeys.map((key) => [key, facts[key]]))
   )

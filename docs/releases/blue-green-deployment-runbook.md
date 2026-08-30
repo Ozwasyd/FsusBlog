@@ -88,10 +88,10 @@ claimId: deployment-blue-green-runtime-role.claims-blocked-until-authority-verif
 behaviorId: deployment-blue-green-runtime-role
 claimType: boolean
 factPath: deploymentBlueGreen.claimEligible
-render: boolean-negated
+render: boolean-affirmed
 -->
 
-Release claims for this behavior stay false until schema and volume protection authorities are observed and ownership leaves conflict-unknown; an unknown or ambiguous active identity fails closed and blocks the operation.
+`claimEligible` is `true` because schema overlap, the exact volume topology, runtime ownership and the active artifact identity are observed by typed authorities. Production volume and schema cleanup remain explicitly unsupported; an unknown or ambiguous active identity still fails closed and blocks the operation.
 
 <!-- fsus-doc-claim
 claimId: deployment-blue-green-runtime-role.blue-green-contract
@@ -105,14 +105,15 @@ render: key-value-table
 | Key | Value |
 | --- | --- |
 | abortedTransitionStatus | failed |
+| activeArtifactIdentity | {"deploymentGeneration":1,"imageDigest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","releaseId":"20260101000000-aaaaaaaaaaaa","rolloutId":"runtime-observation-rollout","slot":"blue"} |
 | activeAssetAction | retain |
 | activeAssetReasons | ["active","minimum-retention-count"] |
 | activeIdentity | ["activeImageDigest","activeReleaseId","activeSlot"] |
-| artifactProtectionAuthorityState | observed-in-release-gc-plan-probe |
-| authorityModules | {"releaseAssetsGc":{"sourceDigest":"6b81a4b46d4d479479bb37ff85d79ac18a016b4872384f94fcb5fcc7416c02b3","sourcePath":"tools/storage/release-gc.mjs"},"rollout":{"sourceDigest":"cbb0f9a9189c24adb9266a7d11e4ff69f1b40f6ec090d565bdd4788335e17d0b","sourcePath":"tools/deployment/release-rollout-lib.mjs"},"slot":{"sourceDigest":"a8ec1666cf92eee86e02d652b90cdcbedb04f1470d01ab66fa25a37cf7931d73","sourcePath":"tools/deployment/slot-lib.mjs"}} |
-| authorityState | conflict-unknown |
-| claimEligibilityReasons | ["runtime-ownership-authority-conflict","schema-protection-authority-missing","volume-protection-authority-missing"] |
-| claimEligible | false |
+| artifactProtectionAuthorityState | observed-in-release-gc-and-destructive-authority-probes |
+| authorityModules | {"destructiveOperations":{"sourceDigest":"a2072432832929c689f45c30bf56aec13d7550070c4e7f0a9abc807a8dfb2694","sourcePath":"tools/deployment/destructive-operation-authority.mjs"},"onlineSchema":{"sourceDigest":"4c3afbea42f28e990ca058f630d42c88a3cd58d0b1590657096c63f44eaf789e","sourcePath":"src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCompatibility.cs"},"releaseAssetsGc":{"sourceDigest":"6b81a4b46d4d479479bb37ff85d79ac18a016b4872384f94fcb5fcc7416c02b3","sourcePath":"tools/storage/release-gc.mjs"},"rollout":{"sourceDigest":"cbb0f9a9189c24adb9266a7d11e4ff69f1b40f6ec090d565bdd4788335e17d0b","sourcePath":"tools/deployment/release-rollout-lib.mjs"},"slot":{"sourceDigest":"a8ec1666cf92eee86e02d652b90cdcbedb04f1470d01ab66fa25a37cf7931d73","sourcePath":"tools/deployment/slot-lib.mjs"},"topologyAuthority":{"sourceDigest":"4c7f65133a72975ecb79812846f55e26d2c582e227028d425d16a11f1916c342","sourcePath":"tools/governance/check-monolithic-distributed-architecture.mjs"}} |
+| authorityState | closed-current |
+| claimEligible | true |
+| destructiveAuthority | {"contentDigest":"sha256:bfdce7ca0918af2cc87163d5e804595ac73c4cabc9587927e443f4581379b2aa","schema":"fsusblog.destructive-operation-authority.v1","schemaCleanupStatus":"unsupported","volumeCleanupStatus":"unsupported"} |
 | proofIds | ["release-assets.active-release-retained","rollout.failed-stage-recovery-derived","slot.active-stop-rejected","slot.gateway-transition-state-derived","slot.identity-mismatch-rejected"] |
 | rollbackRequiredState | rollback_required |
 | rolloutFailureState | recovery_required |
@@ -120,11 +121,14 @@ render: key-value-table
 | rolloutStages | ["manifest-validate","capacity-preflight","backup-restore-gate","expand-migration","asset-materialize","candidate-start","candidate-readiness","candidate-smoke","compatibility-smoke","gateway-switch","source-drain","active-fence","public-verify","source-stop","release-evidence"] |
 | rolloutStateSchema | fsusblog.release-rollout-state.v1 |
 | runtimeProtectionAuthorityState | observed-in-slot-state-machine-probe |
-| schemaProtectionAuthorityState | not-expressed-by-current-authorities |
+| schemaOverlap | {"authorityState":"observed-in-online-schema-runtime-probe","claimEligible":true,"concurrentContractFailureCodes":["schema_contract_confirmation_missing","schema_contract_exclusive_mode_missing","schema_contract_old_writes_enabled","schema_contract_previous_release_dependency","schema_contract_rollback_manifest_open","schema_contract_slot_switch_in_progress"],"missingExpandFailureCodes":["schema_expand_pending"],"schema":"fsusblog.online-schema-overlap-observation.v1","sourceReadiness":"ready","targetReadiness":"ready"} |
+| schemaProtectionAuthorityState | observed-in-online-schema-and-unsupported-cleanup-probes |
 | slotStateSchema | fsusblog.deployment-slots.v1 |
 | slots | ["blue","green"] |
 | stopActiveResult | refusing to stop active slot blue |
 | switchState | switching |
 | unknownIdentityResult | active release identity does not match slot record |
-| volumeProtectionAuthorityState | not-expressed-by-current-authorities |
+| volumeProtectionAuthorityState | observed-in-deployment-topology-and-unsupported-cleanup-probes |
+| volumeScopes | {"operator-shared":["/app/config/zk","/app/secrets/zk"],"release-artifact-store":["/app/release-assets"],"release-identity":["/app/release-manifest.json"],"shared-between-slots":["/app/data-protection","/app/release-derived","/app/storage"],"slot-private":["/app/Logs","/app/data","/app/wwwroot/aot-cache"]} |
+| volumeTopology | {"app.Logs":{"access":"read-write","protection":"retained-with-slot","scope":"slot-private","source":"fsus-logs","target":"/app/Logs","volumeName":"${FSUSBLOG_SLOT_LOGS_VOLUME:?Set slot-specific logs volume}"},"app.config.zk":{"access":"read-only","protection":"outside-release-cleanup","scope":"operator-shared","source":"${FSUSBLOG_ZK_CONFIG_DIR:?Set FSUSBLOG_ZK_CONFIG_DIR to the host ZK config directory}","target":"/app/config/zk"},"app.data":{"access":"read-write","protection":"retained-with-slot","scope":"slot-private","source":"fsus-slot-data","target":"/app/data","volumeName":"${FSUSBLOG_SLOT_DATA_VOLUME:?Set slot-specific data volume}"},"app.data-protection":{"access":"read-write","protection":"outside-release-cleanup","scope":"shared-between-slots","source":"fsus-data-protection","target":"/app/data-protection","volumeName":"${FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME:?Set the shared DataProtection volume explicitly}"},"app.release-assets":{"access":"read-only","protection":"exact-active-release-gc-authority","scope":"release-artifact-store","source":"${FSUSBLOG_RELEASE_ASSET_STORE:?Set the host append-only release asset store}/releases","target":"/app/release-assets"},"app.release-derived":{"access":"read-write","protection":"outside-release-cleanup","scope":"shared-between-slots","source":"fsus-release-derived","target":"/app/release-derived","volumeName":"${FSUSBLOG_SHARED_RELEASE_DERIVED_VOLUME:-fsusblog-release-derived}"},"app.release-manifest.json":{"access":"read-only","protection":"identity-bound-read-only","scope":"release-identity","source":"${FSUSBLOG_RELEASE_MANIFEST_HOST_PATH:?Set the validated host release manifest path}","target":"/app/release-manifest.json"},"app.secrets.zk":{"access":"read-only","protection":"outside-release-cleanup","scope":"operator-shared","source":"${FSUSBLOG_ZK_SECRET_DIR:?Set FSUSBLOG_ZK_SECRET_DIR to the host ZK secret directory}","target":"/app/secrets/zk"},"app.storage":{"access":"read-write","protection":"outside-release-cleanup","scope":"shared-between-slots","source":"fsus-storage","target":"/app/storage","volumeName":"${FSUSBLOG_SHARED_PUBLIC_ASSETS_VOLUME:?Set the migrated shared public-assets volume explicitly}"},"app.wwwroot.aot-cache":{"access":"read-write","protection":"retained-with-slot","scope":"slot-private","source":"fsus-aot-cache","target":"/app/wwwroot/aot-cache","volumeName":"${FSUSBLOG_SLOT_AOT_CACHE_VOLUME:?Set slot-specific AOT cache volume}"}} |
 <!-- FSUSBLOG-GENERATED:END deployment.blue-green-contract -->

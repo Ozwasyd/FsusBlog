@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace FsusBlog.RuntimeRoleObservation;
 
 internal sealed record RuntimeRoleObservation(
@@ -6,6 +8,8 @@ internal sealed record RuntimeRoleObservation(
     IReadOnlyDictionary<string, IReadOnlyList<string>> StaticRoleCapabilities,
     IReadOnlyList<UnsupportedCombinationObservation> UnsupportedCombinations,
     OwnershipObservation Ownership,
+    DeploymentAuthorityObservation DeploymentAuthority,
+    SchemaOverlapObservation SchemaOverlap,
     string ObservationDigest);
 
 internal sealed record RuntimeModeObservation(
@@ -25,4 +29,35 @@ internal sealed record OwnershipObservation(
     string Service,
     string CoResidency,
     string Separation,
-    string AuthorityState);
+    string AuthorityState,
+    bool ClaimEligible,
+    IReadOnlyList<string> FailureReasons);
+
+internal sealed record DeploymentAuthorityObservation(
+    string Schema,
+    string AuthoritySchema,
+    string AuthorityContentDigest,
+    IReadOnlyDictionary<string, SourceDigestObservation> SourceDigests,
+    JsonElement VolumeTopology,
+    string ObservationDigest);
+
+internal sealed record SourceDigestObservation(string Path, string Digest);
+
+internal sealed record SchemaOverlapObservation(
+    string Schema,
+    string SourceReadiness,
+    string TargetReadiness,
+    IReadOnlyList<string> MissingExpandFailureCodes,
+    IReadOnlyList<string> ConcurrentContractFailureCodes,
+    string AuthorityState,
+    bool ClaimEligible);
+
+internal sealed record RuntimeRoleDeploymentProbe(
+    string Schema,
+    string AuthoritySchema,
+    string AuthorityContentDigest,
+    IReadOnlyDictionary<string, SourceDigestObservation> SourceDigests,
+    JsonElement Application,
+    OwnershipObservation Ownership,
+    JsonElement VolumeTopology,
+    string ObservationDigest);
