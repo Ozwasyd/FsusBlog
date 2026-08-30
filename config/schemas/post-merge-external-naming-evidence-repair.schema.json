@@ -13,7 +13,8 @@
         "mergeCommit",
         "source",
         "namingSurface",
-        "missingArtifact"
+        "missingArtifact",
+        "currentExceptions"
     ],
     "properties": {
         "schema": {
@@ -87,6 +88,36 @@
                 },
                 "sha256": {
                     "$ref": "#/$defs/sha256"
+                }
+            }
+        },
+        "currentExceptions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "id",
+                    "paths",
+                    "reason"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "paths": {
+                        "type": "array",
+                        "minItems": 1,
+                        "uniqueItems": true,
+                        "items": {
+                            "$ref": "#/$defs/path"
+                        }
+                    },
+                    "reason": {
+                        "type": "string",
+                        "minLength": 12
+                    }
                 }
             }
         }

@@ -17,5 +17,14 @@
     "missingArtifact": {
         "path": "artifacts/change-contract/testing-coverage-fact-section-external-naming.json",
         "sha256": "00dd4b29525cf07021f79e9cab3b19a86a446e5175f9f645781353a5f9d3b436"
-    }
+    },
+    "currentExceptions": [
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/architecture/repository-layout.md"
+            ],
+            "reason": "preserve repository layout authority identifiers while documenting exact post-merge naming evidence repair ownership"
+        }
+    ]
 }

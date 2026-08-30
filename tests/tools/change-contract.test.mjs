@@ -359,8 +359,10 @@ function createPostMergeExternalNamingRepairFixture({
     const sourcePath = 'tools/docs/behavior-doc-static-admission.mjs'
     const artifactPath = 'artifacts/change-contract/external-naming.json'
     const repairPath = 'artifacts/change-contract/external-naming-repair.json'
+    const currentSurfacePath = 'docs/architecture/repository-layout.md'
     const reason = 'preserve caller-visible environment variables while moving receipt publication'
     writeRepositoryFile(repository, sourcePath, 'const mode = process.env.FSUSBLOG_MODE\n')
+    writeRepositoryFile(repository, currentSurfacePath, 'baseline layout authority\n')
     const originalBase = commitFixture(repository, 'fixture original base')
 
     execFileSync('git', ['checkout', '-qb', 'feature'], { cwd: repository })
@@ -389,6 +391,7 @@ function createPostMergeExternalNamingRepairFixture({
         { cwd: repository, encoding: 'utf8' }
     ).trim()
     execFileSync('git', ['checkout', '-q', '-b', 'candidate', base], { cwd: repository })
+    writeRepositoryFile(repository, currentSurfacePath, 'document strict naming repair ownership\n')
 
     const artifact = {
         schema: changeContract.evidenceSchemas.externalNamingExceptions,
@@ -424,7 +427,14 @@ function createPostMergeExternalNamingRepairFixture({
         missingArtifact: {
             path: artifactPath,
             sha256: fileSha256(repository, artifactPath)
-        }
+        },
+        currentExceptions: [
+            {
+                id: 'content-doc-exactness-authority',
+                paths: [currentSurfacePath],
+                reason: 'preserve repository layout authority identifiers while documenting strict repair ownership'
+            }
+        ]
     }
     if (mutateManifest) mutateManifest(manifest, {
         repository,
@@ -433,7 +443,8 @@ function createPostMergeExternalNamingRepairFixture({
         mergeCommit,
         sourcePath,
         artifactPath,
-        repairPath
+        repairPath,
+        currentSurfacePath
     })
     writeRepositoryFile(repository, repairPath, `${JSON.stringify(manifest, null, 4)}\n`)
     const head = commitFixture(repository, 'fixture post-merge naming repair')
@@ -963,6 +974,20 @@ test('post-merge external naming repair rejects malformed, extra, missing, and s
     })
     assert.ok(validatePostMergeExternalNamingRepairFixture(extraDeclaration).some(
         (error) => error.includes('exactly one exception')
+    ))
+    const missingCurrentException = createPostMergeExternalNamingRepairFixture({
+        mutateManifest: (manifest) => { manifest.currentExceptions = [] }
+    })
+    assert.ok(validatePostMergeExternalNamingRepairFixture(missingCurrentException).some(
+        (error) => error.includes('current exceptions must exactly match')
+    ))
+    const wrongCurrentException = createPostMergeExternalNamingRepairFixture({
+        mutateManifest: (manifest) => {
+            manifest.currentExceptions[0].id = 'environment-variable'
+        }
+    })
+    assert.ok(validatePostMergeExternalNamingRepairFixture(wrongCurrentException).some(
+        (error) => error.includes('outside registered surface environment-variable')
     ))
 })
 

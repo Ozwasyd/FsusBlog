@@ -972,7 +972,8 @@ export function validatePostMergeExternalNamingEvidenceRepair(
         'mergeCommit',
         'source',
         'namingSurface',
-        'missingArtifact'
+        'missingArtifact',
+        'currentExceptions'
     ]
     if (!sameStrings(Object.keys(evidence), fields)) {
         errors.push('Post-merge external naming repair manifest contains unsupported fields')
@@ -1032,6 +1033,58 @@ export function validatePostMergeExternalNamingEvidenceRepair(
             || !sha256Pattern.test(missingArtifact.sha256 ?? '')
         ) {
             errors.push('Post-merge external naming repair missingArtifact requires one repository-relative JSON path and SHA-256 digest')
+        }
+    }
+    const currentExceptions = Array.isArray(evidence.currentExceptions)
+        ? evidence.currentExceptions
+        : []
+    if (!Array.isArray(evidence.currentExceptions)) {
+        errors.push('Post-merge external naming repair currentExceptions must be an array')
+    }
+    const currentExceptionIds = []
+    const currentExceptionPaths = []
+    for (const declaration of currentExceptions) {
+        if (!declaration || typeof declaration !== 'object' || Array.isArray(declaration)) {
+            errors.push('Post-merge external naming repair currentExceptions must be objects')
+            continue
+        }
+        if (!sameStrings(Object.keys(declaration), ['id', 'paths', 'reason'])) {
+            errors.push('Post-merge external naming repair current exception contains unsupported fields')
+        }
+        const entry = exceptions.find((candidate) => candidate.id === declaration.id)
+        if (!entry) {
+            errors.push(`Post-merge external naming repair current exception is not registered: ${declaration.id ?? 'missing'}`)
+        }
+        if (currentExceptionIds.includes(declaration.id)) {
+            errors.push(`Post-merge external naming repair current exception ID is duplicated: ${declaration.id}`)
+        }
+        currentExceptionIds.push(declaration.id)
+        const paths = Array.isArray(declaration.paths) ? declaration.paths : []
+        if (
+            paths.length === 0
+            || !paths.every((path) => repositoryPathPattern.test(path ?? ''))
+            || new Set(paths).size !== paths.length
+        ) {
+            errors.push(`Post-merge external naming repair current exception ${declaration.id ?? 'missing'} requires unique repository paths`)
+        }
+        if (
+            !substantiveField(declaration.reason)
+            || declaration.reason === 'none'
+            || declaration.reason.trim().length < 12
+        ) {
+            errors.push(`Post-merge external naming repair current exception ${declaration.id ?? 'missing'} requires a substantive reason`)
+        }
+        for (const path of paths) {
+            if (currentExceptionPaths.includes(path)) {
+                errors.push(`Post-merge external naming repair current exception path is duplicated: ${path}`)
+            }
+            currentExceptionPaths.push(path)
+            if (!changedFiles.includes(path)) {
+                errors.push(`Post-merge external naming repair current exception path is not changed: ${path}`)
+            }
+            if (entry && !entry.paths.some((glob) => globMatches(path, glob))) {
+                errors.push(`Post-merge external naming repair current exception path is outside registered surface ${entry.id}: ${path}`)
+            }
         }
     }
     const surface = exceptions.find((entry) => entry.id === namingSurface?.id)
@@ -1133,8 +1186,8 @@ export function validatePostMergeExternalNamingEvidenceRepair(
         const currentGovernedChanges = changedFiles.filter((path) => exceptions.some(
             (entry) => entry.paths?.some((glob) => globMatches(path, glob))
         ))
-        if (currentGovernedChanges.length > 0) {
-            errors.push('Post-merge external naming repair must not change registered naming surfaces')
+        if (!sameStrings(currentExceptionPaths, currentGovernedChanges)) {
+            errors.push('Post-merge external naming repair current exceptions must exactly match changed registered naming surfaces')
         }
 
         const repairedArtifact = readJsonAtRevision(root, head, missingArtifact.path)
