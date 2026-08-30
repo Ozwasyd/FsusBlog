@@ -1,0 +1,256 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "fsusblog.cross-authority-dag-receipt.v1",
+    "title": "FsusBlog cross-authority DAG analysis receipt",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "graphSchema",
+        "graphDigest",
+        "nodes",
+        "edges",
+        "stronglyConnectedComponents",
+        "selfLoops",
+        "duplicateAuthorities",
+        "orphanNodeIds",
+        "missingEdges",
+        "backEdges",
+        "invalidEdges",
+        "status",
+        "failureReasons",
+        "contentDigest"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.cross-authority-dag-receipt.v1"
+        },
+        "graphSchema": {
+            "const": "fsusblog.cross-authority-dag.v1"
+        },
+        "graphDigest": {
+            "$ref": "#/$defs/digest"
+        },
+        "nodes": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/analyzedNode"
+            }
+        },
+        "edges": {
+            "type": "array",
+            "items": {
+                "$ref": "cross-authority-dag.schema.json#/$defs/edge"
+            }
+        },
+        "stronglyConnectedComponents": {
+            "type": "array",
+            "items": {
+                "type": "array",
+                "minItems": 2,
+                "uniqueItems": true,
+                "items": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            }
+        },
+        "selfLoops": {
+            "type": "array",
+            "items": {
+                "$ref": "cross-authority-dag.schema.json#/$defs/edge"
+            }
+        },
+        "duplicateAuthorities": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "authorityId",
+                    "nodeIds"
+                ],
+                "properties": {
+                    "authorityId": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "nodeIds": {
+                        "type": "array",
+                        "minItems": 2,
+                        "uniqueItems": true,
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        }
+                    }
+                }
+            }
+        },
+        "orphanNodeIds": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+                "type": "string",
+                "minLength": 1
+            }
+        },
+        "missingEdges": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "nodeId",
+                    "predecessorKind"
+                ],
+                "properties": {
+                    "nodeId": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "predecessorKind": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            }
+        },
+        "backEdges": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/analyzedEdge"
+            }
+        },
+        "invalidEdges": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "from",
+                    "to",
+                    "relation",
+                    "expectedRelation"
+                ],
+                "properties": {
+                    "from": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "to": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "relation": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "expectedRelation": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
+            }
+        },
+        "status": {
+            "enum": [
+                "ok",
+                "failed"
+            ]
+        },
+        "failureReasons": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+                "type": "string",
+                "minLength": 1
+            }
+        },
+        "contentDigest": {
+            "$ref": "#/$defs/digest"
+        }
+    },
+    "$defs": {
+        "digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+        },
+        "analyzedNode": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "kind",
+                "authorityId",
+                "behaviorIds",
+                "layer"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "kind": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "authorityId": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "behaviorIds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "layer": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 8
+                }
+            }
+        },
+        "analyzedEdge": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "from",
+                "to",
+                "relation",
+                "fromLayer",
+                "toLayer"
+            ],
+            "properties": {
+                "from": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "to": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "relation": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "fromLayer": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 8
+                },
+                "toLayer": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 8
+                }
+            }
+        }
+    }
+}

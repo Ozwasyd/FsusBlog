@@ -51,6 +51,32 @@
             "pathType": "file"
         },
         {
+            "id": "cross-authority-dag-schema",
+            "owner": "behavior-contract-governance",
+            "canonicalPath": "config/schemas/cross-authority-dag.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/contracts/cross-authority-dag.mjs",
+                "tests/tools/cross-authority-dag.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/cross-authority-dag.test.mjs",
+            "changePolicy": "manual-update-with-negative-mutation-and-replay-validation",
+            "status": "manual"
+        },
+        {
+            "id": "cross-authority-dag-receipt-schema",
+            "owner": "behavior-contract-governance",
+            "canonicalPath": "config/schemas/cross-authority-dag-receipt.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/contracts/cross-authority-dag.mjs",
+                "tests/tools/cross-authority-dag.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/cross-authority-dag.test.mjs",
+            "changePolicy": "manual-update-with-exact-replay-validation",
+            "status": "manual"
+        },
+        {
             "id": "external-naming-exceptions-schema",
             "owner": "repository-governance",
             "canonicalPath": "config/schemas/external-naming-exceptions.schema.json",
