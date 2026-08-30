@@ -211,7 +211,13 @@ function postMergeRepairBody() {
     })
 }
 
-function createPostMergeRepairFixture({ outputMode = 'canonical', mutateManifest = null, changeSource = false } = {}) {
+function createPostMergeRepairFixture({
+    outputMode = 'canonical',
+    mutateManifest = null,
+    changeSource = false,
+    laterSourceChange = false,
+    baselineOutputStale = false
+} = {}) {
     const repository = mkdtempSync(join(tmpdir(), 'fsusblog-post-merge-generated-repair-'))
     execFileSync('git', ['init', '-q', '-b', 'master'], { cwd: repository })
     execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: repository })
@@ -227,7 +233,11 @@ const output = resolve(args[outIndex + 1])
 mkdirSync(dirname(output), { recursive: true })
 writeFileSync(output, \`generated:\${readFileSync('tests/matrix.yml', 'utf8')}\`)
 `.trimStart())
-    writeRepositoryFile(repository, 'docs/testing.generated.md', 'generated:base\n')
+    writeRepositoryFile(
+        repository,
+        'docs/testing.generated.md',
+        baselineOutputStale ? 'generated:stale\n' : 'generated:base\n'
+    )
     commitFixture(repository, 'fixture baseline')
 
     execFileSync('git', ['checkout', '-qb', 'feature'], { cwd: repository })
@@ -246,7 +256,15 @@ writeFileSync(output, \`generated:\${readFileSync('tests/matrix.yml', 'utf8')}\`
         ['rev-parse', 'HEAD'],
         { cwd: repository, encoding: 'utf8' }
     ).trim()
-    const base = mergeCommit
+    if (laterSourceChange) {
+        writeRepositoryFile(repository, 'tests/matrix.yml', 'later\n')
+        commitFixture(repository, 'fixture superseding source change')
+    }
+    const base = execFileSync(
+        'git',
+        ['rev-parse', 'HEAD'],
+        { cwd: repository, encoding: 'utf8' }
+    ).trim()
     const baseSha256 = fileSha256(repository, 'docs/testing.generated.md')
 
     execFileSync('git', ['checkout', '-qb', 'candidate'], { cwd: repository })
@@ -635,6 +653,20 @@ test('generated bot exception binds source, digest, and authenticated identity',
 test('post-merge generated repair binds exact history and isolated canonical replays', () => {
     const repair = createPostMergeRepairFixture()
     assert.deepEqual(validatePostMergeRepairFixture(repair), [])
+})
+
+test('post-merge generated repair rejects a source revision superseded at the current base', () => {
+    const repair = createPostMergeRepairFixture({ laterSourceChange: true })
+    assert.ok(validatePostMergeRepairFixture(repair).some(
+        (error) => error.includes('sourceCommit must remain the current base owner')
+    ))
+})
+
+test('post-merge generated repair rejects drift that predates the bound source revision', () => {
+    const repair = createPostMergeRepairFixture({ baselineOutputStale: true })
+    assert.ok(validatePostMergeRepairFixture(repair).some(
+        (error) => error.includes('source parent was already out of sync')
+    ))
 })
 
 test('post-merge generated repair rejects open discovery, stale bindings, and unknown commands', () => {
