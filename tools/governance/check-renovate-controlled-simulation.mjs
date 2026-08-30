@@ -40,6 +40,7 @@ const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-renovate-s
 GlobalConfig.set({ localDir: temporaryRoot, cacheDir: path.join(temporaryRoot, '.cache'), platform: 'local' })
 
 function updateTypes(item) {
+    if (item.manager === 'delegated') return []
     if (item.manager === 'npm') return ['major', 'minor', 'patch', 'pin']
     if (item.manager === 'nuget') return ['major', 'minor', 'patch']
     if (item.manager === 'github-actions') return ['digest']
@@ -193,7 +194,7 @@ try {
         results.push(await simulate(item, updateType))
     }
     const groups = new Set(results.map(result => result.group))
-    const catalogGroups = new Set(catalog.items.map(item => item.group))
+    const catalogGroups = new Set(catalog.items.filter(item => updateTypes(item).length > 0).map(item => item.group))
     if (groups.size !== catalogGroups.size || [...catalogGroups].some(group => !groups.has(group))) throw new Error('controlled simulation does not cover every catalog group')
     const dashboardResults = simulateDashboard()
     const dashboardGroups = new Set(dashboardResults.map(result => result.group))

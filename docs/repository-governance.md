@@ -69,7 +69,12 @@ patch and digest updates, daily lock-file refreshes, and unscheduled vulnerabili
 updates. It does not extend `config:recommended`, `:ignoreModulesAndTests`, or
 Renovate's default grouping presets, so real version fields under `tests/` stay
 visible; fixture and generated-evidence paths are ignored only when
-`update-surface.json` registers the exact path and reason. Updates remain
+`update-surface.json` registers the exact path and reason. `fsusui-release-train`
+is a delegated manager for `config/testing/fsusui-baseline.json` and is still
+enumerated by `npm run deps:freshness`; it is not an ignore rule. Freshness is
+fail-closed and assigns each catalog item exactly one of `current`,
+`latest-target-pr`, or a dated exception in `config/dependencies/exceptions.json`.
+Updates remain
 reviewer-controlled and never automerged. The App
 installation, permissions, live Dependency Dashboard, and real update pull requests
 are `external-unverified`; local acceptance uses the official config validator,

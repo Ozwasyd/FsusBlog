@@ -21,7 +21,8 @@
             "pathType": "file",
             "consumers": [
                 "renovate.json5",
-                "tools/governance/check-dependency-update-surface.mjs"
+                "tools/governance/check-dependency-update-surface.mjs",
+                "tools/governance/check-dependency-freshness.mjs"
             ],
             "validationCommand": "node tools/governance/check-dependency-update-surface.mjs --root . --fixtures tests/fixtures/governance/dependency-update-surface.json",
             "changePolicy": "manual-update-with-exact-surface-and-negative-fixture-validation",
@@ -37,6 +38,31 @@
                 "tools/governance/check-dependency-update-surface.mjs"
             ],
             "validationCommand": "node tools/governance/check-dependency-update-surface.mjs --root . --fixtures tests/fixtures/governance/dependency-update-surface.json",
+            "changePolicy": "manual-update-with-closed-schema-validation",
+            "status": "manual"
+        },
+        {
+            "id": "dependency-exceptions",
+            "owner": "dependency-update-governance",
+            "canonicalPath": "config/dependencies/exceptions.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/governance/check-dependency-freshness.mjs"
+            ],
+            "validationCommand": "node tools/governance/check-dependency-freshness.mjs --root . --fixtures tests/fixtures/governance/dependency-freshness.json",
+            "changePolicy": "manual-update-with-exact-exception-and-negative-fixture-validation",
+            "status": "manual"
+        },
+        {
+            "id": "dependency-exceptions-schema",
+            "owner": "dependency-update-governance",
+            "canonicalPath": "config/dependencies/exceptions.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "config/dependencies/exceptions.json",
+                "tools/governance/check-dependency-freshness.mjs"
+            ],
+            "validationCommand": "node tools/governance/check-dependency-freshness.mjs --root . --fixtures tests/fixtures/governance/dependency-freshness.json",
             "changePolicy": "manual-update-with-closed-schema-validation",
             "status": "manual"
         },

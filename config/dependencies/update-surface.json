@@ -2829,6 +2829,19 @@
             "versioning": "npm",
             "group": "container-toolchain",
             "stabilityPolicy": "stable-only"
+        },
+        {
+            "id": "fsusui-baseline",
+            "datasource": "git-refs",
+            "packageName": "https://github.com/Ozwasyd/FsusUI.git",
+            "manager": "delegated",
+            "customManager": "fsusui-release-train",
+            "files": [
+                "config/testing/fsusui-baseline.json"
+            ],
+            "versioning": "git",
+            "group": "fsusui-release-train",
+            "stabilityPolicy": "rolling-default-branch"
         }
     ],
     "exclusions": [

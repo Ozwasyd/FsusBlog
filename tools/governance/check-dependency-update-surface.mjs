@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { execFileSync } from 'node:child_process'
+import { validate as validateCatalogAndConfig } from './dependency-update-surface-policy.mjs'
 
 const args = process.argv.slice(2)
 const valueAfter = flag => {
@@ -117,11 +118,28 @@ function discoverDockerComposeFields(candidateConfig) {
     return result
 }
 
+function discoverDelegatedFields() {
+    const file = 'config/testing/fsusui-baseline.json'
+    if (!trackedFiles.includes(file)) return []
+    const source = fs.readFileSync(path.join(root, file), 'utf8')
+    const match = /"commit"\s*:\s*"(?<currentDigest>[0-9a-f]{40})"/du.exec(source)
+    if (!match?.indices?.groups?.currentDigest) return []
+    return [{
+        manager: 'delegated',
+        customManager: 'fsusui-release-train',
+        packageName: 'https://github.com/Ozwasyd/FsusUI.git',
+        file,
+        start: match.indices.groups.currentDigest[0],
+        end: match.indices.groups.currentDigest[1]
+    }]
+}
+
 function discoverExternalFields(candidateConfig) {
     return [
         ...discoverDockerfileFields(),
         ...discoverDockerComposeFields(candidateConfig),
-        ...discoverCustomFields(candidateConfig)
+        ...discoverCustomFields(candidateConfig),
+        ...discoverDelegatedFields()
     ]
 }
 
@@ -188,114 +206,12 @@ function discoverPackages() {
     return result
 }
 
-function validate(candidateCatalog, candidateConfig) {
-    const errors = []
-    const report = (code, detail) => errors.push({ code, detail })
-    if (candidateCatalog.schema !== 'fsusblog.dependency-update-surface.v1') report('catalog-schema', 'unexpected schema')
-    if (!Array.isArray(candidateCatalog.items) || candidateCatalog.items.length === 0) report('catalog-empty', 'items must not be empty')
-    const ids = new Set()
-    const required = ['id', 'datasource', 'packageName', 'manager', 'files', 'versioning', 'group', 'stabilityPolicy']
-    for (const item of candidateCatalog.items ?? []) {
-        if (ids.has(item.id)) report('catalog-duplicate-id', item.id)
-        ids.add(item.id)
-        for (const field of required) if (item[field] === undefined || item[field] === '' || (field === 'files' && !item.files.length)) report('catalog-field', `${item.id}:${field}`)
-        if ('currentValue' in item || 'version' in item) report('catalog-current-version', item.id)
-        if (item.manager === 'custom.regex' && !item.customManager) report('catalog-custom-manager', item.id)
-        if (item.manager === 'npm' && !item.fieldPaths?.length) report('catalog-npm-field-path', item.id)
-        for (const file of item.files ?? []) if (!fs.existsSync(path.join(root, file))) report('catalog-file-missing', `${item.id}:${file}`)
-    }
-    const exclusionPaths = new Set()
-    for (const exclusion of candidateCatalog.exclusions ?? []) {
-        if (!exclusion.path || !exclusion.reason) report('catalog-exclusion-field', JSON.stringify(exclusion))
-        if (exclusionPaths.has(exclusion.path)) report('catalog-exclusion-duplicate', exclusion.path)
-        exclusionPaths.add(exclusion.path)
-    }
-    for (const dependency of discoverPackages()) {
-        const owners = (candidateCatalog.items ?? []).filter(item => item.manager === dependency.manager
-            && item.packageName === dependency.packageName
-            && item.files.includes(dependency.file)
-            && (item.manager !== 'npm' || item.fieldPaths?.includes(dependency.fieldPath)))
-        const detail = `${dependency.manager}:${dependency.packageName}:${dependency.file}:${dependency.fieldPath}`
-        if (owners.length === 0) report('catalog-missing-package', detail)
-        if (owners.length > 1) report('catalog-duplicate-owner', detail)
-    }
-    const packages = discoverPackages()
-    for (const item of (candidateCatalog.items ?? []).filter(candidate => candidate.fieldPaths)) {
-        for (const fieldPath of item.fieldPaths) {
-            const matched = packages.some(dependency => dependency.manager === item.manager
-                && dependency.packageName === item.packageName
-                && item.files.includes(dependency.file)
-                && dependency.fieldPath === fieldPath)
-            if (!matched) report('catalog-unmatched-field-path', `${item.id}:${fieldPath}`)
-        }
-    }
-    for (const lock of trackedFiles.filter(item => /(?:package-lock\.json|packages\.lock\.json)$/u.test(item))) {
-        if (exclusionPaths.has(lock)) continue
-        if (!(candidateCatalog.items ?? []).some(item => item.files.includes(lock))) report('catalog-missing-lock', lock)
-    }
-
-    const fields = discoverExternalFields(candidateConfig)
-    const fieldManagers = new Map()
-    for (const field of fields) {
-        const identity = `${field.file}:${field.start}:${field.end}`
-        const managers = fieldManagers.get(identity) ?? new Set()
-        managers.add(`${field.manager}:${field.customManager ?? ''}`)
-        fieldManagers.set(identity, managers)
-        const owners = (candidateCatalog.items ?? []).filter(item => item.manager === field.manager
-            && item.packageName === field.packageName
-            && item.files.includes(field.file)
-            && (field.manager !== 'custom.regex' || item.customManager === field.customManager))
-        const detail = `${field.manager}:${field.customManager ?? '-'}:${field.packageName}:${identity}`
-        if (owners.length === 0) report('catalog-missing-field', detail)
-        if (owners.length > 1) report('catalog-duplicate-owner', detail)
-    }
-    for (const [identity, managers] of fieldManagers) {
-        if (managers.size > 1) report('manager-overlap', `${identity}:${[...managers].join(',')}`)
-    }
-    for (const item of (candidateCatalog.items ?? []).filter(candidate => ['custom.regex', 'dockerfile', 'docker-compose'].includes(candidate.manager))) {
-        for (const file of item.files) {
-            const matched = fields.some(field => field.manager === item.manager
-                && field.packageName === item.packageName
-                && field.file === file
-                && (field.manager !== 'custom.regex' || field.customManager === item.customManager))
-            if (!matched) report('catalog-unmatched-file', `${item.id}:${file}`)
-        }
-    }
-    for (const item of (candidateCatalog.items ?? []).filter(candidate => candidate.manager === 'custom.regex')) {
-        const manager = candidateConfig.customManagers?.find(candidate => candidate.description === item.customManager)
-        if (!manager) continue
-        if (manager.datasourceTemplate !== item.datasource) report('config-custom-datasource', `${item.id}:${manager.datasourceTemplate ?? '-'}:${item.datasource}`)
-        if (manager.versioningTemplate !== item.versioning) report('config-custom-versioning', `${item.id}:${manager.versioningTemplate ?? '-'}:${item.versioning}`)
-    }
-
-    if (candidateConfig.automerge !== false
-        || candidateConfig.lockFileMaintenance?.automerge === true
-        || candidateConfig.vulnerabilityAlerts?.automerge === true
-        || candidateConfig.packageRules?.some(rule => rule.automerge === true)) report('config-automerge', 'automerge must remain false')
-    const serialized = JSON.stringify(candidateConfig)
-    if (serialized.includes('"enabled":false')) report('config-disabled-update', 'enabled:false is forbidden')
-    if ('ignoreDeps' in candidateConfig) report('config-ignore-deps', 'ignoreDeps is forbidden')
-    if (candidateConfig.ignoreUnstable !== true) report('config-prerelease', 'stable releases must be the default')
-    if (candidateConfig.minimumReleaseAge !== '0 days') report('config-minimum-age', 'minimumReleaseAge must be zero')
-    if (JSON.stringify(candidateConfig.schedule) !== JSON.stringify(['* 0,6,12,18 * * *'])) report('config-schedule', 'schedule must run every six hours')
-    if (!candidateConfig.lockFileMaintenance?.enabled || JSON.stringify(candidateConfig.lockFileMaintenance.schedule) !== JSON.stringify(['* 5 * * *'])) report('config-lockfile-maintenance', 'daily lockfile maintenance is required')
-    if (JSON.stringify(candidateConfig.vulnerabilityAlerts?.schedule) !== JSON.stringify(['at any time'])) report('config-vulnerability-schedule', 'vulnerability updates must be unscheduled')
-    const forbiddenPresets = new Set(['config:recommended', 'config:best-practices', ':ignoreModulesAndTests', 'group:monorepos', 'group:recommended', 'workarounds:all'])
-    for (const preset of candidateConfig.extends ?? []) if (forbiddenPresets.has(preset)) report('config-hidden-ignore-preset', preset)
-    const exclusionFiles = new Set((candidateCatalog.exclusions ?? []).map(item => item.path).filter(item => !item.includes('#')))
-    for (const ignorePath of candidateConfig.ignorePaths ?? []) {
-        if (/[*?]|\*\*|\/(?:tests|test|fixtures|examples)(?:\/|$)/u.test(ignorePath) && !exclusionFiles.has(ignorePath)) report('config-broad-ignore-path', ignorePath)
-        if (!exclusionFiles.has(ignorePath)) report('config-ignore-path-unregistered', ignorePath)
-    }
-    for (const exclusion of exclusionFiles) if (!(candidateConfig.ignorePaths ?? []).includes(exclusion)) report('config-exclusion-not-ignored', exclusion)
-    const updateRule = candidateConfig.packageRules?.find(rule => Array.isArray(rule.matchUpdateTypes))
-    for (const updateType of ['major', 'minor', 'patch', 'pin', 'digest', 'lockFileMaintenance']) if (!updateRule?.matchUpdateTypes.includes(updateType)) report('config-update-type', updateType)
-    const groups = new Set(candidateConfig.packageRules?.map(rule => rule.groupName).filter(Boolean))
-    for (const group of groups) if (['misc', 'other', 'ungrouped'].includes(group)) report('config-group-anonymous', group)
-    for (const item of candidateCatalog.items ?? []) if (!groups.has(item.group)) report('config-group-missing', `${item.id}:${item.group}`)
-    if (trackedFiles.some(file => /^\.github\/workflows\/.*renovate/iu.test(file))) report('config-self-hosted-workflow', 'self-hosted Renovate workflows are forbidden')
-    return errors
-}
+const validate = (candidateCatalog, candidateConfig) => validateCatalogAndConfig(candidateCatalog, candidateConfig, {
+    root,
+    trackedFiles,
+    discoverPackages,
+    discoverExternalFields
+})
 
 function validateRegexFixtures() {
     const errors = []
@@ -314,6 +230,7 @@ function validateRegexFixtures() {
 }
 
 function applicableUpdateTypes(item) {
+    if (item.manager === 'delegated') return []
     if (item.manager === 'npm') return ['major', 'minor', 'patch', 'pin']
     if (item.manager === 'nuget') return ['major', 'minor', 'patch']
     if (item.manager === 'github-actions') return ['digest']
@@ -393,46 +310,58 @@ function validateEvidence(candidateCatalog, candidateConfig, candidateFixtures) 
     ]
 }
 
+function duplicateCatalogItem(candidateCatalog, id, duplicateId) {
+    const duplicate = clone(candidateCatalog.items.find(item => item.id === id))
+    duplicate.id = duplicateId
+    candidateCatalog.items.push(duplicate)
+}
+
+const policyMutations = {
+    'missing-catalog-item': catalog => catalog.items.shift(),
+    'duplicate-id': catalog => { catalog.items[1].id = catalog.items[0].id },
+    'missing-field-owner': catalog => { catalog.items = catalog.items.filter(item => item.id !== 'container-node-images') },
+    'duplicate-field-owner': catalog => duplicateCatalogItem(catalog, 'container-node-images', 'container-node-images-duplicate-fixture'),
+    'duplicate-custom-manager': (_catalog, config) => {
+        const duplicate = clone(config.customManagers.find(item => item.description === 'setup-node workflow inputs'))
+        duplicate.description = 'setup-node workflow inputs duplicate fixture'
+        config.customManagers.push(duplicate)
+    },
+    'disabled-update': (_catalog, config) => { config.packageRules[0].enabled = false },
+    'automerge': (_catalog, config) => { config.automerge = true },
+    'prerelease': (_catalog, config) => { config.ignoreUnstable = false },
+    'slow-schedule': (_catalog, config) => { config.schedule = ['* 0 * * 1'] },
+    'missing-override-owner': catalog => { catalog.items = catalog.items.filter(item => item.id !== 'npm-glob-override-frontend') },
+    'duplicate-override-owner': catalog => duplicateCatalogItem(catalog, 'npm-glob-override-frontend', 'npm-glob-override-frontend-duplicate-fixture'),
+    'missing-npm-field-path': catalog => { delete catalog.items.find(item => item.id === 'npm-vue-frontend').fieldPaths },
+    'missing-simulation-representative': (_catalog, _config, evidence) => evidence.simulationRepresentatives.shift(),
+    'duplicate-simulation-id': (_catalog, _config, evidence) => { evidence.simulationRepresentatives[1] = evidence.simulationRepresentatives[0] },
+    'missing-dashboard-group': (_catalog, _config, evidence) => {
+        evidence.dashboardSimulation.cases = evidence.dashboardSimulation.cases.filter(item => item.target !== 'frontend-runtime')
+    },
+    'missing-dashboard-token-state': (_catalog, _config, evidence) => {
+        evidence.dashboardSimulation.cases = evidence.dashboardSimulation.cases.filter(item => item.id !== 'actions-zero')
+    },
+    'invalid-dashboard-controlled-values': (_catalog, _config, evidence) => {
+        evidence.dashboardSimulation.cases.find(item => item.id === 'actions-zero').availableVersions = []
+    },
+    'custom-versioning-drift': (_catalog, config) => {
+        config.customManagers.find(item => item.description === 'Binaryen release projections').versioningTemplate = 'semver-coerced'
+    },
+    'recommended-preset': (_catalog, config) => { config.extends = ['config:recommended'] },
+    'broad-ignore-path': (_catalog, config) => { config.ignorePaths = ['**/tests/**'] },
+    'automerge-lockfile': (_catalog, config) => { config.lockFileMaintenance.automerge = true },
+    'missing-delegated-owner': catalog => { catalog.items = catalog.items.filter(item => item.id !== 'fsusui-baseline') }
+}
+
 let errors = validate(catalog, config)
 errors.push(...validateRegexFixtures())
 errors.push(...validateEvidence(catalog, config, fixtures))
+
 for (const fixture of fixtures?.policyCases ?? []) {
     const fixtureCatalog = clone(catalog)
     const fixtureConfig = clone(config)
     const fixtureEvidence = clone(fixtures)
-    if (fixture.mutation === 'missing-catalog-item') fixtureCatalog.items.shift()
-    if (fixture.mutation === 'duplicate-id') fixtureCatalog.items[1].id = fixtureCatalog.items[0].id
-    if (fixture.mutation === 'missing-field-owner') fixtureCatalog.items = fixtureCatalog.items.filter(item => item.id !== 'container-node-images')
-    if (fixture.mutation === 'duplicate-field-owner') {
-        const duplicate = clone(fixtureCatalog.items.find(item => item.id === 'container-node-images'))
-        duplicate.id = 'container-node-images-duplicate-fixture'
-        fixtureCatalog.items.push(duplicate)
-    }
-    if (fixture.mutation === 'duplicate-custom-manager') {
-        const duplicate = clone(fixtureConfig.customManagers.find(item => item.description === 'setup-node workflow inputs'))
-        duplicate.description = 'setup-node workflow inputs duplicate fixture'
-        fixtureConfig.customManagers.push(duplicate)
-    }
-    if (fixture.mutation === 'disabled-update') fixtureConfig.packageRules[0].enabled = false
-    if (fixture.mutation === 'automerge') fixtureConfig.automerge = true
-    if (fixture.mutation === 'prerelease') fixtureConfig.ignoreUnstable = false
-    if (fixture.mutation === 'slow-schedule') fixtureConfig.schedule = ['* 0 * * 1']
-    if (fixture.mutation === 'missing-override-owner') fixtureCatalog.items = fixtureCatalog.items.filter(item => item.id !== 'npm-glob-override-frontend')
-    if (fixture.mutation === 'duplicate-override-owner') {
-        const duplicate = clone(fixtureCatalog.items.find(item => item.id === 'npm-glob-override-frontend'))
-        duplicate.id = 'npm-glob-override-frontend-duplicate-fixture'
-        fixtureCatalog.items.push(duplicate)
-    }
-    if (fixture.mutation === 'missing-npm-field-path') delete fixtureCatalog.items.find(item => item.id === 'npm-vue-frontend').fieldPaths
-    if (fixture.mutation === 'missing-simulation-representative') fixtureEvidence.simulationRepresentatives.shift()
-    if (fixture.mutation === 'duplicate-simulation-id') fixtureEvidence.simulationRepresentatives[1] = fixtureEvidence.simulationRepresentatives[0]
-    if (fixture.mutation === 'missing-dashboard-group') fixtureEvidence.dashboardSimulation.cases = fixtureEvidence.dashboardSimulation.cases.filter(item => item.target !== 'frontend-runtime')
-    if (fixture.mutation === 'missing-dashboard-token-state') fixtureEvidence.dashboardSimulation.cases = fixtureEvidence.dashboardSimulation.cases.filter(item => item.id !== 'actions-zero')
-    if (fixture.mutation === 'invalid-dashboard-controlled-values') fixtureEvidence.dashboardSimulation.cases.find(item => item.id === 'actions-zero').availableVersions = []
-    if (fixture.mutation === 'custom-versioning-drift') fixtureConfig.customManagers.find(item => item.description === 'Binaryen release projections').versioningTemplate = 'semver-coerced'
-    if (fixture.mutation === 'recommended-preset') fixtureConfig.extends = ['config:recommended']
-    if (fixture.mutation === 'broad-ignore-path') fixtureConfig.ignorePaths = ['**/tests/**']
-    if (fixture.mutation === 'automerge-lockfile') fixtureConfig.lockFileMaintenance.automerge = true
+    policyMutations[fixture.mutation]?.(fixtureCatalog, fixtureConfig, fixtureEvidence)
     const codes = [
         ...validate(fixtureCatalog, fixtureConfig),
         ...validateEvidence(fixtureCatalog, fixtureConfig, fixtureEvidence)

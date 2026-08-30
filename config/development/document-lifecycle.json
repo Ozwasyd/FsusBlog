@@ -728,7 +728,9 @@
             "path": "docs/development.md",
             "status": "current",
             "owner": "governance",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1979
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -1661,7 +1663,8 @@
             "status": "current",
             "owner": "governance",
             "relatedIssues": [
-                1923
+                1923,
+                1979
             ],
             "supersedes": [],
             "supersededBy": null
