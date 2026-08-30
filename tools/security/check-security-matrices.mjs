@@ -298,7 +298,7 @@ function verifyPrivacyZkCommentMatrix(text) {
     'concurrent-ticket-consume-once',
     'root-snapshot-cached-high-frequency',
     'verifier-bounded-concurrency',
-    'anonymous-ticket-cheap-reject',
+    'anonymous-ticket-identity-filter-cheap-reject',
     'comment-submit-invalidation-nonblocking'
   ]
   const requiredCommands = [

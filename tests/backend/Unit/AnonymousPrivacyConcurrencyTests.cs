@@ -51,27 +51,6 @@ public sealed class AnonymousPrivacyConcurrencyTests
     }
 
     [Fact]
-    public async Task AnonymousTicketEndpointCheapReject_SkipsExpensiveProofWorkUnderLoad()
-    {
-        const int Attempts = 32;
-        using var barrier = new Barrier(Attempts);
-        var endpoint = new CheapRejectAnonymousTicketEndpoint();
-
-        bool[] results = await Task.WhenAll(Enumerable.Range(0, Attempts).Select(index =>
-            StartBarrierTask(barrier, () =>
-            {
-                var headers = index % 2 == 0
-                    ? new Dictionary<string, string> { ["Cookie"] = "fsus=session" }
-                    : new Dictionary<string, string> { ["Authorization"] = "Bearer token" };
-                return endpoint.TryIssue(headers);
-            })));
-
-        Assert.DoesNotContain(true, results);
-        Assert.Equal(0, endpoint.ExpensiveProofCalls);
-        Assert.Equal(0, endpoint.NullifierReservationCalls);
-    }
-
-    [Fact]
     public async Task CommentSubmitHighConcurrency_CacheInvalidationIsNonBlocking()
     {
         const int Attempts = 24;
@@ -196,27 +175,6 @@ public sealed class AnonymousPrivacyConcurrencyTests
                 }
             }
             while (Interlocked.CompareExchange(ref _maxObservedConcurrency, current, previous) != previous);
-        }
-    }
-
-    private sealed class CheapRejectAnonymousTicketEndpoint
-    {
-        private int _expensiveProofCalls;
-        private int _nullifierReservationCalls;
-
-        public int ExpensiveProofCalls => Volatile.Read(ref _expensiveProofCalls);
-        public int NullifierReservationCalls => Volatile.Read(ref _nullifierReservationCalls);
-
-        public bool TryIssue(IReadOnlyDictionary<string, string> headers)
-        {
-            if (headers.ContainsKey("Cookie") || headers.ContainsKey("Authorization"))
-            {
-                return false;
-            }
-
-            Interlocked.Increment(ref _expensiveProofCalls);
-            Interlocked.Increment(ref _nullifierReservationCalls);
-            return true;
         }
     }
 
