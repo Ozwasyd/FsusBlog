@@ -96,7 +96,7 @@ function currentReceiptFile(repositoryRoot, relative, label)
     return absolute
 }
 
-const BehaviorId = (value) =>
+export const BehaviorId = (value) =>
 {
     if (typeof value !== 'string' || !/^[a-z][a-z0-9-]*$/u.test(value)) throw new Error(`invalid behavior ID ${value}`)
     return value
@@ -574,7 +574,11 @@ export function validateAcceptedClaimsReceiptAgainstRegistry({
             for (const claimId of entry.claimIds ?? [])
             {
                 if (owners.has(claimId)) fail(`claim ${claimId} has duplicate ledger owners`)
-                owners.set(claimId, { claimId, behaviorId: entry.behaviorId, scopeId: scope.scopeId })
+                owners.set(claimId, {
+                    claimId,
+                    behaviorId: BehaviorId(entry.behaviorId),
+                    scopeId: scope.scopeId
+                })
             }
         }
     }
