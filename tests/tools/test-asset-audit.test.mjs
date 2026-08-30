@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -20,6 +21,33 @@ behaviorTest('test-asset-audit-reconciliation', 'positive', 'profile derives the
     assert.equal(preflight.capabilities.packages.status, 'blocked');
     assert.ok(Object.values(preflight.configuration).every((value) => /^[a-f0-9]{64}$/u.test(value)));
     assert.equal(JSON.stringify(preflight).includes('TOKEN'), false);
+
+    const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-test-audit-unicode-'));
+    const unicodeRoot = path.join(temporaryRoot, '中文-checkout');
+    const reportPath = path.join(temporaryRoot, 'preflight.json');
+    try
+    {
+        fs.symlinkSync(root, unicodeRoot, process.platform === 'win32' ? 'junction' : 'dir');
+        const result = spawnSync(process.execPath, [
+            '--preserve-symlinks-main',
+            path.join(unicodeRoot, 'tools/test/run-test-asset-audit.mjs'),
+            '--phase', 'preflight',
+            '--out', reportPath
+        ], {
+            cwd: unicodeRoot,
+            encoding: 'utf8',
+            env: {
+                ...process.env,
+                FSUSBLOG_TEST_ASSET_AUDIT_DIR: path.join(temporaryRoot, 'audit-output')
+            }
+        });
+        assert.ok([0, 2].includes(result.status), result.stderr || result.stdout);
+        assert.equal(fs.existsSync(reportPath), true);
+    }
+    finally
+    {
+        fs.rmSync(temporaryRoot, { recursive: true, force: true });
+    }
 });
 
 behaviorTest('test-asset-audit-reconciliation', 'negative', {
