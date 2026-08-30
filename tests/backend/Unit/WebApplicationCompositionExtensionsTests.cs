@@ -81,7 +81,7 @@ public sealed class WebApplicationCompositionExtensionsTests
         Assert.Contains("style-src-attr 'none'", csp, StringComparison.Ordinal);
         Assert.DoesNotContain("style-src-attr 'unsafe-inline'", csp, StringComparison.Ordinal);
         Assert.Contains("require-trusted-types-for 'script'", csp, StringComparison.Ordinal);
-        Assert.Contains("trusted-types vue fsusblog fsusblog-spa-entry;", csp, StringComparison.Ordinal);
+        Assert.Contains("trusted-types vue fsusblog fsusblog-spa-entry fsusui-markdown-feature;", csp, StringComparison.Ordinal);
         Assert.DoesNotContain("trusted-types *", csp, StringComparison.Ordinal);
         Assert.DoesNotContain("'allow-duplicates'", csp, StringComparison.Ordinal);
         Assert.Contains("report-uri /api/security/csp-report", csp, StringComparison.Ordinal);
@@ -146,7 +146,7 @@ public sealed class WebApplicationCompositionExtensionsTests
         else
         {
             Assert.Contains("require-trusted-types-for 'script'", csp, StringComparison.Ordinal);
-            Assert.Contains("trusted-types vue fsusblog fsusblog-spa-entry;", csp, StringComparison.Ordinal);
+            Assert.Contains("trusted-types vue fsusblog fsusblog-spa-entry fsusui-markdown-feature;", csp, StringComparison.Ordinal);
             Assert.DoesNotContain("trusted-types *", csp, StringComparison.Ordinal);
             Assert.DoesNotContain("'allow-duplicates'", csp, StringComparison.Ordinal);
         }
