@@ -15,7 +15,7 @@ export default defineConfig({
   test: {
     ...createVitestRuntimeOptions('composables-state'),
     environment: 'node',
-    include: ['../../tests/frontend/unit/composables/**/*.test.ts', '../../tests/frontend/model/**/*.test.ts'],
+    include: ['../../tests/frontend/unit/composables/**/*.test.ts'],
     setupFiles: [frontendUnitSetupFile],
     coverage: {
       provider: 'v8',

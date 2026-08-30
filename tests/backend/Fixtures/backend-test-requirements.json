@@ -678,7 +678,7 @@
     {
       "id": "BACKEND-PERCEPTION-V2-TEST-MATRIX",
       "risk": "critical",
-      "coverage": "perception-sealed@v2 contract-only, provider-only and comment.create E2E runtime gates covering AEAD/O(1) verify, binding mismatch, hot path, Redis gate, async audit, frontend worker/mobile, bounded group rates with weighted aggregation, performance budget and fault-mode matrix",
+      "coverage": "perception-sealed@v2 contract-only, provider-only and comment.create E2E runtime gates plus the canonical LocalRedis exact-per-test producer covering device authority, Cookie policy, linearizable create/verify/revoke/replace transitions, bounded attempts, binding rejection without attempt consumption, reply-loss readback, stale-index replacement conflict and fail-closed Redis unavailability",
       "evidencePaths": [
         "security/matrices/perception-v2.yml",
         "tools/security/check-security-matrices.mjs",
@@ -1145,6 +1145,14 @@
         "tools/test/run-legacy-real-dump-producer.mjs",
         "tests/tools/legacy-real-dump-producer.test.mjs",
         "docs/database-migration.md"
+      ]
+    },
+    {
+      "id": "BACKEND-IMAGE-UPLOAD-RUNTIME",
+      "risk": "high",
+      "coverage": "real image upload compression, hashing, session initialization, part acknowledgement, resumable snapshot, missing-part recovery, completion, abort cleanup and late-response isolation",
+      "evidencePaths": [
+        "tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
       ]
     }
   ],

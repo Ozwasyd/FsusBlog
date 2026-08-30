@@ -1502,6 +1502,21 @@
             ]
         },
         {
+            "id": "frontend-image-upload-runtime",
+            "description": "The real image upload composable and options panel prove ordered compression, hashing, session recovery, missing-part upload, completion, abort cleanup and late-response isolation through API and storage postconditions.",
+            "owner": "InteropGlueAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+            ],
+            "assertionType": "unit",
+            "failClosedRule": "Reject completion before every required part acknowledgement, stale session or token reuse, incomplete abort cleanup, or a late response that revives an abandoned attempt.",
+            "minimumRequirement": "Executable composable tests must cover fresh success, retry exhaustion, missing-part resume, stale or tampered recovery, abort success, failure and no-active behavior, late acknowledgement isolation, and mounted panel action wiring.",
+            "tierIds": [
+                "frontend-unit-shard"
+            ]
+        },
+        {
             "id": "frontend-unit-property-model-static",
             "description": "Frontend Unit Property Model Static is covered by runtime artifacts that exercise the named behavior.",
             "owner": "ServerContractAgent",
@@ -4813,7 +4828,7 @@
         },
         {
             "id": "perception-character-v3-breaking-release",
-            "description": "Breaking PerceptionCharacterV3 release is independently verified against deterministic visual/audio corpus budgets, one-time encrypted pool issuance, retired-format rejection, real Redis cutover idempotency and pool-path resource ratios.",
+            "description": "Breaking PerceptionCharacterV3 release is independently verified against deterministic visual/audio corpus budgets, one-time encrypted pool issuance, retired-format rejection, real Redis cutover idempotency, pool-path resource ratios and exact-per-test LocalRedis device/state linearizability cases.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
@@ -4823,11 +4838,12 @@
                 ".tmp/security/perception-character-v3/release-gate/perception-character-v3-migration-receipt.json",
                 ".tmp/security/perception-character-v3/release-gate/implementation-verification-receipt.json",
                 ".tmp/security/perception-character-v3/release-gate/independent-review-receipt.json",
-                ".tmp/test-results/backend/perception-character-v3-redis-producer.json"
+                ".tmp/test-results/backend/perception-character-v3-redis-producer.json",
+                "tests/backend/Unit/PerceptionCharacterV3Tests.cs"
             ],
             "assertionType": "integration",
-            "failClosedRule": "Reject undersized, duplicate, biased, over-budget or baseline-readable corpus; stored-DEFLATE visual output; old formats; corrupt or wrong-key pools; repeat leases; non-idempotent cutover; insufficient CPU/allocation ratios; pre-admission allocation or leases; sensitive evidence; receipt digest drift; and any high or critical independent finding.",
-            "minimumRequirement": "One clean-checkout physical gate must generate at least 10000 visual and 2000 audio artifacts, execute the pool benchmark and real Redis cutover twice, bind exact commands and evidence hashes to one full commit and release target, and emit convergent implementation and independent-review receipts without duplicating corpus or benchmark work.",
+            "failClosedRule": "Reject undersized, duplicate, biased, over-budget or baseline-readable corpus; stored-DEFLATE visual output; old formats; corrupt or wrong-key pools; repeat leases; non-idempotent cutover; missing, duplicate, partial, failed or cross-run LocalRedis test/case evidence; absent Lua execution or prefix cleanup; insufficient CPU/allocation ratios; pre-admission allocation or leases; sensitive evidence; receipt digest drift; and any high or critical independent finding.",
+            "minimumRequirement": "One clean-checkout physical gate must generate at least 10000 visual and 2000 audio artifacts, execute the pool benchmark and real Redis cutover twice, execute each planned canonical LocalRedis test exactly once with the complete source-bound case inventory and verified isolated-prefix cleanup, bind exact commands and evidence hashes to one full commit and release target, and emit convergent implementation and independent-review receipts without duplicating corpus, benchmark or Redis fixture work.",
             "tierIds": [
                 "perception-character-v3-release-gate"
             ]

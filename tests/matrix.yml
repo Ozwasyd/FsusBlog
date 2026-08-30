@@ -672,6 +672,17 @@ tiers:
               config/schemas/behavior-test-evidence.schema.json,
               src/shared/Contracts/Governance/BehaviorTestKind.cs,
               src/shared/Contracts/Governance/CoversBehaviorAttribute.cs,
+              tests/backend/Integration/UserSessionSensitiveEndpointIntegrationTests.cs,
+              tests/backend/Unit/BinaryTransportHotPathContractTests.cs,
+              tests/backend/Unit/CommentMutationOutboxPostgresTests.cs,
+              tests/backend/Unit/ProductionStartupValidatorTests.cs,
+              tests/backend/Unit/UserSessionJwtAuthenticationTests.cs,
+              tests/tools/code-intent.test.mjs,
+              tests/tools/document-lifecycle.test.mjs,
+              tests/tools/release-reliability-receipt.test.mjs,
+              tests/tools/test-asset-audit.test.mjs,
+              tests/tools/test-matrix-topology.test.mjs,
+              tests/tools/zero-downtime-rehearsal.test.mjs,
               tools/contracts/behavior-test.mjs,
               tools/contracts/behavior-test-binding.mjs,
               tools/test-observations,
@@ -1173,6 +1184,7 @@ tiers:
       requiredFor: fast
       coverage:
           - frontend-unit
+          - frontend-image-upload-runtime
           - frontend-public-shell-sticky-geometry
           - frontend-public-home-editorial
           - frontend-public-content-driven-covers
@@ -1196,6 +1208,7 @@ tiers:
           - .tmp/frontend/timings/frontend-unit-shard.json
           - .tmp/test-results/evidence-producers/frontend-unit-shard
           - .tmp/test-results/release-domain-assertions/frontend-unit-shard
+          - tests/frontend/unit/composables/useImageUploadRuntime.test.ts
           - src/frontend/src/components/public/usePublicStickyGeometry.ts
           - tests/frontend/unit/components/usePublicStickyGeometry.test.ts
           - tests/public-shell-sticky-geometry-evidence.json
@@ -1286,7 +1299,11 @@ tiers:
               src/frontend/vitest.perf.config.ts,
               src/frontend/src,
               tests/frontend/property,
-              tests/frontend/model,
+              tests/frontend/unit/composables/useAuthLogin.test.ts,
+              tests/frontend/unit/composables/useAdminArticleWrite.authoringGates.test.ts,
+              tests/frontend/unit/composables/useAdminSettingsPage.test.ts,
+              tests/frontend/unit/composables/useAccountMessagesInbox.draftIsolation.test.ts,
+              tests/frontend/unit/composables/useImageUploadRuntime.test.ts,
               tests/frontend/benchmarks,
               tools/test/lanes/frontend-property-model-perf.sh,
               tools/test/lanes,
@@ -7249,6 +7266,7 @@ tiers:
       cacheInputs:
           [
               tests/backend/Unit/PerceptionCharacterV3ArtifactPoolTests.cs,
+              tests/backend/Unit/PerceptionCharacterV3Tests.cs,
               tests/tools/perception-character-v3-redis-fixture.test.mjs,
               tools/test/lanes/perception-character-v3-release-gate.sh,
               tools/test/perception-character-v3-redis-fixture.sh,
@@ -7281,6 +7299,7 @@ tiers:
               .tmp/security/perception-character-v3/release-gate/independent-review-receipt.json,
               .tmp/test-results/backend/perception-character-v3-redis-producer.json,
               tests/backend/Unit/PerceptionCharacterV3ArtifactPoolTests.cs,
+              tests/backend/Unit/PerceptionCharacterV3Tests.cs,
               tests/tools/perception-character-v3-redis-fixture.test.mjs,
               tools/test/perception-character-v3-redis-fixture.sh,
               tools/test/perception-redis-producer.mjs,

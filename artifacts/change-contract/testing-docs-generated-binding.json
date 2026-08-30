@@ -6,11 +6,11 @@
   "outputs": [
     {
       "path": "config/testing/correctness-attempt-producers.json",
-      "sha256": "39131a7020bd843bcf05fccf7d1280d63dfdf539648de619b57cfff82ba58671"
+      "sha256": "c72fc235b8e5c22564cbaf523411d2f993ac8e82b4477e465443e31b086651cf"
     },
     {
       "path": "docs/testing.generated.md",
-      "sha256": "8c31b7192e6591b1e57c68995dc916623ae93f6dd9df1146f8e7d6fa999bbc44"
+      "sha256": "2a388f53797d2d4d707383efda41f5c146df2ed19b2d990a04fb17a90ccca9fb"
     }
   ]
 }

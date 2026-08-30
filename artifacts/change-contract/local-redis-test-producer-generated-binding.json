@@ -6,7 +6,7 @@
   "outputs": [
     {
       "path": "config/testing/correctness-attempt-producers.json",
-      "sha256": "d5428776ff30a741cf0dd37b8f62599081e6ab01814c369c1f620f16e2a703a0"
+      "sha256": "b0ef17f81cb4a0e2372c0abe3d95bcfd69b1032b0157d4447eb4e1d6b557600a"
     }
   ]
 }
