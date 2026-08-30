@@ -165,6 +165,47 @@ test('rename transaction seals exact identities, compatibility and catalog closu
     assert.match(transaction.contentDigest, /^sha256:[0-9a-f]{64}$/u);
 });
 
+test('rename transaction accepts complete explicit mappings for all five renamed dimensions', () =>
+{
+    const renamed = mapping('old', ['new']);
+    renamed.assertionMappings = [{ before: 'http:status:equal:200', after: ['http:status:equal:201'] }];
+    renamed.requirementMappings = [{ before: 'REQ-ARTICLE', after: ['REQ-ARTICLE-V2'] }];
+    renamed.coverageMappings = [{ before: 'article-read', after: ['article-read-v2'] }];
+    renamed.tierMappings = [{ before: 'backend-integration', after: ['backend-contract'] }];
+    renamed.evidenceMappings = [{ before: '.tmp/article-read.json', after: ['.tmp/article-read-v2.json'] }];
+    const transaction = plan({
+        afterCases: [{
+            id: 'new',
+            path: 'tests/NewTests.cs',
+            assertionTargets: ['http:status:equal:201'],
+            requirementIds: ['REQ-ARTICLE-V2'],
+            coverageIds: ['article-read-v2'],
+            tierIds: ['backend-contract'],
+            evidencePaths: ['.tmp/article-read-v2.json']
+        }],
+        mappings: [renamed]
+    });
+
+    assert.equal(validateReplacementTransaction(transaction), transaction);
+});
+
+test('rename transaction rejects missing assertion mappings and invalid mapped targets', () =>
+{
+    const missing = mapping('old', ['new']);
+    missing.assertionMappings = [];
+    assert.throws(
+        () => plan({ mappings: [missing] }),
+        /assertionMappings is duplicated or incomplete/u
+    );
+
+    const invalid = mapping('old', ['new']);
+    invalid.assertionMappings = [{ before: 'http:status:equal:200', after: ['http:status:equal:201'] }];
+    assert.throws(
+        () => plan({ mappings: [invalid] }),
+        /assertionMappings points to missing target http:status:equal:201/u
+    );
+});
+
 test('merge, parameterize and split preserve every case through explicit mappings', () =>
 {
     const merged = plan({
@@ -219,6 +260,13 @@ test('planning fails closed on missing IDs, failed quality and lost compatibilit
         afterCases: [{ id: 'new', path: 'tests/NewTests.cs', platform: 'windows' }]
     }), /platform-compatible/u);
     assert.throws(() => plan({
+        afterCases: [{
+            id: 'new',
+            path: 'tests/NewTests.cs',
+            productionSymbols: ['ArticleService.Write']
+        }]
+    }), /productionSymbols lost ArticleService.Read/u);
+    assert.throws(() => plan({
         mappings: [mapping('missing', ['new'])]
     }), /duplicated or incomplete/u);
     assert.throws(() => plan({ sourceChanges: [] }), /source change is missing/u);
@@ -257,7 +305,10 @@ test('transaction validation rejects partial catalogs and sealed-content tamperi
     const tamperedMapping = structuredClone(plan());
     tamperedMapping.mappings[0].assertionMappings = [];
     tamperedMapping.contentDigest = contentDigest(tamperedMapping);
-    assert.throws(() => validateReplacementTransaction(tamperedMapping), /assertion .* has no disposition/u);
+    assert.throws(
+        () => validateReplacementTransaction(tamperedMapping),
+        /assertionMappings is duplicated or incomplete/u
+    );
 });
 
 test('atomic apply deletes and writes as one unit and rolls everything back on verification failure', () =>
