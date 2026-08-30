@@ -1,8 +1,10 @@
+using FsusBlog.Core.Cache;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Server.Tests.Unit;
+using FsusBlog.Shared.Contracts.Outputs;
 
 using NSubstitute;
 
@@ -70,6 +72,67 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Contains("20260719-post-comment-moderation-event", migrationIds);
         Assert.Contains("20260719-post-message-admin-queue-state", migrationIds);
         Assert.Contains("20260720-post-comment-mutation-outbox", migrationIds);
+    }
+
+    [Fact]
+    public void GetDescriptors_TaxonomyDescriptions_AreNullableBoundedOnlineExpand()
+    {
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            static item => item.MigrationId == TaxonomyDescriptionMigrationDefinitions.MigrationId);
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+        OnlineSchemaMigrationMetadata metadata =
+            new OnlineSchemaMigrationCatalog().GetMetadata()[descriptor.MigrationId];
+
+        Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
+        Assert.True(descriptor.Transactional);
+        Assert.Equal(OnlineSchemaMigrationPhase.Expand, metadata.Phase);
+        Assert.False(metadata.Destructive);
+        Assert.False(metadata.RequiresExclusiveMode);
+        Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, metadata.RollbackMode);
+        Assert.Contains("category.description:varchar(500) NULL", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("tag.description:varchar(500) NULL", fingerprint, StringComparison.Ordinal);
+        Assert.DoesNotContain("INDEX", fingerprint, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("category_public_article_count", fingerprint, StringComparison.Ordinal);
+        Assert.DoesNotContain("tag_public_article_count", fingerprint, StringComparison.Ordinal);
+        Assert.DoesNotContain("article_public_taxonomy_projection", fingerprint, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TaxonomyDescriptions_DoNotChangePublicListWirePayloads()
+    {
+        var category = new Category
+        {
+            Id = 1,
+            Name = "Tech",
+            Description = new string('界', 500)
+        };
+        var tag = new Tag
+        {
+            Id = 1,
+            Name = "Tech",
+            Description = null
+        };
+
+        byte[] categoryPayload = PodBinaryCodec.EncodeCategoryList(
+        [
+            new CategoryListItemResponse
+            {
+                Id = category.Id,
+                Name = category.Name,
+                ArticleCount = 2
+            }
+        ]);
+        byte[] tagPayload = PodBinaryCodec.EncodeTagWithCountList(
+        [
+            new TagWithCountDto(tag.Id, tag.Name, 2)
+        ]);
+
+        const string ExpectedPayload = "01000000040000005465636801000000020000000000000004000000";
+        Assert.Equal(ExpectedPayload, Convert.ToHexString(categoryPayload));
+        Assert.Equal(ExpectedPayload, Convert.ToHexString(tagPayload));
+        Assert.Null(typeof(CategoryListItemResponse).GetProperty(nameof(Category.Description)));
+        Assert.Null(typeof(TagWithCountDto).GetProperty(nameof(Tag.Description)));
     }
 
     [Fact]
