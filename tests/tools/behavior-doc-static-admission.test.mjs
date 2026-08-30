@@ -9,7 +9,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const { parseWorkflow, validateBehaviorDocStaticAdmissionTopology } = await import(new URL("../../tools/check-workflow-matrix-sync.mjs", import.meta.url));
 const { buildIdentitiesFromMinimalReceipt, hostDeclarations, runMinimalContractBuild } = await import(new URL("../../tools/docs/behavior-doc-minimal-contract-build.mjs", import.meta.url));
-const { behaviorDocAdmissionReceiptSchema, validateBehaviorDocStaticAdmissionReceipt } = await import(new URL("../../tools/docs/behavior-doc-static-admission.mjs", import.meta.url));
+const { behaviorDocAdmissionReceiptSchema, validateBehaviorDocStaticAdmissionReceipt, writeFactObservationReceipts } = await import(new URL("../../tools/docs/behavior-doc-static-admission.mjs", import.meta.url));
 const { digestValue, sealSourceIdentity } = await import(new URL("../../tools/fact-extractors/identity.mjs", import.meta.url));
 const { loadRegistry } = await import(new URL("../../tools/fact-extractors/registry.mjs", import.meta.url));
 const { establishBehaviorDocAdmission, runLocalProfile } = await import(new URL("../../tools/run-test-matrix.mjs", import.meta.url));
@@ -31,6 +31,38 @@ function seal(value)
     receipt.contentDigest = digestValue(receipt);
     return receipt;
 }
+
+test('successful fact observations are materialized for canonical drift repair', (t) =>
+{
+    const componentsDirectory = tempDirectory('behavior-doc-fact-observations');
+    t.after(() => fs.rmSync(componentsDirectory, { recursive: true, force: true }));
+    const receipts = [
+        {
+            extractorId: 'test-asset-audit-fact-extractor',
+            sourceCommit: 'a'.repeat(40),
+            worktreeFingerprint: 'b'.repeat(64),
+            status: 'ok'
+        },
+        {
+            extractorId: 'test-matrix-fact-extractor',
+            sourceCommit: 'a'.repeat(40),
+            worktreeFingerprint: 'b'.repeat(64),
+            status: 'ok'
+        }
+    ];
+
+    writeFactObservationReceipts(componentsDirectory, receipts);
+
+    for (const receipt of receipts)
+    {
+        const written = JSON.parse(fs.readFileSync(path.join(
+            componentsDirectory,
+            'fact-observations',
+            `${receipt.extractorId}.json`
+        ), 'utf8'));
+        assert.deepEqual(written, receipt);
+    }
+});
 
 function fakeMinimalReceipt(runId, source)
 {
