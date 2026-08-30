@@ -4813,7 +4813,7 @@
         },
         {
             "id": "perception-character-v3-breaking-release",
-            "description": "Breaking PerceptionCharacterV3 release is independently verified against deterministic visual/audio corpus budgets, one-time encrypted pool issuance, retired-format rejection, real Redis cutover idempotency and pool-path resource ratios.",
+            "description": "Breaking PerceptionCharacterV3 release is independently verified against deterministic visual/audio corpus budgets, one-time encrypted pool issuance, retired-format rejection, real Redis cutover idempotency, pool-path resource ratios and exact-per-test LocalRedis device/state linearizability cases.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
@@ -4823,11 +4823,12 @@
                 ".tmp/security/perception-character-v3/release-gate/perception-character-v3-migration-receipt.json",
                 ".tmp/security/perception-character-v3/release-gate/implementation-verification-receipt.json",
                 ".tmp/security/perception-character-v3/release-gate/independent-review-receipt.json",
-                ".tmp/test-results/backend/perception-character-v3-redis-producer.json"
+                ".tmp/test-results/backend/perception-character-v3-redis-producer.json",
+                "tests/backend/Unit/PerceptionCharacterV3Tests.cs"
             ],
             "assertionType": "integration",
-            "failClosedRule": "Reject undersized, duplicate, biased, over-budget or baseline-readable corpus; stored-DEFLATE visual output; old formats; corrupt or wrong-key pools; repeat leases; non-idempotent cutover; insufficient CPU/allocation ratios; pre-admission allocation or leases; sensitive evidence; receipt digest drift; and any high or critical independent finding.",
-            "minimumRequirement": "One clean-checkout physical gate must generate at least 10000 visual and 2000 audio artifacts, execute the pool benchmark and real Redis cutover twice, bind exact commands and evidence hashes to one full commit and release target, and emit convergent implementation and independent-review receipts without duplicating corpus or benchmark work.",
+            "failClosedRule": "Reject undersized, duplicate, biased, over-budget or baseline-readable corpus; stored-DEFLATE visual output; old formats; corrupt or wrong-key pools; repeat leases; non-idempotent cutover; missing, duplicate, partial, failed or cross-run LocalRedis test/case evidence; absent Lua execution or prefix cleanup; insufficient CPU/allocation ratios; pre-admission allocation or leases; sensitive evidence; receipt digest drift; and any high or critical independent finding.",
+            "minimumRequirement": "One clean-checkout physical gate must generate at least 10000 visual and 2000 audio artifacts, execute the pool benchmark and real Redis cutover twice, execute each planned canonical LocalRedis test exactly once with the complete source-bound case inventory and verified isolated-prefix cleanup, bind exact commands and evidence hashes to one full commit and release target, and emit convergent implementation and independent-review receipts without duplicating corpus, benchmark or Redis fixture work.",
             "tierIds": [
                 "perception-character-v3-release-gate"
             ]

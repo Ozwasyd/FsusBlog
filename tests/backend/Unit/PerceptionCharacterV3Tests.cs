@@ -665,14 +665,24 @@ public sealed partial class PerceptionCharacterV3Tests
     [Trait("Fixture", "LocalRedis")]
     public async Task RedisLua_IsLinearizableBoundedBindingAwareAndFailClosed()
     {
-        string? connectionString = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_REDIS");
-        if (string.IsNullOrWhiteSpace(connectionString))
-            return;
+        string connectionString = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_REDIS")
+            ?? throw new InvalidOperationException("FSUSBLOG_TEST_REDIS environment variable is not set.");
+        Assert.False(string.IsNullOrWhiteSpace(connectionString), "FSUSBLOG_TEST_REDIS must not be empty.");
+        string redisPrefixRoot = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_REDIS_PREFIX")
+            ?? throw new InvalidOperationException("FSUSBLOG_TEST_REDIS_PREFIX environment variable is not set.");
+        Assert.False(string.IsNullOrWhiteSpace(redisPrefixRoot), "FSUSBLOG_TEST_REDIS_PREFIX must not be empty.");
+        string runId = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_LOCAL_REDIS_RUN_ID")
+            ?? throw new InvalidOperationException("FSUSBLOG_TEST_LOCAL_REDIS_RUN_ID environment variable is not set.");
+        Assert.False(string.IsNullOrWhiteSpace(runId), "FSUSBLOG_TEST_LOCAL_REDIS_RUN_ID must not be empty.");
+        string caseEvidencePath = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_REDIS_CASE_EVIDENCE")
+            ?? throw new InvalidOperationException("FSUSBLOG_TEST_REDIS_CASE_EVIDENCE environment variable is not set.");
+        Assert.False(string.IsNullOrWhiteSpace(caseEvidencePath), "FSUSBLOG_TEST_REDIS_CASE_EVIDENCE must not be empty.");
         await using ConnectionMultiplexer redis = await ConnectionMultiplexer.ConnectAsync(connectionString);
-        string redisPrefix = "test:perception-v3:" + Guid.CreateVersion7().ToString("N") + ":";
+        string redisPrefix = redisPrefixRoot + "redis-lua:";
         var keyScope = new TestRuntimeKeyScope(redisPrefix);
         await using var redisCleanup = new RedisPrefixCleanup(redis, redisPrefix);
         var store = new RedisPerceptionCharacterV3StateStore(redis, keyScope);
+        var completedCases = new List<string>();
         long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
         var deviceAuthority = new RedisPerceptionCharacterV3DeviceAuthority(redis, keyScope);
@@ -698,31 +708,36 @@ public sealed partial class PerceptionCharacterV3Tests
         var independentAnonymous = new DefaultHttpContext();
         PerceptionCharacterV3DeviceAuthorityResult independentDevice = await deviceAuthority.ResolveAsync(independentAnonymous, new string('7', 64), CancellationToken.None);
         Assert.NotEqual(firstDevice.Binding, independentDevice.Binding);
+        completedCases.Add("anonymous-device-issuance-reuse-and-cookie-policy");
         PerceptionCharacterV3StateRecord correctRace = Record(now);
         Assert.True(await store.CreateAsync(correctRace, CancellationToken.None));
         PerceptionCharacterV3Transition[] correct = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => store.VerifyAsync(correctRace, true, now, CancellationToken.None)));
         Assert.Single(correct, x => x.Kind == PerceptionCharacterV3TransitionKind.Success);
         Assert.Equal(7, correct.Count(x => x.Kind == PerceptionCharacterV3TransitionKind.Rejected));
+        completedCases.Add("same-challenge-correct-race-exactly-one-success");
 
         PerceptionCharacterV3StateRecord wrongRace = Record(now);
         Assert.True(await store.CreateAsync(wrongRace, CancellationToken.None));
         PerceptionCharacterV3Transition[] wrong = await Task.WhenAll(store.VerifyAsync(wrongRace, false, now, CancellationToken.None), store.VerifyAsync(wrongRace, false, now, CancellationToken.None));
         Assert.Contains(wrong, x => x.Kind == PerceptionCharacterV3TransitionKind.Retryable && x.Attempts == 1);
         Assert.Contains(wrong, x => x.Kind == PerceptionCharacterV3TransitionKind.Rejected && x.Attempts == 2);
+        completedCases.Add("wrong-attempts-bounded");
 
         PerceptionCharacterV3StateRecord wrongThenCorrect = Record(now);
         Assert.True(await store.CreateAsync(wrongThenCorrect, CancellationToken.None));
         (PerceptionCharacterV3Transition wrongFirst, PerceptionCharacterV3Transition correctSecond) = await ConcurrentTransitionsWithIssuedOrder(store, wrongThenCorrect, false, true, now);
         Assert.Equal((PerceptionCharacterV3TransitionKind.Retryable, 1), (wrongFirst.Kind, wrongFirst.Attempts));
         Assert.Equal((PerceptionCharacterV3TransitionKind.Success, 2), (correctSecond.Kind, correctSecond.Attempts));
+        completedCases.Add("wrong-then-correct-issued-order");
 
         PerceptionCharacterV3StateRecord correctThenWrong = Record(now);
         Assert.True(await store.CreateAsync(correctThenWrong, CancellationToken.None));
         (PerceptionCharacterV3Transition correctFirst, PerceptionCharacterV3Transition wrongSecond) = await ConcurrentTransitionsWithIssuedOrder(store, correctThenWrong, true, false, now);
         Assert.Equal((PerceptionCharacterV3TransitionKind.Success, 1), (correctFirst.Kind, correctFirst.Attempts));
         Assert.Equal((PerceptionCharacterV3TransitionKind.Rejected, 1), (wrongSecond.Kind, wrongSecond.Attempts));
+        completedCases.Add("correct-then-wrong-issued-order");
 
-        foreach (Func<PerceptionCharacterV3StateRecord, PerceptionCharacterV3StateRecord> mutate in Mutations())
+        foreach ((string mutationId, Func<PerceptionCharacterV3StateRecord, PerceptionCharacterV3StateRecord> mutate) in Mutations())
         {
             PerceptionCharacterV3StateRecord original = Record(now);
             Assert.True(await store.CreateAsync(original, CancellationToken.None));
@@ -730,6 +745,7 @@ public sealed partial class PerceptionCharacterV3Tests
             Assert.Equal(PerceptionCharacterV3TransitionKind.Rejected, rejected.Kind);
             Assert.Equal(0, rejected.Attempts);
             Assert.Equal(PerceptionCharacterV3TransitionKind.ReissueRequired, (await store.RevokeAsync(original, now, CancellationToken.None)).Kind);
+            completedCases.Add(mutationId);
         }
 
         PerceptionCharacterV3StateRecord expired = Record(now) with
@@ -738,14 +754,16 @@ public sealed partial class PerceptionCharacterV3Tests
         };
         Assert.True(await store.CreateAsync(expired, CancellationToken.None));
         Assert.Equal(PerceptionCharacterV3TransitionKind.ReissueRequired, (await store.VerifyAsync(expired, true, now + 1, CancellationToken.None)).Kind);
-        foreach (Func<PerceptionCharacterV3StateRecord, PerceptionCharacterV3StateRecord> mutate in Mutations())
+        foreach ((_, Func<PerceptionCharacterV3StateRecord, PerceptionCharacterV3StateRecord> mutate) in Mutations())
             Assert.Equal(PerceptionCharacterV3TransitionKind.Rejected, (await store.RevokeAsync(mutate(expired), now + 1, CancellationToken.None)).Kind);
+        completedCases.Add("expiry-semantics");
         PerceptionCharacterV3StateRecord revoked = Record(now);
         Assert.True(await store.CreateAsync(revoked, CancellationToken.None));
         Assert.Equal(PerceptionCharacterV3TransitionKind.ReissueRequired, (await store.RevokeAsync(revoked, now, CancellationToken.None)).Kind);
         Assert.Equal(PerceptionCharacterV3TransitionKind.ReissueRequired, (await store.VerifyAsync(revoked, true, now, CancellationToken.None)).Kind);
-        foreach (Func<PerceptionCharacterV3StateRecord, PerceptionCharacterV3StateRecord> mutate in Mutations())
+        foreach ((_, Func<PerceptionCharacterV3StateRecord, PerceptionCharacterV3StateRecord> mutate) in Mutations())
             Assert.Equal(PerceptionCharacterV3TransitionKind.Rejected, (await store.RevokeAsync(mutate(revoked), now, CancellationToken.None)).Kind);
+        completedCases.Add("revoke-semantics");
 
         PerceptionCharacterV3StateRecord atomicCreate = Record(now);
         var createFaults = new HashSet<PerceptionCharacterV3RedisFaultPoint> { PerceptionCharacterV3RedisFaultPoint.CreateReply };
@@ -768,6 +786,7 @@ public sealed partial class PerceptionCharacterV3Tests
         Assert.False(await store.CreateAsync(competingIdentity, CancellationToken.None));
         Assert.Null(await store.ReadAsync(competingIdentity.ChallengeId, CancellationToken.None));
         Assert.Equal(PerceptionCharacterV3TransitionKind.ReissueRequired, (await store.RevokeAsync(atomicCreate, now, CancellationToken.None)).Kind);
+        completedCases.Add("create-reply-loss-readback");
 
         PerceptionCharacterV3StateRecord transitionReplyLossRecord = Record(now);
         Assert.True(await store.CreateAsync(transitionReplyLossRecord, CancellationToken.None));
@@ -777,6 +796,7 @@ public sealed partial class PerceptionCharacterV3Tests
         Assert.Equal((PerceptionCharacterV3TransitionKind.Retryable, 1), (recoveredTransition.Kind, recoveredTransition.Attempts));
         PerceptionCharacterV3Transition secondWrong = await store.VerifyAsync(transitionReplyLossRecord, false, now, CancellationToken.None);
         Assert.Equal((PerceptionCharacterV3TransitionKind.Rejected, 2), (secondWrong.Kind, secondWrong.Attempts));
+        completedCases.Add("transition-reply-loss-readback");
 
         PerceptionCharacterV3StateRecord settlementReplyLossRecord = Record(now);
         Assert.True(await store.CreateAsync(settlementReplyLossRecord, CancellationToken.None));
@@ -786,6 +806,7 @@ public sealed partial class PerceptionCharacterV3Tests
             (await settlementReplyLoss.VerifyAsync(settlementReplyLossRecord, false, now, CancellationToken.None)).Kind);
         Assert.Equal(PerceptionCharacterV3TransitionKind.Rejected,
             (await store.VerifyAsync(settlementReplyLossRecord, false, now, CancellationToken.None)).Kind);
+        completedCases.Add("settlement-reply-loss-readback");
 
         PerceptionCharacterV3StateRecord unresolvedReplyLossRecord = Record(now) with
         {
@@ -802,6 +823,7 @@ public sealed partial class PerceptionCharacterV3Tests
         PerceptionCharacterV3Transition prohibitedRetry = await store.VerifyAsync(unresolvedReplyLossRecord, true, now, CancellationToken.None);
         Assert.Equal((PerceptionCharacterV3TransitionKind.Unavailable, "ambiguous_operation_pending", 1),
             (prohibitedRetry.Kind, prohibitedRetry.InternalReason, prohibitedRetry.Attempts));
+        completedCases.Add("ambiguous-operation-pending");
 
         PerceptionCharacterV3StateRecord staleIndexRecord = Record(now) with
         {
@@ -814,6 +836,7 @@ public sealed partial class PerceptionCharacterV3Tests
             (PerceptionCharacterV3TransitionKind.Rejected, "replacement_conflict", 0),
             (staleIndex.Kind, staleIndex.InternalReason, staleIndex.Attempts));
         Assert.True(await redis.GetDatabase().KeyDeleteAsync(keyScope.PrefixKey("security:perception-v3:" + staleIndexRecord.ChallengeId), CommandFlags.DemandMaster));
+        completedCases.Add("stale-active-index-replacement-conflict");
 
         PerceptionCharacterV3StateRecord replaceOld = Record(now);
         Assert.True(await store.CreateAsync(replaceOld, CancellationToken.None));
@@ -830,6 +853,7 @@ public sealed partial class PerceptionCharacterV3Tests
         Assert.NotNull(await store.ReadAsync(replaceNew.ChallengeId, CancellationToken.None));
         Assert.Equal(PerceptionCharacterV3TransitionKind.ReissueRequired, (await store.VerifyAsync(replaceOld, true, now, CancellationToken.None)).Kind);
         Assert.Equal(PerceptionCharacterV3TransitionKind.Success, (await store.VerifyAsync(replaceNew, true, now, CancellationToken.None)).Kind);
+        completedCases.Add("replace-reply-loss-readback");
 
         PerceptionCharacterV3StateRecord staleOld = Record(now) with
         {
@@ -843,6 +867,7 @@ public sealed partial class PerceptionCharacterV3Tests
         };
         Assert.Equal(PerceptionCharacterV3TransitionKind.ReissueRequired, (await store.ReplaceAsync(staleOld, staleNew, now + 1, CancellationToken.None)).Kind);
         Assert.Null(await store.ReadAsync(staleNew.ChallengeId, CancellationToken.None));
+        completedCases.Add("stale-replace-expiry");
 
         await using ConnectionMultiplexer unavailable = await ConnectionMultiplexer.ConnectAsync("127.0.0.1:1,abortConnect=false,connectTimeout=50,syncTimeout=50,asyncTimeout=50");
         var unavailableStore = new RedisPerceptionCharacterV3StateStore(unavailable, keyScope);
@@ -850,6 +875,29 @@ public sealed partial class PerceptionCharacterV3Tests
         var unavailableAuthority = new RedisPerceptionCharacterV3DeviceAuthority(unavailable, keyScope);
         Assert.False((await unavailableAuthority.ResolveAsync(new DefaultHttpContext(), new string('6', 64), CancellationToken.None)).Succeeded);
         Assert.True((await unavailableAuthority.ResolveAsync(ContextWithSession("server-session-offline"), new string('6', 64), CancellationToken.None)).Succeeded);
+        completedCases.Add("redis-unavailable-store-and-device-authority-fail-closed");
+
+        string fullCaseEvidencePath = Path.GetFullPath(caseEvidencePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(fullCaseEvidencePath)!);
+        string temporaryCaseEvidencePath = fullCaseEvidencePath + "." + Guid.CreateVersion7().ToString("N") + ".tmp";
+        await File.WriteAllTextAsync(
+            temporaryCaseEvidencePath,
+            JsonSerializer.Serialize(new
+            {
+                schema = "fsusblog.perception-character-v3-redis-lua-cases.v1",
+                testId = "FsusBlog.Server.Tests.Unit.PerceptionCharacterV3Tests.RedisLua_IsLinearizableBoundedBindingAwareAndFailClosed",
+                runId,
+                prefixNamespace = redisPrefix,
+                cases = completedCases.Select(id => new
+                {
+                    id,
+                    outcome = "passed"
+                })
+            }, new JsonSerializerOptions
+            {
+                WriteIndented = true
+            }) + Environment.NewLine);
+        File.Move(temporaryCaseEvidencePath, fullCaseEvidencePath, overwrite: true);
     }
 
     private static SecurityChallengeKind Parse(string value) => SecurityChallengeContracts.TryParseKind(value, out SecurityChallengeKind kind) ? kind : SecurityChallengeKind.Unknown;
@@ -1010,25 +1058,25 @@ public sealed partial class PerceptionCharacterV3Tests
             CryptographicOperations.ZeroMemory(material);
         }
     }
-    private static IEnumerable<Func<PerceptionCharacterV3StateRecord, PerceptionCharacterV3StateRecord>> Mutations()
+    private static IEnumerable<(string Id, Func<PerceptionCharacterV3StateRecord, PerceptionCharacterV3StateRecord> Mutate)> Mutations()
     {
-        yield return x => x with { ChallengeId = Guid.CreateVersion7().ToString("D") };
-        yield return x => x with { EnvelopeId = Guid.CreateVersion7().ToString("D") };
-        yield return x => x with { Action = "auth.login" };
-        yield return x => x with { RouteKey = "/other" };
-        yield return x => x with { SubjectHash = new string('a', 64) };
-        yield return x => x with { DeviceBindingHash = new string('b', 64) };
-        yield return x => x with { DeviceAuthorityHash = new string('f', 64) };
-        yield return x => x with { ClientIpBindingHash = new string('c', 64) };
-        yield return x => x with { PolicyVersion = "new-policy" };
-        yield return x => x with { ArtifactHash = new string('d', 64) };
-        yield return x => x with { Representation = "audio" };
-        yield return x => x with { MediaType = PerceptionCharacterV3Contracts.AudioMediaType };
-        yield return x => x with { PhysicalWidth = 383 };
-        yield return x => x with { PhysicalHeight = 143 };
-        yield return x => x with { DisplayWidth = 319 };
-        yield return x => x with { DisplayHeight = 119 };
-        yield return x => x with { TokenHash = new string('e', 64) };
+        yield return ("binding-mutation-challenge-id", x => x with { ChallengeId = Guid.CreateVersion7().ToString("D") });
+        yield return ("binding-mutation-envelope-id", x => x with { EnvelopeId = Guid.CreateVersion7().ToString("D") });
+        yield return ("binding-mutation-action", x => x with { Action = "auth.login" });
+        yield return ("binding-mutation-route-key", x => x with { RouteKey = "/other" });
+        yield return ("binding-mutation-subject-hash", x => x with { SubjectHash = new string('a', 64) });
+        yield return ("binding-mutation-device-binding-hash", x => x with { DeviceBindingHash = new string('b', 64) });
+        yield return ("binding-mutation-device-authority-hash", x => x with { DeviceAuthorityHash = new string('f', 64) });
+        yield return ("binding-mutation-client-ip-binding-hash", x => x with { ClientIpBindingHash = new string('c', 64) });
+        yield return ("binding-mutation-policy-version", x => x with { PolicyVersion = "new-policy" });
+        yield return ("binding-mutation-artifact-hash", x => x with { ArtifactHash = new string('d', 64) });
+        yield return ("binding-mutation-representation", x => x with { Representation = "audio" });
+        yield return ("binding-mutation-media-type", x => x with { MediaType = PerceptionCharacterV3Contracts.AudioMediaType });
+        yield return ("binding-mutation-physical-width", x => x with { PhysicalWidth = 383 });
+        yield return ("binding-mutation-physical-height", x => x with { PhysicalHeight = 143 });
+        yield return ("binding-mutation-display-width", x => x with { DisplayWidth = 319 });
+        yield return ("binding-mutation-display-height", x => x with { DisplayHeight = 119 });
+        yield return ("binding-mutation-token-hash", x => x with { TokenHash = new string('e', 64) });
     }
     private static Dictionary<string, string?> Config(string tokenCurrent, string answerCurrent, string token, string answer)
         => new()
