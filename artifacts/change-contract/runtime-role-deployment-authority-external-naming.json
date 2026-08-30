@@ -1,0 +1,38 @@
+{
+  "schema": "fsusblog.external-naming-exceptions.v1",
+  "exceptions": [
+    {
+      "id": "post-runtime-observation-authority",
+      "paths": [
+        "config/contracts/behavior-fact-extractors.json",
+        "docs/architecture/monolithic-distributed-boundary.md",
+        "docs/releases/blue-green-deployment-runbook.md",
+        "tools/fact-extractors/test-matrix/extract.mjs"
+      ],
+      "reason": "The generated Behavior catalog sources, schemas, projections and documentation authorities must change atomically with their post-runtime observation and governance tooling while preserving existing external JSON, document, environment and tooling identifiers; internal C#, JavaScript and Shell symbols remain governed by the repository mapping."
+    },
+    {
+      "id": "runtime-role-observation-authority",
+      "paths": [
+        "tools/contracts/FsusBlog.RuntimeRoleObservation/Models.cs",
+        "tools/contracts/FsusBlog.RuntimeRoleObservation/Program.cs",
+        "tools/contracts/lib/runtime-role-observation.mjs"
+      ],
+      "reason": "The compiled runtime-role observation producer and its JavaScript adapter must preserve their exact external artifact spelling while internal C# and JavaScript symbols remain governed by the repository mapping."
+    },
+    {
+      "id": "json-wire-key",
+      "paths": [
+        "tests/governance/monolithic-distributed-architecture.json"
+      ],
+      "reason": "Wire and schema keys remain stable while runtime adapters follow internal naming."
+    },
+    {
+      "id": "environment-variable",
+      "paths": [
+        "tools/governance/check-monolithic-distributed-architecture.mjs"
+      ],
+      "reason": "Process environment spelling is external while option variables remain internal."
+    }
+  ]
+}
