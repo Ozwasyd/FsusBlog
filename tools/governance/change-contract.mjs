@@ -305,6 +305,19 @@ function blobSha256(root, revision, path) {
     return createHash('sha256').update(readFileAtRevision(root, revision, path)).digest('hex')
 }
 
+function gitPathExists(root, revision, path) {
+    try {
+        execFileSync(
+            'git',
+            ['cat-file', '-e', `${revision}:${path}`],
+            { cwd: root, stdio: 'ignore' }
+        )
+        return true
+    } catch {
+        return false
+    }
+}
+
 function gitRevisionParents(root, revision) {
     const line = execFileSync(
         'git',
@@ -944,7 +957,270 @@ function globMatches(path, glob) {
     return new RegExp(`${pattern}$`, 'u').test(path)
 }
 
-function validateExternalNaming(parsedBody, { root, head, changedFiles, authorityRoot }, errors) {
+export function validatePostMergeExternalNamingEvidenceRepair(
+    evidence,
+    { root, base, head, changedFiles, manifestPath },
+    exceptions,
+    errors
+) {
+    const fields = [
+        'schema',
+        'repository',
+        'originalPullRequest',
+        'originalBase',
+        'originalHead',
+        'mergeCommit',
+        'source',
+        'namingSurface',
+        'missingArtifact',
+        'currentExceptions'
+    ]
+    if (!sameStrings(Object.keys(evidence), fields)) {
+        errors.push('Post-merge external naming repair manifest contains unsupported fields')
+    }
+    if (evidence.repository !== changeContract.repository) {
+        errors.push(`Post-merge external naming repair repository must be ${changeContract.repository}`)
+    }
+    if (!Number.isInteger(evidence.originalPullRequest) || evidence.originalPullRequest < 1) {
+        errors.push('Post-merge external naming repair originalPullRequest must be a positive integer')
+    }
+    for (const field of ['originalBase', 'originalHead', 'mergeCommit']) {
+        if (!fullShaPattern.test(evidence[field] ?? '')) {
+            errors.push(`Post-merge external naming repair ${field} must be one full commit SHA`)
+        }
+    }
+    const source = evidence.source
+    if (!source || typeof source !== 'object' || Array.isArray(source)) {
+        errors.push('Post-merge external naming repair source must bind one path and two digests')
+    } else {
+        if (!sameStrings(Object.keys(source), ['path', 'candidateSha256', 'currentSha256'])) {
+            errors.push('Post-merge external naming repair source contains unsupported fields')
+        }
+        if (
+            !repositoryPathPattern.test(source.path ?? '')
+            || !sha256Pattern.test(source.candidateSha256 ?? '')
+            || !sha256Pattern.test(source.currentSha256 ?? '')
+        ) {
+            errors.push('Post-merge external naming repair source requires a repository path and candidate/current SHA-256 digests')
+        }
+    }
+    const namingSurface = evidence.namingSurface
+    if (!namingSurface || typeof namingSurface !== 'object' || Array.isArray(namingSurface)) {
+        errors.push('Post-merge external naming repair namingSurface must bind one ID and reason')
+    } else {
+        if (!sameStrings(Object.keys(namingSurface), ['id', 'reason'])) {
+            errors.push('Post-merge external naming repair namingSurface contains unsupported fields')
+        }
+        if (
+            !substantiveField(namingSurface.id)
+            || !substantiveField(namingSurface.reason)
+            || namingSurface.reason === 'none'
+            || namingSurface.reason.trim().length < 12
+        ) {
+            errors.push('Post-merge external naming repair namingSurface requires an ID and substantive reason')
+        }
+    }
+    const missingArtifact = evidence.missingArtifact
+    if (!missingArtifact || typeof missingArtifact !== 'object' || Array.isArray(missingArtifact)) {
+        errors.push('Post-merge external naming repair missingArtifact must bind one path and digest')
+    } else {
+        if (!sameStrings(Object.keys(missingArtifact), ['path', 'sha256'])) {
+            errors.push('Post-merge external naming repair missingArtifact contains unsupported fields')
+        }
+        if (
+            !repositoryPathPattern.test(missingArtifact.path ?? '')
+            || !missingArtifact.path?.endsWith('.json')
+            || !sha256Pattern.test(missingArtifact.sha256 ?? '')
+        ) {
+            errors.push('Post-merge external naming repair missingArtifact requires one repository-relative JSON path and SHA-256 digest')
+        }
+    }
+    const currentExceptions = Array.isArray(evidence.currentExceptions)
+        ? evidence.currentExceptions
+        : []
+    if (!Array.isArray(evidence.currentExceptions)) {
+        errors.push('Post-merge external naming repair currentExceptions must be an array')
+    }
+    const currentExceptionIds = []
+    const currentExceptionPaths = []
+    for (const declaration of currentExceptions) {
+        if (!declaration || typeof declaration !== 'object' || Array.isArray(declaration)) {
+            errors.push('Post-merge external naming repair currentExceptions must be objects')
+            continue
+        }
+        if (!sameStrings(Object.keys(declaration), ['id', 'paths', 'reason'])) {
+            errors.push('Post-merge external naming repair current exception contains unsupported fields')
+        }
+        const entry = exceptions.find((candidate) => candidate.id === declaration.id)
+        if (!entry) {
+            errors.push(`Post-merge external naming repair current exception is not registered: ${declaration.id ?? 'missing'}`)
+        }
+        if (currentExceptionIds.includes(declaration.id)) {
+            errors.push(`Post-merge external naming repair current exception ID is duplicated: ${declaration.id}`)
+        }
+        currentExceptionIds.push(declaration.id)
+        const paths = Array.isArray(declaration.paths) ? declaration.paths : []
+        if (
+            paths.length === 0
+            || !paths.every((path) => repositoryPathPattern.test(path ?? ''))
+            || new Set(paths).size !== paths.length
+        ) {
+            errors.push(`Post-merge external naming repair current exception ${declaration.id ?? 'missing'} requires unique repository paths`)
+        }
+        if (
+            !substantiveField(declaration.reason)
+            || declaration.reason === 'none'
+            || declaration.reason.trim().length < 12
+        ) {
+            errors.push(`Post-merge external naming repair current exception ${declaration.id ?? 'missing'} requires a substantive reason`)
+        }
+        for (const path of paths) {
+            if (currentExceptionPaths.includes(path)) {
+                errors.push(`Post-merge external naming repair current exception path is duplicated: ${path}`)
+            }
+            currentExceptionPaths.push(path)
+            if (!changedFiles.includes(path)) {
+                errors.push(`Post-merge external naming repair current exception path is not changed: ${path}`)
+            }
+            if (entry && !entry.paths.some((glob) => globMatches(path, glob))) {
+                errors.push(`Post-merge external naming repair current exception path is outside registered surface ${entry.id}: ${path}`)
+            }
+        }
+    }
+    const surface = exceptions.find((entry) => entry.id === namingSurface?.id)
+    if (!surface) {
+        errors.push(`Post-merge external naming repair surface is not registered: ${namingSurface?.id ?? 'missing'}`)
+    }
+    if (
+        surface
+        && repositoryPathPattern.test(source?.path ?? '')
+        && !surface.paths.some((glob) => globMatches(source.path, glob))
+    ) {
+        errors.push(`Post-merge external naming repair source is outside registered surface ${surface.id}`)
+    }
+    if (!root || !fullShaPattern.test(base ?? '') || !fullShaPattern.test(head ?? '')) {
+        errors.push('Post-merge external naming repair requires exact pull request base and head revisions')
+        return
+    }
+    if (
+        !fullShaPattern.test(evidence.originalBase ?? '')
+        || !fullShaPattern.test(evidence.originalHead ?? '')
+        || !fullShaPattern.test(evidence.mergeCommit ?? '')
+        || !repositoryPathPattern.test(source?.path ?? '')
+        || !repositoryPathPattern.test(missingArtifact?.path ?? '')
+        || !surface
+    ) {
+        return
+    }
+
+    try {
+        const mergeParents = gitRevisionParents(root, evidence.mergeCommit)
+        if (!sameStrings(mergeParents, [evidence.originalBase, evidence.originalHead])) {
+            errors.push('Post-merge external naming repair mergeCommit parents must exactly match originalBase and originalHead')
+        }
+        if (!gitRevisionIsAncestor(root, evidence.originalBase, evidence.originalHead)) {
+            errors.push('Post-merge external naming repair originalBase must be an ancestor of originalHead')
+        }
+        if (!gitRevisionIsAncestor(root, evidence.originalHead, base)) {
+            errors.push('Post-merge external naming repair originalHead must be an ancestor of the current pull request base')
+        }
+        if (!gitRevisionIsAncestor(root, evidence.mergeCommit, base)) {
+            errors.push('Post-merge external naming repair mergeCommit must be an ancestor of the current pull request base')
+        }
+        const mergeMessage = execFileSync(
+            'git',
+            ['show', '-s', '--format=%B', evidence.mergeCommit],
+            { cwd: root, encoding: 'utf8' }
+        )
+        if (!new RegExp(`^Merge pull request #${evidence.originalPullRequest}\\b`, 'mu').test(mergeMessage)) {
+            errors.push('Post-merge external naming repair originalPullRequest must match the exact merge commit message')
+        }
+
+        const originalChanges = gitChangedPaths(root, evidence.originalBase, evidence.originalHead)
+        const originalGovernedChanges = originalChanges.filter((path) => exceptions.some(
+            (entry) => entry.paths?.some((glob) => globMatches(path, glob))
+        ))
+        if (!sameStrings(originalGovernedChanges, [source.path])) {
+            errors.push('Post-merge external naming repair source must exactly match the original pull request registered naming changes')
+        }
+        if (blobSha256(root, evidence.originalBase, source.path) === blobSha256(root, evidence.originalHead, source.path)) {
+            errors.push('Post-merge external naming repair original pull request did not change the source blob')
+        }
+        const candidateSourceDigest = blobSha256(root, evidence.originalHead, source.path)
+        const currentBaseSourceDigest = blobSha256(root, base, source.path)
+        const currentHeadSourceDigest = blobSha256(root, head, source.path)
+        if (
+            source.candidateSha256 !== candidateSourceDigest
+            || source.currentSha256 !== currentBaseSourceDigest
+            || source.currentSha256 !== currentHeadSourceDigest
+            || source.candidateSha256 !== source.currentSha256
+            || changedFiles.includes(source.path)
+        ) {
+            errors.push('Post-merge external naming repair source blob identity drifted or source changed in the repair')
+        }
+        if (
+            gitLastRevisionForPath(root, evidence.originalHead, source.path)
+            !== gitLastRevisionForPath(root, base, source.path)
+        ) {
+            errors.push('Post-merge external naming repair source revision changed after the original pull request')
+        }
+
+        for (const [label, revision] of [
+            ['original head', evidence.originalHead],
+            ['merge commit', evidence.mergeCommit],
+            ['current base', base]
+        ]) {
+            if (gitPathExists(root, revision, missingArtifact.path)) {
+                errors.push(`Post-merge external naming repair missingArtifact was already present at ${label}`)
+            }
+        }
+        if (missingArtifact.path === manifestPath) {
+            errors.push('Post-merge external naming repair evidence and missingArtifact paths must be distinct')
+        }
+        if (!changedFiles.includes(missingArtifact.path)) {
+            errors.push('Post-merge external naming repair missingArtifact must be changed by the candidate')
+        }
+        if (blobSha256(root, head, missingArtifact.path) !== missingArtifact.sha256) {
+            errors.push('Post-merge external naming repair missingArtifact digest is stale')
+        }
+        const currentGovernedChanges = changedFiles.filter((path) => exceptions.some(
+            (entry) => entry.paths?.some((glob) => globMatches(path, glob))
+        ))
+        if (!sameStrings(currentExceptionPaths, currentGovernedChanges)) {
+            errors.push('Post-merge external naming repair current exceptions must exactly match changed registered naming surfaces')
+        }
+
+        const repairedArtifact = readJsonAtRevision(root, head, missingArtifact.path)
+        if (!sameStrings(Object.keys(repairedArtifact), ['schema', 'exceptions'])) {
+            errors.push('Post-merge external naming repair artifact contains unsupported fields')
+        }
+        if (repairedArtifact.schema !== changeContract.evidenceSchemas.externalNamingExceptions) {
+            errors.push(`Post-merge external naming repair artifact schema must be ${changeContract.evidenceSchemas.externalNamingExceptions}`)
+        }
+        const declarations = Array.isArray(repairedArtifact.exceptions)
+            ? repairedArtifact.exceptions
+            : []
+        if (declarations.length !== 1) {
+            errors.push('Post-merge external naming repair artifact must contain exactly one exception')
+        } else {
+            const [declaration] = declarations
+            if (!sameStrings(Object.keys(declaration ?? {}), ['id', 'paths', 'reason'])) {
+                errors.push('Post-merge external naming repair artifact exception contains unsupported fields')
+            }
+            if (
+                declaration?.id !== namingSurface.id
+                || !sameStrings(declaration?.paths ?? [], [source.path])
+                || declaration?.reason !== namingSurface.reason
+            ) {
+                errors.push('Post-merge external naming repair artifact must exactly match the bound surface, source, and reason')
+            }
+        }
+    } catch (error) {
+        errors.push(`Post-merge external naming repair cannot verify history and blobs: ${error instanceof Error ? error.message : String(error)}`)
+    }
+}
+
+function validateExternalNaming(parsedBody, { root, base, head, changedFiles, authorityRoot }, errors) {
     if (!authorityRoot) {
         if (parsedBody.classifications['External naming exception']) {
             errors.push('External naming exception requires trusted repository context')
@@ -986,16 +1262,29 @@ function validateExternalNaming(parsedBody, { root, head, changedFiles, authorit
                 errors.push(`External naming ${field} cannot be combined with Exceptions manifest`)
             }
         }
+        const evidenceSchema = generatedEvidenceSchema(root, head, manifestPath)
+        const repair = evidenceSchema === changeContract.evidenceSchemas.postMergeExternalNamingEvidenceRepair
         const manifest = loadEvidence({
             root,
             head,
             path: manifestPath,
             changedFiles,
-            schema: changeContract.evidenceSchemas.externalNamingExceptions,
+            schema: repair
+                ? changeContract.evidenceSchemas.postMergeExternalNamingEvidenceRepair
+                : changeContract.evidenceSchemas.externalNamingExceptions,
             label: 'External naming Exceptions manifest',
             errors
         })
         if (!manifest) return
+        if (repair) {
+            validatePostMergeExternalNamingEvidenceRepair(
+                manifest,
+                { root, base, head, changedFiles, manifestPath },
+                exceptions,
+                errors
+            )
+            return
+        }
         if (!sameStrings(Object.keys(manifest), ['schema', 'exceptions'])) {
             errors.push('External naming Exceptions manifest contains unsupported fields')
         }
@@ -1777,6 +2066,7 @@ export function validateRepositorySources(root) {
         '.git-blame-ignore-revs',
         'config/development/authoritative-development-docs.json',
         'config/schemas/external-naming-exceptions.schema.json',
+        'config/schemas/post-merge-external-naming-evidence-repair.schema.json',
         'config/schemas/post-merge-generated-output-repair.schema.json',
         'docs/development/change-contract.md',
         'docs/development/native-tooling-style-enforcement.md',
@@ -1850,6 +2140,7 @@ export function validateRepositorySources(root) {
         '- Known limitations:',
         '- Exceptions manifest:',
         'fsusblog.external-naming-exceptions.v1',
+        'fsusblog.post-merge-external-naming-evidence-repair.v1',
         'fsusblog.performance-claim-evidence.v1',
         'Category: none',
         'owner-controlled direct push'

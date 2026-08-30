@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/docs/behavior-doc-static-admission.mjs"
+            ],
+            "reason": "preserve caller-visible process environment spellings while moving canonical observation receipt publication before generated-section admission"
+        }
+    ]
+}
