@@ -34,7 +34,6 @@ const readJson = (repositoryRoot, relative) =>
 const forbiddenSurfaces = Object.freeze([
     ['manual-runtime-role-table', /(?:^\|\s*模式\s*\|(?:\n\|[^\n]*){1,8})|(?:^\|\s*Mode\s*\|[^\n]*\n(?:\|[^\n]*\n){0,2}[^\n]*`?(?:single|static-role|adaptive)`?)/im],
     ['manual-stage-table', /^\|\s*(?:stage|phase|阶段|階段)\s*\|/imu],
-    ['manual-blue-green-runbook', /^##\s+(?:Slot model|Gateway switch|Drain contract|Active fence and storage gates|Rollback and recovery|Receipt boundary)\s*$/imu],
     ['finalizer-as-rerun', /(?:release[- ]final|finalizer|收尾)[^\n]{0,80}(?:re-?runs?\b|rerun|再跑一次|重新运行|重新運行)/iu],
     ['job-success-authority', /(?:job|ci|workflow)[^\n]{0,40}(?:success|succeeded|成功)[^\n]{0,60}(?:authority|proof|权威|權威|证据|證據|代替|取代|replace)/iu],
     ['auto-spawn-evidence', /(?:auto|自动|自動)[^\n]{0,10}(?:spawn|rerun|re-run|produce|生成|重跑)[^\n]{0,30}(?:allowed|permitted|is ok|允许|允許|即可|可以)|(?:may be auto|可以自动|可以自動)[^\n]{0,30}(?:spawn|produce|rerun|生成|重跑)/iu],
@@ -46,6 +45,97 @@ const forbiddenSurfaces = Object.freeze([
     ['overbroad-claim', /(?:one|single|一个|一個)[^\n]{0,60}claim[^\n]{0,80}(?:all|every|全部)[^\n]{0,30}(?:behavior|behaviour|行为|行為)/iu],
     ['self-certification', /(?:lastReviewedAt\s*:|lastVerifiedCommit\s*:|manual(?:ly)?[- ]approved\s*:|self[- ]certified)/iu]
 ])
+
+const deploymentOperationTopic = /\b(?:blue[ /-]?green|runtime[ -]?role|monolithic|slot|traffic|gateway|proxy|upstream|cutover|hand[ -]?off|rollout|rollback|fallback|recovery|drain|candidate|standby|serving|active release)\b|(?:蓝绿|藍綠|运行时角色|運行時角色|切流|回滚|回滾|候选槽|候選槽|活动版本|活動版本|排空)/iu
+const deploymentHeadingTopic = /\b(?:blue[ /-]?green|runtime[ -]?role|traffic|hand[ -]?off|recovery|promotion|active slot|operator sequence|service transfer|cutover|rollback)\b|(?:蓝绿|藍綠|运行时角色|運行時角色|切流|回滚|回滾|候选槽|候選槽|流量交接|服务交接)/iu
+const deploymentCommand = /\b(?:run|execute|invoke|call|use)\b[^\n]{0,80}\b(?:slot|traffic|gateway|proxy|cutover|handoff|rollout|rollback|fallback|recovery|drain)|\b(?:activate|promote|demote|cut over|reload|restore|reactivate|drain|stop|start|delete|retain|neutralize|install)\b[^\n]{0,60}\b(?:slot|traffic|gateway|proxy|upstream|candidate|standby|serving|active release)|\b(?:switch|commit)\b[^\n]{0,30}\b(?:traffic|gateway|proxy|upstream)|(?:运行|執行|调用|調用|使用)[^\n]{0,80}(?:切流|回滚|回滾|槽|gateway|rollout|rollback)|(?:激活|啟用|停用|切换|切換|排空|停止|启动|啟動|删除|刪除|恢复|恢復)[^\n]{0,60}(?:活动版本|活動版本|候选槽|候選槽|流量|slot)/iu
+const deploymentClaim = /\b(?:must|shall|always|never|requires?|progresses?|transitions?|becomes?|verifies?|rejects?|preserves?|owns?)\b|(?:必须|必須|始终|始終|永远|永遠|需要|进入|進入|转换|轉換|成为|成為|验证|驗證|拒绝|拒絕|保留|拥有|擁有)/iu
+const evidenceBoundary = /(?:\b(?:evidence|receipts?|observation|diagnostic|validation)\b[^\n]{0,80}\b(?:only|required|requires|bound|not (?:an? )?(?:authority|execution))\b)|(?:\b(?:requires?|is proven only by)\b[^\n]{0,80}\b(?:evidence|receipts?)\b)|(?:证据|證據|回执|回執|观察|觀察|诊断|診斷|验证|驗證)[^\n]{0,80}(?:仅|僅|需要|绑定|綁定|不是权威|不是權威)/iu
+const deploymentQualificationClaim = /(?:\b(?:deployment|blue[ /-]?green)\b[^\n]{0,80}\b(?:claim|qualification|eligibility)\b[^\n]{0,40}\b(?:eligible|qualified|approved|accepted|ready)\b)|(?:\bclaimeligible\b[^\n]{0,20}\btrue\b)|(?:\b(?:runtime[ -]?role|monolithic|deployment)\b[^\n]{0,80}\b(?:ownership|authority)\b[^\n]{0,30}\b(?:verified|confirmed|established|resolved|trusted)\b)|(?:\bauthoritystate\b[^\n]{0,20}\b(?:verified|observed|resolved|confirmed|established)\b)|(?:(?:部署|蓝绿|藍綠)[^\n]{0,60}(?:声明|主张|主張|资格|資格)[^\n]{0,30}(?:可用|合格|通过|通過|已批准|已批准))|(?:(?:运行时角色|運行時角色|部署)[^\n]{0,60}(?:所有权|所有權|权威|權威)[^\n]{0,30}(?:已验证|已驗證|已确认|已確認|已建立|已解决|已解決))/iu
+
+const semanticScannerIdentity = Object.freeze([
+    'paragraph-context-v1',
+    deploymentOperationTopic,
+    deploymentHeadingTopic,
+    deploymentCommand,
+    deploymentClaim,
+    evidenceBoundary,
+    deploymentQualificationClaim
+].map((entry) => String(entry)))
+
+function removeNegatedOperationalClauses(source)
+{
+    return source
+        .replace(/\b(?:does|do|must|can|is|are)\s+not\b[^.;。；]*/giu, '')
+        .replace(/\bcannot\b[^.;。；]*/giu, '')
+        .replace(/(?:不得|不能|不会|不會|不是|不作为|不作為|不拥有|不擁有|不维护|不維護|不定义|不定義|不证明|不證明|不提升)[^.;。；]*/gu, '')
+}
+
+function semanticParagraphs(source)
+{
+    const paragraphs = []
+    let heading = ''
+    let lines = []
+    const flush = () =>
+    {
+        const body = lines.join(' ').trim()
+        if (body) paragraphs.push({ heading, body })
+        lines = []
+    }
+    for (const rawLine of source.split(/\r?\n/u))
+    {
+        const headingMatch = rawLine.match(/^#{1,6}\s+(.+)$/u)
+        if (headingMatch)
+        {
+            flush()
+            heading = headingMatch[1].trim()
+            continue
+        }
+        if (/^\s*(?:<!--|-->|$)/u.test(rawLine))
+        {
+            flush()
+            continue
+        }
+        const listMatch = rawLine.match(/^\s*(?:[-*+]\s+|\d+[.)]\s+|>\s*)(.+)$/u)
+        if (listMatch)
+        {
+            flush()
+            lines.push(listMatch[1].trim())
+            flush()
+            continue
+        }
+        lines.push(rawLine.trim())
+    }
+    flush()
+    return paragraphs
+}
+
+function semanticDeploymentAuthorityFindings(source, documentPath)
+{
+    const findings = []
+    for (const { heading, body } of semanticParagraphs(source))
+    {
+        for (const sentence of body.split(/[.;。；]+/u).map((entry) => entry.trim()).filter(Boolean))
+        {
+            const actionable = removeNegatedOperationalClauses(sentence).trim()
+            if (!actionable) continue
+            const contextual = `${heading} ${actionable}`
+            const isQualificationClaim = deploymentQualificationClaim.test(contextual)
+            const hasOperationTopic = deploymentOperationTopic.test(actionable)
+                || deploymentHeadingTopic.test(heading)
+            if (!isQualificationClaim && !hasOperationTopic) continue
+            const isCommand = deploymentCommand.test(actionable)
+            const isClaim = deploymentClaim.test(actionable)
+            if (!isQualificationClaim && !isCommand && (!isClaim || evidenceBoundary.test(actionable))) continue
+            findings.push({
+                classId: 'manual-deployment-authority',
+                documentPath,
+                evidence: `${heading}: ${sentence}`.slice(0, 160)
+            })
+        }
+    }
+    return findings
+}
 
 export function selectReleaseDeploymentBehaviorIds(catalog)
 {
@@ -74,37 +164,92 @@ function sourceOutsideGeneratedSections(source)
     const lines = source.split(/\r?\n/u)
     let generated = false
     let fenced = false
+    let claimMarker = false
+    let awaitingClaimBody = false
+    let claimedBody = false
     return lines.map((line) =>
     {
+        if (line.includes('<!-- fsus-doc-claim'))
+        {
+            claimMarker = true
+            claimedBody = false
+        }
+        if (claimMarker)
+        {
+            if (line.includes('-->'))
+            {
+                claimMarker = false
+                awaitingClaimBody = true
+            }
+            return ''
+        }
         if (/^\s*```/u.test(line)) fenced = !fenced
-        if (line.includes('FSUSBLOG-GENERATED:BEGIN')) generated = true
+        if (line.includes('FSUSBLOG-GENERATED:BEGIN'))
+        {
+            generated = true
+            awaitingClaimBody = false
+        }
         const retained = generated || fenced ? '' : line
         if (line.includes('FSUSBLOG-GENERATED:END')) generated = false
+        if (generated || fenced) return retained
+        if (awaitingClaimBody)
+        {
+            if (line.trim() === '') return ''
+            if (/^#{1,6}\s+/u.test(line)) awaitingClaimBody = false
+            else
+            {
+                awaitingClaimBody = false
+                claimedBody = true
+                return ''
+            }
+        }
+        if (claimedBody)
+        {
+            if (line.trim() === '')
+            {
+                claimedBody = false
+                return ''
+            }
+            if (/^#{1,6}\s+/u.test(line)) claimedBody = false
+            else return ''
+        }
         return retained
     }).join('\n')
 }
 
-export function scanReleaseDeploymentDocResidue(repositoryRoot, documentPaths)
+export function scanReleaseDeploymentDocResidue(repositoryRoot, documentPaths, semanticDocumentPaths = documentPaths)
 {
     const findings = []
+    const semanticPaths = new Set(semanticDocumentPaths)
     for (const documentPath of [...new Set(documentPaths)].sort())
     {
-        const source = sourceOutsideGeneratedSections(readFileSync(path.join(repositoryRoot, documentPath), 'utf8'))
-        for (const [classId, pattern] of forbiddenSurfaces)
-        {
-            const match = source.match(pattern)
-            if (match) findings.push({ classId, documentPath, evidence: match[0].slice(0, 160) })
-        }
+        findings.push(...scanReleaseDeploymentSourceResidue(
+            readFileSync(path.join(repositoryRoot, documentPath), 'utf8'),
+            documentPath,
+            { semanticDeployment: semanticPaths.has(documentPath) }
+        ))
     }
+    return findings
+}
+
+export function scanReleaseDeploymentSourceResidue(source, documentPath = 'inline.md', { semanticDeployment = true } = {})
+{
+    const retained = sourceOutsideGeneratedSections(source)
+    const findings = []
+    for (const [classId, pattern] of forbiddenSurfaces)
+    {
+        const match = retained.match(pattern)
+        if (match) findings.push({ classId, documentPath, evidence: match[0].slice(0, 160) })
+    }
+    if (semanticDeployment) findings.push(...semanticDeploymentAuthorityFindings(retained, documentPath))
     return findings
 }
 
 export function runReleaseDeploymentDocMutationCases(structuralRows = [])
 {
-    const samples = [
+    const lexicalSamples = [
         ['manual-runtime-role-table', '| Mode | Responsibility |\n| --- | --- |\n| `single` | owns everything |'],
         ['manual-stage-table', '| Stage | Owner |\n| --- | --- |\n| release-final | aggregate |'],
-        ['manual-blue-green-runbook', '## Rollback and recovery'],
         ['finalizer-as-rerun', 'release-final re-runs every producer to confirm success'],
         ['job-success-authority', 'the CI job success is the authority for release evidence'],
         ['auto-spawn-evidence', 'missing evidence auto-spawn is allowed before closeout'],
@@ -116,10 +261,25 @@ export function runReleaseDeploymentDocMutationCases(structuralRows = [])
         ['overbroad-claim', 'one claim covers all behaviors'],
         ['self-certification', 'lastVerifiedCommit: deadbeef']
     ]
-    const rows = [...samples.map(([classId, source]) => ({
+    const semanticSamples = [
+        ['renamed-manual-section', '## Traffic handoff\nThe controller verifies the candidate and reloads the gateway upstream.'],
+        ['reordered-manual-sections', '## Recovery procedure\nRestore the former serving slot.\n## Promotion steps\nPromote the standby and switch traffic.'],
+        ['extra-active-section', '## Active slot maintenance\nThe operator must retain the serving slot until the drain finishes.'],
+        ['synonymous-manual-command', '## Operator sequence\nInvoke the cutover utility, promote standby, then retire the former serving slot.'],
+        ['synonymous-manual-claim', '## Service transfer\nA standby becomes serving after the proxy is reloaded; fallback reactivates the former slot.'],
+        ['unowned-qualification-claim', '## Deployment conclusion\nThe blue/green deployment claim is eligible and runtime-role ownership is verified.'],
+        ['synonymous-qualification-claim', '## Readiness conclusion\nThe blue-green deployment qualification is approved.'],
+        ['synonymous-ownership-claim', '## Topology conclusion\nThe runtime-role authority is established.']
+    ]
+    const rows = [...lexicalSamples.map(([classId, source]) => ({
         classId,
         killed: forbiddenSurfaces.find(([id]) => id === classId)[1].test(source),
         detector: classId
+    })), ...semanticSamples.map(([classId, source]) => ({
+        classId,
+        killed: scanReleaseDeploymentSourceResidue(source, 'mutation.md')
+            .some((entry) => entry.classId === 'manual-deployment-authority'),
+        detector: 'manual-deployment-authority'
     })), ...structuralRows]
     return seal({
         schema: 'fsusblog.release-deployment-doc-mutation-evidence.v1',
@@ -193,13 +353,19 @@ export function buildReleaseDeploymentDocExactnessReceipt({
         worktreeFingerprint,
         scopeId: releaseDeploymentScopeId,
         scannerDigest: createHash('sha256')
-            .update(forbiddenSurfaces.map(([id, pattern]) => `${id}:${pattern}`).join('\n'))
+            .update([
+                ...forbiddenSurfaces.map(([id, pattern]) => `${id}:${pattern}`),
+                ...semanticScannerIdentity
+            ].join('\n'))
             .digest('hex')
     })
     const documentPaths = inputs.catalog.contracts
         .filter((entry) => selectedIds.includes(entry.id))
         .flatMap((entry) => entry.documents)
-    const residue = scanReleaseDeploymentDocResidue(repositoryRoot, documentPaths)
+    const semanticDocumentPaths = inputs.catalog.contracts
+        .filter((entry) => selectedIds.includes(entry.id) && entry.domain === 'deployment')
+        .flatMap((entry) => entry.documents)
+    const residue = scanReleaseDeploymentDocResidue(repositoryRoot, documentPaths, semanticDocumentPaths)
     const generatedDrifts = verifyReleaseDeploymentGeneratedSections(
         repositoryRoot,
         inputs.sectionCatalog,
@@ -226,6 +392,12 @@ export function buildReleaseDeploymentDocExactnessReceipt({
     })
     const ledgerTamper = structuredClone(inputs.migrationLedger)
     ledgerTamper.scopes.find((entry) => entry.scopeId === releaseDeploymentScopeId).entries[0].claimIds.pop()
+    const extraClaimReceipt = structuredClone(inputs.claimReceipt)
+    const extraClaim = structuredClone(extraClaimReceipt.claims.find((entry) =>
+        selectedIds.includes(entry.declaration.behaviorId)
+        && entry.declaration.claimType !== 'generated-section'))
+    extraClaim.declaration.claimId = `${extraClaim.declaration.claimId}-unregistered`
+    extraClaimReceipt.claims.push(extraClaim)
     const stageOmission = structuredClone(inputs.receipt)
     stageOmission.observations.facts['release-final.aggregate-contract'].inputTierIds.pop()
     const reversedSwitch = structuredClone(inputs.receipt)
@@ -284,6 +456,14 @@ export function buildReleaseDeploymentDocExactnessReceipt({
                 migrationLedger: ledgerTamper
             }).status === 'failed',
             detector: 'claim-ledger-exactness'
+        },
+        {
+            classId: 'unregistered-doc-claim',
+            killed: buildBehaviorDocExactnessReceipt({
+                ...exactnessInputs,
+                claimReceipt: extraClaimReceipt
+            }).status === 'failed',
+            detector: 'behavior-catalog-doc-claim-roster-exactness'
         }
     ]
     const mutationEvidence = runReleaseDeploymentDocMutationCases(structuralRows)

@@ -12,6 +12,7 @@ import {
     root,
     runReleaseDeploymentDocMutationCases,
     scanReleaseDeploymentDocResidue,
+    scanReleaseDeploymentSourceResidue,
     selectReleaseDeploymentBehaviorIds,
     validateReleaseDeploymentDocExactnessReceipt,
     verifyReleaseDeploymentGeneratedSections
@@ -37,8 +38,58 @@ test.before(async () =>
 test('release/deployment negative classes are all killed', () =>
 {
     const evidence = runReleaseDeploymentDocMutationCases()
-    assert.equal(evidence.total, 13)
+    assert.equal(evidence.total, 20)
     assert.equal(evidence.killed, evidence.total)
+})
+
+test('semantic residue scan rejects renamed, reordered and synonymous manual deployment authority', () =>
+{
+    const sources = [
+        '## Traffic handoff\nThe controller verifies the candidate and reloads the gateway upstream.',
+        '## Recovery procedure\nRestore the former serving slot.\n## Promotion steps\nPromote the standby and switch traffic.',
+        '## Active slot maintenance\nThe operator must retain the serving slot until the drain finishes.',
+        '## Operator sequence\nInvoke the cutover utility, promote standby, then retire the former serving slot.',
+        '## Service transfer\nA standby becomes serving after the proxy is reloaded; fallback reactivates the former slot.',
+        '## Deployment conclusion\nThe blue/green deployment claim is eligible and runtime-role ownership is verified.',
+        '## Readiness conclusion\nThe blue-green deployment qualification is approved.',
+        '## Topology conclusion\nThe runtime-role authority is established.'
+    ]
+    for (const source of sources)
+    {
+        assert.ok(scanReleaseDeploymentSourceResidue(source, 'fixture.md')
+            .some((entry) => entry.classId === 'manual-deployment-authority'))
+    }
+})
+
+test('semantic residue scan preserves non-authoritative operational guidance', () =>
+{
+    const source = `# Operator guidance
+
+Read the generated observation before an operation; this paragraph does not define slot transitions or switch traffic.
+
+If \`claimEligible\` is false, stop and request owner evidence; do not infer an active identity from this guidance.
+
+The validation command is diagnostic only and is not execution evidence.
+
+<!-- fsus-doc-claim
+claimId: deployment-blue-green-runtime-role.future-eligibility
+behaviorId: deployment-blue-green-runtime-role
+claimType: boolean
+factPath: deploymentBlueGreen.claimEligible
+render: boolean-affirmed
+-->
+
+The blue/green deployment claim is eligible and runtime-role ownership is verified.
+
+\`\`\`bash
+./tools/deployment/gateway-switch.sh --check
+\`\`\`
+
+<!-- FSUSBLOG-GENERATED:BEGIN fixture.deployment -->
+## Traffic handoff
+The controller must promote standby and switch traffic.
+<!-- FSUSBLOG-GENERATED:END fixture.deployment -->`
+    assert.deepEqual(scanReleaseDeploymentSourceResidue(source, 'fixture.md'), [])
 })
 
 test('release/deployment behavior roster comes from active required catalog domains', () =>
@@ -62,10 +113,13 @@ test('release/deployment behavior roster comes from active required catalog doma
 test('current release/deployment documents contain no forbidden manual authority residue', () =>
 {
     const catalog = JSON.parse(readFileSync(path.join(root, 'config/contracts/behavior-contracts.json'), 'utf8'))
-    const documents = catalog.contracts
+    const contracts = catalog.contracts
         .filter((entry) => releaseDeploymentBehaviorIds.includes(entry.id))
+    const documents = contracts.flatMap((entry) => entry.documents)
+    const deploymentDocuments = contracts
+        .filter((entry) => entry.domain === 'deployment')
         .flatMap((entry) => entry.documents)
-    assert.deepEqual(scanReleaseDeploymentDocResidue(root, documents), [])
+    assert.deepEqual(scanReleaseDeploymentDocResidue(root, documents, deploymentDocuments), [])
 })
 
 test('current release/deployment claims and sections are bidirectionally exact', () =>
@@ -82,8 +136,8 @@ test('current release/deployment claims and sections are bidirectionally exact',
     assert.equal(receipt.counts.generated, 4)
     assert.equal(receipt.counts.prose, 3)
     assert.equal(receipt.counts.proseVerified, 3)
-    assert.equal(receipt.counts.mutationKilled, 20)
-    assert.equal(receipt.counts.mutationTotal, 20)
+    assert.equal(receipt.counts.mutationKilled, 28)
+    assert.equal(receipt.counts.mutationTotal, 28)
 })
 
 test('missing ledger entry, orphan section and typed fact drift fail closed', () =>
