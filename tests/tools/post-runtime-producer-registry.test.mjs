@@ -458,24 +458,42 @@ test('HTTP-only and stale registry/schema/evidenceClass receipts cannot qualify'
 
 test('production validator rejects a second registry and is wired into static governance', (context) =>
 {
-    const repositoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-post-runtime-authority-'))
-    context.after(() => fs.rmSync(repositoryRoot, { recursive: true, force: true }))
-    fs.mkdirSync(path.join(repositoryRoot, 'config/testing'), { recursive: true })
-    fs.copyFileSync(path.join(root, 'config/configuration-ownership.json'),
-        path.join(repositoryRoot, 'config/configuration-ownership.json'))
-    fs.copyFileSync(path.join(root, 'config/testing/post-runtime-producer-registry.json'),
-        path.join(repositoryRoot, 'config/testing/post-runtime-producer-registry.json'))
-    execFileSync('git', ['init', '--quiet'], { cwd: repositoryRoot })
-    execFileSync('git', ['add', 'config/configuration-ownership.json',
-        'config/testing/post-runtime-producer-registry.json'], { cwd: repositoryRoot })
-    assert.equal(validatePostRuntimeRepositoryAuthority(repositoryRoot, { validateReaderFirewall: false }), true)
-    fs.mkdirSync(path.join(repositoryRoot, 'tools'), { recursive: true })
-    fs.copyFileSync(path.join(root, 'config/testing/post-runtime-producer-registry.json'),
-        path.join(repositoryRoot, 'tools/second-post-runtime-registry.json'))
-    execFileSync('git', ['add', 'tools/second-post-runtime-registry.json'], { cwd: repositoryRoot })
-    assert.throws(
-        () => validatePostRuntimeRepositoryAuthority(repositoryRoot, { validateReaderFirewall: false }),
-        /authority paths must exact-match/u)
+    const createRepository = () =>
+    {
+        const repositoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-post-runtime-authority-'))
+        context.after(() => fs.rmSync(repositoryRoot, { recursive: true, force: true }))
+        fs.mkdirSync(path.join(repositoryRoot, 'config/testing'), { recursive: true })
+        fs.copyFileSync(path.join(root, 'config/configuration-ownership.json'),
+            path.join(repositoryRoot, 'config/configuration-ownership.json'))
+        fs.copyFileSync(path.join(root, 'config/testing/post-runtime-producer-registry.json'),
+            path.join(repositoryRoot, 'config/testing/post-runtime-producer-registry.json'))
+        execFileSync('git', ['init', '--quiet'], { cwd: repositoryRoot })
+        execFileSync('git', ['add', 'config/configuration-ownership.json',
+            'config/testing/post-runtime-producer-registry.json'], { cwd: repositoryRoot })
+        return repositoryRoot
+    }
+    const canonicalRoot = createRepository()
+    assert.equal(validatePostRuntimeRepositoryAuthority(canonicalRoot, { validateReaderFirewall: false }), true)
+    for (const roguePath of [
+        'tools/second-post-runtime-registry.json',
+        'generated/second-post-runtime-registry.json',
+        'vendor/second-post-runtime-registry.json',
+        'node_modules/second-post-runtime-registry.json',
+        '.tmp/second-post-runtime-registry.json',
+        'tmp/second-post-runtime-registry.json',
+        'tools/second-post-runtime-registry.generated.json'
+    ])
+    {
+        const repositoryRoot = createRepository()
+        fs.mkdirSync(path.dirname(path.join(repositoryRoot, roguePath)), { recursive: true })
+        fs.copyFileSync(path.join(root, 'config/testing/post-runtime-producer-registry.json'),
+            path.join(repositoryRoot, roguePath))
+        execFileSync('git', ['add', '--force', roguePath], { cwd: repositoryRoot })
+        assert.throws(
+            () => validatePostRuntimeRepositoryAuthority(repositoryRoot, { validateReaderFirewall: false }),
+            /authority paths must exact-match/u,
+            `tracked rogue registry at ${roguePath} must fail closed`)
+    }
 
     const staticLane = fs.readFileSync(path.join(root, 'tools/test/lanes/static-governance.sh'), 'utf8')
     assert.match(staticLane,
@@ -524,6 +542,31 @@ test('reader firewall traverses imports and rejects transitive Markdown/DocClaim
         'export const claim = true\n')
     assert.throws(
         () => validatePostRuntimeReaderFirewall(repositoryRoot, 'tools/test-matrix/entry.mjs'),
+        /import closure reaches forbidden Markdown\/DocClaim module/u)
+
+    fs.writeFileSync(path.join(repositoryRoot, 'tools/test-matrix/escaped-entry.mjs'),
+        "import '../d\\u006fcs/doc-claim.mjs'\nexport const entry = true\n")
+    execFileSync(process.execPath, [path.join(repositoryRoot, 'tools/test-matrix/escaped-entry.mjs')])
+    assert.throws(
+        () => validatePostRuntimeReaderFirewall(repositoryRoot, 'tools/test-matrix/escaped-entry.mjs'),
+        /import closure reaches forbidden Markdown\/DocClaim module/u)
+
+    fs.writeFileSync(path.join(repositoryRoot, 'tools/test-matrix/escaped-hex-entry.mjs'),
+        "import '..\\x2fdocs\\x2fdoc-claim.mjs'\nexport const entry = true\n")
+    execFileSync(process.execPath, [path.join(repositoryRoot, 'tools/test-matrix/escaped-hex-entry.mjs')])
+    assert.throws(
+        () => validatePostRuntimeReaderFirewall(repositoryRoot, 'tools/test-matrix/escaped-hex-entry.mjs'),
+        /import closure reaches forbidden Markdown\/DocClaim module/u)
+
+    fs.writeFileSync(path.join(repositoryRoot, 'tools/test-matrix/require-entry.mjs'),
+        "import './middle.cjs'\nexport const entry = true\n")
+    fs.writeFileSync(path.join(repositoryRoot, 'tools/test-matrix/middle.cjs'),
+        "module.exports = require('../d\\x6fcs/doc-claim.cjs')\n")
+    fs.writeFileSync(path.join(repositoryRoot, 'tools/docs/doc-claim.cjs'),
+        'module.exports = { claim: true }\n')
+    execFileSync(process.execPath, [path.join(repositoryRoot, 'tools/test-matrix/require-entry.mjs')])
+    assert.throws(
+        () => validatePostRuntimeReaderFirewall(repositoryRoot, 'tools/test-matrix/require-entry.mjs'),
         /import closure reaches forbidden Markdown\/DocClaim module/u)
 })
 

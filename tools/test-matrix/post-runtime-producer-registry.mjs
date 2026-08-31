@@ -116,11 +116,81 @@ function trackedRepositoryFiles(repositoryRoot)
     return output.split('\0').filter(Boolean).map((entry) => entry.replaceAll('\\', '/'))
 }
 
-function excludedMachineAuthorityPath(relative)
+function readStringLiteral(source, start, label)
 {
-    const segments = relative.split('/')
-    return segments.some((segment) => ['generated', 'vendor', 'node_modules', '.tmp', 'tmp'].includes(segment))
-        || segments.some((segment) => segment.includes('.generated.'))
+    const quote = source[start]
+    let value = ''
+    let index = start + 1
+    const simpleEscapes = new Map([
+        ['b', '\b'], ['f', '\f'], ['n', '\n'], ['r', '\r'], ['t', '\t'], ['v', '\v'],
+        ['0', '\0'], ['\\', '\\'], ['\'', '\''], ['"', '"']
+    ])
+    const readHex = (length, kind) =>
+    {
+        const digits = source.slice(index, index + length)
+        if (!new RegExp(`^[a-fA-F0-9]{${length}}$`, 'u').test(digits))
+        {
+            fail(`${label} contains an invalid ${kind} escape in a module string`)
+        }
+        index += length
+        return Number.parseInt(digits, 16)
+    }
+    while (index < source.length)
+    {
+        const current = source[index]
+        if (current === quote) return { value, next: index + 1 }
+        if (current === '\n' || current === '\r') fail(`${label} contains a newline in a string literal`)
+        if (current !== '\\')
+        {
+            value += current
+            index += 1
+            continue
+        }
+        index += 1
+        const escaped = source[index]
+        if (escaped === undefined) break
+        if (escaped === '\n') { index += 1; continue }
+        if (escaped === '\r')
+        {
+            index += source[index + 1] === '\n' ? 2 : 1
+            continue
+        }
+        if (escaped === 'x')
+        {
+            index += 1
+            value += String.fromCharCode(readHex(2, 'hexadecimal'))
+            continue
+        }
+        if (escaped === 'u')
+        {
+            index += 1
+            if (source[index] === '{')
+            {
+                const end = source.indexOf('}', index + 1)
+                const digits = end < 0 ? '' : source.slice(index + 1, end)
+                if (!/^[a-fA-F0-9]{1,6}$/u.test(digits))
+                {
+                    fail(`${label} contains an invalid Unicode code-point escape in a module string`)
+                }
+                const codePoint = Number.parseInt(digits, 16)
+                if (codePoint > 0x10ffff) fail(`${label} contains an out-of-range Unicode escape`)
+                value += String.fromCodePoint(codePoint)
+                index = end + 1
+            }
+            else
+            {
+                value += String.fromCharCode(readHex(4, 'Unicode'))
+            }
+            continue
+        }
+        if (/[1-9]/u.test(escaped) || (escaped === '0' && /[0-9]/u.test(source[index + 1] ?? '')))
+        {
+            fail(`${label} contains a forbidden legacy numeric escape in a module string`)
+        }
+        value += simpleEscapes.get(escaped) ?? escaped
+        index += 1
+    }
+    fail(`${label} contains an unterminated string literal`)
 }
 
 function tokenizeModule(source, label)
@@ -149,27 +219,9 @@ function tokenizeModule(source, label)
         }
         if (current === '\'' || current === '"')
         {
-            const quote = current
-            let value = ''
-            index += 1
-            let closed = false
-            while (index < source.length)
-            {
-                if (source[index] === '\\')
-                {
-                    value += source[index + 1] ?? ''
-                    index += 2
-                }
-                else if (source[index] === quote)
-                {
-                    index += 1
-                    closed = true
-                    break
-                }
-                else { value += source[index]; index += 1 }
-            }
-            if (!closed) fail(`${label} contains an unterminated string literal`)
-            tokens.push({ type: 'string', value })
+            const literal = readStringLiteral(source, index, label)
+            tokens.push({ type: 'string', value: literal.value })
+            index = literal.next
             continue
         }
         if (current === '`')
@@ -207,6 +259,13 @@ function staticModuleSpecifiers(source, label)
     for (let index = 0; index < tokens.length; index += 1)
     {
         const token = tokens[index]
+        if (token.type === 'identifier' && token.value === 'require'
+            && tokens[index + 1]?.value === '(')
+        {
+            if (tokens[index + 2]?.type !== 'string') fail(`${label} has a non-literal require()`)
+            specifiers.push(tokens[index + 2].value)
+            continue
+        }
         if (token.type !== 'identifier' || !['import', 'export'].includes(token.value)) continue
         if (token.value === 'import' && tokens[index + 1]?.value === '.') continue
         if (token.value === 'import' && tokens[index + 1]?.value === '(')
@@ -285,7 +344,7 @@ export function validatePostRuntimeRepositoryAuthority(repositoryRoot = root, {
         fail('post-runtime registry must have exact-one canonical configuration owner')
     }
     const registryFiles = trackedRepositoryFiles(repositoryRoot)
-        .filter((relative) => relative.endsWith('.json') && !excludedMachineAuthorityPath(relative))
+        .filter((relative) => relative.endsWith('.json'))
         .filter((relative) =>
         {
             const absolute = path.join(repositoryRoot, relative)
