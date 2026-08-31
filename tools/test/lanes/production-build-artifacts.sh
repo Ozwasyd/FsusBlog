@@ -142,6 +142,9 @@ if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && { HasDomain backend-runtime || HasDoma
 fi
 if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && HasDomain test-runtime; then
     "$ROOT_DIR/tools/test/run-with-dotnet-release-build-lock.sh" \
+        "$ROOT_DIR/tools/build-with-data-env.sh" dotnet build "$ROOT_DIR/src/migration/FsusBlog.Migration.csproj" \
+        -c Release --no-restore --no-dependencies --no-incremental -warnaserror -v minimal /p:NuGetAudit=false
+    "$ROOT_DIR/tools/test/run-with-dotnet-release-build-lock.sh" \
         "$ROOT_DIR/tools/build-with-data-env.sh" dotnet build "$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj" \
         -c Release --no-restore --no-dependencies --no-incremental -warnaserror -v minimal /p:NuGetAudit=false
 fi
@@ -237,7 +240,12 @@ if HasDomain backend-runtime || HasDomain test-runtime; then
     )
 fi
 if HasDomain test-runtime; then
-    CREATE_ARGS+=(--input tests/backend/FsusBlog.Server.Tests.csproj --input tests/backend/packages.lock.json)
+    CREATE_ARGS+=(
+        --input src/migration/FsusBlog.Migration.csproj
+        --input src/migration/packages.lock.json
+        --input tests/backend/FsusBlog.Server.Tests.csproj
+        --input tests/backend/packages.lock.json
+    )
 fi
 if HasDomain frontend-dist || HasDomain wasm; then
     CREATE_ARGS+=(
