@@ -217,7 +217,7 @@ test('class producer rejects existence-only and cross-plan results', (context) =
   raw.semanticFacts = { exact: true }
   fs.writeFileSync(path.join(root, badPath), `${JSON.stringify(seal(raw))}\n`)
   assert.throws(() => produceClassReceipt({ candidatePlan: value.relative('plan.json'), classId: 'route-response-error',
-    result: badPath, repositoryRoot: root }), /unsupported or missing fields/u)
+    result: badPath, repositoryRoot: root }), /(?:unsupported or missing|missing or unknown) fields/u)
 })
 
 test('#2205 accepted-claim CLI produces and independently replays one explicit terminal receipt', (context) =>
