@@ -263,3 +263,45 @@ test('current-run authority producer rejects path-like run and attempt identitie
         assert.doesNotMatch(result.stdout, /Determining projects to restore|build receipt=/u);
     }
 });
+
+test('current-run authority producer preserves an existing attempt output', () =>
+{
+    const runId = `authority-output-${process.pid}`;
+    const outputRoot = path.join(
+        repositoryRoot,
+        '.tmp',
+        'runtime-order-authorities',
+        runId,
+        'attempt-1'
+    );
+    const sentinel = path.join(outputRoot, 'first-failure.json');
+    try
+    {
+        fs.mkdirSync(outputRoot, { recursive: true });
+        fs.writeFileSync(sentinel, 'retained\n');
+        const result = spawnSync(process.execPath, [
+            'tools/test-runtime/produce-current-run-authorities.mjs',
+            '--run-id', runId,
+            '--attempt-id', 'attempt-1'
+        ], {
+            cwd: repositoryRoot,
+            env: {
+                ...process.env,
+                FSUSBLOG_TEST_SOURCE_COMMIT: sourceState.commit,
+                FSUSBLOG_TEST_SOURCE_FINGERPRINT: sourceState.worktreeFingerprint
+            },
+            encoding: 'utf8'
+        });
+        assert.equal(result.status, 1);
+        assert.match(result.stderr, /authority output already exists/u);
+        assert.equal(fs.readFileSync(sentinel, 'utf8'), 'retained\n');
+        assert.doesNotMatch(result.stdout, /Determining projects to restore|build receipt=/u);
+    }
+    finally
+    {
+        fs.rmSync(path.join(repositoryRoot, '.tmp', 'runtime-order-authorities', runId), {
+            recursive: true,
+            force: true
+        });
+    }
+});

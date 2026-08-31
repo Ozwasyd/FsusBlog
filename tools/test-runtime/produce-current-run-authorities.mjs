@@ -74,16 +74,24 @@ function run(command, args, env)
     });
 }
 
-function removeExactOutput(outputRoot)
+function requireFreshOutput(outputRoot)
 {
     if (fs.existsSync(outputRoot))
     {
-        fs.rmSync(outputRoot, { recursive: true, force: true });
+        throw new Error(`authority output already exists: ${path.relative(root, outputRoot)}`);
     }
+    return outputRoot;
 }
 
 async function produceBuildAuthorities({ runId, attemptId, sourceState })
 {
+    const outputRoot = requireFreshOutput(path.join(
+        root,
+        '.tmp',
+        'runtime-order-authorities',
+        runId,
+        attemptId
+    ));
     const namespace = `runtime-order-authority:${runId}`;
     const targetTierId = 'runtime-order-authority-producer';
     const candidateIdentityDigest = schedulerCandidateIdentityDigest({
@@ -106,8 +114,6 @@ async function produceBuildAuthorities({ runId, attemptId, sourceState })
         layout = prepareProductionBuildLayout({ root, runId, sourceState, namespace, fresh: true });
         scheduler.markRunning();
         bindProductionBuildLayoutSource(layout, sourceState);
-        const outputRoot = path.join(root, '.tmp', 'runtime-order-authorities', runId, attemptId);
-        removeExactOutput(outputRoot);
         const artifactRoot = path.join(outputRoot, 'artifacts', 'production-build');
         const env = productionBuildEnvironment(layout, {
             ...process.env,
