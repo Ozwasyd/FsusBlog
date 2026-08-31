@@ -4,10 +4,13 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { checkFixtureMutationRecoveryGovernance } from '../../tools/governance/check-fixture-mutation-recovery-governance.mjs';
 import {
     loadCanonicalMutationEnvelopeCatalog
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test-fixtures/mutation-envelope-catalog.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { digest, seal } from '../../tools/test-fixtures/mutation-recovery/canonical.mjs';
 import {
     applyFixtureMutation,
@@ -24,17 +27,20 @@ import {
     verifyExternalSemanticSnapshot,
     verifySemanticSnapshot,
     writeMutationJournal
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test-fixtures/mutation-recovery/index.mjs';
 import {
     buildFixtureReceipt,
     buildProducerReceipt,
     digestCanonical
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test-fixtures/receipt/index.mjs';
 import {
     buildFixtureVariantPlan,
     buildProducerFixtureVariantPlan,
     fixtureCatalogDigest,
     readFixtureCatalogs
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/testing/fixture-catalog.mjs';
 
 const catalogs = readFixtureCatalogs();

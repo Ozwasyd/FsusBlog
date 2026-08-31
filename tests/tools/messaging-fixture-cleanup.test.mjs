@@ -8,6 +8,7 @@ import test from 'node:test';
 import {
     buildMessagingFixtureCleanupReceipt,
     verifyMessagingFixtureCleanupReceipt
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/messaging-fixture-governance.mjs';
 
 function fixtureRepository(context, files)

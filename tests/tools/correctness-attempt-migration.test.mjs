@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
     assertCorrectnessAttemptExecutionOwner,
     validateCorrectnessAttemptMigration
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/correctness-attempt-migration.mjs';
 
 test('all 221 correctness producers bind canonical attempt and external authorities', () =>

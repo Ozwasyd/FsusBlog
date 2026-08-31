@@ -11,6 +11,7 @@ import {
 } from 'node:fs';
 import path from 'node:path';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { contentDigest, REPLACEMENT_TRANSACTION_SCHEMA } from '../test-quality/schema.mjs';
 
 export const REPLACEMENT_RECEIPT_SCHEMA = 'fsusblog.test-replacement-receipt.v1';

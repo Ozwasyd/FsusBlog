@@ -6,6 +6,7 @@ import {
     parseBackendPlatformTrx,
     projectBackendPlatformPlan,
     reconcileBackendPlatformOutcome
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/backend-platform-selection.mjs';
 import {
     buildPostgresAffinityGroups,
@@ -18,6 +19,7 @@ import {
     projectProductionUnionRecords,
     readManifestClassWideProductionExclusions,
     validateExactProductionUnion
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/run-backend-production-shards.mjs';
 
 const unixPlatformTest = {

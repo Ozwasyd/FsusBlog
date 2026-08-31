@@ -3,7 +3,9 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { root, validateMigrationLedgerData, validateRepositoryMigrationLedger } from '../../tools/docs/check-document-claim-migration-ledger.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { parseRepositoryClaims } from '../../tools/docs/doc-claim.mjs';
 
 const readJson = (relative) => JSON.parse(readFileSync(path.join(root, relative), 'utf8'));

@@ -9,7 +9,9 @@ import {
     createSchedulerReplayPlan,
     validateSchedulerReplayActual,
     validateSchedulerReplayPlan
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/scheduler-replay-contract.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { runDag } from '../../tools/test-matrix/scheduler.mjs';
 
 const tiers = [

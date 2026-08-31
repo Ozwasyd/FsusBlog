@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { executionServiceImageReference } from '../../tools/test/execution-envelope-services.mjs';
 import {
     compensateVerifiedContainerCleanup,
@@ -15,13 +16,16 @@ import {
     retryVerifiedCleanup,
     resolveDedicatedRuntimeRunId,
     validateDefaultFixtureProviderState
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../browser-contract/default-fixture-provider.mjs';
 import {
     cleanupBrowserContractFixture,
     createBrowserContractFixtureApi,
     prepareBrowserContractFixture,
     resolveBrowserContractRunIdentity
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../browser-contract/fixture-lifecycle.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { fixtureReceiptView, loadBrowserContractFixture } from '../browser-contract/fixture.mjs';
 
 const commit = 'a'.repeat(40);

@@ -2,7 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { parseMatrix } from '../test-matrix/parse-matrix.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { productionFreshProducerInventory } from '../test-matrix/production-fresh-run-bound-outputs.mjs';
 
 import { canonicalJson, sealContentDigest, sha256 } from './attempt-provenance.mjs';

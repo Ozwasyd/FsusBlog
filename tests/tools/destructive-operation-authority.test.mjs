@@ -12,19 +12,23 @@ import {
     verifyArtifactGcActiveIdentity,
     verifyCandidateCleanupOwnership,
     verifyRuntimeSlotStop
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/deployment/destructive-operation-authority.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { createRolloutState, writeRolloutStateAtomic } from '../../tools/deployment/release-rollout-lib.mjs';
 import {
     createEmptySlotState,
     recordSlotStart,
     setActiveSlot,
     writeSlotStateAtomic
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/deployment/slot-lib.mjs';
 import {
     executeReleaseAssetGc,
     normalizeGcState,
     planReleaseAssetGc,
     verifyReleaseAssetGcPlan
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/storage/release-gc.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');

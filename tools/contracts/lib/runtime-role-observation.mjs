@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { digestValue } from '../../fact-extractors/lib/canonicalize.mjs';
 
 export const runtimeRoleArtifactId = 'runtime-role-observation';

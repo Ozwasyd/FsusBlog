@@ -3,17 +3,22 @@ import process from 'node:process';
 
 import {
     validateFinalReport
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../docs/behavior-document-consistency-final.mjs';
 import {
     validatePostRuntimeReceipt
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../test-matrix/behavior-evidence-post-runtime.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { readEvidenceDocument } from '../test-matrix/content-addressed-evidence-store.mjs';
 import {
     collectReleaseFinalDomainProjectionReceipts,
     releaseFinalDomainProjectionTierIds
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../test-matrix/release-domain-evidence.mjs';
 import {
     loadCanonicalReleaseFinalEvidenceInputs
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../test-matrix/release-final-evidence-contract.mjs';
 
 import { requirePublicPreviewReleaseEvidence } from './public-preview-release-evidence.mjs';

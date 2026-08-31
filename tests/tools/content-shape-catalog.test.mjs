@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { validateJsonSchema } from '../../tools/test-matrix/schema-validator/validate.mjs';
 import {
     CONTENT_SHAPE_BOUNDARY_KINDS,
@@ -16,10 +17,12 @@ import {
     stableStringify,
     validateContentShapeAuthority,
     validateContentShapeGovernance
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/testing/content-shape-catalog.mjs';
 import {
     fixtureCatalogDigest,
     readFixtureCatalogs
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/testing/fixture-catalog.mjs';
 
 const root = path.resolve(import.meta.dirname, '..', '..');

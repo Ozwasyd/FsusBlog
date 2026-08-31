@@ -5,15 +5,19 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { createProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { digestCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs';
 import {
     createBrowserlessCorrectnessReceipt,
     sealBrowserContractReceipt
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/release/test-evidence-receipts.mjs';
 import {
     joinBehaviorEvidencePostRuntime,
     validatePostRuntimeReceipt
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test-matrix/behavior-evidence-post-runtime.mjs';
 
 const commit = 'a'.repeat(40);

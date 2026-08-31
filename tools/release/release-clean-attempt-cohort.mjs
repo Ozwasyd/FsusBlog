@@ -5,6 +5,7 @@ import {
     canonicalJson,
     digestCanonical,
     sealContentDigest
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../test/attempt-provenance.mjs';
 
 import { cleanFirstAttemptVerdict } from './clean-first-attempt-verifier.mjs';

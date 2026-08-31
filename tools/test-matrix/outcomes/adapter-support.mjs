@@ -1,3 +1,4 @@
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { digestCanonical } from '../../test/attempt-provenance.mjs';
 
 import { sealProducerSemanticOutcomeCandidate } from './outcome-contract.mjs';

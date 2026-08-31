@@ -5,10 +5,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { digestCatalog } from '../contracts/behavior-contract-catalog.mjs';
 import {
     validateBrowserContractReceipt,
     validateBrowserlessCorrectnessReceipt
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../release/test-evidence-receipts.mjs';
 
 import { assertPreRuntimeQualified } from './behavior-evidence-pre-runtime.mjs';

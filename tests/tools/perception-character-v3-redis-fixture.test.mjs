@@ -14,6 +14,7 @@ import {
     REDIS_LUA_CASE_IDS,
     REDIS_LUA_TEST,
     reconcileLocalRedisOutcome
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/perception-redis-producer.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');

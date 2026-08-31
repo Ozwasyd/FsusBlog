@@ -2,11 +2,15 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
+    chmodSync,
+    cpSync,
+    linkSync,
     mkdirSync,
     mkdtempSync,
     readFileSync,
     renameSync,
     rmSync,
+    statSync,
     symlinkSync,
     writeFileSync
 } from 'node:fs';
@@ -27,6 +31,11 @@ function writeFixture(fixtureRoot, relativePath, content)
     const target = path.join(fixtureRoot, relativePath);
     mkdirSync(path.dirname(target), { recursive: true });
     writeFileSync(target, content);
+}
+
+function fsMode(file)
+{
+    return statSync(file).mode & 0o777;
 }
 
 function createFixture()
@@ -460,7 +469,7 @@ test('frontend style governance baseline updates preserve paths and reject viola
     });
 });
 
-test('frontend style governance accepts only exact reviewed residual owner classifications', () =>
+test('frontend style governance accepts only exact residual classifications already present in the remote review authority', () =>
 {
     withFixture((fixtureRoot) =>
     {
@@ -500,6 +509,7 @@ test('frontend style governance accepts only exact reviewed residual owner class
         expectGit(['add', '.']);
         expectGit(['commit', '-m', 'test: establish frontend style fixture baseline']);
         const baselineOwnerCommit = expectGit(['rev-parse', 'HEAD']);
+        expectGit(['update-ref', 'refs/remotes/origin/master', baselineOwnerCommit]);
 
         writeFixture(fixtureRoot, reviewedPath, `import { readValue } from '../../tools/legacy/reviewed-owner.mjs';
 
@@ -526,7 +536,7 @@ export function readOwnerValue(value)
             .digest('hex');
         const classification = {
             schema: 'fsusblog.frontend-style-baseline-classification.v1',
-            reviewIssue: 3075,
+            reviewIssue: 999999,
             entries: [{
                 path: reviewedPath,
                 rejectionKind: 'new-path',
@@ -539,7 +549,7 @@ export function readOwnerValue(value)
                 },
                 category: 'owner-module-parent-import',
                 sourceOwnerCommit,
-                relatedIssues: [3075],
+                relatedIssues: [999999],
                 reason: 'The contract test imports the repository owner that it executes.',
                 terminalCondition: 'source-content-change'
             }]
@@ -555,6 +565,13 @@ export function readOwnerValue(value)
             '--reviewed-baseline-classification', classificationPath
         ]);
         writeClassification(classification);
+        expectGit(['add', classificationPath]);
+        expectGit(['commit', '-m', 'test: self grant reviewed baseline classification']);
+        const selfGranted = runReviewedUpdate();
+        assert.notEqual(selfGranted.status, 0, output(selfGranted));
+        assert.match(output(selfGranted), /classification must already exist unchanged at refs\/remotes\/origin\/master/u);
+
+        expectGit(['update-ref', 'refs/remotes/origin/master', 'HEAD']);
         const accepted = runReviewedUpdate();
         assert.equal(accepted.status, 0, output(accepted));
 
@@ -562,52 +579,52 @@ export function readOwnerValue(value)
             {
                 name: 'missing',
                 mutate: (document) => ({ ...document, entries: [] }),
-                expected: /not a closed fsusblog\.frontend-style-baseline-classification\.v1 document/u
+                expected: /classification must already exist unchanged|frontend style source identity/u
             },
             {
                 name: 'extra',
                 mutate: (document) => ({ ...document, entries: [...document.entries, { ...document.entries[0], path: ownerPath }] }),
-                expected: /must exactly match residual rejections/u
+                expected: /classification must already exist unchanged|frontend style source identity/u
             },
             {
                 name: 'source digest',
                 mutate: (document) => ({ ...document, entries: [{ ...document.entries[0], currentSourceSha256: '0'.repeat(64) }] }),
-                expected: /classification is stale/u
+                expected: /classification must already exist unchanged|frontend style source identity/u
             },
             {
                 name: 'violation digest',
                 mutate: (document) => ({ ...document, entries: [{ ...document.entries[0], currentViolationDigest: '0'.repeat(64) }] }),
-                expected: /classification is stale/u
+                expected: /classification must already exist unchanged|frontend style source identity/u
             },
             {
                 name: 'rules',
                 mutate: (document) => ({ ...document, entries: [{ ...document.entries[0], currentRules: { 'eslint/import-x/no-relative-parent-imports': 2 } }] }),
-                expected: /classification is stale/u
+                expected: /classification must already exist unchanged|frontend style source identity/u
             },
             {
                 name: 'owner does not touch path',
                 mutate: (document) => ({ ...document, entries: [{ ...document.entries[0], sourceOwnerCommit: baselineOwnerCommit }] }),
-                expected: /owner commit is not an ancestor touching/u
+                expected: /classification must already exist unchanged|frontend style source identity/u
             },
             {
                 name: 'wrong category',
                 mutate: (document) => ({ ...document, entries: [{ ...document.entries[0], category: 'fixture-retained-symbol' }] }),
-                expected: /category fixture-retained-symbol cannot own/u
+                expected: /classification must already exist unchanged|frontend style source identity/u
             },
             {
                 name: 'missing review issue',
                 mutate: (document) => ({ ...document, entries: [{ ...document.entries[0], relatedIssues: [1] }] }),
-                expected: /classification issues are invalid/u
+                expected: /classification must already exist unchanged|frontend style source identity/u
             },
             {
                 name: 'expired terminal condition',
                 mutate: (document) => ({ ...document, entries: [{ ...document.entries[0], terminalCondition: 'never' }] }),
-                expected: /terminal condition is invalid/u
+                expected: /classification must already exist unchanged|frontend style source identity/u
             },
             {
                 name: 'wildcard path',
                 mutate: (document) => ({ ...document, entries: [{ ...document.entries[0], path: 'tests/tools/*.mjs' }] }),
-                expected: /invalid or duplicate path/u
+                expected: /classification must already exist unchanged|frontend style source identity/u
             }
         ];
         for (const mutation of mutations)
@@ -628,7 +645,7 @@ export function readOwnerValue(value)
         });
         const reversedOwner = runReviewedUpdate();
         assert.notEqual(reversedOwner.status, 0);
-        assert.match(output(reversedOwner), /owner commit is not an ancestor touching/u);
+        assert.match(output(reversedOwner), /classification must already exist unchanged|frontend style source identity/u);
     });
 });
 
@@ -693,6 +710,55 @@ test('frontend style governance configuration identity binds the Node runtime bo
 {
     const checkerSource = readFileSync(path.join(root, 'tools/frontend/check-frontend-style.mjs'), 'utf8');
     assert.match(checkerSource, /runtime\\nnode=\$\{process\.version\}\\nplatform=\$\{process\.platform\}\\narch=\$\{process\.arch\}/u);
+});
+
+test('frontend style governance binds installed executables and the plugin parser closure bytes', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const isolatedToolchain = path.join(fixtureRoot, 'tools/frontend/style-toolchain');
+        rmSync(isolatedToolchain, { force: true });
+        cpSync(toolchain, isolatedToolchain, { recursive: true });
+        for (const [name, target] of [['eslint', '../eslint/bin/eslint.js'], ['stylelint', '../stylelint/bin/stylelint.mjs']])
+        {
+            const link = path.join(isolatedToolchain, 'node_modules/.bin', name);
+            rmSync(link, { force: true });
+            symlinkSync(target, link);
+        }
+        writeFixture(fixtureRoot, 'tools/sample/toolchain-consumer.mjs', `export function readValue(value)
+{
+    return value;
+}
+`);
+        const initial = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.equal(initial.status, 0, output(initial));
+
+        const pluginPath = path.join(isolatedToolchain, 'node_modules/eslint-plugin-import-x/lib/index.js');
+        const pluginBefore = readFileSync(pluginPath);
+        writeFileSync(pluginPath, Buffer.concat([pluginBefore, Buffer.from('\n// tampered plugin closure\n')]));
+        const pluginTamper = runChecker(fixtureRoot, ['--mode', 'full']);
+        assert.notEqual(pluginTamper.status, 0);
+        assert.match(output(pluginTamper), /baseline configuration digest is stale/u);
+        writeFileSync(pluginPath, pluginBefore);
+
+        const eslintPackage = JSON.parse(readFileSync(path.join(isolatedToolchain, 'node_modules/eslint/package.json'), 'utf8'));
+        const executablePath = path.join(isolatedToolchain, 'node_modules/eslint/bin/eslint.js');
+        const executableMode = fsMode(executablePath);
+        writeFileSync(executablePath, `#!/usr/bin/env node
+if (process.argv.includes('--version'))
+{
+    console.log('${eslintPackage.version}');
+}
+else
+{
+    console.log('[]');
+}
+`);
+        chmodSync(executablePath, executableMode);
+        const emptyStub = runChecker(fixtureRoot, ['--mode', 'full']);
+        assert.notEqual(emptyStub.status, 0);
+        assert.match(output(emptyStub), /baseline configuration digest is stale/u);
+    });
 });
 
 test('frontend style governance migrates reviewed semantic paths without admitting new debt', () =>
@@ -844,6 +910,85 @@ test('frontend style governance full check rejects source drift without a per-fi
         const checked = runChecker(fixtureRoot, ['--mode', 'full']);
         assert.notEqual(checked.status, 0);
         assert.match(output(checked), /baseline source-state digest is stale/u);
+    });
+});
+
+test('frontend style governance rejects Git flag type link and OID source identity splits', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const relativePath = 'tools/sample/git-identity-tool.mjs';
+        const original = `export function readValue(value)
+{
+    return value;
+}
+`;
+        const absolute = path.join(fixtureRoot, relativePath);
+        const git = (args) => spawnSync('git', args, { cwd: fixtureRoot, encoding: 'utf8' });
+        const expectGit = (args) =>
+        {
+            const result = git(args);
+            assert.equal(result.status, 0, output(result));
+            return result.stdout.trim();
+        };
+        writeFixture(fixtureRoot, '.gitignore', '.tmp/\ntools/frontend/style-toolchain\n');
+        writeFixture(fixtureRoot, relativePath, original);
+        const initial = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.equal(initial.status, 0, output(initial));
+        expectGit(['init', '--initial-branch=master']);
+        expectGit(['add', '.']);
+        expectGit(['-c', 'user.name=Frontend Style Fixture', '-c', 'user.email=frontend-style@example.invalid', 'commit', '-m', 'test: establish Git identity fixture']);
+        const gitBound = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.equal(gitBound.status, 0, output(gitBound));
+        expectGit(['add', sourcePolicy.baseline]);
+        expectGit(['-c', 'user.name=Frontend Style Fixture', '-c', 'user.email=frontend-style@example.invalid', 'commit', '-m', 'test: bind Git source state']);
+        const clean = runChecker(fixtureRoot, ['--mode', 'full', '--file', relativePath]);
+        assert.equal(clean.status, 0, output(clean));
+
+        const expectIdentityFailure = () =>
+        {
+            const result = runChecker(fixtureRoot, ['--mode', 'full', '--file', relativePath]);
+            assert.notEqual(result.status, 0, output(result));
+            assert.match(output(result), /frontend style source identity/u);
+        };
+
+        expectGit(['update-index', '--assume-unchanged', relativePath]);
+        expectIdentityFailure();
+        expectGit(['update-index', '--no-assume-unchanged', relativePath]);
+
+        expectGit(['update-index', '--skip-worktree', relativePath]);
+        expectIdentityFailure();
+        expectGit(['update-index', '--no-skip-worktree', relativePath]);
+
+        writeFileSync(absolute, original.replace('return value;', 'return String(value);'));
+        expectIdentityFailure();
+        writeFileSync(absolute, original);
+
+        writeFileSync(absolute, original.replace('return value;', 'return Number(value);'));
+        expectGit(['add', relativePath]);
+        writeFileSync(absolute, original);
+        expectIdentityFailure();
+        expectGit(['add', relativePath]);
+
+        rmSync(absolute);
+        symlinkSync('/dev/null', absolute);
+        expectIdentityFailure();
+        rmSync(absolute);
+        writeFileSync(absolute, original);
+
+        const hardlinkRoot = mkdtempSync(path.join(tmpdir(), 'fsusblog-frontend-style-hardlink-'));
+        const hardlinkSource = path.join(hardlinkRoot, 'source.mjs');
+        writeFileSync(hardlinkSource, original);
+        rmSync(absolute);
+        linkSync(hardlinkSource, absolute);
+        expectIdentityFailure();
+        rmSync(absolute);
+        rmSync(hardlinkRoot, { recursive: true, force: true });
+        writeFileSync(absolute, original);
+
+        expectGit(['config', 'core.sparseCheckout', 'true']);
+        expectIdentityFailure();
+        expectGit(['config', 'core.sparseCheckout', 'false']);
     });
 });
 

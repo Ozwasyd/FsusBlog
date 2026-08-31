@@ -9,6 +9,7 @@ import {
     resolveBackendShardParallelism,
     resolveBackendPotentialProcessCount,
     runRollingPartitions
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/run-backend-production-shards.mjs';
 
 

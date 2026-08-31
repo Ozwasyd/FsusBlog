@@ -6,25 +6,32 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { locateReleaseFinalDirectEvidence } from '../../tools/release/check-release-final.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { locateCurrentRunEvidence } from '../../tools/test/current-run-evidence-locator.mjs';
 import {
     beginCurrentRunEvidencePublication,
     createEvidenceParentReceipt,
     finalizeCurrentRunEvidencePublication,
     releaseFinalDirectConsumerIds
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/current-run-evidence-publication.mjs';
 import {
     locateTransportedCurrentRunEvidence,
     packCurrentRunEvidenceTransport,
     resolveCorrectnessEvidencePath
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/current-run-evidence-transport.mjs';
 import {
     completeEvidenceLocatorRegistryEntry,
     governanceContentDigest,
     verifyEvidenceLocationGovernance
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/evidence-location-contract.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { generateCurrentRunEvidenceLocationAcceptance } from '../../tools/test/generate-current-run-evidence-location-acceptance.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { generateEvidenceLocationGovernance } from '../../tools/test/generate-evidence-location-governance.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');

@@ -4,10 +4,15 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { produceAuthSessionObservation } from '../../tools/contracts/lib/auth-session-observation.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { produceConfigErrorSecurityObservation } from '../../tools/contracts/lib/config-error-security-observation.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { produceContentLifecycleObservation } from '../../tools/contracts/lib/content-lifecycle-observation.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { produceOpenApiObservation } from '../../tools/contracts/lib/openapi-observation.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { produceRuntimeRoleObservation } from '../../tools/contracts/lib/runtime-role-observation.mjs';
 import {
     buildGlobalClaimExactnessReceipt,
@@ -17,9 +22,13 @@ import {
     runGlobalMutationAggregate,
     scanGlobalDocResidue,
     validateGlobalClaimExactnessReceipt
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/docs/global-claim-exactness-final.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { sealSourceIdentity } from '../../tools/fact-extractors/identity.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { sealReceipt } from '../../tools/fact-extractors/receipt.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { runExtractor } from '../../tools/fact-extractors/runner.mjs';
 
 const extractorIds = Object.freeze([

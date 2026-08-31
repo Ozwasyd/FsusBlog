@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { digestValue } from '../../tools/fact-extractors/lib/canonicalize.mjs';
 import {
     BehaviorId,
@@ -17,6 +18,7 @@ import {
     validatePostRuntimeProducerRegistry,
     validatePostRuntimeReceiptSchemas,
     validateProducerReceiptAgainstRegistry
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test-matrix/post-runtime-producer-registry.mjs';
 
 const catalog = JSON.parse(fs.readFileSync(path.join(root, 'config/contracts/behavior-contracts.json'), 'utf8'));

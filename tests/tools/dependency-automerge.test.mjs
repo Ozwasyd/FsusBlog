@@ -9,6 +9,7 @@ import {
     evaluatePlatformAutomerge,
     runAutomergeFixtures,
     validateRenovateAutomerge
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/governance/check-dependency-automerge.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');

@@ -5,14 +5,19 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { loadCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs';
 import {
     scanExtractorSources,
     scanRepositoryFactExtractorGovernance,
     assertExtractorDependencyAcyclic
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/fact-extractors/governance.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { sealSourceIdentity } from '../../tools/fact-extractors/identity.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { digestValue } from '../../tools/fact-extractors/lib/canonicalize.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { readFactObservationReceipt, assertConsumerDoesNotImportExtractors } from '../../tools/fact-extractors/reader.mjs';
 import {
     buildReceipt,
@@ -21,6 +26,7 @@ import {
     validateObservations,
     validateReceipt,
     validateReceiptSchemaContract
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/fact-extractors/receipt.mjs';
 import {
     loadRegistry,
@@ -32,11 +38,13 @@ import {
     validateOwnershipAgainstBehaviorCatalog,
     validateRegistry,
     validateRegistrySchemaContract
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/fact-extractors/registry.mjs';
 import {
     computeExecutionCacheKey,
     runExtractor,
     assertDeterministicSemanticDigest
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/fact-extractors/runner.mjs';
 
 const checker = path.join(root, 'tools/fact-extractors/check-behavior-fact-extractors.mjs');
@@ -363,6 +371,7 @@ test('3) rejects reusing a HEAD receipt after worktree source changes', async ()
 
 test('4) compiled extractor rejects ambient bin directory and requires exact build receipt', async () =>
 {
+    // eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
     const { validateBuildIdentity } = await import('../../tools/fact-extractors/identity.mjs');
     assert.throws(
         () => validateBuildIdentity({

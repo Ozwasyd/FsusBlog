@@ -12,6 +12,7 @@ import {
     observeCorrectnessBrowser,
     validateBrowserIdentityPlan,
     validatePlaywrightBrowserIdentityPolicy
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/playwright-browser-identity.mjs';
 
 const policy = {

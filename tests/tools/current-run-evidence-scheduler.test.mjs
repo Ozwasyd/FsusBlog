@@ -8,8 +8,11 @@ import {
     EVIDENCE_TERMINAL_HANDOFF_PREFIX,
     beginCurrentRunEvidencePublication,
     finalizeCurrentRunEvidencePublication
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/current-run-evidence-publication.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { governanceContentDigest } from '../../tools/test/evidence-location-contract.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { runDag } from '../../tools/test-matrix/scheduler.mjs';
 
 const d = (value) => `sha256:${value.repeat(64)}`;

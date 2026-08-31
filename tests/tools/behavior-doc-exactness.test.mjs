@@ -10,8 +10,11 @@ import {
     scanAuthSecurityDocResidue,
     validateBehaviorDocExactnessReceipt,
     verifyBehaviorDocExactnessReplay
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/docs/behavior-doc-exactness.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { digestValue } from '../../tools/fact-extractors/identity.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { buildReceipt } from '../../tools/fact-extractors/receipt.mjs';
 
 const SHA = 'a'.repeat(40);

@@ -8,20 +8,26 @@ import { fileURLToPath } from 'node:url';
 import {
     defaultTimeoutPolicyDigest,
     qualificationTemporalContext
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/temporal-context.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { plan } from '../../tools/test-fixtures/orchestrator.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { createProducerContext } from '../../tools/test-fixtures/producer-port.mjs';
 import {
     cleanupAccountProfilePreferences,
     prepareAccountProfilePreferences,
     verifyAccountProfilePreferences
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test-fixtures/producers/account-profile-preference-producer.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { buildProducerReceipt } from '../../tools/test-fixtures/receipt/index.mjs';
 import {
     buildFixtureVariantPlan,
     buildProducerFixtureVariantPlan,
     fixtureCatalogDigest,
     readFixtureCatalogs
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/testing/fixture-catalog.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');

@@ -7,6 +7,7 @@ import {
     sha256,
     stableStringify,
     validateContentShapeAuthority
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../testing/content-shape-catalog.mjs';
 
 const GENERATION_VERSION = 'unicode-boundary-v1';

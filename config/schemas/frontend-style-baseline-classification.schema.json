@@ -2,6 +2,7 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://fsusblog.local/schemas/frontend-style-baseline-classification.v1.json",
     "title": "Reviewed frontend style baseline classification",
+    "description": "Exact residual classification that is usable only when identical bytes already exist in the remote master review authority.",
     "type": "object",
     "additionalProperties": false,
     "required": [

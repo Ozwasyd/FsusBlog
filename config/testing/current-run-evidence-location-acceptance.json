@@ -2,15 +2,15 @@
     "schema": "fsusblog.current-run-evidence-location-acceptance.v1",
     "sourceDigests": {
         "config/testing/evidence-locator-registry.json": "sha256:29d82170fc9859a7b03904d142dfd583892278e86e65dc0b857592a223db3c74",
-        "config/testing/evidence-location-migration-ledger.json": "sha256:09a29f6213525aae0359d6392dc18f5d6b32a318505d43b0b9bc48c4abff7e9e",
+        "config/testing/evidence-location-migration-ledger.json": "sha256:8399ea00e9721a46fbd2265d82c16a2ac2ceeecc6f02cf4500861e0ab5c4ba0f",
         "tools/test/evidence-location-scanner.mjs": "sha256:7acd4ceb86312d627911ec53c09206486b191385aa726c7bcb8ee6e6d83253fa",
         "tools/test/current-run-evidence-locator.mjs": "sha256:4adddfe04b45a9f0323fca2a23318aa3b4d85e79f5d3aa0d2e00bb9ec0fffda3",
         "tools/test/current-run-evidence-transport.mjs": "sha256:d6a4b4dfe0394cbe05c3be2fec5ba360b4b6b8cc28483ea3b9cc7b28e282dd5d",
         "tools/test/generate-evidence-location-governance.mjs": "sha256:da8c11885b2e01031ddc8f7d8397983b8629d3348aec5cea7e1505a64622b90f"
     },
     "registryDigest": "sha256:121dafbfe65b6d35cc026de1be4853033da43e7eb250c7963d37c201ed6eae59",
-    "ledgerDigest": "sha256:76262fd8437858ff1119345ef93e27f241958c6f8ef27c25a9c659538ba323d6",
-    "scannerDigest": "sha256:d30ebf6dd097e02ac46e8d336f8e13d889833c85a0f6f2019d2b5e420688aef3",
+    "ledgerDigest": "sha256:88406c6727e82ba375ab99834aab564e02cb2b31a560db880a3095086f33b97a",
+    "scannerDigest": "sha256:1a03af362f544e33bd74dd0d8ad975206d150c85f03f259d06152d6594e151cc",
     "locatorDigest": "sha256:4adddfe04b45a9f0323fca2a23318aa3b4d85e79f5d3aa0d2e00bb9ec0fffda3",
     "transportDigest": "sha256:d6a4b4dfe0394cbe05c3be2fec5ba360b4b6b8cc28483ea3b9cc7b28e282dd5d",
     "consumerInventory": [
@@ -506,7 +506,7 @@
         }
     ],
     "consumerCount": 70,
-    "findingCount": 346,
+    "findingCount": 348,
     "warnings": [],
-    "contentDigest": "sha256:aa52d2fc0ee08c4875353f09f3d536c43bee142b58089ba3971d9ba6a960c31e"
+    "contentDigest": "sha256:17e5eb7ff20bba9d4eaa3b450154d2f06442560d312b5ab10757fc0892b39f74"
 }

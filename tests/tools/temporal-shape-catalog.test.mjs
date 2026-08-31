@@ -4,14 +4,18 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { verifyTemporalShapeGovernance } from '../../tools/test/check-temporal-shape-governance.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { readTemporalDomainProducerInventory } from '../../tools/test/temporal-role-resolver.mjs';
 import {
     readTemporalShapeCatalog,
     temporalShapeDigest,
     validateTemporalShapeCatalog,
     verifyAuthSessionPolicyRoles
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/temporal-shape-catalog.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { validateJsonSchema } from '../../tools/test-matrix/schema-validator/validate.mjs';
 
 const repositoryRoot = path.resolve(import.meta.dirname, '../..');

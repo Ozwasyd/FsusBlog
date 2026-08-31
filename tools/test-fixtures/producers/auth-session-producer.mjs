@@ -12,7 +12,9 @@ import { createHash } from 'node:crypto';
 import {
     resolveTemporalRolesForProducer,
     verifyResolvedTemporalArtifact
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../test/temporal-role-resolver.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { validateProducerReceipt } from '../receipt/producer-receipt.mjs';
 
 const PRODUCER_ID = 'auth-session';

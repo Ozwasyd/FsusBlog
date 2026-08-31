@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { BehaviorId } from '../../tools/contracts/behavior-contract-catalog.mjs';
 import {
     analyzeAuthorityDag,
@@ -13,6 +14,7 @@ import {
     authorityDagSchema,
     authorityLayers,
     validateAuthorityDagReceipt
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/contracts/cross-authority-dag.mjs';
 
 const root = path.resolve(import.meta.dirname, '../..');

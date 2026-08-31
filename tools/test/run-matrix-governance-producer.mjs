@@ -3,8 +3,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { readCleanAttemptConsumerInventory } from '../release/browser-release-clean-attempt-consumers.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { readSemanticOutcomeConsumerInventory } from '../release/semantic-outcome-clean-attempt-consumers.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { validateRuntimeStateDomainCatalog } from '../test-matrix/runtime-state-domain-catalog.mjs';
 
 import { readRetryPolicyRegistry } from './attempt-provenance.mjs';
@@ -48,5 +51,6 @@ if (errors.length > 0)
 else
 {
     console.log('[runtime-state-domain] ok');
+    // eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
     await import('../check-test-matrix.mjs');
 }

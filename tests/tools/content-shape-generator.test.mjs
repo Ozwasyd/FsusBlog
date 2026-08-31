@@ -8,10 +8,12 @@ import {
     generateContentShape,
     generateContentShapes,
     verifyGeneratedContentShape
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test-fixtures/content-shape-generator.mjs';
 import {
     contentShapeBoundaryPlan,
     readContentShapeAuthority
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/testing/content-shape-catalog.mjs';
 
 test('all Unicode classes generate deterministic exact bytes and statistics', () =>

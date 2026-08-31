@@ -3,6 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { runBehaviorDocStaticAdmission } from '../../tools/docs/behavior-doc-static-admission.mjs';
 import {
     negativeClassIds,
@@ -11,7 +12,9 @@ import {
     runContentNegativeClasses,
     scanContentResidues,
     verifyTerminalReceipt
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/docs/content-doc-exactness.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { digestValue } from '../../tools/docs/doc-claim.mjs';
 
 const evidenceRoot = path.join(process.cwd(), '.tmp', 'content-doc-exactness-tests', String(process.pid));

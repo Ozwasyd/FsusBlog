@@ -7,10 +7,12 @@ import test from 'node:test';
 import {
     digestCanonical,
     validateAggregateAttemptReceipt
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/attempt-provenance.mjs';
 import {
     runProducerAttempts,
     validateDockerEquivalentAttemptReceipt
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/attempt-runner.mjs';
 
 const root = path.resolve(import.meta.dirname, '../..');

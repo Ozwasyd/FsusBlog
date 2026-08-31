@@ -6,10 +6,12 @@ import {
     observeExecutableIdentity,
     prepareCorrectnessEnvironment,
     verifyExecutableIdentity
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/execution-envelope-environment.mjs';
 import {
     loadExecutionEnvelopeApplicability,
     loadExecutionEnvelopePolicy
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test-matrix/execution-envelope-policy.mjs';
 
 const policy = loadExecutionEnvelopePolicy();

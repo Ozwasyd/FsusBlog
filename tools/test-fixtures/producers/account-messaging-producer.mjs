@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import {
     digestMessagingFixtureValue,
     readMessagingFixtureContract
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../test/messaging-fixture-contract.mjs';
 
 import { projectVerifiedIdentityReferences } from './auth-session-producer.mjs';
@@ -150,6 +151,7 @@ async function resolveTemporalRoles(context, resolver)
     {
         try
         {
+            // eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
             authority = await import('../../test/temporal-role-resolver.mjs');
         }
         catch (error)

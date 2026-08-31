@@ -11,10 +11,13 @@ import { fileURLToPath } from 'node:url';
 import {
     collectProductionToolchain,
     verifyProductionBuildReceipt
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../ci/production-build-artifacts.mjs';
 import {
     validateReleaseReliabilitySchedulerCatalog
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../test-matrix/release-reliability-scheduler-projection.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { snapshotGitWorktree } from '../test-matrix/scheduler.mjs';
 
 import { parseRuntimeEnvironment } from './bundles/runtime-environment.mjs';

@@ -21,7 +21,9 @@ import { fileURLToPath } from 'node:url';
 import {
     globalExactnessSchema,
     validateGlobalClaimExactnessReceipt
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../docs/global-claim-exactness-final.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { digestValue, isPlainObject } from '../fact-extractors/lib/canonicalize.mjs';
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');

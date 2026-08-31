@@ -10,7 +10,9 @@ import {
     loadReleaseReliabilityCatalog,
     releaseReliabilityResourceConflict,
     releaseReliabilitySchedulerProjection
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test-matrix/release-reliability-scheduler-projection.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { runDag } from '../../tools/test-matrix/scheduler.mjs';
 
 const catalog = loadReleaseReliabilityCatalog();

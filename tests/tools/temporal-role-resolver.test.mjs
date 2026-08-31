@@ -8,6 +8,7 @@ import {
     defaultTimeoutPolicyDigest,
     qualificationTemporalContext,
     semanticOutcomeDigest
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/temporal-context.mjs';
 import {
     createTemporalDomainProducerReceipt,
@@ -18,7 +19,9 @@ import {
     resolveTemporalRoles,
     resolveTemporalRolesForProducer,
     verifyResolvedTemporalArtifact
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/temporal-role-resolver.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { validateJsonSchema } from '../../tools/test-matrix/schema-validator/validate.mjs';
 
 const repositoryRoot = path.resolve(import.meta.dirname, '../..');

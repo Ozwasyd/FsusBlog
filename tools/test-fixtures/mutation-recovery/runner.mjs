@@ -1,4 +1,6 @@
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { loadCanonicalMutationEnvelopeCatalog } from '../mutation-envelope-catalog.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { validateFixtureReceipt } from '../receipt/fixture-receipt.mjs';
 
 import { canonicalJson, requireDigest, requireStableId, seal, verifySeal } from './canonical.mjs';

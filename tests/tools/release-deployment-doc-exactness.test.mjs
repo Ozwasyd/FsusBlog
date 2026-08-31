@@ -3,8 +3,11 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { produceRuntimeRoleObservation } from '../../tools/contracts/lib/runtime-role-observation.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { buildBehaviorDocExactnessReceipt } from '../../tools/docs/behavior-doc-exactness.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { verifyProseClaims } from '../../tools/docs/prose-claim-verifier/verifier.mjs';
 import {
     buildReleaseDeploymentDocExactnessReceipt,
@@ -16,7 +19,9 @@ import {
     scanReleaseDeploymentDocResidue,
     validateReleaseDeploymentDocExactnessReceipt,
     verifyReleaseDeploymentGeneratedSections
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/docs/release-deployment-doc-exactness.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { runExtractor } from '../../tools/fact-extractors/runner.mjs';
 
 let observation;

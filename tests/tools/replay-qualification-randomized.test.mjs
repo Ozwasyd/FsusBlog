@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { canonicalDigest } from '../../tools/test/execution-replay-contract.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { deriveRandomConsumerStream, loadRandomStreamInventory } from '../../tools/test/random-streams.mjs';
 
 const rootSeed = `seed256:${'2'.repeat(64)}`;

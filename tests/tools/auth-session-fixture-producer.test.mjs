@@ -6,6 +6,7 @@ import test from 'node:test';
 import {
     defaultTimeoutPolicyDigest,
     qualificationTemporalContext
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/temporal-context.mjs';
 import {
     authSessionProducerMeta,
@@ -14,16 +15,19 @@ import {
     projectVerifiedIdentityReferences,
     validateAuthSessionResult,
     verifyAuthSession
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test-fixtures/producers/auth-session-producer.mjs';
 import {
     buildProducerReceipt,
     digestCanonical
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test-fixtures/receipt/index.mjs';
 import {
     buildFixtureVariantPlan,
     buildProducerFixtureVariantPlan,
     fixtureCatalogDigest,
     readFixtureCatalogs
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/testing/fixture-catalog.mjs';
 
 

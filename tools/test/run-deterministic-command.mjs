@@ -10,6 +10,7 @@ import {
     loadExecutionEnvelopeApplicability,
     loadExecutionEnvelopePolicy,
     resolveExecutionEnvelopeProducer
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../test-matrix/execution-envelope-policy.mjs';
 
 import {

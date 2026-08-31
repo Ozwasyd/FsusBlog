@@ -5,6 +5,7 @@ import {
     buildMessagingFixtureAcceptanceReceipt,
     buildMessagingFixtureCleanupReceipt,
     verifyMessagingFixtureAcceptanceReceipt
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/messaging-fixture-governance.mjs';
 
 test('messaging terminal acceptance binds cleanup, parity, mutations, and privacy with zero warnings', () =>

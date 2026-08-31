@@ -10,10 +10,12 @@ import {
     evidenceProducerReceiptDigest,
     locateCurrentRunEvidence,
     verifyCurrentRunEvidenceBinding
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/current-run-evidence-locator.mjs';
 import {
     completeEvidenceLocatorRegistryEntry,
     governanceContentDigest
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/evidence-location-contract.mjs';
 
 const d = (value) => `sha256:${value.repeat(64)}`;

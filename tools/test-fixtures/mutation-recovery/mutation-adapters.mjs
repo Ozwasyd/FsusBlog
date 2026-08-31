@@ -4,7 +4,9 @@ import path from 'node:path';
 import {
     catalogContentDigest,
     loadCanonicalMutationEnvelopeCatalog
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../mutation-envelope-catalog.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { validateFixtureReceipt } from '../receipt/fixture-receipt.mjs';
 
 import { canonicalJson, digest, requireStableId, seal, verifySeal } from './canonical.mjs';

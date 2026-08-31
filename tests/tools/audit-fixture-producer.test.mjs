@@ -6,10 +6,12 @@ import {
     computeAuditNegativeContentDigest,
     computeAuditReceiptContentDigest,
     validateAuditReceipt
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test-fixtures/producers/audit-producer.mjs';
 import {
     createAuditRecordsPort,
     createDefaultProducerPorts
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test-fixtures/producers/catalog-ports.mjs';
 
 function context(capabilities)

@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { CanonicalMediaAssetStore } from '../../tools/test-fixtures/canonical-media-asset-store.mjs';
 import {
     MEDIA_NEGATIVE_CASE_IDS,
@@ -14,7 +15,9 @@ import {
     scanMediaNegativeCorpusGovernance,
     validateMediaNegativeCorpusPlan,
     verifyMediaNegativeCorpusReceipt
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test-fixtures/media-negative-corpus.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { materializePositiveMedia } from '../../tools/test-fixtures/media-positive-generator.mjs';
 
 const positivePng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');

@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { inventoryByDomain } from '../../tools/test/correctness-attempt-producers.mjs';
 
 const root = path.resolve(import.meta.dirname, '../..');

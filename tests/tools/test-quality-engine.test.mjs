@@ -16,14 +16,18 @@ import {
     buildQualityArtifact,
     validateQualityArtifact,
     verifyQualityArtifact
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test-quality/artifact.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { buildOracleFacts } from '../../tools/test-quality/oracle-facts.mjs';
 import {
     evaluateQuality,
     loadQualityPolicy,
     qualityRuleIds,
     validateQualityPolicy
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test-quality/policy.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { contentDigest, validateOracleFacts } from '../../tools/test-quality/schema.mjs';
 
 const repositoryRoot = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));

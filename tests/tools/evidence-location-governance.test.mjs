@@ -9,11 +9,14 @@ import {
     governanceContentDigest,
     validateEvidenceLocationMigrationLedger,
     verifyEvidenceLocationGovernance
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/evidence-location-contract.mjs';
 import {
     evidenceLocationDigest,
     scanEvidenceLocations
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/evidence-location-scanner.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { generateEvidenceLocationGovernance } from '../../tools/test/generate-evidence-location-governance.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');

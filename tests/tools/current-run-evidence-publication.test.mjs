@@ -11,6 +11,7 @@ import {
     initializeCurrentRunEvidenceCheckpoint,
     parseCurrentRunEvidenceHandoffs,
     resumeCurrentRunEvidenceCheckpoint
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/current-run-evidence-checkpoint.mjs';
 import {
     beginCurrentRunEvidencePublication,
@@ -20,7 +21,9 @@ import {
     readCurrentRunEvidencePublication,
     recoverCurrentRunEvidencePublication,
     resolveEvidenceReferencePayload
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/current-run-evidence-publication.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { governanceContentDigest } from '../../tools/test/evidence-location-contract.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');

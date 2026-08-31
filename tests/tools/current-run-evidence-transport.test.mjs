@@ -4,10 +4,12 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { locateCurrentRunEvidence } from '../../tools/test/current-run-evidence-locator.mjs';
 import {
     beginCurrentRunEvidencePublication,
     finalizeCurrentRunEvidencePublication
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/current-run-evidence-publication.mjs';
 import {
     browseDiagnosticTransportEntries,
@@ -15,10 +17,12 @@ import {
     locateTransportedCurrentRunEvidence,
     packCurrentRunEvidenceTransport,
     resolveCorrectnessEvidencePath
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/current-run-evidence-transport.mjs';
 import {
     completeEvidenceLocatorRegistryEntry,
     governanceContentDigest
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/evidence-location-contract.mjs';
 
 const d = (value) => `sha256:${value.repeat(64)}`;

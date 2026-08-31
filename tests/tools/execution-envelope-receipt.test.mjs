@@ -10,14 +10,18 @@ import {
     sealExecutionEnvelopeReceipt,
     verifyExecutionEnvelopeConsumerBindings,
     verifyExecutionEnvelopeReceipt
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/execution-envelope-receipt.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { verifyExecutionEnvelopeFiles } from '../../tools/test/verify-execution-envelope.mjs';
 import {
     loadExecutionEnvelopeApplicability,
     loadExecutionEnvelopePolicy,
     executionEnvelopeDigest,
     resolveExecutionEnvelopeProducer
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test-matrix/execution-envelope-policy.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { validateJsonSchema } from '../../tools/test-matrix/schema-validator/validate.mjs';
 
 const policy = loadExecutionEnvelopePolicy();

@@ -6,9 +6,11 @@ import { fileURLToPath } from 'node:url';
 
 import {
     readCleanAttemptConsumerInventory
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../release/browser-release-clean-attempt-consumers.mjs';
 import {
     readSemanticOutcomeConsumerInventory
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../release/semantic-outcome-clean-attempt-consumers.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');

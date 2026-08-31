@@ -6,6 +6,7 @@ import test from 'node:test';
 import {
     inventoryByDomain,
     validateCorrectnessAttemptProducerInventory
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/correctness-attempt-producers.mjs';
 
 const root = path.resolve(import.meta.dirname, '../..');

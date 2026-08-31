@@ -14,11 +14,13 @@ import {
     validateGeneratedPackageFreshness,
     validateGeneratedWasmPackage,
     validateWasmProducerInputClosure
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/check-wasm-artifact-ownership.mjs';
 import {
     resolveWasmRequiredOutputFiles,
     wasmArtifactContract,
     wasmToolchainContract
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/frontend/ensure-wasm.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');

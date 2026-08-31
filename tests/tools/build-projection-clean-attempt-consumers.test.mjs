@@ -7,8 +7,11 @@ import test from 'node:test';
 import {
     admitSemanticOutcomeCleanAttempt,
     readSemanticOutcomeConsumerInventory
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/release/semantic-outcome-clean-attempt-consumers.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { sha256 } from '../../tools/test/attempt-provenance.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { runProducerAttempts } from '../../tools/test/attempt-runner.mjs';
 
 const root = path.resolve(import.meta.dirname, '../..');

@@ -22,8 +22,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { digestCatalog, loadCatalog } from '../contracts/behavior-contract-catalog.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { digestValue } from '../fact-extractors/identity.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { readFactObservationReceipt } from '../fact-extractors/reader.mjs';
 
 import { scanApiProtocolDocResidue, runApiProtocolDocMutationCases } from './api-protocol-doc-exactness.mjs';

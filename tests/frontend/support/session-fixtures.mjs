@@ -9,6 +9,7 @@ import path from 'node:path';
 import {
     loadResolvedTemporalRoles,
     requireResolvedTemporalRole
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../../tools/test/temporal-role-resolver.mjs';
 
 import {

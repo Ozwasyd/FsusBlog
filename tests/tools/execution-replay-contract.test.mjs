@@ -6,6 +6,7 @@ import {
     scanEntropyGovernanceSource,
     validateTestEntropyGovernance,
     verifyRepositoryTestEntropyGovernance
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/check-test-entropy-governance.mjs';
 import {
     REPLAY_PLAN_SCHEMA,
@@ -25,6 +26,7 @@ import {
     validateReplayBundle,
     validateReplayPlan,
     validateReplayReceipt
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/execution-replay-contract.mjs';
 
 const zeroDigest = `sha256:${'0'.repeat(64)}`;

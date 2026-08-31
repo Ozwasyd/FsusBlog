@@ -13,8 +13,11 @@ import { createHash } from 'node:crypto';
 import {
     resolveTemporalRolesForProducer,
     verifyResolvedTemporalArtifact
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../test/temporal-role-resolver.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { digestCanonical } from '../receipt/canonical.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { assertNoSecrets } from '../receipt/secrets.mjs';
 
 export const SECURITY_FIXTURE_OBSERVATION_SCHEMA = 'fsusblog.security-fixture-observation.v1';

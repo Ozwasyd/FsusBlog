@@ -49,6 +49,8 @@ node tools/frontend/check-frontend-style.mjs --mode full
 
 `config/development/frontend-style-baseline.json` records historical violations by file-content digest. An unchanged file may retain only its exact baseline; touching the file invalidates that allowance. `strict-full` ignores the baseline and is the eventual migration proof:
 
+Baseline source identity is computed only from an exact clean Git state. Every path other than the baseline itself must be the same one-link regular file in `HEAD`, index and worktree, with the same executable mode and blob OID. Assume-unchanged, skip-worktree, sparse checkout, untracked/missing paths, symlinks, hardlinks, non-regular types and staged/worktree OID splits fail closed.
+
 ```bash
 node tools/frontend/check-frontend-style.mjs --mode strict-full
 ```
@@ -59,11 +61,13 @@ Regenerate a reviewed baseline without changing source:
 node tools/frontend/check-frontend-style.mjs --mode full --update-baseline
 ```
 
-The updater remains monotonic by default: it rejects a new path, a violation-count increase or an equal-count identity change. A convergence change may authorize only the exact residual rejection set with `--reviewed-baseline-classification <path>`. The classification is a closed `fsusblog.frontend-style-baseline-classification.v1` document and must bind every path to its exact source digest, violation digest, rule counts, ancestor owner commit, review issue, reason and `source-content-change` terminal condition. Missing, extra, stale, wildcard, reversed-owner and non-owner entries fail closed.
+The updater remains monotonic by default: it rejects a new path, a violation-count increase or an equal-count identity change. An independently reviewed authority may authorize only the exact residual rejection set with `--reviewed-baseline-classification <path>`. The classification must already exist byte-for-byte at the refreshed `refs/remotes/origin/master`; the candidate cannot create or edit its own waiver. It is a closed `fsusblog.frontend-style-baseline-classification.v1` document and binds every path to its exact source digest, violation digest, rule counts, owner commit that is already an authority ancestor, review issue, reason and `source-content-change` terminal condition. Missing, extra, stale, wildcard, reversed-owner, candidate-authored and non-owner entries fail closed.
 
 Reviewed classification is limited to existing module ownership: exact parent-directory imports in `tests/**` or `tools/**`, and necessary retained fixture symbols in `tests/**` or `tools/test-fixtures/**`. It is accepted only during `--update-baseline`; it does not suppress changed-file or `strict-full` findings, cannot authorize any other semantic rule, and cannot be reused after source content changes.
 
 The runner refuses a repository-wide `--fix`. `npm --prefix src/frontend run format:fix` fixes changed files only, and AST fixers must be idempotent. ESLint uses a content cache under ignored `.tmp/frontend-style/` so unchanged work is resumed rather than parsed repeatedly.
+
+The baseline configuration digest also re-derives the installed toolchain on every consumer run. It binds the actual ESLint and Stylelint executable symlink/realpath, mode, link count, bytes and reported version, plus the regular-file bytes and locked versions of the complete installed plugin/parser dependency closure. Replacing a command with an empty-result stub or mutating installed plugin/parser bytes therefore invalidates the baseline before a zero-result scan can be accepted.
 
 ## Governance preservation
 

@@ -4,12 +4,14 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs';
 import {
     loadReleaseReliabilityCatalog,
     releaseReliabilitySchedulerProjection,
     validateReleaseReliabilitySchedulerCatalog,
     validateReleaseReliabilitySchedulerMatrix
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test-matrix/release-reliability-scheduler-projection.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');

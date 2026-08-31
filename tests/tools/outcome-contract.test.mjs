@@ -6,6 +6,7 @@ import {
     sealProducerSemanticOutcomeCandidate,
     validateOutcomeFieldDispositions,
     validateProducerSemanticOutcomeCandidate
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test-matrix/outcomes/outcome-contract.mjs';
 
 const digest = (digit) => `sha256:${digit.repeat(64)}`;

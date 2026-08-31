@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { buildBackendEvidencePathAuthority } from '../../tools/test/backend-evidence-path-authority.mjs';
 import {
     aggregateCategoryDiscoveryFailures,
@@ -10,7 +11,9 @@ import {
     buildShardPlan,
     validateCategoryMembership,
     validateShardSummaryArtifacts
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/run-backend-production-shards.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs';
 
 const root = path.resolve(import.meta.dirname, '../..');

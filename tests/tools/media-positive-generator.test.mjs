@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { CanonicalMediaAssetStore } from '../../tools/test-fixtures/canonical-media-asset-store.mjs';
 import {
     generatePositiveMediaBytes,
@@ -11,11 +12,13 @@ import {
     materializePositiveMedia,
     scanPositiveMediaGeneratorGovernance,
     verifyPositiveMediaReceipts
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test-fixtures/media-positive-generator.mjs';
 import {
     MEDIA_POSITIVE_SHAPE_IDS,
     loadMediaShapeCatalog,
     mediaContentDigest
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test-fixtures/media-shape-catalog.mjs';
 
 function fixture(namespace = 'media-positive-test')

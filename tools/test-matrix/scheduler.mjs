@@ -16,6 +16,7 @@ import {
     resumeCurrentRunEvidenceCheckpoint
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Producer terminal handoffs are scheduler checkpoint inputs.
 } from '../test/current-run-evidence-checkpoint.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { validateEvidenceLocatorRegistry } from '../test/evidence-location-contract.mjs';
 import {
     loadPhysicalExecutionProcessPolicy,
@@ -32,6 +33,7 @@ import {
 import {
     createSchedulerReplayActual,
     validateSchedulerReplayPlan
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../test/scheduler-replay-contract.mjs';
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler admission needs host-accurate Darwin available memory.
 import { availableMemoryBytes, availableMemoryGiB } from '../test/system-memory.mjs';

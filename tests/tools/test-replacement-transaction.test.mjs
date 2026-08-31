@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { contentDigest } from '../../tools/test-quality/schema.mjs';
 import {
     applyReplacementTransaction,
@@ -14,6 +15,7 @@ import {
     validateReplacementReceipt,
     validateReplacementTransaction,
     verifyDiffHasTransaction
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test-replacement/transaction.mjs';
 
 const hash = (value) => `sha256:${createHash('sha256').update(String(value)).digest('hex')}`;

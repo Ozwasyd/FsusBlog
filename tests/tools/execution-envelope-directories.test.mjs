@@ -7,6 +7,7 @@ import test from 'node:test';
 import {
     finalizeRunOwnedDirectories,
     prepareRunOwnedDirectories
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/execution-envelope-directories.mjs';
 
 test('HOME, TMP, npm, NuGet, and tool caches are unique run-attempt owned roots', (context) =>

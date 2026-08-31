@@ -1,6 +1,7 @@
 import {
     AttemptContractError,
     validateAggregateAttemptReceipt
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../test/attempt-provenance.mjs';
 
 export const cleanFirstAttemptVerdictSchema = 'fsusblog.clean-first-attempt-verdict.v1';

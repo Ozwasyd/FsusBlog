@@ -13,6 +13,7 @@ const policySchema = 'fsusblog.frontend-style-policy.v1';
 const registrySchema = 'fsusblog.frontend-style-rule-registry.v1';
 const baselineSchema = 'fsusblog.frontend-style-baseline.v1';
 const baselineClassificationSchema = 'fsusblog.frontend-style-baseline-classification.v1';
+const reviewedBaselineAuthorityRef = 'refs/remotes/origin/master';
 const validModes = new Set(['changed', 'full', 'strict-full']);
 const reviewedClassificationRules = new Map([
     ['owner-module-parent-import', new Set(['eslint/import-x/no-relative-parent-imports'])],
@@ -27,6 +28,7 @@ const reviewedClassificationRules = new Map([
 let root = defaultRoot;
 let policy = null;
 let policyFile = null;
+let cachedToolchainIdentity = null;
 const failures = [];
 
 function fail(message)
@@ -114,6 +116,148 @@ function gitBlobDigest(value)
         .update(`blob ${value.length}\0`)
         .update(value)
         .digest('hex');
+}
+
+function fileMode(stat)
+{
+    return stat.mode & 0o777;
+}
+
+function packageFiles(directory, prefix = '', output = [])
+{
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true }))
+    {
+        if (entry.name === 'node_modules')
+        {
+            continue;
+        }
+        const absolute = path.join(directory, entry.name);
+        const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+        if (entry.isDirectory())
+        {
+            packageFiles(absolute, relative, output);
+            continue;
+        }
+        const stat = fs.lstatSync(absolute);
+        if (!stat.isFile() || stat.nlink !== 1)
+        {
+            fail(`frontend style toolchain closure requires one-link regular bytes: ${absolute}`);
+            continue;
+        }
+        output.push({
+            path: relative,
+            mode: fileMode(stat),
+            nlink: stat.nlink,
+            size: stat.size,
+            sha256: sha256(fs.readFileSync(absolute))
+        });
+    }
+    return output;
+}
+
+function executableIdentity(id, configuredPath, packageName, toolchainRoot, lockPackages)
+{
+    const requested = path.join(root, configuredPath);
+    const requestedStat = fs.lstatSync(requested);
+    const realpath = fs.realpathSync.native(requested);
+    const actualStat = fs.statSync(realpath);
+    const packageRoot = path.join(toolchainRoot, 'node_modules', packageName);
+    const relativeRealpath = toPosix(path.relative(toolchainRoot, realpath));
+    if ((path.relative(packageRoot, realpath) === '..' || path.relative(packageRoot, realpath).startsWith(`..${path.sep}`))
+        || !actualStat.isFile()
+        || actualStat.nlink !== 1)
+    {
+        fail(`frontend style ${id} executable must resolve to one-link regular bytes owned by ${packageName}`);
+    }
+    const packageDocument = readJson(path.join(packageRoot, 'package.json'), `${packageName}/package.json`);
+    const locked = lockPackages[`node_modules/${packageName}`];
+    const versionResult = command([requested, '--version'], { allowFailure: true });
+    const version = versionResult.stdout.trim().replace(/^v/u, '');
+    if (versionResult.status !== 0
+        || !packageDocument?.version
+        || packageDocument.version !== locked?.version
+        || version !== packageDocument.version)
+    {
+        fail(`frontend style ${id} executable version does not match the installed locked ${packageName} package`);
+    }
+    return {
+        id,
+        configuredPath,
+        requestedType: requestedStat.isSymbolicLink() ? 'symlink' : requestedStat.isFile() ? 'regular' : 'other',
+        requestedMode: fileMode(requestedStat),
+        requestedNlink: requestedStat.nlink,
+        requestedLink: requestedStat.isSymbolicLink() ? fs.readlinkSync(requested) : null,
+        realpath: relativeRealpath,
+        mode: fileMode(actualStat),
+        nlink: actualStat.nlink,
+        size: actualStat.size,
+        sha256: actualStat.isFile() ? sha256(fs.readFileSync(realpath)) : null,
+        version
+    };
+}
+
+function toolchainIdentity()
+{
+    if (cachedToolchainIdentity)
+    {
+        return cachedToolchainIdentity;
+    }
+    const packagePath = path.join(root, policy.toolchain.package);
+    const lockPath = path.join(root, policy.toolchain.lock);
+    const toolchainRoot = fs.realpathSync.native(path.dirname(packagePath));
+    const packageDocument = readJson(packagePath, policy.toolchain.package);
+    const lockDocument = readJson(lockPath, policy.toolchain.lock);
+    const lockPackages = lockDocument?.packages ?? {};
+    const declared = Object.keys({
+        ...packageDocument?.dependencies,
+        ...packageDocument?.devDependencies
+    }).sort(compareOrdinal);
+    const lockedRoot = Object.keys({
+        ...lockPackages['']?.dependencies,
+        ...lockPackages['']?.devDependencies
+    }).sort(compareOrdinal);
+    if (JSON.stringify(declared) !== JSON.stringify(lockedRoot))
+    {
+        fail('frontend style installed toolchain root dependencies do not match package-lock');
+    }
+    const packages = [];
+    for (const [packageRelative, locked] of Object.entries(lockPackages)
+        .filter(([entry]) => entry.startsWith('node_modules/'))
+        .sort(([left], [right]) => compareOrdinal(left, right)))
+    {
+        const absolute = path.join(toolchainRoot, packageRelative);
+        if (!fs.existsSync(absolute))
+        {
+            if (!locked.optional)
+            {
+                fail(`frontend style toolchain closure package is missing: ${packageRelative}`);
+            }
+            packages.push({ path: packageRelative, version: locked.version ?? null, optional: Boolean(locked.optional), installed: false });
+            continue;
+        }
+        const installedPackage = readJson(path.join(absolute, 'package.json'), `${packageRelative}/package.json`);
+        if (!installedPackage || installedPackage.version !== locked.version)
+        {
+            fail(`frontend style toolchain closure version is stale: ${packageRelative}`);
+        }
+        packages.push({
+            path: packageRelative,
+            version: locked.version ?? null,
+            integrity: locked.integrity ?? null,
+            optional: Boolean(locked.optional),
+            installed: true,
+            files: packageFiles(absolute).sort((left, right) => compareOrdinal(left.path, right.path))
+        });
+    }
+    cachedToolchainIdentity = {
+        schema: 'fsusblog.frontend-style-installed-toolchain.v1',
+        executables: [
+            executableIdentity('eslint', policy.toolchain.eslint, 'eslint', toolchainRoot, lockPackages),
+            executableIdentity('stylelint', policy.toolchain.stylelint, 'stylelint', toolchainRoot, lockPackages)
+        ],
+        packages
+    };
+    return cachedToolchainIdentity;
 }
 
 function compareOrdinal(left, right)
@@ -457,7 +601,13 @@ function configurationDigest()
     ];
     const sources = paths.map((file) => `${toPosix(path.relative(root, file))}\n${sha256(fs.readFileSync(file))}`);
     sources.push(`runtime\nnode=${process.version}\nplatform=${process.platform}\narch=${process.arch}`);
+    sources.push(`installed-toolchain\n${sha256(JSON.stringify(toolchainIdentity()))}`);
     return sha256(sources.join('\n'));
+}
+
+function parseNullSeparatedEntries(value)
+{
+    return value.split('\0').filter(Boolean);
 }
 
 function sourceStateDigest()
@@ -469,30 +619,92 @@ function sourceStateDigest()
     const repositoryRoot = command(['git', 'rev-parse', '--show-toplevel'], { allowFailure: true }).stdout.trim();
     if (repositoryRoot && path.resolve(repositoryRoot) === root)
     {
-        const indexed = new Map();
-        const index = command(['git', 'ls-files', '--stage'], { allowFailure: true });
-        if (index.status === 0)
+        for (const key of ['core.sparseCheckout', 'core.sparseCheckoutCone'])
         {
-            for (const line of index.stdout.split(/\r?\n/u))
+            const configured = command(['git', 'config', '--bool', '--get', key], { allowFailure: true });
+            if (configured.status === 0 && configured.stdout.trim() === 'true')
             {
-                const match = /^\d+ ([0-9a-f]+) 0\t(.+)$/u.exec(line);
-                if (match)
-                {
-                    indexed.set(toPosix(match[2]), match[1]);
-                }
+                fail(`frontend style source identity rejects sparse checkout configuration ${key}`);
             }
-            const changed = new Set(changedFiles('HEAD'));
-            return sha256(files.map((file) =>
-            {
-                const indexedDigest = indexed.get(file);
-                const digest = indexedDigest && !changed.has(file)
-                    ? indexedDigest
-                    : gitBlobDigest(fs.readFileSync(path.join(root, file)));
-                return `${file}\n${digest}`;
-            }).join('\n'));
         }
+        const head = new Map();
+        const headTree = command(['git', 'ls-tree', '-rz', '--full-tree', 'HEAD'], { allowFailure: true });
+        const index = new Map();
+        const indexEntries = command(['git', 'ls-files', '-sz'], { allowFailure: true });
+        const flags = new Map();
+        const flagEntries = command(['git', 'ls-files', '-vz'], { allowFailure: true });
+        if (headTree.status !== 0 || indexEntries.status !== 0 || flagEntries.status !== 0)
+        {
+            fail('frontend style source identity cannot read exact Git HEAD/index state');
+        }
+        for (const entry of parseNullSeparatedEntries(headTree.stdout))
+        {
+            const match = /^(\d+) (blob|commit) ([0-9a-f]{40})\t(.+)$/u.exec(entry);
+            if (match)
+            {
+                head.set(toPosix(match[4]), { mode: match[1], type: match[2], oid: match[3] });
+            }
+        }
+        for (const entry of parseNullSeparatedEntries(indexEntries.stdout))
+        {
+            const match = /^(\d+) ([0-9a-f]{40}) (\d)\t(.+)$/u.exec(entry);
+            if (match)
+            {
+                index.set(toPosix(match[4]), { mode: match[1], oid: match[2], stage: Number(match[3]) });
+            }
+        }
+        for (const entry of parseNullSeparatedEntries(flagEntries.stdout))
+        {
+            flags.set(toPosix(entry.slice(2)), entry[0]);
+        }
+        const identities = [];
+        for (const file of files)
+        {
+            const headEntry = head.get(file);
+            const indexEntry = index.get(file);
+            const flag = flags.get(file);
+            const absolute = path.join(root, file);
+            const stat = fs.lstatSync(absolute);
+            const regular = stat.isFile() && !stat.isSymbolicLink() && stat.nlink === 1;
+            const worktreeMode = stat.isFile() && (stat.mode & 0o111) !== 0 ? '100755' : '100644';
+            const worktreeOid = stat.isFile() ? gitBlobDigest(fs.readFileSync(absolute)) : null;
+            if (!headEntry
+                || headEntry.type !== 'blob'
+                || !['100644', '100755'].includes(headEntry.mode)
+                || !indexEntry
+                || indexEntry.stage !== 0
+                || indexEntry.mode !== headEntry.mode
+                || indexEntry.oid !== headEntry.oid
+                || flag !== 'H'
+                || !regular
+                || worktreeMode !== headEntry.mode
+                || worktreeOid !== headEntry.oid)
+            {
+                fail(`frontend style source identity requires exact one-link regular HEAD/index/worktree bytes for ${file}`);
+                continue;
+            }
+            identities.push(`${file}\nmode=${headEntry.mode}\noid=${headEntry.oid}\nnlink=${stat.nlink}`);
+        }
+        const expectedFiles = [...head.keys()]
+            .filter((file) => file !== policy.baseline)
+            .filter((file) => fs.existsSync(path.join(root, file)))
+            .sort(compareOrdinal);
+        if (JSON.stringify(files) !== JSON.stringify(expectedFiles))
+        {
+            fail('frontend style source identity rejects untracked, missing or non-HEAD repository paths');
+        }
+        return sha256(identities.join('\n'));
     }
-    return sha256(files.map((file) => `${file}\nsha256:${sha256(fs.readFileSync(path.join(root, file)))}`).join('\n'));
+    return sha256(files.map((file) =>
+    {
+        const absolute = path.join(root, file);
+        const stat = fs.lstatSync(absolute);
+        if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1)
+        {
+            fail(`frontend style source identity requires one-link regular bytes for ${file}`);
+        }
+        return `${file}\nmode=${fileMode(stat)}\nnlink=${stat.nlink}\nsha256=${sha256(fs.readFileSync(absolute))}`;
+    }).join('\n'));
 }
 
 function loadBaseline()
@@ -542,9 +754,9 @@ function exactObjectKeys(value, expected)
     return JSON.stringify(actual) === JSON.stringify([...expected].sort(compareOrdinal));
 }
 
-function gitCommitIsAncestor(commit)
+function gitCommitIsAncestor(commit, ancestorOf = 'HEAD')
 {
-    return command(['git', 'merge-base', '--is-ancestor', commit, 'HEAD'], { allowFailure: true }).status === 0;
+    return command(['git', 'merge-base', '--is-ancestor', commit, ancestorOf], { allowFailure: true }).status === 0;
 }
 
 function gitCommitTouchesPath(commit, file)
@@ -576,6 +788,17 @@ function validateReviewedBaselineClassification(classificationPath, rejections)
 
     const absolute = path.resolve(root, classificationPath);
     const relative = normalizeFile(absolute);
+    const authorityRevision = command(['git', 'rev-parse', '--verify', reviewedBaselineAuthorityRef], { allowFailure: true });
+    const authorityBlob = command(['git', 'show', `${reviewedBaselineAuthorityRef}:${relative}`], { allowFailure: true });
+    if (authorityRevision.status !== 0
+        || !gitCommitIsAncestor(authorityRevision.stdout.trim())
+        || authorityBlob.status !== 0
+        || !fs.existsSync(absolute)
+        || authorityBlob.stdout !== fs.readFileSync(absolute, 'utf8'))
+    {
+        fail(`reviewed frontend style baseline classification must already exist unchanged at ${reviewedBaselineAuthorityRef}: ${relative}`);
+        return false;
+    }
     const document = readJson(absolute, relative);
     if (!document)
     {
@@ -669,10 +892,10 @@ function validateReviewedBaselineClassification(classificationPath, rejections)
             fail(`reviewed frontend style baseline classification is stale for ${entry.path}`);
         }
         if (!/^[0-9a-f]{40}$/u.test(entry.sourceOwnerCommit)
-            || !gitCommitIsAncestor(entry.sourceOwnerCommit)
+            || !gitCommitIsAncestor(entry.sourceOwnerCommit, reviewedBaselineAuthorityRef)
             || !gitCommitTouchesPath(entry.sourceOwnerCommit, entry.path))
         {
-            fail(`reviewed frontend style baseline classification owner commit is not an ancestor touching ${entry.path}`);
+            fail(`reviewed frontend style baseline classification owner commit is not an authority ancestor touching ${entry.path}`);
         }
         if (!Array.isArray(entry.relatedIssues)
             || entry.relatedIssues.length === 0
@@ -849,6 +1072,10 @@ function writeBaseline(violations, selectedFiles, args)
     }
     const violationCount = files.reduce((sum, entry) => sum + entry.violationCount, 0);
     const sourceStateSha256 = sourceStateDigest();
+    if (failures.length > 0)
+    {
+        return;
+    }
     const document = {
         schema: baselineSchema,
         generatedFrom: `source-state:${sourceStateSha256}`,
@@ -1005,6 +1232,7 @@ function validateConfiguration()
             }
         }
     }
+    toolchainIdentity();
     validateSpecializedGovernance();
 }
 

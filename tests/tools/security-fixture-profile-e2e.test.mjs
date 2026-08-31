@@ -2,14 +2,18 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { qualificationTemporalContext } from '../../tools/test/temporal-context.mjs';
 import {
     cleanup,
     plan,
     prepare,
     verify
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test-fixtures/orchestrator.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { createPortsForProducerIds } from '../../tools/test-fixtures/producers/catalog-ports.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { digestCanonical } from '../../tools/test-fixtures/receipt/canonical.mjs';
 
 const decisions = Object.freeze({

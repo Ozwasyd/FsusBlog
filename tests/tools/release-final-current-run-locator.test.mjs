@@ -5,13 +5,16 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { locateReleaseFinalDirectEvidence } from '../../tools/release/check-release-final.mjs';
 import {
     beginCurrentRunEvidencePublication,
     createEvidenceParentReceipt,
     finalizeCurrentRunEvidencePublication,
     releaseFinalDirectConsumerIds
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/current-run-evidence-publication.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { governanceContentDigest, completeEvidenceLocatorRegistryEntry } from '../../tools/test/evidence-location-contract.mjs';
 
 const d = (value) => `sha256:${value.repeat(64)}`;

@@ -9,8 +9,11 @@ import {
     createCleanAttemptCohort,
     persistCleanAttemptCohortRevision,
     validateCleanAttemptCohort
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/release/release-clean-attempt-cohort.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { sha256 } from '../../tools/test/attempt-provenance.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { runProducerAttempts } from '../../tools/test/attempt-runner.mjs';
 
 const root = path.resolve(import.meta.dirname, '../..');

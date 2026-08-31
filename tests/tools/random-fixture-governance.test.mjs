@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { scanRandomEntropy } from '../../tools/test/check-random-entropy-governance.mjs';
 import {
     deriveRandomConsumerStream,
     deterministicFixtureArtifact,
     loadRandomStreamInventory,
     validateRandomStreamInventory
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/random-streams.mjs';
 
 function fixtureConsumer(version = 'fixture-generator-v1')

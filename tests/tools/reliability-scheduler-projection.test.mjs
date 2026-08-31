@@ -7,7 +7,9 @@ import { fileURLToPath } from 'node:url';
 
 import {
     resolveScenarioSchedulerGrant
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/release-reliability-scheduler-grant.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs';
 import {
     generateReleaseReliabilitySchedulerMatrix,
@@ -15,6 +17,7 @@ import {
     releaseReliabilitySchedulerProjection,
     validateReleaseReliabilitySchedulerCatalog,
     validateReleaseReliabilitySchedulerMatrix
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test-matrix/release-reliability-scheduler-projection.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');

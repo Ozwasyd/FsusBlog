@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { verifyCentralOpenApiPackageContract } from '../../tools/backend-test-governance-contracts.mjs';
 
 const validCentralPackages = `

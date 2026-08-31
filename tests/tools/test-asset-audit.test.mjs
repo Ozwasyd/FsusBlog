@@ -6,9 +6,13 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { behaviorTest } from '../../tools/contracts/behavior-test.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { executeAuditLayers, redactAuditText, summarizeAuditLayers } from '../../tools/test/test-asset-audit/execution.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { assignAuditRecords, compareAuditSnapshots } from '../../tools/test/test-asset-audit/inventory.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { detectAuditPreflight } from '../../tools/test/test-asset-audit/preflight.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');

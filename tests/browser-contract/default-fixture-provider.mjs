@@ -10,9 +10,13 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { releaseProductionBuildConsumer } from '../../tools/ci/production-build-artifacts.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { executionServiceImageReference } from '../../tools/test/execution-envelope-services.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { loadTemporalContext } from '../../tools/test/temporal-context.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { cleanupLocalRuntime } from '../../tools/test-matrix/local-runtime-cleanup.mjs';
 
 const responseSchema = 'fsusblog.browser-contract-fixture-provider-response.v1';

@@ -6,6 +6,7 @@ import test from 'node:test';
 import {
     produceOpenApiObservation,
     runOpenApiFactExtractor
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/contracts/lib/openapi-observation.mjs';
 import {
     apiProtocolScopeId,
@@ -16,8 +17,11 @@ import {
     scanApiProtocolDocResidue,
     validateApiProtocolDocExactnessReceipt,
     verifyApiProtocolGeneratedSections
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/docs/api-protocol-doc-exactness.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { buildBehaviorDocExactnessReceipt } from '../../tools/docs/behavior-doc-exactness.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 import { verifyProseClaims } from '../../tools/docs/prose-claim-verifier/verifier.mjs';
 
 let observation;

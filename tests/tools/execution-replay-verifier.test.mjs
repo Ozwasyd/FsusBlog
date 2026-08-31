@@ -10,11 +10,13 @@ import {
     planExactShards,
     sealReplayPlan,
     sealReplayReceipt
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/execution-replay-contract.mjs';
 import {
     buildExecutionReplayCommand,
     ExecutionReplayMismatch,
     verifyExecutionReplay
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../tools/test/execution-replay-verifier.mjs';
 
 const rootSeed = `seed256:${'77'.repeat(32)}`;

@@ -16,6 +16,7 @@ import {
     projectTemporalRolesForPostgres,
     resolveTemporalRolesForProducer,
     verifyResolvedTemporalArtifact
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This test or tool imports the existing repository owner that it directly exercises.
 } from '../../test/temporal-role-resolver.mjs';
 
 import { projectVerifiedIdentityReferences } from './auth-session-producer.mjs';
