@@ -71,8 +71,10 @@ replaced.
 
 `--migrate-baseline-paths tests/test-asset-semantic-renames.json` is limited to a
 non-empty set of real one-to-one renames whose old paths are absent and destinations are
-live. `referenceFiles` are audit context only and never authorize a violation identity
-replacement or a new baseline path.
+live. Each destination must preserve the exact source digest and the prior diagnostic
+identity after path normalization; a destination already owned by the baseline, or any
+duplicate, cycle, chain or path reuse, fails closed. `referenceFiles` are audit context
+only and never authorize a violation identity replacement or a new baseline path.
 
 The runner refuses a repository-wide `--fix`. `npm --prefix src/frontend run format:fix` fixes changed files only, and AST fixers must be idempotent. ESLint uses a content cache under ignored `.tmp/frontend-style/` so unchanged work is resumed rather than parsed repeatedly.
 
