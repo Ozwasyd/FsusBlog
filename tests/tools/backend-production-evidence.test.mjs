@@ -47,6 +47,8 @@ import {
     validateShardRecords,
     validateShardSummaryArtifacts
 } from '../../tools/test/run-backend-production-shards.mjs';
+import { buildBackendEvidencePathAuthority } from '../../tools/test/backend-evidence-path-authority.mjs';
+import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs';
 
 const root = path.resolve(import.meta.dirname, '../..');
 const unixPlatformTest = {
@@ -552,6 +554,26 @@ test('backend requirement profiles treat generated evidence as matrix-owned outp
         source,
         /for \(const path of profile\.evidencePaths \|\| \[\]\)[\s\S]{0,120}?requireFile\(path\);/u
     );
+});
+
+test('backend generated evidence authority rejects an undeclared temporary output', () =>
+{
+    const matrixSource = fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8');
+    const catalog = JSON.parse(fs.readFileSync(
+        path.join(root, 'tests/backend/Fixtures/backend-test-requirements.json'),
+        'utf8'));
+    const mutated = structuredClone(catalog);
+    mutated.requirements[0].evidencePaths = ['.tmp/undeclared.json'];
+
+    const result = buildBackendEvidencePathAuthority(matrixSource, parseMatrix(matrixSource), mutated);
+
+    assert.deepEqual(result.errors, [
+        'generated backend evidence is not declared by an exact matrix tier output: .tmp/undeclared.json'
+    ]);
+    assert.deepEqual(result.authority.entries.find((entry) => entry.evidencePath === '.tmp/undeclared.json'), {
+        evidencePath: '.tmp/undeclared.json',
+        owners: []
+    });
 });
 
 test('Perception evidence finalizer resolves non-ASCII repository paths from file URLs', () =>

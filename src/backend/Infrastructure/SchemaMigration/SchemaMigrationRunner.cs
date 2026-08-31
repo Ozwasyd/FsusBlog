@@ -23,10 +23,25 @@ public sealed class CurrentSchemaMismatchException : InvalidOperationException
         Errors = errors;
     }
 
-    public string ExpectedDigest { get; }
-    public string ActualDigest { get; }
-    public string MismatchRef { get; }
-    public IReadOnlyList<string> Errors { get; }
+    public string ExpectedDigest
+    {
+        get;
+    }
+
+    public string ActualDigest
+    {
+        get;
+    }
+
+    public string MismatchRef
+    {
+        get;
+    }
+
+    public IReadOnlyList<string> Errors
+    {
+        get;
+    }
 
     private static string FormatErrors(IReadOnlyList<string> errors)
         => errors.Count == 0
