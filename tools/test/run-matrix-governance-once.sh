@@ -13,7 +13,6 @@ exec "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mj
     --consumer "$CONSUMER_ID" \
     --cwd "$ROOT_DIR" \
     --projection-directory "$PROJECTION_DIR" \
-    --path .git \
     --path tests/matrix.yml \
     --path tests/coverage-registry.json \
     --path config/testing/runtime-state-domain-catalog.json \

@@ -567,7 +567,6 @@ requireIncludes('tools/test/run-matrix-governance-once.sh', [
     '--key matrix-governance',
     '--execution-class correctness',
     '--producer-id "$CONSUMER_ID"',
-    '--path .git',
     '--output .tmp/ci-plan.json',
     '--output .tmp/gate-logs/preflight.json',
     'node tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/ci-plan.json',
@@ -586,6 +585,10 @@ for (const forbidden of [
     {
         errors.push(`matrix governance admission must not include broad or non-emitted input/output: ${forbidden.trim()}`);
     }
+}
+if (/^\s*--path \.git\s*\\$/mu.test(matrixGovernanceRunner))
+{
+    errors.push('matrix governance admission must not fingerprint the mutable .git directory');
 }
 requireIncludes('tools/bootstrap-acceptance-env.sh', [
     'tools/frontend',
