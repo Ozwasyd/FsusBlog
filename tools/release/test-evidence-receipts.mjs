@@ -1631,6 +1631,12 @@ export function createReleaseFinalTestEvidenceBinding({
     {
         throw new Error(reliabilityErrors.join('; '));
     }
+    const requiredEvidenceCatalogErrors =
+        validateRequiredEvidenceCatalogBinding(requiredEvidenceCatalogBinding);
+    if (requiredEvidenceCatalogErrors.length > 0)
+    {
+        throw new Error(requiredEvidenceCatalogErrors.join('; '));
+    }
     return seal({
         schema: releaseFinalTestEvidenceBindingSchema,
         status: 'ok',

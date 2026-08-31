@@ -777,6 +777,47 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
     assert.ok(validateReleaseFinalTestEvidenceBinding(tamperedRequiredAuthority)
         .some((error) => error.includes('authorityIds mismatch')));
 
+    const requiredAuthorityMutations = [
+        ['missing', undefined, /binding is missing/u],
+        ['stale catalog digest', {
+            ...createRequiredEvidenceCatalogBinding(),
+            contentDigest: `sha256:${'0'.repeat(64)}`
+        }, /contentDigest mismatch/u],
+        ['tampered authority', {
+            ...createRequiredEvidenceCatalogBinding(),
+            authorityIds: [
+                'forged-authority',
+                ...createRequiredEvidenceCatalogBinding().authorityIds.slice(1)
+            ]
+        }, /authorityIds mismatch/u],
+        ['tampered file digest', {
+            ...createRequiredEvidenceCatalogBinding(),
+            fileDigest: `sha256:${'1'.repeat(64)}`
+        }, /fileDigest mismatch/u]
+    ];
+    for (const [name, requiredEvidenceCatalogBinding, errorPattern]
+        of requiredAuthorityMutations)
+    {
+        assert.throws(() => createReleaseFinalTestEvidenceBinding({
+            commitSha: build.sourceState.commit,
+            buildReceipt: build.receipt,
+            buildReceiptPath: build.receiptFile,
+            correctnessReceipt: correctness,
+            correctnessReceiptPath: correctnessFile,
+            browserContractReceipt: browserContract,
+            browserContractReceiptPath: browserContractFile,
+            preRuntimeReceipt: preRuntime,
+            preRuntimeReceiptPath: preRuntimeFile,
+            postRuntimeReceipt: postRuntime,
+            postRuntimeReceiptPath: postRuntimeFile,
+            consistencyFinalReport: consistencyFinal,
+            consistencyFinalReportPath: consistencyFinalFile,
+            releaseDomainProjectionReceipts,
+            releaseReliabilityQualifiedReceipt,
+            requiredEvidenceCatalogBinding
+        }), errorPattern, name);
+    }
+
     const wrongBuild = structuredClone(browserContract);
     wrongBuild.build.receiptContentDigest = `sha256:${'0'.repeat(64)}`;
     wrongBuild.buildBinding.receiptContentDigest = wrongBuild.build.receiptContentDigest;

@@ -8,9 +8,9 @@
         "tools/test/current-run-evidence-transport.mjs": "sha256:74b09545ad37fb5b5dcacb56726a4ae0e46c6c664d6775b8ba109867816f0f28",
         "tools/test/generate-evidence-location-governance.mjs": "sha256:dfa82cd9a3da394569b31ca230c29d2359aafb40427c98ec0c29c666a7dac015"
     },
-    "registryDigest": "sha256:121dafbfe65b6d35cc026de1be4853033da43e7eb250c7963d37c201ed6eae59",
-    "ledgerDigest": "sha256:48d37cd9241ae4dfa2fea3962ae56a5289c729111b4dbd118755a7a6c68df10b",
-    "scannerDigest": "sha256:556d8dcaa225c15bc8e95e53e4319c7457e3dd979c7e69cd17677fda7ddab349",
+    "registryDigest": "sha256:24fb56ba935dc4d4b7e57427610c4f4e3962063d2db648183f36961adc27bc0f",
+    "ledgerDigest": "sha256:c7a036771c73c37b0f12c7997eb665eee399eeec7d83aaf7fa92b452ee970af7",
+    "scannerDigest": "sha256:bc819cc6c7afc2b4414441844b4efdfa860a58906c0020ecdd894b0a036f8020",
     "locatorDigest": "sha256:a3477d14e62b2e6a30bc48e16eaf417e49996fdab58e39ae064f1c7ac07b0653",
     "transportDigest": "sha256:74b09545ad37fb5b5dcacb56726a4ae0e46c6c664d6775b8ba109867816f0f28",
     "consumerInventory": [
@@ -81,6 +81,13 @@
             "consumerId": "evidence-consumer.db.generate-migration-assembly-receipt",
             "authorityId": "evidence-consumer.db.generate-migration-assembly-receipt.current-run",
             "producerId": "evidence-consumer.db.generate-migration-assembly-receipt.producer",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.db.verify-current-schema-test-materialization-receipt",
+            "authorityId": "evidence-consumer.db.verify-current-schema-test-materialization-receipt.current-run",
+            "producerId": "evidence-consumer.db.verify-current-schema-test-materialization-receipt.producer",
             "locatorMode": "explicit-run-path",
             "publicationMode": "hooked"
         },
@@ -505,8 +512,8 @@
             "publicationMode": "parent"
         }
     ],
-    "consumerCount": 70,
-    "findingCount": 359,
+    "consumerCount": 71,
+    "findingCount": 361,
     "warnings": [],
-    "contentDigest": "sha256:47a9b5bea8f60e48d7bd1e0db7f4d78e0bbc56ccc66c12fb7bed6a814759767b"
+    "contentDigest": "sha256:273c98dbd888b8e2edffeeac8b440679c272bd6d6eec5c513a53e0e6938620fa"
 }
