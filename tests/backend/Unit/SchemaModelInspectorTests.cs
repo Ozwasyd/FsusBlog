@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Infrastructure.Testing;
@@ -141,11 +142,86 @@ public sealed class SchemaModelInspectorTests
         }
     }
 
-    private static string ServiceEnvelopeJson(string catalogFile, string runId, string hostPort)
+    [Fact]
+    public void TestMaterializerServiceEnvelope_BindsPostgresIdentityAcrossMultiServiceTopology()
+    {
+        string sandbox = Path.Combine(Path.GetTempPath(), $"fsusblog-current-schema-multi-service-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(sandbox);
+        string envelopeFile = Path.Combine(sandbox, "services.json");
+        string catalogFile = RepositoryFile("config", "testing", "test-execution-service-catalog.json");
+        try
+        {
+            const string RunId = "issue-3128-run";
+            CurrentSchemaTestDatabaseIdentity databaseIdentity = CurrentSchemaTestMaterializer.ValidateDatabaseIdentity(
+                "Host=127.0.0.1;Port=35415;Database=fsusblog;Username=fsusblog;Password=test;Search Path=public");
+            string validEnvelope = ServiceEnvelopeJson(catalogFile, RunId, "35415", includeRedis: true);
+            File.WriteAllText(envelopeFile, validEnvelope);
+
+            CurrentSchemaTestServiceIdentity identity = CurrentSchemaTestMaterializer.ValidateServiceEnvelope(
+                envelopeFile,
+                catalogFile,
+                RunId,
+                databaseIdentity);
+            Assert.Equal(new string('a', 64), identity.ContainerId);
+            Assert.Equal(35415, identity.HostPort);
+            Assert.Equal("7251088273845452307", identity.PostgresInstance.SystemIdentifier);
+
+            void AssertEnvelopeFailure(string envelope, string expectedError)
+            {
+                File.WriteAllText(envelopeFile, envelope);
+                Assert.Contains(
+                    expectedError,
+                    Assert.Throws<InvalidOperationException>(() =>
+                        CurrentSchemaTestMaterializer.ValidateServiceEnvelope(
+                            envelopeFile,
+                            catalogFile,
+                            RunId,
+                            databaseIdentity)).Message,
+                    StringComparison.Ordinal);
+            }
+
+            AssertEnvelopeFailure(
+                MutateServiceEnvelope(validEnvelope, "redis", static service => service.Remove("containerId")),
+                "service_envelope_invalid");
+            AssertEnvelopeFailure(
+                MutateServiceEnvelope(validEnvelope, "redis", static service =>
+                    service["databaseIdentity"] = JsonNode.Parse("""
+                        {
+                            "systemIdentifier": "7251088273845452307",
+                            "database": "fsusblog",
+                            "username": "fsusblog",
+                            "serverVersion": "16.15",
+                            "serverVersionNumber": "160015"
+                        }
+                        """)),
+                "service_envelope_shape_invalid");
+            AssertEnvelopeFailure(
+                MutateServiceEnvelope(validEnvelope, "postgres", static service => service.Remove("databaseIdentity")),
+                "service_envelope_shape_invalid");
+            AssertEnvelopeFailure(
+                MutateServiceTopology(validEnvelope, "redis", duplicate: false),
+                "service_envelope_topology_mismatch");
+            AssertEnvelopeFailure(
+                MutateServiceTopology(validEnvelope, "redis", duplicate: true),
+                "service_envelope_topology_mismatch");
+        }
+        finally
+        {
+            Directory.Delete(sandbox, recursive: true);
+        }
+    }
+
+    private static string ServiceEnvelopeJson(
+        string catalogFile,
+        string runId,
+        string hostPort,
+        bool includeRedis = false)
     {
         using JsonDocument catalog = JsonDocument.Parse(File.ReadAllText(catalogFile));
         string catalogDigest = CurrentSchemaTestMaterializer.ComputeCanonicalJsonDigest(catalog.RootElement);
         string imageReference = catalog.RootElement.GetProperty("services").GetProperty("postgres")
+            .GetProperty("imageReference").GetString()!;
+        string redisImageReference = catalog.RootElement.GetProperty("services").GetProperty("redis")
             .GetProperty("imageReference").GetString()!;
         var databaseIdentity = new
         {
@@ -177,6 +253,31 @@ public sealed class SchemaModelInspectorTests
             },
             databaseIdentity
         };
+        var services = new List<object> { service };
+        if (includeRedis)
+        {
+            services.Add(new
+            {
+                id = "redis",
+                kind = "container",
+                containerId = new string('c', 64),
+                createdAt = "2026-08-30T00:00:00.000000000Z",
+                imageReference = redisImageReference,
+                imageId = $"sha256:{new string('d', 64)}",
+                repositoryDigest = redisImageReference,
+                serviceVersion = "Redis server v=7.4.11 sha=00000000:0 malloc=jemalloc-5.3.0 bits=64",
+                networkMode = "issue-3105-network",
+                networkNamespace = "/var/run/docker/netns/issue-3105",
+                ports = new[] { new { containerPort = "6379/tcp", hostIp = "127.0.0.1", hostPort = "36379" } },
+                resourceLimits = new
+                {
+                    nanoCpus = 0L,
+                    memory = 0L,
+                    memoryReservation = 0L,
+                    pidsLimit = 0L
+                }
+            });
+        }
         var runtime = new
         {
             serverVersion = "28.0.0",
@@ -188,7 +289,7 @@ public sealed class SchemaModelInspectorTests
         var observation = new
         {
             runtime,
-            services = new[] { service }
+            services
         };
         return JsonSerializer.Serialize(new
         {
@@ -197,13 +298,61 @@ public sealed class SchemaModelInspectorTests
             producerId = "acceptance-runtime",
             runId,
             catalogDigest,
-            requiredServices = new[] { "postgres" },
+            requiredServices = includeRedis ? new[] { "postgres", "redis" } : new[] { "postgres" },
             planned = observation,
             actual = observation,
             admission = "planned-actual-exact",
             correctnessImagePull = "denied",
             hostFallback = "denied"
         });
+    }
+
+    private static string MutateServiceEnvelope(
+        string envelope,
+        string serviceId,
+        Action<JsonObject> mutation)
+    {
+        JsonObject root = JsonNode.Parse(envelope)?.AsObject()
+            ?? throw new InvalidOperationException("service envelope fixture is null");
+        foreach (string observationName in new[] { "planned", "actual" })
+        {
+            JsonArray services = root[observationName]?["services"]?.AsArray()
+                ?? throw new InvalidOperationException("service envelope fixture topology is missing");
+            JsonObject service = services
+                .Select(static node => node?.AsObject())
+                .Single(candidate => string.Equals(
+                    candidate?["id"]?.GetValue<string>(),
+                    serviceId,
+                    StringComparison.Ordinal))
+                ?? throw new InvalidOperationException("service envelope fixture service is missing");
+            mutation(service);
+        }
+        return root.ToJsonString();
+    }
+
+    private static string MutateServiceTopology(string envelope, string serviceId, bool duplicate)
+    {
+        JsonObject root = JsonNode.Parse(envelope)?.AsObject()
+            ?? throw new InvalidOperationException("service envelope fixture is null");
+        foreach (string observationName in new[] { "planned", "actual" })
+        {
+            JsonArray services = root[observationName]?["services"]?.AsArray()
+                ?? throw new InvalidOperationException("service envelope fixture topology is missing");
+            JsonNode service = services.Single(node => string.Equals(
+                node?["id"]?.GetValue<string>(),
+                serviceId,
+                StringComparison.Ordinal))
+                ?? throw new InvalidOperationException("service envelope fixture service is missing");
+            if (duplicate)
+            {
+                services.Add(service.DeepClone());
+            }
+            else
+            {
+                services.Remove(service);
+            }
+        }
+        return root.ToJsonString();
     }
 
     private static string RepositoryFile(params string[] parts)

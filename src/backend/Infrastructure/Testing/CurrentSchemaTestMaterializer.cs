@@ -598,7 +598,7 @@ public static class CurrentSchemaTestMaterializer
         {
             JsonElement service = RequiredService(actual, serviceId);
             JsonElement catalogService = RequiredProperty(catalogServices, serviceId, JsonValueKind.Object);
-            CurrentSchemaTestServiceIdentity identity = ValidateContainerService(
+            CurrentSchemaTestServiceIdentity? identity = ValidateContainerService(
                 service,
                 catalogService,
                 catalogDigest,
@@ -607,7 +607,8 @@ public static class CurrentSchemaTestMaterializer
                 serviceId == "postgres" ? databaseIdentity : null);
             if (serviceId == "postgres")
             {
-                postgresIdentity = identity;
+                postgresIdentity = identity
+                    ?? throw new InvalidOperationException("current_schema_materializer_database_observation_required");
             }
         }
 
@@ -625,7 +626,7 @@ public static class CurrentSchemaTestMaterializer
         return $"sha256:{Convert.ToHexString(SHA256.HashData(canonical.WrittenSpan)).ToLowerInvariant()}";
     }
 
-    private static CurrentSchemaTestServiceIdentity ValidateContainerService(
+    private static CurrentSchemaTestServiceIdentity? ValidateContainerService(
         JsonElement service,
         JsonElement catalogService,
         string catalogDigest,
@@ -707,54 +708,54 @@ public static class CurrentSchemaTestMaterializer
             _ = RequiredString(port, "hostPort");
         }
 
-        int hostPort = 0;
-        CurrentSchemaTestPostgresInstanceIdentity? postgresInstance = null;
-        if (databaseIdentity is not null)
+        if (databaseIdentity is null)
         {
-            JsonElement[] postgresPorts = portEntries.Where(static port =>
-                HasString(port, "containerPort", "5432/tcp")).ToArray();
-            if (postgresPorts.Length != 1
-                || !HasString(postgresPorts[0], "hostIp", "127.0.0.1")
-                || !int.TryParse(RequiredString(postgresPorts[0], "hostPort"), out hostPort)
-                || hostPort != databaseIdentity.Port
-                || !string.Equals(databaseIdentity.Host, "127.0.0.1", StringComparison.Ordinal))
-            {
-                throw new InvalidOperationException("current_schema_materializer_service_envelope_port_mismatch");
-            }
-
-            JsonElement instance = RequiredProperty(service, "databaseIdentity", JsonValueKind.Object);
-            RequireExactProperties(
-                instance,
-                "systemIdentifier",
-                "database",
-                "username",
-                "serverVersion",
-                "serverVersionNumber");
-            string systemIdentifier = RequiredString(instance, "systemIdentifier");
-            string database = RequiredString(instance, "database");
-            string username = RequiredString(instance, "username");
-            string serverVersion = RequiredString(instance, "serverVersion");
-            string serverVersionNumber = RequiredString(instance, "serverVersionNumber");
-            if (!systemIdentifier.All(char.IsAsciiDigit)
-                || string.Equals(systemIdentifier, "0", StringComparison.Ordinal)
-                || !string.Equals(database, databaseIdentity.Database, StringComparison.Ordinal)
-                || !string.Equals(username, databaseIdentity.Username, StringComparison.Ordinal)
-                || !string.Equals(database, RequiredString(catalogService, "database"), StringComparison.Ordinal)
-                || !string.Equals(username, RequiredString(catalogService, "username"), StringComparison.Ordinal)
-                || !string.Equals(
-                    serverVersionNumber,
-                    RequiredString(catalogService, "serverVersionNumber"),
-                    StringComparison.Ordinal))
-            {
-                throw new InvalidOperationException("current_schema_materializer_database_observation_invalid");
-            }
-            postgresInstance = new CurrentSchemaTestPostgresInstanceIdentity(
-                systemIdentifier,
-                database,
-                username,
-                serverVersion,
-                serverVersionNumber);
+            return null;
         }
+
+        JsonElement[] postgresPorts = portEntries.Where(static port =>
+            HasString(port, "containerPort", "5432/tcp")).ToArray();
+        if (postgresPorts.Length != 1
+            || !HasString(postgresPorts[0], "hostIp", "127.0.0.1")
+            || !int.TryParse(RequiredString(postgresPorts[0], "hostPort"), out int hostPort)
+            || hostPort != databaseIdentity.Port
+            || !string.Equals(databaseIdentity.Host, "127.0.0.1", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("current_schema_materializer_service_envelope_port_mismatch");
+        }
+
+        JsonElement instance = RequiredProperty(service, "databaseIdentity", JsonValueKind.Object);
+        RequireExactProperties(
+            instance,
+            "systemIdentifier",
+            "database",
+            "username",
+            "serverVersion",
+            "serverVersionNumber");
+        string systemIdentifier = RequiredString(instance, "systemIdentifier");
+        string database = RequiredString(instance, "database");
+        string username = RequiredString(instance, "username");
+        string serverVersion = RequiredString(instance, "serverVersion");
+        string serverVersionNumber = RequiredString(instance, "serverVersionNumber");
+        if (!systemIdentifier.All(char.IsAsciiDigit)
+            || string.Equals(systemIdentifier, "0", StringComparison.Ordinal)
+            || !string.Equals(database, databaseIdentity.Database, StringComparison.Ordinal)
+            || !string.Equals(username, databaseIdentity.Username, StringComparison.Ordinal)
+            || !string.Equals(database, RequiredString(catalogService, "database"), StringComparison.Ordinal)
+            || !string.Equals(username, RequiredString(catalogService, "username"), StringComparison.Ordinal)
+            || !string.Equals(
+                serverVersionNumber,
+                RequiredString(catalogService, "serverVersionNumber"),
+                StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("current_schema_materializer_database_observation_invalid");
+        }
+        var postgresInstance = new CurrentSchemaTestPostgresInstanceIdentity(
+            systemIdentifier,
+            database,
+            username,
+            serverVersion,
+            serverVersionNumber);
 
         return new CurrentSchemaTestServiceIdentity(
             catalogDigest,
@@ -770,8 +771,7 @@ public static class CurrentSchemaTestMaterializer
             networkNamespace,
             hostPort,
             limits,
-            postgresInstance
-                ?? throw new InvalidOperationException("current_schema_materializer_database_observation_required"));
+            postgresInstance);
     }
 
     internal static async Task ValidateLivePostgresInstanceAsync(
