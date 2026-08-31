@@ -437,6 +437,13 @@
                     "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.7, )"
                 }
             },
+            "fsusblog.migration": {
+                "type": "Project",
+                "dependencies": {
+                    "FsusBlog.Shared": "[1.0.0, )",
+                    "SqlSugarCoreNoDrive": "[5.1.4.213, )"
+                }
+            },
             "fsusblog.server": {
                 "type": "Project",
                 "dependencies": {

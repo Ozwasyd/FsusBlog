@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using FsusBlog.Migration;
 using FsusBlog.RuntimeRoleObservation;
 using FsusBlog.Server.Infrastructure.Distributed.Cluster;
 using FsusBlog.Server.Infrastructure.Operations;
@@ -272,7 +273,6 @@ internal static class RuntimeRoleObservationHost
         {
             [MigrationId] = metadata
         };
-        ISchemaMigrationDescriptor[] descriptors = [descriptor];
         var history = new OnlineSchemaMigrationHistorySnapshot(
             MigrationId,
             descriptor.Checksum,
@@ -294,15 +294,15 @@ internal static class RuntimeRoleObservationHost
             source.ReleaseId,
             window);
         OnlineSchemaCompatibilityReport sourceReport = OnlineSchemaCompatibilityEvaluator.Evaluate(
-            source, database, descriptors, metadataById);
+            source, database, metadataById);
         OnlineSchemaCompatibilityReport targetReport = OnlineSchemaCompatibilityEvaluator.Evaluate(
-            target, database, descriptors, metadataById);
+            target, database, metadataById);
         var missingExpandDatabase = database with
         {
             History = []
         };
         OnlineSchemaCompatibilityReport missingExpand = OnlineSchemaCompatibilityEvaluator.Evaluate(
-            target, missingExpandDatabase, descriptors, metadataById);
+            target, missingExpandDatabase, metadataById);
 
         OnlineSchemaMigrationMetadata contractMetadata = metadata with
         {

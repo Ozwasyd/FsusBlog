@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\backend\FsusBlog.Server.csproj" />
+    <ProjectReference Include="..\..\..\src\migration\FsusBlog.Migration.csproj" />
   </ItemGroup>
 
 </Project>
