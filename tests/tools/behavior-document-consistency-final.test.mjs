@@ -345,6 +345,69 @@ test('zero-legacy shell and YAML hash comments do not create residue or hide act
     }
 })
 
+test('zero-legacy YAML blocks PowerShell comments encodings shebangs and NFKC forms are explicit', (t) =>
+{
+    const utf16Le = (value) => Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(value, 'utf16le')])
+    const repositoryRoot = repositoryFixture(t, {
+        'config/testing/block-behavior-qualification.yaml': 'command: |-\n  deprecated-claim-cli\nevidenceSource: >-\n  latest\n  receipt\n',
+        'config/testing/current-block-behavior-qualification.yaml': 'command: |-\n  current-claim-cli\nevidenceSource: >-\n  current\n  receipt\n',
+        'config/testing/utf16-behavior-qualification.yaml': utf16Le('command: deprecated-claim-cli\n'),
+        'config/testing/utf16-no-bom-behavior-qualification.yaml': Buffer.from('command: deprecated-claim-cli\n', 'utf16le'),
+        'config/testing/utf16-current-behavior-qualification.yaml': utf16Le('command: current-claim-cli\n'),
+        'tools/release/utf16-behavior-qualification.ps1': utf16Le('$command = "deprecated-claim-cli"\n'),
+        'tools/release/utf16-current-behavior-qualification.ps1': utf16Le('$command = "current-claim-cli"\n'),
+        'tools/release/comment-only-behavior-qualification.ps1': '<#\n$command = "deprecated-claim-cli"\n$latestReceipt = "stale.json"\n#>\n$command = "current-claim-cli"\n',
+        'tools/release/bom-shell-behavior-qualification.sh': Buffer.concat([
+            Buffer.from([0xef, 0xbb, 0xbf]),
+            Buffer.from('#!/usr/bin/env bash\ncommand="deprecated-claim-cli"\n')
+        ]),
+        'tools/release/bom-node-behavior-qualification.mjs': Buffer.concat([
+            Buffer.from([0xef, 0xbb, 0xbf]),
+            Buffer.from('#!/usr/bin/env deprecated-claim-cli\nexport const current = true\n')
+        ]),
+        'tools/release/current-node-behavior-qualification.mjs': '#!/usr/bin/env node\nexport const current = true\n',
+        'config/testing/nfkc-behavior-qualification.json': JSON.stringify({
+            ｌａｔｅｓｔＲｅｃｅｉｐｔ: 'ambient.json',
+            command: 'ｄｅｐｒｅｃａｔｅｄ－ｃｌａｉｍ－ｃｌｉ'
+        }),
+        'tools/release/nfkc-source-behavior-qualification.mjs': 'const ｌａｔｅｓｔＲｅｃｅｉｐｔ = "ambient.json"\n',
+        'tools/release/nfkc-syntax-behavior-qualification.mjs': '／／ const latestReceipt = "ambient.json"\n'
+    })
+    const findings = scanZeroLegacyGovernance(repositoryRoot).findings
+    assert.ok(findings.some((finding) => finding.file === 'config/testing/block-behavior-qualification.yaml'
+        && finding.rule === 'forbidden-evidence-selection:latestReceipt'))
+    assert.ok(findings.some((finding) => finding.file === 'tools/release/bom-node-behavior-qualification.mjs'
+        && finding.rule.includes('deprecated-claim-cli')))
+    assert.ok(findings.some((finding) => finding.file === 'config/testing/nfkc-behavior-qualification.json'
+        && finding.rule === 'forbidden-evidence-selection:latestReceipt'))
+    assert.ok(findings.some((finding) => finding.file === 'config/testing/nfkc-behavior-qualification.json'
+        && finding.rule.includes('deprecated-claim-cli')))
+    for (const file of [
+        'config/testing/block-behavior-qualification.yaml',
+        'config/testing/utf16-behavior-qualification.yaml',
+        'config/testing/utf16-no-bom-behavior-qualification.yaml',
+        'tools/release/utf16-behavior-qualification.ps1',
+        'tools/release/bom-shell-behavior-qualification.sh',
+        'tools/release/bom-node-behavior-qualification.mjs',
+        'config/testing/nfkc-behavior-qualification.json',
+        'tools/release/nfkc-source-behavior-qualification.mjs',
+        'tools/release/nfkc-syntax-behavior-qualification.mjs'
+    ])
+    {
+        assert.ok(findings.some((finding) => finding.file === file), `${file} canonical machine residue escaped`)
+    }
+    for (const file of [
+        'config/testing/current-block-behavior-qualification.yaml',
+        'config/testing/utf16-current-behavior-qualification.yaml',
+        'tools/release/utf16-current-behavior-qualification.ps1',
+        'tools/release/comment-only-behavior-qualification.ps1',
+        'tools/release/current-node-behavior-qualification.mjs'
+    ])
+    {
+        assert.equal(findings.some((finding) => finding.file === file), false, `${file} legal syntax was rejected`)
+    }
+})
+
 test('zero-legacy scanner excludes untracked and ignored build or runtime outputs', (t) =>
 {
     const repositoryRoot = repositoryFixture(t, {
@@ -611,6 +674,21 @@ test('zero-legacy schema traversal switches dialect at each embedded schema reso
             $schema: 'https://json-schema.org/draft/2020-12/schema',
             $ref: '#/$defs/current',
             not: { properties: { latestReceipt: { type: 'string' } } }
+        }),
+        'config/schemas/nested-draft7-ref-sibling-behavior-qualification.schema.json': JSON.stringify({
+            $schema: 'http://json-schema.org/draft-07/schema#',
+            not: {
+                properties: {
+                    current: {
+                        $ref: '#/definitions/current',
+                        not: { latestReceipt: 'ambient.json' }
+                    }
+                },
+                allOf: [{
+                    $ref: '#/definitions/current',
+                    not: { latestReceipt: 'ambient.json' }
+                }]
+            }
         })
     })
     const findings = scanZeroLegacyGovernance(repositoryRoot).findings
@@ -626,13 +704,20 @@ test('zero-legacy schema traversal switches dialect at each embedded schema reso
         'config/schemas/no-id-embedded-behavior-qualification.schema.json',
         'config/schemas/invalid-id-embedded-behavior-qualification.schema.json',
         'config/schemas/unknown-dialect-embedded-behavior-qualification.schema.json',
-        'config/schemas/draft7-ref-sibling-behavior-qualification.schema.json'
+        'config/schemas/draft7-ref-sibling-behavior-qualification.schema.json',
+        'config/schemas/nested-draft7-ref-sibling-behavior-qualification.schema.json'
     ])
     {
         assert.ok(findings.some((finding) => finding.file === file
             && finding.rule === 'forbidden-evidence-selection:latestReceipt'), `${file} invalid resource semantics escaped`)
     }
     assert.equal(findings.some((finding) => finding.file === 'config/schemas/current-ref-sibling-behavior-qualification.schema.json'), false)
+    for (const keyword of ['.properties.', '.allOf[0].'])
+    {
+        assert.ok(findings.some((finding) => finding.file === 'config/schemas/nested-draft7-ref-sibling-behavior-qualification.schema.json'
+            && finding.location.includes(keyword)
+            && finding.rule === 'forbidden-evidence-selection:latestReceipt'), `${keyword} $ref sibling escaped`)
+    }
 })
 
 test('zero-legacy scanner self exemptions are exact and owner names cannot suppress values', (t) =>
@@ -761,6 +846,62 @@ test('zero-legacy tracked gitlinks fail closed without pretending their contents
     assert.ok(scan.findings.some((finding) => finding.file === 'src/vendor-behavior'
         && finding.rule === 'unsupported-tracked-gitlink'
         && finding.location === 'git-index'))
+})
+
+test('zero-legacy scans sparse and skip-worktree files from their exact index blobs', (t) =>
+{
+    const repositoryRoot = sourceRepositoryFixture(t, {
+        'tools/current.mjs': 'export const current = true\n',
+        'src/behavior-qualification.mjs': 'const command = "deprecated-claim-cli"\n'
+    })
+    const identityBefore = sealSourceIdentity(repositoryRoot)
+    execFileSync('git', ['sparse-checkout', 'init', '--no-cone'], { cwd: repositoryRoot })
+    execFileSync('git', ['sparse-checkout', 'set', 'tools'], { cwd: repositoryRoot })
+    const identityAfter = sealSourceIdentity(repositoryRoot)
+    assert.deepEqual(identityAfter, identityBefore)
+    assert.equal(fs.existsSync(path.join(repositoryRoot, 'src/behavior-qualification.mjs')), false)
+
+    const scan = scanZeroLegacyGovernance(repositoryRoot)
+    assert.equal(scan.scannedFileCount, 2)
+    assert.ok(scan.findings.some((finding) => finding.file === 'src/behavior-qualification.mjs'
+        && finding.rule.includes('deprecated-claim-cli')))
+    assert.equal(scan.findings.some((finding) => finding.rule.startsWith('tracked-worktree-index-split:')), false)
+})
+
+test('zero-legacy Git inventory survives symlink root spelling and excludes untracked files', (t) =>
+{
+    const repositoryRoot = sourceRepositoryFixture(t, {
+        'src/frontend/dist/behavior-qualification.mjs': 'const receiptSource = "latest-receipt"\n'
+    })
+    fs.mkdirSync(path.join(repositoryRoot, 'tools'), { recursive: true })
+    fs.writeFileSync(path.join(repositoryRoot, 'tools/untracked-behavior-qualification.mjs'), 'const command = "deprecated-claim-cli"\n')
+    const alias = `${repositoryRoot}-alias`
+    t.after(() => fs.rmSync(alias, { force: true }))
+    fs.symlinkSync(repositoryRoot, alias, 'dir')
+
+    const scan = scanZeroLegacyGovernance(alias)
+    assert.equal(scan.scannedFileCount, 1)
+    assert.ok(scan.findings.some((finding) => finding.file === 'src/frontend/dist/behavior-qualification.mjs'
+        && finding.rule === 'forbidden-evidence-selection:latestReceipt'))
+    assert.equal(scan.findings.some((finding) => finding.file === 'tools/untracked-behavior-qualification.mjs'), false)
+})
+
+test('zero-legacy reports worktree mode and content splits while scanning active bytes', (t) =>
+{
+    const repositoryRoot = sourceRepositoryFixture(t, {
+        'tools/release/behavior-qualification.mjs': 'export const current = true\n'
+    })
+    const file = path.join(repositoryRoot, 'tools/release/behavior-qualification.mjs')
+    fs.writeFileSync(file, 'const command = "deprecated-claim-cli"\n')
+    fs.chmodSync(file, 0o755)
+
+    const scan = scanZeroLegacyGovernance(repositoryRoot)
+    assert.ok(scan.findings.some((finding) => finding.file === 'tools/release/behavior-qualification.mjs'
+        && finding.rule === 'tracked-worktree-index-split:mode'))
+    assert.ok(scan.findings.some((finding) => finding.file === 'tools/release/behavior-qualification.mjs'
+        && finding.rule === 'tracked-worktree-index-split:oid'))
+    assert.ok(scan.findings.some((finding) => finding.file === 'tools/release/behavior-qualification.mjs'
+        && finding.rule.includes('deprecated-claim-cli')))
 })
 
 test('final builder recomputes zero-legacy findings from the sealed source state', (t) =>

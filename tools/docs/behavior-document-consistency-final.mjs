@@ -94,7 +94,9 @@ const ignoredDirectoryNames = new Set([
 const machineSourceExtensions = /\.(?:c|cc|cpp|cs|cxx|h|hpp|js|jsx|mjs|ps1|sh|ts|tsx|vue|ya?ml)$/u
 const qualificationPathPattern = /(?:artifact|behavior|doc[-_.]?claim|evidence|fact[-_.]?extract|generated[-_.]?fact|governance|mutation|qualification|receipt|release[-_.]?final)/iu
 const machineFencePattern = /^```(bash|csharp|cs|javascript|js|json|jsonc|powershell|ps1|sh|shell|toml|typescript|ts|yaml|yml)\s*\n([\s\S]*?)^```\s*$/gimu
-const normalizeIdentifier = (value) => String(value).normalize('NFKC').toLowerCase().replace(/[^a-z0-9]/gu, '')
+const machineTextNormalization = 'NFKC'
+const canonicalMachineText = (value) => String(value).normalize(machineTextNormalization)
+const normalizeIdentifier = (value) => canonicalMachineText(value).toLowerCase().replace(/[^a-z0-9]/gu, '')
 const canonicalField = (parts) => parts.map((part, index) => index === 0 ? part : `${part[0].toUpperCase()}${part.slice(1)}`).join('')
 const fieldMap = (parts) => new Map(parts.map((entry) => [normalizeIdentifier(entry.join('')), canonicalField(entry)]))
 const forbiddenMachineFields = fieldMap(forbiddenMachineFieldParts)
@@ -239,6 +241,7 @@ function authorityResidueField(identifier)
 
 function scanMachineValueCandidates(rawValue, visit)
 {
+    const canonicalValue = canonicalMachineText(rawValue)
     let token = ''
     let tokenOverflow = false
     const recentTokens = []
@@ -262,9 +265,9 @@ function scanMachineValueCandidates(rawValue, visit)
         token = ''
         tokenOverflow = false
     }
-    for (let offset = 0; offset < rawValue.length; offset += valueChunkSize)
+    for (let offset = 0; offset < canonicalValue.length; offset += valueChunkSize)
     {
-        const chunk = rawValue.slice(offset, offset + valueChunkSize)
+        const chunk = canonicalValue.slice(offset, offset + valueChunkSize)
         for (const character of chunk)
         {
             if (!token && !tokenOverflow)
@@ -397,7 +400,8 @@ function scanObjectKeys(value, context, negated = false, location = '$', schemaM
         && typeof value.$ref === 'string'
     for (const [key, nested] of Object.entries(value))
     {
-        if (!negated) scanIdentifier(key, nested, { ...resourceContext, location: `${location}.${key}` })
+        const siblingNegated = referenceIgnoresSiblings && key !== '$ref' ? false : negated
+        if (!siblingNegated) scanIdentifier(key, nested, { ...resourceContext, location: `${location}.${key}` })
         const schemaNegation = activeSchemaMode === 'schema'
             && !referenceIgnoresSiblings
             && key === 'not'
@@ -405,7 +409,8 @@ function scanObjectKeys(value, context, negated = false, location = '$', schemaM
             && typeof nested === 'object'
             && !Array.isArray(nested)
         let nestedSchemaMode = 'value'
-        if (activeSchemaMode === 'schema-map') nestedSchemaMode = 'schema'
+        if (referenceIgnoresSiblings && key !== '$ref') nestedSchemaMode = 'value'
+        else if (activeSchemaMode === 'schema-map') nestedSchemaMode = 'schema'
         else if (activeSchemaMode === 'schema'
             && (jsonSchemaMapKeywords.has(key)
                 || (key === 'dependencies' && resourceContext.oldDialectDependencies === true))) nestedSchemaMode = 'schema-map'
@@ -416,7 +421,7 @@ function scanObjectKeys(value, context, negated = false, location = '$', schemaM
         {
             nestedSchemaMode = key === 'items' && Array.isArray(nested) ? 'schema-array' : 'schema'
         }
-        scanObjectKeys(nested, resourceContext, schemaNegation ? !negated : negated, `${location}.${key}`, nestedSchemaMode)
+        scanObjectKeys(nested, resourceContext, schemaNegation ? !siblingNegated : siblingNegated, `${location}.${key}`, nestedSchemaMode)
     }
 }
 
@@ -438,7 +443,7 @@ function findSourceLineTerminator(source, start)
 function startsHashComment(source, index, commentStyle)
 {
     if (!commentStyle || source[index] !== '#') return false
-    if (commentStyle === 'hash') return true
+    if (commentStyle === 'hash' || commentStyle === 'powershell') return true
     if (index === 0 || /\s/u.test(source[index - 1])) return true
     return commentStyle === 'shell' && /[;&|()]/u.test(source[index - 1])
 }
@@ -449,7 +454,12 @@ function maskSourceLiteralsAndComments(source, commentStyle)
     for (let index = 0; index < source.length; index += 1)
     {
         let end = index
-        if (!commentStyle && source[index] === '/' && source[index + 1] === '/')
+        if (commentStyle === 'powershell' && source[index] === '<' && source[index + 1] === '#')
+        {
+            const closing = source.indexOf('#>', index + 2)
+            end = closing < 0 ? source.length : closing + 2
+        }
+        else if (!commentStyle && source[index] === '/' && source[index + 1] === '/')
         {
             end = findSourceLineTerminator(source, index + 2)
         }
@@ -483,7 +493,7 @@ function maskSourceLiteralsAndComments(source, commentStyle)
             let next = end
             while (/\s/u.test(source[next] ?? '')) next += 1
             const content = source.slice(index + 1, Math.max(index + 1, end - 1))
-            if (source[next] === ':' && /^[A-Za-z][A-Za-z0-9_-]*$/u.test(content))
+            if (source[next] === ':' && /^[\p{ID_Start}_][\p{ID_Continue}_-]*$/u.test(content))
             {
                 index = end - 1
                 continue
@@ -510,6 +520,12 @@ function nextSignificantSourceCharacter(source, start, commentStyle)
         if (/\s/u.test(source[index]))
         {
             index += 1
+            continue
+        }
+        if (commentStyle === 'powershell' && source[index] === '<' && source[index + 1] === '#')
+        {
+            const closing = source.indexOf('#>', index + 2)
+            index = closing < 0 ? source.length : closing + 2
             continue
         }
         if (!commentStyle && source[index] === '/' && source[index + 1] === '/')
@@ -585,6 +601,14 @@ function readAssignmentValue(source, valueStart, commentStyle)
             index += 1
             continue
         }
+        if (commentStyle === 'powershell' && current === '<' && next === '#')
+        {
+            const closing = source.indexOf('#>', index + 2)
+            if (closing < 0) break
+            valueText += ' '
+            index = closing + 2
+            continue
+        }
         if (!commentStyle && current === '/' && next === '/')
         {
             const terminator = findSourceLineTerminator(source, index + 2)
@@ -633,7 +657,7 @@ function readAssignmentValue(source, valueStart, commentStyle)
 function sourceAssignments(source, masked, commentStyle)
 {
     const assignments = []
-    const expression = /(?:^|[,;{([.\s])(?:["']([^"']+)["']|([A-Za-z][A-Za-z0-9_-]*))\s*\??\s*(?::|=(?!=))/dgmu
+    const expression = /(?:^|[,;{([.\s])(?:["']([^"']+)["']|\$?([\p{ID_Start}_][\p{ID_Continue}_-]*))\s*\??\s*(?::|=(?!=))/dgmu
     let match
     while ((match = expression.exec(masked)) !== null)
     {
@@ -652,8 +676,8 @@ function declaredIdentifiers(masked)
 {
     const identifiers = []
     const expressions = [
-        /\b(?:class|const|enum|function|interface|let|type|var)\s+([A-Za-z][A-Za-z0-9_-]*)/gu,
-        /\b([A-Za-z][A-Za-z0-9_-]*)\s*(?:\??\s*:|\{[\t ]*(?:get|init|set)\s*;)/gu
+        /\b(?:class|const|enum|function|interface|let|type|var)\s+([\p{ID_Start}_][\p{ID_Continue}_-]*)/gu,
+        /(?:^|[^\p{ID_Continue}_])([\p{ID_Start}_][\p{ID_Continue}_-]*)\s*(?:\??\s*:|\{[\t ]*(?:get|init|set)\s*;)/gmu
     ]
     for (const expression of expressions)
     {
@@ -669,7 +693,7 @@ function declaredIdentifiers(masked)
 function sourceInvocations(source, masked)
 {
     const invocations = []
-    const expression = /\b([A-Za-z][A-Za-z0-9_.-]*)\s*\(([^()\n\r\u2028\u2029]*)\)/dgmu
+    const expression = /(?:^|[^\p{ID_Continue}_])([\p{ID_Start}_][\p{ID_Continue}_.-]*)\s*\(([^()\n\r\u2028\u2029]*)\)/dgmu
     let match
     while ((match = expression.exec(masked)) !== null)
     {
@@ -691,7 +715,7 @@ function sourceInvocations(source, masked)
 function autoPropertyInitializers(masked)
 {
     const initializers = []
-    const expression = /\b([A-Za-z][A-Za-z0-9_-]*)\s*\{[\t ]*(?:(?:get|init|set)\s*;[\t ]*)+\}\s*=\s*([^;\n\r\u2028\u2029]+)/gmu
+    const expression = /(?:^|[^\p{ID_Continue}_])([\p{ID_Start}_][\p{ID_Continue}_-]*)\s*\{[\t ]*(?:(?:get|init|set)\s*;[\t ]*)+\}\s*=\s*([^;\n\r\u2028\u2029]+)/gmu
     let match
     while ((match = expression.exec(masked)) !== null)
     {
@@ -724,6 +748,52 @@ function scannerSchemaValue()
     return zeroLegacyScanSchema
 }
 
+function scanMachineShebang(source, context, locationPrefix)
+{
+    if (!source.startsWith('#!')) return
+    const terminator = findSourceLineTerminator(source, 2)
+    const command = source.slice(2, terminator)
+    const shebangContext = { ...context, location: `${locationPrefix}:line:1` }
+    scanValueResidue('command', command, shebangContext)
+    if (legacySurfaceName(command, shebangContext))
+    {
+        addFinding(context.findings, context.file, context.pathClasses, `forbidden-legacy-surface:${command.trim()}`, shebangContext.location)
+    }
+}
+
+function scanYamlBlockScalars(source, context, locationPrefix)
+{
+    const lines = source.replace(/\r\n|\r|\u2028|\u2029/gu, '\n').split('\n')
+    const headerPattern = /^(\s*)(?:["']([^"']+)["']|([\p{ID_Start}_][\p{ID_Continue}_-]*))\s*:\s*[|>][+-]?(?:\s+#.*)?$/u
+    for (let index = 0; index < lines.length; index += 1)
+    {
+        const match = headerPattern.exec(lines[index])
+        if (!match) continue
+        const indentation = match[1].length
+        const values = []
+        let cursor = index + 1
+        while (cursor < lines.length)
+        {
+            const line = lines[cursor]
+            if (line.trim().length === 0)
+            {
+                values.push('')
+                cursor += 1
+                continue
+            }
+            const contentIndentation = /^\s*/u.exec(line)[0].length
+            if (contentIndentation <= indentation) break
+            values.push(line.slice(indentation + 1))
+            cursor += 1
+        }
+        scanIdentifier(match[2] ?? match[3], values.join('\n'), {
+            ...context,
+            location: `${locationPrefix}:line:${index + 1}`
+        })
+        index = Math.max(index, cursor - 1)
+    }
+}
+
 function scanMachineSource(source, context, locationPrefix = 'source')
 {
     const commentStyle = /\.sh$/iu.test(context.file) || /^fence:(?:sh|shell):/u.test(locationPrefix)
@@ -731,8 +801,10 @@ function scanMachineSource(source, context, locationPrefix = 'source')
         : /\.ya?ml$/iu.test(context.file) || /^fence:(?:yaml|yml):/u.test(locationPrefix)
             ? 'yaml'
             : /\.ps1$/iu.test(context.file) || /^fence:(?:powershell|ps1|toml):/u.test(locationPrefix)
-                ? 'hash'
+                ? (/\.ps1$/iu.test(context.file) || /^fence:(?:powershell|ps1):/u.test(locationPrefix) ? 'powershell' : 'hash')
                 : null
+    scanMachineShebang(source, context, locationPrefix)
+    if (commentStyle === 'yaml') scanYamlBlockScalars(source, context, locationPrefix)
     const masked = maskSourceLiteralsAndComments(source, commentStyle)
     const exactDeclaration = exactScannerDeclarationRange(source, masked, context)
     const isExactDeclaration = (index) => exactDeclaration !== null
@@ -852,48 +924,96 @@ function walkFiles(repositoryRoot, relative, output, predicate = () => true)
     }
 }
 
+function gitBlobContents(repositoryRoot, entries)
+{
+    const oids = [...new Set(entries.map((entry) => entry.oid))]
+    if (oids.length === 0) return new Map()
+    const batch = execFileSync('git', ['-C', repositoryRoot, 'cat-file', '--batch'], {
+        encoding: null,
+        input: `${oids.join('\n')}\n`,
+        maxBuffer: 256 * 1024 * 1024,
+        stdio: ['pipe', 'pipe', 'ignore']
+    })
+    const blobs = new Map()
+    let offset = 0
+    for (const expectedOid of oids)
+    {
+        const headerEnd = batch.indexOf(0x0a, offset)
+        if (headerEnd < 0) zeroLegacyFail(`git blob header is missing for ${expectedOid}`)
+        const [oid, type, sizeText] = batch.subarray(offset, headerEnd).toString('ascii').split(' ')
+        const size = Number.parseInt(sizeText, 10)
+        if (oid !== expectedOid || type !== 'blob' || !Number.isSafeInteger(size) || size < 0)
+        {
+            zeroLegacyFail(`git index blob identity is invalid for ${expectedOid}`)
+        }
+        const contentStart = headerEnd + 1
+        const contentEnd = contentStart + size
+        if (contentEnd >= batch.length || batch[contentEnd] !== 0x0a)
+        {
+            zeroLegacyFail(`git index blob is truncated for ${expectedOid}`)
+        }
+        blobs.set(expectedOid, Buffer.from(batch.subarray(contentStart, contentEnd)))
+        offset = contentEnd + 1
+    }
+    if (offset !== batch.length) zeroLegacyFail('git blob batch has trailing output')
+    return blobs
+}
+
 function trackedRepositoryFiles(repositoryRoot)
 {
+    let topLevel
     try
     {
-        const topLevel = execFileSync('git', ['-C', repositoryRoot, 'rev-parse', '--show-toplevel'], {
+        topLevel = execFileSync('git', ['-C', repositoryRoot, 'rev-parse', '--show-toplevel'], {
             encoding: 'utf8',
             stdio: ['ignore', 'pipe', 'ignore']
         }).trim()
-        if (path.resolve(topLevel) !== path.resolve(repositoryRoot)) return null
-        const files = []
-        const gitlinks = []
-        for (const record of execFileSync('git', ['-C', repositoryRoot, 'ls-files', '-s', '-z'], {
-            encoding: 'utf8',
-            maxBuffer: 64 * 1024 * 1024,
-            stdio: ['ignore', 'pipe', 'ignore']
-        })
-            .split('\0')
-            .filter(Boolean))
-        {
-            const tab = record.indexOf('\t')
-            if (tab < 0) return null
-            const [mode] = record.slice(0, tab).split(' ')
-            const file = record.slice(tab + 1).replaceAll(path.sep, '/')
-            if (mode === '160000')
-            {
-                gitlinks.push(file)
-                continue
-            }
-            try
-            {
-                if (!fs.lstatSync(path.join(repositoryRoot, file)).isSymbolicLink()) files.push(file)
-            }
-            catch
-            {
-                // A missing tracked path cannot be read and therefore is not counted as scanned.
-            }
-        }
-        return { files, gitlinks }
     }
     catch
     {
         return null
+    }
+    if (fs.realpathSync(topLevel) !== fs.realpathSync(repositoryRoot))
+    {
+        zeroLegacyFail('scan root must equal the git top-level')
+    }
+    const flags = new Map(execFileSync('git', ['-C', repositoryRoot, 'ls-files', '-t', '-z'], {
+        encoding: 'utf8',
+        maxBuffer: 64 * 1024 * 1024,
+        stdio: ['ignore', 'pipe', 'ignore']
+    })
+        .split('\0')
+        .filter(Boolean)
+        .map((record) => [record.slice(2).replaceAll(path.sep, '/'), record[0]]))
+    const files = []
+    const gitlinks = []
+    for (const record of execFileSync('git', ['-C', repositoryRoot, 'ls-files', '-s', '-z'], {
+        encoding: 'utf8',
+        maxBuffer: 64 * 1024 * 1024,
+        stdio: ['ignore', 'pipe', 'ignore']
+    })
+        .split('\0')
+        .filter(Boolean))
+    {
+        const tab = record.indexOf('\t')
+        if (tab < 0) zeroLegacyFail('git index record is malformed')
+        const [mode, oid, stage] = record.slice(0, tab).split(' ')
+        const file = record.slice(tab + 1).replaceAll(path.sep, '/')
+        if (stage !== '0') zeroLegacyFail(`unmerged git index entry is unsupported: ${file}`)
+        if (!/^[0-9a-f]{40}(?:[0-9a-f]{24})?$/u.test(oid)) zeroLegacyFail(`git index OID is invalid: ${file}`)
+        if (mode === '160000')
+        {
+            gitlinks.push(file)
+            continue
+        }
+        if (mode === '120000') continue
+        if (mode !== '100644' && mode !== '100755') zeroLegacyFail(`git index mode is unsupported: ${file} (${mode})`)
+        files.push({ file, mode, oid, skipWorktree: flags.get(file) === 'S' })
+    }
+    const blobs = gitBlobContents(repositoryRoot, files)
+    return {
+        files: files.map((entry) => ({ ...entry, indexContent: blobs.get(entry.oid) })),
+        gitlinks
     }
 }
 
@@ -905,14 +1025,85 @@ function collectScanFiles(repositoryRoot)
         const inScope = (file) => scanRoots.some((entry) => file === entry.path || file.startsWith(`${entry.path}/`))
             || path.posix.basename(file) === 'package.json'
         return {
-            files: tracked.files.filter(inScope),
+            files: tracked.files.filter((entry) => inScope(entry.file)),
             gitlinks: tracked.gitlinks.filter(inScope)
         }
     }
     const files = []
     for (const entry of scanRoots) walkFiles(repositoryRoot, entry.path, files)
     walkFiles(repositoryRoot, '.', files, (file) => path.posix.basename(file) === 'package.json')
-    return { files, gitlinks: [] }
+    return { files: files.map((file) => ({ file, indexContent: null })), gitlinks: [] }
+}
+
+function inventoryFileContent(repositoryRoot, entry, findings, pathClasses)
+{
+    if (entry.indexContent === null) return fs.readFileSync(path.join(repositoryRoot, entry.file))
+    const absolute = path.join(repositoryRoot, entry.file)
+    let stat
+    try
+    {
+        stat = fs.lstatSync(absolute)
+    }
+    catch
+    {
+        if (!entry.skipWorktree)
+        {
+            addFinding(findings, entry.file, pathClasses, 'tracked-worktree-index-split:missing', `git-index:${entry.oid}`)
+        }
+        return entry.indexContent
+    }
+    if (!stat.isFile())
+    {
+        addFinding(findings, entry.file, pathClasses, 'tracked-worktree-index-split:mode', `git-index:${entry.mode}:${entry.oid}`)
+        return entry.indexContent
+    }
+    const executable = (stat.mode & 0o111) !== 0
+    if ((entry.mode === '100755') !== executable)
+    {
+        addFinding(findings, entry.file, pathClasses, 'tracked-worktree-index-split:mode', `git-index:${entry.mode}:${entry.oid}`)
+    }
+    const worktreeContent = fs.readFileSync(absolute)
+    if (!worktreeContent.equals(entry.indexContent))
+    {
+        addFinding(findings, entry.file, pathClasses, 'tracked-worktree-index-split:oid', `git-index:${entry.oid}`)
+        return worktreeContent
+    }
+    return entry.indexContent
+}
+
+function decodeMachineText(content)
+{
+    if (content.length >= 2 && content[0] === 0xff && content[1] === 0xfe)
+    {
+        return new TextDecoder('utf-16le', { fatal: true }).decode(content)
+    }
+    if (content.length >= 2 && content[0] === 0xfe && content[1] === 0xff)
+    {
+        return new TextDecoder('utf-16be', { fatal: true }).decode(content)
+    }
+    if (content.length >= 4 && content.length % 2 === 0)
+    {
+        let evenZeroes = 0
+        let oddZeroes = 0
+        for (let index = 0; index < content.length; index += 2)
+        {
+            if (content[index] === 0) evenZeroes += 1
+            if (content[index + 1] === 0) oddZeroes += 1
+        }
+        const pairs = content.length / 2
+        if (oddZeroes / pairs >= 0.3 && evenZeroes / pairs < 0.1)
+        {
+            return new TextDecoder('utf-16le', { fatal: true }).decode(content)
+        }
+        if (evenZeroes / pairs >= 0.3 && oddZeroes / pairs < 0.1)
+        {
+            return new TextDecoder('utf-16be', { fatal: true }).decode(content)
+        }
+    }
+    const utf8 = content.length >= 3 && content[0] === 0xef && content[1] === 0xbb && content[2] === 0xbf
+        ? content.subarray(3)
+        : content
+    return new TextDecoder('utf-8', { fatal: true }).decode(utf8)
 }
 
 export function validateZeroLegacyScan(scan)
@@ -941,24 +1132,41 @@ export function validateZeroLegacyScan(scan)
 export function scanZeroLegacyGovernance(repositoryRoot = root)
 {
     const inventory = collectScanFiles(repositoryRoot)
-    const uniqueFiles = [...new Set(inventory.files)].sort()
+    const uniqueFiles = [...new Map(inventory.files.map((entry) => [entry.file, entry])).values()]
+        .sort((left, right) => left.file.localeCompare(right.file))
     const pathClassCounts = Object.fromEntries(zeroLegacyRequiredPathClasses.map((pathClass) => [pathClass, 0]))
     const findings = []
     for (const file of [...new Set(inventory.gitlinks)].sort())
     {
         addFinding(findings, file, pathClassesFor(file), 'unsupported-tracked-gitlink', 'git-index')
     }
-    for (const file of uniqueFiles)
+    for (const entry of uniqueFiles)
     {
+        const file = entry.file
         const pathClasses = pathClassesFor(file)
         pathClasses.forEach((pathClass) => { pathClassCounts[pathClass] += 1 })
-        const absolute = path.join(repositoryRoot, file)
         const context = { file, findings, pathClasses, qualification: isQualificationPath(file) }
+        const content = inventoryFileContent(repositoryRoot, entry, findings, pathClasses)
+        const markdownDocument = pathClasses.includes('docs') && /\.md$/iu.test(file)
+        const scansContent = /\.jsonc?$/iu.test(file) || markdownDocument || machineSourceExtensions.test(file)
+        let source = null
+        if (scansContent)
+        {
+            try
+            {
+                source = decodeMachineText(content)
+            }
+            catch
+            {
+                addFinding(findings, file, pathClasses, 'unsupported-machine-encoding', 'content')
+                continue
+            }
+        }
         if (/\.jsonc?$/iu.test(file))
         {
             try
             {
-                const document = parseMachineJson(fs.readFileSync(absolute, 'utf8'), file)
+                const document = parseMachineJson(source, file)
                 const jsonSchemaDocument = file.endsWith('.schema.json')
                     && typeof document?.$schema === 'string'
                     && jsonSchemaDialectPattern.test(document.$schema)
@@ -970,13 +1178,13 @@ export function scanZeroLegacyGovernance(repositoryRoot = root)
                 addFinding(findings, file, pathClasses, 'invalid-machine-json', '$')
             }
         }
-        if (pathClasses.includes('docs'))
+        if (markdownDocument)
         {
-            scanDocumentFences(fs.readFileSync(absolute, 'utf8'), context)
+            scanDocumentFences(source, context)
         }
-        else if (machineSourceExtensions.test(file))
+        if (machineSourceExtensions.test(file))
         {
-            scanMachineSource(fs.readFileSync(absolute, 'utf8'), context)
+            scanMachineSource(source, context)
         }
         if (legacySurfaceName(file, { file }))
         {
