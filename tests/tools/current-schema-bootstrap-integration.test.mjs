@@ -102,6 +102,7 @@ test('current schema bootstrap lane exercises positive and fail-closed PostgreSQ
   assert.match(lane, /ALTER COLUMN \$\{collationColumn\} TYPE \$\{collationPhysicalType\} COLLATE \$\{alternateColumnCollation\}/u)
   assert.match(lane, /for identityKind in 'BY DEFAULT' 'ALWAYS'/u)
   assert.match(lane, /ADD GENERATED \$\{identityKind\} AS IDENTITY/u)
+  assert.doesNotMatch(lane, /AS IDENTITY \([^\n]* AS \$\{sequenceType\}/u)
   assert.match(lane, /RestoreOwnedSequence/u)
   for (const sequenceOption of [
     'START WITH',

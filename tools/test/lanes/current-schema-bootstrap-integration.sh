@@ -1018,7 +1018,7 @@ IFS='|' read -r sequenceTable sequenceColumn sequenceName sequenceType sequenceS
 
 for identityKind in 'BY DEFAULT' 'ALWAYS'; do
     identityStage="identity-generation-$(printf '%s' "$identityKind" | tr '[:upper:] ' '[:lower:]-')"
-    PostgresSql --command "ALTER TABLE public.${sequenceTable} ALTER COLUMN ${sequenceColumn} DROP DEFAULT; ALTER SEQUENCE public.${sequenceName} OWNED BY NONE; DROP SEQUENCE public.${sequenceName}; ALTER TABLE public.${sequenceTable} ALTER COLUMN ${sequenceColumn} ADD GENERATED ${identityKind} AS IDENTITY (SEQUENCE NAME public.${sequenceName} AS ${sequenceType} START WITH ${sequenceStart} INCREMENT BY ${sequenceIncrement} MINVALUE ${sequenceMin} MAXVALUE ${sequenceMax} CACHE ${sequenceCache} NO CYCLE);" >/dev/null
+    PostgresSql --command "ALTER TABLE public.${sequenceTable} ALTER COLUMN ${sequenceColumn} DROP DEFAULT; ALTER SEQUENCE public.${sequenceName} OWNED BY NONE; DROP SEQUENCE public.${sequenceName}; ALTER TABLE public.${sequenceTable} ALTER COLUMN ${sequenceColumn} ADD GENERATED ${identityKind} AS IDENTITY (SEQUENCE NAME public.${sequenceName} START WITH ${sequenceStart} INCREMENT BY ${sequenceIncrement} MINVALUE ${sequenceMin} MAXVALUE ${sequenceMax} CACHE ${sequenceCache} NO CYCLE);" >/dev/null
     ExpectVerifierFailure "$identityStage"
     PostgresSql --command "ALTER TABLE public.${sequenceTable} ALTER COLUMN ${sequenceColumn} DROP IDENTITY;" >/dev/null
     RestoreOwnedSequence "$sequenceTable" "$sequenceColumn" "$sequenceName" "$sequenceType" "$sequenceStart" "$sequenceIncrement" "$sequenceMin" "$sequenceMax" "$sequenceCache" "$sequenceCycle"
