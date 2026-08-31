@@ -3,6 +3,7 @@
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -13,6 +14,7 @@ import { assertPreRuntimeQualified } from '../test-matrix/behavior-evidence-pre-
 import { validatePostRuntimeReceipt } from '../test-matrix/behavior-evidence-post-runtime.mjs'
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+const require = createRequire(import.meta.url)
 export const finalReportSchema = 'fsusblog.behavior-document-consistency-final-report.v1'
 
 export const zeroLegacyScanSchema = 'fsusblog.zero-legacy-governance-scan.v1'
@@ -120,52 +122,54 @@ function zeroLegacyFail(message)
     throw new Error(`[zero-legacy-governance] ${message}`)
 }
 
-function stripJsonComments(source)
+let typescriptJsonParser = null
+
+function canonicalJsoncParser()
 {
-    let output = ''
-    let quote = false
-    let escaped = false
-    for (let index = 0; index < source.length; index += 1)
+    typescriptJsonParser ??= require(path.join(root, 'src/frontend/node_modules/typescript/lib/typescript.js'))
+    return typescriptJsonParser
+}
+
+function assertUniqueJsonKeys(parser, sourceFile)
+{
+    const visit = (node) =>
     {
-        const current = source[index]
-        const next = source[index + 1]
-        if (quote)
+        if (parser.isObjectLiteralExpression(node))
         {
-            output += current
-            if (escaped) escaped = false
-            else if (current === '\\') escaped = true
-            else if (current === '"') quote = false
-            continue
+            const keys = new Set()
+            for (const property of node.properties)
+            {
+                const key = property.name?.text
+                if (typeof key !== 'string') continue
+                if (keys.has(key)) throw new SyntaxError(`duplicate JSON key: ${key}`)
+                keys.add(key)
+            }
         }
-        if (current === '"')
-        {
-            quote = true
-            output += current
-            continue
-        }
-        if (current === '/' && next === '/')
-        {
-            const terminator = findSourceLineTerminator(source, index + 2)
-            output += source.slice(index, terminator).replace(/[^\n\r\u2028\u2029]/gu, ' ')
-            index = terminator - 1
-            continue
-        }
-        if (current === '/' && next === '*')
-        {
-            const closing = source.indexOf('*/', index + 2)
-            if (closing < 0) throw new SyntaxError('unterminated JSON block comment')
-            output += source.slice(index, closing + 2).replace(/[^\n\r\u2028\u2029]/gu, ' ')
-            index = closing + 1
-            continue
-        }
-        output += current
+        parser.forEachChild(node, visit)
     }
-    return output
+    visit(sourceFile)
 }
 
 function parseMachineJson(source, file)
 {
-    return JSON.parse(jsonWithCommentsPathPattern.test(file) ? stripJsonComments(source) : source)
+    if (!jsonWithCommentsPathPattern.test(file))
+    {
+        const value = JSON.parse(source)
+        const parser = canonicalJsoncParser()
+        const sourceFile = parser.parseJsonText(file, source)
+        assertUniqueJsonKeys(parser, sourceFile)
+        return value
+    }
+    const parser = canonicalJsoncParser()
+    const sourceFile = parser.parseJsonText(file, source)
+    if (sourceFile.parseDiagnostics.length > 0)
+    {
+        throw new SyntaxError(parser.flattenDiagnosticMessageText(sourceFile.parseDiagnostics[0].messageText, ' '))
+    }
+    assertUniqueJsonKeys(parser, sourceFile)
+    const parsed = parser.parseConfigFileTextToJson(file, source)
+    if (parsed.error) throw new SyntaxError(parser.flattenDiagnosticMessageText(parsed.error.messageText, ' '))
+    return parsed.config
 }
 
 function pathClassesFor(file)
@@ -338,18 +342,41 @@ function scanIdentifier(identifier, valueText, context)
     scanValueResidue(identifier, typeof valueText === 'string' ? valueText : '', context)
 }
 
-function schemaResourceContext(value, context, schemaMode)
+function validSchemaResourceId(value)
 {
-    if (schemaMode !== 'schema' || typeof value?.$schema !== 'string') return context
-    const dialect = value.$schema
-    if (!jsonSchemaDialectPattern.test(dialect))
+    if (typeof value !== 'string' || value.trim() !== value || value.length === 0 || /\s/u.test(value)) return false
+    try
     {
-        return { ...context, currentContentSchema: false, oldDialectDependencies: false }
+        return new URL(value, 'https://fsusblog.invalid/schema/').hash.length === 0
+    }
+    catch
+    {
+        return false
+    }
+}
+
+function schemaResourceState(value, context, schemaMode, location)
+{
+    if (schemaMode !== 'schema' || typeof value?.$schema !== 'string')
+    {
+        return { context, schemaMode }
+    }
+    const resourceBoundary = location === '$' || validSchemaResourceId(value.$id)
+    const dialect = value.$schema
+    if (!resourceBoundary || !jsonSchemaDialectPattern.test(dialect))
+    {
+        return {
+            context: { ...context, currentContentSchema: false, oldDialectDependencies: false },
+            schemaMode: 'value'
+        }
     }
     return {
-        ...context,
-        currentContentSchema: contentSchemaDialectPattern.test(dialect),
-        oldDialectDependencies: /\/draft-0[4-7]\/schema#?$/u.test(dialect)
+        context: {
+            ...context,
+            currentContentSchema: contentSchemaDialectPattern.test(dialect),
+            oldDialectDependencies: /\/draft-0[4-7]\/schema#?$/u.test(dialect)
+        },
+        schemaMode: 'schema'
     }
 }
 
@@ -362,22 +389,28 @@ function scanObjectKeys(value, context, negated = false, location = '$', schemaM
         return
     }
     if (!value || typeof value !== 'object') return
-    const resourceContext = schemaResourceContext(value, context, schemaMode)
+    const resource = schemaResourceState(value, context, schemaMode, location)
+    const resourceContext = resource.context
+    const activeSchemaMode = resource.schemaMode
+    const referenceIgnoresSiblings = activeSchemaMode === 'schema'
+        && resourceContext.oldDialectDependencies === true
+        && typeof value.$ref === 'string'
     for (const [key, nested] of Object.entries(value))
     {
         if (!negated) scanIdentifier(key, nested, { ...resourceContext, location: `${location}.${key}` })
-        const schemaNegation = schemaMode === 'schema'
+        const schemaNegation = activeSchemaMode === 'schema'
+            && !referenceIgnoresSiblings
             && key === 'not'
             && nested != null
             && typeof nested === 'object'
             && !Array.isArray(nested)
         let nestedSchemaMode = 'value'
-        if (schemaMode === 'schema-map') nestedSchemaMode = 'schema'
-        else if (schemaMode === 'schema'
+        if (activeSchemaMode === 'schema-map') nestedSchemaMode = 'schema'
+        else if (activeSchemaMode === 'schema'
             && (jsonSchemaMapKeywords.has(key)
                 || (key === 'dependencies' && resourceContext.oldDialectDependencies === true))) nestedSchemaMode = 'schema-map'
-        else if (schemaMode === 'schema' && jsonSchemaArrayKeywords.has(key)) nestedSchemaMode = 'schema-array'
-        else if (schemaMode === 'schema'
+        else if (activeSchemaMode === 'schema' && jsonSchemaArrayKeywords.has(key)) nestedSchemaMode = 'schema-array'
+        else if (activeSchemaMode === 'schema'
             && (jsonSubschemaKeywords.has(key)
                 || (key === 'contentSchema' && resourceContext.currentContentSchema === true)))
         {
@@ -416,7 +449,7 @@ function maskSourceLiteralsAndComments(source, commentStyle)
     for (let index = 0; index < source.length; index += 1)
     {
         let end = index
-        if (source[index] === '/' && source[index + 1] === '/')
+        if (!commentStyle && source[index] === '/' && source[index + 1] === '/')
         {
             end = findSourceLineTerminator(source, index + 2)
         }
@@ -424,7 +457,7 @@ function maskSourceLiteralsAndComments(source, commentStyle)
         {
             end = findSourceLineTerminator(source, index + 1)
         }
-        else if (source[index] === '/' && source[index + 1] === '*')
+        else if (!commentStyle && source[index] === '/' && source[index + 1] === '*')
         {
             const closing = source.indexOf('*/', index + 2)
             end = closing < 0 ? source.length : closing + 2
@@ -479,7 +512,7 @@ function nextSignificantSourceCharacter(source, start, commentStyle)
             index += 1
             continue
         }
-        if (source[index] === '/' && source[index + 1] === '/')
+        if (!commentStyle && source[index] === '/' && source[index + 1] === '/')
         {
             const terminator = findSourceLineTerminator(source, index + 2)
             index = terminator + sourceLineTerminatorAt(source, terminator)
@@ -491,7 +524,7 @@ function nextSignificantSourceCharacter(source, start, commentStyle)
             index = terminator + sourceLineTerminatorAt(source, terminator)
             continue
         }
-        if (source[index] === '/' && source[index + 1] === '*')
+        if (!commentStyle && source[index] === '/' && source[index + 1] === '*')
         {
             const closing = source.indexOf('*/', index + 2)
             index = closing < 0 ? source.length : closing + 2
@@ -552,7 +585,7 @@ function readAssignmentValue(source, valueStart, commentStyle)
             index += 1
             continue
         }
-        if (current === '/' && next === '/')
+        if (!commentStyle && current === '/' && next === '/')
         {
             const terminator = findSourceLineTerminator(source, index + 2)
             const nextLine = terminator + sourceLineTerminatorAt(source, terminator)
@@ -572,7 +605,7 @@ function readAssignmentValue(source, valueStart, commentStyle)
             index = nextLine
             continue
         }
-        if (current === '/' && next === '*')
+        if (!commentStyle && current === '/' && next === '*')
         {
             const closing = source.indexOf('*/', index + 2)
             if (closing < 0) break
@@ -767,11 +800,12 @@ function scanMachineSource(source, context, locationPrefix = 'source')
 
 function scanDocumentFences(source, context)
 {
+    const normalized = source.replace(/\r\n|\r|\u2028|\u2029/gu, '\n')
     machineFencePattern.lastIndex = 0
     let match
-    while ((match = machineFencePattern.exec(source)) !== null)
+    while ((match = machineFencePattern.exec(normalized)) !== null)
     {
-        const line = source.slice(0, match.index).split('\n').length
+        const line = normalized.slice(0, match.index).split('\n').length
         scanMachineSource(match[2], { ...context, qualification: true }, `fence:${match[1].toLowerCase()}:line:${line}`)
     }
 }
@@ -827,24 +861,35 @@ function trackedRepositoryFiles(repositoryRoot)
             stdio: ['ignore', 'pipe', 'ignore']
         }).trim()
         if (path.resolve(topLevel) !== path.resolve(repositoryRoot)) return null
-        return execFileSync('git', ['-C', repositoryRoot, 'ls-files', '-z'], {
+        const files = []
+        const gitlinks = []
+        for (const record of execFileSync('git', ['-C', repositoryRoot, 'ls-files', '-s', '-z'], {
             encoding: 'utf8',
             maxBuffer: 64 * 1024 * 1024,
             stdio: ['ignore', 'pipe', 'ignore']
         })
             .split('\0')
-            .filter(Boolean)
-            .map((file) => file.replaceAll(path.sep, '/'))
-            .filter((file) => {
-                try
-                {
-                    return !fs.lstatSync(path.join(repositoryRoot, file)).isSymbolicLink()
-                }
-                catch
-                {
-                    return false
-                }
-            })
+            .filter(Boolean))
+        {
+            const tab = record.indexOf('\t')
+            if (tab < 0) return null
+            const [mode] = record.slice(0, tab).split(' ')
+            const file = record.slice(tab + 1).replaceAll(path.sep, '/')
+            if (mode === '160000')
+            {
+                gitlinks.push(file)
+                continue
+            }
+            try
+            {
+                if (!fs.lstatSync(path.join(repositoryRoot, file)).isSymbolicLink()) files.push(file)
+            }
+            catch
+            {
+                // A missing tracked path cannot be read and therefore is not counted as scanned.
+            }
+        }
+        return { files, gitlinks }
     }
     catch
     {
@@ -857,13 +902,17 @@ function collectScanFiles(repositoryRoot)
     const tracked = trackedRepositoryFiles(repositoryRoot)
     if (tracked)
     {
-        return tracked.filter((file) => scanRoots.some((entry) => file === entry.path || file.startsWith(`${entry.path}/`))
-            || path.posix.basename(file) === 'package.json')
+        const inScope = (file) => scanRoots.some((entry) => file === entry.path || file.startsWith(`${entry.path}/`))
+            || path.posix.basename(file) === 'package.json'
+        return {
+            files: tracked.files.filter(inScope),
+            gitlinks: tracked.gitlinks.filter(inScope)
+        }
     }
     const files = []
     for (const entry of scanRoots) walkFiles(repositoryRoot, entry.path, files)
     walkFiles(repositoryRoot, '.', files, (file) => path.posix.basename(file) === 'package.json')
-    return files
+    return { files, gitlinks: [] }
 }
 
 export function validateZeroLegacyScan(scan)
@@ -891,10 +940,14 @@ export function validateZeroLegacyScan(scan)
 
 export function scanZeroLegacyGovernance(repositoryRoot = root)
 {
-    const files = collectScanFiles(repositoryRoot)
-    const uniqueFiles = [...new Set(files)].sort()
+    const inventory = collectScanFiles(repositoryRoot)
+    const uniqueFiles = [...new Set(inventory.files)].sort()
     const pathClassCounts = Object.fromEntries(zeroLegacyRequiredPathClasses.map((pathClass) => [pathClass, 0]))
     const findings = []
+    for (const file of [...new Set(inventory.gitlinks)].sort())
+    {
+        addFinding(findings, file, pathClassesFor(file), 'unsupported-tracked-gitlink', 'git-index')
+    }
     for (const file of uniqueFiles)
     {
         const pathClasses = pathClassesFor(file)

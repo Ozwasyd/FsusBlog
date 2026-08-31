@@ -315,14 +315,20 @@ test('zero-legacy shell and YAML hash comments do not create residue or hide act
     const repositoryRoot = repositoryFixture(t, {
         'tools/release/comment-only-behavior-qualification.sh': '# command="deprecated-claim-cli"\ncommand="current-claim-cli" # checked-in-openapi\necho current;# authority="checked-in-openapi"\n',
         'tools/release/active-behavior-qualification.sh': 'command="deprecated-claim-cli"\n',
+        'tools/release/url-behavior-qualification.sh': 'evidenceSource=https://host/latest-receipt\n',
+        'tools/release/current-url-behavior-qualification.sh': 'evidenceSource=https://host/current-receipt\n',
         'config/testing/comment-only-behavior-qualification.yaml': '# latestReceipt: stale.json\ncommand: current-claim-cli # deprecated-claim-cli\n',
         'config/testing/active-behavior-qualification.yaml': 'command: deprecated-claim-cli\n',
-        'config/testing/hash-scalar-active-behavior-qualification.yaml': 'command: current#deprecated-claim-cli\n'
+        'config/testing/hash-scalar-active-behavior-qualification.yaml': 'command: current#deprecated-claim-cli\n',
+        'config/testing/url-behavior-qualification.yaml': 'evidenceSource: https://host/latest-receipt\n',
+        'config/testing/current-url-behavior-qualification.yaml': 'evidenceSource: https://host/current-receipt\n'
     })
     const findings = scanZeroLegacyGovernance(repositoryRoot).findings
     for (const file of [
         'tools/release/comment-only-behavior-qualification.sh',
-        'config/testing/comment-only-behavior-qualification.yaml'
+        'config/testing/comment-only-behavior-qualification.yaml',
+        'tools/release/current-url-behavior-qualification.sh',
+        'config/testing/current-url-behavior-qualification.yaml'
     ])
     {
         assert.equal(findings.some((finding) => finding.file === file), false, `${file} hash comment was scanned`)
@@ -330,11 +336,12 @@ test('zero-legacy shell and YAML hash comments do not create residue or hide act
     for (const file of [
         'tools/release/active-behavior-qualification.sh',
         'config/testing/active-behavior-qualification.yaml',
-        'config/testing/hash-scalar-active-behavior-qualification.yaml'
+        'config/testing/hash-scalar-active-behavior-qualification.yaml',
+        'tools/release/url-behavior-qualification.sh',
+        'config/testing/url-behavior-qualification.yaml'
     ])
     {
-        assert.ok(findings.some((finding) => finding.file === file
-            && finding.rule.includes('deprecated-claim-cli')), `${file} active value escaped`)
+        assert.ok(findings.some((finding) => finding.file === file), `${file} active value escaped`)
     }
 })
 
@@ -565,6 +572,45 @@ test('zero-legacy schema traversal switches dialect at each embedded schema reso
                     dependencies: { currentField: { not: { latestReceipt: 'ambient.json' } } }
                 }
             }
+        }),
+        'config/schemas/no-id-embedded-behavior-qualification.schema.json': JSON.stringify({
+            $schema: 'https://json-schema.org/draft/2020-12/schema',
+            $defs: {
+                notAResource: {
+                    $schema: 'http://json-schema.org/draft-07/schema#',
+                    not: { latestReceipt: 'ambient.json' }
+                }
+            }
+        }),
+        'config/schemas/invalid-id-embedded-behavior-qualification.schema.json': JSON.stringify({
+            $schema: 'https://json-schema.org/draft/2020-12/schema',
+            $defs: {
+                invalidResource: {
+                    $id: 'bad id#fragment',
+                    $schema: 'http://json-schema.org/draft-07/schema#',
+                    not: { latestReceipt: 'ambient.json' }
+                }
+            }
+        }),
+        'config/schemas/unknown-dialect-embedded-behavior-qualification.schema.json': JSON.stringify({
+            $schema: 'https://json-schema.org/draft/2020-12/schema',
+            $defs: {
+                unknownResource: {
+                    $id: 'unknown-resource',
+                    $schema: 'https://example.invalid/schema',
+                    not: { latestReceipt: 'ambient.json' }
+                }
+            }
+        }),
+        'config/schemas/draft7-ref-sibling-behavior-qualification.schema.json': JSON.stringify({
+            $schema: 'http://json-schema.org/draft-07/schema#',
+            $ref: '#/definitions/current',
+            not: { latestReceipt: 'ambient.json' }
+        }),
+        'config/schemas/current-ref-sibling-behavior-qualification.schema.json': JSON.stringify({
+            $schema: 'https://json-schema.org/draft/2020-12/schema',
+            $ref: '#/$defs/current',
+            not: { properties: { latestReceipt: { type: 'string' } } }
         })
     })
     const findings = scanZeroLegacyGovernance(repositoryRoot).findings
@@ -576,6 +622,17 @@ test('zero-legacy schema traversal switches dialect at each embedded schema reso
         && finding.location.includes('.contentSchema.')), false)
     assert.ok(findings.some((finding) => finding.file === 'config/schemas/embedded-2020-behavior-qualification.schema.json'
         && finding.location.endsWith('.dependencies.currentField.not.latestReceipt')))
+    for (const file of [
+        'config/schemas/no-id-embedded-behavior-qualification.schema.json',
+        'config/schemas/invalid-id-embedded-behavior-qualification.schema.json',
+        'config/schemas/unknown-dialect-embedded-behavior-qualification.schema.json',
+        'config/schemas/draft7-ref-sibling-behavior-qualification.schema.json'
+    ])
+    {
+        assert.ok(findings.some((finding) => finding.file === file
+            && finding.rule === 'forbidden-evidence-selection:latestReceipt'), `${file} invalid resource semantics escaped`)
+    }
+    assert.equal(findings.some((finding) => finding.file === 'config/schemas/current-ref-sibling-behavior-qualification.schema.json'), false)
 })
 
 test('zero-legacy scanner self exemptions are exact and owner names cannot suppress values', (t) =>
@@ -635,13 +692,27 @@ test('zero-legacy malformed machine JSON fails closed through final aggregation'
     const malformed = '{"latestReceipt":"ambient.json"} trailing-token\n'
     const scanRoot = repositoryFixture(t, {
         'config/testing/malformed-behavior-qualification.json': malformed,
-        'config/testing/comment-only-behavior-qualification.jsonc': '{\n  // "latestReceipt": "stale.json"\n  "command": "current-claim-cli"\n}\n',
+        'config/testing/duplicate-behavior-qualification.json': '{"latestReceipt":"stale.json","latestReceipt":"current.json"}',
+        'config/testing/duplicate-boolean-behavior-qualification.json': '{"verified":true,"verified":false}',
+        'config/testing/duplicate-behavior-qualification.jsonc': '{"verified": true, "verified": false,}',
+        'config/testing/comment-only-behavior-qualification.jsonc': '{\u2028  // "latestReceipt": "stale.json"\u2029  "command": "current-claim-cli",\u2028}\n',
+        'src/frontend/tsconfig.behavior.json': '{\u2028  /* current config */\u2029  "compilerOptions": { "strict": true, },\u2028}\n',
         'config/testing/active-behavior-qualification.jsonc': '{\n  /* current config */\n  "latestReceipt": "stale.json"\n}\n'
     })
     const scan = scanZeroLegacyGovernance(scanRoot)
     assert.ok(scan.findings.some((finding) => finding.file === 'config/testing/malformed-behavior-qualification.json'
         && finding.rule === 'invalid-machine-json'))
     assert.equal(scan.findings.some((finding) => finding.file === 'config/testing/comment-only-behavior-qualification.jsonc'), false)
+    assert.equal(scan.findings.some((finding) => finding.file === 'src/frontend/tsconfig.behavior.json'), false)
+    for (const file of [
+        'config/testing/duplicate-behavior-qualification.json',
+        'config/testing/duplicate-boolean-behavior-qualification.json',
+        'config/testing/duplicate-behavior-qualification.jsonc'
+    ])
+    {
+        assert.ok(scan.findings.some((finding) => finding.file === file
+            && finding.rule === 'invalid-machine-json'), `${file} duplicate key escaped`)
+    }
     assert.ok(scan.findings.some((finding) => finding.file === 'config/testing/active-behavior-qualification.jsonc'
         && finding.rule === 'forbidden-evidence-selection:latestReceipt'))
 
@@ -652,6 +723,44 @@ test('zero-legacy malformed machine JSON fails closed through final aggregation'
     assert.equal(report.status, 'failed')
     assert.ok(report.failureReasons.some((reason) => reason.includes('zero-legacy scan found')))
     assert.ok(report.zeroLegacyScan.findings.some((finding) => finding.rule === 'invalid-machine-json'))
+})
+
+test('zero-legacy Markdown machine fences recognize every JavaScript line terminator', (t) =>
+{
+    const files = {}
+    for (const [name, separator] of [['lf', '\n'], ['crlf', '\r\n'], ['cr', '\r'], ['u2028', '\u2028'], ['u2029', '\u2029']])
+    {
+        files[`docs/${name}-behavior-contract.md`] = ['# Contract', '```yaml', 'latestReceipt: stale.json', '```'].join(separator)
+        files[`docs/${name}-current-contract.md`] = ['# Contract', '```yaml', 'currentReceipt: current.json', '```'].join(separator)
+    }
+    const findings = scanZeroLegacyGovernance(repositoryFixture(t, files)).findings
+    for (const [name] of [['lf'], ['crlf'], ['cr'], ['u2028'], ['u2029']])
+    {
+        assert.ok(findings.some((finding) => finding.file === `docs/${name}-behavior-contract.md`
+            && finding.rule === 'forbidden-evidence-selection:latestReceipt'), `${name} fence escaped`)
+        assert.equal(findings.some((finding) => finding.file === `docs/${name}-current-contract.md`), false)
+    }
+})
+
+test('zero-legacy tracked gitlinks fail closed without pretending their contents were scanned', (t) =>
+{
+    const repositoryRoot = repositoryFixture(t, {})
+    const gitlink = path.join(repositoryRoot, 'src/vendor-behavior')
+    fs.mkdirSync(gitlink, { recursive: true })
+    execFileSync('git', ['init', '--quiet'], { cwd: gitlink })
+    execFileSync('git', ['config', 'user.email', 'tests@fsusblog.local'], { cwd: gitlink })
+    execFileSync('git', ['config', 'user.name', 'FsusBlog Tests'], { cwd: gitlink })
+    fs.writeFileSync(path.join(gitlink, 'behavior-qualification.mjs'), 'const command = "deprecated-claim-cli"\n')
+    execFileSync('git', ['add', '.'], { cwd: gitlink })
+    execFileSync('git', ['commit', '--quiet', '-m', 'test: seal gitlink source'], { cwd: gitlink })
+    execFileSync('git', ['init', '--quiet'], { cwd: repositoryRoot })
+    execFileSync('git', ['add', 'src/vendor-behavior'], { cwd: repositoryRoot })
+
+    const scan = scanZeroLegacyGovernance(repositoryRoot)
+    assert.equal(scan.scannedFileCount, 0)
+    assert.ok(scan.findings.some((finding) => finding.file === 'src/vendor-behavior'
+        && finding.rule === 'unsupported-tracked-gitlink'
+        && finding.location === 'git-index'))
 })
 
 test('final builder recomputes zero-legacy findings from the sealed source state', (t) =>
