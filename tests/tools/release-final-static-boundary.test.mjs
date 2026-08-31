@@ -1,5 +1,15 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import {
+    chmodSync,
+    mkdtempSync,
+    mkdirSync,
+    readFileSync,
+    rmSync,
+    symlinkSync,
+    writeFileSync
+} from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -9,6 +19,7 @@ import { validateEvidenceExecutionDeclaration } from '../../tools/test-matrix/pr
 import {
     applyReleaseFinalizerSpawnDecision,
     buildReleaseFinalizerSpawnDecision,
+    inspectReleaseFinalCommandTarget,
     validateReleaseFinalStaticBoundary
 } from '../../tools/test-matrix/release-final-static-boundary.mjs';
 
@@ -224,7 +235,14 @@ test('declarative execution grammar rejects aliases and unsupported execution fo
         'if test -f tools/test/lanes/release-final.sh; then tools/test/lanes/release-final.sh; fi',
         '"$dynamicExecutable" tools/test/lanes/release-final.sh',
         'node "$dynamicEntrypoint" tools/test/lanes/release-final.sh',
-        'bash "$dynamicScript" tools/test/lanes/release-final.sh'
+        'bash "$dynamicScript" tools/test/lanes/release-final.sh',
+        'tools/test/lanes/_suite-support.sh',
+        'echo data\ntools/test/lanes/release-final.sh',
+        'printf data\r\ntools/test/lanes/release-final.sh',
+        'test -f tools/test/lanes/release-final.sh\ntools/test/lanes/release-final.sh',
+        'env true\ntools/test/lanes/release-final.sh',
+        'bash tools/test/lanes/release-preview.sh\ntools/test/lanes/release-final.sh',
+        'echo data\u2028tools/test/lanes/release-final.sh'
     ];
 
     for (const [index, command] of commandAliases.entries())
@@ -287,10 +305,117 @@ test('unsupported execution forms fail declaration validation without a finalize
     }
 });
 
+test('raw line separators block real Bash follow-on finalizer execution before spawn', async (context) =>
+{
+    const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), 'release-final-newline-'));
+    const laneDirectory = path.join(fixtureRoot, 'tools/test/lanes');
+    const marker = path.join(fixtureRoot, 'spawn.log');
+    mkdirSync(laneDirectory, { recursive: true });
+    writeFileSync(
+        path.join(laneDirectory, 'release-final.sh'),
+        '#!/usr/bin/env bash\nprintf "child\\n" >> "$SPAWN_MARKER"\n'
+    );
+    writeFileSync(path.join(laneDirectory, 'release-preview.sh'), '#!/usr/bin/env bash\nexit 0\n');
+    chmodSync(path.join(laneDirectory, 'release-final.sh'), 0o755);
+    chmodSync(path.join(laneDirectory, 'release-preview.sh'), 0o755);
+    const commands = [
+        'echo data\ntools/test/lanes/release-final.sh',
+        'printf data\r\ntools/test/lanes/release-final.sh',
+        'test -f tools/test/lanes/release-final.sh\ntools/test/lanes/release-final.sh',
+        'env true\ntools/test/lanes/release-final.sh',
+        'bash tools/test/lanes/release-preview.sh\ntools/test/lanes/release-final.sh',
+        'echo data # comment\ntools/test/lanes/release-final.sh'
+    ];
+    try
+    {
+        for (const [index, command] of commands.entries())
+        {
+            await context.test(`separator mutation ${index + 1}`, () =>
+            {
+                writeFileSync(marker, '');
+                const mutated = structuredClone(matrix);
+                mutated.tiers.push({
+                    id: `raw-line-separator-${index + 1}`,
+                    executionMode: 'execute',
+                    commandKind: 'producer',
+                    command
+                });
+                const errors = validateReleaseFinalStaticBoundary({ matrix: mutated, scriptSource });
+                assert.match(errors.join('\n'), /line separators are outside the single-command argv grammar/u);
+                assert.equal(
+                    buildReleaseFinalizerSpawnDecision({ sealState: 'accepted', boundaryErrors: errors }).spawnCount,
+                    0
+                );
+
+                const bash = spawnSync('bash', ['-c', command], {
+                    cwd: fixtureRoot,
+                    encoding: 'utf8',
+                    env: { ...process.env, SPAWN_MARKER: marker }
+                });
+                assert.equal(bash.status, 0, bash.stderr);
+                assert.equal(readFileSync(marker, 'utf8'), 'child\n');
+            });
+        }
+    }
+    finally
+    {
+        rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+});
+
+test('target inspection rejects file and parent symlinks plus indirect ordinary wrappers', () =>
+{
+    const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), 'release-final-target-'));
+    const laneDirectory = path.join(fixtureRoot, 'tools/test/lanes');
+    mkdirSync(laneDirectory, { recursive: true });
+    writeFileSync(path.join(laneDirectory, 'release-final.sh'), '#!/usr/bin/env bash\nexit 0\n');
+    writeFileSync(path.join(laneDirectory, 'release-preview.sh'), '#!/usr/bin/env bash\nexit 0\n');
+    writeFileSync(
+        path.join(laneDirectory, 'ordinary-wrapper.sh'),
+        '#!/usr/bin/env bash\ntools/test/lanes/nested-wrapper.sh\n'
+    );
+    writeFileSync(
+        path.join(laneDirectory, 'nested-wrapper.sh'),
+        '#!/usr/bin/env bash\ntools/test/lanes/release-final.sh\n'
+    );
+    symlinkSync('release-preview.sh', path.join(laneDirectory, 'file-alias.sh'));
+    symlinkSync('test', path.join(fixtureRoot, 'tools/linked'));
+    try
+    {
+        const fileAlias = inspectReleaseFinalCommandTarget({
+            repositoryRoot: fixtureRoot,
+            target: 'tools/test/lanes/file-alias.sh'
+        });
+        assert.match(fileAlias.errors.join('\n'), /file-alias\.sh.*is a symlink/u);
+
+        const parentAlias = inspectReleaseFinalCommandTarget({
+            repositoryRoot: fixtureRoot,
+            target: 'tools/linked/lanes/release-preview.sh'
+        });
+        assert.match(parentAlias.errors.join('\n'), /tools\/linked.*is a symlink/u);
+
+        const ordinaryWrapper = inspectReleaseFinalCommandTarget({
+            repositoryRoot: fixtureRoot,
+            target: 'tools/test/lanes/ordinary-wrapper.sh'
+        });
+        assert.match(
+            ordinaryWrapper.errors.join('\n'),
+            /nested-wrapper\.sh contains an indirect release-final wrapper reference/u
+        );
+        assert.deepEqual(
+            ordinaryWrapper.dependencyClosure.map((entry) => entry.path),
+            ['tools/test/lanes/nested-wrapper.sh', 'tools/test/lanes/release-final.sh']
+        );
+    }
+    finally
+    {
+        rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+});
+
 test('only explicit non-executing argv data and noncanonical basenames remain admitted', async (context) =>
 {
     const commands = [
-        'tools/test/lanes/release-preview.sh',
         'printf "%s\\n" ./tools/test/lanes/release-final.sh',
         'echo ./tools/test/lanes/release-final.sh',
         'test -f ./tools/test/lanes/release-final.sh',

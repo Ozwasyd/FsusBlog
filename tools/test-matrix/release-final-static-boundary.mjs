@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -13,6 +14,10 @@ import {
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const releaseFinalizerFile = path.join(root, releaseFinalizerCommand);
 const matrixFile = path.join(root, 'tests/matrix.yml');
+const executionTargetAuthorityFile = path.join(
+    root,
+    'tests/fixtures/test-matrix/release-final-execution-target-authority.json'
+);
 const releaseFinalizerDecisionSchema = 'fsusblog.release-finalizer-spawn-decision.v1';
 
 export const releaseFinalSealStates = Object.freeze([
@@ -79,6 +84,10 @@ function parseDeclarativeArgv(command)
     if (/\$\(|`/u.test(command))
     {
         return { error: 'command substitution is outside the declarative argv grammar', argv: [] };
+    }
+    if (/[\r\n\u2028\u2029]/u.test(command))
+    {
+        return { error: 'line separators are outside the single-command argv grammar', argv: [] };
     }
 
     const argv = [];
@@ -223,7 +232,7 @@ function validateDeclarativeExecution(command)
 
     if (['printf', 'echo', 'test'].includes(executable))
     {
-        return { error: null, invokesReleaseFinalizer: false };
+        return { error: null, invokesReleaseFinalizer: false, target: null };
     }
     if (executable === 'bash' || executable === 'sh')
     {
@@ -238,7 +247,8 @@ function validateDeclarativeExecution(command)
         }
         return {
             error: null,
-            invokesReleaseFinalizer: repositoryScript === releaseFinalizerCommand
+            invokesReleaseFinalizer: repositoryScript === releaseFinalizerCommand,
+            target: repositoryScript
         };
     }
     if (executable === 'node')
@@ -265,7 +275,8 @@ function validateDeclarativeExecution(command)
         }
         return {
             error: null,
-            invokesReleaseFinalizer: commandReferencesReleaseFinalizer(parsed.argv, entrypointIndex)
+            invokesReleaseFinalizer: commandReferencesReleaseFinalizer(parsed.argv, entrypointIndex),
+            target: canonicalNodeEntrypoint(parsed.argv[entrypointIndex])
         };
     }
 
@@ -280,8 +291,284 @@ function validateDeclarativeExecution(command)
     return {
         error: null,
         invokesReleaseFinalizer: repositoryExecutable === releaseFinalizerCommand
-            || commandReferencesReleaseFinalizer(parsed.argv, executableIndex + 1)
+            || commandReferencesReleaseFinalizer(parsed.argv, executableIndex + 1),
+        target: repositoryExecutable
     };
+}
+
+function digestBytes(value)
+{
+    return `sha256:${createHash('sha256').update(value).digest('hex')}`;
+}
+
+function inspectRegularRepositoryFile(repositoryRoot, relativePath)
+{
+    const errors = [];
+    const repositoryPath = path.resolve(repositoryRoot);
+    let repositoryRealPath;
+    try
+    {
+        repositoryRealPath = fs.realpathSync(repositoryPath);
+    }
+    catch
+    {
+        return { errors: ['repository root cannot be resolved'], resolvedPath: null };
+    }
+    if (repositoryRealPath !== repositoryPath)
+    {
+        errors.push('repository root must not resolve through a symlink');
+    }
+    const normalized = path.posix.normalize(relativePath.replaceAll('\\', '/'));
+    if (normalized === '..' || normalized.startsWith('../') || path.posix.isAbsolute(normalized))
+    {
+        return { errors: [`target ${relativePath} escapes the repository`], resolvedPath: null };
+    }
+
+    let current = repositoryPath;
+    const segments = normalized.split('/');
+    for (const [index, segment] of segments.entries())
+    {
+        current = path.join(current, segment);
+        let stat;
+        try
+        {
+            stat = fs.lstatSync(current);
+        }
+        catch
+        {
+            errors.push(`${normalized} path component ${segments.slice(0, index + 1).join('/')} is missing`);
+            return { errors, resolvedPath: null };
+        }
+        if (stat.isSymbolicLink())
+        {
+            errors.push(`${normalized} path component ${segments.slice(0, index + 1).join('/')} is a symlink`);
+            return { errors, resolvedPath: null };
+        }
+        const isTarget = index === segments.length - 1;
+        if (isTarget ? !stat.isFile() : !stat.isDirectory())
+        {
+            errors.push(
+                `${normalized} path component ${segments.slice(0, index + 1).join('/')} `
+                + `must be a ${isTarget ? 'regular file' : 'directory'}`
+            );
+            return { errors, resolvedPath: null };
+        }
+        if (fs.realpathSync(current) !== current)
+        {
+            errors.push(`${normalized} path component ${segments.slice(0, index + 1).join('/')} has a nonliteral realpath`);
+            return { errors, resolvedPath: null };
+        }
+    }
+    return { errors, resolvedPath: current };
+}
+
+function resolveExistingDependency(repositoryRoot, ownerPath, reference)
+{
+    const normalizedReference = reference.replaceAll('\\', '/');
+    const candidate = normalizedReference.startsWith('tools/') || normalizedReference.startsWith('tests/')
+        ? normalizedReference
+        : path.posix.join(path.posix.dirname(ownerPath), normalizedReference);
+    const normalized = path.posix.normalize(candidate);
+    if (normalized === '..' || normalized.startsWith('../') || path.posix.isAbsolute(normalized))
+    {
+        return null;
+    }
+    const variants = [normalized];
+    if (!path.posix.extname(normalized))
+    {
+        variants.push(`${normalized}.mjs`, `${normalized}.js`, path.posix.join(normalized, 'index.mjs'));
+    }
+    return variants.find((variant) =>
+    {
+        try
+        {
+            return fs.lstatSync(path.join(repositoryRoot, variant)).isFile()
+                || fs.lstatSync(path.join(repositoryRoot, variant)).isSymbolicLink();
+        }
+        catch
+        {
+            return false;
+        }
+    }) ?? null;
+}
+
+function localDependencyReferences(repositoryRoot, ownerPath, source)
+{
+    const references = new Set();
+    const add = (reference) =>
+    {
+        const resolved = resolveExistingDependency(repositoryRoot, ownerPath, reference);
+        if (resolved && resolved !== ownerPath)
+        {
+            references.add(resolved);
+        }
+    };
+    if (/\.(?:mjs|js|cjs)$/u.test(ownerPath))
+    {
+        const imports = source.matchAll(
+            /(?:from\s*|import\s*\(|import\s*|require\s*\()\s*['"](?<path>\.{1,2}\/[^'"]+)['"]/gu
+        );
+        for (const match of imports)
+        {
+            add(match.groups.path);
+        }
+    }
+    else if (ownerPath.endsWith('.sh'))
+    {
+        const repositoryPaths = source.matchAll(
+            /(?:^|[^A-Za-z0-9_.-])(?<path>(?:tools|tests)\/[A-Za-z0-9_./-]+\.(?:sh|mjs|js|cjs))/gmu
+        );
+        for (const match of repositoryPaths)
+        {
+            add(match.groups.path);
+        }
+        const localFiles = source.matchAll(
+            /(?:^|[^A-Za-z0-9_./-])(?<path>[A-Za-z0-9_.-]+\.(?:sh|mjs|js|cjs))(?:$|[^A-Za-z0-9_./-])/gmu
+        );
+        for (const match of localFiles)
+        {
+            add(match.groups.path);
+        }
+    }
+    return [...references].sort();
+}
+
+export function inspectReleaseFinalCommandTarget({ repositoryRoot = root, target })
+{
+    const errors = [];
+    const inspected = new Map();
+    const visit = (relativePath) =>
+    {
+        if (inspected.has(relativePath))
+        {
+            return;
+        }
+        const file = inspectRegularRepositoryFile(repositoryRoot, relativePath);
+        errors.push(...file.errors.map((error) => `${relativePath}: ${error}`));
+        if (!file.resolvedPath)
+        {
+            return;
+        }
+        const source = fs.readFileSync(file.resolvedPath);
+        inspected.set(relativePath, digestBytes(source));
+        const sourceText = source.toString('utf8');
+        if (
+            relativePath !== releaseFinalizerCommand
+            && relativePath.endsWith('.sh')
+            && sourceText.includes(releaseFinalizerCommand)
+        )
+        {
+            errors.push(`${relativePath} contains an indirect release-final wrapper reference`);
+        }
+        for (const dependency of localDependencyReferences(repositoryRoot, relativePath, sourceText))
+        {
+            visit(dependency);
+        }
+    };
+    visit(target);
+    const contentDigest = inspected.get(target) ?? null;
+    const dependencyClosure = [...inspected.entries()]
+        .filter(([dependency]) => dependency !== target)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([dependency, dependencyDigest]) => ({
+            path: dependency,
+            contentDigest: dependencyDigest
+        }));
+    return { errors, target, contentDigest, dependencyClosure };
+}
+
+function buildExecutionTargetAuthority(tierExecutions, repositoryRoot = root)
+{
+    const targetOwners = new Map();
+    for (const { tier, execution } of tierExecutions)
+    {
+        if (execution.error || !execution.target)
+        {
+            continue;
+        }
+        if (!targetOwners.has(execution.target))
+        {
+            targetOwners.set(execution.target, new Set());
+        }
+        targetOwners.get(execution.target).add(tier?.id ?? '<missing-id>');
+    }
+    const errors = [];
+    const closureFiles = new Map();
+    const targets = [...targetOwners.entries()]
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([target, owners]) =>
+        {
+            const inspection = inspectReleaseFinalCommandTarget({ repositoryRoot, target });
+            errors.push(...inspection.errors);
+            for (const dependency of inspection.dependencyClosure)
+            {
+                const existingDigest = closureFiles.get(dependency.path);
+                if (existingDigest && existingDigest !== dependency.contentDigest)
+                {
+                    errors.push(`${dependency.path} produced conflicting dependency closure digests`);
+                }
+                closureFiles.set(dependency.path, dependency.contentDigest);
+            }
+            return {
+                target,
+                owners: [...owners].sort(),
+                contentDigest: inspection.contentDigest,
+                dependencyClosure: inspection.dependencyClosure.map((dependency) => dependency.path)
+            };
+        });
+    const authority = {
+        schema: 'fsusblog.release-final-execution-target-authority.v1',
+        source: 'tests/matrix.yml',
+        producer: 'node tools/test-matrix/release-final-static-boundary.mjs --write-authority',
+        closureFiles: [...closureFiles.entries()]
+            .sort(([left], [right]) => left.localeCompare(right))
+            .map(([dependencyPath, contentDigest]) => ({
+                path: dependencyPath,
+                contentDigest
+            })),
+        targets
+    };
+    return {
+        authority,
+        digest: digestBytes(JSON.stringify(authority)),
+        errors
+    };
+}
+
+function executionTargetAuthorityDifferences(expected, actual)
+{
+    const errors = [];
+    const expectedTargets = new Map(
+        (expected?.targets ?? []).map((entry) => [entry.target, entry])
+    );
+    const actualTargets = new Map(
+        (actual?.targets ?? []).map((entry) => [entry.target, entry])
+    );
+    for (const [target, actualEntry] of actualTargets)
+    {
+        const expectedEntry = expectedTargets.get(target);
+        if (!expectedEntry)
+        {
+            errors.push(
+                `execution target ${target} is outside the finite authority for owners ${actualEntry.owners.join(', ')}`
+            );
+        }
+        else if (JSON.stringify(actualEntry.owners) !== JSON.stringify(expectedEntry.owners))
+        {
+            errors.push(
+                `execution target ${target} owner drift: expected ${expectedEntry.owners.join(', ')}; `
+                + `got ${actualEntry.owners.join(', ')}`
+            );
+        }
+    }
+    for (const target of expectedTargets.keys())
+    {
+        if (!actualTargets.has(target))
+        {
+            errors.push(`finite execution target ${target} is missing`);
+        }
+    }
+    return errors;
 }
 
 function validateScriptSource(scriptSource)
@@ -332,12 +619,38 @@ export function validateReleaseFinalStaticBoundary({ matrix, scriptSource })
         tier,
         execution: validateDeclarativeExecution(tier?.command)
     }));
-    for (const { tier, execution } of tierExecutions)
+    const invalidTierExecutions = tierExecutions.filter(({ execution }) => execution.error);
+    for (const { tier, execution } of invalidTierExecutions)
     {
-        if (execution.error)
+        errors.push(
+            `execution declaration ${tier?.id ?? '<missing-id>'} is outside the sealed argv grammar: ${execution.error}`
+        );
+    }
+    if (invalidTierExecutions.length === 0)
+    {
+        const targetAuthority = buildExecutionTargetAuthority(tierExecutions);
+        errors.push(...targetAuthority.errors.map((error) => `execution target authority: ${error}`));
+        let expectedTargetAuthority;
+        try
         {
+            expectedTargetAuthority = JSON.parse(fs.readFileSync(executionTargetAuthorityFile, 'utf8'));
+        }
+        catch
+        {
+            errors.push('execution target authority fixture is missing or invalid');
+        }
+        if (
+            expectedTargetAuthority
+            && JSON.stringify(targetAuthority.authority) !== JSON.stringify(expectedTargetAuthority)
+        )
+        {
+            errors.push(...executionTargetAuthorityDifferences(
+                expectedTargetAuthority,
+                targetAuthority.authority
+            ));
             errors.push(
-                `execution declaration ${tier?.id ?? '<missing-id>'} is outside the sealed argv grammar: ${execution.error}`
+                'execution target authority owner, content, or dependency closure drifted: '
+                + `expected ${digestBytes(JSON.stringify(expectedTargetAuthority))}; got ${targetAuthority.digest}`
             );
         }
     }
@@ -478,11 +791,38 @@ export function applyReleaseFinalizerSpawnDecision(
 
 function main()
 {
-    if (process.argv.length !== 2)
+    const mode = process.argv[2] ?? '--check';
+    if (!['--check', '--write-authority'].includes(mode) || process.argv.length > 3)
     {
-        throw new Error('usage: node tools/test-matrix/release-final-static-boundary.mjs');
+        throw new Error(
+            'usage: node tools/test-matrix/release-final-static-boundary.mjs '
+            + '[--check|--write-authority]'
+        );
     }
     const matrix = parseMatrix(fs.readFileSync(matrixFile, 'utf8'));
+    if (mode === '--write-authority')
+    {
+        const tierExecutions = matrix.tiers.map((tier) => ({
+            tier,
+            execution: validateDeclarativeExecution(tier.command)
+        }));
+        const declarationErrors = tierExecutions
+            .filter(({ execution }) => execution.error)
+            .map(({ tier, execution }) => `${tier.id}: ${execution.error}`);
+        const targetAuthority = buildExecutionTargetAuthority(tierExecutions);
+        const errors = [...declarationErrors, ...targetAuthority.errors];
+        if (errors.length > 0)
+        {
+            throw new Error(errors.join('\n'));
+        }
+        fs.mkdirSync(path.dirname(executionTargetAuthorityFile), { recursive: true });
+        fs.writeFileSync(
+            executionTargetAuthorityFile,
+            `${JSON.stringify(targetAuthority.authority, null, 4)}\n`
+        );
+        console.log('[release-final-static-boundary] wrote execution target authority');
+        return;
+    }
     const scriptSource = fs.readFileSync(releaseFinalizerFile, 'utf8');
     const errors = validateReleaseFinalStaticBoundary({ matrix, scriptSource });
     if (errors.length > 0)
