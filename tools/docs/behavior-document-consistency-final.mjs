@@ -95,7 +95,16 @@ const authorityResidueFields = fieldMap(authorityResidueParts)
 const legacyRoles = legacyRoleParts.map((parts) => normalizeIdentifier(parts.join('')))
 const legacyStates = legacyStateParts.map((parts) => normalizeIdentifier(parts.join('')))
 const scannerSelfLegacySymbols = new Map([
-    ['tools/docs/behavior-document-consistency-final.mjs', new Set(['zeroLegacyScanSchema'])]
+    ['tools/docs/behavior-document-consistency-final.mjs', new Set([
+        'legacySchemaDependencies',
+        'zeroLegacyScanSchema'
+    ])]
+])
+const scannerSelfValueOwners = new Map([
+    ['tools/docs/behavior-document-consistency-final.mjs', new Set([
+        'authorityResidueParts',
+        'evidenceSelectionParts'
+    ])]
 ])
 const jsonSchemaDialectPattern = /^https?:\/\/json-schema\.org\/draft(?:-0[4-7]|\/(?:2019-09|2020-12))\/schema#?$/u
 const jsonSchemaMapKeywords = new Set(['$defs', 'definitions', 'dependentSchemas', 'patternProperties', 'properties'])
@@ -202,6 +211,7 @@ function machineValueCandidates(value)
 function scanValueResidue(owner, rawValue, context)
 {
     if (!context.qualification || typeof rawValue !== 'string') return
+    if (scannerSelfValueOwners.get(context.file)?.has(String(owner)) === true) return
     const ownerName = normalizeIdentifier(owner)
     const selectionOwner = /(?:artifact|discovery|evidence|locator|mode|receipt|result|selection|source|strategy)/u.test(ownerName)
     const authorityOwner = /(?:authority|cli|command|featureflag|input|kind|mode|path|provider|schema|source|strategy|type)/u.test(ownerName)

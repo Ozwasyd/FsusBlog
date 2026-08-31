@@ -433,12 +433,19 @@ test('zero-legacy scanner self exemptions are exact and owner names cannot suppr
     const repositoryRoot = repositoryFixture(t, {
         'tools/docs/behavior-document-consistency-final.mjs': [
             'const zeroLegacyScanSchema = "fsusblog.zero-legacy-governance-scan.v1"',
+            'const legacySchemaDependencies = true',
+            'const evidenceSelectionParts = Object.freeze([["latest", "receipt"]])',
+            'const authorityResidueParts = Object.freeze([["checked", "in", "openapi"]])',
+            'const evidenceSelectionPartsOverride = "latest-receipt"',
             'const rejectLegacyClaimCli = true'
         ].join('\n'),
         'tools/release/behavior-qualification.mjs': 'const rejectCommand = "deprecated-claim-cli"\n'
     })
     const findings = scanZeroLegacyGovernance(repositoryRoot).findings
     assert.equal(findings.some((finding) => finding.rule.includes('zeroLegacyScanSchema')), false)
+    assert.equal(findings.some((finding) => finding.rule.includes('legacySchemaDependencies')), false)
+    assert.ok(findings.some((finding) => finding.rule === 'forbidden-evidence-selection:latestReceipt'
+        && finding.location === 'source:line:5'))
     assert.ok(findings.some((finding) => finding.rule === 'forbidden-legacy-surface:rejectLegacyClaimCli'))
     assert.ok(findings.some((finding) => finding.file === 'tools/release/behavior-qualification.mjs'
         && finding.rule.includes('deprecated-claim-cli')))
