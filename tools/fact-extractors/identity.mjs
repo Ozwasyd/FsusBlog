@@ -1,28 +1,80 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 import { canonicalize, digestBuffer, digestText, digestValue } from './lib/canonicalize.mjs';
 
 const commitPattern = /^[a-f0-9]{40}$/u;
+const gitExecutable = '/usr/bin/git';
+const fixedGitEnvironment = Object.freeze({
+    PATH: '/usr/bin:/bin',
+    LANG: 'C',
+    LC_ALL: 'C',
+    GIT_ATTR_NOSYSTEM: '1',
+    GIT_CONFIG_GLOBAL: '/dev/null',
+    GIT_CONFIG_NOSYSTEM: '1',
+    GIT_NO_REPLACE_OBJECTS: '1',
+    GIT_OPTIONAL_LOCKS: '0',
+    GIT_PAGER: 'cat',
+    GIT_TERMINAL_PROMPT: '0'
+});
 
-function git(args, cwd)
+function runGit(args, { encoding = 'utf8', input = undefined, maxBuffer = 64 * 1024 * 1024 } = {})
 {
-    const result = spawnSync('git', args, {
-        cwd,
-        encoding: 'utf8',
-        maxBuffer: 64 * 1024 * 1024
+    const result = spawnSync(gitExecutable, args, {
+        encoding,
+        env: fixedGitEnvironment,
+        input,
+        maxBuffer
     });
     if (result.status !== 0)
     {
-        throw new Error(result.stderr?.trim() || `git ${args.join(' ')} failed`);
+        const stderr = Buffer.isBuffer(result.stderr) ? result.stderr.toString('utf8') : result.stderr;
+        throw new Error(stderr?.trim() || `git ${args.join(' ')} failed`);
     }
     return result.stdout;
 }
 
-export function resolveSourceCommit(repositoryRoot)
+export function resolveGitRepositoryAuthority(repositoryRoot)
 {
-    const commit = git(['rev-parse', 'HEAD'], repositoryRoot).trim();
+    const requestedRoot = realpathSync(path.resolve(repositoryRoot));
+    const bootstrap = (arguments_) => runGit(['-C', requestedRoot, '--no-replace-objects', ...arguments_]).trim();
+    const workTree = realpathSync(bootstrap(['rev-parse', '--show-toplevel']));
+    if (workTree !== requestedRoot)
+    {
+        throw new Error(`repository root must equal the Git top-level: ${requestedRoot}`);
+    }
+    const gitDirectory = realpathSync(bootstrap(['rev-parse', '--absolute-git-dir']));
+    const commonDirectory = realpathSync(bootstrap(['rev-parse', '--path-format=absolute', '--git-common-dir']));
+    const objectFormat = bootstrap(['rev-parse', '--show-object-format']);
+    if (objectFormat !== 'sha1')
+    {
+        throw new Error(`Git object format must be sha1 for source identity; got ${objectFormat}`);
+    }
+    const alternateFile = path.join(commonDirectory, 'objects/info/alternates');
+    if (existsSync(alternateFile) && readFileSync(alternateFile, 'utf8').trim().length > 0)
+    {
+        throw new Error('Git object database alternates are unsupported for source identity');
+    }
+    return Object.freeze({ commonDirectory, gitDirectory, objectFormat, workTree });
+}
+
+export function runGitRepository(authority, arguments_, options = {})
+{
+    return runGit([
+        '-C', authority.workTree,
+        `--git-dir=${authority.gitDirectory}`,
+        `--work-tree=${authority.workTree}`,
+        '--no-replace-objects',
+        '-c', 'core.attributesFile=/dev/null',
+        '-c', 'core.excludesFile=/dev/null',
+        ...arguments_
+    ], options);
+}
+
+export function resolveSourceCommit(repositoryRoot, authority = resolveGitRepositoryAuthority(repositoryRoot))
+{
+    const commit = runGitRepository(authority, ['rev-parse', 'HEAD']).trim();
     if (!commitPattern.test(commit))
     {
         throw new Error(`sourceCommit must be a full lowercase SHA; got ${commit}`);
@@ -34,10 +86,10 @@ export function resolveSourceCommit(repositoryRoot)
  * Fingerprint of tracked + relevant untracked worktree content (not HEAD alone).
  * Includes binary diff against HEAD and digests of untracked non-ignored files.
  */
-export function resolveWorktreeFingerprint(repositoryRoot)
+export function resolveWorktreeFingerprint(repositoryRoot, authority = resolveGitRepositoryAuthority(repositoryRoot))
 {
-    const diff = git(['diff', '--binary', 'HEAD', '--'], repositoryRoot);
-    const untracked = git(['ls-files', '--others', '--exclude-standard'], repositoryRoot)
+    const diff = runGitRepository(authority, ['diff', '--no-ext-diff', '--no-textconv', '--binary', 'HEAD', '--']);
+    const untracked = runGitRepository(authority, ['ls-files', '--others', '--exclude-standard'])
         .split(/\r?\n/u)
         .filter(Boolean)
         .map((relative) => relative.replaceAll(path.sep, '/'))
@@ -148,9 +200,10 @@ export function validateBuildIdentity(buildIdentity, requiredBuildArtifact)
 
 export function sealSourceIdentity(repositoryRoot)
 {
+    const authority = resolveGitRepositoryAuthority(repositoryRoot);
     return {
-        sourceCommit: resolveSourceCommit(repositoryRoot),
-        worktreeFingerprint: resolveWorktreeFingerprint(repositoryRoot)
+        sourceCommit: resolveSourceCommit(repositoryRoot, authority),
+        worktreeFingerprint: resolveWorktreeFingerprint(repositoryRoot, authority)
     };
 }
 

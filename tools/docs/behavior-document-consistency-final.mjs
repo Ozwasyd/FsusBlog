@@ -1,20 +1,23 @@
 #!/usr/bin/env node
 
-import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
-import { createRequire } from 'node:module'
+import Module, { builtinModules, createRequire } from 'node:module'
 import path from 'node:path'
+import vm from 'node:vm'
 import { fileURLToPath } from 'node:url'
 
 import { digestCatalog } from '../contracts/behavior-contract-catalog.mjs'
-import { sealSourceIdentity } from '../fact-extractors/identity.mjs'
+import {
+    resolveGitRepositoryAuthority,
+    runGitRepository,
+    sealSourceIdentity
+} from '../fact-extractors/identity.mjs'
 import { parseMatrix } from '../test-matrix/parse-matrix.mjs'
 import { assertPreRuntimeQualified } from '../test-matrix/behavior-evidence-pre-runtime.mjs'
 import { validatePostRuntimeReceipt } from '../test-matrix/behavior-evidence-post-runtime.mjs'
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-const require = createRequire(import.meta.url)
 export const finalReportSchema = 'fsusblog.behavior-document-consistency-final-report.v1'
 
 export const zeroLegacyScanSchema = 'fsusblog.zero-legacy-governance-scan.v1'
@@ -118,26 +121,194 @@ const jsonSubschemaKeywords = new Set([
 const valueChunkSize = 512
 const maximumValueCandidateTokens = 4
 const maximumValueTokenLength = 128
-const gitObjectEnvironment = Object.freeze({ ...process.env, GIT_NO_REPLACE_OBJECTS: '1' })
+const yamlParserAuthority = Object.freeze({
+    bundlePath: 'src/frontend/node_modules/playwright-core/lib/utilsBundleImpl/index.js',
+    bundleSha256: '21d4f662e119524abcdfed152b715181017085bb8edc99ea4829b97aca1d5eec',
+    consumerPath: 'src/frontend/package.json',
+    dependencyName: '@playwright/test',
+    lockPath: 'src/frontend/package-lock.json',
+    packagePath: 'src/frontend/node_modules/playwright-core/package.json',
+    packageSha256: 'd4b8727c495ff2632084e922ee1c7f19a608ed23d86e8f3b0ba0ff317eea58ec',
+    version: '1.59.1'
+})
+const jsoncParserAuthority = Object.freeze({
+    bundlePath: 'src/frontend/node_modules/typescript/lib/typescript.js',
+    bundleSha256: '569177652966bd528c319171c7dd22860dbf72bde116cbc4f644f1d02bb12e39',
+    dependencyName: 'typescript',
+    packagePath: 'src/frontend/node_modules/typescript/package.json',
+    packageSha256: '9332e97c30d3e53ed54910b89207ed657fb444066484df6e5b6965bf130865e9',
+    version: '6.0.3'
+})
+const nodeBuiltinModules = new Set([...builtinModules, ...builtinModules.map((entry) => `node:${entry}`)])
 
 function zeroLegacyFail(message)
 {
     throw new Error(`[zero-legacy-governance] ${message}`)
 }
 
-let typescriptJsonParser = null
-let yamlDocumentParser = null
+const commonJsParserModules = new Map()
+const yamlDocumentParsers = new Map()
 
-function canonicalJsoncParser()
+function readCanonicalAuthorityFile(repositoryRoot, relative, { expectedDigest = null, expectedModes = null } = {})
 {
-    typescriptJsonParser ??= require(path.join(root, 'src/frontend/node_modules/typescript/lib/typescript.js'))
-    return typescriptJsonParser
+    const absolute = path.resolve(repositoryRoot, relative)
+    if (absolute !== path.join(repositoryRoot, ...relative.split('/')) || fs.realpathSync(absolute) !== absolute)
+    {
+        zeroLegacyFail(`parser authority path is not canonical: ${relative}`)
+    }
+    const descriptor = fs.openSync(absolute, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0))
+    try
+    {
+        const before = fs.fstatSync(descriptor, { bigint: true })
+        const mode = Number(before.mode & 0o777n)
+        if (!before.isFile() || before.nlink !== 1n || (before.mode & 0o111n) !== 0n || (before.mode & 0o002n) !== 0n
+            || (expectedModes !== null && !expectedModes.includes(mode)))
+        {
+            zeroLegacyFail(`parser authority mode or link count is unsupported: ${relative}`)
+        }
+        const content = fs.readFileSync(descriptor)
+        const after = fs.fstatSync(descriptor, { bigint: true })
+        const pathAfter = fs.lstatSync(absolute, { bigint: true })
+        if (before.dev !== after.dev || before.ino !== after.ino || before.size !== after.size
+            || before.mtimeNs !== after.mtimeNs || after.dev !== pathAfter.dev || after.ino !== pathAfter.ino
+            || after.size !== BigInt(content.length))
+        {
+            zeroLegacyFail(`parser authority changed while reading: ${relative}`)
+        }
+        const contentDigest = createHash('sha256').update(content).digest('hex')
+        if (expectedDigest !== null && contentDigest !== expectedDigest)
+        {
+            zeroLegacyFail(`parser authority byte digest mismatch: ${relative}`)
+        }
+        return { content, contentDigest, mode }
+    }
+    finally
+    {
+        fs.closeSync(descriptor)
+    }
 }
 
-function canonicalYamlParser()
+function parseCanonicalAuthorityJson(content, indentation, label)
 {
-    yamlDocumentParser ??= require(path.join(root, 'src/frontend/node_modules/playwright-core/lib/utilsBundle.js')).yaml
-    return yamlDocumentParser
+    const source = new TextDecoder('utf-8', { fatal: true }).decode(content)
+    const document = JSON.parse(source)
+    if (`${JSON.stringify(document, null, indentation)}\n` !== source)
+    {
+        zeroLegacyFail(`${label} must be canonical duplicate-free JSON`)
+    }
+    return document
+}
+
+function admittedInventoryAuthority(repositoryRoot, inventory, relative, options = {})
+{
+    const entry = inventory.files.find((candidate) => candidate.file === relative)
+    if (!entry) zeroLegacyFail(`parser authority is outside the admitted inventory: ${relative}`)
+    if (entry.indexContent !== null) return {
+        content: entry.indexContent,
+        contentDigest: createHash('sha256').update(entry.indexContent).digest('hex'),
+        mode: entry.mode === '100755' ? 0o755 : 0o644
+    }
+    return readCanonicalAuthorityFile(repositoryRoot, relative, options)
+}
+
+function executeSealedCommonJs(bundleAuthority, filename)
+{
+    const cacheKey = `${bundleAuthority.contentDigest}:${bundleAuthority.mode}`
+    const cached = commonJsParserModules.get(cacheKey)
+    if (cached) return cached
+    const module = { exports: {} }
+    const nativeRequire = createRequire(filename)
+    const sealedRequire = (specifier) =>
+    {
+        if (!nodeBuiltinModules.has(specifier)) zeroLegacyFail(`sealed YAML parser requested non-builtin module: ${specifier}`)
+        return nativeRequire(specifier)
+    }
+    const wrapper = new vm.Script(Module.wrap(bundleAuthority.content.toString('utf8')), { filename }).runInThisContext()
+    wrapper.call(module.exports, module.exports, sealedRequire, module, filename, path.dirname(filename))
+    commonJsParserModules.set(cacheKey, module.exports)
+    return module.exports
+}
+
+function executeSealedYamlParser(bundleAuthority, filename)
+{
+    const cacheKey = `${bundleAuthority.contentDigest}:${bundleAuthority.mode}`
+    const cached = yamlDocumentParsers.get(cacheKey)
+    if (cached) return cached
+    const exports = executeSealedCommonJs(bundleAuthority, filename)
+    const parser = exports?.yaml
+    if (!parser || typeof parser.parseDocument !== 'function') zeroLegacyFail('sealed YAML parser export is invalid')
+    yamlDocumentParsers.set(cacheKey, parser)
+    return parser
+}
+
+function canonicalYamlParser(repositoryRoot, inventory)
+{
+    const consumerAuthority = admittedInventoryAuthority(repositoryRoot, inventory, yamlParserAuthority.consumerPath,
+        { expectedModes: [0o600, 0o644, 0o664] })
+    const consumer = parseCanonicalAuthorityJson(consumerAuthority.content, 4, 'YAML parser consumer')
+    const lockAuthority = admittedInventoryAuthority(repositoryRoot, inventory, yamlParserAuthority.lockPath,
+        { expectedModes: [0o600, 0o644, 0o664] })
+    const lock = parseCanonicalAuthorityJson(lockAuthority.content, 2, 'YAML parser package lock')
+    const packageAuthority = readCanonicalAuthorityFile(repositoryRoot, yamlParserAuthority.packagePath, {
+        expectedDigest: yamlParserAuthority.packageSha256,
+        expectedModes: [0o644, 0o664]
+    })
+    const installedPackage = parseCanonicalAuthorityJson(packageAuthority.content, 2, 'installed YAML parser package')
+    const bundleAuthority = readCanonicalAuthorityFile(repositoryRoot, yamlParserAuthority.bundlePath, {
+        expectedDigest: yamlParserAuthority.bundleSha256,
+        expectedModes: [0o644, 0o664]
+    })
+    const consumerVersion = consumer.devDependencies?.[yamlParserAuthority.dependencyName]
+    const lockedConsumerVersion = lock.packages?.['']?.devDependencies?.[yamlParserAuthority.dependencyName]
+    const testPackage = lock.packages?.['node_modules/@playwright/test']
+    const playwrightPackage = lock.packages?.['node_modules/playwright']
+    const corePackage = lock.packages?.['node_modules/playwright-core']
+    if (consumerVersion !== lockedConsumerVersion
+        || testPackage?.dependencies?.playwright !== yamlParserAuthority.version
+        || playwrightPackage?.dependencies?.['playwright-core'] !== yamlParserAuthority.version
+        || testPackage?.version !== yamlParserAuthority.version
+        || playwrightPackage?.version !== yamlParserAuthority.version
+        || corePackage?.version !== yamlParserAuthority.version
+        || installedPackage?.version !== yamlParserAuthority.version
+        || typeof corePackage?.integrity !== 'string'
+        || !corePackage.integrity.startsWith('sha512-'))
+    {
+        zeroLegacyFail('YAML parser consumer and package-lock chain is not exact')
+    }
+    return executeSealedYamlParser(bundleAuthority, path.resolve(repositoryRoot, yamlParserAuthority.bundlePath))
+}
+
+function canonicalJsoncParser(repositoryRoot, inventory)
+{
+    const consumerAuthority = admittedInventoryAuthority(repositoryRoot, inventory, yamlParserAuthority.consumerPath,
+        { expectedModes: [0o600, 0o644, 0o664] })
+    const consumer = parseCanonicalAuthorityJson(consumerAuthority.content, 4, 'JSONC parser consumer')
+    const lockAuthority = admittedInventoryAuthority(repositoryRoot, inventory, yamlParserAuthority.lockPath,
+        { expectedModes: [0o600, 0o644, 0o664] })
+    const lock = parseCanonicalAuthorityJson(lockAuthority.content, 2, 'JSONC parser package lock')
+    const packageAuthority = readCanonicalAuthorityFile(repositoryRoot, jsoncParserAuthority.packagePath, {
+        expectedDigest: jsoncParserAuthority.packageSha256,
+        expectedModes: [0o644, 0o664]
+    })
+    const installedPackage = parseCanonicalAuthorityJson(packageAuthority.content, 4, 'installed JSONC parser package')
+    const bundleAuthority = readCanonicalAuthorityFile(repositoryRoot, jsoncParserAuthority.bundlePath, {
+        expectedDigest: jsoncParserAuthority.bundleSha256,
+        expectedModes: [0o644, 0o664]
+    })
+    const consumerVersion = consumer.devDependencies?.[jsoncParserAuthority.dependencyName]
+    const lockedConsumerVersion = lock.packages?.['']?.devDependencies?.[jsoncParserAuthority.dependencyName]
+    const lockedPackage = lock.packages?.['node_modules/typescript']
+    if (consumerVersion !== lockedConsumerVersion
+        || lockedPackage?.version !== jsoncParserAuthority.version
+        || installedPackage?.version !== jsoncParserAuthority.version
+        || typeof lockedPackage?.integrity !== 'string'
+        || !lockedPackage.integrity.startsWith('sha512-'))
+    {
+        zeroLegacyFail('JSONC parser consumer and package-lock chain is not exact')
+    }
+    const parser = executeSealedCommonJs(bundleAuthority, path.resolve(repositoryRoot, jsoncParserAuthority.bundlePath))
+    if (typeof parser?.parseJsonText !== 'function') zeroLegacyFail('sealed JSONC parser export is invalid')
+    return parser
 }
 
 function assertUniqueJsonKeys(parser, sourceFile)
@@ -160,17 +331,15 @@ function assertUniqueJsonKeys(parser, sourceFile)
     visit(sourceFile)
 }
 
-function parseMachineJson(source, file)
+function parseMachineJson(source, file, parser)
 {
     if (!jsonWithCommentsPathPattern.test(file))
     {
         const value = JSON.parse(source)
-        const parser = canonicalJsoncParser()
         const sourceFile = parser.parseJsonText(file, source)
         assertUniqueJsonKeys(parser, sourceFile)
         return value
     }
-    const parser = canonicalJsoncParser()
     const sourceFile = parser.parseJsonText(file, source)
     if (sourceFile.parseDiagnostics.length > 0)
     {
@@ -410,6 +579,14 @@ function scanObjectKeys(value, context, negated = false, location = '$', schemaM
     {
         const siblingNegated = referenceIgnoresSiblings && key !== '$ref' ? false : negated
         if (!siblingNegated) scanIdentifier(key, nested, { ...resourceContext, location: `${location}.${key}` })
+        if (!siblingNegated && Array.isArray(nested))
+        {
+            nested.forEach((entry, index) =>
+            {
+                if (entry == null || typeof entry === 'object') return
+                scanIdentifier(key, entry, { ...resourceContext, location: `${location}.${key}[${index}]` })
+            })
+        }
         if (activeSchemaMode === 'schema' && key === '$ref' && typeof nested === 'string'
             && legacySurfaceName(nested, resourceContext))
         {
@@ -688,43 +865,82 @@ function readAssignmentValue(source, valueStart, commentStyle)
     return valueText
 }
 
-function sourceIdentifierGrammar(file, locationPrefix)
+function sourceIdentifierAuthority(file, locationPrefix)
 {
     if (/\.cs$/iu.test(file) || /^fence:(?:csharp|cs):/u.test(locationPrefix))
     {
-        return String.raw`@?[\p{ID_Start}_][\p{ID_Continue}_]*`
+        const escape = String.raw`\\(?:u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})`
+        return { grammar: `@?(?:[\\p{ID_Start}_]|${escape})(?:[\\p{ID_Continue}_]|${escape})*`, language: 'csharp' }
     }
     if (/\.(?:js|jsx|mjs|ts|tsx|vue)$/iu.test(file) || /^fence:(?:javascript|js|typescript|ts):/u.test(locationPrefix))
     {
-        return String.raw`#?[$\p{ID_Start}_][$\p{ID_Continue}_]*`
+        const escape = String.raw`\\u(?:[0-9A-Fa-f]{4}|\{[0-9A-Fa-f]{1,6}\})`
+        return { grammar: `#?(?:[$\\p{ID_Start}_]|${escape})(?:[$\\p{ID_Continue}_]|${escape})*`, language: 'javascript' }
     }
     if (/\.ps1$/iu.test(file) || /^fence:(?:powershell|ps1):/u.test(locationPrefix))
     {
-        return String.raw`\$?[\p{ID_Start}_][\p{ID_Continue}_]*`
+        return { grammar: String.raw`(?:\$\{[^}\r\n]+\}|\$?[\p{ID_Start}_][\p{ID_Continue}_]*)`, language: 'powershell' }
     }
     if (/\.sh$/iu.test(file) || /^fence:(?:sh|shell):/u.test(locationPrefix))
     {
-        return String.raw`[A-Za-z_][A-Za-z0-9_]*`
+        return { grammar: String.raw`[A-Za-z_][A-Za-z0-9_]*`, language: 'shell' }
     }
-    return String.raw`[\p{ID_Start}_][\p{ID_Continue}_]*`
+    return { grammar: String.raw`[\p{ID_Start}_][\p{ID_Continue}_]*`, language: 'generic' }
 }
 
-function canonicalSourceIdentifier(identifier)
+function decodeEscapedIdentifier(identifier, language)
 {
-    return identifier.replace(/^[@$#]/u, '')
+    let source = identifier
+    if (language === 'powershell' && source.startsWith('${') && source.endsWith('}'))
+    {
+        return source.slice(2, -1).replace(/^[A-Za-z]+:/u, '')
+    }
+    source = source.replace(/^[@$#]/u, '')
+    if (language !== 'javascript' && language !== 'csharp') return source
+    let decoded = ''
+    for (let index = 0; index < source.length;)
+    {
+        if (source[index] !== '\\')
+        {
+            const point = source.codePointAt(index)
+            decoded += String.fromCodePoint(point)
+            index += point > 0xffff ? 2 : 1
+            continue
+        }
+        const rest = source.slice(index)
+        const match = language === 'javascript'
+            ? /^\\u(?:\{([0-9A-Fa-f]{1,6})\}|([0-9A-Fa-f]{4}))/u.exec(rest)
+            : /^\\(?:u([0-9A-Fa-f]{4})|U([0-9A-Fa-f]{8}))/u.exec(rest)
+        if (!match) return null
+        const value = Number.parseInt(match[1] ?? match[2], 16)
+        if (value > 0x10ffff || (value >= 0xd800 && value <= 0xdfff)) return null
+        decoded += String.fromCodePoint(value)
+        index += match[0].length
+    }
+    const characters = [...decoded]
+    const first = characters.shift() ?? ''
+    const firstPattern = language === 'javascript' ? /^[$\p{ID_Start}_]$/u : /^[\p{ID_Start}_]$/u
+    const continuationPattern = language === 'javascript' ? /^[$\p{ID_Continue}_]$/u : /^[\p{ID_Continue}_]$/u
+    if (!firstPattern.test(first) || characters.some((character) => !continuationPattern.test(character))) return null
+    return decoded
 }
 
-function sourceAssignments(source, masked, commentStyle, identifierGrammar)
+function sourceAssignments(source, masked, commentStyle, identifierAuthority)
 {
     const assignments = []
-    const expression = new RegExp(`(?:^|[,;{([.\\s])(?:["']([^"']+)["']|(${identifierGrammar}))\\s*\\??\\s*(?::|=(?!=))`, 'dgmu')
+    const expression = new RegExp(`(?:^|[,;{([.\\s])(?:["']([^"']+)["']|(${identifierAuthority.grammar}))\\s*\\??\\s*(?::|=(?!=))`, 'dgmu')
     let match
     while ((match = expression.exec(masked)) !== null)
     {
         const identifierIndex = match.indices[1] ?? match.indices[2]
         const valueStart = match.indices[0][1]
+        const rawIdentifier = source.slice(identifierIndex[0], identifierIndex[1]).replace(/^["']|["']$/gu, '')
+        const identifier = match.indices[1]
+            ? rawIdentifier
+            : decodeEscapedIdentifier(rawIdentifier, identifierAuthority.language)
+        if (identifier === null) continue
         assignments.push({
-            identifier: canonicalSourceIdentifier(source.slice(identifierIndex[0], identifierIndex[1]).replace(/^["']|["']$/gu, '')),
+            identifier,
             valueText: readAssignmentValue(source, valueStart, commentStyle),
             index: match.index
         })
@@ -732,28 +948,29 @@ function sourceAssignments(source, masked, commentStyle, identifierGrammar)
     return assignments
 }
 
-function declaredIdentifiers(masked, identifierGrammar)
+function declaredIdentifiers(masked, identifierAuthority)
 {
     const identifiers = []
     const expressions = [
-        new RegExp(`\\b(?:class|const|enum|function|interface|let|type|var)\\s+(${identifierGrammar})`, 'gu'),
-        new RegExp(`(?:^|[^$#@\\p{ID_Continue}_])(${identifierGrammar})\\s*(?:\\??\\s*:|\\{[\\t ]*(?:get|init|set)\\s*;)`, 'gmu')
+        new RegExp(`\\b(?:class|const|enum|function|interface|let|type|var)\\s+(${identifierAuthority.grammar})`, 'gu'),
+        new RegExp(`(?:^|[^$#@\\p{ID_Continue}_])(${identifierAuthority.grammar})\\s*(?:\\??\\s*:|\\{[\\t ]*(?:get|init|set)\\s*;)`, 'gmu')
     ]
     for (const expression of expressions)
     {
         let match
         while ((match = expression.exec(masked)) !== null)
         {
-            identifiers.push({ identifier: canonicalSourceIdentifier(match[1]), index: match.index })
+            const identifier = decodeEscapedIdentifier(match[1], identifierAuthority.language)
+            if (identifier !== null) identifiers.push({ identifier, index: match.index })
         }
     }
     return [...new Map(identifiers.map((entry) => [`${entry.identifier}\0${entry.index}`, entry])).values()]
 }
 
-function sourceInvocations(source, masked, identifierGrammar)
+function sourceInvocations(source, masked, identifierAuthority)
 {
     const invocations = []
-    const expression = new RegExp(`(?:^|[^$#@\\p{ID_Continue}_])(${identifierGrammar}(?:\\.${identifierGrammar})*)\\s*\\(([^()\\n\\r\\u2028\\u2029]*)\\)`, 'dgmu')
+    const expression = new RegExp(`(?:^|[^$#@\\p{ID_Continue}_])(${identifierAuthority.grammar}(?:\\.${identifierAuthority.grammar})*)\\s*\\(([^()\\n\\r\\u2028\\u2029]*)\\)`, 'dgmu')
     let match
     while ((match = expression.exec(masked)) !== null)
     {
@@ -763,8 +980,10 @@ function sourceInvocations(source, masked, identifierGrammar)
         const stringExpression = /(["'])(.*?)\1/gu
         let stringMatch
         while ((stringMatch = stringExpression.exec(argumentsText)) !== null) stringArguments.push(stringMatch[2])
+        const identifierParts = match[1].split('.').map((entry) => decodeEscapedIdentifier(entry, identifierAuthority.language))
+        if (identifierParts.includes(null)) continue
         invocations.push({
-            identifier: match[1].split('.').map(canonicalSourceIdentifier).join('.'),
+            identifier: identifierParts.join('.'),
             stringArguments,
             index: match.index
         })
@@ -772,20 +991,130 @@ function sourceInvocations(source, masked, identifierGrammar)
     return invocations
 }
 
-function autoPropertyInitializers(masked, identifierGrammar)
+function autoPropertyInitializers(source, masked, identifierAuthority)
 {
     const initializers = []
-    const expression = new RegExp(`(?:^|[^$#@\\p{ID_Continue}_])(${identifierGrammar})\\s*\\{[\\t ]*(?:(?:get|init|set)\\s*;[\\t ]*)+\\}\\s*=\\s*([^;\\n\\r\\u2028\\u2029]+)`, 'gmu')
+    const expression = new RegExp(`(?:^|[^$#@\\p{ID_Continue}_])(${identifierAuthority.grammar})\\s*\\{[\\t ]*(?:(?:get|init|set)\\s*;[\\t ]*)+\\}\\s*=\\s*([^;\\n\\r\\u2028\\u2029]+)`, 'dgmu')
     let match
     while ((match = expression.exec(masked)) !== null)
     {
+        const identifier = decodeEscapedIdentifier(match[1], identifierAuthority.language)
+        if (identifier === null) continue
+        const valueRange = match.indices[2]
         initializers.push({
-            identifier: canonicalSourceIdentifier(match[1]),
-            valueText: match[2],
+            identifier,
+            valueText: source.slice(valueRange[0], valueRange[1]),
             index: match.index
         })
     }
     return initializers
+}
+
+function scanEcmaScriptAst(source, context, parser, locationPrefix, lineAt, isExactDeclaration)
+{
+    const scriptKind = /\.(?:jsx|tsx)$/iu.test(context.file)
+        ? (/\.tsx$/iu.test(context.file) ? parser.ScriptKind.TSX : parser.ScriptKind.JSX)
+        : (/\.(?:ts|mts|cts)$/iu.test(context.file) ? parser.ScriptKind.TS : parser.ScriptKind.JS)
+    const sourceFile = parser.createSourceFile(context.file, source, parser.ScriptTarget.Latest, true, scriptKind)
+    const identifierText = (name) =>
+    {
+        if (parser.isIdentifier(name)) return name.text
+        if (parser.isPrivateIdentifier?.(name)) return String(name.text).replace(/^#/u, '')
+        if (parser.isStringLiteralLike(name)) return name.text
+        return null
+    }
+    const constantText = (node) =>
+    {
+        if (!node) return ''
+        if (parser.isStringLiteralLike(node) || parser.isNoSubstitutionTemplateLiteral(node)) return node.text
+        if (parser.isParenthesizedExpression(node)) return constantText(node.expression)
+        if ((parser.isAsExpression?.(node) || parser.isTypeAssertionExpression?.(node)
+            || parser.isSatisfiesExpression?.(node) || parser.isNonNullExpression?.(node))) return constantText(node.expression)
+        if (parser.isBinaryExpression(node) && node.operatorToken.kind === parser.SyntaxKind.PlusToken)
+        {
+            return `${constantText(node.left)}${constantText(node.right)}`
+        }
+        return source.slice(node.getStart(sourceFile), node.getEnd())
+    }
+    const constantString = (node) =>
+    {
+        if (!node) return null
+        if (parser.isStringLiteralLike(node) || parser.isNoSubstitutionTemplateLiteral(node)) return node.text
+        if (parser.isParenthesizedExpression(node)) return constantString(node.expression)
+        if ((parser.isAsExpression?.(node) || parser.isTypeAssertionExpression?.(node)
+            || parser.isSatisfiesExpression?.(node) || parser.isNonNullExpression?.(node))) return constantString(node.expression)
+        if (parser.isBinaryExpression(node) && node.operatorToken.kind === parser.SyntaxKind.PlusToken)
+        {
+            const left = constantString(node.left)
+            const right = constantString(node.right)
+            return left === null || right === null ? null : `${left}${right}`
+        }
+        return null
+    }
+    const scanOwned = (identifier, valueText, node) =>
+    {
+        if (identifier === null) return
+        const index = node.getStart(sourceFile)
+        if (isExactDeclaration(index)) return
+        scanIdentifier(identifier, valueText, {
+            ...context,
+            location: `${locationPrefix}:line:${lineAt(index)}`
+        })
+    }
+    const assignedName = (node) =>
+    {
+        if (parser.isIdentifier(node) || parser.isPrivateIdentifier?.(node) || parser.isStringLiteralLike(node)) return identifierText(node)
+        if (parser.isPropertyAccessExpression(node)) return identifierText(node.name)
+        if (parser.isElementAccessExpression(node) && parser.isStringLiteralLike(node.argumentExpression)) return node.argumentExpression.text
+        return null
+    }
+    const visit = (node) =>
+    {
+        if (parser.isVariableDeclaration(node)
+            || parser.isPropertyDeclaration(node)
+            || parser.isPropertySignature(node)
+            || parser.isPropertyAssignment(node))
+        {
+            scanOwned(identifierText(node.name), constantText(node.initializer), node)
+        }
+        else if (parser.isClassDeclaration(node)
+            || parser.isInterfaceDeclaration(node)
+            || parser.isTypeAliasDeclaration(node)
+            || parser.isEnumDeclaration(node)
+            || parser.isFunctionDeclaration(node))
+        {
+            scanOwned(identifierText(node.name), '', node)
+        }
+        else if (parser.isBinaryExpression(node) && node.operatorToken.kind === parser.SyntaxKind.EqualsToken)
+        {
+            scanOwned(assignedName(node.left), constantText(node.right), node)
+        }
+        else if (parser.isCallExpression(node))
+        {
+            const invocation = assignedName(node.expression)
+            const invocationContext = {
+                ...context,
+                location: `${locationPrefix}:line:${lineAt(node.getStart(sourceFile))}`
+            }
+            if (invocation !== null)
+            {
+                scanIdentifier(invocation, '', invocationContext)
+                for (const argument of node.arguments)
+                {
+                    const argumentText = constantString(argument)
+                    if (argumentText === null) continue
+                    scanValueResidue(invocation, argumentText, invocationContext)
+                    if (legacySurfaceName(argumentText, invocationContext))
+                    {
+                        addFinding(context.findings, context.file, context.pathClasses,
+                            `forbidden-legacy-surface:${argumentText}`, invocationContext.location)
+                    }
+                }
+            }
+        }
+        parser.forEachChild(node, visit)
+    }
+    visit(sourceFile)
 }
 
 function exactScannerDeclarationRange(source, masked, context)
@@ -833,9 +1162,8 @@ function assertAcyclicMachineDocument(value, ancestors = new Set())
     ancestors.delete(value)
 }
 
-function scanMachineYaml(source, context, location = '$')
+function scanMachineYaml(source, context, parser, location = '$')
 {
-    const parser = canonicalYamlParser()
     const document = parser.parseDocument(source, {
         merge: true,
         prettyErrors: false,
@@ -854,7 +1182,7 @@ function scanMachineSource(source, context, locationPrefix = 'source')
         : /\.ps1$/iu.test(context.file) || /^fence:(?:powershell|ps1|toml):/u.test(locationPrefix)
             ? (/\.ps1$/iu.test(context.file) || /^fence:(?:powershell|ps1):/u.test(locationPrefix) ? 'powershell' : 'hash')
             : null
-    const identifierGrammar = sourceIdentifierGrammar(context.file, locationPrefix)
+    const identifierAuthority = sourceIdentifierAuthority(context.file, locationPrefix)
     scanMachineShebang(source, context, locationPrefix)
     const masked = maskSourceLiteralsAndComments(source, commentStyle)
     const exactDeclaration = exactScannerDeclarationRange(source, masked, context)
@@ -880,7 +1208,13 @@ function scanMachineSource(source, context, locationPrefix = 'source')
         }
         return low
     }
-    for (const assignment of sourceAssignments(source, masked, commentStyle, identifierGrammar))
+    if ((/\.(?:js|jsx|mjs|ts|tsx)$/iu.test(context.file)
+        || /^fence:(?:javascript|js|typescript|ts):/u.test(locationPrefix)) && !/\.vue$/iu.test(context.file))
+    {
+        scanEcmaScriptAst(source, context, context.jsoncParser(), locationPrefix, lineAt, isExactDeclaration)
+        return
+    }
+    for (const assignment of sourceAssignments(source, masked, commentStyle, identifierAuthority))
     {
         if (isExactDeclaration(assignment.index)) continue
         scanIdentifier(assignment.identifier, assignment.valueText, {
@@ -888,7 +1222,7 @@ function scanMachineSource(source, context, locationPrefix = 'source')
             location: `${locationPrefix}:line:${lineAt(assignment.index)}`
         })
     }
-    for (const declaration of declaredIdentifiers(masked, identifierGrammar))
+    for (const declaration of declaredIdentifiers(masked, identifierAuthority))
     {
         if (isExactDeclaration(declaration.index)) continue
         scanIdentifier(declaration.identifier, '', {
@@ -896,14 +1230,14 @@ function scanMachineSource(source, context, locationPrefix = 'source')
             location: `${locationPrefix}:line:${lineAt(declaration.index)}`
         })
     }
-    for (const initializer of autoPropertyInitializers(masked, identifierGrammar))
+    for (const initializer of autoPropertyInitializers(source, masked, identifierAuthority))
     {
         scanIdentifier(initializer.identifier, initializer.valueText, {
             ...context,
             location: `${locationPrefix}:line:${lineAt(initializer.index)}`
         })
     }
-    for (const invocation of sourceInvocations(source, masked, identifierGrammar))
+    for (const invocation of sourceInvocations(source, masked, identifierAuthority))
     {
         const invocationContext = {
             ...context,
@@ -933,9 +1267,10 @@ function scanDocumentFences(source, context)
         const location = `fence:${language}:line:${line}`
         if (language === 'yaml' || language === 'yml')
         {
+            const parser = context.yamlParser()
             try
             {
-                scanMachineYaml(match[2], { ...context, qualification: true }, location)
+                scanMachineYaml(match[2], { ...context, qualification: true }, parser, location)
             }
             catch
             {
@@ -991,25 +1326,22 @@ function walkFiles(repositoryRoot, relative, output, predicate = () => true)
     }
 }
 
-function gitBlobOid(content, objectFormat)
+function gitBlobOid(content)
 {
-    const algorithm = objectFormat === 'sha256' ? 'sha256' : 'sha1'
-    return createHash(algorithm)
+    return createHash('sha1')
         .update(Buffer.from(`blob ${content.length}\0`, 'ascii'))
         .update(content)
         .digest('hex')
 }
 
-function gitBlobContents(repositoryRoot, entries, objectFormat)
+function gitBlobContents(gitAuthority, entries)
 {
     const oids = [...new Set(entries.map((entry) => entry.oid))]
     if (oids.length === 0) return new Map()
-    const batch = execFileSync('git', ['-C', repositoryRoot, 'cat-file', '--batch'], {
+    const batch = runGitRepository(gitAuthority, ['cat-file', '--batch'], {
         encoding: null,
         input: `${oids.join('\n')}\n`,
-        maxBuffer: 256 * 1024 * 1024,
-        env: gitObjectEnvironment,
-        stdio: ['pipe', 'pipe', 'ignore']
+        maxBuffer: 256 * 1024 * 1024
     })
     const blobs = new Map()
     let offset = 0
@@ -1030,7 +1362,7 @@ function gitBlobContents(repositoryRoot, entries, objectFormat)
             zeroLegacyFail(`git index blob is truncated for ${expectedOid}`)
         }
         const content = Buffer.from(batch.subarray(contentStart, contentEnd))
-        if (gitBlobOid(content, objectFormat) !== expectedOid)
+        if (gitBlobOid(content) !== expectedOid)
         {
             zeroLegacyFail(`git index blob content digest is invalid for ${expectedOid}`)
         }
@@ -1043,46 +1375,23 @@ function gitBlobContents(repositoryRoot, entries, objectFormat)
 
 function trackedRepositoryFiles(repositoryRoot)
 {
-    let topLevel
+    let gitAuthority
     try
     {
-        topLevel = execFileSync('git', ['-C', repositoryRoot, 'rev-parse', '--show-toplevel'], {
-            encoding: 'utf8',
-            env: gitObjectEnvironment,
-            stdio: ['ignore', 'pipe', 'ignore']
-        }).trim()
+        gitAuthority = resolveGitRepositoryAuthority(repositoryRoot)
     }
-    catch
+    catch (error)
     {
+        if (fs.existsSync(path.join(repositoryRoot, '.git'))) throw error
         return null
     }
-    if (fs.realpathSync(topLevel) !== fs.realpathSync(repositoryRoot))
-    {
-        zeroLegacyFail('scan root must equal the git top-level')
-    }
-    const objectFormat = execFileSync('git', ['-C', repositoryRoot, 'rev-parse', '--show-object-format'], {
-        encoding: 'utf8',
-        env: gitObjectEnvironment,
-        stdio: ['ignore', 'pipe', 'ignore']
-    }).trim()
-    if (objectFormat !== 'sha1' && objectFormat !== 'sha256') zeroLegacyFail(`git object format is unsupported: ${objectFormat}`)
-    const flags = new Map(execFileSync('git', ['-C', repositoryRoot, 'ls-files', '-t', '-z'], {
-        encoding: 'utf8',
-        env: gitObjectEnvironment,
-        maxBuffer: 64 * 1024 * 1024,
-        stdio: ['ignore', 'pipe', 'ignore']
-    })
+    const flags = new Map(runGitRepository(gitAuthority, ['ls-files', '-t', '-z'])
         .split('\0')
         .filter(Boolean)
         .map((record) => [record.slice(2).replaceAll(path.sep, '/'), record[0]]))
     const files = []
     const gitlinks = []
-    for (const record of execFileSync('git', ['-C', repositoryRoot, 'ls-files', '-s', '-z'], {
-        encoding: 'utf8',
-        env: gitObjectEnvironment,
-        maxBuffer: 64 * 1024 * 1024,
-        stdio: ['ignore', 'pipe', 'ignore']
-    })
+    for (const record of runGitRepository(gitAuthority, ['ls-files', '-s', '-z'])
         .split('\0')
         .filter(Boolean))
     {
@@ -1091,7 +1400,7 @@ function trackedRepositoryFiles(repositoryRoot)
         const [mode, oid, stage] = record.slice(0, tab).split(' ')
         const file = record.slice(tab + 1).replaceAll(path.sep, '/')
         if (stage !== '0') zeroLegacyFail(`unmerged git index entry is unsupported: ${file}`)
-        if (!new RegExp(`^[0-9a-f]{${objectFormat === 'sha256' ? 64 : 40}}$`, 'u').test(oid)) zeroLegacyFail(`git index OID is invalid: ${file}`)
+        if (!/^[0-9a-f]{40}$/u.test(oid)) zeroLegacyFail(`git index OID is invalid: ${file}`)
         if (mode === '160000')
         {
             gitlinks.push(file)
@@ -1100,11 +1409,12 @@ function trackedRepositoryFiles(repositoryRoot)
         if (mode !== '100644' && mode !== '100755' && mode !== '120000') zeroLegacyFail(`git index mode is unsupported: ${file} (${mode})`)
         files.push({ file, mode, oid, skipWorktree: flags.get(file) === 'S' })
     }
-    const blobs = gitBlobContents(repositoryRoot, files, objectFormat)
+    const blobs = gitBlobContents(gitAuthority, files)
     const materialized = files.map((entry) => ({ ...entry, indexContent: blobs.get(entry.oid) }))
     return {
         files: materialized.filter((entry) => entry.mode !== '120000'),
         symlinks: materialized.filter((entry) => entry.mode === '120000'),
+        gitAuthority,
         gitlinks
     }
 }
@@ -1118,6 +1428,7 @@ function collectScanFiles(repositoryRoot)
             || path.posix.basename(file) === 'package.json'
         return {
             files: tracked.files.filter((entry) => inScope(entry.file)),
+            gitAuthority: tracked.gitAuthority,
             symlinks: tracked.symlinks.filter((entry) => inScope(entry.file)),
             gitlinks: tracked.gitlinks.filter(inScope)
         }
@@ -1125,7 +1436,7 @@ function collectScanFiles(repositoryRoot)
     const files = []
     for (const entry of scanRoots) walkFiles(repositoryRoot, entry.path, files)
     walkFiles(repositoryRoot, '.', files, (file) => path.posix.basename(file) === 'package.json')
-    return { files: files.map((file) => ({ file, indexContent: null })), symlinks: [], gitlinks: [] }
+    return { files: files.map((file) => ({ file, indexContent: null })), gitAuthority: null, symlinks: [], gitlinks: [] }
 }
 
 function inspectTrackedSymlink(repositoryRoot, entry, findings)
@@ -1250,7 +1561,20 @@ export function validateZeroLegacyScan(scan)
 
 export function scanZeroLegacyGovernance(repositoryRoot = root)
 {
+    repositoryRoot = fs.realpathSync(path.resolve(repositoryRoot))
     const inventory = collectScanFiles(repositoryRoot)
+    let admittedYamlParser = null
+    let admittedJsoncParser = null
+    const loadYamlParser = () =>
+    {
+        admittedYamlParser ??= canonicalYamlParser(repositoryRoot, inventory)
+        return admittedYamlParser
+    }
+    const loadJsoncParser = () =>
+    {
+        admittedJsoncParser ??= canonicalJsoncParser(repositoryRoot, inventory)
+        return admittedJsoncParser
+    }
     const uniqueFiles = [...new Map(inventory.files.map((entry) => [entry.file, entry])).values()]
         .sort((left, right) => left.file.localeCompare(right.file))
     const pathClassCounts = Object.fromEntries(zeroLegacyRequiredPathClasses.map((pathClass) => [pathClass, 0]))
@@ -1269,7 +1593,14 @@ export function scanZeroLegacyGovernance(repositoryRoot = root)
         const file = entry.file
         const pathClasses = pathClassesFor(file)
         pathClasses.forEach((pathClass) => { pathClassCounts[pathClass] += 1 })
-        const context = { file, findings, pathClasses, qualification: isQualificationPath(file) }
+        const context = {
+            file,
+            findings,
+            pathClasses,
+            qualification: isQualificationPath(file),
+            jsoncParser: loadJsoncParser,
+            yamlParser: loadYamlParser
+        }
         const content = inventoryFileContent(repositoryRoot, entry, findings, pathClasses)
         const markdownDocument = pathClasses.includes('docs') && /\.md$/iu.test(file)
         const yamlDocument = /\.ya?ml$/iu.test(file)
@@ -1289,9 +1620,10 @@ export function scanZeroLegacyGovernance(repositoryRoot = root)
         }
         if (/\.jsonc?$/iu.test(file))
         {
+            const parser = loadJsoncParser()
             try
             {
-                const document = parseMachineJson(source, file)
+                const document = parseMachineJson(source, file, parser)
                 const jsonSchemaDocument = file.endsWith('.schema.json')
                     && typeof document?.$schema === 'string'
                     && jsonSchemaDialectPattern.test(document.$schema)
@@ -1305,9 +1637,10 @@ export function scanZeroLegacyGovernance(repositoryRoot = root)
         }
         if (yamlDocument)
         {
+            const parser = loadYamlParser()
             try
             {
-                scanMachineYaml(source, context)
+                scanMachineYaml(source, context, parser)
             }
             catch
             {
@@ -1557,19 +1890,16 @@ export function buildFinalConsistencyReport({
         fail('zero-legacy source root is not an absolute existing directory')
     }
     const sourceRoot = fs.realpathSync(admittedSourceRoot)
-    let gitTopLevel
+    let sourceGitAuthority
     try
     {
-        gitTopLevel = fs.realpathSync(execFileSync('git', ['rev-parse', '--show-toplevel'], {
-            cwd: sourceRoot,
-            encoding: 'utf8'
-        }).trim())
+        sourceGitAuthority = resolveGitRepositoryAuthority(sourceRoot)
     }
     catch (error)
     {
         fail(`zero-legacy source root cannot resolve git top-level: ${error.message}`)
     }
-    if (sourceRoot !== gitTopLevel)
+    if (sourceRoot !== sourceGitAuthority.workTree)
     {
         fail('zero-legacy source root must equal the git top-level')
     }

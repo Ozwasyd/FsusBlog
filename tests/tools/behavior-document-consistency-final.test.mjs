@@ -5,6 +5,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import { fileURLToPath } from 'node:url'
 
 import { digestCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs'
 import { sealSourceIdentity } from '../../tools/fact-extractors/identity.mjs'
@@ -21,6 +22,30 @@ import { validateJsonSchema } from '../../tools/test-matrix/schema-validator/val
 const commit = 'a'.repeat(40)
 const fingerprint = 'b'.repeat(64)
 const runId = 'final-round'
+const repositorySourceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+const parserVersion = '1.59.1'
+const parserBundle = fs.readFileSync(path.join(repositorySourceRoot, 'src/frontend/node_modules/playwright-core/lib/utilsBundleImpl/index.js'))
+const parserPackage = fs.readFileSync(path.join(repositorySourceRoot, 'src/frontend/node_modules/playwright-core/package.json'))
+const jsoncParserBundle = fs.readFileSync(path.join(repositorySourceRoot, 'src/frontend/node_modules/typescript/lib/typescript.js'))
+const jsoncParserPackage = fs.readFileSync(path.join(repositorySourceRoot, 'src/frontend/node_modules/typescript/package.json'))
+const parserConsumer = `${JSON.stringify({
+    name: 'zero-legacy-fixture',
+    version: '1.0.0',
+    devDependencies: { '@playwright/test': '^1.59.1', typescript: '^6.0.3' }
+}, null, 4)}\n`
+const parserLock = `${JSON.stringify({
+    name: 'zero-legacy-fixture',
+    version: '1.0.0',
+    lockfileVersion: 3,
+    requires: true,
+    packages: {
+        '': { name: 'zero-legacy-fixture', version: '1.0.0', devDependencies: { '@playwright/test': '^1.59.1', typescript: '^6.0.3' } },
+        'node_modules/@playwright/test': { version: parserVersion, dependencies: { playwright: parserVersion } },
+        'node_modules/playwright': { version: parserVersion, dependencies: { 'playwright-core': parserVersion } },
+        'node_modules/playwright-core': { version: parserVersion, integrity: 'sha512-fixture' },
+        'node_modules/typescript': { version: '6.0.3', integrity: 'sha512-fixture' }
+    }
+}, null, 2)}\n`
 const stable = (value) => Array.isArray(value)
     ? value.map(stable)
     : value && typeof value === 'object'
@@ -51,7 +76,32 @@ function repositoryFixture(t, files)
 {
     const repositoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-zero-legacy-'))
     t.after(() => fs.rmSync(repositoryRoot, { recursive: true, force: true }))
-    for (const [relative, content] of Object.entries(files))
+    const needsMachineParser = Object.entries(files).some(([relative, content]) =>
+        /\.(?:js|jsx|mjs|ts|tsx|jsonc?|ya?ml)$/iu.test(relative)
+        || (/\.md$/iu.test(relative) && /```(?:javascript|js|jsonc?|typescript|ts|ya?ml)\b/iu.test(String(content))))
+    const suppliedConsumer = files['src/frontend/package.json'] === undefined
+        ? JSON.parse(parserConsumer)
+        : JSON.parse(String(files['src/frontend/package.json']))
+    const admittedConsumer = `${JSON.stringify({
+        name: 'zero-legacy-fixture',
+        version: '1.0.0',
+        ...suppliedConsumer,
+        devDependencies: {
+            '@playwright/test': '^1.59.1',
+            typescript: '^6.0.3',
+            ...suppliedConsumer.devDependencies
+        }
+    }, null, 4)}\n`
+    const admittedFiles = needsMachineParser ? {
+        ...files,
+        'src/frontend/package.json': admittedConsumer,
+        'src/frontend/package-lock.json': parserLock,
+        'src/frontend/node_modules/playwright-core/package.json': parserPackage,
+        'src/frontend/node_modules/playwright-core/lib/utilsBundleImpl/index.js': parserBundle,
+        'src/frontend/node_modules/typescript/package.json': jsoncParserPackage,
+        'src/frontend/node_modules/typescript/lib/typescript.js': jsoncParserBundle
+    } : files
+    for (const [relative, content] of Object.entries(admittedFiles))
     {
         const absolute = path.join(repositoryRoot, relative)
         fs.mkdirSync(path.dirname(absolute), { recursive: true })
@@ -64,6 +114,7 @@ function sourceRepositoryFixture(t, files = {})
 {
     const repositoryRoot = repositoryFixture(t, files)
     execFileSync('git', ['init', '--quiet'], { cwd: repositoryRoot })
+    fs.writeFileSync(path.join(repositoryRoot, '.git/info/exclude'), 'src/frontend/node_modules/\n')
     execFileSync('git', ['config', 'user.email', 'tests@fsusblog.local'], { cwd: repositoryRoot })
     execFileSync('git', ['config', 'user.name', 'FsusBlog Tests'], { cwd: repositoryRoot })
     execFileSync('git', ['add', '.'], { cwd: repositoryRoot })
@@ -74,6 +125,7 @@ function sourceRepositoryFixture(t, files = {})
 function fixture(overrides = {})
 {
     const sourceRoot = overrides.sourceRoot ?? null
+    const admittedSourceRoot = overrides.admittedSourceRoot ?? sourceRoot
     const sourceIdentity = sourceRoot === null
         ? { sourceCommit: commit, worktreeFingerprint: fingerprint }
         : sealSourceIdentity(sourceRoot)
@@ -99,7 +151,7 @@ function fixture(overrides = {})
         schema: 'fsusblog.behavior-doc-static-admission-receipt.v1',
         run: { id: runId },
         source: { commit: sourceCommit, worktreeFingerprint: sourceFingerprint },
-        worktree: { root: sourceRoot ?? '/repo' },
+        worktree: { root: admittedSourceRoot ?? '/repo' },
         toolchain: { node: 'v24', dotnet: '10', platform: 'linux', architecture: 'x64', directoryBuildPropsDigest: '1'.repeat(64) },
         authorityDigests: {
             catalog: catalogHash, claim: '2'.repeat(64), extractorRegistry: '3'.repeat(64),
@@ -242,6 +294,34 @@ test('zero-legacy machine-field mutation corpus rejects separator variants and b
     assert.ok(rules.includes('forbidden-self-certification:reviewed'))
 })
 
+test('zero-legacy preserves matrix owner semantics for every scalar array entry', (t) =>
+{
+    const repositoryRoot = repositoryFixture(t, {
+        'tests/matrix-behavior-qualification.json': `${JSON.stringify({
+            tiers: [{
+                id: 'legacy-array',
+                command: ['node', 'deprecated-claim-cli'],
+                evidenceSource: ['current-receipt', 'latest-receipt']
+            }, {
+                id: 'current-array',
+                command: ['node', 'current-claim-cli'],
+                evidenceSource: ['current-receipt']
+            }]
+        }, null, 2)}\n`,
+        'tests/current-matrix-behavior-qualification.json': `${JSON.stringify({
+            tiers: [{ id: 'current-array', command: ['node', 'current-claim-cli'], evidenceSource: ['current-receipt'] }]
+        }, null, 2)}\n`
+    })
+    const findings = scanZeroLegacyGovernance(repositoryRoot).findings
+    assert.ok(findings.some((finding) => finding.file === 'tests/matrix-behavior-qualification.json'
+        && finding.location.endsWith('.command[1]')
+        && finding.rule === 'forbidden-legacy-surface:deprecated-claim-cli'))
+    assert.ok(findings.some((finding) => finding.file === 'tests/matrix-behavior-qualification.json'
+        && finding.location.endsWith('.evidenceSource[1]')
+        && finding.rule === 'forbidden-evidence-selection:latestReceipt'))
+    assert.equal(findings.some((finding) => finding.file === 'tests/current-matrix-behavior-qualification.json'), false)
+})
+
 test('zero-legacy source declaration mutations cannot bypass field matching', (t) =>
 {
     const repositoryRoot = repositoryFixture(t, {
@@ -263,7 +343,18 @@ test('zero-legacy source declaration mutations cannot bypass field matching', (t
 test('zero-legacy source invocations and C# initializers cannot hide terminal residue', (t) =>
 {
     const repositoryRoot = repositoryFixture(t, {
-        'src/release/behavior-qualification.cs': 'public bool Verified { get; init; } = true;\n',
+        'src/release/behavior-qualification.cs': [
+            'using System;',
+            '[AttributeUsage(AttributeTargets.Class)]',
+            'sealed class BehaviorAttribute : Attribute { public string Command { get; init; } = ""; }',
+            '[Behavior(Command = "deprecated-claim-cli")]',
+            'sealed class Subject {',
+            '    public bool Verified { get; init; } = true;',
+            '    public const string FieldCommand = "deprecated-claim-cli";',
+            '    public string Command { get; init; } = "deprecated-claim-cli";',
+            '    public void Run() { const string localCommand = "deprecated-claim-cli"; }',
+            '}'
+        ].join('\n'),
         'tools/release/behavior-qualification.mjs': [
             'spawnSync("deprecated-claim-cli", ["--run"])',
             'selectReceipt("latest")',
@@ -294,9 +385,9 @@ test('zero-legacy source invocations and C# initializers cannot hide terminal re
     })
     const findings = scanZeroLegacyGovernance(repositoryRoot).findings
     assert.ok(findings.some((finding) => finding.file.endsWith('.cs') && finding.rule === 'forbidden-self-certification:verified'))
+    assert.ok(findings.some((finding) => finding.file.endsWith('.cs')
+        && finding.rule === 'forbidden-legacy-surface:deprecated-claim-cli'))
     assert.ok(findings.some((finding) => finding.file.endsWith('.mjs') && finding.rule === 'forbidden-legacy-surface:deprecated-claim-cli'))
-    assert.ok(findings.some((finding) => finding.file.endsWith('.mjs')
-        && finding.rule.startsWith('forbidden-legacy-surface:deprecated--claim-cli')))
     assert.ok(findings.some((finding) => finding.file.endsWith('.mjs') && finding.rule === 'forbidden-evidence-selection:selectReceipt=latest'))
     assert.equal(findings.some((finding) => finding.file === 'tools/release/comment-only-behavior-qualification.mjs'), false)
     for (const file of [
@@ -306,7 +397,7 @@ test('zero-legacy source invocations and C# initializers cannot hide terminal re
     ])
     {
         assert.ok(findings.some((finding) => finding.file === file
-            && finding.rule.startsWith('forbidden-legacy-surface:deprecated--claim-cli')), `${file} line terminator escaped`)
+            && finding.rule === 'forbidden-legacy-surface:deprecated-claim-cli'), `${file} line terminator escaped`)
     }
 })
 
@@ -314,22 +405,31 @@ test('zero-legacy source identifiers follow CSharp JavaScript PowerShell and she
 {
     const repositoryRoot = repositoryFixture(t, {
         'src/release/csharp-behavior-qualification.cs': 'public string @LastVerifiedCommit { get; init; }\n',
+        'src/release/csharp-escaped-behavior-qualification.cs': 'public string \\u006castVerifiedCommit { get; init; }\n',
         'tools/release/javascript-behavior-qualification.mjs': 'class Receipt { #lastVerifiedCommit = "ambient"; }\nconst $latestReceipt = "ambient"\n',
-        'tools/release/powershell-behavior-qualification.ps1': '$latestReceipt = "ambient"\n',
+        'tools/release/javascript-escaped-behavior-qualification.mjs': 'const \\u006catestReceipt = "ambient"\n',
+        'tools/release/powershell-behavior-qualification.ps1': '$latestReceipt = "ambient"\n${latestReceipt} = "ambient"\n${lastVerifiedCommit} = "ambient"\n',
         'tools/release/shell-behavior-qualification.sh': 'lastVerifiedCommit=ambient\n',
         'tools/release/javascript-grammar-current.mjs': 'const current = current-latestReceipt\nconst text = "#lastVerifiedCommit @verified"\n',
         'tools/release/csharp-grammar-current.cs': 'var current = @"lastVerifiedCommit";\n',
         'tools/release/shell-grammar-current.sh': 'latest-receipt=ambient\n'
     })
     const findings = scanZeroLegacyGovernance(repositoryRoot).findings
+    execFileSync(process.execPath, ['--check', path.join(repositoryRoot, 'tools/release/javascript-escaped-behavior-qualification.mjs')])
     assert.ok(findings.some((finding) => finding.file === 'src/release/csharp-behavior-qualification.cs'
         && finding.rule === 'forbidden-machine-field:lastVerifiedCommit'))
     assert.ok(findings.some((finding) => finding.file === 'tools/release/javascript-behavior-qualification.mjs'
         && finding.rule === 'forbidden-machine-field:lastVerifiedCommit'))
     assert.ok(findings.some((finding) => finding.file === 'tools/release/javascript-behavior-qualification.mjs'
         && finding.rule === 'forbidden-evidence-selection:latestReceipt'))
+    assert.ok(findings.some((finding) => finding.file === 'tools/release/javascript-escaped-behavior-qualification.mjs'
+        && finding.rule === 'forbidden-evidence-selection:latestReceipt'))
+    assert.ok(findings.some((finding) => finding.file === 'src/release/csharp-escaped-behavior-qualification.cs'
+        && finding.rule === 'forbidden-machine-field:lastVerifiedCommit'))
     assert.ok(findings.some((finding) => finding.file === 'tools/release/powershell-behavior-qualification.ps1'
         && finding.rule === 'forbidden-evidence-selection:latestReceipt'))
+    assert.ok(findings.some((finding) => finding.file === 'tools/release/powershell-behavior-qualification.ps1'
+        && finding.rule === 'forbidden-machine-field:lastVerifiedCommit'))
     assert.ok(findings.some((finding) => finding.file === 'tools/release/shell-behavior-qualification.sh'
         && finding.rule === 'forbidden-machine-field:lastVerifiedCommit'))
     for (const file of [
@@ -497,9 +597,14 @@ test('zero-legacy scanner excludes untracked and ignored build or runtime output
         'tests/TestResults/release.json': JSON.stringify({ lastVerifiedCommit: 'deadbeef' })
     })
     execFileSync('git', ['init', '--quiet'], { cwd: repositoryRoot })
-    execFileSync('git', ['add', 'src/release/authoritative.mjs'], { cwd: repositoryRoot })
+    fs.writeFileSync(path.join(repositoryRoot, '.git/info/exclude'), 'src/frontend/node_modules/\n')
+    execFileSync('git', ['add',
+        'src/release/authoritative.mjs',
+        'src/frontend/package.json',
+        'src/frontend/package-lock.json'
+    ], { cwd: repositoryRoot })
     const scan = scanZeroLegacyGovernance(repositoryRoot)
-    assert.equal(scan.scannedFileCount, 1)
+    assert.equal(scan.scannedFileCount, 3)
     assert.deepEqual(scan.findings, [])
 })
 
@@ -511,9 +616,10 @@ test('zero-legacy scanner never excludes tracked source by coverage or dist path
         'src/frontend/coverage/current.mjs': 'export const current = true\n'
     })
     execFileSync('git', ['init', '--quiet'], { cwd: repositoryRoot })
+    fs.writeFileSync(path.join(repositoryRoot, '.git/info/exclude'), 'src/frontend/node_modules/\n')
     execFileSync('git', ['add', '.'], { cwd: repositoryRoot })
     const scan = scanZeroLegacyGovernance(repositoryRoot)
-    assert.equal(scan.scannedFileCount, 3)
+    assert.equal(scan.scannedFileCount, 5)
     assert.ok(scan.findings.some((finding) => finding.file === 'tools/coverage/behavior-qualification.mjs'
         && finding.rule === 'forbidden-evidence-selection:latestReceipt'))
     assert.ok(scan.findings.some((finding) => finding.file === 'src/frontend/dist/behavior-qualification.mjs'
@@ -895,6 +1001,47 @@ test('zero-legacy malformed machine JSON fails closed through final aggregation'
     assert.ok(report.zeroLegacyScan.findings.some((finding) => finding.rule === 'invalid-machine-json'))
 })
 
+test('zero-legacy parser authority rejects link mode byte and locked dependency substitution', (t) =>
+{
+    const yamlFile = { 'config/testing/parser-authority-behavior-qualification.yaml': 'command: current-claim-cli\n' }
+    const bundleRelative = 'src/frontend/node_modules/playwright-core/lib/utilsBundleImpl/index.js'
+
+    const linkedRoot = repositoryFixture(t, yamlFile)
+    fs.linkSync(path.join(linkedRoot, bundleRelative), path.join(linkedRoot, `${bundleRelative}.backup`))
+    assert.throws(() => scanZeroLegacyGovernance(linkedRoot), /mode or link count is unsupported/u)
+
+    const modeRoot = repositoryFixture(t, yamlFile)
+    fs.chmodSync(path.join(modeRoot, bundleRelative), 0o600)
+    assert.throws(() => scanZeroLegacyGovernance(modeRoot), /mode or link count is unsupported/u)
+
+    const byteRoot = repositoryFixture(t, yamlFile)
+    fs.writeFileSync(path.join(byteRoot, bundleRelative), 'module.exports = { yaml: {} }\n')
+    assert.throws(() => scanZeroLegacyGovernance(byteRoot), /byte digest mismatch/u)
+
+    const crossRoot = repositoryFixture(t, yamlFile)
+    fs.unlinkSync(path.join(crossRoot, bundleRelative))
+    fs.symlinkSync(path.join(repositorySourceRoot, bundleRelative), path.join(crossRoot, bundleRelative))
+    assert.throws(() => scanZeroLegacyGovernance(crossRoot), /path is not canonical/u)
+
+    const lockRoot = repositoryFixture(t, {
+        ...yamlFile,
+        'src/frontend/package.json': `${JSON.stringify({
+            name: 'zero-legacy-fixture',
+            version: '1.0.0',
+            devDependencies: { '@playwright/test': '^1.58.0', typescript: '^6.0.3' }
+        }, null, 4)}\n`
+    })
+    assert.throws(() => scanZeroLegacyGovernance(lockRoot), /consumer and package-lock chain is not exact/u)
+
+    const jsoncRoot = repositoryFixture(t, {
+        'config/testing/parser-authority-behavior-qualification.jsonc': '{ "command": "current-claim-cli", }\n'
+    })
+    const typescriptRelative = 'src/frontend/node_modules/typescript/lib/typescript.js'
+    fs.unlinkSync(path.join(jsoncRoot, typescriptRelative))
+    fs.symlinkSync(path.join(repositorySourceRoot, typescriptRelative), path.join(jsoncRoot, typescriptRelative))
+    assert.throws(() => scanZeroLegacyGovernance(jsoncRoot), /path is not canonical/u)
+})
+
 test('zero-legacy Markdown machine fences recognize every JavaScript line terminator', (t) =>
 {
     const files = {}
@@ -924,6 +1071,7 @@ test('zero-legacy tracked gitlinks fail closed without pretending their contents
     execFileSync('git', ['add', '.'], { cwd: gitlink })
     execFileSync('git', ['commit', '--quiet', '-m', 'test: seal gitlink source'], { cwd: gitlink })
     execFileSync('git', ['init', '--quiet'], { cwd: repositoryRoot })
+    fs.writeFileSync(path.join(repositoryRoot, '.git/info/exclude'), 'src/frontend/node_modules/\n')
     execFileSync('git', ['add', 'src/vendor-behavior'], { cwd: repositoryRoot })
 
     const scan = scanZeroLegacyGovernance(repositoryRoot)
@@ -941,13 +1089,14 @@ test('zero-legacy tracked symlinks are unsupported and expose target or worktree
     fs.symlinkSync('current-target.mjs', path.join(repositoryRoot, 'src/current-link.mjs'))
     fs.symlinkSync('deprecated-claim-cli.mjs', path.join(repositoryRoot, 'src/target-policy-link.mjs'))
     execFileSync('git', ['init', '--quiet'], { cwd: repositoryRoot })
+    fs.writeFileSync(path.join(repositoryRoot, '.git/info/exclude'), 'src/frontend/node_modules/\n')
     execFileSync('git', ['config', 'user.email', 'tests@fsusblog.local'], { cwd: repositoryRoot })
     execFileSync('git', ['config', 'user.name', 'FsusBlog Tests'], { cwd: repositoryRoot })
     execFileSync('git', ['add', '.'], { cwd: repositoryRoot })
     execFileSync('git', ['commit', '--quiet', '-m', 'test: seal symlink policy'], { cwd: repositoryRoot })
 
     const clean = scanZeroLegacyGovernance(repositoryRoot)
-    assert.equal(clean.scannedFileCount, 1)
+    assert.equal(clean.scannedFileCount, 3)
     for (const file of ['src/current-link.mjs', 'src/target-policy-link.mjs'])
     {
         assert.ok(clean.findings.some((finding) => finding.file === file
@@ -996,10 +1145,69 @@ test('zero-legacy scans sparse and skip-worktree files from their exact index bl
     assert.equal(fs.existsSync(path.join(repositoryRoot, 'src/behavior-qualification.mjs')), false)
 
     const scan = scanZeroLegacyGovernance(repositoryRoot)
-    assert.equal(scan.scannedFileCount, 2)
+    assert.equal(scan.scannedFileCount, 4)
     assert.ok(scan.findings.some((finding) => finding.file === 'src/behavior-qualification.mjs'
         && finding.rule.includes('deprecated-claim-cli')))
     assert.equal(scan.findings.some((finding) => finding.rule.startsWith('tracked-worktree-index-split:')), false)
+})
+
+test('zero-legacy Git authority ignores ambient index worktree alternate and config injection', (t) =>
+{
+    const repositoryRoot = sourceRepositoryFixture(t, {
+        'src/behavior-qualification.mjs': 'const command = "deprecated-claim-cli"\n'
+    })
+    const alternateRoot = sourceRepositoryFixture(t, {
+        'src/current.mjs': 'export const current = true\n'
+    })
+    const alternateIndex = path.join(alternateRoot, 'alternate.index')
+    execFileSync('git', ['read-tree', '--empty'], {
+        cwd: alternateRoot,
+        env: { ...process.env, GIT_INDEX_FILE: alternateIndex }
+    })
+    const before = sealSourceIdentity(repositoryRoot)
+    const poison = {
+        GIT_INDEX_FILE: alternateIndex,
+        GIT_DIR: path.join(alternateRoot, '.git'),
+        GIT_WORK_TREE: alternateRoot,
+        GIT_OBJECT_DIRECTORY: path.join(alternateRoot, '.git/objects'),
+        GIT_ALTERNATE_OBJECT_DIRECTORIES: path.join(repositoryRoot, '.git/objects'),
+        GIT_REPLACE_REF_BASE: 'refs/poison/',
+        GIT_CONFIG_COUNT: '1',
+        GIT_CONFIG_KEY_0: 'core.repositoryformatversion',
+        GIT_CONFIG_VALUE_0: '99'
+    }
+    const previous = Object.fromEntries(Object.keys(poison).map((key) => [key, process.env[key]]))
+    try
+    {
+        Object.assign(process.env, poison)
+        assert.deepEqual(sealSourceIdentity(repositoryRoot), before)
+        const scan = scanZeroLegacyGovernance(repositoryRoot)
+        assert.equal(scan.scannedFileCount, 3)
+        assert.ok(scan.findings.some((finding) => finding.file === 'src/behavior-qualification.mjs'
+            && finding.rule === 'forbidden-legacy-surface:deprecated-claim-cli'))
+    }
+    finally
+    {
+        for (const [key, value] of Object.entries(previous))
+        {
+            if (value === undefined) delete process.env[key]
+            else process.env[key] = value
+        }
+    }
+})
+
+test('zero-legacy and source identity consistently reject non-SHA1 repositories', (t) =>
+{
+    const repositoryRoot = repositoryFixture(t, {
+        'src/current.mjs': 'export const current = true\n'
+    })
+    execFileSync('git', ['init', '--quiet', '--object-format=sha256'], { cwd: repositoryRoot })
+    execFileSync('git', ['config', 'user.email', 'tests@fsusblog.local'], { cwd: repositoryRoot })
+    execFileSync('git', ['config', 'user.name', 'FsusBlog Tests'], { cwd: repositoryRoot })
+    execFileSync('git', ['add', '.'], { cwd: repositoryRoot })
+    execFileSync('git', ['commit', '--quiet', '-m', 'test: sha256 repository'], { cwd: repositoryRoot })
+    assert.throws(() => sealSourceIdentity(repositoryRoot), /object format must be sha1/u)
+    assert.throws(() => scanZeroLegacyGovernance(repositoryRoot), /object format must be sha1/u)
 })
 
 test('zero-legacy Git inventory survives symlink root spelling and excludes untracked files', (t) =>
@@ -1014,7 +1222,7 @@ test('zero-legacy Git inventory survives symlink root spelling and excludes untr
     fs.symlinkSync(repositoryRoot, alias, 'dir')
 
     const scan = scanZeroLegacyGovernance(alias)
-    assert.equal(scan.scannedFileCount, 1)
+    assert.equal(scan.scannedFileCount, 3)
     assert.ok(scan.findings.some((finding) => finding.file === 'src/frontend/dist/behavior-qualification.mjs'
         && finding.rule === 'forbidden-evidence-selection:latestReceipt'))
     assert.equal(scan.findings.some((finding) => finding.file === 'tools/untracked-behavior-qualification.mjs'), false)
@@ -1061,8 +1269,8 @@ test('final builder recomputes zero-legacy findings from the sealed source state
             'current\n'
         ])
     ))
-    const nested = fixture({ sourceRoot: path.join(parentRoot, 'nested') })
-    assert.throws(() => buildFinalConsistencyReport(nested), /source root must equal the git top-level/u)
+    const nested = fixture({ sourceRoot: parentRoot, admittedSourceRoot: path.join(parentRoot, 'nested') })
+    assert.throws(() => buildFinalConsistencyReport(nested), /repository root must equal the Git top-level/u)
 })
 
 test('zero-legacy scan and final report schema are deterministic and structurally closed', (t) =>
