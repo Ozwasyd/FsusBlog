@@ -51,29 +51,36 @@ const forbiddenMachineFieldParts = Object.freeze([
     ['waiver']
 ])
 const booleanSelfCertificationParts = Object.freeze([['verified'], ['reviewed']])
-const evidenceSelectionParts = Object.freeze([
-    ['latest', 'evidence'], ['latest', 'receipt'], ['latest', 'result'], ['latest', 'report'],
-    ['newest', 'evidence'], ['newest', 'receipt'], ['evidence', 'history'], ['receipt', 'history'],
-    ['historical', 'evidence'], ['history', 'fallback'], ['evidence', 'fallback'], ['receipt', 'fallback'],
-    ['fallback', 'evidence'], ['fallback', 'receipt'], ['last', 'green'], ['last', 'passing'],
-    ['evidence', 'mtime'], ['receipt', 'mtime'], ['evidence', 'ctime'], ['receipt', 'ctime'],
-    ['evidence', 'age'], ['receipt', 'age'], ['evidence', 'glob'], ['receipt', 'glob'],
-    ['evidence', 'search'], ['receipt', 'search'], ['evidence', 'scan'], ['receipt', 'scan'],
-    ['retry', 'until', 'pass'], ['retry', 'as', 'correctness']
-])
-const authorityResidueParts = Object.freeze([
-    ['self', 'certified'], ['self', 'certification'], ['self', 'certified', 'fact'],
-    ['manual', 'approved'], ['manually', 'approved'], ['checked', 'in', 'authority'],
-    ['checked', 'in', 'fact'], ['checked', 'in', 'expected'], ['checked', 'in', 'openapi'],
-    ['openapi', 'regex', 'fallback'], ['git', 'diff'], ['git', 'diff', 'synchronization'],
-    ['source', 'test', 'doc', 'diff'], ['source', 'tests', 'docs', 'changed'],
-    ['test', 'file', 'exists', 'coverage'], ['file', 'presence', 'coverage'],
-    ['source', 'patterns'], ['test', 'owners'], ['behavior', 'doc', 'parallel'],
-    ['runtime', 'pre', 'runtime', 'parallel'],
-    ['validation', 'sha'], ['expected', 'sha'], ['review', 'sha'], ['approved', 'sha'], ['baseline', 'sha'],
-    ['llm', 'qualification'], ['embedding', 'qualification'], ['human', 'review', 'qualification'],
-    ['release', 'final', 'discovery'], ['release', 'final', 'rerun'], ['release', 'final', 'repair']
-])
+function evidenceSelectionRuleParts()
+{
+    return Object.freeze([
+        ['latest', 'evidence'], ['latest', 'receipt'], ['latest', 'result'], ['latest', 'report'],
+        ['newest', 'evidence'], ['newest', 'receipt'], ['evidence', 'history'], ['receipt', 'history'],
+        ['historical', 'evidence'], ['history', 'fallback'], ['evidence', 'fallback'], ['receipt', 'fallback'],
+        ['fallback', 'evidence'], ['fallback', 'receipt'], ['last', 'green'], ['last', 'passing'],
+        ['evidence', 'mtime'], ['receipt', 'mtime'], ['evidence', 'ctime'], ['receipt', 'ctime'],
+        ['evidence', 'age'], ['receipt', 'age'], ['evidence', 'glob'], ['receipt', 'glob'],
+        ['evidence', 'search'], ['receipt', 'search'], ['evidence', 'scan'], ['receipt', 'scan'],
+        ['retry', 'until', 'pass'], ['retry', 'as', 'correctness']
+    ])
+}
+
+function authorityResidueRuleParts()
+{
+    return Object.freeze([
+        ['self', 'certified'], ['self', 'certification'], ['self', 'certified', 'fact'],
+        ['manual', 'approved'], ['manually', 'approved'], ['checked', 'in', 'authority'],
+        ['checked', 'in', 'fact'], ['checked', 'in', 'expected'], ['checked', 'in', 'openapi'],
+        ['openapi', 'regex', 'fallback'], ['git', 'diff'], ['git', 'diff', 'synchronization'],
+        ['source', 'test', 'doc', 'diff'], ['source', 'tests', 'docs', 'changed'],
+        ['test', 'file', 'exists', 'coverage'], ['file', 'presence', 'coverage'],
+        ['source', 'patterns'], ['test', 'owners'], ['behavior', 'doc', 'parallel'],
+        ['runtime', 'pre', 'runtime', 'parallel'],
+        ['validation', 'sha'], ['expected', 'sha'], ['review', 'sha'], ['approved', 'sha'], ['baseline', 'sha'],
+        ['llm', 'qualification'], ['embedding', 'qualification'], ['human', 'review', 'qualification'],
+        ['release', 'final', 'discovery'], ['release', 'final', 'rerun'], ['release', 'final', 'repair']
+    ])
+}
 const legacyRoleParts = Object.freeze([
     ['claim'], ['extractor'], ['renderer'], ['joiner'], ['cli'], ['schema'], ['feature', 'flag']
 ])
@@ -90,23 +97,13 @@ const canonicalField = (parts) => parts.map((part, index) => index === 0 ? part 
 const fieldMap = (parts) => new Map(parts.map((entry) => [normalizeIdentifier(entry.join('')), canonicalField(entry)]))
 const forbiddenMachineFields = fieldMap(forbiddenMachineFieldParts)
 const booleanSelfCertificationFields = fieldMap(booleanSelfCertificationParts)
-const evidenceSelectionFields = fieldMap(evidenceSelectionParts)
-const authorityResidueFields = fieldMap(authorityResidueParts)
+const evidenceSelectionFields = fieldMap(evidenceSelectionRuleParts())
+const authorityResidueFields = fieldMap(authorityResidueRuleParts())
 const legacyRoles = legacyRoleParts.map((parts) => normalizeIdentifier(parts.join('')))
 const legacyStates = legacyStateParts.map((parts) => normalizeIdentifier(parts.join('')))
-const scannerSelfLegacySymbols = new Map([
-    ['tools/docs/behavior-document-consistency-final.mjs', new Set([
-        'legacySchemaDependencies',
-        'zeroLegacyScanSchema'
-    ])]
-])
-const scannerSelfValueOwners = new Map([
-    ['tools/docs/behavior-document-consistency-final.mjs', new Set([
-        'authorityResidueParts',
-        'evidenceSelectionParts'
-    ])]
-])
+const scannerImplementationPath = 'tools/docs/behavior-document-consistency-final.mjs'
 const jsonSchemaDialectPattern = /^https?:\/\/json-schema\.org\/draft(?:-0[4-7]|\/(?:2019-09|2020-12))\/schema#?$/u
+const contentSchemaDialectPattern = /\/draft\/(?:2019-09|2020-12)\/schema#?$/u
 const jsonSchemaMapKeywords = new Set(['$defs', 'definitions', 'dependentSchemas', 'patternProperties', 'properties'])
 const jsonSchemaArrayKeywords = new Set(['allOf', 'anyOf', 'oneOf', 'prefixItems'])
 const jsonSubschemaKeywords = new Set([
@@ -114,9 +111,8 @@ const jsonSubschemaKeywords = new Set([
     'propertyNames', 'then', 'unevaluatedItems', 'unevaluatedProperties'
 ])
 const valueChunkSize = 512
-const valueChunkOverlap = 128
-const valueCandidateTokenPattern = /[A-Za-z][A-Za-z0-9_-]*/gu
 const maximumValueCandidateTokens = 4
+const maximumValueTokenLength = 128
 
 function zeroLegacyFail(message)
 {
@@ -152,14 +148,8 @@ function isForbiddenMachineField(normalized, qualification)
     return canonical
 }
 
-function isExactScannerSelfLegacySymbol(value, context)
-{
-    return scannerSelfLegacySymbols.get(context?.file)?.has(String(value)) === true
-}
-
 function legacySurfaceName(value, context)
 {
-    if (isExactScannerSelfLegacySymbol(value, context)) return false
     const normalized = normalizeIdentifier(value)
     return legacyStates.some((state) => normalized.includes(state))
         && legacyRoles.some((role) => normalized.includes(role))
@@ -194,61 +184,78 @@ function authorityResidueField(identifier)
     return null
 }
 
-function machineValueCandidates(value)
+function scanMachineValueCandidates(rawValue, visit)
 {
-    const tokens = value.match(valueCandidateTokenPattern) ?? []
-    const candidates = new Set([value])
-    for (let start = 0; start < tokens.length; start += 1)
+    let token = ''
+    let tokenOverflow = false
+    const recentTokens = []
+    const flush = () =>
     {
-        for (let length = 1; length <= maximumValueCandidateTokens && start + length <= tokens.length; length += 1)
+        if (!token && !tokenOverflow) return
+        if (tokenOverflow)
         {
-            candidates.add(tokens.slice(start, start + length).join('-'))
+            recentTokens.length = 0
+        }
+        else
+        {
+            const window = [...recentTokens, token]
+            for (let length = 1; length <= maximumValueCandidateTokens && length <= window.length; length += 1)
+            {
+                visit(window.slice(window.length - length).join('-'))
+            }
+            recentTokens.push(token)
+            if (recentTokens.length >= maximumValueCandidateTokens) recentTokens.shift()
+        }
+        token = ''
+        tokenOverflow = false
+    }
+    for (let offset = 0; offset < rawValue.length; offset += valueChunkSize)
+    {
+        const chunk = rawValue.slice(offset, offset + valueChunkSize)
+        for (const character of chunk)
+        {
+            if (!token && !tokenOverflow)
+            {
+                if (/[A-Za-z]/u.test(character)) token = character
+                continue
+            }
+            if (/[A-Za-z0-9_-]/u.test(character))
+            {
+                if (token.length < maximumValueTokenLength) token += character
+                else tokenOverflow = true
+                continue
+            }
+            flush()
         }
     }
-    return candidates
+    flush()
 }
 
 function scanValueResidue(owner, rawValue, context)
 {
     if (!context.qualification || typeof rawValue !== 'string') return
-    if (scannerSelfValueOwners.get(context.file)?.has(String(owner)) === true) return
     const ownerName = normalizeIdentifier(owner)
     const selectionOwner = /(?:artifact|discovery|evidence|locator|mode|receipt|result|selection|source|strategy)/u.test(ownerName)
     const authorityOwner = /(?:authority|cli|command|featureflag|input|kind|mode|path|provider|schema|source|strategy|type)/u.test(ownerName)
     const simpleSelector = new Set(['age', 'ctime', 'fallback', 'glob', 'historical', 'history', 'latest', 'mtime', 'newest', 'scan', 'search'])
-    let first = 0
-    let last = rawValue.length
-    while (first < last && /\s/u.test(rawValue[first])) first += 1
-    while (last > first && /\s/u.test(rawValue[last - 1])) last -= 1
-    if ((rawValue[first] === '"' || rawValue[first] === "'") && rawValue[last - 1] === rawValue[first])
+    scanMachineValueCandidates(rawValue, (candidate) =>
     {
-        first += 1
-        last -= 1
-    }
-    for (let offset = first; offset < last; offset += valueChunkSize - valueChunkOverlap)
-    {
-        const value = rawValue.slice(offset, Math.min(last, offset + valueChunkSize))
-        if (!value) break
-        for (const candidate of machineValueCandidates(value))
+        const valueName = normalizeIdentifier(candidate)
+        const selectionField = evidenceSelectionField(candidate)
+        if (selectionOwner && (selectionField || simpleSelector.has(valueName)))
         {
-            const valueName = normalizeIdentifier(candidate)
-            const selectionField = evidenceSelectionField(candidate)
-            if (selectionOwner && (selectionField || simpleSelector.has(valueName)))
-            {
-                addFinding(context.findings, context.file, context.pathClasses, `forbidden-evidence-selection:${selectionField ?? `${owner}=${candidate}`}`, context.location)
-            }
-            const authorityField = authorityResidueField(candidate)
-            if (authorityOwner && authorityField)
-            {
-                addFinding(context.findings, context.file, context.pathClasses, `forbidden-self-authority:${authorityField}`, context.location)
-            }
-            if (authorityOwner && legacySurfaceName(candidate, context))
-            {
-                addFinding(context.findings, context.file, context.pathClasses, `forbidden-legacy-surface:${candidate}`, context.location)
-            }
+            addFinding(context.findings, context.file, context.pathClasses, `forbidden-evidence-selection:${selectionField ?? `${owner}=${candidate}`}`, context.location)
         }
-        if (offset + valueChunkSize >= last) break
-    }
+        const authorityField = authorityResidueField(candidate)
+        if (authorityOwner && authorityField)
+        {
+            addFinding(context.findings, context.file, context.pathClasses, `forbidden-self-authority:${authorityField}`, context.location)
+        }
+        if (authorityOwner && legacySurfaceName(candidate, context))
+        {
+            addFinding(context.findings, context.file, context.pathClasses, `forbidden-legacy-surface:${candidate}`, context.location)
+        }
+    })
 }
 
 function scanIdentifier(identifier, valueText, context)
@@ -303,9 +310,11 @@ function scanObjectKeys(value, context, negated = false, location = '$', schemaM
         if (schemaMode === 'schema-map') nestedSchemaMode = 'schema'
         else if (schemaMode === 'schema'
             && (jsonSchemaMapKeywords.has(key)
-                || (key === 'dependencies' && context.legacySchemaDependencies === true))) nestedSchemaMode = 'schema-map'
+                || (key === 'dependencies' && context.oldDialectDependencies === true))) nestedSchemaMode = 'schema-map'
         else if (schemaMode === 'schema' && jsonSchemaArrayKeywords.has(key)) nestedSchemaMode = 'schema-array'
-        else if (schemaMode === 'schema' && jsonSubschemaKeywords.has(key))
+        else if (schemaMode === 'schema'
+            && (jsonSubschemaKeywords.has(key)
+                || (key === 'contentSchema' && context.currentContentSchema === true)))
         {
             nestedSchemaMode = key === 'items' && Array.isArray(nested) ? 'schema-array' : 'schema'
         }
@@ -369,6 +378,116 @@ function maskSourceLiteralsAndComments(source)
     return masked.join('')
 }
 
+function nextSignificantSourceCharacter(source, start)
+{
+    let index = start
+    while (index < source.length)
+    {
+        if (/\s/u.test(source[index]))
+        {
+            index += 1
+            continue
+        }
+        if (source[index] === '/' && source[index + 1] === '/')
+        {
+            const newline = source.indexOf('\n', index + 2)
+            index = newline < 0 ? source.length : newline + 1
+            continue
+        }
+        if (source[index] === '/' && source[index + 1] === '*')
+        {
+            const closing = source.indexOf('*/', index + 2)
+            index = closing < 0 ? source.length : closing + 2
+            continue
+        }
+        return { character: source[index], index }
+    }
+    return { character: '', index: source.length }
+}
+
+function readAssignmentValue(source, valueStart)
+{
+    let index = valueStart
+    let valueText = ''
+    let quote = null
+    let nesting = 0
+    const previousSignificant = () => {
+        let previous = valueText.length - 1
+        while (previous >= 0 && /\s/u.test(valueText[previous])) previous -= 1
+        return valueText[previous] ?? ''
+    }
+    while (index < source.length)
+    {
+        const current = source[index]
+        const next = source[index + 1]
+        if (quote !== null)
+        {
+            valueText += current
+            if (current === '\\')
+            {
+                if (index + 1 < source.length) valueText += source[index + 1]
+                index += 2
+                continue
+            }
+            if (current === quote) quote = null
+            index += 1
+            continue
+        }
+        if (current === '"' || current === "'" || current === '`')
+        {
+            quote = current
+            valueText += current
+            index += 1
+            continue
+        }
+        if (current === '(' || current === '[' || current === '{')
+        {
+            nesting += 1
+            valueText += current
+            index += 1
+            continue
+        }
+        if (current === ')' || current === ']' || current === '}')
+        {
+            if (nesting === 0) break
+            nesting -= 1
+            valueText += current
+            index += 1
+            continue
+        }
+        if (current === '/' && next === '/')
+        {
+            const newline = source.indexOf('\n', index + 2)
+            const afterComment = nextSignificantSourceCharacter(source, newline < 0 ? source.length : newline + 1)
+            if (nesting === 0 && previousSignificant() !== '+' && afterComment.character !== '+') break
+            valueText += '\n'
+            index = newline < 0 ? source.length : newline + 1
+            continue
+        }
+        if (current === '/' && next === '*')
+        {
+            const closing = source.indexOf('*/', index + 2)
+            if (closing < 0) break
+            valueText += ' '
+            index = closing + 2
+            continue
+        }
+        if (current === '\n')
+        {
+            const afterNewline = nextSignificantSourceCharacter(source, index + 1)
+            if (nesting === 0 && previousSignificant() !== '+' && previousSignificant() !== '\\'
+                && afterNewline.character !== '+') break
+            valueText += current
+            index += 1
+            continue
+        }
+        if (nesting === 0 && /[,;}]/u.test(current)) break
+        valueText += current
+        index += 1
+    }
+    return valueText
+}
+
 function sourceAssignments(source, masked)
 {
     const assignments = []
@@ -378,57 +497,9 @@ function sourceAssignments(source, masked)
     {
         const identifierIndex = match.indices[1] ?? match.indices[2]
         const valueStart = match.indices[0][1]
-        let valueEnd = valueStart
-        let quote = null
-        let nesting = 0
-        while (valueEnd < source.length)
-        {
-            const current = source[valueEnd]
-            const next = source[valueEnd + 1]
-            if (quote !== null)
-            {
-                if (current === '\\') valueEnd += 2
-                else
-                {
-                    if (current === quote) quote = null
-                    valueEnd += 1
-                }
-                continue
-            }
-            if (current === '"' || current === "'" || current === '`')
-            {
-                quote = current
-                valueEnd += 1
-                continue
-            }
-            if (current === '(' || current === '[' || current === '{')
-            {
-                nesting += 1
-                valueEnd += 1
-                continue
-            }
-            if (current === ')' || current === ']' || current === '}')
-            {
-                if (nesting === 0) break
-                nesting -= 1
-                valueEnd += 1
-                continue
-            }
-            if (current === '/' && (next === '/' || next === '*')) break
-            if (current === '\n')
-            {
-                let previous = valueEnd - 1
-                while (previous >= valueStart && /[\t\r ]/u.test(source[previous])) previous -= 1
-                if (nesting === 0 && !/[+\\]/u.test(source[previous] ?? '')) break
-                valueEnd += 1
-                continue
-            }
-            if (nesting === 0 && /[,;}]/u.test(current)) break
-            valueEnd += 1
-        }
         assignments.push({
             identifier: source.slice(identifierIndex[0], identifierIndex[1]).replace(/^["']|["']$/gu, ''),
-            valueText: source.slice(valueStart, valueEnd),
+            valueText: readAssignmentValue(source, valueStart),
             index: match.index
         })
     }
@@ -491,9 +562,28 @@ function autoPropertyInitializers(masked)
     return initializers
 }
 
+function exactScannerDeclarationRange(source, context)
+{
+    if (context.file !== scannerImplementationPath) return null
+    const exportName = ['zero', 'Legacy', 'Scan', 'Schema'].join('')
+    const expectedDeclaration = `export const ${exportName} = '${zeroLegacyScanSchema}'`
+    const start = source.indexOf(expectedDeclaration)
+    if (start < 0 || source.indexOf(expectedDeclaration, start + 1) >= 0) return null
+    return { start, end: start + expectedDeclaration.length }
+}
+
+function scannerSchemaValue()
+{
+    return zeroLegacyScanSchema
+}
+
 function scanMachineSource(source, context, locationPrefix = 'source')
 {
     const masked = maskSourceLiteralsAndComments(source)
+    const exactDeclaration = exactScannerDeclarationRange(source, context)
+    const isExactDeclaration = (index) => exactDeclaration !== null
+        && index >= exactDeclaration.start
+        && index < exactDeclaration.end
     const lineStarts = [0]
     for (let index = source.indexOf('\n'); index >= 0; index = source.indexOf('\n', index + 1)) lineStarts.push(index + 1)
     const lineAt = (target) => {
@@ -509,6 +599,7 @@ function scanMachineSource(source, context, locationPrefix = 'source')
     }
     for (const assignment of sourceAssignments(source, masked))
     {
+        if (isExactDeclaration(assignment.index)) continue
         scanIdentifier(assignment.identifier, assignment.valueText, {
             ...context,
             location: `${locationPrefix}:line:${lineAt(assignment.index)}`
@@ -516,6 +607,7 @@ function scanMachineSource(source, context, locationPrefix = 'source')
     }
     for (const declaration of declaredIdentifiers(masked))
     {
+        if (isExactDeclaration(declaration.index)) continue
         scanIdentifier(declaration.identifier, '', {
             ...context,
             location: `${locationPrefix}:line:${lineAt(declaration.index)}`
@@ -696,9 +788,11 @@ export function scanZeroLegacyGovernance(repositoryRoot = root)
                 const jsonSchemaDocument = file.endsWith('.schema.json')
                     && typeof document?.$schema === 'string'
                     && jsonSchemaDialectPattern.test(document.$schema)
-                const legacySchemaDependencies = jsonSchemaDocument
+                const oldDialectDependencies = jsonSchemaDocument
                     && /\/draft-0[4-7]\/schema#?$/u.test(document.$schema)
-                scanObjectKeys(document, { ...context, jsonSchemaDocument, legacySchemaDependencies })
+                const currentContentSchema = jsonSchemaDocument
+                    && contentSchemaDialectPattern.test(document.$schema)
+                scanObjectKeys(document, { ...context, currentContentSchema, jsonSchemaDocument, oldDialectDependencies })
                 if (pathClasses.includes('package-scripts')) scanPackageScripts(document, context)
             }
             catch { /* Syntax belongs to the corresponding schema or package gate. */ }
@@ -721,7 +815,7 @@ export function scanZeroLegacyGovernance(repositoryRoot = root)
         finding
     ])).values()].sort((left, right) => `${left.file}\0${left.rule}\0${left.location}`.localeCompare(`${right.file}\0${right.rule}\0${right.location}`))
     return validateZeroLegacyScan({
-        schema: zeroLegacyScanSchema,
+        schema: scannerSchemaValue(),
         scanRoots: scanRoots.map((entry) => ({ ...entry })),
         scannedFileCount: uniqueFiles.length,
         pathClassCounts,

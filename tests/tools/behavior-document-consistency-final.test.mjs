@@ -268,7 +268,16 @@ test('zero-legacy source invocations and C# initializers cannot hide terminal re
             'spawnSync("deprecated-claim-cli", ["--run"])',
             'selectReceipt("latest")',
             'const command = "deprecated-" +',
-            '    "claim-cli"'
+            '    "claim-cli"',
+            'const commandBeforePlus = "deprecated-" // continue before plus',
+            '    + "claim-cli"',
+            'const commandAfterPlus = "deprecated-" + // continue after comment',
+            '    "claim-cli"',
+            'const commandBlockComment = "deprecated-" /* continue */ + "claim-cli"'
+        ].join('\n'),
+        'tools/release/comment-only-behavior-qualification.mjs': [
+            'const command = "current-claim-cli" // deprecated-claim-cli',
+            'const authority = "current-openapi" /* checked-in-openapi */'
         ].join('\n')
     })
     const findings = scanZeroLegacyGovernance(repositoryRoot).findings
@@ -277,6 +286,7 @@ test('zero-legacy source invocations and C# initializers cannot hide terminal re
     assert.ok(findings.some((finding) => finding.file.endsWith('.mjs')
         && finding.rule.startsWith('forbidden-legacy-surface:deprecated--claim-cli')))
     assert.ok(findings.some((finding) => finding.file.endsWith('.mjs') && finding.rule === 'forbidden-evidence-selection:selectReceipt=latest'))
+    assert.equal(findings.some((finding) => finding.file === 'tools/release/comment-only-behavior-qualification.mjs'), false)
 })
 
 test('zero-legacy scanner excludes untracked and ignored build or runtime outputs', (t) =>
@@ -428,24 +438,61 @@ test('zero-legacy draft 4 6 and 7 dependencies preserve schema-valued negation',
     }
 })
 
+test('zero-legacy contentSchema traversal follows only 2019-09 and 2020-12 dialects', (t) =>
+{
+    const files = {
+        'config/schemas/2019-content-behavior-qualification.schema.json': JSON.stringify({
+            $schema: 'https://json-schema.org/draft/2019-09/schema',
+            contentSchema: { not: { properties: { latestReceipt: { type: 'string' } } } }
+        }),
+        'config/schemas/2020-content-behavior-qualification.schema.json': JSON.stringify({
+            $schema: 'https://json-schema.org/draft/2020-12/schema',
+            contentSchema: { not: { properties: { latestReceipt: { type: 'string' } } } }
+        }),
+        'config/schemas/2020-double-not-content-behavior-qualification.schema.json': JSON.stringify({
+            $schema: 'https://json-schema.org/draft/2020-12/schema',
+            contentSchema: { not: { not: { properties: { latestReceipt: { type: 'string' } } } } }
+        }),
+        'config/schemas/draft-07-content-behavior-qualification.schema.json': JSON.stringify({
+            $schema: 'http://json-schema.org/draft-07/schema#',
+            contentSchema: { not: { latestReceipt: 'ambient.json' } }
+        })
+    }
+    const findings = scanZeroLegacyGovernance(repositoryFixture(t, files)).findings
+    for (const file of [
+        'config/schemas/2019-content-behavior-qualification.schema.json',
+        'config/schemas/2020-content-behavior-qualification.schema.json'
+    ])
+    {
+        assert.equal(findings.some((finding) => finding.file === file), false, `${file} contentSchema negation escaped`)
+    }
+    assert.ok(findings.some((finding) => finding.file === 'config/schemas/2020-double-not-content-behavior-qualification.schema.json'
+        && finding.rule === 'forbidden-evidence-selection:latestReceipt'))
+    assert.ok(findings.some((finding) => finding.file === 'config/schemas/draft-07-content-behavior-qualification.schema.json'
+        && finding.rule === 'forbidden-evidence-selection:latestReceipt'))
+})
+
 test('zero-legacy scanner self exemptions are exact and owner names cannot suppress values', (t) =>
 {
     const repositoryRoot = repositoryFixture(t, {
         'tools/docs/behavior-document-consistency-final.mjs': [
-            'const zeroLegacyScanSchema = "fsusblog.zero-legacy-governance-scan.v1"',
-            'const legacySchemaDependencies = true',
-            'const evidenceSelectionParts = Object.freeze([["latest", "receipt"]])',
-            'const authorityResidueParts = Object.freeze([["checked", "in", "openapi"]])',
-            'const evidenceSelectionPartsOverride = "latest-receipt"',
+            "export const zeroLegacyScanSchema = 'fsusblog.zero-legacy-governance-scan.v1'",
+            'const zeroLegacyScanSchema = "deprecated-claim-cli"',
+            'const evidenceSelectionRuleParts = Object.freeze([["latest", "receipt"]])',
+            'const authorityResidueRuleParts = Object.freeze([["checked", "in", "openapi"]])',
             'const rejectLegacyClaimCli = true'
         ].join('\n'),
         'tools/release/behavior-qualification.mjs': 'const rejectCommand = "deprecated-claim-cli"\n'
     })
     const findings = scanZeroLegacyGovernance(repositoryRoot).findings
-    assert.equal(findings.some((finding) => finding.rule.includes('zeroLegacyScanSchema')), false)
-    assert.equal(findings.some((finding) => finding.rule.includes('legacySchemaDependencies')), false)
+    assert.equal(findings.some((finding) => finding.file === 'tools/docs/behavior-document-consistency-final.mjs'
+        && finding.location === 'source:line:1'), false)
+    assert.ok(findings.some((finding) => finding.location === 'source:line:2'
+        && finding.rule.includes('zeroLegacyScanSchema')))
     assert.ok(findings.some((finding) => finding.rule === 'forbidden-evidence-selection:latestReceipt'
-        && finding.location === 'source:line:5'))
+        && finding.location === 'source:line:3'))
+    assert.ok(findings.some((finding) => finding.rule === 'forbidden-self-authority:checkedInOpenapi'
+        && finding.location === 'source:line:4'))
     assert.ok(findings.some((finding) => finding.rule === 'forbidden-legacy-surface:rejectLegacyClaimCli'))
     assert.ok(findings.some((finding) => finding.file === 'tools/release/behavior-qualification.mjs'
         && finding.rule.includes('deprecated-claim-cli')))
@@ -455,9 +502,10 @@ test('zero-legacy value scanning is bounded without truncating long commands', (
 {
     const repositoryRoot = repositoryFixture(t, {
         'config/testing/long-behavior-qualification.json': JSON.stringify({
-            command: `${'x'.repeat(505)}deprecated-claim-cli${'y'.repeat(600)}`,
-            evidenceSelectionStrategy: `${'padding '.repeat(90)} latest-receipt ${' padding'.repeat(90)}`,
-            authorityCommand: `${'padding '.repeat(90)} checked-in-openapi ${' padding'.repeat(90)}`
+            command: `${'x'.repeat(505)} deprecated-claim-cli ${'y'.repeat(600)}`,
+            evidenceSelectionStrategy: `${'p'.repeat(500)} latest     receipt ${' padding'.repeat(90)}`,
+            evidenceSource: `${'p'.repeat(500)} retry as correctness ${' padding'.repeat(90)}`,
+            authorityCommand: `${'p'.repeat(500)} checked-in-openapi ${' padding'.repeat(90)}`
         }),
         'config/testing/long-benign-behavior-qualification.json': JSON.stringify({
             command: `${'x'.repeat(505)}current-claim-command${'y'.repeat(600)}`
@@ -468,6 +516,8 @@ test('zero-legacy value scanning is bounded without truncating long commands', (
         && finding.rule.startsWith('forbidden-legacy-surface:')))
     assert.ok(findings.some((finding) => finding.file === 'config/testing/long-behavior-qualification.json'
         && finding.rule === 'forbidden-evidence-selection:latestReceipt'))
+    assert.ok(findings.some((finding) => finding.file === 'config/testing/long-behavior-qualification.json'
+        && finding.rule === 'forbidden-evidence-selection:retryAsCorrectness'))
     assert.ok(findings.some((finding) => finding.file === 'config/testing/long-behavior-qualification.json'
         && finding.rule === 'forbidden-self-authority:checkedInOpenapi'))
     assert.equal(findings.some((finding) => finding.file === 'config/testing/long-benign-behavior-qualification.json'), false)
