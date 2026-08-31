@@ -204,6 +204,10 @@ test('generic execute tiers cannot hide finalizer shell paths in tokens or compo
         'p=./tools/test/lanes/release-; s=final.sh; exec "$p$s"',
         './tools/test/lanes/release-final.s?',
         "bash -c 'p=./tools/test/lanes/release-; exec \"${p}final.sh\"'",
+        'exec ./tools/test/lanes/release-$(printf final).sh',
+        'exec ./tools/test/lanes/release-{final,preview}.sh',
+        'exec "./tools/test/lanes/release-${x:-final}.sh"',
+        'exec "$late"; late=./tools/test/lanes/release-final.sh',
         'cd tools/test/lanes && ./release-final.sh',
         "python -c 'import os; os.system(\"./tools/test/lanes/release-final.sh\")'",
         "bash -c './tools/test/lanes/release-final.s\"\"h'",
@@ -242,7 +246,10 @@ test('unrelated variables and globs remain outside the finalizer alias boundary'
     const commands = [
         'artifact=tools/test/lanes/release-candidate.sh; exec "$artifact"',
         './tools/test/lanes/release-preview.s?',
-        "bash -c 'name=release-preview; printf \"%s\\n\" \"$name\"'"
+        "bash -c 'name=release-preview; printf \"%s\\n\" \"$name\"'",
+        'printf "%s\\n" ./tools/test/lanes/release-final.sh',
+        'echo ./tools/test/lanes/release-final.sh',
+        'test -f ./tools/test/lanes/release-final.sh'
     ];
     for (const [index, command] of commands.entries())
     {

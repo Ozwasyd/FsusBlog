@@ -156,18 +156,9 @@ function isReleaseFinalizerPath(value)
     {
         candidate = path.relative(root, candidate).replaceAll('\\', '/');
     }
-    return path.posix.normalize(candidate) === releaseFinalizerCommand;
-}
-
-function containsReleaseFinalizerScriptReference(value)
-{
-    if (typeof value !== 'string')
-    {
-        return false;
-    }
-    return /(?:^|[^A-Za-z0-9_.-])release-final\.sh(?:$|[^A-Za-z0-9_.-])/u.test(
-        value.replace(/[\\'"]/gu, '')
-    );
+    const normalized = path.posix.normalize(candidate);
+    return normalized === releaseFinalizerCommand
+        || path.posix.basename(normalized) === path.posix.basename(releaseFinalizerCommand);
 }
 
 function expandKnownShellVariables(value, variables, depth = 0)
@@ -191,6 +182,47 @@ function expandKnownShellVariables(value, variables, depth = 0)
         }
     );
     return changed ? expandKnownShellVariables(expanded, variables, depth + 1) : expanded;
+}
+
+function braceAlternatives(value, depth = 0)
+{
+    if (depth > 4)
+    {
+        return null;
+    }
+    const open = value.indexOf('{');
+    if (open < 0)
+    {
+        return value.includes('}') ? null : [value];
+    }
+    const close = value.indexOf('}', open + 1);
+    if (close < 0)
+    {
+        return null;
+    }
+    const choices = value.slice(open + 1, close).split(',');
+    if (choices.length < 2 || choices.some((choice) => choice.length === 0))
+    {
+        return null;
+    }
+    const expanded = [];
+    for (const choice of choices)
+    {
+        const nested = braceAlternatives(
+            `${value.slice(0, open)}${choice}${value.slice(close + 1)}`,
+            depth + 1
+        );
+        if (nested === null)
+        {
+            return null;
+        }
+        expanded.push(...nested);
+        if (expanded.length > 32)
+        {
+            return null;
+        }
+    }
+    return expanded;
 }
 
 function releaseFinalizerGlobMatch(value)
@@ -245,39 +277,171 @@ function releaseFinalizerGlobMatch(value)
         || matcher.test(path.posix.basename(releaseFinalizerCommand));
 }
 
-function commandInvokesReleaseFinalizer(command, depth = 0)
+function commandPositionMatchesReleaseFinalizer(value, variables)
 {
-    if (depth > 8)
-    {
-        return false;
-    }
-    if (containsReleaseFinalizerScriptReference(command))
+    const expanded = expandKnownShellVariables(value, variables);
+    const alternatives = braceAlternatives(expanded);
+    if (alternatives === null)
     {
         return true;
     }
-    const tokens = parseShellTokens(command);
-    const variables = new Map();
-    for (const token of tokens)
+    for (const alternative of alternatives)
     {
-        if (token.type !== 'word')
+        if (isReleaseFinalizerPath(alternative) || releaseFinalizerGlobMatch(alternative))
         {
-            continue;
-        }
-        const assignment = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/u.exec(token.value);
-        if (assignment && !/[\s;&|]/u.test(token.value))
-        {
-            variables.set(assignment[1], expandKnownShellVariables(assignment[2], variables));
+            return true;
         }
     }
-    const words = tokens
-        .filter((token) => token.type === 'word')
-        .map((token) => expandKnownShellVariables(token.value, variables));
-    return words.some((word) => (
-        isReleaseFinalizerPath(word)
-        || releaseFinalizerGlobMatch(word)
-        || containsReleaseFinalizerScriptReference(word)
-        || /[\s;&|]/u.test(word) && commandInvokesReleaseFinalizer(word, depth + 1)
+    return alternatives.some((alternative) => (
+        /\$\(|`|\$\{|\$[A-Za-z_]|\$[0-9@*#?$!_-]/u.test(alternative)
     ));
+}
+
+function shellCommandSegments(tokens)
+{
+    const segments = [];
+    let words = [];
+    for (const token of tokens)
+    {
+        if (token.type === 'operator')
+        {
+            if (words.length > 0)
+            {
+                segments.push(words);
+                words = [];
+            }
+            continue;
+        }
+        words.push(token.value);
+    }
+    if (words.length > 0)
+    {
+        segments.push(words);
+    }
+    return segments;
+}
+
+function pythonBodyInvokesReleaseFinalizer(body, variables, depth)
+{
+    const calls = body.matchAll(
+        /(?:os\.system|subprocess\.(?:call|Popen|run))\(\s*(['"])(?<command>.*?)\1/gu
+    );
+    for (const call of calls)
+    {
+        if (commandInvokesReleaseFinalizer(call.groups.command, depth + 1, variables))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+function commandWordsInvokeReleaseFinalizer(words, variables, depth)
+{
+    let index = 0;
+    while (index < words.length)
+    {
+        const assignment = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/u.exec(words[index]);
+        if (!assignment)
+        {
+            break;
+        }
+        variables.set(assignment[1], expandKnownShellVariables(assignment[2], variables));
+        index += 1;
+    }
+    if (index >= words.length)
+    {
+        return false;
+    }
+
+    const executable = expandKnownShellVariables(words[index], variables);
+    if (commandPositionMatchesReleaseFinalizer(executable, variables))
+    {
+        return true;
+    }
+    const executableName = path.posix.basename(executable.replaceAll('\\', '/'));
+    if (['{', '(', 'case', 'for', 'if', 'select', 'until', 'while'].includes(executableName))
+    {
+        return true;
+    }
+    if (executableName === 'export' || executableName === 'readonly')
+    {
+        for (const word of words.slice(index + 1))
+        {
+            const assignment = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/u.exec(word);
+            if (assignment)
+            {
+                variables.set(assignment[1], expandKnownShellVariables(assignment[2], variables));
+            }
+        }
+        return false;
+    }
+    if (['command', 'exec', 'nohup'].includes(executableName))
+    {
+        const commandIndex = words.findIndex((word, candidateIndex) => (
+            candidateIndex > index && !word.startsWith('-')
+        ));
+        return commandIndex >= 0
+            && commandWordsInvokeReleaseFinalizer(words.slice(commandIndex), variables, depth);
+    }
+    if (executableName === 'env')
+    {
+        const commandIndex = words.findIndex((word, candidateIndex) => (
+            candidateIndex > index
+            && !word.startsWith('-')
+            && !/^[A-Za-z_][A-Za-z0-9_]*=/u.test(word)
+        ));
+        return commandIndex >= 0
+            && commandWordsInvokeReleaseFinalizer(words.slice(commandIndex), variables, depth);
+    }
+    if (executableName === 'bash' || executableName === 'sh')
+    {
+        const commandStringIndex = words.indexOf('-c', index + 1);
+        if (commandStringIndex >= 0)
+        {
+            const body = words[commandStringIndex + 1];
+            return typeof body !== 'string'
+                || commandInvokesReleaseFinalizer(body, depth + 1, new Map(variables));
+        }
+        const scriptIndex = words.findIndex((word, candidateIndex) => (
+            candidateIndex > index && !word.startsWith('-')
+        ));
+        return scriptIndex >= 0
+            && commandPositionMatchesReleaseFinalizer(words[scriptIndex], variables);
+    }
+    if (executableName === 'python' || executableName === 'python3')
+    {
+        const commandStringIndex = words.indexOf('-c', index + 1);
+        return commandStringIndex >= 0
+            && pythonBodyInvokesReleaseFinalizer(
+                words[commandStringIndex + 1] ?? '',
+                variables,
+                depth
+            );
+    }
+    return false;
+}
+
+function commandInvokesReleaseFinalizer(command, depth = 0, inheritedVariables = new Map())
+{
+    if (depth > 8 || typeof command !== 'string' || command.trim().length === 0)
+    {
+        return depth > 8;
+    }
+    const tokens = parseShellTokens(command);
+    if (tokens.length === 0)
+    {
+        return true;
+    }
+    const variables = new Map(inheritedVariables);
+    for (const words of shellCommandSegments(tokens))
+    {
+        if (commandWordsInvokeReleaseFinalizer(words, variables, depth))
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 function validateScriptSource(scriptSource)
