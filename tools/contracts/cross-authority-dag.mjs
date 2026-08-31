@@ -13,6 +13,7 @@ import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { BehaviorId } from './behavior-contract-catalog.mjs'
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 export const authorityDagSchema = 'fsusblog.cross-authority-dag.v1'
@@ -20,7 +21,6 @@ export const authorityDagReceiptSchema = 'fsusblog.cross-authority-dag-receipt.v
 
 const digestPattern = /^[a-f0-9]{64}$/u
 const stableIdPattern = /^[a-z][a-z0-9]*(?:[.:/-][a-z0-9][a-z0-9.-]*)*$/u
-const behaviorIdPattern = /^[a-z][a-z0-9-]*$/u
 
 export const authorityLayers = Object.freeze({
   'behavior-catalog': 0,
@@ -128,11 +128,7 @@ function normalizeBehaviorIds (values, label)
   {
     fail(`${label} must be a non-empty behavior ID list`)
   }
-  const normalized = values.map((value) => String(value))
-  if (normalized.some((value) => !behaviorIdPattern.test(value)))
-  {
-    fail(`${label} contains an invalid behavior ID`)
-  }
+  const normalized = values.map((value) => BehaviorId(String(value)))
   if (new Set(normalized).size !== normalized.length)
   {
     fail(`${label} contains duplicate behavior IDs`)

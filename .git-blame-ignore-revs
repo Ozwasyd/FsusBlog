@@ -24,3 +24,6 @@ b3dab49538a9b24d0047e387f20595b58c39c0c8
 # Temporal governance JSON formatting for #2530.
 79254f31127a02e762a7ee530655dc1d2f489db3
 9f42d4da1b5f29bf9c77d8476756edf05aeea622
+
+# Schema migration runner formatting for #3092.
+bf5028585074ead295baf02d36f7ce9ccf0525eb
