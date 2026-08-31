@@ -16,9 +16,11 @@
             "id": "shell-environment-variable",
             "paths": [
                 "tools/bootstrap-acceptance-env.sh",
+                "tools/test/lanes/current-schema-bootstrap-integration.sh",
+                "tools/test/lanes/homogeneous-two-node-fixture.sh",
                 "tools/test/lanes/production-build-artifacts.sh"
             ],
-            "reason": "Acceptance and build producers preserve caller-visible environment keys while binding the exact source commit and admitted service envelope."
+            "reason": "Acceptance, build and isolated PostgreSQL qualification producers preserve caller-visible environment keys while binding the exact source commit and admitted service envelope."
         }
     ]
 }

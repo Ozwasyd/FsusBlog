@@ -98,7 +98,9 @@ public sealed class CurrentSchemaStartupVerifier(
     {
         IReadOnlyList<Type> entityTypes = inspector.GetManagedEntityTypes();
         CurrentSchemaCanonicalModel canonical = inspector.BuildCanonicalModel(entityTypes);
-        CurrentSchemaProjection expected = CurrentSchemaCanonicalAuthority.Generate(canonical);
+        SchemaModelSnapshot expected = CurrentSchemaCanonicalAuthority.ProjectProvider(
+            canonical,
+            SchemaProviderKind.PostgreSql);
         SchemaModelSnapshot actual;
         try
         {
@@ -107,18 +109,18 @@ public sealed class CurrentSchemaStartupVerifier(
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             throw new CurrentSchemaMismatchException(
-                expected.Identity.ContentDigest,
+                canonical.Identity.ContentDigest,
                 "unavailable",
                 "fsusblog.current-schema.mismatch.unreadable",
                 [$"actual schema could not be read without writes: {exception.GetType().Name}"]);
         }
 
-        string actualDigest = CurrentSchemaCanonicalAuthority.ComputeContentDigest(actual.Tables);
-        IReadOnlyList<string> errors = SchemaModelComparer.Compare(expected.Schema, actual, s_allowedExtraTables);
+        string actualDigest = CurrentSchemaCanonicalAuthority.ComputeObservationDigest(actual.Tables);
+        IReadOnlyList<string> errors = SchemaModelComparer.Compare(expected, actual, s_allowedExtraTables);
         if (errors.Count > 0)
         {
             throw new CurrentSchemaMismatchException(
-                expected.Identity.ContentDigest,
+                canonical.Identity.ContentDigest,
                 actualDigest,
                 "fsusblog.current-schema.mismatch",
                 errors);

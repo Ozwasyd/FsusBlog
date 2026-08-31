@@ -24,8 +24,18 @@ CONFIGURATION="${FSUSBLOG_RUNTIME_CONFIGURATION:-Debug}"
 if [[ "${FSUSBLOG_CLUSTER_FIXTURE_NO_BUILD:-0}" != "1" ]]; then
     "$ROOT_DIR/tools/build-with-data-env.sh" dotnet build \
         "$ROOT_DIR/src/backend/FsusBlog.Server.csproj" \
-        --configuration "$CONFIGURATION"
+        --configuration "$CONFIGURATION" \
+        -p:FsusBlogCommitSha="${FSUSBLOG_TEST_SOURCE_COMMIT:?two-node backend build source commit is required}"
 fi
+
+(
+    export FSUSBLOG_RUNTIME_CONFIGURATION="$CONFIGURATION"
+    export FSUSBLOG_BOOTSTRAP_SOURCE_ONLY=1
+    # shellcheck source=../../bootstrap-acceptance-env.sh
+    source "$ROOT_DIR/tools/bootstrap-acceptance-env.sh"
+    PORT_LEASE_RELEASE_ON_EXIT=0
+    MaterializeCurrentSchemaForTestRuntime
+)
 
 BACKEND_ARTIFACT="${FSUSBLOG_BACKEND_SERVER_DLL:-$ROOT_DIR/src/backend/bin/$CONFIGURATION/net10.0/FsusBlog.Server.dll}"
 FRONTEND_ASSET_SOURCE="${FSUSBLOG_FRONTEND_ASSET_IDENTITY_SOURCE:-$ROOT_DIR/src/frontend/package.json}"

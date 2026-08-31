@@ -114,9 +114,14 @@ independent observations of that sealed model; none reads the migration catalog,
 Markdown, test fixtures or a running database to define the target. Their shared
 identity binds model, extractor and generator versions plus source and content
 SHA-256 digests. PostgreSQL, MySQL and SQLite projections retain this semantic
-identity while recording different physical type spellings. The independent
-verifier and cold-readiness comparison reject stale identities, content tampering
-and exact table, column, type, nullability, default, constraint or index drift.
+identity while recording different physical type spellings. The PostgreSQL
+projection additionally seals normalized type modifiers and domains, collation,
+default and identity/owned-sequence semantics, complete index key ordering,
+NULL placement, access method, opclass, collation, INCLUDE, predicate and NULLS
+NOT DISTINCT state, plus constraint deferral, validation and foreign-key actions.
+The independent verifier and cold-readiness comparison reject stale identities,
+content tampering and exact table, column, physical type, nullability, default,
+constraint or index drift.
 
 `tools/db/check-current-schema-authority.mjs` prevents a second production
 extractor, hand-written table inventory, fixture reconstruction or migration
@@ -130,19 +135,33 @@ Acceptance runtime bootstrap uses the explicit Server command
 ready and before any runtime application starts. The command is unavailable to the
 ordinary `serve` route and requires the exact `Test` environment, an explicit
 opt-in, the admitted service envelope's exact `127.0.0.1` PostgreSQL host/port,
-the `public` search path and a physically contained run-owned receipt path. It
-accepts only an exactly empty `public` schema, derives entity types and the
+the exact `fsusblog` database/user, the `public` search path and a canonical
+run-derived receipt path below a physical, non-symlink receipt root. Immediately
+before the command, the canonical service observer addresses the admitted
+container ID and re-observes the complete Docker/runtime/service identity; on the
+same PostgreSQL connection and transaction, the command independently compares
+`system_identifier`, database, user and exact server version identity before any
+DDL. It accepts only a `public` schema with no relation, routine, standalone type,
+domain, operator, conversion, collation, extended-statistics or text-search object,
+derives entity types and the
 five-field identity through the sole
 `CurrentSchemaCanonicalAuthority`, materializes those entity types once, then runs
 `CurrentSchemaStartupVerifier`. A partial or stale schema fails before any write.
-DDL, verifier and atomic receipt publication share one PostgreSQL transaction;
-output or commit failure rolls back the schema authoritatively and best-effort
-removes any published receipt. The full run rejects every nonzero producer exit.
-Only a green verifier publishes a receipt binding command mode, candidate
-assembly/source commit, run/database identity, the admitted service envelope
-SHA/container/image identity, canonical identity and a separately labelled
-observed-database digest. Production `serve` remains a
-read-only verifier and never invokes this test producer.
+DDL and verification remain inside one PostgreSQL transaction. Before commit the
+producer atomically publishes only a `prepared`, qualification-ineligible staging
+receipt; after commit it atomically publishes the no-overwrite `verified` receipt.
+A process death in the commit window can therefore leave only noneligible staging
+evidence while PostgreSQL rolls back the open transaction. Publication failure
+after commit leaves no eligible receipt and triggers best-effort schema compensation
+and receipt cleanup; the full run rejects the nonzero producer exit and does not
+claim cleanup succeeded without a fresh catalog observation. An independent
+consumer then re-reads and verifies receipt shape, self-digest, run/source/assembly,
+catalog/envelope/service/database and canonical identity and publishes the sole
+run-bound `current-schema-runtime-ready` terminal. Production `serve` remains a
+read-only verifier and never invokes this test producer. The committed
+`current-schema-bootstrap-integration` lane reruns the empty-schema positive path,
+rollback/crash and publication windows, stale-service substitution and physical
+column/index/constraint counterexamples on an exclusive pinned PostgreSQL.
 
 ## Plugin Registry
 

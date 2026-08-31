@@ -59,6 +59,10 @@ test('test current schema materializer remains explicit, canonical and pre-runti
   const materializer = fs.readFileSync(path.join(root, materializerRelative), 'utf8')
   const program = fs.readFileSync(path.join(root, 'src/backend/Program.cs'), 'utf8')
   const bootstrap = fs.readFileSync(path.join(root, 'tools/bootstrap-acceptance-env.sh'), 'utf8')
+  const homogeneousTwoNode = fs.readFileSync(
+    path.join(root, 'tools/test/lanes/homogeneous-two-node-fixture.sh'),
+    'utf8'
+  )
 
   assert.doesNotMatch(materializer, /SchemaMigration(?:Registry|Manifest|Descriptor)|GetDescriptors\s*\(/u)
   assert.doesNotMatch(materializer, /CurrentSchemaCanonicalAuthority\.Extract\s*\(/u)
@@ -70,9 +74,9 @@ test('test current schema materializer remains explicit, canonical and pre-runti
   assert.match(materializer, /current_schema_materializer_public_schema_not_empty/u)
   assert.match(materializer, /ValidateAssemblySourceCommit\(options\.SourceCommit\)/u)
   assert.match(materializer, /ValidateServiceEnvelope\([\s\S]*options\.RunId/u)
-  assert.match(materializer, /BeginTranAsync\(\)[\s\S]*InitTables\([\s\S]*verifier\.RunAsync[\s\S]*AtomicWrite\([\s\S]*CommitTranAsync\(\)/u)
+  assert.match(materializer, /BeginTranAsync\(\)[\s\S]*InitTables\([\s\S]*verifier\.RunAsync[\s\S]*AtomicWrite\(preparedOutputPath[\s\S]*CommitTranAsync\(\)[\s\S]*AtomicWrite\(resolvedOutputPath/u)
   assert.match(materializer, /RollbackTranAsync\(\)/u)
-  assert.match(materializer, /File\.Move\(temporaryPath, fullPath, overwrite: true\)/u)
+  assert.match(materializer, /File\.Move\(temporaryPath, fullPath, overwrite: false\)/u)
 
   const inspector = fs.readFileSync(path.join(root, inspectorRelative), 'utf8')
   assert.match(inspector, /owning_constraint\.conindid = index_meta\.indexrelid[\s\S]*owning_constraint\.contype = 'p'/u)
@@ -89,4 +93,30 @@ test('test current schema materializer remains explicit, canonical and pre-runti
   assert.match(bootstrap, /ASPNETCORE_ENVIRONMENT=Test[\s\\]*\n[\s\S]*FSUSBLOG_CURRENT_SCHEMA_TEST_MATERIALIZATION=1/u)
   assert.match(bootstrap, /ConnectionStrings__DefaultConnection="\$\{POSTGRES_CONNECTION\};Search Path=public"/u)
   assert.match(bootstrap, /--service-envelope "\$EXECUTION_SERVICE_ENVELOPE_FILE"/u)
+  assert.match(bootstrap, /--service-catalog "\$serviceCatalogFile"/u)
+  const materializerFunction = bootstrap.slice(
+    bootstrap.indexOf('MaterializeCurrentSchemaForTestRuntime()'),
+    bootstrap.indexOf('EnsureBackend()')
+  )
+  const materializerInvocation = materializerFunction.slice(
+    materializerFunction.indexOf('materialize-current-schema-test'),
+    materializerFunction.indexOf('verify-current-schema-test-materialization-receipt.mjs')
+  )
+  assert.doesNotMatch(materializerInvocation, /--output/u)
+  assert.match(materializerFunction, /printf '%s' "\$runId" \| sha256sum/u)
+  assert.match(materializerFunction, /current-schema-test-materialization-\$\{runDigest\}\.json/u)
+  assert.match(
+    materializerFunction,
+    /--verify-envelope "\$EXECUTION_SERVICE_ENVELOPE_FILE"[\s\S]*?materialize-current-schema-test[\s\S]*?verify-current-schema-test-materialization-receipt\.mjs[\s\S]*?--receipt-root "\$TMP_DIR"/u
+  )
+  assert.match(materializerFunction, /--assembly "\$ROOT_DIR\/src\/backend\/bin\/\$runtimeConfiguration\/net10\.0\/FsusBlog\.Server\.dll"/u)
+
+  const servicesOnly = homogeneousTwoNode.indexOf('bootstrap-acceptance-env.sh" --services-only')
+  const sourceBoundBuild = homogeneousTwoNode.indexOf('-p:FsusBlogCommitSha=')
+  const schemaMaterialization = homogeneousTwoNode.indexOf('MaterializeCurrentSchemaForTestRuntime')
+  const nodeSpawn = homogeneousTwoNode.indexOf('homogeneous-two-node-fixture.mjs')
+  assert.ok(servicesOnly >= 0 && sourceBoundBuild > servicesOnly)
+  assert.ok(schemaMaterialization > sourceBoundBuild && nodeSpawn > schemaMaterialization)
+  assert.match(homogeneousTwoNode, /FSUSBLOG_BOOTSTRAP_SOURCE_ONLY=1[\s\S]*?source "\$ROOT_DIR\/tools\/bootstrap-acceptance-env\.sh"/u)
+  assert.match(homogeneousTwoNode, /PORT_LEASE_RELEASE_ON_EXIT=0[\s\S]*?MaterializeCurrentSchemaForTestRuntime/u)
 })

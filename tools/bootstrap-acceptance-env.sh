@@ -2269,7 +2269,19 @@ EnsureManagedBackendSharedDebugBuild() {
 }
 
 MaterializeCurrentSchemaForTestRuntime() {
-    local receiptFile="$TMP_DIR/current-schema-test-materialization-receipt.json"
+    local runId="${FSUSBLOG_TEST_RUN_ID:?current schema materializer run id is required}"
+    local sourceCommit="${FSUSBLOG_TEST_SOURCE_COMMIT:?current schema materializer source commit is required}"
+    local runDigest
+    runDigest="$({
+        if command -v sha256sum >/dev/null 2>&1; then
+            printf '%s' "$runId" | sha256sum | awk '{print $1}'
+        else
+            printf '%s' "$runId" | shasum -a 256 | awk '{print $1}'
+        fi
+    })"
+    local receiptFile="$TMP_DIR/current-schema-test-materialization-${runDigest}.json"
+    local runtimeReadyFile="$TMP_DIR/current-schema-runtime-ready-${runDigest}.json"
+    local serviceCatalogFile="$ROOT_DIR/config/testing/test-execution-service-catalog.json"
     local runtimeConfiguration="${FSUSBLOG_RUNTIME_CONFIGURATION:-Release}"
     case "$runtimeConfiguration" in
         Debug | Release) ;;
@@ -2278,6 +2290,9 @@ MaterializeCurrentSchemaForTestRuntime() {
             return 2
             ;;
     esac
+    "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/execution-envelope-services.mjs" \
+        --verify-envelope "$EXECUTION_SERVICE_ENVELOPE_FILE" \
+        --service-catalog "$serviceCatalogFile"
     Log 'materializing canonical current schema before runtime application activation'
     ASPNETCORE_ENVIRONMENT=Test \
         FSUSBLOG_CURRENT_SCHEMA_TEST_MATERIALIZATION=1 \
@@ -2291,11 +2306,19 @@ MaterializeCurrentSchemaForTestRuntime() {
             --no-restore \
             -- \
             materialize-current-schema-test \
-            --output "$receiptFile" \
-            --run-id "${FSUSBLOG_TEST_RUN_ID:?current schema materializer run id is required}" \
-            --source-commit "${FSUSBLOG_TEST_SOURCE_COMMIT:?current schema materializer source commit is required}" \
-            --service-envelope "$EXECUTION_SERVICE_ENVELOPE_FILE"
-    Log "current schema materialization receipt: $receiptFile"
+            --run-id "$runId" \
+            --source-commit "$sourceCommit" \
+            --service-envelope "$EXECUTION_SERVICE_ENVELOPE_FILE" \
+            --service-catalog "$serviceCatalogFile"
+    "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/db/verify-current-schema-test-materialization-receipt.mjs" \
+        --receipt-root "$TMP_DIR" \
+        --run-id "$runId" \
+        --source-commit "$sourceCommit" \
+        --assembly "$ROOT_DIR/src/backend/bin/$runtimeConfiguration/net10.0/FsusBlog.Server.dll" \
+        --service-catalog "$serviceCatalogFile" \
+        --service-envelope "$EXECUTION_SERVICE_ENVELOPE_FILE"
+    export FSUSBLOG_CURRENT_SCHEMA_TEST_RUNTIME_READY_RECEIPT="$runtimeReadyFile"
+    Log "current schema materialization receipt: $receiptFile runtimeReady=$runtimeReadyFile"
 }
 
 EnsureBackend() {
