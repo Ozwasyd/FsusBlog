@@ -4,7 +4,8 @@
         {
             "id": "environment-variable",
             "paths": [
-                "tools/docs/behavior-document-consistency-final.mjs"
+                "tools/docs/behavior-document-consistency-final.mjs",
+                "tools/fact-extractors/identity.mjs"
             ],
             "reason": "The scanner must recognize existing process environment spellings while keeping its internal JavaScript identifiers in repository style."
         },
