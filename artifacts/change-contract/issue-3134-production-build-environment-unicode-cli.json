@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/export-production-build-environment.mjs"
+            ],
+            "reason": "The export adapter preserves its caller-visible production-build environment keys while canonicalizing only the module entry path used to select CLI execution."
+        }
+    ]
+}
