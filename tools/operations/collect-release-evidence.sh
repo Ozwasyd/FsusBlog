@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2155
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -17,7 +18,10 @@ fi
 STAMP="${FSUSBLOG_RELEASE_STAMP:-$(date -u +%Y%m%dT%H%M%SZ)}"
 RELEASE_NAMESPACE="$STAMP"
 if [[ -n "${FSUSBLOG_RELEASE_MANIFEST:-}" ]]; then
-    [[ -f "$FSUSBLOG_RELEASE_MANIFEST" ]] || { echo "FSUSBLOG_RELEASE_MANIFEST is missing" >&2; exit 2; }
+    [[ -f "$FSUSBLOG_RELEASE_MANIFEST" ]] || {
+        echo "FSUSBLOG_RELEASE_MANIFEST is missing" >&2
+        exit 2
+    }
     identity_args=(--manifest "$FSUSBLOG_RELEASE_MANIFEST")
     [[ -n "${FSUSBLOG_RELEASE_ID:-}" ]] && identity_args+=(--release-id "$FSUSBLOG_RELEASE_ID")
     [[ -n "${FSUSBLOG_COMMIT_SHA:-}" ]] && identity_args+=(--commit-sha "$FSUSBLOG_COMMIT_SHA")
@@ -52,6 +56,15 @@ FAULT_DIR="${FSUSBLOG_FAULT_EVIDENCE_DIR:-$ROOT_DIR/.tmp/fault-injection}"
 SOAK_DIR="${FSUSBLOG_SOAK_EVIDENCE_DIR:-$ROOT_DIR/.tmp/soak}"
 FUZZ_DIR="${FSUSBLOG_FUZZ_EVIDENCE_DIR:-$ROOT_DIR/.tmp/fuzz}"
 mkdir -p "$OUT_DIR"
+
+CURRENT_RUN_MANIFEST_SESSION=""
+if [[ -n "${FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT:-}" && -n "${FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH:-}" ]]; then
+    CURRENT_RUN_MANIFEST_SESSION="$(
+        FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER=evidence-consumer.release.check-release-final \
+            FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PAYLOAD_PATH="$OUT_DIR/manifest.json" \
+            node "$ROOT_DIR/tools/test/run-current-run-evidence-producer.mjs" begin
+    )"
+fi
 
 RestoreDownloadedArtifacts() {
     if [[ -n "${FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT:-}" ]]; then
@@ -1148,14 +1161,10 @@ if [[ "$REQUIRE_OK" == "1" ]]; then
 fi
 node "$ROOT_DIR/tools/operations/seal-release-evidence-bundle.mjs" "${seal_args[@]}"
 
-if [[ -n "${FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT:-}" && -n "${FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH:-}" ]]; then
-    node "$ROOT_DIR/tools/test/publish-current-run-evidence-reference.mjs" \
-        --context "$FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT" \
-        --consumer evidence-consumer.release.check-release-final \
-        --payload "$OUT_DIR/manifest.json" \
-        --payload-schema fsusblog.release-evidence-manifest.v2 \
-        --output "$FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH" \
-        --terminal-status success
+if [[ -n "$CURRENT_RUN_MANIFEST_SESSION" ]]; then
+    FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER=evidence-consumer.release.check-release-final \
+        FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PAYLOAD_PATH="$OUT_DIR/manifest.json" \
+        node "$ROOT_DIR/tools/test/run-current-run-evidence-producer.mjs" finalize "$CURRENT_RUN_MANIFEST_SESSION"
 fi
 
 echo "[release-evidence] wrote $OUT_DIR/manifest.json namespace=$RELEASE_NAMESPACE requireOk=$REQUIRE_OK"

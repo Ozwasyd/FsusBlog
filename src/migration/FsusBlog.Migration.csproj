@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>FsusBlog.Migration</RootNamespace>
+    <AssemblyName>FsusBlog.Migration</AssemblyName>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SqlSugarCoreNoDrive" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\shared\FsusBlog.Shared.csproj" />
+  </ItemGroup>
+</Project>

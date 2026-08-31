@@ -50,7 +50,7 @@
         "singleExecutionBoundary": "SchemaMigrationStep.ExecuteAsync",
         "preview": "SchemaMigrationPreviewer.PreviewAsync",
         "transactionBoundary": "SchemaMigrationDescriptor.Transactional via SchemaMigrationRunner.UseTranAsync",
-        "crossDialectSnapshot": "tests/backend/Fixtures/schema-ddl-provider-snapshots.json",
+        "crossDialectSnapshot": "tests/migration/schema-ddl-provider-snapshots.json",
         "legacyEnsureTableBatch": {
             "firstStatement": "CREATE TABLE",
             "allowedTrailingStatements": [

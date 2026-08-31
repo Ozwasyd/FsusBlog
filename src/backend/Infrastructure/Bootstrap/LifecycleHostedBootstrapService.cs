@@ -66,7 +66,7 @@ public sealed class LifecycleHostedBootstrapService(
             runtimeState.ReportStartupTask(BootstrapTask, "failed", ex.GetType().Name);
             deploymentRuntimeState?.MarkStartupFailed("bootstrap", "deployment_bootstrap_failed");
             logger.LogCritical(ex, "System Halt.");
-            if (!environment.IsDevelopment())
+            if (ex is CurrentSchemaMismatchException || !environment.IsDevelopment())
             {
                 throw;
             }
@@ -86,7 +86,7 @@ public sealed class LifecycleHostedBootstrapService(
             {
                 var migrationRunner = scopedServices.GetRequiredService<ISchemaMigrationRunner>();
                 await migrationRunner.RunAsync(cancellationToken);
-                return StartupTaskOutcome.Ok("compatibility_check");
+                return StartupTaskOutcome.Ok("current_schema_verified");
             });
 
         yield return new StartupTaskStep(

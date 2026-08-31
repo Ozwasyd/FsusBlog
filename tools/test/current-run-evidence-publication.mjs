@@ -2,13 +2,14 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import {
-    evidenceContentDigest,
-    evidenceProducerReceiptDigest
-} from './current-run-evidence-locator.mjs';
-import { validateCurrentRunEvidenceContext } from './evidence-location-contract.mjs';
+import { evidenceContentDigest, evidenceProducerReceiptDigest } from './current-run-evidence-locator.mjs';
+import { governanceContentDigest, validateCurrentRunEvidenceContext } from './evidence-location-contract.mjs';
 
 export const EVIDENCE_REFERENCE_SCHEMA = 'fsusblog.current-run-evidence-reference.v1';
+export const EVIDENCE_PUBLICATION_SCHEMA = 'fsusblog.evidence-reference-publication.v1';
+export const EVIDENCE_PUBLICATION_POINTER_SCHEMA = 'fsusblog.evidence-reference-publication-pointer.v1';
+export const EVIDENCE_TERMINAL_HANDOFF_SCHEMA = 'fsusblog.current-run-evidence-terminal-handoff.v1';
+export const EVIDENCE_TERMINAL_HANDOFF_PREFIX = 'FSUSBLOG_CURRENT_RUN_EVIDENCE_HANDOFF=';
 export const releaseFinalDirectConsumerIds = Object.freeze([
     'evidence-consumer.release-final.direct.behavior-consistency',
     'evidence-consumer.release-final.direct.behavior-post-runtime',
@@ -18,9 +19,14 @@ export const releaseFinalDirectConsumerIds = Object.freeze([
     'evidence-consumer.release-final.direct.public-preview'
 ]);
 
+function digestBytes(bytes)
+{
+    return `sha256:${crypto.createHash('sha256').update(bytes).digest('hex')}`;
+}
+
 function digestFile(file)
 {
-    return `sha256:${crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`;
+    return digestBytes(fs.readFileSync(file));
 }
 
 function assert(condition, message)
@@ -33,40 +39,185 @@ function inside(file, root)
     return file === root || file.startsWith(`${root}${path.sep}`);
 }
 
-export function publishCurrentRunEvidenceReference({
-    authorityId,
-    context,
-    outputPath,
-    payloadPath,
-    payloadSchema,
-    producerId,
-    repositoryRoot,
-    terminalStatus
+function sameIdentity(left, right)
+{
+    return governanceContentDigest({ value: left }) === governanceContentDigest({ value: right });
+}
+
+function sealed(document)
+{
+    return { ...document, contentDigest: governanceContentDigest(document) };
+}
+
+function atomicWrite(file, bytes)
+{
+    const temporary = `${file}.next-${process.pid}-${crypto.randomBytes(6).toString('hex')}`;
+    fs.writeFileSync(temporary, bytes, { flag: 'wx' });
+    fs.renameSync(temporary, file);
+}
+
+function canonicalPath(repositoryRoot, file)
+{
+    const root = path.resolve(repositoryRoot);
+    const absolute = path.resolve(root, file);
+    assert(inside(absolute, root), 'evidence publication path must be repository-relative');
+    return { absolute, relative: path.relative(root, absolute).replaceAll(path.sep, '/') };
+}
+
+function assertOwnedFileParent(file, context, repositoryRoot)
+{
+    const parent = path.dirname(file);
+    assert(fs.existsSync(parent) && fs.statSync(parent).isDirectory(),
+        'evidence receipt output parent must already exist');
+    const realParent = fs.realpathSync(parent);
+    const roots = context.ownedRoots.map((root) =>
+    {
+        const absolute = path.resolve(repositoryRoot, root);
+        assert(fs.existsSync(absolute) && fs.statSync(absolute).isDirectory(),
+            `current-run owned root is missing: ${root}`);
+        return fs.realpathSync(absolute);
+    });
+    assert(roots.some((root) => inside(realParent, root)),
+        'evidence receipt output escapes current-run owned roots');
+}
+
+const pointerPath = (output) => `${output}.publication.json`;
+const handoffPath = (output) => `${output}.handoff.json`;
+
+function readSealed(file, schema, label)
+{
+    const document = JSON.parse(fs.readFileSync(file, 'utf8'));
+    assert(document?.schema === schema, `${label} schema mismatch`);
+    assert(document.contentDigest === governanceContentDigest(document), `${label} contentDigest mismatch`);
+    return document;
+}
+
+export function readCurrentRunEvidencePublication({ outputPath, repositoryRoot })
+{
+    const output = canonicalPath(repositoryRoot, outputPath);
+    const pointer = readSealed(pointerPath(output.absolute), EVIDENCE_PUBLICATION_POINTER_SCHEMA,
+        'evidence publication pointer');
+    const stateFile = path.resolve(path.dirname(output.absolute), pointer.target.path);
+    assert(inside(stateFile, path.dirname(output.absolute)),
+        'evidence publication state escapes output directory');
+    assert(digestFile(stateFile) === pointer.target.inputDigest,
+        'evidence publication pointer target digest mismatch');
+    const state = readSealed(stateFile, EVIDENCE_PUBLICATION_SCHEMA, 'evidence publication state');
+    assert(state.contentDigest === pointer.target.contentDigest,
+        'evidence publication pointer content digest mismatch');
+    return { pointer, state, stateFile };
+}
+
+function publishState(output, state)
+{
+    const document = sealed({ schema: EVIDENCE_PUBLICATION_SCHEMA, ...state });
+    const bytes = Buffer.from(`${JSON.stringify(document, null, 2)}\n`);
+    const digest = digestBytes(bytes);
+    const stateName = `${path.basename(output)}.publication.${digest.slice(7)}.json`;
+    const stateFile = path.join(path.dirname(output), stateName);
+    if (fs.existsSync(stateFile))
+    {
+        assert(digestFile(stateFile) === digest, 'evidence publication state collision');
+    }
+    else
+    {
+        fs.writeFileSync(stateFile, bytes, { flag: 'wx' });
+    }
+    const pointer = sealed({
+        schema: EVIDENCE_PUBLICATION_POINTER_SCHEMA,
+        authorityId: document.authorityId,
+        schedulerRunId: document.schedulerRunId,
+        attemptId: document.attemptId,
+        target: { path: stateName, inputDigest: digest, contentDigest: document.contentDigest }
+    });
+    atomicWrite(pointerPath(output), `${JSON.stringify(pointer, null, 2)}\n`);
+    return document;
+}
+
+function assertContextIdentity(document, context, label)
+{
+    for (const field of ['schedulerRunId', 'attemptId', 'sourceCommit', 'worktreeFingerprint'])
+    {
+        assert(document?.[field] === context[field], `${label} ${field} mismatch`);
+    }
+    for (const field of ['candidateIdentity', 'buildIdentity'])
+    {
+        assert(sameIdentity(document?.[field], context[field]), `${label} ${field} mismatch`);
+    }
+}
+
+function publicationIdentity({ authorityId, context, outputPath, payloadPath, producerId, sessionId })
+{
+    return {
+        authorityId,
+        producerId,
+        schedulerRunId: context.schedulerRunId,
+        attemptId: context.attemptId,
+        sourceCommit: context.sourceCommit,
+        worktreeFingerprint: context.worktreeFingerprint,
+        candidateIdentity: context.candidateIdentity,
+        buildIdentity: context.buildIdentity,
+        outputPath,
+        payloadPath,
+        sessionId
+    };
+}
+
+export function beginCurrentRunEvidencePublication({
+    authorityId, context, outputPath, payloadPath, producerId, repositoryRoot
 })
 {
     validateCurrentRunEvidenceContext(context);
-    assert(terminalStatus === 'success', 'only terminal success may publish an evidence reference');
-    const payload = path.resolve(repositoryRoot, payloadPath);
-    const output = path.resolve(repositoryRoot, outputPath);
-    assert(fs.existsSync(payload) && fs.statSync(payload).isFile(), 'producer payload is missing');
-    const outputParent = path.dirname(output);
-    assert(fs.existsSync(outputParent) && fs.statSync(outputParent).isDirectory(),
-        'evidence reference output parent must already exist');
-    const realPayload = fs.realpathSync(payload);
-    const realOutputParent = fs.realpathSync(outputParent);
-    const ownedRoots = context.ownedRoots.map((root) =>
+    const output = canonicalPath(repositoryRoot, outputPath);
+    const payload = canonicalPath(repositoryRoot, payloadPath);
+    assertOwnedFileParent(output.absolute, context, repositoryRoot);
+    assertOwnedFileParent(payload.absolute, context, repositoryRoot);
+    assert(!fs.existsSync(output.absolute), 'authority already has a final reference for this run attempt');
+    assert(!fs.existsSync(payload.absolute), 'producer payload must be absent when this attempt starts');
+    let previous = null;
+    if (fs.existsSync(pointerPath(output.absolute)))
     {
-        const ownedRoot = path.resolve(repositoryRoot, root);
-        assert(fs.existsSync(ownedRoot) && fs.statSync(ownedRoot).isDirectory(),
-            `current-run owned root is missing: ${root}`);
-        return fs.realpathSync(ownedRoot);
+        previous = readCurrentRunEvidencePublication({ outputPath, repositoryRoot }).state;
+        assertContextIdentity(previous, context, 'evidence publication');
+        assert(previous.authorityId === authorityId && previous.producerId === producerId,
+            'evidence publication authority identity mismatch');
+        assert(previous.state === 'aborted', previous.state === 'finalized'
+            ? 'authority already has a final reference for this run attempt'
+            : 'unfinished evidence publication requires explicit recovery');
+    }
+    const sessionId = crypto.randomBytes(16).toString('hex');
+    const state = publishState(output.absolute, {
+        state: 'prepared',
+        sequence: Number(previous?.sequence ?? 0) + 1,
+        parentStateDigest: previous?.contentDigest ?? null,
+        ...publicationIdentity({ authorityId, context, outputPath: output.relative,
+            payloadPath: payload.relative, producerId, sessionId })
     });
-    assert(ownedRoots.some((root) => inside(realPayload, root) && inside(realOutputParent, root)),
-        'payload and reference must share a current-run owned root');
-    assert(!fs.existsSync(output), 'authority already has a final reference for this run attempt');
+    return { sessionId, stateDigest: state.contentDigest, outputPath: output.relative,
+        payloadPath: payload.relative };
+}
+
+function referenceReceipt({ authorityId, context, payload, payloadSchema, producerId })
+{
+    assert(fs.existsSync(payload.absolute) && fs.statSync(payload.absolute).isFile(),
+        'producer payload is missing after terminal success');
+    const realPayload = fs.realpathSync(payload.absolute);
     const payloadDocument = JSON.parse(fs.readFileSync(realPayload, 'utf8'));
     assert(payloadDocument?.schema === payloadSchema, 'producer payload schema mismatch');
-    const relativePayload = path.relative(repositoryRoot, realPayload).replaceAll(path.sep, '/');
+    for (const field of ['schedulerRunId', 'attemptId', 'sourceCommit', 'worktreeFingerprint'])
+    {
+        if (payloadDocument[field] !== undefined)
+        {
+            assert(payloadDocument[field] === context[field], `producer payload ${field} mismatch`);
+        }
+    }
+    for (const field of ['candidateIdentity', 'buildIdentity'])
+    {
+        if (payloadDocument[field] !== undefined)
+        {
+            assert(sameIdentity(payloadDocument[field], context[field]), `producer payload ${field} mismatch`);
+        }
+    }
     const body = {
         schema: EVIDENCE_REFERENCE_SCHEMA,
         schedulerRunId: context.schedulerRunId,
@@ -77,31 +228,166 @@ export function publishCurrentRunEvidenceReference({
         buildIdentity: context.buildIdentity,
         authorityId,
         producerId,
-        payload: { path: relativePayload, schema: payloadSchema, digest: digestFile(realPayload) }
+        payload: { path: payload.relative, schema: payloadSchema, digest: digestFile(realPayload) }
     };
     const withContent = { ...body, contentDigest: evidenceContentDigest(body) };
-    const receipt = { ...withContent, producerReceiptDigest: evidenceProducerReceiptDigest(withContent) };
-    const journal = `${output}.publication.json`;
-    const staged = `${output}.prepared-${process.pid}`;
-    fs.writeFileSync(journal, `${JSON.stringify({ schema: 'fsusblog.evidence-reference-publication.v1',
-        state: 'prepared', authorityId, schedulerRunId: context.schedulerRunId,
-        attemptId: context.attemptId, outputPath: path.relative(repositoryRoot, output).replaceAll(path.sep, '/'),
-        producerReceiptDigest: receipt.producerReceiptDigest }, null, 2)}\n`, { flag: 'wx' });
-    try
+    return { ...withContent, producerReceiptDigest: evidenceProducerReceiptDigest(withContent) };
+}
+
+function terminalHandoff({ context, outputPath, inputDigest, receipt })
+{
+    return sealed({
+        schema: EVIDENCE_TERMINAL_HANDOFF_SCHEMA,
+        schedulerRunId: context.schedulerRunId,
+        attemptId: context.attemptId,
+        sourceCommit: context.sourceCommit,
+        worktreeFingerprint: context.worktreeFingerprint,
+        candidateIdentity: context.candidateIdentity,
+        buildIdentity: context.buildIdentity,
+        authorityId: receipt.authorityId,
+        producerId: receipt.producerId,
+        path: outputPath,
+        inputDigest,
+        receiptContentDigest: receipt.contentDigest,
+        producerReceiptDigest: receipt.producerReceiptDigest
+    });
+}
+
+function writeHandoff(output, handoff)
+{
+    atomicWrite(handoffPath(output), `${JSON.stringify(handoff, null, 2)}\n`);
+    return handoff;
+}
+
+function prepareReceipt({ authorityId, context, output, payloadPath, producerId, receipt,
+    sessionId, repositoryRoot })
+{
+    const current = readCurrentRunEvidencePublication({ outputPath: output.relative, repositoryRoot }).state;
+    assert(current.state === 'prepared', 'evidence publication is not prepared');
+    assert(current.sessionId === sessionId, 'evidence publication session mismatch');
+    assertContextIdentity(current, context, 'evidence publication');
+    assert(current.authorityId === authorityId && current.producerId === producerId
+        && current.outputPath === output.relative && current.payloadPath === payloadPath,
+    'evidence publication binding mismatch');
+    assert(!fs.existsSync(output.absolute), 'authority already has a final reference for this run attempt');
+    const bytes = Buffer.from(`${JSON.stringify(receipt, null, 2)}\n`);
+    const inputDigest = digestBytes(bytes);
+    const staged = `${output.absolute}.prepared.${sessionId}`;
+    fs.writeFileSync(staged, bytes, { flag: 'wx' });
+    const prepared = publishState(output.absolute, {
+        ...publicationIdentity({ authorityId, context, outputPath: output.relative,
+            payloadPath, producerId, sessionId }),
+        state: 'receipt-prepared', sequence: current.sequence + 1,
+        parentStateDigest: current.contentDigest, stagedPath: path.basename(staged),
+        reference: { path: output.relative, inputDigest, contentDigest: receipt.contentDigest,
+            producerReceiptDigest: receipt.producerReceiptDigest }
+    });
+    return { prepared, staged, inputDigest };
+}
+
+function completePreparedReceipt({ authorityId, context, output, payloadPath, producerId,
+    receipt, sessionId, prepared, staged, inputDigest })
+{
+    fs.renameSync(staged, output.absolute);
+    const finalized = publishState(output.absolute, {
+        ...publicationIdentity({ authorityId, context, outputPath: output.relative,
+            payloadPath, producerId, sessionId }),
+        state: 'finalized', sequence: prepared.sequence + 1,
+        parentStateDigest: prepared.contentDigest, reference: prepared.reference
+    });
+    const handoff = writeHandoff(output.absolute, terminalHandoff({ context,
+        outputPath: output.relative, inputDigest, receipt }));
+    return { receipt, handoff, publication: finalized };
+}
+
+export function prepareCurrentRunEvidencePublication({
+    authorityId, context, outputPath, payloadPath, payloadSchema, producerId,
+    repositoryRoot, sessionId, terminalStatus
+})
+{
+    validateCurrentRunEvidenceContext(context);
+    assert(terminalStatus === 'success', 'only terminal success may publish an evidence reference');
+    const output = canonicalPath(repositoryRoot, outputPath);
+    const payload = canonicalPath(repositoryRoot, payloadPath);
+    const receipt = referenceReceipt({ authorityId, context, payload,
+        payloadSchema, producerId, repositoryRoot });
+    const prepared = prepareReceipt({ authorityId, context, output, payloadPath: payload.relative,
+        producerId, receipt, sessionId, repositoryRoot });
+    return { authorityId, context, output, payloadPath: payload.relative,
+        producerId, receipt, sessionId, ...prepared };
+}
+
+export function finalizeCurrentRunEvidencePublication(options)
+{
+    const prepared = prepareCurrentRunEvidencePublication(options);
+    return completePreparedReceipt(prepared);
+}
+
+export function recoverCurrentRunEvidencePublication({ context, outputPath, repositoryRoot })
+{
+    validateCurrentRunEvidenceContext(context);
+    const output = canonicalPath(repositoryRoot, outputPath);
+    const current = readCurrentRunEvidencePublication({ outputPath, repositoryRoot }).state;
+    assertContextIdentity(current, context, 'evidence publication');
+    if (current.state === 'finalized')
     {
-        fs.writeFileSync(staged, `${JSON.stringify(receipt, null, 2)}\n`, { flag: 'wx' });
-        fs.renameSync(staged, output);
-        fs.writeFileSync(journal, `${JSON.stringify({ schema: 'fsusblog.evidence-reference-publication.v1',
-            state: 'finalized', authorityId, schedulerRunId: context.schedulerRunId,
-            attemptId: context.attemptId, outputPath: path.relative(repositoryRoot, output).replaceAll(path.sep, '/'),
-            producerReceiptDigest: receipt.producerReceiptDigest }, null, 2)}\n`);
+        assert(fs.existsSync(output.absolute) && digestFile(output.absolute) === current.reference.inputDigest,
+            'finalized evidence reference bytes mismatch');
+        const receipt = JSON.parse(fs.readFileSync(output.absolute, 'utf8'));
+        return { state: current, handoff: writeHandoff(output.absolute, terminalHandoff({ context,
+            outputPath: output.relative, inputDigest: current.reference.inputDigest, receipt })) };
     }
-    catch (error)
+    if (current.state === 'prepared')
     {
-        fs.rmSync(staged, { force: true });
-        throw error;
+        const { contentDigest: parentStateDigest, ...identity } = current;
+        const aborted = publishState(output.absolute, { ...identity, state: 'aborted',
+            sequence: current.sequence + 1, parentStateDigest,
+            reason: 'producer did not reach receipt preparation' });
+        return { state: aborted, handoff: null };
     }
-    return receipt;
+    assert(current.state === 'receipt-prepared', 'evidence publication recovery state is unsupported');
+    const staged = path.join(path.dirname(output.absolute), current.stagedPath);
+    const candidate = fs.existsSync(output.absolute) ? output.absolute : staged;
+    assert(fs.existsSync(candidate) && digestFile(candidate) === current.reference.inputDigest,
+        'prepared evidence reference bytes mismatch');
+    if (!fs.existsSync(output.absolute)) fs.renameSync(staged, output.absolute);
+    else fs.rmSync(staged, { force: true });
+    const { contentDigest: parentStateDigest, stagedPath: _stagedPath, ...identity } = current;
+    const finalized = publishState(output.absolute, { ...identity, state: 'finalized',
+        sequence: current.sequence + 1, parentStateDigest });
+    const receipt = JSON.parse(fs.readFileSync(output.absolute, 'utf8'));
+    return { state: finalized, handoff: writeHandoff(output.absolute, terminalHandoff({ context,
+        outputPath: output.relative, inputDigest: current.reference.inputDigest, receipt })) };
+}
+
+export function publishCurrentRunTerminalReceipt({
+    authorityId, context, outputPath, producerReceiptDigest, receipt, repositoryRoot
+})
+{
+    const payloadPath = receipt.payload?.path ?? outputPath;
+    const session = beginCurrentRunEvidencePublication({ authorityId, context, outputPath,
+        payloadPath, producerId: receipt.producerId, repositoryRoot });
+    assert(receipt.producerReceiptDigest === producerReceiptDigest, 'producer receipt digest mismatch');
+    const output = canonicalPath(repositoryRoot, outputPath);
+    const prepared = prepareReceipt({ authorityId, context, output, payloadPath,
+        producerId: receipt.producerId, receipt, sessionId: session.sessionId, repositoryRoot });
+    return completePreparedReceipt({ authorityId, context, output, payloadPath,
+        producerId: receipt.producerId, receipt, sessionId: session.sessionId, ...prepared });
+}
+
+export function publishCurrentRunEvidenceReference(options)
+{
+    const session = beginCurrentRunEvidencePublication(options);
+    return finalizeCurrentRunEvidencePublication({ ...options, sessionId: session.sessionId }).receipt;
+}
+
+function assertReceiptIdentity(receipt, context)
+{
+    const { path: _path, inputDigest: _inputDigest, ...sealedReceipt } = receipt;
+    assertContextIdentity(sealedReceipt, context, 'evidence');
+    assert(sealedReceipt.contentDigest === evidenceContentDigest(sealedReceipt), 'evidence contentDigest mismatch');
+    assert(sealedReceipt.producerReceiptDigest === evidenceProducerReceiptDigest(sealedReceipt),
+        'evidence producerReceiptDigest mismatch');
 }
 
 export function createEvidenceParentReceipt({ context, parentAuthorityId, producerId, childReferences })
@@ -112,8 +398,7 @@ export function createEvidenceParentReceipt({ context, parentAuthorityId, produc
     assert(new Set(keys).size === keys.length, 'parent contains multiple references for one authority');
     for (const child of childReferences)
     {
-        assert(child.schedulerRunId === context.schedulerRunId && child.attemptId === context.attemptId,
-            'parent reference crosses run attempt');
+        assertReceiptIdentity(child, context);
         assert(typeof child.path === 'string' && child.path.length > 0
             && /^sha256:[0-9a-f]{64}$/u.test(child.inputDigest ?? ''),
         'parent child must carry an explicit path and digest');

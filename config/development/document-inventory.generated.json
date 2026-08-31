@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v3",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:6e4116f6c21416fe4ef97b47f0b9003de8c0848ffd7d1bf31e899439bca0e8f7",
+    "policyDigest": "sha256:1db71251501ab4ad3bf24cba98baf99cf64aa4e2c3f83e509ef1b441953d9ef6",
     "documents": [
         {
             "path": "docs/active-release-fenced-commits.md",
@@ -979,7 +979,10 @@
             "sourceOfTruth": true,
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1977,
+                1978
+            ],
             "producer": null
         },
         {
@@ -1125,7 +1128,9 @@
             "sourceOfTruth": true,
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1979
+            ],
             "producer": null
         },
         {
@@ -2548,7 +2553,12 @@
             "sourceOfTruth": true,
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1923,
+                1977,
+                1978,
+                1979
+            ],
             "producer": null
         },
         {
@@ -2560,7 +2570,9 @@
             "sourceOfTruth": true,
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1978
+            ],
             "producer": null
         },
         {
@@ -2695,7 +2707,9 @@
             "relatedIssues": [
                 1013,
                 1014,
-                1430
+                1430,
+                1977,
+                1978
             ],
             "producer": null
         },

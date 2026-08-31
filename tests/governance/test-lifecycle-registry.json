@@ -1022,6 +1022,26 @@
             }
         },
         {
+            "file": "tests/tools/dependency-automerge.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
+            "file": "tests/tools/dependency-required-checks.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
             "file": "tests/tools/deployment-slots.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",
@@ -3494,6 +3514,17 @@
             "lifecycle": "manual-diagnostic",
             "physicalExecutionCount": 0,
             "classifications": [
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/cross-authority-dag.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/cross-authority-dag.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
                 "runtime"
             ]
         },

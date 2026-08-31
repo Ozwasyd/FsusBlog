@@ -1,8 +1,8 @@
 using System.Reflection;
 
+using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
-using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 using FsusBlog.Server.Services.Authoring;
 
 using SqlSugar;

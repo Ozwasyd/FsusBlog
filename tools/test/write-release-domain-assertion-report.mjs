@@ -48,11 +48,20 @@ function collectStructuredDocuments(root) {
     const files = [];
     const testResultsRoot = path.resolve(process.env.FSUSBLOG_TEST_RESULTS_ROOT
         ?? path.join(root, '.tmp/test-results'));
-    for (const directory of [
+    const directories = [
         path.join(testResultsRoot, 'vitest'),
-        path.join(testResultsRoot, 'live-grant'),
-        path.join(root, '.tmp/downloaded-artifacts')
-    ]) {
+        path.join(testResultsRoot, 'live-grant')
+    ];
+    const transport = String(process.env.FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST ?? '').trim();
+    if (transport)
+    {
+        const manifest = JSON.parse(fs.readFileSync(path.resolve(root, transport), 'utf8'));
+        for (const entry of (manifest.objects ?? []).flatMap((object) => object.archiveEntries ?? []))
+        {
+            files.push(path.resolve(root, entry.extractedPath));
+        }
+    }
+    for (const directory of directories) {
         visitJsonFiles(directory, files);
     }
     const uniqueFiles = [...new Set(files.map((file) => path.resolve(file)))].sort();

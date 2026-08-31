@@ -63,9 +63,6 @@ function validBuildVerification(overrides = {}) {
 function runChecker(t, documents, options = {}) {
   const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-job-summary-check-'))
   t.after(() => fs.rmSync(fixture, { recursive: true, force: true }))
-  const fixtureChecker = path.join(fixture, 'tools/ci/check-job-summaries.mjs')
-  fs.mkdirSync(path.dirname(fixtureChecker), { recursive: true })
-  fs.copyFileSync(checker, fixtureChecker)
   const jobs = path.join(fixture, '.tmp/release-evidence/jobs')
   fs.mkdirSync(jobs, { recursive: true })
   documents.forEach((document, index) => {
@@ -76,8 +73,12 @@ function runChecker(t, documents, options = {}) {
     fs.mkdirSync(path.dirname(planFile), { recursive: true })
     fs.writeFileSync(planFile, `${JSON.stringify(options.plan, null, 2)}\n`)
   }
-  return spawnSync(process.execPath, [fixtureChecker, ...(options.args ?? [])], {
+  return spawnSync(process.execPath, [checker, ...(options.args ?? [])], {
     cwd: fixture,
+    env: {
+      ...process.env,
+      FSUSBLOG_RELEASE_EVIDENCE_DIR: path.join(fixture, '.tmp/release-evidence')
+    },
     encoding: 'utf8',
     timeout: 10_000
   })
