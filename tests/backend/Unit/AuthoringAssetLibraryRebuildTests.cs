@@ -1,5 +1,6 @@
 using FsusBlog.Server.Contracts.Assets;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Tests.TestInfrastructure;
@@ -15,32 +16,25 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AuthoringAssetLibraryRebuildTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
-    public void AssetLibraryProjection_HasNoRuntimeDdlOrMarkdownScanner()
+    public async Task AssetLibraryProjection_HasNoRuntimeDdlOrMarkdownScanner()
     {
-        string source = File.ReadAllText(SourcePath<AuthoringAssetLibraryService>());
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        var statements = new List<string>();
+        db.Aop.OnLogExecuting = (sql, _) => statements.Add(sql);
 
-        Assert.DoesNotContain("CREATE TABLE", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("ImageHelper", source, StringComparison.Ordinal);
-        Assert.Contains("FROM content_asset asset", source, StringComparison.Ordinal);
-        Assert.Contains("LEFT JOIN content_asset_reference", source, StringComparison.Ordinal);
-        Assert.Contains("SUM(reference.reference_count)", source, StringComparison.Ordinal);
+        Assert.Empty(await new AuthoringAssetLibraryService(db).ListAssetsAsync());
+
+        string query = Assert.Single(statements);
+        Assert.DoesNotContain("CREATE TABLE", query, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Markdown", query, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("FROM content_asset asset", query, StringComparison.Ordinal);
+        Assert.Contains("LEFT JOIN content_asset_reference", query, StringComparison.Ordinal);
+        Assert.Contains("SUM(reference.reference_count)", query, StringComparison.Ordinal);
     }
 
     [Fact]
     public void CanonicalProjection_IsAnUnactivatedIndependentQueryOwner()
     {
-        string source = File.ReadAllText(ProjectionSourcePath());
-        string bootstrap = BackendTestPaths.ReadAllTextFromRoot(
-            "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs");
-        string productionService = File.ReadAllText(SourcePath<AuthoringAssetLibraryService>());
-
-        Assert.Contains("FROM content_asset asset", source, StringComparison.Ordinal);
-        Assert.Contains("content_asset_reference", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("asset_library_item", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("asset_library_article_ref", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("CREATE TABLE", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("ImageHelper", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Markdown", source, StringComparison.OrdinalIgnoreCase);
         var candidateServices = new ServiceCollection();
         candidateServices.AddContentAssetLibraryProjectionCandidate();
         ServiceDescriptor candidate = Assert.Single(
@@ -48,9 +42,15 @@ public sealed class AuthoringAssetLibraryRebuildTests(PostgresSchemaMigrationFix
             static descriptor => descriptor.ServiceType == typeof(ContentAssetLibraryProjectionReader));
 
         Assert.Equal(ServiceLifetime.Scoped, candidate.Lifetime);
-        Assert.DoesNotContain(nameof(ContentAssetLibraryProjectionReader), bootstrap, StringComparison.Ordinal);
-        Assert.DoesNotContain(nameof(ContentAssetLibraryProjectionCandidateWiring.AddContentAssetLibraryProjectionCandidate), bootstrap, StringComparison.Ordinal);
-        Assert.DoesNotContain(nameof(ContentAssetLibraryProjectionReader), productionService, StringComparison.Ordinal);
+        var productionServices = new ServiceCollection();
+        productionServices.AddFsusRuntimeDomainServices();
+        Assert.DoesNotContain(
+            productionServices,
+            static descriptor => descriptor.ServiceType == typeof(ContentAssetLibraryProjectionReader));
+        Assert.Contains(
+            productionServices,
+            static descriptor => descriptor.ServiceType == typeof(AuthoringAssetLibraryService)
+                && descriptor.Lifetime == ServiceLifetime.Scoped);
         Assert.Empty(typeof(ContentAssetLibraryProjectionReader).GetInterfaces());
     }
 
@@ -423,11 +423,4 @@ public sealed class AuthoringAssetLibraryRebuildTests(PostgresSchemaMigrationFix
             UpdatedAtUtc = DateTime.UtcNow
         };
 
-    private static string SourcePath<T>()
-        => BackendTestPaths.FromRoot(
-            "src", "backend", "Services", "Authoring", "AuthoringAssetLibraryService.cs");
-
-    private static string ProjectionSourcePath()
-        => BackendTestPaths.FromRoot(
-            "src", "backend", "Services", "Authoring", "ContentAssetLibraryProjectionReader.cs");
 }

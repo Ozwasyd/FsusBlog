@@ -17,6 +17,8 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class BackendTestGovernanceTests
 {
     private const string RequirementsFixturePath = "tests/backend/Fixtures/backend-test-requirements.json";
+    private const string EvidenceAuthorityFixturePath =
+        "tests/backend/Fixtures/backend-evidence-path-authority.generated.json";
 
     [Fact]
     public void Issue40Profiles_HaveCommandsRequirementsAndEvidence()
@@ -196,15 +198,19 @@ public sealed class BackendTestGovernanceTests
     private static void AssertEvidencePathsExist(JsonArray paths)
     {
         Assert.NotEmpty(paths);
-        string matrix = BackendTestPaths.ReadAllTextFromRoot("tests/matrix.yml");
         foreach (JsonNode? path in paths)
         {
             string relativePath = path!.GetValue<string>();
             if (relativePath.StartsWith(".tmp/", StringComparison.Ordinal))
             {
-                Assert.True(
-                    matrix.Contains(relativePath, StringComparison.Ordinal),
-                    $"generated evidence path is not declared by test matrix: {relativePath}");
+                JsonArray entries = BackendTestPaths.ReadJsonFromRoot(EvidenceAuthorityFixturePath)["entries"]!.AsArray();
+                JsonObject authority = Assert.Single(
+                    entries.Select(static entry => entry!.AsObject()),
+                    entry => string.Equals(
+                        entry["evidencePath"]!.GetValue<string>(),
+                        relativePath,
+                        StringComparison.Ordinal));
+                Assert.NotEmpty(authority["owners"]!.AsArray());
                 continue;
             }
 
