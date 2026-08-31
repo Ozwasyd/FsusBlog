@@ -1,6 +1,6 @@
 {
     "schema": "fsusblog.monolithic-distributed-architecture.v2",
-    "contentDigest": "sha256:213f87426360ba1071b2e2d8e226dd3597f5c14eadae1972bae110bb9a2d44d7",
+    "contentDigest": "sha256:f824d89173f121ceba34c8b39f6eba9789e397d7a436594b9d30d939fa8766ba",
     "mainApplication": {
         "project": "src/backend/FsusBlog.Server.csproj",
         "dockerfile": "ops/docker/FsusBlog.Server.Dockerfile",
@@ -8,6 +8,7 @@
         "productionEntrypoint": [
             "./FsusBlog.Server"
         ],
+        "productionImage": "${FSUSBLOG_IMAGE_REF:?Set immutable repository@sha256 digest from release-manifest.json}",
         "composeService": "fsusblog.server",
         "frontendIntegrationTokens": [
             "<SpaRoot>..\\frontend</SpaRoot>",

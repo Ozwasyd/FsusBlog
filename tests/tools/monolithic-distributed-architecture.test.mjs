@@ -89,10 +89,19 @@ function createFixture()
 </Project>
 `);
     write(root, 'src/core/FsusBlog.Core.csproj', '<Project Sdk="Microsoft.NET.Sdk" />\n');
-    write(root, policy.mainApplication.dockerfile, 'FROM fixture\n');
+    mkdirSync(path.dirname(path.join(root, policy.mainApplication.dockerfile)), { recursive: true });
+    copyFileSync(path.join(repositoryRoot, policy.mainApplication.dockerfile), path.join(root, policy.mainApplication.dockerfile));
     for (const [file, services] of Object.entries(policy.composeServices))
     {
-        write(root, file, composeSource(Object.keys(services)));
+        if (file === 'ops/docker/docker-compose.production.yml')
+        {
+            mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+            copyFileSync(path.join(repositoryRoot, file), path.join(root, file));
+        }
+        else
+        {
+            write(root, file, composeSource(Object.keys(services)));
+        }
     }
     write(root, policy.singleModeGuard.runtimeOptions, policy.singleModeGuard.runtimeRequiredTokens.join('\n'));
     write(root, policy.singleModeGuard.bootstrap, policy.singleModeGuard.bootstrapOrderedTokens.join('\n'));
@@ -205,7 +214,63 @@ test('deployment authority observes one process/service and exact blue-green mou
     const observation = observeRuntimeRoleDeploymentAuthority({ root });
     assert.equal(observation.ownership.claimEligible, true);
     assert.equal(observation.application.processEntrypoint.join(' '), './FsusBlog.Server');
+    assert.equal(observation.application.image, '${FSUSBLOG_IMAGE_REF:?Set immutable repository@sha256 digest from release-manifest.json}');
+    assert.deepEqual(observation.application.serviceRoster, ['fsusblog.server']);
+    assert.deepEqual(observation.application.effectivePid1, ['./FsusBlog.Server']);
+    assert.equal(observation.application.pid1Source, 'docker-final-entrypoint-no-compose-override');
     assert.equal(Object.keys(observation.volumeTopology).length, 10);
+});
+
+test('standalone and deployment observers reject an unknown production service', () =>
+{
+    const root = createAuthorityFixture();
+    const compose = path.join(root, 'ops/docker/docker-compose.production.yml');
+    const source = readFileSync(compose, 'utf8').replace(
+        'services:\n',
+        'services:\n    unknown.worker:\n        image: fixture\n'
+    );
+    writeFileSync(compose, source);
+    const observation = observeRuntimeRoleDeploymentAuthority({ root });
+    assert.equal(observation.ownership.claimEligible, false);
+    assert.ok(observation.ownership.failureReasons.some((reason) => reason.includes('Compose services drifted')));
+    assert.ok(checkFixture(root).errors.some((reason) => reason.includes('Compose services drifted')));
+});
+
+test('deployment authority rejects image and PID1 overrides', () =>
+{
+    for (const [label, mutate] of [
+        ['image', (source) => source.replace(
+            'image: ${FSUSBLOG_IMAGE_REF:?Set immutable repository@sha256 digest from release-manifest.json}',
+            'image: mutable:latest')],
+        ['entrypoint', (source) => source.replace(
+            '        pull_policy: always',
+            '        entrypoint: ["/bin/sh"]\n        pull_policy: always')],
+        ['command', (source) => source.replace(
+            '        pull_policy: always',
+            '        command: ["serve"]\n        pull_policy: always')]
+    ])
+    {
+        const root = createAuthorityFixture();
+        const compose = path.join(root, 'ops/docker/docker-compose.production.yml');
+        writeFileSync(compose, mutate(readFileSync(compose, 'utf8')));
+        const observation = observeRuntimeRoleDeploymentAuthority({ root });
+        assert.equal(observation.ownership.claimEligible, false, label);
+        assert.ok(observation.ownership.failureReasons.some((reason) => reason.includes('immutable image')), label);
+    }
+});
+
+test('deployment authority rejects a Docker CMD tail that changes PID1 arguments', () =>
+{
+    const root = createAuthorityFixture();
+    const dockerfile = path.join(root, 'ops/docker/FsusBlog.Server.Dockerfile');
+    const source = readFileSync(dockerfile, 'utf8').replace(
+        'ENTRYPOINT ["./FsusBlog.Server"]',
+        'ENTRYPOINT ["./FsusBlog.Server"]\nCMD ["serve"]'
+    );
+    writeFileSync(dockerfile, source);
+    const observation = observeRuntimeRoleDeploymentAuthority({ root });
+    assert.equal(observation.ownership.claimEligible, false);
+    assert.ok(observation.ownership.failureReasons.some((reason) => reason.includes('no CMD tail')));
 });
 
 test('deployment authority rejects a second final process entrypoint', () =>

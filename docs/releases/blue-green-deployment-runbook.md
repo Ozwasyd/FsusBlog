@@ -88,10 +88,10 @@ claimId: deployment-blue-green-runtime-role.claims-blocked-until-authority-verif
 behaviorId: deployment-blue-green-runtime-role
 claimType: boolean
 factPath: deploymentBlueGreen.claimEligible
-render: boolean-affirmed
+render: boolean-negated
 -->
 
-`claimEligible` is `true` because schema overlap, the exact volume topology, runtime ownership and the active artifact identity are observed by typed authorities. Production volume and schema cleanup remain explicitly unsupported; an unknown or ambiguous active identity still fails closed and blocks the operation.
+`claimEligible` is `false` because the active-resource checks below are synthetic library proofs, not production-current observations. Schema overlap, exact volume topology and runtime ownership remain source-bound, while production volume/schema cleanup and any unknown active identity stay explicitly unsupported and fail closed.
 
 <!-- fsus-doc-claim
 claimId: deployment-blue-green-runtime-role.blue-green-contract
@@ -109,26 +109,28 @@ render: key-value-table
 | activeAssetAction | retain |
 | activeAssetReasons | ["active","minimum-retention-count"] |
 | activeIdentity | ["activeImageDigest","activeReleaseId","activeSlot"] |
-| artifactProtectionAuthorityState | observed-in-release-gc-and-destructive-authority-probes |
-| authorityModules | {"destructiveOperations":{"sourceDigest":"a2072432832929c689f45c30bf56aec13d7550070c4e7f0a9abc807a8dfb2694","sourcePath":"tools/deployment/destructive-operation-authority.mjs"},"onlineSchema":{"sourceDigest":"8c76bae9a6da950dae0467944d2e087d269c66fede75bc4f8fab32d2ae6d5e09","sourcePath":"src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCompatibility.cs"},"releaseAssetsGc":{"sourceDigest":"6b81a4b46d4d479479bb37ff85d79ac18a016b4872384f94fcb5fcc7416c02b3","sourcePath":"tools/storage/release-gc.mjs"},"rollout":{"sourceDigest":"cbb0f9a9189c24adb9266a7d11e4ff69f1b40f6ec090d565bdd4788335e17d0b","sourcePath":"tools/deployment/release-rollout-lib.mjs"},"slot":{"sourceDigest":"a8ec1666cf92eee86e02d652b90cdcbedb04f1470d01ab66fa25a37cf7931d73","sourcePath":"tools/deployment/slot-lib.mjs"},"topologyAuthority":{"sourceDigest":"ca65bbdf8bc034b0bb941eee23b3ebab4dd2d2410f186413bee20109b2bd80ee","sourcePath":"tools/governance/check-monolithic-distributed-architecture.mjs"}} |
-| authorityState | closed-current |
-| claimEligible | true |
+| artifactProtectionAuthorityState | synthetic-library-proof |
+| authorityModules | {"destructiveOperations":{"sourceDigest":"a2072432832929c689f45c30bf56aec13d7550070c4e7f0a9abc807a8dfb2694","sourcePath":"tools/deployment/destructive-operation-authority.mjs"},"onlineSchema":{"sourceDigest":"8c76bae9a6da950dae0467944d2e087d269c66fede75bc4f8fab32d2ae6d5e09","sourcePath":"src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCompatibility.cs"},"releaseAssetsGc":{"sourceDigest":"6b81a4b46d4d479479bb37ff85d79ac18a016b4872384f94fcb5fcc7416c02b3","sourcePath":"tools/storage/release-gc.mjs"},"rollout":{"sourceDigest":"cbb0f9a9189c24adb9266a7d11e4ff69f1b40f6ec090d565bdd4788335e17d0b","sourcePath":"tools/deployment/release-rollout-lib.mjs"},"slot":{"sourceDigest":"a8ec1666cf92eee86e02d652b90cdcbedb04f1470d01ab66fa25a37cf7931d73","sourcePath":"tools/deployment/slot-lib.mjs"},"topologyAuthority":{"sourceDigest":"362913edac870579ca67f7fa46608b9f68c38474579347e5a9881a721fd662aa","sourcePath":"tools/governance/check-monolithic-distributed-architecture.mjs"}} |
+| authorityState | synthetic-library-proof |
+| claimEligibilityReasons | ["production-current-active-resource-evidence-absent"] |
+| claimEligible | false |
 | destructiveAuthority | {"contentDigest":"sha256:bfdce7ca0918af2cc87163d5e804595ac73c4cabc9587927e443f4581379b2aa","schema":"fsusblog.destructive-operation-authority.v1","schemaCleanupStatus":"unsupported","volumeCleanupStatus":"unsupported"} |
+| evidenceClass | synthetic-library-proof |
 | proofIds | ["release-assets.active-release-retained","rollout.failed-stage-recovery-derived","slot.active-stop-rejected","slot.gateway-transition-state-derived","slot.identity-mismatch-rejected"] |
 | rollbackRequiredState | rollback_required |
 | rolloutFailureState | recovery_required |
 | rolloutRecoveryAction | preserve-source-stop-candidate |
 | rolloutStages | ["manifest-validate","capacity-preflight","backup-restore-gate","expand-migration","asset-materialize","candidate-start","candidate-readiness","candidate-smoke","compatibility-smoke","gateway-switch","source-drain","active-fence","public-verify","source-stop","release-evidence"] |
 | rolloutStateSchema | fsusblog.release-rollout-state.v1 |
-| runtimeProtectionAuthorityState | observed-in-slot-state-machine-probe |
-| schemaOverlap | {"authorityState":"observed-in-online-schema-runtime-probe","claimEligible":true,"concurrentContractFailureCodes":["schema_contract_confirmation_missing","schema_contract_exclusive_mode_missing","schema_contract_old_writes_enabled","schema_contract_previous_release_dependency","schema_contract_rollback_manifest_open","schema_contract_slot_switch_in_progress"],"missingExpandFailureCodes":["schema_expand_pending"],"schema":"fsusblog.online-schema-overlap-observation.v1","sourceReadiness":"ready","targetReadiness":"ready"} |
-| schemaProtectionAuthorityState | observed-in-online-schema-and-unsupported-cleanup-probes |
+| runtimeProtectionAuthorityState | synthetic-library-proof |
+| schemaOverlap | {"authorityState":"observed-in-current-schema-manifest-probe","catalogDigest":"sha256:e015eb08491a2f1766a424357a2812a2e777a18c4866e11b2362efe8f3726608","catalogMetadataCount":137,"claimEligible":true,"concurrentContractFailureCodes":["schema_contract_backfill_incomplete","schema_contract_backfill_unverified","schema_contract_backup_restore_stale","schema_contract_confirmation_missing","schema_contract_current_release_dependency","schema_contract_exclusive_mode_missing","schema_contract_observation_window","schema_contract_old_writes_enabled","schema_contract_previous_release_dependency","schema_contract_release_window_open","schema_contract_rollback_manifest_open","schema_contract_slot_switch_in_progress"],"evidenceClass":"current-manifest-catalog-database-model","manifestDescriptorCount":137,"manifestDigest":"sha256:5f5d2a49bdb60f30f8ed91a70ef787c8c6b6cd21fbb2a385e0e97521c07c97aa","missingExpandFailureCodes":["schema_expand_pending"],"schema":"fsusblog.online-schema-overlap-observation.v1","sourceReadiness":"ready","targetReadiness":"ready"} |
+| schemaProtectionAuthorityState | synthetic-library-proof |
 | slotStateSchema | fsusblog.deployment-slots.v1 |
 | slots | ["blue","green"] |
 | stopActiveResult | refusing to stop active slot blue |
 | switchState | switching |
 | unknownIdentityResult | active release identity does not match slot record |
-| volumeProtectionAuthorityState | observed-in-deployment-topology-and-unsupported-cleanup-probes |
+| volumeProtectionAuthorityState | synthetic-library-proof |
 | volumeScopes | {"operator-shared":["/app/config/zk","/app/secrets/zk"],"release-artifact-store":["/app/release-assets"],"release-identity":["/app/release-manifest.json"],"shared-between-slots":["/app/data-protection","/app/release-derived","/app/storage"],"slot-private":["/app/Logs","/app/data","/app/wwwroot/aot-cache"]} |
 | volumeTopology | {"app.Logs":{"access":"read-write","protection":"retained-with-slot","scope":"slot-private","source":"fsus-logs","target":"/app/Logs","volumeName":"${FSUSBLOG_SLOT_LOGS_VOLUME:?Set slot-specific logs volume}"},"app.config.zk":{"access":"read-only","protection":"outside-release-cleanup","scope":"operator-shared","source":"${FSUSBLOG_ZK_CONFIG_DIR:?Set FSUSBLOG_ZK_CONFIG_DIR to the host ZK config directory}","target":"/app/config/zk"},"app.data":{"access":"read-write","protection":"retained-with-slot","scope":"slot-private","source":"fsus-slot-data","target":"/app/data","volumeName":"${FSUSBLOG_SLOT_DATA_VOLUME:?Set slot-specific data volume}"},"app.data-protection":{"access":"read-write","protection":"outside-release-cleanup","scope":"shared-between-slots","source":"fsus-data-protection","target":"/app/data-protection","volumeName":"${FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME:?Set the shared DataProtection volume explicitly}"},"app.release-assets":{"access":"read-only","protection":"exact-active-release-gc-authority","scope":"release-artifact-store","source":"${FSUSBLOG_RELEASE_ASSET_STORE:?Set the host append-only release asset store}/releases","target":"/app/release-assets"},"app.release-derived":{"access":"read-write","protection":"outside-release-cleanup","scope":"shared-between-slots","source":"fsus-release-derived","target":"/app/release-derived","volumeName":"${FSUSBLOG_SHARED_RELEASE_DERIVED_VOLUME:-fsusblog-release-derived}"},"app.release-manifest.json":{"access":"read-only","protection":"identity-bound-read-only","scope":"release-identity","source":"${FSUSBLOG_RELEASE_MANIFEST_HOST_PATH:?Set the validated host release manifest path}","target":"/app/release-manifest.json"},"app.secrets.zk":{"access":"read-only","protection":"outside-release-cleanup","scope":"operator-shared","source":"${FSUSBLOG_ZK_SECRET_DIR:?Set FSUSBLOG_ZK_SECRET_DIR to the host ZK secret directory}","target":"/app/secrets/zk"},"app.storage":{"access":"read-write","protection":"outside-release-cleanup","scope":"shared-between-slots","source":"fsus-storage","target":"/app/storage","volumeName":"${FSUSBLOG_SHARED_PUBLIC_ASSETS_VOLUME:?Set the migrated shared public-assets volume explicitly}"},"app.wwwroot.aot-cache":{"access":"read-write","protection":"retained-with-slot","scope":"slot-private","source":"fsus-aot-cache","target":"/app/wwwroot/aot-cache","volumeName":"${FSUSBLOG_SLOT_AOT_CACHE_VOLUME:?Set slot-specific AOT cache volume}"}} |
 <!-- FSUSBLOG-GENERATED:END deployment.blue-green-contract -->

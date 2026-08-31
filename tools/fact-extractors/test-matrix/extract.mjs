@@ -348,7 +348,7 @@ function observeBlueGreenFacts(moduleSources, runtimeObservation, destructiveAut
     'shared-between-slots', 'slot-private'].map((scope) => [scope, Object.entries(volumeTopology)
     .filter(([, value]) => value?.scope === scope).map(([target]) => target).sort()]))
   const schemaOverlap = runtimeObservation?.schemaOverlap
-  const claimEligibilityReasons = []
+  const claimEligibilityReasons = ['production-current-active-resource-evidence-absent']
   if (runtimeObservation?.ownership?.claimEligible !== true) claimEligibilityReasons.push('runtime-ownership-authority-conflict')
   if (Object.values(volumeScopes).flat().length !== 10) claimEligibilityReasons.push('volume-topology-incomplete')
   if (unsupportedVolumeCleanup.status !== 'unsupported') claimEligibilityReasons.push('volume-cleanup-authority-conflict')
@@ -356,6 +356,7 @@ function observeBlueGreenFacts(moduleSources, runtimeObservation, destructiveAut
   if (schemaOverlap?.claimEligible !== true) claimEligibilityReasons.push('schema-overlap-authority-conflict')
 
   return {
+    evidenceClass: 'synthetic-library-proof',
     authorityModules: Object.fromEntries(Object.entries(moduleSources).map(([id, source]) => [id, {
       sourcePath: source.path,
       sourceDigest: digestText(source.text)
@@ -391,13 +392,13 @@ function observeBlueGreenFacts(moduleSources, runtimeObservation, destructiveAut
     volumeTopology: projectVolumeTopology(volumeTopology),
     volumeScopes,
     schemaOverlap,
-    runtimeProtectionAuthorityState: 'observed-in-slot-state-machine-probe',
-    artifactProtectionAuthorityState: 'observed-in-release-gc-and-destructive-authority-probes',
-    schemaProtectionAuthorityState: 'observed-in-online-schema-and-unsupported-cleanup-probes',
-    volumeProtectionAuthorityState: 'observed-in-deployment-topology-and-unsupported-cleanup-probes',
+    runtimeProtectionAuthorityState: 'synthetic-library-proof',
+    artifactProtectionAuthorityState: 'synthetic-library-proof',
+    schemaProtectionAuthorityState: 'synthetic-library-proof',
+    volumeProtectionAuthorityState: 'synthetic-library-proof',
     ...(claimEligibilityReasons.length > 0 ? { claimEligibilityReasons } : {}),
     claimEligible: claimEligibilityReasons.length === 0,
-    authorityState: claimEligibilityReasons.length === 0 ? 'closed-current' : 'conflict-unknown'
+    authorityState: 'synthetic-library-proof'
   }
 }
 
@@ -1144,8 +1145,28 @@ export function extract(context)
     || runtimeObservation?.deploymentAuthority?.authoritySchema !== 'fsusblog.monolithic-distributed-architecture.v2'
     || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.deploymentAuthority?.authorityContentDigest ?? ''))
     || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.deploymentAuthority?.observationDigest ?? ''))
-    || runtimeObservation?.schemaOverlap?.authorityState !== 'observed-in-online-schema-runtime-probe'
+    || runtimeObservation?.schemaOverlap?.authorityState !== 'observed-in-current-schema-manifest-probe'
     || runtimeObservation?.schemaOverlap?.claimEligible !== true
+    || runtimeObservation?.schemaOverlap?.evidenceClass !== 'current-manifest-catalog-database-model'
+    || runtimeObservation?.schemaOverlap?.manifestDescriptorCount !== runtimeObservation?.schemaOverlap?.catalogMetadataCount
+    || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.schemaOverlap?.manifestDigest ?? ''))
+    || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.schemaOverlap?.catalogDigest ?? ''))
+    || JSON.stringify(runtimeObservation?.schemaOverlap?.missingExpandFailureCodes)
+      !== JSON.stringify(['schema_expand_pending'])
+    || JSON.stringify(runtimeObservation?.schemaOverlap?.concurrentContractFailureCodes) !== JSON.stringify([
+      'schema_contract_backfill_incomplete',
+      'schema_contract_backfill_unverified',
+      'schema_contract_backup_restore_stale',
+      'schema_contract_confirmation_missing',
+      'schema_contract_current_release_dependency',
+      'schema_contract_exclusive_mode_missing',
+      'schema_contract_observation_window',
+      'schema_contract_old_writes_enabled',
+      'schema_contract_previous_release_dependency',
+      'schema_contract_release_window_open',
+      'schema_contract_rollback_manifest_open',
+      'schema_contract_slot_switch_in_progress'
+    ])
     || !Array.isArray(runtimeObservation?.unsupportedCombinations)
     || runtimeObservation.unsupportedCombinations.some((entry) => entry.errorCode === 'unexpectedly-accepted'))
   {

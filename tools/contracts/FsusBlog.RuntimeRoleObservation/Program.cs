@@ -2,6 +2,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
+using System.Globalization;
 
 using FsusBlog.Migration;
 using FsusBlog.RuntimeRoleObservation;
@@ -103,6 +105,7 @@ internal static class RuntimeRoleObservationHost
             deploymentProbe.AuthoritySchema,
             deploymentProbe.AuthorityContentDigest,
             deploymentProbe.SourceDigests,
+            deploymentProbe.Application,
             deploymentProbe.VolumeTopology,
             deploymentProbe.ObservationDigest);
         var unsigned = new
@@ -224,7 +227,233 @@ internal static class RuntimeRoleObservationHost
         {
             throw new InvalidOperationException("runtime_role_deployment_policy_authority_mismatch");
         }
+        ValidateDeploymentBinding(probe, policyRoot, repositoryRoot, expectedSources);
         return probe;
+    }
+
+    private static void ValidateDeploymentBinding(
+        RuntimeRoleDeploymentProbe probe,
+        JsonElement policy,
+        string repositoryRoot,
+        IReadOnlyDictionary<string, string> expectedSources)
+    {
+        JsonElement main = policy.GetProperty("mainApplication");
+        JsonElement policyOwnership = policy.GetProperty("runtimeRoleOwnership");
+        if (probe.Ownership.Process != policyOwnership.GetProperty("process").GetString()
+            || probe.Ownership.Container != policyOwnership.GetProperty("container").GetString()
+            || probe.Ownership.Service != policyOwnership.GetProperty("service").GetString()
+            || probe.Ownership.CoResidency != policyOwnership.GetProperty("coResidency").GetString()
+            || probe.Ownership.Separation != policyOwnership.GetProperty("separation").GetString()
+            || probe.Ownership.AuthorityState != policyOwnership.GetProperty("authorityState").GetString())
+        {
+            throw new InvalidOperationException("runtime_role_deployment_ownership_policy_mismatch");
+        }
+
+        string[] applicationFields = probe.Application.EnumerateObject()
+            .Select(static property => property.Name).Order(StringComparer.Ordinal).ToArray();
+        string[] expectedApplicationFields =
+        [
+            "applicationServiceCount",
+            "composeCommandOverride",
+            "composeEntrypointOverride",
+            "composeService",
+            "dockerTarget",
+            "effectivePid1",
+            "image",
+            "pid1Source",
+            "processEntrypoint",
+            "project",
+            "serviceRoster"
+        ];
+        if (!applicationFields.SequenceEqual(expectedApplicationFields, StringComparer.Ordinal))
+        {
+            throw new InvalidOperationException("runtime_role_deployment_application_fields_invalid");
+        }
+
+        JsonElement application = probe.Application;
+        string expectedService = main.GetProperty("composeService").GetString() ?? string.Empty;
+        string expectedImage = main.GetProperty("productionImage").GetString() ?? string.Empty;
+        string[] expectedEntrypoint = main.GetProperty("productionEntrypoint").EnumerateArray()
+            .Select(static value => value.GetString() ?? string.Empty).ToArray();
+        string composePath = Path.Combine(repositoryRoot, expectedSources["productionCompose"]);
+        string dockerfilePath = Path.Combine(repositoryRoot, expectedSources["dockerfile"]);
+        string composeSource = File.ReadAllText(composePath);
+        string dockerfileSource = File.ReadAllText(dockerfilePath);
+        string[] actualServices = ReadComposeServices(composeSource);
+        string[] policyServices = policy.GetProperty("composeServices")
+            .GetProperty(expectedSources["productionCompose"]).EnumerateObject()
+            .Select(static property => property.Name).Order(StringComparer.Ordinal).ToArray();
+        if (!actualServices.SequenceEqual(policyServices, StringComparer.Ordinal)
+            || application.GetProperty("serviceRoster").EnumerateArray()
+                .Select(static value => value.GetString() ?? string.Empty)
+                .Order(StringComparer.Ordinal)
+                .SequenceEqual(actualServices, StringComparer.Ordinal) is false)
+        {
+            throw new InvalidOperationException("runtime_role_deployment_service_roster_mismatch");
+        }
+
+        string[] dockerEntrypoint = ReadDockerFinalEntrypoint(
+            dockerfileSource,
+            main.GetProperty("productionTarget").GetString() ?? string.Empty);
+        if (dockerEntrypoint.Length == 0
+            || !dockerEntrypoint.SequenceEqual(expectedEntrypoint, StringComparer.Ordinal)
+            || !application.GetProperty("processEntrypoint").EnumerateArray()
+                .Select(static value => value.GetString() ?? string.Empty)
+                .SequenceEqual(dockerEntrypoint, StringComparer.Ordinal)
+            || !application.GetProperty("effectivePid1").EnumerateArray()
+                .Select(static value => value.GetString() ?? string.Empty)
+                .SequenceEqual(dockerEntrypoint, StringComparer.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"runtime_role_deployment_pid1_mismatch:docker={string.Join('|', dockerEntrypoint)};policy={string.Join('|', expectedEntrypoint)}");
+        }
+
+        string serviceBody = ReadComposeServiceBody(composeSource, expectedService);
+        if (!Regex.IsMatch(serviceBody, $"(?m)^        image: {Regex.Escape(expectedImage)}$")
+            || Regex.IsMatch(serviceBody, "(?m)^        (?:entrypoint|command):")
+            || application.GetProperty("composeEntrypointOverride").GetString() != "absent"
+            || application.GetProperty("composeCommandOverride").GetString() != "absent"
+            || application.GetProperty("image").GetString() != expectedImage
+            || application.GetProperty("composeService").GetString() != expectedService
+            || application.GetProperty("project").GetString() != main.GetProperty("project").GetString()
+            || application.GetProperty("dockerTarget").GetString() != main.GetProperty("productionTarget").GetString()
+            || application.GetProperty("applicationServiceCount").GetInt32() != 1
+            || application.GetProperty("pid1Source").GetString() != "docker-final-entrypoint-no-compose-override")
+        {
+            throw new InvalidOperationException("runtime_role_deployment_application_source_mismatch");
+        }
+
+        if (!string.Equals(
+                CanonicalElement(probe.VolumeTopology),
+                CanonicalElement(policy.GetProperty("blueGreenMounts")),
+                StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("runtime_role_deployment_volume_topology_mismatch");
+        }
+    }
+
+    private static string[] ReadComposeServices(string source)
+    {
+        var services = new List<string>();
+        bool inServices = false;
+        foreach (string raw in source.Replace("\r", string.Empty, StringComparison.Ordinal).Split('\n'))
+        {
+            if (!inServices)
+            {
+                inServices = raw == "services:";
+                continue;
+            }
+            if (raw.Length > 0 && !char.IsWhiteSpace(raw[0]) && !raw.TrimStart().StartsWith('#'))
+            {
+                break;
+            }
+            if (raw.StartsWith("    ", StringComparison.Ordinal)
+                && !raw.StartsWith("        ", StringComparison.Ordinal)
+                && raw.TrimEnd().EndsWith(':'))
+            {
+                services.Add(raw.Trim()[..^1]);
+            }
+        }
+        return services.Order(StringComparer.Ordinal).ToArray();
+    }
+
+    private static string ReadComposeServiceBody(string source, string service)
+    {
+        string marker = $"    {service}:";
+        var builder = new StringBuilder();
+        bool inService = false;
+        foreach (string raw in source.Replace("\r", string.Empty, StringComparison.Ordinal).Split('\n'))
+        {
+            if (!inService)
+            {
+                inService = raw == marker;
+                continue;
+            }
+            if (raw.StartsWith("    ", StringComparison.Ordinal)
+                && !raw.StartsWith("        ", StringComparison.Ordinal)
+                && raw.TrimEnd().EndsWith(':'))
+            {
+                break;
+            }
+            if (raw.Length > 0 && !char.IsWhiteSpace(raw[0]))
+            {
+                break;
+            }
+            builder.AppendLine(raw);
+        }
+        return builder.ToString();
+    }
+
+    private static string[] ReadDockerFinalEntrypoint(string source, string target)
+    {
+        string? entrypoint = null;
+        bool inTarget = false;
+        int commandCount = 0;
+        foreach (string line in ReadDockerLogicalLines(source))
+        {
+            Match from = Regex.Match(line, "^FROM\\s+\\S+(?:\\s+AS\\s+(?<target>[A-Za-z0-9_.-]+))?$", RegexOptions.IgnoreCase);
+            if (from.Success)
+            {
+                inTarget = string.Equals(from.Groups["target"].Value, target, StringComparison.OrdinalIgnoreCase);
+                continue;
+            }
+            if (!inTarget)
+            {
+                continue;
+            }
+            if (line.StartsWith("ENTRYPOINT ", StringComparison.OrdinalIgnoreCase))
+            {
+                if (entrypoint is not null)
+                {
+                    return [];
+                }
+                entrypoint = line["ENTRYPOINT ".Length..];
+            }
+            else if (line.StartsWith("CMD ", StringComparison.OrdinalIgnoreCase))
+            {
+                commandCount++;
+            }
+        }
+        if (entrypoint is null || commandCount != 0)
+        {
+            return [];
+        }
+        using JsonDocument document = JsonDocument.Parse(entrypoint);
+        return document.RootElement.EnumerateArray().Select(static value => value.GetString() ?? string.Empty).ToArray();
+    }
+
+    private static IReadOnlyList<string> ReadDockerLogicalLines(string source)
+    {
+        var lines = new List<string>();
+        string current = string.Empty;
+        foreach (string raw in source.Replace("\r", string.Empty, StringComparison.Ordinal).Split('\n'))
+        {
+            string trimmed = raw.Trim();
+            if (trimmed.Length == 0 || trimmed.StartsWith('#'))
+            {
+                continue;
+            }
+            current = current.Length == 0 ? trimmed : $"{current} {trimmed}";
+            if (current.EndsWith('\\'))
+            {
+                current = current[..^1].TrimEnd();
+                continue;
+            }
+            lines.Add(current);
+            current = string.Empty;
+        }
+        if (current.Length > 0)
+        {
+            lines.Add(current);
+        }
+        return lines;
+    }
+
+    private static string CanonicalElement(JsonElement element)
+    {
+        var builder = new StringBuilder();
+        AppendCanonical(builder, element);
+        return builder.ToString();
     }
 
     private static bool IsSha256Digest(string? value, bool prefixed)
@@ -244,82 +473,84 @@ internal static class RuntimeRoleObservationHost
 
     private static SchemaOverlapObservation ObserveSchemaOverlap()
     {
-        const string MigrationId = "20260716-pre-runtime-observation-expand";
-        var descriptor = new SchemaMigrationDescriptor(
-            MigrationId,
-            "Observe additive Expand compatibility across blue and green runtimes.",
-            SchemaMigrationPhase.PreCodeFirst,
-            Transactional: true,
-            Steps: []);
-        SchemaCompatibilityCoordinate minimum = SchemaCompatibilityCoordinate.ParsePersisted(
-            "20260701000000-000000000000");
-        SchemaCompatibilityCoordinate maximum = SchemaCompatibilityCoordinate.ParsePersisted(
-            "20260731000000-ffffffffffff");
-        var metadata = new OnlineSchemaMigrationMetadata(
-            MigrationId,
-            OnlineSchemaMigrationPhase.Expand,
-            new OnlineSchemaCompatibilityWindow(minimum, maximum),
-            RequiresExclusiveMode: false,
-            Destructive: false,
-            OnlineSchemaMigrationRollbackMode.CompatibleCode,
-            OnlineSchemaMigrationLockRisk.Low,
-            BatchSize: null,
-            ResumeTokenName: null,
-            IntroducedAtCoordinate: minimum,
-            ContractAfterCoordinate: null,
-            MinimumRetentionWindow: TimeSpan.Zero,
-            Validators: ["n_minus_one_read_write"]);
-        var metadataById = new Dictionary<string, OnlineSchemaMigrationMetadata>(StringComparer.Ordinal)
+        IReadOnlyList<ISchemaMigrationDescriptor> descriptors = new SchemaMigrationRegistry().GetDescriptors();
+        IReadOnlyDictionary<string, OnlineSchemaMigrationMetadata> metadataById =
+            new OnlineSchemaMigrationCatalog().GetMetadata();
+        string[] descriptorIds = descriptors.Select(static descriptor => descriptor.MigrationId)
+            .Order(StringComparer.Ordinal).ToArray();
+        string[] metadataIds = metadataById.Keys.Order(StringComparer.Ordinal).ToArray();
+        if (!descriptorIds.SequenceEqual(metadataIds, StringComparer.Ordinal))
         {
-            [MigrationId] = metadata
-        };
-        var history = new OnlineSchemaMigrationHistorySnapshot(
-            MigrationId,
-            descriptor.Checksum,
-            new DateTimeOffset(2026, 7, 16, 0, 0, 0, TimeSpan.Zero),
-            "20260716000000-aaaaaaaaaaaa",
-            Succeeded: true);
+            throw new InvalidOperationException("runtime_role_schema_manifest_catalog_roster_mismatch");
+        }
+
+        OnlineSchemaMigrationMetadata expandMetadata = metadataById.Values
+            .Where(static metadata => metadata.Phase == OnlineSchemaMigrationPhase.Expand)
+            .OrderByDescending(static metadata => metadata.IntroducedAtCoordinate)
+            .First();
+        SchemaCompatibilityCoordinate coordinate = expandMetadata.IntroducedAtCoordinate;
+        ReleaseId releaseId = CreateCatalogReleaseId(
+            coordinate,
+            descriptors.Single(descriptor => descriptor.MigrationId == expandMetadata.MigrationId).Checksum);
+        DateTimeOffset observedAt = DateTimeOffset.ParseExact(
+            releaseId.Value[..14],
+            "yyyyMMddHHmmss",
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
+        var descriptorById = descriptors.ToDictionary(
+            static descriptor => descriptor.MigrationId,
+            StringComparer.Ordinal);
+        OnlineSchemaMigrationHistorySnapshot[] history = metadataById.Values
+            .OrderBy(static metadata => metadata.MigrationId, StringComparer.Ordinal)
+            .Select(metadata => new OnlineSchemaMigrationHistorySnapshot(
+                metadata.MigrationId,
+                descriptorById[metadata.MigrationId].Checksum,
+                observedAt,
+                releaseId.Value,
+                Succeeded: true))
+            .ToArray();
         var database = new OnlineSchemaDatabaseSnapshot(
             HistoryAvailable: true,
-            SchemaCompatibilityCoordinate.ParsePersisted("20260716000000-aaaaaaaaaaaa"),
-            [history],
+            coordinate,
+            history,
             new Dictionary<string, OnlineSchemaBackfillSnapshot>(StringComparer.Ordinal));
-        var window = new OnlineSchemaCompatibilityWindow(minimum, maximum);
-        var source = new OnlineSchemaReleaseManifest(
-            ReleaseId.Parse("20260720000000-bbbbbbbbbbbb"),
-            ReleaseId.Parse("20260719000000-aaaaaaaaaaaa"),
-            window);
-        var target = new OnlineSchemaReleaseManifest(
-            ReleaseId.Parse("20260721000000-cccccccccccc"),
-            source.ReleaseId,
-            window);
+        var window = new OnlineSchemaCompatibilityWindow(coordinate, coordinate);
+        var source = new OnlineSchemaReleaseManifest(releaseId, releaseId, window);
+        var target = new OnlineSchemaReleaseManifest(releaseId, releaseId, window);
         OnlineSchemaCompatibilityReport sourceReport = OnlineSchemaCompatibilityEvaluator.Evaluate(
             source, database, metadataById);
         OnlineSchemaCompatibilityReport targetReport = OnlineSchemaCompatibilityEvaluator.Evaluate(
             target, database, metadataById);
         var missingExpandDatabase = database with
         {
-            History = []
+            History = history.Where(entry => entry.MigrationId != expandMetadata.MigrationId).ToArray()
         };
         OnlineSchemaCompatibilityReport missingExpand = OnlineSchemaCompatibilityEvaluator.Evaluate(
             target, missingExpandDatabase, metadataById);
 
-        OnlineSchemaMigrationMetadata contractMetadata = metadata with
-        {
-            Phase = OnlineSchemaMigrationPhase.Contract,
-            Destructive = true,
-            RequiresExclusiveMode = true,
-            RollbackMode = OnlineSchemaMigrationRollbackMode.BackupRestore,
-            ContractAfterCoordinate = SchemaCompatibilityCoordinate.ParsePersisted("20260718000000-aaaaaaaaaaaa"),
-            MinimumRetentionWindow = TimeSpan.FromDays(7)
-        };
+        OnlineSchemaMigrationMetadata contractMetadata = metadataById.Values
+            .Where(static metadata => metadata.Phase == OnlineSchemaMigrationPhase.Contract
+                && metadata.Destructive
+                && metadata.RequiresExclusiveMode
+                && metadata.ContractAfterCoordinate is not null)
+            .OrderBy(static metadata => metadata.MigrationId, StringComparer.Ordinal)
+            .First();
+        ReleaseId contractFenceRelease = CreateCatalogReleaseId(
+            contractMetadata.ContractAfterCoordinate!.Value,
+            descriptorById[contractMetadata.MigrationId].Checksum,
+            dayOffset: -1);
+        DateTimeOffset contractNow = DateTimeOffset.ParseExact(
+            contractFenceRelease.Value[..14],
+            "yyyyMMddHHmmss",
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal).AddHours(1);
         var unsafeContract = new OnlineSchemaContractEvidence(
-            CurrentReleaseUsesOldSchema: false,
+            CurrentReleaseUsesOldSchema: true,
             PreviousRollbackReleaseUsesOldSchema: true,
-            BackfillComplete: true,
-            BackfillVerified: true,
-            ObservationStartedAtUtc: new DateTimeOffset(2026, 7, 1, 0, 0, 0, TimeSpan.Zero),
-            BackupRestoreVerifiedAtUtc: new DateTimeOffset(2026, 7, 21, 0, 0, 0, TimeSpan.Zero),
+            BackfillComplete: false,
+            BackfillVerified: false,
+            ObservationStartedAtUtc: null,
+            BackupRestoreVerifiedAtUtc: null,
             SlotSwitchInProgress: true,
             DestructiveChangeConfirmed: false,
             RollbackManifestSealed: false,
@@ -328,28 +559,85 @@ internal static class RuntimeRoleObservationHost
         IReadOnlyList<string> contractCodes = OnlineSchemaContractGate.Evaluate(
                 contractMetadata,
                 unsafeContract,
-                target.ReleaseId,
-                source.ReleaseId,
-                new DateTimeOffset(2026, 7, 21, 1, 0, 0, TimeSpan.Zero),
+                contractFenceRelease,
+                contractFenceRelease,
+                contractNow,
                 TimeSpan.FromHours(24))
             .Select(static issue => issue.Code)
             .Order(StringComparer.Ordinal)
             .ToArray();
         string[] missingCodes = missingExpand.Issues.Select(static issue => issue.Code)
             .Order(StringComparer.Ordinal).ToArray();
+        string[] expectedMissingCodes = ["schema_expand_pending"];
+        string[] expectedContractCodes =
+        [
+            "schema_contract_backfill_incomplete",
+            "schema_contract_backfill_unverified",
+            "schema_contract_backup_restore_stale",
+            "schema_contract_confirmation_missing",
+            "schema_contract_current_release_dependency",
+            "schema_contract_exclusive_mode_missing",
+            "schema_contract_observation_window",
+            "schema_contract_old_writes_enabled",
+            "schema_contract_previous_release_dependency",
+            "schema_contract_release_window_open",
+            "schema_contract_rollback_manifest_open",
+            "schema_contract_slot_switch_in_progress"
+        ];
         bool eligible = sourceReport.Ready
             && targetReport.Ready
-            && missingCodes.Contains("schema_expand_pending", StringComparer.Ordinal)
-            && contractCodes.Contains("schema_contract_slot_switch_in_progress", StringComparer.Ordinal)
-            && contractCodes.Contains("schema_contract_previous_release_dependency", StringComparer.Ordinal);
+            && missingCodes.SequenceEqual(expectedMissingCodes, StringComparer.Ordinal)
+            && contractCodes.SequenceEqual(expectedContractCodes, StringComparer.Ordinal);
+        string manifestDigest = DigestJson(descriptors.OrderBy(static descriptor => descriptor.MigrationId)
+            .Select(static descriptor => new
+            {
+                descriptor.MigrationId,
+                descriptor.Checksum,
+                Phase = descriptor.Phase.ToString(),
+                descriptor.Transactional
+            }));
+        string catalogDigest = DigestJson(metadataById.OrderBy(static pair => pair.Key)
+            .Select(static pair => new
+            {
+                pair.Key,
+                Phase = pair.Value.Phase.ToString(),
+                Minimum = pair.Value.Compatibility.MinimumCoordinate.Value,
+                Maximum = pair.Value.Compatibility.MaximumCoordinate.Value,
+                pair.Value.Destructive,
+                pair.Value.RequiresExclusiveMode
+            }));
         return new SchemaOverlapObservation(
             "fsusblog.online-schema-overlap-observation.v1",
+            "current-manifest-catalog-database-model",
+            descriptors.Count,
+            metadataById.Count,
+            manifestDigest,
+            catalogDigest,
             sourceReport.Status,
             targetReport.Status,
             missingCodes,
             contractCodes,
-            eligible ? "observed-in-online-schema-runtime-probe" : "conflict-unknown",
+            eligible ? "observed-in-current-schema-manifest-probe" : "conflict-unknown",
             eligible);
+    }
+
+    private static string DigestJson<T>(T value)
+    {
+        string json = JsonSerializer.Serialize(value, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+        return "sha256:" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json))).ToLowerInvariant();
+    }
+
+    private static ReleaseId CreateCatalogReleaseId(
+        SchemaCompatibilityCoordinate coordinate,
+        string checksum,
+        int dayOffset = 0)
+    {
+        string date = coordinate.Value[..8];
+        DateOnly releaseDate = DateOnly.ParseExact(date, "yyyyMMdd", CultureInfo.InvariantCulture).AddDays(dayOffset);
+        return ReleaseId.Parse($"{releaseDate:yyyyMMdd}000000-{checksum[..12].ToLowerInvariant()}");
     }
 
     private static string CanonicalObjectWithout(JsonElement value, string omittedProperty)

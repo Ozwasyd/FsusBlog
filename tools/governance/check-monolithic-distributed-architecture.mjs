@@ -117,12 +117,14 @@ function validatePolicy(policy)
     }
     exactKeys(policy?.mainApplication, [
         'composeService', 'dockerfile', 'frontendIntegrationTokens', 'productionEntrypoint',
-        'productionTarget', 'project'
+        'productionImage', 'productionTarget', 'project'
     ], 'mainApplication', errors);
     if (policy?.mainApplication?.productionTarget !== 'final'
-        || JSON.stringify(policy?.mainApplication?.productionEntrypoint) !== JSON.stringify(['./FsusBlog.Server']))
+        || JSON.stringify(policy?.mainApplication?.productionEntrypoint) !== JSON.stringify(['./FsusBlog.Server'])
+        || policy?.mainApplication?.productionImage
+            !== '${FSUSBLOG_IMAGE_REF:?Set immutable repository@sha256 digest from release-manifest.json}')
     {
-        errors.push('mainApplication production process must be final -> ./FsusBlog.Server');
+        errors.push('mainApplication production process/image must be the final immutable FsusBlog.Server artifact');
     }
     for (const field of ['project', 'dockerfile', 'composeService'])
     {
@@ -264,7 +266,7 @@ function parseDockerfileStages(source)
         const from = /^FROM\s+\S+(?:\s+AS\s+(?<name>[A-Za-z0-9_.-]+))?$/iu.exec(line);
         if (from)
         {
-            stage = { entrypoints: [] };
+            stage = { commands: [], entrypoints: [] };
             stages.set(from.groups?.name ?? `unnamed-${stages.size}`, stage);
             continue;
         }
@@ -283,6 +285,23 @@ function parseDockerfileStages(source)
             catch (error)
             {
                 stage.entrypoints.push({ error: error instanceof Error ? error.message : String(error) });
+            }
+        }
+        const command = /^CMD\s+(?<value>.+)$/iu.exec(line);
+        if (command && stage)
+        {
+            try
+            {
+                const value = JSON.parse(command.groups.value);
+                if (!Array.isArray(value) || value.some((item) => typeof item !== 'string' || item.length === 0))
+                {
+                    throw new Error('must be a non-empty JSON string array');
+                }
+                stage.commands.push(value);
+            }
+            catch (error)
+            {
+                stage.commands.push({ error: error instanceof Error ? error.message : String(error) });
             }
         }
     }
@@ -310,60 +329,45 @@ function parseComposeMount(value)
     return { source: text.slice(0, separator), target: text.slice(separator + 1), access };
 }
 
-export function observeRuntimeRoleDeploymentAuthority({ root = defaultRoot, policyFile = defaultPolicy } = {})
+function validateComposeServiceRoster(compose, classified, sourcePath, errors)
 {
-    const errors = [];
-    const repositoryRoot = path.resolve(root);
-    let policy = {};
-    const policyPath = path.isAbsolute(policyFile) ? policyFile : path.join(repositoryRoot, policyFile);
-    try
+    const actualServices = Object.keys(object(compose.services)).sort();
+    const expectedServices = Object.keys(object(classified)).sort();
+    if (JSON.stringify(actualServices) !== JSON.stringify(expectedServices))
     {
-        policy = JSON.parse(fs.readFileSync(policyPath, 'utf8'));
+        errors.push(`Compose services drifted in ${sourcePath}: expected ${expectedServices.join(', ')}, found ${actualServices.join(', ')}`);
     }
-    catch (error)
-    {
-        errors.push(`architecture policy is missing or invalid: ${error instanceof Error ? error.message : String(error)}`);
-    }
-    errors.push(...validatePolicy(policy));
+    return { actualServices, expectedServices };
+}
 
-    const sourcePaths = {
-        policy: normalize(path.relative(repositoryRoot, policyPath)),
-        project: normalize(policy?.mainApplication?.project),
-        dockerfile: normalize(policy?.mainApplication?.dockerfile),
-        productionCompose: 'ops/docker/docker-compose.production.yml'
-    };
-    const sources = {};
-    for (const [id, relative] of Object.entries(sourcePaths))
-    {
-        sources[id] = { path: relative, text: read(repositoryRoot, relative, errors) };
-    }
-
-    const stages = parseDockerfileStages(sources.dockerfile.text);
-    const productionStage = stages.get(policy?.mainApplication?.productionTarget);
-    if (!productionStage || productionStage.entrypoints.length !== 1
-        || JSON.stringify(productionStage.entrypoints[0]) !== JSON.stringify(policy?.mainApplication?.productionEntrypoint))
-    {
-        errors.push('production Docker target must expose exactly the authority-owned application process entrypoint');
-    }
-
-    let compose = {};
-    try
-    {
-        compose = parseYamlDocument(sources.productionCompose.text, { source: sourcePaths.productionCompose });
-    }
-    catch (error)
-    {
-        errors.push(`cannot parse production Compose topology: ${error instanceof Error ? error.message : String(error)}`);
-    }
-    const classified = object(policy?.composeServices?.[sourcePaths.productionCompose]);
-    const applicationServices = Object.entries(classified).filter(([, kind]) => kind === 'application').map(([id]) => id);
+function inspectProductionApplication(policy, compose, dockerfileSource, errors)
+{
+    const sourcePath = 'ops/docker/docker-compose.production.yml';
+    const classified = object(policy?.composeServices?.[sourcePath]);
+    const { actualServices } = validateComposeServiceRoster(compose, classified, sourcePath, errors);
+    const applicationServices = actualServices.filter((id) => classified[id] === 'application');
     const expectedService = policy?.mainApplication?.composeService;
-    if (applicationServices.length !== 1 || applicationServices[0] !== expectedService
-        || Object.keys(object(compose.services)).filter((id) => classified[id] === 'application').length !== 1)
+    if (applicationServices.length !== 1 || applicationServices[0] !== expectedService)
     {
         errors.push('production topology must contain exactly one authority-owned application service');
     }
+
+    const stages = parseDockerfileStages(dockerfileSource);
+    const productionStage = stages.get(policy?.mainApplication?.productionTarget);
+    if (!productionStage || productionStage.entrypoints.length !== 1
+        || productionStage.commands.length !== 0
+        || JSON.stringify(productionStage.entrypoints[0]) !== JSON.stringify(policy?.mainApplication?.productionEntrypoint))
+    {
+        errors.push('production Docker target must expose exactly the authority-owned PID1 with no CMD tail');
+    }
+
     const service = object(compose.services?.[expectedService]);
+    if (service.image !== policy?.mainApplication?.productionImage
+        || Object.hasOwn(service, 'entrypoint')
+        || Object.hasOwn(service, 'command'))
+    {
+        errors.push('production application service must use the authority-owned immutable image and inherit Docker PID1 without Compose overrides');
+    }
     if (service.container_name !== '${FSUSBLOG_CONTAINER_NAME:?Set slot-specific container name (fsus-app-blue or fsus-app-green)}'
         || service.labels?.['io.fsusblog.deployment.project'] !== '${FSUSBLOG_COMPOSE_PROJECT_NAME:?Set slot-specific Compose project}'
         || JSON.stringify(array(service.ports)) !== JSON.stringify([
@@ -411,6 +415,56 @@ export function observeRuntimeRoleDeploymentAuthority({ root = defaultRoot, poli
         }
     }
 
+    return {
+        actualServices,
+        applicationServices,
+        declaredMounts,
+        expectedService,
+        service,
+        productionStage
+    };
+}
+
+export function observeRuntimeRoleDeploymentAuthority({ root = defaultRoot, policyFile = defaultPolicy } = {})
+{
+    const errors = [];
+    const repositoryRoot = path.resolve(root);
+    let policy = {};
+    const policyPath = path.isAbsolute(policyFile) ? policyFile : path.join(repositoryRoot, policyFile);
+    try
+    {
+        policy = JSON.parse(fs.readFileSync(policyPath, 'utf8'));
+    }
+    catch (error)
+    {
+        errors.push(`architecture policy is missing or invalid: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    errors.push(...validatePolicy(policy));
+
+    const sourcePaths = {
+        policy: normalize(path.relative(repositoryRoot, policyPath)),
+        project: normalize(policy?.mainApplication?.project),
+        dockerfile: normalize(policy?.mainApplication?.dockerfile),
+        productionCompose: 'ops/docker/docker-compose.production.yml'
+    };
+    const sources = {};
+    for (const [id, relative] of Object.entries(sourcePaths))
+    {
+        sources[id] = { path: relative, text: read(repositoryRoot, relative, errors) };
+    }
+
+    let compose = {};
+    try
+    {
+        compose = parseYamlDocument(sources.productionCompose.text, { source: sourcePaths.productionCompose });
+    }
+    catch (error)
+    {
+        errors.push(`cannot parse production Compose topology: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    const production = inspectProductionApplication(policy, compose, sources.dockerfile.text, errors);
+    const { actualServices, applicationServices, declaredMounts, expectedService, productionStage, service } = production;
+
     const ownership = object(policy?.runtimeRoleOwnership);
     const unsigned = {
         schema: 'fsusblog.runtime-role-deployment-observation.v1',
@@ -423,9 +477,15 @@ export function observeRuntimeRoleDeploymentAuthority({ root = defaultRoot, poli
         application: {
             project: policy?.mainApplication?.project ?? null,
             dockerTarget: policy?.mainApplication?.productionTarget ?? null,
-            processEntrypoint: policy?.mainApplication?.productionEntrypoint ?? [],
+            processEntrypoint: productionStage?.entrypoints?.[0] ?? [],
             composeService: expectedService ?? null,
-            applicationServiceCount: applicationServices.length
+            image: service.image ?? null,
+            serviceRoster: actualServices,
+            applicationServiceCount: applicationServices.length,
+            composeEntrypointOverride: Object.hasOwn(service, 'entrypoint') ? service.entrypoint : 'absent',
+            composeCommandOverride: Object.hasOwn(service, 'command') ? service.command : 'absent',
+            effectivePid1: productionStage?.entrypoints?.[0] ?? [],
+            pid1Source: 'docker-final-entrypoint-no-compose-override'
         },
         ownership: {
             process: ownership.process ?? null,
@@ -500,11 +560,14 @@ function validateComposeTopology(root, files, policy, errors)
         {
             errors.push(`cannot parse ${file}: ${error instanceof Error ? error.message : String(error)}`);
         }
-        const actualServices = Object.keys(object(document.services)).sort();
-        const expectedServices = Object.keys(object(declared[file])).sort();
-        if (JSON.stringify(actualServices) !== JSON.stringify(expectedServices))
+        validateComposeServiceRoster(document, declared[file], file, errors);
+        if (file === 'ops/docker/docker-compose.production.yml')
         {
-            errors.push(`Compose services drifted in ${file}: expected ${expectedServices.join(', ')}, found ${actualServices.join(', ')}`);
+            inspectProductionApplication(
+                policy,
+                document,
+                read(root, policy.mainApplication.dockerfile, errors),
+                errors);
         }
         for (const [service, kind] of Object.entries(object(declared[file])))
         {

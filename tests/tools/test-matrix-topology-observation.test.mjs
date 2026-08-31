@@ -322,15 +322,17 @@ test('live matrix projects typed topology / release-final / production-fresh fac
   assert.equal(blueGreen.rolloutFailureState, 'recovery_required')
   assert.equal(blueGreen.activeAssetAction, 'retain')
   assert.ok(blueGreen.activeAssetReasons.includes('active'))
-  assert.equal(blueGreen.runtimeProtectionAuthorityState, 'observed-in-slot-state-machine-probe')
-  assert.equal(blueGreen.artifactProtectionAuthorityState, 'observed-in-release-gc-and-destructive-authority-probes')
-  assert.equal(blueGreen.schemaProtectionAuthorityState, 'observed-in-online-schema-and-unsupported-cleanup-probes')
-  assert.equal(blueGreen.volumeProtectionAuthorityState, 'observed-in-deployment-topology-and-unsupported-cleanup-probes')
+  assert.equal(blueGreen.evidenceClass, 'synthetic-library-proof')
+  assert.equal(blueGreen.runtimeProtectionAuthorityState, 'synthetic-library-proof')
+  assert.equal(blueGreen.artifactProtectionAuthorityState, 'synthetic-library-proof')
+  assert.equal(blueGreen.schemaProtectionAuthorityState, 'synthetic-library-proof')
+  assert.equal(blueGreen.volumeProtectionAuthorityState, 'synthetic-library-proof')
   assert.equal(blueGreen.destructiveAuthority.volumeCleanupStatus, 'unsupported')
   assert.equal(blueGreen.destructiveAuthority.schemaCleanupStatus, 'unsupported')
   assert.equal(blueGreen.volumeScopes['slot-private'].length, 3)
-  assert.equal(blueGreen.claimEligible, true)
-  assert.equal(blueGreen.authorityState, 'closed-current')
+  assert.equal(blueGreen.claimEligible, false)
+  assert.deepEqual(blueGreen.claimEligibilityReasons, ['production-current-active-resource-evidence-absent'])
+  assert.equal(blueGreen.authorityState, 'synthetic-library-proof')
   assert.deepEqual(Object.keys(blueGreen.authorityModules).sort(), [
     'destructiveOperations', 'onlineSchema', 'releaseAssetsGc', 'rollout', 'slot', 'topologyAuthority'
   ])
@@ -640,30 +642,75 @@ test('runtime-role deployment source roster, live digests, and policy authority 
   }
 })
 
-test('compiled runtime-role host rejects a resealed deployment observation with an incomplete source roster', () =>
+test('schema overlap failure-code sets reject both missing and extra members', () =>
 {
-  const directory = fixtureRepository()
-  try
+  for (const [label, mutate] of [
+    ['missing', (observation) => { observation.schemaOverlap.concurrentContractFailureCodes.pop() }],
+    ['extra', (observation) => { observation.schemaOverlap.missingExpandFailureCodes.push('schema_unexpected') }]
+  ])
   {
-    const deploymentPath = path.join(directory, runtimeRoleDeploymentObservationRelative)
-    const deployment = JSON.parse(readFileSync(deploymentPath, 'utf8'))
-    delete deployment.sourceDigests.dockerfile
-    const { observationDigest: _observationDigest, ...unsigned } = deployment
-    deployment.observationDigest = `sha256:${createHash('sha256').update(canonical(unsigned)).digest('hex')}`
-    writeFileSync(deploymentPath, `${JSON.stringify(deployment, null, 2)}\n`)
-    const output = path.join(directory, '.tmp/contracts/runtime-role/rejected.json')
-    const run = spawnSync('dotnet', [
-      'run', '--project', path.join(root, runtimeRoleProject), '-c', 'Release', '--no-build', '--',
-      '--deployment-observation', deploymentPath,
-      '--output', output
-    ], { cwd: directory, encoding: 'utf8' })
-    assert.notEqual(run.status, 0)
-    assert.match(`${run.stdout}\n${run.stderr}`, /runtime_role_deployment_source_roster_invalid/iu)
-    assert.equal(existsSync(output), false)
+    const directory = fixtureRepository()
+    try
+    {
+      const result = extractMutatedRuntimeObservation(directory, mutate)
+      assert.equal(result.status, 'failed', label)
+      assert.match(result.failureReasons.join('\n'), /partial, conflicting, or unsupported/iu, label)
+    }
+    finally
+    {
+      rmSync(directory, { recursive: true, force: true })
+    }
   }
-  finally
+})
+
+test('compiled runtime-role host rejects resealed nested deployment contradictions', () =>
+{
+  for (const [label, mutate, pattern] of [
+    [
+      'source roster',
+      (deployment) => { delete deployment.sourceDigests.dockerfile },
+      /runtime_role_deployment_source_roster_invalid/iu
+    ],
+    [
+      'ownership',
+      (deployment) => { deployment.ownership.coResidency = 'runtime-roles-are-separate' },
+      /runtime_role_deployment_ownership_policy_mismatch/iu
+    ],
+    [
+      'application',
+      (deployment) => { deployment.application.effectivePid1 = ['/bin/sh'] },
+      /runtime_role_deployment_pid1_mismatch/iu
+    ],
+    [
+      'volume topology',
+      (deployment) => { deployment.volumeTopology['/app/data'].scope = 'shared-between-slots' },
+      /runtime_role_deployment_volume_topology_mismatch/iu
+    ]
+  ])
   {
-    rmSync(directory, { recursive: true, force: true })
+    const directory = fixtureRepository()
+    try
+    {
+      const deploymentPath = path.join(directory, runtimeRoleDeploymentObservationRelative)
+      const deployment = JSON.parse(readFileSync(deploymentPath, 'utf8'))
+      mutate(deployment)
+      const { observationDigest: _observationDigest, ...unsigned } = deployment
+      deployment.observationDigest = `sha256:${createHash('sha256').update(canonical(unsigned)).digest('hex')}`
+      writeFileSync(deploymentPath, `${JSON.stringify(deployment, null, 2)}\n`)
+      const output = path.join(directory, '.tmp/contracts/runtime-role/rejected.json')
+      const run = spawnSync('dotnet', [
+        'run', '--project', path.join(root, runtimeRoleProject), '-c', 'Release', '--no-build', '--',
+        '--deployment-observation', deploymentPath,
+        '--output', output
+      ], { cwd: directory, encoding: 'utf8' })
+      assert.notEqual(run.status, 0, label)
+      assert.match(`${run.stdout}\n${run.stderr}`, pattern, label)
+      assert.equal(existsSync(output), false, label)
+    }
+    finally
+    {
+      rmSync(directory, { recursive: true, force: true })
+    }
   }
 })
 

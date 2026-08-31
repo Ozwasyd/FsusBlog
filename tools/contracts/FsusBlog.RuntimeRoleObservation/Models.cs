@@ -38,6 +38,7 @@ internal sealed record DeploymentAuthorityObservation(
     string AuthoritySchema,
     string AuthorityContentDigest,
     IReadOnlyDictionary<string, SourceDigestObservation> SourceDigests,
+    JsonElement Application,
     JsonElement VolumeTopology,
     string ObservationDigest);
 
@@ -45,6 +46,11 @@ internal sealed record SourceDigestObservation(string Path, string Digest);
 
 internal sealed record SchemaOverlapObservation(
     string Schema,
+    string EvidenceClass,
+    int ManifestDescriptorCount,
+    int CatalogMetadataCount,
+    string ManifestDigest,
+    string CatalogDigest,
     string SourceReadiness,
     string TargetReadiness,
     IReadOnlyList<string> MissingExpandFailureCodes,
