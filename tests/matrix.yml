@@ -9479,7 +9479,10 @@ tiers:
       evidence:
           [
               tests/backend/Fixtures/backend-test-requirements.json,
+              tests/backend/Fixtures/backend-evidence-path-authority.generated.json,
               src/backend/Services/SearchIndexService.Dictionary.cs,
+              tools/test/backend-evidence-path-authority.mjs,
+              tools/test/generate-backend-evidence-path-authority.mjs,
               tests/backend/Unit/SearchIndexServiceTests.cs,
               tools/test/csharp-source-mask.mjs,
               tools/test/search-index-utf8-scalar-governance.mjs,
@@ -9487,6 +9490,7 @@ tiers:
               tests/backend/Unit/CoverageScriptContractTests.cs,
               tests/backend/Unit/TestInfrastructure/BackendTestPathsTests.cs,
               tests/tools/backend-trx-contract.test.mjs,
+              tests/tools/backend-production-evidence.test.mjs,
               tests/test-retention-replacements.json,
           ]
       ciJob: fast-static-governance

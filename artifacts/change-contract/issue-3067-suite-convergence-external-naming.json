@@ -4,9 +4,10 @@
         {
             "id": "json-wire-key",
             "paths": [
-                "config/testing/correctness-attempt-producers.json"
+                "config/testing/correctness-attempt-producers.json",
+                "tests/backend/Fixtures/backend-evidence-path-authority.generated.json"
             ],
-            "reason": "preserve the generated producer inventory field names consumed by repository test-governance tooling"
+            "reason": "preserve generated governance field names consumed by repository test tooling"
         }
     ]
 }
