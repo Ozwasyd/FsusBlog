@@ -195,7 +195,7 @@ generatedSectionId: testing.coverage-entry-count
 render: scalar
 -->
 <!-- FSUSBLOG-GENERATED:BEGIN testing.coverage-entry-count -->
-264
+265
 <!-- FSUSBLOG-GENERATED:END testing.coverage-entry-count -->
 
 `config/testing/content-shape-catalog.json` 是 Unicode、script、正负 eligibility
@@ -1849,6 +1849,7 @@ render: enum-set
 - `resilience`
 - `rights-v3-test-matrix`
 - `risk-control-test-matrix`
+- `runtime-order-equivalence`
 - `security`
 - `security-authenticated-dast`
 - `soak-long-evidence-import`
