@@ -6,7 +6,7 @@ import test from 'node:test'
 
 import { createProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs'
 import { digestValue, stable } from '../../tools/fact-extractors/lib/canonicalize.mjs'
-import { seal } from '../../tools/fact-extractors/post-runtime/adapter.mjs'
+import { currentRegistryBinding, seal } from '../../tools/fact-extractors/post-runtime/adapter.mjs'
 import { createReleaseManifest } from '../../tools/release/release-manifest.mjs'
 import {
   projectReleaseReadinessRaw,
@@ -96,6 +96,7 @@ function fixture(context)
   const plan = seal({
     schema: 'fsusblog.post-runtime-candidate-plan.v1',
     producerId: producer.producerId,
+    registryBinding: currentRegistryBinding(root),
     sourceState: { commit, worktreeFingerprint: fingerprint },
     build: {
       schema: build.schema,

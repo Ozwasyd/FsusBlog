@@ -880,8 +880,11 @@ tiers:
               tools/test/bundles/post-runtime-observation-producers.sh,
               tools/test/lanes/post-runtime-observation-producers.sh,
               tests/tools/aot-spa-hydration-raw.test.mjs,
+              tests/tools/application-runtime-observation.test.mjs,
               tests/tools/blue-green-containment-raw.test.mjs,
               tests/tools/browser-contract-observation-raw.test.mjs,
+              tests/tools/post-runtime-producer-registry.test.mjs,
+              tests/tools/release-deployment-observation.test.mjs,
               tests/tools/release-readiness-raw.test.mjs,
               tests/tools/post-runtime-observation-producers.test.mjs,
           ]

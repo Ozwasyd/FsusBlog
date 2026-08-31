@@ -4,7 +4,11 @@ import path from 'node:path'
 import test from 'node:test'
 
 import { createProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs'
-import { produceClassReceipt, seal } from '../../tools/fact-extractors/post-runtime/adapter.mjs'
+import {
+  currentRegistryBinding,
+  produceClassReceipt,
+  seal
+} from '../../tools/fact-extractors/post-runtime/adapter.mjs'
 import {
   produceAotSpaHydrationSourceBundle,
   projectAotSpaHydrationRaw,
@@ -71,6 +75,7 @@ function fixture(context)
     }))
   const plan = seal({
     schema: 'fsusblog.post-runtime-candidate-plan.v1', producerId: producer.producerId,
+    registryBinding: currentRegistryBinding(root),
     sourceState: { commit, worktreeFingerprint: fingerprint },
     build: { receipt: buildPath, receiptContentDigest: build.contentDigest, sourceState: build.sourceState },
     candidate: {

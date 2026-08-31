@@ -7,6 +7,7 @@ import test from 'node:test'
 import { digestValue } from '../../tools/fact-extractors/lib/canonicalize.mjs'
 import {
   candidatePlanSchema,
+  currentRegistryBinding,
   seal
 } from '../../tools/fact-extractors/post-runtime/adapter.mjs'
 import {
@@ -153,6 +154,7 @@ function fixture(context)
   const plan = seal({
     schema: candidatePlanSchema,
     producerId: producer.producerId,
+    registryBinding: currentRegistryBinding(root),
     sourceState: { commit, worktreeFingerprint: fingerprint },
     build: {
       receipt: buildPath,

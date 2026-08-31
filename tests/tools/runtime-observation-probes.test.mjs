@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
 
-import { seal } from '../../tools/fact-extractors/post-runtime/adapter.mjs'
+import { currentRegistryBinding, seal } from '../../tools/fact-extractors/post-runtime/adapter.mjs'
 import { projectProbeRaw } from '../../tools/test-evidence/runtime-observation-raw.mjs'
 import { verifyFacts, verifyReceipt } from '../../tools/test-evidence/runtime-observation-probes.mjs'
 import {
@@ -110,6 +110,7 @@ function candidatePlan(value)
   const plan = seal({
     schema: 'fsusblog.post-runtime-candidate-plan.v1',
     producerId: producer.producerId,
+    registryBinding: currentRegistryBinding(root),
     sourceState: { commit, worktreeFingerprint: `sha256:${fingerprint}` },
     build: {
       receipt: value.relative(value.buildPath),
@@ -150,6 +151,15 @@ test('probe verifier rejects source identity mismatch even when resealed', (cont
   const tampered = seal({ ...value.receipt, contentDigest: undefined,
     sourceState: { ...value.receipt.sourceState, sourceCommit: 'c'.repeat(40) } })
   assert.throws(() => verifyReceipt(tampered), /build dependency identity mismatch/u)
+})
+
+test('probe verifier rejects a symlinked current-run dependency', (context) =>
+{
+  const value = fixture(context)
+  const target = path.join(value.directory, 'fixture-target.json')
+  fs.renameSync(value.fixturePath, target)
+  fs.symlinkSync(target, value.fixturePath)
+  assert.throws(() => verifyReceipt(value.receipt), /regular non-symlink current-run file/u)
 })
 
 test('raw projector binds a verified probe to the exact candidate and toolchain', (context) =>

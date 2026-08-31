@@ -6,7 +6,11 @@ import path from 'node:path'
 import test from 'node:test'
 
 import { browserContractScenarios } from '../browser-contract/contract.mjs'
-import { produceClassReceipt, seal } from '../../tools/fact-extractors/post-runtime/adapter.mjs'
+import {
+  currentRegistryBinding,
+  produceClassReceipt,
+  seal
+} from '../../tools/fact-extractors/post-runtime/adapter.mjs'
 import {
   projectBrowserContractRaw,
   verifyBrowserContractRaw
@@ -226,6 +230,7 @@ function fixture(context)
   const plan = seal({
     schema: 'fsusblog.post-runtime-candidate-plan.v1',
     producerId: producer.producerId,
+    registryBinding: currentRegistryBinding(root),
     sourceState: { commit, worktreeFingerprint: `sha256:${fingerprint}` },
     build: {
       receipt: relative(buildFile),

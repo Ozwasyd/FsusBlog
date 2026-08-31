@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { lstatSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
 import { loadCatalog } from '../../contracts/behavior-contract-catalog.mjs'
@@ -55,7 +55,11 @@ export function explicitJson(input, label, repositoryRoot = defaultRoot)
   {
     fail(`${label} must be a current-run JSON path inside the repository`)
   }
-  if (!existsSync(absolute) || !statSync(absolute).isFile()) fail(`${label} is missing`)
+  const stat = lstatSync(absolute, { throwIfNoEntry: false })
+  if (!stat?.isFile() || stat.isSymbolicLink() || realpathSync(absolute) !== absolute)
+  {
+    fail(`${label} must be a regular non-symlink current-run file`)
+  }
   return {
     value: JSON.parse(readFileSync(absolute, 'utf8')),
     relative: path.relative(root, absolute).replaceAll(path.sep, '/')
@@ -70,7 +74,21 @@ export function writeReceipt(output, receipt, repositoryRoot = defaultRoot)
   {
     fail('output must be a current-run JSON path inside the repository')
   }
+  for (let cursor = absolute; cursor !== root; cursor = path.dirname(cursor))
+  {
+    const stat = lstatSync(cursor, { throwIfNoEntry: false })
+    if (stat?.isSymbolicLink()) fail('output path must not contain symlinks')
+  }
   mkdirSync(path.dirname(absolute), { recursive: true })
+  for (let cursor = path.dirname(absolute); cursor !== root; cursor = path.dirname(cursor))
+  {
+    if (lstatSync(cursor).isSymbolicLink()) fail('output path must not contain symlinks')
+  }
+  const existing = lstatSync(absolute, { throwIfNoEntry: false })
+  if (existing && (!existing.isFile() || existing.isSymbolicLink()))
+  {
+    fail('output must be a regular non-symlink current-run file')
+  }
   writeFileSync(absolute, `${JSON.stringify(receipt, null, 2)}\n`)
   return path.relative(root, absolute).replaceAll(path.sep, '/')
 }
@@ -82,6 +100,19 @@ function authority(repositoryRoot = defaultRoot)
   validatePostRuntimeProducerRegistry(registry, { catalog })
   if (registry.producers.length !== 1) fail('post-runtime registry must resolve exact-one producer')
   return { registry, producer: registry.producers[0] }
+}
+
+export function currentRegistryBinding(repositoryRoot = defaultRoot)
+{
+  const { registry, producer } = authority(repositoryRoot)
+  return stable({
+    schema: registry.schema,
+    contentDigest: `sha256:${digestValue(registry)}`,
+    producerToolVersion: producer.toolVersion,
+    observationEnvelopeSchema: registry.receiptSemantics.observationEnvelopeSchema,
+    acceptedClaimsSchema: registry.receiptSemantics.acceptedClaimsSchema,
+    acceptedClaimsToolVersion: registry.receiptSemantics.acceptedClaimsToolVersion
+  })
 }
 
 function requiredModes(producer, classId)
@@ -216,6 +247,7 @@ export function produceCandidatePlan({ preRuntimeReceipt, acceptedClaimsReceipt,
   return seal({
     schema: candidatePlanSchema,
     producerId: producer.producerId,
+    registryBinding: currentRegistryBinding(repositoryRoot),
     sourceState,
     build,
     candidate: stable(run.candidate),
@@ -232,6 +264,10 @@ export function validateCandidatePlan(plan, { repositoryRoot = defaultRoot } = {
   verifySeal(plan, 'candidate plan')
   const { registry, producer } = authority(repositoryRoot)
   if (plan.producerId !== producer.producerId) fail('candidate plan producer mismatch')
+  if (JSON.stringify(stable(plan.registryBinding)) !== JSON.stringify(currentRegistryBinding(repositoryRoot)))
+  {
+    fail('candidate plan registry/schema/tool identity binding mismatch')
+  }
   const expected = Object.keys(registry.observationClasses).sort()
   const actual = (plan.observations ?? []).map(({ classId }) => classId).sort()
   if (JSON.stringify(actual) !== JSON.stringify(expected)) fail('candidate plan observation closure mismatch')

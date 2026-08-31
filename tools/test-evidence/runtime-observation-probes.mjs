@@ -65,6 +65,11 @@ function explicitJson(relative, label)
   {
     fail(`${label} must be an explicit current-run path`)
   }
+  const stat = fs.lstatSync(absolute, { throwIfNoEntry: false })
+  if (!stat?.isFile() || stat.isSymbolicLink() || fs.realpathSync(absolute) !== absolute)
+  {
+    fail(`${label} must be a regular non-symlink current-run file`)
+  }
   const bytes = fs.readFileSync(absolute)
   return {
     value: JSON.parse(bytes.toString('utf8')),

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -197,4 +198,50 @@ test('class producer rejects existence-only and cross-plan results', (context) =
   fs.writeFileSync(path.join(root, badPath), `${JSON.stringify(seal(raw))}\n`)
   assert.throws(() => produceClassReceipt({ candidatePlan: value.relative('plan.json'), classId: 'route-response-error',
     result: badPath, repositoryRoot: root }), /unsupported or missing fields/u)
+})
+
+test('#2205 accepted-claim CLI produces and independently replays one explicit terminal receipt', (context) =>
+{
+  const value = fixture(context)
+  const cli = path.join(root, 'tools/fact-extractors/post-runtime/current-run.mjs')
+  const output = value.relative('accepted-claims-cli.json')
+  const produced = spawnSync(process.execPath, [
+    cli, 'accepted-claims', '--terminal', value.relative('terminal.json'), '--out', output
+  ], { cwd: root, encoding: 'utf8' })
+  assert.equal(produced.status, 0, produced.stderr)
+  assert.match(produced.stdout, /accepted-claims status=accepted/u)
+
+  const verified = spawnSync(process.execPath, [
+    cli, 'verify-accepted-claims', '--receipt', output
+  ], { cwd: root, encoding: 'utf8' })
+  assert.equal(verified.status, 0, verified.stderr)
+  assert.match(verified.stdout, /verify-accepted-claims status=accepted/u)
+})
+
+test('candidate plans bind the current registry/schema/tool identity', (context) =>
+{
+  const value = fixture(context)
+  const planPath = path.join(root, value.relative('plan.json'))
+  const plan = JSON.parse(fs.readFileSync(planPath, 'utf8'))
+  plan.registryBinding.contentDigest = digest('0')
+  fs.writeFileSync(planPath, `${JSON.stringify(seal(plan))}\n`)
+  assert.throws(() => produceClassReceipt({
+    candidatePlan: value.relative('plan.json'),
+    classId: 'route-response-error',
+    result: value.relative('route-response-error.json'),
+    repositoryRoot: root
+  }), /registry\/schema\/tool identity binding mismatch/u)
+})
+
+test('current-run adapters reject symlinked JSON inputs', (context) =>
+{
+  const value = fixture(context)
+  const link = path.join(root, value.relative('plan-link.json'))
+  fs.symlinkSync(path.join(root, value.relative('plan.json')), link)
+  assert.throws(() => produceClassReceipt({
+    candidatePlan: value.relative('plan-link.json'),
+    classId: 'route-response-error',
+    result: value.relative('route-response-error.json'),
+    repositoryRoot: root
+  }), /regular non-symlink current-run file/u)
 })
