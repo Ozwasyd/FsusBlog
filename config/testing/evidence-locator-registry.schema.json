@@ -45,8 +45,15 @@
                 "requiredDigestFields",
                 "expectedCardinality",
                 "allowedRoots",
+                "publicationMode",
+                "producerSource",
+                "producerCallsite",
+                "producerBindingClass",
+                "producerExecutable",
                 "producerCommand",
-                "outputBindingKey"
+                "outputBindingKey",
+                "handoffBindingKey",
+                "checkpointCommand"
             ],
             "properties": {
                 "consumerId": {
@@ -105,11 +112,73 @@
                     "type": "string",
                     "minLength": 1
                 },
+                "producerExecutable": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "producerSource": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "producerCallsite": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "producerBindingClass": {
+                    "enum": [
+                        "cli",
+                        "library-caller",
+                        "workflow"
+                    ]
+                },
+                "publicationMode": {
+                    "enum": [
+                        "embedded",
+                        "hooked",
+                        "parent"
+                    ]
+                },
                 "outputBindingKey": {
                     "type": "string",
                     "minLength": 1
+                },
+                "handoffBindingKey": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "payloadBindingKey": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "checkpointCommand": {
+                    "type": "string",
+                    "minLength": 1
                 }
-            }
+            },
+            "allOf": [
+                {
+                    "if": {
+                        "properties": {
+                            "publicationMode": {
+                                "const": "hooked"
+                            }
+                        },
+                        "required": [
+                            "publicationMode"
+                        ]
+                    },
+                    "then": {
+                        "required": [
+                            "payloadBindingKey"
+                        ],
+                        "properties": {
+                            "receiptSchema": {
+                                "const": "fsusblog.current-run-evidence-reference.v1"
+                            }
+                        }
+                    }
+                }
+            ]
         }
     }
 }

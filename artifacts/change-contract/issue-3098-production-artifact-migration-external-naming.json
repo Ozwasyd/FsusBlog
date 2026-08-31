@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/production-build-artifacts.sh"
+            ],
+            "reason": "preserve caller-visible production artifact environment keys while adding the explicit Migration build dependency"
+        }
+    ]
+}

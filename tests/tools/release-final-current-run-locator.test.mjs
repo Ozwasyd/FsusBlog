@@ -8,10 +8,12 @@ import test from 'node:test';
 import { locateReleaseFinalDirectEvidence } from '../../tools/release/check-release-final.mjs';
 import { governanceContentDigest } from '../../tools/test/evidence-location-contract.mjs';
 import {
+    beginCurrentRunEvidencePublication,
     createEvidenceParentReceipt,
-    publishCurrentRunEvidenceReference,
+    finalizeCurrentRunEvidencePublication,
     releaseFinalDirectConsumerIds
 } from '../../tools/test/current-run-evidence-publication.mjs';
+import { completeEvidenceLocatorRegistryEntry } from '../../tools/test/evidence-location-contract.mjs';
 
 const d = (value) => `sha256:${value.repeat(64)}`;
 const payloadSchemas = {
@@ -36,19 +38,21 @@ function fixture()
         sourceCommit: 'a'.repeat(40), worktreeFingerprint: d('b'), candidateIdentity: { id: 'candidate', digest: d('c') },
         buildIdentity: { id: 'build', digest: d('d') }, ownedRoots: ['artifacts/current-run'] };
     const context = { ...contextBody, contentDigest: governanceContentDigest(contextBody) };
-    const entries = releaseFinalDirectConsumerIds.map((consumerId, index) => ({ consumerId,
-        authorityId: `${consumerId}.current-run`, producerId: `${consumerId}.producer`,
+    const entries = releaseFinalDirectConsumerIds.map((consumerId, index) => completeEvidenceLocatorRegistryEntry({
+        consumerId, authorityId: `${consumerId}.current-run`, producerId: `${consumerId}.producer`,
         receiptSchema: 'fsusblog.current-run-evidence-reference.v1', locatorMode: 'explicit-run-path',
         requiredIdentityFields: ['attemptId', 'buildIdentity', 'candidateIdentity', 'schedulerRunId', 'sourceCommit', 'worktreeFingerprint'],
         requiredDigestFields: ['contentDigest', 'producerReceiptDigest'], expectedCardinality: 'exact-one',
         allowedRoots: ['artifacts/current-run'], producerCommand: `node producer-${consumerId}.mjs`,
         outputBindingKey: `BINDING_${index}` }));
-    const parentEntry = { consumerId: 'evidence-consumer.release.release-final-domain-evidence',
+    const parentEntry = completeEvidenceLocatorRegistryEntry({
+        consumerId: 'evidence-consumer.release.release-final-domain-evidence',
         authorityId: 'release-final-parent.current-run', producerId: 'release-final-parent-producer',
         receiptSchema: 'fsusblog.current-run-evidence-parent.v1', locatorMode: 'explicit-run-path',
         requiredIdentityFields: ['attemptId', 'buildIdentity', 'candidateIdentity', 'schedulerRunId', 'sourceCommit', 'worktreeFingerprint'],
         requiredDigestFields: ['contentDigest', 'producerReceiptDigest'], expectedCardinality: 'exact-one',
-        allowedRoots: ['artifacts/current-run'], producerCommand: 'node publish-parent.mjs', outputBindingKey: 'PARENT_BINDING' };
+        allowedRoots: ['artifacts/current-run'], producerCommand: 'node publish-parent.mjs',
+        outputBindingKey: 'PARENT_BINDING' });
     entries.push(parentEntry);
     const registryBody = { schema: 'fsusblog.evidence-locator-registry.v1', version: 1, entries };
     const registry = { ...registryBody, contentDigest: governanceContentDigest(registryBody) };
@@ -58,10 +62,15 @@ function fixture()
         const slug = entry.consumerId.split('.').at(-1);
         const payloadPath = `artifacts/current-run/${slug}-payload.json`;
         const referencePath = `artifacts/current-run/${slug}-reference.json`;
-        fs.writeFileSync(path.join(root, payloadPath), JSON.stringify({ schema: payloadSchemas[entry.consumerId], ok: true }));
-        const receipt = publishCurrentRunEvidenceReference({ authorityId: entry.authorityId, context,
-            outputPath: referencePath, payloadPath, payloadSchema: payloadSchemas[entry.consumerId],
-            producerId: entry.producerId, repositoryRoot: root, terminalStatus: 'success' });
+        const session = beginCurrentRunEvidencePublication({ authorityId: entry.authorityId, context,
+            outputPath: referencePath, payloadPath, producerId: entry.producerId, repositoryRoot: root });
+        fs.writeFileSync(path.join(root, payloadPath),
+            JSON.stringify({ schema: payloadSchemas[entry.consumerId], ok: true }));
+        const receipt = finalizeCurrentRunEvidencePublication({
+            authorityId: entry.authorityId, context, outputPath: referencePath, payloadPath,
+            payloadSchema: payloadSchemas[entry.consumerId], producerId: entry.producerId,
+            repositoryRoot: root, sessionId: session.sessionId, terminalStatus: 'success'
+        }).receipt;
         children.push({ ...receipt, path: referencePath, inputDigest: shaFile(path.join(root, referencePath)) });
     }
     const parent = createEvidenceParentReceipt({ context, parentAuthorityId: parentEntry.authorityId,

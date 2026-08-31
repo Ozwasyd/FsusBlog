@@ -50,6 +50,7 @@ FsusBlog uses namespaced labels for new issues and pull requests. Historical Git
 | `status:needs-info` | Missing required evidence or reproduction detail. |
 | `status:accepted` | Maintainer accepted the work as planned. |
 | `status:blocked` | Waiting on external state or a prerequisite. |
+| `dependency-blocked` | A governed dependency PR stayed failed for more than 24 hours. Freshness may take over; the PR is not auto-closed, downgraded, or restored to an older version. |
 | `status:duplicate` | Duplicates an existing issue or PR. |
 | `status:not-planned` | Maintainer decided not to pursue this work. |
 

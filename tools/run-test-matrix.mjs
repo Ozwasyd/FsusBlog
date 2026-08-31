@@ -5242,31 +5242,35 @@ function findFiles(dir, predicate, results = [])
 function loadJobSummaries()
 {
     const summaries = new Map();
-    const roots = [
-        path.join(root, '.tmp/release-evidence/jobs'),
-        path.join(root, '.tmp/downloaded-artifacts')
-    ];
-    for (const searchRoot of roots)
+    const transport = String(process.env.FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST ?? '').trim();
+    const roots = transport
+        ? []
+        : [path.join(root, '.tmp/release-evidence/jobs')];
+    const files = transport
+        ? (JSON.parse(fs.readFileSync(path.resolve(root, transport), 'utf8')).objects ?? [])
+            .filter((object) => object.authorityId === 'evidence-consumer.ci.check-job-summaries.current-run'
+                || object.authorityId === 'evidence-consumer.workflow.quality-gate.current-run')
+            .flatMap((object) => object.archiveEntries ?? [])
+            .map((entry) => path.resolve(root, entry.extractedPath))
+        : roots.flatMap((searchRoot) => findFiles(searchRoot, (candidate) => candidate.endsWith('.json') && candidate.includes(`${path.sep}jobs${path.sep}`)));
+    for (const file of files)
     {
-        for (const file of findFiles(searchRoot, (candidate) => candidate.endsWith('.json') && candidate.includes(`${path.sep}jobs${path.sep}`)))
+        try
         {
-            try
+            const summary = JSON.parse(fs.readFileSync(file, 'utf8'));
+            if (summary.schema !== 'fsusblog.ci.job-result.v1')
             {
-                const summary = JSON.parse(fs.readFileSync(file, 'utf8'));
-                if (summary.schema !== 'fsusblog.ci.job-result.v1')
-                {
-                    continue;
-                }
-                summaries.set(summary.jobId, { summary, file });
-                if (summary.ciJob && !summaries.has(summary.ciJob))
-                {
-                    summaries.set(summary.ciJob, { summary, file });
-                }
+                continue;
             }
-            catch
+            summaries.set(summary.jobId, { summary, file });
+            if (summary.ciJob && !summaries.has(summary.ciJob))
             {
-                // Ignore unrelated JSON artifacts.
+                summaries.set(summary.ciJob, { summary, file });
             }
+        }
+        catch
+        {
+            // Ignore unrelated JSON artifacts.
         }
     }
     return summaries;
@@ -5274,8 +5278,21 @@ function loadJobSummaries()
 
 function aggregatePathExists(rel)
 {
-    const downloadedRoot = path.join(root, '.tmp/downloaded-artifacts');
-    return aggregateArtifactPathExists({ root, downloadedRoot, declaration: rel });
+    const transport = String(process.env.FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST ?? '').trim();
+    if (transport)
+    {
+        const manifest = JSON.parse(fs.readFileSync(path.resolve(root, transport), 'utf8'));
+        const extracted = (manifest.objects ?? []).flatMap((object) => object.archiveEntries ?? [])
+            .map((entry) => String(entry.extractedPath ?? '').replaceAll('\\', '/'));
+        const normalized = String(rel ?? '').replaceAll('\\', '/');
+        return extracted.includes(normalized)
+            || extracted.some((entry) => entry.endsWith(`/${path.posix.basename(normalized)}`));
+    }
+    return aggregateArtifactPathExists({
+        root,
+        downloadedRoot: path.join(root, '.tmp/absent-transport-root'),
+        declaration: rel
+    });
 }
 
 function githubNeedsErrors(rawNeedsJson, dependencyJobs)

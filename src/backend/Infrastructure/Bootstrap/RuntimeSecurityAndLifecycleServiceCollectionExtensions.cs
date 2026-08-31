@@ -144,10 +144,9 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<IAuditCheckpointRecordSource, SqlAuditCheckpointRecordSource>();
 
         services.AddScoped<ICacheInitializer, CacheInitializer>();
-        services.AddSingleton<ISchemaMigrationRegistry, SchemaMigrationRegistry>();
         services.AddSingleton<ISchemaModelInspector, SchemaModelInspector>();
         services.AddSingleton<ISchemaMigrationLock, SchemaMigrationLock>();
-        services.AddScoped<ISchemaMigrationRunner, SchemaMigrationRunner>();
+        services.AddScoped<ISchemaMigrationRunner, CurrentSchemaStartupVerifier>();
         services.AddScoped<IAccountSubjectHashInvariantGate, AccountSubjectHashInvariantGate>();
         if (!OpenApiExportMode.IsEnabled(configuration))
         {

@@ -76,6 +76,16 @@ export const digestDocumentOwnership = (catalog, lifecyclePolicy) =>
 export const loadCatalog = (catalogPath = path.join(root, catalogRelative)) => JSON.parse(readFileSync(catalogPath, 'utf8'));
 export const loadSchema = (schemaPath = path.join(root, schemaRelative)) => JSON.parse(readFileSync(schemaPath, 'utf8'));
 
+export function BehaviorId(value)
+{
+    const catalog = loadCatalog();
+    if (typeof value !== 'string' || !catalog.contracts.some((contract) => contract.id === value))
+    {
+        fail(`unregistered behavior ID ${value}`);
+    }
+    return value;
+}
+
 const readJson = (relative, repositoryRoot) => JSON.parse(readFileSync(path.join(repositoryRoot, relative), 'utf8'));
 const fileExists = (repositoryRoot, relative) => existsSync(path.join(repositoryRoot, relative));
 const isId = (value) => typeof value === 'string' && /^[a-z][a-z0-9-]*$/u.test(value) && !/^(?:issue|pr)-\d+/u.test(value);
@@ -471,6 +481,7 @@ export function validateBehaviorReferences(catalog, repositoryRoot = root)
         'tests/tools/test-matrix-topology-observation.test.mjs',
         'tests/tools/ts-ast-adapter.test.mjs',
         'tools/contracts/behavior-contract-catalog.mjs',
+        'tools/contracts/cross-authority-dag.mjs',
         'tools/contracts/behavior-owner-binding.mjs',
         'tools/contracts/behavior-test.mjs',
         'tools/contracts/behavior-test-binding.mjs',

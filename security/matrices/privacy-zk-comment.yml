@@ -48,7 +48,7 @@ scenarios:
       code:
           - src/backend/Services/Security/AnonymousCommentPolicyService.cs
           - src/backend/Services/Security/CommentActorResolver.cs
-          - src/backend/Infrastructure/SchemaMigration/Definitions/CommentAuthorModeRetirementMigrationDefinitions.cs
+          - src/migration/Definitions/CommentAuthorModeRetirementMigrationDefinitions.cs
           - src/frontend/src/composables/useArticleDetailView.ts
       tests:
           - tests/backend/Unit/CommentAuthorModeRetirementTests.cs
@@ -271,7 +271,7 @@ scenarios:
           - tests/backend/Unit/AnonymousCommentTicketEndpointFilterTests.cs
           - tests/backend/Unit/AnonymousCommentTicketRedisConcurrencyTests.cs
           - tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs
-          - tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs
+          - tests/backend/Unit/CommentMutationOutboxAnonymousPostgresTests.cs
           - tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs
           - tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs
       evidence:

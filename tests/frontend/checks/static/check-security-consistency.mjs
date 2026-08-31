@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -99,6 +99,11 @@ function walk(dir)
 
 walk(srcRoot);
 
+if (existsSync(resolve(srcRoot, 'fsusui/markdownContract.ts')))
+{
+    violations.push('fsusui/markdownContract.ts: Markdown safe-result authority must remain owned by FsusUI');
+}
+
 function readRepoFile(path)
 {
     return readFileSync(resolve(repoRoot, path), 'utf8');
@@ -182,7 +187,7 @@ for (const header of ['Content-Security-Policy', 'Cross-Origin-Opener-Policy', '
         violations.push(`ops/gateway/production-openresty.conf: missing ${header} response header`);
     }
 }
-for (const token of ["require-trusted-types-for 'script'", 'trusted-types vue fsusblog fsusblog-spa-entry;'])
+for (const token of ["require-trusted-types-for 'script'", 'trusted-types vue fsusblog fsusblog-spa-entry fsusui-markdown-feature;'])
 {
     if (!openResty.includes(token))
     {
@@ -227,7 +232,7 @@ if (staticCspSource.includes('wasm-unsafe-eval') || staticCspSource.includes("st
 {
     violations.push('src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs: non-HTML CSP must deny Wasm compilation and inline style attributes');
 }
-for (const token of ["require-trusted-types-for 'script'", 'trusted-types vue fsusblog fsusblog-spa-entry;'])
+for (const token of ["require-trusted-types-for 'script'", 'trusted-types vue fsusblog fsusblog-spa-entry fsusui-markdown-feature;'])
 {
     if (!composition.includes(token))
     {
@@ -262,6 +267,30 @@ for (const token of [
 if (/createPolicy\(\s*['"](?:default|\*)['"]|allow-duplicates/.test(trustedTypesRuntime))
 {
     violations.push('src/frontend/src/security/trustedTypesRuntime.ts: policy must not use default, wildcard, or duplicate escape hatches');
+}
+for (const forbidden of [
+    'FeatureRenderOutput',
+    'MarkdownFeatureOutputForTrustedParsing',
+    'MARKDOWN_FEATURE_OUTPUT_KINDS',
+    'toTrustedMarkdownFeatureHtml',
+    'fsusui-markdown-feature'
+])
+{
+    if (trustedTypesRuntime.includes(forbidden))
+    {
+        violations.push(`src/frontend/src/security/trustedTypesRuntime.ts: FsusBlog must not convert feature-output strings to TrustedHTML via ${forbidden}`);
+    }
+}
+for (const forbidden of [
+    'bindMarkdownFeatureTrustedTypes',
+    'bind-markdown-feature-trusted-types',
+    'toTrustedMarkdownFeatureHtml'
+])
+{
+    if (viteConfig.includes(forbidden))
+    {
+        violations.push(`src/frontend/vite.config.ts: FsusUI feature-output gateway must not be rewritten through ${forbidden}`);
+    }
 }
 const publicBlogLayoutShell = readRepoFile('src/frontend/src/components/public/PublicBlogLayoutShell.vue');
 if ((publicBlogLayoutShell.match(/fsusblog-public-shell-runtime/gu) ?? []).length !== 1)
@@ -379,6 +408,16 @@ requireContains(
     'src/frontend/src/fsusui/markdown.ts',
     'return result',
     'Markdown runtime wrapper must preserve the FsusUI result object'
+);
+requireContains(
+    'src/frontend/src/fsusui/markdown.ts',
+    "from '@ozwasyd/element-plus/markdown-runtime'",
+    'Markdown safe types must come directly from FsusUI'
+);
+requireNotContains(
+    'src/frontend/src/fsusui/markdown.ts',
+    "from '@/fsusui/markdownContract'",
+    'Markdown safe types must not come from a Blog-local duplicate contract'
 );
 requireContains(
     'src/frontend/src/components/ui/MarkdownRenderer.vue',

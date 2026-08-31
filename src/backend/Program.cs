@@ -62,12 +62,9 @@ if (builder.Environment.IsDevelopment() &&
 }
 builder.Services.ApplyFsusRuntimeModeGates(builder.Configuration);
 builder.Services.AddOnlineSchemaMigrationControlPlane(builder.Configuration);
-if (command.Kind == OnlineSchemaMigrationCommandKind.Serve && builder.Environment.IsProduction())
-{
-    // Last registration wins for LifecycleHostedBootstrapService: production
-    // serve performs a read-only N/N-1 compatibility check, never migration.
-    builder.Services.AddScoped<ISchemaMigrationRunner, ServeSchemaCompatibilityRunner>();
-}
+// Last registration wins: Server serve verifies the unique current schema
+// projection and never loads the migration catalog or executes descriptors.
+builder.Services.AddScoped<ISchemaMigrationRunner, CurrentSchemaStartupVerifier>();
 builder.Services.ValidateAndPublishFsusDependencyGraph();
 
 await using var app = builder.Build();

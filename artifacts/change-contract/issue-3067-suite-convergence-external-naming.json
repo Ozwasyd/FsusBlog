@@ -1,0 +1,36 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/backend/Fixtures/backend-evidence-path-authority.generated.json"
+            ],
+            "reason": "preserve generated governance JSON field names consumed by repository test tooling"
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md",
+                "tools/check-backend-test-governance.mjs"
+            ],
+            "reason": "preserve the shared backend governance and generated testing documentation identifiers"
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/backend-evidence-path-authority.mjs",
+                "tools/test/generate-backend-evidence-path-authority.mjs"
+            ],
+            "reason": "preserve caller-visible environment and generated authority field identifiers"
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/_suite-support.sh"
+            ],
+            "reason": "preserve caller-visible shell environment bindings in the backend governance lane"
+        }
+    ]
+}
