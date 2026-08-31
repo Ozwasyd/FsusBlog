@@ -372,12 +372,25 @@ export function packCurrentRunEvidenceTransport({
 }
 
 export function extractCurrentRunEvidenceTransport({
-    repositoryRoot, archivePath, manifestPath, extractRoot
+    repositoryRoot, archivePath, manifestPath, extractRoot, expectedManifestDigest, expectedAuthorityIds
 })
 {
     const manifestAbsolute = assertPhysicalPath(path.resolve(repositoryRoot, manifestPath), repositoryRoot,
         'transport manifest');
     const manifest = validateEvidenceTransportManifest(JSON.parse(fs.readFileSync(manifestAbsolute, 'utf8')));
+    if (expectedManifestDigest)
+    {
+        assert(manifest.contentDigest === expectedManifestDigest, 'transport manifest digest mismatch');
+    }
+    if (expectedAuthorityIds)
+    {
+        const expected = [...expectedAuthorityIds].sort();
+        assert(expected.length > 0 && new Set(expected).size === expected.length,
+            'expected transport authority set must be non-empty and unique');
+        const actual = manifest.objects.map((object) => object.authorityId).sort();
+        assert(JSON.stringify(actual) === JSON.stringify(expected),
+            'transport manifest authority set mismatch');
+    }
     const archiveAbsolute = path.resolve(repositoryRoot, archivePath || manifest.archive.path);
     assertPhysicalPath(archiveAbsolute, repositoryRoot, 'transport archive');
     const archiveBytes = fs.readFileSync(archiveAbsolute);

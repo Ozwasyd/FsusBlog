@@ -5,7 +5,18 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import { qualityGateTransportContext } from './prepare-quality-gate-evidence-transport.mjs';
+import {
+    qualityGateTransportContext,
+    validateQualityGateEvidenceCollectionMembers
+} from './prepare-quality-gate-evidence-transport.mjs';
+import {
+    createFlakyEvidenceCollection,
+    FLAKY_EVIDENCE_COLLECTION_SCHEMA
+} from './check-flaky-evidence.mjs';
+import {
+    createJobSummaryCollection,
+    JOB_SUMMARY_COLLECTION_SCHEMA
+} from './check-job-summaries.mjs';
 import {
     EVIDENCE_TRANSPORT_MANIFEST_ENV,
     locateTransportedCurrentRunEvidence
@@ -76,7 +87,23 @@ function resolvePayload({ repositoryRoot, located, expectedSchema })
         `reference receipt payload digest mismatch: ${object.authorityId}`);
     const payload = JSON.parse(fs.readFileSync(payloadFile, 'utf8'));
     assert(payload.schema === expectedSchema, `transport payload schema mismatch: ${object.authorityId}`);
-    return { receipt: referenceEntry.extractedPath, payload: payloadEntry.extractedPath };
+    const collection = expectedSchema === JOB_SUMMARY_COLLECTION_SCHEMA
+        ? createJobSummaryCollection(payload.summaries, payload.sources)
+        : createFlakyEvidenceCollection(payload.evidence, payload.sources);
+    const expectedFields = expectedSchema === JOB_SUMMARY_COLLECTION_SCHEMA
+        ? ['schema', 'sources', 'summaries'] : ['evidence', 'schema', 'sources'];
+    assert(JSON.stringify(Object.keys(payload).sort()) === JSON.stringify(expectedFields),
+        `transport collection fields mismatch: ${object.authorityId}`);
+    assert(JSON.stringify(collection) === JSON.stringify(payload),
+        `transport collection canonical shape mismatch: ${object.authorityId}`);
+    const documents = expectedSchema === JOB_SUMMARY_COLLECTION_SCHEMA
+        ? collection.summaries : collection.evidence;
+    const identity = (document) => expectedSchema === JOB_SUMMARY_COLLECTION_SCHEMA
+        ? `${document.schema}\u0000${document.jobId ?? ''}\u0000${document.ciJob ?? ''}`
+        : `${document.suite ?? ''}\u0000${document.test ?? ''}`;
+    assert(new Set(documents.map(identity)).size === documents.length,
+        `transport collection document cardinality mismatch: ${object.authorityId}`);
+    return { receipt: referenceEntry.extractedPath, payload: payloadEntry.extractedPath, collection };
 }
 
 export function verifyQualityGateEvidenceTransport({
@@ -94,15 +121,39 @@ export function verifyQualityGateEvidenceTransport({
         'config/testing/evidence-locator-registry.json'), 'utf8'));
     validateEvidenceLocatorRegistry(registry);
     const resolved = {};
+    let transportManifest;
     for (const authority of authorities)
     {
         const registryEntry = registry.entries.find((entry) => entry.authorityId === authority.id);
         assert(registryEntry, `evidence locator authority is missing: ${authority.id}`);
         const located = locateTransportedCurrentRunEvidence({ context, registry, registryEntry,
             repositoryRoot, transportManifestPath: manifestPath, expectedManifestDigest: expectedDigest });
+        transportManifest ??= located.transportManifest;
+        const expectedAuthorities = authorities.map((entry) => entry.id).sort();
+        const actualAuthorities = transportManifest.objects.map((entry) => entry.authorityId).sort();
+        assert(transportManifest.objects.length === expectedAuthorities.length
+            && JSON.stringify(actualAuthorities) === JSON.stringify(expectedAuthorities),
+        'quality-gate transport manifest authority set mismatch');
         resolved[authority.id] = resolvePayload({ repositoryRoot, located, expectedSchema: authority.schema });
     }
+    validateQualityGateEvidenceCollectionMembers({ repositoryRoot, environment, context,
+        jobCollection: resolved['evidence-consumer.ci.check-job-summaries.current-run'].collection,
+        flakyCollection: resolved['evidence-consumer.ci.check-flaky-evidence.current-run'].collection });
     return { manifestDigest: expectedDigest, resolved };
+}
+
+export function readQualityGateEvidenceTransportCollections(options = {})
+{
+    const verified = verifyQualityGateEvidenceTransport(options);
+    const jobs = verified.resolved['evidence-consumer.ci.check-job-summaries.current-run'];
+    const flaky = verified.resolved['evidence-consumer.ci.check-flaky-evidence.current-run'];
+    return {
+        manifestDigest: verified.manifestDigest,
+        jobPayloadPath: jobs.payload,
+        flakyPayloadPath: flaky.payload,
+        summaries: jobs.collection.summaries,
+        evidence: flaky.collection.evidence
+    };
 }
 
 function main()

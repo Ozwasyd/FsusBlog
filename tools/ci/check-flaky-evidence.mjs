@@ -9,6 +9,7 @@ import {
   EVIDENCE_TRANSPORT_MANIFEST_ENV,
   listTransportedArchiveFiles
 } from '../test/current-run-evidence-transport.mjs'
+import { collectionDocumentDigest } from './check-job-summaries.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const policyVersion = 'fsusblog-flaky-execution-v2'
@@ -26,6 +27,43 @@ const allowedFinalStatuses = new Set([
 ])
 const forbiddenLegacyRetryStatuses = new Set(['passed-after-retry', 'failed-after-retry'])
 export const FLAKY_EVIDENCE_COLLECTION_SCHEMA = 'fsusblog.ci.flaky-evidence-collection.v1'
+
+function validateCollectionSources(documents, sources) {
+  const errors = []
+  if (!Array.isArray(sources) || sources.length !== documents.length) {
+    return ['flaky collection sources must have exact document cardinality']
+  }
+  const identities = new Set()
+  for (const [index, source] of sources.entries()) {
+    const prefix = `sources[${index}]`
+    if (!source || typeof source !== 'object' || Array.isArray(source)) {
+      errors.push(`${prefix} must be an object`)
+      continue
+    }
+    if (JSON.stringify(Object.keys(source).sort()) !== JSON.stringify([
+      'artifactName', 'documentDigest', 'inputDigest', 'path'
+    ])) errors.push(`${prefix} fields are not exact`)
+    if (!/^[a-z0-9][a-z0-9-]*$/u.test(String(source.artifactName ?? ''))) {
+      errors.push(`${prefix}.artifactName is invalid`)
+    }
+    if (typeof source.path !== 'string' || !source.path || path.posix.isAbsolute(source.path)
+      || source.path === '..' || source.path.startsWith('../') || source.path.includes('/../')) {
+      errors.push(`${prefix}.path is unsafe`)
+    }
+    for (const field of ['inputDigest', 'documentDigest']) {
+      if (!/^sha256:[0-9a-f]{64}$/u.test(String(source[field] ?? ''))) {
+        errors.push(`${prefix}.${field} must be a sha256 digest`)
+      }
+    }
+    if (source.documentDigest !== collectionDocumentDigest(documents[index])) {
+      errors.push(`${prefix}.documentDigest mismatch`)
+    }
+    const identity = `${source.artifactName}\u0000${source.path}`
+    if (identities.has(identity)) errors.push(`${prefix} duplicates an artifact member`)
+    identities.add(identity)
+  }
+  return errors
+}
 
 function hasValue(item, field) {
   return item[field] !== undefined && item[field] !== null && item[field] !== ''
@@ -223,12 +261,13 @@ export function validateFlakyEvidence(item, file) {
   return item.policyVersion === policyVersion ? validateV2(item, file) : validateLegacy(item, file)
 }
 
-export function createFlakyEvidenceCollection(documents) {
+export function createFlakyEvidenceCollection(documents, sources) {
   if (!Array.isArray(documents)) throw new Error('flaky evidence collection documents must be an array')
   const errors = documents.flatMap((document, index) =>
     validateFlakyEvidence(document, `evidence[${index}]`))
+  errors.push(...validateCollectionSources(documents, sources))
   if (errors.length > 0) throw new Error(errors.join('; '))
-  return { schema: FLAKY_EVIDENCE_COLLECTION_SCHEMA, evidence: documents }
+  return { schema: FLAKY_EVIDENCE_COLLECTION_SCHEMA, evidence: documents, sources }
 }
 
 function isNonBlockingDiagnosticEvidence(item) {

@@ -169,35 +169,38 @@ function classifyNeedsByPlan(needs, plan)
     return nonSuccess.sort(([left], [right]) => left.localeCompare(right));
 }
 
-function readTransportOrDirectoryJson(directory, authorityId)
+let transportedCollections;
+
+async function readTransportOrDirectoryJson(directoryName, authorityId)
 {
     const transport = String(process.env.FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST ?? '').trim();
     if (transport)
     {
-        const manifest = JSON.parse(fs.readFileSync(path.resolve(root, transport), 'utf8'));
-        const mapped = (manifest.objects ?? []).filter((object) => object.authorityId === authorityId);
-        const files = mapped.flatMap((object) => object.archiveEntries ?? [])
-            .map((entry) => path.resolve(root, entry.extractedPath));
-        return files.flatMap((file) =>
+        transportedCollections ??= (await import('./verify-quality-gate-evidence-transport.mjs'))
+            .readQualityGateEvidenceTransportCollections({ repositoryRoot: root, environment: process.env });
+        const jobAuthority = 'evidence-consumer.ci.check-job-summaries.current-run';
+        const flakyAuthority = 'evidence-consumer.ci.check-flaky-evidence.current-run';
+        const documents = authorityId === jobAuthority ? transportedCollections.summaries
+            : authorityId === flakyAuthority ? transportedCollections.evidence : null;
+        if (!documents)
         {
-            try
-            {
-                return [{ file, text: fs.readFileSync(file, 'utf8'), value: JSON.parse(fs.readFileSync(file, 'utf8')) }];
-            }
-            catch
-            {
-                return [];
-            }
-        });
+            throw new Error(`unsupported transported quality-gate authority: ${authorityId}`);
+        }
+        const payload = authorityId === jobAuthority
+            ? transportedCollections.jobPayloadPath : transportedCollections.flakyPayloadPath;
+        return documents.map((value) => ({
+            file: path.resolve(root, payload),
+            text: JSON.stringify(value),
+            value
+        }));
     }
-    return readExplicitDirectoryJson(directory);
+    return readExplicitDirectoryJson(path.join(explicitEvidenceRoot(), directoryName));
 }
 
-function loadJobSummaries()
+async function loadJobSummaries()
 {
-    const jobsDir = path.join(explicitEvidenceRoot(), 'jobs');
     const summaries = new Map();
-    for (const { file, text, value: summary } of readTransportOrDirectoryJson(jobsDir,
+    for (const { file, text, value: summary } of await readTransportOrDirectoryJson('jobs',
         'evidence-consumer.ci.check-job-summaries.current-run'))
     {
         if (summary.schema !== 'fsusblog.ci.job-result.v1')
@@ -226,13 +229,11 @@ function loadJobSummaries()
     return summaries;
 }
 
-function loadFlakyEvidence()
+async function loadFlakyEvidence()
 {
-    const flakyDir = path.join(explicitEvidenceRoot(), 'flaky');
     const evidence = [];
-    for (const { file, value: item } of readTransportOrDirectoryJson(flakyDir,
+    for (const { file, value: item } of await readTransportOrDirectoryJson('flaky',
         'evidence-consumer.ci.check-flaky-evidence.current-run'))
-    {
     {
         if (item.schema !== 'fsusblog.ci.flaky.v1')
         {
@@ -501,7 +502,7 @@ function writeProductionSummary(status, rootFailures = [], rootCause = null, fla
     fs.writeFileSync(outFile, `${JSON.stringify(summary, null, 2)}\n`);
 }
 
-function main()
+async function main()
 {
     const rawNeeds = process.env.QUALITY_GATE_NEEDS_JSON;
     if (!rawNeeds)
@@ -514,8 +515,8 @@ function main()
     const workflowNeeds = parseWorkflowJobNeeds(fs.readFileSync(workflowPath, 'utf8'), {
         source: '.github/workflows/quality-gate.yml'
     });
-    const jobSummaries = loadJobSummaries();
-    const flakyEvidence = loadFlakyEvidence()
+    const jobSummaries = await loadJobSummaries();
+    const flakyEvidence = (await loadFlakyEvidence())
         .filter(({ item }) => isCorrectnessFlakyEvidence(item));
     const releaseMode = process.env.FSUSBLOG_PRODUCTION_SUMMARY_REQUIRE_RELEASE_OK === '1';
     const releaseEvidence = inspectReleaseManifest({ requireOk: releaseMode });
@@ -641,7 +642,7 @@ function main()
 
 try
 {
-    main();
+    await main();
 }
 catch (error)
 {

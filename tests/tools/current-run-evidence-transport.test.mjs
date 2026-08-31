@@ -353,6 +353,92 @@ test('transport roles physical paths and extraction publication fail closed', as
         finally { fs.rmSync(f.root, { recursive: true, force: true }); }
     });
 
+    await context.test('independent digest and exact authority admission reject before any extraction write', async (nested) =>
+    {
+        const run = async ({ name, prepare, expectedDigest, expectedAuthorities, expected }) =>
+            nested.test(name, () =>
+            {
+                const f = fixture();
+                try
+                {
+                    const packed = prepare?.(f) ?? pack(f);
+                    fs.rmSync(path.join(f.root, f.outputPath));
+                    fs.rmSync(path.join(f.root, f.payloadPath));
+                    for (const relative of packed.additionalExtractionPaths ?? [])
+                    {
+                        fs.rmSync(path.join(f.root, relative));
+                    }
+                    assert.throws(() => extractCurrentRunEvidenceTransport({
+                        repositoryRoot: f.root,
+                        manifestPath: 'artifacts/current-run/transport-manifest.json',
+                        expectedManifestDigest: expectedDigest?.(packed) ?? packed.manifest.contentDigest,
+                        expectedAuthorityIds: expectedAuthorities?.(f)
+                    }), expected);
+                    assert.equal(fs.existsSync(path.join(f.root, f.outputPath)), false);
+                    assert.equal(fs.existsSync(path.join(f.root, f.payloadPath)), false);
+                    for (const relative of packed.additionalExtractionPaths ?? [])
+                    {
+                        assert.equal(fs.existsSync(path.join(f.root, relative)), false);
+                    }
+                }
+                finally { fs.rmSync(f.root, { recursive: true, force: true }); }
+            });
+
+        await run({ name: 'digest mismatch', expectedDigest: () => d('f'),
+            expectedAuthorities: (f) => [f.entry.authorityId], expected: /manifest digest mismatch/u });
+        await run({ name: 'missing authority',
+            expectedAuthorities: (f) => [f.entry.authorityId, 'foreign.current-run'],
+            expected: /authority set mismatch/u });
+        await run({
+            name: 'foreign authority',
+            prepare: (f) =>
+            {
+                const foreign = { authorityId: 'foreign.current-run', producerId: 'foreign.producer',
+                    payloadPath: 'artifacts/current-run/foreign-payload.json',
+                    outputPath: 'artifacts/current-run/foreign-reference.json' };
+                const session = beginCurrentRunEvidencePublication({ ...foreign, context: f.context,
+                    repositoryRoot: f.root });
+                fs.writeFileSync(path.join(f.root, foreign.payloadPath),
+                    `${JSON.stringify({ schema: 'foreign.v1' })}\n`);
+                const published = finalizeCurrentRunEvidencePublication({ ...foreign, context: f.context,
+                    payloadSchema: 'foreign.v1', repositoryRoot: f.root, sessionId: session.sessionId,
+                    terminalStatus: 'success' });
+                const packed = pack(f, { objects: [{
+                    authorityId: f.entry.authorityId, producerId: f.entry.producerId,
+                    receiptSchema: f.entry.receiptSchema,
+                    originalRef: { path: f.outputPath, contentDigest: f.published.receipt.contentDigest,
+                        producerReceiptDigest: f.published.receipt.producerReceiptDigest },
+                    files: [{ path: f.outputPath }, { path: f.payloadPath }]
+                }, {
+                    authorityId: foreign.authorityId, producerId: foreign.producerId,
+                    receiptSchema: f.entry.receiptSchema,
+                    originalRef: { path: foreign.outputPath, contentDigest: published.receipt.contentDigest,
+                        producerReceiptDigest: published.receipt.producerReceiptDigest },
+                    files: [{ path: foreign.outputPath }, { path: foreign.payloadPath }]
+                }] });
+                return { ...packed, additionalExtractionPaths: [foreign.outputPath, foreign.payloadPath] };
+            },
+            expectedAuthorities: (f) => [f.entry.authorityId],
+            expected: /authority set mismatch/u
+        });
+        await run({
+            name: 'duplicate authority',
+            prepare: (f) =>
+            {
+                const packed = pack(f);
+                const file = path.join(f.root, 'artifacts/current-run/transport-manifest.json');
+                const manifest = JSON.parse(fs.readFileSync(file, 'utf8'));
+                manifest.objects.push({ ...manifest.objects[0] });
+                delete manifest.contentDigest;
+                const resealed = { ...manifest, contentDigest: governanceContentDigest(manifest) };
+                fs.writeFileSync(file, JSON.stringify(resealed));
+                return { ...packed, manifest: resealed };
+            },
+            expectedAuthorities: (f) => [f.entry.authorityId],
+            expected: /duplicate transport mapping/u
+        });
+    });
+
     await context.test('role and archive/object index splits are rejected', () =>
     {
         const f = fixture();

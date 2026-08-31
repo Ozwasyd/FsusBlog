@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -8,6 +10,8 @@ const {
     buildQualityGateEvidenceTransport,
     qualityGateTransportContext
 } = await import(new URL('../../tools/ci/prepare-quality-gate-evidence-transport.mjs', import.meta.url));
+const { collectionDocumentDigest } = await import(
+    new URL('../../tools/ci/check-job-summaries.mjs', import.meta.url));
 const { verifyQualityGateEvidenceTransport } = await import(
     new URL('../../tools/ci/verify-quality-gate-evidence-transport.mjs', import.meta.url));
 const {
@@ -16,6 +20,12 @@ const {
 } = await import(new URL('../../tools/test/current-run-evidence-transport.mjs', import.meta.url));
 const { governanceContentDigest } = await import(
     new URL('../../tools/test/evidence-location-contract.mjs', import.meta.url));
+const {
+    beginCurrentRunEvidencePublication,
+    finalizeCurrentRunEvidencePublication
+} = await import(new URL('../../tools/test/current-run-evidence-publication.mjs', import.meta.url));
+const { packCurrentRunEvidenceTransport } = await import(
+    new URL('../../tools/test/current-run-evidence-transport.mjs', import.meta.url));
 
 const sourceRoot = path.resolve(import.meta.dirname, '../..');
 const sha = 'a'.repeat(40);
@@ -35,6 +45,11 @@ function write(file, value)
     fs.writeFileSync(file, typeof value === 'string' ? value : `${JSON.stringify(value, null, 2)}\n`);
 }
 
+function digestFile(file)
+{
+    return `sha256:${crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`;
+}
+
 function jobSummary(overrides = {})
 {
     return {
@@ -48,7 +63,7 @@ function jobSummary(overrides = {})
         durationMs: 1,
         stageDurationsMs: { setup: 0, restore: 0, install: 0, bootstrap: 0,
             test: 1, artifact: 0, summary: 0 },
-        artifacts: ['release-evidence/flaky/fixture.json'],
+        artifacts: ['.tmp/release-evidence/flaky/fixture.json'],
         localReproduction: './tools/test.sh fixture',
         commit: sha,
         runId: '42',
@@ -123,12 +138,18 @@ function fixture()
         'tiers:\n  - id: fixture-tier\n    ciJob: required\n    executionDependsOn: []\n'
         + '  - id: production-correctness\n    ciJob: production-summary\n    executionDependsOn: []\n');
     write(path.join(root,
-        '.tmp/downloaded-artifacts/required/release-evidence/jobs/required.json'), jobSummary());
+        '.tmp/downloaded-artifacts/required/.tmp/release-evidence/jobs/required.json'), jobSummary());
     write(path.join(root,
-        '.tmp/downloaded-artifacts/required/release-evidence/jobs/ci-build-consumer-required.json'),
+        '.tmp/downloaded-artifacts/required/.tmp/release-evidence/jobs/ci-build-consumer-required.json'),
     buildVerification());
     write(path.join(root,
-        '.tmp/downloaded-artifacts/required/release-evidence/flaky/fixture.json'), flakyEvidence());
+        '.tmp/downloaded-artifacts/required/.tmp/release-evidence/flaky/fixture.json'), flakyEvidence());
+    write(path.join(root,
+        '.tmp/downloaded-artifacts/required/.tmp/release-evidence/flaky/registry.json'),
+    { schema: 'fsusblog.ci.flaky-registry.v1' });
+    write(path.join(root,
+        '.tmp/downloaded-artifacts/required/.tmp/release-evidence/flaky/attempts/fixture-suite/run-1/attempt.json'),
+    { schema: 'fsusblog.ci.flaky-attempt.v1' });
     write(path.join(root,
         '.tmp/downloaded-artifacts/production-build-artifacts/.tmp/ci-production-build/receipt.json'),
     { ...buildReceiptBody, contentDigest: buildDigest });
@@ -158,6 +179,79 @@ function build(fixtureRoot)
     });
 }
 
+function synchronizeCollectionSources(f, collection, documentsField)
+{
+    for (const [index, document] of collection[documentsField].entries())
+    {
+        const source = collection.sources[index];
+        const file = path.join(f.root, '.tmp/downloaded-artifacts', source.artifactName, source.path);
+        write(file, document);
+        source.inputDigest = digestFile(file);
+        source.documentDigest = collectionDocumentDigest(document);
+    }
+}
+
+function publishFixtureCollection({ authorityId, context, entry, f, payload, stem })
+{
+    const payloadPath = `artifacts/current-run/${stem}.payload.json`;
+    const referencePath = `artifacts/current-run/${stem}.reference.json`;
+    const session = beginCurrentRunEvidencePublication({ authorityId, context,
+        outputPath: referencePath, payloadPath, producerId: entry.producerId, repositoryRoot: f.root });
+    write(path.join(f.root, payloadPath), payload);
+    const publication = finalizeCurrentRunEvidencePublication({ authorityId, context,
+        outputPath: referencePath, payloadPath, payloadSchema: payload.schema,
+        producerId: entry.producerId, repositoryRoot: f.root, sessionId: session.sessionId,
+        terminalStatus: 'success' });
+    return {
+        authorityId,
+        producerId: entry.producerId,
+        receiptSchema: entry.receiptSchema,
+        originalRef: {
+            path: referencePath,
+            contentDigest: publication.receipt.contentDigest,
+            producerReceiptDigest: publication.receipt.producerReceiptDigest
+        },
+        files: [{ path: referencePath, role: 'reference-receipt' },
+            { path: payloadPath, role: 'payload' }]
+    };
+}
+
+function resealCollections(f, mutate = () => {})
+{
+    build(f);
+    const jobCollection = JSON.parse(fs.readFileSync(path.join(f.root,
+        'artifacts/current-run/job-summaries.payload.json'), 'utf8'));
+    const flakyCollection = JSON.parse(fs.readFileSync(path.join(f.root,
+        'artifacts/current-run/flaky-evidence.payload.json'), 'utf8'));
+    fs.rmSync(path.join(f.root, 'artifacts/current-run'), { recursive: true });
+    fs.mkdirSync(path.join(f.root, 'artifacts/current-run'), { recursive: true });
+    mutate({ f, jobCollection, flakyCollection });
+    synchronizeCollectionSources(f, jobCollection, 'summaries');
+    synchronizeCollectionSources(f, flakyCollection, 'evidence');
+    const context = qualityGateTransportContext(f.environment);
+    const registry = JSON.parse(fs.readFileSync(path.join(f.root,
+        'config/testing/evidence-locator-registry.json'), 'utf8'));
+    const entry = (authorityId) => registry.entries.find((candidate) => candidate.authorityId === authorityId);
+    const objects = [
+        publishFixtureCollection({ authorityId: 'evidence-consumer.ci.check-job-summaries.current-run',
+            context, entry: entry('evidence-consumer.ci.check-job-summaries.current-run'), f,
+            payload: jobCollection, stem: 'job-summaries' }),
+        publishFixtureCollection({ authorityId: 'evidence-consumer.ci.check-flaky-evidence.current-run',
+            context, entry: entry('evidence-consumer.ci.check-flaky-evidence.current-run'), f,
+            payload: flakyCollection, stem: 'flaky-evidence' })
+    ];
+    const packed = packCurrentRunEvidenceTransport({ context, objects, repositoryRoot: f.root,
+        archivePath: 'artifacts/current-run/transport-archive.json',
+        manifestPath: 'artifacts/current-run/transport-manifest.json',
+        transportRunId: 'quality-gate-42-1', downloadRunId: 'production-summary-42-1' });
+    removeTransportPayloadSources(f.root);
+    extractCurrentRunEvidenceTransport({ repositoryRoot: f.root,
+        manifestPath: 'artifacts/current-run/transport-manifest.json', extractRoot: '.',
+        expectedManifestDigest: packed.manifest.contentDigest,
+        expectedAuthorityIds: objects.map((object) => object.authorityId) });
+    return packed;
+}
+
 function removeTransportPayloadSources(root)
 {
     for (const suffix of ['job-summaries.reference.json', 'job-summaries.payload.json',
@@ -165,6 +259,71 @@ function removeTransportPayloadSources(root)
     {
         fs.rmSync(path.join(root, 'artifacts/current-run', suffix));
     }
+}
+
+function installProductionSummaryFixture(f)
+{
+    const copy = (relative) =>
+    {
+        const destination = path.join(f.root, relative);
+        fs.mkdirSync(path.dirname(destination), { recursive: true });
+        fs.copyFileSync(path.join(sourceRoot, relative), destination);
+    };
+    for (const relative of [
+        'tools/ci/check-flaky-evidence.mjs',
+        'tools/ci/check-job-summaries.mjs',
+        'tools/ci/prepare-quality-gate-evidence-transport.mjs',
+        'tools/ci/summarize-quality-gate.mjs',
+        'tools/ci/verify-quality-gate-evidence-transport.mjs',
+        'tools/test-matrix/parse-matrix.mjs',
+        'tools/test/current-run-evidence-locator.mjs',
+        'tools/test/current-run-evidence-publication.mjs',
+        'tools/test/current-run-evidence-transport.mjs',
+        'tools/test/evidence-location-contract.mjs',
+        'tools/yaml/parse-document.mjs'
+    ]) copy(relative);
+    copy('tools/yaml/workflow-structure.mjs');
+    write(path.join(f.root, '.github/workflows/quality-gate.yml'),
+        'jobs:\n  required:\n    runs-on: ubuntu-latest\n');
+    write(path.join(f.root, 'tools/operations/check-release-evidence-manifest.mjs'),
+        'process.exit(0)\n');
+    write(path.join(f.root, 'tools/release/test-evidence-receipts-cli.mjs'), `
+import fs from 'node:fs';
+import path from 'node:path';
+export function validatePrSmartGatePlan() {}
+const output = path.resolve('.tmp/release-evidence/browserless-correctness-receipt.json');
+fs.mkdirSync(path.dirname(output), { recursive: true });
+fs.writeFileSync(output, JSON.stringify({ schema: 'fixture.correctness', status: 'success' }) + '\\n');
+`);
+    write(path.join(f.root, '.tmp/release-evidence/manifest.json'), {
+        status: 'collected-ok',
+        evidenceSummary: { externalExposure: { blockers: [], request: { blockerSources: [] } } }
+    });
+}
+
+function productionSummaryEnvironment(f, manifestDigest)
+{
+    return {
+        ...process.env,
+        ...f.environment,
+        GITHUB_STEP_SUMMARY: '',
+        FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST: 'artifacts/current-run/transport-manifest.json',
+        FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST_DIGEST: manifestDigest,
+        FSUSBLOG_RELEASE_EVIDENCE_DIR: '',
+        FSUSBLOG_RELEASE_EVIDENCE_MANIFEST: '.tmp/release-evidence/manifest.json'
+    };
+}
+
+function executeVerifiedProductionSummary(f, manifestDigest, mutateEnvironment = () => {})
+{
+    const environment = productionSummaryEnvironment(f, manifestDigest);
+    mutateEnvironment(environment);
+    verifyQualityGateEvidenceTransport({ repositoryRoot: f.root, environment });
+    return spawnSync(process.execPath, [path.join(f.root, 'tools/ci/summarize-quality-gate.mjs')], {
+        cwd: f.root,
+        encoding: 'utf8',
+        env: environment
+    });
 }
 
 test('quality-gate workflow uploads downloads and exports one canonical transport identity', () =>
@@ -237,6 +396,66 @@ test('workflow producer seals exact reference and collection payload pairs', (co
         summary.schema === 'fsusblog.ci-production-build-verification.v1'));
 });
 
+test('production-summary executes only after canonical reference and payload verification', async (context) =>
+{
+    await context.test('positive', () =>
+    {
+        const f = fixture();
+        try
+        {
+            installProductionSummaryFixture(f);
+            const produced = build(f);
+            removeTransportPayloadSources(f.root);
+            extractCurrentRunEvidenceTransport({ repositoryRoot: f.root,
+                manifestPath: 'artifacts/current-run/transport-manifest.json', extractRoot: '.' });
+            const result = executeVerifiedProductionSummary(f, produced.manifest.contentDigest);
+            assert.equal(result.status, 0, result.stderr || result.stdout);
+            assert.match(result.stdout, /production summary ok/u);
+            const summary = JSON.parse(fs.readFileSync(path.join(f.root,
+                '.tmp/release-evidence/jobs/production-summary.json'), 'utf8'));
+            assert.equal(summary.status, 'success');
+        }
+        finally { fs.rmSync(f.root, { recursive: true, force: true }); }
+    });
+
+    for (const scenario of [{
+        name: 'missing payload',
+        mutate: (f) => fs.rmSync(path.join(f.root, 'artifacts/current-run/job-summaries.payload.json')),
+        expected: /is missing/u
+    }, {
+        name: 'tampered payload',
+        mutate: (f) => fs.appendFileSync(path.join(f.root,
+            'artifacts/current-run/job-summaries.payload.json'), 'tampered'),
+        expected: /payload digest mismatch/u
+    }, {
+        name: 'stale run',
+        mutate: () => {},
+        mutateEnvironment: (environment) => { environment.GITHUB_RUN_ID = '43'; },
+        expected: /origin schedulerRunId mismatch/u
+    }])
+    {
+        await context.test(scenario.name, () =>
+        {
+            const f = fixture();
+            try
+            {
+                installProductionSummaryFixture(f);
+                const produced = build(f);
+                removeTransportPayloadSources(f.root);
+                extractCurrentRunEvidenceTransport({ repositoryRoot: f.root,
+                    manifestPath: 'artifacts/current-run/transport-manifest.json', extractRoot: '.' });
+                scenario.mutate(f);
+                assert.throws(() => executeVerifiedProductionSummary(f, produced.manifest.contentDigest,
+                    scenario.mutateEnvironment), scenario.expected);
+                assert.equal(fs.existsSync(path.join(f.root,
+                    '.tmp/release-evidence/jobs/production-summary.json')), false,
+                'production-summary must not execute after canonical verification fails');
+            }
+            finally { fs.rmSync(f.root, { recursive: true, force: true }); }
+        });
+    }
+});
+
 test('live transport verifier rejects stale run source plan build and manifest identities', async (context) =>
 {
     const scenarios = [{ name: 'run', mutate: (environment) => { environment.GITHUB_RUN_ID = '43'; },
@@ -280,23 +499,88 @@ test('live transport verifier rejects stale run source plan build and manifest i
     }
 });
 
+test('coordinated resealing cannot admit foreign incomplete or cardinality-drifted members', async (context) =>
+{
+    const jobDocument = (collection) => collection.summaries.find((document) =>
+        document.schema === 'fsusblog.ci.job-result.v1');
+    const scenarios = [{
+        name: 'foreign member run',
+        mutate: ({ jobCollection }) => { jobDocument(jobCollection).runId = '43'; },
+        expected: /stale job summary runId/u
+    }, {
+        name: 'foreign member attempt',
+        mutate: ({ jobCollection }) => { jobDocument(jobCollection).attempt = '2'; },
+        expected: /stale job summary attempt/u
+    }, {
+        name: 'foreign member job',
+        mutate: ({ jobCollection }) => { jobDocument(jobCollection).ciJob = 'foreign'; },
+        expected: /outside direct summary authority/u
+    }, {
+        name: 'incomplete flaky member',
+        mutate: ({ flakyCollection }) => { delete flakyCollection.evidence[0].suite; },
+        expected: /suite is required/u
+    }, {
+        name: 'missing job member',
+        mutate: ({ jobCollection }) =>
+        {
+            const keep = jobCollection.summaries.findIndex((document) =>
+                document.schema === 'fsusblog.ci.job-result.v1');
+            jobCollection.summaries.splice(keep, 1);
+            jobCollection.sources.splice(keep, 1);
+        },
+        expected: /must contain at least one job summary/u
+    }, {
+        name: 'extra member provenance',
+        mutate: ({ jobCollection }) => { jobCollection.sources.push({ ...jobCollection.sources[0] }); },
+        expected: /sources must have exact document cardinality/u
+    }, {
+        name: 'duplicate job member',
+        mutate: ({ jobCollection }) =>
+        {
+            const index = jobCollection.summaries.findIndex((document) =>
+                document.schema === 'fsusblog.ci.job-result.v1');
+            jobCollection.summaries.push(structuredClone(jobCollection.summaries[index]));
+            jobCollection.sources.push({ ...jobCollection.sources[index],
+                path: '.tmp/release-evidence/jobs/duplicate.json' });
+        },
+        expected: /transport collection document cardinality mismatch/u
+    }];
+    for (const scenario of scenarios)
+    {
+        await context.test(scenario.name, () =>
+        {
+            const f = fixture();
+            try
+            {
+                const produced = resealCollections(f, scenario.mutate);
+                const environment = { ...f.environment,
+                    FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST: 'artifacts/current-run/transport-manifest.json',
+                    FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST_DIGEST: produced.manifest.contentDigest };
+                assert.throws(() => verifyQualityGateEvidenceTransport({ repositoryRoot: f.root, environment }),
+                    scenario.expected);
+            }
+            finally { fs.rmSync(f.root, { recursive: true, force: true }); }
+        });
+    }
+});
+
 test('producer rejects missing stale duplicate and symlinked inputs', async (context) =>
 {
     const scenarios = [{
         name: 'missing canonical job summary',
         mutate: (f) => fs.rmSync(path.join(f.root,
-            '.tmp/downloaded-artifacts/required/release-evidence/jobs/required.json')),
+            '.tmp/downloaded-artifacts/required/.tmp/release-evidence/jobs/required.json')),
         expected: /canonical job summary artifact cardinality mismatch/u
     }, {
         name: 'stale job summary',
         mutate: (f) => write(path.join(f.root,
-            '.tmp/downloaded-artifacts/required/release-evidence/jobs/required.json'),
+            '.tmp/downloaded-artifacts/required/.tmp/release-evidence/jobs/required.json'),
         jobSummary({ commit: 'e'.repeat(40) })),
         expected: /stale job summary commit/u
     }, {
         name: 'stale production build verification',
         mutate: (f) => write(path.join(f.root,
-            '.tmp/downloaded-artifacts/required/release-evidence/jobs/ci-build-consumer-required.json'),
+            '.tmp/downloaded-artifacts/required/.tmp/release-evidence/jobs/ci-build-consumer-required.json'),
         buildVerification({ receiptContentDigest: `sha256:${'e'.repeat(64)}` })),
         expected: /stale production build receipt digest/u
     }, {
@@ -313,37 +597,55 @@ test('producer rejects missing stale duplicate and symlinked inputs', async (con
     }, {
         name: 'prefix alias job summary',
         mutate: (f) => write(path.join(f.root,
-            '.tmp/downloaded-artifacts/required-copy/release-evidence/jobs/required.json'), jobSummary()),
+            '.tmp/downloaded-artifacts/required-copy/.tmp/release-evidence/jobs/required.json'), jobSummary()),
         expected: /unbound prefix alias/u
     }, {
         name: 'foreign job summary artifact',
         mutate: (f) => write(path.join(f.root,
-            '.tmp/downloaded-artifacts/foreign/release-evidence/jobs/foreign.json'),
+            '.tmp/downloaded-artifacts/foreign/.tmp/release-evidence/jobs/foreign.json'),
         jobSummary({ jobId: 'foreign', ciJob: 'foreign' })),
         expected: /outside exact plan authority/u
     }, {
         name: 'duplicate canonical job summary',
         mutate: (f) => write(path.join(f.root,
-            '.tmp/downloaded-artifacts/required/release-evidence/jobs/duplicate.json'), jobSummary()),
+            '.tmp/downloaded-artifacts/required/.tmp/release-evidence/jobs/duplicate.json'), jobSummary()),
         expected: /duplicate canonical job evidence/u
     }, {
         name: 'unselected job tier',
         mutate: (f) => write(path.join(f.root,
-            '.tmp/downloaded-artifacts/required/release-evidence/jobs/required.json'),
+            '.tmp/downloaded-artifacts/required/.tmp/release-evidence/jobs/required.json'),
         jobSummary({ tierIds: ['foreign-tier'] })),
         expected: /claims an unselected tier/u
     }, {
         name: 'unreferenced flaky evidence',
         mutate: (f) => write(path.join(f.root,
-            '.tmp/downloaded-artifacts/required/release-evidence/jobs/required.json'),
+            '.tmp/downloaded-artifacts/required/.tmp/release-evidence/jobs/required.json'),
         jobSummary({ artifacts: [] })),
         expected: /flaky evidence is not referenced/u
+    }, {
+        name: 'flaky registry companion with wrong schema',
+        mutate: (f) => write(path.join(f.root,
+            '.tmp/downloaded-artifacts/required/.tmp/release-evidence/flaky/registry.json'),
+        { schema: 'fsusblog.ci.flaky.v1' }),
+        expected: /flaky registry schema mismatch/u
+    }, {
+        name: 'flaky attempt companion with wrong schema',
+        mutate: (f) => write(path.join(f.root,
+            '.tmp/downloaded-artifacts/required/.tmp/release-evidence/flaky/attempts/fixture-suite/run-1/attempt.json'),
+        { schema: 'fsusblog.ci.flaky.v1' }),
+        expected: /flaky attempt schema mismatch/u
+    }, {
+        name: 'misplaced flaky attempt companion',
+        mutate: (f) => write(path.join(f.root,
+            '.tmp/downloaded-artifacts/required/.tmp/release-evidence/flaky/misplaced.json'),
+        { schema: 'fsusblog.ci.flaky-attempt.v1' }),
+        expected: /unknown or misplaced flaky artifact/u
     }, {
         name: 'symlinked producer input',
         mutate: (f) =>
         {
             const target = path.join(f.root,
-                '.tmp/downloaded-artifacts/required/release-evidence/jobs/required.json');
+                '.tmp/downloaded-artifacts/required/.tmp/release-evidence/jobs/required.json');
             const outside = path.join(f.root, '.tmp/outside.json');
             fs.renameSync(target, outside);
             fs.symlinkSync(outside, target);
@@ -354,7 +656,7 @@ test('producer rejects missing stale duplicate and symlinked inputs', async (con
         mutate: (f) =>
         {
             const target = path.join(f.root,
-                '.tmp/downloaded-artifacts/required/release-evidence/jobs/required.json');
+                '.tmp/downloaded-artifacts/required/.tmp/release-evidence/jobs/required.json');
             fs.linkSync(target, path.join(path.dirname(target), 'alias.json'));
         },
         expected: /must not be hard-linked/u

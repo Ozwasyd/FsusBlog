@@ -6,8 +6,10 @@
         "tools/ci/check-flaky-evidence.mjs",
         "tools/ci/check-job-summaries.mjs",
         "tools/ci/prepare-quality-gate-evidence-transport.mjs",
+        "tools/ci/summarize-quality-gate.mjs",
         "tools/ci/verify-quality-gate-evidence-transport.mjs",
-        "tools/test/current-run-evidence-transport.mjs"
+        "tools/test/current-run-evidence-transport.mjs",
+        "tools/test/run-current-run-evidence-transport.mjs"
     ],
     "outputs": [
         {
@@ -20,11 +22,11 @@
         },
         {
             "path": "config/testing/current-run-evidence-location-acceptance.json",
-            "sha256": "983e3a427a0acb0c27d66eaa431d3aaf98774c0185034f6b667547f2efd40914"
+            "sha256": "8ba98026a97052b3c84d0fbe1b398ff98bbc8c888e817f04ec307ef17cb56c56"
         },
         {
             "path": "config/testing/evidence-location-migration-ledger.json",
-            "sha256": "31d63ecdad6da90328df6bf05d2de10df975b67aee0dd5af6ccf6d1c94a3e892"
+            "sha256": "28f619984f4bc61e1ef5596784d9a3dfdb36cffdc78fe0bcf5e3376ee09575d2"
         },
         {
             "path": "docs/testing.generated.md",

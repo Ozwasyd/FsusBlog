@@ -1683,6 +1683,9 @@ jobs:
               run: >-
                   node tools/test/run-current-run-evidence-transport.mjs extract
                   --manifest artifacts/current-run/transport-manifest.json
+                  --expected-manifest-digest "${{ needs.release-evidence.outputs.evidence_transport_manifest_digest }}"
+                  --expected-authority evidence-consumer.ci.check-job-summaries.current-run
+                  --expected-authority evidence-consumer.ci.check-flaky-evidence.current-run
                   --extract-root .
             - name: Bind transported evidence to the live production summary
               id: verify_evidence_transport
@@ -1691,6 +1694,7 @@ jobs:
                   FSUSBLOG_CI_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
                   FSUSBLOG_CI_PRODUCTION_SOURCE_FINGERPRINT: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
                   FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
+                  FSUSBLOG_QUALITY_GATE_ARTIFACT_DOWNLOAD_ROOT: .tmp/downloaded-artifacts
                   FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST: artifacts/current-run/transport-manifest.json
                   FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST_DIGEST: ${{ needs.release-evidence.outputs.evidence_transport_manifest_digest }}
               run: node tools/ci/verify-quality-gate-evidence-transport.mjs
@@ -1701,7 +1705,9 @@ jobs:
                   FSUSBLOG_CI_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
                   FSUSBLOG_CI_PRODUCTION_SOURCE_FINGERPRINT: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
                   FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
+                  FSUSBLOG_QUALITY_GATE_ARTIFACT_DOWNLOAD_ROOT: .tmp/downloaded-artifacts
                   FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST: artifacts/current-run/transport-manifest.json
+                  FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST_DIGEST: ${{ needs.release-evidence.outputs.evidence_transport_manifest_digest }}
                   FSUSBLOG_RELEASE_EVIDENCE_DIR: .tmp/quality-gate-release-evidence
                   FSUSBLOG_RELEASE_EVIDENCE_MANIFEST: .tmp/quality-gate-release-evidence/manifest.json
               run: node tools/ci/summarize-quality-gate.mjs

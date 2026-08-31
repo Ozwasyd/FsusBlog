@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -10,6 +11,7 @@ import {
     FLAKY_EVIDENCE_COLLECTION_SCHEMA
 } from './check-flaky-evidence.mjs';
 import {
+    collectionDocumentDigest,
     createJobSummaryCollection,
     JOB_SUMMARY_COLLECTION_SCHEMA
 } from './check-job-summaries.mjs';
@@ -151,7 +153,7 @@ function localJobFiles(repositoryRoot, releaseEvidenceDirectory)
             const file = path.join(jobs, entry.name);
             assertPlainFile(file, releaseRoot, 'local release-evidence job summary');
             return { artifactName: 'release-evidence', file,
-                relative: path.relative(releaseRoot, file).replaceAll(path.sep, '/') };
+                relative: `.tmp/release-evidence/${path.relative(releaseRoot, file).replaceAll(path.sep, '/')}` };
         });
 }
 
@@ -166,6 +168,21 @@ function readJson(candidate, label)
         throw new Error(`${label} is malformed: ${candidate.artifactName}/${candidate.relative}: ${error.message}`,
             { cause: error });
     }
+}
+
+function digestFile(file)
+{
+    return `sha256:${crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`;
+}
+
+function collectionSource({ candidate, document })
+{
+    return {
+        artifactName: candidate.artifactName,
+        path: candidate.relative,
+        inputDigest: candidate.inputDigest ?? digestFile(candidate.file),
+        documentDigest: collectionDocumentDigest(document)
+    };
 }
 
 function artifactOwnsSummary(candidate, summary)
@@ -255,7 +272,7 @@ function collectJobDocuments({ candidates, plan, context, expectedTiers, buildRe
     const grouped = new Map();
     for (const candidate of candidates)
     {
-        const document = readJson(candidate, 'job summary evidence');
+        const document = candidate.document ?? readJson(candidate, 'job summary evidence');
         const isJob = document?.schema === 'fsusblog.ci.job-result.v1';
         const isAuxiliary = document?.schema === 'fsusblog.ci-production-build-verification.v1';
         assert(isJob || isAuxiliary,
@@ -324,7 +341,7 @@ function collectFlakyDocuments({ candidates, plan, jobs })
     {
         assert(allowedJobs.has(candidate.artifactName),
         `flaky evidence artifact is outside the PR plan ownership: ${candidate.artifactName}`);
-        const document = readJson(candidate, 'flaky evidence');
+        const document = candidate.document ?? readJson(candidate, 'flaky evidence');
         assert(document?.schema === 'fsusblog.ci.flaky.v1',
             `unsupported flaky evidence schema: ${candidate.artifactName}/${candidate.relative}`);
         const owner = jobs.find(({ candidate: summaryCandidate, document: summary }) =>
@@ -340,6 +357,42 @@ function collectFlakyDocuments({ candidates, plan, jobs })
     return [...grouped.values()]
         .sort((left, right) => `${left.candidate.artifactName}/${left.candidate.relative}`
             .localeCompare(`${right.candidate.artifactName}/${right.candidate.relative}`));
+}
+
+function classifyFlakyArtifactCandidates(candidates, expectedJobs)
+{
+    const evidence = [];
+    const identities = new Set();
+    for (const candidate of candidates)
+    {
+        assert(expectedJobs.has(candidate.artifactName),
+            `flaky artifact is outside exact plan authority: ${candidate.artifactName}`);
+        const segments = candidate.relative.split('/');
+        const markers = segments.flatMap((segment, index) => segment === 'release-evidence'
+            && segments[index + 1] === 'flaky' ? [index] : []);
+        assert(markers.length === 1, `flaky artifact path has ambiguous role: ${candidate.relative}`);
+        const suffix = segments.slice(markers[0] + 2);
+        const identity = `${candidate.artifactName}\u0000${candidate.relative}`;
+        assert(!identities.has(identity), `duplicate flaky artifact path: ${candidate.artifactName}/${candidate.relative}`);
+        identities.add(identity);
+        const document = readJson(candidate, 'flaky artifact');
+        if (suffix.length === 1 && suffix[0] === 'registry.json')
+        {
+            assert(document?.schema === 'fsusblog.ci.flaky-registry.v1',
+                `flaky registry schema mismatch: ${candidate.artifactName}/${candidate.relative}`);
+            continue;
+        }
+        if (suffix.length === 4 && suffix[0] === 'attempts' && suffix[3] === 'attempt.json')
+        {
+            assert(document?.schema === 'fsusblog.ci.flaky-attempt.v1',
+                `flaky attempt schema mismatch: ${candidate.artifactName}/${candidate.relative}`);
+            continue;
+        }
+        assert(suffix.length === 1 && document?.schema === 'fsusblog.ci.flaky.v1',
+            `unknown or misplaced flaky artifact: ${candidate.artifactName}/${candidate.relative}`);
+        evidence.push({ ...candidate, document });
+    }
+    return evidence;
 }
 
 function writeExclusiveJson(repositoryRoot, relative, value)
@@ -398,34 +451,19 @@ export function qualityGateTransportContext(environment)
     return { ...body, contentDigest: governanceContentDigest(body) };
 }
 
-export function buildQualityGateEvidenceTransport({
-    repositoryRoot = defaultRepositoryRoot,
-    environment = process.env
-} = {})
+function qualityGatePlan(repositoryRoot, environment, context)
 {
-    const context = qualityGateTransportContext(environment);
-    const outputRoot = path.join(repositoryRoot, 'artifacts/current-run');
-    assert(!fs.existsSync(outputRoot), 'quality-gate evidence transport output root already exists');
-    fs.mkdirSync(outputRoot, { recursive: true });
-
     const planPath = path.resolve(repositoryRoot, requiredEnvironment(environment,
         'FSUSBLOG_CI_PR_SMART_GATE_PLAN'));
     assertPlainFile(planPath, repositoryRoot, 'PR smart gate plan');
     const plan = JSON.parse(fs.readFileSync(planPath, 'utf8'));
     validatePrSmartGatePlan(plan, environment, context.buildIdentity.digest);
-    validateNeedsProjection(environment, plan);
+    return { plan, planPath };
+}
 
-    const downloadRoot = path.resolve(repositoryRoot, requiredEnvironment(environment,
-        'FSUSBLOG_QUALITY_GATE_ARTIFACT_DOWNLOAD_ROOT'));
-    const releaseDirectory = requiredEnvironment(environment, 'FSUSBLOG_RELEASE_EVIDENCE_DIR');
-    const expectedTiers = expectedJobTiers(repositoryRoot, plan);
-    const expectedJobs = new Set(selectedAuthorityJobs(plan)
-        .filter((job) => !directAuthorityWithoutJobSummary.has(job)));
-    const allJobCandidates = [
-        ...walkJsonFiles(downloadRoot, 'jobs'),
-        ...localJobFiles(repositoryRoot, releaseDirectory)
-    ];
-    for (const candidate of allJobCandidates)
+function exactJobCandidates(candidates, expectedJobs, plan)
+{
+    for (const candidate of candidates)
     {
         for (const authorityJob of expectedJobs)
         {
@@ -440,8 +478,53 @@ export function buildQualityGateEvidenceTransport({
         assert(expectedJobs.has(candidate.artifactName),
             `job summary artifact is outside exact plan authority: ${candidate.artifactName}`);
     }
-    const jobCandidates = allJobCandidates;
-    const flakyCandidates = walkJsonFiles(downloadRoot, 'flaky');
+    return candidates;
+}
+
+function collectionCandidates({ collection, documents, downloadRoot, label })
+{
+    return documents.map((document, index) =>
+    {
+        const source = collection.sources[index];
+        const file = path.join(downloadRoot, source.artifactName, source.path);
+        assertPlainFile(file, downloadRoot, `${label} source`);
+        assert(digestFile(file) === source.inputDigest,
+            `${label} source input digest mismatch: ${source.artifactName}/${source.path}`);
+        assert(collectionDocumentDigest(document) === source.documentDigest,
+            `${label} member document digest mismatch: ${source.artifactName}/${source.path}`);
+        const sourceDocument = readJson({ artifactName: source.artifactName,
+            relative: source.path, file }, `${label} source`);
+        assert(collectionDocumentDigest(sourceDocument) === source.documentDigest,
+            `${label} source/member semantic digest mismatch: ${source.artifactName}/${source.path}`);
+        return { artifactName: source.artifactName, relative: source.path, file,
+            inputDigest: source.inputDigest, document };
+    });
+}
+
+export function validateQualityGateEvidenceCollectionMembers({
+    repositoryRoot = defaultRepositoryRoot,
+    environment = process.env,
+    context = qualityGateTransportContext(environment),
+    jobCollection,
+    flakyCollection
+})
+{
+    const canonicalJobs = createJobSummaryCollection(jobCollection?.summaries, jobCollection?.sources);
+    const canonicalFlaky = createFlakyEvidenceCollection(flakyCollection?.evidence, flakyCollection?.sources);
+    assert(JSON.stringify(canonicalJobs) === JSON.stringify(jobCollection),
+        'job summary collection canonical shape mismatch');
+    assert(JSON.stringify(canonicalFlaky) === JSON.stringify(flakyCollection),
+        'flaky evidence collection canonical shape mismatch');
+    const { plan } = qualityGatePlan(repositoryRoot, environment, context);
+    const expectedTiers = expectedJobTiers(repositoryRoot, plan);
+    const expectedJobs = new Set(selectedAuthorityJobs(plan)
+        .filter((job) => !directAuthorityWithoutJobSummary.has(job)));
+    const downloadRoot = path.resolve(repositoryRoot, requiredEnvironment(environment,
+        'FSUSBLOG_QUALITY_GATE_ARTIFACT_DOWNLOAD_ROOT'));
+    const jobCandidates = exactJobCandidates(collectionCandidates({ collection: canonicalJobs,
+        documents: canonicalJobs.summaries, downloadRoot, label: 'job collection' }), expectedJobs, plan);
+    const flakyCandidates = collectionCandidates({ collection: canonicalFlaky,
+        documents: canonicalFlaky.evidence, downloadRoot, label: 'flaky collection' });
     for (const candidate of flakyCandidates)
     {
         assert(expectedJobs.has(candidate.artifactName),
@@ -450,8 +533,45 @@ export function buildQualityGateEvidenceTransport({
     const buildReceipt = productionReceipt(downloadRoot, context);
     const jobs = collectJobDocuments({ candidates: jobCandidates, plan, context, expectedTiers, buildReceipt });
     const flaky = collectFlakyDocuments({ candidates: flakyCandidates, plan, jobs });
-    const jobCollection = createJobSummaryCollection(jobs.map(({ document }) => document));
-    const flakyCollection = createFlakyEvidenceCollection(flaky.map(({ document }) => document));
+    assert(jobs.length === canonicalJobs.summaries.length,
+        'job collection member cardinality mismatch after validation');
+    assert(flaky.length === canonicalFlaky.evidence.length,
+        'flaky collection member cardinality mismatch after validation');
+    return { jobs, flaky };
+}
+
+export function buildQualityGateEvidenceTransport({
+    repositoryRoot = defaultRepositoryRoot,
+    environment = process.env
+} = {})
+{
+    const context = qualityGateTransportContext(environment);
+    const outputRoot = path.join(repositoryRoot, 'artifacts/current-run');
+    assert(!fs.existsSync(outputRoot), 'quality-gate evidence transport output root already exists');
+    fs.mkdirSync(outputRoot, { recursive: true });
+
+    const { plan } = qualityGatePlan(repositoryRoot, environment, context);
+    validateNeedsProjection(environment, plan);
+
+    const downloadRoot = path.resolve(repositoryRoot, requiredEnvironment(environment,
+        'FSUSBLOG_QUALITY_GATE_ARTIFACT_DOWNLOAD_ROOT'));
+    const releaseDirectory = requiredEnvironment(environment, 'FSUSBLOG_RELEASE_EVIDENCE_DIR');
+    const expectedTiers = expectedJobTiers(repositoryRoot, plan);
+    const expectedJobs = new Set(selectedAuthorityJobs(plan)
+        .filter((job) => !directAuthorityWithoutJobSummary.has(job)));
+    const allJobCandidates = [
+        ...walkJsonFiles(downloadRoot, 'jobs'),
+        ...localJobFiles(repositoryRoot, releaseDirectory)
+    ];
+    const jobCandidates = exactJobCandidates(allJobCandidates, expectedJobs, plan);
+    const flakyCandidates = classifyFlakyArtifactCandidates(walkJsonFiles(downloadRoot, 'flaky'), expectedJobs);
+    const buildReceipt = productionReceipt(downloadRoot, context);
+    const jobs = collectJobDocuments({ candidates: jobCandidates, plan, context, expectedTiers, buildReceipt });
+    const flaky = collectFlakyDocuments({ candidates: flakyCandidates, plan, jobs });
+    const jobCollection = createJobSummaryCollection(jobs.map(({ document }) => document),
+        jobs.map(collectionSource));
+    const flakyCollection = createFlakyEvidenceCollection(flaky.map(({ document }) => document),
+        flaky.map(collectionSource));
 
     const registry = JSON.parse(fs.readFileSync(path.join(repositoryRoot,
         'config/testing/evidence-locator-registry.json'), 'utf8'));
