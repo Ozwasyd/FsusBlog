@@ -9,8 +9,8 @@
         "tools/test/generate-evidence-location-governance.mjs": "sha256:dfa82cd9a3da394569b31ca230c29d2359aafb40427c98ec0c29c666a7dac015"
     },
     "registryDigest": "sha256:121dafbfe65b6d35cc026de1be4853033da43e7eb250c7963d37c201ed6eae59",
-    "ledgerDigest": "sha256:a6aa4708cc2a0d34b518b883574daa384829803028ed5422de0b04a9f92b46b5",
-    "scannerDigest": "sha256:5d08bfc56d7a561a22119f55256e763dd8d65dc61e14e2dd8a52dd0929468df9",
+    "ledgerDigest": "sha256:48d37cd9241ae4dfa2fea3962ae56a5289c729111b4dbd118755a7a6c68df10b",
+    "scannerDigest": "sha256:556d8dcaa225c15bc8e95e53e4319c7457e3dd979c7e69cd17677fda7ddab349",
     "locatorDigest": "sha256:a3477d14e62b2e6a30bc48e16eaf417e49996fdab58e39ae064f1c7ac07b0653",
     "transportDigest": "sha256:74b09545ad37fb5b5dcacb56726a4ae0e46c6c664d6775b8ba109867816f0f28",
     "consumerInventory": [
@@ -506,7 +506,7 @@
         }
     ],
     "consumerCount": 70,
-    "findingCount": 357,
+    "findingCount": 359,
     "warnings": [],
-    "contentDigest": "sha256:e414539da5edcefb348cabb0b035471e6d908163209cbe0f63674df2bd5b47d6"
+    "contentDigest": "sha256:47a9b5bea8f60e48d7bd1e0db7f4d78e0bbc56ccc66c12fb7bed6a814759767b"
 }

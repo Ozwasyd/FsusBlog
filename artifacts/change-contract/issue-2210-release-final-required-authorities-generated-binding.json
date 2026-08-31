@@ -6,7 +6,7 @@
     "outputs": [
         {
             "path": "config/testing/current-run-evidence-location-acceptance.json",
-            "sha256": "eb7d86d341c39b6dfef6dd25cbda059572a90a0695adf04d3a4e187a1d261f0f"
+            "sha256": "34e530063459d22f8f3cf2bd59d79f6d3db51d19986247077d761f85bd27a379"
         }
     ]
 }
