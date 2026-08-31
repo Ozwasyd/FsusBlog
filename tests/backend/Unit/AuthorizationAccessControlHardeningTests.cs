@@ -2,6 +2,10 @@ using System.Reflection;
 
 using Fido2NetLib;
 
+using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Cache;
+using FsusBlog.Core.Common;
+using FsusBlog.Server.Contracts.Assets;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Bootstrap;
@@ -10,6 +14,7 @@ using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Modules.Endpoints.Binary;
@@ -341,14 +346,50 @@ public sealed class AuthorizationAccessControlHardeningTests
     }
 
     [Fact]
-    public void FileDeleteEndpoint_AcceptsAssetIdWithoutPathNormalizer()
+    public async Task FileDeleteEndpoint_AcceptsAssetIdWithoutPathNormalizer()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot(
-            "src", "backend", "Modules", "Endpoints", "Binary", "BinaryEndpoints.Files.cs");
-        Assert.Contains("AssetId.TryParse", source, StringComparison.Ordinal);
-        Assert.Contains("IAssetStore assetStore", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Path.", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("TryNormalize", source, StringComparison.Ordinal);
+        AssetId assetId = AssetId.Parse("3f3b2e7a-1d2e-4f8a-9c5b-6a7b8c9d0e1f");
+        IAssetStore validStore = Substitute.For<IAssetStore>();
+        validStore.DeleteAsync(assetId, Arg.Any<CancellationToken>()).Returns(AssetDeleteResult.Deleted);
+        var aeds = new AedsEncoder();
+        DefaultHttpContext validContext = ContentAssetDeleteEndpointTests.CreateContext(assetId.ToString());
+
+        var validResult = await BinaryEndpoints.HandleFileDeleteAsync(
+            validContext,
+            validStore,
+            aeds,
+            CancellationToken.None);
+        AedsDecodeResult validFrame = await ContentAssetDeleteEndpointTests.ExecuteAndDecodeAsync(
+            validResult,
+            validContext,
+            aeds);
+
+        Assert.Equal(AedsFrameType.EmptySuccess, validFrame.FrameType);
+        await validStore.Received(1).DeleteAsync(assetId, Arg.Any<CancellationToken>());
+
+        foreach (string rejectedIdentity in new[]
+        {
+            "../illustration/hero.png",
+            "https://example.test/uploads/illustration/hero.png"
+        })
+        {
+            IAssetStore rejectedStore = Substitute.For<IAssetStore>();
+            DefaultHttpContext rejectedContext = ContentAssetDeleteEndpointTests.CreateContext(rejectedIdentity);
+            var rejectedResult = await BinaryEndpoints.HandleFileDeleteAsync(
+                rejectedContext,
+                rejectedStore,
+                aeds,
+                CancellationToken.None);
+            AedsDecodeResult rejectedFrame = await ContentAssetDeleteEndpointTests.ExecuteAndDecodeAsync(
+                rejectedResult,
+                rejectedContext,
+                aeds);
+
+            Assert.Equal(AedsFrameType.ApiError, rejectedFrame.FrameType);
+            Assert.True(PodBinaryCodec.TryDecodeApiError(rejectedFrame.Payload, out var errorPod));
+            Assert.Equal(ErrorCode.Validation, PodBinaryCodec.ToErrorDetail(errorPod).Code);
+            await rejectedStore.DidNotReceiveWithAnyArgs().DeleteAsync(default, default);
+        }
     }
 
     [Fact]

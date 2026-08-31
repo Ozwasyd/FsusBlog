@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.issue-acceptance-baseline.v1",
+    "issue": 2353,
+    "sourceCommit": "ff4d024028e4639dde860991a3dac2e198c72802",
+    "expectedRecords": 1,
+    "expectedMigrated": 1,
+    "records": [
+        {
+            "id": "xunit:tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs#AnonymousPrivacyConcurrencyTests.SameNullifierAndScopeConcurrentSubmit_AllowsOnlyPolicyLimit",
+            "path": "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
+            "disposition": "migrated"
+        }
+    ]
+}
