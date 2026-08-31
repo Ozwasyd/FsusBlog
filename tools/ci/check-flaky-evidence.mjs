@@ -217,7 +217,7 @@ function validateLegacy(item, file) {
   return errors
 }
 
-function validate(item, file) {
+export function validateFlakyEvidence(item, file) {
   if (item.schema !== 'fsusblog.ci.flaky.v1') return [`${file}: schema must be fsusblog.ci.flaky.v1`]
   return item.policyVersion === policyVersion ? validateV2(item, file) : validateLegacy(item, file)
 }
@@ -266,7 +266,7 @@ function checkEvidence({ releaseFinal, files = listFlakyFiles() }) {
     if (item.schema !== 'fsusblog.ci.flaky.v1') continue
     count += 1
     const displayFile = path.relative(root, file)
-    errors.push(...validate(item, displayFile))
+    errors.push(...validateFlakyEvidence(item, displayFile))
     if (releaseFinal && !isNonBlockingDiagnosticEvidence(item) && !isSuccessful(item)) {
       errors.push(`${displayFile}: release-final rejects failing ${item.sourceEvidenceClass ?? item.evidenceClass ?? 'unclassified'} evidence (${item.finalStatus})`)
     }
@@ -373,5 +373,7 @@ function runSelfTest() {
   console.log('[flaky-evidence] self-test ok')
 }
 
-if (process.argv.includes('--self-test')) runSelfTest()
-else main()
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  if (process.argv.includes('--self-test')) runSelfTest()
+  else main()
+}

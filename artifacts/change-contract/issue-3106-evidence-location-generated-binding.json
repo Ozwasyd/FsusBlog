@@ -1,0 +1,21 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/ci/summarize-quality-gate.mjs",
+        "tools/test/current-run-evidence-transport.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/current-run-evidence-location-acceptance.json",
+            "sha256": "637364caa11b59d9ca5243d5cc8065c91e07cb188605cac3263e5aa6164d90a6"
+        },
+        {
+            "path": "config/testing/evidence-location-migration-ledger.json",
+            "sha256": "26e93ef69d41fd70243d25d60edc1b6cc7c66f512ba8a80040c3816aaa20d944"
+        },
+        {
+            "path": "config/testing/evidence-locator-registry.json",
+            "sha256": "a9c8ca5d65b09fe209f6c820be90b9fbe5ee249f0767443401eb43a51a82ab15"
+        }
+    ]
+}

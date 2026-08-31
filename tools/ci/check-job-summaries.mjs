@@ -84,7 +84,7 @@ const auxiliaryEvidenceContracts = new Map([
   }]
 ])
 
-function classifyEvidence(document, file) {
+export function classifyJobEvidence(document, file) {
   if (!isRecord(document)) {
     return { kind: 'invalid', errors: [`${file}: JSON root must be an object`] }
   }
@@ -107,7 +107,7 @@ function classifyEvidence(document, file) {
   }
 }
 
-function validateSummary(summary, file) {
+export function validateJobSummary(summary, file) {
   const errors = []
   if (summary.schema !== jobResultSchema) errors.push(`${file}: schema must be ${jobResultSchema}`)
   for (const field of ['jobId', 'status', 'tierIds', 'localReproduction', 'commit', 'runId', 'attempt']) {
@@ -246,7 +246,7 @@ function main() {
   for (const file of files) {
     const summary = readJson(file)
     const relativeFile = path.relative(root, file)
-    const classification = classifyEvidence(summary, relativeFile)
+    const classification = classifyJobEvidence(summary, relativeFile)
     errors.push(...classification.errors)
     if (classification.kind === 'job-summary') summaries.push({ file, summary })
     if (classification.kind === 'auxiliary-evidence') {
@@ -255,7 +255,7 @@ function main() {
   }
 
   for (const { file, summary } of summaries) {
-    errors.push(...validateSummary(summary, path.relative(root, file)))
+    errors.push(...validateJobSummary(summary, path.relative(root, file)))
   }
 
   if (requirePlan) {
@@ -284,8 +284,10 @@ function main() {
   console.log(`[job-summary-check] ok summaries=${summaries.length} auxiliary=${auxiliaryEvidence.length} auxiliarySchemas=${auxiliaryCounts} required=${requirePlan ? requiredJobsFromPlan(options).length : 0}`)
 }
 
-try {
-  main()
-} catch (error) {
-  fail([error.message])
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    main()
+  } catch (error) {
+    fail([error.message])
+  }
 }

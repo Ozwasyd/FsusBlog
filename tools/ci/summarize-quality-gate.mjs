@@ -6,6 +6,9 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import { validateFlakyEvidence } from './check-flaky-evidence.mjs';
+import { classifyJobEvidence, validateJobSummary } from './check-job-summaries.mjs';
+import { listVerifiedTransportedArchiveFiles } from '../test/current-run-evidence-transport.mjs';
 import { parseWorkflowJobNeeds } from '../yaml/workflow-structure.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
@@ -174,21 +177,21 @@ function readTransportOrDirectoryJson(directory, authorityId)
     const transport = String(process.env.FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST ?? '').trim();
     if (transport)
     {
-        const manifest = JSON.parse(fs.readFileSync(path.resolve(root, transport), 'utf8'));
-        const mapped = (manifest.objects ?? []).filter((object) => object.authorityId === authorityId);
-        const files = mapped.flatMap((object) => object.archiveEntries ?? [])
-            .map((entry) => path.resolve(root, entry.extractedPath));
-        return files.flatMap((file) =>
+        return listVerifiedTransportedArchiveFiles({
+            repositoryRoot: root,
+            transportManifestPath: transport,
+            authorityId
+        }).map((file) =>
         {
-            try
-            {
-                return [{ file, text: fs.readFileSync(file, 'utf8'), value: JSON.parse(fs.readFileSync(file, 'utf8')) }];
-            }
-            catch
-            {
-                return [];
-            }
+            const text = fs.readFileSync(file, 'utf8');
+            return { file, text, value: JSON.parse(text) };
         });
+    }
+    const downloaded = path.join(root, '.tmp/downloaded-artifacts');
+    if (fs.existsSync(downloaded)
+        && (fs.lstatSync(downloaded).isSymbolicLink() || fs.readdirSync(downloaded).length > 0))
+    {
+        throw new Error('downloaded artifacts exist without a transport manifest');
     }
     return readExplicitDirectoryJson(directory);
 }
@@ -197,13 +200,30 @@ function loadJobSummaries()
 {
     const jobsDir = path.join(explicitEvidenceRoot(), 'jobs');
     const summaries = new Map();
+    let summaryCount = 0;
     for (const { file, text, value: summary } of readTransportOrDirectoryJson(jobsDir,
         'evidence-consumer.ci.check-job-summaries.current-run'))
     {
-        if (summary.schema !== 'fsusblog.ci.job-result.v1')
+        if (!summary || typeof summary !== 'object' || Array.isArray(summary))
+        {
+            throw new Error(`job summary payload must be an object: ${path.relative(root, file)}`);
+        }
+        const relativeFile = path.relative(root, file);
+        const classification = classifyJobEvidence(summary, relativeFile);
+        if (classification.errors.length > 0)
+        {
+            throw new Error(`job evidence payload is invalid: ${classification.errors.join('; ')}`);
+        }
+        if (classification.kind !== 'job-summary')
         {
             continue;
         }
+        const errors = validateJobSummary(summary, relativeFile);
+        if (errors.length > 0)
+        {
+            throw new Error(`job summary payload is invalid: ${errors.join('; ')}`);
+        }
+        summaryCount += 1;
         const digest = `sha256:${crypto.createHash('sha256').update(text).digest('hex')}`;
         for (const key of [summary.jobId, summary.ciJob])
         {
@@ -223,6 +243,10 @@ function loadJobSummaries()
             summaries.set(key, { summary, file, digest });
         }
     }
+    if (String(process.env.FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST ?? '').trim() && summaryCount === 0)
+    {
+        throw new Error('transported job-summary authority contains no job summary payload');
+    }
     return summaries;
 }
 
@@ -233,9 +257,14 @@ function loadFlakyEvidence()
     for (const { file, value: item } of readTransportOrDirectoryJson(flakyDir,
         'evidence-consumer.ci.check-flaky-evidence.current-run'))
     {
-        if (item.schema !== 'fsusblog.ci.flaky.v1')
+        if (!item || typeof item !== 'object' || Array.isArray(item))
         {
-            continue;
+            throw new Error(`flaky evidence payload must be an object: ${path.relative(root, file)}`);
+        }
+        const errors = validateFlakyEvidence(item, path.relative(root, file));
+        if (errors.length > 0)
+        {
+            throw new Error(`flaky evidence payload is invalid: ${errors.join('; ')}`);
         }
         evidence.push({ item, file });
     }

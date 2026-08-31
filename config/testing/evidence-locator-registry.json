@@ -287,6 +287,7 @@
             ],
             "expectedCardinality": "exact-one",
             "allowedRoots": [
+                ".tmp/downloaded-artifacts",
                 "artifacts/current-run"
             ],
             "publicationMode": "hooked",
@@ -2316,5 +2317,5 @@
             "checkpointCommand": "node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer evidence-consumer.release.release-final-domain-evidence"
         }
     ],
-    "contentDigest": "sha256:121dafbfe65b6d35cc026de1be4853033da43e7eb250c7963d37c201ed6eae59"
+    "contentDigest": "sha256:db25e88cc482d489d512ff7c94fcb1cb523ab9095ee588d5e8148c4ab131935b"
 }
