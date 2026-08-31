@@ -15,7 +15,7 @@
         "evidence-selection.schema-search",
         "evidence-selection.timestamp-sort"
     ],
-    "scanDigest": "sha256:69a44946a07b2bde8288da58b68dfa38c30106cc0049d1ce3a29aeb03ce8e0ae",
+    "scanDigest": "sha256:a006e7f989b51b11d5a27352f003f2cd708f47bdce88d8cef5d7c2aa69654d17",
     "entries": [
         {
             "findingId": "796fa8284a86adb9",
@@ -100,6 +100,30 @@
             "action": "migrate consumer to its registered current-run authority after locator implementation",
             "owner": "ci-governance",
             "proofTest": "tests/tools/evidence-location-governance.test.mjs#3f49ee5dff8625e4"
+        },
+        {
+            "findingId": "14934ca9a1163d27",
+            "consumerId": "evidence-consumer.artifacts.change-contract.issue-3106-evidence-location-generated-binding",
+            "location": "artifacts/change-contract/issue-3106-evidence-location-generated-binding.json:9",
+            "oldSelectionRule": "evidence-selection.latest-newest",
+            "classification": "not-evidence",
+            "newAuthorityId": null,
+            "locatorMode": "not-applicable",
+            "action": "close exact location and rule as non-evidence behavior",
+            "owner": "test-evidence-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#14934ca9a1163d27"
+        },
+        {
+            "findingId": "22111aaab7c86159",
+            "consumerId": "evidence-consumer.artifacts.change-contract.issue-3106-evidence-location-generated-binding",
+            "location": "artifacts/change-contract/issue-3106-evidence-location-generated-binding.json:9",
+            "oldSelectionRule": "evidence-selection.pointer-without-identity",
+            "classification": "not-evidence",
+            "newAuthorityId": null,
+            "locatorMode": "not-applicable",
+            "action": "close exact location and rule as non-evidence behavior",
+            "owner": "test-evidence-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#22111aaab7c86159"
         },
         {
             "findingId": "8905e3da96c6aca2",
@@ -4350,5 +4374,5 @@
             "proofTest": "tests/tools/evidence-location-governance.test.mjs#2ef6d583f3eff507"
         }
     ],
-    "contentDigest": "sha256:66cf0ca95e5cef1cad2b7b9a7cf493b172534ad71d0e176890d5ce77e6d92661"
+    "contentDigest": "sha256:aae1bbee151c0e40b018840244e3c5b41eae697366a48a8302b0592e6e603ec5"
 }
