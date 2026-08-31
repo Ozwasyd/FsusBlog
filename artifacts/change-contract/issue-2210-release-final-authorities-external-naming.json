@@ -1,0 +1,29 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/required-evidence-catalog.mjs"
+            ],
+            "reason": "Process environment spelling is external while option variables remain internal."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/current-run-evidence-location-acceptance.json"
+            ],
+            "reason": "Wire and schema keys remain stable while runtime adapters follow internal naming."
+        },
+        {
+            "id": "release-locator-current-run-authority",
+            "paths": [
+                "tools/release/check-release-final.mjs",
+                "tools/release/release-final-domain-evidence.mjs",
+                "tools/release/test-evidence-receipts.mjs",
+                "tools/test/current-run-evidence-publication.mjs"
+            ],
+            "reason": "The sealed release locator registry, producer adapters, parent receipt, verifier and release-final consumer must change atomically while preserving their caller-visible JSON keys, schemas, CLI flags and process environment bindings."
+        }
+    ]
+}
