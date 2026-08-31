@@ -6,6 +6,8 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { buildReleaseFinalizerSpawnDecision } from '../../tools/test-matrix/release-final-static-boundary.mjs';
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 test('release-final script files do not contain recursive test or build producer invocations', () =>
@@ -27,7 +29,7 @@ test('release-final script files do not contain recursive test or build producer
     }
 });
 
-test('missing explicit bindings fail before finalizer or fallback spawn', () =>
+test('nonaccepted seals and nonexistent evidence fail before any checker child spawn', async (context) =>
 {
     const fixture = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-final-evidence-'));
     const bin = path.join(fixture, 'bin');
@@ -47,11 +49,17 @@ test('missing explicit bindings fail before finalizer or fallback spawn', () =>
             writeFileSync(command, `#!/usr/bin/env bash\nprintf '%s\\n' "${name}:$*" >> "$FSUSBLOG_SPAWN_LOG"\nexit 97\n`);
             chmodSync(command, 0o755);
         }
-        const environment = {
+        const checkerNode = path.join(bin, 'checker-node');
+        writeFileSync(
+            checkerNode,
+            '#!/usr/bin/env bash\nprintf \'%s\\n\' "checker-node:$*" >> "$FSUSBLOG_SPAWN_LOG"\nexit 97\n'
+        );
+        chmodSync(checkerNode, 0o755);
+        const baseEnvironment = {
             ...process.env,
             PATH: `${bin}:${process.env.PATH}`,
             FSUSBLOG_SPAWN_LOG: log,
-            FSUSBLOG_NODE: process.execPath
+            FSUSBLOG_NODE: checkerNode
         };
         const finalizerRoot = path.join(fixture, 'finalizer-root');
         mkdirSync(path.join(finalizerRoot, 'tools/test/lanes'), { recursive: true });
@@ -59,17 +67,65 @@ test('missing explicit bindings fail before finalizer or fallback spawn', () =>
             path.join(root, 'tools/test/lanes/release-final.sh'),
             path.join(finalizerRoot, 'tools/test/lanes/release-final.sh')
         );
-
-        const result = spawnSync('tools/test/lanes/release-final.sh', [], {
+        const contextFile = path.join(fixture, 'context.json');
+        const manifestFile = path.join(fixture, 'manifest.json');
+        const domainFile = path.join(fixture, 'domain.json');
+        for (const file of [contextFile, manifestFile, domainFile])
+        {
+            writeFileSync(file, '{}\n');
+        }
+        const execute = (environment) => spawnSync('tools/test/lanes/release-final.sh', [], {
             cwd: finalizerRoot,
             detached: process.platform !== 'win32',
             encoding: 'utf8',
-            env: environment
+            env: { ...baseEnvironment, ...environment }
         });
-        const output = `${result.stdout}\n${result.stderr}`;
-        assert.notEqual(result.status, 0, 'missing evidence must fail closed rather than report success');
-        assert.match(output, /requires explicit current-run context, manifest binding, and domain binding/u);
-        assert.equal(readFileSync(log, 'utf8'), '', 'missing evidence must not execute a blocked producer command');
+        for (const sealState of ['missing', 'failed', 'stale'])
+        {
+            await context.test(sealState, () =>
+            {
+                const decision = buildReleaseFinalizerSpawnDecision({ sealState });
+                const result = execute({
+                    FSUSBLOG_RELEASE_FINAL_SPAWN_DECISION: decision.shellToken,
+                    FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT: contextFile,
+                    FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH: manifestFile,
+                    FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH: domainFile
+                });
+                assert.notEqual(result.status, 0);
+                assert.match(`${result.stdout}\n${result.stderr}`, /release-final seal rejected/u);
+                assert.equal(readFileSync(log, 'utf8'), '', `${sealState} must keep child spawn count at zero`);
+            });
+        }
+        const accepted = buildReleaseFinalizerSpawnDecision({ sealState: 'accepted' });
+        for (const [name, missingPath] of [
+            ['context', contextFile],
+            ['manifest', manifestFile],
+            ['domain', domainFile]
+        ])
+        {
+            await context.test(`nonexistent ${name}`, () =>
+            {
+                const paths = {
+                    FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT: contextFile,
+                    FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH: manifestFile,
+                    FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH: domainFile
+                };
+                paths[
+                    name === 'context'
+                        ? 'FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT'
+                        : name === 'manifest'
+                            ? 'FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH'
+                            : 'FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH'
+                ] = `${missingPath}.missing`;
+                const result = execute({
+                    FSUSBLOG_RELEASE_FINAL_SPAWN_DECISION: accepted.shellToken,
+                    ...paths
+                });
+                assert.notEqual(result.status, 0);
+                assert.match(`${result.stdout}\n${result.stderr}`, /requires existing non-empty context and evidence files/u);
+                assert.equal(readFileSync(log, 'utf8'), '', `${name} absence must keep child spawn count at zero`);
+            });
+        }
     }
     finally
     {

@@ -7,12 +7,14 @@ import { fileURLToPath } from 'node:url';
 import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs';
 import { validateEvidenceExecutionDeclaration } from '../../tools/test-matrix/projection-declaration.mjs';
 import {
+    applyReleaseFinalizerSpawnDecision,
     buildReleaseFinalizerSpawnDecision,
     validateReleaseFinalStaticBoundary
 } from '../../tools/test-matrix/release-final-static-boundary.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const scriptSource = readFileSync(path.join(root, 'tools/test/lanes/release-final.sh'), 'utf8');
+const schedulerSource = readFileSync(path.join(root, 'tools/test-matrix/scheduler.mjs'), 'utf8');
 const matrix = parseMatrix(readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
 
 test('release-final script and execution graph expose only the finalizer consumer', () =>
@@ -35,6 +37,7 @@ test('missing, failed, and stale seals keep finalizer spawn count at zero', asyn
                 sealState,
                 eligible: false,
                 spawnCount: 0,
+                shellToken: `fsusblog.release-finalizer-spawn-decision.v1|${sealState}|0`,
                 failureReasons: [`release-final seal state is ${sealState}`]
             });
         });
@@ -53,6 +56,51 @@ test('accepted seal exposes one spawn only while the static boundary remains val
     });
     assert.equal(rejected.eligible, false);
     assert.equal(rejected.spawnCount, 0);
+});
+
+test('scheduler environment applies the reusable decision before the production shell path', () =>
+{
+    assert.match(
+        schedulerSource,
+        /tierEnvironment = applyReleaseFinalizerSpawnDecision\(tier, tierEnvironment,[\s\S]*?repositoryRoot: root/u
+    );
+    const fixture = path.join(root, 'tools/test/lanes/release-final.sh');
+    const accepted = applyReleaseFinalizerSpawnDecision({ id: 'release-final' }, {
+        FSUSBLOG_RELEASE_FINAL_SEAL_STATE: 'accepted',
+        FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT: fixture,
+        FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH: fixture,
+        FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH: fixture,
+        FSUSBLOG_RELEASE_FINAL_SPAWN_DECISION: 'caller-forged-token'
+    });
+    assert.equal(
+        accepted.FSUSBLOG_RELEASE_FINAL_SPAWN_DECISION,
+        buildReleaseFinalizerSpawnDecision({ sealState: 'accepted' }).shellToken
+    );
+
+    const missing = applyReleaseFinalizerSpawnDecision({ id: 'release-final' }, {
+        FSUSBLOG_RELEASE_FINAL_SEAL_STATE: 'accepted',
+        FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT: `${fixture}.missing`,
+        FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH: fixture,
+        FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH: fixture,
+        FSUSBLOG_RELEASE_FINAL_SPAWN_DECISION: 'caller-forged-token'
+    });
+    assert.equal(
+        missing.FSUSBLOG_RELEASE_FINAL_SPAWN_DECISION,
+        'fsusblog.release-finalizer-spawn-decision.v1|accepted|0'
+    );
+
+    const nonaccepted = applyReleaseFinalizerSpawnDecision({ id: 'release-final' }, {
+        FSUSBLOG_RELEASE_FINAL_SEAL_STATE: 'stale',
+        FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT: fixture,
+        FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH: fixture,
+        FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH: fixture,
+        FSUSBLOG_RELEASE_FINAL_SPAWN_DECISION:
+            'fsusblog.release-finalizer-spawn-decision.v1|accepted|1'
+    });
+    assert.equal(
+        nonaccepted.FSUSBLOG_RELEASE_FINAL_SPAWN_DECISION,
+        'fsusblog.release-finalizer-spawn-decision.v1|stale|0'
+    );
 });
 
 test('static boundary kills direct and hidden forbidden command mutations', async (context) =>
@@ -152,6 +200,10 @@ test('generic execute tiers cannot hide finalizer shell paths in tokens or compo
         'env   sh   "./tools/test/lanes/release-final.sh"',
         'true &&\n  "$PWD"/tools/test/lanes/release-final.sh',
         'finalizer=./tools/test/lanes/release-final.sh; exec "$finalizer"',
+        'p=./tools/test/lanes/release-; exec "${p}final.sh"',
+        'p=./tools/test/lanes/release-; s=final.sh; exec "$p$s"',
+        './tools/test/lanes/release-final.s?',
+        "bash -c 'p=./tools/test/lanes/release-; exec \"${p}final.sh\"'",
         'cd tools/test/lanes && ./release-final.sh',
         "python -c 'import os; os.system(\"./tools/test/lanes/release-final.sh\")'",
         "bash -c './tools/test/lanes/release-final.s\"\"h'",
@@ -181,6 +233,29 @@ test('generic execute tiers cannot hide finalizer shell paths in tokens or compo
                 buildReleaseFinalizerSpawnDecision({ sealState: 'accepted', boundaryErrors: errors }).spawnCount,
                 0
             );
+        });
+    }
+});
+
+test('unrelated variables and globs remain outside the finalizer alias boundary', async (context) =>
+{
+    const commands = [
+        'artifact=tools/test/lanes/release-candidate.sh; exec "$artifact"',
+        './tools/test/lanes/release-preview.s?',
+        "bash -c 'name=release-preview; printf \"%s\\n\" \"$name\"'"
+    ];
+    for (const [index, command] of commands.entries())
+    {
+        await context.test(command, () =>
+        {
+            const mutated = structuredClone(matrix);
+            mutated.tiers.push({
+                id: `unrelated-shell-shape-${index + 1}`,
+                executionMode: 'execute',
+                commandKind: 'producer',
+                command
+            });
+            assert.deepEqual(validateReleaseFinalStaticBoundary({ matrix: mutated, scriptSource }), []);
         });
     }
 });

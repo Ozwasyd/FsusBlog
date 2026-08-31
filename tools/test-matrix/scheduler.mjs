@@ -51,6 +51,7 @@ import {
     resolveRunBoundArtifactDeclaration
 } from './local-profile.mjs';
 import { createProductionResourceEnforcer } from './production-resource-enforcement.mjs';
+import { applyReleaseFinalizerSpawnDecision } from './release-final-static-boundary.mjs';
 import { releaseReliabilityResourceConflict } from './release-reliability-scheduler-projection.mjs';
 import {
     createResidentLeaseHandoff,
@@ -5200,7 +5201,7 @@ async function runDagUnlocked(options)
         schedulerWaitLedger.observe(tier.id, null);
         const enforcementBundleId = tier.physicalBundleId ?? tier.id;
         const effectiveEnforcement = resourceEnforcer.update(enforcementBundleId, tierResourceUnits(tier));
-        const tierEnvironment = {
+        let tierEnvironment = {
             ...process.env,
             ...(options.env ?? {}),
             ...(options.envForTier?.(tier) ?? {}),
@@ -5220,6 +5221,9 @@ async function runDagUnlocked(options)
             FSUSBLOG_CGROUP_EFFECTIVE_MEMORY_MAX_BYTES: String(effectiveEnforcement.memoryMaxBytes),
             FSUSBLOG_CGROUP_EFFECTIVE_PIDS_MAX: String(effectiveEnforcement.pidsMax)
         };
+        tierEnvironment = applyReleaseFinalizerSpawnDecision(tier, tierEnvironment, {
+            repositoryRoot: root
+        });
         const inputFingerprint = tierInputFingerprint(tier, root, {
             env: tierEnvironment,
             platform: options.platform,

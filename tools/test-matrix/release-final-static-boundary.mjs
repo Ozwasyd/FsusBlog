@@ -13,6 +13,7 @@ import {
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const releaseFinalizerFile = path.join(root, releaseFinalizerCommand);
 const matrixFile = path.join(root, 'tests/matrix.yml');
+const releaseFinalizerDecisionSchema = 'fsusblog.release-finalizer-spawn-decision.v1';
 
 export const releaseFinalSealStates = Object.freeze([
     'accepted',
@@ -26,15 +27,29 @@ const allowedReleaseFinalizerLines = [
     /^set -euo pipefail$/u,
     /^ROOT_DIR="\$\(cd "\$\(dirname "\$\{BASH_SOURCE\[0\]\}"\)\/\.\.\/\.\.\/\.\." && pwd\)"$/u,
     /^NODE_BIN="\$\{FSUSBLOG_NODE:-node\}"$/u,
+    /^releaseFinalDecision="\$\{FSUSBLOG_RELEASE_FINAL_SPAWN_DECISION:-fsusblog\.release-finalizer-spawn-decision\.v1\|missing\|0\}"$/u,
+    /^case "\$releaseFinalDecision" in$/u,
+    /^fsusblog\.release-finalizer-spawn-decision\.v1\\\|accepted\\\|1\)$/u,
+    /^;;$/u,
+    /^fsusblog\.release-finalizer-spawn-decision\.v1\\\|failed\\\|0\|fsusblog\.release-finalizer-spawn-decision\.v1\\\|missing\\\|0\|fsusblog\.release-finalizer-spawn-decision\.v1\\\|stale\\\|0\)$/u,
+    /^echo "release-final seal rejected: \$releaseFinalDecision" >&2$/u,
+    /^\*\)$/u,
+    /^echo "release-final seal decision is invalid: \$releaseFinalDecision" >&2$/u,
+    /^exit 1$/u,
+    /^esac$/u,
+    /^releaseFinalEvidencePaths=\($/u,
+    /^"\$\{FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT:-\}"$/u,
+    /^"\$\{FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH:-\}"$/u,
+    /^"\$\{FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH:-\}"$/u,
+    /^\)$/u,
+    /^for evidencePath in "\$\{releaseFinalEvidencePaths\[@\]\}"; do$/u,
+    /^if \[\[ -z "\$evidencePath" \|\| ! -f "\$evidencePath" \|\| ! -s "\$evidencePath" \|\| -L "\$evidencePath" \]\]; then$/u,
+    /^echo "release-final requires existing non-empty context and evidence files" >&2$/u,
+    /^done$/u,
     /^releaseFinalArgs=\(\)$/u,
     /^if \[\[ -n "\$\{FSUSBLOG_LOCAL_PROFILE_CHECKPOINT:-\}" \]\]; then$/u,
     /^releaseFinalArgs\+=\(--local-profile-checkpoint "\$FSUSBLOG_LOCAL_PROFILE_CHECKPOINT"\)$/u,
     /^fi$/u,
-    /^if \[\[ -z "\$\{FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT:-\}" \\$/u,
-    /^\|\| -z "\$\{FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH:-\}" \\$/u,
-    /^\|\| -z "\$\{FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH:-\}" \]\]; then$/u,
-    /^echo "release-final requires explicit current-run context, manifest binding, and domain binding" >&2$/u,
-    /^exit 1$/u,
     /^releaseFinalArgs\+=\(--current-run-context "\$FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT"\)$/u,
     /^releaseFinalArgs\+=\(--manifest-binding "\$FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH"\)$/u,
     /^releaseFinalArgs\+=\(--domain-binding "\$FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH"\)$/u,
@@ -155,6 +170,81 @@ function containsReleaseFinalizerScriptReference(value)
     );
 }
 
+function expandKnownShellVariables(value, variables, depth = 0)
+{
+    if (depth > 8 || typeof value !== 'string')
+    {
+        return value;
+    }
+    let changed = false;
+    const expanded = value.replace(
+        /\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)/gu,
+        (reference, bracedName, plainName) =>
+        {
+            const name = bracedName ?? plainName;
+            if (!variables.has(name))
+            {
+                return reference;
+            }
+            changed = true;
+            return variables.get(name);
+        }
+    );
+    return changed ? expandKnownShellVariables(expanded, variables, depth + 1) : expanded;
+}
+
+function releaseFinalizerGlobMatch(value)
+{
+    if (typeof value !== 'string' || !/[?*[]/u.test(value))
+    {
+        return false;
+    }
+    let pattern = value.replaceAll('\\', '/');
+    pattern = pattern.replace(/^\$\{PWD\}\//u, '');
+    pattern = pattern.replace(/^\$PWD\//u, '');
+    pattern = pattern.replace(/^\$\(pwd\)\//u, '');
+    if (path.posix.isAbsolute(pattern))
+    {
+        pattern = path.relative(root, pattern).replaceAll('\\', '/');
+    }
+    pattern = path.posix.normalize(pattern);
+    let source = '';
+    for (let index = 0; index < pattern.length; index += 1)
+    {
+        const character = pattern[index];
+        if (character === '*')
+        {
+            source += '[^/]*';
+        }
+        else if (character === '?')
+        {
+            source += '[^/]';
+        }
+        else if (character === '[')
+        {
+            const close = pattern.indexOf(']', index + 1);
+            if (close < 0)
+            {
+                return false;
+            }
+            const range = pattern.slice(index + 1, close);
+            if (!/^[!^A-Za-z0-9._-]+$/u.test(range))
+            {
+                return false;
+            }
+            source += `[${range.startsWith('!') ? `^${range.slice(1)}` : range}]`;
+            index = close;
+        }
+        else
+        {
+            source += character.replace(/[\\^$.*+?()[\]{}|]/gu, '\\$&');
+        }
+    }
+    const matcher = new RegExp(`^${source}$`, 'u');
+    return matcher.test(releaseFinalizerCommand)
+        || matcher.test(path.posix.basename(releaseFinalizerCommand));
+}
+
 function commandInvokesReleaseFinalizer(command, depth = 0)
 {
     if (depth > 8)
@@ -165,11 +255,27 @@ function commandInvokesReleaseFinalizer(command, depth = 0)
     {
         return true;
     }
-    const words = parseShellTokens(command)
+    const tokens = parseShellTokens(command);
+    const variables = new Map();
+    for (const token of tokens)
+    {
+        if (token.type !== 'word')
+        {
+            continue;
+        }
+        const assignment = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/u.exec(token.value);
+        if (assignment && !/[\s;&|]/u.test(token.value))
+        {
+            variables.set(assignment[1], expandKnownShellVariables(assignment[2], variables));
+        }
+    }
+    const words = tokens
         .filter((token) => token.type === 'word')
-        .map((token) => token.value);
+        .map((token) => expandKnownShellVariables(token.value, variables));
     return words.some((word) => (
         isReleaseFinalizerPath(word)
+        || releaseFinalizerGlobMatch(word)
+        || containsReleaseFinalizerScriptReference(word)
         || /[\s;&|]/u.test(word) && commandInvokesReleaseFinalizer(word, depth + 1)
     ));
 }
@@ -274,13 +380,65 @@ export function buildReleaseFinalizerSpawnDecision({ sealState, boundaryErrors =
         failureReasons.unshift(`release-final seal state is ${sealState}`);
     }
     const eligible = sealState === 'accepted' && failureReasons.length === 0;
+    const schema = releaseFinalizerDecisionSchema;
+    const spawnCount = eligible ? 1 : 0;
     return {
-        schema: 'fsusblog.release-finalizer-spawn-decision.v1',
+        schema,
         sealState,
         eligible,
-        spawnCount: eligible ? 1 : 0,
+        spawnCount,
+        shellToken: `${schema}|${sealState}|${spawnCount}`,
         failureReasons
     };
+}
+
+export function applyReleaseFinalizerSpawnDecision(
+    tier,
+    environment,
+    { repositoryRoot = root } = {}
+)
+{
+    const sealedEnvironment = { ...environment };
+    if (tier?.id !== 'release-final')
+    {
+        return sealedEnvironment;
+    }
+    const sealState = String(
+        sealedEnvironment.FSUSBLOG_RELEASE_FINAL_SEAL_STATE ?? ''
+    ).trim() || 'missing';
+    const pathBindings = [
+        ['current-run context', sealedEnvironment.FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT],
+        ['manifest binding', sealedEnvironment.FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH],
+        ['domain binding', sealedEnvironment.FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH]
+    ];
+    const boundaryErrors = [];
+    for (const [name, value] of pathBindings)
+    {
+        const declaredPath = String(value ?? '').trim();
+        if (!declaredPath)
+        {
+            boundaryErrors.push(`${name} path is missing`);
+            continue;
+        }
+        const resolvedPath = path.resolve(repositoryRoot, declaredPath);
+        let stat;
+        try
+        {
+            stat = fs.lstatSync(resolvedPath);
+        }
+        catch
+        {
+            boundaryErrors.push(`${name} file does not exist`);
+            continue;
+        }
+        if (!stat.isFile() || stat.isSymbolicLink() || stat.size === 0)
+        {
+            boundaryErrors.push(`${name} must be a nonempty regular file`);
+        }
+    }
+    const decision = buildReleaseFinalizerSpawnDecision({ sealState, boundaryErrors });
+    sealedEnvironment.FSUSBLOG_RELEASE_FINAL_SPAWN_DECISION = decision.shellToken;
+    return sealedEnvironment;
 }
 
 function main()
