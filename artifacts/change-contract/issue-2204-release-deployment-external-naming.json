@@ -12,9 +12,10 @@
         {
             "id": "environment-variable",
             "paths": [
-                "tools/docs/release-deployment-doc-exactness.mjs"
+                "tools/docs/release-deployment-doc-exactness.mjs",
+                "tools/docs/generate-release-deployment-prose-classification-index.mjs"
             ],
-            "reason": "Preserve caller-visible process environment and receipt spelling while the exactness verifier derives its internal behavior roster from the catalog."
+            "reason": "Preserve caller-visible process environment, CLI, producer and receipt spelling while the exactness verifier and canonical index producer derive their internal behavior roster from the catalog."
         },
         {
             "id": "json-wire-key",
