@@ -283,6 +283,22 @@
             "fixtureMutatorAllowed": false
         },
         {
+            "tierId": "behavior-document-consistency-final",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "behavior-evidence-post-runtime",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
             "tierId": "behavior-evidence-pre-runtime",
             "executionClass": "static-governance",
             "fixtureProfile": "none",
@@ -595,6 +611,14 @@
             "fixtureMutatorAllowed": false
         },
         {
+            "tierId": "legacy-20260517-real-dump",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
             "tierId": "load",
             "executionClass": "load",
             "fixtureProfile": "scale-xs",
@@ -695,6 +719,22 @@
             "executionClass": "coordination",
             "fixtureProfile": "none",
             "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "post-runtime-candidate-plan",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "post-runtime-observation-producers",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
             "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
             "fixtureMutatorAllowed": false
         },
@@ -876,17 +916,17 @@
         },
         {
             "tierId": "release-load-burst",
-            "executionClass": "runtime",
+            "executionClass": "benchmark",
             "fixtureProfile": "none",
-            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileReason": "none-benchmark",
             "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
             "fixtureMutatorAllowed": false
         },
         {
             "tierId": "release-load-peak",
-            "executionClass": "runtime",
+            "executionClass": "benchmark",
             "fixtureProfile": "none",
-            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileReason": "none-benchmark",
             "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
             "fixtureMutatorAllowed": false
         },
@@ -1123,5 +1163,5 @@
             "fixtureMutatorAllowed": false
         }
     ],
-    "digest": "sha256:83abd528a949931c58edc91a8827405985e9d6da435761c2fd40247ad23266d5"
+    "digest": "sha256:d6a3e1bb925937f5a241a50a02067c0779891de88dd837100d9adea05321df55"
 }

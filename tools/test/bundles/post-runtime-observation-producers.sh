@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+NODE_BIN="${FSUSBLOG_NODE:-node}"
+RUN_ID="${FSUSBLOG_TEST_RUN_ID:?FSUSBLOG_TEST_RUN_ID is required}"
+PLAN_DIR="${FSUSBLOG_POST_RUNTIME_PLAN_DIR:-.tmp/post-runtime-plan/$RUN_ID}"
+RAW_DIR="${FSUSBLOG_POST_RUNTIME_RAW_DIR:-.tmp/post-runtime-raw/$RUN_ID}"
+OUT_DIR="${FSUSBLOG_POST_RUNTIME_OBSERVATION_DIR:-.tmp/post-runtime-observations/$RUN_ID}"
+SOURCE_DIR="${FSUSBLOG_POST_RUNTIME_SOURCE_DIR:-.tmp/post-runtime-sources/$RUN_ID}"
+PROBE_DIR="${FSUSBLOG_RUNTIME_OBSERVATION_PROBE_DIR:-.tmp/runtime-observation-probes/$RUN_ID}"
+
+cd "$ROOT_DIR"
+
+relative_path()
+{
+    local value="$1"
+    if [[ "$value" == "$ROOT_DIR/"* ]]; then
+        value="${value#"$ROOT_DIR/"}"
+    fi
+    if [[ "$value" == /* || "$value" == *"../"* || "$value" == ../* ]]; then
+        printf '[post-runtime-observation-producers] path must be current-run and repository-relative: %s\n' "$1" >&2
+        exit 1
+    fi
+    printf '%s' "$value"
+}
+
+require_file()
+{
+    local value
+    value="$(relative_path "$1")"
+    if [[ ! -f "$value" ]]; then
+        printf '[post-runtime-observation-producers] required current-run input is missing: %s\n' "$value" >&2
+        exit 1
+    fi
+    printf '%s' "$value"
+}
+
+PLAN_DIR="$(relative_path "$PLAN_DIR")"
+RAW_DIR="$(relative_path "$RAW_DIR")"
+OUT_DIR="$(relative_path "$OUT_DIR")"
+SOURCE_DIR="$(relative_path "$SOURCE_DIR")"
+PROBE_DIR="$(relative_path "$PROBE_DIR")"
+PLAN="$(require_file "$PLAN_DIR/candidate-plan.json")"
+CLAIMS="$(require_file "$PLAN_DIR/accepted-claims.json")"
+BROWSER="$(require_file "${FSUSBLOG_BROWSER_CONTRACT_RECEIPT:-.tmp/browser-contract/receipt.json}")"
+RELEASE_SOURCE="$(require_file "${FSUSBLOG_RELEASE_READINESS_SOURCE_RECEIPT:?FSUSBLOG_RELEASE_READINESS_SOURCE_RECEIPT is required}")"
+DEPLOYMENT_ID="${FSUSBLOG_BLUE_GREEN_DEPLOYMENT_ID:?FSUSBLOG_BLUE_GREEN_DEPLOYMENT_ID is required}"
+
+aot_names=(manifest publication locale data server-html hydrated-dom client network)
+aot_vars=(
+    FSUSBLOG_AOT_MANIFEST_RECEIPT
+    FSUSBLOG_AOT_PUBLICATION_RECEIPT
+    FSUSBLOG_AOT_LOCALE_RECEIPT
+    FSUSBLOG_AOT_DATA_RECEIPT
+    FSUSBLOG_AOT_SERVER_HTML
+    FSUSBLOG_AOT_HYDRATED_DOM_RECEIPT
+    FSUSBLOG_AOT_CLIENT_RECEIPT
+    FSUSBLOG_AOT_NETWORK_RECEIPT
+)
+aot_args=()
+for index in "${!aot_names[@]}"; do
+    variable="${aot_vars[$index]}"
+    value="${!variable:?$variable is required}"
+    aot_args+=("--${aot_names[$index]}" "$(require_file "$value")")
+done
+
+IFS=':' read -r -a blue_green_sources <<< "${FSUSBLOG_BLUE_GREEN_SOURCE_RECEIPTS:?FSUSBLOG_BLUE_GREEN_SOURCE_RECEIPTS is required as 14 colon-separated paths}"
+if [[ "${#blue_green_sources[@]}" -ne 14 ]]; then
+    printf '[post-runtime-observation-producers] blue-green source closure must contain exactly 14 paths\n' >&2
+    exit 1
+fi
+blue_green_args=()
+for source in "${blue_green_sources[@]}"; do
+    blue_green_args+=(--source-receipt "$(require_file "$source")")
+done
+
+mkdir -p "$RAW_DIR" "$SOURCE_DIR" "$OUT_DIR/classes"
+
+"$NODE_BIN" tools/fact-extractors/post-runtime/current-run.mjs verify-accepted-claims --receipt "$CLAIMS"
+"$NODE_BIN" tools/fact-extractors/post-runtime/current-run.mjs verify-candidate-plan --receipt "$PLAN"
+
+"$NODE_BIN" tools/test-evidence/aot-spa-hydration-raw.mjs bundle --candidate-plan "$PLAN" "${aot_args[@]}" --out "$SOURCE_DIR/aot-spa-hydration.json"
+"$NODE_BIN" tools/test-evidence/aot-spa-hydration-raw.mjs project --candidate-plan "$PLAN" --source "$SOURCE_DIR/aot-spa-hydration.json" --out "$RAW_DIR/aot-spa-hydration.json"
+"$NODE_BIN" tools/test-evidence/aot-spa-hydration-raw.mjs verify --receipt "$RAW_DIR/aot-spa-hydration.json"
+
+"$NODE_BIN" tools/test-evidence/browser-contract-observation-raw.mjs project --candidate-plan "$PLAN" --browser-contract "$BROWSER" --out "$RAW_DIR/browser-behavior-contract.json"
+"$NODE_BIN" tools/test-evidence/browser-contract-observation-raw.mjs verify --receipt "$RAW_DIR/browser-behavior-contract.json"
+
+for class_id in route-response-error session-cookie-runtime cache-search-outbox-convergence; do
+    probe="$(require_file "$PROBE_DIR/$class_id.json")"
+    "$NODE_BIN" tools/test-evidence/runtime-observation-raw.mjs project-probe --candidate-plan "$PLAN" --probe "$probe" --out "$RAW_DIR/$class_id.json"
+    "$NODE_BIN" tools/test-evidence/runtime-observation-raw.mjs verify --receipt "$RAW_DIR/$class_id.json"
+done
+
+"$NODE_BIN" tools/test-evidence/release-readiness-raw.mjs project --candidate-plan "$PLAN" --source "$RELEASE_SOURCE" --out "$RAW_DIR/release-identity-readiness.json"
+"$NODE_BIN" tools/test-evidence/release-readiness-raw.mjs verify --receipt "$RAW_DIR/release-identity-readiness.json"
+
+"$NODE_BIN" tools/test-evidence/blue-green-containment-raw.mjs bundle --candidate-plan "$PLAN" --deployment-id "$DEPLOYMENT_ID" "${blue_green_args[@]}" --out "$SOURCE_DIR/blue-green-containment.json"
+"$NODE_BIN" tools/test-evidence/blue-green-containment-raw.mjs produce --candidate-plan "$PLAN" --source "$SOURCE_DIR/blue-green-containment.json" --out "$RAW_DIR/blue-green-containment.json"
+"$NODE_BIN" tools/test-evidence/blue-green-containment-raw.mjs verify --receipt "$RAW_DIR/blue-green-containment.json"
+
+classes=(
+    aot-spa-hydration
+    blue-green-containment
+    browser-behavior-contract
+    cache-search-outbox-convergence
+    release-identity-readiness
+    route-response-error
+    session-cookie-runtime
+)
+for class_id in "${classes[@]}"; do
+    "$NODE_BIN" tools/fact-extractors/post-runtime/current-run.mjs class-receipt --receipt "$PLAN" --class "$class_id" --result "$RAW_DIR/$class_id.json" --out "$OUT_DIR/classes/$class_id.json"
+done
+
+application_classes=(aot-spa-hydration browser-behavior-contract cache-search-outbox-convergence route-response-error session-cookie-runtime)
+application_args=()
+for class_id in "${application_classes[@]}"; do application_args+=(--class-receipt "$OUT_DIR/classes/$class_id.json"); done
+"$NODE_BIN" tools/fact-extractors/post-runtime/application-runtime.mjs produce --candidate-plan "$PLAN" --accepted-claims "$CLAIMS" "${application_args[@]}" --out "$OUT_DIR/application-runtime.json"
+"$NODE_BIN" tools/fact-extractors/post-runtime/application-runtime.mjs verify --candidate-plan "$PLAN" --accepted-claims "$CLAIMS" "${application_args[@]}" --receipt "$OUT_DIR/application-runtime.json"
+
+release_args=(--class-receipt "$OUT_DIR/classes/blue-green-containment.json" --class-receipt "$OUT_DIR/classes/release-identity-readiness.json")
+"$NODE_BIN" tools/fact-extractors/post-runtime/release-deployment.mjs produce --candidate-plan "$PLAN" --accepted-claims "$CLAIMS" "${release_args[@]}" --out "$OUT_DIR/release-deployment.json"
+"$NODE_BIN" tools/fact-extractors/post-runtime/release-deployment.mjs verify --candidate-plan "$PLAN" --accepted-claims "$CLAIMS" "${release_args[@]}" --receipt "$OUT_DIR/release-deployment.json"
+
+printf '[post-runtime-observation-producers] verified run=%s classes=7 scopes=2\n' "$RUN_ID"

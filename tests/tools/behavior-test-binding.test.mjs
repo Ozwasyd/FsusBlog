@@ -17,6 +17,7 @@ import { loadCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs
 import {
     formatBehaviorTestBindingReport,
     joinBehaviorTestEvidence,
+    matchObservationsForBehaviorBinding,
     parseBehaviorBindingsFromSource,
     scanBehaviorTestBindings,
     validateExactBehaviorCoverage
@@ -300,6 +301,24 @@ public sealed class CodeIntentBoundaryTests
     assert.equal(scanned.bindings[0].testKind, 'boundary');
     assert.equal(scanned.bindings[0].canonicalTestId, 'xunit-trx:CodeIntentBoundaryTests#Proof_at_boundary');
     assert.equal(scanned.bindings[0].framework, 'xunit-trx');
+});
+
+test('xUnit Theory observations bind every concrete row to the source method identity', () =>
+{
+    const binding = {
+        framework: 'xunit-trx',
+        canonicalTestId: 'xunit-trx:SessionTests#RejectsExpiredSession',
+        fullyQualifiedName: 'SessionTests.RejectsExpiredSession'
+    };
+    const observations = new Map([
+        [`${binding.canonicalTestId}(scenarioName: "absolute")`, { outcome: 'passed' }],
+        [`${binding.canonicalTestId}(scenarioName: "idle")`, { outcome: 'passed' }],
+        ['xunit-trx:SessionTests#DifferentMethod', { outcome: 'failed' }]
+    ]);
+    assert.deepEqual(
+        matchObservationsForBehaviorBinding(binding, observations).map((entry) => entry.outcome),
+        ['passed', 'passed']
+    );
 });
 
 test('Node/Vitest/Playwright share one formal behaviorTest helper surface', () =>

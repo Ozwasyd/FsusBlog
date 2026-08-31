@@ -13,6 +13,7 @@ exec "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mj
     --consumer "$CONSUMER_ID" \
     --cwd "$ROOT_DIR" \
     --projection-directory "$PROJECTION_DIR" \
+    --path .git \
     --path tests/matrix.yml \
     --path tests/coverage-registry.json \
     --path config/testing/runtime-state-domain-catalog.json \
@@ -36,6 +37,8 @@ exec "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mj
     --path tools/test/run-once.mjs \
     --path .github/workflows \
     --output "${FSUSBLOG_RELEASE_EVIDENCE_DIR:-.tmp/release-evidence}/test-plan.json" \
+    --output .tmp/ci-plan.json \
+    --output .tmp/gate-logs/preflight.json \
     --output "$DOCS_EVIDENCE_DIR/fast-backend-matrix.json" \
     --output "$DOCS_EVIDENCE_DIR/fast-frontend-unit-matrix.json" \
     --output "$DOCS_EVIDENCE_DIR/browser-contract-matrix.json" \

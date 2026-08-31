@@ -1,0 +1,36 @@
+{
+  "schema": "fsusblog.generated-output-binding.v1",
+  "sources": [
+    "tests/matrix.yml"
+  ],
+  "outputs": [
+    {
+      "path": "config/testing/correctness-attempt-producers.json",
+      "sha256": "4f51865384d159390f660e433028a497cc93e481dff97c42f1410ec738c83924"
+    },
+    {
+      "path": "config/testing/fixture-profile-matrix.generated.json",
+      "sha256": "e0c3173286f2e5db20c68965af52ebf83848783a7a335a972a1b43cf399dd0d2"
+    },
+    {
+      "path": "config/testing/test-execution-envelope-applicability.json",
+      "sha256": "ba9e3aeb14e9ceda3fa966a9efef8ae807e26246f939646bf2ad9f4738f39468"
+    },
+    {
+      "path": "docs/architecture.md",
+      "sha256": "b2a445901d056626645e7848c7e15f40b6ce1caf8e6357690b0a4a799375a8eb"
+    },
+    {
+      "path": "docs/architecture/overview.md",
+      "sha256": "cd4813ea431ab2d25a6664e34c61f8f656f26b676b6612cd21fba083f24e5a2c"
+    },
+    {
+      "path": "docs/testing.generated.md",
+      "sha256": "9fce3637d3e54f2fdb71ad212335503b893d6e0e862ae95a41ef02600f6c67ac"
+    },
+    {
+      "path": "docs/testing.md",
+      "sha256": "c76aac3783b1995661b7422c2299f128f63a4edd8992d7ca8100b2b92b9a0ecf"
+    }
+  ]
+}

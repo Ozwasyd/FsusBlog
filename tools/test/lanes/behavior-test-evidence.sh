@@ -75,6 +75,7 @@ for test_file in "${NODE_TEST_FILES[@]}"; do
         --runner-runtime "$NODE_RUNTIME" \
         --closure-path config/contracts \
         --closure-path src/shared/Contracts/Governance \
+        --closure-path tests/backend/Integration/UserSessionSensitiveEndpointIntegrationTests.cs \
         --closure-path tests/backend/Unit/BinaryTransportHotPathContractTests.cs \
         --closure-path tests/backend/Unit/CommentMutationOutboxPostgresTests.cs \
         --closure-path tests/backend/Unit/ProductionStartupValidatorTests.cs \
@@ -124,6 +125,7 @@ node "$ROOT_DIR/tools/test-observations/cli.mjs" adapt \
     --runner-runtime "$(dotnet --version)" \
     --closure-path config/contracts \
     --closure-path src/shared/Contracts/Governance \
+    --closure-path tests/backend/Integration/UserSessionSensitiveEndpointIntegrationTests.cs \
     --closure-path tests/backend/Unit/BinaryTransportHotPathContractTests.cs \
     --closure-path tests/backend/Unit/CommentMutationOutboxPostgresTests.cs \
     --closure-path tests/backend/Unit/ProductionStartupValidatorTests.cs \
