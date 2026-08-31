@@ -195,7 +195,7 @@ generatedSectionId: testing.coverage-entry-count
 render: scalar
 -->
 <!-- FSUSBLOG-GENERATED:BEGIN testing.coverage-entry-count -->
-261
+264
 <!-- FSUSBLOG-GENERATED:END testing.coverage-entry-count -->
 
 `config/testing/content-shape-catalog.json` 是 Unicode、script、正负 eligibility
@@ -1780,6 +1780,7 @@ render: enum-set
 - `cross-browser-smoke`
 - `cross-stack-contract`
 - `csrf-browser-matrix`
+- `current-schema-bootstrap-integration`
 - `data-scale-evidence-summary`
 - `data-scale-m`
 - `data-scale-nightly`
