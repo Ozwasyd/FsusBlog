@@ -184,6 +184,80 @@ test('field projection rejects comment-hidden normalization and boolean control-
     );
 });
 
+test('field projection binds post-declaration local dataflow through validation uses', (t) =>
+{
+    assertProductionMutationInvalidates(
+        t,
+        'src/backend/Services/Articles/ArticlePublicationValidator.cs',
+        'string title = input.Title?.Trim() ?? string.Empty;',
+        'string title = input.Title?.Trim() ?? string.Empty;\n        title = title.Normalize();'
+    );
+    assertProductionMutationInvalidates(
+        t,
+        'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs',
+        'string content = request.Content?.Trim() ?? string.Empty;',
+        'string content = request.Content?.Trim() ?? string.Empty;\n            content = content.Normalize();',
+        { all: true }
+    );
+});
+
+test('field projection resolves the exact direct predicate overload and active preprocessor tree', (t) =>
+{
+    const endpoint = 'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs';
+    const predicate = `private static bool IsCommentContentWithinLimit(string content, AnonymousCommentPolicySnapshot policy)
+        => !string.IsNullOrWhiteSpace(content)
+            && content.Length <= policy.CommentMaxChars
+            && Encoding.UTF8.GetByteCount(content) <= policy.CommentMaxUtf8Bytes;`;
+    assertProductionMutationInvalidates(t, endpoint, predicate, `private static bool IsCommentContentWithinLimit(
+        string content,
+        AnonymousCommentPolicySnapshot policy,
+        bool legacy)
+        => !string.IsNullOrWhiteSpace(content)
+            && content.Length <= policy.CommentMaxChars
+            && Encoding.UTF8.GetByteCount(content) <= policy.CommentMaxUtf8Bytes;
+
+    private static bool IsCommentContentWithinLimit(string content, AnonymousCommentPolicySnapshot policy)
+        => !string.IsNullOrWhiteSpace(content)
+            || content.Length <= policy.CommentMaxChars
+            && Encoding.UTF8.GetByteCount(content) <= policy.CommentMaxUtf8Bytes;`);
+    assertProductionMutationInvalidates(t, endpoint, predicate, `#if false
+    ${predicate}
+#endif
+    private static bool IsCommentContentWithinLimit(string content, AnonymousCommentPolicySnapshot policy)
+        => !string.IsNullOrWhiteSpace(content)
+            || content.Length <= policy.CommentMaxChars
+            && Encoding.UTF8.GetByteCount(content) <= policy.CommentMaxUtf8Bytes;`);
+});
+
+test('field projection excludes nested DTO properties and nested limit constants', (t) =>
+{
+    const dto = 'src/backend/Models/Dtos/CommentDto.cs';
+    const property = `[Required]
+    [MaxLength(CommentLimits.ContentMaxChars, ErrorMessage = "评论内容不能超过1000字")]
+    public required string Content`;
+    assertProductionMutationInvalidates(t, dto, property, `private sealed class LegacyContentContract
+    {
+        [Required]
+        [MaxLength(CommentLimits.ContentMaxChars)]
+        public required string Content { get; init; }
+    }
+
+    [Required]
+    [MaxLength(CommentLimits.HardContentMaxChars, ErrorMessage = "评论内容不能超过1000字")]
+    public required string? Content`);
+    assertProductionMutationInvalidates(
+        t,
+        dto,
+        'public const int ContentMinChars = 100;',
+        `public const int ContentMinChars = 101;
+
+    private static class LegacyLimits
+    {
+        public const int ContentMinChars = 100;
+    }`
+    );
+});
+
 test('field projection binds CommentDto nullable, Required, and MaxLength declarations', (t) =>
 {
     const dto = 'src/backend/Models/Dtos/CommentDto.cs';

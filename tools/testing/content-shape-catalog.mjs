@@ -1,9 +1,8 @@
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-
-import { maskCSharpTrivia } from '../test/csharp-source-mask.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const stableId = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/u;
@@ -70,248 +69,43 @@ function readJson(file)
     return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 
-function tokenizeCSharp(source)
-{
-    const masked = maskCSharpTrivia(source);
-    return [...masked.matchAll(/[A-Za-z_][A-Za-z0-9_]*|[0-9][0-9_]*|=>|\?\?|\?\.|&&|\|\||<=|>=|==|!=|[{}()[\].,;:?=!<>+*/-]/gu)]
-        .map((match) => Object.freeze({ value: match[0], offset: match.index }));
-}
+let extractorBuilt = false;
+const extractionCache = new Map();
+const extractorProject = path.join(repositoryRoot, 'tools/testing/FsusBlog.ContentFieldContractExtractor/FsusBlog.ContentFieldContractExtractor.csproj');
 
-function matchingToken(tokens, start, open, close)
+function extractContentFieldContracts(root, sourcePaths)
 {
-    let depth = 0;
-    for (let index = start; index < tokens.length; index += 1)
+    const sourceDigest = sha256Json(sourcePaths.map((relative) => [relative, fs.readFileSync(path.join(root, relative), 'utf8')]));
+    if (extractionCache.has(sourceDigest)) return extractionCache.get(sourceDigest);
+    if (!extractorBuilt)
     {
-        if (tokens[index].value === open)
-        {
-            depth += 1;
-        }
-        else if (tokens[index].value === close && --depth === 0)
-        {
-            return index;
-        }
-    }
-    throw new Error(`[content-shape] unmatched ${open} token`);
-}
-
-function namedTypeScope(tokens, name)
-{
-    const nameIndex = tokens.findIndex((token, index) => token.value === name
-        && tokens.slice(Math.max(0, index - 4), index).some((candidate) => ['class', 'record'].includes(candidate.value)));
-    if (nameIndex < 0)
-    {
-        throw new Error(`[content-shape] C# type ${name} is missing`);
-    }
-    const start = tokens.findIndex((token, index) => index > nameIndex && token.value === '{');
-    if (start < 0)
-    {
-        throw new Error(`[content-shape] C# type ${name} has no body`);
-    }
-    return Object.freeze({ start: start + 1, end: matchingToken(tokens, start, '{', '}') });
-}
-
-function namedMethod(tokens, scope, name)
-{
-    for (let index = scope.start; index < scope.end; index += 1)
-    {
-        if (tokens[index].value !== name || tokens[index + 1]?.value !== '(')
-        {
-            continue;
-        }
-        const parametersEnd = matchingToken(tokens, index + 1, '(', ')');
-        if (tokens[parametersEnd + 1]?.value === '=>')
-        {
-            const end = tokens.findIndex((token, candidate) => candidate > parametersEnd && token.value === ';');
-            return Object.freeze({
-                name,
-                parameters: tokens.slice(index + 2, parametersEnd).map((token) => token.value),
-                body: tokens.slice(parametersEnd + 2, end).map((token) => token.value),
-                expressionBodied: true
-            });
-        }
-        if (tokens[parametersEnd + 1]?.value === '{')
-        {
-            const bodyStart = parametersEnd + 1;
-            const bodyEnd = matchingToken(tokens, bodyStart, '{', '}');
-            return Object.freeze({
-                name,
-                parameters: tokens.slice(index + 2, parametersEnd).map((token) => token.value),
-                body: tokens.slice(bodyStart + 1, bodyEnd).map((token) => token.value),
-                expressionBodied: false
-            });
-        }
-    }
-    throw new Error(`[content-shape] C# method ${name} is missing from its production owner`);
-}
-
-function recordParameters(tokens, name)
-{
-    const nameIndex = tokens.findIndex((token, index) => token.value === name
-        && tokens.slice(Math.max(0, index - 4), index).some((candidate) => candidate.value === 'record'));
-    if (nameIndex < 0 || tokens[nameIndex + 1]?.value !== '(')
-    {
-        throw new Error(`[content-shape] primary record ${name} is missing`);
-    }
-    const end = matchingToken(tokens, nameIndex + 1, '(', ')');
-    const result = {};
-    let start = nameIndex + 2;
-    let depth = 0;
-    for (let index = start; index <= end; index += 1)
-    {
-        const value = tokens[index]?.value;
-        if (['(', '[', '{'].includes(value)) depth += 1;
-        if ([')', ']', '}'].includes(value)) depth -= 1;
-        if ((value === ',' && depth === 0) || index === end)
-        {
-            const segment = tokens.slice(start, index).map((token) => token.value);
-            const parameterName = [...segment].reverse().find((token) => /^[A-Za-z_]/u.test(token));
-            const parameterNameIndex = segment.lastIndexOf(parameterName);
-            result[parameterName] = Object.freeze({
-                type: segment.slice(0, parameterNameIndex).join(''),
-                nullable: segment.slice(0, parameterNameIndex).includes('?')
-            });
-            start = index + 1;
-        }
-    }
-    return Object.freeze(result);
-}
-
-function integerConstants(tokens, scope, names)
-{
-    const declarations = new Map();
-    for (let index = scope.start; index < scope.end; index += 1)
-    {
-        if (tokens[index].value !== 'const' || tokens[index + 1]?.value !== 'int') continue;
-        const name = tokens[index + 2]?.value;
-        if (tokens[index + 3]?.value !== '=') continue;
-        const end = tokens.findIndex((token, candidate) => candidate > index + 3 && token.value === ';');
-        declarations.set(name, tokens.slice(index + 4, end).map((token) => token.value));
-    }
-    const resolve = (name, seen = new Set()) =>
-    {
-        if (seen.has(name)) throw new Error(`[content-shape] integer constant ${name} is recursive`);
-        const expression = declarations.get(name);
-        if (!expression) throw new Error(`[content-shape] integer constant ${name} is missing`);
-        if (expression.length === 1 && /^[0-9][0-9_]*$/u.test(expression[0]))
-        {
-            return Number(expression[0].replaceAll('_', ''));
-        }
-        if (expression.length === 1 && /^[A-Za-z_]/u.test(expression[0]))
-        {
-            return resolve(expression[0], new Set([...seen, name]));
-        }
-        throw new Error(`[content-shape] integer constant ${name} has an unsupported expression`);
-    };
-    return Object.freeze(Object.fromEntries(names.map((name) => [name, Object.freeze({
-        expression: declarations.get(name)?.join(' ') ?? null,
-        value: resolve(name)
-    })])));
-}
-
-function propertyContract(tokens, typeScope, propertyName)
-{
-    const propertyIndex = tokens.findIndex((token, index) => index >= typeScope.start && index < typeScope.end
-        && token.value === propertyName && tokens[index + 1]?.value === '{');
-    if (propertyIndex < 0) throw new Error(`[content-shape] property ${propertyName} is missing`);
-    let publicIndex = propertyIndex - 1;
-    while (publicIndex >= typeScope.start && tokens[publicIndex].value !== 'public') publicIndex -= 1;
-    if (publicIndex < typeScope.start) throw new Error(`[content-shape] property ${propertyName} has no public declaration`);
-    const declaration = tokens.slice(publicIndex, propertyIndex + 1).map((token) => token.value);
-    const namePosition = declaration.length - 1;
-    const typeTokens = declaration.slice(1, namePosition).filter((token) => !['required', 'static', 'virtual', 'override'].includes(token));
-    const attributes = [];
-    let cursor = publicIndex - 1;
-    while (tokens[cursor]?.value === ']')
-    {
-        let depth = 1;
-        let start = cursor - 1;
-        while (start >= typeScope.start && depth > 0)
-        {
-            if (tokens[start].value === ']') depth += 1;
-            if (tokens[start].value === '[') depth -= 1;
-            start -= 1;
-        }
-        attributes.unshift(tokens.slice(start + 2, cursor).map((token) => token.value));
-        cursor = start;
-    }
-    const normalizedAttributes = attributes.map((attribute) =>
-    {
-        const argumentsEnd = attribute.indexOf(')');
-        const argumentsList = attribute[1] === '(' ? attribute.slice(2, argumentsEnd) : [];
-        const separator = argumentsList.indexOf(',');
-        return Object.freeze({
-            name: attribute[0],
-            arguments: attribute[1] === '(' ? argumentsList.join(' ') : null,
-            firstArgument: attribute[1] === '('
-                ? argumentsList.slice(0, separator < 0 ? argumentsList.length : separator).join(' ')
-                : null
+        const build = spawnSync('dotnet', ['build', extractorProject, '--configuration', 'Release', '--nologo', '--verbosity', 'quiet'], {
+            cwd: repositoryRoot,
+            encoding: 'utf8',
+            env: { ...process.env, DOTNET_NOLOGO: '1' }
         });
-    });
-    return Object.freeze({
-        declaration: declaration.join(' '),
-        type: typeTokens.join(''),
-        nullable: typeTokens.includes('?'),
-        requiredKeyword: declaration.includes('required'),
-        attributes: normalizedAttributes
-    });
-}
-
-function localInitializer(method, localName)
-{
-    const tokens = method.body;
-    const index = tokens.findIndex((token, candidate) => token === localName
-        && tokens[candidate + 1] === '='
-        && (tokens[candidate - 1] === 'string' || (tokens[candidate - 1] === '?' && tokens[candidate - 2] === 'string')));
-    if (index < 0 || tokens[index + 1] !== '=') throw new Error(`[content-shape] local ${localName} is missing from ${method.name}`);
-    const end = tokens.indexOf(';', index + 2);
-    return tokens.slice(index + 2, end);
-}
-
-function inputNormalization(initializer, inputName, memberName)
-{
-    const prefix = [inputName, '.', memberName];
-    const optionalPrefix = [inputName, '.', memberName, '?.'];
-    const startsWith = (expected) => expected.every((token, index) => initializer[index] === token);
-    if (startsWith([...optionalPrefix, 'Trim', '(', ')'])) return 'trim';
-    if (startsWith(prefix) && !initializer.includes('Trim')) return 'none';
-    throw new Error(`[content-shape] unsupported normalization for ${inputName}.${memberName}: ${initializer.join(' ')}`);
-}
-
-function articleBranch(method, localName)
-{
-    const tokens = method.body;
-    for (let index = 0; index < tokens.length; index += 1)
-    {
-        if (tokens[index] !== 'if' || tokens[index + 1] !== '(') continue;
-        const conditionEnd = matchingToken(tokens.map((value) => ({ value })), index + 1, '(', ')');
-        const condition = tokens.slice(index + 2, conditionEnd);
-        const isEmpty = condition.join(' ') === `${localName} . Length == 0`
-            || condition.join(' ') === `string . IsNullOrWhiteSpace ( ${localName} )`;
-        if (!isEmpty || tokens[conditionEnd + 1] !== '{') continue;
-        const emptyEnd = matchingToken(tokens.map((value) => ({ value })), conditionEnd + 1, '{', '}');
-        const emptyBody = tokens.slice(conditionEnd + 2, emptyEnd);
-        const emptyAction = emptyBody.includes('AddError') ? 'AddError'
-            : emptyBody.includes('AddWarning') ? 'AddWarning' : 'none';
-        if (tokens[emptyEnd + 1] !== 'else' || tokens[emptyEnd + 2] !== 'if' || tokens[emptyEnd + 3] !== '(')
+        if (build.status !== 0)
         {
-            throw new Error(`[content-shape] ${localName} maximum branch is no longer an else-if of its empty branch`);
+            throw new Error(`[content-shape] Roslyn extractor build failed: ${(build.stderr || build.stdout).trim()}`);
         }
-        const maximumEnd = matchingToken(tokens.map((value) => ({ value })), emptyEnd + 3, '(', ')');
-        const maximumCondition = tokens.slice(emptyEnd + 4, maximumEnd);
-        if (maximumCondition[0] !== localName || maximumCondition[1] !== '.' || maximumCondition[2] !== 'Length')
-        {
-            throw new Error(`[content-shape] ${localName} maximum condition is unsupported`);
-        }
-        return Object.freeze({
-            emptyCondition: condition.join(' '),
-            emptyAction,
-            maximumCondition: maximumCondition.join(' '),
-            maximumOperator: maximumCondition[3],
-            maximumConstant: maximumCondition[4],
-            controlFlow: 'if-else-if'
-        });
+        extractorBuilt = true;
     }
-    throw new Error(`[content-shape] empty validation branch for ${localName} is missing`);
+    const run = spawnSync('dotnet', ['run', '--project', extractorProject, '--configuration', 'Release', '--no-build', '--', root], {
+        cwd: repositoryRoot,
+        encoding: 'utf8',
+        env: { ...process.env, DOTNET_NOLOGO: '1' }
+    });
+    if (run.status !== 0)
+    {
+        throw new Error(`[content-shape] Roslyn extraction failed: ${(run.stderr || run.stdout).trim()}`);
+    }
+    const extraction = JSON.parse(run.stdout);
+    if (extraction.schema !== 'fsusblog.content-field-roslyn-extraction.v1')
+    {
+        throw new Error('[content-shape] Roslyn extractor returned an unsupported schema');
+    }
+    extractionCache.set(sourceDigest, extraction);
+    return extraction;
 }
 
 function invalidUpperBound(operator, value)
@@ -328,30 +122,12 @@ function validUpperBound(operator, value)
     throw new Error(`[content-shape] unsupported valid upper-bound operator ${operator}`);
 }
 
-function commentPredicate(method)
-{
-    const body = method.body;
-    const connectors = body.filter((token) => token === '&&' || token === '||');
-    const charIndex = body.findIndex((token, index) => token === 'content' && body[index + 1] === '.' && body[index + 2] === 'Length');
-    const utf8Index = body.findIndex((token, index) => token === 'Encoding' && body[index + 2] === 'UTF8');
-    if (charIndex < 0 || utf8Index < 0) throw new Error('[content-shape] comment predicate count clauses are missing');
-    return Object.freeze({
-        expression: body.join(' '),
-        connectors,
-        nonWhitespace: body.slice(0, charIndex).includes('IsNullOrWhiteSpace'),
-        characterOperator: body[charIndex + 3],
-        characterLimit: body[charIndex + 6],
-        utf8Operator: body[utf8Index + 8],
-        utf8Limit: body[utf8Index + 11]
-    });
-}
-
 function sourceBinding(relativePath, contract)
 {
     return Object.freeze({
         path: relativePath,
         sha256: sha256Json({
-            schema: 'fsusblog.content-field-source-binding.v1',
+            schema: 'fsusblog.content-field-source-binding.v2',
             path: relativePath,
             contract
         })
@@ -367,74 +143,28 @@ export function projectContentFieldContracts({ root = repositoryRoot } = {})
     const articlePath = 'src/backend/Services/Articles/ArticlePublicationValidator.cs';
     const commentPath = 'src/backend/Models/Dtos/CommentDto.cs';
     const commentEndpointPath = 'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs';
-    const articleTokens = tokenizeCSharp(fs.readFileSync(path.join(root, articlePath), 'utf8'));
-    const commentTokens = tokenizeCSharp(fs.readFileSync(path.join(root, commentPath), 'utf8'));
-    const endpointTokens = tokenizeCSharp(fs.readFileSync(path.join(root, commentEndpointPath), 'utf8'));
-    const articleScope = namedTypeScope(articleTokens, 'ArticlePublicationValidator');
-    const articleInput = recordParameters(articleTokens, 'ArticlePublicationValidationInput');
-    const articleConstants = integerConstants(articleTokens, articleScope, ['MaxTitleLength', 'MaxSummaryLength', 'MaxContentLength']);
-    const addContentIssues = namedMethod(articleTokens, articleScope, 'AddContentIssues');
-    const articleContracts = [
-        ['article.body', 'Content', 'body'],
-        ['article.summary', 'Summary', 'summary'],
-        ['article.title', 'Title', 'title']
-    ].map(([id, inputMember, localName]) =>
-    {
-        const initializer = localInitializer(addContentIssues, localName);
-        const branch = articleBranch(addContentIssues, localName);
-        const normalization = inputNormalization(initializer, 'input', inputMember);
-        const constant = articleConstants[branch.maximumConstant];
-        if (!constant) throw new Error(`[content-shape] ${localName} references an unknown maximum constant`);
-        return Object.freeze({
-            id,
-            input: Object.freeze({ member: inputMember, ...articleInput[inputMember] }),
-            initializer: initializer.join(' '),
-            normalization,
-            branch,
-            constant: Object.freeze({ name: branch.maximumConstant, ...constant })
-        });
-    });
+    const sourcePaths = [articlePath, commentPath, commentEndpointPath];
+    const extraction = extractContentFieldContracts(root, sourcePaths);
+    const articleContracts = extraction.article.fields;
     const articleFields = [
         ...articleContracts.map((contract) => ({
             id: contract.id, owner: 'ArticlePublicationValidator', sourceRef: `${articlePath}#${contract.constant.name}`,
             nullable: contract.branch.emptyAction !== 'AddError', normalization: contract.normalization,
             characterCount: 'utf16-code-units',
             minCharacters: contract.branch.emptyAction === 'AddError' ? 1 : 0,
-            maxCharacters: invalidUpperBound(contract.branch.maximumOperator, contract.constant.value),
+            maxCharacters: invalidUpperBound(contract.branch.maximumOperator, contract.constant.contract.value),
             minUtf8Bytes: null, maxUtf8Bytes: null
         }))
     ];
-    const commentLimitsScope = namedTypeScope(commentTokens, 'CommentLimits');
-    const commentDtoScope = namedTypeScope(commentTokens, 'CommentDto');
-    const commentConstants = integerConstants(commentTokens, commentLimitsScope, [
-        'ContentMinChars', 'ContentMinUtf8Bytes', 'DefaultContentMaxChars', 'DefaultContentMaxUtf8Bytes',
-        'HardContentMaxChars', 'HardContentMaxUtf8Bytes', 'ContentMaxChars', 'ContentMaxUtf8Bytes'
-    ]);
-    const commentProperty = propertyContract(commentTokens, commentDtoScope, 'Content');
-    const normalizeMaxChars = namedMethod(commentTokens, commentLimitsScope, 'NormalizeMaxChars');
-    const normalizeMaxUtf8Bytes = namedMethod(commentTokens, commentLimitsScope, 'NormalizeMaxUtf8Bytes');
-    const validateMaxChars = namedMethod(commentTokens, commentLimitsScope, 'ValidateMaxChars');
-    const validateMaxUtf8Bytes = namedMethod(commentTokens, commentLimitsScope, 'ValidateMaxUtf8Bytes');
-    const endpointScope = Object.freeze({ start: 0, end: endpointTokens.length });
-    const predicateMethod = namedMethod(endpointTokens, endpointScope, 'IsCommentContentWithinLimit');
-    const predicate = commentPredicate(predicateMethod);
-    const endpointInitializers = [];
-    for (let index = 0; index < endpointTokens.length; index += 1)
+    const commentConstants = extraction.comment.constants;
+    const commentProperty = extraction.comment.property;
+    const predicate = extraction.endpoint.predicate;
+    const endpointFlows = extraction.endpoint.flows;
+    const commentNormalization = endpointFlows[0]?.normalization;
+    if (!commentNormalization || endpointFlows.some((flow) => flow.normalization !== commentNormalization))
     {
-        if (endpointTokens[index].value !== 'content' || endpointTokens[index - 1]?.value !== 'string'
-            || endpointTokens[index + 1]?.value !== '=') continue;
-        const end = endpointTokens.findIndex((token, candidate) => candidate > index && token.value === ';');
-        const initializer = endpointTokens.slice(index + 2, end).map((token) => token.value);
-        if (!initializer.includes('request') || !initializer.includes('Content')) continue;
-        endpointInitializers.push(initializer);
+        throw new Error('[content-shape] comment endpoint normalization flows disagree');
     }
-    if (endpointInitializers.length === 0) throw new Error('[content-shape] comment endpoint initializer is missing');
-    const canonicalInitializer = endpointInitializers[0];
-    if (endpointInitializers.some((initializer) => initializer.join(' ') !== canonicalInitializer.join(' ')))
-    {
-        throw new Error('[content-shape] comment endpoint initializers disagree');
-    }
-    const commentNormalization = inputNormalization(canonicalInitializer, 'request', 'Content');
     const requiredAttribute = commentProperty.attributes.some((attribute) => attribute.name === 'Required');
     const maxLengthAttribute = commentProperty.attributes.find((attribute) => attribute.name === 'MaxLength');
     const maxLengthReference = maxLengthAttribute?.firstArgument?.split(' . ').at(-1);
@@ -452,21 +182,12 @@ export function projectContentFieldContracts({ root = repositoryRoot } = {})
     const fields = [...articleFields, commentField];
     const sources = [
         sourceBinding(articlePath, {
-            owner: 'ArticlePublicationValidator.AddContentIssues',
-            fields: articleContracts
+            owner: extraction.article.owner,
+            method: extraction.article.method,
+            fields: extraction.article.fields
         }),
-        sourceBinding(commentPath, {
-            owner: 'CommentLimits+CommentDto.Content',
-            property: commentProperty,
-            maxLengthAttribute: maxLengthAttribute?.arguments ?? null,
-            constants: commentConstants,
-            methods: [normalizeMaxChars, normalizeMaxUtf8Bytes, validateMaxChars, validateMaxUtf8Bytes]
-        }),
-        sourceBinding(commentEndpointPath, {
-            owner: 'BinaryEndpoints.IsCommentContentWithinLimit',
-            initializers: endpointInitializers.map((initializer) => initializer.join(' ')),
-            predicate
-        })
+        sourceBinding(commentPath, extraction.comment),
+        sourceBinding(commentEndpointPath, extraction.endpoint)
     ];
     const body = {
         schema: 'fsusblog.content-field-contract-projection.v1',
