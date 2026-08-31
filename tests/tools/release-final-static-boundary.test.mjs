@@ -184,7 +184,7 @@ test('duplicate finalizer command, authority alias, and shadow tier fail closed'
     }
 });
 
-test('generic execute tiers cannot hide finalizer shell paths in tokens or compound bodies', async (context) =>
+test('declarative execution grammar rejects aliases and unsupported execution forms', async (context) =>
 {
     const commandAliases = [
         './tools/test/lanes/release-final.sh',
@@ -211,7 +211,20 @@ test('generic execute tiers cannot hide finalizer shell paths in tokens or compo
         'cd tools/test/lanes && ./release-final.sh',
         "python -c 'import os; os.system(\"./tools/test/lanes/release-final.sh\")'",
         "bash -c './tools/test/lanes/release-final.s\"\"h'",
-        "bash -c './tools/test/lanes/release-final.s\\h'"
+        "bash -c './tools/test/lanes/release-final.s\\h'",
+        'printf tools/test/lanes/release-final.sh | bash',
+        'run_finalizer() { tools/test/lanes/release-final.sh; }; run_finalizer',
+        'command_argv=(tools/test/lanes/release-final.sh); "${command_argv[@]}"',
+        'eval tools/test/lanes/release-final.sh',
+        'source tools/test/lanes/release-final.sh',
+        '. tools/test/lanes/release-final.sh',
+        'time tools/test/lanes/release-final.sh',
+        "find tools/test/lanes -name release-final.sh -exec tools/test/lanes/release-final.sh ';'",
+        'printf tools/test/lanes/release-final.sh | xargs bash',
+        'if test -f tools/test/lanes/release-final.sh; then tools/test/lanes/release-final.sh; fi',
+        '"$dynamicExecutable" tools/test/lanes/release-final.sh',
+        'node "$dynamicEntrypoint" tools/test/lanes/release-final.sh',
+        'bash "$dynamicScript" tools/test/lanes/release-final.sh'
     ];
 
     for (const [index, command] of commandAliases.entries())
@@ -229,10 +242,7 @@ test('generic execute tiers cannot hide finalizer shell paths in tokens or compo
             mutated.tiers.push(aliasTier);
 
             const errors = validateReleaseFinalStaticBoundary({ matrix: mutated, scriptSource });
-            assert.match(
-                errors.join('\n'),
-                new RegExp(`exactly one release-final tier[\\s\\S]*${aliasTier.id}`, 'u')
-            );
+            assert.match(errors.join('\n'), new RegExp(aliasTier.id, 'u'));
             assert.equal(
                 buildReleaseFinalizerSpawnDecision({ sealState: 'accepted', boundaryErrors: errors }).spawnCount,
                 0
@@ -241,15 +251,52 @@ test('generic execute tiers cannot hide finalizer shell paths in tokens or compo
     }
 });
 
-test('unrelated variables and globs remain outside the finalizer alias boundary', async (context) =>
+test('unsupported execution forms fail declaration validation without a finalizer path', async (context) =>
+{
+    const unsupportedCommands = [
+        'printf tools/test/lanes/release-preview.sh | bash',
+        'run_preview() { tools/test/lanes/release-preview.sh; }; run_preview',
+        'command_argv=(tools/test/lanes/release-preview.sh); "${command_argv[@]}"',
+        'eval tools/test/lanes/release-preview.sh',
+        'source tools/test/lanes/release-preview.sh',
+        '. tools/test/lanes/release-preview.sh',
+        'time tools/test/lanes/release-preview.sh',
+        "find tools/test/lanes -name release-preview.sh -exec tools/test/lanes/release-preview.sh ';'",
+        'printf tools/test/lanes/release-preview.sh | xargs bash',
+        '"$dynamicExecutable" tools/test/lanes/release-preview.sh'
+    ];
+    for (const [index, command] of unsupportedCommands.entries())
+    {
+        await context.test(command, () =>
+        {
+            const mutated = structuredClone(matrix);
+            const tierId = `unsupported-execution-shape-${index + 1}`;
+            mutated.tiers.push({
+                id: tierId,
+                executionMode: 'execute',
+                commandKind: 'producer',
+                command
+            });
+            const errors = validateReleaseFinalStaticBoundary({ matrix: mutated, scriptSource });
+            assert.match(errors.join('\n'), new RegExp(`execution declaration ${tierId}`, 'u'));
+            assert.equal(
+                buildReleaseFinalizerSpawnDecision({ sealState: 'accepted', boundaryErrors: errors }).spawnCount,
+                0
+            );
+        });
+    }
+});
+
+test('only explicit non-executing argv data and noncanonical basenames remain admitted', async (context) =>
 {
     const commands = [
-        'artifact=tools/test/lanes/release-candidate.sh; exec "$artifact"',
-        './tools/test/lanes/release-preview.s?',
-        "bash -c 'name=release-preview; printf \"%s\\n\" \"$name\"'",
+        'tools/test/lanes/release-preview.sh',
         'printf "%s\\n" ./tools/test/lanes/release-final.sh',
         'echo ./tools/test/lanes/release-final.sh',
-        'test -f ./tools/test/lanes/release-final.sh'
+        'test -f ./tools/test/lanes/release-final.sh',
+        'printf "%s\\n" release-final.sh',
+        'echo release-final.sh',
+        'test -f release-final.sh'
     ];
     for (const [index, command] of commands.entries())
     {

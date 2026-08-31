@@ -59,29 +59,45 @@ const allowedReleaseFinalizerLines = [
 const forbiddenFinalizerCapability =
     /(?:create-correctness|publish-release-final-evidence-parent|run-matrix-governance-once|check-job-summaries|check-flaky-|repository-governance-authority|check-release-evidence-manifest|(?:^|[\s/_.-])(?:producer|repair|parser|mutation|governance)(?:[\s/_.-]|$))/u;
 
-function parseShellTokens(command)
+const allowedExecutionEnvironmentAssignments = Object.freeze({
+    FSUSBLOG_SOAK_MODE: new Set(['short', '72h']),
+    FSUSBLOG_SOAK_REQUIRE_IMPORTED_EVIDENCE: new Set(['1'])
+});
+
+const allowedNodeExecutionOptions = [
+    /^--test$/u,
+    /^--permission$/u,
+    /^--allow-fs-(?:read|write)=.+$/u
+];
+
+function parseDeclarativeArgv(command)
 {
     if (typeof command !== 'string' || command.trim().length === 0)
     {
-        return [];
+        return { error: 'command must be a non-empty string', argv: [] };
     }
-    const tokens = [];
-    let token = '';
+    if (/\$\(|`/u.test(command))
+    {
+        return { error: 'command substitution is outside the declarative argv grammar', argv: [] };
+    }
+
+    const argv = [];
+    let word = '';
     let quote = null;
     let escaped = false;
-    const flushToken = () =>
+    const flushWord = () =>
     {
-        if (token.length > 0)
+        if (word.length > 0)
         {
-            tokens.push({ type: 'word', value: token });
-            token = '';
+            argv.push(word);
+            word = '';
         }
     };
-    for (const character of command.trim())
+    for (const character of command)
     {
         if (escaped)
         {
-            token += character;
+            word += character;
             escaped = false;
             continue;
         }
@@ -98,7 +114,7 @@ function parseShellTokens(command)
             }
             else
             {
-                token += character;
+                word += character;
             }
             continue;
         }
@@ -107,341 +123,165 @@ function parseShellTokens(command)
             quote = character;
             continue;
         }
-        if (character === '\n')
-        {
-            flushToken();
-            tokens.push({ type: 'operator', value: character });
-            continue;
-        }
         if (/\s/u.test(character))
         {
-            flushToken();
+            flushWord();
             continue;
         }
-        if (character === ';' || character === '|' || character === '&')
+        if (';|&<>(){}'.includes(character))
         {
-            flushToken();
-            const previous = tokens.at(-1);
-            if (previous?.type === 'operator' && previous.value === character && character !== ';')
-            {
-                previous.value += character;
-            }
-            else
-            {
-                tokens.push({ type: 'operator', value: character });
-            }
-            continue;
+            return {
+                error: `shell control syntax ${JSON.stringify(character)} is outside the declarative argv grammar`,
+                argv: []
+            };
         }
-        token += character;
+        word += character;
     }
     if (escaped || quote)
     {
-        return [];
+        return { error: 'unterminated quote or escape is outside the declarative argv grammar', argv: [] };
     }
-    flushToken();
-    return tokens;
+    flushWord();
+    return argv.length > 0
+        ? { error: null, argv }
+        : { error: 'command must contain an executable argv', argv: [] };
 }
 
-function isReleaseFinalizerPath(value)
+function canonicalRepositoryCommand(value)
 {
-    if (typeof value !== 'string')
-    {
-        return false;
-    }
-    let candidate = value.replaceAll('\\', '/');
-    candidate = candidate.replace(/^\$\{PWD\}\//u, '');
-    candidate = candidate.replace(/^\$PWD\//u, '');
-    candidate = candidate.replace(/^\$\(pwd\)\//u, '');
-    if (path.posix.isAbsolute(candidate))
-    {
-        candidate = path.relative(root, candidate).replaceAll('\\', '/');
-    }
-    const normalized = path.posix.normalize(candidate);
-    return normalized === releaseFinalizerCommand
-        || path.posix.basename(normalized) === path.posix.basename(releaseFinalizerCommand);
-}
-
-function expandKnownShellVariables(value, variables, depth = 0)
-{
-    if (depth > 8 || typeof value !== 'string')
-    {
-        return value;
-    }
-    let changed = false;
-    const expanded = value.replace(
-        /\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)/gu,
-        (reference, bracedName, plainName) =>
-        {
-            const name = bracedName ?? plainName;
-            if (!variables.has(name))
-            {
-                return reference;
-            }
-            changed = true;
-            return variables.get(name);
-        }
-    );
-    return changed ? expandKnownShellVariables(expanded, variables, depth + 1) : expanded;
-}
-
-function braceAlternatives(value, depth = 0)
-{
-    if (depth > 4)
+    if (typeof value !== 'string' || /[$?*\[]/u.test(value))
     {
         return null;
     }
-    const open = value.indexOf('{');
-    if (open < 0)
-    {
-        return value.includes('}') ? null : [value];
-    }
-    const close = value.indexOf('}', open + 1);
-    if (close < 0)
+    const normalized = path.posix.normalize(value.replace(/^\.\//u, '').replaceAll('\\', '/'));
+    if (normalized === '..' || normalized.startsWith('../') || !normalized.startsWith('tools/'))
     {
         return null;
     }
-    const choices = value.slice(open + 1, close).split(',');
-    if (choices.length < 2 || choices.some((choice) => choice.length === 0))
+    return normalized;
+}
+
+function canonicalNodeEntrypoint(value)
+{
+    if (typeof value !== 'string' || /[$?*\[]/u.test(value))
     {
         return null;
     }
-    const expanded = [];
-    for (const choice of choices)
+    const normalized = path.posix.normalize(value.replace(/^\.\//u, '').replaceAll('\\', '/'));
+    if (normalized === '..' || normalized.startsWith('../'))
     {
-        const nested = braceAlternatives(
-            `${value.slice(0, open)}${choice}${value.slice(close + 1)}`,
-            depth + 1
-        );
-        if (nested === null)
-        {
-            return null;
-        }
-        expanded.push(...nested);
-        if (expanded.length > 32)
-        {
-            return null;
-        }
+        return null;
     }
-    return expanded;
+    return normalized.startsWith('tools/') || normalized.startsWith('tests/')
+        ? normalized
+        : null;
 }
 
-function releaseFinalizerGlobMatch(value)
+function commandReferencesReleaseFinalizer(argv, startIndex)
 {
-    if (typeof value !== 'string' || !/[?*[]/u.test(value))
-    {
-        return false;
-    }
-    let pattern = value.replaceAll('\\', '/');
-    pattern = pattern.replace(/^\$\{PWD\}\//u, '');
-    pattern = pattern.replace(/^\$PWD\//u, '');
-    pattern = pattern.replace(/^\$\(pwd\)\//u, '');
-    if (path.posix.isAbsolute(pattern))
-    {
-        pattern = path.relative(root, pattern).replaceAll('\\', '/');
-    }
-    pattern = path.posix.normalize(pattern);
-    let source = '';
-    for (let index = 0; index < pattern.length; index += 1)
-    {
-        const character = pattern[index];
-        if (character === '*')
-        {
-            source += '[^/]*';
-        }
-        else if (character === '?')
-        {
-            source += '[^/]';
-        }
-        else if (character === '[')
-        {
-            const close = pattern.indexOf(']', index + 1);
-            if (close < 0)
-            {
-                return false;
-            }
-            const range = pattern.slice(index + 1, close);
-            if (!/^[!^A-Za-z0-9._-]+$/u.test(range))
-            {
-                return false;
-            }
-            source += `[${range.startsWith('!') ? `^${range.slice(1)}` : range}]`;
-            index = close;
-        }
-        else
-        {
-            source += character.replace(/[\\^$.*+?()[\]{}|]/gu, '\\$&');
-        }
-    }
-    const matcher = new RegExp(`^${source}$`, 'u');
-    return matcher.test(releaseFinalizerCommand)
-        || matcher.test(path.posix.basename(releaseFinalizerCommand));
-}
-
-function commandPositionMatchesReleaseFinalizer(value, variables)
-{
-    const expanded = expandKnownShellVariables(value, variables);
-    const alternatives = braceAlternatives(expanded);
-    if (alternatives === null)
-    {
-        return true;
-    }
-    for (const alternative of alternatives)
-    {
-        if (isReleaseFinalizerPath(alternative) || releaseFinalizerGlobMatch(alternative))
-        {
-            return true;
-        }
-    }
-    return alternatives.some((alternative) => (
-        /\$\(|`|\$\{|\$[A-Za-z_]|\$[0-9@*#?$!_-]/u.test(alternative)
+    return argv.slice(startIndex).some((argument) => (
+        canonicalRepositoryCommand(argument) === releaseFinalizerCommand
     ));
 }
 
-function shellCommandSegments(tokens)
+function validateDeclarativeExecution(command)
 {
-    const segments = [];
-    let words = [];
-    for (const token of tokens)
+    const parsed = parseDeclarativeArgv(command);
+    if (parsed.error)
     {
-        if (token.type === 'operator')
+        return { error: parsed.error, invokesReleaseFinalizer: false };
+    }
+    let executableIndex = 0;
+    while (/^[A-Za-z_][A-Za-z0-9_]*=/u.test(parsed.argv[executableIndex] ?? ''))
+    {
+        const assignment = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/u.exec(parsed.argv[executableIndex]);
+        const allowedValues = allowedExecutionEnvironmentAssignments[assignment[1]];
+        if (!allowedValues?.has(assignment[2]))
         {
-            if (words.length > 0)
-            {
-                segments.push(words);
-                words = [];
-            }
-            continue;
+            return {
+                error: `environment assignment ${assignment[1]} is outside the declarative argv allowlist`,
+                invokesReleaseFinalizer: false
+            };
         }
-        words.push(token.value);
+        executableIndex += 1;
     }
-    if (words.length > 0)
+    const executable = parsed.argv[executableIndex];
+    if (!executable)
     {
-        segments.push(words);
+        return {
+            error: 'assignment-only commands are outside the declarative argv grammar',
+            invokesReleaseFinalizer: false
+        };
     }
-    return segments;
-}
-
-function pythonBodyInvokesReleaseFinalizer(body, variables, depth)
-{
-    const calls = body.matchAll(
-        /(?:os\.system|subprocess\.(?:call|Popen|run))\(\s*(['"])(?<command>.*?)\1/gu
-    );
-    for (const call of calls)
+    if (/[$?*\[]/u.test(executable))
     {
-        if (commandInvokesReleaseFinalizer(call.groups.command, depth + 1, variables))
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-function commandWordsInvokeReleaseFinalizer(words, variables, depth)
-{
-    let index = 0;
-    while (index < words.length)
-    {
-        const assignment = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/u.exec(words[index]);
-        if (!assignment)
-        {
-            break;
-        }
-        variables.set(assignment[1], expandKnownShellVariables(assignment[2], variables));
-        index += 1;
-    }
-    if (index >= words.length)
-    {
-        return false;
+        return {
+            error: 'dynamic executable argv is outside the declarative argv grammar',
+            invokesReleaseFinalizer: false
+        };
     }
 
-    const executable = expandKnownShellVariables(words[index], variables);
-    if (commandPositionMatchesReleaseFinalizer(executable, variables))
+    if (['printf', 'echo', 'test'].includes(executable))
     {
-        return true;
+        return { error: null, invokesReleaseFinalizer: false };
     }
-    const executableName = path.posix.basename(executable.replaceAll('\\', '/'));
-    if (['{', '(', 'case', 'for', 'if', 'select', 'until', 'while'].includes(executableName))
+    if (executable === 'bash' || executable === 'sh')
     {
-        return true;
-    }
-    if (executableName === 'export' || executableName === 'readonly')
-    {
-        for (const word of words.slice(index + 1))
+        const script = parsed.argv[executableIndex + 1];
+        const repositoryScript = canonicalRepositoryCommand(script);
+        if (!repositoryScript || !repositoryScript.endsWith('.sh'))
         {
-            const assignment = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/u.exec(word);
-            if (assignment)
-            {
-                variables.set(assignment[1], expandKnownShellVariables(assignment[2], variables));
-            }
+            return {
+                error: `${executable} is allowed only as a fixed wrapper for one repo-relative shell script`,
+                invokesReleaseFinalizer: false
+            };
         }
-        return false;
+        return {
+            error: null,
+            invokesReleaseFinalizer: repositoryScript === releaseFinalizerCommand
+        };
     }
-    if (['command', 'exec', 'nohup'].includes(executableName))
+    if (executable === 'node')
     {
-        const commandIndex = words.findIndex((word, candidateIndex) => (
-            candidateIndex > index && !word.startsWith('-')
+        const entrypointIndex = parsed.argv.findIndex((argument, index) => (
+            index > executableIndex && !argument.startsWith('-')
         ));
-        return commandIndex >= 0
-            && commandWordsInvokeReleaseFinalizer(words.slice(commandIndex), variables, depth);
-    }
-    if (executableName === 'env')
-    {
-        const commandIndex = words.findIndex((word, candidateIndex) => (
-            candidateIndex > index
-            && !word.startsWith('-')
-            && !/^[A-Za-z_][A-Za-z0-9_]*=/u.test(word)
-        ));
-        return commandIndex >= 0
-            && commandWordsInvokeReleaseFinalizer(words.slice(commandIndex), variables, depth);
-    }
-    if (executableName === 'bash' || executableName === 'sh')
-    {
-        const commandStringIndex = words.indexOf('-c', index + 1);
-        if (commandStringIndex >= 0)
+        if (entrypointIndex < 0 || !canonicalNodeEntrypoint(parsed.argv[entrypointIndex]))
         {
-            const body = words[commandStringIndex + 1];
-            return typeof body !== 'string'
-                || commandInvokesReleaseFinalizer(body, depth + 1, new Map(variables));
+            return {
+                error: 'node is allowed only with one static repo-relative tools or tests entrypoint',
+                invokesReleaseFinalizer: false
+            };
         }
-        const scriptIndex = words.findIndex((word, candidateIndex) => (
-            candidateIndex > index && !word.startsWith('-')
-        ));
-        return scriptIndex >= 0
-            && commandPositionMatchesReleaseFinalizer(words[scriptIndex], variables);
+        const options = parsed.argv.slice(executableIndex + 1, entrypointIndex);
+        if (options.some((option) => (
+            !allowedNodeExecutionOptions.some((pattern) => pattern.test(option))
+        )))
+        {
+            return {
+                error: 'node option is outside the declarative argv allowlist',
+                invokesReleaseFinalizer: false
+            };
+        }
+        return {
+            error: null,
+            invokesReleaseFinalizer: commandReferencesReleaseFinalizer(parsed.argv, entrypointIndex)
+        };
     }
-    if (executableName === 'python' || executableName === 'python3')
-    {
-        const commandStringIndex = words.indexOf('-c', index + 1);
-        return commandStringIndex >= 0
-            && pythonBodyInvokesReleaseFinalizer(
-                words[commandStringIndex + 1] ?? '',
-                variables,
-                depth
-            );
-    }
-    return false;
-}
 
-function commandInvokesReleaseFinalizer(command, depth = 0, inheritedVariables = new Map())
-{
-    if (depth > 8 || typeof command !== 'string' || command.trim().length === 0)
+    const repositoryExecutable = canonicalRepositoryCommand(executable);
+    if (!repositoryExecutable)
     {
-        return depth > 8;
+        return {
+            error: `executable ${JSON.stringify(executable)} is outside the declarative argv allowlist`,
+            invokesReleaseFinalizer: false
+        };
     }
-    const tokens = parseShellTokens(command);
-    if (tokens.length === 0)
-    {
-        return true;
-    }
-    const variables = new Map(inheritedVariables);
-    for (const words of shellCommandSegments(tokens))
-    {
-        if (commandWordsInvokeReleaseFinalizer(words, variables, depth))
-        {
-            return true;
-        }
-    }
-    return false;
+    return {
+        error: null,
+        invokesReleaseFinalizer: repositoryExecutable === releaseFinalizerCommand
+            || commandReferencesReleaseFinalizer(parsed.argv, executableIndex + 1)
+    };
 }
 
 function validateScriptSource(scriptSource)
@@ -488,11 +328,25 @@ export function validateReleaseFinalStaticBoundary({ matrix, scriptSource })
     const plan = buildReleaseFinalizerPlan(matrix);
     errors.push(...plan.errors.map((error) => `execution graph: ${error}`));
 
-    const releaseFinalizerTiers = (matrix?.tiers ?? []).filter((tier) => (
+    const tierExecutions = (matrix?.tiers ?? []).map((tier) => ({
+        tier,
+        execution: validateDeclarativeExecution(tier?.command)
+    }));
+    for (const { tier, execution } of tierExecutions)
+    {
+        if (execution.error)
+        {
+            errors.push(
+                `execution declaration ${tier?.id ?? '<missing-id>'} is outside the sealed argv grammar: ${execution.error}`
+            );
+        }
+    }
+
+    const releaseFinalizerTiers = tierExecutions.filter(({ tier, execution }) => (
         tier?.id === 'release-final'
-        || commandInvokesReleaseFinalizer(tier?.command)
+        || execution.invokesReleaseFinalizer
         || tier?.summaryAuthority === 'release-final'
-    ));
+    )).map(({ tier }) => tier);
     if (releaseFinalizerTiers.length !== 1 || releaseFinalizerTiers[0]?.id !== 'release-final')
     {
         const tierIds = releaseFinalizerTiers.map((tier) => tier?.id ?? '<missing-id>').join(', ');
@@ -502,13 +356,30 @@ export function validateReleaseFinalStaticBoundary({ matrix, scriptSource })
         );
     }
 
-    const releaseFinalizerAuthorities = Object.entries(matrix?.finalizerAuthorities ?? {})
-        .filter(([key, authority]) => (
+    const authorityExecutions = Object.entries(matrix?.finalizerAuthorities ?? {}).map(
+        ([key, authority]) => ({
+            key,
+            authority,
+            execution: validateDeclarativeExecution(authority?.command)
+        })
+    );
+    for (const { key, execution } of authorityExecutions)
+    {
+        if (execution.error)
+        {
+            errors.push(
+                `finalizer authority ${key} is outside the sealed argv grammar: ${execution.error}`
+            );
+        }
+    }
+    const releaseFinalizerAuthorities = authorityExecutions
+        .filter(({ key, authority, execution }) => (
             key === 'release-final'
             || authority?.id === 'release-final'
-            || commandInvokesReleaseFinalizer(authority?.command)
+            || execution.invokesReleaseFinalizer
             || authority?.summaryTierIds?.includes('release-final')
-        ));
+        ))
+        .map(({ key, authority }) => [key, authority]);
     if (
         releaseFinalizerAuthorities.length !== 1
         || releaseFinalizerAuthorities[0]?.[0] !== 'release-final'
