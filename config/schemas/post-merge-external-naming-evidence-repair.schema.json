@@ -1,0 +1,139 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.local/schemas/post-merge-external-naming-evidence-repair.v1.json",
+    "title": "Post-merge external naming evidence repair declaration",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "repository",
+        "originalPullRequest",
+        "originalBase",
+        "originalHead",
+        "mergeCommit",
+        "source",
+        "namingSurface",
+        "missingArtifact",
+        "currentExceptions"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.post-merge-external-naming-evidence-repair.v1"
+        },
+        "repository": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+        },
+        "originalPullRequest": {
+            "type": "integer",
+            "minimum": 1
+        },
+        "originalBase": {
+            "$ref": "#/$defs/commit"
+        },
+        "originalHead": {
+            "$ref": "#/$defs/commit"
+        },
+        "mergeCommit": {
+            "$ref": "#/$defs/commit"
+        },
+        "source": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "path",
+                "candidateSha256",
+                "currentSha256"
+            ],
+            "properties": {
+                "path": {
+                    "$ref": "#/$defs/path"
+                },
+                "candidateSha256": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "currentSha256": {
+                    "$ref": "#/$defs/sha256"
+                }
+            }
+        },
+        "namingSurface": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "reason"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "reason": {
+                    "type": "string",
+                    "minLength": 12
+                }
+            }
+        },
+        "missingArtifact": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "path",
+                "sha256"
+            ],
+            "properties": {
+                "path": {
+                    "$ref": "#/$defs/path"
+                },
+                "sha256": {
+                    "$ref": "#/$defs/sha256"
+                }
+            }
+        },
+        "currentExceptions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "id",
+                    "paths",
+                    "reason"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "paths": {
+                        "type": "array",
+                        "minItems": 1,
+                        "uniqueItems": true,
+                        "items": {
+                            "$ref": "#/$defs/path"
+                        }
+                    },
+                    "reason": {
+                        "type": "string",
+                        "minLength": 12
+                    }
+                }
+            }
+        }
+    },
+    "$defs": {
+        "commit": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$"
+        },
+        "path": {
+            "type": "string",
+            "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\s]+$"
+        },
+        "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+        }
+    }
+}

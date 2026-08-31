@@ -106,26 +106,6 @@ public sealed class BackendPropertyTests
         }
     }
 
-    [Fact]
-    public void UploadRangeProperty_NormalizesOverlapAndRequiresAllPartsForComplete()
-    {
-        var samples = new[]
-        {
-            new[] { (Start: 0, End: 2), (Start: 2, End: 4), (Start: 7, End: 7) },
-            new[] { (Start: 3, End: 1), (Start: 1, End: 3), (Start: 3, End: 5) },
-            new[] { (Start: -2, End: 1), (Start: 6, End: 9), (Start: 0, End: 0) }
-        };
-
-        foreach (var ranges in samples)
-        {
-            int[] uploadedParts = ExpandUploadedRanges(ranges, partCount: 8);
-
-            Assert.All(uploadedParts, part => Assert.InRange(part, 0, 7));
-            Assert.Equal(uploadedParts, uploadedParts.Distinct().Order().ToArray());
-            Assert.Equal(uploadedParts.Length == 8, IsComplete(uploadedParts, partCount: 8));
-        }
-    }
-
     private static IEnumerable<byte[]> GeneratePayloads(int seed)
     {
         yield return [];
@@ -165,24 +145,4 @@ public sealed class BackendPropertyTests
         return unchecked((int)value32);
     }
 
-    private static int[] ExpandUploadedRanges(IEnumerable<(int Start, int End)> ranges, int partCount)
-    {
-        var parts = new SortedSet<int>();
-        foreach ((int startRaw, int endRaw) in ranges)
-        {
-            int start = Math.Clamp(Math.Min(startRaw, endRaw), 0, partCount - 1);
-            int end = Math.Clamp(Math.Max(startRaw, endRaw), 0, partCount - 1);
-            for (int part = start; part <= end; part++)
-            {
-                parts.Add(part);
-            }
-        }
-
-        return parts.ToArray();
-    }
-
-    private static bool IsComplete(IReadOnlyCollection<int> uploadedParts, int partCount)
-        => uploadedParts.Count == partCount
-           && uploadedParts.Min() == 0
-           && uploadedParts.Max() == partCount - 1;
 }

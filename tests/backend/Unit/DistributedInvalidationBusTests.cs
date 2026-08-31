@@ -183,8 +183,9 @@ public sealed class DistributedInvalidationBusTests
     [Theory]
     [MemberData(nameof(NonAppliedResults))]
     public async Task IncompleteOrUnknownLocalApplyResult_FailsClosedAndOnlyRetryableStateReplays(
-        DistributedInvalidationLocalApplyResult? result)
+        string scenario)
     {
+        DistributedInvalidationLocalApplyResult? result = CreateNonAppliedResult(scenario);
         var applier = new ResultLocalApplier(result);
         using DistributedInvalidationBus bus = CreateBus("node-b", new CapturingTransport(), applier, applyRetryCount: 1);
         DistributedInvalidationEvent invalidation = CreateEvent("node-a", Guid.NewGuid().ToString("N"));
@@ -202,33 +203,45 @@ public sealed class DistributedInvalidationBusTests
 
     public static IEnumerable<object?[]> NonAppliedResults()
     {
-        yield return [null];
-        yield return [new DistributedInvalidationLocalApplyResult(
-            true, false, true, true,
-            DistributedInvalidationRebuildObligationStatus.Durable,
-            DistributedInvalidationLocalApplyStatus.Applied,
-            "obligation-42", 42, 1)];
-        yield return [new DistributedInvalidationLocalApplyResult(
-            true, true, true, false,
-            DistributedInvalidationRebuildObligationStatus.Durable,
-            DistributedInvalidationLocalApplyStatus.Applied,
-            "obligation-42", 42, 1)];
-        yield return [new DistributedInvalidationLocalApplyResult(
-            true, true, true, true,
-            DistributedInvalidationRebuildObligationStatus.Failed,
-            DistributedInvalidationLocalApplyStatus.FailedTerminal,
-            null, null, 1)];
-        yield return [new DistributedInvalidationLocalApplyResult(
-            true, true, true, true,
-            (DistributedInvalidationRebuildObligationStatus)99,
-            DistributedInvalidationLocalApplyStatus.Applied,
-            "obligation-42", 42, 1)];
-        yield return [new DistributedInvalidationLocalApplyResult(
-            true, true, true, true,
-            DistributedInvalidationRebuildObligationStatus.Durable,
-            DistributedInvalidationLocalApplyStatus.Applied,
-            "obligation-42", 42, null)];
+        yield return ["missing-result"];
+        yield return ["missing-aot-memory"];
+        yield return ["missing-hot-snapshot"];
+        yield return ["terminal-failure"];
+        yield return ["unknown-obligation-status"];
+        yield return ["missing-aot-generation"];
     }
+
+    private static DistributedInvalidationLocalApplyResult? CreateNonAppliedResult(string scenario) =>
+        scenario switch
+        {
+            "missing-result" => null,
+            "missing-aot-memory" => new DistributedInvalidationLocalApplyResult(
+                true, false, true, true,
+                DistributedInvalidationRebuildObligationStatus.Durable,
+                DistributedInvalidationLocalApplyStatus.Applied,
+                "obligation-42", 42, 1),
+            "missing-hot-snapshot" => new DistributedInvalidationLocalApplyResult(
+                true, true, true, false,
+                DistributedInvalidationRebuildObligationStatus.Durable,
+                DistributedInvalidationLocalApplyStatus.Applied,
+                "obligation-42", 42, 1),
+            "terminal-failure" => new DistributedInvalidationLocalApplyResult(
+                true, true, true, true,
+                DistributedInvalidationRebuildObligationStatus.Failed,
+                DistributedInvalidationLocalApplyStatus.FailedTerminal,
+                null, null, 1),
+            "unknown-obligation-status" => new DistributedInvalidationLocalApplyResult(
+                true, true, true, true,
+                (DistributedInvalidationRebuildObligationStatus)99,
+                DistributedInvalidationLocalApplyStatus.Applied,
+                "obligation-42", 42, 1),
+            "missing-aot-generation" => new DistributedInvalidationLocalApplyResult(
+                true, true, true, true,
+                DistributedInvalidationRebuildObligationStatus.Durable,
+                DistributedInvalidationLocalApplyStatus.Applied,
+                "obligation-42", 42, null),
+            _ => throw new ArgumentOutOfRangeException(nameof(scenario), scenario, null)
+        };
 
     [Fact]
     public async Task RedisPublicationFailure_IsObservableAndDoesNotThrow()

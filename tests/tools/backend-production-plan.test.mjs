@@ -278,7 +278,8 @@ test('backend production partition environment replaces every inherited STEP and
         FSUSBLOG_STEP_MEMORY_GIB: '32',
         FSUSBLOG_BUNDLE_CPU_UNITS: '8',
         FSUSBLOG_BUNDLE_CPU_BUDGET: '8',
-        FSUSBLOG_BUNDLE_MEMORY_GIB: '32'
+        FSUSBLOG_BUNDLE_MEMORY_GIB: '32',
+        FSUSBLOG_REPO_ROOT: '/wrong/inherited/root'
     }, {
         processors: 2,
         memoryGiB: 3.5,
@@ -288,6 +289,10 @@ test('backend production partition environment replaces every inherited STEP and
     assert.deepEqual(Object.fromEntries(Object.entries(environment)
         .filter(([key]) => !key.startsWith('FSUSBLOG_DOCKER_'))), {
         KEEP: 'yes',
+        FSUSBLOG_REPO_ROOT: root,
+        LC_ALL: 'C.UTF-8',
+        LANG: 'C.UTF-8',
+        LC_MESSAGES: 'C.UTF-8',
         DOTNET_PROCESSOR_COUNT: '2',
         FSUSBLOG_BACKEND_CPU_BUDGET: '2',
         FSUSBLOG_STEP_CPU_BUDGET: '2',

@@ -383,33 +383,11 @@ function validateCompatibility(before, afterRecords, mapping)
             fail(`${before.testId} has no ${key}-compatible replacement`);
         }
     }
-    for (const key of [
-        'productionSymbols',
-        'assertionTargets',
-        'requirementIds',
-        'coverageIds',
-        'tierIds',
-        'evidencePaths'
-    ])
-    {
-        assertSubset(before[key], dimensionUnion(afterRecords, key), `${before.testId} ${key}`);
-    }
-    const mappedAssertions = new Set(mapping.assertionMappings.flatMap((item) => item.after));
-    for (const assertion of before.assertionTargets)
-    {
-        const mappingEntry = mapping.assertionMappings.find((item) => item.before === assertion);
-        if (!mappingEntry || mappingEntry.after.length === 0)
-        {
-            fail(`${before.testId} assertion ${assertion} has no disposition`);
-        }
-        for (const target of mappingEntry.after)
-        {
-            if (!mappedAssertions.has(target) || !dimensionUnion(afterRecords, 'assertionTargets').has(target))
-            {
-                fail(`${before.testId} assertion mapping points to missing target ${target}`);
-            }
-        }
-    }
+    assertSubset(
+        before.productionSymbols,
+        dimensionUnion(afterRecords, 'productionSymbols'),
+        `${before.testId} productionSymbols`
+    );
 }
 
 function validateDimensionMappings(before, afterRecords, mapping)

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 
 import {
@@ -260,6 +260,15 @@ test('behaviorTest runtime registration resolves to its canonical caller and rej
 test('runner binds cancellation and partial child evidence without weakening lifecycle isolation', () =>
 {
     const runner = fs.readFileSync(path.join(root, 'tools/test/run-governance-suites.mjs'), 'utf8');
+    const unicodeRoot = path.join(path.dirname(root), '靜態治理 root');
+    const unicodeRunner = pathToFileURL(path.join(unicodeRoot, 'tools/test/run-governance-suites.mjs'));
+
+    assert.equal(
+        path.resolve(fileURLToPath(new URL('../..', unicodeRunner))),
+        unicodeRoot
+    );
+    assert.match(runner, /fileURLToPath\(new URL\('\.\.\/\.\.', import\.meta\.url\)\)/u);
+    assert.doesNotMatch(runner, /new URL\('\.\.\/\.\.', import\.meta\.url\)\.pathname/u);
     assert.match(runner, /new AbortController\(\)/u);
     assert.match(runner, /static governance host cancelled by \$\{signal\}/u);
     assert.match(runner, /signal: controller\.signal/u);

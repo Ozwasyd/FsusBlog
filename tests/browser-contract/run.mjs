@@ -72,7 +72,7 @@ let verifiedBuild = null;
 let plannedRunIdentity = null;
 let outputValidated = false;
 let browserTemporalObservation = null;
-const temporalContext = loadTemporalContext();
+let temporalContext = null;
 const terminationController = new AbortController();
 
 function relative(value)
@@ -284,6 +284,8 @@ process.once('SIGINT', () => requestTermination('SIGINT'));
 async function main()
 {
     const sourceState = expectedSourceState();
+    const build = await verifyImmutableBuild(sourceState);
+    temporalContext = loadTemporalContext();
     await resetRunOutput();
     if (process.env.FSUSBLOG_PLAYWRIGHT_SESSION_MODE !== 'browser-contract')
     {
@@ -292,7 +294,6 @@ async function main()
             'contract'
         );
     }
-    const build = await verifyImmutableBuild(sourceState);
     verifiedBuild = build;
     const plannedIdentity = resolveBrowserContractRunIdentity({
         env: process.env,

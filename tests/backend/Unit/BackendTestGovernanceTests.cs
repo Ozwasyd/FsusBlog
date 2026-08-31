@@ -17,6 +17,8 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class BackendTestGovernanceTests
 {
     private const string RequirementsFixturePath = "tests/backend/Fixtures/backend-test-requirements.json";
+    private const string EvidenceAuthorityFixturePath =
+        "tests/backend/Fixtures/backend-evidence-path-authority.generated.json";
 
     [Fact]
     public void Issue40Profiles_HaveCommandsRequirementsAndEvidence()
@@ -34,9 +36,14 @@ public sealed class BackendTestGovernanceTests
             string profileId = profile["id"]!.GetValue<string>();
             Assert.True(
                 profileId.StartsWith("backend-", StringComparison.Ordinal)
-                || profileId.StartsWith("distributed-contract-", StringComparison.Ordinal),
+                || profileId.StartsWith("distributed-contract-", StringComparison.Ordinal)
+                || string.Equals(profileId, "legacy-20260517-real-dump", StringComparison.Ordinal),
                 $"profile id must be a governed backend or distributed-contract lane: {profileId}");
-            Assert.StartsWith("tools/test/", profile["command"]!.GetValue<string>(), StringComparison.Ordinal);
+            string command = profile["command"]!.GetValue<string>();
+            Assert.True(
+                command.StartsWith("tools/test/", StringComparison.Ordinal)
+                || command.StartsWith("node tools/test/", StringComparison.Ordinal),
+                $"profile command must use a governed tools/test entrypoint: {command}");
             Assert.False(string.IsNullOrWhiteSpace(profile["risk"]!.GetValue<string>()));
 
             JsonArray requirements = profile["requirements"]!.AsArray();
@@ -194,6 +201,19 @@ public sealed class BackendTestGovernanceTests
         foreach (JsonNode? path in paths)
         {
             string relativePath = path!.GetValue<string>();
+            if (relativePath.StartsWith(".tmp/", StringComparison.Ordinal))
+            {
+                JsonArray entries = BackendTestPaths.ReadJsonFromRoot(EvidenceAuthorityFixturePath)["entries"]!.AsArray();
+                JsonObject authority = Assert.Single(
+                    entries.Select(static entry => entry!.AsObject()),
+                    entry => string.Equals(
+                        entry["evidencePath"]!.GetValue<string>(),
+                        relativePath,
+                        StringComparison.Ordinal));
+                Assert.NotEmpty(authority["owners"]!.AsArray());
+                continue;
+            }
+
             string fullPath = BackendTestPaths.FromRoot(relativePath);
             Assert.True(File.Exists(fullPath) || Directory.Exists(fullPath), $"missing evidence path {relativePath}");
         }

@@ -100,15 +100,113 @@ function producerCommandFor(file)
     if (file === 'tools/release/public-preview-release-evidence.mjs') return 'bash tools/docs/run-public-preview-capture.sh';
     if (file === 'tools/release/check-release-final.mjs') return 'bash tools/operations/collect-release-evidence.sh --require-ok';
     if (file === 'tools/release/release-final-domain-evidence.mjs') return 'node tools/test/publish-release-final-evidence-parent.mjs';
-    if (file.startsWith('.github/workflows/')) return 'node tools/run-test-matrix.mjs --mode ci';
+    if (file === '.github/workflows/browser-diagnostics.yml')
+        return 'bash tools/test/lanes/browser-diagnostics.sh manual --workers 1';
+    if (file === '.github/workflows/quality-gate.yml') return 'node tools/ci/summarize-quality-gate.mjs';
     if (file.endsWith('.sh')) return `bash ${file}`;
     if (file.endsWith('.mjs') || file.endsWith('.js')) return `node ${file}`;
-    return 'node tools/run-test-matrix.mjs --mode ci';
+    throw new Error(`evidence producer has no canonical command: ${file}`);
+}
+
+const canonicalCallerOverrides = new Map(Object.entries({
+    'tools/ci/production-build-artifacts.mjs': ['tools/test/lanes/production-build-artifacts.sh',
+        'bash tools/test/lanes/production-build-artifacts.sh'],
+    'tools/docs/behavior-doc-exactness.mjs': ['tools/docs/api-protocol-doc-exactness.mjs',
+        'node tools/docs/api-protocol-doc-exactness.mjs'],
+    'tools/docs/doc-claim-staleness-mutation/runner.mjs': ['tools/docs/behavior-doc-static-admission.mjs',
+        'node tools/docs/behavior-doc-static-admission.mjs'],
+    'tools/docs/prose-claim-verifier/verifier.mjs': ['tools/docs/check-prose-claims.mjs',
+        'node tools/docs/check-prose-claims.mjs'],
+    'tools/governance/repository-governance-manifest.mjs': ['tools/governance/repository-governance-authority.mjs',
+        'node tools/governance/repository-governance-authority.mjs validate-manifest'],
+    'tools/release/release-reliability-qualified-receipt.mjs': ['tools/release/release-final-domain-evidence.mjs',
+        'bash tools/test/run-release-reliability-qualified-local.sh'],
+    'tools/runtime-profiles/runtime-publish-evidence.mjs': ['tools/runtime-profiles/run-runtime-publish-matrix.mjs',
+        'node tools/runtime-profiles/run-runtime-publish-matrix.mjs'],
+    'tools/test-fixtures/receipt/observations.mjs': ['tools/test-fixtures/receipt/index.mjs',
+        'node --test tests/tools/fixture-receipt.test.mjs'],
+    'tools/test-matrix/artifact-digest-table.mjs': ['tests/tools/artifact-digest-table.test.mjs',
+        'node --test tests/tools/artifact-digest-table.test.mjs'],
+    'tools/test-matrix/content-addressed-evidence-store.mjs': ['tests/tools/content-addressed-evidence-store.test.mjs',
+        'node --test tests/tools/content-addressed-evidence-store.test.mjs'],
+    'tools/test-matrix/cross-stack-receipts.mjs': ['tests/tools/cross-stack-receipt-join.test.mjs',
+        'node --test tests/tools/cross-stack-receipt-join.test.mjs'],
+    'tools/test-matrix/receipt-command-sources.mjs': ['tests/tools/test-matrix-execution-mode-contract.test.mjs',
+        'node --test tests/tools/test-matrix-execution-mode-contract.test.mjs'],
+    'tools/test-matrix/release-domain-native-evidence.mjs': ['tools/test-matrix/release-domain-evidence.mjs',
+        'node tools/test-matrix/release-domain-evidence.mjs'],
+    'tools/test-matrix/release-domain-projection-receipt.mjs': ['tools/test-matrix/release-domain-evidence.mjs',
+        'node tools/test-matrix/release-domain-evidence.mjs'],
+    'tools/test-observations/flaky-observer-execution.mjs': ['tools/test-observations/flaky-observer.mjs',
+        'node --test tests/tools/flaky-observation-lane.test.mjs'],
+    'tools/test-quality/artifact.mjs': ['tools/ci/check-test-quality.mjs',
+        'bash tools/test/lanes/test-quality-lint.sh'],
+    'tools/test/execution-envelope-receipt.mjs': ['tests/tools/execution-envelope-receipt.test.mjs',
+        'node --test tests/tools/execution-envelope-receipt.test.mjs'],
+    'tools/test/release-reliability-receipt.mjs': ['tools/test/run-release-reliability-qualified-local.sh',
+        'bash tools/test/run-release-reliability-qualified-local.sh']
+}));
+
+function producerExecutableFile(command)
+{
+    const tokens = String(command).match(/(?:"[^"]*"|'[^']*'|\S+)/gu)
+        ?.map((token) => token.replace(/^['"]|['"]$/gu, '')) ?? [];
+    const file = tokens.find((token, index) => index > 0 && !token.startsWith('-') && !token.includes('='));
+    if (!file) throw new Error(`canonical evidence producer has no executable file: ${command}`);
+    return file;
+}
+
+function canonicalProducerFor(file)
+{
+    const override = canonicalCallerOverrides.get(file);
+    const producer = {
+        producerSource: file,
+        producerCallsite: override?.[0] ?? file,
+        producerExecutable: override?.[1] ?? producerCommandFor(file),
+        producerBindingClass: file.startsWith('.github/workflows/')
+            ? 'workflow'
+            : override ? 'library-caller' : 'cli'
+    };
+    const executableFile = producerExecutableFile(producer.producerExecutable);
+    if (!fs.existsSync(path.join(repositoryRoot, executableFile)))
+        throw new Error(`canonical evidence producer executable is missing: ${producer.producerExecutable}`);
+    if (!fs.existsSync(path.join(repositoryRoot, producer.producerCallsite)))
+        throw new Error(`canonical evidence producer callsite is missing: ${producer.producerCallsite}`);
+    return producer;
 }
 
 function bindingFor(consumerId)
 {
     return `FSUSBLOG_${consumerId.replace(/^evidence-consumer\./u, '').replace(/[^a-zA-Z0-9]+/gu, '_').toUpperCase()}_EVIDENCE_PATH`;
+}
+
+function payloadBindingFor(consumerId)
+{
+    return bindingFor(consumerId).replace(/_EVIDENCE_PATH$/u, '_EVIDENCE_PAYLOAD_PATH');
+}
+
+function handoffBindingFor(consumerId)
+{
+    return bindingFor(consumerId).replace(/_EVIDENCE_PATH$/u, '_EVIDENCE_HANDOFF_PATH');
+}
+
+function hookedProducerCommandFor(consumerId, producerExecutable)
+{
+    const consumer = `FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER=${consumerId}`;
+    if (producerExecutable.startsWith('node '))
+    {
+        return `${consumer} node --import ./tools/test/current-run-evidence-producer-hook.mjs ${producerExecutable.slice(5)}`;
+    }
+    if (producerExecutable.startsWith('bash '))
+    {
+        return `${consumer} BASH_ENV=tools/test/current-run-evidence-producer-hook.bash ${producerExecutable}`;
+    }
+    throw new Error(`unsupported canonical evidence producer command: ${producerExecutable}`);
+}
+
+function checkpointCommandFor(consumerId)
+{
+    return `node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer ${consumerId}`;
 }
 
 function buildGovernance(scan)
@@ -146,11 +244,13 @@ function buildGovernance(scan)
         const classification = programClassification(file);
         const hasDownloadedInput = scan.findings.some((finding) => finding.file === file
             && finding.ruleId === 'evidence-selection.downloaded-artifacts-scan');
+        const producer = canonicalProducerFor(file);
+        const embeddedPublication = file === 'tools/release/check-release-final.mjs';
         return {
             consumerId,
             authorityId: `${consumerId}.current-run`,
             producerId: `${consumerId}.producer`,
-            receiptSchema: receiptSchemaFor(file),
+            receiptSchema: 'fsusblog.current-run-evidence-reference.v1',
             locatorMode: classification === 'diagnostic-only'
                 ? 'content-addressed-reference'
                 : 'explicit-run-path',
@@ -167,8 +267,15 @@ function buildGovernance(scan)
             allowedRoots: hasDownloadedInput
                 ? ['.tmp/downloaded-artifacts', 'artifacts/current-run']
                 : ['artifacts/current-run'],
-            producerCommand: producerCommandFor(file),
-            outputBindingKey: bindingFor(consumerId)
+            publicationMode: embeddedPublication ? 'embedded' : 'hooked',
+            ...producer,
+            producerCommand: embeddedPublication
+                ? producer.producerExecutable
+                : hookedProducerCommandFor(consumerId, producer.producerExecutable),
+            outputBindingKey: bindingFor(consumerId),
+            handoffBindingKey: handoffBindingFor(consumerId),
+            ...(embeddedPublication ? {} : { payloadBindingKey: payloadBindingFor(consumerId) }),
+            checkpointCommand: checkpointCommandFor(consumerId)
         };
     });
     const directReleaseInputs = [
@@ -182,6 +289,8 @@ function buildGovernance(scan)
     for (const [id, producerId, producerCommand] of directReleaseInputs)
     {
         const consumerId = `evidence-consumer.release-final.direct.${id}`;
+        const producerSource = producerCommand.replace(/^(?:bash|node)\s+/u, '').split(/\s+/u)[0];
+        const producer = canonicalProducerFor(producerSource);
         registryEntries.push({
             consumerId,
             authorityId: `${consumerId}.current-run`,
@@ -195,8 +304,13 @@ function buildGovernance(scan)
             requiredDigestFields: ['contentDigest', 'producerReceiptDigest'],
             expectedCardinality: 'exact-one',
             allowedRoots: ['artifacts/current-run'],
-            producerCommand,
-            outputBindingKey: bindingFor(consumerId)
+            publicationMode: 'hooked',
+            ...producer,
+            producerCommand: hookedProducerCommandFor(consumerId, producer.producerExecutable),
+            outputBindingKey: bindingFor(consumerId),
+            handoffBindingKey: handoffBindingFor(consumerId),
+            payloadBindingKey: payloadBindingFor(consumerId),
+            checkpointCommand: checkpointCommandFor(consumerId)
         });
     }
     const parentConsumerId = 'evidence-consumer.release.release-final-domain-evidence';
@@ -213,8 +327,15 @@ function buildGovernance(scan)
         requiredDigestFields: ['contentDigest', 'producerReceiptDigest'],
         expectedCardinality: 'exact-one',
         allowedRoots: ['artifacts/current-run'],
+        publicationMode: 'parent',
+        producerSource: 'tools/test/publish-release-final-evidence-parent.mjs',
+        producerCallsite: 'tools/test/publish-release-final-evidence-parent.mjs',
+        producerExecutable: 'node tools/test/publish-release-final-evidence-parent.mjs',
+        producerBindingClass: 'cli',
         producerCommand: 'node tools/test/publish-release-final-evidence-parent.mjs',
-        outputBindingKey: bindingFor(parentConsumerId)
+        outputBindingKey: bindingFor(parentConsumerId),
+        handoffBindingKey: handoffBindingFor(parentConsumerId),
+        checkpointCommand: checkpointCommandFor(parentConsumerId)
     });
     const registryPayload = {
         schema: 'fsusblog.evidence-locator-registry.v1',

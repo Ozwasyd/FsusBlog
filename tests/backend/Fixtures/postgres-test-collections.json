@@ -3,7 +3,7 @@
   "collections": [
     {
       "id": "SchemaMigrationPostgresCollectionA",
-      "estimatedFacts": 221,
+      "estimatedFacts": 224,
       "tests": [
         {
           "path": "Integration/SchemaMigrationIntegrationTests.cs",
@@ -117,7 +117,7 @@
     },
     {
       "id": "SchemaMigrationPostgresCollectionB",
-      "estimatedFacts": 360,
+      "estimatedFacts": 385,
       "tests": [
         {
           "path": "Integration/AccountEnrollmentIntegrationTests.cs",
@@ -309,6 +309,10 @@
           "class": "CommentMutationOutboxPostgresTests"
         },
         {
+          "path": "Unit/CommentMutationOutboxAnonymousPostgresTests.cs",
+          "class": "CommentMutationOutboxAnonymousPostgresTests"
+        },
+        {
           "path": "Unit/HumanReadProofPersistencePrivacyTests.cs",
           "class": "HumanReadProofPersistencePrivacyTests"
         },
@@ -403,6 +407,10 @@
         {
           "path": "Unit/ContentAssetDeleteEndpointTests.cs",
           "class": "ContentAssetUploadLedgerIntegrationTests"
+        },
+        {
+          "path": "Unit/AnonymousCommentTicketRedisConcurrencyTests.cs",
+          "class": "AnonymousCommentTicketRedisConcurrencyTests"
         }
       ]
     }

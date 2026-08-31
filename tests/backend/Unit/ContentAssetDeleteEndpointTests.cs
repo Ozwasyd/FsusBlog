@@ -7,8 +7,8 @@ using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Interfaces;
-using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Tests.TestInfrastructure;
@@ -81,7 +81,7 @@ public sealed class ContentAssetDeleteEndpointTests
         }
     }
 
-    private static DefaultHttpContext CreateContext(string value)
+    internal static DefaultHttpContext CreateContext(string value)
     {
         IBinaryEndpointRequestContext requestContext = Substitute.For<IBinaryEndpointRequestContext>();
         requestContext.ReadFrameAsync(
@@ -101,7 +101,7 @@ public sealed class ContentAssetDeleteEndpointTests
         return context;
     }
 
-    private static async Task<AedsDecodeResult> ExecuteAndDecodeAsync(
+    internal static async Task<AedsDecodeResult> ExecuteAndDecodeAsync(
         BinaryFrameResult result,
         DefaultHttpContext context,
         AedsEncoder aeds)
@@ -262,10 +262,12 @@ public sealed class ContentAssetUploadLedgerIntegrationTests(PostgresSchemaMigra
 
             var references = new ArticleAssetReferenceStore(db);
             var transaction = await db.Ado.UseTranAsync(
-                () => references.ReplaceCurrentArticleAsync(
-                    1779,
-                    $"![uploaded]({first.Value.RelativeUrl})",
-                    null));
+                async () =>
+                {
+                    ArticleAssetReferenceWrite[] writes = await new ArticleAssetReferenceWriteBoundary(db)
+                        .ResolveAsync($"![uploaded]({first.Value.RelativeUrl})", null);
+                    await references.ReplaceCurrentArticleAsync(1779, writes);
+                });
             Assert.True(transaction.IsSuccess, transaction.ErrorMessage);
             ContentAssetReference reference = Assert.Single(db.Queryable<ContentAssetReference>().ToList());
             Assert.Equal(asset.AssetId, reference.AssetId);

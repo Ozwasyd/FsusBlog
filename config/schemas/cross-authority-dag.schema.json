@@ -1,0 +1,111 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "fsusblog.cross-authority-dag.v1",
+    "title": "FsusBlog cross-authority dependency DAG",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "digestAlgorithm",
+        "canonicalSerialization",
+        "nodes",
+        "edges"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.cross-authority-dag.v1"
+        },
+        "digestAlgorithm": {
+            "const": "sha256"
+        },
+        "canonicalSerialization": {
+            "const": "json-utf8-v1"
+        },
+        "nodes": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "$ref": "#/$defs/node"
+            }
+        },
+        "edges": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "$ref": "#/$defs/edge"
+            }
+        }
+    },
+    "$defs": {
+        "behaviorId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "stableId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]*(?:[.:/-][a-z0-9][a-z0-9.-]*)*$"
+        },
+        "node": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "kind",
+                "authorityId",
+                "behaviorIds"
+            ],
+            "properties": {
+                "id": {
+                    "$ref": "#/$defs/stableId"
+                },
+                "kind": {
+                    "enum": [
+                        "behavior-catalog",
+                        "implementation-owner",
+                        "fact-extractor",
+                        "document-evidence-producer",
+                        "test-evidence-producer",
+                        "mutation-evidence-producer",
+                        "pre-runtime-joiner",
+                        "runtime-evidence-producer",
+                        "post-runtime-joiner",
+                        "release-finalizer"
+                    ]
+                },
+                "authorityId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^\\S+$"
+                },
+                "behaviorIds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "$ref": "#/$defs/behaviorId"
+                    }
+                }
+            }
+        },
+        "edge": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "from",
+                "to",
+                "relation"
+            ],
+            "properties": {
+                "from": {
+                    "$ref": "#/$defs/stableId"
+                },
+                "to": {
+                    "$ref": "#/$defs/stableId"
+                },
+                "relation": {
+                    "$ref": "#/$defs/stableId"
+                }
+            }
+        }
+    }
+}

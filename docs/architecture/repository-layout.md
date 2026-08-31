@@ -41,6 +41,15 @@ C# 与 TypeScript consumer 可以分别位于 Shared 和 frontend，但不得反
 `tools/docs/content-doc-exactness.mjs` 只是 current-run mutation/terminal receipt producer 与
 independent verifier，不拥有第二份 behavior、claim、state、transition 或 outbox registry。
 
+## Schema migration ownership
+
+`src/migration/` 由独立 `FsusBlog.Migration` project 拥有：legacy descriptors、catalogs、
+checksum/history、typed provider DDL 与 migration-only conversion rows 只能在该 project 和
+对应 `tests/migration/` 中编译。`src/backend/Infrastructure/SchemaMigration/` 只保留
+current-schema authority/inspector、fail-closed startup verifier、lock 与业务 backfill
+handlers；Server 生产图不得引用 Migration assembly。机器可读文件/符号清单与 content digest 位于
+`artifacts/schema-migration/migration-assembly-receipt.json`。
+
 ## Configuration ownership
 
 通用运行时、测试和观测配置统一放在 `config/`；只有 .NET framework tool
@@ -50,6 +59,15 @@ launch profile 因而位于 `ops/docker/Properties/`。根级 `configs/`、无 r
 所有者的 `Properties/` 和散落的 JSON 配置均由
 `tools/configuration/check-configuration-layout.mjs` 拒绝。完整 ownership 表见
 [`docs/configuration-layout.md`](../configuration-layout.md)。
+
+Change Contract 的 post-merge generated repair schema 位于
+`config/schemas/post-merge-generated-output-repair.schema.json`，由
+`config/configuration-ownership.json` 显式登记；producer allowlist 只存在于 trusted
+`tools/governance/change-contract-registry.mjs`，不得从历史目录、mtime 或最新文件推断。
+已合并 PR 遗漏其声明的 external-naming evidence 时，独立 schema
+`config/schemas/post-merge-external-naming-evidence-repair.schema.json` 绑定原 PR 的 exact
+base/head/merge、未漂移 source blob/revision、registered surface 与缺失 artifact digest；
+普通 external-naming manifest 仍必须和受影响 source 同 PR 修改，repair 不允许重写 source。
 
 Release Reliability 的场景与动作事实源分离：`config/testing/release-reliability-scenario-catalog.json`
 拥有 exact-seven 场景、命令语义、环境合同和结构化 lifecycle action 引用；

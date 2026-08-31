@@ -13,25 +13,25 @@
 
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <PackageReference Include="coverlet.collector" Version="6.0.4">
+    <PackageReference Include="coverlet.collector">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Fido2" Version="4.0.1" />
-    <PackageReference Include="Microsoft.IdentityModel.Protocols" Version="8.2.0" />
-    <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="8.2.0" />
-    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.7" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
-    <PackageReference Include="Nethermind.MclBindings" Version="1.0.5" />
-    <PackageReference Include="Npgsql" Version="10.0.3" />
-    <PackageReference Include="NSubstitute" Version="5.3.0" />
-    <PackageReference Include="Serilog" Version="4.3.1" />
-    <PackageReference Include="SqlSugarCoreNoDrive" Version="5.1.4.213" />
-    <PackageReference Include="StackExchange.Redis" Version="2.7.27" />
-    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.2.0" />
-    <PackageReference Include="xunit" Version="2.9.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
+    <PackageReference Include="Fido2" />
+    <PackageReference Include="Microsoft.IdentityModel.Protocols" />
+    <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Nethermind.MclBindings" />
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="Serilog" />
+    <PackageReference Include="SqlSugarCoreNoDrive" />
+    <PackageReference Include="StackExchange.Redis" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
@@ -40,6 +40,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\backend\FsusBlog.Server.csproj" />
     <ProjectReference Include="..\..\src\core\FsusBlog.Core.csproj" />
+    <ProjectReference Include="..\..\src\migration\FsusBlog.Migration.csproj" />
     <ProjectReference Include="..\..\src\shared\FsusBlog.Shared.csproj" />
     <ProjectReference Include="..\..\tools\architecture\FsusBlog.DiLifetimeAnalyzer\FsusBlog.DiLifetimeAnalyzer.csproj" />
   </ItemGroup>
@@ -48,6 +49,10 @@
     <None Update="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
     <Compile Remove="Fixtures\security-source-analysis\*.cs" />
     <None Include="Fixtures\security-source-analysis\*.cs" />
+    <Compile Remove="Integration\SchemaMigrationIntegrationTests.cs" />
+    <None Include="Integration\SchemaMigrationIntegrationTests.cs" />
+    <Compile Remove="Integration\AccountSubjectHashMigrationIntegrationTests.cs" />
+    <None Include="Integration\AccountSubjectHashMigrationIntegrationTests.cs" />
   </ItemGroup>
 
 </Project>

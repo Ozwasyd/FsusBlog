@@ -65,6 +65,7 @@
           "optional": true
         },
         "Directory.Build.props",
+        "Directory.Packages.props",
         "tests/FsusBlog.ProductionBackend.slnx",
         "src/shared/FsusBlog.Shared.csproj",
         "src/shared/packages.lock.json",
@@ -141,6 +142,7 @@
       ],
       "inputPaths": [
         "Directory.Build.props",
+        "Directory.Packages.props",
         "src/shared",
         "src/core",
         "src/backend",
@@ -190,6 +192,7 @@
       ],
       "inputPaths": [
         "Directory.Build.props",
+        "Directory.Packages.props",
         "tests/backend",
         "tools/architecture/FsusBlog.DiLifetimeAnalyzer",
         "config/testing/content-addressed-build-cache.json",
@@ -227,6 +230,7 @@
       ],
       "inputPaths": [
         "Directory.Build.props",
+        "Directory.Packages.props",
         "benchmarks/core",
         "config/testing/content-addressed-build-cache.json",
         "tools/test-matrix/content-addressed-build-cache.mjs",

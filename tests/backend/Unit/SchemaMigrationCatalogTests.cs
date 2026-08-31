@@ -1,10 +1,10 @@
 using System.Security.Cryptography;
 using System.Text;
 
+using FsusBlog.Migration.Catalogs;
+using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
-using FsusBlog.Server.Infrastructure.SchemaMigration.Catalogs;
-using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -91,6 +91,18 @@ public sealed class SchemaMigrationCatalogTests
                 Assert.Equal("current-20260828", catalog.CatalogId);
                 Assert.Equal(new DateOnly(2026, 8, 28), catalog.StartVersion);
                 Assert.Equal(new DateOnly(2026, 8, 28), catalog.EndVersion);
+                Assert.Collection(
+                    catalog.Dependencies,
+                    dependency =>
+                    {
+                        Assert.Equal("20260720-pre-user-session-refresh-lineage", dependency.MigrationId);
+                        Assert.Equal(SchemaMigrationPhase.PreCodeFirst, dependency.Phase);
+                    },
+                    dependency =>
+                    {
+                        Assert.Equal(ContentAssetCutoverMigrationDefinitions.MigrationId, dependency.MigrationId);
+                        Assert.Equal(SchemaMigrationPhase.PostCodeFirst, dependency.Phase);
+                    });
             },
             catalog =>
             {

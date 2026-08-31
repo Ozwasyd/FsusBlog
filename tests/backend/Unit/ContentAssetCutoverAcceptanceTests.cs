@@ -1,13 +1,29 @@
+using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Cache;
+using FsusBlog.Core.Common;
+using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Contracts.Assets;
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
-using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
+using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Modules.Endpoints.Binary;
+using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Authoring;
+using FsusBlog.Server.Tests;
+using FsusBlog.Server.Tests.TestInfrastructure;
+
+using Microsoft.AspNetCore.Http;
+
+using NSubstitute;
+
+using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
-public sealed class ContentAssetCutoverAcceptanceTests
+[Trait("Dependency", "Docker")]
+[Collection(nameof(SchemaMigrationPostgresCollectionB))]
+public sealed class ContentAssetCutoverAcceptanceTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
     public void Migration_IsSingleTransactionalBackfillBeforeLegacyRetirement()
@@ -23,17 +39,82 @@ public sealed class ContentAssetCutoverAcceptanceTests
     }
 
     [Fact]
-    public void Backfill_IsFailClosedAndVerifiesPhysicalMetadata()
+    public async Task Backfill_IsFailClosedAndVerifiesPhysicalMetadata()
     {
-        string source = ReadSource("src/backend/Infrastructure/SchemaMigration/ContentAssetCutoverBackfill.cs");
+        var cases = new[]
+        {
+            new BackfillFailureCase("illustration/missing.png", null, null, "missing_file:"),
+            new BackfillFailureCase(
+                "illustration/hash.png",
+                CreatePng(),
+                new string('0', 64),
+                "hash_conflict:"),
+            new BackfillFailureCase("illustration/media.png", [1, 2, 3, 4], null, "unrecognized_media:"),
+            new BackfillFailureCase("../outside.png", null, null, "invalid_prototype_asset:")
+        };
 
-        Assert.Contains("missing_file:", source, StringComparison.Ordinal);
-        Assert.Contains("hash_conflict:", source, StringComparison.Ordinal);
-        Assert.Contains("unrecognized_media:", source, StringComparison.Ordinal);
-        Assert.Contains("SHA256.HashData", source, StringComparison.Ordinal);
-        Assert.Contains("Directory.EnumerateFiles", source, StringComparison.Ordinal);
-        Assert.Contains("ContentAssetSourceKinds.Revision", source, StringComparison.Ordinal);
-        Assert.Contains("Path.GetRelativePath", source, StringComparison.Ordinal);
+        foreach (BackfillFailureCase testCase in cases)
+        {
+            string databaseName = await fixture.CreateDatabaseAsync();
+            string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+            string storageRoot = Path.Combine(
+                Path.GetTempPath(),
+                $"fsusblog-content-asset-proof-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(storageRoot);
+            try
+            {
+                using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+                PostgresSqlSugarTestClient.InitTables(
+                    db,
+                    typeof(ContentAsset),
+                    typeof(ContentAssetCleanupQueueItem),
+                    typeof(ContentAssetReference),
+                    typeof(Article),
+                    typeof(ArticleBody),
+                    typeof(ArticleDraft),
+                    typeof(ArticleRevision),
+                    typeof(ArticleRevisionContentBlock));
+                ReleaseStoragePaths paths = ReleaseStorageTestPaths.Create(storageRoot);
+                Directory.CreateDirectory(Path.Combine(paths.PublicAssetRoot, "illustration"));
+                if (testCase.FileBytes is not null)
+                {
+                    string filePath = Path.Combine(
+                        paths.PublicAssetRoot,
+                        testCase.StorageKey.Replace('/', Path.DirectorySeparatorChar));
+                    Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+                    await File.WriteAllBytesAsync(
+                        filePath,
+                        testCase.FileBytes);
+                }
+
+                db.Insertable(new ContentAsset
+                {
+                    AssetId = Guid.NewGuid(),
+                    StorageClass = "public",
+                    StorageKey = testCase.StorageKey,
+                    MimeType = "image/png",
+                    Extension = ".png",
+                    SizeBytes = testCase.FileBytes?.LongLength ?? 0,
+                    Sha256 = testCase.ExpectedHash ?? string.Empty,
+                    WidthPixels = 1,
+                    HeightPixels = 1,
+                    State = ContentAssetStates.Active,
+                    CreatedAtUtc = DateTime.UtcNow,
+                    UpdatedAtUtc = DateTime.UtcNow
+                }).ExecuteCommand();
+
+                InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(
+                    () => ContentAssetCutoverBackfill.ExecuteAsync(db, paths, CancellationToken.None));
+
+                Assert.Contains(testCase.ExpectedFailure, failure.ToString(), StringComparison.Ordinal);
+                ContentAsset preserved = Assert.Single(db.Queryable<ContentAsset>().ToList());
+                Assert.Equal(testCase.StorageKey, preserved.StorageKey);
+            }
+            finally
+            {
+                Directory.Delete(storageRoot, recursive: true);
+            }
+        }
     }
 
     [Fact]
@@ -50,23 +131,63 @@ public sealed class ContentAssetCutoverAcceptanceTests
         Assert.Contains("id uuid PRIMARY KEY", cutoverSql, StringComparison.Ordinal);
         Assert.Contains("asset_id uuid NOT NULL REFERENCES content_asset(id)", cutoverSql, StringComparison.Ordinal);
         Assert.Equal(typeof(Guid), typeof(FsusBlog.Server.Entities.ContentAsset).GetProperty("AssetId")!.PropertyType);
-        Assert.Contains("Path.GetRelativePath", ReadSource("src/backend/Services/LocalContentAssetStore.cs"), StringComparison.Ordinal);
+        string root = Path.Combine(Path.GetTempPath(), $"fsusblog-asset-store-{Guid.NewGuid():N}");
+        Assert.True(LocalContentAssetStore.TryResolveStoragePath(root, "illustration/hero.png", out string resolved));
+        Assert.StartsWith(Path.GetFullPath(root), resolved, StringComparison.Ordinal);
+        Assert.False(LocalContentAssetStore.TryResolveStoragePath(root, "../outside.png", out _));
     }
 
     [Fact]
-    public void RuntimeHasOneLedgerAndNoUrlDeleteIdentity()
+    public async Task RuntimeHasOneLedgerAndNoUrlDeleteIdentity()
     {
-        string endpoint = ReadSource("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Files.cs");
-        string authoring = ReadSource("src/backend/Services/Authoring/AuthoringAssetLibraryService.cs");
-        string fileService = ReadSource("src/backend/Services/FileService.cs");
+        AssetId assetId = AssetId.Parse("3f3b2e7a-1d2e-4f8a-9c5b-6a7b8c9d0e1f");
+        IAssetStore validStore = Substitute.For<IAssetStore>();
+        validStore.DeleteAsync(assetId, Arg.Any<CancellationToken>()).Returns(AssetDeleteResult.Deleted);
+        var aeds = new AedsEncoder();
+        DefaultHttpContext validContext = ContentAssetDeleteEndpointTests.CreateContext(assetId.ToString());
 
-        Assert.Contains("AssetId.TryParse", endpoint, StringComparison.Ordinal);
-        Assert.Contains("IAssetStore assetStore", endpoint, StringComparison.Ordinal);
-        Assert.DoesNotContain("Path.", endpoint, StringComparison.Ordinal);
-        Assert.DoesNotContain("DeleteImageAsync", fileService, StringComparison.Ordinal);
-        Assert.DoesNotContain("CREATE TABLE", authoring, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("ImageHelper", authoring, StringComparison.Ordinal);
-        Assert.Contains("content_asset_reference", authoring, StringComparison.Ordinal);
+        var validResult = await BinaryEndpoints.HandleFileDeleteAsync(
+            validContext,
+            validStore,
+            aeds,
+            CancellationToken.None);
+        AedsDecodeResult validFrame = await ContentAssetDeleteEndpointTests.ExecuteAndDecodeAsync(
+            validResult,
+            validContext,
+            aeds);
+
+        Assert.Equal(AedsFrameType.EmptySuccess, validFrame.FrameType);
+        await validStore.Received(1).DeleteAsync(assetId, Arg.Any<CancellationToken>());
+
+        foreach (string rejectedIdentity in new[]
+        {
+            "/uploads/illustration/hero.png",
+            "https://example.test/uploads/illustration/hero.png"
+        })
+        {
+            IAssetStore rejectedStore = Substitute.For<IAssetStore>();
+            DefaultHttpContext rejectedContext = ContentAssetDeleteEndpointTests.CreateContext(rejectedIdentity);
+            var rejectedResult = await BinaryEndpoints.HandleFileDeleteAsync(
+                rejectedContext,
+                rejectedStore,
+                aeds,
+                CancellationToken.None);
+            AedsDecodeResult rejectedFrame = await ContentAssetDeleteEndpointTests.ExecuteAndDecodeAsync(
+                rejectedResult,
+                rejectedContext,
+                aeds);
+
+            Assert.Equal(AedsFrameType.ApiError, rejectedFrame.FrameType);
+            Assert.True(PodBinaryCodec.TryDecodeApiError(rejectedFrame.Payload, out var errorPod));
+            Assert.Equal(ErrorCode.Validation, PodBinaryCodec.ToErrorDetail(errorPod).Code);
+            await rejectedStore.DidNotReceiveWithAnyArgs().DeleteAsync(default, default);
+        }
+
+        Assert.DoesNotContain(
+            typeof(FileService).GetMethods(),
+            static method => string.Equals(method.Name, "DeleteImageAsync", StringComparison.Ordinal));
+        Assert.Contains(typeof(AuthoringAssetLibraryService).GetInterfaces(), static type => type == typeof(IAuthoringAssetQuery));
+        Assert.Contains(typeof(AuthoringAssetLibraryService).GetInterfaces(), static type => type == typeof(IAuthoringAssetCommands));
     }
 
     [Fact]
@@ -80,8 +201,18 @@ public sealed class ContentAssetCutoverAcceptanceTests
         Assert.NotNull(typeof(AuthoringAssetLibraryService));
     }
 
-    private static string ReadSource(string relativePath)
-        => File.ReadAllText(Path.Combine(
-            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../")),
-            relativePath));
+    private sealed record BackfillFailureCase(
+        string StorageKey,
+        byte[]? FileBytes,
+        string? ExpectedHash,
+        string ExpectedFailure);
+
+    private static byte[] CreatePng()
+    {
+        var bytes = new byte[24];
+        new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }.CopyTo(bytes, 0);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(bytes.AsSpan(16, 4), 1);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(bytes.AsSpan(20, 4), 1);
+        return bytes;
+    }
 }

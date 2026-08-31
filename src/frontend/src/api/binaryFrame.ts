@@ -48,6 +48,23 @@ export function encodeNameMutationRequest(name: string): Uint8Array {
   return bytes
 }
 
+export interface TaxonomyMetadataMutationRequest {
+  name: string
+  description: string | null
+}
+
+export function encodeTaxonomyMetadataMutationRequest(request: TaxonomyMetadataMutationRequest): Uint8Array {
+  const description = textEncoder.encode(request.description ?? '')
+  const bytes = new Uint8Array(140 + description.byteLength)
+  const view = new DataView(bytes.buffer)
+  writeFixedUtf8(bytes, 0, 128, request.name)
+  view.setInt32(128, 0, true)
+  view.setInt32(132, description.byteLength, true)
+  view.setInt32(136, description.byteLength, true)
+  bytes.set(description, 140)
+  return bytes
+}
+
 export function encodeStringMutationRequest(value: string): Uint8Array {
   const encoded = textEncoder.encode(value)
   const bytes = new Uint8Array(8 + 4 + encoded.byteLength)

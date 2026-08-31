@@ -2,9 +2,9 @@ using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
 
+using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
-using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 using FsusBlog.Server.Infrastructure.Themes;
 
 using Microsoft.Extensions.Configuration;

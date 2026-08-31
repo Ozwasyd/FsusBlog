@@ -879,8 +879,8 @@
             ]
         },
         {
-            "id": "backend-property-protocol-cache-upload",
-            "description": "Backend Property Protocol Cache Upload is covered by unit/property tests that exercise the named behavior.",
+            "id": "backend-property-protocol-cache",
+            "description": "Backend protocol and cache properties are covered by unit/property tests that exercise the named behavior.",
             "owner": "ServerContractAgent",
             "risk": "high",
             "evidencePaths": [
@@ -891,6 +891,21 @@
             "minimumRequirement": "The referenced unit or property test evidence must execute assertions for this behavior, not merely prove that a source file exists.",
             "tierIds": [
                 "backend-property"
+            ]
+        },
+        {
+            "id": "backend-upload-range-completion",
+            "description": "Real FileService upload sessions expose exact uploaded-part ranges and lowest-gap hints, preserve them across retries and restart, reject incomplete completion without terminal side effects, and finalize a complete upload exactly once.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "tests/backend/Unit/FileServiceTests.cs"
+            ],
+            "assertionType": "unit",
+            "failClosedRule": "Reject unsorted, overlapping or duplicate ranges, a next-part hint other than the lowest missing part, incomplete finalization side effects, lost checkpoint state or duplicate completed results.",
+            "minimumRequirement": "The backend unit lane must drive FileService session initialization, real part uploads, part-map and status reads, incomplete completion, restart recovery and successful completion through public service methods.",
+            "tierIds": [
+                "backend-unit"
             ]
         },
         {
@@ -1007,7 +1022,8 @@
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
-                "tests/backend/Fixtures/backend-test-requirements.json"
+                "tests/backend/Fixtures/backend-test-requirements.json",
+                "tests/tools/backend-test-governance-cpm.test.mjs"
             ],
             "assertionType": "static",
             "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
@@ -1499,6 +1515,21 @@
             "tierIds": [
                 "frontend-unit-shard",
                 "coverage-frontend"
+            ]
+        },
+        {
+            "id": "frontend-image-upload-runtime",
+            "description": "The real image upload composable and options panel prove ordered compression, hashing, session recovery, missing-part upload, completion, abort cleanup and late-response isolation through API and storage postconditions.",
+            "owner": "InteropGlueAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+            ],
+            "assertionType": "unit",
+            "failClosedRule": "Reject completion before every required part acknowledgement, stale session or token reuse, incomplete abort cleanup, or a late response that revives an abandoned attempt.",
+            "minimumRequirement": "Executable composable tests must cover fresh success, retry exhaustion, missing-part resume, stale or tampered recovery, abort success, failure and no-active behavior, late acknowledgement isolation, and mounted panel action wiring.",
+            "tierIds": [
+                "frontend-unit-shard"
             ]
         },
         {
@@ -2001,8 +2032,12 @@
                 "security/matrices/privacy-zk-comment.yml",
                 "tools/security/check-security-matrices.mjs",
                 "tools/test/lanes/privacy-zk-comment-matrix.sh",
-                "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
+                "tests/backend/Unit/AnonymousCommentTicketEndpointFilterTests.cs",
+                "tests/backend/Unit/AnonymousCommentTicketRedisConcurrencyTests.cs",
+                "tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs",
+                "tests/backend/Unit/CommentMutationOutboxAnonymousPostgresTests.cs",
                 "tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs",
+                "tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs",
                 "tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts",
                 "tests/frontend/unit/privacy/commentPrivacyWorkerClient.test.ts",
                 "tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts",
@@ -3402,6 +3437,56 @@
             ]
         },
         {
+            "id": "current-schema-canonical-authority",
+            "description": "One recomputable provider-neutral current schema model drives runtime reflection, generated projection and migration-target adapters with sealed source/content identity and dialect-specific physical projections.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "src/backend/Infrastructure/SchemaMigration/CurrentSchemaCanonicalModel.cs",
+                "src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs",
+                "tests/backend/Unit/SchemaModelInspectorTests.cs",
+                "tools/db/check-current-schema-authority.mjs",
+                "tests/tools/current-schema-authority.test.mjs",
+                "docs/database-migration.md",
+                "docs/online-database-migration.md"
+            ],
+            "assertionType": "contract",
+            "failClosedRule": "Reject inherited or attributed mapping loss, ignored-member admission, unknown types or converters, duplicate owners, semantic/default/constraint/index drift, provider-dialect confusion, stale projection identity, benchmark identity mismatch, tampering, migration-catalog authority, fixture reconstruction, hand-written inventory or a second generator.",
+            "minimumRequirement": "Focused unit and static mutation tests independently recompute runtime, generated and migration-target projections from one sealed canonical input, compare PostgreSQL/MySQL/SQLite physical spellings without changing semantic identity, and enter readiness warmup plus sampling only after exact equivalence.",
+            "tierIds": [
+                "backend-unit",
+                "static-governance"
+            ]
+        },
+        {
+            "id": "migration-assembly-boundary",
+            "description": "Legacy schema descriptors, catalogs, checksum/history execution, typed provider DDL and migration-only row conversion live in one independently buildable FsusBlog.Migration assembly without Server or web-host dependencies.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "src/migration/FsusBlog.Migration.csproj",
+                "src/migration/SchemaMigrationPrimitives.cs",
+                "src/migration/SchemaMigrationDdlPrimitives.cs",
+                "src/migration/SchemaMigrationExecution.cs",
+                "src/migration/SchemaMigrationManifest.cs",
+                "tests/migration/FsusBlog.Migration.Tests.csproj",
+                "tests/migration/MigrationAssemblyBoundaryTests.cs",
+                "tools/db/generate-migration-assembly-receipt.mjs",
+                "tools/db/check-migration-assembly-boundary.mjs",
+                "tests/tools/migration-assembly-boundary.test.mjs",
+                "artifacts/schema-migration/migration-assembly-receipt.json",
+                "artifacts/schema-migration/migration-assembly-binding.json",
+                "docs/database-migration.md"
+            ],
+            "assertionType": "contract",
+            "failClosedRule": "Reject Server, web-host, business-service or reverse graph dependencies; linked duplicates, type forwarders, compatibility namespaces, provider current-schema copies, shared legacy fields, old Server source ownership, missing provider registration, descriptor digest drift, or receipt symbol/content tamper.",
+            "minimumRequirement": "The assembly and its direct test project must build without the Server; PostgreSQL, MySQL and SQLite provider semantics plus the exact descriptor plan digest must pass, and static mutation tests must cover every forbidden re-entry and identity-tamper class.",
+            "tierIds": [
+                "backend-unit",
+                "static-governance"
+            ]
+        },
+        {
             "id": "backend-online-schema-migration-protocol",
             "description": "Online schema changes follow classified Expand, resumable Backfill and gated Contract phases while every destructive step carries a source-bound rollback-window proof.",
             "owner": "ServerContractAgent",
@@ -3421,7 +3506,7 @@
                 "tests/tools/schema-compatibility-coordinate.test.mjs",
                 "tools/release/schema-compatibility-coordinate.mjs",
                 "tests/tools/destructive-migration-proof.test.mjs",
-                "src/backend/Infrastructure/SchemaMigration/DestructiveMigrationProofs.cs",
+                "src/migration/DestructiveMigrationProofs.cs",
                 "docs/schema-migrations/destructive-rollback-window-proofs.json",
                 "docs/schema-migrations/destructive-rollback-window.md",
                 "tests/backend/online-schema-migration-evidence.json"
@@ -3466,10 +3551,10 @@
             "owner": "ServerContractAgent",
             "risk": "high",
             "evidencePaths": [
-                "src/backend/Infrastructure/SchemaMigration/SchemaMigrationPrimitives.cs",
-                "src/backend/Infrastructure/SchemaMigration/SchemaMigrationDdlPrimitives.cs",
-                "tests/backend/Unit/SchemaMigrationDdlPrimitivesTests.cs",
-                "tests/backend/Fixtures/schema-ddl-provider-snapshots.json",
+                "src/migration/SchemaMigrationPrimitives.cs",
+                "src/migration/SchemaMigrationDdlPrimitives.cs",
+                "tests/migration/SchemaMigrationDdlPrimitivesTests.cs",
+                "tests/migration/schema-ddl-provider-snapshots.json",
                 "docs/schema-migrations/typed-ddl-primitives.json"
             ],
             "assertionType": "unit",
@@ -4710,13 +4795,29 @@
                 "tools/test/evidence-location-contract.mjs",
                 "tools/test/evidence-location-scanner.mjs",
                 "tools/test/generate-evidence-location-governance.mjs",
+                "tools/test/current-run-evidence-publication.mjs",
+                "tools/test/current-run-evidence-checkpoint.mjs",
+                "tools/test/run-current-run-evidence-producer.mjs",
+                "tools/test/current-run-evidence-producer-hook.mjs",
+                "tools/test/current-run-evidence-producer-hook.bash",
+                "tools/test/publish-current-run-evidence-reference.mjs",
+                "tools/test/publish-release-final-evidence-parent.mjs",
+                "tools/test/attach-current-run-evidence-checkpoint.mjs",
+                "tools/test/current-run-evidence-transport.mjs",
+                "tools/test/run-current-run-evidence-transport.mjs",
                 "tests/tools/evidence-location-contract.test.mjs",
                 "tests/tools/evidence-location-governance.test.mjs",
+                "tests/tools/current-run-evidence-publication.test.mjs",
+                "tests/tools/current-run-evidence-scheduler.test.mjs",
+                "tests/tools/current-run-evidence-transport.test.mjs",
+                "tests/tools/current-run-evidence-locator-negative-matrix.test.mjs",
+                "tools/test/generate-current-run-evidence-location-acceptance.mjs",
+                "config/testing/current-run-evidence-location-acceptance.json",
                 "docs/testing.md"
             ],
             "assertionType": "integration",
-            "failClosedRule": "Reject missing, duplicate, orphan, unclassified, wildcard-suppressed or newly discovered location findings; duplicate consumer authorities; mutable latest, timestamp, directory, fallback, age or TTL locator policy; and any content digest drift.",
-            "minimumRequirement": "Static governance must scan tracked JS, TS, C#, shell, workflow and config consumers, prove exact location and rule coverage for every finding, retain all three disposition classes, bind actual helper callsites, and cover quality gate, release-final, aggregates, flaky, public preview, manifest and downloaded evidence consumers.",
+            "failClosedRule": "Reject missing, duplicate, orphan, unclassified, wildcard-suppressed or newly discovered location findings; duplicate consumer authorities; mutable latest, timestamp, directory, fallback, age or TTL locator policy; producer failure, cancellation, missing output, stale attempt or identity; multiple final references; non-finalized publication journals; parent payload copies; unbound downloaded artifacts; transport digest, mapping or origin mismatch; and any content or receipt digest drift.",
+            "minimumRequirement": "Static governance must scan tracked JS, TS, C#, shell, workflow and config consumers, prove exact location and rule coverage for every finding, retain all three disposition classes, give every authority exact producer/output/checkpoint bindings, publish terminal current-run content-addressed references, bind downloaded artifacts only through an exact transport manifest, and verify checkpoint and parent propagation using refs and digests only.",
             "tierIds": [
                 "static-governance"
             ]
@@ -4813,7 +4914,7 @@
         },
         {
             "id": "perception-character-v3-breaking-release",
-            "description": "Breaking PerceptionCharacterV3 release is independently verified against deterministic visual/audio corpus budgets, one-time encrypted pool issuance, retired-format rejection, real Redis cutover idempotency and pool-path resource ratios.",
+            "description": "Breaking PerceptionCharacterV3 release is independently verified against deterministic visual/audio corpus budgets, one-time encrypted pool issuance, retired-format rejection, real Redis cutover idempotency, pool-path resource ratios and exact-per-test LocalRedis device/state linearizability cases.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
@@ -4823,11 +4924,12 @@
                 ".tmp/security/perception-character-v3/release-gate/perception-character-v3-migration-receipt.json",
                 ".tmp/security/perception-character-v3/release-gate/implementation-verification-receipt.json",
                 ".tmp/security/perception-character-v3/release-gate/independent-review-receipt.json",
-                ".tmp/test-results/backend/perception-character-v3-redis-producer.json"
+                ".tmp/test-results/backend/perception-character-v3-redis-producer.json",
+                "tests/backend/Unit/PerceptionCharacterV3Tests.cs"
             ],
             "assertionType": "integration",
-            "failClosedRule": "Reject undersized, duplicate, biased, over-budget or baseline-readable corpus; stored-DEFLATE visual output; old formats; corrupt or wrong-key pools; repeat leases; non-idempotent cutover; insufficient CPU/allocation ratios; pre-admission allocation or leases; sensitive evidence; receipt digest drift; and any high or critical independent finding.",
-            "minimumRequirement": "One clean-checkout physical gate must generate at least 10000 visual and 2000 audio artifacts, execute the pool benchmark and real Redis cutover twice, bind exact commands and evidence hashes to one full commit and release target, and emit convergent implementation and independent-review receipts without duplicating corpus or benchmark work.",
+            "failClosedRule": "Reject undersized, duplicate, biased, over-budget or baseline-readable corpus; stored-DEFLATE visual output; old formats; corrupt or wrong-key pools; repeat leases; non-idempotent cutover; missing, duplicate, partial, failed or cross-run LocalRedis test/case evidence; absent Lua execution or prefix cleanup; insufficient CPU/allocation ratios; pre-admission allocation or leases; sensitive evidence; receipt digest drift; and any high or critical independent finding.",
+            "minimumRequirement": "One clean-checkout physical gate must generate at least 10000 visual and 2000 audio artifacts, execute the pool benchmark and real Redis cutover twice, execute each planned canonical LocalRedis test exactly once with the complete source-bound case inventory and verified isolated-prefix cleanup, bind exact commands and evidence hashes to one full commit and release target, and emit convergent implementation and independent-review receipts without duplicating corpus, benchmark or Redis fixture work.",
             "tierIds": [
                 "perception-character-v3-release-gate"
             ]

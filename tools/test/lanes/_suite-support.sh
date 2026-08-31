@@ -9,6 +9,7 @@ fi
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 CLIENT_DIR="$ROOT_DIR/src/frontend"
 SERVER_TEST_PROJ="$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj"
+MIGRATION_TEST_PROJ="$ROOT_DIR/tests/migration/FsusBlog.Migration.Tests.csproj"
 BUILD_ENV_RUNNER="$ROOT_DIR/tools/build-with-data-env.sh"
 export FSUSBLOG_REPO_ROOT="${FSUSBLOG_REPO_ROOT:-$ROOT_DIR}"
 COVERAGE_ROOT="${FSUSBLOG_COVERAGE_ROOT:-$ROOT_DIR/.tmp/coverage}"
@@ -1055,6 +1056,10 @@ RunBackendUnitLane() {
             return "$status"
         fi
     fi
+    Run "$BUILD_ENV_RUNNER" dotnet test "$MIGRATION_TEST_PROJ" \
+        -c "$(BackendTestConfiguration)" \
+        --nologo \
+        "${DOTNET_BUILD_SHARED_ARGS[@]}"
     WriteBackendSplitSummary backend-unit "${FSUSBLOG_TEST_SELECTION:-full}"
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/produce-integrity-proof-evidence.mjs" \
         --catalog "$ROOT_DIR/tests/fixtures/evidence-projection/integrity-proof-verification.json" \
@@ -1143,6 +1148,7 @@ EnsureBackendFilteredBuild() {
         # without turning those runtime writes into duplicate build producers.
         fingerprint="$(TestInputFingerprint \
             --path Directory.Build.props \
+            --path Directory.Packages.props \
             --path FsusBlog.slnx \
             --path tools/build-with-data-env.sh \
             --path tools/test/lanes/_suite-support.sh \
@@ -1155,6 +1161,7 @@ EnsureBackendFilteredBuild() {
         # source scan as the conservative fallback.
         fingerprint="$(TestInputFingerprint \
             --path Directory.Build.props \
+            --path Directory.Packages.props \
             --path FsusBlog.slnx \
             --path src/backend \
             --path src/core \
@@ -1271,6 +1278,7 @@ RunBackendTestGovernanceCheckOnce() {
         --execution-class correctness \
         --producer-id backend-test-governance \
         --path tools/check-backend-test-governance.mjs \
+        --path tools/test/backend-evidence-path-authority.mjs \
         --path tests/backend \
         --path tests/matrix.yml \
         --test-id backend-test-governance \

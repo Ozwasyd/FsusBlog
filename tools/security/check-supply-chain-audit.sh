@@ -82,7 +82,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const root = process.argv[2];
 const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
-const csproj = fs.readFileSync(path.join(root, 'src/backend/FsusBlog.Server.csproj'), 'utf8');
+const centralPackages = fs.readFileSync(path.join(root, 'Directory.Packages.props'), 'utf8');
 const lock = JSON.parse(fs.readFileSync(path.join(root, 'src/backend/packages.lock.json'), 'utf8'));
 
 function fail(message) {
@@ -90,9 +90,9 @@ function fail(message) {
   process.exit(1);
 }
 
-function packageVersionFromCsproj(name) {
+function packageVersionFromCentralAuthority(name) {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const match = csproj.match(new RegExp(`<PackageReference\\s+Include="${escaped}"\\s+Version="([^"]+)"\\s*/>`));
+  const match = centralPackages.match(new RegExp(`<PackageVersion\\s+Include="${escaped}"\\s+Version="([^"]+)"\\s*/>`));
   return match?.[1] ?? null;
 }
 
@@ -103,17 +103,22 @@ function packageVersionFromReadme(name) {
 }
 
 for (const name of ['Fido2']) {
-  const csprojVersion = packageVersionFromCsproj(name);
+  const centralVersion = packageVersionFromCentralAuthority(name);
   const lockVersion = lock.dependencies?.['net10.0']?.[name]?.resolved;
   const readmeVersion = packageVersionFromReadme(name);
-  if (!csprojVersion) fail(`${name} is missing from FsusBlog.Server.csproj`);
+  if (!centralVersion) fail(`${name} is missing from Directory.Packages.props`);
   if (!lockVersion) fail(`${name} is missing from src/backend/packages.lock.json`);
   if (!readmeVersion) fail(`${name} is missing from README dependency table`);
-  if (readmeVersion !== csprojVersion || lockVersion !== csprojVersion) {
-    fail(`${name} version drift README=${readmeVersion} csproj=${csprojVersion} lock=${lockVersion}`);
+  if (readmeVersion !== centralVersion || lockVersion !== centralVersion) {
+    fail(`${name} version drift README=${readmeVersion} central=${centralVersion} lock=${lockVersion}`);
   }
 }
 NODE
+}
+
+CheckCentralPackageManagement() {
+    Log "check Central Package Management authority"
+    node "$ROOT_DIR/tools/governance/check-central-package-management.mjs" --root "$ROOT_DIR"
 }
 
 RunNugetAudit() {
@@ -401,7 +406,8 @@ RunCheckGroup() {
 
 RunCheckGroup preflight \
     "dependency-locks::CheckDependencyLocks" \
-    "dependency-docs::CheckDependencyDocs"
+    "dependency-docs::CheckDependencyDocs" \
+    "central-packages::CheckCentralPackageManagement"
 RunCheckGroup ecosystem-audits \
     "nuget::RunNugetAudit" \
     "npm::RunNpmAudit"

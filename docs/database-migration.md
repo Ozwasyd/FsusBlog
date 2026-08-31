@@ -44,8 +44,8 @@ runner consumes this manifest order directly: all
 `PostCodeFirst` descriptors, which preserves the historical execution contract.
 
 Descriptor implementations live under
-`src/backend/Infrastructure/SchemaMigration/Definitions/`; release-range catalogs
-live under `src/backend/Infrastructure/SchemaMigration/Catalogs/`. To add a
+`src/migration/Definitions/`; release-range catalogs
+live under `src/migration/Catalogs/`. To add a
 migration, put its implementation in a focused definition type and register it once
 in the catalog whose range owns the ID. A version beyond the current range requires
 a new catalog, explicit phase-tail dependencies, and an explicit boundary gap. Do
@@ -54,6 +54,35 @@ reopen `SchemaMigrationRegistry.*.cs` partial files. `migration-doc-lint.mjs` an
 `SchemaMigrationCatalogTests.SourceLayout_PreventsLegacyRegistryDescriptorAggregation`
 enforce the one-definition/one-catalog rule without code generation or external
 tools.
+
+## Migration Assembly Boundary
+
+Legacy descriptors, version catalogs, checksum/history primitives, typed DDL
+providers and migration-owned conversion rows compile in the independent
+`src/migration/FsusBlog.Migration.csproj` project under the
+`FsusBlog.Migration` root namespace. That project targets `net10.0`, references
+only `FsusBlog.Shared`, and carries the SqlSugar provider abstraction required to
+build and test the PostgreSQL, MySQL and SQLite DDL adapters without loading the
+Server or a web host.
+
+Server production no longer references `FsusBlog.Migration`. Startup loads the
+#2211 current schema projection through `CurrentSchemaStartupVerifier` and
+fail-closes on digest mismatch before admission, with zero DDL or backfill. The
+online command host refuses descriptor execution from the Server process; the
+independent migration assembly remains the owner of legacy catalogs. An offline
+plan/apply/verify CLI is a separate change.
+
+`artifacts/schema-migration/migration-assembly-receipt.json` records the old/new
+project, assembly and namespace identities, every old/new source path and declared
+symbol, old/new SHA-256 digests, deleted Server paths, the aggregate content digest
+and actual independent build/test results bound to the migration source plus test
+input digest. The generated
+`artifacts/schema-migration/migration-assembly-binding.json` seals the receipt,
+source transition and verification result digests. `tools/db/check-migration-assembly-boundary.mjs` rejects reverse Server
+references, linked or duplicate sources, type forwarding/re-export namespaces,
+provider copies of the current schema model, shared legacy-only fields, web-hosted
+migration tests, graph cycles, dual registration, Server publish leakage, missing
+provider/build evidence and receipt or binding tampering.
 
 The PostgreSQL fixture exercises both an empty database and the representative
 20260517 historical schema twice. For each starting point, the normalized columns,
@@ -69,6 +98,32 @@ pre-quoted SQL fragments. For example, use `DefaultValue = "basic"`, never
 and changes the database default to a value containing quote characters. The fresh
 fixture inserts a `sys_user` row after the second run while omitting these columns
 and requires `anonymous_account|basic|active`.
+
+## Canonical Current Schema
+
+`CurrentSchemaCanonicalAuthority` is the only current-schema materializer. It
+extracts the current `SugarTable`/`SugarColumn`/`SugarIndex` mapping, inherited
+public properties, nullability metadata, defaults, conversions and explicit
+current constraints into a provider-neutral semantic model. Duplicate owners,
+unknown property types, unsupported converters and incomplete constraints fail
+before a projection is accepted. Ignored, navigation and `NotMapped` members never
+enter the model.
+
+Runtime reflection, `CurrentSchemaProjection` and the migration target adapter are
+independent observations of that sealed model; none reads the migration catalog,
+Markdown, test fixtures or a running database to define the target. Their shared
+identity binds model, extractor and generator versions plus source and content
+SHA-256 digests. PostgreSQL, MySQL and SQLite projections retain this semantic
+identity while recording different physical type spellings. The independent
+verifier and cold-readiness comparison reject stale identities, content tampering
+and exact table, column, type, nullability, default, constraint or index drift.
+
+`tools/db/check-current-schema-authority.mjs` prevents a second production
+extractor, hand-written table inventory, fixture reconstruction or migration
+descriptor from becoming current authority. This boundary does not move migration
+descriptor SQL or make provider DDL a second current-schema mapping. The migration
+assembly extraction above changes compile ownership only; descriptor IDs,
+fingerprints, checksums, SQL and execution order remain stable.
 
 ## Plugin Registry
 
@@ -139,7 +194,7 @@ compatible retained release.
 The table below is the authoritative final-state inventory for legacy identity
 columns that are either removed from the physical schema or retained only for an
 explicit compatibility purpose. Keep it synchronized with
-`src/backend/Infrastructure/SchemaMigration/Definitions/`;
+`src/migration/Definitions/`;
 `tools/db/migration-doc-lint.mjs` fails when the definitions, catalogs, manifest,
 and this table diverge.
 
