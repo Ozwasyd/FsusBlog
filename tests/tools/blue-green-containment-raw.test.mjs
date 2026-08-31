@@ -20,8 +20,8 @@ import { loadPostRuntimeProducerRegistry, root } from '../../tools/test-matrix/p
 import { createPostRuntimeCandidateFixture } from './support/post-runtime-candidate-fixture.mjs'
 
 const digest = (value) => `sha256:${String(value).repeat(64).slice(0, 64)}`
-const oldRelease = 'release-old'
-const candidateRelease = 'release-candidate'
+const oldRelease = '20260829123456-aaaaaaaaaaaa'
+const candidateRelease = '20260830123456-bbbbbbbbbbbb'
 const deploymentId = 'deployment-1'
 const roles = [
   'state-before', 'state-after', 'promotion', 'switch', 'health', 'rollback',

@@ -93,8 +93,15 @@ export function createPostRuntimeCandidateFixture(context, {
     inputPaths: ['inputs'], domains: [{ name: 'frontend-dist', path: 'frontend-dist' }]
   })
   const buildFile = path.join(artifactRoot, 'receipt.json')
+  const observationSchema = JSON.parse(fs.readFileSync(
+    path.join(root, 'config/schemas/post-runtime-observation-result.schema.json'), 'utf8'))
+  const typedIdentity = observationSchema.properties?.sourceState?.properties?.runtimeId !== undefined
   const candidateContext = produceCandidateContext({
-    preRuntimeReceipt: relative(preFile), runId, attemptId: 'attempt-0001', candidate, repositoryRoot: root
+    preRuntimeReceipt: relative(preFile), runId, attemptId: 'attempt-0001',
+    candidate: typedIdentity && candidate.releaseId === undefined
+      ? { ...candidate, releaseId: `20260830123456-${commit.slice(0, 12)}` }
+      : candidate,
+    repositoryRoot: root
   })
   const contextFile = write('candidate-context.json', candidateContext)
   const registry = loadPostRuntimeProducerRegistry(root)

@@ -132,10 +132,15 @@ function fixture(context)
   })
   write('claims.json', claims)
   write('pre.json', pre)
+  const observationSchema = JSON.parse(fs.readFileSync(
+    path.join(root, 'config/schemas/post-runtime-observation-result.schema.json'), 'utf8'))
   const contextReceipt = produceCandidateContext({
     preRuntimeReceipt: relative('pre.json'),
     runId: 'run-0001',
     attemptId: 'attempt-0001',
+    candidate: observationSchema.properties?.sourceState?.properties?.runtimeId !== undefined
+      ? { releaseId: `20260830123456-${commit.slice(0, 12)}` }
+      : {},
     repositoryRoot: root
   })
   write('context.json', contextReceipt)

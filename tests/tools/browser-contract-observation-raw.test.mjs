@@ -241,7 +241,7 @@ test('browser raw projector binds exact tests, dimensions, semantics, and curren
   assert.notEqual(raw.semanticFacts.screenshotOnly, true)
   if ('contractTestId' in raw.semanticFacts)
   {
-    assert.match(raw.sourceState.browserIdentity, /^sha256:[a-f0-9]{64}$/u)
+    assert.equal(raw.sourceState.browserIdentity, `${runId}:browser-contract`)
   }
   else
   {
