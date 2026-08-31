@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/docs/behavior-document-consistency-final.mjs"
+            ],
+            "reason": "Preserve the caller-visible receipt JSON and CLI field spellings while the terminal aggregator adds internal exact-binding validation with repository-style JavaScript identifiers."
+        }
+    ]
+}
