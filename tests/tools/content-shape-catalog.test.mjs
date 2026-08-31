@@ -46,6 +46,37 @@ function temporaryProductionRoot(t)
     return temporary;
 }
 
+function mutateProductionSource(t, relative, before, after, { all = false } = {})
+{
+    const temporary = temporaryProductionRoot(t);
+    const target = path.join(temporary, relative);
+    const original = fs.readFileSync(target, 'utf8');
+    assert.equal(original.includes(before), true, `mutation source is missing: ${before}`);
+    fs.writeFileSync(target, all ? original.replaceAll(before, after) : original.replace(before, after));
+    return temporary;
+}
+
+function assertProductionMutationInvalidates(t, relative, before, after, options)
+{
+    const temporary = mutateProductionSource(t, relative, before, after, options);
+    let projectionChanged = false;
+    try
+    {
+        projectionChanged = stableStringify(projectContentFieldContracts({ root: temporary }))
+            !== stableStringify(projectContentFieldContracts());
+    }
+    catch
+    {
+        projectionChanged = true;
+    }
+    assert.equal(projectionChanged, true, `${relative} mutation must change or reject the projection`);
+    assert.notEqual(validateContentShapeAuthority({
+        root: temporary,
+        authority: clonedAuthority(),
+        scanGovernance: false
+    }).length, 0, `${relative} mutation must invalidate the generated authority`);
+}
+
 test('ContentShapeCatalog is closed, versioned, locale-complete, and production-bound', () =>
 {
     assert.deepEqual(validateContentShapeAuthority(), []);
@@ -133,6 +164,70 @@ test('field projection binds contract fragments instead of unrelated owner file 
         authority: clonedAuthority(),
         scanGovernance: false
     }).join('\n'), /projection is stale/u);
+});
+
+test('field projection rejects comment-hidden normalization and boolean control-flow drift', (t) =>
+{
+    const endpoint = 'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs';
+    assertProductionMutationInvalidates(
+        t,
+        endpoint,
+        '&& content.Length <= policy.CommentMaxChars',
+        '|| content.Length <= policy.CommentMaxChars'
+    );
+    assertProductionMutationInvalidates(
+        t,
+        endpoint,
+        'string content = request.Content?.Trim() ?? string.Empty;',
+        'string content = request.Content?.Normalize() ?? string.Empty;\n            // string content = request.Content?.Trim() ?? string.Empty;',
+        { all: true }
+    );
+});
+
+test('field projection binds CommentDto nullable, Required, and MaxLength declarations', (t) =>
+{
+    const dto = 'src/backend/Models/Dtos/CommentDto.cs';
+    for (const [before, after] of [
+        ['public required string Content', 'public required string? Content'],
+        ['[Required]\n    [MaxLength(CommentLimits.ContentMaxChars', '[MaxLength(CommentLimits.ContentMaxChars'],
+        ['[MaxLength(CommentLimits.ContentMaxChars', '[MaxLength(CommentLimits.HardContentMaxChars']
+    ])
+    {
+        assertProductionMutationInvalidates(t, dto, before, after);
+    }
+});
+
+test('field projection resolves CommentLimits minimum, default, and hard-bound constants', (t) =>
+{
+    const dto = 'src/backend/Models/Dtos/CommentDto.cs';
+    for (const [before, after] of [
+        ['ContentMinChars = 100', 'ContentMinChars = 101'],
+        ['ContentMinUtf8Bytes = 1024', 'ContentMinUtf8Bytes = 1025'],
+        ['DefaultContentMaxChars = 1000', 'DefaultContentMaxChars = 1001'],
+        ['DefaultContentMaxUtf8Bytes = 4096', 'DefaultContentMaxUtf8Bytes = 4097'],
+        ['HardContentMaxChars = 3000', 'HardContentMaxChars = 3001'],
+        ['HardContentMaxUtf8Bytes = 12288', 'HardContentMaxUtf8Bytes = 12289']
+    ])
+    {
+        assertProductionMutationInvalidates(t, dto, before, after);
+    }
+});
+
+test('field projection binds inclusive and exclusive operators in every production limit path', (t) =>
+{
+    const article = 'src/backend/Services/Articles/ArticlePublicationValidator.cs';
+    const dto = 'src/backend/Models/Dtos/CommentDto.cs';
+    const endpoint = 'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs';
+    for (const [relative, before, after] of [
+        [article, 'title.Length > MaxTitleLength', 'title.Length >= MaxTitleLength'],
+        [endpoint, 'content.Length <= policy.CommentMaxChars', 'content.Length < policy.CommentMaxChars'],
+        [endpoint, 'Encoding.UTF8.GetByteCount(content) <= policy.CommentMaxUtf8Bytes', 'Encoding.UTF8.GetByteCount(content) < policy.CommentMaxUtf8Bytes'],
+        [dto, 'value is >= ContentMinChars and <= HardContentMaxChars', 'value is > ContentMinChars and < HardContentMaxChars'],
+        [dto, 'value is < ContentMinChars or > HardContentMaxChars', 'value is <= ContentMinChars or >= HardContentMaxChars']
+    ])
+    {
+        assertProductionMutationInvalidates(t, relative, before, after);
+    }
 });
 
 test('field projection rejects missing, extra, and reversed field inventories', () =>

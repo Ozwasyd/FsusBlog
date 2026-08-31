@@ -5,15 +5,15 @@
     "sources": [
         {
             "path": "src/backend/Services/Articles/ArticlePublicationValidator.cs",
-            "sha256": "sha256:39c4db58216876e578f41202adf55d99ef776166df8f42e85e934a45f3939437"
+            "sha256": "sha256:ece602f838677fa77b65641723e83505c1c60bab92e68363c6e73a610a0d3266"
         },
         {
             "path": "src/backend/Models/Dtos/CommentDto.cs",
-            "sha256": "sha256:4b1ce5fa73cc9df72ccc4ef25ac746b4e6331da90ede7e9087df231011f8a79a"
+            "sha256": "sha256:b0af25de399b9389c417ea503d1747741a61d78a3b88add6c3e84c653b324893"
         },
         {
             "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs",
-            "sha256": "sha256:44db8e98748c2c677df7a88230dff1743e6a980ef6abfc6a8395372ee97e614c"
+            "sha256": "sha256:692a0f39953a7012bec2d887f8d4c50f1144ac42ccece2981cce688e763d284b"
         }
     ],
     "fields": [
@@ -66,5 +66,5 @@
             "maxUtf8Bytes": 4096
         }
     ],
-    "contentDigest": "sha256:e130690c06f241c7752a9255e2b4dd6944d7bbbf6c5bb7b2ffbedd4588d36076"
+    "contentDigest": "sha256:38d7d65896c67b8fe0a577c2cb7536924719ac579c42b869a3c1dd1edf18345f"
 }

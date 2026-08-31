@@ -6,7 +6,7 @@
     "outputs": [
         {
             "path": "config/testing/content-field-contracts.generated.json",
-            "sha256": "941e09f1461285194a7eb3fc8882891d685a3e42e5ec4fd4f58fa6a6090a128d"
+            "sha256": "3b1aabd39ff7c21e03a624df547b9996eab0662d1ba956137ed54ed89b132289"
         }
     ]
 }
