@@ -574,7 +574,10 @@ test('sourceReceiptRef replays exact current source, producer, schema and file i
         ['schema', 'fsusblog.other-source.v1', /upstream reference is invalid/u],
         ['role', 'browser', /upstream reference is invalid/u],
         ['contentDigest', digest('8'), /upstream schema\/content\/file identity mismatch/u],
-        ['path', '.tmp/current-run/missing-upstream.json', /ENOENT/u]
+        ['path', '.tmp/current-run/missing-upstream.json', /ENOENT/u],
+        ['path', '../upstream.json', /explicit current-run JSON path/u],
+        ['path', path.join(receiptRepositoryRoot, '.tmp/current-run/upstream.json'),
+            /explicit current-run JSON path/u]
     ])
     {
         const invalid = structuredClone(base)
@@ -599,6 +602,23 @@ test('sourceReceiptRef replays exact current source, producer, schema and file i
     assert.throws(() => validate(staleUpstreamReceipt), /upstream runId mismatch/u)
     fs.writeFileSync(upstreamAbsolute, upstreamBytes)
     fs.writeFileSync(sourceAbsolute, originalSourceBytes)
+
+    const upstreamAlias = path.join(receiptRepositoryRoot, '.tmp/current-run/upstream-alias.json')
+    fs.writeFileSync(upstreamAlias, upstreamBytes)
+    fs.rmSync(upstreamAbsolute)
+    fs.symlinkSync(upstreamAlias, upstreamAbsolute)
+    assert.throws(() => validate(base), /regular non-symlink single-link file/u)
+    fs.rmSync(upstreamAbsolute)
+    fs.writeFileSync(upstreamAbsolute, upstreamBytes)
+    fs.rmSync(upstreamAlias)
+
+    fs.writeFileSync(upstreamAlias, upstreamBytes)
+    fs.rmSync(upstreamAbsolute)
+    fs.linkSync(upstreamAlias, upstreamAbsolute)
+    assert.throws(() => validate(base), /single-link file/u)
+    fs.rmSync(upstreamAbsolute)
+    fs.rmSync(upstreamAlias)
+    fs.writeFileSync(upstreamAbsolute, upstreamBytes)
 
     for (const [bytes, expected] of [
         [originalSourceBytes.toString('utf8').replace('"role": "source",',
