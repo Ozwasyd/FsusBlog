@@ -8,6 +8,52 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services.Fixtures;
 
+if (CurrentSchemaTestMaterializationCandidateCommandLine.IsRequested(args))
+{
+    try
+    {
+        Environment.ExitCode = await CurrentSchemaTestMaterializationCandidateCommandHost.RunAsync(
+            args,
+            CancellationToken.None);
+    }
+    catch (Exception exception) when (exception is not OperationCanceledException)
+    {
+        string exceptionCode = exception.Message.Split(':', 2, StringSplitOptions.TrimEntries)[0];
+        Console.WriteLine(JsonSerializer.Serialize(new
+        {
+            status = "failed",
+            code = exceptionCode.StartsWith("current_schema_", StringComparison.Ordinal)
+                ? exceptionCode
+                : "current_schema_candidate_verifier_failed"
+        }));
+        Environment.ExitCode = 1;
+    }
+    return;
+}
+
+if (CurrentSchemaTestMaterializationCommandLine.IsRequested(args))
+{
+    try
+    {
+        Environment.ExitCode = await CurrentSchemaTestMaterializationCommandHost.RunAsync(
+            args,
+            CancellationToken.None);
+    }
+    catch (Exception exception) when (exception is not OperationCanceledException)
+    {
+        string exceptionCode = exception.Message.Split(':', 2, StringSplitOptions.TrimEntries)[0];
+        Console.WriteLine(JsonSerializer.Serialize(new
+        {
+            status = "failed",
+            code = exceptionCode.StartsWith("current_schema_", StringComparison.Ordinal)
+                ? exceptionCode
+                : "current_schema_materializer_failed"
+        }));
+        Environment.ExitCode = 1;
+    }
+    return;
+}
+
 OnlineSchemaMigrationCommand command;
 try
 {
