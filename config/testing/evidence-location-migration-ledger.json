@@ -15,7 +15,7 @@
         "evidence-selection.schema-search",
         "evidence-selection.timestamp-sort"
     ],
-    "scanDigest": "sha256:a006e7f989b51b11d5a27352f003f2cd708f47bdce88d8cef5d7c2aa69654d17",
+    "scanDigest": "sha256:b7ba442bbe71bef32d9c2b3a44348baa7220706e84d99d675ad2c2197d8c640c",
     "entries": [
         {
             "findingId": "796fa8284a86adb9",
@@ -102,28 +102,52 @@
             "proofTest": "tests/tools/evidence-location-governance.test.mjs#3f49ee5dff8625e4"
         },
         {
-            "findingId": "14934ca9a1163d27",
+            "findingId": "a303127f2aa15410",
             "consumerId": "evidence-consumer.artifacts.change-contract.issue-3106-evidence-location-generated-binding",
-            "location": "artifacts/change-contract/issue-3106-evidence-location-generated-binding.json:9",
+            "location": "artifacts/change-contract/issue-3106-evidence-location-generated-binding.json:10",
             "oldSelectionRule": "evidence-selection.latest-newest",
             "classification": "not-evidence",
             "newAuthorityId": null,
             "locatorMode": "not-applicable",
             "action": "close exact location and rule as non-evidence behavior",
             "owner": "test-evidence-governance",
-            "proofTest": "tests/tools/evidence-location-governance.test.mjs#14934ca9a1163d27"
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#a303127f2aa15410"
         },
         {
-            "findingId": "22111aaab7c86159",
+            "findingId": "af3ffae8764d2094",
             "consumerId": "evidence-consumer.artifacts.change-contract.issue-3106-evidence-location-generated-binding",
-            "location": "artifacts/change-contract/issue-3106-evidence-location-generated-binding.json:9",
+            "location": "artifacts/change-contract/issue-3106-evidence-location-generated-binding.json:10",
             "oldSelectionRule": "evidence-selection.pointer-without-identity",
             "classification": "not-evidence",
             "newAuthorityId": null,
             "locatorMode": "not-applicable",
             "action": "close exact location and rule as non-evidence behavior",
             "owner": "test-evidence-governance",
-            "proofTest": "tests/tools/evidence-location-governance.test.mjs#22111aaab7c86159"
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#af3ffae8764d2094"
+        },
+        {
+            "findingId": "f744f1c66f513747",
+            "consumerId": "evidence-consumer.artifacts.change-contract.issue-3106-external-naming",
+            "location": "artifacts/change-contract/issue-3106-external-naming.json:17",
+            "oldSelectionRule": "evidence-selection.latest-newest",
+            "classification": "not-evidence",
+            "newAuthorityId": null,
+            "locatorMode": "not-applicable",
+            "action": "close exact location and rule as non-evidence behavior",
+            "owner": "test-evidence-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#f744f1c66f513747"
+        },
+        {
+            "findingId": "e81b33f8ff4d0963",
+            "consumerId": "evidence-consumer.artifacts.change-contract.issue-3106-external-naming",
+            "location": "artifacts/change-contract/issue-3106-external-naming.json:17",
+            "oldSelectionRule": "evidence-selection.pointer-without-identity",
+            "classification": "not-evidence",
+            "newAuthorityId": null,
+            "locatorMode": "not-applicable",
+            "action": "close exact location and rule as non-evidence behavior",
+            "owner": "test-evidence-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#e81b33f8ff4d0963"
         },
         {
             "findingId": "8905e3da96c6aca2",
@@ -4374,5 +4398,5 @@
             "proofTest": "tests/tools/evidence-location-governance.test.mjs#2ef6d583f3eff507"
         }
     ],
-    "contentDigest": "sha256:aae1bbee151c0e40b018840244e3c5b41eae697366a48a8302b0592e6e603ec5"
+    "contentDigest": "sha256:deff58894e60c42f43d855f2c9a7443403b1f87edaf0007c13b6035a110e6c0f"
 }

@@ -1,0 +1,24 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/ci/check-flaky-evidence.mjs",
+                "tools/ci/check-job-summaries.mjs",
+                "tools/ci/summarize-quality-gate.mjs",
+                "tools/test/current-run-evidence-transport.mjs"
+            ],
+            "reason": "Preserve the caller-visible FSUSBLOG environment variables, transport schemas, and serialized evidence fields while internal JavaScript bindings retain repository naming."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/current-run-evidence-location-acceptance.json",
+                "config/testing/evidence-location-migration-ledger.json",
+                "config/testing/evidence-locator-registry.json"
+            ],
+            "reason": "Preserve the generated evidence-governance JSON schemas and wire keys consumed by existing tooling while their producer remains canonical."
+        }
+    ]
+}
