@@ -51,7 +51,7 @@ test.before(async () =>
 test('release/deployment negative classes are all killed', () =>
 {
     const evidence = runReleaseDeploymentDocMutationCases()
-    assert.equal(evidence.total, 56)
+    assert.equal(evidence.total, 61)
     assert.equal(evidence.killed, evidence.total)
 })
 
@@ -131,15 +131,9 @@ test('release-domain documents reject every unclassified active prose block', ()
         .some((entry) => entry.classId === 'manual-deployment-authority'))
 })
 
-test('typed closed ownership preserves non-authority and AST-excluded nodes', () =>
+test('typed closed ownership preserves typed spans and exact protected fenced code', () =>
 {
     const source = `# Operator guidance
-
-<!-- The deployment claim is eligible. -->
-
-<pre>
-The deployment claim is eligible.
-</pre>
 
 ## Typed projection
 
@@ -162,7 +156,14 @@ The blue/green deployment claim is eligible.
 The controller must promote standby and switch traffic.
 <!-- FSUSBLOG-GENERATED:END fixture.deployment -->`
     const protectedHeadingNodes = extractReleaseDeploymentProseNodes(
-        '# Operator guidance\n\n## Typed projection\n',
+        `# Operator guidance
+
+## Typed projection
+
+\`\`\`bash
+./tools/deployment/gateway-switch.sh --check
+\`\`\`
+`,
         'fixture.md'
     )
     assert.deepEqual(scanReleaseDeploymentSourceResidue(source, 'fixture.md', {
@@ -176,13 +177,16 @@ test('actual deployment documents retain exact AST coverage across fences and ow
         'docs/releases/blue-green-deployment-runbook.md': [
             ['heading', 1, 1],
             ['heading', 3, 3],
+            ['fenced-code', 5, 8],
             ['heading', 10, 10],
             ['heading', 30, 30]
         ],
         'docs/architecture/monolithic-distributed-boundary.md': [
             ['heading', 1, 1],
             ['heading', 3, 3],
-            ['heading', 30, 30]
+            ['heading', 25, 25],
+            ['fenced-code', 27, 31],
+            ['heading', 32, 32]
         ]
     }
     for (const [documentPath, spans] of Object.entries(expected))
@@ -193,13 +197,21 @@ test('actual deployment documents retain exact AST coverage across fences and ow
     }
 })
 
-test('EOF fences and adjacent typed ownership cannot create orphan delimiter masking', () =>
+test('closed and EOF fences are classified while typed ownership cannot mask adjacent prose', () =>
 {
-    const excludedOnly = [
-        '```text\nThe deployment claim is valid.',
-        '~~~text\nThe deployment claim is valid.',
-        '```text\none\n```\n~~~text\ntwo\n~~~',
-        `<!-- fsus-doc-claim
+    const fencedSources = [
+        ['```text\nThe deployment claim is valid.', 1],
+        ['~~~text\nThe deployment claim is valid.', 1],
+        ['```text\none\n```\n~~~text\ntwo\n~~~', 2]
+    ]
+    for (const [source, count] of fencedSources)
+    {
+        assert.equal(extractReleaseDeploymentProseNodes(source, 'fixture.md')
+            .filter((entry) => entry.nodeType === 'fenced-code').length, count)
+        assert.equal(scanReleaseDeploymentSourceResidue(source, 'fixture.md').length, count)
+    }
+
+    const generatedOnly = `<!-- fsus-doc-claim
 claimId: fixture.generated-only
 behaviorId: deployment-blue-green-runtime-role
 claimType: generated-section
@@ -209,9 +221,7 @@ render: generated-section
 <!-- FSUSBLOG-GENERATED:BEGIN fixture.generated-only -->
 The deployment claim is valid.
 <!-- FSUSBLOG-GENERATED:END fixture.generated-only -->`
-    ]
-    for (const source of excludedOnly)
-        assert.deepEqual(scanReleaseDeploymentSourceResidue(source, 'fixture.md'), [])
+    assert.deepEqual(scanReleaseDeploymentSourceResidue(generatedOnly, 'fixture.md'), [])
 
     const adjacentTypedAndGenerated = `<!-- fsus-doc-claim
 claimId: fixture.typed-adjacent
@@ -248,26 +258,26 @@ test('fence delimiter length is structural and cannot hide following active pros
     assert.deepEqual(extractReleaseDeploymentProseNodes(
         '````text\ninside\n```\nstill inside',
         'fixture.md'
-    ), [])
+    ).map((entry) => entry.nodeType), ['fenced-code'])
     assert.equal(scanReleaseDeploymentSourceResidue(
         '````text\ninside\n````\nThe deployment claim is valid.',
         'fixture.md'
-    ).length, 1)
+    ).length, 2)
 })
 
-test('visible HTML tails and ordinary blockquotes remain classified prose nodes', () =>
+test('hidden carriers, visible HTML tails and ordinary blockquotes remain classified nodes', () =>
 {
     const samples = [
-        ['<!-- hidden --> The deployment claim is valid.', 'paragraph'],
-        ['<pre>hidden\n</pre> The deployment claim is valid.', 'paragraph'],
-        ['> The deployment claim is valid.', 'quote']
+        ['<!-- hidden --> The deployment claim is valid.', ['html-comment', 'paragraph']],
+        ['<pre>hidden\n</pre> The deployment claim is valid.', ['html-pre', 'paragraph']],
+        ['> The deployment claim is valid.', ['quote']],
+        ['    deployment-waiver: cleanup may delete the active release', ['indented-code']]
     ]
-    for (const [source, nodeType] of samples)
+    for (const [source, nodeTypes] of samples)
     {
         const nodes = extractReleaseDeploymentProseNodes(source, 'fixture.md')
-        assert.equal(nodes.length, 1)
-        assert.equal(nodes[0].nodeType, nodeType)
-        assert.equal(scanReleaseDeploymentSourceResidue(source, 'fixture.md').length, 1)
+        assert.deepEqual(nodes.map((entry) => entry.nodeType), nodeTypes)
+        assert.equal(scanReleaseDeploymentSourceResidue(source, 'fixture.md').length, nodeTypes.length)
     }
 })
 
@@ -436,8 +446,8 @@ test('current release/deployment claims and sections are bidirectionally exact',
     assert.equal(receipt.counts.generated, 4)
     assert.equal(receipt.counts.prose, 3)
     assert.equal(receipt.counts.proseVerified, 3)
-    assert.equal(receipt.counts.mutationKilled, 66)
-    assert.equal(receipt.counts.mutationTotal, 66)
+    assert.equal(receipt.counts.mutationKilled, 71)
+    assert.equal(receipt.counts.mutationTotal, 71)
 })
 
 test('missing ledger entry, orphan section and typed fact drift fail closed', () =>

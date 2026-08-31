@@ -63,6 +63,10 @@ const htmlCommentPattern = /^\s*<!--/u
 const htmlPrePattern = /^\s*<pre(?:\s|>)/iu
 const indentedCodePattern = /^(?: {4}|\t)\S/u
 const lineBody = (lines) => lines.join('\n').trimEnd()
+const protectedNodeTypes = new Set([
+    'heading',
+    'fenced-code'
+])
 const nodeDigest = (node) => digestValue({
     astVersion: markdownAstVersion,
     nodeType: node.nodeType,
@@ -227,12 +231,15 @@ export function parseReleaseDeploymentMarkdownAst(
         const fence = line.match(fencePattern)
         if (fence)
         {
+            const start = index
             const marker = fence[1][0]
             const minimumLength = fence[1].length
             const closingFence = new RegExp(`^\\s*${marker === '`' ? '`' : '~'}{${minimumLength},}\\s*$`, 'u')
             index += 1
             while (index < lines.length && !closingFence.test(lines[index])) index += 1
             if (index < lines.length) index += 1
+            pushProseNode(nodes, documentPath, 'fenced-code', start, index - 1,
+                lineBody(lines.slice(start, index)), headingStack.map((entry) => entry.title))
             continue
         }
 
@@ -262,44 +269,65 @@ export function parseReleaseDeploymentMarkdownAst(
 
         if (htmlCommentPattern.test(line))
         {
+            const start = index
+            const carrierLines = []
+            let carrierEnd = start
             while (index < lines.length)
             {
                 const terminator = lines[index].indexOf('-->')
                 if (terminator < 0)
                 {
+                    carrierLines.push(lines[index])
+                    carrierEnd = index
                     index += 1
                     continue
                 }
+                carrierLines.push(lines[index].slice(0, terminator + 3))
+                carrierEnd = index
                 const tail = lines[index].slice(terminator + 3)
                 if (tail.trim()) lines[index] = tail
                 else index += 1
                 break
             }
+            pushProseNode(nodes, documentPath, 'html-comment', start, carrierEnd,
+                lineBody(carrierLines), headingStack.map((entry) => entry.title))
             continue
         }
 
         if (htmlPrePattern.test(line))
         {
+            const start = index
+            const carrierLines = []
+            let carrierEnd = start
             while (index < lines.length)
             {
                 const terminator = lines[index].search(/<\/pre>/iu)
                 if (terminator < 0)
                 {
+                    carrierLines.push(lines[index])
+                    carrierEnd = index
                     index += 1
                     continue
                 }
-                const tail = lines[index].slice(terminator).replace(/^<\/pre>/iu, '')
+                carrierLines.push(lines[index].slice(0, terminator + '</pre>'.length))
+                carrierEnd = index
+                const tail = lines[index].slice(terminator + '</pre>'.length)
                 if (tail.trim()) lines[index] = tail
                 else index += 1
                 break
             }
+            pushProseNode(nodes, documentPath, 'html-pre', start, carrierEnd,
+                lineBody(carrierLines), headingStack.map((entry) => entry.title))
             continue
         }
 
         if (indentedCodePattern.test(line))
         {
+            const start = index
             index += 1
             while (index < lines.length && (indentedCodePattern.test(lines[index]) || !lines[index].trim())) index += 1
+            pushProseNode(nodes, documentPath, 'indented-code', start, index - 1,
+                lineBody(lines.slice(start, index)), headingStack.map((entry) => entry.title))
             continue
         }
 
@@ -372,25 +400,25 @@ export function extractReleaseDeploymentProseNodes(source, documentPath = 'inlin
     return parseReleaseDeploymentMarkdownAst(source, documentPath, { ownedSpans })
 }
 
-function scanClosedProseOwnership(source, documentPath, protectedHeadingNodes = [])
+function scanClosedProseOwnership(source, documentPath, protectedNodes = [])
 {
     const nodes = extractReleaseDeploymentProseNodes(source, documentPath)
-    const headingCounts = new Map()
-    for (const node of protectedHeadingNodes.filter((entry) => entry.nodeType === 'heading'))
+    const protectedCounts = new Map()
+    for (const node of protectedNodes.filter((entry) => protectedNodeTypes.has(entry.nodeType)))
     {
         const key = protectedNodeKey(node)
-        headingCounts.set(key, (headingCounts.get(key) ?? 0) + 1)
+        protectedCounts.set(key, (protectedCounts.get(key) ?? 0) + 1)
     }
     const findings = []
     for (const node of nodes)
     {
-        if (node.nodeType === 'heading')
+        if (protectedNodeTypes.has(node.nodeType))
         {
             const key = protectedNodeKey(node)
-            const remaining = headingCounts.get(key) ?? 0
+            const remaining = protectedCounts.get(key) ?? 0
             if (remaining > 0)
             {
-                headingCounts.set(key, remaining - 1)
+                protectedCounts.set(key, remaining - 1)
                 continue
             }
         }
@@ -465,7 +493,7 @@ export function scanReleaseDeploymentDocResidue(
             currentSource,
             documentPath,
             {
-                protectedHeadingNodes: extractReleaseDeploymentProseNodes(
+                protectedNodes: extractReleaseDeploymentProseNodes(
                     protectedDocument.source,
                     documentPath
                 )
@@ -478,10 +506,10 @@ export function scanReleaseDeploymentDocResidue(
 export function scanReleaseDeploymentSourceResidue(
     source,
     documentPath = 'inline.md',
-    { protectedHeadingNodes = [] } = {}
+    { protectedNodes, protectedHeadingNodes = [] } = {}
 )
 {
-    return scanClosedProseOwnership(source, documentPath, protectedHeadingNodes)
+    return scanClosedProseOwnership(source, documentPath, protectedNodes ?? protectedHeadingNodes)
 }
 
 export function runReleaseDeploymentDocMutationCases(structuralRows = [])
@@ -551,6 +579,11 @@ The blue-green deployment claim is eligible.`],
         ['html-comment-visible-tail', '<!-- hidden --> The deployment claim is valid.'],
         ['html-pre-visible-tail', '<pre>hidden\n</pre> The deployment claim is valid.'],
         ['ordinary-blockquote-authority', '> The deployment claim is valid.'],
+        ['html-comment-hidden-waiver', '<!-- deployment-waiver: cleanup may delete the active release -->'],
+        ['html-pre-hidden-old-runbook', '<pre>Unknown active identity is a safe standby.</pre>'],
+        ['fenced-old-runbook', '```text\nUnknown active identity is a safe standby.\n```'],
+        ['unclosed-fenced-old-runbook', '```text\nUnknown active identity is a safe standby.'],
+        ['indented-old-runbook', '    Unknown active identity is a safe standby.'],
         ['adjacent-generated-ownership-prose', `<!-- fsus-doc-claim
 claimId: fixture.generated-adjacent
 behaviorId: deployment-blue-green-runtime-role
