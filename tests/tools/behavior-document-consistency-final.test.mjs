@@ -318,7 +318,7 @@ test('zero-legacy source identifiers follow CSharp JavaScript PowerShell and she
         'tools/release/powershell-behavior-qualification.ps1': '$latestReceipt = "ambient"\n',
         'tools/release/shell-behavior-qualification.sh': 'lastVerifiedCommit=ambient\n',
         'tools/release/javascript-grammar-current.mjs': 'const current = current-latestReceipt\nconst text = "#lastVerifiedCommit @verified"\n',
-        'tools/release/csharp-grammar-current.cs': 'var current = currentValue @ lastVerifiedCommit;\n',
+        'tools/release/csharp-grammar-current.cs': 'var current = @"lastVerifiedCommit";\n',
         'tools/release/shell-grammar-current.sh': 'latest-receipt=ambient\n'
     })
     const findings = scanZeroLegacyGovernance(repositoryRoot).findings
