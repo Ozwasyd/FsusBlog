@@ -15,6 +15,14 @@
                 "tools/docs/release-deployment-doc-exactness.mjs"
             ],
             "reason": "Preserve caller-visible process environment and receipt spelling while the exactness verifier derives its internal behavior roster from the catalog."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/contracts/release-deployment-prose-classifications.json",
+                "config/schemas/release-deployment-prose-classifications.schema.json"
+            ],
+            "reason": "The closed prose-ownership registry and its schema expose stable machine-readable field names while internal checker symbols remain repository-native."
         }
     ]
 }
