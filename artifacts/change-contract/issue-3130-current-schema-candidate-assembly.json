@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "acceptance-secret-runtime-environment",
+            "paths": [
+                "tools/bootstrap-acceptance-env.sh"
+            ],
+            "reason": "The acceptance bootstrap preserves its caller-visible production-build and candidate-assembly environment keys while resolving one run-bound current-schema assembly internally."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/homogeneous-two-node-fixture.sh"
+            ],
+            "reason": "The two-node fixture preserves caller-visible production-build environment keys while routing its single source-bound build into the canonical run layout."
+        }
+    ]
+}

@@ -165,3 +165,158 @@ test('CI bootstrap source keeps backend-only consumers free of frontend startup 
     assert.match(source, /currentFingerprint" == "\$nextFingerprint"[\s\S]*debug backend already healthy/u);
     assert.doesNotMatch(source, /CI production[^\n]*fallback[^\n]*build/iu);
 });
+
+test('current-schema consumers resolve one run-bound candidate assembly and reject ambient or stale paths', t =>
+{
+    fs.mkdirSync(path.join(root, '.tmp'), { recursive: true });
+    const temporary = fs.mkdtempSync(path.join(root, '.tmp/current-schema-candidate-'));
+    t.after(() => fs.rmSync(temporary, { recursive: true, force: true }));
+    const runId = 'candidate-assembly-run';
+    const inheritedEnvironment = { ...process.env };
+    delete inheritedEnvironment.FSUSBLOG_PRODUCTION_BUILD_ROOT;
+    delete inheritedEnvironment.FSUSBLOG_BACKEND_SERVER_DLL;
+    const source = String.raw`
+        source "$1/tools/bootstrap-acceptance-env.sh"
+        ResolveCurrentSchemaCandidateAssembly Release
+        printf '%s' "$CURRENT_SCHEMA_CANDIDATE_ASSEMBLY"
+    `;
+    const invoke = ({ buildRoot, candidateAssembly, candidateRunId = runId }) => spawnSync(
+        'bash',
+        ['-c', source, 'current-schema-candidate-resolver', root],
+        {
+            cwd: root,
+            encoding: 'utf8',
+            env: {
+                ...inheritedEnvironment,
+                FSUSBLOG_BOOTSTRAP_SOURCE_ONLY: '1',
+                FSUSBLOG_TEST_NAMESPACE: `candidate-${randomUUID().slice(0, 8)}`,
+                FSUSBLOG_TEST_RUN_ID: candidateRunId,
+                FSUSBLOG_RUNTIME_CONFIGURATION: 'Release',
+                ...(buildRoot === undefined ? {} : { FSUSBLOG_PRODUCTION_BUILD_ROOT: buildRoot }),
+                ...(candidateAssembly === undefined ? {} : { FSUSBLOG_BACKEND_SERVER_DLL: candidateAssembly }),
+                FSUSBLOG_ACCEPTANCE_OUTPUT_ROOT: path.join(temporary, 'acceptance'),
+                FSUSBLOG_ACCEPTANCE_ENV_ROOT: path.join(temporary, 'env'),
+                FSUSBLOG_ACCEPTANCE_FIXTURE_ROOT: path.join(temporary, 'fixtures')
+            }
+        }
+    );
+    const canonicalRoot = path.join(temporary, `${runId}-acceptance`);
+    const canonicalAssembly = path.join(
+        canonicalRoot,
+        'dotnet/FsusBlog.Server/bin/Release/net10.0/FsusBlog.Server.dll'
+    );
+    write(temporary, path.relative(temporary, canonicalAssembly), 'candidate');
+
+    const accepted = invoke({ buildRoot: canonicalRoot, candidateAssembly: canonicalAssembly });
+    assert.equal(accepted.status, 0, `${accepted.stdout}\n${accepted.stderr}`);
+    assert.equal(accepted.stdout, canonicalAssembly);
+
+    const unsetRoot = invoke({ buildRoot: undefined, candidateAssembly: canonicalAssembly });
+    assert.equal(unsetRoot.status, 2);
+    assert.match(unsetRoot.stdout, /production build root must be an absolute non-symlink path/u);
+
+    const missingRoot = path.join(temporary, 'missing-build');
+    fs.mkdirSync(missingRoot, { recursive: true });
+    const missingAssembly = path.join(
+        missingRoot,
+        'dotnet/FsusBlog.Server/bin/Release/net10.0/FsusBlog.Server.dll'
+    );
+    const missing = invoke({ buildRoot: missingRoot, candidateAssembly: missingAssembly });
+    assert.equal(missing.status, 2);
+    assert.match(missing.stdout, /candidate assembly is missing or not a regular file/u);
+
+    const ambientAssembly = path.join(temporary, 'ambient/FsusBlog.Server.dll');
+    write(temporary, path.relative(temporary, ambientAssembly), 'ambient');
+    const ambient = invoke({ buildRoot: canonicalRoot, candidateAssembly: ambientAssembly });
+    assert.equal(ambient.status, 2);
+    assert.match(ambient.stdout, /does not match the canonical production build layout/u);
+
+    const outsideLayoutAssembly = path.join(canonicalRoot, 'other/FsusBlog.Server.dll');
+    write(temporary, path.relative(temporary, outsideLayoutAssembly), 'outside-layout');
+    const outsideLayout = invoke({
+        buildRoot: canonicalRoot,
+        candidateAssembly: outsideLayoutAssembly
+    });
+    assert.equal(outsideLayout.status, 2);
+    assert.match(outsideLayout.stdout, /does not match the canonical production build layout/u);
+
+    const staleRoot = path.join(temporary, 'different-run');
+    const staleAssembly = path.join(
+        staleRoot,
+        'dotnet/FsusBlog.Server/bin/Release/net10.0/FsusBlog.Server.dll'
+    );
+    write(temporary, path.relative(temporary, staleAssembly), 'stale');
+    const stale = invoke({ buildRoot: canonicalRoot, candidateAssembly: staleAssembly });
+    assert.equal(stale.status, 2);
+    assert.match(stale.stdout, /does not match the canonical production build layout/u);
+
+    const browserConsumerRoot = path.join(temporary, 'browser-fixture/production-build');
+    const browserConsumerAssembly = path.join(
+        browserConsumerRoot,
+        'dotnet/FsusBlog.Server/bin/Release/net10.0/FsusBlog.Server.dll'
+    );
+    write(temporary, path.relative(temporary, browserConsumerAssembly), 'browser-candidate');
+    const browserConsumer = invoke({
+        buildRoot: browserConsumerRoot,
+        candidateAssembly: browserConsumerAssembly
+    });
+    assert.equal(browserConsumer.status, 0, `${browserConsumer.stdout}\n${browserConsumer.stderr}`);
+    assert.equal(browserConsumer.stdout, browserConsumerAssembly);
+
+    const directRunId = 'homogeneous-direct-run';
+    const directEnvironment = spawnSync('node', [
+        'tools/test/export-production-build-environment.mjs',
+        '--root', root,
+        '--run-id', directRunId
+    ], { cwd: root, encoding: 'buffer' });
+    assert.equal(directEnvironment.status, 0, directEnvironment.stderr.toString('utf8'));
+    assert.ok(
+        directEnvironment.stdout.length > 0,
+        'the canonical production-build environment CLI must execute in the current worktree path'
+    );
+    const directAssignments = Object.fromEntries(directEnvironment.stdout
+        .toString('utf8')
+        .split('\0')
+        .filter(Boolean)
+        .map((assignment) => assignment.split(/=(.*)/su).slice(0, 2)));
+    assert.equal(
+        directAssignments.FSUSBLOG_BACKEND_SERVER_DLL,
+        path.join(
+            directAssignments.FSUSBLOG_PRODUCTION_BUILD_ROOT,
+            'dotnet/FsusBlog.Server/bin/Release/net10.0/FsusBlog.Server.dll'
+        )
+    );
+    write(
+        root,
+        path.relative(root, directAssignments.FSUSBLOG_BACKEND_SERVER_DLL),
+        'direct-candidate'
+    );
+    t.after(() => fs.rmSync(directAssignments.FSUSBLOG_PRODUCTION_BUILD_ROOT, {
+        recursive: true,
+        force: true
+    }));
+    const directCandidate = invoke({
+        buildRoot: directAssignments.FSUSBLOG_PRODUCTION_BUILD_ROOT,
+        candidateAssembly: directAssignments.FSUSBLOG_BACKEND_SERVER_DLL,
+        candidateRunId: directRunId
+    });
+    assert.equal(directCandidate.status, 0, `${directCandidate.stdout}\n${directCandidate.stderr}`);
+    assert.equal(directCandidate.stdout, directAssignments.FSUSBLOG_BACKEND_SERVER_DLL);
+
+    const symlinkRoot = path.join(temporary, 'symlink-build');
+    fs.symlinkSync(canonicalRoot, symlinkRoot, 'dir');
+    const rootSymlink = invoke({ buildRoot: symlinkRoot, candidateAssembly: path.join(
+        symlinkRoot,
+        'dotnet/FsusBlog.Server/bin/Release/net10.0/FsusBlog.Server.dll'
+    ) });
+    assert.equal(rootSymlink.status, 2);
+    assert.match(rootSymlink.stdout, /production build root must be an absolute non-symlink path/u);
+
+    fs.rmSync(canonicalAssembly);
+    const symlinkTarget = path.join(path.dirname(canonicalAssembly), 'candidate-target.dll');
+    fs.writeFileSync(symlinkTarget, 'candidate');
+    fs.symlinkSync(symlinkTarget, canonicalAssembly);
+    const symlink = invoke({ buildRoot: canonicalRoot, candidateAssembly: canonicalAssembly });
+    assert.equal(symlink.status, 2);
+    assert.match(symlink.stdout, /candidate assembly is missing or not a regular file/u);
+});

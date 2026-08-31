@@ -111,17 +111,36 @@ test('test current schema materializer remains explicit, canonical and pre-runti
     materializerFunction,
     /--verify-envelope "\$EXECUTION_SERVICE_ENVELOPE_FILE"[\s\S]*?materialize-current-schema-test[\s\S]*?verify-current-schema-test-materialization-receipt\.mjs[\s\S]*?--receipt-root "\$TMP_DIR"/u
   )
-  assert.match(materializerFunction, /--assembly "\$ROOT_DIR\/src\/backend\/bin\/\$runtimeConfiguration\/net10\.0\/FsusBlog\.Server\.dll"/u)
+  assert.match(
+    bootstrap,
+    /ResolveCurrentSchemaCandidateAssembly\(\)[\s\S]*?FSUSBLOG_PRODUCTION_BUILD_ROOT[\s\S]*?FSUSBLOG_BACKEND_SERVER_DLL[\s\S]*?CURRENT_SCHEMA_CANDIDATE_ASSEMBLY="\$candidateAssembly"/u
+  )
+  assert.match(
+    materializerFunction,
+    /ResolveCurrentSchemaCandidateAssembly "\$runtimeConfiguration"[\s\S]*?build-with-data-env\.sh dotnet "\$CURRENT_SCHEMA_CANDIDATE_ASSEMBLY"[\s\S]*?materialize-current-schema-test/u
+  )
+  assert.doesNotMatch(materializerFunction, /dotnet run|--project src\/backend\/FsusBlog\.Server\.csproj/u)
+  assert.ok(
+    bootstrap.match(/--assembly "\$\{?CURRENT_SCHEMA_CANDIDATE_ASSEMBLY/gu).length >= 6,
+    'every materializer, admission, environment-ready, topology, and terminal consumer uses one candidate assembly'
+  )
+  assert.doesNotMatch(
+    bootstrap,
+    /--assembly "\$ROOT_DIR\/src\/backend\/bin\/\$\{?FSUSBLOG_RUNTIME_CONFIGURATION/u
+  )
 
   const servicesOnly = homogeneousTwoNode.indexOf('bootstrap-acceptance-env.sh" --services-only')
+  const productionEnvironment = homogeneousTwoNode.indexOf('export-production-build-environment.mjs')
   const sourceBoundBuild = homogeneousTwoNode.indexOf('-p:FsusBlogCommitSha=')
   const schemaMaterialization = homogeneousTwoNode.indexOf('MaterializeCurrentSchemaForTestRuntime')
   const schemaRuntimeReadyGate = homogeneousTwoNode.indexOf('RequireCurrentSchemaRuntimeReady')
   const nodeSpawn = homogeneousTwoNode.indexOf('homogeneous-two-node-fixture.mjs')
-  assert.ok(servicesOnly >= 0 && sourceBoundBuild > servicesOnly)
+  assert.ok(productionEnvironment >= 0 && servicesOnly > productionEnvironment && sourceBoundBuild > servicesOnly)
   assert.ok(schemaMaterialization > sourceBoundBuild)
   assert.ok(schemaRuntimeReadyGate > schemaMaterialization && nodeSpawn > schemaRuntimeReadyGate)
   assert.match(homogeneousTwoNode, /FSUSBLOG_BOOTSTRAP_SOURCE_ONLY=1[\s\S]*?source "\$ROOT_DIR\/tools\/bootstrap-acceptance-env\.sh"/u)
+  assert.match(homogeneousTwoNode, /BACKEND_ARTIFACT="\$\{FSUSBLOG_BACKEND_SERVER_DLL:\?two-node candidate assembly is required\}"/u)
+  assert.doesNotMatch(homogeneousTwoNode, /src\/backend\/bin\/\$CONFIGURATION\/net10\.0\/FsusBlog\.Server\.dll/u)
   assert.match(homogeneousTwoNode, /PORT_LEASE_RELEASE_ON_EXIT=0[\s\S]*?MaterializeCurrentSchemaForTestRuntime/u)
   assert.match(
     bootstrap,
