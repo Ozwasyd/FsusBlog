@@ -1,4 +1,6 @@
+import path from 'node:path';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
 import {
     productionBuildEnvironmentAssignments,
@@ -60,7 +62,7 @@ function cli(argv)
     writeProductionBuildEnvironment({ root: argv[1], runId: argv[3] });
 }
 
-if (process.argv[1] === new URL(import.meta.url).pathname)
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
 {
     try
     {
