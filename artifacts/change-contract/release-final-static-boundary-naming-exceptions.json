@@ -11,9 +11,10 @@
         {
             "id": "environment-variable",
             "paths": [
-                "tools/test-matrix/release-final-static-boundary.mjs"
+                "tools/test-matrix/release-final-static-boundary.mjs",
+                "tools/test-matrix/scheduler.mjs"
             ],
-            "reason": "preserve caller-visible CLI, schema, test ID and shell environment spellings while sealing the finalizer boundary"
+            "reason": "preserve caller-visible CLI, schema, test ID and scheduler-to-shell environment spellings while sealing the finalizer boundary"
         },
         {
             "id": "shell-environment-variable",
