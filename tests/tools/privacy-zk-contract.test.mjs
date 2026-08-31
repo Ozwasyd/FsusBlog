@@ -33,7 +33,8 @@ test('privacy functional command excludes performance tests', () =>
     assert.ok(functionalBackend);
     assert.match(functionalBackend, /^dotnet test /u);
     assert.match(functionalBackend, / -c Release /u);
-    assert.match(functionalBackend, /AnonymousPrivacyConcurrencyTests/u);
+    assert.match(functionalBackend, /CommentMutationOutboxAnonymousPostgresTests/u);
+    assert.doesNotMatch(functionalBackend, /CommentMutationOutboxPostgresTests/u);
     assert.match(functionalBackend, /Category!=Performance/u);
     for (const selection of originalBackend.match(/FullyQualifiedName~[A-Za-z0-9]+/gu) ?? [])
     {

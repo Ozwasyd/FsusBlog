@@ -1,0 +1,210 @@
+{
+    "schema": "fsusblog.dependency-required-checks-fixtures.v1",
+    "policyCases": [
+        {
+            "id": "reject-missing-workflow-check",
+            "mutation": "missing-workflow-check",
+            "expectedCode": "check-missing-workflow"
+        },
+        {
+            "id": "reject-branch-protection-omits-catalog-check",
+            "mutation": "none",
+            "branchProtection": {
+                "strict": true,
+                "contexts": [
+                    "Change Contract / Change Contract",
+                    "Quality Gate / Production Summary",
+                    "Quality Gate / Validate Test Matrix",
+                    "Quality Gate / Fast Backend DAG",
+                    "Quality Gate / Fast Frontend Unit DAG",
+                    "Quality Gate / Fast Static Governance",
+                    "Quality Gate / Coverage Merge Threshold",
+                    "Quality Gate / Release Evidence",
+                    "Dependency Review / Dependency Review",
+                    "CodeQL / Analyze (csharp)",
+                    "CodeQL / Analyze (javascript-typescript)",
+                    "OpenSSF Scorecard / Scorecard"
+                ]
+            },
+            "expectedCode": "branch-protection-missing-catalog-check"
+        },
+        {
+            "id": "reject-branch-protection-extra-check",
+            "mutation": "none",
+            "branchProtection": {
+                "strict": true,
+                "contexts": [
+                    "Change Contract / Change Contract",
+                    "Quality Gate / Production Summary",
+                    "Quality Gate / Validate Test Matrix",
+                    "Quality Gate / Fast Backend DAG",
+                    "Quality Gate / Fast Frontend Unit DAG",
+                    "Quality Gate / Fast Static Governance",
+                    "Quality Gate / Coverage Merge Threshold",
+                    "Quality Gate / Security Runtime",
+                    "Quality Gate / Release Evidence",
+                    "Dependency Review / Dependency Review",
+                    "CodeQL / Analyze (csharp)",
+                    "CodeQL / Analyze (javascript-typescript)",
+                    "OpenSSF Scorecard / Scorecard",
+                    "Quality Gate / Fast Summary"
+                ]
+            },
+            "expectedCode": "branch-protection-extra-check"
+        },
+        {
+            "id": "reject-major-lint-only",
+            "mutation": "major-lint-only",
+            "expectedCode": "major-lint-only"
+        },
+        {
+            "id": "reject-unregistered-group",
+            "mutation": "group-unregistered",
+            "expectedCode": "group-unregistered"
+        },
+        {
+            "id": "reject-lockfile-checks-empty",
+            "mutation": "lockfile-checks-empty",
+            "expectedCode": "lockfile-checks-empty"
+        },
+        {
+            "id": "reject-toolchain-lint-only",
+            "mutation": "toolchain-lint-only",
+            "expectedCode": "toolchain-lint-only"
+        }
+    ],
+    "selectionCases": [
+        {
+            "id": "patch-frontend-runtime",
+            "group": "frontend-runtime",
+            "updateType": "patch",
+            "expectedChecks": [
+                "Quality Gate / Production Summary",
+                "Quality Gate / Fast Frontend Unit DAG",
+                "Quality Gate / Coverage Merge Threshold",
+                "Quality Gate / Security Runtime",
+                "Dependency Review / Dependency Review",
+                "CodeQL / Analyze (javascript-typescript)"
+            ]
+        },
+        {
+            "id": "minor-frontend-vue-toolchain",
+            "group": "frontend-vue-toolchain",
+            "updateType": "minor",
+            "expectedChecks": [
+                "Quality Gate / Production Summary",
+                "Quality Gate / Fast Frontend Unit DAG",
+                "Quality Gate / Coverage Merge Threshold",
+                "Quality Gate / Security Runtime",
+                "Dependency Review / Dependency Review",
+                "CodeQL / Analyze (javascript-typescript)"
+            ]
+        },
+        {
+            "id": "major-identity-security",
+            "group": "identity-security",
+            "updateType": "major",
+            "expectedChecks": [
+                "Change Contract / Change Contract",
+                "Quality Gate / Production Summary",
+                "Quality Gate / Validate Test Matrix",
+                "Quality Gate / Fast Backend DAG",
+                "Quality Gate / Fast Frontend Unit DAG",
+                "Quality Gate / Fast Static Governance",
+                "Quality Gate / Coverage Merge Threshold",
+                "Quality Gate / Security Runtime",
+                "Quality Gate / Release Evidence",
+                "Dependency Review / Dependency Review",
+                "CodeQL / Analyze (csharp)",
+                "CodeQL / Analyze (javascript-typescript)"
+            ]
+        },
+        {
+            "id": "digest-container-toolchain",
+            "group": "container-toolchain",
+            "updateType": "digest",
+            "expectedChecks": [
+                "Quality Gate / Production Summary",
+                "Quality Gate / Release Evidence",
+                "Quality Gate / Security Runtime",
+                "Change Contract / Change Contract",
+                "Dependency Review / Dependency Review"
+            ]
+        },
+        {
+            "id": "lockfile-maintenance-group",
+            "group": "lockfile-maintenance",
+            "updateType": "lockFileMaintenance",
+            "expectedChecks": [
+                "Quality Gate / Production Summary",
+                "Quality Gate / Fast Backend DAG",
+                "Quality Gate / Fast Frontend Unit DAG",
+                "Quality Gate / Coverage Merge Threshold",
+                "Quality Gate / Security Runtime",
+                "Dependency Review / Dependency Review"
+            ]
+        }
+    ],
+    "evaluationCases": [
+        {
+            "id": "accept-all-success",
+            "required": [
+                "Quality Gate / Production Summary",
+                "Dependency Review / Dependency Review"
+            ],
+            "checkRuns": [
+                { "name": "Quality Gate / Production Summary", "status": "completed", "conclusion": "success" },
+                { "name": "Dependency Review / Dependency Review", "status": "completed", "conclusion": "success" }
+            ],
+            "expectedCodes": []
+        },
+        {
+            "id": "reject-skipped",
+            "required": ["Quality Gate / Production Summary"],
+            "checkRuns": [
+                { "name": "Quality Gate / Production Summary", "status": "completed", "conclusion": "skipped" }
+            ],
+            "expectedCodes": ["check-skipped"]
+        },
+        {
+            "id": "reject-neutral",
+            "required": ["Quality Gate / Production Summary"],
+            "checkRuns": [
+                { "name": "Quality Gate / Production Summary", "status": "completed", "conclusion": "neutral" }
+            ],
+            "expectedCodes": ["check-neutral"]
+        },
+        {
+            "id": "reject-cancelled",
+            "required": ["Quality Gate / Production Summary"],
+            "checkRuns": [
+                { "name": "Quality Gate / Production Summary", "status": "completed", "conclusion": "cancelled" }
+            ],
+            "expectedCodes": ["check-cancelled"]
+        },
+        {
+            "id": "reject-timed-out",
+            "required": ["Quality Gate / Production Summary"],
+            "checkRuns": [
+                { "name": "Quality Gate / Production Summary", "status": "completed", "conclusion": "timed_out" }
+            ],
+            "expectedCodes": ["check-timed-out"]
+        },
+        {
+            "id": "reject-missing",
+            "required": ["Quality Gate / Production Summary", "Dependency Review / Dependency Review"],
+            "checkRuns": [
+                { "name": "Quality Gate / Production Summary", "status": "completed", "conclusion": "success" }
+            ],
+            "expectedCodes": ["check-missing"]
+        },
+        {
+            "id": "reject-queued-as-missing",
+            "required": ["Quality Gate / Production Summary"],
+            "checkRuns": [
+                { "name": "Quality Gate / Production Summary", "status": "queued", "conclusion": null }
+            ],
+            "expectedCodes": ["check-missing"]
+        }
+    ]
+}

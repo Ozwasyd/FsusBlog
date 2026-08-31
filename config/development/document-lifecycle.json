@@ -625,7 +625,10 @@
             "path": "docs/configuration-layout.md",
             "status": "current",
             "owner": "backend",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1977,
+                1978
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -728,7 +731,9 @@
             "path": "docs/development.md",
             "status": "current",
             "owner": "governance",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1979
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -1660,7 +1665,12 @@
             "path": "docs/repository-governance.md",
             "status": "current",
             "owner": "governance",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1923,
+                1977,
+                1978,
+                1979
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -1668,7 +1678,9 @@
             "path": "docs/repository-labels.md",
             "status": "current",
             "owner": "governance",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1978
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -1759,7 +1771,9 @@
             "relatedIssues": [
                 1013,
                 1014,
-                1430
+                1430,
+                1977,
+                1978
             ],
             "supersedes": [],
             "supersededBy": null
