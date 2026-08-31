@@ -17,10 +17,24 @@ export FSUSBLOG_TEST_CLUSTER_BOOTSTRAP="${FSUSBLOG_TEST_CLUSTER_BOOTSTRAP:-homog
 export FSUSBLOG_TEST_CLUSTER_FIXTURES="${FSUSBLOG_TEST_CLUSTER_FIXTURES:-shared-postgres,shared-redis,shared-artifact-storage}"
 export ASPNETCORE_ENVIRONMENT="${ASPNETCORE_ENVIRONMENT:-Development}"
 export ASPNETCORE_WEBROOT="${ASPNETCORE_WEBROOT:-$ROOT_DIR/src/backend/wwwroot}"
+export FSUSBLOG_RUNTIME_CONFIGURATION=Release
+
+if [[ -z "${FSUSBLOG_PRODUCTION_BUILD_ROOT:-}" && -z "${FSUSBLOG_BACKEND_SERVER_DLL:-}" ]]; then
+    while IFS= read -r -d '' assignment; do
+        export "$assignment"
+    done < <(node "$ROOT_DIR/tools/test/export-production-build-environment.mjs" \
+        --root "$ROOT_DIR" \
+        --run-id "${FSUSBLOG_TEST_RUN_ID:?two-node production build run id is required}")
+elif [[ -z "${FSUSBLOG_PRODUCTION_BUILD_ROOT:-}" || -z "${FSUSBLOG_BACKEND_SERVER_DLL:-}" ]]; then
+    printf '%s\n' 'two-node production build environment is incomplete' >&2
+    exit 2
+fi
+: "${FSUSBLOG_PRODUCTION_BUILD_ROOT:?two-node production build root is required}"
+: "${FSUSBLOG_BACKEND_SERVER_DLL:?two-node candidate assembly is required}"
 
 "$ROOT_DIR/tools/bootstrap-acceptance-env.sh" --services-only
 
-CONFIGURATION="${FSUSBLOG_RUNTIME_CONFIGURATION:-Debug}"
+CONFIGURATION="$FSUSBLOG_RUNTIME_CONFIGURATION"
 if [[ "${FSUSBLOG_CLUSTER_FIXTURE_NO_BUILD:-0}" != "1" ]]; then
     "$ROOT_DIR/tools/build-with-data-env.sh" dotnet build \
         "$ROOT_DIR/src/backend/FsusBlog.Server.csproj" \
@@ -38,7 +52,7 @@ fi
     RequireCurrentSchemaRuntimeReady
 )
 
-BACKEND_ARTIFACT="${FSUSBLOG_BACKEND_SERVER_DLL:-$ROOT_DIR/src/backend/bin/$CONFIGURATION/net10.0/FsusBlog.Server.dll}"
+BACKEND_ARTIFACT="${FSUSBLOG_BACKEND_SERVER_DLL:?two-node candidate assembly is required}"
 FRONTEND_ASSET_SOURCE="${FSUSBLOG_FRONTEND_ASSET_IDENTITY_SOURCE:-$ROOT_DIR/src/frontend/package.json}"
 OUTPUT_ROOT="$ROOT_DIR/.tmp/fixtures/$NAMESPACE_SLUG/homogeneous-two-node"
 SHARED_ARTIFACT_ROOT="${FSUSBLOG_SHARED_ARTIFACT_ROOT:-${BACKEND_ARTIFACT%/*}}"
