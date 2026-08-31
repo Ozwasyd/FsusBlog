@@ -984,41 +984,8 @@ export function joinBehaviorTestEvidence({
     const evidence = [];
     for (const binding of scan.bindings)
     {
-        const observation = observationByTestId.get(binding.canonicalTestId);
-        // Also accept vitest observation IDs that use report-relative file paths equal to sourcePath.
-        let matched = observation;
-        let matchedTestIds = observation ? [binding.canonicalTestId] : [];
-        if (!matched && binding.framework === 'xunit-trx')
-        {
-            const prefix = `${binding.canonicalTestId}(`;
-            const theoryCases = [...observationByTestId.entries()]
-                .filter(([testId]) => testId.startsWith(prefix));
-            if (theoryCases.length > 0)
-            {
-                const outcomes = theoryCases.map(([, candidate]) => candidate.outcome);
-                const outcome = outcomes.every((candidate) => candidate === 'passed')
-                    ? 'passed'
-                    : outcomes.includes('failed')
-                        ? 'failed'
-                        : outcomes.includes('blocked')
-                            ? 'blocked'
-                            : 'skipped';
-                matched = { ...theoryCases[0][1], testId: binding.canonicalTestId, outcome };
-                matchedTestIds = theoryCases.map(([testId]) => testId);
-            }
-        }
-        if (!matched && binding.framework === 'vitest')
-        {
-            for (const [testId, candidate] of observationByTestId)
-            {
-                if (testId.endsWith(`#${binding.fullyQualifiedName}`) && testId.startsWith('vitest:'))
-                {
-                    matched = candidate;
-                    matchedTestIds = [testId];
-                    break;
-                }
-            }
-        }
+        const matchingObservations = matchObservationsForBehaviorBinding(binding, observationByTestId);
+        const matched = aggregateBindingObservations(matchingObservations);
         const executed = Boolean(matched);
         const outcome = matched?.outcome ?? 'missing';
         if (executed && outcome === 'skipped')
@@ -1041,7 +1008,7 @@ export function joinBehaviorTestEvidence({
             run: matched?.run ?? run ?? { id: 'missing', attemptKind: 'primary', evidenceClass: 'missing' },
             sourceState: matched?.sourceState ?? sourceState ?? { commit: '0'.repeat(40), worktreeFingerprint: `sha256:${'0'.repeat(64)}` },
             sourceClosureDigest: matched?.sourceClosureDigest ?? sourceClosureDigest ?? `sha256:${'0'.repeat(64)}`,
-            rawResultDigest: matched ? artifacts.find((artifact) => artifact.observations.some((entry) => matchedTestIds.includes(entry.testId)))?.producer.digest ?? `sha256:${'0'.repeat(64)}` : `sha256:${'0'.repeat(64)}`
+            rawResultDigest: matched ? artifacts.find((artifact) => artifact.observations.some((entry) => entry.testId === matched.testId))?.producer.digest ?? `sha256:${'0'.repeat(64)}` : `sha256:${'0'.repeat(64)}`
         });
     }
 
@@ -1141,6 +1108,41 @@ export function joinBehaviorTestEvidence({
     };
     receipt.contentDigest = digestValue(receipt);
     return receipt;
+}
+
+export function matchObservationsForBehaviorBinding(binding, observationByTestId)
+{
+    const exact = observationByTestId.get(binding.canonicalTestId);
+    if (exact)
+    {
+        return [exact];
+    }
+    if (binding.framework === 'xunit-trx')
+    {
+        const theoryPrefix = `${binding.canonicalTestId}(`;
+        return [...observationByTestId]
+            .filter(([testId]) => testId.startsWith(theoryPrefix))
+            .map(([, observation]) => observation);
+    }
+    if (binding.framework === 'vitest')
+    {
+        return [...observationByTestId]
+            .filter(([testId]) => testId.endsWith(`#${binding.fullyQualifiedName}`) && testId.startsWith('vitest:'))
+            .map(([, observation]) => observation);
+    }
+    return [];
+}
+
+function aggregateBindingObservations(observations)
+{
+    if (observations.length === 0)
+    {
+        return null;
+    }
+    const outcome = ['failed', 'blocked', 'skipped', 'passed']
+        .find((candidate) => observations.some((observation) => observation.outcome === candidate))
+        ?? observations[0].outcome;
+    return { ...observations[0], outcome };
 }
 
 export function validateExactBehaviorCoverage(receipt)

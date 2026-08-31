@@ -37,9 +37,9 @@ export function validateCorrectnessAttemptMigration(root = defaultRoot)
     const replay = validateReplayAuthority(readJson(root, replayInventoryFile));
     const envelope = readJson(root, envelopeCatalogFile);
     const envelopeIds = new Set((envelope.producers ?? []).map((producer) => producer.producerId));
-    if (inventory.entries.length !== 221)
+    if (inventory.entries.length !== 223)
     {
-        throw new Error(`correctness attempt migration must cover exactly 221 producers, got ${inventory.entries.length}`);
+        throw new Error(`correctness attempt migration must cover exactly 223 producers, got ${inventory.entries.length}`);
     }
     for (const entry of inventory.entries)
     {

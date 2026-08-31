@@ -221,6 +221,14 @@ test('systemd address policy permits an exact current-run loopback service and d
         environment,
         policy
     });
+    assert.ok(prepared.linuxReadWritePaths.includes('/dev/null'));
+    assert.deepEqual(
+        prepared.command.slice(
+            prepared.command.indexOf(prepared.fragment.sandbox.filesystem.helper.absolutePath) + 1,
+            prepared.command.indexOf('--', prepared.command.indexOf(prepared.fragment.sandbox.filesystem.helper.absolutePath) + 1)
+        ).filter((entry, index, values) => values[index - 1] === '--writable-file'),
+        ['/dev/null']
+    );
     const quiet = new Writable({ write(_chunk, _encoding, callback) { callback(); } });
     await runPhysicalExecution({
         command: prepared.command,

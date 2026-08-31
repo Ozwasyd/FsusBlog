@@ -221,6 +221,7 @@ render: enum-set
 - `behavior-evidence-post-runtime->behavior-document-consistency-final`
 - `behavior-evidence-pre-runtime->behavior-evidence-post-runtime`
 - `behavior-evidence-pre-runtime->bootstrap`
+- `behavior-evidence-pre-runtime->post-runtime-candidate-plan`
 - `behavior-evidence-pre-runtime->production-correctness`
 - `behavior-test-evidence->backend-mutation-changed-critical`
 - `behavior-test-evidence->behavior-evidence-pre-runtime`
@@ -254,6 +255,7 @@ render: enum-set
 - `bootstrap->visual-console`
 - `bootstrap->visual-public`
 - `browser-contract->behavior-evidence-post-runtime`
+- `browser-contract->post-runtime-observation-producers`
 - `browser-diagnostics-manual->browser-diagnostics`
 - `changed-code-coverage->coverage-gate-strict`
 - `coverage-backend->coverage-merge`
@@ -296,15 +298,20 @@ render: enum-set
 - `perception-v2-redteam-pr->release-evidence`
 - `perception-v2-test-matrix->release-evidence`
 - `performance-evidence-summary->release-evidence`
+- `post-runtime-candidate-plan->post-runtime-observation-producers`
+- `post-runtime-candidate-plan->production-correctness`
+- `post-runtime-observation-producers->behavior-evidence-post-runtime`
 - `pr-smart-gate-plan->backend-mutation-changed-critical`
 - `privacy-zk-comment-matrix->release-evidence`
 - `production-build-artifacts->browser-contract`
 - `production-build-artifacts->browser-diagnostics-manual`
 - `production-build-artifacts->browser-diagnostics-nightly`
+- `production-build-artifacts->post-runtime-candidate-plan`
 - `production-build-artifacts->production-correctness`
 - `production-build-artifacts->production-xss-fast`
 - `production-build-artifacts->production-xss-release`
 - `production-correctness->behavior-evidence-post-runtime`
+- `production-correctness->post-runtime-observation-producers`
 - `production-correctness->production`
 - `release->acceptance`
 - `release->browser-diagnostics-manual`

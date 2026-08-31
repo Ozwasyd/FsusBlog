@@ -120,6 +120,28 @@ test('planned and spawn-time executable observations must match exactly', () =>
     }), /executable drift/u);
 });
 
+test('spawn-time absolute re-observation preserves the requested executable identity', () =>
+{
+    const result = prepareCorrectnessEnvironment({
+        command: ['node', '-e', '0'],
+        parentEnvironment: { PATH: '/tools' },
+        producerAllowlist: [],
+        injectedEnvironment: { FSUSBLOG_TEST_RUN_ID: 'run-1' },
+        policy,
+        catalog,
+        observeExecutable: (name) => ({
+            requestedName: name,
+            absolutePath: '/tools/node',
+            realPath: '/tools/node',
+            version: 'v1',
+            sha256: `sha256:${'a'.repeat(64)}`
+        })
+    });
+    assert.equal(result.fragment.plannedExecutable.requestedName, 'node');
+    assert.equal(result.fragment.actualExecutable.requestedName, 'node');
+    assert.equal(result.command[0], '/tools/node');
+});
+
 test('missing or unobservable executable fails closed', () =>
 {
     assert.throws(() => observeExecutableIdentity('missing', {

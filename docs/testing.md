@@ -1425,6 +1425,14 @@ authority。validator 通过显式 current-run path 重读
 canonical content digest，并重放 terminal validator；source/worktree、
 migration-ledger digest、producer/tool version 与完整 claim set 必须 exact
 一致。validator 只读现有 terminal receipt，不运行或修复上游 evidence。
+唯一消费 CLI 是
+`node tools/fact-extractors/post-runtime/current-run.mjs accepted-claims
+--terminal <path> --out <path>`；随后必须以同一 CLI 的
+`verify-accepted-claims --receipt <path>` 独立重放。输入与输出必须是 repository
+内的显式 current-run regular JSON，任何 symlink 或 symlink parent 都会失败。
+`fsusblog.post-runtime-candidate-plan.v1` 还绑定当前 registry content digest、
+registry/schema identity、producer tool version 与 accepted-claims tool version；
+任一 authority 漂移都会让旧 plan 在 raw producer 启动前失效。
 
 Focused validation：
 
@@ -1775,6 +1783,8 @@ render: enum-set
 - `perception-v2-redteam-pr`
 - `perception-v2-test-matrix`
 - `performance-evidence-summary`
+- `post-runtime-candidate-plan`
+- `post-runtime-observation-producers`
 - `pr-smart-gate-plan`
 - `privacy-zk-comment-matrix`
 - `production`

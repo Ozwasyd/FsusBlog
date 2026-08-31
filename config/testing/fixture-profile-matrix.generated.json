@@ -723,6 +723,22 @@
             "fixtureMutatorAllowed": false
         },
         {
+            "tierId": "post-runtime-candidate-plan",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "post-runtime-observation-producers",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
             "tierId": "pr-smart-gate-plan",
             "executionClass": "coordination",
             "fixtureProfile": "none",
@@ -1147,5 +1163,5 @@
             "fixtureMutatorAllowed": false
         }
     ],
-    "digest": "sha256:b91db3d59e25f188a17d13441041cf5809f0db1768f6cc27ee5cdc1916ee42e5"
+    "digest": "sha256:d6a3e1bb925937f5a241a50a02067c0779891de88dd837100d9adea05321df55"
 }

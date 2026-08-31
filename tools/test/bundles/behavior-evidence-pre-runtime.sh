@@ -75,3 +75,7 @@ mkdir -p "$OUT_DIR"
     --run-id "$FSUSBLOG_TEST_RUN_ID" \
     --out "$OUT_DIR/receipt.json" \
     --assert
+
+"$NODE_BIN" "$ROOT_DIR/tools/docs/global-claim-exactness-final.mjs" \
+    --receipts "$FACT_OBSERVATIONS_DIR" \
+    --out "$OUT_DIR/global-claim-exactness.json"
