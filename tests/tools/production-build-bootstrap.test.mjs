@@ -8,8 +8,13 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { createProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs';
+import {
+    bindReservationServer,
+    verifySealedPortLeaseManifest
+} from '../../tools/test-matrix/production-fresh-port-lease.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const portLeaseModule = path.join(root, 'tools/test-matrix/production-fresh-port-lease.mjs');
 const sourceState = { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) };
 const producer = { workflow: 'Quality Gate', runId: '42', runAttempt: 1, job: 'production-build-artifacts' };
 const toolchain = {
@@ -23,19 +28,170 @@ function write(rootDirectory, relative, content)
     fs.writeFileSync(file, content);
 }
 
-test('acceptance bootstrap materializes verified domains into its current run-bound roots and forces no-build', t =>
+function readEnvironment(file)
+{
+    return Object.fromEntries(
+        fs.readFileSync(file, 'utf8')
+            .split('\n')
+            .filter(Boolean)
+            .map((line) =>
+            {
+                const separator = line.indexOf('=');
+                return [line.slice(0, separator), line.slice(separator + 1)];
+            })
+    );
+}
+
+function exactOwnerIsAlive(owner)
+{
+    try
+    {
+        process.kill(owner.pid, 0);
+    }
+    catch (error)
+    {
+        if (error?.code === 'ESRCH')
+        {
+            return false;
+        }
+        throw error;
+    }
+    try
+    {
+        const stat = fs.readFileSync(`/proc/${owner.pid}/stat`, 'utf8');
+        const tail = stat.slice(stat.lastIndexOf(')') + 2).trim().split(/\s+/u);
+        return tail[19] === owner.processStartIdentity;
+    }
+    catch (error)
+    {
+        if (error?.code === 'ENOENT')
+        {
+            return false;
+        }
+        if (process.platform !== 'linux')
+        {
+            return owner.processStartIdentity === String(owner.pid);
+        }
+        throw error;
+    }
+}
+
+async function unavailableLeasePorts(ports)
+{
+    const unavailable = [];
+    for (const port of ports)
+    {
+        const reservations = [];
+        try
+        {
+            reservations.push(await bindReservationServer({ host: '127.0.0.1', port }));
+            reservations.push(await bindReservationServer({ host: '::1', port, ipv6Only: true }));
+        }
+        catch
+        {
+            unavailable.push(port);
+        }
+        finally
+        {
+            await Promise.all(reservations.map((reservation) => reservation.close()));
+        }
+    }
+    return unavailable;
+}
+
+function readRunOwnedPortLease({ namespace, runId, manifestPath, tokenFilePath, pidFilePath, controlSocketPath })
+{
+    const manifest = verifySealedPortLeaseManifest(JSON.parse(fs.readFileSync(manifestPath, 'utf8')));
+    assert.equal(manifest.runId, runId, 'cleanup refuses a lease from another run');
+    assert.equal(manifest.namespace, namespace, 'cleanup refuses a lease from another namespace');
+    assert.equal(manifest.reservationOwnerIdentity.runId, runId);
+    assert.equal(manifest.reservationOwnerIdentity.namespace, namespace);
+    assert.equal(manifest.tokenFilePath, tokenFilePath);
+    assert.equal(manifest.pidFilePath, pidFilePath);
+    assert.equal(manifest.controlSocketPath, controlSocketPath);
+    assert.equal(Number(fs.readFileSync(pidFilePath, 'utf8').trim()), manifest.reservationOwnerIdentity.pid);
+    assert.ok(fs.statSync(controlSocketPath).isSocket(), 'run-owned lease control socket must be live before release');
+    assert.equal(exactOwnerIsAlive(manifest.reservationOwnerIdentity), true, 'run-owned lease daemon must be live before release');
+    assert.ok(manifest.leases.length > 0);
+    assert.ok(manifest.leases.every((lease) =>
+        lease.reservationOwnerIdentity.instanceId === manifest.reservationOwnerIdentity.instanceId));
+    return manifest;
+}
+
+async function waitForRunOwnedPortLeaseZero(manifest, timeoutMs = 5_000)
+{
+    const deadline = Date.now() + timeoutMs;
+    let unavailable = manifest.leases.map((lease) => lease.port);
+    while (Date.now() < deadline)
+    {
+        unavailable = await unavailableLeasePorts(manifest.leases.map((lease) => lease.port));
+        if (!exactOwnerIsAlive(manifest.reservationOwnerIdentity) &&
+            !fs.existsSync(manifest.controlSocketPath) && unavailable.length === 0)
+        {
+            return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    assert.fail(
+        `port lease cleanup did not reach zero: ` +
+        `ownerAlive=${exactOwnerIsAlive(manifest.reservationOwnerIdentity)} ` +
+        `socketPresent=${fs.existsSync(manifest.controlSocketPath)} ` +
+        `unavailablePorts=${unavailable.join(',')}`
+    );
+}
+
+async function releaseRunOwnedPortLease(context)
+{
+    const manifest = readRunOwnedPortLease(context);
+    const result = spawnSync(process.execPath, [
+        portLeaseModule,
+        'release-all',
+        '--manifest',
+        context.manifestPath,
+        '--token-file',
+        context.tokenFilePath,
+        '--reason',
+        'production-build-bootstrap-test-cleanup'
+    ], { cwd: root, encoding: 'utf8', timeout: 10_000 });
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    await waitForRunOwnedPortLeaseZero(manifest);
+    const receipt = JSON.parse(fs.readFileSync(manifest.terminalReceiptPath, 'utf8'));
+    assert.equal(receipt.runId, context.runId);
+    assert.equal(receipt.namespace, context.namespace);
+    assert.equal(receipt.reservationOwnerIdentity.instanceId, manifest.reservationOwnerIdentity.instanceId);
+    assert.equal(receipt.terminalState, 'released');
+    assert.equal(receipt.reason, 'production-build-bootstrap-test-cleanup');
+    assert.ok(receipt.leases.every((lease) => lease.handoffState === 'released'));
+}
+
+function createBootstrapHarness(t)
 {
     const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-ci-bootstrap-artifact-'));
     const namespace = `ci-artifact-${randomUUID().slice(0, 8)}`;
+    const runId = `consumer-${namespace}`;
     const targetRoot = path.join(root, '.tmp', `ci-bootstrap-materialized-${randomUUID()}`);
+    const acceptanceRoot = path.join(root, '.tmp/acceptance', namespace);
     const envFile = path.join(root, '.tmp/env', `${namespace}.env`);
     const evidenceFile = path.join(root, '.tmp/release-evidence/jobs', `ci-build-materialization-${namespace}.json`);
-    t.after(() =>
+    const lease = {
+        namespace,
+        runId,
+        manifestPath: path.join(acceptanceRoot, 'port-leases.json'),
+        tokenFilePath: path.join(acceptanceRoot, 'port-lease.token'),
+        pidFilePath: path.join(acceptanceRoot, 'port-lease.pid'),
+        controlSocketPath: path.join(os.tmpdir(), `fsusb-pbb-${randomUUID().slice(0, 12)}.sock`)
+    };
+    let releaseRequired = false;
+    t.after(async () =>
     {
+        if (releaseRequired)
+        {
+            await releaseRunOwnedPortLease(lease);
+        }
         fs.rmSync(temporary, { recursive: true, force: true });
         fs.rmSync(`${temporary}.state`, { recursive: true, force: true });
         fs.rmSync(targetRoot, { recursive: true, force: true });
-        fs.rmSync(path.join(root, '.tmp/acceptance', namespace), { recursive: true, force: true });
+        fs.rmSync(acceptanceRoot, { recursive: true, force: true });
         fs.rmSync(path.join(root, '.tmp/fixtures', namespace), { recursive: true, force: true });
         fs.rmSync(envFile, { force: true });
         fs.rmSync(evidenceFile, { force: true });
@@ -65,22 +221,21 @@ test('acceptance bootstrap materializes verified domains into its current run-bo
         ]
     });
     fs.rmSync(path.join(temporary, 'input.json'));
-    // Inputs belong to producer identity, not the uploaded artifact payload.
-    // Recreate the exact uploaded root by removing the producer-only input before verification.
-    // The receipt does not list it as an artifact.
 
+    releaseRequired = true;
     const result = spawnSync('bash', ['tools/bootstrap-acceptance-env.sh', '--prepare-env-only'], {
         cwd: root,
         encoding: 'utf8',
         env: {
             ...process.env,
             FSUSBLOG_TEST_NAMESPACE: namespace,
-            FSUSBLOG_TEST_RUN_ID: `consumer-${namespace}`,
+            FSUSBLOG_TEST_RUN_ID: runId,
             FSUSBLOG_TEST_SOURCE_COMMIT: sourceState.commit,
             FSUSBLOG_TEST_SOURCE_FINGERPRINT: sourceState.worktreeFingerprint,
             FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT: temporary,
             FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST: receipt.contentDigest,
             FSUSBLOG_RUNTIME_NO_BUILD: '1',
+            FSUSBLOG_PORT_LEASE_CONTROL_SOCKET: lease.controlSocketPath,
             GITHUB_WORKFLOW: producer.workflow,
             GITHUB_RUN_ID: producer.runId,
             GITHUB_RUN_ATTEMPT: String(producer.runAttempt),
@@ -93,6 +248,35 @@ test('acceptance bootstrap materializes verified domains into its current run-bo
         }
     });
     assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    const manifest = readRunOwnedPortLease(lease);
+    const environment = readEnvironment(envFile);
+    assert.equal(Number(environment.FSUSBLOG_PORT_LEASE_DAEMON_PID), manifest.reservationOwnerIdentity.pid);
+    assert.equal(environment.FSUSBLOG_PORT_LEASED_ROLES, manifest.leases.map((entry) => entry.role).join(','));
+
+    return {
+        temporary,
+        namespace,
+        targetRoot,
+        envFile,
+        evidenceFile,
+        result,
+        lease,
+        manifest,
+        async release()
+        {
+            await releaseRunOwnedPortLease(lease);
+            releaseRequired = false;
+        }
+    };
+}
+
+test('acceptance bootstrap materializes verified domains into its current run-bound roots and forces no-build', async t =>
+{
+    const harness = createBootstrapHarness(t);
+    const { temporary, targetRoot, envFile, evidenceFile, result } = harness;
+    // Inputs belong to producer identity, not the uploaded artifact payload.
+    // Recreate the exact uploaded root by removing the producer-only input before verification.
+    // The receipt does not list it as an artifact.
     assert.match(result.stdout, /materialized verified immutable CI production domains/u);
     assert.equal(fs.readFileSync(path.join(targetRoot, 'backend/FsusBlog.Server.dll'), 'utf8'), 'server');
     assert.equal(fs.readFileSync(path.join(targetRoot, 'tests/FsusBlog.Server.Tests.dll'), 'utf8'), 'tests');
@@ -144,6 +328,22 @@ test('acceptance bootstrap materializes verified domains into its current run-bo
         .map((domain) => domain.method);
     assert.equal(frontendMaterializations[0], 'reference');
     assert.ok(['reflink', 'copy-fallback'].includes(frontendMaterializations[1]));
+    await harness.release();
+});
+
+test('production build bootstrap cleanup fails closed on mismatched run ownership', async t =>
+{
+    const harness = createBootstrapHarness(t);
+    await assert.rejects(
+        releaseRunOwnedPortLease({
+            ...harness.lease,
+            runId: `foreign-${harness.lease.runId}`
+        }),
+        /cleanup refuses a lease from another run/u
+    );
+    assert.equal(exactOwnerIsAlive(harness.manifest.reservationOwnerIdentity), true);
+    assert.ok(fs.statSync(harness.manifest.controlSocketPath).isSocket());
+    await harness.release();
 });
 
 test('CI bootstrap source keeps backend-only consumers free of frontend startup and forbids rebuild fallback', () =>
