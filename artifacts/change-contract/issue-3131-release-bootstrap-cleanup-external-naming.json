@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/run-release-reliability-qualified-local.sh"
+            ],
+            "reason": "preserve caller-visible Docker label keys and test CLI spellings while adding run-owned bootstrap cleanup"
+        }
+    ]
+}

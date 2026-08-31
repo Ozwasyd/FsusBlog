@@ -1,0 +1,59 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/SchemaMigration/CurrentSchemaCanonicalModel.cs",
+                "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs",
+                "src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs",
+                "src/backend/Infrastructure/Testing/CurrentSchemaTestMaterializer.cs",
+                "src/backend/Infrastructure/Testing/CurrentSchemaTestMaterializationCandidateVerifier.cs",
+                "src/backend/Program.cs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
+                "tools/test/correctness-attempt-migration.mjs",
+                "tools/test/execution-envelope-services.mjs",
+                "tools/testing/fixture-catalog.mjs"
+            ],
+            "reason": "Process environment and command-host spellings remain external while the current-schema materializer and verifier use repository-governed internal symbols."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/dev/start.sh",
+                "tools/test/lanes/current-schema-bootstrap-integration.sh",
+                "tools/test/lanes/homogeneous-two-node-fixture.sh",
+                "tools/test/lanes/production-build-artifacts.sh"
+            ],
+            "reason": "Acceptance, build and isolated PostgreSQL qualification producers preserve caller-visible environment keys while binding the exact source commit and admitted service envelope."
+        },
+        {
+            "id": "acceptance-secret-runtime-environment",
+            "paths": [
+                "tools/bootstrap-acceptance-env.sh"
+            ],
+            "reason": "The acceptance bootstrap preserves its caller-visible run-bound process environment keys while adding the test-only current-schema producer before runtime spawn."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/test-execution-service-catalog.schema.json",
+                "config/testing/correctness-attempt-producers.json",
+                "config/testing/fixture-consumer-inventory.generated.json",
+                "config/testing/fixture-profile-matrix.generated.json",
+                "config/testing/test-execution-envelope-applicability.json",
+                "config/testing/test-execution-service-catalog.json",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "The test catalog, generated projection, coverage and lifecycle JSON keys remain machine-consumed external wire names while implementation symbols retain repository naming."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md",
+                "tests/coverage-registry.json"
+            ],
+            "reason": "The generated testing inventory retains its registered external Markdown and tooling identifiers while the current-schema tier is projected from the canonical matrix."
+        }
+    ]
+}

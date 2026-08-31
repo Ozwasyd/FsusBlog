@@ -77,7 +77,7 @@ test('managed Debug bootstrap is a no-build reader of the shared backend produce
     const runtimeEnvironment = fs.readFileSync(path.join(root, '.tmp/env', `${namespace}.env`), 'utf8');
     assert.match(runtimeEnvironment, /^FSUSBLOG_RUNTIME_CONFIGURATION=Debug$/mu);
     assert.match(runtimeEnvironment, /^FSUSBLOG_RUNTIME_NO_BUILD=1$/mu);
-    assert.match(bootstrap, /local laneSupport="\$ROOT_DIR\/tools\/test\/lanes\/_lane-collect-support\.sh"[\s\S]*?source "\$laneSupport"[\s\S]*?FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug EnsureBackendFilteredBuild/u);
+    assert.match(bootstrap, /local laneSupport="\$ROOT_DIR\/tools\/test\/lanes\/_lane-collect-support\.sh"[\s\S]*?source "\$laneSupport"[\s\S]*?FsusBlogCommitSha="\$\{FSUSBLOG_TEST_SOURCE_COMMIT:\?backend build source commit is required\}"[\s\\]*\n[\s\S]*?FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug[\s\\]*\n[\s\S]*?EnsureBackendFilteredBuild/u);
     assert.match(bootstrap, /backend-debug-build EnsureManagedBackendSharedDebugBuild/u);
     assert.match(bootstrap, /managed backend startup is read-only and requires FSUSBLOG_RUNTIME_NO_BUILD=1/u);
     assert.match(bootstrap, /FSUSBLOG_RUNTIME_CONFIGURATION="\$runtimeConfiguration"[\s\S]*?FSUSBLOG_RUNTIME_NO_BUILD=1/u);
