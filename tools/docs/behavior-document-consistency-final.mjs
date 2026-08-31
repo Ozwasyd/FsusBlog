@@ -7,6 +7,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { digestCatalog } from '../contracts/behavior-contract-catalog.mjs'
+import { sealSourceIdentity } from '../fact-extractors/identity.mjs'
 import { parseMatrix } from '../test-matrix/parse-matrix.mjs'
 import { assertPreRuntimeQualified } from '../test-matrix/behavior-evidence-pre-runtime.mjs'
 import { validatePostRuntimeReceipt } from '../test-matrix/behavior-evidence-post-runtime.mjs'
@@ -93,6 +94,18 @@ const evidenceSelectionFields = fieldMap(evidenceSelectionParts)
 const authorityResidueFields = fieldMap(authorityResidueParts)
 const legacyRoles = legacyRoleParts.map((parts) => normalizeIdentifier(parts.join('')))
 const legacyStates = legacyStateParts.map((parts) => normalizeIdentifier(parts.join('')))
+const scannerSelfLegacySymbols = new Map([
+    ['tools/docs/behavior-document-consistency-final.mjs', new Set(['zeroLegacyScanSchema'])]
+])
+const jsonSchemaDialectPattern = /^https?:\/\/json-schema\.org\/draft(?:-0[4-7]|\/(?:2019-09|2020-12))\/schema#?$/u
+const jsonSchemaMapKeywords = new Set(['$defs', 'definitions', 'dependentSchemas', 'patternProperties', 'properties'])
+const jsonSchemaArrayKeywords = new Set(['allOf', 'anyOf', 'oneOf', 'prefixItems'])
+const jsonSubschemaKeywords = new Set([
+    'additionalItems', 'additionalProperties', 'contains', 'else', 'if', 'items', 'not',
+    'propertyNames', 'then', 'unevaluatedItems', 'unevaluatedProperties'
+])
+const valueChunkSize = 512
+const valueChunkOverlap = 128
 
 function zeroLegacyFail(message)
 {
@@ -128,11 +141,15 @@ function isForbiddenMachineField(normalized, qualification)
     return canonical
 }
 
-function legacySurfaceName(value)
+function isExactScannerSelfLegacySymbol(value, context)
 {
+    return scannerSelfLegacySymbols.get(context?.file)?.has(String(value)) === true
+}
+
+function legacySurfaceName(value, context)
+{
+    if (isExactScannerSelfLegacySymbol(value, context)) return false
     const normalized = normalizeIdentifier(value)
-    if (normalized.includes('zerolegacy') || normalized.startsWith('assertnolegacy')
-        || normalized.startsWith('checknolegacy') || normalized.startsWith('rejectlegacy')) return false
     return legacyStates.some((state) => normalized.includes(state))
         && legacyRoles.some((role) => normalized.includes(role))
 }
@@ -169,27 +186,39 @@ function authorityResidueField(identifier)
 function scanValueResidue(owner, rawValue, context)
 {
     if (!context.qualification || typeof rawValue !== 'string') return
-    const value = rawValue.trim().replace(/^["']|["']$/gu, '')
-    if (!value || value.length > 512) return
     const ownerName = normalizeIdentifier(owner)
-    if (/^(?:deny|forbidden|reject)/u.test(ownerName)) return
-    const valueName = normalizeIdentifier(value)
     const selectionOwner = /(?:artifact|discovery|evidence|locator|mode|receipt|result|selection|source|strategy)/u.test(ownerName)
     const authorityOwner = /(?:authority|cli|command|featureflag|input|kind|mode|path|provider|schema|source|strategy|type)/u.test(ownerName)
     const simpleSelector = new Set(['age', 'ctime', 'fallback', 'glob', 'historical', 'history', 'latest', 'mtime', 'newest', 'scan', 'search'])
-    const selectionField = evidenceSelectionField(value)
-    if (selectionOwner && (selectionField || simpleSelector.has(valueName)))
+    let first = 0
+    let last = rawValue.length
+    while (first < last && /\s/u.test(rawValue[first])) first += 1
+    while (last > first && /\s/u.test(rawValue[last - 1])) last -= 1
+    if ((rawValue[first] === '"' || rawValue[first] === "'") && rawValue[last - 1] === rawValue[first])
     {
-        addFinding(context.findings, context.file, context.pathClasses, `forbidden-evidence-selection:${selectionField ?? `${owner}=${value}`}`, context.location)
+        first += 1
+        last -= 1
     }
-    const authorityField = authorityResidueField(value)
-    if (authorityOwner && authorityField)
+    for (let offset = first; offset < last; offset += valueChunkSize - valueChunkOverlap)
     {
-        addFinding(context.findings, context.file, context.pathClasses, `forbidden-self-authority:${authorityField}`, context.location)
-    }
-    if (authorityOwner && legacySurfaceName(value))
-    {
-        addFinding(context.findings, context.file, context.pathClasses, `forbidden-legacy-surface:${value}`, context.location)
+        const value = rawValue.slice(offset, Math.min(last, offset + valueChunkSize))
+        if (!value) break
+        const valueName = normalizeIdentifier(value)
+        const selectionField = evidenceSelectionField(value)
+        if (selectionOwner && (selectionField || simpleSelector.has(valueName)))
+        {
+            addFinding(context.findings, context.file, context.pathClasses, `forbidden-evidence-selection:${selectionField ?? `${owner}=${value}`}`, context.location)
+        }
+        const authorityField = authorityResidueField(value)
+        if (authorityOwner && authorityField)
+        {
+            addFinding(context.findings, context.file, context.pathClasses, `forbidden-self-authority:${authorityField}`, context.location)
+        }
+        if (authorityOwner && legacySurfaceName(value, context))
+        {
+            addFinding(context.findings, context.file, context.pathClasses, `forbidden-legacy-surface:${value}`, context.location)
+        }
+        if (offset + valueChunkSize >= last) break
     }
 }
 
@@ -217,25 +246,39 @@ function scanIdentifier(identifier, valueText, context)
     {
         addFinding(context.findings, context.file, context.pathClasses, `forbidden-self-authority:${authorityField}`, context.location)
     }
-    if (!pathLike && legacySurfaceName(identifier))
+    if (!pathLike && legacySurfaceName(identifier, context))
     {
         addFinding(context.findings, context.file, context.pathClasses, `forbidden-legacy-surface:${identifier}`, context.location)
     }
     scanValueResidue(identifier, typeof valueText === 'string' ? valueText : '', context)
 }
 
-function scanObjectKeys(value, context, negated = false, location = '$')
+function scanObjectKeys(value, context, negated = false, location = '$', schemaMode = context.jsonSchemaDocument === true ? 'schema' : 'value')
 {
     if (Array.isArray(value))
     {
-        value.forEach((entry, index) => scanObjectKeys(entry, context, negated, `${location}[${index}]`))
+        const itemMode = schemaMode === 'schema-array' ? 'schema' : 'value'
+        value.forEach((entry, index) => scanObjectKeys(entry, context, negated, `${location}[${index}]`, itemMode))
         return
     }
     if (!value || typeof value !== 'object') return
     for (const [key, nested] of Object.entries(value))
     {
         if (!negated) scanIdentifier(key, nested, { ...context, location: `${location}.${key}` })
-        scanObjectKeys(nested, context, negated || key === 'not', `${location}.${key}`)
+        const schemaNegation = schemaMode === 'schema'
+            && key === 'not'
+            && nested != null
+            && typeof nested === 'object'
+            && !Array.isArray(nested)
+        let nestedSchemaMode = 'value'
+        if (schemaMode === 'schema-map') nestedSchemaMode = 'schema'
+        else if (schemaMode === 'schema' && jsonSchemaMapKeywords.has(key)) nestedSchemaMode = 'schema-map'
+        else if (schemaMode === 'schema' && jsonSchemaArrayKeywords.has(key)) nestedSchemaMode = 'schema-array'
+        else if (schemaMode === 'schema' && jsonSubschemaKeywords.has(key))
+        {
+            nestedSchemaMode = key === 'items' && Array.isArray(nested) ? 'schema-array' : 'schema'
+        }
+        scanObjectKeys(nested, context, negated || schemaNegation, `${location}.${key}`, nestedSchemaMode)
     }
 }
 
@@ -298,15 +341,40 @@ function maskSourceLiteralsAndComments(source)
 function sourceAssignments(source, masked)
 {
     const assignments = []
-    const expression = /(?:^|[,;{([.\s])(?:["']([^"']+)["']|([A-Za-z][A-Za-z0-9_-]*))\s*\??\s*(?::|=(?!=))\s*([^\n,;}]+)/dgmu
+    const expression = /(?:^|[,;{([.\s])(?:["']([^"']+)["']|([A-Za-z][A-Za-z0-9_-]*))\s*\??\s*(?::|=(?!=))/dgmu
     let match
     while ((match = expression.exec(masked)) !== null)
     {
         const identifierIndex = match.indices[1] ?? match.indices[2]
-        const valueIndex = match.indices[3]
+        const valueStart = match.indices[0][1]
+        let valueEnd = valueStart
+        let quote = null
+        while (valueEnd < source.length)
+        {
+            const current = source[valueEnd]
+            const next = source[valueEnd + 1]
+            if (quote !== null)
+            {
+                if (current === '\\') valueEnd += 2
+                else
+                {
+                    if (current === quote) quote = null
+                    valueEnd += 1
+                }
+                continue
+            }
+            if (current === '"' || current === "'" || current === '`')
+            {
+                quote = current
+                valueEnd += 1
+                continue
+            }
+            if ((current === '/' && (next === '/' || next === '*')) || /[\n,;}]/u.test(current)) break
+            valueEnd += 1
+        }
         assignments.push({
             identifier: source.slice(identifierIndex[0], identifierIndex[1]).replace(/^["']|["']$/gu, ''),
-            valueText: source.slice(valueIndex[0], valueIndex[1]),
+            valueText: source.slice(valueStart, valueEnd),
             index: match.index
         })
     }
@@ -416,7 +484,7 @@ function scanMachineSource(source, context, locationPrefix = 'source')
         for (const argument of invocation.stringArguments)
         {
             scanValueResidue(invocation.identifier, argument, invocationContext)
-            if (legacySurfaceName(argument))
+            if (legacySurfaceName(argument, invocationContext))
             {
                 addFinding(context.findings, context.file, context.pathClasses, `forbidden-legacy-surface:${argument}`, invocationContext.location)
             }
@@ -445,7 +513,7 @@ function scanPackageScripts(manifest, context)
         scanMachineSource(String(command), { ...context, qualification: true }, `package-script:${scriptName}`)
         for (const token of String(command).split(/\s+/u))
         {
-            if (legacySurfaceName(token))
+            if (legacySurfaceName(token, { ...context, location }))
             {
                 addFinding(context.findings, context.file, context.pathClasses, `forbidden-legacy-surface:${token}`, location)
             }
@@ -571,7 +639,10 @@ export function scanZeroLegacyGovernance(repositoryRoot = root)
             try
             {
                 const document = JSON.parse(fs.readFileSync(absolute, 'utf8'))
-                scanObjectKeys(document, context)
+                const jsonSchemaDocument = file.endsWith('.schema.json')
+                    && typeof document?.$schema === 'string'
+                    && jsonSchemaDialectPattern.test(document.$schema)
+                scanObjectKeys(document, { ...context, jsonSchemaDocument })
                 if (pathClasses.includes('package-scripts')) scanPackageScripts(document, context)
             }
             catch { /* Syntax belongs to the corresponding schema or package gate. */ }
@@ -584,7 +655,7 @@ export function scanZeroLegacyGovernance(repositoryRoot = root)
         {
             scanMachineSource(fs.readFileSync(absolute, 'utf8'), context)
         }
-        if (legacySurfaceName(file))
+        if (legacySurfaceName(file, { file }))
         {
             addFinding(findings, file, pathClasses, `forbidden-legacy-surface:${path.posix.basename(file)}`, 'path')
         }
@@ -717,8 +788,7 @@ export function buildFinalConsistencyReport({
     generatedSectionReceipt,
     catalog,
     migrationLedger,
-    matrix,
-    zeroLegacyScan = null
+    matrix
 } = {})
 {
     const admission = validateSealed(loadJson(staticAdmissionReceipt), 'static admission')
@@ -812,7 +882,28 @@ export function buildFinalConsistencyReport({
     const authorityDuplicates = duplicateSummaryAuthorities(parsedMatrix.tiers)
     if (sccs.length > 0) failures.push(`matrix dependency SCCs: ${sccs.map((entry) => entry.join('+')).join(',')}`)
     if (authorityDuplicates.length > 0) failures.push(`duplicate summary authorities: ${authorityDuplicates.map((entry) => entry.authority).join(',')}`)
-    const legacy = validateZeroLegacyScan(zeroLegacyScan ?? scanZeroLegacyGovernance(root))
+    const admittedSourceRoot = String(admission.worktree?.root ?? '')
+    if (!path.isAbsolute(admittedSourceRoot)
+        || !fs.existsSync(admittedSourceRoot)
+        || !fs.statSync(admittedSourceRoot).isDirectory())
+    {
+        fail('zero-legacy source root is not an absolute existing directory')
+    }
+    const sourceRoot = path.resolve(admittedSourceRoot)
+    const sourceIdentityBeforeScan = sealSourceIdentity(sourceRoot)
+    if (sourceIdentityBeforeScan.sourceCommit !== sourceCommit
+        || normalizeDigest(sourceIdentityBeforeScan.worktreeFingerprint) !== sourceFingerprint)
+    {
+        fail('zero-legacy source/worktree identity mismatch before scan')
+    }
+    const legacy = scanZeroLegacyGovernance(sourceRoot)
+    const sourceIdentityAfterScan = sealSourceIdentity(sourceRoot)
+    if (sourceIdentityAfterScan.sourceCommit !== sourceCommit
+        || normalizeDigest(sourceIdentityAfterScan.worktreeFingerprint) !== sourceFingerprint
+        || JSON.stringify(sourceIdentityAfterScan) !== JSON.stringify(sourceIdentityBeforeScan))
+    {
+        fail('zero-legacy source/worktree identity changed during scan')
+    }
     if (legacy.findings.length > 0) failures.push(`zero-legacy scan found ${legacy.findings.length} active residue(s)`)
     if (admission.candidateSpawnCountBeforeReceipt !== 0 || pre.runtimeCandidateSpawnCountBeforeReceipt !== 0 || post.releaseFinalSpawnCountBeforeReceipt !== 0)
     {

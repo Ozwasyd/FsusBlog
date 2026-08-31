@@ -7,6 +7,7 @@ import path from 'node:path'
 import test from 'node:test'
 
 import { digestCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs'
+import { sealSourceIdentity } from '../../tools/fact-extractors/identity.mjs'
 import {
     buildFinalConsistencyReport,
     scanZeroLegacyGovernance,
@@ -59,8 +60,25 @@ function repositoryFixture(t, files)
     return repositoryRoot
 }
 
+function sourceRepositoryFixture(t, files = {})
+{
+    const repositoryRoot = repositoryFixture(t, files)
+    execFileSync('git', ['init', '--quiet'], { cwd: repositoryRoot })
+    execFileSync('git', ['config', 'user.email', 'tests@fsusblog.local'], { cwd: repositoryRoot })
+    execFileSync('git', ['config', 'user.name', 'FsusBlog Tests'], { cwd: repositoryRoot })
+    execFileSync('git', ['add', '.'], { cwd: repositoryRoot })
+    execFileSync('git', ['commit', '--quiet', '--allow-empty', '-m', 'test: seal source state'], { cwd: repositoryRoot })
+    return repositoryRoot
+}
+
 function fixture(overrides = {})
 {
+    const sourceRoot = overrides.sourceRoot ?? null
+    const sourceIdentity = sourceRoot === null
+        ? { sourceCommit: commit, worktreeFingerprint: fingerprint }
+        : sealSourceIdentity(sourceRoot)
+    const sourceCommit = sourceIdentity.sourceCommit
+    const sourceFingerprint = sourceIdentity.worktreeFingerprint
     const catalog = {
         schema: 'fsusblog.behavior-contract-catalog.v1',
         digestAlgorithm: 'sha256',
@@ -80,8 +98,8 @@ function fixture(overrides = {})
     const admission = seal({
         schema: 'fsusblog.behavior-doc-static-admission-receipt.v1',
         run: { id: runId },
-        source: { commit, worktreeFingerprint: fingerprint },
-        worktree: { root: '/repo' },
+        source: { commit: sourceCommit, worktreeFingerprint: sourceFingerprint },
+        worktree: { root: sourceRoot ?? '/repo' },
         toolchain: { node: 'v24', dotnet: '10', platform: 'linux', architecture: 'x64', directoryBuildPropsDigest: '1'.repeat(64) },
         authorityDigests: {
             catalog: catalogHash, claim: '2'.repeat(64), extractorRegistry: '3'.repeat(64),
@@ -97,7 +115,7 @@ function fixture(overrides = {})
     }, true)
     const pre = seal({
         schema: 'fsusblog.behavior-evidence-pre-runtime-receipt.v1', scope: 'pre-runtime',
-        runIdentity: runId, sourceIdentity: { commit, worktreeFingerprint: `sha256:${fingerprint}` },
+        runIdentity: runId, sourceIdentity: { commit: sourceCommit, worktreeFingerprint: `sha256:${sourceFingerprint}` },
         buildIdentities: {}, registryDigest: `sha256:${'3'.repeat(64)}`,
         catalogDigest: `sha256:${catalogHash}`, staticClaimVerificationDigest: `sha256:${'c'.repeat(64)}`,
         behaviorIds: ['alpha-behavior'], requiredTestKinds: { 'alpha-behavior': ['positive'] },
@@ -106,7 +124,7 @@ function fixture(overrides = {})
     })
     const post = seal({
         schema: 'fsusblog.behavior-evidence-post-runtime-receipt.v1', scope: 'post-runtime',
-        runIdentity: runId, sourceIdentity: { commit, worktreeFingerprint: `sha256:${fingerprint}` },
+        runIdentity: runId, sourceIdentity: { commit: sourceCommit, worktreeFingerprint: `sha256:${sourceFingerprint}` },
         candidateIdentity: { buildReceiptDigest: `sha256:${'d'.repeat(64)}`, runtimeEvidenceDigest: `sha256:${'e'.repeat(64)}`, browserContractDigest: `sha256:${'f'.repeat(64)}` },
         preRuntimeReceiptDigest: pre.contentDigest, catalogDigest: `sha256:${catalogHash}`,
         behaviorIds: [], requiredRuntimeProducers: [], observedBehaviorResults: [], documentClaimDigests: {},
@@ -114,7 +132,7 @@ function fixture(overrides = {})
         status: 'ok', failureReasons: []
     })
     const owner = seal({ status: 'ok', bindings: [{ behaviorId: 'alpha-behavior', sourcePath: 'src/alpha.cs' }] })
-    const fact = seal({ status: 'ok', extractorId: 'alpha-facts', behaviorIds: ['alpha-behavior'], sourceCommit: commit, worktreeFingerprint: fingerprint })
+    const fact = seal({ status: 'ok', extractorId: 'alpha-facts', behaviorIds: ['alpha-behavior'], sourceCommit, worktreeFingerprint: sourceFingerprint })
     const claims = seal({ claims: [{ declaration: { behaviorId: 'alpha-behavior', claimId: 'alpha.current' } }] })
     const verification = seal({ status: 'ok' })
     const generated = seal({ status: 'ok' })
@@ -128,38 +146,32 @@ function fixture(overrides = {})
         staticAdmissionReceipt: admission, preRuntimeReceipt: pre, postRuntimeReceipt: post,
         ownerReceipt: owner, factObservationReceipts: [fact], docClaimParseReceipt: claims,
         docClaimVerificationReceipt: verification, generatedSectionReceipt: generated,
-        catalog, migrationLedger, matrix, zeroLegacyScan: emptyZeroLegacyScan(),
+        catalog, migrationLedger, matrix,
         ...overrides
     }
 }
 
-test('final consistency report deterministically closes every behavior edge', () =>
+test('final consistency report deterministically closes every behavior edge', (t) =>
 {
-    const report = buildFinalConsistencyReport(fixture())
+    const sourceRoot = sourceRepositoryFixture(t)
+    const report = buildFinalConsistencyReport(fixture({ sourceRoot }))
     assert.equal(validateFinalReport(report).status, 'ok', report.failureReasons.join('; '))
     assert.equal(report.behaviorNodes[0].status, 'ok')
     assert.equal(report.dagAudit.stronglyConnectedComponents.length, 0)
 })
 
-test('stale identities, graph cycles and legacy residue fail without repairing producers', () =>
+test('stale identities, graph cycles and legacy residue fail without repairing producers', (t) =>
 {
-    const stalePost = fixture().postRuntimeReceipt
+    const sourceRoot = sourceRepositoryFixture(t, {
+        'config/testing/behavior-qualification.json': JSON.stringify({ lastReviewedAt: 'now' })
+    })
+    const stalePost = fixture({ sourceRoot }).postRuntimeReceipt
     stalePost.sourceIdentity.commit = 'd'.repeat(40)
     stalePost.contentDigest = seal(Object.fromEntries(Object.entries(stalePost).filter(([key]) => key !== 'contentDigest'))).contentDigest
     const input = fixture({
         postRuntimeReceipt: stalePost,
-        matrix: { tiers: [{ id: 'a', executionDependsOn: ['b'] }, { id: 'b', executionDependsOn: ['a'] }] },
-        zeroLegacyScan: {
-            ...emptyZeroLegacyScan(),
-            scannedFileCount: 1,
-            pathClassCounts: { ...emptyZeroLegacyScan().pathClassCounts, config: 1 },
-            findings: [{
-                file: 'config/active.json',
-                pathClasses: ['config'],
-                rule: 'forbidden-machine-field:lastReviewedAt',
-                location: '$.lastReviewedAt'
-            }]
-        }
+        sourceRoot,
+        matrix: { tiers: [{ id: 'a', executionDependsOn: ['b'] }, { id: 'b', executionDependsOn: ['a'] }] }
     })
     const report = buildFinalConsistencyReport(input)
     assert.equal(report.status, 'failed')
@@ -168,9 +180,9 @@ test('stale identities, graph cycles and legacy residue fail without repairing p
     assert.ok(report.failureReasons.some((reason) => reason.includes('zero-legacy')))
 })
 
-test('tampered input receipt is rejected before final aggregation', () =>
+test('tampered input receipt is rejected before final aggregation', (t) =>
 {
-    const input = fixture()
+    const input = fixture({ sourceRoot: sourceRepositoryFixture(t) })
     input.ownerReceipt.bindings = []
     assert.throws(() => buildFinalConsistencyReport(input), /contentDigest mismatch/u)
 })
@@ -341,6 +353,88 @@ test('zero-legacy scanner rejects legacy role surfaces but allows historical pro
     assert.equal(scan.findings.some((finding) => finding.file === 'src/linked.json'), false)
 })
 
+test('zero-legacy JSON not exemption requires an explicit JSON Schema dialect', (t) =>
+{
+    const repositoryRoot = repositoryFixture(t, {
+        'config/testing/behavior-qualification.json': JSON.stringify({
+            not: { latestReceipt: 'ambient.json', verified: true }
+        }),
+        'config/schemas/behavior-qualification.schema.json': JSON.stringify({
+            $schema: 'https://json-schema.org/draft/2020-12/schema',
+            not: { properties: { latestReceipt: { type: 'string' }, verified: { const: true } } }
+        }),
+        'config/schemas/not-property-behavior-qualification.schema.json': JSON.stringify({
+            $schema: 'https://json-schema.org/draft/2020-12/schema',
+            properties: { not: { properties: { latestReceipt: { type: 'string' } } } }
+        }),
+        'config/schemas/unproven-behavior-qualification.schema.json': JSON.stringify({
+            not: { latestReceipt: 'ambient.json', verified: true }
+        })
+    })
+    const findings = scanZeroLegacyGovernance(repositoryRoot).findings
+    for (const file of [
+        'config/testing/behavior-qualification.json',
+        'config/schemas/unproven-behavior-qualification.schema.json'
+    ])
+    {
+        assert.ok(findings.some((finding) => finding.file === file && finding.rule === 'forbidden-evidence-selection:latestReceipt'))
+        assert.ok(findings.some((finding) => finding.file === file && finding.rule === 'forbidden-self-certification:verified'))
+    }
+    assert.equal(findings.some((finding) => finding.file === 'config/schemas/behavior-qualification.schema.json'), false)
+    assert.ok(findings.some((finding) => finding.file === 'config/schemas/not-property-behavior-qualification.schema.json'
+        && finding.rule === 'forbidden-evidence-selection:latestReceipt'))
+})
+
+test('zero-legacy scanner self exemptions are exact and owner names cannot suppress values', (t) =>
+{
+    const repositoryRoot = repositoryFixture(t, {
+        'tools/docs/behavior-document-consistency-final.mjs': [
+            'const zeroLegacyScanSchema = "fsusblog.zero-legacy-governance-scan.v1"',
+            'const rejectLegacyClaimCli = true'
+        ].join('\n'),
+        'tools/release/behavior-qualification.mjs': 'const rejectCommand = "deprecated-claim-cli"\n'
+    })
+    const findings = scanZeroLegacyGovernance(repositoryRoot).findings
+    assert.equal(findings.some((finding) => finding.rule.includes('zeroLegacyScanSchema')), false)
+    assert.ok(findings.some((finding) => finding.rule === 'forbidden-legacy-surface:rejectLegacyClaimCli'))
+    assert.ok(findings.some((finding) => finding.file === 'tools/release/behavior-qualification.mjs'
+        && finding.rule.includes('deprecated-claim-cli')))
+})
+
+test('zero-legacy value scanning is bounded without truncating long commands', (t) =>
+{
+    const repositoryRoot = repositoryFixture(t, {
+        'config/testing/long-behavior-qualification.json': JSON.stringify({
+            command: `${'x'.repeat(505)}deprecated-claim-cli${'y'.repeat(600)}`
+        }),
+        'config/testing/long-benign-behavior-qualification.json': JSON.stringify({
+            command: `${'x'.repeat(505)}current-claim-command${'y'.repeat(600)}`
+        })
+    })
+    const findings = scanZeroLegacyGovernance(repositoryRoot).findings
+    assert.ok(findings.some((finding) => finding.file === 'config/testing/long-behavior-qualification.json'
+        && finding.rule.startsWith('forbidden-legacy-surface:')))
+    assert.equal(findings.some((finding) => finding.file === 'config/testing/long-benign-behavior-qualification.json'), false)
+})
+
+test('final builder recomputes zero-legacy findings from the sealed source state', (t) =>
+{
+    const residueRoot = sourceRepositoryFixture(t, {
+        'config/testing/behavior-qualification.json': JSON.stringify({ latestReceipt: 'ambient.json' })
+    })
+    const injected = buildFinalConsistencyReport(fixture({
+        sourceRoot: residueRoot,
+        zeroLegacyScan: emptyZeroLegacyScan()
+    }))
+    assert.equal(injected.status, 'failed')
+    assert.ok(injected.zeroLegacyScan.findings.some((finding) => finding.rule === 'forbidden-evidence-selection:latestReceipt'))
+
+    const driftRoot = sourceRepositoryFixture(t, { 'src/current.mjs': 'export const current = true\n' })
+    const drifted = fixture({ sourceRoot: driftRoot })
+    fs.writeFileSync(path.join(driftRoot, 'src/current.mjs'), 'export const current = false\n')
+    assert.throws(() => buildFinalConsistencyReport(drifted), /source\/worktree identity mismatch before scan/u)
+})
+
 test('zero-legacy scan and final report schema are deterministic and structurally closed', (t) =>
 {
     const repositoryRoot = repositoryFixture(t, {
@@ -357,7 +451,7 @@ test('zero-legacy scan and final report schema are deterministic and structurall
     assert.throws(() => validateZeroLegacyScan({ ...first, scanRoots: first.scanRoots.slice(1) }), /roots are incomplete/u)
     assert.throws(() => validateZeroLegacyScan({ ...first, pathClassCounts: { production: 1 } }), /classes are incomplete/u)
 
-    const report = buildFinalConsistencyReport(fixture({ zeroLegacyScan: first }))
+    const report = buildFinalConsistencyReport(fixture({ sourceRoot: sourceRepositoryFixture(t) }))
     const schema = JSON.parse(fs.readFileSync('config/schemas/behavior-document-consistency-final-report.schema.json', 'utf8'))
     assert.deepEqual(validateJsonSchema(report, schema), [])
     const openScan = structuredClone(report)
