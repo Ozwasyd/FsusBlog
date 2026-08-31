@@ -14,6 +14,13 @@
                 "tools/test/lanes/homogeneous-two-node-fixture.sh"
             ],
             "reason": "The two-node fixture preserves caller-visible production-build environment keys while routing its single source-bound build into the canonical run layout."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/ci/production-build-artifacts.mjs"
+            ],
+            "reason": "The production-build verifier preserves the externally supplied EMSDK_VERSION spelling while adding only internal camel-case consumer-materialization bindings."
         }
     ]
 }
