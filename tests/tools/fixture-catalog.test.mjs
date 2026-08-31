@@ -24,8 +24,15 @@ import {
     validateFixtureVariantEvidence,
     validateFixtureSentinelRegistry,
     validateNoneFixtureTier,
+    verifyCurrentSchemaRuntimeTopologyAdmission,
+    writeCurrentSchemaRuntimeTopologyAdmission,
     writeFixtureProfileReceipt
 } from '../../tools/testing/fixture-catalog.mjs';
+import {
+    canonicalDigest as currentSchemaCanonicalDigest,
+    runtimeReadyReceiptPath,
+    runtimeReadySchema
+} from '../../tools/db/verify-current-schema-test-materialization-receipt.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const names = ['capability', 'profile', 'producer', 'inventory', 'variant'];
@@ -630,6 +637,172 @@ test('planned and environment-ready receipts record profile identity', () =>
     finally
     {
         rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+function currentSchemaAdmissionFixture()
+{
+    const directory = mkdtempSync(path.join(tmpdir(), 'fixture-current-schema-admission-'));
+    const runId = 'current-schema-admission-run';
+    const sourceCommit = 'a'.repeat(40);
+    const runtimeReady = runtimeReadyReceiptPath(directory, runId);
+    const suffix = path.basename(runtimeReady)
+        .replace(/^current-schema-runtime-ready-/u, '')
+        .replace(/\.json$/u, '');
+    const admission = path.join(
+        directory,
+        `current-schema-runtime-topology-admission-${suffix}.json`
+    );
+    const document = {
+        schema: runtimeReadySchema,
+        status: 'verified',
+        qualificationEligible: true,
+        runId,
+        sourceCommit,
+        canonicalIdentity: {
+            modelVersion: 'fsusblog.current-schema.v2',
+            extractorVersion: 'fsusblog.current-schema-reflection.v2',
+            generatorVersion: 'fsusblog.current-schema-projection.v2',
+            sourceDigest: 'b'.repeat(64),
+            contentDigest: 'c'.repeat(64)
+        },
+        contentDigest: null
+    };
+    const rewriteRuntimeReady = () =>
+    {
+        document.contentDigest = currentSchemaCanonicalDigest({
+            ...document,
+            contentDigest: null
+        });
+        writeFileSync(runtimeReady, `${JSON.stringify(document, null, 2)}\n`);
+    };
+    rewriteRuntimeReady();
+    const options = {
+        receiptRoot: directory,
+        runId,
+        sourceCommit,
+        assembly: path.join(directory, 'FsusBlog.Server.dll'),
+        serviceCatalog: path.join(directory, 'service-catalog.json'),
+        serviceEnvelope: path.join(directory, 'service-envelope.json'),
+        verifyRuntimeReady() {}
+    };
+    return {
+        directory,
+        runtimeReady,
+        admission,
+        document,
+        options,
+        rewriteRuntimeReady
+    };
+}
+
+test('runtime topology admission binds and reconsumes the exact current schema terminal before spawn', () =>
+{
+    const positive = currentSchemaAdmissionFixture();
+    try
+    {
+        const written = writeCurrentSchemaRuntimeTopologyAdmission(
+            positive.admission,
+            positive.options
+        );
+        const verified = verifyCurrentSchemaRuntimeTopologyAdmission(
+            positive.admission,
+            positive.options
+        );
+        assert.deepEqual(verified, written);
+        assert.equal(written.runId, positive.options.runId);
+        assert.equal(written.sourceCommit, positive.options.sourceCommit);
+        assert.equal(written.currentSchemaRuntimeReady.path, positive.runtimeReady);
+        assert.match(written.currentSchemaRuntimeReady.fileSha256, /^sha256:[a-f0-9]{64}$/u);
+        assert.equal(
+            written.currentSchemaRuntimeReady.contentDigest,
+            positive.document.contentDigest
+        );
+        assert.deepEqual(
+            written.currentSchemaRuntimeReady.canonicalIdentity,
+            positive.document.canonicalIdentity
+        );
+    }
+    finally
+    {
+        rmSync(positive.directory, { recursive: true, force: true });
+    }
+
+    const cases = [
+        {
+            label: 'missing admission',
+            mutate(value)
+            {
+                rmSync(value.admission);
+            },
+            expected: /admission is missing/u
+        },
+        {
+            label: 'tampered admission',
+            mutate(value)
+            {
+                const terminal = JSON.parse(readFileSync(value.admission, 'utf8'));
+                terminal.currentSchemaRuntimeReady.fileSha256 = `sha256:${'f'.repeat(64)}`;
+                writeFileSync(value.admission, `${JSON.stringify(terminal, null, 2)}\n`);
+            },
+            expected: /exact terminal mismatch/u
+        },
+        {
+            label: 'stale runtime run',
+            mutate(value)
+            {
+                value.document.runId = 'stale-run';
+                value.rewriteRuntimeReady();
+            },
+            expected: /terminal identity is invalid/u
+        },
+        {
+            label: 'stale runtime source',
+            mutate(value)
+            {
+                value.document.sourceCommit = 'd'.repeat(40);
+                value.rewriteRuntimeReady();
+            },
+            expected: /terminal identity is invalid/u
+        },
+        {
+            label: 'prepared runtime terminal',
+            mutate(value)
+            {
+                value.document.status = 'prepared';
+                value.document.qualificationEligible = false;
+                value.rewriteRuntimeReady();
+            },
+            expected: /terminal identity is invalid/u
+        },
+        {
+            label: 'prepared runtime sibling',
+            mutate(value)
+            {
+                writeFileSync(`${value.runtimeReady}.prepared`, '{}\n');
+            },
+            expected: /prepared sibling exists/u
+        }
+    ];
+    for (const entry of cases)
+    {
+        const value = currentSchemaAdmissionFixture();
+        let candidateSpawns = 0;
+        try
+        {
+            writeCurrentSchemaRuntimeTopologyAdmission(value.admission, value.options);
+            entry.mutate(value);
+            assert.throws(() =>
+            {
+                verifyCurrentSchemaRuntimeTopologyAdmission(value.admission, value.options);
+                candidateSpawns += 1;
+            }, entry.expected, entry.label);
+            assert.equal(candidateSpawns, 0, `${entry.label} must block candidate spawn`);
+        }
+        finally
+        {
+            rmSync(value.directory, { recursive: true, force: true });
+        }
     }
 });
 

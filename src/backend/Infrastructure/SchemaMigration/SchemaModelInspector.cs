@@ -194,7 +194,7 @@ public sealed class SchemaModelInspector : ISchemaModelInspector
                 NormalizePostgresSemanticType(dataType, udtName),
                 isIdentity ? null : NormalizePostgresDefault(rawDefault),
                 "none",
-                PhysicalType: SchemaPhysicalTypeProjection.NormalizePhysical(
+                PhysicalType: NormalizePostgresPhysicalType(
                     Convert.ToString(row["physical_type"]) ?? string.Empty),
                 Owner: new SchemaOwnerModel("postgresql", $"public.{tableName}.{columnName}"),
                 Collation: NormalizePostgresCollation(Convert.ToString(row["collation"])),
@@ -306,6 +306,7 @@ public sealed class SchemaModelInspector : ISchemaModelInspector
                      AND column_meta.attnum = constraint_column.attnum
                 ), '') AS columns,
                 referenced_rel.relname AS referenced_table,
+                referenced_namespace.nspname AS referenced_schema,
                 COALESCE((
                     SELECT string_agg(column_meta.attname, ',' ORDER BY referenced_column.ordinality)
                     FROM unnest(constraint_meta.confkey) WITH ORDINALITY AS referenced_column(attnum, ordinality)
@@ -328,6 +329,7 @@ public sealed class SchemaModelInspector : ISchemaModelInspector
             JOIN pg_class table_rel ON table_rel.oid = constraint_meta.conrelid
             JOIN pg_namespace table_namespace ON table_namespace.oid = table_rel.relnamespace
             LEFT JOIN pg_class referenced_rel ON referenced_rel.oid = constraint_meta.confrelid
+            LEFT JOIN pg_namespace referenced_namespace ON referenced_namespace.oid = referenced_rel.relnamespace
             WHERE table_namespace.nspname = 'public'
               AND constraint_meta.contype IN ('p', 'u', 'f', 'c');
             """).ConfigureAwait(false);
@@ -355,6 +357,9 @@ public sealed class SchemaModelInspector : ISchemaModelInspector
             string? referencedTable = row["referenced_table"] is DBNull
                 ? null
                 : CurrentSchemaCanonicalAuthority.NormalizeIdentifier(Convert.ToString(row["referenced_table"])!);
+            string? referencedSchema = kind == "foreign-key"
+                ? CurrentSchemaCanonicalAuthority.NormalizeIdentifier(Convert.ToString(row["referenced_schema"])!)
+                : null;
             string[] referencedColumns = ParseIdentifierList(Convert.ToString(row["referenced_columns"]));
             string? expression = row["expression"] is DBNull ? null : Convert.ToString(row["expression"])?.Trim();
             bool isDeferrable = Convert.ToBoolean(row["is_deferrable"]);
@@ -383,7 +388,8 @@ public sealed class SchemaModelInspector : ISchemaModelInspector
                     isValidated,
                     foreignKeyUpdateAction,
                     foreignKeyDeleteAction,
-                    foreignKeyMatchType));
+                    foreignKeyMatchType,
+                    referencedSchema));
         }
 
         foreach ((string tableName, SchemaTableModel table) in tables.ToArray())
@@ -674,6 +680,17 @@ public sealed class SchemaModelInspector : ISchemaModelInspector
                 $"PostgreSQL current schema column collation is not n/a, default, or schema-qualified: {value}.");
         }
         return normalized;
+    }
+
+    internal static string NormalizePostgresPhysicalType(string value)
+    {
+        string normalized = SchemaPhysicalTypeProjection.NormalizePhysical(value);
+        return normalized switch
+        {
+            "timestamp(6) without time zone" => "timestamp without time zone",
+            "timestamp(6) with time zone" => "timestamp with time zone",
+            _ => normalized
+        };
     }
 
     internal static string? NormalizePostgresDefault(string? rawDefault)

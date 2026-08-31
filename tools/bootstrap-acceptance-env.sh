@@ -2268,19 +2268,25 @@ EnsureManagedBackendSharedDebugBuild() {
     )
 }
 
-MaterializeCurrentSchemaForTestRuntime() {
-    local runId="${FSUSBLOG_TEST_RUN_ID:?current schema materializer run id is required}"
-    local sourceCommit="${FSUSBLOG_TEST_SOURCE_COMMIT:?current schema materializer source commit is required}"
-    local runDigest
-    runDigest="$({
+CurrentSchemaRunDigest() {
+    local runId="$1"
+    {
         if command -v sha256sum >/dev/null 2>&1; then
             printf '%s' "$runId" | sha256sum | awk '{print $1}'
         else
             printf '%s' "$runId" | shasum -a 256 | awk '{print $1}'
         fi
-    })"
+    }
+}
+
+MaterializeCurrentSchemaForTestRuntime() {
+    local runId="${FSUSBLOG_TEST_RUN_ID:?current schema materializer run id is required}"
+    local sourceCommit="${FSUSBLOG_TEST_SOURCE_COMMIT:?current schema materializer source commit is required}"
+    local runDigest
+    runDigest="$(CurrentSchemaRunDigest "$runId")"
     local receiptFile="$TMP_DIR/current-schema-test-materialization-${runDigest}.json"
     local runtimeReadyFile="$TMP_DIR/current-schema-runtime-ready-${runDigest}.json"
+    local runtimeTopologyAdmissionFile="$TMP_DIR/current-schema-runtime-topology-admission-${runDigest}.json"
     local serviceCatalogFile="$ROOT_DIR/config/testing/test-execution-service-catalog.json"
     local runtimeConfiguration="${FSUSBLOG_RUNTIME_CONFIGURATION:-Release}"
     case "$runtimeConfiguration" in
@@ -2310,15 +2316,55 @@ MaterializeCurrentSchemaForTestRuntime() {
             --source-commit "$sourceCommit" \
             --service-envelope "$EXECUTION_SERVICE_ENVELOPE_FILE" \
             --service-catalog "$serviceCatalogFile"
-    "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/db/verify-current-schema-test-materialization-receipt.mjs" \
+    ConnectionStrings__DefaultConnection="${POSTGRES_CONNECTION};Search Path=public" \
+        "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/db/verify-current-schema-test-materialization-receipt.mjs" \
         --receipt-root "$TMP_DIR" \
         --run-id "$runId" \
         --source-commit "$sourceCommit" \
         --assembly "$ROOT_DIR/src/backend/bin/$runtimeConfiguration/net10.0/FsusBlog.Server.dll" \
         --service-catalog "$serviceCatalogFile" \
         --service-envelope "$EXECUTION_SERVICE_ENVELOPE_FILE"
+    ConnectionStrings__DefaultConnection="${POSTGRES_CONNECTION};Search Path=public" \
+        "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/testing/fixture-catalog.mjs" \
+        write-current-schema-runtime-topology-admission \
+        --admission "$runtimeTopologyAdmissionFile" \
+        --receipt-root "$TMP_DIR" \
+        --run-id "$runId" \
+        --source-commit "$sourceCommit" \
+        --assembly "$ROOT_DIR/src/backend/bin/$runtimeConfiguration/net10.0/FsusBlog.Server.dll" \
+        --service-catalog "$serviceCatalogFile" \
+        --service-envelope "$EXECUTION_SERVICE_ENVELOPE_FILE" >/dev/null
     export FSUSBLOG_CURRENT_SCHEMA_TEST_RUNTIME_READY_RECEIPT="$runtimeReadyFile"
-    Log "current schema materialization receipt: $receiptFile runtimeReady=$runtimeReadyFile"
+    export FSUSBLOG_CURRENT_SCHEMA_RUNTIME_TOPOLOGY_ADMISSION_RECEIPT="$runtimeTopologyAdmissionFile"
+    Log "current schema materialization receipt: $receiptFile runtimeReady=$runtimeReadyFile runtimeTopologyAdmission=$runtimeTopologyAdmissionFile"
+}
+
+RequireCurrentSchemaRuntimeReady() {
+    local runId="${FSUSBLOG_TEST_RUN_ID:?current schema runtime-ready run id is required}"
+    local sourceCommit="${FSUSBLOG_TEST_SOURCE_COMMIT:?current schema runtime-ready source commit is required}"
+    local runtimeConfiguration="${FSUSBLOG_RUNTIME_CONFIGURATION:-Release}"
+    local serviceCatalogFile="$ROOT_DIR/config/testing/test-execution-service-catalog.json"
+    local expectedRuntimeReadyFile="$TMP_DIR/current-schema-runtime-ready-$(CurrentSchemaRunDigest "$runId").json"
+    local expectedAdmissionFile="$TMP_DIR/current-schema-runtime-topology-admission-$(CurrentSchemaRunDigest "$runId").json"
+    if [[ "${FSUSBLOG_CURRENT_SCHEMA_TEST_RUNTIME_READY_RECEIPT:-}" != "$expectedRuntimeReadyFile" ]]; then
+        Log 'current schema runtime-ready receipt path is missing or not the canonical run-derived path'
+        return 2
+    fi
+    if [[ "${FSUSBLOG_CURRENT_SCHEMA_RUNTIME_TOPOLOGY_ADMISSION_RECEIPT:-}" != "$expectedAdmissionFile" ]]; then
+        Log 'current schema runtime topology admission path is missing or not the canonical run-derived path'
+        return 2
+    fi
+    ConnectionStrings__DefaultConnection="${POSTGRES_CONNECTION};Search Path=public" \
+        "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/testing/fixture-catalog.mjs" \
+        verify-current-schema-runtime-topology-admission \
+        --admission "$expectedAdmissionFile" \
+        --receipt-root "$TMP_DIR" \
+        --run-id "$runId" \
+        --source-commit "$sourceCommit" \
+        --assembly "$ROOT_DIR/src/backend/bin/$runtimeConfiguration/net10.0/FsusBlog.Server.dll" \
+        --service-catalog "$serviceCatalogFile" \
+        --service-envelope "$EXECUTION_SERVICE_ENVELOPE_FILE" >/dev/null
+    Log "current schema runtime topology admission reverified: $expectedAdmissionFile"
 }
 
 EnsureBackend() {
@@ -2768,6 +2814,7 @@ Main() {
         return
     fi
     MaterializeCurrentSchemaForTestRuntime
+    RequireCurrentSchemaRuntimeReady
     if CiProductionHasDomain frontend-dist; then
         AllocateReadinessDeadline 'release bundle preparation'
         PrepareReleasePreviewBundle "$READINESS_DEADLINE_AT_MS"
@@ -2795,6 +2842,7 @@ Main() {
             "${RELEASE_PREVIEW_URL}/" \
             "$EXECUTION_DEADLINE_AT_MS"
     fi
+    RequireCurrentSchemaRuntimeReady
     PublishEnvironmentReadyReceipt
     # Runtime topology inventory only (#1710). URLs/containers/generatedAt are NOT fixture
     # completeness evidence — FixtureReceipt terminalStatus=verified is the sole authority.
@@ -2816,6 +2864,7 @@ Main() {
         --arg fixtureReceiptDigest "$FIXTURE_RECEIPT_DIGEST" \
         --arg fixtureReceiptTerminalStatus "${FIXTURE_RECEIPT_TERMINAL_STATUS:-unknown}" \
         --arg environmentReadyPath "$ENVIRONMENT_READY_RECEIPT_FILE" \
+        --slurpfile currentSchemaAdmission "$FSUSBLOG_CURRENT_SCHEMA_RUNTIME_TOPOLOGY_ADMISSION_RECEIPT" \
         '{
             schema: "fsusblog.acceptance-runtime-topology.v1",
             authority: "runtime-topology-only",
@@ -2825,6 +2874,7 @@ Main() {
             frontendUrl: $frontend,
             previewUrl: $preview,
             containers: {postgres: $postgres, redis: $redis},
+            currentSchemaAdmission: $currentSchemaAdmission[0],
             fixtureProfile: {
                 profileId: $profileId,
                 profileSource: $profileSource,

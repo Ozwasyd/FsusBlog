@@ -1,9 +1,15 @@
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { parseMatrix } from '../test-matrix/parse-matrix.mjs';
+import {
+    canonicalDigest as currentSchemaCanonicalDigest,
+    runtimeReadyReceiptPath,
+    runtimeReadySchema
+} from '../db/verify-current-schema-test-materialization-receipt.mjs';
 import {
     contentShapeCatalogDigest,
     readContentShapeAuthority,
@@ -18,6 +24,9 @@ const sortedUnique = (values) => Array.isArray(values) && values.every((value, i
 const readJson = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
 const profileSources = new Set(['dev-cli', 'matrix']);
 const sha256Json = (value) => `sha256:${createHash('sha256').update(stableStringify(value)).digest('hex')}`;
+const sha256Bytes = (value) => `sha256:${createHash('sha256').update(value).digest('hex')}`;
+const currentSchemaRuntimeTopologyAdmissionSchema =
+    'fsusblog.current-schema-runtime-topology-admission.v1';
 
 function stableStringify(value)
 {
@@ -2284,6 +2293,186 @@ export function validateFixtureCatalogs({
     return errors;
 }
 
+function currentSchemaRegularFile(file, label)
+{
+    if (typeof file !== 'string' || !path.isAbsolute(file))
+    {
+        throw new Error(`${label} path must be absolute`);
+    }
+    const resolved = path.resolve(file);
+    let stat;
+    try
+    {
+        stat = fs.lstatSync(resolved);
+    }
+    catch
+    {
+        throw new Error(`${label} is missing`);
+    }
+    if (!stat.isFile() || stat.isSymbolicLink() || fs.realpathSync(resolved) !== resolved)
+    {
+        throw new Error(`${label} must be a canonical regular file`);
+    }
+    return resolved;
+}
+
+function invokeCurrentSchemaRuntimeReadyVerifier({
+    receiptRoot,
+    runId,
+    sourceCommit,
+    assembly,
+    serviceCatalog,
+    serviceEnvelope
+})
+{
+    const verifier = path.join(root, 'tools/db/verify-current-schema-test-materialization-receipt.mjs');
+    const result = spawnSync(process.execPath, [
+        verifier,
+        '--mode', 'verify',
+        '--receipt-root', receiptRoot,
+        '--run-id', runId,
+        '--source-commit', sourceCommit,
+        '--assembly', assembly,
+        '--service-catalog', serviceCatalog,
+        '--service-envelope', serviceEnvelope
+    ], { cwd: root, encoding: 'utf8' });
+    if (result.status !== 0)
+    {
+        throw new Error(`current schema runtime-ready re-verification failed: ${result.stderr.trim()}`);
+    }
+}
+
+function currentSchemaRuntimeTopologyAdmissionPath(receiptRoot, runId)
+{
+    const runtimeReady = runtimeReadyReceiptPath(receiptRoot, runId);
+    const suffix = path.basename(runtimeReady)
+        .replace(/^current-schema-runtime-ready-/u, '')
+        .replace(/\.json$/u, '');
+    return path.join(path.dirname(runtimeReady), `current-schema-runtime-topology-admission-${suffix}.json`);
+}
+
+function readCurrentSchemaRuntimeReadyBinding({ receiptRoot, runId, sourceCommit })
+{
+    const expectedPath = runtimeReadyReceiptPath(receiptRoot, runId);
+    if (fs.existsSync(`${expectedPath}.prepared`))
+    {
+        throw new Error('current schema runtime-ready prepared sibling exists');
+    }
+    const runtimeReadyFile = currentSchemaRegularFile(expectedPath, 'current schema runtime-ready receipt');
+    const bytes = fs.readFileSync(runtimeReadyFile);
+    let runtimeReady;
+    try
+    {
+        runtimeReady = JSON.parse(bytes.toString('utf8'));
+    }
+    catch
+    {
+        throw new Error('current schema runtime-ready receipt is not valid JSON');
+    }
+    if (runtimeReady.schema !== runtimeReadySchema
+        || runtimeReady.status !== 'verified'
+        || runtimeReady.qualificationEligible !== true
+        || runtimeReady.runId !== runId
+        || runtimeReady.sourceCommit !== sourceCommit
+        || runtimeReady.contentDigest !== currentSchemaCanonicalDigest({
+            ...runtimeReady,
+            contentDigest: null
+        })
+        || runtimeReady.canonicalIdentity === null
+        || typeof runtimeReady.canonicalIdentity !== 'object'
+        || Array.isArray(runtimeReady.canonicalIdentity))
+    {
+        throw new Error('current schema runtime-ready terminal identity is invalid');
+    }
+    return {
+        path: runtimeReadyFile,
+        fileSha256: sha256Bytes(bytes),
+        contentDigest: runtimeReady.contentDigest,
+        runId: runtimeReady.runId,
+        sourceCommit: runtimeReady.sourceCommit,
+        canonicalIdentity: runtimeReady.canonicalIdentity
+    };
+}
+
+function buildCurrentSchemaRuntimeTopologyAdmission(options)
+{
+    const binding = readCurrentSchemaRuntimeReadyBinding(options);
+    const admission = {
+        schema: currentSchemaRuntimeTopologyAdmissionSchema,
+        status: 'verified',
+        qualificationEligible: true,
+        runId: options.runId,
+        sourceCommit: options.sourceCommit,
+        currentSchemaRuntimeReady: binding,
+        contentDigest: null
+    };
+    admission.contentDigest = sha256Json(admission);
+    return admission;
+}
+
+function writeExclusiveTerminal(file, value, label)
+{
+    const resolved = path.resolve(file);
+    if (resolved !== file)
+    {
+        throw new Error(`${label} output path must be absolute and canonical`);
+    }
+    fs.mkdirSync(path.dirname(resolved), { recursive: true });
+    const temporary = `${resolved}.next-${process.pid}-${Date.now()}`;
+    fs.writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, {
+        encoding: 'utf8',
+        flag: 'wx',
+        mode: 0o600
+    });
+    try
+    {
+        fs.linkSync(temporary, resolved);
+    }
+    catch (error)
+    {
+        if (error?.code === 'EEXIST')
+        {
+            throw new Error(`${label} terminal already exists`);
+        }
+        throw error;
+    }
+    finally
+    {
+        fs.rmSync(temporary, { force: true });
+    }
+}
+
+export function writeCurrentSchemaRuntimeTopologyAdmission(file, options)
+{
+    const expectedPath = currentSchemaRuntimeTopologyAdmissionPath(options.receiptRoot, options.runId);
+    if (path.resolve(file) !== expectedPath)
+    {
+        throw new Error('current schema runtime topology admission path is not canonical for the run');
+    }
+    (options.verifyRuntimeReady ?? invokeCurrentSchemaRuntimeReadyVerifier)(options);
+    const admission = buildCurrentSchemaRuntimeTopologyAdmission(options);
+    writeExclusiveTerminal(expectedPath, admission, 'current schema runtime topology admission');
+    return admission;
+}
+
+export function verifyCurrentSchemaRuntimeTopologyAdmission(file, options)
+{
+    const expectedPath = currentSchemaRuntimeTopologyAdmissionPath(options.receiptRoot, options.runId);
+    if (path.resolve(file) !== expectedPath)
+    {
+        throw new Error('current schema runtime topology admission path is not canonical for the run');
+    }
+    (options.verifyRuntimeReady ?? invokeCurrentSchemaRuntimeReadyVerifier)(options);
+    const admissionFile = currentSchemaRegularFile(expectedPath, 'current schema runtime topology admission');
+    const actual = JSON.parse(fs.readFileSync(admissionFile, 'utf8'));
+    const expected = buildCurrentSchemaRuntimeTopologyAdmission(options);
+    if (stableStringify(actual) !== stableStringify(expected))
+    {
+        throw new Error('current schema runtime topology admission exact terminal mismatch');
+    }
+    return actual;
+}
+
 function parseCliArgs(argv)
 {
     const options = { _: [] };
@@ -2415,6 +2604,28 @@ async function runCli(argv = process.argv.slice(2))
             producers: plan.producers,
             mutationPolicy: plan.mutationPolicy
         })}\n`);
+        return;
+    }
+    if (command === 'write-current-schema-runtime-topology-admission'
+        || command === 'verify-current-schema-runtime-topology-admission')
+    {
+        const admissionFile = options.admission ?? options.out;
+        const admissionOptions = {
+            receiptRoot: options['receipt-root'],
+            runId: options['run-id'],
+            sourceCommit: options['source-commit'],
+            assembly: options.assembly,
+            serviceCatalog: options['service-catalog'],
+            serviceEnvelope: options['service-envelope']
+        };
+        if (!admissionFile || Object.values(admissionOptions).some((value) => !value))
+        {
+            throw new Error(`${command} requires admission, receipt-root, run-id, source-commit, assembly, service-catalog, and service-envelope`);
+        }
+        const receipt = command.startsWith('write-', 0)
+            ? writeCurrentSchemaRuntimeTopologyAdmission(admissionFile, admissionOptions)
+            : verifyCurrentSchemaRuntimeTopologyAdmission(admissionFile, admissionOptions);
+        process.stdout.write(`${JSON.stringify(receipt)}\n`);
         return;
     }
     if (command === 'receipt-digest')

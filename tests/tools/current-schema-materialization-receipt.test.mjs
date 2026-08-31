@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -9,12 +10,17 @@ import {
     canonicalDigest,
     materializationReceiptPath,
     runtimeReadyReceiptPath,
-    verifyCurrentSchemaMaterializationReceipt
+    verifyCurrentSchemaMaterializationReceipt,
+    verifyCurrentSchemaRuntimeReadyReceipt
 } from '../../tools/db/verify-current-schema-test-materialization-receipt.mjs';
 
 const runId = 'issue-3105-receipt-fixture';
 const sourceCommit = 'a'.repeat(40);
 const imageReference = `postgres@sha256:${'b'.repeat(64)}`;
+const verifierScript = path.resolve(
+    import.meta.dirname,
+    '../../tools/db/verify-current-schema-test-materialization-receipt.mjs'
+);
 
 function sha256(value)
 {
@@ -31,6 +37,13 @@ function sealMaterializationReceipt(receipt)
     receipt.receiptDigest = '';
     receipt.receiptDigest = sha256(JSON.stringify(receipt, null, 2));
     return receipt;
+}
+
+function sealCandidateVerification(verification)
+{
+    verification.contentDigest = '';
+    verification.contentDigest = `sha256:${sha256(JSON.stringify(verification, null, 2))}`;
+    return verification;
 }
 
 function fixture()
@@ -192,6 +205,46 @@ function fixture()
     });
     const receiptFile = materializationReceiptPath(root, runId);
     writeJson(receiptFile, receipt);
+    const candidateVerification = sealCandidateVerification({
+        schema: 'fsusblog.current-schema-test-materialization-candidate-verification.v1',
+        status: 'verified',
+        commandMode: 'verify-current-schema-test-materialization-candidate',
+        testOnly: true,
+        readOnly: true,
+        qualificationEligible: true,
+        runId,
+        sourceCommit,
+        materializationReceiptDigest: receipt.receiptDigest,
+        materializationReceiptFileSha256: `sha256:${sha256(fs.readFileSync(receiptFile))}`,
+        assemblySha256: receipt.assemblySha256,
+        serviceIdentity: receipt.serviceIdentity,
+        databaseIdentity: receipt.databaseIdentity,
+        canonicalIdentity: receipt.canonicalIdentity,
+        observedDatabaseDigest: receipt.observedDatabaseDigest,
+        tableCount: receipt.tableCount,
+        contentDigest: ''
+    });
+    const fakeBin = path.join(root, 'fake-bin');
+    fs.mkdirSync(fakeBin);
+    const fakeDotnet = path.join(fakeBin, 'dotnet');
+    fs.writeFileSync(fakeDotnet, [
+        '#!/usr/bin/env node',
+        "if (process.env.ASPNETCORE_ENVIRONMENT !== 'Test') process.exit(21);",
+        "if (process.env.FSUSBLOG_CURRENT_SCHEMA_TEST_MATERIALIZATION !== '1') process.exit(22);",
+        "if (!process.env.ConnectionStrings__DefaultConnection) process.exit(23);",
+        'process.stdout.write(process.env.FSUSBLOG_TEST_CANDIDATE_VERIFICATION);'
+    ].join('\n'));
+    fs.chmodSync(fakeDotnet, 0o700);
+    const previousEnvironment = {
+        path: process.env.PATH,
+        candidate: process.env.FSUSBLOG_TEST_CANDIDATE_VERIFICATION,
+        connection: process.env.ConnectionStrings__DefaultConnection
+    };
+    process.env.PATH = `${fakeBin}${path.delimiter}${process.env.PATH}`;
+    process.env.FSUSBLOG_TEST_CANDIDATE_VERIFICATION =
+        JSON.stringify(candidateVerification);
+    process.env.ConnectionStrings__DefaultConnection =
+        'Host=127.0.0.1;Database=fsusblog';
     return {
         root,
         assembly,
@@ -201,6 +254,7 @@ function fixture()
         envelope,
         receipt,
         receiptFile,
+        candidateVerification,
         options: {
             receiptRoot: root,
             runId,
@@ -216,6 +270,21 @@ function fixture()
         },
         cleanup()
         {
+            for (const [key, value] of [
+                ['PATH', previousEnvironment.path],
+                ['FSUSBLOG_TEST_CANDIDATE_VERIFICATION', previousEnvironment.candidate],
+                ['ConnectionStrings__DefaultConnection', previousEnvironment.connection]
+            ])
+            {
+                if (value === undefined)
+                {
+                    delete process.env[key];
+                }
+                else
+                {
+                    process.env[key] = value;
+                }
+            }
             fs.rmSync(root, { recursive: true, force: true });
         }
     };
@@ -251,6 +320,106 @@ test('verified receipt publishes one exact run-bound runtime-ready terminal', (t
         () => verifyCurrentSchemaMaterializationReceipt(value.options),
         /terminal receipt already exists/u
     );
+    assert.deepEqual(
+        verifyCurrentSchemaRuntimeReadyReceipt(value.options).terminal,
+        result.terminal
+    );
+    const cli = spawnSync(process.execPath, [
+        verifierScript,
+        '--mode', 'verify',
+        '--receipt-root', value.root,
+        '--run-id', runId,
+        '--source-commit', sourceCommit,
+        '--assembly', value.assembly,
+        '--service-catalog', value.serviceCatalog,
+        '--service-envelope', value.serviceEnvelope
+    ], {
+        encoding: 'utf8',
+        env: process.env
+    });
+    assert.equal(cli.status, 0, cli.stderr);
+    assert.match(cli.stdout, /\[current-schema-runtime-ready\] reverified /u);
+});
+
+test('runtime-ready consumer fails closed on missing, tampered, stale, and prepared terminals', () =>
+{
+    const cases = [
+        {
+            label: 'missing',
+            mutate(_value, runtimeReady)
+            {
+                fs.rmSync(runtimeReady);
+            },
+            expected: /runtime-ready receipt is missing/u
+        },
+        {
+            label: 'tampered',
+            mutate(_value, runtimeReady, terminal)
+            {
+                terminal.tableCount += 1;
+                terminal.contentDigest = canonicalDigest({ ...terminal, contentDigest: null });
+                writeJson(runtimeReady, terminal);
+            },
+            expected: /exact terminal mismatch/u
+        },
+        {
+            label: 'stale run',
+            mutate(_value, runtimeReady, terminal)
+            {
+                terminal.runId = 'stale-run';
+                terminal.contentDigest = canonicalDigest({ ...terminal, contentDigest: null });
+                writeJson(runtimeReady, terminal);
+            },
+            expected: /exact terminal mismatch/u
+        },
+        {
+            label: 'stale source',
+            mutate(_value, runtimeReady, terminal)
+            {
+                terminal.sourceCommit = '2'.repeat(40);
+                terminal.contentDigest = canonicalDigest({ ...terminal, contentDigest: null });
+                writeJson(runtimeReady, terminal);
+            },
+            expected: /exact terminal mismatch/u
+        },
+        {
+            label: 'prepared terminal',
+            mutate(_value, runtimeReady, terminal)
+            {
+                terminal.status = 'prepared';
+                terminal.qualificationEligible = false;
+                terminal.contentDigest = canonicalDigest({ ...terminal, contentDigest: null });
+                writeJson(runtimeReady, terminal);
+            },
+            expected: /exact terminal mismatch/u
+        },
+        {
+            label: 'prepared sibling',
+            mutate(_value, runtimeReady)
+            {
+                fs.writeFileSync(`${runtimeReady}.prepared`, '{}\n');
+            },
+            expected: /runtime-ready prepared sibling exists/u
+        }
+    ];
+    for (const entry of cases)
+    {
+        const value = fixture();
+        try
+        {
+            const published = verifyCurrentSchemaMaterializationReceipt(value.options);
+            entry.mutate(value, published.outputFile, structuredClone(published.terminal));
+            assert.throws(
+                () => verifyCurrentSchemaRuntimeReadyReceipt(value.options),
+                entry.expected,
+                entry.label
+            );
+        }
+        finally
+        {
+            value.cleanup();
+        }
+    }
 });
 
 test('missing, prepared, stale, tampered, and structurally ambiguous receipts fail closed', (t) =>
@@ -308,6 +477,15 @@ test('missing, prepared, stale, tampered, and structurally ambiguous receipts fa
                 writeJson(value.receiptFile, value.receipt);
             },
             expected: /table inventory|receiptDigest mismatch/u
+        },
+        {
+            label: 'forged and recomputed live database digest',
+            mutate(value)
+            {
+                value.receipt.observedDatabaseDigest = '6'.repeat(64);
+                value.rewriteReceipt();
+            },
+            expected: /candidate verification identity mismatch/u
         },
         {
             label: 'extra top-level authority',

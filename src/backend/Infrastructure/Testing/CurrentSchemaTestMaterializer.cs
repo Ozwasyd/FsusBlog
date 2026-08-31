@@ -170,6 +170,76 @@ public static class CurrentSchemaTestMaterializer
     public const string PublicationFaultEnvironmentVariable = "FSUSBLOG_CURRENT_SCHEMA_TEST_PUBLICATION_FAULT";
     public const string ReceiptSchema = "fsusblog.current-schema-test-materialization-receipt.v1";
     public const string ProducerId = "current-schema-test-materializer";
+    public const string PublicSchemaObjectInventorySql = """
+        SELECT c.relname AS object_name, 'relation:' || c.relkind::text AS object_kind
+        FROM pg_catalog.pg_class c
+        JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public'
+          AND c.relkind IN ('r', 'p', 'v', 'm', 'S', 'f', 'c')
+        UNION ALL
+        SELECT p.proname AS object_name, 'routine:' || p.prokind::text AS object_kind
+        FROM pg_catalog.pg_proc p
+        JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'public'
+        UNION ALL
+        SELECT t.typname AS object_name, 'type:' || t.typtype::text AS object_kind
+        FROM pg_catalog.pg_type t
+        JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace
+        WHERE n.nspname = 'public'
+          AND t.typrelid = 0
+          AND t.typelem = 0
+        UNION ALL
+        SELECT o.oprname AS object_name, 'operator' AS object_kind
+        FROM pg_catalog.pg_operator o
+        JOIN pg_catalog.pg_namespace n ON n.oid = o.oprnamespace
+        WHERE n.nspname = 'public'
+        UNION ALL
+        SELECT c.opcname AS object_name, 'operator-class' AS object_kind
+        FROM pg_catalog.pg_opclass c
+        JOIN pg_catalog.pg_namespace n ON n.oid = c.opcnamespace
+        WHERE n.nspname = 'public'
+        UNION ALL
+        SELECT f.opfname AS object_name, 'operator-family' AS object_kind
+        FROM pg_catalog.pg_opfamily f
+        JOIN pg_catalog.pg_namespace n ON n.oid = f.opfnamespace
+        WHERE n.nspname = 'public'
+        UNION ALL
+        SELECT c.conname AS object_name, 'conversion' AS object_kind
+        FROM pg_catalog.pg_conversion c
+        JOIN pg_catalog.pg_namespace n ON n.oid = c.connamespace
+        WHERE n.nspname = 'public'
+        UNION ALL
+        SELECT c.collname AS object_name, 'collation' AS object_kind
+        FROM pg_catalog.pg_collation c
+        JOIN pg_catalog.pg_namespace n ON n.oid = c.collnamespace
+        WHERE n.nspname = 'public'
+        UNION ALL
+        SELECT s.stxname AS object_name, 'statistics' AS object_kind
+        FROM pg_catalog.pg_statistic_ext s
+        JOIN pg_catalog.pg_namespace n ON n.oid = s.stxnamespace
+        WHERE n.nspname = 'public'
+        UNION ALL
+        SELECT c.cfgname AS object_name, 'text-search-configuration' AS object_kind
+        FROM pg_catalog.pg_ts_config c
+        JOIN pg_catalog.pg_namespace n ON n.oid = c.cfgnamespace
+        WHERE n.nspname = 'public'
+        UNION ALL
+        SELECT d.dictname AS object_name, 'text-search-dictionary' AS object_kind
+        FROM pg_catalog.pg_ts_dict d
+        JOIN pg_catalog.pg_namespace n ON n.oid = d.dictnamespace
+        WHERE n.nspname = 'public'
+        UNION ALL
+        SELECT p.prsname AS object_name, 'text-search-parser' AS object_kind
+        FROM pg_catalog.pg_ts_parser p
+        JOIN pg_catalog.pg_namespace n ON n.oid = p.prsnamespace
+        WHERE n.nspname = 'public'
+        UNION ALL
+        SELECT t.tmplname AS object_name, 'text-search-template' AS object_kind
+        FROM pg_catalog.pg_ts_template t
+        JOIN pg_catalog.pg_namespace n ON n.oid = t.tmplnamespace
+        WHERE n.nspname = 'public'
+        ORDER BY object_kind, object_name;
+        """;
 
     private static readonly JsonSerializerOptions s_json = new()
     {
@@ -704,7 +774,7 @@ public static class CurrentSchemaTestMaterializer
                 ?? throw new InvalidOperationException("current_schema_materializer_database_observation_required"));
     }
 
-    private static async Task ValidateLivePostgresInstanceAsync(
+    internal static async Task ValidateLivePostgresInstanceAsync(
         ISqlSugarClient db,
         CurrentSchemaTestPostgresInstanceIdentity expected,
         CancellationToken cancellationToken)
@@ -875,76 +945,8 @@ public static class CurrentSchemaTestMaterializer
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        DataTable objects = await db.Ado.GetDataTableAsync("""
-            SELECT c.relname AS object_name, 'relation:' || c.relkind::text AS object_kind
-            FROM pg_catalog.pg_class c
-            JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-            WHERE n.nspname = 'public'
-              AND c.relkind IN ('r', 'p', 'v', 'm', 'S', 'f')
-            UNION ALL
-            SELECT p.proname AS object_name, 'routine:' || p.prokind::text AS object_kind
-            FROM pg_catalog.pg_proc p
-            JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
-            WHERE n.nspname = 'public'
-            UNION ALL
-            SELECT t.typname AS object_name, 'type:' || t.typtype::text AS object_kind
-            FROM pg_catalog.pg_type t
-            JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace
-            WHERE n.nspname = 'public'
-              AND t.typrelid = 0
-              AND t.typelem = 0
-            UNION ALL
-            SELECT o.oprname AS object_name, 'operator' AS object_kind
-            FROM pg_catalog.pg_operator o
-            JOIN pg_catalog.pg_namespace n ON n.oid = o.oprnamespace
-            WHERE n.nspname = 'public'
-            UNION ALL
-            SELECT c.opcname AS object_name, 'operator-class' AS object_kind
-            FROM pg_catalog.pg_opclass c
-            JOIN pg_catalog.pg_namespace n ON n.oid = c.opcnamespace
-            WHERE n.nspname = 'public'
-            UNION ALL
-            SELECT f.opfname AS object_name, 'operator-family' AS object_kind
-            FROM pg_catalog.pg_opfamily f
-            JOIN pg_catalog.pg_namespace n ON n.oid = f.opfnamespace
-            WHERE n.nspname = 'public'
-            UNION ALL
-            SELECT c.conname AS object_name, 'conversion' AS object_kind
-            FROM pg_catalog.pg_conversion c
-            JOIN pg_catalog.pg_namespace n ON n.oid = c.connamespace
-            WHERE n.nspname = 'public'
-            UNION ALL
-            SELECT c.collname AS object_name, 'collation' AS object_kind
-            FROM pg_catalog.pg_collation c
-            JOIN pg_catalog.pg_namespace n ON n.oid = c.collnamespace
-            WHERE n.nspname = 'public'
-            UNION ALL
-            SELECT s.stxname AS object_name, 'statistics' AS object_kind
-            FROM pg_catalog.pg_statistic_ext s
-            JOIN pg_catalog.pg_namespace n ON n.oid = s.stxnamespace
-            WHERE n.nspname = 'public'
-            UNION ALL
-            SELECT c.cfgname AS object_name, 'text-search-configuration' AS object_kind
-            FROM pg_catalog.pg_ts_config c
-            JOIN pg_catalog.pg_namespace n ON n.oid = c.cfgnamespace
-            WHERE n.nspname = 'public'
-            UNION ALL
-            SELECT d.dictname AS object_name, 'text-search-dictionary' AS object_kind
-            FROM pg_catalog.pg_ts_dict d
-            JOIN pg_catalog.pg_namespace n ON n.oid = d.dictnamespace
-            WHERE n.nspname = 'public'
-            UNION ALL
-            SELECT p.prsname AS object_name, 'text-search-parser' AS object_kind
-            FROM pg_catalog.pg_ts_parser p
-            JOIN pg_catalog.pg_namespace n ON n.oid = p.prsnamespace
-            WHERE n.nspname = 'public'
-            UNION ALL
-            SELECT t.tmplname AS object_name, 'text-search-template' AS object_kind
-            FROM pg_catalog.pg_ts_template t
-            JOIN pg_catalog.pg_namespace n ON n.oid = t.tmplnamespace
-            WHERE n.nspname = 'public'
-            ORDER BY object_kind, object_name;
-            """).ConfigureAwait(false);
+        DataTable objects = await db.Ado.GetDataTableAsync(PublicSchemaObjectInventorySql)
+            .ConfigureAwait(false);
         if (objects.Rows.Count > 0)
         {
             string first = Convert.ToString(objects.Rows[0]["object_name"]) ?? "unknown";

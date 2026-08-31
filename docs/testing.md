@@ -1154,7 +1154,11 @@ exit，也不会在没有 fresh catalog observation 时宣称补偿成功。独�
 随后重算 self/file/assembly/catalog/envelope digest，核对 run/source/service/
 database/canonical identity，并发布唯一 run-bound
 `current-schema-runtime-ready` terminal；任何 missing、tampered、stale、prepared
-或既存 terminal 都 fail closed。`serve` 路径仍不做 DDL。
+或既存 terminal 都 fail closed。该 consumer 必须调用 candidate assembly 的
+test-only read-only verification command，重新派生唯一 canonical authority 并
+观察 live PostgreSQL；本地协调修改 receipt 与 self-digest 不能成为 authority。
+fixture catalog 再将 runtime-ready terminal 精确封存为 runtime-topology admission，
+并在 runtime process spawn 前重新消费两者。`serve` 路径仍不做 DDL。
 
 `current-schema-bootstrap-integration` 是提交进仓库的 exclusive PostgreSQL lane，
 覆盖 empty-schema positive、partial/non-relation zero-write、prepared SIGKILL、

@@ -39,7 +39,8 @@ public sealed record SchemaConstraintModel(
     bool IsValidated = true,
     string? ForeignKeyUpdateAction = null,
     string? ForeignKeyDeleteAction = null,
-    string? ForeignKeyMatchType = null);
+    string? ForeignKeyMatchType = null,
+    string? ReferencedSchema = null);
 
 public sealed record SchemaIndexKeyModel(
     string Column,
@@ -689,7 +690,8 @@ public static class CurrentSchemaCanonicalAuthority
                 string.IsNullOrWhiteSpace(attribute.Expression) ? null : attribute.Expression.Trim(),
                 ForeignKeyUpdateAction: kind == "foreign-key" ? "no-action" : null,
                 ForeignKeyDeleteAction: kind == "foreign-key" ? "no-action" : null,
-                ForeignKeyMatchType: kind == "foreign-key" ? "simple" : null));
+                ForeignKeyMatchType: kind == "foreign-key" ? "simple" : null,
+                ReferencedSchema: kind == "foreign-key" ? "public" : null));
         }
         return constraints;
     }
@@ -781,7 +783,9 @@ public static class SchemaPhysicalTypeProjection
             throw new InvalidOperationException("Physical schema type is empty.");
         }
         string normalized = Regex.Replace(physicalType.Trim().ToLowerInvariant(), @"\s+", " ");
-        normalized = Regex.Replace(normalized, @"\s*([(),])\s*", "$1");
+        normalized = Regex.Replace(normalized, @"\s*\(\s*", "(");
+        normalized = Regex.Replace(normalized, @"\s*,\s*", ",");
+        normalized = Regex.Replace(normalized, @"\s*\)", ")");
         return normalized;
     }
 
@@ -1002,7 +1006,8 @@ public static class SchemaModelComparer
                 || expectedConstraint.IsValidated != actualConstraint.IsValidated
                 || expectedConstraint.ForeignKeyUpdateAction != actualConstraint.ForeignKeyUpdateAction
                 || expectedConstraint.ForeignKeyDeleteAction != actualConstraint.ForeignKeyDeleteAction
-                || expectedConstraint.ForeignKeyMatchType != actualConstraint.ForeignKeyMatchType)
+                || expectedConstraint.ForeignKeyMatchType != actualConstraint.ForeignKeyMatchType
+                || expectedConstraint.ReferencedSchema != actualConstraint.ReferencedSchema)
             {
                 errors.Add($"constraint mismatch {expected.Name}.{constraintName} owner={Describe(expected.Owner)}");
             }

@@ -35,6 +35,7 @@ fi
     source "$ROOT_DIR/tools/bootstrap-acceptance-env.sh"
     PORT_LEASE_RELEASE_ON_EXIT=0
     MaterializeCurrentSchemaForTestRuntime
+    RequireCurrentSchemaRuntimeReady
 )
 
 BACKEND_ARTIFACT="${FSUSBLOG_BACKEND_SERVER_DLL:-$ROOT_DIR/src/backend/bin/$CONFIGURATION/net10.0/FsusBlog.Server.dll}"

@@ -8,6 +8,7 @@
                 "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs",
                 "src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs",
                 "src/backend/Infrastructure/Testing/CurrentSchemaTestMaterializer.cs",
+                "src/backend/Infrastructure/Testing/CurrentSchemaTestMaterializationCandidateVerifier.cs",
                 "src/backend/Program.cs"
             ],
             "reason": "Process environment and command-host spellings remain external while the current-schema materializer and verifier use repository-governed internal symbols."

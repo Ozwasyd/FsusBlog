@@ -88,8 +88,10 @@ test('test current schema materializer remains explicit, canonical and pre-runti
 
   const databaseServices = bootstrap.indexOf("RunBootstrapParallel 'database services and backend producer'")
   const materialization = bootstrap.indexOf('MaterializeCurrentSchemaForTestRuntime\n', databaseServices)
-  const runtimeApplications = bootstrap.indexOf("RunBootstrapParallel 'runtime applications'", materialization)
-  assert.ok(databaseServices >= 0 && materialization > databaseServices && runtimeApplications > materialization)
+  const runtimeReadyGate = bootstrap.indexOf('RequireCurrentSchemaRuntimeReady\n', materialization)
+  const runtimeApplications = bootstrap.indexOf("RunBootstrapParallel 'runtime applications'", runtimeReadyGate)
+  assert.ok(databaseServices >= 0 && materialization > databaseServices)
+  assert.ok(runtimeReadyGate > materialization && runtimeApplications > runtimeReadyGate)
   assert.match(bootstrap, /ASPNETCORE_ENVIRONMENT=Test[\s\\]*\n[\s\S]*FSUSBLOG_CURRENT_SCHEMA_TEST_MATERIALIZATION=1/u)
   assert.match(bootstrap, /ConnectionStrings__DefaultConnection="\$\{POSTGRES_CONNECTION\};Search Path=public"/u)
   assert.match(bootstrap, /--service-envelope "\$EXECUTION_SERVICE_ENVELOPE_FILE"/u)
@@ -103,7 +105,7 @@ test('test current schema materializer remains explicit, canonical and pre-runti
     materializerFunction.indexOf('verify-current-schema-test-materialization-receipt.mjs')
   )
   assert.doesNotMatch(materializerInvocation, /--output/u)
-  assert.match(materializerFunction, /printf '%s' "\$runId" \| sha256sum/u)
+  assert.match(bootstrap, /CurrentSchemaRunDigest\(\)[\s\S]*?printf '%s' "\$runId" \| sha256sum/u)
   assert.match(materializerFunction, /current-schema-test-materialization-\$\{runDigest\}\.json/u)
   assert.match(
     materializerFunction,
@@ -114,9 +116,16 @@ test('test current schema materializer remains explicit, canonical and pre-runti
   const servicesOnly = homogeneousTwoNode.indexOf('bootstrap-acceptance-env.sh" --services-only')
   const sourceBoundBuild = homogeneousTwoNode.indexOf('-p:FsusBlogCommitSha=')
   const schemaMaterialization = homogeneousTwoNode.indexOf('MaterializeCurrentSchemaForTestRuntime')
+  const schemaRuntimeReadyGate = homogeneousTwoNode.indexOf('RequireCurrentSchemaRuntimeReady')
   const nodeSpawn = homogeneousTwoNode.indexOf('homogeneous-two-node-fixture.mjs')
   assert.ok(servicesOnly >= 0 && sourceBoundBuild > servicesOnly)
-  assert.ok(schemaMaterialization > sourceBoundBuild && nodeSpawn > schemaMaterialization)
+  assert.ok(schemaMaterialization > sourceBoundBuild)
+  assert.ok(schemaRuntimeReadyGate > schemaMaterialization && nodeSpawn > schemaRuntimeReadyGate)
   assert.match(homogeneousTwoNode, /FSUSBLOG_BOOTSTRAP_SOURCE_ONLY=1[\s\S]*?source "\$ROOT_DIR\/tools\/bootstrap-acceptance-env\.sh"/u)
   assert.match(homogeneousTwoNode, /PORT_LEASE_RELEASE_ON_EXIT=0[\s\S]*?MaterializeCurrentSchemaForTestRuntime/u)
+  assert.match(
+    bootstrap,
+    /RequireCurrentSchemaRuntimeReady\(\)[\s\S]*?expectedRuntimeReadyFile[\s\S]*?verify-current-schema-runtime-topology-admission/u
+  )
+  assert.match(bootstrap, /--slurpfile currentSchemaAdmission[\s\S]*?currentSchemaAdmission: \$currentSchemaAdmission\[0\]/u)
 })

@@ -41,7 +41,7 @@ RequireCommand() {
     command -v "$1" >/dev/null 2>&1 || Fail "required command is unavailable: $1"
 }
 
-for requiredCommand in docker dotnet git node sha256sum; do
+for requiredCommand in docker dotnet git node pgrep ps setsid sha256sum; do
     RequireCommand "$requiredCommand"
 done
 [[ "$SOURCE_COMMIT" =~ ^[a-f0-9]{40}$ ]] || Fail 'source commit must be an exact lowercase Git object identity'
@@ -267,7 +267,8 @@ NODE
 RunCanonicalReceiptVerifier() {
     local runId="$1"
     local envelope="$2"
-    node "$RECEIPT_VERIFIER" \
+    ConnectionStrings__DefaultConnection="${CONNECTION_STRING};Search Path=public" \
+        node "$RECEIPT_VERIFIER" \
         --receipt-root "$OUTPUT_ROOT" \
         --run-id "$runId" \
         --source-commit "$SOURCE_COMMIT" \
@@ -281,7 +282,8 @@ ExpectCanonicalReceiptVerifierFailure() {
     local stage="$1"
     local runId="$2"
     local envelope="$3"
-    if node "$RECEIPT_VERIFIER" \
+    if ConnectionStrings__DefaultConnection="${CONNECTION_STRING};Search Path=public" \
+        node "$RECEIPT_VERIFIER" \
         --receipt-root "$OUTPUT_ROOT" \
         --run-id "$runId" \
         --source-commit "$SOURCE_COMMIT" \
@@ -364,6 +366,37 @@ ExpectVerifierFailure() {
     WriteStageReceipt "$stage" rejected 'production CurrentSchemaStartupVerifier rejected the injected PostgreSQL drift'
 }
 
+RestoreOwnedIndex() {
+    local indexName="$1"
+    local definition="$2"
+    PostgresSql --command "DROP INDEX public.${indexName}; ${definition};" >/dev/null
+    RunStartupVerifier >/dev/null
+}
+
+RestoreOwnedConstraint() {
+    local tableName="$1"
+    local constraintName="$2"
+    local definition="$3"
+    PostgresSql --command "ALTER TABLE public.${tableName} DROP CONSTRAINT ${constraintName}; ALTER TABLE public.${tableName} ADD CONSTRAINT ${constraintName} ${definition};" >/dev/null
+    RunStartupVerifier >/dev/null
+}
+
+RestoreOwnedSequence() {
+    local tableName="$1"
+    local columnName="$2"
+    local sequenceName="$3"
+    local sequenceType="$4"
+    local startValue="$5"
+    local incrementBy="$6"
+    local minValue="$7"
+    local maxValue="$8"
+    local cacheSize="$9"
+    local cycle="${10}"
+    local cycleClause='NO CYCLE'
+    [[ "$cycle" == true ]] && cycleClause='CYCLE'
+    PostgresSql --command "CREATE SEQUENCE public.${sequenceName} AS ${sequenceType} START WITH ${startValue} INCREMENT BY ${incrementBy} MINVALUE ${minValue} MAXVALUE ${maxValue} CACHE ${cacheSize} ${cycleClause} OWNED BY public.${tableName}.${columnName}; ALTER TABLE public.${tableName} ALTER COLUMN ${columnName} SET DEFAULT nextval('public.${sequenceName}'::regclass);" >/dev/null
+}
+
 docker network create "$NETWORK_NAME" >/dev/null
 docker image inspect "$POSTGRES_IMAGE" >/dev/null 2>&1 \
     || Fail "canonical pinned PostgreSQL image is not present locally; correctness lanes deny pulls: $POSTGRES_IMAGE"
@@ -397,6 +430,26 @@ cmp -s "$partialBeforeFacts" "$partialAfterFacts" \
 WriteStageReceipt partial-schema rejected "nonempty relation was preserved; before/after canonical catalog digest=${beforePartial}; zero materializer writes; no terminal receipt"
 
 ResetPublicSchema
+compositeRunId="${RUN_PREFIX}-composite-type"
+compositeEnvelope="$OUTPUT_ROOT/${compositeRunId}-service-envelope.json"
+PostgresSql --command 'CREATE TYPE public.current_schema_composite_sentinel AS (id bigint, label text);' >/dev/null
+WriteServiceEnvelope "$compositeRunId" "$compositeEnvelope"
+compositeBeforeFacts="$OUTPUT_ROOT/composite-type-before.facts"
+compositeAfterFacts="$OUTPUT_ROOT/composite-type-after.facts"
+WritePublicCatalogFacts "$compositeBeforeFacts"
+compositeBefore="$(sha256sum "$compositeBeforeFacts" | awk '{print $1}')"
+ExpectMaterializerFailure composite-type "$compositeRunId" "$compositeEnvelope"
+[[ ! -e "$(ReceiptPath "$compositeRunId").prepared" ]] \
+    || Fail 'composite-type rejection left a prepared receipt'
+WritePublicCatalogFacts "$compositeAfterFacts"
+compositeAfter="$(sha256sum "$compositeAfterFacts" | awk '{print $1}')"
+[[ "$compositeBefore" == "$compositeAfter" ]] \
+    || Fail 'composite-type rejection changed raw PostgreSQL catalog facts'
+cmp -s "$compositeBeforeFacts" "$compositeAfterFacts" \
+    || Fail 'composite-type raw PostgreSQL catalog facts changed despite digest comparison'
+WriteStageReceipt composite-type rejected "public composite type and its relation/attribute facts were byte-identical before/after; digest=${compositeBefore}; no prepared or verified receipt"
+
+ResetPublicSchema
 nonrelationRunId="${RUN_PREFIX}-nonrelation"
 nonrelationEnvelope="$OUTPUT_ROOT/${nonrelationRunId}-service-envelope.json"
 PostgresSql --command 'CREATE FUNCTION public.current_schema_nonrelation_sentinel() RETURNS integer LANGUAGE sql IMMUTABLE AS $$ SELECT 1 $$;' >/dev/null
@@ -422,10 +475,39 @@ ResetPublicSchema
 crashRunId="${RUN_PREFIX}-prepared-crash"
 crashEnvelope="$OUTPUT_ROOT/${crashRunId}-service-envelope.json"
 WriteServiceEnvelope "$crashRunId" "$crashEnvelope"
-RunMaterializer "$crashRunId" "$crashEnvelope" \
-    env FSUSBLOG_CURRENT_SCHEMA_TEST_PUBLICATION_FAULT=after-prepared-hold \
+node "$SERVICE_ENVELOPE_PRODUCER" \
+    --verify-envelope "$crashEnvelope" \
+    --service-catalog "$CATALOG_FILE" >/dev/null
+setsid env \
+    ASPNETCORE_ENVIRONMENT=Test \
+    FSUSBLOG_CURRENT_SCHEMA_TEST_MATERIALIZATION=1 \
+    FSUSBLOG_CURRENT_SCHEMA_TEST_RECEIPT_ROOT="$OUTPUT_ROOT" \
+    FSUSBLOG_CURRENT_SCHEMA_TEST_PUBLICATION_FAULT=after-prepared-hold \
+    ConnectionStrings__DefaultConnection="${CONNECTION_STRING};Search Path=public" \
+    dotnet "$SERVER_DLL" \
+        materialize-current-schema-test \
+        --run-id "$crashRunId" \
+        --source-commit "$SOURCE_COMMIT" \
+        --service-envelope "$crashEnvelope" \
+        --service-catalog "$CATALOG_FILE" \
     >"$OUTPUT_ROOT/prepared-crash.log" 2>&1 &
 crashPid=$!
+lanePgid="$(ps -o pgid= -p "$$" | tr -d ' ')"
+crashGroupDeadline=$((SECONDS + 5))
+while true; do
+    kill -0 "$crashPid" >/dev/null 2>&1 \
+        || Fail 'prepared crash materializer exited before process-group admission'
+    crashPgid="$(ps -o pgid= -p "$crashPid" | tr -d ' ')"
+    if [[ "$crashPgid" == "$crashPid" && "$crashPgid" != "$lanePgid" ]]; then
+        break
+    fi
+    ((SECONDS < crashGroupDeadline)) \
+        || Fail 'prepared crash materializer did not start in an exact isolated process group'
+    sleep 0.1
+done
+crashArgs="$(ps -o args= -p "$crashPid")"
+[[ "$crashArgs" == *"$SERVER_DLL materialize-current-schema-test --run-id $crashRunId"* ]] \
+    || Fail 'prepared crash process identity does not match the exact materializer candidate'
 crashPrepared="$(ReceiptPath "$crashRunId").prepared"
 crashDeadline=$((SECONDS + 45))
 until [[ -s "$crashPrepared" ]]; do
@@ -436,8 +518,14 @@ until [[ -s "$crashPrepared" ]]; do
     ((SECONDS < crashDeadline)) || Fail 'prepared crash staging receipt was not published'
     sleep 0.1
 done
-kill -KILL "$crashPid"
+kill -KILL -- "-$crashPgid"
 wait "$crashPid" >/dev/null 2>&1 || true
+survivorDeadline=$((SECONDS + 5))
+while pgrep -g "$crashPgid" >/dev/null 2>&1; do
+    ((SECONDS < survivorDeadline)) \
+        || Fail 'prepared crash materializer process group retained a surviving candidate'
+    sleep 0.1
+done
 AssertPreparedNoneligibleWhenPresent "$crashRunId"
 [[ ! -e "$(ReceiptPath "$crashRunId")" ]] || Fail 'prepared crash left a verified terminal receipt'
 rollbackDeadline=$((SECONDS + 20))
@@ -445,7 +533,7 @@ until [[ "$(PostgresScalar "SELECT count(*) FROM pg_catalog.pg_tables WHERE sche
     ((SECONDS < rollbackDeadline)) || Fail 'prepared crash transaction did not roll back to an empty schema'
     sleep 0.2
 done
-WriteStageReceipt prepared-crash rejected 'SIGKILL after prepared publication left only noneligible staging evidence and PostgreSQL rolled back the open DDL transaction'
+WriteStageReceipt prepared-crash rejected 'SIGKILL of the exact isolated materializer process group left zero candidates, only noneligible staging evidence, and PostgreSQL rolled back the open DDL transaction'
 
 ResetPublicSchema
 positiveRunId="${RUN_PREFIX}-positive"
@@ -476,37 +564,207 @@ ExpectVerifierFailure extra-default
 PostgresSql --command "ALTER TABLE public.${defaultTable} ALTER COLUMN ${defaultColumn} DROP DEFAULT;" >/dev/null
 RunStartupVerifier >/dev/null
 
-indexTarget="$(PostgresScalar "SELECT quote_ident(c.relname)||'.'||quote_ident(a.attname) FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace JOIN pg_catalog.pg_attribute a ON a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped WHERE n.nspname='public' AND c.relkind='r' ORDER BY c.relname,a.attnum LIMIT 1;")"
-[[ "$indexTarget" == *.* ]] || Fail 'no canonical column is available for index drift stages'
-indexTable="${indexTarget%%.*}"
-indexColumn="${indexTarget#*.}"
-PostgresSql --command "CREATE INDEX current_schema_drift_desc ON public.${indexTable} (${indexColumn} DESC);" >/dev/null
-ExpectVerifierFailure index-desc
-PostgresSql --command 'DROP INDEX public.current_schema_drift_desc;' >/dev/null
-PostgresSql --command "CREATE INDEX current_schema_drift_partial ON public.${indexTable} (${indexColumn}) WHERE ${indexColumn} IS NOT NULL;" >/dev/null
-ExpectVerifierFailure index-partial
-PostgresSql --command 'DROP INDEX public.current_schema_drift_partial;' >/dev/null
-PostgresSql --command "CREATE UNIQUE INDEX current_schema_drift_nulls_not_distinct ON public.${indexTable} (${indexColumn}) NULLS NOT DISTINCT;" >/dev/null
+ownedTextIndex="$(PostgresScalar "SELECT quote_ident(table_rel.relname)||'|'||quote_ident(index_rel.relname)||'|'||quote_ident(key_column.attname)||'|'||pg_get_indexdef(index_rel.oid) FROM pg_index index_meta JOIN pg_class table_rel ON table_rel.oid=index_meta.indrelid JOIN pg_namespace table_namespace ON table_namespace.oid=table_rel.relnamespace JOIN pg_class index_rel ON index_rel.oid=index_meta.indexrelid JOIN pg_am access_method ON access_method.oid=index_rel.relam JOIN pg_attribute key_column ON key_column.attrelid=table_rel.oid AND key_column.attnum=index_meta.indkey[0] WHERE table_namespace.nspname='public' AND access_method.amname='btree' AND NOT index_meta.indisunique AND index_meta.indnkeyatts=1 AND index_meta.indnatts=1 AND index_meta.indexprs IS NULL AND index_meta.indpred IS NULL AND (index_meta.indoption[0] & 1)=0 AND key_column.atttypid IN ('text'::regtype,'varchar'::regtype) AND NOT EXISTS (SELECT 1 FROM pg_constraint owner WHERE owner.conindid=index_meta.indexrelid) ORDER BY table_rel.relname,index_rel.relname LIMIT 1;")"
+[[ "$ownedTextIndex" == *'|'* ]] || Fail 'canonical schema has no directly-owned single-key text index for physical index field drift'
+IFS='|' read -r indexTable indexName indexColumn indexOriginalDefinition <<<"$ownedTextIndex"
+
+PostgresSql --command "DROP INDEX public.${indexName}; CREATE INDEX ${indexName} ON public.${indexTable} USING btree (${indexColumn} DESC NULLS LAST);" >/dev/null
+ExpectVerifierFailure index-direction
+RestoreOwnedIndex "$indexName" "$indexOriginalDefinition"
+
+PostgresSql --command "DROP INDEX public.${indexName}; CREATE INDEX ${indexName} ON public.${indexTable} USING btree (${indexColumn} ASC NULLS FIRST);" >/dev/null
+ExpectVerifierFailure index-null-placement
+RestoreOwnedIndex "$indexName" "$indexOriginalDefinition"
+
+PostgresSql --command "DROP INDEX public.${indexName}; CREATE INDEX ${indexName} ON public.${indexTable} USING btree (${indexColumn}) WHERE ${indexColumn} IS NOT NULL;" >/dev/null
+ExpectVerifierFailure index-predicate
+RestoreOwnedIndex "$indexName" "$indexOriginalDefinition"
+
+PostgresSql --command "DROP INDEX public.${indexName}; CREATE INDEX ${indexName} ON public.${indexTable} USING hash (${indexColumn});" >/dev/null
+ExpectVerifierFailure index-access-method
+RestoreOwnedIndex "$indexName" "$indexOriginalDefinition"
+
+PostgresSql --command "DROP INDEX public.${indexName}; CREATE INDEX ${indexName} ON public.${indexTable} USING btree (${indexColumn} pg_catalog.text_pattern_ops);" >/dev/null
+ExpectVerifierFailure index-operator-class
+RestoreOwnedIndex "$indexName" "$indexOriginalDefinition"
+
+alternateIndexCollation="$(PostgresScalar "SELECT format('%I.%I', namespace.nspname, collation.collname) FROM pg_collation collation JOIN pg_namespace namespace ON namespace.oid=collation.collnamespace JOIN pg_attribute attribute_meta ON attribute_meta.attrelid='public.${indexTable}'::regclass AND attribute_meta.attname=trim(both chr(34) from '${indexColumn}') WHERE collation.oid<>attribute_meta.attcollation AND collation.collencoding IN (-1,pg_char_to_encoding(current_setting('server_encoding'))) ORDER BY CASE WHEN collation.collname='C' THEN 0 ELSE 1 END,namespace.nspname,collation.collname LIMIT 1;")"
+[[ "$alternateIndexCollation" == *.* ]] || Fail 'no alternate compatible PostgreSQL collation is available for the owned index key'
+PostgresSql --command "DROP INDEX public.${indexName}; CREATE INDEX ${indexName} ON public.${indexTable} USING btree (${indexColumn} COLLATE ${alternateIndexCollation});" >/dev/null
+ExpectVerifierFailure index-collation
+RestoreOwnedIndex "$indexName" "$indexOriginalDefinition"
+
+includedColumn="$(PostgresScalar "SELECT quote_ident(attribute_meta.attname) FROM pg_attribute attribute_meta WHERE attribute_meta.attrelid='public.${indexTable}'::regclass AND attribute_meta.attnum>0 AND NOT attribute_meta.attisdropped AND attribute_meta.attname<>trim(both chr(34) from '${indexColumn}') ORDER BY attribute_meta.attnum LIMIT 1;")"
+[[ -n "$includedColumn" ]] || Fail 'owned index table has no second column for INCLUDE drift'
+PostgresSql --command "DROP INDEX public.${indexName}; CREATE INDEX ${indexName} ON public.${indexTable} USING btree (${indexColumn}) INCLUDE (${includedColumn});" >/dev/null
+ExpectVerifierFailure index-include
+RestoreOwnedIndex "$indexName" "$indexOriginalDefinition"
+
+ownedUniqueIndex="$(PostgresScalar "SELECT quote_ident(table_rel.relname)||'|'||quote_ident(index_rel.relname)||'|'||quote_ident(key_column.attname)||'|'||pg_get_indexdef(index_rel.oid) FROM pg_index index_meta JOIN pg_class table_rel ON table_rel.oid=index_meta.indrelid JOIN pg_namespace table_namespace ON table_namespace.oid=table_rel.relnamespace JOIN pg_class index_rel ON index_rel.oid=index_meta.indexrelid JOIN pg_am access_method ON access_method.oid=index_rel.relam JOIN pg_attribute key_column ON key_column.attrelid=table_rel.oid AND key_column.attnum=index_meta.indkey[0] WHERE table_namespace.nspname='public' AND access_method.amname='btree' AND index_meta.indisunique AND index_meta.indnkeyatts=1 AND index_meta.indnatts=1 AND index_meta.indexprs IS NULL AND index_meta.indpred IS NULL AND (index_meta.indoption[0] & 1)=0 AND NOT EXISTS (SELECT 1 FROM pg_constraint owner WHERE owner.conindid=index_meta.indexrelid) ORDER BY table_rel.relname,index_rel.relname LIMIT 1;")"
+[[ "$ownedUniqueIndex" == *'|'* ]] || Fail 'canonical schema has no directly-owned single-key unique index for NULLS NOT DISTINCT drift'
+IFS='|' read -r uniqueIndexTable uniqueIndexName uniqueIndexColumn uniqueIndexOriginalDefinition <<<"$ownedUniqueIndex"
+PostgresSql --command "DROP INDEX public.${uniqueIndexName}; CREATE UNIQUE INDEX ${uniqueIndexName} ON public.${uniqueIndexTable} USING btree (${uniqueIndexColumn}) NULLS NOT DISTINCT;" >/dev/null
 ExpectVerifierFailure index-nulls-not-distinct
-PostgresSql --command 'DROP INDEX public.current_schema_drift_nulls_not_distinct;' >/dev/null
-RunStartupVerifier >/dev/null
+RestoreOwnedIndex "$uniqueIndexName" "$uniqueIndexOriginalDefinition"
 
 precisionTarget="$(PostgresScalar "SELECT quote_ident(table_name)||'.'||quote_ident(column_name) FROM information_schema.columns WHERE table_schema='public' AND data_type='timestamp without time zone' AND datetime_precision=6 ORDER BY table_name,column_name LIMIT 1;")"
 if [[ "$precisionTarget" == *.* ]]; then
     precisionTable="${precisionTarget%%.*}"
     precisionColumn="${precisionTarget#*.}"
-    PostgresSql --command "ALTER TABLE public.${precisionTable} ALTER COLUMN ${precisionColumn} TYPE timestamp(3) without time zone;" >/dev/null
+    PostgresSql --command "ALTER TABLE public.${precisionTable} ALTER COLUMN ${precisionColumn} TYPE timestamp(0) without time zone;" >/dev/null
     ExpectVerifierFailure type-precision
     PostgresSql --command "ALTER TABLE public.${precisionTable} ALTER COLUMN ${precisionColumn} TYPE timestamp(6) without time zone;" >/dev/null
+    RunStartupVerifier >/dev/null
+    WriteStageReceipt type-default-precision verified 'explicit PostgreSQL timestamp(6) normalized to the canonical unspecified default precision'
 else
     WriteStageReceipt type-precision not-applicable 'canonical schema exposes no timestamp(6) column'
 fi
 RunStartupVerifier >/dev/null
 
-PostgresSql --command "ALTER TABLE public.${indexTable} ADD CONSTRAINT current_schema_drift_constraint CHECK (true) NOT VALID;" >/dev/null
-ExpectVerifierFailure constraint-metadata
-PostgresSql --command "ALTER TABLE public.${indexTable} DROP CONSTRAINT current_schema_drift_constraint;" >/dev/null
+columnCollationTarget="$(PostgresScalar "SELECT quote_ident(table_rel.relname)||'|'||quote_ident(attribute_meta.attname)||'|'||format_type(attribute_meta.atttypid,attribute_meta.atttypmod)||'|'||format('%I.%I',original_namespace.nspname,original_collation.collname)||'|'||format('%I.%I',alternate_namespace.nspname,alternate_collation.collname) FROM pg_class table_rel JOIN pg_namespace table_namespace ON table_namespace.oid=table_rel.relnamespace JOIN pg_attribute attribute_meta ON attribute_meta.attrelid=table_rel.oid AND attribute_meta.attnum>0 AND NOT attribute_meta.attisdropped JOIN pg_collation original_collation ON original_collation.oid=attribute_meta.attcollation JOIN pg_namespace original_namespace ON original_namespace.oid=original_collation.collnamespace CROSS JOIN LATERAL (SELECT candidate.* FROM pg_collation candidate WHERE candidate.oid<>attribute_meta.attcollation AND candidate.collencoding IN (-1,pg_char_to_encoding(current_setting('server_encoding'))) ORDER BY CASE WHEN candidate.collname='C' THEN 0 ELSE 1 END,candidate.oid LIMIT 1) alternate_collation JOIN pg_namespace alternate_namespace ON alternate_namespace.oid=alternate_collation.collnamespace WHERE table_namespace.nspname='public' AND attribute_meta.atttypid IN ('text'::regtype,'varchar'::regtype) AND NOT EXISTS (SELECT 1 FROM pg_attrdef default_meta WHERE default_meta.adrelid=table_rel.oid AND default_meta.adnum=attribute_meta.attnum) ORDER BY table_rel.relname,attribute_meta.attnum LIMIT 1;")"
+[[ "$columnCollationTarget" == *'|'* ]] || Fail 'canonical schema has no owned collatable column with an alternate compatible collation'
+IFS='|' read -r collationTable collationColumn collationPhysicalType originalColumnCollation alternateColumnCollation <<<"$columnCollationTarget"
+PostgresSql --command "ALTER TABLE public.${collationTable} ALTER COLUMN ${collationColumn} TYPE ${collationPhysicalType} COLLATE ${alternateColumnCollation};" >/dev/null
+ExpectVerifierFailure column-collation
+PostgresSql --command "ALTER TABLE public.${collationTable} ALTER COLUMN ${collationColumn} TYPE ${collationPhysicalType} COLLATE ${originalColumnCollation};" >/dev/null
 RunStartupVerifier >/dev/null
+
+ownedSequence="$(PostgresScalar "SELECT quote_ident(owner_rel.relname)||'|'||quote_ident(owner_attribute.attname)||'|'||quote_ident(sequence_rel.relname)||'|'||format_type(sequence_meta.seqtypid,-1)||'|'||sequence_meta.seqstart::text||'|'||sequence_meta.seqincrement::text||'|'||sequence_meta.seqmin::text||'|'||sequence_meta.seqmax::text||'|'||sequence_meta.seqcache::text||'|'||sequence_meta.seqcycle::text FROM pg_class sequence_rel JOIN pg_namespace sequence_namespace ON sequence_namespace.oid=sequence_rel.relnamespace JOIN pg_sequence sequence_meta ON sequence_meta.seqrelid=sequence_rel.oid JOIN pg_depend dependency ON dependency.classid='pg_class'::regclass AND dependency.objid=sequence_rel.oid AND dependency.refclassid='pg_class'::regclass AND dependency.deptype='a' JOIN pg_class owner_rel ON owner_rel.oid=dependency.refobjid JOIN pg_namespace owner_namespace ON owner_namespace.oid=owner_rel.relnamespace JOIN pg_attribute owner_attribute ON owner_attribute.attrelid=owner_rel.oid AND owner_attribute.attnum=dependency.refobjsubid WHERE sequence_namespace.nspname='public' AND owner_namespace.nspname='public' AND sequence_meta.seqtypid='integer'::regtype ORDER BY owner_rel.relname,owner_attribute.attnum LIMIT 1;")"
+[[ "$ownedSequence" == *'|'* ]] || Fail 'canonical schema has no integer serial-owned sequence for generation and option drift'
+IFS='|' read -r sequenceTable sequenceColumn sequenceName sequenceType sequenceStart sequenceIncrement sequenceMin sequenceMax sequenceCache sequenceCycle <<<"$ownedSequence"
+
+for identityKind in 'BY DEFAULT' 'ALWAYS'; do
+    identityStage="identity-generation-$(printf '%s' "$identityKind" | tr '[:upper:] ' '[:lower:]-')"
+    PostgresSql --command "ALTER TABLE public.${sequenceTable} ALTER COLUMN ${sequenceColumn} DROP DEFAULT; ALTER SEQUENCE public.${sequenceName} OWNED BY NONE; DROP SEQUENCE public.${sequenceName}; ALTER TABLE public.${sequenceTable} ALTER COLUMN ${sequenceColumn} ADD GENERATED ${identityKind} AS IDENTITY (SEQUENCE NAME public.${sequenceName} AS ${sequenceType} START WITH ${sequenceStart} INCREMENT BY ${sequenceIncrement} MINVALUE ${sequenceMin} MAXVALUE ${sequenceMax} CACHE ${sequenceCache} NO CYCLE);" >/dev/null
+    ExpectVerifierFailure "$identityStage"
+    PostgresSql --command "ALTER TABLE public.${sequenceTable} ALTER COLUMN ${sequenceColumn} DROP IDENTITY;" >/dev/null
+    RestoreOwnedSequence "$sequenceTable" "$sequenceColumn" "$sequenceName" "$sequenceType" "$sequenceStart" "$sequenceIncrement" "$sequenceMin" "$sequenceMax" "$sequenceCache" "$sequenceCycle"
+    RunStartupVerifier >/dev/null
+done
+
+sequenceStartDrift="$(node --input-type=module -e "process.stdout.write(String(BigInt('$sequenceStart') + 1n))")"
+sequenceIncrementDrift="$(node --input-type=module -e "process.stdout.write(String(BigInt('$sequenceIncrement') + 1n))")"
+sequenceMaxDrift="$(node --input-type=module -e "process.stdout.write(String(BigInt('$sequenceMax') - 1n))")"
+sequenceCacheDrift="$(node --input-type=module -e "process.stdout.write(String(BigInt('$sequenceCache') + 1n))")"
+sequenceCycleDrift='CYCLE'
+sequenceCycleRestore='NO CYCLE'
+if [[ "$sequenceCycle" == true ]]; then
+    sequenceCycleDrift='NO CYCLE'
+    sequenceCycleRestore='CYCLE'
+fi
+
+PostgresSql --command "ALTER SEQUENCE public.${sequenceName} START WITH ${sequenceStartDrift};" >/dev/null
+ExpectVerifierFailure sequence-start
+PostgresSql --command "ALTER SEQUENCE public.${sequenceName} START WITH ${sequenceStart};" >/dev/null
+RunStartupVerifier >/dev/null
+
+PostgresSql --command "ALTER SEQUENCE public.${sequenceName} INCREMENT BY ${sequenceIncrementDrift};" >/dev/null
+ExpectVerifierFailure sequence-increment
+PostgresSql --command "ALTER SEQUENCE public.${sequenceName} INCREMENT BY ${sequenceIncrement};" >/dev/null
+RunStartupVerifier >/dev/null
+
+PostgresSql --command "ALTER SEQUENCE public.${sequenceName} MINVALUE 0;" >/dev/null
+ExpectVerifierFailure sequence-minimum
+PostgresSql --command "ALTER SEQUENCE public.${sequenceName} MINVALUE ${sequenceMin};" >/dev/null
+RunStartupVerifier >/dev/null
+
+PostgresSql --command "ALTER SEQUENCE public.${sequenceName} MAXVALUE ${sequenceMaxDrift};" >/dev/null
+ExpectVerifierFailure sequence-maximum
+PostgresSql --command "ALTER SEQUENCE public.${sequenceName} MAXVALUE ${sequenceMax};" >/dev/null
+RunStartupVerifier >/dev/null
+
+PostgresSql --command "ALTER SEQUENCE public.${sequenceName} CACHE ${sequenceCacheDrift};" >/dev/null
+ExpectVerifierFailure sequence-cache
+PostgresSql --command "ALTER SEQUENCE public.${sequenceName} CACHE ${sequenceCache};" >/dev/null
+RunStartupVerifier >/dev/null
+
+PostgresSql --command "ALTER SEQUENCE public.${sequenceName} ${sequenceCycleDrift};" >/dev/null
+ExpectVerifierFailure sequence-cycle
+PostgresSql --command "ALTER SEQUENCE public.${sequenceName} ${sequenceCycleRestore};" >/dev/null
+RunStartupVerifier >/dev/null
+
+PostgresSql --command "ALTER SEQUENCE public.${sequenceName} AS bigint;" >/dev/null
+ExpectVerifierFailure sequence-data-type
+PostgresSql --command "ALTER SEQUENCE public.${sequenceName} AS ${sequenceType};" >/dev/null
+RunStartupVerifier >/dev/null
+
+renamedSequence="${sequenceName}_drift_${RUN_TOKEN}"
+PostgresSql --command "ALTER SEQUENCE public.${sequenceName} RENAME TO ${renamedSequence};" >/dev/null
+ExpectVerifierFailure sequence-name
+PostgresSql --command "ALTER SEQUENCE public.${renamedSequence} RENAME TO ${sequenceName};" >/dev/null
+RunStartupVerifier >/dev/null
+
+sequenceShadowSchema="current_schema_sequence_shadow_${RUN_TOKEN}"
+PostgresSql --command "CREATE SCHEMA ${sequenceShadowSchema}; ALTER SEQUENCE public.${sequenceName} OWNED BY NONE; ALTER SEQUENCE public.${sequenceName} SET SCHEMA ${sequenceShadowSchema};" >/dev/null
+ExpectVerifierFailure sequence-schema
+PostgresSql --command "ALTER SEQUENCE ${sequenceShadowSchema}.${sequenceName} SET SCHEMA public; ALTER SEQUENCE public.${sequenceName} OWNED BY public.${sequenceTable}.${sequenceColumn}; DROP SCHEMA ${sequenceShadowSchema};" >/dev/null
+RunStartupVerifier >/dev/null
+
+PostgresSql --command "ALTER SEQUENCE public.${sequenceName} OWNED BY NONE;" >/dev/null
+ExpectVerifierFailure sequence-ownership
+PostgresSql --command "ALTER SEQUENCE public.${sequenceName} OWNED BY public.${sequenceTable}.${sequenceColumn};" >/dev/null
+RunStartupVerifier >/dev/null
+
+ownedDeferrableConstraint="$(PostgresScalar "SELECT quote_ident(table_rel.relname)||'|'||quote_ident(constraint_meta.conname)||'|'||constraint_meta.contype::text||'|'||(SELECT string_agg(quote_ident(attribute_meta.attname),',' ORDER BY key_position.ordinality) FROM unnest(constraint_meta.conkey) WITH ORDINALITY key_position(attnum,ordinality) JOIN pg_attribute attribute_meta ON attribute_meta.attrelid=constraint_meta.conrelid AND attribute_meta.attnum=key_position.attnum)||'|'||pg_get_constraintdef(constraint_meta.oid,false) FROM pg_constraint constraint_meta JOIN pg_class table_rel ON table_rel.oid=constraint_meta.conrelid JOIN pg_namespace table_namespace ON table_namespace.oid=table_rel.relnamespace WHERE table_namespace.nspname='public' AND constraint_meta.contype IN ('p','u') AND NOT EXISTS (SELECT 1 FROM pg_constraint referencing WHERE referencing.confrelid=constraint_meta.conrelid AND referencing.oid<>constraint_meta.oid) ORDER BY CASE constraint_meta.contype WHEN 'p' THEN 0 ELSE 1 END,table_rel.relname,constraint_meta.conname LIMIT 1;")"
+[[ "$ownedDeferrableConstraint" == *'|'* ]] || Fail 'canonical schema has no unreferenced owned PK/UNIQUE constraint for deferrability drift'
+IFS='|' read -r deferrableTable deferrableName deferrableKind deferrableColumns deferrableOriginalDefinition <<<"$ownedDeferrableConstraint"
+deferrableClause='PRIMARY KEY'
+[[ "$deferrableKind" == u ]] && deferrableClause='UNIQUE'
+PostgresSql --command "ALTER TABLE public.${deferrableTable} DROP CONSTRAINT ${deferrableName}; ALTER TABLE public.${deferrableTable} ADD CONSTRAINT ${deferrableName} ${deferrableClause} (${deferrableColumns}) DEFERRABLE INITIALLY IMMEDIATE;" >/dev/null
+ExpectVerifierFailure constraint-deferrable
+RestoreOwnedConstraint "$deferrableTable" "$deferrableName" "$deferrableOriginalDefinition"
+PostgresSql --command "ALTER TABLE public.${deferrableTable} DROP CONSTRAINT ${deferrableName}; ALTER TABLE public.${deferrableTable} ADD CONSTRAINT ${deferrableName} ${deferrableClause} (${deferrableColumns}) DEFERRABLE INITIALLY DEFERRED;" >/dev/null
+ExpectVerifierFailure constraint-initially-deferred
+RestoreOwnedConstraint "$deferrableTable" "$deferrableName" "$deferrableOriginalDefinition"
+
+constraintValidatedCovered=0
+ownedCheckConstraint="$(PostgresScalar "SELECT quote_ident(table_rel.relname)||'|'||quote_ident(constraint_meta.conname)||'|'||pg_get_constraintdef(constraint_meta.oid,false) FROM pg_constraint constraint_meta JOIN pg_class table_rel ON table_rel.oid=constraint_meta.conrelid JOIN pg_namespace table_namespace ON table_namespace.oid=table_rel.relnamespace WHERE table_namespace.nspname='public' AND constraint_meta.contype='c' ORDER BY table_rel.relname,constraint_meta.conname LIMIT 1;")"
+if [[ "$ownedCheckConstraint" == *'|'* ]]; then
+    IFS='|' read -r checkTable checkName checkOriginalDefinition <<<"$ownedCheckConstraint"
+    PostgresSql --command "ALTER TABLE public.${checkTable} DROP CONSTRAINT ${checkName}; ALTER TABLE public.${checkTable} ADD CONSTRAINT ${checkName} ${checkOriginalDefinition} NOT VALID;" >/dev/null
+    ExpectVerifierFailure constraint-validated
+    RestoreOwnedConstraint "$checkTable" "$checkName" "$checkOriginalDefinition"
+    constraintValidatedCovered=1
+fi
+
+ownedForeignKey="$(PostgresScalar "SELECT quote_ident(local_rel.relname)||'|'||quote_ident(constraint_meta.conname)||'|'||(SELECT string_agg(quote_ident(attribute_meta.attname),',' ORDER BY key_position.ordinality) FROM unnest(constraint_meta.conkey) WITH ORDINALITY key_position(attnum,ordinality) JOIN pg_attribute attribute_meta ON attribute_meta.attrelid=constraint_meta.conrelid AND attribute_meta.attnum=key_position.attnum)||'|'||quote_ident(referenced_namespace.nspname)||'|'||quote_ident(referenced_rel.relname)||'|'||(SELECT string_agg(quote_ident(attribute_meta.attname),',' ORDER BY key_position.ordinality) FROM unnest(constraint_meta.confkey) WITH ORDINALITY key_position(attnum,ordinality) JOIN pg_attribute attribute_meta ON attribute_meta.attrelid=constraint_meta.confrelid AND attribute_meta.attnum=key_position.attnum)||'|'||pg_get_constraintdef(constraint_meta.oid,false) FROM pg_constraint constraint_meta JOIN pg_class local_rel ON local_rel.oid=constraint_meta.conrelid JOIN pg_namespace local_namespace ON local_namespace.oid=local_rel.relnamespace JOIN pg_class referenced_rel ON referenced_rel.oid=constraint_meta.confrelid JOIN pg_namespace referenced_namespace ON referenced_namespace.oid=referenced_rel.relnamespace WHERE local_namespace.nspname='public' AND constraint_meta.contype='f' ORDER BY local_rel.relname,constraint_meta.conname LIMIT 1;")"
+if [[ "$ownedForeignKey" == *'|'* ]]; then
+    IFS='|' read -r foreignKeyTable foreignKeyName foreignKeyColumns referencedSchema referencedTable referencedColumns foreignKeyOriginalDefinition <<<"$ownedForeignKey"
+    foreignKeyBase="FOREIGN KEY (${foreignKeyColumns}) REFERENCES ${referencedSchema}.${referencedTable} (${referencedColumns}) MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION"
+
+    if [[ "$constraintValidatedCovered" == 0 ]]; then
+        PostgresSql --command "ALTER TABLE public.${foreignKeyTable} DROP CONSTRAINT ${foreignKeyName}; ALTER TABLE public.${foreignKeyTable} ADD CONSTRAINT ${foreignKeyName} ${foreignKeyBase} NOT VALID;" >/dev/null
+        ExpectVerifierFailure constraint-validated
+        RestoreOwnedConstraint "$foreignKeyTable" "$foreignKeyName" "$foreignKeyOriginalDefinition"
+        constraintValidatedCovered=1
+    fi
+
+    PostgresSql --command "ALTER TABLE public.${foreignKeyTable} DROP CONSTRAINT ${foreignKeyName}; ALTER TABLE public.${foreignKeyTable} ADD CONSTRAINT ${foreignKeyName} FOREIGN KEY (${foreignKeyColumns}) REFERENCES ${referencedSchema}.${referencedTable} (${referencedColumns}) MATCH SIMPLE ON UPDATE CASCADE ON DELETE NO ACTION;" >/dev/null
+    ExpectVerifierFailure foreign-key-update-action
+    RestoreOwnedConstraint "$foreignKeyTable" "$foreignKeyName" "$foreignKeyOriginalDefinition"
+
+    PostgresSql --command "ALTER TABLE public.${foreignKeyTable} DROP CONSTRAINT ${foreignKeyName}; ALTER TABLE public.${foreignKeyTable} ADD CONSTRAINT ${foreignKeyName} FOREIGN KEY (${foreignKeyColumns}) REFERENCES ${referencedSchema}.${referencedTable} (${referencedColumns}) MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;" >/dev/null
+    ExpectVerifierFailure foreign-key-delete-action
+    RestoreOwnedConstraint "$foreignKeyTable" "$foreignKeyName" "$foreignKeyOriginalDefinition"
+
+    PostgresSql --command "ALTER TABLE public.${foreignKeyTable} DROP CONSTRAINT ${foreignKeyName}; ALTER TABLE public.${foreignKeyTable} ADD CONSTRAINT ${foreignKeyName} FOREIGN KEY (${foreignKeyColumns}) REFERENCES ${referencedSchema}.${referencedTable} (${referencedColumns}) MATCH FULL ON UPDATE NO ACTION ON DELETE NO ACTION;" >/dev/null
+    ExpectVerifierFailure foreign-key-match-type
+    RestoreOwnedConstraint "$foreignKeyTable" "$foreignKeyName" "$foreignKeyOriginalDefinition"
+
+    foreignKeyShadowSchema="current_schema_fk_shadow_${RUN_TOKEN}"
+    PostgresSql --command "CREATE SCHEMA ${foreignKeyShadowSchema}; CREATE TABLE ${foreignKeyShadowSchema}.${referencedTable} (LIKE ${referencedSchema}.${referencedTable} INCLUDING ALL); ALTER TABLE public.${foreignKeyTable} DROP CONSTRAINT ${foreignKeyName}; ALTER TABLE public.${foreignKeyTable} ADD CONSTRAINT ${foreignKeyName} FOREIGN KEY (${foreignKeyColumns}) REFERENCES ${foreignKeyShadowSchema}.${referencedTable} (${referencedColumns}) MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION;" >/dev/null
+    ExpectVerifierFailure foreign-key-referenced-schema
+    RestoreOwnedConstraint "$foreignKeyTable" "$foreignKeyName" "$foreignKeyOriginalDefinition"
+    PostgresSql --command "DROP SCHEMA ${foreignKeyShadowSchema} CASCADE;" >/dev/null
+    RunStartupVerifier >/dev/null
+else
+    if [[ "$constraintValidatedCovered" == 0 ]]; then
+        WriteStageReceipt constraint-validated not-applicable 'canonical schema exposes no owned CHECK or foreign-key constraint whose validation state PostgreSQL can mark NOT VALID'
+    fi
+    for foreignKeyOnlyStage in foreign-key-update-action foreign-key-delete-action foreign-key-match-type foreign-key-referenced-schema; do
+        WriteStageReceipt "$foreignKeyOnlyStage" not-applicable 'canonical schema exposes no owned foreign-key constraint; lane did not create a second authority to manufacture coverage'
+    done
+fi
 
 docker rm -f -v "$POSTGRES_CONTAINER" >/dev/null
 ACTIVE_POSTGRES_CONTAINER="$POSTGRES_SWAP_CONTAINER"

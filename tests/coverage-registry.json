@@ -3443,14 +3443,17 @@
             "risk": "critical",
             "evidencePaths": [
                 "src/backend/Infrastructure/Testing/CurrentSchemaTestMaterializer.cs",
+                "src/backend/Infrastructure/Testing/CurrentSchemaTestMaterializationCandidateVerifier.cs",
+                "src/backend/Program.cs",
+                "tools/bootstrap-acceptance-env.sh",
                 "tools/test/lanes/current-schema-bootstrap-integration.sh",
                 "tests/backend/Unit/SchemaModelInspectorTests.cs",
                 "tests/tools/current-schema-bootstrap-integration.test.mjs",
                 "docs/database-migration.md"
             ],
             "assertionType": "integration",
-            "failClosedRule": "Reject production or non-opted-in execution, non-loopback or mismatched service identity, a non-empty public schema, noncanonical source or schema identity, and any materialization whose verifier does not pass before runtime admission.",
-            "minimumRequirement": "The committed lane must start a pinned isolated PostgreSQL service, bind its live container and database instance identity, materialize an empty database from CurrentSchemaCanonicalAuthority, and prove CurrentSchemaStartupVerifier accepts it while production startup remains read-only.",
+            "failClosedRule": "Reject production or non-opted-in execution, non-loopback or mismatched service identity, a public schema containing relations or non-relation objects, noncanonical source or schema identity, and any materialization whose verifier does not pass before runtime admission.",
+            "minimumRequirement": "The committed lane must start a pinned isolated PostgreSQL service, bind its live container and database instance identity, materialize an exactly empty public schema from CurrentSchemaCanonicalAuthority, and prove the independent read-only candidate verifier and CurrentSchemaStartupVerifier accept it while production startup remains read-only.",
             "tierIds": [
                 "current-schema-bootstrap-integration"
             ]
@@ -3468,7 +3471,7 @@
                 "tools/test/lanes/current-schema-bootstrap-integration.sh"
             ],
             "assertionType": "integration",
-            "failClosedRule": "Reject missing or extra schema objects and drift in physical type modifiers, defaults, collation, identity generation or sequence options, index direction, predicate, access method or null semantics, and constraint deferral, validation, update, delete or match behavior.",
+            "failClosedRule": "Reject missing or extra schema objects and drift in physical type modifiers, defaults, collation, identity generation or sequence options, index direction, predicate, access method or null semantics, and constraint deferral, validation, referenced namespace, update, delete or match behavior.",
             "minimumRequirement": "Focused semantic comparisons and the committed PostgreSQL lane must accept the exact canonical schema and reject independently mutated physical columns, indexes and constraints without raw digest equality or broad provider exceptions.",
             "tierIds": [
                 "current-schema-bootstrap-integration"
@@ -3481,10 +3484,15 @@
             "risk": "critical",
             "evidencePaths": [
                 "src/backend/Infrastructure/Testing/CurrentSchemaTestMaterializer.cs",
+                "src/backend/Infrastructure/Testing/CurrentSchemaTestMaterializationCandidateVerifier.cs",
                 "tools/db/verify-current-schema-test-materialization-receipt.mjs",
+                "tools/testing/fixture-catalog.mjs",
+                "tools/bootstrap-acceptance-env.sh",
+                "tools/test/lanes/homogeneous-two-node-fixture.sh",
                 "tools/test/lanes/current-schema-bootstrap-integration.sh",
                 "tests/tools/current-schema-materialization-receipt.test.mjs",
-                "tests/tools/current-schema-bootstrap-integration.test.mjs"
+                "tests/tools/current-schema-bootstrap-integration.test.mjs",
+                "tests/tools/fixture-catalog.test.mjs"
             ],
             "assertionType": "integration",
             "failClosedRule": "Reject missing, prepared, stale, tampered or pre-existing terminal evidence, output aliases, source or service identity drift, publication failure without compensation, and every crash window that could leave a false verified receipt.",

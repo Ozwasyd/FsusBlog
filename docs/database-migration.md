@@ -119,6 +119,9 @@ projection additionally seals normalized type modifiers and domains, collation,
 default and identity/owned-sequence semantics, complete index key ordering,
 NULL placement, access method, opclass, collation, INCLUDE, predicate and NULLS
 NOT DISTINCT state, plus constraint deferral, validation and foreign-key actions.
+PostgreSQL's explicit `timestamp(6)` is normalized only to its equivalent
+unspecified default precision; `timestamp(0)` and every other explicit precision
+remain distinct and fail exact comparison.
 The independent verifier and cold-readiness comparison reject stale identities,
 content tampering and exact table, column, physical type, nullability, default,
 constraint or index drift.
@@ -151,14 +154,22 @@ DDL and verification remain inside one PostgreSQL transaction. Before commit the
 producer atomically publishes only a `prepared`, qualification-ineligible staging
 receipt; after commit it atomically publishes the no-overwrite `verified` receipt.
 A process death in the commit window can therefore leave only noneligible staging
-evidence while PostgreSQL rolls back the open transaction. Publication failure
+evidence while PostgreSQL rolls back the open transaction. The committed crash
+case starts the materializer in an identity-checked isolated process group, kills
+that entire group and proves zero surviving candidates before checking rollback.
+Publication failure
 after commit leaves no eligible receipt and triggers best-effort schema compensation
 and receipt cleanup; the full run rejects the nonzero producer exit and does not
 claim cleanup succeeded without a fresh catalog observation. An independent
-consumer then re-reads and verifies receipt shape, self-digest, run/source/assembly,
-catalog/envelope/service/database and canonical identity and publishes the sole
-run-bound `current-schema-runtime-ready` terminal. Production `serve` remains a
-read-only verifier and never invokes this test producer. The committed
+consumer invokes the candidate assembly's explicit test-only, read-only verification
+command, which derives the sole canonical authority and a fresh physical PostgreSQL
+observation instead of trusting a locally resealed receipt. It then re-reads and
+verifies receipt shape, self-digest, run/source/assembly, catalog/envelope/service/
+database and canonical identity and publishes the sole run-bound
+`current-schema-runtime-ready` terminal. The fixture catalog seals that terminal
+into an exact runtime-topology admission and reconsumes both before any runtime
+process is spawned. Production `serve` remains a read-only verifier and never
+invokes either test command. The committed
 `current-schema-bootstrap-integration` lane reruns the empty-schema positive path,
 rollback/crash and publication windows, stale-service substitution and physical
 column/index/constraint counterexamples on an exclusive pinned PostgreSQL.

@@ -368,6 +368,125 @@ public sealed class SchemaModelInspectorTests
     }
 
     [Fact]
+    public void CandidateVerifierCommand_RoutesExactlyAndRejectsResealedLiveDatabaseForgery()
+    {
+        Assert.True(CurrentSchemaTestMaterializationCandidateCommandLine.IsRequested(
+            [CurrentSchemaTestMaterializationCandidateCommandLine.CommandName]));
+        Assert.False(CurrentSchemaTestMaterializationCandidateCommandLine.IsRequested(
+            ["serve", CurrentSchemaTestMaterializationCandidateCommandLine.CommandName]));
+        var options = new CurrentSchemaTestMaterializationOptions(
+            "issue-3105-candidate",
+            new string('a', 40),
+            "/tmp/envelope.json",
+            "/tmp/catalog.json");
+        var postgresInstance = new CurrentSchemaTestPostgresInstanceIdentity(
+            "7251088273845452307",
+            "fsusblog",
+            "fsusblog",
+            "16.15",
+            "160015");
+        var serviceIdentity = new CurrentSchemaTestServiceIdentity(
+            $"sha256:{new string('b', 64)}",
+            new string('c', 64),
+            "acceptance-runtime",
+            new string('d', 64),
+            "2026-08-30T00:00:00.000000000Z",
+            $"postgres@sha256:{new string('e', 64)}",
+            $"sha256:{new string('f', 64)}",
+            $"postgres@sha256:{new string('e', 64)}",
+            "postgres (PostgreSQL) 16.15",
+            "issue-3105-network",
+            "/var/run/docker/netns/issue-3105",
+            35415,
+            new CurrentSchemaTestResourceLimits(0, 0, 0, 0),
+            postgresInstance);
+        var databaseIdentity = new CurrentSchemaTestDatabaseIdentity(
+            "postgresql",
+            "127.0.0.1",
+            35415,
+            "fsusblog",
+            "fsusblog",
+            "public");
+        var canonicalIdentity = new CurrentSchemaIdentity(
+            CurrentSchemaCanonicalAuthority.ModelVersion,
+            CurrentSchemaCanonicalAuthority.ExtractorVersion,
+            CurrentSchemaCanonicalAuthority.GeneratorVersion,
+            new string('1', 64),
+            new string('2', 64));
+        const string ObservedDigest =
+            "3333333333333333333333333333333333333333333333333333333333333333";
+        string[] tables = ["article"];
+        var unsigned = new CurrentSchemaTestMaterializationReceipt(
+            CurrentSchemaTestMaterializer.ReceiptSchema,
+            "verified",
+            CurrentSchemaTestMaterializationCommandLine.CommandName,
+            CurrentSchemaTestMaterializer.ProducerId,
+            TestOnly: true,
+            QualificationEligible: true,
+            options.RunId,
+            options.SourceCommit,
+            serviceIdentity,
+            databaseIdentity,
+            canonicalIdentity,
+            ObservedDigest,
+            tables.Length,
+            tables,
+            EmptyBefore: true,
+            CodeFirstApplied: true,
+            StartupVerifier: "green",
+            new string('4', 64),
+            ReceiptDigest: string.Empty);
+        CurrentSchemaTestMaterializationReceipt receipt = unsigned with
+        {
+            ReceiptDigest = CurrentSchemaTestMaterializationCandidateVerifier
+                .ComputeMaterializationReceiptDigest(unsigned)
+        };
+        CurrentSchemaTestMaterializationCandidateVerifier.ValidateReceipt(
+            receipt,
+            options,
+            serviceIdentity,
+            databaseIdentity,
+            canonicalIdentity,
+            ObservedDigest,
+            tables,
+            new string('4', 64));
+
+        CurrentSchemaTestMaterializationReceipt forged = receipt with
+        {
+            ObservedDatabaseDigest = new string('5', 64),
+            ReceiptDigest = string.Empty
+        };
+        forged = forged with
+        {
+            ReceiptDigest = CurrentSchemaTestMaterializationCandidateVerifier
+                .ComputeMaterializationReceiptDigest(forged)
+        };
+        Assert.Contains(
+            "live_database_mismatch",
+            Assert.Throws<InvalidOperationException>(() =>
+                CurrentSchemaTestMaterializationCandidateVerifier.ValidateReceipt(
+                    forged,
+                    options,
+                    serviceIdentity,
+                    databaseIdentity,
+                    canonicalIdentity,
+                    ObservedDigest,
+                    tables,
+                    new string('4', 64))).Message,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TestMaterializerExactEmptyInventory_ObservesStandaloneCompositeExactlyOnce()
+    {
+        string inventorySql = CurrentSchemaTestMaterializer.PublicSchemaObjectInventorySql;
+        Assert.Contains("c.relkind IN ('r', 'p', 'v', 'm', 'S', 'f', 'c')", inventorySql, StringComparison.Ordinal);
+        Assert.Contains("t.typrelid = 0", inventorySql, StringComparison.Ordinal);
+        Assert.Equal(1, inventorySql.Split("'relation:' || c.relkind", StringSplitOptions.None).Length - 1);
+        Assert.Equal(1, inventorySql.Split("t.typrelid = 0", StringSplitOptions.None).Length - 1);
+    }
+
+    [Fact]
     public void StartupVerifierSemanticGuard_RejectsTableColumnTypeIndexAndConstraintDrift()
     {
         CurrentSchemaCanonicalModel canonical = CurrentSchemaCanonicalAuthority.Extract([typeof(SyntheticEntity)]);
@@ -559,6 +678,7 @@ public sealed class SchemaModelInspectorTests
         Assert.Equal("no-action", foreignKey.ForeignKeyUpdateAction);
         Assert.Equal("no-action", foreignKey.ForeignKeyDeleteAction);
         Assert.Equal("simple", foreignKey.ForeignKeyMatchType);
+        Assert.Equal("public", foreignKey.ReferencedSchema);
 
         SchemaConstraintModel[] nonForeignKeys =
         [
@@ -574,7 +694,36 @@ public sealed class SchemaModelInspectorTests
             Assert.Null(constraint.ForeignKeyUpdateAction);
             Assert.Null(constraint.ForeignKeyDeleteAction);
             Assert.Null(constraint.ForeignKeyMatchType);
+            Assert.Null(constraint.ReferencedSchema);
         });
+    }
+
+    [Fact]
+    public void Comparer_BindsForeignKeyReferenceToExactSchema()
+    {
+        CurrentSchemaCanonicalModel canonical = CurrentSchemaCanonicalAuthority.Extract([typeof(SyntheticEntity)]);
+        SchemaModelSnapshot publicReference = CurrentSchemaCanonicalAuthority.ProjectProvider(
+            canonical,
+            SchemaProviderKind.PostgreSql);
+
+        Assert.Empty(SchemaModelComparer.Compare(canonical.SemanticSchema, publicReference));
+
+        SchemaModelSnapshot sameTableInAnotherSchema = CurrentSchemaCanonicalAuthority.ProjectProvider(
+            canonical,
+            SchemaProviderKind.PostgreSql);
+        var constraints = (Dictionary<string, SchemaConstraintModel>)sameTableInAnotherSchema
+            .Tables["synthetic_table"]
+            .Constraints;
+        constraints["fk_synthetic_parent"] = constraints["fk_synthetic_parent"] with
+        {
+            ReferencedSchema = "archive"
+        };
+
+        Assert.Contains(
+            SchemaModelComparer.Compare(canonical.SemanticSchema, sameTableInAnotherSchema),
+            static error => error.StartsWith(
+                "constraint mismatch synthetic_table.fk_synthetic_parent",
+                StringComparison.Ordinal));
     }
 
     [Fact]
@@ -811,7 +960,7 @@ public sealed class SchemaModelInspectorTests
         }
 
         AssertColumnDrift("observed_at", static column => column with { DefaultValue = "now()" }, "default");
-        AssertColumnDrift("observed_at", static column => column with { PhysicalType = "timestamp(6) without time zone" }, "physical-type");
+        AssertColumnDrift("observed_at", static column => column with { PhysicalType = "timestamp(0) without time zone" }, "physical-type");
         AssertColumnDrift("amount", static column => column with { PhysicalType = "numeric(19,2)" }, "physical-type");
         AssertColumnDrift("code", static column => column with { PhysicalType = "public.other_domain" }, "physical-type");
         AssertColumnDrift("code", static column => column with { Collation = "public.custom_collation" }, "collation");
@@ -928,6 +1077,17 @@ public sealed class SchemaModelInspectorTests
         Assert.Throws<InvalidOperationException>(() =>
             SchemaModelInspector.NormalizePostgresCollation("custom_collation"));
     }
+
+    [Theory]
+    [InlineData("timestamp without time zone", "timestamp without time zone")]
+    [InlineData("timestamp(6) without time zone", "timestamp without time zone")]
+    [InlineData("timestamp ( 6 ) with time zone", "timestamp with time zone")]
+    [InlineData("timestamp(0) without time zone", "timestamp(0) without time zone")]
+    [InlineData("timestamp(3) without time zone", "timestamp(3) without time zone")]
+    public void PostgreSqlColumnObservation_NormalizesOnlyDefaultTimestampPrecision(
+        string observed,
+        string expected)
+        => Assert.Equal(expected, SchemaModelInspector.NormalizePostgresPhysicalType(observed));
 
     [Fact]
     public void CurrentSchemaMismatch_IsFailClosedAndWriteFree()

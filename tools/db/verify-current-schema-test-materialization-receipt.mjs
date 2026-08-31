@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -9,6 +10,8 @@ import { fileURLToPath } from 'node:url';
 export const materializationReceiptSchema =
     'fsusblog.current-schema-test-materialization-receipt.v1';
 export const runtimeReadySchema = 'fsusblog.current-schema-runtime-ready.v1';
+export const candidateVerificationSchema =
+    'fsusblog.current-schema-test-materialization-candidate-verification.v1';
 
 const hexDigestPattern = /^[a-f0-9]{64}$/u;
 const taggedDigestPattern = /^sha256:[a-f0-9]{64}$/u;
@@ -73,6 +76,25 @@ const postgresInstanceKeys = [
     'serverVersionNumber'
 ];
 const resourceLimitKeys = ['nanoCpus', 'memory', 'memoryReservation', 'pidsLimit'];
+const candidateVerificationKeys = [
+    'schema',
+    'status',
+    'commandMode',
+    'testOnly',
+    'readOnly',
+    'qualificationEligible',
+    'runId',
+    'sourceCommit',
+    'materializationReceiptDigest',
+    'materializationReceiptFileSha256',
+    'assemblySha256',
+    'serviceIdentity',
+    'databaseIdentity',
+    'canonicalIdentity',
+    'observedDatabaseDigest',
+    'tableCount',
+    'contentDigest'
+];
 
 function fail(message)
 {
@@ -531,6 +553,95 @@ function writeTerminal(file, value)
     }
 }
 
+function candidateContentDigest(verification)
+{
+    return `sha256:${sha256(JSON.stringify({
+        ...verification,
+        contentDigest: ''
+    }, null, 2))}`;
+}
+
+export function runCurrentSchemaCandidateVerification({
+    receiptRoot,
+    runId,
+    sourceCommit,
+    assembly,
+    serviceCatalog,
+    serviceEnvelope
+})
+{
+    const result = spawnSync('dotnet', [
+        assembly,
+        'verify-current-schema-test-materialization-candidate',
+        '--run-id', runId,
+        '--source-commit', sourceCommit,
+        '--service-envelope', serviceEnvelope,
+        '--service-catalog', serviceCatalog
+    ], {
+        encoding: 'utf8',
+        env: {
+            ...process.env,
+            ASPNETCORE_ENVIRONMENT: 'Test',
+            FSUSBLOG_CURRENT_SCHEMA_TEST_MATERIALIZATION: '1',
+            FSUSBLOG_CURRENT_SCHEMA_TEST_RECEIPT_ROOT: receiptRoot
+        },
+        maxBuffer: 16 * 1024 * 1024,
+        shell: false,
+        windowsHide: true
+    });
+    if (result?.error || result?.status !== 0)
+    {
+        fail('candidate assembly read-only verification failed');
+    }
+    try
+    {
+        return JSON.parse(String(result.stdout).trim());
+    }
+    catch
+    {
+        fail('candidate assembly verification returned invalid JSON');
+    }
+}
+
+function validateCandidateVerification(
+    verification,
+    { receipt, receiptBytes, runId, sourceCommit, assemblySha256 }
+)
+{
+    exactKeys(verification, candidateVerificationKeys, 'candidate verification');
+    if (verification.schema !== candidateVerificationSchema
+        || verification.status !== 'verified'
+        || verification.commandMode
+            !== 'verify-current-schema-test-materialization-candidate'
+        || verification.testOnly !== true
+        || verification.readOnly !== true
+        || verification.qualificationEligible !== true
+        || verification.runId !== runId
+        || verification.sourceCommit !== sourceCommit
+        || verification.materializationReceiptDigest !== receipt.receiptDigest
+        || verification.materializationReceiptFileSha256
+            !== `sha256:${sha256(receiptBytes)}`
+        || verification.assemblySha256 !== assemblySha256
+        || verification.observedDatabaseDigest !== receipt.observedDatabaseDigest
+        || verification.tableCount !== receipt.tableCount)
+    {
+        fail('candidate verification identity mismatch');
+    }
+    requireTaggedDigest(verification.materializationReceiptFileSha256,
+        'candidate verification materializationReceiptFileSha256');
+    requireTaggedDigest(verification.contentDigest, 'candidate verification contentDigest');
+    if (verification.contentDigest !== candidateContentDigest(verification))
+    {
+        fail('candidate verification contentDigest mismatch');
+    }
+    exactJson(verification.serviceIdentity, receipt.serviceIdentity,
+        'candidate verification serviceIdentity');
+    exactJson(verification.databaseIdentity, receipt.databaseIdentity,
+        'candidate verification databaseIdentity');
+    exactJson(verification.canonicalIdentity, receipt.canonicalIdentity,
+        'candidate verification canonicalIdentity');
+}
+
 export function verifyCurrentSchemaMaterializationReceipt({
     receiptRoot,
     runId,
@@ -574,6 +685,21 @@ export function verifyCurrentSchemaMaterializationReceipt({
         expectedService,
         receiptDocument.value.databaseIdentity
     );
+    const candidateVerification = runCurrentSchemaCandidateVerification({
+        receiptRoot: root,
+        runId,
+        sourceCommit,
+        assembly: assemblyFile,
+        serviceCatalog: catalogFile,
+        serviceEnvelope: envelopeFile
+    });
+    validateCandidateVerification(candidateVerification, {
+        receipt: receiptDocument.value,
+        receiptBytes: receiptDocument.bytes,
+        runId,
+        sourceCommit,
+        assemblySha256
+    });
 
     const outputFile = runtimeReadyReceiptPath(root, runId);
     const terminal = {
@@ -596,6 +722,7 @@ export function verifyCurrentSchemaMaterializationReceipt({
         canonicalIdentity: receiptDocument.value.canonicalIdentity,
         observedDatabaseDigest: receiptDocument.value.observedDatabaseDigest,
         tableCount: receiptDocument.value.tableCount,
+        candidateVerification,
         contentDigest: null
     };
     terminal.contentDigest = canonicalDigest(terminal);
@@ -606,9 +733,27 @@ export function verifyCurrentSchemaMaterializationReceipt({
     return { outputFile, terminal };
 }
 
+export function verifyCurrentSchemaRuntimeReadyReceipt(options)
+{
+    const expected = verifyCurrentSchemaMaterializationReceipt({
+        ...options,
+        publish: false
+    });
+    const runtimeReadyFile = runtimeReadyReceiptPath(options.receiptRoot, options.runId);
+    if (fs.existsSync(`${runtimeReadyFile}.prepared`))
+    {
+        fail('runtime-ready prepared sibling exists');
+    }
+    const resolvedRuntimeReadyFile = regularFile(runtimeReadyFile, 'runtime-ready receipt');
+    const actual = readJson(resolvedRuntimeReadyFile, 'runtime-ready receipt').value;
+    exactJson(actual, expected.terminal, 'runtime-ready receipt exact terminal');
+    return { outputFile: resolvedRuntimeReadyFile, terminal: actual };
+}
+
 function parseOptions(argv)
 {
     const allowed = new Set([
+        '--mode',
         '--receipt-root',
         '--run-id',
         '--source-commit',
@@ -627,23 +772,33 @@ function parseOptions(argv)
         }
         values.set(option, value);
     }
-    for (const option of allowed)
+    for (const option of [...allowed].filter((option) => option !== '--mode'))
     {
         if (!values.has(option))
         {
             fail(`missing option ${option}`);
         }
     }
-    return Object.fromEntries([...values].map(([key, value]) => [
+    const mode = values.get('--mode') ?? 'publish';
+    if (mode !== 'publish' && mode !== 'verify')
+    {
+        fail(`unsupported mode ${mode}`);
+    }
+    values.delete('--mode');
+    return { mode, options: Object.fromEntries([...values].map(([key, value]) => [
         key.slice(2).replace(/-([a-z])/gu, (_match, character) => character.toUpperCase()),
         value
-    ]));
+    ])) };
 }
 
 function main(argv)
 {
-    const result = verifyCurrentSchemaMaterializationReceipt(parseOptions(argv));
-    console.log(`[current-schema-runtime-ready] verified ${result.outputFile}`);
+    const parsed = parseOptions(argv);
+    const result = parsed.mode === 'verify'
+        ? verifyCurrentSchemaRuntimeReadyReceipt(parsed.options)
+        : verifyCurrentSchemaMaterializationReceipt(parsed.options);
+    const action = parsed.mode === 'verify' ? 'reverified' : 'verified';
+    console.log(`[current-schema-runtime-ready] ${action} ${result.outputFile}`);
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))

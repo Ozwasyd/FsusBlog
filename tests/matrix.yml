@@ -3450,11 +3450,17 @@ tiers:
               src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs,
               src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs,
               src/backend/Infrastructure/Testing/CurrentSchemaTestMaterializer.cs,
+              src/backend/Infrastructure/Testing/CurrentSchemaTestMaterializationCandidateVerifier.cs,
+              src/backend/Program.cs,
               tests/backend/Unit/SchemaModelInspectorTests.cs,
               tests/tools/current-schema-bootstrap-integration.test.mjs,
               tests/tools/current-schema-materialization-receipt.test.mjs,
+              tests/tools/fixture-catalog.test.mjs,
+              tools/bootstrap-acceptance-env.sh,
               tools/db/verify-current-schema-test-materialization-receipt.mjs,
               tools/test/lanes/current-schema-bootstrap-integration.sh,
+              tools/test/lanes/homogeneous-two-node-fixture.sh,
+              tools/testing/fixture-catalog.mjs,
               docs/database-migration.md,
           ]
       ciJob: integration-runtime
@@ -3463,7 +3469,7 @@ tiers:
       smartGateMode: conditional
       retentionClass: must-keep
       triggerPaths: [src/backend/Infrastructure/SchemaMigration, src/backend/Infrastructure/Testing, tools/db, tools/test/execution-envelope-services.mjs, tools/test/lanes/current-schema-bootstrap-integration.sh]
-      triggerFiles: [config/testing/test-execution-service-catalog.json, tests/tools/current-schema-bootstrap-integration.test.mjs, tests/matrix.yml]
+      triggerFiles: [config/testing/test-execution-service-catalog.json, src/backend/Program.cs, tests/tools/current-schema-bootstrap-integration.test.mjs, tests/tools/current-schema-materialization-receipt.test.mjs, tests/tools/fixture-catalog.test.mjs, tools/bootstrap-acceptance-env.sh, tools/test/lanes/homogeneous-two-node-fixture.sh, tools/testing/fixture-catalog.mjs, tests/matrix.yml]
       triggerCoverage: [current-schema-bootstrap, current-schema-physical-exactness, current-schema-receipt-lifecycle]
       triggerReason: current-schema materialization, PostgreSQL observation, verifier exactness, service identity, or terminal receipt lifecycle changed
 
