@@ -7,11 +7,11 @@
   "outputs": [
     {
       "path": "docs/architecture/monolithic-distributed-boundary.md",
-      "sha256": "ed4a6019f69f06549696384e07a2715992546bb71082f7c739116ab4813e9192"
+      "sha256": "1ac4118db6a1227662939f2c21f57df91ce8cf7dde124fdc24ec0a34fd7832b7"
     },
     {
       "path": "docs/releases/blue-green-deployment-runbook.md",
-      "sha256": "a4c2f443bd7b1c926c0a58d87ccd423a8f46f0fb0437fca4087aa11f898533e4"
+      "sha256": "ae1b00f4472fbd01f9549352fae6a173d7e9b916d1636b1612bdccc76d3bacf0"
     }
   ]
 }
