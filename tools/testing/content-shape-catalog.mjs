@@ -86,10 +86,16 @@ function parseIntegerConstant(source, name, label)
     return parseIntegerConstant(source, match[1], label);
 }
 
-function sourceBinding(root, relativePath)
+function sourceBinding(relativePath, contract)
 {
-    const bytes = fs.readFileSync(path.join(root, relativePath));
-    return Object.freeze({ path: relativePath, sha256: sha256(bytes) });
+    return Object.freeze({
+        path: relativePath,
+        sha256: sha256Json({
+            schema: 'fsusblog.content-field-source-binding.v1',
+            path: relativePath,
+            contract
+        })
+    });
 }
 
 /**
@@ -106,22 +112,24 @@ export function projectContentFieldContracts({ root = repositoryRoot } = {})
     const commentEndpoint = fs.readFileSync(path.join(root, commentEndpointPath), 'utf8');
     if (!/string title = input\.Title\?\.Trim\(\) \?\? string\.Empty/u.test(article)
         || !/string\? summary = input\.Summary\?\.Trim\(\)/u.test(article)
-        || !/string body = input\.Content \?\? string\.Empty/u.test(article))
+        || !/string body = input\.Content \?\? string\.Empty/u.test(article)
+        || !/if \(title\.Length == 0\)/u.test(article)
+        || !/else if \(title\.Length > MaxTitleLength\)/u.test(article)
+        || !/if \(string\.IsNullOrWhiteSpace\(summary\)\)/u.test(article)
+        || !/else if \(summary\.Length > MaxSummaryLength\)/u.test(article)
+        || !/if \(string\.IsNullOrWhiteSpace\(body\)\)/u.test(article)
+        || !/else if \(body\.Length > MaxContentLength\)/u.test(article))
     {
         throw new Error('[content-shape] article normalization projection no longer matches production');
     }
     if (!/string content = request\.Content\?\.Trim\(\) \?\? string\.Empty/u.test(commentEndpoint)
+        || !/!string\.IsNullOrWhiteSpace\(content\)/u.test(commentEndpoint)
         || !/content\.Length <= policy\.CommentMaxChars/u.test(commentEndpoint)
         || !/Encoding\.UTF8\.GetByteCount\(content\) <= policy\.CommentMaxUtf8Bytes/u.test(commentEndpoint))
     {
         throw new Error('[content-shape] comment count/normalization projection no longer matches production');
     }
-    const sources = [
-        sourceBinding(root, articlePath),
-        sourceBinding(root, commentPath),
-        sourceBinding(root, commentEndpointPath)
-    ];
-    const fields = [
+    const articleFields = [
         {
             id: 'article.body', owner: 'ArticlePublicationValidator', sourceRef: `${articlePath}#MaxContentLength`,
             nullable: false, normalization: 'none', characterCount: 'utf16-code-units',
@@ -139,13 +147,37 @@ export function projectContentFieldContracts({ root = repositoryRoot } = {})
             nullable: false, normalization: 'trim', characterCount: 'utf16-code-units',
             minCharacters: 1, maxCharacters: parseIntegerConstant(article, 'MaxTitleLength', 'article title'),
             minUtf8Bytes: null, maxUtf8Bytes: null
-        },
-        {
-            id: 'comment.content', owner: 'CommentLimits', sourceRef: `${commentPath}#ContentMaxChars+ContentMaxUtf8Bytes`,
-            nullable: false, normalization: 'trim', characterCount: 'utf16-code-units',
-            minCharacters: 1, maxCharacters: parseIntegerConstant(comment, 'ContentMaxChars', 'comment content'),
-            minUtf8Bytes: 1, maxUtf8Bytes: parseIntegerConstant(comment, 'ContentMaxUtf8Bytes', 'comment content')
         }
+    ];
+    const commentField = {
+        id: 'comment.content', owner: 'CommentLimits', sourceRef: `${commentPath}#ContentMaxChars+ContentMaxUtf8Bytes`,
+        nullable: false, normalization: 'trim', characterCount: 'utf16-code-units',
+        minCharacters: 1, maxCharacters: parseIntegerConstant(comment, 'ContentMaxChars', 'comment content'),
+        minUtf8Bytes: 1, maxUtf8Bytes: parseIntegerConstant(comment, 'ContentMaxUtf8Bytes', 'comment content')
+    };
+    const fields = [...articleFields, commentField];
+    const sources = [
+        sourceBinding(articlePath, { fields: articleFields }),
+        sourceBinding(commentPath, {
+            field: {
+                id: commentField.id,
+                owner: commentField.owner,
+                sourceRef: commentField.sourceRef,
+                maxCharacters: commentField.maxCharacters,
+                maxUtf8Bytes: commentField.maxUtf8Bytes
+            }
+        }),
+        sourceBinding(commentEndpointPath, {
+            field: {
+                id: commentField.id,
+                nullable: commentField.nullable,
+                normalization: commentField.normalization,
+                characterCount: commentField.characterCount,
+                minCharacters: commentField.minCharacters,
+                minUtf8Bytes: commentField.minUtf8Bytes
+            },
+            enforcement: ['non-whitespace', 'max-characters', 'max-utf8-bytes']
+        })
     ];
     const body = {
         schema: 'fsusblog.content-field-contract-projection.v1',

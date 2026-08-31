@@ -203,7 +203,10 @@ render: scalar
 `tools/testing/content-shape-catalog.mjs` 从当前
 `ArticlePublicationValidator`、`CommentLimits` 和 comment binary endpoint 生成并核对
 `config/testing/content-field-contracts.generated.json`；测试不得另抄 article/comment
-字符或 UTF-8 byte 上限。production 的“字符”计数语义固定为 .NET UTF-16
+字符或 UTF-8 byte 上限。generated source identity 绑定从这些 owner 提取的 canonical
+字段合同 fragment，而不是整个 owner file bytes；同文件内无关实现变化不制造 projection
+drift，实际 field inventory、normalization、计数或边界变化仍会 fail closed。production
+的“字符”计数语义固定为 .NET UTF-16
 `string.Length`，byte 计数固定为 `Encoding.UTF8.GetByteCount`，generator 另行记录
 Unicode scalar 与 grapheme statistics，但不得拿它们替换 production 判定。当前 comment
 的 1000 UTF-16 unit 上限会先于 4096-byte 上限约束所有合法 Unicode 文本，因此 byte

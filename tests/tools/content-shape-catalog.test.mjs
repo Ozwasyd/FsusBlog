@@ -29,6 +29,23 @@ function clonedAuthority()
     return structuredClone(readContentShapeAuthority());
 }
 
+function temporaryProductionRoot(t)
+{
+    const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'content-field-projection-'));
+    t.after(() => fs.rmSync(temporary, { recursive: true, force: true }));
+    for (const relative of [
+        'src/backend/Services/Articles/ArticlePublicationValidator.cs',
+        'src/backend/Models/Dtos/CommentDto.cs',
+        'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs'
+    ])
+    {
+        const target = path.join(temporary, relative);
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.copyFileSync(path.join(root, relative), target);
+    }
+    return temporary;
+}
+
 test('ContentShapeCatalog is closed, versioned, locale-complete, and production-bound', () =>
 {
     assert.deepEqual(validateContentShapeAuthority(), []);
@@ -97,6 +114,40 @@ test('locale and production contract drift invalidate the authority', () =>
         fixtureCatalogDigest({ ...readFixtureCatalogs(), contentShapeAuthority: field }),
         fixtureCatalogDigest()
     );
+});
+
+test('field projection binds contract fragments instead of unrelated owner file bytes', (t) =>
+{
+    const temporary = temporaryProductionRoot(t);
+    const endpoint = path.join(temporary, 'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs');
+    fs.appendFileSync(endpoint, '\n// Unrelated endpoint implementation change.\n');
+    assert.deepEqual(projectContentFieldContracts({ root: temporary }), projectContentFieldContracts());
+
+    const article = path.join(temporary, 'src/backend/Services/Articles/ArticlePublicationValidator.cs');
+    fs.writeFileSync(article, fs.readFileSync(article, 'utf8').replace(
+        'public const int MaxTitleLength = 256;',
+        'public const int MaxTitleLength = 257;'
+    ));
+    assert.match(validateContentShapeAuthority({
+        root: temporary,
+        authority: clonedAuthority(),
+        scanGovernance: false
+    }).join('\n'), /projection is stale/u);
+});
+
+test('field projection rejects missing, extra, and reversed field inventories', () =>
+{
+    const missing = clonedAuthority();
+    missing.fields.fields.pop();
+    assert.match(validateContentShapeAuthority({ authority: missing, scanGovernance: false }).join('\n'), /projection is stale/u);
+
+    const extra = clonedAuthority();
+    extra.fields.fields.push({ ...structuredClone(extra.fields.fields[0]), id: 'article.extra' });
+    assert.match(validateContentShapeAuthority({ authority: extra, scanGovernance: false }).join('\n'), /projection is stale/u);
+
+    const reversed = clonedAuthority();
+    reversed.fields.fields.reverse();
+    assert.match(validateContentShapeAuthority({ authority: reversed, scanGovernance: false }).join('\n'), /projection is stale/u);
 });
 
 test('static governance rejects second authority, random-only, JS-length, ASCII proxy, and catch-all mutations', (t) =>

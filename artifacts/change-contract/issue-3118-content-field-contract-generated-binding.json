@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/testing/content-shape-catalog.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/content-field-contracts.generated.json",
+            "sha256": "941e09f1461285194a7eb3fc8882891d685a3e42e5ec4fd4f58fa6a6090a128d"
+        }
+    ]
+}
