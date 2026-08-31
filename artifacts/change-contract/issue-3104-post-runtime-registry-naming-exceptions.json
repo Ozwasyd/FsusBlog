@@ -13,9 +13,10 @@
         {
             "id": "environment-variable",
             "paths": [
+                "tools/docs/global-claim-exactness-final.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs"
             ],
-            "reason": "preserve caller-visible process environment and command spellings while validating the registry contract"
+            "reason": "preserve caller-visible process environment and command spellings while producing and validating the registry contract"
         },
         {
             "id": "shell-environment-variable",
