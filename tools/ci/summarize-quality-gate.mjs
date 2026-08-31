@@ -233,7 +233,6 @@ function loadFlakyEvidence()
     for (const { file, value: item } of readTransportOrDirectoryJson(flakyDir,
         'evidence-consumer.ci.check-flaky-evidence.current-run'))
     {
-    {
         if (item.schema !== 'fsusblog.ci.flaky.v1')
         {
             continue;

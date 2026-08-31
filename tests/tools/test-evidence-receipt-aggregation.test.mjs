@@ -144,6 +144,82 @@ test('production summary excludes diagnostics retry evidence from its correctnes
     assert.doesNotMatch(fs.readFileSync(stepSummary, 'utf8'), /browser-diagnostics|visual\/public/u);
 });
 
+test('production summary reads job and flaky evidence from the bound transport manifest', (context) =>
+{
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-3106-summary-transport-'));
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const script = path.join(root, 'tools/ci/summarize-quality-gate.mjs');
+    fs.mkdirSync(path.dirname(script), { recursive: true });
+    fs.copyFileSync(path.join(repositoryRoot, 'tools/ci/summarize-quality-gate.mjs'), script);
+    copySummaryDependencies(root);
+    write(path.join(root, '.github/workflows/quality-gate.yml'), 'jobs:\n  required:\n    runs-on: ubuntu-latest\n');
+    write(path.join(root, 'tools/operations/check-release-evidence-manifest.mjs'), 'process.exit(0)\n');
+    write(path.join(root, '.tmp/release-evidence/manifest.json'), {
+        status: 'collected-ok',
+        evidenceSummary: { externalExposure: { blockers: [], request: { blockerSources: [] } } }
+    });
+    write(path.join(root, '.tmp/release-evidence/jobs/directory-only.json'), {
+        schema: 'fsusblog.ci.job-result.v1',
+        jobId: 'required',
+        rootCause: 'directory-only-root-cause'
+    });
+    write(path.join(root, '.tmp/release-evidence/flaky/directory-only.json'), {
+        schema: 'fsusblog.ci.flaky.v1',
+        suite: 'directory-only',
+        test: 'must-not-be-consumed',
+        evidenceClass: 'correctness',
+        finalStatus: 'passed-after-retry',
+        classification: 'infra',
+        retryCount: 1
+    });
+
+    const transportedJob = '.tmp/downloaded-artifacts/quality-gate/job.json';
+    const transportedFlaky = '.tmp/downloaded-artifacts/quality-gate/flaky.json';
+    write(path.join(root, transportedJob), {
+        schema: 'fsusblog.ci.job-result.v1',
+        jobId: 'required',
+        rootCause: 'transported-root-cause'
+    });
+    write(path.join(root, transportedFlaky), {
+        schema: 'fsusblog.ci.flaky.v1',
+        suite: 'transported-suite',
+        test: 'transported-test',
+        evidenceClass: 'correctness',
+        finalStatus: 'passed-after-retry',
+        classification: 'infra',
+        retryCount: 1
+    });
+    const transportManifest = path.join(root, '.tmp/downloaded-artifacts/quality-gate/transport-manifest.json');
+    write(transportManifest, {
+        schema: 'fsusblog.current-run-evidence-transport-manifest.v1',
+        objects: [{
+            authorityId: 'evidence-consumer.ci.check-job-summaries.current-run',
+            archiveEntries: [{ extractedPath: transportedJob }]
+        }, {
+            authorityId: 'evidence-consumer.ci.check-flaky-evidence.current-run',
+            archiveEntries: [{ extractedPath: transportedFlaky }]
+        }]
+    });
+    const { plan } = writePlan(root);
+    const stepSummary = path.join(root, '.tmp/step-summary.md');
+    const result = spawnSync(process.execPath, [script], {
+        cwd: root,
+        encoding: 'utf8',
+        env: {
+            ...summaryEnvironment(plan, { required: { result: 'failure' } }, root),
+            FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST: transportManifest,
+            GITHUB_STEP_SUMMARY: stepSummary
+        }
+    });
+
+    assert.equal(result.status, 1);
+    const rendered = fs.readFileSync(stepSummary, 'utf8');
+    assert.match(rendered, /transported-root-cause/u);
+    assert.doesNotMatch(rendered, /directory-only-root-cause/u);
+    const summary = JSON.parse(fs.readFileSync(path.join(root, '.tmp/release-evidence/jobs/production-summary.json'), 'utf8'));
+    assert.deepEqual(summary.flaky.passedAfterRetry.map((entry) => entry.suite), ['transported-suite']);
+});
+
 test('production summary admits only policy-skipped needs and rejects a skipped selected job', (context) =>
 {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-1151-summary-plan-'));
