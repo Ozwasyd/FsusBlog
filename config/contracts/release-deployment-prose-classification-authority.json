@@ -1,0 +1,42 @@
+{
+    "schema": "fsusblog.release-deployment-prose-classification-authority.v1",
+    "scopeId": "protocol-release-deployment-ownership",
+    "documents": [
+        {
+            "documentPath": "docs/architecture/monolithic-distributed-boundary.md",
+            "behaviorIds": [
+                "deployment-blue-green-runtime-role"
+            ],
+            "classification": "diagnostic",
+            "nodeCount": 10,
+            "inventoryDigest": "e07ace40c1477be0ed60626ac1765b5e206bb7574204f2eac1aef04902a285d1"
+        },
+        {
+            "documentPath": "docs/releases/blue-green-deployment-runbook.md",
+            "behaviorIds": [
+                "deployment-blue-green-runtime-role"
+            ],
+            "classification": "diagnostic",
+            "nodeCount": 6,
+            "inventoryDigest": "f63377d44a21644e27952b26040b53aab5b06031eeb96aedc40af84376deb870"
+        },
+        {
+            "documentPath": "docs/releases/release-identity.md",
+            "behaviorIds": [
+                "release-final-aggregate-contract"
+            ],
+            "classification": "non-authority",
+            "nodeCount": 21,
+            "inventoryDigest": "a8c4da2798ce5bd7266d1f0d7f396e729d05e72cfd52a9bb4a4f6a862d4a88f5"
+        },
+        {
+            "documentPath": "docs/testing.md",
+            "behaviorIds": [
+                "release-final-aggregate-contract"
+            ],
+            "classification": "diagnostic",
+            "nodeCount": 403,
+            "inventoryDigest": "99c5ff94f25d4227739ee5bbe4c175b84ec784845e7459eac5e542c96c00f1d9"
+        }
+    ]
+}

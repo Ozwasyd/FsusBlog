@@ -20,7 +20,9 @@
             "id": "json-wire-key",
             "paths": [
                 "config/contracts/release-deployment-prose-classifications.json",
-                "config/schemas/release-deployment-prose-classifications.schema.json"
+                "config/schemas/release-deployment-prose-classifications.schema.json",
+                "config/contracts/release-deployment-prose-classification-authority.json",
+                "config/schemas/release-deployment-prose-classification-authority.schema.json"
             ],
             "reason": "The closed prose-ownership registry and its schema expose stable machine-readable field names while internal checker symbols remain repository-native."
         }

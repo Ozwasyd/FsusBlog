@@ -32,28 +32,15 @@ export const releaseDeploymentExactnessSchema = 'fsusblog.release-deployment-doc
 const readJson = (repositoryRoot, relative) =>
     JSON.parse(readFileSync(path.join(repositoryRoot, relative), 'utf8'))
 
-const forbiddenSurfaces = Object.freeze([
-    ['manual-runtime-role-table', /(?:^\|\s*模式\s*\|(?:\n\|[^\n]*){1,8})|(?:^\|\s*Mode\s*\|[^\n]*\n(?:\|[^\n]*\n){0,2}[^\n]*`?(?:single|static-role|adaptive)`?)/im],
-    ['manual-stage-table', /^\|\s*(?:stage|phase|阶段|階段)\s*\|/imu],
-    ['finalizer-as-rerun', /(?:release[- ]final|finalizer|收尾)[^\n]{0,80}(?:re-?runs?\b|rerun|再跑一次|重新运行|重新運行)/iu],
-    ['job-success-authority', /(?:job|ci|workflow)[^\n]{0,40}(?:success|succeeded|成功)[^\n]{0,60}(?:authority|proof|权威|權威|证据|證據|代替|取代|replace)/iu],
-    ['auto-spawn-evidence', /(?:auto|自动|自動)[^\n]{0,10}(?:spawn|rerun|re-run|produce|生成|重跑)[^\n]{0,30}(?:allowed|permitted|is ok|允许|允許|即可|可以)|(?:may be auto|可以自动|可以自動)[^\n]{0,30}(?:spawn|produce|rerun|生成|重跑)/iu],
-    ['unknown-active-standby', /unknown[^\n]{0,40}active[^\n]{0,60}(?:standby|safe|备用|備用|安全)|(?:把|将|將)[^\n]{0,20}unknown[^\n]{0,30}(?:当|當)[^\n]{0,10}(?:standby|备用|備用)/iu],
-    ['active-cleanup-allowed', /(?:cleanup|gc|delete|清除|删除|刪除|清掉)[^\n]{0,50}(?:active release|active artifact|当前\s*active|當前\s*active|active slot|active volume|active schema)/iu],
-    ['compose-workflow-role-authority', /compose[^\n]{0,80}(?:runtime[- ]role|角色|模式|服务清单|服務清單)[^\n]{0,60}(?:authority|truth|权威|權威|真源)|(?:runtime[- ]role|角色|模式|静态守卫|靜態守衛)[^\n]{0,80}compose[^\n]{0,60}(?:authority|truth|权威|權威|真源)/iu],
-    ['waiver', /(?:release|deployment|blue[- ]green|runtime|role|slot|fact|document)[ -]?waiver|(?:部署|蓝绿|藍綠|运行时|運行時|事实|事實|文档|文件)豁免/iu],
-    ['hidden-compatibility', /<details\b[^>]*>[\s\S]{0,500}(?:legacy|compat)|compat(?:ibility)?[- ]table|current[- ]equivalent/iu],
-    ['overbroad-claim', /(?:one|single|一个|一個)[^\n]{0,60}claim[^\n]{0,80}(?:all|every|全部)[^\n]{0,30}(?:behavior|behaviour|行为|行為)/iu],
-    ['self-certification', /(?:lastReviewedAt\s*:|lastVerifiedCommit\s*:|manual(?:ly)?[- ]approved\s*:|self[- ]certified)/iu]
-])
-
 const proseClassificationSchema = 'fsusblog.release-deployment-prose-classifications.v1'
 const proseClassificationPath = 'config/contracts/release-deployment-prose-classifications.json'
+const proseClassificationAuthoritySchema = 'fsusblog.release-deployment-prose-classification-authority.v1'
+const proseClassificationAuthorityPath = 'config/contracts/release-deployment-prose-classification-authority.json'
 const markdownAstVersion = 'fsusblog.release-deployment-markdown-ast.v1'
 const proseClassificationKinds = Object.freeze(['diagnostic', 'example', 'history', 'non-authority'])
 
 const headingPattern = /^(#{1,6})\s+(.+?)\s*#*\s*$/u
-const fencePattern = /^\s*(?:`{3,}|~{3,})/u
+const fencePattern = /^\s*(`{3,}|~{3,})/u
 const listPattern = /^\s*(?:[-*+]\s+|\d+[.)]\s+)/u
 const tablePattern = /^\s*\|.*\|\s*$/u
 const quotePattern = /^\s*>/u
@@ -85,7 +72,11 @@ function pushProseNode(nodes, documentPath, nodeType, startIndex, endIndex, body
     nodes.push({ ...node, contentDigest: nodeDigest(node) })
 }
 
-export function parseReleaseDeploymentMarkdownAst(source, documentPath = 'inline.md')
+export function parseReleaseDeploymentMarkdownAst(
+    source,
+    documentPath = 'inline.md',
+    { ownedSpans = [] } = {}
+)
 {
     const lines = String(source).split(/\r?\n/u)
     const nodes = []
@@ -95,6 +86,13 @@ export function parseReleaseDeploymentMarkdownAst(source, documentPath = 'inline
     while (index < lines.length)
     {
         const line = lines[index]
+        const ownedSpan = ownedSpans.find((entry) =>
+            index + 1 >= entry.startLine && index + 1 <= entry.endLine)
+        if (ownedSpan)
+        {
+            index = ownedSpan.endLine
+            continue
+        }
         if (!line.trim())
         {
             index += 1
@@ -114,14 +112,41 @@ export function parseReleaseDeploymentMarkdownAst(source, documentPath = 'inline
             continue
         }
 
-        if (fencePattern.test(line))
+        const fence = line.match(fencePattern)
+        if (fence)
         {
-            const marker = line.trimStart()[0]
+            const marker = fence[1][0]
+            const minimumLength = fence[1].length
+            const closingFence = new RegExp(`^\\s*${marker === '`' ? '`' : '~'}{${minimumLength},}\\s*$`, 'u')
             index += 1
-            while (index < lines.length && !lines[index].trimStart().startsWith(marker.repeat(3))) index += 1
+            while (index < lines.length && !closingFence.test(lines[index])) index += 1
             if (index < lines.length) index += 1
             continue
         }
+
+        const generatedBegin = line.match(/^\s*<!--\s*FSUSBLOG-GENERATED:BEGIN\s+([a-z][a-z0-9]*(?:[.-][a-z0-9]+)*)\s*-->\s*$/u)
+        if (generatedBegin)
+        {
+            const sectionId = generatedBegin[1]
+            index += 1
+            while (index < lines.length)
+            {
+                const generatedEnd = lines[index]
+                    .match(/^\s*<!--\s*FSUSBLOG-GENERATED:END\s+([a-z][a-z0-9]*(?:[.-][a-z0-9]+)*)\s*-->\s*$/u)
+                if (generatedEnd)
+                {
+                    if (generatedEnd[1] !== sectionId)
+                        throw new Error(`generated section ${sectionId} ended by ${generatedEnd[1]} in ${documentPath}:${index + 1}`)
+                    break
+                }
+                index += 1
+            }
+            if (index >= lines.length) throw new Error(`generated section ${sectionId} is unclosed in ${documentPath}`)
+            index += 1
+            continue
+        }
+        if (/^\s*<!--\s*FSUSBLOG-GENERATED:END\b/u.test(line))
+            throw new Error(`orphan generated section end in ${documentPath}:${index + 1}`)
 
         if (htmlCommentPattern.test(line))
         {
@@ -194,26 +219,36 @@ export function parseReleaseDeploymentMarkdownAst(source, documentPath = 'inline
 
 export function extractReleaseDeploymentProseNodes(source, documentPath = 'inline.md')
 {
-    return parseReleaseDeploymentMarkdownAst(
-        sourceOutsideGeneratedSections(source, documentPath),
-        documentPath
-    )
+    const claims = parseDocumentClaims(source, { documentPath, documentStatus: 'current' })
+    const ownedSpans = claims.flatMap((claim) => [
+        {
+            startLine: claim.location.claimStartLine,
+            endLine: claim.location.claimEndLine
+        },
+        ...(claim.declaration.claimType === 'generated-section' ? [] : [{
+            startLine: claim.location.bodyStartLine,
+            endLine: claim.location.bodyEndLine
+        }])
+    ]).sort((left, right) => left.startLine - right.startLine)
+    return parseReleaseDeploymentMarkdownAst(source, documentPath, { ownedSpans })
 }
 
 export function classifyReleaseDeploymentSource(
     source,
     documentPath = 'inline.md',
-    classification = 'non-authority'
+    classificationAuthority
 )
 {
-    if (!proseClassificationKinds.includes(classification))
-        throw new Error(`invalid prose classification ${classification}`)
+    const documentAuthority = classificationAuthority?.documents?.find((entry) =>
+        entry.documentPath === documentPath)
+    if (!documentAuthority || !proseClassificationKinds.includes(documentAuthority.classification))
+        throw new Error(`missing prose classification authority for ${documentPath}`)
     return extractReleaseDeploymentProseNodes(source, documentPath).map((node) => ({
         documentPath: node.documentPath,
         startLine: node.startLine,
         endLine: node.endLine,
         nodeType: node.nodeType,
-        classification,
+        classification: documentAuthority.classification,
         contentDigest: node.contentDigest
     }))
 }
@@ -245,16 +280,60 @@ function validateProseClassificationRegistry(
     return registry
 }
 
-function scanClosedProseOwnership(source, documentPath, classifications)
+const inventoryDigest = (entries) => digestValue(entries.map((entry) => ({
+    documentPath: entry.documentPath,
+    startLine: entry.startLine,
+    endLine: entry.endLine,
+    nodeType: entry.nodeType,
+    contentDigest: entry.contentDigest
+})).sort((left, right) => classificationKey(left).localeCompare(classificationKey(right))))
+
+function validateProseClassificationAuthority(authority, catalog, registry, repositoryRoot = root)
+{
+    const schema = readJson(
+        repositoryRoot,
+        'config/schemas/release-deployment-prose-classification-authority.schema.json'
+    )
+    const schemaErrors = validateJsonSchema(authority, schema)
+    if (schemaErrors.length > 0) throw new Error(`invalid classification authority schema: ${schemaErrors.join('; ')}`)
+    if (authority.schema !== proseClassificationAuthoritySchema
+        || authority.scopeId !== releaseDeploymentScopeId)
+        throw new Error('invalid release/deployment prose classification authority')
+    const selected = catalog.contracts.filter((entry) => entry.status === 'active'
+        && entry.documentationPolicy === 'required'
+        && releaseDeploymentDomains.includes(entry.domain))
+    const expectedDocuments = [...new Set(selected.flatMap((entry) => entry.documents))].sort()
+    const actualDocuments = authority.documents.map((entry) => entry.documentPath).sort()
+    if (JSON.stringify(expectedDocuments) !== JSON.stringify(actualDocuments))
+        throw new Error('classification authority document roster conflicts with BehaviorCatalog')
+    for (const document of authority.documents)
+    {
+        const expectedBehaviorIds = selected.filter((entry) => entry.documents.includes(document.documentPath))
+            .map((entry) => entry.id).sort()
+        if (JSON.stringify(expectedBehaviorIds) !== JSON.stringify([...document.behaviorIds].sort()))
+            throw new Error(`${document.documentPath} classification behavior roster conflicts with BehaviorCatalog`)
+        const entries = registry.entries.filter((entry) => entry.documentPath === document.documentPath)
+        if (entries.length !== document.nodeCount || inventoryDigest(entries) !== document.inventoryDigest)
+            throw new Error(`${document.documentPath} classification inventory conflicts with authority`)
+        if (entries.some((entry) => entry.classification !== document.classification))
+            throw new Error(`${document.documentPath} registry selected its own prose classification`)
+    }
+    return authority
+}
+
+function scanClosedProseOwnership(source, documentPath, classifications, classificationAuthority)
 {
     const nodes = extractReleaseDeploymentProseNodes(source, documentPath)
     const entries = classifications.filter((entry) => entry.documentPath === documentPath)
+    const expectedClassification = classificationAuthority?.documents?.find((entry) =>
+        entry.documentPath === documentPath)?.classification
     const byKey = new Map(entries.map((entry) => [classificationKey(entry), entry]))
     const findings = []
     for (const node of nodes)
     {
         const entry = byKey.get(classificationKey(node))
-        if (!entry || entry.contentDigest !== node.contentDigest)
+        if (!entry || entry.contentDigest !== node.contentDigest
+            || entry.classification !== expectedClassification)
         {
             findings.push({
                 classId: 'manual-deployment-authority',
@@ -305,51 +384,26 @@ function seal(value)
     return result
 }
 
-function sourceOutsideGeneratedSections(source, documentPath)
-{
-    const lines = source.split(/\r?\n/u)
-    const claims = parseDocumentClaims(source, { documentPath, documentStatus: 'current' })
-    const ownedLines = new Set()
-    for (const claim of claims)
-    {
-        for (let line = claim.location.claimStartLine; line <= claim.location.claimEndLine; line += 1)
-        {
-            ownedLines.add(line)
-        }
-        if (claim.declaration.claimType !== 'generated-section')
-        {
-            for (let line = claim.location.bodyStartLine; line <= claim.location.bodyEndLine; line += 1)
-            {
-                ownedLines.add(line)
-            }
-        }
-    }
-    let generated = false
-    let fenced = false
-    let htmlComment = false
-    return lines.map((line, index) =>
-    {
-        if (ownedLines.has(index + 1)) return ''
-        if (/^\s*(?:```+|~~~+)/u.test(line)) fenced = !fenced
-        if (line.includes('FSUSBLOG-GENERATED:BEGIN')) generated = true
-        if (line.trim().startsWith('<!--') && !line.includes('-->')) htmlComment = true
-        const retained = generated || fenced || htmlComment ? '' : line
-        if (line.includes('FSUSBLOG-GENERATED:END')) generated = false
-        if (htmlComment && line.includes('-->')) htmlComment = false
-        return retained
-    }).join('\n')
-}
-
 export function scanReleaseDeploymentDocResidue(repositoryRoot, documentPaths)
 {
     const findings = []
+    const catalog = readJson(repositoryRoot, 'config/contracts/behavior-contracts.json')
     const registry = validateProseClassificationRegistry(readJson(repositoryRoot, proseClassificationPath))
+    const authority = validateProseClassificationAuthority(
+        readJson(repositoryRoot, proseClassificationAuthorityPath),
+        catalog,
+        registry,
+        repositoryRoot
+    )
     for (const documentPath of [...new Set(documentPaths)].sort())
     {
         findings.push(...scanReleaseDeploymentSourceResidue(
             readFileSync(path.join(repositoryRoot, documentPath), 'utf8'),
             documentPath,
-            { proseClassifications: registry.entries }
+            {
+                proseClassifications: registry.entries,
+                classificationAuthority: authority
+            }
         ))
     }
     return findings
@@ -358,17 +412,16 @@ export function scanReleaseDeploymentDocResidue(repositoryRoot, documentPaths)
 export function scanReleaseDeploymentSourceResidue(
     source,
     documentPath = 'inline.md',
-    { proseClassifications = [] } = {}
+    { proseClassifications = [], classificationAuthority = null } = {}
 )
 {
-    const retained = sourceOutsideGeneratedSections(source, documentPath)
     const findings = []
-    for (const [classId, pattern] of forbiddenSurfaces)
-    {
-        const match = retained.match(pattern)
-        if (match) findings.push({ classId, documentPath, evidence: match[0].slice(0, 160) })
-    }
-    findings.push(...scanClosedProseOwnership(source, documentPath, proseClassifications))
+    findings.push(...scanClosedProseOwnership(
+        source,
+        documentPath,
+        proseClassifications,
+        classificationAuthority
+    ))
     return findings
 }
 
@@ -432,18 +485,28 @@ The blue-green deployment claim is eligible.`],
         ['except-after-claim', 'Except after drain, the deployment claim is valid.'],
         ['failed-to-deny-claim', 'The observer failed to deny that the deployment claim is valid.'],
         ['failed-to-remain-blocked', 'The deployment claim failed to remain blocked.'],
-        ['mixed-old-current-claim', 'The old claim was invalid, but the current deployment claim is valid.']
+        ['mixed-old-current-claim', 'The old claim was invalid, but the current deployment claim is valid.'],
+        ['post-backtick-fence-prose', '```text\nignored\n```\nThe deployment claim is valid.'],
+        ['post-tilde-fence-prose', '~~~text\nignored\n~~~\nThe deployment claim is valid.'],
+        ['post-multiple-fence-prose', '```text\none\n```\n~~~text\ntwo\n~~~\nThe deployment claim is valid.'],
+        ['adjacent-generated-ownership-prose', `<!-- fsus-doc-claim
+claimId: fixture.generated-adjacent
+behaviorId: deployment-blue-green-runtime-role
+claimType: generated-section
+generatedSectionId: fixture.adjacent
+render: generated-section
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN fixture.adjacent -->
+generated body
+<!-- FSUSBLOG-GENERATED:END fixture.adjacent -->
+The deployment claim is valid.`]
     ]
-    const rows = [...lexicalSamples.map(([classId, source]) => ({
-        classId,
-        killed: forbiddenSurfaces.find(([id]) => id === classId)[1].test(source),
-        detector: classId
-    })), ...semanticSamples.map(([classId, source]) => ({
+    const rows = [[...lexicalSamples, ...semanticSamples].map(([classId, source]) => ({
         classId,
         killed: scanReleaseDeploymentSourceResidue(source, 'mutation.md')
             .some((entry) => entry.classId === 'manual-deployment-authority'),
-        detector: 'manual-deployment-authority'
-    })), ...structuralRows]
+        detector: 'closed-prose-ownership'
+    })), ...structuralRows].flat()
     return seal({
         schema: 'fsusblog.release-deployment-doc-mutation-evidence.v1',
         rows,
@@ -489,6 +552,12 @@ export function loadReleaseDeploymentExactnessInputs(repositoryRoot, observation
     const proseClassifications = validateProseClassificationRegistry(
         readJson(repositoryRoot, proseClassificationPath)
     )
+    const proseClassificationAuthority = validateProseClassificationAuthority(
+        readJson(repositoryRoot, proseClassificationAuthorityPath),
+        catalog,
+        proseClassifications,
+        repositoryRoot
+    )
     const claimReceipt = parseRepositoryClaims(repositoryRoot, { catalog })
     const receiptRaw = typeof observationReceipt === 'string'
         ? JSON.parse(readFileSync(observationReceipt, 'utf8'))
@@ -500,6 +569,7 @@ export function loadReleaseDeploymentExactnessInputs(repositoryRoot, observation
         migrationLedger,
         sectionCatalog,
         proseClassifications,
+        proseClassificationAuthority,
         claimReceipt,
         receiptRaw,
         receipt
@@ -529,9 +599,9 @@ export function buildReleaseDeploymentDocExactnessReceipt({
         scopeId: releaseDeploymentScopeId,
         scannerDigest: createHash('sha256')
             .update([
-                ...forbiddenSurfaces.map(([id, pattern]) => `${id}:${pattern}`),
                 ...semanticScannerIdentity,
-                digestValue(inputs.proseClassifications)
+                digestValue(inputs.proseClassifications),
+                digestValue(inputs.proseClassificationAuthority)
             ].join('\n'))
             .digest('hex')
     })
@@ -580,6 +650,33 @@ export function buildReleaseDeploymentDocExactnessReceipt({
     const missingUnsupportedCombination = structuredClone(inputs.receipt)
     delete missingUnsupportedCombination.observations.facts['deployment.runtime-role-contract']
         .unsupportedCombinations['unknown-mode']
+    const registrySelfClassification = structuredClone(inputs.proseClassifications)
+    registrySelfClassification.entries[0].classification =
+        registrySelfClassification.entries[0].classification === 'diagnostic'
+            ? 'example'
+            : 'diagnostic'
+    const registryExtraNode = structuredClone(inputs.proseClassifications)
+    registryExtraNode.entries.push({
+        ...registryExtraNode.entries[0],
+        startLine: 999998,
+        endLine: 999999,
+        contentDigest: '0'.repeat(64)
+    })
+    const authorityBehaviorDrift = structuredClone(inputs.proseClassificationAuthority)
+    authorityBehaviorDrift.documents[0].behaviorIds[0] =
+        `${authorityBehaviorDrift.documents[0].behaviorIds[0]}-drift`
+    const classificationAuthorityRejects = (authority, registry) =>
+    {
+        try
+        {
+            validateProseClassificationAuthority(authority, inputs.catalog, registry, repositoryRoot)
+            return false
+        }
+        catch
+        {
+            return true
+        }
+    }
     const structuralRows = [
         {
             classId: 'required-stage-evidence-omission',
@@ -637,6 +734,30 @@ export function buildReleaseDeploymentDocExactnessReceipt({
                 claimReceipt: extraClaimReceipt
             }).status === 'failed',
             detector: 'behavior-catalog-doc-claim-roster-exactness'
+        },
+        {
+            classId: 'registry-self-selected-classification',
+            killed: classificationAuthorityRejects(
+                inputs.proseClassificationAuthority,
+                registrySelfClassification
+            ),
+            detector: 'independent-prose-classification-authority'
+        },
+        {
+            classId: 'registry-extra-node-with-stale-authority',
+            killed: classificationAuthorityRejects(
+                inputs.proseClassificationAuthority,
+                registryExtraNode
+            ),
+            detector: 'independent-prose-classification-authority'
+        },
+        {
+            classId: 'classification-authority-behavior-roster-drift',
+            killed: classificationAuthorityRejects(
+                authorityBehaviorDrift,
+                inputs.proseClassifications
+            ),
+            detector: 'behavior-catalog-classification-authority-exactness'
         }
     ]
     const mutationEvidence = runReleaseDeploymentDocMutationCases(structuralRows)

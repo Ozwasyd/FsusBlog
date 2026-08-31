@@ -6,6 +6,7 @@ import test from 'node:test'
 import {
     buildReleaseDeploymentDocExactnessReceipt,
     classifyReleaseDeploymentSource,
+    extractReleaseDeploymentProseNodes,
     loadReleaseDeploymentExactnessInputs,
     releaseDeploymentBehaviorIds,
     releaseDeploymentDomains,
@@ -39,7 +40,7 @@ test.before(async () =>
 test('release/deployment negative classes are all killed', () =>
 {
     const evidence = runReleaseDeploymentDocMutationCases()
-    assert.equal(evidence.total, 49)
+    assert.equal(evidence.total, 53)
     assert.equal(evidence.killed, evidence.total)
 })
 
@@ -89,7 +90,21 @@ The blue-green deployment claim is eligible.`,
         'Except after drain, the deployment claim is valid.',
         'The observer failed to deny that the deployment claim is valid.',
         'The deployment claim failed to remain blocked.',
-        'The old claim was invalid, but the current deployment claim is valid.'
+        'The old claim was invalid, but the current deployment claim is valid.',
+        '```text\nignored\n```\nThe deployment claim is valid.',
+        '~~~text\nignored\n~~~\nThe deployment claim is valid.',
+        '```text\none\n```\n~~~text\ntwo\n~~~\nThe deployment claim is valid.',
+        `<!-- fsus-doc-claim
+claimId: fixture.generated-adjacent
+behaviorId: deployment-blue-green-runtime-role
+claimType: generated-section
+generatedSectionId: fixture.adjacent
+render: generated-section
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN fixture.adjacent -->
+generated body
+<!-- FSUSBLOG-GENERATED:END fixture.adjacent -->
+The deployment claim is valid.`
     ]
     for (const source of sources)
     {
@@ -179,11 +194,113 @@ The blue/green deployment claim is eligible.
 ## Traffic handoff
 The controller must promote standby and switch traffic.
 <!-- FSUSBLOG-GENERATED:END fixture.deployment -->`
-    const classifications = classifyReleaseDeploymentSource(source, 'fixture.md', 'diagnostic')
+    const classificationAuthority = {
+        documents: [{ documentPath: 'fixture.md', classification: 'diagnostic' }]
+    }
+    const classifications = classifyReleaseDeploymentSource(
+        source,
+        'fixture.md',
+        classificationAuthority
+    )
     assert.ok(classifications.length > 0)
     assert.deepEqual(scanReleaseDeploymentSourceResidue(source, 'fixture.md', {
-        proseClassifications: classifications
+        proseClassifications: classifications,
+        classificationAuthority
     }), [])
+})
+
+test('actual deployment documents retain exact AST coverage across fences and owned spans', () =>
+{
+    const expected = {
+        'docs/releases/blue-green-deployment-runbook.md': [
+            ['heading', 1, 1],
+            ['paragraph', 3, 3],
+            ['heading', 5, 5],
+            ['paragraph', 12, 12],
+            ['heading', 13, 13],
+            ['heading', 33, 33]
+        ],
+        'docs/architecture/monolithic-distributed-boundary.md': [
+            ['heading', 1, 1],
+            ['paragraph', 3, 3],
+            ['heading', 5, 5],
+            ['paragraph', 7, 7],
+            ['paragraph', 29, 29],
+            ['heading', 31, 31],
+            ['paragraph', 33, 33],
+            ['paragraph', 35, 35],
+            ['paragraph', 43, 43],
+            ['heading', 44, 44]
+        ]
+    }
+    for (const [documentPath, spans] of Object.entries(expected))
+    {
+        const source = readFileSync(path.join(root, documentPath), 'utf8')
+        assert.deepEqual(extractReleaseDeploymentProseNodes(source, documentPath)
+            .map((entry) => [entry.nodeType, entry.startLine, entry.endLine]), spans)
+    }
+})
+
+test('EOF fences and adjacent typed ownership cannot create orphan delimiter masking', () =>
+{
+    const excludedOnly = [
+        '```text\nThe deployment claim is valid.',
+        '~~~text\nThe deployment claim is valid.',
+        '```text\none\n```\n~~~text\ntwo\n~~~',
+        `<!-- fsus-doc-claim
+claimId: fixture.generated-only
+behaviorId: deployment-blue-green-runtime-role
+claimType: generated-section
+generatedSectionId: fixture.generated-only
+render: generated-section
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN fixture.generated-only -->
+The deployment claim is valid.
+<!-- FSUSBLOG-GENERATED:END fixture.generated-only -->`
+    ]
+    for (const source of excludedOnly)
+        assert.deepEqual(scanReleaseDeploymentSourceResidue(source, 'fixture.md'), [])
+
+    const adjacentTypedAndGenerated = `<!-- fsus-doc-claim
+claimId: fixture.typed-adjacent
+behaviorId: deployment-blue-green-runtime-role
+claimType: boolean
+factPath: deploymentBlueGreen.claimEligible
+render: boolean-negated
+-->
+
+The deployment claim remains blocked.
+
+<!-- fsus-doc-claim
+claimId: fixture.generated-adjacent-positive
+behaviorId: deployment-blue-green-runtime-role
+claimType: generated-section
+generatedSectionId: fixture.adjacent-positive
+render: generated-section
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN fixture.adjacent-positive -->
+The deployment claim is valid.
+<!-- FSUSBLOG-GENERATED:END fixture.adjacent-positive -->`
+    assert.deepEqual(extractReleaseDeploymentProseNodes(adjacentTypedAndGenerated, 'fixture.md'), [])
+
+    for (const malformed of [
+        '<!-- FSUSBLOG-GENERATED:BEGIN fixture.unclosed -->\nbody',
+        '<!-- FSUSBLOG-GENERATED:END fixture.orphan -->',
+        '<!-- FSUSBLOG-GENERATED:BEGIN fixture.one -->\nbody\n<!-- FSUSBLOG-GENERATED:END fixture.two -->'
+    ])
+        assert.throws(() => extractReleaseDeploymentProseNodes(malformed, 'fixture.md'), /generated section/u)
+})
+
+test('fence delimiter length is structural and cannot hide following active prose', () =>
+{
+    assert.deepEqual(extractReleaseDeploymentProseNodes(
+        '````text\ninside\n```\nstill inside',
+        'fixture.md'
+    ), [])
+    assert.equal(scanReleaseDeploymentSourceResidue(
+        '````text\ninside\n````\nThe deployment claim is valid.',
+        'fixture.md'
+    ).length, 1)
 })
 
 test('release/deployment behavior roster comes from active required catalog domains', () =>
@@ -227,8 +344,8 @@ test('current release/deployment claims and sections are bidirectionally exact',
     assert.equal(receipt.counts.generated, 4)
     assert.equal(receipt.counts.prose, 3)
     assert.equal(receipt.counts.proseVerified, 3)
-    assert.equal(receipt.counts.mutationKilled, 57)
-    assert.equal(receipt.counts.mutationTotal, 57)
+    assert.equal(receipt.counts.mutationKilled, 64)
+    assert.equal(receipt.counts.mutationTotal, 64)
 })
 
 test('missing ledger entry, orphan section and typed fact drift fail closed', () =>
