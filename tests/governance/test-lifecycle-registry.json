@@ -5014,6 +5014,16 @@
             ]
         },
         {
+            "file": "tests/tools/current-run-evidence-locator-negative-matrix.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/current-run-evidence-locator-negative-matrix.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
             "file": "tests/tools/current-run-evidence-locator.test.mjs",
             "owner": "manual-diagnostic:tests/tools/current-run-evidence-locator.test.mjs",
             "executionCategory": "manual-diagnostic",
@@ -5031,6 +5041,27 @@
             "physicalExecutionCount": 0,
             "classifications": [
                 "source-text"
+            ]
+        },
+        {
+            "file": "tests/tools/current-run-evidence-scheduler.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/current-run-evidence-scheduler.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
+            "file": "tests/tools/current-run-evidence-transport.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/current-run-evidence-transport.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "perf"
             ]
         },
         {
@@ -5270,6 +5301,32 @@
             ]
         },
         {
+            "file": "tests/tools/migration-assembly-boundary.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "migration",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/migration-terminal-governance.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "migration",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/outcome-contract.test.mjs",
             "owner": "manual-diagnostic:tests/tools/outcome-contract.test.mjs",
             "executionCategory": "manual-diagnostic",
@@ -5443,6 +5500,18 @@
             "physicalExecutionCount": 0,
             "classifications": [
                 "source-text"
+            ]
+        },
+        {
+            "file": "tests/tools/server-migration-cutover.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "migration",
+                "runtime"
             ]
         },
         {
