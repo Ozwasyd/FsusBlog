@@ -1507,6 +1507,8 @@ jobs:
     release-evidence:
         name: Release Evidence
         runs-on: ubuntu-latest
+        outputs:
+            evidence_transport_manifest_digest: ${{ steps.evidence_transport.outputs.manifest_digest }}
         needs:
             - validate-matrix
             - plan-pr-risk
@@ -1560,6 +1562,8 @@ jobs:
                   FSUSBLOG_DATA_SCALE_PRODUCER_JOB: integration-runtime
             - run: ./tools/test.sh performance-evidence-summary --no-deps
             - run: ./tools/test.sh release-evidence --no-deps
+              env:
+                  FSUSBLOG_DOWNLOADED_ARTIFACTS_ROOT: .tmp/release-evidence-empty-input
             - name: Upload exact release-evidence manifest
               uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
               with:
@@ -1569,6 +1573,7 @@ jobs:
                   include-hidden-files: true
                   path: .tmp/release-evidence/manifest.json
             - name: Seal quality-gate evidence transport
+              id: evidence_transport
               if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.production_summary == 'true'
               env:
                   FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/quality-gate-plan/pr-plan.json
@@ -1577,6 +1582,7 @@ jobs:
                   FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
                   FSUSBLOG_QUALITY_GATE_ARTIFACT_DOWNLOAD_ROOT: .tmp/downloaded-artifacts
                   FSUSBLOG_RELEASE_EVIDENCE_DIR: .tmp/release-evidence
+                  QUALITY_GATE_NEEDS_JSON: ${{ toJson(needs) }}
               run: node tools/ci/prepare-quality-gate-evidence-transport.mjs
             - name: Upload sealed quality-gate evidence transport
               uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -1607,6 +1613,8 @@ jobs:
     production-summary:
         name: Production Summary
         runs-on: ubuntu-latest
+        outputs:
+            evidence_transport_manifest_digest: ${{ steps.verify_evidence_transport.outputs.manifest_digest }}
         needs:
             - behavior-doc-static-admission
             - behavior-evidence-pre-runtime
@@ -1676,6 +1684,16 @@ jobs:
                   node tools/test/run-current-run-evidence-transport.mjs extract
                   --manifest artifacts/current-run/transport-manifest.json
                   --extract-root .
+            - name: Bind transported evidence to the live production summary
+              id: verify_evidence_transport
+              env:
+                  FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/quality-gate-plan/pr-plan.json
+                  FSUSBLOG_CI_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
+                  FSUSBLOG_CI_PRODUCTION_SOURCE_FINGERPRINT: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
+                  FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
+                  FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST: artifacts/current-run/transport-manifest.json
+                  FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST_DIGEST: ${{ needs.release-evidence.outputs.evidence_transport_manifest_digest }}
+              run: node tools/ci/verify-quality-gate-evidence-transport.mjs
             - name: Check required job results
               env:
                   QUALITY_GATE_NEEDS_JSON: ${{ toJson(needs) }}

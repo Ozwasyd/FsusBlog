@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { parseMatrix } from '../test-matrix/parse-matrix.mjs';
 
 import {
     createFlakyEvidenceCollection,
@@ -79,6 +80,7 @@ function assertPlainFile(file, ownedRoot, label)
         assert(!fs.lstatSync(cursor).isSymbolicLink(), `${label} must not traverse a symlink`);
     }
     assert(fs.statSync(absolute).isFile(), `${label} must be a regular file`);
+    assert(fs.statSync(absolute).nlink === 1, `${label} must not be hard-linked`);
     assert(inside(fs.realpathSync(absolute), fs.realpathSync(root)), `${label} escapes its physical owned root`);
 }
 
@@ -168,9 +170,7 @@ function readJson(candidate, label)
 
 function artifactOwnsSummary(candidate, summary)
 {
-    return [summary.jobId, summary.ciJob]
-        .filter((value) => typeof value === 'string' && value.length > 0)
-        .some((value) => candidate.artifactName === value || candidate.artifactName.startsWith(`${value}-`));
+    return candidate.artifactName === summary.ciJob;
 }
 
 function auxiliaryConsumerJob(candidate)
@@ -181,9 +181,77 @@ function auxiliaryConsumerJob(candidate)
     return match.groups.job;
 }
 
-function collectJobDocuments({ candidates, plan, context })
+const directAuthorityWithoutJobSummary = new Set([
+    'behavior-doc-static-admission',
+    'behavior-evidence-pre-runtime',
+    'plan-pr-risk',
+    'production-build-artifacts'
+]);
+
+function selectedAuthorityJobs(plan)
 {
-    const allowedJobs = new Set(plan.selectedJobIds);
+    const selected = new Set(plan.selectedJobIds);
+    return plan.summaryAuthorityJobIds.filter((job) => selected.has(job));
+}
+
+function expectedJobTiers(repositoryRoot, plan)
+{
+    const matrix = parseMatrix(fs.readFileSync(path.join(repositoryRoot, 'tests/matrix.yml'), 'utf8'));
+    const selectedTiers = new Set(plan.selectedTierIds);
+    const expected = new Map();
+    for (const tier of matrix.tiers)
+    {
+        if (selectedTiers.has(tier.id))
+        {
+            expected.set(tier.ciJob, [...(expected.get(tier.ciJob) ?? []), tier.id].sort());
+        }
+    }
+    return expected;
+}
+
+function validateNeedsProjection(environment, plan)
+{
+    const needs = JSON.parse(requiredEnvironment(environment, 'QUALITY_GATE_NEEDS_JSON'));
+    const expected = plan.summaryAuthorityJobIds.filter((job) => job !== 'release-evidence').sort();
+    assert(JSON.stringify(Object.keys(needs).sort()) === JSON.stringify(expected),
+        'release-evidence needs do not exactly match the production-summary authority projection');
+    const selected = new Set(plan.selectedJobIds);
+    const skipped = new Set(plan.skippedJobIds);
+    for (const [job, value] of Object.entries(needs))
+    {
+        if (selected.has(job)) assert(value?.result === 'success', `selected authority job is not successful: ${job}`);
+        else if (skipped.has(job)) assert(value?.result === 'skipped', `skipped authority job unexpectedly ran: ${job}`);
+        else assert(false, `needs job is outside the PR plan: ${job}`);
+    }
+}
+
+function productionReceipt(downloadRoot, context)
+{
+    const candidate = { artifactName: 'production-build-artifacts',
+        relative: '.tmp/ci-production-build/receipt.json',
+        file: path.join(downloadRoot, 'production-build-artifacts/.tmp/ci-production-build/receipt.json') };
+    assertPlainFile(candidate.file, downloadRoot, 'production build receipt');
+    const receipt = readJson(candidate, 'production build receipt');
+    assert(receipt.schema === 'fsusblog.ci-production-build-receipt.v1',
+        'production build receipt schema mismatch');
+    assert(receipt.status === 'complete', 'production build receipt is not complete');
+    assert(receipt.contentDigest === governanceContentDigest(receipt),
+        'production build receipt content digest mismatch');
+    assert(receipt.contentDigest === context.buildIdentity.digest, 'production build receipt digest mismatch');
+    assert(receipt.sourceState?.commit === context.sourceCommit
+        && normalizeFingerprint(receipt.sourceState?.worktreeFingerprint) === context.worktreeFingerprint,
+    'production build receipt source identity mismatch');
+    assert(String(receipt.producer?.runId) === context.schedulerRunId
+        && String(receipt.producer?.runAttempt) === context.attemptId
+        && receipt.producer?.job === 'production-build-artifacts',
+    'production build receipt producer identity mismatch');
+    return receipt;
+}
+
+function collectJobDocuments({ candidates, plan, context, expectedTiers, buildReceipt })
+{
+    const expectedJobs = selectedAuthorityJobs(plan)
+        .filter((job) => !directAuthorityWithoutJobSummary.has(job));
     const grouped = new Map();
     for (const candidate of candidates)
     {
@@ -199,23 +267,22 @@ function collectJobDocuments({ candidates, plan, context })
                 `stale job summary runId: ${document.jobId ?? 'missing'}`);
             assert(String(document.attempt) === context.attemptId,
                 `stale job summary attempt: ${document.jobId ?? 'missing'}`);
-            assert(typeof document.ciJob === 'string' && allowedJobs.has(document.ciJob),
-                `job summary is outside the PR plan ownership: ${document.ciJob ?? 'missing'}`);
-            if (!artifactOwnsSummary(candidate, document))
-            {
-                continue;
-            }
+            assert(expectedJobs.includes(document.ciJob),
+                `job summary is outside direct summary authority: ${document.ciJob ?? 'missing'}`);
+            assert(artifactOwnsSummary(candidate, document),
+                `job summary artifact name must exactly match ciJob: ${candidate.artifactName}/${document.ciJob}`);
+            const expected = expectedTiers.get(document.ciJob) ?? [];
+            assert(document.tierIds.every((tier) => expected.includes(tier)),
+                `job summary claims an unselected tier: ${document.jobId}`);
         }
         else
         {
             const consumerJob = auxiliaryConsumerJob(candidate);
-            assert(allowedJobs.has(consumerJob),
-                `production build verification is outside the PR plan ownership: ${consumerJob}`);
-            if (candidate.artifactName !== consumerJob
-                && !candidate.artifactName.startsWith(`${consumerJob}-`))
-            {
-                continue;
-            }
+            assert(expectedJobs.includes(consumerJob),
+                `production build verification is outside direct summary authority: ${consumerJob}`);
+            assert(candidate.artifactName === consumerJob,
+                `production build verification artifact name must exactly match consumer: ${consumerJob}`);
+            assert(document.status === 'success', `production build verification is not successful: ${consumerJob}`);
             assert(document.receiptContentDigest === context.buildIdentity.digest,
                 `stale production build receipt digest: ${consumerJob}`);
             assert(document.sourceState?.commit === context.sourceCommit
@@ -225,6 +292,8 @@ function collectJobDocuments({ candidates, plan, context })
                 && String(document.producer?.runAttempt) === context.attemptId
                 && document.producer?.job === 'production-build-artifacts',
             `stale production build producer identity: ${consumerJob}`);
+            assert(document.receiptContentDigest === buildReceipt.contentDigest,
+                `production build verification does not dereference the canonical receipt: ${consumerJob}`);
         }
         const key = isJob ? `job:${document.jobId}`
             : `aux:${document.schema}:${auxiliaryConsumerJob(candidate)}`;
@@ -235,22 +304,35 @@ function collectJobDocuments({ candidates, plan, context })
     const documents = [...grouped.values()]
         .sort((left, right) => `${left.candidate.artifactName}/${left.candidate.relative}`
             .localeCompare(`${right.candidate.artifactName}/${right.candidate.relative}`));
-    assert(documents.length > 0, 'canonical job summary evidence is missing');
+    for (const job of expectedJobs)
+    {
+        const summaries = documents.filter(({ document }) => document.schema === 'fsusblog.ci.job-result.v1'
+            && document.ciJob === job);
+        assert(summaries.length === 1, `canonical job summary artifact cardinality mismatch: ${job}`);
+        const covered = [...new Set(summaries.flatMap(({ document }) => document.tierIds))].sort();
+        assert(JSON.stringify(covered) === JSON.stringify(expectedTiers.get(job) ?? []),
+            `job summary tier cardinality mismatch: ${job}`);
+    }
     return documents;
 }
 
-function collectFlakyDocuments({ candidates, plan })
+function collectFlakyDocuments({ candidates, plan, jobs })
 {
-    const allowedJobs = new Set(plan.selectedJobIds);
+    const allowedJobs = new Set(selectedAuthorityJobs(plan));
     const grouped = new Map();
     for (const candidate of candidates)
     {
-        assert([...allowedJobs].some((job) => candidate.artifactName === job
-            || candidate.artifactName.startsWith(`${job}-`)),
+        assert(allowedJobs.has(candidate.artifactName),
         `flaky evidence artifact is outside the PR plan ownership: ${candidate.artifactName}`);
         const document = readJson(candidate, 'flaky evidence');
         assert(document?.schema === 'fsusblog.ci.flaky.v1',
             `unsupported flaky evidence schema: ${candidate.artifactName}/${candidate.relative}`);
+        const owner = jobs.find(({ candidate: summaryCandidate, document: summary }) =>
+            summary.schema === 'fsusblog.ci.job-result.v1'
+            && summaryCandidate.artifactName === candidate.artifactName
+            && summary.status === 'success'
+            && summary.artifacts.includes(candidate.relative));
+        assert(owner, `flaky evidence is not referenced by a successful current-run job summary: ${candidate.relative}`);
         const key = `${document.suite ?? 'missing'}\u0000${document.test ?? 'missing'}`;
         assert(!grouped.has(key), `duplicate canonical flaky evidence: ${key.replace('\u0000', ':')}`);
         grouped.set(key, { candidate, document });
@@ -331,17 +413,43 @@ export function buildQualityGateEvidenceTransport({
     assertPlainFile(planPath, repositoryRoot, 'PR smart gate plan');
     const plan = JSON.parse(fs.readFileSync(planPath, 'utf8'));
     validatePrSmartGatePlan(plan, environment, context.buildIdentity.digest);
+    validateNeedsProjection(environment, plan);
 
     const downloadRoot = path.resolve(repositoryRoot, requiredEnvironment(environment,
         'FSUSBLOG_QUALITY_GATE_ARTIFACT_DOWNLOAD_ROOT'));
     const releaseDirectory = requiredEnvironment(environment, 'FSUSBLOG_RELEASE_EVIDENCE_DIR');
-    const jobCandidates = [
+    const expectedTiers = expectedJobTiers(repositoryRoot, plan);
+    const expectedJobs = new Set(selectedAuthorityJobs(plan)
+        .filter((job) => !directAuthorityWithoutJobSummary.has(job)));
+    const allJobCandidates = [
         ...walkJsonFiles(downloadRoot, 'jobs'),
         ...localJobFiles(repositoryRoot, releaseDirectory)
     ];
+    for (const candidate of allJobCandidates)
+    {
+        for (const authorityJob of expectedJobs)
+        {
+            if (candidate.artifactName.startsWith(`${authorityJob}-`))
+            {
+                const exactOtherOwner = plan.selectedJobIds.some((job) => job !== authorityJob
+                    && (candidate.artifactName === job || candidate.artifactName.startsWith(`${job}-`)));
+                assert(exactOtherOwner,
+                    `job summary artifact uses an unbound prefix alias: ${candidate.artifactName}`);
+            }
+        }
+        assert(expectedJobs.has(candidate.artifactName),
+            `job summary artifact is outside exact plan authority: ${candidate.artifactName}`);
+    }
+    const jobCandidates = allJobCandidates;
     const flakyCandidates = walkJsonFiles(downloadRoot, 'flaky');
-    const jobs = collectJobDocuments({ candidates: jobCandidates, plan, context });
-    const flaky = collectFlakyDocuments({ candidates: flakyCandidates, plan });
+    for (const candidate of flakyCandidates)
+    {
+        assert(expectedJobs.has(candidate.artifactName),
+            `flaky evidence artifact is outside exact plan authority: ${candidate.artifactName}`);
+    }
+    const buildReceipt = productionReceipt(downloadRoot, context);
+    const jobs = collectJobDocuments({ candidates: jobCandidates, plan, context, expectedTiers, buildReceipt });
+    const flaky = collectFlakyDocuments({ candidates: flakyCandidates, plan, jobs });
     const jobCollection = createJobSummaryCollection(jobs.map(({ document }) => document));
     const flakyCollection = createFlakyEvidenceCollection(flaky.map(({ document }) => document));
 
@@ -397,6 +505,11 @@ export function buildQualityGateEvidenceTransport({
 function main()
 {
     const result = buildQualityGateEvidenceTransport();
+    if (process.env.GITHUB_OUTPUT)
+    {
+        fs.appendFileSync(process.env.GITHUB_OUTPUT,
+            `manifest_digest=${result.manifest.contentDigest}\n`, { flag: 'a' });
+    }
     process.stdout.write(`${JSON.stringify({ manifestDigest: result.manifest.contentDigest,
         archiveDigest: result.manifest.archive.digest, jobs: result.jobs, flaky: result.flaky })}\n`);
 }

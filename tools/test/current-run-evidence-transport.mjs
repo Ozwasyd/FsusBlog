@@ -70,11 +70,74 @@ function assertSafeRelativePath(relative, label)
     return normalized;
 }
 
-function assertNotSymlink(file, label)
+function inside(file, root)
 {
-    assert(fs.existsSync(file), `${label} is missing`);
-    assert(!fs.lstatSync(file).isSymbolicLink(), `${label} must not be a symlink`);
-    assert(fs.statSync(file).isFile(), `${label} is not a file`);
+    return file === root || file.startsWith(`${root}${path.sep}`);
+}
+
+function assertPhysicalPath(file, ownedRoot, label, { kind = 'file', mustExist = true } = {})
+{
+    const root = path.resolve(ownedRoot);
+    const absolute = path.resolve(file);
+    assert(inside(absolute, root), `${label} escapes its owned root`);
+    assert(fs.existsSync(root), `${label} owned root is missing`);
+    const rootStat = fs.lstatSync(root);
+    assert(!rootStat.isSymbolicLink() && rootStat.isDirectory(), `${label} owned root is not a physical directory`);
+    let cursor = root;
+    const segments = path.relative(root, absolute).split(path.sep).filter(Boolean);
+    for (const [index, segment] of segments.entries())
+    {
+        cursor = path.join(cursor, segment);
+        if (!fs.existsSync(cursor))
+        {
+            assert(!mustExist && index === segments.length - 1, `${label} is missing`);
+            return absolute;
+        }
+        const stat = fs.lstatSync(cursor);
+        assert(!stat.isSymbolicLink(), `${label} must not be a symlink or traverse one`);
+        if (index < segments.length - 1)
+        {
+            assert(stat.isDirectory(), `${label} parent is not a directory`);
+        }
+        else if (kind === 'file')
+        {
+            assert(stat.isFile(), `${label} is not a file`);
+            assert(stat.nlink === 1, `${label} must not be hard-linked`);
+        }
+        else
+        {
+            assert(stat.isDirectory(), `${label} is not a directory`);
+        }
+    }
+    if (absolute !== root)
+    {
+        assert(inside(fs.realpathSync(path.dirname(absolute)), fs.realpathSync(root)),
+            `${label} escapes its physical owned root`);
+    }
+    return absolute;
+}
+
+function atomicPublishExclusive(destination, bytes, label)
+{
+    const parent = path.dirname(destination);
+    const temporary = path.join(parent, `.${path.basename(destination)}.${crypto.randomUUID()}.tmp`);
+    let descriptor;
+    try
+    {
+        descriptor = fs.openSync(temporary, 'wx', 0o600);
+        fs.writeFileSync(descriptor, bytes);
+        fs.fsyncSync(descriptor);
+        fs.closeSync(descriptor);
+        descriptor = undefined;
+        fs.linkSync(temporary, destination);
+        fs.unlinkSync(temporary);
+        assertPhysicalPath(destination, parent, label);
+    }
+    finally
+    {
+        if (descriptor !== undefined) fs.closeSync(descriptor);
+        if (fs.existsSync(temporary)) fs.unlinkSync(temporary);
+    }
 }
 
 function downloadedPath(relative)
@@ -132,13 +195,15 @@ export function validateEvidenceTransportManifest(manifest)
         'archive entry list is required');
     assert(Array.isArray(manifest.objects) && manifest.objects.length > 0, 'transport objects are required');
     const authorities = new Set();
-    const entryPaths = new Set();
+    const entryPaths = new Map();
     for (const entry of manifest.archive.entries)
     {
         const relative = assertSafeRelativePath(entry.path, 'archive entry path');
         assert(!entryPaths.has(relative), `duplicate archive entry: ${relative}`);
-        entryPaths.add(relative);
         assertDigest(entry.digest, 'archive entry digest');
+        assert(['reference-receipt', 'payload'].includes(entry.role),
+            `archive entry role is invalid: ${relative}`);
+        entryPaths.set(relative, entry);
     }
     for (const object of manifest.objects)
     {
@@ -164,16 +229,34 @@ export function validateEvidenceTransportManifest(manifest)
         assertDigest(object.contentDigest, 'contentDigest');
         assertDigest(object.producerDigest, 'producerDigest');
         assertDigest(object.objectDigest, 'objectDigest');
-        assert(Array.isArray(object.archiveEntries) && object.archiveEntries.length > 0,
-            'transport object archiveEntries are required');
+        assert(Array.isArray(object.archiveEntries) && object.archiveEntries.length === 2,
+            'transport object must contain exactly one reference receipt and one payload');
+        const roles = new Set();
         for (const entry of object.archiveEntries)
         {
             const relative = assertSafeRelativePath(entry.path, 'object archive entry path');
-            assert(entryPaths.has(relative), `object archive entry is not in the archive: ${relative}`);
+            const archiveEntry = entryPaths.get(relative);
+            assert(archiveEntry, `object archive entry is not in the archive: ${relative}`);
             assertDigest(entry.digest, 'object archive entry digest');
-            assertSafeRelativePath(entry.extractedPath, 'object extractedPath');
+            const extractedPath = assertSafeRelativePath(entry.extractedPath, 'object extractedPath');
+            assert(extractedPath === relative,
+                `archive/extracted path mapping mismatch: ${relative}/${extractedPath}`);
+            assert(['reference-receipt', 'payload'].includes(entry.role),
+                `object archive entry role is invalid: ${relative}`);
+            assert(!roles.has(entry.role), `duplicate transport object role: ${entry.role}`);
+            roles.add(entry.role);
+            assert(archiveEntry.digest === entry.digest && archiveEntry.role === entry.role,
+                `archive/object entry mapping mismatch: ${relative}`);
         }
+        assert(roles.has('reference-receipt') && roles.has('payload'),
+            'transport object role cardinality mismatch');
+        const reference = object.archiveEntries.find((entry) => entry.role === 'reference-receipt');
+        assert(reference.path === object.originalRef.path && reference.extractedPath === object.extractedPath,
+            'transport reference role does not match originalRef');
     }
+    const mappedPaths = manifest.objects.flatMap((object) => object.archiveEntries.map((entry) => entry.path));
+    assert(mappedPaths.length === entryPaths.size && new Set(mappedPaths).size === entryPaths.size,
+        'transport archive/object entry cardinality mismatch');
     assert(manifest.contentDigest === governanceContentDigest(manifest),
         'transport manifest contentDigest mismatch');
     return manifest;
@@ -201,23 +284,44 @@ export function packCurrentRunEvidenceTransport({
             candidateIdentity: object.candidateIdentity ?? context.candidateIdentity,
             buildIdentity: object.buildIdentity ?? context.buildIdentity
         }, context);
-        const sourceFiles = object.files ?? [{ path: object.originalRef.path, role: 'receipt' }];
+        const receiptPath = object.originalRef.path;
+        const receiptAbsolute = assertPhysicalPath(path.resolve(repositoryRoot, receiptPath), repositoryRoot,
+            'transport reference receipt');
+        const receipt = JSON.parse(fs.readFileSync(receiptAbsolute, 'utf8'));
+        const configuredFiles = object.files ?? [
+            { path: receiptPath, role: 'reference-receipt' },
+            { path: receipt.payload?.path, role: 'payload' }
+        ];
+        if (configuredFiles.length === 1 && configuredFiles[0].path === receiptPath)
+        {
+            configuredFiles.push({ path: receipt.payload?.path, role: 'payload' });
+        }
+        const sourceFiles = configuredFiles.map((file) => ({ ...file,
+            role: file.role ?? (file.path === receiptPath ? 'reference-receipt' : 'payload') }));
+        assert(sourceFiles.length === 2, 'transport object requires exactly two source files');
+        assert(new Set(sourceFiles.map((file) => file.role)).size === 2
+            && sourceFiles.some((file) => file.role === 'reference-receipt')
+            && sourceFiles.some((file) => file.role === 'payload'),
+        'transport source roles must be exact reference-receipt and payload');
+        assert(sourceFiles.find((file) => file.role === 'reference-receipt').path === receiptPath,
+            'transport reference role must match originalRef.path');
         const objectEntries = [];
         for (const file of sourceFiles)
         {
             const relative = assertSafeRelativePath(file.path, 'transport source path');
             const absolute = path.resolve(repositoryRoot, relative);
-            assertNotSymlink(absolute, relative);
+            assertPhysicalPath(absolute, repositoryRoot, relative);
+            assert(!archiveEntries.some((entry) => entry.path === relative),
+                `duplicate transport source path: ${relative}`);
             const digest = digestFile(absolute);
             archiveEntries.push({
                 path: relative,
+                role: file.role,
                 digest,
                 bytes: fs.readFileSync(absolute).toString('base64')
             });
-            objectEntries.push({ path: relative, digest, extractedPath: relative });
+            objectEntries.push({ path: relative, role: file.role, digest, extractedPath: relative });
         }
-        const receiptPath = object.originalRef.path;
-        const receiptAbsolute = path.resolve(repositoryRoot, receiptPath);
         const receiptBytes = fs.readFileSync(receiptAbsolute);
         packedObjects.push(canonicalObject({
             originRunId: context.schedulerRunId,
@@ -256,7 +360,7 @@ export function packCurrentRunEvidenceTransport({
         archive: {
             path: archiveRelative,
             digest: digestBytes(archiveBytes),
-            entries: archiveEntries.map((entry) => ({ path: entry.path, digest: entry.digest }))
+            entries: archiveEntries.map((entry) => ({ path: entry.path, role: entry.role, digest: entry.digest }))
         },
         objects: packedObjects
     });
@@ -271,61 +375,53 @@ export function extractCurrentRunEvidenceTransport({
     repositoryRoot, archivePath, manifestPath, extractRoot
 })
 {
-    const manifest = validateEvidenceTransportManifest(JSON.parse(fs.readFileSync(
-        path.resolve(repositoryRoot, manifestPath), 'utf8')));
+    const manifestAbsolute = assertPhysicalPath(path.resolve(repositoryRoot, manifestPath), repositoryRoot,
+        'transport manifest');
+    const manifest = validateEvidenceTransportManifest(JSON.parse(fs.readFileSync(manifestAbsolute, 'utf8')));
     const archiveAbsolute = path.resolve(repositoryRoot, archivePath || manifest.archive.path);
-    assertNotSymlink(archiveAbsolute, 'transport archive');
+    assertPhysicalPath(archiveAbsolute, repositoryRoot, 'transport archive');
     const archiveBytes = fs.readFileSync(archiveAbsolute);
     assert(digestBytes(archiveBytes) === manifest.archive.digest, 'transport archive digest mismatch');
     const archive = JSON.parse(archiveBytes.toString('utf8'));
     assert(archive?.schema === EVIDENCE_TRANSPORT_ARCHIVE_SCHEMA, 'transport archive schema mismatch');
     assert(archive.contentDigest === governanceContentDigest(archive),
         'transport archive contentDigest mismatch');
-    const expectedEntries = manifest.archive.entries.map((entry) => entry.path).sort();
-    const actualEntries = archive.entries.map((entry) => entry.path).sort();
+    const entryIdentity = (entry) => `${entry.path}\u0000${entry.role}\u0000${entry.digest}`;
+    const expectedEntries = manifest.archive.entries.map(entryIdentity).sort();
+    const actualEntries = archive.entries.map(entryIdentity).sort();
     assert(JSON.stringify(actualEntries) === JSON.stringify(expectedEntries),
         'transport archive entry list mismatch');
     assert(archive.entries.length === expectedEntries.length, 'transport archive cardinality mismatch');
     const destinationRoot = path.resolve(repositoryRoot, extractRoot ?? '.');
-    const extractedObjects = [];
+    assertPhysicalPath(destinationRoot, repositoryRoot, 'transport extract root', { kind: 'directory' });
+    const publications = [];
     for (const object of manifest.objects)
     {
-        const extractedEntries = [];
         for (const entry of object.archiveEntries)
         {
-            const packed = archive.entries.find((candidate) => candidate.path === entry.path);
+            const packed = archive.entries.find((candidate) => candidate.path === entry.path
+                && candidate.role === entry.role);
             assert(packed, `transport archive is missing ${entry.path}`);
             const relative = assertSafeRelativePath(entry.extractedPath, 'extractedPath');
             const destination = path.resolve(destinationRoot, relative);
             assert(destination === destinationRoot || destination.startsWith(`${destinationRoot}${path.sep}`),
                 'transport extract path escapes extract root');
-            fs.mkdirSync(path.dirname(destination), { recursive: true });
+            assertPhysicalPath(path.dirname(destination), destinationRoot,
+                `transport extract parent for ${relative}`, { kind: 'directory' });
+            assert(!fs.existsSync(destination), `transport extract destination already exists: ${relative}`);
             const bytes = Buffer.from(packed.bytes, 'base64');
             assert(digestBytes(bytes) === packed.digest, `transport entry digest mismatch: ${entry.path}`);
-            fs.writeFileSync(destination, bytes);
-            assert(!fs.lstatSync(destination).isSymbolicLink(), 'extracted transport entry must not be a symlink');
-            assert(digestFile(destination) === packed.digest,
-                `extracted transport content digest mismatch: ${relative}`);
-            extractedEntries.push({ path: entry.path, digest: packed.digest,
-                extractedPath: path.relative(repositoryRoot, destination).replaceAll(path.sep, '/') });
+            publications.push({ destination, bytes, digest: packed.digest, relative });
         }
-        const extractedPath = extractedEntries.find((entry) => entry.path === object.originalRef.path)
-            ?.extractedPath ?? extractedEntries[0].extractedPath;
-        extractedObjects.push({
-            ...object,
-            extractedPath,
-            archiveEntries: extractedEntries
-        });
     }
-    const extracted = sealed({
-        schema: EVIDENCE_TRANSPORT_MANIFEST_SCHEMA,
-        transportRunId: manifest.transportRunId,
-        downloadRunId: manifest.downloadRunId,
-        archive: manifest.archive,
-        objects: extractedObjects
-    });
-    fs.writeFileSync(path.resolve(repositoryRoot, manifestPath), `${JSON.stringify(extracted, null, 2)}\n`);
-    return extracted;
+    for (const publication of publications)
+    {
+        atomicPublishExclusive(publication.destination, publication.bytes,
+            `extracted transport entry ${publication.relative}`);
+        assert(digestFile(publication.destination) === publication.digest,
+            `extracted transport content digest mismatch: ${publication.relative}`);
+    }
+    return manifest;
 }
 
 export function browseDiagnosticTransportEntries(manifest)
@@ -339,13 +435,19 @@ export function browseDiagnosticTransportEntries(manifest)
 }
 
 export function locateTransportedCurrentRunEvidence({
-    context, registry, registryEntry, repositoryRoot, transportManifestPath, explicitInputs, reference
+    context, registry, registryEntry, repositoryRoot, transportManifestPath, explicitInputs, reference,
+    expectedManifestDigest
 })
 {
     validateCurrentRunEvidenceContext(context);
     validateEvidenceLocatorRegistry(registry);
-    const manifest = validateEvidenceTransportManifest(JSON.parse(fs.readFileSync(
-        path.resolve(repositoryRoot, transportManifestPath), 'utf8')));
+    const manifestAbsolute = assertPhysicalPath(path.resolve(repositoryRoot, transportManifestPath), repositoryRoot,
+        'transport manifest');
+    const manifest = validateEvidenceTransportManifest(JSON.parse(fs.readFileSync(manifestAbsolute, 'utf8')));
+    if (expectedManifestDigest)
+    {
+        assert(manifest.contentDigest === expectedManifestDigest, 'transport manifest digest mismatch');
+    }
     const mapped = manifest.objects.filter((object) => object.authorityId === registryEntry.authorityId);
     assert(mapped.length > 0, `transport mapping is missing for ${registryEntry.authorityId}`);
     assert(mapped.length === 1, `duplicate transport mapping for ${registryEntry.authorityId}`);
@@ -353,11 +455,12 @@ export function locateTransportedCurrentRunEvidence({
     assertOriginIdentity(object, context);
     assert(object.producerId === registryEntry.producerId, 'transport producerId mismatch');
     assert(object.receiptSchema === registryEntry.receiptSchema, 'transport receiptSchema mismatch');
-    const inputPath = explicitInputs?.[0] ?? reference?.path ?? object.extractedPath;
+    const referenceEntry = object.archiveEntries.find((entry) => entry.role === 'reference-receipt');
+    const inputPath = explicitInputs?.[0] ?? reference?.path ?? referenceEntry.extractedPath;
     assert(inputPath === object.extractedPath || inputPath === object.originalRef.path,
         'explicit evidence path does not match transport mapping');
-    const absolute = path.resolve(repositoryRoot, object.extractedPath);
-    assertNotSymlink(absolute, object.extractedPath);
+    const absolute = assertPhysicalPath(path.resolve(repositoryRoot, referenceEntry.extractedPath), repositoryRoot,
+        referenceEntry.extractedPath);
     assert(digestFile(absolute) === object.objectDigest, 'transport object digest mismatch');
     assert(digestFile(absolute) === object.originalRef.inputDigest, 'transport original ref digest mismatch');
     const localPath = path.resolve(repositoryRoot, object.originalRef.path);
@@ -394,6 +497,7 @@ export function locateTransportedCurrentRunEvidence({
     return {
         ...located,
         transportManifest: manifest,
+        transportObject: object,
         consumerReceipt: { ...consumerPayload, contentDigest: governanceContentDigest(consumerPayload) }
     };
 }

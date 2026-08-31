@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import {
     beginCurrentRunEvidencePublication,
@@ -22,6 +23,7 @@ import {
 } from '../../tools/test/current-run-evidence-transport.mjs';
 
 const d = (value) => `sha256:${value.repeat(64)}`;
+const sourceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 function fixture()
 {
@@ -276,18 +278,12 @@ test('quality-gate consumers reject broad downloaded scans and missing consumer 
     {
         pack(f);
         const source = [
-            fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname),
-                '../../tools/ci/summarize-quality-gate.mjs'), 'utf8'),
-            fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname),
-                '../../tools/ci/check-flaky-evidence.mjs'), 'utf8'),
-            fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname),
-                '../../tools/ci/check-job-summaries.mjs'), 'utf8'),
-            fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname),
-                '../../tools/run-test-matrix.mjs'), 'utf8'),
-            fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname),
-                '../../tools/test/aggregate-performance-evidence.mjs'), 'utf8'),
-            fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname),
-                '../../tools/test/aggregate-data-scale-evidence.mjs'), 'utf8')
+            fs.readFileSync(path.join(sourceRoot, 'tools/ci/summarize-quality-gate.mjs'), 'utf8'),
+            fs.readFileSync(path.join(sourceRoot, 'tools/ci/check-flaky-evidence.mjs'), 'utf8'),
+            fs.readFileSync(path.join(sourceRoot, 'tools/ci/check-job-summaries.mjs'), 'utf8'),
+            fs.readFileSync(path.join(sourceRoot, 'tools/run-test-matrix.mjs'), 'utf8'),
+            fs.readFileSync(path.join(sourceRoot, 'tools/test/aggregate-performance-evidence.mjs'), 'utf8'),
+            fs.readFileSync(path.join(sourceRoot, 'tools/test/aggregate-data-scale-evidence.mjs'), 'utf8')
         ].join('\n');
         assert.match(source, /FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST|locateTransportedCurrentRunEvidence|resolveCorrectnessEvidencePath/u);
         const located = locateTransportedCurrentRunEvidence({
@@ -310,4 +306,79 @@ test('quality-gate consumers reject broad downloaded scans and missing consumer 
         assert.equal(local.bindingReceipt.bindingDigest, located.bindingReceipt.bindingDigest);
     }
     finally { fs.rmSync(f.root, { recursive: true, force: true }); }
+});
+
+test('transport roles physical paths and extraction publication fail closed', async (context) =>
+{
+    await context.test('manifest is immutable and extraction never overwrites a destination', () =>
+    {
+        const f = fixture();
+        try
+        {
+            pack(f);
+            const manifestFile = path.join(f.root, 'artifacts/current-run/transport-manifest.json');
+            const before = fs.readFileSync(manifestFile);
+            fs.rmSync(path.join(f.root, f.payloadPath));
+            assert.throws(() => extractCurrentRunEvidenceTransport({
+                repositoryRoot: f.root, manifestPath: 'artifacts/current-run/transport-manifest.json'
+            }), /destination already exists/u);
+            assert.equal(fs.existsSync(path.join(f.root, f.payloadPath)), false,
+                'preflight must not publish any entry before every destination is eligible');
+            fs.rmSync(path.join(f.root, f.outputPath));
+            extractCurrentRunEvidenceTransport({
+                repositoryRoot: f.root, manifestPath: 'artifacts/current-run/transport-manifest.json'
+            });
+            assert.deepEqual(fs.readFileSync(manifestFile), before,
+                'extract must not rewrite the sealed transport manifest');
+        }
+        finally { fs.rmSync(f.root, { recursive: true, force: true }); }
+    });
+
+    await context.test('hard-linked sources and manifests are rejected', () =>
+    {
+        const f = fixture();
+        try
+        {
+            const hardlink = path.join(f.root, 'artifacts/current-run/reference-hardlink.json');
+            fs.linkSync(path.join(f.root, f.outputPath), hardlink);
+            assert.throws(() => pack(f), /must not be hard-linked/u);
+            fs.unlinkSync(hardlink);
+            pack(f);
+            fs.linkSync(path.join(f.root, 'artifacts/current-run/transport-manifest.json'),
+                path.join(f.root, 'transport-manifest-hardlink.json'));
+            assert.throws(() => extractCurrentRunEvidenceTransport({
+                repositoryRoot: f.root, manifestPath: 'artifacts/current-run/transport-manifest.json'
+            }), /must not be hard-linked/u);
+        }
+        finally { fs.rmSync(f.root, { recursive: true, force: true }); }
+    });
+
+    await context.test('role and archive/object index splits are rejected', () =>
+    {
+        const f = fixture();
+        try
+        {
+            pack(f);
+            const file = path.join(f.root, 'artifacts/current-run/transport-manifest.json');
+            const rewrite = (mutate) =>
+            {
+                const manifest = JSON.parse(fs.readFileSync(file, 'utf8'));
+                mutate(manifest);
+                delete manifest.contentDigest;
+                fs.writeFileSync(file, JSON.stringify({ ...manifest,
+                    contentDigest: governanceContentDigest(manifest) }));
+            };
+            rewrite((manifest) => { manifest.objects[0].archiveEntries[1].role = 'reference-receipt'; });
+            assert.throws(() => extractCurrentRunEvidenceTransport({ repositoryRoot: f.root,
+                manifestPath: 'artifacts/current-run/transport-manifest.json' }), /duplicate transport object role/u);
+            rewrite((manifest) =>
+            {
+                manifest.objects[0].archiveEntries[1].role = 'payload';
+                manifest.objects[0].archiveEntries[1].extractedPath = manifest.objects[0].archiveEntries[0].path;
+            });
+            assert.throws(() => extractCurrentRunEvidenceTransport({ repositoryRoot: f.root,
+                manifestPath: 'artifacts/current-run/transport-manifest.json' }), /archive\/extracted path mapping mismatch/u);
+        }
+        finally { fs.rmSync(f.root, { recursive: true, force: true }); }
+    });
 });

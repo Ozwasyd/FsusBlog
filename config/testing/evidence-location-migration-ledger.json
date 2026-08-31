@@ -15,7 +15,7 @@
         "evidence-selection.schema-search",
         "evidence-selection.timestamp-sort"
     ],
-    "scanDigest": "sha256:d02e22b74b2f9753b853a768255a9faab077ff1ef8824eadacc441f83e03dccf",
+    "scanDigest": "sha256:c52cb9d87c1c026bcaaaf3e34856a122f1b31a0c3941f47d280bd8927d13cf9b",
     "entries": [
         {
             "findingId": "796fa8284a86adb9",
@@ -66,64 +66,124 @@
             "proofTest": "tests/tools/evidence-location-governance.test.mjs#2b30e70de130c7fe"
         },
         {
-            "findingId": "ebb6da94a829ad30",
+            "findingId": "b5f600dd87722850",
             "consumerId": "evidence-consumer.workflow.quality-gate",
-            "location": ".github/workflows/quality-gate.yml:1547",
+            "location": ".github/workflows/quality-gate.yml:1549",
             "oldSelectionRule": "evidence-selection.downloaded-artifacts-scan",
             "classification": "correctness-selection",
             "newAuthorityId": "evidence-consumer.workflow.quality-gate.current-run",
             "locatorMode": "explicit-run-path",
             "action": "migrate consumer to its registered current-run authority after locator implementation",
             "owner": "ci-governance",
-            "proofTest": "tests/tools/evidence-location-governance.test.mjs#ebb6da94a829ad30"
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#b5f600dd87722850"
         },
         {
-            "findingId": "9f9cd70a571827cd",
+            "findingId": "629e0bb48dca4073",
             "consumerId": "evidence-consumer.workflow.quality-gate",
-            "location": ".github/workflows/quality-gate.yml:1557",
+            "location": ".github/workflows/quality-gate.yml:1559",
             "oldSelectionRule": "evidence-selection.downloaded-artifacts-scan",
             "classification": "correctness-selection",
             "newAuthorityId": "evidence-consumer.workflow.quality-gate.current-run",
             "locatorMode": "explicit-run-path",
             "action": "migrate consumer to its registered current-run authority after locator implementation",
             "owner": "ci-governance",
-            "proofTest": "tests/tools/evidence-location-governance.test.mjs#9f9cd70a571827cd"
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#629e0bb48dca4073"
         },
         {
-            "findingId": "45059510dcd68adf",
+            "findingId": "913d63b72fca086c",
             "consumerId": "evidence-consumer.workflow.quality-gate",
-            "location": ".github/workflows/quality-gate.yml:1578",
-            "oldSelectionRule": "evidence-selection.downloaded-artifacts-scan",
-            "classification": "correctness-selection",
-            "newAuthorityId": "evidence-consumer.workflow.quality-gate.current-run",
-            "locatorMode": "explicit-run-path",
-            "action": "migrate consumer to its registered current-run authority after locator implementation",
-            "owner": "ci-governance",
-            "proofTest": "tests/tools/evidence-location-governance.test.mjs#45059510dcd68adf"
-        },
-        {
-            "findingId": "dd85a4e239469eb9",
-            "consumerId": "evidence-consumer.workflow.quality-gate",
-            "location": ".github/workflows/quality-gate.yml:1578",
+            "location": ".github/workflows/quality-gate.yml:1559",
             "oldSelectionRule": "evidence-selection.local-downloaded-priority",
             "classification": "correctness-selection",
             "newAuthorityId": "evidence-consumer.workflow.quality-gate.current-run",
             "locatorMode": "explicit-run-path",
             "action": "migrate consumer to its registered current-run authority after locator implementation",
             "owner": "ci-governance",
-            "proofTest": "tests/tools/evidence-location-governance.test.mjs#dd85a4e239469eb9"
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#913d63b72fca086c"
         },
         {
-            "findingId": "1003df09d61c018e",
+            "findingId": "d580e33164f25482",
             "consumerId": "evidence-consumer.workflow.quality-gate",
-            "location": ".github/workflows/quality-gate.yml:1658",
+            "location": ".github/workflows/quality-gate.yml:1583",
             "oldSelectionRule": "evidence-selection.downloaded-artifacts-scan",
             "classification": "correctness-selection",
             "newAuthorityId": "evidence-consumer.workflow.quality-gate.current-run",
             "locatorMode": "explicit-run-path",
             "action": "migrate consumer to its registered current-run authority after locator implementation",
             "owner": "ci-governance",
-            "proofTest": "tests/tools/evidence-location-governance.test.mjs#1003df09d61c018e"
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#d580e33164f25482"
+        },
+        {
+            "findingId": "d8b117171749cc3e",
+            "consumerId": "evidence-consumer.workflow.quality-gate",
+            "location": ".github/workflows/quality-gate.yml:1583",
+            "oldSelectionRule": "evidence-selection.local-downloaded-priority",
+            "classification": "correctness-selection",
+            "newAuthorityId": "evidence-consumer.workflow.quality-gate.current-run",
+            "locatorMode": "explicit-run-path",
+            "action": "migrate consumer to its registered current-run authority after locator implementation",
+            "owner": "ci-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#d8b117171749cc3e"
+        },
+        {
+            "findingId": "258c47045f4eb28b",
+            "consumerId": "evidence-consumer.workflow.quality-gate",
+            "location": ".github/workflows/quality-gate.yml:1666",
+            "oldSelectionRule": "evidence-selection.downloaded-artifacts-scan",
+            "classification": "correctness-selection",
+            "newAuthorityId": "evidence-consumer.workflow.quality-gate.current-run",
+            "locatorMode": "explicit-run-path",
+            "action": "migrate consumer to its registered current-run authority after locator implementation",
+            "owner": "ci-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#258c47045f4eb28b"
+        },
+        {
+            "findingId": "e68250bf8cd3d7eb",
+            "consumerId": "evidence-consumer.artifacts.change-contract.issue-3120-quality-gate-transport-external-naming",
+            "location": "artifacts/change-contract/issue-3120-quality-gate-transport-external-naming.json:46",
+            "oldSelectionRule": "evidence-selection.latest-newest",
+            "classification": "not-evidence",
+            "newAuthorityId": null,
+            "locatorMode": "not-applicable",
+            "action": "close exact location and rule as non-evidence behavior",
+            "owner": "test-evidence-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#e68250bf8cd3d7eb"
+        },
+        {
+            "findingId": "6aa312344c04a9c5",
+            "consumerId": "evidence-consumer.artifacts.change-contract.issue-3120-quality-gate-transport-external-naming",
+            "location": "artifacts/change-contract/issue-3120-quality-gate-transport-external-naming.json:46",
+            "oldSelectionRule": "evidence-selection.pointer-without-identity",
+            "classification": "not-evidence",
+            "newAuthorityId": null,
+            "locatorMode": "not-applicable",
+            "action": "close exact location and rule as non-evidence behavior",
+            "owner": "test-evidence-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#6aa312344c04a9c5"
+        },
+        {
+            "findingId": "cf63a154d65c3aa5",
+            "consumerId": "evidence-consumer.artifacts.change-contract.issue-3120-quality-gate-transport-generated-binding",
+            "location": "artifacts/change-contract/issue-3120-quality-gate-transport-generated-binding.json:22",
+            "oldSelectionRule": "evidence-selection.latest-newest",
+            "classification": "not-evidence",
+            "newAuthorityId": null,
+            "locatorMode": "not-applicable",
+            "action": "close exact location and rule as non-evidence behavior",
+            "owner": "test-evidence-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#cf63a154d65c3aa5"
+        },
+        {
+            "findingId": "ba6e8efa2381a4b4",
+            "consumerId": "evidence-consumer.artifacts.change-contract.issue-3120-quality-gate-transport-generated-binding",
+            "location": "artifacts/change-contract/issue-3120-quality-gate-transport-generated-binding.json:22",
+            "oldSelectionRule": "evidence-selection.pointer-without-identity",
+            "classification": "not-evidence",
+            "newAuthorityId": null,
+            "locatorMode": "not-applicable",
+            "action": "close exact location and rule as non-evidence behavior",
+            "owner": "test-evidence-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#ba6e8efa2381a4b4"
         },
         {
             "findingId": "8905e3da96c6aca2",
@@ -736,6 +796,114 @@
             "action": "migrate consumer to its registered current-run authority after locator implementation",
             "owner": "ci-governance",
             "proofTest": "tests/tools/evidence-location-governance.test.mjs#54771df9a1c78802"
+        },
+        {
+            "findingId": "e31bd07f11b94f4d",
+            "consumerId": "evidence-consumer.ci.prepare-quality-gate-evidence-transport",
+            "location": "tools/ci/prepare-quality-gate-evidence-transport.mjs:87",
+            "oldSelectionRule": "evidence-selection.directory-scan",
+            "classification": "correctness-selection",
+            "newAuthorityId": "evidence-consumer.ci.prepare-quality-gate-evidence-transport.current-run",
+            "locatorMode": "explicit-run-path",
+            "action": "migrate consumer to its registered current-run authority after locator implementation",
+            "owner": "ci-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#e31bd07f11b94f4d"
+        },
+        {
+            "findingId": "2976c1e0da7dbcc8",
+            "consumerId": "evidence-consumer.ci.prepare-quality-gate-evidence-transport",
+            "location": "tools/ci/prepare-quality-gate-evidence-transport.mjs:101",
+            "oldSelectionRule": "evidence-selection.directory-scan",
+            "classification": "correctness-selection",
+            "newAuthorityId": "evidence-consumer.ci.prepare-quality-gate-evidence-transport.current-run",
+            "locatorMode": "explicit-run-path",
+            "action": "migrate consumer to its registered current-run authority after locator implementation",
+            "owner": "ci-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#2976c1e0da7dbcc8"
+        },
+        {
+            "findingId": "18f2085f122af907",
+            "consumerId": "evidence-consumer.ci.prepare-quality-gate-evidence-transport",
+            "location": "tools/ci/prepare-quality-gate-evidence-transport.mjs:126",
+            "oldSelectionRule": "evidence-selection.directory-scan",
+            "classification": "correctness-selection",
+            "newAuthorityId": "evidence-consumer.ci.prepare-quality-gate-evidence-transport.current-run",
+            "locatorMode": "explicit-run-path",
+            "action": "migrate consumer to its registered current-run authority after locator implementation",
+            "owner": "ci-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#18f2085f122af907"
+        },
+        {
+            "findingId": "0d0b43adff0f7e09",
+            "consumerId": "evidence-consumer.ci.prepare-quality-gate-evidence-transport",
+            "location": "tools/ci/prepare-quality-gate-evidence-transport.mjs:147",
+            "oldSelectionRule": "evidence-selection.directory-scan",
+            "classification": "correctness-selection",
+            "newAuthorityId": "evidence-consumer.ci.prepare-quality-gate-evidence-transport.current-run",
+            "locatorMode": "explicit-run-path",
+            "action": "migrate consumer to its registered current-run authority after locator implementation",
+            "owner": "ci-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#0d0b43adff0f7e09"
+        },
+        {
+            "findingId": "018376be3f17e4ff",
+            "consumerId": "evidence-consumer.ci.prepare-quality-gate-evidence-transport",
+            "location": "tools/ci/prepare-quality-gate-evidence-transport.mjs:425",
+            "oldSelectionRule": "evidence-selection.directory-scan",
+            "classification": "correctness-selection",
+            "newAuthorityId": "evidence-consumer.ci.prepare-quality-gate-evidence-transport.current-run",
+            "locatorMode": "explicit-run-path",
+            "action": "migrate consumer to its registered current-run authority after locator implementation",
+            "owner": "ci-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#018376be3f17e4ff"
+        },
+        {
+            "findingId": "e6903fa5120d3d96",
+            "consumerId": "evidence-consumer.ci.prepare-quality-gate-evidence-transport",
+            "location": "tools/ci/prepare-quality-gate-evidence-transport.mjs:425",
+            "oldSelectionRule": "evidence-selection.indirect-helper-call",
+            "classification": "correctness-selection",
+            "newAuthorityId": "evidence-consumer.ci.prepare-quality-gate-evidence-transport.current-run",
+            "locatorMode": "explicit-run-path",
+            "action": "migrate consumer to its registered current-run authority after locator implementation",
+            "owner": "ci-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#e6903fa5120d3d96"
+        },
+        {
+            "findingId": "b23203a0239e8072",
+            "consumerId": "evidence-consumer.ci.prepare-quality-gate-evidence-transport",
+            "location": "tools/ci/prepare-quality-gate-evidence-transport.mjs:426",
+            "oldSelectionRule": "evidence-selection.indirect-helper-call",
+            "classification": "correctness-selection",
+            "newAuthorityId": "evidence-consumer.ci.prepare-quality-gate-evidence-transport.current-run",
+            "locatorMode": "explicit-run-path",
+            "action": "migrate consumer to its registered current-run authority after locator implementation",
+            "owner": "ci-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#b23203a0239e8072"
+        },
+        {
+            "findingId": "c431462ccfef3a8e",
+            "consumerId": "evidence-consumer.ci.prepare-quality-gate-evidence-transport",
+            "location": "tools/ci/prepare-quality-gate-evidence-transport.mjs:444",
+            "oldSelectionRule": "evidence-selection.directory-scan",
+            "classification": "correctness-selection",
+            "newAuthorityId": "evidence-consumer.ci.prepare-quality-gate-evidence-transport.current-run",
+            "locatorMode": "explicit-run-path",
+            "action": "migrate consumer to its registered current-run authority after locator implementation",
+            "owner": "ci-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#c431462ccfef3a8e"
+        },
+        {
+            "findingId": "55d1570e8ebc0d5a",
+            "consumerId": "evidence-consumer.ci.prepare-quality-gate-evidence-transport",
+            "location": "tools/ci/prepare-quality-gate-evidence-transport.mjs:444",
+            "oldSelectionRule": "evidence-selection.indirect-helper-call",
+            "classification": "correctness-selection",
+            "newAuthorityId": "evidence-consumer.ci.prepare-quality-gate-evidence-transport.current-run",
+            "locatorMode": "explicit-run-path",
+            "action": "migrate consumer to its registered current-run authority after locator implementation",
+            "owner": "ci-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#55d1570e8ebc0d5a"
         },
         {
             "findingId": "813bc2840d3b82ff",
@@ -4326,5 +4494,5 @@
             "proofTest": "tests/tools/evidence-location-governance.test.mjs#2ef6d583f3eff507"
         }
     ],
-    "contentDigest": "sha256:c7509e55dfea918c0d139e34df4dd8a58d47f7363c289103f070eaf63a552cad"
+    "contentDigest": "sha256:ab376c0b8b644693c649e98dea279dae14e0f985aed4fcd7e2c9723d8e822449"
 }

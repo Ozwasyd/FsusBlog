@@ -2607,6 +2607,7 @@ tiers:
           - tools/test/current-run-evidence-transport.mjs
           - tools/test/run-current-run-evidence-transport.mjs
           - tools/ci/prepare-quality-gate-evidence-transport.mjs
+          - tools/ci/verify-quality-gate-evidence-transport.mjs
           - tests/tools/evidence-location-contract.test.mjs
           - tests/tools/evidence-location-governance.test.mjs
           - tests/tools/current-run-evidence-publication.test.mjs
@@ -8920,6 +8921,7 @@ tiers:
               tools/check-workflow-matrix-sync.mjs,
               tools/ci/summarize-quality-gate.mjs,
               tools/ci/prepare-quality-gate-evidence-transport.mjs,
+              tools/ci/verify-quality-gate-evidence-transport.mjs,
               tools/test/lanes/browser-runtime-risk-diagnostics.sh,
               tools/test/lanes/production-correctness-receipt.sh,
               tools/release/test-evidence-receipts.mjs,

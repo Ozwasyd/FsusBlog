@@ -5,24 +5,30 @@
         "tests/matrix.yml",
         "tools/ci/check-flaky-evidence.mjs",
         "tools/ci/check-job-summaries.mjs",
-        "tools/ci/prepare-quality-gate-evidence-transport.mjs"
+        "tools/ci/prepare-quality-gate-evidence-transport.mjs",
+        "tools/ci/verify-quality-gate-evidence-transport.mjs",
+        "tools/test/current-run-evidence-transport.mjs"
     ],
     "outputs": [
         {
+            "path": "config/testing/evidence-locator-registry.json",
+            "sha256": "0d871ffc0bd3fefe89f7baafaee2aa1f0b4aad3991afbf38387afd0b2f628238"
+        },
+        {
             "path": "config/testing/correctness-attempt-producers.json",
-            "sha256": "440bf70999a83ada0480bf7e80d397b5c0be040bbf1b49e568bd29e32c6891cd"
+            "sha256": "efd05d3173e6e057bcdc4aa2dd590f5c6fb0fbf64aaa3ae8718cea7c4a0ec577"
         },
         {
             "path": "config/testing/current-run-evidence-location-acceptance.json",
-            "sha256": "5b8ac67f88e83bb3057b0c2d803b63e99328dcd89b52dc35eda0ec55ccf284a7"
+            "sha256": "983e3a427a0acb0c27d66eaa431d3aaf98774c0185034f6b667547f2efd40914"
         },
         {
             "path": "config/testing/evidence-location-migration-ledger.json",
-            "sha256": "c6eb5a9d88cdd2ae71da494d20bfee80efd89d771ca3cd5d2a2655e461e7d4d1"
+            "sha256": "31d63ecdad6da90328df6bf05d2de10df975b67aee0dd5af6ccf6d1c94a3e892"
         },
         {
             "path": "docs/testing.generated.md",
-            "sha256": "06bf3028eb2c0f01b7b94c94aa4b0d3b9cce291815ec67a9c076988964d2f200"
+            "sha256": "271b0dfa89c4e7a893744f70f643dc11d115381f03d5cda209cbb30138deffd5"
         }
     ]
 }

@@ -6,7 +6,8 @@
             "paths": [
                 "tools/ci/check-flaky-evidence.mjs",
                 "tools/ci/check-job-summaries.mjs",
-                "tools/ci/prepare-quality-gate-evidence-transport.mjs"
+                "tools/ci/prepare-quality-gate-evidence-transport.mjs",
+                "tools/ci/verify-quality-gate-evidence-transport.mjs"
             ],
             "reason": "preserve the caller-visible current-run, quality-gate, and release evidence environment keys at the process boundary"
         },
@@ -20,9 +21,10 @@
         {
             "id": "release-locator-current-run-authority",
             "paths": [
+                "config/testing/evidence-locator-registry.json",
                 "config/testing/evidence-location-migration-ledger.json"
             ],
-            "reason": "preserve the generated current-run locator IDs and external evidence-selection keys while refreshing the canonical migration ledger"
+            "reason": "preserve the generated current-run locator IDs and external evidence-selection keys while refreshing the canonical registry and migration ledger"
         },
         {
             "id": "content-doc-exactness-authority",
