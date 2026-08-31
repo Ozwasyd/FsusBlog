@@ -1130,6 +1130,20 @@ Chromium/SW/GC binding；验证只接受 key 路径，不把 secret 写入 artif
 3. 复用同一套运行环境执行 `release`、`integration`、`security`、browserless `frontend-render-structure`、`resilience`、`load` 与 `backend-qps`。Acceptance、PoW/search/permission/zero-auth browser probe、visual、UX full/risk、cross-browser、geometry/motion/focus、browser performance/a11y/resilience 都不在 production correctness 中执行。
 4. 收集 release evidence 并运行 schema/semantic check；此处不使用 `--require-ok`。
 
+第 2 步的后端进程仍是只读 consumer。新的、完全隔离的 PostgreSQL 在
+`EnsurePostgres` 完成后，必须先由 `materialize-current-schema-test` 单次
+物化 canonical current schema，然后才能启动 `EnsureBackend` 或任何 runtime
+application。该 producer 只接受 exact-empty `public` schema，从唯一
+`CurrentSchemaCanonicalAuthority` 派生并封存五栏 identity；局部/旧 schema、
+non-`Test`、缺 opt-in、非 admitted service envelope 的 exact `127.0.0.1`
+host/port、非 `public` search path、assembly source 不符或 receipt path 逃逸都在
+运行时启动前 fail closed。service envelope 必须绑定相同 run ID、通过
+planned/actual exact admission，并把 PostgreSQL container/image identity 与
+envelope SHA 封存到 receipt。DDL、`CurrentSchemaStartupVerifier` 与 receipt
+publish 位于同一 transaction；output/commit 失败会权威回滚 schema，并以
+best-effort 清除已发布 receipt；full run 不接受 producer 的 nonzero exit。
+`serve` 路径仍不做 DDL。
+
 Release rollout closeout 另外要求 `release-rollout.json` seal 15 stages 与 exactly six artifacts（public traffic、notification、asset compatibility、normal worker reconciliation、resource budget、fault injection），并要求 allowlisted `release-rollout-bundle/bundle-index.json` read-back。缺失、scheduled、hash drift 或 qualification ledger 冒充 normal 均保持 blocked。
 
 ```bash

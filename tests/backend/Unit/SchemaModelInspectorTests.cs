@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations.Schema;
 
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Infrastructure.Testing;
 
 using SqlSugar;
 
@@ -8,6 +9,305 @@ namespace FsusBlog.Server.Tests;
 
 public sealed class SchemaModelInspectorTests
 {
+    [Fact]
+    public void TestMaterializerCommand_RoutesOnlyExactFirstArgument()
+    {
+        Assert.True(CurrentSchemaTestMaterializationCommandLine.IsRequested(
+            [CurrentSchemaTestMaterializationCommandLine.CommandName]));
+        Assert.False(CurrentSchemaTestMaterializationCommandLine.IsRequested(
+            ["serve", CurrentSchemaTestMaterializationCommandLine.CommandName]));
+        Assert.False(CurrentSchemaTestMaterializationCommandLine.IsRequested(
+            [$"{CurrentSchemaTestMaterializationCommandLine.CommandName}-suffix"]));
+
+        Assert.Contains(
+            "argument_duplicate",
+            Assert.Throws<InvalidOperationException>(() =>
+                CurrentSchemaTestMaterializationCommandLine.Parse(
+                [
+                    CurrentSchemaTestMaterializationCommandLine.CommandName,
+                    "--output",
+                    "first.json",
+                    "--output",
+                    "second.json",
+                    "--run-id",
+                    "run",
+                    "--source-commit",
+                    new string('a', 40),
+                    "--service-envelope",
+                    "/tmp/envelope.json"
+                ])).Message,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TestMaterializerServiceEnvelope_BindsRunPostgresPortAndExactAdmission()
+    {
+        string sandbox = Path.Combine(Path.GetTempPath(), $"fsusblog-current-schema-envelope-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(sandbox);
+        string envelopeFile = Path.Combine(sandbox, "services.json");
+        try
+        {
+            const string RunId = "issue-3105-run";
+            CurrentSchemaTestDatabaseIdentity databaseIdentity = CurrentSchemaTestMaterializer.ValidateDatabaseIdentity(
+                "Host=127.0.0.1;Port=35415;Database=fsusblog_test;Username=test;Password=test;Search Path=public");
+            string validEnvelope = ServiceEnvelopeJson(RunId, "35415");
+            File.WriteAllText(envelopeFile, validEnvelope);
+
+            CurrentSchemaTestServiceIdentity identity = CurrentSchemaTestMaterializer.ValidateServiceEnvelope(
+                envelopeFile,
+                RunId,
+                databaseIdentity);
+            Assert.Equal("container-postgres", identity.ContainerId);
+            Assert.Equal(35415, identity.HostPort);
+            Assert.Matches("^[a-f0-9]{64}$", identity.EnvelopeSha256);
+
+            Assert.Contains(
+                "service_envelope_invalid",
+                Assert.Throws<InvalidOperationException>(() =>
+                    CurrentSchemaTestMaterializer.ValidateServiceEnvelope(
+                        envelopeFile,
+                        "wrong-run",
+                        databaseIdentity)).Message,
+                StringComparison.Ordinal);
+
+            File.WriteAllText(envelopeFile, ServiceEnvelopeJson(RunId, "35416"));
+            Assert.Contains(
+                "port_mismatch",
+                Assert.Throws<InvalidOperationException>(() =>
+                    CurrentSchemaTestMaterializer.ValidateServiceEnvelope(
+                        envelopeFile,
+                        RunId,
+                        databaseIdentity)).Message,
+                StringComparison.Ordinal);
+
+            string tamperedEnvelope = ServiceEnvelopeJson(RunId, "35415");
+            const string ExpectedPort = "\"hostPort\":\"35415\"";
+            int actualPortOffset = tamperedEnvelope.LastIndexOf(ExpectedPort, StringComparison.Ordinal);
+            Assert.True(actualPortOffset >= 0);
+            tamperedEnvelope = string.Concat(
+                tamperedEnvelope.AsSpan(0, actualPortOffset),
+                "\"hostPort\":\"35416\"",
+                tamperedEnvelope.AsSpan(actualPortOffset + ExpectedPort.Length));
+            File.WriteAllText(envelopeFile, tamperedEnvelope);
+            Assert.Contains(
+                "service_envelope_drift",
+                Assert.Throws<InvalidOperationException>(() =>
+                    CurrentSchemaTestMaterializer.ValidateServiceEnvelope(
+                        envelopeFile,
+                        RunId,
+                        databaseIdentity)).Message,
+                StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(sandbox, recursive: true);
+        }
+    }
+
+    private static string ServiceEnvelopeJson(string runId, string hostPort)
+    {
+        string service = $$"""
+            {
+              "id":"postgres",
+              "kind":"container",
+              "containerId":"container-postgres",
+              "imageReference":"postgres@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "imageId":"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "repositoryDigest":"postgres@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "ports":[{"containerPort":"5432/tcp","hostIp":"127.0.0.1","hostPort":"{{hostPort}}"}]
+            }
+            """;
+        return $$"""
+            {
+              "schema":"fsusblog.test-execution-envelope-services.v1",
+              "qualificationEligible":true,
+              "producerId":"acceptance-runtime",
+              "runId":"{{runId}}",
+              "requiredServices":["postgres"],
+              "planned":{"runtime":null,"services":[{{service}}]},
+              "actual":{"runtime":null,"services":[{{service}}]},
+              "admission":"planned-actual-exact",
+              "correctnessImagePull":"denied",
+              "hostFallback":"denied"
+            }
+            """;
+    }
+
+    [Fact]
+    public void TestMaterializerBoundary_RequiresTestOptInLoopbackPublicSearchPathAndRunRoot()
+    {
+        var environment = new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            ["ASPNETCORE_ENVIRONMENT"] = "Test",
+            [CurrentSchemaTestMaterializer.OptInEnvironmentVariable] = "1",
+            [CurrentSchemaTestMaterializer.ReceiptRootEnvironmentVariable] = Path.GetTempPath()
+        };
+        CurrentSchemaTestMaterializer.ValidateTestBoundary(environment);
+        CurrentSchemaTestDatabaseIdentity identity = CurrentSchemaTestMaterializer.ValidateDatabaseIdentity(
+            "Host=127.0.0.1;Port=5432;Database=fsusblog_test;Username=test;Password=test;Search Path=public");
+        Assert.Equal("127.0.0.1", identity.Host);
+        Assert.Equal("public", identity.SearchPath);
+        string expectedReceipt = Path.Combine(Path.GetTempPath(), "fsusblog-current-schema-test", "receipt.json");
+        Assert.Equal(
+            Path.GetFullPath(expectedReceipt),
+            CurrentSchemaTestMaterializer.ResolveOutputPath(expectedReceipt, environment));
+
+        var production = new Dictionary<string, string?>(environment, StringComparer.Ordinal)
+        {
+            ["ASPNETCORE_ENVIRONMENT"] = "Production"
+        };
+        Assert.Contains(
+            "test_environment_required",
+            Assert.Throws<InvalidOperationException>(() =>
+                CurrentSchemaTestMaterializer.ValidateTestBoundary(production)).Message,
+            StringComparison.Ordinal);
+        var missingOptIn = new Dictionary<string, string?>(environment, StringComparer.Ordinal);
+        missingOptIn.Remove(CurrentSchemaTestMaterializer.OptInEnvironmentVariable);
+        Assert.Contains(
+            "opt_in_required",
+            Assert.Throws<InvalidOperationException>(() =>
+                CurrentSchemaTestMaterializer.ValidateTestBoundary(missingOptIn)).Message,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "loopback_required",
+            Assert.Throws<InvalidOperationException>(() =>
+                CurrentSchemaTestMaterializer.ValidateDatabaseIdentity(
+                    "Host=localhost;Database=fsusblog_test;Username=test;Password=test;Search Path=public")).Message,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "public_search_path_required",
+            Assert.Throws<InvalidOperationException>(() =>
+                CurrentSchemaTestMaterializer.ValidateDatabaseIdentity(
+                    "Host=127.0.0.1;Database=fsusblog_test;Username=test;Password=test;Search Path=test_schema,public")).Message,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "outside_run_root",
+            Assert.Throws<InvalidOperationException>(() =>
+                CurrentSchemaTestMaterializer.ResolveOutputPath(
+                    Path.Combine(Path.GetPathRoot(Path.GetTempPath())!, "outside.json"),
+                    environment)).Message,
+            StringComparison.Ordinal);
+
+        var missingReceiptRoot = new Dictionary<string, string?>(environment, StringComparer.Ordinal);
+        missingReceiptRoot.Remove(CurrentSchemaTestMaterializer.ReceiptRootEnvironmentVariable);
+        Assert.Contains(
+            "receipt_root_required",
+            Assert.Throws<InvalidOperationException>(() =>
+                CurrentSchemaTestMaterializer.ResolveOutputPath(expectedReceipt, missingReceiptRoot)).Message,
+            StringComparison.Ordinal);
+        var relativeReceiptRoot = new Dictionary<string, string?>(environment, StringComparer.Ordinal)
+        {
+            [CurrentSchemaTestMaterializer.ReceiptRootEnvironmentVariable] = "relative-root"
+        };
+        Assert.Contains(
+            "receipt_root_required",
+            Assert.Throws<InvalidOperationException>(() =>
+                CurrentSchemaTestMaterializer.ResolveOutputPath(expectedReceipt, relativeReceiptRoot)).Message,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "assembly_source_mismatch",
+            Assert.Throws<InvalidOperationException>(() =>
+                CurrentSchemaTestMaterializer.ValidateAssemblySourceCommit(new string('1', 40))).Message,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TestMaterializerOutput_RejectsChildSymlinkEscape()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        string sandbox = Path.Combine(Path.GetTempPath(), $"fsusblog-current-schema-output-{Guid.NewGuid():N}");
+        string receiptRoot = Path.Combine(sandbox, "receipts");
+        string outside = Path.Combine(sandbox, "outside");
+        Directory.CreateDirectory(receiptRoot);
+        Directory.CreateDirectory(outside);
+        Directory.CreateSymbolicLink(Path.Combine(receiptRoot, "escape"), outside);
+        try
+        {
+            var environment = new Dictionary<string, string?>(StringComparer.Ordinal)
+            {
+                [CurrentSchemaTestMaterializer.ReceiptRootEnvironmentVariable] = receiptRoot
+            };
+            Assert.Contains(
+                "outside_run_root",
+                Assert.Throws<InvalidOperationException>(() =>
+                    CurrentSchemaTestMaterializer.ResolveOutputPath(
+                        Path.Combine(receiptRoot, "escape", "receipt.json"),
+                        environment)).Message,
+                StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(sandbox, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void StartupVerifierSemanticGuard_RejectsTableColumnTypeIndexAndConstraintDrift()
+    {
+        CurrentSchemaCanonicalModel canonical = CurrentSchemaCanonicalAuthority.Extract([typeof(SyntheticEntity)]);
+
+        static SchemaModelSnapshot Snapshot(CurrentSchemaCanonicalModel model)
+            => CurrentSchemaCanonicalAuthority.ProjectProvider(model, SchemaProviderKind.PostgreSql);
+
+        SchemaModelSnapshot missingTable = Snapshot(canonical);
+        ((Dictionary<string, SchemaTableModel>)missingTable.Tables).Remove("synthetic_table");
+        Assert.Contains(
+            SchemaModelComparer.Compare(canonical.SemanticSchema, missingTable),
+            static error => error.StartsWith("missing table", StringComparison.Ordinal));
+
+        SchemaModelSnapshot missingColumn = Snapshot(canonical);
+        missingColumn.Tables["synthetic_table"].Columns.Remove("state");
+        Assert.Contains(
+            SchemaModelComparer.Compare(canonical.SemanticSchema, missingColumn),
+            static error => error.StartsWith("missing column", StringComparison.Ordinal));
+
+        SchemaModelSnapshot wrongType = Snapshot(canonical);
+        SchemaTableModel typeTable = wrongType.Tables["synthetic_table"];
+        typeTable.Columns["state"] = typeTable.Columns["state"] with
+        {
+            DataType = "int32"
+        };
+        Assert.Contains(
+            SchemaModelComparer.Compare(canonical.SemanticSchema, wrongType),
+            static error => error.StartsWith("type mismatch", StringComparison.Ordinal));
+
+        SchemaModelSnapshot wrongIndex = Snapshot(canonical);
+        ((Dictionary<string, SchemaIndexModel>)wrongIndex.Tables["synthetic_table"].IndexDefinitions)["ux_synthetic_name"] =
+            new SchemaIndexModel("ux_synthetic_name", true, ["state"]);
+        Assert.Contains(
+            SchemaModelComparer.Compare(canonical.SemanticSchema, wrongIndex),
+            static error => error.StartsWith("index mismatch", StringComparison.Ordinal));
+
+        SchemaModelSnapshot wrongConstraint = Snapshot(canonical);
+        ((Dictionary<string, SchemaConstraintModel>)wrongConstraint.Tables["synthetic_table"].Constraints)["ck_synthetic_state"] =
+            new SchemaConstraintModel("ck_synthetic_state", "check", ["state"], Expression: "state = ''");
+        Assert.Contains(
+            SchemaModelComparer.Compare(canonical.SemanticSchema, wrongConstraint),
+            static error => error.StartsWith("constraint mismatch", StringComparison.Ordinal));
+
+        SchemaModelSnapshot extraIndex = Snapshot(canonical);
+        SchemaTableModel indexTable = extraIndex.Tables["synthetic_table"];
+        indexTable.Indexes.Add("ix_synthetic_extra");
+        ((Dictionary<string, SchemaIndexModel>)indexTable.IndexDefinitions).Add(
+            "ix_synthetic_extra",
+            new SchemaIndexModel("ix_synthetic_extra", false, ["state"]));
+        Assert.Contains(
+            SchemaModelComparer.Compare(canonical.SemanticSchema, extraIndex),
+            static error => error.StartsWith("extra index", StringComparison.Ordinal));
+
+        SchemaModelSnapshot extraConstraint = Snapshot(canonical);
+        ((Dictionary<string, SchemaConstraintModel>)extraConstraint.Tables["synthetic_table"].Constraints).Add(
+            "ck_synthetic_extra",
+            new SchemaConstraintModel("ck_synthetic_extra", "check", ["state"], Expression: "state <> ''"));
+        Assert.Contains(
+            SchemaModelComparer.Compare(canonical.SemanticSchema, extraConstraint),
+            static error => error.StartsWith("extra constraint", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void BuildExpectedModel_ReflectsManagedTablesAndColumns()
     {

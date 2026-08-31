@@ -732,7 +732,7 @@ public static class SchemaModelComparer
     private static void CompareTable(
         SchemaTableModel expected,
         SchemaTableModel actual,
-        bool requireExactDefinitions,
+        bool requireExactDefaults,
         List<string> errors)
     {
         foreach ((string columnName, SchemaColumnModel expectedColumn) in expected.Columns.OrderBy(static column => column.Key, StringComparer.Ordinal))
@@ -742,7 +742,7 @@ public static class SchemaModelComparer
                 errors.Add($"missing column {expected.Name}.{columnName} owner={Describe(expectedColumn.Owner)}");
                 continue;
             }
-            CompareField(expected.Name, expectedColumn, actualColumn, requireExactDefinitions, errors);
+            CompareField(expected.Name, expectedColumn, actualColumn, requireExactDefaults, errors);
         }
         foreach (string columnName in actual.Columns.Keys.Except(expected.Columns.Keys, StringComparer.Ordinal).Order(StringComparer.Ordinal))
         {
@@ -752,12 +752,9 @@ public static class SchemaModelComparer
         {
             errors.Add($"missing index {expected.Name}.{indexName} owner={Describe(expected.Owner)}");
         }
-        if (requireExactDefinitions)
+        foreach (string indexName in actual.Indexes.Except(expected.Indexes, StringComparer.Ordinal).Order(StringComparer.Ordinal))
         {
-            foreach (string indexName in actual.Indexes.Except(expected.Indexes, StringComparer.Ordinal).Order(StringComparer.Ordinal))
-            {
-                errors.Add($"extra index {expected.Name}.{indexName} owner={Describe(actual.Owner)}");
-            }
+            errors.Add($"extra index {expected.Name}.{indexName} owner={Describe(actual.Owner)}");
         }
         foreach (string indexName in expected.IndexDefinitions.Keys.Intersect(actual.IndexDefinitions.Keys, StringComparer.Ordinal))
         {
@@ -774,12 +771,9 @@ public static class SchemaModelComparer
         {
             errors.Add($"missing constraint {expected.Name}.{constraintName} owner={Describe(expected.Owner)}");
         }
-        if (requireExactDefinitions)
+        foreach (string constraintName in actual.Constraints.Keys.Except(expected.Constraints.Keys, StringComparer.Ordinal).Order(StringComparer.Ordinal))
         {
-            foreach (string constraintName in actual.Constraints.Keys.Except(expected.Constraints.Keys, StringComparer.Ordinal).Order(StringComparer.Ordinal))
-            {
-                errors.Add($"extra constraint {expected.Name}.{constraintName} owner={Describe(actual.Owner)}");
-            }
+            errors.Add($"extra constraint {expected.Name}.{constraintName} owner={Describe(actual.Owner)}");
         }
         foreach (string constraintName in expected.Constraints.Keys.Intersect(actual.Constraints.Keys, StringComparer.Ordinal))
         {
@@ -803,7 +797,7 @@ public static class SchemaModelComparer
         string table,
         SchemaColumnModel expected,
         SchemaColumnModel actual,
-        bool requireExactDefinitions,
+        bool requireExactDefaults,
         List<string> errors)
     {
         void Difference(string field, object? expectedValue, object? actualValue)
@@ -820,7 +814,7 @@ public static class SchemaModelComparer
         if (expected.MaxLength != actual.MaxLength)
             Difference("length", expected.MaxLength, actual.MaxLength);
         if (expected.DefaultValue != actual.DefaultValue
-            && (requireExactDefinitions || expected.DefaultValue is not null))
+            && (requireExactDefaults || expected.DefaultValue is not null))
             Difference("default", expected.DefaultValue, actual.DefaultValue);
         if (expected.Conversion != actual.Conversion)
             Difference("conversion", expected.Conversion, actual.Conversion);

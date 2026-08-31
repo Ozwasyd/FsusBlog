@@ -67,7 +67,7 @@ Server or a web host.
 
 Server production no longer references `FsusBlog.Migration`. Startup loads the
 #2211 current schema projection through `CurrentSchemaStartupVerifier` and
-fail-closes on digest mismatch before admission, with zero DDL or backfill. The
+fail-closes on semantic schema mismatch before admission, with zero DDL or backfill. The
 online command host refuses descriptor execution from the Server process; the
 independent migration assembly remains the owner of legacy catalogs. An offline
 plan/apply/verify CLI is a separate change.
@@ -124,6 +124,25 @@ descriptor from becoming current authority. This boundary does not move migratio
 descriptor SQL or make provider DDL a second current-schema mapping. The migration
 assembly extraction above changes compile ownership only; descriptor IDs,
 fingerprints, checksums, SQL and execution order remain stable.
+
+Acceptance runtime bootstrap uses the explicit Server command
+`materialize-current-schema-test` only after its isolated PostgreSQL service is
+ready and before any runtime application starts. The command is unavailable to the
+ordinary `serve` route and requires the exact `Test` environment, an explicit
+opt-in, the admitted service envelope's exact `127.0.0.1` PostgreSQL host/port,
+the `public` search path and a physically contained run-owned receipt path. It
+accepts only an exactly empty `public` schema, derives entity types and the
+five-field identity through the sole
+`CurrentSchemaCanonicalAuthority`, materializes those entity types once, then runs
+`CurrentSchemaStartupVerifier`. A partial or stale schema fails before any write.
+DDL, verifier and atomic receipt publication share one PostgreSQL transaction;
+output or commit failure rolls back the schema authoritatively and best-effort
+removes any published receipt. The full run rejects every nonzero producer exit.
+Only a green verifier publishes a receipt binding command mode, candidate
+assembly/source commit, run/database identity, the admitted service envelope
+SHA/container/image identity, canonical identity and a separately labelled
+observed-database digest. Production `serve` remains a
+read-only verifier and never invokes this test producer.
 
 ## Plugin Registry
 

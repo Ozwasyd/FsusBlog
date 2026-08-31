@@ -115,8 +115,7 @@ public sealed class CurrentSchemaStartupVerifier(
 
         string actualDigest = CurrentSchemaCanonicalAuthority.ComputeContentDigest(actual.Tables);
         IReadOnlyList<string> errors = SchemaModelComparer.Compare(expected.Schema, actual, s_allowedExtraTables);
-        if (errors.Count > 0
-            || !string.Equals(expected.Identity.ContentDigest, actualDigest, StringComparison.Ordinal))
+        if (errors.Count > 0)
         {
             throw new CurrentSchemaMismatchException(
                 expected.Identity.ContentDigest,

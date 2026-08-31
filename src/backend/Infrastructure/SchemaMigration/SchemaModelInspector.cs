@@ -127,6 +127,12 @@ public sealed class SchemaModelInspector : ISchemaModelInspector
               ON column_meta.attrelid = table_rel.oid
              AND column_meta.attnum = index_column.attnum
             WHERE table_namespace.nspname = 'public'
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM pg_constraint owning_constraint
+                  WHERE owning_constraint.conindid = index_meta.indexrelid
+                    AND owning_constraint.contype = 'p'
+              )
             GROUP BY table_rel.relname, index_rel.relname, index_meta.indisunique;
             """).ConfigureAwait(false);
 

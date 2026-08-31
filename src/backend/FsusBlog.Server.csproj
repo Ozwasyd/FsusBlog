@@ -32,6 +32,7 @@
 	<ItemGroup>
 		<AssemblyMetadata Include="FsusBlog.PublishReadyToRun" Value="$(PublishReadyToRun)" />
 		<AssemblyMetadata Include="FsusBlog.ReadyToRunUseCrossgen2" Value="$(ReadyToRunUseCrossgen2)" />
+		<AssemblyMetadata Include="FsusBlog.SourceCommit" Value="$(FsusBlogCommitSha)" />
 	</ItemGroup>
 
 	<PropertyGroup>

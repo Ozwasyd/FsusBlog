@@ -2262,8 +2262,40 @@ EnsureManagedBackendSharedDebugBuild() {
     local laneSupport="$ROOT_DIR/tools/test/lanes/_lane-collect-support.sh"
     (
         source "$laneSupport"
-        FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug EnsureBackendFilteredBuild
+        FsusBlogCommitSha="${FSUSBLOG_TEST_SOURCE_COMMIT:?backend build source commit is required}" \
+            FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug \
+            EnsureBackendFilteredBuild
     )
+}
+
+MaterializeCurrentSchemaForTestRuntime() {
+    local receiptFile="$TMP_DIR/current-schema-test-materialization-receipt.json"
+    local runtimeConfiguration="${FSUSBLOG_RUNTIME_CONFIGURATION:-Release}"
+    case "$runtimeConfiguration" in
+        Debug | Release) ;;
+        *)
+            Log 'current schema materializer requires Debug or Release runtime configuration'
+            return 2
+            ;;
+    esac
+    Log 'materializing canonical current schema before runtime application activation'
+    ASPNETCORE_ENVIRONMENT=Test \
+        FSUSBLOG_CURRENT_SCHEMA_TEST_MATERIALIZATION=1 \
+        FSUSBLOG_CURRENT_SCHEMA_TEST_RECEIPT_ROOT="$TMP_DIR" \
+        ConnectionStrings__DefaultConnection="${POSTGRES_CONNECTION};Search Path=public" \
+        ./tools/build-with-data-env.sh dotnet run \
+            --project src/backend/FsusBlog.Server.csproj \
+            --no-launch-profile \
+            -c "$runtimeConfiguration" \
+            --no-build \
+            --no-restore \
+            -- \
+            materialize-current-schema-test \
+            --output "$receiptFile" \
+            --run-id "${FSUSBLOG_TEST_RUN_ID:?current schema materializer run id is required}" \
+            --source-commit "${FSUSBLOG_TEST_SOURCE_COMMIT:?current schema materializer source commit is required}" \
+            --service-envelope "$EXECUTION_SERVICE_ENVELOPE_FILE"
+    Log "current schema materialization receipt: $receiptFile"
 }
 
 EnsureBackend() {
@@ -2712,6 +2744,7 @@ Main() {
         Log 'postgres and redis ready'
         return
     fi
+    MaterializeCurrentSchemaForTestRuntime
     if CiProductionHasDomain frontend-dist; then
         AllocateReadinessDeadline 'release bundle preparation'
         PrepareReleasePreviewBundle "$READINESS_DEADLINE_AT_MS"

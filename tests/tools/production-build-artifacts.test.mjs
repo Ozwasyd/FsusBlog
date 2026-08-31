@@ -45,6 +45,13 @@ function verifyMigrationBuildDependency(source)
     assert.ok(serverIndex < migrationIndex, 'Migration must build after its Shared dependency is produced by the Server build');
     assert.ok(migrationIndex < testIndex, 'Migration must build before the no-dependencies test consumer');
 
+    const serverCommand = source.slice(serverIndex, migrationIndex);
+    assert.match(
+        serverCommand,
+        /-p:FsusBlogCommitSha="\$\{FSUSBLOG_TEST_SOURCE_COMMIT:\?production build source commit is required\}"/u,
+        'Server assembly metadata must exact-bind the production build source commit'
+    );
+
     const migrationCommand = source.slice(migrationIndex, testIndex);
     assert.match(
         migrationCommand,
@@ -118,6 +125,15 @@ test('lane dependency contract rejects missing, reordered, implicit and unbound 
         '$1'
     );
     assert.throws(() => verifyMigrationBuildDependency(implicitTestBuild), /test consumer must remain no-dependencies/u);
+
+    const unboundServerAssembly = lane.replace(
+        / \\\n+        -p:FsusBlogCommitSha="\$\{FSUSBLOG_TEST_SOURCE_COMMIT:\?production build source commit is required\}"/u,
+        ''
+    );
+    assert.throws(
+        () => verifyMigrationBuildDependency(unboundServerAssembly),
+        /assembly metadata must exact-bind/u
+    );
 
     for (const input of ['--input src/migration/FsusBlog.Migration.csproj', '--input src/migration/packages.lock.json'])
     {
