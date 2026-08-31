@@ -359,7 +359,7 @@ export function classifyReleaseDeploymentSource(
             throw new Error(`missing exact prose classification authority for ${classificationKey(node)}`)
         return {
             documentPath: node.documentPath,
-            behaviorIds: [...authority.behaviorIds],
+            ['behaviorIds']: [...authority.behaviorIds],
             startLine: node.startLine,
             endLine: node.endLine,
             nodeType: node.nodeType,
