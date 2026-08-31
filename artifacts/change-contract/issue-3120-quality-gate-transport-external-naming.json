@@ -7,7 +7,10 @@
                 "tools/ci/check-flaky-evidence.mjs",
                 "tools/ci/check-job-summaries.mjs",
                 "tools/ci/prepare-quality-gate-evidence-transport.mjs",
-                "tools/ci/verify-quality-gate-evidence-transport.mjs"
+                "tools/ci/summarize-quality-gate.mjs",
+                "tools/ci/verify-quality-gate-evidence-transport.mjs",
+                "tools/test/current-run-evidence-transport.mjs",
+                "tools/test/run-current-run-evidence-transport.mjs"
             ],
             "reason": "preserve the caller-visible current-run, quality-gate, and release evidence environment keys at the process boundary"
         },
