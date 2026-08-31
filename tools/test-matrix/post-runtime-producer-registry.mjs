@@ -13,15 +13,12 @@
  * browser work and never reads Markdown to decide facts.
  */
 
+import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import {
-    globalExactnessSchema,
-    validateGlobalClaimExactnessReceipt
-} from '../docs/global-claim-exactness-final.mjs'
 import { digestValue, isPlainObject } from '../fact-extractors/lib/canonicalize.mjs'
 import { parseMatrix } from './parse-matrix.mjs'
 
@@ -30,17 +27,25 @@ export const registryRelative = 'config/testing/post-runtime-producer-registry.j
 export const postRuntimeRegistrySchema = 'fsusblog.post-runtime-producer-registry.v2'
 export const observationEnvelopeSchema = 'fsusblog.post-runtime-observation-result-envelope.v1'
 export const acceptedClaimsSchema = 'fsusblog.post-runtime-accepted-claims.v1'
+export const globalExactnessSchema = 'fsusblog.global-claim-exactness-terminal-receipt.v1'
+export const identityAuthoritySchema = 'fsusblog.post-runtime-identity-authority.v1'
 
 const observationEnvelopeSchemaRelative = 'config/schemas/post-runtime-observation-result.schema.json'
 const acceptedClaimsSchemaRelative = 'config/schemas/post-runtime-accepted-claims.schema.json'
 const matrixRelative = 'tests/matrix.yml'
 const attemptProducersRelative = 'config/testing/correctness-attempt-producers.json'
+const fixtureProfileCatalogRelative = 'config/testing/fixture-profile-catalog.json'
 const configurationOwnershipRelative = 'config/configuration-ownership.json'
 const modes = Object.freeze(['positive', 'negative', 'boundary', 'failure'])
 const digestPattern = /^sha256:[a-f0-9]{64}$/u
 const toolVersionPattern = /^[a-z][a-z0-9-]*@[1-9][0-9]*$/u
 const unsafeReceiptPath = /(?:^|[/\\])(?:latest|history|historical)(?:[/\\]|$)/iu
 const runtimeProducerDomains = new Set(['testing', 'release', 'deployment'])
+const identityRoles = Object.freeze(['plan', 'attempt', 'fixture', 'profile'])
+const stableIdentityPattern = /^[a-z][a-z0-9-]{2,127}$/u
+const runIdentityPattern = /^(?!\.{1,2}$)[A-Za-z0-9_](?:[A-Za-z0-9_.-]{0,126}[A-Za-z0-9_])?$/u
+const attemptIdentityPattern = /^attempt-[0-9]{4}$/u
+const readerFirewallEntry = 'tools/test-matrix/post-runtime-producer-registry.mjs'
 
 const readJson = (repositoryRoot, relative) =>
     JSON.parse(fs.readFileSync(path.join(repositoryRoot, relative), 'utf8'))
@@ -62,25 +67,213 @@ function fail(message)
 const prefixedDigest = (value) => `sha256:${String(value ?? '').replace(/^sha256:/u, '')}`
 export const authorityDigest = (value) => `sha256:${digestValue(value)}`
 
-function walkJson(directory, output = [])
+function canonicalRepositoryRoot(repositoryRoot)
 {
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true }))
+    const lexicalRoot = path.resolve(repositoryRoot)
+    const stat = fs.lstatSync(lexicalRoot)
+    if (!stat.isDirectory() || stat.isSymbolicLink())
     {
-        const absolute = path.join(directory, entry.name)
-        if (entry.isDirectory()) walkJson(absolute, output)
-        else if ((entry.isFile() || entry.isSymbolicLink()) && entry.name.endsWith('.json')) output.push(absolute)
+        fail('repository root must be a canonical non-symlink directory')
     }
-    return output
+    return { lexicalRoot, realRoot: fs.realpathSync.native(lexicalRoot) }
 }
 
-export function validatePostRuntimeRepositoryAuthority(repositoryRoot = root)
+export function canonicalRepositoryFile(repositoryRoot, relative, label)
 {
-    const canonicalRegistry = path.join(repositoryRoot, registryRelative)
-    const registryStat = fs.lstatSync(canonicalRegistry)
-    if (!registryStat.isFile() || registryStat.isSymbolicLink())
+    if (typeof relative !== 'string' || relative.length === 0 || path.isAbsolute(relative)
+        || relative.includes('\\') || relative.split('/').includes('..'))
     {
-        fail('canonical post-runtime registry must be a regular non-symlink file')
+        fail(`${label} must be a canonical repository-relative path`)
     }
+    const { lexicalRoot, realRoot } = canonicalRepositoryRoot(repositoryRoot)
+    const absolute = path.resolve(lexicalRoot, relative)
+    if (!absolute.startsWith(`${lexicalRoot}${path.sep}`)) fail(`${label} escapes the repository root`)
+    const stat = fs.lstatSync(absolute)
+    if (!stat.isFile() || stat.isSymbolicLink()) fail(`${label} must be a regular non-symlink file`)
+    const real = fs.realpathSync.native(absolute)
+    const expectedReal = path.join(realRoot, ...relative.split('/'))
+    if (real !== expectedReal || !real.startsWith(`${realRoot}${path.sep}`))
+    {
+        fail(`${label} must resolve to its canonical path inside the repository root`)
+    }
+    return real
+}
+
+function trackedRepositoryFiles(repositoryRoot)
+{
+    const { lexicalRoot } = canonicalRepositoryRoot(repositoryRoot)
+    let output
+    try
+    {
+        output = execFileSync('git', ['-C', lexicalRoot, 'ls-files', '-z'], {
+            encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']
+        })
+    }
+    catch (error)
+    {
+        fail(`cannot enumerate tracked repository authorities: ${error.stderr?.trim() || error.message}`)
+    }
+    return output.split('\0').filter(Boolean).map((entry) => entry.replaceAll('\\', '/'))
+}
+
+function excludedMachineAuthorityPath(relative)
+{
+    const segments = relative.split('/')
+    return segments.some((segment) => ['generated', 'vendor', 'node_modules', '.tmp', 'tmp'].includes(segment))
+        || segments.some((segment) => segment.includes('.generated.'))
+}
+
+function tokenizeModule(source, label)
+{
+    const tokens = []
+    let index = 0
+    const whitespace = /\s/u
+    const identifierStart = /[A-Za-z_$]/u
+    const identifierPart = /[A-Za-z0-9_$]/u
+    while (index < source.length)
+    {
+        const current = source[index]
+        if (whitespace.test(current)) { index += 1; continue }
+        if (current === '/' && source[index + 1] === '/')
+        {
+            index = source.indexOf('\n', index + 2)
+            if (index < 0) break
+            continue
+        }
+        if (current === '/' && source[index + 1] === '*')
+        {
+            const end = source.indexOf('*/', index + 2)
+            if (end < 0) fail(`${label} contains an unterminated block comment`)
+            index = end + 2
+            continue
+        }
+        if (current === '\'' || current === '"')
+        {
+            const quote = current
+            let value = ''
+            index += 1
+            let closed = false
+            while (index < source.length)
+            {
+                if (source[index] === '\\')
+                {
+                    value += source[index + 1] ?? ''
+                    index += 2
+                }
+                else if (source[index] === quote)
+                {
+                    index += 1
+                    closed = true
+                    break
+                }
+                else { value += source[index]; index += 1 }
+            }
+            if (!closed) fail(`${label} contains an unterminated string literal`)
+            tokens.push({ type: 'string', value })
+            continue
+        }
+        if (current === '`')
+        {
+            index += 1
+            let closed = false
+            while (index < source.length)
+            {
+                if (source[index] === '\\') index += 2
+                else if (source[index] === '`') { index += 1; closed = true; break }
+                else index += 1
+            }
+            if (!closed) fail(`${label} contains an unterminated template literal`)
+            tokens.push({ type: 'template', value: '' })
+            continue
+        }
+        if (identifierStart.test(current))
+        {
+            const start = index
+            index += 1
+            while (index < source.length && identifierPart.test(source[index])) index += 1
+            tokens.push({ type: 'identifier', value: source.slice(start, index) })
+            continue
+        }
+        tokens.push({ type: 'punctuation', value: current })
+        index += 1
+    }
+    return tokens
+}
+
+function staticModuleSpecifiers(source, label)
+{
+    const tokens = tokenizeModule(source, label)
+    const specifiers = []
+    for (let index = 0; index < tokens.length; index += 1)
+    {
+        const token = tokens[index]
+        if (token.type !== 'identifier' || !['import', 'export'].includes(token.value)) continue
+        if (token.value === 'import' && tokens[index + 1]?.value === '.') continue
+        if (token.value === 'import' && tokens[index + 1]?.value === '(')
+        {
+            if (tokens[index + 2]?.type !== 'string') fail(`${label} has a non-literal dynamic import`)
+            specifiers.push(tokens[index + 2].value)
+            continue
+        }
+        if (tokens[index + 1]?.type === 'string')
+        {
+            specifiers.push(tokens[index + 1].value)
+            continue
+        }
+        for (let cursor = index + 1; cursor < tokens.length && tokens[cursor].value !== ';'; cursor += 1)
+        {
+            if (tokens[cursor].value === 'from' && tokens[cursor + 1]?.type === 'string')
+            {
+                specifiers.push(tokens[cursor + 1].value)
+                break
+            }
+        }
+    }
+    return specifiers
+}
+
+function resolveLocalModule(repositoryRoot, importer, specifier)
+{
+    if (!specifier.startsWith('.')) return null
+    const base = path.posix.normalize(path.posix.join(path.posix.dirname(importer), specifier))
+    const candidates = [base, `${base}.mjs`, `${base}.js`, `${base}.cjs`, path.posix.join(base, 'index.mjs')]
+    const resolved = candidates.find((candidate) => fs.existsSync(path.join(repositoryRoot, candidate)))
+    if (!resolved || resolved === '..' || resolved.startsWith('../'))
+    {
+        fail(`reader import ${specifier} from ${importer} does not resolve inside the repository`)
+    }
+    return resolved
+}
+
+export function validatePostRuntimeReaderFirewall(repositoryRoot = root, entry = readerFirewallEntry)
+{
+    const pending = [entry]
+    const visited = new Set()
+    while (pending.length > 0)
+    {
+        const relative = pending.pop()
+        if (visited.has(relative)) continue
+        visited.add(relative)
+        if (relative.startsWith('docs/') || relative.startsWith('tools/docs/')
+            || /(?:^|\/)(?:doc-claim|markdown-reader)[^/]*\.(?:mjs|js|cjs)$/iu.test(relative))
+        {
+            fail(`post-runtime reader import closure reaches forbidden Markdown/DocClaim module ${relative}`)
+        }
+        const absolute = canonicalRepositoryFile(repositoryRoot, relative, `reader module ${relative}`)
+        for (const specifier of staticModuleSpecifiers(fs.readFileSync(absolute, 'utf8'), relative))
+        {
+            const resolved = resolveLocalModule(repositoryRoot, relative, specifier)
+            if (resolved) pending.push(resolved)
+        }
+    }
+    return { entry, modules: [...visited].sort() }
+}
+
+export function validatePostRuntimeRepositoryAuthority(repositoryRoot = root, {
+    validateReaderFirewall = true
+} = {})
+{
+    canonicalRepositoryFile(repositoryRoot, registryRelative, 'canonical post-runtime registry')
     const ownership = readJson(repositoryRoot, configurationOwnershipRelative)
     const owners = (ownership.ownership ?? []).filter((entry) =>
         entry.id === 'post-runtime-producer-registry' || entry.canonicalPath === registryRelative)
@@ -91,9 +284,21 @@ export function validatePostRuntimeRepositoryAuthority(repositoryRoot = root)
     {
         fail('post-runtime registry must have exact-one canonical configuration owner')
     }
-    const registryFiles = walkJson(path.join(repositoryRoot, 'config'))
-        .filter((absolute) =>
+    const registryFiles = trackedRepositoryFiles(repositoryRoot)
+        .filter((relative) => relative.endsWith('.json') && !excludedMachineAuthorityPath(relative))
+        .filter((relative) =>
         {
+            const absolute = path.join(repositoryRoot, relative)
+            const stat = fs.lstatSync(absolute)
+            if (stat.isSymbolicLink())
+            {
+                const real = fs.realpathSync.native(absolute)
+                const { realRoot } = canonicalRepositoryRoot(repositoryRoot)
+                if (!real.startsWith(`${realRoot}${path.sep}`))
+                {
+                    fail(`tracked JSON authority candidate ${relative} resolves outside the repository`)
+                }
+            }
             try
             {
                 return JSON.parse(fs.readFileSync(absolute, 'utf8'))?.schema === postRuntimeRegistrySchema
@@ -103,9 +308,9 @@ export function validatePostRuntimeRepositoryAuthority(repositoryRoot = root)
                 return false
             }
         })
-        .map((absolute) => path.relative(repositoryRoot, absolute).replaceAll(path.sep, '/'))
         .sort()
     assertExactSet(registryFiles, [registryRelative], 'post-runtime registry authority paths')
+    if (validateReaderFirewall) validatePostRuntimeReaderFirewall(repositoryRoot)
     return true
 }
 
@@ -135,6 +340,16 @@ function assertExactKeys(value, expected, label)
     }
 }
 
+function assertAllowedKeys(value, allowed, required, label)
+{
+    if (!isPlainObject(value)
+        || Object.keys(value).some((key) => !allowed.includes(key))
+        || required.some((key) => !Object.hasOwn(value, key)))
+    {
+        fail(`${label} has missing or unknown fields`)
+    }
+}
+
 function currentReceiptFile(repositoryRoot, relative, label)
 {
     if (typeof relative !== 'string' || relative.length === 0 || path.isAbsolute(relative)
@@ -142,15 +357,7 @@ function currentReceiptFile(repositoryRoot, relative, label)
     {
         fail(`${label} must be an explicit current-run JSON path`)
     }
-    const resolvedRoot = path.resolve(repositoryRoot)
-    const absolute = path.resolve(resolvedRoot, relative)
-    if (!absolute.startsWith(`${resolvedRoot}${path.sep}`))
-    {
-        fail(`${label} escapes the repository root`)
-    }
-    const stat = fs.lstatSync(absolute)
-    if (!stat.isFile() || stat.isSymbolicLink()) fail(`${label} must be a regular non-symlink file`)
-    return absolute
+    return canonicalRepositoryFile(repositoryRoot, relative, label)
 }
 
 export const BehaviorId = (value) =>
@@ -192,9 +399,19 @@ export function validatePostRuntimeReceiptSchemas(registry, {
         'observationSchemaDigest', 'sourceState', 'executionClass',
         'evidenceClass', 'qualificationEligible', 'planned', 'executed', 'outcome',
         'recovered', 'modes', 'terminal', 'semanticFacts', 'candidatePlanRef',
+        'attemptAuthorityRef', 'fixtureAuthorityRef', 'profileAuthorityRef',
         'sourceReceiptRef', 'canonicalRerunCommand', 'independentVerifyCommand',
         'contentDigest'
     ], 'observation envelope required fields')
+    assertExactSet(observationSchema.properties?.sourceState?.required,
+        ['sourceCommit', 'worktreeFingerprint', 'runId', 'attemptId', 'fixtureId', 'profileId'],
+        'observation source-state required fields')
+    assertExactSet(observationSchema.$defs?.identityAuthorityRef?.properties?.role?.enum,
+        identityRoles, 'identity authority roles')
+    if (observationSchema.$defs?.identityAuthorityRef?.properties?.schema?.const !== identityAuthoritySchema)
+    {
+        fail('identity authority reference schema drifted')
+    }
     assertExactSet(claimsSchema.required, [
         'schema', 'sourceState', 'producerId', 'toolVersion', 'registryDigest',
         'claimsSchemaDigest', 'terminalReceiptRef', 'migrationLedgerDigest', 'claims',
@@ -390,15 +607,17 @@ export function validatePostRuntimeProducerRegistry(registry, {
             fail(`producer ${producer.producerId} owner is not the canonical matrix producer authority`)
         }
         if (typeof tier.command !== 'string' || !tier.command.startsWith('tools/')
-            || tier.command.endsWith('.md') || !fs.existsSync(path.join(repositoryRoot, tier.command)))
+            || tier.command.endsWith('.md'))
         {
             fail(`producer ${producer.producerId} command must be a non-Markdown executable authority`)
         }
+        canonicalRepositoryFile(repositoryRoot, tier.command, `producer ${producer.producerId} command`)
         if (typeof producer.owner !== 'string' || producer.owner.startsWith('docs/')
-            || producer.owner.endsWith('.md') || !fs.existsSync(path.join(repositoryRoot, producer.owner)))
+            || producer.owner.endsWith('.md'))
         {
             fail(`producer ${producer.producerId} owner must be a non-Markdown executable authority`)
         }
+        canonicalRepositoryFile(repositoryRoot, producer.owner, `producer ${producer.producerId} owner`)
         if (producer.diagnosticEligible === true)
         {
             fail(`producer ${producer.producerId} must never accept diagnostic evidence as qualification`)
@@ -482,7 +701,10 @@ export function validatePostRuntimeProducerRegistry(registry, {
         }
     }
 
-    validatePostRuntimeReceiptSchemas(registry)
+    validatePostRuntimeReceiptSchemas(registry, {
+        observationSchema: readJson(repositoryRoot, observationEnvelopeSchemaRelative),
+        claimsSchema: readJson(repositoryRoot, acceptedClaimsSchemaRelative)
+    })
     if (validateRepositoryAuthority) validatePostRuntimeRepositoryAuthority(repositoryRoot)
 
     return {
@@ -525,6 +747,108 @@ function requiredModesFor(producer, classId)
         .sort()
 }
 
+function validateTypedSourceState(sourceState, schema, repositoryRoot, producerId)
+{
+    assertAllowedKeys(sourceState,
+        Object.keys(schema.properties?.sourceState?.properties ?? {}),
+        schema.properties?.sourceState?.required ?? [],
+        `producer ${producerId} sourceState`)
+    if (!/^[a-f0-9]{40}$/u.test(sourceState.sourceCommit ?? '')
+        || !digestPattern.test(sourceState.worktreeFingerprint ?? '')
+        || !runIdentityPattern.test(sourceState.runId ?? '')
+        || !attemptIdentityPattern.test(sourceState.attemptId ?? '')
+        || !stableIdentityPattern.test(sourceState.fixtureId ?? '')
+        || !stableIdentityPattern.test(sourceState.profileId ?? ''))
+    {
+        fail(`producer ${producerId} receipt source identity is invalid`)
+    }
+    for (const digestField of ['buildIdentity', 'artifactDigest', 'runtimeIdentity', 'browserIdentity'])
+    {
+        if (sourceState[digestField] !== undefined && !digestPattern.test(sourceState[digestField]))
+        {
+            fail(`producer ${producerId} receipt source identity ${digestField} is invalid`)
+        }
+    }
+    for (const stableField of ['candidateId', 'releaseId', 'rolloutId'])
+    {
+        if (sourceState[stableField] !== undefined && !stableIdentityPattern.test(sourceState[stableField]))
+        {
+            fail(`producer ${producerId} receipt source identity ${stableField} is invalid`)
+        }
+    }
+    const profileCatalog = readJson(repositoryRoot, fixtureProfileCatalogRelative)
+    if (!(profileCatalog.profiles ?? []).some((profile) => profile.id === sourceState.profileId))
+    {
+        fail(`producer ${producerId} profileId is absent from the fixture-profile authority`)
+    }
+}
+
+function validateMachineGlobalClaimExactnessReceipt(receipt)
+{
+    assertExactKeys(receipt, [
+        'schema', 'scopeId', 'source', 'authorityDigests', 'counts', 'mutationAggregate',
+        'residue', 'proseVerification', 'status', 'failureReasons', 'contentDigest'
+    ], 'global exactness terminal receipt')
+    if (receipt.schema !== globalExactnessSchema
+        || receipt.contentDigest !== digestValue({ ...receipt, contentDigest: null }))
+    {
+        fail('global exactness terminal schema/contentDigest mismatch')
+    }
+    if (receipt.status !== 'ok' || !Array.isArray(receipt.failureReasons)
+        || receipt.failureReasons.length !== 0 || !Array.isArray(receipt.residue)
+        || receipt.residue.length !== 0 || receipt.counts?.warnings !== 0
+        || receipt.counts?.missing !== 0 || receipt.counts?.extra !== 0
+        || receipt.counts?.residue !== 0 || receipt.counts?.generatedSectionDrifts !== 0
+        || receipt.counts?.proseVerified !== receipt.counts?.proseTotal
+        || receipt.mutationAggregate?.killed !== receipt.mutationAggregate?.total)
+    {
+        fail('global exactness terminal receipt is not a clean machine acceptance')
+    }
+    return receipt
+}
+
+function validateIdentityAuthorityRef(repositoryRoot, ref, expectedRole, sourceState, producerId)
+{
+    assertExactKeys(ref, ['path', 'fileDigest', 'contentDigest', 'schema', 'role'],
+        `producer ${producerId} ${expectedRole} authority reference`)
+    if (ref.schema !== identityAuthoritySchema || ref.role !== expectedRole
+        || !digestPattern.test(ref.fileDigest ?? '') || !digestPattern.test(ref.contentDigest ?? ''))
+    {
+        fail(`producer ${producerId} ${expectedRole} authority reference is invalid`)
+    }
+    const authorityPath = currentReceiptFile(repositoryRoot, ref.path,
+        `producer ${producerId} ${expectedRole} authority`)
+    const bytes = fs.readFileSync(authorityPath)
+    const fileDigest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`
+    if (ref.fileDigest !== fileDigest) fail(`producer ${producerId} ${expectedRole} authority file digest mismatch`)
+    const authority = JSON.parse(bytes.toString('utf8'))
+    assertExactKeys(authority, ['schema', 'role', 'authorityId', 'sourceState', 'contentDigest'],
+        `producer ${producerId} ${expectedRole} authority`)
+    const roleIdentity = {
+        plan: 'runId',
+        attempt: 'attemptId',
+        fixture: 'fixtureId',
+        profile: 'profileId'
+    }[expectedRole]
+    if (authority.schema !== identityAuthoritySchema || authority.role !== expectedRole
+        || authority.authorityId !== sourceState[roleIdentity]
+        || authority.contentDigest !== receiptDigest(authority)
+        || ref.contentDigest !== authority.contentDigest)
+    {
+        fail(`producer ${producerId} ${expectedRole} authority identity/content mismatch`)
+    }
+    assertExactKeys(authority.sourceState,
+        ['sourceCommit', 'worktreeFingerprint', 'runId', 'attemptId', 'fixtureId', 'profileId'],
+        `producer ${producerId} ${expectedRole} authority sourceState`)
+    for (const field of Object.keys(authority.sourceState))
+    {
+        if (authority.sourceState[field] !== sourceState[field])
+        {
+            fail(`producer ${producerId} ${expectedRole} authority sourceState mismatch`)
+        }
+    }
+}
+
 export function validateProducerReceiptAgainstRegistry({
     registry,
     producerId,
@@ -563,11 +887,7 @@ export function validateProducerReceiptAgainstRegistry({
             fail(`producer ${producerId} receipt is missing ${classId} identity ${required}`)
         }
     }
-    if (!/^[a-f0-9]{40}$/u.test(identity.sourceCommit ?? '')
-        || !digestPattern.test(prefixedDigest(identity.worktreeFingerprint)))
-    {
-        fail(`producer ${producerId} receipt source identity is invalid`)
-    }
+    validateTypedSourceState(identity, schema, repositoryRoot, producerId)
     assertExactSet(receipt.modes, requiredModesFor(producer, classId),
         `producer ${producerId} ${classId} modes`)
     assertExactKeys(receipt.terminal,
@@ -592,7 +912,21 @@ export function validateProducerReceiptAgainstRegistry({
     {
         fail(`producer ${producerId} non-recovered receipt cannot bind a recovery attempt`)
     }
-    for (const field of ['candidatePlanRef', 'sourceReceiptRef'])
+    const authorityRefs = [
+        ['candidatePlanRef', 'plan'],
+        ['attemptAuthorityRef', 'attempt'],
+        ['fixtureAuthorityRef', 'fixture'],
+        ['profileAuthorityRef', 'profile']
+    ]
+    if (new Set(authorityRefs.map(([field]) => receipt[field]?.path)).size !== authorityRefs.length)
+    {
+        fail(`producer ${producerId} identity authorities must use independent paths`)
+    }
+    for (const [field, role] of authorityRefs)
+    {
+        validateIdentityAuthorityRef(repositoryRoot, receipt[field], role, identity, producerId)
+    }
+    for (const field of ['sourceReceiptRef'])
     {
         assertExactKeys(receipt[field], ['path', 'fileDigest', 'contentDigest'],
             `producer ${producerId} ${field}`)
@@ -678,7 +1012,7 @@ export function validateAcceptedClaimsReceiptAgainstRegistry({
     {
         fail('accepted terminal receipt schema/content digest mismatch')
     }
-    validateGlobalClaimExactnessReceipt(terminal)
+    validateMachineGlobalClaimExactnessReceipt(terminal)
     if (receipt.sourceState.commit !== terminal.source?.sourceCommit
         || receipt.sourceState.worktreeFingerprint !== prefixedDigest(terminal.source?.worktreeFingerprint))
     {

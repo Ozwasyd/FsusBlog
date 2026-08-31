@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -10,21 +11,41 @@ import {
     BehaviorId,
     acceptedClaimsSchema,
     authorityDigest,
+    canonicalRepositoryFile,
+    identityAuthoritySchema,
     loadPostRuntimeProducerRegistry,
     postRuntimeRegistrySchema,
     requiredPostRuntimeBehaviors,
     root,
     validateAcceptedClaimsReceiptAgainstRegistry,
     validatePostRuntimeProducerRegistry,
+    validatePostRuntimeReaderFirewall,
     validatePostRuntimeRepositoryAuthority,
     validatePostRuntimeReceiptSchemas,
-    validateProducerReceiptAgainstRegistry
+    validateProducerReceiptAgainstRegistry as validateProducerReceiptAgainstRegistryRaw
 } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
 
 const catalog = JSON.parse(fs.readFileSync(path.join(root, 'config/contracts/behavior-contracts.json'), 'utf8'))
 const migrationLedger = JSON.parse(fs.readFileSync(path.join(root, 'config/contracts/document-claim-migration-ledger.json'), 'utf8'))
 const registry = loadPostRuntimeProducerRegistry(root)
 const digest = (character) => `sha256:${character.repeat(64)}`
+const receiptRepositoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-post-runtime-receipt-'))
+process.on('exit', () => fs.rmSync(receiptRepositoryRoot, { recursive: true, force: true }))
+fs.mkdirSync(path.join(receiptRepositoryRoot, 'config/schemas'), { recursive: true })
+fs.mkdirSync(path.join(receiptRepositoryRoot, 'config/testing'), { recursive: true })
+fs.mkdirSync(path.join(receiptRepositoryRoot, '.tmp/current-run'), { recursive: true })
+fs.copyFileSync(path.join(root, 'config/schemas/post-runtime-observation-result.schema.json'),
+    path.join(receiptRepositoryRoot, 'config/schemas/post-runtime-observation-result.schema.json'))
+fs.copyFileSync(path.join(root, 'config/testing/fixture-profile-catalog.json'),
+    path.join(receiptRepositoryRoot, 'config/testing/fixture-profile-catalog.json'))
+
+function validateProducerReceiptAgainstRegistry(options)
+{
+    return validateProducerReceiptAgainstRegistryRaw({
+        ...options,
+        repositoryRoot: options.repositoryRoot ?? receiptRepositoryRoot
+    })
+}
 
 function seal(receipt)
 {
@@ -43,6 +64,48 @@ function producerReceipt(classId = 'route-response-error')
         .sort()
     const semanticFacts = Object.fromEntries(definition.requiredSemanticFactFields.map((field) =>
         [field, field === 'responseStatus' ? 200 : field.endsWith('Digest') ? digest('1') : `${field}-value`]))
+    const sourceState = {
+        sourceCommit: 'a'.repeat(40),
+        worktreeFingerprint: digest('b'),
+        buildIdentity: digest('c'),
+        artifactDigest: digest('2'),
+        candidateId: 'candidate-1',
+        runtimeIdentity: digest('3'),
+        browserIdentity: digest('4'),
+        releaseId: 'release-1',
+        rolloutId: 'rollout-1',
+        runId: 'run-1',
+        attemptId: 'attempt-0001',
+        fixtureId: 'fixture-1',
+        profileId: 'acceptance-representative'
+    }
+    const refs = {}
+    for (const [field, role, identityField] of [
+        ['candidatePlanRef', 'plan', 'runId'],
+        ['attemptAuthorityRef', 'attempt', 'attemptId'],
+        ['fixtureAuthorityRef', 'fixture', 'fixtureId'],
+        ['profileAuthorityRef', 'profile', 'profileId']
+    ])
+    {
+        const authority = seal({
+            schema: identityAuthoritySchema,
+            role,
+            authorityId: sourceState[identityField],
+            sourceState: Object.fromEntries([
+                'sourceCommit', 'worktreeFingerprint', 'runId', 'attemptId', 'fixtureId', 'profileId'
+            ].map((identity) => [identity, sourceState[identity]]))
+        })
+        const relative = `.tmp/current-run/${role}-authority.json`
+        const absolute = path.join(receiptRepositoryRoot, relative)
+        fs.writeFileSync(absolute, `${JSON.stringify(authority, null, 2)}\n`)
+        refs[field] = {
+            path: relative,
+            fileDigest: `sha256:${createHash('sha256').update(fs.readFileSync(absolute)).digest('hex')}`,
+            contentDigest: authority.contentDigest,
+            schema: identityAuthoritySchema,
+            role
+        }
+    }
     return seal({
         schema: definition.schema,
         producerId: producer.producerId,
@@ -50,21 +113,7 @@ function producerReceipt(classId = 'route-response-error')
         registryDigest: authorityDigest(registry),
         observationSchemaDigest: authorityDigest(JSON.parse(fs.readFileSync(
             path.join(root, 'config/schemas/post-runtime-observation-result.schema.json'), 'utf8'))),
-        sourceState: {
-            sourceCommit: 'a'.repeat(40),
-            worktreeFingerprint: digest('b'),
-            buildIdentity: digest('c'),
-            artifactDigest: digest('2'),
-            candidateId: 'candidate-1',
-            runtimeIdentity: digest('3'),
-            browserIdentity: digest('4'),
-            releaseId: 'release-1',
-            rolloutId: 'rollout-1',
-            runId: 'run-1',
-            attemptId: 'attempt-0001',
-            fixtureId: 'fixture-1',
-            profileId: 'profile-1'
-        },
+        sourceState,
         executionClass: 'correctness',
         evidenceClass: 'correctness',
         qualificationEligible: true,
@@ -80,11 +129,7 @@ function producerReceipt(classId = 'route-response-error')
             priorAttemptDigest: null
         },
         semanticFacts,
-        candidatePlanRef: {
-            path: '.tmp/current-run/candidate-plan.json',
-            fileDigest: digest('d'),
-            contentDigest: digest('e')
-        },
+        ...refs,
         sourceReceiptRef: {
             path: '.tmp/current-run/source-receipt.json',
             fileDigest: digest('f'),
@@ -344,6 +389,40 @@ test('receipt binding recomputes digest and exact mode/tool/source identity', ()
         /unknown producer/u)
 })
 
+test('run, attempt, fixture and profile identities are typed and bind independent authorities', () =>
+{
+    const producerId = registry.producers[0].producerId
+    const base = producerReceipt()
+    for (const field of ['runId', 'attemptId', 'fixtureId', 'profileId'])
+    {
+        const empty = structuredClone(base)
+        empty.sourceState[field] = ''
+        assert.throws(
+            () => validateProducerReceiptAgainstRegistry({ registry, producerId, receipt: seal(empty) }),
+            /source identity is invalid/u)
+    }
+
+    const malformedAttempt = structuredClone(base)
+    malformedAttempt.sourceState.attemptId = 'run-0001'
+    assert.throws(
+        () => validateProducerReceiptAgainstRegistry({ registry, producerId, receipt: seal(malformedAttempt) }),
+        /source identity is invalid/u)
+
+    const swappedIdentities = structuredClone(base)
+    ;[swappedIdentities.sourceState.runId, swappedIdentities.sourceState.fixtureId] =
+        [swappedIdentities.sourceState.fixtureId, swappedIdentities.sourceState.runId]
+    assert.throws(
+        () => validateProducerReceiptAgainstRegistry({ registry, producerId, receipt: seal(swappedIdentities) }),
+        /plan authority identity\/content mismatch/u)
+
+    const swappedAuthorities = structuredClone(base)
+    ;[swappedAuthorities.candidatePlanRef, swappedAuthorities.attemptAuthorityRef] =
+        [swappedAuthorities.attemptAuthorityRef, swappedAuthorities.candidatePlanRef]
+    assert.throws(
+        () => validateProducerReceiptAgainstRegistry({ registry, producerId, receipt: seal(swappedAuthorities) }),
+        /plan authority reference is invalid/u)
+})
+
 test('HTTP-only and stale registry/schema/evidenceClass receipts cannot qualify', () =>
 {
     const producerId = registry.producers[0].producerId
@@ -386,11 +465,16 @@ test('production validator rejects a second registry and is wired into static go
         path.join(repositoryRoot, 'config/configuration-ownership.json'))
     fs.copyFileSync(path.join(root, 'config/testing/post-runtime-producer-registry.json'),
         path.join(repositoryRoot, 'config/testing/post-runtime-producer-registry.json'))
-    assert.equal(validatePostRuntimeRepositoryAuthority(repositoryRoot), true)
+    execFileSync('git', ['init', '--quiet'], { cwd: repositoryRoot })
+    execFileSync('git', ['add', 'config/configuration-ownership.json',
+        'config/testing/post-runtime-producer-registry.json'], { cwd: repositoryRoot })
+    assert.equal(validatePostRuntimeRepositoryAuthority(repositoryRoot, { validateReaderFirewall: false }), true)
+    fs.mkdirSync(path.join(repositoryRoot, 'tools'), { recursive: true })
     fs.copyFileSync(path.join(root, 'config/testing/post-runtime-producer-registry.json'),
-        path.join(repositoryRoot, 'config/testing/second-post-runtime-registry.json'))
+        path.join(repositoryRoot, 'tools/second-post-runtime-registry.json'))
+    execFileSync('git', ['add', 'tools/second-post-runtime-registry.json'], { cwd: repositoryRoot })
     assert.throws(
-        () => validatePostRuntimeRepositoryAuthority(repositoryRoot),
+        () => validatePostRuntimeRepositoryAuthority(repositoryRoot, { validateReaderFirewall: false }),
         /authority paths must exact-match/u)
 
     const staticLane = fs.readFileSync(path.join(root, 'tools/test/lanes/static-governance.sh'), 'utf8')
@@ -398,6 +482,49 @@ test('production validator rejects a second registry and is wired into static go
         /StaticPostRuntimeProducerRegistry\(\).*post-runtime-producer-registry\.mjs/su)
     assert.match(staticLane,
         /post-runtime-producer-registry StaticPostRuntimeProducerRegistry/u)
+})
+
+test('owner and command authorities reject symlinks and external realpaths', (context) =>
+{
+    const repositoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-post-runtime-owner-'))
+    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-post-runtime-external-'))
+    context.after(() =>
+    {
+        fs.rmSync(repositoryRoot, { recursive: true, force: true })
+        fs.rmSync(externalRoot, { recursive: true, force: true })
+    })
+    fs.mkdirSync(path.join(repositoryRoot, 'tools'), { recursive: true })
+    const external = path.join(externalRoot, 'owner.mjs')
+    fs.writeFileSync(external, 'export const owner = true\n')
+    fs.symlinkSync(external, path.join(repositoryRoot, 'tools/owner.mjs'))
+    assert.throws(
+        () => canonicalRepositoryFile(repositoryRoot, 'tools/owner.mjs', 'producer owner'),
+        /regular non-symlink file/u)
+
+    fs.symlinkSync(externalRoot, path.join(repositoryRoot, 'tools-link'))
+    assert.throws(
+        () => canonicalRepositoryFile(repositoryRoot, 'tools-link/owner.mjs', 'producer command'),
+        /canonical path inside the repository root/u)
+})
+
+test('reader firewall traverses imports and rejects transitive Markdown/DocClaim readers', (context) =>
+{
+    const current = validatePostRuntimeReaderFirewall(root)
+    assert.ok(current.modules.includes('tools/test-matrix/post-runtime-producer-registry.mjs'))
+
+    const repositoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-post-runtime-reader-'))
+    context.after(() => fs.rmSync(repositoryRoot, { recursive: true, force: true }))
+    fs.mkdirSync(path.join(repositoryRoot, 'tools/test-matrix'), { recursive: true })
+    fs.mkdirSync(path.join(repositoryRoot, 'tools/docs'), { recursive: true })
+    fs.writeFileSync(path.join(repositoryRoot, 'tools/test-matrix/entry.mjs'),
+        "import './middle.mjs'\nexport const entry = true\n")
+    fs.writeFileSync(path.join(repositoryRoot, 'tools/test-matrix/middle.mjs'),
+        "export { claim } from '../docs/doc-claim.mjs'\n")
+    fs.writeFileSync(path.join(repositoryRoot, 'tools/docs/doc-claim.mjs'),
+        'export const claim = true\n')
+    assert.throws(
+        () => validatePostRuntimeReaderFirewall(repositoryRoot, 'tools/test-matrix/entry.mjs'),
+        /import closure reaches forbidden Markdown\/DocClaim module/u)
 })
 
 test('re-sealed diagnostic, timeout, cancel and recovered mutations cannot qualify', () =>
