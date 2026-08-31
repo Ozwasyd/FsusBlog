@@ -1585,7 +1585,7 @@ assert.equal(terminal.runtimeReady.contentDigest, boundRuntimeReady.contentDiges
 assert.equal(boundRuntimeReady.schema, 'fsusblog.current-schema-runtime-ready.v1')
 assert.equal(boundRuntimeReady.status, 'verified')
 assert.equal(boundRuntimeReady.qualificationEligible, true)
-assert.equal(boundRuntimeReady.runId, terminal.runId)
+assert.equal(boundRuntimeReady.runId, process.env.POSITIVE_RUN_ID_VALUE)
 assert.equal(boundRuntimeReady.sourceCommit, terminal.sourceCommit)
 assert.equal(boundRuntimeReady.contentDigest, contentDigest(boundRuntimeReady))
 execFileSync(process.execPath, [

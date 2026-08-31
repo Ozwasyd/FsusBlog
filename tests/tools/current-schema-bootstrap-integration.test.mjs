@@ -205,6 +205,8 @@ test('current schema bootstrap terminal binds exact durable evidence and rejects
   assert.match(lane, /git', \['-C', process\.env\.ROOT_DIR_VALUE, 'status', '--porcelain=v1'\]/u)
   assert.match(lane, /requireExactKeys\(terminal,[\s\S]*?requireExactKeys\(receipt,[\s\S]*?requireExactKeys\(evidence,/u)
   assert.match(lane, /boundRuntimeReadyBytes = bundleBytes\(terminal\.runtimeReady\.path\)[\s\S]*?boundRuntimeReady\.contentDigest, contentDigest\(boundRuntimeReady\)/u)
+  assert.match(lane, /assert\.equal\(boundRuntimeReady\.runId, process\.env\.POSITIVE_RUN_ID_VALUE\)/u)
+  assert.doesNotMatch(lane, /assert\.equal\(boundRuntimeReady\.runId, terminal\.runId\)/u)
   assert.match(lane, /publication-preflight\.candidate[\s\S]*?assert\.throws\(\(\) => fs\.linkSync\(candidate, destination\), \{ code: 'EEXIST' \}\)/u)
   assert.match(lane, /fs\.linkSync\(publicationCandidate, terminalFinalPath\)\nfs\.unlinkSync\(publicationCandidate\)\nNODE/u)
   assert.match(lane, /committedBytes = \(relativePath\)[\s\S]*?'git'[\s\S]*?SOURCE_COMMIT_VALUE[\s\S]*?relativePath/u)
