@@ -5,7 +5,6 @@ import {
     mkdirSync,
     mkdtempSync,
     readFileSync,
-    renameSync,
     rmSync,
     symlinkSync,
     writeFileSync
@@ -558,6 +557,13 @@ test('frontend style governance accepts only an exact pre-existing malformed bas
             expectGit(['commit', '-qm', message]);
             expectGit(['update-ref', 'refs/remotes/origin/master', 'HEAD']);
         };
+        const authorizeBytes = (bytes, message) =>
+        {
+            writeFixture(fixtureRoot, correctionPath, bytes);
+            expectGit(['add', correctionPath]);
+            expectGit(['commit', '-qm', message]);
+            expectGit(['update-ref', 'refs/remotes/origin/master', 'HEAD']);
+        };
         writeFileSync(baselinePath, malformedBytes);
         writeCorrection(correction);
         expectGit(['init', '-q']);
@@ -590,6 +596,42 @@ test('frontend style governance accepts only an exact pre-existing malformed bas
         const candidateAuthored = runChecker(fixtureRoot, reviewedArgs);
         assert.notEqual(candidateAuthored.status, 0);
         assert.match(output(candidateAuthored), /must already exist unchanged/u);
+
+        writeFileSync(baselinePath, malformedBytes);
+        writeCorrection(null);
+        const candidateAuthoredNull = runChecker(fixtureRoot, reviewedArgs);
+        assert.notEqual(candidateAuthoredNull.status, 0);
+        assert.match(output(candidateAuthoredNull), /must already exist unchanged/u);
+        assert.equal(readFileSync(baselinePath, 'utf8'), malformedBytes);
+
+        for (const [name, document] of [
+            ['null scalar', null],
+            ['false scalar', false],
+            ['array', []],
+            ['extra top-level field', { ...correction, unexpected: true }]
+        ])
+        {
+            writeFileSync(baselinePath, malformedBytes);
+            authorize(document, `test: pre-exist invalid ${name}`);
+            const rejected = runChecker(fixtureRoot, reviewedArgs);
+            assert.notEqual(rejected.status, 0, `${name} unexpectedly passed`);
+            assert.match(output(rejected), /is not a closed fsusblog\.frontend-style-baseline-corrections\.v1 document/u);
+            assert.equal(readFileSync(baselinePath, 'utf8'), malformedBytes);
+        }
+
+        writeFileSync(baselinePath, malformedBytes);
+        authorizeBytes('{ malformed correction\n', 'test: pre-exist malformed correction JSON');
+        const malformedCorrection = runChecker(fixtureRoot, reviewedArgs);
+        assert.notEqual(malformedCorrection.status, 0);
+        assert.match(output(malformedCorrection), /invalid JSON/u);
+        assert.equal(readFileSync(baselinePath, 'utf8'), malformedBytes);
+
+        writeFileSync(baselinePath, malformedBytes);
+        rmSync(path.join(fixtureRoot, correctionPath));
+        const missingCorrection = runChecker(fixtureRoot, reviewedArgs);
+        assert.notEqual(missingCorrection.status, 0);
+        assert.match(output(missingCorrection), /missing config\/development\/frontend-style-baseline-corrections\.json/u);
+        assert.equal(readFileSync(baselinePath, 'utf8'), malformedBytes);
 
         const mutations = [
             ['source digest', (document) => { document.corrections[0].sourceSha256 = '1'.repeat(64); }],
@@ -662,8 +704,14 @@ test('frontend style governance migrates reviewed semantic paths without admitti
         alignFixtureSpecializedGovernance(fixtureRoot);
         const oldPath = 'tests/tools/issue-1234-path.test.mjs';
         const newPath = 'tests/tools/semantic-path.test.mjs';
+        const reusedPath = 'tests/tools/already-baselined-path.test.mjs';
         const inventoryPath = 'tests/test-asset-semantic-renames.json';
-        writeFixture(fixtureRoot, oldPath, `export function retained_debt(value) {
+        const retainedContent = `export function retained_debt(value) {
+  return value
+}
+`;
+        writeFixture(fixtureRoot, oldPath, retainedContent);
+        writeFixture(fixtureRoot, reusedPath, `export function existing_destination(value) {
   return value
 }
 `);
@@ -698,12 +746,57 @@ test('frontend style governance migrates reviewed semantic paths without admitti
         assert.notEqual(nonRename.status, 0);
         assert.match(output(nonRename), /not an exact one-to-one live rename/u);
 
-        renameSync(path.join(fixtureRoot, oldPath), path.join(fixtureRoot, newPath));
+        rmSync(path.join(fixtureRoot, oldPath));
+        writeFixture(fixtureRoot, inventoryPath, `${JSON.stringify({
+            schema: 'fsusblog.test-asset-semantic-renames.v1',
+            referenceFiles: [],
+            renames: [{ from: oldPath, to: reusedPath }]
+        }, null, 4)}\n`);
+        const reusedDestination = runChecker(fixtureRoot, [
+            '--mode', 'full',
+            '--update-baseline',
+            '--migrate-baseline-paths', inventoryPath
+        ]);
+        assert.notEqual(reusedDestination.status, 0);
+        assert.match(output(reusedDestination), /does not preserve exact source and baseline identity/u);
+
+        writeFixture(fixtureRoot, newPath, `export function unrelated_replacement(value) {
+  return value
+}
+`);
+        for (const [name, renames] of [
+            ['duplicate', [{ from: oldPath, to: newPath }, { from: oldPath, to: newPath }]],
+            ['cycle', [{ from: oldPath, to: newPath }, { from: newPath, to: oldPath }]]
+        ])
+        {
+            writeFixture(fixtureRoot, inventoryPath, `${JSON.stringify({
+                schema: 'fsusblog.test-asset-semantic-renames.v1',
+                referenceFiles: [],
+                renames
+            }, null, 4)}\n`);
+            const invalidInventory = runChecker(fixtureRoot, [
+                '--mode', 'full',
+                '--update-baseline',
+                '--migrate-baseline-paths', inventoryPath
+            ]);
+            assert.notEqual(invalidInventory.status, 0, `${name} rename inventory unexpectedly passed`);
+            assert.match(output(invalidInventory), /not an exact one-to-one live rename|cycles, chains, or path reuse/u);
+        }
         writeFixture(fixtureRoot, inventoryPath, `${JSON.stringify({
             schema: 'fsusblog.test-asset-semantic-renames.v1',
             referenceFiles: [],
             renames: [{ from: oldPath, to: newPath }]
         }, null, 4)}\n`);
+        const contentReplacement = runChecker(fixtureRoot, [
+            '--mode', 'full',
+            '--update-baseline',
+            '--prune-removed-baseline-paths',
+            '--migrate-baseline-paths', inventoryPath
+        ]);
+        assert.notEqual(contentReplacement.status, 0);
+        assert.match(output(contentReplacement), /does not preserve exact source and baseline identity/u);
+
+        writeFixture(fixtureRoot, newPath, retainedContent);
         const migrated = runChecker(fixtureRoot, [
             '--mode', 'full',
             '--update-baseline',
@@ -720,11 +813,15 @@ test('frontend style governance migrates reviewed semantic paths without admitti
   return value
 }
 `);
-        const rejected = runChecker(fixtureRoot, [
+        const reusedMigration = runChecker(fixtureRoot, [
             '--mode', 'full',
             '--update-baseline',
             '--migrate-baseline-paths', inventoryPath
         ]);
+        assert.notEqual(reusedMigration.status, 0);
+        assert.match(output(reusedMigration), /does not preserve exact source and baseline identity/u);
+
+        const rejected = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
         assert.notEqual(rejected.status, 0);
         assert.match(output(rejected), /refusing new frontend style baseline path/u);
     });

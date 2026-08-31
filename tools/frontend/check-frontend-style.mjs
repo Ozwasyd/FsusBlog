@@ -566,15 +566,11 @@ function validateReviewedBaselineCorrections(correctionPath, rejections)
     const relative = normalizeFile(correctionPath);
     const absolute = path.join(root, relative);
     const document = readJson(absolute, relative);
-    if (!document)
-    {
-        return;
-    }
+    const candidateBytes = fs.existsSync(absolute) ? fs.readFileSync(absolute, 'utf8') : null;
     const authority = command(['git', 'show', `${reviewedBaselineAuthorityRef}:${relative}`], { allowFailure: true });
-    if (authority.status !== 0 || authority.stdout !== fs.readFileSync(absolute, 'utf8'))
+    if (candidateBytes === null || authority.status !== 0 || authority.stdout !== candidateBytes)
     {
         fail(`reviewed frontend style baseline correction must already exist unchanged at ${reviewedBaselineAuthorityRef}: ${relative}`);
-        return;
     }
     if (!exactObjectKeys(document, ['schema', 'reviewIssue', 'corrections'])
         || document.schema !== baselineCorrectionSchema
@@ -683,10 +679,19 @@ function writeBaseline(violations, selectedFiles, args)
     const pathMigration = args.migrateBaselinePaths
         ? readJson(path.join(root, args.migrateBaselinePaths), args.migrateBaselinePaths)
         : null;
-    if (pathMigration && (pathMigration.schema !== 'fsusblog.test-asset-semantic-renames.v1'
+    const validMigrationPath = (file) => typeof file === 'string'
+        && file.length > 0
+        && !path.isAbsolute(file)
+        && !file.includes('\\')
+        && !file.includes('*')
+        && !file.split('/').includes('..');
+    if (args.migrateBaselinePaths && (!exactObjectKeys(pathMigration, ['schema', 'referenceFiles', 'renames'])
+        || pathMigration.schema !== 'fsusblog.test-asset-semantic-renames.v1'
         || !Array.isArray(pathMigration.renames)
         || pathMigration.renames.length === 0
-        || !Array.isArray(pathMigration.referenceFiles)))
+        || !Array.isArray(pathMigration.referenceFiles)
+        || pathMigration.referenceFiles.some((file) => !validMigrationPath(file))
+        || new Set(pathMigration.referenceFiles).size !== pathMigration.referenceFiles.length))
     {
         fail('frontend style baseline path migration inventory is invalid');
         return;
@@ -695,15 +700,9 @@ function writeBaseline(violations, selectedFiles, args)
     const migrationDestinations = new Set();
     for (const entry of pathMigration?.renames ?? [])
     {
-        const validPath = (file) => typeof file === 'string'
-            && file.length > 0
-            && !path.isAbsolute(file)
-            && !file.includes('\\')
-            && !file.includes('*')
-            && !file.split('/').includes('..');
         if (!exactObjectKeys(entry, ['from', 'to'])
-            || !validPath(entry.from)
-            || !validPath(entry.to)
+            || !validMigrationPath(entry.from)
+            || !validMigrationPath(entry.to)
             || entry.from === entry.to
             || migrationSources.has(entry.from)
             || migrationDestinations.has(entry.to)
@@ -716,9 +715,14 @@ function writeBaseline(violations, selectedFiles, args)
         migrationSources.add(entry.from);
         migrationDestinations.add(entry.to);
     }
+    if ([...migrationSources].some((file) => migrationDestinations.has(file)))
+    {
+        fail('frontend style baseline path migration cannot contain cycles, chains, or path reuse');
+        return;
+    }
     const destinationBySource = new Map((pathMigration?.renames ?? []).map(({ from, to }) => [from, to]));
     const sourceByDestination = new Map((pathMigration?.renames ?? []).map(({ from, to }) => [to, from]));
-    const identityMigrationFiles = new Set(sourceByDestination.keys());
+    const identityMigrationFiles = new Set();
     let files = [...currentByPath.values()].sort((left, right) => compareOrdinal(left.path, right.path));
     if (fs.existsSync(target))
     {
@@ -733,6 +737,42 @@ function writeBaseline(violations, selectedFiles, args)
         {
             fail('frontend style baseline contains duplicate paths');
             return;
+        }
+        for (const { from, to } of pathMigration?.renames ?? [])
+        {
+            const prior = previousByPath.get(from);
+            const current = currentByPath.get(to) ?? (selected.has(to) ? {
+                path: to,
+                sourceSha256: sha256(fs.readFileSync(path.join(root, to))),
+                violationCount: 0,
+                violationDigest: sha256(''),
+                rules: {}
+            } : null);
+            const previousRules = normalizedRules(prior?.rules);
+            const currentRules = normalizedRules(current?.rules);
+            const destinationMarker = `:${to}:`;
+            const sourceMarker = `:${from}:`;
+            const currentViolationIds = byFile.get(to)?.ids ?? [];
+            const projectedPreviousIds = currentViolationIds.map((id) =>
+                id.includes(destinationMarker) ? id.replace(destinationMarker, sourceMarker) : null);
+            const projectedViolationIdentityMatches = projectedPreviousIds.every(Boolean)
+                && projectedPreviousIds.length === current?.violationCount
+                && sha256(projectedPreviousIds.sort().join('\n')) === prior?.violationDigest;
+            const baselineIdentityMatches = prior
+                && current
+                && !previousByPath.has(to)
+                && current.sourceSha256 === prior.sourceSha256
+                && current.violationCount === prior.violationCount
+                && previousRules
+                && currentRules
+                && JSON.stringify(currentRules) === JSON.stringify(previousRules)
+                && projectedViolationIdentityMatches;
+            if (!baselineIdentityMatches)
+            {
+                fail(`frontend style baseline path migration does not preserve exact source and baseline identity: ${from} -> ${to}`);
+                return;
+            }
+            identityMigrationFiles.add(to);
         }
         const currentConfigurationSha256 = configurationDigest();
         if (previous.configurationSha256 !== currentConfigurationSha256)
