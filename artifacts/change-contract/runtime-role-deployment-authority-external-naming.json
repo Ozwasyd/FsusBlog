@@ -23,13 +23,15 @@
     {
       "id": "json-wire-key",
       "paths": [
+        "config/schemas/behavior-doc-static-admission-receipt.schema.json",
         "tests/governance/monolithic-distributed-architecture.json"
       ],
-      "reason": "Wire and schema keys remain stable while runtime adapters follow internal naming."
+      "reason": "Wire, receipt schema and authority keys remain stable while runtime adapters follow internal naming."
     },
     {
       "id": "environment-variable",
       "paths": [
+        "tools/docs/behavior-doc-minimal-contract-build.mjs",
         "tools/governance/check-monolithic-distributed-architecture.mjs"
       ],
       "reason": "Process environment spelling is external while option variables remain internal."
