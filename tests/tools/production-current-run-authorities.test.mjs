@@ -154,7 +154,7 @@ test('frontend authority rejects a stage receipt from another source', () =>
     }
 });
 
-function behaviorEvidenceReceipt({ runId, source = sourceState })
+function behaviorEvidenceReceipt({ runId, registryDigest, source = sourceState })
 {
     const receipt = {
         schema: 'fsusblog.behavior-evidence-pre-runtime-receipt.v1',
@@ -166,7 +166,7 @@ function behaviorEvidenceReceipt({ runId, source = sourceState })
         },
         behaviorIds: ['document-lifecycle-governance'],
         buildIdentities: {},
-        registryDigest: `sha256:${'c'.repeat(64)}`,
+        registryDigest,
         runtimeCandidateSpawnCountBeforeReceipt: 0,
         status: 'ok',
         failureReasons: [],
@@ -184,9 +184,17 @@ test('behavior readiness authority requires a qualified exact-run source-bound r
     try
     {
         const runId = 'behavior-authority-test';
+        const registry = {
+            schema: 'fsusblog.behavior-fact-extractor-registry.v1',
+            extractors: []
+        };
+        const registryFile = path.join(root, 'config', 'contracts', 'behavior-fact-extractors.json');
+        fs.mkdirSync(path.dirname(registryFile), { recursive: true });
+        fs.writeFileSync(registryFile, `${JSON.stringify(registry)}\n`);
+        const registryDigest = `sha256:${digestValue(registry)}`;
         const receiptFile = path.join(root, '.tmp', 'behavior-evidence-pre-runtime', 'receipt.json');
         fs.mkdirSync(path.dirname(receiptFile), { recursive: true });
-        fs.writeFileSync(receiptFile, `${JSON.stringify(behaviorEvidenceReceipt({ runId }))}\n`);
+        fs.writeFileSync(receiptFile, `${JSON.stringify(behaviorEvidenceReceipt({ runId, registryDigest }))}\n`);
         const published = publishBehaviorEvidenceReadyAuthority({
             root,
             receiptFile,
@@ -203,7 +211,7 @@ test('behavior readiness authority requires a qualified exact-run source-bound r
         }).marker.digest, published.marker.digest);
 
         fs.writeFileSync(receiptFile, `${JSON.stringify(behaviorEvidenceReceipt({
-            runId: 'cross-run'
+            runId: 'cross-run', registryDigest
         }))}\n`);
         assert.throws(() => readBehaviorEvidenceReadyAuthority({
             root,
@@ -212,6 +220,17 @@ test('behavior readiness authority requires a qualified exact-run source-bound r
             runId,
             sourceState
         }), /another run/u);
+
+        fs.writeFileSync(receiptFile, `${JSON.stringify(behaviorEvidenceReceipt({
+            runId,
+            registryDigest: `sha256:${'c'.repeat(64)}`
+        }))}\n`);
+        assert.throws(() => publishBehaviorEvidenceReadyAuthority({
+            root,
+            receiptFile,
+            runId,
+            sourceState
+        }), /registryDigest does not match/u);
     }
     finally
     {

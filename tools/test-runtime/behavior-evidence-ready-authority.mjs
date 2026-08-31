@@ -29,7 +29,9 @@ function receiptFile(root, file)
 export function readBehaviorEvidenceReadyReceipt({ root, file, runId, sourceState })
 {
     const absolute = receiptFile(root, file);
-    const receipt = assertPreRuntimeQualified(JSON.parse(fs.readFileSync(absolute, 'utf8')));
+    const receipt = assertPreRuntimeQualified(JSON.parse(fs.readFileSync(absolute, 'utf8')), {
+        factExtractorRegistry: path.join(root, 'config', 'contracts', 'behavior-fact-extractors.json')
+    });
     if (receipt.runIdentity !== runId)
     {
         throw new Error('behavior evidence receipt belongs to another run');
