@@ -13,6 +13,9 @@ import {
 import {
     validateRequiredEvidenceCatalogBinding
 } from '../test-matrix/required-evidence-catalog.mjs';
+import {
+    assertPreRuntimeQualified
+} from '../test-matrix/behavior-evidence-pre-runtime.mjs';
 
 export const browserlessCorrectnessReceiptSchema = 'fsusblog.browserless-correctness-receipt.v1';
 export const browserDiagnosticsReceiptSchema = 'fsusblog.browser-diagnostics-receipt.v2';
@@ -1616,6 +1619,7 @@ export function createReleaseFinalTestEvidenceBinding({
     {
         throw new Error([...correctnessErrors, ...contractErrors].join('; '));
     }
+    assertPreRuntimeQualified(preRuntimeReceipt);
     const releaseDomains = createReleaseDomainProjectionBindings(
         releaseDomainProjectionReceipts
     );

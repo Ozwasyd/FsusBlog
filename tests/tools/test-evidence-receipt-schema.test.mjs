@@ -663,7 +663,12 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
     const preRuntime = sealDocument({
         schema: 'fsusblog.behavior-evidence-pre-runtime-receipt.v1',
         scope: 'pre-runtime',
-        status: 'ok'
+        status: 'ok',
+        behaviorIds: [],
+        buildIdentities: {},
+        registryDigest: `sha256:${'a'.repeat(64)}`,
+        runtimeCandidateSpawnCountBeforeReceipt: 0,
+        failureReasons: []
     });
     const preRuntimeFile = path.join(build.directory, 'behavior-pre-runtime.json');
     const postRuntime = sealDocument({
@@ -815,6 +820,40 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
             releaseDomainProjectionReceipts,
             releaseReliabilityQualifiedReceipt,
             requiredEvidenceCatalogBinding
+        }), errorPattern, name);
+    }
+
+    const preRuntimeMutations = [
+        ['missing', undefined, /receipt must be an object/u],
+        ['stale digest', {
+            ...preRuntime,
+            contentDigest: `sha256:${'0'.repeat(64)}`
+        }, /contentDigest mismatch/u],
+        ['tampered schema', sealDocument({
+            ...preRuntime,
+            schema: 'fsusblog.behavior-evidence-pre-runtime-receipt.forged',
+            contentDigest: null
+        }), /unexpected schema/u]
+    ];
+    for (const [name, preRuntimeReceipt, errorPattern] of preRuntimeMutations)
+    {
+        assert.throws(() => createReleaseFinalTestEvidenceBinding({
+            commitSha: build.sourceState.commit,
+            buildReceipt: build.receipt,
+            buildReceiptPath: build.receiptFile,
+            correctnessReceipt: correctness,
+            correctnessReceiptPath: correctnessFile,
+            browserContractReceipt: browserContract,
+            browserContractReceiptPath: browserContractFile,
+            preRuntimeReceipt,
+            preRuntimeReceiptPath: preRuntimeFile,
+            postRuntimeReceipt: postRuntime,
+            postRuntimeReceiptPath: postRuntimeFile,
+            consistencyFinalReport: consistencyFinal,
+            consistencyFinalReportPath: consistencyFinalFile,
+            releaseDomainProjectionReceipts,
+            releaseReliabilityQualifiedReceipt,
+            requiredEvidenceCatalogBinding: createRequiredEvidenceCatalogBinding()
         }), errorPattern, name);
     }
 
