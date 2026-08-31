@@ -70,6 +70,8 @@
                 "tools/storage/release-gc.mjs",
                 "config/deployment/destructive-operation-authority.json",
                 "tools/deployment/destructive-operation-authority.mjs",
+                "src/migration",
+                "src/backend/Infrastructure/SchemaMigration",
                 "src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCompatibility.cs",
                 "config/testing/required-evidence-authority-ledger.json",
                 "config/testing/release-domain-assertion-dispositions.json",

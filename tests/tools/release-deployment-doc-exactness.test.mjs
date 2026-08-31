@@ -15,7 +15,7 @@ import {
     verifyReleaseDeploymentGeneratedSections
 } from '../../tools/docs/release-deployment-doc-exactness.mjs'
 import { buildBehaviorDocExactnessReceipt } from '../../tools/docs/behavior-doc-exactness.mjs'
-import { produceRuntimeRoleObservation } from '../../tools/contracts/lib/runtime-role-observation.mjs'
+import { runMinimalContractBuild } from '../../tools/docs/behavior-doc-minimal-contract-build.mjs'
 import { runExtractor } from '../../tools/fact-extractors/runner.mjs'
 import { verifyProseClaims } from '../../tools/docs/prose-claim-verifier/verifier.mjs'
 
@@ -23,7 +23,11 @@ let observation
 
 test.before(async () =>
 {
-    const buildIdentity = produceRuntimeRoleObservation({ repositoryRoot: root }).buildIdentity
+    const minimalBuild = runMinimalContractBuild({
+        repositoryRoot: root,
+        runId: 'release-deployment-doc-exactness'
+    })
+    const buildIdentity = minimalBuild.buildIdentities['runtime-role-observation']
     observation = (await runExtractor({
         extractorId: 'test-matrix-fact-extractor',
         repositoryRoot: root,

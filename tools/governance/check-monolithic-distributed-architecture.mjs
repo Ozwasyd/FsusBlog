@@ -340,11 +340,79 @@ function validateComposeServiceRoster(compose, classified, sourcePath, errors)
     return { actualServices, expectedServices };
 }
 
-function inspectProductionApplication(policy, compose, dockerfileSource, errors)
+function observeEffectiveComposeModel(repositoryRoot, sourcePath, errors)
+{
+    const run = (allProfiles) =>
+    {
+        const args = ['compose', '-f', sourcePath];
+        if (allProfiles)
+        {
+            args.push('--profile', '*');
+        }
+        args.push('config', '--format', 'json', '--no-interpolate');
+        const result = spawnSync('docker', args, {
+            cwd: repositoryRoot,
+            encoding: 'utf8',
+            maxBuffer: 16 * 1024 * 1024
+        });
+        if (result.status !== 0)
+        {
+            errors.push(`canonical Docker Compose effective-model observation failed (${allProfiles ? 'all-profiles' : 'default'}): ${(result.stderr || result.stdout || 'docker compose config failed').trim()}`);
+            return {};
+        }
+        try
+        {
+            return JSON.parse(result.stdout);
+        }
+        catch (error)
+        {
+            errors.push(`canonical Docker Compose effective-model output is invalid: ${error instanceof Error ? error.message : String(error)}`);
+            return {};
+        }
+    };
+    const version = spawnSync('docker', ['compose', 'version', '--short'], {
+        cwd: repositoryRoot,
+        encoding: 'utf8'
+    });
+    if (version.status !== 0 || !String(version.stdout).trim())
+    {
+        errors.push('canonical Docker Compose oracle version is unavailable');
+    }
+    const defaultModel = run(false);
+    const allProfileModel = run(true);
+    const project = (model, defaultActiveOnly) => Object.fromEntries(Object.entries(object(model.services))
+        .filter(([, value]) => !defaultActiveOnly || array(value?.profiles).length === 0)
+        .sort(([left], [right]) => left.localeCompare(right)).map(([id, value]) => [id, {
+            image: value?.image ?? null,
+            build: value?.build ?? null,
+            pullPolicy: value?.pull_policy ?? null,
+            profiles: array(value?.profiles).sort(),
+            entrypoint: value?.entrypoint ?? null,
+            command: value?.command ?? null
+        }]));
+    const unsigned = {
+        oracle: 'docker-compose-config-json-no-interpolate',
+        oracleVersion: String(version.stdout ?? '').trim(),
+        sourcePath,
+        defaultServices: project(defaultModel, true),
+        allProfileServices: project(allProfileModel, false)
+    };
+    return { ...unsigned, modelDigest: digestCanonical(unsigned) };
+}
+
+function inspectProductionApplication(repositoryRoot, policy, compose, dockerfileSource, errors)
 {
     const sourcePath = 'ops/docker/docker-compose.production.yml';
     const classified = object(policy?.composeServices?.[sourcePath]);
-    const { actualServices } = validateComposeServiceRoster(compose, classified, sourcePath, errors);
+    const effectiveCompose = observeEffectiveComposeModel(repositoryRoot, sourcePath, errors);
+    const defaultServices = Object.keys(object(effectiveCompose.defaultServices)).sort();
+    const actualServices = Object.keys(object(effectiveCompose.allProfileServices)).sort();
+    const expectedServices = Object.keys(classified).sort();
+    if (JSON.stringify(actualServices) !== JSON.stringify(expectedServices)
+        || JSON.stringify(defaultServices) !== JSON.stringify(expectedServices))
+    {
+        errors.push(`Compose effective services drifted in ${sourcePath}: expected default/all ${expectedServices.join(', ')}, found default ${defaultServices.join(', ')} and all ${actualServices.join(', ')}`);
+    }
     const applicationServices = actualServices.filter((id) => classified[id] === 'application');
     const expectedService = policy?.mainApplication?.composeService;
     if (applicationServices.length !== 1 || applicationServices[0] !== expectedService)
@@ -362,11 +430,15 @@ function inspectProductionApplication(policy, compose, dockerfileSource, errors)
     }
 
     const service = object(compose.services?.[expectedService]);
-    if (service.image !== policy?.mainApplication?.productionImage
-        || Object.hasOwn(service, 'entrypoint')
-        || Object.hasOwn(service, 'command'))
+    const effectiveService = object(effectiveCompose.allProfileServices?.[expectedService]);
+    if (effectiveService.image !== policy?.mainApplication?.productionImage
+        || effectiveService.build !== null
+        || effectiveService.pullPolicy !== 'always'
+        || array(effectiveService.profiles).length !== 0
+        || effectiveService.entrypoint !== null
+        || effectiveService.command !== null)
     {
-        errors.push('production application service must use the authority-owned immutable image and inherit Docker PID1 without Compose overrides');
+        errors.push('production effective application service must use only the immutable pulled image, remain default-active, and inherit Docker PID1 without Compose overrides');
     }
     if (service.container_name !== '${FSUSBLOG_CONTAINER_NAME:?Set slot-specific container name (fsus-app-blue or fsus-app-green)}'
         || service.labels?.['io.fsusblog.deployment.project'] !== '${FSUSBLOG_COMPOSE_PROJECT_NAME:?Set slot-specific Compose project}'
@@ -419,6 +491,8 @@ function inspectProductionApplication(policy, compose, dockerfileSource, errors)
         actualServices,
         applicationServices,
         declaredMounts,
+        effectiveCompose,
+        effectiveService,
         expectedService,
         service,
         productionStage
@@ -462,8 +536,11 @@ export function observeRuntimeRoleDeploymentAuthority({ root = defaultRoot, poli
     {
         errors.push(`cannot parse production Compose topology: ${error instanceof Error ? error.message : String(error)}`);
     }
-    const production = inspectProductionApplication(policy, compose, sources.dockerfile.text, errors);
-    const { actualServices, applicationServices, declaredMounts, expectedService, productionStage, service } = production;
+    const production = inspectProductionApplication(repositoryRoot, policy, compose, sources.dockerfile.text, errors);
+    const {
+        actualServices, applicationServices, declaredMounts, effectiveCompose,
+        effectiveService, expectedService, productionStage
+    } = production;
 
     const ownership = object(policy?.runtimeRoleOwnership);
     const unsigned = {
@@ -474,16 +551,17 @@ export function observeRuntimeRoleDeploymentAuthority({ root = defaultRoot, poli
             path: source.path,
             digest: digestText(source.text)
         }])),
+        effectiveCompose,
         application: {
             project: policy?.mainApplication?.project ?? null,
             dockerTarget: policy?.mainApplication?.productionTarget ?? null,
             processEntrypoint: productionStage?.entrypoints?.[0] ?? [],
             composeService: expectedService ?? null,
-            image: service.image ?? null,
+            image: effectiveService.image ?? null,
             serviceRoster: actualServices,
             applicationServiceCount: applicationServices.length,
-            composeEntrypointOverride: Object.hasOwn(service, 'entrypoint') ? service.entrypoint : 'absent',
-            composeCommandOverride: Object.hasOwn(service, 'command') ? service.command : 'absent',
+            composeEntrypointOverride: effectiveService.entrypoint === null ? 'absent' : effectiveService.entrypoint,
+            composeCommandOverride: effectiveService.command === null ? 'absent' : effectiveService.command,
             effectivePid1: productionStage?.entrypoints?.[0] ?? [],
             pid1Source: 'docker-final-entrypoint-no-compose-override'
         },
@@ -564,6 +642,7 @@ function validateComposeTopology(root, files, policy, errors)
         if (file === 'ops/docker/docker-compose.production.yml')
         {
             inspectProductionApplication(
+                root,
                 policy,
                 document,
                 read(root, policy.mainApplication.dockerfile, errors),

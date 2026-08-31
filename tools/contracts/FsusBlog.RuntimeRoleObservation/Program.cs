@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Globalization;
+using System.Diagnostics;
 
 using FsusBlog.Migration;
 using FsusBlog.RuntimeRoleObservation;
@@ -105,6 +106,7 @@ internal static class RuntimeRoleObservationHost
             deploymentProbe.AuthoritySchema,
             deploymentProbe.AuthorityContentDigest,
             deploymentProbe.SourceDigests,
+            deploymentProbe.EffectiveCompose,
             deploymentProbe.Application,
             deploymentProbe.VolumeTopology,
             deploymentProbe.ObservationDigest);
@@ -153,6 +155,7 @@ internal static class RuntimeRoleObservationHost
             "application",
             "authorityContentDigest",
             "authoritySchema",
+            "effectiveCompose",
             "observationDigest",
             "ownership",
             "schema",
@@ -277,13 +280,27 @@ internal static class RuntimeRoleObservationHost
             .Select(static value => value.GetString() ?? string.Empty).ToArray();
         string composePath = Path.Combine(repositoryRoot, expectedSources["productionCompose"]);
         string dockerfilePath = Path.Combine(repositoryRoot, expectedSources["dockerfile"]);
-        string composeSource = File.ReadAllText(composePath);
         string dockerfileSource = File.ReadAllText(dockerfilePath);
-        string[] actualServices = ReadComposeServices(composeSource);
+        JsonElement liveEffectiveCompose = ObserveEffectiveComposeModel(
+            repositoryRoot,
+            expectedSources["productionCompose"]);
+        if (!string.Equals(
+                CanonicalElement(probe.EffectiveCompose),
+                CanonicalElement(liveEffectiveCompose),
+                StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("runtime_role_deployment_effective_compose_mismatch");
+        }
+        JsonElement allProfileServices = liveEffectiveCompose.GetProperty("allProfileServices");
+        JsonElement defaultServices = liveEffectiveCompose.GetProperty("defaultServices");
+        string[] actualServices = allProfileServices.EnumerateObject()
+            .Select(static property => property.Name).Order(StringComparer.Ordinal).ToArray();
         string[] policyServices = policy.GetProperty("composeServices")
             .GetProperty(expectedSources["productionCompose"]).EnumerateObject()
             .Select(static property => property.Name).Order(StringComparer.Ordinal).ToArray();
         if (!actualServices.SequenceEqual(policyServices, StringComparer.Ordinal)
+            || !defaultServices.EnumerateObject().Select(static property => property.Name)
+                .Order(StringComparer.Ordinal).SequenceEqual(policyServices, StringComparer.Ordinal)
             || application.GetProperty("serviceRoster").EnumerateArray()
                 .Select(static value => value.GetString() ?? string.Empty)
                 .Order(StringComparer.Ordinal)
@@ -308,9 +325,13 @@ internal static class RuntimeRoleObservationHost
                 $"runtime_role_deployment_pid1_mismatch:docker={string.Join('|', dockerEntrypoint)};policy={string.Join('|', expectedEntrypoint)}");
         }
 
-        string serviceBody = ReadComposeServiceBody(composeSource, expectedService);
-        if (!Regex.IsMatch(serviceBody, $"(?m)^        image: {Regex.Escape(expectedImage)}$")
-            || Regex.IsMatch(serviceBody, "(?m)^        (?:entrypoint|command):")
+        JsonElement effectiveService = allProfileServices.GetProperty(expectedService);
+        if (effectiveService.GetProperty("image").GetString() != expectedImage
+            || effectiveService.GetProperty("build").ValueKind != JsonValueKind.Null
+            || effectiveService.GetProperty("pullPolicy").GetString() != "always"
+            || effectiveService.GetProperty("profiles").GetArrayLength() != 0
+            || effectiveService.GetProperty("entrypoint").ValueKind != JsonValueKind.Null
+            || effectiveService.GetProperty("command").ValueKind != JsonValueKind.Null
             || application.GetProperty("composeEntrypointOverride").GetString() != "absent"
             || application.GetProperty("composeCommandOverride").GetString() != "absent"
             || application.GetProperty("image").GetString() != expectedImage
@@ -332,56 +353,108 @@ internal static class RuntimeRoleObservationHost
         }
     }
 
-    private static string[] ReadComposeServices(string source)
+    private static JsonElement ObserveEffectiveComposeModel(string repositoryRoot, string sourcePath)
     {
-        var services = new List<string>();
-        bool inServices = false;
-        foreach (string raw in source.Replace("\r", string.Empty, StringComparison.Ordinal).Split('\n'))
+        JsonElement Project(bool allProfiles)
         {
-            if (!inServices)
+            var start = new ProcessStartInfo("docker")
             {
-                inServices = raw == "services:";
-                continue;
-            }
-            if (raw.Length > 0 && !char.IsWhiteSpace(raw[0]) && !raw.TrimStart().StartsWith('#'))
+                WorkingDirectory = repositoryRoot,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false
+            };
+            start.ArgumentList.Add("compose");
+            start.ArgumentList.Add("-f");
+            start.ArgumentList.Add(sourcePath);
+            if (allProfiles)
             {
-                break;
+                start.ArgumentList.Add("--profile");
+                start.ArgumentList.Add("*");
             }
-            if (raw.StartsWith("    ", StringComparison.Ordinal)
-                && !raw.StartsWith("        ", StringComparison.Ordinal)
-                && raw.TrimEnd().EndsWith(':'))
+            start.ArgumentList.Add("config");
+            start.ArgumentList.Add("--format");
+            start.ArgumentList.Add("json");
+            start.ArgumentList.Add("--no-interpolate");
+            using Process process = Process.Start(start)
+                ?? throw new InvalidOperationException("runtime_role_compose_oracle_start_failed");
+            string output = process.StandardOutput.ReadToEnd();
+            string error = process.StandardError.ReadToEnd();
+            process.WaitForExit();
+            if (process.ExitCode != 0)
             {
-                services.Add(raw.Trim()[..^1]);
+                throw new InvalidOperationException($"runtime_role_compose_oracle_failed:{error.Trim()}");
             }
+            using JsonDocument document = JsonDocument.Parse(output);
+            var services = new SortedDictionary<string, object?>(StringComparer.Ordinal);
+            foreach (JsonProperty property in document.RootElement.GetProperty("services").EnumerateObject())
+            {
+                JsonElement service = property.Value;
+                if (!allProfiles
+                    && service.TryGetProperty("profiles", out JsonElement activeProfiles)
+                    && activeProfiles.GetArrayLength() > 0)
+                {
+                    continue;
+                }
+                services[property.Name] = new SortedDictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["image"] = service.TryGetProperty("image", out JsonElement image) ? image.GetString() : null,
+                    ["build"] = service.TryGetProperty("build", out JsonElement build)
+                        ? JsonSerializer.Deserialize<object?>(build.GetRawText()) : null,
+                    ["pullPolicy"] = service.TryGetProperty("pull_policy", out JsonElement pullPolicy)
+                        ? pullPolicy.GetString() : null,
+                    ["profiles"] = service.TryGetProperty("profiles", out JsonElement profiles)
+                        ? profiles.EnumerateArray().Select(static value => value.GetString() ?? string.Empty)
+                            .Order(StringComparer.Ordinal).ToArray()
+                        : [],
+                    ["entrypoint"] = service.TryGetProperty("entrypoint", out JsonElement entrypoint)
+                        ? JsonSerializer.Deserialize<object?>(entrypoint.GetRawText()) : null,
+                    ["command"] = service.TryGetProperty("command", out JsonElement command)
+                        ? JsonSerializer.Deserialize<object?>(command.GetRawText()) : null
+                };
+            }
+            return JsonSerializer.SerializeToElement(services, s_json);
         }
-        return services.Order(StringComparer.Ordinal).ToArray();
+
+        string version = RunProcess(repositoryRoot, "docker", ["compose", "version", "--short"]).Trim();
+        var unsigned = new SortedDictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["oracle"] = "docker-compose-config-json-no-interpolate",
+            ["oracleVersion"] = version,
+            ["sourcePath"] = sourcePath,
+            ["defaultServices"] = Project(allProfiles: false),
+            ["allProfileServices"] = Project(allProfiles: true)
+        };
+        JsonElement unsignedElement = JsonSerializer.SerializeToElement(unsigned, s_json);
+        string digest = "sha256:" + Convert.ToHexString(SHA256.HashData(
+            Encoding.UTF8.GetBytes(CanonicalElement(unsignedElement)))).ToLowerInvariant();
+        unsigned["modelDigest"] = digest;
+        return JsonSerializer.SerializeToElement(unsigned, s_json);
     }
 
-    private static string ReadComposeServiceBody(string source, string service)
+    private static string RunProcess(string workingDirectory, string fileName, IReadOnlyList<string> arguments)
     {
-        string marker = $"    {service}:";
-        var builder = new StringBuilder();
-        bool inService = false;
-        foreach (string raw in source.Replace("\r", string.Empty, StringComparison.Ordinal).Split('\n'))
+        var start = new ProcessStartInfo(fileName)
         {
-            if (!inService)
-            {
-                inService = raw == marker;
-                continue;
-            }
-            if (raw.StartsWith("    ", StringComparison.Ordinal)
-                && !raw.StartsWith("        ", StringComparison.Ordinal)
-                && raw.TrimEnd().EndsWith(':'))
-            {
-                break;
-            }
-            if (raw.Length > 0 && !char.IsWhiteSpace(raw[0]))
-            {
-                break;
-            }
-            builder.AppendLine(raw);
+            WorkingDirectory = workingDirectory,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false
+        };
+        foreach (string argument in arguments)
+        {
+            start.ArgumentList.Add(argument);
         }
-        return builder.ToString();
+        using Process process = Process.Start(start)
+            ?? throw new InvalidOperationException("runtime_role_external_oracle_start_failed");
+        string output = process.StandardOutput.ReadToEnd();
+        string error = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"runtime_role_external_oracle_failed:{fileName}:{error.Trim()}");
+        }
+        return output;
     }
 
     private static string[] ReadDockerFinalEntrypoint(string source, string target)
@@ -489,11 +562,19 @@ internal static class RuntimeRoleObservationHost
             .OrderByDescending(static metadata => metadata.IntroducedAtCoordinate)
             .First();
         SchemaCompatibilityCoordinate coordinate = expandMetadata.IntroducedAtCoordinate;
-        ReleaseId releaseId = CreateCatalogReleaseId(
+        ReleaseId targetReleaseId = CreateCatalogReleaseId(
+            coordinate,
+            descriptors.Single(descriptor => descriptor.MigrationId == expandMetadata.MigrationId).Checksum,
+            dayOffset: 2);
+        ReleaseId sourceReleaseId = CreateCatalogReleaseId(
+            coordinate,
+            descriptors.Single(descriptor => descriptor.MigrationId == expandMetadata.MigrationId).Checksum,
+            dayOffset: 1);
+        ReleaseId previousRollbackReleaseId = CreateCatalogReleaseId(
             coordinate,
             descriptors.Single(descriptor => descriptor.MigrationId == expandMetadata.MigrationId).Checksum);
         DateTimeOffset observedAt = DateTimeOffset.ParseExact(
-            releaseId.Value[..14],
+            sourceReleaseId.Value[..14],
             "yyyyMMddHHmmss",
             CultureInfo.InvariantCulture,
             DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
@@ -506,7 +587,7 @@ internal static class RuntimeRoleObservationHost
                 metadata.MigrationId,
                 descriptorById[metadata.MigrationId].Checksum,
                 observedAt,
-                releaseId.Value,
+                sourceReleaseId.Value,
                 Succeeded: true))
             .ToArray();
         var database = new OnlineSchemaDatabaseSnapshot(
@@ -514,9 +595,54 @@ internal static class RuntimeRoleObservationHost
             coordinate,
             history,
             new Dictionary<string, OnlineSchemaBackfillSnapshot>(StringComparer.Ordinal));
-        var window = new OnlineSchemaCompatibilityWindow(coordinate, coordinate);
-        var source = new OnlineSchemaReleaseManifest(releaseId, releaseId, window);
-        var target = new OnlineSchemaReleaseManifest(releaseId, releaseId, window);
+        var window = new OnlineSchemaCompatibilityWindow(
+            SchemaCompatibilityCoordinate.Minimum,
+            SchemaCompatibilityCoordinate.Maximum);
+        string manifestDirectory = Path.Combine(
+            Path.GetTempPath(),
+            $"fsusblog-runtime-role-schema-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(manifestDirectory);
+        OnlineSchemaReleaseManifest source;
+        OnlineSchemaReleaseManifest target;
+        string sourceManifestDigest;
+        string targetManifestDigest;
+        string sameReleaseFailureCode;
+        try
+        {
+            string sourceManifestPath = WriteReleaseManifest(
+                manifestDirectory,
+                "source-release-manifest.json",
+                sourceReleaseId,
+                window);
+            string targetManifestPath = WriteReleaseManifest(
+                manifestDirectory,
+                "target-release-manifest.json",
+                targetReleaseId,
+                window);
+            sourceManifestDigest = DigestFile(sourceManifestPath);
+            targetManifestDigest = DigestFile(targetManifestPath);
+            source = LoadReleaseManifest(
+                sourceManifestPath,
+                sourceReleaseId,
+                previousRollbackReleaseId);
+            target = LoadReleaseManifest(
+                targetManifestPath,
+                targetReleaseId,
+                sourceReleaseId);
+            try
+            {
+                _ = LoadReleaseManifest(targetManifestPath, targetReleaseId, targetReleaseId);
+                sameReleaseFailureCode = "unexpectedly-accepted";
+            }
+            catch (InvalidOperationException error)
+            {
+                sameReleaseFailureCode = error.Message;
+            }
+        }
+        finally
+        {
+            Directory.Delete(manifestDirectory, recursive: true);
+        }
         OnlineSchemaCompatibilityReport sourceReport = OnlineSchemaCompatibilityEvaluator.Evaluate(
             source, database, metadataById);
         OnlineSchemaCompatibilityReport targetReport = OnlineSchemaCompatibilityEvaluator.Evaluate(
@@ -535,12 +661,16 @@ internal static class RuntimeRoleObservationHost
                 && metadata.ContractAfterCoordinate is not null)
             .OrderBy(static metadata => metadata.MigrationId, StringComparer.Ordinal)
             .First();
-        ReleaseId contractFenceRelease = CreateCatalogReleaseId(
+        ReleaseId contractCurrentRelease = CreateCatalogReleaseId(
             contractMetadata.ContractAfterCoordinate!.Value,
             descriptorById[contractMetadata.MigrationId].Checksum,
             dayOffset: -1);
+        ReleaseId contractPreviousRelease = CreateCatalogReleaseId(
+            contractMetadata.ContractAfterCoordinate!.Value,
+            descriptorById[contractMetadata.MigrationId].Checksum,
+            dayOffset: -2);
         DateTimeOffset contractNow = DateTimeOffset.ParseExact(
-            contractFenceRelease.Value[..14],
+            contractCurrentRelease.Value[..14],
             "yyyyMMddHHmmss",
             CultureInfo.InvariantCulture,
             DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal).AddHours(1);
@@ -559,8 +689,8 @@ internal static class RuntimeRoleObservationHost
         IReadOnlyList<string> contractCodes = OnlineSchemaContractGate.Evaluate(
                 contractMetadata,
                 unsafeContract,
-                contractFenceRelease,
-                contractFenceRelease,
+                contractCurrentRelease,
+                contractPreviousRelease,
                 contractNow,
                 TimeSpan.FromHours(24))
             .Select(static issue => issue.Code)
@@ -586,15 +716,26 @@ internal static class RuntimeRoleObservationHost
         ];
         bool eligible = sourceReport.Ready
             && targetReport.Ready
+            && source.ReleaseId != target.ReleaseId
+            && target.PreviousRollbackReleaseId == source.ReleaseId
+            && source.PreviousRollbackReleaseId == previousRollbackReleaseId
+            && sameReleaseFailureCode == "schema_previous_rollback_release_not_distinct"
             && missingCodes.SequenceEqual(expectedMissingCodes, StringComparer.Ordinal)
             && contractCodes.SequenceEqual(expectedContractCodes, StringComparer.Ordinal);
         string manifestDigest = DigestJson(descriptors.OrderBy(static descriptor => descriptor.MigrationId)
             .Select(static descriptor => new
             {
                 descriptor.MigrationId,
+                descriptor.Description,
                 descriptor.Checksum,
+                AcceptedChecksums = descriptor.AcceptedChecksums.Order(StringComparer.Ordinal),
                 Phase = descriptor.Phase.ToString(),
-                descriptor.Transactional
+                descriptor.Transactional,
+                Steps = descriptor.Steps.Select(static step => new
+                {
+                    Type = step.GetType().FullName,
+                    Payload = JsonSerializer.Serialize(step, step.GetType())
+                })
             }));
         string catalogDigest = DigestJson(metadataById.OrderBy(static pair => pair.Key)
             .Select(static pair => new
@@ -604,15 +745,38 @@ internal static class RuntimeRoleObservationHost
                 Minimum = pair.Value.Compatibility.MinimumCoordinate.Value,
                 Maximum = pair.Value.Compatibility.MaximumCoordinate.Value,
                 pair.Value.Destructive,
-                pair.Value.RequiresExclusiveMode
+                pair.Value.RequiresExclusiveMode,
+                RollbackMode = pair.Value.RollbackMode.ToString(),
+                EstimatedLockRisk = pair.Value.EstimatedLockRisk.ToString(),
+                pair.Value.BatchSize,
+                pair.Value.ResumeTokenName,
+                IntroducedAtCoordinate = pair.Value.IntroducedAtCoordinate.Value,
+                ContractAfterCoordinate = pair.Value.ContractAfterCoordinate?.Value,
+                MinimumRetentionWindowTicks = pair.Value.MinimumRetentionWindow.Ticks,
+                Validators = pair.Value.Validators.ToArray(),
+                pair.Value.LegacyBootstrapOnly
             }));
+        string databaseObservationDigest = DigestJson(new
+        {
+            database.HistoryAvailable,
+            SchemaCompatibilityCoordinate = database.SchemaCompatibilityCoordinate?.Value,
+            History = database.History.OrderBy(static entry => entry.MigrationId, StringComparer.Ordinal),
+            Backfills = database.Backfills.OrderBy(static pair => pair.Key)
+        });
         return new SchemaOverlapObservation(
             "fsusblog.online-schema-overlap-observation.v1",
-            "current-manifest-catalog-database-model",
+            "current-manifest-catalog-production-provider-model",
             descriptors.Count,
             metadataById.Count,
             manifestDigest,
             catalogDigest,
+            databaseObservationDigest,
+            source.ReleaseId.Value,
+            target.ReleaseId.Value,
+            source.PreviousRollbackReleaseId.Value,
+            sourceManifestDigest,
+            targetManifestDigest,
+            sameReleaseFailureCode,
             sourceReport.Status,
             targetReport.Status,
             missingCodes,
@@ -628,6 +792,44 @@ internal static class RuntimeRoleObservationHost
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         });
         return "sha256:" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json))).ToLowerInvariant();
+    }
+
+    private static string DigestFile(string path)
+        => "sha256:" + Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))).ToLowerInvariant();
+
+    private static string WriteReleaseManifest(
+        string directory,
+        string fileName,
+        ReleaseId releaseId,
+        OnlineSchemaCompatibilityWindow compatibility)
+    {
+        string path = Path.Combine(directory, fileName);
+        File.WriteAllText(path, JsonSerializer.Serialize(new
+        {
+            Schema = "fsusblog.release-manifest.v2",
+            ReleaseId = releaseId.Value,
+            SchemaCompatibility = new
+            {
+                MinimumCoordinate = compatibility.MinimumCoordinate.Value,
+                MaximumCoordinate = compatibility.MaximumCoordinate.Value
+            }
+        }, s_json));
+        return path;
+    }
+
+    private static OnlineSchemaReleaseManifest LoadReleaseManifest(
+        string path,
+        ReleaseId expected,
+        ReleaseId previous)
+    {
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>(StringComparer.Ordinal)
+            {
+                ["FSUSBLOG_RELEASE_MANIFEST_PATH"] = path,
+                ["FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE"] = previous.Value
+            })
+            .Build();
+        return new OnlineSchemaReleaseManifestProvider(configuration).Load(expected.Value);
     }
 
     private static ReleaseId CreateCatalogReleaseId(

@@ -232,7 +232,7 @@ test('standalone and deployment observers reject an unknown production service',
     writeFileSync(compose, source);
     const observation = observeRuntimeRoleDeploymentAuthority({ root });
     assert.equal(observation.ownership.claimEligible, false);
-    assert.ok(observation.ownership.failureReasons.some((reason) => reason.includes('Compose services drifted')));
+    assert.ok(observation.ownership.failureReasons.some((reason) => reason.includes('Compose effective services drifted')));
     assert.ok(checkFixture(root).errors.some((reason) => reason.includes('Compose services drifted')));
 });
 
@@ -255,7 +255,51 @@ test('deployment authority rejects image and PID1 overrides', () =>
         writeFileSync(compose, mutate(readFileSync(compose, 'utf8')));
         const observation = observeRuntimeRoleDeploymentAuthority({ root });
         assert.equal(observation.ownership.claimEligible, false, label);
-        assert.ok(observation.ownership.failureReasons.some((reason) => reason.includes('immutable image')), label);
+        assert.ok(observation.ownership.failureReasons.some((reason) => reason.includes('immutable pulled image')), label);
+    }
+});
+
+test('effective Compose oracle rejects extends, build, pull-policy and profile mutations', () =>
+{
+    for (const [label, prepare, pattern] of [
+        [
+            'extends image',
+            (root, source) =>
+            {
+                write(root, 'ops/docker/runtime-base.yml', 'services:\n  base:\n    image: mutable:latest\n');
+                return source
+                    .replace('        image: ${FSUSBLOG_IMAGE_REF:?Set immutable repository@sha256 digest from release-manifest.json}\n', '')
+                    .replace('        pull_policy: always', '        extends:\n            file: runtime-base.yml\n            service: base\n        pull_policy: always');
+            },
+            /immutable pulled image/u
+        ],
+        [
+            'build',
+            (_root, source) => source.replace(
+                '        pull_policy: always',
+                '        build: ../..\n        pull_policy: always'),
+            /immutable pulled image/u
+        ],
+        [
+            'pull policy',
+            (_root, source) => source.replace('        pull_policy: always', '        pull_policy: missing'),
+            /immutable pulled image/u
+        ],
+        [
+            'profile hidden',
+            (_root, source) => source.replace(
+                '        pull_policy: always',
+                '        profiles: [manual]\n        pull_policy: always'),
+            /effective services drifted/u
+        ]
+    ])
+    {
+        const root = createAuthorityFixture();
+        const compose = path.join(root, 'ops/docker/docker-compose.production.yml');
+        writeFileSync(compose, prepare(root, readFileSync(compose, 'utf8')));
+        const observation = observeRuntimeRoleDeploymentAuthority({ root });
+        assert.equal(observation.ownership.claimEligible, false, label);
+        assert.match(observation.ownership.failureReasons.join('\n'), pattern, label);
     }
 });
 

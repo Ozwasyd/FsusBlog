@@ -17,7 +17,7 @@ import { produceAuthSessionObservation } from '../../tools/contracts/lib/auth-se
 import { produceConfigErrorSecurityObservation } from '../../tools/contracts/lib/config-error-security-observation.mjs'
 import { produceContentLifecycleObservation } from '../../tools/contracts/lib/content-lifecycle-observation.mjs'
 import { produceOpenApiObservation } from '../../tools/contracts/lib/openapi-observation.mjs'
-import { produceRuntimeRoleObservation } from '../../tools/contracts/lib/runtime-role-observation.mjs'
+import { runMinimalContractBuild } from '../../tools/docs/behavior-doc-minimal-contract-build.mjs'
 import { sealSourceIdentity } from '../../tools/fact-extractors/identity.mjs'
 import { runExtractor } from '../../tools/fact-extractors/runner.mjs'
 import { sealReceipt } from '../../tools/fact-extractors/receipt.mjs'
@@ -33,8 +33,16 @@ const extractorIds = Object.freeze([
     'content-lifecycle-fact-extractor'
 ])
 
+let runtimeMinimalBuild
 const buildProviders = Object.freeze({
-    'test-matrix-fact-extractor': () => produceRuntimeRoleObservation({ repositoryRoot: root }).buildIdentity,
+    'test-matrix-fact-extractor': () =>
+    {
+        runtimeMinimalBuild ??= runMinimalContractBuild({
+            repositoryRoot: root,
+            runId: 'global-claim-exactness'
+        })
+        return runtimeMinimalBuild.buildIdentities['runtime-role-observation']
+    },
     'openapi-aeds-fact-extractor': () => produceOpenApiObservation({ repositoryRoot: root }).buildIdentity,
     'auth-session-permission-fact-extractor': () => produceAuthSessionObservation({ repositoryRoot: root }).buildIdentity,
     'config-error-security-policy-fact-extractor': () => produceConfigErrorSecurityObservation({ repositoryRoot: root }).buildIdentity,

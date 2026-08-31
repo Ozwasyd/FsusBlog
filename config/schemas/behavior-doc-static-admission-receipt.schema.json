@@ -479,6 +479,10 @@
                 "projectDigest",
                 "path",
                 "artifactDigest",
+                "assemblyPath",
+                "assemblyDigest",
+                "deploymentArtifactPath",
+                "deploymentArtifactDigest",
                 "buildReceipt"
             ],
             "properties": {
@@ -493,6 +497,20 @@
                     "pattern": "^\\.tmp/behavior-doc-contract-builds/[a-f0-9]{64}/observations/runtime-role-observation\\.json$"
                 },
                 "artifactDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "assemblyPath": {
+                    "type": "string",
+                    "pattern": "^\\.tmp/behavior-doc-contract-builds/[a-f0-9]{64}/artifacts/bin/FsusBlog\\.RuntimeRoleObservation/release/FsusBlog\\.RuntimeRoleObservation\\.dll$"
+                },
+                "assemblyDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "deploymentArtifactPath": {
+                    "type": "string",
+                    "pattern": "^\\.tmp/behavior-doc-contract-builds/[a-f0-9]{64}/observations/runtime-role-deployment-observation\\.json$"
+                },
+                "deploymentArtifactDigest": {
                     "$ref": "#/$defs/digest"
                 },
                 "buildReceipt": {
@@ -540,13 +558,24 @@
                 "artifactPath",
                 "artifactDigest",
                 "configuration",
+                "sourceCommit",
+                "worktreeFingerprint",
+                "projectDigest",
+                "assemblyPath",
+                "assemblyDigest",
+                "deploymentArtifactPath",
+                "deploymentArtifactDigest",
+                "producer",
+                "externalOracle",
+                "externalOracleVersion",
+                "effectiveComposeModelDigest",
                 "deploymentAuthoritySchema",
                 "deploymentAuthorityContentDigest",
                 "deploymentObservationDigest"
             ],
             "properties": {
                 "schema": {
-                    "const": "fsusblog.runtime-role-observation-build-receipt.v2"
+                    "const": "fsusblog.runtime-role-observation-build-receipt.v3"
                 },
                 "artifactId": {
                     "const": "runtime-role-observation"
@@ -559,6 +588,43 @@
                 },
                 "configuration": {
                     "const": "Release"
+                },
+                "sourceCommit": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{40}$"
+                },
+                "worktreeFingerprint": {
+                    "$ref": "#/$defs/digest"
+                },
+                "projectDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "assemblyPath": {
+                    "type": "string",
+                    "pattern": "^\\.tmp/behavior-doc-contract-builds/[a-f0-9]{64}/artifacts/bin/FsusBlog\\.RuntimeRoleObservation/release/FsusBlog\\.RuntimeRoleObservation\\.dll$"
+                },
+                "assemblyDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "deploymentArtifactPath": {
+                    "type": "string",
+                    "pattern": "^\\.tmp/behavior-doc-contract-builds/[a-f0-9]{64}/observations/runtime-role-deployment-observation\\.json$"
+                },
+                "deploymentArtifactDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "producer": {
+                    "const": "dotnet-run-content-addressed-minimal-contract-host"
+                },
+                "externalOracle": {
+                    "const": "docker-compose-config-json-no-interpolate"
+                },
+                "externalOracleVersion": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "effectiveComposeModelDigest": {
+                    "$ref": "#/$defs/prefixedDigest"
                 },
                 "deploymentAuthoritySchema": {
                     "const": "fsusblog.monolithic-distributed-architecture.v2"

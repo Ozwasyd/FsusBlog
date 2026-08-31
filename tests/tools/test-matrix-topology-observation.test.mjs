@@ -13,22 +13,27 @@ import {
 import { loadCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs'
 import { runExtractor, assertDeterministicSemanticDigest } from '../../tools/fact-extractors/runner.mjs'
 import { semanticDigestFromReceipt } from '../../tools/fact-extractors/receipt.mjs'
+import { digestValue } from '../../tools/fact-extractors/lib/canonicalize.mjs'
 import { sealSourceIdentity } from '../../tools/fact-extractors/identity.mjs'
+import { runMinimalContractBuild } from '../../tools/docs/behavior-doc-minimal-contract-build.mjs'
 import {
   extract as extractTestMatrix,
   TEST_MATRIX_REQUIRED_FACT_KEYS,
   TEST_MATRIX_DECLARED_FACT_SOURCES,
   TEST_MATRIX_CONSUMER_INPUTS
 } from '../../tools/fact-extractors/test-matrix/extract.mjs'
-import {
-  produceRuntimeRoleObservation,
-  runtimeRoleDeploymentObservationRelative,
-  runtimeRoleProject
-} from '../../tools/contracts/lib/runtime-role-observation.mjs'
+import { runtimeRoleProject } from '../../tools/contracts/lib/runtime-role-observation.mjs'
 
 const extractorId = 'test-matrix-fact-extractor'
-const runtimeRoleBuild = produceRuntimeRoleObservation({ repositoryRoot: root })
 const sourceIdentity = sealSourceIdentity(root)
+const minimalBuild = runMinimalContractBuild({
+  repositoryRoot: root,
+  runId: 'runtime-role-observation-tests',
+  sourceIdentity
+})
+const runtimeRoleBuild = {
+  buildIdentity: minimalBuild.buildIdentities['runtime-role-observation']
+}
 
 function registryExtractor()
 {
@@ -78,16 +83,36 @@ function canonical(value)
 
 function extractMutatedRuntimeObservation(directory, mutate)
 {
-  const artifact = path.join(directory, '.tmp/contracts/runtime-role/runtime-role-observation.json')
+  const identity = structuredClone(runtimeRoleBuild.buildIdentity)
+  const artifact = path.join(directory, identity.artifactPath)
   const observation = JSON.parse(readFileSync(artifact, 'utf8'))
   mutate(observation)
   resealRuntimeObservation(observation)
   writeFileSync(artifact, `${JSON.stringify(observation, null, 2)}\n`)
   const artifactDigest = createHash('sha256').update(readFileSync(artifact)).digest('hex')
+  const receiptPath = path.join(directory, identity.minimalReceiptPath)
+  const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'))
+  const binding = receipt.artifacts['runtime-role-observation']
+  binding.artifactDigest = artifactDigest
+  binding.buildReceipt.artifactDigest = artifactDigest
+  binding.buildReceipt.externalOracle = observation.deploymentAuthority.effectiveCompose?.oracle
+  binding.buildReceipt.externalOracleVersion = observation.deploymentAuthority.effectiveCompose?.oracleVersion
+  binding.buildReceipt.effectiveComposeModelDigest = observation.deploymentAuthority.effectiveCompose?.modelDigest
+  binding.buildReceipt.deploymentAuthoritySchema = observation.deploymentAuthority.authoritySchema
+  binding.buildReceipt.deploymentAuthorityContentDigest = observation.deploymentAuthority.authorityContentDigest
+  binding.buildReceipt.deploymentObservationDigest = observation.deploymentAuthority.observationDigest
+  receipt.contentDigest = null
+  receipt.contentDigest = digestValue(receipt)
+  writeFileSync(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`)
+  identity.artifactDigest = artifactDigest
+  identity.receiptDigest = digestValue(binding.buildReceipt)
+  identity.minimalReceiptDigest = receipt.contentDigest
   return extractTestMatrix({
     repositoryRoot: directory,
     extractor: registryExtractor(),
-    buildIdentity: { ...runtimeRoleBuild.buildIdentity, artifactDigest }
+    sourceCommit: sourceIdentity.sourceCommit,
+    worktreeFingerprint: sourceIdentity.worktreeFingerprint,
+    buildIdentity: identity
   })
 }
 
@@ -102,6 +127,7 @@ function fixtureRepository(options = {})
     'src/frontend/package.json',
     'tools/docs/generate-testing-docs.mjs',
     'tools/test-matrix/behavior-doc-static-admission-contract.mjs',
+    runtimeRoleProject,
     'tests/governance/monolithic-distributed-architecture.json',
     'src/backend/FsusBlog.Server.csproj',
     'ops/docker/FsusBlog.Server.Dockerfile',
@@ -142,8 +168,7 @@ function fixtureRepository(options = {})
   {
     write(directory, 'tests/matrix.yml', options.matrixText)
   }
-  copy(directory, '.tmp/contracts/runtime-role/runtime-role-observation.json')
-  copy(directory, runtimeRoleDeploymentObservationRelative)
+  copy(directory, `.tmp/behavior-doc-contract-builds/${runtimeRoleBuild.buildIdentity.buildKey}`)
   return directory
 }
 
@@ -311,7 +336,11 @@ test('live matrix projects typed topology / release-final / production-fresh fac
   assert.equal(runtimeRole.ownership.service, 'fsusblog.server')
   assert.equal(runtimeRole.ownership.separation, 'blue-green-release-slots-not-runtime-role-services')
   assert.match(runtimeRole.deploymentAuthority.observationDigest, /^sha256:[a-f0-9]{64}$/u)
+  assert.equal(runtimeRole.deploymentAuthority.effectiveCompose.oracle, 'docker-compose-config-json-no-interpolate')
+  assert.equal(runtimeRole.deploymentAuthority.effectiveCompose.defaultServices['fsusblog.server'].profileState, 'default-active')
   assert.equal(runtimeRole.schemaOverlap.sourceReadiness, 'ready')
+  assert.notEqual(runtimeRole.schemaOverlap.sourceReleaseId, runtimeRole.schemaOverlap.targetReleaseId)
+  assert.equal(runtimeRole.schemaOverlap.sameReleaseFailureCode, 'schema_previous_rollback_release_not_distinct')
   assert.ok(runtimeRole.schemaOverlap.missingExpandFailureCodes.includes('schema_expand_pending'))
   assert.deepEqual(Object.keys(facts['deployment.runtime-role-contract'].modes).sort(), ['adaptive', 'single', 'static-role'])
   const blueGreen = facts['deployment.blue-green-contract']
@@ -559,7 +588,13 @@ test('8) extractor refuses docs/testing as fact source', () =>
     }
     // Ensure the forbidden input file exists for the read attempt path.
     assert.ok(existsSync(path.join(directory, 'docs/testing.generated.md')))
-    const result = extractTestMatrix({ repositoryRoot: directory, extractor, buildIdentity: runtimeRoleBuild.buildIdentity })
+    const result = extractTestMatrix({
+      repositoryRoot: directory,
+      extractor,
+      sourceCommit: sourceIdentity.sourceCommit,
+      worktreeFingerprint: sourceIdentity.worktreeFingerprint,
+      buildIdentity: runtimeRoleBuild.buildIdentity
+    })
     assert.equal(result.status, 'failed')
     assert.ok(result.failureReasons.some((reason) => /docs\/testing|refuses/u.test(reason)))
   }
@@ -579,7 +614,7 @@ test('runtime-role observation requires exact receipt and rejects semantic tampe
     assert.equal(missingIdentity.status, 'failed')
     assert.match(missingIdentity.failureReasons.join('\n'), /exact runtime-role-observation buildIdentity/iu)
 
-    const artifact = path.join(directory, '.tmp/contracts/runtime-role/runtime-role-observation.json')
+    const artifact = path.join(directory, runtimeRoleBuild.buildIdentity.artifactPath)
     const observation = JSON.parse(readFileSync(artifact, 'utf8'))
     observation.staticRoleCapabilities.web = ['tampered.capability']
     const unsigned = {
@@ -597,10 +632,12 @@ test('runtime-role observation requires exact receipt and rejects semantic tampe
     const semanticTamper = extractTestMatrix({
       repositoryRoot: directory,
       extractor,
+      sourceCommit: sourceIdentity.sourceCommit,
+      worktreeFingerprint: sourceIdentity.worktreeFingerprint,
       buildIdentity: { ...runtimeRoleBuild.buildIdentity, artifactDigest }
     })
     assert.equal(semanticTamper.status, 'failed')
-    assert.match(semanticTamper.failureReasons.join('\n'), /build receipt digest mismatch/iu)
+    assert.match(semanticTamper.failureReasons.join('\n'), /artifact binding is not exact/iu)
   }
   finally
   {
@@ -608,23 +645,51 @@ test('runtime-role observation requires exact receipt and rejects semantic tampe
   }
 })
 
-test('runtime-role deployment source roster, live digests, and policy authority fail closed', () =>
+test('runtime-role upstream source, parent receipt, assembly and deployment identities fail closed', () =>
 {
   for (const [label, mutate, pattern] of [
+    ['source commit', (identity) => { identity.sourceCommit = '0'.repeat(40) }, /exact runtime-role-observation buildIdentity/iu],
+    ['parent receipt', (identity) => { identity.minimalReceiptDigest = '0'.repeat(64) }, /minimal build receipt identity mismatch/iu],
+    ['assembly', (identity) => { identity.assemblyDigest = '0'.repeat(64) }, /artifact binding is not exact/iu],
+    ['deployment artifact', (identity) => { identity.deploymentArtifactDigest = '0'.repeat(64) }, /artifact binding is not exact/iu]
+  ])
+  {
+    const directory = fixtureRepository()
+    try
+    {
+      const identity = structuredClone(runtimeRoleBuild.buildIdentity)
+      mutate(identity)
+      const result = extractTestMatrix({
+        repositoryRoot: directory,
+        extractor: registryExtractor(),
+        sourceCommit: sourceIdentity.sourceCommit,
+        worktreeFingerprint: sourceIdentity.worktreeFingerprint,
+        buildIdentity: identity
+      })
+      assert.equal(result.status, 'failed', label)
+      assert.match(result.failureReasons.join('\n'), pattern, label)
+    }
+    finally
+    {
+      rmSync(directory, { recursive: true, force: true })
+    }
+  }
+})
+
+test('runtime-role deployment source roster, live digests, and policy authority fail closed', () =>
+{
+  for (const [label, mutate] of [
     [
       'missing roster member',
-      (observation) => { delete observation.deploymentAuthority.sourceDigests.dockerfile },
-      /source roster is not exact/iu
+      (observation) => { delete observation.deploymentAuthority.sourceDigests.dockerfile }
     ],
     [
       'stale source digest',
-      (observation) => { observation.deploymentAuthority.sourceDigests.dockerfile.digest = '0'.repeat(64) },
-      /source digest mismatch/iu
+      (observation) => { observation.deploymentAuthority.sourceDigests.dockerfile.digest = '0'.repeat(64) }
     ],
     [
       'tampered authority binding',
-      (observation) => { observation.deploymentAuthority.authorityContentDigest = `sha256:${'0'.repeat(64)}` },
-      /policy authority digest mismatch/iu
+      (observation) => { observation.deploymentAuthority.authorityContentDigest = `sha256:${'0'.repeat(64)}` }
     ]
   ])
   {
@@ -633,7 +698,7 @@ test('runtime-role deployment source roster, live digests, and policy authority 
     {
       const result = extractMutatedRuntimeObservation(directory, mutate)
       assert.equal(result.status, 'failed', label)
-      assert.match(result.failureReasons.join('\n'), pattern, label)
+      assert.match(result.failureReasons.join('\n'), /compiled producer replay mismatch/iu, label)
     }
     finally
     {
@@ -682,6 +747,11 @@ test('compiled runtime-role host rejects resealed nested deployment contradictio
       /runtime_role_deployment_pid1_mismatch/iu
     ],
     [
+      'effective compose oracle',
+      (deployment) => { deployment.effectiveCompose.modelDigest = `sha256:${'0'.repeat(64)}` },
+      /runtime_role_deployment_effective_compose_mismatch/iu
+    ],
+    [
       'volume topology',
       (deployment) => { deployment.volumeTopology['/app/data'].scope = 'shared-between-slots' },
       /runtime_role_deployment_volume_topology_mismatch/iu
@@ -691,7 +761,7 @@ test('compiled runtime-role host rejects resealed nested deployment contradictio
     const directory = fixtureRepository()
     try
     {
-      const deploymentPath = path.join(directory, runtimeRoleDeploymentObservationRelative)
+      const deploymentPath = path.join(directory, runtimeRoleBuild.buildIdentity.deploymentArtifactPath)
       const deployment = JSON.parse(readFileSync(deploymentPath, 'utf8'))
       mutate(deployment)
       const { observationDigest: _observationDigest, ...unsigned } = deployment
@@ -699,7 +769,7 @@ test('compiled runtime-role host rejects resealed nested deployment contradictio
       writeFileSync(deploymentPath, `${JSON.stringify(deployment, null, 2)}\n`)
       const output = path.join(directory, '.tmp/contracts/runtime-role/rejected.json')
       const run = spawnSync('dotnet', [
-        'run', '--project', path.join(root, runtimeRoleProject), '-c', 'Release', '--no-build', '--',
+        path.join(directory, runtimeRoleBuild.buildIdentity.assemblyPath),
         '--deployment-observation', deploymentPath,
         '--output', output
       ], { cwd: directory, encoding: 'utf8' })

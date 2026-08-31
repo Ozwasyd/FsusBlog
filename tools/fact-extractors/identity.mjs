@@ -139,11 +139,48 @@ export function validateBuildIdentity(buildIdentity, requiredBuildArtifact)
     {
         throw new Error('compiled extractor must not bind ambient bin/Debug or bin/Release paths');
     }
-    return {
-        artifactId,
-        receiptDigest,
-        artifactDigest
+    const genericIdentity = { artifactId, receiptDigest, artifactDigest };
+    if (requiredBuildArtifact !== 'runtime-role-observation')
+    {
+        if (Object.keys(buildIdentity).sort().join('\0') !== Object.keys(genericIdentity).sort().join('\0'))
+        {
+            throw new Error(`buildIdentity fields are not sealed for ${requiredBuildArtifact}`);
+        }
+        return genericIdentity;
+    }
+
+    const runtimeIdentity = {
+        ...genericIdentity,
+        sourceCommit: String(buildIdentity.sourceCommit ?? ''),
+        worktreeFingerprint: String(buildIdentity.worktreeFingerprint ?? ''),
+        buildKey: String(buildIdentity.buildKey ?? ''),
+        minimalReceiptPath: String(buildIdentity.minimalReceiptPath ?? ''),
+        minimalReceiptDigest: String(buildIdentity.minimalReceiptDigest ?? ''),
+        artifactPath: String(buildIdentity.artifactPath ?? ''),
+        assemblyPath: String(buildIdentity.assemblyPath ?? ''),
+        assemblyDigest: String(buildIdentity.assemblyDigest ?? ''),
+        deploymentArtifactPath: String(buildIdentity.deploymentArtifactPath ?? ''),
+        deploymentArtifactDigest: String(buildIdentity.deploymentArtifactDigest ?? '')
     };
+    if (Object.keys(buildIdentity).sort().join('\0') !== Object.keys(runtimeIdentity).sort().join('\0'))
+    {
+        throw new Error('runtime-role buildIdentity fields are not sealed');
+    }
+    if (!commitPattern.test(runtimeIdentity.sourceCommit)
+        || !/^[a-f0-9]{64}$/u.test(runtimeIdentity.worktreeFingerprint)
+        || !/^[a-f0-9]{64}$/u.test(runtimeIdentity.buildKey)
+        || !/^[a-f0-9]{64}$/u.test(runtimeIdentity.minimalReceiptDigest)
+        || !/^[a-f0-9]{64}$/u.test(runtimeIdentity.assemblyDigest)
+        || !/^[a-f0-9]{64}$/u.test(runtimeIdentity.deploymentArtifactDigest)
+        || !new RegExp(`^\\.tmp/behavior-doc-contract-builds/${runtimeIdentity.buildKey}/receipts/[A-Za-z0-9_.-]+\\.json$`, 'u')
+            .test(runtimeIdentity.minimalReceiptPath)
+        || runtimeIdentity.artifactPath !== `.tmp/behavior-doc-contract-builds/${runtimeIdentity.buildKey}/observations/runtime-role-observation.json`
+        || runtimeIdentity.assemblyPath !== `.tmp/behavior-doc-contract-builds/${runtimeIdentity.buildKey}/artifacts/bin/FsusBlog.RuntimeRoleObservation/release/FsusBlog.RuntimeRoleObservation.dll`
+        || runtimeIdentity.deploymentArtifactPath !== `.tmp/behavior-doc-contract-builds/${runtimeIdentity.buildKey}/observations/runtime-role-deployment-observation.json`)
+    {
+        throw new Error('runtime-role buildIdentity does not bind an exact minimal build receipt and assembly');
+    }
+    return runtimeIdentity;
 }
 
 export function sealSourceIdentity(repositoryRoot)

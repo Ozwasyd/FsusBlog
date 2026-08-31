@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -75,6 +76,8 @@ const declaredFactSources = Object.freeze([
   'tools/governance/check-monolithic-distributed-architecture.mjs',
   'config/deployment/destructive-operation-authority.json',
   'tools/deployment/destructive-operation-authority.mjs',
+  'src/migration',
+  'src/backend/Infrastructure/SchemaMigration',
   'src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCompatibility.cs'
 ])
 
@@ -92,6 +95,29 @@ function failResult(reasons)
     failureReasons: reasons.map(String),
     observations: {}
   }
+}
+
+function sha256(bytes)
+{
+  return createHash('sha256').update(bytes).digest('hex')
+}
+
+function exactKeys(value, expected)
+{
+  return value != null && typeof value === 'object' && !Array.isArray(value)
+    && Object.keys(value).sort().join('\0') === [...expected].sort().join('\0')
+}
+
+function readBoundArtifact(repositoryRoot, relative, label)
+{
+  const root = path.resolve(repositoryRoot)
+  const absolute = path.resolve(root, relative)
+  if (!absolute.startsWith(`${root}${path.sep}`)
+    || !existsSync(absolute) || !statSync(absolute).isFile())
+  {
+    throw new Error(`${label} is missing or escapes the repository root`)
+  }
+  return { absolute, bytes: readFileSync(absolute) }
 }
 
 function sortedUniqueStrings(values)
@@ -250,6 +276,29 @@ function projectVolumeTopology(volumeTopology)
     target.slice(1).replaceAll('/', '.'),
     Object.fromEntries(Object.entries({ target, ...value }).filter(([, member]) => member != null))
   ]))
+}
+
+function projectEffectiveCompose(effectiveCompose)
+{
+  const projectServices = (services) => Object.fromEntries(Object.entries(services ?? {}).map(
+    ([id, service]) => [id, {
+      image: String(service.image ?? ''),
+      buildState: service.build == null ? 'absent' : 'present',
+      pullPolicy: String(service.pullPolicy ?? ''),
+      profileState: Array.isArray(service.profiles) && service.profiles.length > 0
+        ? `profiled:${service.profiles.join(',')}`
+        : 'default-active',
+      entrypointState: service.entrypoint == null ? 'absent' : 'present',
+      commandState: service.command == null ? 'absent' : 'present'
+    }]))
+  return {
+    oracle: String(effectiveCompose?.oracle ?? ''),
+    oracleVersion: String(effectiveCompose?.oracleVersion ?? ''),
+    sourcePath: String(effectiveCompose?.sourcePath ?? ''),
+    defaultServices: projectServices(effectiveCompose?.defaultServices),
+    allProfileServices: projectServices(effectiveCompose?.allProfileServices),
+    modelDigest: String(effectiveCompose?.modelDigest ?? '')
+  }
 }
 
 function observeBlueGreenFacts(moduleSources, runtimeObservation, destructiveAuthority)
@@ -1096,20 +1145,109 @@ export function extract(context)
 
   const allowed = allowedInputSet(extractor)
   const runtimeIdentity = context.buildIdentity
-  if (runtimeIdentity?.artifactId !== 'runtime-role-observation'
+  const runtimeIdentityKeys = [
+    'artifactId', 'receiptDigest', 'artifactDigest', 'sourceCommit',
+    'worktreeFingerprint', 'buildKey', 'minimalReceiptPath',
+    'minimalReceiptDigest', 'artifactPath', 'assemblyPath', 'assemblyDigest',
+    'deploymentArtifactPath', 'deploymentArtifactDigest'
+  ]
+  if (!exactKeys(runtimeIdentity, runtimeIdentityKeys)
+    || runtimeIdentity.artifactId !== 'runtime-role-observation'
     || !/^[a-f0-9]{64}$/u.test(String(runtimeIdentity.artifactDigest ?? ''))
-    || !/^[a-f0-9]{64}$/u.test(String(runtimeIdentity.receiptDigest ?? '')))
+    || !/^[a-f0-9]{64}$/u.test(String(runtimeIdentity.receiptDigest ?? ''))
+    || runtimeIdentity.sourceCommit !== context.sourceCommit
+    || runtimeIdentity.worktreeFingerprint !== context.worktreeFingerprint)
   {
     return failResult(['test-matrix-fact-extractor requires exact runtime-role-observation buildIdentity'])
   }
-  const runtimeRelative = '.tmp/contracts/runtime-role/runtime-role-observation.json'
-  const runtimeAbsolute = path.join(context.repositoryRoot, runtimeRelative)
-  if (!existsSync(runtimeAbsolute))
+  let minimalReceipt
+  let runtimeBinding
+  let runtimeBytes
+  let deploymentBytes
+  let assemblyBytes
+  let deploymentAbsolute
+  let assemblyAbsolute
+  try
   {
-    return failResult([`missing sealed runtime-role observation ${runtimeRelative}`])
+    const parent = readBoundArtifact(
+      context.repositoryRoot,
+      runtimeIdentity.minimalReceiptPath,
+      'runtime-role minimal build receipt'
+    )
+    minimalReceipt = JSON.parse(parent.bytes.toString('utf8'))
+    const unsignedReceipt = { ...minimalReceipt, contentDigest: null }
+    if (minimalReceipt.schema !== 'fsusblog.behavior-doc-minimal-contract-build-receipt.v1'
+      || minimalReceipt.contentDigest !== digestValue(unsignedReceipt)
+      || minimalReceipt.contentDigest !== runtimeIdentity.minimalReceiptDigest
+      || minimalReceipt.sourceCommit !== context.sourceCommit
+      || minimalReceipt.worktreeFingerprint !== context.worktreeFingerprint
+      || minimalReceipt.buildKey !== runtimeIdentity.buildKey
+      || minimalReceipt.buildRoot !== `.tmp/behavior-doc-contract-builds/${runtimeIdentity.buildKey}`
+      || minimalReceipt.status !== 'ok'
+      || !Array.isArray(minimalReceipt.failureReasons)
+      || minimalReceipt.failureReasons.length !== 0
+      || runtimeIdentity.buildKey !== digestValue({
+        sourceIdentity: {
+          sourceCommit: minimalReceipt.sourceCommit,
+          worktreeFingerprint: minimalReceipt.worktreeFingerprint
+        },
+        toolchain: minimalReceipt.toolchain,
+        sourceClosureDigests: minimalReceipt.sourceClosureDigests
+      }))
+    {
+      return failResult(['runtime-role minimal build receipt identity mismatch'])
+    }
+    runtimeBinding = minimalReceipt.artifacts?.['runtime-role-observation']
+    if (!exactKeys(runtimeBinding, [
+      'project', 'projectDigest', 'path', 'artifactDigest', 'assemblyPath',
+      'assemblyDigest', 'deploymentArtifactPath', 'deploymentArtifactDigest',
+      'buildReceipt'
+    ])
+      || runtimeBinding.project !== 'tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj'
+      || runtimeBinding.path !== runtimeIdentity.artifactPath
+      || runtimeBinding.artifactDigest !== runtimeIdentity.artifactDigest
+      || runtimeBinding.assemblyPath !== runtimeIdentity.assemblyPath
+      || runtimeBinding.assemblyDigest !== runtimeIdentity.assemblyDigest
+      || runtimeBinding.deploymentArtifactPath !== runtimeIdentity.deploymentArtifactPath
+      || runtimeBinding.deploymentArtifactDigest !== runtimeIdentity.deploymentArtifactDigest)
+    {
+      return failResult(['runtime-role artifact binding is not exact in minimal build receipt'])
+    }
+    const runtimeArtifact = readBoundArtifact(
+      context.repositoryRoot,
+      runtimeIdentity.artifactPath,
+      'runtime-role cached observation'
+    )
+    const deploymentArtifact = readBoundArtifact(
+      context.repositoryRoot,
+      runtimeIdentity.deploymentArtifactPath,
+      'runtime-role deployment observation'
+    )
+    const assemblyArtifact = readBoundArtifact(
+      context.repositoryRoot,
+      runtimeIdentity.assemblyPath,
+      'runtime-role compiled assembly'
+    )
+    runtimeBytes = runtimeArtifact.bytes
+    deploymentBytes = deploymentArtifact.bytes
+    assemblyBytes = assemblyArtifact.bytes
+    deploymentAbsolute = deploymentArtifact.absolute
+    assemblyAbsolute = assemblyArtifact.absolute
+    if (sha256(runtimeBytes) !== runtimeIdentity.artifactDigest
+      || sha256(deploymentBytes) !== runtimeIdentity.deploymentArtifactDigest
+      || sha256(assemblyBytes) !== runtimeIdentity.assemblyDigest
+      || sha256(readFileSync(path.join(context.repositoryRoot, runtimeBinding.project)))
+        !== runtimeBinding.projectDigest)
+    {
+      return failResult(['runtime-role minimal build artifact or assembly digest mismatch'])
+    }
   }
-  const runtimeBytes = readFileSync(runtimeAbsolute)
-  const runtimeArtifactDigest = createHash('sha256').update(runtimeBytes).digest('hex')
+  catch (error)
+  {
+    return failResult([`runtime-role upstream receipt validation failed: ${error instanceof Error ? error.message : String(error)}`])
+  }
+  const runtimeRelative = runtimeIdentity.artifactPath
+  const runtimeArtifactDigest = sha256(runtimeBytes)
   if (runtimeArtifactDigest !== runtimeIdentity.artifactDigest)
   {
     return failResult(['runtime-role observation artifact digest mismatch'])
@@ -1147,10 +1285,16 @@ export function extract(context)
     || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.deploymentAuthority?.observationDigest ?? ''))
     || runtimeObservation?.schemaOverlap?.authorityState !== 'observed-in-current-schema-manifest-probe'
     || runtimeObservation?.schemaOverlap?.claimEligible !== true
-    || runtimeObservation?.schemaOverlap?.evidenceClass !== 'current-manifest-catalog-database-model'
+    || runtimeObservation?.schemaOverlap?.evidenceClass !== 'current-manifest-catalog-production-provider-model'
     || runtimeObservation?.schemaOverlap?.manifestDescriptorCount !== runtimeObservation?.schemaOverlap?.catalogMetadataCount
     || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.schemaOverlap?.manifestDigest ?? ''))
     || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.schemaOverlap?.catalogDigest ?? ''))
+    || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.schemaOverlap?.databaseObservationDigest ?? ''))
+    || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.schemaOverlap?.sourceReleaseManifestDigest ?? ''))
+    || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.schemaOverlap?.targetReleaseManifestDigest ?? ''))
+    || runtimeObservation?.schemaOverlap?.sourceReleaseId === runtimeObservation?.schemaOverlap?.targetReleaseId
+    || runtimeObservation?.schemaOverlap?.previousRollbackReleaseId === runtimeObservation?.schemaOverlap?.sourceReleaseId
+    || runtimeObservation?.schemaOverlap?.sameReleaseFailureCode !== 'schema_previous_rollback_release_not_distinct'
     || JSON.stringify(runtimeObservation?.schemaOverlap?.missingExpandFailureCodes)
       !== JSON.stringify(['schema_expand_pending'])
     || JSON.stringify(runtimeObservation?.schemaOverlap?.concurrentContractFailureCodes) !== JSON.stringify([
@@ -1171,6 +1315,32 @@ export function extract(context)
     || runtimeObservation.unsupportedCombinations.some((entry) => entry.errorCode === 'unexpectedly-accepted'))
   {
     return failResult(['runtime-role observation is partial, conflicting, or unsupported'])
+  }
+  const replayDirectory = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-runtime-role-replay-'))
+  try
+  {
+    const replayOutput = path.join(replayDirectory, 'runtime-role-observation.json')
+    const replay = spawnSync('dotnet', [
+      assemblyAbsolute,
+      '--deployment-observation', deploymentAbsolute,
+      '--output', replayOutput
+    ], {
+      cwd: context.repositoryRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 5 * 60_000
+    })
+    if (replay.status !== 0 || !existsSync(replayOutput)
+      || sha256(readFileSync(replayOutput)) !== runtimeArtifactDigest)
+    {
+      return failResult([
+        `runtime-role compiled producer replay mismatch: ${String(replay.stderr ?? replay.stdout ?? '').trim()}`
+      ])
+    }
+  }
+  finally
+  {
+    rmSync(replayDirectory, { recursive: true, force: true })
   }
   const expectedDeploymentSources = {
     policy: 'tests/governance/monolithic-distributed-architecture.json',
@@ -1219,17 +1389,30 @@ export function extract(context)
   {
     return failResult([`runtime-role deployment source validation failed: ${error instanceof Error ? error.message : String(error)}`])
   }
-  const expectedRuntimeReceiptDigest = digestValue({
-    schema: 'fsusblog.runtime-role-observation-build-receipt.v2',
+  const expectedRuntimeBuildReceipt = {
+    schema: 'fsusblog.runtime-role-observation-build-receipt.v3',
     artifactId: 'runtime-role-observation',
-    artifactPath: runtimeRelative,
+    artifactPath: '.tmp/contracts/runtime-role/runtime-role-observation.json',
     artifactDigest: runtimeArtifactDigest,
     configuration: 'Release',
+    sourceCommit: context.sourceCommit,
+    worktreeFingerprint: context.worktreeFingerprint,
+    projectDigest: runtimeBinding.projectDigest,
+    assemblyPath: runtimeIdentity.assemblyPath,
+    assemblyDigest: runtimeIdentity.assemblyDigest,
+    deploymentArtifactPath: runtimeIdentity.deploymentArtifactPath,
+    deploymentArtifactDigest: runtimeIdentity.deploymentArtifactDigest,
+    producer: 'dotnet-run-content-addressed-minimal-contract-host',
+    externalOracle: runtimeObservation.deploymentAuthority.effectiveCompose?.oracle,
+    externalOracleVersion: runtimeObservation.deploymentAuthority.effectiveCompose?.oracleVersion,
+    effectiveComposeModelDigest: runtimeObservation.deploymentAuthority.effectiveCompose?.modelDigest,
     deploymentAuthoritySchema: runtimeObservation.deploymentAuthority.authoritySchema,
     deploymentAuthorityContentDigest: runtimeObservation.deploymentAuthority.authorityContentDigest,
     deploymentObservationDigest: runtimeObservation.deploymentAuthority.observationDigest
-  })
-  if (runtimeIdentity.receiptDigest !== expectedRuntimeReceiptDigest)
+  }
+  if (!exactKeys(runtimeBinding.buildReceipt, Object.keys(expectedRuntimeBuildReceipt))
+    || digestValue(runtimeBinding.buildReceipt) !== digestValue(expectedRuntimeBuildReceipt)
+    || runtimeIdentity.receiptDigest !== digestValue(expectedRuntimeBuildReceipt))
   {
     return failResult(['runtime-role observation build receipt digest mismatch'])
   }
@@ -1387,6 +1570,7 @@ export function extract(context)
     },
     deploymentAuthority: {
       ...runtimeObservation.deploymentAuthority,
+      effectiveCompose: projectEffectiveCompose(runtimeObservation.deploymentAuthority.effectiveCompose),
       volumeTopology: projectVolumeTopology(runtimeObservation.deploymentAuthority.volumeTopology)
     },
     schemaOverlap: runtimeObservation.schemaOverlap,
