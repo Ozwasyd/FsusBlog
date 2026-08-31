@@ -39,6 +39,18 @@ function fixture(overrides = {})
             documentationPolicy: 'required', documentationRationale: 'Alpha is current.',
             allowedClaimTypes: ['behavioral'], releaseQualification: true,
             evidenceStage: 'pre-runtime', coverageIds: ['alpha'], documents: ['docs/alpha.md']
+        }, {
+            id: 'runtime-behavior', domain: 'testing', risk: 'critical', status: 'active',
+            implementationOwnerCardinality: 'one', allowedImplementationOwnerRoles: [],
+            factExtractorId: 'alpha-facts', requiredTestKinds: ['runtime'],
+            documentationPolicy: 'required', documentationRationale: 'Runtime is current.',
+            allowedClaimTypes: ['behavioral'], releaseQualification: true,
+            evidenceStage: 'post-runtime',
+            runtimeEvidence: {
+                producerTierId: 'production-correctness',
+                observationSchema: 'fsusblog.browserless-correctness-receipt.v1'
+            },
+            coverageIds: ['runtime'], documents: ['docs/runtime.md']
         }]
     }
     const catalogHash = digestCatalog(catalog)
@@ -74,16 +86,31 @@ function fixture(overrides = {})
         runIdentity: runId, sourceIdentity: { commit, worktreeFingerprint: `sha256:${fingerprint}` },
         candidateIdentity: { buildReceiptDigest: `sha256:${'d'.repeat(64)}`, runtimeEvidenceDigest: `sha256:${'e'.repeat(64)}`, browserContractDigest: `sha256:${'f'.repeat(64)}` },
         preRuntimeReceiptDigest: pre.contentDigest, catalogDigest: `sha256:${catalogHash}`,
-        behaviorIds: [], requiredRuntimeProducers: [], observedBehaviorResults: [], documentClaimDigests: {},
+        behaviorIds: ['runtime-behavior'], requiredRuntimeProducers: ['production-correctness'],
+        observedBehaviorResults: [{
+            behaviorId: 'runtime-behavior', producerTierId: 'production-correctness',
+            observationSchema: 'fsusblog.browserless-correctness-receipt.v1', status: 'ok',
+            evidenceDigest: `sha256:${'e'.repeat(64)}`
+        }],
+        documentClaimDigests: { 'runtime-behavior': pre.staticClaimVerificationDigest },
         missing: [], orphans: [], conflicts: [], releaseFinalSpawnCountBeforeReceipt: 0,
         status: 'ok', failureReasons: []
     })
-    const owner = seal({ status: 'ok', bindings: [{ behaviorId: 'alpha-behavior', sourcePath: 'src/alpha.cs' }] })
-    const fact = seal({ status: 'ok', extractorId: 'alpha-facts', behaviorIds: ['alpha-behavior'], sourceCommit: commit, worktreeFingerprint: fingerprint })
-    const claims = seal({ claims: [{ declaration: { behaviorId: 'alpha-behavior', claimId: 'alpha.current' } }] })
+    const owner = seal({ status: 'ok', bindings: [
+        { behaviorId: 'alpha-behavior', sourcePath: 'src/alpha.cs' },
+        { behaviorId: 'runtime-behavior', sourcePath: 'src/runtime.cs' }
+    ] })
+    const fact = seal({ status: 'ok', extractorId: 'alpha-facts', behaviorIds: ['alpha-behavior', 'runtime-behavior'], sourceCommit: commit, worktreeFingerprint: fingerprint })
+    const claims = seal({ claims: [
+        { declaration: { behaviorId: 'alpha-behavior', claimId: 'alpha.current' } },
+        { declaration: { behaviorId: 'runtime-behavior', claimId: 'runtime.current' } }
+    ] })
     const verification = seal({ status: 'ok' })
     const generated = seal({ status: 'ok' })
-    const migrationLedger = { schema: 'fixture', scopes: [{ scopeId: 'alpha', entries: [{ behaviorId: 'alpha-behavior', documentPath: 'docs/alpha.md', claimIds: ['alpha.current'], generatedSectionIds: [] }] }] }
+    const migrationLedger = { schema: 'fixture', scopes: [{ scopeId: 'alpha', entries: [
+        { behaviorId: 'alpha-behavior', documentPath: 'docs/alpha.md', claimIds: ['alpha.current'], generatedSectionIds: [] },
+        { behaviorId: 'runtime-behavior', documentPath: 'docs/runtime.md', claimIds: ['runtime.current'], generatedSectionIds: [] }
+    ] }] }
     const matrix = { tiers: [
         { id: 'static', executionDependsOn: [], summaryAuthority: null },
         { id: 'pre', executionDependsOn: ['static'], summaryAuthority: null },
@@ -103,7 +130,52 @@ test('final consistency report deterministically closes every behavior edge', ()
     const report = buildFinalConsistencyReport(fixture())
     assert.equal(validateFinalReport(report).status, 'ok', report.failureReasons.join('; '))
     assert.equal(report.behaviorNodes[0].status, 'ok')
+    assert.equal(report.behaviorNodes[1].status, 'ok')
     assert.equal(report.dagAudit.stronglyConnectedComponents.length, 0)
+    assert.deepEqual(report.dagAudit.postRuntimeBinding.errors, [])
+})
+
+test('post-runtime seal must bind the exact pre-runtime receipt and one observation per catalog behavior', async (context) =>
+{
+    const cases = [
+        {
+            name: 'same-run receipt from another pre-runtime qualification',
+            mutate(post)
+            {
+                post.preRuntimeReceiptDigest = `sha256:${'0'.repeat(64)}`
+            },
+            expected: /pre-runtime receipt digest mismatch/u
+        },
+        {
+            name: 'duplicate runtime observation',
+            mutate(post)
+            {
+                post.observedBehaviorResults.push(structuredClone(post.observedBehaviorResults[0]))
+            },
+            expected: /observed post-runtime behavior IDs contains duplicate entries/u
+        },
+        {
+            name: 'nullable candidate identity in an ok seal',
+            mutate(post)
+            {
+                post.candidateIdentity.runtimeEvidenceDigest = null
+            },
+            expected: /candidate identity runtimeEvidenceDigest is missing/u
+        }
+    ]
+    for (const scenario of cases)
+    {
+        await context.test(scenario.name, () =>
+        {
+            const input = fixture()
+            const post = structuredClone(input.postRuntimeReceipt)
+            scenario.mutate(post)
+            input.postRuntimeReceipt = seal(post)
+            const report = buildFinalConsistencyReport(input)
+            assert.equal(report.status, 'failed')
+            assert.match(report.failureReasons.join('\n'), scenario.expected)
+        })
+    }
 })
 
 test('stale identities, graph cycles and legacy residue fail without repairing producers', () =>

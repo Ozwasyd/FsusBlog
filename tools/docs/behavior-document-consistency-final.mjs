@@ -117,6 +117,99 @@ function duplicateSummaryAuthorities(tiers)
         .sort((left, right) => left.authority.localeCompare(right.authority))
 }
 
+function exactStringListErrors(label, actual, expected)
+{
+    if (!Array.isArray(actual)) return [`${label} is not an array`]
+    const normalized = [...actual].sort()
+    const duplicateCount = normalized.length - new Set(normalized).size
+    const errors = []
+    if (duplicateCount > 0) errors.push(`${label} contains duplicate entries`)
+    if (JSON.stringify(normalized) !== JSON.stringify(expected))
+    {
+        errors.push(`${label} does not match the catalog-selected exact set`)
+    }
+    return errors
+}
+
+function auditPostRuntimeBinding(post, pre, activeContracts)
+{
+    const contracts = activeContracts
+        .filter((contract) => contract.evidenceStage === 'post-runtime')
+        .sort((left, right) => left.id.localeCompare(right.id))
+    const expectedBehaviorIds = contracts.map((contract) => contract.id)
+    const expectedProducerTierIds = contracts.map((contract) => contract.runtimeEvidence?.producerTierId).sort()
+    const results = Array.isArray(post.observedBehaviorResults) ? post.observedBehaviorResults : []
+    const observedBehaviorIds = results.map((result) => result?.behaviorId).sort()
+    const observedProducerTierIds = results.map((result) => result?.producerTierId).sort()
+    const errors = []
+
+    if (contracts.length === 0) errors.push('catalog has no post-runtime release behavior')
+    if (normalizeDigest(post.preRuntimeReceiptDigest) !== normalizeDigest(pre.contentDigest))
+    {
+        errors.push('pre-runtime receipt digest mismatch')
+    }
+    errors.push(...exactStringListErrors('declared post-runtime behavior IDs', post.behaviorIds, expectedBehaviorIds))
+    errors.push(...exactStringListErrors('declared runtime producer IDs', post.requiredRuntimeProducers, expectedProducerTierIds))
+    errors.push(...exactStringListErrors('observed post-runtime behavior IDs', observedBehaviorIds, expectedBehaviorIds))
+
+    for (const contract of contracts)
+    {
+        const matches = results.filter((result) => result?.behaviorId === contract.id)
+        if (matches.length !== 1) continue
+        const [result] = matches
+        if (result.producerTierId !== contract.runtimeEvidence?.producerTierId)
+        {
+            errors.push(`${contract.id} producer does not match the catalog authority`)
+        }
+        if (result.observationSchema !== contract.runtimeEvidence?.observationSchema)
+        {
+            errors.push(`${contract.id} observation schema does not match the catalog authority`)
+        }
+        if (result.status !== 'ok' || !/^sha256:[a-f0-9]{64}$/u.test(result.evidenceDigest ?? ''))
+        {
+            errors.push(`${contract.id} lacks one qualified content-addressed observation`)
+        }
+    }
+
+    const expectedClaimIds = expectedBehaviorIds
+    const observedClaimIds = Object.keys(post.documentClaimDigests ?? {}).sort()
+    errors.push(...exactStringListErrors('post-runtime document claim behavior IDs', observedClaimIds, expectedClaimIds))
+    for (const behaviorId of expectedClaimIds)
+    {
+        if (normalizeDigest(post.documentClaimDigests?.[behaviorId]) !== normalizeDigest(pre.staticClaimVerificationDigest))
+        {
+            errors.push(`${behaviorId} document claim digest does not match pre-runtime verification`)
+        }
+    }
+
+    for (const field of ['buildReceiptDigest', 'runtimeEvidenceDigest', 'browserContractDigest'])
+    {
+        if (!/^sha256:[a-f0-9]{64}$/u.test(post.candidateIdentity?.[field] ?? ''))
+        {
+            errors.push(`candidate identity ${field} is missing`)
+        }
+    }
+    for (const field of ['missing', 'orphans', 'conflicts'])
+    {
+        if (!Array.isArray(post[field]) || post[field].length !== 0)
+        {
+            errors.push(`post-runtime ${field} must be an empty array`)
+        }
+    }
+
+    return {
+        expectedPreRuntimeReceiptDigest: pre.contentDigest,
+        observedPreRuntimeReceiptDigest: post.preRuntimeReceiptDigest ?? null,
+        expectedBehaviorIds,
+        declaredBehaviorIds: Array.isArray(post.behaviorIds) ? [...post.behaviorIds].sort() : [],
+        observedBehaviorIds,
+        expectedProducerTierIds,
+        declaredProducerTierIds: Array.isArray(post.requiredRuntimeProducers) ? [...post.requiredRuntimeProducers].sort() : [],
+        observedProducerTierIds,
+        errors: [...new Set(errors)].sort()
+    }
+}
+
 function scanObjectKeys(value, file, findings, negated = false, location = '$')
 {
     if (Array.isArray(value))
@@ -264,6 +357,11 @@ export function buildFinalConsistencyReport({
     const ledgerEntries = (ledger.scopes ?? []).flatMap((scope) => scope.entries ?? [])
     const ledgerBehaviorIds = [...new Set(ledgerEntries.map((entry) => entry.behaviorId))].sort()
     const activeContracts = behaviorCatalog.contracts.filter((contract) => contract.status === 'active' && contract.releaseQualification === true)
+    const postRuntimeBinding = auditPostRuntimeBinding(post, pre, activeContracts)
+    for (const error of postRuntimeBinding.errors)
+    {
+        failures.push(`post-runtime dependency binding: ${error}`)
+    }
     const behaviorNodes = activeContracts.map((contract) => {
         const required = pre.requiredTestKinds?.[contract.id] ?? contract.requiredTestKinds ?? []
         const observed = pre.observedTestKinds?.[contract.id] ?? []
@@ -350,7 +448,8 @@ export function buildFinalConsistencyReport({
             tierCount: parsedMatrix.tiers.length,
             edgeCount: parsedMatrix.tiers.reduce((count, tier) => count + (tier.executionDependsOn?.length ?? 0), 0),
             stronglyConnectedComponents: sccs,
-            authorityDuplicates
+            authorityDuplicates,
+            postRuntimeBinding
         },
         spawnBeforeReceipt: {
             staticCandidate: admission.candidateSpawnCountBeforeReceipt,
