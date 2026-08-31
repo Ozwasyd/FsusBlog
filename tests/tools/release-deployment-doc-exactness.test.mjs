@@ -40,7 +40,7 @@ test.before(async () =>
 test('release/deployment negative classes are all killed', () =>
 {
     const evidence = runReleaseDeploymentDocMutationCases()
-    assert.equal(evidence.total, 53)
+    assert.equal(evidence.total, 56)
     assert.equal(evidence.killed, evidence.total)
 })
 
@@ -195,7 +195,15 @@ The blue/green deployment claim is eligible.
 The controller must promote standby and switch traffic.
 <!-- FSUSBLOG-GENERATED:END fixture.deployment -->`
     const classificationAuthority = {
-        documents: [{ documentPath: 'fixture.md', classification: 'diagnostic' }]
+        entries: extractReleaseDeploymentProseNodes(source, 'fixture.md').map((node) => ({
+            documentPath: node.documentPath,
+            behaviorIds: ['deployment-blue-green-runtime-role'],
+            startLine: node.startLine,
+            endLine: node.endLine,
+            nodeType: node.nodeType,
+            classification: 'diagnostic',
+            contentDigest: node.contentDigest
+        }))
     }
     const classifications = classifyReleaseDeploymentSource(
         source,
@@ -303,6 +311,22 @@ test('fence delimiter length is structural and cannot hide following active pros
     ).length, 1)
 })
 
+test('visible HTML tails and ordinary blockquotes remain classified prose nodes', () =>
+{
+    const samples = [
+        ['<!-- hidden --> The deployment claim is valid.', 'paragraph'],
+        ['<pre>hidden\n</pre> The deployment claim is valid.', 'paragraph'],
+        ['> The deployment claim is valid.', 'quote']
+    ]
+    for (const [source, nodeType] of samples)
+    {
+        const nodes = extractReleaseDeploymentProseNodes(source, 'fixture.md')
+        assert.equal(nodes.length, 1)
+        assert.equal(nodes[0].nodeType, nodeType)
+        assert.equal(scanReleaseDeploymentSourceResidue(source, 'fixture.md').length, 1)
+    }
+})
+
 test('release/deployment behavior roster comes from active required catalog domains', () =>
 {
     const catalog = JSON.parse(readFileSync(path.join(root, 'config/contracts/behavior-contracts.json'), 'utf8'))
@@ -344,8 +368,8 @@ test('current release/deployment claims and sections are bidirectionally exact',
     assert.equal(receipt.counts.generated, 4)
     assert.equal(receipt.counts.prose, 3)
     assert.equal(receipt.counts.proseVerified, 3)
-    assert.equal(receipt.counts.mutationKilled, 64)
-    assert.equal(receipt.counts.mutationTotal, 64)
+    assert.equal(receipt.counts.mutationKilled, 75)
+    assert.equal(receipt.counts.mutationTotal, 75)
 })
 
 test('missing ledger entry, orphan section and typed fact drift fail closed', () =>
