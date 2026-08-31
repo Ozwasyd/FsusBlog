@@ -652,6 +652,7 @@ public sealed class PublicAotFilterBootstrapProvider(
             identity.FilterKey,
             identity.FilterId,
             identity.FilterName,
+            identity.Description,
             identity.IsInvalidTarget,
             pageIndex,
             PageSize,
@@ -666,31 +667,78 @@ public sealed class PublicAotFilterBootstrapProvider(
 
         if (parsed.CategoryId is >= 0 && string.Equals(parsed.FilterType, "category", StringComparison.Ordinal))
         {
-            string? name = parsed.CategoryId > 0
-                ? await db.Queryable<Category>().Where(category => category.Id == parsed.CategoryId).Select(category => category.Name).FirstAsync(cancellationToken)
+            FilterTaxonomyAotProjection? taxonomy = parsed.CategoryId > 0
+                ? await db.Queryable<Category>()
+                    .Where(category => category.Id == parsed.CategoryId)
+                    .Select(category => new FilterTaxonomyAotProjection
+                    {
+                        Name = category.Name,
+                        Description = category.Description
+                    })
+                    .FirstAsync(cancellationToken)
                 : null;
-            return new FilterIdentity(parsed.FilterType, parsed.FilterKey, parsed.FilterId, name, parsed.CategoryId, null, string.IsNullOrWhiteSpace(name));
+            string? name = taxonomy?.Name;
+            return new FilterIdentity(
+                parsed.FilterType,
+                parsed.FilterKey,
+                parsed.FilterId,
+                name,
+                NormalizeFilterDescription(taxonomy?.Description),
+                parsed.CategoryId,
+                null,
+                string.IsNullOrWhiteSpace(name));
         }
 
         if (parsed.TagId is >= 0 && string.Equals(parsed.FilterType, "tag", StringComparison.Ordinal) && string.IsNullOrWhiteSpace(parsed.FilterName))
         {
-            string? name = parsed.TagId > 0
-                ? await db.Queryable<Tag>().Where(tag => tag.Id == parsed.TagId).Select(tag => tag.Name).FirstAsync(cancellationToken)
+            FilterTaxonomyAotProjection? taxonomy = parsed.TagId > 0
+                ? await db.Queryable<Tag>()
+                    .Where(tag => tag.Id == parsed.TagId)
+                    .Select(tag => new FilterTaxonomyAotProjection
+                    {
+                        Name = tag.Name,
+                        Description = tag.Description
+                    })
+                    .FirstAsync(cancellationToken)
                 : null;
-            return new FilterIdentity(parsed.FilterType, parsed.FilterKey, parsed.FilterId, name, null, parsed.TagId, string.IsNullOrWhiteSpace(name));
+            string? name = taxonomy?.Name;
+            return new FilterIdentity(
+                parsed.FilterType,
+                parsed.FilterKey,
+                parsed.FilterId,
+                name,
+                NormalizeFilterDescription(taxonomy?.Description),
+                null,
+                parsed.TagId,
+                string.IsNullOrWhiteSpace(name));
         }
 
         if (string.Equals(parsed.FilterType, "tag", StringComparison.Ordinal) && !string.IsNullOrWhiteSpace(parsed.FilterName))
         {
-            int? tagId = await ResolveTagIdByNameAsync(parsed.FilterName, cancellationToken);
-            return new FilterIdentity(parsed.FilterType, parsed.FilterKey, tagId ?? 0, parsed.FilterName, null, tagId, tagId is not > 0);
+            ResolvedTagIdentity resolved = await ResolveTagIdByNameAsync(parsed.FilterName, cancellationToken);
+            return new FilterIdentity(
+                parsed.FilterType,
+                parsed.FilterKey,
+                resolved.TagId ?? 0,
+                parsed.FilterName,
+                resolved.Description,
+                null,
+                resolved.TagId,
+                resolved.TagId is not > 0);
         }
 
-        return new FilterIdentity(parsed.FilterType, parsed.FilterKey, parsed.FilterId, parsed.FilterName, parsed.CategoryId, parsed.TagId, true);
+        return new FilterIdentity(parsed.FilterType, parsed.FilterKey, parsed.FilterId, parsed.FilterName, null, parsed.CategoryId, parsed.TagId, true);
     }
 
-    private Task<int?> ResolveTagIdByNameAsync(string tagName, CancellationToken cancellationToken)
-        => PublicTagUrlIdentity.ResolveCanonicalTagIdAsync(db, tagName, cancellationToken);
+    private async Task<ResolvedTagIdentity> ResolveTagIdByNameAsync(string tagName, CancellationToken cancellationToken)
+    {
+        CanonicalTagIdentity resolved = await PublicTagUrlIdentity.ResolveCanonicalTagIdentityAsync(db, tagName, cancellationToken);
+        return new ResolvedTagIdentity(resolved.TagId, NormalizeFilterDescription(resolved.Description));
+    }
+
+
+    private static string? NormalizeFilterDescription(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static string ResolveFilterTitle(FilterIdentity identity)
         => identity.FilterType switch
@@ -707,9 +755,27 @@ public sealed class PublicAotFilterBootstrapProvider(
         string FilterKey,
         int FilterId,
         string? FilterName,
+        string? Description,
         int? CategoryId,
         int? TagId,
         bool IsInvalidTarget);
+
+    private sealed record ResolvedTagIdentity(int? TagId, string? Description);
+
+    private sealed class FilterTaxonomyAotProjection
+    {
+        public int Id
+        {
+            get; init;
+        }
+
+        public string Name { get; init; } = string.Empty;
+
+        public string? Description
+        {
+            get; init;
+        }
+    }
 }
 
 public abstract class PublicAotStaticPageBootstrapProvider : PublicAotBootstrapProviderBase

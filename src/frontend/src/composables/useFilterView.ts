@@ -17,7 +17,7 @@ import { useNotificationStreamStore } from '@/store/notificationStream'
 import { isAbortError } from '@/utils/errors'
 import type { ArticleListCardViewContract } from '@/view-contracts/articleList'
 import { createStableArticleCardMapper } from '@/view-contracts/articleListStableCache'
-import { createFilterPageViewContract } from '@/view-contracts/filterView'
+import { createFilterPageViewContract, normalizeFilterDescription } from '@/view-contracts/filterView'
 import { searchIndex, type SearchSortMode } from '@/services/localSearch'
 import { createPublicSeedRenderTimeOptions } from '@/public-renderers/publicRenderClock'
 import {
@@ -51,6 +51,10 @@ export function useFilterView() {
   const powProvider = usePow()
   const { bootstrap: initialBootstrap, hydration: initialHydrationView } = consumePublicPageSeed('Filter', { fullPath: route?.fullPath })
   const preferHydrationView = ref(Boolean(initialHydrationView?.view))
+  const seededDescription = normalizeFilterDescription(
+    initialHydrationView?.view?.header.description
+      ?? initialBootstrap?.filter?.description
+  )
   const seedRenderTimeOptions = createPublicSeedRenderTimeOptions(initialHydrationView, initialBootstrap)
   const useSeedRenderTime = ref(Boolean(seedRenderTimeOptions))
   const mapArticleCards = createStableArticleCardMapper(() => useSeedRenderTime.value ? seedRenderTimeOptions : undefined)
@@ -59,6 +63,7 @@ export function useFilterView() {
   const filterId = ref<number>(0)
   const filterValue = ref('')
   const currentName = ref('')
+  const description = ref<string | null>(seededDescription)
   const invalidTarget = ref(false)
   const articleItems = ref<ArticleListItemResponse[]>([])
   const loadingMeta = ref(true)
@@ -128,6 +133,7 @@ export function useFilterView() {
     return {
       filterKey: bootstrapKey,
       filterName,
+      description: normalizeFilterDescription(initialBootstrap.filter?.description),
       title,
       isInvalidTarget
     }
@@ -140,6 +146,7 @@ export function useFilterView() {
       filterId.value = 0
       filterValue.value = ''
       currentName.value = route.query.q ? `“${route.query.q}”` : '全站搜索'
+      description.value = null
       invalidTarget.value = false
       loadingMeta.value = false
       const rawSort = String(route.query.sort || '').trim().toLowerCase()
@@ -155,6 +162,7 @@ export function useFilterView() {
 
     const bootstrapMeta = resolveBootstrapFilterMeta()
     currentName.value = bootstrapMeta?.filterName || bootstrapMeta?.title || ''
+    description.value = bootstrapMeta?.description ?? null
     invalidTarget.value = Boolean(bootstrapMeta?.isInvalidTarget)
       || (filterType.value === PUBLIC_FILTER_TYPE.category && filterId.value <= 0)
     loadingMeta.value = !(currentName.value || invalidTarget.value)
@@ -172,6 +180,7 @@ export function useFilterView() {
     setPageTotal(Number(filterBootstrap.total) || 0)
     currentPage.value = Math.max(1, Number(filterBootstrap.pageIndex) || 1)
     currentName.value = filterBootstrap.filterName?.trim() || currentName.value
+    description.value = normalizeFilterDescription(filterBootstrap.description) ?? description.value
     if (Number(filterBootstrap.filterId) > 0) {
       filterId.value = Number(filterBootstrap.filterId)
     }
@@ -394,10 +403,12 @@ export function useFilterView() {
     currentPage.value = parsePageQuery(route.query.page)
     if (filterType.value === PUBLIC_FILTER_TYPE.search) {
       currentName.value = route.query.q ? `“${route.query.q}”` : '全站搜索'
+      description.value = null
       invalidTarget.value = false
     } else {
       const bootstrapMeta = resolveBootstrapFilterMeta()
       currentName.value = bootstrapMeta?.filterName || bootstrapMeta?.title || ''
+      description.value = bootstrapMeta?.description ?? null
       invalidTarget.value = Boolean(bootstrapMeta?.isInvalidTarget)
         || (filterType.value === PUBLIC_FILTER_TYPE.category && filterId.value <= 0)
       loadingMeta.value = !(currentName.value || invalidTarget.value)
@@ -415,6 +426,7 @@ export function useFilterView() {
       articleItems.value = bootstrapItems
       setPageTotal(Number(filterBootstrap.total) || 0)
       currentName.value = filterBootstrap.filterName?.trim() || currentName.value
+      description.value = normalizeFilterDescription(filterBootstrap.description) ?? description.value
       if (Number(filterBootstrap.filterId) > 0) {
         filterId.value = Number(filterBootstrap.filterId)
       }
@@ -655,7 +667,7 @@ export function useFilterView() {
         filterType: filterType.value,
         labelText: labelText.value,
         currentName: currentName.value,
-        description: null,
+        description: description.value,
         loadingMeta: loadingMeta.value,
         loadingArticles: loadingArticles.value,
         isPowCalculating: powProvider.isCalculating.value,

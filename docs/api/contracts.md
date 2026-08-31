@@ -1898,6 +1898,7 @@ Public AOT HTML 的 representation identity 是 `(pageId, routeKey, renderLocale
     "filterKey": "tag:1",
     "filterId": 1,
     "filterName": "AcceptanceTag",
+    "description": "Acceptance tests for public taxonomy pages",
     "isInvalidTarget": false,
     "pageIndex": 1,
     "pageSize": 10,
@@ -1910,6 +1911,8 @@ Public AOT HTML 的 representation identity 是 `(pageId, routeKey, renderLocale
 补充约束：
 
 - `filterKey` 是成功筛选页的稳定身份，只能是 `category:{id}` 或 `tag:{id}`。`tag-name:{name}` 仅供服务端解析历史 URL，解析成功后必须先 301，不能出现在 200 AOT payload。
+- `filter.description` 是所选 Category/Tag 的可选说明。实体无描述时必须为 `null`。该字段来自 Filter identity 的同一轮数据库查找，不得为 Description 再发第二次查询。
+- AOT shell HTML 与 hydration 的 Filter header 必须使用同一 `description` 值，并交给共享 Filter header contract。
 - 无效分类/标签目标必须设置 `isInvalidTarget=true`，且 `articles` 必须为空。
 - 客户端不得再从 path string 反推标题或筛选语义。
 
