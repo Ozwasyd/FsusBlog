@@ -7,6 +7,16 @@
         "acceptedClaimsSchema": "fsusblog.post-runtime-accepted-claims.v1",
         "acceptedClaimsToolVersion": "post-runtime-accepted-claims@1",
         "acceptedTerminalSchema": "fsusblog.global-claim-exactness-terminal-receipt.v1",
+        "acceptedTerminalAuthority": {
+            "referenceSchema": "fsusblog.current-run-evidence-reference.v1",
+            "authorityId": "evidence-consumer.docs.global-claim-exactness-final.current-run",
+            "producerId": "evidence-consumer.docs.global-claim-exactness-final.producer",
+            "toolVersion": "global-claim-exactness-final@1",
+            "producerCommand": "FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER=evidence-consumer.docs.global-claim-exactness-final node --import ./tools/test/current-run-evidence-producer-hook.mjs tools/docs/global-claim-exactness-final.mjs",
+            "referenceRoot": "artifacts/current-run",
+            "referenceName": "global-claim-exactness-final.reference.json",
+            "payloadName": "global-claim-exactness-final.terminal.json"
+        },
         "requiredModes": [
             "positive",
             "negative",
@@ -54,7 +64,24 @@
                 "discriminator": {
                     "field": "kind",
                     "value": "route-response-error"
-                }
+                },
+                "requiredFields": [
+                    "schema",
+                    "kind",
+                    "producerId",
+                    "toolVersion",
+                    "sourceState",
+                    "buildReceipt",
+                    "fixtureReceipt",
+                    "canonicalRerunCommand",
+                    "independentVerifyCommand",
+                    "contentDigest"
+                ],
+                "requiredReferenceFields": [
+                    "buildReceipt",
+                    "fixtureReceipt"
+                ],
+                "referenceMap": null
             },
             "requiredIdentityFields": [
                 "sourceCommit",
@@ -94,7 +121,28 @@
             "sourceReceipt": {
                 "schema": "fsusblog.aot-spa-hydration-source-bundle.v1",
                 "role": "aot",
-                "discriminator": null
+                "discriminator": null,
+                "requiredFields": [
+                    "schema",
+                    "producerId",
+                    "toolVersion",
+                    "sourceState",
+                    "candidatePlanRef",
+                    "evidenceRefs",
+                    "canonicalRerunCommand",
+                    "independentVerifyCommand",
+                    "contentDigest"
+                ],
+                "requiredReferenceFields": [
+                    "candidatePlanRef"
+                ],
+                "referenceMap": {
+                    "field": "evidenceRefs",
+                    "keys": [
+                        "manifest",
+                        "browserContract"
+                    ]
+                }
             },
             "requiredIdentityFields": [
                 "sourceCommit",
@@ -137,7 +185,24 @@
                 "discriminator": {
                     "field": "kind",
                     "value": "cache-search-outbox-convergence"
-                }
+                },
+                "requiredFields": [
+                    "schema",
+                    "kind",
+                    "producerId",
+                    "toolVersion",
+                    "sourceState",
+                    "buildReceipt",
+                    "fixtureReceipt",
+                    "canonicalRerunCommand",
+                    "independentVerifyCommand",
+                    "contentDigest"
+                ],
+                "requiredReferenceFields": [
+                    "buildReceipt",
+                    "fixtureReceipt"
+                ],
+                "referenceMap": null
             },
             "requiredIdentityFields": [
                 "sourceCommit",
@@ -180,7 +245,24 @@
                 "discriminator": {
                     "field": "kind",
                     "value": "session-cookie-runtime"
-                }
+                },
+                "requiredFields": [
+                    "schema",
+                    "kind",
+                    "producerId",
+                    "toolVersion",
+                    "sourceState",
+                    "buildReceipt",
+                    "fixtureReceipt",
+                    "canonicalRerunCommand",
+                    "independentVerifyCommand",
+                    "contentDigest"
+                ],
+                "requiredReferenceFields": [
+                    "buildReceipt",
+                    "fixtureReceipt"
+                ],
+                "referenceMap": null
             },
             "requiredIdentityFields": [
                 "sourceCommit",
@@ -223,7 +305,32 @@
             "sourceReceipt": {
                 "schema": "fsusblog.browser-contract-receipt.v2",
                 "role": "browser",
-                "discriminator": null
+                "discriminator": null,
+                "requiredFields": [
+                    "schema",
+                    "status",
+                    "classification",
+                    "runIdentity",
+                    "sourceState",
+                    "build",
+                    "fixture",
+                    "playwright",
+                    "topology",
+                    "scenarios",
+                    "publicPreview",
+                    "startedAt",
+                    "finishedAt",
+                    "wallClockMs",
+                    "error",
+                    "finalization",
+                    "producerId",
+                    "toolVersion",
+                    "canonicalRerunCommand",
+                    "independentVerifyCommand",
+                    "contentDigest"
+                ],
+                "requiredReferenceFields": [],
+                "referenceMap": null
             },
             "requiredIdentityFields": [
                 "sourceCommit",
@@ -265,7 +372,23 @@
             "sourceReceipt": {
                 "schema": "fsusblog.release-identity-readiness-authority-bundle.v1",
                 "role": "release-authority",
-                "discriminator": null
+                "discriminator": null,
+                "requiredFields": [
+                    "schema",
+                    "producerId",
+                    "toolVersion",
+                    "sourceState",
+                    "rolloutEvidenceRef",
+                    "runtimeRoleAdmissionRef",
+                    "canonicalRerunCommand",
+                    "independentVerifyCommand",
+                    "contentDigest"
+                ],
+                "requiredReferenceFields": [
+                    "rolloutEvidenceRef",
+                    "runtimeRoleAdmissionRef"
+                ],
+                "referenceMap": null
             },
             "requiredIdentityFields": [
                 "sourceCommit",
@@ -307,7 +430,23 @@
             "sourceReceipt": {
                 "schema": "fsusblog.blue-green-containment-authority-bundle.v1",
                 "role": "blue-green-authority",
-                "discriminator": null
+                "discriminator": null,
+                "requiredFields": [
+                    "schema",
+                    "producerId",
+                    "toolVersion",
+                    "sourceState",
+                    "rolloutEvidenceRef",
+                    "runtimeRoleAdmissionRef",
+                    "canonicalRerunCommand",
+                    "independentVerifyCommand",
+                    "contentDigest"
+                ],
+                "requiredReferenceFields": [
+                    "rolloutEvidenceRef",
+                    "runtimeRoleAdmissionRef"
+                ],
+                "referenceMap": null
             },
             "requiredIdentityFields": [
                 "sourceCommit",

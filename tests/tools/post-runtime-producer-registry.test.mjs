@@ -96,13 +96,21 @@ function producerReceipt(classId = 'route-response-error')
     const fixtureReceipt = writeDependency('.tmp/runtime-observation-probes/run-1/fixture.json', seal({
         schema: 'fsusblog.runtime-fixture-receipt.v1', sourceState
     }))
+    const canonicalRerunCommand = 'node tools/test-evidence/runtime-observation-probes.mjs route'
+    const independentVerifyCommand = 'node tools/test-evidence/runtime-observation-raw.mjs verify'
+    const upstreamSourceState = Object.fromEntries(definition.requiredIdentityFields
+        .filter((field) => !['producerId', 'toolVersion', 'contentDigest'].includes(field))
+        .map((field) => [field, sourceState[field]]))
     const upstream = seal({
         schema: definition.sourceReceipt.schema,
         kind: classId,
         producerId: producer.producerId,
-        sourceState,
+        toolVersion: producer.toolVersion,
+        sourceState: upstreamSourceState,
         buildReceipt,
-        fixtureReceipt
+        fixtureReceipt,
+        canonicalRerunCommand,
+        independentVerifyCommand
     })
     const upstreamRelative = `.tmp/runtime-observation-probes/run-1/${classId}.json`
     const upstreamRef = writeDependency(upstreamRelative, upstream)
@@ -138,8 +146,6 @@ function producerReceipt(classId = 'route-response-error')
             role
         }
     }
-    const canonicalRerunCommand = 'node tools/test-evidence/runtime-observation-probes.mjs route'
-    const independentVerifyCommand = 'node tools/test-evidence/runtime-observation-raw.mjs verify'
     const sourceReceipt = seal({
         schema: sourceReceiptSchema,
         role: 'source',
@@ -241,8 +247,8 @@ test('existence shortcut observation classes fail closed', () =>
             clone.observationClasses['http-200-class'] = {
                 schema: 'fsusblog.observation.http200.v1',
                 sourceReceipt: {
+                    ...structuredClone(clone.observationClasses['route-response-error'].sourceReceipt),
                     schema: 'fsusblog.http-200-source.v1',
-                    role: 'probe',
                     discriminator: { field: 'kind', value: 'http-200-class' }
                 },
                 requiredIdentityFields: ['contentDigest'],
@@ -573,7 +579,7 @@ test('sourceReceiptRef replays exact current source, producer, schema and file i
     for (const [field, value, expected] of [
         ['schema', 'fsusblog.other-source.v1', /upstream reference is invalid/u],
         ['role', 'browser', /upstream reference is invalid/u],
-        ['contentDigest', digest('8'), /upstream schema\/content\/file identity mismatch/u],
+        ['contentDigest', digest('8'), /upstream schema\/producer\/tool\/command\/content identity mismatch/u],
         ['path', '.tmp/current-run/missing-upstream.json', /ENOENT/u],
         ['path', '../upstream.json', /explicit current-run JSON path/u],
         ['path', path.join(receiptRepositoryRoot, '.tmp/current-run/upstream.json'),
@@ -602,6 +608,31 @@ test('sourceReceiptRef replays exact current source, producer, schema and file i
     assert.throws(() => validate(staleUpstreamReceipt), /upstream runId mismatch/u)
     fs.writeFileSync(upstreamAbsolute, upstreamBytes)
     fs.writeFileSync(sourceAbsolute, originalSourceBytes)
+
+    for (const [label, mutate] of [
+        ['missing producer', (document) => { delete document.producerId }],
+        ['wrong tool', (document) => { document.toolVersion = 'other-tool@1' }],
+        ['wrong rerun', (document) => { document.canonicalRerunCommand = 'node other.mjs' }],
+        ['wrong verify', (document) => { document.independentVerifyCommand = 'node other-verify.mjs' }],
+        ['missing nested ref', (document) => { delete document.fixtureReceipt }],
+        ['extra nested ref', (document) => { document.otherReceipt = document.fixtureReceipt }]
+    ])
+    {
+        const changed = JSON.parse(upstreamBytes.toString('utf8'))
+        mutate(changed)
+        const resealed = seal(changed)
+        fs.writeFileSync(upstreamAbsolute, `${JSON.stringify(resealed, null, 2)}\n`)
+        const coordinated = structuredClone(base)
+        coordinated.sourceReceiptRef = rewriteSource((document) =>
+        {
+            document.upstreamRef.fileDigest = `sha256:${createHash('sha256').update(fs.readFileSync(upstreamAbsolute)).digest('hex')}`
+            document.upstreamRef.contentDigest = resealed.contentDigest
+        })
+        assert.throws(() => validate(coordinated), /upstream receipt|upstream schema\/producer\/tool\/command/u,
+            label)
+        fs.writeFileSync(upstreamAbsolute, upstreamBytes)
+        fs.writeFileSync(sourceAbsolute, originalSourceBytes)
+    }
 
     const upstreamAlias = path.join(receiptRepositoryRoot, '.tmp/current-run/upstream-alias.json')
     fs.writeFileSync(upstreamAlias, upstreamBytes)
@@ -776,6 +807,18 @@ test('production validator rejects a second registry and is wired into static go
     assert.throws(
         () => validatePostRuntimeRepositoryAuthority(gitlinkRoot, { validateReaderFirewall: false }),
         /unsupported mode 160000/u)
+
+    const replacementRoot = createRepository()
+    execFileSync('git', ['-c', 'user.name=FsusBlog Test', '-c', 'user.email=test@fsus.invalid',
+        'commit', '--quiet', '--allow-empty', '-m', 'replacement target'], { cwd: replacementRoot })
+    const replacementHead = execFileSync('git', ['rev-parse', 'HEAD'],
+        { cwd: replacementRoot, encoding: 'utf8' }).trim()
+    const replacementParent = execFileSync('git', ['rev-parse', 'HEAD^'],
+        { cwd: replacementRoot, encoding: 'utf8' }).trim()
+    execFileSync('git', ['replace', replacementHead, replacementParent], { cwd: replacementRoot })
+    assert.throws(
+        () => validatePostRuntimeRepositoryAuthority(replacementRoot, { validateReaderFirewall: false }),
+        /replacement refs are forbidden/u)
 
     const duplicateRoot = createRepository()
     const duplicateRegistry = path.join(duplicateRoot, 'config/testing/post-runtime-producer-registry.json')
@@ -953,6 +996,20 @@ test('reader firewall traverses imports and rejects transitive Markdown/DocClaim
         () => validatePostRuntimeReaderFirewall(repositoryRoot, 'tools/test-matrix/url-docs-entry.mjs'),
         /documentation URL is forbidden/u)
 
+    fs.writeFileSync(path.join(repositoryRoot, 'tools/test-matrix/computed-fs-entry.mjs'),
+        "import fs from 'node:fs'\nexport const facts = fs.readFileSync(process.argv[2], 'utf8')\n")
+    execFileSync(process.execPath, [path.join(repositoryRoot, 'tools/test-matrix/computed-fs-entry.mjs'), docsText])
+    assert.throws(
+        () => validatePostRuntimeReaderFirewall(repositoryRoot, 'tools/test-matrix/computed-fs-entry.mjs'),
+        /computed filesystem path is forbidden/u)
+
+    fs.writeFileSync(path.join(repositoryRoot, 'tools/test-matrix/computed-url-entry.mjs'),
+        "export const facts = new URL(process.argv[2], import.meta.url).href\n")
+    execFileSync(process.execPath, [path.join(repositoryRoot, 'tools/test-matrix/computed-url-entry.mjs'), docsText])
+    assert.throws(
+        () => validatePostRuntimeReaderFirewall(repositoryRoot, 'tools/test-matrix/computed-url-entry.mjs'),
+        /dynamic or documentation URL is forbidden/u)
+
     fs.linkSync(path.join(repositoryRoot, 'tools/docs/doc-claim.mjs'),
         path.join(repositoryRoot, 'tools/test-matrix/hardlink-entry.mjs'))
     execFileSync(process.execPath, [path.join(repositoryRoot, 'tools/test-matrix/hardlink-entry.mjs')])
@@ -1016,11 +1073,17 @@ function acceptedClaimsFixture(context)
     const repositoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-post-runtime-claims-'))
     context.after(() => fs.rmSync(repositoryRoot, { recursive: true, force: true }))
     fs.mkdirSync(path.join(repositoryRoot, 'config/schemas'), { recursive: true })
-    fs.mkdirSync(path.join(repositoryRoot, '.tmp/current-run'), { recursive: true })
+    const schedulerRunId = 'run-1'
+    const attemptId = 'attempt-0001'
+    const evidenceDirectory = path.join(repositoryRoot, 'artifacts/current-run', schedulerRunId, attemptId)
+    fs.mkdirSync(evidenceDirectory, { recursive: true })
     fs.copyFileSync(
         path.join(root, 'config/schemas/post-runtime-accepted-claims.schema.json'),
         path.join(repositoryRoot, 'config/schemas/post-runtime-accepted-claims.schema.json'))
-    const terminalPath = path.join(repositoryRoot, '.tmp/current-run/global-claims.json')
+    const terminalRelative = `artifacts/current-run/${schedulerRunId}/${attemptId}/global-claim-exactness-final.terminal.json`
+    const referenceRelative = `artifacts/current-run/${schedulerRunId}/${attemptId}/global-claim-exactness-final.reference.json`
+    const terminalPath = path.join(repositoryRoot, terminalRelative)
+    const referencePath = path.join(repositoryRoot, referenceRelative)
     const terminal = {
         schema: 'fsusblog.global-claim-exactness-terminal-receipt.v1',
         scopeId: 'global-document-claim-exactness',
@@ -1064,6 +1127,32 @@ function acceptedClaimsFixture(context)
         return `sha256:${createHash('sha256').update(fs.readFileSync(terminalPath)).digest('hex')}`
     }
     const fileDigest = writeTerminal(terminal)
+    const terminalAuthority = registry.receiptSemantics.acceptedTerminalAuthority
+    const candidateIdentity = { candidateId: 'run-1:candidate' }
+    const buildIdentity = { buildDigest: digest('4') }
+    const referenceBody = {
+        schema: terminalAuthority.referenceSchema,
+        schedulerRunId,
+        attemptId,
+        sourceCommit: terminal.source.sourceCommit,
+        worktreeFingerprint: terminal.source.worktreeFingerprint,
+        candidateIdentity,
+        buildIdentity,
+        authorityId: terminalAuthority.authorityId,
+        producerId: terminalAuthority.producerId,
+        payload: {
+            path: terminalRelative,
+            schema: terminal.schema,
+            digest: fileDigest
+        }
+    }
+    const referenceWithContent = { ...referenceBody, contentDigest: authorityDigest(referenceBody) }
+    const reference = {
+        ...referenceWithContent,
+        producerReceiptDigest: authorityDigest(referenceWithContent)
+    }
+    fs.writeFileSync(referencePath, `${JSON.stringify(reference, null, 2)}\n`)
+    const referenceFileDigest = `sha256:${createHash('sha256').update(fs.readFileSync(referencePath)).digest('hex')}`
     const producer = registry.producers[0]
     const owners = new Map()
     for (const scope of migrationLedger.scopes)
@@ -1084,7 +1173,11 @@ function acceptedClaimsFixture(context)
         schema: acceptedClaimsSchema,
         sourceState: {
             commit: terminal.source.sourceCommit,
-            worktreeFingerprint: `sha256:${terminal.source.worktreeFingerprint}`
+            worktreeFingerprint: `sha256:${terminal.source.worktreeFingerprint}`,
+            schedulerRunId,
+            attemptId,
+            candidateIdentityDigest: authorityDigest(candidateIdentity),
+            buildIdentityDigest: authorityDigest(buildIdentity)
         },
         producerId: producer.producerId,
         toolVersion: registry.receiptSemantics.acceptedClaimsToolVersion,
@@ -1092,17 +1185,25 @@ function acceptedClaimsFixture(context)
         claimsSchemaDigest: authorityDigest(JSON.parse(fs.readFileSync(
             path.join(root, 'config/schemas/post-runtime-accepted-claims.schema.json'), 'utf8'))),
         terminalReceiptRef: {
-            path: '.tmp/current-run/global-claims.json',
-            fileDigest,
-            contentDigest: `sha256:${terminal.contentDigest}`,
-            schema: terminal.schema
+            path: referenceRelative,
+            fileDigest: referenceFileDigest,
+            contentDigest: reference.contentDigest,
+            schema: reference.schema,
+            authorityId: terminalAuthority.authorityId,
+            producerId: terminalAuthority.producerId,
+            toolVersion: terminalAuthority.toolVersion,
+            producerCommand: terminalAuthority.producerCommand,
+            payloadPath: terminalRelative,
+            payloadFileDigest: fileDigest,
+            payloadContentDigest: `sha256:${terminal.contentDigest}`,
+            payloadSchema: terminal.schema
         },
         migrationLedgerDigest: `sha256:${terminal.source.migrationLedgerDigest}`,
         claims: producer.acceptedClaimRefs.map((claimId) => owners.get(claimId))
             .sort((left, right) => left.claimId.localeCompare(right.claimId)),
         status: 'accepted'
     })
-    return { repositoryRoot, terminalPath, terminal, receipt, writeTerminal }
+    return { repositoryRoot, terminalPath, referencePath, terminal, reference, receipt, writeTerminal }
 }
 
 test('accepted claims replay one exact #2205 terminal path, digest, identity and claim set', (context) =>
@@ -1181,12 +1282,30 @@ test('accepted claims reject terminal file/content/identity and re-sealed claim 
     driftedTerminal.contentDigest = null
     driftedTerminal.contentDigest = digestValue(driftedTerminal)
     const driftedFileDigest = fixture.writeTerminal(driftedTerminal)
+    const driftedReferenceBody = {
+        ...fixture.reference,
+        sourceCommit: driftedTerminal.source.sourceCommit,
+        payload: { ...fixture.reference.payload, digest: driftedFileDigest }
+    }
+    delete driftedReferenceBody.contentDigest
+    delete driftedReferenceBody.producerReceiptDigest
+    const driftedReferenceWithContent = {
+        ...driftedReferenceBody,
+        contentDigest: authorityDigest(driftedReferenceBody)
+    }
+    const driftedReference = {
+        ...driftedReferenceWithContent,
+        producerReceiptDigest: authorityDigest(driftedReferenceWithContent)
+    }
+    fs.writeFileSync(fixture.referencePath, `${JSON.stringify(driftedReference, null, 2)}\n`)
     const identityDrift = seal({
         ...fixture.receipt,
         terminalReceiptRef: {
             ...fixture.receipt.terminalReceiptRef,
-            fileDigest: driftedFileDigest,
-            contentDigest: `sha256:${driftedTerminal.contentDigest}`
+            fileDigest: `sha256:${createHash('sha256').update(fs.readFileSync(fixture.referencePath)).digest('hex')}`,
+            contentDigest: driftedReference.contentDigest,
+            payloadFileDigest: driftedFileDigest,
+            payloadContentDigest: `sha256:${driftedTerminal.contentDigest}`
         }
     })
     assert.throws(
@@ -1197,5 +1316,57 @@ test('accepted claims reject terminal file/content/identity and re-sealed claim 
             repositoryRoot: fixture.repositoryRoot,
             migrationLedger
         }),
-        /source identity mismatch/u)
+        /reference identity\/content seal mismatch/u)
+})
+
+test('accepted claims reject re-sealed #2205 path, producer, tool, command and duplicate JSON drift', (context) =>
+{
+    const producerId = registry.producers[0].producerId
+    for (const [field, value] of [
+        ['path', '.tmp/current-run/global-claims.json'],
+        ['producerId', 'other-producer'],
+        ['toolVersion', 'other-tool@1'],
+        ['producerCommand', 'node tools/docs/global-claim-exactness-final.mjs']
+    ])
+    {
+        const fixture = acceptedClaimsFixture(context)
+        const changed = structuredClone(fixture.receipt)
+        changed.terminalReceiptRef[field] = value
+        assert.throws(() => validateAcceptedClaimsReceiptAgainstRegistry({
+            registry, producerId, receipt: seal(changed), repositoryRoot: fixture.repositoryRoot,
+            migrationLedger
+        }), /does not exact-match #2205 authority\/path\/producer\/tool\/command/u)
+    }
+
+    const duplicateReference = acceptedClaimsFixture(context)
+    const duplicateBytes = fs.readFileSync(duplicateReference.referencePath, 'utf8')
+        .replace('"schema":', '"schema": "fsusblog.current-run-evidence-reference.v1",\n  "schema":')
+    fs.writeFileSync(duplicateReference.referencePath, duplicateBytes)
+    duplicateReference.receipt.terminalReceiptRef.fileDigest =
+        `sha256:${createHash('sha256').update(duplicateBytes).digest('hex')}`
+    assert.throws(() => validateAcceptedClaimsReceiptAgainstRegistry({
+        registry, producerId, receipt: seal(duplicateReference.receipt),
+        repositoryRoot: duplicateReference.repositoryRoot, migrationLedger
+    }), /duplicate JSON key schema/u)
+
+    const duplicatePayload = acceptedClaimsFixture(context)
+    const payloadBytes = fs.readFileSync(duplicatePayload.terminalPath, 'utf8')
+        .replace('"schema":', '"schema": "fsusblog.global-claim-exactness-terminal-receipt.v1",\n  "schema":')
+    fs.writeFileSync(duplicatePayload.terminalPath, payloadBytes)
+    const payloadFileDigest = `sha256:${createHash('sha256').update(payloadBytes).digest('hex')}`
+    const referenceBody = structuredClone(duplicatePayload.reference)
+    delete referenceBody.contentDigest
+    delete referenceBody.producerReceiptDigest
+    referenceBody.payload.digest = payloadFileDigest
+    const referenceWithContent = { ...referenceBody, contentDigest: authorityDigest(referenceBody) }
+    const reference = { ...referenceWithContent, producerReceiptDigest: authorityDigest(referenceWithContent) }
+    fs.writeFileSync(duplicatePayload.referencePath, `${JSON.stringify(reference, null, 2)}\n`)
+    duplicatePayload.receipt.terminalReceiptRef.fileDigest =
+        `sha256:${createHash('sha256').update(fs.readFileSync(duplicatePayload.referencePath)).digest('hex')}`
+    duplicatePayload.receipt.terminalReceiptRef.contentDigest = reference.contentDigest
+    duplicatePayload.receipt.terminalReceiptRef.payloadFileDigest = payloadFileDigest
+    assert.throws(() => validateAcceptedClaimsReceiptAgainstRegistry({
+        registry, producerId, receipt: seal(duplicatePayload.receipt),
+        repositoryRoot: duplicatePayload.repositoryRoot, migrationLedger
+    }), /duplicate JSON key schema/u)
 })

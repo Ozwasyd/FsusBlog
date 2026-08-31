@@ -29,6 +29,7 @@ export const postRuntimeRegistrySchema = 'fsusblog.post-runtime-producer-registr
 export const observationEnvelopeSchema = 'fsusblog.post-runtime-observation-result-envelope.v1'
 export const acceptedClaimsSchema = 'fsusblog.post-runtime-accepted-claims.v1'
 export const globalExactnessSchema = 'fsusblog.global-claim-exactness-terminal-receipt.v1'
+export const currentRunEvidenceReferenceSchema = 'fsusblog.current-run-evidence-reference.v1'
 export const identityAuthoritySchema = 'fsusblog.post-runtime-identity-authority.v1'
 export const sourceReceiptSchema = 'fsusblog.post-runtime-source-receipt.v1'
 
@@ -73,20 +74,19 @@ process.stdin.on('end', () => {
         return normalized.split('/').some((segment) => segment === 'docs'
             || segment.startsWith('doc-claim') || segment.startsWith('markdown-reader'))
     }
-    const stringValues = (node, values = []) => {
-        if (!node || typeof node !== 'object') return values
-        if (literal(node)) values.push(node.value)
-        for (const value of Object.values(node))
-            if (Array.isArray(value)) value.forEach((entry) => stringValues(entry, values))
-            else stringValues(value, values)
-        return values
+    const assertStaticReaderPath = (node) => {
+        if (!literal(node)) throw new Error('computed filesystem path is forbidden in the reader closure')
+        if (forbiddenReaderPath(node.value))
+            throw new Error('documentation filesystem read is forbidden in the reader closure')
     }
     const add = (kind, node) => {
         if (!literal(node)) throw new Error('non-literal ' + kind + ' dependency')
         dependencies.push({ kind, specifier: node.value })
     }
-    const walk = (node) => {
+    const walk = (node, enclosingFunction = null) => {
         if (!node || typeof node !== 'object') return
+        const functionName = (node.type === 'FunctionDeclaration' || node.type === 'FunctionExpression'
+            || node.type === 'ArrowFunctionExpression') ? (node.id?.name ?? enclosingFunction) : enclosingFunction
         if (node.type === 'VariableDeclarator' && node.id?.type === 'Identifier'
             && node.init?.type === 'Identifier' && requireAliases.has(node.init.name))
             requireAliases.add(node.id.name)
@@ -141,17 +141,16 @@ process.stdin.on('end', () => {
         }
         if (node.type === 'CallExpression' && node.callee?.type === 'MemberExpression'
             && /^(?:read|readFile|readFileSync|open|openSync)$/u.test(propertyName(node.callee) ?? '')
-            && stringValues(node.arguments[0]).some(forbiddenReaderPath))
-            throw new Error('documentation filesystem read is forbidden in the reader closure')
+            && functionName !== 'readPinnedRepositoryFile')
+            assertStaticReaderPath(node.arguments[0])
         if (node.type === 'CallExpression' && node.callee?.type === 'Identifier'
-            && filesystemReaderAliases.has(node.callee.name)
-            && stringValues(node.arguments[0]).some(forbiddenReaderPath))
-            throw new Error('documentation filesystem read is forbidden in the reader closure')
+            && filesystemReaderAliases.has(node.callee.name))
+            assertStaticReaderPath(node.arguments[0])
         for (const [key, value] of Object.entries(node))
         {
             if (key === 'start' || key === 'end') continue
-            if (Array.isArray(value)) value.forEach(walk)
-            else walk(value)
+            if (Array.isArray(value)) value.forEach((entry) => walk(entry, functionName))
+            else walk(value, functionName)
         }
     }
     walk(ast)
@@ -255,7 +254,7 @@ const canonicalConfigJson = new Set([
 ])
 const readJson = (repositoryRoot, relative) =>
 {
-    const bytes = fs.readFileSync(path.join(repositoryRoot, relative))
+    const { bytes } = readPinnedRepositoryFile(repositoryRoot, relative, relative)
     return canonicalConfigJson.has(relative)
         ? parseCanonicalJson(bytes, relative, 4)
         : parseStrictJson(bytes.toString('utf8'), relative)
@@ -314,17 +313,60 @@ export function canonicalRepositoryFile(repositoryRoot, relative, label)
     return real
 }
 
+function readPinnedRepositoryFile(repositoryRoot, relative, label)
+{
+    const absolute = canonicalRepositoryFile(repositoryRoot, relative, label)
+    let descriptor
+    try
+    {
+        descriptor = fs.openSync(absolute, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW)
+        const before = fs.fstatSync(descriptor, { bigint: true })
+        if (!before.isFile() || before.nlink !== 1n)
+        {
+            fail(`${label} must remain a regular single-link file while open`)
+        }
+        const bytes = fs.readFileSync(descriptor)
+        const after = fs.fstatSync(descriptor, { bigint: true })
+        const pathStat = fs.lstatSync(absolute, { bigint: true })
+        for (const field of ['dev', 'ino', 'nlink', 'size', 'mtimeNs', 'ctimeNs'])
+        {
+            if (before[field] !== after[field]) fail(`${label} changed while its bytes were read`)
+        }
+        if (!pathStat.isFile() || pathStat.isSymbolicLink() || pathStat.nlink !== 1n
+            || pathStat.dev !== after.dev || pathStat.ino !== after.ino)
+        {
+            fail(`${label} path identity changed while its bytes were read`)
+        }
+        return { path: absolute, bytes, stat: after }
+    }
+    catch (error)
+    {
+        if (error instanceof Error && error.message.startsWith('[post-runtime-producer-registry]')) throw error
+        fail(`${label} cannot be opened without following links: ${error.message}`)
+    }
+    finally
+    {
+        if (descriptor !== undefined) fs.closeSync(descriptor)
+    }
+}
+
 function trackedRepositoryEntries(repositoryRoot)
 {
     const { lexicalRoot } = canonicalRepositoryRoot(repositoryRoot)
     let output
     try
     {
+        const replacements = execFileSync('git', ['-C', lexicalRoot, 'for-each-ref', '--format=%(refname)',
+            'refs/replace/'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+            env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' } }).trim()
+        if (replacements) fail('Git replacement refs are forbidden for repository authority validation')
         execFileSync('git', ['-C', lexicalRoot, 'diff-index', '--cached', '--quiet', 'HEAD', '--'], {
-            encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']
+            encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+            env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' }
         })
         output = execFileSync('git', ['-C', lexicalRoot, 'ls-files', '--stage', '-z'], {
-            encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']
+            encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+            env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' }
         })
     }
     catch (error)
@@ -366,7 +408,8 @@ function readIndexBlobs(repositoryRoot, entries)
         .filter((entry) => entry.mode === '100644' || entry.mode === '100755' || entry.mode === '120000')
         .map((entry) => entry.oid))]
     const output = execFileSync('git', ['-C', repositoryRoot, 'cat-file', '--batch'], {
-        input: `${objectIds.join('\n')}\n`, maxBuffer: 256 * 1024 * 1024
+        input: `${objectIds.join('\n')}\n`, maxBuffer: 256 * 1024 * 1024,
+        env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' }
     })
     const blobs = new Map()
     let offset = 0
@@ -393,7 +436,8 @@ function readIndexBlobs(repositoryRoot, entries)
 function gitObjectFormat(repositoryRoot)
 {
     const algorithm = execFileSync('git', ['-C', repositoryRoot, 'rev-parse', '--show-object-format'], {
-        encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']
+        encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+        env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' }
     }).trim()
     if (!['sha1', 'sha256'].includes(algorithm)) fail(`unsupported Git object format ${algorithm}`)
     return algorithm
@@ -416,12 +460,21 @@ function assertIndexWorktreeIdentity(repositoryRoot, entry, expectedBytes, objec
     }
     else
     {
-        const canonical = canonicalRepositoryFile(repositoryRoot, entry.path, `tracked path ${entry.path}`)
-        actualBytes = fs.readFileSync(canonical)
+        actualBytes = readPinnedRepositoryFile(repositoryRoot, entry.path,
+            `tracked path ${entry.path}`).bytes
     }
     if (!actualBytes.equals(expectedBytes) || gitBlobOid(objectFormat, actualBytes) !== entry.oid)
     {
         fail(`tracked path ${entry.path} worktree bytes do not exact-match the Git index blob`)
+    }
+}
+
+function assertIndexSnapshotUnchanged(repositoryRoot, entries)
+{
+    const current = trackedRepositoryEntries(repositoryRoot)
+    if (JSON.stringify(current) !== JSON.stringify(entries))
+    {
+        fail('Git index authority changed while repository bytes were validated')
     }
 }
 
@@ -492,8 +545,9 @@ export function validatePostRuntimeReaderFirewall(repositoryRoot = root, entry =
         {
             fail(`post-runtime reader import closure reaches forbidden Markdown/DocClaim module ${relative}`)
         }
-        const absolute = canonicalRepositoryFile(repositoryRoot, relative, `reader module ${relative}`)
-        const dependencies = parseExecutableDependencies(fs.readFileSync(absolute, 'utf8'), relative)
+        const source = readPinnedRepositoryFile(repositoryRoot, relative,
+            `reader module ${relative}`).bytes.toString('utf8')
+        const dependencies = parseExecutableDependencies(source, relative)
         for (const dependency of dependencies)
         {
             const resolved = resolveExecutableDependency(repositoryRoot, relative, dependency)
@@ -543,6 +597,7 @@ export function validatePostRuntimeRepositoryAuthority(repositoryRoot = root, {
         .map((entry) => entry.path)
         .sort()
     assertExactSet(registryFiles, [registryRelative], 'post-runtime registry authority paths')
+    assertIndexSnapshotUnchanged(repositoryRoot, trackedEntries)
     if (validateReaderFirewall) validatePostRuntimeReaderFirewall(repositoryRoot)
     return true
 }
@@ -553,6 +608,18 @@ function receiptDigest(receipt)
     const content = Object.fromEntries(Object.entries(receipt)
         .filter(([key]) => key !== 'contentDigest'))
     return `sha256:${digestValue(content)}`
+}
+
+function currentRunReferenceContentDigest(receipt)
+{
+    const { contentDigest: _content, producerReceiptDigest: _producer, ...payload } = receipt
+    return authorityDigest(payload)
+}
+
+function currentRunReferenceProducerDigest(receipt)
+{
+    const { producerReceiptDigest: _producer, ...payload } = receipt
+    return authorityDigest(payload)
 }
 
 function assertExactSet(actual, expected, label)
@@ -660,9 +727,14 @@ export function validatePostRuntimeReceiptSchemas(registry, {
         'status', 'contentDigest'
     ], 'accepted-claims required fields')
     assertExactSet(claimsSchema.properties?.terminalReceiptRef?.required,
-        ['path', 'fileDigest', 'contentDigest', 'schema'],
+        ['path', 'fileDigest', 'contentDigest', 'schema', 'authorityId', 'producerId',
+            'toolVersion', 'producerCommand', 'payloadPath', 'payloadFileDigest',
+            'payloadContentDigest', 'payloadSchema'],
         'accepted terminal receipt reference fields')
-    if (claimsSchema.properties?.terminalReceiptRef?.properties?.schema?.const !== globalExactnessSchema)
+    if (claimsSchema.properties?.terminalReceiptRef?.properties?.schema?.const
+        !== currentRunEvidenceReferenceSchema
+        || claimsSchema.properties?.terminalReceiptRef?.properties?.payloadSchema?.const
+        !== globalExactnessSchema)
     {
         fail('accepted-claims terminal schema does not bind #2205 authority')
     }
@@ -683,7 +755,8 @@ export function validatePostRuntimeProducerRegistry(registry, {
     catalog,
     migrationLedger = null,
     repositoryRoot = root,
-    matrix = parseMatrix(fs.readFileSync(path.join(repositoryRoot, matrixRelative), 'utf8')),
+    matrix = parseMatrix(readPinnedRepositoryFile(repositoryRoot, matrixRelative,
+        matrixRelative).bytes.toString('utf8')),
     attemptProducers = readJson(repositoryRoot, attemptProducersRelative),
     validateRepositoryAuthority = true
 } = {})
@@ -707,7 +780,8 @@ export function validatePostRuntimeProducerRegistry(registry, {
     const semantics = registry.receiptSemantics
     assertExactKeys(semantics, [
         'observationEnvelopeSchema', 'acceptedClaimsSchema', 'acceptedClaimsToolVersion',
-        'acceptedTerminalSchema', 'requiredModes', 'qualifyingEnvelope', 'terminalOutcomes'
+        'acceptedTerminalSchema', 'acceptedTerminalAuthority', 'requiredModes',
+        'qualifyingEnvelope', 'terminalOutcomes'
     ], 'receipt semantics')
     if (semantics.observationEnvelopeSchema !== observationEnvelopeSchema
         || semantics.acceptedClaimsSchema !== acceptedClaimsSchema
@@ -715,6 +789,22 @@ export function validatePostRuntimeProducerRegistry(registry, {
         || !toolVersionPattern.test(semantics.acceptedClaimsToolVersion ?? ''))
     {
         fail('receipt semantics schema or accepted-claims tool identity drifted')
+    }
+    const terminalAuthority = semantics.acceptedTerminalAuthority
+    assertExactKeys(terminalAuthority, [
+        'referenceSchema', 'authorityId', 'producerId', 'toolVersion', 'producerCommand',
+        'referenceRoot', 'referenceName', 'payloadName'
+    ], 'accepted terminal authority')
+    if (terminalAuthority.referenceSchema !== currentRunEvidenceReferenceSchema
+        || terminalAuthority.authorityId !== 'evidence-consumer.docs.global-claim-exactness-final.current-run'
+        || terminalAuthority.producerId !== 'evidence-consumer.docs.global-claim-exactness-final.producer'
+        || !toolVersionPattern.test(terminalAuthority.toolVersion ?? '')
+        || !terminalAuthority.producerCommand.includes('tools/docs/global-claim-exactness-final.mjs')
+        || terminalAuthority.referenceRoot !== 'artifacts/current-run'
+        || !/^[a-z0-9.-]+\.json$/u.test(terminalAuthority.referenceName ?? '')
+        || !/^[a-z0-9.-]+\.json$/u.test(terminalAuthority.payloadName ?? ''))
+    {
+        fail('accepted terminal authority identity/path/command is invalid')
     }
     assertExactSet(semantics.requiredModes, modes, 'receipt semantics required modes')
     assertExactKeys(semantics.qualifyingEnvelope, [
@@ -765,7 +855,10 @@ export function validatePostRuntimeProducerRegistry(registry, {
                 fail(`observation class ${classId} schema is missing or not versioned`)
             }
         }
-        assertExactKeys(definition.sourceReceipt, ['schema', 'role', 'discriminator'],
+        assertExactKeys(definition.sourceReceipt, [
+            'schema', 'role', 'discriminator', 'requiredFields',
+            'requiredReferenceFields', 'referenceMap'
+        ],
             `observation class ${classId} source receipt`)
         if (!/^fsusblog\.[a-z0-9.-]+\.v\d+$/u.test(definition.sourceReceipt.schema ?? '')
             || !sourceReceiptRoles.includes(definition.sourceReceipt.role))
@@ -785,6 +878,29 @@ export function validatePostRuntimeProducerRegistry(registry, {
         else if (definition.sourceReceipt.discriminator !== null)
         {
             fail(`observation class ${classId} non-probe source receipt cannot declare a discriminator`)
+        }
+        const sourceContract = definition.sourceReceipt
+        if (!Array.isArray(sourceContract.requiredFields)
+            || new Set(sourceContract.requiredFields).size !== sourceContract.requiredFields.length
+            || !['schema', 'producerId', 'toolVersion', 'sourceState', 'canonicalRerunCommand',
+                'independentVerifyCommand', 'contentDigest'].every((field) => sourceContract.requiredFields.includes(field))
+            || !Array.isArray(sourceContract.requiredReferenceFields)
+            || new Set(sourceContract.requiredReferenceFields).size !== sourceContract.requiredReferenceFields.length
+            || sourceContract.requiredReferenceFields.some((field) => !sourceContract.requiredFields.includes(field)))
+        {
+            fail(`observation class ${classId} source receipt must declare a closed producer/identity/reference shape`)
+        }
+        if (sourceContract.referenceMap !== null)
+        {
+            assertExactKeys(sourceContract.referenceMap, ['field', 'keys'],
+                `observation class ${classId} source receipt reference map`)
+            if (!sourceContract.requiredFields.includes(sourceContract.referenceMap.field)
+                || !Array.isArray(sourceContract.referenceMap.keys)
+                || sourceContract.referenceMap.keys.length === 0
+                || new Set(sourceContract.referenceMap.keys).size !== sourceContract.referenceMap.keys.length)
+            {
+                fail(`observation class ${classId} source receipt reference map is not exact`)
+            }
         }
         const identities = definition.requiredIdentityFields ?? []
         if (!identities.includes('contentDigest'))
@@ -1080,9 +1196,9 @@ function validateIdentityAuthorityRef(repositoryRoot, ref, expectedRole, sourceS
     {
         fail(`producer ${producerId} ${expectedRole} authority reference is invalid`)
     }
-    const authorityPath = currentReceiptFile(repositoryRoot, ref.path,
-        `producer ${producerId} ${expectedRole} authority`)
-    const bytes = fs.readFileSync(authorityPath)
+    currentReceiptFile(repositoryRoot, ref.path, `producer ${producerId} ${expectedRole} authority`)
+    const bytes = readPinnedRepositoryFile(repositoryRoot, ref.path,
+        `producer ${producerId} ${expectedRole} authority`).bytes
     const fileDigest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`
     if (ref.fileDigest !== fileDigest) fail(`producer ${producerId} ${expectedRole} authority file digest mismatch`)
     const authority = parseCanonicalJson(bytes, `producer ${producerId} ${expectedRole} authority`, 2)
@@ -1115,8 +1231,8 @@ function validateIdentityAuthorityRef(repositoryRoot, ref, expectedRole, sourceS
 
 function readCurrentJsonBytes(repositoryRoot, relative, label)
 {
-    const receiptPath = currentReceiptFile(repositoryRoot, relative, label)
-    const bytes = fs.readFileSync(receiptPath)
+    currentReceiptFile(repositoryRoot, relative, label)
+    const bytes = readPinnedRepositoryFile(repositoryRoot, relative, label).bytes
     let value
     try
     {
@@ -1140,8 +1256,7 @@ function replayEmbeddedReference(repositoryRoot, ref, label)
     {
         fail(`${label} is not a replayable file reference`)
     }
-    const absolute = canonicalRepositoryFile(repositoryRoot, ref.path, label)
-    const bytes = fs.readFileSync(absolute)
+    const bytes = readPinnedRepositoryFile(repositoryRoot, ref.path, label).bytes
     const fileDigest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`
     if (ref.fileDigest !== undefined && ref.fileDigest !== fileDigest)
     {
@@ -1174,24 +1289,19 @@ function replayEmbeddedReference(repositoryRoot, ref, label)
 function replayUpstreamClosure(repositoryRoot, upstream, contract, producerId)
 {
     const label = `producer ${producerId} ${contract.role} upstream`
-    if (contract.role === 'probe')
+    for (const field of contract.requiredReferenceFields)
     {
-        replayEmbeddedReference(repositoryRoot, upstream.buildReceipt, `${label} build receipt`)
-        replayEmbeddedReference(repositoryRoot, upstream.fixtureReceipt, `${label} fixture receipt`)
-        return
+        replayEmbeddedReference(repositoryRoot, upstream[field], `${label} ${field}`)
     }
-    if (contract.role === 'aot')
+    if (contract.referenceMap !== null)
     {
-        replayEmbeddedReference(repositoryRoot, upstream.candidatePlanRef, `${label} candidate plan`)
-        if (!isPlainObject(upstream.evidenceRefs) || Object.keys(upstream.evidenceRefs).length === 0)
+        const references = upstream[contract.referenceMap.field]
+        assertExactKeys(references, contract.referenceMap.keys,
+            `${label} ${contract.referenceMap.field}`)
+        for (const key of contract.referenceMap.keys)
         {
-            fail(`${label} evidence reference closure is missing`)
+            replayEmbeddedReference(repositoryRoot, references[key], `${label} ${contract.referenceMap.field}.${key}`)
         }
-        for (const [evidenceId, evidenceRef] of Object.entries(upstream.evidenceRefs))
-        {
-            replayEmbeddedReference(repositoryRoot, evidenceRef, `${label} evidence ${evidenceId}`)
-        }
-        return
     }
     if (contract.role === 'browser')
     {
@@ -1200,11 +1310,6 @@ function replayUpstreamClosure(repositoryRoot, upstream, contract, producerId)
             path: preview?.evidencePath,
             fileDigest: preview?.evidenceFileDigest
         }, `${label} public preview evidence`)
-        return
-    }
-    for (const field of ['rolloutEvidenceRef', 'runtimeRoleAdmissionRef'])
-    {
-        replayEmbeddedReference(repositoryRoot, upstream[field], `${label} ${field}`)
     }
 }
 
@@ -1279,36 +1384,33 @@ function validateSourceReceiptRef(repositoryRoot, ref, sourceState, producer, pr
     const upstreamCurrent = readCurrentJsonBytes(repositoryRoot, upstreamRef.path,
         `producer ${producerId} ${contract.role} upstream receipt`)
     const upstream = upstreamCurrent.value
+    assertExactKeys(upstream, contract.requiredFields,
+        `producer ${producerId} ${contract.role} upstream receipt`)
     if (upstreamCurrent.fileDigest !== upstreamRef.fileDigest || upstream.schema !== upstreamRef.schema
         || prefixedDigest(upstream.contentDigest) !== upstreamRef.contentDigest
-        || upstreamRef.contentDigest !== receiptDigest(upstream))
+        || upstreamRef.contentDigest !== receiptDigest(upstream)
+        || upstream.producerId !== producerId || upstream.toolVersion !== producer.toolVersion
+        || upstream.canonicalRerunCommand !== envelope.canonicalRerunCommand
+        || upstream.independentVerifyCommand !== envelope.independentVerifyCommand)
     {
-        fail(`producer ${producerId} source receipt upstream schema/content/file identity mismatch`)
+        fail(`producer ${producerId} source receipt upstream schema/producer/tool/command/content identity mismatch`)
     }
     if (contract.discriminator !== null
         && upstream[contract.discriminator.field] !== contract.discriminator.value)
     {
         fail(`producer ${producerId} source receipt upstream discriminator mismatch`)
     }
-    if (upstream.producerId !== undefined && upstream.producerId !== producerId)
-    {
-        fail(`producer ${producerId} source receipt upstream producer mismatch`)
-    }
+    const expectedSourceFields = definition.requiredIdentityFields
+        .filter((field) => !['producerId', 'toolVersion', 'contentDigest'].includes(field))
+    assertExactKeys(upstream.sourceState, expectedSourceFields,
+        `producer ${producerId} source receipt upstream sourceState`)
     const projected = identityProjection(upstream)
-    for (const required of ['sourceCommit', 'worktreeFingerprint'])
+    for (const required of expectedSourceFields)
     {
         if (projected[required] === undefined
             || prefixedDigest(projected[required]) !== prefixedDigest(sourceState[required]))
         {
             fail(`producer ${producerId} source receipt upstream ${required} mismatch`)
-        }
-    }
-    for (const [field, value] of Object.entries(projected))
-    {
-        if (value !== undefined && field !== 'sourceCommit' && field !== 'worktreeFingerprint'
-            && sourceState[field] !== value)
-        {
-            fail(`producer ${producerId} source receipt upstream ${field} mismatch`)
         }
     }
     replayUpstreamClosure(repositoryRoot, upstream, contract, producerId)
@@ -1445,29 +1547,86 @@ export function validateAcceptedClaimsReceiptAgainstRegistry({
     {
         fail('accepted-claims receipt contentDigest mismatch')
     }
-    assertExactKeys(receipt.sourceState, ['commit', 'worktreeFingerprint'],
+    assertExactKeys(receipt.sourceState, [
+        'commit', 'worktreeFingerprint', 'schedulerRunId', 'attemptId',
+        'candidateIdentityDigest', 'buildIdentityDigest'
+    ],
         'accepted-claims source identity')
     if (!/^[a-f0-9]{40}$/u.test(receipt.sourceState.commit ?? '')
-        || !digestPattern.test(receipt.sourceState.worktreeFingerprint ?? ''))
+        || !digestPattern.test(receipt.sourceState.worktreeFingerprint ?? '')
+        || !runIdentityPattern.test(receipt.sourceState.schedulerRunId ?? '')
+        || !attemptIdentityPattern.test(receipt.sourceState.attemptId ?? '')
+        || !digestPattern.test(receipt.sourceState.candidateIdentityDigest ?? '')
+        || !digestPattern.test(receipt.sourceState.buildIdentityDigest ?? ''))
     {
         fail('accepted-claims source identity is invalid')
     }
-    assertExactKeys(receipt.terminalReceiptRef, ['path', 'fileDigest', 'contentDigest', 'schema'],
+    assertExactKeys(receipt.terminalReceiptRef, [
+        'path', 'fileDigest', 'contentDigest', 'schema', 'authorityId', 'producerId',
+        'toolVersion', 'producerCommand', 'payloadPath', 'payloadFileDigest',
+        'payloadContentDigest', 'payloadSchema'
+    ],
         'accepted terminal receipt reference')
-    const terminalPath = currentReceiptFile(repositoryRoot, receipt.terminalReceiptRef.path,
-        'accepted terminal receipt')
-    const terminalBytes = fs.readFileSync(terminalPath)
-    const terminalFileDigest = `sha256:${createHash('sha256').update(terminalBytes).digest('hex')}`
-    if (receipt.terminalReceiptRef.fileDigest !== terminalFileDigest)
+    const terminalAuthority = registry.receiptSemantics.acceptedTerminalAuthority
+    const expectedDirectory = `${terminalAuthority.referenceRoot}/${receipt.sourceState.schedulerRunId}/${receipt.sourceState.attemptId}`
+    const expectedReferencePath = `${expectedDirectory}/${terminalAuthority.referenceName}`
+    const expectedPayloadPath = `${expectedDirectory}/${terminalAuthority.payloadName}`
+    const terminalRef = receipt.terminalReceiptRef
+    if (terminalRef.path !== expectedReferencePath || terminalRef.payloadPath !== expectedPayloadPath
+        || terminalRef.schema !== terminalAuthority.referenceSchema
+        || terminalRef.authorityId !== terminalAuthority.authorityId
+        || terminalRef.producerId !== terminalAuthority.producerId
+        || terminalRef.toolVersion !== terminalAuthority.toolVersion
+        || terminalRef.producerCommand !== terminalAuthority.producerCommand
+        || terminalRef.payloadSchema !== registry.receiptSemantics.acceptedTerminalSchema)
     {
-        fail('accepted terminal receipt file digest mismatch')
+        fail('accepted terminal reference does not exact-match #2205 authority/path/producer/tool/command')
     }
-    const terminal = JSON.parse(terminalBytes.toString('utf8'))
-    if (receipt.terminalReceiptRef.schema !== globalExactnessSchema
-        || terminal.schema !== globalExactnessSchema
-        || receipt.terminalReceiptRef.contentDigest !== prefixedDigest(terminal.contentDigest))
+    const referenceCurrent = readPinnedRepositoryFile(repositoryRoot, terminalRef.path,
+        'accepted terminal evidence reference')
+    const referenceFileDigest = `sha256:${createHash('sha256').update(referenceCurrent.bytes).digest('hex')}`
+    if (terminalRef.fileDigest !== referenceFileDigest)
     {
-        fail('accepted terminal receipt schema/content digest mismatch')
+        fail('accepted terminal evidence reference file digest mismatch')
+    }
+    const reference = parseCanonicalJson(referenceCurrent.bytes, 'accepted terminal evidence reference', 2)
+    assertExactKeys(reference, [
+        'schema', 'schedulerRunId', 'attemptId', 'sourceCommit', 'worktreeFingerprint',
+        'candidateIdentity', 'buildIdentity', 'authorityId', 'producerId', 'payload',
+        'contentDigest', 'producerReceiptDigest'
+    ], 'accepted terminal evidence reference')
+    assertExactKeys(reference.payload, ['path', 'schema', 'digest'],
+        'accepted terminal evidence payload reference')
+    if (reference.schema !== currentRunEvidenceReferenceSchema
+        || reference.authorityId !== terminalAuthority.authorityId
+        || reference.producerId !== terminalAuthority.producerId
+        || reference.schedulerRunId !== receipt.sourceState.schedulerRunId
+        || reference.attemptId !== receipt.sourceState.attemptId
+        || reference.sourceCommit !== receipt.sourceState.commit
+        || prefixedDigest(reference.worktreeFingerprint) !== receipt.sourceState.worktreeFingerprint
+        || authorityDigest(reference.candidateIdentity) !== receipt.sourceState.candidateIdentityDigest
+        || authorityDigest(reference.buildIdentity) !== receipt.sourceState.buildIdentityDigest
+        || reference.payload.path !== terminalRef.payloadPath
+        || reference.payload.schema !== terminalRef.payloadSchema
+        || reference.payload.digest !== terminalRef.payloadFileDigest
+        || reference.contentDigest !== currentRunReferenceContentDigest(reference)
+        || reference.producerReceiptDigest !== currentRunReferenceProducerDigest(reference)
+        || terminalRef.contentDigest !== reference.contentDigest)
+    {
+        fail('accepted terminal evidence reference identity/content seal mismatch')
+    }
+    const terminalCurrent = readPinnedRepositoryFile(repositoryRoot, terminalRef.payloadPath,
+        'accepted terminal payload')
+    const terminalFileDigest = `sha256:${createHash('sha256').update(terminalCurrent.bytes).digest('hex')}`
+    if (terminalRef.payloadFileDigest !== terminalFileDigest)
+    {
+        fail('accepted terminal payload file digest mismatch')
+    }
+    const terminal = parseCanonicalJson(terminalCurrent.bytes, 'accepted terminal payload', 2)
+    if (terminal.schema !== globalExactnessSchema
+        || terminalRef.payloadContentDigest !== prefixedDigest(terminal.contentDigest))
+    {
+        fail('accepted terminal payload schema/content digest mismatch')
     }
     validateMachineGlobalClaimExactnessReceipt(terminal)
     if (receipt.sourceState.commit !== terminal.source?.sourceCommit
@@ -1516,7 +1675,7 @@ export function validateAcceptedClaimsReceiptAgainstRegistry({
     return {
         producerId,
         behaviorId: BehaviorId(producer.behaviorId),
-        terminalReceiptDigest: receipt.terminalReceiptRef.contentDigest,
+        terminalReceiptDigest: receipt.terminalReceiptRef.payloadContentDigest,
         acceptedClaims: actualClaims.length,
         warnings: 0
     }

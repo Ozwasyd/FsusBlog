@@ -25,7 +25,11 @@
             "additionalProperties": false,
             "required": [
                 "commit",
-                "worktreeFingerprint"
+                "worktreeFingerprint",
+                "schedulerRunId",
+                "attemptId",
+                "candidateIdentityDigest",
+                "buildIdentityDigest"
             ],
             "properties": {
                 "commit": {
@@ -33,6 +37,20 @@
                     "pattern": "^[a-f0-9]{40}$"
                 },
                 "worktreeFingerprint": {
+                    "$ref": "#/$defs/digest"
+                },
+                "schedulerRunId": {
+                    "type": "string",
+                    "pattern": "^(?!\\.{1,2}$)[A-Za-z0-9_](?:[A-Za-z0-9_.-]{0,126}[A-Za-z0-9_])?$"
+                },
+                "attemptId": {
+                    "type": "string",
+                    "pattern": "^attempt-[0-9]{4}$"
+                },
+                "candidateIdentityDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "buildIdentityDigest": {
                     "$ref": "#/$defs/digest"
                 }
             }
@@ -58,7 +76,15 @@
                 "path",
                 "fileDigest",
                 "contentDigest",
-                "schema"
+                "schema",
+                "authorityId",
+                "producerId",
+                "toolVersion",
+                "producerCommand",
+                "payloadPath",
+                "payloadFileDigest",
+                "payloadContentDigest",
+                "payloadSchema"
             ],
             "properties": {
                 "path": {
@@ -72,6 +98,32 @@
                     "$ref": "#/$defs/digest"
                 },
                 "schema": {
+                    "const": "fsusblog.current-run-evidence-reference.v1"
+                },
+                "authorityId": {
+                    "const": "evidence-consumer.docs.global-claim-exactness-final.current-run"
+                },
+                "producerId": {
+                    "const": "evidence-consumer.docs.global-claim-exactness-final.producer"
+                },
+                "toolVersion": {
+                    "const": "global-claim-exactness-final@1"
+                },
+                "producerCommand": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "payloadPath": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "payloadFileDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "payloadContentDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "payloadSchema": {
                     "const": "fsusblog.global-claim-exactness-terminal-receipt.v1"
                 }
             }
