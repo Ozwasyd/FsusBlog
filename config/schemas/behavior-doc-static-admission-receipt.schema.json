@@ -511,11 +511,24 @@
                 "configuration"
             ],
             "properties": {
-                "schema": { "type": "string", "pattern": "^fsusblog\\.[a-z0-9-]+-build-receipt\\.v1$" },
-                "artifactId": { "type": "string", "minLength": 1 },
-                "artifactPath": { "type": "string", "minLength": 1 },
-                "artifactDigest": { "$ref": "#/$defs/digest" },
-                "configuration": { "const": "Release" }
+                "schema": {
+                    "type": "string",
+                    "pattern": "^fsusblog\\.[a-z0-9-]+-build-receipt\\.v1$"
+                },
+                "artifactId": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "artifactPath": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "artifactDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "configuration": {
+                    "const": "Release"
+                }
             }
         },
         "runtimeRoleMinimalBuildReceipt": {
@@ -532,14 +545,30 @@
                 "deploymentObservationDigest"
             ],
             "properties": {
-                "schema": { "const": "fsusblog.runtime-role-observation-build-receipt.v2" },
-                "artifactId": { "const": "runtime-role-observation" },
-                "artifactPath": { "const": ".tmp/contracts/runtime-role/runtime-role-observation.json" },
-                "artifactDigest": { "$ref": "#/$defs/digest" },
-                "configuration": { "const": "Release" },
-                "deploymentAuthoritySchema": { "const": "fsusblog.monolithic-distributed-architecture.v2" },
-                "deploymentAuthorityContentDigest": { "$ref": "#/$defs/prefixedDigest" },
-                "deploymentObservationDigest": { "$ref": "#/$defs/prefixedDigest" }
+                "schema": {
+                    "const": "fsusblog.runtime-role-observation-build-receipt.v2"
+                },
+                "artifactId": {
+                    "const": "runtime-role-observation"
+                },
+                "artifactPath": {
+                    "const": ".tmp/contracts/runtime-role/runtime-role-observation.json"
+                },
+                "artifactDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "configuration": {
+                    "const": "Release"
+                },
+                "deploymentAuthoritySchema": {
+                    "const": "fsusblog.monolithic-distributed-architecture.v2"
+                },
+                "deploymentAuthorityContentDigest": {
+                    "$ref": "#/$defs/prefixedDigest"
+                },
+                "deploymentObservationDigest": {
+                    "$ref": "#/$defs/prefixedDigest"
+                }
             }
         },
         "generatedResult": {
