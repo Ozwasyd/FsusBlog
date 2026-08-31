@@ -4,9 +4,14 @@
         {
             "id": "json-wire-key",
             "paths": [
-                "config/testing/correctness-attempt-producers.json"
+                "config/testing/correctness-attempt-producers.json",
+                "tests/anonymous-nullifier-concurrency-retirement-baseline.json",
+                "tests/backend/Fixtures/backend-evidence-path-authority.generated.json",
+                "tests/sensitive-endpoint-session-retirement-baseline.json",
+                "tests/test-retention-replacements.json",
+                "tests/upload-range-retirement-baseline.json"
             ],
-            "reason": "preserve the generated producer inventory field names consumed by repository test-governance tooling"
+            "reason": "preserve generated and retained governance field names consumed by repository test tooling"
         }
     ]
 }
