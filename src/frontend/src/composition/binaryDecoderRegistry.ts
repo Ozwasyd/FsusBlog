@@ -10,7 +10,7 @@ import { mapSecurityChallengeIssueResponseFromPayload, mapSecurityChallengeVerif
 import { mapRecentCommentsFromPodPayload, mapRegionsFromPodPayload, mapSiteStatsFromPodPayload } from '@/adapters/binary/statsAdapter';
 import { mapSiteSubscriptionResponseFromPayload } from '@/adapters/binary/subscriptionAdapter';
 import { mapPageContentFromPayload, mapSeoConfigFromPayload, mapSiteComplianceConfigFromPayload } from '@/adapters/binary/systemAdapter';
-import { mapCategoryListFromPayload, mapTagListFromPayload } from '@/adapters/binary/taxonomyAdapter';
+import { mapCategoryListFromPayload, mapTagListFromPayload, mapTaxonomyExactMetadataFromPayload } from '@/adapters/binary/taxonomyAdapter';
 import { mapUploadCompleteFromPayload, mapUploadInitFromPayload, mapUploadPartAckFromPayload, mapUploadPartMapFromPayload, mapUploadStatusFromPayload } from '@/adapters/binary/uploadAdapter';
 import { mapAdminUserPageFromPayload } from '@/adapters/binary/userAdapter';
 import { mapUserLocalePreferenceFromPayload } from '@/adapters/binary/localePreferenceAdapter';
@@ -85,6 +85,7 @@ export const binaryFrameDecoderFrameTypes = Object.freeze([
     FrameType.AdminStats,
     FrameType.CategoryList,
     FrameType.TagList,
+    FrameType.TaxonomyExactMetadata,
     FrameType.RecentCommentStats,
     FrameType.RegionStats,
     FrameType.SeoConfig,
@@ -277,6 +278,7 @@ export const binaryFrameDecoderRegistrations = Object.freeze([
     [FrameType.AdminStats, mapSiteStatsFromPodPayload],
     [FrameType.CategoryList, mapCategoryListFromPayload],
     [FrameType.TagList, mapTagListFromPayload],
+    [FrameType.TaxonomyExactMetadata, mapTaxonomyExactMetadataFromPayload],
     [FrameType.RecentCommentStats, mapRecentCommentsFromPodPayload],
     [FrameType.RegionStats, mapRegionsFromPodPayload],
     [FrameType.SeoConfig, mapSeoConfigFromPayload],
