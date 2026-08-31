@@ -568,21 +568,26 @@ public sealed class SchemaMigrationRegistryTests
     [Fact]
     public void GetDescriptors_ArticleViewProjectionWatermark_CreatesDurableRepairState()
     {
+        const string WatermarkTableName = "article_view_projection_watermark";
         var registry = new SchemaMigrationRegistry();
 
         ISchemaMigrationDescriptor descriptor = Assert.Single(
             registry.GetDescriptors(),
             static item => item.MigrationId == "20260629-post-article-view-projection-watermark");
         string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
-        string runnerRuntime = RuntimeMetadataInspection.DescribeMethods(
-            typeof(CurrentSchemaStartupVerifier),
-            nameof(CurrentSchemaStartupVerifier.RunAsync));
+        string[] fingerprintTokens = descriptor.Steps
+            .SelectMany(static step => step.Fingerprint.Split('\n'))
+            .ToArray();
+        string migrationRuntime = RuntimeMetadataInspection.DescribeMethods(
+            typeof(SecurityAndProjectionMigrationDefinitions),
+            nameof(SecurityAndProjectionMigrationDefinitions.BuildArticleViewProjectionWatermarkMigration));
 
         Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
-        Assert.Contains("article_view_projection_watermark", fingerprint, StringComparison.Ordinal);
+        Assert.Equal(WatermarkTableName, Assert.IsType<EnsureTableStep>(descriptor.Steps[0]).TableName);
+        Assert.Contains(WatermarkTableName, fingerprintTokens, StringComparer.Ordinal);
         Assert.Contains("last_visit_log_id integer NOT NULL DEFAULT 0", fingerprint, StringComparison.Ordinal);
         Assert.Contains("last_full_reconcile_utc timestamp", fingerprint, StringComparison.Ordinal);
-        Assert.Contains("article_view_projection_watermark", runnerRuntime, StringComparison.Ordinal);
+        Assert.Contains(WatermarkTableName, migrationRuntime.Split('\n'), StringComparer.Ordinal);
     }
 
     [Fact]
