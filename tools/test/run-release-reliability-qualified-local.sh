@@ -19,6 +19,7 @@ release_preview_pid=""
 test_resource=""
 runtime_admission_only=0
 declare -a qualified_bootstrap_fixture_environment=()
+declare -a observed_owned_container_ids=()
 ValidateUserSystemdCarrier() {
     local runtimeDirectory="${1:-}"
     local currentUid="${2:-}"
@@ -103,6 +104,7 @@ StopManagedBackend() {
 RemoveOwnedContainer() {
     local containerId="$1"
     [[ -n "$containerId" ]] || return 0
+    [[ "$containerId" =~ ^[0-9a-f]{64}$ ]] || return 1
     if ! docker inspect "$containerId" >/dev/null 2>&1; then
         return 0
     fi
@@ -110,6 +112,21 @@ RemoveOwnedContainer() {
     binding="$(docker inspect --format '{{.Id}}|{{index .Config.Labels "io.fsusblog.test.run-id"}}|{{index .Config.Labels "io.fsusblog.test.namespace"}}' "$containerId")"
     [[ "$binding" == "$containerId|$run_id|$namespace" ]] || return 1
     docker rm -f -v "$containerId" >/dev/null
+}
+ObserveOwnedContainerIds() {
+    observed_owned_container_ids=()
+    [[ -n "${run_id:-}" && -n "${namespace:-}" ]] || return 0
+    local observation
+    observation="$(docker ps --all --quiet --no-trunc \
+        --filter "label=io.fsusblog.test.run-id=$run_id" \
+        --filter "label=io.fsusblog.test.namespace=$namespace")" || return 1
+    [[ -n "$observation" ]] || return 0
+    local containerId
+    while IFS= read -r containerId; do
+        [[ "$containerId" =~ ^[0-9a-f]{64}$ ]] \
+            || { printf '%s\n' 'owned container discovery returned a malformed full ID' >&2; return 1; }
+        observed_owned_container_ids+=("$containerId")
+    done <<<"$observation"
 }
 RemoveOwnedNetwork() {
     local networkId="$1"
@@ -207,6 +224,22 @@ CleanupQualifiedRuntimeResources() {
     RemoveOwnedContainer "$backend_container_id" || cleanupStatus=1
     RemoveOwnedContainer "$postgres_container_id" || cleanupStatus=1
     RemoveOwnedContainer "$redis_container_id" || cleanupStatus=1
+    if ObserveOwnedContainerIds; then
+        local discoveredContainerId
+        for discoveredContainerId in "${observed_owned_container_ids[@]}"; do
+            RemoveOwnedContainer "$discoveredContainerId" || cleanupStatus=1
+        done
+    else
+        cleanupStatus=1
+    fi
+    if ObserveOwnedContainerIds; then
+        if ((${#observed_owned_container_ids[@]} != 0)); then
+            printf '%s\n' 'owned containers remain after qualified runtime cleanup' >&2
+            cleanupStatus=1
+        fi
+    else
+        cleanupStatus=1
+    fi
     RemoveOwnedNetwork "$backend_network_id" || cleanupStatus=1
     if [[ -n "$managed_pid_file" ]]; then
         rm -f -- "$managed_pid_file" "${managed_pid_file%.pid}.identity.json"
@@ -303,6 +336,57 @@ InvokeQualifiedAcceptanceBootstrap() {
 }
 trap CleanupQualifiedRuntime EXIT
 trap 'exit 130' INT TERM
+if [[ "${1:-}" == "--test-bootstrap-cleanup" ]]; then
+    [[ "$#" -eq 5 ]] \
+        || { printf '%s\n' '--test-bootstrap-cleanup requires fake Docker, bootstrap executable, run ID, and namespace' >&2; exit 2; }
+    test_docker="$(realpath "$2")"
+    test_bootstrap="$(realpath "$3")"
+    run_id="$4"
+    namespace="$5"
+    [[ "$test_docker" == /tmp/* && "$(basename "$test_docker")" == docker && -x "$test_docker" \
+        && "$test_bootstrap" == /tmp/* && -x "$test_bootstrap" \
+        && "$run_id" =~ ^[a-z0-9][a-z0-9_.-]*$ \
+        && "$namespace" =~ ^[a-z0-9][a-z0-9_.-]*$ ]] \
+        || { printf '%s\n' '--test-bootstrap-cleanup accepts only isolated fake Docker and canonical identity' >&2; exit 2; }
+    PATH="$(dirname "$test_docker"):$PATH"
+    "$test_bootstrap"
+    exit
+fi
+if [[ "${1:-}" == "--test-container-cleanup" ]]; then
+    [[ "$#" -eq 8 ]] \
+        || { printf '%s\n' '--test-container-cleanup requires fake Docker, run ID, namespace, three container IDs, and network ID' >&2; exit 2; }
+    test_docker="$(realpath "$2")"
+    [[ "$test_docker" == /tmp/* && "$(basename "$test_docker")" == docker && -x "$test_docker" ]] \
+        || { printf '%s\n' '--test-container-cleanup requires an executable /tmp fake named docker' >&2; exit 2; }
+    run_id="$3"
+    namespace="$4"
+    backend_container_id="$5"
+    postgres_container_id="$6"
+    redis_container_id="$7"
+    backend_network_id="$8"
+    [[ "$run_id" != - ]] || run_id=""
+    [[ "$namespace" != - ]] || namespace=""
+    [[ "$backend_container_id" != - ]] || backend_container_id=""
+    [[ "$postgres_container_id" != - ]] || postgres_container_id=""
+    [[ "$redis_container_id" != - ]] || redis_container_id=""
+    [[ "$backend_network_id" != - ]] || backend_network_id=""
+    [[ -z "$run_id" || "$run_id" =~ ^[a-z0-9][a-z0-9_.-]*$ ]] \
+        || { printf '%s\n' '--test-container-cleanup run ID is invalid' >&2; exit 2; }
+    [[ -z "$namespace" || "$namespace" =~ ^[a-z0-9][a-z0-9_.-]*$ ]] \
+        || { printf '%s\n' '--test-container-cleanup namespace is invalid' >&2; exit 2; }
+    for test_container_id in "$backend_container_id" "$postgres_container_id" "$redis_container_id" "$backend_network_id"; do
+        [[ -z "$test_container_id" || "$test_container_id" =~ ^[0-9a-f]{64}$ ]] \
+            || { printf '%s\n' '--test-container-cleanup resource ID is invalid' >&2; exit 2; }
+    done
+    PATH="$(dirname "$test_docker"):$PATH"
+    trap - EXIT
+    if CleanupQualifiedRuntimeResources 1; then
+        exit 0
+    else
+        cleanup_status=$?
+        exit "$cleanup_status"
+    fi
+fi
 if [[ "${1:-}" == "--test-workflow" ]]; then
     [[ "$#" -eq 5 ]] || { printf '%s\n' '--test-workflow requires runner, verifier, receipt, and cleanup-resource paths' >&2; exit 2; }
     runner_path="$(realpath "$2")"
