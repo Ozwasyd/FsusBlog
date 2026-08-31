@@ -1,13 +1,11 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
 import { browserContractScenarios } from '../browser-contract/contract.mjs'
 import {
-  currentRegistryBinding,
   produceClassReceipt,
   seal
 } from '../../tools/fact-extractors/post-runtime/adapter.mjs'
@@ -16,13 +14,9 @@ import {
   verifyBrowserContractRaw
 } from '../../tools/test-evidence/browser-contract-observation-raw.mjs'
 import { sealBrowserContractReceipt } from '../../tools/release/test-evidence-receipts.mjs'
-import {
-  loadPostRuntimeProducerRegistry,
-  root
-} from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
+import { root } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
+import { createPostRuntimeCandidateFixture } from './support/post-runtime-candidate-fixture.mjs'
 
-const commit = 'a'.repeat(40)
-const fingerprint = 'b'.repeat(64)
 const runId = 'browser-observation-test'
 const fileDigest = (file) => `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`
 
@@ -54,21 +48,12 @@ function qualityReport(id, viewport, theme)
 
 function fixture(context)
 {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-browser-contract-raw-'))
-  context.after(() => fs.rmSync(directory, { recursive: true, force: true }))
-  const repositoryRoot = path.join(directory, 'repo')
-  const fixtureRoot = path.join(repositoryRoot, '.tmp', 'fixture')
-  fs.mkdirSync(path.join(repositoryRoot, 'config', 'contracts'), { recursive: true })
-  fs.mkdirSync(path.join(repositoryRoot, 'config', 'testing'), { recursive: true })
-  fs.mkdirSync(fixtureRoot, { recursive: true })
-  fs.copyFileSync(
-    path.join(root, 'config/contracts/behavior-contracts.json'),
-    path.join(repositoryRoot, 'config/contracts/behavior-contracts.json')
-  )
-  fs.copyFileSync(
-    path.join(root, 'config/testing/post-runtime-producer-registry.json'),
-    path.join(repositoryRoot, 'config/testing/post-runtime-producer-registry.json')
-  )
+  const candidate = createPostRuntimeCandidateFixture(context, {
+    prefix: 'browser-contract-observation-raw-', runId
+  })
+  const { directory, commit, worktreeFingerprint: fingerprint } = candidate
+  const repositoryRoot = root
+  const fixtureRoot = directory
   const relative = (file) => path.relative(repositoryRoot, file).replaceAll(path.sep, '/')
   const write = (name, value) => {
     const file = path.join(fixtureRoot, name)
@@ -76,15 +61,8 @@ function fixture(context)
     return file
   }
 
-  const build = seal({
-    schema: 'fsusblog.ci-production-build-receipt.v1',
-    status: 'complete',
-    sourceState: { commit, worktreeFingerprint: fingerprint },
-    build: { profile: 'production-fresh' },
-    producer: { runId, job: 'production-build-artifacts' },
-    toolchain: { node: '24', dotnet: '10' }
-  })
-  const buildFile = write('build.json', build)
+  const build = candidate.build
+  const buildFile = candidate.buildFile
   const reports = [
     qualityReport('public-desktop-light', { width: 1440, height: 960 }, 'light'),
     qualityReport('admin-mobile-dark', { width: 390, height: 844 }, 'dark')
@@ -123,6 +101,7 @@ function fixture(context)
   const publicPreviewFile = path.join(repositoryRoot, '.tmp', 'release-evidence', 'public-preview-screenshots.json')
   fs.mkdirSync(path.dirname(publicPreviewFile), { recursive: true })
   fs.writeFileSync(publicPreviewFile, `${JSON.stringify(publicPreviewEvidence, null, 2)}\n`)
+  context.after(() => fs.rmSync(publicPreviewFile, { force: true }))
   const browserPlan = seal({
     schema: 'fsusblog.playwright-browser-identity.v1',
     executionClass: 'correctness',
@@ -215,43 +194,12 @@ function fixture(context)
     }
   })
   const browserFile = write('browser-contract.json', browser)
-  const registry = loadPostRuntimeProducerRegistry(repositoryRoot)
-  const producer = registry.producers[0]
-  const observations = Object.entries(registry.observationClasses)
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([observationClass, definition]) => ({
-      classId: observationClass,
-      schema: definition.schema,
-      receiptPath: relative(path.join(fixtureRoot, `${observationClass}-raw.json`)),
-      requiredModes: Object.entries(producer.requiredObservations)
-        .filter(([, classes]) => classes.includes(observationClass))
-        .map(([mode]) => mode).sort()
-    }))
-  const plan = seal({
-    schema: 'fsusblog.post-runtime-candidate-plan.v1',
-    producerId: producer.producerId,
-    registryBinding: currentRegistryBinding(root),
-    sourceState: { commit, worktreeFingerprint: `sha256:${fingerprint}` },
-    build: {
-      receipt: relative(buildFile),
-      receiptContentDigest: build.contentDigest,
-      sourceState: build.sourceState
-    },
-    candidate: {
-      candidateId: `${runId}:candidate`, runId, attemptId: 'attempt-1', fixtureId: `${runId}:fixture`,
-      profileId: 'production-fresh', runtimeId: `${runId}:runtime`, browserId: `${runId}:browser-contract`,
-      releaseId: `${runId}:release`, rolloutId: `${runId}:rollout`
-    },
-    preRuntimeReceiptDigest: `sha256:${'8'.repeat(64)}`,
-    acceptedClaimsReceiptDigest: `sha256:${'9'.repeat(64)}`,
-    observations,
-    status: 'planned'
-  })
-  const planFile = write('candidate-plan.json', plan)
-  const rawPath = observations.find(({ classId }) => classId === 'browser-behavior-contract').receiptPath
+  const plan = candidate.plan
+  const planFile = candidate.planFile
+  const rawPath = candidate.observationPaths['browser-behavior-contract']
   return {
     directory, repositoryRoot, relative, write, build, buildFile, publicPreviewEvidence, publicPreviewFile,
-    browser, browserFile, plan, planFile, rawPath
+    browser, browserFile, plan, planFile, rawPath, candidate
   }
 }
 
@@ -280,7 +228,7 @@ test('browser raw projector binds exact tests, dimensions, semantics, and curren
     assert.match(raw.semanticFacts[field], /^sha256:[a-f0-9]{64}$/u, field)
   }
   assert.equal(raw.semanticFacts.screenshotOnly, false)
-  assert.equal(raw.sourceState.browserIdentity, `${runId}:browser-contract`)
+  assert.equal(raw.sourceState.browserIdentity, `${runId}-browser-contract`)
   assert.equal(raw.sourceState.runId, runId)
 
   fs.writeFileSync(path.join(value.repositoryRoot, value.rawPath), `${JSON.stringify(raw, null, 2)}\n`)

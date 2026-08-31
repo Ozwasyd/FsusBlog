@@ -5,7 +5,9 @@ import path from 'node:path'
 import { loadCatalog } from '../../contracts/behavior-contract-catalog.mjs'
 import { validateGlobalClaimExactnessReceipt } from '../../docs/global-claim-exactness-final.mjs'
 import { digestValue, isPlainObject, stable } from '../lib/canonicalize.mjs'
+import { resolveSourceCommit, resolveWorktreeFingerprint } from '../identity.mjs'
 import { productionBuildBinding } from '../../release/test-evidence-receipts.mjs'
+import { verifyProductionBuildReceipt } from '../../ci/production-build-artifacts.mjs'
 import { assertPreRuntimeQualified } from '../../test-matrix/behavior-evidence-pre-runtime.mjs'
 import {
   loadPostRuntimeProducerRegistry,
@@ -20,6 +22,7 @@ export const acceptedClaimsSchema = 'fsusblog.post-runtime-accepted-claims.v1'
 export const candidatePlanSchema = 'fsusblog.post-runtime-candidate-plan.v1'
 export const classReceiptSchema = 'fsusblog.post-runtime-class-receipt.v1'
 export const observationReceiptSchema = 'fsusblog.post-runtime-observation-receipt.v1'
+export const identityAuthoritySchema = 'fsusblog.post-runtime-identity-authority.v1'
 
 const digestPattern = /^(?:sha256:)?[a-f0-9]{64}$/u
 const unsafePathPattern = /(?:^|[/\\])(?:latest|history|historical)(?:[/\\]|$)/iu
@@ -47,7 +50,7 @@ function verifySeal(value, label)
 
 export function explicitJson(input, label, repositoryRoot = defaultRoot)
 {
-  if (isPlainObject(input)) return { value: structuredClone(input), relative: null }
+  if (isPlainObject(input)) return { value: structuredClone(input), relative: null, fileDigest: null }
   if (typeof input !== 'string' || input.length === 0) fail(`${label} requires an explicit JSON path`)
   const root = path.resolve(repositoryRoot)
   const absolute = path.resolve(root, input)
@@ -55,15 +58,60 @@ export function explicitJson(input, label, repositoryRoot = defaultRoot)
   {
     fail(`${label} must be a current-run JSON path inside the repository`)
   }
+  for (let cursor = absolute; cursor !== root; cursor = path.dirname(cursor))
+  {
+    const cursorStat = lstatSync(cursor, { throwIfNoEntry: false })
+    if (!cursorStat || cursorStat.isSymbolicLink())
+    {
+      fail(`${label} must not traverse a symlink or missing ancestor`)
+    }
+  }
   const stat = lstatSync(absolute, { throwIfNoEntry: false })
-  if (!stat?.isFile() || stat.isSymbolicLink() || realpathSync(absolute) !== absolute)
+  if (!stat?.isFile() || stat.isSymbolicLink() || realpathSync(absolute) !== absolute
+    || realpathSync(root) !== root)
   {
     fail(`${label} must be a regular non-symlink current-run file`)
   }
+  const bytes = readFileSync(absolute)
   return {
-    value: JSON.parse(readFileSync(absolute, 'utf8')),
-    relative: path.relative(root, absolute).replaceAll(path.sep, '/')
+    value: JSON.parse(bytes.toString('utf8')),
+    relative: path.relative(root, absolute).replaceAll(path.sep, '/'),
+    fileDigest: `sha256:${createHash('sha256').update(bytes).digest('hex')}`
   }
+}
+
+function receiptReference(input, label)
+{
+  if (input.relative === null || !digestPattern.test(String(input.value?.contentDigest ?? '')))
+  {
+    fail(`${label} requires one persisted sealed receipt`)
+  }
+  return stable({
+    path: input.relative,
+    fileDigest: input.fileDigest,
+    contentDigest: prefixedDigest(input.value.contentDigest),
+    schema: input.value.schema
+  })
+}
+
+function verifyReference(reference, label, repositoryRoot)
+{
+  if (!isPlainObject(reference)
+    || JSON.stringify(Object.keys(reference).sort())
+      !== JSON.stringify(['contentDigest', 'fileDigest', 'path', 'schema'])
+    || !digestPattern.test(String(reference.fileDigest ?? ''))
+    || !digestPattern.test(String(reference.contentDigest ?? '')))
+  {
+    fail(`${label} reference shape is invalid`)
+  }
+  const input = explicitJson(reference.path, label, repositoryRoot)
+  if (input.fileDigest !== reference.fileDigest
+    || prefixedDigest(input.value.contentDigest) !== reference.contentDigest
+    || input.value.schema !== reference.schema)
+  {
+    fail(`${label} reference bytes, content, or schema changed`)
+  }
+  return input
 }
 
 export function writeReceipt(output, receipt, repositoryRoot = defaultRoot)
@@ -105,14 +153,78 @@ function authority(repositoryRoot = defaultRoot)
 export function currentRegistryBinding(repositoryRoot = defaultRoot)
 {
   const { registry, producer } = authority(repositoryRoot)
+  const observationSchema = JSON.parse(readFileSync(
+    path.join(repositoryRoot, 'config/schemas/post-runtime-observation-result.schema.json'), 'utf8'))
+  const claimsSchema = JSON.parse(readFileSync(
+    path.join(repositoryRoot, 'config/schemas/post-runtime-accepted-claims.schema.json'), 'utf8'))
   return stable({
     schema: registry.schema,
     contentDigest: `sha256:${digestValue(registry)}`,
+    observationSchemaDigest: `sha256:${digestValue(observationSchema)}`,
+    claimsSchemaDigest: `sha256:${digestValue(claimsSchema)}`,
     producerToolVersion: producer.toolVersion,
     observationEnvelopeSchema: registry.receiptSemantics.observationEnvelopeSchema,
     acceptedClaimsSchema: registry.receiptSemantics.acceptedClaimsSchema,
     acceptedClaimsToolVersion: registry.receiptSemantics.acceptedClaimsToolVersion
   })
+}
+
+export function observationEnvelopeAuthorityFields({ plan, candidatePlanRef, repositoryRoot = defaultRoot })
+{
+  const schema = JSON.parse(readFileSync(
+    path.join(repositoryRoot, 'config/schemas/post-runtime-observation-result.schema.json'), 'utf8'))
+  const required = new Set(schema.required ?? [])
+  if (!required.has('attemptAuthorityRef')) return { candidatePlanRef }
+  verifyIdentityAuthorities(plan.identityAuthorityRefs, {
+    sourceState: plan.sourceState,
+    candidate: plan.candidate
+  }, repositoryRoot)
+  return stable({
+    registryDigest: currentRegistryBinding(repositoryRoot).contentDigest,
+    observationSchemaDigest: `sha256:${digestValue(schema)}`,
+    candidatePlanRef: plan.identityAuthorityRefs.plan,
+    attemptAuthorityRef: plan.identityAuthorityRefs.attempt,
+    fixtureAuthorityRef: plan.identityAuthorityRefs.fixture,
+    profileAuthorityRef: plan.identityAuthorityRefs.profile
+  })
+}
+
+export function observationSourceState({ plan, artifactDigest = null, repositoryRoot = defaultRoot, legacy = {} })
+{
+  const schema = JSON.parse(readFileSync(
+    path.join(repositoryRoot, 'config/schemas/post-runtime-observation-result.schema.json'), 'utf8'))
+  const required = new Set(schema.required ?? [])
+  if (!required.has('attemptAuthorityRef')) return stable(legacy)
+  const runtimeIdentity = `sha256:${digestValue(plan.candidate.runtimeId)}`
+  const browserIdentity = `sha256:${digestValue(plan.candidate.browserId)}`
+  return stable({
+    sourceCommit: plan.sourceState.commit,
+    worktreeFingerprint: plan.sourceState.worktreeFingerprint,
+    buildIdentity: plan.build.receiptContentDigest,
+    ...(artifactDigest ? { artifactDigest } : {}),
+    candidateId: plan.candidate.candidateId,
+    runtimeIdentity,
+    browserIdentity,
+    releaseId: plan.candidate.releaseId,
+    rolloutId: plan.candidate.rolloutId,
+    runId: plan.candidate.runId,
+    attemptId: plan.candidate.attemptId,
+    fixtureId: plan.candidate.fixtureId,
+    profileId: plan.candidate.profileId
+  })
+}
+
+export function candidatePlanPathForObservation(receipt, explicitCandidatePlan = null)
+{
+  if (receipt?.candidatePlanRef?.schema === identityAuthoritySchema)
+  {
+    if (typeof explicitCandidatePlan !== 'string' || explicitCandidatePlan.length === 0)
+    {
+      fail('typed observation verification requires an explicit candidate plan path')
+    }
+    return explicitCandidatePlan
+  }
+  return receipt?.candidatePlanRef?.path
 }
 
 function requiredModes(producer, classId)
@@ -152,6 +264,9 @@ export function produceAcceptedClaims({ terminalReceipt, repositoryRoot = defaul
     if (!owner) fail(`accepted claim ${claimId} is absent from the #2205 ledger`)
     return { claimId, ...owner }
   }).sort((left, right) => left.claimId.localeCompare(right.claimId))
+  const claimsSchemaDocument = JSON.parse(readFileSync(
+    path.join(repositoryRoot, 'config/schemas/post-runtime-accepted-claims.schema.json'), 'utf8'))
+  const requiresAuthorityDigests = (claimsSchemaDocument.required ?? []).includes('registryDigest')
   return seal({
     schema: acceptedClaimsSchema,
     sourceState: {
@@ -160,6 +275,12 @@ export function produceAcceptedClaims({ terminalReceipt, repositoryRoot = defaul
     },
     producerId: producer.producerId,
     toolVersion: registry.receiptSemantics.acceptedClaimsToolVersion,
+    ...(requiresAuthorityDigests
+      ? {
+          registryDigest: `sha256:${digestValue(registry)}`,
+          claimsSchemaDigest: `sha256:${digestValue(claimsSchemaDocument)}`
+        }
+      : {}),
     terminalReceiptRef: {
       path: terminalInput.relative,
       fileDigest: `sha256:${createHash('sha256').update(readFileSync(path.join(repositoryRoot, terminalInput.relative))).digest('hex')}`,
@@ -184,46 +305,222 @@ export function validateAcceptedClaims(receipt, { repositoryRoot = defaultRoot }
   return receipt
 }
 
-export function produceCandidateContext({ preRuntimeReceipt, runId, attemptId = 'attempt-1', repositoryRoot = defaultRoot })
+export function produceCandidateContext({
+  preRuntimeReceipt,
+  runId,
+  attemptId = 'attempt-0001',
+  candidate: overrides = {},
+  repositoryRoot = defaultRoot
+})
 {
-  const pre = explicitJson(preRuntimeReceipt, 'pre-runtime receipt', repositoryRoot).value
+  const preInput = explicitJson(preRuntimeReceipt, 'pre-runtime receipt', repositoryRoot)
+  const pre = preInput.value
   assertPreRuntimeQualified(pre)
-  if (typeof runId !== 'string' || runId.length === 0 || typeof attemptId !== 'string' || attemptId.length === 0)
+  if (!/^[a-z][a-z0-9-]{2,96}$/u.test(String(runId ?? ''))
+    || !/^attempt-[0-9]{4}$/u.test(String(attemptId ?? '')))
   {
-    fail('candidate context requires runId and attemptId')
+    fail('candidate context requires a stable lowercase runId and canonical attempt-NNNN identity')
   }
   return seal({
     schema: 'fsusblog.post-runtime-candidate-context.v1',
+    preRuntimeReceiptRef: receiptReference(preInput, 'pre-runtime receipt'),
     sourceState: {
       commit: pre.sourceIdentity.commit,
       worktreeFingerprint: prefixedDigest(pre.sourceIdentity.worktreeFingerprint)
     },
-    candidate: {
-      candidateId: `${runId}:candidate`,
+    candidate: stable({
+      candidateId: overrides.candidateId ?? `${runId}-candidate`,
       runId,
       attemptId,
-      fixtureId: `${runId}:fixture`,
-      profileId: 'production-fresh',
-      runtimeId: `${runId}:runtime`,
-      browserId: `${runId}:browser-contract`,
-      releaseId: `${runId}:release`,
-      rolloutId: `${runId}:rollout`
-    },
+      fixtureId: overrides.fixtureId ?? `${runId}-fixture`,
+      profileId: overrides.profileId ?? 'acceptance-representative',
+      runtimeId: overrides.runtimeId ?? `${runId}-runtime`,
+      browserId: overrides.browserId ?? `${runId}-browser-contract`,
+      releaseId: overrides.releaseId ?? `${runId}-release`,
+      rolloutId: overrides.rolloutId ?? `${runId}-rollout`
+    }),
     status: 'planned-before-runtime'
   })
 }
 
-export function produceCandidatePlan({ preRuntimeReceipt, acceptedClaimsReceipt, buildReceipt, context, observationPaths, repositoryRoot = defaultRoot })
+function validateCandidateContext(run, repositoryRoot)
 {
-  const pre = explicitJson(preRuntimeReceipt, 'pre-runtime receipt', repositoryRoot).value
-  assertPreRuntimeQualified(pre)
-  const claims = validateAcceptedClaims(explicitJson(acceptedClaimsReceipt, 'accepted claims receipt', repositoryRoot).value, { repositoryRoot })
-  const buildInput = explicitJson(buildReceipt, 'production build receipt', repositoryRoot)
-  const build = productionBuildBinding(buildInput.value, buildInput.relative ?? 'in-memory-build.json')
-  const run = explicitJson(context, 'candidate context', repositoryRoot).value
+  if (run?.schema !== 'fsusblog.post-runtime-candidate-context.v1'
+    || run.status !== 'planned-before-runtime')
+  {
+    fail('candidate context schema/status mismatch')
+  }
   verifySeal(run, 'candidate context')
-  if (run.schema !== 'fsusblog.post-runtime-candidate-context.v1') fail('candidate context schema mismatch')
+  const preInput = verifyReference(run.preRuntimeReceiptRef, 'candidate context pre-runtime receipt', repositoryRoot)
+  assertPreRuntimeQualified(preInput.value)
+  const expectedSource = {
+    commit: preInput.value.sourceIdentity.commit,
+    worktreeFingerprint: prefixedDigest(preInput.value.sourceIdentity.worktreeFingerprint)
+  }
+  if (JSON.stringify(stable(run.sourceState)) !== JSON.stringify(stable(expectedSource)))
+  {
+    fail('candidate context source identity does not replay from pre-runtime authority')
+  }
+  const candidate = run.candidate ?? {}
+  if (!/^[a-z][a-z0-9-]{2,96}$/u.test(String(candidate.runId ?? ''))
+    || !/^attempt-[0-9]{4}$/u.test(String(candidate.attemptId ?? ''))
+    || ['candidateId', 'fixtureId', 'profileId', 'runtimeId', 'browserId', 'releaseId', 'rolloutId']
+      .some((field) => typeof candidate[field] !== 'string' || candidate[field].length < 3))
+  {
+    fail('candidate context identities are not canonically derived')
+  }
+  const profileCatalog = JSON.parse(readFileSync(
+    path.join(repositoryRoot, 'config/testing/fixture-profile-catalog.json'), 'utf8'))
+  if (!(profileCatalog.profiles ?? []).some(({ id }) => id === candidate.profileId))
+  {
+    fail('candidate context profile identity is absent from the fixture-profile authority')
+  }
+  return run
+}
+
+function identityAuthoritySource(candidateContext)
+{
+  return stable({
+    sourceCommit: candidateContext.sourceState.commit,
+    worktreeFingerprint: candidateContext.sourceState.worktreeFingerprint,
+    runId: candidateContext.candidate.runId,
+    attemptId: candidateContext.candidate.attemptId,
+    fixtureId: candidateContext.candidate.fixtureId,
+    profileId: candidateContext.candidate.profileId
+  })
+}
+
+function produceIdentityAuthorities({ candidateContext, outputDirectory, repositoryRoot })
+{
+  if (typeof outputDirectory !== 'string' || outputDirectory.length === 0)
+  {
+    fail('candidate plan requires an explicit identity-authority output directory')
+  }
+  const identities = {
+    plan: candidateContext.candidate.runId,
+    attempt: candidateContext.candidate.attemptId,
+    fixture: candidateContext.candidate.fixtureId,
+    profile: candidateContext.candidate.profileId
+  }
+  const refs = {}
+  for (const [role, authorityId] of Object.entries(identities))
+  {
+    const receipt = seal({
+      schema: identityAuthoritySchema,
+      role,
+      authorityId,
+      sourceState: identityAuthoritySource(candidateContext)
+    })
+    const output = path.posix.join(outputDirectory.replaceAll(path.sep, '/'), `${role}.json`)
+    writeReceipt(output, receipt, repositoryRoot)
+    const input = explicitJson(output, `${role} identity authority`, repositoryRoot)
+    refs[role] = stable({
+      path: input.relative,
+      fileDigest: input.fileDigest,
+      contentDigest: receipt.contentDigest,
+      schema: identityAuthoritySchema,
+      role
+    })
+  }
+  return stable(refs)
+}
+
+function verifyIdentityAuthorities(refs, candidateContext, repositoryRoot)
+{
+  if (!isPlainObject(refs)
+    || JSON.stringify(Object.keys(refs).sort()) !== JSON.stringify(['attempt', 'fixture', 'plan', 'profile']))
+  {
+    fail('candidate plan identity authority closure must be exact')
+  }
+  const expectedIds = {
+    plan: candidateContext.candidate.runId,
+    attempt: candidateContext.candidate.attemptId,
+    fixture: candidateContext.candidate.fixtureId,
+    profile: candidateContext.candidate.profileId
+  }
+  const paths = new Set()
+  for (const [role, authorityId] of Object.entries(expectedIds))
+  {
+    const reference = refs[role]
+    if (!isPlainObject(reference)
+      || JSON.stringify(Object.keys(reference).sort())
+        !== JSON.stringify(['contentDigest', 'fileDigest', 'path', 'role', 'schema'])
+      || reference.schema !== identityAuthoritySchema || reference.role !== role
+      || !digestPattern.test(String(reference.fileDigest ?? ''))
+      || !digestPattern.test(String(reference.contentDigest ?? '')))
+    {
+      fail(`${role} identity authority reference is invalid`)
+    }
+    if (paths.has(reference.path)) fail('identity authorities must use distinct files')
+    paths.add(reference.path)
+    const input = explicitJson(reference.path, `${role} identity authority`, repositoryRoot)
+    const authority = input.value
+    if (input.fileDigest !== reference.fileDigest || authority.schema !== identityAuthoritySchema
+      || authority.role !== role || authority.authorityId !== authorityId
+      || authority.contentDigest !== reference.contentDigest)
+    {
+      fail(`${role} identity authority bytes or identity mismatch`)
+    }
+    verifySeal(authority, `${role} identity authority`)
+    if (JSON.stringify(stable(authority.sourceState))
+      !== JSON.stringify(identityAuthoritySource(candidateContext)))
+    {
+      fail(`${role} identity authority sourceState mismatch`)
+    }
+  }
+  return refs
+}
+
+function verifyProductionBuildInput(input, expectedSourceState, repositoryRoot)
+{
+  const binding = productionBuildBinding(input.value, input.relative ?? 'in-memory-build.json')
+  if (input.relative !== null)
+  {
+    const absolute = path.join(repositoryRoot, input.relative)
+    verifyProductionBuildReceipt({
+      artifactRoot: path.dirname(absolute),
+      receiptFile: path.basename(absolute),
+      expectedSourceState,
+      expectedReceiptDigest: binding.receiptContentDigest,
+      repairReadOnlySeal: false
+    })
+  }
+  return binding
+}
+
+function verifyCurrentRepositoryIdentity(sourceState, repositoryRoot)
+{
+  const actual = {
+    commit: resolveSourceCommit(repositoryRoot),
+    worktreeFingerprint: prefixedDigest(resolveWorktreeFingerprint(repositoryRoot))
+  }
+  if (sourceState.commit !== actual.commit || sourceState.worktreeFingerprint !== actual.worktreeFingerprint)
+  {
+    fail('candidate source identity does not exact-match the current repository worktree')
+  }
+}
+
+export function produceCandidatePlan({
+  preRuntimeReceipt,
+  acceptedClaimsReceipt,
+  buildReceipt,
+  context,
+  identityAuthorityDirectory,
+  observationPaths,
+  repositoryRoot = defaultRoot
+})
+{
+  const preInput = explicitJson(preRuntimeReceipt, 'pre-runtime receipt', repositoryRoot)
+  const pre = preInput.value
+  assertPreRuntimeQualified(pre)
+  const claimsInput = explicitJson(acceptedClaimsReceipt, 'accepted claims receipt', repositoryRoot)
+  const claims = validateAcceptedClaims(claimsInput.value, { repositoryRoot })
+  const buildInput = explicitJson(buildReceipt, 'production build receipt', repositoryRoot)
+  const runInput = explicitJson(context, 'candidate context', repositoryRoot)
+  const run = validateCandidateContext(runInput.value, repositoryRoot)
   const sourceState = { commit: pre.sourceIdentity.commit, worktreeFingerprint: prefixedDigest(pre.sourceIdentity.worktreeFingerprint) }
+  verifyCurrentRepositoryIdentity(sourceState, repositoryRoot)
+  const build = verifyProductionBuildInput(buildInput, sourceState, repositoryRoot)
   if (build.sourceState.commit !== sourceState.commit
     || prefixedDigest(build.sourceState.worktreeFingerprint) !== sourceState.worktreeFingerprint
     || claims.sourceState.commit !== sourceState.commit
@@ -244,6 +541,11 @@ export function produceCandidatePlan({ preRuntimeReceipt, acceptedClaimsReceipt,
     if (!receiptPath.endsWith('.json') || unsafePathPattern.test(receiptPath)) fail(`${classId} receipt path is not current-run explicit`)
     return { classId, schema: registry.observationClasses[classId].schema, receiptPath, requiredModes: requiredModes(producer, classId) }
   })
+  const identityAuthorityRefs = produceIdentityAuthorities({
+    candidateContext: run,
+    outputDirectory: identityAuthorityDirectory,
+    repositoryRoot
+  })
   return seal({
     schema: candidatePlanSchema,
     producerId: producer.producerId,
@@ -251,6 +553,11 @@ export function produceCandidatePlan({ preRuntimeReceipt, acceptedClaimsReceipt,
     sourceState,
     build,
     candidate: stable(run.candidate),
+    preRuntimeReceiptRef: receiptReference(preInput, 'pre-runtime receipt'),
+    acceptedClaimsReceiptRef: receiptReference(claimsInput, 'accepted claims receipt'),
+    buildReceiptRef: receiptReference(buildInput, 'production build receipt'),
+    candidateContextRef: receiptReference(runInput, 'candidate context'),
+    identityAuthorityRefs,
     preRuntimeReceiptDigest: prefixedDigest(pre.contentDigest),
     acceptedClaimsReceiptDigest: prefixedDigest(claims.contentDigest),
     observations,
@@ -268,6 +575,32 @@ export function validateCandidatePlan(plan, { repositoryRoot = defaultRoot } = {
   {
     fail('candidate plan registry/schema/tool identity binding mismatch')
   }
+  const preInput = verifyReference(plan.preRuntimeReceiptRef, 'candidate plan pre-runtime receipt', repositoryRoot)
+  assertPreRuntimeQualified(preInput.value)
+  const claimsInput = verifyReference(plan.acceptedClaimsReceiptRef, 'candidate plan accepted claims receipt', repositoryRoot)
+  const claims = validateAcceptedClaims(claimsInput.value, { repositoryRoot })
+  const buildInput = verifyReference(plan.buildReceiptRef, 'candidate plan production build receipt', repositoryRoot)
+  const contextInput = verifyReference(plan.candidateContextRef, 'candidate plan context receipt', repositoryRoot)
+  const run = validateCandidateContext(contextInput.value, repositoryRoot)
+  const sourceState = {
+    commit: preInput.value.sourceIdentity.commit,
+    worktreeFingerprint: prefixedDigest(preInput.value.sourceIdentity.worktreeFingerprint)
+  }
+  verifyCurrentRepositoryIdentity(sourceState, repositoryRoot)
+  const build = verifyProductionBuildInput(buildInput, sourceState, repositoryRoot)
+  if (JSON.stringify(stable(plan.sourceState)) !== JSON.stringify(stable(sourceState))
+    || JSON.stringify(stable(plan.build)) !== JSON.stringify(stable(build))
+    || JSON.stringify(stable(plan.candidate)) !== JSON.stringify(stable(run.candidate))
+    || plan.preRuntimeReceiptDigest !== prefixedDigest(preInput.value.contentDigest)
+    || plan.acceptedClaimsReceiptDigest !== prefixedDigest(claims.contentDigest)
+    || claims.sourceState.commit !== sourceState.commit
+    || claims.sourceState.worktreeFingerprint !== sourceState.worktreeFingerprint
+    || run.sourceState.commit !== sourceState.commit
+    || run.sourceState.worktreeFingerprint !== sourceState.worktreeFingerprint)
+  {
+    fail('candidate plan upstream replay identity mismatch')
+  }
+  verifyIdentityAuthorities(plan.identityAuthorityRefs, run, repositoryRoot)
   const expected = Object.keys(registry.observationClasses).sort()
   const actual = (plan.observations ?? []).map(({ classId }) => classId).sort()
   if (JSON.stringify(actual) !== JSON.stringify(expected)) fail('candidate plan observation closure mismatch')
@@ -296,7 +629,9 @@ export function produceClassReceipt({ candidatePlan, classId, result, repository
   const { registry, producer } = authority(repositoryRoot)
   const definition = registry.observationClasses[classId]
   if (!definition) fail(`unknown observation class ${classId}`)
-  validateProducerReceiptAgainstRegistry({ registry, producerId: producer.producerId, receipt: input.value, classId })
+  validateProducerReceiptAgainstRegistry({
+    registry, producerId: producer.producerId, receipt: input.value, classId, repositoryRoot
+  })
   const planned = plan.observations.find((entry) => entry.classId === classId)
   if (!planned || input.relative !== planned.receiptPath) fail(`${classId} result path does not match candidate plan`)
   const source = input.value.sourceState ?? input.value.sourceIdentity ?? {}
@@ -331,7 +666,10 @@ export function produceClassReceipt({ candidatePlan, classId, result, repository
   }
   const modes = [...(input.value.modes ?? [])].sort()
   if (JSON.stringify(modes) !== JSON.stringify(planned.requiredModes)) fail(`${classId} result modes do not exact-match registry`)
-  validateSemanticFacts(classId, input.value.semanticFacts)
+  if (!Array.isArray(definition.requiredSemanticFactFields))
+  {
+    validateSemanticFacts(classId, input.value.semanticFacts)
+  }
   return seal({
     schema: classReceiptSchema,
     classId,

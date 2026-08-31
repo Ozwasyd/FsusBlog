@@ -7,18 +7,22 @@ import test from 'node:test'
 
 import { createProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs'
 import { digestValue } from '../../tools/fact-extractors/lib/canonicalize.mjs'
+import { resolveSourceCommit, resolveWorktreeFingerprint } from '../../tools/fact-extractors/identity.mjs'
 import {
   produceAcceptedClaims,
+  produceCandidateContext,
   produceCandidatePlan,
   produceClassReceipt,
-  seal
+  seal,
+  validateAcceptedClaims,
+  validateCandidatePlan
 } from '../../tools/fact-extractors/post-runtime/adapter.mjs'
 import { produceApplicationRuntimeObservation } from '../../tools/fact-extractors/post-runtime/application-runtime.mjs'
 import { produceReleaseDeploymentObservation } from '../../tools/fact-extractors/post-runtime/release-deployment.mjs'
 import { root } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
 
-const commit = 'a'.repeat(40)
-const fingerprint = 'b'.repeat(64)
+const commit = resolveSourceCommit(root)
+const fingerprint = resolveWorktreeFingerprint(root)
 const classIds = [
   'aot-spa-hydration', 'blue-green-containment', 'browser-behavior-contract',
   'cache-search-outbox-convergence', 'release-identity-readiness',
@@ -117,17 +121,20 @@ function fixture(context)
     toolchain: { node: '24', npm: '11', dotnet: '10', vite: '7', vitest: '3', playwright: '1', emsdk: '4' },
     inputPaths: ['inputs'], domains: [{ name: 'frontend-dist', path: 'frontend-dist' }]
   })
-  const contextReceipt = seal({ schema: 'fsusblog.post-runtime-candidate-context.v1',
-    sourceState: { commit, worktreeFingerprint: `sha256:${fingerprint}` },
-    candidate: { candidateId: 'candidate-1', runId: 'run-1', attemptId: 'attempt-1', fixtureId: 'fixture-1',
-      profileId: 'production', runtimeId: 'runtime-1', browserId: 'chromium-1', releaseId: 'release-1', rolloutId: 'rollout-1' } })
   write('claims.json', claims)
   write('pre.json', pre)
-  write('build.json', build)
+  const contextReceipt = produceCandidateContext({
+    preRuntimeReceipt: relative('pre.json'),
+    runId: 'run-0001',
+    attemptId: 'attempt-0001',
+    repositoryRoot: root
+  })
   write('context.json', contextReceipt)
   const paths = Object.fromEntries(classIds.map((classId) => [classId, relative(`${classId}.json`)]))
   const plan = produceCandidatePlan({ preRuntimeReceipt: relative('pre.json'), acceptedClaimsReceipt: relative('claims.json'),
-    buildReceipt: relative('build.json'), context: relative('context.json'), observationPaths: paths, repositoryRoot: root })
+    buildReceipt: path.relative(root, path.join(artifactRoot, 'receipt.json')).replaceAll(path.sep, '/'),
+    context: relative('context.json'), identityAuthorityDirectory: relative('identity-authorities'),
+    observationPaths: paths, repositoryRoot: root })
   write('plan.json', plan)
   const registry = JSON.parse(fs.readFileSync(path.join(root, 'config/testing/post-runtime-producer-registry.json'), 'utf8'))
   const producer = registry.producers[0]
@@ -243,5 +250,56 @@ test('current-run adapters reject symlinked JSON inputs', (context) =>
     classId: 'route-response-error',
     result: value.relative('route-response-error.json'),
     repositoryRoot: root
-  }), /regular non-symlink current-run file/u)
+  }), /(?:regular non-symlink current-run file|must not traverse a symlink)/u)
+})
+
+test('candidate verifier independently rejects forged source, candidate, and upstream bytes', (context) =>
+{
+  for (const [label, mutate, pattern] of [
+    ['source', (value, plan) => { plan.sourceState.commit = 'f'.repeat(40) }, /upstream replay identity mismatch/u],
+    ['candidate', (value, plan) => { plan.candidate.runtimeId = 'forged-runtime' }, /upstream replay identity mismatch/u],
+    ['pre-runtime bytes', (value) => { fs.appendFileSync(path.join(root, value.relative('pre.json')), ' ') }, /reference bytes/u],
+    ['build bytes', (value) => {
+      const file = path.join(root, value.relative('artifact/receipt.json'))
+      fs.chmodSync(file, 0o644)
+      fs.appendFileSync(file, ' ')
+    }, /reference bytes/u]
+  ])
+  {
+    const value = fixture(context)
+    const planFile = path.join(root, value.relative('plan.json'))
+    const plan = JSON.parse(fs.readFileSync(planFile, 'utf8'))
+    mutate(value, plan)
+    if (label === 'source' || label === 'candidate') fs.writeFileSync(planFile, `${JSON.stringify(seal(plan))}\n`)
+    assert.throws(() => validateCandidatePlan(JSON.parse(fs.readFileSync(planFile, 'utf8')), {
+      repositoryRoot: root
+    }), pattern, label)
+  }
+})
+
+test('candidate verifier rejects a tampered typed identity authority', (context) =>
+{
+  const value = fixture(context)
+  const plan = JSON.parse(fs.readFileSync(path.join(root, value.relative('plan.json')), 'utf8'))
+  const authorityFile = path.join(root, plan.identityAuthorityRefs.fixture.path)
+  const authority = JSON.parse(fs.readFileSync(authorityFile, 'utf8'))
+  authority.authorityId = 'forged-fixture'
+  fs.writeFileSync(authorityFile, `${JSON.stringify(seal(authority))}\n`)
+  assert.throws(() => validateCandidatePlan(plan, { repositoryRoot: root }), /authority bytes or identity mismatch/u)
+})
+
+test('#2205 accepted-claim verifier rejects a symlinked ancestor even when leaf bytes are regular', (context) =>
+{
+  const value = fixture(context)
+  const realDirectory = path.join(root, value.relative('terminal-authority'))
+  fs.mkdirSync(realDirectory)
+  const realTerminal = path.join(realDirectory, 'terminal.json')
+  fs.copyFileSync(path.join(root, value.relative('terminal.json')), realTerminal)
+  const linkDirectory = path.join(root, value.relative('terminal-link'))
+  fs.symlinkSync(realDirectory, linkDirectory)
+  const claims = structuredClone(JSON.parse(fs.readFileSync(path.join(root, value.relative('claims.json')), 'utf8')))
+  claims.terminalReceiptRef.path = path.relative(root, path.join(linkDirectory, 'terminal.json')).replaceAll(path.sep, '/')
+  claims.contentDigest = null
+  const resealed = seal(claims)
+  assert.throws(() => validateAcceptedClaims(resealed, { repositoryRoot: root }), /canonical|symlink/u)
 })

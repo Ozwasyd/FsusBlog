@@ -8,7 +8,10 @@ import { fileURLToPath } from 'node:url'
 
 import { digestValue, stable } from '../fact-extractors/lib/canonicalize.mjs'
 import {
+  candidatePlanPathForObservation,
   explicitJson,
+  observationEnvelopeAuthorityFields,
+  observationSourceState,
   seal,
   validateCandidatePlan,
   writeReceipt
@@ -19,9 +22,11 @@ import {
   root,
   validateProducerReceiptAgainstRegistry
 } from '../test-matrix/post-runtime-producer-registry.mjs'
+import { verifyCanonicalReleaseAuthorities } from './canonical-release-authorities.mjs'
 
 export const releaseReadinessSourceSchema = 'fsusblog.release-identity-readiness-current-run.v1'
 export const releaseReadinessObservationSchema = 'fsusblog.observation.release-identity-readiness.v1'
+export const releaseReadinessAuthorityBundleSchema = 'fsusblog.release-identity-readiness-authority-bundle.v1'
 
 const digestPattern = /^sha256:[a-f0-9]{64}$/u
 const commitPattern = /^[a-f0-9]{40}$/u
@@ -499,17 +504,135 @@ export function projectReleaseReadinessRaw({ candidatePlan, sourceReceipt, repos
   })
 }
 
-export function verifyReleaseReadinessRaw(receiptPath, repositoryRoot = root)
+export function produceReleaseReadinessAuthorityBundle({
+  candidatePlan,
+  rolloutEvidence,
+  runtimeRoleAdmission,
+  repositoryRoot = root
+})
+{
+  const planInput = currentJson(candidatePlan, 'candidate plan', repositoryRoot)
+  const plan = validateCandidatePlan(planInput.value, { repositoryRoot })
+  const authorities = verifyCanonicalReleaseAuthorities({
+    candidatePlan: plan, rolloutEvidence, runtimeRoleAdmission, repositoryRoot
+  })
+  return seal({
+    schema: releaseReadinessAuthorityBundleSchema,
+    sourceState: plan.sourceState,
+    candidatePlanRef: planInput.ref,
+    rolloutEvidenceRef: authorities.rollout.ref,
+    runtimeRoleAdmissionRef: authorities.runtimeRole.admission.ref,
+    authorityDigest: authorities.authorityDigest,
+    canonicalRerunCommand: `node tools/test-evidence/release-readiness-raw.mjs bundle-authorities --candidate-plan ${planInput.ref.path} --rollout-evidence ${authorities.rollout.ref.path} --runtime-role-admission ${authorities.runtimeRole.admission.ref.path}`
+  })
+}
+
+function releaseAuthorityBundle(sourceReceipt, plan, repositoryRoot)
+{
+  const source = currentJson(sourceReceipt, 'release readiness authority bundle', repositoryRoot)
+  verifySeal(source.value, 'release readiness authority bundle')
+  if (source.value.schema !== releaseReadinessAuthorityBundleSchema)
+  {
+    fail('release readiness source is not a canonical authority bundle')
+  }
+  const authorities = verifyCanonicalReleaseAuthorities({
+    candidatePlan: plan,
+    rolloutEvidence: source.value.rolloutEvidenceRef?.path,
+    runtimeRoleAdmission: source.value.runtimeRoleAdmissionRef?.path,
+    repositoryRoot
+  })
+  for (const [label, expected, actual] of [
+    ['rollout', source.value.rolloutEvidenceRef, authorities.rollout.ref],
+    ['runtime-role', source.value.runtimeRoleAdmissionRef, authorities.runtimeRole.admission.ref]
+  ])
+  {
+    if (expected?.fileDigest !== actual.fileDigest || expected?.contentDigest !== actual.contentDigest)
+    {
+      fail(`${label} authority changed after source bundling`)
+    }
+  }
+  if (source.value.authorityDigest !== authorities.authorityDigest) fail('release authority closure digest mismatch')
+  return { source, authorities }
+}
+
+export function projectReleaseReadinessAuthoritiesRaw({ candidatePlan, sourceReceipt, repositoryRoot = root })
+{
+  const planInput = currentJson(candidatePlan, 'candidate plan', repositoryRoot)
+  const plan = validateCandidatePlan(planInput.value, { repositoryRoot })
+  const planned = plan.observations.find(({ classId }) => classId === 'release-identity-readiness')
+  if (!planned || planned.schema !== releaseReadinessObservationSchema) fail('candidate plan does not own release readiness')
+  const { source, authorities } = releaseAuthorityBundle(sourceReceipt, plan, repositoryRoot)
+  const registry = loadPostRuntimeProducerRegistry(repositoryRoot)
+  const producer = registry.producers.find(({ producerId }) => producerId === plan.producerId)
+  if (!producer) fail('candidate plan producer is absent from registry')
+  const rollout = authorities.rollout.value
+  const runtime = authorities.runtimeRole
+  const build = buildFacts(plan, repositoryRoot)
+  const legacyFacts = {
+    imageDigest: rollout.target.imageDigest,
+    packageDigest: build.packageDigest,
+    configDigest: runtime.deployment.ref.fileDigest,
+    schemaDigest: authorities.manifest.value.schemaCompatibility?.contentDigest
+      ?? semanticDigest(authorities.manifest.value.schemaCompatibility),
+    manifestDigest: authorities.manifest.ref.fileDigest,
+    signingDigest: rollout.auxiliary?.releaseManifest?.sha256,
+    trustDigest: semanticDigest({ image: rollout.target.imageDigest, manifest: authorities.manifest.ref.fileDigest }),
+    readinessReceiptDigest: authorities.rollout.ref.fileDigest,
+    serviceReady: true, routeDataReady: true, cacheReady: true, dependenciesReady: true,
+    versionReady: true, credentialReady: true, identityMatch: true,
+    runtimeRoleContractSatisfied: true, monolithicOwnershipSatisfied: true
+  }
+  const typedFacts = {
+    artifactDigest: authorities.authorityDigest,
+    imageDigest: rollout.target.imageDigest,
+    packageDigest: build.packageDigest,
+    configDigest: runtime.deployment.ref.fileDigest,
+    schemaDigest: legacyFacts.schemaDigest,
+    runtimeRole: 'monolithic',
+    candidateId: plan.candidate.candidateId,
+    releaseId: plan.candidate.releaseId,
+    readinessDigest: authorities.rollout.ref.fileDigest
+  }
+  const semanticFacts = Array.isArray(registry.observationClasses['release-identity-readiness'].requiredSemanticFactFields)
+    ? typedFacts
+    : legacyFacts
+  return seal({
+    schema: releaseReadinessObservationSchema,
+    producerId: plan.producerId,
+    toolVersion: producer.toolVersion,
+    sourceState: observationSourceState({
+      plan, artifactDigest: authorities.authorityDigest, repositoryRoot,
+      legacy: {
+        sourceCommit: plan.sourceState.commit, worktreeFingerprint: plan.sourceState.worktreeFingerprint,
+        buildIdentity: plan.build.receiptContentDigest, artifactDigest: authorities.authorityDigest,
+        candidateId: plan.candidate.candidateId, releaseId: plan.candidate.releaseId,
+        runtimeId: plan.candidate.runtimeId, runId: plan.candidate.runId,
+        attemptId: plan.candidate.attemptId, slot: rollout.target.slot
+      }
+    }),
+    executionClass: 'correctness', evidenceClass: 'correctness', qualificationEligible: true,
+    planned: true, executed: true, outcome: 'passed', recovered: false,
+    modes: planned.requiredModes,
+    terminal: { timeout: false, cancelled: false, processTreeTerminated: false, priorAttemptDigest: null },
+    semanticFacts,
+    ...observationEnvelopeAuthorityFields({ plan, candidatePlanRef: planInput.ref, repositoryRoot }),
+    sourceReceiptRef: source.ref,
+    canonicalRerunCommand: `node tools/test-evidence/release-readiness-raw.mjs project-authorities --candidate-plan ${planInput.ref.path} --source ${source.ref.path} --out ${planned.receiptPath}`,
+    independentVerifyCommand: `node tools/test-evidence/release-readiness-raw.mjs verify --candidate-plan ${planInput.ref.path} --receipt ${planned.receiptPath}`
+  })
+}
+
+export function verifyReleaseReadinessRaw(receiptPath, repositoryRoot = root, candidatePlan = null)
 {
   const input = currentJson(receiptPath, 'release readiness raw receipt', repositoryRoot)
   if (input.value.schema !== releaseReadinessObservationSchema) fail('raw receipt schema mismatch')
   verifySeal(input.value, 'release readiness raw receipt')
   const registry = loadPostRuntimeProducerRegistry(repositoryRoot)
-  validateProducerReceiptAgainstRegistry({ registry, producerId: input.value.producerId, receipt: input.value, classId: 'release-identity-readiness' })
-  for (const [label, reference] of [
-    ['candidate plan', input.value.candidatePlanRef],
-    ['source receipt', input.value.sourceReceiptRef]
-  ])
+  validateProducerReceiptAgainstRegistry({
+    registry, producerId: input.value.producerId, receipt: input.value,
+    classId: 'release-identity-readiness', repositoryRoot
+  })
+  for (const [label, reference] of [['source receipt', input.value.sourceReceiptRef]])
   {
     const current = currentJson(reference?.path, label, repositoryRoot)
     if (current.ref.fileDigest !== reference?.fileDigest
@@ -518,11 +641,19 @@ export function verifyReleaseReadinessRaw(receiptPath, repositoryRoot = root)
       fail(`${label} digest mismatch after raw projection`)
     }
   }
-  const replay = projectReleaseReadinessRaw({
-    candidatePlan: input.value.candidatePlanRef.path,
-    sourceReceipt: input.value.sourceReceiptRef.path,
-    repositoryRoot
-  })
+  const planPath = candidatePlanPathForObservation(input.value, candidatePlan)
+  const source = currentJson(input.value.sourceReceiptRef.path, 'source receipt', repositoryRoot)
+  const replay = source.value.schema === releaseReadinessAuthorityBundleSchema
+    ? projectReleaseReadinessAuthoritiesRaw({
+        candidatePlan: planPath,
+        sourceReceipt: input.value.sourceReceiptRef.path,
+        repositoryRoot
+      })
+    : projectReleaseReadinessRaw({
+        candidatePlan: planPath,
+        sourceReceipt: input.value.sourceReceiptRef.path,
+        repositoryRoot
+      })
   if (replay.contentDigest !== input.value.contentDigest) fail('release readiness raw replay mismatch')
   return input.value
 }
@@ -544,6 +675,30 @@ function options(argv)
 function main()
 {
   const parsed = options(process.argv.slice(2))
+  if (parsed.command === 'bundle-authorities')
+  {
+    if (!parsed.out) fail('authority bundle requires --out')
+    const receipt = produceReleaseReadinessAuthorityBundle({
+      candidatePlan: parsed['candidate-plan'], rolloutEvidence: parsed['rollout-evidence'],
+      runtimeRoleAdmission: parsed['runtime-role-admission'], repositoryRoot: root
+    })
+    writeReceipt(parsed.out, receipt, root)
+    process.stdout.write(`[release-readiness-raw] bundled authorities path=${parsed.out} digest=${receipt.contentDigest}\n`)
+    return
+  }
+  if (parsed.command === 'project-authorities')
+  {
+    const receipt = projectReleaseReadinessAuthoritiesRaw({
+      candidatePlan: parsed['candidate-plan'], sourceReceipt: parsed.source, repositoryRoot: root
+    })
+    const plan = explicitJson(parsed['candidate-plan'], 'candidate plan', root).value
+    const planned = plan.observations.find(({ classId }) => classId === 'release-identity-readiness')
+    if (!parsed.out || parsed.out !== planned?.receiptPath) fail('raw output path must exact-match candidate plan')
+    writeReceipt(parsed.out, receipt, root)
+    verifyReleaseReadinessRaw(parsed.out, root, parsed['candidate-plan'])
+    process.stdout.write(`[release-readiness-raw] projected canonical authorities path=${parsed.out} digest=${receipt.contentDigest}\n`)
+    return
+  }
   if (parsed.command === 'project')
   {
     const receipt = projectReleaseReadinessRaw({
@@ -556,13 +711,13 @@ function main()
     const output = parsed.out ?? planned?.receiptPath
     if (!output || output !== planned?.receiptPath) fail('raw output path must exact-match candidate plan')
     writeReceipt(output, receipt, root)
-    verifyReleaseReadinessRaw(output, root)
+    verifyReleaseReadinessRaw(output, root, parsed['candidate-plan'])
     process.stdout.write(`[release-readiness-raw] projected path=${output} digest=${receipt.contentDigest}\n`)
     return
   }
   if (parsed.command === 'verify')
   {
-    const receipt = verifyReleaseReadinessRaw(parsed.receipt, root)
+    const receipt = verifyReleaseReadinessRaw(parsed.receipt, root, parsed['candidate-plan'])
     process.stdout.write(`[release-readiness-raw] verified digest=${receipt.contentDigest}\n`)
     return
   }

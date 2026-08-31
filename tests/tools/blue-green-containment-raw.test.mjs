@@ -5,27 +5,20 @@ import { spawnSync } from 'node:child_process'
 import test from 'node:test'
 
 import { digestValue } from '../../tools/fact-extractors/lib/canonicalize.mjs'
-import {
-  candidatePlanSchema,
-  currentRegistryBinding,
-  seal
-} from '../../tools/fact-extractors/post-runtime/adapter.mjs'
+import { seal } from '../../tools/fact-extractors/post-runtime/adapter.mjs'
 import {
   buildFailureReceipt,
   failureReceiptSchema,
+  produceBlueGreenAuthorityBundle,
   produceBlueGreenContainmentRaw,
   produceBlueGreenContainmentSourceBundle,
   sourceReceiptSchema,
   verifyBlueGreenFailureReceipt,
   verifyBlueGreenContainmentRaw
 } from '../../tools/test-evidence/blue-green-containment-raw.mjs'
-import {
-  loadPostRuntimeProducerRegistry,
-  root
-} from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
+import { root } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
+import { createPostRuntimeCandidateFixture } from './support/post-runtime-candidate-fixture.mjs'
 
-const commit = 'a'.repeat(40)
-const fingerprint = `sha256:${'b'.repeat(64)}`
 const digest = (value) => `sha256:${String(value).repeat(64).slice(0, 64)}`
 const oldRelease = 'release-old'
 const candidateRelease = 'release-candidate'
@@ -134,59 +127,18 @@ function containment()
 
 function fixture(context)
 {
-  fs.mkdirSync(path.join(root, '.tmp'), { recursive: true })
-  const directory = fs.mkdtempSync(path.join(root, '.tmp', 'blue-green-containment-'))
-  context.after(() => fs.rmSync(directory, { recursive: true, force: true }))
-  const registry = loadPostRuntimeProducerRegistry(root)
-  const producer = registry.producers[0]
-  const classes = Object.keys(registry.observationClasses).sort()
-  const build = seal({
-    schema: 'fsusblog.ci-production-build-receipt.v1',
-    status: 'complete',
-    sourceState: { commit, worktreeFingerprint: fingerprint },
-    build: { profile: 'production-fresh' },
-    producer: { workflow: 'fixture', runId: 'run-1', runAttempt: 1 },
-    toolchain: { node: '24.8.0', dotnet: '10.0.0' },
-    domains: []
+  const candidate = createPostRuntimeCandidateFixture(context, {
+    prefix: 'blue-green-containment-',
+    runId: 'run-blue-green-0001',
+    candidate: { releaseId: candidateRelease, rolloutId: 'rollout-1' }
   })
-  const buildPath = write(directory, 'build.json', build)
-  const outputPath = path.relative(root, path.join(directory, 'blue-green-containment.json')).replaceAll(path.sep, '/')
-  const plan = seal({
-    schema: candidatePlanSchema,
-    producerId: producer.producerId,
-    registryBinding: currentRegistryBinding(root),
-    sourceState: { commit, worktreeFingerprint: fingerprint },
-    build: {
-      receipt: buildPath,
-      receiptContentDigest: build.contentDigest,
-      sourceCommit: commit,
-      worktreeFingerprint: fingerprint
-    },
-    candidate: {
-      candidateId: 'candidate-1', runId: 'run-1', attemptId: 'attempt-1',
-      fixtureId: 'fixture-1', profileId: 'production-fresh', runtimeId: 'runtime-1',
-      browserId: 'browser-1', releaseId: candidateRelease, rolloutId: 'rollout-1'
-    },
-    preRuntimeReceiptDigest: digest('b'),
-    acceptedClaimsReceiptDigest: digest('c'),
-    observations: classes.map((classId) => ({
-      classId,
-      schema: registry.observationClasses[classId].schema,
-      receiptPath: classId === 'blue-green-containment'
-        ? outputPath
-        : path.relative(root, path.join(directory, `${classId}.json`)).replaceAll(path.sep, '/'),
-      requiredModes: Object.entries(producer.requiredObservations)
-        .filter(([, classIds]) => classIds.includes(classId))
-        .map(([mode]) => mode)
-        .sort()
-    })),
-    status: 'planned'
-  })
-  const planPath = write(directory, 'candidate-plan.json', plan)
+  const { directory, plan, build } = candidate
+  const planPath = candidate.relative(candidate.planFile)
+  const outputPath = candidate.observationPaths['blue-green-containment']
   const toolchainIdentity = `sha256:${digestValue(build.toolchain)}`
   const sourceState = {
-    sourceCommit: commit,
-    worktreeFingerprint: fingerprint,
+    sourceCommit: plan.sourceState.commit,
+    worktreeFingerprint: plan.sourceState.worktreeFingerprint,
     buildIdentity: plan.build.receiptContentDigest,
     candidateId: plan.candidate.candidateId,
     releaseId: plan.candidate.releaseId,
@@ -196,11 +148,11 @@ function fixture(context)
     runId: plan.candidate.runId,
     attemptId: plan.candidate.attemptId,
     producerId: plan.producerId,
-    schemaIdentity: registry.observationClasses['blue-green-containment'].schema,
+    schemaIdentity: plan.observations.find(({ classId }) => classId === 'blue-green-containment').schema,
     toolchainIdentity
   }
   const values = observations()
-  const sourcePaths = roles.map((role) => write(directory, `${role}.json`, seal({
+  const sourcePaths = roles.map((role) => write(directory, `${role}-source.json`, seal({
     schema: sourceReceiptSchema,
     role,
     sourceState,
@@ -221,7 +173,7 @@ function fixture(context)
     candidatePlan: planPath, deploymentId, sourceReceipts: sourcePaths, repositoryRoot: root
   }))
   return {
-    directory, plan, planPath, outputPath, sourcePaths, sourceBundlePath,
+    directory, candidate, plan, planPath, outputPath, sourcePaths, sourceBundlePath,
     pathFor: (role) => sourcePaths[roles.indexOf(role)]
   }
 }
@@ -266,7 +218,7 @@ test('projects and independently replays exact blue-green containment identities
   assert.equal(receipt.semanticFacts.splitBrainAbsent, true)
   assert.equal(receipt.semanticFacts.cleanupInactiveOnly, true)
   assert.equal(receipt.semanticFacts.runtimeRoleContractSatisfied, true)
-  write(value.directory, 'blue-green-containment.json', receipt)
+  fs.writeFileSync(path.join(root, value.outputPath), `${JSON.stringify(receipt, null, 2)}\n`)
   assert.equal(verifyBlueGreenContainmentRaw(value.outputPath, root).contentDigest, receipt.contentDigest)
 })
 
@@ -323,7 +275,7 @@ test('independent verifier rejects source-receipt byte tamper', (context) =>
 {
   const value = fixture(context)
   const receipt = produce(value)
-  write(value.directory, 'blue-green-containment.json', receipt)
+  fs.writeFileSync(path.join(root, value.outputPath), `${JSON.stringify(receipt, null, 2)}\n`)
   fs.appendFileSync(path.join(root, value.pathFor('terminal')), ' ')
   assert.throws(() => verifyBlueGreenContainmentRaw(value.outputPath, root), /reference digest mismatch/u)
 })
@@ -394,4 +346,15 @@ test('producer source never reads documentation or infers from process, port, HT
     /manualActive/u,
     /allowDiagnostic/u
   ]) assert.doesNotMatch(source, forbidden)
+})
+
+test('canonical production path rejects role receipts as rollout/runtime authorities', (context) =>
+{
+  const value = fixture(context)
+  assert.throws(() => produceBlueGreenAuthorityBundle({
+    candidatePlan: value.planPath,
+    rolloutEvidence: value.pathFor('state-before'),
+    runtimeRoleAdmission: value.pathFor('state-after'),
+    repositoryRoot: root
+  }), /canonical release rollout verifier rejected/u)
 })

@@ -253,6 +253,26 @@ async function publicHydrationHistoryReload({ context, page, fixture, audit })
     await requireVisible(page.getByRole('heading', { level: 1, name: fixture.publicArticle.title }).first(), 'public article heading');
     await assertPublicHead(page, articlePath);
     await assertPublicIdentity(page, 'direct hydration');
+    const direct = await page.evaluate(() =>
+    {
+        const shell = document.querySelector('#fsus-aot-shell');
+        const bootstrap = document.querySelector('#fsus-aot-bootstrap');
+        return {
+            route: `${location.pathname}${location.search}`,
+            locale: document.documentElement.lang,
+            title: document.querySelector('h1')?.textContent?.trim() ?? '',
+            hydrationKind: shell?.getAttribute('data-public-hydration-kind') ?? '',
+            hydrated: shell?.getAttribute('data-public-hydrated') === 'true',
+            appCount: document.querySelectorAll('#app').length,
+            shellCount: document.querySelectorAll('#fsus-aot-shell').length,
+            canonicalPath: new URL(document.querySelector('link[rel="canonical"]')?.href ?? location.href).pathname,
+            seoMarkerCount: document.querySelectorAll('script[data-fsus-seo-head-model]').length,
+            bootstrapText: bootstrap?.textContent ?? '',
+            resourceUrls: performance.getEntriesByType('resource').map((entry) => entry.name).sort()
+        };
+    });
+    const serverHtml = await response.text();
+    const responseHeaders = await response.allHeaders();
 
     await page.mouse.click(16, 16);
     await waitForPublicHydration(page);
@@ -263,6 +283,7 @@ async function publicHydrationHistoryReload({ context, page, fixture, audit })
     await requireVisible(page.getByRole('heading', { level: 1, name: '归档' }).first(), 'archive heading');
     await assertPublicHead(page, '/archive');
     await assertPublicIdentity(page, 'SPA takeover');
+    const spa = await readPublicIdentity(page);
 
     await page.goBack({ waitUntil: 'domcontentloaded' });
     await waitForPath(page, articlePath);
@@ -270,6 +291,7 @@ async function publicHydrationHistoryReload({ context, page, fixture, audit })
     await requireVisible(page.getByRole('heading', { level: 1, name: fixture.publicArticle.title }).first(), 'history article heading');
     await assertPublicHead(page, articlePath);
     await assertPublicIdentity(page, 'browser back');
+    const history = await readPublicIdentity(page);
 
     const reloadResponse = await page.reload({ waitUntil: 'domcontentloaded', timeout: RESPONSE_TIMEOUT_MS });
     productAssert(reloadResponse?.ok(), `public article reload failed: ${reloadResponse?.status() ?? 'no response'}`);
@@ -281,6 +303,25 @@ async function publicHydrationHistoryReload({ context, page, fixture, audit })
     await assertPublicHead(page, articlePath);
     await assertPublicIdentity(page, 'reload hydration');
     audit.assertClean('public hydration/history/reload');
+    const reload = await readPublicIdentity(page);
+    return {
+        schema: 'fsusblog.browser-contract-public-aot-observation.v1',
+        fixture: {
+            articleId: String(fixture.publicArticle.id),
+            articleTitle: fixture.publicArticle.title,
+            articlePath
+        },
+        response: {
+            url: response.url(),
+            status: response.status(),
+            headers: responseHeaders,
+            serverHtml
+        },
+        direct,
+        spa,
+        history,
+        reload
+    };
 }
 
 async function accountDeepLinkBootstrap({ context, page, fixture, audit })

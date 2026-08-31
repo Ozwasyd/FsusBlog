@@ -1,189 +1,177 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
 
-import { createProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs'
-import {
-  currentRegistryBinding,
-  produceClassReceipt,
-  seal
-} from '../../tools/fact-extractors/post-runtime/adapter.mjs'
+import { produceClassReceipt, seal } from '../../tools/fact-extractors/post-runtime/adapter.mjs'
 import {
   produceAotSpaHydrationSourceBundle,
   projectAotSpaHydrationRaw,
   verifyAotSpaHydrationRaw
 } from '../../tools/test-evidence/aot-spa-hydration-raw.mjs'
-import { loadPostRuntimeProducerRegistry, root } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
+import { sealBrowserContractReceipt } from '../../tools/release/test-evidence-receipts.mjs'
+import { root } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
+import { createPostRuntimeCandidateFixture } from './support/post-runtime-candidate-fixture.mjs'
 
-const commit = 'a'.repeat(40)
-const fingerprint = `sha256:${'b'.repeat(64)}`
-const runId = 'run-aot-current-1'
-const attemptId = 'attempt-1'
-const releaseId = 'release-aot-current-1'
+const fileDigest = (file) => `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`
+
+function qualityReport()
+{
+  return {
+    schema: 'fsusblog.public-preview-quality-report.v1', id: 'public-desktop-light',
+    route: 'Home', viewport: { width: 1440, height: 960 }, theme: 'light', locale: 'zh-CN', zoom: 1,
+    surfaceRole: 'public', linkedIssues: [], status: 'pass',
+    machine: {
+      overflow: { status: 'pass', findings: [] }, overlaps: { status: 'pass', checked: 1, findings: [] },
+      clippedText: { status: 'pass', checked: 1, findings: [] }, hitTargets: { status: 'pass', checked: 1, findings: [] },
+      focusClipping: { status: 'pass', checked: 1, findings: [] },
+      localeCoherence: { status: 'pass', expectedLocale: 'zh-CN', findings: [] },
+      primaryTask: { status: 'pass', visibleInFirstViewport: true, findings: [] }
+    }, reviewer: { classification: 'pass', reasons: [] }
+  }
+}
+
+function browserReceipt(value)
+{
+  const report = qualityReport()
+  const preview = {
+    schema: 'fsusblog.public-preview-screenshot-verification.v1', status: 'ok',
+    sourceCommit: value.commit, releaseId: `20260830000000-${value.commit.slice(0, 12)}`,
+    manifestSchema: 'fsusblog.public-preview-screenshot-manifest.v1', visualInputDigest: 'c'.repeat(64),
+    runtimeAudit: true, layoutAudit: true, sanitizationCheck: true,
+    images: Object.fromEntries(Array.from({ length: 9 }, (_, index) => [`screenshot-${index + 1}`, String(index + 1).repeat(64)])),
+    differences: [], commandVersion: 'd'.repeat(64), captureContextCount: 9,
+    qualityAudit: true, qualityPolicyDigest: 'e'.repeat(64),
+    quality: {
+      schema: 'fsusblog.public-preview-quality-manifest.v1', status: 'pass', sourceCommit: value.commit,
+      policyDigest: 'e'.repeat(64), screenshots: { [report.id]: report },
+      matrix: { schema: 'fsusblog.public-preview-quality-matrix.v1', status: 'pass',
+        policyDigest: 'e'.repeat(64), scenarioCount: 1, reports: [report] }
+    }
+  }
+  const previewFile = value.write('public-preview.json', preview)
+  const browserPlan = seal({
+    schema: 'fsusblog.playwright-browser-identity.v1', executionClass: 'correctness',
+    evidenceClass: 'browser-contract', qualificationEligible: true, managedExecutable: true,
+    browserName: 'chromium', browserVersion: '140.0.0', revision: '123456',
+    executablePath: '/managed/chromium-123456/chrome', executableSha256: `sha256:${'f'.repeat(64)}`,
+    playwright: { package: '@playwright/test', version: '1.59.1' },
+    launchOptions: { headless: true, executablePath: '/managed/chromium-123456/chrome', args: [] },
+    rendering: { fontSetDigest: `sha256:${'1'.repeat(64)}`, localeDataDigest: `sha256:${'2'.repeat(64)}`,
+      locale: 'zh-CN', deviceScaleFactor: 1, renderingMode: 'headless', colorScheme: 'light', gpuMode: 'software' }
+  })
+  const browserActual = seal({ ...structuredClone(browserPlan), schema: 'fsusblog.playwright-browser-actual.v1',
+    planDigest: browserPlan.contentDigest,
+    renderingObservation: { locale: 'zh-CN', deviceScaleFactor: 1, colorScheme: 'light', renderer: 'SwiftShader fixture renderer' } })
+  const articlePath = '/article/42'
+  const stableIdentity = { captured: true, appSame: true, shellSame: true, firstChildSame: true,
+    childElementCountSame: true, hydrated: true, appCount: 1, shellCount: 1, violations: [] }
+  const serverHtml = '<!doctype html><html lang="zh-CN"><head><link rel="canonical" href="https://example.test/article/42"><script type="application/json" data-fsus-seo-head-model>{}</script></head><body><div id="app"><div id="fsus-aot-shell" data-public-hydration-kind="ArticleDetail"></div></div></body></html>'
+  const scenario = {
+    id: 'public-hydration-history-reload', capability: 'public AOT hydration', status: 'success', classification: 'clean',
+    startedAt: '2026-08-30T00:00:00.000Z', finishedAt: '2026-08-30T00:00:01.000Z', durationMs: 1_000,
+    issues: [], artifacts: ['traces/public-hydration-history-reload.zip'], error: null,
+    observation: {
+      schema: 'fsusblog.browser-contract-public-aot-observation.v1',
+      fixture: { articleId: '42', articlePath, articleTitle: 'Current article' },
+      response: { url: `https://example.test${articlePath}`, status: 200,
+        headers: { 'content-type': 'text/html; charset=utf-8', 'x-fsus-release-id': value.plan.candidate.releaseId }, serverHtml },
+      direct: { route: articlePath, canonicalPath: articlePath, title: 'Current article', locale: 'zh-CN',
+        hydrationKind: 'ArticleDetail', hydrated: true, appCount: 1, shellCount: 1,
+        bootstrapText: '{"id":42}', resourceUrls: ['https://example.test/assets/app.js'] },
+      spa: stableIdentity, history: stableIdentity, reload: stableIdentity
+    }
+  }
+  return sealBrowserContractReceipt({
+    schema: 'fsusblog.browser-contract-receipt.v2', status: 'success', classification: 'clean',
+    runIdentity: { commit: value.commit, runId: value.plan.candidate.runId, laneId: 'browser-contract', namespace: value.plan.candidate.runId },
+    sourceState: value.sourceState,
+    build: { receipt: value.relative(value.buildFile), receiptContentDigest: value.build.contentDigest,
+      sourceState: value.sourceState, profile: 'production-fresh' },
+    fixture: { namespace: value.plan.candidate.runId, capabilities: {}, lifecycle: { identity: {
+      commit: value.commit, runId: value.plan.candidate.runId, laneId: 'browser-contract', namespace: value.plan.candidate.runId
+    } } },
+    playwright: { chromiumRevision: '123456', chromiumVersion: '140.0.0', browserIdentity: { plan: browserPlan, actual: browserActual } },
+    topology: { runner: 'playwright-library', browserType: 'chromium', managedBrowser: true,
+      workerPool: false, shard: null, retries: 0, browserLaunchCount: 1, maxConcurrentBrowserRoots: 1, contextCount: 1 },
+    scenarios: [scenario],
+    publicPreview: { ...preview, evidencePath: '.tmp/release-evidence/public-preview-screenshots.json',
+      evidenceFileDigest: fileDigest(previewFile) },
+    startedAt: scenario.startedAt, finishedAt: scenario.finishedAt, wallClockMs: 1_000, error: null,
+    finalization: { state: 'complete', decisionIdentity: `sha256:${'3'.repeat(64)}`,
+      primary: { status: 'success', classification: 'clean', error: null },
+      cleanup: { status: 'success', attemptCount: 1, error: null }, signal: null,
+      persistence: { attemptCount: 1, priorFailures: [] } }
+  })
+}
 
 function fixture(context)
 {
-  fs.mkdirSync(path.join(root, '.tmp'), { recursive: true })
-  const directory = fs.mkdtempSync(path.join(root, '.tmp', 'aot-spa-hydration-raw-'))
-  context.after(() => fs.rmSync(directory, { recursive: true, force: true }))
-  const relative = (file) => path.relative(root, file).replaceAll(path.sep, '/')
-  const write = (name, value) => {
-    const file = path.join(directory, name)
-    fs.mkdirSync(path.dirname(file), { recursive: true })
-    fs.writeFileSync(file, typeof value === 'string' ? value : `${JSON.stringify(value)}\n`)
-    return relative(file)
-  }
-
-  const inputRoot = path.join(directory, 'source')
-  const artifactRoot = path.join(directory, 'build')
-  fs.mkdirSync(path.join(inputRoot, 'inputs'), { recursive: true })
-  fs.mkdirSync(path.join(artifactRoot, 'frontend-dist', '.vite'), { recursive: true })
-  fs.writeFileSync(path.join(inputRoot, 'inputs', 'source.json'), '{}')
-  fs.writeFileSync(path.join(artifactRoot, 'frontend-dist', 'index.html'), '<!doctype html>')
-  fs.writeFileSync(path.join(artifactRoot, 'frontend-dist', '.vite', 'manifest.json'), '{"entry":{"file":"assets/app.js"}}')
-  const build = createProductionBuildReceipt({
-    root: inputRoot, artifactRoot,
-    sourceState: { commit, worktreeFingerprint: fingerprint },
-    producer: { workflow: 'focused', runId, runAttempt: 1, job: 'production-build-artifacts' },
-    toolchain: { node: '24', npm: '11', dotnet: '10', vite: '7', vitest: '3', playwright: '1', emsdk: '4' },
-    inputPaths: ['inputs'], domains: [{ name: 'frontend-dist', path: 'frontend-dist' }]
+  const value = createPostRuntimeCandidateFixture(context, { prefix: 'aot-spa-hydration-raw-', runId: 'run-aot-current-0001' })
+  const manifestArtifact = value.build.artifacts.find(({ path: artifactPath }) => artifactPath.endsWith('/.vite/manifest.json'))
+  const manifest = seal({
+    schema: 'fsusblog.spa-manifest-descriptor.v1', releaseId: value.plan.candidate.releaseId,
+    sourceCommit: value.commit, worktreeFingerprint: `sha256:${value.worktreeFingerprint}`,
+    buildReceiptDigest: value.build.contentDigest,
+    assetRoot: `/app/release-assets/${value.plan.candidate.releaseId}`,
+    manifestPath: `/app/release-assets/${value.plan.candidate.releaseId}/.vite/manifest.json`,
+    manifestDigest: manifestArtifact.sha256, assetInventoryDigest: `sha256:${'c'.repeat(64)}`
   })
-  const buildPath = relative(path.join(artifactRoot, 'receipt.json'))
-  const manifestArtifact = build.artifacts.find(({ path: artifactPath }) => artifactPath.endsWith('/.vite/manifest.json'))
-  const descriptor = seal({
-    schema: 'fsusblog.spa-manifest-descriptor.v1', releaseId,
-    sourceCommit: commit, worktreeFingerprint: fingerprint,
-    buildReceiptDigest: build.contentDigest,
-    assetRoot: `/app/release-assets/${releaseId}`,
-    manifestPath: `/app/release-assets/${releaseId}/.vite/manifest.json`,
-    manifestDigest: manifestArtifact.sha256,
-    assetInventoryDigest: `sha256:${'c'.repeat(64)}`
-  })
-  const manifestPath = write('manifest.json', descriptor)
-
-  const registry = loadPostRuntimeProducerRegistry(root)
-  const producer = registry.producers[0]
-  const rawOutput = relative(path.join(directory, 'aot-spa-hydration.json'))
-  const observations = Object.entries(registry.observationClasses)
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([classId, definition]) => ({
-      classId, schema: definition.schema,
-      receiptPath: classId === 'aot-spa-hydration' ? rawOutput : relative(path.join(directory, `${classId}.json`)),
-      requiredModes: Object.entries(producer.requiredObservations)
-        .filter(([, classes]) => classes.includes(classId)).map(([mode]) => mode).sort()
-    }))
-  const plan = seal({
-    schema: 'fsusblog.post-runtime-candidate-plan.v1', producerId: producer.producerId,
-    registryBinding: currentRegistryBinding(root),
-    sourceState: { commit, worktreeFingerprint: fingerprint },
-    build: { receipt: buildPath, receiptContentDigest: build.contentDigest, sourceState: build.sourceState },
-    candidate: {
-      candidateId: 'candidate-aot-current-1', runId, attemptId, fixtureId: 'fixture-aot-current-1',
-      profileId: 'production-fresh', runtimeId: 'runtime-aot-current-1', browserId: 'browser-aot-current-1',
-      releaseId, rolloutId: 'rollout-aot-current-1'
-    },
-    preRuntimeReceiptDigest: `sha256:${'d'.repeat(64)}`,
-    acceptedClaimsReceiptDigest: `sha256:${'e'.repeat(64)}`,
-    observations, status: 'planned'
-  })
-  const planPath = write('candidate-plan.json', plan)
-  const sourceState = {
-    sourceCommit: commit, worktreeFingerprint: fingerprint, buildIdentity: build.contentDigest, runId, attemptId
-  }
-  const evidenceDocument = (schema, facts) => ({ schema, status: 'passed', sourceState, facts })
-  const evidence = {
-    manifest: manifestPath,
-    publication: write('publication.json', evidenceDocument('fsusblog.aot-publication-evidence.v1', {
-      route: '/article/42', statusCode: 200, contentType: 'text/html', published: true, releaseId
-    })),
-    locale: write('locale.json', evidenceDocument('fsusblog.aot-locale-canary.v1', {
-      expectedLocale: 'zh-CN', serverLocale: 'zh-CN', clientLocale: 'zh-CN', matches: true
-    })),
-    data: write('data.json', evidenceDocument('fsusblog.aot-data-canary.v1', {
-      route: '/article/42', hydrationKind: 'ArticleDetail',
-      serverDigest: `sha256:${'f'.repeat(64)}`, clientDigest: `sha256:${'f'.repeat(64)}`, matches: true
-    })),
-    serverHtml: write('server.html', '<!doctype html><html lang="zh-CN"><head><link href="https://example.test/article/42" rel="canonical"><script type="application/json" data-fsus-seo-head-model>{}</script></head><body><div id="app"><div id="fsus-aot-shell" data-public-hydration-kind="ArticleDetail"></div></div></body></html>'),
-    hydratedDom: write('hydrated-dom.json', evidenceDocument('fsusblog.aot-hydrated-dom-evidence.v1', {
-      route: '/article/42', hydrationKind: 'ArticleDetail', appCount: 1, shellCount: 1,
-      hydrated: true, identityPreserved: true
-    })),
-    client: write('client.json', evidenceDocument('fsusblog.aot-client-state-evidence.v1', {
-      route: '/article/42', ready: true, historyCoherent: true, hydrationMetricsPresent: true
-    })),
-    network: write('network.json', evidenceDocument('fsusblog.aot-network-resource-evidence.v1', {
-      documentStatus: 200, failedRequests: [], manifestResourcesMatched: true
-    }))
-  }
-  const sourceBundle = produceAotSpaHydrationSourceBundle({ candidatePlan: planPath, evidence, repositoryRoot: root })
-  const sourceBundlePath = write('aot-source-bundle.json', sourceBundle)
-  return { planPath, rawOutput, evidence, sourceBundlePath, build, buildPath }
+  const manifestFile = value.write('manifest-descriptor.json', manifest)
+  const browser = browserReceipt(value)
+  const browserFile = value.write('browser-contract.json', browser)
+  const evidence = { manifest: value.relative(manifestFile), browserContract: value.relative(browserFile) }
+  const source = produceAotSpaHydrationSourceBundle({ candidatePlan: value.relative(value.planFile), evidence, repositoryRoot: root })
+  const sourceFile = value.write('aot-source-bundle.json', source)
+  return { ...value, evidence, source, sourceFile, browser, browserFile }
 }
 
-test('projects and independently reopens the exact current-run evidence set', (context) =>
+test('projects and independently replays canonical browser/server AOT outputs', (context) =>
 {
   const value = fixture(context)
-  const receipt = projectAotSpaHydrationRaw({ candidatePlan: value.planPath, sourceReceipt: value.sourceBundlePath, repositoryRoot: root })
-  fs.writeFileSync(path.join(root, value.rawOutput), `${JSON.stringify(receipt)}\n`)
-  const verified = verifyAotSpaHydrationRaw(value.rawOutput, root)
-  assert.equal(verified.schema, 'fsusblog.observation.aot-spa-hydration.v1')
-  assert.equal(verified.sourceState.buildIdentity, value.build.contentDigest)
-  assert.equal(verified.sourceState.artifactDigest, verified.semanticFacts.manifestDigest)
-  assert.deepEqual(verified.modes, ['boundary'])
-  assert.equal(verified.semanticFacts.coherent, true)
-  assert.equal(produceClassReceipt({
-    candidatePlan: value.planPath,
-    classId: 'aot-spa-hydration',
-    result: value.rawOutput,
-    repositoryRoot: root
-  }).status, 'qualified')
+  const receipt = projectAotSpaHydrationRaw({ candidatePlan: value.relative(value.planFile),
+    sourceReceipt: value.relative(value.sourceFile), repositoryRoot: root })
+  const rawPath = value.observationPaths['aot-spa-hydration']
+  fs.writeFileSync(path.join(root, rawPath), `${JSON.stringify(receipt, null, 2)}\n`)
+  assert.equal(verifyAotSpaHydrationRaw(rawPath, root).contentDigest, receipt.contentDigest)
+  assert.equal(receipt.semanticFacts.coherent, true)
+  assert.equal(produceClassReceipt({ candidatePlan: value.relative(value.planFile), classId: 'aot-spa-hydration',
+    result: rawPath, repositoryRoot: root }).status, 'qualified')
 })
 
-test('rejects a server/client route mismatch before qualification', (context) =>
+test('rejects a stale-cache style Browser Contract payload with the wrong decoded article canary', (context) =>
 {
   const value = fixture(context)
-  const file = path.join(root, value.evidence.client)
-  const evidence = JSON.parse(fs.readFileSync(file, 'utf8'))
-  evidence.facts.route = '/archive'
-  fs.writeFileSync(file, `${JSON.stringify(evidence)}\n`)
-  const sourceBundle = produceAotSpaHydrationSourceBundle({ candidatePlan: value.planPath, evidence: value.evidence, repositoryRoot: root })
-  fs.writeFileSync(path.join(root, value.sourceBundlePath), `${JSON.stringify(sourceBundle)}\n`)
-  assert.throws(() => projectAotSpaHydrationRaw({
-    candidatePlan: value.planPath, sourceReceipt: value.sourceBundlePath, repositoryRoot: root
-  }), /identities are not coherent/u)
+  const browser = structuredClone(value.browser)
+  browser.scenarios[0].observation.direct.title = 'Old cached article'
+  value.write('browser-contract.json', sealBrowserContractReceipt(browser))
+  const source = produceAotSpaHydrationSourceBundle({ candidatePlan: value.relative(value.planFile), evidence: value.evidence, repositoryRoot: root })
+  value.write('aot-source-bundle.json', source)
+  assert.throws(() => projectAotSpaHydrationRaw({ candidatePlan: value.relative(value.planFile),
+    sourceReceipt: value.relative(value.sourceFile), repositoryRoot: root }), /not coherent/u)
 })
 
-test('rejects cross-candidate evidence identities', (context) =>
+test('verifier rejects canonical Browser Contract bytes changed after source bundling', (context) =>
 {
   const value = fixture(context)
-  const file = path.join(root, value.evidence.locale)
-  const evidence = JSON.parse(fs.readFileSync(file, 'utf8'))
-  evidence.sourceState.runId = 'stale-run'
-  fs.writeFileSync(file, `${JSON.stringify(evidence)}\n`)
-  const sourceBundle = produceAotSpaHydrationSourceBundle({ candidatePlan: value.planPath, evidence: value.evidence, repositoryRoot: root })
-  fs.writeFileSync(path.join(root, value.sourceBundlePath), `${JSON.stringify(sourceBundle)}\n`)
-  assert.throws(() => projectAotSpaHydrationRaw({
-    candidatePlan: value.planPath, sourceReceipt: value.sourceBundlePath, repositoryRoot: root
-  }), /locale evidence does not exact-match/u)
-})
-
-test('verifier rejects evidence bytes changed after projection', (context) =>
-{
-  const value = fixture(context)
-  const receipt = projectAotSpaHydrationRaw({ candidatePlan: value.planPath, sourceReceipt: value.sourceBundlePath, repositoryRoot: root })
-  fs.writeFileSync(path.join(root, value.rawOutput), `${JSON.stringify(receipt)}\n`)
-  fs.appendFileSync(path.join(root, value.evidence.network), ' ')
-  assert.throws(() => verifyAotSpaHydrationRaw(value.rawOutput, root), /network evidence bytes changed/u)
+  const receipt = projectAotSpaHydrationRaw({ candidatePlan: value.relative(value.planFile),
+    sourceReceipt: value.relative(value.sourceFile), repositoryRoot: root })
+  const rawPath = value.observationPaths['aot-spa-hydration']
+  fs.writeFileSync(path.join(root, rawPath), `${JSON.stringify(receipt, null, 2)}\n`)
+  fs.appendFileSync(value.browserFile, ' ')
+  assert.throws(() => verifyAotSpaHydrationRaw(rawPath, root), /browserContract evidence bytes changed/u)
 })
 
 test('verifier rejects immutable production manifest drift', (context) =>
 {
   const value = fixture(context)
-  const receipt = projectAotSpaHydrationRaw({ candidatePlan: value.planPath, sourceReceipt: value.sourceBundlePath, repositoryRoot: root })
-  fs.writeFileSync(path.join(root, value.rawOutput), `${JSON.stringify(receipt)}\n`)
-  const file = path.join(path.dirname(path.join(root, value.buildPath)), 'frontend-dist', '.vite', 'manifest.json')
-  fs.chmodSync(file, 0o644)
-  fs.appendFileSync(file, ' ')
-  assert.throws(() => verifyAotSpaHydrationRaw(value.rawOutput, root), /artifact (?:size|digest) mismatch/u)
+  const receipt = projectAotSpaHydrationRaw({ candidatePlan: value.relative(value.planFile),
+    sourceReceipt: value.relative(value.sourceFile), repositoryRoot: root })
+  const rawPath = value.observationPaths['aot-spa-hydration']
+  fs.writeFileSync(path.join(root, rawPath), `${JSON.stringify(receipt, null, 2)}\n`)
+  const manifest = path.join(value.artifactRoot, 'frontend-dist', '.vite', 'manifest.json')
+  fs.chmodSync(manifest, 0o644)
+  fs.appendFileSync(manifest, ' ')
+  assert.throws(() => verifyAotSpaHydrationRaw(rawPath, root), /artifact (?:size|digest) mismatch/u)
 })

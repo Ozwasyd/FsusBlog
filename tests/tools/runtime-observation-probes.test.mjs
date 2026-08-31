@@ -4,23 +4,25 @@ import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
 
-import { currentRegistryBinding, seal } from '../../tools/fact-extractors/post-runtime/adapter.mjs'
+import { resolveSourceCommit, resolveWorktreeFingerprint } from '../../tools/fact-extractors/identity.mjs'
+import { seal } from '../../tools/fact-extractors/post-runtime/adapter.mjs'
 import { projectProbeRaw } from '../../tools/test-evidence/runtime-observation-raw.mjs'
 import { verifyFacts, verifyReceipt } from '../../tools/test-evidence/runtime-observation-probes.mjs'
-import {
-  loadPostRuntimeProducerRegistry,
-  root
-} from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
+import { projectPreparedPublicIds } from '../../tools/test-fixtures/receipt/projection.mjs'
+import { root } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
+import { createPostRuntimeCandidateFixture } from './support/post-runtime-candidate-fixture.mjs'
 
-const commit = 'a'.repeat(40)
-const fingerprint = 'b'.repeat(64)
+const commit = resolveSourceCommit(root)
+const fingerprint = resolveWorktreeFingerprint(root)
 const runId = 'runtime-observation-test'
 const digest = (character) => `sha256:${character.repeat(64)}`
 const fileDigest = (file) => `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`
+const sha = (value) => `sha256:${createHash('sha256').update(value).digest('hex')}`
 
-function routeFacts()
+function routeFacts(prepared, prepareStateDigest)
 {
-  const value = (id, status, typedKind, hash) => ({
+  const projection = projectPreparedPublicIds(prepared)
+  const value = (id, status, typedKind, hash, overrides = {}) => ({
     id,
     role: 'fixture-role',
     expectation: 'typed-semantic-result',
@@ -30,14 +32,31 @@ function routeFacts()
     byteLength: 1,
     typedPayloadDigest: digest(hash),
     typedKind,
-    decodeError: null
+    typedEntityId: null,
+    typedTitleDigest: null,
+    typedStatusCode: null,
+    decodeError: null,
+    ...overrides
   })
   return {
     schema: 'fsusblog.route-response-error-probe-facts.v1',
+    fixtureAuthority: {
+      prepareStateDigest,
+      projectionDigest: projection.projectionDigest,
+      articleIdDigest: sha(projection.articleId),
+      articleTitleDigest: sha(projection.articleTitle),
+      searchCanaryDigest: sha(projection.searchKeyword)
+    },
     cases: [
-      value('public-visible-first-read', 200, 'payload', '1'),
-      value('public-visible-cache-revalidation', 304, 'payload', '2'),
-      value('public-missing-typed-error', 404, 'typed-error', '3'),
+      value('public-visible-first-read', 200, 'payload', '1', {
+        headers: { 'content-type': 'application/octet-stream', 'x-fsus-frame-version': '2',
+          'x-fsus-generation': '1', etag: '"fixture-etag"' },
+        typedEntityId: Number(projection.articleId), typedTitleDigest: sha(projection.articleTitle)
+      }),
+      value('public-visible-cache-revalidation', 304, 'payload', '2', {
+        headers: { etag: '"fixture-etag"' }
+      }),
+      value('public-missing-typed-error', 404, 'typed-error', '3', { typedStatusCode: 404 }),
       value('anonymous-auth-denied', 401, 'typed-error', '4'),
       value('user-self-visible', 200, 'payload', '5'),
       value('user-admin-denied', 403, 'typed-error', '6'),
@@ -49,24 +68,37 @@ function routeFacts()
 
 function fixture(context)
 {
-  const directory = fs.mkdtempSync(path.join(root, '.tmp', 'runtime-observation-probe-'))
-  context.after(() => fs.rmSync(directory, { recursive: true, force: true }))
-  const buildPath = path.join(directory, 'build.json')
+  const candidate = createPostRuntimeCandidateFixture(context, {
+    prefix: 'runtime-observation-probe-', runId
+  })
+  const { directory, commit, worktreeFingerprint: fingerprint } = candidate
+  const buildPath = candidate.buildFile
   const fixturePath = path.join(directory, 'fixture.json')
   const probePath = path.join(directory, 'probe.json')
   const relative = (file) => path.relative(root, file).replaceAll(path.sep, '/')
-  const build = seal({
-    schema: 'fsusblog.ci-production-build-receipt.v1',
-    status: 'complete',
-    sourceState: { commit, worktreeFingerprint: fingerprint },
-    toolchain: { node: '24', dotnet: '10' }
-  })
+  const build = candidate.build
   const prepared = {
     schema: 'fsusblog.fixture-prepare-state.v1',
     terminalState: 'prepared',
-    plan: { executionIdentity: { runId, sourceIdentity: { commit, worktreeFingerprint: fingerprint } } }
+    plan: {
+      profileIdentity: { profileId: 'acceptance-representative' },
+      executionIdentity: { runId, namespace: runId, sourceIdentity: { commit, worktreeFingerprint: fingerprint } },
+      catalogDigest: digest('c')
+    },
+    producerOutputs: {
+      'public-content': {
+        producerId: 'public-content', strategy: 'transaction-fixture',
+        producerVariantPlanDigest: digest('d'), variantIds: ['canonical.public.article.published'],
+        entityIdentities: [
+          { kind: 'article', id: '11', handle: 'Current article', variantId: 'canonical.public.article.published' },
+          { kind: 'category', id: '12', handle: 'Current category', variantId: 'canonical.public.article.published' },
+          { kind: 'tag', id: '13', handle: 'Current tag', variantId: 'canonical.public.article.published' }
+        ],
+        observations: { source: 'service', database: { entities: [] }, redis: { keys: [] }, cache: { entries: [] } },
+        projection: { articleId: '11', articleTitle: 'Current article', categoryId: '12', tagId: '13', searchKeyword: 'CURRENT_BODY' }
+      }
+    }
   }
-  fs.writeFileSync(buildPath, `${JSON.stringify(build)}\n`)
   fs.writeFileSync(fixturePath, `${JSON.stringify(prepared)}\n`)
   const receipt = seal({
     schema: 'fsusblog.runtime-observation-probe.v1',
@@ -76,7 +108,7 @@ function fixture(context)
       sourceCommit: commit,
       worktreeFingerprint: `sha256:${fingerprint}`,
       runId,
-      attemptId: 'attempt-1',
+      attemptId: 'attempt-0001',
       buildIdentity: build.contentDigest,
       fixtureIdentity: fileDigest(fixturePath)
     },
@@ -88,48 +120,16 @@ function fixture(context)
       syntheticSemanticResult: false,
       rerunCommand: 'node tools/test-evidence/runtime-observation-probes.mjs probe --kind route-response-error'
     },
-    facts: routeFacts(),
+    facts: routeFacts(prepared, fileDigest(fixturePath)),
     terminalStatus: 'verified'
   })
   fs.writeFileSync(probePath, `${JSON.stringify(receipt)}\n`)
-  return { receipt, build, directory, buildPath, fixturePath, probePath, relative }
+  return { receipt, build, directory, buildPath, fixturePath, probePath, relative, candidate }
 }
 
 function candidatePlan(value)
 {
-  const registry = loadPostRuntimeProducerRegistry(root)
-  const producer = registry.producers[0]
-  const observations = Object.entries(registry.observationClasses).sort(([left], [right]) => left.localeCompare(right))
-    .map(([classId, definition]) => ({
-      classId,
-      schema: definition.schema,
-      receiptPath: value.relative(path.join(value.directory, `${classId}-raw.json`)),
-      requiredModes: Object.entries(producer.requiredObservations)
-        .filter(([, classes]) => classes.includes(classId)).map(([mode]) => mode).sort()
-    }))
-  const plan = seal({
-    schema: 'fsusblog.post-runtime-candidate-plan.v1',
-    producerId: producer.producerId,
-    registryBinding: currentRegistryBinding(root),
-    sourceState: { commit, worktreeFingerprint: `sha256:${fingerprint}` },
-    build: {
-      receipt: value.relative(value.buildPath),
-      receiptContentDigest: value.build.contentDigest,
-      sourceState: value.build.sourceState
-    },
-    candidate: {
-      candidateId: 'candidate-1', runId, attemptId: 'attempt-1', fixtureId: 'fixture-1',
-      profileId: 'production-fresh', runtimeId: 'runtime-1', browserId: 'browser-1',
-      releaseId: 'release-1', rolloutId: 'rollout-1'
-    },
-    preRuntimeReceiptDigest: digest('8'),
-    acceptedClaimsReceiptDigest: digest('9'),
-    observations,
-    status: 'planned'
-  })
-  const planPath = path.join(value.directory, 'candidate-plan.json')
-  fs.writeFileSync(planPath, `${JSON.stringify(plan)}\n`)
-  return { plan, planPath }
+  return { plan: value.candidate.plan, planPath: value.candidate.planFile }
 }
 
 test('probe verifier reopens exact current-run dependencies', (context) =>
@@ -141,6 +141,7 @@ test('probe verifier reopens exact current-run dependencies', (context) =>
 test('probe verifier rejects stale dependency bytes', (context) =>
 {
   const value = fixture(context)
+  fs.chmodSync(value.buildPath, 0o644)
   fs.appendFileSync(value.buildPath, ' ')
   assert.throws(() => verifyReceipt(value.receipt), /dependency digest mismatch/u)
 })
@@ -173,8 +174,8 @@ test('raw projector binds a verified probe to the exact candidate and toolchain'
   })
   assert.equal(raw.schema, 'fsusblog.observation.route-response-error.v1')
   assert.equal(raw.producerId, 'production-correctness-scheduler')
-  assert.equal(raw.sourceState.runtimeId, 'runtime-1')
-  assert.equal(raw.sourceState.attemptId, 'attempt-1')
+  assert.equal(raw.sourceState.runtimeId, `${runId}-runtime`)
+  assert.equal(raw.sourceState.attemptId, 'attempt-0001')
   assert.equal(raw.sourceState.schemaIdentity, 'fsusblog.observation.route-response-error.v1')
   assert.equal(raw.sourceState.sourceReceiptSchemaIdentity, 'fsusblog.runtime-observation-probe.v1')
   assert.match(raw.sourceState.toolchainIdentity, /^sha256:[a-f0-9]{64}$/u)
@@ -200,7 +201,7 @@ test('raw projector rejects a probe from another attempt', (context) =>
   const value = fixture(context)
   const plan = candidatePlan(value)
   const mismatched = seal({ ...value.receipt, contentDigest: undefined,
-    sourceState: { ...value.receipt.sourceState, attemptId: 'attempt-2' } })
+    sourceState: { ...value.receipt.sourceState, attemptId: 'attempt-0002' } })
   fs.writeFileSync(value.probePath, `${JSON.stringify(mismatched)}\n`)
   assert.throws(() => projectProbeRaw({
     candidatePlan: value.relative(plan.planPath),
@@ -211,13 +212,38 @@ test('raw projector rejects a probe from another attempt', (context) =>
 
 test('route probe facts reject partial and mismatched semantic relations', () =>
 {
-  const partial = routeFacts()
+  const prepared = {
+    schema: 'fsusblog.fixture-prepare-state.v1', terminalState: 'prepared',
+    plan: { profileIdentity: { profileId: 'acceptance-representative' }, executionIdentity: {
+      runId, namespace: runId, sourceIdentity: { commit, worktreeFingerprint: fingerprint }
+    }, catalogDigest: digest('c') },
+    producerOutputs: { 'public-content': {
+      producerId: 'public-content', strategy: 'transaction-fixture', producerVariantPlanDigest: digest('d'),
+      variantIds: ['canonical.public.article.published'], entityIdentities: [
+        { kind: 'article', id: '11' }, { kind: 'category', id: '12' }, { kind: 'tag', id: '13' }
+      ], observations: { source: 'service', database: {}, redis: {}, cache: {} },
+      projection: { articleId: '11', articleTitle: 'Current article', categoryId: '12', tagId: '13', searchKeyword: 'CURRENT_BODY' }
+    } }
+  }
+  const partial = routeFacts(prepared, digest('e'))
   partial.cases.pop()
   assert.throws(() => verifyFacts('route-response-error', partial), /exact real request closure/u)
 
-  const mismatched = routeFacts()
+  const mismatched = routeFacts(prepared, digest('e'))
   mismatched.cases.find((entry) => entry.id === 'user-admin-denied').status = 200
   assert.throws(() => verifyFacts('route-response-error', mismatched), /role\/auth\/visibility\/cache relations/u)
+
+  for (const mutate of [
+    (facts) => { facts.cases[0].typedEntityId = 99 },
+    (facts) => { facts.cases[0].typedTitleDigest = digest('f') },
+    (facts) => { delete facts.cases[0].headers['x-fsus-frame-version'] },
+    (facts) => { facts.cases[1].headers.etag = '"stale-etag"' }
+  ])
+  {
+    const stale = routeFacts(prepared, digest('e'))
+    mutate(stale)
+    assert.throws(() => verifyFacts('route-response-error', stale), /role\/auth\/visibility\/cache relations/u)
+  }
 })
 
 test('cache and session probe facts reject partial terminal relations', () =>
