@@ -117,7 +117,7 @@
     },
     {
       "id": "SchemaMigrationPostgresCollectionB",
-      "estimatedFacts": 379,
+      "estimatedFacts": 385,
       "tests": [
         {
           "path": "Integration/AccountEnrollmentIntegrationTests.cs",
@@ -307,6 +307,10 @@
         {
           "path": "Unit/CommentMutationOutboxPostgresTests.cs",
           "class": "CommentMutationOutboxPostgresTests"
+        },
+        {
+          "path": "Unit/CommentMutationOutboxAnonymousPostgresTests.cs",
+          "class": "CommentMutationOutboxAnonymousPostgresTests"
         },
         {
           "path": "Unit/HumanReadProofPersistencePrivacyTests.cs",

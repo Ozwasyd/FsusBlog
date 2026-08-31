@@ -73,6 +73,7 @@ const labels = [
   'status:needs-info',
   'status:accepted',
   'status:blocked',
+  'dependency-blocked',
   'status:duplicate',
   'status:not-planned',
   'evidence:needs-repro',

@@ -5,6 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import {
+  BehaviorId,
   digestCatalog,
   digestDocumentOwnership,
   loadCatalog,
@@ -159,8 +160,30 @@ test('rejects an untyped behavior reference and compatibility aliases', () => {
   try {
     writeFileSync(target, 'export const reference = { behaviorId: runtimeValue }\n')
     assert.throws(() => validateBehaviorReferences(loadCatalog()), /untyped or free-string/u)
+    writeFileSync(target, 'export const reference = { behaviorId: BehaviorId(runtimeValue) }\n')
+    assert.doesNotThrow(() => validateBehaviorReferences(loadCatalog()))
     writeFileSync(target, 'export const legacy_behavior_catalog = {}\n')
     assert.throws(() => validateBehaviorReferences(loadCatalog()), /compatibility surface/u)
+  } finally { rmSync(target, { force: true }) }
+})
+
+test('canonical BehaviorId validates catalog membership', () => {
+  assert.equal(BehaviorId('code-intent-governance'), 'code-intent-governance')
+  assert.throws(() => BehaviorId('unregistered-free-string'), /unregistered behavior ID/u)
+  assert.throws(() => BehaviorId(null), /unregistered behavior ID/u)
+})
+
+test('scanner requires typed dynamic behavior arrays and replay projections', () => {
+  const target = path.join(root, 'tests/fixtures/behavior-free-string-reference.mjs')
+  try {
+    writeFileSync(target, 'const behaviorId = BehaviorId("code-intent-governance")\nconst node = (behaviorIds = [BehaviorId(behaviorId)]) => ({ behaviorIds })\nconst reorder = ({ behaviorIds }) => ({ behaviorIds: [...behaviorIds].reverse().map(BehaviorId) })\nexport { node, reorder }\n')
+    assert.doesNotThrow(() => validateBehaviorReferences(loadCatalog()))
+
+    writeFileSync(target, 'const behaviorId = "code-intent-governance"\nexport const node = (behaviorIds = [behaviorId]) => ({ behaviorIds })\n')
+    assert.throws(() => validateBehaviorReferences(loadCatalog()), /untyped or free-string/u)
+
+    writeFileSync(target, 'export const reorder = ({ behaviorIds }) => ({ behaviorIds: [...behaviorIds].reverse() })\n')
+    assert.throws(() => validateBehaviorReferences(loadCatalog()), /untyped or free-string/u)
   } finally { rmSync(target, { force: true }) }
 })
 

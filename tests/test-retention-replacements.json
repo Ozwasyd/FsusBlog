@@ -220,9 +220,9 @@
             "id": "node-test:tests/tools/release-evidence-artifact-restore.test.mjs#release-evidence-collector-delegates-downloaded-artifact-f311ed4021",
             "path": "tests/tools/release-evidence-artifact-restore.test.mjs",
             "replacementTestIds": [
-                "node-test:tests/tools/release-evidence-artifact-restore.test.mjs#release-evidence-restores-both-stripped-tmp-and-mixed-ro-e780bfdcf5"
+                "node-test:tests/tools/release-evidence-artifact-restore.test.mjs#restore-extracts-downloaded-evidence-only-through-a-tran-d9ba29a1d6"
             ],
-            "reason": "The restore helper is executed over stripped, mixed and legacy layouts instead of checking its caller text."
+            "reason": "The restore helper is executed against a bound current-run transport manifest instead of checking its caller text."
         },
         {
             "id": "node-test:tests/tools/runtime-cross-stack-split.test.mjs#cross-stack-runtime-phase-binds-the-exact-browser-probe--0407b014a3",
@@ -6019,6 +6019,24 @@
                 "xunit:tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs#FsusBlog.Server.Tests.Unit.AnonymousCredentialRootLifecycleTests.RootLifecycle_HighFrequencyReaderAndVerifierReuseSingleAuthoritativeGeneration#case-0000"
             ],
             "reason": "The in-test string cache is replaced by the real lifecycle reader, root service and PostgreSQL store, with concurrent verifier reads and SQL instrumentation proving one authoritative load for the published generation."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs#FsusBlog.Server.Tests.Unit.AnonymousPrivacyConcurrencyTests.VerifierBoundedConcurrency_DoesNotExceedConfiguredLimit#case-0000",
+            "path": "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs#FsusBlog.Server.Tests.Unit.NativeGroth16ZkProofBackendTests.ProductionZkProofVerifier_NativeBackendUsesExistingConcurrencyGate#case-0000"
+            ],
+            "reason": "The in-test semaphore model is replaced by the real production verifier and a passive backend probe, with barrier-started calls proving configured backend in-flight limits, queued completion, slot release, configuration bounds, singleton DI sharing and exact public-input forwarding."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs#FsusBlog.Server.Tests.Unit.AnonymousPrivacyConcurrencyTests.CommentSubmitHighConcurrency_CacheInvalidationIsNonBlocking#case-0000",
+            "path": "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/CommentMutationOutboxAnonymousPostgresTests.cs#FsusBlog.Server.Tests.Unit.CommentMutationOutboxAnonymousPostgresTests.StrongAnonymousSubmission_OutboxCommitFailureRollsBackAllAuthoritativeRows#case-0000",
+                "xunit:tests/backend/Unit/CommentMutationOutboxAnonymousPostgresTests.cs#FsusBlog.Server.Tests.Unit.CommentMutationOutboxAnonymousPostgresTests.StrongAnonymousSubmission_WorkerRetryAndRestartPreserveCommittedCommentAndCheckpoints#case-0000",
+                "xunit:tests/backend/Unit/CommentMutationOutboxAnonymousPostgresTests.cs#FsusBlog.Server.Tests.Unit.CommentMutationOutboxAnonymousPostgresTests.StrongAnonymousSubmissions_CommitBeforeBlockedOutboxInvalidationAndDeliverExactlyOnce#case-0000"
+            ],
+            "reason": "The in-test ID generator and TaskCompletionSource bag are replaced by real concurrent strong-anonymous PostgreSQL transactions, durable comment outbox rows and the production worker, proving request completion before blocked cache delivery, atomic rollback, restart recovery and exact completed checkpoints."
         },
         {
             "id": "xunit:tests/backend/Unit/AnonymousPrivacyMatrixTests.cs#AnonymousPrivacyMatrixTests.PrivacyZkBackendGate_CoversRevocationAccumulatorAndWitnessTests",

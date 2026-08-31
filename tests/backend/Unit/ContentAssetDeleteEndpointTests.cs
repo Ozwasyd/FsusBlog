@@ -81,7 +81,7 @@ public sealed class ContentAssetDeleteEndpointTests
         }
     }
 
-    private static DefaultHttpContext CreateContext(string value)
+    internal static DefaultHttpContext CreateContext(string value)
     {
         IBinaryEndpointRequestContext requestContext = Substitute.For<IBinaryEndpointRequestContext>();
         requestContext.ReadFrameAsync(
@@ -101,7 +101,7 @@ public sealed class ContentAssetDeleteEndpointTests
         return context;
     }
 
-    private static async Task<AedsDecodeResult> ExecuteAndDecodeAsync(
+    internal static async Task<AedsDecodeResult> ExecuteAndDecodeAsync(
         BinaryFrameResult result,
         DefaultHttpContext context,
         AedsEncoder aeds)

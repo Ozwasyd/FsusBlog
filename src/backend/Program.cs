@@ -8,6 +8,52 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services.Fixtures;
 
+if (CurrentSchemaTestMaterializationCandidateCommandLine.IsRequested(args))
+{
+    try
+    {
+        Environment.ExitCode = await CurrentSchemaTestMaterializationCandidateCommandHost.RunAsync(
+            args,
+            CancellationToken.None);
+    }
+    catch (Exception exception) when (exception is not OperationCanceledException)
+    {
+        string exceptionCode = exception.Message.Split(':', 2, StringSplitOptions.TrimEntries)[0];
+        Console.WriteLine(JsonSerializer.Serialize(new
+        {
+            status = "failed",
+            code = exceptionCode.StartsWith("current_schema_", StringComparison.Ordinal)
+                ? exceptionCode
+                : "current_schema_candidate_verifier_failed"
+        }));
+        Environment.ExitCode = 1;
+    }
+    return;
+}
+
+if (CurrentSchemaTestMaterializationCommandLine.IsRequested(args))
+{
+    try
+    {
+        Environment.ExitCode = await CurrentSchemaTestMaterializationCommandHost.RunAsync(
+            args,
+            CancellationToken.None);
+    }
+    catch (Exception exception) when (exception is not OperationCanceledException)
+    {
+        string exceptionCode = exception.Message.Split(':', 2, StringSplitOptions.TrimEntries)[0];
+        Console.WriteLine(JsonSerializer.Serialize(new
+        {
+            status = "failed",
+            code = exceptionCode.StartsWith("current_schema_", StringComparison.Ordinal)
+                ? exceptionCode
+                : "current_schema_materializer_failed"
+        }));
+        Environment.ExitCode = 1;
+    }
+    return;
+}
+
 OnlineSchemaMigrationCommand command;
 try
 {
@@ -62,12 +108,9 @@ if (builder.Environment.IsDevelopment() &&
 }
 builder.Services.ApplyFsusRuntimeModeGates(builder.Configuration);
 builder.Services.AddOnlineSchemaMigrationControlPlane(builder.Configuration);
-if (command.Kind == OnlineSchemaMigrationCommandKind.Serve && builder.Environment.IsProduction())
-{
-    // Last registration wins for LifecycleHostedBootstrapService: production
-    // serve performs a read-only N/N-1 compatibility check, never migration.
-    builder.Services.AddScoped<ISchemaMigrationRunner, ServeSchemaCompatibilityRunner>();
-}
+// Last registration wins: Server serve verifies the unique current schema
+// projection and never loads the migration catalog or executes descriptors.
+builder.Services.AddScoped<ISchemaMigrationRunner, CurrentSchemaStartupVerifier>();
 builder.Services.ValidateAndPublishFsusDependencyGraph();
 
 await using var app = builder.Build();

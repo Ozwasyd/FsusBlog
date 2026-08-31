@@ -48,7 +48,7 @@ scenarios:
       code:
           - src/backend/Services/Security/AnonymousCommentPolicyService.cs
           - src/backend/Services/Security/CommentActorResolver.cs
-          - src/backend/Infrastructure/SchemaMigration/Definitions/CommentAuthorModeRetirementMigrationDefinitions.cs
+          - src/migration/Definitions/CommentAuthorModeRetirementMigrationDefinitions.cs
           - src/frontend/src/composables/useArticleDetailView.ts
       tests:
           - tests/backend/Unit/CommentAuthorModeRetirementTests.cs
@@ -264,14 +264,16 @@ scenarios:
       code:
           - src/backend/Services/Security/AnonymousCommentTicketService.cs
           - src/backend/Services/Security/CommentAnonymousNullifierService.cs
+          - src/backend/Services/Security/ProductionZkProofVerifier.cs
           - src/backend/Services/Security/ZkAnonymousProofService.cs
           - src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs
       tests:
           - tests/backend/Unit/AnonymousCommentTicketEndpointFilterTests.cs
           - tests/backend/Unit/AnonymousCommentTicketRedisConcurrencyTests.cs
           - tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs
-          - tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs
+          - tests/backend/Unit/CommentMutationOutboxAnonymousPostgresTests.cs
           - tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs
+          - tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs
       evidence:
           - .tmp/security/privacy-zk-comment-matrix.json
 

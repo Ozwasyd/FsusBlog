@@ -100,33 +100,6 @@ function resolveAdminManualChunk(id: string): string | undefined {
     return undefined
 }
 
-function bindMarkdownFeatureTrustedTypes(): Plugin {
-    const gatewaySuffix = '/packages/wasm/markdown-feature-output-gateway.ts'
-    const rawSink = 'template.innerHTML = output.payload'
-    const trustedSink = 'template.innerHTML = toTrustedMarkdownFeatureHtml(output) as string'
-    return {
-        name: 'bind-markdown-feature-trusted-types',
-        enforce: 'pre',
-        transform(source, id) {
-            const normalizedId = id.replaceAll('\\', '/').split('?')[0]
-            if (!normalizedId.endsWith(gatewaySuffix)) {
-                return
-            }
-            const occurrences = source.split(rawSink).length - 1
-            if (occurrences !== 1) {
-                throw new Error(`markdown_feature_trusted_types_sink_not_unique:${occurrences}`)
-            }
-            return {
-                code: [
-                    "import { toTrustedMarkdownFeatureHtml } from '@/security/trustedTypesRuntime'",
-                    source.replace(rawSink, trustedSink)
-                ].join('\n'),
-                map: null
-            }
-        }
-    }
-}
-
 function resolveLocaleDomainChunk(id: string): string | undefined {
     const localeDomain = localeDomainChunkPattern.exec(id)
     return localeDomain ? `locale-${localeDomain[1]}-${localeDomain[2]}` : undefined
@@ -774,7 +747,6 @@ export default defineConfig(({ command, mode }) => {
             rejectRetiredBrandEntrypoints(),
             injectPublicSourceCssInDev(),
             preserveProductionManifestOwners(!isPublicSsrBuild),
-            bindMarkdownFeatureTrustedTypes(),
             fixViteClientWorkerDocumentGuard(),
             serveFsusUiOptimizedWasmAssets(fsusUiWasmDist),
             servePublicAotHydrationSidecars(),

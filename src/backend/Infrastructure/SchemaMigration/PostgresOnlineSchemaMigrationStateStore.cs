@@ -15,7 +15,8 @@ public interface IOnlineSchemaMigrationStateStore
     Task SaveBackfillAsync(OnlineSchemaBackfillSnapshot snapshot, CancellationToken cancellationToken);
 
     Task MarkMigrationAppliedAsync(
-        ISchemaMigrationDescriptor descriptor,
+        string migrationId,
+        string checksum,
         ReleaseId releaseId,
         CancellationToken cancellationToken);
 
@@ -52,7 +53,7 @@ public sealed class PostgresOnlineSchemaMigrationStateStore(ISqlSugarClient db)
     {
         cancellationToken.ThrowIfCancellationRequested();
         await db.Ado.ExecuteCommandAsync($"""
-            CREATE TABLE IF NOT EXISTS {SchemaMigrationSql.QuoteIdentifier(HistoryTableName)} (
+            CREATE TABLE IF NOT EXISTS {QuoteIdentifier(HistoryTableName)} (
                 migration_id varchar(160) PRIMARY KEY,
                 checksum varchar(128) NOT NULL,
                 applied_at_utc timestamp NOT NULL,
@@ -60,13 +61,13 @@ public sealed class PostgresOnlineSchemaMigrationStateStore(ISqlSugarClient db)
                 succeeded boolean NOT NULL
             );
 
-            CREATE TABLE IF NOT EXISTS {SchemaMigrationSql.QuoteIdentifier(StateTableName)} (
+            CREATE TABLE IF NOT EXISTS {QuoteIdentifier(StateTableName)} (
                 singleton_id smallint PRIMARY KEY CHECK (singleton_id = 1),
                 schema_release varchar(128) NOT NULL,
                 updated_at_utc timestamp NOT NULL
             );
 
-            CREATE TABLE IF NOT EXISTS {SchemaMigrationSql.QuoteIdentifier(BackfillTableName)} (
+            CREATE TABLE IF NOT EXISTS {QuoteIdentifier(BackfillTableName)} (
                 migration_id varchar(160) PRIMARY KEY,
                 status varchar(32) NOT NULL,
                 resume_token varchar(512) NULL,
@@ -78,9 +79,9 @@ public sealed class PostgresOnlineSchemaMigrationStateStore(ISqlSugarClient db)
                 remaining_rows_estimate bigint NULL
             );
 
-            ALTER TABLE {SchemaMigrationSql.QuoteIdentifier(BackfillTableName)}
+            ALTER TABLE {QuoteIdentifier(BackfillTableName)}
                 ADD COLUMN IF NOT EXISTS rows_per_second double precision NULL;
-            ALTER TABLE {SchemaMigrationSql.QuoteIdentifier(BackfillTableName)}
+            ALTER TABLE {QuoteIdentifier(BackfillTableName)}
                 ADD COLUMN IF NOT EXISTS remaining_rows_estimate bigint NULL;
             """).ConfigureAwait(false);
     }
@@ -92,7 +93,7 @@ public sealed class PostgresOnlineSchemaMigrationStateStore(ISqlSugarClient db)
         cancellationToken.ThrowIfCancellationRequested();
         await db.Ado.ExecuteCommandAsync(
             $"""
-            INSERT INTO {SchemaMigrationSql.QuoteIdentifier(BackfillTableName)}(
+            INSERT INTO {QuoteIdentifier(BackfillTableName)}(
                 migration_id,
                 status,
                 resume_token,
@@ -136,14 +137,15 @@ public sealed class PostgresOnlineSchemaMigrationStateStore(ISqlSugarClient db)
     }
 
     public async Task MarkMigrationAppliedAsync(
-        ISchemaMigrationDescriptor descriptor,
+        string migrationId,
+        string checksum,
         ReleaseId releaseId,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         await db.Ado.ExecuteCommandAsync(
             $"""
-            INSERT INTO {SchemaMigrationSql.QuoteIdentifier(HistoryTableName)}(
+            INSERT INTO {QuoteIdentifier(HistoryTableName)}(
                 migration_id,
                 checksum,
                 applied_at_utc,
@@ -157,8 +159,8 @@ public sealed class PostgresOnlineSchemaMigrationStateStore(ISqlSugarClient db)
                 app_version = EXCLUDED.app_version,
                 succeeded = TRUE;
             """,
-            new SugarParameter("@migration_id", descriptor.MigrationId),
-            new SugarParameter("@checksum", descriptor.Checksum),
+            new SugarParameter("@migration_id", migrationId),
+            new SugarParameter("@checksum", checksum),
             new SugarParameter("@applied_at_utc", DateTime.UtcNow),
             new SugarParameter("@app_version", releaseId.Value)).ConfigureAwait(false);
     }
@@ -170,7 +172,7 @@ public sealed class PostgresOnlineSchemaMigrationStateStore(ISqlSugarClient db)
         cancellationToken.ThrowIfCancellationRequested();
         await db.Ado.ExecuteCommandAsync(
             $"""
-            INSERT INTO {SchemaMigrationSql.QuoteIdentifier(StateTableName)}(
+            INSERT INTO {QuoteIdentifier(StateTableName)}(
                 singleton_id,
                 schema_release,
                 updated_at_utc
@@ -199,7 +201,7 @@ public sealed class PostgresOnlineSchemaMigrationStateStore(ISqlSugarClient db)
         cancellationToken.ThrowIfCancellationRequested();
         DataTable table = await db.Ado.GetDataTableAsync($"""
             SELECT migration_id, checksum, applied_at_utc, app_version, succeeded
-            FROM {SchemaMigrationSql.QuoteIdentifier(HistoryTableName)}
+            FROM {QuoteIdentifier(HistoryTableName)}
             ORDER BY migration_id;
             """).ConfigureAwait(false);
 
@@ -226,7 +228,7 @@ public sealed class PostgresOnlineSchemaMigrationStateStore(ISqlSugarClient db)
 
         DataTable table = await db.Ado.GetDataTableAsync($"""
             SELECT schema_release
-            FROM {SchemaMigrationSql.QuoteIdentifier(StateTableName)}
+            FROM {QuoteIdentifier(StateTableName)}
             WHERE singleton_id = 1;
             """).ConfigureAwait(false);
         return table.Rows.Count == 0
@@ -252,7 +254,7 @@ public sealed class PostgresOnlineSchemaMigrationStateStore(ISqlSugarClient db)
                    verified_at_utc,
                    rows_per_second,
                    remaining_rows_estimate
-            FROM {SchemaMigrationSql.QuoteIdentifier(BackfillTableName)}
+            FROM {QuoteIdentifier(BackfillTableName)}
             ORDER BY migration_id;
             """).ConfigureAwait(false);
         var backfills = new Dictionary<string, OnlineSchemaBackfillSnapshot>(StringComparer.Ordinal);
@@ -279,4 +281,7 @@ public sealed class PostgresOnlineSchemaMigrationStateStore(ISqlSugarClient db)
         DateTime dateTime = Convert.ToDateTime(value);
         return new DateTimeOffset(DateTime.SpecifyKind(dateTime, DateTimeKind.Utc));
     }
+
+    private static string QuoteIdentifier(string name)
+        => $"\"{name.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
 }

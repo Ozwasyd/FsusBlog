@@ -32,6 +32,7 @@
 	<ItemGroup>
 		<AssemblyMetadata Include="FsusBlog.PublishReadyToRun" Value="$(PublishReadyToRun)" />
 		<AssemblyMetadata Include="FsusBlog.ReadyToRunUseCrossgen2" Value="$(ReadyToRunUseCrossgen2)" />
+		<AssemblyMetadata Include="FsusBlog.SourceCommit" Value="$(FsusBlogCommitSha)" />
 	</ItemGroup>
 
 	<PropertyGroup>
@@ -135,7 +136,7 @@
 			Text="FsusBlogReleaseId commit suffix must match the first 12 characters of FsusBlogCommitSha." />
 	</Target>
 
-	<ItemGroup>
+		<ItemGroup>
 				<ProjectReference Include="..\core\FsusBlog.Core.csproj" />
 				<ProjectReference Include="..\shared\FsusBlog.Shared.csproj" />
 				<ProjectReference Include="..\..\tools\architecture\FsusBlog.DiLifetimeAnalyzer\FsusBlog.DiLifetimeAnalyzer.csproj"

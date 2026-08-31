@@ -167,6 +167,7 @@
             "owner": "ContractStyleOwner",
             "extensions": [
                 ".json",
+                ".json5",
                 ".jsonc",
                 ".webmanifest"
             ],

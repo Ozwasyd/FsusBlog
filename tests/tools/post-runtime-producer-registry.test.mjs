@@ -1,20 +1,83 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
+import { digestValue } from '../../tools/fact-extractors/lib/canonicalize.mjs'
 import {
+    BehaviorId,
+    acceptedClaimsSchema,
     loadPostRuntimeProducerRegistry,
     postRuntimeRegistrySchema,
     requiredPostRuntimeBehaviors,
     root,
+    validateAcceptedClaimsReceiptAgainstRegistry,
     validatePostRuntimeProducerRegistry,
+    validatePostRuntimeReceiptSchemas,
     validateProducerReceiptAgainstRegistry
 } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
 
 const catalog = JSON.parse(fs.readFileSync(path.join(root, 'config/contracts/behavior-contracts.json'), 'utf8'))
 const migrationLedger = JSON.parse(fs.readFileSync(path.join(root, 'config/contracts/document-claim-migration-ledger.json'), 'utf8'))
 const registry = loadPostRuntimeProducerRegistry(root)
+const digest = (character) => `sha256:${character.repeat(64)}`
+
+function seal(receipt)
+{
+    const value = structuredClone(receipt)
+    delete value.contentDigest
+    return { ...value, contentDigest: `sha256:${digestValue(value)}` }
+}
+
+function producerReceipt(classId = 'route-response-error')
+{
+    const producer = registry.producers[0]
+    const definition = registry.observationClasses[classId]
+    const requiredModes = Object.entries(producer.requiredObservations)
+        .filter(([, classes]) => classes.includes(classId))
+        .map(([mode]) => mode)
+        .sort()
+    return seal({
+        schema: definition.schema,
+        producerId: producer.producerId,
+        toolVersion: producer.toolVersion,
+        sourceState: {
+            sourceCommit: 'a'.repeat(40),
+            worktreeFingerprint: digest('b'),
+            buildIdentity: digest('c'),
+            candidateId: 'candidate-1'
+        },
+        executionClass: 'correctness',
+        evidenceClass: 'correctness',
+        qualificationEligible: true,
+        planned: true,
+        executed: true,
+        outcome: 'passed',
+        recovered: false,
+        modes: requiredModes,
+        terminal: {
+            timeout: false,
+            cancelled: false,
+            processTreeTerminated: false,
+            priorAttemptDigest: null
+        },
+        semanticFacts: { coherent: true },
+        candidatePlanRef: {
+            path: '.tmp/current-run/candidate-plan.json',
+            fileDigest: digest('d'),
+            contentDigest: digest('e')
+        },
+        sourceReceiptRef: {
+            path: '.tmp/current-run/source-receipt.json',
+            fileDigest: digest('f'),
+            contentDigest: digest('0')
+        },
+        canonicalRerunCommand: 'node tools/test-evidence/runtime-observation-probes.mjs route',
+        independentVerifyCommand: 'node tools/test-evidence/runtime-observation-raw.mjs verify'
+    })
+}
 
 function tampered(modifier)
 {
@@ -65,7 +128,7 @@ test('existence shortcut observation classes fail closed', () =>
             clone.observationClasses['http-200-class'] = {
                 schema: 'fsusblog.observation.http200.v1',
                 requiredIdentityFields: ['contentDigest'],
-                allowedModes: ['positive'],
+                allowedModes: ['positive', 'negative', 'boundary', 'failure'],
                 existenceShortcutForbidden: false
             }
         }), { catalog }),
@@ -95,7 +158,7 @@ test('missing required identity binding fails closed', () =>
         {
             delete clone.observationClasses['route-response-error'].requiredIdentityFields
         }), { catalog }),
-        /must bind contentDigest/u)
+        /missing or unknown fields/u)
 })
 
 test('unknown observation type and orphan claim mapping fail closed', () =>
@@ -124,47 +187,308 @@ test('unknown observation type and orphan claim mapping fail closed', () =>
     }
 })
 
-test('manual owner/waiver fields and stale schema fail closed', () =>
+test('manual owner/waiver fields and every pre-v2 registry fail closed', () =>
 {
     assert.throws(
         () => validatePostRuntimeProducerRegistry(tampered((clone) => { clone.producers[0].waiver = true }), { catalog }),
         /forbidden field waiver/u)
     assert.throws(
-        () => validatePostRuntimeProducerRegistry(tampered((clone) => { clone.schema = 'fsusblog.post-runtime-producer-registry.v0' }), { catalog }),
+        () => validatePostRuntimeProducerRegistry(tampered((clone) => { clone.schema = 'fsusblog.post-runtime-producer-registry.v1' }), { catalog }),
         /unexpected registry schema/u)
 })
 
-test('receipt binding validates schema and identities against the registry', () =>
+test('registry and receipt schemas are closed and exact', () =>
+{
+    assert.equal(validatePostRuntimeReceiptSchemas(registry), true)
+    assert.throws(
+        () => validatePostRuntimeProducerRegistry(tampered((clone) =>
+        {
+            clone.producers[0].requiredObservations.positive.push('route-response-error')
+        }), { catalog }),
+        /duplicate observation classes/u)
+    assert.throws(
+        () => validatePostRuntimeProducerRegistry(tampered((clone) =>
+        {
+            delete clone.producers[0].requiredObservations.failure
+        }), { catalog }),
+        /missing or unknown fields/u)
+    assert.throws(
+        () => validatePostRuntimeProducerRegistry(tampered((clone) =>
+        {
+            clone.producers[0].toolVersion = 'latest'
+        }), { catalog }),
+        /toolVersion is missing or invalid/u)
+})
+
+test('receipt binding recomputes digest and exact mode/tool/source identity', () =>
 {
     const producer = registry.producers[0]
-    const receipt = {
-        schema: producer.observationSchema,
-        sourceState: {
-            sourceCommit: 'a'.repeat(64),
-            worktreeFingerprint: 'b'.repeat(64),
-            buildIdentity: { artifactId: 'x', receiptDigest: `sha256:${'c'.repeat(64)}` },
-            schedulerRunId: 'run-1',
-            producerId: producer.producerId
-        },
-        contentDigest: `sha256:${'d'.repeat(64)}`
-    }
+    const receipt = producerReceipt()
     assert.deepEqual(
         validateProducerReceiptAgainstRegistry({ registry, producerId: producer.producerId, receipt }),
-        { producerId: producer.producerId, behaviorId: 'browserless-production-correctness', warnings: 0 })
+        {
+            producerId: producer.producerId,
+            behaviorId: 'browserless-production-correctness',
+            classId: 'route-response-error',
+            qualificationEligible: true,
+            warnings: 0
+        })
 
-    const wrongSchema = structuredClone(receipt)
-    wrongSchema.schema = 'fsusblog.other-receipt.v1'
+    const wrongSchema = seal({ ...receipt, schema: 'fsusblog.other-receipt.v1' })
     assert.throws(
         () => validateProducerReceiptAgainstRegistry({ registry, producerId: producer.producerId, receipt: wrongSchema }),
-        /does not match producer schema/u)
+        /does not resolve exact-one observation class/u)
 
     const missingIdentity = structuredClone(receipt)
     delete missingIdentity.sourceState.worktreeFingerprint
+    const resealedMissingIdentity = seal(missingIdentity)
     assert.throws(
-        () => validateProducerReceiptAgainstRegistry({ registry, producerId: producer.producerId, receipt: missingIdentity }),
-        /missing required identity worktreeFingerprint/u)
+        () => validateProducerReceiptAgainstRegistry({
+            registry,
+            producerId: producer.producerId,
+            receipt: resealedMissingIdentity
+        }),
+        /missing route-response-error identity worktreeFingerprint/u)
+
+    const staleTool = seal({ ...receipt, toolVersion: 'production-correctness-scheduler@2' })
+    assert.throws(
+        () => validateProducerReceiptAgainstRegistry({ registry, producerId: producer.producerId, receipt: staleTool }),
+        /producer\/tool version mismatch/u)
+
+    const extraMode = seal({ ...receipt, modes: [...receipt.modes, 'boundary'] })
+    assert.throws(
+        () => validateProducerReceiptAgainstRegistry({ registry, producerId: producer.producerId, receipt: extraMode }),
+        /modes must exact-match/u)
+
+    const digestTamper = structuredClone(receipt)
+    digestTamper.semanticFacts.coherent = false
+    assert.throws(
+        () => validateProducerReceiptAgainstRegistry({ registry, producerId: producer.producerId, receipt: digestTamper }),
+        /contentDigest mismatch/u)
 
     assert.throws(
         () => validateProducerReceiptAgainstRegistry({ registry, producerId: 'unknown-producer', receipt }),
         /unknown producer/u)
+})
+
+test('re-sealed diagnostic, timeout, cancel and recovered mutations cannot qualify', () =>
+{
+    const producerId = registry.producers[0].producerId
+    const base = producerReceipt()
+    const diagnostic = seal({ ...base, executionClass: 'diagnostic', qualificationEligible: false })
+    assert.throws(
+        () => validateProducerReceiptAgainstRegistry({ registry, producerId, receipt: diagnostic }),
+        /executionClass cannot satisfy qualification/u)
+
+    const timedOut = seal({
+        ...base,
+        qualificationEligible: false,
+        outcome: 'timed-out',
+        terminal: {
+            timeout: true,
+            cancelled: false,
+            processTreeTerminated: true,
+            priorAttemptDigest: null
+        }
+    })
+    assert.throws(
+        () => validateProducerReceiptAgainstRegistry({ registry, producerId, receipt: timedOut }),
+        /qualificationEligible cannot satisfy qualification/u)
+
+    const contradictoryCancel = seal({
+        ...base,
+        outcome: 'cancelled',
+        terminal: {
+            timeout: false,
+            cancelled: true,
+            processTreeTerminated: false,
+            priorAttemptDigest: null
+        }
+    })
+    assert.throws(
+        () => validateProducerReceiptAgainstRegistry({ registry, producerId, receipt: contradictoryCancel }),
+        /terminal outcome is contradictory/u)
+
+    const recovered = seal({
+        ...base,
+        qualificationEligible: false,
+        recovered: true,
+        terminal: { ...base.terminal, priorAttemptDigest: digest('9') }
+    })
+    assert.throws(
+        () => validateProducerReceiptAgainstRegistry({ registry, producerId, receipt: recovered }),
+        /qualificationEligible cannot satisfy qualification/u)
+})
+
+function acceptedClaimsFixture(context)
+{
+    const repositoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-post-runtime-claims-'))
+    context.after(() => fs.rmSync(repositoryRoot, { recursive: true, force: true }))
+    fs.mkdirSync(path.join(repositoryRoot, 'config/schemas'), { recursive: true })
+    fs.mkdirSync(path.join(repositoryRoot, '.tmp/current-run'), { recursive: true })
+    fs.copyFileSync(
+        path.join(root, 'config/schemas/post-runtime-accepted-claims.schema.json'),
+        path.join(repositoryRoot, 'config/schemas/post-runtime-accepted-claims.schema.json'))
+    const terminalPath = path.join(repositoryRoot, '.tmp/current-run/global-claims.json')
+    const terminal = {
+        schema: 'fsusblog.global-claim-exactness-terminal-receipt.v1',
+        scopeId: 'global-document-claim-exactness',
+        source: {
+            sourceCommit: 'a'.repeat(40),
+            worktreeFingerprint: 'b'.repeat(64),
+            catalogDigest: 'c'.repeat(64),
+            migrationLedgerDigest: digestValue(migrationLedger),
+            sectionCatalogDigest: 'd'.repeat(64),
+            observationDigests: { test: 'e'.repeat(64) }
+        },
+        authorityDigests: ['test'],
+        counts: {
+            requiredBehaviors: 1,
+            scopes: 1,
+            ledgerEntries: 1,
+            generatedClaimCount: 1,
+            proseClaimCount: 1,
+            proseTotal: 1,
+            proseVerified: 1,
+            generatedSectionsVerified: 1,
+            generatedSectionDrifts: 0,
+            missing: 0,
+            extra: 0,
+            residue: 0,
+            mutationKilled: 1,
+            mutationTotal: 1,
+            warnings: 0
+        },
+        mutationAggregate: { killed: 1, total: 1 },
+        residue: [],
+        proseVerification: { diagnostics: [] },
+        status: 'ok',
+        failureReasons: [],
+        contentDigest: null
+    }
+    terminal.contentDigest = digestValue(terminal)
+    const writeTerminal = (value) =>
+    {
+        fs.writeFileSync(terminalPath, `${JSON.stringify(value, null, 2)}\n`)
+        return `sha256:${createHash('sha256').update(fs.readFileSync(terminalPath)).digest('hex')}`
+    }
+    const fileDigest = writeTerminal(terminal)
+    const producer = registry.producers[0]
+    const owners = new Map()
+    for (const scope of migrationLedger.scopes)
+    {
+        for (const entry of scope.entries)
+        {
+            for (const claimId of entry.claimIds)
+            {
+                owners.set(claimId, {
+                    claimId,
+                    behaviorId: BehaviorId(entry.behaviorId),
+                    scopeId: scope.scopeId
+                })
+            }
+        }
+    }
+    const receipt = seal({
+        schema: acceptedClaimsSchema,
+        sourceState: {
+            commit: terminal.source.sourceCommit,
+            worktreeFingerprint: `sha256:${terminal.source.worktreeFingerprint}`
+        },
+        producerId: producer.producerId,
+        toolVersion: registry.receiptSemantics.acceptedClaimsToolVersion,
+        terminalReceiptRef: {
+            path: '.tmp/current-run/global-claims.json',
+            fileDigest,
+            contentDigest: `sha256:${terminal.contentDigest}`,
+            schema: terminal.schema
+        },
+        migrationLedgerDigest: `sha256:${terminal.source.migrationLedgerDigest}`,
+        claims: producer.acceptedClaimRefs.map((claimId) => owners.get(claimId))
+            .sort((left, right) => left.claimId.localeCompare(right.claimId)),
+        status: 'accepted'
+    })
+    return { repositoryRoot, terminalPath, terminal, receipt, writeTerminal }
+}
+
+test('accepted claims replay one exact #2205 terminal path, digest, identity and claim set', (context) =>
+{
+    const fixture = acceptedClaimsFixture(context)
+    const producerId = registry.producers[0].producerId
+    const result = validateAcceptedClaimsReceiptAgainstRegistry({
+        registry,
+        producerId,
+        receipt: fixture.receipt,
+        repositoryRoot: fixture.repositoryRoot,
+        migrationLedger
+    })
+    assert.equal(result.producerId, producerId)
+    assert.equal(result.acceptedClaims, registry.producers[0].acceptedClaimRefs.length)
+
+    const oldV1Shape = structuredClone(fixture.receipt)
+    oldV1Shape.terminalReceiptDigest = oldV1Shape.terminalReceiptRef.contentDigest
+    delete oldV1Shape.terminalReceiptRef
+    assert.throws(
+        () => validateAcceptedClaimsReceiptAgainstRegistry({
+            registry,
+            producerId,
+            receipt: seal(oldV1Shape),
+            repositoryRoot: fixture.repositoryRoot,
+            migrationLedger
+        }),
+        /missing or unknown fields/u)
+})
+
+test('accepted claims reject terminal file/content/identity and re-sealed claim mutations', (context) =>
+{
+    const fixture = acceptedClaimsFixture(context)
+    const producerId = registry.producers[0].producerId
+    fs.appendFileSync(fixture.terminalPath, ' ')
+    assert.throws(
+        () => validateAcceptedClaimsReceiptAgainstRegistry({
+            registry,
+            producerId,
+            receipt: fixture.receipt,
+            repositoryRoot: fixture.repositoryRoot,
+            migrationLedger
+        }),
+        /file digest mismatch/u)
+
+    fixture.writeTerminal(fixture.terminal)
+    const duplicateClaim = seal({
+        ...fixture.receipt,
+        claims: [...fixture.receipt.claims, fixture.receipt.claims[0]]
+    })
+    assert.throws(
+        () => validateAcceptedClaimsReceiptAgainstRegistry({
+            registry,
+            producerId,
+            receipt: duplicateClaim,
+            repositoryRoot: fixture.repositoryRoot,
+            migrationLedger
+        }),
+        /claim set does not exact-match/u)
+
+    const driftedTerminal = structuredClone(fixture.terminal)
+    driftedTerminal.source.sourceCommit = 'f'.repeat(40)
+    driftedTerminal.contentDigest = null
+    driftedTerminal.contentDigest = digestValue(driftedTerminal)
+    const driftedFileDigest = fixture.writeTerminal(driftedTerminal)
+    const identityDrift = seal({
+        ...fixture.receipt,
+        terminalReceiptRef: {
+            ...fixture.receipt.terminalReceiptRef,
+            fileDigest: driftedFileDigest,
+            contentDigest: `sha256:${driftedTerminal.contentDigest}`
+        }
+    })
+    assert.throws(
+        () => validateAcceptedClaimsReceiptAgainstRegistry({
+            registry,
+            producerId,
+            receipt: identityDrift,
+            repositoryRoot: fixture.repositoryRoot,
+            migrationLedger
+        }),
+        /source identity mismatch/u)
 })

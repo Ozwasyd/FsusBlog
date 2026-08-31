@@ -22,7 +22,7 @@
         "src/backend/Infrastructure/Filters/BannedUserMiddleware.cs",
         "src/backend/Infrastructure/Helpers/JwtHelper.cs",
         "src/backend/Infrastructure/SchemaMigration/AccountSubjectHashBackfillStep.cs",
-        "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs",
+        "src/migration/SchemaMigrationRegistry.cs",
         "src/backend/Infrastructure/Bootstrap/LifecycleHostedBootstrapService.cs",
         "src/backend/Infrastructure/Bootstrap/RuntimeSecurityAndLifecycleServiceCollectionExtensions.cs",
         "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",

@@ -150,6 +150,8 @@
         "BACKEND-PRIVACY-ZK-COMMENT-GATE",
         "BACKEND-PLATFORM-MEMBERSHIP",
         "BACKEND-RELEASE-IDENTITY",
+        "BACKEND-CURRENT-SCHEMA-AUTHORITY",
+        "BACKEND-MIGRATION-ASSEMBLY-BOUNDARY",
         "BACKEND-BLUE-GREEN-SLOTS",
         "BACKEND-ATOMIC-GATEWAY-SWITCH",
         "BACKEND-ZERO-DOWNTIME-REHEARSAL"
@@ -181,6 +183,17 @@
         "tests/tools/dead-code-audit-index.test.mjs",
         "tools/governance/check-dead-code-audit-index.mjs",
         "tests/tools/online-schema-migration-wrapper.test.mjs",
+        "tests/backend/Unit/SchemaModelInspectorTests.cs",
+        "tools/db/check-current-schema-authority.mjs",
+        "tests/tools/current-schema-authority.test.mjs",
+        "src/migration/FsusBlog.Migration.csproj",
+        "tests/migration/FsusBlog.Migration.Tests.csproj",
+        "tests/migration/MigrationAssemblyBoundaryTests.cs",
+        "tools/db/generate-migration-assembly-receipt.mjs",
+        "tools/db/check-migration-assembly-boundary.mjs",
+        "tests/tools/migration-assembly-boundary.test.mjs",
+        "artifacts/schema-migration/migration-assembly-receipt.json",
+        "artifacts/schema-migration/migration-assembly-binding.json",
         "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs",
         "tests/backend/Unit/ProductionHealthTests.cs",
         "tests/backend/online-schema-migration-evidence.json",
@@ -710,8 +723,9 @@
         "tests/backend/Unit/AnonymousCommentTicketEndpointFilterTests.cs",
         "tests/backend/Unit/AnonymousCommentTicketRedisConcurrencyTests.cs",
         "tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs",
-        "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
+        "tests/backend/Unit/CommentMutationOutboxAnonymousPostgresTests.cs",
         "tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs",
+        "tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs",
         "tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts",
         "tests/frontend/unit/privacy/commentPrivacyWorkerClient.test.ts",
         "tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts",
@@ -757,6 +771,39 @@
         "tests/backend/Unit/ProductionHealthTests.cs",
         "tests/backend/online-schema-migration-evidence.json",
         "tests/backend/Integration/DemoFixtureSeederCleanupIntegrationTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-CURRENT-SCHEMA-AUTHORITY",
+      "risk": "critical",
+      "coverage": "exact-one provider-neutral current schema model, runtime/generated/migration-target equivalence, inherited and attributed mappings, fail-closed owner and conversion handling, provider physical projections, sealed readiness identity and independent tamper verification",
+      "evidencePaths": [
+        "src/backend/Infrastructure/SchemaMigration/CurrentSchemaCanonicalModel.cs",
+        "src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs",
+        "tests/backend/Unit/SchemaModelInspectorTests.cs",
+        "tools/db/check-current-schema-authority.mjs",
+        "tests/tools/current-schema-authority.test.mjs",
+        "docs/database-migration.md"
+      ]
+    },
+    {
+      "id": "BACKEND-MIGRATION-ASSEMBLY-BOUNDARY",
+      "risk": "critical",
+      "coverage": "independent FsusBlog.Migration assembly and namespace, Server-free dependency graph, migration-only legacy ownership, three-provider DDL semantics, stable descriptor checksum plan, no linked duplicate or compatibility re-export, and source-bound symbol/content receipt",
+      "evidencePaths": [
+        "src/migration/FsusBlog.Migration.csproj",
+        "src/migration/SchemaMigrationPrimitives.cs",
+        "src/migration/SchemaMigrationDdlPrimitives.cs",
+        "src/migration/SchemaMigrationExecution.cs",
+        "src/migration/SchemaMigrationManifest.cs",
+        "tests/migration/FsusBlog.Migration.Tests.csproj",
+        "tests/migration/MigrationAssemblyBoundaryTests.cs",
+        "tools/db/generate-migration-assembly-receipt.mjs",
+        "tools/db/check-migration-assembly-boundary.mjs",
+        "tests/tools/migration-assembly-boundary.test.mjs",
+        "artifacts/schema-migration/migration-assembly-receipt.json",
+        "artifacts/schema-migration/migration-assembly-binding.json",
+        "docs/database-migration.md"
       ]
     },
     {
