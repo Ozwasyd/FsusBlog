@@ -5,6 +5,7 @@ import test from 'node:test'
 
 import {
     buildReleaseDeploymentDocExactnessReceipt,
+    classifyReleaseDeploymentSource,
     loadReleaseDeploymentExactnessInputs,
     releaseDeploymentBehaviorIds,
     releaseDeploymentDomains,
@@ -38,11 +39,11 @@ test.before(async () =>
 test('release/deployment negative classes are all killed', () =>
 {
     const evidence = runReleaseDeploymentDocMutationCases()
-    assert.equal(evidence.total, 42)
+    assert.equal(evidence.total, 49)
     assert.equal(evidence.killed, evidence.total)
 })
 
-test('semantic residue scan rejects renamed, reordered and synonymous manual deployment authority', () =>
+test('closed ownership rejects renamed, reordered and synonymous manual deployment authority', () =>
 {
     const sources = [
         '## Traffic handoff\nThe controller verifies the candidate and reloads the gateway upstream.',
@@ -81,7 +82,14 @@ The blue-green deployment claim is eligible.`,
         'The gateway points at standby.',
         'Runtime-role ownership is settled.',
         'The deployment claim passed.',
-        'The deployment claim is valid.'
+        'The deployment claim is valid.',
+        '> > [!IMPORTANT]\n> > The deployment claim is valid.',
+        '[deployment claim](https://example.test/a.b\n/c.d) is valid.',
+        'https://example.test/deployment-claim-eligible',
+        'Except after drain, the deployment claim is valid.',
+        'The observer failed to deny that the deployment claim is valid.',
+        'The deployment claim failed to remain blocked.',
+        'The old claim was invalid, but the current deployment claim is valid.'
     ]
     for (const source of sources)
     {
@@ -90,15 +98,14 @@ The blue-green deployment claim is eligible.`,
     }
 })
 
-test('release-domain documents still reject positive deployment qualification prose', () =>
+test('release-domain documents reject every unclassified active prose block', () =>
 {
     const source = '## Release conclusion\nThe blue-green deployment claim is eligible and runtime-role ownership is verified.'
-    assert.ok(scanReleaseDeploymentSourceResidue(source, 'docs/testing.md', {
-        semanticDeployment: false
-    }).some((entry) => entry.classId === 'manual-deployment-authority'))
+    assert.ok(scanReleaseDeploymentSourceResidue(source, 'docs/testing.md')
+        .some((entry) => entry.classId === 'manual-deployment-authority'))
 })
 
-test('semantic residue scan preserves non-authoritative operational guidance', () =>
+test('typed closed ownership preserves non-authority and AST-excluded nodes', () =>
 {
     const source = `# Operator guidance
 
@@ -142,6 +149,16 @@ Rejected example: traffic handoff is permitted.
 
 Inline example: the deployment claim is eligible.
 
+Historically the claim was invalid, but the current paragraph remains diagnostic only.
+
+<!-- The deployment claim is eligible. -->
+
+<pre>
+The deployment claim is eligible.
+</pre>
+
+> > This ordinary nested quote says the deployment claim is eligible.
+
 ## Typed projection
 
 <!-- fsus-doc-claim
@@ -162,7 +179,11 @@ The blue/green deployment claim is eligible.
 ## Traffic handoff
 The controller must promote standby and switch traffic.
 <!-- FSUSBLOG-GENERATED:END fixture.deployment -->`
-    assert.deepEqual(scanReleaseDeploymentSourceResidue(source, 'fixture.md'), [])
+    const classifications = classifyReleaseDeploymentSource(source, 'fixture.md', 'diagnostic')
+    assert.ok(classifications.length > 0)
+    assert.deepEqual(scanReleaseDeploymentSourceResidue(source, 'fixture.md', {
+        proseClassifications: classifications
+    }), [])
 })
 
 test('release/deployment behavior roster comes from active required catalog domains', () =>
@@ -189,10 +210,7 @@ test('current release/deployment documents contain no forbidden manual authority
     const contracts = catalog.contracts
         .filter((entry) => releaseDeploymentBehaviorIds.includes(entry.id))
     const documents = contracts.flatMap((entry) => entry.documents)
-    const deploymentDocuments = contracts
-        .filter((entry) => entry.domain === 'deployment')
-        .flatMap((entry) => entry.documents)
-    assert.deepEqual(scanReleaseDeploymentDocResidue(root, documents, deploymentDocuments), [])
+    assert.deepEqual(scanReleaseDeploymentDocResidue(root, documents), [])
 })
 
 test('current release/deployment claims and sections are bidirectionally exact', () =>
@@ -209,8 +227,8 @@ test('current release/deployment claims and sections are bidirectionally exact',
     assert.equal(receipt.counts.generated, 4)
     assert.equal(receipt.counts.prose, 3)
     assert.equal(receipt.counts.proseVerified, 3)
-    assert.equal(receipt.counts.mutationKilled, 50)
-    assert.equal(receipt.counts.mutationTotal, 50)
+    assert.equal(receipt.counts.mutationKilled, 57)
+    assert.equal(receipt.counts.mutationTotal, 57)
 })
 
 test('missing ledger entry, orphan section and typed fact drift fail closed', () =>

@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url'
 
 import { digestValue } from '../fact-extractors/identity.mjs'
 import { readFactObservationReceipt } from '../fact-extractors/reader.mjs'
+import { validateJsonSchema } from '../test-matrix/schema-validator/validate.mjs'
 import {
     buildBehaviorDocExactnessReceipt,
     validateBehaviorDocExactnessReceipt
@@ -46,236 +47,242 @@ const forbiddenSurfaces = Object.freeze([
     ['self-certification', /(?:lastReviewedAt\s*:|lastVerifiedCommit\s*:|manual(?:ly)?[- ]approved\s*:|self[- ]certified)/iu]
 ])
 
-const deploymentSemanticVocabulary = Object.freeze({
-    operationTopics: ['blue green', 'runtime role', 'active release', 'active slot', 'candidate', 'cutover', 'drain', 'gateway', 'handoff', 'promotion', 'proxy', 'recovery', 'rollback', 'rollout', 'serving', 'slot', 'standby', 'traffic', 'upstream'],
-    qualificationSubjects: ['blue green', 'claimeligible', 'deployment', 'runtime role', 'monolithic'],
-    qualificationNouns: ['authority', 'authoritystate', 'claim', 'eligibility', 'ownership', 'qualification'],
-    positivePredicates: ['accepted', 'active', 'allowed', 'approved', 'becomes', 'cleared', 'confirmed', 'eligible', 'established', 'owned', 'owns', 'permitted', 'qualified', 'ready', 'resolved', 'serving', 'trusted', 'true', 'verified', 'verify'],
-    operationalPredicates: ['activate', 'activated', 'commit', 'delete', 'deleted', 'demote', 'drain', 'drained', 'install', 'invoke', 'promote', 'promoted', 'reactivate', 'reload', 'restore', 'retain', 'retire', 'run', 'start', 'stop', 'switch', 'switched'],
-    negativePredicates: ['blocked', 'conflict', 'denied', 'failed', 'false', 'forbid', 'forbidden', 'ineligible', 'invalid', 'prohibited', 'rejected', 'unknown', 'unapproved', 'unqualified', 'unresolved', 'unverified'],
-    negators: ['cannot', 'never', 'no', 'not'],
-    evidenceObjects: ['diagnostic', 'evidence', 'observation', 'receipt', 'receipts', 'validation'],
-    historicalCues: ['counterexample', 'historical', 'historically', 'history', 'legacy', 'previously', 'retired']
+const proseClassificationSchema = 'fsusblog.release-deployment-prose-classifications.v1'
+const proseClassificationPath = 'config/contracts/release-deployment-prose-classifications.json'
+const markdownAstVersion = 'fsusblog.release-deployment-markdown-ast.v1'
+const proseClassificationKinds = Object.freeze(['diagnostic', 'example', 'history', 'non-authority'])
+
+const headingPattern = /^(#{1,6})\s+(.+?)\s*#*\s*$/u
+const fencePattern = /^\s*(?:`{3,}|~{3,})/u
+const listPattern = /^\s*(?:[-*+]\s+|\d+[.)]\s+)/u
+const tablePattern = /^\s*\|.*\|\s*$/u
+const quotePattern = /^\s*>/u
+const htmlCommentPattern = /^\s*<!--/u
+const htmlPrePattern = /^\s*<pre(?:\s|>)/iu
+const indentedCodePattern = /^(?: {4}|\t)\S/u
+
+const lineBody = (lines) => lines.join('\n').trimEnd()
+const nodeDigest = (node) => digestValue({
+    astVersion: markdownAstVersion,
+    nodeType: node.nodeType,
+    headingPath: node.headingPath,
+    body: node.body
 })
+const classificationKey = (entry) =>
+    `${entry.documentPath}\0${entry.startLine}\0${entry.endLine}\0${entry.nodeType}`
 
-const vocabularySets = Object.fromEntries(Object.entries(deploymentSemanticVocabulary)
-    .map(([key, values]) => [key, new Set(values)]))
-
-const semanticScannerIdentity = Object.freeze([
-    'structured-markdown-prose-v2',
-    JSON.stringify(deploymentSemanticVocabulary)
-])
-
-function decodeCharacterReferences(source)
+function pushProseNode(nodes, documentPath, nodeType, startIndex, endIndex, body, headingPath)
 {
-    const named = { amp: '&', apos: "'", gt: '>', lt: '<', nbsp: ' ', quot: '"', shy: '' }
-    return source.replace(/&(#(?:x[0-9a-f]+|\d+)|[a-z]+);/giu, (match, entity) =>
-    {
-        if (entity[0] !== '#') return named[entity.toLowerCase()] ?? match
-        const hex = entity[1]?.toLowerCase() === 'x'
-        const value = Number.parseInt(entity.slice(hex ? 2 : 1), hex ? 16 : 10)
-        return Number.isSafeInteger(value) && value >= 0 && value <= 0x10ffff
-            ? String.fromCodePoint(value)
-            : match
-    })
-}
-
-function normalizeMarkdownInline(source)
-{
-    return decodeCharacterReferences(source.normalize('NFKC'))
-        .replace(/[\u00ad\u200b-\u200d\u2060\ufeff]/gu, '')
-        .replace(/(?:不能|不得|不可|無法|无法)/gu, ' cannot ')
-        .replace(/(?:不会|不會|不是|不拥有|不擁有|不证明|不證明|不提升)/gu, ' not ')
-        .replace(/!?\[([^\]]*)\]\([^)]*\)/gu, '$1')
-        .replace(/<!--[\s\S]*?-->/gu, '')
-        .replace(/<\/?[A-Za-z][^>]*>/gu, '')
-        .replace(/\\([\\`*_[\]{}()#+.!~-])/gu, '$1')
-        .replace(/[`*_~]/gu, '')
-}
-
-function normalizeMarkdownProse(source)
-{
-    return normalizeMarkdownInline(source)
-        .replace(/[-/‐-―]+/gu, ' ')
-        .replace(/[^\p{L}\p{N}]+/gu, ' ')
-        .trim()
-        .toLowerCase()
-}
-
-const proseTokens = (source) => normalizeMarkdownProse(source).split(/\s+/u).filter(Boolean)
-const hasPhrase = (tokens, phrase) =>
-{
-    const expected = phrase.split(' ')
-    return tokens.some((_, index) => expected.every((token, offset) => tokens[index + offset] === token))
-}
-const hasAnyPhrase = (tokens, phrases) => phrases.some((phrase) => hasPhrase(tokens, phrase))
-const hasAnyToken = (tokens, values) => tokens.some((token) => values.has(token))
-
-function predicateCandidates(token)
-{
-    return new Set([
-        token,
-        token.endsWith('ies') ? `${token.slice(0, -3)}y` : token,
-        token.endsWith('ed') ? token.slice(0, -2) : token,
-        token.endsWith('ed') ? token.slice(0, -1) : token,
-        token.endsWith('s') ? token.slice(0, -1) : token
-    ])
-}
-
-const matchesPredicate = (token, values) => [...predicateCandidates(token)].some((entry) => values.has(entry))
-
-function assertionIsNegated(tokens)
-{
-    for (let index = 0; index < tokens.length; index += 1)
-    {
-        if (!vocabularySets.negators.has(tokens[index])) continue
-        if (tokens[index] === 'not' && ['merely', 'only'].includes(tokens[index + 1])) continue
-        return true
+    if (!body.trim()) return
+    const node = {
+        documentPath,
+        nodeType,
+        startLine: startIndex + 1,
+        endLine: endIndex + 1,
+        headingPath: [...headingPath],
+        body
     }
-    return false
+    nodes.push({ ...node, contentDigest: nodeDigest(node) })
 }
 
-function positivePredicateIndexes(tokens, values)
+export function parseReleaseDeploymentMarkdownAst(source, documentPath = 'inline.md')
 {
-    const indexes = []
-    for (let index = 0; index < tokens.length; index += 1)
+    const lines = String(source).split(/\r?\n/u)
+    const nodes = []
+    const headingStack = []
+    let index = 0
+
+    while (index < lines.length)
     {
-        const token = tokens[index]
-        if (matchesPredicate(token, values)) indexes.push(index)
-    }
-    return indexes
-}
-
-function isHistoricalNarrative(headingTokens, bodyTokens)
-{
-    const currentCue = bodyTokens.some((token) => ['current', 'currently', 'now', 'today'].includes(token))
-    const historical = hasAnyToken(headingTokens, vocabularySets.historicalCues)
-        || hasAnyToken(bodyTokens, vocabularySets.historicalCues)
-        || hasPhrase(bodyTokens, 'before migration')
-        || hasPhrase(bodyTokens, 'prior to migration')
-        || bodyTokens.includes('example')
-    return historical && !currentCue
-}
-
-function isPositiveQualificationClaim(tokens)
-{
-    const hasSubject = hasAnyPhrase(tokens, deploymentSemanticVocabulary.qualificationSubjects)
-    const hasQualification = hasAnyToken(tokens, vocabularySets.qualificationNouns)
-        || hasPhrase(tokens, 'claim eligible')
-    if (!hasSubject || !hasQualification || assertionIsNegated(tokens)) return false
-    const nounIndex = tokens.findIndex((token) => vocabularySets.qualificationNouns.has(token))
-    const tail = tokens.slice(nounIndex + 1)
-    if (tail.length === 0 || hasAnyToken(tail, vocabularySets.negativePredicates)) return false
-    if (hasAnyToken(tail, vocabularySets.evidenceObjects)
-        && tail.some((token) => ['need', 'needs', 'require', 'required', 'requires'].includes(token))) return false
-    if (positivePredicateIndexes(tail, vocabularySets.positivePredicates).length > 0) return true
-    const connectors = new Set(['are', 'becomes', 'is', 'remains', 'was', 'were'])
-    const state = connectors.has(tail[0]) ? tail[1] : tail[0]
-    return typeof state === 'string' && /^[a-z]+$/u.test(state)
-        && !['fact', 'facts', 'map', 'policy', 'receipt', 'receipts', 'state'].includes(state)
-}
-
-const isEvidenceBoundaryAssertion = (tokens) => hasAnyToken(tokens, vocabularySets.evidenceObjects)
-    && tokens.some((token) => ['need', 'needs', 'require', 'required', 'requires'].includes(token))
-
-function semanticParagraphs(source)
-{
-    const paragraphs = []
-    let heading = ''
-    let lines = []
-    let activeCallout = false
-    const flush = () =>
-    {
-        const body = lines.join(' ').trim()
-        if (body) paragraphs.push({ heading, body })
-        lines = []
-    }
-    for (const rawLine of source.split(/\r?\n/u))
-    {
-        const quote = rawLine.match(/^\s*>\s?(.*)$/u)
-        if (quote)
+        const line = lines[index]
+        if (!line.trim())
         {
-            const callout = quote[1].match(/^\[!(?:IMPORTANT|WARNING|CAUTION|NOTE|TIP)\]\s*(.*)$/iu)
+            index += 1
+            continue
+        }
+
+        const heading = line.match(headingPattern)
+        if (heading)
+        {
+            const level = heading[1].length
+            const title = heading[2].trim()
+            while (headingStack.length > 0 && headingStack.at(-1).level >= level) headingStack.pop()
+            pushProseNode(nodes, documentPath, 'heading', index, index, title,
+                headingStack.map((entry) => entry.title))
+            headingStack.push({ level, title })
+            index += 1
+            continue
+        }
+
+        if (fencePattern.test(line))
+        {
+            const marker = line.trimStart()[0]
+            index += 1
+            while (index < lines.length && !lines[index].trimStart().startsWith(marker.repeat(3))) index += 1
+            if (index < lines.length) index += 1
+            continue
+        }
+
+        if (htmlCommentPattern.test(line))
+        {
+            while (index < lines.length && !lines[index].includes('-->')) index += 1
+            if (index < lines.length) index += 1
+            continue
+        }
+
+        if (htmlPrePattern.test(line))
+        {
+            while (index < lines.length && !/<\/pre>\s*$/iu.test(lines[index])) index += 1
+            if (index < lines.length) index += 1
+            continue
+        }
+
+        if (indentedCodePattern.test(line))
+        {
+            index += 1
+            while (index < lines.length && (indentedCodePattern.test(lines[index]) || !lines[index].trim())) index += 1
+            continue
+        }
+
+        if (quotePattern.test(line))
+        {
+            const start = index
+            const quoteLines = []
+            while (index < lines.length && quotePattern.test(lines[index]))
+            {
+                quoteLines.push(lines[index].replace(/^\s*(?:>\s*)+/u, ''))
+                index += 1
+            }
+            const firstContent = quoteLines.findIndex((entry) => entry.trim())
+            const callout = firstContent >= 0
+                ? quoteLines[firstContent].match(/^\[!(?:IMPORTANT|WARNING|CAUTION|NOTE|TIP)\]\s*(.*)$/iu)
+                : null
             if (callout)
             {
-                flush()
-                activeCallout = true
-                if (callout[1]) lines.push(callout[1])
+                quoteLines[firstContent] = callout[1]
+                pushProseNode(nodes, documentPath, 'callout', start, index - 1,
+                    lineBody(quoteLines), headingStack.map((entry) => entry.title))
             }
-            else if (activeCallout && quote[1].trim()) lines.push(quote[1].trim())
-            else flush()
             continue
         }
-        activeCallout = false
-        const headingMatch = rawLine.match(/^#{1,6}\s+(.+)$/u)
-        if (headingMatch)
+
+        const start = index
+        let nodeType = 'paragraph'
+        if (listPattern.test(line)) nodeType = 'list'
+        else if (tablePattern.test(line)) nodeType = 'table'
+        const bodyLines = []
+        while (index < lines.length)
         {
-            flush()
-            heading = headingMatch[1].trim()
-            continue
+            const current = lines[index]
+            if (!current.trim()) break
+            if (index > start && (headingPattern.test(current) || fencePattern.test(current)
+                || htmlCommentPattern.test(current) || htmlPrePattern.test(current)
+                || quotePattern.test(current) || indentedCodePattern.test(current))) break
+            if (nodeType === 'list' && index > start && !listPattern.test(current)
+                && !/^\s{2,}\S/u.test(current)) break
+            if (nodeType === 'table' && !tablePattern.test(current)) break
+            if (nodeType === 'paragraph' && index > start
+                && (listPattern.test(current) || tablePattern.test(current))) break
+            bodyLines.push(current)
+            index += 1
         }
-        if (/^\s*(?:<!--|-->|$)/u.test(rawLine))
-        {
-            flush()
-            continue
-        }
-        const listMatch = rawLine.match(/^\s*(?:[-*+]\s+|\d+[.)]\s+|>\s*)(.+)$/u)
-        if (listMatch)
-        {
-            flush()
-            lines.push(listMatch[1].trim())
-            flush()
-            continue
-        }
-        lines.push(rawLine.trim())
+        pushProseNode(nodes, documentPath, nodeType, start, index - 1,
+            lineBody(bodyLines), headingStack.map((entry) => entry.title))
     }
-    flush()
-    return paragraphs
+    return nodes
 }
 
-function semanticDeploymentAuthorityFindings(source, documentPath, { operationalAuthority })
+export function extractReleaseDeploymentProseNodes(source, documentPath = 'inline.md')
 {
-    const findings = []
-    for (const { heading, body } of semanticParagraphs(source))
+    return parseReleaseDeploymentMarkdownAst(
+        sourceOutsideGeneratedSections(source, documentPath),
+        documentPath
+    )
+}
+
+export function classifyReleaseDeploymentSource(
+    source,
+    documentPath = 'inline.md',
+    classification = 'non-authority'
+)
+{
+    if (!proseClassificationKinds.includes(classification))
+        throw new Error(`invalid prose classification ${classification}`)
+    return extractReleaseDeploymentProseNodes(source, documentPath).map((node) => ({
+        documentPath: node.documentPath,
+        startLine: node.startLine,
+        endLine: node.endLine,
+        nodeType: node.nodeType,
+        classification,
+        contentDigest: node.contentDigest
+    }))
+}
+
+function validateProseClassificationRegistry(
+    registry,
+    schema = readJson(root, 'config/schemas/release-deployment-prose-classifications.schema.json')
+)
+{
+    const schemaErrors = validateJsonSchema(registry, schema)
+    if (schemaErrors.length > 0) throw new Error(`invalid prose classification schema: ${schemaErrors.join('; ')}`)
+    if (registry?.schema !== proseClassificationSchema
+        || registry.scopeId !== releaseDeploymentScopeId
+        || !Array.isArray(registry.entries))
+        throw new Error('invalid release/deployment prose classification registry')
+    const keys = new Set()
+    for (const entry of registry.entries)
     {
-        const inlineBody = normalizeMarkdownInline(body)
-        for (const sentence of inlineBody.split(/[.;。；]+/u).map((entry) => entry.trim()).filter(Boolean))
+        if (typeof entry.documentPath !== 'string'
+            || !Number.isSafeInteger(entry.startLine) || !Number.isSafeInteger(entry.endLine)
+            || !['heading', 'paragraph', 'list', 'table', 'callout'].includes(entry.nodeType)
+            || !proseClassificationKinds.includes(entry.classification)
+            || !/^[0-9a-f]{64}$/u.test(entry.contentDigest))
+            throw new Error('invalid release/deployment prose classification entry')
+        const key = classificationKey(entry)
+        if (keys.has(key)) throw new Error(`duplicate prose classification ${key}`)
+        keys.add(key)
+    }
+    return registry
+}
+
+function scanClosedProseOwnership(source, documentPath, classifications)
+{
+    const nodes = extractReleaseDeploymentProseNodes(source, documentPath)
+    const entries = classifications.filter((entry) => entry.documentPath === documentPath)
+    const byKey = new Map(entries.map((entry) => [classificationKey(entry), entry]))
+    const findings = []
+    for (const node of nodes)
+    {
+        const entry = byKey.get(classificationKey(node))
+        if (!entry || entry.contentDigest !== node.contentDigest)
         {
-            const headingTokens = proseTokens(heading)
-            const sentenceTokens = proseTokens(sentence)
-            if (sentenceTokens.length === 0 || isHistoricalNarrative(headingTokens, sentenceTokens)) continue
-            const sentenceNegatesRemainder = sentenceTokens.some((token, index) =>
-                ['cannot', 'never'].includes(token)
-                || (token === 'not' && !['merely', 'only'].includes(sentenceTokens[index + 1])))
-            for (const assertion of sentence.split(/[,:，：]+/u).map((entry) => entry.trim()).filter(Boolean))
-            {
-                const bodyTokens = proseTokens(assertion)
-                const contextualTokens = [...headingTokens, ...bodyTokens]
-                const isQualificationClaim = !sentenceNegatesRemainder
-                    && isPositiveQualificationClaim(contextualTokens)
-                const operationIndexes = positivePredicateIndexes(bodyTokens, new Set([
-                    ...vocabularySets.positivePredicates,
-                    ...vocabularySets.operationalPredicates
-                ]))
-                const operationTopicCount = deploymentSemanticVocabulary.operationTopics
-                    .filter((topic) => hasPhrase(contextualTokens, topic)).length
-                const isOperationAuthority = operationalAuthority && !sentenceNegatesRemainder
-                    && !assertionIsNegated(bodyTokens)
-                    && (operationTopicCount >= 2 || (operationTopicCount >= 1 && operationIndexes.length > 0))
-                    && !hasAnyToken(bodyTokens, vocabularySets.negativePredicates)
-                    && !isEvidenceBoundaryAssertion(bodyTokens)
-                if (!isQualificationClaim && !isOperationAuthority) continue
-                findings.push({
-                    classId: 'manual-deployment-authority',
-                    documentPath,
-                    evidence: `${heading}: ${assertion}`.slice(0, 160)
-                })
-            }
+            findings.push({
+                classId: 'manual-deployment-authority',
+                documentPath,
+                evidence: `${node.nodeType}:${node.startLine}-${node.endLine}`
+            })
+        }
+    }
+    const nodeKeys = new Set(nodes.map(classificationKey))
+    for (const entry of entries)
+    {
+        if (!nodeKeys.has(classificationKey(entry)))
+        {
+            findings.push({
+                classId: 'stale-prose-classification',
+                documentPath,
+                evidence: `${entry.nodeType}:${entry.startLine}-${entry.endLine}`
+            })
         }
     }
     return findings
 }
 
+const semanticScannerIdentity = Object.freeze([
+    markdownAstVersion,
+    proseClassificationSchema,
+    ...proseClassificationKinds
+])
 export function selectReleaseDeploymentBehaviorIds(catalog)
 {
     const domains = new Set(releaseDeploymentDomains)
@@ -333,27 +340,26 @@ function sourceOutsideGeneratedSections(source, documentPath)
     }).join('\n')
 }
 
-export function scanReleaseDeploymentDocResidue(repositoryRoot, documentPaths, semanticDocumentPaths = null)
+export function scanReleaseDeploymentDocResidue(repositoryRoot, documentPaths)
 {
     const findings = []
-    const semanticPaths = new Set(semanticDocumentPaths ?? readJson(
-        repositoryRoot,
-        'config/contracts/behavior-contracts.json'
-    ).contracts.filter((entry) => entry.status === 'active'
-        && entry.documentationPolicy === 'required'
-        && entry.domain === 'deployment').flatMap((entry) => entry.documents))
+    const registry = validateProseClassificationRegistry(readJson(repositoryRoot, proseClassificationPath))
     for (const documentPath of [...new Set(documentPaths)].sort())
     {
         findings.push(...scanReleaseDeploymentSourceResidue(
             readFileSync(path.join(repositoryRoot, documentPath), 'utf8'),
             documentPath,
-            { semanticDeployment: semanticPaths.has(documentPath) }
+            { proseClassifications: registry.entries }
         ))
     }
     return findings
 }
 
-export function scanReleaseDeploymentSourceResidue(source, documentPath = 'inline.md', { semanticDeployment = true } = {})
+export function scanReleaseDeploymentSourceResidue(
+    source,
+    documentPath = 'inline.md',
+    { proseClassifications = [] } = {}
+)
 {
     const retained = sourceOutsideGeneratedSections(source, documentPath)
     const findings = []
@@ -362,9 +368,7 @@ export function scanReleaseDeploymentSourceResidue(source, documentPath = 'inlin
         const match = retained.match(pattern)
         if (match) findings.push({ classId, documentPath, evidence: match[0].slice(0, 160) })
     }
-    findings.push(...semanticDeploymentAuthorityFindings(retained, documentPath, {
-        operationalAuthority: semanticDeployment
-    }))
+    findings.push(...scanClosedProseOwnership(source, documentPath, proseClassifications))
     return findings
 }
 
@@ -421,7 +425,14 @@ The blue-green deployment claim is eligible.`],
         ['gateway-points-standby', 'The gateway points at standby.'],
         ['settled-ownership', 'Runtime-role ownership is settled.'],
         ['passed-claim', 'The deployment claim passed.'],
-        ['valid-claim', 'The deployment claim is valid.']
+        ['valid-claim', 'The deployment claim is valid.'],
+        ['nested-active-callout', '> > [!IMPORTANT]\n> > The deployment claim is valid.'],
+        ['multiline-dotted-link', '[deployment claim](https://example.test/a.b\n/c.d) is valid.'],
+        ['bare-authority-url', 'https://example.test/deployment-claim-eligible'],
+        ['except-after-claim', 'Except after drain, the deployment claim is valid.'],
+        ['failed-to-deny-claim', 'The observer failed to deny that the deployment claim is valid.'],
+        ['failed-to-remain-blocked', 'The deployment claim failed to remain blocked.'],
+        ['mixed-old-current-claim', 'The old claim was invalid, but the current deployment claim is valid.']
     ]
     const rows = [...lexicalSamples.map(([classId, source]) => ({
         classId,
@@ -475,12 +486,24 @@ export function loadReleaseDeploymentExactnessInputs(repositoryRoot, observation
     const lifecycle = readJson(repositoryRoot, 'config/development/document-lifecycle.json')
     const migrationLedger = readJson(repositoryRoot, 'config/contracts/document-claim-migration-ledger.json')
     const sectionCatalog = readJson(repositoryRoot, 'config/contracts/generated-fact-sections.json')
+    const proseClassifications = validateProseClassificationRegistry(
+        readJson(repositoryRoot, proseClassificationPath)
+    )
     const claimReceipt = parseRepositoryClaims(repositoryRoot, { catalog })
     const receiptRaw = typeof observationReceipt === 'string'
         ? JSON.parse(readFileSync(observationReceipt, 'utf8'))
         : observationReceipt
     const receipt = readFactObservationReceipt(receiptRaw)
-    return { catalog, lifecycle, migrationLedger, sectionCatalog, claimReceipt, receiptRaw, receipt }
+    return {
+        catalog,
+        lifecycle,
+        migrationLedger,
+        sectionCatalog,
+        proseClassifications,
+        claimReceipt,
+        receiptRaw,
+        receipt
+    }
 }
 
 export function buildReleaseDeploymentDocExactnessReceipt({
@@ -507,17 +530,15 @@ export function buildReleaseDeploymentDocExactnessReceipt({
         scannerDigest: createHash('sha256')
             .update([
                 ...forbiddenSurfaces.map(([id, pattern]) => `${id}:${pattern}`),
-                ...semanticScannerIdentity
+                ...semanticScannerIdentity,
+                digestValue(inputs.proseClassifications)
             ].join('\n'))
             .digest('hex')
     })
     const documentPaths = inputs.catalog.contracts
         .filter((entry) => selectedIds.includes(entry.id))
         .flatMap((entry) => entry.documents)
-    const semanticDocumentPaths = inputs.catalog.contracts
-        .filter((entry) => selectedIds.includes(entry.id) && entry.domain === 'deployment')
-        .flatMap((entry) => entry.documents)
-    const residue = scanReleaseDeploymentDocResidue(repositoryRoot, documentPaths, semanticDocumentPaths)
+    const residue = scanReleaseDeploymentDocResidue(repositoryRoot, documentPaths)
     const generatedDrifts = verifyReleaseDeploymentGeneratedSections(
         repositoryRoot,
         inputs.sectionCatalog,
