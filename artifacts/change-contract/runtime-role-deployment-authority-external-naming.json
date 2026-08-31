@@ -14,6 +14,7 @@
     {
       "id": "runtime-role-observation-authority",
       "paths": [
+        "tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj",
         "tools/contracts/FsusBlog.RuntimeRoleObservation/Models.cs",
         "tools/contracts/FsusBlog.RuntimeRoleObservation/Program.cs",
         "tools/contracts/lib/runtime-role-observation.mjs"
