@@ -24,6 +24,45 @@ const toolchain = {
     node: 'v24.1.0', npm: '11.0.0', dotnet: '10.0.1', vite: '7.0.0', vitest: '4.0.0', playwright: '1.58.0', emsdk: '4.0.0'
 };
 
+function verifyMigrationBuildDependency(source)
+{
+    const serverBuild = 'dotnet build "$ROOT_DIR/src/backend/FsusBlog.Server.csproj"';
+    const migrationBuild = 'dotnet build "$ROOT_DIR/src/migration/FsusBlog.Migration.csproj"';
+    const testBuild = 'dotnet build "$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj"';
+    const requiredInputs = [
+        '--input src/migration/FsusBlog.Migration.csproj',
+        '--input src/migration/packages.lock.json'
+    ];
+    const occurrences = marker => source.split(marker).length - 1;
+
+    assert.equal(occurrences(serverBuild), 1, 'lane must keep one explicit Server build');
+    assert.equal(occurrences(migrationBuild), 1, 'lane must keep one explicit Migration build');
+    assert.equal(occurrences(testBuild), 1, 'lane must keep one explicit backend tests build');
+
+    const serverIndex = source.indexOf(serverBuild);
+    const migrationIndex = source.indexOf(migrationBuild);
+    const testIndex = source.indexOf(testBuild);
+    assert.ok(serverIndex < migrationIndex, 'Migration must build after its Shared dependency is produced by the Server build');
+    assert.ok(migrationIndex < testIndex, 'Migration must build before the no-dependencies test consumer');
+
+    const migrationCommand = source.slice(migrationIndex, testIndex);
+    assert.match(
+        migrationCommand,
+        /-c Release --no-restore --no-dependencies --no-incremental -warnaserror/u,
+        'Migration must use the explicit Release no-dependencies build contract'
+    );
+    const testCommand = source.slice(testIndex, source.indexOf('\nfi', testIndex));
+    assert.match(
+        testCommand,
+        /-c Release --no-restore --no-dependencies --no-incremental -warnaserror/u,
+        'the backend test consumer must remain no-dependencies and fail closed on missing outputs'
+    );
+    for (const input of requiredInputs)
+    {
+        assert.equal(occurrences(input), 1, `receipt must exact-bind ${input}`);
+    }
+}
+
 function fixture(t)
 {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-ci-build-'));
@@ -52,6 +91,42 @@ function create(value)
         build: { profile: 'production-release-fresh', command: './tools/test.sh ci-tier production-build-artifacts' }
     });
 }
+
+test('lane builds and binds Migration before the no-dependencies backend test consumer', () =>
+{
+    const lane = fs.readFileSync(new URL('../../tools/test/lanes/production-build-artifacts.sh', import.meta.url), 'utf8');
+    assert.doesNotThrow(() => verifyMigrationBuildDependency(lane));
+});
+
+test('lane dependency contract rejects missing, reordered, implicit and unbound Migration builds', () =>
+{
+    const lane = fs.readFileSync(new URL('../../tools/test/lanes/production-build-artifacts.sh', import.meta.url), 'utf8');
+    const migrationCommand = /    "\$ROOT_DIR\/tools\/test\/run-with-dotnet-release-build-lock\.sh" \\\n        "\$ROOT_DIR\/tools\/build-with-data-env\.sh" dotnet build "\$ROOT_DIR\/src\/migration\/FsusBlog\.Migration\.csproj" \\\n        -c Release --no-restore --no-dependencies --no-incremental -warnaserror -v minimal \/p:NuGetAudit=false\n/u;
+    const match = lane.match(migrationCommand);
+    assert.ok(match, 'test fixture must locate the exact Migration build command');
+    const withoutMigration = lane.replace(migrationCommand, '');
+    assert.throws(() => verifyMigrationBuildDependency(withoutMigration), /one explicit Migration build/u);
+
+    const reordered = withoutMigration.replace(
+        /(-c Release --no-restore --no-dependencies --no-incremental -warnaserror -v minimal \/p:NuGetAudit=false\n)(fi\n)/u,
+        `$1${match[0]}$2`
+    );
+    assert.throws(() => verifyMigrationBuildDependency(reordered), /before the no-dependencies test consumer/u);
+
+    const implicitTestBuild = lane.replace(
+        /("\$ROOT_DIR\/tests\/backend\/FsusBlog\.Server\.Tests\.csproj" \\\n        -c Release --no-restore )--no-dependencies /u,
+        '$1'
+    );
+    assert.throws(() => verifyMigrationBuildDependency(implicitTestBuild), /test consumer must remain no-dependencies/u);
+
+    for (const input of ['--input src/migration/FsusBlog.Migration.csproj', '--input src/migration/packages.lock.json'])
+    {
+        assert.throws(
+            () => verifyMigrationBuildDependency(lane.replace(`${input}\n`, '')),
+            /receipt must exact-bind/u
+        );
+    }
+});
 
 test('receipt binds source, toolchain, producer, input and every immutable artifact digest', t =>
 {
