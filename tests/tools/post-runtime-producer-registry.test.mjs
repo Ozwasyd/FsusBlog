@@ -63,8 +63,11 @@ function producerReceipt(classId = 'route-response-error')
         .filter(([, classes]) => classes.includes(classId))
         .map(([mode]) => mode)
         .sort()
+    const rawFieldFor = (field) => field.endsWith('Digest') ? field.slice(0, -'Digest'.length) : field
+    const rawFacts = Object.fromEntries(definition.requiredSemanticFactFields.map((field) =>
+        [rawFieldFor(field), field === 'responseStatus' ? 200 : `${rawFieldFor(field)}-raw-value`]))
     const semanticFacts = Object.fromEntries(definition.requiredSemanticFactFields.map((field) =>
-        [field, field === 'responseStatus' ? 200 : field.endsWith('Digest') ? digest('1') : `${field}-value`]))
+        [field, field.endsWith('Digest') ? authorityDigest(rawFacts[rawFieldFor(field)]) : rawFacts[field]]))
     const sourceState = {
         sourceCommit: 'a'.repeat(40),
         worktreeFingerprint: digest('b'),
@@ -80,22 +83,26 @@ function producerReceipt(classId = 'route-response-error')
         fixtureId: 'run-1:fixture',
         profileId: 'acceptance-representative'
     }
-    const writeDependency = (relative, document) =>
+    const writeDependency = (relative, document, role = null) =>
     {
         const absolute = path.join(receiptRepositoryRoot, relative)
         fs.mkdirSync(path.dirname(absolute), { recursive: true })
         fs.writeFileSync(absolute, `${JSON.stringify(document, null, 2)}\n`)
-        return {
+        const reference = {
             path: relative,
-            fileDigest: `sha256:${createHash('sha256').update(fs.readFileSync(absolute)).digest('hex')}`
+            fileDigest: `sha256:${createHash('sha256').update(fs.readFileSync(absolute)).digest('hex')}`,
+            contentDigest: document.contentDigest,
+            schema: document.schema
         }
+        if (role !== null) reference.role = role
+        return reference
     }
-    const buildReceipt = writeDependency('.tmp/runtime-observation-probes/run-1/build.json', seal({
-        schema: 'fsusblog.production-build-fixture.v1', sourceState
-    }))
-    const fixtureReceipt = writeDependency('.tmp/runtime-observation-probes/run-1/fixture.json', seal({
-        schema: 'fsusblog.runtime-fixture-receipt.v1', sourceState
-    }))
+    const buildReceipt = writeDependency('.tmp/current-run/run-1/production-build.json', seal({
+        schema: 'fsusblog.ci-production-build-receipt.v1', sourceState
+    }), 'production-build')
+    const fixtureReceipt = writeDependency('.tmp/current-run/run-1/fixture.json', seal({
+        schema: 'fsusblog.fixture-receipt.v2', sourceState
+    }), 'fixture')
     const canonicalRerunCommand = 'node tools/test-evidence/runtime-observation-probes.mjs route'
     const independentVerifyCommand = 'node tools/test-evidence/runtime-observation-raw.mjs verify'
     const upstreamSourceState = Object.fromEntries(definition.requiredIdentityFields
@@ -107,13 +114,13 @@ function producerReceipt(classId = 'route-response-error')
         producerId: producer.producerId,
         toolVersion: producer.toolVersion,
         sourceState: upstreamSourceState,
-        semanticFacts,
+        rawFacts,
         buildReceipt,
         fixtureReceipt,
         canonicalRerunCommand,
         independentVerifyCommand
     })
-    const upstreamRelative = `.tmp/runtime-observation-probes/run-1/${classId}.json`
+    const upstreamRelative = `.tmp/current-run/run-1/${classId}.json`
     const upstreamRef = writeDependency(upstreamRelative, upstream)
     Object.assign(upstreamRef, {
         contentDigest: upstream.contentDigest,
@@ -221,6 +228,13 @@ test('missing producer/schema for a post-runtime behavior fails closed', () =>
     assert.throws(
         () => validatePostRuntimeProducerRegistry(tampered((clone) => clone.producers.pop()), { catalog }),
         /has no producer mapping/u)
+    assert.throws(
+        () => validatePostRuntimeProducerRegistry(tampered((clone) =>
+        {
+            clone.observationClasses['route-response-error'].sourceReceipt.schema =
+                'fsusblog.unknown-runtime-source.v1'
+        }), { catalog }),
+        /has no closed raw fact extractor/u)
 })
 
 test('two producers for the same behavior fail closed', () =>
@@ -581,10 +595,10 @@ test('sourceReceiptRef replays exact current source, producer, schema and file i
         ['schema', 'fsusblog.other-source.v1', /upstream reference is invalid/u],
         ['role', 'browser', /upstream reference is invalid/u],
         ['contentDigest', digest('8'), /upstream schema\/producer\/tool\/command\/content identity mismatch/u],
-        ['path', '.tmp/current-run/missing-upstream.json', /ENOENT/u],
-        ['path', '../upstream.json', /explicit current-run JSON path/u],
+        ['path', '.tmp/current-run/run-1/missing-upstream.json', /ENOENT/u],
+        ['path', '../upstream.json', /upstream reference is invalid/u],
         ['path', path.join(receiptRepositoryRoot, '.tmp/current-run/upstream.json'),
-            /explicit current-run JSON path/u]
+            /upstream reference is invalid/u]
     ])
     {
         const invalid = structuredClone(base)
@@ -596,9 +610,94 @@ test('sourceReceiptRef replays exact current source, producer, schema and file i
     const wrapper = JSON.parse(originalSourceBytes.toString('utf8'))
     const upstreamAbsolute = path.join(receiptRepositoryRoot, wrapper.upstreamRef.path)
     const upstreamBytes = fs.readFileSync(upstreamAbsolute)
+    const arbitraryDocsRelative = 'docs/arbitrary-producer-claim.json'
+    const arbitraryDocsAbsolute = path.join(receiptRepositoryRoot, arbitraryDocsRelative)
+    const arbitraryDocsReceipt = seal({
+        schema: 'fsusblog.ci-production-build-receipt.v1',
+        sourceState: base.sourceState,
+        arbitraryClaim: 'documentation bytes are not producer evidence'
+    })
+    fs.mkdirSync(path.dirname(arbitraryDocsAbsolute), { recursive: true })
+    fs.writeFileSync(arbitraryDocsAbsolute, `${JSON.stringify(arbitraryDocsReceipt, null, 2)}\n`)
     const semanticDrift = structuredClone(base)
     semanticDrift.semanticFacts.responseStatus = 599
-    assert.throws(() => validate(semanticDrift), /upstream semantic facts mismatch/u)
+    assert.throws(() => validate(semanticDrift), /raw semantic facts mismatch/u)
+
+    const coordinatedUpstreamMutation = (mutate) =>
+    {
+        const changed = JSON.parse(upstreamBytes.toString('utf8'))
+        mutate(changed)
+        const resealed = seal(changed)
+        fs.writeFileSync(upstreamAbsolute, `${JSON.stringify(resealed, null, 2)}\n`)
+        const coordinated = structuredClone(base)
+        coordinated.sourceReceiptRef = rewriteSource((document) =>
+        {
+            document.upstreamRef.fileDigest = `sha256:${createHash('sha256').update(fs.readFileSync(upstreamAbsolute)).digest('hex')}`
+            document.upstreamRef.contentDigest = resealed.contentDigest
+        })
+        return coordinated
+    }
+
+    for (const [label, mutate, expected] of [
+        ['documentation bytes', (document) => {
+            document.buildReceipt = {
+                path: arbitraryDocsRelative,
+                fileDigest: `sha256:${createHash('sha256').update(
+                    fs.readFileSync(arbitraryDocsAbsolute)).digest('hex')}`,
+                contentDigest: arbitraryDocsReceipt.contentDigest,
+                schema: arbitraryDocsReceipt.schema,
+                role: 'production-build'
+            }
+        }, /same explicit current-run root/u],
+        ['historical alias', (document) => { document.buildReceipt.path = '.tmp/history/run-1/build.json' },
+            /same explicit current-run root/u],
+        ['path escape', (document) => { document.buildReceipt.path = '../build.json' },
+            /same explicit current-run root|canonical repository-relative path/u],
+        ['wrong role', (document) => { document.buildReceipt.role = 'fixture' },
+            /schema\/role\/digest contract is invalid/u],
+        ['wrong schema', (document) => { document.buildReceipt.schema = 'fsusblog.fixture-receipt.v2' },
+            /schema\/role\/digest contract is invalid/u],
+        ['digest role confusion', (document) => {
+            document.buildReceipt.contentDigest = document.buildReceipt.fileDigest
+        }, /schema\/role\/digest contract is invalid/u]
+    ])
+    {
+        const changed = coordinatedUpstreamMutation(mutate)
+        assert.throws(() => validate(changed), expected, label)
+        fs.writeFileSync(upstreamAbsolute, upstreamBytes)
+        fs.writeFileSync(sourceAbsolute, originalSourceBytes)
+    }
+
+    const rawTamper = coordinatedUpstreamMutation((document) =>
+    {
+        document.rawFacts.typedPayload = 'coordinated-self-report'
+    })
+    assert.throws(() => validate(rawTamper), /raw semantic facts mismatch/u)
+    fs.writeFileSync(upstreamAbsolute, upstreamBytes)
+    fs.writeFileSync(sourceAbsolute, originalSourceBytes)
+
+    const selfReportedFacts = structuredClone(base.semanticFacts)
+    selfReportedFacts.typedPayloadDigest = authorityDigest('self-reported-payload')
+    const selfReported = coordinatedUpstreamMutation((document) =>
+    {
+        document.semanticFacts = selfReportedFacts
+    })
+    selfReported.semanticFacts = selfReportedFacts
+    assert.throws(() => validate(seal(selfReported)), /upstream receipt has missing or unknown fields/u)
+    fs.writeFileSync(upstreamAbsolute, upstreamBytes)
+    fs.writeFileSync(sourceAbsolute, originalSourceBytes)
+
+    const buildAbsolute = path.join(receiptRepositoryRoot,
+        JSON.parse(upstreamBytes.toString('utf8')).buildReceipt.path)
+    const buildBytes = fs.readFileSync(buildAbsolute)
+    const buildAlias = path.join(receiptRepositoryRoot, '.tmp/current-run/run-1/build-alias.json')
+    fs.writeFileSync(buildAlias, buildBytes)
+    fs.rmSync(buildAbsolute)
+    fs.symlinkSync(buildAlias, buildAbsolute)
+    assert.throws(() => validate(base), /regular non-symlink single-link file/u)
+    fs.rmSync(buildAbsolute)
+    fs.writeFileSync(buildAbsolute, buildBytes)
+    fs.rmSync(buildAlias)
 
     const staleUpstream = JSON.parse(upstreamBytes.toString('utf8'))
     staleUpstream.sourceState.runId = 'other-run'
@@ -699,7 +798,7 @@ test('HTTP-only and stale registry/schema/evidenceClass receipts cannot qualify'
     const httpOnly = seal({ ...receipt, semanticFacts: { httpStatus: 200 } })
     assert.throws(
         () => validateProducerReceiptAgainstRegistry({ registry, producerId, receipt: httpOnly }),
-        /upstream semantic facts mismatch/u)
+        /raw semantic facts mismatch/u)
 
     const registryDrift = structuredClone(registry)
     registryDrift.canonicalSerialization = 'json-utf8-v2'
@@ -1034,6 +1133,47 @@ test('reader firewall traverses imports and rejects transitive Markdown/DocClaim
         () => validatePostRuntimeReaderFirewall(repositoryRoot,
             'tools/test-matrix/computed-reader-entry.mjs'),
         /computed filesystem reader method is forbidden/u)
+
+    for (const [name, source] of [
+        ['cjs-computed-reader.cjs',
+            `const disk = require('node:fs')\nprocess.stdout.write(disk['read' + 'FileSync'](${JSON.stringify(docsText)}, 'utf8'))\n`],
+        ['cjs-namespace-alias.cjs',
+            `const disk = require('node:fs')\nconst storage = disk\nprocess.stdout.write(storage?.readFileSync(${JSON.stringify(docsText)}, 'utf8'))\n`],
+        ['cjs-reader-alias.cjs',
+            `const disk = require('node:fs')\nconst load = disk.readFileSync\nprocess.stdout.write(load?.(${JSON.stringify(docsText)}, 'utf8'))\n`],
+        ['cjs-computed-reader-alias.cjs',
+            `const disk = require('node:fs')\nconst load = disk['read' + 'FileSync']\nprocess.stdout.write(load?.(${JSON.stringify(docsText)}, 'utf8'))\n`],
+        ['cjs-bound-reader.cjs',
+            `const disk = require('node:fs')\nconst load = disk.readFileSync.bind(disk)\nprocess.stdout.write(load(${JSON.stringify(docsText)}, 'utf8'))\n`],
+        ['cjs-module-require.cjs',
+            `const disk = module.require('node:fs')\nprocess.stdout.write(disk['read' + 'FileSync'](${JSON.stringify(docsText)}, 'utf8'))\n`],
+        ['create-require-entry.mjs',
+            `import { createRequire } from 'node:module'\nconst load = createRequire(import.meta.url)\nconst disk = load('node:fs')\nprocess.stdout.write(disk?.readFileSync(${JSON.stringify(docsText)}, 'utf8'))\n`],
+        ['cjs-create-require.cjs',
+            `const { createRequire: factory } = require('node:module')\nconst load = factory(__filename)\nconst disk = load('node:fs')\nprocess.stdout.write(disk?.readFileSync(${JSON.stringify(docsText)}, 'utf8'))\n`],
+        ['dynamic-import-entry.mjs',
+            `const disk = await import('node:fs')\nprocess.stdout.write(disk['read' + 'FileSync'](${JSON.stringify(docsText)}, 'utf8'))\n`]
+    ])
+    {
+        fs.writeFileSync(path.join(repositoryRoot, 'tools/test-matrix', name), source)
+        assert.equal(execFileSync(process.execPath, [path.join(repositoryRoot,
+            'tools/test-matrix', name)], { encoding: 'utf8' }), 'reader facts\n')
+        assert.throws(
+            () => validatePostRuntimeReaderFirewall(repositoryRoot, `tools/test-matrix/${name}`),
+            /documentation filesystem read|computed filesystem reader method/u)
+    }
+
+    fs.writeFileSync(path.join(repositoryRoot, 'tools/test-matrix/unrelated-reader.mjs'),
+        "const model = { readFileSync: (value) => value }\nexport const value = model.readFileSync(process.argv[2])\n")
+    assert.doesNotThrow(
+        () => validatePostRuntimeReaderFirewall(repositoryRoot,
+            'tools/test-matrix/unrelated-reader.mjs'))
+
+    fs.writeFileSync(path.join(repositoryRoot, 'tools/test-matrix/unrelated-require.mjs'),
+        "const model = { require: (value) => value, readFileSync: (value) => value }\nexport const value = model.readFileSync(model.require(process.argv[2]))\n")
+    assert.doesNotThrow(
+        () => validatePostRuntimeReaderFirewall(repositoryRoot,
+            'tools/test-matrix/unrelated-require.mjs'))
 
     fs.writeFileSync(path.join(repositoryRoot, 'tools/test-matrix/computed-url-entry.mjs'),
         "export const facts = new URL(process.argv[2], import.meta.url).href\n")

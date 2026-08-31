@@ -71,7 +71,7 @@
                     "producerId",
                     "toolVersion",
                     "sourceState",
-                    "semanticFacts",
+                    "rawFacts",
                     "buildReceipt",
                     "fixtureReceipt",
                     "canonicalRerunCommand",
@@ -82,6 +82,16 @@
                     "buildReceipt",
                     "fixtureReceipt"
                 ],
+                "referenceContracts": {
+                    "buildReceipt": {
+                        "schema": "fsusblog.ci-production-build-receipt.v1",
+                        "role": "production-build"
+                    },
+                    "fixtureReceipt": {
+                        "schema": "fsusblog.fixture-receipt.v2",
+                        "role": "fixture"
+                    }
+                },
                 "referenceMap": null
             },
             "requiredIdentityFields": [
@@ -128,7 +138,7 @@
                     "producerId",
                     "toolVersion",
                     "sourceState",
-                    "semanticFacts",
+                    "rawFacts",
                     "candidatePlanRef",
                     "evidenceRefs",
                     "canonicalRerunCommand",
@@ -138,6 +148,20 @@
                 "requiredReferenceFields": [
                     "candidatePlanRef"
                 ],
+                "referenceContracts": {
+                    "candidatePlanRef": {
+                        "schema": "fsusblog.post-runtime-candidate-plan.v1",
+                        "role": "candidate-plan"
+                    },
+                    "evidenceRefs.browserContract": {
+                        "schema": "fsusblog.browser-contract-receipt.v2",
+                        "role": "browser-contract"
+                    },
+                    "evidenceRefs.manifest": {
+                        "schema": "fsusblog.spa-manifest-descriptor.v1",
+                        "role": "spa-manifest"
+                    }
+                },
                 "referenceMap": {
                     "field": "evidenceRefs",
                     "keys": [
@@ -194,7 +218,7 @@
                     "producerId",
                     "toolVersion",
                     "sourceState",
-                    "semanticFacts",
+                    "rawFacts",
                     "buildReceipt",
                     "fixtureReceipt",
                     "canonicalRerunCommand",
@@ -205,6 +229,16 @@
                     "buildReceipt",
                     "fixtureReceipt"
                 ],
+                "referenceContracts": {
+                    "buildReceipt": {
+                        "schema": "fsusblog.ci-production-build-receipt.v1",
+                        "role": "production-build"
+                    },
+                    "fixtureReceipt": {
+                        "schema": "fsusblog.fixture-receipt.v2",
+                        "role": "fixture"
+                    }
+                },
                 "referenceMap": null
             },
             "requiredIdentityFields": [
@@ -255,7 +289,7 @@
                     "producerId",
                     "toolVersion",
                     "sourceState",
-                    "semanticFacts",
+                    "rawFacts",
                     "buildReceipt",
                     "fixtureReceipt",
                     "canonicalRerunCommand",
@@ -266,6 +300,16 @@
                     "buildReceipt",
                     "fixtureReceipt"
                 ],
+                "referenceContracts": {
+                    "buildReceipt": {
+                        "schema": "fsusblog.ci-production-build-receipt.v1",
+                        "role": "production-build"
+                    },
+                    "fixtureReceipt": {
+                        "schema": "fsusblog.fixture-receipt.v2",
+                        "role": "fixture"
+                    }
+                },
                 "referenceMap": null
             },
             "requiredIdentityFields": [
@@ -316,13 +360,13 @@
                     "classification",
                     "runIdentity",
                     "sourceState",
-                    "semanticFacts",
+                    "rawFacts",
                     "build",
                     "fixture",
                     "playwright",
                     "topology",
                     "scenarios",
-                    "publicPreview",
+                    "publicPreviewRef",
                     "startedAt",
                     "finishedAt",
                     "wallClockMs",
@@ -334,7 +378,15 @@
                     "independentVerifyCommand",
                     "contentDigest"
                 ],
-                "requiredReferenceFields": [],
+                "requiredReferenceFields": [
+                    "publicPreviewRef"
+                ],
+                "referenceContracts": {
+                    "publicPreviewRef": {
+                        "schema": "fsusblog.browser-contract-public-preview-evidence.v1",
+                        "role": "public-preview"
+                    }
+                },
                 "referenceMap": null
             },
             "requiredIdentityFields": [
@@ -383,7 +435,7 @@
                     "producerId",
                     "toolVersion",
                     "sourceState",
-                    "semanticFacts",
+                    "rawFacts",
                     "rolloutEvidenceRef",
                     "runtimeRoleAdmissionRef",
                     "canonicalRerunCommand",
@@ -394,6 +446,16 @@
                     "rolloutEvidenceRef",
                     "runtimeRoleAdmissionRef"
                 ],
+                "referenceContracts": {
+                    "rolloutEvidenceRef": {
+                        "schema": "fsusblog.release-rollout-evidence.v1",
+                        "role": "release-rollout"
+                    },
+                    "runtimeRoleAdmissionRef": {
+                        "schema": "fsusblog.runtime-role-observation.v1",
+                        "role": "runtime-role"
+                    }
+                },
                 "referenceMap": null
             },
             "requiredIdentityFields": [
@@ -442,7 +504,7 @@
                     "producerId",
                     "toolVersion",
                     "sourceState",
-                    "semanticFacts",
+                    "rawFacts",
                     "rolloutEvidenceRef",
                     "runtimeRoleAdmissionRef",
                     "canonicalRerunCommand",
@@ -453,6 +515,16 @@
                     "rolloutEvidenceRef",
                     "runtimeRoleAdmissionRef"
                 ],
+                "referenceContracts": {
+                    "rolloutEvidenceRef": {
+                        "schema": "fsusblog.release-rollout-evidence.v1",
+                        "role": "release-rollout"
+                    },
+                    "runtimeRoleAdmissionRef": {
+                        "schema": "fsusblog.runtime-role-observation.v1",
+                        "role": "runtime-role"
+                    }
+                },
                 "referenceMap": null
             },
             "requiredIdentityFields": [

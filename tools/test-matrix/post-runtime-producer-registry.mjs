@@ -48,6 +48,15 @@ const identityRoles = Object.freeze(['plan', 'attempt', 'fixture', 'profile'])
 const sourceReceiptRoles = Object.freeze([
     'probe', 'aot', 'browser', 'release-authority', 'blue-green-authority'
 ])
+const rawFactSourceSchemas = Object.freeze({
+    'route-response-error': 'fsusblog.runtime-observation-probe.v1',
+    'aot-spa-hydration': 'fsusblog.aot-spa-hydration-source-bundle.v1',
+    'cache-search-outbox-convergence': 'fsusblog.runtime-observation-probe.v1',
+    'session-cookie-runtime': 'fsusblog.runtime-observation-probe.v1',
+    'browser-behavior-contract': 'fsusblog.browser-contract-receipt.v2',
+    'release-identity-readiness': 'fsusblog.release-identity-readiness-authority-bundle.v1',
+    'blue-green-containment': 'fsusblog.blue-green-containment-authority-bundle.v1'
+})
 const stableIdentityPattern = /^[a-z][a-z0-9-]{2,127}$/u
 const runIdentityPattern = /^(?!\.{1,2}$)[A-Za-z0-9_](?:[A-Za-z0-9_.-]{0,126}[A-Za-z0-9_])?$/u
 const attemptIdentityPattern = /^attempt-[0-9]{4}$/u
@@ -63,14 +72,64 @@ process.stdin.on('end', () => {
     const ast = acorn.parse(source, { ecmaVersion: 'latest', sourceType, allowHashBang: true })
     const dependencies = []
     const requireAliases = new Set(['require'])
+    const requireFactoryAliases = new Set()
+    const moduleAliases = new Set(['module'])
     const dynamicCodeAliases = new Set(['eval', 'Function'])
     const filesystemNamespaceAliases = new Set()
     const filesystemReaderAliases = new Set()
     const filesystemReaderPattern = /^(?:createReadStream|open|openSync|read|readFile|readFileSync|readSync|readv|readvSync)$/u
     const literal = (node) => node?.type === 'Literal' && typeof node.value === 'string'
+    const unwrap = (node) => node?.type === 'ChainExpression' ? unwrap(node.expression) : node
     const propertyName = (node) => node?.computed
         ? (literal(node.property) ? node.property.value : null)
         : node?.property?.name
+    const requireCallee = (node) => {
+        const current = unwrap(node)
+        return (current?.type === 'Identifier' && requireAliases.has(current.name))
+            || (current?.type === 'MemberExpression' && propertyName(current) === 'require'
+                && current.object?.type === 'Identifier' && moduleAliases.has(current.object.name))
+    }
+    const requireSpecifier = (node) => {
+        const current = unwrap(node)
+        if (current?.type !== 'CallExpression' || current.arguments.length !== 1
+            || !requireCallee(current.callee)
+            || !literal(current.arguments[0])) return null
+        return current.arguments[0].value
+    }
+    const moduleSpecifier = (value) => ['module', 'node:module'].includes(value)
+    const requireFactory = (node) => {
+        const current = unwrap(node)
+        return current?.type === 'MemberExpression' && propertyName(current) === 'createRequire'
+            && moduleSpecifier(requireSpecifier(current.object))
+    }
+    const filesystemSpecifier = (value) =>
+        ['fs', 'node:fs', 'fs/promises', 'node:fs/promises'].includes(value)
+    const filesystemNamespace = (node) => {
+        const current = unwrap(node)
+        if (current?.type === 'AwaitExpression') return filesystemNamespace(current.argument)
+        if (current?.type === 'ImportExpression' && literal(current.source))
+            return filesystemSpecifier(current.source.value)
+        if (current?.type === 'Identifier') return filesystemNamespaceAliases.has(current.name)
+        const required = requireSpecifier(current)
+        if (required !== null) return filesystemSpecifier(required)
+        return current?.type === 'MemberExpression'
+            && propertyName(current) === 'promises' && filesystemNamespace(current.object)
+    }
+    const filesystemReader = (node) => {
+        const current = unwrap(node)
+        if (current?.type === 'Identifier') return filesystemReaderAliases.has(current.name)
+        if (current?.type === 'SequenceExpression')
+            return filesystemReader(current.expressions.at(-1))
+        if (current?.type === 'MemberExpression')
+            return filesystemNamespace(current.object)
+                && (filesystemReaderPattern.test(propertyName(current) ?? '')
+                    || (current.computed && propertyName(current) === null))
+        if (current?.type === 'CallExpression'
+            && current.callee?.type === 'MemberExpression'
+            && propertyName(current.callee) === 'bind')
+            return filesystemReader(current.callee.object)
+        return false
+    }
     const forbiddenReaderPath = (value) => {
         const normalized = value.normalize('NFKC').replaceAll('\\', '/').toLowerCase()
         return normalized.split('/').some((segment) => segment === 'docs'
@@ -93,29 +152,65 @@ process.stdin.on('end', () => {
             && node.init?.type === 'Identifier' && requireAliases.has(node.init.name))
             requireAliases.add(node.id.name)
         if (node.type === 'VariableDeclarator' && node.id?.type === 'Identifier'
+            && node.init?.type === 'Identifier' && moduleAliases.has(node.init.name))
+            moduleAliases.add(node.id.name)
+        if (node.type === 'VariableDeclarator' && node.id?.type === 'Identifier'
+            && (node.init?.type === 'Identifier' && requireFactoryAliases.has(node.init.name)
+                || requireFactory(node.init)))
+            requireFactoryAliases.add(node.id.name)
+        if (node.type === 'VariableDeclarator' && node.id?.type === 'Identifier'
+            && node.init?.type === 'CallExpression'
+            && node.init.callee?.type === 'Identifier'
+            && requireFactoryAliases.has(node.init.callee.name))
+            requireAliases.add(node.id.name)
+        if (node.type === 'VariableDeclarator' && node.id?.type === 'Identifier'
             && node.init?.type === 'Identifier' && dynamicCodeAliases.has(node.init.name))
             dynamicCodeAliases.add(node.id.name)
         if (node.type === 'VariableDeclarator' && node.id?.type === 'Identifier'
-            && node.init?.type === 'MemberExpression'
-            && filesystemReaderPattern.test(propertyName(node.init) ?? ''))
+            && filesystemNamespace(node.init))
+            filesystemNamespaceAliases.add(node.id.name)
+        if (node.type === 'VariableDeclarator' && node.id?.type === 'Identifier'
+            && filesystemReader(node.init))
             filesystemReaderAliases.add(node.id.name)
-        if (node.type === 'VariableDeclarator' && node.id?.type === 'ObjectPattern')
+        if (node.type === 'VariableDeclarator' && node.id?.type === 'ObjectPattern'
+            && filesystemNamespace(node.init))
         {
             for (const property of node.id.properties ?? [])
-                if (filesystemReaderPattern.test(
-                    property.key?.name ?? property.key?.value ?? ''))
+                if (filesystemReaderPattern.test(property.key?.name ?? property.key?.value ?? '')
+                    || (property.computed && property.key?.type !== 'Literal'))
                     filesystemReaderAliases.add(property.value?.name)
+        }
+        if (node.type === 'VariableDeclarator' && node.id?.type === 'ObjectPattern'
+            && moduleSpecifier(requireSpecifier(node.init)))
+        {
+            for (const property of node.id.properties ?? [])
+                if (property.key?.name === 'createRequire' || property.key?.value === 'createRequire')
+                    requireFactoryAliases.add(property.value?.name)
         }
         if (node.type === 'AssignmentExpression' && node.left?.type === 'Identifier'
             && node.right?.type === 'Identifier' && requireAliases.has(node.right.name))
             requireAliases.add(node.left.name)
         if (node.type === 'AssignmentExpression' && node.left?.type === 'Identifier'
+            && node.right?.type === 'Identifier' && moduleAliases.has(node.right.name))
+            moduleAliases.add(node.left.name)
+        if (node.type === 'AssignmentExpression' && node.left?.type === 'Identifier'
+            && node.right?.type === 'CallExpression'
+            && node.right.callee?.type === 'Identifier'
+            && requireFactoryAliases.has(node.right.callee.name))
+            requireAliases.add(node.left.name)
+        if (node.type === 'AssignmentExpression' && node.left?.type === 'Identifier'
             && node.right?.type === 'Identifier' && dynamicCodeAliases.has(node.right.name))
             dynamicCodeAliases.add(node.left.name)
+        if (node.type === 'AssignmentExpression' && node.left?.type === 'Identifier'
+            && filesystemNamespace(node.right))
+            filesystemNamespaceAliases.add(node.left.name)
+        if (node.type === 'AssignmentExpression' && node.left?.type === 'Identifier'
+            && filesystemReader(node.right))
+            filesystemReaderAliases.add(node.left.name)
         if (node.type === 'ImportDeclaration')
         {
             add('import', node.source)
-            if (['fs', 'node:fs', 'fs/promises', 'node:fs/promises'].includes(node.source.value))
+            if (filesystemSpecifier(node.source.value))
                 for (const specifier of node.specifiers ?? [])
                     if (specifier.type === 'ImportDefaultSpecifier'
                         || specifier.type === 'ImportNamespaceSpecifier')
@@ -123,13 +218,16 @@ process.stdin.on('end', () => {
                     else if (specifier.type === 'ImportSpecifier'
                         && filesystemReaderPattern.test(specifier.imported?.name ?? ''))
                         filesystemReaderAliases.add(specifier.local.name)
+            if (moduleSpecifier(node.source.value))
+                for (const specifier of node.specifiers ?? [])
+                    if (specifier.type === 'ImportSpecifier'
+                        && specifier.imported?.name === 'createRequire')
+                        requireFactoryAliases.add(specifier.local.name)
         }
         else if ((node.type === 'ExportNamedDeclaration' || node.type === 'ExportAllDeclaration') && node.source)
             add('import', node.source)
         else if (node.type === 'ImportExpression') add('import', node.source)
-        else if (node.type === 'CallExpression'
-            && ((node.callee?.type === 'Identifier' && requireAliases.has(node.callee.name))
-                || (node.callee?.type === 'MemberExpression' && propertyName(node.callee) === 'require')))
+        else if (node.type === 'CallExpression' && requireCallee(node.callee))
         {
             if (node.arguments.length !== 1) throw new Error('require() must have exact-one argument')
             add('require', node.arguments[0])
@@ -145,17 +243,17 @@ process.stdin.on('end', () => {
                 throw new Error('dynamic or documentation URL is forbidden in the reader closure')
         }
         if (node.type === 'CallExpression' && node.callee?.type === 'MemberExpression'
-            && node.callee.object?.type === 'Identifier'
-            && filesystemNamespaceAliases.has(node.callee.object.name)
+            && filesystemNamespace(node.callee.object)
             && node.callee.computed && propertyName(node.callee) === null)
             throw new Error('computed filesystem reader method is forbidden in the reader closure')
-        if (node.type === 'CallExpression' && node.callee?.type === 'MemberExpression'
-            && filesystemReaderPattern.test(propertyName(node.callee) ?? ''))
+        if (node.type === 'CallExpression' && filesystemReader(node.callee))
         {
-            const method = propertyName(node.callee)
+            const callee = unwrap(node.callee)
+            const method = callee?.type === 'MemberExpression' ? propertyName(callee) : null
             const argument = node.arguments[0]
             const canonicalPinnedRead = functionName === 'readPinnedRepositoryFile'
-                && node.callee.object?.type === 'Identifier' && node.callee.object.name === 'fs'
+                && callee?.type === 'MemberExpression'
+                && callee.object?.type === 'Identifier' && callee.object.name === 'fs'
                 && ((method === 'openSync' && argument?.type === 'Identifier'
                     && argument.name === 'absolute')
                     || (method === 'readFileSync' && argument?.type === 'Identifier'
@@ -166,11 +264,7 @@ process.stdin.on('end', () => {
             && ['call', 'apply'].includes(propertyName(node.callee) ?? ''))
         {
             const target = node.callee.object
-            const targetIsReader = (target?.type === 'MemberExpression'
-                && target.object?.type === 'Identifier'
-                && filesystemNamespaceAliases.has(target.object.name)
-                && filesystemReaderPattern.test(propertyName(target) ?? ''))
-                || (target?.type === 'Identifier' && filesystemReaderAliases.has(target.name))
+            const targetIsReader = filesystemReader(target)
             if (targetIsReader)
             {
                 const argument = propertyName(node.callee) === 'call'
@@ -184,9 +278,7 @@ process.stdin.on('end', () => {
             && propertyName(node.callee) === 'apply')
         {
             const target = node.arguments[0]
-            if (target?.type === 'MemberExpression' && target.object?.type === 'Identifier'
-                && filesystemNamespaceAliases.has(target.object.name)
-                && filesystemReaderPattern.test(propertyName(target) ?? ''))
+            if (filesystemReader(target))
                 assertStaticReaderPath(node.arguments[2]?.elements?.[0])
         }
         if (node.type === 'CallExpression' && node.callee?.type === 'Identifier'
@@ -903,7 +995,7 @@ export function validatePostRuntimeProducerRegistry(registry, {
         }
         assertExactKeys(definition.sourceReceipt, [
             'schema', 'role', 'discriminator', 'requiredFields',
-            'requiredReferenceFields', 'referenceMap'
+            'requiredReferenceFields', 'referenceContracts', 'referenceMap'
         ],
             `observation class ${classId} source receipt`)
         if (!/^fsusblog\.[a-z0-9.-]+\.v\d+$/u.test(definition.sourceReceipt.schema ?? '')
@@ -929,7 +1021,7 @@ export function validatePostRuntimeProducerRegistry(registry, {
         if (!Array.isArray(sourceContract.requiredFields)
             || new Set(sourceContract.requiredFields).size !== sourceContract.requiredFields.length
             || !['schema', 'producerId', 'toolVersion', 'sourceState', 'canonicalRerunCommand',
-                'independentVerifyCommand', 'semanticFacts', 'contentDigest']
+                'independentVerifyCommand', 'rawFacts', 'contentDigest']
                 .every((field) => sourceContract.requiredFields.includes(field))
             || !Array.isArray(sourceContract.requiredReferenceFields)
             || new Set(sourceContract.requiredReferenceFields).size !== sourceContract.requiredReferenceFields.length
@@ -949,6 +1041,23 @@ export function validatePostRuntimeProducerRegistry(registry, {
                 fail(`observation class ${classId} source receipt reference map is not exact`)
             }
         }
+        const referenceKeys = [
+            ...sourceContract.requiredReferenceFields,
+            ...(sourceContract.referenceMap?.keys ?? []).map((key) =>
+                `${sourceContract.referenceMap.field}.${key}`)
+        ]
+        assertExactKeys(sourceContract.referenceContracts, referenceKeys,
+            `observation class ${classId} source receipt reference contracts`)
+        for (const [field, referenceContract] of Object.entries(sourceContract.referenceContracts))
+        {
+            assertExactKeys(referenceContract, ['schema', 'role'],
+                `observation class ${classId} source receipt reference ${field}`)
+            if (!/^fsusblog\.[a-z0-9.-]+\.v\d+$/u.test(referenceContract.schema ?? '')
+                || !/^[a-z][a-z0-9-]*$/u.test(referenceContract.role ?? ''))
+            {
+                fail(`observation class ${classId} source receipt reference ${field} schema/role is invalid`)
+            }
+        }
         const identities = definition.requiredIdentityFields ?? []
         if (!identities.includes('contentDigest'))
         {
@@ -965,6 +1074,10 @@ export function validatePostRuntimeProducerRegistry(registry, {
                 typeof field !== 'string' || field.length === 0 || forbiddenSemanticFactFields.has(field)))
         {
             fail(`observation class ${classId} must declare closed semantic facts without existence shortcuts`)
+        }
+        if (rawFactSourceSchemas[classId] !== sourceContract.schema)
+        {
+            fail(`observation class ${classId} has no closed raw fact extractor for ${sourceContract.schema}`)
         }
         assertExactSet(definition.allowedModes, modes, `observation class ${classId} allowed modes`)
         for (const field of Object.keys(definition))
@@ -1296,49 +1409,45 @@ function readCurrentJsonBytes(repositoryRoot, relative, label)
     }
 }
 
-function replayEmbeddedReference(repositoryRoot, ref, label)
+function replayEmbeddedReference(repositoryRoot, ref, contract, sourceState, label)
 {
-    if (!isPlainObject(ref) || typeof ref.path !== 'string'
-        || (!digestPattern.test(ref.fileDigest ?? '') && !digestPattern.test(ref.contentDigest ?? '')))
+    assertExactKeys(ref, ['path', 'fileDigest', 'contentDigest', 'schema', 'role'], label)
+    if (ref.schema !== contract.schema || ref.role !== contract.role
+        || !digestPattern.test(ref.fileDigest ?? '') || !digestPattern.test(ref.contentDigest ?? '')
+        || ref.fileDigest === ref.contentDigest)
     {
-        fail(`${label} is not a replayable file reference`)
+        fail(`${label} schema/role/digest contract is invalid`)
     }
-    const bytes = readPinnedRepositoryFile(repositoryRoot, ref.path, label).bytes
-    const fileDigest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`
-    if (ref.fileDigest !== undefined && ref.fileDigest !== fileDigest)
+    const expectedRoot = `.tmp/current-run/${sourceState.runId}/`
+    const normalizedPath = ref.path.normalize('NFKC').toLowerCase()
+    if (!ref.path.startsWith(expectedRoot)
+        || normalizedPath.split('/').some((segment) => segment === 'docs'
+            || segment.startsWith('doc-claim') || segment.startsWith('markdown-reader')))
+    {
+        fail(`${label} must stay inside the same explicit current-run root`)
+    }
+    const current = readCurrentJsonBytes(repositoryRoot, ref.path, label)
+    if (current.fileDigest !== ref.fileDigest)
     {
         fail(`${label} file digest mismatch`)
     }
-    if (ref.contentDigest !== undefined && ref.contentDigest !== null)
+    if (current.value.schema !== contract.schema
+        || !digestPattern.test(prefixedDigest(current.value.contentDigest))
+        || prefixedDigest(current.value.contentDigest) !== ref.contentDigest
+        || ref.contentDigest !== receiptDigest(current.value))
     {
-        let semanticDigest = null
-        try
-        {
-            const document = parseCanonicalJson(bytes, label, 2)
-            semanticDigest = prefixedDigest(document.contentDigest)
-            if (ref.schema !== undefined && document.schema !== ref.schema)
-            {
-                fail(`${label} schema mismatch`)
-            }
-        }
-        catch (error)
-        {
-            if (error instanceof Error && error.message.startsWith('[post-runtime-producer-registry]')) throw error
-        }
-        if (ref.contentDigest !== fileDigest && ref.contentDigest !== semanticDigest)
-        {
-            fail(`${label} content digest mismatch`)
-        }
+        fail(`${label} schema/content seal mismatch`)
     }
-    return true
+    return current.value
 }
 
-function replayUpstreamClosure(repositoryRoot, upstream, contract, producerId)
+function replayUpstreamClosure(repositoryRoot, upstream, contract, sourceState, producerId)
 {
     const label = `producer ${producerId} ${contract.role} upstream`
     for (const field of contract.requiredReferenceFields)
     {
-        replayEmbeddedReference(repositoryRoot, upstream[field], `${label} ${field}`)
+        replayEmbeddedReference(repositoryRoot, upstream[field], contract.referenceContracts[field],
+            sourceState, `${label} ${field}`)
     }
     if (contract.referenceMap !== null)
     {
@@ -1347,17 +1456,39 @@ function replayUpstreamClosure(repositoryRoot, upstream, contract, producerId)
             `${label} ${contract.referenceMap.field}`)
         for (const key of contract.referenceMap.keys)
         {
-            replayEmbeddedReference(repositoryRoot, references[key], `${label} ${contract.referenceMap.field}.${key}`)
+            const referenceKey = `${contract.referenceMap.field}.${key}`
+            replayEmbeddedReference(repositoryRoot, references[key],
+                contract.referenceContracts[referenceKey], sourceState, `${label} ${referenceKey}`)
         }
     }
-    if (contract.role === 'browser')
+}
+
+function extractSemanticFactsFromRawReceipt(upstream, definition, producerId, classId)
+{
+    if (rawFactSourceSchemas[classId] !== upstream.schema
+        || definition.sourceReceipt.schema !== upstream.schema)
     {
-        const preview = upstream.publicPreview
-        replayEmbeddedReference(repositoryRoot, {
-            path: preview?.evidencePath,
-            fileDigest: preview?.evidenceFileDigest
-        }, `${label} public preview evidence`)
+        fail(`producer ${producerId} ${classId} raw semantic fact schema is unsupported`)
     }
+    const rawFieldFor = (field) => field.endsWith('Digest') ? field.slice(0, -'Digest'.length) : field
+    const expectedRawFields = definition.requiredSemanticFactFields.map(rawFieldFor)
+    if (new Set(expectedRawFields).size !== expectedRawFields.length)
+    {
+        fail(`producer ${producerId} ${classId} semantic fact extractor has ambiguous raw fields`)
+    }
+    assertExactKeys(upstream.rawFacts, expectedRawFields,
+        `producer ${producerId} ${classId} raw semantic facts`)
+    const extracted = {}
+    for (const field of definition.requiredSemanticFactFields)
+    {
+        const rawValue = upstream.rawFacts[rawFieldFor(field)]
+        if (rawValue === null || rawValue === undefined || rawValue === '')
+        {
+            fail(`producer ${producerId} ${classId} raw semantic fact ${rawFieldFor(field)} is empty`)
+        }
+        extracted[field] = field.endsWith('Digest') ? authorityDigest(rawValue) : rawValue
+    }
+    return extracted
 }
 
 function identityProjection(value)
@@ -1388,7 +1519,8 @@ function validateSourceReceiptRef(repositoryRoot, ref, sourceState, producer, pr
     assertExactKeys(ref, ['path', 'fileDigest', 'contentDigest', 'schema', 'role'],
         `producer ${producerId} source receipt reference`)
     if (ref.schema !== sourceReceiptSchema || ref.role !== 'source'
-        || !digestPattern.test(ref.fileDigest ?? '') || !digestPattern.test(ref.contentDigest ?? ''))
+        || !digestPattern.test(ref.fileDigest ?? '') || !digestPattern.test(ref.contentDigest ?? '')
+        || ref.fileDigest === ref.contentDigest)
     {
         fail(`producer ${producerId} source receipt reference is invalid`)
     }
@@ -1421,10 +1553,16 @@ function validateSourceReceiptRef(repositoryRoot, ref, sourceState, producer, pr
     assertExactKeys(upstreamRef, ['path', 'fileDigest', 'contentDigest', 'schema', 'role'],
         `producer ${producerId} source receipt upstream reference`)
     const contract = definition.sourceReceipt
-    if (upstreamRef.path === ref.path || identityAuthorityPaths.includes(upstreamRef.path)
+    const expectedUpstreamRoot = `.tmp/current-run/${sourceState.runId}/`
+    const normalizedUpstreamPath = upstreamRef.path.normalize('NFKC').toLowerCase()
+    if (!upstreamRef.path.startsWith(expectedUpstreamRoot)
+        || normalizedUpstreamPath.split('/').some((segment) => segment === 'docs'
+            || segment.startsWith('doc-claim') || segment.startsWith('markdown-reader'))
+        || upstreamRef.path === ref.path || identityAuthorityPaths.includes(upstreamRef.path)
         || upstreamRef.schema !== contract.schema
         || upstreamRef.role !== contract.role || !digestPattern.test(upstreamRef.fileDigest ?? '')
-        || !digestPattern.test(upstreamRef.contentDigest ?? ''))
+        || !digestPattern.test(upstreamRef.contentDigest ?? '')
+        || upstreamRef.fileDigest === upstreamRef.contentDigest)
     {
         fail(`producer ${producerId} source receipt upstream reference is invalid`)
     }
@@ -1460,13 +1598,12 @@ function validateSourceReceiptRef(repositoryRoot, ref, sourceState, producer, pr
             fail(`producer ${producerId} source receipt upstream ${required} mismatch`)
         }
     }
-    assertExactKeys(upstream.semanticFacts, definition.requiredSemanticFactFields,
-        `producer ${producerId} source receipt upstream semantic facts`)
-    if (digestValue(upstream.semanticFacts) !== digestValue(envelope.semanticFacts))
+    const extractedFacts = extractSemanticFactsFromRawReceipt(upstream, definition, producerId, classId)
+    if (digestValue(extractedFacts) !== digestValue(envelope.semanticFacts))
     {
-        fail(`producer ${producerId} source receipt upstream semantic facts mismatch`)
+        fail(`producer ${producerId} source receipt raw semantic facts mismatch`)
     }
-    replayUpstreamClosure(repositoryRoot, upstream, contract, producerId)
+    replayUpstreamClosure(repositoryRoot, upstream, contract, sourceState, producerId)
 }
 
 export function validateProducerReceiptAgainstRegistry({
