@@ -107,6 +107,7 @@ function producerReceipt(classId = 'route-response-error')
         producerId: producer.producerId,
         toolVersion: producer.toolVersion,
         sourceState: upstreamSourceState,
+        semanticFacts,
         buildReceipt,
         fixtureReceipt,
         canonicalRerunCommand,
@@ -595,6 +596,10 @@ test('sourceReceiptRef replays exact current source, producer, schema and file i
     const wrapper = JSON.parse(originalSourceBytes.toString('utf8'))
     const upstreamAbsolute = path.join(receiptRepositoryRoot, wrapper.upstreamRef.path)
     const upstreamBytes = fs.readFileSync(upstreamAbsolute)
+    const semanticDrift = structuredClone(base)
+    semanticDrift.semanticFacts.responseStatus = 599
+    assert.throws(() => validate(semanticDrift), /upstream semantic facts mismatch/u)
+
     const staleUpstream = JSON.parse(upstreamBytes.toString('utf8'))
     staleUpstream.sourceState.runId = 'other-run'
     const sealedUpstream = seal(staleUpstream)
@@ -694,7 +699,7 @@ test('HTTP-only and stale registry/schema/evidenceClass receipts cannot qualify'
     const httpOnly = seal({ ...receipt, semanticFacts: { httpStatus: 200 } })
     assert.throws(
         () => validateProducerReceiptAgainstRegistry({ registry, producerId, receipt: httpOnly }),
-        /semantic facts has missing or unknown fields/u)
+        /upstream semantic facts mismatch/u)
 
     const registryDrift = structuredClone(registry)
     registryDrift.canonicalSerialization = 'json-utf8-v2'
@@ -1002,6 +1007,33 @@ test('reader firewall traverses imports and rejects transitive Markdown/DocClaim
     assert.throws(
         () => validatePostRuntimeReaderFirewall(repositoryRoot, 'tools/test-matrix/computed-fs-entry.mjs'),
         /computed filesystem path is forbidden/u)
+
+    for (const [name, source] of [
+        ['trusted-name-entry.mjs',
+            `import fs from 'node:fs'\nfunction readPinnedRepositoryFile() { return fs.readFileSync(${JSON.stringify(docsText)}, 'utf8') }\nexport const facts = readPinnedRepositoryFile()\n`],
+        ['stream-reader-entry.mjs',
+            `import fs from 'node:fs'\nexport const facts = fs.createReadStream(${JSON.stringify(docsText)})\nfacts.resume()\n`],
+        ['call-reader-entry.mjs',
+            `import fs from 'node:fs'\nexport const facts = fs.readFileSync.call(fs, ${JSON.stringify(docsText)}, 'utf8')\n`],
+        ['reflect-reader-entry.mjs',
+            `import fs from 'node:fs'\nexport const facts = Reflect.apply(fs.readFileSync, fs, [${JSON.stringify(docsText)}, 'utf8'])\n`]
+    ])
+    {
+        fs.writeFileSync(path.join(repositoryRoot, 'tools/test-matrix', name), source)
+        execFileSync(process.execPath, [path.join(repositoryRoot, 'tools/test-matrix', name)])
+        assert.throws(
+            () => validatePostRuntimeReaderFirewall(repositoryRoot, `tools/test-matrix/${name}`),
+            /documentation filesystem read is forbidden/u)
+    }
+
+    fs.writeFileSync(path.join(repositoryRoot, 'tools/test-matrix/computed-reader-entry.mjs'),
+        `import fs from 'node:fs'\nexport const facts = fs['read' + 'FileSync'](${JSON.stringify(docsText)}, 'utf8')\n`)
+    execFileSync(process.execPath, [path.join(repositoryRoot,
+        'tools/test-matrix/computed-reader-entry.mjs')])
+    assert.throws(
+        () => validatePostRuntimeReaderFirewall(repositoryRoot,
+            'tools/test-matrix/computed-reader-entry.mjs'),
+        /computed filesystem reader method is forbidden/u)
 
     fs.writeFileSync(path.join(repositoryRoot, 'tools/test-matrix/computed-url-entry.mjs'),
         "export const facts = new URL(process.argv[2], import.meta.url).href\n")

@@ -64,7 +64,9 @@ process.stdin.on('end', () => {
     const dependencies = []
     const requireAliases = new Set(['require'])
     const dynamicCodeAliases = new Set(['eval', 'Function'])
+    const filesystemNamespaceAliases = new Set()
     const filesystemReaderAliases = new Set()
+    const filesystemReaderPattern = /^(?:createReadStream|open|openSync|read|readFile|readFileSync|readSync|readv|readvSync)$/u
     const literal = (node) => node?.type === 'Literal' && typeof node.value === 'string'
     const propertyName = (node) => node?.computed
         ? (literal(node.property) ? node.property.value : null)
@@ -95,12 +97,12 @@ process.stdin.on('end', () => {
             dynamicCodeAliases.add(node.id.name)
         if (node.type === 'VariableDeclarator' && node.id?.type === 'Identifier'
             && node.init?.type === 'MemberExpression'
-            && /^(?:read|readFile|readFileSync|open|openSync)$/u.test(propertyName(node.init) ?? ''))
+            && filesystemReaderPattern.test(propertyName(node.init) ?? ''))
             filesystemReaderAliases.add(node.id.name)
         if (node.type === 'VariableDeclarator' && node.id?.type === 'ObjectPattern')
         {
             for (const property of node.id.properties ?? [])
-                if (/^(?:read|readFile|readFileSync|open|openSync)$/u.test(
+                if (filesystemReaderPattern.test(
                     property.key?.name ?? property.key?.value ?? ''))
                     filesystemReaderAliases.add(property.value?.name)
         }
@@ -115,8 +117,11 @@ process.stdin.on('end', () => {
             add('import', node.source)
             if (['fs', 'node:fs', 'fs/promises', 'node:fs/promises'].includes(node.source.value))
                 for (const specifier of node.specifiers ?? [])
-                    if (specifier.type === 'ImportSpecifier'
-                        && /^(?:read|readFile|readFileSync|open|openSync)$/u.test(specifier.imported?.name ?? ''))
+                    if (specifier.type === 'ImportDefaultSpecifier'
+                        || specifier.type === 'ImportNamespaceSpecifier')
+                        filesystemNamespaceAliases.add(specifier.local.name)
+                    else if (specifier.type === 'ImportSpecifier'
+                        && filesystemReaderPattern.test(specifier.imported?.name ?? ''))
                         filesystemReaderAliases.add(specifier.local.name)
         }
         else if ((node.type === 'ExportNamedDeclaration' || node.type === 'ExportAllDeclaration') && node.source)
@@ -140,9 +145,50 @@ process.stdin.on('end', () => {
                 throw new Error('dynamic or documentation URL is forbidden in the reader closure')
         }
         if (node.type === 'CallExpression' && node.callee?.type === 'MemberExpression'
-            && /^(?:read|readFile|readFileSync|open|openSync)$/u.test(propertyName(node.callee) ?? '')
-            && functionName !== 'readPinnedRepositoryFile')
-            assertStaticReaderPath(node.arguments[0])
+            && node.callee.object?.type === 'Identifier'
+            && filesystemNamespaceAliases.has(node.callee.object.name)
+            && node.callee.computed && propertyName(node.callee) === null)
+            throw new Error('computed filesystem reader method is forbidden in the reader closure')
+        if (node.type === 'CallExpression' && node.callee?.type === 'MemberExpression'
+            && filesystemReaderPattern.test(propertyName(node.callee) ?? ''))
+        {
+            const method = propertyName(node.callee)
+            const argument = node.arguments[0]
+            const canonicalPinnedRead = functionName === 'readPinnedRepositoryFile'
+                && node.callee.object?.type === 'Identifier' && node.callee.object.name === 'fs'
+                && ((method === 'openSync' && argument?.type === 'Identifier'
+                    && argument.name === 'absolute')
+                    || (method === 'readFileSync' && argument?.type === 'Identifier'
+                        && argument.name === 'descriptor'))
+            if (!canonicalPinnedRead) assertStaticReaderPath(argument)
+        }
+        if (node.type === 'CallExpression' && node.callee?.type === 'MemberExpression'
+            && ['call', 'apply'].includes(propertyName(node.callee) ?? ''))
+        {
+            const target = node.callee.object
+            const targetIsReader = (target?.type === 'MemberExpression'
+                && target.object?.type === 'Identifier'
+                && filesystemNamespaceAliases.has(target.object.name)
+                && filesystemReaderPattern.test(propertyName(target) ?? ''))
+                || (target?.type === 'Identifier' && filesystemReaderAliases.has(target.name))
+            if (targetIsReader)
+            {
+                const argument = propertyName(node.callee) === 'call'
+                    ? node.arguments[1]
+                    : node.arguments[1]?.elements?.[0]
+                assertStaticReaderPath(argument)
+            }
+        }
+        if (node.type === 'CallExpression' && node.callee?.type === 'MemberExpression'
+            && node.callee.object?.type === 'Identifier' && node.callee.object.name === 'Reflect'
+            && propertyName(node.callee) === 'apply')
+        {
+            const target = node.arguments[0]
+            if (target?.type === 'MemberExpression' && target.object?.type === 'Identifier'
+                && filesystemNamespaceAliases.has(target.object.name)
+                && filesystemReaderPattern.test(propertyName(target) ?? ''))
+                assertStaticReaderPath(node.arguments[2]?.elements?.[0])
+        }
         if (node.type === 'CallExpression' && node.callee?.type === 'Identifier'
             && filesystemReaderAliases.has(node.callee.name))
             assertStaticReaderPath(node.arguments[0])
@@ -883,7 +929,8 @@ export function validatePostRuntimeProducerRegistry(registry, {
         if (!Array.isArray(sourceContract.requiredFields)
             || new Set(sourceContract.requiredFields).size !== sourceContract.requiredFields.length
             || !['schema', 'producerId', 'toolVersion', 'sourceState', 'canonicalRerunCommand',
-                'independentVerifyCommand', 'contentDigest'].every((field) => sourceContract.requiredFields.includes(field))
+                'independentVerifyCommand', 'semanticFacts', 'contentDigest']
+                .every((field) => sourceContract.requiredFields.includes(field))
             || !Array.isArray(sourceContract.requiredReferenceFields)
             || new Set(sourceContract.requiredReferenceFields).size !== sourceContract.requiredReferenceFields.length
             || sourceContract.requiredReferenceFields.some((field) => !sourceContract.requiredFields.includes(field)))
@@ -1412,6 +1459,12 @@ function validateSourceReceiptRef(repositoryRoot, ref, sourceState, producer, pr
         {
             fail(`producer ${producerId} source receipt upstream ${required} mismatch`)
         }
+    }
+    assertExactKeys(upstream.semanticFacts, definition.requiredSemanticFactFields,
+        `producer ${producerId} source receipt upstream semantic facts`)
+    if (digestValue(upstream.semanticFacts) !== digestValue(envelope.semanticFacts))
+    {
+        fail(`producer ${producerId} source receipt upstream semantic facts mismatch`)
     }
     replayUpstreamClosure(repositoryRoot, upstream, contract, producerId)
 }
