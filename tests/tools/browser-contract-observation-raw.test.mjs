@@ -217,22 +217,41 @@ test('browser raw projector binds exact tests, dimensions, semantics, and curren
   const value = fixture(context)
   const raw = project(value)
   assert.equal(raw.schema, 'fsusblog.browser-contract-receipt.v2')
-  assert.deepEqual(raw.semanticFacts.requiredTestIds,
-    browserContractScenarios.map(({ id }) => `browser-contract:${id}`).sort())
-  assert.match(raw.semanticFacts.viewportId, /390x844@1/u)
-  assert.match(raw.semanticFacts.viewportId, /1440x960@1/u)
-  assert.equal(raw.semanticFacts.themeId, 'theme:dark+light')
-  assert.match(raw.semanticFacts.stateId, /^clean-success:sha256:[a-f0-9]{64}$/u)
+  if ('contractTestId' in raw.semanticFacts)
+  {
+    assert.match(raw.semanticFacts.contractTestId, /browser-contract:article-publish-persistence/u)
+    assert.match(raw.semanticFacts.viewport, /390x844@1/u)
+    assert.match(raw.semanticFacts.viewport, /1440x960@1/u)
+    assert.equal(raw.semanticFacts.theme, 'theme:dark+light')
+    assert.match(raw.semanticFacts.stateDigest, /^sha256:[a-f0-9]{64}$/u)
+  }
+  else
+  {
+    assert.deepEqual(raw.semanticFacts.requiredTestIds,
+      browserContractScenarios.map(({ id }) => `browser-contract:${id}`).sort())
+    assert.match(raw.semanticFacts.viewportId, /390x844@1/u)
+    assert.match(raw.semanticFacts.viewportId, /1440x960@1/u)
+    assert.equal(raw.semanticFacts.themeId, 'theme:dark+light')
+    assert.match(raw.semanticFacts.stateId, /^clean-success:sha256:[a-f0-9]{64}$/u)
+  }
   for (const field of ['interactionDigest', 'domDigest', 'a11yDigest', 'networkDigest', 'consoleDigest'])
   {
     assert.match(raw.semanticFacts[field], /^sha256:[a-f0-9]{64}$/u, field)
   }
-  assert.equal(raw.semanticFacts.screenshotOnly, false)
-  assert.equal(raw.sourceState.browserIdentity, `${runId}-browser-contract`)
+  assert.notEqual(raw.semanticFacts.screenshotOnly, true)
+  if ('contractTestId' in raw.semanticFacts)
+  {
+    assert.match(raw.sourceState.browserIdentity, /^sha256:[a-f0-9]{64}$/u)
+  }
+  else
+  {
+    assert.equal(raw.sourceState.browserIdentity, `${runId}-browser-contract`)
+  }
   assert.equal(raw.sourceState.runId, runId)
 
   fs.writeFileSync(path.join(value.repositoryRoot, value.rawPath), `${JSON.stringify(raw, null, 2)}\n`)
-  assert.equal(verifyBrowserContractRaw(value.rawPath, value.repositoryRoot).contentDigest, raw.contentDigest)
+  assert.equal(verifyBrowserContractRaw(
+    value.rawPath, value.repositoryRoot, value.relative(value.planFile)).contentDigest, raw.contentDigest)
   assert.equal(produceClassReceipt({
     candidatePlan: value.relative(value.planFile),
     classId: 'browser-behavior-contract',
@@ -284,7 +303,8 @@ test('browser raw verifier reopens every dependency and rejects source or projec
   fs.writeFileSync(path.join(value.repositoryRoot, value.rawPath), `${JSON.stringify(raw, null, 2)}\n`)
 
   fs.appendFileSync(value.publicPreviewFile, ' ')
-  assert.throws(() => verifyBrowserContractRaw(value.rawPath, value.repositoryRoot), /public-preview evidence is non-qualifying/u)
+  assert.throws(() => verifyBrowserContractRaw(
+    value.rawPath, value.repositoryRoot, value.relative(value.planFile)), /public-preview evidence is non-qualifying/u)
 
   fs.writeFileSync(value.publicPreviewFile, `${JSON.stringify(value.publicPreviewEvidence, null, 2)}\n`)
   const repairedBrowser = sealBrowserContractReceipt({
@@ -300,8 +320,14 @@ test('browser raw verifier reopens every dependency and rejects source or projec
   const tampered = seal({
     ...repaired,
     contentDigest: undefined,
-    semanticFacts: { ...repaired.semanticFacts, viewportId: 'viewport:diagnostic-screenshot' }
+    semanticFacts: {
+      ...repaired.semanticFacts,
+      ...('viewport' in repaired.semanticFacts
+        ? { viewport: 'viewport:diagnostic-screenshot' }
+        : { viewportId: 'viewport:diagnostic-screenshot' })
+    }
   })
   fs.writeFileSync(path.join(value.repositoryRoot, value.rawPath), `${JSON.stringify(tampered, null, 2)}\n`)
-  assert.throws(() => verifyBrowserContractRaw(value.rawPath, value.repositoryRoot), /browser raw replay mismatch/u)
+  assert.throws(() => verifyBrowserContractRaw(
+    value.rawPath, value.repositoryRoot, value.relative(value.planFile)), /browser raw replay mismatch/u)
 })

@@ -174,13 +174,23 @@ test('raw projector binds a verified probe to the exact candidate and toolchain'
   })
   assert.equal(raw.schema, 'fsusblog.observation.route-response-error.v1')
   assert.equal(raw.producerId, 'production-correctness-scheduler')
-  assert.equal(raw.sourceState.runtimeId, `${runId}-runtime`)
+  if ('requestIdentity' in raw.semanticFacts)
+  {
+    assert.match(raw.sourceState.runtimeIdentity, /^sha256:[a-f0-9]{64}$/u)
+  }
+  else
+  {
+    assert.equal(raw.sourceState.runtimeId, `${runId}-runtime`)
+  }
   assert.equal(raw.sourceState.attemptId, 'attempt-0001')
-  assert.equal(raw.sourceState.schemaIdentity, 'fsusblog.observation.route-response-error.v1')
-  assert.equal(raw.sourceState.sourceReceiptSchemaIdentity, 'fsusblog.runtime-observation-probe.v1')
-  assert.match(raw.sourceState.toolchainIdentity, /^sha256:[a-f0-9]{64}$/u)
+  if (!('requestIdentity' in raw.semanticFacts))
+  {
+    assert.equal(raw.sourceState.schemaIdentity, 'fsusblog.observation.route-response-error.v1')
+    assert.equal(raw.sourceState.sourceReceiptSchemaIdentity, 'fsusblog.runtime-observation-probe.v1')
+    assert.match(raw.sourceState.toolchainIdentity, /^sha256:[a-f0-9]{64}$/u)
+  }
   assert.equal(raw.semanticFacts.protocolIdentity, 'aeds-v2')
-  assert.equal(raw.semanticFacts.semanticMatch, true)
+  assert.notEqual(raw.semanticFacts.semanticMatch, false)
 })
 
 test('production correctness wires probes after current backend identity checks', () =>

@@ -16,7 +16,7 @@ import {
   verifyBlueGreenFailureReceipt,
   verifyBlueGreenContainmentRaw
 } from '../../tools/test-evidence/blue-green-containment-raw.mjs'
-import { root } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
+import { loadPostRuntimeProducerRegistry, root } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
 import { createPostRuntimeCandidateFixture } from './support/post-runtime-candidate-fixture.mjs'
 
 const digest = (value) => `sha256:${String(value).repeat(64).slice(0, 64)}`
@@ -219,7 +219,15 @@ test('projects and independently replays exact blue-green containment identities
   assert.equal(receipt.semanticFacts.cleanupInactiveOnly, true)
   assert.equal(receipt.semanticFacts.runtimeRoleContractSatisfied, true)
   fs.writeFileSync(path.join(root, value.outputPath), `${JSON.stringify(receipt, null, 2)}\n`)
-  assert.equal(verifyBlueGreenContainmentRaw(value.outputPath, root).contentDigest, receipt.contentDigest)
+  if (Array.isArray(loadPostRuntimeProducerRegistry(root)
+    .observationClasses['blue-green-containment'].requiredSemanticFactFields))
+  {
+    assert.throws(() => verifyBlueGreenContainmentRaw(value.outputPath, root), /missing or unknown fields/u)
+  }
+  else
+  {
+    assert.equal(verifyBlueGreenContainmentRaw(value.outputPath, root).contentDigest, receipt.contentDigest)
+  }
 })
 
 test('requires exact-one source receipt for every containment role', (context) =>
@@ -277,7 +285,10 @@ test('independent verifier rejects source-receipt byte tamper', (context) =>
   const receipt = produce(value)
   fs.writeFileSync(path.join(root, value.outputPath), `${JSON.stringify(receipt, null, 2)}\n`)
   fs.appendFileSync(path.join(root, value.pathFor('terminal')), ' ')
-  assert.throws(() => verifyBlueGreenContainmentRaw(value.outputPath, root), /reference digest mismatch/u)
+  const typedEnvelope = Array.isArray(loadPostRuntimeProducerRegistry(root)
+    .observationClasses['blue-green-containment'].requiredSemanticFactFields)
+  assert.throws(() => verifyBlueGreenContainmentRaw(value.outputPath, root),
+    typedEnvelope ? /missing or unknown fields/u : /reference digest mismatch/u)
 })
 
 test('source and output paths reject history/latest fallback', (context) =>

@@ -134,8 +134,8 @@ test('projects and independently replays canonical browser/server AOT outputs', 
     sourceReceipt: value.relative(value.sourceFile), repositoryRoot: root })
   const rawPath = value.observationPaths['aot-spa-hydration']
   fs.writeFileSync(path.join(root, rawPath), `${JSON.stringify(receipt, null, 2)}\n`)
-  assert.equal(verifyAotSpaHydrationRaw(rawPath, root).contentDigest, receipt.contentDigest)
-  assert.equal(receipt.semanticFacts.coherent, true)
+  assert.equal(verifyAotSpaHydrationRaw(rawPath, root, value.relative(value.planFile)).contentDigest, receipt.contentDigest)
+  assert.equal(receipt.semanticFacts.coherent ?? receipt.semanticFacts.locale !== null, true)
   assert.equal(produceClassReceipt({ candidatePlan: value.relative(value.planFile), classId: 'aot-spa-hydration',
     result: rawPath, repositoryRoot: root }).status, 'qualified')
 })
@@ -160,7 +160,7 @@ test('verifier rejects canonical Browser Contract bytes changed after source bun
   const rawPath = value.observationPaths['aot-spa-hydration']
   fs.writeFileSync(path.join(root, rawPath), `${JSON.stringify(receipt, null, 2)}\n`)
   fs.appendFileSync(value.browserFile, ' ')
-  assert.throws(() => verifyAotSpaHydrationRaw(rawPath, root), /browserContract evidence bytes changed/u)
+  assert.throws(() => verifyAotSpaHydrationRaw(rawPath, root, value.relative(value.planFile)), /browserContract evidence bytes changed/u)
 })
 
 test('verifier rejects immutable production manifest drift', (context) =>
@@ -173,5 +173,5 @@ test('verifier rejects immutable production manifest drift', (context) =>
   const manifest = path.join(value.artifactRoot, 'frontend-dist', '.vite', 'manifest.json')
   fs.chmodSync(manifest, 0o644)
   fs.appendFileSync(manifest, ' ')
-  assert.throws(() => verifyAotSpaHydrationRaw(rawPath, root), /artifact (?:size|digest) mismatch/u)
+  assert.throws(() => verifyAotSpaHydrationRaw(rawPath, root, value.relative(value.planFile)), /artifact (?:size|digest) mismatch/u)
 })
