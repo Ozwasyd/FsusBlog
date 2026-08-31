@@ -135,7 +135,7 @@
 			Text="FsusBlogReleaseId commit suffix must match the first 12 characters of FsusBlogCommitSha." />
 	</Target>
 
-	<ItemGroup>
+		<ItemGroup>
 				<ProjectReference Include="..\core\FsusBlog.Core.csproj" />
 				<ProjectReference Include="..\shared\FsusBlog.Shared.csproj" />
 				<ProjectReference Include="..\..\tools\architecture\FsusBlog.DiLifetimeAnalyzer\FsusBlog.DiLifetimeAnalyzer.csproj"

@@ -1,0 +1,37 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/architecture/repository-layout.md"
+            ],
+            "reason": "The content exactness catalogs, current documentation authorities, test registries and receipt tooling must change atomically while preserving existing external JSON, Markdown marker, command-line and receipt identifiers; internal JavaScript symbols remain governed by the repository mapping."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/GlobalUsings.Migration.cs",
+                "src/backend/Infrastructure/Bootstrap/LifecycleHostedBootstrapService.cs",
+                "src/backend/Infrastructure/Bootstrap/RuntimeSecurityAndLifecycleServiceCollectionExtensions.cs",
+                "src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCompatibility.cs",
+                "src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCoordinator.cs",
+                "src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationMetadata.cs",
+                "src/backend/Infrastructure/SchemaMigration/PostgresOnlineSchemaMigrationStateStore.cs",
+                "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs",
+                "src/backend/Program.cs",
+                "src/migration/Properties/AssemblyInfo.cs",
+                "tools/db/check-migration-assembly-boundary.mjs",
+                "tools/db/check-server-migration-cutover.mjs"
+            ],
+            "reason": "Process environment spelling is external while option variables remain internal."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/static-governance.sh"
+            ],
+            "reason": "Exported shell variables retain process-level spelling; local aliases use camelCase."
+        }
+    ]
+}

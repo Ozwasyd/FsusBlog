@@ -2035,7 +2035,7 @@
                 "tests/backend/Unit/AnonymousCommentTicketEndpointFilterTests.cs",
                 "tests/backend/Unit/AnonymousCommentTicketRedisConcurrencyTests.cs",
                 "tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs",
-                "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
+                "tests/backend/Unit/CommentMutationOutboxAnonymousPostgresTests.cs",
                 "tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs",
                 "tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs",
                 "tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts",
@@ -3459,6 +3459,34 @@
             ]
         },
         {
+            "id": "migration-assembly-boundary",
+            "description": "Legacy schema descriptors, catalogs, checksum/history execution, typed provider DDL and migration-only row conversion live in one independently buildable FsusBlog.Migration assembly without Server or web-host dependencies.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "src/migration/FsusBlog.Migration.csproj",
+                "src/migration/SchemaMigrationPrimitives.cs",
+                "src/migration/SchemaMigrationDdlPrimitives.cs",
+                "src/migration/SchemaMigrationExecution.cs",
+                "src/migration/SchemaMigrationManifest.cs",
+                "tests/migration/FsusBlog.Migration.Tests.csproj",
+                "tests/migration/MigrationAssemblyBoundaryTests.cs",
+                "tools/db/generate-migration-assembly-receipt.mjs",
+                "tools/db/check-migration-assembly-boundary.mjs",
+                "tests/tools/migration-assembly-boundary.test.mjs",
+                "artifacts/schema-migration/migration-assembly-receipt.json",
+                "artifacts/schema-migration/migration-assembly-binding.json",
+                "docs/database-migration.md"
+            ],
+            "assertionType": "contract",
+            "failClosedRule": "Reject Server, web-host, business-service or reverse graph dependencies; linked duplicates, type forwarders, compatibility namespaces, provider current-schema copies, shared legacy fields, old Server source ownership, missing provider registration, descriptor digest drift, or receipt symbol/content tamper.",
+            "minimumRequirement": "The assembly and its direct test project must build without the Server; PostgreSQL, MySQL and SQLite provider semantics plus the exact descriptor plan digest must pass, and static mutation tests must cover every forbidden re-entry and identity-tamper class.",
+            "tierIds": [
+                "backend-unit",
+                "static-governance"
+            ]
+        },
+        {
             "id": "backend-online-schema-migration-protocol",
             "description": "Online schema changes follow classified Expand, resumable Backfill and gated Contract phases while every destructive step carries a source-bound rollback-window proof.",
             "owner": "ServerContractAgent",
@@ -3478,7 +3506,7 @@
                 "tests/tools/schema-compatibility-coordinate.test.mjs",
                 "tools/release/schema-compatibility-coordinate.mjs",
                 "tests/tools/destructive-migration-proof.test.mjs",
-                "src/backend/Infrastructure/SchemaMigration/DestructiveMigrationProofs.cs",
+                "src/migration/DestructiveMigrationProofs.cs",
                 "docs/schema-migrations/destructive-rollback-window-proofs.json",
                 "docs/schema-migrations/destructive-rollback-window.md",
                 "tests/backend/online-schema-migration-evidence.json"
@@ -3523,10 +3551,10 @@
             "owner": "ServerContractAgent",
             "risk": "high",
             "evidencePaths": [
-                "src/backend/Infrastructure/SchemaMigration/SchemaMigrationPrimitives.cs",
-                "src/backend/Infrastructure/SchemaMigration/SchemaMigrationDdlPrimitives.cs",
-                "tests/backend/Unit/SchemaMigrationDdlPrimitivesTests.cs",
-                "tests/backend/Fixtures/schema-ddl-provider-snapshots.json",
+                "src/migration/SchemaMigrationPrimitives.cs",
+                "src/migration/SchemaMigrationDdlPrimitives.cs",
+                "tests/migration/SchemaMigrationDdlPrimitivesTests.cs",
+                "tests/migration/schema-ddl-provider-snapshots.json",
                 "docs/schema-migrations/typed-ddl-primitives.json"
             ],
             "assertionType": "unit",
@@ -4767,13 +4795,29 @@
                 "tools/test/evidence-location-contract.mjs",
                 "tools/test/evidence-location-scanner.mjs",
                 "tools/test/generate-evidence-location-governance.mjs",
+                "tools/test/current-run-evidence-publication.mjs",
+                "tools/test/current-run-evidence-checkpoint.mjs",
+                "tools/test/run-current-run-evidence-producer.mjs",
+                "tools/test/current-run-evidence-producer-hook.mjs",
+                "tools/test/current-run-evidence-producer-hook.bash",
+                "tools/test/publish-current-run-evidence-reference.mjs",
+                "tools/test/publish-release-final-evidence-parent.mjs",
+                "tools/test/attach-current-run-evidence-checkpoint.mjs",
+                "tools/test/current-run-evidence-transport.mjs",
+                "tools/test/run-current-run-evidence-transport.mjs",
                 "tests/tools/evidence-location-contract.test.mjs",
                 "tests/tools/evidence-location-governance.test.mjs",
+                "tests/tools/current-run-evidence-publication.test.mjs",
+                "tests/tools/current-run-evidence-scheduler.test.mjs",
+                "tests/tools/current-run-evidence-transport.test.mjs",
+                "tests/tools/current-run-evidence-locator-negative-matrix.test.mjs",
+                "tools/test/generate-current-run-evidence-location-acceptance.mjs",
+                "config/testing/current-run-evidence-location-acceptance.json",
                 "docs/testing.md"
             ],
             "assertionType": "integration",
-            "failClosedRule": "Reject missing, duplicate, orphan, unclassified, wildcard-suppressed or newly discovered location findings; duplicate consumer authorities; mutable latest, timestamp, directory, fallback, age or TTL locator policy; and any content digest drift.",
-            "minimumRequirement": "Static governance must scan tracked JS, TS, C#, shell, workflow and config consumers, prove exact location and rule coverage for every finding, retain all three disposition classes, bind actual helper callsites, and cover quality gate, release-final, aggregates, flaky, public preview, manifest and downloaded evidence consumers.",
+            "failClosedRule": "Reject missing, duplicate, orphan, unclassified, wildcard-suppressed or newly discovered location findings; duplicate consumer authorities; mutable latest, timestamp, directory, fallback, age or TTL locator policy; producer failure, cancellation, missing output, stale attempt or identity; multiple final references; non-finalized publication journals; parent payload copies; unbound downloaded artifacts; transport digest, mapping or origin mismatch; and any content or receipt digest drift.",
+            "minimumRequirement": "Static governance must scan tracked JS, TS, C#, shell, workflow and config consumers, prove exact location and rule coverage for every finding, retain all three disposition classes, give every authority exact producer/output/checkpoint bindings, publish terminal current-run content-addressed references, bind downloaded artifacts only through an exact transport manifest, and verify checkpoint and parent propagation using refs and digests only.",
             "tierIds": [
                 "static-governance"
             ]

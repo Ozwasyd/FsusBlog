@@ -15,7 +15,7 @@ const forbidText = (text, token, label) => {
 const policy = read('src/backend/Services/Security/AnonymousCommentPolicyService.cs')
 const resolver = read('src/backend/Services/Security/CommentActorResolver.cs')
 const endpoints = read('src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs')
-const migration = read('src/backend/Infrastructure/SchemaMigration/Definitions/CommentAuthorModeRetirementMigrationDefinitions.cs')
+const migration = read('src/migration/Definitions/CommentAuthorModeRetirementMigrationDefinitions.cs')
 const frontend = read('src/frontend/src/composables/useArticleDetailView.ts')
 const composer = read('src/frontend/src/components/article/ArticleCommentComposer.vue')
 const matrix = read('security/matrices/privacy-zk-comment.yml')

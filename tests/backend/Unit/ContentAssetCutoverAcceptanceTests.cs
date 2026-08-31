@@ -1,6 +1,6 @@
+using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Contracts.Assets;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
-using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services;

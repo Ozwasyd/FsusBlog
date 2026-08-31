@@ -100,7 +100,9 @@ const requirements = [
         'FsusUI safe result runtime is the single render source',
         fsusuiMarkdown.includes('activateMarkdownFeatures')
       && fsusuiMarkdown.includes('renderMarkdownResultWithRuntime')
-      && fsusuiMarkdown.includes('type MarkdownSafeRenderResult')
+      && fsusuiMarkdown.includes('MarkdownSafeRenderResult')
+      && fsusuiMarkdown.includes("from '@ozwasyd/element-plus/markdown-runtime'")
+      && !fsusuiMarkdown.includes("from '@/fsusui/markdownContract'")
       && !fsusuiMarkdown.includes('defaultMermaidAdapter')
       && !fsusuiMarkdown.includes('defaultLatexAdapter')
       && !fsusuiMarkdown.includes('defaultCodeHighlightAdapter')
