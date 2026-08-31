@@ -1190,6 +1190,33 @@ export function formatBehaviorTestBindingReport(scan)
     };
 }
 
+export function matchObservationsForBehaviorBinding(binding, observationByTestId)
+{
+    const direct = observationByTestId.get(binding.canonicalTestId);
+    if (direct)
+    {
+        return [direct];
+    }
+    if (binding.framework === 'xunit-trx')
+    {
+        const prefix = `${binding.canonicalTestId}(`;
+        return [...observationByTestId.entries()]
+            .filter(([testId]) => testId.startsWith(prefix))
+            .map(([, observation]) => observation);
+    }
+    if (binding.framework === 'vitest')
+    {
+        for (const [testId, observation] of observationByTestId)
+        {
+            if (testId.endsWith(`#${binding.fullyQualifiedName}`) && testId.startsWith('vitest:'))
+            {
+                return [observation];
+            }
+        }
+    }
+    return [];
+}
+
 // Keep sha256 import used for optional producer digest checks in callers.
 export { sha256 };
 

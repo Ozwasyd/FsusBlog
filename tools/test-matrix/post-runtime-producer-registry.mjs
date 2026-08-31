@@ -22,7 +22,7 @@ import {
     globalExactnessSchema,
     validateGlobalClaimExactnessReceipt
 } from '../docs/global-claim-exactness-final.mjs'
-import { digestValue, isPlainObject } from '../fact-extractors/lib/canonicalize.mjs'
+import { digestValue, isPlainObject, stable } from '../fact-extractors/lib/canonicalize.mjs'
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 export const registryRelative = 'config/testing/post-runtime-producer-registry.json'
@@ -90,6 +90,14 @@ function currentReceiptFile(repositoryRoot, relative, label)
     if (!absolute.startsWith(`${resolvedRoot}${path.sep}`))
     {
         fail(`${label} escapes the repository root`)
+    }
+    for (let cursor = absolute; cursor !== resolvedRoot; cursor = path.dirname(cursor))
+    {
+        const cursorStat = fs.lstatSync(cursor, { throwIfNoEntry: false })
+        if (!cursorStat || cursorStat.isSymbolicLink())
+        {
+            fail(`${label} must not traverse a symlink or missing ancestor`)
+        }
     }
     const stat = fs.lstatSync(absolute)
     if (!stat.isFile() || stat.isSymbolicLink()) fail(`${label} must be a regular non-symlink file`)
@@ -594,7 +602,7 @@ export function validateAcceptedClaimsReceiptAgainstRegistry({
     const actualClaims = [...(receipt.claims ?? [])]
         .sort((left, right) => String(left?.claimId).localeCompare(String(right?.claimId)))
     if (new Set(actualClaims.map((entry) => entry?.claimId)).size !== actualClaims.length
-        || JSON.stringify(actualClaims) !== JSON.stringify(expectedClaims))
+        || JSON.stringify(stable(actualClaims)) !== JSON.stringify(stable(expectedClaims)))
     {
         fail('accepted claim set does not exact-match #2205 terminal authority and registry')
     }

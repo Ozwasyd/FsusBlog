@@ -23,10 +23,11 @@ export const contractFieldKeys = [
     'documentationRationale',
     'allowedClaimTypes',
     'releaseQualification',
+    'evidenceStage',
     'coverageIds',
     'documents'
 ];
-export const optionalContractFieldKeys = ['evidenceStage', 'runtimeEvidence', 'mutationPolicy', 'documentAuthorities', 'crossDomainReferences'];
+export const optionalContractFieldKeys = ['runtimeEvidence', 'mutationPolicy', 'documentAuthorities', 'crossDomainReferences'];
 
 const fail = (message) =>
 {
