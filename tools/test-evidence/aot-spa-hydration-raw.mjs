@@ -356,6 +356,7 @@ export function projectAotSpaHydrationRaw({ candidatePlan, sourceReceipt, reposi
     ...observationEnvelopeAuthorityFields({ plan, candidatePlanRef: candidate.ref, repositoryRoot }),
     sourceReceiptRef: observationSourceReceipt({
       classId, plan, sourceState, upstreamRef: source.source.ref,
+      upstreamSchema: source.source.value.schema,
       canonicalRerunCommand, independentVerifyCommand, repositoryRoot
     }),
     canonicalRerunCommand,

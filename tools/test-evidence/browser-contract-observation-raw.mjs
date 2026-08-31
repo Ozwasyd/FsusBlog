@@ -167,7 +167,10 @@ function exactIdentities(plan, browser, buildBinding, repositoryRoot)
   const source = browser.sourceState ?? {}
   const run = browser.runIdentity ?? {}
   const lifecycle = browser.fixture?.lifecycle?.identity ?? {}
-  const expectedBrowserId = `${plan.candidate.runId}-browser-contract`
+  const observationSchema = JSON.parse(fs.readFileSync(
+    path.join(repositoryRoot, 'config/schemas/post-runtime-observation-result.schema.json'), 'utf8'))
+  const expectedBrowserId = `${plan.candidate.runId}${observationSchema.properties?.sourceState
+    ?.properties?.runtimeId !== undefined ? ':' : '-'}browser-contract`
   if (source.commit !== plan.sourceState.commit
     || normalizedDigest(source.worktreeFingerprint) !== normalizedDigest(plan.sourceState.worktreeFingerprint)
     || buildBinding.receipt !== plan.build.receipt
@@ -334,6 +337,7 @@ export function projectBrowserContractRaw({ candidatePlan, browserContractReceip
     ...observationEnvelopeAuthorityFields({ plan, candidatePlanRef: planInput.ref, repositoryRoot }),
     sourceReceiptRef: observationSourceReceipt({
       classId, plan, sourceState, upstreamRef: browserInput.ref,
+      upstreamSchema: browserInput.value.schema,
       canonicalRerunCommand, independentVerifyCommand, repositoryRoot
     }),
     canonicalRerunCommand,
