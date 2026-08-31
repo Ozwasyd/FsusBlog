@@ -6,7 +6,23 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+import {
+    createFlakyEvidenceCollection,
+    FLAKY_EVIDENCE_COLLECTION_SCHEMA
+} from '../../tools/ci/check-flaky-evidence.mjs';
+import {
+    createJobSummaryCollection,
+    JOB_SUMMARY_COLLECTION_SCHEMA
+} from '../../tools/ci/check-job-summaries.mjs';
 import { governanceContentDigest } from '../../tools/test/evidence-location-contract.mjs';
+import {
+    beginCurrentRunEvidencePublication,
+    finalizeCurrentRunEvidencePublication
+} from '../../tools/test/current-run-evidence-publication.mjs';
+import {
+    evidenceContentDigest,
+    evidenceProducerReceiptDigest
+} from '../../tools/test/current-run-evidence-locator.mjs';
 import { packCurrentRunEvidenceTransport } from '../../tools/test/current-run-evidence-transport.mjs';
 
 const repositoryRoot = path.resolve(import.meta.dirname, '../..');
@@ -81,7 +97,9 @@ function copySummaryDependencies(root)
     for (const relative of [
         'tools/ci/check-flaky-evidence.mjs',
         'tools/ci/check-job-summaries.mjs',
+        'config/testing/evidence-locator-registry.json',
         'tools/test/current-run-evidence-locator.mjs',
+        'tools/test/current-run-evidence-publication.mjs',
         'tools/test/current-run-evidence-transport.mjs',
         'tools/test/evidence-location-contract.mjs',
         'tools/yaml/workflow-structure.mjs'
@@ -149,25 +167,70 @@ function flakyEvidence(overrides = {})
     };
 }
 
-function createTransportFixture(root, { job = jobSummary(), flaky = flakyEvidence() } = {})
+function createTransportFixture(root, plan, options = {})
 {
-    const jobPath = '.tmp/downloaded-artifacts/quality-gate/job.json';
-    const flakyPath = '.tmp/downloaded-artifacts/quality-gate/flaky.json';
-    write(path.join(root, jobPath), job);
-    write(path.join(root, flakyPath), flaky);
+    fs.mkdirSync(path.join(root, 'artifacts/current-run'), { recursive: true });
+    const hasJobOverride = Object.hasOwn(options, 'job');
+    const hasFlakyOverride = Object.hasOwn(options, 'flaky');
+    const job = hasJobOverride ? options.job : jobSummary();
+    const flaky = hasFlakyOverride ? options.flaky : flakyEvidence();
+    const jobPayload = hasJobOverride
+        ? { schema: JOB_SUMMARY_COLLECTION_SCHEMA, summaries: [job] }
+        : createJobSummaryCollection([job]);
+    const flakyPayload = hasFlakyOverride
+        ? { schema: FLAKY_EVIDENCE_COLLECTION_SCHEMA, evidence: [flaky] }
+        : createFlakyEvidenceCollection([flaky]);
     const contextBody = {
         schema: 'fsusblog.current-run-evidence-context.v1',
-        schedulerRunId: 'run-42',
-        attemptId: 'attempt-1',
+        schedulerRunId: '42',
+        attemptId: '1',
         sourceCommit: sourceState.commit,
         worktreeFingerprint: digest('b'),
-        candidateIdentity: { id: 'candidate', digest: digest('d') },
-        buildIdentity: { id: 'build', digest: digest('e') },
-        ownedRoots: ['.tmp/downloaded-artifacts']
+        candidateIdentity: { id: 'pr-smart-gate-plan', digest: plan.contentDigest },
+        buildIdentity: { id: 'production-build', digest: buildReceiptDigest },
+        ownedRoots: ['artifacts/current-run'],
+        ...(options.context ?? {})
     };
     const context = { ...contextBody, contentDigest: governanceContentDigest(contextBody) };
-    const archivePath = '.tmp/downloaded-artifacts/quality-gate/transport-archive.json';
-    const manifestPath = '.tmp/downloaded-artifacts/quality-gate/transport-manifest.json';
+    const registry = JSON.parse(fs.readFileSync(path.join(root,
+        'config/testing/evidence-locator-registry.json'), 'utf8'));
+    const jobEntry = registry.entries.find((entry) =>
+        entry.consumerId === 'evidence-consumer.ci.check-job-summaries');
+    const flakyEntry = registry.entries.find((entry) =>
+        entry.consumerId === 'evidence-consumer.ci.check-flaky-evidence');
+    const publish = ({ entry, payload, payloadPath, referencePath }) =>
+    {
+        const session = beginCurrentRunEvidencePublication({
+            authorityId: entry.authorityId,
+            context,
+            outputPath: referencePath,
+            payloadPath,
+            producerId: entry.producerId,
+            repositoryRoot: root
+        });
+        write(path.join(root, payloadPath), payload);
+        return finalizeCurrentRunEvidencePublication({
+            authorityId: entry.authorityId,
+            context,
+            outputPath: referencePath,
+            payloadPath,
+            payloadSchema: payload.schema,
+            producerId: entry.producerId,
+            repositoryRoot: root,
+            sessionId: session.sessionId,
+            terminalStatus: 'success'
+        });
+    };
+    const jobPath = 'artifacts/current-run/job-summary-collection.json';
+    const jobReferencePath = 'artifacts/current-run/job-summary-reference.json';
+    const flakyPath = 'artifacts/current-run/flaky-evidence-collection.json';
+    const flakyReferencePath = 'artifacts/current-run/flaky-evidence-reference.json';
+    const publishedJob = publish({ entry: jobEntry, payload: jobPayload,
+        payloadPath: jobPath, referencePath: jobReferencePath });
+    const publishedFlaky = publish({ entry: flakyEntry, payload: flakyPayload,
+        payloadPath: flakyPath, referencePath: flakyReferencePath });
+    const archivePath = 'artifacts/current-run/transport-archive.json';
+    const manifestPath = 'artifacts/current-run/transport-manifest.json';
     packCurrentRunEvidenceTransport({
         context,
         repositoryRoot: root,
@@ -176,28 +239,31 @@ function createTransportFixture(root, { job = jobSummary(), flaky = flakyEvidenc
         transportRunId: 'transport-42',
         downloadRunId: 'download-42',
         objects: [{
-            authorityId: 'evidence-consumer.ci.check-job-summaries.current-run',
-            producerId: 'evidence-consumer.ci.check-job-summaries.producer',
-            receiptSchema: 'fsusblog.current-run-evidence-reference.v1',
+            authorityId: jobEntry.authorityId,
+            producerId: jobEntry.producerId,
+            receiptSchema: jobEntry.receiptSchema,
             originalRef: {
-                path: jobPath,
-                contentDigest: digest('f'),
-                producerReceiptDigest: digest('1')
+                path: jobReferencePath,
+                contentDigest: publishedJob.receipt.contentDigest,
+                producerReceiptDigest: publishedJob.receipt.producerReceiptDigest
             },
-            files: [{ path: jobPath }]
+            files: [{ path: jobReferencePath }, { path: jobPath }],
+            ...(options.jobObject ?? {})
         }, {
-            authorityId: 'evidence-consumer.ci.check-flaky-evidence.current-run',
-            producerId: 'evidence-consumer.ci.check-flaky-evidence.producer',
-            receiptSchema: 'fsusblog.current-run-evidence-reference.v1',
+            authorityId: flakyEntry.authorityId,
+            producerId: flakyEntry.producerId,
+            receiptSchema: flakyEntry.receiptSchema,
             originalRef: {
-                path: flakyPath,
-                contentDigest: digest('2'),
-                producerReceiptDigest: digest('3')
+                path: flakyReferencePath,
+                contentDigest: publishedFlaky.receipt.contentDigest,
+                producerReceiptDigest: publishedFlaky.receipt.producerReceiptDigest
             },
-            files: [{ path: flakyPath }]
+            files: [{ path: flakyReferencePath }, { path: flakyPath }],
+            ...(options.flakyObject ?? {})
         }]
     });
-    return { archivePath, flakyPath, jobPath, manifestPath };
+    return { archivePath, context, flakyPath, flakyReferencePath, jobPath, jobReferencePath,
+        manifestPath };
 }
 
 function rewriteManifest(root, manifestPath, mutate, { reseal = true } = {})
@@ -211,6 +277,51 @@ function rewriteManifest(root, manifestPath, mutate, { reseal = true } = {})
         manifest.contentDigest = governanceContentDigest(manifest);
     }
     write(file, manifest);
+}
+
+function resealTransportedEntry(root, transport, entryPath, mutate)
+{
+    const extractedFile = path.join(root, entryPath);
+    const document = JSON.parse(fs.readFileSync(extractedFile, 'utf8'));
+    mutate(document);
+    const entryBytes = Buffer.from(`${JSON.stringify(document, null, 2)}\n`);
+    fs.writeFileSync(extractedFile, entryBytes);
+    const entryDigest = `sha256:${crypto.createHash('sha256').update(entryBytes).digest('hex')}`;
+
+    const archiveFile = path.join(root, transport.archivePath);
+    const archive = JSON.parse(fs.readFileSync(archiveFile, 'utf8'));
+    const archiveEntry = archive.entries.find((entry) => entry.path === entryPath);
+    assert.ok(archiveEntry, `missing archive fixture entry: ${entryPath}`);
+    archiveEntry.digest = entryDigest;
+    archiveEntry.bytes = entryBytes.toString('base64');
+    delete archive.contentDigest;
+    archive.contentDigest = governanceContentDigest(archive);
+    const archiveBytes = Buffer.from(`${JSON.stringify(archive, null, 2)}\n`);
+    fs.writeFileSync(archiveFile, archiveBytes);
+
+    const manifestFile = path.join(root, transport.manifestPath);
+    const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+    const manifestArchiveEntry = manifest.archive.entries.find((entry) => entry.path === entryPath);
+    assert.ok(manifestArchiveEntry, `missing manifest fixture entry: ${entryPath}`);
+    manifestArchiveEntry.digest = entryDigest;
+    const object = manifest.objects.find((candidate) =>
+        candidate.archiveEntries.some((entry) => entry.path === entryPath));
+    const objectEntry = object?.archiveEntries.find((entry) => entry.path === entryPath);
+    assert.ok(object && objectEntry, `missing object fixture entry: ${entryPath}`);
+    objectEntry.digest = entryDigest;
+    if (object.originalRef.path === entryPath)
+    {
+        object.objectDigest = entryDigest;
+        object.originalRef.inputDigest = entryDigest;
+        object.contentDigest = document.contentDigest;
+        object.producerDigest = document.producerReceiptDigest;
+        object.originalRef.contentDigest = document.contentDigest;
+        object.originalRef.producerReceiptDigest = document.producerReceiptDigest;
+    }
+    manifest.archive.digest = `sha256:${crypto.createHash('sha256').update(archiveBytes).digest('hex')}`;
+    delete manifest.contentDigest;
+    manifest.contentDigest = governanceContentDigest(manifest);
+    write(manifestFile, manifest);
 }
 
 function summaryEnvironment(plan, needs, root)
@@ -231,6 +342,27 @@ function summaryEnvironment(plan, needs, root)
         FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST: ''
     };
 }
+
+test('canonical transport collections admit only complete job and flaky evidence', () =>
+{
+    const job = jobSummary();
+    const flaky = flakyEvidence();
+    assert.deepEqual(createJobSummaryCollection([job]), {
+        schema: JOB_SUMMARY_COLLECTION_SCHEMA,
+        summaries: [job]
+    });
+    assert.deepEqual(createFlakyEvidenceCollection([flaky]), {
+        schema: FLAKY_EVIDENCE_COLLECTION_SCHEMA,
+        evidence: [flaky]
+    });
+    const partialJob = { ...job };
+    delete partialJob.tierIds;
+    assert.throws(() => createJobSummaryCollection([partialJob]), /tierIds/u);
+    const partialFlaky = { ...flaky };
+    delete partialFlaky.attempts;
+    assert.throws(() => createFlakyEvidenceCollection([partialFlaky]), /attempts/u);
+    assert.throws(() => createJobSummaryCollection([]), /at least one job summary/u);
+});
 
 test('production summary excludes diagnostics retry evidence from its correctness aggregate', (context) =>
 {
@@ -348,8 +480,8 @@ test('production summary reads job and flaky evidence from the bound transport m
         retryCount: 1
     });
 
-    const transport = createTransportFixture(root);
     const { plan } = writePlan(root);
+    const transport = createTransportFixture(root, plan);
     const stepSummary = path.join(root, '.tmp/step-summary.md');
     const result = spawnSync(process.execPath, [script], {
         cwd: root,
@@ -357,6 +489,7 @@ test('production summary reads job and flaky evidence from the bound transport m
         env: {
             ...summaryEnvironment(plan, { required: { result: 'failure' } }, root),
             FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST: path.join(root, transport.manifestPath),
+            FSUSBLOG_RELEASE_EVIDENCE_DIR: '',
             GITHUB_STEP_SUMMARY: stepSummary
         }
     });
@@ -560,6 +693,80 @@ test('production summary rejects unsealed ambiguous or partial transport evidenc
         },
         expected: /transported evidence digest mismatch/u
     }, {
+        name: 'resealed payload differs from its canonical reference receipt',
+        mutate(root, transport)
+        {
+            resealTransportedEntry(root, transport, transport.jobPath, (payload) =>
+            {
+                payload.summaries[0].rootCause = 'resealed-foreign-payload';
+            });
+        },
+        expected: /evidence payload reference digest mismatch/u
+    }, {
+        name: 'resealed reference has an invalid content digest',
+        mutate(root, transport)
+        {
+            resealTransportedEntry(root, transport, transport.jobReferencePath, (reference) =>
+            {
+                reference.contentDigest = digest('7');
+            });
+        },
+        expected: /evidence contentDigest mismatch/u
+    }, {
+        name: 'resealed reference has an invalid producer receipt digest',
+        mutate(root, transport)
+        {
+            resealTransportedEntry(root, transport, transport.jobReferencePath, (reference) =>
+            {
+                reference.producerReceiptDigest = digest('8');
+            });
+        },
+        expected: /evidence producerReceiptDigest mismatch/u
+    }, {
+        name: 'resealed foreign reference differs from the manifest origin',
+        mutate(root, transport)
+        {
+            resealTransportedEntry(root, transport, transport.jobReferencePath, (reference) =>
+            {
+                reference.sourceCommit = 'd'.repeat(40);
+                reference.contentDigest = evidenceContentDigest(reference);
+                reference.producerReceiptDigest = evidenceProducerReceiptDigest(reference);
+            });
+        },
+        expected: /evidence sourceCommit mismatch/u
+    }, {
+        name: 'foreign transport producer',
+        fixture: { jobObject: { producerId: 'foreign-producer' } },
+        expected: /transport producerId mismatch/u
+    }, {
+        name: 'foreign transport receipt schema',
+        fixture: { jobObject: { receiptSchema: 'foreign.reference.v1' } },
+        expected: /transport receiptSchema mismatch/u
+    }, {
+        name: 'stale transport scheduler run',
+        fixture: { context: { schedulerRunId: '41' } },
+        expected: /transport origin schedulerRunId mismatch/u
+    }, {
+        name: 'stale transport attempt',
+        fixture: { context: { attemptId: '2' } },
+        expected: /transport origin attemptId mismatch/u
+    }, {
+        name: 'foreign transport source commit',
+        fixture: { context: { sourceCommit: 'd'.repeat(40) } },
+        expected: /transport origin sourceCommit mismatch/u
+    }, {
+        name: 'foreign transport worktree fingerprint',
+        fixture: { context: { worktreeFingerprint: digest('d') } },
+        expected: /transport origin worktreeFingerprint mismatch/u
+    }, {
+        name: 'foreign transport candidate identity',
+        fixture: { context: { candidateIdentity: { id: 'foreign-plan', digest: digest('d') } } },
+        expected: /transport origin candidateIdentity mismatch/u
+    }, {
+        name: 'foreign transport build identity',
+        fixture: { context: { buildIdentity: { id: 'foreign-build', digest: digest('d') } } },
+        expected: /transport origin buildIdentity mismatch/u
+    }, {
         name: 'partial job summary payload',
         fixture: { job: partialJob },
         expected: /job summary payload is invalid:.*tierIds/u
@@ -578,7 +785,7 @@ test('production summary rejects unsealed ambiguous or partial transport evidenc
     }, {
         name: 'malformed transported job payload',
         fixture: { job: '{not-json' },
-        expected: /JSON|Unexpected token/u
+        expected: /job summary payload must be an object/u
     }];
 
     for (const scenario of cases)
@@ -600,7 +807,7 @@ test('production summary rejects unsealed ambiguous or partial transport evidenc
                 evidenceSummary: { externalExposure: { blockers: [], request: { blockerSources: [] } } }
             });
             const { plan } = writePlan(root);
-            const transport = createTransportFixture(root, scenario.fixture);
+            const transport = createTransportFixture(root, plan, scenario.fixture);
             scenario.mutate?.(root, transport);
             const result = spawnSync(process.execPath, [script], {
                 cwd: root,

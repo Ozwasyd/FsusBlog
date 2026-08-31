@@ -2,15 +2,15 @@
     "schema": "fsusblog.current-run-evidence-location-acceptance.v1",
     "sourceDigests": {
         "config/testing/evidence-locator-registry.json": "sha256:a9c8ca5d65b09fe209f6c820be90b9fbe5ee249f0767443401eb43a51a82ab15",
-        "config/testing/evidence-location-migration-ledger.json": "sha256:7fc2d1d84712985c19426949ea1542b8bf92b376704afc4b4484a6d3d6f09c3d",
+        "config/testing/evidence-location-migration-ledger.json": "sha256:bca09a9e6abd7780bcba3c5aaf2eb4dfa089c9a5d27aa16e28b44c762ea06a44",
         "tools/test/evidence-location-scanner.mjs": "sha256:2a859e2bcc66068eff8e8019fa7af0f66dce35cc3276e0af8cf836d0fe51091f",
         "tools/test/current-run-evidence-locator.mjs": "sha256:a3477d14e62b2e6a30bc48e16eaf417e49996fdab58e39ae064f1c7ac07b0653",
         "tools/test/current-run-evidence-transport.mjs": "sha256:1b9b8f7e04cbcb29a9fcc43c7bceb98bf09b14f4b96efd582b2f2724aac2f0e8",
         "tools/test/generate-evidence-location-governance.mjs": "sha256:dfa82cd9a3da394569b31ca230c29d2359aafb40427c98ec0c29c666a7dac015"
     },
     "registryDigest": "sha256:db25e88cc482d489d512ff7c94fcb1cb523ab9095ee588d5e8148c4ab131935b",
-    "ledgerDigest": "sha256:deff58894e60c42f43d855f2c9a7443403b1f87edaf0007c13b6035a110e6c0f",
-    "scannerDigest": "sha256:b7ba442bbe71bef32d9c2b3a44348baa7220706e84d99d675ad2c2197d8c640c",
+    "ledgerDigest": "sha256:54eaa8a4b69a4b7b618fa4666d59733eb07bbcd9246f46326a9c6c725917f753",
+    "scannerDigest": "sha256:a5dc668237034dc52bbdb9f1479f9be16dcf87fa4cd6911f0981733f04c6b84e",
     "locatorDigest": "sha256:a3477d14e62b2e6a30bc48e16eaf417e49996fdab58e39ae064f1c7ac07b0653",
     "transportDigest": "sha256:1b9b8f7e04cbcb29a9fcc43c7bceb98bf09b14f4b96efd582b2f2724aac2f0e8",
     "consumerInventory": [
@@ -508,5 +508,5 @@
     "consumerCount": 70,
     "findingCount": 365,
     "warnings": [],
-    "contentDigest": "sha256:149b0d3f052746d6ae6cbd3437409605542d1347c16a8703eb3652d5c875055a"
+    "contentDigest": "sha256:fbb575c0fa7e62de5ffa5c52951cc7abc376ea099eb11c8d0ad4fb1b36de7ac7"
 }

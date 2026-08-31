@@ -2,17 +2,19 @@
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
         "artifacts/change-contract/issue-3106-external-naming.json",
+        "tools/ci/check-flaky-evidence.mjs",
+        "tools/ci/check-job-summaries.mjs",
         "tools/ci/summarize-quality-gate.mjs",
         "tools/test/current-run-evidence-transport.mjs"
     ],
     "outputs": [
         {
             "path": "config/testing/current-run-evidence-location-acceptance.json",
-            "sha256": "648e646695fe5459d34175f00e5b5dca169ea7d01f9188d641447e20a63c6c87"
+            "sha256": "93990caa569b1e8bcf3183dfc264897a9bcf7294f0c210f57c1f845930af6e03"
         },
         {
             "path": "config/testing/evidence-location-migration-ledger.json",
-            "sha256": "7fc2d1d84712985c19426949ea1542b8bf92b376704afc4b4484a6d3d6f09c3d"
+            "sha256": "bca09a9e6abd7780bcba3c5aaf2eb4dfa089c9a5d27aa16e28b44c762ea06a44"
         },
         {
             "path": "config/testing/evidence-locator-registry.json",

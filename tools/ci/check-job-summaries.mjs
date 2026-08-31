@@ -18,6 +18,7 @@ const allowedFailureStages = ['setup', 'restore', 'install', 'bootstrap', 'test'
 const releaseBrowsers = ['chromium', 'firefox', 'webkit']
 const jobResultSchema = 'fsusblog.ci.job-result.v1'
 const productionBuildVerificationSchema = 'fsusblog.ci-production-build-verification.v1'
+export const JOB_SUMMARY_COLLECTION_SCHEMA = 'fsusblog.ci.job-summary-collection.v1'
 
 function tierExecutionDependencies(tier) {
   return tier?.executionDependsOn ?? tier?.dependsOn ?? []
@@ -130,6 +131,24 @@ export function validateJobSummary(summary, file) {
     }
   }
   return errors
+}
+
+export function createJobSummaryCollection(documents) {
+  if (!Array.isArray(documents)) throw new Error('job summary collection documents must be an array')
+  let jobCount = 0
+  const errors = []
+  for (const [index, document] of documents.entries()) {
+    const file = `summaries[${index}]`
+    const classification = classifyJobEvidence(document, file)
+    errors.push(...classification.errors)
+    if (classification.kind === 'job-summary') {
+      jobCount += 1
+      errors.push(...validateJobSummary(document, file))
+    }
+  }
+  if (jobCount === 0) errors.push('job summary collection must contain at least one job summary')
+  if (errors.length > 0) throw new Error(errors.join('; '))
+  return { schema: JOB_SUMMARY_COLLECTION_SCHEMA, summaries: documents }
 }
 
 function tierClosure(tiers, targetId) {

@@ -6,9 +6,24 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import { validateFlakyEvidence } from './check-flaky-evidence.mjs';
-import { classifyJobEvidence, validateJobSummary } from './check-job-summaries.mjs';
-import { listVerifiedTransportedArchiveFiles } from '../test/current-run-evidence-transport.mjs';
+import {
+    FLAKY_EVIDENCE_COLLECTION_SCHEMA,
+    validateFlakyEvidence
+} from './check-flaky-evidence.mjs';
+import {
+    classifyJobEvidence,
+    JOB_SUMMARY_COLLECTION_SCHEMA,
+    validateJobSummary
+} from './check-job-summaries.mjs';
+import {
+    governanceContentDigest,
+    validateEvidenceLocatorRegistry
+} from '../test/evidence-location-contract.mjs';
+import { resolveEvidenceReferencePayload } from '../test/current-run-evidence-publication.mjs';
+import {
+    listVerifiedTransportedArchiveFiles,
+    locateTransportedCurrentRunEvidence
+} from '../test/current-run-evidence-transport.mjs';
 import { parseWorkflowJobNeeds } from '../yaml/workflow-structure.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
@@ -172,20 +187,123 @@ function classifyNeedsByPlan(needs, plan)
     return nonSuccess.sort(([left], [right]) => left.localeCompare(right));
 }
 
-function readTransportOrDirectoryJson(directory, authorityId)
+function transportManifestPath()
 {
-    const transport = String(process.env.FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST ?? '').trim();
-    if (transport)
+    return String(process.env.FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST ?? '').trim();
+}
+
+function requiredDigestEnvironment(name, { normalize = false } = {})
+{
+    const raw = String(process.env[name] ?? '').trim();
+    const value = normalize ? `sha256:${normalizeFingerprint(raw)}` : raw;
+    if (!/^sha256:[0-9a-f]{64}$/u.test(value))
     {
-        return listVerifiedTransportedArchiveFiles({
-            repositoryRoot: root,
-            transportManifestPath: transport,
-            authorityId
-        }).map((file) =>
-        {
-            const text = fs.readFileSync(file, 'utf8');
-            return { file, text, value: JSON.parse(text) };
-        });
+        throw new Error(`${name} must be a sha256 digest for transported evidence`);
+    }
+    return value;
+}
+
+function currentRunTransportContext()
+{
+    const schedulerRunId = String(process.env.GITHUB_RUN_ID ?? '').trim();
+    const attemptId = String(process.env.GITHUB_RUN_ATTEMPT ?? '').trim();
+    const sourceCommit = String(process.env.GITHUB_SHA ?? '').trim();
+    if (!schedulerRunId || !attemptId || !/^[0-9a-f]{40}$/u.test(sourceCommit))
+    {
+        throw new Error('transported evidence requires current GITHUB_RUN_ID, GITHUB_RUN_ATTEMPT, and GITHUB_SHA');
+    }
+    const body = {
+        schema: 'fsusblog.current-run-evidence-context.v1',
+        schedulerRunId,
+        attemptId,
+        sourceCommit,
+        worktreeFingerprint: requiredDigestEnvironment(
+            'FSUSBLOG_CI_PRODUCTION_SOURCE_FINGERPRINT', { normalize: true }),
+        candidateIdentity: {
+            id: 'pr-smart-gate-plan',
+            digest: requiredDigestEnvironment('FSUSBLOG_CI_PR_PLAN_DIGEST')
+        },
+        buildIdentity: {
+            id: 'production-build',
+            digest: requiredDigestEnvironment('FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST')
+        },
+        ownedRoots: ['artifacts/current-run']
+    };
+    return { ...body, contentDigest: governanceContentDigest(body) };
+}
+
+function evidenceLocatorRegistry()
+{
+    return validateEvidenceLocatorRegistry(JSON.parse(fs.readFileSync(path.join(root,
+        'config/testing/evidence-locator-registry.json'), 'utf8')));
+}
+
+function readTransportedCollection({ consumerId, schema, field })
+{
+    const manifestPath = transportManifestPath();
+    const context = currentRunTransportContext();
+    const registry = evidenceLocatorRegistry();
+    const registryEntry = registry.entries.find((entry) => entry.consumerId === consumerId);
+    if (!registryEntry)
+    {
+        throw new Error(`transport consumer is not registered: ${consumerId}`);
+    }
+    listVerifiedTransportedArchiveFiles({
+        repositoryRoot: root,
+        transportManifestPath: manifestPath,
+        authorityId: registryEntry.authorityId
+    });
+    const located = locateTransportedCurrentRunEvidence({
+        context,
+        registry,
+        registryEntry,
+        repositoryRoot: root,
+        transportManifestPath: manifestPath
+    });
+    const object = located.transportManifest.objects.find((candidate) =>
+        candidate.authorityId === registryEntry.authorityId);
+    if (object.archiveEntries.length !== 2)
+    {
+        throw new Error(`transport authority must contain exactly reference and payload entries: ${consumerId}`);
+    }
+    const referenceEntries = object.archiveEntries.filter((entry) =>
+        entry.path === object.originalRef.path && entry.extractedPath === object.extractedPath);
+    const payloadEntries = object.archiveEntries.filter((entry) =>
+        entry.path === located.receipt.payload?.path
+        && entry.extractedPath === located.receipt.payload?.path);
+    if (referenceEntries.length !== 1 || payloadEntries.length !== 1
+        || referenceEntries[0].path === payloadEntries[0].path)
+    {
+        throw new Error(`transport authority reference and payload roles are not exact: ${consumerId}`);
+    }
+    const resolved = resolveEvidenceReferencePayload(located.receipt, {
+        repositoryRoot: root,
+        ownedRoots: context.ownedRoots
+    });
+    if (payloadEntries[0].digest !== located.receipt.payload.digest)
+    {
+        throw new Error(`transport authority payload digest binding mismatch: ${consumerId}`);
+    }
+    const payload = resolved.payload;
+    const keys = Object.keys(payload ?? {}).sort();
+    if (payload?.schema !== schema || JSON.stringify(keys) !== JSON.stringify([field, 'schema'].sort())
+        || !Array.isArray(payload[field]))
+    {
+        throw new Error(`transported ${consumerId} payload must be an exact ${schema} collection`);
+    }
+    return payload[field].map((value, index) => ({
+        file: `${resolved.file}#${field}[${index}]`,
+        text: JSON.stringify(value),
+        value
+    }));
+}
+
+function readTransportOrDirectoryJson(options)
+{
+    const { directory, consumerId, schema, field } = options;
+    if (transportManifestPath())
+    {
+        return readTransportedCollection({ consumerId, schema, field });
     }
     const downloaded = path.join(root, '.tmp/downloaded-artifacts');
     if (fs.existsSync(downloaded)
@@ -193,16 +311,19 @@ function readTransportOrDirectoryJson(directory, authorityId)
     {
         throw new Error('downloaded artifacts exist without a transport manifest');
     }
-    return readExplicitDirectoryJson(directory);
+    return readExplicitDirectoryJson(directory());
 }
 
 function loadJobSummaries()
 {
-    const jobsDir = path.join(explicitEvidenceRoot(), 'jobs');
     const summaries = new Map();
     let summaryCount = 0;
-    for (const { file, text, value: summary } of readTransportOrDirectoryJson(jobsDir,
-        'evidence-consumer.ci.check-job-summaries.current-run'))
+    for (const { file, text, value: summary } of readTransportOrDirectoryJson({
+        directory: () => path.join(explicitEvidenceRoot(), 'jobs'),
+        consumerId: 'evidence-consumer.ci.check-job-summaries',
+        schema: JOB_SUMMARY_COLLECTION_SCHEMA,
+        field: 'summaries'
+    }))
     {
         if (!summary || typeof summary !== 'object' || Array.isArray(summary))
         {
@@ -243,7 +364,7 @@ function loadJobSummaries()
             summaries.set(key, { summary, file, digest });
         }
     }
-    if (String(process.env.FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST ?? '').trim() && summaryCount === 0)
+    if (transportManifestPath() && summaryCount === 0)
     {
         throw new Error('transported job-summary authority contains no job summary payload');
     }
@@ -252,10 +373,13 @@ function loadJobSummaries()
 
 function loadFlakyEvidence()
 {
-    const flakyDir = path.join(explicitEvidenceRoot(), 'flaky');
     const evidence = [];
-    for (const { file, value: item } of readTransportOrDirectoryJson(flakyDir,
-        'evidence-consumer.ci.check-flaky-evidence.current-run'))
+    for (const { file, value: item } of readTransportOrDirectoryJson({
+        directory: () => path.join(explicitEvidenceRoot(), 'flaky'),
+        consumerId: 'evidence-consumer.ci.check-flaky-evidence',
+        schema: FLAKY_EVIDENCE_COLLECTION_SCHEMA,
+        field: 'evidence'
+    }))
     {
         if (!item || typeof item !== 'object' || Array.isArray(item))
         {

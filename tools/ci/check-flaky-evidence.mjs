@@ -25,6 +25,7 @@ const allowedFinalStatuses = new Set([
   'unstable-topology'
 ])
 const forbiddenLegacyRetryStatuses = new Set(['passed-after-retry', 'failed-after-retry'])
+export const FLAKY_EVIDENCE_COLLECTION_SCHEMA = 'fsusblog.ci.flaky-evidence-collection.v1'
 
 function hasValue(item, field) {
   return item[field] !== undefined && item[field] !== null && item[field] !== ''
@@ -220,6 +221,14 @@ function validateLegacy(item, file) {
 export function validateFlakyEvidence(item, file) {
   if (item.schema !== 'fsusblog.ci.flaky.v1') return [`${file}: schema must be fsusblog.ci.flaky.v1`]
   return item.policyVersion === policyVersion ? validateV2(item, file) : validateLegacy(item, file)
+}
+
+export function createFlakyEvidenceCollection(documents) {
+  if (!Array.isArray(documents)) throw new Error('flaky evidence collection documents must be an array')
+  const errors = documents.flatMap((document, index) =>
+    validateFlakyEvidence(document, `evidence[${index}]`))
+  if (errors.length > 0) throw new Error(errors.join('; '))
+  return { schema: FLAKY_EVIDENCE_COLLECTION_SCHEMA, evidence: documents }
 }
 
 function isNonBlockingDiagnosticEvidence(item) {
