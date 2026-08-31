@@ -1,8 +1,40 @@
 {
-    "schema": "fsusblog.release-final-execution-target-authority.v1",
+    "schema": "fsusblog.release-final-execution-target-authority.v2",
     "source": "tests/matrix.yml",
     "producer": "node tools/test-matrix/release-final-static-boundary.mjs --write-authority",
     "closureFiles": [
+        {
+            "path": "src/frontend/scripts/fsusui-local.ts",
+            "contentDigest": "sha256:ae7e818373c60624d08315749b1b427aa81add634e0fb489d6dae27a5861287c"
+        },
+        {
+            "path": "src/frontend/scripts/fsusui-root.mjs",
+            "contentDigest": "sha256:9169b76b4837da4668174c96b22e393ec491f3d8fffdd4abaa1f1b55a069f304"
+        },
+        {
+            "path": "src/frontend/scripts/vite-watch-policy.mjs",
+            "contentDigest": "sha256:96ddafab5e7fb0d62abfb6e01bc86b59850bf43c62378664f917d6d62885a66e"
+        },
+        {
+            "path": "src/frontend/src/config/releaseStorage.ts",
+            "contentDigest": "sha256:f0f640823d999926b7f3c514871964d8ac680f838570eaf7a3e0c39e69c7dc86"
+        },
+        {
+            "path": "src/frontend/src/generated/fsusBinaryRoutes.ts",
+            "contentDigest": "sha256:342bc109b9e1cfb7dd0102cbeee460454bb8c9da05ab821b59c6cc4768b3144c"
+        },
+        {
+            "path": "src/frontend/src/generated/releaseIdContract.ts",
+            "contentDigest": "sha256:62574d9eb368aa17bb5df42fac3072cb3bb171bf8ce18f19f3c30d07c1242391"
+        },
+        {
+            "path": "src/frontend/vite.config.ts",
+            "contentDigest": "sha256:f64e70f982b5504ecd92f36839892ba74d5545120fa2051e6b646349ed5f5a9b"
+        },
+        {
+            "path": "src/frontend/wasm/build.sh",
+            "contentDigest": "sha256:c321d8f261a40f36884b566f96448fc8dfadaa6969b33290ce09e2eab734f1fc"
+        },
         {
             "path": "tests/browser-contract/contract.mjs",
             "contentDigest": "sha256:d3c6d33ecb7884b8215ce627e1a00f622bd8434b5aba4f5dbedd50480f070265"
@@ -832,6 +864,14 @@
             "contentDigest": "sha256:47a90834d40cffb906553f96b9a90f0b46b4fe7d4867a28ec2733dddab6cb2d0"
         },
         {
+            "path": "tools/frontend/ensure-binaryen.sh",
+            "contentDigest": "sha256:74749ed22e3bb7f1ec25d2bdc2d5fffdce712be0b3ede992ad27dd23d82b3e41"
+        },
+        {
+            "path": "tools/frontend/ensure-cmake.sh",
+            "contentDigest": "sha256:8908d64827d2d1931827890050537e9646b3059eece82c53522fe3d1defda3d2"
+        },
+        {
             "path": "tools/frontend/ensure-wasm.mjs",
             "contentDigest": "sha256:402d23c5939b6942af81efe0314b59b040356c5942ef06e2e7b81f703fe51958"
         },
@@ -1069,7 +1109,7 @@
         },
         {
             "path": "tools/run-test-matrix.mjs",
-            "contentDigest": "sha256:a19ef25f0bc932fba9b3dc57d29d23ea2fc6be8564027c9df9dd16e2e473d505"
+            "contentDigest": "sha256:bfb15e1e67bc4667405b55935cd2f5bff20807f494adab76f04f7b047b8dc286"
         },
         {
             "path": "tools/runtime-profiles/check-runtime-publish-evidence.mjs",
@@ -1605,7 +1645,7 @@
         },
         {
             "path": "tools/test-matrix/release-final-static-boundary.mjs",
-            "contentDigest": "sha256:a66d3fbb5fb908527e6a0b93719019b6c571fc76ed8f23c096324072a4769159"
+            "contentDigest": "sha256:d684e325e230943eb87bd64b015d6d8cda5636bf4ac9ae129bdb8d00ea345e35"
         },
         {
             "path": "tools/test-matrix/release-reliability-scheduler-projection.mjs",
@@ -1641,7 +1681,7 @@
         },
         {
             "path": "tools/test-matrix/scheduler.mjs",
-            "contentDigest": "sha256:898a690fbf7ad58f921f63442be8deae1f6081de6e3e33c9a5e33854ef6fe143"
+            "contentDigest": "sha256:a6cd806af4be2b912158994def1abb62985eb818f55269e318353b499c984808"
         },
         {
             "path": "tools/test-matrix/schema-validator/validate.mjs",
@@ -2318,6 +2358,19 @@
             "owners": [
                 "app-config-local-tuning"
             ],
+            "declarations": [
+                {
+                    "owner": "app-config-local-tuning",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "--test",
+                        "tests/tools/app-config-local-tuner.test.mjs"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:810abe3b2ec6a1deace142367491771578f4ed288dce9c4773cd2eaadaa3b00f",
             "dependencyClosure": [
                 "tools/perf/app-config-catalog.mjs",
@@ -2330,6 +2383,17 @@
             "target": "tools/build-wasm-artifact.sh",
             "owners": [
                 "wasm-build-artifacts"
+            ],
+            "declarations": [
+                {
+                    "owner": "wasm-build-artifacts",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "./tools/build-wasm-artifact.sh"
+                    ]
+                }
             ],
             "contentDigest": "sha256:b6f81f17c8d35b18c3206027dbc5b20407003991c757afef3624c68ed2c0569a",
             "dependencyClosure": [
@@ -2345,6 +2409,19 @@
             "owners": [
                 "release-final-flaky-governance"
             ],
+            "declarations": [
+                {
+                    "owner": "release-final-flaky-governance",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/ci/check-flaky-registry.mjs",
+                        "--release-final"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:46a596476e94841fdeb79621344104d9da655f6a847da09e34cafdcd95853a0f",
             "dependencyClosure": [
                 "tools/yaml/parse-document.mjs"
@@ -2354,6 +2431,22 @@
             "target": "tools/ci/check-job-summaries.mjs",
             "owners": [
                 "release-final-shard-completeness"
+            ],
+            "declarations": [
+                {
+                    "owner": "release-final-shard-completeness",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/ci/check-job-summaries.mjs",
+                        "--require-plan",
+                        "--tier",
+                        "production",
+                        "--strict-shards"
+                    ]
+                }
             ],
             "contentDigest": "sha256:4e10a8f79e138b4079f9ccca0abe8c89ec94957e25af7f94f585e3f8f825313a",
             "dependencyClosure": [
@@ -2367,8 +2460,25 @@
             "owners": [
                 "coverage-backend"
             ],
+            "declarations": [
+                {
+                    "owner": "coverage-backend",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/coverage/collect-backend-coverage.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:ba9bfb7b7ae5b5005b09274ae80ff0a491bc183efb6d8267b0d2a6a6f73f62e2",
             "dependencyClosure": [
+                "src/frontend/scripts/fsusui-local.ts",
+                "src/frontend/scripts/fsusui-root.mjs",
+                "src/frontend/scripts/vite-watch-policy.mjs",
+                "src/frontend/src/config/releaseStorage.ts",
+                "src/frontend/src/generated/releaseIdContract.ts",
+                "src/frontend/vite.config.ts",
                 "tests/browser-diagnostics/local-fsusui-identity.mjs",
                 "tests/frontend/checks/public/aot-regression.mjs",
                 "tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs",
@@ -2389,6 +2499,7 @@
                 "tests/frontend/support/direct-execution.mjs",
                 "tests/frontend/support/fixture-paths.mjs",
                 "tests/frontend/support/http.mjs",
+                "tests/frontend/support/public-fixtures.mjs",
                 "tests/frontend/support/runtime-browser-timeout.mjs",
                 "tests/frontend/support/session-fixtures.mjs",
                 "tests/frontend/support/test-session.mjs",
@@ -2633,6 +2744,7 @@
                 "tools/test/security-cleanup-barrier.mjs",
                 "tools/test/system-memory.mjs",
                 "tools/test/temporal-context.mjs",
+                "tools/test/temporal-producer-bindings.mjs",
                 "tools/test/temporal-role-resolver.mjs",
                 "tools/test/temporal-shape-catalog.mjs",
                 "tools/test/verify-benchmark-build-ready.mjs",
@@ -2651,6 +2763,17 @@
             "owners": [
                 "coverage-frontend"
             ],
+            "declarations": [
+                {
+                    "owner": "coverage-frontend",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/coverage/collect-frontend-coverage.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:cb0d659209e36341360650a337590ed56d8ba34b246266a7dfcfffd822d70781",
             "dependencyClosure": []
         },
@@ -2659,10 +2782,22 @@
             "owners": [
                 "coverage-merge"
             ],
+            "declarations": [
+                {
+                    "owner": "coverage-merge",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/coverage/merge-coverage.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:917ff9b38a57b37cbd7d3b8cb8c22e5744559be95ebbc65aad8da58f0bf61094",
             "dependencyClosure": [
                 "tools/test-matrix/command-groups.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
+                "tools/test-matrix/receipt-command-sources.mjs",
                 "tools/test/bundles/bundle-steps.mjs",
                 "tools/test/command-manifest-runtime.mjs",
                 "tools/test/run-command-manifest.mjs",
@@ -2673,6 +2808,18 @@
             "target": "tools/docs/behavior-doc-static-admission.mjs",
             "owners": [
                 "behavior-doc-static-admission"
+            ],
+            "declarations": [
+                {
+                    "owner": "behavior-doc-static-admission",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/docs/behavior-doc-static-admission.mjs"
+                    ]
+                }
             ],
             "contentDigest": "sha256:f3c34610f2b28b21ac2ea23417aa3246601e48623a8219b6f7418877bdcfba45",
             "dependencyClosure": [
@@ -2715,7 +2862,57 @@
                 "fast",
                 "frontend-fast-summary"
             ],
-            "contentDigest": "sha256:a19ef25f0bc932fba9b3dc57d29d23ea2fc6be8564027c9df9dd16e2e473d505",
+            "declarations": [
+                {
+                    "owner": "ci",
+                    "commandKind": "aggregate",
+                    "executionMode": "summary",
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/run-test-matrix.mjs",
+                        "aggregate",
+                        "ci-summary"
+                    ]
+                },
+                {
+                    "owner": "coverage-gate",
+                    "commandKind": "aggregate",
+                    "executionMode": "summary",
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/run-test-matrix.mjs",
+                        "aggregate",
+                        "coverage-merge-threshold"
+                    ]
+                },
+                {
+                    "owner": "fast",
+                    "commandKind": "aggregate",
+                    "executionMode": "summary",
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/run-test-matrix.mjs",
+                        "aggregate",
+                        "fast-summary"
+                    ]
+                },
+                {
+                    "owner": "frontend-fast-summary",
+                    "commandKind": "aggregate",
+                    "executionMode": "summary",
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/run-test-matrix.mjs",
+                        "aggregate",
+                        "fast-summary"
+                    ]
+                }
+            ],
+            "contentDigest": "sha256:bfb15e1e67bc4667405b55935cd2f5bff20807f494adab76f04f7b047b8dc286",
             "dependencyClosure": [
                 "tools/contracts/behavior-contract-catalog.mjs",
                 "tools/contracts/behavior-graph-join.mjs",
@@ -2817,6 +3014,7 @@
                 "tools/test/execution-envelope-network.mjs",
                 "tools/test/execution-envelope-services.mjs",
                 "tools/test/execution-replay-contract.mjs",
+                "tools/test/measurement-noise-envelope.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
                 "tools/test/physical-execution-windows-job-adapter.mjs",
@@ -2836,6 +3034,23 @@
             "owners": [
                 "data-scale-evidence-summary"
             ],
+            "declarations": [
+                {
+                    "owner": "data-scale-evidence-summary",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "--permission",
+                        "--allow-fs-read=.tmp/scale/*",
+                        "--allow-fs-read=.tmp/downloaded-artifacts/*",
+                        "--allow-fs-read=.tmp/release-evidence/*",
+                        "--allow-fs-write=.tmp/release-evidence/*",
+                        "tools/test/aggregate-data-scale-evidence.mjs"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:9f14e3295b5e6ee00e05f75f1e4a556b84692673d0cc2d0814e16da5c9d7a3b6",
             "dependencyClosure": []
         },
@@ -2844,11 +3059,24 @@
             "owners": [
                 "performance-evidence-summary"
             ],
+            "declarations": [
+                {
+                    "owner": "performance-evidence-summary",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/test/aggregate-performance-evidence.mjs"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:752155af1604ca64e0e062ce2e7a0fe203c2daf3abdf292c2420fe4fc9042623",
             "dependencyClosure": [
                 "tools/perf/performance-saturation-v2.mjs",
                 "tools/test-matrix/command-groups.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
+                "tools/test-matrix/receipt-command-sources.mjs",
                 "tools/test/bundles/bundle-steps.mjs",
                 "tools/test/command-manifest-runtime.mjs",
                 "tools/test/measurement-noise-envelope.mjs",
@@ -2860,6 +3088,18 @@
             "target": "tools/test/bundles/behavior-document-consistency-final.sh",
             "owners": [
                 "behavior-document-consistency-final"
+            ],
+            "declarations": [
+                {
+                    "owner": "behavior-document-consistency-final",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "shell-script",
+                    "argv": [
+                        "bash",
+                        "tools/test/bundles/behavior-document-consistency-final.sh"
+                    ]
+                }
             ],
             "contentDigest": "sha256:6138f3f00570033dc2b9941a757eb09f22e0ecea4d236c3266f5130ece162e97",
             "dependencyClosure": [
@@ -2880,6 +3120,18 @@
             "owners": [
                 "behavior-evidence-post-runtime"
             ],
+            "declarations": [
+                {
+                    "owner": "behavior-evidence-post-runtime",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "shell-script",
+                    "argv": [
+                        "bash",
+                        "tools/test/bundles/behavior-evidence-post-runtime.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:f8d56e5ce7255b0ea73ff75bf4802dc7c91867a3fc9473688106b2a7922d9cfc",
             "dependencyClosure": [
                 "tools/contracts/behavior-contract-catalog.mjs",
@@ -2896,6 +3148,18 @@
             "owners": [
                 "behavior-evidence-pre-runtime"
             ],
+            "declarations": [
+                {
+                    "owner": "behavior-evidence-pre-runtime",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "shell-script",
+                    "argv": [
+                        "bash",
+                        "tools/test/bundles/behavior-evidence-pre-runtime.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:f66096e1de06812b21e84e52336fcee83b82b48035b243901a937473fc0f36fd",
             "dependencyClosure": [
                 "tools/contracts/behavior-graph-join.mjs",
@@ -2907,6 +3171,17 @@
             "owners": [
                 "acceptance"
             ],
+            "declarations": [
+                {
+                    "owner": "acceptance",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/acceptance-playwright.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:44ddb097994bdf0ab08f3426b59c89c597d0f51ca57957194fe962f181ab54f1",
             "dependencyClosure": []
         },
@@ -2915,9 +3190,21 @@
             "owners": [
                 "aeds-compression-profile"
             ],
+            "declarations": [
+                {
+                    "owner": "aeds-compression-profile",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/aeds-compression-profile.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:e65836d687ee8f2aa0d8c7bffb1c14a26f9630957773d9385ec56d014da28099",
             "dependencyClosure": [
                 "tools/build-with-data-env.sh",
+                "tools/ci/production-build-artifacts.mjs",
                 "tools/test-fixtures/receipt/canonical.mjs",
                 "tools/test-fixtures/receipt/fixture-receipt.mjs",
                 "tools/test-fixtures/receipt/messaging-cleanup-contract.mjs",
@@ -2961,10 +3248,22 @@
             "owners": [
                 "aeds-frame-cost"
             ],
+            "declarations": [
+                {
+                    "owner": "aeds-frame-cost",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/aeds-frame-cost.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:37d625f664897079b51b39da2d5cc46d013612be932f751fc340c72783ac36b1",
             "dependencyClosure": [
                 "tests/frontend/checks/perf/check-aeds-decode-budget.mjs",
                 "tools/build-with-data-env.sh",
+                "tools/ci/production-build-artifacts.mjs",
                 "tools/operations/aeds-frame-cost-evidence.mjs",
                 "tools/operations/check-evidence-metrics.mjs",
                 "tools/test-fixtures/receipt/canonical.mjs",
@@ -3009,8 +3308,25 @@
             "owners": [
                 "article-private-preview"
             ],
+            "declarations": [
+                {
+                    "owner": "article-private-preview",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/article-private-preview.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:f0eef098cc2e445997ec1f1fc8e2da5ab29f4d9d2fd795191019d5404dceb2f8",
             "dependencyClosure": [
+                "src/frontend/scripts/fsusui-local.ts",
+                "src/frontend/scripts/fsusui-root.mjs",
+                "src/frontend/scripts/vite-watch-policy.mjs",
+                "src/frontend/src/config/releaseStorage.ts",
+                "src/frontend/src/generated/releaseIdContract.ts",
+                "src/frontend/vite.config.ts",
                 "tests/browser-diagnostics/local-fsusui-identity.mjs",
                 "tests/frontend/checks/public/aot-regression.mjs",
                 "tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs",
@@ -3031,6 +3347,7 @@
                 "tests/frontend/support/direct-execution.mjs",
                 "tests/frontend/support/fixture-paths.mjs",
                 "tests/frontend/support/http.mjs",
+                "tests/frontend/support/public-fixtures.mjs",
                 "tests/frontend/support/runtime-browser-timeout.mjs",
                 "tests/frontend/support/session-fixtures.mjs",
                 "tests/frontend/support/test-session.mjs",
@@ -3276,6 +3593,7 @@
                 "tools/test/security-cleanup-barrier.mjs",
                 "tools/test/system-memory.mjs",
                 "tools/test/temporal-context.mjs",
+                "tools/test/temporal-producer-bindings.mjs",
                 "tools/test/temporal-role-resolver.mjs",
                 "tools/test/temporal-shape-catalog.mjs",
                 "tools/test/verify-benchmark-build-ready.mjs",
@@ -3294,6 +3612,17 @@
             "owners": [
                 "backend-api-integration"
             ],
+            "declarations": [
+                {
+                    "owner": "backend-api-integration",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/backend-api-integration.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:72d7255394b4e559b9bab2a894891bfef5ff1dab48299d0573ffa81fd5c478aa",
             "dependencyClosure": []
         },
@@ -3301,6 +3630,17 @@
             "target": "tools/test/lanes/backend-auth-state-machine.sh",
             "owners": [
                 "backend-auth-state-machine"
+            ],
+            "declarations": [
+                {
+                    "owner": "backend-auth-state-machine",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/backend-auth-state-machine.sh"
+                    ]
+                }
             ],
             "contentDigest": "sha256:6b3289d26aee853f6310639dfd66f4806d4764e272a294e3b3aa1adecd5481b3",
             "dependencyClosure": []
@@ -3310,9 +3650,21 @@
             "owners": [
                 "backend-benchmark-regression"
             ],
+            "declarations": [
+                {
+                    "owner": "backend-benchmark-regression",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/backend-benchmark-regression.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:d2b3fb2ffc7c90b9469be929aca3f32117ebc3cb6918a77082a24d6570fd1309",
             "dependencyClosure": [
                 "tools/build-with-data-env.sh",
+                "tools/ci/production-build-artifacts.mjs",
                 "tools/perf/check-backend-benchmark-regression.mjs",
                 "tools/perf/run-backend-benchmark-regression.mjs",
                 "tools/test-fixtures/receipt/canonical.mjs",
@@ -3357,6 +3709,17 @@
             "owners": [
                 "backend-build-governance"
             ],
+            "declarations": [
+                {
+                    "owner": "backend-build-governance",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/backend-build-governance.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:c724ba9cdc017f22a3d26a8e0edce9141bfa3d571b3fb806db27c667afc6733e",
             "dependencyClosure": []
         },
@@ -3364,6 +3727,17 @@
             "target": "tools/test/lanes/backend-concurrency.sh",
             "owners": [
                 "backend-concurrency"
+            ],
+            "declarations": [
+                {
+                    "owner": "backend-concurrency",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/backend-concurrency.sh"
+                    ]
+                }
             ],
             "contentDigest": "sha256:03c5d7a524214aeb044193efd85daa41799e68fc63ed0567120207edd90c2b66",
             "dependencyClosure": []
@@ -3373,6 +3747,17 @@
             "owners": [
                 "backend-fast"
             ],
+            "declarations": [
+                {
+                    "owner": "backend-fast",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/backend-fast.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:031c58127d9fae0cfa7ac4466864a705a1d3341ef70f3b38bc44a49cf1a5f525",
             "dependencyClosure": []
         },
@@ -3381,6 +3766,17 @@
             "owners": [
                 "backend-golden"
             ],
+            "declarations": [
+                {
+                    "owner": "backend-golden",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/backend-golden.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:63b895984e38bbebecb3894360f9b548392f54815edd0747494fe7069308c7ab",
             "dependencyClosure": []
         },
@@ -3388,6 +3784,17 @@
             "target": "tools/test/lanes/backend-mutation-changed-critical.sh",
             "owners": [
                 "backend-mutation-changed-critical"
+            ],
+            "declarations": [
+                {
+                    "owner": "backend-mutation-changed-critical",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/backend-mutation-changed-critical.sh"
+                    ]
+                }
             ],
             "contentDigest": "sha256:0713c756172575d4b93ecdd4ac844baec25e4d6267b39395c0babd2dbf9e2b27",
             "dependencyClosure": [
@@ -3492,6 +3899,17 @@
             "owners": [
                 "backend-mutation"
             ],
+            "declarations": [
+                {
+                    "owner": "backend-mutation",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/backend-mutation.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:97ddffe5187807c1a76c709f809f94c5df58d32b47f580027fcc881fb129347c",
             "dependencyClosure": []
         },
@@ -3499,6 +3917,17 @@
             "target": "tools/test/lanes/backend-nightly.sh",
             "owners": [
                 "backend-nightly"
+            ],
+            "declarations": [
+                {
+                    "owner": "backend-nightly",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/backend-nightly.sh"
+                    ]
+                }
             ],
             "contentDigest": "sha256:a457dff3beaeaffc2abf2bf3268700e12017718e1852503ab2f68082786b63d1",
             "dependencyClosure": [
@@ -3509,6 +3938,17 @@
             "target": "tools/test/lanes/backend-property.sh",
             "owners": [
                 "backend-property"
+            ],
+            "declarations": [
+                {
+                    "owner": "backend-property",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/backend-property.sh"
+                    ]
+                }
             ],
             "contentDigest": "sha256:332dee3aadd7682bf50aa0ddaaa1756f2ce3b8a70fea03bfca489d744cead47b",
             "dependencyClosure": [
@@ -3536,6 +3976,158 @@
                 "backend-qps-view-count-flush",
                 "backend-qps-visitlog-invalidation"
             ],
+            "declarations": [
+                {
+                    "owner": "backend-cache-invalidation-batch",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/backend-qps.sh",
+                        "cache-invalidation-batch"
+                    ]
+                },
+                {
+                    "owner": "backend-qps",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/backend-qps.sh",
+                        "aggregate"
+                    ]
+                },
+                {
+                    "owner": "backend-qps-article-detail-miss",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/backend-qps.sh",
+                        "article-detail-miss"
+                    ]
+                },
+                {
+                    "owner": "backend-qps-cache-hit",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/backend-qps.sh",
+                        "cache-hit"
+                    ]
+                },
+                {
+                    "owner": "backend-qps-cache-miss-singleflight",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/backend-qps.sh",
+                        "cache-miss-singleflight"
+                    ]
+                },
+                {
+                    "owner": "backend-qps-cache-registry",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/backend-qps.sh",
+                        "cache-registry"
+                    ]
+                },
+                {
+                    "owner": "backend-qps-comment-cursor",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/backend-qps.sh",
+                        "comment-cursor"
+                    ]
+                },
+                {
+                    "owner": "backend-qps-hotread",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/backend-qps.sh",
+                        "hotread"
+                    ]
+                },
+                {
+                    "owner": "backend-qps-index-plan",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/backend-qps.sh",
+                        "index-plan"
+                    ]
+                },
+                {
+                    "owner": "backend-qps-list-pagination",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/backend-qps.sh",
+                        "list-pagination"
+                    ]
+                },
+                {
+                    "owner": "backend-qps-related-reading",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/backend-qps.sh",
+                        "related-reading"
+                    ]
+                },
+                {
+                    "owner": "backend-qps-risk-filter",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/backend-qps.sh",
+                        "risk-filter"
+                    ]
+                },
+                {
+                    "owner": "backend-qps-runtime-sequential",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/backend-qps.sh",
+                        "backend-qps-runtime-sequential"
+                    ]
+                },
+                {
+                    "owner": "backend-qps-view-count-flush",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/backend-qps.sh",
+                        "view-count-flush"
+                    ]
+                },
+                {
+                    "owner": "backend-qps-visitlog-invalidation",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/backend-qps.sh",
+                        "visitlog-invalidation"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:487ae6bca91d37b2e74fe0f8ee1afd22ff3c10f119e82f9636032a098aa5c9f4",
             "dependencyClosure": [
                 "tools/test/run-backend-qps-scenarios.mjs"
@@ -3546,6 +4138,17 @@
             "owners": [
                 "backend-test-governance"
             ],
+            "declarations": [
+                {
+                    "owner": "backend-test-governance",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/backend-test-governance.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:e0dcefb7af44e6c380795292436e5f00b181019de267f9dde2299e55fddccd25",
             "dependencyClosure": []
         },
@@ -3553,6 +4156,17 @@
             "target": "tools/test/lanes/backend-unit.sh",
             "owners": [
                 "backend-unit"
+            ],
+            "declarations": [
+                {
+                    "owner": "backend-unit",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/backend-unit.sh"
+                    ]
+                }
             ],
             "contentDigest": "sha256:a4d15463855e2f2a3aac87a0d9f6736735b69d9481521d24ed7a76b96369c327",
             "dependencyClosure": [
@@ -3566,6 +4180,17 @@
             "owners": [
                 "behavior-test-evidence"
             ],
+            "declarations": [
+                {
+                    "owner": "behavior-test-evidence",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/behavior-test-evidence.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:cb27fb3cd456c396937805777bca9c8a89da0296a2319ab6f5c990cfe49d7513",
             "dependencyClosure": [
                 "tests/tools/code-intent.test.mjs",
@@ -3576,6 +4201,7 @@
                 "tests/tools/test-matrix-topology.test.mjs",
                 "tests/tools/zero-downtime-rehearsal.test.mjs",
                 "tools/build-with-data-env.sh",
+                "tools/ci/production-build-artifacts.mjs",
                 "tools/contracts/behavior-contract-catalog.mjs",
                 "tools/contracts/behavior-graph-join.mjs",
                 "tools/contracts/behavior-test-binding.mjs",
@@ -3610,6 +4236,17 @@
             "owners": [
                 "bootstrap"
             ],
+            "declarations": [
+                {
+                    "owner": "bootstrap",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/bootstrap-acceptance-env.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:819b3a4cc6048a512eab191a1681c782d06b53fad1b8d73c26c4c3b3e7567ddc",
             "dependencyClosure": []
         },
@@ -3617,6 +4254,18 @@
             "target": "tools/test/lanes/browser-contract.sh",
             "owners": [
                 "browser-contract"
+            ],
+            "declarations": [
+                {
+                    "owner": "browser-contract",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "shell-script",
+                    "argv": [
+                        "bash",
+                        "tools/test/lanes/browser-contract.sh"
+                    ]
+                }
             ],
             "contentDigest": "sha256:82ea8a51eaa6543064e049935970748e64fbe1b328029f04b913f44541d2ac4a",
             "dependencyClosure": [
@@ -3735,8 +4384,33 @@
                 "browser-diagnostics-manual",
                 "browser-diagnostics-nightly"
             ],
+            "declarations": [
+                {
+                    "owner": "browser-diagnostics-manual",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "shell-script",
+                    "argv": [
+                        "bash",
+                        "tools/test/lanes/browser-diagnostics.sh",
+                        "manual"
+                    ]
+                },
+                {
+                    "owner": "browser-diagnostics-nightly",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "shell-script",
+                    "argv": [
+                        "bash",
+                        "tools/test/lanes/browser-diagnostics.sh",
+                        "nightly"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:2789ea71ca3383e588442e4611476cc3876afd1f09c1788747c314d9dabf56eb",
             "dependencyClosure": [
+                "src/frontend/scripts/fsusui-root.mjs",
                 "tests/browser-diagnostics/catalog.mjs",
                 "tests/browser-diagnostics/local-fsusui-identity.mjs",
                 "tests/browser-diagnostics/run.mjs",
@@ -3836,6 +4510,17 @@
             "owners": [
                 "browser-performance-regression"
             ],
+            "declarations": [
+                {
+                    "owner": "browser-performance-regression",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/browser-performance-regression.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:0050baacbfd8287ab500e9450c92874c2f0c7c35ad48654cb1db8bb7b9ca348b",
             "dependencyClosure": []
         },
@@ -3845,6 +4530,26 @@
                 "browser-diagnostics",
                 "browser-runtime-risk-diagnostics"
             ],
+            "declarations": [
+                {
+                    "owner": "browser-diagnostics",
+                    "commandKind": "producer",
+                    "executionMode": "execute",
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/browser-runtime-risk-diagnostics.sh"
+                    ]
+                },
+                {
+                    "owner": "browser-runtime-risk-diagnostics",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/browser-runtime-risk-diagnostics.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:cb028eb43b3aaa6ad50247dd7222844baccf4c12532cd9169818c98e38e37903",
             "dependencyClosure": []
         },
@@ -3852,6 +4557,17 @@
             "target": "tools/test/lanes/changed-code-coverage.sh",
             "owners": [
                 "changed-code-coverage"
+            ],
+            "declarations": [
+                {
+                    "owner": "changed-code-coverage",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/changed-code-coverage.sh"
+                    ]
+                }
             ],
             "contentDigest": "sha256:43c4f965d6fa1111f0d109082c40cb3a3c5d7b745c3ce04b18f6137dc9e3b2a9",
             "dependencyClosure": [
@@ -3863,6 +4579,17 @@
             "owners": [
                 "coverage-gate-strict"
             ],
+            "declarations": [
+                {
+                    "owner": "coverage-gate-strict",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/coverage-gate-strict.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:8a5a67fd0d0f798c3f314de95ce148e0bd2fa8d4a7b257f5571e45bce6926233",
             "dependencyClosure": [
                 "tools/coverage/check-release-final-coverage.mjs"
@@ -3872,6 +4599,17 @@
             "target": "tools/test/lanes/coverage-threshold.sh",
             "owners": [
                 "coverage-threshold"
+            ],
+            "declarations": [
+                {
+                    "owner": "coverage-threshold",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/coverage-threshold.sh"
+                    ]
+                }
             ],
             "contentDigest": "sha256:c11c26c90d28887f81a7d7eb0a87f253e9d185fa69ffb1f387db6eb329d51584",
             "dependencyClosure": [
@@ -3884,6 +4622,17 @@
             "owners": [
                 "cross-browser-smoke"
             ],
+            "declarations": [
+                {
+                    "owner": "cross-browser-smoke",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/cross-browser-smoke.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:fec7af46734a3fc042ca4242cbe44a3db33479beb74d8eca448b50f5ab39bb7d",
             "dependencyClosure": [
                 "tools/testing/browser-capability-risk.mjs"
@@ -3894,6 +4643,18 @@
             "owners": [
                 "cross-stack-contract"
             ],
+            "declarations": [
+                {
+                    "owner": "cross-stack-contract",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/cross-stack-contract.sh",
+                        "static"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:cfbcfc346719de23185fad889f9b71aea2c44cf86b07b5ed4b6b6626fd553073",
             "dependencyClosure": []
         },
@@ -3902,8 +4663,25 @@
             "owners": [
                 "csrf-browser-matrix"
             ],
+            "declarations": [
+                {
+                    "owner": "csrf-browser-matrix",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/csrf-browser-matrix.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:0cda44f23a4f0f27976904782c291fe68aa5d830c4fb1e581736f69bee369c2e",
             "dependencyClosure": [
+                "src/frontend/scripts/fsusui-local.ts",
+                "src/frontend/scripts/fsusui-root.mjs",
+                "src/frontend/scripts/vite-watch-policy.mjs",
+                "src/frontend/src/config/releaseStorage.ts",
+                "src/frontend/src/generated/releaseIdContract.ts",
+                "src/frontend/vite.config.ts",
                 "tests/browser-diagnostics/local-fsusui-identity.mjs",
                 "tests/frontend/checks/public/aot-regression.mjs",
                 "tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs",
@@ -3924,6 +4702,7 @@
                 "tests/frontend/support/direct-execution.mjs",
                 "tests/frontend/support/fixture-paths.mjs",
                 "tests/frontend/support/http.mjs",
+                "tests/frontend/support/public-fixtures.mjs",
                 "tests/frontend/support/runtime-browser-timeout.mjs",
                 "tests/frontend/support/session-fixtures.mjs",
                 "tests/frontend/support/test-session.mjs",
@@ -4169,6 +4948,7 @@
                 "tools/test/security-cleanup-barrier.mjs",
                 "tools/test/system-memory.mjs",
                 "tools/test/temporal-context.mjs",
+                "tools/test/temporal-producer-bindings.mjs",
                 "tools/test/temporal-role-resolver.mjs",
                 "tools/test/temporal-shape-catalog.mjs",
                 "tools/test/verify-benchmark-build-ready.mjs",
@@ -4189,6 +4969,48 @@
                 "data-scale-nightly",
                 "data-scale-s",
                 "data-scale-xs"
+            ],
+            "declarations": [
+                {
+                    "owner": "data-scale-m",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/data-scale.sh",
+                        "scale-m"
+                    ]
+                },
+                {
+                    "owner": "data-scale-nightly",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/data-scale.sh",
+                        "scale-l-nightly"
+                    ]
+                },
+                {
+                    "owner": "data-scale-s",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/data-scale.sh",
+                        "scale-s"
+                    ]
+                },
+                {
+                    "owner": "data-scale-xs",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/data-scale.sh",
+                        "scale-xs"
+                    ]
+                }
             ],
             "contentDigest": "sha256:e3a9069fc1c307e566a2050bbe14b6ab467e27f3ec6132933fe81d86c50f44db",
             "dependencyClosure": [
@@ -4280,6 +5102,17 @@
             "owners": [
                 "distributed-contract-fast"
             ],
+            "declarations": [
+                {
+                    "owner": "distributed-contract-fast",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/distributed-contract-fast.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:cbec7af86f908aa73ebcb404d2ece2509c166fe4064b126358442a312c3f464b",
             "dependencyClosure": []
         },
@@ -4287,6 +5120,17 @@
             "target": "tools/test/lanes/endpoint-depth.sh",
             "owners": [
                 "endpoint-depth"
+            ],
+            "declarations": [
+                {
+                    "owner": "endpoint-depth",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/endpoint-depth.sh"
+                    ]
+                }
             ],
             "contentDigest": "sha256:cebbd1a25c9af37331b95985e20339462412c90a62da0252826931cdb74cddb1",
             "dependencyClosure": [
@@ -4303,8 +5147,25 @@
             "owners": [
                 "fault-injection"
             ],
+            "declarations": [
+                {
+                    "owner": "fault-injection",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/fault-injection.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:b682590b8b66106250ed794ca81ce904fa26e4d28e3d81a1fbb421d90c7c23c9",
             "dependencyClosure": [
+                "src/frontend/scripts/fsusui-local.ts",
+                "src/frontend/scripts/fsusui-root.mjs",
+                "src/frontend/scripts/vite-watch-policy.mjs",
+                "src/frontend/src/config/releaseStorage.ts",
+                "src/frontend/src/generated/releaseIdContract.ts",
+                "src/frontend/vite.config.ts",
                 "tests/browser-diagnostics/local-fsusui-identity.mjs",
                 "tests/frontend/checks/public/aot-regression.mjs",
                 "tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs",
@@ -4325,6 +5186,7 @@
                 "tests/frontend/support/direct-execution.mjs",
                 "tests/frontend/support/fixture-paths.mjs",
                 "tests/frontend/support/http.mjs",
+                "tests/frontend/support/public-fixtures.mjs",
                 "tests/frontend/support/runtime-browser-timeout.mjs",
                 "tests/frontend/support/session-fixtures.mjs",
                 "tests/frontend/support/test-session.mjs",
@@ -4572,6 +5434,7 @@
                 "tools/test/security-cleanup-barrier.mjs",
                 "tools/test/system-memory.mjs",
                 "tools/test/temporal-context.mjs",
+                "tools/test/temporal-producer-bindings.mjs",
                 "tools/test/temporal-role-resolver.mjs",
                 "tools/test/temporal-shape-catalog.mjs",
                 "tools/test/verify-benchmark-build-ready.mjs",
@@ -4590,6 +5453,17 @@
             "owners": [
                 "frontend-build"
             ],
+            "declarations": [
+                {
+                    "owner": "frontend-build",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/frontend-build.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:a8cd99d07326bf6c60a2559577d7974135bb2b467257ba000999e8fec90dce66",
             "dependencyClosure": []
         },
@@ -4598,6 +5472,17 @@
             "owners": [
                 "frontend-property-model-perf"
             ],
+            "declarations": [
+                {
+                    "owner": "frontend-property-model-perf",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/frontend-property-model-perf.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:1eeb05f0d3ff2b50644c87fad55f41e6bf07c1f2302141e0502e2acde077197a",
             "dependencyClosure": []
         },
@@ -4605,6 +5490,17 @@
             "target": "tools/test/lanes/frontend-render-structure.sh",
             "owners": [
                 "frontend-render-structure"
+            ],
+            "declarations": [
+                {
+                    "owner": "frontend-render-structure",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/frontend-render-structure.sh"
+                    ]
+                }
             ],
             "contentDigest": "sha256:e275976c500883db091be799bded973ff2838e893b41345ab7e2a579abe7d371",
             "dependencyClosure": [
@@ -4618,6 +5514,17 @@
             "owners": [
                 "frontend-runtime-contracts"
             ],
+            "declarations": [
+                {
+                    "owner": "frontend-runtime-contracts",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/frontend-runtime-contracts.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:7d1374b9abb8a13df329d1282af888e35d55c9ca18793b9f292121c7e4f5e6ca",
             "dependencyClosure": []
         },
@@ -4626,6 +5533,17 @@
             "owners": [
                 "frontend-static-governance"
             ],
+            "declarations": [
+                {
+                    "owner": "frontend-static-governance",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/frontend-static-governance.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:ce3c49ba3ed7e4425a083f8df920a2ad438933b51ed89e9d5a58bf4783b9f605",
             "dependencyClosure": []
         },
@@ -4633,6 +5551,17 @@
             "target": "tools/test/lanes/frontend-unit-shard.sh",
             "owners": [
                 "frontend-unit-shard"
+            ],
+            "declarations": [
+                {
+                    "owner": "frontend-unit-shard",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/frontend-unit-shard.sh"
+                    ]
+                }
             ],
             "contentDigest": "sha256:8b1558adfe017afcfe7817c7f2a9bf848e41158320ff39989e13d6d52e4a9053",
             "dependencyClosure": [
@@ -4645,8 +5574,25 @@
             "owners": [
                 "homogeneous-two-node-fixture"
             ],
+            "declarations": [
+                {
+                    "owner": "homogeneous-two-node-fixture",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/homogeneous-two-node-fixture.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:09df021e63ba8a2c3c7e698018c65c6e3e125f94ecf2145005798ed502a5cf8a",
             "dependencyClosure": [
+                "src/frontend/scripts/fsusui-local.ts",
+                "src/frontend/scripts/fsusui-root.mjs",
+                "src/frontend/scripts/vite-watch-policy.mjs",
+                "src/frontend/src/config/releaseStorage.ts",
+                "src/frontend/src/generated/releaseIdContract.ts",
+                "src/frontend/vite.config.ts",
                 "tests/browser-diagnostics/local-fsusui-identity.mjs",
                 "tests/frontend/checks/public/aot-regression.mjs",
                 "tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs",
@@ -4667,6 +5613,7 @@
                 "tests/frontend/support/direct-execution.mjs",
                 "tests/frontend/support/fixture-paths.mjs",
                 "tests/frontend/support/http.mjs",
+                "tests/frontend/support/public-fixtures.mjs",
                 "tests/frontend/support/runtime-browser-timeout.mjs",
                 "tests/frontend/support/session-fixtures.mjs",
                 "tests/frontend/support/test-session.mjs",
@@ -4913,6 +5860,7 @@
                 "tools/test/security-cleanup-barrier.mjs",
                 "tools/test/system-memory.mjs",
                 "tools/test/temporal-context.mjs",
+                "tools/test/temporal-producer-bindings.mjs",
                 "tools/test/temporal-role-resolver.mjs",
                 "tools/test/temporal-shape-catalog.mjs",
                 "tools/test/verify-benchmark-build-ready.mjs",
@@ -4933,6 +5881,48 @@
                 "load-baseline",
                 "load-burst",
                 "load-peak"
+            ],
+            "declarations": [
+                {
+                    "owner": "load-2x-peak",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/load-profile.sh",
+                        "2x-peak"
+                    ]
+                },
+                {
+                    "owner": "load-baseline",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/load-profile.sh",
+                        "baseline"
+                    ]
+                },
+                {
+                    "owner": "load-burst",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/load-profile.sh",
+                        "burst"
+                    ]
+                },
+                {
+                    "owner": "load-peak",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/load-profile.sh",
+                        "expected-peak"
+                    ]
+                }
             ],
             "contentDigest": "sha256:ab6554d8239040336a0f4a78083c7c504f56042584f3c08f75d4e4bff4a34668",
             "dependencyClosure": [
@@ -5025,6 +6015,17 @@
             "owners": [
                 "load"
             ],
+            "declarations": [
+                {
+                    "owner": "load",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/load-smoke.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:45b455cf1ffa7d41085b702a4f7f3495c1ba3f77542e2e0c4565e482cef63817",
             "dependencyClosure": []
         },
@@ -5032,6 +6033,17 @@
             "target": "tools/test/lanes/markdown-preview-release-performance.sh",
             "owners": [
                 "markdown-preview-release-performance"
+            ],
+            "declarations": [
+                {
+                    "owner": "markdown-preview-release-performance",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/markdown-preview-release-performance.sh"
+                    ]
+                }
             ],
             "contentDigest": "sha256:57b13b07350a1179f8c4854055c39cfe5836dbc4f5ba4299f1a3f2ba402fbbff",
             "dependencyClosure": [
@@ -5051,6 +6063,17 @@
             "owners": [
                 "perception-character-v3-release-gate"
             ],
+            "declarations": [
+                {
+                    "owner": "perception-character-v3-release-gate",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/perception-character-v3-release-gate.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:b57b750d353acd41d16ffc36b68c430e6abefc1af065ab148192d8e28c1b8274",
             "dependencyClosure": [
                 "tools/security/run-perception-character-v3-release-gate.mjs"
@@ -5062,6 +6085,28 @@
                 "perception-v2-redteam-nightly",
                 "perception-v2-redteam-pr"
             ],
+            "declarations": [
+                {
+                    "owner": "perception-v2-redteam-nightly",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/perception-v2-redteam.sh",
+                        "nightly"
+                    ]
+                },
+                {
+                    "owner": "perception-v2-redteam-pr",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/perception-v2-redteam.sh",
+                        "pr"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:19b8f5446caba66e03d413bdd4605e32642b4791cb956f7e3b9e3ac69e6e494b",
             "dependencyClosure": []
         },
@@ -5070,9 +6115,21 @@
             "owners": [
                 "perception-v2-test-matrix"
             ],
+            "declarations": [
+                {
+                    "owner": "perception-v2-test-matrix",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/perception-v2-test-matrix.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:1df9adaabd36e88a1671af05abcd85b0ce40f80a629f5e621643cb5aa49a838e",
             "dependencyClosure": [
                 "tools/build-with-data-env.sh",
+                "tools/ci/production-build-artifacts.mjs",
                 "tools/security/check-perception-v2-e2e-evidence.mjs",
                 "tools/test-matrix/content-addressed-build-cache-contract.mjs",
                 "tools/test-matrix/content-addressed-build-cache-storage.mjs",
@@ -5086,8 +6143,25 @@
             "owners": [
                 "backend-perf"
             ],
+            "declarations": [
+                {
+                    "owner": "backend-perf",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/perf-regression.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:4da3a006a4e1f78e497f5e702cd177e58b11d474984d6b151c9107013be99c54",
             "dependencyClosure": [
+                "src/frontend/scripts/fsusui-local.ts",
+                "src/frontend/scripts/fsusui-root.mjs",
+                "src/frontend/scripts/vite-watch-policy.mjs",
+                "src/frontend/src/config/releaseStorage.ts",
+                "src/frontend/src/generated/releaseIdContract.ts",
+                "src/frontend/vite.config.ts",
                 "tests/browser-diagnostics/local-fsusui-identity.mjs",
                 "tests/frontend/checks/public/aot-regression.mjs",
                 "tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs",
@@ -5108,6 +6182,7 @@
                 "tests/frontend/support/direct-execution.mjs",
                 "tests/frontend/support/fixture-paths.mjs",
                 "tests/frontend/support/http.mjs",
+                "tests/frontend/support/public-fixtures.mjs",
                 "tests/frontend/support/runtime-browser-timeout.mjs",
                 "tests/frontend/support/session-fixtures.mjs",
                 "tests/frontend/support/test-session.mjs",
@@ -5354,6 +6429,7 @@
                 "tools/test/security-cleanup-barrier.mjs",
                 "tools/test/system-memory.mjs",
                 "tools/test/temporal-context.mjs",
+                "tools/test/temporal-producer-bindings.mjs",
                 "tools/test/temporal-role-resolver.mjs",
                 "tools/test/temporal-shape-catalog.mjs",
                 "tools/test/verify-benchmark-build-ready.mjs",
@@ -5371,6 +6447,17 @@
             "target": "tools/test/lanes/plan-pr-risk.sh",
             "owners": [
                 "pr-smart-gate-plan"
+            ],
+            "declarations": [
+                {
+                    "owner": "pr-smart-gate-plan",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/plan-pr-risk.sh"
+                    ]
+                }
             ],
             "contentDigest": "sha256:e8aa611e956546006795c357b467c550b1253ab29caf23aa0a0218b9c071be26",
             "dependencyClosure": [
@@ -5475,6 +6562,7 @@
                 "tools/test/execution-envelope-network.mjs",
                 "tools/test/execution-envelope-services.mjs",
                 "tools/test/execution-replay-contract.mjs",
+                "tools/test/measurement-noise-envelope.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
                 "tools/test/physical-execution-windows-job-adapter.mjs",
@@ -5494,6 +6582,17 @@
             "owners": [
                 "privacy-zk-comment-matrix"
             ],
+            "declarations": [
+                {
+                    "owner": "privacy-zk-comment-matrix",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/privacy-zk-comment-matrix.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:c9822685a04fd1b3e4442cdceb1651e1fa6c82963ea3a892fe7739d672ccdfbb",
             "dependencyClosure": [
                 "tests/security/comment-draft-privacy.test.mjs",
@@ -5511,8 +6610,28 @@
             "owners": [
                 "production-build-artifacts"
             ],
+            "declarations": [
+                {
+                    "owner": "production-build-artifacts",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "shell-script",
+                    "argv": [
+                        "bash",
+                        "tools/test/lanes/production-build-artifacts.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:f61f5fe459b652f970c855c9804277cabed6ec069d6d186daf0ad17e0c86b5e4",
             "dependencyClosure": [
+                "src/frontend/scripts/fsusui-local.ts",
+                "src/frontend/scripts/fsusui-root.mjs",
+                "src/frontend/scripts/vite-watch-policy.mjs",
+                "src/frontend/src/config/releaseStorage.ts",
+                "src/frontend/src/generated/fsusBinaryRoutes.ts",
+                "src/frontend/src/generated/releaseIdContract.ts",
+                "src/frontend/vite.config.ts",
+                "src/frontend/wasm/build.sh",
                 "tests/tools/production-build-artifacts.test.mjs",
                 "tests/tools/production-build-materialization-benchmark.test.mjs",
                 "tests/tools/wasm-artifact-ownership.test.mjs",
@@ -5526,6 +6645,8 @@
                 "tools/ci/production-build-artifacts.mjs",
                 "tools/frontend/build-stage-dag.mjs",
                 "tools/frontend/build.mjs",
+                "tools/frontend/ensure-binaryen.sh",
+                "tools/frontend/ensure-cmake.sh",
                 "tools/frontend/ensure-wasm.mjs",
                 "tools/frontend/wasm-build-receipt.mjs",
                 "tools/frontend/wasm-producer-inputs.mjs",
@@ -5537,12 +6658,19 @@
                 "tools/runtime-profiles/resolve-runtime-publish-profile.mjs",
                 "tools/runtime-profiles/runtime-publish-profile.mjs",
                 "tools/security/comment-privacy-build-contract.mjs",
+                "tools/test-matrix/command-groups.mjs",
                 "tools/test-matrix/content-addressed-build-cache-contract.mjs",
                 "tools/test-matrix/content-addressed-build-cache-storage.mjs",
                 "tools/test-matrix/content-addressed-build-cache.mjs",
                 "tools/test-matrix/frontend-build-ready-marker.mjs",
+                "tools/test-matrix/parse-matrix.mjs",
+                "tools/test-matrix/receipt-command-sources.mjs",
                 "tools/test-matrix/run-build-cache-command.mjs",
-                "tools/test/run-with-dotnet-release-build-lock.sh"
+                "tools/test/bundles/bundle-steps.mjs",
+                "tools/test/command-manifest-runtime.mjs",
+                "tools/test/run-command-manifest.mjs",
+                "tools/test/run-with-dotnet-release-build-lock.sh",
+                "tools/yaml/parse-document.mjs"
             ]
         },
         {
@@ -5550,6 +6678,26 @@
             "owners": [
                 "production",
                 "production-correctness"
+            ],
+            "declarations": [
+                {
+                    "owner": "production",
+                    "commandKind": "producer",
+                    "executionMode": "execute",
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/production-correctness-receipt.sh"
+                    ]
+                },
+                {
+                    "owner": "production-correctness",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/production-correctness-receipt.sh"
+                    ]
+                }
             ],
             "contentDigest": "sha256:3d3ca771791139022e32eb31a04afe75f71c72a3545b785babdbe96bce732830",
             "dependencyClosure": [
@@ -5567,8 +6715,25 @@
             "owners": [
                 "production-xss-fast"
             ],
+            "declarations": [
+                {
+                    "owner": "production-xss-fast",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/production-xss-fast.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:39a3d8ea04719bd0fe80372954f044c159be23cf928eb5d28f1f83bcb81440e5",
             "dependencyClosure": [
+                "src/frontend/scripts/fsusui-local.ts",
+                "src/frontend/scripts/fsusui-root.mjs",
+                "src/frontend/scripts/vite-watch-policy.mjs",
+                "src/frontend/src/config/releaseStorage.ts",
+                "src/frontend/src/generated/releaseIdContract.ts",
+                "src/frontend/vite.config.ts",
                 "tests/browser-contract/default-fixture-provider.mjs",
                 "tests/browser-diagnostics/local-fsusui-identity.mjs",
                 "tests/frontend/checks/public/aot-regression.mjs",
@@ -5590,6 +6755,7 @@
                 "tests/frontend/support/direct-execution.mjs",
                 "tests/frontend/support/fixture-paths.mjs",
                 "tests/frontend/support/http.mjs",
+                "tests/frontend/support/public-fixtures.mjs",
                 "tests/frontend/support/runtime-browser-timeout.mjs",
                 "tests/frontend/support/session-fixtures.mjs",
                 "tests/frontend/support/test-session.mjs",
@@ -5835,6 +7001,7 @@
                 "tools/test/security-cleanup-barrier.mjs",
                 "tools/test/system-memory.mjs",
                 "tools/test/temporal-context.mjs",
+                "tools/test/temporal-producer-bindings.mjs",
                 "tools/test/temporal-role-resolver.mjs",
                 "tools/test/temporal-shape-catalog.mjs",
                 "tools/test/verify-benchmark-build-ready.mjs",
@@ -5853,8 +7020,25 @@
             "owners": [
                 "production-xss-release"
             ],
+            "declarations": [
+                {
+                    "owner": "production-xss-release",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/production-xss-release.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:4c5b56ef10d42f53b0a9393a893d2d0c55b52634a5af06de0e483f36a042edac",
             "dependencyClosure": [
+                "src/frontend/scripts/fsusui-local.ts",
+                "src/frontend/scripts/fsusui-root.mjs",
+                "src/frontend/scripts/vite-watch-policy.mjs",
+                "src/frontend/src/config/releaseStorage.ts",
+                "src/frontend/src/generated/releaseIdContract.ts",
+                "src/frontend/vite.config.ts",
                 "tests/browser-contract/default-fixture-provider.mjs",
                 "tests/browser-diagnostics/local-fsusui-identity.mjs",
                 "tests/frontend/checks/public/aot-regression.mjs",
@@ -5876,6 +7060,7 @@
                 "tests/frontend/support/direct-execution.mjs",
                 "tests/frontend/support/fixture-paths.mjs",
                 "tests/frontend/support/http.mjs",
+                "tests/frontend/support/public-fixtures.mjs",
                 "tests/frontend/support/runtime-browser-timeout.mjs",
                 "tests/frontend/support/session-fixtures.mjs",
                 "tests/frontend/support/test-session.mjs",
@@ -6121,6 +7306,7 @@
                 "tools/test/security-cleanup-barrier.mjs",
                 "tools/test/system-memory.mjs",
                 "tools/test/temporal-context.mjs",
+                "tools/test/temporal-producer-bindings.mjs",
                 "tools/test/temporal-role-resolver.mjs",
                 "tools/test/temporal-shape-catalog.mjs",
                 "tools/test/verify-benchmark-build-ready.mjs",
@@ -6139,6 +7325,17 @@
             "owners": [
                 "public-hydration-fast"
             ],
+            "declarations": [
+                {
+                    "owner": "public-hydration-fast",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/public-hydration-fast.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:eeee3125d4482b5c0aec3531ec7b2695fca7da701788b42092671d6ae7ff844a",
             "dependencyClosure": [
                 "tests/frontend/checks/public/check-public-hydration-matrix-governance.mjs"
@@ -6149,6 +7346,17 @@
             "owners": [
                 "public-hydration-nightly"
             ],
+            "declarations": [
+                {
+                    "owner": "public-hydration-nightly",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/public-hydration-nightly.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:2cd8b24d8a7470b4b512b78fb0c8c43a3df3164fed6adc272fa0f3ad9e583ccd",
             "dependencyClosure": [
                 "tests/frontend/checks/public/check-public-hydration-matrix-governance.mjs"
@@ -6158,6 +7366,17 @@
             "target": "tools/test/lanes/release-closeout.sh",
             "owners": [
                 "release-closeout"
+            ],
+            "declarations": [
+                {
+                    "owner": "release-closeout",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/release-closeout.sh"
+                    ]
+                }
             ],
             "contentDigest": "sha256:8e783f0372d2c8206a17dff389920580f7404f3d230af07263b6d3e7dd70af20",
             "dependencyClosure": [
@@ -6171,7 +7390,8 @@
                 "tools/runtime-profiles/runtime-publish-evidence.mjs",
                 "tools/runtime-profiles/runtime-publish-profile.mjs",
                 "tools/test-matrix/production-fresh-output-locator.mjs",
-                "tools/test-matrix/production-fresh-run-bound-outputs.mjs"
+                "tools/test-matrix/production-fresh-run-bound-outputs.mjs",
+                "tools/test/measurement-noise-envelope.mjs"
             ]
         },
         {
@@ -6179,8 +7399,25 @@
             "owners": [
                 "release-evidence"
             ],
+            "declarations": [
+                {
+                    "owner": "release-evidence",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/release-evidence.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:51510d858a940a6508ccc65fb6c6317d825289e6d47c57786d0d53e9215dc6f3",
             "dependencyClosure": [
+                "src/frontend/scripts/fsusui-local.ts",
+                "src/frontend/scripts/fsusui-root.mjs",
+                "src/frontend/scripts/vite-watch-policy.mjs",
+                "src/frontend/src/config/releaseStorage.ts",
+                "src/frontend/src/generated/releaseIdContract.ts",
+                "src/frontend/vite.config.ts",
                 "tests/browser-diagnostics/local-fsusui-identity.mjs",
                 "tests/frontend/checks/public/aot-regression.mjs",
                 "tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs",
@@ -6201,6 +7438,7 @@
                 "tests/frontend/support/direct-execution.mjs",
                 "tests/frontend/support/fixture-paths.mjs",
                 "tests/frontend/support/http.mjs",
+                "tests/frontend/support/public-fixtures.mjs",
                 "tests/frontend/support/runtime-browser-timeout.mjs",
                 "tests/frontend/support/session-fixtures.mjs",
                 "tests/frontend/support/test-session.mjs",
@@ -6471,6 +7709,7 @@
                 "tools/test/security-cleanup-barrier.mjs",
                 "tools/test/system-memory.mjs",
                 "tools/test/temporal-context.mjs",
+                "tools/test/temporal-producer-bindings.mjs",
                 "tools/test/temporal-role-resolver.mjs",
                 "tools/test/temporal-shape-catalog.mjs",
                 "tools/test/verify-attempt-governance-acceptance.mjs",
@@ -6491,7 +7730,18 @@
             "owners": [
                 "release-final"
             ],
-            "contentDigest": "sha256:cece9ceffa85bd66a5eed79063763a068b44f9f9b903a4c5778613d88b714da3",
+            "declarations": [
+                {
+                    "owner": "release-final",
+                    "commandKind": "finalizer",
+                    "executionMode": "summary",
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/release-final.sh"
+                    ]
+                }
+            ],
+            "contentDigest": "sha256:78371f755dc64e9917c86b934ddada3c3657f3e5f038af0d7cecac67dad04f10",
             "dependencyClosure": [
                 "tests/tools/fixtures/release-runtime-matrix.mjs",
                 "tools/contracts/behavior-contract-catalog.mjs",
@@ -6600,6 +7850,17 @@
             "owners": [
                 "release"
             ],
+            "declarations": [
+                {
+                    "owner": "release",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/release-public.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:325733b214c89870e3324eccd3e1ed1ba40cd20ae41f3b53efab27ddfed1e6f8",
             "dependencyClosure": []
         },
@@ -6608,6 +7869,17 @@
             "owners": [
                 "resilience"
             ],
+            "declarations": [
+                {
+                    "owner": "resilience",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/resilience-runtime.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:cafc659238ce83e5952abc90ee3260491424eb8cbd709c968836bc42776b4109",
             "dependencyClosure": []
         },
@@ -6615,6 +7887,17 @@
             "target": "tools/test/lanes/risk-control-test-matrix.sh",
             "owners": [
                 "risk-control-test-matrix"
+            ],
+            "declarations": [
+                {
+                    "owner": "risk-control-test-matrix",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/risk-control-test-matrix.sh"
+                    ]
+                }
             ],
             "contentDigest": "sha256:c309394559bd827dc171576789d96f830eccee061dfff982806b47ae1006f371",
             "dependencyClosure": [
@@ -6627,6 +7910,17 @@
             "owners": [
                 "integration"
             ],
+            "declarations": [
+                {
+                    "owner": "integration",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/runtime-integration.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:f6083e889d10bb1f09f01f7a74fc1f44ab9bfa3a8a891589c8d05e90112333fe",
             "dependencyClosure": []
         },
@@ -6634,6 +7928,17 @@
             "target": "tools/test/lanes/security-authenticated-dast.sh",
             "owners": [
                 "security-authenticated-dast"
+            ],
+            "declarations": [
+                {
+                    "owner": "security-authenticated-dast",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/security-authenticated-dast.sh"
+                    ]
+                }
             ],
             "contentDigest": "sha256:6703fa5cb3e00c1f00ab7defd365ce9e3691b65bfb0c066b9e82a4c3b948106f",
             "dependencyClosure": [
@@ -6648,6 +7953,17 @@
             "owners": [
                 "security"
             ],
+            "declarations": [
+                {
+                    "owner": "security",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/security-runtime.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:883fe3aeb6d2ae9b89727e29a964e5a76344b40bf7902a42298e6129569ef203",
             "dependencyClosure": []
         },
@@ -6657,6 +7973,39 @@
                 "soak-long-evidence-import",
                 "soak-long-scheduled",
                 "soak-short-runtime"
+            ],
+            "declarations": [
+                {
+                    "owner": "soak-long-evidence-import",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "FSUSBLOG_SOAK_MODE=72h",
+                        "FSUSBLOG_SOAK_REQUIRE_IMPORTED_EVIDENCE=1",
+                        "tools/test/lanes/soak.sh"
+                    ]
+                },
+                {
+                    "owner": "soak-long-scheduled",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "FSUSBLOG_SOAK_MODE=72h",
+                        "tools/test/lanes/soak.sh"
+                    ]
+                },
+                {
+                    "owner": "soak-short-runtime",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "FSUSBLOG_SOAK_MODE=short",
+                        "tools/test/lanes/soak.sh"
+                    ]
+                }
             ],
             "contentDigest": "sha256:0761a1a23597481af16ffdf9b510812f78e30ca3da2c8d8e8a5e61df572aa0f1",
             "dependencyClosure": [
@@ -6749,8 +8098,25 @@
             "owners": [
                 "static-governance"
             ],
+            "declarations": [
+                {
+                    "owner": "static-governance",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/static-governance.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:9fd2e942caa080b3b284842520ace8aa6b3bd4b9fd16f5ccebc31831f2e63a0c",
             "dependencyClosure": [
+                "src/frontend/scripts/fsusui-local.ts",
+                "src/frontend/scripts/fsusui-root.mjs",
+                "src/frontend/scripts/vite-watch-policy.mjs",
+                "src/frontend/src/config/releaseStorage.ts",
+                "src/frontend/src/generated/releaseIdContract.ts",
+                "src/frontend/vite.config.ts",
                 "tests/browser-contract/contract.mjs",
                 "tests/browser-diagnostics/catalog.mjs",
                 "tests/browser-diagnostics/local-fsusui-identity.mjs",
@@ -6773,6 +8139,7 @@
                 "tests/frontend/support/direct-execution.mjs",
                 "tests/frontend/support/fixture-paths.mjs",
                 "tests/frontend/support/http.mjs",
+                "tests/frontend/support/public-fixtures.mjs",
                 "tests/frontend/support/runtime-browser-timeout.mjs",
                 "tests/frontend/support/session-fixtures.mjs",
                 "tests/frontend/support/test-session.mjs",
@@ -7203,19 +8570,43 @@
             "owners": [
                 "test-inventory"
             ],
+            "declarations": [
+                {
+                    "owner": "test-inventory",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/test-inventory.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:98b53f4dbd406a845b7e9b94c29cebf2f6f4518f5de9434591040610e46097a9",
             "dependencyClosure": [
                 "tools/test-inventory/adapters.mjs",
                 "tools/test-inventory/api.mjs",
                 "tools/test-inventory/discovery.mjs",
                 "tools/test-inventory/produce.mjs",
-                "tools/test-inventory/schema.mjs"
+                "tools/test-inventory/schema.mjs",
+                "tools/test-matrix/parse-matrix.mjs",
+                "tools/yaml/parse-document.mjs"
             ]
         },
         {
             "target": "tools/test/lanes/test-quality-lint.sh",
             "owners": [
                 "test-quality-lint"
+            ],
+            "declarations": [
+                {
+                    "owner": "test-quality-lint",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/test-quality-lint.sh"
+                    ]
+                }
             ],
             "contentDigest": "sha256:96b93b475baa3398cec8f241b925bcf1c1ecab843c41b82d44849ebd56786cf0",
             "dependencyClosure": [
@@ -7224,6 +8615,7 @@
                 "tools/test-inventory/api.mjs",
                 "tools/test-inventory/discovery.mjs",
                 "tools/test-inventory/schema.mjs",
+                "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-quality/artifact.mjs",
                 "tools/test-quality/conformance.mjs",
                 "tools/test-quality/oracle-facts.mjs",
@@ -7233,7 +8625,8 @@
                 "tools/test-quality/schema.mjs",
                 "tools/test-quality/verify.mjs",
                 "tools/test/produce-release-domain-receipt.mjs",
-                "tools/test/write-release-domain-assertion-report.mjs"
+                "tools/test/write-release-domain-assertion-report.mjs",
+                "tools/yaml/parse-document.mjs"
             ]
         },
         {
@@ -7241,8 +8634,25 @@
             "owners": [
                 "ux-viewport-boundaries"
             ],
+            "declarations": [
+                {
+                    "owner": "ux-viewport-boundaries",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/ux-viewport-boundaries.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:9830e25f1e6ffb8ee299556b061f51642209d917e8044e592101ef54faef773a",
             "dependencyClosure": [
+                "src/frontend/scripts/fsusui-local.ts",
+                "src/frontend/scripts/fsusui-root.mjs",
+                "src/frontend/scripts/vite-watch-policy.mjs",
+                "src/frontend/src/config/releaseStorage.ts",
+                "src/frontend/src/generated/releaseIdContract.ts",
+                "src/frontend/vite.config.ts",
                 "tests/browser-diagnostics/local-fsusui-identity.mjs",
                 "tests/frontend/checks/public/aot-regression.mjs",
                 "tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs",
@@ -7263,6 +8673,7 @@
                 "tests/frontend/support/direct-execution.mjs",
                 "tests/frontend/support/fixture-paths.mjs",
                 "tests/frontend/support/http.mjs",
+                "tests/frontend/support/public-fixtures.mjs",
                 "tests/frontend/support/runtime-browser-timeout.mjs",
                 "tests/frontend/support/session-fixtures.mjs",
                 "tests/frontend/support/test-session.mjs",
@@ -7508,6 +8919,7 @@
                 "tools/test/security-cleanup-barrier.mjs",
                 "tools/test/system-memory.mjs",
                 "tools/test/temporal-context.mjs",
+                "tools/test/temporal-producer-bindings.mjs",
                 "tools/test/temporal-role-resolver.mjs",
                 "tools/test/temporal-shape-catalog.mjs",
                 "tools/test/verify-benchmark-build-ready.mjs",
@@ -7526,8 +8938,25 @@
             "owners": [
                 "ux-viewport-smoke"
             ],
+            "declarations": [
+                {
+                    "owner": "ux-viewport-smoke",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/ux-viewport-smoke.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:4769614abcb6baca4afb5f1bfc751aee358484d789973ec6781fb6c996e7fcf9",
             "dependencyClosure": [
+                "src/frontend/scripts/fsusui-local.ts",
+                "src/frontend/scripts/fsusui-root.mjs",
+                "src/frontend/scripts/vite-watch-policy.mjs",
+                "src/frontend/src/config/releaseStorage.ts",
+                "src/frontend/src/generated/releaseIdContract.ts",
+                "src/frontend/vite.config.ts",
                 "tests/browser-diagnostics/local-fsusui-identity.mjs",
                 "tests/frontend/checks/public/aot-regression.mjs",
                 "tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs",
@@ -7548,6 +8977,7 @@
                 "tests/frontend/support/direct-execution.mjs",
                 "tests/frontend/support/fixture-paths.mjs",
                 "tests/frontend/support/http.mjs",
+                "tests/frontend/support/public-fixtures.mjs",
                 "tests/frontend/support/runtime-browser-timeout.mjs",
                 "tests/frontend/support/session-fixtures.mjs",
                 "tests/frontend/support/test-session.mjs",
@@ -7793,6 +9223,7 @@
                 "tools/test/security-cleanup-barrier.mjs",
                 "tools/test/system-memory.mjs",
                 "tools/test/temporal-context.mjs",
+                "tools/test/temporal-producer-bindings.mjs",
                 "tools/test/temporal-role-resolver.mjs",
                 "tools/test/temporal-shape-catalog.mjs",
                 "tools/test/verify-benchmark-build-ready.mjs",
@@ -7811,8 +9242,25 @@
             "owners": [
                 "ux-viewport-visual"
             ],
+            "declarations": [
+                {
+                    "owner": "ux-viewport-visual",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/ux-viewport-visual.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:7bd794a621a7057f6fbfe12a8f128f7c12579451781d4260120174797767c168",
             "dependencyClosure": [
+                "src/frontend/scripts/fsusui-local.ts",
+                "src/frontend/scripts/fsusui-root.mjs",
+                "src/frontend/scripts/vite-watch-policy.mjs",
+                "src/frontend/src/config/releaseStorage.ts",
+                "src/frontend/src/generated/releaseIdContract.ts",
+                "src/frontend/vite.config.ts",
                 "tests/browser-diagnostics/local-fsusui-identity.mjs",
                 "tests/frontend/checks/public/aot-regression.mjs",
                 "tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs",
@@ -7833,6 +9281,7 @@
                 "tests/frontend/support/direct-execution.mjs",
                 "tests/frontend/support/fixture-paths.mjs",
                 "tests/frontend/support/http.mjs",
+                "tests/frontend/support/public-fixtures.mjs",
                 "tests/frontend/support/runtime-browser-timeout.mjs",
                 "tests/frontend/support/session-fixtures.mjs",
                 "tests/frontend/support/test-session.mjs",
@@ -8078,6 +9527,7 @@
                 "tools/test/security-cleanup-barrier.mjs",
                 "tools/test/system-memory.mjs",
                 "tools/test/temporal-context.mjs",
+                "tools/test/temporal-producer-bindings.mjs",
                 "tools/test/temporal-role-resolver.mjs",
                 "tools/test/temporal-shape-catalog.mjs",
                 "tools/test/verify-benchmark-build-ready.mjs",
@@ -8096,6 +9546,17 @@
             "owners": [
                 "visual-console"
             ],
+            "declarations": [
+                {
+                    "owner": "visual-console",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/visual-console-playwright.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:302cb0a30e828454045b40993ee9c6a472d406df85127c646cb591f6f1e23b5f",
             "dependencyClosure": []
         },
@@ -8104,6 +9565,17 @@
             "owners": [
                 "visual-public"
             ],
+            "declarations": [
+                {
+                    "owner": "visual-public",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/visual-public-playwright.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:5e164915d95b7e9ee2405d5e411fce121b42224db125b2c5fcce536ceb67dc22",
             "dependencyClosure": []
         },
@@ -8111,6 +9583,17 @@
             "target": "tools/test/lanes/visual-screenshots-aggregate.sh",
             "owners": [
                 "visual"
+            ],
+            "declarations": [
+                {
+                    "owner": "visual",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/visual-screenshots-aggregate.sh"
+                    ]
+                }
             ],
             "contentDigest": "sha256:9dda2906988425b1d8147c4a8ad4ee61eab8a226c284ac02929ef7f7470aa4b9",
             "dependencyClosure": [
@@ -8121,6 +9604,17 @@
             "target": "tools/test/lanes/wasm-fuzz-regression.sh",
             "owners": [
                 "wasm-fuzz-regression"
+            ],
+            "declarations": [
+                {
+                    "owner": "wasm-fuzz-regression",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/wasm-fuzz-regression.sh"
+                    ]
+                }
             ],
             "contentDigest": "sha256:60363cf026c518acedc1e287f10dd4587762cb1e5b4acafe959c2ff6aad05504",
             "dependencyClosure": [
@@ -8144,6 +9638,268 @@
                 "release-rbac-negative",
                 "release-static-asset-digest-coherence"
             ],
+            "declarations": [
+                {
+                    "owner": "integrity-proof-verification",
+                    "commandKind": "projection",
+                    "executionMode": "projection",
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/test/project-evidence.mjs",
+                        "--catalog",
+                        "tests/fixtures/evidence-projection/integrity-proof-verification.json",
+                        "--producer",
+                        ".tmp/test-results/backend/evidence-producers/backend-unit.json",
+                        "--output",
+                        ".tmp/release-evidence/integrity-proof-verification.json",
+                        "--root",
+                        ".",
+                        "--commit",
+                        "$FSUSBLOG_TEST_SOURCE_COMMIT",
+                        "--worktree-fingerprint",
+                        "$FSUSBLOG_TEST_SOURCE_FINGERPRINT",
+                        "--run-id",
+                        "$FSUSBLOG_TEST_RUN_ID",
+                        "--namespace",
+                        "$FSUSBLOG_TEST_NAMESPACE"
+                    ]
+                },
+                {
+                    "owner": "release-admin-console",
+                    "commandKind": "projection",
+                    "executionMode": "projection",
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/test/project-evidence.mjs",
+                        "--catalog",
+                        "tests/fixtures/evidence-projection/release-admin-console.json",
+                        "--producer-directory",
+                        ".tmp/test-results/evidence-producers",
+                        "--output",
+                        ".tmp/release-evidence/projections/release-admin-console.json",
+                        "--root",
+                        ".",
+                        "--commit",
+                        "$FSUSBLOG_TEST_SOURCE_COMMIT",
+                        "--worktree-fingerprint",
+                        "$FSUSBLOG_TEST_SOURCE_FINGERPRINT",
+                        "--run-id",
+                        "$FSUSBLOG_TEST_RUN_ID",
+                        "--namespace",
+                        "$FSUSBLOG_TEST_NAMESPACE"
+                    ]
+                },
+                {
+                    "owner": "release-aot-consumption",
+                    "commandKind": "projection",
+                    "executionMode": "projection",
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/test/project-evidence.mjs",
+                        "--catalog",
+                        "tests/fixtures/evidence-projection/release-aot-consumption.json",
+                        "--producer-directory",
+                        ".tmp/test-results/evidence-producers",
+                        "--output",
+                        ".tmp/release-evidence/projections/release-aot-consumption.json",
+                        "--root",
+                        ".",
+                        "--commit",
+                        "$FSUSBLOG_TEST_SOURCE_COMMIT",
+                        "--worktree-fingerprint",
+                        "$FSUSBLOG_TEST_SOURCE_FINGERPRINT",
+                        "--run-id",
+                        "$FSUSBLOG_TEST_RUN_ID",
+                        "--namespace",
+                        "$FSUSBLOG_TEST_NAMESPACE"
+                    ]
+                },
+                {
+                    "owner": "release-aot-generation",
+                    "commandKind": "projection",
+                    "executionMode": "projection",
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/test/project-evidence.mjs",
+                        "--catalog",
+                        "tests/fixtures/evidence-projection/release-aot-generation.json",
+                        "--producer-directory",
+                        ".tmp/test-results/evidence-producers",
+                        "--output",
+                        ".tmp/release-evidence/projections/release-aot-generation.json",
+                        "--root",
+                        ".",
+                        "--commit",
+                        "$FSUSBLOG_TEST_SOURCE_COMMIT",
+                        "--worktree-fingerprint",
+                        "$FSUSBLOG_TEST_SOURCE_FINGERPRINT",
+                        "--run-id",
+                        "$FSUSBLOG_TEST_RUN_ID",
+                        "--namespace",
+                        "$FSUSBLOG_TEST_NAMESPACE"
+                    ]
+                },
+                {
+                    "owner": "release-auth-flow",
+                    "commandKind": "projection",
+                    "executionMode": "projection",
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/test/project-evidence.mjs",
+                        "--catalog",
+                        "tests/fixtures/evidence-projection/release-auth-flow.json",
+                        "--producer-directory",
+                        ".tmp/test-results/evidence-producers",
+                        "--output",
+                        ".tmp/release-evidence/projections/release-auth-flow.json",
+                        "--root",
+                        ".",
+                        "--commit",
+                        "$FSUSBLOG_TEST_SOURCE_COMMIT",
+                        "--worktree-fingerprint",
+                        "$FSUSBLOG_TEST_SOURCE_FINGERPRINT",
+                        "--run-id",
+                        "$FSUSBLOG_TEST_RUN_ID",
+                        "--namespace",
+                        "$FSUSBLOG_TEST_NAMESPACE"
+                    ]
+                },
+                {
+                    "owner": "release-authoring-flow",
+                    "commandKind": "projection",
+                    "executionMode": "projection",
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/test/project-evidence.mjs",
+                        "--catalog",
+                        "tests/fixtures/evidence-projection/release-authoring-flow.json",
+                        "--producer-directory",
+                        ".tmp/test-results/evidence-producers",
+                        "--output",
+                        ".tmp/release-evidence/projections/release-authoring-flow.json",
+                        "--root",
+                        ".",
+                        "--commit",
+                        "$FSUSBLOG_TEST_SOURCE_COMMIT",
+                        "--worktree-fingerprint",
+                        "$FSUSBLOG_TEST_SOURCE_FINGERPRINT",
+                        "--run-id",
+                        "$FSUSBLOG_TEST_RUN_ID",
+                        "--namespace",
+                        "$FSUSBLOG_TEST_NAMESPACE"
+                    ]
+                },
+                {
+                    "owner": "release-error-boundary",
+                    "commandKind": "projection",
+                    "executionMode": "projection",
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/test/project-evidence.mjs",
+                        "--catalog",
+                        "tests/fixtures/evidence-projection/release-error-boundary.json",
+                        "--producer-directory",
+                        ".tmp/test-results/evidence-producers",
+                        "--output",
+                        ".tmp/release-evidence/projections/release-error-boundary.json",
+                        "--root",
+                        ".",
+                        "--commit",
+                        "$FSUSBLOG_TEST_SOURCE_COMMIT",
+                        "--worktree-fingerprint",
+                        "$FSUSBLOG_TEST_SOURCE_FINGERPRINT",
+                        "--run-id",
+                        "$FSUSBLOG_TEST_RUN_ID",
+                        "--namespace",
+                        "$FSUSBLOG_TEST_NAMESPACE"
+                    ]
+                },
+                {
+                    "owner": "release-private-preview",
+                    "commandKind": "projection",
+                    "executionMode": "projection",
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/test/project-evidence.mjs",
+                        "--catalog",
+                        "tests/fixtures/evidence-projection/release-private-preview.json",
+                        "--producer-directory",
+                        ".tmp/test-results/evidence-producers",
+                        "--output",
+                        ".tmp/release-evidence/projections/release-private-preview.json",
+                        "--root",
+                        ".",
+                        "--commit",
+                        "$FSUSBLOG_TEST_SOURCE_COMMIT",
+                        "--worktree-fingerprint",
+                        "$FSUSBLOG_TEST_SOURCE_FINGERPRINT",
+                        "--run-id",
+                        "$FSUSBLOG_TEST_RUN_ID",
+                        "--namespace",
+                        "$FSUSBLOG_TEST_NAMESPACE"
+                    ]
+                },
+                {
+                    "owner": "release-rbac-negative",
+                    "commandKind": "projection",
+                    "executionMode": "projection",
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/test/project-evidence.mjs",
+                        "--catalog",
+                        "tests/fixtures/evidence-projection/release-rbac-negative.json",
+                        "--producer-directory",
+                        ".tmp/test-results/evidence-producers",
+                        "--output",
+                        ".tmp/release-evidence/projections/release-rbac-negative.json",
+                        "--root",
+                        ".",
+                        "--commit",
+                        "$FSUSBLOG_TEST_SOURCE_COMMIT",
+                        "--worktree-fingerprint",
+                        "$FSUSBLOG_TEST_SOURCE_FINGERPRINT",
+                        "--run-id",
+                        "$FSUSBLOG_TEST_RUN_ID",
+                        "--namespace",
+                        "$FSUSBLOG_TEST_NAMESPACE"
+                    ]
+                },
+                {
+                    "owner": "release-static-asset-digest-coherence",
+                    "commandKind": "projection",
+                    "executionMode": "projection",
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/test/project-evidence.mjs",
+                        "--catalog",
+                        "tests/fixtures/evidence-projection/release-static-asset-digest-coherence.json",
+                        "--producer-directory",
+                        ".tmp/test-results/evidence-producers",
+                        "--output",
+                        ".tmp/release-evidence/projections/release-static-asset-digest-coherence.json",
+                        "--root",
+                        ".",
+                        "--commit",
+                        "$FSUSBLOG_TEST_SOURCE_COMMIT",
+                        "--worktree-fingerprint",
+                        "$FSUSBLOG_TEST_SOURCE_FINGERPRINT",
+                        "--run-id",
+                        "$FSUSBLOG_TEST_RUN_ID",
+                        "--namespace",
+                        "$FSUSBLOG_TEST_NAMESPACE"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:f55079eab20f8a1346d8c60ae4ad2f93155365b979e503eb440c9aa33a11d7de",
             "dependencyClosure": []
         },
@@ -8152,6 +9908,18 @@
             "owners": [
                 "rights-v3-test-matrix"
             ],
+            "declarations": [
+                {
+                    "owner": "rights-v3-test-matrix",
+                    "commandKind": "projection",
+                    "executionMode": "projection",
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/test/project-rights-v3-evidence.mjs"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:df0bb0006eaa9274a74eeacdbbf5d881c1129a6238395b8e7d6e5aac95e47ba7",
             "dependencyClosure": []
         },
@@ -8159,6 +9927,18 @@
             "target": "tools/test/run-legacy-real-dump-producer.mjs",
             "owners": [
                 "legacy-20260517-real-dump"
+            ],
+            "declarations": [
+                {
+                    "owner": "legacy-20260517-real-dump",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/test/run-legacy-real-dump-producer.mjs"
+                    ]
+                }
             ],
             "contentDigest": "sha256:b32ceeb0c187a089c1cdb36162ed67fe54ce6c5809c138fd22b7ea96243adf50",
             "dependencyClosure": [
@@ -8170,8 +9950,26 @@
             "owners": [
                 "validate-matrix"
             ],
+            "declarations": [
+                {
+                    "owner": "validate-matrix",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/run-matrix-governance-once.sh",
+                        "validate-matrix"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:202f42631bcd402a747c1915604fef892a146b14a4d22457a1ecaf9637a8ef09",
             "dependencyClosure": [
+                "src/frontend/scripts/fsusui-local.ts",
+                "src/frontend/scripts/fsusui-root.mjs",
+                "src/frontend/scripts/vite-watch-policy.mjs",
+                "src/frontend/src/config/releaseStorage.ts",
+                "src/frontend/src/generated/releaseIdContract.ts",
+                "src/frontend/vite.config.ts",
                 "tests/browser-diagnostics/local-fsusui-identity.mjs",
                 "tests/frontend/checks/public/aot-regression.mjs",
                 "tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs",
@@ -8192,6 +9990,7 @@
                 "tests/frontend/support/direct-execution.mjs",
                 "tests/frontend/support/fixture-paths.mjs",
                 "tests/frontend/support/http.mjs",
+                "tests/frontend/support/public-fixtures.mjs",
                 "tests/frontend/support/runtime-browser-timeout.mjs",
                 "tests/frontend/support/session-fixtures.mjs",
                 "tests/frontend/support/test-session.mjs",
@@ -8451,6 +10250,7 @@
                 "tools/test/security-cleanup-barrier.mjs",
                 "tools/test/system-memory.mjs",
                 "tools/test/temporal-context.mjs",
+                "tools/test/temporal-producer-bindings.mjs",
                 "tools/test/temporal-role-resolver.mjs",
                 "tools/test/temporal-shape-catalog.mjs",
                 "tools/test/verify-attempt-governance-acceptance.mjs",
@@ -8471,6 +10271,32 @@
                 "native-fuzz-sanitizer",
                 "native-smoke"
             ],
+            "declarations": [
+                {
+                    "owner": "native-fuzz-sanitizer",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/test/run-native-tests.mjs",
+                        "--profile",
+                        "fuzz-sanitizer"
+                    ]
+                },
+                {
+                    "owner": "native-smoke",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/test/run-native-tests.mjs",
+                        "--profile",
+                        "smoke"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:0fadc4be2fa031b08a99387a67fb1ab228b98e76cc637d08fb1e47c496038c9a",
             "dependencyClosure": [
                 "tools/test-matrix/parse-matrix.mjs",
@@ -8489,8 +10315,27 @@
             "owners": [
                 "release-reliability-fresh"
             ],
+            "declarations": [
+                {
+                    "owner": "release-reliability-fresh",
+                    "commandKind": null,
+                    "executionMode": "execute",
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/run-release-reliability-qualified-local.sh"
+                    ]
+                }
+            ],
             "contentDigest": "sha256:76afbf82e8cb7a14705fe1a1a5f483d5c9f1152329d75b1d2e5deb877cc277ea",
             "dependencyClosure": [
+                "src/frontend/scripts/fsusui-local.ts",
+                "src/frontend/scripts/fsusui-root.mjs",
+                "src/frontend/scripts/vite-watch-policy.mjs",
+                "src/frontend/src/config/releaseStorage.ts",
+                "src/frontend/src/generated/fsusBinaryRoutes.ts",
+                "src/frontend/src/generated/releaseIdContract.ts",
+                "src/frontend/vite.config.ts",
+                "src/frontend/wasm/build.sh",
                 "tests/browser-diagnostics/local-fsusui-identity.mjs",
                 "tests/frontend/checks/public/aot-regression.mjs",
                 "tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs",
@@ -8511,6 +10356,7 @@
                 "tests/frontend/support/direct-execution.mjs",
                 "tests/frontend/support/fixture-paths.mjs",
                 "tests/frontend/support/http.mjs",
+                "tests/frontend/support/public-fixtures.mjs",
                 "tests/frontend/support/runtime-browser-timeout.mjs",
                 "tests/frontend/support/session-fixtures.mjs",
                 "tests/frontend/support/test-session.mjs",
@@ -8577,6 +10423,8 @@
                 "tools/fact-extractors/runner.mjs",
                 "tools/frontend/build-stage-dag.mjs",
                 "tools/frontend/build.mjs",
+                "tools/frontend/ensure-binaryen.sh",
+                "tools/frontend/ensure-cmake.sh",
                 "tools/frontend/ensure-wasm.mjs",
                 "tools/frontend/install-wasm-codec-deps.sh",
                 "tools/frontend/public-aot-warm-evidence.mjs",
@@ -8784,6 +10632,7 @@
                 "tools/test/security-cleanup-barrier.mjs",
                 "tools/test/system-memory.mjs",
                 "tools/test/temporal-context.mjs",
+                "tools/test/temporal-producer-bindings.mjs",
                 "tools/test/temporal-role-resolver.mjs",
                 "tools/test/temporal-shape-catalog.mjs",
                 "tools/test/verify-benchmark-build-ready.mjs",
@@ -8809,6 +10658,92 @@
                 "release-mutation-critical-slice",
                 "release-open-handle-budget",
                 "release-soak-min"
+            ],
+            "declarations": [
+                {
+                    "owner": "release-data-scale-m",
+                    "commandKind": null,
+                    "executionMode": "execute",
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/test/run-release-reliability-scenarios.mjs",
+                        "--scenario",
+                        "release-data-scale-m"
+                    ]
+                },
+                {
+                    "owner": "release-load-burst",
+                    "commandKind": null,
+                    "executionMode": "execute",
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/test/run-release-reliability-scenarios.mjs",
+                        "--scenario",
+                        "release-load-burst"
+                    ]
+                },
+                {
+                    "owner": "release-load-peak",
+                    "commandKind": null,
+                    "executionMode": "execute",
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/test/run-release-reliability-scenarios.mjs",
+                        "--scenario",
+                        "release-load-peak"
+                    ]
+                },
+                {
+                    "owner": "release-memory-leak-budget",
+                    "commandKind": null,
+                    "executionMode": "execute",
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/test/run-release-reliability-scenarios.mjs",
+                        "--scenario",
+                        "release-memory-leak-budget"
+                    ]
+                },
+                {
+                    "owner": "release-mutation-critical-slice",
+                    "commandKind": null,
+                    "executionMode": "execute",
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/test/run-release-reliability-scenarios.mjs",
+                        "--scenario",
+                        "release-mutation-critical-slice"
+                    ]
+                },
+                {
+                    "owner": "release-open-handle-budget",
+                    "commandKind": null,
+                    "executionMode": "execute",
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/test/run-release-reliability-scenarios.mjs",
+                        "--scenario",
+                        "release-open-handle-budget"
+                    ]
+                },
+                {
+                    "owner": "release-soak-min",
+                    "commandKind": null,
+                    "executionMode": "execute",
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/test/run-release-reliability-scenarios.mjs",
+                        "--scenario",
+                        "release-soak-min"
+                    ]
+                }
             ],
             "contentDigest": "sha256:a74b4f66400a059ba7f3a3e0f262862c315e7a828314421a12270a2a2f3217de",
             "dependencyClosure": [
@@ -8900,6 +10835,18 @@
             "target": "tools/ux/run-viewport-plan-progress.mjs",
             "owners": [
                 "ux-viewport-plan-progress"
+            ],
+            "declarations": [
+                {
+                    "owner": "ux-viewport-plan-progress",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "node-entrypoint",
+                    "argv": [
+                        "node",
+                        "tools/ux/run-viewport-plan-progress.mjs"
+                    ]
+                }
             ],
             "contentDigest": "sha256:59f0dea8ab6bb4264cefb667fdf0128e69e921886c2bf4a64d4bb4e8701e0d90",
             "dependencyClosure": []

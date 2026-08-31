@@ -2,7 +2,22 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-NODE_BIN="${FSUSBLOG_NODE:-node}"
+if [[ -n "${FSUSBLOG_NODE:-}" ]]; then
+    echo "release-final rejects ambient FSUSBLOG_NODE overrides" >&2
+    exit 1
+fi
+NODE_BIN="${FSUSBLOG_RELEASE_FINAL_NODE_BIN:-}"
+NODE_REALPATH="${FSUSBLOG_RELEASE_FINAL_NODE_REALPATH:-}"
+NODE_SHA256="${FSUSBLOG_RELEASE_FINAL_NODE_SHA256:-}"
+NODE_VERSION="${FSUSBLOG_RELEASE_FINAL_NODE_VERSION:-}"
+if [[ -z "$NODE_BIN" || -z "$NODE_REALPATH" || -z "$NODE_SHA256" || -z "$NODE_VERSION" || ! -f "$NODE_BIN" || ! -x "$NODE_BIN" || -L "$NODE_BIN" ]]; then
+    echo "release-final requires sealed Node toolchain identity" >&2
+    exit 1
+fi
+if [[ "$NODE_BIN" != "$NODE_REALPATH" || "$($NODE_BIN --version)" != "$NODE_VERSION" ]]; then
+    echo "release-final Node toolchain identity drifted" >&2
+    exit 1
+fi
 releaseFinalDecision="${FSUSBLOG_RELEASE_FINAL_SPAWN_DECISION:-fsusblog.release-finalizer-spawn-decision.v1|missing|0}"
 case "$releaseFinalDecision" in
     fsusblog.release-finalizer-spawn-decision.v1\|accepted\|1)

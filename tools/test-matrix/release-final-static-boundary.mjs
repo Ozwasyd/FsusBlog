@@ -1,6 +1,8 @@
 #!/usr/bin/env node
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -19,6 +21,7 @@ const executionTargetAuthorityFile = path.join(
     'tests/fixtures/test-matrix/release-final-execution-target-authority.json'
 );
 const releaseFinalizerDecisionSchema = 'fsusblog.release-finalizer-spawn-decision.v1';
+const commandTargetInspectionCache = new Map();
 
 export const releaseFinalSealStates = Object.freeze([
     'accepted',
@@ -31,7 +34,16 @@ const allowedReleaseFinalizerLines = [
     /^#!\/usr\/bin\/env bash$/u,
     /^set -euo pipefail$/u,
     /^ROOT_DIR="\$\(cd "\$\(dirname "\$\{BASH_SOURCE\[0\]\}"\)\/\.\.\/\.\.\/\.\." && pwd\)"$/u,
-    /^NODE_BIN="\$\{FSUSBLOG_NODE:-node\}"$/u,
+    /^if \[\[ -n "\$\{FSUSBLOG_NODE:-\}" \]\]; then$/u,
+    /^echo "release-final rejects ambient FSUSBLOG_NODE overrides" >&2$/u,
+    /^NODE_BIN="\$\{FSUSBLOG_RELEASE_FINAL_NODE_BIN:-\}"$/u,
+    /^NODE_REALPATH="\$\{FSUSBLOG_RELEASE_FINAL_NODE_REALPATH:-\}"$/u,
+    /^NODE_SHA256="\$\{FSUSBLOG_RELEASE_FINAL_NODE_SHA256:-\}"$/u,
+    /^NODE_VERSION="\$\{FSUSBLOG_RELEASE_FINAL_NODE_VERSION:-\}"$/u,
+    /^if \[\[ -z "\$NODE_BIN" \|\| -z "\$NODE_REALPATH" \|\| -z "\$NODE_SHA256" \|\| -z "\$NODE_VERSION" \|\| ! -f "\$NODE_BIN" \|\| ! -x "\$NODE_BIN" \|\| -L "\$NODE_BIN" \]\]; then$/u,
+    /^echo "release-final requires sealed Node toolchain identity" >&2$/u,
+    /^if \[\[ "\$NODE_BIN" != "\$NODE_REALPATH" \|\| "\$\(\$NODE_BIN --version\)" != "\$NODE_VERSION" \]\]; then$/u,
+    /^echo "release-final Node toolchain identity drifted" >&2$/u,
     /^releaseFinalDecision="\$\{FSUSBLOG_RELEASE_FINAL_SPAWN_DECISION:-fsusblog\.release-finalizer-spawn-decision\.v1\|missing\|0\}"$/u,
     /^case "\$releaseFinalDecision" in$/u,
     /^fsusblog\.release-finalizer-spawn-decision\.v1\\\|accepted\\\|1\)$/u,
@@ -60,6 +72,12 @@ const allowedReleaseFinalizerLines = [
     /^releaseFinalArgs\+=\(--domain-binding "\$FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH"\)$/u,
     /^"\$NODE_BIN" "\$ROOT_DIR\/tools\/release\/check-release-final\.mjs" "\$\{releaseFinalArgs\[@\]\}"$/u
 ];
+
+// This source-owner invariant is intentionally independent of the generated execution-target
+// snapshot. Removing or reordering the seal/control-flow cannot be re-admitted by regenerating
+// the candidate-owned authority fixture.
+const requiredReleaseFinalizerDigest =
+    'sha256:78371f755dc64e9917c86b934ddada3c3657f3e5f038af0d7cecac67dad04f10';
 
 const forbiddenFinalizerCapability =
     /(?:create-correctness|publish-release-final-evidence-parent|run-matrix-governance-once|check-job-summaries|check-flaky-|repository-governance-authority|check-release-evidence-manifest|(?:^|[\s/_.-])(?:producer|repair|parser|mutation|governance)(?:[\s/_.-]|$))/u;
@@ -232,7 +250,13 @@ function validateDeclarativeExecution(command)
 
     if (['printf', 'echo', 'test'].includes(executable))
     {
-        return { error: null, invokesReleaseFinalizer: false, target: null };
+        return {
+            error: null,
+            invokesReleaseFinalizer: false,
+            target: null,
+            executableKind: 'non-executing-data',
+            argv: parsed.argv
+        };
     }
     if (executable === 'bash' || executable === 'sh')
     {
@@ -248,7 +272,9 @@ function validateDeclarativeExecution(command)
         return {
             error: null,
             invokesReleaseFinalizer: repositoryScript === releaseFinalizerCommand,
-            target: repositoryScript
+            target: repositoryScript,
+            executableKind: 'shell-script',
+            argv: parsed.argv
         };
     }
     if (executable === 'node')
@@ -276,7 +302,9 @@ function validateDeclarativeExecution(command)
         return {
             error: null,
             invokesReleaseFinalizer: commandReferencesReleaseFinalizer(parsed.argv, entrypointIndex),
-            target: canonicalNodeEntrypoint(parsed.argv[entrypointIndex])
+            target: canonicalNodeEntrypoint(parsed.argv[entrypointIndex]),
+            executableKind: 'node-entrypoint',
+            argv: parsed.argv
         };
     }
 
@@ -292,7 +320,9 @@ function validateDeclarativeExecution(command)
         error: null,
         invokesReleaseFinalizer: repositoryExecutable === releaseFinalizerCommand
             || commandReferencesReleaseFinalizer(parsed.argv, executableIndex + 1),
-        target: repositoryExecutable
+        target: repositoryExecutable,
+        executableKind: 'repository-executable',
+        argv: parsed.argv
     };
 }
 
@@ -365,7 +395,7 @@ function inspectRegularRepositoryFile(repositoryRoot, relativePath)
 function resolveExistingDependency(repositoryRoot, ownerPath, reference)
 {
     const normalizedReference = reference.replaceAll('\\', '/');
-    const candidate = normalizedReference.startsWith('tools/') || normalizedReference.startsWith('tests/')
+    const candidate = ['tools/', 'tests/', 'src/'].some((prefix) => normalizedReference.startsWith(prefix))
         ? normalizedReference
         : path.posix.join(path.posix.dirname(ownerPath), normalizedReference);
     const normalized = path.posix.normalize(candidate);
@@ -376,7 +406,16 @@ function resolveExistingDependency(repositoryRoot, ownerPath, reference)
     const variants = [normalized];
     if (!path.posix.extname(normalized))
     {
-        variants.push(`${normalized}.mjs`, `${normalized}.js`, path.posix.join(normalized, 'index.mjs'));
+        variants.push(
+            `${normalized}.mjs`,
+            `${normalized}.js`,
+            `${normalized}.cjs`,
+            `${normalized}.ts`,
+            `${normalized}.tsx`,
+            `${normalized}.json`,
+            path.posix.join(normalized, 'index.mjs'),
+            path.posix.join(normalized, 'index.js')
+        );
     }
     return variants.find((variant) =>
     {
@@ -392,6 +431,99 @@ function resolveExistingDependency(repositoryRoot, ownerPath, reference)
     }) ?? null;
 }
 
+function nodeModuleDependencyReferences(repositoryRoot, ownerPath, source)
+{
+    const frontendRequire = createRequire(path.join(repositoryRoot, 'src/frontend/package.json'));
+    let parse;
+    try
+    {
+        ({ parse } = frontendRequire('@babel/parser'));
+    }
+    catch (error)
+    {
+        throw new Error(`@babel/parser is required for recursive Node module authority: ${error.message}`);
+    }
+    const ast = parse(source, {
+        sourceType: 'unambiguous',
+        createImportExpressions: true,
+        errorRecovery: false,
+        plugins: ['typescript', 'jsx', 'importAttributes', 'topLevelAwait']
+    });
+    const references = new Set();
+    const literalValue = (node) => (
+        node?.type === 'StringLiteral' || node?.type === 'Literal'
+            ? node.value
+            : null
+    );
+    const newUrlReference = (node) =>
+    {
+        if (node?.type !== 'NewExpression' || node.callee?.type !== 'Identifier' || node.callee.name !== 'URL')
+        {
+            return null;
+        }
+        const [reference, base] = node.arguments ?? [];
+        const importMeta = base?.type === 'MemberExpression'
+            && base.object?.type === 'MetaProperty'
+            && base.object.meta?.name === 'import'
+            && base.object.property?.name === 'meta'
+            && base.property?.type === 'Identifier'
+            && base.property.name === 'url';
+        return importMeta ? literalValue(reference) : null;
+    };
+    const visit = (node) =>
+    {
+        if (!node || typeof node !== 'object')
+        {
+            return;
+        }
+        if (['ImportDeclaration', 'ExportNamedDeclaration', 'ExportAllDeclaration'].includes(node.type))
+        {
+            const reference = literalValue(node.source);
+            if (typeof reference === 'string')
+            {
+                references.add(reference);
+            }
+        }
+        else if (node.type === 'ImportExpression')
+        {
+            const reference = literalValue(node.source) ?? newUrlReference(node.source);
+            if (typeof reference === 'string')
+            {
+                references.add(reference);
+            }
+        }
+        else if (
+            node.type === 'CallExpression'
+            && node.callee?.type === 'Identifier'
+            && node.callee.name === 'require'
+        )
+        {
+            const reference = literalValue(node.arguments?.[0]);
+            if (typeof reference === 'string')
+            {
+                references.add(reference);
+            }
+        }
+        for (const [key, value] of Object.entries(node))
+        {
+            if (key === 'loc' || key === 'start' || key === 'end')
+            {
+                continue;
+            }
+            if (Array.isArray(value))
+            {
+                value.forEach(visit);
+            }
+            else if (value && typeof value === 'object')
+            {
+                visit(value);
+            }
+        }
+    };
+    visit(ast);
+    return [...references];
+}
+
 function localDependencyReferences(repositoryRoot, ownerPath, source)
 {
     const references = new Set();
@@ -403,20 +535,39 @@ function localDependencyReferences(repositoryRoot, ownerPath, source)
             references.add(resolved);
         }
     };
-    if (/\.(?:mjs|js|cjs)$/u.test(ownerPath))
+    if (/\.(?:mjs|js|cjs|ts|tsx)$/u.test(ownerPath))
     {
-        const imports = source.matchAll(
-            /(?:from\s*|import\s*\(|import\s*|require\s*\()\s*['"](?<path>\.{1,2}\/[^'"]+)['"]/gu
-        );
-        for (const match of imports)
+        let moduleReferences;
+        try
         {
-            add(match.groups.path);
+            moduleReferences = nodeModuleDependencyReferences(repositoryRoot, ownerPath, source);
+        }
+        catch (error)
+        {
+            // A syntax-invalid command target cannot execute any dependency. Its exact bytes
+            // remain sealed by the target digest; any repair changes that digest and forces
+            // a fresh semantic traversal before authority can be regenerated.
+            if (error.code === 'BABEL_PARSER_SYNTAX_ERROR')
+            {
+                moduleReferences = [];
+            }
+            else
+            {
+                throw new Error(`${ownerPath}: Node module AST parse failed: ${error.message}`);
+            }
+        }
+        for (const reference of moduleReferences)
+        {
+            if (reference.startsWith('.') || ['tools/', 'tests/', 'src/'].some((prefix) => reference.startsWith(prefix)))
+            {
+                add(reference);
+            }
         }
     }
     else if (ownerPath.endsWith('.sh'))
     {
         const repositoryPaths = source.matchAll(
-            /(?:^|[^A-Za-z0-9_.-])(?<path>(?:tools|tests)\/[A-Za-z0-9_./-]+\.(?:sh|mjs|js|cjs))/gmu
+            /(?:^|[^A-Za-z0-9_.-])(?<path>(?:tools|tests|src)\/[A-Za-z0-9_./-]+\.(?:sh|mjs|js|cjs|ts|tsx))/gmu
         );
         for (const match of repositoryPaths)
         {
@@ -435,8 +586,26 @@ function localDependencyReferences(repositoryRoot, ownerPath, source)
 
 export function inspectReleaseFinalCommandTarget({ repositoryRoot = root, target })
 {
+    const cacheKey = `${path.resolve(repositoryRoot)}\0${target}`;
+    const cached = commandTargetInspectionCache.get(cacheKey);
+    if (cached && cached.files.every(({ file, signature }) =>
+    {
+        try
+        {
+            const stat = fs.lstatSync(file);
+            return `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}` === signature;
+        }
+        catch
+        {
+            return false;
+        }
+    }))
+    {
+        return structuredClone(cached.result);
+    }
     const errors = [];
     const inspected = new Map();
+    const inspectedFiles = [];
     const visit = (relativePath) =>
     {
         if (inspected.has(relativePath))
@@ -450,6 +619,11 @@ export function inspectReleaseFinalCommandTarget({ repositoryRoot = root, target
             return;
         }
         const source = fs.readFileSync(file.resolvedPath);
+        const stat = fs.lstatSync(file.resolvedPath);
+        inspectedFiles.push({
+            file: file.resolvedPath,
+            signature: `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}`
+        });
         inspected.set(relativePath, digestBytes(source));
         const sourceText = source.toString('utf8');
         if (
@@ -474,29 +648,37 @@ export function inspectReleaseFinalCommandTarget({ repositoryRoot = root, target
             path: dependency,
             contentDigest: dependencyDigest
         }));
-    return { errors, target, contentDigest, dependencyClosure };
+    const result = { errors, target, contentDigest, dependencyClosure };
+    commandTargetInspectionCache.set(cacheKey, { files: inspectedFiles, result });
+    return structuredClone(result);
 }
 
 function buildExecutionTargetAuthority(tierExecutions, repositoryRoot = root)
 {
-    const targetOwners = new Map();
+    const targetDeclarations = new Map();
     for (const { tier, execution } of tierExecutions)
     {
         if (execution.error || !execution.target)
         {
             continue;
         }
-        if (!targetOwners.has(execution.target))
+        if (!targetDeclarations.has(execution.target))
         {
-            targetOwners.set(execution.target, new Set());
+            targetDeclarations.set(execution.target, []);
         }
-        targetOwners.get(execution.target).add(tier?.id ?? '<missing-id>');
+        targetDeclarations.get(execution.target).push({
+            owner: tier?.id ?? '<missing-id>',
+            commandKind: tier?.commandKind ?? null,
+            executionMode: tier?.executionMode ?? null,
+            executableKind: execution.executableKind,
+            argv: execution.argv
+        });
     }
     const errors = [];
     const closureFiles = new Map();
-    const targets = [...targetOwners.entries()]
+    const targets = [...targetDeclarations.entries()]
         .sort(([left], [right]) => left.localeCompare(right))
-        .map(([target, owners]) =>
+        .map(([target, declarations]) =>
         {
             const inspection = inspectReleaseFinalCommandTarget({ repositoryRoot, target });
             errors.push(...inspection.errors);
@@ -511,13 +693,14 @@ function buildExecutionTargetAuthority(tierExecutions, repositoryRoot = root)
             }
             return {
                 target,
-                owners: [...owners].sort(),
+                owners: declarations.map(({ owner }) => owner).sort(),
+                declarations: declarations.sort((left, right) => left.owner.localeCompare(right.owner)),
                 contentDigest: inspection.contentDigest,
                 dependencyClosure: inspection.dependencyClosure.map((dependency) => dependency.path)
             };
         });
     const authority = {
-        schema: 'fsusblog.release-final-execution-target-authority.v1',
+        schema: 'fsusblog.release-final-execution-target-authority.v2',
         source: 'tests/matrix.yml',
         producer: 'node tools/test-matrix/release-final-static-boundary.mjs --write-authority',
         closureFiles: [...closureFiles.entries()]
@@ -560,6 +743,12 @@ function executionTargetAuthorityDifferences(expected, actual)
                 + `got ${actualEntry.owners.join(', ')}`
             );
         }
+        else if (JSON.stringify(actualEntry.declarations) !== JSON.stringify(expectedEntry.declarations))
+        {
+            errors.push(
+                `execution target ${target} exact command argv, command kind, or execution mode drifted`
+            );
+        }
     }
     for (const target of expectedTargets.keys())
     {
@@ -577,6 +766,14 @@ function validateScriptSource(scriptSource)
     if (typeof scriptSource !== 'string' || scriptSource.length === 0)
     {
         return ['release-final script source must be a non-empty string'];
+    }
+
+    if (digestBytes(scriptSource) !== requiredReleaseFinalizerDigest)
+    {
+        errors.push(
+            'release-final exact required control-flow owner digest drifted: '
+            + `expected ${requiredReleaseFinalizerDigest}; got ${digestBytes(scriptSource)}`
+        );
     }
 
     const lines = scriptSource.split('\n');
@@ -609,7 +806,7 @@ function validateScriptSource(scriptSource)
     return errors;
 }
 
-export function validateReleaseFinalStaticBoundary({ matrix, scriptSource })
+export function validateReleaseFinalStaticBoundary({ matrix, scriptSource, repositoryRoot = root })
 {
     const errors = validateScriptSource(scriptSource);
     const plan = buildReleaseFinalizerPlan(matrix);
@@ -628,12 +825,18 @@ export function validateReleaseFinalStaticBoundary({ matrix, scriptSource })
     }
     if (invalidTierExecutions.length === 0)
     {
-        const targetAuthority = buildExecutionTargetAuthority(tierExecutions);
+        const targetAuthority = buildExecutionTargetAuthority(tierExecutions, repositoryRoot);
         errors.push(...targetAuthority.errors.map((error) => `execution target authority: ${error}`));
         let expectedTargetAuthority;
         try
         {
-            expectedTargetAuthority = JSON.parse(fs.readFileSync(executionTargetAuthorityFile, 'utf8'));
+            expectedTargetAuthority = JSON.parse(fs.readFileSync(
+                path.join(
+                    repositoryRoot,
+                    'tests/fixtures/test-matrix/release-final-execution-target-authority.json'
+                ),
+                'utf8'
+            ));
         }
         catch
         {
@@ -712,6 +915,44 @@ export function validateReleaseFinalStaticBoundary({ matrix, scriptSource })
     return errors;
 }
 
+export function validateRepositoryReleaseFinalStaticBoundary(repositoryRoot = root)
+{
+    const repositoryMatrixFile = path.join(repositoryRoot, 'tests/matrix.yml');
+    const repositoryFinalizerFile = path.join(repositoryRoot, releaseFinalizerCommand);
+    const requiredFiles = [
+        repositoryMatrixFile,
+        repositoryFinalizerFile,
+        path.join(
+            repositoryRoot,
+            'tests/fixtures/test-matrix/release-final-execution-target-authority.json'
+        )
+    ];
+    const isCanonicalRepository = fs.existsSync(path.join(repositoryRoot, 'AGENTS.md'));
+    if (!isCanonicalRepository && !requiredFiles.every((file) => fs.existsSync(file)))
+    {
+        return [];
+    }
+    const missing = requiredFiles.filter((file) => !fs.existsSync(file));
+    if (missing.length > 0)
+    {
+        return missing.map((file) => (
+            `production release-final static boundary file is missing: ${path.relative(repositoryRoot, file)}`
+        ));
+    }
+    try
+    {
+        return validateReleaseFinalStaticBoundary({
+            matrix: parseMatrix(fs.readFileSync(repositoryMatrixFile, 'utf8')),
+            scriptSource: fs.readFileSync(repositoryFinalizerFile, 'utf8'),
+            repositoryRoot
+        });
+    }
+    catch (error)
+    {
+        return [`production release-final static boundary could not be evaluated: ${error.message}`];
+    }
+}
+
 export function buildReleaseFinalizerSpawnDecision({ sealState, boundaryErrors = [] })
 {
     if (!releaseFinalSealStates.includes(sealState))
@@ -760,6 +1001,10 @@ export function applyReleaseFinalizerSpawnDecision(
         ['domain binding', sealedEnvironment.FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH]
     ];
     const boundaryErrors = [];
+    if (String(sealedEnvironment.FSUSBLOG_NODE ?? '').trim())
+    {
+        boundaryErrors.push('ambient FSUSBLOG_NODE override is forbidden');
+    }
     for (const [name, value] of pathBindings)
     {
         const declaredPath = String(value ?? '').trim();
@@ -784,8 +1029,21 @@ export function applyReleaseFinalizerSpawnDecision(
             boundaryErrors.push(`${name} must be a nonempty regular file`);
         }
     }
+    const nodeRealPath = fs.realpathSync(process.execPath);
+    const nodeStat = fs.lstatSync(nodeRealPath);
+    const nodeVersion = execFileSync(nodeRealPath, ['--version'], { encoding: 'utf8' }).trim();
+    if (!nodeStat.isFile() || nodeStat.isSymbolicLink() || nodeVersion !== process.version)
+    {
+        boundaryErrors.push('scheduler Node toolchain identity is not a regular exact-version executable');
+    }
+    const nodeDigest = digestBytes(fs.readFileSync(nodeRealPath));
     const decision = buildReleaseFinalizerSpawnDecision({ sealState, boundaryErrors });
     sealedEnvironment.FSUSBLOG_RELEASE_FINAL_SPAWN_DECISION = decision.shellToken;
+    delete sealedEnvironment.FSUSBLOG_NODE;
+    sealedEnvironment.FSUSBLOG_RELEASE_FINAL_NODE_BIN = nodeRealPath;
+    sealedEnvironment.FSUSBLOG_RELEASE_FINAL_NODE_REALPATH = nodeRealPath;
+    sealedEnvironment.FSUSBLOG_RELEASE_FINAL_NODE_SHA256 = nodeDigest;
+    sealedEnvironment.FSUSBLOG_RELEASE_FINAL_NODE_VERSION = nodeVersion;
     return sealedEnvironment;
 }
 

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import {
     chmodSync,
+    copyFileSync,
     mkdtempSync,
     mkdirSync,
     readFileSync,
@@ -15,6 +16,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs';
+import { runDag } from '../../tools/test-matrix/scheduler.mjs';
 import { validateEvidenceExecutionDeclaration } from '../../tools/test-matrix/projection-declaration.mjs';
 import {
     applyReleaseFinalizerSpawnDecision,
@@ -363,6 +365,53 @@ test('raw line separators block real Bash follow-on finalizer execution before s
     }
 });
 
+test('production scheduler admission rejects a newline command before executeTier child spawn', async () =>
+{
+    const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), 'release-final-scheduler-admission-'));
+    let childSpawns = 0;
+    try
+    {
+        mkdirSync(path.join(fixtureRoot, 'tests/fixtures/test-matrix'), { recursive: true });
+        mkdirSync(path.join(fixtureRoot, 'tools/test/lanes'), { recursive: true });
+        const mutatedMatrixSource = readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8').replace(
+            '      command: node tools/run-test-matrix.mjs aggregate ci-summary',
+            '      command: "echo data\\ntools/test/lanes/release-final.sh"'
+        );
+        writeFileSync(path.join(fixtureRoot, 'tests/matrix.yml'), mutatedMatrixSource);
+        copyFileSync(
+            path.join(root, 'tools/test/lanes/release-final.sh'),
+            path.join(fixtureRoot, 'tools/test/lanes/release-final.sh')
+        );
+        copyFileSync(
+            path.join(root, 'tests/fixtures/test-matrix/release-final-execution-target-authority.json'),
+            path.join(fixtureRoot, 'tests/fixtures/test-matrix/release-final-execution-target-authority.json')
+        );
+        await assert.rejects(
+            () => runDag({
+                root: fixtureRoot,
+                runsRoot: path.join(fixtureRoot, 'runs'),
+                runId: 'newline-admission',
+                targetTierId: 'ci',
+                tiers: [{ id: 'ci', command: 'echo data\ntools/test/lanes/release-final.sh' }],
+                maxParallel: 1,
+                snapshotWorktree: async () => ({ fingerprint: 'fixture-fingerprint' }),
+                sourceState: { commit: 'fixture-commit', worktreeFingerprint: 'fixture-fingerprint' },
+                executeTier: async () =>
+                {
+                    childSpawns += 1;
+                    return { status: 'success', durationMs: 1 };
+                }
+            }),
+            /production release-final static boundary rejected scheduler dispatch[\s\S]*line separators/u
+        );
+        assert.equal(childSpawns, 0);
+    }
+    finally
+    {
+        rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+});
+
 test('target inspection rejects file and parent symlinks plus indirect ordinary wrappers', () =>
 {
     const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), 'release-final-target-'));
@@ -436,6 +485,90 @@ test('only explicit non-executing argv data and noncanonical basenames remain ad
             });
             assert.deepEqual(validateReleaseFinalStaticBoundary({ matrix: mutated, scriptSource }), []);
         });
+    }
+});
+
+test('exact command argv authority rejects same-target subcommand and executable-path argument drift', async (context) =>
+{
+    const mutations = [
+        ['matrix subcommand', 'ci', 'node tools/run-test-matrix.mjs ci-release-final'],
+        [
+            'release reliability executable arguments',
+            'release-reliability-fresh',
+            'tools/test/run-release-reliability-qualified-local.sh '
+                + '--test-workflow /tmp/runner /tmp/verifier /tmp/receipt /tmp/resource'
+        ]
+    ];
+    for (const [name, tierId, command] of mutations)
+    {
+        await context.test(name, () =>
+        {
+            const mutated = structuredClone(matrix);
+            mutated.tiers.find((tier) => tier.id === tierId).command = command;
+            const errors = validateReleaseFinalStaticBoundary({ matrix: mutated, scriptSource });
+            assert.match(
+                errors.join('\n'),
+                /exact command argv, command kind, or execution mode drifted|authority owner, content, or dependency closure drifted/u
+            );
+            assert.equal(
+                buildReleaseFinalizerSpawnDecision({ sealState: 'accepted', boundaryErrors: errors }).spawnCount,
+                0
+            );
+        });
+    }
+});
+
+test('removing the required seal control-flow cannot be re-admitted by unchanged allowed lines', () =>
+{
+    const withoutSeal = scriptSource.replace(
+        /case "\$releaseFinalDecision" in[\s\S]*?^esac\n/mu,
+        ''
+    );
+    assert.notEqual(withoutSeal, scriptSource);
+    const errors = validateReleaseFinalStaticBoundary({ matrix, scriptSource: withoutSeal });
+    assert.match(errors.join('\n'), /exact required control-flow owner digest drifted/u);
+    assert.equal(
+        buildReleaseFinalizerSpawnDecision({ sealState: 'accepted', boundaryErrors: errors }).spawnCount,
+        0
+    );
+});
+
+test('Node AST closure binds actual build.mjs dynamic import(new URL(...)) dependencies', () =>
+{
+    const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), 'release-final-node-ast-'));
+    const buildPath = 'tools/frontend/build.mjs';
+    const fsusuiRootPath = 'src/frontend/scripts/fsusui-root.mjs';
+    try
+    {
+        mkdirSync(path.join(fixtureRoot, 'tools/frontend'), { recursive: true });
+        mkdirSync(path.join(fixtureRoot, 'src/frontend/scripts'), { recursive: true });
+        copyFileSync(path.join(root, buildPath), path.join(fixtureRoot, buildPath));
+        copyFileSync(path.join(root, fsusuiRootPath), path.join(fixtureRoot, fsusuiRootPath));
+        symlinkSync(
+            path.join(root, 'src/frontend/node_modules'),
+            path.join(fixtureRoot, 'src/frontend/node_modules'),
+            'dir'
+        );
+        const before = inspectReleaseFinalCommandTarget({ repositoryRoot: fixtureRoot, target: buildPath });
+        assert.deepEqual(before.errors, []);
+        const beforeDependency = before.dependencyClosure.find(({ path: dependency }) => (
+            dependency === fsusuiRootPath
+        ));
+        assert.ok(beforeDependency, 'actual build.mjs dynamic import dependency must enter closure');
+
+        writeFileSync(
+            path.join(fixtureRoot, fsusuiRootPath),
+            `${readFileSync(path.join(fixtureRoot, fsusuiRootPath), 'utf8')}\n// authority mutation\n`
+        );
+        const after = inspectReleaseFinalCommandTarget({ repositoryRoot: fixtureRoot, target: buildPath });
+        const afterDependency = after.dependencyClosure.find(({ path: dependency }) => (
+            dependency === fsusuiRootPath
+        ));
+        assert.notEqual(afterDependency.contentDigest, beforeDependency.contentDigest);
+    }
+    finally
+    {
+        rmSync(fixtureRoot, { recursive: true, force: true });
     }
 });
 

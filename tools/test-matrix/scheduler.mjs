@@ -51,7 +51,10 @@ import {
     resolveRunBoundArtifactDeclaration
 } from './local-profile.mjs';
 import { createProductionResourceEnforcer } from './production-resource-enforcement.mjs';
-import { applyReleaseFinalizerSpawnDecision } from './release-final-static-boundary.mjs';
+import {
+    applyReleaseFinalizerSpawnDecision,
+    validateRepositoryReleaseFinalStaticBoundary
+} from './release-final-static-boundary.mjs';
 import { releaseReliabilityResourceConflict } from './release-reliability-scheduler-projection.mjs';
 import {
     createResidentLeaseHandoff,
@@ -4111,6 +4114,14 @@ function resetFreshRunDirectory(runDirectory, preservation = null)
 async function runDagUnlocked(options)
 {
     const root = path.resolve(options.root);
+    const releaseFinalStaticBoundaryErrors = validateRepositoryReleaseFinalStaticBoundary(root);
+    if (releaseFinalStaticBoundaryErrors.length > 0)
+    {
+        throw new Error(
+            'production release-final static boundary rejected scheduler dispatch:\n'
+            + releaseFinalStaticBoundaryErrors.join('\n')
+        );
+    }
     const runsRoot = resolveRealOrAncestralPath(options.runsRoot ?? path.join(root, '.tmp/test-runs'));
     const runId = safeRunId(options.runId ?? createRunId(options.targetTierId ?? 'matrix'));
     const runDirectory = path.join(runsRoot, runId);

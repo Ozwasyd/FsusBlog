@@ -59,7 +59,10 @@ test('nonaccepted seals and nonexistent evidence fail before any checker child s
             ...process.env,
             PATH: `${bin}:${process.env.PATH}`,
             FSUSBLOG_SPAWN_LOG: log,
-            FSUSBLOG_NODE: checkerNode
+            FSUSBLOG_RELEASE_FINAL_NODE_BIN: process.execPath,
+            FSUSBLOG_RELEASE_FINAL_NODE_REALPATH: process.execPath,
+            FSUSBLOG_RELEASE_FINAL_NODE_SHA256: 'test-sealed-by-production-scheduler',
+            FSUSBLOG_RELEASE_FINAL_NODE_VERSION: process.version
         };
         const finalizerRoot = path.join(fixture, 'finalizer-root');
         mkdirSync(path.join(finalizerRoot, 'tools/test/lanes'), { recursive: true });
@@ -97,6 +100,19 @@ test('nonaccepted seals and nonexistent evidence fail before any checker child s
             });
         }
         const accepted = buildReleaseFinalizerSpawnDecision({ sealState: 'accepted' });
+        await context.test('accepted ambient fake Node override', () =>
+        {
+            const result = execute({
+                FSUSBLOG_NODE: checkerNode,
+                FSUSBLOG_RELEASE_FINAL_SPAWN_DECISION: accepted.shellToken,
+                FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT: contextFile,
+                FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH: manifestFile,
+                FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH: domainFile
+            });
+            assert.notEqual(result.status, 0);
+            assert.match(`${result.stdout}\n${result.stderr}`, /rejects ambient FSUSBLOG_NODE/u);
+            assert.equal(readFileSync(log, 'utf8'), '', 'ambient fake Node must keep child spawn count at zero');
+        });
         for (const [name, missingPath] of [
             ['context', contextFile],
             ['manifest', manifestFile],
