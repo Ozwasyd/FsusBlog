@@ -651,8 +651,15 @@ export function produceClassReceipt({ candidatePlan, classId, result, repository
     worktreeFingerprint: plan.sourceState.worktreeFingerprint,
     buildIdentity: plan.build.receiptContentDigest,
     candidateId: plan.candidate.candidateId,
+    runtimeId: plan.candidate.runtimeId,
+    runtimeIdentity: `sha256:${digestValue(plan.candidate.runtimeId)}`,
     runId: plan.candidate.runId,
-    browserIdentity: plan.candidate.browserId,
+    attemptId: plan.candidate.attemptId,
+    fixtureId: plan.candidate.fixtureId,
+    profileId: plan.candidate.profileId,
+    browserIdentity: definition.requiredIdentityFields.includes('runtimeIdentity')
+      ? `sha256:${digestValue(plan.candidate.browserId)}`
+      : plan.candidate.browserId,
     releaseId: plan.candidate.releaseId,
     rolloutId: plan.candidate.rolloutId
   }

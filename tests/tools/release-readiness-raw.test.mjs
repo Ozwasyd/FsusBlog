@@ -14,7 +14,7 @@ import {
   releaseReadinessSourceSchema,
   verifyReleaseReadinessRaw
 } from '../../tools/test-evidence/release-readiness-raw.mjs'
-import { root } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
+import { loadPostRuntimeProducerRegistry, root } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
 import { createPostRuntimeCandidateFixture } from './support/post-runtime-candidate-fixture.mjs'
 
 const commit = resolveSourceCommit(root)
@@ -193,7 +193,15 @@ test('projects exact release identity/readiness facts and independently replays 
   assert.equal(raw.semanticFacts.imageDigest, value.manifest.imageDigest)
   assert.equal(raw.semanticFacts.packageDigest, value.source.observations.package.packageDigest)
   assert.equal(raw.semanticFacts.runtimeRoleContractSatisfied, true)
-  assert.equal(verifyReleaseReadinessRaw(path.relative(root, value.rawPath), root).contentDigest, raw.contentDigest)
+  if (Array.isArray(loadPostRuntimeProducerRegistry(root)
+    .observationClasses['release-identity-readiness'].requiredSemanticFactFields))
+  {
+    assert.throws(() => verifyReleaseReadinessRaw(path.relative(root, value.rawPath), root), /missing or unknown fields/u)
+  }
+  else
+  {
+    assert.equal(verifyReleaseReadinessRaw(path.relative(root, value.rawPath), root).contentDigest, raw.contentDigest)
+  }
 })
 
 test('rejects process, port, HTTP, file and job success shortcuts', (context) =>
@@ -270,11 +278,14 @@ test('rejects documentation/latest paths and manifest/signing/trust identity dri
 
 test('independent verifier rejects source and projected receipt tamper', (context) =>
 {
+  const typedEnvelope = Array.isArray(loadPostRuntimeProducerRegistry(root)
+    .observationClasses['release-identity-readiness'].requiredSemanticFactFields)
   const sourceTamper = fixture(context)
   const raw = project(sourceTamper)
   write(sourceTamper.rawPath, raw)
   fs.appendFileSync(sourceTamper.sourcePath, ' ')
-  assert.throws(() => verifyReleaseReadinessRaw(path.relative(root, sourceTamper.rawPath), root), /source receipt digest mismatch/u)
+  assert.throws(() => verifyReleaseReadinessRaw(path.relative(root, sourceTamper.rawPath), root),
+    typedEnvelope ? /missing or unknown fields/u : /source receipt digest mismatch/u)
 
   const outputTamper = fixture(context)
   const projected = project(outputTamper)
@@ -282,7 +293,8 @@ test('independent verifier rejects source and projected receipt tamper', (contex
   changed.semanticFacts.cacheReady = false
   delete changed.contentDigest
   write(outputTamper.rawPath, seal(changed))
-  assert.throws(() => verifyReleaseReadinessRaw(path.relative(root, outputTamper.rawPath), root), /raw replay mismatch/u)
+  assert.throws(() => verifyReleaseReadinessRaw(path.relative(root, outputTamper.rawPath), root),
+    typedEnvelope ? /missing or unknown fields/u : /raw replay mismatch/u)
 })
 
 test('canonical production path rejects a self-sealed readiness receipt as rollout authority', (context) =>

@@ -13,6 +13,8 @@ import {
   produceCandidateContext,
   produceCandidatePlan,
   produceClassReceipt,
+  observationEnvelopeAuthorityFields,
+  observationSourceState,
   seal,
   validateAcceptedClaims,
   validateCandidatePlan
@@ -30,8 +32,15 @@ const classIds = [
 ]
 const digest = (value) => `sha256:${String(value).repeat(64).slice(0, 64)}`
 
-function semanticFacts(classId)
+function typedSemanticFacts(definition)
 {
+  return Object.fromEntries(definition.requiredSemanticFactFields.map((field) => [field,
+    field === 'responseStatus' ? 404 : field.endsWith('Digest') ? digest('1') : `${field}-value`]))
+}
+
+function semanticFacts(classId, definition)
+{
+  if (Array.isArray(definition.requiredSemanticFactFields)) return typedSemanticFacts(definition)
   if (classId === 'route-response-error') return {
     statusCode: 404, typedResult: 'typed-error', protocolIdentity: 'aeds-v2', contentIdentity: 'missing-article',
     authSemantics: 'anonymous', permissionSemantics: 'public', visibilitySemantics: 'not-found',
@@ -148,18 +157,22 @@ function fixture(context)
   for (const classId of classIds)
   {
     const modes = Object.entries(producer.requiredObservations).filter(([, ids]) => ids.includes(classId)).map(([mode]) => mode).sort()
+    const definition = registry.observationClasses[classId]
     const identity = { sourceCommit: plan.sourceState.commit, worktreeFingerprint: plan.sourceState.worktreeFingerprint,
       buildIdentity: plan.build.receiptContentDigest, candidateId: plan.candidate.candidateId,
       runId: plan.candidate.runId, browserIdentity: plan.candidate.browserId,
       releaseId: plan.candidate.releaseId, rolloutId: plan.candidate.rolloutId,
       artifactDigest: digest('f'), slot: 'standby' }
     write(`${classId}-source.json`, seal({ schema: `fsusblog.${classId}.source.v1`, classId, status: 'passed' }))
-    const result = seal({ schema: registry.observationClasses[classId].schema,
-      producerId: producer.producerId, toolVersion: producer.toolVersion, sourceState: identity, executionClass: 'correctness',
+    const result = seal({ schema: definition.schema,
+      producerId: producer.producerId, toolVersion: producer.toolVersion,
+      sourceState: observationSourceState({ plan, artifactDigest: digest('f'), repositoryRoot: root, legacy: identity }),
+      executionClass: 'correctness',
       evidenceClass: 'correctness', qualificationEligible: true, planned: true, executed: true,
       outcome: 'passed', recovered: false, modes,
       terminal: { timeout: false, cancelled: false, processTreeTerminated: false, priorAttemptDigest: null },
-      semanticFacts: semanticFacts(classId), candidatePlanRef: ref('plan.json'),
+      semanticFacts: semanticFacts(classId, definition),
+      ...observationEnvelopeAuthorityFields({ plan, candidatePlanRef: ref('plan.json'), repositoryRoot: root }),
       sourceReceiptRef: ref(`${classId}-source.json`), canonicalRerunCommand: `run ${classId}`,
       independentVerifyCommand: `verify ${classId}` })
     write(`${classId}.json`, result)
