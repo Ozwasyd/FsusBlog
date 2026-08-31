@@ -11,6 +11,20 @@ const GC_STATE_FIELDS = [
   'activeReleaseId', 'drainingReleaseIds', 'minimumRetainedReleaseCount', 'previousReleaseId',
   'referencedReleaseIds', 'retentionReleaseIds', 'schema'
 ]
+const GC_PLAN_FIELDS = ['objects', 'planSha256', 'protectedManifestBindings', 'releases', 'schema', 'state', 'storeDirectory']
+const GC_EVIDENCE_FIELDS = [
+  'activeProtection', 'after', 'before', 'dryRun', 'errors', 'lockFile',
+  'objectActions', 'plan', 'planSha256', 'protectedReleaseIds', 'releaseActions',
+  'schema', 'status', 'storeDirectory'
+]
+const GC_PROTECTION_REASONS = new Set([
+  'active',
+  'draining',
+  'external-reference',
+  'minimum-retention-count',
+  'previous',
+  'retention-window'
+])
 
 export function normalizeGcState(state) {
   if (!state || typeof state !== 'object' || Array.isArray(state)) throw new Error('GC state must be an object')
@@ -78,9 +92,12 @@ export function planReleaseAssetGc({ storeDirectory, state }) {
     action: protectedReasons.has(releaseId) ? 'retain' : 'delete'
   }))
 
+  const protectedManifestBindings = []
   const retainedObjectHashes = new Set()
   for (const release of releases.filter(release => release.protected)) {
-    for (const file of readAssetManifest(path.join(releaseRoot, release.releaseId)).files) {
+    const { manifest, manifestSha256 } = readAssetManifest(path.join(releaseRoot, release.releaseId))
+    protectedManifestBindings.push({ releaseId: release.releaseId, assetManifestSha256: manifestSha256 })
+    for (const file of manifest.files) {
       retainedObjectHashes.add(file.sha256.slice('sha256:'.length))
     }
   }
@@ -99,6 +116,7 @@ export function planReleaseAssetGc({ storeDirectory, state }) {
     schema: RELEASE_GC_PLAN_SCHEMA,
     storeDirectory: store,
     state: normalizedState,
+    protectedManifestBindings,
     releases,
     objects
   }
@@ -107,13 +125,26 @@ export function planReleaseAssetGc({ storeDirectory, state }) {
 
 export function verifyReleaseAssetGcPlan(plan) {
   if (!plan || typeof plan !== 'object' || Array.isArray(plan)) throw new Error('GC plan must be an object')
-  assertExactFields(plan, ['objects', 'planSha256', 'releases', 'schema', 'state', 'storeDirectory'], 'GC plan')
+  assertExactFields(plan, GC_PLAN_FIELDS, 'GC plan')
   if (plan.schema !== RELEASE_GC_PLAN_SCHEMA) throw new Error(`GC plan schema must be ${RELEASE_GC_PLAN_SCHEMA}`)
-  const { planSha256, ...payload } = plan
+  const normalized = {
+    schema: RELEASE_GC_PLAN_SCHEMA,
+    storeDirectory: path.resolve(plan.storeDirectory),
+    state: normalizeGcState(plan.state),
+    protectedManifestBindings: normalizeProtectedManifestBindings(plan.protectedManifestBindings),
+    releases: normalizeReleaseActions(plan.releases),
+    objects: normalizeObjectActions(plan.objects),
+    planSha256: String(plan.planSha256 ?? '')
+  }
+  const { planSha256, ...payload } = normalized
+  if (!/^sha256:[0-9a-f]{64}$/u.test(planSha256)) throw new Error('GC plan digest must be a lowercase sha256 digest')
   if (digestJson(payload) !== planSha256) throw new Error('GC plan digest does not match its closed content')
-  normalizeGcState(plan.state)
-  assertSafeStoreRoot(path.resolve(plan.storeDirectory))
-  return plan
+  if (JSON.stringify(normalized.protectedManifestBindings.map(entry => entry.releaseId))
+      !== JSON.stringify(normalized.releases.filter(release => release.protected).map(release => release.releaseId))) {
+    throw new Error('GC protected manifest bindings must match the protected release set')
+  }
+  assertSafeStoreRoot(normalized.storeDirectory)
+  return Object.freeze(normalized)
 }
 
 export function executeReleaseAssetGc({
@@ -123,7 +154,8 @@ export function executeReleaseAssetGc({
   evidenceFile = null,
   lockFile = null,
   activeProtection = null,
-  refreshProtection = null
+  refreshProtection = null,
+  reviewedDryRun = null
 }) {
   const store = path.resolve(storeDirectory)
   const resolvedLockFile = path.resolve(lockFile ?? path.join(store, '.gc.lock'))
@@ -139,8 +171,10 @@ export function executeReleaseAssetGc({
 
   try {
     const plan = verifyReleaseAssetGcPlan(planReleaseAssetGc({ storeDirectory: store, state }))
+    const reviewed = apply ? normalizeReviewedDryRunEvidence(reviewedDryRun, store) : null
     const before = snapshotStore(store)
     if (apply) {
+      assertReviewedPlanMatches(reviewed.plan, plan)
       const protection = normalizeActiveProtection(activeProtection)
       if (protection.releaseId !== plan.state.activeReleaseId) {
         throw new Error('GC active protection does not match the planned active release')
@@ -168,6 +202,7 @@ export function executeReleaseAssetGc({
       dryRun: !apply,
       storeDirectory: store,
       lockFile: resolvedLockFile,
+      plan,
       planSha256: plan.planSha256,
       activeProtection: apply ? normalizeActiveProtection(activeProtection) : null,
       protectedReleaseIds: plan.releases.filter(release => release.protected).map(release => release.releaseId),
@@ -237,7 +272,7 @@ function readAssetManifest(releaseDirectory) {
       })) {
     throw new Error(`protected release asset manifest is invalid: ${manifestFile}`)
   }
-  return manifest
+  return { manifest, manifestSha256: sha256File(manifestFile) }
 }
 
 function normalizeActiveProtection(value) {
@@ -295,6 +330,111 @@ function rejectSymlinks(root) {
 
 function digestJson(value) {
   return `sha256:${crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex')}`
+}
+
+function normalizeProtectedManifestBindings(value) {
+  if (!Array.isArray(value)) throw new Error('GC protected manifest bindings must be an array')
+  const seen = new Set()
+  return value.map(entry => {
+    assertExactFields(entry, ['assetManifestSha256', 'releaseId'], 'GC protected manifest binding')
+    const releaseId = normalizeReleaseId(entry.releaseId)
+    if (seen.has(releaseId)) throw new Error('GC protected manifest bindings contain duplicate release identity')
+    seen.add(releaseId)
+    const assetManifestSha256 = String(entry.assetManifestSha256 ?? '')
+    if (!/^sha256:[0-9a-f]{64}$/u.test(assetManifestSha256)) {
+      throw new Error('GC protected manifest binding digest must be a lowercase sha256 digest')
+    }
+    return { releaseId, assetManifestSha256 }
+  })
+}
+
+function normalizeReleaseActions(value) {
+  if (!Array.isArray(value)) throw new Error('GC release actions must be an array')
+  const seen = new Set()
+  return value.map(entry => {
+    assertExactFields(entry, ['action', 'protected', 'reasons', 'releaseId'], 'GC release action')
+    const releaseId = normalizeReleaseId(entry.releaseId)
+    if (seen.has(releaseId)) throw new Error('GC release actions contain duplicate release identity')
+    seen.add(releaseId)
+    if (typeof entry.protected !== 'boolean') throw new Error('GC release action protection flag is invalid')
+    if (!Array.isArray(entry.reasons)) throw new Error('GC release action reasons must be an array')
+    const reasons = entry.reasons.map(reason => {
+      const normalizedReason = String(reason ?? '')
+      if (!GC_PROTECTION_REASONS.has(normalizedReason)) throw new Error(`GC release action reason is invalid: ${normalizedReason}`)
+      return normalizedReason
+    })
+    if (new Set(reasons).size !== reasons.length) throw new Error('GC release action reasons contain duplicates')
+    const action = entry.action === 'retain' || entry.action === 'delete'
+      ? entry.action : invalid('GC release action is invalid')
+    if (entry.protected !== (action === 'retain')) throw new Error('GC release action does not match the protection state')
+    if (entry.protected !== (reasons.length > 0)) throw new Error('GC release action reasons do not match the protection state')
+    return { releaseId, protected: entry.protected, reasons, action }
+  })
+}
+
+function normalizeObjectActions(value) {
+  if (!Array.isArray(value)) throw new Error('GC object actions must be an array')
+  const seen = new Set()
+  return value.map(entry => {
+    assertExactFields(entry, ['action', 'protected', 'sha256'], 'GC object action')
+    const sha256 = String(entry.sha256 ?? '')
+    if (!/^sha256:[0-9a-f]{64}$/u.test(sha256)) throw new Error('GC object action digest is invalid')
+    if (seen.has(sha256)) throw new Error('GC object actions contain duplicate object identity')
+    seen.add(sha256)
+    if (typeof entry.protected !== 'boolean') throw new Error('GC object action protection flag is invalid')
+    const action = entry.action === 'retain' || entry.action === 'delete'
+      ? entry.action : invalid('GC object action is invalid')
+    if (entry.protected !== (action === 'retain')) throw new Error('GC object action does not match the protection state')
+    return { sha256, protected: entry.protected, action }
+  })
+}
+
+function normalizeReviewedDryRunEvidence(value, store) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('GC apply requires reviewed dry-run evidence')
+  assertExactFields(value, GC_EVIDENCE_FIELDS, 'GC reviewed dry-run evidence')
+  if (value.schema !== RELEASE_GC_EVIDENCE_SCHEMA) {
+    throw new Error(`GC reviewed dry-run evidence schema must be ${RELEASE_GC_EVIDENCE_SCHEMA}`)
+  }
+  if (value.status !== 'dry-run' || value.dryRun !== true) throw new Error('GC reviewed evidence must come from a successful dry-run')
+  if (value.activeProtection !== null) throw new Error('GC reviewed dry-run evidence cannot include active protection')
+  if (!Array.isArray(value.errors) || value.errors.length !== 0) throw new Error('GC reviewed dry-run evidence must not contain errors')
+  if (path.resolve(value.storeDirectory) !== store) throw new Error('GC reviewed dry-run evidence store does not match this collector run')
+  if (typeof value.lockFile !== 'string' || value.lockFile.length === 0) throw new Error('GC reviewed dry-run evidence lock file is invalid')
+
+  const plan = verifyReleaseAssetGcPlan(value.plan)
+  if (plan.storeDirectory !== store) throw new Error('GC reviewed dry-run plan store does not match this collector run')
+  if (value.planSha256 !== plan.planSha256) throw new Error('GC reviewed dry-run evidence plan digest does not match its sealed plan')
+  if (JSON.stringify(value.releaseActions) !== JSON.stringify(plan.releases)) {
+    throw new Error('GC reviewed dry-run evidence release actions do not match its sealed plan')
+  }
+  if (JSON.stringify(value.objectActions) !== JSON.stringify(plan.objects)) {
+    throw new Error('GC reviewed dry-run evidence object actions do not match its sealed plan')
+  }
+  const protectedReleaseIds = plan.protectedManifestBindings.map(entry => entry.releaseId)
+  if (JSON.stringify(value.protectedReleaseIds) !== JSON.stringify(protectedReleaseIds)) {
+    throw new Error('GC reviewed dry-run evidence protected releases do not match its sealed plan')
+  }
+  return { ...value, plan }
+}
+
+function assertReviewedPlanMatches(reviewedPlan, currentPlan) {
+  if (reviewedPlan.planSha256 === currentPlan.planSha256) return
+  const driftedReleases = findDriftedProtectedReleases(reviewedPlan.protectedManifestBindings, currentPlan.protectedManifestBindings)
+  if (driftedReleases.length > 0) {
+    throw new Error(`protected release asset manifests drifted after reviewed dry-run: ${driftedReleases.join(', ')}`)
+  }
+  throw new Error('GC plan changed after reviewed dry-run')
+}
+
+function findDriftedProtectedReleases(reviewed, current) {
+  const currentBindings = new Map(current.map(entry => [entry.releaseId, entry.assetManifestSha256]))
+  const reviewedReleaseIds = reviewed.map(entry => entry.releaseId)
+  const drifted = reviewed.filter(entry => currentBindings.get(entry.releaseId) !== entry.assetManifestSha256)
+    .map(entry => entry.releaseId)
+  for (const entry of current) {
+    if (!reviewedReleaseIds.includes(entry.releaseId)) drifted.push(entry.releaseId)
+  }
+  return [...new Set(drifted)].sort((left, right) => left.localeCompare(right, 'en'))
 }
 
 function assertExactFields(value, expectedFields, label) {
