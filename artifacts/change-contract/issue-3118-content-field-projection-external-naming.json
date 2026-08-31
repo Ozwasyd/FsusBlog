@@ -11,8 +11,7 @@
         {
             "id": "json-wire-key",
             "paths": [
-                "config/testing/content-field-contracts.generated.json",
-                "tools/testing/FsusBlog.ContentFieldContractExtractor/Program.cs"
+                "config/testing/content-field-contracts.generated.json"
             ],
             "reason": "preserve the generated projection schema and serialized field keys while refreshing semantic source digests"
         }
