@@ -425,19 +425,6 @@ if [[ "$FIXTURE_RECEIPT_PUBLISHED" == "1" && -f "$FIXTURE_RECEIPT" ]]; then
     FIXTURE_RECEIPT_DIGEST="$(node "$ROOT_DIR/tools/test-fixtures/cli.mjs" receipt-digest --file "$FIXTURE_RECEIPT")"
     FIXTURE_RECEIPT_TERMINAL_STATUS="verified"
 fi
-READY_RECEIPT="$RECEIPT_ROOT/environment-ready.json"
-READY_ARGS=(
-    write-receipt
-    --plan "$PLANNED_RECEIPT"
-    --out "$READY_RECEIPT"
-    --kind environment-ready
-    --fixture-receipt-terminal-status "$FIXTURE_RECEIPT_TERMINAL_STATUS"
-)
-if [[ "$FIXTURE_RECEIPT_PUBLISHED" == "1" && -f "$FIXTURE_RECEIPT" ]]; then
-    READY_ARGS+=(--fixture-receipt "$FIXTURE_RECEIPT")
-fi
-node "${FIXTURE_CATALOG_CLI[@]}" "${READY_ARGS[@]}" >/dev/null
-
 echo "[dev-start] starting frontend on http://127.0.0.1:3000 ..."
 npm --prefix "$FRONTEND_DIR" run dev:debug &
 frontend_pid=$!
@@ -455,7 +442,7 @@ cat <<READY
   mutation policy: ${MUTATION_POLICY}
   fixture receipt: ${FIXTURE_RECEIPT}
   fixture receipt digest: ${FIXTURE_RECEIPT_DIGEST}
-  environment-ready receipt: ${READY_RECEIPT}
+  qualification environment-ready receipt: not produced by the development entrypoint
   Cleanup:  ./tools/dev/start.sh --cleanup
 
 Press Ctrl+C to stop backend and frontend processes.
