@@ -91,6 +91,8 @@ test('current schema bootstrap lane exercises positive and fail-closed PostgreSQ
   assert.match(lane, /USING hash/u)
   assert.match(lane, /pg_catalog\.text_pattern_ops/u)
   assert.match(lane, /COLLATE \$\{alternateIndexCollation\}/u)
+  assert.match(lane, /FROM pg_collation collation_meta/u)
+  assert.doesNotMatch(lane, /FROM pg_collation collation\b/u)
   assert.match(lane, /INCLUDE \(\$\{includedColumn\}\)/u)
   assert.match(lane, /NULLS NOT DISTINCT/u)
   assert.doesNotMatch(lane, /CREATE (?:UNIQUE )?INDEX current_schema_drift/u)
