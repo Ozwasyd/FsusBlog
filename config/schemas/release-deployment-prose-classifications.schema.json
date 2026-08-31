@@ -51,7 +51,7 @@
             "type": "array",
             "minItems": 1,
             "items": {
-                "$ref": "release-deployment-prose-classification-authority.schema.json#/$defs/entry"
+                "$ref": "#/$defs/entry"
             }
         },
         "contentDigest": {
@@ -60,6 +60,66 @@
                 "null"
             ],
             "pattern": "^[0-9a-f]{64}$"
+        }
+    },
+    "$defs": {
+        "entry": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "documentPath",
+                "behaviorIds",
+                "startLine",
+                "endLine",
+                "nodeType",
+                "classification",
+                "contentDigest"
+            ],
+            "properties": {
+                "documentPath": {
+                    "type": "string",
+                    "pattern": "^docs/[a-z0-9][a-z0-9./-]*\\.md$"
+                },
+                "behaviorIds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9-]+$"
+                    }
+                },
+                "startLine": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "endLine": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "nodeType": {
+                    "enum": [
+                        "heading",
+                        "paragraph",
+                        "list",
+                        "table",
+                        "callout",
+                        "quote"
+                    ]
+                },
+                "classification": {
+                    "enum": [
+                        "diagnostic",
+                        "example",
+                        "history",
+                        "non-authority"
+                    ]
+                },
+                "contentDigest": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                }
+            }
         }
     }
 }
