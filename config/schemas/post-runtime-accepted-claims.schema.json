@@ -8,6 +8,8 @@
         "sourceState",
         "producerId",
         "toolVersion",
+        "registryDigest",
+        "claimsSchemaDigest",
         "terminalReceiptRef",
         "migrationLedgerDigest",
         "claims",
@@ -42,6 +44,12 @@
         "toolVersion": {
             "type": "string",
             "pattern": "^[a-z][a-z0-9-]*@[1-9][0-9]*$"
+        },
+        "registryDigest": {
+            "$ref": "#/$defs/digest"
+        },
+        "claimsSchemaDigest": {
+            "$ref": "#/$defs/digest"
         },
         "terminalReceiptRef": {
             "type": "object",

@@ -68,6 +68,7 @@ StaticAppsettingsAuthority() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/con
 StaticBackendConfigurationContract() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/configuration/check-backend-configuration-contract.mjs"; }
 StaticMonolithicDistributedArchitecture() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-monolithic-distributed-architecture.mjs"; }
 StaticBehaviorMutationGovernance() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-behavior-mutation-governance.mjs"; }
+StaticPostRuntimeProducerRegistry() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test-matrix/post-runtime-producer-registry.mjs"; }
 StaticFixtureMutationRecoveryGovernance() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-fixture-mutation-recovery-governance.mjs"; }
 StaticCsharpStyle() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/dotnet/check-csharp-style.mjs" --mode full
@@ -168,6 +169,7 @@ RunApplicationStaticPrechecksPhase() {
         backend-configuration-contract StaticBackendConfigurationContract \
         monolithic-distributed-architecture StaticMonolithicDistributedArchitecture \
         behavior-mutation-governance StaticBehaviorMutationGovernance \
+        post-runtime-producer-registry StaticPostRuntimeProducerRegistry \
         fixture-mutation-recovery-governance StaticFixtureMutationRecoveryGovernance \
         central-package-management StaticCentralPackageManagement \
         dependency-update-surface StaticDependencyUpdateSurface \

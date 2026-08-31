@@ -9,12 +9,14 @@ import { digestValue } from '../../tools/fact-extractors/lib/canonicalize.mjs'
 import {
     BehaviorId,
     acceptedClaimsSchema,
+    authorityDigest,
     loadPostRuntimeProducerRegistry,
     postRuntimeRegistrySchema,
     requiredPostRuntimeBehaviors,
     root,
     validateAcceptedClaimsReceiptAgainstRegistry,
     validatePostRuntimeProducerRegistry,
+    validatePostRuntimeRepositoryAuthority,
     validatePostRuntimeReceiptSchemas,
     validateProducerReceiptAgainstRegistry
 } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
@@ -39,15 +41,29 @@ function producerReceipt(classId = 'route-response-error')
         .filter(([, classes]) => classes.includes(classId))
         .map(([mode]) => mode)
         .sort()
+    const semanticFacts = Object.fromEntries(definition.requiredSemanticFactFields.map((field) =>
+        [field, field === 'responseStatus' ? 200 : field.endsWith('Digest') ? digest('1') : `${field}-value`]))
     return seal({
         schema: definition.schema,
         producerId: producer.producerId,
         toolVersion: producer.toolVersion,
+        registryDigest: authorityDigest(registry),
+        observationSchemaDigest: authorityDigest(JSON.parse(fs.readFileSync(
+            path.join(root, 'config/schemas/post-runtime-observation-result.schema.json'), 'utf8'))),
         sourceState: {
             sourceCommit: 'a'.repeat(40),
             worktreeFingerprint: digest('b'),
             buildIdentity: digest('c'),
-            candidateId: 'candidate-1'
+            artifactDigest: digest('2'),
+            candidateId: 'candidate-1',
+            runtimeIdentity: digest('3'),
+            browserIdentity: digest('4'),
+            releaseId: 'release-1',
+            rolloutId: 'rollout-1',
+            runId: 'run-1',
+            attemptId: 'attempt-0001',
+            fixtureId: 'fixture-1',
+            profileId: 'profile-1'
         },
         executionClass: 'correctness',
         evidenceClass: 'correctness',
@@ -63,7 +79,7 @@ function producerReceipt(classId = 'route-response-error')
             processTreeTerminated: false,
             priorAttemptDigest: null
         },
-        semanticFacts: { coherent: true },
+        semanticFacts,
         candidatePlanRef: {
             path: '.tmp/current-run/candidate-plan.json',
             fileDigest: digest('d'),
@@ -128,6 +144,7 @@ test('existence shortcut observation classes fail closed', () =>
             clone.observationClasses['http-200-class'] = {
                 schema: 'fsusblog.observation.http200.v1',
                 requiredIdentityFields: ['contentDigest'],
+                requiredSemanticFactFields: ['responseStatus'],
                 allowedModes: ['positive', 'negative', 'boundary', 'failure'],
                 existenceShortcutForbidden: false
             }
@@ -161,7 +178,7 @@ test('missing required identity binding fails closed', () =>
         /missing or unknown fields/u)
 })
 
-test('unknown observation type and orphan claim mapping fail closed', () =>
+test('unknown observation type and non-exact claim mapping fail closed', () =>
 {
     assert.throws(
         () => validatePostRuntimeProducerRegistry(tampered((clone) =>
@@ -171,7 +188,7 @@ test('unknown observation type and orphan claim mapping fail closed', () =>
         /unknown observation class screenshot-present/u)
     assert.throws(
         () => validatePostRuntimeProducerRegistry(registry, { catalog, migrationLedger: tamperedLedger() }),
-        /orphan claim/u)
+        /accepted claim refs must exact-match/u)
 
     function tamperedLedger()
     {
@@ -184,6 +201,62 @@ test('unknown observation type and orphan claim mapping fail closed', () =>
             }
         }
         return clone
+    }
+})
+
+test('owner, behavior domain and per-producer evidenceClass are authority-bound', () =>
+{
+    assert.throws(
+        () => validatePostRuntimeProducerRegistry(tampered((clone) =>
+        {
+            clone.producers[0].owner = 'docs/testing.md'
+        }), { catalog, migrationLedger }),
+        /canonical matrix producer authority/u)
+    const documentationCatalog = structuredClone(catalog)
+    documentationCatalog.contracts.find((contract) =>
+        contract.id === 'browserless-production-correctness').domain = 'documentation'
+    assert.throws(
+        () => validatePostRuntimeProducerRegistry(registry, {
+            catalog: documentationCatalog,
+            migrationLedger
+        }),
+        /domain\/tier\/schema conflicts/u)
+    const coordinatedDocumentationRegistry = structuredClone(registry)
+    coordinatedDocumentationRegistry.producers[0].behaviorDomain = 'documentation'
+    assert.throws(
+        () => validatePostRuntimeProducerRegistry(coordinatedDocumentationRegistry, {
+            catalog: documentationCatalog,
+            migrationLedger
+        }),
+        /behavior domain is not runtime-eligible/u)
+    assert.throws(
+        () => validatePostRuntimeProducerRegistry(tampered((clone) =>
+        {
+            clone.producers[0].evidenceClass = 'browser-contract'
+        }), { catalog, migrationLedger }),
+        /evidenceClass conflicts/u)
+    assert.throws(
+        () => validatePostRuntimeProducerRegistry(tampered((clone) =>
+        {
+            delete clone.producers[0].evidenceClass
+        }), { catalog, migrationLedger }),
+        /missing or unknown fields/u)
+})
+
+test('registry claim refs reject missing, extra and duplicate entries', () =>
+{
+    for (const mutate of [
+        (claims) => claims.pop(),
+        (claims) => claims.push('browserless-production-correctness.unknown'),
+        (claims) => claims.push(claims[0])
+    ])
+    {
+        assert.throws(
+            () => validatePostRuntimeProducerRegistry(tampered((clone) =>
+            {
+                mutate(clone.producers[0].acceptedClaimRefs)
+            }), { catalog, migrationLedger }),
+            /accepted claim refs must exact-match/u)
     }
 })
 
@@ -269,6 +342,62 @@ test('receipt binding recomputes digest and exact mode/tool/source identity', ()
     assert.throws(
         () => validateProducerReceiptAgainstRegistry({ registry, producerId: 'unknown-producer', receipt }),
         /unknown producer/u)
+})
+
+test('HTTP-only and stale registry/schema/evidenceClass receipts cannot qualify', () =>
+{
+    const producerId = registry.producers[0].producerId
+    const receipt = producerReceipt()
+    const httpOnly = seal({ ...receipt, semanticFacts: { httpStatus: 200 } })
+    assert.throws(
+        () => validateProducerReceiptAgainstRegistry({ registry, producerId, receipt: httpOnly }),
+        /semantic facts has missing or unknown fields/u)
+
+    const registryDrift = structuredClone(registry)
+    registryDrift.canonicalSerialization = 'json-utf8-v2'
+    assert.throws(
+        () => validateProducerReceiptAgainstRegistry({ registry: registryDrift, producerId, receipt }),
+        /registry\/schema digest mismatch/u)
+
+    const repositoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-post-runtime-schema-'))
+    fs.mkdirSync(path.join(repositoryRoot, 'config/schemas'), { recursive: true })
+    const schema = JSON.parse(fs.readFileSync(
+        path.join(root, 'config/schemas/post-runtime-observation-result.schema.json'), 'utf8'))
+    schema.title = 'drifted contract'
+    fs.writeFileSync(path.join(repositoryRoot, 'config/schemas/post-runtime-observation-result.schema.json'),
+        `${JSON.stringify(schema, null, 2)}\n`)
+    assert.throws(
+        () => validateProducerReceiptAgainstRegistry({ registry, producerId, receipt, repositoryRoot }),
+        /registry\/schema digest mismatch/u)
+    fs.rmSync(repositoryRoot, { recursive: true, force: true })
+
+    const wrongEvidenceClass = seal({ ...receipt, evidenceClass: 'browser-contract' })
+    assert.throws(
+        () => validateProducerReceiptAgainstRegistry({ registry, producerId, receipt: wrongEvidenceClass }),
+        /evidenceClass does not match producer contract/u)
+})
+
+test('production validator rejects a second registry and is wired into static governance', (context) =>
+{
+    const repositoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-post-runtime-authority-'))
+    context.after(() => fs.rmSync(repositoryRoot, { recursive: true, force: true }))
+    fs.mkdirSync(path.join(repositoryRoot, 'config/testing'), { recursive: true })
+    fs.copyFileSync(path.join(root, 'config/configuration-ownership.json'),
+        path.join(repositoryRoot, 'config/configuration-ownership.json'))
+    fs.copyFileSync(path.join(root, 'config/testing/post-runtime-producer-registry.json'),
+        path.join(repositoryRoot, 'config/testing/post-runtime-producer-registry.json'))
+    assert.equal(validatePostRuntimeRepositoryAuthority(repositoryRoot), true)
+    fs.copyFileSync(path.join(root, 'config/testing/post-runtime-producer-registry.json'),
+        path.join(repositoryRoot, 'config/testing/second-post-runtime-registry.json'))
+    assert.throws(
+        () => validatePostRuntimeRepositoryAuthority(repositoryRoot),
+        /authority paths must exact-match/u)
+
+    const staticLane = fs.readFileSync(path.join(root, 'tools/test/lanes/static-governance.sh'), 'utf8')
+    assert.match(staticLane,
+        /StaticPostRuntimeProducerRegistry\(\).*post-runtime-producer-registry\.mjs/su)
+    assert.match(staticLane,
+        /post-runtime-producer-registry StaticPostRuntimeProducerRegistry/u)
 })
 
 test('re-sealed diagnostic, timeout, cancel and recovered mutations cannot qualify', () =>
@@ -397,6 +526,9 @@ function acceptedClaimsFixture(context)
         },
         producerId: producer.producerId,
         toolVersion: registry.receiptSemantics.acceptedClaimsToolVersion,
+        registryDigest: authorityDigest(registry),
+        claimsSchemaDigest: authorityDigest(JSON.parse(fs.readFileSync(
+            path.join(root, 'config/schemas/post-runtime-accepted-claims.schema.json'), 'utf8'))),
         terminalReceiptRef: {
             path: '.tmp/current-run/global-claims.json',
             fileDigest,
@@ -437,6 +569,19 @@ test('accepted claims replay one exact #2205 terminal path, digest, identity and
             migrationLedger
         }),
         /missing or unknown fields/u)
+
+    for (const field of ['registryDigest', 'claimsSchemaDigest'])
+    {
+        assert.throws(
+            () => validateAcceptedClaimsReceiptAgainstRegistry({
+                registry,
+                producerId,
+                receipt: seal({ ...fixture.receipt, [field]: digest('8') }),
+                repositoryRoot: fixture.repositoryRoot,
+                migrationLedger
+            }),
+            /registry\/schema digest mismatch/u)
+    }
 })
 
 test('accepted claims reject terminal file/content/identity and re-sealed claim mutations', (context) =>

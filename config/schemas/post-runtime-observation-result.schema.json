@@ -7,6 +7,8 @@
         "schema",
         "producerId",
         "toolVersion",
+        "registryDigest",
+        "observationSchemaDigest",
         "sourceState",
         "executionClass",
         "evidenceClass",
@@ -41,6 +43,12 @@
         },
         "toolVersion": {
             "$ref": "#/$defs/toolVersion"
+        },
+        "registryDigest": {
+            "$ref": "#/$defs/digest"
+        },
+        "observationSchemaDigest": {
+            "$ref": "#/$defs/digest"
         },
         "sourceState": {
             "type": "object",

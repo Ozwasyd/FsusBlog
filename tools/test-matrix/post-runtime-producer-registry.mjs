@@ -23,6 +23,7 @@ import {
     validateGlobalClaimExactnessReceipt
 } from '../docs/global-claim-exactness-final.mjs'
 import { digestValue, isPlainObject } from '../fact-extractors/lib/canonicalize.mjs'
+import { parseMatrix } from './parse-matrix.mjs'
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 export const registryRelative = 'config/testing/post-runtime-producer-registry.json'
@@ -32,10 +33,14 @@ export const acceptedClaimsSchema = 'fsusblog.post-runtime-accepted-claims.v1'
 
 const observationEnvelopeSchemaRelative = 'config/schemas/post-runtime-observation-result.schema.json'
 const acceptedClaimsSchemaRelative = 'config/schemas/post-runtime-accepted-claims.schema.json'
+const matrixRelative = 'tests/matrix.yml'
+const attemptProducersRelative = 'config/testing/correctness-attempt-producers.json'
+const configurationOwnershipRelative = 'config/configuration-ownership.json'
 const modes = Object.freeze(['positive', 'negative', 'boundary', 'failure'])
 const digestPattern = /^sha256:[a-f0-9]{64}$/u
 const toolVersionPattern = /^[a-z][a-z0-9-]*@[1-9][0-9]*$/u
 const unsafeReceiptPath = /(?:^|[/\\])(?:latest|history|historical)(?:[/\\]|$)/iu
+const runtimeProducerDomains = new Set(['testing', 'release', 'deployment'])
 
 const readJson = (repositoryRoot, relative) =>
     JSON.parse(fs.readFileSync(path.join(repositoryRoot, relative), 'utf8'))
@@ -44,6 +49,10 @@ const forbiddenRegistryFields = new Set([
     'waiver', 'manualOwner', 'manual-owner', 'artifactPath', 'jobName', 'jobId',
     'httpStatus', 'fileExists', 'screenshot', 'allowDiagnostic', 'ignoreSchemaVersion'
 ])
+const forbiddenSemanticFactFields = new Set([
+    'httpStatus', 'fileExists', 'filePath', 'screenshot', 'screenshotPath',
+    'artifactExists', 'jobStatus', 'tierPassed', 'success'
+])
 
 function fail(message)
 {
@@ -51,6 +60,54 @@ function fail(message)
 }
 
 const prefixedDigest = (value) => `sha256:${String(value ?? '').replace(/^sha256:/u, '')}`
+export const authorityDigest = (value) => `sha256:${digestValue(value)}`
+
+function walkJson(directory, output = [])
+{
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true }))
+    {
+        const absolute = path.join(directory, entry.name)
+        if (entry.isDirectory()) walkJson(absolute, output)
+        else if ((entry.isFile() || entry.isSymbolicLink()) && entry.name.endsWith('.json')) output.push(absolute)
+    }
+    return output
+}
+
+export function validatePostRuntimeRepositoryAuthority(repositoryRoot = root)
+{
+    const canonicalRegistry = path.join(repositoryRoot, registryRelative)
+    const registryStat = fs.lstatSync(canonicalRegistry)
+    if (!registryStat.isFile() || registryStat.isSymbolicLink())
+    {
+        fail('canonical post-runtime registry must be a regular non-symlink file')
+    }
+    const ownership = readJson(repositoryRoot, configurationOwnershipRelative)
+    const owners = (ownership.ownership ?? []).filter((entry) =>
+        entry.id === 'post-runtime-producer-registry' || entry.canonicalPath === registryRelative)
+    if (owners.length !== 1 || owners[0].id !== 'post-runtime-producer-registry'
+        || owners[0].canonicalPath !== registryRelative || owners[0].pathType !== 'file'
+        || owners[0].owner !== 'behavior-test-evidence-binding'
+        || owners[0].status !== 'manual')
+    {
+        fail('post-runtime registry must have exact-one canonical configuration owner')
+    }
+    const registryFiles = walkJson(path.join(repositoryRoot, 'config'))
+        .filter((absolute) =>
+        {
+            try
+            {
+                return JSON.parse(fs.readFileSync(absolute, 'utf8'))?.schema === postRuntimeRegistrySchema
+            }
+            catch
+            {
+                return false
+            }
+        })
+        .map((absolute) => path.relative(repositoryRoot, absolute).replaceAll(path.sep, '/'))
+        .sort()
+    assertExactSet(registryFiles, [registryRelative], 'post-runtime registry authority paths')
+    return true
+}
 
 function receiptDigest(receipt)
 {
@@ -131,15 +188,17 @@ export function validatePostRuntimeReceiptSchemas(registry, {
         Object.keys(registry.receiptSemantics?.terminalOutcomes ?? {}),
         'observation envelope terminal outcomes')
     assertExactSet(observationSchema.required, [
-        'schema', 'producerId', 'toolVersion', 'sourceState', 'executionClass',
+        'schema', 'producerId', 'toolVersion', 'registryDigest',
+        'observationSchemaDigest', 'sourceState', 'executionClass',
         'evidenceClass', 'qualificationEligible', 'planned', 'executed', 'outcome',
         'recovered', 'modes', 'terminal', 'semanticFacts', 'candidatePlanRef',
         'sourceReceiptRef', 'canonicalRerunCommand', 'independentVerifyCommand',
         'contentDigest'
     ], 'observation envelope required fields')
     assertExactSet(claimsSchema.required, [
-        'schema', 'sourceState', 'producerId', 'toolVersion', 'terminalReceiptRef',
-        'migrationLedgerDigest', 'claims', 'status', 'contentDigest'
+        'schema', 'sourceState', 'producerId', 'toolVersion', 'registryDigest',
+        'claimsSchemaDigest', 'terminalReceiptRef', 'migrationLedgerDigest', 'claims',
+        'status', 'contentDigest'
     ], 'accepted-claims required fields')
     assertExactSet(claimsSchema.properties?.terminalReceiptRef?.required,
         ['path', 'fileDigest', 'contentDigest', 'schema'],
@@ -161,7 +220,14 @@ export function requiredPostRuntimeBehaviors(catalog)
         .sort()
 }
 
-export function validatePostRuntimeProducerRegistry(registry, { catalog, migrationLedger = null } = {})
+export function validatePostRuntimeProducerRegistry(registry, {
+    catalog,
+    migrationLedger = null,
+    repositoryRoot = root,
+    matrix = parseMatrix(fs.readFileSync(path.join(repositoryRoot, matrixRelative), 'utf8')),
+    attemptProducers = readJson(repositoryRoot, attemptProducersRelative),
+    validateRepositoryAuthority = true
+} = {})
 {
     if (!registry || registry.schema !== postRuntimeRegistrySchema)
     {
@@ -229,7 +295,8 @@ export function validatePostRuntimeProducerRegistry(registry, { catalog, migrati
     for (const [classId, definition] of Object.entries(registry.observationClasses ?? {}))
     {
         assertExactKeys(definition, [
-            'schema', 'requiredIdentityFields', 'allowedModes', 'existenceShortcutForbidden'
+            'schema', 'requiredIdentityFields', 'requiredSemanticFactFields', 'allowedModes',
+            'existenceShortcutForbidden'
         ], `observation class ${classId}`)
         if (!/^[a-z0-9-]+$/u.test(classId)) fail(`observation class id ${classId} is not canonical`)
         if (!definition.schema || !/^fsusblog\.observation\.[a-z0-9.-]+\.v\d+$/u.test(definition.schema))
@@ -248,6 +315,14 @@ export function validatePostRuntimeProducerRegistry(registry, { catalog, migrati
         {
             fail(`observation class ${classId} must forbid existence shortcuts`)
         }
+        if (!Array.isArray(definition.requiredSemanticFactFields)
+            || definition.requiredSemanticFactFields.length === 0
+            || new Set(definition.requiredSemanticFactFields).size !== definition.requiredSemanticFactFields.length
+            || definition.requiredSemanticFactFields.some((field) =>
+                typeof field !== 'string' || field.length === 0 || forbiddenSemanticFactFields.has(field)))
+        {
+            fail(`observation class ${classId} must declare closed semantic facts without existence shortcuts`)
+        }
         assertExactSet(definition.allowedModes, modes, `observation class ${classId} allowed modes`)
         for (const field of Object.keys(definition))
         {
@@ -260,6 +335,7 @@ export function validatePostRuntimeProducerRegistry(registry, { catalog, migrati
 
     const producers = registry.producers ?? []
     const byBehavior = new Map()
+    const contracts = new Map((catalog.contracts ?? []).map((contract) => [contract.id, contract]))
     for (const producer of producers)
     {
         for (const field of Object.keys(producer))
@@ -267,8 +343,9 @@ export function validatePostRuntimeProducerRegistry(registry, { catalog, migrati
             if (forbiddenRegistryFields.has(field)) fail(`producer ${producer.producerId} has forbidden field ${field}`)
         }
         assertExactKeys(producer, [
-            'producerId', 'toolVersion', 'owner', 'behaviorId', 'observationSchema',
-            'executionClass', 'requiredIdentities', 'requiredObservations',
+            'producerId', 'toolVersion', 'owner', 'behaviorId', 'behaviorDomain',
+            'producerTierId', 'observationSchema', 'executionClass', 'evidenceClass',
+            'requiredIdentities', 'requiredObservations',
             'diagnosticEligible', 'timeoutPolicy', 'cancelPolicy', 'recoveryPolicy',
             'acceptedClaimRefs'
         ], `producer ${producer.producerId ?? 'missing'}`)
@@ -289,9 +366,38 @@ export function validatePostRuntimeProducerRegistry(registry, { catalog, migrati
         {
             fail(`producer ${producer.producerId} maps behavior ${producer.behaviorId} which is not a post-runtime release behavior`)
         }
-        if (!fs.existsSync(path.join(root, producer.owner)))
+        const contract = contracts.get(producer.behaviorId)
+        if (producer.behaviorDomain !== contract?.domain
+            || producer.producerTierId !== contract?.runtimeEvidence?.producerTierId
+            || producer.observationSchema !== contract?.runtimeEvidence?.observationSchema)
         {
-            fail(`producer ${producer.producerId} owner path does not exist: ${producer.owner}`)
+            fail(`producer ${producer.producerId} domain/tier/schema conflicts with the BehaviorCatalog`)
+        }
+        if (!runtimeProducerDomains.has(producer.behaviorDomain))
+        {
+            fail(`producer ${producer.producerId} behavior domain is not runtime-eligible`)
+        }
+        const tier = (matrix.tiers ?? []).find((entry) => entry.id === producer.producerTierId)
+        const attemptAuthority = (attemptProducers.entries ?? []).find((entry) =>
+            entry.producerId === `matrix:${producer.producerTierId}`)
+        if (!tier || !attemptAuthority
+            || attemptAuthority.sourceAuthority !== matrixRelative
+            || JSON.stringify(attemptAuthority.logicalTierIds) !== JSON.stringify([producer.producerTierId])
+            || attemptAuthority.canonicalCommand !== tier.command
+            || attemptAuthority.executionOwner !== producer.owner
+            || attemptAuthority.qualificationEligible !== true)
+        {
+            fail(`producer ${producer.producerId} owner is not the canonical matrix producer authority`)
+        }
+        if (typeof tier.command !== 'string' || !tier.command.startsWith('tools/')
+            || tier.command.endsWith('.md') || !fs.existsSync(path.join(repositoryRoot, tier.command)))
+        {
+            fail(`producer ${producer.producerId} command must be a non-Markdown executable authority`)
+        }
+        if (typeof producer.owner !== 'string' || producer.owner.startsWith('docs/')
+            || producer.owner.endsWith('.md') || !fs.existsSync(path.join(repositoryRoot, producer.owner)))
+        {
+            fail(`producer ${producer.producerId} owner must be a non-Markdown executable authority`)
         }
         if (producer.diagnosticEligible === true)
         {
@@ -300,6 +406,11 @@ export function validatePostRuntimeProducerRegistry(registry, { catalog, migrati
         if (producer.executionClass !== 'correctness' && producer.executionClass !== 'browser-contract')
         {
             fail(`producer ${producer.producerId} execution class ${producer.executionClass} cannot satisfy qualification`)
+        }
+        if (producer.evidenceClass !== tier.evidenceClass
+            || !['correctness', 'browser-contract'].includes(producer.evidenceClass))
+        {
+            fail(`producer ${producer.producerId} evidenceClass conflicts with its matrix tier`)
         }
         for (const identity of producer.requiredIdentities ?? [])
         {
@@ -354,17 +465,12 @@ export function validatePostRuntimeProducerRegistry(registry, { catalog, migrati
         }
         if (migrationLedger)
         {
-            const ledgerClaims = new Set(migrationLedger.scopes
+            const ledgerClaims = migrationLedger.scopes
                 .flatMap((scope) => scope.entries)
                 .filter((entry) => entry['behaviorId'] === producer.behaviorId)
-                .flatMap((entry) => entry.claimIds))
-            for (const claimRef of producer.acceptedClaimRefs)
-            {
-                if (!ledgerClaims.has(claimRef))
-                {
-                    fail(`producer ${producer.producerId} references orphan claim ${claimRef}`)
-                }
-            }
+                .flatMap((entry) => entry.claimIds)
+            assertExactSet(producer.acceptedClaimRefs, ledgerClaims,
+                `producer ${producer.producerId} accepted claim refs`)
         }
     }
 
@@ -377,6 +483,7 @@ export function validatePostRuntimeProducerRegistry(registry, { catalog, migrati
     }
 
     validatePostRuntimeReceiptSchemas(registry)
+    if (validateRepositoryAuthority) validatePostRuntimeRepositoryAuthority(repositoryRoot)
 
     return {
         schema: registry.schema,
@@ -422,16 +529,26 @@ export function validateProducerReceiptAgainstRegistry({
     registry,
     producerId,
     receipt,
-    classId: requestedClassId = null
+    classId: requestedClassId = null,
+    repositoryRoot = root
 })
 {
     const producer = producerFor(registry, producerId)
     const { classId, definition } = classForReceipt(registry, receipt, requestedClassId)
-    const schema = readJson(root, observationEnvelopeSchemaRelative)
+    const schema = readJson(repositoryRoot, observationEnvelopeSchemaRelative)
     assertExactKeys(receipt, schema.required, `producer ${producerId} receipt`)
     if (receipt.producerId !== producerId || receipt.toolVersion !== producer.toolVersion)
     {
         fail(`producer ${producerId} receipt producer/tool version mismatch`)
+    }
+    if (receipt.registryDigest !== authorityDigest(registry)
+        || receipt.observationSchemaDigest !== authorityDigest(schema))
+    {
+        fail(`producer ${producerId} receipt registry/schema digest mismatch`)
+    }
+    if (receipt.evidenceClass !== producer.evidenceClass)
+    {
+        fail(`producer ${producerId} receipt evidenceClass does not match producer contract`)
     }
     if (!digestPattern.test(receipt.contentDigest ?? '') || receipt.contentDigest !== receiptDigest(receipt))
     {
@@ -486,7 +603,9 @@ export function validateProducerReceiptAgainstRegistry({
             fail(`producer ${producerId} ${field} is invalid`)
         }
     }
-    if (!isPlainObject(receipt.semanticFacts) || Object.keys(receipt.semanticFacts).length === 0
+    assertExactKeys(receipt.semanticFacts, definition.requiredSemanticFactFields,
+        `producer ${producerId} ${classId} semantic facts`)
+    if (Object.values(receipt.semanticFacts).some((value) => value === null || value === '')
         || typeof receipt.canonicalRerunCommand !== 'string' || receipt.canonicalRerunCommand.length === 0
         || typeof receipt.independentVerifyCommand !== 'string'
         || receipt.independentVerifyCommand.length === 0)
@@ -525,6 +644,11 @@ export function validateAcceptedClaimsReceiptAgainstRegistry({
         || receipt.toolVersion !== registry.receiptSemantics.acceptedClaimsToolVersion)
     {
         fail('accepted-claims receipt schema/status/producer/tool version mismatch')
+    }
+    if (receipt.registryDigest !== authorityDigest(registry)
+        || receipt.claimsSchemaDigest !== authorityDigest(schema))
+    {
+        fail('accepted-claims receipt registry/schema digest mismatch')
     }
     if (!digestPattern.test(receipt.contentDigest ?? '') || receipt.contentDigest !== receiptDigest(receipt))
     {
