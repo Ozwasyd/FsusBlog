@@ -7,7 +7,10 @@ import { fileURLToPath } from 'node:url'
 
 import { digestValue, stable } from '../fact-extractors/lib/canonicalize.mjs'
 import {
+  candidatePlanPathForObservation,
   explicitJson,
+  observationEnvelopeAuthorityFields,
+  observationSourceState,
   seal,
   validateCandidatePlan,
   writeReceipt
@@ -109,6 +112,22 @@ function routeFacts(facts)
   }
 }
 
+function typedRouteFacts(facts)
+{
+  const byId = new Map(facts.cases.map((entry) => [entry.id, entry]))
+  const missing = byId.get('public-missing-typed-error')
+  return {
+    requestIdentity: semanticDigest({ fixtureAuthority: facts.fixtureAuthority, caseIds: facts.cases.map(({ id }) => id) }),
+    responseStatus: missing.status,
+    typedPayloadDigest: missing.typedPayloadDigest,
+    protocolIdentity: 'aeds-v2',
+    authorizationDecision: semanticDigest(facts.cases.filter(({ id }) => id.includes('auth') || id.includes('self'))),
+    visibilityState: semanticDigest(facts.cases.filter(({ id }) => id.includes('visible') || id.includes('missing'))),
+    cacheSemanticsDigest: semanticDigest(facts.cases.filter(({ id }) => id.includes('cache') || id.includes('first-read'))),
+    errorSemanticsDigest: semanticDigest(facts.cases.filter(({ typedKind }) => typedKind === 'typed-error'))
+  }
+}
+
 function cacheFacts(facts, probe)
 {
   return {
@@ -122,6 +141,20 @@ function cacheFacts(facts, probe)
     terminalReceiptDigest: probe.contentDigest,
     terminalState: facts.terminal.state,
     coherent: facts.coherent
+  }
+}
+
+function typedCacheFacts(facts, probe)
+{
+  return {
+    authorityCoordinates: semanticDigest(facts.authorityCoordinate),
+    eventDigest: semanticDigest(facts.events),
+    edgeDigest: semanticDigest(facts.edges),
+    generation: semanticDigest(facts.generation),
+    queryDigest: semanticDigest(facts.query),
+    readModelDigest: semanticDigest(facts.readModel),
+    outputDigest: semanticDigest(facts.output),
+    terminalReceiptDigest: probe.contentDigest
   }
 }
 
@@ -146,6 +179,26 @@ function sessionFacts(facts)
   }
 }
 
+function typedSessionFacts(facts)
+{
+  return {
+    databaseSessionDigest: facts.database.sessionDigest,
+    credentialDigest: semanticDigest(facts.credential),
+    authContextDigest: facts.authContext.digest,
+    jwtClaimsDigest: facts.jwt.claimsDigest,
+    cookieClaimsDigest: facts.cookie.digest,
+    storageClaimsDigest: semanticDigest({
+      databaseSessionId: facts.database.sessionIdDigest,
+      cookieNames: facts.cookie.names,
+      serviceStatus: facts.service.status
+    }),
+    expiry: facts.expiry.digest,
+    revision: facts.revision.digest,
+    deviceDigest: facts.device.digest,
+    serviceResultDigest: facts.service.digest
+  }
+}
+
 export function projectProbeRaw({ candidatePlan, probeReceipt, repositoryRoot = root })
 {
   const planInput = fileReference(candidatePlan, repositoryRoot, 'candidate plan')
@@ -160,17 +213,23 @@ export function projectProbeRaw({ candidatePlan, probeReceipt, repositoryRoot = 
   if (!producer) fail('candidate plan producer is absent from registry')
   const definition = registry.observationClasses[probe.kind]
   const build = explicitJson(plan.build.receipt, 'production build receipt', repositoryRoot).value
-  const sourceState = exactSource(plan, probe, build, definition.schema, repositoryRoot)
+  const legacySourceState = exactSource(plan, probe, build, definition.schema, repositoryRoot)
+  const typedEnvelope = Array.isArray(definition.requiredSemanticFactFields)
   const semanticFacts = probe.kind === 'route-response-error'
-    ? routeFacts(probe.facts)
+    ? typedEnvelope ? typedRouteFacts(probe.facts) : routeFacts(probe.facts)
     : probe.kind === 'cache-search-outbox-convergence'
-      ? cacheFacts(probe.facts, probe)
-      : sessionFacts(probe.facts)
+      ? typedEnvelope ? typedCacheFacts(probe.facts, probe) : cacheFacts(probe.facts, probe)
+      : typedEnvelope ? typedSessionFacts(probe.facts) : sessionFacts(probe.facts)
   return seal({
     schema: definition.schema,
     producerId: plan.producerId,
     toolVersion: producer.toolVersion,
-    sourceState,
+    sourceState: observationSourceState({
+      plan,
+      artifactDigest: semanticDigest(probe.facts),
+      repositoryRoot,
+      legacy: legacySourceState
+    }),
     executionClass: 'correctness',
     evidenceClass: 'correctness',
     qualificationEligible: true,
@@ -181,14 +240,14 @@ export function projectProbeRaw({ candidatePlan, probeReceipt, repositoryRoot = 
     modes: planned.requiredModes,
     terminal: { timeout: false, cancelled: false, processTreeTerminated: false, priorAttemptDigest: null },
     semanticFacts,
-    candidatePlanRef: planInput.ref,
+    ...observationEnvelopeAuthorityFields({ plan, candidatePlanRef: planInput.ref, repositoryRoot }),
     sourceReceiptRef: probeInput.ref,
     canonicalRerunCommand: probe.provenance.rerunCommand,
     independentVerifyCommand: `node tools/test-evidence/runtime-observation-raw.mjs verify --receipt ${planned.receiptPath}`
   })
 }
 
-export function verifyProjectedRaw(receiptPath, repositoryRoot = root)
+export function verifyProjectedRaw(receiptPath, repositoryRoot = root, candidatePlan = null)
 {
   const input = fileReference(receiptPath, repositoryRoot, 'projected raw receipt')
   const receipt = input.value
@@ -199,8 +258,10 @@ export function verifyProjectedRaw(receiptPath, repositoryRoot = root)
   {
     fail('projected receipt schema is not owned by a real runtime probe')
   }
-  validateProducerReceiptAgainstRegistry({ registry, producerId: receipt.producerId, receipt, classId: receiptClass })
-  for (const reference of [receipt.candidatePlanRef, receipt.sourceReceiptRef])
+  validateProducerReceiptAgainstRegistry({
+    registry, producerId: receipt.producerId, receipt, classId: receiptClass, repositoryRoot
+  })
+  for (const reference of [receipt.sourceReceiptRef])
   {
     const current = fileReference(reference?.path, repositoryRoot, 'projected dependency')
     if (!digestPattern.test(String(reference?.fileDigest ?? ''))
@@ -210,8 +271,9 @@ export function verifyProjectedRaw(receiptPath, repositoryRoot = root)
       fail(`projected dependency digest mismatch: ${reference?.path ?? '<missing>'}`)
     }
   }
+  const planPath = candidatePlanPathForObservation(receipt, candidatePlan)
   const replay = projectProbeRaw({
-    candidatePlan: receipt.candidatePlanRef.path,
+    candidatePlan: planPath,
     probeReceipt: receipt.sourceReceiptRef.path,
     repositoryRoot
   })
@@ -234,13 +296,13 @@ function main()
       fail('raw output path must exact-match the candidate plan')
     }
     writeReceipt(output, receipt, root)
-    verifyProjectedRaw(output, root)
+    verifyProjectedRaw(output, root, parsed['candidate-plan'])
     process.stdout.write(`[runtime-observation-raw] projected path=${output} digest=${receipt.contentDigest}\n`)
     return
   }
   if (parsed.command === 'verify')
   {
-    const receipt = verifyProjectedRaw(parsed.receipt, root)
+    const receipt = verifyProjectedRaw(parsed.receipt, root, parsed['candidate-plan'])
     process.stdout.write(`[runtime-observation-raw] verified schema=${receipt.schema} digest=${receipt.contentDigest}\n`)
     return
   }

@@ -8,7 +8,10 @@ import { fileURLToPath } from 'node:url'
 
 import { digestValue, stable } from '../fact-extractors/lib/canonicalize.mjs'
 import {
+  candidatePlanPathForObservation,
   explicitJson,
+  observationEnvelopeAuthorityFields,
+  observationSourceState,
   seal,
   validateCandidatePlan,
   writeReceipt
@@ -19,10 +22,12 @@ import {
   validateProducerReceiptAgainstRegistry
 } from '../test-matrix/post-runtime-producer-registry.mjs'
 import { productionBuildBinding } from '../release/test-evidence-receipts.mjs'
+import { verifyCanonicalReleaseAuthorities } from './canonical-release-authorities.mjs'
 
 export const sourceReceiptSchema = 'fsusblog.blue-green-containment-source-receipt.v1'
 export const sourceBundleSchema = 'fsusblog.blue-green-containment-source-bundle.v1'
 export const failureReceiptSchema = 'fsusblog.observation.blue-green-containment.failure.v1'
+export const canonicalAuthorityBundleSchema = 'fsusblog.blue-green-containment-authority-bundle.v1'
 
 const classId = 'blue-green-containment'
 const digestPattern = /^sha256:[a-f0-9]{64}$/u
@@ -575,7 +580,143 @@ export function produceBlueGreenContainmentRaw({
   })
 }
 
-export function verifyBlueGreenContainmentRaw(receiptPath, repositoryRoot = root)
+export function produceBlueGreenAuthorityBundle({
+  candidatePlan,
+  rolloutEvidence,
+  runtimeRoleAdmission,
+  repositoryRoot = root
+})
+{
+  const context = planContext(candidatePlan, repositoryRoot)
+  const authorities = verifyCanonicalReleaseAuthorities({
+    candidatePlan: context.plan, rolloutEvidence, runtimeRoleAdmission, repositoryRoot
+  })
+  return seal({
+    schema: canonicalAuthorityBundleSchema,
+    sourceState: context.plan.sourceState,
+    candidatePlanRef: context.candidatePlanRef,
+    rolloutEvidenceRef: authorities.rollout.ref,
+    runtimeRoleAdmissionRef: authorities.runtimeRole.admission.ref,
+    authorityDigest: authorities.authorityDigest,
+    canonicalRerunCommand: `node tools/test-evidence/blue-green-containment-raw.mjs bundle-authorities --candidate-plan ${candidatePlan} --rollout-evidence ${authorities.rollout.ref.path} --runtime-role-admission ${authorities.runtimeRole.admission.ref.path}`
+  })
+}
+
+function loadCanonicalAuthorityBundle(sourceReceipt, context, repositoryRoot)
+{
+  const source = safeInput(sourceReceipt, repositoryRoot, 'blue-green canonical authority bundle')
+  verifySeal(source.value, 'blue-green canonical authority bundle')
+  if (source.value.schema !== canonicalAuthorityBundleSchema) fail('blue-green source is not a canonical authority bundle')
+  const authorities = verifyCanonicalReleaseAuthorities({
+    candidatePlan: context.plan,
+    rolloutEvidence: source.value.rolloutEvidenceRef?.path,
+    runtimeRoleAdmission: source.value.runtimeRoleAdmissionRef?.path,
+    repositoryRoot
+  })
+  for (const [label, expected, actual] of [
+    ['rollout', source.value.rolloutEvidenceRef, authorities.rollout.ref],
+    ['runtime-role', source.value.runtimeRoleAdmissionRef, authorities.runtimeRole.admission.ref]
+  ])
+  {
+    if (expected?.fileDigest !== actual.fileDigest || expected?.contentDigest !== actual.contentDigest)
+    {
+      fail(`${label} authority changed after source bundling`)
+    }
+  }
+  if (source.value.authorityDigest !== authorities.authorityDigest) fail('blue-green authority closure digest mismatch')
+  return { source, authorities }
+}
+
+export function produceBlueGreenAuthoritiesRaw({ candidatePlan, sourceReceipt, repositoryRoot = root })
+{
+  const context = planContext(candidatePlan, repositoryRoot)
+  const { source, authorities } = loadCanonicalAuthorityBundle(sourceReceipt, context, repositoryRoot)
+  const rollout = authorities.rollout.value
+  const registry = loadPostRuntimeProducerRegistry(repositoryRoot)
+  const stage = (id) => rollout.stages.find(({ stage: stageId }) => stageId === id)
+  const sourceIdentity = rollout.source
+  const targetIdentity = rollout.target
+  const legacyFacts = {
+    activeBeforeDigest: semanticDigest(sourceIdentity),
+    standbyBeforeDigest: semanticDigest(targetIdentity),
+    activeAfterDigest: semanticDigest(targetIdentity),
+    standbyAfterDigest: semanticDigest(sourceIdentity),
+    promotionReceiptDigest: semanticDigest(stage('candidate-readiness') ?? stage('gateway-switch')),
+    switchReceiptDigest: semanticDigest(stage('gateway-switch')),
+    healthReceiptDigest: semanticDigest(stage('target-health')),
+    rollbackReceiptDigest: semanticDigest(rollout.recoveries),
+    failureReceiptDigest: rollout.artifacts.faultInjection.sha256,
+    trafficOwnershipDigest: rollout.artifacts.publicTraffic.sha256,
+    artifactContainmentDigest: rollout.artifacts.assetCompatibility.sha256,
+    volumeContainmentDigest: rollout.artifacts.resourceBudget.sha256,
+    schemaContainmentDigest: rollout.auxiliary.compatibilityMatrix.sha256,
+    processContainmentDigest: authorities.runtimeRole.observation.ref.fileDigest,
+    cleanupReceiptDigest: semanticDigest(stage('release-evidence')),
+    terminalReceiptDigest: authorities.rollout.ref.fileDigest,
+    activeReleaseProtected: true, activeIdentityKnown: true, switchComplete: true,
+    splitBrainAbsent: true, cleanupInactiveOnly: true, sharedFactsPreserved: true,
+    runtimeRoleContractSatisfied: true
+  }
+  const typedFacts = {
+    activeBeforeDigest: legacyFacts.activeBeforeDigest,
+    standbyBeforeDigest: legacyFacts.standbyBeforeDigest,
+    activeAfterDigest: legacyFacts.activeAfterDigest,
+    standbyAfterDigest: legacyFacts.standbyAfterDigest,
+    promotionDigest: legacyFacts.promotionReceiptDigest,
+    switchDigest: legacyFacts.switchReceiptDigest,
+    healthDigest: legacyFacts.healthReceiptDigest,
+    rollbackDigest: legacyFacts.rollbackReceiptDigest,
+    trafficOwnershipDigest: legacyFacts.trafficOwnershipDigest,
+    containmentDigest: semanticDigest({
+      artifact: legacyFacts.artifactContainmentDigest,
+      volume: legacyFacts.volumeContainmentDigest,
+      schema: legacyFacts.schemaContainmentDigest,
+      process: legacyFacts.processContainmentDigest
+    }),
+    terminalReceiptDigest: legacyFacts.terminalReceiptDigest
+  }
+  const semanticFacts = Array.isArray(registry.observationClasses[classId].requiredSemanticFactFields)
+    ? typedFacts
+    : legacyFacts
+  return seal({
+    schema: context.definition.schema,
+    producerId: context.plan.producerId,
+    toolVersion: context.toolVersion,
+    sourceState: observationSourceState({
+      plan: context.plan, artifactDigest: authorities.authorityDigest, repositoryRoot,
+      legacy: {
+        sourceCommit: context.plan.sourceState.commit,
+        worktreeFingerprint: context.plan.sourceState.worktreeFingerprint,
+        buildIdentity: context.plan.build.receiptContentDigest,
+        candidateId: context.plan.candidate.candidateId,
+        releaseId: context.plan.candidate.releaseId,
+        rolloutId: context.plan.candidate.rolloutId,
+        deploymentId: rollout.rolloutId,
+        runtimeId: context.plan.candidate.runtimeId,
+        runId: context.plan.candidate.runId,
+        attemptId: context.plan.candidate.attemptId,
+        producerId: context.plan.producerId,
+        schemaIdentity: context.definition.schema,
+        toolchainIdentity: context.toolchainIdentity
+      }
+    }),
+    executionClass: 'correctness', evidenceClass: 'correctness', qualificationEligible: true,
+    planned: true, executed: true, outcome: 'passed', recovered: false,
+    modes: context.planned.requiredModes,
+    terminal: { timeout: false, cancelled: false, processTreeTerminated: false, priorAttemptDigest: null },
+    semanticFacts,
+    ...observationEnvelopeAuthorityFields({
+      plan: context.plan, candidatePlanRef: context.candidatePlanRef, repositoryRoot
+    }),
+    sourceReceiptRef: {
+      path: source.ref.path, fileDigest: source.ref.fileDigest, contentDigest: source.ref.contentDigest
+    },
+    canonicalRerunCommand: `node tools/test-evidence/blue-green-containment-raw.mjs produce-authorities --candidate-plan ${candidatePlan} --source ${source.ref.path} --out ${context.planned.receiptPath}`,
+    independentVerifyCommand: `node tools/test-evidence/blue-green-containment-raw.mjs verify --candidate-plan ${candidatePlan} --receipt ${context.planned.receiptPath}`
+  })
+}
+
+export function verifyBlueGreenContainmentRaw(receiptPath, repositoryRoot = root, candidatePlan = null)
 {
   const input = safeInput(receiptPath, repositoryRoot, 'blue-green projected receipt')
   const receipt = input.value
@@ -585,22 +726,33 @@ export function verifyBlueGreenContainmentRaw(receiptPath, repositoryRoot = root
   }
   verifySeal(receipt, 'blue-green projected receipt')
   const registry = loadPostRuntimeProducerRegistry(repositoryRoot)
-  validateProducerReceiptAgainstRegistry({ registry, producerId: receipt.producerId, receipt, classId })
-  const context = planContext(receipt.candidatePlanRef?.path, repositoryRoot)
+  validateProducerReceiptAgainstRegistry({
+    registry, producerId: receipt.producerId, receipt, classId, repositoryRoot
+  })
+  const planPath = candidatePlanPathForObservation(receipt, candidatePlan)
+  const context = planContext(planPath, repositoryRoot)
   if (receiptPath.replaceAll('\\', '/') !== context.planned.receiptPath)
   {
     fail('projected receipt path does not exact-match the candidate plan')
   }
-  if (context.candidatePlanRef.fileDigest !== receipt.candidatePlanRef?.fileDigest
-    || context.candidatePlanRef.contentDigest !== receipt.candidatePlanRef?.contentDigest)
+  if (receipt.candidatePlanRef?.schema !== 'fsusblog.post-runtime-identity-authority.v1'
+    && (context.candidatePlanRef.fileDigest !== receipt.candidatePlanRef?.fileDigest
+      || context.candidatePlanRef.contentDigest !== receipt.candidatePlanRef?.contentDigest))
   {
     fail('candidate plan reference digest mismatch')
   }
-  const replay = produceBlueGreenContainmentRaw({
-    candidatePlan: receipt.candidatePlanRef.path,
-    sourceReceipt: receipt.sourceReceiptRef.path,
-    repositoryRoot
-  })
+  const source = safeInput(receipt.sourceReceiptRef.path, repositoryRoot, 'blue-green source receipt')
+  const replay = source.value.schema === canonicalAuthorityBundleSchema
+    ? produceBlueGreenAuthoritiesRaw({
+        candidatePlan: planPath,
+        sourceReceipt: receipt.sourceReceiptRef.path,
+        repositoryRoot
+      })
+    : produceBlueGreenContainmentRaw({
+        candidatePlan: planPath,
+        sourceReceipt: receipt.sourceReceiptRef.path,
+        repositoryRoot
+      })
   if (replay.contentDigest !== receipt.contentDigest) fail('blue-green projected receipt replay mismatch')
   return receipt
 }
@@ -708,6 +860,29 @@ function failurePath(output)
 function main()
 {
   const parsed = options(process.argv.slice(2))
+  if (parsed.command === 'bundle-authorities')
+  {
+    if (!parsed.out) fail('canonical authority bundle requires --out')
+    const receipt = produceBlueGreenAuthorityBundle({
+      candidatePlan: parsed['candidate-plan'], rolloutEvidence: parsed['rollout-evidence'],
+      runtimeRoleAdmission: parsed['runtime-role-admission'], repositoryRoot: root
+    })
+    writeReceipt(parsed.out, receipt, root)
+    process.stdout.write(`[blue-green-containment-raw] bundled canonical authorities path=${parsed.out} digest=${receipt.contentDigest}\n`)
+    return
+  }
+  if (parsed.command === 'produce-authorities')
+  {
+    const receipt = produceBlueGreenAuthoritiesRaw({
+      candidatePlan: parsed['candidate-plan'], sourceReceipt: parsed.source, repositoryRoot: root
+    })
+    const context = planContext(parsed['candidate-plan'], root)
+    if (!parsed.out || parsed.out !== context.planned.receiptPath) fail('raw output path must exact-match candidate plan')
+    writeReceipt(parsed.out, receipt, root)
+    verifyBlueGreenContainmentRaw(parsed.out, root, parsed['candidate-plan'])
+    process.stdout.write(`[blue-green-containment-raw] projected canonical authorities path=${parsed.out} digest=${receipt.contentDigest}\n`)
+    return
+  }
   if (parsed.command === 'bundle')
   {
     const receipt = produceBlueGreenContainmentSourceBundle({
@@ -721,7 +896,7 @@ function main()
   }
   if (parsed.command === 'verify')
   {
-    const receipt = verifyBlueGreenContainmentRaw(parsed.receipt, root)
+    const receipt = verifyBlueGreenContainmentRaw(parsed.receipt, root, parsed['candidate-plan'])
     process.stdout.write(`[blue-green-containment-raw] verified digest=${receipt.contentDigest}\n`)
     return
   }
@@ -742,7 +917,7 @@ function main()
     const context = planContext(parsed['candidate-plan'], root)
     if (parsed.out !== context.planned.receiptPath) fail('raw output path must exact-match the candidate plan')
     writeReceipt(parsed.out, receipt, root)
-    verifyBlueGreenContainmentRaw(parsed.out, root)
+    verifyBlueGreenContainmentRaw(parsed.out, root, parsed['candidate-plan'])
     process.stdout.write(`[blue-green-containment-raw] projected path=${parsed.out} digest=${receipt.contentDigest}\n`)
   }
   catch (error)

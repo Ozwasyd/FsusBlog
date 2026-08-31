@@ -91,8 +91,23 @@ function currentReceiptFile(repositoryRoot, relative, label)
     {
         fail(`${label} escapes the repository root`)
     }
+    if (fs.realpathSync.native(resolvedRoot) !== resolvedRoot)
+    {
+        fail(`${label} repository root must be canonical and non-symlinked`)
+    }
+    for (let cursor = absolute; cursor !== resolvedRoot; cursor = path.dirname(cursor))
+    {
+        const cursorStat = fs.lstatSync(cursor, { throwIfNoEntry: false })
+        if (!cursorStat || cursorStat.isSymbolicLink())
+        {
+            fail(`${label} must not traverse a symlink or missing ancestor`)
+        }
+    }
     const stat = fs.lstatSync(absolute)
-    if (!stat.isFile() || stat.isSymbolicLink()) fail(`${label} must be a regular non-symlink file`)
+    if (!stat.isFile() || stat.isSymbolicLink() || fs.realpathSync.native(absolute) !== absolute)
+    {
+        fail(`${label} must be a regular non-symlink file`)
+    }
     return absolute
 }
 

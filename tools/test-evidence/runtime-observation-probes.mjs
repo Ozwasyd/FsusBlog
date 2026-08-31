@@ -17,6 +17,7 @@ import {
   decodeKnownFrame,
   decodePublicAotPayload
 } from '../../tests/frontend/support/aeds-envelope.mjs'
+import { projectPreparedPublicIds } from '../test-fixtures/receipt/projection.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const execFileAsync = promisify(execFile)
@@ -113,17 +114,17 @@ function sourceIdentity(parsed, build, fixture)
 
 function fixtureProjection(fixture)
 {
-  const output = fixture.value.producerOutputs?.['public-content']
-  const projection = output?.projection
-  if (!projection || !Number.isSafeInteger(Number(projection.articleId))
-    || !Number.isSafeInteger(Number(projection.categoryId)) || !Number.isSafeInteger(Number(projection.tagId)))
-  {
-    fail('prepared fixture has no typed public-content projection')
-  }
+  let projection
+  try { projection = projectPreparedPublicIds(fixture.value) }
+  catch (error) { fail(`prepared fixture has no canonical public-content authority: ${error.message}`) }
   return {
     articleId: Number(projection.articleId),
     categoryId: Number(projection.categoryId),
-    tagId: Number(projection.tagId)
+    tagId: Number(projection.tagId),
+    articleTitle: projection.articleTitle,
+    searchKeyword: projection.searchKeyword,
+    projectionDigest: projection.projectionDigest,
+    prepareStateDigest: fixture.ref.contentDigest
   }
 }
 
@@ -187,6 +188,9 @@ function publicCase(value, { id, role, expectation })
     byteLength: value.byteLength,
     typedPayloadDigest: value.payload == null ? null : digest(value.payload),
     typedKind: value.payload?.code != null ? 'typed-error' : 'payload',
+    typedEntityId: Number.isSafeInteger(value.payload?.id) ? value.payload.id : null,
+    typedTitleDigest: typeof value.payload?.title === 'string' ? sha(value.payload.title) : null,
+    typedStatusCode: Number.isSafeInteger(value.payload?.statusCode) ? value.payload.statusCode : null,
     decodeError: value.decodeError
   })
 }
@@ -209,7 +213,8 @@ async function binaryCase(id, role, expectation, result)
 async function routeProbe(context)
 {
   if (!baseUrl) fail('route probe requires FSUSBLOG_BASE_URL')
-  const { articleId } = fixtureProjection(context.fixture)
+  const fixture = fixtureProjection(context.fixture)
+  const { articleId } = fixture
   const user = await loginWithFixtureSessionBypass('binaryuser', '', false, `route-user-${context.identity.runId}`, timeoutMs)
   const admin = await loginWithFixtureSessionBypass('binaryadmin', '', false, `route-admin-${context.identity.runId}`, timeoutMs)
   const publicFirst = await directAeds(`/api/binary/article/${articleId}.aeds`, {
@@ -254,17 +259,34 @@ async function routeProbe(context)
   const byId = new Map(cases.map((item) => [item.id, item]))
   const first = byId.get('public-visible-first-read')
   const second = byId.get('public-visible-cache-revalidation')
+  const firstFrameVersion = first.headers['x-fsus-frame-version']
+  const firstGeneration = first.headers['x-fsus-generation']
   const coherent = first.status === 200 && first.typedKind === 'payload' && first.decodeError === null
-    && [200, 304].includes(second.status)
-    && (second.status === 304 || second.bodyDigest === first.bodyDigest)
+    && first.typedEntityId === articleId && first.typedTitleDigest === sha(fixture.articleTitle)
+    && first.headers['content-type']?.toLowerCase().includes('application/octet-stream')
+    && firstFrameVersion === '2' && /^[0-9]+$/u.test(String(firstGeneration ?? ''))
+    && typeof first.headers.etag === 'string' && first.headers.etag.length > 0
+    && second.status === 304 && second.headers.etag === first.headers.etag
     && byId.get('public-missing-typed-error').status === 404
     && byId.get('public-missing-typed-error').typedKind === 'typed-error'
+    && byId.get('public-missing-typed-error').typedStatusCode === 404
     && [401, 403].includes(byId.get('anonymous-auth-denied').status)
     && byId.get('user-self-visible').status === 200
     && [401, 403].includes(byId.get('user-admin-denied').status)
     && byId.get('admin-list-visible').status === 200
   if (!coherent) fail('route probe did not observe the required role/auth/visibility/cache semantics')
-  return { schema: 'fsusblog.route-response-error-probe-facts.v1', cases, coherent }
+  return {
+    schema: 'fsusblog.route-response-error-probe-facts.v1',
+    fixtureAuthority: {
+      prepareStateDigest: fixture.prepareStateDigest,
+      projectionDigest: fixture.projectionDigest,
+      articleIdDigest: sha(String(articleId)),
+      articleTitleDigest: sha(fixture.articleTitle),
+      searchCanaryDigest: sha(fixture.searchKeyword)
+    },
+    cases,
+    coherent
+  }
 }
 
 function parseCookieHeader(header)
@@ -562,7 +584,7 @@ function buildFailureReceipt(kind, context, error)
   })
 }
 
-export function verifyFacts(kind, facts)
+export function verifyFacts(kind, facts, { fixture = null } = {})
 {
   if (facts?.coherent !== true) fail(`${kind} facts are partial or incoherent`)
   if (kind === 'route-response-error')
@@ -578,11 +600,36 @@ export function verifyFacts(kind, facts)
     const byId = new Map(facts.cases.map((item) => [item.id, item]))
     const first = byId.get('public-visible-first-read')
     const second = byId.get('public-visible-cache-revalidation')
+    const authority = facts.fixtureAuthority ?? {}
+    if ([authority.prepareStateDigest, authority.projectionDigest, authority.articleIdDigest,
+      authority.articleTitleDigest, authority.searchCanaryDigest]
+      .some((value) => !digestPattern.test(String(value ?? ''))))
+    {
+      fail('route facts do not bind the prepared fixture authority and canaries')
+    }
+    if (fixture)
+    {
+      const projected = fixtureProjection(fixture)
+      if (authority.prepareStateDigest !== projected.prepareStateDigest
+        || authority.projectionDigest !== projected.projectionDigest
+        || authority.articleIdDigest !== sha(String(projected.articleId))
+        || authority.articleTitleDigest !== sha(projected.articleTitle)
+        || authority.searchCanaryDigest !== sha(projected.searchKeyword))
+      {
+        fail('route facts fixture authority does not replay from the prepared current run')
+      }
+    }
     if (first.status !== 200 || first.typedKind !== 'payload' || first.decodeError !== null
-      || ![200, 304].includes(second.status)
-      || (second.status !== 304 && second.bodyDigest !== first.bodyDigest)
+      || first.typedEntityId == null || sha(String(first.typedEntityId)) !== authority.articleIdDigest
+      || first.typedTitleDigest !== authority.articleTitleDigest
+      || first.headers?.['content-type']?.toLowerCase().includes('application/octet-stream') !== true
+      || first.headers?.['x-fsus-frame-version'] !== '2'
+      || !/^[0-9]+$/u.test(String(first.headers?.['x-fsus-generation'] ?? ''))
+      || typeof first.headers?.etag !== 'string' || first.headers.etag.length === 0
+      || second.status !== 304 || second.headers?.etag !== first.headers.etag
       || byId.get('public-missing-typed-error').status !== 404
       || byId.get('public-missing-typed-error').typedKind !== 'typed-error'
+      || byId.get('public-missing-typed-error').typedStatusCode !== 404
       || ![401, 403].includes(byId.get('anonymous-auth-denied').status)
       || byId.get('user-self-visible').status !== 200
       || ![401, 403].includes(byId.get('user-admin-denied').status)
@@ -657,7 +704,7 @@ export function verifyReceipt(receipt)
   {
     fail('probe fixture dependency identity mismatch')
   }
-  verifyFacts(receipt.kind, receipt.facts)
+  verifyFacts(receipt.kind, receipt.facts, { fixture })
   return receipt
 }
 

@@ -4,23 +4,21 @@ import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
 
-import { createProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs'
 import { digestValue, stable } from '../../tools/fact-extractors/lib/canonicalize.mjs'
-import { currentRegistryBinding, seal } from '../../tools/fact-extractors/post-runtime/adapter.mjs'
+import { resolveSourceCommit } from '../../tools/fact-extractors/identity.mjs'
+import { seal } from '../../tools/fact-extractors/post-runtime/adapter.mjs'
 import { createReleaseManifest } from '../../tools/release/release-manifest.mjs'
 import {
+  produceReleaseReadinessAuthorityBundle,
   projectReleaseReadinessRaw,
   releaseReadinessSourceSchema,
   verifyReleaseReadinessRaw
 } from '../../tools/test-evidence/release-readiness-raw.mjs'
-import {
-  loadPostRuntimeProducerRegistry,
-  root
-} from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
+import { root } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
+import { createPostRuntimeCandidateFixture } from './support/post-runtime-candidate-fixture.mjs'
 
-const commit = '0123456789abcdef0123456789abcdef01234567'
-const fingerprint = `sha256:${'b'.repeat(64)}`
-const releaseId = '20260711010101-0123456789ab'
+const commit = resolveSourceCommit(root)
+const releaseId = `20260711010101-${commit.slice(0, 12)}`
 const digest = (character) => `sha256:${character.repeat(64)}`
 const semanticDigest = (value) => `sha256:${digestValue(stable(value))}`
 const fileDigest = (file) => `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`
@@ -33,29 +31,13 @@ function write(file, value)
 
 function fixture(context)
 {
-  fs.mkdirSync(path.join(root, '.tmp'), { recursive: true })
-  const directory = fs.mkdtempSync(path.join(root, '.tmp', 'release-readiness-raw-'))
-  context.after(() => fs.rmSync(directory, { recursive: true, force: true }))
-  const relative = (name) => path.relative(root, path.join(directory, name)).replaceAll(path.sep, '/')
-  const artifactRoot = path.join(directory, 'artifacts')
-  const inputRoot = path.join(directory, 'repository')
-  fs.mkdirSync(path.join(artifactRoot, 'backend'), { recursive: true })
-  fs.mkdirSync(path.join(inputRoot, 'inputs'), { recursive: true })
-  fs.writeFileSync(path.join(artifactRoot, 'backend', 'FsusBlog.Server'), 'immutable production package\n')
-  fs.writeFileSync(path.join(inputRoot, 'inputs', 'input.json'), '{}\n')
-  const build = createProductionBuildReceipt({
-    root: inputRoot,
-    artifactRoot,
-    sourceState: { commit, worktreeFingerprint: fingerprint },
-    producer: { workflow: 'fixture', runId: 'run-2208', runAttempt: 1, job: 'production-build-artifacts' },
-    toolchain: {
-      node: '24', npm: '11', dotnet: '10', vite: '7', vitest: '3', playwright: '1', emsdk: '4'
-    },
-    inputPaths: ['inputs'],
-    domains: [{ name: 'backend', path: 'backend' }],
-    now: () => new Date('2026-07-11T01:01:01.000Z')
+  const candidate = createPostRuntimeCandidateFixture(context, {
+    prefix: 'release-readiness-raw-', runId: 'run-release-2208', candidate: { releaseId }
   })
-  const buildPath = path.join(artifactRoot, 'receipt.json')
+  const { directory, commit } = candidate
+  const fingerprint = `sha256:${candidate.worktreeFingerprint}`
+  const relative = (name) => path.relative(root, path.join(directory, name)).replaceAll(path.sep, '/')
+  const build = candidate.build
   const manifest = createReleaseManifest({
     releaseId,
     commitSha: commit,
@@ -83,41 +65,9 @@ function fixture(context)
   const manifestPath = path.join(directory, 'release-manifest.json')
   write(manifestPath, manifest)
 
-  const registry = loadPostRuntimeProducerRegistry(root)
-  const producer = registry.producers[0]
-  const observations = Object.entries(registry.observationClasses).sort(([left], [right]) => left.localeCompare(right))
-    .map(([classId, definition]) => ({
-      classId,
-      schema: definition.schema,
-      receiptPath: relative(`${classId}.json`),
-      requiredModes: Object.entries(producer.requiredObservations)
-        .filter(([, classes]) => classes.includes(classId)).map(([mode]) => mode).sort()
-    }))
-  const plan = seal({
-    schema: 'fsusblog.post-runtime-candidate-plan.v1',
-    producerId: producer.producerId,
-    registryBinding: currentRegistryBinding(root),
-    sourceState: { commit, worktreeFingerprint: fingerprint },
-    build: {
-      schema: build.schema,
-      receipt: path.relative(root, buildPath).replaceAll(path.sep, '/'),
-      receiptContentDigest: build.contentDigest,
-      sourceState: build.sourceState,
-      profile: build.build.profile,
-      producer: build.producer
-    },
-    candidate: {
-      candidateId: 'run-2208:candidate', runId: 'run-2208', attemptId: 'attempt-1',
-      fixtureId: 'run-2208:fixture', profileId: 'production-fresh', runtimeId: 'run-2208:runtime',
-      browserId: 'run-2208:browser', releaseId, rolloutId: 'run-2208:rollout'
-    },
-    preRuntimeReceiptDigest: digest('7'),
-    acceptedClaimsReceiptDigest: digest('8'),
-    observations,
-    status: 'planned'
-  })
-  const planPath = path.join(directory, 'candidate-plan.json')
-  write(planPath, plan)
+  const plan = candidate.plan
+  const planPath = candidate.planFile
+  const producer = { producerId: plan.producerId }
 
   const artifactDigest = semanticDigest(build.artifacts)
   const packageDigest = semanticDigest({ domains: build.domains, artifacts: build.artifacts })
@@ -209,7 +159,7 @@ function fixture(context)
   write(sourcePath, source)
   return {
     directory, relative, plan, planPath, build, manifest, manifestPath,
-    source, sourcePath, rawPath: path.join(directory, 'release-identity-readiness.json')
+    source, sourcePath, rawPath: path.join(root, candidate.observationPaths['release-identity-readiness'])
   }
 }
 
@@ -243,7 +193,7 @@ test('projects exact release identity/readiness facts and independently replays 
   assert.equal(raw.semanticFacts.imageDigest, value.manifest.imageDigest)
   assert.equal(raw.semanticFacts.packageDigest, value.source.observations.package.packageDigest)
   assert.equal(raw.semanticFacts.runtimeRoleContractSatisfied, true)
-  assert.equal(verifyReleaseReadinessRaw(value.relative('release-identity-readiness.json'), root).contentDigest, raw.contentDigest)
+  assert.equal(verifyReleaseReadinessRaw(path.relative(root, value.rawPath), root).contentDigest, raw.contentDigest)
 })
 
 test('rejects process, port, HTTP, file and job success shortcuts', (context) =>
@@ -324,7 +274,7 @@ test('independent verifier rejects source and projected receipt tamper', (contex
   const raw = project(sourceTamper)
   write(sourceTamper.rawPath, raw)
   fs.appendFileSync(sourceTamper.sourcePath, ' ')
-  assert.throws(() => verifyReleaseReadinessRaw(sourceTamper.relative('release-identity-readiness.json'), root), /source receipt digest mismatch/u)
+  assert.throws(() => verifyReleaseReadinessRaw(path.relative(root, sourceTamper.rawPath), root), /source receipt digest mismatch/u)
 
   const outputTamper = fixture(context)
   const projected = project(outputTamper)
@@ -332,5 +282,16 @@ test('independent verifier rejects source and projected receipt tamper', (contex
   changed.semanticFacts.cacheReady = false
   delete changed.contentDigest
   write(outputTamper.rawPath, seal(changed))
-  assert.throws(() => verifyReleaseReadinessRaw(outputTamper.relative('release-identity-readiness.json'), root), /raw replay mismatch/u)
+  assert.throws(() => verifyReleaseReadinessRaw(path.relative(root, outputTamper.rawPath), root), /raw replay mismatch/u)
+})
+
+test('canonical production path rejects a self-sealed readiness receipt as rollout authority', (context) =>
+{
+  const value = fixture(context)
+  assert.throws(() => produceReleaseReadinessAuthorityBundle({
+    candidatePlan: value.relative('candidate-plan.json'),
+    rolloutEvidence: value.relative('release-readiness-source.json'),
+    runtimeRoleAdmission: value.relative('release-readiness-source.json'),
+    repositoryRoot: root
+  }), /canonical release rollout verifier rejected/u)
 })

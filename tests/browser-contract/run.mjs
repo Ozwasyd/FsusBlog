@@ -447,7 +447,11 @@ async function main()
                 page.setDefaultTimeout(browserContractAppReadyTimeoutMs);
                 page.setDefaultNavigationTimeout(browserContractAppReadyTimeoutMs);
                 audit = createPageAudit(page);
-                await runner({ browser, context, page, fixture, audit, scenario, outputRoot });
+                const observation = await runner({ browser, context, page, fixture, audit, scenario, outputRoot });
+                if (observation !== undefined)
+                {
+                    scenarioReceipt.observation = observation;
+                }
                 if (browserDisconnected)
                 {
                     throw new BrowserContractFailure('Chromium disconnected during the release browser contract', 'infra');

@@ -6,9 +6,13 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { verifyProductionBuildReceipt } from '../ci/production-build-artifacts.mjs'
+import { validateBrowserContractReceipt } from '../release/test-evidence-receipts.mjs'
 import { stable } from '../fact-extractors/lib/canonicalize.mjs'
 import {
+  candidatePlanPathForObservation,
   explicitJson,
+  observationEnvelopeAuthorityFields,
+  observationSourceState,
   seal,
   validateCandidatePlan,
   writeReceipt
@@ -25,8 +29,7 @@ export const sourceBundleSchema = 'fsusblog.aot-spa-hydration-source-bundle.v1'
 const unsafePathPattern = /(?:^|[/\\])(?:latest|history|historical)(?:[/\\]|$)/iu
 const digestPattern = /^sha256:[a-f0-9]{64}$/u
 const evidenceKeys = Object.freeze([
-  'manifest', 'publication', 'locale', 'data', 'serverHtml',
-  'hydratedDom', 'client', 'network'
+  'manifest', 'browserContract'
 ])
 const fail = (message) => { throw new Error(`[aot-spa-hydration-raw] ${message}`) }
 const sha = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`
@@ -69,49 +72,6 @@ function explicitFile(relative, label, repositoryRoot, { json = false } = {})
     catch { fail(`${label} is not valid JSON`) }
   }
   return { absolute, bytes, value, ref: { path: normalized, fileDigest: sha(bytes) } }
-}
-
-function exactKeys(value, expected, label)
-{
-  if (!value || typeof value !== 'object' || Array.isArray(value)
-    || JSON.stringify(Object.keys(value).sort()) !== JSON.stringify([...expected].sort()))
-  {
-    fail(`${label} fields do not exact-match the AOT evidence contract`)
-  }
-}
-
-function identityOf(value)
-{
-  const source = value?.sourceState ?? value?.sourceIdentity ?? {}
-  return {
-    sourceCommit: source.sourceCommit ?? source.commit,
-    worktreeFingerprint: String(source.worktreeFingerprint ?? '').replace(/^sha256:/u, ''),
-    buildIdentity: source.buildIdentity,
-    runId: source.runId,
-    attemptId: source.attemptId
-  }
-}
-
-function verifyEvidenceEnvelope(key, input, plan)
-{
-  const value = input.value
-  if (!value || typeof value !== 'object' || Array.isArray(value)
-    || typeof value.schema !== 'string' || !/^fsusblog\.[a-z0-9.-]+\.v\d+$/u.test(value.schema))
-  {
-    fail(`${key} evidence schema is missing or unversioned`)
-  }
-  if (!['ok', 'passed', 'success', 'verified'].includes(value.status)) fail(`${key} evidence is not successful`)
-  const identity = identityOf(value)
-  if (identity.sourceCommit !== plan.sourceState.commit
-    || identity.worktreeFingerprint !== plan.sourceState.worktreeFingerprint.replace(/^sha256:/u, '')
-    || identity.buildIdentity !== plan.build.receiptContentDigest
-    || identity.runId !== plan.candidate.runId
-    || identity.attemptId !== plan.candidate.attemptId)
-  {
-    fail(`${key} evidence does not exact-match the candidate identity`)
-  }
-  if (!value.facts || typeof value.facts !== 'object' || Array.isArray(value.facts)) fail(`${key} evidence facts are missing`)
-  return value.facts
 }
 
 function tagAttributes(tag)
@@ -177,57 +137,101 @@ function normalizedFacts(inputs, plan, buildReceipt)
     fail('SPA manifest descriptor does not match the immutable build manifest artifact')
   }
 
-  const publication = verifyEvidenceEnvelope('publication', inputs.publication, plan)
-  const locale = verifyEvidenceEnvelope('locale', inputs.locale, plan)
-  const data = verifyEvidenceEnvelope('data', inputs.data, plan)
-  const hydratedDom = verifyEvidenceEnvelope('hydratedDom', inputs.hydratedDom, plan)
-  const client = verifyEvidenceEnvelope('client', inputs.client, plan)
-  const network = verifyEvidenceEnvelope('network', inputs.network, plan)
-  exactKeys(publication, ['route', 'statusCode', 'contentType', 'published', 'releaseId'], 'publication facts')
-  exactKeys(locale, ['expectedLocale', 'serverLocale', 'clientLocale', 'matches'], 'locale facts')
-  exactKeys(data, ['route', 'hydrationKind', 'serverDigest', 'clientDigest', 'matches'], 'data facts')
-  exactKeys(hydratedDom, [
-    'route', 'hydrationKind', 'appCount', 'shellCount', 'hydrated', 'identityPreserved'
-  ], 'hydrated DOM facts')
-  exactKeys(client, ['route', 'ready', 'historyCoherent', 'hydrationMetricsPresent'], 'client facts')
-  exactKeys(network, ['documentStatus', 'failedRequests', 'manifestResourcesMatched'], 'network facts')
-
-  const serverHtml = htmlProjection(inputs.serverHtml.bytes)
-  const sameRoute = publication.route === data.route
-    && data.route === hydratedDom.route && hydratedDom.route === client.route
-    && client.route === serverHtml.canonicalPath
-  const sameKind = data.hydrationKind === hydratedDom.hydrationKind
-    && hydratedDom.hydrationKind === serverHtml.hydrationKind
-  const localeCoherent = locale.matches === true && locale.expectedLocale === locale.serverLocale
-    && locale.serverLocale === locale.clientLocale && locale.serverLocale === serverHtml.locale
-  const dataCoherent = data.matches === true && digestPattern.test(String(data.serverDigest ?? ''))
-    && data.serverDigest === data.clientDigest
-  const domCoherent = hydratedDom.appCount === 1 && hydratedDom.shellCount === 1
-    && hydratedDom.hydrated === true && hydratedDom.identityPreserved === true
-    && serverHtml.appCount === 1 && serverHtml.shellCount === 1 && serverHtml.seoMarkerCount === 1
-  const publicationCoherent = publication.statusCode === 200 && publication.contentType.startsWith('text/html')
-    && publication.published === true && publication.releaseId === plan.candidate.releaseId
-  const clientCoherent = client.ready === true && client.historyCoherent === true
-    && client.hydrationMetricsPresent === true
-  const networkCoherent = network.documentStatus === 200 && Array.isArray(network.failedRequests)
-    && network.failedRequests.length === 0 && network.manifestResourcesMatched === true
-  if (!(sameRoute && sameKind && localeCoherent && dataCoherent && domCoherent
-    && publicationCoherent && clientCoherent && networkCoherent))
+  const browser = inputs.browserContract.value
+  const browserErrors = validateBrowserContractReceipt(browser, {
+    expectedCommit: plan.sourceState.commit,
+    expectedFingerprint: plan.sourceState.worktreeFingerprint,
+    expectedBuildReceiptDigest: plan.build.receiptContentDigest,
+    requireSuccess: true
+  })
+  if (browserErrors.length > 0) fail(`Browser Contract authority is non-qualifying: ${browserErrors.join('; ')}`)
+  const scenario = (browser.scenarios ?? []).find(({ id }) => id === 'public-hydration-history-reload')
+  const observation = scenario?.observation
+  if (scenario?.status !== 'success' || scenario.classification !== 'clean'
+    || observation?.schema !== 'fsusblog.browser-contract-public-aot-observation.v1')
   {
-    fail('server HTML, hydrated DOM, client, network, locale, data, and publication identities are not coherent')
+    fail('canonical Browser Contract public hydration observation is missing')
+  }
+  const source = browser.sourceState ?? {}
+  const lifecycle = browser.fixture?.lifecycle?.identity ?? {}
+  if (source.commit !== plan.sourceState.commit
+    || String(source.worktreeFingerprint ?? '').replace(/^sha256:/u, '')
+      !== plan.sourceState.worktreeFingerprint.replace(/^sha256:/u, '')
+    || browser.buildBinding?.receiptContentDigest !== plan.build.receiptContentDigest
+    || browser.runIdentity?.runId !== plan.candidate.runId
+    || lifecycle.runId !== plan.candidate.runId)
+  {
+    fail('Browser Contract source/build/run/fixture identity does not match the candidate')
+  }
+  const htmlBytes = Buffer.from(String(observation.response?.serverHtml ?? ''), 'utf8')
+  const serverHtml = htmlProjection(htmlBytes)
+  const direct = observation.direct ?? {}
+  const fixture = observation.fixture ?? {}
+  const stableIdentity = (value) => value?.captured === true && value.appSame === true
+    && value.shellSame === true && value.firstChildSame === true
+    && value.childElementCountSame === true && value.hydrated === true
+    && value.appCount === 1 && value.shellCount === 1
+    && Array.isArray(value.violations) && value.violations.length === 0
+  const resourceUrls = direct.resourceUrls ?? []
+  let responseOrigin = null
+  try { responseOrigin = new URL(observation.response?.url).origin } catch { responseOrigin = null }
+  const resourcesCoherent = responseOrigin !== null && Array.isArray(resourceUrls) && resourceUrls.length > 0
+    && resourceUrls.every((url) => {
+      try { return new URL(url).origin === responseOrigin } catch { return false }
+    })
+  const coherent = observation.response?.status === 200
+    && String(observation.response?.headers?.['content-type'] ?? '').toLowerCase().startsWith('text/html')
+    && observation.response?.headers?.['x-fsus-release-id'] === plan.candidate.releaseId
+    && fixture.articlePath === direct.route && fixture.articlePath === direct.canonicalPath
+    && fixture.articlePath === serverHtml.canonicalPath
+    && String(fixture.articleId) === fixture.articlePath.split('/').at(-1)
+    && direct.title === fixture.articleTitle && direct.locale === serverHtml.locale
+    && direct.hydrationKind === serverHtml.hydrationKind
+    && direct.appCount === 1 && direct.shellCount === 1 && direct.hydrated === true
+    && serverHtml.appCount === 1 && serverHtml.shellCount === 1 && serverHtml.seoMarkerCount === 1
+    && String(direct.bootstrapText ?? '').length > 0
+    && stableIdentity(observation.spa) && stableIdentity(observation.history) && stableIdentity(observation.reload)
+    && resourcesCoherent && browser.diagnostics?.unexpectedIssueCount === 0
+  if (!coherent)
+  {
+    fail('canonical server HTML and Browser Contract hydration outputs are not coherent')
   }
 
   return {
     buildDigest: plan.build.receiptContentDigest,
     manifestDigest: manifest.manifestDigest,
-    publicationDigest: inputs.publication.ref.fileDigest,
-    localeCanaryDigest: inputs.locale.ref.fileDigest,
-    dataCanaryDigest: inputs.data.ref.fileDigest,
-    serverHtmlDigest: inputs.serverHtml.ref.fileDigest,
-    hydratedDomDigest: inputs.hydratedDom.ref.fileDigest,
-    clientStateDigest: inputs.client.ref.fileDigest,
-    networkResourceDigest: inputs.network.ref.fileDigest,
+    publicationDigest: sha(Buffer.from(JSON.stringify(stable({
+      url: observation.response.url,
+      status: observation.response.status,
+      headers: observation.response.headers
+    })), 'utf8')),
+    localeCanaryDigest: sha(Buffer.from(String(direct.locale), 'utf8')),
+    dataCanaryDigest: sha(Buffer.from(String(direct.bootstrapText), 'utf8')),
+    serverHtmlDigest: sha(htmlBytes),
+    hydratedDomDigest: sha(Buffer.from(JSON.stringify(stable(direct)), 'utf8')),
+    clientStateDigest: sha(Buffer.from(JSON.stringify(stable({
+      spa: observation.spa,
+      history: observation.history,
+      reload: observation.reload
+    })), 'utf8')),
+    networkResourceDigest: sha(Buffer.from(JSON.stringify(resourceUrls), 'utf8')),
     coherent: true
+  }
+}
+
+function typedFacts(inputs, legacyFacts)
+{
+  const scenario = inputs.browserContract.value.scenarios
+    .find(({ id }) => id === 'public-hydration-history-reload')
+  return {
+    manifestDigest: legacyFacts.manifestDigest,
+    publicationDigest: legacyFacts.publicationDigest,
+    locale: scenario.observation.direct.locale,
+    dataCanaryDigest: legacyFacts.dataCanaryDigest,
+    serverHtmlDigest: legacyFacts.serverHtmlDigest,
+    hydratedDomDigest: legacyFacts.hydratedDomDigest,
+    clientStateDigest: legacyFacts.clientStateDigest,
+    networkResourceDigest: legacyFacts.networkResourceDigest
   }
 }
 
@@ -238,7 +242,7 @@ function loadInputs(evidence, repositoryRoot)
     fail('evidence paths must contain the exact AOT evidence set')
   }
   return Object.fromEntries(evidenceKeys.map((key) => [key,
-    explicitFile(evidence[key], `${key} evidence`, repositoryRoot, { json: key !== 'serverHtml' })]))
+    explicitFile(evidence[key], `${key} evidence`, repositoryRoot, { json: true })]))
 }
 
 function planInput(candidatePlan, repositoryRoot)
@@ -290,7 +294,7 @@ function loadSourceBundle(sourceReceipt, plan, repositoryRoot)
   }
   const evidence = Object.fromEntries(evidenceKeys.map((key) => {
     const reference = source.value.evidenceRefs?.[key]
-    const current = explicitFile(reference?.path, `${key} evidence`, repositoryRoot, { json: key !== 'serverHtml' })
+    const current = explicitFile(reference?.path, `${key} evidence`, repositoryRoot, { json: true })
     if (current.ref.fileDigest !== reference?.fileDigest
       || (reference?.contentDigest ?? null) !== (current.value?.contentDigest ?? null))
     {
@@ -313,13 +317,16 @@ export function projectAotSpaHydrationRaw({ candidatePlan, sourceReceipt, reposi
   const buildReceipt = verifyBuild(plan, repositoryRoot)
   const source = loadSourceBundle(sourceReceipt, plan, repositoryRoot)
   const inputs = loadInputs(source.evidence, repositoryRoot)
-  const semanticFacts = normalizedFacts(inputs, plan, buildReceipt)
-  validateSemanticFacts(classId, semanticFacts)
+  const legacyFacts = normalizedFacts(inputs, plan, buildReceipt)
+  validateSemanticFacts(classId, legacyFacts)
+  const semanticFacts = Array.isArray(definition.requiredSemanticFactFields)
+    ? typedFacts(inputs, legacyFacts)
+    : legacyFacts
   return seal({
     schema: definition.schema,
     producerId: plan.producerId,
     toolVersion: producer.toolVersion,
-    sourceState: {
+    sourceState: observationSourceState({ plan, artifactDigest: semanticFacts.manifestDigest, repositoryRoot, legacy: {
       sourceCommit: plan.sourceState.commit,
       worktreeFingerprint: plan.sourceState.worktreeFingerprint,
       buildIdentity: plan.build.receiptContentDigest,
@@ -330,7 +337,7 @@ export function projectAotSpaHydrationRaw({ candidatePlan, sourceReceipt, reposi
       browserIdentity: plan.candidate.browserId,
       releaseId: plan.candidate.releaseId,
       rolloutId: plan.candidate.rolloutId
-    },
+    } }),
     executionClass: 'correctness',
     evidenceClass: 'correctness',
     qualificationEligible: true,
@@ -341,14 +348,14 @@ export function projectAotSpaHydrationRaw({ candidatePlan, sourceReceipt, reposi
     modes: planned.requiredModes,
     terminal: { timeout: false, cancelled: false, processTreeTerminated: false, priorAttemptDigest: null },
     semanticFacts,
-    candidatePlanRef: candidate.ref,
+    ...observationEnvelopeAuthorityFields({ plan, candidatePlanRef: candidate.ref, repositoryRoot }),
     sourceReceiptRef: source.source.ref,
     canonicalRerunCommand: `node tools/test-evidence/aot-spa-hydration-raw.mjs project --candidate-plan ${candidate.ref.path} --source ${source.source.ref.path} --out ${planned.receiptPath}`,
     independentVerifyCommand: `node tools/test-evidence/aot-spa-hydration-raw.mjs verify --receipt ${planned.receiptPath}`
   })
 }
 
-export function verifyAotSpaHydrationRaw(receiptPath, repositoryRoot = root)
+export function verifyAotSpaHydrationRaw(receiptPath, repositoryRoot = root, candidatePlan = null)
 {
   const input = explicitFile(receiptPath, 'AOT raw receipt', repositoryRoot, { json: true })
   const receipt = input.value
@@ -359,15 +366,12 @@ export function verifyAotSpaHydrationRaw(receiptPath, repositoryRoot = root)
     fail('raw receipt schema or content digest mismatch')
   }
   const registry = loadPostRuntimeProducerRegistry(repositoryRoot)
-  validateProducerReceiptAgainstRegistry({ registry, producerId: receipt.producerId, receipt, classId })
-  const candidate = explicitFile(receipt.candidatePlanRef?.path, 'candidate plan', repositoryRoot, { json: true })
-  if (candidate.ref.fileDigest !== receipt.candidatePlanRef?.fileDigest
-    || candidate.value.contentDigest !== receipt.candidatePlanRef?.contentDigest)
-  {
-    fail('candidate plan bytes or content digest changed after projection')
-  }
+  validateProducerReceiptAgainstRegistry({
+    registry, producerId: receipt.producerId, receipt, classId, repositoryRoot
+  })
+  const planPath = candidatePlanPathForObservation(receipt, candidatePlan)
   const replay = projectAotSpaHydrationRaw({
-    candidatePlan: receipt.candidatePlanRef.path,
+    candidatePlan: planPath,
     sourceReceipt: receipt.sourceReceiptRef.path,
     repositoryRoot
   })
@@ -394,17 +398,17 @@ function main()
     const planned = plan.observations.find((entry) => entry.classId === classId)
     if (!parsed.out || parsed.out !== planned?.receiptPath) fail('raw output path must exact-match the candidate plan')
     writeReceipt(parsed.out, receipt, root)
-    verifyAotSpaHydrationRaw(parsed.out, root)
+    verifyAotSpaHydrationRaw(parsed.out, root, parsed['candidate-plan'])
     process.stdout.write(`[aot-spa-hydration-raw] projected path=${parsed.out} digest=${receipt.contentDigest}\n`)
     return
   }
   if (parsed.command === 'verify')
   {
-    const receipt = verifyAotSpaHydrationRaw(parsed.receipt, root)
+    const receipt = verifyAotSpaHydrationRaw(parsed.receipt, root, parsed['candidate-plan'])
     process.stdout.write(`[aot-spa-hydration-raw] verified digest=${receipt.contentDigest}\n`)
     return
   }
-  fail('usage: bundle --candidate-plan <path> --manifest <json> --publication <json> --locale <json> --data <json> --server-html <html> --hydrated-dom <json> --client <json> --network <json> --out <source-bundle> or project --candidate-plan <path> --source <source-bundle> --out <planned-path> or verify --receipt <path>')
+  fail('usage: bundle --candidate-plan <path> --manifest <json> --browser-contract <json> --out <source-bundle> or project --candidate-plan <path> --source <source-bundle> --out <planned-path> or verify --receipt <path>')
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))

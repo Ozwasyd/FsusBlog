@@ -44,36 +44,11 @@ PROBE_DIR="$(relative_path "$PROBE_DIR")"
 PLAN="$(require_file "$PLAN_DIR/candidate-plan.json")"
 CLAIMS="$(require_file "$PLAN_DIR/accepted-claims.json")"
 BROWSER="$(require_file "${FSUSBLOG_BROWSER_CONTRACT_RECEIPT:-.tmp/browser-contract/receipt.json}")"
-RELEASE_SOURCE="$(require_file "${FSUSBLOG_RELEASE_READINESS_SOURCE_RECEIPT:?FSUSBLOG_RELEASE_READINESS_SOURCE_RECEIPT is required}")"
-DEPLOYMENT_ID="${FSUSBLOG_BLUE_GREEN_DEPLOYMENT_ID:?FSUSBLOG_BLUE_GREEN_DEPLOYMENT_ID is required}"
+ROLLOUT_EVIDENCE="$(require_file "${FSUSBLOG_RELEASE_ROLLOUT_EVIDENCE:?FSUSBLOG_RELEASE_ROLLOUT_EVIDENCE is required}")"
+RUNTIME_ROLE_ADMISSION="$(require_file "${FSUSBLOG_RUNTIME_ROLE_STATIC_ADMISSION:-.tmp/behavior-doc-static-admission/receipt.json}")"
 
-aot_names=(manifest publication locale data server-html hydrated-dom client network)
-aot_vars=(
-    FSUSBLOG_AOT_MANIFEST_RECEIPT
-    FSUSBLOG_AOT_PUBLICATION_RECEIPT
-    FSUSBLOG_AOT_LOCALE_RECEIPT
-    FSUSBLOG_AOT_DATA_RECEIPT
-    FSUSBLOG_AOT_SERVER_HTML
-    FSUSBLOG_AOT_HYDRATED_DOM_RECEIPT
-    FSUSBLOG_AOT_CLIENT_RECEIPT
-    FSUSBLOG_AOT_NETWORK_RECEIPT
-)
-aot_args=()
-for index in "${!aot_names[@]}"; do
-    variable="${aot_vars[$index]}"
-    value="${!variable:?$variable is required}"
-    aot_args+=("--${aot_names[$index]}" "$(require_file "$value")")
-done
-
-IFS=':' read -r -a blue_green_sources <<< "${FSUSBLOG_BLUE_GREEN_SOURCE_RECEIPTS:?FSUSBLOG_BLUE_GREEN_SOURCE_RECEIPTS is required as 14 colon-separated paths}"
-if [[ "${#blue_green_sources[@]}" -ne 14 ]]; then
-    printf '[post-runtime-observation-producers] blue-green source closure must contain exactly 14 paths\n' >&2
-    exit 1
-fi
-blue_green_args=()
-for source in "${blue_green_sources[@]}"; do
-    blue_green_args+=(--source-receipt "$(require_file "$source")")
-done
+AOT_MANIFEST="$(require_file "${FSUSBLOG_AOT_MANIFEST_RECEIPT:?FSUSBLOG_AOT_MANIFEST_RECEIPT is required}")"
+aot_args=(--manifest "$AOT_MANIFEST" --browser-contract "$BROWSER")
 
 mkdir -p "$RAW_DIR" "$SOURCE_DIR" "$OUT_DIR/classes"
 
@@ -82,23 +57,24 @@ mkdir -p "$RAW_DIR" "$SOURCE_DIR" "$OUT_DIR/classes"
 
 "$NODE_BIN" tools/test-evidence/aot-spa-hydration-raw.mjs bundle --candidate-plan "$PLAN" "${aot_args[@]}" --out "$SOURCE_DIR/aot-spa-hydration.json"
 "$NODE_BIN" tools/test-evidence/aot-spa-hydration-raw.mjs project --candidate-plan "$PLAN" --source "$SOURCE_DIR/aot-spa-hydration.json" --out "$RAW_DIR/aot-spa-hydration.json"
-"$NODE_BIN" tools/test-evidence/aot-spa-hydration-raw.mjs verify --receipt "$RAW_DIR/aot-spa-hydration.json"
+"$NODE_BIN" tools/test-evidence/aot-spa-hydration-raw.mjs verify --candidate-plan "$PLAN" --receipt "$RAW_DIR/aot-spa-hydration.json"
 
 "$NODE_BIN" tools/test-evidence/browser-contract-observation-raw.mjs project --candidate-plan "$PLAN" --browser-contract "$BROWSER" --out "$RAW_DIR/browser-behavior-contract.json"
-"$NODE_BIN" tools/test-evidence/browser-contract-observation-raw.mjs verify --receipt "$RAW_DIR/browser-behavior-contract.json"
+"$NODE_BIN" tools/test-evidence/browser-contract-observation-raw.mjs verify --candidate-plan "$PLAN" --receipt "$RAW_DIR/browser-behavior-contract.json"
 
 for class_id in route-response-error session-cookie-runtime cache-search-outbox-convergence; do
     probe="$(require_file "$PROBE_DIR/$class_id.json")"
     "$NODE_BIN" tools/test-evidence/runtime-observation-raw.mjs project-probe --candidate-plan "$PLAN" --probe "$probe" --out "$RAW_DIR/$class_id.json"
-    "$NODE_BIN" tools/test-evidence/runtime-observation-raw.mjs verify --receipt "$RAW_DIR/$class_id.json"
+    "$NODE_BIN" tools/test-evidence/runtime-observation-raw.mjs verify --candidate-plan "$PLAN" --receipt "$RAW_DIR/$class_id.json"
 done
 
-"$NODE_BIN" tools/test-evidence/release-readiness-raw.mjs project --candidate-plan "$PLAN" --source "$RELEASE_SOURCE" --out "$RAW_DIR/release-identity-readiness.json"
-"$NODE_BIN" tools/test-evidence/release-readiness-raw.mjs verify --receipt "$RAW_DIR/release-identity-readiness.json"
+"$NODE_BIN" tools/test-evidence/release-readiness-raw.mjs bundle-authorities --candidate-plan "$PLAN" --rollout-evidence "$ROLLOUT_EVIDENCE" --runtime-role-admission "$RUNTIME_ROLE_ADMISSION" --out "$SOURCE_DIR/release-identity-readiness.json"
+"$NODE_BIN" tools/test-evidence/release-readiness-raw.mjs project-authorities --candidate-plan "$PLAN" --source "$SOURCE_DIR/release-identity-readiness.json" --out "$RAW_DIR/release-identity-readiness.json"
+"$NODE_BIN" tools/test-evidence/release-readiness-raw.mjs verify --candidate-plan "$PLAN" --receipt "$RAW_DIR/release-identity-readiness.json"
 
-"$NODE_BIN" tools/test-evidence/blue-green-containment-raw.mjs bundle --candidate-plan "$PLAN" --deployment-id "$DEPLOYMENT_ID" "${blue_green_args[@]}" --out "$SOURCE_DIR/blue-green-containment.json"
-"$NODE_BIN" tools/test-evidence/blue-green-containment-raw.mjs produce --candidate-plan "$PLAN" --source "$SOURCE_DIR/blue-green-containment.json" --out "$RAW_DIR/blue-green-containment.json"
-"$NODE_BIN" tools/test-evidence/blue-green-containment-raw.mjs verify --receipt "$RAW_DIR/blue-green-containment.json"
+"$NODE_BIN" tools/test-evidence/blue-green-containment-raw.mjs bundle-authorities --candidate-plan "$PLAN" --rollout-evidence "$ROLLOUT_EVIDENCE" --runtime-role-admission "$RUNTIME_ROLE_ADMISSION" --out "$SOURCE_DIR/blue-green-containment.json"
+"$NODE_BIN" tools/test-evidence/blue-green-containment-raw.mjs produce-authorities --candidate-plan "$PLAN" --source "$SOURCE_DIR/blue-green-containment.json" --out "$RAW_DIR/blue-green-containment.json"
+"$NODE_BIN" tools/test-evidence/blue-green-containment-raw.mjs verify --candidate-plan "$PLAN" --receipt "$RAW_DIR/blue-green-containment.json"
 
 classes=(
     aot-spa-hydration

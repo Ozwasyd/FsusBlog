@@ -8,7 +8,10 @@ import { fileURLToPath } from 'node:url'
 import { selectBrowserContractScenarios } from '../../tests/browser-contract/contract.mjs'
 import { digestValue, stable } from '../fact-extractors/lib/canonicalize.mjs'
 import {
+  candidatePlanPathForObservation,
   explicitJson,
+  observationEnvelopeAuthorityFields,
+  observationSourceState,
   seal,
   validateCandidatePlan,
   writeReceipt
@@ -162,7 +165,7 @@ function exactIdentities(plan, browser, buildBinding, repositoryRoot)
   const source = browser.sourceState ?? {}
   const run = browser.runIdentity ?? {}
   const lifecycle = browser.fixture?.lifecycle?.identity ?? {}
-  const expectedBrowserId = `${plan.candidate.runId}:browser-contract`
+  const expectedBrowserId = `${plan.candidate.runId}-browser-contract`
   if (source.commit !== plan.sourceState.commit
     || normalizedDigest(source.worktreeFingerprint) !== normalizedDigest(plan.sourceState.worktreeFingerprint)
     || buildBinding.receipt !== plan.build.receipt
@@ -172,7 +175,7 @@ function exactIdentities(plan, browser, buildBinding, repositoryRoot)
     || run.commit !== plan.sourceState.commit || run.runId !== plan.candidate.runId
     || lifecycle.commit !== plan.sourceState.commit || lifecycle.runId !== plan.candidate.runId
     || plan.candidate.browserId !== expectedBrowserId
-    || plan.candidate.attemptId !== 'attempt-1')
+    || plan.candidate.attemptId !== 'attempt-0001')
   {
     fail('candidate, build, fixture, and Browser Contract identities do not exact-match')
   }
@@ -254,6 +257,21 @@ function browserSemanticFacts(browser, publicPreviewEvidence)
   }
 }
 
+function typedBrowserSemanticFacts(legacyFacts)
+{
+  return {
+    contractTestId: legacyFacts.requiredTestIds.join('+'),
+    viewport: legacyFacts.viewportId,
+    theme: legacyFacts.themeId,
+    stateDigest: semanticDigest(legacyFacts.stateId),
+    interactionDigest: legacyFacts.interactionDigest,
+    domDigest: legacyFacts.domDigest,
+    a11yDigest: legacyFacts.a11yDigest,
+    networkDigest: legacyFacts.networkDigest,
+    consoleDigest: legacyFacts.consoleDigest
+  }
+}
+
 export function projectBrowserContractRaw({ candidatePlan, browserContractReceipt, repositoryRoot = root })
 {
   const planInput = fileReference(candidatePlan, repositoryRoot, 'candidate plan')
@@ -279,16 +297,25 @@ export function projectBrowserContractRaw({ candidatePlan, browserContractReceip
   })
   if (evidenceErrors.length > 0) fail(`public-preview evidence is non-qualifying: ${evidenceErrors.join('; ')}`)
   const sourceState = exactIdentities(plan, browserInput.value, buildBinding, repositoryRoot)
-  const semanticFacts = browserSemanticFacts(browserInput.value, publicPreviewInput.value)
-  if (semanticFacts.consoleClean !== true) fail('Browser Contract console/network audit is not clean')
+  const legacyFacts = browserSemanticFacts(browserInput.value, publicPreviewInput.value)
+  if (legacyFacts.consoleClean !== true) fail('Browser Contract console/network audit is not clean')
   const registry = loadPostRuntimeProducerRegistry(repositoryRoot)
+  const definition = registry.observationClasses[classId]
+  const semanticFacts = Array.isArray(definition.requiredSemanticFactFields)
+    ? typedBrowserSemanticFacts(legacyFacts)
+    : legacyFacts
   const producer = registry.producers.find(({ producerId }) => producerId === plan.producerId)
   if (!producer) fail('candidate plan producer is absent from registry')
   return seal({
     schema: planned.schema,
     producerId: plan.producerId,
     toolVersion: producer.toolVersion,
-    sourceState,
+    sourceState: observationSourceState({
+      plan,
+      artifactDigest: browserInput.ref.fileDigest,
+      repositoryRoot,
+      legacy: sourceState
+    }),
     executionClass: 'correctness',
     evidenceClass: 'correctness',
     qualificationEligible: true,
@@ -299,28 +326,28 @@ export function projectBrowserContractRaw({ candidatePlan, browserContractReceip
     modes: planned.requiredModes,
     terminal: { timeout: false, cancelled: false, processTreeTerminated: false, priorAttemptDigest: null },
     semanticFacts,
-    candidatePlanRef: planInput.ref,
+    ...observationEnvelopeAuthorityFields({ plan, candidatePlanRef: planInput.ref, repositoryRoot }),
     sourceReceiptRef: browserInput.ref,
     canonicalRerunCommand: `node tools/test-evidence/browser-contract-observation-raw.mjs project --candidate-plan ${planInput.ref.path} --browser-contract ${browserInput.ref.path} --out ${planned.receiptPath}`,
     independentVerifyCommand: `node tools/test-evidence/browser-contract-observation-raw.mjs verify --receipt ${planned.receiptPath}`
   })
 }
 
-export function verifyBrowserContractRaw(receiptPath, repositoryRoot = root)
+export function verifyBrowserContractRaw(receiptPath, repositoryRoot = root, candidatePlan = null)
 {
   const input = fileReference(receiptPath, repositoryRoot, 'browser raw receipt')
   const receipt = input.value
-  for (const [field, label] of [
-    ['candidatePlanRef', 'candidate plan dependency'],
-    ['sourceReceiptRef', 'Browser Contract dependency']
-  ]) assertReference(receipt[field], repositoryRoot, label)
+  assertReference(receipt.sourceReceiptRef, repositoryRoot, 'Browser Contract dependency')
   const registry = loadPostRuntimeProducerRegistry(repositoryRoot)
-  validateProducerReceiptAgainstRegistry({ registry, producerId: receipt.producerId, receipt, classId })
-  const plan = validateCandidatePlan(explicitJson(receipt.candidatePlanRef.path, 'candidate plan', repositoryRoot).value, { repositoryRoot })
+  validateProducerReceiptAgainstRegistry({
+    registry, producerId: receipt.producerId, receipt, classId, repositoryRoot
+  })
+  const planPath = candidatePlanPathForObservation(receipt, candidatePlan)
+  const plan = validateCandidatePlan(explicitJson(planPath, 'candidate plan', repositoryRoot).value, { repositoryRoot })
   const planned = plan.observations.find((entry) => entry.classId === classId)
   if (!planned || input.ref.path !== planned.receiptPath) fail('browser raw receipt path does not exact-match candidate plan')
   const replay = projectBrowserContractRaw({
-    candidatePlan: receipt.candidatePlanRef.path,
+    candidatePlan: planPath,
     browserContractReceipt: receipt.sourceReceiptRef.path,
     repositoryRoot
   })
@@ -343,13 +370,13 @@ function main()
     const output = parsed.out ?? planned?.receiptPath
     if (!output || output !== planned?.receiptPath) fail('raw output path must exact-match the candidate plan')
     writeReceipt(output, receipt, root)
-    verifyBrowserContractRaw(output, root)
+    verifyBrowserContractRaw(output, root, parsed['candidate-plan'])
     process.stdout.write(`[browser-contract-observation-raw] projected path=${output} digest=${receipt.contentDigest}\n`)
     return
   }
   if (parsed.command === 'verify')
   {
-    const receipt = verifyBrowserContractRaw(parsed.receipt, root)
+    const receipt = verifyBrowserContractRaw(parsed.receipt, root, parsed['candidate-plan'])
     process.stdout.write(`[browser-contract-observation-raw] verified digest=${receipt.contentDigest}\n`)
     return
   }

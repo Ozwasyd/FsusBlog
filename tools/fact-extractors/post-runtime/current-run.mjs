@@ -67,11 +67,13 @@ export function runCurrentRunCli(argv, repositoryRoot)
   }
   else if (command === 'candidate-plan')
   {
+    if (!options.out) fail('candidate-plan requires --out so typed identity authorities have a canonical location')
     receipt = produceCandidatePlan({
       preRuntimeReceipt: options.preRuntimeReceipt,
       acceptedClaimsReceipt: options.acceptedClaimsReceipt,
       buildReceipt: options.buildReceipt,
       context: options.context,
+      identityAuthorityDirectory: path.posix.join(path.posix.dirname(options.out.replaceAll(path.sep, '/')), 'identity-authorities'),
       observationPaths: options.observations,
       repositoryRoot
     })
