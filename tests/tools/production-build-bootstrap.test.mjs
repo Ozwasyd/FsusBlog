@@ -7,7 +7,11 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { createProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs';
+import {
+    createProductionBuildReceipt,
+    materializeProductionBuildDomains,
+    registerProductionBuildConsumer
+} from '../../tools/ci/production-build-artifacts.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const sourceState = { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) };
@@ -21,6 +25,25 @@ function write(rootDirectory, relative, content)
     const file = path.join(rootDirectory, relative);
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, content);
+}
+
+function productionBuildAssignments(runId)
+{
+    const result = spawnSync('node', [
+        'tools/test/export-production-build-environment.mjs',
+        '--root', root,
+        '--run-id', runId
+    ], { cwd: root, encoding: 'buffer' });
+    assert.equal(result.status, 0, result.stderr.toString('utf8'));
+    assert.ok(
+        result.stdout.length > 0,
+        'the canonical production-build environment CLI must execute in the current worktree path'
+    );
+    return Object.fromEntries(result.stdout
+        .toString('utf8')
+        .split('\0')
+        .filter(Boolean)
+        .map((assignment) => assignment.split(/=(.*)/su).slice(0, 2)));
 }
 
 test('acceptance bootstrap materializes verified domains into its current run-bound roots and forces no-build', t =>
@@ -177,10 +200,21 @@ test('current-schema consumers resolve one run-bound candidate assembly and reje
     delete inheritedEnvironment.FSUSBLOG_BACKEND_SERVER_DLL;
     const source = String.raw`
         source "$1/tools/bootstrap-acceptance-env.sh"
+        if [[ -n "$FSUSBLOG_RESOLVER_CI_ARTIFACT_ROOT" ]]; then
+            export FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT="$FSUSBLOG_RESOLVER_CI_ARTIFACT_ROOT"
+            export FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST="$FSUSBLOG_RESOLVER_CI_RECEIPT_DIGEST"
+            export FSUSBLOG_RELEASE_EVIDENCE_DIR="$FSUSBLOG_RESOLVER_CI_EVIDENCE_ROOT"
+        fi
         ResolveCurrentSchemaCandidateAssembly Release
         printf '%s' "$CURRENT_SCHEMA_CANDIDATE_ASSEMBLY"
     `;
-    const invoke = ({ buildRoot, candidateAssembly, candidateRunId = runId }) => spawnSync(
+    const invoke = ({
+        buildRoot,
+        candidateAssembly,
+        candidateRunId = runId,
+        candidateNamespace = `candidate-${randomUUID().slice(0, 8)}`,
+        environment = {}
+    }) => spawnSync(
         'bash',
         ['-c', source, 'current-schema-candidate-resolver', root],
         {
@@ -189,23 +223,28 @@ test('current-schema consumers resolve one run-bound candidate assembly and reje
             env: {
                 ...inheritedEnvironment,
                 FSUSBLOG_BOOTSTRAP_SOURCE_ONLY: '1',
-                FSUSBLOG_TEST_NAMESPACE: `candidate-${randomUUID().slice(0, 8)}`,
+                FSUSBLOG_TEST_NAMESPACE: candidateNamespace,
                 FSUSBLOG_TEST_RUN_ID: candidateRunId,
+                FSUSBLOG_TEST_SOURCE_COMMIT: sourceState.commit,
+                FSUSBLOG_TEST_SOURCE_FINGERPRINT: sourceState.worktreeFingerprint,
                 FSUSBLOG_RUNTIME_CONFIGURATION: 'Release',
+                FSUSBLOG_RESOLVER_CI_ARTIFACT_ROOT: '',
+                FSUSBLOG_RESOLVER_CI_RECEIPT_DIGEST: '',
+                FSUSBLOG_RESOLVER_CI_EVIDENCE_ROOT: '',
                 ...(buildRoot === undefined ? {} : { FSUSBLOG_PRODUCTION_BUILD_ROOT: buildRoot }),
                 ...(candidateAssembly === undefined ? {} : { FSUSBLOG_BACKEND_SERVER_DLL: candidateAssembly }),
                 FSUSBLOG_ACCEPTANCE_OUTPUT_ROOT: path.join(temporary, 'acceptance'),
                 FSUSBLOG_ACCEPTANCE_ENV_ROOT: path.join(temporary, 'env'),
-                FSUSBLOG_ACCEPTANCE_FIXTURE_ROOT: path.join(temporary, 'fixtures')
+                FSUSBLOG_ACCEPTANCE_FIXTURE_ROOT: path.join(temporary, 'fixtures'),
+                ...environment
             }
         }
     );
-    const canonicalRoot = path.join(temporary, `${runId}-acceptance`);
-    const canonicalAssembly = path.join(
-        canonicalRoot,
-        'dotnet/FsusBlog.Server/bin/Release/net10.0/FsusBlog.Server.dll'
-    );
-    write(temporary, path.relative(temporary, canonicalAssembly), 'candidate');
+    const canonical = productionBuildAssignments(runId);
+    const canonicalRoot = canonical.FSUSBLOG_PRODUCTION_BUILD_ROOT;
+    const canonicalAssembly = canonical.FSUSBLOG_BACKEND_SERVER_DLL;
+    write(root, path.relative(root, canonicalAssembly), 'candidate');
+    t.after(() => fs.rmSync(canonicalRoot, { recursive: true, force: true }));
 
     const accepted = invoke({ buildRoot: canonicalRoot, candidateAssembly: canonicalAssembly });
     assert.equal(accepted.status, 0, `${accepted.stdout}\n${accepted.stderr}`);
@@ -250,35 +289,82 @@ test('current-schema consumers resolve one run-bound candidate assembly and reje
     assert.equal(stale.status, 2);
     assert.match(stale.stdout, /does not match the canonical production build layout/u);
 
+    const stalePair = productionBuildAssignments('self-consistent-stale-run');
+    write(root, path.relative(root, stalePair.FSUSBLOG_BACKEND_SERVER_DLL), 'stale-pair');
+    t.after(() => fs.rmSync(stalePair.FSUSBLOG_PRODUCTION_BUILD_ROOT, {
+        recursive: true,
+        force: true
+    }));
+    const selfConsistentStale = invoke({
+        buildRoot: stalePair.FSUSBLOG_PRODUCTION_BUILD_ROOT,
+        candidateAssembly: stalePair.FSUSBLOG_BACKEND_SERVER_DLL
+    });
+    assert.equal(selfConsistentStale.status, 2);
+    assert.match(selfConsistentStale.stdout, /does not match the current production build run/u);
+
     const browserConsumerRoot = path.join(temporary, 'browser-fixture/production-build');
     const browserConsumerAssembly = path.join(
         browserConsumerRoot,
         'dotnet/FsusBlog.Server/bin/Release/net10.0/FsusBlog.Server.dll'
     );
-    write(temporary, path.relative(temporary, browserConsumerAssembly), 'browser-candidate');
+    const browserArtifactRoot = path.join(temporary, 'browser-artifact');
+    const browserEvidenceRoot = path.join(temporary, 'browser-evidence');
+    const browserNamespace = 'browser-candidate-consumer';
+    write(browserArtifactRoot, 'payload/backend-runtime/FsusBlog.Server.dll', 'browser-candidate');
+    write(browserArtifactRoot, 'input.json', '{}');
+    const browserReceipt = createProductionBuildReceipt({
+        root: browserArtifactRoot,
+        artifactRoot: browserArtifactRoot,
+        sourceState,
+        producer,
+        toolchain,
+        inputPaths: ['input.json'],
+        domains: [{ name: 'backend-runtime', path: 'payload/backend-runtime' }]
+    });
+    fs.rmSync(path.join(browserArtifactRoot, 'input.json'));
+    const browserLease = registerProductionBuildConsumer({
+        artifactRoot: browserArtifactRoot,
+        runId,
+        consumerId: browserNamespace
+    });
+    const browserMaterialization = materializeProductionBuildDomains({
+        artifactRoot: browserArtifactRoot,
+        destinationRoot: root,
+        mappings: [{
+            name: 'backend-runtime',
+            destination: path.relative(root, path.dirname(browserConsumerAssembly))
+        }],
+        verification: {
+            expectedSourceState: sourceState,
+            expectedProducer: producer,
+            expectedReceiptDigest: browserReceipt.contentDigest
+        }
+    });
+    const browserEvidenceFile = path.join(
+        browserEvidenceRoot,
+        'jobs',
+        `ci-build-materialization-${browserNamespace}.json`
+    );
+    write(browserEvidenceRoot, path.relative(browserEvidenceRoot, browserEvidenceFile), `${JSON.stringify({
+        ...browserMaterialization.evidence,
+        materialized: browserMaterialization.copied,
+        consumerLease: browserLease
+    }, null, 2)}\n`);
     const browserConsumer = invoke({
         buildRoot: browserConsumerRoot,
-        candidateAssembly: browserConsumerAssembly
+        candidateAssembly: browserConsumerAssembly,
+        candidateNamespace: browserNamespace,
+        environment: {
+            FSUSBLOG_RESOLVER_CI_ARTIFACT_ROOT: browserArtifactRoot,
+            FSUSBLOG_RESOLVER_CI_RECEIPT_DIGEST: browserReceipt.contentDigest,
+            FSUSBLOG_RESOLVER_CI_EVIDENCE_ROOT: browserEvidenceRoot
+        }
     });
     assert.equal(browserConsumer.status, 0, `${browserConsumer.stdout}\n${browserConsumer.stderr}`);
     assert.equal(browserConsumer.stdout, browserConsumerAssembly);
 
     const directRunId = 'homogeneous-direct-run';
-    const directEnvironment = spawnSync('node', [
-        'tools/test/export-production-build-environment.mjs',
-        '--root', root,
-        '--run-id', directRunId
-    ], { cwd: root, encoding: 'buffer' });
-    assert.equal(directEnvironment.status, 0, directEnvironment.stderr.toString('utf8'));
-    assert.ok(
-        directEnvironment.stdout.length > 0,
-        'the canonical production-build environment CLI must execute in the current worktree path'
-    );
-    const directAssignments = Object.fromEntries(directEnvironment.stdout
-        .toString('utf8')
-        .split('\0')
-        .filter(Boolean)
-        .map((assignment) => assignment.split(/=(.*)/su).slice(0, 2)));
+    const directAssignments = productionBuildAssignments(directRunId);
     assert.equal(
         directAssignments.FSUSBLOG_BACKEND_SERVER_DLL,
         path.join(

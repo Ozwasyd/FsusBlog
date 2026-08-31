@@ -2345,8 +2345,8 @@ CurrentSchemaRunDigest() {
 ResolveCurrentSchemaCandidateAssembly() {
     local runtimeConfiguration="${1:?current schema runtime configuration is required}"
     local buildRoot="${FSUSBLOG_PRODUCTION_BUILD_ROOT:-}"
+    local runId="${FSUSBLOG_TEST_RUN_ID:?current schema candidate run id is required}"
     local candidateAssembly physicalAssembly physicalBuildRoot
-    : "${FSUSBLOG_TEST_RUN_ID:?current schema candidate run id is required}"
     CURRENT_SCHEMA_CANDIDATE_ASSEMBLY=""
     [[ -n "$buildRoot" && "$buildRoot" == /* && ! -L "$buildRoot" ]] || {
         Log 'current schema production build root must be an absolute non-symlink path'
@@ -2375,9 +2375,77 @@ ResolveCurrentSchemaCandidateAssembly() {
         Log 'current schema candidate assembly physical path is unavailable'
         return 2
     }
-    if [[ "$physicalAssembly" != "$candidateAssembly" ]]; then
-        Log 'current schema candidate assembly path is not canonical'
-        return 2
+    if [[ -n "${FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT:-}" ]]; then
+        local materializationEvidence
+        materializationEvidence="${FSUSBLOG_RELEASE_EVIDENCE_DIR:-$ROOT_DIR/.tmp/release-evidence}/jobs/ci-build-materialization-${NS_SLUG}.json"
+        if ! "${FSUSBLOG_NODE:-node}" --input-type=module - \
+            "$ROOT_DIR" \
+            "$FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT" \
+            "$materializationEvidence" \
+            "$runId" \
+            "$NS_SLUG" \
+            "$candidateAssembly" \
+            "${FSUSBLOG_TEST_SOURCE_COMMIT:?current schema candidate source commit is required}" \
+            "${FSUSBLOG_TEST_SOURCE_FINGERPRINT:?current schema candidate source fingerprint is required}" \
+            "${FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST:?current schema candidate receipt digest is required}" <<'NODE'
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+const [root, artifactRoot, evidenceFile, runId, consumerId, candidate, sourceCommit, sourceFingerprint, receiptDigest] = process.argv.slice(2);
+const { verifyProductionBuildConsumerMaterialization } = await import(pathToFileURL(
+    path.join(root, 'tools/ci/production-build-artifacts.mjs')
+).href);
+verifyProductionBuildConsumerMaterialization({
+    artifactRoot,
+    evidenceFile,
+    destinationRoot: root,
+    runId,
+    consumerId,
+    mappings: [{
+        name: 'backend-runtime',
+        destination: path.relative(root, path.dirname(candidate)).replaceAll(path.sep, '/')
+    }],
+    requiredCandidateFiles: [{
+        domain: 'backend-runtime',
+        artifact: 'FsusBlog.Server.dll',
+        candidate: path.relative(root, candidate).replaceAll(path.sep, '/')
+    }],
+    verification: {
+        expectedSourceState: { commit: sourceCommit, worktreeFingerprint: sourceFingerprint },
+        expectedReceiptDigest: receiptDigest,
+        repairReadOnlySeal: false
+    }
+});
+NODE
+        then
+            Log 'current schema CI candidate is not bound to the current verified consumer materialization'
+            return 2
+        fi
+    else
+        if ! "${FSUSBLOG_NODE:-node}" --input-type=module - \
+            "$ROOT_DIR" "$runId" "$buildRoot" "$candidateAssembly" <<'NODE'
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+const [root, runId, buildRoot, candidateAssembly] = process.argv.slice(2);
+const { productionBuildEnvironmentAssignments } = await import(pathToFileURL(
+    path.join(root, 'tools/test-matrix/production-build-layout.mjs')
+).href);
+const environment = Object.fromEntries(productionBuildEnvironmentAssignments({ root, runId }));
+if (environment.FSUSBLOG_PRODUCTION_BUILD_ROOT !== buildRoot
+    || environment.FSUSBLOG_BACKEND_SERVER_DLL !== candidateAssembly)
+{
+    throw new Error('candidate layout does not match the current production build run');
+}
+NODE
+        then
+            Log 'current schema candidate does not match the current production build run'
+            return 2
+        fi
+        if [[ "$physicalAssembly" != "$candidateAssembly" ]]; then
+            Log 'current schema candidate assembly path is not canonical'
+            return 2
+        fi
     fi
     CURRENT_SCHEMA_CANDIDATE_ASSEMBLY="$candidateAssembly"
 }

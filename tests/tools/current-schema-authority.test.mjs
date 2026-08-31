@@ -116,6 +116,14 @@ test('test current schema materializer remains explicit, canonical and pre-runti
     /ResolveCurrentSchemaCandidateAssembly\(\)[\s\S]*?FSUSBLOG_PRODUCTION_BUILD_ROOT[\s\S]*?FSUSBLOG_BACKEND_SERVER_DLL[\s\S]*?CURRENT_SCHEMA_CANDIDATE_ASSEMBLY="\$candidateAssembly"/u
   )
   assert.match(
+    bootstrap,
+    /verifyProductionBuildConsumerMaterialization[\s\S]*?backend-runtime[\s\S]*?FsusBlog\.Server\.dll/u
+  )
+  assert.match(
+    bootstrap,
+    /productionBuildEnvironmentAssignments\(\{ root, runId \}\)[\s\S]*?FSUSBLOG_PRODUCTION_BUILD_ROOT !== buildRoot[\s\S]*?FSUSBLOG_BACKEND_SERVER_DLL !== candidateAssembly/u
+  )
+  assert.match(
     materializerFunction,
     /ResolveCurrentSchemaCandidateAssembly "\$runtimeConfiguration"[\s\S]*?build-with-data-env\.sh dotnet "\$CURRENT_SCHEMA_CANDIDATE_ASSEMBLY"[\s\S]*?materialize-current-schema-test/u
   )
