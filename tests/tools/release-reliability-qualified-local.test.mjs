@@ -45,6 +45,32 @@ function executable(file, source)
     fs.chmodSync(file, 0o755);
 }
 
+function copyProductionBuildEnvironmentTool(targetRoot)
+{
+    for (const relativePath of [
+        'tools/test/export-production-build-environment.mjs',
+        'tools/test/process-identity.mjs',
+        'tools/test-matrix/production-build-layout.mjs',
+        'tools/test-matrix/scheduler-run-owner.mjs'
+    ])
+    {
+        const target = path.join(targetRoot, relativePath);
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.copyFileSync(path.join(root, relativePath), target);
+    }
+    return path.join(targetRoot, 'tools/test/export-production-build-environment.mjs');
+}
+
+function productionBuildAssignments(stdout)
+{
+    return new Map(
+        stdout
+            .split('\0')
+            .filter(Boolean)
+            .map((assignment) => parseProductionBuildEnvironmentAssignment(assignment))
+    );
+}
+
 function runWorkflow(fixtureRoot, runnerSource, verifierSource, receiptName = 'qualified-receipt.json')
 {
     const runner = path.join(fixtureRoot, 'runner');
@@ -1000,6 +1026,49 @@ test('qualified local wrapper uses strict runtime parsing and canonical semantic
     assert.match(source, /export-production-build-environment\.mjs/u);
     assert.match(source, /read -r -d '' assignment/u);
     assert.doesNotMatch(source, /eval\s/u);
+});
+
+test('production build environment CLI executes from ASCII and Unicode script paths', (context) =>
+{
+    const fixtureRoot = fs.mkdtempSync('/tmp/fsusblog-production-build-environment-cli-');
+    context.after(() => fs.rmSync(fixtureRoot, { recursive: true, force: true }));
+    const candidates = [
+        copyProductionBuildEnvironmentTool(path.join(fixtureRoot, 'ascii')),
+        copyProductionBuildEnvironmentTool(path.join(fixtureRoot, 'unicode-路徑'))
+    ];
+    assert.doesNotMatch(candidates[0], /[^\x00-\x7f]/u);
+    assert.match(candidates[1], /[^\x00-\x7f]/u);
+
+    for (const [index, tool] of candidates.entries())
+    {
+        const runId = `production-environment-cli-${index}`;
+        const result = spawnSync(process.execPath, [
+            tool,
+            '--root',
+            root,
+            '--run-id',
+            runId
+        ], { cwd: fixtureRoot, encoding: 'utf8' });
+        assert.equal(result.status, 0, result.stderr);
+        const assignments = productionBuildAssignments(result.stdout);
+        assert.deepEqual([...assignments.keys()], productionBuildEnvironmentKeys);
+        assert.equal(
+            assignments.get('FSUSBLOG_PRODUCTION_BUILD_ROOT'),
+            path.join(root, '.tmp/build', runId)
+        );
+    }
+});
+
+test('production build environment module import does not execute the CLI branch', () =>
+{
+    const result = spawnSync(process.execPath, [
+        '--input-type=module',
+        '--eval',
+        `await import(${JSON.stringify(pathToFileURL(productionBuildEnvironmentTool).href)}); process.stdout.write('imported\\n');`
+    ], { cwd: root, encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout, 'imported\n');
+    assert.equal(result.stderr, '');
 });
 
 test('qualified local runtime ownership uses bounded identity and rejects every identity mismatch', async (context) =>
