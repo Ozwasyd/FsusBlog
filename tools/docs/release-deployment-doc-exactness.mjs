@@ -25,10 +25,7 @@ import { verifyProseClaims } from './prose-claim-verifier/verifier.mjs'
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 export const releaseDeploymentScopeId = 'protocol-release-deployment-ownership'
-export const releaseDeploymentBehaviorIds = Object.freeze([
-    'release-final-aggregate-contract',
-    'deployment-blue-green-runtime-role'
-])
+export const releaseDeploymentDomains = Object.freeze(['release', 'deployment'])
 export const releaseDeploymentExactnessSchema = 'fsusblog.release-deployment-doc-exactness-receipt.v1'
 
 const readJson = (repositoryRoot, relative) =>
@@ -37,17 +34,33 @@ const readJson = (repositoryRoot, relative) =>
 const forbiddenSurfaces = Object.freeze([
     ['manual-runtime-role-table', /(?:^\|\s*模式\s*\|(?:\n\|[^\n]*){1,8})|(?:^\|\s*Mode\s*\|[^\n]*\n(?:\|[^\n]*\n){0,2}[^\n]*`?(?:single|static-role|adaptive)`?)/im],
     ['manual-stage-table', /^\|\s*(?:stage|phase|阶段|階段)\s*\|/imu],
+    ['manual-blue-green-runbook', /^##\s+(?:Slot model|Gateway switch|Drain contract|Active fence and storage gates|Rollback and recovery|Receipt boundary)\s*$/imu],
     ['finalizer-as-rerun', /(?:release[- ]final|finalizer|收尾)[^\n]{0,80}(?:re-?runs?\b|rerun|再跑一次|重新运行|重新運行)/iu],
     ['job-success-authority', /(?:job|ci|workflow)[^\n]{0,40}(?:success|succeeded|成功)[^\n]{0,60}(?:authority|proof|权威|權威|证据|證據|代替|取代|replace)/iu],
     ['auto-spawn-evidence', /(?:auto|自动|自動)[^\n]{0,10}(?:spawn|rerun|re-run|produce|生成|重跑)[^\n]{0,30}(?:allowed|permitted|is ok|允许|允許|即可|可以)|(?:may be auto|可以自动|可以自動)[^\n]{0,30}(?:spawn|produce|rerun|生成|重跑)/iu],
     ['unknown-active-standby', /unknown[^\n]{0,40}active[^\n]{0,60}(?:standby|safe|备用|備用|安全)|(?:把|将|將)[^\n]{0,20}unknown[^\n]{0,30}(?:当|當)[^\n]{0,10}(?:standby|备用|備用)/iu],
     ['active-cleanup-allowed', /(?:cleanup|gc|delete|清除|删除|刪除|清掉)[^\n]{0,50}(?:active release|active artifact|当前\s*active|當前\s*active|active slot|active volume|active schema)/iu],
-    ['compose-workflow-role-authority', /compose[^\n]{0,60}(?:runtime[- ]role|角色|模式)[^\n]{0,40}(?:authority|truth|权威|權威|真源)|(?:runtime[- ]role|角色|模式)[^\n]{0,60}compose[^\n]{0,40}(?:authority|truth|权威|權威|真源)/iu],
+    ['compose-workflow-role-authority', /compose[^\n]{0,80}(?:runtime[- ]role|角色|模式|服务清单|服務清單)[^\n]{0,60}(?:authority|truth|权威|權威|真源)|(?:runtime[- ]role|角色|模式|静态守卫|靜態守衛)[^\n]{0,80}compose[^\n]{0,60}(?:authority|truth|权威|權威|真源)/iu],
     ['waiver', /(?:release|deployment|blue[- ]green|runtime|role|slot|fact|document)[ -]?waiver|(?:部署|蓝绿|藍綠|运行时|運行時|事实|事實|文档|文件)豁免/iu],
     ['hidden-compatibility', /<details\b[^>]*>[\s\S]{0,500}(?:legacy|compat)|compat(?:ibility)?[- ]table|current[- ]equivalent/iu],
     ['overbroad-claim', /(?:one|single|一个|一個)[^\n]{0,60}claim[^\n]{0,80}(?:all|every|全部)[^\n]{0,30}(?:behavior|behaviour|行为|行為)/iu],
     ['self-certification', /(?:lastReviewedAt\s*:|lastVerifiedCommit\s*:|manual(?:ly)?[- ]approved\s*:|self[- ]certified)/iu]
 ])
+
+export function selectReleaseDeploymentBehaviorIds(catalog)
+{
+    const domains = new Set(releaseDeploymentDomains)
+    return catalog.contracts
+        .filter((contract) => contract.status === 'active'
+            && contract.documentationPolicy === 'required'
+            && domains.has(contract.domain))
+        .map((contract) => contract.id)
+        .sort((left, right) => left.localeCompare(right))
+}
+
+export const releaseDeploymentBehaviorIds = Object.freeze(selectReleaseDeploymentBehaviorIds(
+    readJson(root, 'config/contracts/behavior-contracts.json')
+))
 
 function seal(value)
 {
@@ -86,11 +99,12 @@ export function scanReleaseDeploymentDocResidue(repositoryRoot, documentPaths)
     return findings
 }
 
-export function runReleaseDeploymentDocMutationCases()
+export function runReleaseDeploymentDocMutationCases(structuralRows = [])
 {
     const samples = [
         ['manual-runtime-role-table', '| Mode | Responsibility |\n| --- | --- |\n| `single` | owns everything |'],
         ['manual-stage-table', '| Stage | Owner |\n| --- | --- |\n| release-final | aggregate |'],
+        ['manual-blue-green-runbook', '## Rollback and recovery'],
         ['finalizer-as-rerun', 'release-final re-runs every producer to confirm success'],
         ['job-success-authority', 'the CI job success is the authority for release evidence'],
         ['auto-spawn-evidence', 'missing evidence auto-spawn is allowed before closeout'],
@@ -102,11 +116,11 @@ export function runReleaseDeploymentDocMutationCases()
         ['overbroad-claim', 'one claim covers all behaviors'],
         ['self-certification', 'lastVerifiedCommit: deadbeef']
     ]
-    const rows = samples.map(([classId, source]) => ({
+    const rows = [...samples.map(([classId, source]) => ({
         classId,
         killed: forbiddenSurfaces.find(([id]) => id === classId)[1].test(source),
         detector: classId
-    }))
+    })), ...structuralRows]
     return seal({
         schema: 'fsusblog.release-deployment-doc-mutation-evidence.v1',
         rows,
@@ -115,11 +129,17 @@ export function runReleaseDeploymentDocMutationCases()
     })
 }
 
-export function verifyReleaseDeploymentGeneratedSections(repositoryRoot, sectionCatalog, observationReceipt)
+export function verifyReleaseDeploymentGeneratedSections(
+    repositoryRoot,
+    sectionCatalog,
+    observationReceipt,
+    selectedIds = releaseDeploymentBehaviorIds
+)
 {
+    const selectedBehaviorIds = new Set(selectedIds)
     const drifts = []
     const sections = sectionCatalog.sections
-        .filter((entry) => releaseDeploymentBehaviorIds.includes(entry.behaviorId))
+        .filter((entry) => selectedBehaviorIds.has(entry.behaviorId))
     for (const section of sections)
     {
         const source = readFileSync(path.join(repositoryRoot, section.documentPath), 'utf8')
@@ -159,6 +179,7 @@ export function buildReleaseDeploymentDocExactnessReceipt({
 })
 {
     const inputs = loadReleaseDeploymentExactnessInputs(repositoryRoot, observationReceipt)
+    const selectedIds = selectReleaseDeploymentBehaviorIds(inputs.catalog)
     const exactness = buildBehaviorDocExactnessReceipt({
         repositoryRoot,
         catalog: inputs.catalog,
@@ -167,8 +188,7 @@ export function buildReleaseDeploymentDocExactnessReceipt({
         claimReceipt: inputs.claimReceipt,
         sectionCatalog: inputs.sectionCatalog,
         observationReceipts: [inputs.receiptRaw],
-        domains: ['release', 'deployment'],
-        selectedBehaviorIds: [...releaseDeploymentBehaviorIds],
+        domains: [...releaseDeploymentDomains],
         sourceCommit,
         worktreeFingerprint,
         scopeId: releaseDeploymentScopeId,
@@ -177,17 +197,98 @@ export function buildReleaseDeploymentDocExactnessReceipt({
             .digest('hex')
     })
     const documentPaths = inputs.catalog.contracts
-        .filter((entry) => releaseDeploymentBehaviorIds.includes(entry.id))
+        .filter((entry) => selectedIds.includes(entry.id))
         .flatMap((entry) => entry.documents)
     const residue = scanReleaseDeploymentDocResidue(repositoryRoot, documentPaths)
     const generatedDrifts = verifyReleaseDeploymentGeneratedSections(
         repositoryRoot,
         inputs.sectionCatalog,
-        inputs.receipt
+        inputs.receipt,
+        selectedIds
     )
-    const mutationEvidence = runReleaseDeploymentDocMutationCases()
+    const exactnessInputs = {
+        repositoryRoot,
+        catalog: inputs.catalog,
+        lifecycle: inputs.lifecycle,
+        migrationLedger: inputs.migrationLedger,
+        claimReceipt: inputs.claimReceipt,
+        sectionCatalog: inputs.sectionCatalog,
+        observationReceipts: [inputs.receiptRaw],
+        domains: [...releaseDeploymentDomains],
+        sourceCommit,
+        worktreeFingerprint,
+        scopeId: releaseDeploymentScopeId
+    }
+    const catalogDrift = structuredClone(inputs.catalog)
+    catalogDrift.contracts.push({
+        ...catalogDrift.contracts.find((entry) => selectedIds.includes(entry.id)),
+        id: `${selectedIds[0]}-catalog-drift`
+    })
+    const ledgerTamper = structuredClone(inputs.migrationLedger)
+    ledgerTamper.scopes.find((entry) => entry.scopeId === releaseDeploymentScopeId).entries[0].claimIds.pop()
+    const stageOmission = structuredClone(inputs.receipt)
+    stageOmission.observations.facts['release-final.aggregate-contract'].inputTierIds.pop()
+    const reversedSwitch = structuredClone(inputs.receipt)
+    reversedSwitch.observations.facts['deployment.blue-green-contract'].switchState = 'rolled-back'
+    const reversedRole = structuredClone(inputs.receipt)
+    reversedRole.observations.facts['deployment.runtime-role-contract'].ownership.coResidency = 'forced-separation'
+    const missingUnsupportedCombination = structuredClone(inputs.receipt)
+    delete missingUnsupportedCombination.observations.facts['deployment.runtime-role-contract']
+        .unsupportedCombinations['unknown-mode']
+    const structuralRows = [
+        {
+            classId: 'required-stage-evidence-omission',
+            killed: verifyReleaseDeploymentGeneratedSections(
+                repositoryRoot, inputs.sectionCatalog, stageOmission, selectedIds
+            ).length > 0,
+            detector: 'generated-section-exactness'
+        },
+        {
+            classId: 'rollback-switch-precondition-reversed',
+            killed: verifyReleaseDeploymentGeneratedSections(
+                repositoryRoot, inputs.sectionCatalog, reversedSwitch, selectedIds
+            ).length > 0,
+            detector: 'generated-section-exactness'
+        },
+        {
+            classId: 'runtime-role-relationship-reversed',
+            killed: verifyReleaseDeploymentGeneratedSections(
+                repositoryRoot, inputs.sectionCatalog, reversedRole, selectedIds
+            ).length > 0,
+            detector: 'generated-section-exactness'
+        },
+        {
+            classId: 'unsupported-combination-omitted',
+            killed: verifyReleaseDeploymentGeneratedSections(
+                repositoryRoot, inputs.sectionCatalog, missingUnsupportedCombination, selectedIds
+            ).length > 0,
+            detector: 'generated-section-exactness'
+        },
+        {
+            classId: 'catalog-change-with-stale-docs',
+            killed: buildBehaviorDocExactnessReceipt({ ...exactnessInputs, catalog: catalogDrift }).status === 'failed',
+            detector: 'behavior-catalog-ledger-exactness'
+        },
+        {
+            classId: 'source-identity-change-with-stale-docs',
+            killed: buildBehaviorDocExactnessReceipt({
+                ...exactnessInputs,
+                sourceCommit: sourceCommit === '0'.repeat(40) ? '1'.repeat(40) : '0'.repeat(40)
+            }).status === 'failed',
+            detector: 'observation-source-identity'
+        },
+        {
+            classId: 'claim-ledger-tamper',
+            killed: buildBehaviorDocExactnessReceipt({
+                ...exactnessInputs,
+                migrationLedger: ledgerTamper
+            }).status === 'failed',
+            detector: 'claim-ledger-exactness'
+        }
+    ]
+    const mutationEvidence = runReleaseDeploymentDocMutationCases(structuralRows)
     const proseClaims = inputs.claimReceipt.claims.filter((claim) =>
-        releaseDeploymentBehaviorIds.includes(claim.declaration.behaviorId)
+        selectedIds.includes(claim.declaration.behaviorId)
         && claim.declaration.claimType !== 'generated-section')
     const proseVerification = verifyProseClaims({
         claims: proseClaims,

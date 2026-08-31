@@ -7,10 +7,12 @@ import {
     buildReleaseDeploymentDocExactnessReceipt,
     loadReleaseDeploymentExactnessInputs,
     releaseDeploymentBehaviorIds,
+    releaseDeploymentDomains,
     releaseDeploymentScopeId,
     root,
     runReleaseDeploymentDocMutationCases,
     scanReleaseDeploymentDocResidue,
+    selectReleaseDeploymentBehaviorIds,
     validateReleaseDeploymentDocExactnessReceipt,
     verifyReleaseDeploymentGeneratedSections
 } from '../../tools/docs/release-deployment-doc-exactness.mjs'
@@ -35,8 +37,26 @@ test.before(async () =>
 test('release/deployment negative classes are all killed', () =>
 {
     const evidence = runReleaseDeploymentDocMutationCases()
-    assert.equal(evidence.total, 12)
+    assert.equal(evidence.total, 13)
     assert.equal(evidence.killed, evidence.total)
+})
+
+test('release/deployment behavior roster comes from active required catalog domains', () =>
+{
+    const catalog = JSON.parse(readFileSync(path.join(root, 'config/contracts/behavior-contracts.json'), 'utf8'))
+    assert.deepEqual(selectReleaseDeploymentBehaviorIds(catalog), releaseDeploymentBehaviorIds)
+    assert.deepEqual(releaseDeploymentDomains, ['release', 'deployment'])
+
+    const changed = structuredClone(catalog)
+    const addedBehaviorId = `${releaseDeploymentBehaviorIds[0]}-catalog-drift`
+    changed.contracts.push({
+        ...changed.contracts.find((entry) => entry.id === releaseDeploymentBehaviorIds[0]),
+        id: addedBehaviorId
+    })
+    assert.deepEqual(
+        selectReleaseDeploymentBehaviorIds(changed),
+        [...releaseDeploymentBehaviorIds, addedBehaviorId].sort()
+    )
 })
 
 test('current release/deployment documents contain no forbidden manual authority residue', () =>
@@ -62,6 +82,8 @@ test('current release/deployment claims and sections are bidirectionally exact',
     assert.equal(receipt.counts.generated, 4)
     assert.equal(receipt.counts.prose, 3)
     assert.equal(receipt.counts.proseVerified, 3)
+    assert.equal(receipt.counts.mutationKilled, 20)
+    assert.equal(receipt.counts.mutationTotal, 20)
 })
 
 test('missing ledger entry, orphan section and typed fact drift fail closed', () =>
@@ -75,8 +97,7 @@ test('missing ledger entry, orphan section and typed fact drift fail closed', ()
         claimReceipt: input.claimReceipt,
         sectionCatalog: input.sectionCatalog,
         observationReceipts: [input.receiptRaw],
-        domains: ['release', 'deployment'],
-        selectedBehaviorIds: [...releaseDeploymentBehaviorIds],
+        domains: [...releaseDeploymentDomains],
         sourceCommit: observation.sourceCommit,
         worktreeFingerprint: observation.worktreeFingerprint,
         scopeId: releaseDeploymentScopeId
