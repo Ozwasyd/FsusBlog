@@ -1278,6 +1278,7 @@ RunBackendTestGovernanceCheckOnce() {
         --execution-class correctness \
         --producer-id backend-test-governance \
         --path tools/check-backend-test-governance.mjs \
+        --path tools/test/backend-evidence-path-authority.mjs \
         --path tests/backend \
         --path tests/matrix.yml \
         --test-id backend-test-governance \
