@@ -6,6 +6,7 @@ import {
     digestCanonical,
     sealContentDigest
 } from '../test/attempt-provenance.mjs';
+
 import { cleanFirstAttemptVerdict } from './clean-first-attempt-verifier.mjs';
 
 export const cleanAttemptCohortSchema = 'fsusblog.release-clean-attempt-cohort.v1';

@@ -1,9 +1,9 @@
-import { canonicalDigest } from './execution-replay-contract.mjs'
+import { canonicalDigest } from './execution-replay-contract.mjs';
 import {
     createRandomStreamReceipt,
     deterministicCaseIdentity,
     deterministicSequenceIdentity
-} from './random-streams.mjs'
+} from './random-streams.mjs';
 
 export function createFuzzCaseReceipt({
     consumer,
@@ -16,26 +16,26 @@ export function createFuzzCaseReceipt({
 {
     if (consumer.kind !== 'fuzz')
     {
-        throw new Error('fuzz receipt requires a fuzz consumer')
+        throw new Error('fuzz receipt requires a fuzz consumer');
     }
     if (!Array.isArray(cases) || cases.length !== executedIterations)
     {
-        throw new Error('fuzz cases must exact match executedIterations')
+        throw new Error('fuzz cases must exact match executedIterations');
     }
     const caseIdentities = cases.map((value, caseIndex) => deterministicCaseIdentity({
         derivedSeed: stream.derivedSeed,
         caseIndex,
         value
-    }))
+    }));
     const shrinkSequenceIdentity = failure
         ? deterministicSequenceIdentity(failure.shrinkSequence)
-        : null
+        : null;
     const minimalSample = failure
         ? {
             ref: failure.minimalSampleRef,
             digest: canonicalDigest(failure.minimalSample)
         }
-        : null
+        : null;
     return createRandomStreamReceipt({
         consumer,
         stream,
@@ -54,7 +54,7 @@ export function createFuzzCaseReceipt({
                 errorDigest: canonicalDigest(failure.error)
             }
             : null
-    })
+    });
 }
 
 export function assertFuzzReplayBinding(original, replay)
@@ -67,8 +67,8 @@ export function assertFuzzReplayBinding(original, replay)
     {
         if (JSON.stringify(original?.[field]) !== JSON.stringify(replay?.[field]))
         {
-            throw new Error(`fuzz replay mismatch at $.${field}`)
+            throw new Error(`fuzz replay mismatch at $.${field}`);
         }
     }
-    return replay
+    return replay;
 }

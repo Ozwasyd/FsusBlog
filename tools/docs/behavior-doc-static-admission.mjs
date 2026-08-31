@@ -42,6 +42,7 @@ import {
     runMinimalContractBuild,
     validateMinimalContractBuildReceipt
 } from './behavior-doc-minimal-contract-build.mjs';
+import { validateRepositoryMigrationLedger } from './check-document-claim-migration-ledger.mjs';
 import {
     formatGovernanceViolations as formatMutationGovernanceViolations,
     runStalenessMutationGovernance
@@ -57,7 +58,6 @@ import {
     scanDocClaimGovernance,
     validateDocClaimSchemaContract
 } from './doc-claim.mjs';
-import { validateRepositoryMigrationLedger } from './check-document-claim-migration-ledger.mjs';
 import {
     loadCatalog as loadGeneratedSectionCatalog
 } from './generated-fact-sections/catalog.mjs';

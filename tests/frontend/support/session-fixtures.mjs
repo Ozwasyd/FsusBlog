@@ -7,15 +7,16 @@ import { chmod, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import {
+    loadResolvedTemporalRoles,
+    requireResolvedTemporalRole
+} from '../../../tools/test/temporal-role-resolver.mjs';
+
+import {
     playwrightSessionModes,
     resolveAuthFixtureDirectory,
     resolvePlaywrightSessionMode
 } from './fixture-paths.mjs';
 import { resolveTestSession } from './test-session.mjs';
-import {
-    loadResolvedTemporalRoles,
-    requireResolvedTemporalRole
-} from '../../../tools/test/temporal-role-resolver.mjs';
 
 const CLAIM_NAME_IDENTIFIER = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier';
 const CLAIM_NAME = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name';
@@ -217,22 +218,6 @@ function temporalRoleSql(roleId)
     return `timestamptz '${temporalRole(roleId).instantUtc}'`;
 }
 
-function exactTemporalTtlSeconds(roleId, requestedSeconds)
-{
-    const expiresAt = temporalRole(roleId).epochMilliseconds;
-    const startsAt = temporalRole('session.authenticated').epochMilliseconds;
-    const durationMilliseconds = expiresAt - startsAt;
-    if (durationMilliseconds <= 0 || durationMilliseconds % 1000 !== 0)
-    {
-        throw new Error(`${roleId} does not define an exact positive TTL`);
-    }
-    const expectedSeconds = durationMilliseconds / 1000;
-    if (Number(requestedSeconds) !== expectedSeconds)
-    {
-        throw new Error(`${roleId} TTL must exact-match the resolved temporal role`);
-    }
-    return expectedSeconds;
-}
 
 function accountSubjectHash(identityKind, subject)
 {

@@ -72,9 +72,18 @@ function resolveSourceFile(root, source)
             .flatMap((object) => object.archiveEntries ?? [])
             .map((entry) => path.resolve(root, entry.extractedPath))
             .filter((candidate) => path.basename(candidate) === path.basename(source.path));
-        if (matches.length === 1) return matches[0];
-        if (matches.length > 1) throw new Error(`ambiguous ${source.id} performance evidence in transport manifest`);
-        if (source.missingAsBlocked) return null;
+        if (matches.length === 1)
+        {
+            return matches[0];
+        }
+        if (matches.length > 1)
+        {
+            throw new Error(`ambiguous ${source.id} performance evidence in transport manifest`);
+        }
+        if (source.missingAsBlocked)
+        {
+            return null;
+        }
         throw new Error(`missing ${source.id} performance evidence: ${source.path}`);
     }
     const direct = path.resolve(root, source.path);
@@ -117,7 +126,10 @@ async function readSummary(root, source)
     }
     catch (error)
     {
-        throw new Error(`${source.id} performance evidence is invalid: ${error instanceof Error ? error.message : String(error)}`);
+        throw new Error(
+            `${source.id} performance evidence is invalid: ${error instanceof Error ? error.message : String(error)}`,
+            { cause: error }
+        );
     }
     if (!summary || typeof summary !== 'object' || Array.isArray(summary))
     {

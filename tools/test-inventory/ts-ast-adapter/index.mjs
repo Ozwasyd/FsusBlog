@@ -485,7 +485,7 @@ function resolveApi(ctx, node)
     return null;
 }
 
-function parseOptionsObject(node, source)
+function parseOptionsObject(node)
 {
     if (!node || !ts.isObjectLiteralExpression(node))
     {
@@ -764,11 +764,6 @@ function currentSuitePath(ctx, stack)
     return stack.map((suite) => suite.title).join(' › ');
 }
 
-function currentSuiteId(ctx, stack)
-{
-    return stack.length > 0 ? stack[stack.length - 1].id : ensureRootSuite(ctx).id;
-}
-
 function caseIdFor(ctx, framework, name, ordinal, seedExtra = '')
 {
     const suffix = shortHash(`${name}\n${ordinal}${seedExtra ? `\n${seedExtra}` : ''}`);
@@ -849,7 +844,6 @@ function handleTestCall(ctx, stack, call, api)
         return;
     }
 
-    let options = {};
     let callback = null;
     let skipReason = api.api === 'skip' ? 'skip' : null;
     let todo = api.api === 'todo';
@@ -865,7 +859,7 @@ function handleTestCall(ctx, stack, call, api)
         }
         if (ts.isObjectLiteralExpression(arg))
         {
-            options = parseOptionsObject(arg, ctx.source);
+            const options = parseOptionsObject(arg);
             skipReason = skipReason ?? options.skipReason ?? null;
             todo = todo || options.todo;
             only = only || options.only;
@@ -983,7 +977,7 @@ function handleEachCall(ctx, stack, call, api)
         }
         if (ts.isObjectLiteralExpression(arg))
         {
-            timeoutMs = parseOptionsObject(arg, ctx.source).timeoutMs ?? null;
+            timeoutMs = parseOptionsObject(arg).timeoutMs ?? null;
             continue;
         }
         const info = callbackInfo(arg);

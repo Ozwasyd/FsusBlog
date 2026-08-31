@@ -9,13 +9,13 @@ import path from 'node:path';
 
 const { readFixtureCatalogs } = await import(new URL("../../testing/fixture-catalog.mjs", import.meta.url));
 
+import { accountProfilePreferenceIdentityRoleRequests } from './account-profile-preference-producer.mjs';
 import {
     buildProducerChildEnv,
     repositoryRoot,
     runProcess,
     runTemporalProcess
 } from './spawn-helper.mjs';
-import { accountProfilePreferenceIdentityRoleRequests } from './account-profile-preference-producer.mjs';
 
 function catalogProducer(id, catalogs = readFixtureCatalogs())
 {

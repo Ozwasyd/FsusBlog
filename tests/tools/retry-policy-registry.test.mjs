@@ -141,11 +141,26 @@ test('policy validator rejects correctness, diagnostic and restore retry semanti
 {
     const source = JSON.parse(fs.readFileSync(path.join(root, 'config/testing/retry-policy-registry.json'), 'utf8'));
     for (const mutate of [
-        (value) => { value.policies[0].allowedRetries = 1; },
-        (value) => { value.policies[1].allowedRetries = 2; },
-        (value) => { value.policies[1].retryOn = ['any-nonzero']; },
-        (value) => { value.policies[2].recoveredClassification = 'clean-success'; },
-        (value) => { value.defaultDisposition.qualificationEligible = true; }
+        (value) =>
+        {
+            value.policies[0].allowedRetries = 1;
+        },
+        (value) =>
+        {
+            value.policies[1].allowedRetries = 2;
+        },
+        (value) =>
+        {
+            value.policies[1].retryOn = ['any-nonzero'];
+        },
+        (value) =>
+        {
+            value.policies[2].recoveredClassification = 'clean-success';
+        },
+        (value) =>
+        {
+            value.defaultDisposition.qualificationEligible = true;
+        }
     ])
     {
         const candidate = clone(source);
@@ -182,10 +197,22 @@ test('aggregate validator preserves the first attempt and clean qualification se
     assert.equal(validated.qualificationEligible, true);
 
     for (const mutate of [
-        (value) => { value.attempts[0].attemptNumber = 2; },
-        (value) => { value.firstAttemptStatus = 'failed-no-retry'; },
-        (value) => { value.qualificationEligible = false; },
-        (value) => { value.finalClassification = 'success'; }
+        (value) =>
+        {
+            value.attempts[0].attemptNumber = 2;
+        },
+        (value) =>
+        {
+            value.firstAttemptStatus = 'failed-no-retry';
+        },
+        (value) =>
+        {
+            value.qualificationEligible = false;
+        },
+        (value) =>
+        {
+            value.finalClassification = 'success';
+        }
     ])
     {
         const candidate = clone(receipt);

@@ -92,7 +92,10 @@ test('pool validation fails closed for tamper, wrong key, duplicate IDs and cont
                 pack[0] ^= 1;
                 fs.writeFileSync(packPath, pack);
             }
-            else if (mutation === 'key') key = randomBytes(32);
+            else if (mutation === 'key')
+            {
+                key = randomBytes(32);
+            }
             else if (mutation === 'duplicate')
             {
                 manifest.entries[1].entryId = manifest.entries[0].entryId;
@@ -105,7 +108,10 @@ test('pool validation fails closed for tamper, wrong key, duplicate IDs and cont
             }
             const checked = run(['validate', ...value.common], key);
             assert.notEqual(checked.status, 0, `${mutation} must fail closed`);
-            if (key !== value.key) key.fill(0);
+            if (key !== value.key)
+            {
+                key.fill(0);
+            }
         }
         finally
         {

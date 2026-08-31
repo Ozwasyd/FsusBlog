@@ -1,6 +1,12 @@
 import path from 'node:path';
 import process from 'node:process';
 
+import {
+    validateFinalReport
+} from '../docs/behavior-document-consistency-final.mjs';
+import {
+    validatePostRuntimeReceipt
+} from '../test-matrix/behavior-evidence-post-runtime.mjs';
 import { readEvidenceDocument } from '../test-matrix/content-addressed-evidence-store.mjs';
 import {
     collectReleaseFinalDomainProjectionReceipts,
@@ -9,12 +15,6 @@ import {
 import {
     loadCanonicalReleaseFinalEvidenceInputs
 } from '../test-matrix/release-final-evidence-contract.mjs';
-import {
-    validatePostRuntimeReceipt
-} from '../test-matrix/behavior-evidence-post-runtime.mjs';
-import {
-    validateFinalReport
-} from '../docs/behavior-document-consistency-final.mjs';
 
 import { requirePublicPreviewReleaseEvidence } from './public-preview-release-evidence.mjs';
 import {

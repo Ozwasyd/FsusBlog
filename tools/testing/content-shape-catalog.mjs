@@ -190,7 +190,8 @@ function rejectUnknownKeys(value, allowed, label, errors)
 
 export function shapeContentDigest(shape)
 {
-    const { contentDigest: _contentDigest, ...body } = shape;
+    const body = { ...shape };
+    delete body.contentDigest;
     return sha256Json(body);
 }
 
@@ -340,15 +341,24 @@ export function validateContentShapeAuthority({
         }
         for (const fieldId of shape.applicableFields ?? [])
         {
-            if (!knownFields.has(fieldId)) errors.push(`shape ${shape.id} references unknown field ${fieldId}`);
+            if (!knownFields.has(fieldId))
+            {
+                errors.push(`shape ${shape.id} references unknown field ${fieldId}`);
+            }
         }
         for (const scriptId of shape.scriptClasses ?? [])
         {
-            if (!scriptIds.includes(scriptId)) errors.push(`shape ${shape.id} references unknown script ${scriptId}`);
+            if (!scriptIds.includes(scriptId))
+            {
+                errors.push(`shape ${shape.id} references unknown script ${scriptId}`);
+            }
         }
         for (const domain of shape.consumerDomains ?? [])
         {
-            if (!knownConsumers.has(domain)) errors.push(`shape ${shape.id} references unknown consumer domain ${domain}`);
+            if (!knownConsumers.has(domain))
+            {
+                errors.push(`shape ${shape.id} references unknown consumer domain ${domain}`);
+            }
         }
         const containsNegative = (shape.scriptClasses ?? []).some((id) => negativeScripts.has(id));
         if ((shape.eligibility === 'positive' && containsNegative)
@@ -377,7 +387,10 @@ export function validateContentShapeAuthority({
     {
         for (const shapeId of binding.representativeShapeIds ?? [])
         {
-            if (!shapeIds.includes(shapeId)) errors.push(`locale script ${binding.localeScript} references unknown shape ${shapeId}`);
+            if (!shapeIds.includes(shapeId))
+            {
+                errors.push(`locale script ${binding.localeScript} references unknown shape ${shapeId}`);
+            }
         }
     }
     let projected;
@@ -424,7 +437,10 @@ export function validateContentShapeGovernance({ root = repositoryRoot, sourceOv
         ['ASCII byte proxy', /utf8ByteCount\s*:\s*text\.length/u]
     ])
     {
-        if (pattern.test(generator)) errors.push(`content shape generator contains forbidden ${label}`);
+        if (pattern.test(generator))
+        {
+            errors.push(`content shape generator contains forbidden ${label}`);
+        }
     }
     const candidates = [];
     for (const base of ['config/testing', 'tools/test-fixtures'])
@@ -433,7 +449,10 @@ export function validateContentShapeGovernance({ root = repositoryRoot, sourceOv
         for (const entry of fs.readdirSync(directory, { withFileTypes: true }))
         {
             const relative = path.posix.join(base, entry.name);
-            if (entry.isFile() && /content[-_]shape/iu.test(entry.name)) candidates.push(relative);
+            if (entry.isFile() && /content[-_]shape/iu.test(entry.name))
+            {
+                candidates.push(relative);
+            }
         }
     }
     const allowed = new Set([
@@ -442,7 +461,10 @@ export function validateContentShapeGovernance({ root = repositoryRoot, sourceOv
     ]);
     for (const candidate of candidates)
     {
-        if (!allowed.has(candidate)) errors.push(`second content shape catalog/generator authority is forbidden: ${candidate}`);
+        if (!allowed.has(candidate))
+        {
+            errors.push(`second content shape catalog/generator authority is forbidden: ${candidate}`);
+        }
     }
     return errors;
 }
@@ -465,7 +487,10 @@ function main()
     const errors = validateContentShapeAuthority();
     if (errors.length)
     {
-        for (const error of errors) console.error(`[content-shape] ${error}`);
+        for (const error of errors)
+        {
+            console.error(`[content-shape] ${error}`);
+        }
         process.exitCode = 1;
     }
     else if (check || writeProjection)

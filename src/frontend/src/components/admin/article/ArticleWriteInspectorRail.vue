@@ -79,7 +79,7 @@ const registerTrigger = (
 
 const activate = (view: ArticleWriteInspectorView, event: MouseEvent): void =>
 {
-    emit('activate', view, event.currentTarget as HTMLElement);
+    emit('activate', view, event.currentTarget);
 };
 </script>
 

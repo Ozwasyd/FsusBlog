@@ -576,7 +576,7 @@ async function invokeLocalCompositionRoot(context, plan, signal)
         signal
     });
     const text = await response.text();
-    let payload = null;
+    let payload;
     try
     {
         payload = text ? JSON.parse(text) : null;

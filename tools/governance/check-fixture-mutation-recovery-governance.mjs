@@ -27,12 +27,21 @@ function toolingSources(root)
     const result = [];
     function visit(directory)
     {
-        if (!fs.existsSync(directory)) return;
+        if (!fs.existsSync(directory))
+        {
+            return;
+        }
         for (const entry of fs.readdirSync(directory, { withFileTypes: true }))
         {
             const absolute = path.join(directory, entry.name);
-            if (entry.isDirectory()) visit(absolute);
-            else if (entry.isFile() && entry.name.endsWith('.mjs')) result.push(fs.readFileSync(absolute, 'utf8'));
+            if (entry.isDirectory())
+            {
+                visit(absolute);
+            }
+            else if (entry.isFile() && entry.name.endsWith('.mjs'))
+            {
+                result.push(fs.readFileSync(absolute, 'utf8'));
+            }
         }
     }
     visit(path.join(root, 'tools'));
@@ -65,7 +74,10 @@ export function checkFixtureMutationRecoveryGovernance(root = defaultRoot)
     ];
     for (const token of forbiddenImports)
     {
-        if (combined.includes(token)) errors.push(`mutation recovery authority forbids process execution: ${token}`);
+        if (combined.includes(token))
+        {
+            errors.push(`mutation recovery authority forbids process execution: ${token}`);
+        }
     }
     const adapterSource = sources[authorityFiles[0]];
     const forbiddenAdapterPatterns = [
@@ -78,7 +90,10 @@ export function checkFixtureMutationRecoveryGovernance(root = defaultRoot)
     ];
     for (const [pattern, label] of forbiddenAdapterPatterns)
     {
-        if (pattern.test(adapterSource)) errors.push(`mutation adapter contains forbidden ${label}`);
+        if (pattern.test(adapterSource))
+        {
+            errors.push(`mutation adapter contains forbidden ${label}`);
+        }
     }
     const runnerSource = sources[authorityFiles[1]];
     const forbiddenRunnerCalls = [
@@ -91,7 +106,10 @@ export function checkFixtureMutationRecoveryGovernance(root = defaultRoot)
     ];
     for (const [pattern, label] of forbiddenRunnerCalls)
     {
-        if (pattern.test(runnerSource)) errors.push(`mutation recovery runner contains forbidden ${label} call`);
+        if (pattern.test(runnerSource))
+        {
+            errors.push(`mutation recovery runner contains forbidden ${label} call`);
+        }
     }
     if (!runnerSource.includes("retryPolicy: 'none'")
       || !runnerSource.includes("recoveryMethod: 'same-sealed-profile-canonical-prepare'"))
@@ -139,7 +157,10 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     }
     if (errors.length > 0)
     {
-        for (const error of errors) console.error(`[fixture-mutation-recovery] ${error}`);
+        for (const error of errors)
+        {
+            console.error(`[fixture-mutation-recovery] ${error}`);
+        }
         process.exitCode = 1;
     }
     else

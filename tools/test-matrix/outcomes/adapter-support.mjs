@@ -1,4 +1,5 @@
 import { digestCanonical } from '../../test/attempt-provenance.mjs';
+
 import { sealProducerSemanticOutcomeCandidate } from './outcome-contract.mjs';
 
 export function exactIds(values, label)
@@ -8,7 +9,10 @@ export function exactIds(values, label)
         throw new Error(`${label} must be a string array`);
     }
     const normalized = [...new Set(values)].sort();
-    if (normalized.length !== values.length) throw new Error(`${label} contains duplicate IDs`);
+    if (normalized.length !== values.length)
+    {
+        throw new Error(`${label} contains duplicate IDs`);
+    }
     return normalized;
 }
 

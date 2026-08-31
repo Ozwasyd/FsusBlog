@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { adaptReleaseProjectionSemanticOutcome } from '../../tools/test-matrix/outcomes/release-projection-adapter.mjs';
 
 const d = (digit) => `sha256:${digit.repeat(64)}`;

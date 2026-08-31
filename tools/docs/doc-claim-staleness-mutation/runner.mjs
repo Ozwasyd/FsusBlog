@@ -3,39 +3,41 @@
  * invoke the exact public layer entrypoint → require exact reasonCode.
  */
 
-import { createHash } from 'node:crypto'
-import { readFileSync, writeFileSync } from 'node:fs'
-import path from 'node:path'
-import {
-    DocClaimErrorCode,
-    parseDocumentClaims,
-    validateClaimDeclaration
-} from '../doc-claim.mjs'
-import {
-    makeLocatedClaim,
-    verifyProseClaims
-} from '../prose-claim-verifier/verifier.mjs'
-import {
-    processGeneratedFactSections,
-    indexReceiptsByExtractor
-} from '../generated-fact-sections/generator.mjs'
-import {
-    GeneratedSectionErrorCode,
-    formatBeginMarker,
-    formatEndMarker,
-    parseGeneratedMarkers,
-    wrapGeneratedSection
-} from '../generated-fact-sections/markers.mjs'
-import { loadCatalog } from '../generated-fact-sections/catalog.mjs'
+import { createHash } from 'node:crypto';
+import { readFileSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+
 import {
     joinBehaviorGraph,
     sealDocClaimVerificationReceipt,
     sealGeneratedSectionCheckReceipt,
     sealOwnerBindingReceipt,
     digestValue
-} from '../../contracts/behavior-graph-join.mjs'
-import { buildReceipt, sealReceipt } from '../../fact-extractors/receipt.mjs'
-import { MutationLayers, forbiddenReasonCodes } from './layers.mjs'
+} from '../../contracts/behavior-graph-join.mjs';
+import { buildReceipt, sealReceipt } from '../../fact-extractors/receipt.mjs';
+import {
+    DocClaimErrorCode,
+    parseDocumentClaims,
+    validateClaimDeclaration
+} from '../doc-claim.mjs';
+import { loadCatalog } from '../generated-fact-sections/catalog.mjs';
+import {
+    processGeneratedFactSections,
+    indexReceiptsByExtractor
+} from '../generated-fact-sections/generator.mjs';
+import {
+    GeneratedSectionErrorCode,
+    formatBeginMarker,
+    formatEndMarker,
+    parseGeneratedMarkers,
+    wrapGeneratedSection
+} from '../generated-fact-sections/markers.mjs';
+import {
+    makeLocatedClaim,
+    verifyProseClaims
+} from '../prose-claim-verifier/verifier.mjs';
+
+import { getMutationCase, mutationCases } from './catalog.mjs';
 import {
     BEHAVIOR_ID,
     DOC_PATH,
@@ -50,27 +52,30 @@ import {
     replaceGeneratedInterior,
     sampleSectionCatalog,
     writeFixtureDocument
-} from './fixture.mjs'
-import { getMutationCase, mutationCases } from './catalog.mjs'
+} from './fixture.mjs';
+import { MutationLayers, forbiddenReasonCodes } from './layers.mjs';
 
-const SOURCE_COMMIT = 'a'.repeat(40)
-const WORKTREE_FP = 'b'.repeat(64)
+const SOURCE_COMMIT = 'a'.repeat(40);
+const WORKTREE_FP = 'b'.repeat(64);
 
 function stable(value)
 {
-    if (Array.isArray(value)) return value.map(stable)
+    if (Array.isArray(value))
+    {
+        return value.map(stable);
+    }
     if (value && typeof value === 'object')
     {
-        return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])]))
+        return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])]));
     }
-    return value
+    return value;
 }
 
 function digestTestEvidence(receipt)
 {
-    const content = structuredClone(receipt)
-    delete content.contentDigest
-    return `sha256:${createHash('sha256').update(JSON.stringify(stable(content)), 'utf8').digest('hex')}`
+    const content = structuredClone(receipt);
+    delete content.contentDigest;
+    return `sha256:${createHash('sha256').update(JSON.stringify(stable(content)), 'utf8').digest('hex')}`;
 }
 
 function claimBodiesFromDocument(markdown)
@@ -119,20 +124,29 @@ function claimBodiesFromDocument(markdown)
             factPath: 'sessionPreserve',
             render: 'preserves-fields'
         }
-    }
+    };
 
-    const claims = []
+    const claims = [];
     for (const [claimId, meta] of Object.entries(known))
     {
-        const marker = `claimId: ${claimId}`
-        const index = markdown.indexOf(marker)
-        if (index < 0) continue
-        const afterClose = markdown.indexOf('-->', index)
-        if (afterClose < 0) continue
-        let cursor = afterClose + 3
-        while (cursor < markdown.length && /[\r\n\s]/u.test(markdown[cursor])) cursor += 1
-        const rest = markdown.slice(cursor)
-        const paragraph = rest.split(/\n\n/u)[0].trim()
+        const marker = `claimId: ${claimId}`;
+        const index = markdown.indexOf(marker);
+        if (index < 0)
+        {
+            continue;
+        }
+        const afterClose = markdown.indexOf('-->', index);
+        if (afterClose < 0)
+        {
+            continue;
+        }
+        let cursor = afterClose + 3;
+        while (cursor < markdown.length && /[\r\n\s]/u.test(markdown[cursor]))
+        {
+            cursor += 1;
+        }
+        const rest = markdown.slice(cursor);
+        const paragraph = rest.split(/\n\n/u)[0].trim();
         claims.push(makeLocatedClaim({
             claimId,
             behaviorId: BEHAVIOR_ID,
@@ -142,26 +156,38 @@ function claimBodiesFromDocument(markdown)
             projection: meta.projection,
             bodyText: paragraph,
             documentPath: DOC_PATH
-        }))
+        }));
     }
-    return claims
+    return claims;
 }
 
 function replaceClaimBody(markdown, claimId, bodyText)
 {
-    const marker = `claimId: ${claimId}`
-    const index = markdown.indexOf(marker)
-    if (index < 0) throw new Error(`claim ${claimId} not found for body mutation`)
-    const afterClose = markdown.indexOf('-->', index)
-    if (afterClose < 0) throw new Error(`claim ${claimId} marker not closed`)
-    let bodyStart = afterClose + 3
-    while (bodyStart < markdown.length && /[\r\n]/u.test(markdown[bodyStart])) bodyStart += 1
+    const marker = `claimId: ${claimId}`;
+    const index = markdown.indexOf(marker);
+    if (index < 0)
+    {
+        throw new Error(`claim ${claimId} not found for body mutation`);
+    }
+    const afterClose = markdown.indexOf('-->', index);
+    if (afterClose < 0)
+    {
+        throw new Error(`claim ${claimId} marker not closed`);
+    }
+    let bodyStart = afterClose + 3;
+    while (bodyStart < markdown.length && /[\r\n]/u.test(markdown[bodyStart]))
+    {
+        bodyStart += 1;
+    }
     // Skip blank lines after marker
-    while (bodyStart < markdown.length && markdown[bodyStart] === '\n') bodyStart += 1
-    const rest = markdown.slice(bodyStart)
-    const paragraphEnd = rest.search(/\n\n/u)
-    const bodyEnd = paragraphEnd < 0 ? markdown.length : bodyStart + paragraphEnd
-    return `${markdown.slice(0, bodyStart)}${bodyText}${markdown.slice(bodyEnd)}`
+    while (bodyStart < markdown.length && markdown[bodyStart] === '\n')
+    {
+        bodyStart += 1;
+    }
+    const rest = markdown.slice(bodyStart);
+    const paragraphEnd = rest.search(/\n\n/u);
+    const bodyEnd = paragraphEnd < 0 ? markdown.length : bodyStart + paragraphEnd;
+    return `${markdown.slice(0, bodyStart)}${bodyText}${markdown.slice(bodyEnd)}`;
 }
 
 function replaceAllKnownBodies(markdown, bodies)
@@ -175,35 +201,41 @@ function replaceAllKnownBodies(markdown, bodies)
         'fixture.passkey.revokes': bodies.passkeyRevocation,
         'fixture.passkey.scope': bodies.passkeyScope,
         'fixture.session.preserve': bodies.sessionPreserve
-    }
-    let next = markdown
+    };
+    let next = markdown;
     for (const [claimId, body] of Object.entries(map))
     {
-        next = replaceClaimBody(next, claimId, body)
+        next = replaceClaimBody(next, claimId, body);
     }
-    return next
+    return next;
 }
 
 function removeSectionMarkers(markdown, sectionId)
 {
-    const begin = formatBeginMarker(sectionId)
-    const end = formatEndMarker(sectionId)
-    const beginIndex = markdown.indexOf(begin)
-    const endIndex = markdown.indexOf(end)
-    if (beginIndex < 0 || endIndex < 0) throw new Error(`section ${sectionId} not found`)
-    const afterEnd = endIndex + end.length
-    return `${markdown.slice(0, beginIndex)}${markdown.slice(afterEnd)}`.replace(/\n{3,}/gu, '\n\n')
+    const begin = formatBeginMarker(sectionId);
+    const end = formatEndMarker(sectionId);
+    const beginIndex = markdown.indexOf(begin);
+    const endIndex = markdown.indexOf(end);
+    if (beginIndex < 0 || endIndex < 0)
+    {
+        throw new Error(`section ${sectionId} not found`);
+    }
+    const afterEnd = endIndex + end.length;
+    return `${markdown.slice(0, beginIndex)}${markdown.slice(afterEnd)}`.replace(/\n{3,}/gu, '\n\n');
 }
 
 function duplicateSectionMarkers(markdown, sectionId)
 {
-    const begin = formatBeginMarker(sectionId)
-    const end = formatEndMarker(sectionId)
-    const beginIndex = markdown.indexOf(begin)
-    const endIndex = markdown.indexOf(end)
-    if (beginIndex < 0 || endIndex < 0) throw new Error(`section ${sectionId} not found`)
-    const block = markdown.slice(beginIndex, endIndex + end.length)
-    return `${markdown.slice(0, endIndex + end.length)}\n${block}${markdown.slice(endIndex + end.length)}`
+    const begin = formatBeginMarker(sectionId);
+    const end = formatEndMarker(sectionId);
+    const beginIndex = markdown.indexOf(begin);
+    const endIndex = markdown.indexOf(end);
+    if (beginIndex < 0 || endIndex < 0)
+    {
+        throw new Error(`section ${sectionId} not found`);
+    }
+    const block = markdown.slice(beginIndex, endIndex + end.length);
+    return `${markdown.slice(0, endIndex + end.length)}\n${block}${markdown.slice(endIndex + end.length)}`;
 }
 
 /**
@@ -211,62 +243,62 @@ function duplicateSectionMarkers(markdown, sectionId)
  */
 export function applySingleMutation(fixture, mutation)
 {
-    const collateral = []
-    const kind = mutation.kind
+    const collateral = [];
+    const kind = mutation.kind;
 
     if (kind === 'none')
     {
-        return { collateral, observationOverride: null }
+        return { collateral, observationOverride: null };
     }
 
     if (kind === 'claim-declaration-field')
     {
         // Schema-layer only; no filesystem mutation required.
-        collateral.push(`declaration:${mutation.field}`)
-        return { collateral, observationOverride: null, declarationField: mutation }
+        collateral.push(`declaration:${mutation.field}`);
+        return { collateral, observationOverride: null, declarationField: mutation };
     }
 
     if (kind === 'prose-body')
     {
-        const markdown = readFixtureDocument(fixture.directory)
-        const next = replaceClaimBody(markdown, mutation.claimId, mutation.bodyText)
-        writeFixtureDocument(fixture.directory, next)
-        collateral.push(`prose-body:${mutation.claimId}`)
-        return { collateral, observationOverride: null }
+        const markdown = readFixtureDocument(fixture.directory);
+        const next = replaceClaimBody(markdown, mutation.claimId, mutation.bodyText);
+        writeFixtureDocument(fixture.directory, next);
+        collateral.push(`prose-body:${mutation.claimId}`);
+        return { collateral, observationOverride: null };
     }
 
     if (kind === 'fix-all-prose-bodies')
     {
-        const markdown = readFixtureDocument(fixture.directory)
-        const next = replaceAllKnownBodies(markdown, mutation.bodies)
-        writeFixtureDocument(fixture.directory, next)
-        collateral.push('prose-bodies-fixed')
-        return { collateral, observationOverride: null }
+        const markdown = readFixtureDocument(fixture.directory);
+        const next = replaceAllKnownBodies(markdown, mutation.bodies);
+        writeFixtureDocument(fixture.directory, next);
+        collateral.push('prose-bodies-fixed');
+        return { collateral, observationOverride: null };
     }
 
     if (kind === 'generated-interior')
     {
-        const markdown = readFixtureDocument(fixture.directory)
-        const next = replaceGeneratedInterior(markdown, mutation.sectionId, mutation.body)
-        writeFixtureDocument(fixture.directory, next)
-        collateral.push(`generated:${mutation.sectionId}`)
-        return { collateral, observationOverride: null }
+        const markdown = readFixtureDocument(fixture.directory);
+        const next = replaceGeneratedInterior(markdown, mutation.sectionId, mutation.body);
+        writeFixtureDocument(fixture.directory, next);
+        collateral.push(`generated:${mutation.sectionId}`);
+        return { collateral, observationOverride: null };
     }
 
     if (kind === 'remove-generated-markers')
     {
-        const markdown = readFixtureDocument(fixture.directory)
-        writeFixtureDocument(fixture.directory, removeSectionMarkers(markdown, mutation.sectionId))
-        collateral.push(`marker-removed:${mutation.sectionId}`)
-        return { collateral, observationOverride: null }
+        const markdown = readFixtureDocument(fixture.directory);
+        writeFixtureDocument(fixture.directory, removeSectionMarkers(markdown, mutation.sectionId));
+        collateral.push(`marker-removed:${mutation.sectionId}`);
+        return { collateral, observationOverride: null };
     }
 
     if (kind === 'duplicate-generated-markers')
     {
-        const markdown = readFixtureDocument(fixture.directory)
-        writeFixtureDocument(fixture.directory, duplicateSectionMarkers(markdown, mutation.sectionId))
-        collateral.push(`marker-duplicated:${mutation.sectionId}`)
-        return { collateral, observationOverride: null }
+        const markdown = readFixtureDocument(fixture.directory);
+        writeFixtureDocument(fixture.directory, duplicateSectionMarkers(markdown, mutation.sectionId));
+        collateral.push(`marker-duplicated:${mutation.sectionId}`);
+        return { collateral, observationOverride: null };
     }
 
     if (kind === 'stale-observation-identity')
@@ -275,20 +307,20 @@ export function applySingleMutation(fixture, mutation)
             identity: fixture.identity,
             sourceCommit: mutation.sourceCommit,
             worktreeFingerprint: mutation.worktreeFingerprint
-        })
+        });
         writeFileSync(
             path.join(fixture.directory, '.tmp/observation-receipt.json'),
             `${JSON.stringify(receipt)}\n`
-        )
-        collateral.push('observation-identity')
-        return { collateral, observationOverride: receipt }
+        );
+        collateral.push('observation-identity');
+        return { collateral, observationOverride: receipt };
     }
 
     if (kind === 'stale-then-regenerate')
     {
-        const markdown = readFixtureDocument(fixture.directory)
-        const stale = replaceGeneratedInterior(markdown, mutation.sectionId, mutation.staleBody)
-        writeFixtureDocument(fixture.directory, stale)
+        const markdown = readFixtureDocument(fixture.directory);
+        const stale = replaceGeneratedInterior(markdown, mutation.sectionId, mutation.staleBody);
+        writeFixtureDocument(fixture.directory, stale);
         // Prove drift first, then regenerate via public generate entry.
         processGeneratedFactSections({
             repositoryRoot: fixture.directory,
@@ -296,66 +328,66 @@ export function applySingleMutation(fixture, mutation)
             catalog: sampleSectionCatalog(),
             receiptsByExtractor: indexReceiptsByExtractor([fixture.receipt]),
             expectedIdentity: fixture.identity
-        })
-        collateral.push('regenerated')
-        return { collateral, observationOverride: null }
+        });
+        collateral.push('regenerated');
+        return { collateral, observationOverride: null };
     }
 
     if (kind === 'align-observation-and-body')
     {
-        const markdown = readFixtureDocument(fixture.directory)
-        const next = replaceClaimBody(markdown, mutation.claimId, mutation.bodyText)
-        writeFixtureDocument(fixture.directory, next)
+        const markdown = readFixtureDocument(fixture.directory);
+        const next = replaceClaimBody(markdown, mutation.claimId, mutation.bodyText);
+        writeFixtureDocument(fixture.directory, next);
         const observations = {
             ...currentObservations(),
             ...mutation.observationPatch
-        }
+        };
         const receipt = makeObservationReceipt({
             identity: fixture.identity,
             observations
-        })
+        });
         writeFileSync(
             path.join(fixture.directory, '.tmp/observation-receipt.json'),
             `${JSON.stringify(receipt)}\n`
-        )
-        collateral.push('observation-and-body')
-        return { collateral, observationOverride: receipt }
+        );
+        collateral.push('observation-and-body');
+        return { collateral, observationOverride: receipt };
     }
 
     if (kind === 'graph')
     {
-        collateral.push(`graph:${mutation.graphMutation}`)
-        return { collateral, observationOverride: null, graphMutation: mutation.graphMutation }
+        collateral.push(`graph:${mutation.graphMutation}`);
+        return { collateral, observationOverride: null, graphMutation: mutation.graphMutation };
     }
 
-    throw new Error(`unknown mutation kind ${kind}`)
+    throw new Error(`unknown mutation kind ${kind}`);
 }
 
 function runProseLayer(fixture, observationOverride = null)
 {
-    const markdown = readFixtureDocument(fixture.directory)
-    const claims = claimBodiesFromDocument(markdown)
+    const markdown = readFixtureDocument(fixture.directory);
+    const claims = claimBodiesFromDocument(markdown);
     const receipt = observationOverride
-        ?? JSON.parse(readFileSync(path.join(fixture.directory, '.tmp/observation-receipt.json'), 'utf8'))
-    return verifyProseClaims({ claims, receipts: [receipt] })
+        ?? JSON.parse(readFileSync(path.join(fixture.directory, '.tmp/observation-receipt.json'), 'utf8'));
+    return verifyProseClaims({ claims, receipts: [receipt] });
 }
 
 function runGeneratedLayer(fixture, observationOverride = null)
 {
     const receipt = observationOverride
-        ?? JSON.parse(readFileSync(path.join(fixture.directory, '.tmp/observation-receipt.json'), 'utf8'))
+        ?? JSON.parse(readFileSync(path.join(fixture.directory, '.tmp/observation-receipt.json'), 'utf8'));
     try
     {
         // Marker parse failures surface before process when markers are duplicated.
-        parseGeneratedMarkers(readFixtureDocument(fixture.directory), DOC_PATH)
+        parseGeneratedMarkers(readFixtureDocument(fixture.directory), DOC_PATH);
         const result = processGeneratedFactSections({
             repositoryRoot: fixture.directory,
             mode: 'check',
             catalog: sampleSectionCatalog(),
             receiptsByExtractor: indexReceiptsByExtractor([receipt]),
             expectedIdentity: fixture.identity
-        })
-        return { ok: true, result, code: null, error: null }
+        });
+        return { ok: true, result, code: null, error: null };
     }
     catch (error)
     {
@@ -364,7 +396,7 @@ function runGeneratedLayer(fixture, observationOverride = null)
             result: null,
             code: error.code ?? null,
             error
-        }
+        };
     }
 }
 
@@ -376,18 +408,18 @@ function runClaimSchemaLayer(mutation)
         claimType: 'scalar',
         factPath: 'stepUpFreshness',
         render: 'integer-minutes'
-    }
+    };
     try
     {
         validateClaimDeclaration({
             ...base,
             [mutation.field]: mutation.value
-        })
-        return { ok: true, code: null }
+        });
+        return { ok: true, code: null };
     }
     catch (error)
     {
-        return { ok: false, code: error.code ?? null, error }
+        return { ok: false, code: error.code ?? null, error };
     }
 }
 
@@ -403,24 +435,24 @@ ${mutation.field}: ${JSON.stringify(mutation.value)}
 -->
 
 Body paragraph.
-`
+`;
     try
     {
         parseDocumentClaims(block, {
             documentPath: DOC_PATH,
             documentStatus: 'current'
-        })
-        return { ok: true, code: null }
+        });
+        return { ok: true, code: null };
     }
     catch (error)
     {
-        return { ok: false, code: error.code ?? null, error }
+        return { ok: false, code: error.code ?? null, error };
     }
 }
 
 function catalogDigest(catalog)
 {
-    return digestValue(catalog)
+    return digestValue(catalog);
 }
 
 function makeGraphCatalog(overrides = {})
@@ -468,8 +500,8 @@ function makeGraphCatalog(overrides = {})
                 documents: ['docs/beta.md']
             }
         ]
-    }
-    return { ...catalog, ...overrides, contracts: overrides.contracts ?? catalog.contracts }
+    };
+    return { ...catalog, ...overrides, contracts: overrides.contracts ?? catalog.contracts };
 }
 
 function makeFact({
@@ -495,12 +527,12 @@ function makeFact({
         observations,
         status,
         failureReasons
-    }))
+    }));
 }
 
 function makeOwner({ catalog, bindings, errors = [] })
 {
-    const digest = catalogDigest(catalog)
+    const digest = catalogDigest(catalog);
     return sealOwnerBindingReceipt({
         schema: 'fsusblog.behavior-owner-binding-receipt.v1',
         catalogDigest: digest,
@@ -513,7 +545,7 @@ function makeOwner({ catalog, bindings, errors = [] })
             worktreeDigest: SOURCE_COMMIT
         })),
         errors
-    })
+    });
 }
 
 function defaultOwnerBindings()
@@ -537,12 +569,12 @@ function defaultOwnerBindings()
             sourceDigest: '2'.repeat(64),
             status: 'ok'
         }
-    ]
+    ];
 }
 
 function makeTestEvidence({ catalog, evidence, errors = [] })
 {
-    const digest = catalogDigest(catalog)
+    const digest = catalogDigest(catalog);
     const coverage = catalog.contracts
         .filter((contract) => contract.status === 'active')
         .map((contract) =>
@@ -553,16 +585,16 @@ function makeTestEvidence({ catalog, evidence, errors = [] })
                     && row.testKind === kind
                     && row.discovered === true
                     && row.executed === true
-                    && row.outcome === 'passed'))
-            const missing = contract.requiredTestKinds.filter((kind) => !satisfied.includes(kind))
+                    && row.outcome === 'passed'));
+            const missing = contract.requiredTestKinds.filter((kind) => !satisfied.includes(kind));
             return {
                 behaviorId: contract.id,
                 requiredTestKinds: [...contract.requiredTestKinds],
                 satisfiedTestKinds: satisfied,
                 missingTestKinds: missing,
                 status: missing.length === 0 ? 'ok' : 'failed'
-            }
-        })
+            };
+        });
     const receipt = {
         schema: 'fsusblog.behavior-test-evidence-receipt.v1',
         catalogDigest: digest,
@@ -590,14 +622,14 @@ function makeTestEvidence({ catalog, evidence, errors = [] })
         evidence: evidence ?? [],
         coverage,
         errors
-    }
-    receipt.contentDigest = digestTestEvidence(receipt)
-    return receipt
+    };
+    receipt.contentDigest = digestTestEvidence(receipt);
+    return receipt;
 }
 
 function defaultEvidence(catalog)
 {
-    const rows = []
+    const rows = [];
     for (const contract of catalog.contracts.filter((entry) => entry.status === 'active'))
     {
         for (const kind of contract.requiredTestKinds)
@@ -619,10 +651,10 @@ function defaultEvidence(catalog)
                 sourceState: { commit: SOURCE_COMMIT, worktreeFingerprint: `sha256:${WORKTREE_FP}` },
                 sourceClosureDigest: `sha256:${'f'.repeat(64)}`,
                 rawResultDigest: `sha256:${'9'.repeat(64)}`
-            })
+            });
         }
     }
-    return rows
+    return rows;
 }
 
 function locatedClaim(fields)
@@ -646,7 +678,7 @@ function locatedClaim(fields)
             bodyEndLine: 5,
             bodyText: fields.bodyText ?? 'limit is 10'
         }
-    }
+    };
 }
 
 function defaultClaims()
@@ -667,7 +699,7 @@ function defaultClaims()
             documentPath: 'docs/beta.md',
             bodyText: 'enabled is true'
         })
-    ]
+    ];
 }
 
 function defaultVerificationResults()
@@ -693,7 +725,7 @@ function defaultVerificationResults()
             status: 'verified',
             reason: 'body matches observation'
         }
-    ]
+    ];
 }
 
 function makeParseReceipt({ catalog, claims })
@@ -704,25 +736,25 @@ function makeParseReceipt({ catalog, claims })
         canonicalSerialization: 'json-utf8-v1',
         behaviorCatalogDigest: catalogDigest(catalog),
         claims: claims ?? []
-    }
+    };
     return {
         ...receipt,
         contentDigest: digestValue(receipt)
-    }
+    };
 }
 
 function buildGraphBundle(graphMutation)
 {
-    let catalog = makeGraphCatalog()
-    let claims = defaultClaims()
-    let evidence = defaultEvidence(catalog)
-    let bindings = defaultOwnerBindings()
-    let verificationResults = defaultVerificationResults()
-    let verificationStatus = 'ok'
-    let verificationFailures = []
-    let testErrors = []
-    let ownerErrors = []
-    let reasonCode = null
+    let catalog = makeGraphCatalog();
+    let claims = defaultClaims();
+    let evidence = defaultEvidence(catalog);
+    let bindings = defaultOwnerBindings();
+    let verificationResults = defaultVerificationResults();
+    let verificationStatus = 'ok';
+    let verificationFailures = [];
+    let testErrors = [];
+    let ownerErrors = [];
+    let reasonCode = null;
 
     if (graphMutation === 'orphan-claim')
     {
@@ -735,7 +767,7 @@ function buildGraphBundle(graphMutation)
                 documentPath: 'docs/orphan.md',
                 bodyText: 'orphan'
             })
-        ]
+        ];
         verificationResults = [
             ...verificationResults,
             {
@@ -748,10 +780,10 @@ function buildGraphBundle(graphMutation)
                 status: 'failed',
                 reason: 'orphan claim references unknown behavior'
             }
-        ]
-        verificationStatus = 'failed'
-        verificationFailures = ['orphan claim references unknown behavior']
-        reasonCode = 'ORPHAN_CLAIM'
+        ];
+        verificationStatus = 'failed';
+        verificationFailures = ['orphan claim references unknown behavior'];
+        reasonCode = 'ORPHAN_CLAIM';
     }
     else if (graphMutation === 'claim-wrong-behavior')
     {
@@ -771,7 +803,7 @@ function buildGraphBundle(graphMutation)
                 documentPath: 'docs/beta.md',
                 bodyText: 'enabled is true'
             })
-        ]
+        ];
         verificationResults = [
             {
                 claimId: 'alpha.limit',
@@ -784,17 +816,17 @@ function buildGraphBundle(graphMutation)
                 reason: 'claim bound to wrong behavior for factPath limit'
             },
             verificationResults[1]
-        ]
-        verificationStatus = 'failed'
-        verificationFailures = ['claim bound to wrong behavior for factPath limit']
-        reasonCode = 'CLAIM_WRONG_BEHAVIOR'
+        ];
+        verificationStatus = 'failed';
+        verificationFailures = ['claim bound to wrong behavior for factPath limit'];
+        reasonCode = 'CLAIM_WRONG_BEHAVIOR';
     }
     else if (graphMutation === 'missing-test-kind')
     {
         evidence = defaultEvidence(catalog).filter((row) =>
-            !(row.behaviorId === 'alpha-behavior' && row.testKind === 'boundary'))
-        testErrors = ['alpha-behavior missing this-round passed evidence for kind(s): boundary']
-        reasonCode = 'MISSING_TEST_KIND'
+            !(row.behaviorId === 'alpha-behavior' && row.testKind === 'boundary'));
+        testErrors = ['alpha-behavior missing this-round passed evidence for kind(s): boundary'];
+        reasonCode = 'MISSING_TEST_KIND';
     }
     else if (graphMutation === 'implementation-owner-duplicate')
     {
@@ -809,9 +841,9 @@ function buildGraphBundle(graphMutation)
                 sourceDigest: '3'.repeat(64),
                 status: 'ok'
             }
-        ]
-        ownerErrors = ['alpha-behavior owner cardinality exceeded: expected one']
-        reasonCode = 'OWNER_CARDINALITY'
+        ];
+        ownerErrors = ['alpha-behavior owner cardinality exceeded: expected one'];
+        reasonCode = 'OWNER_CARDINALITY';
     }
     else if (graphMutation === 'retired-behavior-current-doc')
     {
@@ -825,8 +857,8 @@ function buildGraphBundle(graphMutation)
                 },
                 makeGraphCatalog().contracts[1]
             ]
-        })
-        evidence = defaultEvidence(catalog)
+        });
+        evidence = defaultEvidence(catalog);
         verificationResults = [
             {
                 claimId: 'alpha.limit',
@@ -839,16 +871,16 @@ function buildGraphBundle(graphMutation)
                 reason: 'stale retired claim still verified'
             },
             verificationResults[1]
-        ]
-        reasonCode = 'RETIRED_BEHAVIOR_CURRENT_DOC'
+        ];
+        reasonCode = 'RETIRED_BEHAVIOR_CURRENT_DOC';
     }
     else if (graphMutation == null)
     {
-        reasonCode = 'PASS'
+        reasonCode = 'PASS';
     }
     else
     {
-        throw new Error(`unknown graph mutation ${graphMutation}`)
+        throw new Error(`unknown graph mutation ${graphMutation}`);
     }
 
     const factExtractorRegistry = {
@@ -867,26 +899,26 @@ function buildGraphBundle(graphMutation)
                 .filter((contract) => contract.factExtractorId === entry.id)
                 .map((contract) => contract.id)
         }))
-    }
-    const registryDigest = digestValue(factExtractorRegistry)
+    };
+    const registryDigest = digestValue(factExtractorRegistry);
     const alphaFact = makeFact({
         extractorId: 'alpha-fact-extractor',
         behaviorIds: ['alpha-behavior'],
         observations: { limit: 10 },
         registryDigest
-    })
+    });
     const betaFact = makeFact({
         extractorId: 'beta-fact-extractor',
         behaviorIds: ['beta-behavior'],
         observations: { enabled: true },
         registryDigest
-    })
-    const facts = [alphaFact, betaFact]
-    const parseReceipt = makeParseReceipt({ catalog, claims })
+    });
+    const facts = [alphaFact, betaFact];
+    const parseReceipt = makeParseReceipt({ catalog, claims });
     const factObservationDigests = facts.map((receipt) => ({
         extractorId: receipt.extractorId,
         contentDigest: receipt.contentDigest
-    }))
+    }));
     const verification = sealDocClaimVerificationReceipt({
         sourceCommit: SOURCE_COMMIT,
         worktreeFingerprint: WORKTREE_FP,
@@ -896,7 +928,7 @@ function buildGraphBundle(graphMutation)
         results: verificationResults,
         status: verificationStatus,
         failureReasons: verificationFailures
-    })
+    });
     const generated = sealGeneratedSectionCheckReceipt({
         sourceCommit: SOURCE_COMMIT,
         worktreeFingerprint: WORKTREE_FP,
@@ -906,9 +938,9 @@ function buildGraphBundle(graphMutation)
         sections: [],
         status: 'ok',
         failureReasons: []
-    })
-    const owner = makeOwner({ catalog, bindings, errors: ownerErrors })
-    const testEvidence = makeTestEvidence({ catalog, evidence, errors: testErrors })
+    });
+    const owner = makeOwner({ catalog, bindings, errors: ownerErrors });
+    const testEvidence = makeTestEvidence({ catalog, evidence, errors: testErrors });
 
     return {
         reasonCode,
@@ -922,57 +954,66 @@ function buildGraphBundle(graphMutation)
             docClaimVerificationReceipt: verification,
             generatedSectionCheckReceipt: generated
         }
-    }
+    };
 }
 
 function classifyGraphFailure(receipt, graphMutation)
 {
-    if (receipt.status === 'ok') return { ok: true, code: 'PASS' }
-    const reasons = [...receipt.failureReasons, ...receipt.missing.map((entry) => entry.kind), ...receipt.conflicts.map((entry) => entry.kind), ...receipt.orphans?.map?.((entry) => entry.kind) ?? []]
+    if (receipt.status === 'ok')
+    {
+        return { ok: true, code: 'PASS' };
+    }
+    const reasons = [...receipt.failureReasons, ...receipt.missing.map((entry) => entry.kind), ...receipt.conflicts.map((entry) => entry.kind), ...receipt.orphans?.map?.((entry) => entry.kind) ?? []];
     const text = JSON.stringify({
         failureReasons: receipt.failureReasons,
         missing: receipt.missing,
         conflicts: receipt.conflicts,
         orphans: receipt.orphans ?? [],
         nodes: receipt.behaviorNodes
-    })
+    });
 
     if (graphMutation === 'orphan-claim')
     {
-        if (/orphan|unknown behavior|missing-behavior/iu.test(text)) return { ok: false, code: 'ORPHAN_CLAIM' }
+        if (/orphan|unknown behavior|missing-behavior/iu.test(text))
+        {
+            return { ok: false, code: 'ORPHAN_CLAIM' };
+        }
     }
     if (graphMutation === 'claim-wrong-behavior')
     {
-        if (/wrong behavior|doc-conflict|missing-fact|limit/iu.test(text)) return { ok: false, code: 'CLAIM_WRONG_BEHAVIOR' }
+        if (/wrong behavior|doc-conflict|missing-fact|limit/iu.test(text))
+        {
+            return { ok: false, code: 'CLAIM_WRONG_BEHAVIOR' };
+        }
     }
     if (graphMutation === 'missing-test-kind')
     {
         if (/missing-test-kind|boundary/iu.test(text) || receipt.missing.some((entry) => entry.kind === 'missing-test-kind'))
         {
-            return { ok: false, code: 'MISSING_TEST_KIND' }
+            return { ok: false, code: 'MISSING_TEST_KIND' };
         }
     }
     if (graphMutation === 'implementation-owner-duplicate')
     {
         if (/cardinality|owner|duplicate/iu.test(text) || receipt.conflicts.some((entry) => /owner/iu.test(entry.kind)))
         {
-            return { ok: false, code: 'OWNER_CARDINALITY' }
+            return { ok: false, code: 'OWNER_CARDINALITY' };
         }
     }
     if (graphMutation === 'retired-behavior-current-doc')
     {
         if (/retired|current/iu.test(text) || receipt.conflicts.some((entry) => /retired|doc/iu.test(entry.kind)))
         {
-            return { ok: false, code: 'RETIRED_BEHAVIOR_CURRENT_DOC' }
+            return { ok: false, code: 'RETIRED_BEHAVIOR_CURRENT_DOC' };
         }
         // Also accept failed qualification on retired node with current claim.
-        const alpha = receipt.behaviorNodes.find((node) => node.behaviorId === 'alpha-behavior')
+        const alpha = receipt.behaviorNodes.find((node) => node.behaviorId === 'alpha-behavior');
         if (alpha && (alpha.qualification === 'failed' || alpha.docStatus === 'failed'))
         {
-            return { ok: false, code: 'RETIRED_BEHAVIOR_CURRENT_DOC' }
+            return { ok: false, code: 'RETIRED_BEHAVIOR_CURRENT_DOC' };
         }
     }
-    return { ok: false, code: `JOIN_FAILED:${reasons[0] ?? 'unknown'}`, detail: text }
+    return { ok: false, code: `JOIN_FAILED:${reasons[0] ?? 'unknown'}`, detail: text };
 }
 
 /**
@@ -980,40 +1021,40 @@ function classifyGraphFailure(receipt, graphMutation)
  */
 export function validateMutationCaseSchema(entry)
 {
-    const errors = []
+    const errors = [];
     for (const field of ['id', 'targetInvariantId', 'singleMutation', 'expectedReasonCode', 'expectedLayer'])
     {
         if (entry[field] == null || entry[field] === '')
         {
-            errors.push(`missing ${field}`)
+            errors.push(`missing ${field}`);
         }
     }
     if (forbiddenReasonCodes.includes(String(entry.expectedReasonCode).toLowerCase()))
     {
-        errors.push(`forbidden vague expectedReasonCode: ${entry.expectedReasonCode}`)
+        errors.push(`forbidden vague expectedReasonCode: ${entry.expectedReasonCode}`);
     }
     if (!Object.values(MutationLayers).includes(entry.expectedLayer) && entry.expectedLayer !== MutationLayers.PROSE_VERIFIER)
     {
         // allowedMutationLayers already covers; double-check membership
-        const allowed = new Set(Object.values(MutationLayers))
+        const allowed = new Set(Object.values(MutationLayers));
         if (!allowed.has(entry.expectedLayer))
         {
-            errors.push(`unknown expectedLayer: ${entry.expectedLayer}`)
+            errors.push(`unknown expectedLayer: ${entry.expectedLayer}`);
         }
     }
     if (Array.isArray(entry.singleMutation) || (entry.singleMutation && entry.singleMutation.kind === 'multi'))
     {
-        errors.push('singleMutation must be one atomic mutation')
+        errors.push('singleMutation must be one atomic mutation');
     }
     if (entry.singleMutation?.alsoBreakLinks)
     {
-        errors.push('single-mutation case must not also break links')
+        errors.push('single-mutation case must not also break links');
     }
     if (typeof entry.singleMutation?.markInvalid === 'function' || entry.singleMutation?.kind === 'internal-hook')
     {
-        errors.push('mutation must not call internal markInvalid hooks')
+        errors.push('mutation must not call internal markInvalid hooks');
     }
-    return errors
+    return errors;
 }
 
 /**
@@ -1023,9 +1064,9 @@ export function runMutationCase(caseIdOrEntry)
 {
     const entry = typeof caseIdOrEntry === 'string'
         ? getMutationCase(caseIdOrEntry)
-        : caseIdOrEntry
+        : caseIdOrEntry;
 
-    const schemaErrors = validateMutationCaseSchema(entry)
+    const schemaErrors = validateMutationCaseSchema(entry);
     if (schemaErrors.length > 0)
     {
         return {
@@ -1036,21 +1077,21 @@ export function runMutationCase(caseIdOrEntry)
             schemaErrors,
             expectPass: entry.expectPass,
             sourceValidFixtureDigest: null
-        }
+        };
     }
 
     // Graph layer does not need the markdown fixture repository.
     if (entry.expectedLayer === MutationLayers.BEHAVIOR_GRAPH_JOIN)
     {
-        const graphMutation = entry.singleMutation.graphMutation ?? null
-        const bundle = buildGraphBundle(graphMutation)
-        const receipt = joinBehaviorGraph(bundle.inputs)
+        const graphMutation = entry.singleMutation.graphMutation ?? null;
+        const bundle = buildGraphBundle(graphMutation);
+        const receipt = joinBehaviorGraph(bundle.inputs);
         const classified = entry.expectPass
             ? { ok: receipt.status === 'ok', code: receipt.status === 'ok' ? 'PASS' : 'JOIN_FAILED' }
-            : classifyGraphFailure(receipt, graphMutation)
+            : classifyGraphFailure(receipt, graphMutation);
         const matched = entry.expectPass
             ? classified.ok
-            : (!classified.ok && classified.code === entry.expectedReasonCode)
+            : (!classified.ok && classified.code === entry.expectedReasonCode);
         return {
             id: entry.id,
             ok: matched,
@@ -1061,15 +1102,15 @@ export function runMutationCase(caseIdOrEntry)
             sourceValidFixtureDigest: createHash('sha256').update('graph-valid-bundle-v1').digest('hex'),
             detail: classified.detail,
             receiptStatus: receipt.status
-        }
+        };
     }
 
     if (entry.expectedLayer === MutationLayers.CLAIM_SCHEMA)
     {
-        const result = runClaimSchemaLayer(entry.singleMutation)
+        const result = runClaimSchemaLayer(entry.singleMutation);
         const matched = entry.expectPass
             ? result.ok
-            : (!result.ok && result.code === entry.expectedReasonCode)
+            : (!result.ok && result.code === entry.expectedReasonCode);
         return {
             id: entry.id,
             ok: matched,
@@ -1078,15 +1119,15 @@ export function runMutationCase(caseIdOrEntry)
             expectedReasonCode: entry.expectedReasonCode,
             expectPass: entry.expectPass,
             sourceValidFixtureDigest: createHash('sha256').update('schema-valid-v1').digest('hex')
-        }
+        };
     }
 
     if (entry.expectedLayer === MutationLayers.CLAIM_PARSER)
     {
-        const result = runClaimParserLayer(entry.singleMutation)
+        const result = runClaimParserLayer(entry.singleMutation);
         const matched = entry.expectPass
             ? result.ok
-            : (!result.ok && result.code === entry.expectedReasonCode)
+            : (!result.ok && result.code === entry.expectedReasonCode);
         return {
             id: entry.id,
             ok: matched,
@@ -1095,24 +1136,24 @@ export function runMutationCase(caseIdOrEntry)
             expectedReasonCode: entry.expectedReasonCode,
             expectPass: entry.expectPass,
             sourceValidFixtureDigest: createHash('sha256').update('parser-valid-v1').digest('hex')
-        }
+        };
     }
 
-    const fixture = materializeFixtureRepository(entry.sourceFixtureKind)
+    const fixture = materializeFixtureRepository(entry.sourceFixtureKind);
     try
     {
-        const sourceDigest = fixture.digest
+        const sourceDigest = fixture.digest;
         const beforeSemantic = digestFileTree(fixture.directory, [
             '.tmp/observation-receipt.json',
             'config/contracts/generated-fact-sections.json'
-        ])
+        ]);
 
-        const applied = applySingleMutation(fixture, entry.singleMutation)
+        const applied = applySingleMutation(fixture, entry.singleMutation);
 
         // Refuse multi-mutation collateral beyond the declared single change.
         if (entry.forbiddenCollateralChanges?.includes('broken-link'))
         {
-            const markdown = readFixtureDocument(fixture.directory)
+            const markdown = readFixtureDocument(fixture.directory);
             if (/\]\(\s*\)/u.test(markdown) || /\]\(https?:\/\/invalid/u.test(markdown))
             {
                 return {
@@ -1124,13 +1165,13 @@ export function runMutationCase(caseIdOrEntry)
                     expectPass: entry.expectPass,
                     sourceValidFixtureDigest: sourceDigest,
                     detail: 'broken link collateral detected'
-                }
+                };
             }
         }
 
         if (entry.expectedLayer === MutationLayers.PROSE_VERIFIER)
         {
-            const result = runProseLayer(fixture, applied.observationOverride)
+            const result = runProseLayer(fixture, applied.observationOverride);
             if (entry.expectPass)
             {
                 return {
@@ -1142,9 +1183,9 @@ export function runMutationCase(caseIdOrEntry)
                     expectPass: true,
                     sourceValidFixtureDigest: sourceDigest,
                     diagnostics: result.diagnostics
-                }
+                };
             }
-            const hit = result.diagnostics.find((entryDiag) => entryDiag.code === entry.expectedReasonCode)
+            const hit = result.diagnostics.find((entryDiag) => entryDiag.code === entry.expectedReasonCode);
             return {
                 id: entry.id,
                 ok: Boolean(hit) && !result.ok,
@@ -1154,12 +1195,12 @@ export function runMutationCase(caseIdOrEntry)
                 expectPass: false,
                 sourceValidFixtureDigest: sourceDigest,
                 diagnostics: result.diagnostics
-            }
+            };
         }
 
         if (entry.expectedLayer === MutationLayers.GENERATED_SECTION_CHECK)
         {
-            const result = runGeneratedLayer(fixture, applied.observationOverride)
+            const result = runGeneratedLayer(fixture, applied.observationOverride);
             if (entry.expectPass)
             {
                 return {
@@ -1170,7 +1211,7 @@ export function runMutationCase(caseIdOrEntry)
                     expectedReasonCode: entry.expectedReasonCode,
                     expectPass: true,
                     sourceValidFixtureDigest: sourceDigest
-                }
+                };
             }
             return {
                 id: entry.id,
@@ -1181,11 +1222,11 @@ export function runMutationCase(caseIdOrEntry)
                 expectPass: false,
                 sourceValidFixtureDigest: sourceDigest,
                 errorMessage: result.error?.message
-            }
+            };
         }
 
-        void beforeSemantic
-        void applied
+        void beforeSemantic;
+        void applied;
         return {
             id: entry.id,
             ok: false,
@@ -1194,11 +1235,11 @@ export function runMutationCase(caseIdOrEntry)
             expectedReasonCode: entry.expectedReasonCode,
             expectPass: entry.expectPass,
             sourceValidFixtureDigest: sourceDigest
-        }
+        };
     }
     finally
     {
-        fixture.dispose()
+        fixture.dispose();
     }
 }
 
@@ -1207,8 +1248,8 @@ export function runMutationCase(caseIdOrEntry)
  */
 export function runAllMutationCases({ includeControls = true } = {})
 {
-    const cases = mutationCases.filter((entry) => includeControls || !entry.expectPass)
-    return cases.map((entry) => runMutationCase(entry))
+    const cases = mutationCases.filter((entry) => includeControls || !entry.expectPass);
+    return cases.map((entry) => runMutationCase(entry));
 }
 
 export function assertCaseResult(result)
@@ -1224,19 +1265,19 @@ export function assertCaseResult(result)
             result.detail,
             result.diagnostics ? JSON.stringify(result.diagnostics.slice(0, 5), null, 2) : null,
             result.schemaErrors ? result.schemaErrors.join('; ') : null
-        ].filter(Boolean).join('\n')
-        const error = new Error(detail)
-        error.result = result
-        throw error
+        ].filter(Boolean).join('\n');
+        const error = new Error(detail);
+        error.result = result;
+        throw error;
     }
-    return result
+    return result;
 }
 
 // Touch imports used for schema docs / anti-dead-code in lint-ish scans.
-void DocClaimErrorCode
-void GeneratedSectionErrorCode
-void loadCatalog
-void wrapGeneratedSection
-void matchingProseBodies
-void SECTION_PERMISSIONS
-void EXTRACTOR_ID
+void DocClaimErrorCode;
+void GeneratedSectionErrorCode;
+void loadCatalog;
+void wrapGeneratedSection;
+void matchingProseBodies;
+void SECTION_PERMISSIONS;
+void EXTRACTOR_ID;

@@ -8,8 +8,8 @@ import {
     admitBrowserReleaseCleanAttempt,
     readCleanAttemptConsumerInventory
 } from '../../tools/release/browser-release-clean-attempt-consumers.mjs';
-import { runProducerAttempts } from '../../tools/test/attempt-runner.mjs';
 import { sha256 } from '../../tools/test/attempt-provenance.mjs';
+import { runProducerAttempts } from '../../tools/test/attempt-runner.mjs';
 
 const root = path.resolve(import.meta.dirname, '../..');
 const fixtureCommand = path.join(root, 'tests/tools/fixtures/attempt-runner-command.mjs');
@@ -63,7 +63,8 @@ async function evidence(directory, {
         aggregateReceipt: result.aggregate,
         loadAttempt: (reference) => result.attempts[reference.attemptNumber - 1],
         verifyAuthority: verifyAuthority(producerId, schedulerRunId),
-        verifyArtifact: (relative, digest, receipt) => {
+        verifyArtifact: (relative, digest, receipt) =>
+        {
             const file = path.join(result.producerRoot, `attempt-${receipt.attemptNumber}`, relative);
             return fs.existsSync(file) && sha256(fs.readFileSync(file)) === digest;
         },

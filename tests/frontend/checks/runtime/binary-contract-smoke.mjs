@@ -77,8 +77,6 @@ async function checkDenial([name, path, expectedStatus])
 export async function runBinaryContractSmoke()
 {
     await probeReachable(`${baseUrl}/api/binary/article/list/home/1/1.aeds`, '[binary-contract-smoke backend]', requestTimeoutMs);
-    await resetAndWaitForPublicReadBudget();
-
     for (const item of successChecks)
     {
         await checkSuccess(item);

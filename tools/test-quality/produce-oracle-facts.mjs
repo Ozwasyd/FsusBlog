@@ -5,6 +5,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { loadCanonicalInventory } from '../test-inventory/api.mjs';
+
 import { buildOracleFacts } from './oracle-facts.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));

@@ -407,7 +407,8 @@ test('account-messaging rejects projection mismatch, payload leaks, and duplicat
             {
                 return item;
             }
-            const { digest: _digest, ...body } = item;
+            const body = { ...item };
+            delete body.digest;
             const changed = { ...body, publicId: '101' };
             return { ...changed, digest: stableHexDigest(changed) };
         })

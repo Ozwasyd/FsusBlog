@@ -12,21 +12,33 @@ export function adaptReleaseProjectionSemanticOutcome({ identity, inputAuthority
     const reasons = [];
     const terminal = new Set([...verifiedProjectionIds, ...failedProjectionIds, ...blockedProjectionIds]);
     for (const id of requiredProjectionIds.filter((id) => !producedProjectionIds.includes(id)))
+    {
         reasons.push(reason('contract.missing-evidence', releaseProjectionOutcomeProducerId, { evidenceId: id }));
+    }
     for (const id of producedProjectionIds.filter((id) => !requiredProjectionIds.includes(id)))
+    {
         reasons.push(reason('contract.ambiguous-evidence', releaseProjectionOutcomeProducerId, { evidenceId: id }));
+    }
     for (const id of requiredProjectionIds.filter((id) => !terminal.has(id)))
+    {
         reasons.push(reason('contract.missing-evidence', releaseProjectionOutcomeProducerId, { evidenceId: `${id}:terminal` }));
+    }
     for (const id of [...failedProjectionIds, ...blockedProjectionIds])
+    {
         reasons.push(reason('product.state-mismatch', releaseProjectionOutcomeProducerId, { semanticId: id }));
+    }
     const semanticDigests = evidence?.semanticDigests ?? {};
     for (const id of verifiedProjectionIds)
     {
         if (!/^sha256:[0-9a-f]{64}$/u.test(String(semanticDigests[id] ?? '')))
+        {
             reasons.push(reason('product.state-mismatch', releaseProjectionOutcomeProducerId, { semanticId: id }));
+        }
     }
     if (attemptEligibility?.cleanFirstAttempt !== true || attemptEligibility?.qualificationEligible !== true)
+    {
         reasons.push(reason('contract.missing-evidence', releaseProjectionOutcomeProducerId, { evidenceId: 'clean-first-attempt' }));
+    }
     return candidate({ producerId: releaseProjectionOutcomeProducerId,
         producerAuthorityId: 'tools/test-matrix/outcomes/release-projection-adapter.mjs',
         identity, inputAuthorityRefs, attemptEligibility,

@@ -77,7 +77,9 @@ test('fixture corpus writes review media and a non-release report without weaken
         assert.equal(report.audio.count, 2);
         assert.ok(report.reviewFixtures.length >= 4);
         for (const entry of report.reviewFixtures)
+        {
             assert.equal(fs.existsSync(path.join(output, entry.path)), true);
+        }
 
         const undersizedRelease = spawnSync(process.execPath, [
             corpusTool,

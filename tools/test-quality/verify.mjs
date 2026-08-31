@@ -5,6 +5,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { loadCanonicalInventory } from '../test-inventory/api.mjs';
+
 import { renderQualitySummary, verifyQualityArtifact } from './artifact.mjs';
 import { runConformanceCorpus } from './conformance.mjs';
 

@@ -6,14 +6,13 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { locateReleaseFinalDirectEvidence } from '../../tools/release/check-release-final.mjs';
-import { governanceContentDigest } from '../../tools/test/evidence-location-contract.mjs';
 import {
     beginCurrentRunEvidencePublication,
     createEvidenceParentReceipt,
     finalizeCurrentRunEvidencePublication,
     releaseFinalDirectConsumerIds
 } from '../../tools/test/current-run-evidence-publication.mjs';
-import { completeEvidenceLocatorRegistryEntry } from '../../tools/test/evidence-location-contract.mjs';
+import { governanceContentDigest, completeEvidenceLocatorRegistryEntry } from '../../tools/test/evidence-location-contract.mjs';
 
 const d = (value) => `sha256:${value.repeat(64)}`;
 const payloadSchemas = {
@@ -90,7 +89,10 @@ test('release-final locates the exact parent and every canonical direct child', 
         assert.deepEqual(Object.keys(result.directEvidence).sort(),
             ['behaviorConsistency', 'behaviorPostRuntime', 'browserContract', 'browserlessCorrectness', 'productionBuild', 'publicPreview']);
     }
-    finally { fs.rmSync(f.root, { recursive: true, force: true }); }
+    finally
+    {
+        fs.rmSync(f.root, { recursive: true, force: true });
+    }
 });
 
 test('newer same-schema alternate never replaces a mismatched explicit child', () =>
@@ -108,7 +110,10 @@ test('newer same-schema alternate never replaces a mismatched explicit child', (
         assert.throws(() => locateReleaseFinalDirectEvidence({ context: f.context, parentPath: f.parentPath,
             registry: f.registry, repositoryRoot: f.root }), /attemptId mismatch/u);
     }
-    finally { fs.rmSync(f.root, { recursive: true, force: true }); }
+    finally
+    {
+        fs.rmSync(f.root, { recursive: true, force: true });
+    }
 });
 
 test('parent child digest and authority set tamper fail closed', () =>
@@ -120,13 +125,22 @@ test('parent child digest and authority set tamper fail closed', () =>
         {
             const file = path.join(f.root, f.parentPath);
             const parent = JSON.parse(fs.readFileSync(file));
-            if (mutation === 'digest') parent.children[0].inputDigest = d('f');
-            else parent.children.pop();
+            if (mutation === 'digest')
+            {
+                parent.children[0].inputDigest = d('f');
+            }
+            else
+            {
+                parent.children.pop();
+            }
             fs.writeFileSync(file, JSON.stringify(parent));
             assert.throws(() => locateReleaseFinalDirectEvidence({ context: f.context, parentPath: f.parentPath,
                 registry: f.registry, repositoryRoot: f.root }), /contentDigest mismatch|exact direct authority set/u);
         }
-        finally { fs.rmSync(f.root, { recursive: true, force: true }); }
+        finally
+        {
+            fs.rmSync(f.root, { recursive: true, force: true });
+        }
     }
 });
 

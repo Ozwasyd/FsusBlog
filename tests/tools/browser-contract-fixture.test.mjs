@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+import { executionServiceImageReference } from '../../tools/test/execution-envelope-services.mjs';
 import {
     compensateVerifiedContainerCleanup,
     deriveLocalPublicContentFixtureSecret,
@@ -22,7 +23,6 @@ import {
     resolveBrowserContractRunIdentity
 } from '../browser-contract/fixture-lifecycle.mjs';
 import { fixtureReceiptView, loadBrowserContractFixture } from '../browser-contract/fixture.mjs';
-import { executionServiceImageReference } from '../../tools/test/execution-envelope-services.mjs';
 
 const commit = 'a'.repeat(40);
 const fingerprint = 'b'.repeat(64);

@@ -5,13 +5,13 @@ import path from 'node:path';
 import test from 'node:test';
 
 import {
-    runProducerAttempts,
-    validateDockerEquivalentAttemptReceipt
-} from '../../tools/test/attempt-runner.mjs';
-import {
     digestCanonical,
     validateAggregateAttemptReceipt
 } from '../../tools/test/attempt-provenance.mjs';
+import {
+    runProducerAttempts,
+    validateDockerEquivalentAttemptReceipt
+} from '../../tools/test/attempt-runner.mjs';
 
 const root = path.resolve(import.meta.dirname, '../..');
 const commandFixture = path.join(root, 'tests/tools/fixtures/attempt-runner-command.mjs');

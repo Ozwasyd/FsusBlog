@@ -6,41 +6,18 @@ import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const { buildMixedWindowPlan } = await import(
+await import(
     pathToFileURL(path.join(root, 'tools/test/run-mixed-performance-window.mjs')).href
 );
-const { cleanLocalProductionOutputs } = await import(
+await import(
     pathToFileURL(path.join(root, 'tools/test-matrix/fresh-production.mjs')).href
 );
-const {
-    artifactSubstitutionBindingDigest,
-    buildLocalProfileProjection,
-    createLocalBundleTiers,
-    collectLogicalTierIds,
-    digestDeclaredOutputs,
-    localProfileSystemResources,
-    localProfileBudgetCriticalPath,
-    performanceMixedWindowFloorMs,
-    projectLocalBootstrapFixtureProfile,
-    matrixGeneratedRuntimePaths,
-    resolveLocalProfileResources,
-    resolveArtifactSubstitutions,
-    resolveFrontendVitestAdmissionFloor,
-    validateArtifactSubstitutions,
-    validateLocalBundleSummary,
-    validatePerformanceDeadlineEvidence,
-    validateLocalProfileCheckpointDuration,
-    validateLocalProfiles
-} = await import(pathToFileURL(path.join(root, 'tools/test-matrix/local-profile.mjs')).href);
+await import(pathToFileURL(path.join(root, 'tools/test-matrix/local-profile.mjs')).href);
 const { parseMatrix } = await import(pathToFileURL(path.join(root, 'tools/test-matrix/parse-matrix.mjs')).href);
 const {
-    productionFreshEnvironmentForPhysicalTier,
     runLocalProfile
 } = await import(pathToFileURL(path.join(root, 'tools/run-test-matrix.mjs')).href);
-const { behaviorDocStaticAdmissionTierId } = await import(
-    pathToFileURL(path.join(root, 'tools/test-matrix/behavior-doc-static-admission-contract.mjs')).href
-);
-const { expandFixtureProfile } = await import(
+await import(
     pathToFileURL(path.join(root, 'tools/testing/fixture-catalog.mjs')).href
 );
 const { acquireProductionFreshExclusiveLease } = await import(
@@ -50,21 +27,6 @@ const { acquireProductionCapacityReservation } = await import(
     pathToFileURL(path.join(root, 'tools/test-matrix/production-capacity-reservation.mjs')).href
 );
 
-function cacheTransactionOwner(repositoryRoot)
-{
-    return {
-        leaseId: 'lease-local-profile-test',
-        ownerToken: 'token-local-profile-test',
-        canonicalRepositoryRoot: fs.realpathSync(repositoryRoot),
-        profile: 'production-fresh',
-        candidateIdentityDigest: `sha256:${'a'.repeat(64)}`,
-        pid: process.pid,
-        processStartIdentity: 'local-profile-test',
-        executableDigest: `sha256:${'b'.repeat(64)}`,
-        commandDigest: `sha256:${'c'.repeat(64)}`,
-        processGroupOrJobIdentity: { kind: 'unix-process-group', processGroupId: process.pid }
-    };
-}
 
 function verifiedBehaviorDocAdmissionRuntime(repositoryRoot, runId, sourceState)
 {
@@ -84,40 +46,9 @@ function verifiedBehaviorDocAdmissionRuntime(repositoryRoot, runId, sourceState)
 }
 
 const localBundleRunner = fs.readFileSync(path.join(root, 'tools/test/bundles/run-bundle.mjs'), 'utf8');
-const localBundleSteps = fs.readFileSync(path.join(root, 'tools/test/bundles/bundle-steps.mjs'), 'utf8');
-const backendShardRunner = fs.readFileSync(path.join(root, 'tools/test/run-backend-production-shards.mjs'), 'utf8');
 const matrixRunner = fs.readFileSync(path.join(root, 'tools/run-test-matrix.mjs'), 'utf8');
-const backendBundleRunner = localBundleRunner.slice(
-    localBundleRunner.indexOf('async function runBackendTests()'),
-    localBundleRunner.indexOf('\nfunction listFiles(')
-);
-const frontendBundleRunner = localBundleRunner.slice(
-    localBundleRunner.indexOf('async function runFrontendTests()'),
-    localBundleRunner.indexOf('\nasync function run()')
-);
 
-function tier(id, dependsOn = [])
-{
-    return { id, executionDependsOn: dependsOn };
-}
 
-function profile(overrides = {})
-{
-    return {
-        budgetMs: 300_000,
-        minimumSupportedCpuUnits: 4,
-        memoryReserveShare: 0.05,
-        bundles: [
-            { id: 'build-static', command: 'build', deadlineWeight: 18, dependsOn: [behaviorDocStaticAdmissionTierId], members: ['a'], cpuWeight: 2, memoryWeight: 3, minCpuUnits: 1, startupMinCpuUnits: 1, startupMemoryWeight: 3, startupPriority: 3 },
-            { id: 'backend-tests', command: 'backend', deadlineWeight: 44, dependsOn: [behaviorDocStaticAdmissionTierId], members: ['b'], cpuWeight: 3, memoryWeight: 4, minCpuUnits: 2, startupMinCpuUnits: 1, startupMemoryWeight: 4, startupPriority: 4 },
-            { id: 'frontend-tests', command: 'frontend', deadlineWeight: 27, dependsOn: [behaviorDocStaticAdmissionTierId], members: ['c'], cpuWeight: 3, memoryWeight: 2, minCpuUnits: 1, startupMinCpuUnits: 1, startupMemoryWeight: 2, startupPriority: 3 },
-            { id: 'runtime-browser', command: 'runtime', deadlineWeight: 24, dependsOn: [behaviorDocStaticAdmissionTierId], members: ['d'], cpuWeight: 5, memoryWeight: 5, minCpuUnits: 1, startupMinCpuUnits: 1, startupMemoryWeight: 5, startupPriority: 4 },
-            { id: 'performance-evidence', command: 'performance', deadlineWeight: 36, minimumDeadlineShare: 0.25, dependsOn: ['build-static', 'backend-tests', 'frontend-tests', 'runtime-browser'], members: ['production'], cpuWeight: 8, memoryWeight: 10, minCpuUnits: 1, startupMinCpuUnits: 1, startupMemoryWeight: 10, startupPriority: 1 }
-        ],
-        summaryOnly: [],
-        ...overrides
-    };
-}
 
 test('local production runner attaches the logical projection only after fresh physical evidence is complete', () =>
 {

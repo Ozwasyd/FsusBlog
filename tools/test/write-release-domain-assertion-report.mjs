@@ -16,35 +16,54 @@ const {
     validateNativeAssertionEvidence
 } = await import(pathToFileURL(path.join(repositoryRoot, 'tools/test-matrix/release-domain-evidence.mjs')).href);
 
-function option(name, fallback = null) {
+function option(name, fallback = null)
+{
     const index = process.argv.indexOf(`--${name}`);
     return index >= 0 && process.argv[index + 1] ? process.argv[index + 1] : fallback;
 }
 
-function requiredEnvironment(name) {
+function requiredEnvironment(name)
+{
     const value = String(process.env[name] ?? '').trim().replace(/^sha256:/u, '');
-    if (!value) throw new Error(`${name} is required`);
+    if (!value)
+    {
+        throw new Error(`${name} is required`);
+    }
     return value;
 }
 
-function relative(root, file) {
+function relative(root, file)
+{
     return path.relative(root, file).replaceAll(path.sep, '/');
 }
 
-function readJson(file) {
+function readJson(file)
+{
     return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 
-function visitJsonFiles(directory, files) {
-    if (!fs.existsSync(directory)) return;
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name))) {
+function visitJsonFiles(directory, files)
+{
+    if (!fs.existsSync(directory))
+    {
+        return;
+    }
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name)))
+    {
         const candidate = path.join(directory, entry.name);
-        if (entry.isDirectory()) visitJsonFiles(candidate, files);
-        else if (entry.isFile() && entry.name.endsWith('.json')) files.push(candidate);
+        if (entry.isDirectory())
+        {
+            visitJsonFiles(candidate, files);
+        }
+        else if (entry.isFile() && entry.name.endsWith('.json'))
+        {
+            files.push(candidate);
+        }
     }
 }
 
-function collectStructuredDocuments(root) {
+function collectStructuredDocuments(root)
+{
     const files = [];
     const testResultsRoot = path.resolve(process.env.FSUSBLOG_TEST_RESULTS_ROOT
         ?? path.join(root, '.tmp/test-results'));
@@ -61,25 +80,32 @@ function collectStructuredDocuments(root) {
             files.push(path.resolve(root, entry.extractedPath));
         }
     }
-    for (const directory of directories) {
+    for (const directory of directories)
+    {
         visitJsonFiles(directory, files);
     }
     const uniqueFiles = [...new Set(files.map((file) => path.resolve(file)))].sort();
     const documents = [];
-    for (const file of uniqueFiles) {
-        try {
+    for (const file of uniqueFiles)
+    {
+        try
+        {
             const value = readJson(file);
-            if (Array.isArray(value?.testResults) || value?.schema === 'fsusblog.live-grant-execution.v1') {
+            if (Array.isArray(value?.testResults) || value?.schema === 'fsusblog.live-grant-execution.v1')
+            {
                 documents.push({ path: relative(root, file), value });
             }
-        } catch {
+        }
+        catch
+        {
             // An unrelated or incomplete JSON file is not structured producer evidence.
         }
     }
     return documents;
 }
 
-function normalizeTestResultPath(root, value) {
+function normalizeTestResultPath(root, value)
+{
     const absolute = path.isAbsolute(String(value ?? ''))
         ? path.resolve(String(value))
         : path.resolve(root, String(value ?? ''));
@@ -87,18 +113,24 @@ function normalizeTestResultPath(root, value) {
     return normalized.startsWith('../') ? String(value ?? '').replaceAll('\\', '/') : normalized;
 }
 
-function sourceArtifactPaths(root, entry, documents) {
+function sourceArtifactPaths(root, entry, documents)
+{
     const selector = entry.producerEvidence;
-    if (selector.kind === 'vitest-file' || selector.kind === 'vitest-file-set') {
+    if (selector.kind === 'vitest-file' || selector.kind === 'vitest-file-set')
+    {
         const targets = selector.kind === 'vitest-file' ? [selector.file] : selector.files;
         const paths = documents.filter((document) => Array.isArray(document.value?.testResults)
             && document.value.testResults.some((result) => targets.includes(normalizeTestResultPath(root, result?.name))))
             .map((document) => document.path)
             .sort();
-        if (paths.length === 0) throw new Error(`${entry.id} has no native Vitest JSON result`);
+        if (paths.length === 0)
+        {
+            throw new Error(`${entry.id} has no native Vitest JSON result`);
+        }
         return paths;
     }
-    if (selector.kind === 'live-grant-child') {
+    if (selector.kind === 'live-grant-child')
+    {
         const workflowRunId = String(process.env.GITHUB_RUN_ID ?? '').trim();
         const workflowRunAttempt = String(process.env.GITHUB_RUN_ATTEMPT ?? '1');
         const matches = documents.filter((document) => document.value?.schema === 'fsusblog.live-grant-execution.v1'
@@ -107,39 +139,55 @@ function sourceArtifactPaths(root, entry, documents) {
                 || (workflowRunId && document.value.workflowRunId === workflowRunId
                     && document.value.workflowRunAttempt === workflowRunAttempt))
             && document.value.children?.some((child) => child?.id === selector.childId));
-        if (matches.length !== 1) {
+        if (matches.length !== 1)
+        {
             throw new Error(`${entry.id} expected exactly one current-run live-grant artifact, found ${matches.length}`);
         }
         return [matches[0].path];
     }
-    if (selector.kind === 'browser-diagnostics-release-assertion') {
+    if (selector.kind === 'browser-diagnostics-release-assertion')
+    {
         return [selector.assertionArtifactPath, selector.receiptPath].sort();
     }
     throw new Error(`${entry.id} has an unsupported producer evidence selector`);
 }
 
-function writeJsonAtomic(file, value) {
+function writeJsonAtomic(file, value)
+{
     fs.mkdirSync(path.dirname(file), { recursive: true });
     const temporary = `${file}.${process.pid}.tmp`;
     fs.writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
     fs.renameSync(temporary, file);
 }
 
-try {
+try
+{
     const root = path.resolve(option('root', repositoryRoot));
     const producerId = option('producer');
-    if (!producerId) throw new Error('--producer is required');
+    if (!producerId)
+    {
+        throw new Error('--producer is required');
+    }
     const ledgerPath = path.resolve(root, option('ledger', 'config/testing/release-domain-assertion-dispositions.json'));
     const ledger = readJson(ledgerPath);
     const entries = validateDispositionLedger(ledger).filter((entry) => entry.canonicalProducer === producerId);
-    if (entries.length === 0) throw new Error(`no assertion dispositions belong to ${producerId}`);
+    if (entries.length === 0)
+    {
+        throw new Error(`no assertion dispositions belong to ${producerId}`);
+    }
     const catalogDirectory = path.resolve(root, option('catalog-directory', 'tests/fixtures/evidence-projection'));
     const catalogs = fs.readdirSync(catalogDirectory).filter((file) => file.startsWith('release-') && file.endsWith('.json'))
         .map((file) => readJson(path.join(catalogDirectory, file)))
         .filter((catalog) => catalog.projectFrom === producerId);
-    for (const catalog of catalogs) validateCatalogAgainstLedger(catalog, ledger);
+    for (const catalog of catalogs)
+    {
+        validateCatalogAgainstLedger(catalog, ledger);
+    }
     const buildIdentities = [...new Set(catalogs.map((catalog) => releaseBuildIdentity(root, catalog)))];
-    if (buildIdentities.length !== 1) throw new Error(`${producerId} catalogs do not share one build identity`);
+    if (buildIdentities.length !== 1)
+    {
+        throw new Error(`${producerId} catalogs do not share one build identity`);
+    }
     const sourceState = {
         commit: requiredEnvironment('FSUSBLOG_TEST_SOURCE_COMMIT'),
         worktreeFingerprint: requiredEnvironment('FSUSBLOG_TEST_SOURCE_FINGERPRINT')
@@ -147,7 +195,8 @@ try {
     const runId = requiredEnvironment('FSUSBLOG_TEST_RUN_ID');
     const namespace = requiredEnvironment('FSUSBLOG_TEST_NAMESPACE');
     const documents = collectStructuredDocuments(root);
-    const assertions = entries.map((entry) => {
+    const assertions = entries.map((entry) =>
+    {
         const paths = sourceArtifactPaths(root, entry, documents);
         const validatedPaths = validateNativeAssertionEvidence({
             repositoryRoot: root,
@@ -169,7 +218,10 @@ try {
         };
     });
     const referencedSourcePaths = [];
-    for (const assertion of assertions) referencedSourcePaths.push(...assertion.sourceArtifactPaths);
+    for (const assertion of assertions)
+    {
+        referencedSourcePaths.push(...assertion.sourceArtifactPaths);
+    }
     const allSourcePaths = [...new Set(referencedSourcePaths)].sort();
     const report = createAssertionReport({
         producerId,
@@ -190,7 +242,9 @@ try {
             'release-domain-assertions', producerId, `${runId}.json`)));
     writeJsonAtomic(output, report);
     process.stdout.write(`[release-domain-assertions] producer=${producerId} assertions=${assertions.length} sources=${allSourcePaths.length} output=${relative(root, output)}\n`);
-} catch (error) {
+}
+catch (error)
+{
     process.stderr.write(`[release-domain-assertions] ${error instanceof Error ? error.message : String(error)}\n`);
     process.exitCode = 1;
 }

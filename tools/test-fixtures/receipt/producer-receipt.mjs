@@ -12,6 +12,7 @@ import {
     freezeDeep,
     plainObject
 } from './canonical.mjs';
+import { normalizeCleanupContract as normalizeMessagingCleanupContract } from './messaging-cleanup-contract.mjs';
 import {
     digestCacheObservation,
     digestDatabaseObservation,
@@ -20,7 +21,6 @@ import {
     normalizeDatabaseObservation,
     normalizeRedisObservation
 } from './observations.mjs';
-import { normalizeCleanupContract as normalizeMessagingCleanupContract } from './messaging-cleanup-contract.mjs';
 import {
     ENTITY_IDENTITY_KINDS,
     PRODUCER_RECEIPT_SCHEMA,

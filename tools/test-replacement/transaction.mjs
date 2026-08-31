@@ -760,7 +760,8 @@ export function applyReplacementTransaction({
             fail(`apply source changed before transaction: ${change.path}`);
         }
     }
-    const originals = new Map(transaction.changes.map((change) => {
+    const originals = new Map(transaction.changes.map((change) =>
+    {
         const absolute = path.join(root, change.path);
         return [change.path, existsSync(absolute) ? readFileSync(absolute) : null];
     }));

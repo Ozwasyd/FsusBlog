@@ -68,7 +68,10 @@ function fixture()
         path.join(frontendRoot, 'package-lock.json'),
         path.join(root, 'font-source.css'),
         path.join(root, 'locales/zh-CN.json')
-    ]) fs.mkdirSync(path.dirname(file), { recursive: true });
+    ])
+    {
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+    }
     fs.writeFileSync(executablePath, 'managed-browser-binary');
     fs.writeFileSync(packageFile, JSON.stringify({ name: '@playwright/test', version: '1.59.1' }));
     fs.writeFileSync(moduleFile, 'fixture module');
@@ -92,13 +95,19 @@ function fixture()
     {
         const require = (request) =>
         {
-            if (request === moduleFile) return { chromium: browserType };
+            if (request === moduleFile)
+            {
+                return { chromium: browserType };
+            }
             throw new Error(`unexpected fixture require: ${request}`);
         };
         require.resolve = (request) =>
         {
             const result = resolved.get(request);
-            if (!result) throw new Error(`unexpected fixture resolution: ${request}`);
+            if (!result)
+            {
+                throw new Error(`unexpected fixture resolution: ${request}`);
+            }
             return result;
         };
         return require;
@@ -119,7 +128,9 @@ function fixture()
 
 function actualFrom(plan, overrides = {})
 {
-    const { browserType: _browserType, contentDigest: _contentDigest, ...identity } = plan;
+    const identity = { ...plan };
+    delete identity.browserType;
+    delete identity.contentDigest;
     return {
         ...structuredClone(identity),
         planDigest: plan.contentDigest,

@@ -8,6 +8,14 @@ import {
     qualificationTemporalContext
 } from '../../tools/test/temporal-context.mjs';
 import {
+    authSessionProducerMeta,
+    buildAuthSessionPlan,
+    prepareAuthSession,
+    projectVerifiedIdentityReferences,
+    validateAuthSessionResult,
+    verifyAuthSession
+} from '../../tools/test-fixtures/producers/auth-session-producer.mjs';
+import {
     buildProducerReceipt,
     digestCanonical
 } from '../../tools/test-fixtures/receipt/index.mjs';
@@ -18,14 +26,6 @@ import {
     readFixtureCatalogs
 } from '../../tools/testing/fixture-catalog.mjs';
 
-import {
-    authSessionProducerMeta,
-    buildAuthSessionPlan,
-    prepareAuthSession,
-    projectVerifiedIdentityReferences,
-    validateAuthSessionResult,
-    verifyAuthSession
-} from '../../tools/test-fixtures/producers/auth-session-producer.mjs';
 
 const temporalContext = qualificationTemporalContext({
     sourceCommit: 'a'.repeat(40),
@@ -246,7 +246,10 @@ test('profile with no auth capability never invokes the producer', async () =>
         namespace: 'a',
         runIdentity: 'b',
         temporalContext,
-        handles: { authFixtureAdapter: { prepare: async () => { calls++; } } }
+        handles: { authFixtureAdapter: { prepare: async () =>
+        {
+            calls++;
+        } } }
     }), /at least one capability/u);
     assert.equal(calls, 0);
 });

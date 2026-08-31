@@ -63,9 +63,14 @@ function resolveSourceFile(root, source)
             .flatMap((object) => object.archiveEntries ?? [])
             .map((entry) => path.resolve(root, entry.extractedPath))
             .filter((candidate) => path.basename(candidate) === path.basename(source.path));
-        if (matches.length === 1) return matches[0];
+        if (matches.length === 1)
+        {
+            return matches[0];
+        }
         if (matches.length > 1)
+        {
             throw new Error(`ambiguous ${source.tier} data-scale evidence in transport manifest`);
+        }
     }
     throw new Error(`missing ${source.tier} data-scale evidence: ${source.path}`);
 }

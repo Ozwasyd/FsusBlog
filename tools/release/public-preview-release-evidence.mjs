@@ -4,7 +4,7 @@ export function requirePublicPreviewReleaseEvidence({
     commitSha,
     browserContractReceipt,
     evidence,
-    sha256Hex,
+    sha256Hex
 })
 {
     const publicPreview = evidence;

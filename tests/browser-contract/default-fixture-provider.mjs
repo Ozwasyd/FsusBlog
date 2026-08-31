@@ -90,18 +90,6 @@ function parseEnvFile(file)
         .filter(Boolean)));
 }
 
-function decodePublicFixture(raw)
-{
-    return Object.fromEntries(raw.split(/\r?\n/u).map((line) =>
-    {
-        const separator = line.indexOf('\t');
-        if (separator < 1)
-        {
-            return null;
-        }
-        return [line.slice(0, separator), Buffer.from(line.slice(separator + 1), 'base64url').toString('utf8')];
-    }).filter(Boolean));
-}
 
 async function readRequest()
 {

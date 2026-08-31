@@ -10,8 +10,8 @@ import {
     persistCleanAttemptCohortRevision,
     validateCleanAttemptCohort
 } from '../../tools/release/release-clean-attempt-cohort.mjs';
-import { runProducerAttempts } from '../../tools/test/attempt-runner.mjs';
 import { sha256 } from '../../tools/test/attempt-provenance.mjs';
+import { runProducerAttempts } from '../../tools/test/attempt-runner.mjs';
 
 const root = path.resolve(import.meta.dirname, '../..');
 const commandFixture = path.join(root, 'tests/tools/fixtures/attempt-runner-command.mjs');

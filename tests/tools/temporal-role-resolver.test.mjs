@@ -4,7 +4,6 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 
-import { validateJsonSchema } from '../../tools/test-matrix/schema-validator/validate.mjs';
 import {
     defaultTimeoutPolicyDigest,
     qualificationTemporalContext,
@@ -20,6 +19,7 @@ import {
     resolveTemporalRolesForProducer,
     verifyResolvedTemporalArtifact
 } from '../../tools/test/temporal-role-resolver.mjs';
+import { validateJsonSchema } from '../../tools/test-matrix/schema-validator/validate.mjs';
 
 const repositoryRoot = path.resolve(import.meta.dirname, '../..');
 const sourceCommit = 'a'.repeat(40);

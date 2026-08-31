@@ -470,12 +470,6 @@ export function vitestTestId(file, name, ordinal = 1)
     return `vitest:${file}#${slug(name)}-${shortHash(`${name}\n${ordinal}`)}`;
 }
 
-function namedJavascriptTestId(framework, file, name, ordinal = 1)
-{
-    return framework === 'vitest'
-        ? vitestTestId(file, name, ordinal)
-        : `${framework}:${file}#${slug(name)}-${shortHash(`${name}\n${ordinal}`)}`;
-}
 
 function normalizeSemanticSource(source)
 {
@@ -1366,7 +1360,14 @@ export async function auditTestRecords({
     }
 
     applyEquivalence(records);
-    return records.map(({ _semanticSignature, _retentionClass, _tierCategory, ...item }) => item);
+    return records.map((record) =>
+    {
+        const item = { ...record };
+        delete item._semanticSignature;
+        delete item._retentionClass;
+        delete item._tierCategory;
+        return item;
+    });
 }
 
 export function reviewCandidateFiles(candidateFiles, records)

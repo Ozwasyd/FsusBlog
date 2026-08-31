@@ -10,7 +10,6 @@
 
 import { createHash } from 'node:crypto';
 
-import { projectVerifiedIdentityReferences } from './auth-session-producer.mjs';
 import {
     createTemporalDomainProducerReceipt,
     projectTemporalRolesForBrowser,
@@ -18,6 +17,8 @@ import {
     resolveTemporalRolesForProducer,
     verifyResolvedTemporalArtifact
 } from '../../test/temporal-role-resolver.mjs';
+
+import { projectVerifiedIdentityReferences } from './auth-session-producer.mjs';
 
 const producerId = 'account-profile-preferences';
 const strategy = 'transaction-fixture';
@@ -117,16 +118,16 @@ function identityReferences(context)
     const normalized = references
         .filter((reference) => reference?.consumerProducerId === producerId)
         .map((reference) =>
-    {
-        const role = safeIdentity(reference.role, 'identity consumer semantic role');
-        if (roles.has(role))
         {
-            throw new Error(`duplicate auth identity consumer role ${role}`);
-        }
-        roles.add(role);
-        const publicId = String(reference.publicId ?? '');
-        const { digest, ...body } = reference;
-        if (reference.schema !== 'fsusblog.fixture-identity-prepare-reference.v1'
+            const role = safeIdentity(reference.role, 'identity consumer semantic role');
+            if (roles.has(role))
+            {
+                throw new Error(`duplicate auth identity consumer role ${role}`);
+            }
+            roles.add(role);
+            const publicId = String(reference.publicId ?? '');
+            const { digest, ...body } = reference;
+            if (reference.schema !== 'fsusblog.fixture-identity-prepare-reference.v1'
             || reference.verified !== false
             || reference.ownerProducerId !== 'auth-session'
             || reference.consumerProducerId !== producerId
@@ -141,12 +142,12 @@ function identityReferences(context)
             || !/^fxauth-[a-f0-9]{24}$/u.test(String(reference.fixtureIdentity ?? ''))
             || !/^[a-f0-9]{64}$/u.test(String(digest ?? ''))
             || stableDigest(body) !== digest)
-        {
-            throw new Error(`auth identity prepare reference ${role} is stale, cross-run, or unverified`);
-        }
-        publicIds.add(publicId);
-        return Object.freeze({ ...reference });
-    });
+            {
+                throw new Error(`auth identity prepare reference ${role} is stale, cross-run, or unverified`);
+            }
+            publicIds.add(publicId);
+            return Object.freeze({ ...reference });
+        });
     if (JSON.stringify([...roles].sort()) !== JSON.stringify([...identityRoles]))
     {
         throw new Error('auth-session identity allocation does not exact-match profile consumer roles');
@@ -234,7 +235,7 @@ async function invoke(context, action, body, signal)
         signal
     });
     const text = await response.text();
-    let payload = null;
+    let payload;
     try
     {
         payload = text ? JSON.parse(text) : null;

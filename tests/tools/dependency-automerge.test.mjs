@@ -16,7 +16,8 @@ const catalog = JSON.parse(fs.readFileSync(path.join(root, 'config/dependencies/
 const renovate = JSON.parse(fs.readFileSync(path.join(root, 'renovate.json5'), 'utf8'));
 const fixtures = JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures/governance/dependency-automerge.json'), 'utf8'));
 
-test('platform automerge config covers all update types without bypass', () => {
+test('platform automerge config covers all update types without bypass', () =>
+{
     const result = auditDependencyAutomerge(root);
     assert.deepEqual(result.errors, []);
     assert.equal(result.renovate.automergeType, 'pr');
@@ -25,16 +26,19 @@ test('platform automerge config covers all update types without bypass', () => {
     assert.equal(validateRenovateAutomerge(result.renovate).length, 0);
 });
 
-test('automerge fixtures kill draft, conflict, failed checks and stale targets', () => {
+test('automerge fixtures kill draft, conflict, failed checks and stale targets', () =>
+{
     assert.deepEqual(runAutomergeFixtures(catalog, renovate, fixtures), []);
 });
 
-test('required-checks catalog remains the unique check-name authority', () => {
+test('required-checks catalog remains the unique check-name authority', () =>
+{
     assert.equal(JSON.stringify(renovate).includes('Quality Gate /'), false);
     assert.equal(JSON.stringify(renovate).includes('required-checks.json'), false);
 });
 
-test('security updates cannot bypass required checks with branch automerge', () => {
+test('security updates cannot bypass required checks with branch automerge', () =>
+{
     const result = evaluatePlatformAutomerge({
         catalog,
         defaultHeadSha: 'base',
@@ -59,6 +63,7 @@ test('security updates cannot bypass required checks with branch automerge', () 
     assert.equal(result.close, false);
 });
 
-test('no freshness workflow is created by platform automerge', () => {
+test('no freshness workflow is created by platform automerge', () =>
+{
     assert.equal(fs.existsSync(path.join(root, '.github/workflows/dependency-freshness.yml')), false);
 });

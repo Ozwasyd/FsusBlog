@@ -8,7 +8,12 @@ const digestPattern = /^sha256:[0-9a-f]{64}$/u;
 const seedPattern = /^seed256:[0-9a-f]{64}$/u;
 const stableIdPattern = /^[a-z][a-z0-9.-]*$/u;
 const frameworkPattern = /^[a-z][a-z0-9-]*$/u;
-const forbiddenIdentityCharacters = /[\u0000-\u001f\u007f]/u;
+const hasForbiddenIdentityCharacter = (value) => Array.from(value)
+    .some((character) =>
+    {
+        const codePoint = character.codePointAt(0);
+        return codePoint <= 0x1f || codePoint === 0x7f;
+    });
 
 export class ReplayContractError extends Error
 {
@@ -96,7 +101,7 @@ function exactKeys(value, required, label, optional = [])
 function requiredText(value, field)
 {
     if (typeof value !== 'string' || value.length === 0 || value !== value.trim()
-      || forbiddenIdentityCharacters.test(value))
+      || hasForbiddenIdentityCharacter(value))
     {
         fail('replay.schema-invalid', `${field} must be non-empty exact text`);
     }
@@ -702,7 +707,8 @@ export function validateDiscoveryAgainstPlan(plan, discoveredTestIds)
 
 function unsignedPlan(plan)
 {
-    const { planDigest, ...unsigned } = plan;
+    const unsigned = { ...plan };
+    delete unsigned.planDigest;
     return unsigned;
 }
 
@@ -850,7 +856,8 @@ function validateProcessOutcome(value)
 
 function unsignedReceipt(receipt)
 {
-    const { receiptDigest, ...unsigned } = receipt;
+    const unsigned = { ...receipt };
+    delete unsigned.receiptDigest;
     return unsigned;
 }
 

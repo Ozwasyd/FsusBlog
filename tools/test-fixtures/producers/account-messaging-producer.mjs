@@ -6,6 +6,7 @@ import {
     digestMessagingFixtureValue,
     readMessagingFixtureContract
 } from '../../test/messaging-fixture-contract.mjs';
+
 import { projectVerifiedIdentityReferences } from './auth-session-producer.mjs';
 
 const PRODUCER_ID = 'account-messaging';
@@ -153,7 +154,7 @@ async function resolveTemporalRoles(context, resolver)
         }
         catch (error)
         {
-            throw new Error(`account-messaging temporal role authority is unavailable: ${error.message}`);
+            throw new Error(`account-messaging temporal role authority is unavailable: ${error.message}`, { cause: error });
         }
     }
     if (typeof authority.resolveTemporalRoles !== 'function'
@@ -411,7 +412,7 @@ async function invokeCompositionRoot(context, plan, signal)
         signal
     });
     const text = await response.text();
-    let payload = null;
+    let payload;
     try
     {
         payload = text ? JSON.parse(text) : null;

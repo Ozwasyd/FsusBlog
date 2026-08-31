@@ -29,7 +29,6 @@ import {
     validateBehaviorMutationOwnerCatalog
 } from '../../tools/test-matrix/behavior-mutation-owner.mjs';
 import {
-    canonicalProducerCommand,
     produceBehaviorMutationQualification,
     produceBehaviorMutationQualificationCommand
 } from '../../tools/test-matrix/produce-behavior-mutation-qualification.mjs';

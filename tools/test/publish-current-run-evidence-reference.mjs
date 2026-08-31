@@ -12,7 +12,10 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 function option(name)
 {
     const index = process.argv.indexOf(name);
-    if (index < 0 || !process.argv[index + 1]) throw new Error(`${name} is required`);
+    if (index < 0 || !process.argv[index + 1])
+    {
+        throw new Error(`${name} is required`);
+    }
     return process.argv[index + 1];
 }
 
@@ -22,7 +25,10 @@ const registry = JSON.parse(fs.readFileSync(path.join(repositoryRoot,
 validateEvidenceLocatorRegistry(registry);
 const consumerId = option('--consumer');
 const entry = registry.entries.find((candidate) => candidate.consumerId === consumerId);
-if (!entry) throw new Error(`unknown evidence locator consumer: ${consumerId}`);
+if (!entry)
+{
+    throw new Error(`unknown evidence locator consumer: ${consumerId}`);
+}
 const receipt = publishCurrentRunEvidenceReference({
     authorityId: entry.authorityId,
     context,

@@ -44,16 +44,12 @@ function utf8Bytes(text)
 
 function scalarCount(text)
 {
-    let count = 0;
-    for (const _scalar of text) count += 1;
-    return count;
+    return Array.from(text).length;
 }
 
 function graphemeCount(text)
 {
-    let count = 0;
-    for (const _segment of new Intl.Segmenter('und', { granularity: 'grapheme' }).segment(text)) count += 1;
-    return count;
+    return Array.from(new Intl.Segmenter('und', { granularity: 'grapheme' }).segment(text)).length;
 }
 
 function repeatToUtf16Target(token, target)
@@ -63,7 +59,10 @@ function repeatToUtf16Target(token, target)
         throw new Error('[content-shape-generator] UTF-16 target must be a non-negative safe integer');
     }
     const units = utf16Units(token);
-    if (units === 0) return 'a'.repeat(target);
+    if (units === 0)
+    {
+        return 'a'.repeat(target);
+    }
     const repetitions = Math.floor(target / units);
     const remainder = target - (repetitions * units);
     return `${token.repeat(repetitions)}${'a'.repeat(remainder)}`;
@@ -76,7 +75,10 @@ function repeatToUtf8Target(token, target)
         throw new Error('[content-shape-generator] UTF-8 target must be a non-negative safe integer');
     }
     const width = utf8Bytes(token);
-    if (width === 0) return 'a'.repeat(target);
+    if (width === 0)
+    {
+        return 'a'.repeat(target);
+    }
     const repetitions = Math.floor(target / width);
     let remainder = target - (repetitions * width);
     let suffix = '';
@@ -100,8 +102,14 @@ function applyProductionNormalization(text, field)
 
 function applyShapeNormalization(text, shape)
 {
-    if (shape.normalizationForm === 'NFC') return text.normalize('NFC');
-    if (shape.normalizationForm === 'NFKC') return text.normalize('NFKC');
+    if (shape.normalizationForm === 'NFC')
+    {
+        return text.normalize('NFC');
+    }
+    if (shape.normalizationForm === 'NFKC')
+    {
+        return text.normalize('NFKC');
+    }
     return text;
 }
 
@@ -135,10 +143,22 @@ function fieldValidity(text, field)
     const characters = utf16Units(text);
     const bytes = utf8Bytes(text);
     const reasons = [];
-    if (field.minCharacters != null && characters < field.minCharacters) reasons.push('characters-below-min');
-    if (field.maxCharacters != null && characters > field.maxCharacters) reasons.push('characters-above-max');
-    if (field.minUtf8Bytes != null && bytes < field.minUtf8Bytes) reasons.push('utf8-bytes-below-min');
-    if (field.maxUtf8Bytes != null && bytes > field.maxUtf8Bytes) reasons.push('utf8-bytes-above-max');
+    if (field.minCharacters != null && characters < field.minCharacters)
+    {
+        reasons.push('characters-below-min');
+    }
+    if (field.maxCharacters != null && characters > field.maxCharacters)
+    {
+        reasons.push('characters-above-max');
+    }
+    if (field.minUtf8Bytes != null && bytes < field.minUtf8Bytes)
+    {
+        reasons.push('utf8-bytes-below-min');
+    }
+    if (field.maxUtf8Bytes != null && bytes > field.maxUtf8Bytes)
+    {
+        reasons.push('utf8-bytes-above-max');
+    }
     return Object.freeze({ valid: reasons.length === 0, reasons: Object.freeze(reasons) });
 }
 
@@ -161,9 +181,15 @@ export function generateContentShape({
         throw new Error(`[content-shape-generator] invalid authority: ${errors.join('; ')}`);
     }
     const shape = authority.catalog.shapes.find((item) => item.id === requireText(shapeId, 'shapeId'));
-    if (!shape) throw new Error(`[content-shape-generator] unknown shape ${shapeId}`);
+    if (!shape)
+    {
+        throw new Error(`[content-shape-generator] unknown shape ${shapeId}`);
+    }
     const field = authority.fields.fields.find((item) => item.id === requireText(fieldId, 'fieldId'));
-    if (!field) throw new Error(`[content-shape-generator] unknown field ${fieldId}`);
+    if (!field)
+    {
+        throw new Error(`[content-shape-generator] unknown field ${fieldId}`);
+    }
     if (!shape.applicableFields.includes(field.id))
     {
         throw new Error(`[content-shape-generator] shape ${shape.id} does not apply to ${field.id}`);
@@ -269,7 +295,10 @@ export function* contentShapeTextChunks(document, { maximumUtf8Bytes = 64 * 1024
         chunk += segment.segment;
         chunkBytes += segmentBytes;
     }
-    if (chunkBytes > 0) yield chunk;
+    if (chunkBytes > 0)
+    {
+        yield chunk;
+    }
 }
 
 export function contentShapeLogProjection(document)

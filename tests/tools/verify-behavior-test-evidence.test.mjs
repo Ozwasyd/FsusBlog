@@ -1,9 +1,16 @@
 import assert from 'node:assert';
 import { spawnSync } from 'node:child_process';
-import fs, { mkdtempSync, mkdirSync, writeFileSync, cpSync, readFileSync, rmSync } from 'node:fs';
+import {
+    mkdtempSync,
+    mkdirSync,
+    writeFileSync,
+    cpSync,
+    readFileSync,
+    rmSync
+} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { describe, test } from 'node:test';
+import { test } from 'node:test';
 
 import { root } from '../../tools/contracts/behavior-contract-catalog.mjs';
 import { scanBehaviorTestBindings } from '../../tools/contracts/behavior-test-binding.mjs';

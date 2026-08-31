@@ -1,21 +1,22 @@
-import { existsSync, readFileSync } from 'node:fs'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import {
     GeneratedSectionErrorCode,
     makeGeneratedSectionError
-} from './markers.mjs'
-import { allowedRenderers } from './renderers.mjs'
+} from './markers.mjs';
+import { allowedRenderers } from './renderers.mjs';
 
-export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
-export const catalogRelative = 'config/contracts/generated-fact-sections.json'
-export const catalogSchemaRelative = 'config/schemas/generated-fact-section-catalog.schema.json'
-export const catalogSchemaId = 'fsusblog.generated-fact-section-catalog.v1'
+export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+export const catalogRelative = 'config/contracts/generated-fact-sections.json';
+export const catalogSchemaRelative = 'config/schemas/generated-fact-section-catalog.schema.json';
+export const catalogSchemaId = 'fsusblog.generated-fact-section-catalog.v1';
 
-const sectionIdPattern = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/u
-const extractorIdPattern = /^[a-z][a-z0-9-]*$/u
-const behaviorIdPattern = /^[a-z][a-z0-9-]*$/u
-const documentPathPattern = /^docs\/.+\.md$/u
+const sectionIdPattern = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/u;
+const extractorIdPattern = /^[a-z][a-z0-9-]*$/u;
+const behaviorIdPattern = /^[a-z][a-z0-9-]*$/u;
+const documentPathPattern = /^docs\/.+\.md$/u;
 
 export const forbiddenCatalogFields = Object.freeze([
     'expectedValue',
@@ -27,15 +28,15 @@ export const forbiddenCatalogFields = Object.freeze([
     'mergeManualRows',
     'lastVerifiedCommit',
     'compatMarker'
-])
+]);
 
-export const allowedOrderPolicies = Object.freeze(['ordinal', 'preserve', 'not-applicable'])
-export const allowedEmptyPolicies = Object.freeze(['fail', 'render-empty'])
+export const allowedOrderPolicies = Object.freeze(['ordinal', 'preserve', 'not-applicable']);
+export const allowedEmptyPolicies = Object.freeze(['fail', 'render-empty']);
 
 export function loadCatalogSchema(repositoryRoot = root)
 {
-    const absolute = path.join(repositoryRoot, catalogSchemaRelative)
-    return JSON.parse(readFileSync(absolute, 'utf8'))
+    const absolute = path.join(repositoryRoot, catalogSchemaRelative);
+    return JSON.parse(readFileSync(absolute, 'utf8'));
 }
 
 export function validateCatalogSchemaContract(schema = loadCatalogSchema())
@@ -45,9 +46,9 @@ export function validateCatalogSchemaContract(schema = loadCatalogSchema())
         throw makeGeneratedSectionError(
             GeneratedSectionErrorCode.CATALOG_INVALID,
             'generated-fact-section catalog schema identity or fail-closed root drifted'
-        )
+        );
     }
-    const rendererEnum = schema?.$defs?.section?.properties?.renderer?.enum ?? []
+    const rendererEnum = schema?.$defs?.section?.properties?.renderer?.enum ?? [];
     for (const kind of allowedRenderers)
     {
         if (!rendererEnum.includes(kind))
@@ -55,10 +56,10 @@ export function validateCatalogSchemaContract(schema = loadCatalogSchema())
             throw makeGeneratedSectionError(
                 GeneratedSectionErrorCode.CATALOG_INVALID,
                 `catalog schema missing renderer ${kind}`
-            )
+            );
         }
     }
-    const forbidden = schema?.$defs?.forbiddenFields?.enum ?? []
+    const forbidden = schema?.$defs?.forbiddenFields?.enum ?? [];
     for (const field of ['baselineAllowlist', 'warningOnly', 'featureFlag', 'expectedValue'])
     {
         if (!forbidden.includes(field))
@@ -66,20 +67,23 @@ export function validateCatalogSchemaContract(schema = loadCatalogSchema())
             throw makeGeneratedSectionError(
                 GeneratedSectionErrorCode.CATALOG_INVALID,
                 `catalog schema must forbid ${field}`
-            )
+            );
         }
     }
-    return true
+    return true;
 }
 
 function assertNoForbiddenKeys(value, label)
 {
     if (Array.isArray(value))
     {
-        value.forEach((entry, index) => assertNoForbiddenKeys(entry, `${label}[${index}]`))
-        return
+        value.forEach((entry, index) => assertNoForbiddenKeys(entry, `${label}[${index}]`));
+        return;
     }
-    if (value === null || typeof value !== 'object') return
+    if (value === null || typeof value !== 'object')
+    {
+        return;
+    }
     for (const [key, nested] of Object.entries(value))
     {
         if (forbiddenCatalogFields.includes(key))
@@ -87,9 +91,9 @@ function assertNoForbiddenKeys(value, label)
             throw makeGeneratedSectionError(
                 GeneratedSectionErrorCode.BASELINE_ALLOWLIST,
                 `${label} contains forbidden field ${key}`
-            )
+            );
         }
-        assertNoForbiddenKeys(nested, `${label}.${key}`)
+        assertNoForbiddenKeys(nested, `${label}.${key}`);
     }
 }
 
@@ -97,81 +101,81 @@ export function loadCatalog(repositoryRoot = root, relativePath = catalogRelativ
 {
     const absolute = path.isAbsolute(relativePath)
         ? relativePath
-        : path.join(repositoryRoot, relativePath)
+        : path.join(repositoryRoot, relativePath);
     if (!existsSync(absolute))
     {
         throw makeGeneratedSectionError(
             GeneratedSectionErrorCode.CATALOG_INVALID,
             `missing generated-fact-section catalog at ${relativePath}`
-        )
+        );
     }
-    const catalog = JSON.parse(readFileSync(absolute, 'utf8'))
-    validateCatalog(catalog)
-    return catalog
+    const catalog = JSON.parse(readFileSync(absolute, 'utf8'));
+    validateCatalog(catalog);
+    return catalog;
 }
 
 export function validateCatalog(catalog)
 {
-    validateCatalogSchemaContract()
+    validateCatalogSchemaContract();
     if (catalog == null || typeof catalog !== 'object' || Array.isArray(catalog))
     {
         throw makeGeneratedSectionError(
             GeneratedSectionErrorCode.CATALOG_INVALID,
             'catalog must be an object'
-        )
+        );
     }
-    assertNoForbiddenKeys(catalog, 'catalog')
+    assertNoForbiddenKeys(catalog, 'catalog');
     if (catalog.schema !== catalogSchemaId)
     {
         throw makeGeneratedSectionError(
             GeneratedSectionErrorCode.CATALOG_INVALID,
             `unexpected catalog schema ${catalog.schema}`
-        )
+        );
     }
     if (catalog.digestAlgorithm !== 'sha256' || catalog.canonicalSerialization !== 'json-utf8-v1')
     {
         throw makeGeneratedSectionError(
             GeneratedSectionErrorCode.CATALOG_INVALID,
             'catalog digest/serialization contract drifted'
-        )
+        );
     }
     if (!Array.isArray(catalog.sections))
     {
         throw makeGeneratedSectionError(
             GeneratedSectionErrorCode.CATALOG_INVALID,
             'catalog.sections must be an array'
-        )
+        );
     }
 
-    const sectionIds = new Set()
-    const factOwners = new Map()
+    const sectionIds = new Set();
+    const factOwners = new Map();
 
     for (const [index, section] of catalog.sections.entries())
     {
-        validateSectionEntry(section, index)
+        validateSectionEntry(section, index);
         if (sectionIds.has(section.sectionId))
         {
             throw makeGeneratedSectionError(
                 GeneratedSectionErrorCode.MARKER_DUPLICATE_ID,
                 `duplicate sectionId ${section.sectionId} in catalog`,
                 { sectionId: section.sectionId }
-            )
+            );
         }
-        sectionIds.add(section.sectionId)
+        sectionIds.add(section.sectionId);
 
-        const factKey = `${section.extractorId}::${section.factPath}`
+        const factKey = `${section.extractorId}::${section.factPath}`;
         if (factOwners.has(factKey) && factOwners.get(factKey) !== section.sectionId)
         {
             throw makeGeneratedSectionError(
                 GeneratedSectionErrorCode.FACT_DUPLICATE_OWNER,
                 `fact ${factKey} is claimed by both ${factOwners.get(factKey)} and ${section.sectionId}`,
                 { sectionId: section.sectionId, factPath: section.factPath }
-            )
+            );
         }
-        factOwners.set(factKey, section.sectionId)
+        factOwners.set(factKey, section.sectionId);
     }
 
-    return true
+    return true;
 }
 
 function validateSectionEntry(section, index)
@@ -181,9 +185,9 @@ function validateSectionEntry(section, index)
         throw makeGeneratedSectionError(
             GeneratedSectionErrorCode.CATALOG_INVALID,
             `sections[${index}] must be an object`
-        )
+        );
     }
-    assertNoForbiddenKeys(section, `sections[${index}]`)
+    assertNoForbiddenKeys(section, `sections[${index}]`);
 
     const required = [
         'sectionId',
@@ -194,7 +198,7 @@ function validateSectionEntry(section, index)
         'factPath',
         'orderPolicy',
         'emptyPolicy'
-    ]
+    ];
     for (const field of required)
     {
         if (!Object.hasOwn(section, field))
@@ -202,11 +206,11 @@ function validateSectionEntry(section, index)
             throw makeGeneratedSectionError(
                 GeneratedSectionErrorCode.CATALOG_INVALID,
                 `sections[${index}] missing ${field}`
-            )
+            );
         }
     }
 
-    const allowed = new Set([...required, 'columns', 'unit', 'projection'])
+    const allowed = new Set([...required, 'columns', 'unit', 'projection']);
     for (const key of Object.keys(section))
     {
         if (!allowed.has(key))
@@ -214,7 +218,7 @@ function validateSectionEntry(section, index)
             throw makeGeneratedSectionError(
                 GeneratedSectionErrorCode.CATALOG_INVALID,
                 `sections[${index}] has unknown field ${key}`
-            )
+            );
         }
     }
 
@@ -223,56 +227,56 @@ function validateSectionEntry(section, index)
         throw makeGeneratedSectionError(
             GeneratedSectionErrorCode.CATALOG_INVALID,
             `invalid sectionId ${section.sectionId}`
-        )
+        );
     }
     if (!documentPathPattern.test(section.documentPath))
     {
         throw makeGeneratedSectionError(
             GeneratedSectionErrorCode.CATALOG_INVALID,
             `invalid documentPath ${section.documentPath}`
-        )
+        );
     }
     if (!allowedRenderers.includes(section.renderer))
     {
         throw makeGeneratedSectionError(
             GeneratedSectionErrorCode.RENDERER_UNKNOWN,
             `unknown renderer ${section.renderer}`
-        )
+        );
     }
     if (!extractorIdPattern.test(section.extractorId))
     {
         throw makeGeneratedSectionError(
             GeneratedSectionErrorCode.CATALOG_INVALID,
             `invalid extractorId ${section.extractorId}`
-        )
+        );
     }
     if (!behaviorIdPattern.test(section.behaviorId))
     {
         throw makeGeneratedSectionError(
             GeneratedSectionErrorCode.CATALOG_INVALID,
             `invalid behaviorId ${section.behaviorId}`
-        )
+        );
     }
     if (typeof section.factPath !== 'string' || section.factPath.length === 0)
     {
         throw makeGeneratedSectionError(
             GeneratedSectionErrorCode.CATALOG_INVALID,
             `invalid factPath on ${section.sectionId}`
-        )
+        );
     }
     if (!allowedOrderPolicies.includes(section.orderPolicy))
     {
         throw makeGeneratedSectionError(
             GeneratedSectionErrorCode.CATALOG_INVALID,
             `invalid orderPolicy ${section.orderPolicy}`
-        )
+        );
     }
     if (!allowedEmptyPolicies.includes(section.emptyPolicy))
     {
         throw makeGeneratedSectionError(
             GeneratedSectionErrorCode.CATALOG_INVALID,
             `invalid emptyPolicy ${section.emptyPolicy}`
-        )
+        );
     }
     if (Object.hasOwn(section, 'columns'))
     {
@@ -282,7 +286,7 @@ function validateSectionEntry(section, index)
             throw makeGeneratedSectionError(
                 GeneratedSectionErrorCode.CATALOG_INVALID,
                 `invalid columns on ${section.sectionId}`
-            )
+            );
         }
     }
 }
@@ -295,51 +299,54 @@ export function resolveFactPath(observations, factPath)
 {
     if (observations == null || typeof observations !== 'object' || Array.isArray(observations))
     {
-        return undefined
+        return undefined;
     }
     if (Object.hasOwn(observations, factPath))
     {
-        return observations[factPath]
+        return observations[factPath];
     }
-    const parts = factPath.split('.')
-    let current = observations
-    let index = 0
+    const parts = factPath.split('.');
+    let current = observations;
+    let index = 0;
     while (index < parts.length)
     {
         if (current == null || typeof current !== 'object' || Array.isArray(current))
         {
-            return undefined
+            return undefined;
         }
-        let matched = null
+        let matched = null;
         for (let end = parts.length; end > index; end -= 1)
         {
-            const candidate = parts.slice(index, end).join('.')
+            const candidate = parts.slice(index, end).join('.');
             if (Object.hasOwn(current, candidate))
             {
-                matched = { key: candidate, end }
-                break
+                matched = { key: candidate, end };
+                break;
             }
         }
-        if (matched === null) return undefined
-        current = current[matched.key]
-        index = matched.end
+        if (matched === null)
+        {
+            return undefined;
+        }
+        current = current[matched.key];
+        index = matched.end;
     }
-    return current
+    return current;
 }
 
 export function sectionsByDocument(catalog)
 {
-    const map = new Map()
+    const map = new Map();
     for (const section of catalog.sections)
     {
-        const list = map.get(section.documentPath) ?? []
-        list.push(section)
-        map.set(section.documentPath, list)
+        const list = map.get(section.documentPath) ?? [];
+        list.push(section);
+        map.set(section.documentPath, list);
     }
-    return map
+    return map;
 }
 
 export function findSection(catalog, sectionId)
 {
-    return catalog.sections.find((section) => section.sectionId === sectionId) ?? null
+    return catalog.sections.find((section) => section.sectionId === sectionId) ?? null;
 }

@@ -4,13 +4,13 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { runDag } from '../../tools/test-matrix/scheduler.mjs';
 import {
     EVIDENCE_TERMINAL_HANDOFF_PREFIX,
     beginCurrentRunEvidencePublication,
     finalizeCurrentRunEvidencePublication
 } from '../../tools/test/current-run-evidence-publication.mjs';
 import { governanceContentDigest } from '../../tools/test/evidence-location-contract.mjs';
+import { runDag } from '../../tools/test-matrix/scheduler.mjs';
 
 const d = (value) => `sha256:${value.repeat(64)}`;
 

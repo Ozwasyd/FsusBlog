@@ -11,7 +11,6 @@ import {
     LOCAL_REDIS_FILTER,
     LOCAL_REDIS_PLANNED_TESTS,
     MANDATORY_BURN_TEST,
-    parseTrxResults,
     REDIS_LUA_CASE_IDS,
     REDIS_LUA_TEST,
     reconcileLocalRedisOutcome

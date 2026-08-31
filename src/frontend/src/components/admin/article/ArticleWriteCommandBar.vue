@@ -102,7 +102,7 @@ const openCriticalInspector = (event: MouseEvent): void =>
 {
     if (props.criticalStatusTarget)
     {
-        emit('openInspector', props.criticalStatusTarget, event.currentTarget as HTMLElement);
+        emit('openInspector', props.criticalStatusTarget, event.currentTarget);
     }
 };
 </script>

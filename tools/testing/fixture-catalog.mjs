@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { parseMatrix } from '../test-matrix/parse-matrix.mjs';
+
 import {
     contentShapeCatalogDigest,
     readContentShapeAuthority,
@@ -103,11 +104,6 @@ const fixtureExecutionClasses = Object.freeze([
     'security'
 ]);
 const nonQualificationExecutionClasses = new Set(['acceptance', 'browser', 'runtime']);
-
-function sortedStableIds(values)
-{
-    return Array.isArray(values) && values.length > 0 && sortedUnique(values);
-}
 
 function idsFrom(catalog, property)
 {
@@ -807,7 +803,8 @@ export function validateFixtureVariantEvidence({ result, variantIds, catalogs = 
         const variant = variants.get(id);
         if (!variant)
         {
-            errors.push(`fixture evidence references unknown variant ${id}`); continue;
+            errors.push(`fixture evidence references unknown variant ${id}`);
+            continue;
         }
         const boundEntities = entities.filter((item) => item?.variantId === id);
         const evidence = result?.variantEvidence?.variants?.find((item) => item?.variantId === id);

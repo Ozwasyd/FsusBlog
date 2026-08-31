@@ -6,12 +6,13 @@ import path from 'node:path';
 import { readCleanAttemptConsumerInventory } from '../release/browser-release-clean-attempt-consumers.mjs';
 import { readSemanticOutcomeConsumerInventory } from '../release/semantic-outcome-clean-attempt-consumers.mjs';
 import { validateRuntimeStateDomainCatalog } from '../test-matrix/runtime-state-domain-catalog.mjs';
+
 import { readRetryPolicyRegistry } from './attempt-provenance.mjs';
+import { validateCorrectnessAttemptMigration } from './correctness-attempt-migration.mjs';
 import {
     buildCorrectnessAttemptProducerInventory,
     correctnessAttemptProducerFile
 } from './correctness-attempt-producers.mjs';
-import { validateCorrectnessAttemptMigration } from './correctness-attempt-migration.mjs';
 import { scanHiddenRetries, validateRetryDispositionRegistry } from './hidden-retry-scanner.mjs';
 
 const root = path.resolve(import.meta.dirname, '../..');

@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 
 export const digestPattern = /^sha256:[a-f0-9]{64}$/u;
-export const stableIdPattern = /^[a-z][a-z0-9_.\/-]*$/u;
+export const stableIdPattern = /^[a-z][a-z0-9_./-]*$/u;
 
 export function canonicalize(value)
 {

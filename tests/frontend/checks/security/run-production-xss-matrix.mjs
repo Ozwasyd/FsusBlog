@@ -384,7 +384,7 @@ async function installObservers(context, page, observationRef)
         globalThis.__FSUSBLOG_XSS_EXECUTION_SENTINEL__ = 0;
         globalThis.__FSUSBLOG_XSS_CSP_VIOLATIONS__ = [];
         globalThis.__FSUSBLOG_XSS_TELEMETRY__ = [];
-        window.addEventListener('fsus:telemetry', (event) =>
+        globalThis.addEventListener('fsus:telemetry', (event) =>
         {
             const entries = globalThis.__FSUSBLOG_XSS_TELEMETRY__;
             entries.push({
@@ -397,7 +397,7 @@ async function installObservers(context, page, observationRef)
                 entries.splice(0, entries.length - 64);
             }
         });
-        document.addEventListener('securitypolicyviolation', (event) =>
+        globalThis.document.addEventListener('securitypolicyviolation', (event) =>
         {
             if (!relevantCspDirectives.includes(event.effectiveDirective))
             {
@@ -480,7 +480,7 @@ async function audit(page, entry, rootSelector, observation, {
                         failures.push(`dangerous-url:${attribute.name}`);
                     }
                     else if (invariants.forbidExternalUrls === true && /^https?:/iu.test(value)
-            && new URL(value, location.href).origin !== location.origin)
+            && new URL(value, globalThis.location.href).origin !== globalThis.location.origin)
                     {
                         failures.push(`external-url:${attribute.name}`);
                     }
@@ -553,12 +553,12 @@ async function activateFeatureOutput(page, entry, rootSelector)
             throw new Error('production feature gateway export is missing');
         }
         const target = output.kind === 'code-highlight'
-            ? Object.assign(document.createElement('pre'), { className: 'shiki' })
-            : document.createElement('div');
+            ? Object.assign(globalThis.document.createElement('pre'), { className: 'shiki' })
+            : globalThis.document.createElement('div');
         element.appendChild(target);
         const committed = gateway.commitMarkdownFeatureOutput(target, output, {
             mode: output.kind === 'code-highlight' ? 'replace-element' : undefined,
-            nonce: document.querySelector('meta[property="csp-nonce"], script[nonce], style[nonce]')?.nonce ?? null
+            nonce: globalThis.document.querySelector('meta[property="csp-nonce"], script[nonce], style[nonce]')?.nonce ?? null
         });
         committed.setAttribute('data-fsusblog-xss-feature-case', caseId);
     }, {
@@ -626,7 +626,7 @@ async function navigateFullAppRouter(page, target)
 {
     await page.evaluate((nextTarget) =>
     {
-        const app = document.getElementById('app');
+        const app = globalThis.document.getElementById('app');
         const router = app?.__vue_app__?.config.globalProperties.$router;
         if (!router)
         {
@@ -678,7 +678,7 @@ async function navigateFullAppRouter(page, target)
     try
     {
         await page.waitForFunction(
-            (expectedPath) => window.location.pathname === expectedPath
+            (expectedPath) => globalThis.location.pathname === expectedPath
         || typeof globalThis.__FSUSBLOG_XSS_SPA_NAVIGATION_ERROR__ === 'string',
             target,
             { timeout: spaNavigationTimeoutMs }
@@ -688,7 +688,7 @@ async function navigateFullAppRouter(page, target)
     {
         const diagnostic = await page.evaluate(() =>
         {
-            const app = document.getElementById('app');
+            const app = globalThis.document.getElementById('app');
             const properties = app?.__vue_app__?.config.globalProperties;
             const router = properties?.$router;
             const piniaState = properties?.$pinia?.state?.value ?? {};
@@ -702,8 +702,8 @@ async function navigateFullAppRouter(page, target)
               matched: router.currentRoute.value.matched.map((entry) => String(entry.name ?? entry.path))
             }
                     : null,
-                location: `${window.location.pathname}${window.location.search}${window.location.hash}`,
-                documentReadyState: document.readyState,
+                location: `${globalThis.location.pathname}${globalThis.location.search}${globalThis.location.hash}`,
+                documentReadyState: globalThis.document.readyState,
                 appShell: piniaState['app-shell'] ?? null,
                 site: piniaState.site
                     ? {
@@ -713,7 +713,7 @@ async function navigateFullAppRouter(page, target)
                     : null,
                 telemetry: (globalThis.__FSUSBLOG_XSS_TELEMETRY__ ?? []).slice(-32),
                 resources: performance.getEntriesByType('resource').slice(-32).map((entry) => ({
-                    name: new URL(entry.name, window.location.href).pathname,
+                    name: new URL(entry.name, globalThis.location.href).pathname,
                     initiatorType: entry.initiatorType,
                     duration: Math.round(entry.duration),
                     responseEnd: Math.round(entry.responseEnd)
@@ -745,7 +745,7 @@ async function waitForFullAppRouterReady(page, expectedPath)
     await page.waitForFunction(
         (path) =>
         {
-            const app = document.getElementById('app');
+            const app = globalThis.document.getElementById('app');
             const router = app?.__vue_app__?.config.globalProperties.$router;
             return router?.currentRoute?.value.fullPath === path
         && router.currentRoute.value.matched.length > 0;
@@ -909,7 +909,7 @@ async function runBrowser(browserName, browserType, identityPlan, cases, article
         {
             await aboutPage.waitForFunction((expected) =>
             {
-                const root = document.querySelector('.markdown-body, [data-markdown-root], main');
+                const root = globalThis.document.querySelector('.markdown-body, [data-markdown-root], main');
                 return root?.textContent?.includes(expected) === true;
             }, aboutReadinessText, { timeout: 30_000 });
         }
@@ -935,7 +935,7 @@ async function runBrowser(browserName, browserType, identityPlan, cases, article
         await installObservers(spaContext, spaPage, spaObservation);
         allowNavigation(spaObservation, `${baseUrl}/login`);
         await spaPage.goto(`${baseUrl}/login`, { waitUntil: 'domcontentloaded' });
-        await spaPage.waitForFunction(() => document.getElementById('app')?.__vue_app__ != null, {
+        await spaPage.waitForFunction(() => globalThis.document.getElementById('app')?.__vue_app__ != null, {
             timeout: 30_000
         });
         await waitForFullAppRouterReady(spaPage, '/login');
@@ -1037,7 +1037,7 @@ async function runBrowser(browserName, browserType, identityPlan, cases, article
                 await previewPage.getByRole('button', { name: '生成私有预览', exact: true }).click();
                 await previewPage.waitForFunction((previousIdentity) =>
                 {
-                    const article = document.querySelector('.author-preview');
+                    const article = globalThis.document.querySelector('.author-preview');
                     const sourceIdentity = article?.getAttribute('data-preview-source-identity');
                     return Boolean(
                         sourceIdentity
@@ -1062,7 +1062,7 @@ const results = [];
 const browserIdentities = [];
 let report;
 let runtime = null;
-let cleanup = null;
+let cleanup;
 let failure = null;
 let warmedStartedAt = null;
 let warmedStarted = null;
@@ -1090,7 +1090,8 @@ try
     const cases = selectProductionXssCases(corpusContract.corpus, mode);
     const seeded = await seed(cases, resolveMetadataProbe(cases));
     const browsers = mode === 'release'
-        ? ['chromium', 'firefox', 'webkit'].map((name) => {
+        ? ['chromium', 'firefox', 'webkit'].map((name) =>
+{
             const plan = createCorrectnessBrowserPlan({
                 browserName: name,
                 evidenceClass: 'browser-contract',

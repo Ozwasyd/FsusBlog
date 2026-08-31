@@ -7,32 +7,30 @@
  * contract and the blue/green + runtime-role deployment behavior.
  */
 
-import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import { digestValue } from '../fact-extractors/identity.mjs'
-import { readFactObservationReceipt } from '../fact-extractors/reader.mjs'
-import {
-    buildBehaviorDocExactnessReceipt,
-    validateBehaviorDocExactnessReceipt
-} from './behavior-doc-exactness.mjs'
-import { parseRepositoryClaims } from './doc-claim.mjs'
-import { renderSectionFromReceipt } from './generated-fact-sections/generator.mjs'
-import { parseGeneratedMarkers } from './generated-fact-sections/markers.mjs'
-import { verifyProseClaims } from './prose-claim-verifier/verifier.mjs'
+import { digestValue } from '../fact-extractors/identity.mjs';
+import { readFactObservationReceipt } from '../fact-extractors/reader.mjs';
 
-export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-export const releaseDeploymentScopeId = 'protocol-release-deployment-ownership'
+import { buildBehaviorDocExactnessReceipt } from './behavior-doc-exactness.mjs';
+import { parseRepositoryClaims } from './doc-claim.mjs';
+import { renderSectionFromReceipt } from './generated-fact-sections/generator.mjs';
+import { parseGeneratedMarkers } from './generated-fact-sections/markers.mjs';
+import { verifyProseClaims } from './prose-claim-verifier/verifier.mjs';
+
+export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+export const releaseDeploymentScopeId = 'protocol-release-deployment-ownership';
 export const releaseDeploymentBehaviorIds = Object.freeze([
     'release-final-aggregate-contract',
     'deployment-blue-green-runtime-role'
-])
-export const releaseDeploymentExactnessSchema = 'fsusblog.release-deployment-doc-exactness-receipt.v1'
+]);
+export const releaseDeploymentExactnessSchema = 'fsusblog.release-deployment-doc-exactness-receipt.v1';
 
 const readJson = (repositoryRoot, relative) =>
-    JSON.parse(readFileSync(path.join(repositoryRoot, relative), 'utf8'))
+    JSON.parse(readFileSync(path.join(repositoryRoot, relative), 'utf8'));
 
 const forbiddenSurfaces = Object.freeze([
     ['manual-runtime-role-table', /(?:^\|\s*模式\s*\|(?:\n\|[^\n]*){1,8})|(?:^\|\s*Mode\s*\|[^\n]*\n(?:\|[^\n]*\n){0,2}[^\n]*`?(?:single|static-role|adaptive)`?)/im],
@@ -47,43 +45,55 @@ const forbiddenSurfaces = Object.freeze([
     ['hidden-compatibility', /<details\b[^>]*>[\s\S]{0,500}(?:legacy|compat)|compat(?:ibility)?[- ]table|current[- ]equivalent/iu],
     ['overbroad-claim', /(?:one|single|一个|一個)[^\n]{0,60}claim[^\n]{0,80}(?:all|every|全部)[^\n]{0,30}(?:behavior|behaviour|行为|行為)/iu],
     ['self-certification', /(?:lastReviewedAt\s*:|lastVerifiedCommit\s*:|manual(?:ly)?[- ]approved\s*:|self[- ]certified)/iu]
-])
+]);
 
 function seal(value)
 {
-    const result = { ...value, contentDigest: null }
-    result.contentDigest = digestValue(result)
-    return result
+    const result = { ...value, contentDigest: null };
+    result.contentDigest = digestValue(result);
+    return result;
 }
 
 function sourceOutsideGeneratedSections(source)
 {
-    const lines = source.split(/\r?\n/u)
-    let generated = false
-    let fenced = false
+    const lines = source.split(/\r?\n/u);
+    let generated = false;
+    let fenced = false;
     return lines.map((line) =>
     {
-        if (/^\s*```/u.test(line)) fenced = !fenced
-        if (line.includes('FSUSBLOG-GENERATED:BEGIN')) generated = true
-        const retained = generated || fenced ? '' : line
-        if (line.includes('FSUSBLOG-GENERATED:END')) generated = false
-        return retained
-    }).join('\n')
+        if (/^\s*```/u.test(line))
+        {
+            fenced = !fenced;
+        }
+        if (line.includes('FSUSBLOG-GENERATED:BEGIN'))
+        {
+            generated = true;
+        }
+        const retained = generated || fenced ? '' : line;
+        if (line.includes('FSUSBLOG-GENERATED:END'))
+        {
+            generated = false;
+        }
+        return retained;
+    }).join('\n');
 }
 
 export function scanReleaseDeploymentDocResidue(repositoryRoot, documentPaths)
 {
-    const findings = []
+    const findings = [];
     for (const documentPath of [...new Set(documentPaths)].sort())
     {
-        const source = sourceOutsideGeneratedSections(readFileSync(path.join(repositoryRoot, documentPath), 'utf8'))
+        const source = sourceOutsideGeneratedSections(readFileSync(path.join(repositoryRoot, documentPath), 'utf8'));
         for (const [classId, pattern] of forbiddenSurfaces)
         {
-            const match = source.match(pattern)
-            if (match) findings.push({ classId, documentPath, evidence: match[0].slice(0, 160) })
+            const match = source.match(pattern);
+            if (match)
+            {
+                findings.push({ classId, documentPath, evidence: match[0].slice(0, 160) });
+            }
         }
     }
-    return findings
+    return findings;
 }
 
 export function runReleaseDeploymentDocMutationCases()
@@ -101,54 +111,57 @@ export function runReleaseDeploymentDocMutationCases()
         ['hidden-compatibility', '<details>legacy compatibility table</details>'],
         ['overbroad-claim', 'one claim covers all behaviors'],
         ['self-certification', 'lastVerifiedCommit: deadbeef']
-    ]
+    ];
     const rows = samples.map(([classId, source]) => ({
         classId,
         killed: forbiddenSurfaces.find(([id]) => id === classId)[1].test(source),
         detector: classId
-    }))
+    }));
     return seal({
         schema: 'fsusblog.release-deployment-doc-mutation-evidence.v1',
         rows,
         killed: rows.filter((row) => row.killed).length,
         total: rows.length
-    })
+    });
 }
 
 export function verifyReleaseDeploymentGeneratedSections(repositoryRoot, sectionCatalog, observationReceipt)
 {
-    const drifts = []
+    const drifts = [];
     const sections = sectionCatalog.sections
-        .filter((entry) => releaseDeploymentBehaviorIds.includes(entry.behaviorId))
+        .filter((entry) => releaseDeploymentBehaviorIds.includes(entry.behaviorId));
     for (const section of sections)
     {
-        const source = readFileSync(path.join(repositoryRoot, section.documentPath), 'utf8')
-        const markers = parseGeneratedMarkers(source, section.documentPath)
-        const marker = markers.find((entry) => entry.sectionId === section.sectionId)
+        const source = readFileSync(path.join(repositoryRoot, section.documentPath), 'utf8');
+        const markers = parseGeneratedMarkers(source, section.documentPath);
+        const marker = markers.find((entry) => entry.sectionId === section.sectionId);
         if (!marker)
         {
-            drifts.push(`${section.sectionId} marker missing`)
-            continue
+            drifts.push(`${section.sectionId} marker missing`);
+            continue;
         }
-        const expected = renderSectionFromReceipt(section, observationReceipt, null).replace(/\n+$/u, '')
-        const actual = marker.existingBody.replace(/\n+$/u, '')
-        if (actual !== expected) drifts.push(`${section.sectionId} generated section drift`)
+        const expected = renderSectionFromReceipt(section, observationReceipt, null).replace(/\n+$/u, '');
+        const actual = marker.existingBody.replace(/\n+$/u, '');
+        if (actual !== expected)
+        {
+            drifts.push(`${section.sectionId} generated section drift`);
+        }
     }
-    return drifts
+    return drifts;
 }
 
 export function loadReleaseDeploymentExactnessInputs(repositoryRoot, observationReceipt)
 {
-    const catalog = readJson(repositoryRoot, 'config/contracts/behavior-contracts.json')
-    const lifecycle = readJson(repositoryRoot, 'config/development/document-lifecycle.json')
-    const migrationLedger = readJson(repositoryRoot, 'config/contracts/document-claim-migration-ledger.json')
-    const sectionCatalog = readJson(repositoryRoot, 'config/contracts/generated-fact-sections.json')
-    const claimReceipt = parseRepositoryClaims(repositoryRoot, { catalog })
+    const catalog = readJson(repositoryRoot, 'config/contracts/behavior-contracts.json');
+    const lifecycle = readJson(repositoryRoot, 'config/development/document-lifecycle.json');
+    const migrationLedger = readJson(repositoryRoot, 'config/contracts/document-claim-migration-ledger.json');
+    const sectionCatalog = readJson(repositoryRoot, 'config/contracts/generated-fact-sections.json');
+    const claimReceipt = parseRepositoryClaims(repositoryRoot, { catalog });
     const receiptRaw = typeof observationReceipt === 'string'
         ? JSON.parse(readFileSync(observationReceipt, 'utf8'))
-        : observationReceipt
-    const receipt = readFactObservationReceipt(receiptRaw)
-    return { catalog, lifecycle, migrationLedger, sectionCatalog, claimReceipt, receiptRaw, receipt }
+        : observationReceipt;
+    const receipt = readFactObservationReceipt(receiptRaw);
+    return { catalog, lifecycle, migrationLedger, sectionCatalog, claimReceipt, receiptRaw, receipt };
 }
 
 export function buildReleaseDeploymentDocExactnessReceipt({
@@ -158,7 +171,7 @@ export function buildReleaseDeploymentDocExactnessReceipt({
     worktreeFingerprint
 })
 {
-    const inputs = loadReleaseDeploymentExactnessInputs(repositoryRoot, observationReceipt)
+    const inputs = loadReleaseDeploymentExactnessInputs(repositoryRoot, observationReceipt);
     const exactness = buildBehaviorDocExactnessReceipt({
         repositoryRoot,
         catalog: inputs.catalog,
@@ -175,24 +188,24 @@ export function buildReleaseDeploymentDocExactnessReceipt({
         scannerDigest: createHash('sha256')
             .update(forbiddenSurfaces.map(([id, pattern]) => `${id}:${pattern}`).join('\n'))
             .digest('hex')
-    })
+    });
     const documentPaths = inputs.catalog.contracts
         .filter((entry) => releaseDeploymentBehaviorIds.includes(entry.id))
-        .flatMap((entry) => entry.documents)
-    const residue = scanReleaseDeploymentDocResidue(repositoryRoot, documentPaths)
+        .flatMap((entry) => entry.documents);
+    const residue = scanReleaseDeploymentDocResidue(repositoryRoot, documentPaths);
     const generatedDrifts = verifyReleaseDeploymentGeneratedSections(
         repositoryRoot,
         inputs.sectionCatalog,
         inputs.receipt
-    )
-    const mutationEvidence = runReleaseDeploymentDocMutationCases()
+    );
+    const mutationEvidence = runReleaseDeploymentDocMutationCases();
     const proseClaims = inputs.claimReceipt.claims.filter((claim) =>
         releaseDeploymentBehaviorIds.includes(claim.declaration.behaviorId)
-        && claim.declaration.claimType !== 'generated-section')
+        && claim.declaration.claimType !== 'generated-section');
     const proseVerification = verifyProseClaims({
         claims: proseClaims,
         receipts: [inputs.receiptRaw]
-    })
+    });
     const failureReasons = [
         ...exactness.failureReasons,
         ...generatedDrifts,
@@ -200,7 +213,7 @@ export function buildReleaseDeploymentDocExactnessReceipt({
             `${entry.claimId} prose verification ${entry.code}`),
         ...residue.map((entry) => `${entry.classId} in ${entry.documentPath}`),
         ...(mutationEvidence.killed === mutationEvidence.total ? [] : ['release/deployment mutation evidence incomplete'])
-    ].sort()
+    ].sort();
     return seal({
         schema: releaseDeploymentExactnessSchema,
         scopeId: releaseDeploymentScopeId,
@@ -223,36 +236,46 @@ export function buildReleaseDeploymentDocExactnessReceipt({
         proseVerification,
         status: failureReasons.length === 0 ? 'ok' : 'failed',
         failureReasons
-    })
+    });
 }
 
 export function validateReleaseDeploymentDocExactnessReceipt(receipt)
 {
-    if (receipt?.schema !== releaseDeploymentExactnessSchema) throw new Error('unexpected release/deployment exactness schema')
+    if (receipt?.schema !== releaseDeploymentExactnessSchema)
+    {
+        throw new Error('unexpected release/deployment exactness schema');
+    }
     if (receipt.contentDigest !== digestValue({ ...receipt, contentDigest: null }))
-        throw new Error('release/deployment exactness contentDigest mismatch')
+    {
+        throw new Error('release/deployment exactness contentDigest mismatch');
+    }
     if (receipt.status !== 'ok' || receipt.failureReasons.length !== 0
         || receipt.counts.warnings !== 0 || receipt.counts.residue !== 0
         || receipt.counts.generatedDrift !== 0
         || receipt.counts.proseVerified !== receipt.counts.proseTotal
         || receipt.mutationEvidence.killed !== receipt.mutationEvidence.total)
-        throw new Error(`release/deployment exactness failed: ${receipt.failureReasons.join('; ')}`)
-    return receipt
+    {
+        throw new Error(`release/deployment exactness failed: ${receipt.failureReasons.join('; ')}`);
+    }
+    return receipt;
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
 {
-    const receiptIndex = process.argv.indexOf('--receipt')
-    const receiptPath = receiptIndex >= 0 ? process.argv[receiptIndex + 1] : null
-    if (!receiptPath) throw new Error('usage: release-deployment-doc-exactness.mjs --receipt <fact-observation-receipt>')
-    const absoluteReceiptPath = path.resolve(receiptPath)
-    const observation = readFactObservationReceipt(absoluteReceiptPath)
+    const receiptIndex = process.argv.indexOf('--receipt');
+    const receiptPath = receiptIndex >= 0 ? process.argv[receiptIndex + 1] : null;
+    if (!receiptPath)
+    {
+        throw new Error('usage: release-deployment-doc-exactness.mjs --receipt <fact-observation-receipt>');
+    }
+    const absoluteReceiptPath = path.resolve(receiptPath);
+    const observation = readFactObservationReceipt(absoluteReceiptPath);
     const result = buildReleaseDeploymentDocExactnessReceipt({
         repositoryRoot: root,
         observationReceipt: absoluteReceiptPath,
         sourceCommit: observation.sourceCommit,
         worktreeFingerprint: observation.worktreeFingerprint
-    })
-    validateReleaseDeploymentDocExactnessReceipt(result)
-    console.log(`[release-deployment-doc-exactness] ok claims=${result.rows.length} mutations=${result.counts.mutationKilled}/${result.counts.mutationTotal}`)
+    });
+    validateReleaseDeploymentDocExactnessReceipt(result);
+    console.log(`[release-deployment-doc-exactness] ok claims=${result.rows.length} mutations=${result.counts.mutationKilled}/${result.counts.mutationTotal}`);
 }

@@ -521,60 +521,61 @@ test('verify and cleanup succeed for prepared mock plan with observations', asyn
     let verifySecret = null;
     const ports = portsForPlan(planned, {
         'auth-session': {
-            onPrepare: async (context) => {
+            onPrepare: async (context) =>
+            {
                 prepareSecret = context.handles.localAuthFixtureSecret;
                 return ({
-                ok: true,
-                producerId: 'auth-session',
-                strategy: 'transaction-fixture',
-                entityIdentities: [
-                    { kind: 'user', id: 'u1', variantId: 'canonical.auth.user.active' },
-                    { kind: 'admin', id: 'a1', variantId: 'canonical.auth.admin.full-permission' },
-                    { kind: 'session', id: 's1', variantId: 'canonical.session.single-device' }
-                ],
-                observations: {
-                    database: {
-                        namespace: null,
-                        schemaIdentity: 'public',
-                        entities: [
-                            {
-                                kind: 'user',
-                                id: 'u1',
-                                variantId: 'canonical.auth.user.active',
-                                postconditionId: 'user-active',
-                                fields: { status: 'active', deleted: false }
-                            },
-                            {
-                                kind: 'admin',
-                                id: 'a1',
-                                variantId: 'canonical.auth.admin.full-permission',
-                                postconditionId: 'admin-full-permission',
-                                fields: { permission: 'full' }
-                            },
-                            {
-                                kind: 'session',
-                                id: 's1',
-                                variantId: 'canonical.session.single-device',
-                                postconditionId: 'session-single-device',
-                                fields: {
-                                    state: 'active',
-                                    live: true,
-                                    databaseStateVerified: true,
-                                    claimStateVerified: true,
-                                    cacheStateVerified: true
+                    ok: true,
+                    producerId: 'auth-session',
+                    strategy: 'transaction-fixture',
+                    entityIdentities: [
+                        { kind: 'user', id: 'u1', variantId: 'canonical.auth.user.active' },
+                        { kind: 'admin', id: 'a1', variantId: 'canonical.auth.admin.full-permission' },
+                        { kind: 'session', id: 's1', variantId: 'canonical.session.single-device' }
+                    ],
+                    observations: {
+                        database: {
+                            namespace: null,
+                            schemaIdentity: 'public',
+                            entities: [
+                                {
+                                    kind: 'user',
+                                    id: 'u1',
+                                    variantId: 'canonical.auth.user.active',
+                                    postconditionId: 'user-active',
+                                    fields: { status: 'active', deleted: false }
+                                },
+                                {
+                                    kind: 'admin',
+                                    id: 'a1',
+                                    variantId: 'canonical.auth.admin.full-permission',
+                                    postconditionId: 'admin-full-permission',
+                                    fields: { permission: 'full' }
+                                },
+                                {
+                                    kind: 'session',
+                                    id: 's1',
+                                    variantId: 'canonical.session.single-device',
+                                    postconditionId: 'session-single-device',
+                                    fields: {
+                                        state: 'active',
+                                        live: true,
+                                        databaseStateVerified: true,
+                                        claimStateVerified: true,
+                                        cacheStateVerified: true
+                                    }
                                 }
-                            }
-                        ]
-                    },
-                    redis: {
-                        namespace: null,
-                        keys: [
-                            { domain: 'redis.session', key: 'session:s1', present: true, sessionRevoked: false }
-                        ]
-                    },
-                    cache: { namespace: null, entries: [] }
-                }
-            });
+                            ]
+                        },
+                        redis: {
+                            namespace: null,
+                            keys: [
+                                { domain: 'redis.session', key: 'session:s1', present: true, sessionRevoked: false }
+                            ]
+                        },
+                        cache: { namespace: null, entries: [] }
+                    }
+                });
             },
             onVerify: async (context) =>
             {
@@ -837,19 +838,23 @@ test('acceptance orchestrator waves run auth and public before dependents', asyn
     const ports = portsForPlan(planned, {
         'auth-session': { onPrepare: async () =>
         {
-            order.push('auth-session'); return { ok: true, strategy: 'transaction-fixture', producerId: 'auth-session' };
+            order.push('auth-session');
+            return { ok: true, strategy: 'transaction-fixture', producerId: 'auth-session' };
         } },
         'public-content': { onPrepare: async () =>
         {
-            order.push('public-content'); return { ok: true, strategy: 'transaction-fixture', producerId: 'public-content' };
+            order.push('public-content');
+            return { ok: true, strategy: 'transaction-fixture', producerId: 'public-content' };
         } },
         'account-messaging': { onPrepare: async () =>
         {
-            order.push('account-messaging'); return { ok: true, strategy: 'transaction-fixture', producerId: 'account-messaging' };
+            order.push('account-messaging');
+            return { ok: true, strategy: 'transaction-fixture', producerId: 'account-messaging' };
         } },
         'comment-moderation': { onPrepare: async () =>
         {
-            order.push('comment-moderation'); return { ok: true, strategy: 'transaction-fixture', producerId: 'comment-moderation' };
+            order.push('comment-moderation');
+            return { ok: true, strategy: 'transaction-fixture', producerId: 'comment-moderation' };
         } }
     });
     const receipt = await prepare(planned, ports);

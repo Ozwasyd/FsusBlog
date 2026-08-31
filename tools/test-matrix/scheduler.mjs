@@ -11,6 +11,13 @@ import { validateBehaviorDocStaticAdmissionReceipt } from '../docs/behavior-doc-
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler fingerprints use the canonical source-identity owner.
 import { sealSourceIdentity } from '../fact-extractors/identity.mjs';
 import {
+    attachCurrentRunEvidenceHandoff,
+    parseCurrentRunEvidenceHandoffs,
+    resumeCurrentRunEvidenceCheckpoint
+// eslint-disable-next-line import-x/no-relative-parent-imports -- Producer terminal handoffs are scheduler checkpoint inputs.
+} from '../test/current-run-evidence-checkpoint.mjs';
+import { validateEvidenceLocatorRegistry } from '../test/evidence-location-contract.mjs';
+import {
     loadPhysicalExecutionProcessPolicy,
     terminatePhysicalExecutionAuthoritySync
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler containment reuses the canonical process-tree authority.
@@ -18,26 +25,19 @@ import {
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler observations reuse the canonical process identity collector.
 import { collectProcessIdentity } from '../test/process-identity.mjs';
 import {
-    createSchedulerReplayActual,
-    validateSchedulerReplayPlan
-} from '../test/scheduler-replay-contract.mjs';
-import {
     validateRunBoundConsumerEvidence,
     validateRunBoundProjection
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Run-bound evidence is owned by the shared execution contract.
 } from '../test/run-once.mjs';
+import {
+    createSchedulerReplayActual,
+    validateSchedulerReplayPlan
+} from '../test/scheduler-replay-contract.mjs';
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler admission needs host-accurate Darwin available memory.
 import { availableMemoryBytes, availableMemoryGiB } from '../test/system-memory.mjs';
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Temporal replay validation is shared with the execution owner.
 import { verifyTemporalReplay } from '../test/temporal-context.mjs';
-import {
-    attachCurrentRunEvidenceHandoff,
-    parseCurrentRunEvidenceHandoffs,
-    resumeCurrentRunEvidenceCheckpoint
-// eslint-disable-next-line import-x/no-relative-parent-imports -- Producer terminal handoffs are scheduler checkpoint inputs.
-} from '../test/current-run-evidence-checkpoint.mjs';
-// eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler validates the canonical current-run locator registry.
-import { validateEvidenceLocatorRegistry } from '../test/evidence-location-contract.mjs';
+
 
 import {
     readAndValidateArtifactDigestTable,
@@ -5610,7 +5610,10 @@ async function runDagUnlocked(options)
                 {
                     const entry = currentRunEvidenceRegistry.entries.find((candidate) =>
                         candidate.authorityId === handoff.authorityId);
-                    if (!entry) throw new Error(`producer terminal handoff authority is unregistered: ${handoff.authorityId}`);
+                    if (!entry)
+                    {
+                        throw new Error(`producer terminal handoff authority is unregistered: ${handoff.authorityId}`);
+                    }
                     attachCurrentRunEvidenceHandoff({ checkpoint, context: currentRunEvidenceContext,
                         entry, handoff, registry: currentRunEvidenceRegistry, repositoryRoot: root });
                 }

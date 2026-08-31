@@ -12,6 +12,7 @@ import {
     resolveExecutionEnvelopeProducer,
     validateExecutionEnvelopeReceiptSchema
 } from '../test-matrix/execution-envelope-policy.mjs';
+
 import {
     assertBrowserPlanActualMatch,
     validateBrowserIdentityPlan
@@ -619,13 +620,15 @@ function mismatchPaths(left, right, location = '')
 
 function envelopePayload(envelope)
 {
-    const { envelopeDigest: _envelopeDigest, ...payload } = envelope ?? {};
+    const payload = { ...envelope };
+    delete payload.envelopeDigest;
     return payload;
 }
 
 function receiptPayload(receipt)
 {
-    const { receiptDigest: _receiptDigest, ...payload } = receipt ?? {};
+    const payload = { ...receipt };
+    delete payload.receiptDigest;
     return payload;
 }
 

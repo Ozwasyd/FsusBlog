@@ -10,11 +10,11 @@ import {
     validateEvidenceLocationMigrationLedger,
     verifyEvidenceLocationGovernance
 } from '../../tools/test/evidence-location-contract.mjs';
-import { generateEvidenceLocationGovernance } from '../../tools/test/generate-evidence-location-governance.mjs';
 import {
     evidenceLocationDigest,
     scanEvidenceLocations
 } from '../../tools/test/evidence-location-scanner.mjs';
+import { generateEvidenceLocationGovernance } from '../../tools/test/generate-evidence-location-governance.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const load = (name) => JSON.parse(fs.readFileSync(path.join(repositoryRoot, 'config/testing', name), 'utf8'));

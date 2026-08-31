@@ -597,8 +597,3 @@ export function buildOracleFacts(inventory, {
     artifact.contentDigest = contentDigest(artifact);
     return validateOracleFacts(artifact);
 }
-
-export function assertionRegistryIdentity()
-{
-    return [...assertionAssemblies].sort();
-}

@@ -7,6 +7,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { locateReleaseFinalDirectEvidence } from '../../tools/release/check-release-final.mjs';
+import { locateCurrentRunEvidence } from '../../tools/test/current-run-evidence-locator.mjs';
 import {
     beginCurrentRunEvidencePublication,
     createEvidenceParentReceipt,
@@ -14,18 +15,17 @@ import {
     releaseFinalDirectConsumerIds
 } from '../../tools/test/current-run-evidence-publication.mjs';
 import {
-    completeEvidenceLocatorRegistryEntry,
-    governanceContentDigest,
-    verifyEvidenceLocationGovernance
-} from '../../tools/test/evidence-location-contract.mjs';
-import { generateEvidenceLocationGovernance } from '../../tools/test/generate-evidence-location-governance.mjs';
-import { locateCurrentRunEvidence } from '../../tools/test/current-run-evidence-locator.mjs';
-import {
     locateTransportedCurrentRunEvidence,
     packCurrentRunEvidenceTransport,
     resolveCorrectnessEvidencePath
 } from '../../tools/test/current-run-evidence-transport.mjs';
+import {
+    completeEvidenceLocatorRegistryEntry,
+    governanceContentDigest,
+    verifyEvidenceLocationGovernance
+} from '../../tools/test/evidence-location-contract.mjs';
 import { generateCurrentRunEvidenceLocationAcceptance } from '../../tools/test/generate-current-run-evidence-location-acceptance.mjs';
+import { generateEvidenceLocationGovernance } from '../../tools/test/generate-evidence-location-governance.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const d = (value) => `sha256:${value.repeat(64)}`;
@@ -92,7 +92,10 @@ function forbiddenFallback(explicit, alternates)
 {
     try
     {
-        if (explicit.attemptId !== 'attempt-1') throw new Error('explicit mismatch');
+        if (explicit.attemptId !== 'attempt-1')
+        {
+            throw new Error('explicit mismatch');
+        }
         return explicit;
     }
     catch
@@ -132,7 +135,10 @@ test('negative matrix fails closed for ambiguity mtime downloaded mismatch and m
         const fallback = forbiddenFallback(tampered, [{ path: twin }]);
         assert.equal(fallback.path, twin);
     }
-    finally { fs.rmSync(f.root, { recursive: true, force: true }); }
+    finally
+    {
+        fs.rmSync(f.root, { recursive: true, force: true });
+    }
 });
 
 test('mutations that sort fallback prefer local or trust filename pointers cannot pass the locator', () =>
@@ -159,7 +165,10 @@ test('mutations that sort fallback prefer local or trust filename pointers canno
             repositoryRoot: f.root, localPath: published.outputPath, authorityId: f.entry.authorityId
         }), /without a transport manifest/u);
     }
-    finally { fs.rmSync(f.root, { recursive: true, force: true }); }
+    finally
+    {
+        fs.rmSync(f.root, { recursive: true, force: true });
+    }
 });
 
 test('release-final and quality-gate transported consumers fail the same identity mismatch', () =>
@@ -245,7 +254,10 @@ test('release-final and quality-gate transported consumers fail the same identit
             transportManifestPath: 'artifacts/current-run/transport-manifest.json'
         }), /origin attemptId mismatch/u);
     }
-    finally { fs.rmSync(f.root, { recursive: true, force: true }); }
+    finally
+    {
+        fs.rmSync(f.root, { recursive: true, force: true });
+    }
 });
 
 test('registry ledger scanner and consumer call sites stay bidirectionally exact with warnings=0', () =>
@@ -259,7 +271,9 @@ test('registry ledger scanner and consumer call sites stay bidirectionally exact
         .filter((entry) => entry.classification !== 'not-evidence')
         .map((entry) => entry.consumerId));
     for (const consumerId of ledgerConsumers)
+    {
         assert(registryConsumers.has(consumerId), `ledger consumer missing from registry: ${consumerId}`);
+    }
     const sources = [
         'tools/release/check-release-final.mjs',
         'tools/ci/summarize-quality-gate.mjs',

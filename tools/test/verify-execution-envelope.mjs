@@ -5,10 +5,11 @@ import path from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
+import { executionEnvelopeDigest } from '../test-matrix/execution-envelope-policy.mjs';
+
 import {
     verifyExecutionEnvelopeReceipt
 } from './execution-envelope-receipt.mjs';
-import { executionEnvelopeDigest } from '../test-matrix/execution-envelope-policy.mjs';
 
 function options(argv)
 {

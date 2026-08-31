@@ -12,10 +12,10 @@ import {
     collectProductionToolchain,
     verifyProductionBuildReceipt
 } from '../ci/production-build-artifacts.mjs';
-import { snapshotGitWorktree } from '../test-matrix/scheduler.mjs';
 import {
     validateReleaseReliabilitySchedulerCatalog
 } from '../test-matrix/release-reliability-scheduler-projection.mjs';
+import { snapshotGitWorktree } from '../test-matrix/scheduler.mjs';
 
 import { parseRuntimeEnvironment } from './bundles/runtime-environment.mjs';
 import {
@@ -255,7 +255,8 @@ function canonicalize(value)
 
 function semanticDigest(value)
 {
-    const { contentDigest: _ignored, ...content } = value;
+    const content = { ...value };
+    delete content.contentDigest;
     return `sha256:${createHash('sha256').update(JSON.stringify(canonicalize(content))).digest('hex')}`;
 }
 

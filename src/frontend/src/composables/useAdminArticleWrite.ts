@@ -2026,7 +2026,7 @@ export function useAdminArticleWrite()
         {
             await assetTask.run(async (signal) =>
             {
-                const assets = await reindexArticleAssets(articleId.value!, buildSignalConfig(signal));
+                const assets = await reindexArticleAssets(articleId.value, buildSignalConfig(signal));
                 if (signal.aborted)
                 {
                     return;

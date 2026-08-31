@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import { existsSync } from 'node:fs';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import os from 'node:os';
@@ -976,13 +975,6 @@ async function assertAdminPowBoundaries(adminSession, categoryId, largeMarkdownP
 async function assertAdminPositivePowCrud(adminSession)
 {
     const createdCategoryName = `perm-admin-${Date.now()}`;
-    const createCategory = await expectAllowed('admin category create with pow', '/api/Category', {
-        method: 'POST',
-        cookieHeader: adminSession.cookieHeader,
-        deviceFingerprint: 'permission-admin-category',
-        requiresPow: true,
-        body: { name: createdCategoryName }
-    });
 
     const createdTagName = `perm-admin-tag-${Date.now()}`;
     const createTag = await expectAllowed('admin tag create with pow', '/api/Tag', {

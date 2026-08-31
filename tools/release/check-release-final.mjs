@@ -9,18 +9,18 @@ import { fileURLToPath } from 'node:url';
 
 import { validateReleaseRuntimeMatrix } from '../runtime-profiles/release-runtime-matrix.mjs';
 import {
-    readEvidenceDocument as readJson
-} from '../test-matrix/content-addressed-evidence-store.mjs';
-import { validateLocalProfileCheckpointEvidence } from '../test-matrix/scheduler.mjs';
-import {
     locateCurrentRunEvidence,
     verifyCurrentRunEvidenceBinding
 } from '../test/current-run-evidence-locator.mjs';
-import { validateEvidenceLocatorRegistry } from '../test/evidence-location-contract.mjs';
 import {
     releaseFinalDirectConsumerIds,
     resolveEvidenceReferencePayload
 } from '../test/current-run-evidence-publication.mjs';
+import { validateEvidenceLocatorRegistry } from '../test/evidence-location-contract.mjs';
+import {
+    readEvidenceDocument as readJson
+} from '../test-matrix/content-addressed-evidence-store.mjs';
+import { validateLocalProfileCheckpointEvidence } from '../test-matrix/scheduler.mjs';
 
 import { validateFontLicenseEvidence } from './font-license-evidence.mjs';
 import {

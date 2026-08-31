@@ -1,83 +1,97 @@
-import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import { useSiteStore } from '@/store/site'
-import { useUserStore } from '@/store/user'
-import { getKnownErrorInfo } from '@/utils/errorKinds'
+import { defineStore } from 'pinia';
+import { ref, computed } from 'vue';
 
-export type BootstrapPhase = 'idle' | 'bootstrapping' | 'ready' | 'error'
-export type AuthPhase = 'unknown' | 'guest' | 'authenticated'
+import { useSiteStore } from '@/store/site';
+import { useUserStore } from '@/store/user';
+import { getKnownErrorInfo } from '@/utils/errorKinds';
 
-export const useAppShellStore = defineStore('app-shell', () => {
-  const bootstrapPhase = ref<BootstrapPhase>('idle')
-  const authPhase = ref<AuthPhase>('unknown')
-  const riskPhase = ref<'normal' | 'elevated'>('normal')
-  const sessionPhase = ref<'active' | 'refreshing' | 'expired'>('active')
+export type BootstrapPhase = 'idle' | 'bootstrapping' | 'ready' | 'error';
+export type AuthPhase = 'unknown' | 'guest' | 'authenticated';
 
-  const bootstrapError = ref<string>('')
-  let bootstrapPromise: Promise<void> | null = null
+export const useAppShellStore = defineStore('app-shell', () =>
+{
+    const bootstrapPhase = ref<BootstrapPhase>('idle');
+    const authPhase = ref<AuthPhase>('unknown');
+    const riskPhase = ref<'normal' | 'elevated'>('normal');
+    const sessionPhase = ref<'active' | 'refreshing' | 'expired'>('active');
 
-  const isReady = computed(() => bootstrapPhase.value === 'ready')
+    const bootstrapError = ref<string>('');
+    let bootstrapPromise: Promise<void> | null = null;
 
-  const syncAuthPhase = () => {
-    const userStore = useUserStore()
-    if (userStore.accountState === 'unknown') {
-      authPhase.value = 'unknown'
-      return
-    }
-    authPhase.value = userStore.isLoggedIn ? 'authenticated' : 'guest'
-  }
+    const isReady = computed(() => bootstrapPhase.value === 'ready');
 
-  const bootstrap = async (force = false): Promise<void> => {
-    if (bootstrapPromise && !force) {
-      return bootstrapPromise
-    }
+    const syncAuthPhase = () =>
+    {
+        const userStore = useUserStore();
+        if (userStore.accountState === 'unknown')
+        {
+            authPhase.value = 'unknown';
+            return;
+        }
+        authPhase.value = userStore.isLoggedIn ? 'authenticated' : 'guest';
+    };
 
-    bootstrapPromise = (async () => {
-      const siteStore = useSiteStore()
-      bootstrapPhase.value = 'bootstrapping'
-      bootstrapError.value = ''
-      try {
-        await siteStore.fetchSiteInfo(force)
-        syncAuthPhase()
-        bootstrapPhase.value = 'ready'
-      } catch (error) {
-        bootstrapPhase.value = 'error'
-        bootstrapError.value = getKnownErrorInfo(error, '应用初始化失败').message
-      }
-    })()
+    const bootstrap = async (force = false): Promise<void> =>
+    {
+        if (bootstrapPromise && !force)
+        {
+            return bootstrapPromise;
+        }
 
-    return bootstrapPromise
-  }
+        bootstrapPromise = (async () =>
+        {
+            const siteStore = useSiteStore();
+            bootstrapPhase.value = 'bootstrapping';
+            bootstrapError.value = '';
+            try
+            {
+                await siteStore.fetchSiteInfo(force);
+                syncAuthPhase();
+                bootstrapPhase.value = 'ready';
+            }
+            catch (error)
+            {
+                bootstrapPhase.value = 'error';
+                bootstrapError.value = getKnownErrorInfo(error, '应用初始化失败').message;
+            }
+        })();
 
-  const markSessionExpired = () => {
-    sessionPhase.value = 'expired'
-    authPhase.value = 'guest'
-  }
+        return bootstrapPromise;
+    };
 
-  const markSessionActive = () => {
-    sessionPhase.value = 'active'
-  }
+    const markSessionExpired = () =>
+    {
+        sessionPhase.value = 'expired';
+        authPhase.value = 'guest';
+    };
 
-  const markSessionRefreshing = () => {
-    sessionPhase.value = 'refreshing'
-  }
+    const markSessionActive = () =>
+    {
+        sessionPhase.value = 'active';
+    };
 
-  const setRiskPhase = (phase: 'normal' | 'elevated') => {
-    riskPhase.value = phase
-  }
+    const markSessionRefreshing = () =>
+    {
+        sessionPhase.value = 'refreshing';
+    };
 
-  return {
-    bootstrapPhase,
-    authPhase,
-    sessionPhase,
-    riskPhase,
-    bootstrapError,
-    isReady,
-    bootstrap,
-    syncAuthPhase,
-    markSessionExpired,
-    markSessionRefreshing,
-    markSessionActive,
-    setRiskPhase
-  }
-})
+    const setRiskPhase = (phase: 'normal' | 'elevated') =>
+    {
+        riskPhase.value = phase;
+    };
+
+    return {
+        bootstrapPhase,
+        authPhase,
+        sessionPhase,
+        riskPhase,
+        bootstrapError,
+        isReady,
+        bootstrap,
+        syncAuthPhase,
+        markSessionExpired,
+        markSessionRefreshing,
+        markSessionActive,
+        setRiskPhase
+    };
+});

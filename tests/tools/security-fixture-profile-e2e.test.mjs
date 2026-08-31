@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 
+import { qualificationTemporalContext } from '../../tools/test/temporal-context.mjs';
 import {
     cleanup,
     plan,
@@ -10,7 +11,6 @@ import {
 } from '../../tools/test-fixtures/orchestrator.mjs';
 import { createPortsForProducerIds } from '../../tools/test-fixtures/producers/catalog-ports.mjs';
 import { digestCanonical } from '../../tools/test-fixtures/receipt/canonical.mjs';
-import { qualificationTemporalContext } from '../../tools/test/temporal-context.mjs';
 
 const decisions = Object.freeze({
     'security.audit.active-window': 'active-window',

@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+import { validateJsonSchema } from '../../tools/test-matrix/schema-validator/validate.mjs';
 import {
     CONTENT_SHAPE_BOUNDARY_KINDS,
     CONTENT_SHAPE_SCRIPT_CLASSES,
@@ -20,7 +21,6 @@ import {
     fixtureCatalogDigest,
     readFixtureCatalogs
 } from '../../tools/testing/fixture-catalog.mjs';
-import { validateJsonSchema } from '../../tools/test-matrix/schema-validator/validate.mjs';
 
 const root = path.resolve(import.meta.dirname, '..', '..');
 

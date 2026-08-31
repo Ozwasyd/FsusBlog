@@ -4,15 +4,15 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 
-import { validateJsonSchema } from '../../tools/test-matrix/schema-validator/validate.mjs';
 import { verifyTemporalShapeGovernance } from '../../tools/test/check-temporal-shape-governance.mjs';
+import { readTemporalDomainProducerInventory } from '../../tools/test/temporal-role-resolver.mjs';
 import {
     readTemporalShapeCatalog,
     temporalShapeDigest,
     validateTemporalShapeCatalog,
     verifyAuthSessionPolicyRoles
 } from '../../tools/test/temporal-shape-catalog.mjs';
-import { readTemporalDomainProducerInventory } from '../../tools/test/temporal-role-resolver.mjs';
+import { validateJsonSchema } from '../../tools/test-matrix/schema-validator/validate.mjs';
 
 const repositoryRoot = path.resolve(import.meta.dirname, '../..');
 

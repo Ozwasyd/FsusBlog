@@ -31,7 +31,10 @@ function digestFile(file)
 
 function assert(condition, message)
 {
-    if (!condition) throw new Error(message);
+    if (!condition)
+    {
+        throw new Error(message);
+    }
 }
 
 function inside(file, root)
@@ -350,9 +353,18 @@ export function recoverCurrentRunEvidencePublication({ context, outputPath, repo
     const candidate = fs.existsSync(output.absolute) ? output.absolute : staged;
     assert(fs.existsSync(candidate) && digestFile(candidate) === current.reference.inputDigest,
         'prepared evidence reference bytes mismatch');
-    if (!fs.existsSync(output.absolute)) fs.renameSync(staged, output.absolute);
-    else fs.rmSync(staged, { force: true });
-    const { contentDigest: parentStateDigest, stagedPath: _stagedPath, ...identity } = current;
+    if (!fs.existsSync(output.absolute))
+    {
+        fs.renameSync(staged, output.absolute);
+    }
+    else
+    {
+        fs.rmSync(staged, { force: true });
+    }
+    const parentStateDigest = current.contentDigest;
+    const identity = { ...current };
+    delete identity.contentDigest;
+    delete identity.stagedPath;
     const finalized = publishState(output.absolute, { ...identity, state: 'finalized',
         sequence: current.sequence + 1, parentStateDigest });
     const receipt = JSON.parse(fs.readFileSync(output.absolute, 'utf8'));
@@ -383,7 +395,9 @@ export function publishCurrentRunEvidenceReference(options)
 
 function assertReceiptIdentity(receipt, context)
 {
-    const { path: _path, inputDigest: _inputDigest, ...sealedReceipt } = receipt;
+    const sealedReceipt = { ...receipt };
+    delete sealedReceipt.path;
+    delete sealedReceipt.inputDigest;
     assertContextIdentity(sealedReceipt, context, 'evidence');
     assert(sealedReceipt.contentDigest === evidenceContentDigest(sealedReceipt), 'evidence contentDigest mismatch');
     assert(sealedReceipt.producerReceiptDigest === evidenceProducerReceiptDigest(sealedReceipt),

@@ -22,7 +22,6 @@ import { writeIntegrityProofProducer } from '../../test-matrix/integrity-proof-p
 import {
     artifactSubstitutionBindingDigest,
     matrixGeneratedRuntimePaths,
-    resolveLocalProfileResources,
     resolveArtifactSubstitutions,
     resolveFrontendVitestAdmissionFloor, performanceMixedWindowFloorMs, validatePerformanceDeadlineEvidence
 } from '../../test-matrix/local-profile.mjs';
@@ -428,7 +427,9 @@ function installShutdownForwarding()
                     finalizeBundleResourceUtilization('partial', new Error(`bundle cancelled by ${signal}`));
                 }
                 catch
-                {}
+                {
+                    // Cancellation cleanup is best effort before the forced exit.
+                }
                 process.exit(exitCode);
             });
         });

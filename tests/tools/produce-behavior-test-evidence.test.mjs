@@ -1,10 +1,17 @@
 import assert from 'node:assert';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import fs, { mkdtempSync, mkdirSync, writeFileSync, cpSync, readFileSync, rmSync } from 'node:fs';
+import {
+    mkdtempSync,
+    mkdirSync,
+    writeFileSync,
+    cpSync,
+    readFileSync,
+    rmSync
+} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { describe, test } from 'node:test';
+import { test } from 'node:test';
 
 import { root } from '../../tools/contracts/behavior-contract-catalog.mjs';
 import { scanBehaviorTestBindings } from '../../tools/contracts/behavior-test-binding.mjs';
@@ -73,7 +80,7 @@ function makeObservationArtifact({ repositoryRoot, suite, testCases, runId = 'ru
 {
     const now = new Date().toISOString();
 
-    const observations = testCases.map((tc, i) => ({
+    const observations = testCases.map((tc) => ({
         testId: tc.testId,
         suite,
         framework,
@@ -592,7 +599,9 @@ test('global suite success cannot mask a required test that was not executed thi
     const directory = fixtureRoot();
     try
     {
-        const { paths, scan } = preparedFixture(directory, {
+        const {
+            paths
+        } = preparedFixture(directory, {
             mutateCase: (bySuite, scan) =>
             {
                 const dropped = scan.bindings[0];
@@ -695,7 +704,9 @@ test('docs-only closure digest does not skip required tests', () =>
     const directory = fixtureRoot();
     try
     {
-        const { paths, scan } = preparedFixture(directory, {
+        const {
+            paths
+        } = preparedFixture(directory, {
             mutateCase: (bySuite, scan) => bySuite.set(scan.bindings[0].sourcePath, [])
         });
         const { errors } = produceBehaviorTestEvidence({

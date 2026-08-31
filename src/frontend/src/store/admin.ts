@@ -1,327 +1,382 @@
-import { computed, ref } from 'vue'
-import { defineStore } from 'pinia'
-import { getAdminMe, logoutAdmin } from '@/api/auth'
-import { isAbortError } from '@/utils/errors'
-import { isAuthFailureError } from '@/utils/errorKinds'
-import { clearLocalFixtureAdminSession } from '@/services/localFixtureSession'
-import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
-import { privateSurfaceRuntime } from '@/services/privateSurfaceRuntime'
+import { defineStore } from 'pinia';
+import { computed, ref } from 'vue';
 
-export type AdminSessionStatus = 'missing' | 'active' | 'expired' | 'step_up_required'
-export type AdminSessionState = 'unknown' | AdminSessionStatus
-export type AdminPrincipalSource = 'independent'
+import { getAdminMe, logoutAdmin } from '@/api/auth';
+import { clearLocalFixtureAdminSession } from '@/services/localFixtureSession';
+import { privateSurfaceRuntime } from '@/services/privateSurfaceRuntime';
+import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime';
+import { isAuthFailureError } from '@/utils/errorKinds';
+import { isAbortError } from '@/utils/errors';
 
-export const ADMIN_NEGATIVE_CACHE_MS = 5 * 60 * 1000
-export const ADMIN_ACTIVE_TTL_MS = 60 * 1000
+export type AdminSessionStatus = 'missing' | 'active' | 'expired' | 'step_up_required';
+export type AdminSessionState = 'unknown' | AdminSessionStatus;
+export type AdminPrincipalSource = 'independent';
+
+export const ADMIN_NEGATIVE_CACHE_MS = 5 * 60 * 1000;
+export const ADMIN_ACTIVE_TTL_MS = 60 * 1000;
 
 export interface AdminPrincipalSnapshot {
-  id: string
-  displayName: string
-  source: AdminPrincipalSource
-  permissions: readonly string[]
-  adminSessionStatus: AdminSessionStatus
-  totpStepUpRequired?: boolean
+    id: string;
+    displayName: string;
+    source: AdminPrincipalSource;
+    permissions: readonly string[];
+    adminSessionStatus: AdminSessionStatus;
+    totpStepUpRequired?: boolean;
 }
 
 export interface AnonymousCommentPolicySnapshot {
-  anonymousCommentsEnabled: boolean
-  publicSendOptionEnabled: boolean
-  zkAnonymousEnabled: boolean
-  anonymousCommentGovernanceAvailable: boolean
-  zkAnonymousConfigurable: boolean
-  commentMaxChars: number
-  commentMaxUtf8Bytes: number
+    anonymousCommentsEnabled: boolean;
+    publicSendOptionEnabled: boolean;
+    zkAnonymousEnabled: boolean;
+    anonymousCommentGovernanceAvailable: boolean;
+    zkAnonymousConfigurable: boolean;
+    commentMaxChars: number;
+    commentMaxUtf8Bytes: number;
 }
 
 export interface EnsureAdminSessionFreshOptions {
-  force?: boolean
+    force?: boolean;
 }
 
-export type AdminLogoutStatus = 'revoked' | 'already_inactive' | 'local_only'
+export type AdminLogoutStatus = 'revoked' | 'already_inactive' | 'local_only';
 
 export interface AdminLogoutOutcome {
-  status: AdminLogoutStatus
-  serverRevocationConfirmed: boolean
-  localCleanupComplete: boolean
+    status: AdminLogoutStatus;
+    serverRevocationConfirmed: boolean;
+    localCleanupComplete: boolean;
 }
 
-export class AdminLogoutUnconfirmedError extends Error {
-  readonly outcome: AdminLogoutOutcome
+export class AdminLogoutUnconfirmedError extends Error
+{
+    readonly outcome: AdminLogoutOutcome;
 
-  constructor(outcome: AdminLogoutOutcome) {
-    super('管理员会话撤销未确认；本地管理状态已清理，请重试。')
-    this.name = 'AdminLogoutUnconfirmedError'
-    this.outcome = outcome
-  }
+    constructor(outcome: AdminLogoutOutcome)
+    {
+        super('管理员会话撤销未确认；本地管理状态已清理，请重试。');
+        this.name = 'AdminLogoutUnconfirmedError';
+        this.outcome = outcome;
+    }
 }
 
-export class AdminLogoutCleanupError extends Error {
-  readonly outcome: AdminLogoutOutcome
+export class AdminLogoutCleanupError extends Error
+{
+    readonly outcome: AdminLogoutOutcome;
 
-  constructor(outcome: AdminLogoutOutcome) {
-    super('管理员会话已撤销，但本地私有状态未完全清理。')
-    this.name = 'AdminLogoutCleanupError'
-    this.outcome = outcome
-  }
+    constructor(outcome: AdminLogoutOutcome)
+    {
+        super('管理员会话已撤销，但本地私有状态未完全清理。');
+        this.name = 'AdminLogoutCleanupError';
+        this.outcome = outcome;
+    }
 }
 
 const DEFAULT_ANONYMOUS_COMMENT_POLICY: AnonymousCommentPolicySnapshot = Object.freeze({
-  anonymousCommentsEnabled: true,
-  publicSendOptionEnabled: true,
-  zkAnonymousEnabled: false,
-  anonymousCommentGovernanceAvailable: true,
-  zkAnonymousConfigurable: true,
-  commentMaxChars: 1000,
-  commentMaxUtf8Bytes: 4096
-})
+    anonymousCommentsEnabled: true,
+    publicSendOptionEnabled: true,
+    zkAnonymousEnabled: false,
+    anonymousCommentGovernanceAvailable: true,
+    zkAnonymousConfigurable: true,
+    commentMaxChars: 1000,
+    commentMaxUtf8Bytes: 4096
+});
 
-export const useAdminStore = defineStore('admin', () => {
-  const adminPrincipal = ref<AdminPrincipalSnapshot | null>(null)
-  const adminState = ref<AdminSessionState>('unknown')
-  const adminCheckedAt = ref(0)
-  const lastLogoutOutcome = ref<AdminLogoutOutcome | null>(null)
-  const anonymousCommentPolicy = ref<AnonymousCommentPolicySnapshot>({ ...DEFAULT_ANONYMOUS_COMMENT_POLICY })
-  let adminSessionRequest: Promise<void> | null = null
-  let adminSessionController: AbortController | null = null
-  let adminSessionGeneration = 0
-  let logoutRequest: Promise<AdminLogoutOutcome> | null = null
-  let logoutBroadcast: (() => void) | null = null
+export const useAdminStore = defineStore('admin', () =>
+{
+    const adminPrincipal = ref<AdminPrincipalSnapshot | null>(null);
+    const adminState = ref<AdminSessionState>('unknown');
+    const adminCheckedAt = ref(0);
+    const lastLogoutOutcome = ref<AdminLogoutOutcome | null>(null);
+    const anonymousCommentPolicy = ref<AnonymousCommentPolicySnapshot>({ ...DEFAULT_ANONYMOUS_COMMENT_POLICY });
+    let adminSessionRequest: Promise<void> | null = null;
+    let adminSessionController: AbortController | null = null;
+    let adminSessionGeneration = 0;
+    let logoutRequest: Promise<AdminLogoutOutcome> | null = null;
+    let logoutBroadcast: (() => void) | null = null;
 
-  const adminSessionStatus = computed<AdminSessionStatus>(() => {
-    if (adminState.value === 'unknown') {
-      return 'missing'
-    }
+    const adminSessionStatus = computed<AdminSessionStatus>(() =>
+    {
+        if (adminState.value === 'unknown')
+        {
+            return 'missing';
+        }
 
-    return adminState.value
-  })
-  const permissions = computed<readonly string[]>(() =>
+        return adminState.value;
+    });
+    const permissions = computed<readonly string[]>(() =>
     adminState.value === 'active' && adminPrincipal.value
-      ? adminPrincipal.value.permissions
-      : [])
-  const canManage = computed(() => adminState.value === 'active' && permissions.value.length > 0)
-  const anonymousCommentsEnabled = computed(() => anonymousCommentPolicy.value.anonymousCommentsEnabled)
-  const publicSendOptionEnabled = computed(() => anonymousCommentPolicy.value.publicSendOptionEnabled)
-  const zkAnonymousEnabled = computed(() => anonymousCommentPolicy.value.zkAnonymousEnabled)
-  const anonymousCommentGovernanceAvailable = computed(() => anonymousCommentPolicy.value.anonymousCommentGovernanceAvailable)
-  const zkAnonymousConfigurable = computed(() => anonymousCommentPolicy.value.zkAnonymousConfigurable)
-  const commentMaxChars = computed(() => anonymousCommentPolicy.value.commentMaxChars)
-  const commentMaxUtf8Bytes = computed(() => anonymousCommentPolicy.value.commentMaxUtf8Bytes)
-  const publicOnlyMode = computed(() => !anonymousCommentsEnabled.value && publicSendOptionEnabled.value)
-  const totpStepUpRequired = computed(() => adminPrincipal.value?.totpStepUpRequired === true || adminSessionStatus.value === 'step_up_required')
+        ? adminPrincipal.value.permissions
+        : []);
+    const canManage = computed(() => adminState.value === 'active' && permissions.value.length > 0);
+    const anonymousCommentsEnabled = computed(() => anonymousCommentPolicy.value.anonymousCommentsEnabled);
+    const publicSendOptionEnabled = computed(() => anonymousCommentPolicy.value.publicSendOptionEnabled);
+    const zkAnonymousEnabled = computed(() => anonymousCommentPolicy.value.zkAnonymousEnabled);
+    const anonymousCommentGovernanceAvailable = computed(() => anonymousCommentPolicy.value.anonymousCommentGovernanceAvailable);
+    const zkAnonymousConfigurable = computed(() => anonymousCommentPolicy.value.zkAnonymousConfigurable);
+    const commentMaxChars = computed(() => anonymousCommentPolicy.value.commentMaxChars);
+    const commentMaxUtf8Bytes = computed(() => anonymousCommentPolicy.value.commentMaxUtf8Bytes);
+    const publicOnlyMode = computed(() => !anonymousCommentsEnabled.value && publicSendOptionEnabled.value);
+    const totpStepUpRequired = computed(() => adminPrincipal.value?.totpStepUpRequired === true || adminSessionStatus.value === 'step_up_required');
 
-  const hasPermission = (permission: string): boolean =>
-    adminState.value === 'active'
+    const hasPermission = (permission: string): boolean =>
+        adminState.value === 'active'
     && adminPrincipal.value !== null
-    && permissions.value.includes(permission)
+    && permissions.value.includes(permission);
 
-  const setAdminPrincipal = (snapshot: AdminPrincipalSnapshot | null): void => {
-    adminPrincipal.value = snapshot ? {
+    const setAdminPrincipal = (snapshot: AdminPrincipalSnapshot | null): void =>
+    {
+        adminPrincipal.value = snapshot ? {
       ...snapshot,
       permissions: [...snapshot.permissions]
-    } : null
-    adminState.value = snapshot?.adminSessionStatus ?? 'missing'
-    adminCheckedAt.value = Date.now()
-    if (snapshot) {
-      lastLogoutOutcome.value = null
-    }
-  }
+    } : null;
+        adminState.value = snapshot?.adminSessionStatus ?? 'missing';
+        adminCheckedAt.value = Date.now();
+        if (snapshot)
+        {
+            lastLogoutOutcome.value = null;
+        }
+    };
 
-  const clearAdminPrincipal = (state: AdminSessionState = 'missing'): void => {
-    adminPrincipal.value = null
-    adminState.value = state
-    adminCheckedAt.value = Date.now()
-  }
+    const clearAdminPrincipal = (state: AdminSessionState = 'missing'): void =>
+    {
+        adminPrincipal.value = null;
+        adminState.value = state;
+        adminCheckedAt.value = Date.now();
+    };
 
-  const markMissing = (): void => {
-    clearAdminPrincipal('missing')
-  }
+    const markMissing = (): void =>
+    {
+        clearAdminPrincipal('missing');
+    };
 
-  const invalidateMissingCache = (): void => {
-    if (adminState.value === 'missing') {
-      adminPrincipal.value = null
-      adminState.value = 'unknown'
-      adminCheckedAt.value = 0
-    }
-  }
+    const invalidateMissingCache = (): void =>
+    {
+        if (adminState.value === 'missing')
+        {
+            adminPrincipal.value = null;
+            adminState.value = 'unknown';
+            adminCheckedAt.value = 0;
+        }
+    };
 
-  const setAnonymousCommentPolicy = (snapshot: Partial<AnonymousCommentPolicySnapshot>): void => {
-    anonymousCommentPolicy.value = {
-      ...anonymousCommentPolicy.value,
-      ...snapshot
-    }
-  }
+    const setAnonymousCommentPolicy = (snapshot: Partial<AnonymousCommentPolicySnapshot>): void =>
+    {
+        anonymousCommentPolicy.value = {
+            ...anonymousCommentPolicy.value,
+            ...snapshot
+        };
+    };
 
-  const ensureAdminSessionFresh = async (options?: EnsureAdminSessionFreshOptions | unknown): Promise<void> => {
-    const force = Boolean(
-      options
+    const ensureAdminSessionFresh = async (options?: EnsureAdminSessionFreshOptions | unknown): Promise<void> =>
+    {
+        const force = Boolean(
+            options
       && typeof options === 'object'
       && 'force' in options
       && (options as EnsureAdminSessionFreshOptions).force
-    )
-    const now = Date.now()
+        );
+        const now = Date.now();
 
-    if (!force) {
-      if (adminState.value === 'missing' && now - adminCheckedAt.value < ADMIN_NEGATIVE_CACHE_MS) {
-        return
-      }
+        if (!force)
+        {
+            if (adminState.value === 'missing' && now - adminCheckedAt.value < ADMIN_NEGATIVE_CACHE_MS)
+            {
+                return;
+            }
 
-      if (adminState.value === 'active' && now - adminCheckedAt.value < ADMIN_ACTIVE_TTL_MS) {
-        return
-      }
-    }
-
-    // A missing result is only a current-page negative cache. Revalidation
-    // consumes it before the request so a transport failure remains unknown.
-    invalidateMissingCache()
-
-    if (adminSessionRequest) {
-      return adminSessionRequest
-    }
-
-    const controller = new AbortController()
-    const generation = adminSessionGeneration
-    adminSessionController = controller
-    adminSessionRequest = (async () => {
-      try {
-        const snapshot = await getAdminMe({ signal: controller.signal })
-        if (generation === adminSessionGeneration && adminSessionController === controller) {
-          setAdminPrincipal(snapshot)
-        }
-      } catch (error: unknown) {
-        if (isAbortError(error) || controller.signal.aborted || generation !== adminSessionGeneration) {
-          return
+            if (adminState.value === 'active' && now - adminCheckedAt.value < ADMIN_ACTIVE_TTL_MS)
+            {
+                return;
+            }
         }
 
-        if (isAuthFailureError(error)) {
-          clearAdminPrincipal('missing')
-          return
+        // A missing result is only a current-page negative cache. Revalidation
+        // consumes it before the request so a transport failure remains unknown.
+        invalidateMissingCache();
+
+        if (adminSessionRequest)
+        {
+            return adminSessionRequest;
         }
 
-        console.warn('[AdminStore] Admin session refresh failed.')
-      } finally {
-        if (adminSessionController === controller) {
-          adminSessionController = null
-          adminSessionRequest = null
+        const controller = new AbortController();
+        const generation = adminSessionGeneration;
+        adminSessionController = controller;
+        adminSessionRequest = (async () =>
+        {
+            try
+            {
+                const snapshot = await getAdminMe({ signal: controller.signal });
+                if (generation === adminSessionGeneration && adminSessionController === controller)
+                {
+                    setAdminPrincipal(snapshot);
+                }
+            }
+            catch (error: unknown)
+            {
+                if (isAbortError(error) || controller.signal.aborted || generation !== adminSessionGeneration)
+                {
+                    return;
+                }
+
+                if (isAuthFailureError(error))
+                {
+                    clearAdminPrincipal('missing');
+                    return;
+                }
+
+                console.warn('[AdminStore] Admin session refresh failed.');
+            }
+            finally
+            {
+                if (adminSessionController === controller)
+                {
+                    adminSessionController = null;
+                    adminSessionRequest = null;
+                }
+            }
+        })();
+
+        return adminSessionRequest;
+    };
+
+    const cancelAdminSessionRequest = (): void =>
+    {
+        adminSessionGeneration += 1;
+        adminSessionController?.abort();
+        adminSessionController = null;
+        adminSessionRequest = null;
+    };
+
+    const setLogoutBroadcast = (callback: (() => void) | null): void =>
+    {
+        logoutBroadcast = callback;
+    };
+
+    const logout = async (): Promise<AdminLogoutOutcome> =>
+    {
+        if (lastLogoutOutcome.value?.serverRevocationConfirmed && lastLogoutOutcome.value.localCleanupComplete)
+        {
+            return lastLogoutOutcome.value;
         }
-      }
-    })()
 
-    return adminSessionRequest
-  }
-
-  const cancelAdminSessionRequest = (): void => {
-    adminSessionGeneration += 1
-    adminSessionController?.abort()
-    adminSessionController = null
-    adminSessionRequest = null
-  }
-
-  const setLogoutBroadcast = (callback: (() => void) | null): void => {
-    logoutBroadcast = callback
-  }
-
-  const logout = async (): Promise<AdminLogoutOutcome> => {
-    if (lastLogoutOutcome.value?.serverRevocationConfirmed && lastLogoutOutcome.value.localCleanupComplete) {
-      return lastLogoutOutcome.value
-    }
-
-    if (logoutRequest) {
-      return logoutRequest
-    }
-
-    logoutRequest = (async () => {
-      const previousOutcome = lastLogoutOutcome.value
-      let status: AdminLogoutStatus = previousOutcome?.serverRevocationConfirmed
-        ? previousOutcome.status
-        : 'revoked'
-      let serverRevocationConfirmed = previousOutcome?.serverRevocationConfirmed === true
-      let serverRevocationFailed = false
-
-      if (!serverRevocationConfirmed) {
-        try {
-          await logoutAdmin()
-          serverRevocationConfirmed = true
-        } catch (error: unknown) {
-          if (isAuthFailureError(error)) {
-            status = 'already_inactive'
-            serverRevocationConfirmed = true
-          } else {
-            status = 'local_only'
-            serverRevocationFailed = true
-          }
+        if (logoutRequest)
+        {
+            return logoutRequest;
         }
-      }
 
-      let localCleanupComplete = true
-      try {
-        await privateSurfaceRuntime.invalidate('admin-logout', async () => {
-          cancelAdminSessionRequest()
-          clearLocalFixtureAdminSession()
-          clearAdminPrincipal()
-          await clearPrivateBrowserState('admin-logout')
-        })
-      } catch {
-        localCleanupComplete = false
-      }
+        logoutRequest = (async () =>
+        {
+            const previousOutcome = lastLogoutOutcome.value;
+            let status: AdminLogoutStatus = previousOutcome?.serverRevocationConfirmed
+                ? previousOutcome.status
+                : 'revoked';
+            let serverRevocationConfirmed = previousOutcome?.serverRevocationConfirmed === true;
+            let serverRevocationFailed = false;
 
-      try {
-        logoutBroadcast?.()
-      } catch {
-        localCleanupComplete = false
-      }
+            if (!serverRevocationConfirmed)
+            {
+                try
+                {
+                    await logoutAdmin();
+                    serverRevocationConfirmed = true;
+                }
+                catch (error: unknown)
+                {
+                    if (isAuthFailureError(error))
+                    {
+                        status = 'already_inactive';
+                        serverRevocationConfirmed = true;
+                    }
+                    else
+                    {
+                        status = 'local_only';
+                        serverRevocationFailed = true;
+                    }
+                }
+            }
 
-      const outcome: AdminLogoutOutcome = Object.freeze({
-        status,
-        serverRevocationConfirmed,
-        localCleanupComplete
-      })
-      lastLogoutOutcome.value = outcome
+            let localCleanupComplete = true;
+            try
+            {
+                await privateSurfaceRuntime.invalidate('admin-logout', async () =>
+                {
+                    cancelAdminSessionRequest();
+                    clearLocalFixtureAdminSession();
+                    clearAdminPrincipal();
+                    await clearPrivateBrowserState('admin-logout');
+                });
+            }
+            catch
+            {
+                localCleanupComplete = false;
+            }
 
-      if (serverRevocationFailed) {
-        throw new AdminLogoutUnconfirmedError(outcome)
-      }
+            try
+            {
+                logoutBroadcast?.();
+            }
+            catch
+            {
+                localCleanupComplete = false;
+            }
 
-      if (!localCleanupComplete) {
-        throw new AdminLogoutCleanupError(outcome)
-      }
+            const outcome: AdminLogoutOutcome = Object.freeze({
+                status,
+                serverRevocationConfirmed,
+                localCleanupComplete
+            });
+            lastLogoutOutcome.value = outcome;
 
-      return outcome
-    })()
+            if (serverRevocationFailed)
+            {
+                throw new AdminLogoutUnconfirmedError(outcome);
+            }
 
-    try {
-      return await logoutRequest
-    } finally {
-      logoutRequest = null
-    }
-  }
+            if (!localCleanupComplete)
+            {
+                throw new AdminLogoutCleanupError(outcome);
+            }
 
-  return {
-    adminPrincipal,
-    adminState,
-    adminCheckedAt,
-    lastLogoutOutcome,
-    anonymousCommentPolicy,
-    adminSessionStatus,
-    permissions,
-    canManage,
-    anonymousCommentsEnabled,
-    publicSendOptionEnabled,
-    zkAnonymousEnabled,
-    anonymousCommentGovernanceAvailable,
-    zkAnonymousConfigurable,
-    commentMaxChars,
-    commentMaxUtf8Bytes,
-    publicOnlyMode,
-    totpStepUpRequired,
-    hasPermission,
-    setAdminPrincipal,
-    clearAdminPrincipal,
-    markMissing,
-    invalidateMissingCache,
-    ensureAdminSessionFresh,
-    cancelAdminSessionRequest,
-    setAnonymousCommentPolicy,
-    setLogoutBroadcast,
-    logout
-  }
-})
+            return outcome;
+        })();
+
+        try
+        {
+            return await logoutRequest;
+        }
+        finally
+        {
+            logoutRequest = null;
+        }
+    };
+
+    return {
+        adminPrincipal,
+        adminState,
+        adminCheckedAt,
+        lastLogoutOutcome,
+        anonymousCommentPolicy,
+        adminSessionStatus,
+        permissions,
+        canManage,
+        anonymousCommentsEnabled,
+        publicSendOptionEnabled,
+        zkAnonymousEnabled,
+        anonymousCommentGovernanceAvailable,
+        zkAnonymousConfigurable,
+        commentMaxChars,
+        commentMaxUtf8Bytes,
+        publicOnlyMode,
+        totpStepUpRequired,
+        hasPermission,
+        setAdminPrincipal,
+        clearAdminPrincipal,
+        markMissing,
+        invalidateMissingCache,
+        ensureAdminSessionFresh,
+        cancelAdminSessionRequest,
+        setAnonymousCommentPolicy,
+        setLogoutBroadcast,
+        logout
+    };
+});

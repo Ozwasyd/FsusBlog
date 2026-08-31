@@ -338,7 +338,7 @@ function createHttpSecurityFixturePorts(context)
             signal
         });
         const text = await response.text();
-        let payload = null;
+        let payload;
         try
         {
             payload = text ? JSON.parse(text) : null;
@@ -770,7 +770,11 @@ export async function prepareSecurityFixtures(context, signal)
         }
         if (cleanupErrors.length)
         {
-            throw new AggregateError([error], `security prepare failed and recovery cleanup failed: ${cleanupErrors.join('; ')}`);
+            throw new AggregateError(
+                [error],
+                `security prepare failed and recovery cleanup failed: ${cleanupErrors.join('; ')}`,
+                { cause: error }
+            );
         }
         throw error;
     }

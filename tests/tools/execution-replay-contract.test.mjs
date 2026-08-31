@@ -3,6 +3,11 @@ import fs from 'node:fs';
 import test from 'node:test';
 
 import {
+    scanEntropyGovernanceSource,
+    validateTestEntropyGovernance,
+    verifyRepositoryTestEntropyGovernance
+} from '../../tools/test/check-test-entropy-governance.mjs';
+import {
     REPLAY_PLAN_SCHEMA,
     REPLAY_RECEIPT_SCHEMA,
     canonicalDigest,
@@ -21,11 +26,6 @@ import {
     validateReplayPlan,
     validateReplayReceipt
 } from '../../tools/test/execution-replay-contract.mjs';
-import {
-    scanEntropyGovernanceSource,
-    validateTestEntropyGovernance,
-    verifyRepositoryTestEntropyGovernance
-} from '../../tools/test/check-test-entropy-governance.mjs';
 
 const zeroDigest = `sha256:${'0'.repeat(64)}`;
 const oneDigest = `sha256:${'1'.repeat(64)}`;

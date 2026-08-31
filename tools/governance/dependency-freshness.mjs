@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
-import fs from 'node:fs'
-import path from 'node:path'
+import fs from 'node:fs';
+import path from 'node:path';
 
-export const exceptionsSchema = 'fsusblog.dependency-exceptions.v1'
-export const resultSchema = 'fsusblog.dependency-freshness-result.v1'
-export const generalMaxMs = 14 * 24 * 60 * 60 * 1000
-export const vulnerabilityMaxMs = 72 * 60 * 60 * 1000
-export const behindSlaMs = 24 * 60 * 60 * 1000
+export const exceptionsSchema = 'fsusblog.dependency-exceptions.v1';
+export const resultSchema = 'fsusblog.dependency-freshness-result.v1';
+export const generalMaxMs = 14 * 24 * 60 * 60 * 1000;
+export const vulnerabilityMaxMs = 72 * 60 * 60 * 1000;
+export const behindSlaMs = 24 * 60 * 60 * 1000;
 const forbiddenReasons = [
     '可能不兼容',
     '测试很慢',
@@ -16,7 +16,7 @@ const forbiddenReasons = [
     'tests are slow',
     "don't want to upgrade",
     'do not want to upgrade'
-]
+];
 const requiredExceptionFields = [
     'id',
     'dependencyId',
@@ -29,330 +29,533 @@ const requiredExceptionFields = [
     'createdAt',
     'expiresAt',
     'kind'
-]
-const wildcardPattern = /[*?]|^\.\*$/u
+];
+const wildcardPattern = /[*?]|^\.\*$/u;
 
-export function clone(value) {
-    return JSON.parse(JSON.stringify(value))
+export function clone(value)
+{
+    return JSON.parse(JSON.stringify(value));
 }
 
-export function parseInstant(value, label, errors) {
-    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/u.test(value)) {
-        errors.push({ code: 'exception-timestamp', detail: label })
-        return Number.NaN
+export function parseInstant(value, label, errors)
+{
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/u.test(value))
+    {
+        errors.push({ code: 'exception-timestamp', detail: label });
+        return Number.NaN;
     }
-    const parsed = Date.parse(value)
-    if (Number.isNaN(parsed)) errors.push({ code: 'exception-timestamp', detail: label })
-    return parsed
-}
-
-function compareVersion(left, right) {
-    return String(left ?? '').replace(/^[~^]/u, '') === String(right ?? '').replace(/^[~^]/u, '')
-}
-
-function decodePointer(pointer) {
-    return pointer.split('/').slice(1).map(token => token.replaceAll('~1', '/').replaceAll('~0', '~'))
-}
-
-function readPointer(document, pointer) {
-    let current = document
-    for (const token of decodePointer(pointer)) {
-        if (current == null || typeof current !== 'object') return undefined
-        current = current[token]
+    const parsed = Date.parse(value);
+    if (Number.isNaN(parsed))
+    {
+        errors.push({ code: 'exception-timestamp', detail: label });
     }
-    return current
+    return parsed;
 }
 
-function sourceFiles(item) {
-    return (item.files ?? []).filter(file => !/(?:package-lock\.json|packages\.lock\.json)$/u.test(file))
+function compareVersion(left, right)
+{
+    return String(left ?? '').replace(/^[~^]/u, '') === String(right ?? '').replace(/^[~^]/u, '');
 }
 
-function escapeRegExp(value) {
-    return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')
+function decodePointer(pointer)
+{
+    return pointer.split('/').slice(1).map(token => token.replaceAll('~1', '/').replaceAll('~0', '~'));
 }
 
-function configPattern(value) {
-    const lastSlash = value.lastIndexOf('/')
-    return new RegExp(value.slice(1, lastSlash), value.slice(lastSlash + 1))
-}
-
-function extractNpm(root, item) {
-    const file = sourceFiles(item).find(candidate => candidate.endsWith('package.json'))
-    if (!file || !item.fieldPaths?.length) return undefined
-    const manifest = JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'))
-    const raw = readPointer(manifest, item.fieldPaths[0])
-    if (typeof raw !== 'string') return undefined
-    if (item.fieldPaths[0] === '/packageManager') return raw.replace(/^npm@/u, '')
-    return raw
-}
-
-function extractNuget(root, item) {
-    const file = sourceFiles(item)[0]
-    if (file === 'Directory.Packages.props') {
-        const source = fs.readFileSync(path.join(root, file), 'utf8')
-        const match = source.match(new RegExp(`<PackageVersion Include="${escapeRegExp(item.packageName)}" Version="([^"]+)"`, 'u'))
-        return match?.[1]
+function readPointer(document, pointer)
+{
+    let current = document;
+    for (const token of decodePointer(pointer))
+    {
+        if (current == null || typeof current !== 'object')
+        {
+            return undefined;
+        }
+        current = current[token];
     }
-    if (file === '.config/dotnet-tools.json') {
-        const tools = JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'))
-        return tools.tools?.[item.packageName]?.version
-    }
-    return undefined
+    return current;
 }
 
-function extractAction(root, item) {
-    for (const file of sourceFiles(item)) {
-        const source = fs.readFileSync(path.join(root, file), 'utf8')
-        const match = source.match(new RegExp(`uses:\\s*${escapeRegExp(item.packageName)}(?:/[A-Za-z0-9_.-]+)?@([^\\s#]+)(?:\\s+#\\s*(\\S+))?`, 'u'))
-        if (match) return match[2] ?? match[1]
-    }
-    return undefined
+function sourceFiles(item)
+{
+    return (item.files ?? []).filter(file => !/(?:package-lock\.json|packages\.lock\.json)$/u.test(file));
 }
 
-function extractDocker(root, item) {
-    const file = sourceFiles(item)[0]
-    const source = fs.readFileSync(path.join(root, file), 'utf8')
-    if (item.manager === 'docker-compose') {
-        const match = source.match(new RegExp(`image:\\s*["']?${escapeRegExp(item.packageName)}:([^\\s@"']+)`, 'mu'))
-        return match?.[1]
+function escapeRegExp(value)
+{
+    return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+}
+
+function configPattern(value)
+{
+    const lastSlash = value.lastIndexOf('/');
+    return new RegExp(value.slice(1, lastSlash), value.slice(lastSlash + 1));
+}
+
+function extractNpm(root, item)
+{
+    const file = sourceFiles(item).find(candidate => candidate.endsWith('package.json'));
+    if (!file || !item.fieldPaths?.length)
+    {
+        return undefined;
     }
-    if (item.packageName === 'docker/dockerfile') {
-        const match = source.match(/^#\s*syntax=docker\/dockerfile:(\S+)/mu)
-        return match?.[1]
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'));
+    const raw = readPointer(manifest, item.fieldPaths[0]);
+    if (typeof raw !== 'string')
+    {
+        return undefined;
+    }
+    if (item.fieldPaths[0] === '/packageManager')
+    {
+        return raw.replace(/^npm@/u, '');
+    }
+    return raw;
+}
+
+function extractNuget(root, item)
+{
+    const file = sourceFiles(item)[0];
+    if (file === 'Directory.Packages.props')
+    {
+        const source = fs.readFileSync(path.join(root, file), 'utf8');
+        const match = source.match(new RegExp(`<PackageVersion Include="${escapeRegExp(item.packageName)}" Version="([^"]+)"`, 'u'));
+        return match?.[1];
+    }
+    if (file === '.config/dotnet-tools.json')
+    {
+        const tools = JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'));
+        return tools.tools?.[item.packageName]?.version;
+    }
+    return undefined;
+}
+
+function extractAction(root, item)
+{
+    for (const file of sourceFiles(item))
+    {
+        const source = fs.readFileSync(path.join(root, file), 'utf8');
+        const match = source.match(new RegExp(`uses:\\s*${escapeRegExp(item.packageName)}(?:/[A-Za-z0-9_.-]+)?@([^\\s#]+)(?:\\s+#\\s*(\\S+))?`, 'u'));
+        if (match)
+        {
+            return match[2] ?? match[1];
+        }
+    }
+    return undefined;
+}
+
+function extractDocker(root, item)
+{
+    const file = sourceFiles(item)[0];
+    const source = fs.readFileSync(path.join(root, file), 'utf8');
+    if (item.manager === 'docker-compose')
+    {
+        const match = source.match(new RegExp(`image:\\s*["']?${escapeRegExp(item.packageName)}:([^\\s@"']+)`, 'mu'));
+        return match?.[1];
+    }
+    if (item.packageName === 'docker/dockerfile')
+    {
+        const match = source.match(/^#\s*syntax=docker\/dockerfile:(\S+)/mu);
+        return match?.[1];
     }
     const argNames = {
         node: ['NODE_VERSION'],
         'mcr.microsoft.com/dotnet/sdk': ['DOTNET_SDK_VERSION'],
         'mcr.microsoft.com/dotnet/aspnet': ['DOTNET_RUNTIME_VERSION']
+    };
+    for (const argument of argNames[item.packageName] ?? [])
+    {
+        const match = source.match(new RegExp(`^ARG ${argument}=(\\S+)`, 'mu'));
+        if (match)
+        {
+            return match[1];
+        }
     }
-    for (const argument of argNames[item.packageName] ?? []) {
-        const match = source.match(new RegExp(`^ARG ${argument}=(\\S+)`, 'mu'))
-        if (match) return match[1]
+    const literal = source.match(new RegExp(`^FROM\\s+${escapeRegExp(item.packageName)}:(?!\\$\\{)([^@\\s]+)`, 'mu'));
+    if (literal)
+    {
+        return literal[1];
     }
-    const literal = source.match(new RegExp(`^FROM\\s+${escapeRegExp(item.packageName)}:(?!\\$\\{)([^@\\s]+)`, 'mu'))
-    if (literal) return literal[1]
-    return undefined
+    return undefined;
 }
 
-function extractCustom(root, item, config) {
-    const manager = (config.customManagers ?? []).find(candidate => candidate.description === item.customManager)
-    if (!manager) return undefined
-    for (const file of sourceFiles(item)) {
-        if (!manager.managerFilePatterns?.some(pattern => configPattern(pattern).test(file))) continue
-        const source = fs.readFileSync(path.join(root, file), 'utf8')
-        for (const matchString of manager.matchStrings ?? []) {
-            const pattern = new RegExp(matchString.replaceAll('\\"', '"'), 'dgu')
-            for (const match of source.matchAll(pattern)) {
-                const packageName = manager.packageNameTemplate ?? manager.depNameTemplate ?? match.groups?.depName
-                if (packageName !== item.packageName && match.groups?.depName !== item.packageName) continue
-                const value = match.groups?.currentValue ?? match.groups?.currentDigest
-                if (value) return value
+function extractCustom(root, item, config)
+{
+    const manager = (config.customManagers ?? []).find(candidate => candidate.description === item.customManager);
+    if (!manager)
+    {
+        return undefined;
+    }
+    for (const file of sourceFiles(item))
+    {
+        if (!manager.managerFilePatterns?.some(pattern => configPattern(pattern).test(file)))
+        {
+            continue;
+        }
+        const source = fs.readFileSync(path.join(root, file), 'utf8');
+        for (const matchString of manager.matchStrings ?? [])
+        {
+            const pattern = new RegExp(matchString.replaceAll('\\"', '"'), 'dgu');
+            for (const match of source.matchAll(pattern))
+            {
+                const packageName = manager.packageNameTemplate ?? manager.depNameTemplate ?? match.groups?.depName;
+                if (packageName !== item.packageName && match.groups?.depName !== item.packageName)
+                {
+                    continue;
+                }
+                const value = match.groups?.currentValue ?? match.groups?.currentDigest;
+                if (value)
+                {
+                    return value;
+                }
             }
         }
     }
-    return undefined
+    return undefined;
 }
 
-function extractDelegated(root, item) {
-    const file = sourceFiles(item)[0]
-    const baseline = JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'))
-    if (item.packageName === 'https://github.com/Ozwasyd/FsusUI.git') return baseline.commit
-    return undefined
+function extractDelegated(root, item)
+{
+    const file = sourceFiles(item)[0];
+    const baseline = JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'));
+    if (item.packageName === 'https://github.com/Ozwasyd/FsusUI.git')
+    {
+        return baseline.commit;
+    }
+    return undefined;
 }
 
-export function extractCurrentVersion(root, item, config) {
-    if (item.manager === 'npm') return extractNpm(root, item)
-    if (item.manager === 'nuget') return extractNuget(root, item)
-    if (item.manager === 'github-actions') return extractAction(root, item)
-    if (item.manager === 'dockerfile' || item.manager === 'docker-compose') return extractDocker(root, item)
-    if (item.manager === 'custom.regex') return extractCustom(root, item, config)
-    if (item.manager === 'delegated') return extractDelegated(root, item)
-    return undefined
+export function extractCurrentVersion(root, item, config)
+{
+    if (item.manager === 'npm')
+    {
+        return extractNpm(root, item);
+    }
+    if (item.manager === 'nuget')
+    {
+        return extractNuget(root, item);
+    }
+    if (item.manager === 'github-actions')
+    {
+        return extractAction(root, item);
+    }
+    if (item.manager === 'dockerfile' || item.manager === 'docker-compose')
+    {
+        return extractDocker(root, item);
+    }
+    if (item.manager === 'custom.regex')
+    {
+        return extractCustom(root, item, config);
+    }
+    if (item.manager === 'delegated')
+    {
+        return extractDelegated(root, item);
+    }
+    return undefined;
 }
 
-export function extractCurrentVersions(root, catalog, config, errors = []) {
-    const versions = {}
-    for (const item of catalog.items ?? []) {
-        try {
-            const currentVersion = extractCurrentVersion(root, item, config)
-            if (!currentVersion) {
-                errors.push({ code: 'extract-current-version', detail: item.id })
-                continue
+export function extractCurrentVersions(root, catalog, config, errors = [])
+{
+    const versions = {};
+    for (const item of catalog.items ?? [])
+    {
+        try
+        {
+            const currentVersion = extractCurrentVersion(root, item, config);
+            if (!currentVersion)
+            {
+                errors.push({ code: 'extract-current-version', detail: item.id });
+                continue;
             }
             versions[item.id] = {
                 currentVersion,
                 datasource: item.datasource,
                 packageName: item.packageName
-            }
-        } catch (error) {
-            errors.push({ code: 'extract-current-version', detail: `${item.id}:${error instanceof Error ? error.message : String(error)}` })
+            };
+        }
+        catch (error)
+        {
+            errors.push({ code: 'extract-current-version', detail: `${item.id}:${error instanceof Error ? error.message : String(error)}` });
         }
     }
-    return versions
+    return versions;
 }
 
-export function currentSimulation(currentVersions, now) {
-    const instant = now instanceof Date ? now.getTime() : now
-    const registries = { byId: {} }
-    for (const [id, snapshot] of Object.entries(currentVersions)) {
+export function currentSimulation(currentVersions, now)
+{
+    const instant = now instanceof Date ? now.getTime() : now;
+    const registries = { byId: {} };
+    for (const [id, snapshot] of Object.entries(currentVersions))
+    {
         const latest = {
             latestStable: snapshot.currentVersion.replace(/^[~^]/u, ''),
             releasedAt: new Date(instant - 60 * 60 * 1000).toISOString()
-        }
-        registries.byId[id] = latest
-        const datasource = snapshot.datasource
-        registries[datasource] ??= {}
-        registries[datasource][snapshot.packageName] ??= latest
+        };
+        registries.byId[id] = latest;
+        const datasource = snapshot.datasource;
+        registries[datasource] ??= {};
+        registries[datasource][snapshot.packageName] ??= latest;
     }
-    return { registries, pullRequests: [] }
+    return { registries, pullRequests: [] };
 }
 
-export function validateExceptions(document, catalog, now, root) {
-    const errors = []
-    if (document?.schema !== exceptionsSchema) errors.push({ code: 'exception-schema', detail: document?.schema ?? '-' })
-    if (!Array.isArray(document?.exceptions)) {
-        errors.push({ code: 'exception-schema', detail: 'exceptions' })
-        return errors
+export function validateExceptions(document, catalog, now, root)
+{
+    const errors = [];
+    if (document?.schema !== exceptionsSchema)
+    {
+        errors.push({ code: 'exception-schema', detail: document?.schema ?? '-' });
     }
-    const catalogById = new Map((catalog.items ?? []).map(item => [item.id, item]))
-    const ids = new Set()
-    for (const record of document.exceptions) {
-        const label = record?.id ?? JSON.stringify(record)
-        if (ids.has(record?.id)) errors.push({ code: 'exception-duplicate-id', detail: label })
-        ids.add(record?.id)
-        for (const field of requiredExceptionFields) {
-            if (record?.[field] === undefined || record?.[field] === '') errors.push({ code: 'exception-field', detail: `${label}:${field}` })
-        }
-        if (record?.group !== undefined || record?.manager !== undefined) errors.push({ code: 'exception-wildcard', detail: `${label}:group-or-manager` })
-        if (wildcardPattern.test(record?.dependencyId ?? '') || wildcardPattern.test(record?.packageName ?? '') || record?.dependencyId === 'all') {
-            errors.push({ code: 'exception-wildcard', detail: label })
-        }
-        if (!['general', 'vulnerability'].includes(record?.kind)) errors.push({ code: 'exception-kind', detail: label })
-        const item = catalogById.get(record?.dependencyId)
-        if (!item) errors.push({ code: 'exception-unknown-dependency', detail: label })
-        else if (item.packageName !== record.packageName || item.datasource !== record.datasource) {
-            errors.push({ code: 'exception-identity', detail: label })
-        }
-        const reason = String(record?.reason ?? '')
-        if (forbiddenReasons.some(sample => reason.includes(sample))) errors.push({ code: 'exception-reason', detail: label })
-        if (!record?.evidenceUrl && !record?.evidencePath) errors.push({ code: 'exception-evidence', detail: label })
-        if (record?.evidenceUrl && !/^https:\/\/\S+$/u.test(record.evidenceUrl)) errors.push({ code: 'exception-evidence', detail: `${label}:url` })
-        if (record?.evidencePath) {
-            if (record.evidencePath.startsWith('/') || record.evidencePath.includes('..')) errors.push({ code: 'exception-evidence', detail: `${label}:path` })
-            else if (root && !fs.existsSync(path.join(root, record.evidencePath))) errors.push({ code: 'exception-evidence', detail: `${label}:missing-path` })
-        }
-        const createdAt = parseInstant(record?.createdAt, `${label}:createdAt`, errors)
-        const expiresAt = parseInstant(record?.expiresAt, `${label}:expiresAt`, errors)
-        if (!Number.isNaN(createdAt) && !Number.isNaN(expiresAt)) {
-            if (expiresAt <= createdAt) errors.push({ code: 'exception-ttl', detail: `${label}:order` })
-            const maxMs = record?.kind === 'vulnerability' ? vulnerabilityMaxMs : generalMaxMs
-            if (expiresAt - createdAt > maxMs) errors.push({ code: 'exception-ttl', detail: `${label}:${record.kind}` })
-        }
-        if (record?.targetVersion === undefined || record?.targetVersion === '') errors.push({ code: 'exception-target-missing', detail: label })
+    if (!Array.isArray(document?.exceptions))
+    {
+        errors.push({ code: 'exception-schema', detail: 'exceptions' });
+        return errors;
     }
-    return errors
+    const catalogById = new Map((catalog.items ?? []).map(item => [item.id, item]));
+    const ids = new Set();
+    for (const record of document.exceptions)
+    {
+        const label = record?.id ?? JSON.stringify(record);
+        if (ids.has(record?.id))
+        {
+            errors.push({ code: 'exception-duplicate-id', detail: label });
+        }
+        ids.add(record?.id);
+        for (const field of requiredExceptionFields)
+        {
+            if (record?.[field] === undefined || record?.[field] === '')
+            {
+                errors.push({ code: 'exception-field', detail: `${label}:${field}` });
+            }
+        }
+        if (record?.group !== undefined || record?.manager !== undefined)
+        {
+            errors.push({ code: 'exception-wildcard', detail: `${label}:group-or-manager` });
+        }
+        if (wildcardPattern.test(record?.dependencyId ?? '') || wildcardPattern.test(record?.packageName ?? '') || record?.dependencyId === 'all')
+        {
+            errors.push({ code: 'exception-wildcard', detail: label });
+        }
+        if (!['general', 'vulnerability'].includes(record?.kind))
+        {
+            errors.push({ code: 'exception-kind', detail: label });
+        }
+        const item = catalogById.get(record?.dependencyId);
+        if (!item)
+        {
+            errors.push({ code: 'exception-unknown-dependency', detail: label });
+        }
+        else if (item.packageName !== record.packageName || item.datasource !== record.datasource)
+        {
+            errors.push({ code: 'exception-identity', detail: label });
+        }
+        const reason = String(record?.reason ?? '');
+        if (forbiddenReasons.some(sample => reason.includes(sample)))
+        {
+            errors.push({ code: 'exception-reason', detail: label });
+        }
+        if (!record?.evidenceUrl && !record?.evidencePath)
+        {
+            errors.push({ code: 'exception-evidence', detail: label });
+        }
+        if (record?.evidenceUrl && !/^https:\/\/\S+$/u.test(record.evidenceUrl))
+        {
+            errors.push({ code: 'exception-evidence', detail: `${label}:url` });
+        }
+        if (record?.evidencePath)
+        {
+            if (record.evidencePath.startsWith('/') || record.evidencePath.includes('..'))
+            {
+                errors.push({ code: 'exception-evidence', detail: `${label}:path` });
+            }
+            else if (root && !fs.existsSync(path.join(root, record.evidencePath)))
+            {
+                errors.push({ code: 'exception-evidence', detail: `${label}:missing-path` });
+            }
+        }
+        const createdAt = parseInstant(record?.createdAt, `${label}:createdAt`, errors);
+        const expiresAt = parseInstant(record?.expiresAt, `${label}:expiresAt`, errors);
+        if (!Number.isNaN(createdAt) && !Number.isNaN(expiresAt))
+        {
+            if (expiresAt <= createdAt)
+            {
+                errors.push({ code: 'exception-ttl', detail: `${label}:order` });
+            }
+            const maxMs = record?.kind === 'vulnerability' ? vulnerabilityMaxMs : generalMaxMs;
+            if (expiresAt - createdAt > maxMs)
+            {
+                errors.push({ code: 'exception-ttl', detail: `${label}:${record.kind}` });
+            }
+        }
+        if (record?.targetVersion === undefined || record?.targetVersion === '')
+        {
+            errors.push({ code: 'exception-target-missing', detail: label });
+        }
+    }
+    return errors;
 }
 
-function coveringExceptions(records, item, latest, now) {
-    return records.filter(record => {
-        if (record.dependencyId !== item.id || record.datasource !== item.datasource || record.packageName !== item.packageName) return false
-        if (record.group !== undefined || record.manager !== undefined) return false
-        if (wildcardPattern.test(record.dependencyId ?? '') || wildcardPattern.test(record.packageName ?? '')) return false
-        if (record.targetVersion !== latest) return false
-        const createdAt = Date.parse(record.createdAt)
-        const expiresAt = Date.parse(record.expiresAt)
-        if (Number.isNaN(createdAt) || Number.isNaN(expiresAt) || createdAt > now || expiresAt <= now) return false
-        const maxMs = record.kind === 'vulnerability' ? vulnerabilityMaxMs : generalMaxMs
-        return expiresAt - createdAt <= maxMs && expiresAt > createdAt
-    })
+function coveringExceptions(records, item, latest, now)
+{
+    return records.filter(record =>
+    {
+        if (record.dependencyId !== item.id || record.datasource !== item.datasource || record.packageName !== item.packageName)
+        {
+            return false;
+        }
+        if (record.group !== undefined || record.manager !== undefined)
+        {
+            return false;
+        }
+        if (wildcardPattern.test(record.dependencyId ?? '') || wildcardPattern.test(record.packageName ?? ''))
+        {
+            return false;
+        }
+        if (record.targetVersion !== latest)
+        {
+            return false;
+        }
+        const createdAt = Date.parse(record.createdAt);
+        const expiresAt = Date.parse(record.expiresAt);
+        if (Number.isNaN(createdAt) || Number.isNaN(expiresAt) || createdAt > now || expiresAt <= now)
+        {
+            return false;
+        }
+        const maxMs = record.kind === 'vulnerability' ? vulnerabilityMaxMs : generalMaxMs;
+        return expiresAt - createdAt <= maxMs && expiresAt > createdAt;
+    });
 }
 
-function coveringPullRequests(pullRequests, item, latest) {
+function coveringPullRequests(pullRequests, item, latest)
+{
     return pullRequests.filter(pullRequest => pullRequest.state === 'open'
         && pullRequest.targetVersion === latest
         && (pullRequest.dependencyId === item.id
-            || (pullRequest.group === item.group && pullRequest.packageName === item.packageName)))
+            || (pullRequest.group === item.group && pullRequest.packageName === item.packageName)));
 }
 
-function closedPullRequests(pullRequests, item) {
+function closedPullRequests(pullRequests, item)
+{
     return pullRequests.filter(pullRequest => pullRequest.state !== 'open'
         && (pullRequest.dependencyId === item.id
-            || (pullRequest.group === item.group && pullRequest.packageName === item.packageName)))
+            || (pullRequest.group === item.group && pullRequest.packageName === item.packageName)));
 }
 
-function updateTypesEnabled(config) {
-    const updateRule = (config.packageRules ?? []).find(rule => Array.isArray(rule.matchUpdateTypes))
-    const required = ['major', 'minor', 'patch', 'digest']
-    return required.filter(updateType => !updateRule?.matchUpdateTypes?.includes(updateType))
+function updateTypesEnabled(config)
+{
+    const updateRule = (config.packageRules ?? []).find(rule => Array.isArray(rule.matchUpdateTypes));
+    const required = ['major', 'minor', 'patch', 'digest'];
+    return required.filter(updateType => !updateRule?.matchUpdateTypes?.includes(updateType));
 }
 
-function managerOwners(catalog) {
-    const owners = new Map()
-    for (const item of catalog.items ?? []) {
-        for (const file of item.files ?? []) {
-            const key = `${item.manager}:${item.packageName}:${file}:${item.fieldPaths?.[0] ?? item.customManager ?? ''}`
-            const list = owners.get(key) ?? []
-            list.push(item.id)
-            owners.set(key, list)
+function managerOwners(catalog)
+{
+    const owners = new Map();
+    for (const item of catalog.items ?? [])
+    {
+        for (const file of item.files ?? [])
+        {
+            const key = `${item.manager}:${item.packageName}:${file}:${item.fieldPaths?.[0] ?? item.customManager ?? ''}`;
+            const list = owners.get(key) ?? [];
+            list.push(item.id);
+            owners.set(key, list);
         }
     }
-    return owners
+    return owners;
 }
 
-export function evaluateFreshness({ catalog, config, exceptions, currentVersions, registries, pullRequests, now, root }) {
-    const errors = []
-    const results = []
-    const instant = typeof now === 'number' ? now : Date.parse(now)
-    if (Number.isNaN(instant)) errors.push({ code: 'freshness-now', detail: String(now) })
-    errors.push(...validateExceptions(exceptions, catalog, instant, root))
-    if (registries == null) errors.push({ code: 'registry-network-error', detail: 'registry snapshot missing' })
-    const missingUpdateTypes = updateTypesEnabled(config ?? {})
-    for (const updateType of missingUpdateTypes) errors.push({ code: 'config-update-type', detail: updateType })
-    if (config?.automerge === true) errors.push({ code: 'config-automerge', detail: 'automerge' })
-    const enabledManagers = new Set(config?.enabledManagers ?? ['npm', 'nuget', 'dockerfile', 'docker-compose', 'github-actions', 'custom.regex'])
-    const owners = managerOwners(catalog)
-    for (const [key, ids] of owners) if (ids.length > 1) errors.push({ code: 'manager-duplicate-owner', detail: `${key}:${ids.join(',')}` })
-    const seen = new Set()
-    for (const item of catalog.items ?? []) {
-        seen.add(item.id)
-        const snapshot = currentVersions?.[item.id]
-        const currentVersion = snapshot?.currentVersion
-        if (!item.manager) errors.push({ code: 'manager-missing', detail: item.id })
-        else if (item.manager !== 'delegated' && enabledManagers.size > 0 && !enabledManagers.has(item.manager)) {
-            errors.push({ code: 'manager-missing', detail: item.id })
+export function evaluateFreshness({ catalog, config, exceptions, currentVersions, registries, pullRequests, now, root })
+{
+    const errors = [];
+    const results = [];
+    const instant = typeof now === 'number' ? now : Date.parse(now);
+    if (Number.isNaN(instant))
+    {
+        errors.push({ code: 'freshness-now', detail: String(now) });
+    }
+    errors.push(...validateExceptions(exceptions, catalog, instant, root));
+    if (registries == null)
+    {
+        errors.push({ code: 'registry-network-error', detail: 'registry snapshot missing' });
+    }
+    const missingUpdateTypes = updateTypesEnabled(config ?? {});
+    for (const updateType of missingUpdateTypes)
+    {
+        errors.push({ code: 'config-update-type', detail: updateType });
+    }
+    if (config?.automerge === true)
+    {
+        errors.push({ code: 'config-automerge', detail: 'automerge' });
+    }
+    const enabledManagers = new Set(config?.enabledManagers ?? ['npm', 'nuget', 'dockerfile', 'docker-compose', 'github-actions', 'custom.regex']);
+    const owners = managerOwners(catalog);
+    for (const [key, ids] of owners)
+    {
+        if (ids.length > 1)
+        {
+            errors.push({ code: 'manager-duplicate-owner', detail: `${key}:${ids.join(',')}` });
         }
-        else if (item.manager === 'custom.regex' && !(config?.customManagers ?? []).some(manager => manager.description === item.customManager)) {
-            errors.push({ code: 'manager-missing', detail: item.id })
+    }
+    const seen = new Set();
+    for (const item of catalog.items ?? [])
+    {
+        seen.add(item.id);
+        const snapshot = currentVersions?.[item.id];
+        const currentVersion = snapshot?.currentVersion;
+        if (!item.manager)
+        {
+            errors.push({ code: 'manager-missing', detail: item.id });
         }
-        else if (item.manager === 'delegated' && item.customManager !== 'fsusui-release-train') {
-            errors.push({ code: 'manager-missing', detail: item.id })
+        else if (item.manager !== 'delegated' && enabledManagers.size > 0 && !enabledManagers.has(item.manager))
+        {
+            errors.push({ code: 'manager-missing', detail: item.id });
         }
-        if (!currentVersion) {
-            errors.push({ code: 'extract-current-version', detail: item.id })
-            results.push({ dependencyId: item.id, state: 'uncovered', currentVersion: null, latestStable: null, reason: 'extract-current-version' })
-            continue
+        else if (item.manager === 'custom.regex' && !(config?.customManagers ?? []).some(manager => manager.description === item.customManager))
+        {
+            errors.push({ code: 'manager-missing', detail: item.id });
         }
-        const registry = registries?.byId?.[item.id] ?? registries?.[item.datasource]?.[item.packageName]
-        if (!registry) {
-            errors.push({ code: 'registry-network-error', detail: `${item.id}:${item.datasource}:${item.packageName}` })
-            results.push({ dependencyId: item.id, state: 'uncovered', currentVersion, latestStable: null, reason: 'registry-network-error' })
-            continue
+        else if (item.manager === 'delegated' && item.customManager !== 'fsusui-release-train')
+        {
+            errors.push({ code: 'manager-missing', detail: item.id });
         }
-        const latestStable = registry.latestStable
-        const releasedAt = Date.parse(registry.releasedAt)
-        if (!latestStable) {
-            errors.push({ code: 'registry-latest-missing', detail: item.id })
-            results.push({ dependencyId: item.id, state: 'uncovered', currentVersion, latestStable: null, reason: 'registry-latest-missing' })
-            continue
+        if (!currentVersion)
+        {
+            errors.push({ code: 'extract-current-version', detail: item.id });
+            results.push({ dependencyId: item.id, state: 'uncovered', currentVersion: null, latestStable: null, reason: 'extract-current-version' });
+            continue;
         }
-        const matches = []
-        if (compareVersion(currentVersion, latestStable)) matches.push({ state: 'current' })
-        const open = coveringPullRequests(pullRequests ?? [], item, latestStable)
-        if (open.length > 0) matches.push({ state: 'latest-target-pr', prNumber: open[0].number })
-        const active = coveringExceptions(exceptions?.exceptions ?? [], item, latestStable, instant)
-        if (active.length > 0) matches.push({ state: 'exception', exceptionId: active[0].id })
-        const staleExceptions = (exceptions?.exceptions ?? []).filter(record => record.dependencyId === item.id && record.targetVersion && record.targetVersion !== latestStable)
-        if (matches.length === 1) {
+        const registry = registries?.byId?.[item.id] ?? registries?.[item.datasource]?.[item.packageName];
+        if (!registry)
+        {
+            errors.push({ code: 'registry-network-error', detail: `${item.id}:${item.datasource}:${item.packageName}` });
+            results.push({ dependencyId: item.id, state: 'uncovered', currentVersion, latestStable: null, reason: 'registry-network-error' });
+            continue;
+        }
+        const latestStable = registry.latestStable;
+        const releasedAt = Date.parse(registry.releasedAt);
+        if (!latestStable)
+        {
+            errors.push({ code: 'registry-latest-missing', detail: item.id });
+            results.push({ dependencyId: item.id, state: 'uncovered', currentVersion, latestStable: null, reason: 'registry-latest-missing' });
+            continue;
+        }
+        const matches = [];
+        if (compareVersion(currentVersion, latestStable))
+        {
+            matches.push({ state: 'current' });
+        }
+        const open = coveringPullRequests(pullRequests ?? [], item, latestStable);
+        if (open.length > 0)
+        {
+            matches.push({ state: 'latest-target-pr', prNumber: open[0].number });
+        }
+        const active = coveringExceptions(exceptions?.exceptions ?? [], item, latestStable, instant);
+        if (active.length > 0)
+        {
+            matches.push({ state: 'exception', exceptionId: active[0].id });
+        }
+        const staleExceptions = (exceptions?.exceptions ?? []).filter(record => record.dependencyId === item.id && record.targetVersion && record.targetVersion !== latestStable);
+        if (matches.length === 1)
+        {
             results.push({
                 dependencyId: item.id,
                 state: matches[0].state,
@@ -361,21 +564,37 @@ export function evaluateFreshness({ catalog, config, exceptions, currentVersions
                 reason: matches[0].state,
                 prNumber: matches[0].prNumber,
                 exceptionId: matches[0].exceptionId
-            })
-            continue
+            });
+            continue;
         }
-        if (matches.length > 1) {
-            errors.push({ code: 'state-not-exact-one', detail: `${item.id}:${matches.map(match => match.state).join(',')}` })
-            results.push({ dependencyId: item.id, state: 'uncovered', currentVersion, latestStable, reason: 'state-not-exact-one' })
-            continue
+        if (matches.length > 1)
+        {
+            errors.push({ code: 'state-not-exact-one', detail: `${item.id}:${matches.map(match => match.state).join(',')}` });
+            results.push({ dependencyId: item.id, state: 'uncovered', currentVersion, latestStable, reason: 'state-not-exact-one' });
+            continue;
         }
-        const closed = closedPullRequests(pullRequests ?? [], item)
-        if (closed.length > 0) errors.push({ code: 'pr-closed-without-successor', detail: item.id })
-        if (staleExceptions.length > 0) errors.push({ code: 'exception-target-stale', detail: item.id })
-        if (Number.isNaN(releasedAt)) errors.push({ code: 'registry-released-at-missing', detail: item.id })
-        else if (instant - releasedAt > behindSlaMs) errors.push({ code: 'behind-over-24h', detail: item.id })
-        else errors.push({ code: 'uncovered-behind', detail: item.id })
-        results.push({ dependencyId: item.id, state: 'uncovered', currentVersion, latestStable, reason: 'uncovered-behind' })
+        const closed = closedPullRequests(pullRequests ?? [], item);
+        if (closed.length > 0)
+        {
+            errors.push({ code: 'pr-closed-without-successor', detail: item.id });
+        }
+        if (staleExceptions.length > 0)
+        {
+            errors.push({ code: 'exception-target-stale', detail: item.id });
+        }
+        if (Number.isNaN(releasedAt))
+        {
+            errors.push({ code: 'registry-released-at-missing', detail: item.id });
+        }
+        else if (instant - releasedAt > behindSlaMs)
+        {
+            errors.push({ code: 'behind-over-24h', detail: item.id });
+        }
+        else
+        {
+            errors.push({ code: 'uncovered-behind', detail: item.id });
+        }
+        results.push({ dependencyId: item.id, state: 'uncovered', currentVersion, latestStable, reason: 'uncovered-behind' });
     }
     return {
         schema: resultSchema,
@@ -383,5 +602,5 @@ export function evaluateFreshness({ catalog, config, exceptions, currentVersions
         now: new Date(instant).toISOString(),
         results,
         errors
-    }
+    };
 }

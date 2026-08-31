@@ -1,18 +1,23 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+    mkdtempSync,
+    mkdirSync,
+    rmSync,
+    writeFileSync
+} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { buildOracleFacts } from '../../tools/test-quality/oracle-facts.mjs';
 import {
     buildQualityArtifact,
     validateQualityArtifact,
     verifyQualityArtifact
 } from '../../tools/test-quality/artifact.mjs';
+import { buildOracleFacts } from '../../tools/test-quality/oracle-facts.mjs';
 import {
     evaluateQuality,
     loadQualityPolicy,
@@ -368,31 +373,50 @@ test('sealed quality artifact rejects producer, status, case closure, count, fir
         return changed;
     };
     assert.throws(
-        () => validateQualityArtifact(mutate((item) => { item.producer.id = 'private-scanner'; }), { inventory: canonical }),
+        () => validateQualityArtifact(mutate((item) =>
+        {
+            item.producer.id = 'private-scanner';
+        }), { inventory: canonical }),
         /producer identity/u
     );
     assert.throws(
-        () => validateQualityArtifact(mutate((item) => { item.status = 'passed'; }), { inventory: canonical }),
+        () => validateQualityArtifact(mutate((item) =>
+        {
+            item.status = 'passed';
+        }), { inventory: canonical }),
         /status does not match/u
     );
     assert.throws(
-        () => validateQualityArtifact(mutate((item) => { item.cases = []; }), { inventory: canonical }),
+        () => validateQualityArtifact(mutate((item) =>
+        {
+            item.cases = [];
+        }), { inventory: canonical }),
         /every inventory case/u
     );
     assert.throws(
-        () => validateQualityArtifact(mutate((item) => { item.counts.failed += 1; }), { inventory: canonical }),
+        () => validateQualityArtifact(mutate((item) =>
+        {
+            item.counts.failed += 1;
+        }), { inventory: canonical }),
         /failed count/u
     );
     assert.throws(
-        () => validateQualityArtifact(mutate((item) => { item.firstFailure = null; }), { inventory: canonical }),
+        () => validateQualityArtifact(mutate((item) =>
+        {
+            item.firstFailure = null;
+        }), { inventory: canonical }),
         /first failure/u
     );
     assert.throws(
-        () => validateQualityArtifact(mutate((item) => { item.violations.pop(); }), { inventory: canonical }),
+        () => validateQualityArtifact(mutate((item) =>
+        {
+            item.violations.pop();
+        }), { inventory: canonical }),
         /violation summary/u
     );
 
-    const forged = mutate((item) => {
+    const forged = mutate((item) =>
+    {
         item.violations[0].reason = 'forged';
         item.cases[0].violations[0].reason = 'forged';
         item.firstFailure.reason = 'forged';

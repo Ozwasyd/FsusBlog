@@ -28,7 +28,9 @@ export function buildBackendEvidencePathAuthority(matrixSource, matrix, requirem
             for (const evidencePath of tier[declarationKind] ?? [])
             {
                 if (!evidencePath.startsWith('.tmp/'))
+                {
                     continue;
+                }
                 const owners = declaredOwners.get(evidencePath) ?? [];
                 owners.push({
                     tierId: tier.id,
@@ -45,7 +47,9 @@ export function buildBackendEvidencePathAuthority(matrixSource, matrix, requirem
     {
         const owners = declaredOwners.get(evidencePath) ?? [];
         if (owners.length === 0)
+        {
             errors.push(`generated backend evidence is not declared by an exact matrix tier output: ${evidencePath}`);
+        }
         return { evidencePath, owners };
     });
 

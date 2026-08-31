@@ -65,8 +65,14 @@ try
     }
     catch (error)
     {
-        if (artifactWritten) rmSync(summaryPath, { force: true });
-        if (generatedWritten) rmSync(generatedSummaryPath, { force: true });
+        if (artifactWritten)
+        {
+            rmSync(summaryPath, { force: true });
+        }
+        if (generatedWritten)
+        {
+            rmSync(generatedSummaryPath, { force: true });
+        }
         throw error;
     }
     console.log(`[test-quality] ${artifact.status} cases=${artifact.cases.length} violations=${artifact.violations.length} digest=${artifact.contentDigest}`);

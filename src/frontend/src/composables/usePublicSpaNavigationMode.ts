@@ -1,9 +1,10 @@
-import { computed } from 'vue'
-import { readPublicHydrationPayload } from '@/bootstrap/publicHydrationBootstrap'
-import { publicActivationState } from '@/bootstrap/publicActivationRuntime'
+import { computed } from 'vue';
 
-const hasInitialPublicHydrationSeed = Boolean(readPublicHydrationPayload())
+import { publicActivationState } from '@/bootstrap/publicActivationRuntime';
+import { readPublicHydrationPayload } from '@/bootstrap/publicHydrationBootstrap';
+
+const hasInitialPublicHydrationSeed = Boolean(readPublicHydrationPayload());
 
 export const usePublicSpaNavigationMode = computed(() =>
-  !hasInitialPublicHydrationSeed || publicActivationState.value.phase === 'interactive'
-)
+    !hasInitialPublicHydrationSeed || publicActivationState.value.phase === 'interactive'
+);

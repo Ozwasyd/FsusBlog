@@ -4,251 +4,25 @@ import path from 'node:path';
 import test from 'node:test';
 
 import {
-    composeBackendPlatformFilter,
-    parseBackendPlatformTrx,
-    projectBackendPlatformPlan,
-    reconcileBackendPlatformOutcome
-} from '../../tools/test/backend-platform-selection.mjs';
-import {
-    aggregateCategoryDiscoveryFailures,
-    aggregatePartitionExecutionFailures,
     aggregateProductionDiscoveryFailures,
-    aggregateProjectionDiscoveryFailures,
-    alignAuthoritativeDiscovery,
-    backendDiscoveryEnvironment,
     backendPostgresContainerOwnerPid,
     backendProductionDatabaseNamespace,
     backendRunOwnerPid,
     backendPartitionEnvironment,
-    buildPostgresAffinityGroups,
-    buildPostgresCollectionPlanningWeights,
     buildShardPlan,
-    deriveClassStartupPenalty,
-    deriveColdApplicationStartupPenalty,
     deriveBackendPartitionCount,
-    normalizeListedTestName,
-    parseListedTests,
-    parseTrxExecutionEvidence,
-    parseTrxRecords,
-    parseTrxTimingEvidence,
-    projectProductionPlatformPlan,
-    projectProductionUnionRecords,
-    readManifestClassWideProductionExclusions,
-    readBackendResourceGrantAfterBenchmark,
-    readBackendSchedulerResourceGrant,
-    resolveBackendShardParallelism,
-    resolveBackendPotentialProcessCount,
     runAuthoritativeProductionDiscovery,
-    runRollingPartitions,
     staleBackendBuildServerPids,
-    staleBackendPostgresContainers,
-    validateCategoryMembership,
-    validateExactProductionUnion,
-    validateShardRecords,
-    validateShardSummaryArtifacts
+    staleBackendPostgresContainers
 } from '../../tools/test/run-backend-production-shards.mjs';
 
 const root = path.resolve(import.meta.dirname, '../..');
-const unixPlatformTest = {
-    id: 'unix-id',
-    fullyQualifiedName: 'Example.Tests.Files.ExactDelete',
-    displayName: 'Example.Tests.Files.ExactDelete',
-    source: '/repo/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll',
-    traits: { Platform: ['Unix'] }
-};
-const portablePlatformTest = {
-    id: 'ordinary-id',
-    fullyQualifiedName: 'Example.Tests.Files.Portable',
-    displayName: 'Example.Tests.Files.Portable',
-    source: unixPlatformTest.source,
-    traits: {}
-};
-const unixModePlatformTest = {
-    ...unixPlatformTest,
-    id: 'unix-mode-id',
-    fullyQualifiedName: 'Example.Tests.Files.UploadSessionRoot_IsPrivateOnUnix',
-    displayName: 'Example.Tests.Files.UploadSessionRoot_IsPrivateOnUnix',
-    traits: {
-        Platform: ['Unix'],
-        PlatformEvidence: ['UnixMode']
-    }
-};
-const unixModeRuntimeEvidence = {
-    schema: 'fsusblog.backend-platform-unix-mode-evidence.v1',
-    evidenceContract: 'unix-mode',
-    fullyQualifiedName: unixModePlatformTest.fullyQualifiedName,
-    freshModeOctal: '0700',
-    widenedExistingModeOctal: '0777',
-    effectiveModeOctal: '0700',
-    assertions: {
-        groupReadDenied: true,
-        groupWriteDenied: true,
-        groupExecuteDenied: true,
-        otherReadDenied: true,
-        otherWriteDenied: true,
-        otherExecuteDenied: true
-    },
-    ownerArtifact: {
-        created: true,
-        read: true,
-        deleted: true
-    },
-    existingRoot: {
-        overbroadModeApplied: true,
-        converged: true
-    }
-};
 
-function unixModeTrx(runtimeEvidence = unixModeRuntimeEvidence)
-{
-    return [
-        '<TestRun><Results>',
-        `<UnitTestResult testId="${unixModePlatformTest.id}" `,
-        `testName="${unixModePlatformTest.displayName}" outcome="Passed">`,
-        '<Output><StdOut>backend-platform-runtime-evidence ',
-        JSON.stringify(runtimeEvidence),
-        '</StdOut></Output></UnitTestResult>',
-        '</Results><ResultSummary outcome="Completed">',
-        '<Counters total="1" executed="1" passed="1" failed="0" />',
-        '</ResultSummary></TestRun>'
-    ].join('');
-}
 
-const unixRequestPathOperations = [
-    'complete',
-    'abort',
-    'expired-status',
-    'expired-part-map',
-    'expired-part',
-    'expired-token'
-];
-const unixRequestPathPlatformTests = unixRequestPathOperations.map((operation, index) => ({
-    ...unixPlatformTest,
-    id: `unix-request-path-${index}`,
-    fullyQualifiedName: 'Example.Tests.Files.UploadRequestPaths_DoNotEnumerateExpirationIndexRoot',
-    displayName:
-        `Example.Tests.Files.UploadRequestPaths_DoNotEnumerateExpirationIndexRoot(operation: "${operation}")`,
-    traits: {
-        Platform: ['Unix'],
-        PlatformEvidence: ['UnixRequestPath']
-    }
-}));
 
-function unixRequestPathEvidence(operation)
-{
-    const complete = operation === 'complete';
-    return {
-        schema: 'fsusblog.backend-platform-unix-request-path-evidence.v1',
-        evidenceContract: 'unix-request-path',
-        fullyQualifiedName: unixRequestPathPlatformTests[0].fullyQualifiedName,
-        operation,
-        enumerationDenied: true,
-        requestContractSatisfied: true,
-        requestOutcome: complete || operation === 'abort' ? 'succeeded' : 'expired-rejected',
-        sessionPresent: complete,
-        expirationIndexEntryCount: complete ? 1 : 0,
-        ...(complete
-            ? {
-                completeContract: {
-                    manifestCompleted: true,
-                    ownerPreserved: true,
-                    tokenDigestPresent: true,
-                    retryAccepted: true,
-                    wrongOwnerRejected: true,
-                    wrongTokenRejected: true
-                }
-            }
-            : { cleanupCompleted: true })
-    };
-}
 
-function unixRequestPathTrx(
-    records = unixRequestPathPlatformTests,
-    evidenceFor = (operation) => unixRequestPathEvidence(operation)
-)
-{
-    const results = records.map((record) =>
-    {
-        const operation = record.displayName.match(/\(operation: "([^"]+)"\)$/u)?.[1];
-        const testName = record.displayName.replaceAll('"', '&quot;');
-        return [
-            `<UnitTestResult testId="${record.id}" `,
-            `testName="${testName}" outcome="Passed">`,
-            '<Output><StdOut>backend-platform-runtime-evidence ',
-            JSON.stringify(evidenceFor(operation)),
-            '</StdOut></Output></UnitTestResult>'
-        ].join('');
-    }).join('');
-    return [
-        `<TestRun><Results>${results}</Results>`,
-        '<ResultSummary outcome="Completed">',
-        `<Counters total="${records.length}" executed="${records.length}" `,
-        `passed="${records.length}" failed="0" />`,
-        '</ResultSummary></TestRun>'
-    ].join('');
-}
 
-const unixSymlinkBoundaryPlatformTest = {
-    ...unixPlatformTest,
-    id: 'unix-symlink-boundary-id',
-    fullyQualifiedName:
-        'Example.Tests.Security.CanonicalPathBoundaryTests.TryResolveRelative_RejectsSymbolicLinkThatEscapesPhysicalRoot',
-    displayName:
-        'Example.Tests.Security.CanonicalPathBoundaryTests.TryResolveRelative_RejectsSymbolicLinkThatEscapesPhysicalRoot',
-    traits: {
-        Platform: ['Unix'],
-        PlatformEvidence: ['UnixSymlinkBoundary']
-    }
-};
-const unixSymlinkBoundaryRuntimeEvidence = {
-    schema: 'fsusblog.backend-platform-unix-symlink-boundary-evidence.v1',
-    evidenceContract: 'unix-symlink-boundary',
-    fullyQualifiedName: unixSymlinkBoundaryPlatformTest.fullyQualifiedName,
-    root: {
-        identity: '1'.repeat(64),
-        exists: true
-    },
-    escapeLink: {
-        identity: '2'.repeat(64),
-        targetIdentity: '3'.repeat(64),
-        exists: true,
-        targetExists: true,
-        targetOutsideRoot: true,
-        targetMatchesExpected: true
-    },
-    rejection: {
-        resolved: false,
-        pathEmpty: true
-    },
-    positiveControl: {
-        rootIdentity: '4'.repeat(64),
-        linkIdentity: '5'.repeat(64),
-        targetIdentity: '6'.repeat(64),
-        rootExists: true,
-        linkExists: true,
-        targetExists: true,
-        targetMatchesExpected: true,
-        resolved: true,
-        resolvedInsideRoot: true,
-        resolvedPathMatchesExpected: true
-    },
-    cleanupCompleted: true
-};
 
-function unixSymlinkBoundaryTrx(runtimeEvidence = unixSymlinkBoundaryRuntimeEvidence)
-{
-    return [
-        '<TestRun><Results>',
-        `<UnitTestResult testId="${unixSymlinkBoundaryPlatformTest.id}" `,
-        `testName="${unixSymlinkBoundaryPlatformTest.displayName}" outcome="Passed">`,
-        '<Output><StdOut>backend-platform-runtime-evidence ',
-        JSON.stringify(runtimeEvidence),
-        '</StdOut></Output></UnitTestResult>',
-        '</Results><ResultSummary outcome="Completed">',
-        '<Counters total="1" executed="1" passed="1" failed="0" />',
-        '</ResultSummary></TestRun>'
-    ].join('');
-}
 
 test('backend production discovery captures a rejected authoritative union', async () =>
 {

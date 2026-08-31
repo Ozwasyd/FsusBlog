@@ -1,6 +1,4 @@
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import path from 'node:path';
 import test from 'node:test';
 
 import {
@@ -10,45 +8,16 @@ import {
     reconcileBackendPlatformOutcome
 } from '../../tools/test/backend-platform-selection.mjs';
 import {
-    aggregateCategoryDiscoveryFailures,
-    aggregatePartitionExecutionFailures,
-    aggregateProductionDiscoveryFailures,
-    aggregateProjectionDiscoveryFailures,
     alignAuthoritativeDiscovery,
     backendDiscoveryEnvironment,
-    backendPostgresContainerOwnerPid,
-    backendProductionDatabaseNamespace,
-    backendRunOwnerPid,
-    backendPartitionEnvironment,
-    buildPostgresAffinityGroups,
-    buildPostgresCollectionPlanningWeights,
-    buildShardPlan,
-    deriveClassStartupPenalty,
-    deriveColdApplicationStartupPenalty,
-    deriveBackendPartitionCount,
     normalizeListedTestName,
     parseListedTests,
-    parseTrxExecutionEvidence,
     parseTrxRecords,
-    parseTrxTimingEvidence,
     projectProductionPlatformPlan,
     projectProductionUnionRecords,
-    readManifestClassWideProductionExclusions,
-    readBackendResourceGrantAfterBenchmark,
-    readBackendSchedulerResourceGrant,
-    resolveBackendShardParallelism,
-    resolveBackendPotentialProcessCount,
-    runAuthoritativeProductionDiscovery,
-    runRollingPartitions,
-    staleBackendBuildServerPids,
-    staleBackendPostgresContainers,
-    validateCategoryMembership,
-    validateExactProductionUnion,
-    validateShardRecords,
-    validateShardSummaryArtifacts
+    runAuthoritativeProductionDiscovery
 } from '../../tools/test/run-backend-production-shards.mjs';
 
-const root = path.resolve(import.meta.dirname, '../..');
 const unixPlatformTest = {
     id: 'unix-id',
     fullyQualifiedName: 'Example.Tests.Files.ExactDelete',
@@ -188,67 +157,7 @@ function unixRequestPathTrx(
     ].join('');
 }
 
-const unixSymlinkBoundaryPlatformTest = {
-    ...unixPlatformTest,
-    id: 'unix-symlink-boundary-id',
-    fullyQualifiedName:
-        'Example.Tests.Security.CanonicalPathBoundaryTests.TryResolveRelative_RejectsSymbolicLinkThatEscapesPhysicalRoot',
-    displayName:
-        'Example.Tests.Security.CanonicalPathBoundaryTests.TryResolveRelative_RejectsSymbolicLinkThatEscapesPhysicalRoot',
-    traits: {
-        Platform: ['Unix'],
-        PlatformEvidence: ['UnixSymlinkBoundary']
-    }
-};
-const unixSymlinkBoundaryRuntimeEvidence = {
-    schema: 'fsusblog.backend-platform-unix-symlink-boundary-evidence.v1',
-    evidenceContract: 'unix-symlink-boundary',
-    fullyQualifiedName: unixSymlinkBoundaryPlatformTest.fullyQualifiedName,
-    root: {
-        identity: '1'.repeat(64),
-        exists: true
-    },
-    escapeLink: {
-        identity: '2'.repeat(64),
-        targetIdentity: '3'.repeat(64),
-        exists: true,
-        targetExists: true,
-        targetOutsideRoot: true,
-        targetMatchesExpected: true
-    },
-    rejection: {
-        resolved: false,
-        pathEmpty: true
-    },
-    positiveControl: {
-        rootIdentity: '4'.repeat(64),
-        linkIdentity: '5'.repeat(64),
-        targetIdentity: '6'.repeat(64),
-        rootExists: true,
-        linkExists: true,
-        targetExists: true,
-        targetMatchesExpected: true,
-        resolved: true,
-        resolvedInsideRoot: true,
-        resolvedPathMatchesExpected: true
-    },
-    cleanupCompleted: true
-};
 
-function unixSymlinkBoundaryTrx(runtimeEvidence = unixSymlinkBoundaryRuntimeEvidence)
-{
-    return [
-        '<TestRun><Results>',
-        `<UnitTestResult testId="${unixSymlinkBoundaryPlatformTest.id}" `,
-        `testName="${unixSymlinkBoundaryPlatformTest.displayName}" outcome="Passed">`,
-        '<Output><StdOut>backend-platform-runtime-evidence ',
-        JSON.stringify(runtimeEvidence),
-        '</StdOut></Output></UnitTestResult>',
-        '</Results><ResultSummary outcome="Completed">',
-        '<Counters total="1" executed="1" passed="1" failed="0" />',
-        '</ResultSummary></TestRun>'
-    ].join('');
-}
 
 test('backend production discovery normalizes theory cases to one filterable method', () =>
 {

@@ -7,6 +7,12 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import {
+    loadExecutionEnvelopeApplicability,
+    loadExecutionEnvelopePolicy,
+    resolveExecutionEnvelopeProducer
+} from '../test-matrix/execution-envelope-policy.mjs';
+
+import {
     finalizeRunOwnedDirectories,
     prepareRunOwnedDirectories
 } from './execution-envelope-directories.mjs';
@@ -41,11 +47,6 @@ import {
     qualificationTemporalContext,
     verifyTemporalReplay
 } from './temporal-context.mjs';
-import {
-    loadExecutionEnvelopeApplicability,
-    loadExecutionEnvelopePolicy,
-    resolveExecutionEnvelopeProducer
-} from '../test-matrix/execution-envelope-policy.mjs';
 import { resolveTemporalRolesForProducerIfBound } from './temporal-role-resolver.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -210,7 +211,8 @@ function createRunnerTemporalContext({ producerId, runId, sourceCommit, sourceFi
 
 function bindTemporalArtifact(document, executionEnvelopeBinding)
 {
-    const { digest: _digest, ...payload } = document;
+    const payload = { ...document };
+    delete payload.digest;
     const bound = {
         ...payload,
         executionEnvelopeDigest: executionEnvelopeBinding.envelopeDigest,
@@ -608,6 +610,8 @@ async function main(argv)
         };
         return executionEnvelopeBinding;
     };
+    let operationError = null;
+    let finalizationError = null;
     try
     {
         const result = await runBoundExecution({
@@ -692,9 +696,12 @@ async function main(argv)
         });
         console.log(`[physical-execution] ${result.status} key=${options.key} receipt=${result.receiptFile} projection=${result.projectionFile}${consumerEvidenceFile ? ` consumer-evidence=${consumerEvidenceFile}` : ''} temporal-receipt=${temporalFiles.receipt} execution-envelope=${executionEnvelopeReceiptFile}`);
     }
+    catch (error)
+    {
+        operationError = error;
+    }
     finally
     {
-        let finalizationError = null;
         if (!postflightAttempted)
         {
             try
@@ -708,10 +715,22 @@ async function main(argv)
         }
         process.off('SIGINT', onSigint);
         process.off('SIGTERM', onSigterm);
-        if (finalizationError)
-        {
-            throw finalizationError;
-        }
+    }
+    if (operationError && finalizationError)
+    {
+        throw new AggregateError(
+            [operationError, finalizationError],
+            'physical execution and execution-envelope finalization both failed',
+            { cause: operationError }
+        );
+    }
+    if (operationError)
+    {
+        throw operationError;
+    }
+    if (finalizationError)
+    {
+        throw finalizationError;
     }
 }
 
