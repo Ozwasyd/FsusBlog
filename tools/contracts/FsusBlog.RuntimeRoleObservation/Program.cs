@@ -192,9 +192,6 @@ internal static class RuntimeRoleObservationHost
         }
 
         string repositoryRoot = Path.GetFullPath(Directory.GetCurrentDirectory());
-        string rootBoundary = repositoryRoot.EndsWith(Path.DirectorySeparatorChar)
-            ? repositoryRoot
-            : repositoryRoot + Path.DirectorySeparatorChar;
         foreach ((string id, string expectedPath) in expectedSources)
         {
             SourceDigestObservation source = probe.SourceDigests[id];
@@ -203,12 +200,7 @@ internal static class RuntimeRoleObservationHost
             {
                 throw new InvalidOperationException($"runtime_role_deployment_source_shape_invalid:{id}");
             }
-            string absolutePath = Path.GetFullPath(Path.Combine(repositoryRoot, source.Path));
-            if (!absolutePath.StartsWith(rootBoundary, StringComparison.Ordinal)
-                || !File.Exists(absolutePath))
-            {
-                throw new InvalidOperationException($"runtime_role_deployment_source_missing:{id}");
-            }
+            string absolutePath = ResolveContainedRegularFile(repositoryRoot, source.Path, id);
             string liveDigest = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(absolutePath)))
                 .ToLowerInvariant();
             if (!string.Equals(source.Digest, liveDigest, StringComparison.Ordinal))
@@ -232,6 +224,50 @@ internal static class RuntimeRoleObservationHost
         }
         ValidateDeploymentBinding(probe, policyRoot, repositoryRoot, expectedSources);
         return probe;
+    }
+
+    private static string ResolveContainedRegularFile(
+        string repositoryRoot,
+        string relativePath,
+        string label)
+    {
+        string root = Path.GetFullPath(repositoryRoot).TrimEnd(Path.DirectorySeparatorChar);
+        string rootPhysical = Path.GetFullPath(
+            new DirectoryInfo(root).ResolveLinkTarget(returnFinalTarget: true)?.FullName ?? root);
+        if (!string.Equals(root, rootPhysical, StringComparison.Ordinal)
+            || Path.IsPathRooted(relativePath)
+            || relativePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .Any(static segment => segment is "" or "." or ".."))
+        {
+            throw new InvalidOperationException($"runtime_role_source_path_not_canonical:{label}");
+        }
+        string current = root;
+        foreach (string segment in relativePath.Split(
+            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+            StringSplitOptions.RemoveEmptyEntries))
+        {
+            current = Path.Combine(current, segment);
+            FileSystemInfo metadata = Directory.Exists(current)
+                ? new DirectoryInfo(current)
+                : new FileInfo(current);
+            if (!metadata.Exists || metadata.LinkTarget is not null)
+            {
+                throw new InvalidOperationException($"runtime_role_source_symlink_or_missing:{label}");
+            }
+            string physical = Path.GetFullPath(
+                metadata.ResolveLinkTarget(returnFinalTarget: true)?.FullName ?? metadata.FullName);
+            if (!string.Equals(physical, Path.GetFullPath(current), StringComparison.Ordinal)
+                || (!physical.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+                    && !string.Equals(physical, root, StringComparison.Ordinal)))
+            {
+                throw new InvalidOperationException($"runtime_role_source_physical_escape:{label}");
+            }
+        }
+        if (!File.Exists(current) || new FileInfo(current).LinkTarget is not null)
+        {
+            throw new InvalidOperationException($"runtime_role_source_not_regular:{label}");
+        }
+        return current;
     }
 
     private static void ValidateDeploymentBinding(
@@ -355,9 +391,10 @@ internal static class RuntimeRoleObservationHost
 
     private static JsonElement ObserveEffectiveComposeModel(string repositoryRoot, string sourcePath)
     {
+        DockerComposeOracleIdentity oracleIdentity = ResolveDockerComposeOracleIdentity(repositoryRoot);
         JsonElement Project(bool allProfiles)
         {
-            var start = new ProcessStartInfo("docker")
+            var start = new ProcessStartInfo(oracleIdentity.DockerCanonicalPath)
             {
                 WorkingDirectory = repositoryRoot,
                 RedirectStandardOutput = true,
@@ -416,11 +453,22 @@ internal static class RuntimeRoleObservationHost
             return JsonSerializer.SerializeToElement(services, s_json);
         }
 
-        string version = RunProcess(repositoryRoot, "docker", ["compose", "version", "--short"]).Trim();
         var unsigned = new SortedDictionary<string, object?>(StringComparer.Ordinal)
         {
             ["oracle"] = "docker-compose-config-json-no-interpolate",
-            ["oracleVersion"] = version,
+            ["oracleVersion"] = oracleIdentity.ComposeVersion,
+            ["dockerExecutable"] = new SortedDictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["canonicalPath"] = oracleIdentity.DockerCanonicalPath,
+                ["digest"] = oracleIdentity.DockerDigest,
+                ["version"] = oracleIdentity.DockerVersion
+            },
+            ["composeImplementation"] = new SortedDictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["canonicalPath"] = oracleIdentity.ComposeCanonicalPath,
+                ["digest"] = oracleIdentity.ComposeDigest,
+                ["version"] = oracleIdentity.ComposeVersion
+            },
             ["sourcePath"] = sourcePath,
             ["defaultServices"] = Project(allProfiles: false),
             ["allProfileServices"] = Project(allProfiles: true)
@@ -430,6 +478,101 @@ internal static class RuntimeRoleObservationHost
             Encoding.UTF8.GetBytes(CanonicalElement(unsignedElement)))).ToLowerInvariant();
         unsigned["modelDigest"] = digest;
         return JsonSerializer.SerializeToElement(unsigned, s_json);
+    }
+
+    private sealed record DockerComposeOracleIdentity(
+        string DockerCanonicalPath,
+        string DockerDigest,
+        string DockerVersion,
+        string ComposeCanonicalPath,
+        string ComposeDigest,
+        string ComposeVersion);
+
+    private static DockerComposeOracleIdentity ResolveDockerComposeOracleIdentity(string repositoryRoot)
+    {
+        string dockerPath = ResolveTrustedExecutableFromPath("docker");
+        string dockerVersion = RunProcess(
+            repositoryRoot,
+            dockerPath,
+            ["version", "--format", "{{.Client.Version}}"]
+        ).Trim();
+        string pluginInventory = RunProcess(
+            repositoryRoot,
+            dockerPath,
+            ["info", "--format", "{{json .ClientInfo.Plugins}}"]
+        );
+        using JsonDocument plugins = JsonDocument.Parse(pluginInventory);
+        JsonElement[] compose = plugins.RootElement.EnumerateArray()
+            .Where(static entry => entry.TryGetProperty("Name", out JsonElement name)
+                && name.GetString() == "compose")
+            .ToArray();
+        if (compose.Length != 1
+            || !compose[0].TryGetProperty("Path", out JsonElement composePathElement)
+            || string.IsNullOrWhiteSpace(composePathElement.GetString())
+            || !compose[0].TryGetProperty("Version", out JsonElement composeVersionElement))
+        {
+            throw new InvalidOperationException("runtime_role_compose_implementation_identity_unavailable");
+        }
+        string composePath = ResolveTrustedCanonicalExecutable(
+            composePathElement.GetString()!,
+            "Docker Compose");
+        string composeVersion = RunProcess(
+            repositoryRoot,
+            dockerPath,
+            ["compose", "version", "--short"]
+        ).Trim();
+        if (!string.Equals(
+                composeVersion.TrimStart('v'),
+                (composeVersionElement.GetString() ?? string.Empty).TrimStart('v'),
+                StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("runtime_role_compose_implementation_version_mismatch");
+        }
+        return new DockerComposeOracleIdentity(
+            dockerPath,
+            DigestFile(dockerPath)["sha256:".Length..],
+            dockerVersion,
+            composePath,
+            DigestFile(composePath)["sha256:".Length..],
+            composeVersion);
+    }
+
+    private static string ResolveTrustedExecutableFromPath(string name)
+    {
+        foreach (string directory in (Environment.GetEnvironmentVariable("PATH") ?? string.Empty)
+            .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+        {
+            string candidate = Path.GetFullPath(Path.Combine(directory, name));
+            if (File.Exists(candidate))
+            {
+                return ResolveTrustedCanonicalExecutable(candidate, name);
+            }
+        }
+        throw new InvalidOperationException($"runtime_role_external_oracle_path_missing:{name}");
+    }
+
+    private static string ResolveTrustedCanonicalExecutable(string candidate, string label)
+    {
+        var lexical = new FileInfo(Path.GetFullPath(candidate));
+        FileSystemInfo resolved = lexical.ResolveLinkTarget(returnFinalTarget: true) ?? lexical;
+        string canonical = Path.GetFullPath(resolved.FullName);
+        var metadata = new FileInfo(canonical);
+        string[] trustedRoots = ["/usr/bin", "/usr/local/bin", "/usr/lib/docker", "/usr/libexec/docker"];
+        if (!OperatingSystem.IsLinux())
+        {
+            throw new InvalidOperationException("runtime_role_external_oracle_requires_linux");
+        }
+        UnixFileMode mode = File.GetUnixFileMode(canonical);
+        if (!metadata.Exists
+            || metadata.LinkTarget is not null
+            || !trustedRoots.Any(root => canonical == root
+                || canonical.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            || (mode & (UnixFileMode.GroupWrite | UnixFileMode.OtherWrite)) != 0)
+        {
+            throw new InvalidOperationException(
+                $"runtime_role_external_oracle_untrusted:{label}:{canonical}");
+        }
+        return canonical;
     }
 
     private static string RunProcess(string workingDirectory, string fileName, IReadOnlyList<string> arguments)

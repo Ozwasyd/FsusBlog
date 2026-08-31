@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 
 import { canonicalize, digestBuffer, digestText, digestValue } from './lib/canonicalize.mjs';
@@ -45,7 +45,7 @@ export function resolveWorktreeFingerprint(repositoryRoot)
     const untrackedBindings = untracked.map((relative) =>
     {
         const absolute = path.join(repositoryRoot, relative);
-        if (!existsSync(absolute) || !statSync(absolute).isFile())
+        if (!existsSync(absolute) || !lstatSync(absolute).isFile())
         {
             return { path: relative, digest: digestText('') };
         }
@@ -54,19 +54,56 @@ export function resolveWorktreeFingerprint(repositoryRoot)
     return digestValue({ diff, untrackedBindings });
 }
 
+export function resolveContainedPath(repositoryRoot, relativePath, expectedKind = 'file')
+{
+    const rootLexical = path.resolve(repositoryRoot);
+    const rootPhysical = realpathSync(rootLexical);
+    if (rootPhysical !== rootLexical)
+    {
+        throw new Error(`repository root must be a canonical physical path: ${repositoryRoot}`);
+    }
+    const normalized = String(relativePath).replaceAll(path.sep, '/');
+    if (path.isAbsolute(normalized)
+        || normalized.length === 0
+        || path.posix.normalize(normalized) !== normalized
+        || normalized.split('/').some((segment) => segment === '' || segment === '.' || segment === '..'))
+    {
+        throw new Error(`path must be canonical and repository-relative: ${relativePath}`);
+    }
+    let lexical = rootLexical;
+    for (const segment of normalized.split('/'))
+    {
+        lexical = path.join(lexical, segment);
+        const metadata = lstatSync(lexical);
+        if (metadata.isSymbolicLink())
+        {
+            throw new Error(`path contains a symbolic link: ${relativePath}`);
+        }
+        const physical = realpathSync(lexical);
+        if (physical !== lexical
+            || (!physical.startsWith(`${rootPhysical}${path.sep}`) && physical !== rootPhysical))
+        {
+            throw new Error(`path is not physically contained by the repository root: ${relativePath}`);
+        }
+    }
+    const metadata = lstatSync(lexical);
+    if ((expectedKind === 'file' && !metadata.isFile())
+        || (expectedKind === 'directory' && !metadata.isDirectory())
+        || (expectedKind !== 'file' && expectedKind !== 'directory' && expectedKind !== 'either'))
+    {
+        throw new Error(`path is not a ${expectedKind === 'either' ? 'regular file or directory' : expectedKind}: ${relativePath}`);
+    }
+    if (expectedKind === 'either' && !metadata.isFile() && !metadata.isDirectory())
+    {
+        throw new Error(`path is not a regular file or directory: ${relativePath}`);
+    }
+    return lexical;
+}
+
 export function digestPath(repositoryRoot, relativePath)
 {
-    const absolute = path.resolve(repositoryRoot, relativePath);
-    const rootResolved = path.resolve(repositoryRoot);
-    if (!absolute.startsWith(`${rootResolved}${path.sep}`) && absolute !== rootResolved)
-    {
-        throw new Error(`path escapes repository root: ${relativePath}`);
-    }
-    if (!existsSync(absolute))
-    {
-        throw new Error(`consumed input missing: ${relativePath}`);
-    }
-    const stat = statSync(absolute);
+    const absolute = resolveContainedPath(repositoryRoot, relativePath, 'either');
+    const stat = lstatSync(absolute);
     if (stat.isDirectory())
     {
         const files = [];
@@ -80,6 +117,11 @@ export function digestPath(repositoryRoot, relativePath)
                 }
                 const childRelative = path.posix.join(relativeDirectory, entry.name);
                 const childAbsolute = path.join(directory, entry.name);
+                const childMetadata = lstatSync(childAbsolute);
+                if (childMetadata.isSymbolicLink() || realpathSync(childAbsolute) !== childAbsolute)
+                {
+                    throw new Error(`consumed input contains a symbolic link: ${childRelative}`);
+                }
                 if (entry.isDirectory())
                 {
                     walk(childAbsolute, childRelative);
@@ -175,7 +217,7 @@ export function validateBuildIdentity(buildIdentity, requiredBuildArtifact)
         || !new RegExp(`^\\.tmp/behavior-doc-contract-builds/${runtimeIdentity.buildKey}/receipts/[A-Za-z0-9_.-]+\\.json$`, 'u')
             .test(runtimeIdentity.minimalReceiptPath)
         || runtimeIdentity.artifactPath !== `.tmp/behavior-doc-contract-builds/${runtimeIdentity.buildKey}/observations/runtime-role-observation.json`
-        || runtimeIdentity.assemblyPath !== `.tmp/behavior-doc-contract-builds/${runtimeIdentity.buildKey}/artifacts/bin/FsusBlog.RuntimeRoleObservation/release/FsusBlog.RuntimeRoleObservation.dll`
+        || runtimeIdentity.assemblyPath !== `.tmp/runtime-role-reproducible-builds/${runtimeIdentity.buildKey}/bin/FsusBlog.RuntimeRoleObservation/release/FsusBlog.RuntimeRoleObservation.dll`
         || runtimeIdentity.deploymentArtifactPath !== `.tmp/behavior-doc-contract-builds/${runtimeIdentity.buildKey}/observations/runtime-role-deployment-observation.json`)
     {
         throw new Error('runtime-role buildIdentity does not bind an exact minimal build receipt and assembly');

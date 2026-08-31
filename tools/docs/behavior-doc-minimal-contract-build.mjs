@@ -7,6 +7,7 @@ import {
   computeConsumedInputDigests,
   digestPath,
   digestValue,
+  resolveContainedPath,
   sealSourceIdentity
 } from '../fact-extractors/identity.mjs'
 import { loadRegistry } from '../fact-extractors/registry.mjs'
@@ -54,6 +55,9 @@ const hostDeclarations = Object.freeze({
   }
 })
 const cacheRelative = '.tmp/behavior-doc-contract-builds'
+const runtimeReproducibleBuildRelative = '.tmp/runtime-role-reproducible-builds'
+export const runtimeReproduciblePathMapArgument =
+  '/p:PathMap={OUTPUT_ROOT}=/_/artifacts%2C{REPOSITORY_ROOT}=/_/src'
 
 function hasExactKeys(value, keys) {
   return value != null
@@ -93,6 +97,117 @@ function toolVersion(command, args, repositoryRoot, spawn = spawnSync) {
 
 function artifactDigest(repositoryRoot, relativePath) {
   return digestPath(repositoryRoot, relativePath)
+}
+
+export function minimalContractSourceClosureDigests(repositoryRoot, compiledExtractors) {
+  const consumedInputs = compiledExtractors.flatMap((extractor) => extractor.consumedInputs)
+  return computeConsumedInputDigests(repositoryRoot, [
+    ...consumedInputs,
+    ...Object.values(hostDeclarations).map((entry) => entry.project),
+    'config/contracts/behavior-fact-extractors.json',
+    'tools/docs/behavior-doc-minimal-contract-build.mjs',
+    'tools/fact-extractors/identity.mjs',
+    'Directory.Build.props',
+    'Directory.Packages.props',
+    'FsusBlog.slnx',
+    'src/backend/FsusBlog.Server.csproj',
+    'src/core/FsusBlog.Core.csproj',
+    'src/shared/FsusBlog.Shared.csproj'
+  ])
+}
+
+function removeCanonicalBuildDirectory(repositoryRoot, relative) {
+  const absolute = path.join(repositoryRoot, relative)
+  if (fs.existsSync(absolute)) {
+    resolveContainedPath(repositoryRoot, relative, 'directory')
+    fs.rmSync(absolute, { recursive: true, force: true })
+  }
+}
+
+export function reproduceRuntimeRoleAssembly({
+  repositoryRoot,
+  buildKey,
+  verification = false,
+  spawn = spawnSync,
+  timeoutMs = 15 * 60_000
+}) {
+  if (!/^[a-f0-9]{64}$/u.test(buildKey)) {
+    throw new Error('runtime-role reproducible build requires an exact build key')
+  }
+  const outputRoot = verification
+    ? path.posix.join('.tmp/runtime-role-verifier-builds', `${buildKey}-${process.pid}`)
+    : path.posix.join(runtimeReproducibleBuildRelative, buildKey)
+  removeCanonicalBuildDirectory(repositoryRoot, outputRoot)
+  const outputAbsolute = path.join(repositoryRoot, outputRoot)
+  const repositoryAbsolute = path.resolve(repositoryRoot)
+  const project = hostDeclarations['runtime-role-observation'].project
+  const physicalPathMapArgument =
+    `/p:PathMap=${outputAbsolute}=/_/artifacts%2C${repositoryAbsolute}=/_/src`
+  const commandArguments = [
+    'build',
+    project,
+    '--configuration', 'Release',
+    '--no-incremental',
+    '--disable-build-servers',
+    '--artifacts-path', outputAbsolute,
+    '/p:Deterministic=true',
+    '/p:ContinuousIntegrationBuild=true',
+    physicalPathMapArgument,
+    '/p:NuGetAudit=false',
+    '/m:1'
+  ]
+  const result = spawn('dotnet', commandArguments, {
+    cwd: repositoryRoot,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      DOTNET_NOLOGO: 'true',
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true',
+      MSBUILDDISABLENODEREUSE: '1'
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    maxBuffer: 64 * 1024 * 1024,
+    timeout: timeoutMs
+  })
+  if (result.status !== 0) {
+    const diagnostic = [result.stderr, result.stdout]
+      .map((value) => String(value ?? '').trim())
+      .filter(Boolean)
+      .join('\n')
+    if (verification && fs.existsSync(outputAbsolute)) {
+      removeCanonicalBuildDirectory(repositoryRoot, outputRoot)
+    }
+    throw new Error(
+      `runtime-role reproducible build failed: ${diagnostic || `exit ${result.status}`}`
+    )
+  }
+  const assemblyPath = path.posix.join(
+    outputRoot,
+    'bin/FsusBlog.RuntimeRoleObservation/release/FsusBlog.RuntimeRoleObservation.dll'
+  )
+  const assemblyDigest = digestPath(repositoryRoot, assemblyPath)
+  return {
+    schema: 'fsusblog.runtime-role-reproducible-build-attestation.v1',
+    project,
+    command: ['dotnet', ...commandArguments.map((argument) =>
+      argument === outputAbsolute
+        ? outputRoot
+        : argument === physicalPathMapArgument
+          ? runtimeReproduciblePathMapArgument
+          : argument)],
+    outputRoot,
+    assemblyPath,
+    assemblyDigest
+  }
+}
+
+export function removeRuntimeRoleVerificationBuild(repositoryRoot, outputRoot) {
+  const expectedPrefix = `.tmp/runtime-role-verifier-builds/`
+  if (!String(outputRoot).startsWith(expectedPrefix)
+    || !/^[a-f0-9]{64}-[0-9]+$/u.test(String(outputRoot).slice(expectedPrefix.length))) {
+    throw new Error('runtime-role verifier cleanup requires an exact verifier output root')
+  }
+  removeCanonicalBuildDirectory(repositoryRoot, outputRoot)
 }
 
 function cachedArtifactPath(buildRoot, declaration) {
@@ -281,8 +396,9 @@ export function validateMinimalContractBuildReceipt(receipt, {
       ? [
           'schema', 'artifactId', 'artifactPath', 'artifactDigest', 'configuration',
           'sourceCommit', 'worktreeFingerprint', 'projectDigest', 'assemblyPath',
-          'assemblyDigest', 'deploymentArtifactPath', 'deploymentArtifactDigest',
+          'assemblyDigest', 'reproducibleBuild', 'deploymentArtifactPath', 'deploymentArtifactDigest',
           'producer', 'externalOracle', 'externalOracleVersion',
+          'dockerExecutable', 'composeImplementation',
           'effectiveComposeModelDigest',
           'deploymentAuthoritySchema', 'deploymentAuthorityContentDigest',
           'deploymentObservationDigest'
@@ -303,12 +419,44 @@ export function validateMinimalContractBuildReceipt(receipt, {
         || artifact.buildReceipt.projectDigest !== artifact.projectDigest
         || artifact.buildReceipt.assemblyPath !== artifact.assemblyPath
         || artifact.buildReceipt.assemblyDigest !== artifact.assemblyDigest
+        || !hasExactKeys(artifact.buildReceipt.reproducibleBuild, [
+          'schema', 'project', 'command', 'outputRoot', 'assemblyPath', 'assemblyDigest',
+          'sourceClosureDigest'
+        ])
+        || artifact.buildReceipt.reproducibleBuild.schema
+          !== 'fsusblog.runtime-role-reproducible-build-attestation.v1'
+        || artifact.buildReceipt.reproducibleBuild.project !== artifact.project
+        || artifact.buildReceipt.reproducibleBuild.outputRoot
+          !== path.posix.join(runtimeReproducibleBuildRelative, receipt.buildKey)
+        || artifact.buildReceipt.reproducibleBuild.assemblyPath !== artifact.assemblyPath
+        || artifact.buildReceipt.reproducibleBuild.assemblyDigest !== artifact.assemblyDigest
+        || artifact.buildReceipt.reproducibleBuild.sourceClosureDigest
+          !== digestValue(receipt.sourceClosureDigests)
+        || JSON.stringify(artifact.buildReceipt.reproducibleBuild.command)
+          !== JSON.stringify([
+            'dotnet', 'build', artifact.project, '--configuration', 'Release',
+            '--no-incremental', '--disable-build-servers', '--artifacts-path',
+            artifact.buildReceipt.reproducibleBuild.outputRoot,
+            '/p:Deterministic=true', '/p:ContinuousIntegrationBuild=true',
+            runtimeReproduciblePathMapArgument,
+            '/p:NuGetAudit=false', '/m:1'
+          ])
         || artifact.buildReceipt.deploymentArtifactPath !== artifact.deploymentArtifactPath
         || artifact.buildReceipt.deploymentArtifactDigest !== artifact.deploymentArtifactDigest
         || artifact.buildReceipt.producer !== 'dotnet-run-content-addressed-minimal-contract-host'
         || artifact.buildReceipt.externalOracle !== 'docker-compose-config-json-no-interpolate'
         || typeof artifact.buildReceipt.externalOracleVersion !== 'string'
         || artifact.buildReceipt.externalOracleVersion.length === 0
+        || !hasExactKeys(artifact.buildReceipt.dockerExecutable, ['canonicalPath', 'digest', 'version'])
+        || !hasExactKeys(artifact.buildReceipt.composeImplementation, ['canonicalPath', 'digest', 'version'])
+        || !/^[a-f0-9]{64}$/u.test(artifact.buildReceipt.dockerExecutable.digest ?? '')
+        || !/^[a-f0-9]{64}$/u.test(artifact.buildReceipt.composeImplementation.digest ?? '')
+        || !path.isAbsolute(artifact.buildReceipt.dockerExecutable.canonicalPath ?? '')
+        || !path.isAbsolute(artifact.buildReceipt.composeImplementation.canonicalPath ?? '')
+        || typeof artifact.buildReceipt.dockerExecutable.version !== 'string'
+        || artifact.buildReceipt.dockerExecutable.version.length === 0
+        || typeof artifact.buildReceipt.composeImplementation.version !== 'string'
+        || artifact.buildReceipt.composeImplementation.version.length === 0
         || !/^sha256:[a-f0-9]{64}$/u.test(artifact.buildReceipt.effectiveComposeModelDigest ?? '')
         || !/^sha256:[a-f0-9]{64}$/u.test(artifact.buildReceipt.deploymentAuthorityContentDigest ?? '')
         || !/^sha256:[a-f0-9]{64}$/u.test(artifact.buildReceipt.deploymentObservationDigest ?? ''))) {
@@ -431,18 +579,7 @@ export function runMinimalContractBuild({
     configuration: 'Release',
     targetFramework: 'net10.0'
   }
-  const consumedInputs = compiled.flatMap((extractor) => extractor.consumedInputs)
-  const sourceClosureDigests = computeConsumedInputDigests(repositoryRoot, [
-    ...consumedInputs,
-    ...Object.values(hostDeclarations).map((entry) => entry.project),
-    'config/contracts/behavior-fact-extractors.json',
-    'Directory.Build.props',
-    'Directory.Packages.props',
-    'FsusBlog.slnx',
-    'src/backend/FsusBlog.Server.csproj',
-    'src/core/FsusBlog.Core.csproj',
-    'src/shared/FsusBlog.Shared.csproj'
-  ])
+  const sourceClosureDigests = minimalContractSourceClosureDigests(repositoryRoot, compiled)
   const buildKey = digestValue({
     sourceIdentity,
     toolchain,
@@ -487,6 +624,12 @@ export function runMinimalContractBuild({
           `minimal contract runtime-role deployment authority is not claim eligible: ${(deploymentObservation.ownership?.failureReasons ?? []).join('; ')}`
         )
       }
+      const runtimeReproducibleBuild = reproduceRuntimeRoleAssembly({
+        repositoryRoot,
+        buildKey,
+        spawn,
+        timeoutMs: hostTimeoutMs
+      })
       for (const artifactId of declaredArtifactIds) {
         const declaration = hostDeclarations[artifactId]
         const stagedOutput = path.join(stagingRoot, declaration.cacheFile)
@@ -504,17 +647,19 @@ export function runMinimalContractBuild({
         if (declaration.repositoryRootArgument) {
           applicationArgs.push('--repository-root', repositoryRoot)
         }
-        const args = [
-          'run',
-          '--project', declaration.project,
-          '--configuration', 'Release',
-          '--no-launch-profile',
-          '--no-cache',
-          '--disable-build-servers',
-          '--artifacts-path', path.join(stagingRoot, 'artifacts'),
-          '--',
-          ...applicationArgs
-        ]
+        const args = artifactId === 'runtime-role-observation'
+          ? [path.join(repositoryRoot, runtimeReproducibleBuild.assemblyPath), ...applicationArgs]
+          : [
+              'run',
+              '--project', declaration.project,
+              '--configuration', 'Release',
+              '--no-launch-profile',
+              '--no-cache',
+              '--disable-build-servers',
+              '--artifacts-path', path.join(stagingRoot, 'artifacts'),
+              '--',
+              ...applicationArgs
+            ]
         const result = spawn('dotnet', args, {
           cwd: repositoryRoot,
           encoding: 'utf8',
@@ -556,10 +701,10 @@ export function runMinimalContractBuild({
         const artifactDigestValue = digestPath(stagingRoot, declaration.cacheFile)
         const projectDigestValue = artifactDigest(repositoryRoot, declaration.project)
         const assemblyPath = artifactId === 'runtime-role-observation'
-          ? path.posix.join(path.posix.join(cacheRelative, buildKey), declaration.assemblyFile)
+          ? runtimeReproducibleBuild.assemblyPath
           : null
         const assemblyDigest = artifactId === 'runtime-role-observation'
-          ? digestPath(stagingRoot, declaration.assemblyFile)
+          ? runtimeReproducibleBuild.assemblyDigest
           : null
         const deploymentArtifactPath = artifactId === 'runtime-role-observation'
           ? path.posix.join(
@@ -583,11 +728,17 @@ export function runMinimalContractBuild({
                 projectDigest: projectDigestValue,
                 assemblyPath,
                 assemblyDigest,
+                reproducibleBuild: {
+                  ...runtimeReproducibleBuild,
+                  sourceClosureDigest: digestValue(sourceClosureDigests)
+                },
                 deploymentArtifactPath,
                 deploymentArtifactDigest,
                 producer: 'dotnet-run-content-addressed-minimal-contract-host',
                 externalOracle: artifactObservation.deploymentAuthority?.effectiveCompose?.oracle,
                 externalOracleVersion: artifactObservation.deploymentAuthority?.effectiveCompose?.oracleVersion,
+                dockerExecutable: artifactObservation.deploymentAuthority?.effectiveCompose?.dockerExecutable,
+                composeImplementation: artifactObservation.deploymentAuthority?.effectiveCompose?.composeImplementation,
                 effectiveComposeModelDigest: artifactObservation.deploymentAuthority?.effectiveCompose?.modelDigest,
                 deploymentAuthoritySchema: artifactObservation.deploymentAuthority?.authoritySchema,
                 deploymentAuthorityContentDigest: artifactObservation.deploymentAuthority?.authorityContentDigest,

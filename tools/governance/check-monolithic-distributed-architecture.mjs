@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { resolveContainedPath } from '../fact-extractors/identity.mjs';
 
 const toolFile = fileURLToPath(import.meta.url);
 const defaultRoot = path.resolve(path.dirname(toolFile), '../..');
@@ -32,6 +33,108 @@ function digestCanonical(value)
 function digestText(value)
 {
     return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+function canonicalTrustedExecutable(candidate, label)
+{
+    const lexical = path.resolve(candidate);
+    const canonical = fs.realpathSync(lexical);
+    const metadata = fs.lstatSync(canonical);
+    const trustedRoots = ['/usr/bin', '/usr/local/bin', '/usr/lib/docker', '/usr/libexec/docker'];
+    if (!metadata.isFile() || metadata.isSymbolicLink()
+        || !trustedRoots.some((root) => canonical === root || canonical.startsWith(`${root}/`))
+        || (metadata.mode & 0o022) !== 0)
+    {
+        throw new Error(`${label} canonical executable is not a trusted non-symlink system binary: ${canonical}`);
+    }
+    return canonical;
+}
+
+function executableFromPath(name)
+{
+    for (const directory of String(process.env.PATH ?? '').split(path.delimiter).filter(Boolean))
+    {
+        const candidate = path.resolve(directory, name);
+        try
+        {
+            const candidateMetadata = fs.lstatSync(candidate);
+            if (!candidateMetadata.isFile() && !candidateMetadata.isSymbolicLink())
+            {
+                continue;
+            }
+            fs.accessSync(candidate, fs.constants.X_OK);
+            return canonicalTrustedExecutable(candidate, name);
+        }
+        catch (error)
+        {
+            if (fs.existsSync(candidate))
+            {
+                throw error;
+            }
+        }
+    }
+    throw new Error(`${name} executable is unavailable on PATH`);
+}
+
+function checkedProcess(executable, args, repositoryRoot, label)
+{
+    const result = spawnSync(executable, args, {
+        cwd: repositoryRoot,
+        encoding: 'utf8',
+        maxBuffer: 16 * 1024 * 1024
+    });
+    if (result.status !== 0 || !String(result.stdout ?? '').trim())
+    {
+        throw new Error(`${label} failed: ${(result.stderr || result.stdout || `exit ${result.status}`).trim()}`);
+    }
+    return String(result.stdout).trim();
+}
+
+export function resolveDockerComposeOracleIdentity({ root = defaultRoot } = {})
+{
+    const repositoryRoot = path.resolve(root);
+    const dockerPath = executableFromPath('docker');
+    const dockerVersion = checkedProcess(
+        dockerPath,
+        ['version', '--format', '{{.Client.Version}}'],
+        repositoryRoot,
+        'Docker client version probe'
+    );
+    const plugins = JSON.parse(checkedProcess(
+        dockerPath,
+        ['info', '--format', '{{json .ClientInfo.Plugins}}'],
+        repositoryRoot,
+        'Docker client plugin inventory probe'
+    ));
+    const compose = array(plugins).filter((entry) => entry?.Name === 'compose');
+    if (compose.length !== 1 || typeof compose[0]?.Path !== 'string')
+    {
+        throw new Error('Docker Compose implementation must resolve to exactly one client plugin');
+    }
+    const composePath = canonicalTrustedExecutable(compose[0].Path, 'Docker Compose');
+    const composeVersion = checkedProcess(
+        dockerPath,
+        ['compose', 'version', '--short'],
+        repositoryRoot,
+        'Docker Compose version probe'
+    );
+    const normalizeVersion = (value) => String(value).replace(/^v/u, '');
+    if (normalizeVersion(compose[0].Version) !== normalizeVersion(composeVersion))
+    {
+        throw new Error('Docker Compose plugin inventory/version mismatch');
+    }
+    return {
+        dockerExecutable: {
+            canonicalPath: dockerPath,
+            digest: digestText(fs.readFileSync(dockerPath)),
+            version: dockerVersion
+        },
+        composeImplementation: {
+            canonicalPath: composePath,
+            digest: digestText(fs.readFileSync(composePath)),
+            version: composeVersion
+        }
+    };
 }
 
 function exactKeys(value, keys, label, errors)
@@ -77,7 +180,7 @@ function read(root, relative, errors)
 {
     try
     {
-        return fs.readFileSync(path.join(root, normalize(relative)), 'utf8');
+        return fs.readFileSync(resolveContainedPath(root, normalize(relative), 'file'), 'utf8');
     }
     catch (error)
     {
@@ -342,6 +445,16 @@ function validateComposeServiceRoster(compose, classified, sourcePath, errors)
 
 function observeEffectiveComposeModel(repositoryRoot, sourcePath, errors)
 {
+    let oracleIdentity;
+    try
+    {
+        oracleIdentity = resolveDockerComposeOracleIdentity({ root: repositoryRoot });
+    }
+    catch (error)
+    {
+        errors.push(`canonical Docker Compose oracle identity failed: ${error instanceof Error ? error.message : String(error)}`);
+        return {};
+    }
     const run = (allProfiles) =>
     {
         const args = ['compose', '-f', sourcePath];
@@ -350,7 +463,7 @@ function observeEffectiveComposeModel(repositoryRoot, sourcePath, errors)
             args.push('--profile', '*');
         }
         args.push('config', '--format', 'json', '--no-interpolate');
-        const result = spawnSync('docker', args, {
+        const result = spawnSync(oracleIdentity.dockerExecutable.canonicalPath, args, {
             cwd: repositoryRoot,
             encoding: 'utf8',
             maxBuffer: 16 * 1024 * 1024
@@ -370,14 +483,6 @@ function observeEffectiveComposeModel(repositoryRoot, sourcePath, errors)
             return {};
         }
     };
-    const version = spawnSync('docker', ['compose', 'version', '--short'], {
-        cwd: repositoryRoot,
-        encoding: 'utf8'
-    });
-    if (version.status !== 0 || !String(version.stdout).trim())
-    {
-        errors.push('canonical Docker Compose oracle version is unavailable');
-    }
     const defaultModel = run(false);
     const allProfileModel = run(true);
     const project = (model, defaultActiveOnly) => Object.fromEntries(Object.entries(object(model.services))
@@ -392,7 +497,9 @@ function observeEffectiveComposeModel(repositoryRoot, sourcePath, errors)
         }]));
     const unsigned = {
         oracle: 'docker-compose-config-json-no-interpolate',
-        oracleVersion: String(version.stdout ?? '').trim(),
+        oracleVersion: oracleIdentity.composeImplementation.version,
+        dockerExecutable: oracleIdentity.dockerExecutable,
+        composeImplementation: oracleIdentity.composeImplementation,
         sourcePath,
         defaultServices: project(defaultModel, true),
         allProfileServices: project(allProfileModel, false)

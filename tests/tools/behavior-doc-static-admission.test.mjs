@@ -8,7 +8,7 @@ import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const { parseWorkflow, validateBehaviorDocStaticAdmissionTopology } = await import(new URL("../../tools/check-workflow-matrix-sync.mjs", import.meta.url));
-const { buildIdentitiesFromMinimalReceipt, hostDeclarations, runMinimalContractBuild } = await import(new URL("../../tools/docs/behavior-doc-minimal-contract-build.mjs", import.meta.url));
+const { buildIdentitiesFromMinimalReceipt, hostDeclarations, runMinimalContractBuild, runtimeReproduciblePathMapArgument } = await import(new URL("../../tools/docs/behavior-doc-minimal-contract-build.mjs", import.meta.url));
 const { behaviorDocAdmissionReceiptSchema, validateBehaviorDocStaticAdmissionReceipt, writeFactObservationReceipts } = await import(new URL("../../tools/docs/behavior-doc-static-admission.mjs", import.meta.url));
 const { digestValue, sealSourceIdentity } = await import(new URL("../../tools/fact-extractors/identity.mjs", import.meta.url));
 const { loadRegistry } = await import(new URL("../../tools/fact-extractors/registry.mjs", import.meta.url));
@@ -67,8 +67,19 @@ test('successful fact observations are materialized for canonical drift repair',
 function fakeMinimalReceipt(runId, source)
 {
     const buildRoot = `.tmp/behavior-doc-contract-builds/${'b'.repeat(64)}`;
-    const runtimeAssemblyPath = `${buildRoot}/artifacts/bin/FsusBlog.RuntimeRoleObservation/release/FsusBlog.RuntimeRoleObservation.dll`;
+    const runtimeBuildRoot = `.tmp/runtime-role-reproducible-builds/${'b'.repeat(64)}`;
+    const runtimeAssemblyPath = `${runtimeBuildRoot}/bin/FsusBlog.RuntimeRoleObservation/release/FsusBlog.RuntimeRoleObservation.dll`;
     const runtimeDeploymentPath = `${buildRoot}/observations/runtime-role-deployment-observation.json`;
+    const sourceClosureDigests = [
+        {
+            path: 'Directory.Build.props',
+            digest: 'e'.repeat(64)
+        },
+        {
+            path: 'Directory.Packages.props',
+            digest: 'f'.repeat(64)
+        }
+    ];
     return seal({
         schema: 'fsusblog.behavior-doc-minimal-contract-build-receipt.v1',
         runId,
@@ -81,16 +92,7 @@ function fakeMinimalReceipt(runId, source)
         },
         buildKey: 'b'.repeat(64),
         buildRoot,
-        sourceClosureDigests: [
-            {
-                path: 'Directory.Build.props',
-                digest: 'e'.repeat(64)
-            },
-            {
-                path: 'Directory.Packages.props',
-                digest: 'f'.repeat(64)
-            }
-        ],
+        sourceClosureDigests,
         artifacts: Object.fromEntries(Object.entries(hostDeclarations).map(([artifactId, declaration]) => [
             artifactId,
             {
@@ -122,11 +124,37 @@ function fakeMinimalReceipt(runId, source)
                             projectDigest: 'c'.repeat(64),
                             assemblyPath: runtimeAssemblyPath,
                             assemblyDigest: '3'.repeat(64),
+                            reproducibleBuild: {
+                                schema: 'fsusblog.runtime-role-reproducible-build-attestation.v1',
+                                project: declaration.project,
+                                command: [
+                                    'dotnet', 'build', declaration.project, '--configuration', 'Release',
+                                    '--no-incremental', '--disable-build-servers', '--artifacts-path',
+                                    runtimeBuildRoot,
+                                    '/p:Deterministic=true', '/p:ContinuousIntegrationBuild=true',
+                                    runtimeReproduciblePathMapArgument,
+                                    '/p:NuGetAudit=false', '/m:1'
+                                ],
+                                outputRoot: runtimeBuildRoot,
+                                assemblyPath: runtimeAssemblyPath,
+                                assemblyDigest: '3'.repeat(64),
+                                sourceClosureDigest: digestValue(sourceClosureDigests)
+                            },
                             deploymentArtifactPath: runtimeDeploymentPath,
                             deploymentArtifactDigest: '4'.repeat(64),
                             producer: 'dotnet-run-content-addressed-minimal-contract-host',
                             externalOracle: 'docker-compose-config-json-no-interpolate',
                             externalOracleVersion: '5.3.1',
+                            dockerExecutable: {
+                                canonicalPath: '/usr/bin/docker',
+                                digest: '6'.repeat(64),
+                                version: '29.6.2'
+                            },
+                            composeImplementation: {
+                                canonicalPath: '/usr/lib/docker/cli-plugins/docker-compose',
+                                digest: '7'.repeat(64),
+                                version: '5.3.1'
+                            },
                             effectiveComposeModelDigest: `sha256:${'5'.repeat(64)}`,
                             deploymentAuthoritySchema: 'fsusblog.monolithic-distributed-architecture.v2',
                             deploymentAuthorityContentDigest: `sha256:${'1'.repeat(64)}`,
@@ -159,11 +187,14 @@ test('minimal build identity binds the child build receipt digest', () =>
         projectDigest: receipt.artifacts['runtime-role-observation'].projectDigest,
         assemblyPath: receipt.artifacts['runtime-role-observation'].assemblyPath,
         assemblyDigest: receipt.artifacts['runtime-role-observation'].assemblyDigest,
+        reproducibleBuild: receipt.artifacts['runtime-role-observation'].buildReceipt.reproducibleBuild,
         deploymentArtifactPath: receipt.artifacts['runtime-role-observation'].deploymentArtifactPath,
         deploymentArtifactDigest: receipt.artifacts['runtime-role-observation'].deploymentArtifactDigest,
         producer: 'dotnet-run-content-addressed-minimal-contract-host',
         externalOracle: 'docker-compose-config-json-no-interpolate',
         externalOracleVersion: '5.3.1',
+        dockerExecutable: receipt.artifacts['runtime-role-observation'].buildReceipt.dockerExecutable,
+        composeImplementation: receipt.artifacts['runtime-role-observation'].buildReceipt.composeImplementation,
         effectiveComposeModelDigest: `sha256:${'5'.repeat(64)}`,
         deploymentAuthoritySchema: 'fsusblog.monolithic-distributed-architecture.v2',
         deploymentAuthorityContentDigest: `sha256:${'1'.repeat(64)}`,
@@ -275,6 +306,8 @@ function copyMinimalBuildFixture(repositoryRoot)
     const registry = loadRegistry(path.join(root, 'config/contracts/behavior-fact-extractors.json'));
     const copiedPaths = new Set([
         'config/contracts/behavior-fact-extractors.json',
+        'tools/docs/behavior-doc-minimal-contract-build.mjs',
+        'tools/fact-extractors/identity.mjs',
         'Directory.Build.props',
         'Directory.Packages.props',
         'FsusBlog.slnx',
@@ -469,6 +502,11 @@ test('sealed receipt rejects every fail-open static result and candidate spawn',
         ['missing current extractor', (value) =>
         {
             delete value.factObservations[Object.keys(value.factObservations)[0]];
+        }],
+        ['reproducible build command drift', (value) =>
+        {
+            value.minimalContractBuild.artifacts['runtime-role-observation']
+                .buildReceipt.reproducibleBuild.command[11] = '/p:PathMap=untrusted';
         }]
     ];
     for (const [label, mutate] of mutations)
@@ -510,28 +548,26 @@ test('minimal contract build uses only a content-addressed root and never ambien
         {
             return { status: 0, stdout: '10.0.100\n', stderr: '' };
         }
-        const separator = args.indexOf('--');
-        const outputIndex = args.indexOf('--output', separator);
-        const artifactsIndex = args.indexOf('--artifacts-path');
-        assert.ok(separator > 0 && outputIndex > separator);
-        assert.ok(args.includes('--artifacts-path'));
-        assert.equal(args.includes('--no-build'), false);
-        assert.equal(args.some((value) => String(value).includes('/bin/Release/')), false);
-        fs.mkdirSync(path.dirname(args[outputIndex + 1]), { recursive: true });
-        const deploymentIndex = args.indexOf('--deployment-observation');
-        const runtime = deploymentIndex >= 0;
-        const deployment = runtime
-            ? JSON.parse(fs.readFileSync(args[deploymentIndex + 1], 'utf8'))
-            : null;
-        if (runtime)
+        if (args[0] === 'build')
         {
+            const artifactsIndex = args.indexOf('--artifacts-path');
             const assembly = path.join(
                 args[artifactsIndex + 1],
                 'bin/FsusBlog.RuntimeRoleObservation/release/FsusBlog.RuntimeRoleObservation.dll'
             );
             fs.mkdirSync(path.dirname(assembly), { recursive: true });
             fs.writeFileSync(assembly, 'fixture-runtime-role-assembly');
+            return { status: 0, stdout: '', stderr: '' };
         }
+        const separator = args.indexOf('--');
+        const outputIndex = args.indexOf('--output');
+        assert.ok(outputIndex > 0);
+        fs.mkdirSync(path.dirname(args[outputIndex + 1]), { recursive: true });
+        const deploymentIndex = args.indexOf('--deployment-observation');
+        const runtime = deploymentIndex >= 0;
+        const deployment = runtime
+            ? JSON.parse(fs.readFileSync(args[deploymentIndex + 1], 'utf8'))
+            : null;
         fs.writeFileSync(args[outputIndex + 1], runtime
             ? `${JSON.stringify({
                 schema: 'fsusblog.runtime-role-observation.v2',
@@ -556,8 +592,9 @@ test('minimal contract build uses only a content-addressed root and never ambien
     });
     assert.equal(
         invocations.filter((args) => args[1] === 'run').length,
-        Object.keys(hostDeclarations).length
+        Object.keys(hostDeclarations).length - 1
     );
+    assert.equal(invocations.filter((args) => args[1] === 'build').length, 1);
     assert.match(result.receipt.buildRoot, /^\.tmp\/behavior-doc-contract-builds\/[a-f0-9]{64}$/u);
     assert.equal(fs.readFileSync(ambient, 'utf8'), '{"stale":true}\n');
 });
@@ -578,6 +615,21 @@ test('concurrent admission builds elect one publisher and reject a corrupted reu
 set -euo pipefail
 if [[ "\${1:-}" == "--version" ]]; then
   printf '10.0.100\\n'
+  exit 0
+fi
+if [[ "\${1:-}" == "build" ]]; then
+  artifacts=""
+  while (( $# > 0 )); do
+    if [[ "$1" == "--artifacts-path" ]]; then
+      artifacts="$2"
+      shift 2
+      continue
+    fi
+    shift
+  done
+  assembly="$artifacts/bin/FsusBlog.RuntimeRoleObservation/release/FsusBlog.RuntimeRoleObservation.dll"
+  mkdir -p "$(dirname "$assembly")"
+  printf 'fixture-runtime-role-assembly' > "$assembly"
   exit 0
 fi
 output=""
@@ -612,9 +664,6 @@ trap 'rm -f "$active"' EXIT
 sleep 0.08
 mkdir -p "$(dirname "$output")"
 if [[ "$runtime" == "1" ]]; then
-  assembly="$artifacts/bin/FsusBlog.RuntimeRoleObservation/release/FsusBlog.RuntimeRoleObservation.dll"
-  mkdir -p "$(dirname "$assembly")"
-  printf 'fixture-runtime-role-assembly' > "$assembly"
   node --input-type=module --eval '
     import fs from "node:fs";
     const deployment = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));

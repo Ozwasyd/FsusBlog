@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import {
     copyFileSync,
+    chmodSync,
     mkdtempSync,
     mkdirSync,
     readdirSync,
@@ -300,6 +301,27 @@ test('effective Compose oracle rejects extends, build, pull-policy and profile m
         const observation = observeRuntimeRoleDeploymentAuthority({ root });
         assert.equal(observation.ownership.claimEligible, false, label);
         assert.match(observation.ownership.failureReasons.join('\n'), pattern, label);
+    }
+});
+
+test('effective Compose oracle rejects a PATH-prepended fake Docker executable', () =>
+{
+    const root = createAuthorityFixture();
+    const fakeBin = path.join(root, 'fake-bin');
+    write(root, 'fake-bin/docker', '#!/usr/bin/env bash\nexec /usr/bin/docker "$@"\n');
+    chmodSync(path.join(fakeBin, 'docker'), 0o755);
+    const originalPath = process.env.PATH;
+    process.env.PATH = `${fakeBin}${path.delimiter}${originalPath}`;
+    try
+    {
+        const observation = observeRuntimeRoleDeploymentAuthority({ root });
+        assert.equal(observation.ownership.claimEligible, false);
+        assert.ok(observation.ownership.failureReasons.some((reason) =>
+            /trusted non-symlink system binary/u.test(reason)));
+    }
+    finally
+    {
+        process.env.PATH = originalPath;
     }
 });
 

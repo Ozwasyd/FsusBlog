@@ -9,6 +9,19 @@ import {
 import { parseMatrix, tierExecutionDependencies } from '../../test-matrix/parse-matrix.mjs'
 import { digestText, digestValue } from '../lib/canonicalize.mjs'
 import {
+  resolveContainedPath
+} from '../identity.mjs'
+import {
+  hostDeclarations,
+  minimalContractSourceClosureDigests,
+  removeRuntimeRoleVerificationBuild,
+  reproduceRuntimeRoleAssembly,
+  runtimeReproduciblePathMapArgument
+} from '../../docs/behavior-doc-minimal-contract-build.mjs'
+import {
+  resolveDockerComposeOracleIdentity
+} from '../../governance/check-monolithic-distributed-architecture.mjs'
+import {
   abortGatewayTransition,
   beginGatewayTransition,
   createEmptySlotState,
@@ -110,14 +123,90 @@ function exactKeys(value, expected)
 
 function readBoundArtifact(repositoryRoot, relative, label)
 {
-  const root = path.resolve(repositoryRoot)
-  const absolute = path.resolve(root, relative)
-  if (!absolute.startsWith(`${root}${path.sep}`)
-    || !existsSync(absolute) || !statSync(absolute).isFile())
-  {
-    throw new Error(`${label} is missing or escapes the repository root`)
-  }
+  const absolute = resolveContainedPath(repositoryRoot, relative, 'file')
   return { absolute, bytes: readFileSync(absolute) }
+}
+
+const verifiedRuntimeAttestations = new Map()
+
+function verifyRuntimeReproducibleBuild(repositoryRoot, runtimeBinding, minimalReceipt)
+{
+  const attestation = runtimeBinding.buildReceipt?.reproducibleBuild
+  const expectedKeys = [
+    'schema', 'project', 'command', 'outputRoot', 'assemblyPath', 'assemblyDigest',
+    'sourceClosureDigest'
+  ]
+  const expectedOutputRoot = `.tmp/runtime-role-reproducible-builds/${minimalReceipt.buildKey}`
+  const expectedCommand = [
+    'dotnet', 'build', runtimeBinding.project, '--configuration', 'Release',
+    '--no-incremental', '--disable-build-servers', '--artifacts-path', expectedOutputRoot,
+    '/p:Deterministic=true', '/p:ContinuousIntegrationBuild=true',
+    runtimeReproduciblePathMapArgument,
+    '/p:NuGetAudit=false', '/m:1'
+  ]
+  if (!exactKeys(attestation, expectedKeys)
+    || attestation.schema !== 'fsusblog.runtime-role-reproducible-build-attestation.v1'
+    || attestation.project !== runtimeBinding.project
+    || attestation.outputRoot !== expectedOutputRoot
+    || attestation.assemblyPath !== runtimeBinding.assemblyPath
+    || attestation.assemblyDigest !== runtimeBinding.assemblyDigest
+    || attestation.sourceClosureDigest !== digestValue(minimalReceipt.sourceClosureDigests)
+    || JSON.stringify(attestation.command) !== JSON.stringify(expectedCommand))
+  {
+    throw new Error('runtime-role reproducible build attestation is not exact')
+  }
+  const trustedKey = digestValue({
+    sourceCommit: minimalReceipt.sourceCommit,
+    worktreeFingerprint: minimalReceipt.worktreeFingerprint,
+    project: runtimeBinding.project,
+    projectDigest: runtimeBinding.projectDigest
+  })
+  const previouslyVerified = verifiedRuntimeAttestations.get(trustedKey)
+  if (previouslyVerified !== undefined)
+  {
+    if (previouslyVerified !== runtimeBinding.assemblyDigest)
+    {
+      throw new Error('runtime-role assembly differs from the independently verified upstream build')
+    }
+    return
+  }
+  let reproduced
+  try
+  {
+    reproduced = reproduceRuntimeRoleAssembly({
+      repositoryRoot,
+      buildKey: minimalReceipt.buildKey,
+      verification: true
+    })
+    const normalized = {
+      ...reproduced,
+      command: reproduced.command.map((value) => value === reproduced.outputRoot
+        ? attestation.outputRoot
+        : value),
+      outputRoot: attestation.outputRoot,
+      assemblyPath: attestation.assemblyPath
+    }
+    if (reproduced.assemblyDigest !== runtimeBinding.assemblyDigest
+      || digestValue(normalized) !== digestValue({
+        schema: attestation.schema,
+        project: attestation.project,
+        command: attestation.command,
+        outputRoot: attestation.outputRoot,
+        assemblyPath: attestation.assemblyPath,
+        assemblyDigest: attestation.assemblyDigest
+      }))
+    {
+      throw new Error('runtime-role assembly does not match the canonical reproducible build')
+    }
+    verifiedRuntimeAttestations.set(trustedKey, reproduced.assemblyDigest)
+  }
+  finally
+  {
+    if (reproduced?.outputRoot)
+    {
+      removeRuntimeRoleVerificationBuild(repositoryRoot, reproduced.outputRoot)
+    }
+  }
 }
 
 function sortedUniqueStrings(values)
@@ -294,6 +383,16 @@ function projectEffectiveCompose(effectiveCompose)
   return {
     oracle: String(effectiveCompose?.oracle ?? ''),
     oracleVersion: String(effectiveCompose?.oracleVersion ?? ''),
+    dockerExecutable: {
+      canonicalPath: String(effectiveCompose?.dockerExecutable?.canonicalPath ?? ''),
+      digest: String(effectiveCompose?.dockerExecutable?.digest ?? ''),
+      version: String(effectiveCompose?.dockerExecutable?.version ?? '')
+    },
+    composeImplementation: {
+      canonicalPath: String(effectiveCompose?.composeImplementation?.canonicalPath ?? ''),
+      digest: String(effectiveCompose?.composeImplementation?.digest ?? ''),
+      version: String(effectiveCompose?.composeImplementation?.version ?? '')
+    },
     sourcePath: String(effectiveCompose?.sourcePath ?? ''),
     defaultServices: projectServices(effectiveCompose?.defaultServices),
     allProfileServices: projectServices(effectiveCompose?.allProfileServices),
@@ -1197,6 +1296,35 @@ export function extract(context)
     {
       return failResult(['runtime-role minimal build receipt identity mismatch'])
     }
+    const currentDotnet = spawnSync('dotnet', ['--version'], {
+      cwd: context.repositoryRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 30_000
+    })
+    if (currentDotnet.status !== 0
+      || String(currentDotnet.stdout ?? '').trim() !== minimalReceipt.toolchain?.dotnet
+      || minimalReceipt.toolchain?.configuration !== 'Release'
+      || minimalReceipt.toolchain?.targetFramework !== 'net10.0')
+    {
+      return failResult(['runtime-role minimal build toolchain differs from the current verifier'])
+    }
+    const registryArtifact = readBoundArtifact(
+      context.repositoryRoot,
+      'config/contracts/behavior-fact-extractors.json',
+      'behavior fact extractor registry'
+    )
+    const currentRegistry = JSON.parse(registryArtifact.bytes.toString('utf8'))
+    const currentCompiled = Array.isArray(currentRegistry?.extractors)
+      ? currentRegistry.extractors.filter((entry) => entry?.kind === 'compiled-assembly')
+      : []
+    const currentArtifactIds = currentCompiled.map((entry) => entry.requiredBuildArtifact).sort()
+    if (JSON.stringify(currentArtifactIds) !== JSON.stringify(Object.keys(hostDeclarations).sort())
+      || digestValue(minimalReceipt.sourceClosureDigests)
+        !== digestValue(minimalContractSourceClosureDigests(context.repositoryRoot, currentCompiled)))
+    {
+      return failResult(['runtime-role minimal build source closure differs from current consumed inputs'])
+    }
     runtimeBinding = minimalReceipt.artifacts?.['runtime-role-observation']
     if (!exactKeys(runtimeBinding, [
       'project', 'projectDigest', 'path', 'artifactDigest', 'assemblyPath',
@@ -1241,6 +1369,7 @@ export function extract(context)
     {
       return failResult(['runtime-role minimal build artifact or assembly digest mismatch'])
     }
+    verifyRuntimeReproducibleBuild(context.repositoryRoot, runtimeBinding, minimalReceipt)
   }
   catch (error)
   {
@@ -1283,6 +1412,14 @@ export function extract(context)
     || runtimeObservation?.deploymentAuthority?.authoritySchema !== 'fsusblog.monolithic-distributed-architecture.v2'
     || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.deploymentAuthority?.authorityContentDigest ?? ''))
     || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.deploymentAuthority?.observationDigest ?? ''))
+    || !exactKeys(runtimeObservation?.deploymentAuthority?.effectiveCompose?.dockerExecutable,
+      ['canonicalPath', 'digest', 'version'])
+    || !exactKeys(runtimeObservation?.deploymentAuthority?.effectiveCompose?.composeImplementation,
+      ['canonicalPath', 'digest', 'version'])
+    || !/^[a-f0-9]{64}$/u.test(String(
+      runtimeObservation?.deploymentAuthority?.effectiveCompose?.dockerExecutable?.digest ?? ''))
+    || !/^[a-f0-9]{64}$/u.test(String(
+      runtimeObservation?.deploymentAuthority?.effectiveCompose?.composeImplementation?.digest ?? ''))
     || runtimeObservation?.schemaOverlap?.authorityState !== 'observed-in-current-schema-manifest-probe'
     || runtimeObservation?.schemaOverlap?.claimEligible !== true
     || runtimeObservation?.schemaOverlap?.evidenceClass !== 'current-manifest-catalog-production-provider-model'
@@ -1384,6 +1521,15 @@ export function extract(context)
     {
       return failResult(['runtime-role deployment policy authority digest mismatch'])
     }
+    const currentOracleIdentity = resolveDockerComposeOracleIdentity({ root: context.repositoryRoot })
+    if (digestValue(currentOracleIdentity)
+      !== digestValue({
+        dockerExecutable: runtimeObservation.deploymentAuthority.effectiveCompose?.dockerExecutable,
+        composeImplementation: runtimeObservation.deploymentAuthority.effectiveCompose?.composeImplementation
+      }))
+    {
+      return failResult(['runtime-role Docker Compose oracle executable identity mismatch'])
+    }
   }
   catch (error)
   {
@@ -1400,11 +1546,14 @@ export function extract(context)
     projectDigest: runtimeBinding.projectDigest,
     assemblyPath: runtimeIdentity.assemblyPath,
     assemblyDigest: runtimeIdentity.assemblyDigest,
+    reproducibleBuild: runtimeBinding.buildReceipt.reproducibleBuild,
     deploymentArtifactPath: runtimeIdentity.deploymentArtifactPath,
     deploymentArtifactDigest: runtimeIdentity.deploymentArtifactDigest,
     producer: 'dotnet-run-content-addressed-minimal-contract-host',
     externalOracle: runtimeObservation.deploymentAuthority.effectiveCompose?.oracle,
     externalOracleVersion: runtimeObservation.deploymentAuthority.effectiveCompose?.oracleVersion,
+    dockerExecutable: runtimeObservation.deploymentAuthority.effectiveCompose?.dockerExecutable,
+    composeImplementation: runtimeObservation.deploymentAuthority.effectiveCompose?.composeImplementation,
     effectiveComposeModelDigest: runtimeObservation.deploymentAuthority.effectiveCompose?.modelDigest,
     deploymentAuthoritySchema: runtimeObservation.deploymentAuthority.authoritySchema,
     deploymentAuthorityContentDigest: runtimeObservation.deploymentAuthority.authorityContentDigest,

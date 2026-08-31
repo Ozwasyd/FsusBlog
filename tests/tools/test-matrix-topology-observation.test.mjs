@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, cpSync, existsSync } from 'node:fs'
+import {
+  chmodSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync,
+  cpSync, existsSync
+} from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
@@ -15,7 +18,11 @@ import { runExtractor, assertDeterministicSemanticDigest } from '../../tools/fac
 import { semanticDigestFromReceipt } from '../../tools/fact-extractors/receipt.mjs'
 import { digestValue } from '../../tools/fact-extractors/lib/canonicalize.mjs'
 import { sealSourceIdentity } from '../../tools/fact-extractors/identity.mjs'
-import { runMinimalContractBuild } from '../../tools/docs/behavior-doc-minimal-contract-build.mjs'
+import {
+  buildIdentitiesFromMinimalReceipt,
+  minimalContractSourceClosureDigests,
+  runMinimalContractBuild
+} from '../../tools/docs/behavior-doc-minimal-contract-build.mjs'
 import {
   extract as extractTestMatrix,
   TEST_MATRIX_REQUIRED_FACT_KEYS,
@@ -34,6 +41,12 @@ const minimalBuild = runMinimalContractBuild({
 const runtimeRoleBuild = {
   buildIdentity: minimalBuild.buildIdentities['runtime-role-observation']
 }
+const runtimeRoleOutputRoot = minimalBuild.receipt
+  .artifacts['runtime-role-observation']
+  .buildReceipt
+  .reproducibleBuild
+  .outputRoot
+let trustedRuntimeBuildVerified = false
 
 function registryExtractor()
 {
@@ -118,6 +131,18 @@ function extractMutatedRuntimeObservation(directory, mutate)
 
 function fixtureRepository(options = {})
 {
+  if (!trustedRuntimeBuildVerified)
+  {
+    const current = extractTestMatrix({
+      repositoryRoot: root,
+      extractor: registryExtractor(),
+      sourceCommit: sourceIdentity.sourceCommit,
+      worktreeFingerprint: sourceIdentity.worktreeFingerprint,
+      buildIdentity: runtimeRoleBuild.buildIdentity
+    })
+    assert.equal(current.status, 'ok', current.failureReasons?.join('\n'))
+    trustedRuntimeBuildVerified = true
+  }
   const directory = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-matrix-topo-'))
   for (const relative of [
     'tests/matrix.yml',
@@ -164,12 +189,82 @@ function fixtureRepository(options = {})
   {
     copy(directory, relative)
   }
+  for (const entry of minimalBuild.receipt.sourceClosureDigests)
+  {
+    if (existsSync(path.join(root, entry.path))) copy(directory, entry.path)
+  }
   if (options.matrixText)
   {
     write(directory, 'tests/matrix.yml', options.matrixText)
   }
   copy(directory, `.tmp/behavior-doc-contract-builds/${runtimeRoleBuild.buildIdentity.buildKey}`)
+  copy(directory, runtimeRoleOutputRoot)
   return directory
+}
+
+function bindFixtureBuild(repositoryRoot)
+{
+  const originalIdentity = runtimeRoleBuild.buildIdentity
+  const originalReceipt = JSON.parse(readFileSync(
+    path.join(repositoryRoot, originalIdentity.minimalReceiptPath),
+    'utf8'
+  ))
+  const registry = JSON.parse(readFileSync(
+    path.join(repositoryRoot, 'config/contracts/behavior-fact-extractors.json'),
+    'utf8'
+  ))
+  const compiled = registry.extractors.filter((entry) => entry.kind === 'compiled-assembly')
+  const sourceClosureDigests = minimalContractSourceClosureDigests(repositoryRoot, compiled)
+  const buildKey = digestValue({
+    sourceIdentity: {
+      sourceCommit: originalReceipt.sourceCommit,
+      worktreeFingerprint: originalReceipt.worktreeFingerprint
+    },
+    toolchain: originalReceipt.toolchain,
+    sourceClosureDigests
+  })
+  if (buildKey === originalReceipt.buildKey)
+  {
+    return originalIdentity
+  }
+  const receipt = structuredClone(originalReceipt)
+  const oldBuildRoot = receipt.buildRoot
+  const newBuildRoot = `.tmp/behavior-doc-contract-builds/${buildKey}`
+  copy(repositoryRoot, oldBuildRoot)
+  const copiedOldRoot = path.join(repositoryRoot, oldBuildRoot)
+  const copiedNewRoot = path.join(repositoryRoot, newBuildRoot)
+  mkdirSync(path.dirname(copiedNewRoot), { recursive: true })
+  cpSync(copiedOldRoot, copiedNewRoot, { recursive: true })
+  receipt.buildKey = buildKey
+  receipt.buildRoot = newBuildRoot
+  receipt.sourceClosureDigests = sourceClosureDigests
+  for (const artifact of Object.values(receipt.artifacts))
+  {
+    artifact.path = artifact.path.replace(oldBuildRoot, newBuildRoot)
+  }
+  const runtime = receipt.artifacts['runtime-role-observation']
+  const oldRuntimeRoot = runtime.buildReceipt.reproducibleBuild.outputRoot
+  const newRuntimeRoot = `.tmp/runtime-role-reproducible-builds/${buildKey}`
+  const newAssemblyPath = runtime.assemblyPath.replace(oldRuntimeRoot, newRuntimeRoot)
+  copy(repositoryRoot, oldRuntimeRoot)
+  const newRuntimeAbsolute = path.join(repositoryRoot, newRuntimeRoot)
+  mkdirSync(path.dirname(newRuntimeAbsolute), { recursive: true })
+  cpSync(path.join(repositoryRoot, oldRuntimeRoot), newRuntimeAbsolute, { recursive: true })
+  runtime.assemblyPath = newAssemblyPath
+  runtime.deploymentArtifactPath = runtime.deploymentArtifactPath.replace(oldBuildRoot, newBuildRoot)
+  runtime.buildReceipt.assemblyPath = newAssemblyPath
+  runtime.buildReceipt.deploymentArtifactPath = runtime.deploymentArtifactPath
+  runtime.buildReceipt.reproducibleBuild.outputRoot = newRuntimeRoot
+  runtime.buildReceipt.reproducibleBuild.assemblyPath = newAssemblyPath
+  runtime.buildReceipt.reproducibleBuild.sourceClosureDigest = digestValue(sourceClosureDigests)
+  runtime.buildReceipt.reproducibleBuild.command = runtime.buildReceipt.reproducibleBuild.command
+    .map((value) => value === oldRuntimeRoot ? newRuntimeRoot : value)
+  receipt.contentDigest = null
+  receipt.contentDigest = digestValue(receipt)
+  const receiptPath = path.join(repositoryRoot, newBuildRoot, 'receipts', `${receipt.runId}.json`)
+  mkdirSync(path.dirname(receiptPath), { recursive: true })
+  writeFileSync(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`)
+  return buildIdentitiesFromMinimalReceipt(receipt)['runtime-role-observation']
 }
 
 function extractFrom(repositoryRoot, extractorOverrides = {})
@@ -177,7 +272,7 @@ function extractFrom(repositoryRoot, extractorOverrides = {})
   const base = registryExtractor()
   return extractTestMatrix({
     repositoryRoot,
-    buildIdentity: runtimeRoleBuild.buildIdentity,
+    buildIdentity: repositoryRoot === root ? runtimeRoleBuild.buildIdentity : bindFixtureBuild(repositoryRoot),
     sourceCommit: sourceIdentity.sourceCommit,
     worktreeFingerprint: sourceIdentity.worktreeFingerprint,
     extractor: {
@@ -337,6 +432,9 @@ test('live matrix projects typed topology / release-final / production-fresh fac
   assert.equal(runtimeRole.ownership.separation, 'blue-green-release-slots-not-runtime-role-services')
   assert.match(runtimeRole.deploymentAuthority.observationDigest, /^sha256:[a-f0-9]{64}$/u)
   assert.equal(runtimeRole.deploymentAuthority.effectiveCompose.oracle, 'docker-compose-config-json-no-interpolate')
+  assert.equal(runtimeRole.deploymentAuthority.effectiveCompose.dockerExecutable.canonicalPath, '/usr/bin/docker')
+  assert.match(runtimeRole.deploymentAuthority.effectiveCompose.dockerExecutable.digest, /^[a-f0-9]{64}$/u)
+  assert.match(runtimeRole.deploymentAuthority.effectiveCompose.composeImplementation.digest, /^[a-f0-9]{64}$/u)
   assert.equal(runtimeRole.deploymentAuthority.effectiveCompose.defaultServices['fsusblog.server'].profileState, 'default-active')
   assert.equal(runtimeRole.schemaOverlap.sourceReadiness, 'ready')
   assert.notEqual(runtimeRole.schemaOverlap.sourceReleaseId, runtimeRole.schemaOverlap.targetReleaseId)
@@ -434,7 +532,10 @@ esac
 `)
     const result = extractFrom(directory)
     assert.equal(result.status, 'failed')
-    assert.ok(result.failureReasons.some((reason) => /second tier dispatch/u.test(reason)))
+    assert.ok(
+      result.failureReasons.some((reason) => /second tier dispatch/u.test(reason)),
+      result.failureReasons.join('\n')
+    )
   }
   finally
   {
@@ -676,6 +777,117 @@ test('runtime-role upstream source, parent receipt, assembly and deployment iden
   }
 })
 
+test('coordinated DLL, raw observation and artifact reseal cannot replace the trusted upstream build', () =>
+{
+  const directory = fixtureRepository()
+  try
+  {
+    const identity = structuredClone(runtimeRoleBuild.buildIdentity)
+    const assemblyPath = path.join(directory, identity.assemblyPath)
+    writeFileSync(assemblyPath, 'coordinated-fake-runtime-role-assembly')
+    const assemblyDigest = createHash('sha256').update(readFileSync(assemblyPath)).digest('hex')
+
+    const deploymentPath = path.join(directory, identity.deploymentArtifactPath)
+    const deployment = JSON.parse(readFileSync(deploymentPath, 'utf8'))
+    deployment.effectiveCompose.oracleVersion = 'coordinated-fake'
+    const { observationDigest: _deploymentDigest, ...deploymentUnsigned } = deployment
+    deployment.observationDigest = `sha256:${createHash('sha256')
+      .update(canonical(deploymentUnsigned)).digest('hex')}`
+    writeFileSync(deploymentPath, `${JSON.stringify(deployment, null, 2)}\n`)
+    const deploymentDigest = createHash('sha256').update(readFileSync(deploymentPath)).digest('hex')
+
+    const artifactPath = path.join(directory, identity.artifactPath)
+    const observation = JSON.parse(readFileSync(artifactPath, 'utf8'))
+    observation.staticRoleCapabilities.web = ['coordinated.fake']
+    observation.deploymentAuthority = deployment
+    resealRuntimeObservation(observation)
+    writeFileSync(artifactPath, `${JSON.stringify(observation, null, 2)}\n`)
+    const artifactDigest = createHash('sha256').update(readFileSync(artifactPath)).digest('hex')
+
+    const receiptPath = path.join(directory, identity.minimalReceiptPath)
+    const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'))
+    const binding = receipt.artifacts['runtime-role-observation']
+    binding.artifactDigest = artifactDigest
+    binding.assemblyDigest = assemblyDigest
+    binding.deploymentArtifactDigest = deploymentDigest
+    Object.assign(binding.buildReceipt, {
+      artifactDigest,
+      assemblyDigest,
+      deploymentArtifactDigest: deploymentDigest,
+      externalOracleVersion: 'coordinated-fake',
+      effectiveComposeModelDigest: deployment.effectiveCompose.modelDigest,
+      deploymentObservationDigest: deployment.observationDigest
+    })
+    binding.buildReceipt.reproducibleBuild.assemblyDigest = assemblyDigest
+    receipt.contentDigest = null
+    receipt.contentDigest = digestValue(receipt)
+    writeFileSync(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`)
+    Object.assign(identity, {
+      artifactDigest,
+      assemblyDigest,
+      deploymentArtifactDigest: deploymentDigest,
+      receiptDigest: digestValue(binding.buildReceipt),
+      minimalReceiptDigest: receipt.contentDigest
+    })
+
+    const result = extractTestMatrix({
+      repositoryRoot: directory,
+      extractor: registryExtractor(),
+      sourceCommit: sourceIdentity.sourceCommit,
+      worktreeFingerprint: sourceIdentity.worktreeFingerprint,
+      buildIdentity: identity
+    })
+    assert.equal(result.status, 'failed')
+    assert.match(result.failureReasons.join('\n'), /independently verified upstream build/iu)
+  }
+  finally
+  {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('nested source and artifact symlinks fail closed before digest consumption', () =>
+{
+  for (const kind of ['source', 'artifact'])
+  {
+    const directory = fixtureRepository()
+    try
+    {
+      if (kind === 'source')
+      {
+        const source = path.join(
+          directory,
+          'src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCompatibility.cs'
+        )
+        const outside = path.join(directory, 'linked-schema-source.cs')
+        writeFileSync(outside, readFileSync(source))
+        rmSync(source)
+        symlinkSync(path.relative(path.dirname(source), outside), source)
+      }
+      else
+      {
+        const observations = path.dirname(path.join(directory, runtimeRoleBuild.buildIdentity.artifactPath))
+        const physical = `${observations}-physical`
+        renameSync(observations, physical)
+        symlinkSync(path.basename(physical), observations)
+      }
+      const result = extractTestMatrix({
+        repositoryRoot: directory,
+        extractor: registryExtractor(),
+        sourceCommit: sourceIdentity.sourceCommit,
+        worktreeFingerprint: sourceIdentity.worktreeFingerprint,
+        buildIdentity: runtimeRoleBuild.buildIdentity
+      })
+      assert.equal(result.status, 'failed', kind)
+      assert.match(result.failureReasons.join('\n'), /symbolic link/iu, kind)
+    }
+    finally
+    {
+      rmSync(directory, { recursive: true, force: true })
+    }
+  }
+})
+
 test('runtime-role deployment source roster, live digests, and policy authority fail closed', () =>
 {
   for (const [label, mutate] of [
@@ -781,6 +993,37 @@ test('compiled runtime-role host rejects resealed nested deployment contradictio
     {
       rmSync(directory, { recursive: true, force: true })
     }
+  }
+})
+
+test('compiled runtime-role host rejects a PATH-prepended fake Docker oracle', () =>
+{
+  const directory = fixtureRepository()
+  try
+  {
+    const fakeBin = path.join(directory, 'fake-bin')
+    mkdirSync(fakeBin)
+    const fakeDocker = path.join(fakeBin, 'docker')
+    writeFileSync(fakeDocker, '#!/usr/bin/env bash\nexec /usr/bin/docker "$@"\n')
+    chmodSync(fakeDocker, 0o755)
+    const output = path.join(directory, '.tmp/contracts/runtime-role/fake-docker-rejected.json')
+    const run = spawnSync('dotnet', [
+      path.join(directory, runtimeRoleBuild.buildIdentity.assemblyPath),
+      '--deployment-observation',
+      path.join(directory, runtimeRoleBuild.buildIdentity.deploymentArtifactPath),
+      '--output', output
+    ], {
+      cwd: directory,
+      encoding: 'utf8',
+      env: { ...process.env, PATH: `${fakeBin}${path.delimiter}${process.env.PATH ?? ''}` }
+    })
+    assert.notEqual(run.status, 0)
+    assert.match(`${run.stdout}\n${run.stderr}`, /runtime_role_external_oracle_untrusted:docker/iu)
+    assert.equal(existsSync(output), false)
+  }
+  finally
+  {
+    rmSync(directory, { recursive: true, force: true })
   }
 })
 
