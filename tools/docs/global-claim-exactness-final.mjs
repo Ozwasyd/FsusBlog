@@ -183,6 +183,84 @@ export async function buildGlobalClaimExactnessReceipt({
         claimsByBehavior.set(claim.declaration.behaviorId, list)
     }
 
+    const claimOwners = new Map()
+    for (const scope of inputs.migrationLedger.scopes ?? [])
+    {
+        for (const entry of scope.entries ?? [])
+        {
+            for (const claimId of entry.claimIds ?? [])
+            {
+                if (claimOwners.has(claimId))
+                {
+                    failureReasons.push(`duplicate migration-ledger owner for claim ${claimId}`)
+                    continue
+                }
+                claimOwners.set(claimId, {
+                    behaviorId: entry.behaviorId,
+                    scopeId: scope.scopeId,
+                    documentPath: entry.documentPath,
+                    entryKey: `${scope.scopeId}\u0000${entry.behaviorId}\u0000${entry.documentPath}`,
+                    generatedSectionIds: [...(entry.generatedSectionIds ?? [])].sort()
+                })
+            }
+        }
+    }
+    const claimAcceptance = inputs.claimReceipt.claims.map((claim) =>
+    {
+        const declaration = claim.declaration
+        const owner = claimOwners.get(declaration.claimId)
+        if (!owner || owner.behaviorId !== declaration.behaviorId
+            || owner.documentPath !== claim.location.documentPath)
+        {
+            failureReasons.push(`claim ${declaration.claimId} has no exact migration-ledger owner`)
+        }
+        const generatedSectionId = declaration.claimType === 'generated-section'
+            ? declaration.generatedSectionId
+            : null
+        if (owner && generatedSectionId !== null
+            && !owner.generatedSectionIds.includes(generatedSectionId))
+        {
+            failureReasons.push(`claim ${declaration.claimId} generated-section ownership mismatch`)
+        }
+        const identity = {
+            claimId: declaration.claimId,
+            behaviorId: declaration.behaviorId,
+            scopeId: owner?.scopeId ?? 'unowned',
+            documentPath: claim.location.documentPath,
+            claimType: declaration.claimType,
+            generatedSectionId
+        }
+        return {
+            ...identity,
+            claimDigest: `sha256:${digestValue({
+                declaration: claim.declaration,
+                location: claim.location
+            })}`
+        }
+    }).sort((left, right) => left.claimId.localeCompare(right.claimId))
+    if (new Set(claimAcceptance.map((entry) => entry.claimId)).size !== claimAcceptance.length)
+    {
+        failureReasons.push('global claim acceptance contains duplicate claim IDs')
+    }
+    if (claimAcceptance.length !== claimOwners.size)
+    {
+        failureReasons.push('global claim acceptance does not exact-match migration-ledger claim IDs')
+    }
+    const ledgerEntries = new Map()
+    for (const owner of claimOwners.values()) ledgerEntries.set(owner.entryKey, owner)
+    for (const owner of ledgerEntries.values())
+    {
+        const actualSections = claimAcceptance
+            .filter((entry) => claimOwners.get(entry.claimId)?.entryKey === owner.entryKey)
+            .map((entry) => entry.generatedSectionId)
+            .filter((sectionId) => sectionId !== null)
+            .sort()
+        if (JSON.stringify(actualSections) !== JSON.stringify(owner.generatedSectionIds))
+        {
+            failureReasons.push(`migration-ledger generated sections mismatch for ${owner.documentPath}`)
+        }
+    }
+
     let proseTotal = 0
     const proseClaims = []
     let generatedSectionsVerified = 0
@@ -283,6 +361,7 @@ export async function buildGlobalClaimExactnessReceipt({
                 [entry.view.extractorId, digestValue(entry.raw)]))
         },
         authorityDigests: inputs.receipts.map((entry) => entry.view.extractorId),
+        claimAcceptance,
         counts: {
             requiredBehaviors: required.length,
             scopes: ledgerSummary.scopeCount,
@@ -313,6 +392,18 @@ export function validateGlobalClaimExactnessReceipt(receipt)
     if (receipt?.schema !== globalExactnessSchema) throw new Error('unexpected global exactness schema')
     if (receipt.contentDigest !== digestValue({ ...receipt, contentDigest: null }))
         throw new Error('global exactness contentDigest mismatch')
+    if (!Array.isArray(receipt.claimAcceptance)
+        || new Set(receipt.claimAcceptance.map((entry) => entry?.claimId)).size
+            !== receipt.claimAcceptance.length
+        || receipt.claimAcceptance.some((entry) =>
+            Object.keys(entry ?? {}).sort().join('\n') !== [
+                'behaviorId', 'claimDigest', 'claimId', 'claimType', 'documentPath',
+                'generatedSectionId', 'scopeId'
+            ].sort().join('\n')
+            || !/^sha256:[a-f0-9]{64}$/u.test(entry.claimDigest ?? ''))
+        || receipt.claimAcceptance.length
+            !== receipt.counts.generatedClaimCount + receipt.counts.proseClaimCount)
+        throw new Error('global exactness claim acceptance is invalid')
     if (receipt.status !== 'ok' || receipt.failureReasons.length !== 0
         || receipt.counts.warnings !== 0
         || receipt.counts.missing !== 0

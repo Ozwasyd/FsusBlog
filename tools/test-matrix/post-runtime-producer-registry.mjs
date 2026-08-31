@@ -57,6 +57,26 @@ const rawFactSourceSchemas = Object.freeze({
     'release-identity-readiness': 'fsusblog.release-identity-readiness-authority-bundle.v1',
     'blue-green-containment': 'fsusblog.blue-green-containment-authority-bundle.v1'
 })
+const embeddedIdentityCapabilities = Object.freeze({
+    'fsusblog.ci-production-build-receipt.v1': ['sourceCommit', 'worktreeFingerprint'],
+    'fsusblog.fixture-receipt.v2': [
+        'sourceCommit', 'worktreeFingerprint', 'runId', 'profileId'
+    ],
+    'fsusblog.post-runtime-candidate-plan.v1': [
+        'sourceCommit', 'worktreeFingerprint', 'runId', 'candidateId'
+    ],
+    'fsusblog.spa-manifest-descriptor.v1': [
+        'sourceCommit', 'worktreeFingerprint', 'buildIdentity'
+    ],
+    'fsusblog.browser-contract-receipt.v2': [
+        'sourceCommit', 'worktreeFingerprint', 'runId', 'browserIdentity'
+    ],
+    'fsusblog.browser-contract-public-preview-evidence.v1': [
+        'sourceCommit', 'worktreeFingerprint', 'runId', 'browserIdentity'
+    ],
+    'fsusblog.release-rollout-evidence.v1': ['releaseId', 'rolloutId'],
+    'fsusblog.runtime-role-observation.v1': []
+})
 const stableIdentityPattern = /^[a-z][a-z0-9-]{2,127}$/u
 const runIdentityPattern = /^(?!\.{1,2}$)[A-Za-z0-9_](?:[A-Za-z0-9_.-]{0,126}[A-Za-z0-9_])?$/u
 const attemptIdentityPattern = /^attempt-[0-9]{4}$/u
@@ -74,6 +94,7 @@ process.stdin.on('end', () => {
     const requireAliases = new Set(['require'])
     const requireFactoryAliases = new Set()
     const moduleAliases = new Set(['module'])
+    const moduleNamespaceAliases = new Set()
     const dynamicCodeAliases = new Set(['eval', 'Function'])
     const filesystemNamespaceAliases = new Set()
     const filesystemReaderAliases = new Set()
@@ -89,18 +110,31 @@ process.stdin.on('end', () => {
             || (current?.type === 'MemberExpression' && propertyName(current) === 'require'
                 && current.object?.type === 'Identifier' && moduleAliases.has(current.object.name))
     }
+    const moduleSpecifier = (value) => ['module', 'node:module'].includes(value)
     const requireSpecifier = (node) => {
         const current = unwrap(node)
         if (current?.type !== 'CallExpression' || current.arguments.length !== 1
-            || !requireCallee(current.callee)
+            || (!requireCallee(current.callee) && !requireFactoryCall(current.callee))
             || !literal(current.arguments[0])) return null
         return current.arguments[0].value
     }
-    const moduleSpecifier = (value) => ['module', 'node:module'].includes(value)
+    const moduleNamespace = (node) => {
+        const current = unwrap(node)
+        if (current?.type === 'Identifier') return moduleNamespaceAliases.has(current.name)
+        const required = requireSpecifier(current)
+        return required !== null && moduleSpecifier(required)
+    }
     const requireFactory = (node) => {
         const current = unwrap(node)
         return current?.type === 'MemberExpression' && propertyName(current) === 'createRequire'
-            && moduleSpecifier(requireSpecifier(current.object))
+            && moduleNamespace(current.object)
+    }
+    const requireFactoryCall = (node) => {
+        const current = unwrap(node)
+        return current?.type === 'CallExpression'
+            && ((current.callee?.type === 'Identifier'
+                && requireFactoryAliases.has(current.callee.name))
+                || requireFactory(current.callee))
     }
     const filesystemSpecifier = (value) =>
         ['fs', 'node:fs', 'fs/promises', 'node:fs/promises'].includes(value)
@@ -130,6 +164,32 @@ process.stdin.on('end', () => {
             return filesystemReader(current.callee.object)
         return false
     }
+    const registerImportAliases = (node) => {
+        if (filesystemSpecifier(node.source.value))
+            for (const specifier of node.specifiers ?? [])
+                if (specifier.type === 'ImportDefaultSpecifier'
+                    || specifier.type === 'ImportNamespaceSpecifier')
+                    filesystemNamespaceAliases.add(specifier.local.name)
+                else if (specifier.type === 'ImportSpecifier'
+                    && filesystemReaderPattern.test(specifier.imported?.name
+                        ?? specifier.imported?.value ?? ''))
+                    filesystemReaderAliases.add(specifier.local.name)
+        if (moduleSpecifier(node.source.value))
+            for (const specifier of node.specifiers ?? [])
+                if (specifier.type === 'ImportDefaultSpecifier'
+                    || specifier.type === 'ImportNamespaceSpecifier')
+                    moduleNamespaceAliases.add(specifier.local.name)
+                else if (specifier.type === 'ImportSpecifier'
+                    && (specifier.imported?.name ?? specifier.imported?.value) === 'createRequire')
+                    requireFactoryAliases.add(specifier.local.name)
+    }
+    const registerRequireFactoryPattern = (pattern) => {
+        for (const property of pattern.properties ?? [])
+            if (property.key?.name === 'createRequire' || property.key?.value === 'createRequire')
+                requireFactoryAliases.add(property.value?.name)
+            else if (property.computed && property.key?.type !== 'Literal')
+                throw new Error('computed module factory method is forbidden in the reader closure')
+    }
     const forbiddenReaderPath = (value) => {
         const normalized = value.normalize('NFKC').replaceAll('\\', '/').toLowerCase()
         return normalized.split('/').some((segment) => segment === 'docs'
@@ -155,13 +215,14 @@ process.stdin.on('end', () => {
             && node.init?.type === 'Identifier' && moduleAliases.has(node.init.name))
             moduleAliases.add(node.id.name)
         if (node.type === 'VariableDeclarator' && node.id?.type === 'Identifier'
+            && moduleNamespace(node.init))
+            moduleNamespaceAliases.add(node.id.name)
+        if (node.type === 'VariableDeclarator' && node.id?.type === 'Identifier'
             && (node.init?.type === 'Identifier' && requireFactoryAliases.has(node.init.name)
                 || requireFactory(node.init)))
             requireFactoryAliases.add(node.id.name)
         if (node.type === 'VariableDeclarator' && node.id?.type === 'Identifier'
-            && node.init?.type === 'CallExpression'
-            && node.init.callee?.type === 'Identifier'
-            && requireFactoryAliases.has(node.init.callee.name))
+            && requireFactoryCall(node.init))
             requireAliases.add(node.id.name)
         if (node.type === 'VariableDeclarator' && node.id?.type === 'Identifier'
             && node.init?.type === 'Identifier' && dynamicCodeAliases.has(node.init.name))
@@ -181,12 +242,8 @@ process.stdin.on('end', () => {
                     filesystemReaderAliases.add(property.value?.name)
         }
         if (node.type === 'VariableDeclarator' && node.id?.type === 'ObjectPattern'
-            && moduleSpecifier(requireSpecifier(node.init)))
-        {
-            for (const property of node.id.properties ?? [])
-                if (property.key?.name === 'createRequire' || property.key?.value === 'createRequire')
-                    requireFactoryAliases.add(property.value?.name)
-        }
+            && moduleNamespace(node.init))
+            registerRequireFactoryPattern(node.id)
         if (node.type === 'AssignmentExpression' && node.left?.type === 'Identifier'
             && node.right?.type === 'Identifier' && requireAliases.has(node.right.name))
             requireAliases.add(node.left.name)
@@ -194,9 +251,17 @@ process.stdin.on('end', () => {
             && node.right?.type === 'Identifier' && moduleAliases.has(node.right.name))
             moduleAliases.add(node.left.name)
         if (node.type === 'AssignmentExpression' && node.left?.type === 'Identifier'
-            && node.right?.type === 'CallExpression'
-            && node.right.callee?.type === 'Identifier'
-            && requireFactoryAliases.has(node.right.callee.name))
+            && moduleNamespace(node.right))
+            moduleNamespaceAliases.add(node.left.name)
+        if (node.type === 'AssignmentExpression' && node.left?.type === 'Identifier'
+            && ((node.right?.type === 'Identifier' && requireFactoryAliases.has(node.right.name))
+                || requireFactory(node.right)))
+            requireFactoryAliases.add(node.left.name)
+        if (node.type === 'AssignmentExpression' && node.left?.type === 'ObjectPattern'
+            && moduleNamespace(node.right))
+            registerRequireFactoryPattern(node.left)
+        if (node.type === 'AssignmentExpression' && node.left?.type === 'Identifier'
+            && requireFactoryCall(node.right))
             requireAliases.add(node.left.name)
         if (node.type === 'AssignmentExpression' && node.left?.type === 'Identifier'
             && node.right?.type === 'Identifier' && dynamicCodeAliases.has(node.right.name))
@@ -210,24 +275,13 @@ process.stdin.on('end', () => {
         if (node.type === 'ImportDeclaration')
         {
             add('import', node.source)
-            if (filesystemSpecifier(node.source.value))
-                for (const specifier of node.specifiers ?? [])
-                    if (specifier.type === 'ImportDefaultSpecifier'
-                        || specifier.type === 'ImportNamespaceSpecifier')
-                        filesystemNamespaceAliases.add(specifier.local.name)
-                    else if (specifier.type === 'ImportSpecifier'
-                        && filesystemReaderPattern.test(specifier.imported?.name ?? ''))
-                        filesystemReaderAliases.add(specifier.local.name)
-            if (moduleSpecifier(node.source.value))
-                for (const specifier of node.specifiers ?? [])
-                    if (specifier.type === 'ImportSpecifier'
-                        && specifier.imported?.name === 'createRequire')
-                        requireFactoryAliases.add(specifier.local.name)
+            registerImportAliases(node)
         }
         else if ((node.type === 'ExportNamedDeclaration' || node.type === 'ExportAllDeclaration') && node.source)
             add('import', node.source)
         else if (node.type === 'ImportExpression') add('import', node.source)
-        else if (node.type === 'CallExpression' && requireCallee(node.callee))
+        else if (node.type === 'CallExpression'
+            && (requireCallee(node.callee) || requireFactoryCall(node.callee)))
         {
             if (node.arguments.length !== 1) throw new Error('require() must have exact-one argument')
             add('require', node.arguments[0])
@@ -237,6 +291,9 @@ process.stdin.on('end', () => {
                 || (node.callee?.type === 'MemberExpression'
                     && ['eval', 'Function'].includes(propertyName(node.callee)))))
             throw new Error('dynamic eval/Function code is forbidden in the reader closure')
+        if (node.type === 'MemberExpression' && moduleNamespace(node.object)
+            && node.computed && propertyName(node) === null)
+            throw new Error('computed module factory method is forbidden in the reader closure')
         if (node.type === 'NewExpression' && node.callee?.type === 'Identifier' && node.callee.name === 'URL')
         {
             if (!literal(node.arguments[0]) || forbiddenReaderPath(node.arguments[0].value))
@@ -291,6 +348,8 @@ process.stdin.on('end', () => {
             else walk(value, functionName)
         }
     }
+    for (const statement of ast.body ?? [])
+        if (statement.type === 'ImportDeclaration') registerImportAliases(statement)
     walk(ast)
     process.stdout.write(JSON.stringify(dependencies))
 })
@@ -869,6 +928,9 @@ export function validatePostRuntimeReceiptSchemas(registry, {
             'toolVersion', 'producerCommand', 'payloadPath', 'payloadFileDigest',
             'payloadContentDigest', 'payloadSchema'],
         'accepted terminal receipt reference fields')
+    assertExactSet(claimsSchema.properties?.claims?.items?.required,
+        ['claimId', 'behaviorId', 'scopeId', 'claimDigest'],
+        'accepted claim fields')
     if (claimsSchema.properties?.terminalReceiptRef?.properties?.schema?.const
         !== currentRunEvidenceReferenceSchema
         || claimsSchema.properties?.terminalReceiptRef?.properties?.payloadSchema?.const
@@ -1050,12 +1112,18 @@ export function validatePostRuntimeProducerRegistry(registry, {
             `observation class ${classId} source receipt reference contracts`)
         for (const [field, referenceContract] of Object.entries(sourceContract.referenceContracts))
         {
-            assertExactKeys(referenceContract, ['schema', 'role'],
+            assertExactKeys(referenceContract, ['schema', 'role', 'identityFields'],
                 `observation class ${classId} source receipt reference ${field}`)
+            const identityCapabilities = embeddedIdentityCapabilities[referenceContract.schema]
+            const expectedReferenceIdentities = identityCapabilities?.filter((identity) =>
+                definition.requiredIdentityFields.includes(identity))
             if (!/^fsusblog\.[a-z0-9.-]+\.v\d+$/u.test(referenceContract.schema ?? '')
-                || !/^[a-z][a-z0-9-]*$/u.test(referenceContract.role ?? ''))
+                || !/^[a-z][a-z0-9-]*$/u.test(referenceContract.role ?? '')
+                || identityCapabilities === undefined
+                || JSON.stringify(referenceContract.identityFields)
+                    !== JSON.stringify(expectedReferenceIdentities))
             {
-                fail(`observation class ${classId} source receipt reference ${field} schema/role is invalid`)
+                fail(`observation class ${classId} source receipt reference ${field} schema/role/identity is invalid`)
             }
         }
         const identities = definition.requiredIdentityFields ?? []
@@ -1286,11 +1354,12 @@ function requiredModesFor(producer, classId)
         .sort()
 }
 
-function validateTypedSourceState(sourceState, schema, repositoryRoot, producerId)
+function validateTypedSourceState(sourceState, repositoryRoot, producerId,
+    requiredIdentityFields)
 {
-    assertAllowedKeys(sourceState,
-        Object.keys(schema.properties?.sourceState?.properties ?? {}),
-        schema.properties?.sourceState?.required ?? [],
+    const sourceIdentityFields = requiredIdentityFields
+        .filter((field) => !['producerId', 'toolVersion', 'contentDigest'].includes(field))
+    assertExactKeys(sourceState, sourceIdentityFields,
         `producer ${producerId} sourceState`)
     if (!/^[a-f0-9]{40}$/u.test(sourceState.sourceCommit ?? '')
         || !digestPattern.test(sourceState.worktreeFingerprint ?? '')
@@ -1307,12 +1376,17 @@ function validateTypedSourceState(sourceState, schema, repositoryRoot, producerI
             fail(`producer ${producerId} receipt source identity ${digestField} is invalid`)
         }
     }
-    if (sourceState.candidateId !== `${sourceState.runId}:candidate`
-        || sourceState.fixtureId !== `${sourceState.runId}:fixture`
-        || sourceState.runtimeId !== `${sourceState.runId}:runtime`
-        || sourceState.browserIdentity !== `${sourceState.runId}:browser-contract`
-        || sourceState.rolloutId !== `${sourceState.runId}:rollout`
-        || !releaseIdentityPattern.test(sourceState.releaseId ?? ''))
+    const scopedIdentities = {
+        candidateId: `${sourceState.runId}:candidate`,
+        fixtureId: `${sourceState.runId}:fixture`,
+        runtimeId: `${sourceState.runId}:runtime`,
+        browserIdentity: `${sourceState.runId}:browser-contract`,
+        rolloutId: `${sourceState.runId}:rollout`
+    }
+    if (Object.entries(scopedIdentities).some(([field, expected]) =>
+        sourceIdentityFields.includes(field) && sourceState[field] !== expected)
+        || (sourceIdentityFields.includes('releaseId')
+            && !releaseIdentityPattern.test(sourceState.releaseId ?? '')))
     {
         fail(`producer ${producerId} receipt scoped candidate/runtime/browser/release identity is invalid`)
     }
@@ -1327,7 +1401,8 @@ function validateMachineGlobalClaimExactnessReceipt(receipt)
 {
     assertExactKeys(receipt, [
         'schema', 'scopeId', 'source', 'authorityDigests', 'counts', 'mutationAggregate',
-        'residue', 'proseVerification', 'status', 'failureReasons', 'contentDigest'
+        'claimAcceptance', 'residue', 'proseVerification', 'status', 'failureReasons',
+        'contentDigest'
     ], 'global exactness terminal receipt')
     if (receipt.schema !== globalExactnessSchema
         || receipt.contentDigest !== digestValue({ ...receipt, contentDigest: null }))
@@ -1343,6 +1418,31 @@ function validateMachineGlobalClaimExactnessReceipt(receipt)
         || receipt.mutationAggregate?.killed !== receipt.mutationAggregate?.total)
     {
         fail('global exactness terminal receipt is not a clean machine acceptance')
+    }
+    if (!Array.isArray(receipt.claimAcceptance)
+        || receipt.claimAcceptance.length
+            !== receipt.counts.generatedClaimCount + receipt.counts.proseClaimCount)
+    {
+        fail('global exactness terminal claim acceptance count mismatch')
+    }
+    const claimIds = new Set()
+    for (const claim of receipt.claimAcceptance)
+    {
+        assertExactKeys(claim, [
+            'claimId', 'behaviorId', 'scopeId', 'documentPath', 'claimType',
+            'generatedSectionId', 'claimDigest'
+        ], 'global exactness terminal claim acceptance')
+        if (claimIds.has(claim.claimId) || !/^[a-z][a-z0-9.-]{2,255}$/u.test(claim.claimId ?? '')
+            || !stableIdentityPattern.test(claim.behaviorId ?? '')
+            || !stableIdentityPattern.test(claim.scopeId ?? '')
+            || typeof claim.documentPath !== 'string' || !claim.documentPath.startsWith('docs/')
+            || !['generated-section', 'prose'].includes(claim.claimType)
+            || (claim.claimType === 'generated-section') !== (claim.generatedSectionId !== null)
+            || !digestPattern.test(claim.claimDigest ?? ''))
+        {
+            fail('global exactness terminal claim acceptance is invalid')
+        }
+        claimIds.add(claim.claimId)
     }
     return receipt
 }
@@ -1438,6 +1538,23 @@ function replayEmbeddedReference(repositoryRoot, ref, contract, sourceState, lab
     {
         fail(`${label} schema/content seal mismatch`)
     }
+    const projected = identityProjection(current.value)
+    for (const field of contract.identityFields)
+    {
+        if (projected[field] === undefined
+            || prefixedDigest(projected[field]) !== prefixedDigest(sourceState[field]))
+        {
+            fail(`${label} ${field} does not bind the outer source identity`)
+        }
+    }
+    for (const [field, actual] of Object.entries(projected))
+    {
+        if (actual !== undefined && sourceState[field] !== undefined
+            && prefixedDigest(actual) !== prefixedDigest(sourceState[field]))
+        {
+            fail(`${label} embedded ${field} identity mismatch`)
+        }
+    }
     return current.value
 }
 
@@ -1463,7 +1580,7 @@ function replayUpstreamClosure(repositoryRoot, upstream, contract, sourceState, 
     }
 }
 
-function extractSemanticFactsFromRawReceipt(upstream, definition, producerId, classId)
+function extractSemanticFactsFromRawReceipt(upstream, definition, producerId, classId, sourceState)
 {
     if (rawFactSourceSchemas[classId] !== upstream.schema
         || definition.sourceReceipt.schema !== upstream.schema)
@@ -1486,6 +1603,12 @@ function extractSemanticFactsFromRawReceipt(upstream, definition, producerId, cl
         {
             fail(`producer ${producerId} ${classId} raw semantic fact ${rawFieldFor(field)} is empty`)
         }
+        if (['candidateId', 'runtimeId', 'browserIdentity', 'releaseId', 'rolloutId',
+            'runId', 'attemptId', 'fixtureId', 'profileId'].includes(field)
+            && sourceState[field] !== rawValue)
+        {
+            fail(`producer ${producerId} ${classId} semantic identity ${field} does not bind sourceState`)
+        }
         extracted[field] = field.endsWith('Digest') ? authorityDigest(rawValue) : rawValue
     }
     return extracted
@@ -1493,23 +1616,24 @@ function extractSemanticFactsFromRawReceipt(upstream, definition, producerId, cl
 
 function identityProjection(value)
 {
-    const source = value?.sourceState ?? value?.sourceIdentity ?? {}
-    const candidate = value?.candidate ?? {}
+    const execution = value?.executionIdentity ?? {}
+    const source = value?.sourceState ?? value?.sourceIdentity ?? execution.source ?? {}
+    const candidate = value?.candidate ?? value?.target ?? {}
     const run = value?.runIdentity ?? {}
     return {
-        sourceCommit: source.sourceCommit ?? source.commit,
-        worktreeFingerprint: source.worktreeFingerprint,
-        buildIdentity: source.buildIdentity,
-        artifactDigest: source.artifactDigest,
+        sourceCommit: source.sourceCommit ?? source.commit ?? value?.sourceCommit,
+        worktreeFingerprint: source.worktreeFingerprint ?? value?.worktreeFingerprint,
+        buildIdentity: source.buildIdentity ?? value?.buildIdentity ?? value?.buildReceiptDigest,
+        artifactDigest: source.artifactDigest ?? value?.artifactDigest,
         candidateId: source.candidateId ?? candidate.candidateId,
         runtimeId: source.runtimeId ?? candidate.runtimeId,
         browserIdentity: source.browserIdentity ?? candidate.browserId,
         releaseId: source.releaseId ?? candidate.releaseId,
-        rolloutId: source.rolloutId ?? candidate.rolloutId,
-        runId: source.runId ?? run.runId ?? candidate.runId,
+        rolloutId: source.rolloutId ?? candidate.rolloutId ?? value?.rolloutId,
+        runId: source.runId ?? run.runId ?? candidate.runId ?? execution.runId,
         attemptId: source.attemptId ?? candidate.attemptId,
         fixtureId: source.fixtureId ?? candidate.fixtureId,
-        profileId: source.profileId ?? candidate.profileId
+        profileId: source.profileId ?? candidate.profileId ?? value?.profileIdentity?.profileId
     }
 }
 
@@ -1598,7 +1722,8 @@ function validateSourceReceiptRef(repositoryRoot, ref, sourceState, producer, pr
             fail(`producer ${producerId} source receipt upstream ${required} mismatch`)
         }
     }
-    const extractedFacts = extractSemanticFactsFromRawReceipt(upstream, definition, producerId, classId)
+    const extractedFacts = extractSemanticFactsFromRawReceipt(
+        upstream, definition, producerId, classId, sourceState)
     if (digestValue(extractedFacts) !== digestValue(envelope.semanticFacts))
     {
         fail(`producer ${producerId} source receipt raw semantic facts mismatch`)
@@ -1644,7 +1769,8 @@ export function validateProducerReceiptAgainstRegistry({
             fail(`producer ${producerId} receipt is missing ${classId} identity ${required}`)
         }
     }
-    validateTypedSourceState(identity, schema, repositoryRoot, producerId)
+    validateTypedSourceState(identity, repositoryRoot, producerId,
+        definition.requiredIdentityFields)
     assertExactSet(receipt.modes, requiredModesFor(producer, classId),
         `producer ${producerId} ${classId} modes`)
     assertExactKeys(receipt.terminal,
@@ -1841,19 +1967,60 @@ export function validateAcceptedClaimsReceiptAgainstRegistry({
                 owners.set(claimId, {
                     claimId,
                     behaviorId: BehaviorId(entry.behaviorId),
-                    scopeId: scope.scopeId
+                    scopeId: scope.scopeId,
+                    documentPath: entry.documentPath,
+                    entryKey: `${scope.scopeId}\u0000${entry.behaviorId}\u0000${entry.documentPath}`,
+                    generatedSectionIds: [...(entry.generatedSectionIds ?? [])].sort()
                 })
             }
+        }
+    }
+    const terminalClaims = new Map(terminal.claimAcceptance.map((claim) => [claim.claimId, claim]))
+    if (terminalClaims.size !== owners.size)
+    {
+        fail('accepted terminal claim set does not exact-match the current migration ledger')
+    }
+    for (const [claimId, owner] of owners)
+    {
+        const accepted = terminalClaims.get(claimId)
+        if (!accepted
+            || accepted.behaviorId !== owner.behaviorId || accepted.scopeId !== owner.scopeId
+            || accepted.documentPath !== owner.documentPath
+            || (accepted.generatedSectionId === null) !== (accepted.claimType === 'prose')
+            || (accepted.generatedSectionId !== null
+                && !owner.generatedSectionIds.includes(accepted.generatedSectionId)))
+        {
+            fail(`accepted terminal claim ${claimId} does not exact-match the current migration ledger`)
+        }
+    }
+    const ledgerEntries = new Map()
+    for (const owner of owners.values()) ledgerEntries.set(owner.entryKey, owner)
+    for (const owner of ledgerEntries.values())
+    {
+        const actualSections = terminal.claimAcceptance
+            .filter((claim) => owners.get(claim.claimId)?.entryKey === owner.entryKey)
+            .map((claim) => claim.generatedSectionId)
+            .filter((sectionId) => sectionId !== null)
+            .sort()
+        if (JSON.stringify(actualSections) !== JSON.stringify(owner.generatedSectionIds))
+        {
+            fail(`accepted terminal generated sections do not exact-match ${owner.documentPath}`)
         }
     }
     const expectedClaims = producer.acceptedClaimRefs.map((claimId) =>
     {
         const owner = owners.get(claimId)
-        if (!owner || owner.behaviorId !== producer.behaviorId)
+        const accepted = terminalClaims.get(claimId)
+        if (!owner || !accepted || owner.behaviorId !== producer.behaviorId)
         {
             fail(`accepted claim ${claimId} is absent from the #2205 terminal authority`)
         }
-        return owner
+        return {
+            claimId: owner.claimId,
+            behaviorId: owner.behaviorId,
+            scopeId: owner.scopeId,
+            claimDigest: accepted.claimDigest
+        }
     }).sort((left, right) => left.claimId.localeCompare(right.claimId))
     const actualClaims = [...(receipt.claims ?? [])]
         .sort((left, right) => String(left?.claimId).localeCompare(String(right?.claimId)))

@@ -85,11 +85,21 @@
                 "referenceContracts": {
                     "buildReceipt": {
                         "schema": "fsusblog.ci-production-build-receipt.v1",
-                        "role": "production-build"
+                        "role": "production-build",
+                        "identityFields": [
+                            "sourceCommit",
+                            "worktreeFingerprint"
+                        ]
                     },
                     "fixtureReceipt": {
                         "schema": "fsusblog.fixture-receipt.v2",
-                        "role": "fixture"
+                        "role": "fixture",
+                        "identityFields": [
+                            "sourceCommit",
+                            "worktreeFingerprint",
+                            "runId",
+                            "profileId"
+                        ]
                     }
                 },
                 "referenceMap": null
@@ -151,15 +161,31 @@
                 "referenceContracts": {
                     "candidatePlanRef": {
                         "schema": "fsusblog.post-runtime-candidate-plan.v1",
-                        "role": "candidate-plan"
+                        "role": "candidate-plan",
+                        "identityFields": [
+                            "sourceCommit",
+                            "worktreeFingerprint",
+                            "runId",
+                            "candidateId"
+                        ]
                     },
                     "evidenceRefs.browserContract": {
                         "schema": "fsusblog.browser-contract-receipt.v2",
-                        "role": "browser-contract"
+                        "role": "browser-contract",
+                        "identityFields": [
+                            "sourceCommit",
+                            "worktreeFingerprint",
+                            "runId"
+                        ]
                     },
                     "evidenceRefs.manifest": {
                         "schema": "fsusblog.spa-manifest-descriptor.v1",
-                        "role": "spa-manifest"
+                        "role": "spa-manifest",
+                        "identityFields": [
+                            "sourceCommit",
+                            "worktreeFingerprint",
+                            "buildIdentity"
+                        ]
                     }
                 },
                 "referenceMap": {
@@ -232,11 +258,21 @@
                 "referenceContracts": {
                     "buildReceipt": {
                         "schema": "fsusblog.ci-production-build-receipt.v1",
-                        "role": "production-build"
+                        "role": "production-build",
+                        "identityFields": [
+                            "sourceCommit",
+                            "worktreeFingerprint"
+                        ]
                     },
                     "fixtureReceipt": {
                         "schema": "fsusblog.fixture-receipt.v2",
-                        "role": "fixture"
+                        "role": "fixture",
+                        "identityFields": [
+                            "sourceCommit",
+                            "worktreeFingerprint",
+                            "runId",
+                            "profileId"
+                        ]
                     }
                 },
                 "referenceMap": null
@@ -303,11 +339,21 @@
                 "referenceContracts": {
                     "buildReceipt": {
                         "schema": "fsusblog.ci-production-build-receipt.v1",
-                        "role": "production-build"
+                        "role": "production-build",
+                        "identityFields": [
+                            "sourceCommit",
+                            "worktreeFingerprint"
+                        ]
                     },
                     "fixtureReceipt": {
                         "schema": "fsusblog.fixture-receipt.v2",
-                        "role": "fixture"
+                        "role": "fixture",
+                        "identityFields": [
+                            "sourceCommit",
+                            "worktreeFingerprint",
+                            "runId",
+                            "profileId"
+                        ]
                     }
                 },
                 "referenceMap": null
@@ -384,7 +430,13 @@
                 "referenceContracts": {
                     "publicPreviewRef": {
                         "schema": "fsusblog.browser-contract-public-preview-evidence.v1",
-                        "role": "public-preview"
+                        "role": "public-preview",
+                        "identityFields": [
+                            "sourceCommit",
+                            "worktreeFingerprint",
+                            "runId",
+                            "browserIdentity"
+                        ]
                     }
                 },
                 "referenceMap": null
@@ -449,11 +501,15 @@
                 "referenceContracts": {
                     "rolloutEvidenceRef": {
                         "schema": "fsusblog.release-rollout-evidence.v1",
-                        "role": "release-rollout"
+                        "role": "release-rollout",
+                        "identityFields": [
+                            "releaseId"
+                        ]
                     },
                     "runtimeRoleAdmissionRef": {
                         "schema": "fsusblog.runtime-role-observation.v1",
-                        "role": "runtime-role"
+                        "role": "runtime-role",
+                        "identityFields": []
                     }
                 },
                 "referenceMap": null
@@ -518,11 +574,16 @@
                 "referenceContracts": {
                     "rolloutEvidenceRef": {
                         "schema": "fsusblog.release-rollout-evidence.v1",
-                        "role": "release-rollout"
+                        "role": "release-rollout",
+                        "identityFields": [
+                            "releaseId",
+                            "rolloutId"
+                        ]
                     },
                     "runtimeRoleAdmissionRef": {
                         "schema": "fsusblog.runtime-role-observation.v1",
-                        "role": "runtime-role"
+                        "role": "runtime-role",
+                        "identityFields": []
                     }
                 },
                 "referenceMap": null

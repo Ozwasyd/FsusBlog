@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
+import { digestValue } from '../../tools/fact-extractors/lib/canonicalize.mjs'
 import {
     buildGlobalClaimExactnessReceipt,
     globalExactnessScopeId,
@@ -139,6 +140,25 @@ test('global exactness terminal receipt is ok with warnings=0', async () =>
     assert.equal(receipt.counts.missing, 0)
     assert.equal(receipt.counts.extra, 0)
     assert.equal(receipt.counts.warnings, 0)
+    assert.equal(receipt.claimAcceptance.length,
+        receipt.counts.generatedClaimCount + receipt.counts.proseClaimCount)
+    assert.equal(new Set(receipt.claimAcceptance.map((claim) => claim.claimId)).size,
+        receipt.claimAcceptance.length)
+    assert.ok(receipt.claimAcceptance
+        .filter((claim) => claim.behaviorId === 'browserless-production-correctness')
+        .every((claim) => /^sha256:[a-f0-9]{64}$/u.test(claim.claimDigest)))
+
+    for (const mutate of [
+        (value) => value.claimAcceptance.push(structuredClone(value.claimAcceptance[0])),
+        (value) => { value.claimAcceptance[0].claimDigest = 'sha256:invalid' }
+    ])
+    {
+        const changed = structuredClone(receipt)
+        mutate(changed)
+        changed.contentDigest = digestValue({ ...changed, contentDigest: null })
+        assert.throws(() => validateGlobalClaimExactnessReceipt(changed),
+            /global exactness claim acceptance is invalid/u)
+    }
 })
 
 test('global exactness fails closed on ledger, claim and observation tamper', async () =>

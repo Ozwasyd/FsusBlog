@@ -63,12 +63,7 @@ function producerReceipt(classId = 'route-response-error')
         .filter(([, classes]) => classes.includes(classId))
         .map(([mode]) => mode)
         .sort()
-    const rawFieldFor = (field) => field.endsWith('Digest') ? field.slice(0, -'Digest'.length) : field
-    const rawFacts = Object.fromEntries(definition.requiredSemanticFactFields.map((field) =>
-        [rawFieldFor(field), field === 'responseStatus' ? 200 : `${rawFieldFor(field)}-raw-value`]))
-    const semanticFacts = Object.fromEntries(definition.requiredSemanticFactFields.map((field) =>
-        [field, field.endsWith('Digest') ? authorityDigest(rawFacts[rawFieldFor(field)]) : rawFacts[field]]))
-    const sourceState = {
+    const allSourceState = {
         sourceCommit: 'a'.repeat(40),
         worktreeFingerprint: digest('b'),
         buildIdentity: digest('c'),
@@ -83,6 +78,20 @@ function producerReceipt(classId = 'route-response-error')
         fixtureId: 'run-1:fixture',
         profileId: 'acceptance-representative'
     }
+    const sourceState = Object.fromEntries(definition.requiredIdentityFields
+        .filter((field) => !['producerId', 'toolVersion', 'contentDigest'].includes(field))
+        .map((field) => [field, allSourceState[field]]))
+    const rawFieldFor = (field) => field.endsWith('Digest') ? field.slice(0, -'Digest'.length) : field
+    const rawFacts = Object.fromEntries(definition.requiredSemanticFactFields.map((field) =>
+    {
+        const rawField = rawFieldFor(field)
+        const value = field === 'responseStatus'
+            ? 200
+            : sourceState[field] ?? `${rawField}-raw-value`
+        return [rawField, value]
+    }))
+    const semanticFacts = Object.fromEntries(definition.requiredSemanticFactFields.map((field) =>
+        [field, field.endsWith('Digest') ? authorityDigest(rawFacts[rawFieldFor(field)]) : rawFacts[field]]))
     const writeDependency = (relative, document, role = null) =>
     {
         const absolute = path.join(receiptRepositoryRoot, relative)
@@ -97,29 +106,83 @@ function producerReceipt(classId = 'route-response-error')
         if (role !== null) reference.role = role
         return reference
     }
-    const buildReceipt = writeDependency('.tmp/current-run/run-1/production-build.json', seal({
-        schema: 'fsusblog.ci-production-build-receipt.v1', sourceState
-    }), 'production-build')
-    const fixtureReceipt = writeDependency('.tmp/current-run/run-1/fixture.json', seal({
-        schema: 'fsusblog.fixture-receipt.v2', sourceState
-    }), 'fixture')
+    const embeddedDocument = (contract) =>
+    {
+        const source = {
+            commit: sourceState.sourceCommit,
+            worktreeFingerprint: sourceState.worktreeFingerprint
+        }
+        const bySchema = {
+            'fsusblog.ci-production-build-receipt.v1': { sourceState: source },
+            'fsusblog.fixture-receipt.v2': {
+                executionIdentity: { runId: sourceState.runId, source },
+                profileIdentity: { profileId: sourceState.profileId }
+            },
+            'fsusblog.post-runtime-candidate-plan.v1': {
+                executionIdentity: { runId: sourceState.runId, source },
+                candidate: { candidateId: sourceState.candidateId }
+            },
+            'fsusblog.spa-manifest-descriptor.v1': {
+                sourceCommit: sourceState.sourceCommit,
+                worktreeFingerprint: sourceState.worktreeFingerprint,
+                buildReceiptDigest: sourceState.buildIdentity
+            },
+            'fsusblog.browser-contract-receipt.v2': {
+                sourceState: source,
+                runIdentity: { runId: sourceState.runId }
+            },
+            'fsusblog.browser-contract-public-preview-evidence.v1': { sourceState },
+            'fsusblog.release-rollout-evidence.v1': {
+                rolloutId: sourceState.rolloutId,
+                target: { releaseId: sourceState.releaseId }
+            },
+            'fsusblog.runtime-role-observation.v1': { observationDigest: digest('1') }
+        }
+        return seal({ schema: contract.schema, ...bySchema[contract.schema] })
+    }
+    const embeddedReference = (field, contract) => writeDependency(
+        `.tmp/current-run/run-1/${classId}-${field.replaceAll('.', '-')}.json`,
+        embeddedDocument(contract), contract.role)
     const canonicalRerunCommand = 'node tools/test-evidence/runtime-observation-probes.mjs route'
     const independentVerifyCommand = 'node tools/test-evidence/runtime-observation-raw.mjs verify'
-    const upstreamSourceState = Object.fromEntries(definition.requiredIdentityFields
-        .filter((field) => !['producerId', 'toolVersion', 'contentDigest'].includes(field))
-        .map((field) => [field, sourceState[field]]))
-    const upstream = seal({
+    const upstreamBody = {
         schema: definition.sourceReceipt.schema,
-        kind: classId,
         producerId: producer.producerId,
         toolVersion: producer.toolVersion,
-        sourceState: upstreamSourceState,
+        sourceState,
         rawFacts,
-        buildReceipt,
-        fixtureReceipt,
         canonicalRerunCommand,
         independentVerifyCommand
-    })
+    }
+    if (definition.sourceReceipt.discriminator !== null)
+    {
+        upstreamBody[definition.sourceReceipt.discriminator.field] =
+            definition.sourceReceipt.discriminator.value
+    }
+    for (const field of definition.sourceReceipt.requiredReferenceFields)
+    {
+        upstreamBody[field] = embeddedReference(field,
+            definition.sourceReceipt.referenceContracts[field])
+    }
+    if (definition.sourceReceipt.referenceMap !== null)
+    {
+        const map = definition.sourceReceipt.referenceMap
+        upstreamBody[map.field] = Object.fromEntries(map.keys.map((key) =>
+        {
+            const referenceKey = `${map.field}.${key}`
+            return [key, embeddedReference(referenceKey,
+                definition.sourceReceipt.referenceContracts[referenceKey])]
+        }))
+    }
+    for (const field of definition.sourceReceipt.requiredFields)
+    {
+        if (field in upstreamBody || field === 'contentDigest') continue
+        upstreamBody[field] = {
+            status: 'passed',
+            identity: `${classId}-${field}`
+        }
+    }
+    const upstream = seal(upstreamBody)
     const upstreamRelative = `.tmp/current-run/run-1/${classId}.json`
     const upstreamRef = writeDependency(upstreamRelative, upstream)
     Object.assign(upstreamRef, {
@@ -141,7 +204,7 @@ function producerReceipt(classId = 'route-response-error')
             authorityId: sourceState[identityField],
             sourceState: Object.fromEntries([
                 'sourceCommit', 'worktreeFingerprint', 'runId', 'attemptId', 'fixtureId', 'profileId'
-            ].map((identity) => [identity, sourceState[identity]]))
+            ].map((identity) => [identity, allSourceState[identity]]))
         })
         const relative = `.tmp/current-run/${role}-authority.json`
         const absolute = path.join(receiptRepositoryRoot, relative)
@@ -217,7 +280,9 @@ test('registry derives required behaviors from the BehaviorCatalog and validates
 {
     const behaviors = requiredPostRuntimeBehaviors(catalog)
     assert.ok(behaviors.includes('browserless-production-correctness'))
-    const summary = validatePostRuntimeProducerRegistry(registry, { catalog, migrationLedger })
+    const summary = validatePostRuntimeProducerRegistry(registry, {
+        catalog, migrationLedger, validateRepositoryAuthority: false
+    })
     assert.equal(summary.schema, postRuntimeRegistrySchema)
     assert.equal(summary.producerCount, behaviors.length)
     assert.equal(summary.warnings, 0)
@@ -235,6 +300,22 @@ test('missing producer/schema for a post-runtime behavior fails closed', () =>
                 'fsusblog.unknown-runtime-source.v1'
         }), { catalog }),
         /has no closed raw fact extractor/u)
+})
+
+test('embedded reference identity contracts cannot be weakened or expanded', () =>
+{
+    for (const mutate of [
+        (clone) => clone.observationClasses['route-response-error']
+            .sourceReceipt.referenceContracts.fixtureReceipt.identityFields.pop(),
+        (clone) => clone.observationClasses['release-identity-readiness']
+            .sourceReceipt.referenceContracts.rolloutEvidenceRef.identityFields.push('rolloutId'),
+        (clone) => clone.observationClasses['route-response-error']
+            .sourceReceipt.referenceContracts.buildReceipt.identityFields = []
+    ])
+    {
+        assert.throws(() => validatePostRuntimeProducerRegistry(tampered(mutate), { catalog }),
+            /schema\/role\/identity is invalid/u)
+    }
 })
 
 test('two producers for the same behavior fail closed', () =>
@@ -266,7 +347,8 @@ test('existence shortcut observation classes fail closed', () =>
                     schema: 'fsusblog.http-200-source.v1',
                     discriminator: { field: 'kind', value: 'http-200-class' }
                 },
-                requiredIdentityFields: ['contentDigest'],
+                requiredIdentityFields: structuredClone(
+                    clone.observationClasses['route-response-error'].requiredIdentityFields),
                 requiredSemanticFactFields: ['responseStatus'],
                 allowedModes: ['positive', 'negative', 'boundary', 'failure'],
                 existenceShortcutForbidden: false
@@ -467,6 +549,101 @@ test('receipt binding recomputes digest and exact mode/tool/source identity', ()
         /unknown producer/u)
 })
 
+test('every observation class accepts only its declared source identities', () =>
+{
+    const producerId = registry.producers[0].producerId
+    for (const [classId, definition] of Object.entries(registry.observationClasses))
+    {
+        const receipt = producerReceipt(classId)
+        assert.equal(validateProducerReceiptAgainstRegistry({
+            registry, producerId, receipt, classId
+        }).classId, classId)
+        assert.deepEqual(Object.keys(receipt.sourceState).sort(),
+            definition.requiredIdentityFields
+                .filter((field) => !['producerId', 'toolVersion', 'contentDigest'].includes(field))
+                .sort())
+
+        const undeclaredField = ['browserIdentity', 'releaseId', 'rolloutId']
+            .find((field) => !definition.requiredIdentityFields.includes(field))
+        if (undeclaredField !== undefined)
+        {
+            const expanded = structuredClone(receipt)
+            expanded.sourceState[undeclaredField] = `${undeclaredField}-self-reported`
+            assert.throws(() => validateProducerReceiptAgainstRegistry({
+                registry, producerId, receipt: seal(expanded), classId
+            }), /sourceState has missing or unknown fields/u)
+        }
+    }
+})
+
+test('semantic candidate and release identities cannot be coordinated away from sourceState', () =>
+{
+    const classId = 'release-identity-readiness'
+    const producerId = registry.producers[0].producerId
+    const receipt = producerReceipt(classId)
+    const sourcePath = path.join(receiptRepositoryRoot, receipt.sourceReceiptRef.path)
+    const source = JSON.parse(fs.readFileSync(sourcePath, 'utf8'))
+    const upstreamPath = path.join(receiptRepositoryRoot, source.upstreamRef.path)
+    const upstream = JSON.parse(fs.readFileSync(upstreamPath, 'utf8'))
+    upstream.rawFacts.candidateId = 'other-run:candidate'
+    const resealedUpstream = seal(upstream)
+    fs.writeFileSync(upstreamPath, `${JSON.stringify(resealedUpstream, null, 2)}\n`)
+    source.upstreamRef.fileDigest = `sha256:${createHash('sha256')
+        .update(fs.readFileSync(upstreamPath)).digest('hex')}`
+    source.upstreamRef.contentDigest = resealedUpstream.contentDigest
+    const resealedSource = seal(source)
+    fs.writeFileSync(sourcePath, `${JSON.stringify(resealedSource, null, 2)}\n`)
+    receipt.sourceReceiptRef.fileDigest = `sha256:${createHash('sha256')
+        .update(fs.readFileSync(sourcePath)).digest('hex')}`
+    receipt.sourceReceiptRef.contentDigest = resealedSource.contentDigest
+    receipt.semanticFacts.candidateId = 'other-run:candidate'
+    assert.throws(() => validateProducerReceiptAgainstRegistry({
+        registry, producerId, receipt: seal(receipt), classId
+    }), /semantic identity candidateId does not bind sourceState/u)
+})
+
+test('re-sealed embedded build and fixture receipts remain bound to outer source identity', () =>
+{
+    const classId = 'route-response-error'
+    const producerId = registry.producers[0].producerId
+    for (const [referenceField, identityField, mutate] of [
+        ['buildReceipt', 'sourceCommit', (embedded) => {
+            embedded.sourceState.commit = 'f'.repeat(40)
+        }],
+        ['fixtureReceipt', 'runId', (embedded) => {
+            embedded.executionIdentity.runId = 'other-run'
+        }]
+    ])
+    {
+        const receipt = producerReceipt(classId)
+        const sourcePath = path.join(receiptRepositoryRoot, receipt.sourceReceiptRef.path)
+        const source = JSON.parse(fs.readFileSync(sourcePath, 'utf8'))
+        const upstreamPath = path.join(receiptRepositoryRoot, source.upstreamRef.path)
+        const upstream = JSON.parse(fs.readFileSync(upstreamPath, 'utf8'))
+        const embeddedPath = path.join(receiptRepositoryRoot, upstream[referenceField].path)
+        const embedded = JSON.parse(fs.readFileSync(embeddedPath, 'utf8'))
+        mutate(embedded)
+        const resealedEmbedded = seal(embedded)
+        fs.writeFileSync(embeddedPath, `${JSON.stringify(resealedEmbedded, null, 2)}\n`)
+        upstream[referenceField].fileDigest = `sha256:${createHash('sha256')
+            .update(fs.readFileSync(embeddedPath)).digest('hex')}`
+        upstream[referenceField].contentDigest = resealedEmbedded.contentDigest
+        const resealedUpstream = seal(upstream)
+        fs.writeFileSync(upstreamPath, `${JSON.stringify(resealedUpstream, null, 2)}\n`)
+        source.upstreamRef.fileDigest = `sha256:${createHash('sha256')
+            .update(fs.readFileSync(upstreamPath)).digest('hex')}`
+        source.upstreamRef.contentDigest = resealedUpstream.contentDigest
+        const resealedSource = seal(source)
+        fs.writeFileSync(sourcePath, `${JSON.stringify(resealedSource, null, 2)}\n`)
+        receipt.sourceReceiptRef.fileDigest = `sha256:${createHash('sha256')
+            .update(fs.readFileSync(sourcePath)).digest('hex')}`
+        receipt.sourceReceiptRef.contentDigest = resealedSource.contentDigest
+        assert.throws(() => validateProducerReceiptAgainstRegistry({
+            registry, producerId, receipt: seal(receipt), classId
+        }), new RegExp(`${identityField} does not bind the outer source identity`, 'u'))
+    }
+})
+
 test('run, attempt, fixture and profile identities are typed and bind independent authorities', () =>
 {
     const producerId = registry.producers[0].producerId
@@ -486,18 +663,20 @@ test('run, attempt, fixture and profile identities are typed and bind independen
         () => validateProducerReceiptAgainstRegistry({ registry, producerId, receipt: seal(malformedAttempt) }),
         /source identity is invalid/u)
 
-    for (const [field, value] of [
-        ['releaseId', 'run-1:release'],
-        ['runtimeId', digest('3')],
-        ['browserIdentity', digest('4')],
-        ['candidateId', 'other-run:candidate'],
-        ['rolloutId', 'other-run:rollout']
+    for (const [classId, field, value] of [
+        ['release-identity-readiness', 'releaseId', 'run-1:release'],
+        ['route-response-error', 'runtimeId', digest('3')],
+        ['session-cookie-runtime', 'browserIdentity', digest('4')],
+        ['route-response-error', 'candidateId', 'other-run:candidate'],
+        ['blue-green-containment', 'rolloutId', 'other-run:rollout']
     ])
     {
-        const invalid = structuredClone(base)
+        const invalid = structuredClone(producerReceipt(classId))
         invalid.sourceState[field] = value
         assert.throws(
-            () => validateProducerReceiptAgainstRegistry({ registry, producerId, receipt: seal(invalid) }),
+            () => validateProducerReceiptAgainstRegistry({
+                registry, producerId, receipt: seal(invalid), classId
+            }),
             /scoped candidate\/runtime\/browser\/release identity is invalid/u)
     }
 
@@ -1149,6 +1328,20 @@ test('reader firewall traverses imports and rejects transitive Markdown/DocClaim
             `const disk = module.require('node:fs')\nprocess.stdout.write(disk['read' + 'FileSync'](${JSON.stringify(docsText)}, 'utf8'))\n`],
         ['create-require-entry.mjs',
             `import { createRequire } from 'node:module'\nconst load = createRequire(import.meta.url)\nconst disk = load('node:fs')\nprocess.stdout.write(disk?.readFileSync(${JSON.stringify(docsText)}, 'utf8'))\n`],
+        ['default-module-create-require-entry.mjs',
+            `import Module from 'node:module'\nconst load = Module.createRequire(import.meta.url)\nconst disk = load('node:fs')\nprocess.stdout.write(disk?.readFileSync(${JSON.stringify(docsText)}, 'utf8'))\n`],
+        ['hoisted-default-module-create-require-entry.mjs',
+            `const load = Module.createRequire(import.meta.url)\nconst disk = load('node:fs')\nprocess.stdout.write(disk.readFileSync(${JSON.stringify(docsText)}, 'utf8'))\nimport Module from 'node:module'\n`],
+        ['namespace-module-create-require-entry.mjs',
+            `import * as Module from 'node:module'\nconst factory = Module['create\\u0052equire']\nconst load = factory(import.meta.url)\nconst disk = load('node:fs')\nprocess.stdout.write(disk?.['readFileSync'](${JSON.stringify(docsText)}, 'utf8'))\n`],
+        ['namespace-destructured-create-require-entry.mjs',
+            `import * as Module from 'node:module'\nconst { ['createRequire']: factory } = Module\nconst load = factory(import.meta.url)\nconst disk = load('node:fs')\nprocess.stdout.write(disk.readFileSync(${JSON.stringify(docsText)}, 'utf8'))\n`],
+        ['default-assigned-create-require-entry.mjs',
+            `import Module from 'node:module'\nlet factory\nfactory = Module['createRequire']\nconst load = factory(import.meta.url)\nconst disk = load('node:fs')\nprocess.stdout.write(disk.readFileSync(${JSON.stringify(docsText)}, 'utf8'))\n`],
+        ['namespace-aliased-direct-create-require-entry.mjs',
+            `import * as Module from 'node:module'\nconst RuntimeModule = Module\nconst disk = RuntimeModule['createRequire'](import.meta.url)('node:fs')\nprocess.stdout.write(disk.readFileSync(${JSON.stringify(docsText)}, 'utf8'))\n`],
+        ['namespace-computed-create-require-entry.mjs',
+            `import * as Module from 'node:module'\nconst factory = Module['create' + 'Require']\nconst load = factory(import.meta.url)\nconst disk = load('node:fs')\nprocess.stdout.write(disk.readFileSync(${JSON.stringify(docsText)}, 'utf8'))\n`],
         ['cjs-create-require.cjs',
             `const { createRequire: factory } = require('node:module')\nconst load = factory(__filename)\nconst disk = load('node:fs')\nprocess.stdout.write(disk?.readFileSync(${JSON.stringify(docsText)}, 'utf8'))\n`],
         ['dynamic-import-entry.mjs',
@@ -1160,8 +1353,33 @@ test('reader firewall traverses imports and rejects transitive Markdown/DocClaim
             'tools/test-matrix', name)], { encoding: 'utf8' }), 'reader facts\n')
         assert.throws(
             () => validatePostRuntimeReaderFirewall(repositoryRoot, `tools/test-matrix/${name}`),
-            /documentation filesystem read|computed filesystem reader method/u)
+            /documentation filesystem read|computed (?:filesystem reader|module factory) method/u)
     }
+
+    const dataText = path.join(repositoryRoot, 'reader-data.txt')
+    fs.writeFileSync(dataText, 'non-document data\n')
+    for (const [name, source] of [
+        ['default-module-safe-entry.mjs',
+            `import Module from 'node:module'\nconst load = Module.createRequire(import.meta.url)\nconst disk = load('node:fs')\nprocess.stdout.write(disk.readFileSync(${JSON.stringify(dataText)}, 'utf8'))\n`],
+        ['namespace-module-safe-entry.mjs',
+            `import * as Module from 'node:module'\nconst factory = Module['createRequire']\nconst load = factory(import.meta.url)\nconst disk = load('node:fs')\nprocess.stdout.write(disk['readFileSync'](${JSON.stringify(dataText)}, 'utf8'))\n`]
+    ])
+    {
+        fs.writeFileSync(path.join(repositoryRoot, 'tools/test-matrix', name), source)
+        assert.equal(execFileSync(process.execPath, [path.join(repositoryRoot,
+            'tools/test-matrix', name)], { encoding: 'utf8' }), 'non-document data\n')
+        assert.doesNotThrow(
+            () => validatePostRuntimeReaderFirewall(repositoryRoot,
+                `tools/test-matrix/${name}`))
+    }
+
+    fs.writeFileSync(path.join(repositoryRoot, 'tools/test-matrix/unrelated-module-member.mjs'),
+        "const model = { createRequire: () => () => ({ readFileSync: value => value }) }\nprocess.stdout.write(model['createRequire']()('node:fs').readFileSync('synthetic'))\n")
+    assert.equal(execFileSync(process.execPath, [path.join(repositoryRoot,
+        'tools/test-matrix/unrelated-module-member.mjs')], { encoding: 'utf8' }), 'synthetic')
+    assert.doesNotThrow(
+        () => validatePostRuntimeReaderFirewall(repositoryRoot,
+            'tools/test-matrix/unrelated-module-member.mjs'))
 
     fs.writeFileSync(path.join(repositoryRoot, 'tools/test-matrix/unrelated-reader.mjs'),
         "const model = { readFileSync: (value) => value }\nexport const value = model.readFileSync(process.argv[2])\n")
@@ -1256,6 +1474,40 @@ function acceptedClaimsFixture(context)
     const referenceRelative = `artifacts/current-run/${schedulerRunId}/${attemptId}/global-claim-exactness-final.reference.json`
     const terminalPath = path.join(repositoryRoot, terminalRelative)
     const referencePath = path.join(repositoryRoot, referenceRelative)
+    const owners = new Map()
+    for (const scope of migrationLedger.scopes)
+    {
+        for (const entry of scope.entries)
+        {
+            for (const [claimIndex, claimId] of entry.claimIds.entries())
+            {
+                owners.set(claimId, {
+                    claimId,
+                    behaviorId: BehaviorId(entry.behaviorId),
+                    scopeId: scope.scopeId,
+                    documentPath: entry.documentPath,
+                    generatedSectionIds: [...(entry.generatedSectionIds ?? [])].sort(),
+                    generatedSectionId: (entry.generatedSectionIds ?? [])[claimIndex] ?? null
+                })
+            }
+        }
+    }
+    const claimAcceptance = [...owners.values()].map((owner) => ({
+        claimId: owner.claimId,
+        behaviorId: owner.behaviorId,
+        scopeId: owner.scopeId,
+        documentPath: owner.documentPath,
+        claimType: owner.generatedSectionId === null ? 'prose' : 'generated-section',
+        generatedSectionId: owner.generatedSectionId,
+        claimDigest: `sha256:${digestValue({
+            claimId: owner.claimId,
+            behaviorId: owner.behaviorId,
+            documentPath: owner.documentPath
+        })}`
+    })).sort((left, right) => left.claimId.localeCompare(right.claimId))
+    const generatedClaimCount = claimAcceptance
+        .filter((claim) => claim.claimType === 'generated-section').length
+    const proseClaimCount = claimAcceptance.length - generatedClaimCount
     const terminal = {
         schema: 'fsusblog.global-claim-exactness-terminal-receipt.v1',
         scopeId: 'global-document-claim-exactness',
@@ -1272,8 +1524,8 @@ function acceptedClaimsFixture(context)
             requiredBehaviors: 1,
             scopes: 1,
             ledgerEntries: 1,
-            generatedClaimCount: 1,
-            proseClaimCount: 1,
+            generatedClaimCount,
+            proseClaimCount,
             proseTotal: 1,
             proseVerified: 1,
             generatedSectionsVerified: 1,
@@ -1286,6 +1538,7 @@ function acceptedClaimsFixture(context)
             warnings: 0
         },
         mutationAggregate: { killed: 1, total: 1 },
+        claimAcceptance,
         residue: [],
         proseVerification: { diagnostics: [] },
         status: 'ok',
@@ -1326,21 +1579,6 @@ function acceptedClaimsFixture(context)
     fs.writeFileSync(referencePath, `${JSON.stringify(reference, null, 2)}\n`)
     const referenceFileDigest = `sha256:${createHash('sha256').update(fs.readFileSync(referencePath)).digest('hex')}`
     const producer = registry.producers[0]
-    const owners = new Map()
-    for (const scope of migrationLedger.scopes)
-    {
-        for (const entry of scope.entries)
-        {
-            for (const claimId of entry.claimIds)
-            {
-                owners.set(claimId, {
-                    claimId,
-                    behaviorId: BehaviorId(entry.behaviorId),
-                    scopeId: scope.scopeId
-                })
-            }
-        }
-    }
     const receipt = seal({
         schema: acceptedClaimsSchema,
         sourceState: {
@@ -1371,11 +1609,48 @@ function acceptedClaimsFixture(context)
             payloadSchema: terminal.schema
         },
         migrationLedgerDigest: `sha256:${terminal.source.migrationLedgerDigest}`,
-        claims: producer.acceptedClaimRefs.map((claimId) => owners.get(claimId))
+        claims: producer.acceptedClaimRefs.map((claimId) =>
+        {
+            const owner = owners.get(claimId)
+            const accepted = claimAcceptance.find((claim) => claim.claimId === claimId)
+            return {
+                claimId: owner.claimId,
+                behaviorId: owner.behaviorId,
+                scopeId: owner.scopeId,
+                claimDigest: accepted.claimDigest
+            }
+        })
             .sort((left, right) => left.claimId.localeCompare(right.claimId)),
         status: 'accepted'
     })
-    return { repositoryRoot, terminalPath, referencePath, terminal, reference, receipt, writeTerminal }
+    const bindTerminal = (value, receiptValue = receipt) =>
+    {
+        const payloadFileDigest = writeTerminal(value)
+        const referenceBody = structuredClone(reference)
+        delete referenceBody.contentDigest
+        delete referenceBody.producerReceiptDigest
+        referenceBody.payload.digest = payloadFileDigest
+        const referenceWithContent = {
+            ...referenceBody,
+            contentDigest: authorityDigest(referenceBody)
+        }
+        const currentReference = {
+            ...referenceWithContent,
+            producerReceiptDigest: authorityDigest(referenceWithContent)
+        }
+        fs.writeFileSync(referencePath, `${JSON.stringify(currentReference, null, 2)}\n`)
+        const changed = structuredClone(receiptValue)
+        changed.terminalReceiptRef.fileDigest = `sha256:${createHash('sha256')
+            .update(fs.readFileSync(referencePath)).digest('hex')}`
+        changed.terminalReceiptRef.contentDigest = currentReference.contentDigest
+        changed.terminalReceiptRef.payloadFileDigest = payloadFileDigest
+        changed.terminalReceiptRef.payloadContentDigest = `sha256:${value.contentDigest}`
+        return seal(changed)
+    }
+    return {
+        repositoryRoot, terminalPath, referencePath, terminal, reference, receipt,
+        writeTerminal, bindTerminal
+    }
 }
 
 test('accepted claims replay one exact #2205 terminal path, digest, identity and claim set', (context) =>
@@ -1489,6 +1764,34 @@ test('accepted claims reject terminal file/content/identity and re-sealed claim 
             migrationLedger
         }),
         /reference identity\/content seal mismatch/u)
+})
+
+test('accepted claims replay the terminal exact claim inventory rather than reconstructing it', (context) =>
+{
+    const producerId = registry.producers[0].producerId
+    for (const mutate of [
+        (terminal) =>
+        {
+            const removed = terminal.claimAcceptance.pop()
+            terminal.counts[removed.claimType === 'prose'
+                ? 'proseClaimCount'
+                : 'generatedClaimCount'] -= 1
+        },
+        (terminal) => { terminal.claimAcceptance[0].behaviorId = 'other-behavior' },
+        (terminal) => { terminal.claimAcceptance[0].documentPath = 'docs/other.md' }
+    ])
+    {
+        const fixture = acceptedClaimsFixture(context)
+        const changedTerminal = structuredClone(fixture.terminal)
+        mutate(changedTerminal)
+        changedTerminal.contentDigest = null
+        changedTerminal.contentDigest = digestValue(changedTerminal)
+        const coordinated = fixture.bindTerminal(changedTerminal)
+        assert.throws(() => validateAcceptedClaimsReceiptAgainstRegistry({
+            registry, producerId, receipt: coordinated,
+            repositoryRoot: fixture.repositoryRoot, migrationLedger
+        }), /terminal claim set does not exact-match|terminal claim .*does not exact-match/u)
+    }
 })
 
 test('accepted claims reject re-sealed #2205 path, producer, tool, command and duplicate JSON drift', (context) =>

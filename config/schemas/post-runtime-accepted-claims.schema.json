@@ -141,7 +141,8 @@
                 "required": [
                     "claimId",
                     "behaviorId",
-                    "scopeId"
+                    "scopeId",
+                    "claimDigest"
                 ],
                 "properties": {
                     "claimId": {
@@ -155,6 +156,9 @@
                     "scopeId": {
                         "type": "string",
                         "minLength": 1
+                    },
+                    "claimDigest": {
+                        "$ref": "#/$defs/digest"
                     }
                 }
             }
