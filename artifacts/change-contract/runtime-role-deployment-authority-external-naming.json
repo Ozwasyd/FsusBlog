@@ -38,6 +38,20 @@
         "tools/governance/check-monolithic-distributed-architecture.mjs"
       ],
       "reason": "Process environment spelling is external while option variables remain internal."
+    },
+    {
+      "id": "content-doc-exactness-authority",
+      "paths": [
+        "docs/architecture/overview.md"
+      ],
+      "reason": "The current architecture projection preserves the existing generated-section marker and matrix edge identifiers owned by the content exactness authority."
+    },
+    {
+      "id": "css-like-contract",
+      "paths": [
+        "docs/testing.md"
+      ],
+      "reason": "The current testing projection preserves caller-visible Markdown token and generated-section marker spelling."
     }
   ]
 }
