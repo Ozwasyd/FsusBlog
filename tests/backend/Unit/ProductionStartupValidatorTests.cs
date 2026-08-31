@@ -1,11 +1,13 @@
 using System.Net;
 
+using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Privacy;
+using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Modules.Endpoints;
@@ -34,6 +36,301 @@ public sealed class ProductionStartupValidatorTests
 
     private static string RiskPseudonymKey
         => Convert.ToBase64String(Enumerable.Range(1, 32).Select(static value => (byte)value).ToArray());
+
+    [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Mutation)]
+    public void ApiErrorSemanticMapper_TransportMappings_AreExactAndExecutable()
+    {
+        (ApiErrorTransportMappingId Id, ApiErrorTransportMappingKind Kind, int HttpStatus, ErrorCode ErrorCode)[] expected =
+        [
+            (ApiErrorTransportMappingId.Generic400Validation, ApiErrorTransportMappingKind.GenericStatusDefault, 400, ErrorCode.Validation),
+            (ApiErrorTransportMappingId.Generic401Unauthorized, ApiErrorTransportMappingKind.GenericStatusDefault, 401, ErrorCode.Unauthorized),
+            (ApiErrorTransportMappingId.Generic403Forbidden, ApiErrorTransportMappingKind.GenericStatusDefault, 403, ErrorCode.Forbidden),
+            (ApiErrorTransportMappingId.Generic404NotFound, ApiErrorTransportMappingKind.GenericStatusDefault, 404, ErrorCode.NotFound),
+            (ApiErrorTransportMappingId.Generic405InfraFailure, ApiErrorTransportMappingKind.GenericStatusDefault, 405, ErrorCode.InfraFailure),
+            (ApiErrorTransportMappingId.Generic406InfraFailure, ApiErrorTransportMappingKind.GenericStatusDefault, 406, ErrorCode.InfraFailure),
+            (ApiErrorTransportMappingId.Generic409Conflict, ApiErrorTransportMappingKind.GenericStatusDefault, 409, ErrorCode.Conflict),
+            (ApiErrorTransportMappingId.Generic410InfraFailure, ApiErrorTransportMappingKind.GenericStatusDefault, 410, ErrorCode.InfraFailure),
+            (ApiErrorTransportMappingId.Generic411InfraFailure, ApiErrorTransportMappingKind.GenericStatusDefault, 411, ErrorCode.InfraFailure),
+            (ApiErrorTransportMappingId.Generic413InfraFailure, ApiErrorTransportMappingKind.GenericStatusDefault, 413, ErrorCode.InfraFailure),
+            (ApiErrorTransportMappingId.Generic415InfraFailure, ApiErrorTransportMappingKind.GenericStatusDefault, 415, ErrorCode.InfraFailure),
+            (ApiErrorTransportMappingId.Generic422InfraFailure, ApiErrorTransportMappingKind.GenericStatusDefault, 422, ErrorCode.InfraFailure),
+            (ApiErrorTransportMappingId.Generic423Forbidden, ApiErrorTransportMappingKind.GenericStatusDefault, 423, ErrorCode.Forbidden),
+            (ApiErrorTransportMappingId.Generic426InfraFailure, ApiErrorTransportMappingKind.GenericStatusDefault, 426, ErrorCode.InfraFailure),
+            (ApiErrorTransportMappingId.Generic428InfraFailure, ApiErrorTransportMappingKind.GenericStatusDefault, 428, ErrorCode.InfraFailure),
+            (ApiErrorTransportMappingId.Generic429InfraFailure, ApiErrorTransportMappingKind.GenericStatusDefault, 429, ErrorCode.InfraFailure),
+            (ApiErrorTransportMappingId.Generic500InfraFailure, ApiErrorTransportMappingKind.GenericStatusDefault, 500, ErrorCode.InfraFailure),
+            (ApiErrorTransportMappingId.Generic501InfraFailure, ApiErrorTransportMappingKind.GenericStatusDefault, 501, ErrorCode.InfraFailure),
+            (ApiErrorTransportMappingId.Generic503InfraFailure, ApiErrorTransportMappingKind.GenericStatusDefault, 503, ErrorCode.InfraFailure),
+            (ApiErrorTransportMappingId.Default400Validation, ApiErrorTransportMappingKind.ErrorCodeDefaultStatus, 400, ErrorCode.Validation),
+            (ApiErrorTransportMappingId.Default401Unauthorized, ApiErrorTransportMappingKind.ErrorCodeDefaultStatus, 401, ErrorCode.Unauthorized),
+            (ApiErrorTransportMappingId.Default403Forbidden, ApiErrorTransportMappingKind.ErrorCodeDefaultStatus, 403, ErrorCode.Forbidden),
+            (ApiErrorTransportMappingId.Default404NotFound, ApiErrorTransportMappingKind.ErrorCodeDefaultStatus, 404, ErrorCode.NotFound),
+            (ApiErrorTransportMappingId.Default409Conflict, ApiErrorTransportMappingKind.ErrorCodeDefaultStatus, 409, ErrorCode.Conflict),
+            (ApiErrorTransportMappingId.Default500InfraFailure, ApiErrorTransportMappingKind.ErrorCodeDefaultStatus, 500, ErrorCode.InfraFailure),
+            (ApiErrorTransportMappingId.Default500Unknown, ApiErrorTransportMappingKind.ErrorCodeDefaultStatus, 500, ErrorCode.Unknown),
+            (ApiErrorTransportMappingId.Operation401Validation, ApiErrorTransportMappingKind.OperationStatusPair, 401, ErrorCode.Validation),
+            (ApiErrorTransportMappingId.Operation403Validation, ApiErrorTransportMappingKind.OperationStatusPair, 403, ErrorCode.Validation),
+            (ApiErrorTransportMappingId.Operation406Validation, ApiErrorTransportMappingKind.OperationStatusPair, 406, ErrorCode.Validation),
+            (ApiErrorTransportMappingId.Operation409Validation, ApiErrorTransportMappingKind.OperationStatusPair, 409, ErrorCode.Validation),
+            (ApiErrorTransportMappingId.Operation410Validation, ApiErrorTransportMappingKind.OperationStatusPair, 410, ErrorCode.Validation),
+            (ApiErrorTransportMappingId.Operation411Validation, ApiErrorTransportMappingKind.OperationStatusPair, 411, ErrorCode.Validation),
+            (ApiErrorTransportMappingId.Operation413Validation, ApiErrorTransportMappingKind.OperationStatusPair, 413, ErrorCode.Validation),
+            (ApiErrorTransportMappingId.Operation422Validation, ApiErrorTransportMappingKind.OperationStatusPair, 422, ErrorCode.Validation),
+            (ApiErrorTransportMappingId.Operation423Validation, ApiErrorTransportMappingKind.OperationStatusPair, 423, ErrorCode.Validation),
+            (ApiErrorTransportMappingId.Operation426Validation, ApiErrorTransportMappingKind.OperationStatusPair, 426, ErrorCode.Validation),
+            (ApiErrorTransportMappingId.Operation428Validation, ApiErrorTransportMappingKind.OperationStatusPair, 428, ErrorCode.Validation),
+            (ApiErrorTransportMappingId.Operation428Forbidden, ApiErrorTransportMappingKind.OperationStatusPair, 428, ErrorCode.Forbidden),
+            (ApiErrorTransportMappingId.Operation429Validation, ApiErrorTransportMappingKind.OperationStatusPair, 429, ErrorCode.Validation),
+            (ApiErrorTransportMappingId.Operation429Forbidden, ApiErrorTransportMappingKind.OperationStatusPair, 429, ErrorCode.Forbidden),
+            (ApiErrorTransportMappingId.Operation503Validation, ApiErrorTransportMappingKind.OperationStatusPair, 503, ErrorCode.Validation),
+            (ApiErrorTransportMappingId.Operation503Forbidden, ApiErrorTransportMappingKind.OperationStatusPair, 503, ErrorCode.Forbidden)
+        ];
+
+        Assert.Equal(
+            expected,
+            ApiErrorSemanticMapper.TransportMappings
+                .Select(static mapping => (mapping.Id, mapping.Kind, mapping.HttpStatus, mapping.ErrorCode)));
+        Assert.All(
+            ApiErrorSemanticMapper.TransportMappings,
+            static mapping =>
+            {
+                Assert.False(string.IsNullOrWhiteSpace(mapping.DefaultMessage));
+                Assert.Equal(mapping, ApiErrorSemanticMapper.GetMapping(mapping.Id));
+            });
+        Assert.Equal(
+            expected.Where(static mapping => mapping.Kind == ApiErrorTransportMappingKind.GenericStatusDefault),
+            ApiErrorSemanticMapper.GenericStatusErrorMappings
+                .Select(static mapping => (mapping.Id, mapping.Kind, mapping.HttpStatus, mapping.ErrorCode)));
+        Assert.All(
+            ApiErrorSemanticMapper.GenericStatusErrorMappings,
+            static mapping => Assert.Equal(
+                mapping.Id,
+                ApiErrorSemanticMapper.GetGenericMappingId(mapping.HttpStatus)));
+        Assert.All(
+            ApiErrorSemanticMapper.TransportMappings.Where(
+                static mapping => mapping.Kind == ApiErrorTransportMappingKind.ErrorCodeDefaultStatus),
+            static mapping =>
+            {
+                Assert.Equal(mapping.Id, ApiErrorSemanticMapper.GetDefaultMappingId(mapping.ErrorCode));
+                ErrorDetail error = ApiErrorSemanticMapper.CreateError(mapping.Id);
+                Assert.Equal(mapping.HttpStatus, ApiErrorSemanticMapper.MapStatusCode(error));
+            });
+        foreach (IGrouping<(int HttpStatus, ErrorCode ErrorCode), ApiErrorSemanticMapper.TransportMapping> pair in
+            ApiErrorSemanticMapper.TransportMappings.GroupBy(
+                static mapping => (mapping.HttpStatus, mapping.ErrorCode)))
+        {
+            ApiErrorSemanticMapper.TransportMapping expectedMapping = pair
+                .OrderBy(static mapping => mapping.Kind switch
+                {
+                    ApiErrorTransportMappingKind.OperationStatusPair => 0,
+                    ApiErrorTransportMappingKind.ErrorCodeDefaultStatus => 1,
+                    _ => 2
+                })
+                .First();
+            Assert.Equal(
+                expectedMapping.Id,
+                ApiErrorSemanticMapper.RequireTransportMappingId(pair.Key.HttpStatus, pair.Key.ErrorCode));
+        }
+
+        ApiErrorTransportMappingId fallbackId = ApiErrorSemanticMapper.GetGenericMappingId(StatusCodes.Status418ImATeapot);
+        Assert.Equal(ApiErrorTransportMappingId.Generic500InfraFailure, fallbackId);
+        foreach (string? missingMessage in new[] { null, string.Empty, "  " })
+        {
+            ErrorDetail fallback = ApiErrorSemanticMapper.CreateError(
+                fallbackId,
+                missingMessage,
+                "trace-fallback",
+                "details-fallback");
+            Assert.Equal(ErrorCode.InfraFailure, fallback.Code);
+            Assert.Equal("Request failed", fallback.Message);
+            Assert.Equal("trace-fallback", fallback.TraceId);
+            Assert.Equal("details-fallback", fallback.Details);
+        }
+
+        ErrorDetail explicitMessage = ApiErrorSemanticMapper.CreateError(
+            fallbackId,
+            "Explicit failure",
+            "trace-explicit",
+            "details-explicit");
+        Assert.Equal("Explicit failure", explicitMessage.Message);
+        Assert.Equal("trace-explicit", explicitMessage.TraceId);
+        Assert.Equal("details-explicit", explicitMessage.Details);
+        InvalidOperationException unregistered = Assert.Throws<InvalidOperationException>(() =>
+            ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status418ImATeapot, ErrorCode.InfraFailure));
+        Assert.Equal("Unregistered ApiError transport mapping: HTTP 418/InfraFailure.", unregistered.Message);
+        InvalidOperationException mismatch = Assert.Throws<InvalidOperationException>(() =>
+            ApiErrorSemanticMapper.ValidateError(
+                ApiErrorTransportMappingId.Operation428Forbidden,
+                ErrorDetail.Create(ErrorCode.Validation, "wrong-code")));
+        Assert.Equal(
+            "ApiError transport mapping Operation428Forbidden requires Forbidden, received Validation.",
+            mismatch.Message);
+        InvalidOperationException unknownId = Assert.Throws<InvalidOperationException>(
+            () => ApiErrorSemanticMapper.GetMapping(ApiErrorTransportMappingId.None));
+        Assert.Equal("Unknown ApiError transport mapping ID: None.", unknownId.Message);
+    }
+
+    [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Mutation)]
+    public void ApiErrorSemanticMapper_CatalogValidation_RejectsDuplicateMissingAndExtraAuthority()
+    {
+        ApiErrorSemanticMapper.TransportMapping[] canonical = [.. ApiErrorSemanticMapper.TransportMappings];
+
+        static InvalidOperationException Reject(ApiErrorSemanticMapper.TransportMapping[] mappings)
+            => Assert.Throws<InvalidOperationException>(() => ApiErrorSemanticMapper.ValidateCatalog(mappings));
+
+        Assert.Equal(
+            "ApiError transport mapping catalog must not be empty.",
+            Reject([]).Message);
+        Assert.Equal(
+            "Duplicate ApiError transport mapping ID: Generic400Validation.",
+            Reject([.. canonical, canonical[0]]).Message);
+        Assert.Equal(
+            "ApiError transport mapping IDs and catalog entries must match exactly.",
+            Reject(canonical[..^1]).Message);
+        Assert.Equal(
+            "ApiError transport mapping IDs and catalog entries must match exactly.",
+            Reject(
+        [
+            .. canonical,
+            new(
+                ApiErrorTransportMappingId.None,
+                ApiErrorTransportMappingKind.OperationStatusPair,
+                StatusCodes.Status418ImATeapot,
+                ErrorCode.Validation,
+                "invalid extra")
+        ]).Message);
+
+        ApiErrorSemanticMapper.TransportMapping[] duplicateTuple = [.. canonical];
+        duplicateTuple[^1] = duplicateTuple[^1] with
+        {
+            HttpStatus = duplicateTuple[^2].HttpStatus,
+            ErrorCode = duplicateTuple[^2].ErrorCode
+        };
+        Assert.StartsWith(
+            "Duplicate ApiError transport typed mapping tuple:",
+            Reject(duplicateTuple).Message,
+            StringComparison.Ordinal);
+
+        ApiErrorSemanticMapper.TransportMapping[] duplicateGenericStatus = [.. canonical];
+        duplicateGenericStatus[1] = duplicateGenericStatus[1] with
+        {
+            HttpStatus = duplicateGenericStatus[0].HttpStatus
+        };
+        Assert.Equal(
+            "Duplicate ApiError transport generic status: 400.",
+            Reject(duplicateGenericStatus).Message);
+
+        ApiErrorSemanticMapper.TransportMapping[] duplicateReverseCode = [.. canonical];
+        int firstReverse = Array.FindIndex(
+            duplicateReverseCode,
+            static mapping => mapping.Kind == ApiErrorTransportMappingKind.ErrorCodeDefaultStatus);
+        duplicateReverseCode[firstReverse + 1] = duplicateReverseCode[firstReverse + 1] with
+        {
+            ErrorCode = duplicateReverseCode[firstReverse].ErrorCode
+        };
+        Assert.Equal(
+            "Duplicate ApiError transport default ErrorCode: Validation.",
+            Reject(duplicateReverseCode).Message);
+
+        ApiErrorSemanticMapper.TransportMapping[] mismatchedIds = [.. canonical];
+        mismatchedIds[^1] = mismatchedIds[^1] with
+        {
+            Id = ApiErrorTransportMappingId.None
+        };
+        Assert.Equal(
+            "ApiError transport mapping IDs and catalog entries must match exactly.",
+            Reject(mismatchedIds).Message);
+
+        ApiErrorSemanticMapper.TransportMapping[] lowStatus = [.. canonical];
+        lowStatus[^1] = lowStatus[^1] with
+        {
+            HttpStatus = 399
+        };
+        Assert.Equal(
+            "Invalid ApiError transport mapping Operation503Forbidden.",
+            Reject(lowStatus).Message);
+
+        ApiErrorSemanticMapper.TransportMapping[] highStatus = [.. canonical];
+        highStatus[^1] = highStatus[^1] with
+        {
+            HttpStatus = 600
+        };
+        Assert.Equal(
+            "Invalid ApiError transport mapping Operation503Forbidden.",
+            Reject(highStatus).Message);
+
+        ApiErrorSemanticMapper.TransportMapping[] upperBoundaryStatus = [.. canonical];
+        upperBoundaryStatus[^1] = upperBoundaryStatus[^1] with
+        {
+            HttpStatus = 599
+        };
+        Assert.Equal(upperBoundaryStatus, ApiErrorSemanticMapper.ValidateCatalog(upperBoundaryStatus));
+
+        ApiErrorSemanticMapper.TransportMapping[] noneCode = [.. canonical];
+        noneCode[^1] = noneCode[^1] with
+        {
+            ErrorCode = ErrorCode.None
+        };
+        Assert.Equal(
+            "Invalid ApiError transport mapping Operation503Forbidden.",
+            Reject(noneCode).Message);
+
+        ApiErrorSemanticMapper.TransportMapping[] operationUnknown = [.. canonical];
+        operationUnknown[^1] = operationUnknown[^1] with
+        {
+            ErrorCode = ErrorCode.Unknown
+        };
+        Assert.Equal(
+            "Invalid ApiError transport mapping Operation503Forbidden.",
+            Reject(operationUnknown).Message);
+
+        ApiErrorSemanticMapper.TransportMapping[] blankMessage = [.. canonical];
+        blankMessage[^1] = blankMessage[^1] with
+        {
+            DefaultMessage = " "
+        };
+        Assert.Equal(
+            "Invalid ApiError transport mapping Operation503Forbidden.",
+            Reject(blankMessage).Message);
+
+        ApiErrorSemanticMapper.TransportMapping[] wrongGeneric500 = [.. canonical];
+        int generic500 = Array.FindIndex(
+            wrongGeneric500,
+            static mapping => mapping.Id == ApiErrorTransportMappingId.Generic500InfraFailure);
+        wrongGeneric500[generic500] = wrongGeneric500[generic500] with
+        {
+            Kind = ApiErrorTransportMappingKind.OperationStatusPair
+        };
+        Assert.Equal(
+            "Missing canonical ApiError transport mapping Generic500InfraFailure.",
+            Reject(wrongGeneric500).Message);
+
+        ApiErrorSemanticMapper.TransportMapping[] wrongDefault500 = [.. canonical];
+        int default500 = Array.FindIndex(
+            wrongDefault500,
+            static mapping => mapping.Id == ApiErrorTransportMappingId.Default500InfraFailure);
+        wrongDefault500[default500] = wrongDefault500[default500] with
+        {
+            HttpStatus = 502
+        };
+        Assert.Equal(
+            "Missing canonical ApiError transport mapping Default500InfraFailure.",
+            Reject(wrongDefault500).Message);
+
+        ApiErrorSemanticMapper.TransportMapping[] wrongUnknown500 = [.. canonical];
+        int unknown500 = Array.FindIndex(
+            wrongUnknown500,
+            static mapping => mapping.Id == ApiErrorTransportMappingId.Default500Unknown);
+        wrongUnknown500[unknown500] = wrongUnknown500[unknown500] with
+        {
+            HttpStatus = 502
+        };
+        Assert.Equal(
+            "Missing canonical ApiError transport mapping Default500Unknown.",
+            Reject(wrongUnknown500).Message);
+    }
 
     [Fact]
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]

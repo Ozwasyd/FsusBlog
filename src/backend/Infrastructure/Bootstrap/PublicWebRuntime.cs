@@ -351,8 +351,7 @@ internal static partial class PublicWebRuntime
         {
             return BinaryResults.FromError(
                 ErrorDetail.Create(ErrorCode.NotFound, "旧文本 API 已移除，请使用 /api/binary/** AEDS 二进制端点"),
-                aeds,
-                StatusCodes.Status404NotFound);
+                aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status404NotFound, ErrorCode.NotFound));
         }).WithMetadata(new FsusRouteKindMetadata("api"));
     }
 
@@ -422,11 +421,12 @@ internal static partial class PublicWebRuntime
         {
             ctx.Response.Headers["Retry-After"] = "5";
         }
+        ApiErrorTransportMappingId mappingId = ApiErrorSemanticMapper.GetGenericMappingId(result.StatusCode);
         ErrorDetail error = ApiErrorSemanticMapper.CreateError(
-            result.StatusCode,
+            mappingId,
             result.ErrorCode ?? "notification_handshake_failed",
             ctx.TraceIdentifier);
-        return BinaryResults.FromError(error, aeds, result.StatusCode);
+        return BinaryResults.FromError(error, aeds, mappingId);
     }
 
     private static FileExtensionContentTypeProvider CreateStaticFileContentTypeProvider()

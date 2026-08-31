@@ -117,6 +117,32 @@ public class BinaryResultsTests
         Assert.Equal("application/octet-stream", context.Response.ContentType);
         Assert.True(body.Length > AedsFrameHeader.Size);
     }
+
+    [Fact]
+    public void FromError_ExplicitMappingIdRejectsMismatchedErrorCode()
+    {
+        ErrorDetail error = ErrorDetail.Create(ErrorCode.Validation, "invalid");
+
+        Assert.Throws<InvalidOperationException>(() => BinaryResults.FromError(
+            error,
+            new AedsEncoder(),
+            ApiErrorTransportMappingId.Operation428Forbidden));
+    }
+
+    [Fact]
+    public async Task BinaryEnvelopePolicy_ExplicitMappingIdRejectsMismatchedErrorCode()
+    {
+        var context = new DefaultHttpContext();
+        await using var body = new MemoryStream();
+        context.Response.Body = body;
+        var policy = new BinaryEnvelopePolicy();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => policy.WriteApiErrorAsync(
+            context,
+            body,
+            ErrorDetail.Create(ErrorCode.Validation, "invalid"),
+            ApiErrorTransportMappingId.Operation428Forbidden));
+    }
 }
 
 public class BinaryRequestBinderTests
@@ -721,7 +747,7 @@ public class MiddlewareResultsTests
         await MiddlewareResults.WriteErrorAsync(
             context,
             "account is restricted and cannot perform this write action",
-            423,
+            ApiErrorTransportMappingId.Generic423Forbidden,
             "trace-1",
             "ACCOUNT_BANNED_WRITE_LOCKED");
 
@@ -948,6 +974,34 @@ public class ApiBinaryResponseMiddlewareTests
         Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Value.Payload, out var errorPod));
         Assert.Equal(StatusCodes.Status401Unauthorized, errorPod.HttpStatus);
         Assert.Equal("HTTP 401", PodUtf8Codec.FromFixed256(errorPod.Message));
+    }
+
+    [Fact]
+    public async Task InvokeAsync_BinaryEndpointWithUnknownEmptyError_CanonicalizesToRegistered500InfraFailure()
+    {
+        static Task Next(HttpContext context)
+        {
+            context.Response.StatusCode = StatusCodes.Status418ImATeapot;
+            return Task.CompletedTask;
+        }
+
+        var context = CreateContext();
+        context.Request.Path = "/api/binary/comment/me";
+        context.Request.Headers.Accept = "application/octet-stream";
+        await using var body = new MemoryStream();
+        context.Response.Body = body;
+
+        var encoder = new AedsEncoder();
+        var middleware = new ApiBinaryResponseMiddleware(Next);
+        await middleware.InvokeAsync(context, encoder);
+
+        Assert.Equal(StatusCodes.Status500InternalServerError, context.Response.StatusCode);
+        var decoded = encoder.TryDecode(body.ToArray());
+        Assert.True(decoded.IsSuccess);
+        Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Value.Payload, out var errorPod));
+        Assert.Equal(StatusCodes.Status500InternalServerError, errorPod.HttpStatus);
+        Assert.Equal((byte)ErrorCode.InfraFailure, errorPod.Code);
+        Assert.Equal("HTTP 418", PodUtf8Codec.FromFixed256(errorPod.Message));
     }
 
     [Fact]

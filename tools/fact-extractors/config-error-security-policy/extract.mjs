@@ -149,7 +149,9 @@ function validateDomainErrors(domainErrors, transport, failureReasons)
             failureReasons.push(`${identity} has unknown or unmapped transport`);
             continue;
         }
-        const canonical = transport?.[`code:${mapping.aedsErrorCode}`];
+        const canonical = Object.values(transport ?? {}).find((candidate) =>
+            candidate?.mappingKind === 'error-code-default-status'
+            && candidate?.errorCode === mapping.aedsErrorCode);
         if (canonical == null || canonical.httpStatus !== mapping.httpStatus)
         {
             failureReasons.push(`${identity} transport mapping conflicts with production ErrorCode policy`);
@@ -175,6 +177,122 @@ function validateDomainErrors(domainErrors, transport, failureReasons)
             }
         }
     }
+}
+
+function validateTransportMappings(transport, publicCodes, failureReasons)
+{
+  if (transport == null || typeof transport !== 'object' || Array.isArray(transport) || Object.keys(transport).length === 0)
+  {
+    failureReasons.push('error-codes.transport-mapping must be a non-empty map')
+    return
+  }
+
+  const expectedKeys = ['defaultMessage', 'direction', 'errorCode', 'httpStatus', 'mappingId', 'mappingKind']
+  const mappingIds = new Set()
+  const typedTuples = new Set()
+  const genericStatuses = new Set()
+  const reverseCodes = new Set()
+  let operationMappingCount = 0
+  for (const [identity, mapping] of Object.entries(transport))
+  {
+    if (mapping == null || typeof mapping !== 'object' || Array.isArray(mapping)
+      || JSON.stringify(Object.keys(mapping).sort()) !== JSON.stringify(expectedKeys))
+    {
+      failureReasons.push(`error-codes.transport-mapping.${identity} must be an exact typed mapping`)
+      continue
+    }
+    if (mapping.mappingId !== identity
+      || !/^(?:Generic|Default|Operation)[1-5][0-9]{2}[A-Z][A-Za-z]+$/u.test(mapping.mappingId))
+    {
+      failureReasons.push(`transport mapping ${identity} must use its exact stable mappingId`)
+    }
+    if (mappingIds.has(mapping.mappingId)) failureReasons.push(`duplicate transport mapping ID ${mapping.mappingId}`)
+    mappingIds.add(mapping.mappingId)
+    if (!Number.isInteger(mapping.httpStatus) || mapping.httpStatus < 400 || mapping.httpStatus > 599
+      || typeof mapping.errorCode !== 'string' || !publicCodes?.includes(mapping.errorCode)
+      || typeof mapping.defaultMessage !== 'string' || mapping.defaultMessage.trim().length === 0)
+    {
+      failureReasons.push(`error-codes.transport-mapping.${identity} has invalid status, ErrorCode or default message`)
+      continue
+    }
+    const typedTuple = `${mapping.mappingKind}\u0000${mapping.httpStatus}\u0000${mapping.errorCode}`
+    if (typedTuples.has(typedTuple)) failureReasons.push(`duplicate typed transport tuple ${typedTuple}`)
+    typedTuples.add(typedTuple)
+
+    if (mapping.direction === 'status-to-error-code')
+    {
+      if (mapping.mappingKind !== 'generic-status-default')
+      {
+        failureReasons.push(`status mapping ${identity} must be classified as generic-status-default`)
+      }
+      if (genericStatuses.has(mapping.httpStatus))
+      {
+        failureReasons.push(`duplicate generic status mapping ${mapping.httpStatus}`)
+      }
+      genericStatuses.add(mapping.httpStatus)
+      continue
+    }
+
+    if (mapping.direction === 'error-code-to-status')
+    {
+      if (mapping.mappingKind !== 'error-code-default-status')
+      {
+        failureReasons.push(`ErrorCode mapping ${identity} must be classified as error-code-default-status`)
+      }
+      if (reverseCodes.has(mapping.errorCode))
+      {
+        failureReasons.push(`duplicate ErrorCode reverse mapping ${mapping.errorCode}`)
+      }
+      reverseCodes.add(mapping.errorCode)
+      continue
+    }
+
+    if (mapping.direction === 'operation-status-pair')
+    {
+      if (mapping.mappingKind !== 'operation-status-pair')
+      {
+        failureReasons.push(`operation mapping ${identity} must be classified as operation-status-pair`)
+      }
+      operationMappingCount += 1
+      continue
+    }
+
+    failureReasons.push(`error-codes.transport-mapping.${identity} has invalid direction`)
+  }
+
+  if (genericStatuses.size === 0)
+  {
+    failureReasons.push('error-codes.transport-mapping requires explicit status mappings')
+  }
+  if (operationMappingCount === 0)
+  {
+    failureReasons.push('error-codes.transport-mapping requires explicit operation pairs')
+  }
+  for (const code of publicCodes ?? [])
+  {
+    if (!reverseCodes.has(code))
+    {
+      failureReasons.push(`error-codes.transport-mapping missing ErrorCode reverse mapping ${code}`)
+    }
+  }
+
+  const requiredMappings = {
+    Generic500InfraFailure: ['generic-status-default', 500, 'InfraFailure'],
+    Generic501InfraFailure: ['generic-status-default', 501, 'InfraFailure'],
+    Default500InfraFailure: ['error-code-default-status', 500, 'InfraFailure'],
+    Default500Unknown: ['error-code-default-status', 500, 'Unknown']
+  }
+  for (const [identity, [mappingKind, httpStatus, errorCode]] of Object.entries(requiredMappings))
+  {
+    const mapping = transport[identity]
+    if (mapping?.mappingId !== identity
+      || mapping?.mappingKind !== mappingKind
+      || mapping?.httpStatus !== httpStatus
+      || mapping?.errorCode !== errorCode)
+    {
+      failureReasons.push(`error-codes.transport-mapping missing canonical ${identity}`)
+    }
+  }
 }
 
 function validateChallengeVerificationWindow(window, activeKinds, failureReasons)

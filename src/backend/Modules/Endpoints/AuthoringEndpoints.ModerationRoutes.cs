@@ -107,7 +107,7 @@ public static partial class AuthoringEndpoints
             }
             catch (InvalidOperationException ex) when (ex.Message == "comment_policy_version_conflict")
             {
-                return AedsJsonResults.Error(aeds, ErrorCode.Conflict, "comment_policy_version_conflict", StatusCodes.Status409Conflict);
+                return AedsJsonResults.Error(aeds, ApiErrorTransportMappingId.Default409Conflict, "comment_policy_version_conflict");
             }
             catch (ArgumentException)
             {
@@ -144,7 +144,7 @@ public static partial class AuthoringEndpoints
             }
             catch (InvalidOperationException ex) when (ex.Message == "comment_policy_version_conflict")
             {
-                return AedsJsonResults.Error(aeds, ErrorCode.Conflict, "comment_policy_version_conflict", StatusCodes.Status409Conflict);
+                return AedsJsonResults.Error(aeds, ApiErrorTransportMappingId.Default409Conflict, "comment_policy_version_conflict");
             }
             catch (InvalidOperationException ex) when (ex.Message == "comment_thread_not_found")
             {
@@ -484,7 +484,7 @@ public static partial class AuthoringEndpoints
 
             return result.IsSuccess
                 ? Ok(context, aeds, response)
-                : AedsJsonResults.Error(aeds, ErrorCode.InfraFailure, "moderation_dictionary_reload_failed", StatusCodes.Status500InternalServerError);
+                : AedsJsonResults.Error(aeds, ApiErrorTransportMappingId.Default500InfraFailure, "moderation_dictionary_reload_failed");
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
@@ -531,7 +531,7 @@ public static partial class AuthoringEndpoints
                 return Ok(context, aeds, snapshot);
             }
 
-            return AedsJsonResults.Error(aeds, result.Error.Code, result.Error.Message, ToHttpStatusCode(result.Error.Code));
+            return AedsJsonResults.Error(aeds, ApiErrorSemanticMapper.GetDefaultMappingId(result.Error.Code), result.Error.Message);
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
@@ -1148,7 +1148,7 @@ public static partial class AuthoringEndpoints
                 {
                     moderated
                 })
-                : AedsJsonResults.Error(aeds, ErrorCode.Conflict, "comment_moderation_conflict", StatusCodes.Status409Conflict);
+                : AedsJsonResults.Error(aeds, ApiErrorTransportMappingId.Default409Conflict, "comment_moderation_conflict");
         })
         .RequireAdminPermission(AdminPermissions.CommentModerate)
         .WithAdminSensitiveStepUp()
@@ -1243,10 +1243,9 @@ public static partial class AuthoringEndpoints
             ? Ok(context, aeds, response)
             : AedsJsonResults.Error(
                 aeds,
-                result.Code.EndsWith("_conflict", StringComparison.Ordinal) ? ErrorCode.Conflict : ErrorCode.Validation,
-                result.Code,
                 result.Code.EndsWith("_conflict", StringComparison.Ordinal)
-                    ? StatusCodes.Status409Conflict
-                    : StatusCodes.Status400BadRequest);
+                    ? ApiErrorTransportMappingId.Default409Conflict
+                    : ApiErrorTransportMappingId.Default400Validation,
+                result.Code);
     }
 }

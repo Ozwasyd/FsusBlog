@@ -1,0 +1,14 @@
+{
+  "schema": "fsusblog.generated-output-binding.v1",
+  "sources": [
+    "src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs",
+    "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/Program.cs",
+    "tools/fact-extractors/config-error-security-policy/extract.mjs"
+  ],
+  "outputs": [
+    {
+      "path": "docs/api/schemas-and-errors.md",
+      "sha256": "a47a63768c76484f39c802ff38070aa0ed43bd65919f8bda8240520abdce4a27"
+    }
+  ]
+}

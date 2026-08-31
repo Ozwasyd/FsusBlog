@@ -225,7 +225,7 @@ public static partial class BinaryEndpoints
             var (success, message, data) = await adminPrincipals.BeginBootstrapPasskeyRegistrationAsync(bootstrapToken, handle, cancellationToken);
             return success && data != null
                 ? BinaryResults.Frame(aeds, AedsFrameType.PasskeyRegisterBegin, writer => PodBinaryCodec.WritePasskeyRegisterBegin(data.Options, writer))
-                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, message), aeds, StatusCodes.Status403Forbidden);
+                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, message), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status403Forbidden, ErrorCode.Forbidden));
         })
         .AllowAnonymous()
         .RequireRateLimiting("fixed_ip")
@@ -262,7 +262,7 @@ public static partial class BinaryEndpoints
                 cancellationToken);
             if (!result.Success || result.Tokens is null)
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, result.Message), aeds, StatusCodes.Status403Forbidden);
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, result.Message), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status403Forbidden, ErrorCode.Forbidden));
             }
 
             authCookieService.SetAdminSessionCookies(
@@ -343,13 +343,13 @@ public static partial class BinaryEndpoints
         {
             if (!TryResolveAdminSessionContext(httpContext, out long adminPrincipalId, out string adminSessionId))
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, StatusCodes.Status401Unauthorized);
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status401Unauthorized, ErrorCode.Unauthorized));
             }
 
             var (success, message, data) = await adminPrincipals.BeginAdminStepUpAssertionAsync(adminPrincipalId, adminSessionId, cancellationToken);
             return success && data != null
                 ? BinaryResults.Frame(aeds, AedsFrameType.PasskeyLoginBegin, writer => PodBinaryCodec.WritePasskeyLoginBegin(data.Options, writer))
-                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, message), aeds, StatusCodes.Status403Forbidden);
+                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, message), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status403Forbidden, ErrorCode.Forbidden));
         })
         .RequireAdminPermission(AdminPermissions.AdminManage)
         .RequireRateLimiting("fixed_ip")
@@ -363,7 +363,7 @@ public static partial class BinaryEndpoints
         {
             if (!TryResolveAdminSessionContext(httpContext, out long adminPrincipalId, out string adminSessionId))
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, StatusCodes.Status401Unauthorized);
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status401Unauthorized, ErrorCode.Unauthorized));
             }
 
             var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.PasskeyLoginCompleteRequest, cancellationToken);
@@ -390,7 +390,7 @@ public static partial class BinaryEndpoints
                 cancellationToken);
             if (!result.Success || string.IsNullOrWhiteSpace(result.ProofToken))
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, result.Message), aeds, StatusCodes.Status401Unauthorized);
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, result.Message), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status401Unauthorized, ErrorCode.Unauthorized));
             }
 
             var proof = new MfaChallengeResultDto(true, AdminSensitiveAction, result.ProofToken, null);
@@ -404,7 +404,7 @@ public static partial class BinaryEndpoints
         {
             if (!TryResolveAdminSessionContext(httpContext, out long adminPrincipalId, out _))
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, StatusCodes.Status401Unauthorized);
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status401Unauthorized, ErrorCode.Unauthorized));
             }
 
             AdminPrincipalSnapshotDto snapshot = BuildAdminPrincipalSnapshot(httpContext, adminPrincipalId);
@@ -423,7 +423,7 @@ public static partial class BinaryEndpoints
             if (!TryResolveAdminSessionContext(httpContext, out long adminPrincipalId, out string adminSessionId))
             {
                 authCookieService.ClearAdminSessionCookies(httpContext);
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, StatusCodes.Status401Unauthorized);
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status401Unauthorized, ErrorCode.Unauthorized));
             }
 
             _ = await adminPrincipals.LogoutAdminSessionAsync(adminPrincipalId, adminSessionId, cancellationToken);
@@ -441,7 +441,7 @@ public static partial class BinaryEndpoints
         {
             if (!TryResolveAdminSessionContext(httpContext, out long adminPrincipalId, out string adminSessionId))
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, StatusCodes.Status401Unauthorized);
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status401Unauthorized, ErrorCode.Unauthorized));
             }
 
             IReadOnlyList<AdminSessionSummaryDto> sessions = await adminPrincipals.GetAdminSessionsAsync(adminPrincipalId, adminSessionId, cancellationToken);
@@ -459,7 +459,7 @@ public static partial class BinaryEndpoints
         {
             if (!TryResolveAdminSessionContext(httpContext, out long adminPrincipalId, out _))
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, StatusCodes.Status401Unauthorized);
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status401Unauthorized, ErrorCode.Unauthorized));
             }
 
             if (!await adminPrincipals.EnsureAdminSessionBelongsToPrincipalAsync(adminPrincipalId, sessionId, cancellationToken))
@@ -471,7 +471,7 @@ public static partial class BinaryEndpoints
             return revoked switch
             {
                 AdminSessionRevokeResult.Revoked => BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess),
-                AdminSessionRevokeResult.Conflict => BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Conflict, "admin_session_revoke_conflict"), aeds, StatusCodes.Status409Conflict),
+                AdminSessionRevokeResult.Conflict => BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Conflict, "admin_session_revoke_conflict"), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status409Conflict, ErrorCode.Conflict)),
                 _ => BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "admin_session_not_found"), aeds)
             };
         })
@@ -486,7 +486,7 @@ public static partial class BinaryEndpoints
         {
             if (!TryResolveAdminSessionContext(httpContext, out long adminPrincipalId, out string adminSessionId))
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, StatusCodes.Status401Unauthorized);
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status401Unauthorized, ErrorCode.Unauthorized));
             }
 
             _ = await adminPrincipals.RevokeOtherAdminSessionsAsync(adminPrincipalId, adminSessionId, cancellationToken);
@@ -519,7 +519,7 @@ public static partial class BinaryEndpoints
                 var snapshot = UserAccountReader.ToAnonymousAccountSnapshot(user.Value);
                 if (!TryWriteAccessExpiryHeader(httpContext, timeProvider))
                 {
-                    return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "访问凭证到期时间无效"), aeds, StatusCodes.Status401Unauthorized);
+                    return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "访问凭证到期时间无效"), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status401Unauthorized, ErrorCode.Unauthorized));
                 }
                 return BinaryResults.Frame(aeds, AedsFrameType.IdentityAccountSnapshot, writer => PodBinaryCodec.WriteIdentityAccountSnapshot(snapshot, writer));
             }
@@ -546,8 +546,7 @@ public static partial class BinaryEndpoints
                 {
                     return BinaryResults.FromError(
                         ErrorDetail.Create(ErrorCode.Forbidden, "locale_preference_unavailable"),
-                        aeds,
-                        StatusCodes.Status403Forbidden);
+                        aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status403Forbidden, ErrorCode.Forbidden));
                 }
 
                 preference = await preferences.GetAsync(user.AccountId, cancellationToken);
@@ -631,8 +630,7 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.Forbidden, "locale_preference_unavailable"),
-                    aeds,
-                    StatusCodes.Status403Forbidden);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status403Forbidden, ErrorCode.Forbidden));
             }
 
             UserLocalePreferenceUpdateResult update = await preferenceCommand.UpdateAsync(
@@ -767,7 +765,7 @@ public static partial class BinaryEndpoints
                 cancellationToken);
             if (stepUpResult is { } rejected)
             {
-                return BinaryResults.FromError(rejected.Error, aeds, rejected.StatusCode);
+                return BinaryResults.FromError(rejected.Error, aeds, ApiErrorSemanticMapper.RequireTransportMappingId(rejected.StatusCode, (rejected.Error).Code));
             }
 
             int userId = EndpointUserContext.From(httpContext).AccountId;
@@ -777,7 +775,7 @@ public static partial class BinaryEndpoints
             }, cancellationToken);
             if (!result.Success)
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, result.Message), aeds, StatusCodes.Status422UnprocessableEntity);
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, result.Message), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status422UnprocessableEntity, ErrorCode.Validation));
             }
 
             authCookieService.ClearTokenCookies(httpContext);
@@ -860,8 +858,7 @@ public static partial class BinaryEndpoints
                 {
                     return BinaryResults.FromError(
                         ErrorDetail.Create(ErrorCode.Forbidden, "ANONYMOUS_MFA_STEP_UP_REQUIRED"),
-                        aeds,
-                        StatusCodes.Status428PreconditionRequired);
+                        aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden));
                 }
 
                 stepUpVerified = true;
@@ -877,7 +874,7 @@ public static partial class BinaryEndpoints
                 if (!PodBinaryCodec.TryDecodeMfaPasswordProofRequest(payload.Payload, out var proof) ||
                     string.IsNullOrWhiteSpace(proof.Password))
                 {
-                    return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "MFA 重新绑定需要当前密码和验证码"), aeds, StatusCodes.Status428PreconditionRequired);
+                    return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "MFA 重新绑定需要当前密码和验证码"), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status428PreconditionRequired, ErrorCode.Validation));
                 }
 
                 password = proof.Password;
@@ -890,7 +887,7 @@ public static partial class BinaryEndpoints
             var result = await mfaCommands.StartMfaSetupAsync(userId, issuer, password, code, recoveryCode, stepUpVerified);
             return result.Success && result.Data != null
                 ? BinaryResults.Frame(aeds, AedsFrameType.MfaSetupStart, writer => PodBinaryCodec.WriteMfaSetupStart(result.Data.Value, writer))
-                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, result.Message), aeds, StatusCodes.Status428PreconditionRequired);
+                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, result.Message), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status428PreconditionRequired, ErrorCode.Validation));
         })
         .RequireRateLimiting("fixed_ip")
         .RequireAnonymousAccountPrincipal()
@@ -931,7 +928,7 @@ public static partial class BinaryEndpoints
             var result = await mfaCommands.VerifyMfaSetupAsync(userId, code);
             return result.Success && result.Data != null
                 ? BinaryResults.Frame(aeds, AedsFrameType.MfaSetupVerify, writer => PodBinaryCodec.WriteMfaSetupVerify(result.Data, writer))
-                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, result.Message), aeds, StatusCodes.Status422UnprocessableEntity);
+                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, result.Message), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status422UnprocessableEntity, ErrorCode.Validation));
         })
         .RequireAnonymousAccountPrincipal();
 
@@ -964,8 +961,7 @@ public static partial class BinaryEndpoints
                 {
                     return BinaryResults.FromError(
                         ErrorDetail.Create(ErrorCode.Forbidden, "ANONYMOUS_MFA_STEP_UP_REQUIRED"),
-                        aeds,
-                        StatusCodes.Status428PreconditionRequired);
+                        aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden));
                 }
 
                 stepUpVerified = true;
@@ -991,7 +987,7 @@ public static partial class BinaryEndpoints
             var result = await mfaCommands.DisableMfaAsync(userId, password, code, recoveryCode, stepUpVerified);
             return result.Success
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
-                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, result.Message), aeds, StatusCodes.Status422UnprocessableEntity);
+                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, result.Message), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status422UnprocessableEntity, ErrorCode.Validation));
         })
         .RequireAnonymousAccountPrincipal();
 
@@ -1024,8 +1020,7 @@ public static partial class BinaryEndpoints
                 {
                     return BinaryResults.FromError(
                         ErrorDetail.Create(ErrorCode.Forbidden, "ANONYMOUS_MFA_STEP_UP_REQUIRED"),
-                        aeds,
-                        StatusCodes.Status428PreconditionRequired);
+                        aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden));
                 }
 
                 stepUpVerified = true;
@@ -1051,7 +1046,7 @@ public static partial class BinaryEndpoints
             var result = await mfaCommands.RegenerateMfaRecoveryCodesAsync(userId, password, code, recoveryCode, stepUpVerified);
             return result.Success && result.Data != null
                 ? BinaryResults.Frame(aeds, AedsFrameType.MfaSetupVerify, writer => PodBinaryCodec.WriteMfaSetupVerify(result.Data, writer))
-                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, result.Message), aeds, StatusCodes.Status422UnprocessableEntity);
+                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, result.Message), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status422UnprocessableEntity, ErrorCode.Validation));
         })
         .RequireAnonymousAccountPrincipal();
 
@@ -1066,8 +1061,7 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.Forbidden, "PASSKEY_STEP_UP_DISABLED"),
-                    aeds,
-                    StatusCodes.Status503ServiceUnavailable);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.Forbidden));
             }
 
             var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.MfaChallengeStartRequest, cancellationToken);
@@ -1087,15 +1081,14 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.Forbidden, "STEP_UP_ACTION_UNSUPPORTED"),
-                    aeds,
-                    StatusCodes.Status403Forbidden);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status403Forbidden, ErrorCode.Forbidden));
             }
 
             int accountId = EndpointUserContext.From(httpContext).AccountId;
             var (success, message, data) = await passkeyService.BeginActionStepUpAssertionAsync(accountId, action, cancellationToken);
             return success && data != null
                 ? BinaryResults.Frame(aeds, AedsFrameType.PasskeyLoginBegin, writer => PodBinaryCodec.WritePasskeyLoginBegin(data.Options, writer))
-                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, message), aeds, StatusCodes.Status428PreconditionRequired);
+                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, message), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden));
         })
         .RequireAnonymousAccountPrincipal()
         .AllowRestrictedAccountAction(RestrictedAccountAction.SecurityStepUp)
@@ -1115,8 +1108,7 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.Forbidden, "PASSKEY_STEP_UP_DISABLED"),
-                    aeds,
-                    StatusCodes.Status503ServiceUnavailable);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.Forbidden));
             }
 
             var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.PasskeyLoginCompleteRequest, cancellationToken);
@@ -1141,16 +1133,14 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.Unauthorized, "SESSION_CONTEXT_REQUIRED"),
-                    aeds,
-                    StatusCodes.Status401Unauthorized);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status401Unauthorized, ErrorCode.Unauthorized));
             }
             var result = await passkeyService.CompleteActionStepUpAssertionAsync(accountId, request, cancellationToken);
             if (!result.Success || string.IsNullOrWhiteSpace(result.Action))
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.Unauthorized, result.Message),
-                    aeds,
-                    StatusCodes.Status401Unauthorized);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status401Unauthorized, ErrorCode.Unauthorized));
             }
 
             UserAccountSnapshot? account = await users.GetAccountByIdAsync(accountId);
@@ -1163,8 +1153,7 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.Unauthorized, "ACCOUNT_SUBJECT_REQUIRED"),
-                    aeds,
-                    StatusCodes.Status401Unauthorized);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status401Unauthorized, ErrorCode.Unauthorized));
             }
 
             string proofToken = await challengeService.CreateProofTokenAsync(
@@ -1209,8 +1198,7 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.Unauthorized, "SESSION_CONTEXT_REQUIRED"),
-                    aeds,
-                    StatusCodes.Status401Unauthorized);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status401Unauthorized, ErrorCode.Unauthorized));
             }
             long accountReadStartedAt = Stopwatch.GetTimestamp();
             UserAccountSnapshot? user = await users.GetAccountByIdAsync(userId);
@@ -1224,8 +1212,7 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.Unauthorized, "ACCOUNT_SUBJECT_REQUIRED"),
-                    aeds,
-                    StatusCodes.Status401Unauthorized);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status401Unauthorized, ErrorCode.Unauthorized));
             }
 
             if (!user.Value.MfaEnabled)
@@ -1234,16 +1221,14 @@ public static partial class BinaryEndpoints
                 {
                     return BinaryResults.FromError(
                         ErrorDetail.Create(ErrorCode.Forbidden, "MFA_REQUIRED"),
-                        aeds,
-                        StatusCodes.Status403Forbidden);
+                        aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status403Forbidden, ErrorCode.Forbidden));
                 }
 
                 if (UserSecurityStepUpActions.IsCredentialMutation(action))
                 {
                     return BinaryResults.FromError(
                         ErrorDetail.Create(ErrorCode.Forbidden, "PASSWORD_OR_STEP_UP_PROOF_REQUIRED"),
-                        aeds,
-                        StatusCodes.Status428PreconditionRequired);
+                        aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden));
                 }
 
                 string proofToken = await challengeService.CreateProofTokenAsync(
@@ -1389,8 +1374,7 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.Unauthorized, "SESSION_CONTEXT_REQUIRED"),
-                    aeds,
-                    StatusCodes.Status401Unauthorized);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status401Unauthorized, ErrorCode.Unauthorized));
             }
 
             string proofToken = await challengeService.CreateProofTokenAsync(
@@ -1439,8 +1423,7 @@ public static partial class BinaryEndpoints
                 {
                     return BinaryResults.FromError(
                         ErrorDetail.Create(ErrorCode.Conflict, "REFRESH_ROTATION_CONFLICT"),
-                        aeds,
-                        StatusCodes.Status409Conflict);
+                        aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status409Conflict, ErrorCode.Conflict));
                 }
                 authCookieService.ClearUserSessionCookies(httpContext);
                 string failureCode = rotation.Outcome switch
@@ -1574,7 +1557,7 @@ public static partial class BinaryEndpoints
                 cancellationToken);
             if (stepUpResult is { } rejected)
             {
-                return BinaryResults.FromError(rejected.Error, aeds, rejected.StatusCode);
+                return BinaryResults.FromError(rejected.Error, aeds, ApiErrorSemanticMapper.RequireTransportMappingId(rejected.StatusCode, (rejected.Error).Code));
             }
 
             Result<RecoveryKeyCreateResponseCoreModel> result = await recoveryKeys.CreateAsync(EndpointUserContext.From(httpContext).AccountId, cancellationToken);
@@ -1600,7 +1583,7 @@ public static partial class BinaryEndpoints
                 cancellationToken);
             if (stepUpResult is { } rejected)
             {
-                return BinaryResults.FromError(rejected.Error, aeds, rejected.StatusCode);
+                return BinaryResults.FromError(rejected.Error, aeds, ApiErrorSemanticMapper.RequireTransportMappingId(rejected.StatusCode, (rejected.Error).Code));
             }
 
             Result<RecoveryKeyCreateResponseCoreModel> result = await recoveryKeys.RotateAsync(EndpointUserContext.From(httpContext).AccountId, cancellationToken);
@@ -1775,7 +1758,7 @@ public static partial class BinaryEndpoints
                 cancellationToken);
             if (stepUpResult is { } rejected)
             {
-                return BinaryResults.FromError(rejected.Error, aeds, rejected.StatusCode);
+                return BinaryResults.FromError(rejected.Error, aeds, ApiErrorSemanticMapper.RequireTransportMappingId(rejected.StatusCode, (rejected.Error).Code));
             }
 
             var (success, message, signalState) = await passkeyService.CompleteRegistrationAsync(user.Value.Id, request, cancellationToken);
@@ -1786,7 +1769,7 @@ public static partial class BinaryEndpoints
 
             return signalState is not null
                 ? BinaryResults.Frame(aeds, AedsFrameType.PasskeySignalState, writer => PodBinaryCodec.WritePasskeySignalState(signalState.Value, writer))
-                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Conflict, "PASSKEY_SIGNAL_STATE_UNAVAILABLE"), aeds, StatusCodes.Status409Conflict);
+                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Conflict, "PASSKEY_SIGNAL_STATE_UNAVAILABLE"), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status409Conflict, ErrorCode.Conflict));
         })
         .RequireAnonymousAccountPrincipal();
 
@@ -1976,7 +1959,7 @@ public static partial class BinaryEndpoints
                 cancellationToken);
             if (stepUpResult is { } rejected)
             {
-                return BinaryResults.FromError(rejected.Error, aeds, rejected.StatusCode);
+                return BinaryResults.FromError(rejected.Error, aeds, ApiErrorSemanticMapper.RequireTransportMappingId(rejected.StatusCode, (rejected.Error).Code));
             }
 
             int userId = EndpointUserContext.From(httpContext).AccountId;
@@ -1986,7 +1969,9 @@ public static partial class BinaryEndpoints
                 : BinaryResults.FromError(
                     ErrorDetail.Create(removeResult.NotFound ? ErrorCode.NotFound : ErrorCode.Validation, removeResult.Message),
                     aeds,
-                    removeResult.NotFound ? 0 : StatusCodes.Status409Conflict);
+                    removeResult.NotFound
+                        ? ApiErrorTransportMappingId.Default404NotFound
+                        : ApiErrorTransportMappingId.Operation409Validation);
         })
         .RequireAnonymousAccountPrincipal();
 
@@ -2018,7 +2003,7 @@ public static partial class BinaryEndpoints
                 cancellationToken);
             if (stepUpResult is { } rejected)
             {
-                return BinaryResults.FromError(rejected.Error, aeds, rejected.StatusCode);
+                return BinaryResults.FromError(rejected.Error, aeds, ApiErrorSemanticMapper.RequireTransportMappingId(rejected.StatusCode, (rejected.Error).Code));
             }
 
             bool renamed = await passkeyService.RenameCredentialAsync(userId, id, name, cancellationToken);
@@ -2104,7 +2089,7 @@ public static partial class BinaryEndpoints
             _ =>
                 (ErrorCode.InfraFailure, "locale_preference_unavailable", StatusCodes.Status503ServiceUnavailable)
         };
-        return BinaryResults.FromError(ErrorDetail.Create(code, message), aeds, statusCode);
+        return BinaryResults.FromError(ErrorDetail.Create(code, message), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(statusCode, code));
     }
 
     private static BinaryFrameResult RecoveryKeyError(in ErrorDetail error, IAedsEncoder aeds)
@@ -2112,8 +2097,8 @@ public static partial class BinaryEndpoints
             error,
             aeds,
             string.Equals(error.Message, "RECOVERY_KEY_RATE_LIMITED", StringComparison.Ordinal)
-                ? StatusCodes.Status429TooManyRequests
-                : 0);
+                ? ApiErrorTransportMappingId.Operation429Forbidden
+                : ApiErrorSemanticMapper.GetDefaultMappingId(error.Code));
 
     private static async Task<(ErrorDetail Error, int StatusCode)?> RequireUserSecurityStepUpAsync(
         HttpContext httpContext,

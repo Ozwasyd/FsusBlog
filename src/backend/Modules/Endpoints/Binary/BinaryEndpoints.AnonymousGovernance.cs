@@ -188,11 +188,11 @@ public static partial class BinaryEndpoints
     {
         if (!AcceptsBinaryResponse(httpContext.Request))
         {
-            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "binary_accept_required"), aeds, StatusCodes.Status406NotAcceptable);
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "binary_accept_required"), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status406NotAcceptable, ErrorCode.Validation));
         }
 
         var stepUp = await RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals);
-        return stepUp.HasValue ? BinaryResults.FromError(stepUp.Value.Error, aeds, stepUp.Value.StatusCode) : null;
+        return stepUp.HasValue ? BinaryResults.FromError(stepUp.Value.Error, aeds, ApiErrorSemanticMapper.RequireTransportMappingId(stepUp.Value.StatusCode, (stepUp.Value.Error).Code)) : null;
     }
 
     private static Task<BinaryFrameResult?> RequireAnonymousGovernanceWriteAsync(

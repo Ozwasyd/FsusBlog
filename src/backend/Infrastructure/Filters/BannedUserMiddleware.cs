@@ -52,7 +52,7 @@ public class BannedUserMiddleware(RequestDelegate _next)
         if (!int.TryParse(accountIdClaim, out int accountId)
             || !AccountSubjectHashRequirement.TryResolve(accountSubjectClaim, out string accountSubjectHash))
         {
-            await MiddlewareResults.WriteErrorAsync(context, "账户身份无效", StatusCodes.Status401Unauthorized);
+            await MiddlewareResults.WriteErrorAsync(context, "账户身份无效", ApiErrorTransportMappingId.Default401Unauthorized);
             return;
         }
 
@@ -64,7 +64,7 @@ public class BannedUserMiddleware(RequestDelegate _next)
             or AccountStateReadOutcome.Deleted
             or AccountStateReadOutcome.SubjectMismatch)
         {
-            await MiddlewareResults.WriteErrorAsync(context, "账户已注销", StatusCodes.Status401Unauthorized);
+            await MiddlewareResults.WriteErrorAsync(context, "账户已注销", ApiErrorTransportMappingId.Default401Unauthorized);
             return;
         }
         if (accountState.Outcome is AccountStateReadOutcome.Unknown or AccountStateReadOutcome.Conflict)
@@ -92,7 +92,7 @@ public class BannedUserMiddleware(RequestDelegate _next)
             await MiddlewareResults.WriteErrorAsync(
                 context,
                 BannedWriteMessage,
-                StatusCodes.Status423Locked,
+                ApiErrorTransportMappingId.Generic423Forbidden,
                 details: BannedWriteErrorCode);
             return;
         }
@@ -130,7 +130,7 @@ public class BannedUserMiddleware(RequestDelegate _next)
                 await MiddlewareResults.WriteErrorAsync(
                     context,
                     BannedWriteMessage,
-                    StatusCodes.Status423Locked,
+                    ApiErrorTransportMappingId.Generic423Forbidden,
                     details: BannedWriteErrorCode);
                 return;
             }

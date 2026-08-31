@@ -38,7 +38,7 @@ public static partial class BinaryEndpoints
             int status = payload.Error.Message.Contains("上限", StringComparison.Ordinal)
                 ? StatusCodes.Status413PayloadTooLarge
                 : 0;
-            return BinaryResults.FromError(payload.Error, aeds, status);
+            return BinaryResults.FromError(payload.Error, aeds, ApiErrorSemanticMapper.RequireTransportMappingId(status, (payload.Error).Code));
         }
 
         if (!PodBinaryCodec.TryDecodeRumMetricBatchRequest(payload.Payload, out RumMetricBatchRequest request))

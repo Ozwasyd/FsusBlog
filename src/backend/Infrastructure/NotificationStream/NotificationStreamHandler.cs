@@ -1,5 +1,6 @@
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Binary;
+using FsusBlog.Server.Infrastructure.Results;
 
 namespace FsusBlog.Server.Infrastructure.NotificationStream;
 
@@ -19,6 +20,9 @@ internal sealed class NotificationStreamHandler(
         NotificationStreamHandshakeResult result = await handshakeService.ValidateAsync(context, cancellationToken);
         if (!result.IsSuccess)
         {
+            ApiErrorTransportMappingId mappingId = ApiErrorSemanticMapper.RequireTransportMappingId(
+                result.StatusCode,
+                ErrorCode.Validation);
             NotificationStreamMetrics.RecordHandshakeFailure(result.ErrorCode ?? "unknown");
             context.Response.Headers["X-Fsus-Notification-Stream-Error-Code"] = result.ErrorCode ?? "notification_handshake_failed";
             context.Response.Headers["X-Fsus-Notification-Stream-Status-Code"] = result.StatusCode.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -30,7 +34,7 @@ internal sealed class NotificationStreamHandler(
                 context,
                 context.Response.Body,
                 ErrorDetail.Create(ErrorCode.Validation, result.ErrorCode ?? "notification_handshake_failed", traceId: context.TraceIdentifier),
-                result.StatusCode);
+                mappingId);
             return;
         }
 
@@ -40,6 +44,7 @@ internal sealed class NotificationStreamHandler(
         }
         catch (NotificationStreamConnectionLimitExceededException ex)
         {
+            const ApiErrorTransportMappingId MappingId = ApiErrorTransportMappingId.Operation429Validation;
             NotificationStreamMetrics.RecordHandshakeFailure("notification_connection_limit");
             context.Response.Headers["Retry-After"] = "60";
             context.Response.Headers["X-Fsus-Notification-Stream-Error-Code"] = "notification_connection_limit";
@@ -49,10 +54,11 @@ internal sealed class NotificationStreamHandler(
                 context,
                 context.Response.Body,
                 ErrorDetail.Create(ErrorCode.Validation, "notification_connection_limit", traceId: context.TraceIdentifier),
-                StatusCodes.Status429TooManyRequests);
+                MappingId);
         }
         catch (NotificationStreamDeploymentUnavailableException ex)
         {
+            const ApiErrorTransportMappingId MappingId = ApiErrorTransportMappingId.Operation503Validation;
             NotificationStreamMetrics.RecordHandshakeFailure(ex.ErrorCode);
             context.Response.Headers["Retry-After"] = "5";
             context.Response.Headers["X-Fsus-Notification-Stream-Error-Code"] = ex.ErrorCode;
@@ -61,7 +67,7 @@ internal sealed class NotificationStreamHandler(
                 context,
                 context.Response.Body,
                 ErrorDetail.Create(ErrorCode.Validation, ex.ErrorCode, traceId: context.TraceIdentifier),
-                StatusCodes.Status503ServiceUnavailable);
+                MappingId);
         }
     }
 }

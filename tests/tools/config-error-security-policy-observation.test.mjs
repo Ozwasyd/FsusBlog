@@ -129,6 +129,27 @@ function sampleChallengeWindow()
     };
 }
 
+function transportMapping(mappingId, httpStatus, errorCode, direction, mappingKind)
+{
+  return {
+    mappingId,
+    httpStatus,
+    errorCode,
+    defaultMessage: 'Request failed',
+    direction,
+    mappingKind
+  }
+}
+
+const genericStatusMapping = (mappingId, httpStatus, errorCode) =>
+  transportMapping(mappingId, httpStatus, errorCode, 'status-to-error-code', 'generic-status-default')
+
+const errorCodeDefaultStatus = (mappingId, errorCode, httpStatus) =>
+  transportMapping(mappingId, httpStatus, errorCode, 'error-code-to-status', 'error-code-default-status')
+
+const operationStatusPair = (mappingId, httpStatus, errorCode) =>
+  transportMapping(mappingId, httpStatus, errorCode, 'operation-status-pair', 'operation-status-pair')
+
 function sampleObservation(overrides = {})
 {
     const { facts: factOverrides, ...rest } = overrides;
@@ -408,6 +429,20 @@ test('positive sample observation extracts typed config/error/security facts', (
         assert.equal(result.status, 'ok', result.failureReasons?.join('\n'));
         validateObservations(result.observations);
         assert.ok(observationFact(result, 'error-codes.public').includes('Validation'));
+        assert.equal(
+            observationMapEntry(
+                observationFact(result, 'error-codes.transport-mapping'),
+                'Operation428Forbidden'
+            ).errorCode,
+            'Forbidden'
+        );
+        assert.equal(
+            observationMapEntry(
+                observationFact(result, 'error-codes.transport-mapping'),
+                'Generic501InfraFailure'
+            ).httpStatus,
+            501
+        );
         assert.equal(observationFact(result, 'security.rate-limit-policies').fixed_ip.window.unit, 'minutes');
         assert.equal(observationFact(result, 'frontend.projection')['error-codes'].status, 'exact');
         assert.equal(observationFact(result, 'frontend.projection')['challenge-kinds'].status, 'exact');
@@ -423,6 +458,35 @@ test('positive sample observation extracts typed config/error/security facts', (
         rmSync(directory, { recursive: true, force: true });
     }
 });
+
+test('transport mapping rejects malformed, duplicate-shape and wildcard status authority', () =>
+{
+  const directory = mkdtempSync(path.join(os.tmpdir(), 'config-error-sec-obs-'))
+  try
+  {
+    writeFrontendProjection(directory)
+
+    const duplicateShape = sampleObservation()
+    duplicateShape.facts['error-codes.transport-mapping'].Generic501Duplicate =
+      genericStatusMapping('Generic501Duplicate', 501, 'InfraFailure')
+    assert.ok(runExtract(directory, duplicateShape).failureReasons.some((reason) => /duplicate generic status|duplicate typed transport tuple/iu.test(reason)))
+
+    const wildcard = sampleObservation()
+    wildcard.facts['error-codes.transport-mapping']['*'] = {
+      mappingId: '*',
+      httpStatus: 0,
+      errorCode: 'InfraFailure',
+      defaultMessage: 'Request failed',
+      direction: 'status-to-error-code',
+      mappingKind: 'generic-status-default'
+    }
+    assert.ok(runExtract(directory, wildcard).failureReasons.some((reason) => /stable mappingId|invalid status/iu.test(reason)))
+  }
+  finally
+  {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
 
 test('1) backend new error code forces projection failure when frontend lacks it', () =>
 {

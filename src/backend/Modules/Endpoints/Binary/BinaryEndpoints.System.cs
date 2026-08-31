@@ -76,7 +76,7 @@ public static partial class BinaryEndpoints
             var stepUp = await RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals);
             if (stepUp is not null)
             {
-                return BinaryResults.FromError(stepUp.Value.Error, aeds, stepUp.Value.StatusCode);
+                return BinaryResults.FromError(stepUp.Value.Error, aeds, ApiErrorSemanticMapper.RequireTransportMappingId(stepUp.Value.StatusCode, (stepUp.Value.Error).Code));
             }
 
             await systemService.UpdateSeoConfigAsync(new UpdateSeoConfigRequest
@@ -153,7 +153,7 @@ public static partial class BinaryEndpoints
             var stepUp = await RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals);
             if (stepUp is not null)
             {
-                return BinaryResults.FromError(stepUp.Value.Error, aeds, stepUp.Value.StatusCode);
+                return BinaryResults.FromError(stepUp.Value.Error, aeds, ApiErrorSemanticMapper.RequireTransportMappingId(stepUp.Value.StatusCode, (stepUp.Value.Error).Code));
             }
 
             await systemService.UpdateSiteComplianceConfigAsync(new UpdateSiteComplianceConfigRequest
@@ -248,7 +248,7 @@ public static partial class BinaryEndpoints
             var stepUp = await RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals);
             if (stepUp is not null)
             {
-                return BinaryResults.FromError(stepUp.Value.Error, aeds, stepUp.Value.StatusCode);
+                return BinaryResults.FromError(stepUp.Value.Error, aeds, ApiErrorSemanticMapper.RequireTransportMappingId(stepUp.Value.StatusCode, (stepUp.Value.Error).Code));
             }
 
             bool success = await systemService.UpdatePageContentAsync(new UpdatePageContentRequest
@@ -281,7 +281,7 @@ public static partial class BinaryEndpoints
             var stepUp = await RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals);
             if (stepUp is not null)
             {
-                return BinaryResults.FromError(stepUp.Value.Error, aeds, stepUp.Value.StatusCode);
+                return BinaryResults.FromError(stepUp.Value.Error, aeds, ApiErrorSemanticMapper.RequireTransportMappingId(stepUp.Value.StatusCode, (stepUp.Value.Error).Code));
             }
 
             bool success = await systemService.RefreshPageCacheAsync(slug);

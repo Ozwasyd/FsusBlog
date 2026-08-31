@@ -45,8 +45,7 @@ public static partial class BinaryEndpoints
         group.MapPost("/anonymous-credential/revocation-witness", static (IAedsEncoder aeds) =>
             BinaryResults.FromError(
                 ErrorDetail.Create(ErrorCode.Validation, "credential_specific_revocation_witness_retired"),
-                aeds,
-                StatusCodes.Status410Gone))
+                aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status410Gone, ErrorCode.Validation)))
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
         .RequireNoStoreResponse()
@@ -147,7 +146,7 @@ public static partial class BinaryEndpoints
     {
         if (!AcceptsBinaryResponse(httpContext.Request))
         {
-            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "binary_accept_required"), aeds, StatusCodes.Status406NotAcceptable);
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "binary_accept_required"), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status406NotAcceptable, ErrorCode.Validation));
         }
 
         Result<AnonymousCredentialRootSnapshotCoreModel> root = await rootService.GetCurrentSnapshotAsync(cancellationToken);
@@ -155,8 +154,7 @@ public static partial class BinaryEndpoints
         {
             return BinaryResults.FromError(
                 ErrorDetail.Create(root.Error.Code, string.IsNullOrWhiteSpace(root.Error.Message) ? "anonymous_root_unavailable" : root.Error.Message),
-                aeds,
-                StatusCodes.Status503ServiceUnavailable);
+                aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, root.Error.Code));
         }
 
         AnonymousCredentialRootSnapshotCoreModel snapshot = root.Value;
@@ -181,8 +179,7 @@ public static partial class BinaryEndpoints
         {
             return BinaryResults.FromError(
                 ErrorDetail.Create(ErrorCode.InfraFailure, "anonymous_credential_blind_issuer_unavailable"),
-                aeds,
-                StatusCodes.Status503ServiceUnavailable);
+                aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.InfraFailure));
         }
 
         Result<AnonymousCredentialRootSnapshotCoreModel> root =
@@ -196,8 +193,7 @@ public static partial class BinaryEndpoints
         {
             return BinaryResults.FromError(
                 ErrorDetail.Create(ErrorCode.InfraFailure, "anonymous_credential_blind_issuer_unavailable"),
-                aeds,
-                StatusCodes.Status503ServiceUnavailable);
+                aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.InfraFailure));
         }
 
         var metadata = new BlindCredentialIssuerMetadataCoreModel(
@@ -232,8 +228,7 @@ public static partial class BinaryEndpoints
         {
             result = BinaryResults.FromError(
                 ErrorDetail.Create(ErrorCode.Forbidden, "anonymous_credential_blind_issue_denied"),
-                aeds,
-                StatusCodes.Status403Forbidden);
+                aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status403Forbidden, ErrorCode.Forbidden));
             await DelayBlindIssuanceEnvelopeAsync(started, runtimeGate, cancellationToken);
             return result;
         }
@@ -244,8 +239,7 @@ public static partial class BinaryEndpoints
         {
             result = BinaryResults.FromError(
                 ErrorDetail.Create(ErrorCode.Forbidden, "anonymous_credential_blind_issue_denied"),
-                aeds,
-                StatusCodes.Status403Forbidden);
+                aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status403Forbidden, ErrorCode.Forbidden));
             await DelayBlindIssuanceEnvelopeAsync(started, runtimeGate, cancellationToken);
             return result;
         }
@@ -263,8 +257,7 @@ public static partial class BinaryEndpoints
         {
             result = BinaryResults.FromError(
                 ErrorDetail.Create(ErrorCode.Forbidden, "anonymous_credential_blind_issue_denied"),
-                aeds,
-                StatusCodes.Status403Forbidden);
+                aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status403Forbidden, ErrorCode.Forbidden));
             await DelayBlindIssuanceEnvelopeAsync(started, runtimeGate, cancellationToken);
             return result;
         }
@@ -278,8 +271,7 @@ public static partial class BinaryEndpoints
                 writer => PodBinaryCodec.WriteBlindCredentialIssueResponse(issued.Value, writer))
             : BinaryResults.FromError(
                 ErrorDetail.Create(ErrorCode.Forbidden, "anonymous_credential_blind_issue_denied"),
-                aeds,
-                StatusCodes.Status403Forbidden);
+                aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status403Forbidden, ErrorCode.Forbidden));
         await DelayBlindIssuanceEnvelopeAsync(started, runtimeGate, cancellationToken);
         return result;
     }
@@ -345,7 +337,7 @@ public static partial class BinaryEndpoints
     {
         if (!AcceptsBinaryResponse(httpContext.Request))
         {
-            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "binary_accept_required"), aeds, StatusCodes.Status406NotAcceptable);
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "binary_accept_required"), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status406NotAcceptable, ErrorCode.Validation));
         }
 
         Result<AnonymousCredentialRevocationArtifactCoreModel> artifact = await artifacts.GetAsync(
@@ -359,10 +351,9 @@ public static partial class BinaryEndpoints
         {
             return BinaryResults.FromError(
                 artifact.Error,
-                aeds,
-                artifact.Error.Code == ErrorCode.NotFound
+                aeds, ApiErrorSemanticMapper.RequireTransportMappingId(artifact.Error.Code == ErrorCode.NotFound
                     ? StatusCodes.Status404NotFound
-                    : StatusCodes.Status409Conflict);
+                    : StatusCodes.Status409Conflict, (artifact.Error).Code));
         }
 
         AnonymousCredentialRevocationArtifactCoreModel response = artifact.Value;
