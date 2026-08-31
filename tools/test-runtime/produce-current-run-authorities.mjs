@@ -44,6 +44,18 @@ function required(value, label)
     return normalized;
 }
 
+function safePathSegment(value, label)
+{
+    const normalized = required(value, label);
+    if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*$/u.test(normalized)
+    || normalized === '.'
+    || normalized === '..')
+    {
+        throw new Error(`${label} must be a safe path segment`);
+    }
+    return normalized;
+}
+
 function run(command, args, env)
 {
     return new Promise((resolve, reject) =>
@@ -213,8 +225,11 @@ async function produceBuildAuthorities({ runId, attemptId, sourceState })
 
 async function main()
 {
-    const runId = required(option('--run-id', process.env.FSUSBLOG_TEST_RUN_ID), '--run-id');
-    const attemptId = required(option('--attempt-id', process.env.FSUSBLOG_PRODUCTION_FRESH_ATTEMPT_ID ?? 'authority-0001'), '--attempt-id');
+    const runId = safePathSegment(option('--run-id', process.env.FSUSBLOG_TEST_RUN_ID), '--run-id');
+    const attemptId = safePathSegment(
+        option('--attempt-id', process.env.FSUSBLOG_PRODUCTION_FRESH_ATTEMPT_ID ?? 'authority-0001'),
+        '--attempt-id'
+    );
     const sourceState = {
         commit: required(process.env.FSUSBLOG_TEST_SOURCE_COMMIT, 'FSUSBLOG_TEST_SOURCE_COMMIT'),
         worktreeFingerprint: required(

@@ -24,6 +24,7 @@ const sourceState = {
     commit: 'a'.repeat(40),
     worktreeFingerprint: `sha256:${'b'.repeat(64)}`
 };
+const repositoryRoot = path.resolve(import.meta.dirname, '../..');
 
 test('BehaviorDoc and replay producers share the canonical clean-worktree fingerprint', () =>
 {
@@ -235,5 +236,30 @@ test('behavior readiness authority requires a qualified exact-run source-bound r
     finally
     {
         fs.rmSync(root, { recursive: true, force: true });
+    }
+});
+
+test('current-run authority producer rejects path-like run and attempt identities before build work', () =>
+{
+    for (const args of [
+        ['--run-id', '../escape', '--attempt-id', 'attempt-1'],
+        ['--run-id', 'run-1', '--attempt-id', '../escape']
+    ])
+    {
+        const result = spawnSync(process.execPath, [
+            'tools/test-runtime/produce-current-run-authorities.mjs',
+            ...args
+        ], {
+            cwd: repositoryRoot,
+            env: {
+                ...process.env,
+                FSUSBLOG_TEST_SOURCE_COMMIT: sourceState.commit,
+                FSUSBLOG_TEST_SOURCE_FINGERPRINT: sourceState.worktreeFingerprint
+            },
+            encoding: 'utf8'
+        });
+        assert.equal(result.status, 1);
+        assert.match(result.stderr, /must be a safe path segment/u);
+        assert.doesNotMatch(result.stdout, /Determining projects to restore|build receipt=/u);
     }
 });
