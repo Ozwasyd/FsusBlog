@@ -122,6 +122,7 @@ function readCanonicalTrackedFile(repositoryRoot, relativePath, { docsOnly = fal
     if (resolved !== path.join(canonicalRoot, ...segments)
         || !resolved.startsWith(`${canonicalRoot}${path.sep}`))
         throw new Error(`${relativePath} resolves outside the repository`)
+    const source = readStrictUtf8(resolved, relativePath)
     const tracked = git(canonicalRoot, ['ls-files', '--', relativePath]).split('\n').filter(Boolean)
     if (tracked.length !== 1 || tracked[0] !== relativePath)
         throw new Error(`${relativePath} is not one exact canonical Git path`)
@@ -132,7 +133,12 @@ function readCanonicalTrackedFile(repositoryRoot, relativePath, { docsOnly = fal
     const worktreeBlob = git(canonicalRoot, ['hash-object', '--no-filters', relativePath])
     if (stage[2] !== headBlob || worktreeBlob !== headBlob)
         throw new Error(`${relativePath} HEAD/index/worktree blobs differ`)
-    return readStrictUtf8(resolved, relativePath)
+    return source
+}
+
+export function readCanonicalReleaseDeploymentDocument(repositoryRoot, documentPath)
+{
+    return readCanonicalTrackedFile(repositoryRoot, documentPath, { docsOnly: true })
 }
 
 function pushProseNode(nodes, documentPath, nodeType, startIndex, endIndex, body, headingPath)

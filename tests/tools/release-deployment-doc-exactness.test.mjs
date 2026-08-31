@@ -1,13 +1,26 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import {
+    linkSync,
+    mkdirSync,
+    mkdtempSync,
+    readFileSync,
+    rmSync,
+    symlinkSync,
+    unlinkSync,
+    writeFileSync
+} from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
 import {
+    buildReleaseDeploymentProseClassificationIndex,
     buildReleaseDeploymentDocExactnessReceipt,
     classifyReleaseDeploymentSource,
     extractReleaseDeploymentProseNodes,
     loadReleaseDeploymentExactnessInputs,
+    readCanonicalReleaseDeploymentDocument,
     releaseDeploymentBehaviorIds,
     releaseDeploymentDomains,
     releaseDeploymentScopeId,
@@ -327,6 +340,55 @@ test('visible HTML tails and ordinary blockquotes remain classified prose nodes'
     }
 })
 
+test('canonical document reader binds UTF-8 bytes, paths, filesystem identity and Git blobs', () =>
+{
+    const repository = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-doc-path-'))
+    const documentPath = 'docs/release.md'
+    const document = path.join(repository, documentPath)
+    const runGit = (...args) => execFileSync('git', args, {
+        cwd: repository,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe']
+    })
+    try
+    {
+        mkdirSync(path.dirname(document), { recursive: true })
+        writeFileSync(document, '# Release\n')
+        runGit('init', '-q')
+        runGit('config', 'user.name', 'fixture')
+        runGit('config', 'user.email', 'fixture@example.test')
+        runGit('add', documentPath)
+        runGit('commit', '-qm', 'fixture')
+        assert.equal(readCanonicalReleaseDeploymentDocument(repository, documentPath), '# Release\n')
+
+        writeFileSync(document, '# Release\r\n')
+        assert.throws(() => readCanonicalReleaseDeploymentDocument(repository, documentPath), /canonical LF/u)
+        writeFileSync(document, '# Release  \n')
+        assert.throws(() => readCanonicalReleaseDeploymentDocument(repository, documentPath), /trailing horizontal/u)
+        writeFileSync(document, Buffer.from([0xff, 0xfe]))
+        assert.throws(() => readCanonicalReleaseDeploymentDocument(repository, documentPath), /strict UTF-8/u)
+        writeFileSync(document, '# Changed\n')
+        assert.throws(() => readCanonicalReleaseDeploymentDocument(repository, documentPath), /blobs differ/u)
+
+        const hardlinkTarget = path.join(repository, 'hardlink-target.md')
+        writeFileSync(hardlinkTarget, '# Release\n')
+        unlinkSync(document)
+        linkSync(hardlinkTarget, document)
+        assert.throws(() => readCanonicalReleaseDeploymentDocument(repository, documentPath), /singly-linked/u)
+        unlinkSync(document)
+        symlinkSync(hardlinkTarget, document)
+        assert.throws(() => readCanonicalReleaseDeploymentDocument(repository, documentPath), /symbolic link/u)
+
+        assert.throws(() => readCanonicalReleaseDeploymentDocument(repository, 'docs/../release.md'), /non-canonical/u)
+        assert.throws(() => readCanonicalReleaseDeploymentDocument(repository, 'docs/rele\u0301ase.md'), /non-canonical/u)
+        assert.throws(() => readCanonicalReleaseDeploymentDocument(repository, 'Docs/release.md'), /non-canonical/u)
+    }
+    finally
+    {
+        rmSync(repository, { recursive: true, force: true })
+    }
+})
+
 test('release/deployment behavior roster comes from active required catalog domains', () =>
 {
     const catalog = JSON.parse(readFileSync(path.join(root, 'config/contracts/behavior-contracts.json'), 'utf8'))
@@ -343,6 +405,25 @@ test('release/deployment behavior roster comes from active required catalog doma
         selectReleaseDeploymentBehaviorIds(changed),
         [...releaseDeploymentBehaviorIds, addedBehaviorId].sort()
     )
+})
+
+test('classification index is an exact projection of the prior typed policy commit', () =>
+{
+    const expected = JSON.parse(readFileSync(path.join(
+        root,
+        'config/contracts/release-deployment-prose-classifications.json'
+    ), 'utf8'))
+    const generated = buildReleaseDeploymentProseClassificationIndex(root)
+    const policyCommit = execFileSync('git', [
+        'log', '-1', '--format=%H', '--',
+        'config/contracts/release-deployment-prose-classification-authority.json'
+    ], { cwd: root, encoding: 'utf8' }).trim()
+    const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()
+    assert.deepEqual(generated, expected)
+    assert.equal(generated.source.commit, policyCommit)
+    assert.notEqual(generated.source.commit, head)
+    assert.equal(generated.entries.length, 441)
+    assert.equal(generated.entries.filter((entry) => entry.nodeType === 'quote').length, 1)
 })
 
 test('current release/deployment documents contain no forbidden manual authority residue', () =>
