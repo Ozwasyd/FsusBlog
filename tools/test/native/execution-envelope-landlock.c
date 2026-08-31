@@ -71,7 +71,7 @@ int main(int argc, char** argv)
 {
     if (argc == 2 && strcmp(argv[1], "--version") == 0)
     {
-        puts("fsusblog-execution-envelope-landlock 1");
+        puts("fsusblog-execution-envelope-landlock 2");
         return 0;
     }
     int separator = -1;
@@ -82,7 +82,8 @@ int main(int argc, char** argv)
             separator = index;
             break;
         }
-        if (strcmp(argv[index], "--writable") != 0 || index + 1 >= argc)
+        if ((strcmp(argv[index], "--writable") != 0 && strcmp(argv[index], "--writable-file") != 0)
+            || index + 1 >= argc)
         {
             fprintf(stderr, "execution-envelope-landlock: invalid arguments\n");
             return 125;
@@ -116,7 +117,16 @@ int main(int argc, char** argv)
         read_access |= LANDLOCK_ACCESS_FS_IOCTL_DEV;
     AllowPath(ruleset_fd, "/", read_access);
     for (int index = 1; index < separator; index += 2)
-        AllowPath(ruleset_fd, argv[index + 1], handled_access);
+    {
+        uint64_t allowed_access = handled_access;
+        if (strcmp(argv[index], "--writable-file") == 0)
+        {
+            allowed_access = LANDLOCK_ACCESS_FS_READ_FILE | LANDLOCK_ACCESS_FS_WRITE_FILE;
+            if (abi >= 5)
+                allowed_access |= LANDLOCK_ACCESS_FS_IOCTL_DEV;
+        }
+        AllowPath(ruleset_fd, argv[index + 1], allowed_access);
+    }
 
     if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0)
         Fail("cannot set no-new-privileges");

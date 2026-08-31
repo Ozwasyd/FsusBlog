@@ -567,10 +567,26 @@ requireIncludes('tools/test/run-matrix-governance-once.sh', [
     '--key matrix-governance',
     '--execution-class correctness',
     '--producer-id "$CONSUMER_ID"',
+    '--path .git',
+    '--output .tmp/ci-plan.json',
+    '--output .tmp/gate-logs/preflight.json',
+    'node tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/ci-plan.json',
     '--test-id matrix-validate',
     '--test-id matrix-preflight',
     '--test-id matrix-evidence-plan'
 ]);
+const matrixGovernanceRunner = read('tools/test/run-matrix-governance-once.sh');
+for (const forbidden of [
+    '--path . ',
+    '--output .tmp ',
+    '--output .tmp/env/preflight.json'
+])
+{
+    if (matrixGovernanceRunner.includes(forbidden))
+    {
+        errors.push(`matrix governance admission must not include broad or non-emitted input/output: ${forbidden.trim()}`);
+    }
+}
 requireIncludes('tools/bootstrap-acceptance-env.sh', [
     'tools/frontend',
     'FSUSBLOG_FIXTURE_SERVICE_GENERATION',
