@@ -146,7 +146,14 @@ test('current schema bootstrap lane exercises positive and fail-closed PostgreSQ
   assert.match(lane, /CREATE TABLE \$\{foreignKeyShadowSchema\}\.\$\{referencedTable\} \(LIKE/u)
   assert.match(lane, /REFERENCES \$\{foreignKeyShadowSchema\}\.\$\{referencedTable\}/u)
   assert.match(lane, /RestoreOwnedConstraint/u)
-  assert.match(lane, /replacement PostgreSQL system identifier was rejected before DDL/u)
+  assert.match(lane, /WriteServiceEnvelope "\$staleRunId" "\$staleEnvelope"[\s\S]*?docker rm -f -v "\$POSTGRES_CONTAINER"[\s\S]*?RunMaterializerWithoutLiveAdmission "\$staleRunId" "\$staleEnvelope"/u)
+  assert.doesNotMatch(lane, /(?:cp|sed|jq)[^\n]*staleEnvelope/u)
+  assert.doesNotMatch(lane, /node[^\n]*staleEnvelope/u)
+  assert.match(lane, /current_schema_materializer_database_observation_mismatch/u)
+  assert.match(lane, /ReceiptPath "\$staleRunId"\)\.prepared/u)
+  assert.match(lane, /RuntimeReadyPath "\$staleRunId"/u)
+  assert.match(lane, /WritePublicCatalogFacts "\$staleBeforeFacts"[\s\S]*?WritePublicCatalogFacts "\$staleAfterFacts"[\s\S]*?cmp -s/u)
+  assert.match(lane, /unchanged canonical old-instance envelope failed exact PostgreSQL system_identifier admission/u)
 })
 
 test('matrix registers the self-bootstrapping serial runtime lane and exclusive owners', () => {

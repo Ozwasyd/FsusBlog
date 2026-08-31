@@ -539,6 +539,9 @@ ResetPublicSchema
 positiveRunId="${RUN_PREFIX}-positive"
 positiveEnvelope="$OUTPUT_ROOT/${positiveRunId}-service-envelope.json"
 WriteServiceEnvelope "$positiveRunId" "$positiveEnvelope"
+staleRunId="${RUN_PREFIX}-stale-envelope"
+staleEnvelope="$OUTPUT_ROOT/${staleRunId}-service-envelope.json"
+WriteServiceEnvelope "$staleRunId" "$staleEnvelope"
 RunMaterializer "$positiveRunId" "$positiveEnvelope" >"$OUTPUT_ROOT/positive-materializer.log"
 RunCanonicalReceiptVerifier "$positiveRunId" "$positiveEnvelope"
 positiveReceipt="$(ReceiptPath "$positiveRunId")"
@@ -769,26 +772,31 @@ fi
 docker rm -f -v "$POSTGRES_CONTAINER" >/dev/null
 ACTIVE_POSTGRES_CONTAINER="$POSTGRES_SWAP_CONTAINER"
 StartPostgres "$POSTGRES_SWAP_CONTAINER" --publish "127.0.0.1:${POSTGRES_PORT}:5432"
-staleRunId="${RUN_PREFIX}-stale-envelope"
-staleEnvelope="$OUTPUT_ROOT/${staleRunId}-service-envelope.json"
-cp "$positiveEnvelope" "$staleEnvelope"
-node --input-type=module - "$staleEnvelope" "$staleRunId" <<'NODE'
-import fs from 'node:fs'
-
-const file = process.argv[2]
-const envelope = JSON.parse(fs.readFileSync(file, 'utf8'))
-envelope.runId = process.argv[3]
-fs.writeFileSync(file, `${JSON.stringify(envelope, null, 2)}\n`, { mode: 0o600 })
-NODE
+staleBeforeFacts="$OUTPUT_ROOT/stale-envelope-before.facts"
+staleAfterFacts="$OUTPUT_ROOT/stale-envelope-after.facts"
+WritePublicCatalogFacts "$staleBeforeFacts"
 if RunMaterializerWithoutLiveAdmission "$staleRunId" "$staleEnvelope" \
     >"$OUTPUT_ROOT/stale-envelope-cluster-swap.log" 2>&1; then
     Fail 'stale-envelope-cluster-swap unexpectedly materialized the replacement cluster'
 fi
+grep -Fq 'current_schema_materializer_database_observation_mismatch' \
+    "$OUTPUT_ROOT/stale-envelope-cluster-swap.log" \
+    || Fail 'stale-envelope-cluster-swap did not fail on the PostgreSQL instance identity'
+if grep -Eq 'service_envelope_(invalid|drift)|argument_|run_id|digest' \
+    "$OUTPUT_ROOT/stale-envelope-cluster-swap.log"; then
+    Fail 'stale-envelope-cluster-swap failed before PostgreSQL instance identity admission'
+fi
 [[ ! -e "$(ReceiptPath "$staleRunId")" ]] \
     || Fail 'stale-envelope-cluster-swap left a qualification-eligible terminal receipt'
-[[ "$(PostgresScalar "SELECT count(*) FROM pg_catalog.pg_tables WHERE schemaname='public';")" == 0 ]] \
-    || Fail 'stale service envelope wrote to the replacement PostgreSQL cluster'
-WriteStageReceipt stale-envelope-cluster-swap rejected 'same host port with a replacement PostgreSQL system identifier was rejected before DDL'
+[[ ! -e "$(ReceiptPath "$staleRunId").prepared" ]] \
+    || Fail 'stale-envelope-cluster-swap left a prepared receipt'
+[[ ! -e "$(RuntimeReadyPath "$staleRunId")" ]] \
+    || Fail 'stale-envelope-cluster-swap left a runtime-ready receipt'
+WritePublicCatalogFacts "$staleAfterFacts"
+cmp -s "$staleBeforeFacts" "$staleAfterFacts" \
+    || Fail 'stale service envelope changed the replacement PostgreSQL catalog'
+staleCatalogDigest="$(sha256sum "$staleBeforeFacts" | awk '{print $1}')"
+WriteStageReceipt stale-envelope-cluster-swap rejected "unchanged canonical old-instance envelope failed exact PostgreSQL system_identifier admission on the same host port; replacement catalog remained byte-identical at ${staleCatalogDigest}; no prepared, verified, or runtime-ready receipt"
 
 STAGE_RECEIPT_LIST="$(IFS=:; printf '%s' "${STAGE_RECEIPTS[*]}")" \
 POSITIVE_READY="$(RuntimeReadyPath "$positiveRunId")" \
