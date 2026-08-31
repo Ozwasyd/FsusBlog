@@ -104,6 +104,23 @@ function output(result)
     return `${result.stdout}\n${result.stderr}`;
 }
 
+function alignFixtureSpecializedGovernance(fixtureRoot)
+{
+    const packageDocument = JSON.parse(readFileSync(path.join(fixtureRoot, 'src/frontend/package.json'), 'utf8'));
+    const entries = Object.entries(packageDocument.scripts ?? {})
+        .filter(([id]) => id.startsWith('check:'))
+        .sort(([left], [right]) => left === right ? 0 : left < right ? -1 : 1);
+    const policyPath = path.join(fixtureRoot, 'config/development/frontend-style-policy.json');
+    const fixturePolicy = JSON.parse(readFileSync(policyPath, 'utf8'));
+    fixturePolicy.specializedGovernance = {
+        ...fixturePolicy.specializedGovernance,
+        count: entries.length,
+        idsSha256: createHash('sha256').update(entries.map(([id]) => id).join('\n')).digest('hex'),
+        definitionsSha256: createHash('sha256').update(entries.map(([id, value]) => `${id}=${value}`).join('\n')).digest('hex')
+    };
+    writeFileSync(policyPath, `${JSON.stringify(fixturePolicy, null, 4)}\n`);
+}
+
 function withFixture(callback)
 {
     const fixtureRoot = createFixture();
@@ -480,6 +497,126 @@ test('frontend style governance baseline updates reject equal-count violation id
     });
 });
 
+test('frontend style governance accepts only an exact pre-existing malformed baseline correction', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        alignFixtureSpecializedGovernance(fixtureRoot);
+        const relativePath = 'tools/legacy/malformed-aggregate-tool.mjs';
+        const correctionPath = 'config/development/frontend-style-baseline-corrections.json';
+        const baselinePath = path.join(fixtureRoot, sourcePolicy.baseline);
+        const git = (args) => spawnSync('git', args, { cwd: fixtureRoot, encoding: 'utf8' });
+        const expectGit = (args) =>
+        {
+            const result = git(args);
+            assert.equal(result.status, 0, `${args.join(' ')}\n${output(result)}`);
+        };
+        writeFixture(fixtureRoot, relativePath, `export function malformed_name(value) {
+  return value
+}
+`);
+        const initial = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.equal(initial.status, 0, output(initial));
+        const canonicalBaseline = JSON.parse(readFileSync(baselinePath, 'utf8'));
+        const corrected = canonicalBaseline.files.find(({ path: file }) => file === relativePath);
+        assert.ok(corrected);
+        const previousRules = {
+            ...corrected.rules,
+            'eslint/malformed-historical-aggregate': 1
+        };
+        const previousViolationDigest = '0'.repeat(64);
+        const malformedBaseline = structuredClone(canonicalBaseline);
+        const malformedEntry = malformedBaseline.files.find(({ path: file }) => file === relativePath);
+        malformedEntry.violationDigest = previousViolationDigest;
+        malformedEntry.rules = previousRules;
+        const malformedBytes = `${JSON.stringify(malformedBaseline, null, 4)}\n`;
+        const correction = {
+            schema: 'fsusblog.frontend-style-baseline-corrections.v1',
+            reviewIssue: 3126,
+            corrections: [{
+                path: relativePath,
+                sourceSha256: corrected.sourceSha256,
+                previousViolationCount: corrected.violationCount,
+                previousViolationDigest,
+                previousRules,
+                correctedViolationCount: corrected.violationCount,
+                correctedViolationDigest: corrected.violationDigest,
+                correctedRules: corrected.rules,
+                reason: 'Repair the exact malformed historical aggregate without changing source bytes or accepting new debt.',
+                terminalCondition: 'baseline-entry-replaced-once'
+            }]
+        };
+        const writeCorrection = (document) => writeFixture(
+            fixtureRoot,
+            correctionPath,
+            `${JSON.stringify(document, null, 4)}\n`
+        );
+        const authorize = (document, message) =>
+        {
+            writeCorrection(document);
+            expectGit(['add', correctionPath]);
+            expectGit(['commit', '-qm', message]);
+            expectGit(['update-ref', 'refs/remotes/origin/master', 'HEAD']);
+        };
+        writeFileSync(baselinePath, malformedBytes);
+        writeCorrection(correction);
+        expectGit(['init', '-q']);
+        expectGit(['config', 'user.email', 'fixture@example.invalid']);
+        expectGit(['config', 'user.name', 'Fixture']);
+        expectGit(['add', '.']);
+        expectGit(['commit', '-qm', 'test: establish reviewed malformed baseline correction']);
+        expectGit(['update-ref', 'refs/remotes/origin/master', 'HEAD']);
+
+        const unreviewed = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.notEqual(unreviewed.status, 0);
+        assert.match(output(unreviewed), /violation identity change without count decrease/u);
+        assert.equal(readFileSync(baselinePath, 'utf8'), malformedBytes);
+
+        const reviewedArgs = [
+            '--mode', 'full',
+            '--update-baseline',
+            '--reviewed-baseline-correction', correctionPath
+        ];
+        const reviewed = runChecker(fixtureRoot, reviewedArgs);
+        assert.equal(reviewed.status, 0, output(reviewed));
+        const repaired = JSON.parse(readFileSync(baselinePath, 'utf8'));
+        assert.deepEqual(repaired.files.find(({ path: file }) => file === relativePath), corrected);
+        const reused = runChecker(fixtureRoot, reviewedArgs);
+        assert.notEqual(reused.status, 0);
+        assert.match(output(reused), /must exactly match rejected paths/u);
+
+        writeFileSync(baselinePath, malformedBytes);
+        writeCorrection({ ...correction, reviewIssue: 3127 });
+        const candidateAuthored = runChecker(fixtureRoot, reviewedArgs);
+        assert.notEqual(candidateAuthored.status, 0);
+        assert.match(output(candidateAuthored), /must already exist unchanged/u);
+
+        const mutations = [
+            ['source digest', (document) => { document.corrections[0].sourceSha256 = '1'.repeat(64); }],
+            ['previous count', (document) => { document.corrections[0].previousViolationCount += 1; }],
+            ['previous digest', (document) => { document.corrections[0].previousViolationDigest = '2'.repeat(64); }],
+            ['previous rule sum', (document) => { document.corrections[0].previousRules['eslint/malformed-historical-aggregate'] = 2; }],
+            ['corrected count', (document) => { document.corrections[0].correctedViolationCount += 1; }],
+            ['corrected digest', (document) => { document.corrections[0].correctedViolationDigest = '3'.repeat(64); }],
+            ['corrected rules', (document) => { document.corrections[0].correctedRules['eslint/unexpected-rule'] = 1; }],
+            ['path', (document) => { document.corrections[0].path = 'tools/legacy/other-tool.mjs'; }],
+            ['extra entry', (document) => { document.corrections.push({ ...document.corrections[0], path: 'tools/legacy/extra-tool.mjs' }); }],
+            ['missing entry', (document) => { document.corrections = []; }],
+            ['terminal condition', (document) => { document.corrections[0].terminalCondition = 'source-content-change'; }]
+        ];
+        for (const [name, mutate] of mutations)
+        {
+            writeFileSync(baselinePath, malformedBytes);
+            const document = structuredClone(correction);
+            mutate(document);
+            authorize(document, `test: mutate ${name}`);
+            const rejected = runChecker(fixtureRoot, reviewedArgs);
+            assert.notEqual(rejected.status, 0, `${name} unexpectedly passed`);
+            assert.equal(readFileSync(baselinePath, 'utf8'), malformedBytes);
+        }
+    });
+});
+
 test('frontend style governance baseline configuration migration requires explicit old-digest authorization', () =>
 {
     withFixture((fixtureRoot) =>
@@ -522,6 +659,7 @@ test('frontend style governance migrates reviewed semantic paths without admitti
 {
     withFixture((fixtureRoot) =>
     {
+        alignFixtureSpecializedGovernance(fixtureRoot);
         const oldPath = 'tests/tools/issue-1234-path.test.mjs';
         const newPath = 'tests/tools/semantic-path.test.mjs';
         const inventoryPath = 'tests/test-asset-semantic-renames.json';
@@ -531,6 +669,34 @@ test('frontend style governance migrates reviewed semantic paths without admitti
 `);
         const initial = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
         assert.equal(initial.status, 0, output(initial));
+
+        const referenceOnlyInventory = 'tests/reference-only-semantic-paths.json';
+        writeFixture(fixtureRoot, referenceOnlyInventory, `${JSON.stringify({
+            schema: 'fsusblog.test-asset-semantic-renames.v1',
+            referenceFiles: [oldPath],
+            renames: []
+        }, null, 4)}\n`);
+        const referenceOnly = runChecker(fixtureRoot, [
+            '--mode', 'full',
+            '--update-baseline',
+            '--migrate-baseline-paths', referenceOnlyInventory
+        ]);
+        assert.notEqual(referenceOnly.status, 0);
+        assert.match(output(referenceOnly), /path migration inventory is invalid/u);
+
+        const nonRenameInventory = 'tests/non-rename-semantic-paths.json';
+        writeFixture(fixtureRoot, nonRenameInventory, `${JSON.stringify({
+            schema: 'fsusblog.test-asset-semantic-renames.v1',
+            referenceFiles: [],
+            renames: [{ from: oldPath, to: oldPath }]
+        }, null, 4)}\n`);
+        const nonRename = runChecker(fixtureRoot, [
+            '--mode', 'full',
+            '--update-baseline',
+            '--migrate-baseline-paths', nonRenameInventory
+        ]);
+        assert.notEqual(nonRename.status, 0);
+        assert.match(output(nonRename), /not an exact one-to-one live rename/u);
 
         renameSync(path.join(fixtureRoot, oldPath), path.join(fixtureRoot, newPath));
         writeFixture(fixtureRoot, inventoryPath, `${JSON.stringify({

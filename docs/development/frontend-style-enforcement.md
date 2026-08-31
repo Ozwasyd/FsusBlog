@@ -59,6 +59,21 @@ Regenerate a reviewed baseline without changing source:
 node tools/frontend/check-frontend-style.mjs --mode full --update-baseline
 ```
 
+The updater rejects new debt, count increases, and equal-count diagnostic identity
+replacement. A malformed historical aggregate can be corrected only with
+`--reviewed-baseline-correction config/development/frontend-style-baseline-corrections.json`.
+That closed authority binds the unchanged source digest, exact previous and corrected
+counts, violation digests and rule maps. Its bytes must already exist at refreshed
+`refs/remotes/origin/master`; a candidate cannot add or edit its own correction. The
+previous rule sum must prove the malformed aggregate, the corrected rule sum must equal
+the corrected count, and the authority becomes unusable once the baseline entry is
+replaced.
+
+`--migrate-baseline-paths tests/test-asset-semantic-renames.json` is limited to a
+non-empty set of real one-to-one renames whose old paths are absent and destinations are
+live. `referenceFiles` are audit context only and never authorize a violation identity
+replacement or a new baseline path.
+
 The runner refuses a repository-wide `--fix`. `npm --prefix src/frontend run format:fix` fixes changed files only, and AST fixers must be idempotent. ESLint uses a content cache under ignored `.tmp/frontend-style/` so unchanged work is resumed rather than parsed repeatedly.
 
 ## Governance preservation

@@ -1,0 +1,30 @@
+{
+    "schema": "fsusblog.frontend-style-baseline-corrections.v1",
+    "reviewIssue": 3126,
+    "corrections": [
+        {
+            "path": "tests/frontend/checks/public/check-public-header-material.mjs",
+            "sourceSha256": "e4b49165a13d8aecab236b32c02d1c3e04b81a1c9bff40e6692da55cd82580e3",
+            "previousViolationCount": 75,
+            "previousViolationDigest": "a6a0bc5e0f87f6804c18c3ec209d38ef881c5da331ae9b176b9a3bcd6311c87d",
+            "previousRules": {
+                "eslint/@stylistic/brace-style": 54,
+                "eslint/@stylistic/comma-dangle": 18,
+                "eslint/@stylistic/indent": 418,
+                "eslint/@stylistic/semi": 223,
+                "eslint/import-x/no-relative-parent-imports": 2,
+                "eslint/import-x/order": 1,
+                "eslint/no-undef": 68,
+                "eslint/no-unused-vars": 1
+            },
+            "correctedViolationCount": 75,
+            "correctedViolationDigest": "88daad3fdf460823eb837a93a5a9b4eda501c223de7dec4bd32357bdc102b1ad",
+            "correctedRules": {
+                "eslint/import-x/no-relative-parent-imports": 2,
+                "eslint/no-undef": 73
+            },
+            "reason": "Correct the malformed historical aggregate while preserving the unchanged source and exact canonical 75-diagnostic scan.",
+            "terminalCondition": "baseline-entry-replaced-once"
+        }
+    ]
+}

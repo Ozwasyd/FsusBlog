@@ -12,6 +12,8 @@ const defaultPolicyPath = 'config/development/frontend-style-policy.json';
 const policySchema = 'fsusblog.frontend-style-policy.v1';
 const registrySchema = 'fsusblog.frontend-style-rule-registry.v1';
 const baselineSchema = 'fsusblog.frontend-style-baseline.v1';
+const baselineCorrectionSchema = 'fsusblog.frontend-style-baseline-corrections.v1';
+const reviewedBaselineAuthorityRef = 'refs/remotes/origin/master';
 const validModes = new Set(['changed', 'full', 'strict-full']);
 
 let root = defaultRoot;
@@ -45,7 +47,16 @@ function parseArgs(argv)
             parsed.pruneRemovedBaselinePaths = true;
             continue;
         }
-        if (!['--root', '--policy', '--mode', '--base', '--file', '--migrate-baseline-configuration', '--migrate-baseline-paths'].includes(argument))
+        if (![
+            '--root',
+            '--policy',
+            '--mode',
+            '--base',
+            '--file',
+            '--migrate-baseline-configuration',
+            '--migrate-baseline-paths',
+            '--reviewed-baseline-correction'
+        ].includes(argument))
         {
             throw new Error(`unknown argument ${argument}`);
         }
@@ -65,6 +76,10 @@ function parseArgs(argv)
         else if (argument === '--migrate-baseline-paths')
         {
             parsed.migrateBaselinePaths = value;
+        }
+        else if (argument === '--reviewed-baseline-correction')
+        {
+            parsed.reviewedBaselineCorrection = value;
         }
         else
         {
@@ -96,6 +111,35 @@ function gitBlobDigest(value)
 function compareOrdinal(left, right)
 {
     return left === right ? 0 : left < right ? -1 : 1;
+}
+
+function exactObjectKeys(value, expected)
+{
+    if (!value || typeof value !== 'object' || Array.isArray(value))
+    {
+        return false;
+    }
+    return JSON.stringify(Object.keys(value).sort(compareOrdinal))
+        === JSON.stringify([...expected].sort(compareOrdinal));
+}
+
+function normalizedRules(value)
+{
+    if (!value || typeof value !== 'object' || Array.isArray(value))
+    {
+        return null;
+    }
+    const entries = Object.entries(value).sort(([left], [right]) => compareOrdinal(left, right));
+    if (entries.some(([rule, count]) => !rule || !Number.isInteger(count) || count <= 0))
+    {
+        return null;
+    }
+    return Object.fromEntries(entries);
+}
+
+function ruleCount(rules)
+{
+    return Object.values(rules).reduce((sum, count) => sum + count, 0);
 }
 
 function readJson(file, label)
@@ -509,6 +553,113 @@ function loadBaseline()
     return new Map(document.files.map((entry) => [entry.path, entry]));
 }
 
+function validateReviewedBaselineCorrections(correctionPath, rejections)
+{
+    if (!correctionPath)
+    {
+        for (const rejection of rejections)
+        {
+            fail(rejection.message);
+        }
+        return;
+    }
+    const relative = normalizeFile(correctionPath);
+    const absolute = path.join(root, relative);
+    const document = readJson(absolute, relative);
+    if (!document)
+    {
+        return;
+    }
+    const authority = command(['git', 'show', `${reviewedBaselineAuthorityRef}:${relative}`], { allowFailure: true });
+    if (authority.status !== 0 || authority.stdout !== fs.readFileSync(absolute, 'utf8'))
+    {
+        fail(`reviewed frontend style baseline correction must already exist unchanged at ${reviewedBaselineAuthorityRef}: ${relative}`);
+        return;
+    }
+    if (!exactObjectKeys(document, ['schema', 'reviewIssue', 'corrections'])
+        || document.schema !== baselineCorrectionSchema
+        || !Number.isInteger(document.reviewIssue)
+        || document.reviewIssue <= 0
+        || !Array.isArray(document.corrections)
+        || document.corrections.length === 0)
+    {
+        fail(`reviewed frontend style baseline correction is not a closed ${baselineCorrectionSchema} document`);
+        return;
+    }
+    const corrections = new Map();
+    for (const entry of document.corrections)
+    {
+        if (!exactObjectKeys(entry, [
+            'path',
+            'sourceSha256',
+            'previousViolationCount',
+            'previousViolationDigest',
+            'previousRules',
+            'correctedViolationCount',
+            'correctedViolationDigest',
+            'correctedRules',
+            'reason',
+            'terminalCondition'
+        ])
+            || typeof entry.path !== 'string'
+            || entry.path.length === 0
+            || path.isAbsolute(entry.path)
+            || entry.path.includes('\\')
+            || entry.path.includes('*')
+            || entry.path.split('/').includes('..')
+            || corrections.has(entry.path))
+        {
+            fail(`reviewed frontend style baseline correction has invalid, duplicate, or open entry ${entry?.path ?? '<unknown>'}`);
+            continue;
+        }
+        corrections.set(entry.path, entry);
+    }
+    const expectedPaths = rejections.map(({ path: file }) => file).sort(compareOrdinal);
+    const actualPaths = [...corrections.keys()].sort(compareOrdinal);
+    if (JSON.stringify(actualPaths) !== JSON.stringify(expectedPaths))
+    {
+        fail(`reviewed frontend style baseline correction must exactly match rejected paths: expected=${expectedPaths.join(',') || '<none>'} actual=${actualPaths.join(',') || '<none>'}`);
+    }
+    for (const rejection of rejections)
+    {
+        const entry = corrections.get(rejection.path);
+        if (!entry)
+        {
+            continue;
+        }
+        const previousRules = normalizedRules(entry.previousRules);
+        const correctedRules = normalizedRules(entry.correctedRules);
+        const previousMatches = previousRules
+            && entry.sourceSha256 === rejection.prior.sourceSha256
+            && entry.previousViolationCount === rejection.prior.violationCount
+            && entry.previousViolationDigest === rejection.prior.violationDigest
+            && JSON.stringify(previousRules) === JSON.stringify(normalizedRules(rejection.prior.rules));
+        const correctedMatches = correctedRules
+            && entry.sourceSha256 === rejection.current.sourceSha256
+            && entry.correctedViolationCount === rejection.current.violationCount
+            && entry.correctedViolationDigest === rejection.current.violationDigest
+            && JSON.stringify(correctedRules) === JSON.stringify(normalizedRules(rejection.current.rules));
+        const exactMalformedAggregateRepair = previousRules
+            && correctedRules
+            && entry.previousViolationCount === entry.correctedViolationCount
+            && entry.previousViolationDigest !== entry.correctedViolationDigest
+            && ruleCount(previousRules) !== entry.previousViolationCount
+            && ruleCount(correctedRules) === entry.correctedViolationCount;
+        if (!previousMatches || !correctedMatches || !exactMalformedAggregateRepair)
+        {
+            fail(`reviewed frontend style baseline correction is stale or not an exact malformed-aggregate repair for ${entry.path}`);
+        }
+        if (typeof entry.reason !== 'string' || entry.reason.trim().length < 24)
+        {
+            fail(`reviewed frontend style baseline correction reason is incomplete for ${entry.path}`);
+        }
+        if (entry.terminalCondition !== 'baseline-entry-replaced-once')
+        {
+            fail(`reviewed frontend style baseline correction terminal condition is invalid for ${entry.path}`);
+        }
+    }
+}
+
 function writeBaseline(violations, selectedFiles, args)
 {
     const target = path.join(root, policy.baseline);
@@ -534,17 +685,40 @@ function writeBaseline(violations, selectedFiles, args)
         : null;
     if (pathMigration && (pathMigration.schema !== 'fsusblog.test-asset-semantic-renames.v1'
         || !Array.isArray(pathMigration.renames)
+        || pathMigration.renames.length === 0
         || !Array.isArray(pathMigration.referenceFiles)))
     {
         fail('frontend style baseline path migration inventory is invalid');
         return;
     }
+    const migrationSources = new Set();
+    const migrationDestinations = new Set();
+    for (const entry of pathMigration?.renames ?? [])
+    {
+        const validPath = (file) => typeof file === 'string'
+            && file.length > 0
+            && !path.isAbsolute(file)
+            && !file.includes('\\')
+            && !file.includes('*')
+            && !file.split('/').includes('..');
+        if (!exactObjectKeys(entry, ['from', 'to'])
+            || !validPath(entry.from)
+            || !validPath(entry.to)
+            || entry.from === entry.to
+            || migrationSources.has(entry.from)
+            || migrationDestinations.has(entry.to)
+            || fs.existsSync(path.join(root, entry.from))
+            || !fs.existsSync(path.join(root, entry.to)))
+        {
+            fail(`frontend style baseline path migration is not an exact one-to-one live rename: ${entry?.from ?? '<unknown>'} -> ${entry?.to ?? '<unknown>'}`);
+            return;
+        }
+        migrationSources.add(entry.from);
+        migrationDestinations.add(entry.to);
+    }
     const destinationBySource = new Map((pathMigration?.renames ?? []).map(({ from, to }) => [from, to]));
     const sourceByDestination = new Map((pathMigration?.renames ?? []).map(({ from, to }) => [to, from]));
-    const identityMigrationFiles = new Set([
-        ...sourceByDestination.keys(),
-        ...(pathMigration?.referenceFiles ?? [])
-    ]);
+    const identityMigrationFiles = new Set(sourceByDestination.keys());
     let files = [...currentByPath.values()].sort((left, right) => compareOrdinal(left.path, right.path));
     if (fs.existsSync(target))
     {
@@ -572,6 +746,7 @@ function writeBaseline(violations, selectedFiles, args)
         {
             fail('refusing unnecessary frontend style baseline configuration migration authorization');
         }
+        const identityRejections = [];
         for (const current of currentByPath.values())
         {
             const prior = previousByPath.get(current.path)
@@ -595,9 +770,15 @@ function writeBaseline(violations, selectedFiles, args)
                     && current.sourceSha256 === prior.sourceSha256
                     && JSON.stringify(current.rules) === JSON.stringify(prior.rules)))
             {
-                fail(`refusing frontend style baseline violation identity change without count decrease for ${current.path}`);
+                identityRejections.push({
+                    path: current.path,
+                    prior,
+                    current,
+                    message: `refusing frontend style baseline violation identity change without count decrease for ${current.path}`
+                });
             }
         }
+        validateReviewedBaselineCorrections(args.reviewedBaselineCorrection, identityRejections);
         const emptyViolationDigest = sha256('');
         const nextFiles = [];
         for (const prior of previous.files)
@@ -815,7 +996,7 @@ function main()
     {
         throw new Error('--update-baseline and --fix cannot be combined');
     }
-    if ((args.migrateBaselineConfiguration || args.migrateBaselinePaths || args.pruneRemovedBaselinePaths)
+    if ((args.migrateBaselineConfiguration || args.migrateBaselinePaths || args.pruneRemovedBaselinePaths || args.reviewedBaselineCorrection)
         && !args.updateBaseline)
     {
         throw new Error('baseline migration options require --update-baseline');
