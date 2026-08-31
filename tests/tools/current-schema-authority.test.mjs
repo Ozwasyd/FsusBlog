@@ -127,5 +127,24 @@ test('test current schema materializer remains explicit, canonical and pre-runti
     bootstrap,
     /RequireCurrentSchemaRuntimeReady\(\)[\s\S]*?expectedRuntimeReadyFile[\s\S]*?verify-current-schema-runtime-topology-admission/u
   )
-  assert.match(bootstrap, /--slurpfile currentSchemaAdmission[\s\S]*?currentSchemaAdmission: \$currentSchemaAdmission\[0\]/u)
+  assert.match(bootstrap, /write-acceptance-runtime-topology[\s\S]*?verify-current-schema-terminal-dag/u)
+  assert.match(bootstrap, /--service-generation "sha256:\$\{FSUSBLOG_FIXTURE_SERVICE_GENERATION/u)
+  assert.match(bootstrap, /fixtureExecutionIdentity:[\s\S]*?runId: \$executionRunId[\s\S]*?namespace: \$namespace[\s\S]*?commit: \$sourceCommit[\s\S]*?worktreeFingerprint: \$sourceFingerprint[\s\S]*?serviceGeneration: \$serviceGeneration/u)
+  assert.match(
+    bootstrap,
+    /ConnectionStrings__DefaultConnection="\$\{POSTGRES_CONNECTION\};Search Path=public"[\s\\]*\n[\s\S]*?verify-current-schema-runtime-topology-admission/u
+  )
+  assert.ok(
+    bootstrap.match(/ConnectionStrings__DefaultConnection="\$\{POSTGRES_CONNECTION\};Search Path=public"/gu).length >= 6,
+    'every publish, admission, environment-ready, topology, and final verifier process needs the live database identity'
+  )
+  const main = bootstrap.slice(bootstrap.indexOf('Main() {'))
+  const topologyInput = main.indexOf('WriteRuntimeTopologyInput')
+  const bootstrapMaterializer = main.indexOf('MaterializeCurrentSchemaForTestRuntime')
+  const preSpawnAdmission = main.indexOf('RequireCurrentSchemaRuntimeReady', bootstrapMaterializer)
+  const runtimeSpawn = main.indexOf("RunBootstrapParallel 'runtime applications'")
+  const terminalDag = main.indexOf('verify-current-schema-terminal-dag')
+  assert.ok(topologyInput >= 0 && topologyInput < bootstrapMaterializer)
+  assert.ok(bootstrapMaterializer < preSpawnAdmission && preSpawnAdmission < runtimeSpawn)
+  assert.ok(runtimeSpawn < terminalDag, 'completed runtime topology remains terminal evidence, not a pre-spawn liveness claim')
 })

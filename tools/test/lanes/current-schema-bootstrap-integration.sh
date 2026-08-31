@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -eEuo pipefail
 umask 077
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-SOURCE_COMMIT="$(git -C "$ROOT_DIR" rev-parse HEAD)"
 RUN_TOKEN="$(node --input-type=module -e 'import { randomUUID } from "node:crypto"; process.stdout.write(randomUUID().replaceAll("-", "").slice(0, 16))')"
 RUN_PREFIX="current-schema-bootstrap-${RUN_TOKEN}"
 POSTGRES_CONTAINER="${RUN_PREFIX}-postgres"
@@ -12,19 +11,86 @@ NETWORK_NAME="${RUN_PREFIX}-network"
 TEMP_ROOT="$(mktemp -d "/var/tmp/fsusblog-current-schema-bootstrap-${RUN_TOKEN}.XXXXXX")"
 OUTPUT_ROOT="$ROOT_DIR/.tmp/current-schema-bootstrap-integration/$RUN_TOKEN"
 CATALOG_FILE="$ROOT_DIR/config/testing/test-execution-service-catalog.json"
+COVERAGE_REGISTRY_FILE="$ROOT_DIR/tests/coverage-registry.json"
+MATRIX_FILE="$ROOT_DIR/tests/matrix.yml"
+MATRIX_PARSER_FILE="$ROOT_DIR/tools/test-matrix/parse-matrix.mjs"
+MATRIX_PARSER_DEPENDENCY_FILE="$ROOT_DIR/tools/yaml/parse-document.mjs"
+SOURCE_AUTHORITY_ROOT="$TEMP_ROOT/source-authority"
+SOURCE_MATRIX_PARSER_FILE="$SOURCE_AUTHORITY_ROOT/tools/test-matrix/parse-matrix.mjs"
+SOURCE_MATRIX_PARSER_DEPENDENCY_FILE="$SOURCE_AUTHORITY_ROOT/tools/yaml/parse-document.mjs"
+SOURCE_RECEIPT_VERIFIER="$SOURCE_AUTHORITY_ROOT/tools/db/verify-current-schema-test-materialization-receipt.mjs"
 SERVER_PROJECT="$ROOT_DIR/src/backend/FsusBlog.Server.csproj"
 SERVER_DLL="$ROOT_DIR/src/backend/bin/Release/net10.0/FsusBlog.Server.dll"
 RECEIPT_VERIFIER="$ROOT_DIR/tools/db/verify-current-schema-test-materialization-receipt.mjs"
 SERVICE_ENVELOPE_PRODUCER="$ROOT_DIR/tools/test/execution-envelope-services.mjs"
-POSTGRES_IMAGE="$(node "$SERVICE_ENVELOPE_PRODUCER" --image-reference postgres)"
+SOURCE_COMMIT=""
+POSTGRES_IMAGE=""
 POSTGRES_PORT=""
 CONNECTION_STRING=""
 ACTIVE_POSTGRES_CONTAINER="$POSTGRES_CONTAINER"
+ACTIVE_CONTAINER_ID=""
+DATABASE_OID=""
+DATABASE_SYSTEM_IDENTIFIER=""
 STAGE_RECEIPTS=()
+LAST_EVIDENCE_EXIT_STATUS=""
+LAST_EVIDENCE_STDOUT=""
+LAST_EVIDENCE_STDERR=""
 
-mkdir -p "$OUTPUT_ROOT"
+mkdir -p "$(dirname "$OUTPUT_ROOT")"
+if ! mkdir "$OUTPUT_ROOT"; then
+    rmdir "$TEMP_ROOT"
+    printf '[current-schema-bootstrap-integration] run evidence root already exists: %s\n' "$OUTPUT_ROOT" >&2
+    exit 1
+fi
+LANE_STDOUT="$OUTPUT_ROOT/lane.stdout.log"
+LANE_STDERR="$OUTPUT_ROOT/lane.stderr.log"
+FIRST_FAILURE_PATH="$OUTPUT_ROOT/first-failure.json"
+exec 3>&1 4>&2
+exec >"$LANE_STDOUT" 2>"$LANE_STDERR"
+
+SOURCE_COMMIT="$(git -C "$ROOT_DIR" rev-parse HEAD)"
+POSTGRES_IMAGE="$(node "$SERVICE_ENVELOPE_PRODUCER" --image-reference postgres)"
+
+RecordFirstFailure() {
+    local exitStatus="$1"
+    local line="$2"
+    local command="$3"
+    [[ ! -e "$FIRST_FAILURE_PATH" ]] || return 0
+    EXIT_STATUS_VALUE="$exitStatus" LINE_VALUE="$line" COMMAND_VALUE="$command" \
+    RUN_ID_VALUE="$RUN_PREFIX" SOURCE_COMMIT_VALUE="$SOURCE_COMMIT" \
+    CONTAINER_NAME_VALUE="$ACTIVE_POSTGRES_CONTAINER" CONTAINER_ID_VALUE="$ACTIVE_CONTAINER_ID" \
+    POSTGRES_IMAGE_VALUE="$POSTGRES_IMAGE" NETWORK_VALUE="$NETWORK_NAME" \
+    DATABASE_OID_VALUE="$DATABASE_OID" SYSTEM_IDENTIFIER_VALUE="$DATABASE_SYSTEM_IDENTIFIER" \
+        node --input-type=module - "$FIRST_FAILURE_PATH" <<'NODE'
+import fs from 'node:fs'
+
+const output = process.argv[2]
+const failure = {
+  schema: 'fsusblog.current-schema-bootstrap-integration-first-failure.v1',
+  runId: process.env.RUN_ID_VALUE,
+  sourceCommit: process.env.SOURCE_COMMIT_VALUE || null,
+  observedAt: new Date().toISOString(),
+  exitStatus: Number(process.env.EXIT_STATUS_VALUE),
+  line: Number(process.env.LINE_VALUE),
+  command: process.env.COMMAND_VALUE,
+  container: {
+    name: process.env.CONTAINER_NAME_VALUE,
+    id: process.env.CONTAINER_ID_VALUE || null,
+    image: process.env.POSTGRES_IMAGE_VALUE || null,
+    network: process.env.NETWORK_VALUE
+  },
+  database: {
+    name: 'fsusblog',
+    oid: process.env.DATABASE_OID_VALUE || null,
+    systemIdentifier: process.env.SYSTEM_IDENTIFIER_VALUE || null
+  }
+}
+fs.writeFileSync(output, `${JSON.stringify(failure, null, 2)}\n`, { flag: 'wx', mode: 0o600 })
+NODE
+}
 
 Fail() {
+    RecordFirstFailure 1 "$LINENO" "$*"
     printf '[current-schema-bootstrap-integration] %s\n' "$*" >&2
     exit 1
 }
@@ -36,6 +102,7 @@ Cleanup() {
     rm -rf -- "$TEMP_ROOT"
 }
 trap Cleanup EXIT INT TERM
+trap 'failureStatus=$?; RecordFirstFailure "$failureStatus" "$LINENO" "$BASH_COMMAND"; exit "$failureStatus"' ERR
 
 RequireCommand() {
     command -v "$1" >/dev/null 2>&1 || Fail "required command is unavailable: $1"
@@ -47,6 +114,42 @@ done
 [[ "$SOURCE_COMMIT" =~ ^[a-f0-9]{40}$ ]] || Fail 'source commit must be an exact lowercase Git object identity'
 [[ -z "$(git -C "$ROOT_DIR" status --porcelain=v1)" ]] \
     || Fail 'source-bound current-schema integration requires a clean worktree'
+mkdir -p "$(dirname "$SOURCE_MATRIX_PARSER_FILE")" \
+    "$(dirname "$SOURCE_MATRIX_PARSER_DEPENDENCY_FILE")" \
+    "$(dirname "$SOURCE_RECEIPT_VERIFIER")"
+git -C "$ROOT_DIR" show "$SOURCE_COMMIT:tools/test-matrix/parse-matrix.mjs" \
+    >"$SOURCE_MATRIX_PARSER_FILE"
+git -C "$ROOT_DIR" show "$SOURCE_COMMIT:tools/yaml/parse-document.mjs" \
+    >"$SOURCE_MATRIX_PARSER_DEPENDENCY_FILE"
+git -C "$ROOT_DIR" show "$SOURCE_COMMIT:tools/db/verify-current-schema-test-materialization-receipt.mjs" \
+    >"$SOURCE_RECEIPT_VERIFIER"
+cmp -s "$MATRIX_PARSER_FILE" "$SOURCE_MATRIX_PARSER_FILE" \
+    || Fail 'live matrix parser differs from the source-bound candidate'
+cmp -s "$MATRIX_PARSER_DEPENDENCY_FILE" "$SOURCE_MATRIX_PARSER_DEPENDENCY_FILE" \
+    || Fail 'live YAML parser differs from the source-bound candidate'
+cmp -s "$RECEIPT_VERIFIER" "$SOURCE_RECEIPT_VERIFIER" \
+    || Fail 'live current-schema receipt verifier differs from the source-bound candidate'
+node --input-type=module - "$TEMP_ROOT" <<'NODE'
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
+
+const root = process.argv[2]
+const candidate = path.join(root, 'publication-preflight.candidate')
+const destination = path.join(root, 'publication-preflight.destination')
+fs.writeFileSync(candidate, 'candidate', { flag: 'wx' })
+fs.writeFileSync(destination, 'existing', { flag: 'wx' })
+assert.throws(() => fs.linkSync(candidate, destination), { code: 'EEXIST' })
+assert.equal(fs.readFileSync(candidate, 'utf8'), 'candidate')
+assert.equal(fs.readFileSync(destination, 'utf8'), 'existing')
+fs.unlinkSync(destination)
+fs.linkSync(candidate, destination)
+assert.equal(fs.lstatSync(candidate).nlink, 2)
+fs.unlinkSync(candidate)
+assert.equal(fs.lstatSync(destination).nlink, 1)
+assert.equal(fs.readFileSync(destination, 'utf8'), 'candidate')
+fs.unlinkSync(destination)
+NODE
 
 ReceiptPath() {
     local runId="$1"
@@ -73,6 +176,124 @@ PostgresSql() {
 
 PostgresScalar() {
     PostgresSql --tuples-only --no-align --command "$1" | tr -d '\r' | sed -E '/^[[:space:]]*$/d' | tail -n 1
+}
+
+RefreshDatabaseIdentity() {
+    local databaseIdentity
+    ACTIVE_CONTAINER_ID="$(docker inspect --format '{{.Id}}' "$ACTIVE_POSTGRES_CONTAINER")"
+    databaseIdentity="$(PostgresScalar "SELECT database_meta.oid::text||'|'||control.system_identifier::text FROM pg_catalog.pg_database database_meta CROSS JOIN pg_catalog.pg_control_system() control WHERE database_meta.datname=current_database();")"
+    [[ "$databaseIdentity" == *'|'* ]] || Fail 'PostgreSQL database identity observation was incomplete'
+    IFS='|' read -r DATABASE_OID DATABASE_SYSTEM_IDENTIFIER <<<"$databaseIdentity"
+    [[ "$ACTIVE_CONTAINER_ID" =~ ^[a-f0-9]{64}$ ]] || Fail 'PostgreSQL container identity was not exact'
+    [[ "$DATABASE_OID" =~ ^[0-9]+$ ]] || Fail 'PostgreSQL database OID was not exact'
+    [[ "$DATABASE_SYSTEM_IDENTIFIER" =~ ^[0-9]+$ ]] || Fail 'PostgreSQL system identifier was not exact'
+}
+
+WriteCommandEvidence() {
+    local stage="$1"
+    local commandId="$2"
+    local expected="$3"
+    local startedAt="$4"
+    local endedAt="$5"
+    local exitStatus="$6"
+    local stdoutPath="$7"
+    local stderrPath="$8"
+    shift 8
+    local evidencePath="$OUTPUT_ROOT/evidence-${stage}-${commandId}.json"
+    [[ ! -e "$evidencePath" ]] || Fail "duplicate command evidence path: $evidencePath"
+    STAGE_VALUE="$stage" COMMAND_ID_VALUE="$commandId" EXPECTED_VALUE="$expected" \
+    STARTED_AT_VALUE="$startedAt" ENDED_AT_VALUE="$endedAt" EXIT_STATUS_VALUE="$exitStatus" \
+    STDOUT_PATH_VALUE="$stdoutPath" STDERR_PATH_VALUE="$stderrPath" \
+    RUN_ID_VALUE="$RUN_PREFIX" SOURCE_COMMIT_VALUE="$SOURCE_COMMIT" \
+    CONTAINER_NAME_VALUE="$ACTIVE_POSTGRES_CONTAINER" CONTAINER_ID_VALUE="$ACTIVE_CONTAINER_ID" \
+    POSTGRES_IMAGE_VALUE="$POSTGRES_IMAGE" NETWORK_VALUE="$NETWORK_NAME" PORT_VALUE="$POSTGRES_PORT" \
+    DATABASE_OID_VALUE="$DATABASE_OID" SYSTEM_IDENTIFIER_VALUE="$DATABASE_SYSTEM_IDENTIFIER" \
+        node --input-type=module - "$evidencePath" "$@" <<'NODE'
+import { createHash } from 'node:crypto'
+import fs from 'node:fs'
+
+const [output, ...argv] = process.argv.slice(2)
+const digest = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`
+const stdout = fs.readFileSync(process.env.STDOUT_PATH_VALUE)
+const stderr = fs.readFileSync(process.env.STDERR_PATH_VALUE)
+const exitStatus = Number(process.env.EXIT_STATUS_VALUE)
+const exitSignal = exitStatus > 128 && exitStatus <= 192 ? exitStatus - 128 : null
+const firstLine = (bytes) => bytes.toString('utf8').split(/\r?\n/u).find((line) => line.trim().length > 0)
+const firstFailure = exitStatus === 0
+  ? null
+  : firstLine(stderr) ?? firstLine(stdout) ?? (exitSignal === null
+      ? `command exited with status ${exitStatus}`
+      : `command terminated by signal ${exitSignal}`)
+const evidence = {
+  schema: 'fsusblog.current-schema-bootstrap-integration-command.v1',
+  status: 'observed',
+  qualificationEligible: false,
+  stage: process.env.STAGE_VALUE,
+  commandId: process.env.COMMAND_ID_VALUE,
+  expectedOutcome: process.env.EXPECTED_VALUE,
+  command: argv[0] ?? null,
+  argv,
+  startedAt: process.env.STARTED_AT_VALUE,
+  endedAt: process.env.ENDED_AT_VALUE,
+  exit: { status: exitStatus, signal: exitSignal },
+  stdout: { path: process.env.STDOUT_PATH_VALUE, sha256: digest(stdout) },
+  stderr: { path: process.env.STDERR_PATH_VALUE, sha256: digest(stderr) },
+  firstFailure,
+  run: { id: process.env.RUN_ID_VALUE, sourceCommit: process.env.SOURCE_COMMIT_VALUE },
+  container: {
+    name: process.env.CONTAINER_NAME_VALUE,
+    id: process.env.CONTAINER_ID_VALUE,
+    image: process.env.POSTGRES_IMAGE_VALUE,
+    network: process.env.NETWORK_VALUE
+  },
+  database: {
+    host: '127.0.0.1',
+    port: Number(process.env.PORT_VALUE),
+    name: 'fsusblog',
+    oid: Number(process.env.DATABASE_OID_VALUE),
+    systemIdentifier: process.env.SYSTEM_IDENTIFIER_VALUE
+  },
+  contentDigest: null
+}
+const canonicalize = (value) => Array.isArray(value)
+  ? value.map(canonicalize)
+  : value !== null && typeof value === 'object'
+    ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]))
+    : value
+evidence.contentDigest = digest(JSON.stringify(canonicalize(evidence)))
+fs.writeFileSync(output, `${JSON.stringify(evidence, null, 2)}\n`, { flag: 'wx', mode: 0o600 })
+NODE
+}
+
+RunEvidenceCommand() {
+    local stage="$1"
+    local commandId="$2"
+    local expected="$3"
+    shift 3
+    local stdoutPath="$OUTPUT_ROOT/${stage}-${commandId}.stdout.log"
+    local stderrPath="$OUTPUT_ROOT/${stage}-${commandId}.stderr.log"
+    local startedAt
+    local endedAt
+    local exitStatus
+    startedAt="$(date -u +'%Y-%m-%dT%H:%M:%S.%NZ')"
+    set +e
+    "$@" >"$stdoutPath" 2>"$stderrPath"
+    exitStatus=$?
+    set -e
+    LAST_EVIDENCE_EXIT_STATUS="$exitStatus"
+    LAST_EVIDENCE_STDOUT="$stdoutPath"
+    LAST_EVIDENCE_STDERR="$stderrPath"
+    endedAt="$(date -u +'%Y-%m-%dT%H:%M:%S.%NZ')"
+    WriteCommandEvidence "$stage" "$commandId" "$expected" "$startedAt" "$endedAt" "$exitStatus" \
+        "$stdoutPath" "$stderrPath" "$@"
+    return "$exitStatus"
+}
+
+WriteNotApplicableEvidence() {
+    local stage="$1"
+    local detail="$2"
+    RunEvidenceCommand "$stage" not-applicable not-applicable \
+        printf '%s\n' "$detail" >/dev/null
 }
 
 WritePublicCatalogFacts() {
@@ -163,6 +384,7 @@ StartPostgres() {
         "$POSTGRES_IMAGE" >/dev/null
     ACTIVE_POSTGRES_CONTAINER="$container"
     WaitForPostgres
+    RefreshDatabaseIdentity
 }
 
 WriteStageReceipt() {
@@ -172,19 +394,91 @@ WriteStageReceipt() {
     local receipt="$OUTPUT_ROOT/stage-${stage}.json"
     STAGE_RECEIPTS+=("$receipt")
     STAGE="$stage" OUTCOME="$outcome" DETAIL="$detail" SOURCE_COMMIT_VALUE="$SOURCE_COMMIT" \
+    OUTPUT_ROOT_VALUE="$OUTPUT_ROOT" RUN_ID_VALUE="$RUN_PREFIX" \
+    CONTAINER_NAME_VALUE="$ACTIVE_POSTGRES_CONTAINER" CONTAINER_ID_VALUE="$ACTIVE_CONTAINER_ID" \
+    DATABASE_OID_VALUE="$DATABASE_OID" SYSTEM_IDENTIFIER_VALUE="$DATABASE_SYSTEM_IDENTIFIER" \
         node --input-type=module - "$receipt" <<'NODE'
+import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
+import path from 'node:path'
 
 const output = process.argv[2]
+const digest = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`
+const evidenceFiles = fs.readdirSync(process.env.OUTPUT_ROOT_VALUE)
+  .filter((name) => name.startsWith(`evidence-${process.env.STAGE}-`) && name.endsWith('.json'))
+  .sort()
+const commandEvidence = evidenceFiles.map((name) => {
+  const evidencePath = path.join(process.env.OUTPUT_ROOT_VALUE, name)
+  const bytes = fs.readFileSync(evidencePath)
+  const evidence = JSON.parse(bytes)
+  assert.equal(evidence.schema, 'fsusblog.current-schema-bootstrap-integration-command.v1')
+  assert.equal(evidence.stage, process.env.STAGE)
+  const unsignedEvidence = { ...evidence, contentDigest: null }
+  const canonicalizeEvidence = (value) => Array.isArray(value)
+    ? value.map(canonicalizeEvidence)
+    : value !== null && typeof value === 'object'
+      ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalizeEvidence(value[key])]))
+      : value
+  assert.equal(evidence.contentDigest, digest(JSON.stringify(canonicalizeEvidence(unsignedEvidence))))
+  assert.equal(evidence.stdout.sha256, digest(fs.readFileSync(evidence.stdout.path)))
+  assert.equal(evidence.stderr.sha256, digest(fs.readFileSync(evidence.stderr.path)))
+  return {
+    path: evidencePath,
+    sha256: digest(bytes),
+    contentDigest: evidence.contentDigest,
+    commandId: evidence.commandId,
+    expectedOutcome: evidence.expectedOutcome,
+    command: evidence.command,
+    argv: evidence.argv,
+    startedAt: evidence.startedAt,
+    endedAt: evidence.endedAt,
+    exit: evidence.exit,
+    stdout: evidence.stdout,
+    stderr: evidence.stderr,
+    firstFailure: evidence.firstFailure,
+    container: evidence.container,
+    database: evidence.database
+  }
+})
+assert.ok(commandEvidence.length > 0, `stage ${process.env.STAGE} has no durable command evidence`)
+if (process.env.OUTCOME === 'rejected')
+{
+  assert.ok(commandEvidence.some((entry) => entry.expectedOutcome === 'rejected'
+    && entry.exit.status !== 0
+    && entry.firstFailure !== null), `stage ${process.env.STAGE} lacks exact rejected-command evidence`)
+}
+else if (process.env.OUTCOME === 'verified')
+{
+  assert.ok(commandEvidence.some((entry) => entry.expectedOutcome === 'verified'
+    && entry.exit.status === 0), `stage ${process.env.STAGE} lacks exact successful-command evidence`)
+}
+else
+{
+  assert.equal(process.env.OUTCOME, 'not-applicable')
+  assert.ok(commandEvidence.some((entry) => entry.expectedOutcome === 'not-applicable'
+    && entry.exit.status === 0), `stage ${process.env.STAGE} lacks explicit not-applicable evidence`)
+}
 const receipt = {
   schema: 'fsusblog.current-schema-bootstrap-integration-stage.v1',
-  status: 'verified',
-  qualificationEligible: true,
+  status: process.env.OUTCOME === 'not-applicable' ? 'not-applicable' : 'verified',
+  qualificationEligible: process.env.OUTCOME !== 'not-applicable',
   stage: process.env.STAGE,
   expectedOutcome: process.env.OUTCOME,
   detail: process.env.DETAIL,
+  runId: process.env.RUN_ID_VALUE,
   sourceCommit: process.env.SOURCE_COMMIT_VALUE,
+  container: {
+    name: process.env.CONTAINER_NAME_VALUE,
+    id: process.env.CONTAINER_ID_VALUE
+  },
+  database: {
+    name: 'fsusblog',
+    oid: Number(process.env.DATABASE_OID_VALUE),
+    systemIdentifier: process.env.SYSTEM_IDENTIFIER_VALUE
+  },
+  commandEvidence,
+  firstFailure: commandEvidence.map((entry) => entry.firstFailure).find(Boolean) ?? null,
   contentDigest: null
 }
 const canonicalize = (value) => Array.isArray(value)
@@ -192,7 +486,7 @@ const canonicalize = (value) => Array.isArray(value)
   : value !== null && typeof value === 'object'
     ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]))
     : value
-receipt.contentDigest = `sha256:${createHash('sha256').update(JSON.stringify(canonicalize(receipt))).digest('hex')}`
+receipt.contentDigest = digest(JSON.stringify(canonicalize(receipt)))
 fs.writeFileSync(output, `${JSON.stringify(receipt, null, 2)}\n`, { flag: 'wx', mode: 0o600 })
 NODE
 }
@@ -208,21 +502,16 @@ WriteServiceEnvelope() {
         --output "$envelope" >/dev/null
 }
 
-RunMaterializer() {
-    local runId="$1"
-    local envelope="$2"
-    shift 2
-    node "$SERVICE_ENVELOPE_PRODUCER" \
-        --verify-envelope "$envelope" \
-        --service-catalog "$CATALOG_FILE" >/dev/null
-    RunMaterializerWithoutLiveAdmission "$runId" "$envelope" "$@"
-}
-
-RunMaterializerWithoutLiveAdmission() {
-    local runId="$1"
-    local envelope="$2"
-    shift 2
-    ASPNETCORE_ENVIRONMENT=Test \
+RunMaterializerWithoutLiveAdmissionEvidence() {
+    local stage="$1"
+    local commandId="$2"
+    local expected="$3"
+    local runId="$4"
+    local envelope="$5"
+    shift 5
+    RunEvidenceCommand "$stage" "$commandId" "$expected" \
+        env \
+        ASPNETCORE_ENVIRONMENT=Test \
         FSUSBLOG_CURRENT_SCHEMA_TEST_MATERIALIZATION=1 \
         FSUSBLOG_CURRENT_SCHEMA_TEST_RECEIPT_ROOT="$OUTPUT_ROOT" \
         ConnectionStrings__DefaultConnection="${CONNECTION_STRING};Search Path=public" \
@@ -235,15 +524,50 @@ RunMaterializerWithoutLiveAdmission() {
             --service-catalog "$CATALOG_FILE"
 }
 
+RunMaterializerEvidence() {
+    local stage="$1"
+    local commandId="$2"
+    local expected="$3"
+    local runId="$4"
+    local envelope="$5"
+    shift 5
+    if ! RunEvidenceCommand "$stage" "${commandId}-service-envelope-admission" verified \
+        node "$SERVICE_ENVELOPE_PRODUCER" \
+            --verify-envelope "$envelope" \
+            --service-catalog "$CATALOG_FILE"; then
+        Fail "$stage failed canonical service-envelope admission before the materializer command"
+    fi
+    RunMaterializerWithoutLiveAdmissionEvidence "$stage" "$commandId" "$expected" \
+        "$runId" "$envelope" "$@"
+}
+
 ExpectMaterializerFailure() {
     local stage="$1"
     local runId="$2"
     local envelope="$3"
-    shift 3
+    local expectedCode="$4"
+    shift 4
     local receipt
     receipt="$(ReceiptPath "$runId")"
-    if RunMaterializer "$runId" "$envelope" "$@" >"$OUTPUT_ROOT/${stage}.log" 2>&1; then
+    if RunMaterializerEvidence "$stage" materializer rejected "$runId" "$envelope" "$@"; then
         Fail "$stage unexpectedly materialized the schema"
+    fi
+    if [[ "$LAST_EVIDENCE_EXIT_STATUS" != 1 ]]; then
+        Fail "$stage materializer returned unexpected status $LAST_EVIDENCE_EXIT_STATUS"
+    fi
+    if ! EXPECTED_CODE_VALUE="$expectedCode" node --input-type=module - "$LAST_EVIDENCE_STDOUT" <<'NODE'
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+
+const documents = fs.readFileSync(process.argv[2], 'utf8')
+  .split(/\r?\n/u)
+  .filter((line) => line.trim().startsWith('{'))
+  .map((line) => JSON.parse(line))
+  .filter((document) => document.status === 'failed' && typeof document.code === 'string')
+assert.deepEqual(documents, [{ status: 'failed', code: process.env.EXPECTED_CODE_VALUE }])
+NODE
+    then
+        Fail "$stage materializer did not emit exact typed failure $expectedCode"
     fi
     [[ ! -e "$receipt" ]] || Fail "$stage left a qualification-eligible terminal receipt"
 }
@@ -265,9 +589,11 @@ NODE
 }
 
 RunCanonicalReceiptVerifier() {
-    local runId="$1"
-    local envelope="$2"
-    ConnectionStrings__DefaultConnection="${CONNECTION_STRING};Search Path=public" \
+    local stage="$1"
+    local runId="$2"
+    local envelope="$3"
+    RunEvidenceCommand "$stage" receipt-consumer verified \
+        env ConnectionStrings__DefaultConnection="${CONNECTION_STRING};Search Path=public" \
         node "$RECEIPT_VERIFIER" \
         --receipt-root "$OUTPUT_ROOT" \
         --run-id "$runId" \
@@ -282,14 +608,15 @@ ExpectCanonicalReceiptVerifierFailure() {
     local stage="$1"
     local runId="$2"
     local envelope="$3"
-    if ConnectionStrings__DefaultConnection="${CONNECTION_STRING};Search Path=public" \
+    if RunEvidenceCommand "$stage" receipt-consumer rejected \
+        env ConnectionStrings__DefaultConnection="${CONNECTION_STRING};Search Path=public" \
         node "$RECEIPT_VERIFIER" \
         --receipt-root "$OUTPUT_ROOT" \
         --run-id "$runId" \
         --source-commit "$SOURCE_COMMIT" \
         --assembly "$SERVER_DLL" \
         --service-catalog "$CATALOG_FILE" \
-        --service-envelope "$envelope" >"$OUTPUT_ROOT/${stage}-receipt-consumer.log" 2>&1; then
+        --service-envelope "$envelope"; then
         Fail "$stage unexpectedly produced a runtime-ready receipt"
     fi
     [[ ! -e "$(RuntimeReadyPath "$runId")" ]] \
@@ -341,8 +668,8 @@ try
 }
 catch (CurrentSchemaMismatchException exception)
 {
-    Console.Error.WriteLine(exception.Message);
-    return 1;
+    Console.Error.WriteLine($"fsusblog.current-schema-mismatch.v1:{exception.Message}");
+    return 42;
 }
 EOF
     dotnet restore "$harness/Verifier.csproj" --nologo >/dev/null
@@ -360,9 +687,14 @@ RunStartupVerifier() {
 
 ExpectVerifierFailure() {
     local stage="$1"
-    if RunStartupVerifier >"$OUTPUT_ROOT/${stage}.log" 2>&1; then
+    if RunEvidenceCommand "$stage" startup-verifier rejected \
+        dotnet "$VERIFIER_DLL" "${CONNECTION_STRING};Search Path=public"; then
         Fail "$stage unexpectedly passed the production current-schema verifier"
     fi
+    [[ "$LAST_EVIDENCE_EXIT_STATUS" == 42 ]] \
+        || Fail "$stage verifier exited with ${LAST_EVIDENCE_EXIT_STATUS:-unknown}, expected typed schema-mismatch status 42"
+    grep -Eq '^fsusblog\.current-schema-mismatch\.v1:' "$LAST_EVIDENCE_STDERR" \
+        || Fail "$stage verifier did not emit the typed schema-mismatch marker"
     WriteStageReceipt "$stage" rejected 'production CurrentSchemaStartupVerifier rejected the injected PostgreSQL drift'
 }
 
@@ -421,7 +753,8 @@ partialBeforeFacts="$OUTPUT_ROOT/partial-schema-before.facts"
 partialAfterFacts="$OUTPUT_ROOT/partial-schema-after.facts"
 WritePublicCatalogFacts "$partialBeforeFacts"
 beforePartial="$(sha256sum "$partialBeforeFacts" | awk '{print $1}')"
-ExpectMaterializerFailure partial-schema "$partialRunId" "$partialEnvelope"
+ExpectMaterializerFailure partial-schema "$partialRunId" "$partialEnvelope" \
+    current_schema_materializer_public_schema_not_empty
 WritePublicCatalogFacts "$partialAfterFacts"
 afterPartial="$(sha256sum "$partialAfterFacts" | awk '{print $1}')"
 [[ "$beforePartial" == "$afterPartial" ]] || Fail 'partial-schema rejection wrote to PostgreSQL'
@@ -438,7 +771,8 @@ compositeBeforeFacts="$OUTPUT_ROOT/composite-type-before.facts"
 compositeAfterFacts="$OUTPUT_ROOT/composite-type-after.facts"
 WritePublicCatalogFacts "$compositeBeforeFacts"
 compositeBefore="$(sha256sum "$compositeBeforeFacts" | awk '{print $1}')"
-ExpectMaterializerFailure composite-type "$compositeRunId" "$compositeEnvelope"
+ExpectMaterializerFailure composite-type "$compositeRunId" "$compositeEnvelope" \
+    current_schema_materializer_public_schema_not_empty
 [[ ! -e "$(ReceiptPath "$compositeRunId").prepared" ]] \
     || Fail 'composite-type rejection left a prepared receipt'
 WritePublicCatalogFacts "$compositeAfterFacts"
@@ -454,7 +788,8 @@ nonrelationRunId="${RUN_PREFIX}-nonrelation"
 nonrelationEnvelope="$OUTPUT_ROOT/${nonrelationRunId}-service-envelope.json"
 PostgresSql --command 'CREATE FUNCTION public.current_schema_nonrelation_sentinel() RETURNS integer LANGUAGE sql IMMUTABLE AS $$ SELECT 1 $$;' >/dev/null
 WriteServiceEnvelope "$nonrelationRunId" "$nonrelationEnvelope"
-ExpectMaterializerFailure nonrelation-object "$nonrelationRunId" "$nonrelationEnvelope"
+ExpectMaterializerFailure nonrelation-object "$nonrelationRunId" "$nonrelationEnvelope" \
+    current_schema_materializer_public_schema_not_empty
 [[ "$(PostgresScalar "SELECT count(*) FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='current_schema_nonrelation_sentinel';")" == 1 ]] \
     || Fail 'nonrelation rejection did not preserve the sentinel function'
 WriteStageReceipt nonrelation-object rejected 'public routine was preserved, zero materializer writes, no terminal receipt'
@@ -464,6 +799,7 @@ publicationRunId="${RUN_PREFIX}-publication-fault"
 publicationEnvelope="$OUTPUT_ROOT/${publicationRunId}-service-envelope.json"
 WriteServiceEnvelope "$publicationRunId" "$publicationEnvelope"
 ExpectMaterializerFailure publication-fault "$publicationRunId" "$publicationEnvelope" \
+    current_schema_materializer_publication_fault_after_commit \
     env FSUSBLOG_CURRENT_SCHEMA_TEST_PUBLICATION_FAULT=after-commit
 AssertPreparedNoneligibleWhenPresent "$publicationRunId"
 ExpectCanonicalReceiptVerifierFailure publication-fault "$publicationRunId" "$publicationEnvelope"
@@ -478,7 +814,9 @@ WriteServiceEnvelope "$crashRunId" "$crashEnvelope"
 node "$SERVICE_ENVELOPE_PRODUCER" \
     --verify-envelope "$crashEnvelope" \
     --service-catalog "$CATALOG_FILE" >/dev/null
-setsid env \
+crashStdout="$OUTPUT_ROOT/prepared-crash-materializer.stdout.log"
+crashStderr="$OUTPUT_ROOT/prepared-crash-materializer.stderr.log"
+crashCommand=(setsid env \
     ASPNETCORE_ENVIRONMENT=Test \
     FSUSBLOG_CURRENT_SCHEMA_TEST_MATERIALIZATION=1 \
     FSUSBLOG_CURRENT_SCHEMA_TEST_RECEIPT_ROOT="$OUTPUT_ROOT" \
@@ -489,8 +827,9 @@ setsid env \
         --run-id "$crashRunId" \
         --source-commit "$SOURCE_COMMIT" \
         --service-envelope "$crashEnvelope" \
-        --service-catalog "$CATALOG_FILE" \
-    >"$OUTPUT_ROOT/prepared-crash.log" 2>&1 &
+        --service-catalog "$CATALOG_FILE")
+crashStartedAt="$(date -u +'%Y-%m-%dT%H:%M:%S.%NZ')"
+"${crashCommand[@]}" >"$crashStdout" 2>"$crashStderr" &
 crashPid=$!
 lanePgid="$(ps -o pgid= -p "$$" | tr -d ' ')"
 crashGroupDeadline=$((SECONDS + 5))
@@ -519,7 +858,13 @@ until [[ -s "$crashPrepared" ]]; do
     sleep 0.1
 done
 kill -KILL -- "-$crashPgid"
-wait "$crashPid" >/dev/null 2>&1 || true
+set +e
+wait "$crashPid" >/dev/null 2>&1
+crashExitStatus=$?
+set -e
+crashEndedAt="$(date -u +'%Y-%m-%dT%H:%M:%S.%NZ')"
+[[ "$crashExitStatus" == 137 ]] \
+    || Fail "prepared crash materializer exited with ${crashExitStatus}, expected SIGKILL status 137"
 survivorDeadline=$((SECONDS + 5))
 while pgrep -g "$crashPgid" >/dev/null 2>&1; do
     ((SECONDS < survivorDeadline)) \
@@ -533,30 +878,62 @@ until [[ "$(PostgresScalar "SELECT count(*) FROM pg_catalog.pg_tables WHERE sche
     ((SECONDS < rollbackDeadline)) || Fail 'prepared crash transaction did not roll back to an empty schema'
     sleep 0.2
 done
+WriteCommandEvidence prepared-crash materializer rejected "$crashStartedAt" "$crashEndedAt" \
+    "$crashExitStatus" "$crashStdout" "$crashStderr" "${crashCommand[@]}"
 WriteStageReceipt prepared-crash rejected 'SIGKILL of the exact isolated materializer process group left zero candidates, only noneligible staging evidence, and PostgreSQL rolled back the open DDL transaction'
 
 ResetPublicSchema
-positiveRunId="${RUN_PREFIX}-positive"
-positiveEnvelope="$OUTPUT_ROOT/${positiveRunId}-service-envelope.json"
-WriteServiceEnvelope "$positiveRunId" "$positiveEnvelope"
 staleRunId="${RUN_PREFIX}-stale-envelope"
 staleEnvelope="$OUTPUT_ROOT/${staleRunId}-service-envelope.json"
 WriteServiceEnvelope "$staleRunId" "$staleEnvelope"
-RunMaterializer "$positiveRunId" "$positiveEnvelope" >"$OUTPUT_ROOT/positive-materializer.log"
-RunCanonicalReceiptVerifier "$positiveRunId" "$positiveEnvelope"
+docker rm -f -v "$POSTGRES_CONTAINER" >/dev/null
+ACTIVE_POSTGRES_CONTAINER="$POSTGRES_SWAP_CONTAINER"
+StartPostgres "$POSTGRES_SWAP_CONTAINER" --publish "127.0.0.1:${POSTGRES_PORT}:5432"
+staleBeforeFacts="$OUTPUT_ROOT/stale-envelope-before.facts"
+staleAfterFacts="$OUTPUT_ROOT/stale-envelope-after.facts"
+WritePublicCatalogFacts "$staleBeforeFacts"
+if RunMaterializerWithoutLiveAdmissionEvidence stale-envelope-cluster-swap materializer rejected \
+    "$staleRunId" "$staleEnvelope"; then
+    Fail 'stale-envelope-cluster-swap unexpectedly materialized the replacement cluster'
+fi
+grep -Fq 'current_schema_materializer_database_observation_mismatch' \
+    "$OUTPUT_ROOT/stale-envelope-cluster-swap-materializer.stdout.log" \
+    "$OUTPUT_ROOT/stale-envelope-cluster-swap-materializer.stderr.log" \
+    || Fail 'stale-envelope-cluster-swap did not fail on the PostgreSQL instance identity'
+if grep -Eq 'service_envelope_(invalid|drift)|argument_|run_id|digest' \
+    "$OUTPUT_ROOT/stale-envelope-cluster-swap-materializer.stdout.log" \
+    "$OUTPUT_ROOT/stale-envelope-cluster-swap-materializer.stderr.log"; then
+    Fail 'stale-envelope-cluster-swap failed before PostgreSQL instance identity admission'
+fi
+[[ ! -e "$(ReceiptPath "$staleRunId")" ]] \
+    || Fail 'stale-envelope-cluster-swap left a qualification-eligible terminal receipt'
+[[ ! -e "$(ReceiptPath "$staleRunId").prepared" ]] \
+    || Fail 'stale-envelope-cluster-swap left a prepared receipt'
+[[ ! -e "$(RuntimeReadyPath "$staleRunId")" ]] \
+    || Fail 'stale-envelope-cluster-swap left a runtime-ready receipt'
+WritePublicCatalogFacts "$staleAfterFacts"
+cmp -s "$staleBeforeFacts" "$staleAfterFacts" \
+    || Fail 'stale service envelope changed the replacement PostgreSQL catalog'
+staleCatalogDigest="$(sha256sum "$staleBeforeFacts" | awk '{print $1}')"
+
+positiveRunId="${RUN_PREFIX}-positive"
+positiveEnvelope="$OUTPUT_ROOT/${positiveRunId}-service-envelope.json"
+WriteServiceEnvelope "$positiveRunId" "$positiveEnvelope"
+RunMaterializerEvidence positive materializer verified "$positiveRunId" "$positiveEnvelope"
+RunCanonicalReceiptVerifier positive "$positiveRunId" "$positiveEnvelope"
 positiveReceipt="$(ReceiptPath "$positiveRunId")"
 positiveReceiptBefore="$(sha256sum "$positiveReceipt" | awk '{print $1}')"
-if RunMaterializer "$positiveRunId" "$positiveEnvelope" \
-    >"$OUTPUT_ROOT/positive-rerun.log" 2>&1; then
+if RunMaterializerEvidence positive materializer-rerun rejected "$positiveRunId" "$positiveEnvelope"; then
     Fail 'positive rerun unexpectedly overwrote an existing terminal materialization receipt'
 fi
 positiveReceiptAfter="$(sha256sum "$positiveReceipt" | awk '{print $1}')"
 [[ "$positiveReceiptBefore" == "$positiveReceiptAfter" ]] \
     || Fail 'failed rerun changed the existing terminal materialization receipt'
-WriteStageReceipt positive verified 'canonical materializer, startup verifier, and runtime-ready receipt consumer passed'
 
 VERIFIER_DLL="$(CreateVerifierHarness)"
-RunStartupVerifier >"$OUTPUT_ROOT/positive-startup-verifier.log"
+RunEvidenceCommand positive startup-verifier verified \
+    dotnet "$VERIFIER_DLL" "${CONNECTION_STRING};Search Path=public"
+WriteStageReceipt positive verified 'canonical materializer, startup verifier, and runtime-ready receipt consumer passed'
 
 defaultTarget="$(PostgresScalar "SELECT quote_ident(table_name)||'.'||quote_ident(column_name) FROM information_schema.columns WHERE table_schema='public' AND data_type IN ('text','character varying') AND column_default IS NULL AND is_identity='NO' ORDER BY table_name,column_name LIMIT 1;")"
 [[ "$defaultTarget" == *.* ]] || Fail 'no canonical text column is available for the default drift stage'
@@ -618,9 +995,14 @@ if [[ "$precisionTarget" == *.* ]]; then
     ExpectVerifierFailure type-precision
     PostgresSql --command "ALTER TABLE public.${precisionTable} ALTER COLUMN ${precisionColumn} TYPE timestamp(6) without time zone;" >/dev/null
     RunStartupVerifier >/dev/null
+    RunEvidenceCommand type-default-precision startup-verifier verified \
+        dotnet "$VERIFIER_DLL" "${CONNECTION_STRING};Search Path=public"
     WriteStageReceipt type-default-precision verified 'explicit PostgreSQL timestamp(6) normalized to the canonical unspecified default precision'
 else
+    WriteNotApplicableEvidence type-precision 'canonical schema exposes no timestamp(6) column'
     WriteStageReceipt type-precision not-applicable 'canonical schema exposes no timestamp(6) column'
+    WriteNotApplicableEvidence type-default-precision 'canonical schema exposes no timestamp(6) column whose explicit default precision can be normalized'
+    WriteStageReceipt type-default-precision not-applicable 'canonical schema exposes no timestamp(6) column whose explicit default precision can be normalized'
 fi
 RunStartupVerifier >/dev/null
 
@@ -762,50 +1144,35 @@ if [[ "$ownedForeignKey" == *'|'* ]]; then
     RunStartupVerifier >/dev/null
 else
     if [[ "$constraintValidatedCovered" == 0 ]]; then
+        WriteNotApplicableEvidence constraint-validated 'canonical schema exposes no owned CHECK or foreign-key constraint whose validation state PostgreSQL can mark NOT VALID'
         WriteStageReceipt constraint-validated not-applicable 'canonical schema exposes no owned CHECK or foreign-key constraint whose validation state PostgreSQL can mark NOT VALID'
     fi
     for foreignKeyOnlyStage in foreign-key-update-action foreign-key-delete-action foreign-key-match-type foreign-key-referenced-schema; do
+        WriteNotApplicableEvidence "$foreignKeyOnlyStage" 'canonical schema exposes no owned foreign-key constraint; lane did not create a second authority to manufacture coverage'
         WriteStageReceipt "$foreignKeyOnlyStage" not-applicable 'canonical schema exposes no owned foreign-key constraint; lane did not create a second authority to manufacture coverage'
     done
 fi
 
-docker rm -f -v "$POSTGRES_CONTAINER" >/dev/null
-ACTIVE_POSTGRES_CONTAINER="$POSTGRES_SWAP_CONTAINER"
-StartPostgres "$POSTGRES_SWAP_CONTAINER" --publish "127.0.0.1:${POSTGRES_PORT}:5432"
-staleBeforeFacts="$OUTPUT_ROOT/stale-envelope-before.facts"
-staleAfterFacts="$OUTPUT_ROOT/stale-envelope-after.facts"
-WritePublicCatalogFacts "$staleBeforeFacts"
-if RunMaterializerWithoutLiveAdmission "$staleRunId" "$staleEnvelope" \
-    >"$OUTPUT_ROOT/stale-envelope-cluster-swap.log" 2>&1; then
-    Fail 'stale-envelope-cluster-swap unexpectedly materialized the replacement cluster'
-fi
-grep -Fq 'current_schema_materializer_database_observation_mismatch' \
-    "$OUTPUT_ROOT/stale-envelope-cluster-swap.log" \
-    || Fail 'stale-envelope-cluster-swap did not fail on the PostgreSQL instance identity'
-if grep -Eq 'service_envelope_(invalid|drift)|argument_|run_id|digest' \
-    "$OUTPUT_ROOT/stale-envelope-cluster-swap.log"; then
-    Fail 'stale-envelope-cluster-swap failed before PostgreSQL instance identity admission'
-fi
-[[ ! -e "$(ReceiptPath "$staleRunId")" ]] \
-    || Fail 'stale-envelope-cluster-swap left a qualification-eligible terminal receipt'
-[[ ! -e "$(ReceiptPath "$staleRunId").prepared" ]] \
-    || Fail 'stale-envelope-cluster-swap left a prepared receipt'
-[[ ! -e "$(RuntimeReadyPath "$staleRunId")" ]] \
-    || Fail 'stale-envelope-cluster-swap left a runtime-ready receipt'
-WritePublicCatalogFacts "$staleAfterFacts"
-cmp -s "$staleBeforeFacts" "$staleAfterFacts" \
-    || Fail 'stale service envelope changed the replacement PostgreSQL catalog'
-staleCatalogDigest="$(sha256sum "$staleBeforeFacts" | awk '{print $1}')"
 WriteStageReceipt stale-envelope-cluster-swap rejected "unchanged canonical old-instance envelope failed exact PostgreSQL system_identifier admission on the same host port; replacement catalog remained byte-identical at ${staleCatalogDigest}; no prepared, verified, or runtime-ready receipt"
 
+terminalPrepared="$OUTPUT_ROOT/terminal.prepared.json"
+terminalFinal="$OUTPUT_ROOT/terminal.json"
 STAGE_RECEIPT_LIST="$(IFS=:; printf '%s' "${STAGE_RECEIPTS[*]}")" \
 POSITIVE_READY="$(RuntimeReadyPath "$positiveRunId")" \
-SOURCE_COMMIT_VALUE="$SOURCE_COMMIT" \
-RUN_ID_VALUE="$RUN_PREFIX" \
-    node --input-type=module - "$OUTPUT_ROOT/terminal.json" <<'NODE'
+SOURCE_COMMIT_VALUE="$SOURCE_COMMIT" RUN_ID_VALUE="$RUN_PREFIX" OUTPUT_ROOT_VALUE="$OUTPUT_ROOT" \
+ROOT_DIR_VALUE="$ROOT_DIR" \
+MATRIX_FILE_VALUE="$MATRIX_FILE" COVERAGE_REGISTRY_VALUE="$COVERAGE_REGISTRY_FILE" \
+MATRIX_PARSER_VALUE="$MATRIX_PARSER_FILE" \
+MATRIX_PARSER_DEPENDENCY_VALUE="$MATRIX_PARSER_DEPENDENCY_FILE" \
+SOURCE_MATRIX_PARSER_VALUE="$SOURCE_MATRIX_PARSER_FILE" \
+SOURCE_MATRIX_PARSER_DEPENDENCY_VALUE="$SOURCE_MATRIX_PARSER_DEPENDENCY_FILE" \
+    node --input-type=module - "$terminalPrepared" <<'NODE'
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 const output = process.argv[2]
 const stageFiles = process.env.STAGE_RECEIPT_LIST.split(':')
@@ -819,12 +1186,73 @@ const contentDigest = (value) => {
   const unsigned = { ...value, contentDigest: null }
   return `sha256:${createHash('sha256').update(JSON.stringify(canonicalize(unsigned))).digest('hex')}`
 }
+const digest = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`
+const committedBytes = (relativePath) => execFileSync(
+  'git',
+  ['-C', process.env.ROOT_DIR_VALUE, 'show', `${process.env.SOURCE_COMMIT_VALUE}:${relativePath}`]
+)
+const matrixBytes = committedBytes('tests/matrix.yml')
+const coverageRegistryBytes = committedBytes('tests/coverage-registry.json')
+const matrixParserBytes = committedBytes('tools/test-matrix/parse-matrix.mjs')
+const matrixParserDependencyBytes = committedBytes('tools/yaml/parse-document.mjs')
+assert.equal(digest(fs.readFileSync(process.env.MATRIX_FILE_VALUE)), digest(matrixBytes))
+assert.equal(digest(fs.readFileSync(process.env.COVERAGE_REGISTRY_VALUE)), digest(coverageRegistryBytes))
+assert.equal(digest(fs.readFileSync(process.env.MATRIX_PARSER_VALUE)), digest(matrixParserBytes))
+assert.equal(digest(fs.readFileSync(process.env.MATRIX_PARSER_DEPENDENCY_VALUE)), digest(matrixParserDependencyBytes))
+assert.equal(digest(fs.readFileSync(process.env.SOURCE_MATRIX_PARSER_VALUE)), digest(matrixParserBytes))
+assert.equal(digest(fs.readFileSync(process.env.SOURCE_MATRIX_PARSER_DEPENDENCY_VALUE)), digest(matrixParserDependencyBytes))
+const { parseMatrix } = await import(pathToFileURL(process.env.SOURCE_MATRIX_PARSER_VALUE))
+const matrix = parseMatrix(matrixBytes.toString('utf8'))
+const tier = matrix.tiers.find((entry) => entry.id === 'current-schema-bootstrap-integration')
+assert.ok(tier, 'canonical current-schema bootstrap matrix tier is missing')
+assert.ok(tier.coverage.includes('current-schema-receipt-lifecycle'))
+const coverageRegistry = JSON.parse(coverageRegistryBytes.toString('utf8'))
+assert.equal(coverageRegistry.schema, 'fsusblog.coverage-registry.v1')
+const coverageEntry = coverageRegistry.entries.find(
+  (entry) => entry.id === 'current-schema-receipt-lifecycle'
+)
+assert.ok(coverageEntry, 'canonical current-schema receipt lifecycle coverage entry is missing')
+assert.deepEqual(coverageEntry.tierIds, [tier.id])
+const mandatoryStageRoster = coverageEntry.stageRoster
+const allowedNotApplicableStages = coverageEntry.allowedNotApplicableStages
+const requiredRetainedEvidenceKinds = coverageEntry.requiredRetainedEvidenceKinds
+const requiredRawCatalogFacts = coverageEntry.requiredRawCatalogFacts
+for (const [label, values] of [
+  ['stage roster', mandatoryStageRoster],
+  ['allowed not-applicable stages', allowedNotApplicableStages],
+  ['required retained evidence kinds', requiredRetainedEvidenceKinds],
+  ['required raw catalog facts', requiredRawCatalogFacts]
+])
+{
+  assert.ok(Array.isArray(values) && values.length > 0, `${label} must be a non-empty array`)
+  assert.ok(values.every((value) => typeof value === 'string' && value.length > 0))
+  assert.equal(new Set(values).size, values.length, `${label} must be unique`)
+}
+assert.ok(allowedNotApplicableStages.every((stage) => mandatoryStageRoster.includes(stage)))
 for (const stage of stages)
 {
   assert.equal(stage.schema, 'fsusblog.current-schema-bootstrap-integration-stage.v1')
-  assert.equal(stage.status, 'verified')
-  assert.equal(stage.qualificationEligible, true)
+  assert.ok(stage.status === 'verified' || stage.status === 'not-applicable')
+  assert.equal(stage.qualificationEligible, stage.status === 'verified')
   assert.equal(stage.contentDigest, contentDigest(stage))
+}
+const actualStageNames = stages.map((stage) => stage.stage)
+assert.equal(stages.length, mandatoryStageRoster.length)
+assert.equal(new Set(actualStageNames).size, actualStageNames.length)
+assert.deepEqual(actualStageNames, mandatoryStageRoster)
+const notApplicableStages = stages.filter((stage) => stage.status === 'not-applicable')
+for (const stage of notApplicableStages)
+{
+  assert.ok(allowedNotApplicableStages.includes(stage.stage), `unexpected not-applicable stage: ${stage.stage}`)
+  assert.equal(stage.expectedOutcome, 'not-applicable')
+  assert.ok(stage.detail.length > 0)
+}
+for (const stage of stages.filter((entry) => entry.status === 'verified'))
+{
+  const expected = stage.stage === 'positive' || stage.stage === 'type-default-precision'
+    ? 'verified'
+    : 'rejected'
+  assert.equal(stage.expectedOutcome, expected)
 }
 const runtimeReadyBytes = fs.readFileSync(process.env.POSITIVE_READY)
 const runtimeReady = JSON.parse(runtimeReadyBytes)
@@ -833,26 +1261,611 @@ assert.equal(runtimeReady.status, 'verified')
 assert.equal(runtimeReady.qualificationEligible, true)
 assert.equal(runtimeReady.sourceCommit, process.env.SOURCE_COMMIT_VALUE)
 assert.equal(runtimeReady.contentDigest, contentDigest(runtimeReady))
+const classify = (name) => {
+  if (name.startsWith('stage-')) return 'stage-receipt'
+  if (name.startsWith('evidence-')) return 'command-evidence'
+  if (name.endsWith('-service-envelope.json')) return 'service-envelope'
+  if (name.startsWith('current-schema-test-materialization-')) return 'materializer-receipt'
+  if (name.startsWith('current-schema-runtime-ready-')) return 'runtime-ready-receipt'
+  if (name.endsWith('.facts')) return 'raw-catalog-facts'
+  if (name.endsWith('.log')) return 'command-log'
+  return 'supporting-evidence'
+}
+const outputEntries = fs.readdirSync(process.env.OUTPUT_ROOT_VALUE, { withFileTypes: true })
+for (const entry of outputEntries)
+{
+  assert.equal(entry.name.startsWith('terminal.'), false, `run evidence root contains a preexisting terminal authority: ${entry.name}`)
+  assert.ok(entry.isFile(), `run evidence root contains a non-regular entry: ${entry.name}`)
+  const entryPath = path.join(process.env.OUTPUT_ROOT_VALUE, entry.name)
+  const stat = fs.lstatSync(entryPath)
+  assert.equal(stat.isSymbolicLink(), false, `run evidence root contains a symlink: ${entry.name}`)
+  assert.equal(stat.nlink, 1, `run evidence root contains a hardlink alias: ${entry.name}`)
+  assert.equal(fs.realpathSync(entryPath), entryPath, `run evidence path is not canonical: ${entry.name}`)
+}
+const bundleInventory = outputEntries
+  .map((entry) => {
+    const absolutePath = path.join(process.env.OUTPUT_ROOT_VALUE, entry.name)
+    const bytes = fs.readFileSync(absolutePath)
+    return {
+      path: absolutePath,
+      relativePath: entry.name,
+      kind: classify(entry.name),
+      bytes: bytes.length,
+      sha256: digest(bytes)
+    }
+  })
+  .sort((left, right) => left.relativePath.localeCompare(right.relativePath))
+for (const requiredKind of requiredRetainedEvidenceKinds)
+{
+  assert.ok(bundleInventory.some((entry) => entry.kind === requiredKind), `bundle omitted ${requiredKind}`)
+}
+assert.deepEqual(
+  bundleInventory
+    .filter((entry) => entry.kind === 'raw-catalog-facts')
+    .map((entry) => entry.relativePath),
+  requiredRawCatalogFacts
+)
+const services = [...new Map(stages
+  .flatMap((stage) => stage.commandEvidence)
+  .map((evidence) => [`${evidence.container.id}:${evidence.database.systemIdentifier}`, {
+    container: evidence.container,
+    database: evidence.database
+  }])).values()]
 const terminal = {
   schema: 'fsusblog.current-schema-bootstrap-integration.v1',
   status: 'verified',
   qualificationEligible: true,
   runId: process.env.RUN_ID_VALUE,
   sourceCommit: process.env.SOURCE_COMMIT_VALUE,
+  stagePolicy: {
+    authority: {
+      matrix: {
+        path: process.env.MATRIX_FILE_VALUE,
+        sha256: digest(matrixBytes),
+        tierId: tier.id,
+        coverageIds: tier.coverage,
+        parser: {
+          path: process.env.MATRIX_PARSER_VALUE,
+          sha256: digest(matrixParserBytes),
+          dependencyPath: process.env.MATRIX_PARSER_DEPENDENCY_VALUE,
+          dependencySha256: digest(matrixParserDependencyBytes)
+        }
+      },
+      coverageRegistry: {
+        path: process.env.COVERAGE_REGISTRY_VALUE,
+        sha256: digest(coverageRegistryBytes),
+        coverageId: coverageEntry.id
+      }
+    },
+    mandatoryRoster: mandatoryStageRoster,
+    exactCount: mandatoryStageRoster.length,
+    uniqueCount: new Set(actualStageNames).size,
+    allowedNotApplicableStages,
+    requiredRetainedEvidenceKinds,
+    requiredRawCatalogFacts,
+    notApplicableStages: notApplicableStages.map((stage) => ({ stage: stage.stage, detail: stage.detail })),
+    disposition: 'all mandatory stages are present exactly once; not-applicable is accepted only from the explicit allowlist and remains visible'
+  },
+  services,
   runtimeReady: {
     path: process.env.POSITIVE_READY,
-    sha256: `sha256:${createHash('sha256').update(runtimeReadyBytes).digest('hex')}`,
+    sha256: digest(runtimeReadyBytes),
     contentDigest: runtimeReady.contentDigest
   },
-  stages: stages.map((stage) => ({
+  stages: stages.map((stage, index) => ({
+    ordinal: index + 1,
+    path: stageFiles[index],
+    sha256: digest(fs.readFileSync(stageFiles[index])),
     stage: stage.stage,
+    status: stage.status,
+    qualificationEligible: stage.qualificationEligible,
     expectedOutcome: stage.expectedOutcome,
+    firstFailure: stage.firstFailure,
+    commandEvidence: stage.commandEvidence,
     contentDigest: stage.contentDigest
   })),
+  bundleInventory,
+  firstFailures: stages
+    .filter((stage) => stage.firstFailure !== null)
+    .map((stage) => ({ stage: stage.stage, firstFailure: stage.firstFailure })),
   contentDigest: null
 }
-terminal.contentDigest = `sha256:${createHash('sha256').update(JSON.stringify(canonicalize(terminal))).digest('hex')}`
+terminal.contentDigest = digest(JSON.stringify(canonicalize(terminal)))
 fs.writeFileSync(output, `${JSON.stringify(terminal, null, 2)}\n`, { flag: 'wx', mode: 0o600 })
 NODE
 
-printf '[current-schema-bootstrap-integration] verified %s\n' "$OUTPUT_ROOT/terminal.json"
+MATRIX_FILE_VALUE="$MATRIX_FILE" COVERAGE_REGISTRY_VALUE="$COVERAGE_REGISTRY_FILE" \
+MATRIX_PARSER_VALUE="$MATRIX_PARSER_FILE" \
+MATRIX_PARSER_DEPENDENCY_VALUE="$MATRIX_PARSER_DEPENDENCY_FILE" \
+SOURCE_MATRIX_PARSER_VALUE="$SOURCE_MATRIX_PARSER_FILE" \
+SOURCE_MATRIX_PARSER_DEPENDENCY_VALUE="$SOURCE_MATRIX_PARSER_DEPENDENCY_FILE" \
+SOURCE_COMMIT_VALUE="$SOURCE_COMMIT" ROOT_DIR_VALUE="$ROOT_DIR" \
+POSITIVE_RUN_ID_VALUE="$positiveRunId" POSITIVE_ENVELOPE_VALUE="$positiveEnvelope" \
+SERVER_DLL_VALUE="$SERVER_DLL" CATALOG_FILE_VALUE="$CATALOG_FILE" \
+RECEIPT_VERIFIER_VALUE="$SOURCE_RECEIPT_VERIFIER" CONNECTION_STRING_VALUE="$CONNECTION_STRING" \
+    node --input-type=module - "$terminalPrepared" "$terminalFinal" "$OUTPUT_ROOT" <<'NODE'
+import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
+import { createHash, randomUUID } from 'node:crypto'
+import fs from 'node:fs'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+const [terminalPath, terminalFinalPath, outputRoot] = process.argv.slice(2)
+const canonicalize = (value) => Array.isArray(value)
+  ? value.map(canonicalize)
+  : value !== null && typeof value === 'object'
+    ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]))
+    : value
+const digest = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`
+const contentDigest = (value) => digest(JSON.stringify(canonicalize({ ...value, contentDigest: null })))
+const requireExactKeys = (value, keys, label) => assert.deepEqual(
+  Object.keys(value).sort(),
+  [...keys].sort(),
+  `${label} key set mismatch`
+)
+const materializerExpectedCodes = new Map([
+  ['partial-schema', 'current_schema_materializer_public_schema_not_empty'],
+  ['composite-type', 'current_schema_materializer_public_schema_not_empty'],
+  ['nonrelation-object', 'current_schema_materializer_public_schema_not_empty'],
+  ['publication-fault', 'current_schema_materializer_publication_fault_after_commit']
+])
+const readPinnedSingleLink = (file, label) => {
+  const resolved = path.resolve(file)
+  assert.equal(resolved, file, `${label} path is not canonical`)
+  const fd = fs.openSync(resolved, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW)
+  try
+  {
+    const before = fs.fstatSync(fd, { bigint: true })
+    assert.ok(before.isFile(), `${label} is not a regular file`)
+    assert.equal(before.nlink, 1n, `${label} is not single-link`)
+    const bytes = fs.readFileSync(fd)
+    const after = fs.fstatSync(fd, { bigint: true })
+    const pathStat = fs.lstatSync(resolved, { bigint: true })
+    for (const field of ['dev', 'ino', 'mode', 'nlink', 'size', 'mtimeNs', 'ctimeNs'])
+    {
+      assert.equal(before[field], after[field], `${label} changed during read: ${field}`)
+      assert.equal(after[field], pathStat[field], `${label} path changed during read: ${field}`)
+    }
+    assert.equal(fs.realpathSync(resolved), resolved, `${label} path is not physical`)
+    return {
+      bytes,
+      stat: Object.fromEntries(
+        ['dev', 'ino', 'mode', 'nlink', 'size', 'mtimeNs', 'ctimeNs']
+          .map((field) => [field, after[field]])
+      )
+    }
+  }
+  finally
+  {
+    fs.closeSync(fd)
+  }
+}
+const terminalBytes = readPinnedSingleLink(terminalPath, 'prepared terminal').bytes
+const terminal = JSON.parse(terminalBytes.toString('utf8'))
+requireExactKeys(terminal, [
+  'schema', 'status', 'qualificationEligible', 'runId', 'sourceCommit', 'stagePolicy',
+  'services', 'runtimeReady', 'stages', 'bundleInventory', 'firstFailures', 'contentDigest'
+], 'terminal')
+requireExactKeys(terminal.stagePolicy, [
+  'authority', 'mandatoryRoster', 'exactCount', 'uniqueCount', 'allowedNotApplicableStages',
+  'requiredRetainedEvidenceKinds', 'requiredRawCatalogFacts', 'notApplicableStages',
+  'disposition'
+], 'terminal stage policy')
+requireExactKeys(terminal.stagePolicy.authority, ['matrix', 'coverageRegistry'], 'terminal stage policy authority')
+requireExactKeys(terminal.stagePolicy.authority.matrix, [
+  'path', 'sha256', 'tierId', 'coverageIds', 'parser'
+], 'terminal matrix authority')
+requireExactKeys(terminal.stagePolicy.authority.matrix.parser, [
+  'path', 'sha256', 'dependencyPath', 'dependencySha256'
+], 'terminal matrix parser authority')
+requireExactKeys(terminal.stagePolicy.authority.coverageRegistry, ['path', 'sha256', 'coverageId'], 'terminal coverage authority')
+requireExactKeys(terminal.runtimeReady, ['path', 'sha256', 'contentDigest'], 'terminal runtime-ready binding')
+for (const item of terminal.stagePolicy.notApplicableStages)
+{
+  requireExactKeys(item, ['stage', 'detail'], 'terminal not-applicable stage')
+}
+for (const item of terminal.services)
+{
+  requireExactKeys(item, ['container', 'database'], 'terminal service')
+  requireExactKeys(item.container, ['name', 'id', 'image', 'network'], 'terminal service container')
+  requireExactKeys(item.database, ['host', 'port', 'name', 'oid', 'systemIdentifier'], 'terminal service database')
+}
+for (const item of terminal.bundleInventory)
+{
+  requireExactKeys(item, ['path', 'relativePath', 'kind', 'bytes', 'sha256'], 'terminal bundle entry')
+}
+for (const item of terminal.firstFailures)
+{
+  requireExactKeys(item, ['stage', 'firstFailure'], 'terminal first failure')
+}
+assert.equal(terminal.schema, 'fsusblog.current-schema-bootstrap-integration.v1')
+assert.equal(terminal.status, 'verified')
+assert.equal(terminal.qualificationEligible, true)
+assert.equal(terminal.sourceCommit, process.env.SOURCE_COMMIT_VALUE)
+const unsigned = { ...terminal, contentDigest: null }
+assert.equal(terminal.contentDigest, digest(JSON.stringify(canonicalize(unsigned))))
+const committedBytes = (relativePath) => execFileSync(
+  'git',
+  ['-C', process.env.ROOT_DIR_VALUE, 'show', `${process.env.SOURCE_COMMIT_VALUE}:${relativePath}`]
+)
+const matrixBytes = committedBytes('tests/matrix.yml')
+const coverageRegistryBytes = committedBytes('tests/coverage-registry.json')
+const matrixParserBytes = committedBytes('tools/test-matrix/parse-matrix.mjs')
+const matrixParserDependencyBytes = committedBytes('tools/yaml/parse-document.mjs')
+assert.equal(digest(fs.readFileSync(process.env.MATRIX_FILE_VALUE)), digest(matrixBytes))
+assert.equal(digest(fs.readFileSync(process.env.COVERAGE_REGISTRY_VALUE)), digest(coverageRegistryBytes))
+assert.equal(digest(fs.readFileSync(process.env.MATRIX_PARSER_VALUE)), digest(matrixParserBytes))
+assert.equal(digest(fs.readFileSync(process.env.MATRIX_PARSER_DEPENDENCY_VALUE)), digest(matrixParserDependencyBytes))
+assert.equal(digest(fs.readFileSync(process.env.SOURCE_MATRIX_PARSER_VALUE)), digest(matrixParserBytes))
+assert.equal(digest(fs.readFileSync(process.env.SOURCE_MATRIX_PARSER_DEPENDENCY_VALUE)), digest(matrixParserDependencyBytes))
+const { parseMatrix } = await import(pathToFileURL(process.env.SOURCE_MATRIX_PARSER_VALUE))
+const matrix = parseMatrix(matrixBytes.toString('utf8'))
+const tier = matrix.tiers.find((entry) => entry.id === 'current-schema-bootstrap-integration')
+assert.ok(tier)
+assert.ok(tier.coverage.includes('current-schema-receipt-lifecycle'))
+const coverageRegistry = JSON.parse(coverageRegistryBytes.toString('utf8'))
+const coverageEntry = coverageRegistry.entries.find(
+  (entry) => entry.id === 'current-schema-receipt-lifecycle'
+)
+assert.ok(coverageEntry)
+assert.deepEqual(coverageEntry.tierIds, [tier.id])
+assert.deepEqual(terminal.stagePolicy.authority, {
+  matrix: {
+    path: process.env.MATRIX_FILE_VALUE,
+    sha256: digest(matrixBytes),
+    tierId: tier.id,
+    coverageIds: tier.coverage,
+    parser: {
+      path: process.env.MATRIX_PARSER_VALUE,
+      sha256: digest(matrixParserBytes),
+      dependencyPath: process.env.MATRIX_PARSER_DEPENDENCY_VALUE,
+      dependencySha256: digest(matrixParserDependencyBytes)
+    }
+  },
+  coverageRegistry: {
+    path: process.env.COVERAGE_REGISTRY_VALUE,
+    sha256: digest(coverageRegistryBytes),
+    coverageId: coverageEntry.id
+  }
+})
+assert.deepEqual(terminal.stagePolicy.mandatoryRoster, coverageEntry.stageRoster)
+assert.deepEqual(
+  terminal.stagePolicy.allowedNotApplicableStages,
+  coverageEntry.allowedNotApplicableStages
+)
+assert.deepEqual(
+  terminal.stagePolicy.requiredRetainedEvidenceKinds,
+  coverageEntry.requiredRetainedEvidenceKinds
+)
+assert.deepEqual(terminal.stagePolicy.requiredRawCatalogFacts, coverageEntry.requiredRawCatalogFacts)
+assert.equal(terminal.stagePolicy.exactCount, terminal.stagePolicy.mandatoryRoster.length)
+assert.equal(terminal.stagePolicy.uniqueCount, terminal.stagePolicy.exactCount)
+assert.equal(
+  terminal.stagePolicy.disposition,
+  'all mandatory stages are present exactly once; not-applicable is accepted only from the explicit allowlist and remains visible'
+)
+assert.deepEqual(terminal.stages.map((stage) => stage.stage), terminal.stagePolicy.mandatoryRoster)
+const actualEntries = fs.readdirSync(outputRoot, { withFileTypes: true })
+for (const entry of actualEntries)
+{
+  if (entry.name.startsWith('terminal.'))
+  {
+    assert.equal(entry.name, path.basename(terminalPath), `run evidence root contains an unexpected terminal authority: ${entry.name}`)
+  }
+  assert.ok(entry.isFile(), `run evidence root contains a non-regular entry: ${entry.name}`)
+  const entryPath = path.join(outputRoot, entry.name)
+  const stat = fs.lstatSync(entryPath)
+  assert.equal(stat.isSymbolicLink(), false, `run evidence root contains a symlink: ${entry.name}`)
+  assert.equal(stat.nlink, 1, `run evidence root contains a hardlink alias: ${entry.name}`)
+  assert.equal(fs.realpathSync(entryPath), entryPath, `run evidence path is not canonical: ${entry.name}`)
+}
+const actualBundleFiles = actualEntries
+  .filter((entry) => entry.name !== path.basename(terminalPath))
+  .map((entry) => entry.name)
+  .sort((left, right) => left.localeCompare(right))
+assert.deepEqual(terminal.bundleInventory.map((entry) => entry.relativePath), actualBundleFiles)
+const bundleSnapshots = new Map(actualBundleFiles.map((name) => {
+  const file = path.join(outputRoot, name)
+  return [file, readPinnedSingleLink(file, `bundle entry ${name}`)]
+}))
+const bundleBytes = (file) => {
+  const snapshot = bundleSnapshots.get(file)
+  assert.ok(snapshot, `unbound bundle path read: ${file}`)
+  return snapshot.bytes
+}
+const boundRuntimeReadyBytes = bundleBytes(terminal.runtimeReady.path)
+const boundRuntimeReady = JSON.parse(boundRuntimeReadyBytes)
+requireExactKeys(boundRuntimeReady, [
+  'schema', 'status', 'qualificationEligible', 'runId', 'sourceCommit',
+  'materializationReceipt', 'assembly', 'serviceIdentity', 'databaseIdentity',
+  'canonicalIdentity', 'observedDatabaseDigest', 'tableCount', 'candidateVerification',
+  'contentDigest'
+], 'bound runtime-ready receipt')
+assert.equal(terminal.runtimeReady.sha256, digest(boundRuntimeReadyBytes))
+assert.equal(terminal.runtimeReady.contentDigest, boundRuntimeReady.contentDigest)
+assert.equal(boundRuntimeReady.schema, 'fsusblog.current-schema-runtime-ready.v1')
+assert.equal(boundRuntimeReady.status, 'verified')
+assert.equal(boundRuntimeReady.qualificationEligible, true)
+assert.equal(boundRuntimeReady.runId, terminal.runId)
+assert.equal(boundRuntimeReady.sourceCommit, terminal.sourceCommit)
+assert.equal(boundRuntimeReady.contentDigest, contentDigest(boundRuntimeReady))
+execFileSync(process.execPath, [
+  process.env.RECEIPT_VERIFIER_VALUE,
+  '--mode', 'verify',
+  '--receipt-root', outputRoot,
+  '--run-id', process.env.POSITIVE_RUN_ID_VALUE,
+  '--source-commit', process.env.SOURCE_COMMIT_VALUE,
+  '--assembly', process.env.SERVER_DLL_VALUE,
+  '--service-catalog', process.env.CATALOG_FILE_VALUE,
+  '--service-envelope', process.env.POSITIVE_ENVELOPE_VALUE
+], {
+  env: {
+    ...process.env,
+    ConnectionStrings__DefaultConnection: `${process.env.CONNECTION_STRING_VALUE};Search Path=public`
+  },
+  stdio: 'pipe'
+})
+const runtimeReadyAfterReverify = readPinnedSingleLink(
+  terminal.runtimeReady.path,
+  'runtime-ready receipt after independent candidate revalidation'
+)
+assert.equal(digest(runtimeReadyAfterReverify.bytes), digest(boundRuntimeReadyBytes))
+const runtimeReadySnapshot = bundleSnapshots.get(terminal.runtimeReady.path)
+for (const field of ['dev', 'ino', 'mode', 'nlink', 'size', 'mtimeNs', 'ctimeNs'])
+{
+  assert.equal(
+    runtimeReadyAfterReverify.stat[field],
+    runtimeReadySnapshot.stat[field],
+    `runtime-ready receipt changed across independent candidate revalidation: ${field}`
+  )
+}
+assert.equal(new Set(terminal.bundleInventory.map((entry) => entry.path)).size, terminal.bundleInventory.length)
+const bundleByPath = new Map(terminal.bundleInventory.map((entry) => [entry.path, entry]))
+for (const entry of terminal.bundleInventory)
+{
+  assert.equal(entry.path, path.join(outputRoot, entry.relativePath))
+  const bytes = bundleBytes(entry.path)
+  assert.equal(entry.bytes, bytes.length)
+  assert.equal(entry.sha256, digest(bytes))
+}
+for (const requiredKind of coverageEntry.requiredRetainedEvidenceKinds)
+{
+  assert.ok(
+    terminal.bundleInventory.some((entry) => entry.kind === requiredKind),
+    `bundle omitted ${requiredKind}`
+  )
+}
+assert.deepEqual(
+  terminal.bundleInventory
+    .filter((entry) => entry.kind === 'raw-catalog-facts')
+    .map((entry) => entry.relativePath),
+  coverageEntry.requiredRawCatalogFacts
+)
+const stageReceiptPaths = []
+const commandEvidencePaths = []
+const referencedCommandLogs = new Set()
+const referencedCommandArguments = []
+const derivedServices = new Map()
+const derivedNotApplicableStages = []
+const derivedFirstFailures = []
+for (const stage of terminal.stages)
+{
+  requireExactKeys(stage, [
+    'ordinal', 'path', 'sha256', 'stage', 'status', 'qualificationEligible',
+    'expectedOutcome', 'firstFailure', 'commandEvidence', 'contentDigest'
+  ], 'terminal stage binding')
+  const bytes = bundleBytes(stage.path)
+  stageReceiptPaths.push(stage.path)
+  assert.equal(stage.sha256, digest(bytes))
+  const receipt = JSON.parse(bytes)
+  assert.equal(stage.ordinal, stageReceiptPaths.length)
+  requireExactKeys(receipt, [
+    'schema', 'status', 'qualificationEligible', 'stage', 'expectedOutcome', 'detail',
+    'runId', 'sourceCommit', 'container', 'database', 'commandEvidence', 'firstFailure',
+    'contentDigest'
+  ], 'stage receipt')
+  requireExactKeys(receipt.container, ['name', 'id'], 'stage receipt container')
+  requireExactKeys(receipt.database, ['name', 'oid', 'systemIdentifier'], 'stage receipt database')
+  assert.equal(receipt.schema, 'fsusblog.current-schema-bootstrap-integration-stage.v1')
+  assert.equal(receipt.stage, stage.stage)
+  assert.equal(receipt.status, stage.status)
+  assert.equal(receipt.qualificationEligible, stage.qualificationEligible)
+  assert.equal(receipt.expectedOutcome, stage.expectedOutcome)
+  assert.equal(receipt.firstFailure, stage.firstFailure)
+  assert.equal(receipt.sourceCommit, terminal.sourceCommit)
+  assert.equal(receipt.runId, terminal.runId)
+  assert.equal(receipt.contentDigest, contentDigest(receipt))
+  assert.equal(receipt.contentDigest, stage.contentDigest)
+  assert.deepEqual(receipt.commandEvidence, stage.commandEvidence)
+  if (receipt.status === 'not-applicable')
+  {
+    assert.ok(terminal.stagePolicy.allowedNotApplicableStages.includes(receipt.stage))
+    derivedNotApplicableStages.push({ stage: receipt.stage, detail: receipt.detail })
+  }
+  if (receipt.firstFailure !== null)
+  {
+    derivedFirstFailures.push({ stage: receipt.stage, firstFailure: receipt.firstFailure })
+  }
+  for (const command of receipt.commandEvidence)
+  {
+    requireExactKeys(command, [
+      'path', 'sha256', 'contentDigest', 'commandId', 'expectedOutcome', 'command', 'argv',
+      'startedAt', 'endedAt', 'exit', 'stdout', 'stderr', 'firstFailure', 'container', 'database'
+    ], 'stage command binding')
+    requireExactKeys(command.exit, ['status', 'signal'], 'stage command exit')
+    requireExactKeys(command.stdout, ['path', 'sha256'], 'stage command stdout')
+    requireExactKeys(command.stderr, ['path', 'sha256'], 'stage command stderr')
+    requireExactKeys(command.container, ['name', 'id', 'image', 'network'], 'stage command container')
+    requireExactKeys(command.database, ['host', 'port', 'name', 'oid', 'systemIdentifier'], 'stage command database')
+    const commandBytes = bundleBytes(command.path)
+    const evidence = JSON.parse(commandBytes)
+    requireExactKeys(evidence, [
+      'schema', 'status', 'qualificationEligible', 'stage', 'commandId', 'expectedOutcome',
+      'command', 'argv', 'startedAt', 'endedAt', 'exit', 'stdout', 'stderr', 'firstFailure',
+      'run', 'container', 'database', 'contentDigest'
+    ], 'command evidence')
+    requireExactKeys(evidence.exit, ['status', 'signal'], 'command evidence exit')
+    requireExactKeys(evidence.stdout, ['path', 'sha256'], 'command evidence stdout')
+    requireExactKeys(evidence.stderr, ['path', 'sha256'], 'command evidence stderr')
+    requireExactKeys(evidence.run, ['id', 'sourceCommit'], 'command evidence run')
+    requireExactKeys(evidence.container, ['name', 'id', 'image', 'network'], 'command evidence container')
+    requireExactKeys(evidence.database, ['host', 'port', 'name', 'oid', 'systemIdentifier'], 'command evidence database')
+    commandEvidencePaths.push(command.path)
+    referencedCommandLogs.add(command.stdout.path)
+    referencedCommandLogs.add(command.stderr.path)
+    referencedCommandArguments.push(...command.argv)
+    assert.equal(command.sha256, digest(commandBytes))
+    assert.equal(evidence.schema, 'fsusblog.current-schema-bootstrap-integration-command.v1')
+    assert.equal(evidence.status, 'observed')
+    assert.equal(evidence.qualificationEligible, false)
+    assert.equal(evidence.stage, stage.stage)
+    assert.equal(evidence.contentDigest, contentDigest(evidence))
+    for (const key of [
+      'contentDigest', 'commandId', 'expectedOutcome', 'command', 'argv', 'startedAt', 'endedAt',
+      'exit', 'stdout', 'stderr', 'firstFailure', 'container', 'database'
+    ])
+    {
+      assert.deepEqual(command[key], evidence[key])
+    }
+    assert.equal(evidence.run.id, terminal.runId)
+    assert.equal(evidence.run.sourceCommit, terminal.sourceCommit)
+    assert.ok(Number.isFinite(Date.parse(evidence.startedAt)))
+    assert.ok(Number.isFinite(Date.parse(evidence.endedAt)))
+    assert.ok(Date.parse(evidence.endedAt) >= Date.parse(evidence.startedAt))
+    assert.equal(
+      evidence.exit.signal,
+      evidence.exit.status > 128 && evidence.exit.status <= 192
+        ? evidence.exit.status - 128
+        : null
+    )
+    if (evidence.expectedOutcome === 'rejected')
+    {
+      assert.notEqual(evidence.exit.status, 0)
+      assert.ok(typeof evidence.firstFailure === 'string' && evidence.firstFailure.length > 0)
+      if (evidence.commandId === 'startup-verifier')
+      {
+        assert.equal(evidence.exit.status, 42)
+        assert.equal(evidence.exit.signal, null)
+        assert.match(evidence.firstFailure, /^fsusblog\.current-schema-mismatch\.v1:/u)
+      }
+      if (evidence.commandId === 'materializer' && materializerExpectedCodes.has(stage.stage))
+      {
+        assert.equal(evidence.exit.status, 1)
+        assert.equal(evidence.exit.signal, null)
+        const failures = bundleBytes(evidence.stdout.path).toString('utf8')
+          .split(/\r?\n/u)
+          .filter((line) => line.trim().startsWith('{'))
+          .map((line) => JSON.parse(line))
+          .filter((document) => document.status === 'failed' && typeof document.code === 'string')
+        assert.deepEqual(failures, [{
+          status: 'failed',
+          code: materializerExpectedCodes.get(stage.stage)
+        }])
+      }
+    }
+    else
+    {
+      assert.ok(['verified', 'not-applicable'].includes(evidence.expectedOutcome))
+      assert.equal(evidence.exit.status, 0)
+      assert.equal(evidence.firstFailure, null)
+    }
+    assert.equal(command.stdout.sha256, digest(bundleBytes(command.stdout.path)))
+    assert.equal(command.stderr.sha256, digest(bundleBytes(command.stderr.path)))
+    assert.equal(bundleByPath.get(command.path)?.kind, 'command-evidence')
+    assert.equal(bundleByPath.get(command.stdout.path)?.kind, 'command-log')
+    assert.equal(bundleByPath.get(command.stderr.path)?.kind, 'command-log')
+    derivedServices.set(`${command.container.id}:${command.database.systemIdentifier}`, {
+      container: command.container,
+      database: command.database
+    })
+  }
+}
+assert.deepEqual(terminal.services, [...derivedServices.values()])
+assert.deepEqual(terminal.stagePolicy.notApplicableStages, derivedNotApplicableStages)
+assert.deepEqual(terminal.firstFailures, derivedFirstFailures)
+assert.deepEqual(
+  [...stageReceiptPaths].sort(),
+  terminal.bundleInventory
+    .filter((entry) => entry.kind === 'stage-receipt')
+    .map((entry) => entry.path)
+    .sort()
+)
+assert.deepEqual(
+  [...commandEvidencePaths].sort(),
+  terminal.bundleInventory
+    .filter((entry) => entry.kind === 'command-evidence')
+    .map((entry) => entry.path)
+    .sort()
+)
+for (const logPath of referencedCommandLogs)
+{
+  assert.equal(bundleByPath.get(logPath)?.kind, 'command-log')
+}
+for (const envelope of terminal.bundleInventory.filter((entry) => entry.kind === 'service-envelope'))
+{
+  assert.ok(referencedCommandArguments.includes(envelope.path), `unreferenced service envelope: ${envelope.path}`)
+}
+const assertBundleSnapshotStable = (publicationName) => {
+  const entries = fs.readdirSync(outputRoot, { withFileTypes: true })
+  const expectedNames = [...actualBundleFiles, publicationName].sort((left, right) => left.localeCompare(right))
+  assert.deepEqual(
+    entries.map((entry) => entry.name).sort((left, right) => left.localeCompare(right)),
+    expectedNames
+  )
+  for (const entry of entries)
+  {
+    assert.ok(entry.isFile(), `run evidence root changed to a non-regular entry: ${entry.name}`)
+    const entryPath = path.join(outputRoot, entry.name)
+    const stat = fs.lstatSync(entryPath, { bigint: true })
+    assert.equal(stat.isSymbolicLink(), false, `run evidence root changed to a symlink: ${entry.name}`)
+    assert.equal(stat.nlink, 1n, `run evidence root changed to a hardlink alias: ${entry.name}`)
+    assert.equal(fs.realpathSync(entryPath), entryPath, `run evidence path stopped being canonical: ${entry.name}`)
+    const snapshot = bundleSnapshots.get(entryPath)
+    if (snapshot)
+    {
+      for (const field of ['dev', 'ino', 'mode', 'nlink', 'size', 'mtimeNs', 'ctimeNs'])
+      {
+        assert.equal(stat[field], snapshot.stat[field], `bundle entry changed before publication: ${entry.name}/${field}`)
+      }
+    }
+  }
+}
+assertBundleSnapshotStable(path.basename(terminalPath))
+assert.equal(digest(readPinnedSingleLink(terminalPath, 'prepared terminal before publication').bytes), digest(terminalBytes))
+const publicationCandidate = path.join(outputRoot, `.terminal-publication-${process.pid}-${randomUUID()}`)
+let publicationFd
+try
+{
+  publicationFd = fs.openSync(
+    publicationCandidate,
+    fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW,
+    0o600
+  )
+  fs.writeFileSync(publicationFd, terminalBytes)
+  fs.fsyncSync(publicationFd)
+}
+finally
+{
+  if (publicationFd !== undefined) fs.closeSync(publicationFd)
+}
+fs.unlinkSync(terminalPath)
+const directoryFd = fs.openSync(outputRoot, fs.constants.O_RDONLY)
+try { fs.fsyncSync(directoryFd) } finally { fs.closeSync(directoryFd) }
+assert.equal(
+  execFileSync('git', ['-C', process.env.ROOT_DIR_VALUE, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+  process.env.SOURCE_COMMIT_VALUE
+)
+assert.equal(
+  execFileSync('git', ['-C', process.env.ROOT_DIR_VALUE, 'status', '--porcelain=v1'], { encoding: 'utf8' }),
+  ''
+)
+assertBundleSnapshotStable(path.basename(publicationCandidate))
+assert.equal(
+  digest(readPinnedSingleLink(publicationCandidate, 'terminal publication candidate').bytes),
+  digest(terminalBytes)
+)
+fs.linkSync(publicationCandidate, terminalFinalPath)
+fs.unlinkSync(publicationCandidate)
+NODE
+printf '[current-schema-bootstrap-integration] verified %s\n' "$terminalFinal" >&3

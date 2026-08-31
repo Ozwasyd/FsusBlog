@@ -3442,9 +3442,10 @@ tiers:
       cadence: pr
       requiredFor: production
       coverage: [current-schema-bootstrap, current-schema-physical-exactness, current-schema-receipt-lifecycle]
-      artifacts: [.tmp/current-schema-bootstrap-integration/*/terminal.json]
+      artifacts: [.tmp/current-schema-bootstrap-integration/*/**]
       evidence:
           [
+              .tmp/current-schema-bootstrap-integration/*/**,
               .tmp/current-schema-bootstrap-integration/*/terminal.json,
               src/backend/Infrastructure/SchemaMigration/CurrentSchemaCanonicalModel.cs,
               src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs,
