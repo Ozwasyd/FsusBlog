@@ -38,7 +38,7 @@ test.before(async () =>
 test('release/deployment negative classes are all killed', () =>
 {
     const evidence = runReleaseDeploymentDocMutationCases()
-    assert.equal(evidence.total, 20)
+    assert.equal(evidence.total, 29)
     assert.equal(evidence.killed, evidence.total)
 })
 
@@ -52,13 +52,37 @@ test('semantic residue scan rejects renamed, reordered and synonymous manual dep
         '## Service transfer\nA standby becomes serving after the proxy is reloaded; fallback reactivates the former slot.',
         '## Deployment conclusion\nThe blue/green deployment claim is eligible and runtime-role ownership is verified.',
         '## Readiness conclusion\nThe blue-green deployment qualification is approved.',
-        '## Topology conclusion\nThe runtime-role authority is established.'
+        '## Topology conclusion\nThe runtime-role authority is established.',
+        'The candidate is cleared for cutover.',
+        'Traffic handoff permitted after observation.',
+        '| Target | State |\n| --- | --- |\n| Candidate | Cleared for cutover |',
+        '- Traffic handoff permitted.',
+        'The run**time-role** owner**ship** is veri**fied**.',
+        'The blue&#x2d;green deployment claim is elig&#105;ble.',
+        'Cutover is not blocked.',
+        'The policy does not forbid traffic handoff.',
+        `<!-- fsus-doc-claim
+claimId: fixture.generated
+behaviorId: deployment-blue-green-runtime-role
+claimType: generated-section
+generatedSectionId: fixture.deployment
+render: generated-section
+-->
+The blue-green deployment claim is eligible.`
     ]
     for (const source of sources)
     {
         assert.ok(scanReleaseDeploymentSourceResidue(source, 'fixture.md')
             .some((entry) => entry.classId === 'manual-deployment-authority'))
     }
+})
+
+test('release-domain documents still reject positive deployment qualification prose', () =>
+{
+    const source = '## Release conclusion\nThe blue-green deployment claim is eligible and runtime-role ownership is verified.'
+    assert.ok(scanReleaseDeploymentSourceResidue(source, 'docs/testing.md', {
+        semanticDeployment: false
+    }).some((entry) => entry.classId === 'manual-deployment-authority'))
 })
 
 test('semantic residue scan preserves non-authoritative operational guidance', () =>
@@ -71,6 +95,24 @@ If \`claimEligible\` is false, stop and request owner evidence; do not infer an 
 
 The validation command is diagnostic only and is not execution evidence.
 
+The blue-green deployment claim is not approved.
+
+No blue-green deployment claim is eligible.
+
+No runtime-role ownership is verified.
+
+Traffic handoff is not permitted.
+
+## Historical behavior
+
+Previously, the blue-green deployment claim was eligible and runtime-role ownership was verified.
+
+## Forbidden examples
+
+> The blue-green deployment claim is eligible.
+
+Rejected example: traffic handoff is permitted.
+
 <!-- fsus-doc-claim
 claimId: deployment-blue-green-runtime-role.future-eligibility
 behaviorId: deployment-blue-green-runtime-role
@@ -79,7 +121,7 @@ factPath: deploymentBlueGreen.claimEligible
 render: boolean-affirmed
 -->
 
-The blue/green deployment claim is eligible and runtime-role ownership is verified.
+The blue/green deployment claim is eligible.
 
 \`\`\`bash
 ./tools/deployment/gateway-switch.sh --check
@@ -136,8 +178,8 @@ test('current release/deployment claims and sections are bidirectionally exact',
     assert.equal(receipt.counts.generated, 4)
     assert.equal(receipt.counts.prose, 3)
     assert.equal(receipt.counts.proseVerified, 3)
-    assert.equal(receipt.counts.mutationKilled, 28)
-    assert.equal(receipt.counts.mutationTotal, 28)
+    assert.equal(receipt.counts.mutationKilled, 37)
+    assert.equal(receipt.counts.mutationTotal, 37)
 })
 
 test('missing ledger entry, orphan section and typed fact drift fail closed', () =>
