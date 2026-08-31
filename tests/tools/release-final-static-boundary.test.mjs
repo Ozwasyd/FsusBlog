@@ -136,12 +136,26 @@ test('duplicate finalizer command, authority alias, and shadow tier fail closed'
     }
 });
 
-test('generic execute tiers cannot hide finalizer path aliases', async (context) =>
+test('generic execute tiers cannot hide finalizer shell paths in tokens or compound bodies', async (context) =>
 {
     const commandAliases = [
         './tools/test/lanes/release-final.sh',
         'tools/test/lanes/./release-final.sh',
-        'bash tools/test/lanes/release-final.sh'
+        'bash tools/test/lanes/release-final.sh',
+        "bash -c 'exec ./tools/test/lanes/release-final.sh'",
+        'sh ./tools/test/lanes/release-final.sh',
+        'env bash ./tools/test/lanes/release-final.sh',
+        "bash -c '$PWD/tools/test/lanes/release-final.sh'",
+        'true; ./tools/test/lanes/release-final.sh',
+        '"tools/test/lanes/release-final.sh"',
+        "bash   -c   ' exec   \"$PWD\"/tools/test/lanes/./release-final.sh '",
+        'env   sh   "./tools/test/lanes/release-final.sh"',
+        'true &&\n  "$PWD"/tools/test/lanes/release-final.sh',
+        'finalizer=./tools/test/lanes/release-final.sh; exec "$finalizer"',
+        'cd tools/test/lanes && ./release-final.sh',
+        "python -c 'import os; os.system(\"./tools/test/lanes/release-final.sh\")'",
+        "bash -c './tools/test/lanes/release-final.s\"\"h'",
+        "bash -c './tools/test/lanes/release-final.s\\h'"
     ];
 
     for (const [index, command] of commandAliases.entries())

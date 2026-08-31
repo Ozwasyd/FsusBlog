@@ -44,16 +44,24 @@ const allowedReleaseFinalizerLines = [
 const forbiddenFinalizerCapability =
     /(?:create-correctness|publish-release-final-evidence-parent|run-matrix-governance-once|check-job-summaries|check-flaky-|repository-governance-authority|check-release-evidence-manifest|(?:^|[\s/_.-])(?:producer|repair|parser|mutation|governance)(?:[\s/_.-]|$))/u;
 
-function parseCommandArgv(command)
+function parseShellTokens(command)
 {
     if (typeof command !== 'string' || command.trim().length === 0)
     {
         return [];
     }
-    const argv = [];
+    const tokens = [];
     let token = '';
     let quote = null;
     let escaped = false;
+    const flushToken = () =>
+    {
+        if (token.length > 0)
+        {
+            tokens.push({ type: 'word', value: token });
+            token = '';
+        }
+    };
     for (const character of command.trim())
     {
         if (escaped)
@@ -84,12 +92,28 @@ function parseCommandArgv(command)
             quote = character;
             continue;
         }
+        if (character === '\n')
+        {
+            flushToken();
+            tokens.push({ type: 'operator', value: character });
+            continue;
+        }
         if (/\s/u.test(character))
         {
-            if (token.length > 0)
+            flushToken();
+            continue;
+        }
+        if (character === ';' || character === '|' || character === '&')
+        {
+            flushToken();
+            const previous = tokens.at(-1);
+            if (previous?.type === 'operator' && previous.value === character && character !== ';')
             {
-                argv.push(token);
-                token = '';
+                previous.value += character;
+            }
+            else
+            {
+                tokens.push({ type: 'operator', value: character });
             }
             continue;
         }
@@ -99,36 +123,55 @@ function parseCommandArgv(command)
     {
         return [];
     }
-    if (token.length > 0)
-    {
-        argv.push(token);
-    }
-    return argv;
+    flushToken();
+    return tokens;
 }
 
 function isReleaseFinalizerPath(value)
 {
-    if (typeof value !== 'string' || path.posix.isAbsolute(value))
+    if (typeof value !== 'string')
     {
         return false;
     }
-    return path.posix.normalize(value.replaceAll('\\', '/')) === releaseFinalizerCommand;
+    let candidate = value.replaceAll('\\', '/');
+    candidate = candidate.replace(/^\$\{PWD\}\//u, '');
+    candidate = candidate.replace(/^\$PWD\//u, '');
+    candidate = candidate.replace(/^\$\(pwd\)\//u, '');
+    if (path.posix.isAbsolute(candidate))
+    {
+        candidate = path.relative(root, candidate).replaceAll('\\', '/');
+    }
+    return path.posix.normalize(candidate) === releaseFinalizerCommand;
 }
 
-function commandInvokesReleaseFinalizer(command)
+function containsReleaseFinalizerScriptReference(value)
 {
-    const argv = parseCommandArgv(command);
-    if (isReleaseFinalizerPath(argv[0]))
+    if (typeof value !== 'string')
+    {
+        return false;
+    }
+    return /(?:^|[^A-Za-z0-9_.-])release-final\.sh(?:$|[^A-Za-z0-9_.-])/u.test(
+        value.replace(/[\\'"]/gu, '')
+    );
+}
+
+function commandInvokesReleaseFinalizer(command, depth = 0)
+{
+    if (depth > 8)
+    {
+        return false;
+    }
+    if (containsReleaseFinalizerScriptReference(command))
     {
         return true;
     }
-    const executable = path.posix.basename(argv[0] ?? '');
-    if (executable !== 'bash')
-    {
-        return false;
-    }
-    const script = argv.slice(1).find((argument) => !argument.startsWith('-'));
-    return isReleaseFinalizerPath(script);
+    const words = parseShellTokens(command)
+        .filter((token) => token.type === 'word')
+        .map((token) => token.value);
+    return words.some((word) => (
+        isReleaseFinalizerPath(word)
+        || /[\s;&|]/u.test(word) && commandInvokesReleaseFinalizer(word, depth + 1)
+    ));
 }
 
 function validateScriptSource(scriptSource)
