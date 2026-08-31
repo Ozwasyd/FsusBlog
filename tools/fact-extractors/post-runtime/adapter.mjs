@@ -23,6 +23,7 @@ export const candidatePlanSchema = 'fsusblog.post-runtime-candidate-plan.v1'
 export const classReceiptSchema = 'fsusblog.post-runtime-class-receipt.v1'
 export const observationReceiptSchema = 'fsusblog.post-runtime-observation-receipt.v1'
 export const identityAuthoritySchema = 'fsusblog.post-runtime-identity-authority.v1'
+export const sourceReceiptSchema = 'fsusblog.post-runtime-source-receipt.v1'
 
 const digestPattern = /^(?:sha256:)?[a-f0-9]{64}$/u
 const unsafePathPattern = /(?:^|[/\\])(?:latest|history|historical)(?:[/\\]|$)/iu
@@ -210,6 +211,71 @@ export function observationSourceState({ plan, artifactDigest = null, repository
     fixtureId: plan.candidate.fixtureId,
     profileId: plan.candidate.profileId
   })
+}
+
+export function observationSourceReceipt({
+  classId,
+  plan,
+  sourceState,
+  upstreamRef,
+  upstreamSchema = upstreamRef?.schema,
+  canonicalRerunCommand,
+  independentVerifyCommand,
+  repositoryRoot = defaultRoot
+})
+{
+  const schema = JSON.parse(readFileSync(
+    path.join(repositoryRoot, 'config/schemas/post-runtime-observation-result.schema.json'), 'utf8'))
+  if (schema.$defs?.sourceReceiptRef?.properties?.schema?.const !== sourceReceiptSchema)
+  {
+    return stable(upstreamRef)
+  }
+  const { registry, producer } = authority(repositoryRoot)
+  const definition = registry.observationClasses[classId]
+  if (!definition?.sourceReceipt || upstreamSchema !== definition.sourceReceipt.schema)
+  {
+    fail(`${classId} upstream receipt schema does not match the registry source contract`)
+  }
+  const wrapper = seal({
+    schema: sourceReceiptSchema,
+    role: 'source',
+    classId,
+    producerId: producer.producerId,
+    toolVersion: producer.toolVersion,
+    sourceState,
+    candidatePlanRef: plan.identityAuthorityRefs.plan,
+    upstreamRef: {
+      path: upstreamRef.path,
+      fileDigest: upstreamRef.fileDigest,
+      contentDigest: upstreamRef.contentDigest,
+      schema: upstreamSchema,
+      role: definition.sourceReceipt.role
+    },
+    canonicalRerunCommand,
+    independentVerifyCommand
+  })
+  const output = `.tmp/post-runtime-source-receipts/${plan.candidate.runId}/${classId}.json`
+  writeReceipt(output, wrapper, repositoryRoot)
+  const persisted = explicitJson(output, `${classId} source receipt`, repositoryRoot)
+  return stable({
+    path: persisted.relative,
+    fileDigest: persisted.fileDigest,
+    contentDigest: wrapper.contentDigest,
+    schema: sourceReceiptSchema,
+    role: 'source'
+  })
+}
+
+export function observationUpstreamPath(receipt, repositoryRoot = defaultRoot)
+{
+  if (receipt?.sourceReceiptRef?.schema !== sourceReceiptSchema) return receipt?.sourceReceiptRef?.path
+  const wrapper = explicitJson(receipt.sourceReceiptRef.path, 'observation source receipt', repositoryRoot).value
+  if (wrapper.schema !== sourceReceiptSchema || wrapper.role !== 'source'
+    || wrapper.contentDigest !== receipt.sourceReceiptRef.contentDigest)
+  {
+    fail('observation source receipt wrapper identity mismatch')
+  }
+  return wrapper.upstreamRef?.path
 }
 
 export function candidatePlanPathForObservation(receipt, explicitCandidatePlan = null)
