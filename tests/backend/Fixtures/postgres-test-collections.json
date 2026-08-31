@@ -3,7 +3,7 @@
   "collections": [
     {
       "id": "SchemaMigrationPostgresCollectionA",
-      "estimatedFacts": 215,
+      "estimatedFacts": 224,
       "tests": [
         {
           "path": "Integration/SchemaMigrationIntegrationTests.cs",
@@ -108,12 +108,16 @@
         {
           "path": "Integration/DistributedInvalidationDeliveryLedgerIntegrationTests.cs",
           "class": "DistributedInvalidationDeliveryLedgerIntegrationTests"
+        },
+        {
+          "path": "Integration/SecurityFixtureCompositionRootIntegrationTests.cs",
+          "class": "SecurityFixtureCompositionRootIntegrationTests"
         }
       ]
     },
     {
       "id": "SchemaMigrationPostgresCollectionB",
-      "estimatedFacts": 338,
+      "estimatedFacts": 385,
       "tests": [
         {
           "path": "Integration/AccountEnrollmentIntegrationTests.cs",
@@ -188,6 +192,10 @@
           "class": "UserPublicHandleConcurrencyTests"
         },
         {
+          "path": "Integration/AccountProfilePreferenceFixturePostgresTests.cs",
+          "class": "AccountProfilePreferenceFixturePostgresTests"
+        },
+        {
           "path": "Unit/AnonymousCredentialRevocationArtifactServiceTests.cs",
           "class": "AnonymousCredentialRevocationArtifactServiceTests"
         },
@@ -210,6 +218,10 @@
         {
           "path": "Integration/UserSessionRevocationIntegrationTests.cs",
           "class": "UserSessionRevocationIntegrationTests"
+        },
+        {
+          "path": "Integration/UserSessionSensitiveEndpointIntegrationTests.cs",
+          "class": "UserSessionSensitiveEndpointIntegrationTests"
         },
         {
           "path": "Unit/AdminConsistencyContractTests.cs",
@@ -297,6 +309,10 @@
           "class": "CommentMutationOutboxPostgresTests"
         },
         {
+          "path": "Unit/CommentMutationOutboxAnonymousPostgresTests.cs",
+          "class": "CommentMutationOutboxAnonymousPostgresTests"
+        },
+        {
           "path": "Unit/HumanReadProofPersistencePrivacyTests.cs",
           "class": "HumanReadProofPersistencePrivacyTests"
         },
@@ -379,6 +395,22 @@
         {
           "path": "Unit/DistributedInvalidationConvergenceObligationStoreTests.cs",
           "class": "DistributedInvalidationConvergenceObligationStoreTests"
+        },
+        {
+          "path": "Integration/AuthoringCanvasDocumentStoreIntegrationTests.cs",
+          "class": "AuthoringCanvasDocumentStoreIntegrationTests"
+        },
+        {
+          "path": "Unit/ContentAssetDeleteEndpointTests.cs",
+          "class": "ContentAssetDeleteEndpointIntegrationTests"
+        },
+        {
+          "path": "Unit/ContentAssetDeleteEndpointTests.cs",
+          "class": "ContentAssetUploadLedgerIntegrationTests"
+        },
+        {
+          "path": "Unit/AnonymousCommentTicketRedisConcurrencyTests.cs",
+          "class": "AnonymousCommentTicketRedisConcurrencyTests"
         }
       ]
     }

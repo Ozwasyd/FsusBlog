@@ -70,14 +70,14 @@ else
 fi
 
 case "\${SCENARIO}:\${sourceName}" in
-    primary-success:primary | missing-cmake:primary | publish-conflict:primary)
+    primary-success:primary | missing-cmake:primary | corrupt-cache:primary | publish-conflict:primary)
         printf 'verified-archive\\n' >"\${output}"
         ;;
     primary-success-slow:primary)
         sleep 0.2
         printf 'verified-archive\\n' >"\${output}"
         ;;
-    primary-success:fallback | primary-success-slow:fallback | missing-cmake:fallback | publish-conflict:fallback)
+    primary-success:fallback | primary-success-slow:fallback | missing-cmake:fallback | corrupt-cache:fallback | publish-conflict:fallback)
         exit 91
         ;;
     primary-fail-fallback-success:primary | primary-fail-fallback-mismatch:primary | both-fail:primary)
@@ -218,7 +218,7 @@ function assertBoundedFetch(call)
 {
     assert.match(call, /(?:^| )--connect-timeout 5(?: |$)/u);
     assert.match(call, /(?:^| )--max-time 120(?: |$)/u);
-    assert.match(call, /(?:^| )--retry-max-time 120(?: |$)/u);
+    assert.doesNotMatch(call, /(?:^| )--retry(?: |-|=)/u);
 }
 
 function installerWorkDirectories(harness)
@@ -242,15 +242,14 @@ function assertNoInstallerResidue(harness, options = {})
     assert.deepEqual(installerWorkDirectories(harness), []);
 }
 
-test('bootstrap keeps the fixed version, archive names, source order, checksums, lock, and atomic publish', () =>
+test('bootstrap keeps the fixed version, archive name, checksum, lock, and atomic publish', () =>
 {
     assert.match(installer, /CMAKE_VERSION="4\.3\.3"/u);
     assert.match(installer, new RegExp(`ARCHIVE_SHA256="${x86Sha256}"`, 'u'));
     assert.match(installer, new RegExp(`ARCHIVE_SHA256="${armSha256}"`, 'u'));
     assert.match(installer, /ARCHIVE_NAME="cmake-\$\{CMAKE_VERSION\}-linux-\$\{ARCHIVE_ARCH\}\.tar\.gz"/u);
     assert.match(installer, /PRIMARY_ARCHIVE_URL="https:\/\/cmake\.org\/files\/v4\.3\/\$\{ARCHIVE_NAME\}"/u);
-    assert.match(installer, /FALLBACK_ARCHIVE_URL="https:\/\/github\.com\/Kitware\/CMake\/releases\/download\/v\$\{CMAKE_VERSION\}\/\$\{ARCHIVE_NAME\}"/u);
-    assert.ok(installer.indexOf('PRIMARY_ARCHIVE_URL') < installer.indexOf('FALLBACK_ARCHIVE_URL'));
+    assert.doesNotMatch(installer, /FALLBACK_ARCHIVE_URL/u);
     assert.match(installer, /flock 9/u);
     assert.match(installer, /sha256sum -c -/u);
     assert.ok(installer.indexOf('sha256sum -c -') < installer.indexOf('tar -xzf'));
@@ -275,21 +274,17 @@ test('primary success does not contact fallback and publishes a complete cache r
     assert.deepEqual(installerWorkDirectories(harness), []);
 });
 
-test('primary timeout uses the fixed official fallback with the same staging archive and bounds both fetches', t =>
+test('primary timeout fails after one bounded transfer attempt', t =>
 {
     const harness = createHarness(t, 'primary-fail-fallback-success');
     const result = harness.run();
 
-    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.notEqual(result.status, 0, `${result.stdout}\n${result.stderr}`);
     const calls = harness.curlCalls();
-    assert.equal(calls.length, 2);
+    assert.equal(calls.length, 1);
     assert.match(calls[0], /https:\/\/cmake\.org\/files\/v4\.3\/cmake-4\.3\.3-linux-x86_64\.tar\.gz/u);
-    assert.match(calls[1], /https:\/\/github\.com\/Kitware\/CMake\/releases\/download\/v4\.3\.3\/cmake-4\.3\.3-linux-x86_64\.tar\.gz/u);
     assertBoundedFetch(calls[0]);
-    assertBoundedFetch(calls[1]);
-    const outputPaths = calls.map(call => call.match(/(?:^| )-o ([^ ]+)(?: |$)/u)?.[1]);
-    assert.equal(outputPaths[0], outputPaths[1]);
-    assert.equal(fs.statSync(harness.cmakeBin).mode & 0o111, 0o111);
+    assertNoInstallerResidue(harness);
 });
 
 test('a primary checksum mismatch fails closed without contacting fallback', t =>
@@ -324,13 +319,28 @@ test('an existing executable cache returns without any network access', t =>
 {
     const harness = createHarness(t, 'both-fail');
     fs.mkdirSync(path.dirname(harness.cmakeBin), { recursive: true });
-    writeExecutable(harness.cmakeBin, '#!/usr/bin/env bash\nexit 0\n');
+    writeExecutable(harness.cmakeBin, `#!/usr/bin/env bash\nprintf 'cmake version ${cmakeVersion}\\n'\n`);
 
     const result = harness.run();
 
     assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
     assert.equal(result.stdout.trim(), harness.cmakeBin);
     assert.deepEqual(harness.curlCalls(), []);
+});
+
+test('a corrupt executable cache is removed and rebuilt under the cache lock', t =>
+{
+    const harness = createHarness(t, 'corrupt-cache');
+    fs.mkdirSync(path.dirname(harness.cmakeBin), { recursive: true });
+    writeExecutable(harness.cmakeBin, '#!/usr/bin/env bash\nprintf "corrupt cache\\n"\n');
+
+    const result = harness.run();
+
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.equal(result.stdout.trim(), harness.cmakeBin);
+    assert.match(childProcess.execFileSync(harness.cmakeBin, ['--version'], { encoding: 'utf8' }), /cmake version 4\.3\.3/u);
+    assert.equal(harness.curlCalls().length, 1);
+    assert.deepEqual(installerWorkDirectories(harness), []);
 });
 
 test('flock serializes concurrent publishers so the follower only observes the complete cache root', async t =>
@@ -359,13 +369,12 @@ test('x86_64 and aarch64 retain their fixed archive naming and checksum pins', a
     });
     await t.test('aarch64', child =>
     {
-        const harness = createHarness(child, 'primary-fail-fallback-success', 'aarch64');
+        const harness = createHarness(child, 'primary-success', 'aarch64');
         const result = harness.run();
         assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
         const calls = harness.curlCalls();
-        assert.equal(calls.length, 2);
+        assert.equal(calls.length, 1);
         assert.match(calls[0], /cmake-4\.3\.3-linux-aarch64\.tar\.gz/u);
-        assert.match(calls[1], /cmake-4\.3\.3-linux-aarch64\.tar\.gz/u);
     });
 });
 

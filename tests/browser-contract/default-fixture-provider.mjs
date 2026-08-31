@@ -11,6 +11,7 @@ import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { releaseProductionBuildConsumer } from '../../tools/ci/production-build-artifacts.mjs';
+import { executionServiceImageReference } from '../../tools/test/execution-envelope-services.mjs';
 import { loadTemporalContext } from '../../tools/test/temporal-context.mjs';
 import { cleanupLocalRuntime } from '../../tools/test-matrix/local-runtime-cleanup.mjs';
 
@@ -18,6 +19,8 @@ const responseSchema = 'fsusblog.browser-contract-fixture-provider-response.v1';
 const requestSchema = 'fsusblog.browser-contract-fixture-provider-request.v1';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../..');
+const postgresImageReference = executionServiceImageReference('postgres');
+const redisImageReference = executionServiceImageReference('redis');
 
 function temporalEnvironment(env = process.env)
 {
@@ -554,8 +557,8 @@ function assertOwnedContainer(container, request, expectedId = null, runtimeRunI
         fail(`refusing cleanup after ${container.name} ownership changed`);
     }
     const expectedImage = container.name === request.resources.databaseInstance
-        ? 'postgres:16-alpine'
-        : container.name === request.resources.redisInstance ? 'redis:7-alpine' : null;
+        ? postgresImageReference
+        : container.name === request.resources.redisInstance ? redisImageReference : null;
     if (!expectedImage || container.image !== expectedImage)
     {
         fail(`refusing cleanup after ${container.name} image changed`);
@@ -930,8 +933,8 @@ async function bootstrapDedicatedRuntime(request)
         runtimeRunId,
         runtime: null,
         containers: {
-            postgres: { name: request.resources.databaseInstance, id: null, image: 'postgres:16-alpine' },
-            redis: { name: request.resources.redisInstance, id: null, image: 'redis:7-alpine' }
+            postgres: { name: request.resources.databaseInstance, id: null, image: postgresImageReference },
+            redis: { name: request.resources.redisInstance, id: null, image: redisImageReference }
         },
         sourceState: request.sourceState,
         buildIdentity: {

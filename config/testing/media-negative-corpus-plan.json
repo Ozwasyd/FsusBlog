@@ -1,0 +1,127 @@
+{
+    "schema": "fsusblog.media-negative-corpus-plan.v1",
+    "owner": "media-negative-corpus",
+    "executionClasses": [
+        "diagnostic-only",
+        "negative-invalid"
+    ],
+    "positiveAuthority": {
+        "requiredReceiptSchema": "fsusblog.media-positive-asset-receipt.v1",
+        "requiredValidityClass": "canonical-positive",
+        "requiredVerificationStatus": "verified",
+        "materializationOwner": "canonical-media-positive-generator"
+    },
+    "resourceLimits": {
+        "maximumEncodedBytes": 1048576,
+        "maximumPixelWidth": 8192,
+        "maximumPixelHeight": 8192,
+        "maximumPixelCount": 33554432,
+        "maximumAttempts": 1
+    },
+    "cases": [
+        {
+            "id": "corrupt-header",
+            "mutationId": "flip-first-signature-byte",
+            "faultCondition": "header-magic",
+            "reasonCode": "media.header.corrupt",
+            "httpStatus": 422,
+            "decodeStatus": "rejected-before-decode",
+            "storeStatus": "not-created",
+            "materializationStatus": "quarantined",
+            "fallbackPolicy": "fixture-only-reject",
+            "retryPolicy": "none",
+            "layoutPlaceholderAllowed": false
+        },
+        {
+            "id": "mime-extension-mismatch",
+            "mutationId": "replace-declared-mime",
+            "faultCondition": "declaration-consistency",
+            "reasonCode": "media.declaration.mismatch",
+            "httpStatus": 415,
+            "decodeStatus": "rejected-before-decode",
+            "storeStatus": "not-created",
+            "materializationStatus": "quarantined",
+            "fallbackPolicy": "fixture-only-reject",
+            "retryPolicy": "none",
+            "layoutPlaceholderAllowed": false
+        },
+        {
+            "id": "missing-404",
+            "mutationId": "omit-owned-object",
+            "faultCondition": "availability",
+            "reasonCode": "media.missing",
+            "httpStatus": 404,
+            "decodeStatus": "not-attempted",
+            "storeStatus": "not-created",
+            "materializationStatus": "absent",
+            "fallbackPolicy": "fixture-only-reject",
+            "retryPolicy": "none",
+            "layoutPlaceholderAllowed": false
+        },
+        {
+            "id": "oversized-dimensions",
+            "mutationId": "replace-png-width-with-limit-plus-one",
+            "faultCondition": "dimensions-admission",
+            "reasonCode": "media.dimensions.oversized",
+            "httpStatus": 422,
+            "decodeStatus": "rejected-before-allocation",
+            "storeStatus": "not-created",
+            "materializationStatus": "quarantined",
+            "fallbackPolicy": "fixture-only-reject",
+            "retryPolicy": "none",
+            "layoutPlaceholderAllowed": false
+        },
+        {
+            "id": "truncated",
+            "mutationId": "remove-terminal-png-chunk",
+            "faultCondition": "payload-completeness",
+            "reasonCode": "media.payload.truncated",
+            "httpStatus": 422,
+            "decodeStatus": "decode-failed",
+            "storeStatus": "not-created",
+            "materializationStatus": "quarantined",
+            "fallbackPolicy": "fixture-only-reject",
+            "retryPolicy": "none",
+            "layoutPlaceholderAllowed": false
+        },
+        {
+            "id": "unsafe-path",
+            "mutationId": "replace-logical-path-with-parent-traversal",
+            "faultCondition": "path-safety",
+            "reasonCode": "media.path.unsafe",
+            "httpStatus": 400,
+            "decodeStatus": "not-attempted",
+            "storeStatus": "not-created",
+            "materializationStatus": "blocked-before-filesystem",
+            "fallbackPolicy": "fixture-only-reject",
+            "retryPolicy": "none",
+            "layoutPlaceholderAllowed": false
+        },
+        {
+            "id": "unsupported-format",
+            "mutationId": "replace-with-safe-unsupported-signature",
+            "faultCondition": "format-support",
+            "reasonCode": "media.format.unsupported",
+            "httpStatus": 415,
+            "decodeStatus": "rejected-before-decode",
+            "storeStatus": "not-created",
+            "materializationStatus": "quarantined",
+            "fallbackPolicy": "fixture-only-reject",
+            "retryPolicy": "none",
+            "layoutPlaceholderAllowed": false
+        },
+        {
+            "id": "zero-byte",
+            "mutationId": "replace-with-empty-bytes",
+            "faultCondition": "byte-state",
+            "reasonCode": "media.bytes.empty",
+            "httpStatus": 422,
+            "decodeStatus": "rejected-before-decode",
+            "storeStatus": "not-created",
+            "materializationStatus": "quarantined",
+            "fallbackPolicy": "fixture-only-reject",
+            "retryPolicy": "none",
+            "layoutPlaceholderAllowed": false
+        }
+    ]
+}

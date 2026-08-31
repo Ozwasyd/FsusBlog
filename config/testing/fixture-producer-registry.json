@@ -6,28 +6,107 @@
             "strategy": "transaction-fixture",
             "reuseVerifier": "fixture-receipt",
             "implementationPaths": [
-                "tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs"
+                "src/backend/Modules/Endpoints/LocalMessagingFixtureEndpoints.cs",
+                "src/backend/Services/Fixtures/MessagingFixtureSeeder.cs",
+                "tools/test-fixtures/producers/account-messaging-producer.mjs"
             ],
             "provides": [
                 "messages.thread",
-                "notifications.unread",
-                "preferences.locale-auto",
-                "preferences.locale-fixed"
+                "notifications.unread"
             ],
             "consumes": [
+                "auth.admin.full-permission",
                 "auth.user.active"
             ],
             "stateDomains": [
                 "fixture.auth-identities",
                 "postgres.auth",
-                "postgres.settings",
-                "redis.notification"
+                "redis.notification",
+                "redis.session"
             ],
             "receiptPostconditions": [
-                "locale-auto",
-                "locale-fixed",
                 "messages-thread",
                 "notifications-unread"
+            ]
+        },
+        {
+            "id": "account-profile-preferences",
+            "strategy": "transaction-fixture",
+            "reuseVerifier": "fixture-receipt",
+            "implementationPaths": [
+                "src/backend/Modules/Endpoints/LocalAccountProfilePreferenceFixtureEndpoints.cs",
+                "src/backend/Services/Fixtures/AccountProfilePreferenceFixtureService.cs",
+                "tools/test-fixtures/producers/account-profile-preference-producer.mjs"
+            ],
+            "provides": [
+                "preferences.locale.account-device-conflict",
+                "preferences.locale.auto",
+                "preferences.locale.device-explicit",
+                "preferences.locale.fixed.non-default",
+                "preferences.locale.fixed.zh-cn",
+                "preferences.locale.revision-conflict",
+                "preferences.locale.two-device-sync",
+                "profile.public-handle.conflict",
+                "profile.public-handle.empty",
+                "profile.public-handle.set"
+            ],
+            "consumes": [
+                "auth.user.active"
+            ],
+            "stateDomains": [
+                "browser.storage-state",
+                "fixture.auth-identities",
+                "postgres.auth",
+                "postgres.settings",
+                "redis.cache.private"
+            ],
+            "receiptPostconditions": [
+                "preference-locale-account-device-conflict",
+                "preference-locale-auto",
+                "preference-locale-device-explicit",
+                "preference-locale-fixed-default",
+                "preference-locale-fixed-non-default",
+                "preference-locale-revision-conflict",
+                "preference-locale-two-device-sync",
+                "profile-public-handle-conflict",
+                "profile-public-handle-empty",
+                "profile-public-handle-set"
+            ]
+        },
+        {
+            "id": "audit-records",
+            "strategy": "transaction-fixture",
+            "reuseVerifier": "fixture-receipt",
+            "implementationPaths": [
+                "src/backend/Modules/Endpoints/LocalAuditFixtureEndpoints.cs",
+                "src/backend/Services/Fixtures/AuditFixtureProducer.cs",
+                "tools/test-fixtures/producers/audit-producer.mjs"
+            ],
+            "provides": [
+                "audit.chain-multi-record",
+                "audit.empty",
+                "audit.high-value",
+                "audit.investigation-page",
+                "audit.legal-hold-eligible",
+                "audit.pseudonym-retention",
+                "audit.single-valid",
+                "audit.tamper-negative",
+                "audit.unknown-action-negative"
+            ],
+            "consumes": [],
+            "stateDomains": [
+                "postgres.audit"
+            ],
+            "receiptPostconditions": [
+                "audit-chain-multi-record",
+                "audit-empty",
+                "audit-high-value",
+                "audit-investigation-page",
+                "audit-legal-hold-eligible",
+                "audit-pseudonym-retention",
+                "audit-single-valid",
+                "audit-tamper-negative",
+                "audit-unknown-action-negative"
             ]
         },
         {
@@ -36,18 +115,26 @@
             "reuseVerifier": "fixture-receipt",
             "implementationPaths": [
                 "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs",
-                "src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs",
-                "tests/frontend/support/session-fixtures.mjs"
+                "src/backend/Services/Fixtures/AuthFixtureSeeder.cs",
+                "tools/test-fixtures/producers/auth-session-producer.mjs"
             ],
             "provides": [
                 "auth.admin.disabled",
                 "auth.admin.full-permission",
                 "auth.admin.partial-permission",
                 "auth.admin.read-only",
+                "auth.admin.root-bootstrap-empty",
                 "auth.user.active",
                 "auth.user.deleted",
+                "auth.user.mfa-disabled",
                 "auth.user.mfa-enabled",
+                "auth.user.passkey-enabled",
+                "auth.user.recovery-enabled",
+                "session.expired",
                 "session.multi-device",
+                "session.refresh-rotated",
+                "session.remembered",
+                "session.revoked",
                 "session.single-device"
             ],
             "consumes": [],
@@ -61,11 +148,19 @@
                 "admin-full-permission",
                 "admin-partial-permission",
                 "admin-read-only",
+                "admin-root-bootstrap-empty",
+                "session-expired",
                 "session-multi-device",
+                "session-refresh-rotated",
+                "session-remembered",
+                "session-revoked",
                 "session-single-device",
                 "user-active",
                 "user-deleted",
-                "user-mfa-enabled"
+                "user-mfa-disabled",
+                "user-mfa-enabled",
+                "user-passkey-enabled",
+                "user-recovery-enabled"
             ]
         },
         {
@@ -203,13 +298,24 @@
             "strategy": "transaction-fixture",
             "reuseVerifier": "fixture-receipt",
             "implementationPaths": [
-                "tests/frontend/support/session-fixtures.mjs"
+                "src/backend/Modules/Endpoints/LocalSecurityFixtureEndpoints.cs",
+                "src/backend/Services/Fixtures/SecurityFixtureCompositionRoot.cs",
+                "tools/test-fixtures/producers/security-fixture-producer.mjs"
             ],
             "provides": [
+                "security.audit.active-window",
+                "security.clean",
+                "security.credential.active",
                 "security.credential.revoked",
+                "security.issuance.replay-observed",
+                "security.nullifier.blocked",
                 "security.pow.elevated",
-                "security.risk-escalated",
-                "security.subject.banned"
+                "security.rate-limit.blocked",
+                "security.rate-limit.near-limit",
+                "security.risk.escalated",
+                "security.risk.low",
+                "security.subject.banned",
+                "security.subject.unbanned"
             ],
             "consumes": [
                 "auth.user.active"
@@ -217,15 +323,27 @@
             "stateDomains": [
                 "fixture.auth-identities",
                 "fixture.security-state",
+                "postgres.audit",
                 "postgres.auth",
+                "postgres.outbox",
                 "postgres.security",
+                "redis.cache.private",
                 "redis.rate-limit"
             ],
             "receiptPostconditions": [
+                "audit-active-window",
+                "credential-active",
                 "credential-revoked",
+                "issuance-replay-observed",
+                "nullifier-blocked",
                 "pow-elevated",
+                "rate-limit-blocked",
+                "rate-limit-near-limit",
                 "risk-escalated",
-                "subject-banned"
+                "risk-low",
+                "security-clean",
+                "subject-banned",
+                "subject-unbanned"
             ]
         }
     ]

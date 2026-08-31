@@ -51,6 +51,26 @@ docker compose version    # 应输出 v2.x.x
 
 ## 首次配置
 
+### NuGet 依赖版本
+
+根级 [`Directory.Packages.props`](../Directory.Packages.props) 是仓库内 NuGet
+版本的唯一权威。`.csproj` 只声明是否引用 package，并在项目处保留
+`PrivateAssets`、`IncludeAssets` 等引用语义；不得在 `PackageReference` 中写
+`Version`、嵌套 `Version` 或 `VersionOverride`。
+
+升级 NuGet package 时只编辑 `Directory.Packages.props`，然后重新生成并提交每个
+受影响项目自己的 `packages.lock.json`。提交前运行：
+
+```bash
+dotnet restore FsusBlog.slnx --locked-mode
+node tools/governance/check-central-package-management.mjs
+bash tools/security/check-supply-chain-audit.sh
+```
+
+`Directory.Build.props` 继续统一启用 `RestorePackagesWithLockFile`，并在 CI 或
+GitHub Actions 下启用 `RestoreLockedMode`；不得通过删除 lockfile 或关闭 locked
+restore 规避版本漂移。
+
 ### 1. FsusUI 私有组件库
 
 前端组件库通过 GitHub Packages 分发，安装前需设置个人访问令牌：
@@ -262,6 +282,7 @@ proxy: {
 | `npm run ensure:wasm` | 检查并拉取 Wasm 预构建产物 |
 | `npm run build:wasm` | 本地重新编译 Wasm（需 Emscripten） |
 | `npm run deps:wasm-codec` | 更新 Wasm 相关依赖 |
+| `npm run deps:freshness` | 以 local-controlled-simulation 判定 `update-surface.json` 三态 freshness；缺 registry/GitHub 输入时 fail closed |
 
 ### 静态检查
 

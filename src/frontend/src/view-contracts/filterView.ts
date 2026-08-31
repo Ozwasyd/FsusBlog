@@ -6,6 +6,7 @@ import { PUBLIC_FILTER_TYPE, type PublicFilterType } from '@/public-renderers/pu
 export type FilterHeaderViewContract = Readonly<{
   labelText: string;
   currentName: string;
+  description: string | null;
   loadingMeta: boolean;
 }>;
 
@@ -46,6 +47,7 @@ export function createFilterPageViewContract(view: {
   filterType: PublicFilterType;
   labelText: string;
   currentName: string;
+  description: string | null;
   loadingMeta: boolean;
   loadingArticles: boolean;
   isPowCalculating: boolean;
@@ -65,6 +67,7 @@ export function createFilterPageViewContract(view: {
     header: createFilterHeaderViewContract({
       labelText: view.labelText,
       currentName: view.currentName,
+      description: view.description,
       loadingMeta: view.loadingMeta
     }),
     loading: createFilterLoadingStateViewContract({
@@ -93,11 +96,13 @@ export function createFilterPageViewContract(view: {
 function createFilterHeaderViewContract(view: {
   labelText: string;
   currentName: string;
+  description: string | null;
   loadingMeta: boolean;
 }): FilterHeaderViewContract {
   return {
     labelText: view.labelText,
     currentName: view.currentName,
+    description: view.description,
     loadingMeta: view.loadingMeta
   };
 }

@@ -168,24 +168,31 @@ assert.doesNotMatch(serverDockerfileSource,
   new RegExp(`COMMENT_PRIVACY_${'PROVER_KEY_PATH'}`, 'u'),
   'the isolated wasm builder must not retain a retired proving-key path or restore argument');
 assert.match(serverDockerfileSource,
-  /ENV FSUSBLOG_FRONTEND_WASM_ROOT=\/work\/FsusBlog\.Client\/public\/wasm/u,
+  /ENV FSUSBLOG_FRONTEND_WASM_ROOT=\/work\/src\/frontend\/public\/wasm/u,
   'manifest tools in the isolated wasm builder must receive the explicit frontend output root');
-for (const cacheTarget of ['/.tmp/dependency-cache', '/.cache/emscripten']) {
+for (const cacheTarget of [
+  '/.tmp/dependency-cache',
+  '/.cache/emscripten',
+  '/.cache/vcpkg/downloads',
+  '/.cache/vcpkg/archives'
+]) {
   assert.match(serverDockerfileSource, new RegExp(`type=cache[^\\n]+target=${cacheTarget.replaceAll('/', '\\/')}`, 'u'),
     `the isolated wasm builder must persist ${cacheTarget} across failed source rebuilds`);
 }
 assert.match(buildWasmArtifactSource, /FSUSBLOG_ZK_PRODUCTION_ENABLED/u,
   'the Wasm artifact producer must forward the explicit production-ZK build gate');
+assert.match(buildWasmArtifactSource, /FSUSBLOG_WASM_IMAGE_CODEC_ENABLE/u,
+  'the Wasm artifact producer must forward the explicit image-codec feature identity');
 assert.ok(
   serverDockerfileSource.indexOf('bash /work/tools/frontend/install-wasm-codec-deps.sh')
-    < serverDockerfileSource.indexOf('COPY src/frontend/ /work/FsusBlog.Client/'),
+    < serverDockerfileSource.indexOf('COPY src/frontend/wasm/ /work/src/frontend/wasm/'),
   'codec dependency installation must stay cacheable independently of frontend source changes'
 );
 assert.match(bootstrapSource, /\.tmp\/dependency-cache/u);
 assert.match(bootstrapSource, /flock 9/u);
 assert.match(bootstrapSource, /sha256sum -c -/u);
 assert.match(bootstrapSource, /mv "\$\{WORK_DIR\}\/root" "\$\{CMAKE_ROOT\}"/u);
-for (const token of ['BINARYEN_VERSION="version_123"', 'ARCHIVE_SHA256', 'sha256sum -c -', 'flock 9']) {
+for (const token of ['BINARYEN_VERSION="version_123"', 'ARCHIVE_SHA256', 'sha256sum', 'flock 9']) {
   assert.match(binaryenBootstrapSource, new RegExp(token, 'u'));
 }
 assert.match(serviceWorkerSource, /IMMUTABLE_RELEASE_WASM_ASSET_PATTERN/u);

@@ -1,7 +1,10 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Bootstrap;
@@ -32,6 +35,8 @@ public sealed class NativeGroth16ZkProofBackendTests
     private const long CredentialEpoch = 7;
     private const ushort PublicInputLayoutVersion = 6;
     private const string NullifierHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    private const int NativeP99SampleCount = 32;
+    private const double NativeP99BudgetMilliseconds = 50;
     private static readonly string s_policyHash = new('9', 64);
 
     [Fact]
@@ -254,11 +259,6 @@ public sealed class NativeGroth16ZkProofBackendTests
     [Trait("Category", "Performance")]
     public async Task MclGroth16VerifierLibrary_VerifyP99StaysInsideNativeBudget()
     {
-        if (!string.Equals(Environment.GetEnvironmentVariable("FSUSBLOG_RUN_PERFORMANCE_TESTS"), "1", StringComparison.Ordinal))
-        {
-            return;
-        }
-
         byte[] verifyingKey = MclGroth16PairingFixture.CreateVerifyingKey();
         using var temp = TempNativeZkFixture.Create(verifyingKey);
         ProductionZkProofBackendRequest request = ValidBackendRequest([], temp.VerifyingKeySha256);
@@ -271,7 +271,8 @@ public sealed class NativeGroth16ZkProofBackendTests
         {
             Proof = proof
         });
-        double[] elapsedMs = new double[32];
+        double[] elapsedMs = new double[NativeP99SampleCount];
+        bool[] verified = new bool[NativeP99SampleCount];
         for (int index = 0; index < elapsedMs.Length; index++)
         {
             long started = Stopwatch.GetTimestamp();
@@ -280,12 +281,57 @@ public sealed class NativeGroth16ZkProofBackendTests
                 Proof = proof
             });
             elapsedMs[index] = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
-            Assert.True(result.Verified);
+            verified[index] = result.Verified;
         }
 
-        Array.Sort(elapsedMs);
-        double p99 = elapsedMs[(int)Math.Ceiling(elapsedMs.Length * 0.99) - 1];
-        Assert.True(p99 <= 50, $"MCL verifier p99 {p99:F2}ms exceeds 50ms native verifier budget.");
+        double[] sortedElapsedMs = [.. elapsedMs];
+        Array.Sort(sortedElapsedMs);
+        double p99 = sortedElapsedMs[(int)Math.Ceiling(sortedElapsedMs.Length * 0.99) - 1];
+        WriteNativeP99Evidence(elapsedMs, verified, p99);
+        Assert.All(verified, Assert.True);
+        Assert.True(
+            p99 <= NativeP99BudgetMilliseconds,
+            $"MCL verifier p99 {p99:F2}ms exceeds {NativeP99BudgetMilliseconds:F0}ms native verifier budget.");
+    }
+
+    private static void WriteNativeP99Evidence(double[] elapsedMs, bool[] verified, double p99)
+    {
+        string? evidencePath = Environment.GetEnvironmentVariable("FSUSBLOG_NATIVE_P99_EVIDENCE_PATH");
+        if (string.IsNullOrWhiteSpace(evidencePath))
+        {
+            throw new InvalidOperationException("Native P99 producer evidence path is required when this test is selected.");
+        }
+
+        string assemblyPath = Assembly.GetExecutingAssembly().Location;
+        var evidence = new
+        {
+            schema = "fsusblog.native-groth16-p99-measurement.v1",
+            status = verified.All(static value => value)
+                && p99 <= NativeP99BudgetMilliseconds
+                    ? "passed"
+                    : "failed",
+            testId = "FsusBlog.Server.Tests.Unit.NativeGroth16ZkProofBackendTests.MclGroth16VerifierLibrary_VerifyP99StaysInsideNativeBudget",
+            warmupCount = 1,
+            sampleCount = elapsedMs.Length,
+            thresholdMs = NativeP99BudgetMilliseconds,
+            p99Ms = p99,
+            samples = elapsedMs.Select((elapsed, index) => new
+            {
+                index,
+                elapsedMs = elapsed,
+                verified = verified[index]
+            }),
+            testAssembly = new
+            {
+                path = assemblyPath,
+                sha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(assemblyPath))).ToLowerInvariant()
+            }
+        };
+        string absolutePath = Path.GetFullPath(evidencePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(absolutePath)!);
+        string temporaryPath = $"{absolutePath}.next-{Environment.ProcessId}";
+        File.WriteAllText(temporaryPath, $"{JsonSerializer.Serialize(evidence, new JsonSerializerOptions { WriteIndented = true })}\n");
+        File.Move(temporaryPath, absolutePath, overwrite: true);
     }
 
     [Fact]
@@ -396,27 +442,194 @@ public sealed class NativeGroth16ZkProofBackendTests
         Assert.Contains(logger.Messages, static message => message.Contains("timed out", StringComparison.OrdinalIgnoreCase));
     }
 
-    [Fact]
-    public async Task ProductionZkProofVerifier_NativeBackendUsesExistingConcurrencyGate()
+    [Theory]
+    [InlineData(1, 8)]
+    [InlineData(4, 12)]
+    [InlineData(16, 24)]
+    [Trait("Category", "Concurrency")]
+    public async Task ProductionZkProofVerifier_NativeBackendUsesExistingConcurrencyGate(
+        int maxConcurrent,
+        int attempts)
     {
         using var temp = TempNativeZkFixture.Create();
-        var backend = new ConcurrencyProbeProductionZkProofBackend(TimeSpan.FromMilliseconds(25));
+        var backend = new ControlledProductionZkProofBackend(maxConcurrent);
+        using ProductionZkProofVerifier verifier = CreateProductionVerifier(
+            temp,
+            backend,
+            overrides: ConcurrencyOverrides(maxConcurrent.ToString()));
+        ZkProofVerificationRequest[] requests = Enumerable.Range(1, attempts)
+            .Select(index => ValidVerificationRequest([(byte)index], temp.VerifyingKeySha256))
+            .ToArray();
+
+        Task<ZkProofVerificationResult>[] tasks = StartTogether(verifier, requests);
+
+        Assert.Equal(maxConcurrent, backend.CallCount);
+        Assert.Equal(maxConcurrent, backend.InFlight);
+        Assert.Equal(maxConcurrent, backend.MaxInFlight);
+        backend.CompleteHeldCalls(ProductionZkProofBackendResult.Accepted());
+
+        ZkProofVerificationResult[] results = await AwaitResultsAsync(tasks);
+        Assert.All(results, static result => Assert.True(result.Verified));
+        Assert.Equal(attempts, backend.CallCount);
+        Assert.Equal(0, backend.InFlight);
+        Assert.All(backend.Requests, AssertBackendRequestPreservesPublicInputs);
+        Assert.Equal(attempts, backend.Requests.Select(static request => request.Proof.ToArray()[0]).Distinct().Count());
+    }
+
+    [Fact]
+    [Trait("Category", "Concurrency")]
+    public async Task ProductionZkProofVerifier_CallerCancellationReleasesSlotForQueuedRequest()
+    {
+        using var temp = TempNativeZkFixture.Create();
+        var backend = new ControlledProductionZkProofBackend(heldCallCount: 1);
+        using ProductionZkProofVerifier verifier = CreateProductionVerifier(
+            temp,
+            backend,
+            overrides: ConcurrencyOverrides("1"));
+        using var cancellation = new CancellationTokenSource();
+
+        Task<ZkProofVerificationResult> canceled = verifier.VerifyAsync(
+            ValidVerificationRequest([1], temp.VerifyingKeySha256),
+            cancellation.Token);
+        Task<ZkProofVerificationResult> queued = verifier.VerifyAsync(
+            ValidVerificationRequest([2], temp.VerifyingKeySha256));
+
+        Assert.Equal(1, backend.CallCount);
+        cancellation.Cancel();
+
+        ZkProofVerificationResult[] results = await AwaitResultsAsync(canceled, queued);
+        Assert.False(results[0].Verified);
+        Assert.Equal(ZkProofVerificationStatuses.InvalidProof, results[0].Status);
+        Assert.True(results[1].Verified);
+        Assert.Equal(2, backend.CallCount);
+        Assert.Equal(1, backend.MaxInFlight);
+        Assert.Equal(0, backend.InFlight);
+    }
+
+    [Fact]
+    [Trait("Category", "Concurrency")]
+    public async Task ProductionZkProofVerifier_BackendTimeoutReleasesSlotAndFailsClosed()
+    {
+        using var temp = TempNativeZkFixture.Create();
+        var backend = new ControlledProductionZkProofBackend(heldCallCount: 1);
         using ProductionZkProofVerifier verifier = CreateProductionVerifier(
             temp,
             backend,
             overrides: new Dictionary<string, string?>
             {
                 ["AnonymousIdentity:ZkVerifier:MaxConcurrentVerifications"] = "1",
-                ["AnonymousIdentity:ZkVerifier:BackendTimeoutMs"] = "30000"
+                ["AnonymousIdentity:ZkVerifier:BackendTimeoutMs"] = "20"
             });
 
-        Task<ZkProofVerificationResult>[] tasks = Enumerable
-            .Range(0, 6)
-            .Select(_ => verifier.VerifyAsync(ValidVerificationRequest([1, 2, 3], temp.VerifyingKeySha256)))
-            .ToArray();
-        ZkProofVerificationResult[] results = await Task.WhenAll(tasks);
+        ZkProofVerificationResult timedOut = await verifier.VerifyAsync(
+            ValidVerificationRequest([1], temp.VerifyingKeySha256));
+        ZkProofVerificationResult recovered = await verifier.VerifyAsync(
+            ValidVerificationRequest([2], temp.VerifyingKeySha256));
 
+        Assert.False(timedOut.Verified);
+        Assert.Equal(ZkProofVerificationStatuses.InvalidProof, timedOut.Status);
+        Assert.True(recovered.Verified);
+        Assert.Equal(2, backend.CallCount);
+        Assert.Equal(1, backend.MaxInFlight);
+        Assert.Equal(0, backend.InFlight);
+    }
+
+    [Fact]
+    [Trait("Category", "Concurrency")]
+    public async Task ProductionZkProofVerifier_BackendExceptionReleasesSlotForQueuedRequest()
+    {
+        using var temp = TempNativeZkFixture.Create();
+        var backend = new ControlledProductionZkProofBackend(heldCallCount: 1);
+        using ProductionZkProofVerifier verifier = CreateProductionVerifier(
+            temp,
+            backend,
+            overrides: ConcurrencyOverrides("1"));
+
+        Task<ZkProofVerificationResult> failed = verifier.VerifyAsync(
+            ValidVerificationRequest([1], temp.VerifyingKeySha256));
+        Task<ZkProofVerificationResult> queued = verifier.VerifyAsync(
+            ValidVerificationRequest([2], temp.VerifyingKeySha256));
+
+        Assert.Equal(1, backend.CallCount);
+        backend.FailHeldCalls(new InvalidOperationException("controlled backend failure"));
+
+        ZkProofVerificationResult[] results = await AwaitResultsAsync(failed, queued);
+        Assert.False(results[0].Verified);
+        Assert.Equal(ZkProofVerificationStatuses.InvalidProof, results[0].Status);
+        Assert.True(results[1].Verified);
+        Assert.Equal(2, backend.CallCount);
+        Assert.Equal(1, backend.MaxInFlight);
+        Assert.Equal(0, backend.InFlight);
+    }
+
+    [Fact]
+    [Trait("Category", "Concurrency")]
+    public async Task ProductionZkProofVerifier_InvalidConcurrencyConfigurationUsesClampAndDefault()
+    {
+        using var temp = TempNativeZkFixture.Create();
+        (string? Configured, int Effective)[] cases =
+        [
+            ("0", 1),
+            ("-4", 1),
+            ("65", 64),
+            (null, Math.Clamp(Math.Max(1, Environment.ProcessorCount / 2), 1, 64))
+        ];
+
+        foreach ((string? configured, int effective) in cases)
+        {
+            var backend = new ControlledProductionZkProofBackend(effective);
+            using ProductionZkProofVerifier verifier = CreateProductionVerifier(
+                temp,
+                backend,
+                overrides: ConcurrencyOverrides(configured));
+            ZkProofVerificationRequest[] requests = Enumerable.Range(1, effective + 1)
+                .Select(index => ValidVerificationRequest([(byte)index], temp.VerifyingKeySha256))
+                .ToArray();
+
+            Task<ZkProofVerificationResult>[] tasks = StartTogether(verifier, requests);
+
+            Assert.Equal(effective, backend.CallCount);
+            Assert.Equal(effective, backend.MaxInFlight);
+            backend.CompleteHeldCalls(ProductionZkProofBackendResult.Accepted());
+            ZkProofVerificationResult[] results = await AwaitResultsAsync(tasks);
+            Assert.All(results, static result => Assert.True(result.Verified));
+            Assert.Equal(effective + 1, backend.CallCount);
+            Assert.Equal(0, backend.InFlight);
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Concurrency")]
+    public async Task RuntimeServices_SingletonVerifierSharesConcurrencyGateAcrossScopes()
+    {
+        using var temp = TempNativeZkFixture.Create();
+        IConfiguration configuration = BuildVerifierConfiguration(
+            temp,
+            ConcurrencyOverrides("1"));
+        var backend = new ControlledProductionZkProofBackend(heldCallCount: 1);
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(configuration);
+        services.AddFsusRuntimeSecurityAndLifecycleServices(configuration);
+        services.AddSingleton<IAnonymousCredentialRootReader>(new FixedRootReader(s_credentialRoot, CredentialEpoch));
+        services.AddSingleton<IProductionZkProofBackend>(backend);
+        await using ServiceProvider provider = services.BuildServiceProvider();
+        using IServiceScope firstScope = provider.CreateScope();
+        using IServiceScope secondScope = provider.CreateScope();
+        IZkProofVerifier first = firstScope.ServiceProvider.GetRequiredService<IZkProofVerifier>();
+        IZkProofVerifier second = secondScope.ServiceProvider.GetRequiredService<IZkProofVerifier>();
+
+        Assert.Same(first, second);
+        Task<ZkProofVerificationResult> held = first.VerifyAsync(
+            ValidVerificationRequest([1], temp.VerifyingKeySha256));
+        Task<ZkProofVerificationResult> queued = second.VerifyAsync(
+            ValidVerificationRequest([2], temp.VerifyingKeySha256));
+
+        Assert.Equal(1, backend.CallCount);
+        backend.CompleteHeldCalls(ProductionZkProofBackendResult.Accepted());
+        ZkProofVerificationResult[] results = await AwaitResultsAsync(held, queued);
         Assert.All(results, static result => Assert.True(result.Verified));
+        Assert.Equal(2, backend.CallCount);
         Assert.Equal(1, backend.MaxInFlight);
     }
 
@@ -457,10 +670,78 @@ public sealed class NativeGroth16ZkProofBackendTests
             nativeLibrary,
             logger ?? new CapturingLogger<NativeGroth16ZkProofBackend>());
 
+    private static Task<ZkProofVerificationResult>[] StartTogether(
+        ProductionZkProofVerifier verifier,
+        IReadOnlyList<ZkProofVerificationRequest> requests)
+    {
+        using var barrier = new Barrier(requests.Count);
+        using var invoked = new CountdownEvent(requests.Count);
+        Task<ZkProofVerificationResult>[] tasks = requests
+            .Select(request => Task.Factory.StartNew(
+                async () =>
+                {
+                    Assert.True(
+                        barrier.SignalAndWait(TimeSpan.FromSeconds(30)),
+                        "Timed out waiting for verifier concurrency barrier.");
+                    Task<ZkProofVerificationResult> verification = verifier.VerifyAsync(request);
+                    invoked.Signal();
+                    return await verification;
+                },
+                CancellationToken.None,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default).Unwrap())
+            .ToArray();
+
+        Assert.True(
+            invoked.Wait(TimeSpan.FromSeconds(30)),
+            "Timed out waiting for all verifier calls to enter the production concurrency boundary.");
+        return tasks;
+    }
+
+    private static async Task<T[]> AwaitResultsAsync<T>(params Task<T>[] pending)
+        => await Task.WhenAll(pending).WaitAsync(TimeSpan.FromSeconds(30));
+
+    private static void AssertBackendRequestPreservesPublicInputs(ProductionZkProofBackendRequest request)
+    {
+        Assert.Equal("comment.create", request.ActionContext);
+        Assert.Equal("article:42", request.Scope);
+        Assert.Equal(CircuitId, request.CircuitId);
+        Assert.Equal(
+            Convert.ToHexString(SHA256.HashData("fixture-verifying-key"u8)).ToLowerInvariant(),
+            request.VerifyingKeyHash);
+        Assert.Equal(PublicInputLayoutVersion, request.PublicInputLayoutVersion);
+        Assert.Equal(NullifierHash, request.NullifierHash);
+        Assert.Equal(s_credentialRoot, request.CredentialRoot);
+        Assert.Equal(s_revocationRoot, request.RevocationRoot);
+        Assert.Equal(s_issuerPublicKeyHash, request.IssuerPublicKeyHash);
+        Assert.Equal(s_policyHash, request.PolicyHash);
+        Assert.True(request.IsEligible);
+        Assert.True(request.MayComment);
+        Assert.Equal(AnonymousPrivacyContract.CommonRateClass, request.RateClass);
+        Assert.False(request.RequiresModeration);
+        Assert.Single(request.Proof.ToArray());
+    }
+
+    private static Dictionary<string, string?> ConcurrencyOverrides(string? maxConcurrent)
+        => new()
+        {
+            ["AnonymousIdentity:ZkVerifier:BackendTimeoutMs"] = "30000",
+            ["AnonymousIdentity:ZkVerifier:MaxConcurrentVerifications"] = maxConcurrent
+        };
+
     private static ProductionZkProofVerifier CreateProductionVerifier(
         TempNativeZkFixture temp,
         IProductionZkProofBackend backend,
         ILogger<ProductionZkProofVerifier>? logger = null,
+        Dictionary<string, string?>? overrides = null)
+        => new(
+            BuildVerifierConfiguration(temp, overrides),
+            new FixedRootReader(s_credentialRoot, CredentialEpoch),
+            backend,
+            logger ?? new CapturingLogger<ProductionZkProofVerifier>());
+
+    private static IConfiguration BuildVerifierConfiguration(
+        TempNativeZkFixture temp,
         Dictionary<string, string?>? overrides = null)
     {
         var values = new Dictionary<string, string?>
@@ -482,11 +763,7 @@ public sealed class NativeGroth16ZkProofBackendTests
             }
         }
 
-        return new ProductionZkProofVerifier(
-            BuildConfiguration(values),
-            new FixedRootReader(s_credentialRoot, CredentialEpoch),
-            backend,
-            logger ?? new CapturingLogger<ProductionZkProofVerifier>());
+        return BuildConfiguration(values);
     }
 
     private static IConfiguration BuildNativeConfiguration(TempNativeZkFixture temp, bool missingLibrary)
@@ -638,12 +915,24 @@ public sealed class NativeGroth16ZkProofBackendTests
         }
     }
 
-    private sealed class ConcurrencyProbeProductionZkProofBackend(TimeSpan delay) : IProductionZkProofBackend
+    private sealed class ControlledProductionZkProofBackend(int heldCallCount) : IProductionZkProofBackend
     {
+        private readonly ConcurrentDictionary<int, TaskCompletionSource<ProductionZkProofBackendResult>> _heldCalls = new();
+        private readonly ConcurrentDictionary<int, ProductionZkProofBackendRequest> _requests = new();
+        private int _callCount;
         private int _inFlight;
         private int _maxInFlight;
 
+        public int CallCount => Volatile.Read(ref _callCount);
+
+        public int InFlight => Volatile.Read(ref _inFlight);
+
         public int MaxInFlight => Volatile.Read(ref _maxInFlight);
+
+        public IReadOnlyCollection<ProductionZkProofBackendRequest> Requests => _requests
+            .OrderBy(static pair => pair.Key)
+            .Select(static pair => pair.Value)
+            .ToArray();
 
         public bool IsAvailable(string backendName)
             => string.Equals(backendName, ZkProdOptions.NativeGroth16Backend, StringComparison.Ordinal);
@@ -652,20 +941,42 @@ public sealed class NativeGroth16ZkProofBackendTests
             ProductionZkProofBackendRequest request,
             CancellationToken cancellationToken = default)
         {
+            int callId = Interlocked.Increment(ref _callCount);
+            _requests[callId] = request;
             int inFlight = Interlocked.Increment(ref _inFlight);
             TrackMax(inFlight);
             try
             {
-                if (delay > TimeSpan.Zero)
+                if (callId > heldCallCount)
                 {
-                    await Task.Delay(delay, cancellationToken);
+                    return ProductionZkProofBackendResult.Accepted();
                 }
 
-                return ProductionZkProofBackendResult.Accepted();
+                var completion = new TaskCompletionSource<ProductionZkProofBackendResult>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                Assert.True(_heldCalls.TryAdd(callId, completion));
+                return await completion.Task.WaitAsync(cancellationToken);
             }
             finally
             {
+                _heldCalls.TryRemove(callId, out _);
                 Interlocked.Decrement(ref _inFlight);
+            }
+        }
+
+        public void CompleteHeldCalls(ProductionZkProofBackendResult result)
+        {
+            foreach (TaskCompletionSource<ProductionZkProofBackendResult> completion in _heldCalls.Values)
+            {
+                completion.TrySetResult(result);
+            }
+        }
+
+        public void FailHeldCalls(Exception exception)
+        {
+            foreach (TaskCompletionSource<ProductionZkProofBackendResult> completion in _heldCalls.Values)
+            {
+                completion.TrySetException(exception);
             }
         }
 

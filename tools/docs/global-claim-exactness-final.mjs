@@ -329,7 +329,6 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
 {
     const receiptIndex = process.argv.indexOf('--receipts')
     if (receiptIndex < 0) throw new Error('usage: global-claim-exactness-final.mjs --receipts <dir-with-extractor-receipts>')
-    const outputIndex = process.argv.indexOf('--out')
     const directory = path.resolve(process.argv[receiptIndex + 1])
     const receiptPaths = fs.readdirSync(directory)
         .filter((entry) => entry.endsWith('.json') && entry !== 'receipt-paths.txt')
@@ -342,11 +341,5 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
         worktreeFingerprint: identity.worktreeFingerprint
     })
     validateGlobalClaimExactnessReceipt(result)
-    if (outputIndex >= 0)
-    {
-        const output = path.resolve(process.argv[outputIndex + 1])
-        fs.mkdirSync(path.dirname(output), { recursive: true })
-        fs.writeFileSync(output, `${JSON.stringify(result, null, 2)}\n`)
-    }
     console.log(`[global-claim-exactness-final] ok behaviors=${result.counts.requiredBehaviors} claims=${result.counts.proseClaimCount + result.counts.generatedClaimCount} mutations=${result.counts.mutationKilled}/${result.counts.mutationTotal}`)
 }

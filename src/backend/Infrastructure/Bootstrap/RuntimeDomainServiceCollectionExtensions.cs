@@ -70,7 +70,9 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IArticleMutationCommandService>(sp => sp.GetRequiredService<ArticleService>());
         services.AddScoped<IArticleEndpointService, ArticleEndpointService>();
         services.AddScoped<FsusBlog.Server.Services.Fixtures.IPublicContentFixtureSeeder, FsusBlog.Server.Services.Fixtures.PublicContentFixtureSeeder>();
+        services.AddScoped<FsusBlog.Server.Services.Fixtures.IMessagingFixtureSeeder, FsusBlog.Server.Services.Fixtures.MessagingFixtureSeeder>();
         services.AddScoped<FsusBlog.Server.Services.Fixtures.IDemoFixtureSeeder, FsusBlog.Server.Services.Fixtures.DemoFixtureSeeder>();
+        services.AddScoped<FsusBlog.Server.Services.Fixtures.IAuditFixtureProducer, FsusBlog.Server.Services.Fixtures.AuditFixtureProducer>();
         services.AddScoped<ICommentQueryService, CommentQueryService>();
         services.AddScoped<ICommentEndpointService>(sp => sp.GetRequiredService<CommentCommandService>());
         services.AddScoped<ICommentCommandService>(sp => sp.GetRequiredService<CommentCommandService>());
@@ -95,6 +97,9 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddHostedService<AccountEnrollmentCleanupWorker>();
         services.AddScoped<IUserLoginWorkflowService, UserLoginWorkflowService>();
         services.AddScoped<IUserProfileCommandService, UserProfileCommandService>();
+        services.AddScoped<FsusBlog.Server.Services.Fixtures.IAccountProfilePreferenceFixtureStateReader, FsusBlog.Server.Services.Fixtures.AccountProfilePreferenceFixtureStateReader>();
+        services.AddScoped<FsusBlog.Server.Services.Fixtures.IAccountPreferenceFixtureCommand, FsusBlog.Server.Services.Fixtures.AccountPreferenceFixtureCommand>();
+        services.AddScoped<FsusBlog.Server.Services.Fixtures.IAccountProfilePreferenceFixtureService, FsusBlog.Server.Services.Fixtures.AccountProfilePreferenceFixtureService>();
         services.AddScoped<IUserSessionCommandService, UserSessionCommandService>();
         services.AddScoped<IUserMfaCommandService>(sp => sp.GetRequiredService<UserService>());
         services.AddScoped<IUserMfaVerificationService>(sp => sp.GetRequiredService<UserService>());
@@ -115,6 +120,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<AuthoringDraftLifecycleService>();
         services.AddScoped<IAuthoringDraftLifecycle>(sp => sp.GetRequiredService<AuthoringDraftLifecycleService>());
         services.AddScoped<IAuthoringPrepublishPolicy>(sp => sp.GetRequiredService<AuthoringDraftLifecycleService>());
+        services.AddScoped<IAuthoringCanvasDocumentStore, AuthoringCanvasDocumentStore>();
         services.AddScoped<AuthoringContentTransferService>();
         services.AddScoped<IAuthoringContentExport>(sp => sp.GetRequiredService<AuthoringContentTransferService>());
         services.AddScoped<IAuthoringContentImport>(sp => sp.GetRequiredService<AuthoringContentTransferService>());

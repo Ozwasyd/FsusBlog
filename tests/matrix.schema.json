@@ -735,6 +735,25 @@
                             "type": "string"
                         }
                     },
+                    "countedResources": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "number",
+                            "minimum": 0
+                        }
+                    },
+                    "schedulerAuthority": {
+                        "type": "string",
+                        "const": "release-reliability-scenario-catalog"
+                    },
+                    "schedulerProfileDigest": {
+                        "type": "string",
+                        "pattern": "^sha256:[0-9a-f]{64}$"
+                    },
+                    "timeoutPolicyId": {
+                        "type": "string",
+                        "minLength": 1
+                    },
                     "phase": {
                         "type": "number",
                         "minimum": 0

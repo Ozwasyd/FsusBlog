@@ -2,8 +2,7 @@
 // fixture-catalog: consumer browser-contract-run acceptance-representative
 
 import { existsSync, lstatSync, realpathSync } from 'node:fs';
-import { chmod, mkdir, readFile, rm } from 'node:fs/promises';
-import { createRequire } from 'node:module';
+import { chmod, mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -20,6 +19,13 @@ import {
     bindCorrectnessProducerTemporalArtifacts,
     observeBrowserTemporalContext
 } from '../../tools/test/temporal-producer-bindings.mjs';
+import {
+    bindBrowserRenderingObservation,
+    createCorrectnessBrowserPlan,
+    observeBrowserRendering,
+    observeCorrectnessBrowser,
+    serializableBrowserPlan
+} from '../../tools/test/playwright-browser-identity.mjs';
 
 import {
     BrowserContractFailure,
@@ -56,8 +62,6 @@ const buildReceiptFile = path.resolve(
 );
 const startedAtEpochMs = Date.now();
 const startedAtMonotonicMs = performance.now();
-const require = createRequire(import.meta.url);
-
 let browser = null;
 let browserDisconnected = false;
 let closingBrowser = false;
@@ -68,7 +72,7 @@ let verifiedBuild = null;
 let plannedRunIdentity = null;
 let outputValidated = false;
 let browserTemporalObservation = null;
-const temporalContext = loadTemporalContext();
+let temporalContext = null;
 const terminationController = new AbortController();
 
 function relative(value)
@@ -206,25 +210,32 @@ async function verifyImmutableBuild(sourceState)
 
 async function loadManagedPlaywright()
 {
-    const packageFile = require.resolve('@playwright/test/package.json', { paths: [frontendRoot] });
-    const moduleFile = require.resolve('@playwright/test', { paths: [frontendRoot] });
-    const packageJson = JSON.parse(await readFile(packageFile, 'utf8'));
-    const playwright = require(moduleFile);
-    const executablePath = playwright.chromium.executablePath();
-    const revisionMatch = executablePath.match(/(?:chromium|chromium_headless_shell)-(\d+)/u);
+    const plan = createCorrectnessBrowserPlan({
+        browserName: 'chromium',
+        evidenceClass: 'browser-contract',
+        locale: temporalContext.uiLocale,
+        frontendRoot,
+        env: process.env
+    });
     return {
-        chromium: playwright.chromium,
+        chromium: plan.browserType,
+        plan,
         metadata: {
             package: '@playwright/test',
-            version: String(packageJson.version ?? 'unknown'),
-            chromiumRevision: revisionMatch?.[1] ?? path.basename(path.dirname(executablePath)),
-            executableName: path.basename(executablePath),
-            managedExecutable: true
+            version: plan.playwright.version,
+            chromiumRevision: plan.revision,
+            chromiumVersion: null,
+            executableName: path.basename(plan.executablePath),
+            managedExecutable: true,
+            browserIdentity: {
+                plan: serializableBrowserPlan(plan),
+                actual: null
+            }
         }
     };
 }
 
-function contextOptions(scenario, fixture)
+function contextOptions(scenario, fixture, rendering)
 {
     const storageState = scenario.role === 'user'
         ? fixture.user.storageState
@@ -234,8 +245,9 @@ function contextOptions(scenario, fixture)
         ...(storageState ? { storageState } : {}),
         serviceWorkers: scenario.serviceWorkers,
         viewport: { width: 1280, height: 800 },
-        colorScheme: 'light',
-        locale: temporalContext.uiLocale,
+        colorScheme: rendering.colorScheme,
+        locale: rendering.locale,
+        deviceScaleFactor: rendering.deviceScaleFactor,
         timezoneId: temporalContext.timezone,
         userAgent: `FsusBlog-Release-Browser-Contract/${scenario.id}`,
         extraHTTPHeaders: fixture.testSession
@@ -272,6 +284,8 @@ process.once('SIGINT', () => requestTermination('SIGINT'));
 async function main()
 {
     const sourceState = expectedSourceState();
+    const build = await verifyImmutableBuild(sourceState);
+    temporalContext = loadTemporalContext();
     await resetRunOutput();
     if (process.env.FSUSBLOG_PLAYWRIGHT_SESSION_MODE !== 'browser-contract')
     {
@@ -280,7 +294,6 @@ async function main()
             'contract'
         );
     }
-    const build = await verifyImmutableBuild(sourceState);
     verifiedBuild = build;
     const plannedIdentity = resolveBrowserContractRunIdentity({
         env: process.env,
@@ -349,12 +362,15 @@ async function main()
     try
     {
         receipt.topology.browserLaunchCount = 1;
-        browser = await managed.chromium.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-dev-shm-usage']
-        });
+        browser = await managed.chromium.launch(structuredClone(managed.plan.launchOptions));
         receipt.topology.maxConcurrentBrowserRoots = 1;
         receipt.playwright.chromiumVersion = browser.version();
+        receipt.playwright.browserIdentity.actual = observeCorrectnessBrowser({
+            plan: managed.plan,
+            browser,
+            launchOptions: managed.plan.launchOptions,
+            rendering: managed.plan.rendering
+        });
         browser.on('disconnected', () =>
         {
             if (!closingBrowser)
@@ -390,7 +406,7 @@ async function main()
             const traceFile = path.join(traceRoot, `${scenario.id}.zip`);
             try
             {
-                context = await browser.newContext(contextOptions(scenario, fixture));
+                context = await browser.newContext(contextOptions(scenario, fixture, managed.plan.rendering));
                 receipt.topology.contextCount += 1;
                 if (mayRetainRawTrace)
                 {
@@ -399,6 +415,12 @@ async function main()
                 page = await context.newPage();
                 if (browserTemporalObservation === null)
                 {
+                    const renderingObservation = await observeBrowserRendering(page);
+                    receipt.playwright.browserIdentity.actual = bindBrowserRenderingObservation(
+                        managed.plan,
+                        receipt.playwright.browserIdentity.actual,
+                        renderingObservation
+                    );
                     const browserObservation = await page.evaluate(() => ({
                         locale: navigator.language,
                         timezoneId: Intl.DateTimeFormat().resolvedOptions().timeZone

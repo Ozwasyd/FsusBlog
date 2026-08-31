@@ -703,21 +703,7 @@ export async function prewarmDevRuntime(
   }
 
   try {
-    try {
-      await warm()
-    } catch (error) {
-      // A cold Vite dependency optimization can invalidate the document that
-      // triggered it and can crash that renderer before reload. Replace the
-      // audited context once after the transform budget; a persistent failure
-      // still fails the second readiness check instead of being hidden.
-      if (!isRecoverablePrewarmFailure(error, browser.isConnected())) {
-        throw error
-      }
-
-      await session.close()
-      session = await openAuditedPage(browser)
-      await warm()
-    }
+    await warm()
   } finally {
     await session.close()
   }
@@ -2320,20 +2306,34 @@ export async function assertScrimCoversViewport(
 
   const metrics = await scrim.evaluate((element) => {
     const rect = element.getBoundingClientRect()
+    const style = getComputedStyle(element)
+    const visualViewport = window.visualViewport
     return {
       bottom: rect.bottom,
       left: rect.left,
       right: rect.right,
       top: rect.top,
-      viewportHeight: window.innerHeight,
-      viewportWidth: window.innerWidth
+      position: style.position,
+      insetTop: style.top,
+      insetRight: style.right,
+      insetBottom: style.bottom,
+      insetLeft: style.left,
+      viewportBottom: (visualViewport?.offsetTop ?? 0) + (visualViewport?.height ?? window.innerHeight),
+      viewportLeft: visualViewport?.offsetLeft ?? 0,
+      viewportRight: (visualViewport?.offsetLeft ?? 0) + (visualViewport?.width ?? window.innerWidth),
+      viewportTop: visualViewport?.offsetTop ?? 0
     }
   })
 
-  expect(Math.abs(metrics.left), `${label} left delta`).toBeLessThanOrEqual(tolerance)
-  expect(Math.abs(metrics.top), `${label} top delta`).toBeLessThanOrEqual(tolerance)
-  expect(Math.abs(metrics.right - metrics.viewportWidth), `${label} right delta`).toBeLessThanOrEqual(tolerance)
-  expect(Math.abs(metrics.bottom - metrics.viewportHeight), `${label} bottom delta`).toBeLessThanOrEqual(tolerance)
+  expect(metrics.position, `${label} position`).toBe('fixed')
+  expect(metrics.insetTop, `${label} computed top`).toBe('0px')
+  expect(metrics.insetRight, `${label} computed right`).toBe('0px')
+  expect(metrics.insetBottom, `${label} computed bottom`).toBe('0px')
+  expect(metrics.insetLeft, `${label} computed left`).toBe('0px')
+  expect(Math.abs(metrics.left - metrics.viewportLeft), `${label} left delta`).toBeLessThanOrEqual(tolerance)
+  expect(Math.abs(metrics.top - metrics.viewportTop), `${label} top delta`).toBeLessThanOrEqual(tolerance)
+  expect(Math.abs(metrics.right - metrics.viewportRight), `${label} right delta`).toBeLessThanOrEqual(tolerance)
+  expect(Math.abs(metrics.bottom - metrics.viewportBottom), `${label} bottom delta`).toBeLessThanOrEqual(tolerance)
 
   const box = await scrim.boundingBox()
   const viewport = page.viewportSize()
@@ -2511,6 +2511,127 @@ export async function assertOverlayActionsReachable(
       expect(focused, `${label}[${index}] must accept focus`).toBe(true)
     }
   }
+}
+
+/** Lightbox figure and image must be visible, with positive geometry within safe viewport bounds. */
+export async function assertLightboxMediaGeometry(
+  page: Page,
+  root: Locator,
+  profile: UxSafeAreaProfile,
+  label = 'lightbox media'
+): Promise<void> {
+  const figure = root.locator('.article-image-lightbox__figure')
+  const img = figure.locator('img')
+  await expect(figure, `${label} figure must be visible`).toBeVisible()
+  await expect(img, `${label} image must be visible`).toBeVisible()
+
+  const tolerance = UX_SAFE_AREA_GEOMETRY_TOLERANCE
+  const mediaMetrics = await root.evaluate((element) => {
+    const fig = element.querySelector('.article-image-lightbox__figure') as HTMLElement | null
+    const image = element.querySelector('.article-image-lightbox__figure img') as HTMLImageElement | null
+    const figRect = fig?.getBoundingClientRect()
+    const imgRect = image?.getBoundingClientRect()
+    const style = getComputedStyle(element)
+    const visualViewport = window.visualViewport
+    return {
+      safeAreaTop: style.getPropertyValue('--fsus-safe-area-inset-top').trim(),
+      safeAreaRight: style.getPropertyValue('--fsus-safe-area-inset-right').trim(),
+      safeAreaBottom: style.getPropertyValue('--fsus-safe-area-inset-bottom').trim(),
+      safeAreaLeft: style.getPropertyValue('--fsus-safe-area-inset-left').trim(),
+      viewportBlockSize: style.getPropertyValue('--fsus-viewport-block-size').trim(),
+      minHeight: Number.parseFloat(style.minHeight) || 0,
+      paddingTop: Number.parseFloat(style.paddingTop) || 0,
+      paddingRight: Number.parseFloat(style.paddingRight) || 0,
+      paddingBottom: Number.parseFloat(style.paddingBottom) || 0,
+      paddingLeft: Number.parseFloat(style.paddingLeft) || 0,
+      visualViewport: {
+        bottom: (visualViewport?.offsetTop ?? 0) + (visualViewport?.height ?? window.innerHeight),
+        left: visualViewport?.offsetLeft ?? 0,
+        right: (visualViewport?.offsetLeft ?? 0) + (visualViewport?.width ?? window.innerWidth),
+        top: visualViewport?.offsetTop ?? 0
+      },
+      figRect: figRect ? {
+        top: figRect.top,
+        right: figRect.right,
+        bottom: figRect.bottom,
+        left: figRect.left,
+        width: figRect.width,
+        height: figRect.height
+      } : null,
+      imgRect: imgRect ? {
+        top: imgRect.top,
+        right: imgRect.right,
+        bottom: imgRect.bottom,
+        left: imgRect.left,
+        width: imgRect.width,
+        height: imgRect.height
+      } : null
+    }
+  })
+
+  expect(mediaMetrics.figRect, `${label} figure rect`).not.toBeNull()
+  expect(mediaMetrics.imgRect, `${label} img rect`).not.toBeNull()
+  if (!mediaMetrics.figRect || !mediaMetrics.imgRect) return
+
+  expect(mediaMetrics.safeAreaTop, `${label} top safe-area token`).toBe(`${profile.insets.top}px`)
+  expect(mediaMetrics.safeAreaRight, `${label} right safe-area token`).toBe(`${profile.insets.right}px`)
+  expect(mediaMetrics.safeAreaBottom, `${label} bottom safe-area token`).toBe(`${profile.insets.bottom}px`)
+  expect(mediaMetrics.safeAreaLeft, `${label} left safe-area token`).toBe(`${profile.insets.left}px`)
+  expect(mediaMetrics.viewportBlockSize, `${label} viewport block-size token`).toBe(`${profile.viewport.height}px`)
+  expect(mediaMetrics.minHeight, `${label} component viewport block-size`).toBe(profile.viewport.height)
+
+  expect(mediaMetrics.figRect.width, `${label} figure width`).toBeGreaterThan(0)
+  expect(mediaMetrics.figRect.height, `${label} figure height`).toBeGreaterThan(0)
+  expect(mediaMetrics.imgRect.width, `${label} img width`).toBeGreaterThan(0)
+  expect(mediaMetrics.imgRect.height, `${label} img height`).toBeGreaterThan(0)
+
+  const safeRect = {
+    bottom: mediaMetrics.visualViewport.bottom - profile.insets.bottom,
+    left: mediaMetrics.visualViewport.left + profile.insets.left,
+    right: mediaMetrics.visualViewport.right - profile.insets.right,
+    top: mediaMetrics.visualViewport.top + profile.insets.top
+  }
+  for (const [name, rect] of [
+    ['figure', mediaMetrics.figRect],
+    ['image', mediaMetrics.imgRect]
+  ] as const) {
+    expect(rect.left, `${label} ${name} safe left`).toBeGreaterThanOrEqual(safeRect.left - tolerance)
+    expect(rect.top, `${label} ${name} safe top`).toBeGreaterThanOrEqual(safeRect.top - tolerance)
+    expect(rect.right, `${label} ${name} safe right`).toBeLessThanOrEqual(safeRect.right + tolerance)
+    expect(rect.bottom, `${label} ${name} safe bottom`).toBeLessThanOrEqual(safeRect.bottom + tolerance)
+  }
+
+  // Ensure padding respects safe-area insets (computed from tokens)
+  expect(mediaMetrics.paddingTop, `${label} padding top`).toBeGreaterThanOrEqual(profile.insets.top - tolerance)
+  expect(mediaMetrics.paddingRight, `${label} padding right`).toBeGreaterThanOrEqual(profile.insets.right - tolerance)
+  expect(mediaMetrics.paddingBottom, `${label} padding bottom`).toBeGreaterThanOrEqual(profile.insets.bottom - tolerance)
+  expect(mediaMetrics.paddingLeft, `${label} padding left`).toBeGreaterThanOrEqual(profile.insets.left - tolerance)
+
+  const nextButton = root.locator('.article-image-lightbox__nav--next')
+  const prevButton = root.locator('.article-image-lightbox__nav--prev')
+  await expect(nextButton, `${label} next control for active-image geometry`).toBeVisible()
+  await expect(prevButton, `${label} previous control for active-image geometry`).toBeVisible()
+
+  const srcBefore = await img.getAttribute('src')
+  await nextButton.click()
+  await expect(img, `${label} image after next`).toBeVisible()
+  const srcAfterNext = await img.getAttribute('src')
+  expect(srcAfterNext, `${label} image changes after next`).not.toBe(srcBefore)
+  const nextImgBox = await img.boundingBox()
+  expect(nextImgBox, `${label} img box after next`).not.toBeNull()
+  if (nextImgBox) {
+    expect(nextImgBox.width).toBeGreaterThan(0)
+    expect(nextImgBox.height).toBeGreaterThan(0)
+    expect(nextImgBox.x, `${label} next image safe left`).toBeGreaterThanOrEqual(safeRect.left - tolerance)
+    expect(nextImgBox.y, `${label} next image safe top`).toBeGreaterThanOrEqual(safeRect.top - tolerance)
+    expect(nextImgBox.x + nextImgBox.width, `${label} next image safe right`).toBeLessThanOrEqual(safeRect.right + tolerance)
+    expect(nextImgBox.y + nextImgBox.height, `${label} next image safe bottom`).toBeLessThanOrEqual(safeRect.bottom + tolerance)
+  }
+
+  await prevButton.click()
+  await expect(img, `${label} image after prev`).toBeVisible()
+  const srcRestored = await img.getAttribute('src')
+  expect(srcRestored, `${label} image restored after prev`).toBe(srcBefore)
 }
 
 /** Body must not leak uncontrolled horizontal overflow under a safe-area profile. */

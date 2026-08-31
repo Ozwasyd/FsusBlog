@@ -1,0 +1,52 @@
+{
+    "schema": "fsusblog.post-merge-external-naming-evidence-repair.v1",
+    "repository": "Ozwasyd/FsusBlog",
+    "originalPullRequest": 3031,
+    "originalBase": "19a9e3f9b911ee19521d114dd5f98ee8e4e3f944",
+    "originalHead": "16c99508cf9cebe9c504dc84651e4569c8b0577e",
+    "mergeCommit": "1c3ce48133c3c90ec14cee1cf35df17aa255464c",
+    "source": {
+        "path": "tools/docs/behavior-doc-static-admission.mjs",
+        "candidateSha256": "f3c34610f2b28b21ac2ea23417aa3246601e48623a8219b6f7418877bdcfba45",
+        "currentSha256": "f3c34610f2b28b21ac2ea23417aa3246601e48623a8219b6f7418877bdcfba45"
+    },
+    "namingSurface": {
+        "id": "environment-variable",
+        "reason": "preserve caller-visible process environment spellings while moving canonical observation receipt publication before generated-section admission"
+    },
+    "missingArtifact": {
+        "path": "artifacts/change-contract/testing-coverage-fact-section-external-naming.json",
+        "sha256": "00dd4b29525cf07021f79e9cab3b19a86a446e5175f9f645781353a5f9d3b436"
+    },
+    "currentExceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/post-merge-external-naming-evidence-repair.schema.json"
+            ],
+            "reason": "preserve caller-visible schema field spellings while adding exact post-merge repair validation"
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/architecture/repository-layout.md"
+            ],
+            "reason": "preserve repository layout authority identifiers while documenting exact post-merge naming evidence repair ownership"
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/change-contract.md"
+            ],
+            "reason": "preserve documented caller-visible contract tokens while defining strict post-merge evidence repair semantics"
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/governance/change-contract-registry.mjs",
+                "tools/governance/change-contract.mjs"
+            ],
+            "reason": "preserve caller-visible process environment spellings while adding the independent post-merge repair verifier"
+        }
+    ]
+}

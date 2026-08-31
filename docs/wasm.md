@@ -9,6 +9,8 @@
 | `src/frontend/wasm/aeds/` | AEDS v2 C++ decoder、CRC16、POD validation 与 Emscripten exports |
 | `src/frontend/wasm/aeds/CMakeLists.txt` | basic/speed 两套受控目标 |
 | `src/frontend/wasm/build.sh` | 多 variant 并行构建、严格 Binaryen 优化、artifact 汇总 |
+| `ops/docker/wasm-producer-inputs.json` | canonical Docker producer 的 machine-checkable repository input/COPY closure |
+| `tools/frontend/wasm-producer-inputs.mjs` | 将同一 closure 投影为 manifest/receipt input tree identity |
 | `tools/frontend/ensure-wasm.mjs` | canonical producer：source/output hash、ABI、toolchain 与 runtime manifest |
 | `tools/frontend/wasm-build-receipt.mjs` | source-bound build receipt、immutable identity 快速校验与 checksum 投影 |
 | `tools/frontend/ensure-binaryen.sh` | Binaryen 123 的架构选择、下载、SHA-256 校验与缓存 |
@@ -157,7 +159,9 @@ npm run build:wasm
 node ../../tools/frontend/ensure-wasm.mjs status
 ```
 
-构建并发度由在线 CPU/可用内存和 scheduler grant 动态推导。Binaryen/CMake bootstrap 使用 `.tmp/dependency-cache`、文件锁和 SHA-256；fresh output cleanup 不删除受控 dependency cache。
+构建并发度由在线 CPU/可用内存和 scheduler grant 动态推导。Binaryen/CMake bootstrap 使用 `.tmp/dependency-cache`、文件锁和 SHA-256；fresh output cleanup 不删除受控 dependency cache。Canonical WASM Docker producer 将 BuildKit cache mount 与真实读写目录逐项严格对齐（`/.tmp/dependency-cache`、`/.cache/emscripten`、`/.cache/vcpkg/downloads`、`/.cache/vcpkg/archives`）。四类 mount 共用由 pinned emsdk/CMake/Binaryen、vcpkg commit、`wasm32-emscripten` triplet 与 image-codec dependency feature 约束的 cache identity，因此源码层失效时可复用已验证的工具链与第三方依赖缓存；损坏的受控工具缓存必须在锁内重建。Cache 仍不作为 artifact correctness authority。
+
+Docker compile layer 的 repository inputs 以 `ops/docker/wasm-producer-inputs.json` 为唯一精确清单：`src/frontend/wasm/**`、WASM build/helper scripts、vcpkg overlay、production-ZK contract/config 及实际启用时由 trusted-setup manifest 解析的生成输入。`tools/check-wasm-artifact-ownership.mjs` 双向核对 inventory 与 `wasm-builder` 的每个 `COPY`，拒绝漏登读取、多余输入、宽泛 `src/frontend/` / `tools/frontend/` copy 和缺失条件输入。`ensure-wasm` 使用同一 inventory 计算 `sourceHash`，所以任一已登记 source/helper/overlay/security 变化同时改变 Docker cache key 与 receipt input identity；普通 Vue/TS/CSS、frontend test 和 docs 不进入该 closure。
 
 定向验证：
 

@@ -15,7 +15,8 @@ return AuthSessionObservationHost.Run(args);
 
 internal static class AuthSessionObservationHost
 {
-    private const string ObservationSchema = "fsusblog.auth-session-permission-observation.v1";
+    private const string ObservationSchema = "fsusblog.auth-session-permission-observation.v2";
+    private const string RelationSchema = "fsusblog.auth-session-relation-catalog.v1";
 
     private static readonly JsonSerializerOptions s_json = new()
     {
@@ -266,6 +267,131 @@ internal static class AuthSessionObservationHost
             "step_up_proof_invalid",
             "step_up_proof_consumed");
 
+        JsonArray authRelations =
+        [
+            Relation(
+                "auth.relation.mfa-enabled-step-up-method",
+                "auth.mfa.state.enabled",
+                "permits-proof-method",
+                "auth.step-up.mfa-proof",
+                "subject-to-object",
+                "account is active and the requested credential mutation accepts the MFA proof method",
+                "conditional",
+                "UserSecurityStepUpService.VerifyAsync",
+                "src/backend/Services/Security/UserSecurityStepUpService.cs",
+                ["UserSecurityStepUpServiceTests.MfaProof_IsBoundToSessionActionAndConsumedOnce"]),
+            Relation(
+                "auth.relation.passkey-auth-strength",
+                "auth.method.passkey",
+                "results-in",
+                UserSessionAuthenticationStrengths.WebAuthnUv,
+                "subject-to-object",
+                "successful user-verifying Passkey assertion",
+                "true",
+                "UserLoginWorkflowService.CompletePasskeyLoginAsync",
+                "src/backend/Services/UserLoginWorkflowService.cs",
+                ["UserSessionAuthenticationContextTests.PasskeyLogin_PersistsCredentialBoundContext"]),
+            Relation(
+                "auth.relation.passkey-is-not-totp",
+                "auth.method.passkey",
+                "is-equivalent-to",
+                "auth.method.totp",
+                "subject-to-object",
+                "all authentication and step-up scopes",
+                "false",
+                "UserSessionAuthenticationStrengths.IsCoarseMfa",
+                "src/backend/Entities/UserSessionAuthenticationContext.cs",
+                ["UserBootstrapLoginMfaBoundaryTests.PasskeyAndTotpRemainDistinctAuthenticationMethods"]),
+            Relation(
+                "auth.relation.recovery-auth-strength",
+                "auth.method.recovery_key",
+                "results-in",
+                $"auth.strength.{UserSessionAuthenticationStrengths.Recovery}",
+                "subject-to-object",
+                "successful Recovery Key login completion",
+                "true",
+                "UserLoginWorkflowService.CompleteRecoveryLoginAsync",
+                "src/backend/Services/UserLoginWorkflowService.cs",
+                ["RecoveryKeyServiceTests.VerifyCompletion_CreatesRecoveryAuthenticationContext"]),
+            Relation(
+                "auth.relation.recovery-does-not-mint-step-up",
+                "auth.recovery.completion",
+                "mints",
+                "auth.step-up.proof",
+                "subject-to-object",
+                "successful Recovery Key login completion without a separate step-up flow",
+                "false",
+                "UserLoginWorkflowService.CompleteRecoveryLoginAsync",
+                "src/backend/Services/UserLoginWorkflowService.cs",
+                ["UserSecurityStepUpServiceTests.RecoveryContext_DoesNotReplaceActionBoundProof"]),
+            Relation(
+                "auth.relation.step-up-binding",
+                "auth.step-up.proof",
+                "is-bound-to",
+                "account+session+action+token+expiry",
+                "subject-to-object",
+                "proof validation and consumption",
+                "true",
+                "MfaChallengeService.BuildProofIdentity",
+                "src/backend/Services/MfaChallengeService.cs",
+                ["UserSecurityStepUpServiceTests.MfaProof_IsBoundToSessionActionAndConsumedOnce"]),
+            Relation(
+                "auth.relation.step-up-consume-once",
+                "auth.step-up.proof",
+                "may-be-consumed",
+                "exactly-once",
+                "subject-to-object",
+                "matching account, session, action, token, and unexpired proof",
+                "true",
+                "MfaChallengeService.ValidateAndConsumeProofTokenAsync",
+                "src/backend/Services/MfaChallengeService.cs",
+                ["UserSecurityStepUpServiceTests.MfaProof_IsBoundToSessionActionAndConsumedOnce"]),
+            Relation(
+                "auth.relation.refresh-preserves-auth-context",
+                "auth.refresh.rotation",
+                "preserves",
+                "auth_method+auth_strength+auth_time+duration_policy+authenticated_credential_row_id",
+                "subject-to-object",
+                "active session context passes fail-closed validation",
+                "true",
+                "UserSessionCommandService.RefreshSessionAsync",
+                "src/backend/Services/UserSessionCommandService.cs",
+                ["UserSessionAuthenticationContextTests.Refresh_PreservesAuthenticationContext"]),
+            Relation(
+                "auth.relation.refresh-does-not-rebuild-step-up",
+                "auth.refresh.rotation",
+                "rebuilds-or-extends",
+                "auth.step-up.proof",
+                "subject-to-object",
+                "all refresh rotations",
+                "false",
+                "UserSessionCommandService.RefreshSessionAsync",
+                "src/backend/Services/UserSessionCommandService.cs",
+                ["UserSessionAuthenticationContextTests.Refresh_DoesNotExtendStepUp"]),
+            Relation(
+                "auth.relation.passkey-delete-revokes-bound-sessions",
+                "auth.passkey.credential-delete",
+                "revokes",
+                "sessions-bound-to-deleted-credential",
+                "subject-to-object",
+                "credential row is deleted successfully",
+                "true",
+                "PasskeyService.DeleteCredentialAsync",
+                "src/backend/Services/Security/PasskeyService.cs",
+                ["PasskeyCredentialLifecycleTests.Delete_RevokesOnlyCredentialBoundSessions"]),
+            Relation(
+                "auth.relation.passkey-delete-does-not-revoke-unbound-sessions",
+                "auth.passkey.credential-delete",
+                "revokes",
+                "all-account-sessions",
+                "subject-to-object",
+                "credential row is deleted successfully",
+                "false",
+                "PasskeyService.DeleteCredentialAsync",
+                "src/backend/Services/Security/PasskeyService.cs",
+                ["PasskeyCredentialLifecycleTests.Delete_RevokesOnlyCredentialBoundSessions"])
+        ];
+
         var facts = new JsonObject
         {
             ["auth.authentication-methods"] = new JsonObject
@@ -347,6 +473,13 @@ internal static class AuthSessionObservationHost
                 ["transitions"] = revocationTransitions,
                 ["failureModes"] = ToJsonArray(revocationFailureModes)
             },
+            ["auth.relations"] = new JsonObject
+            {
+                ["schema"] = RelationSchema,
+                ["version"] = 1,
+                ["closed"] = true,
+                ["entries"] = authRelations
+            },
             ["admin.permissions.all"] = ToJsonArray(adminPermissions),
             ["admin.permissions.read-only"] = ToJsonArray(readOnlyPermissions),
             ["admin.permissions.partial-policy"] = new JsonObject
@@ -409,6 +542,38 @@ internal static class AuthSessionObservationHost
             ["from"] = from,
             ["to"] = to,
             ["effect"] = effect
+        };
+
+    private static JsonObject Relation(
+        string relationId,
+        string subject,
+        string predicate,
+        string objectId,
+        string direction,
+        string condition,
+        string truthValue,
+        string sourceRange,
+        string sourceOwner,
+        IReadOnlyList<string> proofTests)
+        => new()
+        {
+            ["relationId"] = relationId,
+            ["subject"] = subject,
+            ["predicate"] = predicate,
+            ["object"] = objectId,
+            ["direction"] = direction,
+            ["condition"] = condition,
+            ["truthValue"] = truthValue,
+            ["scope"] = new JsonObject
+            {
+                ["account"] = "current-account",
+                ["session"] = "bound-session",
+                ["action"] = "declared-action",
+                ["credentialMethod"] = "declared-subject"
+            },
+            ["sourceOwner"] = sourceOwner,
+            ["sourceRange"] = sourceRange,
+            ["proofTests"] = ToJsonArray(proofTests.OrderBy(static value => value, StringComparer.Ordinal).ToArray())
         };
 
     private static JsonObject Duration(TimeSpan value)

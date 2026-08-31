@@ -723,6 +723,76 @@ export function validateBrowserContractReceipt(receipt, {
     {
         errors.push('Browser Contract Chromium revision is missing');
     }
+    if (!startupFailure)
+    {
+        const plan = receipt?.playwright?.browserIdentity?.plan;
+        const actual = receipt?.playwright?.browserIdentity?.actual;
+        if (plan?.schema !== 'fsusblog.playwright-browser-identity.v1'
+            || plan.executionClass !== 'correctness'
+            || plan.evidenceClass !== 'browser-contract'
+            || plan.qualificationEligible !== true
+            || plan.managedExecutable !== true)
+        {
+            errors.push('Browser Contract planned browser identity is missing or non-qualifying');
+        }
+        if (actual?.schema !== 'fsusblog.playwright-browser-actual.v1'
+            || actual.executionClass !== 'correctness'
+            || actual.evidenceClass !== 'browser-contract'
+            || actual.qualificationEligible !== true
+            || actual.managedExecutable !== true)
+        {
+            errors.push('Browser Contract actual browser identity is missing or non-qualifying');
+        }
+        for (const field of ['browserName', 'browserVersion', 'revision', 'executablePath', 'executableSha256', 'playwright', 'launchOptions', 'rendering'])
+        {
+            if (JSON.stringify(canonicalize(plan?.[field])) !== JSON.stringify(canonicalize(actual?.[field])))
+            {
+                errors.push(`Browser Contract planned/actual browser ${field} mismatch`);
+            }
+        }
+        if (!path.isAbsolute(String(plan?.executablePath ?? ''))
+            || !isDigest(plan?.executableSha256)
+            || actual?.planDigest !== plan?.contentDigest)
+        {
+            errors.push('Browser Contract executable or plan digest binding is invalid');
+        }
+        if (plan?.contentDigest !== digestValue(plan) || actual?.contentDigest !== digestValue(actual))
+        {
+            errors.push('Browser Contract browser identity content digest is invalid');
+        }
+        for (const field of ['fontSetDigest', 'localeDataDigest'])
+        {
+            if (!isDigest(plan?.rendering?.[field])) errors.push(`Browser Contract ${field} is invalid`);
+        }
+        for (const field of ['locale', 'renderingMode', 'colorScheme', 'gpuMode'])
+        {
+            if (typeof plan?.rendering?.[field] !== 'string' || !plan.rendering[field].trim())
+            {
+                errors.push(`Browser Contract rendering ${field} is missing`);
+            }
+        }
+        if (!(Number.isFinite(plan?.rendering?.deviceScaleFactor) && plan.rendering.deviceScaleFactor > 0))
+        {
+            errors.push('Browser Contract rendering deviceScaleFactor is invalid');
+        }
+        const observation = actual?.renderingObservation;
+        if (receipt.status === 'success'
+            && (observation?.locale !== plan?.rendering?.locale
+                || observation?.deviceScaleFactor !== plan?.rendering?.deviceScaleFactor
+                || observation?.colorScheme !== plan?.rendering?.colorScheme
+                || typeof observation?.renderer !== 'string'
+                || !observation.renderer.trim()))
+        {
+            errors.push('Browser Contract rendering observation does not match the plan');
+        }
+        if (receipt.status === 'success'
+            && plan?.browserName === 'chromium'
+            && plan?.rendering?.gpuMode === 'software'
+            && !/(?:swiftshader|llvmpipe|software|webgl-unavailable)/iu.test(String(observation?.renderer ?? '')))
+        {
+            errors.push('Browser Contract Chromium software renderer observation is invalid');
+        }
+    }
     if (![0, 1].includes(receipt?.topology?.browserLaunchCount) || (!startupFailure && receipt?.topology?.browserLaunchCount !== 1))
     {
         errors.push('Browser Contract browser launch count must be 1 after startup');
@@ -1509,8 +1579,13 @@ export function createReleaseFinalTestEvidenceBinding({
     correctnessReceiptPath,
     browserContractReceipt,
     browserContractReceiptPath,
+    postRuntimeReceipt,
+    postRuntimeReceiptPath,
+    consistencyFinalReport,
+    consistencyFinalReportPath,
     releaseDomainProjectionReceipts,
     releaseReliabilityQualifiedReceipt,
+    locatorEvidence = null,
     now = () => new Date()
 })
 {
@@ -1569,11 +1644,24 @@ export function createReleaseFinalTestEvidenceBinding({
                 fileDigest: sha256File(browserContractReceiptPath),
                 contentDigest: browserContractReceipt.contentDigest
             },
+            behaviorPostRuntime: {
+                schema: postRuntimeReceipt.schema,
+                path: String(postRuntimeReceiptPath).replaceAll(path.sep, '/'),
+                fileDigest: sha256File(postRuntimeReceiptPath),
+                contentDigest: postRuntimeReceipt.contentDigest
+            },
+            behaviorConsistencyFinal: {
+                schema: consistencyFinalReport.schema,
+                path: String(consistencyFinalReportPath).replaceAll(path.sep, '/'),
+                fileDigest: sha256File(consistencyFinalReportPath),
+                contentDigest: consistencyFinalReport.contentDigest
+            },
             releaseReliability: structuredClone(
                 releaseReliabilityQualifiedReceipt
             ),
             releaseDomains
         },
+        locatorEvidence: locatorEvidence ? structuredClone(locatorEvidence) : null,
         generatedAt: now().toISOString()
     });
 }
@@ -1602,7 +1690,7 @@ export function validateReleaseFinalTestEvidenceBinding(binding)
     {
         errors.push('release-final binding source/build identity mismatch');
     }
-    for (const key of ['correctness', 'browserContract'])
+    for (const key of ['correctness', 'browserContract', 'behaviorPostRuntime', 'behaviorConsistencyFinal'])
     {
         if (!isDigest(binding?.receipts?.[key]?.fileDigest))
         {
@@ -1612,6 +1700,16 @@ export function validateReleaseFinalTestEvidenceBinding(binding)
         {
             errors.push(`release-final binding ${key} content digest is invalid`);
         }
+    }
+    if (binding?.receipts?.behaviorPostRuntime?.schema
+        !== 'fsusblog.behavior-evidence-post-runtime-receipt.v1')
+    {
+        errors.push('release-final binding behaviorPostRuntime schema is invalid');
+    }
+    if (binding?.receipts?.behaviorConsistencyFinal?.schema
+        !== 'fsusblog.behavior-document-consistency-final-report.v1')
+    {
+        errors.push('release-final binding behaviorConsistencyFinal schema is invalid');
     }
     errors.push(...validateReleaseReliabilityQualifiedBinding(
         binding?.receipts?.releaseReliability,
@@ -1626,6 +1724,21 @@ export function validateReleaseFinalTestEvidenceBinding(binding)
     errors.push(...validateReleaseDomainProjectionBindings(
         binding?.receipts?.releaseDomains
     ));
+    if (binding?.locatorEvidence !== null)
+    {
+        if (!isDigest(binding?.locatorEvidence?.manifestInputDigest)
+            || !isDigest(binding?.locatorEvidence?.manifestBindingReceipt?.bindingDigest)
+            || !isDigest(binding?.locatorEvidence?.directParentBindingReceipt?.bindingDigest))
+        {
+            errors.push('release-final locator evidence digests are invalid');
+        }
+        const directDigests = binding?.locatorEvidence?.directInputDigests;
+        if (!directDigests || Object.keys(directDigests).length !== 6
+            || Object.values(directDigests).some((digest) => !isDigest(digest)))
+        {
+            errors.push('release-final locator direct input digests are incomplete');
+        }
+    }
     return errors;
 }
 

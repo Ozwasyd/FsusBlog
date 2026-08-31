@@ -14,6 +14,10 @@ import {
     qualificationTemporalContext,
     validateTemporalContext
 } from './temporal-context.mjs';
+import {
+    createTemporalDomainProducerReceipt,
+    resolveTemporalRolesForProducerIfBound
+} from './temporal-role-resolver.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const bindingsPath = path.join(repositoryRoot, 'config/testing/temporal-producer-bindings.json');
@@ -178,10 +182,25 @@ export function bindCorrectnessProducerTemporalArtifacts({
         observations,
         generatedAt
     });
+    const resolvedTemporalRoles = resolveTemporalRolesForProducerIfBound({
+        temporalContext: bound.context,
+        namespace: String(contextInput.namespace ?? 'default'),
+        fixtureId: producerId
+    });
+    const environment = { ...materializeTemporalEnvironment(bound.context) };
+    if (resolvedTemporalRoles)
+    {
+        environment.FSUSBLOG_RESOLVED_TEMPORAL_ROLES_JSON = JSON.stringify(resolvedTemporalRoles);
+        environment.FSUSBLOG_TEMPORAL_ROLE_ARTIFACT_DIGEST = resolvedTemporalRoles.contentDigest;
+    }
     return Object.freeze({
         ...bound,
         bindingDigest: digestCanonical(binding),
-        environment: materializeTemporalEnvironment(bound.context)
+        environment,
+        resolvedTemporalRoles,
+        temporalRoleReceipt: resolvedTemporalRoles
+            ? createTemporalDomainProducerReceipt(resolvedTemporalRoles)
+            : null
     });
 }
 

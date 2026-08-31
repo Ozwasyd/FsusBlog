@@ -4,6 +4,9 @@ using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.RuntimeModes;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Infrastructure.Testing;
+using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Modules.Endpoints;
+using FsusBlog.Server.Services.Fixtures;
 
 OnlineSchemaMigrationCommand command;
 try
@@ -45,14 +48,23 @@ if (command.Kind != OnlineSchemaMigrationCommandKind.Serve)
 builder.ConfigureFsusKestrelSingleProcessRuntime();
 TimeProvider? testBusinessTimeProvider = TestTemporalRuntimeContext.Configure(builder);
 builder.ConfigureFsusApplication(testBusinessTimeProvider);
+if (builder.Environment.IsDevelopment() &&
+    builder.Configuration.GetValue<bool>(
+        LocalAuthFixtureEndpoints.AllowLocalAuthFixtureConfigurationKey))
+{
+    builder.Services.AddScoped<IAuthFixtureSeeder, AuthFixtureSeeder>();
+    builder.Services.AddScoped<IAuthFixtureLifecycleRepository,
+        SqlSugarAuthFixtureLifecycleRepository>();
+    builder.Services.AddScoped<IControlledWebAuthnAuthenticator, ControlledWebAuthnAuthenticator>();
+    builder.Services.AddScoped<IUserSessionFixtureLoginWorkflow>(serviceProvider =>
+        (IUserSessionFixtureLoginWorkflow)serviceProvider
+            .GetRequiredService<IUserLoginWorkflowService>());
+}
 builder.Services.ApplyFsusRuntimeModeGates(builder.Configuration);
 builder.Services.AddOnlineSchemaMigrationControlPlane(builder.Configuration);
-if (command.Kind == OnlineSchemaMigrationCommandKind.Serve && builder.Environment.IsProduction())
-{
-    // Last registration wins for LifecycleHostedBootstrapService: production
-    // serve performs a read-only N/N-1 compatibility check, never migration.
-    builder.Services.AddScoped<ISchemaMigrationRunner, ServeSchemaCompatibilityRunner>();
-}
+// Last registration wins: Server serve verifies the unique current schema
+// projection and never loads the migration catalog or executes descriptors.
+builder.Services.AddScoped<ISchemaMigrationRunner, CurrentSchemaStartupVerifier>();
 builder.Services.ValidateAndPublishFsusDependencyGraph();
 
 await using var app = builder.Build();

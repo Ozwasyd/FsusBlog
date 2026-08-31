@@ -26,7 +26,6 @@ import { loadCanonicalReleaseFinalEvidenceInputs } from '../../tools/test-matrix
 const SOURCE_COMMIT = 'a'.repeat(40);
 const WORKTREE_FP = 'b'.repeat(64);
 const EXTRACTOR_DIGEST = 'c'.repeat(64);
-const REGISTRY_DIGEST = 'd'.repeat(64);
 const INPUT_DIGEST = 'e'.repeat(64);
 
 function stable(value)
@@ -115,13 +114,42 @@ function catalogDigest(catalog)
     return digestValue(catalog);
 }
 
+function makeFactExtractorRegistry(catalog = makeCatalog(), compiledArtifacts = {})
+{
+    return {
+        schema: 'fsusblog.behavior-fact-extractor-registry.v1',
+        digestAlgorithm: 'sha256',
+        canonicalSerialization: 'json-utf8-v1',
+        extractors: catalog.extractors.map((entry) =>
+        {
+            const requiredBuildArtifact = compiledArtifacts[entry.id] ?? null;
+            return {
+                id: entry.id,
+                kind: requiredBuildArtifact == null ? 'canonical-catalog' : 'compiled-assembly',
+                entrypoint: entry.path,
+                consumedInputs: [entry.path],
+                outputSchema: 'fsusblog.fact-observation-receipt.v1',
+                requiredBuildArtifact,
+                hermeticPolicy: requiredBuildArtifact == null ? 'declared-inputs' : 'exact-build-receipt',
+                ownedBehaviorIds: catalog.contracts
+                    .filter((contract) => contract.factExtractorId === entry.id)
+                    .map((contract) => contract.id)
+            };
+        })
+    };
+}
+
+const REGISTRY_DIGEST = digestValue(makeFactExtractorRegistry());
+
 function makeFact({
     extractorId = 'alpha-fact-extractor',
     behaviorIds = ['alpha-behavior'],
     observations = { limit: 10 },
     status = 'ok',
     sourceCommit = SOURCE_COMMIT,
-    worktreeFingerprint = WORKTREE_FP
+    worktreeFingerprint = WORKTREE_FP,
+    buildIdentity = null,
+    registryDigest = REGISTRY_DIGEST
 } = {})
 {
     return sealReceipt(buildReceipt({
@@ -129,9 +157,9 @@ function makeFact({
         behaviorIds,
         sourceCommit,
         worktreeFingerprint,
-        buildIdentity: null,
+        buildIdentity,
         extractorDigest: EXTRACTOR_DIGEST,
-        registryDigest: REGISTRY_DIGEST,
+        registryDigest,
         consumedInputDigests: [{ path: 'tools/alpha/extract.mjs', digest: INPUT_DIGEST }],
         observations: status === 'ok' ? observations : {},
         status,
@@ -398,6 +426,7 @@ function makeMutationEvidence({ catalog, owner, status = 'ok', qualifications, a
 function happyBundle()
 {
     const catalog = makeCatalog();
+    const factExtractorRegistry = makeFactExtractorRegistry(catalog);
     const owner = makeOwner({ catalog });
     const evidence = defaultEvidence(catalog);
     const testEvidence = makeTestEvidence({ catalog, evidence });
@@ -467,6 +496,7 @@ function happyBundle()
 
     return {
         catalog,
+        factExtractorRegistry,
         ownerReceipt: owner,
         testEvidenceReceipt: testEvidence,
         docClaimParseReceipt: parseReceipt,
@@ -482,6 +512,7 @@ function join(inputs, overrides = {})
 {
     return joinBehaviorEvidencePreRuntime({
         catalog: inputs.catalog,
+        factExtractorRegistry: inputs.factExtractorRegistry,
         ownerReceipt: inputs.ownerReceipt,
         testEvidenceReceipts: [inputs.testEvidenceReceipt],
         docClaimParseReceipt: inputs.docClaimParseReceipt,
@@ -533,7 +564,8 @@ test('happy path produces qualified pre-runtime receipt with stable digest', () 
     assertRuntimeCandidateAdmissionAllowed({
         receipt,
         expectedCommit: SOURCE_COMMIT,
-        expectedWorktreeFingerprint: WORKTREE_FP
+        expectedWorktreeFingerprint: WORKTREE_FP,
+        factExtractorRegistry: inputs.factExtractorRegistry
     });
 });
 
@@ -604,7 +636,8 @@ test('counterexample 1: boundary test not executed but file exists fails gate an
         () => assertRuntimeCandidateAdmissionAllowed({
             receipt,
             expectedCommit: SOURCE_COMMIT,
-            expectedWorktreeFingerprint: WORKTREE_FP
+            expectedWorktreeFingerprint: WORKTREE_FP,
+            factExtractorRegistry: inputs.factExtractorRegistry
         }),
         /runtime candidate admission refused/u
     );
@@ -715,7 +748,8 @@ test('counterexample 6: gate failure refuses browser/runtime candidate spawn', (
             () => assertRuntimeCandidateAdmissionAllowed({
                 receipt: receiptFile,
                 expectedCommit: SOURCE_COMMIT,
-                expectedWorktreeFingerprint: WORKTREE_FP
+                expectedWorktreeFingerprint: WORKTREE_FP,
+                factExtractorRegistry: inputs.factExtractorRegistry
             }),
             /runtime candidate admission refused/u
         );
@@ -902,7 +936,8 @@ test('runtime candidate admission refuses identity mismatch', () =>
         () => assertRuntimeCandidateAdmissionAllowed({
             receipt,
             expectedCommit: 'f'.repeat(40),
-            expectedWorktreeFingerprint: WORKTREE_FP
+            expectedWorktreeFingerprint: WORKTREE_FP,
+            factExtractorRegistry: inputs.factExtractorRegistry
         }),
         /does not match expected/u
     );
@@ -910,7 +945,8 @@ test('runtime candidate admission refuses identity mismatch', () =>
         () => assertRuntimeCandidateAdmissionAllowed({
             receipt,
             expectedCommit: SOURCE_COMMIT,
-            expectedWorktreeFingerprint: 'c'.repeat(64)
+            expectedWorktreeFingerprint: 'c'.repeat(64),
+            factExtractorRegistry: inputs.factExtractorRegistry
         }),
         /worktree fingerprint/u
     );
@@ -934,6 +970,35 @@ test('receipt contentDigest is recomputable', () =>
         )), 'utf8')
         .digest('hex');
     assert.equal(receipt.contentDigest, `sha256:${recomputed}`);
+});
+
+test('independent verifier rejects resealed missing or source-only build identities', () =>
+{
+    const inputs = happyBundle();
+    const sourceOnlyReceipt = join(inputs);
+    const injected = structuredClone(sourceOnlyReceipt);
+    injected.buildIdentities['alpha-fact-extractor'] = {
+        artifactId: 'forged-build',
+        receiptDigest: '1'.repeat(64),
+        artifactDigest: '2'.repeat(64)
+    };
+    injected.contentDigest = digestReceipt(injected);
+    assert.throws(
+        () => validatePreRuntimeReceipt(injected, { factExtractorRegistry: inputs.factExtractorRegistry }),
+        /source-only extractor/u
+    );
+
+    const compiledRegistry = makeFactExtractorRegistry(inputs.catalog, {
+        'alpha-fact-extractor': 'alpha-observation'
+    });
+    const missing = structuredClone(sourceOnlyReceipt);
+    missing.registryDigest = `sha256:${digestValue(compiledRegistry)}`;
+    missing.buildIdentities = {};
+    missing.contentDigest = digestReceipt(missing);
+    assert.throws(
+        () => validatePreRuntimeReceipt(missing, { factExtractorRegistry: compiledRegistry }),
+        /exactly cover required compiled extractor authorities/u
+    );
 });
 
 test('mutation-required behavior with missing mutation evidence fails per-behavior', () =>

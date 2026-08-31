@@ -2,6 +2,10 @@ using System.Reflection;
 
 using Fido2NetLib;
 
+using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Cache;
+using FsusBlog.Core.Common;
+using FsusBlog.Server.Contracts.Assets;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Bootstrap;
@@ -10,6 +14,7 @@ using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Modules.Endpoints.Binary;
@@ -83,6 +88,31 @@ public sealed class AuthorizationAccessControlHardeningTests
 
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
         Assert.Contains(errors, static error => error.Contains("fsus:allowLocalAuthFixture", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void AccountProfilePreferenceFixture_IsDevelopmentSecretLoopbackOnly_AndFailsClosedInProduction()
+    {
+        string runtimeShape = RuntimeMetadataInspection.DescribeType(
+            typeof(LocalAccountProfilePreferenceFixtureEndpoints));
+        Assert.Contains("IsDevelopment", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("RequireSecret", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("RequireLoopback", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("IPAddress.IsLoopback", runtimeShape, StringComparison.Ordinal);
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["fsus:allowAccountProfilePreferenceFixture"] = "true"
+            })
+            .Build();
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
+            configuration,
+            enforceProductionRules: true);
+        Assert.Contains(errors, static error => error.Contains(
+            "fsus:allowAccountProfilePreferenceFixture",
+            StringComparison.Ordinal));
     }
 
     [Fact]
@@ -317,21 +347,50 @@ public sealed class AuthorizationAccessControlHardeningTests
     }
 
     [Fact]
-    public void FileDeletePath_UsesCanonicalPrefixAndRejectsWindowsSeparators()
+    public async Task FileDeleteEndpoint_AcceptsAssetIdWithoutPathNormalizer()
     {
-        Assert.Equal(
-            "/uploads/illustration/",
-            GetPrivateConstant<string>(typeof(BinaryEndpoints), "CanonicalIllustrationUploadPrefix"));
-        MethodInfo normalize = typeof(BinaryEndpoints).GetMethod(
-            "TryNormalizeImageDeletePath",
-            BindingFlags.Static | BindingFlags.NonPublic)!;
+        AssetId assetId = AssetId.Parse("3f3b2e7a-1d2e-4f8a-9c5b-6a7b8c9d0e1f");
+        IAssetStore validStore = Substitute.For<IAssetStore>();
+        validStore.DeleteAsync(assetId, Arg.Any<CancellationToken>()).Returns(AssetDeleteResult.Deleted);
+        var aeds = new AedsEncoder();
+        DefaultHttpContext validContext = ContentAssetDeleteEndpointTests.CreateContext(assetId.ToString());
 
-        AssertNormalized(normalize, "/uploads/illustration/example.webp", "/uploads/illustration/example.webp");
-        AssertNormalized(normalize, "https://example.test/uploads/illustration/example.webp", "/uploads/illustration/example.webp");
-        AssertRejected(normalize, "/uploads/illustration\\example.webp");
-        AssertRejected(normalize, "/uploads/illustration/example:alternate.webp");
-        AssertRejected(normalize, "/uploads/avatar/example.webp");
-        AssertRejected(normalize, "/uploads/illustration/../secret.txt");
+        var validResult = await BinaryEndpoints.HandleFileDeleteAsync(
+            validContext,
+            validStore,
+            aeds,
+            CancellationToken.None);
+        AedsDecodeResult validFrame = await ContentAssetDeleteEndpointTests.ExecuteAndDecodeAsync(
+            validResult,
+            validContext,
+            aeds);
+
+        Assert.Equal(AedsFrameType.EmptySuccess, validFrame.FrameType);
+        await validStore.Received(1).DeleteAsync(assetId, Arg.Any<CancellationToken>());
+
+        foreach (string rejectedIdentity in new[]
+        {
+            "../illustration/hero.png",
+            "https://example.test/uploads/illustration/hero.png"
+        })
+        {
+            IAssetStore rejectedStore = Substitute.For<IAssetStore>();
+            DefaultHttpContext rejectedContext = ContentAssetDeleteEndpointTests.CreateContext(rejectedIdentity);
+            var rejectedResult = await BinaryEndpoints.HandleFileDeleteAsync(
+                rejectedContext,
+                rejectedStore,
+                aeds,
+                CancellationToken.None);
+            AedsDecodeResult rejectedFrame = await ContentAssetDeleteEndpointTests.ExecuteAndDecodeAsync(
+                rejectedResult,
+                rejectedContext,
+                aeds);
+
+            Assert.Equal(AedsFrameType.ApiError, rejectedFrame.FrameType);
+            Assert.True(PodBinaryCodec.TryDecodeApiError(rejectedFrame.Payload, out var errorPod));
+            Assert.Equal(ErrorCode.Validation, PodBinaryCodec.ToErrorDetail(errorPod).Code);
+            await rejectedStore.DidNotReceiveWithAnyArgs().DeleteAsync(default, default);
+        }
     }
 
     [Fact]

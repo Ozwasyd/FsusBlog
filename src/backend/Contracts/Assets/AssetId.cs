@@ -19,6 +19,9 @@ public readonly record struct AssetId
     public static AssetId New()
         => new(Guid.NewGuid());
 
+    public static AssetId FromGuid(Guid value)
+        => new(value);
+
     public static AssetId Parse(string value)
     {
         if (!TryParse(value, out AssetId assetId))

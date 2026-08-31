@@ -1,10 +1,10 @@
 using System.Text.Json;
 
+using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Distributed;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
-using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Microsoft.Extensions.DependencyInjection;

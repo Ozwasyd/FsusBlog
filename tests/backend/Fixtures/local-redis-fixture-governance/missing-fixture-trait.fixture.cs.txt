@@ -1,0 +1,7 @@
+[Fact]
+public void MissingFixtureTraitTest()
+{
+    string connectionString = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_REDIS")
+        ?? throw new InvalidOperationException();
+    Assert.True(true);
+}

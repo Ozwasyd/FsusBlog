@@ -2,6 +2,7 @@ using System.Data.Common;
 using System.Diagnostics;
 using System.Text;
 
+using FsusBlog.Server.Contracts.Assets;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Security;
@@ -305,10 +306,14 @@ internal sealed class AdminIntegrityOperations(
     private async Task<IntegrityCheckSample> BuildMissingAssetFilesCheckAsync(CancellationToken cancellationToken)
     {
         long started = Stopwatch.GetTimestamp();
-        List<IntegrityAssetRow> assets = await db.Queryable<AssetLibraryItem>()
-            .Where(asset => asset.Url.StartsWith("/uploads/"))
-            .Select(asset => new IntegrityAssetRow { Id = asset.Id, Url = asset.Url })
+        List<ContentAsset> records = await db.Queryable<ContentAsset>()
+            .Where(asset => asset.StorageClass == "public")
             .ToListAsync(cancellationToken);
+        List<IntegrityAssetRow> assets = [.. records.Select(static asset => new IntegrityAssetRow
+        {
+            Id = asset.AssetId.ToString("D"),
+            Url = PublicAssetUrlCodec.RoutePrefix + asset.StorageKey
+        })];
         string publicAssetRoot = storagePaths.PublicAssetRoot;
         var samples = new List<string>(10);
         int count = 0;
@@ -332,11 +337,13 @@ internal sealed class AdminIntegrityOperations(
 
     private async Task<HashSet<string>> LoadAssetUrlSetAsync(CancellationToken cancellationToken)
     {
-        List<string> urls = await db.Queryable<AssetLibraryItem>()
-            .Where(asset => asset.Url != null && asset.Url != "")
-            .Select(asset => asset.Url)
+        List<string> storageKeys = await db.Queryable<ContentAsset>()
+            .Where(asset => asset.StorageClass == "public")
+            .Select(asset => asset.StorageKey)
             .ToListAsync(cancellationToken);
-        return urls.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return storageKeys
+            .Select(static key => PublicAssetUrlCodec.RoutePrefix + key)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
 
     private async Task<IntegrityData> LoadIntegrityDataAsync(CancellationToken cancellationToken)
@@ -393,12 +400,8 @@ internal sealed class AdminIntegrityOperations(
                 RevokedAt = session.RevokedAt
             })
             .ToListAsync(cancellationToken));
-        Task<List<IntegrityAssetRow>> assetsTask = QueryWithNewClientAsync(queryDb => queryDb.Queryable<AssetLibraryItem>()
-            .Select(asset => new IntegrityAssetRow
-            {
-                Id = asset.Id,
-                Url = asset.Url
-            })
+        Task<List<ContentAsset>> assetsTask = QueryWithNewClientAsync(queryDb => queryDb.Queryable<ContentAsset>()
+            .Where(asset => asset.StorageClass == "public")
             .ToListAsync(cancellationToken));
         List<IntegrityArticleRow> articles = await articlesTask;
         List<IntegrityArticleBodyRow> bodies = await bodiesTask;
@@ -409,7 +412,11 @@ internal sealed class AdminIntegrityOperations(
         List<IntegrityCommentRow> comments = await commentsTask;
         List<IntegrityUserRow> users = await usersTask;
         List<IntegritySessionRow> sessions = await sessionsTask;
-        List<IntegrityAssetRow> assets = await assetsTask;
+        List<IntegrityAssetRow> assets = [.. (await assetsTask).Select(static asset => new IntegrityAssetRow
+        {
+            Id = asset.AssetId.ToString("D"),
+            Url = PublicAssetUrlCodec.RoutePrefix + asset.StorageKey
+        })];
 
         string publicAssetRoot = storagePaths.PublicAssetRoot;
 
@@ -911,10 +918,7 @@ internal sealed class AdminIntegrityOperations(
 
     private sealed class IntegrityAssetRow
     {
-        public long Id
-        {
-            get; init;
-        }
+        public string Id { get; init; } = string.Empty;
 
         public string Url { get; init; } = string.Empty;
     }

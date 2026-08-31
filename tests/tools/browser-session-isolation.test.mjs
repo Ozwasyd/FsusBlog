@@ -90,6 +90,7 @@ function createFixtureBuildReceipt(context, sourceState) {
       playwright: 'test',
       emsdk: 'test'
     },
+    inputPaths: ['tests/matrix.yml'],
     domains: domains.map(([name, relative]) => ({ name, path: relative }))
   })
   return path.join(artifactRoot, 'receipt.json')
@@ -173,6 +174,39 @@ test('browser contract build receipt must exactly match both admitted source ide
     assert.match(result.stderr, fixture.error)
     assert.doesNotMatch(result.stderr, /fixture provider/u)
   }
+})
+
+test('browser contract rejects missing temporal context after source and build admission without touching receipt', (context) => {
+  const outputRoot = path.join(root, '.tmp/browser-contract', `temporal-admission-${process.pid}-${Date.now()}`)
+  const receiptFile = path.join(outputRoot, 'receipt.json')
+  const sentinel = '{"status":"sentinel"}\n'
+  const admittedSource = { commit: 'c'.repeat(40), worktreeFingerprint: 'd'.repeat(64) }
+  const buildReceipt = createFixtureBuildReceipt(context, admittedSource)
+  fs.mkdirSync(outputRoot, { recursive: true })
+  fs.writeFileSync(receiptFile, sentinel)
+  context.after(() => fs.rmSync(outputRoot, { recursive: true, force: true }))
+
+  const env = sourceAdmissionEnvironment(outputRoot, {
+    FSUSBLOG_TEST_SOURCE_COMMIT: admittedSource.commit,
+    FSUSBLOG_TEST_SOURCE_FINGERPRINT: admittedSource.worktreeFingerprint,
+    FSUSBLOG_BROWSER_CONTRACT_BUILD_RECEIPT: buildReceipt,
+    FSUSBLOG_BROWSER_CONTRACT_FIXTURE_PROVIDER: '/definitely/not-a-fixture-provider',
+    FSUSBLOG_TEMPORAL_CONTEXT_JSON: undefined,
+    FSUSBLOG_TEMPORAL_CONTEXT_FILE: undefined
+  })
+  delete env.FSUSBLOG_TEMPORAL_CONTEXT_JSON
+  delete env.FSUSBLOG_TEMPORAL_CONTEXT_FILE
+
+  const result = spawnSync(process.execPath, ['tests/browser-contract/run.mjs'], {
+    cwd: root,
+    env,
+    encoding: 'utf8'
+  })
+
+  assert.notEqual(result.status, 0)
+  assert.match(result.stderr, /temporal\.context-missing: exactly one temporal context source is required/u)
+  assert.doesNotMatch(result.stderr, /fixture provider/u)
+  assert.equal(fs.readFileSync(receiptFile, 'utf8'), sentinel)
 })
 
 test('fixture roots separate browser contract, diagnostics, and legacy namespaces', () => {

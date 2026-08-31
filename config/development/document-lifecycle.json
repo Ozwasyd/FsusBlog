@@ -223,6 +223,17 @@
             "supersededBy": null
         },
         {
+            "path": "docs/architecture/authoring-canvas-document-boundary.md",
+            "status": "current",
+            "owner": "backend",
+            "relatedIssues": [
+                2482,
+                2484
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
             "path": "docs/architecture/article-revision-concurrency.md",
             "status": "current",
             "owner": "backend",
@@ -291,6 +302,17 @@
             "status": "current",
             "owner": "backend",
             "relatedIssues": [],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/architecture/decisions/ADR-Test-Execution-Replay-Playwright.md",
+            "status": "current",
+            "owner": "governance",
+            "relatedIssues": [
+                2003,
+                2004
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -603,7 +625,10 @@
             "path": "docs/configuration-layout.md",
             "status": "current",
             "owner": "backend",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1977,
+                1978
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -706,7 +731,9 @@
             "path": "docs/development.md",
             "status": "current",
             "owner": "governance",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1979
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -1638,7 +1665,12 @@
             "path": "docs/repository-governance.md",
             "status": "current",
             "owner": "governance",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1923,
+                1977,
+                1978,
+                1979
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -1646,7 +1678,9 @@
             "path": "docs/repository-labels.md",
             "status": "current",
             "owner": "governance",
-            "relatedIssues": [],
+            "relatedIssues": [
+                1978
+            ],
             "supersedes": [],
             "supersededBy": null
         },
@@ -1737,7 +1771,9 @@
             "relatedIssues": [
                 1013,
                 1014,
-                1430
+                1430,
+                1977,
+                1978
             ],
             "supersedes": [],
             "supersededBy": null

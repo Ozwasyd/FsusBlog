@@ -211,6 +211,23 @@ test('serialized VSTest copies are removed only when byte-identical to the canon
   await assert.rejects(stat(path.join(directory, '_ser123')), { code: 'ENOENT' })
 })
 
+test('current VSTest host timestamp attachment layout is recognized structurally', async (t) => {
+  const subject = await fixture(t)
+  const directory = path.join(subject.shards, 'ordinary')
+  const primary = await writeRaw(directory, rawCoverage())
+  const serialized = path.join(directory, '_build-agent_2026-08-27_00_00_00', 'In', 'build-agent')
+  await mkdir(serialized, { recursive: true })
+  await writeFile(
+    path.join(serialized, 'coverage.json'),
+    await readFile(path.join(primary, 'coverage.json'))
+  )
+
+  const prepared = prepareCoverageShard({ directory, shardId: 'ordinary', binding })
+
+  assert.equal(prepared.sidecar.transport.serializedCopiesPruned, 1)
+  await assert.rejects(stat(path.join(directory, '_build-agent_2026-08-27_00_00_00')), { code: 'ENOENT' })
+})
+
 test('methods without sequence points preserve historical Cobertura method coverage semantics', async (t) => {
   const subject = await fixture(t)
   const payload = rawCoverage()

@@ -2,6 +2,7 @@ import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from
 import { type UploadRequestOptions } from '@ozwasyd/element-plus'
 import type { ImageCompressionOptions } from '@/api/upload'
 import type { ApiRequestConfig } from '@/api/requestConfig'
+import { listAssetLibrary } from '@/api/authoring'
 import {
   deleteImage,
   getAdminPageData,
@@ -164,6 +165,9 @@ export function useAdminSettingsPage() {
     { value: 'guidelines', label: '用户守则' },
     { value: 'copyright', label: '版权声明' }
   ] as const
+  let pageLoadGeneration = 0
+  let pageSaveGeneration = 0
+  let active = true
 
   const buildSignalConfig = (signal: AbortSignal): ApiRequestConfig => ({ signal })
 
@@ -689,7 +693,14 @@ export function useAdminSettingsPage() {
     imageLoading.value = true
     previousOgImage.value = current
     try {
-      await deleteImage(current)
+      const asset = (await listAssetLibrary()).find(item => item.url === current)
+      if (!asset) {
+        throw createAppError(
+          AppErrorCode.NotFound,
+          '当前图片不是可删除的本地资产'
+        )
+      }
+      await deleteImage(asset.id)
       siteForm.ogImage = ''
       toast.success('预览图已从配置移除并删除服务器文件，请保存同步')
     } catch (error: unknown) {
@@ -863,37 +874,57 @@ export function useAdminSettingsPage() {
     }
   }
 
-  const loadPage = async (slug: string): Promise<void> => {
+  const loadPage = async (slug: string): Promise<boolean> => {
+    const generation = ++pageLoadGeneration
     pageLoading.value = true
     try {
+      let loaded = false
       await pageTask.run(async (signal) => {
         const data = await getAdminPageData(slug, buildSignalConfig(signal))
-        if (!signal.aborted) {
+        if (!signal.aborted && active && generation === pageLoadGeneration && activeTab.value === 'pages') {
+          currentSlug.value = slug
           pageContent.value = data?.content || ''
           originalPageContent.value = pageContent.value
+          loaded = true
         }
       })
+      return loaded
     } catch (error: unknown) {
       if (!isAbortError(error)) {
         console.error('[Settings] Load failed:', error)
       }
+      return false
     } finally {
-      pageLoading.value = false
+      if (generation === pageLoadGeneration) {
+        pageLoading.value = false
+      }
     }
   }
 
-  const savePageContent = async (): Promise<void> => {
+  const savePageContent = async (): Promise<boolean> => {
+    if (savingPage.value) {
+      return false
+    }
+
+    const generation = ++pageSaveGeneration
+    const savedSlug = currentSlug.value
+    const savedContent = pageContent.value
     try {
       savingPage.value = true
       taskFeedback.begin('正在发布静态页面', currentPageTarget.value.label, 'settings-page')
-      await updatePageData({ slug: currentSlug.value, content: pageContent.value })
-      await refreshPageData(currentSlug.value)
-      originalPageContent.value = pageContent.value
+      await updatePageData({ slug: savedSlug, content: savedContent })
+      await refreshPageData(savedSlug)
+      if (!active || generation !== pageSaveGeneration || currentSlug.value !== savedSlug || pageContent.value !== savedContent) {
+        return false
+      }
+      originalPageContent.value = savedContent
       taskFeedback.succeed('静态页面已发布', currentPageTarget.value.label, 'settings-page')
       toast.success('发布并刷新缓存成功')
+      return true
     } catch (error: unknown) {
       taskFeedback.fail('静态页面发布失败', error, '静态页面发布失败', 'settings-page')
       showErrorToast(error, '静态页面发布失败')
+      return false
     } finally {
       savingPage.value = false
     }
@@ -919,7 +950,6 @@ export function useAdminSettingsPage() {
       return
     }
 
-    currentSlug.value = slug
     await loadPage(slug)
   }
 
@@ -929,7 +959,7 @@ export function useAdminSettingsPage() {
     }
 
     const slug = value
-    if (slug === currentSlug.value || pageLoading.value || savingPage.value) {
+    if (slug === currentSlug.value) {
       return
     }
 
@@ -948,20 +978,26 @@ export function useAdminSettingsPage() {
   const discardPageChangesAndSwitch = async (): Promise<void> => {
     const slug = pendingPageSwitchSlug.value
     pendingPageSwitchSlug.value = ''
+    pageContent.value = originalPageContent.value
     if (slug) {
       await switchPage(slug)
     }
   }
 
   const savePageAndSwitch = async (): Promise<void> => {
-    const slug = pendingPageSwitchSlug.value
-    if (!slug) {
+    if (!pendingPageSwitchSlug.value || savingPage.value) {
       return
     }
 
-    await savePageContent()
+    const saved = await savePageContent()
+    if (!saved || activeTab.value !== 'pages') {
+      return
+    }
+    const slug = pendingPageSwitchSlug.value
     pendingPageSwitchSlug.value = ''
-    await switchPage(slug)
+    if (slug) {
+      await switchPage(slug)
+    }
   }
 
   const handleBeforeUnload = (event: BeforeUnloadEvent): void => {
@@ -975,6 +1011,9 @@ export function useAdminSettingsPage() {
 
   watch(activeTab, (value) => {
     if (value !== 'pages') {
+      pageLoadGeneration += 1
+      pageTask.cancel()
+      pageLoading.value = false
       return
     }
 
@@ -992,6 +1031,9 @@ export function useAdminSettingsPage() {
   })
 
   onUnmounted(() => {
+    active = false
+    pageLoadGeneration += 1
+    pageSaveGeneration += 1
     window.removeEventListener('beforeunload', handleBeforeUnload)
     siteTask.cancel()
     complianceTask.cancel()

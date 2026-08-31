@@ -15,6 +15,12 @@ export const minimalContractBuildSchema =
   'fsusblog.behavior-doc-minimal-contract-build-receipt.v1'
 
 const hostDeclarations = Object.freeze({
+  'runtime-role-observation': {
+    project: 'tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj',
+    output: '.tmp/contracts/runtime-role/runtime-role-observation.json',
+    cacheFile: 'observations/runtime-role-observation.json',
+    repositoryRootArgument: false
+  },
   'openapi-aeds-observation': {
     project: 'tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj',
     output: '.tmp/contracts/openapi/api-aeds-observation.json',
@@ -268,14 +274,25 @@ export function validateMinimalContractBuildReceipt(receipt, {
 
 export function buildIdentitiesFromMinimalReceipt(receipt) {
   validateMinimalContractBuildReceipt(receipt)
-  return Object.fromEntries(Object.entries(receipt.artifacts).map(([artifactId, artifact]) => [
-    artifactId,
-    {
+  return Object.fromEntries(Object.entries(receipt.artifacts).map(([artifactId, artifact]) => {
+    const declaration = hostDeclarations[artifactId]
+    if (declaration == null) throw new Error(`minimal contract build has unknown artifact ${artifactId}`)
+    const receiptBody = {
+      schema: `fsusblog.${artifactId}-build-receipt.v1`,
       artifactId,
-      receiptDigest: receipt.contentDigest,
-      artifactDigest: artifact.artifactDigest
+      artifactPath: declaration.output,
+      artifactDigest: artifact.artifactDigest,
+      configuration: 'Release'
     }
-  ]))
+    return [
+      artifactId,
+      {
+        artifactId,
+        receiptDigest: digestValue(receiptBody),
+        artifactDigest: artifact.artifactDigest
+      }
+    ]
+  }))
 }
 
 function reusableReceipt({
@@ -358,6 +375,7 @@ export function runMinimalContractBuild({
     ...Object.values(hostDeclarations).map((entry) => entry.project),
     'config/contracts/behavior-fact-extractors.json',
     'Directory.Build.props',
+    'Directory.Packages.props',
     'FsusBlog.slnx',
     'src/backend/FsusBlog.Server.csproj',
     'src/core/FsusBlog.Core.csproj',

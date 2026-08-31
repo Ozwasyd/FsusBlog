@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.issue-acceptance-baseline.v1",
+    "issue": 2381,
+    "sourceCommit": "42739915ab8eaf781aa6b0112ff97705afe50a08",
+    "expectedRecords": 1,
+    "expectedMigrated": 1,
+    "records": [
+        {
+            "id": "xunit:tests/backend/Unit/BackendPropertyTests.cs#BackendPropertyTests.UploadRangeProperty_NormalizesOverlapAndRequiresAllPartsForComplete",
+            "path": "tests/backend/Unit/BackendPropertyTests.cs",
+            "disposition": "migrated"
+        }
+    ]
+}

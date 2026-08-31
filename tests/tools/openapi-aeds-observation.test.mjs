@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-const { loadCatalog } = await import(new URL("../../tools/contracts/behavior-contract-catalog.mjs", import.meta.url));
+const { digestCatalog, loadCatalog } = await import(new URL("../../tools/contracts/behavior-contract-catalog.mjs", import.meta.url));
 const { buildOpenApiFromMatrix, committedOpenApiPath, operationsFromOpenApi, readJson, loadProtocol } = await import(new URL("../../tools/contracts/lib/openapi-contracts.mjs", import.meta.url));
 const { openApiProjectionTextFromObservationFile, observationToFactObservations, validateObservationAgainstProtocol, writeGeneratedOpenApiProjection } = await import(new URL("../../tools/contracts/lib/openapi-observation.mjs", import.meta.url));
 const { extract: extractOpenApi } = await import(new URL("../../tools/fact-extractors/openapi-aeds/extract.mjs", import.meta.url));
@@ -33,8 +33,31 @@ function writeObservation(repositoryRoot, observation)
 
 function sampleObservation(overrides = {})
 {
+    const typed = (operation) => ({
+        ...operation,
+        request: {
+            source: operation.requestFrame == null ? 'none' : 'aeds-frame-body',
+            schemaRef: operation.requestFrame == null ? null : `aeds://frame/${operation.requestFrame}`,
+            required: operation.requestFrame != null,
+            nullable: false,
+            requiredFields: [],
+            parameters: [],
+            fieldSetState: operation.requestFrame == null ? 'not-applicable' : 'opaque-aeds-frame',
+            boundsState: operation.requestFrame == null ? 'not-applicable' : 'opaque-aeds-frame',
+            unionState: operation.requestFrame == null ? 'not-applicable' : 'opaque-aeds-frame'
+        },
+        responses: [
+            { status: operation.successStatus, schemaRef: `aeds://frame/${operation.responseFrame}`, contentType: 'application/octet-stream', resultPlacement: 'aeds.frame.payload', nullable: false },
+            { status: null, schemaRef: 'aeds://frame/ApiError', contentType: 'application/octet-stream', resultPlacement: 'aeds.frame.payload', nullable: false }
+        ],
+        publicErrorRefs: ['configuration-error-security-policy:error-transport-mappings:ApiError'],
+        publicErrorRefState: 'transport-frame-authority-only',
+        errorAuthorityBehaviorId: 'configuration-error-security-policy',
+        resultPlacement: 'aeds.frame.payload',
+        protocolState: 'active-aeds-only'
+    })
     return {
-        schema: 'fsusblog.api-aeds-observation.v1',
+        schema: 'fsusblog.api-aeds-observation.v2',
         protocol: 'AEDS',
         aedsVersion: 2,
         operationCount: 2,
@@ -43,8 +66,18 @@ function sampleObservation(overrides = {})
             'POST /api/binary/admin/article'
         ],
         observationDigest: 'a'.repeat(64),
+        protocolStates: {
+            supportedVersions: [2], activeFrameIds: ['ApiError', 'ArticleDetail', 'ArticleWriteRequest', 'MutationId', 'RetiredCredentialSpecificRevocationRequest'],
+            retiredFrameValues: [40], migrationOnlyFrameIds: ['Reserved177'], aedsOnly: true
+        },
+        errorAuthority: {
+            behaviorId: 'configuration-error-security-policy',
+            catalogDigest: 'c'.repeat(64),
+            documentPath: 'docs/api/schemas-and-errors.md',
+            factIds: ['facts.error-codes.domain.active', 'facts.error-codes.transport-mapping']
+        },
         operations: [
-            {
+            typed({
                 method: 'GET',
                 path: '/api/binary/article/{id}.aeds',
                 operationId: 'binary_get_article_id_aeds',
@@ -59,8 +92,8 @@ function sampleObservation(overrides = {})
                 rateLimit: 'public_read',
                 cache: 'public-read',
                 successStatus: 200
-            },
-            {
+            }),
+            typed({
                 method: 'POST',
                 path: '/api/binary/admin/article',
                 operationId: 'binary_post_admin_article',
@@ -75,7 +108,7 @@ function sampleObservation(overrides = {})
                 rateLimit: 'fixed_ip',
                 cache: 'no-store',
                 successStatus: 200
-            }
+            })
         ],
         ...overrides
     };
@@ -306,6 +339,95 @@ test('stale artifact digest (yesterday Debug swap) fails', () =>
         });
         assert.equal(result.status, 'failed');
         assert.match(result.failureReasons.join('\n'), /digest mismatch|stale|unbound/iu);
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('typed request, response, protocol, and error authority counterexamples fail closed', () =>
+{
+    const cases = [
+        ['missing request', (value) => { delete value.operations[0].request; }, /request contract/iu],
+        ['incorrect request required', (value) => { value.operations[0].request.required = true; }, /request direction|request contract/iu],
+        ['incorrect request nullable', (value) => { value.operations[1].request.nullable = true; }, /request contract/iu],
+        ['invented request field bounds', (value) => { value.operations[1].request.boundsState = 'frame-contract'; }, /request contract/iu],
+        ['invented request union', (value) => { value.operations[1].request.unionState = 'oneOf'; }, /request contract/iu],
+        ['invented request required field', (value) => { value.operations[1].request.requiredFields.push('frame'); }, /request contract/iu],
+        ['missing error response', (value) => { value.operations[0].responses.pop(); }, /response contracts/iu],
+        ['success status drift', (value) => { value.operations[0].responses[0].status = 201; }, /response status/iu],
+        ['content type drift', (value) => { value.operations[0].responses[0].contentType = 'application/json'; }, /response contracts/iu],
+        ['response schema drift', (value) => { value.operations[0].responses[0].schemaRef = 'aeds://frame/ApiError'; }, /response status/iu],
+        ['result placement drift', (value) => { value.operations[0].responses[0].resultPlacement = 'json.body'; }, /response contracts/iu],
+        ['duplicate response', (value) => { value.operations[0].responses.push({ ...value.operations[0].responses[0] }); }, /response contracts/iu],
+        ['active migration overlap', (value) => { value.protocolStates.migrationOnlyFrameIds.push('ArticleDetail'); }, /protocol states conflict/iu],
+        ['reserved frame in active partition', (value) => { value.protocolStates.activeFrameIds.push('Reserved178'); }, /protocol states conflict/iu],
+        ['non-reserved migration frame', (value) => { value.protocolStates.migrationOnlyFrameIds.push('MigrationFrame'); }, /protocol states conflict/iu],
+        ['duplicate retired protocol value', (value) => { value.protocolStates.retiredFrameValues.push(40); }, /protocol states conflict/iu],
+        ['missing migration partition', (value) => { delete value.protocolStates.migrationOnlyFrameIds; }, /protocol states missing/iu],
+        ['error behavior drift', (value) => { value.operations[0].errorAuthorityBehaviorId = 'binary-api-aeds-contract'; }, /public errors/iu],
+        ['invented operation error allow-list', (value) => { value.operations[0].publicErrorRefState = 'operation-allow-list'; }, /public errors/iu],
+        ['duplicate public error ref', (value) => { value.operations[0].publicErrorRefs.push(value.operations[0].publicErrorRefs[0]); }, /public errors/iu],
+        ['duplicate authority fact', (value) => { value.errorAuthority.factIds.push(value.errorAuthority.factIds[0]); }, /error authority binding/iu]
+    ];
+
+    for (const [name, mutate, expected] of cases)
+    {
+        const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-typed-negative-'));
+        try
+        {
+            const observation = sampleObservation();
+            mutate(observation);
+            const sealed = writeObservation(directory, observation);
+            const result = extractOpenApi({
+                repositoryRoot: directory,
+                buildIdentity: {
+                    artifactId: 'openapi-aeds-observation',
+                    receiptDigest: 'b'.repeat(64),
+                    artifactDigest: sealed.artifactDigest
+                }
+            });
+            assert.equal(result.status, 'failed', name);
+            assert.match(result.failureReasons.join('\n'), expected, name);
+        }
+        finally
+        {
+            rmSync(directory, { recursive: true, force: true });
+        }
+    }
+});
+
+test('current error authority catalog digest and sealed artifact bytes are independently bound', () =>
+{
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-authority-digest-'));
+    try
+    {
+        const catalogPath = path.join(directory, 'config/contracts/behavior-contracts.json');
+        mkdirSync(path.dirname(catalogPath), { recursive: true });
+        writeFileSync(catalogPath, '{"schema":"current"}\n');
+        const observation = sampleObservation();
+        observation.errorAuthority.catalogDigest = digestCatalog(JSON.parse(readFileSync(catalogPath, 'utf8')));
+        const sealed = writeObservation(directory, observation);
+        const identity = {
+            artifactId: 'openapi-aeds-observation',
+            receiptDigest: 'b'.repeat(64),
+            artifactDigest: sealed.artifactDigest
+        };
+        assert.equal(extractOpenApi({ repositoryRoot: directory, buildIdentity: identity }).status, 'ok');
+
+        writeFileSync(catalogPath, '  { "schema": "current" }\n');
+        assert.equal(extractOpenApi({ repositoryRoot: directory, buildIdentity: identity }).status, 'ok');
+
+        writeFileSync(catalogPath, '{"schema":"tampered"}\n');
+        const authorityDrift = extractOpenApi({ repositoryRoot: directory, buildIdentity: identity });
+        assert.equal(authorityDrift.status, 'failed');
+        assert.match(authorityDrift.failureReasons.join('\n'), /catalog digest.*current BehaviorCatalog/iu);
+
+        writeFileSync(sealed.absolute, `${sealed.text} `);
+        const artifactTamper = extractOpenApi({ repositoryRoot: directory, buildIdentity: identity });
+        assert.equal(artifactTamper.status, 'failed');
+        assert.match(artifactTamper.failureReasons.join('\n'), /artifact digest mismatch/iu);
     }
     finally
     {

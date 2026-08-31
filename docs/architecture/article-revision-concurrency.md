@@ -23,3 +23,31 @@ Advisory locks are transaction-scoped and release automatically on commit or rol
 Historical rollback uses the same article-scoped transaction and lock order as a normal update. The request supplies the current `baseRevisionId`; the article-row CAS runs before the source package is copied. A successful rollback allocates fresh revision and publication coordinates, copies the source rights and responsibility snapshots into new bindings, records source revision/actor/reason, and writes only the new coordinates to the mutation outbox. A stale base or incomplete required package aborts the transaction without partially persisted bindings or events. The historical row is never reactivated.
 
 If revision writes must be degraded, disable the article authoring write surface through the existing active-slot rollback rather than dropping the unique index or terminating PostgreSQL sessions. Existing reads and immutable revisions remain available. The local PostgreSQL concurrency tests cover same-article contention, different-article progress, deleted-article rejection, bounded conflict handling shape and rollback reuse; production traffic or an external database service is not required.
+## Current rollback semantics
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.rollback
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.article.rollback-semantics
+render: key-value-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN content.article.rollback-semantics -->
+| Key | Value |
+| --- | --- |
+| allowedTargets | ["Archived","Draft","Published"] |
+| clonesResponsibilityFromSourceRevision | true |
+| createsPublication | true |
+| forbiddenTargets | ["Deleted","Scheduled"] |
+| operation | Rollback |
+<!-- FSUSBLOG-GENERATED:END content.article.rollback-semantics -->
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.rollback-causal
+behaviorId: article-comment-lifecycle-outbox
+claimType: binary-relation
+factPath: facts.article.rollback.causal
+render: relation-subject-predicate-object
+-->
+rollback creates new revision and new publication coordinates from a historical revision while preserving immutable history when the requested historical revision is accepted as the rollback source。

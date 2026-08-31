@@ -203,7 +203,7 @@ public sealed partial class MessageCenterService
         }
         int unreadCount = beforeMessageId.HasValue
             ? await LoadAdminQueueUnreadCountAsync(conversationId)
-            : await AdvanceAdminQueueReadAsync(conversationId, long.Parse(page.Messages[^1].MessageId, CultureInfo.InvariantCulture), DateTime.UtcNow);
+            : await AdvanceAdminQueueReadAsync(conversationId, long.Parse(page.Messages[^1].MessageId, CultureInfo.InvariantCulture), UtcNow);
         return new AdminConversationDetailResponse
         {
             ConversationId = conversation.Id.ToString(),

@@ -19,6 +19,7 @@ import {
   applyUxViewportMediaMode,
   assertControlsInsideSafeRect,
   assertDocumentViewportMetaContract,
+  assertLightboxMediaGeometry,
   assertNoBodyOverflowLeak,
   assertOverlayActionsReachable,
   assertOverlayCloseRestoresFocusAndScroll,
@@ -46,6 +47,7 @@ import {
   UX_VIEWPORT_MODEL_ROUTE_IDS,
   buildUxViewportPlan
 } from '../../support/playwright/uxViewportPlan.mjs'
+import { installArticleLightboxProductionSurface } from '../../support/playwright/articleLightboxProductionSurface'
 // @ts-ignore The retry helper is a pure module covered by node:test.
 import { navigateThroughRetryablePublicAot } from '../../support/playwright/publicAotNavigationRetry.mjs'
 // @ts-ignore The risk-only settle helper intentionally stays a pure module covered by node:test.
@@ -122,7 +124,7 @@ const usesIsolatedSessions = process.env.FSUSBLOG_TEST_SESSION_ISOLATION === '1'
 const viewportExecutionMode = mode === 'smoke' || usesIsolatedSessions
   ? 'parallel'
   : 'default'
-const resume = readBooleanFlag('FSUSBLOG_UX_VIEWPORT_RESUME')
+const resume = false
 const riskMatrix = readBooleanFlag('FSUSBLOG_UX_VIEWPORT_RISK_MATRIX')
 const runtimeBrowserTimeoutPlan = resolveRuntimeBrowserTimeoutPlan()
 const riskAppReadyTimeoutMs = riskMatrix
@@ -844,6 +846,13 @@ async function runUxSafeAreaGroup(
     )
     try {
       const profile = group.profile
+      const lightboxHarness = group.surface.open === 'article-image-lightbox'
+        ? await timing.measure(
+            'fixture.article-lightbox-production-surface',
+            group.id,
+            () => installArticleLightboxProductionSurface(pageSession.page, fixtures.articleId)
+          )
+        : null
       await timing.measure('safe-area.apply-profile', group.id, async () => {
         await applyUxSafeAreaProfile(pageSession.page, profile)
       })
@@ -867,6 +876,19 @@ async function runUxSafeAreaGroup(
         group.id,
         () => waitForUxViewportAppReady(pageSession.page, timing, group.id)
       )
+      if (lightboxHarness) {
+        await timing.measure('fixture.assert-article-lightbox-production-surface', group.id, () => (
+          expect.poll(() => ({
+            navigationRequests: lightboxHarness.navigationRequests(),
+            productionAssetObserved: lightboxHarness.productionAssetRequests() > 0
+          }), {
+            message: `${group.id} should consume the compiled production lightbox surface`
+          }).toEqual({
+            navigationRequests: 1,
+            productionAssetObserved: true
+          })
+        ))
+      }
       await settleUxViewportPage(pageSession.page, timing, 'navigation', group.id)
 
       // Re-apply after navigation: SPA boots may reset inline vars on documentElement.
@@ -885,6 +907,11 @@ async function runUxSafeAreaGroup(
         group.id,
         () => openOverlayRiskSurface(pageSession.page, group.surface!.open)
       )
+      if (group.surface!.open === 'article-image-lightbox') {
+        await timing.measure('safe-area.settle-lightbox-motion', group.id, () => (
+          settleArticleLightboxMotion(opened.scrim)
+        ))
+      }
 
       const label = group.id
       await timing.measure('safe-area.assert-scrim', label, () => (
@@ -902,6 +929,46 @@ async function runUxSafeAreaGroup(
           shortVisual: profile.id === 'short-visual'
         })
       ))
+      if (group.surface!.open === 'article-image-lightbox') {
+        await timing.measure('safe-area.assert-lightbox-media', label, () => (
+          assertLightboxMediaGeometry(pageSession.page, opened.controlRoot, profile, label)
+        ))
+        if (screenshotsEnabled) {
+          await captureArticleLightboxRenderedEvidence(
+            opened.scrim,
+            profile,
+            group.browser ?? 'unknown',
+            timing
+          )
+        }
+
+        if (profile.id === 'portrait-notch') {
+          const landscapeProfile = UX_VIEWPORT_MATRIX.safeArea?.profiles?.['landscape-notch']
+          if (!landscapeProfile) {
+            throw new Error('landscape-notch safe-area profile is missing')
+          }
+          await timing.measure('safe-area.resize-open-lightbox', label, async () => {
+            await applyUxSafeAreaProfile(pageSession.page, landscapeProfile)
+            await pageSession.page.evaluate(() => window.dispatchEvent(new Event('orientationchange')))
+          })
+          await timing.measure('safe-area.assert-resized-scrim', label, () => (
+            assertScrimCoversViewport(pageSession.page, opened.scrim, `${label} resized scrim`)
+          ))
+          await timing.measure('safe-area.assert-resized-controls', label, () => (
+            assertControlsInsideSafeRect(pageSession.page, opened.controlRoot, landscapeProfile, `${label} resized`)
+          ))
+          await timing.measure('safe-area.assert-resized-actions', label, () => (
+            assertOverlayActionsReachable(pageSession.page, opened.actions, { label: `${label} resized actions` })
+          ))
+          await timing.measure('safe-area.assert-resized-media', label, () => (
+            assertLightboxMediaGeometry(pageSession.page, opened.controlRoot, landscapeProfile, `${label} resized`)
+          ))
+          await timing.measure('safe-area.restore-open-lightbox', label, async () => {
+            await applyUxSafeAreaProfile(pageSession.page, profile)
+            await pageSession.page.evaluate(() => window.dispatchEvent(new Event('orientationchange')))
+          })
+        }
+      }
 
       await timing.measure('safe-area.close-surface', label, () => closeOverlayRiskSurface(pageSession.page, group.surface!.open))
       await timing.measure('safe-area.assert-restore', label, () => (
@@ -911,6 +978,38 @@ async function runUxSafeAreaGroup(
           trigger: opened.trigger
         })
       ))
+
+      if (group.surface!.open === 'article-image-lightbox') {
+        const reopened = await timing.measure(
+          'safe-area.reopen-lightbox',
+          label,
+          () => openOverlayRiskSurface(pageSession.page, group.surface!.open)
+        )
+        await timing.measure('safe-area.settle-reopened-lightbox-motion', label, () => (
+          settleArticleLightboxMotion(reopened.scrim)
+        ))
+        await timing.measure('safe-area.assert-reopened-scrim', label, () => (
+          assertScrimCoversViewport(pageSession.page, reopened.scrim, `${label} reopened scrim`)
+        ))
+        await timing.measure('safe-area.assert-reopened-controls', label, () => (
+          assertControlsInsideSafeRect(pageSession.page, reopened.controlRoot, profile, `${label} reopened`)
+        ))
+        await timing.measure('safe-area.assert-reopened-media', label, () => (
+          assertLightboxMediaGeometry(pageSession.page, reopened.controlRoot, profile, `${label} reopened`)
+        ))
+        await timing.measure(
+          'safe-area.reclose-lightbox',
+          label,
+          () => closeOverlayRiskSurface(pageSession.page, group.surface!.open)
+        )
+        await timing.measure('safe-area.assert-rerestore', label, () => (
+          assertOverlayCloseRestoresFocusAndScroll(pageSession.page, {
+            label: `${label} reopened`,
+            expectedScrollY: scrollBefore,
+            trigger: reopened.trigger
+          })
+        ))
+      }
 
       await timing.measure('safe-area.clear-profile', group.id, () => clearUxSafeAreaProfileOverrides(pageSession.page))
     } catch (error) {
@@ -930,6 +1029,39 @@ async function runUxSafeAreaGroup(
   } finally {
     await timing.measure('context.close', group.id, () => auditedContext.close())
   }
+}
+
+async function settleArticleLightboxMotion(scrim: Locator): Promise<void> {
+  await scrim.evaluate(async (element) => {
+    await Promise.allSettled(
+      element.getAnimations({ subtree: true }).map((animation) => animation.finished)
+    )
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    })
+  })
+}
+
+async function captureArticleLightboxRenderedEvidence(
+  scrim: Locator,
+  profile: UxSafeAreaProfile,
+  browser: string,
+  timing: UxRiskTimingRecorder
+): Promise<void> {
+  const detail = `article-lightbox:${profile.id}:${browser}`
+  const file = path.join(
+    screenshotRoot,
+    'safe-area',
+    profile.id,
+    browser,
+    'article-lightbox.png'
+  )
+  await timing.measure('screenshot.mkdir', detail, () => mkdir(path.dirname(file), { recursive: true }))
+  await timing.measure('screenshot.capture', detail, () => scrim.screenshot({
+    path: file,
+    animations: 'disabled',
+    caret: 'hide'
+  }))
 }
 
 type OpenedOverlay = Readonly<{
@@ -1067,52 +1199,10 @@ async function closeOverlayRiskSurface(page: import('@playwright/test').Page, op
 }
 
 async function ensureArticleBodyImage(page: import('@playwright/test').Page): Promise<void> {
-  const existing = page.locator('img.fsus-article-preview-image, img[data-fsus-motion-surface="article-body-image"]')
-  if (await existing.count()) {
-    return
-  }
-
-  // Fixture articles may ship without body images. Prefer production scanner
-  // images; otherwise inject a probe and force a rescan by toggling locale is
-  // unavailable here, so attach a production-compatible click opener that
-  // mounts ArticleImageLightbox via the public Vue app root when possible.
-  const prepared = await page.evaluate(() => {
-    const root = document.querySelector('[itemprop="articleBody"], .markdown-body, article .prose, main article')
-      ?? document.querySelector('main')
-    if (!(root instanceof HTMLElement)) {
-      return { ok: false, reason: 'article content root missing for lightbox probe' }
-    }
-    let image = root.querySelector('img')
-    if (!(image instanceof HTMLImageElement)) {
-      image = document.createElement('img')
-      image.src = 'data:image/svg+xml,' + encodeURIComponent(
-        '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="100"><rect width="160" height="100" fill="#6b7280"/><text x="12" y="56" fill="#fff" font-size="16">safe-area</text></svg>'
-      )
-      image.alt = 'safe-area lightbox probe'
-      root.appendChild(image)
-    }
-    image.classList.add('fsus-article-preview-image')
-    image.setAttribute('data-fsus-motion-surface', 'article-body-image')
-    image.setAttribute('role', 'button')
-    image.setAttribute('tabindex', '0')
-    image.setAttribute('data-ux-safe-area-probe', 'lightbox-image')
-    if (!(image as HTMLImageElement & { __uxSafeAreaBound?: boolean }).__uxSafeAreaBound) {
-      const open = () => {
-        // Dispatch a bubbling click after production handlers would have run;
-        // production scan may still attach later. Mark for diagnostics.
-        image?.setAttribute('data-ux-safe-area-probe-ready', '1')
-      }
-      image.addEventListener('click', open)
-      ;(image as HTMLImageElement & { __uxSafeAreaBound?: boolean }).__uxSafeAreaBound = true
-    }
-    return { ok: true, reason: '' }
-  })
-  if (!prepared.ok) {
-    throw new Error(prepared.reason || 'failed to prepare article lightbox image')
-  }
-  await expect(
-    page.locator('img[data-ux-safe-area-probe="lightbox-image"], img.fsus-article-preview-image').first()
-  ).toBeVisible()
+  const existing = page.locator(
+    'img.fsus-article-preview-image[data-fsus-motion-surface="article-body-image"]'
+  )
+  await expect(existing.first(), 'production article body image fixture').toBeVisible({ timeout: 20_000 })
 }
 
 async function injectContentBoundaryCorpus(page: Page): Promise<void> {

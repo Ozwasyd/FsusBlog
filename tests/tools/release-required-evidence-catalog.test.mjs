@@ -37,14 +37,14 @@ function findEntry(ledger, authorityId)
     return ledger.entries.find((entry) => entry.authorityId === authorityId);
 }
 
-test('canonical required evidence catalog is valid with 19 exact-one authorities', () =>
+test('canonical required evidence catalog is valid with 21 exact-one authorities', () =>
 {
     const ledger = loadCanonicalRequiredEvidenceCatalog();
     const errors = errorsFor(ledger);
     assert.deepEqual(errors, []);
     assert.equal(ledger.schema, requiredEvidenceAuthorityLedgerSchema);
     assert.equal(ledger.catalogSchema, requiredEvidenceCatalogSchema);
-    assert.equal(ledger.entries.length, 19);
+    assert.equal(ledger.entries.length, 21);
     const authorityIds = ledger.entries.map((entry) => entry.authorityId);
     assert.deepEqual(authorityIds, [...authorityIds].sort());
     assert.equal(new Set(authorityIds).size, authorityIds.length);

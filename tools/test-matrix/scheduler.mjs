@@ -18,6 +18,10 @@ import {
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler observations reuse the canonical process identity collector.
 import { collectProcessIdentity } from '../test/process-identity.mjs';
 import {
+    createSchedulerReplayActual,
+    validateSchedulerReplayPlan
+} from '../test/scheduler-replay-contract.mjs';
+import {
     validateRunBoundConsumerEvidence,
     validateRunBoundProjection
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Run-bound evidence is owned by the shared execution contract.
@@ -26,6 +30,14 @@ import {
 import { availableMemoryBytes, availableMemoryGiB } from '../test/system-memory.mjs';
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Temporal replay validation is shared with the execution owner.
 import { verifyTemporalReplay } from '../test/temporal-context.mjs';
+import {
+    attachCurrentRunEvidenceHandoff,
+    parseCurrentRunEvidenceHandoffs,
+    resumeCurrentRunEvidenceCheckpoint
+// eslint-disable-next-line import-x/no-relative-parent-imports -- Producer terminal handoffs are scheduler checkpoint inputs.
+} from '../test/current-run-evidence-checkpoint.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler validates the canonical current-run locator registry.
+import { validateEvidenceLocatorRegistry } from '../test/evidence-location-contract.mjs';
 
 import {
     readAndValidateArtifactDigestTable,
@@ -39,6 +51,7 @@ import {
     resolveRunBoundArtifactDeclaration
 } from './local-profile.mjs';
 import { createProductionResourceEnforcer } from './production-resource-enforcement.mjs';
+import { releaseReliabilityResourceConflict } from './release-reliability-scheduler-projection.mjs';
 import {
     createResidentLeaseHandoff,
     readResidentLeaseDocument,
@@ -90,6 +103,7 @@ const orchestrationOnlyFingerprintEnvironmentKeys = new Set([
     'FSUSBLOG_COMMAND_MANIFEST_WORKERS',
     'FSUSBLOG_PLAYWRIGHT_WORKERS',
     'FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE',
+    'FSUSBLOG_SCHEDULER_RESOURCE_GRANT_RUN_ID',
     'FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID',
     'FSUSBLOG_CGROUP_BUNDLE_PATH',
     'FSUSBLOG_CGROUP_EFFECTIVE_CPU_MAX',
@@ -1361,7 +1375,7 @@ export function effectiveCacheInputs(tier)
         const frontend = tier.requiresNode === true || tier.owner === 'InteropGlueAgent' || ['frontend', 'full'].includes(tier.cacheProfile);
         if (backend)
         {
-            for (const value of ['Directory.Build.props', 'FsusBlog.slnx', 'global.json', 'src/backend', 'src/core', 'src/shared', 'tests/backend'])
+            for (const value of ['Directory.Build.props', 'Directory.Packages.props', 'FsusBlog.slnx', 'global.json', 'src/backend', 'src/core', 'src/shared', 'tests/backend'])
             {
                 inputs.add(value);
             }
@@ -2430,6 +2444,16 @@ function resumeTierCandidates(previous, tierIds)
     if (!previous)
     {
         return candidates;
+    }
+    const terminalFailures = Object.entries(previous.tiers ?? {})
+        .filter(([, result]) => result?.status !== 'success')
+        .map(([tierId]) => tierId)
+        .sort();
+    if (terminalFailures.length > 0)
+    {
+        throw new Error(
+            `correctness resume cannot re-execute failed tiers; start an independent run: ${terminalFailures.join(', ')}`
+        );
     }
 
     const retainSuccessful = (tierId, value, fallbackSourceState) =>
@@ -4163,6 +4187,20 @@ async function runDagUnlocked(options)
         throw new Error(`invalid supersedes metadata: ${supersedesErrors.join('; ')}`);
     }
     const tiers = applySupersedes(options.tiers ?? []);
+    const schedulerReplayPlan = options.executionReplayPlan ?? null;
+    if (schedulerReplayPlan)
+    {
+        validateSchedulerReplayPlan(schedulerReplayPlan, { tiers, maxParallel });
+        if (schedulerReplayPlan.schedulerRunId !== runId)
+        {
+            throw new Error('scheduler replay plan run identity drift');
+        }
+        if (schedulerReplayPlan.sourceCommit !== sourceState.commit
+        || schedulerReplayPlan.worktreeFingerprint !== sourceState.worktreeFingerprint)
+        {
+            throw new Error('scheduler replay plan source identity drift');
+        }
+    }
     for (const tierId of currentRunPreexecutedTierBindings.keys())
     {
         if (typeof tierId !== 'string' || !tiers.some((tier) => tier.id === tierId))
@@ -4257,6 +4295,22 @@ async function runDagUnlocked(options)
     {
         throw new Error('wall clock start must be a valid timestamp that is not in the future');
     }
+    const evidenceContextPath = String(options.env?.FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT
+      ?? process.env.FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT ?? '').trim();
+    const currentRunEvidenceContext = evidenceContextPath
+        ? JSON.parse(fs.readFileSync(path.resolve(root, evidenceContextPath), 'utf8'))
+        : null;
+    if (currentRunEvidenceContext
+    && (currentRunEvidenceContext.schedulerRunId !== runId
+      || currentRunEvidenceContext.sourceCommit !== sourceState.commit
+      || currentRunEvidenceContext.worktreeFingerprint !== sourceState.worktreeFingerprint))
+    {
+        throw new Error('scheduler current-run evidence context does not match run/source identity');
+    }
+    const currentRunEvidenceRegistry = currentRunEvidenceContext
+        ? validateEvidenceLocatorRegistry(JSON.parse(fs.readFileSync(path.join(root,
+            'config/testing/evidence-locator-registry.json'), 'utf8')))
+        : null;
     const checkpoint = {
         schema: checkpointSchema,
         runId,
@@ -4301,6 +4355,15 @@ async function runDagUnlocked(options)
         },
         maxParallel,
         sourceState,
+        executionReplay: schedulerReplayPlan ? {
+      planDigest: schedulerReplayPlan.planDigest,
+      schedulerReadyOrderPolicy: schedulerReplayPlan.schedulerReadyOrderPolicy,
+      schedulerShuffleSeed: schedulerReplayPlan.schedulerShuffleSeed,
+      dependencyCatalogDigest: schedulerReplayPlan.dependencyCatalogDigest,
+      eligibleStepIds: schedulerReplayPlan.eligibleStepIds,
+      expectedAdmissionSequence: schedulerReplayPlan.expectedAdmissionSequence,
+      actual: null
+    } : null,
         ...(options.runtimeNamespace ? { runtimeNamespace: options.runtimeNamespace } : {}),
         resumePolicy: resume ? {
       sourceChanged: resumeSourceChanged,
@@ -4313,11 +4376,15 @@ async function runDagUnlocked(options)
         resumeCandidates: resume ? resumeTierCandidates(previous, byId) : {},
         completedTiers: [],
         tiers: {},
+        ...(currentRunEvidenceContext ? {
+            currentRunEvidenceReferences: resumeCurrentRunEvidenceCheckpoint(resume ? previous : null,
+                currentRunEvidenceContext)
+        } : {}),
         failure: null,
         failurePoint: null,
         failures: []
     };
-    const dynamicPriorityEnabled = options.dynamicPriority !== false
+    const dynamicPriorityEnabled = !schedulerReplayPlan && options.dynamicPriority !== false
     && String(options.env?.FSUSBLOG_TEST_DYNAMIC_PRIORITY
       ?? process.env.FSUSBLOG_TEST_DYNAMIC_PRIORITY
       ?? '1') !== '0';
@@ -4389,6 +4456,7 @@ async function runDagUnlocked(options)
     const reusedTiers = [];
     const readyAges = new Map();
     let priorityWaveNumber = 0;
+    let schedulerReplayAdmissionIndex = 0;
     let firstFailure = null;
     let producerAdmissionClosed = false;
     let residentState = null;
@@ -4906,7 +4974,21 @@ async function runDagUnlocked(options)
             readyAges
         });
         const readyById = new Map(ready.map((tier) => [tier.id, tier]));
-        const orderedReady = priority.ranked.map((entry) => readyById.get(entry.tierId));
+        let orderedReady = priority.ranked.map((entry) => readyById.get(entry.tierId));
+        if (schedulerReplayPlan)
+        {
+            orderedReady = [...ready].sort((left, right) =>
+            {
+                if (schedulerReplayPlan.schedulerReadyOrderPolicy === 'canonical')
+                {
+                    return startupAdmissionOrder(left, right);
+                }
+                const replayRank = (tier) => crypto.createHash('sha256')
+                    .update(`${schedulerReplayPlan.schedulerShuffleSeed}\u0000${priorityWaveNumber + 1}\u0000${tier.id}`)
+                    .digest('hex');
+                return replayRank(left).localeCompare(replayRank(right)) || startupAdmissionOrder(left, right);
+            });
+        }
         const priorityById = new Map(priority.ranked.map((entry) => [entry.tierId, entry]));
         const selected = [];
         const decisions = [];
@@ -4923,6 +5005,7 @@ async function runDagUnlocked(options)
         {
             const admittedEntries = [...activeEntries, ...selected.map((item) => ({ tier: item }))];
             let excludedBy = null;
+            let excludedDetail = null;
             if (!canShareAdmission(tier, admittedEntries, maxParallel))
             {
                 if (admittedEntries.length >= maxParallel)
@@ -4940,6 +5023,10 @@ async function runDagUnlocked(options)
                 else if (admittedEntries.some((entry) => intersects(tier.exclusiveResources, entry.tier.exclusiveResources)))
                 {
                     excludedBy = 'exclusive-resource';
+                    excludedDetail = releaseReliabilityResourceConflict(
+                        tier,
+                        admittedEntries.map((entry) => entry.tier)
+                    );
                 }
                 else if (admittedEntries.some((entry) => (
                     (tier.services?.length ?? 0) > 0
@@ -4956,7 +5043,12 @@ async function runDagUnlocked(options)
             }
             if (excludedBy)
             {
-                decisions.push({ ...priorityById.get(tier.id), admitted: false, hardConstraint: excludedBy });
+                decisions.push({
+                    ...priorityById.get(tier.id),
+                    admitted: false,
+                    hardConstraint: excludedBy,
+                    ...(excludedDetail === null ? {} : { hardConstraintDetail: excludedDetail })
+                });
                 continue;
             }
             if (tier.resourceGrantMode === 'dynamic')
@@ -5028,6 +5120,20 @@ async function runDagUnlocked(options)
             0
         );
         const admittedAtMs = Date.now();
+        if (schedulerReplayPlan)
+        {
+            for (const tier of selected)
+            {
+                const expectedTierId = schedulerReplayPlan.expectedAdmissionSequence[schedulerReplayAdmissionIndex];
+                if (tier.id !== expectedTierId)
+                {
+                    throw new Error(
+                        `scheduler replay admission drift at ${schedulerReplayAdmissionIndex}: expected ${expectedTierId}, got ${tier.id}`
+                    );
+                }
+                schedulerReplayAdmissionIndex += 1;
+            }
+        }
         return selected.map((tier) =>
         {
             const priorityDecision = decisions.find((entry) => entry.tierId === tier.id);
@@ -5057,7 +5163,7 @@ async function runDagUnlocked(options)
         if (
             resumeBudgetPolicyChanged
       || (options.reuseAcrossSourceChanges === false && !sameCheckpointSource(candidate?.sourceState, sourceState))
-      || previousTier?.status !== 'success'
+      || !Object.is(previousTier?.status, 'success')
       || previousTier.inputFingerprint !== inputFingerprint
       || previousTier.dependencyFingerprint !== dependencyFingerprintValue
       || previousTier.outputFingerprint !== currentOutputs.fingerprint
@@ -5102,6 +5208,7 @@ async function runDagUnlocked(options)
             FSUSBLOG_TEST_SOURCE_COMMIT: sourceState.commit ?? '',
             FSUSBLOG_TEST_SOURCE_FINGERPRINT: sourceState.worktreeFingerprint,
             FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE: resourceGrantFile,
+            FSUSBLOG_SCHEDULER_RESOURCE_GRANT_RUN_ID: runId,
             FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID: tier.id,
             ...(tier.residentLeaseConsumer === true ? {
         FSUSBLOG_RESIDENT_LEASE_INVENTORY: residentLeaseFile,
@@ -5253,6 +5360,8 @@ async function runDagUnlocked(options)
             runId,
             runDirectory
         };
+        const requiresProcessRegistration =
+            resourceEnforcer.mode === 'enforced' || Boolean(options.registerManagedProcess);
         let execution;
         if (options.executeTier)
         {
@@ -5273,11 +5382,11 @@ async function runDagUnlocked(options)
                 Number(tier.terminationGraceMs) > 0
                     ? Number(tier.terminationGraceMs)
                     : terminationGraceMs,
-                suspendForAttach: resourceEnforcer.mode === 'enforced' || Boolean(options.registerManagedProcess),
+                suspendForAttach: requiresProcessRegistration,
                 durableContainment: Boolean(options.registerManagedProcess)
             });
         }
-        if (execution.child)
+        if (execution.child && requiresProcessRegistration)
         {
             try
             {
@@ -5492,6 +5601,29 @@ async function runDagUnlocked(options)
             reason = `fresh tier did not produce or update its owned generated evidence: ${ownedOutputs.join(', ')}`;
         }
 
+        if (success && currentRunEvidenceContext)
+        {
+            try
+            {
+                const handoffs = parseCurrentRunEvidenceHandoffs(fs.readFileSync(logFile, 'utf8'));
+                for (const handoff of handoffs)
+                {
+                    const entry = currentRunEvidenceRegistry.entries.find((candidate) =>
+                        candidate.authorityId === handoff.authorityId);
+                    if (!entry) throw new Error(`producer terminal handoff authority is unregistered: ${handoff.authorityId}`);
+                    attachCurrentRunEvidenceHandoff({ checkpoint, context: currentRunEvidenceContext,
+                        entry, handoff, registry: currentRunEvidenceRegistry, repositoryRoot: root });
+                }
+            }
+            catch (error)
+            {
+                success = false;
+                reason = error.message;
+                executionResult.code = 1;
+                executionResult.error = error;
+            }
+        }
+
         if (tier.residentLeaseProducer === true)
         {
             if (fs.existsSync(residentLeaseFile) || success)
@@ -5635,6 +5767,9 @@ async function runDagUnlocked(options)
                 }
                 const exclusiveResources = (tier.exclusiveResources ?? []).filter((resource) =>
                     admissionEntries.some((entry) => (entry.tier.exclusiveResources ?? []).includes(resource)));
+                const exclusiveResourceConflicts = admissionEntries
+                    .map((entry) => releaseReliabilityResourceConflict(tier, [entry.tier]))
+                    .filter(Boolean);
                 const serviceResources = (tier.services ?? []).filter((service) =>
                     admissionEntries.some((entry) => (entry.tier.services ?? []).includes(service)))
                     .map((service) => `service:${service}`);
@@ -5645,7 +5780,10 @@ async function runDagUnlocked(options)
                 }
                 else if (exclusiveResources.length > 0)
                 {
-                    schedulerWaitLedger.observe(tier.id, { exclusiveResources });
+                    schedulerWaitLedger.observe(tier.id, {
+                        exclusiveResources,
+                        exclusiveResourceConflicts
+                    });
                 }
                 else
                 {
@@ -5870,6 +6008,30 @@ async function runDagUnlocked(options)
     checkpoint.resourceUtilization.waits = schedulerWaitLedger.finish();
     checkpoint.resourceUtilization.resourceGrantHistory = Object.fromEntries(Object.entries(checkpoint.tiers)
         .map(([tierId, result]) => [tierId, result.resourceGrantHistory ?? []]));
+    if (schedulerReplayPlan)
+    {
+        try
+        {
+            checkpoint.executionReplay.actual = createSchedulerReplayActual({
+                plan: schedulerReplayPlan,
+                checkpoint
+            });
+        }
+        catch (error)
+        {
+            checkpoint.status = 'failure';
+            checkpoint.failure ??= {
+                tierId: checkpoint.targetTierId,
+                exitCode: 1,
+                signal: null,
+                reason: error.message,
+                changedPaths: []
+            };
+            checkpoint.failurePoint ??= checkpoint.targetTierId;
+            checkpoint.failures.push(checkpoint.failure);
+            checkpoint.executionReplay.error = error.message;
+        }
+    }
     finalizeResourceEnforcer();
     checkpoint.resourceEnforcement = resourceEnforcer.evidence();
     removeInterruptHandlers();

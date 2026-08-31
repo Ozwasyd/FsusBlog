@@ -2,14 +2,15 @@ import {
     renderMarkdownResultWithRuntime as renderMarkdownResultWithFsusUiRuntime
 } from '@ozwasyd/element-plus/markdown-runtime';
 
+import { isFsusUiResult, type FsusUiResult } from '@/fsusui/result';
+
 import type {
     MarkdownRenderFeature,
     MarkdownRenderMetadata,
     MarkdownRenderMode,
     MarkdownRenderPlaceholder,
     MarkdownSafeRenderResult
-} from '@/fsusui/markdownContract';
-import { isFsusUiResult, type FsusUiResult } from '@/fsusui/result';
+} from '@ozwasyd/element-plus/markdown-runtime';
 
 export type MarkdownRenderResult = MarkdownSafeRenderResult;
 
@@ -207,7 +208,7 @@ export type {
     MarkdownRenderPlaceholder,
     MarkdownSafeHtml,
     MarkdownSafeRenderResult
-} from '@/fsusui/markdownContract';
+} from '@ozwasyd/element-plus/markdown-runtime';
 export type {
     MarkdownFeatureActivationError,
     MarkdownFeatureActivationFeatureOptions,

@@ -1,0 +1,33 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json"
+            ],
+            "reason": "preserve the generated producer inventory field names consumed by repository tooling"
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md"
+            ],
+            "reason": "preserve the generated testing document identifiers while extending its matrix-owned evidence list"
+        },
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "tools/contracts/behavior-test-binding.mjs"
+            ],
+            "reason": "preserve canonical behavior and observation identifiers while aggregating parameterized xUnit cases"
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/behavior-test-evidence.sh"
+            ],
+            "reason": "preserve the caller-visible evidence lane environment keys while extending its planned test closure"
+        }
+    ]
+}

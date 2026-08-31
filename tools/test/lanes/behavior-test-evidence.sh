@@ -45,8 +45,10 @@ node "$ROOT_DIR/tools/contracts/check-behavior-test-evidence.mjs" \
 NODE_TEST_FILES=(
     tests/tools/code-intent.test.mjs
     tests/tools/document-lifecycle.test.mjs
+    tests/tools/release-reliability-receipt.test.mjs
     tests/tools/test-asset-audit.test.mjs
     tests/tools/test-matrix-topology.test.mjs
+    tests/tools/zero-downtime-rehearsal.test.mjs
 )
 OBSERVATIONS=()
 NODE_RUNTIME="$(node -p 'process.version')"
@@ -80,10 +82,13 @@ for test_file in "${NODE_TEST_FILES[@]}"; do
         --closure-path tests/backend/Unit/CommentMutationOutboxPostgresTests.cs \
         --closure-path tests/backend/Unit/ProductionStartupValidatorTests.cs \
         --closure-path tests/backend/Unit/UserSessionJwtAuthenticationTests.cs \
+        --closure-path tests/backend/Integration/UserSessionSensitiveEndpointIntegrationTests.cs \
         --closure-path tests/tools/code-intent.test.mjs \
         --closure-path tests/tools/document-lifecycle.test.mjs \
+        --closure-path tests/tools/release-reliability-receipt.test.mjs \
         --closure-path tests/tools/test-asset-audit.test.mjs \
         --closure-path tests/tools/test-matrix-topology.test.mjs \
+        --closure-path tests/tools/zero-downtime-rehearsal.test.mjs \
         --closure-path tools/contracts/behavior-test-binding.mjs \
         --closure-path tools/test-observations
     OBSERVATIONS+=("$observation_file")
@@ -130,10 +135,13 @@ node "$ROOT_DIR/tools/test-observations/cli.mjs" adapt \
     --closure-path tests/backend/Unit/CommentMutationOutboxPostgresTests.cs \
     --closure-path tests/backend/Unit/ProductionStartupValidatorTests.cs \
     --closure-path tests/backend/Unit/UserSessionJwtAuthenticationTests.cs \
+    --closure-path tests/backend/Integration/UserSessionSensitiveEndpointIntegrationTests.cs \
     --closure-path tests/tools/code-intent.test.mjs \
     --closure-path tests/tools/document-lifecycle.test.mjs \
+    --closure-path tests/tools/release-reliability-receipt.test.mjs \
     --closure-path tests/tools/test-asset-audit.test.mjs \
     --closure-path tests/tools/test-matrix-topology.test.mjs \
+    --closure-path tests/tools/zero-downtime-rehearsal.test.mjs \
     --closure-path tools/contracts/behavior-test-binding.mjs \
     --closure-path tools/test-observations
 OBSERVATIONS+=("$BACKEND_OBSERVATION")

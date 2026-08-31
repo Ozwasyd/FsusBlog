@@ -42,7 +42,6 @@ public static partial class BinaryEndpoints
     private const string UploadOffsetHeader = "X-Fsus-Upload-Offset";
     private const string UploadPayloadHashHeader = "X-Fsus-Upload-Payload-Hash";
     private const string UploadTokenHeader = "X-Fsus-Upload-Token";
-    private const string CanonicalIllustrationUploadPrefix = "/uploads/illustration/";
     private static readonly HashSet<string> s_allowedPageSlugs = new(StringComparer.OrdinalIgnoreCase)
     {
         "about", "privacy", "guidelines", "copyright"
@@ -134,42 +133,6 @@ public static partial class BinaryEndpoints
         }
 
         return null;
-    }
-
-    private static bool TryNormalizeImageDeletePath(string url, out string ioRelativePath, out string? errorMessage)
-    {
-        errorMessage = null;
-        ReadOnlySpan<char> relativeWebPathSpan;
-        if (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
-            url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-        {
-            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
-            {
-                ioRelativePath = string.Empty;
-                errorMessage = "无效的 URL 格式";
-                return false;
-            }
-
-            relativeWebPathSpan = uri.AbsolutePath.AsSpan();
-        }
-        else
-        {
-            relativeWebPathSpan = url.AsSpan();
-        }
-
-        string relativeWebPath = relativeWebPathSpan.ToString();
-        if (relativeWebPath.Contains('\\', StringComparison.Ordinal) ||
-            relativeWebPath.Contains(':', StringComparison.Ordinal) ||
-            !relativeWebPath.StartsWith(CanonicalIllustrationUploadPrefix, StringComparison.OrdinalIgnoreCase) ||
-            relativeWebPathSpan.Contains("..", StringComparison.Ordinal))
-        {
-            ioRelativePath = string.Empty;
-            errorMessage = "非法路径请求";
-            return false;
-        }
-
-        ioRelativePath = relativeWebPath;
-        return true;
     }
 
     private static UploadInitRequestDto ToServerDto(UploadInitRequestCoreModel value)

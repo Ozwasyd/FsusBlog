@@ -52,3 +52,52 @@ worker 总是按 `occurred_at_utc, id` claim，但不依赖绝对有序：实时
 ## 风险边界
 
 暂停 worker 会延迟公开缓存、实时流和通知，但不会丢失权威评论状态。恢复时可能产生短时积压压力；按 backlog age 与 failed/poison 观察并逐批释放。此设计不引入外部消息系统，单进程开发使用内置 hosted worker；多实例仍复用 `IBackgroundWorkerLease` leader election。
+## Current comment outbox edges
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.comment-outbox
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.comment.required-outbox-edges
+render: key-value-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN content.comment.required-outbox-edges -->
+| Key | Value |
+| --- | --- |
+| CommentCreated | ["audit-projection","cache-version","model-moderation","realtime-stream"] |
+| CommentDeleted | ["audit-projection","cache-version","realtime-stream","site-notification"] |
+| CommentEdited | ["audit-projection","cache-version","realtime-stream"] |
+| CommentModerationChanged | ["audit-projection","cache-version","realtime-stream","site-notification"] |
+| CommentReplyNotificationRequested | ["site-notification"] |
+| CommentVisibilityChanged | ["audit-projection","cache-version","realtime-stream"] |
+<!-- FSUSBLOG-GENERATED:END content.comment.required-outbox-edges -->
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.comment-outbox-consumers
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.comment.outbox-consumers
+render: enum-set
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN content.comment.outbox-consumers -->
+- `audit-projection`
+- `cache-version`
+- `model-moderation`
+- `realtime-stream`
+- `site-notification`
+<!-- FSUSBLOG-GENERATED:END content.comment.outbox-consumers -->
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.comment-outbox-terminal-states
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.comment.outbox-terminal-states
+render: enum-set
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN content.comment.outbox-terminal-states -->
+- `completed`
+- `poison`
+- `processed`
+- `terminal-failed`
+<!-- FSUSBLOG-GENERATED:END content.comment.outbox-terminal-states -->

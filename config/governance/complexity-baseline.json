@@ -1201,21 +1201,21 @@
                 "dependencyImportCount": 26
             }
         },
-        "src/backend/Infrastructure/SchemaMigration/Definitions/AuthoringAndIntegrityMigrationDefinitions.cs": {
+        "src/migration/Definitions/AuthoringAndIntegrityMigrationDefinitions.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
                 "fileLines": 1309,
                 "functionMethodCount": 166
             }
         },
-        "src/backend/Infrastructure/SchemaMigration/Definitions/LegacyIdentityMigrationDefinitions.cs": {
+        "src/migration/Definitions/LegacyIdentityMigrationDefinitions.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
                 "fileLines": 1311,
                 "functionMethodCount": 133
             }
         },
-        "src/backend/Infrastructure/SchemaMigration/Definitions/SecurityAndProjectionMigrationDefinitions.cs": {
+        "src/migration/Definitions/SecurityAndProjectionMigrationDefinitions.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
                 "fileLines": 1357,
@@ -1239,13 +1239,13 @@
                 "functionMethodCount": 118
             }
         },
-        "src/backend/Infrastructure/SchemaMigration/SchemaMigrationDdlPrimitives.cs": {
+        "src/migration/SchemaMigrationDdlPrimitives.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
                 "publicSurfaceCount": 46
             }
         },
-        "src/backend/Infrastructure/SchemaMigration/SchemaMigrationPrimitives.cs": {
+        "src/migration/SchemaMigrationPrimitives.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
                 "typeCount": 19
@@ -2961,12 +2961,6 @@
             "excess": {
                 "dependencyImportCount": 26,
                 "responsibilityCount": 6
-            }
-        },
-        "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs": {
-            "category": "HandwrittenModule",
-            "excess": {
-                "typeCount": 8
             }
         },
         "tests/backend/Unit/AnonymousZkProdWrapperFixtureTests.cs": {

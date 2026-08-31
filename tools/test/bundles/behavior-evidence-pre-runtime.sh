@@ -13,6 +13,7 @@ fi
 ADMISSION_RECEIPT="${FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RECEIPT:-$ROOT_DIR/.tmp/behavior-doc-static-admission/receipt.json}"
 ADMISSION_COMPONENTS="${FSUSBLOG_BEHAVIOR_DOC_ADMISSION_COMPONENTS:-$ROOT_DIR/.tmp/behavior-doc-static-admission/components}"
 CATALOG="${FSUSBLOG_BEHAVIOR_CATALOG:-$ROOT_DIR/config/contracts/behavior-contracts.json}"
+FACT_EXTRACTOR_REGISTRY="${FSUSBLOG_BEHAVIOR_FACT_EXTRACTOR_REGISTRY:-$ROOT_DIR/config/contracts/behavior-fact-extractors.json}"
 OWNER_RECEIPT="${FSUSBLOG_BEHAVIOR_OWNER_RECEIPT:-$ADMISSION_COMPONENTS/behavior-owner-binding.json}"
 DOC_CLAIM_PARSE="${FSUSBLOG_DOC_CLAIM_PARSE:-$ADMISSION_COMPONENTS/doc-claim-parse.json}"
 DOC_CLAIM_VERIFICATION="${FSUSBLOG_DOC_CLAIM_VERIFICATION:-$ADMISSION_COMPONENTS/doc-claim-verification.json}"
@@ -21,7 +22,7 @@ FACT_OBSERVATIONS_DIR="${FSUSBLOG_FACT_OBSERVATIONS_DIR:-$ADMISSION_COMPONENTS/f
 MUTATION_EVIDENCE="${FSUSBLOG_MUTATION_EVIDENCE_RECEIPT:-$ROOT_DIR/.tmp/mutation/changed-critical/${FSUSBLOG_TEST_RUN_ID}/mutation-evidence.json}"
 OUT_DIR="${FSUSBLOG_BEHAVIOR_EVIDENCE_PRE_RUNTIME_OUT:-$ROOT_DIR/.tmp/behavior-evidence-pre-runtime}"
 
-for required in "$ADMISSION_RECEIPT" "$CATALOG" "$OWNER_RECEIPT" "$DOC_CLAIM_PARSE" "$DOC_CLAIM_VERIFICATION" "$GENERATED_SECTION_CHECK"; do
+for required in "$ADMISSION_RECEIPT" "$CATALOG" "$FACT_EXTRACTOR_REGISTRY" "$OWNER_RECEIPT" "$DOC_CLAIM_PARSE" "$DOC_CLAIM_VERIFICATION" "$GENERATED_SECTION_CHECK"; do
     if [[ ! -f "$required" ]]; then
         printf '%s\n' "[behavior-evidence-pre-runtime] required input missing: $required" >&2
         exit 1
@@ -60,6 +61,7 @@ fi
 mkdir -p "$OUT_DIR"
 "$NODE_BIN" "$ROOT_DIR/tools/test-matrix/behavior-evidence-pre-runtime.mjs" \
     --catalog "$CATALOG" \
+    --fact-extractor-registry "$FACT_EXTRACTOR_REGISTRY" \
     --owner "$OWNER_RECEIPT" \
     --static-admission "$ADMISSION_RECEIPT" \
     "${TEST_EVIDENCE_ARGS[@]}" \

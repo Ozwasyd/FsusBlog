@@ -407,6 +407,15 @@ test('counter-example: manual deletion of a generated row fails check', () =>
     }
 });
 
+test('receipt-canonical empty set {count:0} obeys render-empty without becoming a map row', () =>
+{
+    assert.equal(RendererRegistry.render('enum-set', { count: 0 }, { emptyPolicy: 'render-empty' }), '_empty set_')
+    assert.throws(
+        () => RendererRegistry.render('enum-set', { count: 0 }, { emptyPolicy: 'fail' }),
+        /empty observation rejected/u
+    )
+})
+
 test('counter-example: tampered generated value with only lastVerifiedCommit change still fails', () =>
 {
     const directory = fixtureRoot();
@@ -707,10 +716,12 @@ test('resolveFactPath prefers exact keys then nested descent', () =>
 {
     const observations = {
         permissions: ['a'],
-        nested: { child: { value: 3 } }
+        nested: { child: { value: 3 } },
+        facts: { 'auth.authentication-methods': { active: ['passkey'] } }
     };
     assert.deepEqual(resolveFactPath(observations, 'permissions'), ['a']);
     assert.equal(resolveFactPath(observations, 'nested.child.value'), 3);
+    assert.deepEqual(resolveFactPath(observations, 'facts.auth.authentication-methods.active'), ['passkey']);
     assert.equal(resolveFactPath(observations, 'missing'), undefined);
 });
 
@@ -792,27 +803,14 @@ test('repository governance rejects a lifecycle metadata write target', (t) =>
 
 test('CLI --check on empty catalog succeeds with zero writes', () =>
 {
-    const directory = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-generated-empty-'));
-    const catalog = path.join(directory, 'empty-catalog.json');
-    writeFileSync(catalog, `${JSON.stringify({
-        schema: catalogSchemaId,
-        digestAlgorithm: 'sha256',
-        canonicalSerialization: 'json-utf8-v1',
-        sections: []
-    })}\n`);
-    try
-    {
-        const result = spawnSync(process.execPath, [cli, '--check', '--catalog', catalog], {
+    const directory = fixtureRoot();
+    const catalogPath = write(directory, 'empty-catalog.json', `${JSON.stringify(sampleCatalog([]), null, 2)}\n`);
+    const result = spawnSync(process.execPath, [cli, '--check', '--catalog', catalogPath], {
         cwd: root,
         encoding: 'utf8'
-        });
-        assert.equal(result.status, 0, result.stderr || result.stdout);
-        assert.match(result.stdout, /sections=0/);
-    }
-    finally
-    {
-        rmSync(directory, { recursive: true, force: true });
-    }
+    });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /sections=0/);
 });
 
 test('CLI rejects unknown flags and missing mode', () =>

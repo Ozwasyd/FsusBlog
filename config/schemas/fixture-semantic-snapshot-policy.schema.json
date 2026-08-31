@@ -1,0 +1,71 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "fsusblog.fixture-semantic-snapshot-policy.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "version",
+        "fieldDispositions",
+        "recordKinds",
+        "nonownedSentinelDomains",
+        "defaultShardSize",
+        "maximumShardSize"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.fixture-semantic-snapshot-policy.v1"
+        },
+        "version": {
+            "const": 1
+        },
+        "fieldDispositions": {
+            "type": "array",
+            "minItems": 5,
+            "uniqueItems": true,
+            "items": {
+                "enum": [
+                    "diagnostic-volatile",
+                    "execution-identity",
+                    "location",
+                    "secret-redacted",
+                    "semantic"
+                ]
+            }
+        },
+        "recordKinds": {
+            "type": "array",
+            "minItems": 6,
+            "uniqueItems": true,
+            "items": {
+                "enum": [
+                    "api-projection",
+                    "entity",
+                    "file",
+                    "outbox",
+                    "redis-key",
+                    "relation"
+                ]
+            }
+        },
+        "nonownedSentinelDomains": {
+            "type": "array",
+            "minItems": 2,
+            "uniqueItems": true,
+            "items": {
+                "type": "string",
+                "pattern": "^sentinel\\.[a-z][a-z0-9.-]*$"
+            }
+        },
+        "defaultShardSize": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+        },
+        "maximumShardSize": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+        }
+    }
+}

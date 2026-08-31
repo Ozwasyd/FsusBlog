@@ -16,7 +16,6 @@ fi
 
 RequireDebugStack
 RequireReleasePreview
-ResetSecurityRuntimeState "pre browser resilience diagnostics"
 export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
 export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
 export FSUSBLOG_PLAYWRIGHT_MANAGED_ONLY=1

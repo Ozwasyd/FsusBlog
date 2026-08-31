@@ -99,6 +99,13 @@ function unitProperties(unitName, runSystemctl)
         '--property=ActiveState',
         '--property=ControlGroup',
         '--property=MainPID',
+        '--property=PrivateNetwork',
+        '--property=IPAddressAllow',
+        '--property=IPAddressDeny',
+        '--property=PrivateTmp',
+        '--property=ProtectHome',
+        '--property=ProtectSystem',
+        '--property=ReadWritePaths',
         '--no-pager'
     ];
     let result;
@@ -123,6 +130,14 @@ function unitProperties(unitName, runSystemctl)
     const values = Object.fromEntries(String(result.stdout).trim().split(/\r?\n/u)
         .map((line) => line.split(/=(.*)/su).slice(0, 2)));
     return { status: 'verified', values, command: commandResultEvidence(args, result) };
+}
+
+function exactPropertyTokens(value, expected)
+{
+    const actualTokens = String(value ?? '').trim().split(/\s+/u).filter(Boolean).sort();
+    const expectedTokens = [...expected].sort();
+    return actualTokens.length === expectedTokens.length
+        && actualTokens.every((token, index) => token === expectedTokens[index]);
 }
 
 function cgroupMemberPids(controlGroup)
@@ -319,6 +334,10 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
             command,
             cwd,
             env,
+            controlEnv = process.env,
+            linuxPrivateNetwork = false,
+            linuxNetworkPolicy = null,
+            linuxReadWritePaths = [],
             signal,
             policy,
             stdout,
@@ -376,6 +395,17 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                 '--service-type=exec',
                 '--property=KillMode=control-group',
                 '--property=ExitType=cgroup',
+                ...(linuxPrivateNetwork ? ['--property=PrivateNetwork=yes'] : []),
+                ...(linuxNetworkPolicy ? [
+                    `--property=IPAddressDeny=${linuxNetworkPolicy.deny}`,
+                    `--property=IPAddressAllow=${linuxNetworkPolicy.allow}`
+                ] : []),
+                ...(linuxReadWritePaths.length > 0 ? [
+                    '--property=ProtectSystem=strict',
+                    '--property=ProtectHome=read-only',
+                    '--property=PrivateTmp=yes',
+                    ...linuxReadWritePaths.map((entry) => `--property=ReadWritePaths=${entry}`)
+                ] : []),
                 `--working-directory=${cwd}`,
                 `--unit=${unitName}`,
                 process.execPath,
@@ -387,7 +417,7 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
             {
                 child = spawnProcess('systemd-run', systemdArgs, {
                     cwd,
-                    env,
+                    env: controlEnv,
                     stdio: ['ignore', 'pipe', 'pipe'],
                     windowsHide: true
                 });
@@ -678,6 +708,29 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                         }`
                     );
                 }
+                if (linuxPrivateNetwork && properties.values.PrivateNetwork !== 'yes')
+                {
+                    throw new Error('physical execution systemd private network authority is unverifiable');
+                }
+                if (linuxNetworkPolicy
+                    && (!exactPropertyTokens(
+                        properties.values.IPAddressDeny,
+                        ['0.0.0.0/0', '::/0']
+                    )
+                        || !exactPropertyTokens(
+                            properties.values.IPAddressAllow,
+                            ['127.0.0.0/8', '::1/128']
+                        )))
+                {
+                    throw new Error('physical execution systemd IP address policy authority is unverifiable');
+                }
+                if (linuxReadWritePaths.length > 0
+                    && (properties.values.ProtectSystem !== 'strict'
+                        || properties.values.ProtectHome !== 'read-only'
+                        || properties.values.PrivateTmp !== 'yes'))
+                {
+                    throw new Error('physical execution systemd filesystem authority is unverifiable');
+                }
                 authorityEstablished = true;
                 supervisorPid = Number(fs.readFileSync(readyFile, 'utf8').trim());
                 controlGroup = properties.values.ControlGroup;
@@ -894,6 +947,24 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     ? commandProcessGroup
                     : null,
                 killPolicy: 'control-group',
+                networkIsolation: linuxPrivateNetwork
+                    ? 'systemd-private-network'
+                    : linuxNetworkPolicy
+                        ? {
+                            kind: 'systemd-ip-address-policy',
+                            deny: linuxNetworkPolicy.deny,
+                            allow: linuxNetworkPolicy.allow
+                        }
+                        : 'host',
+                filesystemIsolation: linuxReadWritePaths.length > 0
+                    ? {
+                        kind: 'systemd-protect-system',
+                        protectSystem: 'strict',
+                        protectHome: 'read-only',
+                        privateTmp: true,
+                        readWritePaths: [...linuxReadWritePaths]
+                    }
+                    : null,
                 established: establishedState,
                 attemptedUnitName: establishedState === true ? null : unitName
             };

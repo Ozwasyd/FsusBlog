@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 
 import {
@@ -64,8 +64,14 @@ test('lifecycle and destructive checks preserve independent process boundaries',
     for (const host of plan.hosts.filter((entry) => entry.category === 'real-subprocess-lifecycle'))
     {
         assert.equal(host.checks.length, 1);
-        assert.equal(host.exclusive, false);
+        assert.equal(host.exclusive, host.checks[0].exclusive === true);
     }
+    assert.equal(plan.hosts.find((host) => host.id.endsWith(':gateway-switch')).exclusive, true);
+    assert.equal(plan.hosts.find((host) => host.id.endsWith(':deployment-slots')).exclusive, true);
+    assert.ok(
+        plan.hosts.some((host) =>
+            host.category === 'real-subprocess-lifecycle' && host.exclusive === false)
+    );
     for (const host of plan.hosts.filter((entry) => entry.category === 'exclusive-resource-destructive-rehearsal'))
     {
         assert.equal(host.checks.length, 1);
@@ -86,6 +92,13 @@ test('registry and execution evidence fail closed for missing, duplicate and unk
             checks: [{ ...registry.checks[0], category: 'invented' }]
         }),
         /unknown isolation category/u
+    );
+    assert.throws(
+        () => buildStaticGovernanceExecutionPlan({
+            ...registry,
+            checks: [{ ...registry.checks[0], exclusive: false }]
+        }),
+        /invalid exclusive lifecycle declaration/u
     );
 
     const plan = buildStaticGovernanceExecutionPlan(registry);
@@ -247,6 +260,15 @@ test('behaviorTest runtime registration resolves to its canonical caller and rej
 test('runner binds cancellation and partial child evidence without weakening lifecycle isolation', () =>
 {
     const runner = fs.readFileSync(path.join(root, 'tools/test/run-governance-suites.mjs'), 'utf8');
+    const unicodeRoot = path.join(path.dirname(root), '靜態治理 root');
+    const unicodeRunner = pathToFileURL(path.join(unicodeRoot, 'tools/test/run-governance-suites.mjs'));
+
+    assert.equal(
+        path.resolve(fileURLToPath(new URL('../..', unicodeRunner))),
+        unicodeRoot
+    );
+    assert.match(runner, /fileURLToPath\(new URL\('\.\.\/\.\.', import\.meta\.url\)\)/u);
+    assert.doesNotMatch(runner, /new URL\('\.\.\/\.\.', import\.meta\.url\)\.pathname/u);
     assert.match(runner, /new AbortController\(\)/u);
     assert.match(runner, /static governance host cancelled by \$\{signal\}/u);
     assert.match(runner, /signal: controller\.signal/u);

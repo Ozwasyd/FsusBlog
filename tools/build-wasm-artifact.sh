@@ -28,6 +28,7 @@ rm -rf "${TMP_DIR}"
 mkdir -p "${TMP_DIR}"
 DOCKER_BUILDKIT=1 docker build \
     --pull \
+    --build-arg "FSUSBLOG_WASM_IMAGE_CODEC_ENABLE=${FSUSBLOG_WASM_IMAGE_CODEC_ENABLE:-ON}" \
     --build-arg "FSUSBLOG_ZK_PRODUCTION_ENABLED=${FSUSBLOG_ZK_PRODUCTION_ENABLED:-0}" \
     -f "${ROOT_DIR}/ops/docker/FsusBlog.Server.Dockerfile" \
     --target wasm-artifact \

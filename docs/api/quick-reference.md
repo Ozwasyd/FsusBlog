@@ -19,91 +19,30 @@
 
 ### PoW 与账号入口
 
-| 方法 | 路径 | 权限 | 说明 |
-| ------ | ------ | ------ | ------ |
-| GET | `/api/binary/auth/pow-challenge` | 🔓 🚦 📦 | 获取 PoW 挑战 |
-| POST | `/api/binary/auth/anonymous/bootstrap` | 🔓 🚦 📦 | 创建 provisional 账号和短期 enrollment cookie；不写正式 session，不接受密码 |
-| POST | `/api/binary/auth/enrollment/passkey/register/begin` | 🔓 🚦 📦 | 仅凭 enrollment cookie 开始首枚 Passkey 注册 |
-| POST | `/api/binary/auth/enrollment/passkey/register/complete` | 🔓 🚦 📦 | 原子提交首枚 Passkey、active 状态和正式 session；响应 `AuthLoginFlow` |
-| GET | `/api/binary/auth/enrollment/status` | 🔓 🚦 📦 | 查询短期 enrollment 状态，不签发正式凭据 |
-| POST | `/api/binary/auth/enrollment/cancel` | 🔓 🚦 📦 | 取消并清理仍为 provisional 的账号和 challenge |
-| POST | `/api/binary/auth/refresh-token` | 🔓 🚦 📦 | 用 HttpOnly Cookie 原子轮换 refresh family generation；成功返回 `EmptySuccess`，同一 CAS 的 loser 返回 `409 REFRESH_ROTATION_CONFLICT`，已使用 token replay 会撤销其 family；网络未知结果不得自动重放 POST |
 
 ### 当前用户
 
-| 方法 | 路径 | 权限 | 说明 |
-| ------ | ------ | ------ | ------ |
-| GET | `/api/binary/auth/me` | 🔑 📦 | 获取当前匿名账号容器快照；成功响应带 `X-Fsus-Access-Expires-At-Utc` 绝对到期时间，前端据此协调跨标签页刷新 |
-| PUT | `/api/binary/auth/public-handle` | 🔑 📦 | 保存或清空当前匿名账号公开称呼 |
-| POST | `/api/binary/auth/logout` | 🔑 📦 | 安全登出（吊销当前 Refresh Token） |
-| POST | `/api/binary/auth/delete-account` | 🔑 🚦 📦 | 注销账号；请求 frame 只含确认文本，敏感操作 proof 走 `X-Fsus-Mfa-Proof` |
 
 ### 会话管理
 
-| 方法 | 路径 | 权限 | 说明 |
-| ------ | ------ | ------ | ------ |
-| GET | `/api/binary/auth/sessions` | 🔑 📦 | 获取隐私安全的活跃会话列表（粗粒度设备、认证来源/强度、持续时间） |
-| POST | `/api/binary/auth/sessions/{id}/revoke` | 🔑 📦 | 吊销指定会话 |
-| POST | `/api/binary/auth/sessions/revoke-others` | 🔑 📦 | 吊销全部其他会话 |
 
 ### MFA / TOTP
 
-| 方法 | 路径 | 权限 | 说明 |
-| ------ | ------ | ------ | ------ |
-| POST | `/api/binary/auth/mfa/setup/start` | 🔑 📦 | 开始 MFA 设置，返回 TOTP 密钥与二维码 |
-| POST | `/api/binary/auth/mfa/setup/verify` | 🔑 📦 | 验证 TOTP 码，完成 MFA 启用 |
-| GET | `/api/binary/auth/mfa/profile` | 🔑 📦 | 查询 MFA 状态与恢复码剩余数 |
-| POST | `/api/binary/auth/mfa/disable` | 🔑 📦 | 禁用 MFA |
-| POST | `/api/binary/auth/mfa/recovery/regenerate` | 🔑 📦 | 重新生成恢复码 |
-| POST | `/api/binary/auth/mfa/challenge/start` | 🔑 📦 | 登录后发起 MFA 挑战（返回挑战令牌） |
-| POST | `/api/binary/auth/mfa/challenge` | 🔓 📦 | 提交 TOTP 码或恢复码完成 MFA |
-| POST | `/api/binary/auth/step-up/passkey/begin` | 🔑 📦 | 普通账号敏感操作 Passkey step-up 开始；`Auth:PasskeyStepUp:Enabled=false` 时 503 fail closed |
-| POST | `/api/binary/auth/step-up/passkey/complete` | 🔑 📦 | 完成普通账号 Passkey step-up，返回同 action 的一次性 `MfaChallengeResult.proofToken`；同受 `Auth:PasskeyStepUp:Enabled` 控制 |
 
 ---
 
 ### Recovery Key
 
-| 方法 | 路径 | 权限 | 说明 |
-| ------ | ------ | ------ | ------ |
-| POST | `/api/binary/auth/recovery-key/create` | 🔑 🚦 📦 | 创建账户恢复密钥，明文只在响应中返回一次 |
-| POST | `/api/binary/auth/recovery-key/rotate` | 🔑 🚦 📦 | 轮换账户恢复密钥 |
-| POST | `/api/binary/auth/recovery-key/verify` | 🔓 🚦 📦 | 验证恢复密钥并返回短期 recovery session；RiskControl proof 与 legacy PoW 均由统一 transport 附加 |
-| POST | `/api/binary/auth/recovery-key/passkey/register/begin` | 🔓 🚦 📦 | 使用 recovery session 开始绑定新 Passkey |
-| POST | `/api/binary/auth/recovery-key/passkey/register/complete` | 🔓 🚦 📦 | 使用 recovery session 完成新 Passkey 绑定 |
 
 ---
 
 ## Passkey / WebAuthn — `/api/binary/auth/passkey`
 
-| 方法 | 路径 | 权限 | 说明 |
-| ------ | ------ | ------ | ------ |
-| POST | `/api/binary/auth/passkey/register/begin` | 🔑 | 开始注册 Passkey |
-| POST | `/api/binary/auth/passkey/register/complete` | 🔑 | 完成 Passkey 注册 |
-| POST | `/api/binary/auth/passkey/login/begin` | 🔓 🚦 | 开始 Passkey 无密码登录；使用 challenge-aware command 的 `auth.passkey.begin` proof |
-| POST | `/api/binary/auth/passkey/login/complete` | 🔓 🚦 | 完成 Passkey 登录断言；固定 challenge token mutation identity 后使用 `auth.passkey.complete` proof |
-| GET | `/api/binary/auth/passkey/credentials` | 🔑 | 获取已注册 Passkey 列表（最多 5 枚） |
-| GET | `/api/binary/auth/passkey/signal-state` | 🔑 | 获取 WebAuthn Signal API 所需的服务端权威凭证集与账号元数据（`no-store`） |
-| DELETE | `/api/binary/auth/passkey/credentials/{id}` | 🔑 | 删除指定 Passkey |
-| PUT | `/api/binary/auth/passkey/credentials/{id}/name` | 🔑 | 重命名指定 Passkey |
 
 ---
 
 ## Admin principal / Passkey — `/api/binary/auth/admin`
 
-| 方法 | 路径 | 权限 | 说明 |
-| ------ | ------ | ------ | ------ |
-| POST | `/api/binary/auth/admin/bootstrap/passkey/begin` | 🔓 🚦 📦 | 首次 root admin Passkey 注册开始；必须带 `X-Fsus-Admin-Bootstrap-Token` 和 `X-Fsus-Admin-Handle` |
-| POST | `/api/binary/auth/admin/bootstrap/passkey/complete` | 🔓 🚦 📦 | 首次 root admin Passkey 注册完成；root admin 已存在后拒绝 |
-| POST | `/api/binary/auth/admin/login/passkey/begin` | 🔓 🚦 📦 | admin Passkey 登录开始 |
-| POST | `/api/binary/auth/admin/login/passkey/complete` | 🔓 🚦 📦 | admin Passkey 登录完成并写入独立 admin Cookie |
-| POST | `/api/binary/auth/admin/step-up/passkey/begin` | 👑 🚦 📦 | 当前 admin session 的 Passkey step-up 开始，响应 `PasskeyLoginBegin` |
-| POST | `/api/binary/auth/admin/step-up/passkey/complete` | 👑 🚦 📦 | 完成 admin Passkey step-up，响应 action=`admin-sensitive` 的一次性 proof |
-| GET | `/api/binary/auth/admin/me` | 👑 📦 | 返回当前 admin principal 快照（`AdminPrincipalSnapshot`），需要 `admin.manage` permission |
-| POST | `/api/binary/auth/admin/logout` | 👑 📦 | 登出当前 admin session，撤销 `admin_session` 并清理 admin Cookie |
-| GET | `/api/binary/auth/admin/sessions` | 👑 📦 | 获取当前 admin principal 的 session 列表 |
-| POST | `/api/binary/auth/admin/sessions/{sessionId}/revoke` | 👑 📦 | 撤销指定 admin session |
-| POST | `/api/binary/auth/admin/sessions/revoke-others` | 👑 📦 | 撤销除当前 session 外的其他 admin sessions |
 
 ---
 
@@ -129,13 +68,6 @@ Public AOT 成功 HTML 按有效 `fsusblog.locale` cookie > `Accept-Language` > 
 
 ## 评论 — `/api/binary/comment`
 
-| 方法 | 路径 | 权限 | 缓存 | 说明 |
-| ------ | ------ | ------ | ------ | ------ |
-| GET | `/api/binary/comment/{articleId}` | 🔓 | 🗄️ | 根节点 keyset 页 + 直接子节点预览，`CommentTreeRootCursor(208)` |
-| GET | `/api/binary/comment/{articleId}/children/{parentId}` | 🔓 | 🗄️ | 单个父节点的直接子节点 keyset 页，`CommentChildCursor(209)` |
-| GET | `/api/binary/comment/{articleId}/context/{commentId}` | 🔓 | 🗄️ | 永久链接祖先路径、目标和兄弟窗口；不可见目标统一 `unavailable`，`CommentPermalinkContext(210)` |
-| GET | `/api/binary/comment/{articleId}/thread/{rootId}` | 🔓 | 🗄️ | 滚动部署兼容的旧 binary 扁平回复游标 |
-| GET | `/api/binary/comment/me` | 🔑 | — | 当前用户可归因评论记录 |
 
 ---
 
@@ -143,31 +75,13 @@ Public AOT 成功 HTML 按有效 `fsusblog.locale` cookie > `Accept-Language` > 
 
 > 已迁移至 [Binary 端点 — `/api/binary`](#binary-端点--apibinary) 下的 `/api/binary/category.aeds`、`/api/binary/tag.aeds` AEDS v2 frame。旧 `/api/Category/**`、`/api/Tag/**` JSON 路径不再注册。
 
-| 方法 | 路径 | 权限 | 说明 |
-| ------ | ------ | ------ | ------ |
-| POST | `/api/binary/category` | 👑 📦 | 创建分类；durable PublicHot receipt 后返回 `MutationId` |
-| PUT | `/api/binary/category/{id}` | 👑 📦 | 更新分类；durable PublicHot receipt 后返回 `EmptySuccess` |
-| DELETE | `/api/binary/category/{id}` | 👑 📦 | 删除未被引用的分类；durable PublicHot receipt 后返回 `EmptySuccess` |
-| POST | `/api/binary/tag` | 👑 📦 | 创建标签；durable PublicHot receipt 后返回 `MutationId` |
-| PUT | `/api/binary/tag/{id}` | 👑 📦 | 更新标签；durable PublicHot receipt 后返回 `EmptySuccess` |
-| DELETE | `/api/binary/tag/{id}` | 👑 📦 | 删除无关联的标签；durable PublicHot receipt 后返回 `EmptySuccess` |
+`POST/PUT /api/binary/category` 与 `POST/PUT /api/binary/tag` 当前写入 payload 携带 `Name` 和 nullable `Description`；description trim 后最多 500 个 Unicode 字符，空白持久化为 `NULL`。迁移期精确 128-byte name-only legacy create 仍写入 null description，legacy update 保留已有 description。
 
 PublicHot delivery result 为 `cancelled`、`closed` 或 `failed` 时，上述 mutation 返回 HTTP `500` + AEDS `ApiError(Code=InfraFailure)`，即使 taxonomy 数据库写入可能已经提交。客户端应先重读管理端 taxonomy 状态，再决定是否重试。
 无需重启恢复时，修复 Redis 后调用 `/api/binary/author/cache/actions` 的 `public-hot-rebuild` action；保留 pending generation，禁止降级为进程内成功或盲目重放 create。
 
 ## 系统配置 — `/api/binary/system`
 
-| 方法 | 路径 | 权限 | 缓存 | 说明 |
-| ------ | ------ | ------ | ------ | ------ |
-| GET | `/api/binary/system/seo` | 🔓 | 🗄️ | 站点 SEO/品牌/PWA 配置，`SeoConfig` frame |
-| GET | `/api/binary/system/compliance` | 🔓 | 🗄️ | 公开页 footer 合规配置，`SiteComplianceConfig` frame |
-| GET | `/api/binary/system/page/{slug}` | 🔓 | 🗄️ | 指定 slug 的静态页面内容；当前只支持 `about/privacy/guidelines/copyright` |
-| GET | `/api/binary/system/admin/seo` | 👑 | — | admin 读取 SEO 配置 |
-| GET | `/api/binary/system/admin/compliance` | 👑 | — | admin 读取完整合规配置 |
-| PUT | `/api/binary/system/seo` | 👑🚦 | — | admin 保存 SEO/品牌/PWA 配置，`SeoConfigUpdateRequest` |
-| PUT | `/api/binary/system/compliance` | 👑🚦 | — | admin 保存大陆合规配置，`SiteComplianceConfigUpdateRequest` |
-| PUT | `/api/binary/system/page` | 👑🚦 | — | admin 保存静态页面内容 |
-| POST | `/api/binary/system/page/refresh/{slug}` | 👑🚦 | — | 强制刷新静态页面缓存 / AOT |
 
 ---
 
@@ -257,19 +171,6 @@ PublicHot delivery result 为 `cancelled`、`closed` 或 `failed` 时，上述 m
 
 ### 管理端 Binary
 
-| 方法 | 路径 | 权限 | FrameType | 说明 |
-| ------ | ------ | ------ | ----------- | ------ |
-| GET | `/api/binary/stats` | 👑 📦 | `AdminStats`(7) | Binary 聚合统计（overview + recent comments + regions） |
-| GET | `/api/binary/admin/article` | 👑 📦 | `ArticleList`(1) | 管理端文章列表，可带 `status` / `isDeleted`；`page>=1`、`size=1..100`，非法值返回 400 |
-| GET | `/api/binary/admin/article/{id}` | 👑 📦 | `ArticleDetail`(2) | 管理端文章详情 |
-| POST | `/api/binary/admin/article` | 👑 📦 🚦 PoW | `ArticleWriteRequest` → `MutationId`(241) | 创建文章；必须携带 admin-scoped `X-Fsus-Client-Mutation-Id`；同键同内容安全重放，同键异内容 409；返回 48B 强类型 article/revision/release/result |
-| PUT | `/api/binary/admin/article/{id}` | 👑 📦 🚦 PoW | `ArticleWriteRequest` → `MutationId`(241) | 更新文章；必须提交详情中的 `baseRevisionId`，失配返回 409 且不写入；完全相同请求返回原坐标与 `outcome=no_change`，不新增修订/事件；返回同一 48B 强类型结果 |
-| POST | `/api/binary/upload/init` | 👑 | `UploadInit`(20) | 初始化分片上传 |
-| GET | `/api/binary/upload/{id}` | 👑 📦 | `UploadStatus`(21) | 查询上传状态 |
-| PUT | `/api/binary/upload/{id}/part/{n}` | 👑 📦 | `UploadPartAck`(22) | 上传分片 |
-| POST | `/api/binary/upload/{id}/complete` | 👑 📦 | `UploadComplete`(23) | 完成上传 |
-| DELETE | `/api/binary/upload/{id}` | 👑 | — | 中止并清理上传 |
-| GET | `/api/binary/upload/{id}/parts` | 👑 📦 | `UploadPartMap`(24) | 分片清单 |
 
 ---
 
@@ -277,14 +178,6 @@ PublicHot delivery result 为 `cancelled`、`closed` 或 `failed` 时，上述 m
 
 > 整个路由组需要登录（🔑）。
 
-| 方法 | 路径 | 说明 |
-| ------ | ------ | ------ |
-| GET | `/api/binary/messages/conversations?size=20&filter={filter}&cursor={nextCursor}` | 当前用户对话列表；`lastMessageAt + conversationId` 稳定游标，首屏省略 cursor |
-| GET | `/api/binary/messages/conversations/{id}?beforeMessageId={previousCursor}` | `ConversationDetailV3(204)`；最新 50 条或向前一页，返回 `previousCursor/hasOlder/readSnapshotMessageId` |
-| GET | `/api/binary/messages/conversations/{id}?afterMessageId={lastKnownMessageId}` | `ConversationDetailV3(204)`；replay miss 后按 ID 升序补齐差量；与 `beforeMessageId` 互斥，`hasOlder/previousCursor` 表示后续差量页 |
-| POST | `/api/binary/messages/conversations` | 发起新对话；必需 `X-Fsus-Client-Mutation-Id`；响应 `ConversationDetailV2(203)` 与 `idempotencyReplay` |
-| POST | `/api/binary/messages/conversations/{id}/reply` | 必需 `X-Fsus-Client-Mutation-Id`；`AccountConversationReplyRequest(202)` 正文 + 显式 `readThroughMessageId`；响应保留首次 message ID |
-| POST | `/api/binary/messages/conversations/{id}/read` | `ConversationReadRequest(201)`；精确推进已读游标，不读取当前 `MAX(id)` |
 
 ---
 
@@ -292,13 +185,6 @@ PublicHot delivery result 为 `cancelled`、`closed` 或 `failed` 时，上述 m
 
 > 整个路由组需要 admin 角色（👑）。
 
-| 方法 | 路径 | 说明 |
-| ------ | ------ | ------ |
-| GET | `/api/binary/admin/messages/conversations?size=30&filter={filter}&cursor={nextCursor}` | `AdminConversationList(206)`；最小对方账号投影；未读/筛选只读取共享 admin queue state |
-| GET | `/api/binary/admin/messages/conversations/{id}?beforeMessageId={previousCursor}` | `AdminConversationDetail(207)`；最小对方账号投影；最新页推进共享 admin read cursor，历史页不回退 |
-| POST | `/api/binary/admin/messages/conversations/{id}/reply` | 必需 `X-Fsus-Client-Mutation-Id`；以管理员身份回复；closed 必须先显式重开，事务冲突返回 409 |
-| POST | `/api/binary/admin/messages/conversations/{id}/status` | `ConversationStatusRequest` 目标状态 + 审计原因；显式状态机/CAS；响应 `ConversationStatusMutationResult(211)`，同状态为 `no_change`，非法或并发冲突为 409 |
-| POST | `/api/binary/admin/messages/system-send` | 必需稳定正整数 `X-Fsus-Source-Event-Id`；单 active 账号系统消息；事务内锁定目标，missing/deleted/restricted 返回明确领域错误；响应 `ConversationDetailV2(203)` |
 
 `Messages:ReplyWritesEnabled=false` 可动态暂停两个 reply 端点并返回
 `503 message_reply_writes_disabled`，不影响读取和显式状态变更。
@@ -317,21 +203,6 @@ PublicHot delivery result 为 `cancelled`、`closed` 或 `failed` 时，上述 m
 >
 > Admin security 生产前端使用原生 `/api/binary/admin/security/**` AEDS v2 入口；外部 `/api/admin/security/**` JSON 入口和 internal bridge 兼容层均已移除。
 
-| 方法 | 路径 | 权限 | 说明 |
-| ------ | ------ | ------ | ------ |
-| GET | `/feed/rss.xml` | 🔓 | RSS 2.0 feed |
-| GET | `/api/Article/rss` | 🔓 | RSS 历史兼容路径 |
-| GET | `/feed/atom.xml` | 🔓 | Atom feed |
-| GET | `/feed/feed.json` | 🔓 | JSON Feed 1.1 |
-| GET | `/sitemap.xml` | 🔓 | 公开 sitemap；全量 canonical URL，超过 45,000 条时返回 sitemap index |
-| GET | `/sitemap/{page}.xml` | 🔓 | sitemap index 子 urlset；不存在的页返回 404 |
-| GET | `/robots.txt` | 🔓 | robots + sitemap 声明 |
-| GET | `/api/binary/article/{articleId}/related.aeds` | 🔓 🚦 | AEDS 延伸阅读：相关文章 / 上一篇 / 下一篇；受 `public_read` 风险感知限流 |
-| GET | `/api/ops/crawler-ranges/status` | 🔐 admin | Crawler CIDR 同步状态 |
-| GET | `/internal/public-aot/manifest` | 🔓 | Public AOT route manifest；配置 `PublicAot:ManifestToken` 时需 `X-Fsus-Public-Aot-Token` |
-| GET | `/internal/public-aot/health` | 🔓 | Public AOT SSR worker health / breaker / quarantine snapshot；配置 `PublicAot:ManifestToken` 时需 `X-Fsus-Public-Aot-Token` |
-| POST | `/api/binary/subscriptions` | 🔓 | AEDS 更新订阅，保存 email hash |
-| DELETE | `/api/binary/subscriptions` | 🔓 | AEDS 退订 |
 
 | POST | `/api/binary/author/drafts` | 👑 | 以 `expectedServerRevision` CAS 保存草稿；返回递增 `serverRevision` 与原始 `baseRevisionId` |
 | GET | `/api/binary/author/drafts/{draftKey}` | 👑 | 读取服务端草稿、`serverRevision` 与原始 `baseRevisionId` |
@@ -438,28 +309,6 @@ PublicHot delivery result 为 `cancelled`、`closed` 或 `failed` 时，上述 m
 
 ## 通知与健康检查
 
-| 方法 | 路径 | 权限 | 说明 |
-| ------ | ------ | ------ | ------ |
-| GET | `/api/notifications/stream/preflight` | 🔓 🚦 | WebSocket 通知握手预检；notification headless 与 UI 共用 ordered envelope runner，只有 completed aggregate proof 可通过 header 原子消费并换取短效 HttpOnly 一次性 grant；legacy PoW 保持兼容 |
-| GET | `/api/notifications/stream` | 🔓 🚦 | WebSocket 通知通道（子协议 `fsus-aeds.v2`，握手校验 Origin/completed aggregate RiskControl proof 或 legacy PoW） |
-| POST | `/_fsus/testing/notification-stream/publish` | 🔓 | Development/Test-only notification resilience drill；需 `X-Fsus-Notification-Drill-Secret`，生产不映射 |
-| POST | `/api/binary/telemetry/rum` | 🔓🚦 | AEDS RUM 批量遥测入口 |
-| GET | `/health/live` | 🔓 | JSON 存活探针（仅检查进程） |
-| GET | `/health/ready` | 🔓 | JSON 最小就绪探针（仅 `status` / `checkedAt`，HTTP 200/503 表示 ready/not ready）；响应 `X-Fsus-Release-Id` / `X-Fsus-Release-Slot` 供 loopback 与公网切流核验，不表示认证身份 |
-| GET | `/api/ops/health/ready-detail` | 👑 | 详细就绪报告（不可变 release ID/slot/commit/image digest、配置、Observability、启动状态、DB、Redis、runtime、RiskControl/perception-sealed@v2 gate） |
-| GET | `/api/ops/deployment/status` | 👑🚦 loopback | 发布运行态、generation、普通 HTTP/notification/background 独立计数与 drain blockers；要求 `system.config` |
-| POST | `/api/ops/deployment/activate` | 👑🚦 loopback | 以 `releaseId + slot + generation` CAS 激活 Ready Candidate；幂等；要求 `system.config` |
-| POST | `/api/ops/deployment/drain` | 👑🚦 loopback | 以 `releaseId + slot + generation` CAS 开始排空；幂等，立即使 readiness 503；要求 `system.config` |
-| GET | `/api/ops/deployment/fence/status` | 👑🚦 loopback | 对账 PostgreSQL durable witness + Redis mirror，并校验本地 release/slot/generation 所有权；要求 `system.config` |
-| POST | `/api/ops/deployment/fence/acquire` | 👑🚦 loopback | CAS 获取或单调推进 active-release fence；旧 generation/token 不得复用 |
-| POST | `/api/ops/deployment/fence/revoke` | 👑🚦 loopback | 精确撤销当前 fence 所有者；身份不匹配返回 409 |
-| POST | `/api/ops/deployment/fence/challenge-kind-cutover` | 👑🚦 loopback | 在精确 release/slot/generation fence 下清理完整数值集合 3/10/13 并返回幂等审计 receipt；operator target map 必须命中权威不可逆 fingerprint，验收再从独立 target JSON 复算 |
-| POST | `/api/ops/deployment/fence/perception-character-v3-cutover` | 👑🚦 loopback | 单次验证 release/slot/generation、V3 contract、pool manifest、backend/shared/frontend AEDS schema 与热策略版本，关闭签发、幂等撤销旧状态并只在 smoke 通过后开放当前 target；receipt/marker/cache/fence 任一漂移均 fail closed |
-| GET | `/api/ops/deployment/notification-stream/restart/status` | 👑🚦 loopback | 读取当前 1012 restart epoch、原因与连接排空快照 |
-| POST | `/api/ops/deployment/notification-stream/restart` | 👑🚦 loopback | 按精确 release/slot/generation 触发一次有序 1012 重连 |
-| POST | `/api/ops/deployment/notification-stream/drill/publish` | 👑🚦 loopback | 仅显式启用的发布演练事件；校验 active fence 后发布 1..32 个可对账 event ID，生产默认 404 |
-| POST | `/api/release-evidence/schema-bridge/write` | 👑🚦 Test-only | 仅 environment=`Test` + `SchemaMigration:QualificationEnabled=true` 映射；`system.config`；执行有界幂等双槽 qualification write，生产不映射 |
-| GET | `/api/release-evidence/schema-qualification/readiness` | 👑🚦 Test-only | 同一双重 guard；missing Expand 返回 503 `schema_incompatible`，生产不映射 |
 
 通知通道是 AEDS WebSocket notification stream，不是标准 Server-Sent Events，不使用 `EventSource` 或 `text/event-stream`。
 `ArticleChanged(8)` 的 v2 payload 携带可空 `revisionId/releaseId` 精确坐标；前端按 decimal string 接收 int64。发送前坐标已 superseded 时该事件不发布，outbox 将剩余 edge 记为 skipped。
@@ -503,9 +352,277 @@ PublicHot delivery result 为 `cancelled`、`closed` 或 `failed` 时，上述 m
 
 ## Plugin Admin
 
-| Method | Path | Auth | Purpose |
-| --- | --- | --- | --- |
-| GET | `/api/binary/author/plugins` | admin `system.config` | 插件列表、健康与集群一致性摘要 |
-| GET | `/api/binary/author/plugins/{pluginId}` | admin `system.config` | manifest 摘要、权限、配置、Hook、指标、日志、错误与逐节点状态 |
-| POST | `/api/binary/author/plugins/install` | admin `system.config` + step-up | 验证并安装 `.fspkg` |
-| POST | `/api/binary/author/plugins/{pluginId}/actions` | admin `system.config` + step-up | grant/revoke/enable/disable/reload/quarantine/restore/uninstall/update-config |
+## Current operation identities
+
+<!-- fsus-doc-claim
+claimId: binary-api-aeds-contract.operation-keys
+behaviorId: binary-api-aeds-contract
+claimType: generated-section
+generatedSectionId: api.operation-keys
+render: enum-set
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN api.operation-keys -->
+- `DELETE /api/binary/admin/article/permanent/{id:int}`
+- `DELETE /api/binary/admin/article/trash`
+- `DELETE /api/binary/admin/article/{id:int}`
+- `DELETE /api/binary/admin/security/anti-crawler/allowlist/{id}`
+- `DELETE /api/binary/admin/security/anti-crawler/blocklist/{id}`
+- `DELETE /api/binary/admin/security/anti-crawler/rules/{id}`
+- `DELETE /api/binary/auth/passkey/credentials/{id:int}`
+- `DELETE /api/binary/author/assets/orphans`
+- `DELETE /api/binary/author/drafts/{draftKey}`
+- `DELETE /api/binary/category/{id:int}`
+- `DELETE /api/binary/comment/{id:long}`
+- `DELETE /api/binary/file/delete`
+- `DELETE /api/binary/subscriptions`
+- `DELETE /api/binary/tag/{id:int}`
+- `DELETE /api/binary/upload/{uploadId}`
+- `GET /api/binary/admin/anonymous-governance/nullifiers`
+- `GET /api/binary/admin/anonymous-governance/status`
+- `GET /api/binary/admin/article`
+- `GET /api/binary/admin/article/featured`
+- `GET /api/binary/admin/article/hot`
+- `GET /api/binary/admin/article/{id:int}`
+- `GET /api/binary/admin/messages/conversations`
+- `GET /api/binary/admin/messages/conversations/{id:long}`
+- `GET /api/binary/admin/security/anti-crawler/allowlist`
+- `GET /api/binary/admin/security/anti-crawler/blocklist`
+- `GET /api/binary/admin/security/anti-crawler/crawler-ranges/status`
+- `GET /api/binary/admin/security/anti-crawler/events`
+- `GET /api/binary/admin/security/anti-crawler/options`
+- `GET /api/binary/admin/security/anti-crawler/overview`
+- `GET /api/binary/admin/security/anti-crawler/risk-events`
+- `GET /api/binary/admin/security/anti-crawler/rules`
+- `GET /api/binary/admin/security/challenges/overview`
+- `GET /api/binary/admin/security/overview`
+- `GET /api/binary/admin/security/perception-v2/options`
+- `GET /api/binary/admin/security/perception-v2/overview`
+- `GET /api/binary/admin/security/policies/overview`
+- `GET /api/binary/admin/security/pow/events`
+- `GET /api/binary/admin/security/pow/options`
+- `GET /api/binary/admin/security/pow/overview`
+- `GET /api/binary/admin/security/risk-control/options`
+- `GET /api/binary/admin/security/risk-control/overview`
+- `GET /api/binary/admin/security/risk/events`
+- `GET /api/binary/admin/security/risk/snapshots`
+- `GET /api/binary/admin/users`
+- `GET /api/binary/anonymous-credential/blind-issuer`
+- `GET /api/binary/anonymous-credential/circuit`
+- `GET /api/binary/anonymous-credential/revocation/{epoch:long}/{version:long}/{revocationRoot}/delta/{baseVersion:long}.aeds`
+- `GET /api/binary/anonymous-credential/revocation/{epoch:long}/{version:long}/{revocationRoot}/full.aeds`
+- `GET /api/binary/anonymous-credential/root`
+- `GET /api/binary/article/featured/{size}.aeds`
+- `GET /api/binary/article/hot/{size}.aeds`
+- `GET /api/binary/article/list/archive/{page:int}/{size:int}.aeds`
+- `GET /api/binary/article/list/category/{categoryId:int}/{page:int}/{size:int}.aeds`
+- `GET /api/binary/article/list/home/{page:int}/{size:int}.aeds`
+- `GET /api/binary/article/list/tag/{tagId:int}/{page:int}/{size:int}.aeds`
+- `GET /api/binary/article/{articleId:int}/related.aeds`
+- `GET /api/binary/article/{id}.aeds`
+- `GET /api/binary/auth/admin/me`
+- `GET /api/binary/auth/admin/sessions`
+- `GET /api/binary/auth/enrollment/status`
+- `GET /api/binary/auth/me`
+- `GET /api/binary/auth/mfa/profile`
+- `GET /api/binary/auth/passkey/credentials`
+- `GET /api/binary/auth/passkey/signal-state`
+- `GET /api/binary/auth/pow-challenge`
+- `GET /api/binary/auth/sessions`
+- `GET /api/binary/auth/{id:int}`
+- `GET /api/binary/author/analytics`
+- `GET /api/binary/author/articles/{articleId:int}/export`
+- `GET /api/binary/author/articles/{articleId:int}/revisions`
+- `GET /api/binary/author/articles/{articleId:int}/revisions/{revisionId:long}`
+- `GET /api/binary/author/articles/{articleId:int}/revisions/{revisionId:long}/responsibility`
+- `GET /api/binary/author/assets`
+- `GET /api/binary/author/audit`
+- `GET /api/binary/author/audit/summary`
+- `GET /api/binary/author/audit/{id:long}`
+- `GET /api/binary/author/audit/{id:long}/verify`
+- `GET /api/binary/author/cache/diagnostics`
+- `GET /api/binary/author/comments/moderation`
+- `GET /api/binary/author/comments/{commentId:long}/moderation-timeline`
+- `GET /api/binary/author/comments/{commentId:long}/revisions`
+- `GET /api/binary/author/content/export`
+- `GET /api/binary/author/drafts/{draftKey}`
+- `GET /api/binary/author/integrity`
+- `GET /api/binary/author/integrity/fix-preview`
+- `GET /api/binary/author/moderation/anonymous-comment-policy`
+- `GET /api/binary/author/moderation/articles/{articleId:int}/comment-policy`
+- `GET /api/binary/author/moderation/dictionaries`
+- `GET /api/binary/author/moderation/effective-policy/{regionCode}`
+- `GET /api/binary/author/moderation/model/status`
+- `GET /api/binary/author/moderation/overview`
+- `GET /api/binary/author/moderation/policies`
+- `GET /api/binary/author/moderation/policy-templates`
+- `GET /api/binary/author/moderation/region-groups`
+- `GET /api/binary/author/moderation/regions`
+- `GET /api/binary/author/moderation/runtime/status`
+- `GET /api/binary/author/ops/backup`
+- `GET /api/binary/author/ops/dangerous-operations/policy`
+- `GET /api/binary/author/ops/health`
+- `GET /api/binary/author/plugins`
+- `GET /api/binary/author/plugins/{pluginId}`
+- `GET /api/binary/author/taxonomy/categories`
+- `GET /api/binary/author/taxonomy/tags`
+- `GET /api/binary/category`
+- `GET /api/binary/category.aeds`
+- `GET /api/binary/comment/me`
+- `GET /api/binary/comment/policy`
+- `GET /api/binary/comment/{articleId:int}`
+- `GET /api/binary/comment/{articleId:int}/children/{parentId:long}`
+- `GET /api/binary/comment/{articleId:int}/context/{commentId:long}`
+- `GET /api/binary/comment/{articleId:int}/thread/{rootId:long}`
+- `GET /api/binary/locale-preference`
+- `GET /api/binary/messages/conversations`
+- `GET /api/binary/messages/conversations/{id:long}`
+- `GET /api/binary/stats`
+- `GET /api/binary/stats/recent-comments`
+- `GET /api/binary/stats/regions`
+- `GET /api/binary/system/admin/compliance`
+- `GET /api/binary/system/admin/page/{slug}`
+- `GET /api/binary/system/admin/seo`
+- `GET /api/binary/system/compliance`
+- `GET /api/binary/system/page/{slug}`
+- `GET /api/binary/system/seo`
+- `GET /api/binary/tag`
+- `GET /api/binary/tag.aeds`
+- `GET /api/binary/upload/{uploadId}/status`
+- `GET /api/binary/upload/{uploadId}/status/parts`
+- `POST /api/binary/admin/anonymous-governance/credentials/revoke`
+- `POST /api/binary/admin/anonymous-governance/nullifiers/block`
+- `POST /api/binary/admin/article`
+- `POST /api/binary/admin/messages/conversations/{id:long}/reply`
+- `POST /api/binary/admin/messages/conversations/{id:long}/status`
+- `POST /api/binary/admin/messages/system-send`
+- `POST /api/binary/admin/security/anti-crawler/allowlist`
+- `POST /api/binary/admin/security/anti-crawler/blocklist`
+- `POST /api/binary/admin/security/anti-crawler/crawler-ranges/sync`
+- `POST /api/binary/admin/security/anti-crawler/options/rollback`
+- `POST /api/binary/admin/security/anti-crawler/rules`
+- `POST /api/binary/admin/security/anti-crawler/simulate`
+- `POST /api/binary/admin/security/perception-v2/options/rollback`
+- `POST /api/binary/admin/security/pow/options/rollback`
+- `POST /api/binary/admin/security/pow/simulate`
+- `POST /api/binary/admin/security/risk-control/options/rollback`
+- `POST /api/binary/admin/security/risk-control/simulate`
+- `POST /api/binary/admin/security/risk/{dimension}/reset`
+- `POST /api/binary/anonymous-credential/blind-issue`
+- `POST /api/binary/anonymous-credential/revocation-witness`
+- `POST /api/binary/auth/admin/bootstrap/passkey/begin`
+- `POST /api/binary/auth/admin/bootstrap/passkey/complete`
+- `POST /api/binary/auth/admin/login/passkey/begin`
+- `POST /api/binary/auth/admin/login/passkey/complete`
+- `POST /api/binary/auth/admin/logout`
+- `POST /api/binary/auth/admin/sessions/revoke-others`
+- `POST /api/binary/auth/admin/sessions/{sessionId}/revoke`
+- `POST /api/binary/auth/admin/step-up/passkey/begin`
+- `POST /api/binary/auth/admin/step-up/passkey/complete`
+- `POST /api/binary/auth/anonymous/bootstrap`
+- `POST /api/binary/auth/delete-account`
+- `POST /api/binary/auth/enrollment/cancel`
+- `POST /api/binary/auth/enrollment/passkey/register/begin`
+- `POST /api/binary/auth/enrollment/passkey/register/complete`
+- `POST /api/binary/auth/logout`
+- `POST /api/binary/auth/mfa/challenge`
+- `POST /api/binary/auth/mfa/challenge/start`
+- `POST /api/binary/auth/mfa/disable`
+- `POST /api/binary/auth/mfa/recovery/regenerate`
+- `POST /api/binary/auth/mfa/setup/start`
+- `POST /api/binary/auth/mfa/setup/verify`
+- `POST /api/binary/auth/passkey/login/begin`
+- `POST /api/binary/auth/passkey/login/complete`
+- `POST /api/binary/auth/passkey/register/begin`
+- `POST /api/binary/auth/passkey/register/complete`
+- `POST /api/binary/auth/recovery-key/create`
+- `POST /api/binary/auth/recovery-key/passkey/register/begin`
+- `POST /api/binary/auth/recovery-key/passkey/register/complete`
+- `POST /api/binary/auth/recovery-key/rotate`
+- `POST /api/binary/auth/recovery-key/verify`
+- `POST /api/binary/auth/refresh-token`
+- `POST /api/binary/auth/sessions/revoke-others`
+- `POST /api/binary/auth/sessions/{id}/revoke`
+- `POST /api/binary/auth/step-up/passkey/begin`
+- `POST /api/binary/auth/step-up/passkey/complete`
+- `POST /api/binary/author/ai-assist`
+- `POST /api/binary/author/articles/import`
+- `POST /api/binary/author/articles/{articleId:int}/assets/reindex`
+- `POST /api/binary/author/articles/{articleId:int}/revisions/{revisionId:long}/rollback`
+- `POST /api/binary/author/cache/actions`
+- `POST /api/binary/author/comments/moderation/anonymous-credentials/{credentialId:long}/revoke`
+- `POST /api/binary/author/comments/moderation/bulk`
+- `POST /api/binary/author/comments/moderation/nullifiers/block`
+- `POST /api/binary/author/comments/{commentId:long}/moderation`
+- `POST /api/binary/author/comments/{commentId:long}/moderation/claim`
+- `POST /api/binary/author/comments/{commentId:long}/moderation/claim/release`
+- `POST /api/binary/author/comments/{commentId:long}/moderation/claim/renew`
+- `POST /api/binary/author/drafts`
+- `POST /api/binary/author/integrity/fix`
+- `POST /api/binary/author/moderation/appeals/{appealId:long}/decision`
+- `POST /api/binary/author/moderation/dictionaries/reload`
+- `POST /api/binary/author/moderation/dictionaries/rollback`
+- `POST /api/binary/author/moderation/dictionaries/{dictionaryId}/disable`
+- `POST /api/binary/author/moderation/dictionaries/{dictionaryId}/enable`
+- `POST /api/binary/author/moderation/effective-policy/preview`
+- `POST /api/binary/author/moderation/model/reload`
+- `POST /api/binary/author/moderation/model/rollback`
+- `POST /api/binary/author/moderation/model/runtime`
+- `POST /api/binary/author/moderation/replay/preview`
+- `POST /api/binary/author/moderation/runtime/global-state`
+- `POST /api/binary/author/moderation/runtime/region-state`
+- `POST /api/binary/author/plugins/install`
+- `POST /api/binary/author/plugins/{pluginId}/actions`
+- `POST /api/binary/author/prepublish-check`
+- `POST /api/binary/author/preview`
+- `POST /api/binary/category`
+- `POST /api/binary/comment`
+- `POST /api/binary/comment/anonymous`
+- `POST /api/binary/comment/anonymous-ticket`
+- `POST /api/binary/comment/{id:long}/anonymous-report`
+- `POST /api/binary/comment/{id:long}/author/appeal`
+- `POST /api/binary/comment/{id:long}/author/challenge`
+- `POST /api/binary/comment/{id:long}/author/delete`
+- `POST /api/binary/comment/{id:long}/author/edit`
+- `POST /api/binary/comment/{id:long}/management/appeal`
+- `POST /api/binary/comment/{id:long}/management/challenge`
+- `POST /api/binary/comment/{id:long}/management/delete`
+- `POST /api/binary/comment/{id:long}/management/edit`
+- `POST /api/binary/comment/{id:long}/management/status`
+- `POST /api/binary/comment/{id:long}/report`
+- `POST /api/binary/messages/conversations`
+- `POST /api/binary/messages/conversations/{id:long}/read`
+- `POST /api/binary/messages/conversations/{id:long}/reply`
+- `POST /api/binary/read-proof/challenge.aeds`
+- `POST /api/binary/read-proof/submit.aeds`
+- `POST /api/binary/security/challenge`
+- `POST /api/binary/security/challenge/cancel`
+- `POST /api/binary/security/challenge/verify`
+- `POST /api/binary/subscriptions`
+- `POST /api/binary/system/page/refresh/{slug}`
+- `POST /api/binary/tag`
+- `POST /api/binary/telemetry/rum`
+- `POST /api/binary/upload/init`
+- `POST /api/binary/upload/{uploadId}/complete`
+- `PUT /api/binary/admin/article/restore/{id:int}`
+- `PUT /api/binary/admin/article/{id:int}`
+- `PUT /api/binary/admin/security/anti-crawler/options`
+- `PUT /api/binary/admin/security/anti-crawler/rules/{id}`
+- `PUT /api/binary/admin/security/perception-v2/options`
+- `PUT /api/binary/admin/security/pow/options`
+- `PUT /api/binary/admin/security/risk-control/options`
+- `PUT /api/binary/admin/users/status`
+- `PUT /api/binary/auth/passkey/credentials/{id:int}/name`
+- `PUT /api/binary/auth/public-handle`
+- `PUT /api/binary/author/articles/{articleId:int}/revisions/{revisionId:long}/responsibility`
+- `PUT /api/binary/author/moderation/anonymous-comment-policy`
+- `PUT /api/binary/author/moderation/articles/{articleId:int}/comment-policy`
+- `PUT /api/binary/author/moderation/articles/{articleId:int}/comment-threads/{rootId:long}`
+- `PUT /api/binary/category/{id:int}`
+- `PUT /api/binary/locale-preference`
+- `PUT /api/binary/system/compliance`
+- `PUT /api/binary/system/page`
+- `PUT /api/binary/system/seo`
+- `PUT /api/binary/tag/{id:int}`
+- `PUT /api/binary/upload/{uploadId}/part`
+<!-- FSUSBLOG-GENERATED:END api.operation-keys -->

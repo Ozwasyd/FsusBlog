@@ -747,10 +747,16 @@ for (const script of [
     'tools/ci/check-flaky-registry.mjs',
     'tools/ci/check-flaky-evidence.mjs',
     'tools/docs/generate-testing-docs.mjs',
-    'tools/docs/check-time-budget-sync.mjs'
+    'tools/docs/check-time-budget-sync.mjs',
+    'tools/test/generate-evidence-location-governance.mjs',
+    'tools/test/generate-current-run-evidence-location-acceptance.mjs'
 ])
 {
-    const args = script.endsWith('generate-testing-docs.mjs') ? [script, '--check'] : [script];
+    const args = script.endsWith('generate-testing-docs.mjs')
+        || script.endsWith('generate-evidence-location-governance.mjs')
+        || script.endsWith('generate-current-run-evidence-location-acceptance.mjs')
+        ? [script, '--check']
+        : [script];
     const result = spawnSync('node', args, {
         cwd: root,
         encoding: 'utf8'

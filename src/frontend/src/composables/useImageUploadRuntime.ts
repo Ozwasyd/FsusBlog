@@ -32,6 +32,13 @@ interface PendingAttempt {
 const STORAGE_PREFIX = 'fsus:image-upload-session:'
 const MAX_RETRIES = 3
 
+class UploadAttemptSupersededError extends Error {
+  constructor() {
+    super('upload_attempt_superseded')
+    this.name = 'UploadAttemptSupersededError'
+  }
+}
+
 export interface ImageUploadRuntimeOptions {
   wasmOnly?: boolean
   bypassCompression?: boolean
@@ -103,6 +110,9 @@ async function retry<T>(task: () => Promise<T>, onRetry: (attempt: number) => vo
       }
       return await task()
     } catch (error) {
+      if (error instanceof UploadAttemptSupersededError) {
+        throw error
+      }
       lastError = error
       await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)))
     }
@@ -127,6 +137,7 @@ export function useImageUploadRuntime() {
     resumeKey: '',
     fileName: ''
   })
+  let attemptGeneration = 0
 
   const statusText = computed(() => {
     switch (phase.value) {
@@ -150,6 +161,13 @@ export function useImageUploadRuntime() {
   const canResume = computed(() => phase.value === 'paused' || phase.value === 'error')
 
   const uploadFile = async (file: File, options: ImageCompressionOptions, runtimeOptions: ImageUploadRuntimeOptions = {}): Promise<string> => {
+    const generation = ++attemptGeneration
+    const ensureCurrentAttempt = (): void => {
+      if (generation !== attemptGeneration) {
+        throw new UploadAttemptSupersededError()
+      }
+    }
+
     phase.value = 'compressing'
     errorMessage.value = ''
     progress.value = 0
@@ -164,33 +182,51 @@ export function useImageUploadRuntime() {
     const uploadPayload = runtimeOptions.bypassCompression === true
       ? { file, preview: null }
       : await compressImageFileWithRuntime(file, options, { wasmOnly })
+    ensureCurrentAttempt()
     preview.value = uploadPayload.preview
 
     const resumeKey = buildResumeKey(file, options, runtimeOptions)
     const fullHash = await sha256Hex(uploadPayload.file)
+    ensureCurrentAttempt()
     let snapshot = readSnapshot(resumeKey)
     let uploadId = ''
     let uploadToken = ''
     let uploadedParts = new Set<number>()
 
-    if (snapshot?.sha256 === fullHash) {
+    if (snapshot && (
+      snapshot.sha256 !== fullHash
+      || snapshot.resumeKey !== resumeKey
+      || snapshot.fileName !== uploadPayload.file.name
+      || !snapshot.uploadId
+      || !snapshot.uploadToken
+    )) {
+      snapshot = null
+    }
+
+    if (snapshot) {
       try {
-        if (!snapshot.uploadToken) {
-          throw createAppError(AppErrorCode.Validation, '上传会话缺少恢复凭证')
-        }
         const status = await getUploadStatus(snapshot.uploadId)
+        ensureCurrentAttempt()
+        if (status.uploadId !== snapshot.uploadId) {
+          throw createAppError(AppErrorCode.Validation, '上传会话身份不匹配')
+        }
         uploadId = status.uploadId
         uploadToken = snapshot.uploadToken
         if (status.uploadedPartCount > 0) {
           const map = await getUploadPartMap(snapshot.uploadId)
+          ensureCurrentAttempt()
           uploadedParts = expandUploadedRanges(map.uploadedRanges)
         }
-      } catch {
+      } catch (error) {
+        if (error instanceof UploadAttemptSupersededError) {
+          throw error
+        }
         snapshot = null
       }
     }
 
     if (!snapshot || !uploadId) {
+      ensureCurrentAttempt()
       const init = await initUploadSession({
         fileName: uploadPayload.file.name,
         mimeType: uploadPayload.file.type,
@@ -199,6 +235,7 @@ export function useImageUploadRuntime() {
         chunkSize: 512 * 1024,
         sha256: fullHash
       })
+      ensureCurrentAttempt()
       uploadId = init.uploadId
       uploadToken = init.uploadToken
       if (!uploadToken) {
@@ -230,6 +267,7 @@ export function useImageUploadRuntime() {
     phase.value = 'uploading'
 
     for (let partNumber = 0; partNumber < totalParts; partNumber += 1) {
+      ensureCurrentAttempt()
       if (uploadedParts.has(partNumber)) {
         continue
       }
@@ -238,20 +276,29 @@ export function useImageUploadRuntime() {
       const end = Math.min(start + chunkSize, uploadPayload.file.size)
       const chunk = uploadPayload.file.slice(start, end)
       const payloadHash = await sha256Hex(chunk)
+      ensureCurrentAttempt()
 
       try {
         const ack = await retry(
-          () => uploadPart(uploadId, uploadToken, partNumber, start, chunk, payloadHash),
           () => {
+            ensureCurrentAttempt()
+            return uploadPart(uploadId, uploadToken, partNumber, start, chunk, payloadHash)
+          },
+          () => {
+            ensureCurrentAttempt()
             phase.value = 'retrying'
           }
         )
+        ensureCurrentAttempt()
 
         uploadedBytes = ack.uploadedBytes
         progress.value = Math.min(99, Math.round((uploadedBytes / uploadPayload.file.size) * 100))
         phase.value = 'uploading'
         uploadedParts.add(partNumber)
       } catch (error) {
+        if (error instanceof UploadAttemptSupersededError) {
+          throw error
+        }
         const normalized = toAppError(error, '上传失败，可继续恢复')
         phase.value = 'paused'
         errorMessage.value = normalized.message || '上传失败，可继续恢复'
@@ -260,7 +307,9 @@ export function useImageUploadRuntime() {
       }
     }
 
+    ensureCurrentAttempt()
     const complete = await completeUpload(uploadId, uploadToken, fullHash)
+    ensureCurrentAttempt()
     phase.value = 'completed'
     progress.value = 100
     errorMessage.value = ''
@@ -282,23 +331,23 @@ export function useImageUploadRuntime() {
   }
 
   const abandon = async (): Promise<void> => {
-    if (!activeSession.uploadId) {
-      return
+    const uploadId = activeSession.uploadId
+    const resumeKey = activeSession.resumeKey
+    attemptGeneration += 1
+    if (resumeKey) {
+      clearSnapshot(resumeKey)
     }
+    phase.value = 'idle'
+    progress.value = 0
+    errorMessage.value = ''
+    preview.value = null
+    pendingAttempt.value = null
+    activeSession.uploadId = ''
+    activeSession.resumeKey = ''
+    activeSession.fileName = ''
 
-    try {
-      await abortUpload(activeSession.uploadId)
-    } finally {
-      if (activeSession.resumeKey) {
-        clearSnapshot(activeSession.resumeKey)
-      }
-      phase.value = 'idle'
-      progress.value = 0
-      errorMessage.value = ''
-      preview.value = null
-      activeSession.uploadId = ''
-      activeSession.resumeKey = ''
-      activeSession.fileName = ''
+    if (uploadId) {
+      await abortUpload(uploadId)
     }
   }
 

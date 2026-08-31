@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import type { FullConfig } from '@playwright/test'
+import { verifyCorrectnessBrowserPlans } from '../../../../tools/test/playwright-browser-identity.mjs'
 
 function findRepoRoot(start: string): string {
   let current = path.resolve(start)
@@ -21,6 +22,16 @@ function findRepoRoot(start: string): string {
 }
 
 export default async function globalSetup(config: FullConfig): Promise<void> {
+  const browserPlansJson = process.env.FSUSBLOG_PLAYWRIGHT_BROWSER_IDENTITY_PLANS
+  if (!browserPlansJson) {
+    throw new Error('correctness Playwright browser identity plans are missing')
+  }
+  const repoRoot = findRepoRoot(process.cwd())
+  await verifyCorrectnessBrowserPlans({
+    plans: JSON.parse(browserPlansJson),
+    frontendRoot: path.join(repoRoot, 'src/frontend')
+  })
+
   if (process.env.FSUSBLOG_TEST_SESSION_ISOLATION !== '1') {
     return
   }
@@ -34,7 +45,6 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
   }
   const workers = config.workers
 
-  const repoRoot = findRepoRoot(process.cwd())
   const script = path.join(repoRoot, 'tests', 'frontend', 'fixtures', 'prepare-playwright-sessions.mjs')
   const result = spawnSync(process.execPath, [script, '--workers', String(workers)], {
     cwd: process.cwd(),

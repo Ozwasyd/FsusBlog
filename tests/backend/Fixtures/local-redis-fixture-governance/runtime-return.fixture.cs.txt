@@ -1,0 +1,10 @@
+[Fact]
+[Trait("Fixture", "LocalRedis")]
+public void RuntimeReturnTest()
+{
+    string? connectionString = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_REDIS");
+    if (string.IsNullOrWhiteSpace(connectionString))
+        return;
+
+    Assert.True(true);
+}

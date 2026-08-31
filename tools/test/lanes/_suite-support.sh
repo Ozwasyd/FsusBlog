@@ -9,6 +9,7 @@ fi
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 CLIENT_DIR="$ROOT_DIR/src/frontend"
 SERVER_TEST_PROJ="$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj"
+MIGRATION_TEST_PROJ="$ROOT_DIR/tests/migration/FsusBlog.Migration.Tests.csproj"
 BUILD_ENV_RUNNER="$ROOT_DIR/tools/build-with-data-env.sh"
 export FSUSBLOG_REPO_ROOT="${FSUSBLOG_REPO_ROOT:-$ROOT_DIR}"
 COVERAGE_ROOT="${FSUSBLOG_COVERAGE_ROOT:-$ROOT_DIR/.tmp/coverage}"
@@ -39,7 +40,7 @@ DEBUG_BACKEND_URL="${FSUSBLOG_DEBUG_BACKEND_URL:-http://127.0.0.1:7568}"
 RELEASE_PREVIEW_URL="${FSUSBLOG_RELEASE_PREVIEW_URL:-http://127.0.0.1:8080}"
 DOTNET_BUILD_SHARED_ARGS=(/p:UseSharedCompilation=true /p:NuGetAudit=false)
 DOTNET_BUILD_PARALLEL_ARGS=()
-BACKEND_ORDINARY_TEST_FILTER="${FSUSBLOG_BACKEND_ORDINARY_TEST_FILTER:-Category!=Integration&Category!=ApiIntegration&Category!=Concurrency&Category!=Performance&Category!=Property&Category!=GoldenContract&Category!=SecurityStateMachine}"
+BACKEND_ORDINARY_TEST_FILTER="${FSUSBLOG_BACKEND_ORDINARY_TEST_FILTER:-Category!=Integration&Category!=ApiIntegration&Category!=Concurrency&Category!=Performance&Category!=Property&Category!=GoldenContract&Category!=SecurityStateMachine&Fixture!=LocalRedis}"
 
 DefaultPlaywrightWorkers() {
     if [[ "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
@@ -971,33 +972,6 @@ WaitForPowReady() {
     Fail "${label}: pow difficulty did not settle below ${maxDifficulty}; last=${difficulty:-unknown}"
 }
 
-ResetSecurityRuntimeState() {
-    local label="${1:-security runtime state}"
-    # Explicit lane call performs reset; only an explicit env value of 0 opts out.
-    # Bootstrap no longer defaults security reset on as a hidden side effect.
-    if [[ "${FSUSBLOG_RESET_SECURITY_TEST_STATE:-}" == "0" ]]; then
-        return
-    fi
-
-    local deleted
-    local redisContainer="${FSUSBLOG_REDIS_CONTAINER_NAME:-fsusblog-redis}"
-    local postgresContainer="${FSUSBLOG_POSTGRES_CONTAINER_NAME:-fsusblog-postgres}"
-    local namespacePattern="${FSUSBLOG_TEST_NAMESPACE:-local}"
-    local riskDeleted
-    riskDeleted="$(docker exec "$postgresContainer" psql -U fsusblog -d fsusblog -Atqc "WITH deleted AS (DELETE FROM security_risk_event WHERE expires_at_utc > (now() AT TIME ZONE 'utc') RETURNING 1) SELECT count(*) FROM deleted;" 2>/dev/null || true)"
-    riskDeleted="${riskDeleted:-0}"
-    if [[ "$riskDeleted" =~ ^[0-9]+$ ]] && ((riskDeleted > 0)); then
-        Log "${label}: reset active persisted security risk events: ${riskDeleted}"
-    fi
-
-    deleted="$(docker exec "$redisContainer" sh -c "{ redis-cli --scan --pattern '*${namespacePattern}*fsus:sec:pow-risk:*'; redis-cli --scan --pattern 'fsus:sec:pow-risk:*'; } | sort -u | xargs -r redis-cli DEL" 2>/dev/null || true)"
-    deleted="${deleted:-0}"
-    if [[ "$deleted" =~ ^[0-9]+$ ]] && ((deleted > 0)); then
-        Log "${label}: reset local security PoW risk keys: ${deleted}"
-    fi
-    WaitForPowReady "$label"
-}
-
 RunTier() {
     local tier="$1"
     shift
@@ -1082,6 +1056,10 @@ RunBackendUnitLane() {
             return "$status"
         fi
     fi
+    Run "$BUILD_ENV_RUNNER" dotnet test "$MIGRATION_TEST_PROJ" \
+        -c "$(BackendTestConfiguration)" \
+        --nologo \
+        "${DOTNET_BUILD_SHARED_ARGS[@]}"
     WriteBackendSplitSummary backend-unit "${FSUSBLOG_TEST_SELECTION:-full}"
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/produce-integrity-proof-evidence.mjs" \
         --catalog "$ROOT_DIR/tests/fixtures/evidence-projection/integrity-proof-verification.json" \
@@ -1170,6 +1148,7 @@ EnsureBackendFilteredBuild() {
         # without turning those runtime writes into duplicate build producers.
         fingerprint="$(TestInputFingerprint \
             --path Directory.Build.props \
+            --path Directory.Packages.props \
             --path FsusBlog.slnx \
             --path tools/build-with-data-env.sh \
             --path tools/test/lanes/_suite-support.sh \
@@ -1182,6 +1161,7 @@ EnsureBackendFilteredBuild() {
         # source scan as the conservative fallback.
         fingerprint="$(TestInputFingerprint \
             --path Directory.Build.props \
+            --path Directory.Packages.props \
             --path FsusBlog.slnx \
             --path src/backend \
             --path src/core \
@@ -1298,6 +1278,7 @@ RunBackendTestGovernanceCheckOnce() {
         --execution-class correctness \
         --producer-id backend-test-governance \
         --path tools/check-backend-test-governance.mjs \
+        --path tools/test/backend-evidence-path-authority.mjs \
         --path tests/backend \
         --path tests/matrix.yml \
         --test-id backend-test-governance \
@@ -1386,14 +1367,6 @@ RunBackendTestGovernanceOnly() {
     WriteBackendSplitSummary backend-test-governance governance
 }
 
-RunBackendPerfOnly() {
-    local trxLane="${1:-backend-perf}"
-    RunBackendPerfGovernanceOnly
-    RunBackendPerfNativeP99Only "$trxLane"
-    RunBackendPerfReadinessBuildOnly
-    WriteBackendSplitSummary backend-perf native-p99-and-benchmark-project-release-build
-}
-
 RunBackendPerfGovernanceOnly() {
     local -a failures=()
     RunBackendTestGovernanceCheckOnce || failures+=(backend-test-governance)
@@ -1407,9 +1380,39 @@ RunBackendPerfGovernanceOnly() {
 
 RunBackendPerfNativeP99Only() {
     local trxLane="${1:-backend-perf}"
-    FSUSBLOG_RUN_PERFORMANCE_TESTS=1 RunBackendDotnetFilterOnly \
+    local evidenceRoot="$ROOT_DIR/.tmp/backend-perf/native-p99"
+    local preflightFile="$evidenceRoot/preflight.json"
+    local evidenceFile="$evidenceRoot/measurement.json"
+    local summaryFile="$evidenceRoot/summary.json"
+    local trxFile
+    local testStatus=0
+    trxFile="$(BackendTrxFile "$trxLane")"
+
+    EnsureBackendFilteredBuild
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/native-p99-producer-contract.mjs" prepare \
+        --root "$ROOT_DIR" \
+        --preflight "$preflightFile" \
+        --evidence "$evidenceFile" \
+        --summary "$summaryFile" \
+        --trx "$trxFile"
+    export FSUSBLOG_NATIVE_P99_EVIDENCE_PATH="$evidenceFile"
+    if RunBackendDotnetFilterOnly \
         "FullyQualifiedName=FsusBlog.Server.Tests.Unit.NativeGroth16ZkProofBackendTests.MclGroth16VerifierLibrary_VerifyP99StaysInsideNativeBudget" \
-        "$trxLane"
+        "$trxLane"; then
+        testStatus=0
+    else
+        testStatus=$?
+    fi
+    if ! Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/native-p99-producer-contract.mjs" verify \
+        --root "$ROOT_DIR" \
+        --preflight "$preflightFile" \
+        --evidence "$evidenceFile" \
+        --summary "$summaryFile" \
+        --trx "$trxFile" \
+        --test-exit-code "$testStatus"; then
+        return 1
+    fi
+    return "$testStatus"
 }
 
 RunBackendPerfReadinessBuildOnly() {
@@ -1770,7 +1773,10 @@ EndLegacyRuntimeScenarioObservation() {
 RunIntegrationOnly() {
     Log "tier=integration | debug runtime validation, requires frontend=3000 backend=5000"
     if [[ "${FSUSBLOG_SKIP_BACKEND_INTEGRATION_TESTS:-0}" != "1" ]]; then
-        RunBackendDotnetFilterOnly "Category=Integration" integration
+        Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/legacy-real-dump-contract.mjs" \
+            plan --producer integration \
+            --out "$ROOT_DIR/.tmp/test-results/backend/integration/legacy-real-dump-membership.json"
+        RunBackendDotnetFilterOnly "Category=Integration&Fixture!=Legacy20260517RealDump" integration
         Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/write-rights-v3-integration-producer.mjs"
     fi
     RequireDebugStack
@@ -1957,7 +1963,6 @@ RunAcceptanceOnly() {
     ConfigurePlaywrightWorkers acceptance-public-routes FSUSBLOG_PUBLIC_ACCEPTANCE_WORKERS
     RequireDebugStack
     RequireReleasePreview
-    ResetSecurityRuntimeState "pre acceptance"
 
     if [[ "${FSUSBLOG_TEST_SESSION_ISOLATION:-0}" == "1" ]]; then
         export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
@@ -1976,7 +1981,6 @@ RunAcceptanceOnly() {
     export FSUSBLOG_HTTP_TIMEOUT_MS="$ACCEPTANCE_HTTP_TIMEOUT_MS"
     RunInClient npm run check:spa:routes
     RunInClient npm run check:acceptance:auth
-    ResetSecurityRuntimeState "pre console acceptance"
     RunInClient npm run check:acceptance:console
 }
 
@@ -1996,7 +2000,6 @@ RunVisualPublicOnly() {
     ConfigurePlaywrightWorkers visual-public FSUSBLOG_VISUAL_PUBLIC_WORKERS
     RequireDebugStack
     RequireReleasePreview
-    ResetSecurityRuntimeState "pre visual public"
 
     export FSUSBLOG_BASE_URL="$RELEASE_PREVIEW_URL"
     export PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL"
@@ -2015,7 +2018,6 @@ RunVisualConsoleOnly() {
     export FSUSBLOG_TEST_SESSION_ISOLATION="${FSUSBLOG_TEST_SESSION_ISOLATION:-1}"
     RequireDebugStack
     RequireReleasePreview
-    ResetSecurityRuntimeState "pre visual console"
 
     export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
     export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
@@ -2106,7 +2108,6 @@ RunSecurityRuntimeCoreOnly() {
     if [[ "${FSUSBLOG_RUNTIME_SCENARIO_HOST:-1}" == "0" ]]; then
         Log "runtime scenario host disabled; using retained per-CLI security fallback"
         BeginLegacyRuntimeScenarioObservation security
-        RunSecurityStage "reset-pre-legacy" ResetSecurityRuntimeState "pre security legacy checks"
         RunSecurityStage "api-contracts" RunInClient npm run check:api-contracts
         RunSecurityStage "auth-session" RunSecurityLegacyIsolatedClientCheck \
             auth-session "${FSUSBLOG_NODE:-node}" \
@@ -2118,7 +2119,6 @@ RunSecurityRuntimeCoreOnly() {
         RunSecurityStage "headers-cors" RunInClient npm run check:security:headers-cors
         RunSecurityStage "notification-stream-binary" RunInClient \
             npm run check:security:notification-stream-binary
-        RunSecurityStage "reset-pre-attack" ResetSecurityRuntimeState "pre attack matrix"
         RunSecurityStage "attack-matrix" RunInClient npm run check:security:attack-matrix
         if ((${#securityFailures[@]} > 0)); then
             EndLegacyRuntimeScenarioObservation failure
@@ -2151,7 +2151,6 @@ RunSecurityRuntimeCoreOnly() {
             "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-retained-runtime-scenario.mjs" \
             --scenario security.dast --cwd src/frontend -- npm run check:security:dast
     fi
-    RunSecurityStage "reset-post-gate" ResetSecurityRuntimeState "post security gate"
     unset -f RunSecurityStage RunSecurityLegacyIsolatedClientCheck \
         CheckSecurityFirewallEvidence CheckExternalProductionExposure
     if ((${#securityFailures[@]} > 0)); then
@@ -2171,7 +2170,6 @@ RunResilienceOnly() {
     Log "tier=resilience | runtime/upload/search/notification-stream/binary resilience"
     RequireDebugStack
     RequireReleasePreview
-    ResetSecurityRuntimeState "pre resilience"
 
     export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
     export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
@@ -2203,7 +2201,6 @@ RunLoadOnly() {
     Log "tier=load | lightweight public/api and notification stream concurrency checks"
     RequireDebugStack
     RequireReleasePreview
-    ResetSecurityRuntimeState "pre load"
 
     export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
     export FSUSBLOG_PUBLIC_BASE_URL="$RELEASE_PREVIEW_URL"
@@ -2213,7 +2210,6 @@ RunLoadOnly() {
     RunInClientMeasurement load-public-api \
         "$ROOT_DIR/.tmp/perf/load/measurement-noise-public-api.json" \
         npm run check:load:public-api
-    ResetSecurityRuntimeState "pre notification stream pressure"
     RunInClientMeasurement load-notification-stream-pressure \
         "$ROOT_DIR/.tmp/perf/load/measurement-noise-notification-stream.json" \
         npm run check:load:notification-stream-pressure

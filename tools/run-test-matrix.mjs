@@ -15,6 +15,7 @@ import {
 } from './docs/behavior-doc-static-admission.mjs';
 import { sealSourceIdentity } from './fact-extractors/identity.mjs';
 import { availableMemoryGiB } from './test/system-memory.mjs';
+import { validateCorrectnessAttemptMigration } from './test/correctness-attempt-migration.mjs';
 import {
     buildAggregatePlan as buildAggregateReachabilityPlan,
     buildReceiptPlan as buildReceiptReachabilityPlan
@@ -35,6 +36,19 @@ import {
     discoverOrphanDotnetBuildServers,
     dotnetBuildServerInventory
 } from './test-matrix/dotnet-build-server-cleanup.mjs';
+import {
+    loadExecutionServiceCatalog,
+    validateExecutionServiceCatalog
+} from './test/execution-envelope-services.mjs';
+import {
+    loadExecutionNetworkPolicy,
+    validateExecutionNetworkPolicy
+} from './test/execution-envelope-network.mjs';
+import {
+    loadExecutionEnvelopeApplicability,
+    loadExecutionEnvelopePolicy,
+    validateExecutionEnvelopeContracts
+} from './test-matrix/execution-envelope-policy.mjs';
 import { validateFixtureProfileMatrix } from './test-matrix/fixture-profile-contract.mjs';
 import { cleanLocalProductionOutputs, dockerRootDirectory } from './test-matrix/fresh-production.mjs';
 import {
@@ -99,6 +113,10 @@ import {
     writeResourceUtilizationEvidence
 } from './test-matrix/resource-utilization.mjs';
 import { validateRuntimeStateDomainCatalog } from './test-matrix/runtime-state-domain-catalog.mjs';
+import {
+    loadReleaseReliabilityCatalog,
+    validateReleaseReliabilitySchedulerMatrix
+} from './test-matrix/release-reliability-scheduler-projection.mjs';
 import {
     aggregateArtifactPathExists,
     applySupersedes,
@@ -908,11 +926,34 @@ function validateMatrixSchema(matrix)
     }
 }
 
+// BEHAVIOR-OWNER: release-final-aggregate-contract
+function validateReleaseFinalAggregateAuthorities(matrix)
+{
+    return Object.keys(matrix.finalizerAuthorities ?? {}).sort().flatMap((authorityId) =>
+        buildReleaseFinalizerPlan(matrix, authorityId).errors
+            .map((error) => `finalizerAuthorities.${authorityId}: ${error}`));
+}
+
+// BEHAVIOR-OWNER: deployment-blue-green-runtime-role
+function validateDeploymentDomainAuthorities(matrix)
+{
+    return validateReleaseDomainMatrix(root, matrix);
+}
+
 function validateMatrix(matrix)
 {
     const errors = [];
     const ids = new Set();
     const byId = tierMap(matrix);
+    errors.push(...validateExecutionEnvelopeContracts({
+        matrix,
+        policy: loadExecutionEnvelopePolicy(),
+        catalog: loadExecutionEnvelopeApplicability()
+    }).map((error) => `executionEnvelope: ${error}`));
+    errors.push(...validateExecutionServiceCatalog(loadExecutionServiceCatalog(), matrix)
+        .map((error) => `executionServiceCatalog: ${error}`));
+    errors.push(...validateExecutionNetworkPolicy(loadExecutionNetworkPolicy())
+        .map((error) => `executionNetworkPolicy: ${error}`));
     errors.push(...validateCorrectnessBudgetPolicy(loadCorrectnessBudgetPolicy(), matrix)
         .map((error) => `correctnessBudgetPolicy: ${error}`));
 
@@ -949,11 +990,7 @@ function validateMatrix(matrix)
         errors.push(...buildReceiptReachabilityPlan(matrix, authorityId, { root }).errors
             .map((error) => `receiptAuthorities.${authorityId}: ${error}`));
     }
-    for (const authorityId of Object.keys(matrix.finalizerAuthorities ?? {}).sort())
-    {
-        errors.push(...buildReleaseFinalizerPlan(matrix, authorityId).errors
-            .map((error) => `finalizerAuthorities.${authorityId}: ${error}`));
-    }
+    errors.push(...validateReleaseFinalAggregateAuthorities(matrix));
     if (!Array.isArray(matrix.tiers) || matrix.tiers.length === 0)
     {
         errors.push('tiers must be a non-empty list');
@@ -1392,7 +1429,7 @@ function validateMatrix(matrix)
     }
 
     errors.push(...validateFrontendFastSplit(matrix, byId));
-    errors.push(...validateReleaseDomainMatrix(root, matrix));
+    errors.push(...validateDeploymentDomainAuthorities(matrix));
     errors.push(...validateBehaviorDocStaticAdmissionMatrix(matrix, { repositoryRoot: root }));
     errors.push(...validateLocalProfiles(matrix.localProfiles, matrix.tiers));
     errors.push(...validateCoverageRegistry(matrix));
@@ -1569,6 +1606,11 @@ function validateMatrix(matrix)
                 + 'as the release-final correctness/qualification-eligible reliability authority'
         );
     }
+
+    errors.push(...validateReleaseReliabilitySchedulerMatrix(
+        matrix,
+        loadReleaseReliabilityCatalog({ root })
+    ));
 
     return errors;
 }
@@ -2030,14 +2072,7 @@ function applyUxViewportResumeEnvironment(env, tier, resume)
     {
         return env;
     }
-    if (resume)
-    {
-        env.FSUSBLOG_UX_VIEWPORT_RESUME = '1';
-    }
-    else
-    {
-        env.FSUSBLOG_UX_VIEWPORT_RESUME = '0';
-    }
+    env.FSUSBLOG_UX_VIEWPORT_RESUME = '0';
     return env;
 }
 
@@ -5207,31 +5242,35 @@ function findFiles(dir, predicate, results = [])
 function loadJobSummaries()
 {
     const summaries = new Map();
-    const roots = [
-        path.join(root, '.tmp/release-evidence/jobs'),
-        path.join(root, '.tmp/downloaded-artifacts')
-    ];
-    for (const searchRoot of roots)
+    const transport = String(process.env.FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST ?? '').trim();
+    const roots = transport
+        ? []
+        : [path.join(root, '.tmp/release-evidence/jobs')];
+    const files = transport
+        ? (JSON.parse(fs.readFileSync(path.resolve(root, transport), 'utf8')).objects ?? [])
+            .filter((object) => object.authorityId === 'evidence-consumer.ci.check-job-summaries.current-run'
+                || object.authorityId === 'evidence-consumer.workflow.quality-gate.current-run')
+            .flatMap((object) => object.archiveEntries ?? [])
+            .map((entry) => path.resolve(root, entry.extractedPath))
+        : roots.flatMap((searchRoot) => findFiles(searchRoot, (candidate) => candidate.endsWith('.json') && candidate.includes(`${path.sep}jobs${path.sep}`)));
+    for (const file of files)
     {
-        for (const file of findFiles(searchRoot, (candidate) => candidate.endsWith('.json') && candidate.includes(`${path.sep}jobs${path.sep}`)))
+        try
         {
-            try
+            const summary = JSON.parse(fs.readFileSync(file, 'utf8'));
+            if (summary.schema !== 'fsusblog.ci.job-result.v1')
             {
-                const summary = JSON.parse(fs.readFileSync(file, 'utf8'));
-                if (summary.schema !== 'fsusblog.ci.job-result.v1')
-                {
-                    continue;
-                }
-                summaries.set(summary.jobId, { summary, file });
-                if (summary.ciJob && !summaries.has(summary.ciJob))
-                {
-                    summaries.set(summary.ciJob, { summary, file });
-                }
+                continue;
             }
-            catch
+            summaries.set(summary.jobId, { summary, file });
+            if (summary.ciJob && !summaries.has(summary.ciJob))
             {
-                // Ignore unrelated JSON artifacts.
+                summaries.set(summary.ciJob, { summary, file });
             }
+        }
+        catch
+        {
+            // Ignore unrelated JSON artifacts.
         }
     }
     return summaries;
@@ -5239,8 +5278,21 @@ function loadJobSummaries()
 
 function aggregatePathExists(rel)
 {
-    const downloadedRoot = path.join(root, '.tmp/downloaded-artifacts');
-    return aggregateArtifactPathExists({ root, downloadedRoot, declaration: rel });
+    const transport = String(process.env.FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST ?? '').trim();
+    if (transport)
+    {
+        const manifest = JSON.parse(fs.readFileSync(path.resolve(root, transport), 'utf8'));
+        const extracted = (manifest.objects ?? []).flatMap((object) => object.archiveEntries ?? [])
+            .map((entry) => String(entry.extractedPath ?? '').replaceAll('\\', '/'));
+        const normalized = String(rel ?? '').replaceAll('\\', '/');
+        return extracted.includes(normalized)
+            || extracted.some((entry) => entry.endsWith(`/${path.posix.basename(normalized)}`));
+    }
+    return aggregateArtifactPathExists({
+        root,
+        downloadedRoot: path.join(root, '.tmp/absent-transport-root'),
+        declaration: rel
+    });
 }
 
 function githubNeedsErrors(rawNeedsJson, dependencyJobs)
@@ -6353,6 +6405,7 @@ async function main()
     }
 
     const matrix = loadMatrix({ validateDependencyFields: command !== 'validate' });
+    validateCorrectnessAttemptMigration(root);
     if (command === 'validate')
     {
         const errors = [

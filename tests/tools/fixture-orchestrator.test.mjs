@@ -41,16 +41,25 @@ function fixtureCliBoundaryStub(context)
     writeFileSync(executable, `#!/usr/bin/env node
 const fs = require('node:fs')
 const path = require('node:path')
+const { spawnSync } = require('node:child_process')
 const [entry, ...args] = process.argv.slice(2)
 const fail = (message) => {
   process.stderr.write(message + '\\n')
   process.exit(31)
+}
+if (entry === '-e') {
+  eval(args[0])
+  return
 }
 if (String(entry).endsWith('/tests/frontend/support/fixture-paths.mjs')) {
   const fixtureRoot = process.env.FSUSBLOG_TEST_STUB_FIXTURE_ROOT
   if (!fixtureRoot) fail('fixture root is required')
   process.stdout.write(fixtureRoot)
   process.exit(0)
+}
+if (entry === '-e' || entry === '-' || entry === '--input-type=module') {
+  const result = spawnSync(process.execPath, [entry, ...args], { stdio: 'inherit' })
+  process.exit(result.status ?? 1)
 }
 if (!String(entry).endsWith('/tools/test-fixtures/cli.mjs')) fail('unexpected node entry: ' + entry)
 const options = { _: [] }
@@ -94,7 +103,9 @@ fs.writeFileSync(process.env.FSUSBLOG_TEST_STUB_CAPTURE, JSON.stringify({
   prepareState: options['prepare-state'],
   skipVerify: options['skip-verify'],
   fixtureReceiptRequested: Object.hasOwn(options, 'fixture-receipt'),
-  outputRequested: Object.hasOwn(options, 'out')
+  outputRequested: Object.hasOwn(options, 'out'),
+  publicContentSecret: process.env.FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET,
+  authSecret: process.env.FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET
 }))
 process.stdout.write(JSON.stringify(prepareState) + '\\n')
 `);
@@ -110,6 +121,7 @@ function mockPort(spec, hooks = {})
         strategy: spec.strategy,
         providedCapabilities: [...spec.provides],
         consumedCapabilities: [...spec.consumes],
+        identityRoleRequests: hooks.identityRoleRequests ?? [],
         calls,
         async prepare(context, signal)
         {
@@ -191,6 +203,36 @@ test('profile expands to a single producer DAG resolver', () =>
     const planned = plan({ profileId: 'scale-xs', profileSource: 'dev-cli' });
     assert.deepEqual(planned.producers, dag.producers.map((item) => item.id));
     assert.deepEqual(planned.order, dag.order);
+});
+
+test('auth-session receives sealed consumer identity allocation requests from planned ports', async () =>
+{
+    const planned = plan({ profileId: 'account-messaging', profileSource: 'dev-cli' });
+    let authRequests = null;
+    const request = {
+        ownerProducerId: 'auth-session',
+        consumerProducerId: 'account-messaging',
+        role: 'primary-recipient',
+        capabilityId: 'auth.user.active'
+    };
+    const ports = portsForPlan(planned, {
+        'auth-session': {
+            onPrepare: async (context) =>
+            {
+                authRequests = context.identityRoleRequests;
+                return { ok: true };
+            }
+        },
+        'account-messaging': { identityRoleRequests: [request] }
+    });
+    await prepare(planned, ports);
+    assert.deepEqual(authRequests, [request]);
+
+    ports.find((port) => port.id === 'account-messaging').identityRoleRequests = [{
+        ...request,
+        capabilityId: 'auth.user.deleted'
+    }];
+    await assert.rejects(() => prepare(planned, ports), /catalog-declared consumed capabilities/u);
 });
 
 test('producer dependency cycle fails before mutation', () =>
@@ -407,7 +449,7 @@ test('producer env strategy override is rejected by default ports', async () =>
     }
 });
 
-test('default structural port keeps pre-cutover profiles preparable without claiming typed entity evidence', async () =>
+test('account-messaging cutover refuses structural preparation without verified identity facts', async () =>
 {
     const planned = plan({ profileId: 'account-messaging', profileSource: 'dev-cli' });
     const { createAccountMessagingPort } = await import('../../tools/test-fixtures/producers/catalog-ports.mjs');
@@ -419,23 +461,24 @@ test('default structural port keeps pre-cutover profiles preparable without clai
             'auth-session': { producerId: 'auth-session', postconditions: ['user-active'] }
         }
     });
-    const result = await port.prepare(context);
-    assert.equal(result.structuralOnly, true);
-    assert.equal(result.enforceVariantEvidence, undefined);
-    assert.deepEqual(result.variantIds, context.variantPlan.variants.map((item) => item.id).sort());
+    await assert.rejects(
+        () => port.prepare(context),
+        /requires #1713 exact auth-session prepare references/u
+    );
 });
 
 test('state-domain conflicting producers are not scheduled in the same wave', () =>
 {
-    const dag = buildProducerDag('acceptance-representative');
-    // account-messaging and comment-moderation share postgres.settings → not same wave.
+    const dag = buildProducerDag('account-messaging');
+    // Account preference and messaging producers both consume the owned account
+    // namespace, so they must not mutate it in the same wave.
     const waveSets = dag.waves.map((wave) => new Set(wave));
     for (const wave of waveSets)
     {
         assert.equal(
-            wave.has('account-messaging') && wave.has('comment-moderation'),
+            wave.has('account-messaging') && wave.has('account-profile-preferences'),
             false,
-            'account-messaging and comment-moderation must not share a wave'
+            'account messaging and profile/preference producers must not share a wave'
         );
     }
 });
@@ -473,9 +516,14 @@ test('matrix sealed digests fail closed on catalog drift', () =>
 test('verify and cleanup succeed for prepared mock plan with observations', async () =>
 {
     const planned = plan({ profileId: 'auth-basic', profileSource: 'dev-cli' });
+    const privateHandles = { localAuthFixtureSecret: 'private-runtime-only' };
+    let prepareSecret = null;
+    let verifySecret = null;
     const ports = portsForPlan(planned, {
         'auth-session': {
-            onPrepare: async () => ({
+            onPrepare: async (context) => {
+                prepareSecret = context.handles.localAuthFixtureSecret;
+                return ({
                 ok: true,
                 producerId: 'auth-session',
                 strategy: 'transaction-fixture',
@@ -489,9 +537,33 @@ test('verify and cleanup succeed for prepared mock plan with observations', asyn
                         namespace: null,
                         schemaIdentity: 'public',
                         entities: [
-                            { kind: 'user', id: 'u1', variantId: 'canonical.auth.user.active', fields: { status: 'active', deleted: false } },
-                            { kind: 'admin', id: 'a1', variantId: 'canonical.auth.admin.full-permission', fields: { permission: 'full' } },
-                            { kind: 'session', id: 's1', variantId: 'canonical.session.single-device', fields: { active: true } }
+                            {
+                                kind: 'user',
+                                id: 'u1',
+                                variantId: 'canonical.auth.user.active',
+                                postconditionId: 'user-active',
+                                fields: { status: 'active', deleted: false }
+                            },
+                            {
+                                kind: 'admin',
+                                id: 'a1',
+                                variantId: 'canonical.auth.admin.full-permission',
+                                postconditionId: 'admin-full-permission',
+                                fields: { permission: 'full' }
+                            },
+                            {
+                                kind: 'session',
+                                id: 's1',
+                                variantId: 'canonical.session.single-device',
+                                postconditionId: 'session-single-device',
+                                fields: {
+                                    state: 'active',
+                                    live: true,
+                                    databaseStateVerified: true,
+                                    claimStateVerified: true,
+                                    cacheStateVerified: true
+                                }
+                            }
                         ]
                     },
                     redis: {
@@ -502,14 +574,24 @@ test('verify and cleanup succeed for prepared mock plan with observations', asyn
                     },
                     cache: { namespace: null, entries: [] }
                 }
-            })
+            });
+            },
+            onVerify: async (context) =>
+            {
+                verifySecret = context.handles.localAuthFixtureSecret;
+                return { ok: true, producerId: 'auth-session' };
+            }
         }
     });
-    const prepared = await prepare(planned, ports);
+    const prepared = await prepare(planned, ports, undefined, { handles: privateHandles });
     assert.equal(prepared.schema, 'fsusblog.fixture-prepare-state.v1');
     assert.equal(prepared.terminalState, 'prepared');
     assert.deepEqual(prepared.producerReceipts, []);
-    const verified = await verify(prepared, ports);
+    assert.equal(prepareSecret, privateHandles.localAuthFixtureSecret);
+    assert.doesNotMatch(JSON.stringify(prepared), /private-runtime-only/u);
+    const verified = await verify(prepared, ports, { handles: privateHandles });
+    assert.equal(verifySecret, privateHandles.localAuthFixtureSecret);
+    assert.doesNotMatch(JSON.stringify(verified), /private-runtime-only/u);
     assert.equal(verified.schema, 'fsusblog.fixture-receipt.v2');
     assert.equal(verified.terminalStatus, 'verified');
     assert.ok(verified.receiptDigest.startsWith('sha256:'));
@@ -532,6 +614,7 @@ test('shell dual paths and prepare package scripts are gone', () =>
     const bootstrap = readFileSync(path.join(root, 'tools/bootstrap-acceptance-env.sh'), 'utf8');
     const start = readFileSync(path.join(root, 'tools/dev/start.sh'), 'utf8');
     const suite = readFileSync(path.join(root, 'tools/test/lanes/_suite-support.sh'), 'utf8');
+    const fixtureCli = readFileSync(path.join(root, 'tools/test-fixtures/cli.mjs'), 'utf8');
     const pkg = JSON.parse(readFileSync(path.join(root, 'src/frontend/package.json'), 'utf8'));
     const publicProducer = readFileSync(path.join(root, 'tools/test-fixtures/producers/public-content-producer.mjs'), 'utf8');
 
@@ -553,6 +636,10 @@ test('shell dual paths and prepare package scripts are gone', () =>
     assert.equal(pkg.scripts['prepare:playwright:sessions'], undefined);
     assert.doesNotMatch(publicProducer, /using direct DB seed|seedPublicFixturesViaApi|buildSeededArticleFallback/);
     assert.match(publicProducer, /transaction-fixture/);
+    assert.match(
+        fixtureCli,
+        /FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET[\s\S]*handles\.localPublicContentFixtureSecret/u
+    );
 });
 
 test('acceptance bootstrap non-none boundary writes prepare-state without requesting FixtureReceipt', (context) =>
@@ -570,6 +657,12 @@ export FSUSBLOG_ACCEPTANCE_ENV_ROOT="$FSUSBLOG_TEST_STUB_ROOT/env"
 export FSUSBLOG_ACCEPTANCE_FIXTURE_ROOT="$FSUSBLOG_TEST_STUB_ROOT/bootstrap-fixtures"
 export FSUSBLOG_TEST_SOURCE_COMMIT=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 export FSUSBLOG_TEST_SOURCE_FINGERPRINT=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+export FSUSBLOG_RELEASE_ID=20260826000000-aaaaaaaaaaaa
+export FSUSBLOG_TEST_HUMAN_READ_PROOF_SIGNING_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+export FSUSBLOG_TEST_HUMAN_READ_PROOF_DEDUP_KEY=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=
+export FSUSBLOG_TEST_READ_ANALYTICS_NOISE_KEY=CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=
+export FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET=public-content-secret
+export FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET=auth-secret
 export FSUSBLOG_NODE="$FSUSBLOG_TEST_STUB_NODE"
 source ./tools/bootstrap-acceptance-env.sh
 FIXTURE_PROFILE_ID=acceptance-representative
@@ -586,7 +679,11 @@ InvokeFixtureOrchestrator
             ...process.env,
             FSUSBLOG_TEST_STUB_CAPTURE: stub.capture,
             FSUSBLOG_TEST_STUB_NODE: stub.executable,
-            FSUSBLOG_TEST_STUB_ROOT: stub.directory
+            FSUSBLOG_TEST_STUB_ROOT: stub.directory,
+            FSUSBLOG_RELEASE_ID: 'fixture-release-id',
+            FSUSBLOG_TEST_HUMAN_READ_PROOF_SIGNING_KEY: 'fixture-signing-key',
+            FSUSBLOG_TEST_HUMAN_READ_PROOF_DEDUP_KEY: 'fixture-dedup-key',
+            FSUSBLOG_TEST_READ_ANALYTICS_NOISE_KEY: 'fixture-noise-key'
         }
     });
     assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
@@ -603,7 +700,9 @@ InvokeFixtureOrchestrator
         prepareState,
         skipVerify: true,
         fixtureReceiptRequested: false,
-        outputRequested: false
+        outputRequested: false,
+        publicContentSecret: 'public-content-secret',
+        authSecret: 'auth-secret'
     });
 });
 
@@ -645,7 +744,8 @@ InvokeLaneFixtureOrchestrator
         prepareState,
         skipVerify: true,
         fixtureReceiptRequested: false,
-        outputRequested: false
+        outputRequested: false,
+        publicContentSecret: 'fsusblog-local-public-content-fixture-secret-lane-fixture-boundary-lane-fixture-boundary-run'
     });
 });
 

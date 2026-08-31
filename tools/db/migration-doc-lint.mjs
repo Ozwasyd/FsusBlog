@@ -8,7 +8,7 @@ const root = process.env.FSUSBLOG_REPO_ROOT
   : path.resolve(import.meta.dirname, '../..')
 
 const docsPath = path.join(root, 'docs/database-migration.md')
-const registryPath = path.join(root, 'src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs')
+const registryPath = path.join(root, 'src/migration/SchemaMigrationRegistry.cs')
 const migrationRoot = path.dirname(registryPath)
 const definitionsPath = path.join(migrationRoot, 'Definitions')
 const catalogsPath = path.join(migrationRoot, 'Catalogs')

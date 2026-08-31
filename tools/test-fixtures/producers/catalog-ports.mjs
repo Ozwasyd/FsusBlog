@@ -15,6 +15,7 @@ import {
     runProcess,
     runTemporalProcess
 } from './spawn-helper.mjs';
+import { accountProfilePreferenceIdentityRoleRequests } from './account-profile-preference-producer.mjs';
 
 function catalogProducer(id, catalogs = readFixtureCatalogs())
 {
@@ -33,6 +34,7 @@ function basePort(producer, handlers)
         strategy: producer.strategy,
         providedCapabilities: [...producer.provides],
         consumedCapabilities: [...producer.consumes],
+        identityRoleRequests: handlers.identityRoleRequests ?? [],
         prepare: async (context, signal) =>
         {
             const result = await handlers.prepare(context, signal);
@@ -146,37 +148,27 @@ async function observeBackendTemporalContext(context, signal)
 export function createAuthSessionPort(catalogs = readFixtureCatalogs())
 {
     const producer = catalogProducer('auth-session', catalogs);
-    const script = path.join(repositoryRoot, 'tests/frontend/fixtures/prepare-auth-smoke-users.mjs');
     return basePort(producer, {
         async prepare(context, signal)
         {
             assertNoStrategyEnv();
-            await runProcess(process.execPath, [script], {
-                env: buildProducerChildEnv(context),
-                signal
-            });
-            const backendObservation = context.temporalContext
-                ? await observeBackendTemporalContext(context, signal)
-                : null;
+            const { prepareAuthSession } = await import('./auth-session-producer.mjs');
+            const result = await prepareAuthSession(context, signal);
             return {
-                producerId: producer.id,
-                strategy: producer.strategy,
-                implementation: 'tests/frontend/fixtures/prepare-auth-smoke-users.mjs',
+                ...result,
                 ...variantOutputFromTypedPlan(context, producer.id),
-                postconditions: [...producer.receiptPostconditions],
-                ...(backendObservation
-                    ? {
-                        temporalObservation: {
-                            ...backendObservation,
-                            observationBoundary: 'server-owned-auth-session-backend-and-postgres-session'
-                        }
-                    }
-                    : {})
+                postconditions: [...producer.receiptPostconditions]
             };
         },
-        async cleanup()
+        async verify(context, producerResult)
         {
-            // Auth fixture rows are namespace-owned; outer bootstrap owns DB drop.
+            const { verifyAuthSession } = await import('./auth-session-producer.mjs');
+            return verifyAuthSession(context, producerResult);
+        },
+        async cleanup(context, receipt, signal)
+        {
+            const { cleanupAuthSession } = await import('./auth-session-producer.mjs');
+            await cleanupAuthSession(context, receipt, signal);
         }
     });
 }
@@ -335,7 +327,46 @@ export function createScaleDataPort(catalogs = readFixtureCatalogs())
 
 export function createSecurityStatePort(catalogs = readFixtureCatalogs())
 {
-    return createStructuralBusinessPort(catalogProducer('security-state', catalogs), 'securityStateAdapter');
+    const producer = catalogProducer('security-state', catalogs);
+    return basePort(producer, {
+        identityRoleRequests: [
+            {
+                ownerProducerId: 'auth-session',
+                consumerProducerId: 'security-state',
+                role: 'primary',
+                capabilityId: 'auth.user.active'
+            },
+            {
+                ownerProducerId: 'auth-session',
+                consumerProducerId: 'security-state',
+                role: 'subject.banned',
+                capabilityId: 'auth.user.active'
+            },
+            {
+                ownerProducerId: 'auth-session',
+                consumerProducerId: 'security-state',
+                role: 'subject.unbanned',
+                capabilityId: 'auth.user.active'
+            }
+        ],
+        async prepare(context, signal)
+        {
+            assertNoStrategyEnv();
+            requireConsumedProducerOutputs(producer, context);
+            const { prepareSecurityFixtures } = await import('./security-fixture-producer.mjs');
+            return prepareSecurityFixtures(context, signal);
+        },
+        async verify(context, producerResult)
+        {
+            const { verifySecurityFixtures } = await import('./security-fixture-producer.mjs');
+            return verifySecurityFixtures(context, producerResult);
+        },
+        async cleanup(context, producerResult, signal)
+        {
+            const { cleanupSecurityFixtures } = await import('./security-fixture-producer.mjs');
+            await cleanupSecurityFixtures(context, producerResult, signal);
+        }
+    });
 }
 
 function requireConsumedProducerOutputs(producer, context)
@@ -449,7 +480,121 @@ function createStructuralBusinessPort(producer, adapterHandleName)
 
 export function createAccountMessagingPort(catalogs = readFixtureCatalogs())
 {
-    return createStructuralBusinessPort(catalogProducer('account-messaging', catalogs), 'accountMessagingAdapter');
+    const producer = catalogProducer('account-messaging', catalogs);
+    return basePort(producer, {
+        identityRoleRequests: [
+            {
+                ownerProducerId: 'auth-session',
+                consumerProducerId: 'account-messaging',
+                role: 'admin',
+                capabilityId: 'auth.admin.full-permission'
+            },
+            {
+                ownerProducerId: 'auth-session',
+                consumerProducerId: 'account-messaging',
+                role: 'empty-recipient',
+                capabilityId: 'auth.user.active'
+            },
+            {
+                ownerProducerId: 'auth-session',
+                consumerProducerId: 'account-messaging',
+                role: 'primary-recipient',
+                capabilityId: 'auth.user.active'
+            },
+            {
+                ownerProducerId: 'auth-session',
+                consumerProducerId: 'account-messaging',
+                role: 'secondary-recipient',
+                capabilityId: 'auth.user.active'
+            }
+        ],
+        async prepare(context, signal)
+        {
+            requireConsumedProducerOutputs(producer, context);
+            const { prepareAccountMessaging } = await import('./account-messaging-producer.mjs');
+            const result = await prepareAccountMessaging(context, signal);
+            return {
+                ...result,
+                ...variantOutputFromTypedPlan(context, producer.id),
+                postconditions: [...producer.receiptPostconditions]
+            };
+        },
+        async verify(context, producerResult)
+        {
+            const { verifyAccountMessaging } = await import('./account-messaging-producer.mjs');
+            return verifyAccountMessaging(context, producerResult);
+        },
+        async cleanup(context, producerResult, signal)
+        {
+            const { cleanupAccountMessaging } = await import('./account-messaging-producer.mjs');
+            await cleanupAccountMessaging(context, producerResult, signal);
+        }
+    });
+}
+
+export function createAccountProfilePreferencePort(catalogs = readFixtureCatalogs())
+{
+    const producer = catalogProducer('account-profile-preferences', catalogs);
+    return basePort(producer, {
+        identityRoleRequests: accountProfilePreferenceIdentityRoleRequests,
+        async prepare(context, signal)
+        {
+            assertNoStrategyEnv();
+            requireConsumedProducerOutputs(producer, context);
+            const { prepareAccountProfilePreferences } = await import(
+                './account-profile-preference-producer.mjs'
+            );
+            const result = await prepareAccountProfilePreferences(context, signal);
+            return {
+                ...result,
+                producerId: producer.id,
+                strategy: producer.strategy,
+                postconditions: [...producer.receiptPostconditions]
+            };
+        },
+        async verify(context, producerResult)
+        {
+            const { verifyAccountProfilePreferences } = await import(
+                './account-profile-preference-producer.mjs'
+            );
+            return verifyAccountProfilePreferences(context, producerResult);
+        },
+        async cleanup(context, producerResult, signal)
+        {
+            const { cleanupAccountProfilePreferences } = await import(
+                './account-profile-preference-producer.mjs'
+            );
+            await cleanupAccountProfilePreferences(context, producerResult, signal);
+        }
+    });
+}
+
+export function createAuditRecordsPort(catalogs = readFixtureCatalogs())
+{
+    const producer = catalogProducer('audit-records', catalogs);
+    return basePort(producer, {
+        async prepare(context, signal)
+        {
+            assertNoStrategyEnv();
+            const { prepareAuditRecords } = await import('./audit-producer.mjs');
+            const result = await prepareAuditRecords(context, signal);
+            return {
+                ...result,
+                ...variantOutputFromTypedPlan(context, producer.id),
+                postconditions: [...producer.receiptPostconditions]
+            };
+        },
+        async verify(context, producerResult)
+        {
+            const { verifyAuditRecords } = await import('./audit-producer.mjs');
+            return verifyAuditRecords(context, producerResult);
+        },
+        async cleanup(context, receipt, signal)
+        {
+            const { cleanupAuditRecords } = await import('./audit-producer.mjs');
+            await cleanupAuditRecords(context, receipt, signal);
+        }
+    });
 }
 
 export function createCommentModerationPort(catalogs = readFixtureCatalogs())
@@ -466,6 +611,8 @@ export function createDefaultProducerPorts(catalogs = readFixtureCatalogs())
         createDevelopmentDemoPort(catalogs),
         createScaleDataPort(catalogs),
         createSecurityStatePort(catalogs),
+        createAccountProfilePreferencePort(catalogs),
+        createAuditRecordsPort(catalogs),
         createAccountMessagingPort(catalogs),
         createCommentModerationPort(catalogs)
     ];

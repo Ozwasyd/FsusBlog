@@ -1017,12 +1017,17 @@ test('publish scripts and Dockerfile consume the named profile instead of restor
     const finalBuild = fs.readFileSync(path.join(root, 'tools/build-final-image.sh'), 'utf8');
     const collector = fs.readFileSync(path.join(root, 'tools/operations/collect-release-evidence.sh'), 'utf8');
     const ensureWasm = fs.readFileSync(path.join(root, 'tools/frontend/ensure-wasm.mjs'), 'utf8');
+    const wasmProducerInputs = JSON.parse(fs.readFileSync(
+        path.join(root, 'ops/docker/wasm-producer-inputs.json'),
+        'utf8'
+    ));
     assert.match(dockerfile, /FROM base-\$\{RUNTIME_BASE_FLAVOR\} AS base/u);
     assert.match(dockerfile, /FROM build-\$\{RUNTIME_BASE_FLAVOR\} AS build/u);
     assert.match(dockerfile, /mcr\.microsoft\.com\/dotnet\/aspnet:\$\{DOTNET_RUNTIME_VERSION\}-noble@\$\{DOTNET_ASPNET_GLIBC_DIGEST\} AS base-glibc/u);
     assert.match(dockerfile, /mcr\.microsoft\.com\/dotnet\/sdk:\$\{DOTNET_SDK_VERSION\}-noble@\$\{DOTNET_SDK_GLIBC_DIGEST\} AS build-glibc/u);
     assert.doesNotMatch(dockerfile, /10\.0-bookworm-slim/u);
-    assert.ok(dockerfile.indexOf('RUN git clone https://github.com/microsoft/vcpkg.git') < dockerfile.indexOf('COPY tools/frontend/ /work/tools/frontend/'));
+    assert.ok(dockerfile.indexOf('RUN git clone https://github.com/microsoft/vcpkg.git')
+        < dockerfile.indexOf('COPY tools/frontend/install-wasm-codec-deps.sh /work/tools/frontend/install-wasm-codec-deps.sh'));
     assert.match(dockerfile, /io\.fsusblog\.runtime\.profile-manifest-digest/u);
     assert.match(dockerfile, /\/p:PublishReadyToRun="\$PUBLISH_READY_TO_RUN"/u);
     assert.match(dockerfile, /dotnet restore[^\n]+\/p:PublishReadyToRun="\$PUBLISH_READY_TO_RUN"[^\n]+\/p:ReadyToRunUseCrossgen2="\$PUBLISH_READY_TO_RUN"/u);
@@ -1049,7 +1054,22 @@ test('publish scripts and Dockerfile consume the named profile instead of restor
     assert.match(collector, /--expected-profile-manifest-digest/u);
     assert.match(collector, /--expected-profile-digest/u);
     assert.match(collector, /runtime matrix profile identity does not match the release manifest/u);
-    assert.match(ensureWasm, /ignoredWasmDirectories[\s\S]*'stage'/u);
+    assert.match(ensureWasm, /computeWasmProducerInputDescriptor/u);
+    assert.deepEqual(
+        wasmProducerInputs.inputs.find((input) => input.path === 'src/frontend/wasm/')
+            ?.excludedTopLevelDirectories,
+        [
+            '.artifacts',
+            '.cmake',
+            '.emscripten-cache',
+            'build',
+            'build-basic',
+            'build-pow-relaxed',
+            'build-pow-threads',
+            'build-simd',
+            'stage'
+        ]
+    );
     assert.doesNotMatch(nativeBuild, /\/p:PublishReadyToRun=true/u);
 });
 
@@ -1200,7 +1220,7 @@ test('matrix runner retains a structured failed result from a non-zero executor'
     assert.deepEqual(validateRuntimeMatrixEvidence(evidence, { requireComplete: false }), []);
 });
 
-test('matrix runner resumes only failed schedule keys and retains every attempt', (t) =>
+test('matrix runner rejects reuse of failed schedule keys', (t) =>
 {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-runtime-matrix-resume-'));
     t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
@@ -1233,13 +1253,14 @@ test('matrix runner resumes only failed schedule keys and retains every attempt'
     const resumed = spawnSync(process.execPath, [
         path.join(root, 'tools/runtime-profiles/run-runtime-publish-matrix.mjs'),
         ...commonArgs,
-        '--resume-from', output
+        '--reuse-clean-from', output
     ], { cwd: root, encoding: 'utf8', timeout: 30_000 });
-    assert.equal(resumed.status, 0, resumed.stderr);
+    assert.notEqual(resumed.status, 0, resumed.stderr);
+    assert.match(resumed.stderr, /cannot re-execute failed schedule keys/u);
     const evidence = JSON.parse(fs.readFileSync(output, 'utf8'));
-    assert.equal(evidence.runs.length, 3);
+    assert.equal(evidence.runs.length, 2);
     const resumedKey = evidence.runs.filter((run) => run.identity.round === failedIdentity.round && run.identity.profileId === failedIdentity.profileId);
-    assert.deepEqual(resumedKey.map((run) => run.status), ['failed', 'ok']);
+    assert.deepEqual(resumedKey.map((run) => run.status), ['failed']);
     const untouched = evidence.runs.filter((run) => run.identity.profileId !== failedIdentity.profileId);
     assert.equal(untouched.length, 1);
     assert.equal(untouched[0].status, 'ok');
@@ -1248,7 +1269,7 @@ test('matrix runner resumes only failed schedule keys and retains every attempt'
     const wrongIdentity = spawnSync(process.execPath, [
         path.join(root, 'tools/runtime-profiles/run-runtime-publish-matrix.mjs'),
         ...commonArgs.map((value) => value === commitSha ? 'f'.repeat(40) : value),
-        '--resume-from', output
+        '--reuse-clean-from', output
     ], { cwd: root, encoding: 'utf8', timeout: 30_000 });
     assert.notEqual(wrongIdentity.status, 0);
     assert.match(wrongIdentity.stderr, /identity\.commitSha does not match/u);
@@ -1256,7 +1277,7 @@ test('matrix runner resumes only failed schedule keys and retains every attempt'
     const wrongFixture = spawnSync(process.execPath, [
         path.join(root, 'tools/runtime-profiles/run-runtime-publish-matrix.mjs'),
         ...commonArgs.map((value) => value === fixtureId ? 'other-production-fixture' : value),
-        '--resume-from', output
+        '--reuse-clean-from', output
     ], { cwd: root, encoding: 'utf8', timeout: 30_000 });
     assert.notEqual(wrongFixture.status, 0);
     assert.match(wrongFixture.stderr, /identity\.fixtureId does not match/u);
@@ -1276,7 +1297,7 @@ test('matrix runner resumes only failed schedule keys and retains every attempt'
     const wrongManifest = spawnSync(process.execPath, [
         path.join(root, 'tools/runtime-profiles/run-runtime-publish-matrix.mjs'),
         ...commonArgs,
-        '--resume-from', manifestDriftFile
+        '--reuse-clean-from', manifestDriftFile
     ], { cwd: root, encoding: 'utf8', timeout: 30_000 });
     assert.notEqual(wrongManifest.status, 0);
     assert.match(wrongManifest.stderr, /identity\.profileManifestDigest does not match/u);
@@ -1297,7 +1318,7 @@ test('matrix runner resumes only failed schedule keys and retains every attempt'
     const wrongHardware = spawnSync(process.execPath, [
         path.join(root, 'tools/runtime-profiles/run-runtime-publish-matrix.mjs'),
         ...commonArgs,
-        '--resume-from', hardwareDriftFile
+        '--reuse-clean-from', hardwareDriftFile
     ], { cwd: root, encoding: 'utf8', timeout: 30_000 });
     assert.notEqual(wrongHardware.status, 0);
     assert.match(wrongHardware.stderr, /identity\.hardwareDigest does not match/u);
@@ -1321,7 +1342,7 @@ test('matrix runner resumes only failed schedule keys and retains every attempt'
     const wrongSchedule = spawnSync(process.execPath, [
         path.join(root, 'tools/runtime-profiles/run-runtime-publish-matrix.mjs'),
         ...commonArgs,
-        '--resume-from', scheduleDriftFile
+        '--reuse-clean-from', scheduleDriftFile
     ], { cwd: root, encoding: 'utf8', timeout: 30_000 });
     assert.notEqual(wrongSchedule.status, 0);
     assert.match(wrongSchedule.stderr, /schedule does not match/u);

@@ -8,6 +8,11 @@ CMAKE_ROOT="${CACHE_ROOT}/cmake/${CMAKE_VERSION}"
 CMAKE_BIN="${CMAKE_ROOT}/bin/cmake"
 LOCK_FILE="${CACHE_ROOT}/cmake/${CMAKE_VERSION}.lock"
 
+IsValidCmakeCache() {
+    [[ -x "${CMAKE_BIN}" ]] &&
+        [[ "$("${CMAKE_BIN}" --version 2>/dev/null | head -n 1)" == "cmake version ${CMAKE_VERSION}" ]]
+}
+
 case "$(uname -m)" in
     x86_64 | amd64)
         ARCHIVE_ARCH="x86_64"
@@ -23,7 +28,7 @@ case "$(uname -m)" in
         ;;
 esac
 
-if [[ -x "${CMAKE_BIN}" ]]; then
+if IsValidCmakeCache; then
     printf '%s\n' "${CMAKE_BIN}"
     exit 0
 fi
@@ -39,14 +44,17 @@ mkdir -p "$(dirname "${CMAKE_ROOT}")"
 exec 9>"${LOCK_FILE}"
 flock 9
 
-if [[ -x "${CMAKE_BIN}" ]]; then
+if IsValidCmakeCache; then
     printf '%s\n' "${CMAKE_BIN}"
     exit 0
 fi
 
+if [[ -e "${CMAKE_ROOT}" || -L "${CMAKE_ROOT}" ]]; then
+    rm -rf "${CMAKE_ROOT}"
+fi
+
 ARCHIVE_NAME="cmake-${CMAKE_VERSION}-linux-${ARCHIVE_ARCH}.tar.gz"
 PRIMARY_ARCHIVE_URL="https://cmake.org/files/v4.3/${ARCHIVE_NAME}"
-FALLBACK_ARCHIVE_URL="https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/${ARCHIVE_NAME}"
 CURL_CONNECT_TIMEOUT_SECONDS="5"
 CURL_MAX_TIME_SECONDS="120"
 WORK_DIR="$(mktemp -d "${CACHE_ROOT}/cmake/.${CMAKE_VERSION}.install.XXXXXX")"
@@ -63,9 +71,6 @@ FetchArchive() {
     if ! curl -fsSL \
         --connect-timeout "${CURL_CONNECT_TIMEOUT_SECONDS}" \
         --max-time "${CURL_MAX_TIME_SECONDS}" \
-        --retry 3 \
-        --retry-delay 1 \
-        --retry-max-time "${CURL_MAX_TIME_SECONDS}" \
         "${archiveUrl}" \
         -o "${ARCHIVE_PATH}"; then
         rm -f "${ARCHIVE_PATH}"
@@ -75,11 +80,8 @@ FetchArchive() {
 
 echo "[ensure-cmake] installing pinned CMake ${CMAKE_VERSION} into dependency cache" >&2
 if ! FetchArchive "${PRIMARY_ARCHIVE_URL}"; then
-    echo "[ensure-cmake] primary CMake archive unavailable; trying official fallback" >&2
-    if ! FetchArchive "${FALLBACK_ARCHIVE_URL}"; then
-        echo "[ensure-cmake] no CMake archive source is available" >&2
-        exit 1
-    fi
+    echo "[ensure-cmake] pinned CMake archive transfer failed on its first attempt" >&2
+    exit 1
 fi
 
 if ! printf '%s  %s\n' "${ARCHIVE_SHA256}" "${ARCHIVE_PATH}" | sha256sum -c - >/dev/null; then

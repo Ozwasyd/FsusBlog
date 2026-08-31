@@ -1,0 +1,63 @@
+{
+    "schema": "fsusblog.destructive-operation-authority.v1",
+    "contentDigest": "sha256:bfdce7ca0918af2cc87163d5e804595ac73c4cabc9587927e443f4581379b2aa",
+    "operations": [
+        {
+            "id": "runtime-slot-stop",
+            "resourceClass": "runtime-slot",
+            "status": "supported",
+            "consumer": "tools/deployment/slot-stop.sh",
+            "activeIdentitySources": [
+                "durable-slot-state",
+                "durable-rollout-state",
+                "live-container-labels"
+            ],
+            "lock": "deployment",
+            "verification": "exact-active-and-target-runtime-identity"
+        },
+        {
+            "id": "runtime-candidate-cleanup",
+            "resourceClass": "runtime-candidate",
+            "status": "supported",
+            "consumer": "tools/deployment/slot-start.sh",
+            "activeIdentitySources": [
+                "durable-slot-state",
+                "durable-rollout-state",
+                "candidate-compose-identity"
+            ],
+            "lock": "deployment",
+            "verification": "exact-current-operation-candidate-identity"
+        },
+        {
+            "id": "release-artifact-gc",
+            "resourceClass": "release-artifact",
+            "status": "supported",
+            "consumer": "tools/storage/gc-release-assets.mjs",
+            "activeIdentitySources": [
+                "durable-slot-state",
+                "durable-rollout-state",
+                "durable-retention-state"
+            ],
+            "lock": "deployment-and-storage",
+            "verification": "exact-active-release-before-delete"
+        },
+        {
+            "id": "production-volume-cleanup",
+            "resourceClass": "production-volume",
+            "status": "unsupported",
+            "consumer": null,
+            "activeIdentitySources": [],
+            "lock": "unsupported",
+            "verification": "unsupported-fail-closed"
+        },
+        {
+            "id": "production-schema-cleanup",
+            "resourceClass": "production-schema",
+            "status": "unsupported",
+            "consumer": null,
+            "activeIdentitySources": [],
+            "lock": "unsupported",
+            "verification": "unsupported-fail-closed"
+        }
+    ]
+}

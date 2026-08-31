@@ -1,13 +1,15 @@
-// fixture-catalog: producer account-messaging
+using System.Diagnostics;
 using System.Globalization;
+using System.Text.Json;
 
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
+using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
-using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
+using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.NotificationStream;
@@ -28,8 +30,88 @@ namespace FsusBlog.Server.Tests.Integration;
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigrationFixture fixture)
 {
-    private static DateTime BusinessNowUtc =>
-        TestTemporalContext.FromEnvironment().BusinessEpochUtc.UtcDateTime;
+    private static readonly Lazy<ResolvedTemporalRoleContext> s_temporalRoles = new(
+        CreateTemporalRoleContext,
+        LazyThreadSafetyMode.ExecutionAndPublication);
+
+    private static DateTime TemporalRoleUtc(string roleId)
+        => s_temporalRoles.Value.RequireInstant(roleId).UtcDateTime;
+
+    private static ResolvedTemporalRoleContext CreateTemporalRoleContext()
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "node",
+            RedirectStandardError = true,
+            RedirectStandardOutput = true,
+            UseShellExecute = false,
+            WorkingDirectory = BackendTestPaths.RepositoryRoot
+        };
+        foreach (string argument in new[]
+        {
+            "tools/test/resolve-temporal-roles.mjs",
+            "--producer-id", "account-messaging",
+            "--scheduler-run-id", "message-center-persistence",
+            "--namespace", "backend-integration",
+            "--fixture-id", "message-center-persistence",
+            "--business-epoch-utc", "2024-02-29T23:59:59.000Z",
+            "--locale", "en-US",
+            "--source-commit", new string('a', 40),
+            "--source-fingerprint", $"sha256:{new string('b', 64)}"
+        })
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        using var process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException("Unable to start the canonical temporal role resolver.");
+        string artifact = process.StandardOutput.ReadToEnd();
+        string error = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException(
+                $"Canonical temporal role resolver failed with exit code {process.ExitCode}: {error.Trim()}");
+        }
+
+        using JsonDocument document = JsonDocument.Parse(artifact);
+        string contentDigest = document.RootElement.GetProperty("contentDigest").GetString()
+            ?? throw new InvalidOperationException("Canonical temporal role resolver omitted contentDigest.");
+        return ResolvedTemporalRoleContext.Parse(artifact, contentDigest);
+    }
+
+    [Fact]
+    public async Task MessageLifecycle_UsesInjectedBusinessClockForDatabaseAndProjectionOrder()
+    {
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        PostgresSqlSugarTestClient.InitTables(
+            db,
+            typeof(MessageConversation),
+            typeof(ConversationMessage),
+            typeof(ConversationParticipantState),
+            typeof(AdminConversationQueueState),
+            typeof(MessageMutationOutbox));
+        DateTimeOffset businessNow = new(2042, 5, 17, 9, 30, 0, TimeSpan.Zero);
+        MessageCenterService service = CreateService(
+            db,
+            CreatePermissiveUnifiedCache(),
+            Substitute.For<IMessageNotificationStreamPort>(),
+            timeProvider: new FixedTimeProvider(businessNow));
+
+        Result<ConversationDetailResponse> result = await service.CreateAccountTicketAsync(
+            42,
+            "business clock",
+            "controlled message",
+            "business-clock-create");
+
+        Assert.True(result.IsSuccess, result.Error.Message);
+        MessageConversation conversation = Assert.Single(await db.Queryable<MessageConversation>().ToListAsync());
+        ConversationMessage message = Assert.Single(await db.Queryable<ConversationMessage>().ToListAsync());
+        Assert.Equal(businessNow.UtcDateTime, conversation.CreatedAt);
+        Assert.Equal(businessNow.UtcDateTime, conversation.LastMessageAt);
+        Assert.Equal(businessNow.UtcDateTime, message.CreatedAt);
+        Assert.Equal(businessNow.UtcDateTime, result.Value!.LastMessageAt);
+    }
 
     [Fact]
     public async Task CreateAccountTicketAsync_CommitsConversationMessageParticipantAndOutboxAtomically()
@@ -67,7 +149,8 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             new MessageCacheService(cache, cache, cache, cache),
             notifications,
             new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build(),
-            NullLogger<MessageCenterService>.Instance);
+            NullLogger<MessageCenterService>.Instance,
+            TimeProvider.System);
 
         var result = await service.CreateAccountTicketAsync(
             42,
@@ -230,7 +313,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             typeof(MessageMutationOutbox));
         int activeAccountId = await InsertAccountAsync(setup, 0);
         int restrictedAccountId = await InsertAccountAsync(setup, 1);
-        int deletedAccountId = await InsertAccountAsync(setup, 2, BusinessNowUtc);
+        int deletedAccountId = await InsertAccountAsync(setup, 2, TemporalRoleUtc("profile.updated"));
         int replayAccountId = await InsertAccountAsync(setup, 0);
         int concurrentlyDeletedAccountId = await InsertAccountAsync(setup, 0);
         MessageCenterService service = CreateService(
@@ -311,9 +394,10 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             AdminMessageActor.System,
             ReplaySourceEventId);
         Assert.True(first.IsSuccess, first.Error.Message);
+        DateTime profileUpdatedAt = TemporalRoleUtc("profile.updated");
         await setup.Updateable<User>()
             .SetColumns(account => account.Status == 2)
-            .SetColumns(account => account.DeletedAt == BusinessNowUtc)
+            .SetColumns(account => account.DeletedAt == profileUpdatedAt)
             .Where(account => account.Id == replayAccountId)
             .ExecuteCommandAsync();
         Result<ConversationDetailResponse> replay = await service.SendSystemMessageAsync(
@@ -334,7 +418,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             deleteConnection,
             deleteTransaction))
         {
-            deleteCommand.Parameters.AddWithValue("deletedAt", BusinessNowUtc);
+            deleteCommand.Parameters.AddWithValue("deletedAt", TemporalRoleUtc("profile.updated"));
             deleteCommand.Parameters.AddWithValue("accountId", concurrentlyDeletedAccountId);
             Assert.Equal(1, await deleteCommand.ExecuteNonQueryAsync());
         }
@@ -711,7 +795,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         {
             Status = 1,
             IdentityKind = "anonymous_account",
-            CreateTime = BusinessNowUtc
+            CreateTime = TemporalRoleUtc("profile.created")
         }).ExecuteReturnIdentityAsync();
         IMessageNotificationStreamPort notifications = Substitute.For<IMessageNotificationStreamPort>();
         MessageCenterService service = CreateService(db, CreatePermissiveUnifiedCache(), notifications);
@@ -841,7 +925,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             typeof(AdminConversationQueueState),
             typeof(MessageMutationOutbox));
         const long ConversationId = 8_800;
-        DateTime now = BusinessNowUtc;
+        DateTime now = TemporalRoleUtc("message.created");
         await db.Insertable(new MessageConversation
         {
             Id = ConversationId,
@@ -938,7 +1022,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             typeof(ConversationParticipantState),
             typeof(AdminConversationQueueState),
             typeof(MessageMutationOutbox));
-        DateTime now = BusinessNowUtc;
+        DateTime now = TemporalRoleUtc("message.created");
         await db.Insertable(new[]
         {
             new MessageConversation
@@ -1109,7 +1193,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             closeTransaction))
         {
             closeCommand.Parameters.AddWithValue("status", (int)ConversationStatus.Closed);
-            closeCommand.Parameters.AddWithValue("now", BusinessNowUtc);
+            closeCommand.Parameters.AddWithValue("now", TemporalRoleUtc("message.conversation-closed"));
             closeCommand.Parameters.AddWithValue("id", conversationId);
             Assert.Equal(1, await closeCommand.ExecuteNonQueryAsync());
         }
@@ -1268,7 +1352,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         const long ConversationId = 1000;
         const long AccountMessageId = 1100;
         const long SnapshotMessageId = 1200;
-        DateTime now = BusinessNowUtc.AddMinutes(-5);
+        DateTime now = TemporalRoleUtc("message.created");
         await setup.Insertable(new MessageConversation
         {
             Id = ConversationId,
@@ -1300,7 +1384,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
                 SenderAdminPrincipalId = 7,
                 SenderAdminSessionAuditReference = "admin-fixture",
                 Body = "visible before detail",
-                CreatedAt = now.AddSeconds(1)
+                CreatedAt = TemporalRoleUtc("message.reply-created")
             }
         }).ExecuteCommandAsync();
         await setup.Insertable(new ConversationParticipantState
@@ -1377,7 +1461,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             SenderAdminSessionAuditReference = "admin-internal",
             Body = "internal only",
             IsInternalNote = true,
-            CreatedAt = BusinessNowUtc
+            CreatedAt = TemporalRoleUtc("message.reply-created")
         }).ExecuteCommandAsync();
         Result internalRead = await first.MarkConversationReadAsync(AccountId, ConversationId, internalMessageId);
         Assert.False(internalRead.IsSuccess);
@@ -1428,7 +1512,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         const long ConversationId = 9_000;
         const int MessageCount = 1_005;
         const long FirstMessageId = 100_000;
-        DateTime baseline = new(2026, 7, 19, 8, 0, 0, DateTimeKind.Utc);
+        DateTime baseline = TemporalRoleUtc("message.created");
         await setup.Insertable(new MessageConversation
         {
             Id = ConversationId,
@@ -1438,8 +1522,8 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             CreatedByType = MessageSenderType.Account,
             CreatedByAccountId = AccountId,
             CreatedAt = baseline,
-            UpdatedAt = baseline.AddSeconds(MessageCount),
-            LastMessageAt = baseline.AddSeconds(MessageCount)
+            UpdatedAt = TemporalRoleUtc("message.reply-created"),
+            LastMessageAt = TemporalRoleUtc("message.reply-created")
         }).ExecuteCommandAsync();
 
         var messages = new List<ConversationMessage>(MessageCount + 1);
@@ -1454,7 +1538,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
                 SenderAdminPrincipalId = i % 2 == 0 ? null : 7,
                 SenderAdminSessionAuditReference = i % 2 == 0 ? null : "long-thread-fixture",
                 Body = $"message-{i:D4}",
-                CreatedAt = baseline.AddSeconds(i)
+                CreatedAt = baseline
             });
         }
         messages.Add(new ConversationMessage
@@ -1466,7 +1550,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             SenderAdminSessionAuditReference = "internal-fixture",
             Body = "internal-only",
             IsInternalNote = true,
-            CreatedAt = baseline.AddSeconds(MessageCount + 1)
+            CreatedAt = TemporalRoleUtc("message.reply-created")
         });
         await setup.Insertable(messages).ExecuteCommandAsync();
         await setup.Insertable(new ConversationParticipantState
@@ -1501,7 +1585,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             SenderAdminPrincipalId = 8,
             SenderAdminSessionAuditReference = "concurrent-fixture",
             Body = "arrived-after-first-page",
-            CreatedAt = baseline.AddSeconds(MessageCount + 2)
+            CreatedAt = TemporalRoleUtc("message.reply-created")
         }).ExecuteCommandAsync();
 
         var loaded = new List<ConversationMessageResponse>(page.Messages);
@@ -1559,7 +1643,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
 
         const int AccountId = 42;
         const int ConversationCount = 105;
-        DateTime baseline = new(2026, 7, 19, 8, 0, 0, DateTimeKind.Utc);
+        DateTime baseline = TemporalRoleUtc("message.created");
         var conversations = new List<MessageConversation>(ConversationCount);
         var messages = new List<ConversationMessage>(ConversationCount);
         var participants = new List<ConversationParticipantState>(ConversationCount);
@@ -1567,7 +1651,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         {
             long conversationId = 10_000 + i;
             long messageId = 20_000 + i;
-            DateTime lastMessageAt = baseline.AddMinutes(-(i / 3));
+            DateTime lastMessageAt = baseline;
             conversations.Add(new MessageConversation
             {
                 Id = conversationId,
@@ -1617,8 +1701,8 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         Assert.NotNull(page.NextCursor);
         Assert.True(MessageConversationCursor.TryDecode(page.NextCursor, out MessageConversationCursor firstCursor));
         Assert.Equal(20_104, firstCursor.SnapshotMessageId);
-        Assert.Equal(conversations[19].Id, firstCursor.ConversationId);
-        Assert.Equal(conversations[19].LastMessageAt, firstCursor.LastMessageAt);
+        Assert.Equal(conversations[85].Id, firstCursor.ConversationId);
+        Assert.Equal(conversations[85].LastMessageAt, firstCursor.LastMessageAt);
 
         long concurrentConversationId = conversations[25].Id;
         await InsertAdminReplyAsync(secondDb, concurrentConversationId, AccountId, "arrived during pagination", 8);
@@ -1716,7 +1800,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         int adminPrincipalId)
     {
         long messageId = SnowFlakeSingle.Instance.NextId();
-        DateTime now = BusinessNowUtc;
+        DateTime now = TemporalRoleUtc("message.created");
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
             int conversationUpdated = await db.Ado.ExecuteCommandAsync(
@@ -1774,13 +1858,20 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         SqlSugarClient db,
         IUnifiedCache unifiedCache,
         IMessageNotificationStreamPort notifications,
-        Microsoft.Extensions.Configuration.IConfiguration? configuration = null)
+        Microsoft.Extensions.Configuration.IConfiguration? configuration = null,
+        TimeProvider? timeProvider = null)
         => new(
             db,
             new MessageCacheService(unifiedCache, unifiedCache, unifiedCache, unifiedCache),
             notifications,
             configuration ?? new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build(),
-            NullLogger<MessageCenterService>.Instance);
+            NullLogger<MessageCenterService>.Instance,
+            timeProvider ?? TimeProvider.System);
+
+    private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utcNow;
+    }
 
     private static Task<int> InsertAccountAsync(SqlSugarClient db, int status, DateTime? deletedAt = null)
         => db.Insertable(new User
@@ -1788,7 +1879,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             Status = status,
             DeletedAt = deletedAt,
             IdentityKind = "anonymous_account",
-            CreateTime = BusinessNowUtc
+            CreateTime = TemporalRoleUtc("profile.created")
         }).ExecuteReturnIdentityAsync();
 
     private static async Task ApplyMessageUnreadAuthorityMigrationAsync(SqlSugarClient db)

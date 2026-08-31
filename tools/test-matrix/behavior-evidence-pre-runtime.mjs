@@ -493,6 +493,10 @@ export function joinBehaviorEvidencePreRuntime(options = {})
 
     const graphInputs = {
         catalog,
+        factExtractorRegistry: requireField(
+            options.factExtractorRegistry,
+            'factExtractorRegistry'
+        ),
         ownerReceipt: requireField(options.ownerReceipt, 'ownerReceipt'),
         testEvidenceReceipt: testEvidence,
         docClaimParseReceipt: requireField(options.docClaimParseReceipt, 'docClaimParseReceipt'),
@@ -620,8 +624,9 @@ export function joinBehaviorEvidencePreRuntime(options = {})
             commit: sourceCommit,
             worktreeFingerprint: `sha256:${fp}`
         },
-        buildIdentity: graph.buildIdentity ?? null,
+        buildIdentities: graph.buildIdentities ?? {},
         catalogDigest: `sha256:${normalizeDigest(graph.catalogDigest)}`,
+        registryDigest: `sha256:${normalizeDigest(graph.registryDigest)}`,
         staticAdmissionDigest: `sha256:${admissionDigest}`,
         behaviorGraphDigest: `sha256:${graphDigest}`,
         testEvidenceDigests: [...new Set(testEvidenceDigests)].sort(),
@@ -658,13 +663,16 @@ export function joinBehaviorEvidencePreRuntime(options = {})
     receipt.contentDigest = `sha256:${digestValue(
         Object.fromEntries(Object.entries(receipt).filter(([key]) => key !== 'contentDigest'))
     )}`;
+    validatePreRuntimeReceipt(receipt, {
+        factExtractorRegistry: options.factExtractorRegistry
+    });
     return receipt;
 }
 
 /**
  * Validate a sealed pre-runtime receipt.
  */
-export function validatePreRuntimeReceipt(receipt)
+export function validatePreRuntimeReceipt(receipt, options = {})
 {
     if (!isPlainObject(receipt))
     {
@@ -708,15 +716,77 @@ export function validatePreRuntimeReceipt(receipt)
     {
         fail('behaviorIds must be an array');
     }
+    if (!isPlainObject(receipt.buildIdentities))
+    {
+        fail('buildIdentities must be an object');
+    }
+    for (const [extractorId, identity] of Object.entries(receipt.buildIdentities))
+    {
+        if (!behaviorIdPattern.test(extractorId)
+      || !isPlainObject(identity)
+      || Object.keys(identity).sort().join('\0') !== ['artifactDigest', 'artifactId', 'receiptDigest'].join('\0')
+      || typeof identity.artifactId !== 'string'
+      || identity.artifactId.length === 0
+      || !digestPattern.test(String(identity.receiptDigest ?? ''))
+      || !digestPattern.test(String(identity.artifactDigest ?? '')))
+        {
+            fail(`buildIdentities.${extractorId} is invalid`);
+        }
+    }
+    if (!prefixedDigestPattern.test(String(receipt.registryDigest ?? '')))
+    {
+        fail('registryDigest must be a prefixed sha256 digest');
+    }
+
+    if (options.factExtractorRegistry != null)
+    {
+        const registry = loadJson(options.factExtractorRegistry);
+        if (registry?.schema !== 'fsusblog.behavior-fact-extractor-registry.v1'
+      || !Array.isArray(registry.extractors))
+        {
+            fail('fact extractor registry authority is invalid');
+        }
+        const expectedRegistryDigest = digestValue(registry);
+        if (normalizeDigest(receipt.registryDigest) !== expectedRegistryDigest)
+        {
+            fail('registryDigest does not match fact extractor registry authority');
+        }
+        const expectedCompiled = new Map();
+        for (const extractor of registry.extractors)
+        {
+            if (extractor.requiredBuildArtifact == null)
+            {
+                if (Object.hasOwn(receipt.buildIdentities, extractor.id))
+                {
+                    fail(`source-only extractor ${extractor.id} must not have a build identity`);
+                }
+                continue;
+            }
+            expectedCompiled.set(extractor.id, extractor.requiredBuildArtifact);
+        }
+        const actualIds = Object.keys(receipt.buildIdentities).sort();
+        const expectedIds = [...expectedCompiled.keys()].sort();
+        if (actualIds.join('\0') !== expectedIds.join('\0'))
+        {
+            fail('buildIdentities do not exactly cover required compiled extractor authorities');
+        }
+        for (const [extractorId, artifactId] of expectedCompiled)
+        {
+            if (receipt.buildIdentities[extractorId].artifactId !== artifactId)
+            {
+                fail(`buildIdentities.${extractorId}.artifactId does not match registry authority`);
+            }
+        }
+    }
     return receipt;
 }
 
 /**
  * Assert the receipt is qualified (status=ok).
  */
-export function assertPreRuntimeQualified(receipt)
+export function assertPreRuntimeQualified(receipt, options = {})
 {
-    validatePreRuntimeReceipt(receipt);
+    validatePreRuntimeReceipt(receipt, options);
     if (receipt.status !== 'ok')
     {
         fail(
@@ -738,7 +808,8 @@ export function assertPreRuntimeQualified(receipt)
 export function assertRuntimeCandidateAdmissionAllowed({
     receipt,
     expectedCommit,
-    expectedWorktreeFingerprint
+    expectedWorktreeFingerprint,
+    factExtractorRegistry = path.join(root, 'config/contracts/behavior-fact-extractors.json')
 } = {})
 {
     if (typeof receipt === 'string' && !fs.existsSync(receipt))
@@ -746,7 +817,7 @@ export function assertRuntimeCandidateAdmissionAllowed({
         fail('runtime candidate admission refused: pre-runtime receipt is missing');
     }
     const loaded = loadJson(receipt);
-    validatePreRuntimeReceipt(loaded);
+    validatePreRuntimeReceipt(loaded, { factExtractorRegistry });
     if (loaded.status !== 'ok')
     {
         fail(
@@ -789,6 +860,7 @@ Join sealed BehaviorGraph inputs and produce a pre-runtime evidence receipt.
 
 Required options:
   --catalog <path>
+  --fact-extractor-registry <path>
   --owner <path>
   --static-admission <path>
   --test-evidence <path>      (repeatable for backend + frontend)
@@ -857,7 +929,9 @@ Runtime-candidate guard (refuses spawn unless receipt is verified):
                 expectedWorktreeFingerprint: requireField(
                     resolveArg('worktree-fingerprint'),
                     '--worktree-fingerprint'
-                )
+                ),
+                factExtractorRegistry: resolveArg('fact-extractor-registry')
+                    ?? path.join(root, 'config/contracts/behavior-fact-extractors.json')
             });
             console.log('[behavior-evidence-pre-runtime] runtime candidate admission allowed (receipt verified)');
             process.exit(0);
@@ -865,6 +939,10 @@ Runtime-candidate guard (refuses spawn unless receipt is verified):
 
         const receipt = joinBehaviorEvidencePreRuntime({
             catalog: requireField(resolveArg('catalog'), '--catalog'),
+            factExtractorRegistry: requireField(
+                resolveArg('fact-extractor-registry'),
+                '--fact-extractor-registry'
+            ),
             ownerReceipt: requireField(resolveArg('owner'), '--owner'),
             staticAdmissionReceipt: requireField(resolveArg('static-admission'), '--static-admission'),
             testEvidenceReceipts: resolveRepeatable('test-evidence'),

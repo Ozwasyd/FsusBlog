@@ -293,6 +293,8 @@ test('runner source enforces one managed launch, one context factory, and proces
     assert.equal((runner.match(/browser\.newContext\(/gu) ?? []).length, 1);
     assert.match(runner, /browser\.on\('disconnected'/u);
     assert.match(runner, /verifyProductionBuildReceipt/u);
+    assert.match(runner, /createCorrectnessBrowserPlan/u);
+    assert.match(runner, /observeCorrectnessBrowser/u);
     assert.match(runner, /productFailures\.push/u);
     assert.match(runner, /scenarioReceipt\.classification === 'product'/u);
     assert.doesNotMatch(runner, /max(?:imum)?[-_ ]?(?:errors|failures)|failFast/iu);
@@ -361,8 +363,17 @@ test('runner source enforces one managed launch, one context factory, and proces
         'complete current source identity must be admitted before the fixed receipt can be touched'
     );
     assert.ok(
-        runner.indexOf('await resetRunOutput()') < runner.indexOf('const build = await verifyImmutableBuild(sourceState)'),
-        'the fixed receipt must be removed before current-run build and fixture admission'
+        runner.indexOf('const build = await verifyImmutableBuild(sourceState)') < runner.indexOf('await resetRunOutput()'),
+        'the immutable build identity must be admitted before the fixed receipt can be touched'
+    );
+    assert.ok(
+        runner.indexOf('const build = await verifyImmutableBuild(sourceState)')
+            < runner.indexOf('temporalContext = loadTemporalContext()'),
+        'source and build identity admission must precede temporal context admission'
+    );
+    assert.ok(
+        runner.indexOf('temporalContext = loadTemporalContext()') < runner.indexOf('await resetRunOutput()'),
+        'temporal context admission must remain fail closed before output mutation'
     );
     assert.match(runner, /expectedSourceState:\s*sourceState/u);
     assert.doesNotMatch(runner, /process\.env\.GITHUB_SHA|return null/u);

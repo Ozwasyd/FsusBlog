@@ -9,8 +9,9 @@
         "scope",
         "runIdentity",
         "sourceIdentity",
-        "buildIdentity",
+        "buildIdentities",
         "catalogDigest",
+        "registryDigest",
         "staticAdmissionDigest",
         "behaviorGraphDigest",
         "testEvidenceDigests",
@@ -64,17 +65,19 @@
                 }
             }
         },
-        "buildIdentity": {
-            "anyOf": [
-                {
-                    "$ref": "#/$defs/buildIdentity"
-                },
-                {
-                    "type": "null"
-                }
-            ]
+        "buildIdentities": {
+            "type": "object",
+            "propertyNames": {
+                "pattern": "^[a-z][a-z0-9-]*$"
+            },
+            "additionalProperties": {
+                "$ref": "#/$defs/buildIdentity"
+            }
         },
         "catalogDigest": {
+            "$ref": "#/$defs/prefixedDigest"
+        },
+        "registryDigest": {
             "$ref": "#/$defs/prefixedDigest"
         },
         "staticAdmissionDigest": {

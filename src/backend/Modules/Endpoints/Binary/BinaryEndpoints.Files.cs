@@ -6,6 +6,7 @@ using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Abstractions;
+using FsusBlog.Server.Contracts.Assets;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
@@ -36,33 +37,44 @@ public static partial class BinaryEndpoints
     {
         group.MapDelete("/file/delete", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
-            IFileService fileService,
+            IAssetStore assetStore,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
-        {
-            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.FileDeleteRequest, cancellationToken);
-            if (!payload.IsSuccess)
-            {
-                return BinaryResults.FromError(payload.Error, aeds);
-            }
-
-            if (!PodBinaryCodec.TryDecodeStringMutationRequest(payload.Payload, out string url) ||
-                string.IsNullOrWhiteSpace(url))
-            {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "参数不能为空"), aeds);
-            }
-
-            if (!TryNormalizeImageDeletePath(url, out string ioRelativePath, out string? errorMessage))
-            {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, errorMessage ?? "非法路径请求"), aeds);
-            }
-
-            bool success = await fileService.DeleteImageAsync(ioRelativePath);
-            return success
-                ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
-                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "文件不存在或已被移除"), aeds);
-        })
+            await HandleFileDeleteAsync(httpContext, assetStore, aeds, cancellationToken))
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
         .AddEndpointFilterWithMetadata<RequiresPowFilter>();
+    }
+
+    internal static async Task<BinaryFrameResult> HandleFileDeleteAsync(
+        HttpContext httpContext,
+        IAssetStore assetStore,
+        IAedsEncoder aeds,
+        CancellationToken cancellationToken)
+    {
+        using BinaryRequestPayload payload = await ReadBinaryRequestPayloadAsync(
+            httpContext,
+            aeds,
+            AedsFrameType.FileDeleteRequest,
+            cancellationToken);
+        if (!payload.IsSuccess)
+        {
+            return BinaryResults.FromError(payload.Error, aeds);
+        }
+
+        if (!PodBinaryCodec.TryDecodeStringMutationRequest(payload.Payload, out string rawAssetId)
+            || !AssetId.TryParse(rawAssetId, out AssetId assetId))
+        {
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "资产标识非法"), aeds);
+        }
+
+        AssetDeleteResult result = await assetStore.DeleteAsync(assetId, cancellationToken);
+        if (result == AssetDeleteResult.Referenced)
+        {
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Conflict, "资产仍被引用，无法删除"), aeds);
+        }
+
+        return result == AssetDeleteResult.Deleted
+            ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
+            : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "文件不存在或已被移除"), aeds);
     }
 }

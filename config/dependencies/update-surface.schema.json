@@ -1,0 +1,170 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.dev/schemas/dependency-update-surface.schema.json",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "items",
+        "exclusions"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.dependency-update-surface.v1"
+        },
+        "items": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "$ref": "#/$defs/item"
+            }
+        },
+        "exclusions": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/exclusion"
+            }
+        }
+    },
+    "$defs": {
+        "item": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "datasource",
+                "packageName",
+                "manager",
+                "files",
+                "versioning",
+                "group",
+                "stabilityPolicy"
+            ],
+            "allOf": [
+                {
+                    "if": {
+                        "properties": {
+                            "manager": {
+                                "const": "custom.regex"
+                            }
+                        },
+                        "required": [
+                            "manager"
+                        ]
+                    },
+                    "then": {
+                        "required": [
+                            "customManager"
+                        ]
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "manager": {
+                                "const": "npm"
+                            }
+                        },
+                        "required": [
+                            "manager"
+                        ]
+                    },
+                    "then": {
+                        "required": [
+                            "fieldPaths"
+                        ]
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "manager": {
+                                "const": "delegated"
+                            }
+                        },
+                        "required": [
+                            "manager"
+                        ]
+                    },
+                    "then": {
+                        "required": [
+                            "customManager"
+                        ]
+                    }
+                }
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9-]+$"
+                },
+                "datasource": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "packageName": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "manager": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "customManager": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "files": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "fieldPaths": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string",
+                        "pattern": "^/(?:[^/~]|~[01])+(?:/(?:[^/~]|~[01])+)*$"
+                    },
+                    "uniqueItems": true
+                },
+                "versioning": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "group": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "stabilityPolicy": {
+                    "enum": [
+                        "stable-only",
+                        "rolling-default-branch"
+                    ]
+                }
+            }
+        },
+        "exclusion": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "path",
+                "reason"
+            ],
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "reason": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            }
+        }
+    }
+}

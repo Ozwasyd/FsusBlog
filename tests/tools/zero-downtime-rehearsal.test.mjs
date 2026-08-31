@@ -8,6 +8,11 @@ import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
 import {
+  behaviorTest,
+  concurrencyHarnessId
+} from '../../tools/contracts/behavior-test.mjs'
+
+import {
   FAULT_CASES,
   HOST_INTERRUPTION_STAGES,
   ROLLOUT_STAGES,
@@ -67,7 +72,11 @@ function resolveRehearsalMachineTiming({ hostCpu, grantedCpu, load1 }) {
     workerTimeoutSeconds: Math.min(1_800, seconds(90)),
     hostInterruptionTimeoutSeconds: Math.min(300, seconds(10)),
     migrationTimeoutSeconds: Math.min(1_800, seconds(60)),
-    rehearsalTimeoutMs: wait(120_000)
+    // Explicit rollback performs a second rollout and a second worker
+    // qualification before cleanup. Give that composed real-process path
+    // headroom under sustained local scheduler pressure while keeping a
+    // bounded outer cleanup deadline.
+    rehearsalTimeoutMs: Math.min(1_800_000, wait(300_000))
   }
 }
 
@@ -108,7 +117,7 @@ if (runsFixtureShard('base')) test('rehearsal timing wires shared semantic scale
     workerTimeoutSeconds: 360,
     hostInterruptionTimeoutSeconds: 40,
     migrationTimeoutSeconds: 240,
-    rehearsalTimeoutMs: 480_000
+    rehearsalTimeoutMs: 1_200_000
   })
 })
 
@@ -168,7 +177,7 @@ if (runsFixtureShard('base')) test('plan resolution is local-only, private-file-
     /normalScenario\.baseUrl must equal observer service listen origin/u)
 })
 
-if (runsFixtureShard('normal')) test('recording subprocess fixture proves normal order, nested probes and qualification binding', async (t) => {
+if (runsFixtureShard('normal')) behaviorTest('deployment-blue-green-runtime-role', 'positive', 'recording subprocess fixture proves normal order, nested probes and qualification binding', async (t) => {
   const fixture = createFixture(t)
   const result = await runRehearsal(fixture, 'normal')
   assert.equal(result.status, 0, result.stderr)
@@ -227,7 +236,10 @@ if (runsFixtureShard('post-switch-rollback')) test('post-switch mode requires re
   assert.equal(modeEvidence.checks.find(item => item.name === 'deploy-rollout').status, 'pass')
 })
 
-if (runsFixtureShard('sigkill-resume')) test('SIGKILL mode kills an isolated process group, adopts durable state and invokes --resume', async (t) => {
+if (runsFixtureShard('sigkill-resume')) behaviorTest('deployment-blue-green-runtime-role', 'concurrency', {
+  title: 'SIGKILL mode kills an isolated process group, adopts durable state and invokes --resume',
+  concurrencyHarness: concurrencyHarnessId
+}, async (t) => {
   const fixture = createFixture(t, { delayedSetsidMs: 75 })
   const result = await runRehearsal(fixture, 'sigkill-resume')
   assert.equal(result.status, 0, result.stderr)
@@ -262,7 +274,10 @@ if (runsFixtureShard('sigkill-resume')) test('SIGKILL mode kills an isolated pro
   assert.equal(records.filter(item => item.kind === 'probe:resource').length, 4)
 })
 
-if (runsFixtureShard('all')) test('all mode aggregates a failure and continues into later isolated modes', async (t) => {
+if (runsFixtureShard('all')) behaviorTest('deployment-blue-green-runtime-role', 'negative', {
+  title: 'all mode aggregates a failure and continues into later isolated modes',
+  invariantIds: ['deployment-mode-failure-continuation']
+}, async (t) => {
   // The dedicated mode shards own the full timing/lifecycle fixtures. This
   // fresh fixture replaces only their mode bodies while retaining the real
   // all-mode selection, continuation loop and summary aggregation entry point.
@@ -491,7 +506,7 @@ function createFixture(t, {
       timeoutSeconds: timing.hostInterruptionTimeoutSeconds
     }
   })
-  return { root, plan, log: path.join(root, 'records.jsonl'), bin: path.join(root, 'bin') }
+  return { root, plan, log: path.join(root, 'records.jsonl'), bin: path.join(root, 'bin'), timing }
 }
 
 function installContinuationModeFixture(orchestrator) {
@@ -528,7 +543,7 @@ function installContinuationModeFixture(orchestrator) {
 }
 
 async function runRehearsal(fixture, mode, overrides = {}) {
-  const timing = machineTiming()
+  const timing = fixture.timing
   const child = spawn('bash', [
     path.join(fixture.root, 'tools/deployment/zero-downtime-rehearsal.sh'),
     '--plan', fixture.plan,

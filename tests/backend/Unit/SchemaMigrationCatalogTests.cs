@@ -1,10 +1,10 @@
 using System.Security.Cryptography;
 using System.Text;
 
+using FsusBlog.Migration.Catalogs;
+using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
-using FsusBlog.Server.Infrastructure.SchemaMigration.Catalogs;
-using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -79,9 +79,42 @@ public sealed class SchemaMigrationCatalogTests
                     UserLocalePreferenceMigrationDefinitions.MigrationId,
                     dependency.MigrationId);
                 Assert.Equal(SchemaMigrationPhase.PostCodeFirst, dependency.Phase);
+            },
+            catalog =>
+            {
+                Assert.Equal("current-20260826", catalog.CatalogId);
+                Assert.Equal(new DateOnly(2026, 8, 26), catalog.StartVersion);
+                Assert.Equal(new DateOnly(2026, 8, 26), catalog.EndVersion);
+            },
+            catalog =>
+            {
+                Assert.Equal("current-20260828", catalog.CatalogId);
+                Assert.Equal(new DateOnly(2026, 8, 28), catalog.StartVersion);
+                Assert.Equal(new DateOnly(2026, 8, 28), catalog.EndVersion);
+                Assert.Collection(
+                    catalog.Dependencies,
+                    dependency =>
+                    {
+                        Assert.Equal("20260720-pre-user-session-refresh-lineage", dependency.MigrationId);
+                        Assert.Equal(SchemaMigrationPhase.PreCodeFirst, dependency.Phase);
+                    },
+                    dependency =>
+                    {
+                        Assert.Equal(ContentAssetCutoverMigrationDefinitions.MigrationId, dependency.MigrationId);
+                        Assert.Equal(SchemaMigrationPhase.PostCodeFirst, dependency.Phase);
+                    });
+            },
+            catalog =>
+            {
+                Assert.Equal("current-20260829", catalog.CatalogId);
+                Assert.Equal(new DateOnly(2026, 8, 29), catalog.StartVersion);
+                Assert.Equal(new DateOnly(2026, 8, 29), catalog.EndVersion);
+                SchemaMigrationCatalogDependency dependency = Assert.Single(catalog.Dependencies);
+                Assert.Equal(AuthoringCanvasDocumentMigrationDefinitions.MigrationId, dependency.MigrationId);
+                Assert.Equal(SchemaMigrationPhase.PostCodeFirst, dependency.Phase);
             });
-        Assert.Equal(133, manifest.Descriptors.Count);
-        const string ExpectedPlanFingerprint = "E112015436B3F6CCAAD5D7228D06B4775215D7A22D43BF6A9BC017973456CE2C";
+        Assert.Equal(137, manifest.Descriptors.Count);
+        const string ExpectedPlanFingerprint = "7A94BDE5396AC231BD65B179F06B7D6233ACB983D98FF3B4280A9E05378CEDA2";
         string actualPlanFingerprint = ComputePlanFingerprint(manifest.Descriptors);
         Assert.True(
             string.Equals(ExpectedPlanFingerprint, actualPlanFingerprint, StringComparison.Ordinal),
@@ -343,7 +376,7 @@ public sealed class SchemaMigrationCatalogTests
 
         Assert.Same(first, second);
         Assert.Same(manifest, first);
-        Assert.Equal(133, first.Count);
+        Assert.Equal(137, first.Count);
         Assert.Equal(first.Count, first.Select(static descriptor => descriptor.MigrationId).Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(
             ComputePlanFingerprint(manifest),

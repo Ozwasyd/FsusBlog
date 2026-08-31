@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/run-governance-suites.mjs"
+            ],
+            "reason": "preserve caller-visible static governance process environment keys while correcting the filesystem URL boundary"
+        }
+    ]
+}

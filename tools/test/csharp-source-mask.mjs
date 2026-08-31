@@ -81,3 +81,5 @@ export function findCSharpClassDeclaration(source, className) {
   const escapedClassName = className.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')
   return new RegExp(`\\bclass\\s+${escapedClassName}\\b`, 'u').exec(maskCSharpTrivia(source))
 }
+
+export { verifyFactWrappersAndSearchUtf8ScalarOwner } from './search-index-utf8-scalar-governance.mjs'

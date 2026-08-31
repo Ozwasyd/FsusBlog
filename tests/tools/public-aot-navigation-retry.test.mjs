@@ -30,14 +30,17 @@ test('public AOT retry delay comes from the complete server retry contract', () 
   assert.equal(retryablePublicAotDelayMs(response(500, retryableHeaders)), null)
 })
 
-test('public AOT navigation retries only the cold response and uses Retry-After verbatim', async () => {
+test('public AOT navigation records but rejects a retryable cold response', async () => {
   let clockMs = 1_000
   const waits = []
   const retryObservations = []
-  const responses = [response(503, retryableHeaders), response(200)]
+  let navigationCount = 0
 
-  const result = await navigateThroughRetryablePublicAot({
-    navigate: async () => responses.shift(),
+  await assert.rejects(navigateThroughRetryablePublicAot({
+    navigate: async () => {
+      navigationCount += 1
+      return response(503, retryableHeaders)
+    },
     sleep: async (delayMs) => {
       waits.push(delayMs)
       clockMs += delayMs
@@ -47,12 +50,11 @@ test('public AOT navigation retries only the cold response and uses Retry-After 
     },
     deadlineAtMs: 20_000,
     now: () => clockMs
-  })
+  }), /retryable response on its first attempt/u)
 
-  assert.equal(result.status(), 200)
-  assert.deepEqual(waits, [5_000])
+  assert.deepEqual(waits, [])
   assert.deepEqual(retryObservations, [[503, 5_000, 0]])
-  assert.equal(responses.length, 0)
+  assert.equal(navigationCount, 1)
 })
 
 test('public AOT navigation does not retry unrelated service failures', async () => {
@@ -71,7 +73,7 @@ test('public AOT navigation does not retry unrelated service failures', async ()
   assert.equal(navigationCount, 1)
 })
 
-test('public AOT navigation cannot wait beyond its runtime-derived deadline', async () => {
+test('public AOT navigation fails immediately rather than waiting within its deadline', async () => {
   await assert.rejects(
     navigateThroughRetryablePublicAot({
       navigate: async () => response(503, retryableHeaders),
@@ -79,6 +81,6 @@ test('public AOT navigation cannot wait beyond its runtime-derived deadline', as
       deadlineAtMs: 5_000,
       now: () => 1_000
     }),
-    /exceeds the runtime navigation deadline/u
+    /retryable response on its first attempt/u
   )
 })

@@ -26,9 +26,11 @@ public sealed partial class MessageCenterService(
     MessageCacheService cache,
     IMessageNotificationStreamPort notificationStreamPort,
     IConfiguration configuration,
-    ILogger<MessageCenterService> logger) : IMessageQueryService, IMessageCommandService, IMessageRealtimePublisher, IMessageAdminQueueMaintenance, IMessageMutationOutboxDelivery
+    ILogger<MessageCenterService> logger,
+    TimeProvider timeProvider) : IMessageQueryService, IMessageCommandService, IMessageRealtimePublisher, IMessageAdminQueueMaintenance, IMessageMutationOutboxDelivery
 {
     private const int ConversationDetailPageSize = 50;
+    private DateTime UtcNow => timeProvider.GetUtcNow().UtcDateTime;
 
     private async Task<int> AdvanceAdminQueueReadAsync(long conversationId, long readThroughMessageId, DateTime now)
     {

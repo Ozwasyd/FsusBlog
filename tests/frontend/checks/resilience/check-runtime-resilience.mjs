@@ -184,23 +184,7 @@ async function waitForMainText(page, expectedText, label, timeoutMs = 20_000)
 
 async function waitForArticleTitle(page, title)
 {
-    for (let attempt = 0; attempt < 2; attempt += 1)
-    {
-        try
-        {
-            await waitForMainText(page, title, 'public fixture article detail', attempt === 0 ? 12_000 : 20_000);
-            return;
-        }
-        catch (error)
-        {
-            if (attempt > 0)
-            {
-                throw error;
-            }
-            await page.reload({ waitUntil: 'domcontentloaded' });
-            await waitForApp(page);
-        }
-    }
+    await waitForMainText(page, title, 'public fixture article detail', 12_000);
 }
 
 async function visitAuditedRoute(context, path, label, options = {})

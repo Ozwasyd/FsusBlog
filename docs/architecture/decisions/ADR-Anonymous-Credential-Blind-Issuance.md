@@ -89,3 +89,19 @@ true.
 - No compatibility issuance endpoint or handler remains registered.
 - The contract export snapshot and import-boundary checker prevent the provider
   and Blind-RSA implementation from becoming a strongly connected component.
+
+## Current authentication strengths
+
+<!-- fsus-doc-claim
+claimId: authentication-session-permission.strengths
+behaviorId: authentication-session-permission
+claimType: generated-section
+generatedSectionId: auth.strengths.active
+render: enum-set
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN auth.strengths.active -->
+- `mfa`
+- `recovery`
+- `webauthn_uv`
+<!-- FSUSBLOG-GENERATED:END auth.strengths.active -->

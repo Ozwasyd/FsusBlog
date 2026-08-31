@@ -1,4 +1,4 @@
-// fixture-catalog: producer auth-session
+// fixture-catalog: consumer legacy-auth-refresh-runtime auth-basic
 using System.Diagnostics;
 
 using Microsoft.AspNetCore.Hosting;
@@ -81,11 +81,6 @@ internal sealed class LocalAuthFixtureRefreshRunner : ILocalAuthFixtureRefreshRu
         process.StartInfo.Environment["PLAYWRIGHT_BASE_URL"] = Environment.GetEnvironmentVariable("PLAYWRIGHT_BASE_URL") ?? "http://localhost:3000";
         process.StartInfo.Environment["FSUSBLOG_PG_CONTAINER"] = Environment.GetEnvironmentVariable("FSUSBLOG_PG_CONTAINER") ?? "fsusblog-dev-postgres";
         process.StartInfo.Environment["FSUSBLOG_REDIS_CONTAINER"] = Environment.GetEnvironmentVariable("FSUSBLOG_REDIS_CONTAINER") ?? "fsusblog-dev-redis";
-        if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("Jwt__AccessTokenExpiresMinutes")))
-        {
-            process.StartInfo.Environment["FSUSBLOG_JWT_ACCESS_TOKEN_EXPIRES_MINUTES"] = Environment.GetEnvironmentVariable("Jwt__AccessTokenExpiresMinutes");
-        }
-
         try
         {
             if (!process.Start())

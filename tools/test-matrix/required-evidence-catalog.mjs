@@ -29,6 +29,8 @@ const exactnessSet = new Set(exactnessValues);
 // Closed allowlist: a required-evidence authority may only bind a receipt schema
 // that a repository producer actually seals. Unsupported schemas fail closed.
 export const supportedReceiptSchemas = Object.freeze([
+    'fsusblog.behavior-document-consistency-final-report.v1',
+    'fsusblog.behavior-evidence-post-runtime-receipt.v1',
     'fsusblog.behavior-evidence-pre-runtime-receipt.v1',
     'fsusblog.browser-contract-receipt.v2',
     'fsusblog.browser-diagnostics-release-assertions.v1',
