@@ -513,6 +513,7 @@ FIXTURE_RECEIPT_DIGEST=""
 FIXTURE_RECEIPT_TERMINAL_STATUS=""
 ENVIRONMENT_READY_RECEIPT_FILE=""
 RUNTIME_TOPOLOGY_INPUT_FILE=""
+CURRENT_SCHEMA_CANDIDATE_ASSEMBLY=""
 if [[ "${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" == "1" ]]; then
     # A dedicated Browser Contract runtime is intentionally deterministic.  Do not
     # sample live CPU, memory, PID, or scheduler-grant state while bootstrapping it.
@@ -2249,7 +2250,7 @@ PublishEnvironmentReadyReceipt() {
         --receipt-root "$TMP_DIR"
         --run-id "${FSUSBLOG_TEST_RUN_ID:?environment-ready current schema run id is required}"
         --source-commit "${FSUSBLOG_TEST_SOURCE_COMMIT:?environment-ready current schema source commit is required}"
-        --assembly "$ROOT_DIR/src/backend/bin/${FSUSBLOG_RUNTIME_CONFIGURATION:-Release}/net10.0/FsusBlog.Server.dll"
+        --assembly "${CURRENT_SCHEMA_CANDIDATE_ASSEMBLY:?current schema candidate assembly is required}"
         --service-catalog "$ROOT_DIR/config/testing/test-execution-service-catalog.json"
         --service-envelope "$EXECUTION_SERVICE_ENVELOPE_FILE"
         --profile-plan "$FIXTURE_PROFILE_PLAN_FILE"
@@ -2378,6 +2379,114 @@ CurrentSchemaRunDigest() {
     }
 }
 
+ResolveCurrentSchemaCandidateAssembly() {
+    local runtimeConfiguration="${1:?current schema runtime configuration is required}"
+    local buildRoot="${FSUSBLOG_PRODUCTION_BUILD_ROOT:-}"
+    local runId="${FSUSBLOG_TEST_RUN_ID:?current schema candidate run id is required}"
+    local candidateAssembly physicalAssembly physicalBuildRoot
+    CURRENT_SCHEMA_CANDIDATE_ASSEMBLY=""
+    [[ -n "$buildRoot" && "$buildRoot" == /* && ! -L "$buildRoot" ]] || {
+        Log 'current schema production build root must be an absolute non-symlink path'
+        return 2
+    }
+    physicalBuildRoot="$(realpath -e -- "$buildRoot")" || {
+        Log 'current schema production build root physical path is unavailable'
+        return 2
+    }
+    if [[ "$physicalBuildRoot" != "$buildRoot" \
+        || "$buildRoot" == "$ROOT_DIR" \
+        || "$buildRoot" != "$ROOT_DIR/"* ]]; then
+        Log 'current schema production build root is not a canonical repository consumer path'
+        return 2
+    fi
+    candidateAssembly="$buildRoot/dotnet/FsusBlog.Server/bin/$runtimeConfiguration/net10.0/FsusBlog.Server.dll"
+    if [[ "${FSUSBLOG_BACKEND_SERVER_DLL:-}" != "$candidateAssembly" ]]; then
+        Log 'current schema candidate assembly does not match the canonical production build layout'
+        return 2
+    fi
+    if [[ "$candidateAssembly" != /* || ! -f "$candidateAssembly" || -L "$candidateAssembly" ]]; then
+        Log 'current schema candidate assembly is missing or not a regular file'
+        return 2
+    fi
+    physicalAssembly="$(realpath -e -- "$candidateAssembly")" || {
+        Log 'current schema candidate assembly physical path is unavailable'
+        return 2
+    }
+    if [[ -n "${FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT:-}" ]]; then
+        local materializationEvidence
+        materializationEvidence="${FSUSBLOG_RELEASE_EVIDENCE_DIR:-$ROOT_DIR/.tmp/release-evidence}/jobs/ci-build-materialization-${NS_SLUG}.json"
+        if ! "${FSUSBLOG_NODE:-node}" --input-type=module - \
+            "$ROOT_DIR" \
+            "$FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT" \
+            "$materializationEvidence" \
+            "$runId" \
+            "$NS_SLUG" \
+            "$candidateAssembly" \
+            "${FSUSBLOG_TEST_SOURCE_COMMIT:?current schema candidate source commit is required}" \
+            "${FSUSBLOG_TEST_SOURCE_FINGERPRINT:?current schema candidate source fingerprint is required}" \
+            "${FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST:?current schema candidate receipt digest is required}" <<'NODE'
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+const [root, artifactRoot, evidenceFile, runId, consumerId, candidate, sourceCommit, sourceFingerprint, receiptDigest] = process.argv.slice(2);
+const { verifyProductionBuildConsumerMaterialization } = await import(pathToFileURL(
+    path.join(root, 'tools/ci/production-build-artifacts.mjs')
+).href);
+verifyProductionBuildConsumerMaterialization({
+    artifactRoot,
+    evidenceFile,
+    destinationRoot: root,
+    runId,
+    consumerId,
+    mappings: [{
+        name: 'backend-runtime',
+        destination: path.relative(root, path.dirname(candidate)).replaceAll(path.sep, '/')
+    }],
+    requiredCandidateFiles: [{
+        domain: 'backend-runtime',
+        artifact: 'FsusBlog.Server.dll',
+        candidate: path.relative(root, candidate).replaceAll(path.sep, '/')
+    }],
+    verification: {
+        expectedSourceState: { commit: sourceCommit, worktreeFingerprint: sourceFingerprint },
+        expectedReceiptDigest: receiptDigest,
+        repairReadOnlySeal: false
+    }
+});
+NODE
+        then
+            Log 'current schema CI candidate is not bound to the current verified consumer materialization'
+            return 2
+        fi
+    else
+        if ! "${FSUSBLOG_NODE:-node}" --input-type=module - \
+            "$ROOT_DIR" "$runId" "$buildRoot" "$candidateAssembly" <<'NODE'
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+const [root, runId, buildRoot, candidateAssembly] = process.argv.slice(2);
+const { productionBuildEnvironmentAssignments } = await import(pathToFileURL(
+    path.join(root, 'tools/test-matrix/production-build-layout.mjs')
+).href);
+const environment = Object.fromEntries(productionBuildEnvironmentAssignments({ root, runId }));
+if (environment.FSUSBLOG_PRODUCTION_BUILD_ROOT !== buildRoot
+    || environment.FSUSBLOG_BACKEND_SERVER_DLL !== candidateAssembly)
+{
+    throw new Error('candidate layout does not match the current production build run');
+}
+NODE
+        then
+            Log 'current schema candidate does not match the current production build run'
+            return 2
+        fi
+        if [[ "$physicalAssembly" != "$candidateAssembly" ]]; then
+            Log 'current schema candidate assembly path is not canonical'
+            return 2
+        fi
+    fi
+    CURRENT_SCHEMA_CANDIDATE_ASSEMBLY="$candidateAssembly"
+}
+
 MaterializeCurrentSchemaForTestRuntime() {
     local runId="${FSUSBLOG_TEST_RUN_ID:?current schema materializer run id is required}"
     local sourceCommit="${FSUSBLOG_TEST_SOURCE_COMMIT:?current schema materializer source commit is required}"
@@ -2395,6 +2504,7 @@ MaterializeCurrentSchemaForTestRuntime() {
             return 2
             ;;
     esac
+    ResolveCurrentSchemaCandidateAssembly "$runtimeConfiguration"
     "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/execution-envelope-services.mjs" \
         --verify-envelope "$EXECUTION_SERVICE_ENVELOPE_FILE" \
         --service-catalog "$serviceCatalogFile"
@@ -2403,13 +2513,7 @@ MaterializeCurrentSchemaForTestRuntime() {
         FSUSBLOG_CURRENT_SCHEMA_TEST_MATERIALIZATION=1 \
         FSUSBLOG_CURRENT_SCHEMA_TEST_RECEIPT_ROOT="$TMP_DIR" \
         ConnectionStrings__DefaultConnection="${POSTGRES_CONNECTION};Search Path=public" \
-        ./tools/build-with-data-env.sh dotnet run \
-            --project src/backend/FsusBlog.Server.csproj \
-            --no-launch-profile \
-            -c "$runtimeConfiguration" \
-            --no-build \
-            --no-restore \
-            -- \
+        ./tools/build-with-data-env.sh dotnet "$CURRENT_SCHEMA_CANDIDATE_ASSEMBLY" \
             materialize-current-schema-test \
             --run-id "$runId" \
             --source-commit "$sourceCommit" \
@@ -2420,7 +2524,7 @@ MaterializeCurrentSchemaForTestRuntime() {
         --receipt-root "$TMP_DIR" \
         --run-id "$runId" \
         --source-commit "$sourceCommit" \
-        --assembly "$ROOT_DIR/src/backend/bin/$runtimeConfiguration/net10.0/FsusBlog.Server.dll" \
+        --assembly "$CURRENT_SCHEMA_CANDIDATE_ASSEMBLY" \
         --service-catalog "$serviceCatalogFile" \
         --service-envelope "$EXECUTION_SERVICE_ENVELOPE_FILE"
     ConnectionStrings__DefaultConnection="${POSTGRES_CONNECTION};Search Path=public" \
@@ -2430,7 +2534,7 @@ MaterializeCurrentSchemaForTestRuntime() {
         --receipt-root "$TMP_DIR" \
         --run-id "$runId" \
         --source-commit "$sourceCommit" \
-        --assembly "$ROOT_DIR/src/backend/bin/$runtimeConfiguration/net10.0/FsusBlog.Server.dll" \
+        --assembly "$CURRENT_SCHEMA_CANDIDATE_ASSEMBLY" \
         --service-catalog "$serviceCatalogFile" \
         --service-envelope "$EXECUTION_SERVICE_ENVELOPE_FILE" \
         --profile-plan "$FIXTURE_PROFILE_PLAN_FILE" \
@@ -2463,7 +2567,7 @@ RequireCurrentSchemaRuntimeReady() {
         --receipt-root "$TMP_DIR" \
         --run-id "$runId" \
         --source-commit "$sourceCommit" \
-        --assembly "$ROOT_DIR/src/backend/bin/$runtimeConfiguration/net10.0/FsusBlog.Server.dll" \
+        --assembly "${CURRENT_SCHEMA_CANDIDATE_ASSEMBLY:?current schema candidate assembly is required}" \
         --service-catalog "$serviceCatalogFile" \
         --service-envelope "$EXECUTION_SERVICE_ENVELOPE_FILE" \
         --profile-plan "$FIXTURE_PROFILE_PLAN_FILE" \
@@ -2962,7 +3066,7 @@ Main() {
         --receipt-root "$TMP_DIR" \
         --run-id "$FSUSBLOG_TEST_RUN_ID" \
         --source-commit "$FSUSBLOG_TEST_SOURCE_COMMIT" \
-        --assembly "$ROOT_DIR/src/backend/bin/${FSUSBLOG_RUNTIME_CONFIGURATION:-Release}/net10.0/FsusBlog.Server.dll" \
+        --assembly "${CURRENT_SCHEMA_CANDIDATE_ASSEMBLY:?current schema candidate assembly is required}" \
         --service-catalog "$ROOT_DIR/config/testing/test-execution-service-catalog.json" \
         --service-envelope "$EXECUTION_SERVICE_ENVELOPE_FILE" \
         --profile-plan "$FIXTURE_PROFILE_PLAN_FILE" \
@@ -2976,7 +3080,7 @@ Main() {
         --receipt-root "$TMP_DIR" \
         --run-id "$FSUSBLOG_TEST_RUN_ID" \
         --source-commit "$FSUSBLOG_TEST_SOURCE_COMMIT" \
-        --assembly "$ROOT_DIR/src/backend/bin/${FSUSBLOG_RUNTIME_CONFIGURATION:-Release}/net10.0/FsusBlog.Server.dll" \
+        --assembly "${CURRENT_SCHEMA_CANDIDATE_ASSEMBLY:?current schema candidate assembly is required}" \
         --service-catalog "$ROOT_DIR/config/testing/test-execution-service-catalog.json" \
         --service-envelope "$EXECUTION_SERVICE_ENVELOPE_FILE" \
         --profile-plan "$FIXTURE_PROFILE_PLAN_FILE" \

@@ -182,6 +182,7 @@ render: enum-set
 - `behavior-doc-static-admission->coverage-frontend`
 - `behavior-doc-static-admission->cross-stack-contract`
 - `behavior-doc-static-admission->csrf-browser-matrix`
+- `behavior-doc-static-admission->current-schema-bootstrap-integration`
 - `behavior-doc-static-admission->frontend-build`
 - `behavior-doc-static-admission->frontend-property-model-perf`
 - `behavior-doc-static-admission->frontend-runtime-contracts`
