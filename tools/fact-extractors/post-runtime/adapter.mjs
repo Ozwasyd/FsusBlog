@@ -195,16 +195,14 @@ export function observationSourceState({ plan, artifactDigest = null, repository
     path.join(repositoryRoot, 'config/schemas/post-runtime-observation-result.schema.json'), 'utf8'))
   const required = new Set(schema.required ?? [])
   if (!required.has('attemptAuthorityRef')) return stable(legacy)
-  const runtimeIdentity = `sha256:${digestValue(plan.candidate.runtimeId)}`
-  const browserIdentity = `sha256:${digestValue(plan.candidate.browserId)}`
   return stable({
     sourceCommit: plan.sourceState.commit,
     worktreeFingerprint: plan.sourceState.worktreeFingerprint,
     buildIdentity: plan.build.receiptContentDigest,
     ...(artifactDigest ? { artifactDigest } : {}),
     candidateId: plan.candidate.candidateId,
-    runtimeIdentity,
-    browserIdentity,
+    runtimeId: plan.candidate.runtimeId,
+    browserIdentity: plan.candidate.browserId,
     releaseId: plan.candidate.releaseId,
     rolloutId: plan.candidate.rolloutId,
     runId: plan.candidate.runId,
@@ -321,6 +319,13 @@ export function produceCandidateContext({
   {
     fail('candidate context requires a stable lowercase runId and canonical attempt-NNNN identity')
   }
+  const observationSchema = JSON.parse(readFileSync(
+    path.join(repositoryRoot, 'config/schemas/post-runtime-observation-result.schema.json'), 'utf8'))
+  const typedIdentity = observationSchema.properties?.sourceState?.properties?.runtimeId !== undefined
+  if (typedIdentity && !/^[0-9]{14}-[a-f0-9]{12}$/u.test(String(overrides.releaseId ?? '')))
+  {
+    fail('typed candidate context requires an explicit canonical releaseId')
+  }
   return seal({
     schema: 'fsusblog.post-runtime-candidate-context.v1',
     preRuntimeReceiptRef: receiptReference(preInput, 'pre-runtime receipt'),
@@ -329,15 +334,15 @@ export function produceCandidateContext({
       worktreeFingerprint: prefixedDigest(pre.sourceIdentity.worktreeFingerprint)
     },
     candidate: stable({
-      candidateId: overrides.candidateId ?? `${runId}-candidate`,
+      candidateId: overrides.candidateId ?? `${runId}${typedIdentity ? ':' : '-'}candidate`,
       runId,
       attemptId,
-      fixtureId: overrides.fixtureId ?? `${runId}-fixture`,
+      fixtureId: overrides.fixtureId ?? `${runId}${typedIdentity ? ':' : '-'}fixture`,
       profileId: overrides.profileId ?? 'acceptance-representative',
-      runtimeId: overrides.runtimeId ?? `${runId}-runtime`,
-      browserId: overrides.browserId ?? `${runId}-browser-contract`,
+      runtimeId: overrides.runtimeId ?? `${runId}${typedIdentity ? ':' : '-'}runtime`,
+      browserId: overrides.browserId ?? `${runId}${typedIdentity ? ':' : '-'}browser-contract`,
       releaseId: overrides.releaseId ?? `${runId}-release`,
-      rolloutId: overrides.rolloutId ?? `${runId}-rollout`
+      rolloutId: overrides.rolloutId ?? `${runId}${typedIdentity ? ':' : '-'}rollout`
     }),
     status: 'planned-before-runtime'
   })
@@ -368,6 +373,18 @@ function validateCandidateContext(run, repositoryRoot)
       .some((field) => typeof candidate[field] !== 'string' || candidate[field].length < 3))
   {
     fail('candidate context identities are not canonically derived')
+  }
+  const observationSchema = JSON.parse(readFileSync(
+    path.join(repositoryRoot, 'config/schemas/post-runtime-observation-result.schema.json'), 'utf8'))
+  if (observationSchema.properties?.sourceState?.properties?.runtimeId !== undefined
+    && (candidate.candidateId !== `${candidate.runId}:candidate`
+      || candidate.runtimeId !== `${candidate.runId}:runtime`
+      || candidate.browserId !== `${candidate.runId}:browser-contract`
+      || candidate.fixtureId !== `${candidate.runId}:fixture`
+      || candidate.rolloutId !== `${candidate.runId}:rollout`
+      || !/^[0-9]{14}-[a-f0-9]{12}$/u.test(candidate.releaseId)))
+  {
+    fail('typed candidate identities do not exact-match the run/release authority')
   }
   const profileCatalog = JSON.parse(readFileSync(
     path.join(repositoryRoot, 'config/testing/fixture-profile-catalog.json'), 'utf8'))
@@ -652,14 +669,11 @@ export function produceClassReceipt({ candidatePlan, classId, result, repository
     buildIdentity: plan.build.receiptContentDigest,
     candidateId: plan.candidate.candidateId,
     runtimeId: plan.candidate.runtimeId,
-    runtimeIdentity: `sha256:${digestValue(plan.candidate.runtimeId)}`,
     runId: plan.candidate.runId,
     attemptId: plan.candidate.attemptId,
     fixtureId: plan.candidate.fixtureId,
     profileId: plan.candidate.profileId,
-    browserIdentity: definition.requiredIdentityFields.includes('runtimeIdentity')
-      ? `sha256:${digestValue(plan.candidate.browserId)}`
-      : plan.candidate.browserId,
+    browserIdentity: plan.candidate.browserId,
     releaseId: plan.candidate.releaseId,
     rolloutId: plan.candidate.rolloutId
   }

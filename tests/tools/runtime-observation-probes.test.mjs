@@ -176,7 +176,7 @@ test('raw projector binds a verified probe to the exact candidate and toolchain'
   assert.equal(raw.producerId, 'production-correctness-scheduler')
   if ('requestIdentity' in raw.semanticFacts)
   {
-    assert.match(raw.sourceState.runtimeIdentity, /^sha256:[a-f0-9]{64}$/u)
+    assert.equal(raw.sourceState.runtimeId, `${runId}:runtime`)
   }
   else
   {

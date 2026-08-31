@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 NODE_BIN="${FSUSBLOG_NODE:-node}"
 RUN_ID="${FSUSBLOG_TEST_RUN_ID:?FSUSBLOG_TEST_RUN_ID is required}"
 ATTEMPT_ID="${FSUSBLOG_TEST_ATTEMPT_ID:-attempt-0001}"
+RELEASE_ID="${FSUSBLOG_RELEASE_ID:?FSUSBLOG_RELEASE_ID is required}"
 PRE_RUNTIME="${FSUSBLOG_BEHAVIOR_PRE_RUNTIME_RECEIPT:-$ROOT_DIR/.tmp/behavior-evidence-pre-runtime/receipt.json}"
 TERMINAL_CLAIMS="${FSUSBLOG_GLOBAL_CLAIM_EXACTNESS_RECEIPT:-$ROOT_DIR/.tmp/behavior-evidence-pre-runtime/global-claim-exactness.json}"
 BUILD_RECEIPT="${FSUSBLOG_CI_PRODUCTION_BUILD_RECEIPT:-$ROOT_DIR/.tmp/ci-production-build/receipt.json}"
@@ -21,6 +22,7 @@ mkdir -p "$OUT_DIR"
     --pre-runtime "$PRE_RUNTIME" \
     --run-id "$RUN_ID" \
     --attempt-id "$ATTEMPT_ID" \
+    --release-id "$RELEASE_ID" \
     --out "$OUT_DIR/candidate-context.json"
 
 "$NODE_BIN" "$ROOT_DIR/tools/fact-extractors/post-runtime/current-run.mjs" candidate-plan \
