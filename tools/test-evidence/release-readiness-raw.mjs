@@ -11,7 +11,9 @@ import {
   candidatePlanPathForObservation,
   explicitJson,
   observationEnvelopeAuthorityFields,
+  observationSourceReceipt,
   observationSourceState,
+  observationUpstreamPath,
   seal,
   validateCandidatePlan,
   writeReceipt
@@ -596,29 +598,36 @@ export function projectReleaseReadinessAuthoritiesRaw({ candidatePlan, sourceRec
   const semanticFacts = Array.isArray(registry.observationClasses['release-identity-readiness'].requiredSemanticFactFields)
     ? typedFacts
     : legacyFacts
+  const sourceState = observationSourceState({
+    plan, artifactDigest: authorities.authorityDigest, repositoryRoot,
+    legacy: {
+      sourceCommit: plan.sourceState.commit, worktreeFingerprint: plan.sourceState.worktreeFingerprint,
+      buildIdentity: plan.build.receiptContentDigest, artifactDigest: authorities.authorityDigest,
+      candidateId: plan.candidate.candidateId, releaseId: plan.candidate.releaseId,
+      runtimeId: plan.candidate.runtimeId, runId: plan.candidate.runId,
+      attemptId: plan.candidate.attemptId, slot: rollout.target.slot
+    }
+  })
+  const canonicalRerunCommand = `node tools/test-evidence/release-readiness-raw.mjs project-authorities --candidate-plan ${planInput.ref.path} --source ${source.ref.path} --out ${planned.receiptPath}`
+  const independentVerifyCommand = `node tools/test-evidence/release-readiness-raw.mjs verify --candidate-plan ${planInput.ref.path} --receipt ${planned.receiptPath}`
   return seal({
     schema: releaseReadinessObservationSchema,
     producerId: plan.producerId,
     toolVersion: producer.toolVersion,
-    sourceState: observationSourceState({
-      plan, artifactDigest: authorities.authorityDigest, repositoryRoot,
-      legacy: {
-        sourceCommit: plan.sourceState.commit, worktreeFingerprint: plan.sourceState.worktreeFingerprint,
-        buildIdentity: plan.build.receiptContentDigest, artifactDigest: authorities.authorityDigest,
-        candidateId: plan.candidate.candidateId, releaseId: plan.candidate.releaseId,
-        runtimeId: plan.candidate.runtimeId, runId: plan.candidate.runId,
-        attemptId: plan.candidate.attemptId, slot: rollout.target.slot
-      }
-    }),
+    sourceState,
     executionClass: 'correctness', evidenceClass: 'correctness', qualificationEligible: true,
     planned: true, executed: true, outcome: 'passed', recovered: false,
     modes: planned.requiredModes,
     terminal: { timeout: false, cancelled: false, processTreeTerminated: false, priorAttemptDigest: null },
     semanticFacts,
     ...observationEnvelopeAuthorityFields({ plan, candidatePlanRef: planInput.ref, repositoryRoot }),
-    sourceReceiptRef: source.ref,
-    canonicalRerunCommand: `node tools/test-evidence/release-readiness-raw.mjs project-authorities --candidate-plan ${planInput.ref.path} --source ${source.ref.path} --out ${planned.receiptPath}`,
-    independentVerifyCommand: `node tools/test-evidence/release-readiness-raw.mjs verify --candidate-plan ${planInput.ref.path} --receipt ${planned.receiptPath}`
+    sourceReceiptRef: observationSourceReceipt({
+      classId: 'release-identity-readiness', plan, sourceState, upstreamRef: source.ref,
+      upstreamSchema: source.value.schema,
+      canonicalRerunCommand, independentVerifyCommand, repositoryRoot
+    }),
+    canonicalRerunCommand,
+    independentVerifyCommand
   })
 }
 
@@ -642,16 +651,17 @@ export function verifyReleaseReadinessRaw(receiptPath, repositoryRoot = root, ca
     }
   }
   const planPath = candidatePlanPathForObservation(input.value, candidatePlan)
-  const source = currentJson(input.value.sourceReceiptRef.path, 'source receipt', repositoryRoot)
+  const upstreamPath = observationUpstreamPath(input.value, repositoryRoot)
+  const source = currentJson(upstreamPath, 'source receipt', repositoryRoot)
   const replay = source.value.schema === releaseReadinessAuthorityBundleSchema
     ? projectReleaseReadinessAuthoritiesRaw({
         candidatePlan: planPath,
-        sourceReceipt: input.value.sourceReceiptRef.path,
+        sourceReceipt: upstreamPath,
         repositoryRoot
       })
     : projectReleaseReadinessRaw({
         candidatePlan: planPath,
-        sourceReceipt: input.value.sourceReceiptRef.path,
+        sourceReceipt: upstreamPath,
         repositoryRoot
       })
   if (replay.contentDigest !== input.value.contentDigest) fail('release readiness raw replay mismatch')

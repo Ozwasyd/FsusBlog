@@ -12,7 +12,9 @@ import {
   candidatePlanPathForObservation,
   explicitJson,
   observationEnvelopeAuthorityFields,
+  observationSourceReceipt,
   observationSourceState,
+  observationUpstreamPath,
   seal,
   validateCandidatePlan,
   writeReceipt
@@ -322,22 +324,25 @@ export function projectAotSpaHydrationRaw({ candidatePlan, sourceReceipt, reposi
   const semanticFacts = Array.isArray(definition.requiredSemanticFactFields)
     ? typedFacts(inputs, legacyFacts)
     : legacyFacts
+  const sourceState = observationSourceState({ plan, artifactDigest: semanticFacts.manifestDigest, repositoryRoot, legacy: {
+    sourceCommit: plan.sourceState.commit,
+    worktreeFingerprint: plan.sourceState.worktreeFingerprint,
+    buildIdentity: plan.build.receiptContentDigest,
+    artifactDigest: semanticFacts.manifestDigest,
+    candidateId: plan.candidate.candidateId,
+    runId: plan.candidate.runId,
+    attemptId: plan.candidate.attemptId,
+    browserIdentity: plan.candidate.browserId,
+    releaseId: plan.candidate.releaseId,
+    rolloutId: plan.candidate.rolloutId
+  } })
+  const canonicalRerunCommand = `node tools/test-evidence/aot-spa-hydration-raw.mjs project --candidate-plan ${candidate.ref.path} --source ${source.source.ref.path} --out ${planned.receiptPath}`
+  const independentVerifyCommand = `node tools/test-evidence/aot-spa-hydration-raw.mjs verify --receipt ${planned.receiptPath}`
   return seal({
     schema: definition.schema,
     producerId: plan.producerId,
     toolVersion: producer.toolVersion,
-    sourceState: observationSourceState({ plan, artifactDigest: semanticFacts.manifestDigest, repositoryRoot, legacy: {
-      sourceCommit: plan.sourceState.commit,
-      worktreeFingerprint: plan.sourceState.worktreeFingerprint,
-      buildIdentity: plan.build.receiptContentDigest,
-      artifactDigest: semanticFacts.manifestDigest,
-      candidateId: plan.candidate.candidateId,
-      runId: plan.candidate.runId,
-      attemptId: plan.candidate.attemptId,
-      browserIdentity: plan.candidate.browserId,
-      releaseId: plan.candidate.releaseId,
-      rolloutId: plan.candidate.rolloutId
-    } }),
+    sourceState,
     executionClass: 'correctness',
     evidenceClass: 'correctness',
     qualificationEligible: true,
@@ -349,9 +354,12 @@ export function projectAotSpaHydrationRaw({ candidatePlan, sourceReceipt, reposi
     terminal: { timeout: false, cancelled: false, processTreeTerminated: false, priorAttemptDigest: null },
     semanticFacts,
     ...observationEnvelopeAuthorityFields({ plan, candidatePlanRef: candidate.ref, repositoryRoot }),
-    sourceReceiptRef: source.source.ref,
-    canonicalRerunCommand: `node tools/test-evidence/aot-spa-hydration-raw.mjs project --candidate-plan ${candidate.ref.path} --source ${source.source.ref.path} --out ${planned.receiptPath}`,
-    independentVerifyCommand: `node tools/test-evidence/aot-spa-hydration-raw.mjs verify --receipt ${planned.receiptPath}`
+    sourceReceiptRef: observationSourceReceipt({
+      classId, plan, sourceState, upstreamRef: source.source.ref,
+      canonicalRerunCommand, independentVerifyCommand, repositoryRoot
+    }),
+    canonicalRerunCommand,
+    independentVerifyCommand
   })
 }
 
@@ -372,7 +380,7 @@ export function verifyAotSpaHydrationRaw(receiptPath, repositoryRoot = root, can
   const planPath = candidatePlanPathForObservation(receipt, candidatePlan)
   const replay = projectAotSpaHydrationRaw({
     candidatePlan: planPath,
-    sourceReceipt: receipt.sourceReceiptRef.path,
+    sourceReceipt: observationUpstreamPath(receipt, repositoryRoot),
     repositoryRoot
   })
   if (replay.contentDigest !== receipt.contentDigest) fail('AOT raw receipt replay mismatch')

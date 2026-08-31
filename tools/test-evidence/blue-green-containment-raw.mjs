@@ -11,7 +11,9 @@ import {
   candidatePlanPathForObservation,
   explicitJson,
   observationEnvelopeAuthorityFields,
+  observationSourceReceipt,
   observationSourceState,
+  observationUpstreamPath,
   seal,
   validateCandidatePlan,
   writeReceipt
@@ -678,28 +680,31 @@ export function produceBlueGreenAuthoritiesRaw({ candidatePlan, sourceReceipt, r
   const semanticFacts = Array.isArray(registry.observationClasses[classId].requiredSemanticFactFields)
     ? typedFacts
     : legacyFacts
+  const sourceState = observationSourceState({
+    plan: context.plan, artifactDigest: authorities.authorityDigest, repositoryRoot,
+    legacy: {
+      sourceCommit: context.plan.sourceState.commit,
+      worktreeFingerprint: context.plan.sourceState.worktreeFingerprint,
+      buildIdentity: context.plan.build.receiptContentDigest,
+      candidateId: context.plan.candidate.candidateId,
+      releaseId: context.plan.candidate.releaseId,
+      rolloutId: context.plan.candidate.rolloutId,
+      deploymentId: rollout.rolloutId,
+      runtimeId: context.plan.candidate.runtimeId,
+      runId: context.plan.candidate.runId,
+      attemptId: context.plan.candidate.attemptId,
+      producerId: context.plan.producerId,
+      schemaIdentity: context.definition.schema,
+      toolchainIdentity: context.toolchainIdentity
+    }
+  })
+  const canonicalRerunCommand = `node tools/test-evidence/blue-green-containment-raw.mjs produce-authorities --candidate-plan ${candidatePlan} --source ${source.ref.path} --out ${context.planned.receiptPath}`
+  const independentVerifyCommand = `node tools/test-evidence/blue-green-containment-raw.mjs verify --candidate-plan ${candidatePlan} --receipt ${context.planned.receiptPath}`
   return seal({
     schema: context.definition.schema,
     producerId: context.plan.producerId,
     toolVersion: context.toolVersion,
-    sourceState: observationSourceState({
-      plan: context.plan, artifactDigest: authorities.authorityDigest, repositoryRoot,
-      legacy: {
-        sourceCommit: context.plan.sourceState.commit,
-        worktreeFingerprint: context.plan.sourceState.worktreeFingerprint,
-        buildIdentity: context.plan.build.receiptContentDigest,
-        candidateId: context.plan.candidate.candidateId,
-        releaseId: context.plan.candidate.releaseId,
-        rolloutId: context.plan.candidate.rolloutId,
-        deploymentId: rollout.rolloutId,
-        runtimeId: context.plan.candidate.runtimeId,
-        runId: context.plan.candidate.runId,
-        attemptId: context.plan.candidate.attemptId,
-        producerId: context.plan.producerId,
-        schemaIdentity: context.definition.schema,
-        toolchainIdentity: context.toolchainIdentity
-      }
-    }),
+    sourceState,
     executionClass: 'correctness', evidenceClass: 'correctness', qualificationEligible: true,
     planned: true, executed: true, outcome: 'passed', recovered: false,
     modes: context.planned.requiredModes,
@@ -708,11 +713,12 @@ export function produceBlueGreenAuthoritiesRaw({ candidatePlan, sourceReceipt, r
     ...observationEnvelopeAuthorityFields({
       plan: context.plan, candidatePlanRef: context.candidatePlanRef, repositoryRoot
     }),
-    sourceReceiptRef: {
-      path: source.ref.path, fileDigest: source.ref.fileDigest, contentDigest: source.ref.contentDigest
-    },
-    canonicalRerunCommand: `node tools/test-evidence/blue-green-containment-raw.mjs produce-authorities --candidate-plan ${candidatePlan} --source ${source.ref.path} --out ${context.planned.receiptPath}`,
-    independentVerifyCommand: `node tools/test-evidence/blue-green-containment-raw.mjs verify --candidate-plan ${candidatePlan} --receipt ${context.planned.receiptPath}`
+    sourceReceiptRef: observationSourceReceipt({
+      classId, plan: context.plan, sourceState, upstreamRef: source.ref,
+      canonicalRerunCommand, independentVerifyCommand, repositoryRoot
+    }),
+    canonicalRerunCommand,
+    independentVerifyCommand
   })
 }
 
@@ -741,16 +747,17 @@ export function verifyBlueGreenContainmentRaw(receiptPath, repositoryRoot = root
   {
     fail('candidate plan reference digest mismatch')
   }
-  const source = safeInput(receipt.sourceReceiptRef.path, repositoryRoot, 'blue-green source receipt')
+  const upstreamPath = observationUpstreamPath(receipt, repositoryRoot)
+  const source = safeInput(upstreamPath, repositoryRoot, 'blue-green source receipt')
   const replay = source.value.schema === canonicalAuthorityBundleSchema
     ? produceBlueGreenAuthoritiesRaw({
         candidatePlan: planPath,
-        sourceReceipt: receipt.sourceReceiptRef.path,
+        sourceReceipt: upstreamPath,
         repositoryRoot
       })
     : produceBlueGreenContainmentRaw({
         candidatePlan: planPath,
-        sourceReceipt: receipt.sourceReceiptRef.path,
+        sourceReceipt: upstreamPath,
         repositoryRoot
       })
   if (replay.contentDigest !== receipt.contentDigest) fail('blue-green projected receipt replay mismatch')

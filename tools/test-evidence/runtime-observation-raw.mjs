@@ -10,7 +10,9 @@ import {
   candidatePlanPathForObservation,
   explicitJson,
   observationEnvelopeAuthorityFields,
+  observationSourceReceipt,
   observationSourceState,
+  observationUpstreamPath,
   seal,
   validateCandidatePlan,
   writeReceipt
@@ -220,16 +222,19 @@ export function projectProbeRaw({ candidatePlan, probeReceipt, repositoryRoot = 
     : probe.kind === 'cache-search-outbox-convergence'
       ? typedEnvelope ? typedCacheFacts(probe.facts, probe) : cacheFacts(probe.facts, probe)
       : typedEnvelope ? typedSessionFacts(probe.facts) : sessionFacts(probe.facts)
+  const sourceState = observationSourceState({
+    plan,
+    artifactDigest: semanticDigest(probe.facts),
+    repositoryRoot,
+    legacy: legacySourceState
+  })
+  const canonicalRerunCommand = probe.provenance.rerunCommand
+  const independentVerifyCommand = `node tools/test-evidence/runtime-observation-raw.mjs verify --receipt ${planned.receiptPath}`
   return seal({
     schema: definition.schema,
     producerId: plan.producerId,
     toolVersion: producer.toolVersion,
-    sourceState: observationSourceState({
-      plan,
-      artifactDigest: semanticDigest(probe.facts),
-      repositoryRoot,
-      legacy: legacySourceState
-    }),
+    sourceState,
     executionClass: 'correctness',
     evidenceClass: 'correctness',
     qualificationEligible: true,
@@ -241,9 +246,12 @@ export function projectProbeRaw({ candidatePlan, probeReceipt, repositoryRoot = 
     terminal: { timeout: false, cancelled: false, processTreeTerminated: false, priorAttemptDigest: null },
     semanticFacts,
     ...observationEnvelopeAuthorityFields({ plan, candidatePlanRef: planInput.ref, repositoryRoot }),
-    sourceReceiptRef: probeInput.ref,
-    canonicalRerunCommand: probe.provenance.rerunCommand,
-    independentVerifyCommand: `node tools/test-evidence/runtime-observation-raw.mjs verify --receipt ${planned.receiptPath}`
+    sourceReceiptRef: observationSourceReceipt({
+      classId: probe.kind, plan, sourceState, upstreamRef: probeInput.ref,
+      canonicalRerunCommand, independentVerifyCommand, repositoryRoot
+    }),
+    canonicalRerunCommand,
+    independentVerifyCommand
   })
 }
 
@@ -274,7 +282,7 @@ export function verifyProjectedRaw(receiptPath, repositoryRoot = root, candidate
   const planPath = candidatePlanPathForObservation(receipt, candidatePlan)
   const replay = projectProbeRaw({
     candidatePlan: planPath,
-    probeReceipt: receipt.sourceReceiptRef.path,
+    probeReceipt: observationUpstreamPath(receipt, repositoryRoot),
     repositoryRoot
   })
   if (replay.contentDigest !== receipt.contentDigest) fail('projected raw replay mismatch')
