@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/test-matrix/required-evidence-catalog.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/current-run-evidence-location-acceptance.json",
+            "sha256": "eb7d86d341c39b6dfef6dd25cbda059572a90a0695adf04d3a4e187a1d261f0f"
+        }
+    ]
+}
