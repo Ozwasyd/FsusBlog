@@ -3,10 +3,10 @@
     "generatedBy": "tools/test/generate-correctness-attempt-producers.mjs",
     "sourceDigests": {
         "config/testing/release-reliability-scenario-catalog.json": "sha256:b61558320c2c55f860dc4606b4680ca41085179b1b219053869d0296c301b354",
-        "tests/matrix.yml": "sha256:0a5b2ab361bfec88723839d3662473d60387b390aa43fba43fa051f8f3569ee1",
+        "tests/matrix.yml": "sha256:8e99a94fc4b9549203011b4e6e25c19d34f846552692b778d874f2489954a4b9",
         "tools/test-matrix/production-fresh-run-bound-outputs.mjs": "sha256:68c78054efb4a77b9e368fb079a9bb749b8edff24bc6d8375f7970555292c638",
         "config/testing/replay-qualification-producers.json": "sha256:5610b07e0acb3862fff2d4a4d294993f8e3e181398a80b14c4589f43d4855398",
-        "config/testing/test-execution-envelope-applicability.json": "sha256:ba9e3aeb14e9ceda3fa966a9efef8ae807e26246f939646bf2ad9f4738f39468",
+        "config/testing/test-execution-envelope-applicability.json": "sha256:896fd986402ea7cacb1cd843a19743dd77f19b74580a7ea2e42a12cac6aec15f",
         "tools/test/attempt-runner.mjs": "sha256:53cdf7bdd46a4147400e3393decf29017534babc3ddfa6eb3446743de7018451",
         "tools/test/temporal-context.mjs": "sha256:982bee7411c0fb1c206d09a3bb21c9898ecca0d6564518e76d11f8768164cd66"
     },
@@ -1428,6 +1428,35 @@
             ],
             "authorityBindings": {
                 "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:csrf-browser-matrix",
+                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
+                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
+            }
+        },
+        {
+            "producerId": "matrix:current-schema-bootstrap-integration",
+            "domain": "test-producers",
+            "producerKind": "integration",
+            "sourceAuthority": "tests/matrix.yml",
+            "canonicalCommand": "tools/test/lanes/current-schema-bootstrap-integration.sh",
+            "logicalTierIds": [
+                "current-schema-bootstrap-integration"
+            ],
+            "policyId": "correctness-first-attempt",
+            "allowedRetries": 0,
+            "firstFailureBlocksQualification": true,
+            "frameworkRetrySetting": 0,
+            "artifactOwner": "ServerContractAgent",
+            "executionOwner": "tools/run-test-matrix.mjs",
+            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
+            "migrationState": "migrated",
+            "qualificationEligible": true,
+            "externalAuthorityKinds": [
+                "execution-envelope",
+                "replay-plan",
+                "temporal-context"
+            ],
+            "authorityBindings": {
+                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:current-schema-bootstrap-integration",
                 "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
                 "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
             }
@@ -6287,5 +6316,5 @@
             }
         }
     ],
-    "contentDigest": "sha256:d4e9521f7321dd8eb1031a381c344a94b4997c6e5671982364d0370982b48c63"
+    "contentDigest": "sha256:3272ad7db7d342c813f2f93b8420ad5e833a1742eeabbe570aacc62b7a713f6d"
 }

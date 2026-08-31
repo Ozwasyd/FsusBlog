@@ -459,6 +459,14 @@
             "fixtureMutatorAllowed": false
         },
         {
+            "tierId": "current-schema-bootstrap-integration",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
             "tierId": "data-scale-evidence-summary",
             "executionClass": "coordination",
             "fixtureProfile": "none",
@@ -1163,5 +1171,5 @@
             "fixtureMutatorAllowed": false
         }
     ],
-    "digest": "sha256:d6a3e1bb925937f5a241a50a02067c0779891de88dd837100d9adea05321df55"
+    "digest": "sha256:079c30ca8c8581b2496277c080ff724f21922a4f3bd655cf457d4a4b0701bb04"
 }

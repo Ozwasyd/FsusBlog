@@ -6,18 +6,18 @@ import {
     validateCorrectnessAttemptMigration
 } from '../../tools/test/correctness-attempt-migration.mjs';
 
-test('all 223 correctness producers bind canonical attempt and external authorities', () =>
+test('all 224 correctness producers bind canonical attempt and external authorities', () =>
 {
     const verification = validateCorrectnessAttemptMigration();
     assert.deepEqual(verification, {
         schema: 'fsusblog.correctness-attempt-migration-verification.v1',
         status: 'verified',
-        producerCount: 223,
-        migratedCount: 223,
-        qualificationEligibleCount: 223,
+        producerCount: 224,
+        migratedCount: 224,
+        qualificationEligibleCount: 224,
         inventoryDigest: verification.inventoryDigest,
         replayProducerInventoryDigest: verification.replayProducerInventoryDigest,
-        executionEnvelopeProducerCount: 131,
+        executionEnvelopeProducerCount: 132,
         authorityKinds: ['execution-envelope', 'replay-plan', 'temporal-context'],
         warnings: 0
     });

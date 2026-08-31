@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 using SqlSugar;
 
@@ -32,12 +33,43 @@ public sealed record SchemaConstraintModel(
     IReadOnlyList<string> Columns,
     string? ReferencedTable = null,
     IReadOnlyList<string>? ReferencedColumns = null,
-    string? Expression = null);
+    string? Expression = null,
+    bool IsDeferrable = false,
+    bool IsInitiallyDeferred = false,
+    bool IsValidated = true,
+    string? ForeignKeyUpdateAction = null,
+    string? ForeignKeyDeleteAction = null,
+    string? ForeignKeyMatchType = null,
+    string? ReferencedSchema = null);
+
+public sealed record SchemaIndexKeyModel(
+    string Column,
+    string Direction,
+    string NullPlacement,
+    string OperatorClass,
+    string Collation);
 
 public sealed record SchemaIndexModel(
     string Name,
     bool IsUnique,
-    IReadOnlyList<string> Columns);
+    IReadOnlyList<SchemaIndexKeyModel> Keys,
+    IReadOnlyList<string> IncludedColumns,
+    string AccessMethod,
+    string? Predicate,
+    bool NullsNotDistinct);
+
+public sealed record SchemaOwnedSequenceModel(
+    string Schema,
+    string Name,
+    string OwnedTable,
+    string OwnedColumn,
+    string DataType,
+    long StartValue,
+    long IncrementBy,
+    long MinValue,
+    long MaxValue,
+    long CacheSize,
+    bool IsCyclic);
 
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = false)]
 public sealed class CurrentSchemaConstraintAttribute(
@@ -73,7 +105,10 @@ public sealed record SchemaColumnModel(
     string? Conversion = null,
     string? ComputedExpression = null,
     string? PhysicalType = null,
-    SchemaOwnerModel? Owner = null);
+    SchemaOwnerModel? Owner = null,
+    string Collation = "n/a",
+    string GenerationKind = "none",
+    SchemaOwnedSequenceModel? OwnedSequence = null);
 
 public sealed class SchemaTableModel(
     string name,
@@ -119,9 +154,9 @@ public sealed record CurrentSchemaProjection(
 
 public static class CurrentSchemaCanonicalAuthority
 {
-    public const string ModelVersion = "fsusblog.current-schema.v1";
-    public const string ExtractorVersion = "fsusblog.current-schema-reflection.v1";
-    public const string GeneratorVersion = "fsusblog.current-schema-projection.v1";
+    public const string ModelVersion = "fsusblog.current-schema.v2";
+    public const string ExtractorVersion = "fsusblog.current-schema-reflection.v2";
+    public const string GeneratorVersion = "fsusblog.current-schema-projection.v2";
 
     private static readonly NullabilityInfoContext s_nullabilityContext = new();
 
@@ -255,7 +290,14 @@ public static class CurrentSchemaCanonicalAuthority
                     static column => column.Key,
                     column => column.Value with
                     {
-                        PhysicalType = SchemaPhysicalTypeProjection.ToPhysical(provider, column.Value.DataType, column.Value.MaxLength)
+                        PhysicalType = SchemaPhysicalTypeProjection.ToPhysical(
+                            provider,
+                            column.Value.DataType,
+                            column.Value.MaxLength,
+                            column.Value.PhysicalType),
+                        Collation = SchemaPhysicalTypeProjection.ToCollation(provider, column.Value.DataType),
+                        GenerationKind = ProjectGenerationKind(provider, column.Value),
+                        OwnedSequence = ProjectOwnedSequence(provider, table.Key, column.Key, column.Value)
                     },
                     StringComparer.Ordinal),
                 table.Value.Indexes,
@@ -318,6 +360,37 @@ public static class CurrentSchemaCanonicalAuthority
         return Sha256(JsonSerializer.Serialize(canonical));
     }
 
+    internal static string ComputeObservationDigest(IReadOnlyDictionary<string, SchemaTableModel> tables)
+    {
+        var observation = tables
+            .OrderBy(static table => table.Key, StringComparer.Ordinal)
+            .Select(table => new
+            {
+                name = table.Key,
+                columns = table.Value.Columns
+                    .OrderBy(static column => column.Key, StringComparer.Ordinal)
+                    .Select(static column => new
+                    {
+                        name = column.Key,
+                        column.Value.DataType,
+                        column.Value.PhysicalType,
+                        column.Value.Collation,
+                        column.Value.GenerationKind,
+                        column.Value.OwnedSequence,
+                        column.Value.DefaultValue,
+                        column.Value.IsNullable,
+                        column.Value.IsPrimaryKey,
+                        column.Value.IsIdentity,
+                        column.Value.MaxLength,
+                        column.Value.Conversion,
+                        column.Value.ComputedExpression
+                    }),
+                indexes = table.Value.IndexDefinitions.OrderBy(static index => index.Key, StringComparer.Ordinal),
+                constraints = table.Value.Constraints.OrderBy(static constraint => constraint.Key, StringComparer.Ordinal)
+            });
+        return Sha256(JsonSerializer.Serialize(observation));
+    }
+
     private static SchemaModelSnapshot Clone(
         IReadOnlyDictionary<string, SchemaTableModel> source,
         CurrentSchemaIdentity identity,
@@ -350,8 +423,14 @@ public static class CurrentSchemaCanonicalAuthority
             NormalizeDefault(attribute?.DefaultValue),
             conversion,
             ResolveComputedExpression(attribute),
+            PhysicalType: ResolveDeclaredPhysicalType(attribute),
             Owner: Owner(property));
     }
+
+    private static string? ResolveDeclaredPhysicalType(SugarColumn? attribute)
+        => string.IsNullOrWhiteSpace(attribute?.ColumnDataType)
+            ? null
+            : SchemaPhysicalTypeProjection.NormalizePhysical(attribute.ColumnDataType);
 
     private static bool DetermineNullability(PropertyInfo property, SugarColumn? attribute)
     {
@@ -374,7 +453,11 @@ public static class CurrentSchemaCanonicalAuthority
     {
         if (!string.IsNullOrWhiteSpace(attribute?.ColumnDataType))
         {
-            return SchemaPhysicalTypeProjection.NormalizeDeclaredSemantic(attribute.ColumnDataType);
+            string? declaredSemantic = SchemaPhysicalTypeProjection.TryNormalizeDeclaredSemantic(attribute.ColumnDataType);
+            if (declaredSemantic is not null)
+            {
+                return declaredSemantic;
+            }
         }
         if (conversion == "json")
         {
@@ -406,6 +489,44 @@ public static class CurrentSchemaCanonicalAuthority
             _ when type == typeof(DateTimeOffset) => "timestamp-with-offset",
             _ => throw new InvalidOperationException($"Unsupported current schema property type: {type.FullName}.")
         };
+    }
+
+    private static string ProjectGenerationKind(SchemaProviderKind provider, SchemaColumnModel column)
+        => provider == SchemaProviderKind.PostgreSql && column.IsIdentity
+            ? "owned-sequence-default"
+            : "none";
+
+    private static SchemaOwnedSequenceModel? ProjectOwnedSequence(
+        SchemaProviderKind provider,
+        string tableName,
+        string columnName,
+        SchemaColumnModel column)
+    {
+        if (provider != SchemaProviderKind.PostgreSql || !column.IsIdentity)
+        {
+            return null;
+        }
+
+        (string sequenceType, long maximum) = column.DataType switch
+        {
+            "int16" => ("smallint", short.MaxValue),
+            "int32" => ("integer", int.MaxValue),
+            "int64" => ("bigint", long.MaxValue),
+            _ => throw new InvalidOperationException(
+                $"PostgreSQL identity column {tableName}.{columnName} has unsupported type {column.DataType}.")
+        };
+        return new SchemaOwnedSequenceModel(
+            "public",
+            $"{tableName}_{columnName}_seq",
+            tableName,
+            columnName,
+            sequenceType,
+            1,
+            1,
+            1,
+            maximum,
+            1,
+            false);
     }
 
     private static string ResolveConversion(SugarColumn? attribute)
@@ -449,20 +570,60 @@ public static class CurrentSchemaCanonicalAuthority
                 throw new InvalidOperationException($"Duplicate or empty index owner on {entityType.FullName}: {name}.");
             }
 
-            string[] propertyNames = attribute.ConstructorArguments
-                .Skip(1)
-                .Where(static argument => argument.ArgumentType == typeof(string))
-                .Select(static argument => Convert.ToString(argument.Value) ?? string.Empty)
-                .ToArray();
-            string[] columns = propertyNames.Select(propertyName => propertyColumns.TryGetValue(propertyName, out string? column)
-                    ? column
-                    : throw new InvalidOperationException($"Index {name} references unknown or ignored property {entityType.FullName}.{propertyName}."))
-                .ToArray();
-            bool isUnique = attribute.ConstructorArguments
-                .Where(static argument => argument.ArgumentType == typeof(bool))
-                .Select(static argument => Convert.ToBoolean(argument.Value))
-                .LastOrDefault();
-            indexes.Add(name, new SchemaIndexModel(name, isUnique, columns));
+            CustomAttributeTypedArgument[] arguments = attribute.ConstructorArguments.Skip(1).ToArray();
+            bool isUnique = false;
+            if (arguments.Length > 0 && arguments[^1].ArgumentType == typeof(bool))
+            {
+                isUnique = Convert.ToBoolean(arguments[^1].Value);
+                arguments = arguments[..^1];
+            }
+            if (arguments.Length == 0 || arguments.Length % 2 != 0)
+            {
+                throw new InvalidOperationException(
+                    $"Index {name} on {entityType.FullName} must declare exact property/direction pairs followed by at most one uniqueness flag.");
+            }
+
+            var keys = new List<SchemaIndexKeyModel>(arguments.Length / 2);
+            for (int argumentIndex = 0; argumentIndex < arguments.Length; argumentIndex += 2)
+            {
+                CustomAttributeTypedArgument propertyArgument = arguments[argumentIndex];
+                CustomAttributeTypedArgument directionArgument = arguments[argumentIndex + 1];
+                if (propertyArgument.ArgumentType != typeof(string)
+                    || directionArgument.ArgumentType != typeof(OrderByType))
+                {
+                    throw new InvalidOperationException(
+                        $"Index {name} on {entityType.FullName} has a non-canonical property/direction declaration.");
+                }
+
+                string propertyName = Convert.ToString(propertyArgument.Value) ?? string.Empty;
+                string column = propertyColumns.TryGetValue(propertyName, out string? mappedColumn)
+                    ? mappedColumn
+                    : throw new InvalidOperationException(
+                        $"Index {name} references unknown or ignored property {entityType.FullName}.{propertyName}.");
+                OrderByType directionValue = (OrderByType)Convert.ToInt32(directionArgument.Value);
+                string direction = directionValue switch
+                {
+                    OrderByType.Asc => "asc",
+                    OrderByType.Desc => "desc",
+                    _ => throw new InvalidOperationException(
+                        $"Index {name} on {entityType.FullName} has unsupported direction {directionValue}.")
+                };
+                keys.Add(new SchemaIndexKeyModel(
+                    column,
+                    direction,
+                    direction == "asc" ? "last" : "first",
+                    "default",
+                    "default"));
+            }
+
+            indexes.Add(name, new SchemaIndexModel(
+                name,
+                isUnique,
+                keys,
+                [],
+                "btree",
+                null,
+                false));
         }
         return indexes;
     }
@@ -486,7 +647,10 @@ public static class CurrentSchemaCanonicalAuthority
         }
         foreach (SchemaIndexModel index in indexes.Values.Where(static index => index.IsUnique))
         {
-            constraints.Add(index.Name, new SchemaConstraintModel(index.Name, "unique", index.Columns));
+            constraints.Add(index.Name, new SchemaConstraintModel(
+                index.Name,
+                "unique",
+                index.Keys.Select(static key => key.Column).ToArray()));
         }
         foreach (CurrentSchemaConstraintAttribute attribute in entityType.GetCustomAttributes<CurrentSchemaConstraintAttribute>(inherit: false))
         {
@@ -523,7 +687,11 @@ public static class CurrentSchemaCanonicalAuthority
                 constraintColumns,
                 string.IsNullOrWhiteSpace(attribute.ReferencedTable) ? null : NormalizeIdentifier(attribute.ReferencedTable),
                 attribute.ReferencedColumns?.Select(NormalizeIdentifier).ToArray(),
-                string.IsNullOrWhiteSpace(attribute.Expression) ? null : attribute.Expression.Trim()));
+                string.IsNullOrWhiteSpace(attribute.Expression) ? null : attribute.Expression.Trim(),
+                ForeignKeyUpdateAction: kind == "foreign-key" ? "no-action" : null,
+                ForeignKeyDeleteAction: kind == "foreign-key" ? "no-action" : null,
+                ForeignKeyMatchType: kind == "foreign-key" ? "simple" : null,
+                ReferencedSchema: kind == "foreign-key" ? "public" : null));
         }
         return constraints;
     }
@@ -579,7 +747,15 @@ public static class CurrentSchemaCanonicalAuthority
 public static class SchemaPhysicalTypeProjection
 {
     public static string NormalizeDeclaredSemantic(string declaredType)
-        => declaredType.Trim().ToLowerInvariant() switch
+        => TryNormalizeDeclaredSemantic(declaredType)
+            ?? throw new InvalidOperationException($"Unsupported provider type mapping: {declaredType.Trim().ToLowerInvariant()}.");
+
+    public static string? TryNormalizeDeclaredSemantic(string declaredType)
+    {
+        string normalized = NormalizePhysical(declaredType);
+        int modifier = normalized.IndexOf('(', StringComparison.Ordinal);
+        string baseType = modifier < 0 ? normalized : normalized[..modifier].TrimEnd();
+        return baseType switch
         {
             "varchar" or "character varying" or "text" or "longtext" => "string",
             "int" or "integer" => "int32",
@@ -596,12 +772,32 @@ public static class SchemaPhysicalTypeProjection
             "numeric" or "decimal" => "decimal",
             "real" or "float" => "single",
             "double" or "double precision" => "double",
-            var value => throw new InvalidOperationException($"Unsupported provider type mapping: {value}.")
+            _ => null
         };
+    }
 
-    public static string ToPhysical(SchemaProviderKind provider, string semanticType, int? maxLength)
+    public static string NormalizePhysical(string physicalType)
+    {
+        if (string.IsNullOrWhiteSpace(physicalType))
+        {
+            throw new InvalidOperationException("Physical schema type is empty.");
+        }
+        string normalized = Regex.Replace(physicalType.Trim().ToLowerInvariant(), @"\s+", " ");
+        normalized = Regex.Replace(normalized, @"\s*\(\s*", "(");
+        normalized = Regex.Replace(normalized, @"\s*,\s*", ",");
+        normalized = Regex.Replace(normalized, @"\s*\)", ")");
+        return normalized;
+    }
+
+    public static string ToPhysical(
+        SchemaProviderKind provider,
+        string semanticType,
+        int? maxLength,
+        string? declaredPhysicalType = null)
         => (provider, semanticType) switch
         {
+            (SchemaProviderKind.PostgreSql, _) when declaredPhysicalType is not null
+                => NormalizePhysical(declaredPhysicalType),
             (SchemaProviderKind.PostgreSql, "string") => maxLength is int length ? $"character varying({length})" : "text",
             (SchemaProviderKind.MySql, "string") => maxLength is int length ? $"varchar({length})" : "longtext",
             (SchemaProviderKind.Sqlite, "string") => "TEXT",
@@ -649,6 +845,11 @@ public static class SchemaPhysicalTypeProjection
             (SchemaProviderKind.Sqlite, "double") => "REAL",
             _ => throw new InvalidOperationException($"Unsupported {provider} physical projection for {semanticType}.")
         };
+
+    public static string ToCollation(SchemaProviderKind provider, string semanticType)
+        => provider == SchemaProviderKind.PostgreSql && semanticType == "string"
+            ? "default"
+            : "n/a";
 }
 
 public sealed class RuntimeEntitySchemaAdapter
@@ -717,7 +918,11 @@ public static class SchemaModelComparer
                 errors.Add($"missing table {tableName} owner={Describe(expectedTable.Owner)}");
                 continue;
             }
-            CompareTable(expectedTable, actualTable, actual.Provider == SchemaProviderKind.Semantic, errors);
+            CompareTable(
+                expectedTable,
+                actualTable,
+                expected.Provider == SchemaProviderKind.PostgreSql,
+                errors);
         }
 
         HashSet<string> allowed = allowedExtraTables?.Select(CurrentSchemaCanonicalAuthority.NormalizeIdentifier).ToHashSet(StringComparer.Ordinal)
@@ -732,7 +937,7 @@ public static class SchemaModelComparer
     private static void CompareTable(
         SchemaTableModel expected,
         SchemaTableModel actual,
-        bool requireExactDefinitions,
+        bool requireExactPostgresPhysicalSemantics,
         List<string> errors)
     {
         foreach ((string columnName, SchemaColumnModel expectedColumn) in expected.Columns.OrderBy(static column => column.Key, StringComparer.Ordinal))
@@ -742,7 +947,12 @@ public static class SchemaModelComparer
                 errors.Add($"missing column {expected.Name}.{columnName} owner={Describe(expectedColumn.Owner)}");
                 continue;
             }
-            CompareField(expected.Name, expectedColumn, actualColumn, requireExactDefinitions, errors);
+            CompareField(
+                expected.Name,
+                expectedColumn,
+                actualColumn,
+                requireExactPostgresPhysicalSemantics,
+                errors);
         }
         foreach (string columnName in actual.Columns.Keys.Except(expected.Columns.Keys, StringComparer.Ordinal).Order(StringComparer.Ordinal))
         {
@@ -752,12 +962,9 @@ public static class SchemaModelComparer
         {
             errors.Add($"missing index {expected.Name}.{indexName} owner={Describe(expected.Owner)}");
         }
-        if (requireExactDefinitions)
+        foreach (string indexName in actual.Indexes.Except(expected.Indexes, StringComparer.Ordinal).Order(StringComparer.Ordinal))
         {
-            foreach (string indexName in actual.Indexes.Except(expected.Indexes, StringComparer.Ordinal).Order(StringComparer.Ordinal))
-            {
-                errors.Add($"extra index {expected.Name}.{indexName} owner={Describe(actual.Owner)}");
-            }
+            errors.Add($"extra index {expected.Name}.{indexName} owner={Describe(actual.Owner)}");
         }
         foreach (string indexName in expected.IndexDefinitions.Keys.Intersect(actual.IndexDefinitions.Keys, StringComparer.Ordinal))
         {
@@ -765,7 +972,11 @@ public static class SchemaModelComparer
             SchemaIndexModel actualIndex = actual.IndexDefinitions[indexName];
             if (expectedIndex.Name != actualIndex.Name
                 || expectedIndex.IsUnique != actualIndex.IsUnique
-                || !expectedIndex.Columns.SequenceEqual(actualIndex.Columns, StringComparer.Ordinal))
+                || !expectedIndex.Keys.SequenceEqual(actualIndex.Keys)
+                || !expectedIndex.IncludedColumns.SequenceEqual(actualIndex.IncludedColumns, StringComparer.Ordinal)
+                || expectedIndex.AccessMethod != actualIndex.AccessMethod
+                || expectedIndex.Predicate != actualIndex.Predicate
+                || expectedIndex.NullsNotDistinct != actualIndex.NullsNotDistinct)
             {
                 errors.Add($"index mismatch {expected.Name}.{indexName} owner={Describe(expected.Owner)}");
             }
@@ -774,12 +985,9 @@ public static class SchemaModelComparer
         {
             errors.Add($"missing constraint {expected.Name}.{constraintName} owner={Describe(expected.Owner)}");
         }
-        if (requireExactDefinitions)
+        foreach (string constraintName in actual.Constraints.Keys.Except(expected.Constraints.Keys, StringComparer.Ordinal).Order(StringComparer.Ordinal))
         {
-            foreach (string constraintName in actual.Constraints.Keys.Except(expected.Constraints.Keys, StringComparer.Ordinal).Order(StringComparer.Ordinal))
-            {
-                errors.Add($"extra constraint {expected.Name}.{constraintName} owner={Describe(actual.Owner)}");
-            }
+            errors.Add($"extra constraint {expected.Name}.{constraintName} owner={Describe(actual.Owner)}");
         }
         foreach (string constraintName in expected.Constraints.Keys.Intersect(actual.Constraints.Keys, StringComparer.Ordinal))
         {
@@ -792,7 +1000,14 @@ public static class SchemaModelComparer
                 || !(expectedConstraint.ReferencedColumns ?? []).SequenceEqual(
                     actualConstraint.ReferencedColumns ?? [],
                     StringComparer.Ordinal)
-                || expectedConstraint.Expression != actualConstraint.Expression)
+                || expectedConstraint.Expression != actualConstraint.Expression
+                || expectedConstraint.IsDeferrable != actualConstraint.IsDeferrable
+                || expectedConstraint.IsInitiallyDeferred != actualConstraint.IsInitiallyDeferred
+                || expectedConstraint.IsValidated != actualConstraint.IsValidated
+                || expectedConstraint.ForeignKeyUpdateAction != actualConstraint.ForeignKeyUpdateAction
+                || expectedConstraint.ForeignKeyDeleteAction != actualConstraint.ForeignKeyDeleteAction
+                || expectedConstraint.ForeignKeyMatchType != actualConstraint.ForeignKeyMatchType
+                || expectedConstraint.ReferencedSchema != actualConstraint.ReferencedSchema)
             {
                 errors.Add($"constraint mismatch {expected.Name}.{constraintName} owner={Describe(expected.Owner)}");
             }
@@ -803,7 +1018,7 @@ public static class SchemaModelComparer
         string table,
         SchemaColumnModel expected,
         SchemaColumnModel actual,
-        bool requireExactDefinitions,
+        bool requireExactPostgresPhysicalSemantics,
         List<string> errors)
     {
         void Difference(string field, object? expectedValue, object? actualValue)
@@ -819,13 +1034,23 @@ public static class SchemaModelComparer
             Difference("identity", expected.IsIdentity, actual.IsIdentity);
         if (expected.MaxLength != actual.MaxLength)
             Difference("length", expected.MaxLength, actual.MaxLength);
-        if (expected.DefaultValue != actual.DefaultValue
-            && (requireExactDefinitions || expected.DefaultValue is not null))
+        if (expected.DefaultValue != actual.DefaultValue)
             Difference("default", expected.DefaultValue, actual.DefaultValue);
         if (expected.Conversion != actual.Conversion)
             Difference("conversion", expected.Conversion, actual.Conversion);
         if (expected.ComputedExpression != actual.ComputedExpression)
             Difference("computed", expected.ComputedExpression, actual.ComputedExpression);
+        if (requireExactPostgresPhysicalSemantics)
+        {
+            if (expected.PhysicalType != actual.PhysicalType)
+                Difference("physical-type", expected.PhysicalType, actual.PhysicalType);
+            if (expected.Collation != actual.Collation)
+                Difference("collation", expected.Collation, actual.Collation);
+            if (expected.GenerationKind != actual.GenerationKind)
+                Difference("generation", expected.GenerationKind, actual.GenerationKind);
+            if (expected.OwnedSequence != actual.OwnedSequence)
+                Difference("owned-sequence", expected.OwnedSequence, actual.OwnedSequence);
+        }
     }
 
     private static string Describe(SchemaOwnerModel? owner)
