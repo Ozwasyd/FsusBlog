@@ -1,9 +1,9 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:008628a18d18d0bc7300b8fe74bcb892ce0592c30a6651e9652f9709da540890",
-    "sourceStateSha256": "008628a18d18d0bc7300b8fe74bcb892ce0592c30a6651e9652f9709da540890",
-    "configurationSha256": "326cb942e69e69cd9740b68f8ad46815a5feb42422f86d634229c49fc25bf7fa",
-    "violationCount": 187179,
+    "generatedFrom": "source-state:0ef41cb4d6a081f9a4c88bfd7210926dc6a96b1943b285f562ece054584b3e91",
+    "sourceStateSha256": "0ef41cb4d6a081f9a4c88bfd7210926dc6a96b1943b285f562ece054584b3e91",
+    "configurationSha256": "5d40838078d93bc1867caf408f89364d8f056d6954977f793faa3792f074ddc7",
+    "violationCount": 186868,
     "fileCount": 1633,
     "files": [
         {
@@ -6094,12 +6094,10 @@
         },
         {
             "path": "tests/browser-contract/default-fixture-provider.mjs",
-            "sourceSha256": "b6b5d9970b556471b2b7576c2c004d89e109f72f2e96363e077ec1c24331c357",
-            "violationCount": 4,
-            "violationDigest": "59c19159912ebf2add49f759f991e583789c64a7f74bdb2857e7d73bd9ac6fc3",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 4
-            }
+            "sourceSha256": "4a406a30b6289ad02942d24c75b779fbeb249e98737e97b8db7e40322dbf86ef",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/browser-contract/fixture-lifecycle.mjs",
@@ -6693,12 +6691,10 @@
         },
         {
             "path": "tests/frontend/checks/runtime/binary-contract-smoke.mjs",
-            "sourceSha256": "d4d8cfa4babeaa4877b3a1b67e01a7e0b0d417192f49656a3c4745b5dfaa52b1",
-            "violationCount": 4,
-            "violationDigest": "66f4882e56a9032223a06a815eee9c75083a94cd2053910055a518fa63e8b09d",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 4
-            }
+            "sourceSha256": "c5f202773254c245109a964a553ee54ac2eb5f642912b4966ecde880570a5a58",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/frontend/checks/runtime/binary-smoke-auth.mjs",
@@ -8184,12 +8180,10 @@
         },
         {
             "path": "tests/frontend/support/session-fixtures.mjs",
-            "sourceSha256": "986620f5f029a4144a932c12fcdbff9d1f28008fd2c08cee7658031e6e399516",
-            "violationCount": 1,
-            "violationDigest": "cf0b03b786c78109bb6d1867589ffbbf81de5b94667e20b555631db4a34f566d",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "52f20340ede30304fd1f3dfdf007cab376422cc8ad04d3f65644d32964400f75",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/frontend/support/system-chromium.mjs",
@@ -8350,21 +8344,17 @@
         },
         {
             "path": "tests/tools/account-messaging-producer.test.mjs",
-            "sourceSha256": "8b19f6770dff6eaba96e8613f12918ad45d372e85400cd50f8d9fc94df2eac17",
-            "violationCount": 4,
-            "violationDigest": "7fbf70be1185d19a07e31c34ef7bd6a9a1192bf085078e9c89b174d780664a47",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 4
-            }
+            "sourceSha256": "7e2a238f488c72bccbe0480bc4defe642c68de2ad19737b1a38fea7cdc1fc34b",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/account-profile-preference-producer.test.mjs",
-            "sourceSha256": "c0b1c70579fb29fc87921adddc8f3584661c00e380bd0cd75242cdb7d85802a6",
-            "violationCount": 6,
-            "violationDigest": "f4f44d499fb6bac5949dbe5693050226951bdb8480c5f7fb285223b5e1c71274",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 6
-            }
+            "sourceSha256": "6f47b56bb1635adde3596362d65913ec1b3a480238c973d713a49dbc88f9fcf5",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/aeds-access-profile-authority.test.mjs",
@@ -8405,12 +8395,10 @@
         },
         {
             "path": "tests/tools/api-protocol-doc-exactness.test.mjs",
-            "sourceSha256": "fc61d09a6a2204145cc74cf3553b2f6ef6fe442ae536d49d5ae67872a1548f0c",
-            "violationCount": 4,
-            "violationDigest": "c2830bd518fb31c884a8cb8ce6b58b27449e94fd1f588703991c32ca8d8b4d92",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 4
-            }
+            "sourceSha256": "b2768aeff7d2c6f75c44a3d544a87e24aa084fb4bc6a6bc57f92a42594092af0",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/app-config-local-tuner.test.mjs",
@@ -8461,39 +8449,31 @@
         },
         {
             "path": "tests/tools/attempt-provenance.test.mjs",
-            "sourceSha256": "5e14f843bd97fce547f85af0b9312e2e099c2db24882ed3e89784c400dd7ad79",
-            "violationCount": 2,
-            "violationDigest": "87c01a0f66fb59b1a984728c94f24b5378ec9f84eb43ac52f7bbaff6339a6c13",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "992b291d07db84855fe77f0b3c2a9d623517f0b18480bcf164a511a4d48c36ac",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/audit-fixture-governance.test.mjs",
-            "sourceSha256": "83189ce11750f1cc85d0e5b32f18ccabde13c3b46bb5a913844dcbda1c9fda78",
-            "violationCount": 1,
-            "violationDigest": "8439691da3316f9d8013be481d6c1d33f0be3f3c4e16d5653a1630aae354fec4",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "1db627192f71771a751d03194b52e2a864b569cda98842ed871f81a3110c53e1",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/audit-fixture-producer.test.mjs",
-            "sourceSha256": "e8e596cb05fb887686affe03c5c5a8621a89bf81438dd0ce9090dbb99cc58d83",
-            "violationCount": 2,
-            "violationDigest": "82f78f42ac9269007e054765a6db01e91de18f9d5c8a85f1791cd3b548b1e888",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "1a0fe994b4f111dd2e4fec6d6dfe745ada69057f3f320bce8f22defc7668043b",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/auth-session-fixture-producer.test.mjs",
-            "sourceSha256": "08cfab3f8ece6d64990101bf1b9bfa8567f6d397e7cc5d00f770b04d9b7f224c",
-            "violationCount": 4,
-            "violationDigest": "41563b02ec08c89dd45d25d4b26348de8556c819f3a85be4c0ee22c6ea51d0cb",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 4
-            }
+            "sourceSha256": "591e6ca57bf2095db1248ab2056170026fa402e34c6fce0cb52a543703d0e3bd",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/auth-session-permission-observation.test.mjs",
@@ -8555,57 +8535,45 @@
         },
         {
             "path": "tests/tools/backend-production-capacity.test.mjs",
-            "sourceSha256": "ded1c7ddd78db1abbda13afa41768ec3dabae232c840f2ea10cadfc278aae49a",
-            "violationCount": 1,
-            "violationDigest": "6c205084139fea6e969efdba29e8f1944f5441743fd92cb7221af6108cfbe56f",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "fe28539625da067e5f473be00d05def1d1008696a07d4bf0f1fcfdd078e70c1c",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/backend-production-evidence.test.mjs",
-            "sourceSha256": "5c68c683b418b09aa8b094be7f556cb85bc51b15436047e5967c262f5498332e",
-            "violationCount": 3,
-            "violationDigest": "d1c9644cfaa8d2925698a6c031c439548ab907e2df6f784642772797af50be9d",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 3
-            }
+            "sourceSha256": "5568fdf61824cf83646bc7f25cbe67c8bc83eb40982cbba6765eb3df44bed3cc",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/backend-production-plan.test.mjs",
-            "sourceSha256": "858c491f01b6b5c7f3b75c64b97288f3926b4b35cc0d35115cd738c27f909436",
-            "violationCount": 1,
-            "violationDigest": "499635e041dceee20063b47c65d2c646eb6cfb18e40792ad80c9cb2c1973d356",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "ef3dad9f34aef7667d0e0dcdc1981d7ed779951cdceedbbb744141a884cbec5b",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/backend-production-platform-boundary.test.mjs",
-            "sourceSha256": "b59910df389df06cf2aad46dff0264663313d4e5b8a06200c8c9b81517a5d783",
-            "violationCount": 2,
-            "violationDigest": "d9c16ad999347791436e4984913b06b18e0f218376b1bcdd31f6dd29024a502c",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "9bbf3b0633c197c7457ee8bf0726df61b94103420c556f4b9a6b3f923e54bb06",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/backend-production-rolling.test.mjs",
-            "sourceSha256": "f281f7d36500f745d3da19b97293ffd6c31c7359b08bfe5e3012aee6dc8871d3",
-            "violationCount": 1,
-            "violationDigest": "4f897f11e37d43b5d5bc63bd5ae6c7d8d66beaf1a6c1d0459e148d964ac10146",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "24b83fcf405cfc41ebebd874b00e998cdf875bcad27b163465cecef006f76b4d",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/backend-production-shards.test.mjs",
-            "sourceSha256": "ba57c4fcfda424b67393c916c56fbd2a08ca552428453d9901e9a36fa7561362",
-            "violationCount": 2,
-            "violationDigest": "c8579a94cde5502fc0b4f1c8f559f414d28ea5a8c2d57fd4e2e05c583698e866",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "1b7abd78e44397650d8604e57fc20ec706f21d2e3e94575c50f27840c3e54611",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/backend-production-topology.test.mjs",
@@ -8631,12 +8599,10 @@
         },
         {
             "path": "tests/tools/backend-test-governance-cpm.test.mjs",
-            "sourceSha256": "05f807d09cb1a8a4acb3722a88bf95c9706ee06ace23dac8fb6971590600de30",
-            "violationCount": 1,
-            "violationDigest": "c87f98e13d1a87afa69b7fb6898c007407243673652d43348f447adead868cfd",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "dffcadb13c8b9ac905f6dcdd8e80dbb797ae9a2f401a4c15a13c476815d568ce",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/backend-trx-contract.test.mjs",
@@ -8669,30 +8635,24 @@
         },
         {
             "path": "tests/tools/behavior-doc-exactness.test.mjs",
-            "sourceSha256": "e4cc243076107cfd59040f16ebc17ac3a45991f9e680eaa1ad8edfb0d36f02cf",
-            "violationCount": 3,
-            "violationDigest": "361f1d72483a0f1ba8a502445bb83d73666b0329a9a813a3f9e923e2c5f63504",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 3
-            }
+            "sourceSha256": "30006be3b5387e1637f79337342ef81b63f9d97ea46817ad746a488ae2aeaa32",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/behavior-document-consistency-final.test.mjs",
-            "sourceSha256": "debb78e069bef0300a8182e7c10b39acc36da1c2bf23d070164cc18f3a6b6ade",
-            "violationCount": 2,
-            "violationDigest": "1a1caef82af66731b498bba7a9575f7f79964c468e02a95d208477134910eab5",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "d6c8029570276b1ad80e275f21c77278a32033a3cd6f38885ec2a561ea4eb0c8",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/behavior-evidence-post-runtime.test.mjs",
-            "sourceSha256": "9006ae0585add6299f6c3cc892905f7eb6fdfd1a5aa08de01e62e3ebe521c408",
-            "violationCount": 4,
-            "violationDigest": "444284f7ef2e61df4ce3bfb7da66d19d8bc40794c11d34741acb2b2103fbf16b",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 4
-            }
+            "sourceSha256": "3d052b3a457d83a7b84e9f5ed53b11f33d01a31150b06c0af20fd18e852cbe5d",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/behavior-evidence-pre-runtime.test.mjs",
@@ -8705,12 +8665,10 @@
         },
         {
             "path": "tests/tools/behavior-fact-extractors.test.mjs",
-            "sourceSha256": "fa847fcade6d45e13332a2d160b8959990ab5e081f5af06f22f343e7272e3ca3",
-            "violationCount": 9,
-            "violationDigest": "75f39481bb059313484d138bafeccd3a327eb902bc448dcf12539f1f9de7f40e",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 9
-            }
+            "sourceSha256": "29bbb15f2e48dd23151741da79b96ef189a02d0a0c0154f378fb415d977090a9",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/behavior-graph-join.test.mjs",
@@ -8750,12 +8708,10 @@
         },
         {
             "path": "tests/tools/bounded-channel-contracts.test.mjs",
-            "sourceSha256": "3bbde7b568a441d6b48ec6cbaf826f63cc50d552d3ea72228b29ed899ae64902",
-            "violationCount": 1,
-            "violationDigest": "405000ae1146ab32537c0b76a45df2c5d2a5b6567818f8ee1be80a2e748c3225",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "3c5ebe3325859e3086936a829a1d9a092a9c8b5bde0c5d4dc3478fccb09d2c56",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/browser-capability-risk.test.mjs",
@@ -8771,12 +8727,10 @@
         },
         {
             "path": "tests/tools/browser-contract-fixture.test.mjs",
-            "sourceSha256": "e34c97848309c253c4bf542e9128a0257a182d6db454a4cc9a2616a671024ff5",
-            "violationCount": 4,
-            "violationDigest": "97492b372f9265eea250e484716772f444321717c7b59e634398ea4143a1044f",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 4
-            }
+            "sourceSha256": "caca1b539c8fab53e8908b5a21cf15ef7231e375b8491830a4055f5f259d6cd0",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/browser-contract.test.mjs",
@@ -8859,12 +8813,10 @@
         },
         {
             "path": "tests/tools/browser-release-clean-attempt-consumers.test.mjs",
-            "sourceSha256": "f7e6a0f976bfe2f938c7baa80c40d8bab7c4c8e0ea9d5f06ed9258567cddafa1",
-            "violationCount": 3,
-            "violationDigest": "e1a8808afb990cbb8718617402ea14cd45dcf60405da94bbe50a83def714d048",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 3
-            }
+            "sourceSha256": "3e467f7ac593bdbbed01df20790d02376513d5c44b746cf311e2cf84f206e932",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/browser-session-isolation.test.mjs",
@@ -8877,12 +8829,10 @@
         },
         {
             "path": "tests/tools/build-projection-clean-attempt-consumers.test.mjs",
-            "sourceSha256": "50fc017bcb9d54471eed7d3807027516b7310c266758dd1ec95e1d62af9cb665",
-            "violationCount": 3,
-            "violationDigest": "fa7462394e9d51a8172ce8727f944e2f4707da89a0c9ad6c160d81e8bdd820db",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 3
-            }
+            "sourceSha256": "bf04123ec38cdd0cfa006f5c89731ec5d196391f3611a0a9696bfaa30eae8df4",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/bundle-step-dag.test.mjs",
@@ -9032,12 +8982,10 @@
         },
         {
             "path": "tests/tools/content-doc-exactness.test.mjs",
-            "sourceSha256": "31b855e1d810f219d692fe9c26a91b719ca38b75a040ac945f82479183fed55e",
-            "violationCount": 3,
-            "violationDigest": "0b13642ef79077f2045b73521057122e3c2393649f95e0ad5982498856357970",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 3
-            }
+            "sourceSha256": "f417a1e69576660e84bfa7d0910bbcd9fb24014131b0da35d8b09c58d64e5504",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/content-lifecycle-observation.test.mjs",
@@ -9050,57 +8998,45 @@
         },
         {
             "path": "tests/tools/content-shape-catalog.test.mjs",
-            "sourceSha256": "cff72e89dcfab92047ec3211d6e0ee06e0e8f2f0706c25f674df6d0f92e7818f",
-            "violationCount": 3,
-            "violationDigest": "493c74b7a6fb90a276ee54d9fdc48211b84aaa06202f9b5da2bf3dc5a7152d94",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 3
-            }
+            "sourceSha256": "6fe2f402923d58e1e52381aafda07db6a7a7af0b779ee7ec40b941c7fcced201",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/content-shape-generator.test.mjs",
-            "sourceSha256": "9a34d8b5f4b5c7373edb294633beb47b0277971aab45f8bf9f5ce960c1cd7d0d",
-            "violationCount": 2,
-            "violationDigest": "b22e1fac08880dc7d09ad9b48de715286e23d1ca021daeaac10a467f3193cdea",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "34676a724a7f88d40bc94223fde3fc2599dd268a83bd3c15ce4cf9a69f325fc8",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/correctness-attempt-browser-contract.test.mjs",
-            "sourceSha256": "11b3a39c0dfb3e8f7590964aff31c4932a51abac44bdafb4536868252f6445ed",
-            "violationCount": 1,
-            "violationDigest": "ff61dcf90c355a983d0388f77f8643229da3999c538503ed742b8c29cfb8fe5d",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "c51973f0a31afd640dbbad27cbd379b18c344727c680ac882fc31598ae2410ef",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/correctness-attempt-build-release.test.mjs",
-            "sourceSha256": "236635d0354ca191e7822c93677a6de8af9907eb1262163f871d86d817e1bcaa",
-            "violationCount": 1,
-            "violationDigest": "a7fc3965aacbc3eb88c62ab50172403ebd0353452c0238180aef51ffc0f40842",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "7ad1c97086cb18ef4f88e7f0339c71f03387f1d641f3705bfc9e4dafffac3393",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/correctness-attempt-migration.test.mjs",
-            "sourceSha256": "be7281218be848de6a5d39b90a2e0842ae96275c2d013028cbe3ac33d2be2cba",
-            "violationCount": 1,
-            "violationDigest": "511bc02f4ed1837381877ef39f1252d5439affc14ce9f78ff9d1a60d96f9f4ab",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "42cd895b5edd3c2a9e61de78f26d2ea48180b043caf62225f606e7b7c4c82758",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/correctness-attempt-test-producers.test.mjs",
-            "sourceSha256": "2e1beaba2a4e0ccac5bcc38288584e2f3f07217a2f555d895aa31d3eb56f2b22",
-            "violationCount": 1,
-            "violationDigest": "17ec79d88a3e6580600f484a08a15117bd51c2e23885e726c03a9d146b6d6558",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "1e26e78ecd3fceb40f0e73c44a19a46610e7e2483e8e5df9f659fb360661554e",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/correctness-budget-hierarchy.test.mjs",
@@ -9142,12 +9078,10 @@
         },
         {
             "path": "tests/tools/cross-authority-dag.test.mjs",
-            "sourceSha256": "89c6ab0d1636f09edb7ea9e6e093f8b1cba2a42eeb747ab1e22a5f86cc246ca3",
-            "violationCount": 2,
-            "violationDigest": "72cae241f8c698b01ad545f5bd89fa274fc6ef98a2e48fdbef46cfff9308d650",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "dd96cee8718122b095e31765c3ad2198aff7cdc18ad6c630d5afc6fc3f37531c",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/csharp-entrypoint-ownership.test.mjs",
@@ -9175,57 +9109,45 @@
         },
         {
             "path": "tests/tools/current-run-evidence-locator-negative-matrix.test.mjs",
-            "sourceSha256": "d8863aa7eadc4dc5a57b1e5372813c98493603e0b1593ceaa638bfe0a6d04b8b",
-            "violationCount": 7,
-            "violationDigest": "c46f86f1fe631f9dba1d04a14743c9990545618b2e211d209b6dbee0f4675309",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 7
-            }
+            "sourceSha256": "c676480c42c3247977ed959229975dd13bbf8c7a92e7ba7097cafc8f21036f66",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/current-run-evidence-locator.test.mjs",
-            "sourceSha256": "e7bb2c8ccbb3cfc8c70dbb57570b2a9b0e9a6b74903817dea1b060bb7c83029b",
-            "violationCount": 2,
-            "violationDigest": "4b58b5c69f85268665afc0294f3e50aa9e9642e2b2a60ea314c93aaf02edccf7",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "b431efcb1738f6dfc80fda5e4a843f23b703ca019743672ccd6709f15f99bcd8",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/current-run-evidence-publication.test.mjs",
-            "sourceSha256": "dabe350610e645e3ceb3e14b32fa26b7229a49968ec4750fa46aedb56184c8d4",
-            "violationCount": 3,
-            "violationDigest": "d5a3544d99ffa89516b4b2a678399ce233c3b007e963ea4c93c971d3131e877e",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 3
-            }
+            "sourceSha256": "45cd1a04686b0456bd1785fbaccd24d1b19f56e10f05194a46eca2b39f301e91",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/current-run-evidence-scheduler.test.mjs",
-            "sourceSha256": "757866797ebd5dfb2920a492816ae1322b4e06dbef53d7bad9cc6855c018ad34",
-            "violationCount": 3,
-            "violationDigest": "84345d0201c236f3aed290d50330551d22e277b58bf5849359b62562f455faea",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 3
-            }
+            "sourceSha256": "0f49d4a0252006df69aaa2d734b5436932863331e7095abdcea0ce7a004e79c5",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/current-run-evidence-transport.test.mjs",
-            "sourceSha256": "bc03e6990937c94b4460d7df906e732ed19f224f9f354657396fb1c3e1173d0b",
-            "violationCount": 4,
-            "violationDigest": "081337fac6195969b6abc5c538b29e845af469f86b19ab4da75e6b66905e3bb9",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 4
-            }
+            "sourceSha256": "dbe110341c6d3c26b036109255ce6de802a6cb783f2116507aa31346b041173b",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/current-schema-authority.test.mjs",
-            "sourceSha256": "cd81a363c114c694e5a47769763cee3c949b79885d52cfc6b591a3326ddcd4c3",
-            "violationCount": 1,
-            "violationDigest": "f079eef072e14c0183db66b2598f5d0b0cc6169dd8f2524a10afd6a1019528ee",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "df9c6aea7b8957080f49353f2f77ebc1ff2cc88c50a935dad9c85010b753102f",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/customization-contracts.test.mjs",
@@ -9299,21 +9221,17 @@
         },
         {
             "path": "tests/tools/dependency-automerge.test.mjs",
-            "sourceSha256": "73447cc529f1ca392f30da79cd9757e238729d109fc16b7126140b2650f08d5b",
-            "violationCount": 1,
-            "violationDigest": "255a78fc44cbc015e8427cd694fc4cfb89e8f82ea0d4f23957247606e617955d",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "898847ab328a7d01412e37e9892daab502e64543568d32ba38e8c534eeb927ae",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/dependency-required-checks.test.mjs",
-            "sourceSha256": "7782e998e665bdec825292ae3164a59f0889e635c78fc171930463ab25841ee2",
-            "violationCount": 1,
-            "violationDigest": "43ad9848af8632ec9ed68e32a5d651e46e0f2f3272894988dc118e98ac4182a6",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "ac013f8e43b66dd293151b39d3af781eb582d3d69aaf4b3c318c01511bd4ecd5",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/deployment-slots.test.mjs",
@@ -9333,12 +9251,10 @@
         },
         {
             "path": "tests/tools/destructive-operation-authority.test.mjs",
-            "sourceSha256": "9fdbd6ee8803ceef0066315cc2ac188b2184c11c15d06616a7397b0a2413d655",
-            "violationCount": 4,
-            "violationDigest": "9f75f6028d52376162c9ce89b3407fe78db3ce2b709a902050c3798ade9bf1da",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 4
-            }
+            "sourceSha256": "8b232862c6db4e4a192e14d30e7279d15e7dc80f1582f1dbb6c2075ba6e59153",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/doc-claim-staleness-mutation.test.mjs",
@@ -9366,12 +9282,10 @@
         },
         {
             "path": "tests/tools/document-claim-migration-ledger.test.mjs",
-            "sourceSha256": "8d75ba0ec7474591b938caf4aa0c58e1431c448ed92e1fd85da33ea1ade44de9",
-            "violationCount": 2,
-            "violationDigest": "5b200ced96a5d61a3f7f5d448c9d23ad54dbf4f36923737481fd295e78d48b72",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "6d473732e304738b2c8f860a79e13ca996d4c060a77955d331d8807541de8b10",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/document-lifecycle.test.mjs",
@@ -9415,21 +9329,17 @@
         },
         {
             "path": "tests/tools/evidence-location-contract.test.mjs",
-            "sourceSha256": "c82408a53571a2e4e695192f470eec84cc22030380b5be1c089071d4a889618d",
-            "violationCount": 1,
-            "violationDigest": "11ef842847d12be8acc8330501dde1df0a1669b12aefb3f1803f1117a23c65a1",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "b003f59be295572627a403a05e031e9881d5bdc003ee42bacf9ea47838633634",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/evidence-location-governance.test.mjs",
-            "sourceSha256": "cddf6c5cbf511bd6b4303e7ba2eba9af6347420e434094a2d88b0b41679637fa",
-            "violationCount": 3,
-            "violationDigest": "f4591ba94c71dbce7c662c0f7a6fd835d7f29f2225c7a430dab3117e15128307",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 3
-            }
+            "sourceSha256": "1e8790eeac3e372c7703abff9506be3f66a64c3480a985fba472ab57efe7207c",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/execution-deadline-propagation.test.mjs",
@@ -9440,75 +9350,59 @@
         },
         {
             "path": "tests/tools/execution-envelope-directories.test.mjs",
-            "sourceSha256": "477524a7d0acec7dbe7963f1d8f446f70e10c3c5c978a7fb33d5f13b84e5648c",
-            "violationCount": 1,
-            "violationDigest": "a9c7591ccca0ceac11965f44724021227b4d4e58d6225e4a992f1f743a57825a",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "6aa5cca6d0c0d0f3c73eda01804b9bac2b4110bdeca93c724852542588fe6c43",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/execution-envelope-environment.test.mjs",
-            "sourceSha256": "10f74d98848d041289cbe54f16c4595cc245de40d9414f11f747cfcd2a166279",
-            "violationCount": 2,
-            "violationDigest": "d262dbe2fbb445634a9a63cf59ac42090678c18f8f9bbfeedcb218e4f691c6c2",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "e0dcfac14ed52ef681b56c856ef5578c64b6667330b8c7ef441db5eebfda6bba",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/execution-envelope-network.test.mjs",
-            "sourceSha256": "903de4771a2b57f9e517cdf23a3f876b37c0e5a1c4b37d0c00c85e1a112f5835",
-            "violationCount": 2,
-            "violationDigest": "fab16932f30bd9e46332fa88d2025f9e4e0d6748c1797b40cc4aad514d3ba316",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "bdf3f22fdf878b0f182ab42a290f94f60a31310a5c98d6246557bc85d0bfb25d",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/execution-envelope-policy.test.mjs",
-            "sourceSha256": "07b00a72567681556c6e381428d8e0b6f26efeea170209712e2fbc3a5a7a7e03",
-            "violationCount": 2,
-            "violationDigest": "bbe2a8b1c21eecc74c44b1759266cfea7b94cd3a1d49cc59b72e10aee4a1381e",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "08cb7157d7c513d2328c3f0918b238d5061f1e05c325875b936c66608e8ccf51",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/execution-envelope-receipt.test.mjs",
-            "sourceSha256": "dda4cd0e75512c33fef5a0db70b9d15e3de071a15264b59dfa6435c03a5b7039",
-            "violationCount": 4,
-            "violationDigest": "1b7d5fa9e5ce333e1002bbe191c9ab12aa2472642c072f742ea04dbf9fee0866",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 4
-            }
+            "sourceSha256": "34569b08997cde8aa49bdd058bbbab84b0af6b62a8e52f18153279f4871346ea",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/execution-envelope-services.test.mjs",
-            "sourceSha256": "e9846830e5a05ea14f18b5808446798aa469cfe3215e6e6253d3e0b8d51092c5",
-            "violationCount": 3,
-            "violationDigest": "daec5c3696ef465d1887ac13e340872ec670d545d68e627b3d88d8e532911d81",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 3
-            }
+            "sourceSha256": "e54d23d8a4229a89b2540e923c48700606bd7ef34f4ff33751c1c517b7071289",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/execution-replay-contract.test.mjs",
-            "sourceSha256": "b645092cd16910161ae3b679da084f540e858e4911fcf6c0c344d93085b4669b",
-            "violationCount": 2,
-            "violationDigest": "e804ab6548f49f957bcdff0e384c11d8018c439779f8faf0f3feeee00ccbc3f1",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "9ef70465408c3e73aeda04784ac5bb42f3e53faa0e7bdecf396a3ff79a15794c",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/execution-replay-verifier.test.mjs",
-            "sourceSha256": "d7ce2a06e6b410c8de4e3ea0ae93690d4740525feac5617268c6f118746de57a",
-            "violationCount": 2,
-            "violationDigest": "e4701d3bb86ade0a0f35d009a38e7fce6bd00cfeb0c6b373a5bbff782f9a17a8",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "2e49076c77e6eea59d748ae6c23f69b3ab389b139bd4a8b0df1884e1172191ba",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/final-image-toolchain-pin.test.mjs",
@@ -9530,12 +9424,10 @@
         },
         {
             "path": "tests/tools/fixture-mutation-recovery.test.mjs",
-            "sourceSha256": "456021d4de89a5dc882191d1d44131daf29992fb0cfdbba58962a2e44c19ab8f",
-            "violationCount": 6,
-            "violationDigest": "10481742e1912b6481d1e80cbf5b33a77cf72c439a824f1f1025b573ba7e03d9",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 6
-            }
+            "sourceSha256": "4b97ef3701004346610deec23d96e8582f0b33386d142313e9983dca7f3b9a6b",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/fixture-orchestrator.test.mjs",
@@ -9636,12 +9528,10 @@
         },
         {
             "path": "tests/tools/fuzz-random-stream.test.mjs",
-            "sourceSha256": "b358f6dde45682e165b471ee39ad496e1c1dbdfe9848b9cc5283c9fb67bac7e1",
-            "violationCount": 3,
-            "violationDigest": "a952166cea53b259b93cd8609f1d3c96dcb3435ed883b4cb0173a19faf513d1c",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 3
-            }
+            "sourceSha256": "ecde53c4e4dc18c8c2100e0aab669db8eb5d3fe7d99d529f401236f160723a5d",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/gateway-switch.test.mjs",
@@ -9659,12 +9549,10 @@
         },
         {
             "path": "tests/tools/global-claim-exactness-final.test.mjs",
-            "sourceSha256": "b4bb690d63ac5269b9c62faecfb2762d3bf67f289e3967f0dd61b56eeac71070",
-            "violationCount": 9,
-            "violationDigest": "216a69ef19eda1a72d7501a1e757cc8927f9481d0a828a9c5b9b35688dc4f36b",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 9
-            }
+            "sourceSha256": "d015141f68457578b29d31a3f988582cfa512935a2768f5e95fa0b5cee00cf3d",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/governance-suite-plan.test.mjs",
@@ -9680,12 +9568,10 @@
         },
         {
             "path": "tests/tools/hidden-retry-governance.test.mjs",
-            "sourceSha256": "1dbb6c842cf022a104fc25d00757d441c7b9df3bd48374b6ed111f675643e2ac",
-            "violationCount": 2,
-            "violationDigest": "ff8b3613168b48325f55ccffce1a229b22fc422ada513502877cee4818c36031",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "d8c223047b585ec9909ebc3b1ef1fe5ce5a4b38fe142e7f5a6de195aa1154dd5",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/http3-local-evidence.test.mjs",
@@ -9698,21 +9584,17 @@
         },
         {
             "path": "tests/tools/immutable-build-semantic-outcome-adapter.test.mjs",
-            "sourceSha256": "739014fbd61aeb86aeeac80ec1c567e1a98698f00f646737127ab3e14dc28d6b",
-            "violationCount": 1,
-            "violationDigest": "39315a721668486f491adf7e818af324bac5459794494a74f83b8abf4a80b526",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "902606bee5acc3f7c27399d659586d44d8e8a6bb164a61fe0d8caf99db0c4408",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/legacy-real-dump-producer.test.mjs",
-            "sourceSha256": "0c2f27593e3d95a4c66417f95820297e91102d365ce72d0890ea81af61eb217e",
-            "violationCount": 2,
-            "violationDigest": "0d5f4329177d561b727ace039866aa04693c69c0a40b3107760aeb2591d71ad2",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "08d94a738c33ad2afe93ea67c90f70c0742edb6125d4e50a876a920042d423d4",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/line-endings.test.mjs",
@@ -9808,57 +9690,45 @@
         },
         {
             "path": "tests/tools/media-negative-corpus.test.mjs",
-            "sourceSha256": "8df582b64f45a98749c9a8400dd27be01d3c91172ccab2e79d7b917e9db8dfa6",
-            "violationCount": 3,
-            "violationDigest": "9d84e1e84c0b8e60a3c6e0deef46923267526f5d81226a2c89688978c239b99d",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 3
-            }
+            "sourceSha256": "a78593d76815edd8b15c8c072875f554def1a1d7a8deeead73f698cf4e159ef3",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/media-positive-generator.test.mjs",
-            "sourceSha256": "95533192beba5fc88cd4115705961a4387a12f3eb60eb05799e2cc1fa83bfb3b",
-            "violationCount": 3,
-            "violationDigest": "df61d2ee817b91ddc47e865a936bbceae7dbea08065778c4979c87757f8203eb",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 3
-            }
+            "sourceSha256": "539961b20a31773d599bf24abdf5b4d75c1698c417f971ca75d79558f024d880",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/media-shape-catalog.test.mjs",
-            "sourceSha256": "3c0e633fb8ca4a7d0de3738342a0909e47d7fb895fc1cc25819b7c0b0188f092",
-            "violationCount": 1,
-            "violationDigest": "a6dbd004f7ce6320a2752ea0e88432489af5b52a7f455da7f5ff56b370bbd431",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "20ed66976c92af4cb191e4422ae27b60438d8d5789240060d025137d1bd1ca8e",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/messaging-fixture-cleanup.test.mjs",
-            "sourceSha256": "f1cfc968a98a871e5585284402f732c45668635a834f75d5ebc6a9fd51431bec",
-            "violationCount": 1,
-            "violationDigest": "1a203e4ce49bbeb8f2d4605f4bd1301751effc9fda1585e772f389bdb828b367",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "7b2419f314249df6c303d372d60d5d8903a6de80f0bc524bfed23417454741b9",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/messaging-fixture-contract.test.mjs",
-            "sourceSha256": "2b078f838edc4b7c5db7dc73701b586e3c4191724ff648030b6be8fd3ed18140",
-            "violationCount": 1,
-            "violationDigest": "f8e57dc88bad62ea96446253aad395b28c17e9f59334858236089010b1da7815",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "96b411e04135c3a433108dad6d84e21c30e489d9632bde27021d8d79529555e0",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/messaging-fixture-governance.test.mjs",
-            "sourceSha256": "1d9bfab813b10a2438404fac4017708688d907269fe1d3865c678c0408ad8fbb",
-            "violationCount": 1,
-            "violationDigest": "707f3339fe75cd5ea8b5dac6818afc43a79cf9b91f1fe4508ecf30d26d88ff16",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "7718bf509351aa96d79904c48607a2211209d0a33e40f36a20fa4d6e5429b387",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/migrate-public-assets.test.mjs",
@@ -9986,21 +9856,17 @@
         },
         {
             "path": "tests/tools/outcome-contract.test.mjs",
-            "sourceSha256": "f761b7e8b8bf0765f96c8da0d85ae1d7e8ef930cc4f7f00a54f453201b820467",
-            "violationCount": 1,
-            "violationDigest": "4f2cae7ea8b6eb1faba0cfd39dca6272398c3acf392fc42a67d8c895f8b99fc0",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "60852380c9712b6106ee95cbbf46e895bc299fb8e166368552563bb6911a8b4c",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/perception-character-v3-redis-fixture.test.mjs",
-            "sourceSha256": "d52eefa1ccffdcd9114a2198f1e09d9f4d5865a7208c7c4b885d25fde375e5f6",
-            "violationCount": 1,
-            "violationDigest": "c86ff0a9a644216aab74bd2347a005c50fd86a3be76fcc35f1a7d1cb79d9a115",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "c27eaf01ff63c5a0be484edfe917271932d27c557514b25fad6a80d86c6af398",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/perception-union-projection.test.mjs",
@@ -10039,12 +9905,10 @@
         },
         {
             "path": "tests/tools/playwright-browser-identity.test.mjs",
-            "sourceSha256": "95b0c7ee466cd6b64a12c7790b8524de27ef2b0b8f4291564d6fe21dfb9b770a",
-            "violationCount": 1,
-            "violationDigest": "76e33940bdee13fcaa2e320df6b12e465ad4486ef70fa2217672fb0c7e9178cb",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "db2b77e5556b88f6d2b5850f5aac27b7caa9c1c59087fb1e8f87882c143e2096",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/playwright-worker-resolution.test.mjs",
@@ -10073,12 +9937,10 @@
         },
         {
             "path": "tests/tools/post-runtime-producer-registry.test.mjs",
-            "sourceSha256": "1d236fd5922ebe91b7cffc2c754c1de474b2bdfe0651e72009a9cb3c902daea0",
-            "violationCount": 2,
-            "violationDigest": "d2dce2387a3cbf77b39b86155f6a55a7be0604fcfbd9060e8bfe1817e674a747",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "7654bd29c169cf6d8a8910a8711e924a7b764abedeea8fecf5c3324e4245c012",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/privacy-zk-production-projection.test.mjs",
@@ -10304,12 +10166,10 @@
         },
         {
             "path": "tests/tools/property-model-random-streams.test.mjs",
-            "sourceSha256": "97da0a6f417a50a6929e68e360c6a60614035d8bd563156d4eb74f93ea221e70",
-            "violationCount": 1,
-            "violationDigest": "6ccec09312fa06fe47ffa7b3b24a8ad53484bf8f3a8416a1f7089b575dfaac51",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "87a6f4196533c9df071539832cd07179ca176b975cc73a3b8e50a0ca9618380d",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/prose-claim-verifier.test.mjs",
@@ -10434,12 +10294,10 @@
         },
         {
             "path": "tests/tools/random-fixture-governance.test.mjs",
-            "sourceSha256": "2ca7897a9f35ecd7de6c9f775499b343060531eb09cb6d4a6795425ab990c591",
-            "violationCount": 2,
-            "violationDigest": "95d02423a5b94f4e81ce75ac81e1f1cb4e0d73679a9709c6c15079af4fa46dc8",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "2115f8727cf6f41eabd1bb4bc9b1920d5afcb9ec095dd990500f97a35c58d644",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/rehearsal-schema-qualification-probe.test.mjs",
@@ -10466,21 +10324,17 @@
         },
         {
             "path": "tests/tools/release-cohort-clean-attempt-admission.test.mjs",
-            "sourceSha256": "5a9531a20dcde8f58a1c1a22687f1631ca0da6bfa90d0f0342e71f4643bc3865",
-            "violationCount": 3,
-            "violationDigest": "009921c0bfeaa1db6e8517f4f0749da69b64d8ed771cc52689c6ee67eae82866",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 3
-            }
+            "sourceSha256": "28b4847043e33a00bda982d129c5e9d541cc43527604ee9e2ed8c86fd3562106",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/release-deployment-doc-exactness.test.mjs",
-            "sourceSha256": "fe5cacd3eda0348ce3531f7d2a897bdf13da53036e71c82e0749786222970e79",
-            "violationCount": 5,
-            "violationDigest": "f6c3d6ee925dd6600de8b59f0beb3b15e26b68296d9d88c7125a48b05a595d28",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 5
-            }
+            "sourceSha256": "a94b4daaa305f8ed6d96cbf07111235b191c3836f32e00a4f0b50636398d2604",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/release-domain-native-evidence.cases.mjs",
@@ -10525,12 +10379,10 @@
         },
         {
             "path": "tests/tools/release-final-current-run-locator.test.mjs",
-            "sourceSha256": "901ec7cddd13956b689ed6e367e9df56a1f04f8f5b269f9b33b29b7625afdab2",
-            "violationCount": 3,
-            "violationDigest": "b5c6f24b87e83de3605664f25bcde94989704d48d82be7898714d8b8b7d4f171",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 3
-            }
+            "sourceSha256": "fc86ffcae153e6d3af4de5689c83e17dcef687f6561397646d97ee90087067f0",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/release-final-evidence-binding.test.mjs",
@@ -10570,12 +10422,10 @@
         },
         {
             "path": "tests/tools/release-finalizer-semantic-outcome-adapter.test.mjs",
-            "sourceSha256": "8da4a5ac5ffa4eb22287c25c5d612c96e47b07bb1c2b91aa354fbc108c5a355a",
-            "violationCount": 1,
-            "violationDigest": "09d1a169235f12da4d72031b817bcf7cb3740efcf55021f77419f00f024bc478",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "1cd97c35a4b1267532a2d47588b33f9218b6d167c058683416fbefcf992a4e29",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/release-load-response-oracle.test.mjs",
@@ -10635,12 +10485,10 @@
         },
         {
             "path": "tests/tools/release-projection-semantic-outcome-adapter.test.mjs",
-            "sourceSha256": "f601a8001d1e9c662f10640be74938efa208e74f220b8fdac61e604fa68cfe59",
-            "violationCount": 1,
-            "violationDigest": "6bff422aa83a3ff0484128f98e48a2b534ee5069db57b6a52b51b88e110a1e99",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "0cf8fd1c3e584049e91c187913a0e5be962d7c31f6f096562da6244d6a7cbc32",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/release-reliability-cancellation.test.mjs",
@@ -10734,12 +10582,10 @@
         },
         {
             "path": "tests/tools/release-reliability-receipt.test.mjs",
-            "sourceSha256": "943b42b04d32480a41e41d32c729eddcdd8ebf885425b48f5a8c971c8770d98e",
-            "violationCount": 1,
-            "violationDigest": "76bf28e8e08878e16f19a0abf091c0aa1a0b86bbb53327aff10622b592b74bbc",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "f74f5282f235644d403372261404db928da5154cc45186692052c9fb79e74ab2",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/release-required-evidence-catalog.test.mjs",
@@ -10900,48 +10746,38 @@
         },
         {
             "path": "tests/tools/reliability-scheduler-conflicts.test.mjs",
-            "sourceSha256": "7f7f7fd44d50deed2a1e3e1a6c7c28d0d4833c7b1437600d317c7405c086b1df",
-            "violationCount": 2,
-            "violationDigest": "4a06feb4aea4a8b1b9f481be2cf53ac0d9eaf39bb2d3d6609bb9acb27c308c18",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "4f56af7a7f1e19c3830ee56c350918d288accbf86faf83a4c7993925a39d3d7b",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/reliability-scheduler-projection.test.mjs",
-            "sourceSha256": "6e705c8e60c74e8b2ca4446bc7b1666fe6d313f49c5f786d84191af6c3eaed48",
-            "violationCount": 3,
-            "violationDigest": "587733a5267e83b9882201df4b714bde55ffb45a96527bbacddad1cde73b910f",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 3
-            }
+            "sourceSha256": "bcabc95a798ede0f8e9321cb3836bac1d066a5487668a4b2f27da8a92a7c223a",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/reliability-timeout-projection.test.mjs",
-            "sourceSha256": "2ec499e0d90367d7d6501b539e63f665ba4f2abc06970ee70e6bb3ee414094de",
-            "violationCount": 2,
-            "violationDigest": "952694cf92b07da63a81acf114ce987c42230ebb765879de56eb48257d46b386",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "11cdf47b15c76d1dbb36e28c2cd13d69887429386dd151973c5ad8cc395c4d80",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/replay-qualification-frameworks.test.mjs",
-            "sourceSha256": "ba5ff4ac1134427cb991d5abcbf90edc934176a1a7600c22a9f079276a567ef7",
-            "violationCount": 1,
-            "violationDigest": "0e9a9cfcb7c6ee50b4bc409c06b93be1727c749d8456b61a2720ac56164e8216",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "bb967e8a602f0a5625ca3fbb572143316aee236ab980292490b4f48141738043",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/replay-qualification-randomized.test.mjs",
-            "sourceSha256": "180be693a326517a745f151c72da77dbf471d688f360bc9c17fafb6b0cfef487",
-            "violationCount": 2,
-            "violationDigest": "392db49c6dbe931e9fedbb7c50ac83dd42ac939320569c4e4500385ae09852cc",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "20f37a4de8f545c097cea725565ba2ec8f19ba36760e17d8ee232287c8e3706d",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/reset-postcondition-verifier.test.mjs",
@@ -10989,12 +10825,10 @@
         },
         {
             "path": "tests/tools/retry-policy-registry.test.mjs",
-            "sourceSha256": "36026f842877cfb729ff55f9b52aeeda656911cb5565a79425f068ce4b092fcf",
-            "violationCount": 1,
-            "violationDigest": "6f0ed558b0622076ad35942f5f775ce4318add7b3f1087dc8e6c66b4072ca94d",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "40f4010e173ed906636066865e60386f0bbd320cb9589baeece441a18bab3e32",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/route-title-contract.test.mjs",
@@ -11151,12 +10985,10 @@
         },
         {
             "path": "tests/tools/scheduler-replay-contract.test.mjs",
-            "sourceSha256": "26950f1c458a2c37f60708f829592aed3f5d5c6d9260d6c6fd0b58a315d8f20d",
-            "violationCount": 2,
-            "violationDigest": "bf59525d67f2d8e1afbdfb846ecedc55f42eff20835428b145be169507263925",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "83c1a80403d759eb6f04dcadf463ca2b71ef82061ecfe5ad000e7b7df183384a",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/scheduler-yield-experiment.test.mjs",
@@ -11211,39 +11043,31 @@
         },
         {
             "path": "tests/tools/security-fixture-cleanup.test.mjs",
-            "sourceSha256": "84fb2f90d1257fb8369049c6f9deeab16884fe0b95b67d9c076890ac847ff44f",
-            "violationCount": 1,
-            "violationDigest": "0b9fea95d426bacc573cb850cb2a968016fcb04f5170765af04a1a196cfa5df9",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "5f06f4e68f742f92404fda2bd4a8a6dd130242e153459c735b7082d5b02ebd10",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/security-fixture-governance.test.mjs",
-            "sourceSha256": "82e7e8c85876a76945c62b74e728a2bf0d2b74664a16c6b2b22ec7349ec91871",
-            "violationCount": 1,
-            "violationDigest": "c7a4f0813151b91c9cfb5be684ee31b8c86ab0ee66d07827120850b2057be76e",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "0065aa5fc97a38d631c5c7c904e3c4f1b8616678f147ee4fff9b0c7e80cdf3fc",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/security-fixture-producer.test.mjs",
-            "sourceSha256": "c14310677db0e28ae594eb5f8cb0ee7a8df2d3f42370e7276735542566164ad0",
-            "violationCount": 3,
-            "violationDigest": "c52bd347b4db5f366f7764ea327104e7c64957ba86205ec0019cac611cb5ab99",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 3
-            }
+            "sourceSha256": "70b2da72d92f4675e9867bacd31eeeba459390f48dbad01981653842ac3d35c1",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/security-fixture-profile-e2e.test.mjs",
-            "sourceSha256": "7977a0ff63410480f82260cf4e6aded999d37caf31c7bd8bb2e5988a6930cb47",
-            "violationCount": 4,
-            "violationDigest": "3353921045399fe4304d4f0be690470ed400343779c7871cb8af03cef0ad2e15",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 4
-            }
+            "sourceSha256": "d1230b8f4244597783d152cfedbb82c2a56451b8efe5a63060a5cba893da59b9",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/security-matrix-catalog.test.mjs",
@@ -11348,30 +11172,24 @@
         },
         {
             "path": "tests/tools/temporal-role-resolver.test.mjs",
-            "sourceSha256": "663fdf6cc85f4fd905ad4e6ff3d94d92f79e42bbc20a11936ec5c4e1665a4537",
-            "violationCount": 3,
-            "violationDigest": "cefc2a4dad4770b1a49883d43ac706f960b63902d42ac53f8b28acfcebed6149",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 3
-            }
+            "sourceSha256": "3f1735a9f082b2f793a51bbb507565efc5dd539faabc17fef8fb841c06ecbd98",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/temporal-shape-catalog.test.mjs",
-            "sourceSha256": "db51f29d259fde7562db1f0c84486fc552a341f3d7e3a4410c5121cc5db4ed6d",
-            "violationCount": 4,
-            "violationDigest": "413f69539e8c58010737d81059dedfaf4725774f3e62f1d77d507b8d5ab6a90c",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 4
-            }
+            "sourceSha256": "7e3ddf60dfb4fef016dd979bb6b09e350a9a12140c4d43a18ce8da4906a98f8e",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/test-asset-audit.test.mjs",
-            "sourceSha256": "230facd9b7f2740fe7da9aabf22614af576b0a012eefac88506e4d6a7b409161",
-            "violationCount": 4,
-            "violationDigest": "8bcd5f540c5f9f2bdef9ce1b41b56774896530305e4e50dac5d789bbd95727ca",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 4
-            }
+            "sourceSha256": "e5a49983725a04994fbf778f3ee9c20ff85e7a7e3fae997fff906437e7ae9fcf",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/test-evidence-governance.test.mjs",
@@ -11441,21 +11259,17 @@
         },
         {
             "path": "tests/tools/test-quality-engine.test.mjs",
-            "sourceSha256": "c0da2693cea4037cd96bc63ccc3b78d17f47ca3ba2f3aa71c08f826c18d8f507",
-            "violationCount": 4,
-            "violationDigest": "298f5448c64e10febecf0b7f4fbd5f9c35e2362a03b3f9a2c4edd9d3f4c36b77",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 4
-            }
+            "sourceSha256": "9fad8f43de20c3b5c26642ec6daaa8fa5bbda2403a988db130483947398e98ff",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/test-replacement-transaction.test.mjs",
-            "sourceSha256": "798d3dbce5594c3ee24869f8bb235fdfcc60298d00bbf98e9d748dc87280ea49",
-            "violationCount": 2,
-            "violationDigest": "91f73d7e6ba2174737795cf5ddca82c07dcb3a69bbbbdb585ef4a504159e8fc2",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "21731e5d176d202e7d66ae916254ab2c57a5eaee47cb1c2962d29fdcb2d6839d",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/test-retention-audit.test.mjs",
@@ -11621,12 +11435,10 @@
         },
         {
             "path": "tests/tools/wasm-artifact-ownership.test.mjs",
-            "sourceSha256": "8791d9711149db6b7dafd32ce522596584d2451a1ecd34d4b2099aaa93232fbf",
-            "violationCount": 2,
-            "violationDigest": "d510615fb1c85159890607eb7226a6940be71a3acc6c219d354b8d1a724a1e47",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "59dc7bed73c427ea9e276d97cf97090dffc45d8f5bee302072410e064809cf90",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/wasm-fuzz-runtime.test.mjs",
@@ -11892,12 +11704,10 @@
         },
         {
             "path": "tools/ci/check-test-quality.mjs",
-            "sourceSha256": "1cfbbc6ab0f302da88fc6d930626056d7b4e34cf64c7b54d913bbb91198333e1",
-            "violationCount": 3,
-            "violationDigest": "b6cfc8b4cab8b3c0770adc225597c13b27f9016fab563d23c9e26036d677b3be",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 3
-            }
+            "sourceSha256": "301a5f611f886a18da0079caa6b117bd3a9fb1b22626365f86fbc0e2cbd0d0e0",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/ci/production-build-artifacts.mjs",
@@ -12300,12 +12110,10 @@
         },
         {
             "path": "tools/contracts/lib/runtime-role-observation.mjs",
-            "sourceSha256": "7e2bd65b09f821a8365b440e8a3916d5c4724552bab20508634371b452446721",
-            "violationCount": 1,
-            "violationDigest": "131e2bd58e843cdd736e54bab15af7a2d1773cd36a027aa4493013d907e029c3",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "5ea1d9c840986cba1d15640bee446382710598816bfe6e7a5a542c9e125e0fcc",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/contracts/perception-character-v3-artifacts.mjs",
@@ -12789,30 +12597,24 @@
         },
         {
             "path": "tools/docs/api-protocol-doc-exactness.mjs",
-            "sourceSha256": "5abbf992ef4973896aa81a41304ded17a2e0cc95d6e8b9b08a9f11c20ea35c46",
-            "violationCount": 2,
-            "violationDigest": "7d087613002692579df14a502ddf227c7710c60e64ed4b5e1ef45a683cce4ca4",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "4550a293aad236f4b20533abe748d66ed24219103bd515072bcc05d1340ed163",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/docs/auth-security-doc-exactness.mjs",
-            "sourceSha256": "8e3fcdfa997adc1be2c6a2e7bad6959a1c55e67a6977b858ca2a27d437a495ca",
-            "violationCount": 1,
-            "violationDigest": "b4dd10103071e7a3a444434da17eeab11a94bc0a91dfc1ad56d0278081fdf8dc",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "b23a498d0b59e05766ecce91529c7a93b67a30d4117715d7cd8cf05219af39cf",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/docs/behavior-doc-exactness.mjs",
-            "sourceSha256": "bcb9be3e5ad25d97eaa88a5c418b19077fe6b1798b6258f6ac799a28845c8f1e",
-            "violationCount": 3,
-            "violationDigest": "eacf86dc74a3e330b52c1064b5cc76ce6a4982db410efc24194f6d271d9adf60",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 3
-            }
+            "sourceSha256": "4592683c74f68c3edec71ff590f35477da9e219545fb2d968dc0e282a5d4d00d",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/docs/behavior-doc-minimal-contract-build.mjs",
@@ -12834,12 +12636,10 @@
         },
         {
             "path": "tools/docs/behavior-document-consistency-final.mjs",
-            "sourceSha256": "43d5781b50f9b91f73d82b885dfa0d53836c37e3384e71180360a108fea89ddd",
-            "violationCount": 4,
-            "violationDigest": "934aae0ef825a3f7ea4f3f64bb60bc3873d12521c0743a6381d5f722c632515c",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 4
-            }
+            "sourceSha256": "60a13b7a184f3d0ddb68aa0914783bd9c6cc48d85d3a8130bca373076b2d230b",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/docs/check-authoritative-development-docs.mjs",
@@ -12971,12 +12771,10 @@
         },
         {
             "path": "tools/docs/content-doc-exactness.mjs",
-            "sourceSha256": "a44276791065c4f72cfc5fc1f7871e1f30b646bda04cdc14f1059341e837a0fb",
-            "violationCount": 2,
-            "violationDigest": "0f926538607527661dbd270e75455944cf3fe87399ecfc31d12d3f7426b1eef7",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "29fdadae24523e8b28de91857711ecc68c8852934db88901572a0b67621406e8",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/docs/doc-claim-staleness-mutation/catalog.mjs",
@@ -13127,12 +12925,10 @@
         },
         {
             "path": "tools/docs/global-claim-exactness-final.mjs",
-            "sourceSha256": "b52cdd2b30f0d7542f783076565636a5a674d7cb6108f29bffd70efeb99dfd25",
-            "violationCount": 3,
-            "violationDigest": "2ca58be1d07a6f7ac2ed36707ef7e7506a01f69d952cdad5c05f8ab7b3fbd94e",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 3
-            }
+            "sourceSha256": "4768bf4d4a1bad26621c32de7b026ac5d7a8335bdadfeb60ebd970de3e8d1f18",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/docs/lib/matrix.mjs",
@@ -13253,12 +13049,10 @@
         },
         {
             "path": "tools/docs/release-deployment-doc-exactness.mjs",
-            "sourceSha256": "da6c46d85a471f716d0cb0c8878cd0b4594bf863f6acf12e719bde45c9adc80f",
-            "violationCount": 2,
-            "violationDigest": "ed573bbdc5ae678a61bf5ad3c31ca2f3331b66e20a5e2c3e000e3905dc6da55a",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "b40ad81cc246f99ac9a0bf277d1fdc332405a62b230bd97a2f37a101543168cf",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/dotnet/check-csharp-style.mjs",
@@ -13647,21 +13441,17 @@
         },
         {
             "path": "tools/governance/bounded-channel-contracts.mjs",
-            "sourceSha256": "15e55d4398f2a5c80fffa238c3b93b0790c7dbd8fb32d844a0128d8b3484fed9",
-            "violationCount": 1,
-            "violationDigest": "15e93ace9bb8952b33604f0c33106ab30230bc20b725bf0cc10d4b2d8eb06fbb",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "73c616e78db06acfca0f64a59afeee4028c87d9127f9752d0f04736034a1f921",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/governance/bounded-channel-discovery.mjs",
-            "sourceSha256": "2adc1947aafb49fc0f90b3ebc9945c711440b544c05a2034f45516fa62d61a7f",
-            "violationCount": 1,
-            "violationDigest": "eff1a9257d312673eb432c445ba289155ad6e015aa24ab79d070b05a91cfa36e",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "99a61b6d482cb48d8a4df6b10bd4b444fd8e23cfa6120caae1d50d27bc38423b",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/governance/change-contract-registry.mjs",
@@ -14105,12 +13895,10 @@
         },
         {
             "path": "tools/release/clean-first-attempt-verifier.mjs",
-            "sourceSha256": "2a16a17afcb07b8144c06c4baf8b170c2c434d5b6376074d13f8301806a84578",
-            "violationCount": 1,
-            "violationDigest": "445f7b2412e7d4b66df160b7e0247cddbc7699477cdc26a96f2d1f38a4e08560",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "ffc95fe73f4d8c9bfe710f3f518a5e639c273f652670e95c2c76cb0f564bda21",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/release/create-release-manifest.mjs",
@@ -14127,12 +13915,10 @@
         },
         {
             "path": "tools/release/release-clean-attempt-cohort.mjs",
-            "sourceSha256": "5371bd3e2a971b848cb0ea576a67de424c6854a396d35885deef57b02ba37c70",
-            "violationCount": 1,
-            "violationDigest": "47197a756f35ce00327b475cb45ead5f3ab1ff4b124a4105f762249ae4de7175",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "ecd1febcf5012cef957aa58b8638773cfdf7ded18eb297cfa07a9e1ed79fb862",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/release/release-final-diagnostics.mjs",
@@ -14145,12 +13931,10 @@
         },
         {
             "path": "tools/release/release-final-domain-evidence.mjs",
-            "sourceSha256": "c9ede43f35a3586b6d28a7b8933118019872da50aa718e6c9c2c2f01d9098279",
-            "violationCount": 5,
-            "violationDigest": "ff07e14f7f849914681f341265d2810b21220bfff264b72aedc9975138fb1e7c",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 5
-            }
+            "sourceSha256": "279f0a62b9725167dc8d20fb385ecd6f74fd75e53b138200442abee7fd02b93e",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/release/release-manifest.mjs",
@@ -14929,12 +14713,10 @@
         },
         {
             "path": "tools/test-fixtures/content-shape-generator.mjs",
-            "sourceSha256": "8fc07f591a22c29a49f20785b6e3f7f597976c6a0759a433f2cb06c0fa6e3a3f",
-            "violationCount": 1,
-            "violationDigest": "1b2ccb88ca0834c7787632e86d1f428fe93d7ba90ee831ae6b2361ad7bea372f",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "0d0549e3c21ccf53d87ec406c6a7c5d9138f29d8c7599c1ecdccf74cfb30bb12",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test-fixtures/dag.mjs",
@@ -14970,75 +14752,59 @@
         },
         {
             "path": "tools/test-fixtures/mutation-recovery/mutation-adapters.mjs",
-            "sourceSha256": "37320b6b4e1ae5eed0d8f1a54f4b516b53f4e82d68eaf45e4b4eb22dbb4f647d",
-            "violationCount": 2,
-            "violationDigest": "53f7dfe88980dbce11b818472528e0a4ffd190cde91d2b8df64ec47d2bf3be37",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "b64d17223a4b4f122724ce66712f36717b35229ac1036d59a72042f8e0bbacd5",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test-fixtures/mutation-recovery/runner.mjs",
-            "sourceSha256": "8288f3ff1b929f0840232bf29cd4fe261d44b7c29a7d26da64b2cb5e226b7a2b",
-            "violationCount": 2,
-            "violationDigest": "bca2965384e186adf3b1537a84c138ae20f146dc1f26ca4d4936e9856e2840e4",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "184d2ab7d7f459de053cbbfee7c02053fda419c37f38c45d06f62f1cbdc95b4c",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test-fixtures/mutation-recovery/semantic-snapshot.mjs",
-            "sourceSha256": "a37be31ae53074aa768ac43954bf372234fd8b4d5d8a763f0834c6487b189170",
-            "violationCount": 2,
-            "violationDigest": "05ca7a471109e3e8a6c685f51965c4fd14e6186bcb0da9adb5c4d074bd7bb0fb",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "d1907a024d3ff6f65a4bc79daf8202d84705a0f44ceb73d0532e5e5df2a51285",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test-fixtures/producers/account-messaging-producer.mjs",
-            "sourceSha256": "2214b0a067af8f2f273e8ff13a5adf757b5419113a72f08baafea322f9e29a26",
-            "violationCount": 2,
-            "violationDigest": "8ffb6d183cbce443fe06f79440c9b4462fa2d6a72950d66d8e12288e6dc56fe1",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "a86962425a9cf17e0044459f5457a44a592cf69423e3d61ea3dc43e2a4073b92",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test-fixtures/producers/account-profile-preference-producer.mjs",
-            "sourceSha256": "ec1b2430e856179dd491f4f947bf570044433ba8196ce0d1875d29bc769f0791",
-            "violationCount": 1,
-            "violationDigest": "92ffd9a9b5eb08616ea945b11d7334c7d783701ce36cd4e096b4e3ac9f07b11c",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "965258fe83da6e553301e3dfc96d5fe1e01a97f6443c7d3e5b057bc5f2288b9c",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test-fixtures/producers/auth-session-producer.mjs",
-            "sourceSha256": "3d52bd8b88ff1686727568228d5c6da60db0436b41903c70c9834fd1c045cb5d",
-            "violationCount": 2,
-            "violationDigest": "f426430486b3e8aaee96c021860cae6a3d2d654a2a312b2a31b3844efbddf3d7",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "586848a85679bb35e0c0bb7603c4f0fd582be97316da89404c0cbc8ee1f1fe52",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test-fixtures/producers/security-fixture-producer.mjs",
-            "sourceSha256": "68aeabb532c2a1627d8d582e37ea2a1eae182b158beeff734f4f9eb7c9f2654c",
-            "violationCount": 3,
-            "violationDigest": "b975df6d7c8858eef011c60762ba3ff0581c9be6faea5a317f86c7ae0be44020",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 3
-            }
+            "sourceSha256": "7ebee61548d51388650a99237cc1c7c6ecdaef98e4165c9392578837b3b0e7bc",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test-fixtures/producers/spawn-helper.mjs",
-            "sourceSha256": "274b5bc34cd213735f92548d242225f8de7d9a36c89d3419ae4505453d375cd5",
-            "violationCount": 1,
-            "violationDigest": "c2781869994317f16327fb4a48eedfd3d3da518ab98ffb0e8575fd79e7569b8a",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "850c79037c16ab078008701baae990df5bda03d5c7ef8ec0d51321034ea34f8c",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test-fixtures/receipt/canonical.mjs",
@@ -15287,12 +15053,10 @@
         },
         {
             "path": "tools/test-matrix/behavior-evidence-post-runtime.mjs",
-            "sourceSha256": "9f704d205ca509d2b390b2adf3bf38511c14856c95dfe80da2a6b9166ce1f3f1",
-            "violationCount": 2,
-            "violationDigest": "d9e0a2fe1fd5d2a0da16e6297da505c56b7d27938b205b78348d0af99bee9c6f",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "b1b7eca2823822de1f7898555be609fc27f5aa5f680a5f5dd8c6d29392cc0f4f",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test-matrix/behavior-evidence-pre-runtime.mjs",
@@ -15427,21 +15191,17 @@
         },
         {
             "path": "tools/test-matrix/outcomes/adapter-support.mjs",
-            "sourceSha256": "88f921a3cf746e95fc7543674417155cc6e56ca52342814aa81c03e963321de9",
-            "violationCount": 1,
-            "violationDigest": "0836d961e7c6f8fe916c57b5e7c9f37e29b868097bc4fc7c67d24a9fd0290974",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "4747073973fa41c3f5e1484f383a567d6ea83056683750ce704a4ed2808bf2ab",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test-matrix/outcomes/outcome-contract.mjs",
-            "sourceSha256": "26ced6b5df3a2c5c2a465377f4efd0358427415348ee549ef137d6bd10ff6d26",
-            "violationCount": 1,
-            "violationDigest": "76d62e9e0c325b4637fb29638729ecd51f5a2edda47f38f66f2731b72545dcaf",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "1cba9264176dd9f45cf904ecc981a99d333195ccf682339101447f1a5fdee6cc",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test-matrix/parse-matrix.mjs",
@@ -15457,12 +15217,10 @@
         },
         {
             "path": "tools/test-matrix/post-runtime-producer-registry.mjs",
-            "sourceSha256": "220b980b7c23b5b3eff1b1f61981bcf35443344bfb5c04e3609e908bc00c43ce",
-            "violationCount": 2,
-            "violationDigest": "b63fcc740193eb20c3cdab89fbe7fa853e7dc91bcd0c1270b2dfd085d0a070e5",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "019c06de76ae0c51f922fef615c78b4ab2dcf2733f3bd98b7ab9fc474d066a49",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test-matrix/priority-score.mjs",
@@ -15781,12 +15539,10 @@
         },
         {
             "path": "tools/test-matrix/scheduler.mjs",
-            "sourceSha256": "4ccab86b0d75fea927f1fdd56c83849c66a34281f7fa769b0a9036c529ed8c87",
-            "violationCount": 2,
-            "violationDigest": "a6f82603147afdaa0169288815661dbcb3fa86e7bb752c87aa30500fa030e48f",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "77d622ff61862f11f1abe5acc34d13c28051484e16aac092b79151751fbc1a70",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test-matrix/schema-validator/validate.mjs",
@@ -15910,30 +15666,24 @@
         },
         {
             "path": "tools/test-quality/produce-oracle-facts.mjs",
-            "sourceSha256": "48565ddc137210253322b2f54f0abee72e45705187d298d4347cabf7b7f3c88b",
-            "violationCount": 1,
-            "violationDigest": "3c4ec97da5aca5f83d390253ce75e445148d3707b3c8731094ac9bab01ff9ef9",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "024c4d8ead46f402d5394bcb1dcfcd6c7ff03bc99a66b08ebd304a699d228e12",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test-quality/verify.mjs",
-            "sourceSha256": "5f7f8994a90f5d6f52637243c62fb3642d5086daddf45527762d999c0ef3dece",
-            "violationCount": 1,
-            "violationDigest": "a2570f5265ee247b8652bb65bef86850354a837645588d5b15a07f41d520b904",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "1ce23a1cc384cf66c32980dc40ed398cb128f1fdf165f28b1b001c22ca9112c9",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test-replacement/transaction.mjs",
-            "sourceSha256": "f86aaab720274ee31da1b5e16677927bcbf1bb343018025d740bb3eb6b5d287a",
-            "violationCount": 1,
-            "violationDigest": "0a5142a43bac95fc0681914689c6945c65be0e583d70348b719643cdbf5bfbdd",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "6f98955f8815d29c2b5cb82b7869148c6de8a523782efabd2b9ddcf571aa6de5",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test-retention/audit.mjs",
@@ -15962,12 +15712,10 @@
         },
         {
             "path": "tools/test/attempt-governance-acceptance.mjs",
-            "sourceSha256": "de0b40b8125280901f8765500164b37a52e360069c30a2eb95e5f2b0df99e759",
-            "violationCount": 2,
-            "violationDigest": "0efc6ff338a9e11d716c1f617c4a6242cc2ee4ba76252943e8a6cb04b36d779e",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "30860c85cf5f431f22ebade3844366ec37a8a1e1da7a3d461de74eb9737d8473",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test/backend-production-topology.mjs",
@@ -16076,12 +15824,10 @@
         },
         {
             "path": "tools/test/check-clean-attempt-consumers.mjs",
-            "sourceSha256": "362806b883bcc83827a2e205738e049ac39fbb457f06202d587bc3cbe133fd7b",
-            "violationCount": 2,
-            "violationDigest": "fb3092cb7519d44fee3377b8416f037f6d4f19a44421ed1fd29ed600809b5c92",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "654e8693240e5c89843427045f4988ab2de3c301650c2b572f44b4d74ef2c56f",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test/check-frontend-test-layout.mjs",
@@ -16142,12 +15888,10 @@
         },
         {
             "path": "tools/test/correctness-attempt-producers.mjs",
-            "sourceSha256": "1a5eaec97fbb5de32a9428047aa934f9d3cc365033e4a0791aad2ca1d27bb4b3",
-            "violationCount": 2,
-            "violationDigest": "f8af6cdf8ade78e5a63879559344a06422558f7ee36f6791e2faa41f379df551",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 2
-            }
+            "sourceSha256": "194129db5da57b9bc4c2a614d42e6d3a4cbfd0674e232e2c3d632aebe149d17d",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test/csharp-source-mask.mjs",
@@ -16158,39 +15902,31 @@
         },
         {
             "path": "tools/test/execution-envelope-environment.mjs",
-            "sourceSha256": "1d564f34531a69d5d2e8367d97a22f52317b4164312921313947f0fbced2862c",
-            "violationCount": 1,
-            "violationDigest": "eda5b4dc2c490193a601702ef670f85565215215327f5627fb64ce3df9e998eb",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "f270c9279bcc526d5115483a378dbd91c23e025e94e605973374ff2a4c8d9df4",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test/execution-envelope-network.mjs",
-            "sourceSha256": "b50b2249f38561e6a58dac4701e0c5ff7f1d3c05a5ab3eefd5a02c2430231734",
-            "violationCount": 1,
-            "violationDigest": "a01eee16bdac06c95903fdcd7a5c73efb0df31c303cb0c9936609af456b5809a",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "92f1d01291aea5fb72cff0d9ecb3cfc38cecb8a410d0c1f56417f2c9a165debb",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test/execution-envelope-receipt.mjs",
-            "sourceSha256": "73c2eef96052a137ef7203c616bd9a4ed3d683cbec89651d5490bc2bdc513a1c",
-            "violationCount": 1,
-            "violationDigest": "166b205d06cfc0ec693d52f64c5f6ae4454da42896bb0d7fb5adaa2cd7d13032",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "9737db7aff934d63b6b51875804c47158cd94b48b81d1fa1504c77f06e5ce2f6",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test/execution-envelope-services.mjs",
-            "sourceSha256": "97cf060d623963eb4b3fe5325d37c4c6fbd70c0b1716113d58299fc95532afaf",
-            "violationCount": 1,
-            "violationDigest": "8eb00c5feed7472c35e910ad101d4ad549bc2d893ae1b7efae37eadc9b4196b1",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "7c32c773e2d96fb76f5b3b49998c49ab1b7029f48e0fa6c6996c11105950b664",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test/export-production-build-environment.mjs",
@@ -16216,12 +15952,10 @@
         },
         {
             "path": "tools/test/generate-backend-evidence-path-authority.mjs",
-            "sourceSha256": "bd12910e1b6a9b972212b2646e49ae602e8f469bdcc7e6aeaa702d5affdce984",
-            "violationCount": 1,
-            "violationDigest": "bf416dffdfa9736de80a462fb132757b79de176b8e108371ec8723d379c0ae04",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "212a93a616d100ec4773951b00ad623ac7f672f13d43d47b5a33dd8c6558a5b6",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test/governance-suite-plan.mjs",
@@ -16471,12 +16205,10 @@
         },
         {
             "path": "tools/test/release-reliability-execution-context.mjs",
-            "sourceSha256": "d05b5f2eff665154d4213d5e2a23e8789fcb3e3feed5153221b0f2a6772eedb4",
-            "violationCount": 1,
-            "violationDigest": "2e4e1c5e5f7103d8e4411ef34ea24c0ab2230695c4b15c9f59084fdbb154ecfb",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "79e3f9288f0072a2c6a6a3c1cefa4ae3f50f360fa1e4655f9098bd7bacd0995b",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test/release-reliability-lifecycle-actions.mjs",
@@ -16604,12 +16336,10 @@
         },
         {
             "path": "tools/test/run-deterministic-command.mjs",
-            "sourceSha256": "8959bcdd35241a85b55b1936dc4c23153b4cfb419604785554eaec5a08e90139",
-            "violationCount": 1,
-            "violationDigest": "7ffb4580ce62bffb8bceca1ae38ac693864bdcfa0c5c8c8e9ae8cf0bd4432cc5",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "3889e8e01611f2b9c5799028d9846e7f65317f1dbe4ceae598c0bb8f88bfb376",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test/run-frontend-vitest-perf-isolated.mjs",
@@ -16635,12 +16365,10 @@
         },
         {
             "path": "tools/test/run-matrix-governance-producer.mjs",
-            "sourceSha256": "bcd3a5e95ef7bfcf6473db1c597e73d24c4ef6f180f9c45c7f71a537bf376318",
-            "violationCount": 4,
-            "violationDigest": "50085324d9c863da96325a520839a6b91c1bf3eacbca35adebc3f06130a63943",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 4
-            }
+            "sourceSha256": "eeab39aa578e6799545898861d9ee192aed233209f81120f9b28536cdb8a83bd",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test/run-mixed-performance-window.mjs",
@@ -16830,12 +16558,10 @@
         },
         {
             "path": "tools/test/verify-execution-envelope.mjs",
-            "sourceSha256": "0f47225852911abf24d1c9c6de4a85fe7bdb603c49c40a30c4532b2c27e33148",
-            "violationCount": 1,
-            "violationDigest": "7b7b4f83405ec925052206a0850d3b2a29bcbe7b900d9d613c36de136e48488f",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "6441914d57a6f5cb00e33787c07679fb731b33d89a9b9759b5fcc20b49fc3d9d",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test/verify-privacy-zk-performance-inputs.mjs",
@@ -16853,12 +16579,10 @@
         },
         {
             "path": "tools/test/verify-release-reliability-receipt.mjs",
-            "sourceSha256": "ba30a0f078722f566e69c94662b4215b2ef784fcbc7ef4a530b3c22b849c1b48",
-            "violationCount": 3,
-            "violationDigest": "7823a0072887371384bf9cb3f550fb3b931f60c866752007aa0977f17de8e325",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 3
-            }
+            "sourceSha256": "2c659c0cf2a6612b1e0a5979e30d4caa20d1097110bc7639f5ac1bb48c24070b",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test/verify-temporal-replay.mjs",
@@ -16961,12 +16685,10 @@
         },
         {
             "path": "tools/testing/generate-test-execution-envelope-applicability.mjs",
-            "sourceSha256": "7ad0607364bc8d6c5c027d91a0dce873d24d7792648084c4957f3b79621d053e",
-            "violationCount": 1,
-            "violationDigest": "c1de46de131a05a0da7af6de1557cb63224a8dccde679fecde497b0780836ded",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "294994aa52cb4b07a05b5efd58e77a6b3189c48b561a744c570f155e34bf6439",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/transport/summarize-http3-local-evidence.mjs",
