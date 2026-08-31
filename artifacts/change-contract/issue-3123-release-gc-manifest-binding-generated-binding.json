@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/storage/release-gc.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "docs/releases/blue-green-deployment-runbook.md",
+            "sha256": "925569872034f314991a9c096426c12dd08f21ce654d379b10cd544a84efb1bc"
+        }
+    ]
+}

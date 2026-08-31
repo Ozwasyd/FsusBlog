@@ -109,7 +109,7 @@ render: key-value-table
 | activeAssetReasons | ["active","minimum-retention-count"] |
 | activeIdentity | ["activeImageDigest","activeReleaseId","activeSlot"] |
 | artifactProtectionAuthorityState | observed-in-release-gc-plan-probe |
-| authorityModules | {"releaseAssetsGc":{"sourceDigest":"6b81a4b46d4d479479bb37ff85d79ac18a016b4872384f94fcb5fcc7416c02b3","sourcePath":"tools/storage/release-gc.mjs"},"rollout":{"sourceDigest":"cbb0f9a9189c24adb9266a7d11e4ff69f1b40f6ec090d565bdd4788335e17d0b","sourcePath":"tools/deployment/release-rollout-lib.mjs"},"slot":{"sourceDigest":"a8ec1666cf92eee86e02d652b90cdcbedb04f1470d01ab66fa25a37cf7931d73","sourcePath":"tools/deployment/slot-lib.mjs"}} |
+| authorityModules | {"releaseAssetsGc":{"sourceDigest":"a3f58a2b3bc6f9d0f0d1a6e0014586beaba87c0eb3715ff7d508a9b03141fb4e","sourcePath":"tools/storage/release-gc.mjs"},"rollout":{"sourceDigest":"cbb0f9a9189c24adb9266a7d11e4ff69f1b40f6ec090d565bdd4788335e17d0b","sourcePath":"tools/deployment/release-rollout-lib.mjs"},"slot":{"sourceDigest":"a8ec1666cf92eee86e02d652b90cdcbedb04f1470d01ab66fa25a37cf7931d73","sourcePath":"tools/deployment/slot-lib.mjs"}} |
 | authorityState | conflict-unknown |
 | claimEligibilityReasons | ["runtime-ownership-authority-conflict","schema-protection-authority-missing","volume-protection-authority-missing"] |
 | claimEligible | false |

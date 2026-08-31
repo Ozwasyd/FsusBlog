@@ -169,15 +169,20 @@ test('GC apply rejects stale protection, plan tamper, extra state, symlink and p
     releaseId: sourceRelease, slot: 'blue', imageDigest: sourceDigest,
     deploymentGeneration: 1, rolloutId: 'deploy-release-2981'
   }
+  const reviewedDryRun = executeReleaseAssetGc({ storeDirectory: store, state })
   assert.throws(() => executeReleaseAssetGc({
     storeDirectory: store, state, apply: true, activeProtection: protection,
-    refreshProtection: () => ({ ...protection, rolloutId: 'other-operation-2981' })
+    refreshProtection: () => ({ ...protection, rolloutId: 'other-operation-2981' }),
+    reviewedDryRun
   }), /changed after GC planning/u)
   assert.equal(fs.existsSync(orphan), true)
 
   const plan = planReleaseAssetGc({ storeDirectory: store, state })
   const tampered = structuredClone(plan)
-  tampered.releases.find(item => item.releaseId === sourceRelease).action = 'delete'
+  const tamperedActive = tampered.releases.find(item => item.releaseId === sourceRelease)
+  tamperedActive.action = 'delete'
+  tamperedActive.protected = false
+  tamperedActive.reasons = []
   assert.throws(() => verifyReleaseAssetGcPlan(tampered), /digest/u)
   assert.throws(() => normalizeGcState({ ...state, unknownIdentity: sourceRelease }), /closed exact/u)
 
@@ -187,7 +192,8 @@ test('GC apply rejects stale protection, plan tamper, extra state, symlink and p
   fs.utimesSync(orphan, new Date('2020-01-01T00:00:00Z'), new Date('2020-01-01T00:00:00Z'))
   assert.throws(() => executeReleaseAssetGc({
     storeDirectory: store, state, apply: true, activeProtection: protection,
-    refreshProtection: () => protection
+    refreshProtection: () => protection,
+    reviewedDryRun
   }), /symlink/u)
   assert.equal(fs.existsSync(active), true)
   assert.equal(fs.existsSync(orphan), true)
@@ -226,9 +232,16 @@ test('artifact GC CLI holds deployment and storage locks and deletes only an exa
   fs.writeFileSync(retentionState, `${JSON.stringify({
     ...retention(sourceRelease), previousReleaseId: targetRelease
   })}\n`)
+  const reviewedDryRun = path.join(directory, 'gc-dry-run.json')
+  const dryRun = spawnSync(process.execPath, [
+    'tools/storage/gc-release-assets.mjs', '--dry-run', '--store', store,
+    '--state', retentionState, '--out', reviewedDryRun
+  ], { cwd: root, encoding: 'utf8' })
+  assert.equal(dryRun.status, 0, dryRun.stderr)
   const result = spawnSync(process.execPath, [
     'tools/storage/gc-release-assets.mjs', '--apply', '--store', store,
     '--state', retentionState, '--slot-state', slotState, '--rollout-state', rolloutState,
+    '--reviewed-dry-run', reviewedDryRun,
     '--deployment-lock', path.join(directory, 'deployment.lock'), '--out', evidence
   ], { cwd: root, encoding: 'utf8' })
   assert.equal(result.status, 0, result.stderr)
