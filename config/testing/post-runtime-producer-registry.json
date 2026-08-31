@@ -48,6 +48,14 @@
     "observationClasses": {
         "route-response-error": {
             "schema": "fsusblog.observation.route-response-error.v1",
+            "sourceReceipt": {
+                "schema": "fsusblog.runtime-observation-probe.v1",
+                "role": "probe",
+                "discriminator": {
+                    "field": "kind",
+                    "value": "route-response-error"
+                }
+            },
             "requiredIdentityFields": [
                 "sourceCommit",
                 "worktreeFingerprint",
@@ -83,6 +91,11 @@
         },
         "aot-spa-hydration": {
             "schema": "fsusblog.observation.aot-spa-hydration.v1",
+            "sourceReceipt": {
+                "schema": "fsusblog.aot-spa-hydration-source-bundle.v1",
+                "role": "aot",
+                "discriminator": null
+            },
             "requiredIdentityFields": [
                 "sourceCommit",
                 "worktreeFingerprint",
@@ -118,6 +131,14 @@
         },
         "cache-search-outbox-convergence": {
             "schema": "fsusblog.observation.cache-search-outbox.v1",
+            "sourceReceipt": {
+                "schema": "fsusblog.runtime-observation-probe.v1",
+                "role": "probe",
+                "discriminator": {
+                    "field": "kind",
+                    "value": "cache-search-outbox-convergence"
+                }
+            },
             "requiredIdentityFields": [
                 "sourceCommit",
                 "worktreeFingerprint",
@@ -153,6 +174,14 @@
         },
         "session-cookie-runtime": {
             "schema": "fsusblog.observation.session-cookie-runtime.v1",
+            "sourceReceipt": {
+                "schema": "fsusblog.runtime-observation-probe.v1",
+                "role": "probe",
+                "discriminator": {
+                    "field": "kind",
+                    "value": "session-cookie-runtime"
+                }
+            },
             "requiredIdentityFields": [
                 "sourceCommit",
                 "worktreeFingerprint",
@@ -191,6 +220,11 @@
         },
         "browser-behavior-contract": {
             "schema": "fsusblog.browser-contract-receipt.v2",
+            "sourceReceipt": {
+                "schema": "fsusblog.browser-contract-receipt.v2",
+                "role": "browser",
+                "discriminator": null
+            },
             "requiredIdentityFields": [
                 "sourceCommit",
                 "worktreeFingerprint",
@@ -228,6 +262,11 @@
         },
         "release-identity-readiness": {
             "schema": "fsusblog.observation.release-identity-readiness.v1",
+            "sourceReceipt": {
+                "schema": "fsusblog.release-identity-readiness-authority-bundle.v1",
+                "role": "release-authority",
+                "discriminator": null
+            },
             "requiredIdentityFields": [
                 "sourceCommit",
                 "worktreeFingerprint",
@@ -265,6 +304,11 @@
         },
         "blue-green-containment": {
             "schema": "fsusblog.observation.blue-green-containment.v1",
+            "sourceReceipt": {
+                "schema": "fsusblog.blue-green-containment-authority-bundle.v1",
+                "role": "blue-green-authority",
+                "discriminator": null
+            },
             "requiredIdentityFields": [
                 "sourceCommit",
                 "worktreeFingerprint",
