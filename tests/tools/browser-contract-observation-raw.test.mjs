@@ -304,7 +304,8 @@ test('browser raw verifier reopens every dependency and rejects source or projec
 
   fs.appendFileSync(value.publicPreviewFile, ' ')
   assert.throws(() => verifyBrowserContractRaw(
-    value.rawPath, value.repositoryRoot, value.relative(value.planFile)), /public-preview evidence is non-qualifying/u)
+    value.rawPath, value.repositoryRoot, value.relative(value.planFile)),
+  /(?:public-preview evidence is non-qualifying|browser upstream public preview evidence file digest mismatch)/u)
 
   fs.writeFileSync(value.publicPreviewFile, `${JSON.stringify(value.publicPreviewEvidence, null, 2)}\n`)
   const repairedBrowser = sealBrowserContractReceipt({

@@ -160,7 +160,8 @@ test('verifier rejects canonical Browser Contract bytes changed after source bun
   const rawPath = value.observationPaths['aot-spa-hydration']
   fs.writeFileSync(path.join(root, rawPath), `${JSON.stringify(receipt, null, 2)}\n`)
   fs.appendFileSync(value.browserFile, ' ')
-  assert.throws(() => verifyAotSpaHydrationRaw(rawPath, root, value.relative(value.planFile)), /browserContract evidence bytes changed/u)
+  assert.throws(() => verifyAotSpaHydrationRaw(rawPath, root, value.relative(value.planFile)),
+    /(?:browserContract evidence bytes changed|aot upstream evidence browserContract file digest mismatch)/u)
 })
 
 test('verifier rejects immutable production manifest drift', (context) =>
