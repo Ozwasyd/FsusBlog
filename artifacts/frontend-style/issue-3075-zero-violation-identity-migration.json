@@ -1,0 +1,7 @@
+{
+    "schema": "fsusblog.test-asset-semantic-renames.v1",
+    "referenceFiles": [
+        "tests/frontend/checks/public/check-public-header-material.mjs"
+    ],
+    "renames": []
+}

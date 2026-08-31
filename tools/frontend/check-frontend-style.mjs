@@ -12,7 +12,17 @@ const defaultPolicyPath = 'config/development/frontend-style-policy.json';
 const policySchema = 'fsusblog.frontend-style-policy.v1';
 const registrySchema = 'fsusblog.frontend-style-rule-registry.v1';
 const baselineSchema = 'fsusblog.frontend-style-baseline.v1';
+const baselineClassificationSchema = 'fsusblog.frontend-style-baseline-classification.v1';
 const validModes = new Set(['changed', 'full', 'strict-full']);
+const reviewedClassificationRules = new Map([
+    ['owner-module-parent-import', new Set(['eslint/import-x/no-relative-parent-imports'])],
+    ['fixture-retained-symbol', new Set(['eslint/no-unused-vars', 'eslint/@typescript-eslint/no-unused-vars'])],
+    ['owner-module-parent-import-and-fixture-symbol', new Set([
+        'eslint/import-x/no-relative-parent-imports',
+        'eslint/no-unused-vars',
+        'eslint/@typescript-eslint/no-unused-vars'
+    ])]
+]);
 
 let root = defaultRoot;
 let policy = null;
@@ -45,7 +55,16 @@ function parseArgs(argv)
             parsed.pruneRemovedBaselinePaths = true;
             continue;
         }
-        if (!['--root', '--policy', '--mode', '--base', '--file', '--migrate-baseline-configuration', '--migrate-baseline-paths'].includes(argument))
+        if (![
+            '--root',
+            '--policy',
+            '--mode',
+            '--base',
+            '--file',
+            '--migrate-baseline-configuration',
+            '--migrate-baseline-paths',
+            '--reviewed-baseline-classification'
+        ].includes(argument))
         {
             throw new Error(`unknown argument ${argument}`);
         }
@@ -65,6 +84,10 @@ function parseArgs(argv)
         else if (argument === '--migrate-baseline-paths')
         {
             parsed.migrateBaselinePaths = value;
+        }
+        else if (argument === '--reviewed-baseline-classification')
+        {
+            parsed.reviewedBaselineClassification = value;
         }
         else
         {
@@ -509,6 +532,168 @@ function loadBaseline()
     return new Map(document.files.map((entry) => [entry.path, entry]));
 }
 
+function exactObjectKeys(value, expected)
+{
+    if (!value || typeof value !== 'object' || Array.isArray(value))
+    {
+        return false;
+    }
+    const actual = Object.keys(value).sort(compareOrdinal);
+    return JSON.stringify(actual) === JSON.stringify([...expected].sort(compareOrdinal));
+}
+
+function gitCommitIsAncestor(commit)
+{
+    return command(['git', 'merge-base', '--is-ancestor', commit, 'HEAD'], { allowFailure: true }).status === 0;
+}
+
+function gitCommitTouchesPath(commit, file)
+{
+    const result = command([
+        'git',
+        'diff-tree',
+        '--root',
+        '--no-commit-id',
+        '--name-only',
+        '-r',
+        commit,
+        '--',
+        file
+    ], { allowFailure: true });
+    return result.status === 0 && result.stdout.split(/\r?\n/u).includes(file);
+}
+
+function validateReviewedBaselineClassification(classificationPath, rejections)
+{
+    if (!classificationPath)
+    {
+        for (const rejection of rejections)
+        {
+            fail(rejection.message);
+        }
+        return false;
+    }
+
+    const absolute = path.resolve(root, classificationPath);
+    const relative = normalizeFile(absolute);
+    const document = readJson(absolute, relative);
+    if (!document)
+    {
+        return false;
+    }
+    if (!exactObjectKeys(document, ['schema', 'reviewIssue', 'entries'])
+        || document.schema !== baselineClassificationSchema
+        || !Number.isInteger(document.reviewIssue)
+        || document.reviewIssue <= 0
+        || !Array.isArray(document.entries)
+        || document.entries.length === 0)
+    {
+        fail(`reviewed frontend style baseline classification ${relative} is not a closed ${baselineClassificationSchema} document`);
+        return false;
+    }
+
+    const byPath = new Map();
+    for (const entry of document.entries)
+    {
+        if (!exactObjectKeys(entry, [
+            'path',
+            'rejectionKind',
+            'previousViolationCount',
+            'currentViolationCount',
+            'currentSourceSha256',
+            'currentViolationDigest',
+            'currentRules',
+            'category',
+            'sourceOwnerCommit',
+            'relatedIssues',
+            'reason',
+            'terminalCondition'
+        ]))
+        {
+            fail(`reviewed frontend style baseline classification entry has unknown or missing fields: ${entry?.path ?? '<unknown>'}`);
+            continue;
+        }
+        if (typeof entry.path !== 'string'
+            || entry.path.length === 0
+            || path.isAbsolute(entry.path)
+            || entry.path.split('/').includes('..')
+            || entry.path.includes('*')
+            || entry.path.includes('\\')
+            || byPath.has(entry.path))
+        {
+            fail(`reviewed frontend style baseline classification has invalid or duplicate path ${entry.path ?? '<unknown>'}`);
+            continue;
+        }
+        byPath.set(entry.path, entry);
+    }
+
+    const expectedPaths = rejections.map(({ path: file }) => file).sort(compareOrdinal);
+    const actualPaths = [...byPath.keys()].sort(compareOrdinal);
+    if (JSON.stringify(actualPaths) !== JSON.stringify(expectedPaths))
+    {
+        const missing = expectedPaths.filter((file) => !byPath.has(file));
+        const extra = actualPaths.filter((file) => !expectedPaths.includes(file));
+        fail(`reviewed frontend style baseline classification must exactly match residual rejections; missing=${missing.join(',') || '<none>'} extra=${extra.join(',') || '<none>'}`);
+    }
+
+    for (const rejection of rejections)
+    {
+        const entry = byPath.get(rejection.path);
+        if (!entry)
+        {
+            continue;
+        }
+        const allowedRules = reviewedClassificationRules.get(entry.category);
+        const actualRuleIds = Object.keys(rejection.current.rules).sort(compareOrdinal);
+        const allowedRuleIds = allowedRules ? [...allowedRules].sort(compareOrdinal) : [];
+        const categoryMatchesPath = entry.category === 'owner-module-parent-import'
+            ? /^(tests|tools)\//u.test(entry.path)
+            : /^(tests|tools\/test-fixtures)\//u.test(entry.path);
+        const categoryMatchesRules = allowedRules
+            && actualRuleIds.length > 0
+            && actualRuleIds.every((rule) => allowedRules.has(rule))
+            && (entry.category !== 'owner-module-parent-import-and-fixture-symbol'
+                || (actualRuleIds.includes('eslint/import-x/no-relative-parent-imports')
+                    && actualRuleIds.some((rule) => rule.endsWith('/no-unused-vars'))));
+        if (!categoryMatchesPath || !categoryMatchesRules)
+        {
+            fail(`reviewed frontend style baseline classification category ${entry.category} cannot own ${entry.path} rules=${actualRuleIds.join(',')} allowed=${allowedRuleIds.join(',')}`);
+        }
+        if (entry.rejectionKind !== rejection.rejectionKind
+            || entry.previousViolationCount !== rejection.previousViolationCount
+            || entry.currentViolationCount !== rejection.current.violationCount
+            || entry.currentSourceSha256 !== rejection.current.sourceSha256
+            || entry.currentViolationDigest !== rejection.current.violationDigest
+            || JSON.stringify(entry.currentRules) !== JSON.stringify(rejection.current.rules))
+        {
+            fail(`reviewed frontend style baseline classification is stale for ${entry.path}`);
+        }
+        if (!/^[0-9a-f]{40}$/u.test(entry.sourceOwnerCommit)
+            || !gitCommitIsAncestor(entry.sourceOwnerCommit)
+            || !gitCommitTouchesPath(entry.sourceOwnerCommit, entry.path))
+        {
+            fail(`reviewed frontend style baseline classification owner commit is not an ancestor touching ${entry.path}`);
+        }
+        if (!Array.isArray(entry.relatedIssues)
+            || entry.relatedIssues.length === 0
+            || new Set(entry.relatedIssues).size !== entry.relatedIssues.length
+            || entry.relatedIssues.some((issue) => !Number.isInteger(issue) || issue <= 0)
+            || !entry.relatedIssues.includes(document.reviewIssue))
+        {
+            fail(`reviewed frontend style baseline classification issues are invalid for ${entry.path}`);
+        }
+        if (typeof entry.reason !== 'string' || entry.reason.trim().length < 24)
+        {
+            fail(`reviewed frontend style baseline classification reason is incomplete for ${entry.path}`);
+        }
+        if (entry.terminalCondition !== 'source-content-change')
+        {
+            fail(`reviewed frontend style baseline classification terminal condition is invalid for ${entry.path}`);
+        }
+    }
+    return failures.length === 0;
+}
+
 function writeBaseline(violations, selectedFiles, args)
 {
     const target = path.join(root, policy.baseline);
@@ -572,6 +757,7 @@ function writeBaseline(violations, selectedFiles, args)
         {
             fail('refusing unnecessary frontend style baseline configuration migration authorization');
         }
+        const rejections = [];
         for (const current of currentByPath.values())
         {
             const prior = previousByPath.get(current.path)
@@ -580,13 +766,25 @@ function writeBaseline(violations, selectedFiles, args)
             {
                 if (!identityMigrationFiles.has(current.path) || current.violationCount > 0)
                 {
-                    fail(`refusing new frontend style baseline path ${current.path} with ${current.violationCount} violations`);
+                    rejections.push({
+                        path: current.path,
+                        rejectionKind: 'new-path',
+                        previousViolationCount: null,
+                        current,
+                        message: `refusing new frontend style baseline path ${current.path} with ${current.violationCount} violations`
+                    });
                 }
                 continue;
             }
             if (current.violationCount > prior.violationCount)
             {
-                fail(`refusing frontend style baseline violation increase for ${current.path}: ${prior.violationCount} -> ${current.violationCount}`);
+                rejections.push({
+                    path: current.path,
+                    rejectionKind: 'violation-increase',
+                    previousViolationCount: prior.violationCount,
+                    current,
+                    message: `refusing frontend style baseline violation increase for ${current.path}: ${prior.violationCount} -> ${current.violationCount}`
+                });
             }
             else if (current.violationCount === prior.violationCount
                 && current.violationDigest !== prior.violationDigest
@@ -595,9 +793,16 @@ function writeBaseline(violations, selectedFiles, args)
                     && current.sourceSha256 === prior.sourceSha256
                     && JSON.stringify(current.rules) === JSON.stringify(prior.rules)))
             {
-                fail(`refusing frontend style baseline violation identity change without count decrease for ${current.path}`);
+                rejections.push({
+                    path: current.path,
+                    rejectionKind: 'identity-change',
+                    previousViolationCount: prior.violationCount,
+                    current,
+                    message: `refusing frontend style baseline violation identity change without count decrease for ${current.path}`
+                });
             }
         }
+        validateReviewedBaselineClassification(args.reviewedBaselineClassification, rejections);
         const emptyViolationDigest = sha256('');
         const nextFiles = [];
         for (const prior of previous.files)
@@ -691,7 +896,7 @@ function validateConfiguration()
     {
         fail(`policy schema must be ${policySchema}`);
     }
-    for (const field of ['baseline', 'ruleRegistry', 'eslintConfig', 'stylelintConfig'])
+    for (const field of ['baseline', 'baselineClassificationSchema', 'ruleRegistry', 'eslintConfig', 'stylelintConfig'])
     {
         if (typeof policy[field] !== 'string' || !policy[field])
         {
@@ -700,6 +905,7 @@ function validateConfiguration()
     }
     for (const file of [
         policy.ruleRegistry,
+        policy.baselineClassificationSchema,
         policy.eslintConfig,
         policy.stylelintConfig,
         policy.toolchain?.package,
@@ -819,6 +1025,10 @@ function main()
         && !args.updateBaseline)
     {
         throw new Error('baseline migration options require --update-baseline');
+    }
+    if (args.reviewedBaselineClassification && !args.updateBaseline)
+    {
+        throw new Error('reviewed baseline classification requires --update-baseline');
     }
     if (args.fix && args.mode === 'full' && args.files.length === 0)
     {

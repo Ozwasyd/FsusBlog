@@ -1,6 +1,7 @@
 {
     "schema": "fsusblog.frontend-style-policy.v1",
     "baseline": "config/development/frontend-style-baseline.json",
+    "baselineClassificationSchema": "config/schemas/frontend-style-baseline-classification.schema.json",
     "ruleRegistry": "config/development/frontend-style-rule-registry.json",
     "eslintConfig": "eslint.config.mjs",
     "stylelintConfig": "stylelint.config.mjs",
@@ -8,6 +9,7 @@
         ".editorconfig",
         "eslint.config.mjs",
         "stylelint.config.mjs",
+        "config/schemas/frontend-style-baseline-classification.schema.json",
         "src/frontend/eslint.config.mjs",
         "src/frontend/stylelint.config.mjs",
         "tools/frontend/check-frontend-style.mjs",
@@ -117,6 +119,6 @@
         "scriptPrefix": "check:",
         "count": 214,
         "idsSha256": "061461f5181da9956ad6fa486d3b1c49ea3eb00bfd1b7148295208cab069da89",
-        "definitionsSha256": "4ade8bea26f512f2e59b9336f1288e6879be0765d6f4c1a6a98caf69effc8bed"
+        "definitionsSha256": "0f71504fafed77f5661cf16758056d9e523736436a238e2aa72f099b5cb7daba"
     }
 }

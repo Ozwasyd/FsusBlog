@@ -48,6 +48,11 @@ function createFixture()
         'config/development/frontend-style-rule-registry.json',
         readFileSync(path.join(root, sourcePolicy.ruleRegistry), 'utf8')
     );
+    writeFixture(
+        fixtureRoot,
+        sourcePolicy.baselineClassificationSchema,
+        readFileSync(path.join(root, sourcePolicy.baselineClassificationSchema), 'utf8')
+    );
     const policy = {
         ...sourcePolicy,
         baseline: 'config/development/frontend-style-baseline.json',
@@ -452,6 +457,178 @@ test('frontend style governance baseline updates preserve paths and reject viola
         assert.notEqual(increased.status, 0);
         assert.match(output(increased), /refusing frontend style baseline violation increase for tools\/legacy\/existing-tool\.mjs/u);
         assert.equal(readFileSync(baselinePath, 'utf8'), before);
+    });
+});
+
+test('frontend style governance accepts only exact reviewed residual owner classifications', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const ownerPath = 'tools/legacy/reviewed-owner.mjs';
+        const reviewedPath = 'tests/tools/reviewed-owner.test.mjs';
+        const classificationPath = 'artifacts/frontend-style/reviewed-baseline-classification.json';
+        const git = (args, options = {}) => spawnSync('git', args, {
+            cwd: fixtureRoot,
+            encoding: 'utf8',
+            env: {
+                ...process.env,
+                GIT_AUTHOR_NAME: 'Frontend Style Fixture',
+                GIT_AUTHOR_EMAIL: 'frontend-style@example.invalid',
+                GIT_COMMITTER_NAME: 'Frontend Style Fixture',
+                GIT_COMMITTER_EMAIL: 'frontend-style@example.invalid'
+            },
+            ...options
+        });
+        const expectGit = (args, options = {}) =>
+        {
+            const result = git(args, options);
+            assert.equal(result.status, 0, output(result));
+            return result.stdout.trim();
+        };
+        writeFixture(fixtureRoot, ownerPath, `export function readValue(value)
+{
+    return value;
+}
+`);
+        const initial = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.equal(initial.status, 0, output(initial));
+        const baselinePath = path.join(fixtureRoot, sourcePolicy.baseline);
+        const baselineBeforeReview = readFileSync(baselinePath, 'utf8');
+
+        writeFixture(fixtureRoot, '.gitignore', '.tmp/\ntools/frontend/style-toolchain\n');
+        expectGit(['init', '--initial-branch=master']);
+        expectGit(['add', '.']);
+        expectGit(['commit', '-m', 'test: establish frontend style fixture baseline']);
+        const baselineOwnerCommit = expectGit(['rev-parse', 'HEAD']);
+
+        writeFixture(fixtureRoot, reviewedPath, `import { readValue } from '../../tools/legacy/reviewed-owner.mjs';
+
+export function readOwnerValue(value)
+{
+    return readValue(value);
+}
+`);
+        expectGit(['add', reviewedPath]);
+        expectGit(['commit', '-m', 'test: add reviewed owner import fixture']);
+        const sourceOwnerCommit = expectGit(['rev-parse', 'HEAD']);
+
+        const rejected = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.notEqual(rejected.status, 0);
+        assert.match(output(rejected), /refusing new frontend style baseline path tests\/tools\/reviewed-owner\.test\.mjs with 1 violations/u);
+        const strict = runChecker(fixtureRoot, ['--mode', 'strict-full', '--file', reviewedPath]);
+        const diagnosticPattern = new RegExp(`^\\[frontend-style\\] ${reviewedPath.replaceAll('.', '\\.')}:([0-9]+):([0-9]+) eslint/import-x/no-relative-parent-imports: (.+)$`, 'mu');
+        const diagnostic = diagnosticPattern.exec(output(strict));
+        assert.ok(diagnostic, output(strict));
+        const normalizedMessage = diagnostic[3].replace(/\s+/gu, ' ').trim();
+        const violationId = `eslint:import-x/no-relative-parent-imports:${reviewedPath}:${diagnostic[1]}:${diagnostic[2]}:${createHash('sha256').update(normalizedMessage).digest('hex').slice(0, 16)}`;
+        const sourceSha256 = createHash('sha256')
+            .update(readFileSync(path.join(fixtureRoot, reviewedPath)))
+            .digest('hex');
+        const classification = {
+            schema: 'fsusblog.frontend-style-baseline-classification.v1',
+            reviewIssue: 3075,
+            entries: [{
+                path: reviewedPath,
+                rejectionKind: 'new-path',
+                previousViolationCount: null,
+                currentViolationCount: 1,
+                currentSourceSha256: sourceSha256,
+                currentViolationDigest: createHash('sha256').update(violationId).digest('hex'),
+                currentRules: {
+                    'eslint/import-x/no-relative-parent-imports': 1
+                },
+                category: 'owner-module-parent-import',
+                sourceOwnerCommit,
+                relatedIssues: [3075],
+                reason: 'The contract test imports the repository owner that it executes.',
+                terminalCondition: 'source-content-change'
+            }]
+        };
+        const writeClassification = (document) => writeFixture(
+            fixtureRoot,
+            classificationPath,
+            `${JSON.stringify(document, null, 4)}\n`
+        );
+        const runReviewedUpdate = () => runChecker(fixtureRoot, [
+            '--mode', 'full',
+            '--update-baseline',
+            '--reviewed-baseline-classification', classificationPath
+        ]);
+        writeClassification(classification);
+        const accepted = runReviewedUpdate();
+        assert.equal(accepted.status, 0, output(accepted));
+
+        const mutations = [
+            {
+                name: 'missing',
+                mutate: (document) => ({ ...document, entries: [] }),
+                expected: /not a closed fsusblog\.frontend-style-baseline-classification\.v1 document/u
+            },
+            {
+                name: 'extra',
+                mutate: (document) => ({ ...document, entries: [...document.entries, { ...document.entries[0], path: ownerPath }] }),
+                expected: /must exactly match residual rejections/u
+            },
+            {
+                name: 'source digest',
+                mutate: (document) => ({ ...document, entries: [{ ...document.entries[0], currentSourceSha256: '0'.repeat(64) }] }),
+                expected: /classification is stale/u
+            },
+            {
+                name: 'violation digest',
+                mutate: (document) => ({ ...document, entries: [{ ...document.entries[0], currentViolationDigest: '0'.repeat(64) }] }),
+                expected: /classification is stale/u
+            },
+            {
+                name: 'rules',
+                mutate: (document) => ({ ...document, entries: [{ ...document.entries[0], currentRules: { 'eslint/import-x/no-relative-parent-imports': 2 } }] }),
+                expected: /classification is stale/u
+            },
+            {
+                name: 'owner does not touch path',
+                mutate: (document) => ({ ...document, entries: [{ ...document.entries[0], sourceOwnerCommit: baselineOwnerCommit }] }),
+                expected: /owner commit is not an ancestor touching/u
+            },
+            {
+                name: 'wrong category',
+                mutate: (document) => ({ ...document, entries: [{ ...document.entries[0], category: 'fixture-retained-symbol' }] }),
+                expected: /category fixture-retained-symbol cannot own/u
+            },
+            {
+                name: 'missing review issue',
+                mutate: (document) => ({ ...document, entries: [{ ...document.entries[0], relatedIssues: [1] }] }),
+                expected: /classification issues are invalid/u
+            },
+            {
+                name: 'expired terminal condition',
+                mutate: (document) => ({ ...document, entries: [{ ...document.entries[0], terminalCondition: 'never' }] }),
+                expected: /terminal condition is invalid/u
+            },
+            {
+                name: 'wildcard path',
+                mutate: (document) => ({ ...document, entries: [{ ...document.entries[0], path: 'tests/tools/*.mjs' }] }),
+                expected: /invalid or duplicate path/u
+            }
+        ];
+        for (const mutation of mutations)
+        {
+            writeFileSync(baselinePath, baselineBeforeReview);
+            writeClassification(mutation.mutate(structuredClone(classification)));
+            const result = runReviewedUpdate();
+            assert.notEqual(result.status, 0, `${mutation.name}\n${output(result)}`);
+            assert.match(output(result), mutation.expected, mutation.name);
+        }
+
+        const tree = expectGit(['rev-parse', 'HEAD^{tree}']);
+        const orphanOwner = expectGit(['commit-tree', tree], { input: 'orphan owner\n' });
+        writeFileSync(baselinePath, baselineBeforeReview);
+        writeClassification({
+            ...classification,
+            entries: [{ ...classification.entries[0], sourceOwnerCommit: orphanOwner }]
+        });
+        const reversedOwner = runReviewedUpdate();
+        assert.notEqual(reversedOwner.status, 0);
+        assert.match(output(reversedOwner), /owner commit is not an ancestor touching/u);
     });
 });
 

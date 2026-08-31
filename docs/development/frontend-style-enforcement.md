@@ -59,6 +59,10 @@ Regenerate a reviewed baseline without changing source:
 node tools/frontend/check-frontend-style.mjs --mode full --update-baseline
 ```
 
+The updater remains monotonic by default: it rejects a new path, a violation-count increase or an equal-count identity change. A convergence change may authorize only the exact residual rejection set with `--reviewed-baseline-classification <path>`. The classification is a closed `fsusblog.frontend-style-baseline-classification.v1` document and must bind every path to its exact source digest, violation digest, rule counts, ancestor owner commit, review issue, reason and `source-content-change` terminal condition. Missing, extra, stale, wildcard, reversed-owner and non-owner entries fail closed.
+
+Reviewed classification is limited to existing module ownership: exact parent-directory imports in `tests/**` or `tools/**`, and necessary retained fixture symbols in `tests/**` or `tools/test-fixtures/**`. It is accepted only during `--update-baseline`; it does not suppress changed-file or `strict-full` findings, cannot authorize any other semantic rule, and cannot be reused after source content changes.
+
 The runner refuses a repository-wide `--fix`. `npm --prefix src/frontend run format:fix` fixes changed files only, and AST fixers must be idempotent. ESLint uses a content cache under ignored `.tmp/frontend-style/` so unchanged work is resumed rather than parsed repeatedly.
 
 ## Governance preservation

@@ -1,0 +1,2508 @@
+{
+    "schema": "fsusblog.frontend-style-baseline-classification.v1",
+    "reviewIssue": 3075,
+    "entries": [
+        {
+            "path": "tests/browser-contract/default-fixture-provider.mjs",
+            "rejectionKind": "identity-change",
+            "previousViolationCount": 4,
+            "currentViolationCount": 4,
+            "currentSourceSha256": "b6b5d9970b556471b2b7576c2c004d89e109f72f2e96363e077ec1c24331c357",
+            "currentViolationDigest": "59c19159912ebf2add49f759f991e583789c64a7f74bdb2857e7d73bd9ac6fc3",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 4
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "78028994e311a24066447bd35906d3ab959a5aa1",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/frontend/checks/runtime/binary-contract-smoke.mjs",
+            "rejectionKind": "identity-change",
+            "previousViolationCount": 4,
+            "currentViolationCount": 4,
+            "currentSourceSha256": "d4d8cfa4babeaa4877b3a1b67e01a7e0b0d417192f49656a3c4745b5dfaa52b1",
+            "currentViolationDigest": "66f4882e56a9032223a06a815eee9c75083a94cd2053910055a518fa63e8b09d",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 4
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "021cccb82bd0e71a1722b2a674aad58bc1e4ed99",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/frontend/support/session-fixtures.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "986620f5f029a4144a932c12fcdbff9d1f28008fd2c08cee7658031e6e399516",
+            "currentViolationDigest": "cf0b03b786c78109bb6d1867589ffbbf81de5b94667e20b555631db4a34f566d",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "e49e900bc6588f70abe6f45210a400c4f7a71d6d",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/account-messaging-producer.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 4,
+            "currentSourceSha256": "8b19f6770dff6eaba96e8613f12918ad45d372e85400cd50f8d9fc94df2eac17",
+            "currentViolationDigest": "7fbf70be1185d19a07e31c34ef7bd6a9a1192bf085078e9c89b174d780664a47",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 4
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "d75a7b930ecdf2fc185cdbd0fb55f510222904c6",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/account-profile-preference-producer.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 6,
+            "currentSourceSha256": "c0b1c70579fb29fc87921adddc8f3584661c00e380bd0cd75242cdb7d85802a6",
+            "currentViolationDigest": "f4f44d499fb6bac5949dbe5693050226951bdb8480c5f7fb285223b5e1c71274",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 6
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "215b4c12f038f09f1578bb9137aa46e15fd09d95",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/api-protocol-doc-exactness.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 4,
+            "currentSourceSha256": "fc61d09a6a2204145cc74cf3553b2f6ef6fe442ae536d49d5ae67872a1548f0c",
+            "currentViolationDigest": "c2830bd518fb31c884a8cb8ce6b58b27449e94fd1f588703991c32ca8d8b4d92",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 4
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "7137226fabf62edba1d037e2520dc1b7b60812c2",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/attempt-provenance.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "5e14f843bd97fce547f85af0b9312e2e099c2db24882ed3e89784c400dd7ad79",
+            "currentViolationDigest": "87c01a0f66fb59b1a984728c94f24b5378ec9f84eb43ac52f7bbaff6339a6c13",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "f9b8d1057f5874ff3d73e988aa5a2624cad3fd71",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/audit-fixture-governance.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "83189ce11750f1cc85d0e5b32f18ccabde13c3b46bb5a913844dcbda1c9fda78",
+            "currentViolationDigest": "8439691da3316f9d8013be481d6c1d33f0be3f3c4e16d5653a1630aae354fec4",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "2a6372bad0ade1cc63d22e7ca21590ee6c4cf4f6",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/audit-fixture-producer.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "e8e596cb05fb887686affe03c5c5a8621a89bf81438dd0ce9090dbb99cc58d83",
+            "currentViolationDigest": "82f78f42ac9269007e054765a6db01e91de18f9d5c8a85f1791cd3b548b1e888",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "c01fa43668e94d8e066dccc152d16c0295d9b01a",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/auth-session-fixture-producer.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 4,
+            "currentSourceSha256": "08cfab3f8ece6d64990101bf1b9bfa8567f6d397e7cc5d00f770b04d9b7f224c",
+            "currentViolationDigest": "41563b02ec08c89dd45d25d4b26348de8556c819f3a85be4c0ee22c6ea51d0cb",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 4
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "89a1da581ad6c8f4cbaf0026b28dd66a92525da6",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/backend-production-capacity.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "ded1c7ddd78db1abbda13afa41768ec3dabae232c840f2ea10cadfc278aae49a",
+            "currentViolationDigest": "6c205084139fea6e969efdba29e8f1944f5441743fd92cb7221af6108cfbe56f",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "a2df14cd3ec06e3c450f7b91611bf5e11db100d1",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/backend-production-evidence.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 3,
+            "currentSourceSha256": "5c68c683b418b09aa8b094be7f556cb85bc51b15436047e5967c262f5498332e",
+            "currentViolationDigest": "d1c9644cfaa8d2925698a6c031c439548ab907e2df6f784642772797af50be9d",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 3
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "d153d426862040fd316b249e2a26d21f5e39d507",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/backend-production-plan.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "858c491f01b6b5c7f3b75c64b97288f3926b4b35cc0d35115cd738c27f909436",
+            "currentViolationDigest": "499635e041dceee20063b47c65d2c646eb6cfb18e40792ad80c9cb2c1973d356",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "717cf808d9e2c10548cb0eb243cbe985952e1e86",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/backend-production-platform-boundary.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "b59910df389df06cf2aad46dff0264663313d4e5b8a06200c8c9b81517a5d783",
+            "currentViolationDigest": "d9c16ad999347791436e4984913b06b18e0f218376b1bcdd31f6dd29024a502c",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "a2df14cd3ec06e3c450f7b91611bf5e11db100d1",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/backend-production-rolling.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "f281f7d36500f745d3da19b97293ffd6c31c7359b08bfe5e3012aee6dc8871d3",
+            "currentViolationDigest": "4f897f11e37d43b5d5bc63bd5ae6c7d8d66beaf1a6c1d0459e148d964ac10146",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "a2df14cd3ec06e3c450f7b91611bf5e11db100d1",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "rejectionKind": "violation-increase",
+            "previousViolationCount": 1,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "ba57c4fcfda424b67393c916c56fbd2a08ca552428453d9901e9a36fa7561362",
+            "currentViolationDigest": "c8579a94cde5502fc0b4f1c8f559f414d28ea5a8c2d57fd4e2e05c583698e866",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "6a530ac0c41b56ca89cc85b32b0e79a0e2c48ddf",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/backend-test-governance-cpm.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "05f807d09cb1a8a4acb3722a88bf95c9706ee06ace23dac8fb6971590600de30",
+            "currentViolationDigest": "c87f98e13d1a87afa69b7fb6898c007407243673652d43348f447adead868cfd",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "f5cd1f207369060dc040dda307980f7671457068",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/behavior-doc-exactness.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 3,
+            "currentSourceSha256": "e4cc243076107cfd59040f16ebc17ac3a45991f9e680eaa1ad8edfb0d36f02cf",
+            "currentViolationDigest": "361f1d72483a0f1ba8a502445bb83d73666b0329a9a813a3f9e923e2c5f63504",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 3
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "7809476e98a1319a19feed8d602751e321007bd5",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/behavior-document-consistency-final.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "debb78e069bef0300a8182e7c10b39acc36da1c2bf23d070164cc18f3a6b6ade",
+            "currentViolationDigest": "1a1caef82af66731b498bba7a9575f7f79964c468e02a95d208477134910eab5",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "0f968d5929695d14f1fa77bf53b75d58e8716c3c",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/behavior-evidence-post-runtime.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 4,
+            "currentSourceSha256": "9006ae0585add6299f6c3cc892905f7eb6fdfd1a5aa08de01e62e3ebe521c408",
+            "currentViolationDigest": "444284f7ef2e61df4ce3bfb7da66d19d8bc40794c11d34741acb2b2103fbf16b",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 4
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "0f968d5929695d14f1fa77bf53b75d58e8716c3c",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/behavior-fact-extractors.test.mjs",
+            "rejectionKind": "identity-change",
+            "previousViolationCount": 9,
+            "currentViolationCount": 9,
+            "currentSourceSha256": "fa847fcade6d45e13332a2d160b8959990ab5e081f5af06f22f343e7272e3ca3",
+            "currentViolationDigest": "75f39481bb059313484d138bafeccd3a327eb902bc448dcf12539f1f9de7f40e",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 9
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "7e94e5d7660ab660b3cee843fbc617bad5925a85",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/bounded-channel-contracts.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "3bbde7b568a441d6b48ec6cbaf826f63cc50d552d3ea72228b29ed899ae64902",
+            "currentViolationDigest": "405000ae1146ab32537c0b76a45df2c5d2a5b6567818f8ee1be80a2e748c3225",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "4738831c41ac10cb459a0eb8633346d05dd6e571",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/browser-contract-fixture.test.mjs",
+            "rejectionKind": "violation-increase",
+            "previousViolationCount": 3,
+            "currentViolationCount": 4,
+            "currentSourceSha256": "e34c97848309c253c4bf542e9128a0257a182d6db454a4cc9a2616a671024ff5",
+            "currentViolationDigest": "97492b372f9265eea250e484716772f444321717c7b59e634398ea4143a1044f",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 4
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "78028994e311a24066447bd35906d3ab959a5aa1",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/browser-release-clean-attempt-consumers.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 3,
+            "currentSourceSha256": "f7e6a0f976bfe2f938c7baa80c40d8bab7c4c8e0ea9d5f06ed9258567cddafa1",
+            "currentViolationDigest": "e1a8808afb990cbb8718617402ea14cd45dcf60405da94bbe50a83def714d048",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 3
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "34a7e9a7d7e49561b5855a39158695cf62918b7d",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/build-projection-clean-attempt-consumers.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 3,
+            "currentSourceSha256": "50fc017bcb9d54471eed7d3807027516b7310c266758dd1ec95e1d62af9cb665",
+            "currentViolationDigest": "fa7462394e9d51a8172ce8727f944e2f4707da89a0c9ad6c160d81e8bdd820db",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 3
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "34a7e9a7d7e49561b5855a39158695cf62918b7d",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/content-doc-exactness.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 3,
+            "currentSourceSha256": "31b855e1d810f219d692fe9c26a91b719ca38b75a040ac945f82479183fed55e",
+            "currentViolationDigest": "0b13642ef79077f2045b73521057122e3c2393649f95e0ad5982498856357970",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 3
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "531eabbd9a366aca524c1c542df3b8acc433e0bf",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/content-shape-catalog.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 3,
+            "currentSourceSha256": "cff72e89dcfab92047ec3211d6e0ee06e0e8f2f0706c25f674df6d0f92e7818f",
+            "currentViolationDigest": "493c74b7a6fb90a276ee54d9fdc48211b84aaa06202f9b5da2bf3dc5a7152d94",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 3
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "cb0a7dd8f417ca66a8e95d6d2eddc0c21b149dd6",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/content-shape-generator.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "9a34d8b5f4b5c7373edb294633beb47b0277971aab45f8bf9f5ce960c1cd7d0d",
+            "currentViolationDigest": "b22e1fac08880dc7d09ad9b48de715286e23d1ca021daeaac10a467f3193cdea",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "cb0a7dd8f417ca66a8e95d6d2eddc0c21b149dd6",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/correctness-attempt-browser-contract.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "11b3a39c0dfb3e8f7590964aff31c4932a51abac44bdafb4536868252f6445ed",
+            "currentViolationDigest": "ff61dcf90c355a983d0388f77f8643229da3999c538503ed742b8c29cfb8fe5d",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "34a7e9a7d7e49561b5855a39158695cf62918b7d",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/correctness-attempt-build-release.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "236635d0354ca191e7822c93677a6de8af9907eb1262163f871d86d817e1bcaa",
+            "currentViolationDigest": "a7fc3965aacbc3eb88c62ab50172403ebd0353452c0238180aef51ffc0f40842",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "34a7e9a7d7e49561b5855a39158695cf62918b7d",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/correctness-attempt-migration.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "be7281218be848de6a5d39b90a2e0842ae96275c2d013028cbe3ac33d2be2cba",
+            "currentViolationDigest": "511bc02f4ed1837381877ef39f1252d5439affc14ce9f78ff9d1a60d96f9f4ab",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "30cfbea8c7c17fe0a2e390cc94cf06c685f5b709",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/correctness-attempt-test-producers.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "2e1beaba2a4e0ccac5bcc38288584e2f3f07217a2f555d895aa31d3eb56f2b22",
+            "currentViolationDigest": "17ec79d88a3e6580600f484a08a15117bd51c2e23885e726c03a9d146b6d6558",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "34a7e9a7d7e49561b5855a39158695cf62918b7d",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/cross-authority-dag.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "89c6ab0d1636f09edb7ea9e6e093f8b1cba2a42eeb747ab1e22a5f86cc246ca3",
+            "currentViolationDigest": "72cae241f8c698b01ad545f5bd89fa274fc6ef98a2e48fdbef46cfff9308d650",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "a1a78ca202fcd4ced1c5300578c30588e5851484",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/current-run-evidence-locator-negative-matrix.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 7,
+            "currentSourceSha256": "d8863aa7eadc4dc5a57b1e5372813c98493603e0b1593ceaa638bfe0a6d04b8b",
+            "currentViolationDigest": "c46f86f1fe631f9dba1d04a14743c9990545618b2e211d209b6dbee0f4675309",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 7
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "f441dde73cbffb52ba3b0a8f0edaefa2145a3c34",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/current-run-evidence-locator.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "e7bb2c8ccbb3cfc8c70dbb57570b2a9b0e9a6b74903817dea1b060bb7c83029b",
+            "currentViolationDigest": "4b58b5c69f85268665afc0294f3e50aa9e9642e2b2a60ea314c93aaf02edccf7",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "0aa283d96d7bfb7a899a252f63bd9d01ee54f266",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/current-run-evidence-publication.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 3,
+            "currentSourceSha256": "dabe350610e645e3ceb3e14b32fa26b7229a49968ec4750fa46aedb56184c8d4",
+            "currentViolationDigest": "d5a3544d99ffa89516b4b2a678399ce233c3b007e963ea4c93c971d3131e877e",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 3
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "0aa283d96d7bfb7a899a252f63bd9d01ee54f266",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/current-run-evidence-scheduler.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 3,
+            "currentSourceSha256": "757866797ebd5dfb2920a492816ae1322b4e06dbef53d7bad9cc6855c018ad34",
+            "currentViolationDigest": "84345d0201c236f3aed290d50330551d22e277b58bf5849359b62562f455faea",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 3
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "0aa283d96d7bfb7a899a252f63bd9d01ee54f266",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/current-run-evidence-transport.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 4,
+            "currentSourceSha256": "bc03e6990937c94b4460d7df906e732ed19f224f9f354657396fb1c3e1173d0b",
+            "currentViolationDigest": "081337fac6195969b6abc5c538b29e845af469f86b19ab4da75e6b66905e3bb9",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 4
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "8fbc754776d07b32b230ca228371639f0a838069",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/current-schema-authority.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "cd81a363c114c694e5a47769763cee3c949b79885d52cfc6b591a3326ddcd4c3",
+            "currentViolationDigest": "f079eef072e14c0183db66b2598f5d0b0cc6169dd8f2524a10afd6a1019528ee",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "67fcbee27ab604c2bfe85b490d791eda022701f2",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/dependency-automerge.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "73447cc529f1ca392f30da79cd9757e238729d109fc16b7126140b2650f08d5b",
+            "currentViolationDigest": "255a78fc44cbc015e8427cd694fc4cfb89e8f82ea0d4f23957247606e617955d",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "ac91c38cc9224f2ca51292e711c014fb7ddbc4a4",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/dependency-required-checks.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "7782e998e665bdec825292ae3164a59f0889e635c78fc171930463ab25841ee2",
+            "currentViolationDigest": "43ad9848af8632ec9ed68e32a5d651e46e0f2f3272894988dc118e98ac4182a6",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "ac91c38cc9224f2ca51292e711c014fb7ddbc4a4",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/destructive-operation-authority.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 4,
+            "currentSourceSha256": "9fdbd6ee8803ceef0066315cc2ac188b2184c11c15d06616a7397b0a2413d655",
+            "currentViolationDigest": "9f75f6028d52376162c9ce89b3407fe78db3ce2b709a902050c3798ade9bf1da",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 4
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "c4205264be59758821a277c4581afe3335a29f83",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/document-claim-migration-ledger.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "8d75ba0ec7474591b938caf4aa0c58e1431c448ed92e1fd85da33ea1ade44de9",
+            "currentViolationDigest": "5b200ced96a5d61a3f7f5d448c9d23ad54dbf4f36923737481fd295e78d48b72",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "2b3595449ef35ad60bb89cc0b4f6022e04e1e3ee",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/evidence-location-contract.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "c82408a53571a2e4e695192f470eec84cc22030380b5be1c089071d4a889618d",
+            "currentViolationDigest": "11ef842847d12be8acc8330501dde1df0a1669b12aefb3f1803f1117a23c65a1",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "0aa283d96d7bfb7a899a252f63bd9d01ee54f266",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/evidence-location-governance.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 3,
+            "currentSourceSha256": "cddf6c5cbf511bd6b4303e7ba2eba9af6347420e434094a2d88b0b41679637fa",
+            "currentViolationDigest": "f4591ba94c71dbce7c662c0f7a6fd835d7f29f2225c7a430dab3117e15128307",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 3
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "54f2dae7429859dbf581dc650e0560e540b71851",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/execution-envelope-directories.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "477524a7d0acec7dbe7963f1d8f446f70e10c3c5c978a7fb33d5f13b84e5648c",
+            "currentViolationDigest": "a9c7591ccca0ceac11965f44724021227b4d4e58d6225e4a992f1f743a57825a",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "9e045d749556457ff3cae7d12b6b048f74d86635",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/execution-envelope-environment.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "10f74d98848d041289cbe54f16c4595cc245de40d9414f11f747cfcd2a166279",
+            "currentViolationDigest": "d262dbe2fbb445634a9a63cf59ac42090678c18f8f9bbfeedcb218e4f691c6c2",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "adac1d9f863e65435f989f3495bf3aef76cedeb1",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/execution-envelope-network.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "903de4771a2b57f9e517cdf23a3f876b37c0e5a1c4b37d0c00c85e1a112f5835",
+            "currentViolationDigest": "fab16932f30bd9e46332fa88d2025f9e4e0d6748c1797b40cc4aad514d3ba316",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "277113ea25eb9d5a0c737dad2d8f96d322709498",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/execution-envelope-policy.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "07b00a72567681556c6e381428d8e0b6f26efeea170209712e2fbc3a5a7a7e03",
+            "currentViolationDigest": "bbe2a8b1c21eecc74c44b1759266cfea7b94cd3a1d49cc59b72e10aee4a1381e",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "6b13a1a2df3ed223d97bdc7419b3190c644a71e5",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/execution-envelope-receipt.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 4,
+            "currentSourceSha256": "dda4cd0e75512c33fef5a0db70b9d15e3de071a15264b59dfa6435c03a5b7039",
+            "currentViolationDigest": "1b7d5fa9e5ce333e1002bbe191c9ab12aa2472642c072f742ea04dbf9fee0866",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 4
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "6b13a1a2df3ed223d97bdc7419b3190c644a71e5",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/execution-envelope-services.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 3,
+            "currentSourceSha256": "e9846830e5a05ea14f18b5808446798aa469cfe3215e6e6253d3e0b8d51092c5",
+            "currentViolationDigest": "daec5c3696ef465d1887ac13e340872ec670d545d68e627b3d88d8e532911d81",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 3
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "78028994e311a24066447bd35906d3ab959a5aa1",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/execution-replay-contract.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "b645092cd16910161ae3b679da084f540e858e4911fcf6c0c344d93085b4669b",
+            "currentViolationDigest": "e804ab6548f49f957bcdff0e384c11d8018c439779f8faf0f3feeee00ccbc3f1",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "cfc691c71f5a775b1a36cc3d29d1de9644ae54bc",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/execution-replay-verifier.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "d7ce2a06e6b410c8de4e3ea0ae93690d4740525feac5617268c6f118746de57a",
+            "currentViolationDigest": "e4701d3bb86ade0a0f35d009a38e7fce6bd00cfeb0c6b373a5bbff782f9a17a8",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "cfc691c71f5a775b1a36cc3d29d1de9644ae54bc",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/fixture-mutation-recovery.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 6,
+            "currentSourceSha256": "456021d4de89a5dc882191d1d44131daf29992fb0cfdbba58962a2e44c19ab8f",
+            "currentViolationDigest": "10481742e1912b6481d1e80cbf5b33a77cf72c439a824f1f1025b573ba7e03d9",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 6
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "db5b5e85ba95c13d9e639473da5b3e9943b0dc18",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/fuzz-random-stream.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 3,
+            "currentSourceSha256": "b358f6dde45682e165b471ee39ad496e1c1dbdfe9848b9cc5283c9fb67bac7e1",
+            "currentViolationDigest": "a952166cea53b259b93cd8609f1d3c96dcb3435ed883b4cb0173a19faf513d1c",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 3
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "cfc691c71f5a775b1a36cc3d29d1de9644ae54bc",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/global-claim-exactness-final.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 9,
+            "currentSourceSha256": "b4bb690d63ac5269b9c62faecfb2762d3bf67f289e3967f0dd61b56eeac71070",
+            "currentViolationDigest": "216a69ef19eda1a72d7501a1e757cc8927f9481d0a828a9c5b9b35688dc4f36b",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 9
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "7ea13c2ee908a2647f5919a29ca28bf8a1b4814e",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/hidden-retry-governance.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "1dbb6c842cf022a104fc25d00757d441c7b9df3bd48374b6ed111f675643e2ac",
+            "currentViolationDigest": "ff8b3613168b48325f55ccffce1a229b22fc422ada513502877cee4818c36031",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "8a9e8e427cf3c64e7272744b7109c363e9fa82c1",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/immutable-build-semantic-outcome-adapter.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "739014fbd61aeb86aeeac80ec1c567e1a98698f00f646737127ab3e14dc28d6b",
+            "currentViolationDigest": "39315a721668486f491adf7e818af324bac5459794494a74f83b8abf4a80b526",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "454412545f29936e031c560859f8539cb4167268",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/legacy-real-dump-producer.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "0c2f27593e3d95a4c66417f95820297e91102d365ce72d0890ea81af61eb217e",
+            "currentViolationDigest": "0d5f4329177d561b727ace039866aa04693c69c0a40b3107760aeb2591d71ad2",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "d2418a72fbdf65f45adbe68b865145ecc124e234",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/media-negative-corpus.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 3,
+            "currentSourceSha256": "8df582b64f45a98749c9a8400dd27be01d3c91172ccab2e79d7b917e9db8dfa6",
+            "currentViolationDigest": "9d84e1e84c0b8e60a3c6e0deef46923267526f5d81226a2c89688978c239b99d",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 3
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "55df66b63f93a37164fd8d05f8c4ef01620c88bd",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/media-positive-generator.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 3,
+            "currentSourceSha256": "95533192beba5fc88cd4115705961a4387a12f3eb60eb05799e2cc1fa83bfb3b",
+            "currentViolationDigest": "df61d2ee817b91ddc47e865a936bbceae7dbea08065778c4979c87757f8203eb",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 3
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "55df66b63f93a37164fd8d05f8c4ef01620c88bd",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/media-shape-catalog.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "3c0e633fb8ca4a7d0de3738342a0909e47d7fb895fc1cc25819b7c0b0188f092",
+            "currentViolationDigest": "a6dbd004f7ce6320a2752ea0e88432489af5b52a7f455da7f5ff56b370bbd431",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "ceeeb3530160f673faf6f0281569305d0f8c9b33",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/messaging-fixture-cleanup.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "f1cfc968a98a871e5585284402f732c45668635a834f75d5ebc6a9fd51431bec",
+            "currentViolationDigest": "1a203e4ce49bbeb8f2d4605f4bd1301751effc9fda1585e772f389bdb828b367",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "4cd66811a19163ce0265568ec2f275a62bb5b7b8",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/messaging-fixture-contract.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "2b078f838edc4b7c5db7dc73701b586e3c4191724ff648030b6be8fd3ed18140",
+            "currentViolationDigest": "f8e57dc88bad62ea96446253aad395b28c17e9f59334858236089010b1da7815",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "80b0f76e2ed1d3e07c9fbe5fc9d9fdded13ee4d0",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/messaging-fixture-governance.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "1d9bfab813b10a2438404fac4017708688d907269fe1d3865c678c0408ad8fbb",
+            "currentViolationDigest": "707f3339fe75cd5ea8b5dac6818afc43a79cf9b91f1fe4508ecf30d26d88ff16",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "4cd66811a19163ce0265568ec2f275a62bb5b7b8",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/outcome-contract.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "f761b7e8b8bf0765f96c8da0d85ae1d7e8ef930cc4f7f00a54f453201b820467",
+            "currentViolationDigest": "4f2cae7ea8b6eb1faba0cfd39dca6272398c3acf392fc42a67d8c895f8b99fc0",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "3ece86da7dd3457ac93aa7ddd45b0e6bb10ab563",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/perception-character-v3-redis-fixture.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "d52eefa1ccffdcd9114a2198f1e09d9f4d5865a7208c7c4b885d25fde375e5f6",
+            "currentViolationDigest": "c86ff0a9a644216aab74bd2347a005c50fd86a3be76fcc35f1a7d1cb79d9a115",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "42739915ab8eaf781aa6b0112ff97705afe50a08",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/playwright-browser-identity.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "95b0c7ee466cd6b64a12c7790b8524de27ef2b0b8f4291564d6fe21dfb9b770a",
+            "currentViolationDigest": "76e33940bdee13fcaa2e320df6b12e465ad4486ef70fa2217672fb0c7e9178cb",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "f3f97caf98756345b011522cff26196afae172bf",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/post-runtime-producer-registry.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "1d236fd5922ebe91b7cffc2c754c1de474b2bdfe0651e72009a9cb3c902daea0",
+            "currentViolationDigest": "d2dce2387a3cbf77b39b86155f6a55a7be0604fcfbd9060e8bfe1817e674a747",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "735457abe466f1d3a9458f927e898b8703ee20b6",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/property-model-random-streams.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "97da0a6f417a50a6929e68e360c6a60614035d8bd563156d4eb74f93ea221e70",
+            "currentViolationDigest": "6ccec09312fa06fe47ffa7b3b24a8ad53484bf8f3a8416a1f7089b575dfaac51",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "cfc691c71f5a775b1a36cc3d29d1de9644ae54bc",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/random-fixture-governance.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "2ca7897a9f35ecd7de6c9f775499b343060531eb09cb6d4a6795425ab990c591",
+            "currentViolationDigest": "95d02423a5b94f4e81ce75ac81e1f1cb4e0d73679a9709c6c15079af4fa46dc8",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "cfc691c71f5a775b1a36cc3d29d1de9644ae54bc",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/release-cohort-clean-attempt-admission.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 3,
+            "currentSourceSha256": "5a9531a20dcde8f58a1c1a22687f1631ca0da6bfa90d0f0342e71f4643bc3865",
+            "currentViolationDigest": "009921c0bfeaa1db6e8517f4f0749da69b64d8ed771cc52689c6ee67eae82866",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 3
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "bb94fc4261c313dbe0cf4adf780a4009145ebd8a",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/release-deployment-doc-exactness.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 5,
+            "currentSourceSha256": "fe5cacd3eda0348ce3531f7d2a897bdf13da53036e71c82e0749786222970e79",
+            "currentViolationDigest": "f6c3d6ee925dd6600de8b59f0beb3b15e26b68296d9d88c7125a48b05a595d28",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 5
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "2b3595449ef35ad60bb89cc0b4f6022e04e1e3ee",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/release-final-current-run-locator.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 3,
+            "currentSourceSha256": "901ec7cddd13956b689ed6e367e9df56a1f04f8f5b269f9b33b29b7625afdab2",
+            "currentViolationDigest": "b5c6f24b87e83de3605664f25bcde94989704d48d82be7898714d8b8b7d4f171",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 3
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "0aa283d96d7bfb7a899a252f63bd9d01ee54f266",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/release-finalizer-semantic-outcome-adapter.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "8da4a5ac5ffa4eb22287c25c5d612c96e47b07bb1c2b91aa354fbc108c5a355a",
+            "currentViolationDigest": "09d1a169235f12da4d72031b817bcf7cb3740efcf55021f77419f00f024bc478",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "34103696bc11e722ddd3d4cd9df1f0d73186627d",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/release-projection-semantic-outcome-adapter.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "f601a8001d1e9c662f10640be74938efa208e74f220b8fdac61e604fa68cfe59",
+            "currentViolationDigest": "6bff422aa83a3ff0484128f98e48a2b534ee5069db57b6a52b51b88e110a1e99",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "8775df67301b2f1e64d1090cef0d96688e2aefb2",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/release-reliability-receipt.test.mjs",
+            "rejectionKind": "identity-change",
+            "previousViolationCount": 1,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "943b42b04d32480a41e41d32c729eddcdd8ebf885425b48f5a8c971c8770d98e",
+            "currentViolationDigest": "76bf28e8e08878e16f19a0abf091c0aa1a0b86bbb53327aff10622b592b74bbc",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "18abc8f481bce727c98505d66fb15b4d92c5d52e",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/reliability-scheduler-conflicts.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "7f7f7fd44d50deed2a1e3e1a6c7c28d0d4833c7b1437600d317c7405c086b1df",
+            "currentViolationDigest": "4a06feb4aea4a8b1b9f481be2cf53ac0d9eaf39bb2d3d6609bb9acb27c308c18",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "0e0bf675de3b8723248932eb2f7fb4956dea1d2e",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/reliability-scheduler-projection.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 3,
+            "currentSourceSha256": "6e705c8e60c74e8b2ca4446bc7b1666fe6d313f49c5f786d84191af6c3eaed48",
+            "currentViolationDigest": "587733a5267e83b9882201df4b714bde55ffb45a96527bbacddad1cde73b910f",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 3
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "0e0bf675de3b8723248932eb2f7fb4956dea1d2e",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/reliability-timeout-projection.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "2ec499e0d90367d7d6501b539e63f665ba4f2abc06970ee70e6bb3ee414094de",
+            "currentViolationDigest": "952694cf92b07da63a81acf114ce987c42230ebb765879de56eb48257d46b386",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "0e0bf675de3b8723248932eb2f7fb4956dea1d2e",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/replay-qualification-frameworks.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "ba5ff4ac1134427cb991d5abcbf90edc934176a1a7600c22a9f079276a567ef7",
+            "currentViolationDigest": "0e9a9cfcb7c6ee50b4bc409c06b93be1727c749d8456b61a2720ac56164e8216",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "7ad3e323f9ee4a271a4fd8faa8ada38489775563",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/replay-qualification-randomized.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "180be693a326517a745f151c72da77dbf471d688f360bc9c17fafb6b0cfef487",
+            "currentViolationDigest": "392db49c6dbe931e9fedbb7c50ac83dd42ac939320569c4e4500385ae09852cc",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "7ad3e323f9ee4a271a4fd8faa8ada38489775563",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/retry-policy-registry.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "36026f842877cfb729ff55f9b52aeeda656911cb5565a79425f068ce4b092fcf",
+            "currentViolationDigest": "6f0ed558b0622076ad35942f5f775ce4318add7b3f1087dc8e6c66b4072ca94d",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "f9b8d1057f5874ff3d73e988aa5a2624cad3fd71",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/scheduler-replay-contract.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "26950f1c458a2c37f60708f829592aed3f5d5c6d9260d6c6fd0b58a315d8f20d",
+            "currentViolationDigest": "bf59525d67f2d8e1afbdfb846ecedc55f42eff20835428b145be169507263925",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "cfc691c71f5a775b1a36cc3d29d1de9644ae54bc",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/security-fixture-cleanup.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "84fb2f90d1257fb8369049c6f9deeab16884fe0b95b67d9c076890ac847ff44f",
+            "currentViolationDigest": "0b9fea95d426bacc573cb850cb2a968016fcb04f5170765af04a1a196cfa5df9",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "e49e900bc6588f70abe6f45210a400c4f7a71d6d",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/security-fixture-governance.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "82e7e8c85876a76945c62b74e728a2bf0d2b74664a16c6b2b22ec7349ec91871",
+            "currentViolationDigest": "c7a4f0813151b91c9cfb5be684ee31b8c86ab0ee66d07827120850b2057be76e",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "021cccb82bd0e71a1722b2a674aad58bc1e4ed99",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/security-fixture-producer.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 3,
+            "currentSourceSha256": "c14310677db0e28ae594eb5f8cb0ee7a8df2d3f42370e7276735542566164ad0",
+            "currentViolationDigest": "c52bd347b4db5f366f7764ea327104e7c64957ba86205ec0019cac611cb5ab99",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 3
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "4af23e1db19c16ef227dccbaf5df595c4aec2d66",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/security-fixture-profile-e2e.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 4,
+            "currentSourceSha256": "7977a0ff63410480f82260cf4e6aded999d37caf31c7bd8bb2e5988a6930cb47",
+            "currentViolationDigest": "3353921045399fe4304d4f0be690470ed400343779c7871cb8af03cef0ad2e15",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 4
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "4af23e1db19c16ef227dccbaf5df595c4aec2d66",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/temporal-role-resolver.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 3,
+            "currentSourceSha256": "663fdf6cc85f4fd905ad4e6ff3d94d92f79e42bbc20a11936ec5c4e1665a4537",
+            "currentViolationDigest": "cefc2a4dad4770b1a49883d43ac706f960b63902d42ac53f8b28acfcebed6149",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 3
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "8dfa912b8ae2e0c5894343058698924a008115d6",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/temporal-shape-catalog.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 4,
+            "currentSourceSha256": "db51f29d259fde7562db1f0c84486fc552a341f3d7e3a4410c5121cc5db4ed6d",
+            "currentViolationDigest": "413f69539e8c58010737d81059dedfaf4725774f3e62f1d77d507b8d5ab6a90c",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 4
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "d0ef014c6d5c1b5e42f36e00f80f231711446ea9",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/test-asset-audit.test.mjs",
+            "rejectionKind": "identity-change",
+            "previousViolationCount": 4,
+            "currentViolationCount": 4,
+            "currentSourceSha256": "230facd9b7f2740fe7da9aabf22614af576b0a012eefac88506e4d6a7b409161",
+            "currentViolationDigest": "8bcd5f540c5f9f2bdef9ce1b41b56774896530305e4e50dac5d789bbd95727ca",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 4
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "8cbeb195cd40e46f1460fd15fea371f584fe7b7f",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/test-quality-engine.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 4,
+            "currentSourceSha256": "c0da2693cea4037cd96bc63ccc3b78d17f47ca3ba2f3aa71c08f826c18d8f507",
+            "currentViolationDigest": "298f5448c64e10febecf0b7f4fbd5f9c35e2362a03b3f9a2c4edd9d3f4c36b77",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 4
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "31082b74ea23230d8ee5602b370add272efd7240",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/test-replacement-transaction.test.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "798d3dbce5594c3ee24869f8bb235fdfcc60298d00bbf98e9d748dc87280ea49",
+            "currentViolationDigest": "91f73d7e6ba2174737795cf5ddca82c07dcb3a69bbbbdb585ef4a504159e8fc2",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "55a25c3fd7a9abf910ec21dfb1a9df9f31a45e19",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tests/tools/wasm-artifact-ownership.test.mjs",
+            "rejectionKind": "identity-change",
+            "previousViolationCount": 2,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "8791d9711149db6b7dafd32ce522596584d2451a1ecd34d4b2099aaa93232fbf",
+            "currentViolationDigest": "d510615fb1c85159890607eb7226a6940be71a3acc6c219d354b8d1a724a1e47",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "571f08cb41d6375c92e7f7ff5e0724e30de06da9",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/ci/check-test-quality.mjs",
+            "rejectionKind": "violation-increase",
+            "previousViolationCount": 1,
+            "currentViolationCount": 3,
+            "currentSourceSha256": "1cfbbc6ab0f302da88fc6d930626056d7b4e34cf64c7b54d913bbb91198333e1",
+            "currentViolationDigest": "b6cfc8b4cab8b3c0770adc225597c13b27f9016fab563d23c9e26036d677b3be",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 3
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "31082b74ea23230d8ee5602b370add272efd7240",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/contracts/lib/runtime-role-observation.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "7e2bd65b09f821a8365b440e8a3916d5c4724552bab20508634371b452446721",
+            "currentViolationDigest": "131e2bd58e843cdd736e54bab15af7a2d1773cd36a027aa4493013d907e029c3",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "8ff446ab35332d4a0315dac62d0a32a8369ad979",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/docs/api-protocol-doc-exactness.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "5abbf992ef4973896aa81a41304ded17a2e0cc95d6e8b9b08a9f11c20ea35c46",
+            "currentViolationDigest": "7d087613002692579df14a502ddf227c7710c60e64ed4b5e1ef45a683cce4ca4",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "7137226fabf62edba1d037e2520dc1b7b60812c2",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/docs/auth-security-doc-exactness.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "8e3fcdfa997adc1be2c6a2e7bad6959a1c55e67a6977b858ca2a27d437a495ca",
+            "currentViolationDigest": "b4dd10103071e7a3a444434da17eeab11a94bc0a91dfc1ad56d0278081fdf8dc",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "7809476e98a1319a19feed8d602751e321007bd5",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/docs/behavior-doc-exactness.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 3,
+            "currentSourceSha256": "bcb9be3e5ad25d97eaa88a5c418b19077fe6b1798b6258f6ac799a28845c8f1e",
+            "currentViolationDigest": "eacf86dc74a3e330b52c1064b5cc76ce6a4982db410efc24194f6d271d9adf60",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 3
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "7137226fabf62edba1d037e2520dc1b7b60812c2",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/docs/behavior-document-consistency-final.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 4,
+            "currentSourceSha256": "43d5781b50f9b91f73d82b885dfa0d53836c37e3384e71180360a108fea89ddd",
+            "currentViolationDigest": "934aae0ef825a3f7ea4f3f64bb60bc3873d12521c0743a6381d5f722c632515c",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 4
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "9b413e56299ccbf6e5969ffd51b3bd99c00a62c4",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/docs/content-doc-exactness.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "a44276791065c4f72cfc5fc1f7871e1f30b646bda04cdc14f1059341e837a0fb",
+            "currentViolationDigest": "0f926538607527661dbd270e75455944cf3fe87399ecfc31d12d3f7426b1eef7",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "531eabbd9a366aca524c1c542df3b8acc433e0bf",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/docs/global-claim-exactness-final.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 3,
+            "currentSourceSha256": "b52cdd2b30f0d7542f783076565636a5a674d7cb6108f29bffd70efeb99dfd25",
+            "currentViolationDigest": "2ca58be1d07a6f7ac2ed36707ef7e7506a01f69d952cdad5c05f8ab7b3fbd94e",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 3
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "a8858e929e756da8ae1c0c61cf93dfc950123d3b",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/docs/release-deployment-doc-exactness.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "da6c46d85a471f716d0cb0c8878cd0b4594bf863f6acf12e719bde45c9adc80f",
+            "currentViolationDigest": "ed573bbdc5ae678a61bf5ad3c31ca2f3331b66e20a5e2c3e000e3905dc6da55a",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "2b3595449ef35ad60bb89cc0b4f6022e04e1e3ee",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/governance/bounded-channel-contracts.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "15e55d4398f2a5c80fffa238c3b93b0790c7dbd8fb32d844a0128d8b3484fed9",
+            "currentViolationDigest": "15e93ace9bb8952b33604f0c33106ab30230bc20b725bf0cc10d4b2d8eb06fbb",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "4738831c41ac10cb459a0eb8633346d05dd6e571",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/governance/bounded-channel-discovery.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "2adc1947aafb49fc0f90b3ebc9945c711440b544c05a2034f45516fa62d61a7f",
+            "currentViolationDigest": "eff1a9257d312673eb432c445ba289155ad6e015aa24ab79d070b05a91cfa36e",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "4738831c41ac10cb459a0eb8633346d05dd6e571",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/release/clean-first-attempt-verifier.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "2a16a17afcb07b8144c06c4baf8b170c2c434d5b6376074d13f8301806a84578",
+            "currentViolationDigest": "445f7b2412e7d4b66df160b7e0247cddbc7699477cdc26a96f2d1f38a4e08560",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "bb94fc4261c313dbe0cf4adf780a4009145ebd8a",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/release/release-clean-attempt-cohort.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "5371bd3e2a971b848cb0ea576a67de424c6854a396d35885deef57b02ba37c70",
+            "currentViolationDigest": "47197a756f35ce00327b475cb45ead5f3ab1ff4b124a4105f762249ae4de7175",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "bb94fc4261c313dbe0cf4adf780a4009145ebd8a",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/release/release-final-domain-evidence.mjs",
+            "rejectionKind": "violation-increase",
+            "previousViolationCount": 3,
+            "currentViolationCount": 5,
+            "currentSourceSha256": "c9ede43f35a3586b6d28a7b8933118019872da50aa718e6c9c2c2f01d9098279",
+            "currentViolationDigest": "ff07e14f7f849914681f341265d2810b21220bfff264b72aedc9975138fb1e7c",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 5
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "3d042279baa18ad1e1632d56177ca47fe94e8b60",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test-fixtures/content-shape-generator.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "8fc07f591a22c29a49f20785b6e3f7f597976c6a0759a433f2cb06c0fa6e3a3f",
+            "currentViolationDigest": "1b2ccb88ca0834c7787632e86d1f428fe93d7ba90ee831ae6b2361ad7bea372f",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "cb0a7dd8f417ca66a8e95d6d2eddc0c21b149dd6",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test-fixtures/mutation-recovery/mutation-adapters.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "37320b6b4e1ae5eed0d8f1a54f4b516b53f4e82d68eaf45e4b4eb22dbb4f647d",
+            "currentViolationDigest": "53f7dfe88980dbce11b818472528e0a4ffd190cde91d2b8df64ec47d2bf3be37",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "db5b5e85ba95c13d9e639473da5b3e9943b0dc18",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test-fixtures/mutation-recovery/runner.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "8288f3ff1b929f0840232bf29cd4fe261d44b7c29a7d26da64b2cb5e226b7a2b",
+            "currentViolationDigest": "bca2965384e186adf3b1537a84c138ae20f146dc1f26ca4d4936e9856e2840e4",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "db5b5e85ba95c13d9e639473da5b3e9943b0dc18",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test-fixtures/mutation-recovery/semantic-snapshot.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "a37be31ae53074aa768ac43954bf372234fd8b4d5d8a763f0834c6487b189170",
+            "currentViolationDigest": "05ca7a471109e3e8a6c685f51965c4fd14e6186bcb0da9adb5c4d074bd7bb0fb",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "db5b5e85ba95c13d9e639473da5b3e9943b0dc18",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test-fixtures/producers/account-messaging-producer.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "2214b0a067af8f2f273e8ff13a5adf757b5419113a72f08baafea322f9e29a26",
+            "currentViolationDigest": "8ffb6d183cbce443fe06f79440c9b4462fa2d6a72950d66d8e12288e6dc56fe1",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "6fc998e4b6763929cf372d64778b2652c1156e48",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test-fixtures/producers/account-profile-preference-producer.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "ec1b2430e856179dd491f4f947bf570044433ba8196ce0d1875d29bc769f0791",
+            "currentViolationDigest": "92ffd9a9b5eb08616ea945b11d7334c7d783701ce36cd4e096b4e3ac9f07b11c",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "61332ae8572c006db5367708ed75571952bac81c",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test-fixtures/producers/auth-session-producer.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "3d52bd8b88ff1686727568228d5c6da60db0436b41903c70c9834fd1c045cb5d",
+            "currentViolationDigest": "f426430486b3e8aaee96c021860cae6a3d2d654a2a312b2a31b3844efbddf3d7",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "89a1da581ad6c8f4cbaf0026b28dd66a92525da6",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test-fixtures/producers/security-fixture-producer.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 3,
+            "currentSourceSha256": "68aeabb532c2a1627d8d582e37ea2a1eae182b158beeff734f4f9eb7c9f2654c",
+            "currentViolationDigest": "b975df6d7c8858eef011c60762ba3ff0581c9be6faea5a317f86c7ae0be44020",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 3
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "4af23e1db19c16ef227dccbaf5df595c4aec2d66",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test-fixtures/producers/spawn-helper.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "274b5bc34cd213735f92548d242225f8de7d9a36c89d3419ae4505453d375cd5",
+            "currentViolationDigest": "c2781869994317f16327fb4a48eedfd3d3da518ab98ffb0e8575fd79e7569b8a",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "a26b393e3bb95b3a6ccf759b76ee33186dfda1f9",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test-matrix/behavior-evidence-post-runtime.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "9f704d205ca509d2b390b2adf3bf38511c14856c95dfe80da2a6b9166ce1f3f1",
+            "currentViolationDigest": "d9e0a2fe1fd5d2a0da16e6297da505c56b7d27938b205b78348d0af99bee9c6f",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "d890d28fed2e3d994412cdbaeefc89e7fb7be197",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test-matrix/outcomes/adapter-support.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "88f921a3cf746e95fc7543674417155cc6e56ca52342814aa81c03e963321de9",
+            "currentViolationDigest": "0836d961e7c6f8fe916c57b5e7c9f37e29b868097bc4fc7c67d24a9fd0290974",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "454412545f29936e031c560859f8539cb4167268",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test-matrix/outcomes/outcome-contract.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "26ced6b5df3a2c5c2a465377f4efd0358427415348ee549ef137d6bd10ff6d26",
+            "currentViolationDigest": "76d62e9e0c325b4637fb29638729ecd51f5a2edda47f38f66f2731b72545dcaf",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "2a29f430de54fb832a8107d1ecde29254562d7c0",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test-matrix/post-runtime-producer-registry.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "220b980b7c23b5b3eff1b1f61981bcf35443344bfb5c04e3609e908bc00c43ce",
+            "currentViolationDigest": "b63fcc740193eb20c3cdab89fbe7fa853e7dc91bcd0c1270b2dfd085d0a070e5",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "735457abe466f1d3a9458f927e898b8703ee20b6",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test-matrix/scheduler.mjs",
+            "rejectionKind": "violation-increase",
+            "previousViolationCount": 0,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "4ccab86b0d75fea927f1fdd56c83849c66a34281f7fa769b0a9036c529ed8c87",
+            "currentViolationDigest": "a6f82603147afdaa0169288815661dbcb3fa86e7bb752c87aa30500fa030e48f",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "0aa283d96d7bfb7a899a252f63bd9d01ee54f266",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test-quality/produce-oracle-facts.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "48565ddc137210253322b2f54f0abee72e45705187d298d4347cabf7b7f3c88b",
+            "currentViolationDigest": "3c4ec97da5aca5f83d390253ce75e445148d3707b3c8731094ac9bab01ff9ef9",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "31082b74ea23230d8ee5602b370add272efd7240",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test-quality/verify.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "5f7f8994a90f5d6f52637243c62fb3642d5086daddf45527762d999c0ef3dece",
+            "currentViolationDigest": "a2570f5265ee247b8652bb65bef86850354a837645588d5b15a07f41d520b904",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "31082b74ea23230d8ee5602b370add272efd7240",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test-replacement/transaction.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "f86aaab720274ee31da1b5e16677927bcbf1bb343018025d740bb3eb6b5d287a",
+            "currentViolationDigest": "0a5142a43bac95fc0681914689c6945c65be0e583d70348b719643cdbf5bfbdd",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "55a25c3fd7a9abf910ec21dfb1a9df9f31a45e19",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test/attempt-governance-acceptance.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "de0b40b8125280901f8765500164b37a52e360069c30a2eb95e5f2b0df99e759",
+            "currentViolationDigest": "0efc6ff338a9e11d716c1f617c4a6242cc2ee4ba76252943e8a6cb04b36d779e",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "34a7e9a7d7e49561b5855a39158695cf62918b7d",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test/check-clean-attempt-consumers.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "362806b883bcc83827a2e205738e049ac39fbb457f06202d587bc3cbe133fd7b",
+            "currentViolationDigest": "fb3092cb7519d44fee3377b8416f037f6d4f19a44421ed1fd29ed600809b5c92",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "34a7e9a7d7e49561b5855a39158695cf62918b7d",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test/correctness-attempt-producers.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 2,
+            "currentSourceSha256": "1a5eaec97fbb5de32a9428047aa934f9d3cc365033e4a0791aad2ca1d27bb4b3",
+            "currentViolationDigest": "f8af6cdf8ade78e5a63879559344a06422558f7ee36f6791e2faa41f379df551",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 2
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "34a7e9a7d7e49561b5855a39158695cf62918b7d",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test/execution-envelope-environment.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "1d564f34531a69d5d2e8367d97a22f52317b4164312921313947f0fbced2862c",
+            "currentViolationDigest": "eda5b4dc2c490193a601702ef670f85565215215327f5627fb64ce3df9e998eb",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "adac1d9f863e65435f989f3495bf3aef76cedeb1",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test/execution-envelope-network.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "b50b2249f38561e6a58dac4701e0c5ff7f1d3c05a5ab3eefd5a02c2430231734",
+            "currentViolationDigest": "a01eee16bdac06c95903fdcd7a5c73efb0df31c303cb0c9936609af456b5809a",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "277113ea25eb9d5a0c737dad2d8f96d322709498",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test/execution-envelope-receipt.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "73c2eef96052a137ef7203c616bd9a4ed3d683cbec89651d5490bc2bdc513a1c",
+            "currentViolationDigest": "166b205d06cfc0ec693d52f64c5f6ae4454da42896bb0d7fb5adaa2cd7d13032",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "6b13a1a2df3ed223d97bdc7419b3190c644a71e5",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test/execution-envelope-services.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "97cf060d623963eb4b3fe5325d37c4c6fbd70c0b1716113d58299fc95532afaf",
+            "currentViolationDigest": "8eb00c5feed7472c35e910ad101d4ad549bc2d893ae1b7efae37eadc9b4196b1",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "78028994e311a24066447bd35906d3ab959a5aa1",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test/generate-backend-evidence-path-authority.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "bd12910e1b6a9b972212b2646e49ae602e8f469bdcc7e6aeaa702d5affdce984",
+            "currentViolationDigest": "bf416dffdfa9736de80a462fb132757b79de176b8e108371ec8723d379c0ae04",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "d153d426862040fd316b249e2a26d21f5e39d507",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test/release-reliability-execution-context.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "d05b5f2eff665154d4213d5e2a23e8789fcb3e3feed5153221b0f2a6772eedb4",
+            "currentViolationDigest": "2e4e1c5e5f7103d8e4411ef34ea24c0ab2230695c4b15c9f59084fdbb154ecfb",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "b4ce2d73759116f6945afe5aaa9c694e7a27f441",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test/run-deterministic-command.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "8959bcdd35241a85b55b1936dc4c23153b4cfb419604785554eaec5a08e90139",
+            "currentViolationDigest": "7ffb4580ce62bffb8bceca1ae38ac693864bdcfa0c5c8c8e9ae8cf0bd4432cc5",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "f13f7fc3944ee65ceae41b13eb30628f919e864d",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test/run-matrix-governance-producer.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 4,
+            "currentSourceSha256": "bcd3a5e95ef7bfcf6473db1c597e73d24c4ef6f180f9c45c7f71a537bf376318",
+            "currentViolationDigest": "50085324d9c863da96325a520839a6b91c1bf3eacbca35adebc3f06130a63943",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 4
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "34a7e9a7d7e49561b5855a39158695cf62918b7d",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test/verify-execution-envelope.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "0f47225852911abf24d1c9c6de4a85fe7bdb603c49c40a30c4532b2c27e33148",
+            "currentViolationDigest": "7b7b4f83405ec925052206a0850d3b2a29bcbe7b900d9d613c36de136e48488f",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "6b13a1a2df3ed223d97bdc7419b3190c644a71e5",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/test/verify-release-reliability-receipt.mjs",
+            "rejectionKind": "identity-change",
+            "previousViolationCount": 3,
+            "currentViolationCount": 3,
+            "currentSourceSha256": "ba30a0f078722f566e69c94662b4215b2ef784fcbc7ef4a530b3c22b849c1b48",
+            "currentViolationDigest": "7823a0072887371384bf9cb3f550fb3b931f60c866752007aa0977f17de8e325",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 3
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "b4ce2d73759116f6945afe5aaa9c694e7a27f441",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        },
+        {
+            "path": "tools/testing/generate-test-execution-envelope-applicability.mjs",
+            "rejectionKind": "new-path",
+            "previousViolationCount": null,
+            "currentViolationCount": 1,
+            "currentSourceSha256": "7ad0607364bc8d6c5c027d91a0dce873d24d7792648084c4957f3b79621d053e",
+            "currentViolationDigest": "c1de46de131a05a0da7af6de1557cb63224a8dccde679fecde497b0780836ded",
+            "currentRules": {
+                "eslint/import-x/no-relative-parent-imports": 1
+            },
+            "category": "owner-module-parent-import",
+            "sourceOwnerCommit": "f3e1b9d679d4e27475f369537aaadd3b881c2dd9",
+            "relatedIssues": [
+                3075
+            ],
+            "reason": "The test or tool module imports the repository-owned implementation through its existing owner boundary.",
+            "terminalCondition": "source-content-change"
+        }
+    ]
+}

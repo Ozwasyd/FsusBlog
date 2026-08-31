@@ -142,6 +142,19 @@
             "status": "manual"
         },
         {
+            "id": "frontend-style-baseline-classification-schema",
+            "owner": "frontend-language-style-governance",
+            "canonicalPath": "config/schemas/frontend-style-baseline-classification.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/frontend/check-frontend-style.mjs",
+                "tests/tools/frontend-style.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/frontend-style.test.mjs",
+            "changePolicy": "manual-update-with-exact-owner-digest-and-negative-mutation-validation",
+            "status": "manual"
+        },
+        {
             "id": "post-merge-generated-output-repair-schema",
             "owner": "repository-governance",
             "canonicalPath": "config/schemas/post-merge-generated-output-repair.schema.json",

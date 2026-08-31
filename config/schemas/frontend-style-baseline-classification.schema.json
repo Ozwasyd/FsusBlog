@@ -1,0 +1,114 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.local/schemas/frontend-style-baseline-classification.v1.json",
+    "title": "Reviewed frontend style baseline classification",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "reviewIssue",
+        "entries"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.frontend-style-baseline-classification.v1"
+        },
+        "reviewIssue": {
+            "type": "integer",
+            "minimum": 1
+        },
+        "entries": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "path",
+                    "rejectionKind",
+                    "previousViolationCount",
+                    "currentViolationCount",
+                    "currentSourceSha256",
+                    "currentViolationDigest",
+                    "currentRules",
+                    "category",
+                    "sourceOwnerCommit",
+                    "relatedIssues",
+                    "reason",
+                    "terminalCondition"
+                ],
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\*)(?!.*\\\\)[^\\s]+$"
+                    },
+                    "rejectionKind": {
+                        "enum": [
+                            "new-path",
+                            "violation-increase",
+                            "identity-change"
+                        ]
+                    },
+                    "previousViolationCount": {
+                        "oneOf": [
+                            {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "currentViolationCount": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "currentSourceSha256": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "currentViolationDigest": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "currentRules": {
+                        "type": "object",
+                        "minProperties": 1,
+                        "additionalProperties": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    "category": {
+                        "enum": [
+                            "owner-module-parent-import",
+                            "fixture-retained-symbol",
+                            "owner-module-parent-import-and-fixture-symbol"
+                        ]
+                    },
+                    "sourceOwnerCommit": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{40}$"
+                    },
+                    "relatedIssues": {
+                        "type": "array",
+                        "minItems": 1,
+                        "uniqueItems": true,
+                        "items": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    "reason": {
+                        "type": "string",
+                        "minLength": 24
+                    },
+                    "terminalCondition": {
+                        "const": "source-content-change"
+                    }
+                }
+            }
+        }
+    }
+}
