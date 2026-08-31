@@ -26,9 +26,17 @@
       "path": "docs/index.md",
       "sha256": "37230e482c33d0ef751773871262452fe94433f3c92101d0caa27ffa2fb63050"
     },
-    {
-      "path": "docs/testing.generated.md",
-      "sha256": "ebd47859cbe396c78ed98fcc49579be687002092345ebbad2e84575886ee0a31"
-    }
+        {
+            "path": "docs/testing.generated.md",
+            "sha256": "ebd47859cbe396c78ed98fcc49579be687002092345ebbad2e84575886ee0a31"
+        },
+        {
+            "path": "tests/backend/Fixtures/backend-evidence-path-authority.generated.json",
+            "sha256": "02e4bb259bb0216d88745fdb43bad65f07cc349db1f300d9fddf62c82ed037a2"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/execution-dependency-contract.json",
+            "sha256": "bf65cdbb6d1ca912d4adc41e4d46befd3217f33aaa5c15cdfc83177d24c32543"
+        }
   ]
 }
