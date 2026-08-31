@@ -220,9 +220,9 @@
             "id": "node-test:tests/tools/release-evidence-artifact-restore.test.mjs#release-evidence-collector-delegates-downloaded-artifact-f311ed4021",
             "path": "tests/tools/release-evidence-artifact-restore.test.mjs",
             "replacementTestIds": [
-                "node-test:tests/tools/release-evidence-artifact-restore.test.mjs#release-evidence-restores-both-stripped-tmp-and-mixed-ro-e780bfdcf5"
+                "node-test:tests/tools/release-evidence-artifact-restore.test.mjs#restore-extracts-downloaded-evidence-only-through-a-tran-d9ba29a1d6"
             ],
-            "reason": "The restore helper is executed over stripped, mixed and legacy layouts instead of checking its caller text."
+            "reason": "The restore helper is executed against a bound current-run transport manifest instead of checking its caller text."
         },
         {
             "id": "node-test:tests/tools/runtime-cross-stack-split.test.mjs#cross-stack-runtime-phase-binds-the-exact-browser-probe--0407b014a3",

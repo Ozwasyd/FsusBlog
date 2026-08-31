@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.issue-acceptance-baseline.v1",
+    "issue": 2345,
+    "sourceCommit": "a1ec26c4f9ddcdea23b663ebbf9066e03c9e4e14",
+    "expectedRecords": 1,
+    "expectedMigrated": 1,
+    "records": [
+        {
+            "id": "xunit:tests/backend/Unit/BackendAuthStateMachineTests.cs#BackendAuthStateMachineTests.SensitiveEndpointAccess_IsBoundToLiveFullSession",
+            "path": "tests/backend/Unit/BackendAuthStateMachineTests.cs",
+            "disposition": "migrated"
+        }
+    ]
+}
