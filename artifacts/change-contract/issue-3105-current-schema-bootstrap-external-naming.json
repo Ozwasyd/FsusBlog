@@ -16,7 +16,6 @@
         {
             "id": "shell-environment-variable",
             "paths": [
-                "tools/bootstrap-acceptance-env.sh",
                 "tools/test/lanes/current-schema-bootstrap-integration.sh",
                 "tools/test/lanes/homogeneous-two-node-fixture.sh",
                 "tools/test/lanes/production-build-artifacts.sh"
