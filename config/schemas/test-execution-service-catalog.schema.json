@@ -12,10 +12,10 @@
     ],
     "properties": {
         "schema": {
-            "const": "fsusblog.test-execution-service-catalog.v1"
+            "const": "fsusblog.test-execution-service-catalog.v2"
         },
         "version": {
-            "const": 1
+            "const": 2
         },
         "correctnessPhase": {
             "type": "object",
@@ -80,7 +80,7 @@
                     "$ref": "#/$defs/processService"
                 },
                 "postgres": {
-                    "$ref": "#/$defs/containerService"
+                    "$ref": "#/$defs/postgresService"
                 },
                 "preview": {
                     "$ref": "#/$defs/processService"
@@ -160,6 +160,68 @@
                         "networkMode",
                         "ports",
                         "resourceLimits"
+                    ]
+                }
+            },
+            "additionalProperties": false
+        },
+        "postgresService": {
+            "type": "object",
+            "required": [
+                "kind",
+                "imageReference",
+                "version",
+                "databaseIdentityAuthority",
+                "database",
+                "username",
+                "serverVersionNumber",
+                "versionCommand",
+                "hostNativeAllowed",
+                "requiredIdentityFields"
+            ],
+            "properties": {
+                "kind": {
+                    "const": "container"
+                },
+                "imageReference": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9./_-]+@sha256:[a-f0-9]{64}$"
+                },
+                "version": {
+                    "const": "16.15"
+                },
+                "databaseIdentityAuthority": {
+                    "const": "postgres-control-system-exact"
+                },
+                "database": {
+                    "const": "fsusblog"
+                },
+                "username": {
+                    "const": "fsusblog"
+                },
+                "serverVersionNumber": {
+                    "const": "160015"
+                },
+                "versionCommand": {
+                    "const": [
+                        "postgres",
+                        "--version"
+                    ]
+                },
+                "hostNativeAllowed": {
+                    "const": false
+                },
+                "requiredIdentityFields": {
+                    "const": [
+                        "containerId",
+                        "imageReference",
+                        "imageId",
+                        "repositoryDigest",
+                        "serviceVersion",
+                        "networkMode",
+                        "ports",
+                        "resourceLimits",
+                        "databaseIdentity"
                     ]
                 }
             },

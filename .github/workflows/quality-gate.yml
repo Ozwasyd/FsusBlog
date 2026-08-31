@@ -899,6 +899,7 @@ jobs:
                   receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
                   consumer-job: integration-runtime
             - run: ./tools/test.sh integration
+            - run: ./tools/test.sh current-schema-bootstrap-integration --no-deps
             - run: ./tools/test.sh data-scale-xs --no-deps
             - run: ./tools/test.sh data-scale-s --no-deps
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -910,6 +911,7 @@ jobs:
                   include-hidden-files: true
                   path: |
                       .tmp/acceptance/**
+                      .tmp/current-schema-bootstrap-integration/*/**
                       .tmp/fixtures/*/homogeneous-two-node/**
                       .tmp/runtime/integration.json
                       .tmp/runtime-scenario-host/**

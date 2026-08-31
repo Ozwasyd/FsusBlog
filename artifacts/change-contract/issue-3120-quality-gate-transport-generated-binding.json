@@ -14,23 +14,23 @@
     "outputs": [
         {
             "path": "config/testing/evidence-locator-registry.json",
-            "sha256": "0d871ffc0bd3fefe89f7baafaee2aa1f0b4aad3991afbf38387afd0b2f628238"
+            "sha256": "794f0a954163ec50281969e6dca89df67ba0d59f054b87da34e371a389ebe0a7"
         },
         {
             "path": "config/testing/correctness-attempt-producers.json",
-            "sha256": "efd05d3173e6e057bcdc4aa2dd590f5c6fb0fbf64aaa3ae8718cea7c4a0ec577"
+            "sha256": "4b5b5d07c3aff2e8692965408d287144ca3988e4ec4c658960b91c1cc8db0301"
         },
         {
             "path": "config/testing/current-run-evidence-location-acceptance.json",
-            "sha256": "8ba98026a97052b3c84d0fbe1b398ff98bbc8c888e817f04ec307ef17cb56c56"
+            "sha256": "abdab4af0ac5ef0f1869c8c4d4090b8af8d7cea28960fa6377c4dc1c12902042"
         },
         {
             "path": "config/testing/evidence-location-migration-ledger.json",
-            "sha256": "28f619984f4bc61e1ef5596784d9a3dfdb36cffdc78fe0bcf5e3376ee09575d2"
+            "sha256": "526e2b5cc4b1fb3690bc47b66e8d389e9e5b8d8879a6cef959dad318911d4ce7"
         },
         {
             "path": "docs/testing.generated.md",
-            "sha256": "271b0dfa89c4e7a893744f70f643dc11d115381f03d5cda209cbb30138deffd5"
+            "sha256": "2dd628dbdabbd6216f6691740438ddba8d530543ced765e726c30306b7526a8b"
         }
     ]
 }

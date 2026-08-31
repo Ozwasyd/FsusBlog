@@ -1,6 +1,16 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import {
+    linkSync,
+    lstatSync,
+    mkdtempSync,
+    readFileSync,
+    readdirSync,
+    rmSync,
+    symlinkSync,
+    writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -10,6 +20,7 @@ import {
     applySealedFixtureProfileEnvironment,
     buildFixtureVariantPlan,
     buildProducerFixtureVariantPlan,
+    currentSchemaRuntimeTopologyAdmissionBinding,
     expandFixtureProfile,
     fixtureCatalogDigest,
     fixtureCatalogFiles,
@@ -24,8 +35,21 @@ import {
     validateFixtureVariantEvidence,
     validateFixtureSentinelRegistry,
     validateNoneFixtureTier,
+    verifyCurrentSchemaRuntimeTopologyAdmission,
+    verifyCurrentSchemaTerminalDag,
+    writeAcceptanceRuntimeTopology,
+    writeCurrentSchemaRuntimeTopologyAdmission,
     writeFixtureProfileReceipt
 } from '../../tools/testing/fixture-catalog.mjs';
+import {
+    canonicalDigest as currentSchemaCanonicalDigest,
+    runtimeReadyReceiptPath,
+    runtimeReadySchema
+} from '../../tools/db/verify-current-schema-test-materialization-receipt.mjs';
+import {
+    buildFixtureReceipt,
+    writeFixtureReceipt
+} from '../../tools/test-fixtures/receipt/fixture-receipt.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const names = ['capability', 'profile', 'producer', 'inventory', 'variant'];
@@ -568,13 +592,13 @@ test('matrix resolve fail-closes free profile override and digest drift', () =>
 test('planned and environment-ready receipts record profile identity', () =>
 {
     const directory = mkdtempSync(path.join(tmpdir(), 'fixture-receipt-'));
+    const currentSchema = currentSchemaAdmissionFixture();
     try
     {
         const plan = resolveFixtureProfile({ profileId: 'none', profileSource: 'dev-cli', freeProfileEnv: '' });
-        const planned = path.join(directory, 'planned-profile.json');
+        const planned = currentSchema.profilePlan;
         const fixtureReceipt = path.join(directory, 'fixture-receipt.json');
-        const ready = path.join(directory, 'environment-ready.json');
-        writeFixtureProfileReceipt(planned, plan, { kind: 'planned-profile' });
+        const ready = currentSchema.environmentReady;
         // #1710: kind=fixture-receipt removed; FixtureReceipt v2 is the sole authority.
         assert.throws(
             () => writeFixtureProfileReceipt(fixtureReceipt, plan, { kind: 'fixture-receipt', extra: { zeroData: true, mutations: [] } }),
@@ -589,17 +613,24 @@ test('planned and environment-ready receipts record profile identity', () =>
                 profileSource: plan.profileSource,
                 executionClass: plan.executionClass
             },
+            executionIdentity: JSON.parse(
+                readFileSync(currentSchema.runtimeTopologyInput, 'utf8')
+            ).fixtureExecutionIdentity,
             catalogDigest: plan.catalogDigest,
             expandedCapabilityDigest: plan.expandedCapabilityDigest,
             fixtureVariantIds: plan.variantIds,
             variantPlanDigest: plan.variantPlanDigest
         };
+        writeCurrentSchemaRuntimeTopologyAdmission(currentSchema.admission, currentSchema.options);
         writeFixtureProfileReceipt(ready, JSON.parse(readFileSync(planned, 'utf8')), {
             kind: 'environment-ready',
             fixtureReceiptPath: fixtureReceipt,
             fixtureReceiptDigest: fixtureReceiptDocument.receiptDigest,
             fixtureReceiptTerminalStatus: 'verified',
-            fixtureReceiptDocument
+            fixtureReceiptDocument,
+            currentSchemaRuntimeTopologyAdmissionFile: currentSchema.admission,
+            currentSchemaAdmissionOptions: currentSchema.options,
+            profilePlanFile: planned
         });
         const readyJson = JSON.parse(readFileSync(ready, 'utf8'));
         assert.equal(readyJson.profileId, 'none');
@@ -610,7 +641,26 @@ test('planned and environment-ready receipts record profile identity', () =>
         assert.deepEqual(readyJson.producerIds, []);
         assert.equal(readyJson.fixtureReceiptPath, fixtureReceipt);
         assert.equal(readyJson.fixtureReceiptTerminalStatus, 'verified');
-        assert.equal(readyJson.schema, 'fsusblog.fixture-environment-ready.v1');
+        assert.equal(readyJson.schema, 'fsusblog.fixture-environment-ready.v2');
+        assert.deepEqual(
+            readyJson.currentSchemaRuntimeTopologyAdmission,
+            currentSchemaRuntimeTopologyAdmissionBinding(
+                currentSchema.admission,
+                JSON.parse(readFileSync(currentSchema.admission, 'utf8'))
+            )
+        );
+        assert.throws(
+            () => writeFixtureProfileReceipt(
+                path.join(directory, 'fabricated-environment-ready.json'),
+                JSON.parse(readFileSync(planned, 'utf8')),
+                {
+                    kind: 'environment-ready',
+                    currentSchemaRuntimeTopologyAdmission: readyJson.currentSchemaRuntimeTopologyAdmission,
+                    profilePlanFile: planned
+                }
+            ),
+            /requires a verified current schema runtime topology admission/u
+        );
         assert.throws(
             () => writeFixtureProfileReceipt(ready, JSON.parse(readFileSync(planned, 'utf8')), {
                 kind: 'environment-ready',
@@ -622,7 +672,10 @@ test('planned and environment-ready receipts record profile identity', () =>
                         ...fixtureReceiptDocument.profileIdentity,
                         executionClass: 'runtime'
                     }
-                }
+                },
+                currentSchemaRuntimeTopologyAdmissionFile: currentSchema.admission,
+                currentSchemaAdmissionOptions: currentSchema.options,
+                profilePlanFile: planned
             }),
             /execution class does not match/
         );
@@ -630,6 +683,716 @@ test('planned and environment-ready receipts record profile identity', () =>
     finally
     {
         rmSync(directory, { recursive: true, force: true });
+        rmSync(currentSchema.directory, { recursive: true, force: true });
+    }
+});
+
+function currentSchemaAdmissionFixture()
+{
+    const directory = mkdtempSync(path.join(tmpdir(), 'fixture-current-schema-admission-'));
+    const runId = 'current-schema-admission-run';
+    const sourceCommit = 'a'.repeat(40);
+    const runtimeReady = runtimeReadyReceiptPath(directory, runId);
+    const suffix = path.basename(runtimeReady)
+        .replace(/^current-schema-runtime-ready-/u, '')
+        .replace(/\.json$/u, '');
+    const admission = path.join(
+        directory,
+        `current-schema-runtime-topology-admission-${suffix}.json`
+    );
+    const profilePlan = path.join(directory, 'planned-profile.json');
+    const environmentReady = path.join(directory, 'environment-ready.json');
+    const runtimeTopologyInput = path.join(directory, 'runtime-topology-input.json');
+    const canonicalPlan = resolveFixtureProfile({
+        profileId: 'none',
+        profileSource: 'dev-cli',
+        freeProfileEnv: ''
+    });
+    writeFixtureProfileReceipt(profilePlan, canonicalPlan, { kind: 'planned-profile' });
+    const plan = JSON.parse(readFileSync(profilePlan, 'utf8'));
+    writeFileSync(runtimeTopologyInput, `${JSON.stringify({
+        namespace: 'current-schema-dag',
+        backendUrl: 'http://127.0.0.1:24000',
+        frontendUrl: 'http://127.0.0.1:26000',
+        previewUrl: 'http://127.0.0.1:28000',
+        containers: { postgres: 'fsusblog-test-postgres', redis: 'fsusblog-test-redis' },
+        environmentReadyReceiptPath: environmentReady,
+        fixtureExecutionIdentity: {
+            runId,
+            namespace: 'current-schema-dag',
+            source: {
+                commit: sourceCommit,
+                worktreeFingerprint: `sha256:${'d'.repeat(64)}`
+            },
+            serviceGeneration: `sha256:${'e'.repeat(64)}`
+        },
+        fixtureProfile: {
+            profileId: plan.profileId,
+            profileSource: plan.profileSource,
+            catalogDigest: plan.catalogDigest,
+            expandedCapabilityDigest: plan.expandedCapabilityDigest,
+            capabilityIds: plan.capabilityIds,
+            producerIds: plan.producerIds,
+            mutationPolicy: plan.mutationPolicy
+        }
+    }, null, 2)}\n`);
+    const document = {
+        schema: runtimeReadySchema,
+        status: 'verified',
+        qualificationEligible: true,
+        runId,
+        sourceCommit,
+        canonicalIdentity: {
+            modelVersion: 'fsusblog.current-schema.v2',
+            extractorVersion: 'fsusblog.current-schema-reflection.v2',
+            generatorVersion: 'fsusblog.current-schema-projection.v2',
+            sourceDigest: 'b'.repeat(64),
+            contentDigest: 'c'.repeat(64)
+        },
+        contentDigest: null
+    };
+    const rewriteRuntimeReady = () =>
+    {
+        document.contentDigest = currentSchemaCanonicalDigest({
+            ...document,
+            contentDigest: null
+        });
+        writeFileSync(runtimeReady, `${JSON.stringify(document, null, 2)}\n`);
+    };
+    rewriteRuntimeReady();
+    const options = {
+        receiptRoot: directory,
+        runId,
+        sourceCommit,
+        assembly: path.join(directory, 'FsusBlog.Server.dll'),
+        serviceCatalog: path.join(directory, 'service-catalog.json'),
+        serviceEnvelope: path.join(directory, 'service-envelope.json'),
+        profilePlan,
+        runtimeTopologyInput,
+        environmentReady,
+        verifyRuntimeReady()
+        {
+            return { terminal: JSON.parse(JSON.stringify(document)) };
+        }
+    };
+    return {
+        directory,
+        runtimeReady,
+        admission,
+        profilePlan,
+        environmentReady,
+        runtimeTopologyInput,
+        document,
+        options,
+        rewriteRuntimeReady
+    };
+}
+
+test('runtime topology admission binds and reconsumes the exact current schema terminal before spawn', async () =>
+{
+    const positive = currentSchemaAdmissionFixture();
+    try
+    {
+        const written = writeCurrentSchemaRuntimeTopologyAdmission(
+            positive.admission,
+            positive.options
+        );
+        const verified = verifyCurrentSchemaRuntimeTopologyAdmission(
+            positive.admission,
+            positive.options
+        );
+        assert.deepEqual(verified, written);
+        assert.equal(written.runId, positive.options.runId);
+        assert.equal(written.sourceCommit, positive.options.sourceCommit);
+        assert.equal(written.schema, 'fsusblog.current-schema-runtime-topology-admission.v2');
+        assert.equal(written.profilePlan.path, positive.profilePlan);
+        assert.equal(written.runtimeTopologyInput.path, positive.runtimeTopologyInput);
+        assert.equal(written.environmentReadyReceiptPath, positive.environmentReady);
+        assert.match(written.profilePlan.fileSha256, /^sha256:[a-f0-9]{64}$/u);
+        assert.match(written.runtimeTopologyInput.fileSha256, /^sha256:[a-f0-9]{64}$/u);
+        assert.equal(written.currentSchemaRuntimeReady.path, positive.runtimeReady);
+        assert.equal(lstatSync(positive.admission).nlink, 1);
+        assert.deepEqual(
+            readdirSync(path.dirname(positive.admission))
+                .filter((entry) => entry.startsWith(`${path.basename(positive.admission)}.next-`)),
+            []
+        );
+        const publicationAlias = `${positive.admission}.next-concurrent-reader`;
+        linkSync(positive.admission, publicationAlias);
+        const publisher = spawn(process.execPath, [
+            '--input-type=module',
+            '-e',
+            'import fs from "node:fs"; setTimeout(() => fs.unlinkSync(process.argv[1]), 80)',
+            publicationAlias
+        ], { stdio: 'ignore' });
+        assert.deepEqual(
+            verifyCurrentSchemaRuntimeTopologyAdmission(positive.admission, positive.options),
+            written
+        );
+        await new Promise((resolve, reject) =>
+        {
+            publisher.once('error', reject);
+            publisher.once('exit', (status) => status === 0
+                ? resolve()
+                : reject(new Error(`publication helper exited ${status}`)));
+        });
+        assert.match(written.currentSchemaRuntimeReady.fileSha256, /^sha256:[a-f0-9]{64}$/u);
+        assert.equal(
+            written.currentSchemaRuntimeReady.contentDigest,
+            positive.document.contentDigest
+        );
+        assert.deepEqual(
+            written.currentSchemaRuntimeReady.canonicalIdentity,
+            positive.document.canonicalIdentity
+        );
+    }
+    finally
+    {
+        rmSync(positive.directory, { recursive: true, force: true });
+    }
+
+    const cases = [
+        {
+            label: 'missing admission',
+            mutate(value)
+            {
+                rmSync(value.admission);
+            },
+            expected: /admission is missing/u
+        },
+        {
+            label: 'tampered admission',
+            mutate(value)
+            {
+                const terminal = JSON.parse(readFileSync(value.admission, 'utf8'));
+                terminal.currentSchemaRuntimeReady.fileSha256 = `sha256:${'f'.repeat(64)}`;
+                writeFileSync(value.admission, `${JSON.stringify(terminal, null, 2)}\n`);
+            },
+            expected: /exact terminal mismatch/u
+        },
+        {
+            label: 'stale runtime run',
+            mutate(value)
+            {
+                value.document.runId = 'stale-run';
+                value.rewriteRuntimeReady();
+            },
+            expected: /terminal identity is invalid/u
+        },
+        {
+            label: 'stale runtime source',
+            mutate(value)
+            {
+                value.document.sourceCommit = 'd'.repeat(40);
+                value.rewriteRuntimeReady();
+            },
+            expected: /terminal identity is invalid/u
+        },
+        {
+            label: 'prepared runtime terminal',
+            mutate(value)
+            {
+                value.document.status = 'prepared';
+                value.document.qualificationEligible = false;
+                value.rewriteRuntimeReady();
+            },
+            expected: /terminal identity is invalid/u
+        },
+        {
+            label: 'prepared runtime sibling',
+            mutate(value)
+            {
+                writeFileSync(`${value.runtimeReady}.prepared`, '{}\n');
+            },
+            expected: /prepared sibling exists/u
+        },
+        {
+            label: 'stale planned profile after admission',
+            mutate(value)
+            {
+                const plan = JSON.parse(readFileSync(value.profilePlan, 'utf8'));
+                plan.mutationPolicy = 'stale-plan';
+                writeFileSync(value.profilePlan, `${JSON.stringify(plan, null, 2)}\n`);
+            },
+            expected: /canonical catalogs|exact terminal mismatch/u
+        },
+        {
+            label: 'stale runtime topology input after admission',
+            mutate(value)
+            {
+                const input = JSON.parse(readFileSync(value.runtimeTopologyInput, 'utf8'));
+                input.previewUrl = 'http://127.0.0.1:29998';
+                writeFileSync(value.runtimeTopologyInput, `${JSON.stringify(input, null, 2)}\n`);
+            },
+            expected: /exact terminal mismatch/u
+        },
+        {
+            label: 'runtime-ready replacement after independent verifier',
+            mutate(value)
+            {
+                const independentlyVerified = JSON.parse(JSON.stringify(value.document));
+                value.options.verifyRuntimeReady = () =>
+                {
+                    value.document.canonicalIdentity = {
+                        ...value.document.canonicalIdentity,
+                        sourceDigest: '9'.repeat(64)
+                    };
+                    value.rewriteRuntimeReady();
+                    return { terminal: independentlyVerified };
+                };
+            },
+            expected: /independently recomputed terminal/u
+        }
+    ];
+    for (const entry of cases)
+    {
+        const value = currentSchemaAdmissionFixture();
+        let candidateSpawns = 0;
+        try
+        {
+            writeCurrentSchemaRuntimeTopologyAdmission(value.admission, value.options);
+            entry.mutate(value);
+            assert.throws(() =>
+            {
+                verifyCurrentSchemaRuntimeTopologyAdmission(value.admission, value.options);
+                candidateSpawns += 1;
+            }, entry.expected, entry.label);
+            assert.equal(candidateSpawns, 0, `${entry.label} must block candidate spawn`);
+        }
+        finally
+        {
+            rmSync(value.directory, { recursive: true, force: true });
+        }
+    }
+});
+
+function buildNoneFixtureReceipt(plan, executionIdentity)
+{
+    return buildFixtureReceipt({
+        terminalStatus: 'verified',
+        executionIdentity,
+        profileIdentity: {
+            profileId: plan.profileId,
+            profileSource: plan.profileSource,
+            executionClass: plan.executionClass,
+            sealed: false
+        },
+        catalogDigest: plan.catalogDigest,
+        expandedCapabilityDigest: plan.expandedCapabilityDigest,
+        fixtureVariantIds: plan.fixtureVariantIds,
+        variantPlanDigest: plan.fixtureVariantPlanDigest,
+        producerReceipts: [],
+        capabilityMap: [],
+        outputArtifacts: []
+    });
+}
+
+function currentSchemaTerminalDagFixture({ withFixtureReceipt = false } = {})
+{
+    const currentSchema = currentSchemaAdmissionFixture();
+    writeCurrentSchemaRuntimeTopologyAdmission(currentSchema.admission, currentSchema.options);
+    const planFile = currentSchema.profilePlan;
+    const plan = JSON.parse(readFileSync(planFile, 'utf8'));
+    const environmentReady = currentSchema.environmentReady;
+    const runtimeTopologyInput = currentSchema.runtimeTopologyInput;
+    const runtimeTopology = path.join(currentSchema.directory, 'runtime-topology.json');
+    const fixtureReceiptPath = withFixtureReceipt
+        ? path.join(currentSchema.directory, 'fixture-receipt.json')
+        : null;
+    const fixtureReceiptDocument = withFixtureReceipt
+        ? buildNoneFixtureReceipt(
+            plan,
+            JSON.parse(readFileSync(runtimeTopologyInput, 'utf8')).fixtureExecutionIdentity
+        )
+        : null;
+    if (fixtureReceiptDocument !== null)
+    {
+        writeFixtureReceipt(fixtureReceiptPath, fixtureReceiptDocument);
+    }
+    writeFixtureProfileReceipt(environmentReady, plan, {
+        kind: 'environment-ready',
+        fixtureReceiptPath,
+        fixtureReceiptDigest: fixtureReceiptDocument?.receiptDigest ?? null,
+        fixtureReceiptTerminalStatus: fixtureReceiptDocument === null ? null : 'verified',
+        fixtureReceiptDocument,
+        currentSchemaRuntimeTopologyAdmissionFile: currentSchema.admission,
+        currentSchemaAdmissionOptions: currentSchema.options,
+        profilePlanFile: planFile
+    });
+    writeAcceptanceRuntimeTopology(
+        runtimeTopology,
+        runtimeTopologyInput,
+        environmentReady,
+        currentSchema.admission,
+        currentSchema.options
+    );
+    return {
+        ...currentSchema,
+        planFile,
+        environmentReady,
+        runtimeTopologyInput,
+        runtimeTopology,
+        fixtureReceiptPath,
+        fixtureReceiptDocument,
+        dagOptions: {
+            admissionFile: currentSchema.admission,
+            environmentReadyFile: environmentReady,
+            runtimeTopologyFile: runtimeTopology,
+            ...currentSchema.options
+        }
+    };
+}
+
+function mutateAndResealCurrentSchemaDagReceipt(file, mutate)
+{
+    const receipt = JSON.parse(readFileSync(file, 'utf8'));
+    mutate(receipt);
+    receipt.contentDigest = currentSchemaCanonicalDigest({ ...receipt, contentDigest: null });
+    writeFileSync(file, `${JSON.stringify(receipt, null, 2)}\n`);
+}
+
+function sha256File(file)
+{
+    return `sha256:${createHash('sha256').update(readFileSync(file)).digest('hex')}`;
+}
+
+function resealEnvironmentFixtureBinding(value, fixtureReceiptPath, fixtureReceiptDigest)
+{
+    mutateAndResealCurrentSchemaDagReceipt(value.environmentReady, (receipt) =>
+    {
+        receipt.fixtureReceiptPath = fixtureReceiptPath;
+        receipt.fixtureReceiptDigest = fixtureReceiptDigest;
+        receipt.fixtureReceiptTerminalStatus = 'verified';
+    });
+    mutateAndResealCurrentSchemaDagReceipt(value.runtimeTopology, (receipt) =>
+    {
+        receipt.environmentReady.fileSha256 = sha256File(value.environmentReady);
+        receipt.environmentReady.contentDigest = JSON.parse(
+            readFileSync(value.environmentReady, 'utf8')
+        ).contentDigest;
+    });
+}
+
+test('terminal DAG rejects coordinated cross-run FixtureReceipt identities and path aliases', async () =>
+{
+    const identityCases = [
+        ['runId', (identity) => ({ ...identity, runId: 'stale-run' })],
+        ['namespace', (identity) => ({ ...identity, namespace: 'stale-namespace' })],
+        ['source commit', (identity) => ({
+            ...identity,
+            source: { ...identity.source, commit: 'f'.repeat(40) }
+        })],
+        ['source fingerprint', (identity) => ({
+            ...identity,
+            source: { ...identity.source, worktreeFingerprint: `sha256:${'1'.repeat(64)}` }
+        })],
+        ['service generation', (identity) => ({
+            ...identity,
+            serviceGeneration: `sha256:${'2'.repeat(64)}`
+        })]
+    ];
+    for (const [label, mutateIdentity] of identityCases)
+    {
+        const value = currentSchemaTerminalDagFixture({ withFixtureReceipt: true });
+        try
+        {
+            const plan = JSON.parse(readFileSync(value.planFile, 'utf8'));
+            const staleReceipt = buildNoneFixtureReceipt(
+                plan,
+                mutateIdentity(value.fixtureReceiptDocument.executionIdentity)
+            );
+            writeFileSync(value.fixtureReceiptPath, `${JSON.stringify(staleReceipt, null, 2)}\n`);
+            resealEnvironmentFixtureBinding(
+                value,
+                value.fixtureReceiptPath,
+                staleReceipt.receiptDigest
+            );
+            await assert.rejects(
+                verifyCurrentSchemaTerminalDag(value.dagOptions),
+                /execution identity mismatch/u,
+                label
+            );
+        }
+        finally
+        {
+            rmSync(value.directory, { recursive: true, force: true });
+        }
+    }
+
+    for (const aliasKind of ['hardlink', 'parent-symlink'])
+    {
+        const value = currentSchemaTerminalDagFixture({ withFixtureReceipt: true });
+        const parentAlias = `${value.directory}-alias`;
+        try
+        {
+            let alias;
+            if (aliasKind === 'hardlink')
+            {
+                alias = path.join(value.directory, 'fixture-receipt-hardlink.json');
+                linkSync(value.fixtureReceiptPath, alias);
+            }
+            else
+            {
+                symlinkSync(value.directory, parentAlias, 'dir');
+                alias = path.join(parentAlias, path.basename(value.fixtureReceiptPath));
+            }
+            resealEnvironmentFixtureBinding(
+                value,
+                alias,
+                value.fixtureReceiptDocument.receiptDigest
+            );
+            await assert.rejects(
+                verifyCurrentSchemaTerminalDag(value.dagOptions),
+                /canonical regular file/u,
+                aliasKind
+            );
+        }
+        finally
+        {
+            if (aliasKind === 'parent-symlink') rmSync(parentAlias, { force: true });
+            rmSync(value.directory, { recursive: true, force: true });
+        }
+    }
+});
+
+test('environment-ready and runtime topology form an immutable exact terminal DAG', async () =>
+{
+    const positive = currentSchemaTerminalDagFixture();
+    try
+    {
+        const result = await verifyCurrentSchemaTerminalDag(positive.dagOptions);
+        assert.deepEqual(
+            result.environmentReady.currentSchemaRuntimeTopologyAdmission,
+            result.binding
+        );
+        assert.deepEqual(
+            result.runtimeTopology.currentSchemaRuntimeTopologyAdmission,
+            result.binding
+        );
+        assert.throws(
+            () => writeFixtureProfileReceipt(
+                positive.environmentReady,
+                JSON.parse(readFileSync(positive.planFile, 'utf8')),
+                {
+                    kind: 'environment-ready',
+                    currentSchemaRuntimeTopologyAdmissionFile: positive.admission,
+                    currentSchemaAdmissionOptions: positive.options,
+                    profilePlanFile: positive.planFile
+                }
+            ),
+            /environment-ready terminal already exists/u
+        );
+        assert.throws(
+            () => writeAcceptanceRuntimeTopology(
+                positive.runtimeTopology,
+                positive.runtimeTopologyInput,
+                positive.environmentReady,
+                positive.admission,
+                positive.options
+            ),
+            /runtime topology terminal already exists/u
+        );
+    }
+    finally
+    {
+        rmSync(positive.directory, { recursive: true, force: true });
+    }
+
+    const cases = [
+        {
+            label: 'missing environment-ready child',
+            mutate(value) { rmSync(value.environmentReady); },
+            expected: /environment-ready receipt is missing/u
+        },
+        {
+            label: 'missing runtime-topology child',
+            mutate(value) { rmSync(value.runtimeTopology); },
+            expected: /runtime topology receipt is missing/u
+        },
+        {
+            label: 'prepared current-schema parent',
+            mutate(value) { writeFileSync(`${value.runtimeReady}.prepared`, '{}\n'); },
+            expected: /prepared sibling exists/u
+        },
+        {
+            label: 'prepared environment-ready child',
+            mutate(value)
+            {
+                mutateAndResealCurrentSchemaDagReceipt(value.environmentReady, (receipt) =>
+                {
+                    receipt.status = 'prepared';
+                    receipt.qualificationEligible = false;
+                });
+            },
+            expected: /environment-ready current schema parent binding mismatch/u
+        },
+        {
+            label: 'prepared environment-ready sibling',
+            mutate(value) { writeFileSync(`${value.environmentReady}.prepared`, '{}\n'); },
+            expected: /prepared or publication alias sibling/u
+        },
+        {
+            label: 'crash alias environment-ready sibling',
+            mutate(value) { writeFileSync(`${value.environmentReady}.next-crash`, '{}\n'); },
+            expected: /prepared or publication alias sibling/u
+        },
+        {
+            label: 'hardlink environment-ready alias',
+            mutate(value) { linkSync(value.environmentReady, `${value.environmentReady}.alias`); },
+            expected: /canonical regular file/u
+        },
+        {
+            label: 'prepared runtime-topology child',
+            mutate(value)
+            {
+                mutateAndResealCurrentSchemaDagReceipt(value.runtimeTopology, (receipt) =>
+                {
+                    receipt.status = 'prepared';
+                    receipt.qualificationEligible = false;
+                });
+            },
+            expected: /runtime topology current schema parent binding mismatch/u
+        },
+        {
+            label: 'extra environment-ready field',
+            mutate(value)
+            {
+                const receipt = JSON.parse(readFileSync(value.environmentReady, 'utf8'));
+                receipt.secondAuthority = true;
+                writeFileSync(value.environmentReady, `${JSON.stringify(receipt, null, 2)}\n`);
+            },
+            expected: /environment-ready key set mismatch/u
+        },
+        {
+            label: 'missing runtime-topology field',
+            mutate(value)
+            {
+                const receipt = JSON.parse(readFileSync(value.runtimeTopology, 'utf8'));
+                delete receipt.input;
+                writeFileSync(value.runtimeTopology, `${JSON.stringify(receipt, null, 2)}\n`);
+            },
+            expected: /runtime topology key set mismatch/u
+        },
+        {
+            label: 'tampered environment-ready parent',
+            mutate(value)
+            {
+                const receipt = JSON.parse(readFileSync(value.environmentReady, 'utf8'));
+                receipt.currentSchemaRuntimeTopologyAdmission.fileSha256 = `sha256:${'9'.repeat(64)}`;
+                writeFileSync(value.environmentReady, `${JSON.stringify(receipt, null, 2)}\n`);
+            },
+            expected: /environment-ready current schema parent binding mismatch/u
+        },
+        {
+            label: 'fabricated fixture completeness',
+            mutate(value)
+            {
+                mutateAndResealCurrentSchemaDagReceipt(value.environmentReady, (receipt) =>
+                {
+                    receipt.fixtureReceiptPath = path.join(value.directory, 'fabricated-fixture-receipt.json');
+                    receipt.fixtureReceiptDigest = `sha256:${'7'.repeat(64)}`;
+                    receipt.fixtureReceiptTerminalStatus = 'verified';
+                });
+            },
+            expected: /FixtureReceipt|missing/u
+        },
+        {
+            label: 'unbound environment-ready timestamp',
+            mutate(value)
+            {
+                mutateAndResealCurrentSchemaDagReceipt(value.environmentReady, (receipt) =>
+                {
+                    receipt.generatedAt = new Date().toISOString();
+                });
+            },
+            expected: /environment-ready key set mismatch/u
+        },
+        {
+            label: 'coordinated plan reseal',
+            mutate(value)
+            {
+                const plan = JSON.parse(readFileSync(value.planFile, 'utf8'));
+                plan.mutationPolicy = 'coordinated-reseal';
+                writeFileSync(value.planFile, `${JSON.stringify(plan, null, 2)}\n`);
+            },
+            expected: /canonical catalogs|exact terminal mismatch/u
+        },
+        {
+            label: 'coordinated runtime topology input reseal',
+            mutate(value)
+            {
+                const input = JSON.parse(readFileSync(value.runtimeTopologyInput, 'utf8'));
+                input.backendUrl = 'http://127.0.0.1:29999';
+                writeFileSync(value.runtimeTopologyInput, `${JSON.stringify(input, null, 2)}\n`);
+                mutateAndResealCurrentSchemaDagReceipt(value.runtimeTopology, (receipt) =>
+                {
+                    receipt.input.fileSha256 = `sha256:${'6'.repeat(64)}`;
+                    receipt.topology = input;
+                });
+            },
+            expected: /exact terminal mismatch|not bound by the common admission/u
+        },
+        {
+            label: 'tampered runtime-topology parent',
+            mutate(value)
+            {
+                const receipt = JSON.parse(readFileSync(value.runtimeTopology, 'utf8'));
+                receipt.currentSchemaRuntimeTopologyAdmission.contentDigest = `sha256:${'8'.repeat(64)}`;
+                writeFileSync(value.runtimeTopology, `${JSON.stringify(receipt, null, 2)}\n`);
+            },
+            expected: /runtime topology current schema parent binding mismatch/u
+        },
+        {
+            label: 'resealed runtime-topology child identity',
+            mutate(value)
+            {
+                mutateAndResealCurrentSchemaDagReceipt(value.runtimeTopology, (receipt) =>
+                {
+                    receipt.topology.fixtureProfile.profileSource = 'matrix';
+                });
+            },
+            expected: /runtime topology current schema parent binding mismatch/u
+        }
+    ];
+    for (const entry of cases)
+    {
+        const value = currentSchemaTerminalDagFixture();
+        let candidateSpawns = 0;
+        try
+        {
+            entry.mutate(value);
+            await assert.rejects(async () =>
+            {
+                await verifyCurrentSchemaTerminalDag(value.dagOptions);
+                candidateSpawns += 1;
+            }, entry.expected, entry.label);
+            assert.equal(candidateSpawns, 0, `${entry.label} must block candidate spawn`);
+        }
+        finally
+        {
+            rmSync(value.directory, { recursive: true, force: true });
+        }
+    }
+
+    const left = currentSchemaTerminalDagFixture();
+    const right = currentSchemaTerminalDagFixture();
+    let swappedCandidateSpawns = 0;
+    try
+    {
+        await assert.rejects(async () =>
+        {
+            await verifyCurrentSchemaTerminalDag({
+                ...left.dagOptions,
+                runtimeTopologyFile: right.runtimeTopology
+            });
+            swappedCandidateSpawns += 1;
+        }, /runtime topology current schema parent binding mismatch|environmentReadyReceiptPath/u);
+        assert.equal(swappedCandidateSpawns, 0);
+    }
+    finally
+    {
+        rmSync(left.directory, { recursive: true, force: true });
+        rmSync(right.directory, { recursive: true, force: true });
     }
 });
 
@@ -641,6 +1404,8 @@ test('bootstrap and start entrypoints no longer hide default fixture injection',
     assert.match(start, /FIXTURE_PROFILE="none"/u);
     assert.match(start, /--fixture-profile/u);
     assert.match(start, /PLAN_RESOLVE_ARGS\+=\(--execution-class development\)/u);
+    assert.doesNotMatch(start, /--kind environment-ready/u);
+    assert.match(start, /qualification environment-ready receipt: not produced by the development entrypoint/u);
     assert.match(start, /fixture-receipt-\$\{PROFILE_ID\}\.json/u);
     assert.match(start, /dev-transition/u);
     for (const identityOption of ['--run-id', '--namespace', '--source-commit', '--source-fingerprint', '--service-generation'])
