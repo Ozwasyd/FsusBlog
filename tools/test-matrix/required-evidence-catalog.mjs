@@ -16,6 +16,8 @@ export const requiredEvidenceAuthorityLedgerSchema =
     'fsusblog.required-evidence-authority-ledger.v1';
 export const canonicalRequiredEvidenceLedgerPath =
     'config/testing/required-evidence-authority-ledger.json';
+export const requiredEvidenceCatalogBindingSchema =
+    'fsusblog.release-final-required-evidence-catalog-binding.v1';
 
 export const exactnessValues = Object.freeze([
     'exact-one-authority',
@@ -485,6 +487,59 @@ export function checkRequiredEvidenceCatalog(ledger = loadCanonicalRequiredEvide
         throw new Error(`required evidence catalog is invalid:\n${errors.join('\n')}`);
     }
     return ledger.entries;
+}
+
+export function createRequiredEvidenceCatalogBinding(
+    ledger = loadCanonicalRequiredEvidenceCatalog(),
+    ledgerPath = canonicalRequiredEvidenceLedgerPath
+)
+{
+    checkRequiredEvidenceCatalog(ledger);
+    return {
+        schema: requiredEvidenceCatalogBindingSchema,
+        ledgerSchema: ledger.schema,
+        path: ledgerPath,
+        fileDigest: requiredEvidenceCatalogIdentity(ledgerPath),
+        contentDigest: ledger.contentDigest,
+        authorityIds: ledger.entries.map((entry) => entry.authorityId),
+        locatorBindingKeys: ledger.entries.map((entry) => entry.locatorBindingKey).sort(),
+        outputBindingKeys: ledger.entries.map((entry) => entry.outputBindingKey).sort()
+    };
+}
+
+export function validateRequiredEvidenceCatalogBinding(
+    binding,
+    ledger = loadCanonicalRequiredEvidenceCatalog(),
+    ledgerPath = canonicalRequiredEvidenceLedgerPath
+)
+{
+    const errors = validateRequiredEvidenceCatalog(ledger);
+    if (errors.length > 0)
+    {
+        return errors.map((error) => `required evidence catalog: ${error}`);
+    }
+    const expected = createRequiredEvidenceCatalogBinding(ledger, ledgerPath);
+    if (!binding || typeof binding !== 'object' || Array.isArray(binding))
+    {
+        return ['required evidence catalog binding is missing'];
+    }
+    for (const field of [
+        'schema',
+        'ledgerSchema',
+        'path',
+        'fileDigest',
+        'contentDigest',
+        'authorityIds',
+        'locatorBindingKeys',
+        'outputBindingKeys'
+    ])
+    {
+        if (JSON.stringify(binding[field]) !== JSON.stringify(expected[field]))
+        {
+            errors.push(`required evidence catalog binding ${field} mismatch`);
+        }
+    }
+    return errors;
 }
 
 function main()

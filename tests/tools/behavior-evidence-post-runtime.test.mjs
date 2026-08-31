@@ -12,6 +12,9 @@ import {
     sealBrowserContractReceipt
 } from '../../tools/release/test-evidence-receipts.mjs'
 import {
+    assertReleaseFinalBehaviorAuthorityBinding
+} from '../../tools/release/release-final-domain-evidence.mjs'
+import {
     joinBehaviorEvidencePostRuntime,
     validatePostRuntimeReceipt
 } from '../../tools/test-matrix/behavior-evidence-post-runtime.mjs'
@@ -210,6 +213,44 @@ test('post-runtime join seals exact pre/runtime/browser candidate evidence', (co
     assert.equal(validatePostRuntimeReceipt(receipt).status, 'ok', receipt.failureReasons.join('; '))
     assert.equal(receipt.candidateIdentity.buildReceiptDigest, candidate.build.contentDigest)
     assert.equal(receipt.candidateIdentity.browserContractDigest, candidate.browserContract.contentDigest)
+})
+
+test('release-final consumer rejects pre/post digest run source and worktree mismatch', async (context) =>
+{
+    const behaviorCatalog = catalog()
+    const candidate = candidateFixture(context)
+    const pre = preRuntime(behaviorCatalog)
+    const post = joinBehaviorEvidencePostRuntime({
+        preRuntimeReceipt: pre,
+        catalog: behaviorCatalog,
+        browserContractReceipt: candidate.browserContract,
+        runtimeEvidenceReceipts: [candidate.correctness]
+    })
+    assert.deepEqual(assertReleaseFinalBehaviorAuthorityBinding({
+        preRuntimeReceipt: pre,
+        postRuntimeReceipt: post,
+        releaseCommit: commit
+    }), { preRuntimeReceipt: pre, postRuntimeReceipt: post })
+    const mutations = [
+        ['pre digest', { ...post, preRuntimeReceiptDigest: `sha256:${'0'.repeat(64)}` }, /pre-runtime receipt mismatch/u],
+        ['run identity', { ...post, runIdentity: 'other-run' }, /identity mismatch/u],
+        ['source commit', { ...post, sourceIdentity: { ...post.sourceIdentity, commit: 'd'.repeat(40) } }, /source commit mismatch/u],
+        ['worktree', { ...post, sourceIdentity: { ...post.sourceIdentity, worktreeFingerprint: `sha256:${'e'.repeat(64)}` } }, /identity mismatch/u]
+    ]
+    for (const [name, mutation, pattern] of mutations)
+    {
+        await context.test(name, () =>
+        {
+            const resealed = seal(Object.fromEntries(
+                Object.entries(mutation).filter(([key]) => key !== 'contentDigest')
+            ))
+            assert.throws(() => assertReleaseFinalBehaviorAuthorityBinding({
+                preRuntimeReceipt: pre,
+                postRuntimeReceipt: resealed,
+                releaseCommit: commit
+            }), pattern)
+        })
+    }
 })
 
 test('HTTP 200, diagnostic browser evidence, stale candidate and missing browser cannot qualify', (context) =>

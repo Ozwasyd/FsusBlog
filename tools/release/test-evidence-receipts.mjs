@@ -10,6 +10,9 @@ import {
 import {
     validateReleaseReliabilityQualifiedBinding
 } from './release-reliability-qualified-receipt.mjs';
+import {
+    validateRequiredEvidenceCatalogBinding
+} from '../test-matrix/required-evidence-catalog.mjs';
 
 export const browserlessCorrectnessReceiptSchema = 'fsusblog.browserless-correctness-receipt.v1';
 export const browserDiagnosticsReceiptSchema = 'fsusblog.browser-diagnostics-receipt.v2';
@@ -1579,12 +1582,15 @@ export function createReleaseFinalTestEvidenceBinding({
     correctnessReceiptPath,
     browserContractReceipt,
     browserContractReceiptPath,
+    preRuntimeReceipt,
+    preRuntimeReceiptPath,
     postRuntimeReceipt,
     postRuntimeReceiptPath,
     consistencyFinalReport,
     consistencyFinalReportPath,
     releaseDomainProjectionReceipts,
     releaseReliabilityQualifiedReceipt,
+    requiredEvidenceCatalogBinding,
     locatorEvidence = null,
     now = () => new Date()
 })
@@ -1650,6 +1656,12 @@ export function createReleaseFinalTestEvidenceBinding({
                 fileDigest: sha256File(postRuntimeReceiptPath),
                 contentDigest: postRuntimeReceipt.contentDigest
             },
+            behaviorPreRuntime: {
+                schema: preRuntimeReceipt.schema,
+                path: String(preRuntimeReceiptPath).replaceAll(path.sep, '/'),
+                fileDigest: sha256File(preRuntimeReceiptPath),
+                contentDigest: preRuntimeReceipt.contentDigest
+            },
             behaviorConsistencyFinal: {
                 schema: consistencyFinalReport.schema,
                 path: String(consistencyFinalReportPath).replaceAll(path.sep, '/'),
@@ -1661,6 +1673,7 @@ export function createReleaseFinalTestEvidenceBinding({
             ),
             releaseDomains
         },
+        requiredEvidenceCatalog: structuredClone(requiredEvidenceCatalogBinding),
         locatorEvidence: locatorEvidence ? structuredClone(locatorEvidence) : null,
         generatedAt: now().toISOString()
     });
@@ -1690,7 +1703,13 @@ export function validateReleaseFinalTestEvidenceBinding(binding)
     {
         errors.push('release-final binding source/build identity mismatch');
     }
-    for (const key of ['correctness', 'browserContract', 'behaviorPostRuntime', 'behaviorConsistencyFinal'])
+    for (const key of [
+        'correctness',
+        'browserContract',
+        'behaviorPreRuntime',
+        'behaviorPostRuntime',
+        'behaviorConsistencyFinal'
+    ])
     {
         if (!isDigest(binding?.receipts?.[key]?.fileDigest))
         {
@@ -1705,6 +1724,11 @@ export function validateReleaseFinalTestEvidenceBinding(binding)
         !== 'fsusblog.behavior-evidence-post-runtime-receipt.v1')
     {
         errors.push('release-final binding behaviorPostRuntime schema is invalid');
+    }
+    if (binding?.receipts?.behaviorPreRuntime?.schema
+        !== 'fsusblog.behavior-evidence-pre-runtime-receipt.v1')
+    {
+        errors.push('release-final binding behaviorPreRuntime schema is invalid');
     }
     if (binding?.receipts?.behaviorConsistencyFinal?.schema
         !== 'fsusblog.behavior-document-consistency-final-report.v1')
@@ -1724,6 +1748,9 @@ export function validateReleaseFinalTestEvidenceBinding(binding)
     errors.push(...validateReleaseDomainProjectionBindings(
         binding?.receipts?.releaseDomains
     ));
+    errors.push(...validateRequiredEvidenceCatalogBinding(
+        binding?.requiredEvidenceCatalog
+    ));
     if (binding?.locatorEvidence !== null)
     {
         if (!isDigest(binding?.locatorEvidence?.manifestInputDigest)
@@ -1733,7 +1760,7 @@ export function validateReleaseFinalTestEvidenceBinding(binding)
             errors.push('release-final locator evidence digests are invalid');
         }
         const directDigests = binding?.locatorEvidence?.directInputDigests;
-        if (!directDigests || Object.keys(directDigests).length !== 6
+        if (!directDigests || Object.keys(directDigests).length !== 7
             || Object.values(directDigests).some((digest) => !isDigest(digest)))
         {
             errors.push('release-final locator direct input digests are incomplete');

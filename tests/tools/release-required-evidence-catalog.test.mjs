@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -7,6 +8,8 @@ import {
     entryContentDigest,
     producerContractDigest,
     ledgerContentDigest,
+    createRequiredEvidenceCatalogBinding,
+    validateRequiredEvidenceCatalogBinding,
     requiredEvidenceAuthorityLedgerSchema,
     requiredEvidenceCatalogSchema
 } from '../../tools/test-matrix/required-evidence-catalog.mjs';
@@ -251,4 +254,57 @@ test('stable canonical ordering and digest are deterministic', () =>
     reseal(unsorted);
     assert.ok(errorsFor(unsorted)
         .some((error) => error.includes('must be sorted by authorityId')));
+});
+
+test('production release-final catalog binding seals the exact canonical authority set', () =>
+{
+    const binding = createRequiredEvidenceCatalogBinding();
+    assert.deepEqual(validateRequiredEvidenceCatalogBinding(binding), []);
+    assert.equal(binding.schema,
+        'fsusblog.release-final-required-evidence-catalog-binding.v1');
+    assert.equal(binding.path,
+        'config/testing/required-evidence-authority-ledger.json');
+    assert.equal(binding.authorityIds.length, 21);
+    assert.equal(binding.locatorBindingKeys.length, 21);
+    assert.equal(binding.outputBindingKeys.length, 21);
+});
+
+test('production release-final consumer uses the canonical catalog binding', () =>
+{
+    const source = readFileSync(new URL(
+        '../../tools/release/release-final-domain-evidence.mjs',
+        import.meta.url
+    ), 'utf8');
+    assert.match(source,
+        /createRequiredEvidenceCatalogBinding\(requiredEvidenceCatalog\)/u);
+    assert.match(source,
+        /requiredEvidenceCatalogBinding,/u);
+});
+
+test('release-final catalog binding rejects deletion replacement and digest tamper', async (context) =>
+{
+    const mutations = [
+        ['authority deletion', (binding) => binding.authorityIds.pop()],
+        ['authority replacement', (binding) =>
+        {
+            binding.authorityIds[0] = 'forged-authority';
+        }],
+        ['catalog digest', (binding) =>
+        {
+            binding.contentDigest = `sha256:${'0'.repeat(64)}`;
+        }],
+        ['file digest', (binding) =>
+        {
+            binding.fileDigest = `sha256:${'1'.repeat(64)}`;
+        }]
+    ];
+    for (const [name, mutate] of mutations)
+    {
+        await context.test(name, () =>
+        {
+            const binding = createRequiredEvidenceCatalogBinding();
+            mutate(binding);
+            assert.notDeepEqual(validateRequiredEvidenceCatalogBinding(binding), []);
+        });
+    }
 });

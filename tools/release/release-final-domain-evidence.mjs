@@ -13,6 +13,13 @@ import {
     validatePostRuntimeReceipt
 } from '../test-matrix/behavior-evidence-post-runtime.mjs';
 import {
+    assertPreRuntimeQualified
+} from '../test-matrix/behavior-evidence-pre-runtime.mjs';
+import {
+    createRequiredEvidenceCatalogBinding,
+    loadCanonicalRequiredEvidenceCatalog
+} from '../test-matrix/required-evidence-catalog.mjs';
+import {
     validateFinalReport
 } from '../docs/behavior-document-consistency-final.mjs';
 
@@ -22,6 +29,38 @@ import {
 } from './release-reliability-qualified-receipt.mjs';
 import { createReleaseFinalTestEvidenceBinding } from './test-evidence-receipts.mjs';
 
+export function assertReleaseFinalBehaviorAuthorityBinding({
+    preRuntimeReceipt,
+    postRuntimeReceipt,
+    releaseCommit
+})
+{
+    const pre = assertPreRuntimeQualified(preRuntimeReceipt);
+    const post = validatePostRuntimeReceipt(postRuntimeReceipt);
+    if (post.status !== 'ok')
+    {
+        throw new Error(
+            `post-runtime behavior evidence is not qualified: ${post.failureReasons.join('; ')}`
+        );
+    }
+    if (post.sourceIdentity?.commit !== releaseCommit)
+    {
+        throw new Error('post-runtime behavior evidence source commit mismatch');
+    }
+    if (post.preRuntimeReceiptDigest !== pre.contentDigest)
+    {
+        throw new Error('post-runtime behavior evidence pre-runtime receipt mismatch');
+    }
+    if (post.runIdentity !== pre.runIdentity
+        || post.sourceIdentity?.commit !== pre.sourceIdentity?.commit
+        || post.sourceIdentity?.worktreeFingerprint
+            !== pre.sourceIdentity?.worktreeFingerprint)
+    {
+        throw new Error('pre/post-runtime behavior evidence identity mismatch');
+    }
+    return { preRuntimeReceipt: pre, postRuntimeReceipt: post };
+}
+
 export function createReleaseFinalDomainEvidence({
     directEvidence,
     locatorEvidence,
@@ -30,17 +69,15 @@ export function createReleaseFinalDomainEvidence({
     sha256Hex
 })
 {
+    const preRuntimeFile = directEvidence.behaviorPreRuntime.file;
+    const preRuntimeReceipt = directEvidence.behaviorPreRuntime.receipt;
     const postRuntimeFile = directEvidence.behaviorPostRuntime.file;
     const postRuntimeReceipt = directEvidence.behaviorPostRuntime.receipt;
-    validatePostRuntimeReceipt(postRuntimeReceipt);
-    if (postRuntimeReceipt.status !== 'ok')
-    {
-        throw new Error(`post-runtime behavior evidence is not qualified: ${postRuntimeReceipt.failureReasons.join('; ')}`);
-    }
-    if (postRuntimeReceipt.sourceIdentity?.commit !== manifest.commitSha)
-    {
-        throw new Error('post-runtime behavior evidence source commit mismatch');
-    }
+    const behaviorEvidence = assertReleaseFinalBehaviorAuthorityBinding({
+        preRuntimeReceipt,
+        postRuntimeReceipt,
+        releaseCommit: manifest.commitSha
+    });
     const consistencyFinalFile = directEvidence.behaviorConsistency.file;
     const consistencyFinalReport = directEvidence.behaviorConsistency.receipt;
     validateFinalReport(consistencyFinalReport);
@@ -74,6 +111,9 @@ export function createReleaseFinalDomainEvidence({
         throw new Error('post-runtime behavior evidence build candidate mismatch');
     }
     const canonicalInputs = loadCanonicalReleaseFinalEvidenceInputs().inputs;
+    const requiredEvidenceCatalog = loadCanonicalRequiredEvidenceCatalog();
+    const requiredEvidenceCatalogBinding =
+        createRequiredEvidenceCatalogBinding(requiredEvidenceCatalog);
     const releaseDomainLedger = readEvidenceDocument(path.join(
         repositoryRoot,
         'config/testing/release-domain-assertion-dispositions.json'
@@ -125,12 +165,15 @@ export function createReleaseFinalDomainEvidence({
             correctnessReceiptPath: correctness.file,
             browserContractReceipt: browserContract.receipt,
             browserContractReceiptPath: browserContract.file,
-            postRuntimeReceipt,
+            preRuntimeReceipt: behaviorEvidence.preRuntimeReceipt,
+            preRuntimeReceiptPath: preRuntimeFile,
+            postRuntimeReceipt: behaviorEvidence.postRuntimeReceipt,
             postRuntimeReceiptPath: postRuntimeFile,
             consistencyFinalReport,
             consistencyFinalReportPath: consistencyFinalFile,
             releaseDomainProjectionReceipts,
             releaseReliabilityQualifiedReceipt,
+            requiredEvidenceCatalogBinding,
             locatorEvidence
         }),
         publicPreview

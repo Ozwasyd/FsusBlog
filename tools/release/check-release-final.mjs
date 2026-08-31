@@ -71,6 +71,7 @@ function listJsonFiles(dir)
 }
 
 const directEvidenceContract = Object.freeze({
+    'evidence-consumer.test-matrix.behavior-evidence-pre-runtime': ['behaviorPreRuntime', 'fsusblog.behavior-evidence-pre-runtime-receipt.v1'],
     'evidence-consumer.release-final.direct.behavior-consistency': ['behaviorConsistency', 'fsusblog.behavior-document-consistency-final-report.v1'],
     'evidence-consumer.release-final.direct.behavior-post-runtime': ['behaviorPostRuntime', 'fsusblog.behavior-evidence-post-runtime-receipt.v1'],
     'evidence-consumer.release-final.direct.browser-contract': ['browserContract', 'fsusblog.browser-contract-receipt.v2'],

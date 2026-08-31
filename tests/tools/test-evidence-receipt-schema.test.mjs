@@ -20,6 +20,9 @@ import {
     validatePublicPreviewEvidenceBinding,
     validateReleaseFinalTestEvidenceBinding
 } from '../../tools/release/test-evidence-receipts.mjs';
+import {
+    createRequiredEvidenceCatalogBinding
+} from '../../tools/test-matrix/required-evidence-catalog.mjs';
 
 function canonicalize(value)
 {
@@ -657,6 +660,12 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
         releaseReliabilityBinding(build);
     const correctnessFile = path.join(build.directory, 'correctness.json');
     const browserContractFile = path.join(build.directory, 'browser-contract.json');
+    const preRuntime = sealDocument({
+        schema: 'fsusblog.behavior-evidence-pre-runtime-receipt.v1',
+        scope: 'pre-runtime',
+        status: 'ok'
+    });
+    const preRuntimeFile = path.join(build.directory, 'behavior-pre-runtime.json');
     const postRuntime = sealDocument({
         schema: 'fsusblog.behavior-evidence-post-runtime-receipt.v1',
         scope: 'post-runtime',
@@ -670,6 +679,7 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
     const consistencyFinalFile = path.join(build.directory, 'behavior-consistency-final.json');
     fs.writeFileSync(correctnessFile, `${JSON.stringify(correctness, null, 2)}\n`);
     fs.writeFileSync(browserContractFile, `${JSON.stringify(browserContract, null, 2)}\n`);
+    fs.writeFileSync(preRuntimeFile, `${JSON.stringify(preRuntime, null, 2)}\n`);
     fs.writeFileSync(postRuntimeFile, `${JSON.stringify(postRuntime, null, 2)}\n`);
     fs.writeFileSync(consistencyFinalFile, `${JSON.stringify(consistencyFinal, null, 2)}\n`);
     const releaseDomainProjectionReceipts = [
@@ -697,17 +707,22 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
         correctnessReceiptPath: correctnessFile,
         browserContractReceipt: browserContract,
         browserContractReceiptPath: browserContractFile,
+        preRuntimeReceipt: preRuntime,
+        preRuntimeReceiptPath: preRuntimeFile,
         postRuntimeReceipt: postRuntime,
         postRuntimeReceiptPath: postRuntimeFile,
         consistencyFinalReport: consistencyFinal,
         consistencyFinalReportPath: consistencyFinalFile,
         releaseDomainProjectionReceipts,
         releaseReliabilityQualifiedReceipt,
+        requiredEvidenceCatalogBinding: createRequiredEvidenceCatalogBinding(),
         now: () => new Date('2026-07-18T00:04:00.000Z')
     });
     assert.deepEqual(validateReleaseFinalTestEvidenceBinding(binding), []);
     assert.match(binding.receipts.correctness.fileDigest, /^sha256:[a-f0-9]{64}$/u);
     assert.match(binding.receipts.browserContract.fileDigest, /^sha256:[a-f0-9]{64}$/u);
+    assert.match(binding.receipts.behaviorPreRuntime.fileDigest, /^sha256:[a-f0-9]{64}$/u);
+    assert.deepEqual(binding.requiredEvidenceCatalog, createRequiredEvidenceCatalogBinding());
     assert.deepEqual(
         binding.receipts.releaseDomains.map((receipt) => receipt.tierId),
         releaseDomainProjectionReceipts.map((receipt) => receipt.tierId)
@@ -754,6 +769,13 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
     wrongReleaseDomainPath.contentDigest = sealDocument(wrongReleaseDomainPath).contentDigest;
     assert.ok(validateReleaseFinalTestEvidenceBinding(wrongReleaseDomainPath)
         .some((error) => error.includes('.path must be')));
+    const tamperedRequiredAuthority = structuredClone(binding);
+    tamperedRequiredAuthority.requiredEvidenceCatalog.authorityIds[0] =
+        'behavior-document-consistency-forged';
+    tamperedRequiredAuthority.contentDigest =
+        sealDocument(tamperedRequiredAuthority).contentDigest;
+    assert.ok(validateReleaseFinalTestEvidenceBinding(tamperedRequiredAuthority)
+        .some((error) => error.includes('authorityIds mismatch')));
 
     const wrongBuild = structuredClone(browserContract);
     wrongBuild.build.receiptContentDigest = `sha256:${'0'.repeat(64)}`;
@@ -766,12 +788,15 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
         correctnessReceiptPath: correctnessFile,
         browserContractReceipt: wrongBuild,
         browserContractReceiptPath: browserContractFile,
+        preRuntimeReceipt: preRuntime,
+        preRuntimeReceiptPath: preRuntimeFile,
         postRuntimeReceipt: postRuntime,
         postRuntimeReceiptPath: postRuntimeFile,
         consistencyFinalReport: consistencyFinal,
         consistencyFinalReportPath: consistencyFinalFile,
         releaseDomainProjectionReceipts,
-        releaseReliabilityQualifiedReceipt
+        releaseReliabilityQualifiedReceipt,
+        requiredEvidenceCatalogBinding: createRequiredEvidenceCatalogBinding()
     }), /build receipt digest mismatch|content digest mismatch/u);
 
     const nonAuthoritative = structuredClone(correctness);
@@ -784,11 +809,14 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
         correctnessReceiptPath: correctnessFile,
         browserContractReceipt: browserContract,
         browserContractReceiptPath: browserContractFile,
+        preRuntimeReceipt: preRuntime,
+        preRuntimeReceiptPath: preRuntimeFile,
         postRuntimeReceipt: postRuntime,
         postRuntimeReceiptPath: postRuntimeFile,
         consistencyFinalReport: consistencyFinal,
         consistencyFinalReportPath: consistencyFinalFile,
         releaseDomainProjectionReceipts,
-        releaseReliabilityQualifiedReceipt
+        releaseReliabilityQualifiedReceipt,
+        requiredEvidenceCatalogBinding: createRequiredEvidenceCatalogBinding()
     }), /authoritative scheduler correctness checkpoint/u);
 });
