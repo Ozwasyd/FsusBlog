@@ -32,6 +32,7 @@ import {
 } from '../../tools/docs/release-deployment-doc-exactness.mjs'
 import { buildBehaviorDocExactnessReceipt } from '../../tools/docs/behavior-doc-exactness.mjs'
 import { produceRuntimeRoleObservation } from '../../tools/contracts/lib/runtime-role-observation.mjs'
+import { sealReceipt } from '../../tools/fact-extractors/receipt.mjs'
 import { runExtractor } from '../../tools/fact-extractors/runner.mjs'
 import { verifyProseClaims } from '../../tools/docs/prose-claim-verifier/verifier.mjs'
 
@@ -381,7 +382,10 @@ test('coordinated two-commit prose and diagnostic self-grant cannot cross the pr
             ]
         }, null, 4) + '\n')
         writeFileSync(path.join(repository, deploymentPath), '# Deployment\n')
-        writeFileSync(path.join(repository, releasePath), '# Release\n\nLegacy release guidance.\n')
+        writeFileSync(
+            path.join(repository, releasePath),
+            '# Release\n\n## `release-final` — final publish credential\n\nLegacy finalizer guidance.\n'
+        )
         runGit('init', '-q')
         runGit('config', 'user.name', 'fixture')
         runGit('config', 'user.email', 'fixture@example.test')
@@ -413,9 +417,12 @@ test('coordinated two-commit prose and diagnostic self-grant cannot cross the pr
             [deploymentPath, releasePath],
             { approvedBaseRef: protectedBase }
         )
-        assert.equal(findings.length, 1)
-        assert.equal(findings[0].documentPath, deploymentPath)
-        assert.equal(findings[0].classId, 'manual-deployment-authority')
+        assert.equal(findings.length, 3)
+        assert.deepEqual(
+            [...new Set(findings.map((entry) => entry.documentPath))].sort(),
+            [deploymentPath, releasePath]
+        )
+        assert.ok(findings.every((entry) => entry.classId === 'manual-deployment-authority'))
     }
     finally
     {
@@ -432,6 +439,60 @@ test('current release/deployment documents contain no forbidden manual authority
     assert.deepEqual(scanReleaseDeploymentDocResidue(root, documents), [])
 })
 
+test('CLI and library reject sealed receipts or caller identities from another source state', () =>
+{
+    const temporaryRoot = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-doc-stale-receipt-'))
+    const receiptPath = path.join(temporaryRoot, 'receipt.json')
+    const staleSourceCommit = observation.sourceCommit === '0'.repeat(40)
+        ? '1'.repeat(40)
+        : '0'.repeat(40)
+    try
+    {
+        writeFileSync(receiptPath, JSON.stringify(sealReceipt({
+            ...structuredClone(observation),
+            sourceCommit: staleSourceCommit
+        }), null, 4) + '\n')
+        assert.throws(
+            () => execFileSync(process.execPath, [
+                path.join(root, 'tools/docs/release-deployment-doc-exactness.mjs'),
+                '--receipt',
+                receiptPath
+            ], {
+                cwd: root,
+                encoding: 'utf8',
+                stdio: ['ignore', 'pipe', 'pipe']
+            }),
+            (error) =>
+            {
+                assert.match(String(error.stderr), /receipt sourceCommit does not match current source/u)
+                return true
+            }
+        )
+
+        assert.throws(() => buildReleaseDeploymentDocExactnessReceipt({
+            repositoryRoot: root,
+            observationReceipt: observation,
+            sourceCommit: staleSourceCommit,
+            worktreeFingerprint: observation.worktreeFingerprint
+        }), /sourceCommit differs from the current repository identity/u)
+
+        const staleWorktreeReceipt = sealReceipt({
+            ...structuredClone(observation),
+            worktreeFingerprint: observation.worktreeFingerprint === '0'.repeat(64)
+                ? '1'.repeat(64)
+                : '0'.repeat(64)
+        })
+        assert.throws(
+            () => loadReleaseDeploymentExactnessInputs(root, staleWorktreeReceipt),
+            /worktreeFingerprint does not match current worktree/u
+        )
+    }
+    finally
+    {
+        rmSync(temporaryRoot, { recursive: true, force: true })
+    }
+})
+
 test('current release/deployment claims and sections are bidirectionally exact', () =>
 {
     const receipt = buildReleaseDeploymentDocExactnessReceipt({
@@ -446,8 +507,8 @@ test('current release/deployment claims and sections are bidirectionally exact',
     assert.equal(receipt.counts.generated, 4)
     assert.equal(receipt.counts.prose, 3)
     assert.equal(receipt.counts.proseVerified, 3)
-    assert.equal(receipt.counts.mutationKilled, 71)
-    assert.equal(receipt.counts.mutationTotal, 71)
+    assert.equal(receipt.counts.mutationKilled, 72)
+    assert.equal(receipt.counts.mutationTotal, 72)
 })
 
 test('missing ledger entry, orphan section and typed fact drift fail closed', () =>

@@ -13,7 +13,7 @@ import { lstatSync, readFileSync, realpathSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { digestValue } from '../fact-extractors/identity.mjs'
+import { digestValue, sealSourceIdentity } from '../fact-extractors/identity.mjs'
 import { readFactObservationReceipt } from '../fact-extractors/reader.mjs'
 import {
     buildBehaviorDocExactnessReceipt,
@@ -52,7 +52,7 @@ const readJson = (repositoryRoot, relative) =>
     JSON.parse(readStrictUtf8(path.join(repositoryRoot, relative), relative))
 
 const markdownAstVersion = 'fsusblog.release-deployment-markdown-ast.v1'
-const protectedProseOwnershipVersion = 'fsusblog.release-deployment-protected-prose-ownership.v1'
+const protectedProseOwnershipVersion = 'fsusblog.release-deployment-protected-prose-ownership.v2'
 
 const headingPattern = /^(#{1,6})\s+(.+?)\s*#*\s*$/u
 const fencePattern = /^\s*(`{3,}|~{3,})/u
@@ -74,6 +74,16 @@ const nodeDigest = (node) => digestValue({
     body: node.body
 })
 const protectedNodeKey = (entry) => `${entry.nodeType}\0${entry.contentDigest}`
+const releaseProtectedNodeKey = (entry) => `${entry.nodeType}\0${digestValue({
+    astVersion: markdownAstVersion,
+    nodeType: entry.nodeType,
+    body: entry.body
+})}`
+const retiredReleaseFinalHeading = '`release-final` — final publish credential'
+const belongsToRetiredReleaseFinalSection = (node) =>
+    node.body.trim() === retiredReleaseFinalHeading
+    || (node.nodeType !== 'heading'
+        && node.headingPath.at(-1)?.trim() === retiredReleaseFinalHeading)
 
 function assertCanonicalRepositoryPath(relativePath, { docsOnly = false } = {})
 {
@@ -400,25 +410,29 @@ export function extractReleaseDeploymentProseNodes(source, documentPath = 'inlin
     return parseReleaseDeploymentMarkdownAst(source, documentPath, { ownedSpans })
 }
 
-function scanClosedProseOwnership(source, documentPath, protectedNodes = [])
+function scanClosedProseOwnership(
+    source,
+    documentPath,
+    protectedNodes = [],
+    protectedTypes = protectedNodeTypes,
+    protectedKey = protectedNodeKey
+)
 {
     const nodes = extractReleaseDeploymentProseNodes(source, documentPath)
-    const protectedCounts = new Map()
-    for (const node of protectedNodes.filter((entry) => protectedNodeTypes.has(entry.nodeType)))
-    {
-        const key = protectedNodeKey(node)
-        protectedCounts.set(key, (protectedCounts.get(key) ?? 0) + 1)
-    }
+    const protectedSequence = protectedNodes
+        .filter((entry) => protectedTypes.has(entry.nodeType))
+        .map((entry) => protectedKey(entry))
+    let protectedIndex = 0
     const findings = []
     for (const node of nodes)
     {
-        if (protectedNodeTypes.has(node.nodeType))
+        if (protectedTypes.has(node.nodeType))
         {
-            const key = protectedNodeKey(node)
-            const remaining = protectedCounts.get(key) ?? 0
-            if (remaining > 0)
+            const key = protectedKey(node)
+            const matchingIndex = protectedSequence.indexOf(key, protectedIndex)
+            if (matchingIndex >= 0)
             {
-                protectedCounts.set(key, remaining - 1)
+                protectedIndex = matchingIndex + 1
                 continue
             }
         }
@@ -486,17 +500,23 @@ export function scanReleaseDeploymentDocResidue(
         const protectedDocument = readProtectedGitFile(repositoryRoot, protectedBase, documentPath, {
             docsOnly: true
         })
-        const currentBlob = git(repositoryRoot, ['rev-parse', `HEAD:${documentPath}`])
-        if (currentBlob === protectedDocument.blob && owners.every((entry) => entry.domain !== 'deployment'))
-            continue
+        const protectedNodes = extractReleaseDeploymentProseNodes(
+            protectedDocument.source,
+            documentPath
+        ).filter((node) => !belongsToRetiredReleaseFinalSection(node))
+        const protectedTypes = owners.every((entry) => entry.domain === 'release')
+            ? new Set(protectedNodes.map((entry) => entry.nodeType))
+            : protectedNodeTypes
+        const protectedKey = owners.every((entry) => entry.domain === 'release')
+            ? releaseProtectedNodeKey
+            : protectedNodeKey
         findings.push(...scanReleaseDeploymentSourceResidue(
             currentSource,
             documentPath,
             {
-                protectedNodes: extractReleaseDeploymentProseNodes(
-                    protectedDocument.source,
-                    documentPath
-                )
+                protectedNodes,
+                protectedTypes,
+                protectedKey
             }
         ))
     }
@@ -506,10 +526,16 @@ export function scanReleaseDeploymentDocResidue(
 export function scanReleaseDeploymentSourceResidue(
     source,
     documentPath = 'inline.md',
-    { protectedNodes, protectedHeadingNodes = [] } = {}
+    { protectedNodes, protectedHeadingNodes = [], protectedTypes, protectedKey } = {}
 )
 {
-    return scanClosedProseOwnership(source, documentPath, protectedNodes ?? protectedHeadingNodes)
+    return scanClosedProseOwnership(
+        source,
+        documentPath,
+        protectedNodes ?? protectedHeadingNodes,
+        protectedTypes,
+        protectedKey
+    )
 }
 
 export function runReleaseDeploymentDocMutationCases(structuralRows = [])
@@ -638,7 +664,11 @@ export function verifyReleaseDeploymentGeneratedSections(
     return drifts
 }
 
-export function loadReleaseDeploymentExactnessInputs(repositoryRoot, observationReceipt)
+export function loadReleaseDeploymentExactnessInputs(
+    repositoryRoot,
+    observationReceipt,
+    expectedSourceIdentity = sealSourceIdentity(repositoryRoot)
+)
 {
     const catalog = readJson(repositoryRoot, 'config/contracts/behavior-contracts.json')
     const lifecycle = readJson(repositoryRoot, 'config/development/document-lifecycle.json')
@@ -648,7 +678,11 @@ export function loadReleaseDeploymentExactnessInputs(repositoryRoot, observation
     const receiptRaw = typeof observationReceipt === 'string'
         ? JSON.parse(readFileSync(observationReceipt, 'utf8'))
         : observationReceipt
-    const receipt = readFactObservationReceipt(receiptRaw)
+    const receipt = readFactObservationReceipt(receiptRaw, {
+        repositoryRoot,
+        expectedSourceCommit: expectedSourceIdentity.sourceCommit,
+        expectedWorktreeFingerprint: expectedSourceIdentity.worktreeFingerprint
+    })
     return {
         catalog,
         lifecycle,
@@ -668,7 +702,17 @@ export function buildReleaseDeploymentDocExactnessReceipt({
     approvedBaseRef
 })
 {
-    const inputs = loadReleaseDeploymentExactnessInputs(repositoryRoot, observationReceipt)
+    const currentSourceIdentity = sealSourceIdentity(repositoryRoot)
+    if (sourceCommit !== undefined && sourceCommit !== currentSourceIdentity.sourceCommit)
+        throw new Error('release/deployment sourceCommit differs from the current repository identity')
+    if (worktreeFingerprint !== undefined
+        && worktreeFingerprint !== currentSourceIdentity.worktreeFingerprint)
+        throw new Error('release/deployment worktreeFingerprint differs from the current repository identity')
+    const inputs = loadReleaseDeploymentExactnessInputs(
+        repositoryRoot,
+        observationReceipt,
+        currentSourceIdentity
+    )
     const selectedIds = selectReleaseDeploymentBehaviorIds(inputs.catalog)
     const protectedBase = resolveReleaseDeploymentProtectedBase(repositoryRoot, approvedBaseRef)
     const exactness = buildBehaviorDocExactnessReceipt({
@@ -680,8 +724,8 @@ export function buildReleaseDeploymentDocExactnessReceipt({
         sectionCatalog: inputs.sectionCatalog,
         observationReceipts: [inputs.receiptRaw],
         domains: [...releaseDeploymentDomains],
-        sourceCommit,
-        worktreeFingerprint,
+        sourceCommit: currentSourceIdentity.sourceCommit,
+        worktreeFingerprint: currentSourceIdentity.worktreeFingerprint,
         scopeId: releaseDeploymentScopeId,
         scannerDigest: createHash('sha256')
             .update([...semanticScannerIdentity, protectedBase].join('\n'))
@@ -708,8 +752,8 @@ export function buildReleaseDeploymentDocExactnessReceipt({
         sectionCatalog: inputs.sectionCatalog,
         observationReceipts: [inputs.receiptRaw],
         domains: [...releaseDeploymentDomains],
-        sourceCommit,
-        worktreeFingerprint,
+        sourceCommit: currentSourceIdentity.sourceCommit,
+        worktreeFingerprint: currentSourceIdentity.worktreeFingerprint,
         scopeId: releaseDeploymentScopeId
     }
     const catalogDrift = structuredClone(inputs.catalog)
@@ -777,9 +821,21 @@ export function buildReleaseDeploymentDocExactnessReceipt({
             classId: 'source-identity-change-with-stale-docs',
             killed: buildBehaviorDocExactnessReceipt({
                 ...exactnessInputs,
-                sourceCommit: sourceCommit === '0'.repeat(40) ? '1'.repeat(40) : '0'.repeat(40)
+                sourceCommit: currentSourceIdentity.sourceCommit === '0'.repeat(40)
+                    ? '1'.repeat(40)
+                    : '0'.repeat(40)
             }).status === 'failed',
             detector: 'observation-source-identity'
+        },
+        {
+            classId: 'worktree-identity-change-with-stale-docs',
+            killed: buildBehaviorDocExactnessReceipt({
+                ...exactnessInputs,
+                worktreeFingerprint: currentSourceIdentity.worktreeFingerprint === '0'.repeat(64)
+                    ? '1'.repeat(64)
+                    : '0'.repeat(64)
+            }).status === 'failed',
+            detector: 'observation-worktree-identity'
         },
         {
             classId: 'claim-ledger-tamper',
@@ -877,12 +933,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const receiptPath = receiptIndex >= 0 ? process.argv[receiptIndex + 1] : null
     if (!receiptPath) throw new Error('usage: release-deployment-doc-exactness.mjs --receipt <fact-observation-receipt>')
     const absoluteReceiptPath = path.resolve(receiptPath)
-    const observation = readFactObservationReceipt(absoluteReceiptPath)
     const result = buildReleaseDeploymentDocExactnessReceipt({
         repositoryRoot: root,
-        observationReceipt: absoluteReceiptPath,
-        sourceCommit: observation.sourceCommit,
-        worktreeFingerprint: observation.worktreeFingerprint
+        observationReceipt: absoluteReceiptPath
     })
     validateReleaseDeploymentDocExactnessReceipt(result)
     console.log(`[release-deployment-doc-exactness] ok claims=${result.rows.length} mutations=${result.counts.mutationKilled}/${result.counts.mutationTotal}`)
