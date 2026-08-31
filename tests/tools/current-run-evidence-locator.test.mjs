@@ -11,7 +11,10 @@ import {
     locateCurrentRunEvidence,
     verifyCurrentRunEvidenceBinding
 } from '../../tools/test/current-run-evidence-locator.mjs';
-import { governanceContentDigest } from '../../tools/test/evidence-location-contract.mjs';
+import {
+    completeEvidenceLocatorRegistryEntry,
+    governanceContentDigest
+} from '../../tools/test/evidence-location-contract.mjs';
 
 const d = (value) => `sha256:${value.repeat(64)}`;
 
@@ -24,12 +27,13 @@ function fixture(mode = 'explicit-run-path')
         candidateIdentity: { id: 'candidate', digest: d('c') }, buildIdentity: { id: 'build', digest: d('d') },
         ownedRoots: ['artifacts/current-run'] };
     const context = { ...contextBody, contentDigest: governanceContentDigest(contextBody) };
-    const entry = { consumerId: 'release-final', authorityId: 'release-manifest.current-run', producerId: 'release-manifest-producer',
+    const entry = completeEvidenceLocatorRegistryEntry({ consumerId: 'release-final',
+        authorityId: 'release-manifest.current-run', producerId: 'release-manifest-producer',
         receiptSchema: 'fsusblog.release-evidence-manifest.v2', locatorMode: mode,
         requiredIdentityFields: ['attemptId', 'buildIdentity', 'candidateIdentity', 'schedulerRunId', 'sourceCommit', 'worktreeFingerprint'],
         requiredDigestFields: ['contentDigest', 'producerReceiptDigest'], expectedCardinality: 'exact-one',
         allowedRoots: ['artifacts/current-run'], producerCommand: 'node tools/operations/collect-release-evidence.mjs',
-        outputBindingKey: 'FSUSBLOG_RELEASE_MANIFEST_PATH' };
+        outputBindingKey: 'FSUSBLOG_RELEASE_MANIFEST_PATH' });
     const registryBody = { schema: 'fsusblog.evidence-locator-registry.v1', version: 1, entries: [entry] };
     const registry = { ...registryBody, contentDigest: governanceContentDigest(registryBody) };
     const receiptBody = { schema: entry.receiptSchema, schedulerRunId: context.schedulerRunId, attemptId: context.attemptId,

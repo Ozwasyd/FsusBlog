@@ -169,11 +169,36 @@ function classifyNeedsByPlan(needs, plan)
     return nonSuccess.sort(([left], [right]) => left.localeCompare(right));
 }
 
+function readTransportOrDirectoryJson(directory, authorityId)
+{
+    const transport = String(process.env.FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST ?? '').trim();
+    if (transport)
+    {
+        const manifest = JSON.parse(fs.readFileSync(path.resolve(root, transport), 'utf8'));
+        const mapped = (manifest.objects ?? []).filter((object) => object.authorityId === authorityId);
+        const files = mapped.flatMap((object) => object.archiveEntries ?? [])
+            .map((entry) => path.resolve(root, entry.extractedPath));
+        return files.flatMap((file) =>
+        {
+            try
+            {
+                return [{ file, text: fs.readFileSync(file, 'utf8'), value: JSON.parse(fs.readFileSync(file, 'utf8')) }];
+            }
+            catch
+            {
+                return [];
+            }
+        });
+    }
+    return readExplicitDirectoryJson(directory);
+}
+
 function loadJobSummaries()
 {
     const jobsDir = path.join(explicitEvidenceRoot(), 'jobs');
     const summaries = new Map();
-    for (const { file, text, value: summary } of readExplicitDirectoryJson(jobsDir))
+    for (const { file, text, value: summary } of readTransportOrDirectoryJson(jobsDir,
+        'evidence-consumer.ci.check-job-summaries.current-run'))
     {
         if (summary.schema !== 'fsusblog.ci.job-result.v1')
         {
@@ -205,7 +230,9 @@ function loadFlakyEvidence()
 {
     const flakyDir = path.join(explicitEvidenceRoot(), 'flaky');
     const evidence = [];
-    for (const { file, value: item } of readExplicitDirectoryJson(flakyDir))
+    for (const { file, value: item } of readTransportOrDirectoryJson(flakyDir,
+        'evidence-consumer.ci.check-flaky-evidence.current-run'))
+    {
     {
         if (item.schema !== 'fsusblog.ci.flaky.v1')
         {

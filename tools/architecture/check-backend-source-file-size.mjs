@@ -14,12 +14,12 @@ const components = [
   {
     id: 'schema-migration-registry',
     roots: [
-      'src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs',
-      'src/backend/Infrastructure/SchemaMigration/SchemaMigrationManifest.cs'
+      'src/migration/SchemaMigrationRegistry.cs',
+      'src/migration/SchemaMigrationManifest.cs'
     ],
     directories: [
-      'src/backend/Infrastructure/SchemaMigration/Catalogs',
-      'src/backend/Infrastructure/SchemaMigration/Definitions'
+      'src/migration/Catalogs',
+      'src/migration/Definitions'
     ],
     minimumFiles: 13
   },
