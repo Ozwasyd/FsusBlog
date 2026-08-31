@@ -68,6 +68,8 @@ test('current schema bootstrap lane exercises positive and fail-closed PostgreSQ
   assert.match(lane, /"\$crashPgid" == "\$crashPid" && "\$crashPgid" != "\$lanePgid"/u)
   assert.match(lane, /process identity does not match the exact materializer candidate/u)
   assert.match(lane, /kill -KILL -- "-\$crashPgid"/u)
+  assert.match(lane, /crashExitStatus=0\nwait "\$crashPid" >\/dev\/null 2>&1 \|\| crashExitStatus=\$\?/u)
+  assert.doesNotMatch(lane, /set \+e\nwait "\$crashPid"/u)
   assert.match(lane, /while pgrep -g "\$crashPgid"/u)
   assert.match(lane, /retained a surviving candidate/u)
   assert.doesNotMatch(lane, /RunMaterializer "\$crashRunId"[\s\S]*?after-prepared-hold[\s\S]*?&/u)

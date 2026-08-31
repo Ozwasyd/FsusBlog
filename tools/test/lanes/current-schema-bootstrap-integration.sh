@@ -858,10 +858,8 @@ until [[ -s "$crashPrepared" ]]; do
     sleep 0.1
 done
 kill -KILL -- "-$crashPgid"
-set +e
-wait "$crashPid" >/dev/null 2>&1
-crashExitStatus=$?
-set -e
+crashExitStatus=0
+wait "$crashPid" >/dev/null 2>&1 || crashExitStatus=$?
 crashEndedAt="$(date -u +'%Y-%m-%dT%H:%M:%S.%NZ')"
 [[ "$crashExitStatus" == 137 ]] \
     || Fail "prepared crash materializer exited with ${crashExitStatus}, expected SIGKILL status 137"
