@@ -922,7 +922,12 @@ test('zero-legacy scanner self exemptions are exact and owner names cannot suppr
             'const authorityResidueRuleParts = Object.freeze([["checked", "in", "openapi"]])',
             'const rejectLegacyClaimCli = true'
         ].join('\n'),
-        'tools/release/behavior-qualification.mjs': 'const rejectCommand = "deprecated-claim-cli"\n'
+        'tools/release/behavior-qualification.mjs': 'const rejectCommand = "deprecated-claim-cli"\n',
+        'tools/release/compiler-behavior-qualification.mjs': [
+            'const sourceFile = parser.createSourceFile(file, source, parser.ScriptTarget.Latest, true)',
+            'const actionResult = records.search(query)',
+            'const evidenceSource = "latest"'
+        ].join('\n')
     })
     const findings = scanZeroLegacyGovernance(repositoryRoot).findings
     assert.equal(findings.some((finding) => finding.file === 'tools/docs/behavior-document-consistency-final.mjs'
@@ -936,6 +941,12 @@ test('zero-legacy scanner self exemptions are exact and owner names cannot suppr
     assert.ok(findings.some((finding) => finding.rule === 'forbidden-legacy-surface:rejectLegacyClaimCli'))
     assert.ok(findings.some((finding) => finding.file === 'tools/release/behavior-qualification.mjs'
         && finding.rule.includes('deprecated-claim-cli')))
+    assert.equal(findings.some((finding) => finding.file === 'tools/release/compiler-behavior-qualification.mjs'
+        && finding.rule.includes('sourceFile=Latest')), false)
+    assert.equal(findings.some((finding) => finding.file === 'tools/release/compiler-behavior-qualification.mjs'
+        && finding.rule.includes('ActionResult=search')), false)
+    assert.ok(findings.some((finding) => finding.file === 'tools/release/compiler-behavior-qualification.mjs'
+        && finding.rule === 'forbidden-evidence-selection:evidenceSource=latest'))
 })
 
 test('zero-legacy value scanning is bounded without truncating long commands', (t) =>

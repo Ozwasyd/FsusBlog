@@ -468,7 +468,8 @@ function scanValueResidue(owner, rawValue, context)
 {
     if (!context.qualification || typeof rawValue !== 'string') return
     const ownerName = normalizeIdentifier(owner)
-    const selectionOwner = /(?:artifact|discovery|evidence|locator|mode|receipt|result|selection|source|strategy)/u.test(ownerName)
+    const selectionOwner = /(?:artifact|discovery|evidence|locator|receipt|selection)/u.test(ownerName)
+        || /^(?:mode|result|source|strategy)$/u.test(ownerName)
     const authorityOwner = /(?:authority|cli|command|featureflag|input|kind|mode|path|provider|schema|source|strategy|type)/u.test(ownerName)
     const simpleSelector = new Set(['age', 'ctime', 'fallback', 'glob', 'historical', 'history', 'latest', 'mtime', 'newest', 'scan', 'search'])
     scanMachineValueCandidates(rawValue, (candidate) =>
