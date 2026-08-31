@@ -264,11 +264,18 @@ test('zero-legacy source invocations and C# initializers cannot hide terminal re
 {
     const repositoryRoot = repositoryFixture(t, {
         'src/release/behavior-qualification.cs': 'public bool Verified { get; init; } = true;\n',
-        'tools/release/behavior-qualification.mjs': 'spawnSync("deprecated-claim-cli", ["--run"])\nselectReceipt("latest")\n'
+        'tools/release/behavior-qualification.mjs': [
+            'spawnSync("deprecated-claim-cli", ["--run"])',
+            'selectReceipt("latest")',
+            'const command = "deprecated-" +',
+            '    "claim-cli"'
+        ].join('\n')
     })
     const findings = scanZeroLegacyGovernance(repositoryRoot).findings
     assert.ok(findings.some((finding) => finding.file.endsWith('.cs') && finding.rule === 'forbidden-self-certification:verified'))
     assert.ok(findings.some((finding) => finding.file.endsWith('.mjs') && finding.rule === 'forbidden-legacy-surface:deprecated-claim-cli'))
+    assert.ok(findings.some((finding) => finding.file.endsWith('.mjs')
+        && finding.rule.startsWith('forbidden-legacy-surface:deprecated--claim-cli')))
     assert.ok(findings.some((finding) => finding.file.endsWith('.mjs') && finding.rule === 'forbidden-evidence-selection:selectReceipt=latest'))
 })
 
@@ -369,6 +376,14 @@ test('zero-legacy JSON not exemption requires an explicit JSON Schema dialect', 
         }),
         'config/schemas/unproven-behavior-qualification.schema.json': JSON.stringify({
             not: { latestReceipt: 'ambient.json', verified: true }
+        }),
+        'config/schemas/double-not-behavior-qualification.schema.json': JSON.stringify({
+            $schema: 'https://json-schema.org/draft/2020-12/schema',
+            not: { not: { properties: { latestReceipt: { type: 'string' } } } }
+        }),
+        'config/schemas/current-dependencies-behavior-qualification.schema.json': JSON.stringify({
+            $schema: 'https://json-schema.org/draft/2020-12/schema',
+            dependencies: { currentField: { not: { latestReceipt: 'ambient.json' } } }
         })
     })
     const findings = scanZeroLegacyGovernance(repositoryRoot).findings
@@ -383,6 +398,34 @@ test('zero-legacy JSON not exemption requires an explicit JSON Schema dialect', 
     assert.equal(findings.some((finding) => finding.file === 'config/schemas/behavior-qualification.schema.json'), false)
     assert.ok(findings.some((finding) => finding.file === 'config/schemas/not-property-behavior-qualification.schema.json'
         && finding.rule === 'forbidden-evidence-selection:latestReceipt'))
+    assert.ok(findings.some((finding) => finding.file === 'config/schemas/double-not-behavior-qualification.schema.json'
+        && finding.rule === 'forbidden-evidence-selection:latestReceipt'))
+    assert.ok(findings.some((finding) => finding.file === 'config/schemas/current-dependencies-behavior-qualification.schema.json'
+        && finding.rule === 'forbidden-evidence-selection:latestReceipt'))
+})
+
+test('zero-legacy draft 4 6 and 7 dependencies preserve schema-valued negation', (t) =>
+{
+    const files = Object.fromEntries([
+        ['draft-04', 'http://json-schema.org/draft-04/schema#'],
+        ['draft-06', 'http://json-schema.org/draft-06/schema#'],
+        ['draft-07', 'http://json-schema.org/draft-07/schema#']
+    ].map(([name, dialect]) => [
+        `config/schemas/${name}-behavior-qualification.schema.json`,
+        JSON.stringify({
+            $schema: dialect,
+            dependencies: {
+                currentField: { not: { properties: { latestReceipt: { type: 'string' } } } },
+                otherField: ['currentField']
+            }
+        })
+    ]))
+    const repositoryRoot = repositoryFixture(t, files)
+    const findings = scanZeroLegacyGovernance(repositoryRoot).findings
+    for (const file of Object.keys(files))
+    {
+        assert.equal(findings.some((finding) => finding.file === file), false, `${file} schema negation escaped`)
+    }
 })
 
 test('zero-legacy scanner self exemptions are exact and owner names cannot suppress values', (t) =>
@@ -405,7 +448,9 @@ test('zero-legacy value scanning is bounded without truncating long commands', (
 {
     const repositoryRoot = repositoryFixture(t, {
         'config/testing/long-behavior-qualification.json': JSON.stringify({
-            command: `${'x'.repeat(505)}deprecated-claim-cli${'y'.repeat(600)}`
+            command: `${'x'.repeat(505)}deprecated-claim-cli${'y'.repeat(600)}`,
+            evidenceSelectionStrategy: `${'padding '.repeat(90)} latest-receipt ${' padding'.repeat(90)}`,
+            authorityCommand: `${'padding '.repeat(90)} checked-in-openapi ${' padding'.repeat(90)}`
         }),
         'config/testing/long-benign-behavior-qualification.json': JSON.stringify({
             command: `${'x'.repeat(505)}current-claim-command${'y'.repeat(600)}`
@@ -414,6 +459,10 @@ test('zero-legacy value scanning is bounded without truncating long commands', (
     const findings = scanZeroLegacyGovernance(repositoryRoot).findings
     assert.ok(findings.some((finding) => finding.file === 'config/testing/long-behavior-qualification.json'
         && finding.rule.startsWith('forbidden-legacy-surface:')))
+    assert.ok(findings.some((finding) => finding.file === 'config/testing/long-behavior-qualification.json'
+        && finding.rule === 'forbidden-evidence-selection:latestReceipt'))
+    assert.ok(findings.some((finding) => finding.file === 'config/testing/long-behavior-qualification.json'
+        && finding.rule === 'forbidden-self-authority:checkedInOpenapi'))
     assert.equal(findings.some((finding) => finding.file === 'config/testing/long-benign-behavior-qualification.json'), false)
 })
 
@@ -433,6 +482,15 @@ test('final builder recomputes zero-legacy findings from the sealed source state
     const drifted = fixture({ sourceRoot: driftRoot })
     fs.writeFileSync(path.join(driftRoot, 'src/current.mjs'), 'export const current = false\n')
     assert.throws(() => buildFinalConsistencyReport(drifted), /source\/worktree identity mismatch before scan/u)
+
+    const parentRoot = sourceRepositoryFixture(t, Object.fromEntries(
+        ['config', 'docs', 'src', 'tests', 'tools'].map((directory) => [
+            `nested/${directory}/current.txt`,
+            'current\n'
+        ])
+    ))
+    const nested = fixture({ sourceRoot: path.join(parentRoot, 'nested') })
+    assert.throws(() => buildFinalConsistencyReport(nested), /source root must equal the git top-level/u)
 })
 
 test('zero-legacy scan and final report schema are deterministic and structurally closed', (t) =>

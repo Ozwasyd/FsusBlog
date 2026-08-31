@@ -106,6 +106,8 @@ const jsonSubschemaKeywords = new Set([
 ])
 const valueChunkSize = 512
 const valueChunkOverlap = 128
+const valueCandidateTokenPattern = /[A-Za-z][A-Za-z0-9_-]*/gu
+const maximumValueCandidateTokens = 4
 
 function zeroLegacyFail(message)
 {
@@ -183,6 +185,20 @@ function authorityResidueField(identifier)
     return null
 }
 
+function machineValueCandidates(value)
+{
+    const tokens = value.match(valueCandidateTokenPattern) ?? []
+    const candidates = new Set([value])
+    for (let start = 0; start < tokens.length; start += 1)
+    {
+        for (let length = 1; length <= maximumValueCandidateTokens && start + length <= tokens.length; length += 1)
+        {
+            candidates.add(tokens.slice(start, start + length).join('-'))
+        }
+    }
+    return candidates
+}
+
 function scanValueResidue(owner, rawValue, context)
 {
     if (!context.qualification || typeof rawValue !== 'string') return
@@ -203,20 +219,23 @@ function scanValueResidue(owner, rawValue, context)
     {
         const value = rawValue.slice(offset, Math.min(last, offset + valueChunkSize))
         if (!value) break
-        const valueName = normalizeIdentifier(value)
-        const selectionField = evidenceSelectionField(value)
-        if (selectionOwner && (selectionField || simpleSelector.has(valueName)))
+        for (const candidate of machineValueCandidates(value))
         {
-            addFinding(context.findings, context.file, context.pathClasses, `forbidden-evidence-selection:${selectionField ?? `${owner}=${value}`}`, context.location)
-        }
-        const authorityField = authorityResidueField(value)
-        if (authorityOwner && authorityField)
-        {
-            addFinding(context.findings, context.file, context.pathClasses, `forbidden-self-authority:${authorityField}`, context.location)
-        }
-        if (authorityOwner && legacySurfaceName(value, context))
-        {
-            addFinding(context.findings, context.file, context.pathClasses, `forbidden-legacy-surface:${value}`, context.location)
+            const valueName = normalizeIdentifier(candidate)
+            const selectionField = evidenceSelectionField(candidate)
+            if (selectionOwner && (selectionField || simpleSelector.has(valueName)))
+            {
+                addFinding(context.findings, context.file, context.pathClasses, `forbidden-evidence-selection:${selectionField ?? `${owner}=${candidate}`}`, context.location)
+            }
+            const authorityField = authorityResidueField(candidate)
+            if (authorityOwner && authorityField)
+            {
+                addFinding(context.findings, context.file, context.pathClasses, `forbidden-self-authority:${authorityField}`, context.location)
+            }
+            if (authorityOwner && legacySurfaceName(candidate, context))
+            {
+                addFinding(context.findings, context.file, context.pathClasses, `forbidden-legacy-surface:${candidate}`, context.location)
+            }
         }
         if (offset + valueChunkSize >= last) break
     }
@@ -272,13 +291,15 @@ function scanObjectKeys(value, context, negated = false, location = '$', schemaM
             && !Array.isArray(nested)
         let nestedSchemaMode = 'value'
         if (schemaMode === 'schema-map') nestedSchemaMode = 'schema'
-        else if (schemaMode === 'schema' && jsonSchemaMapKeywords.has(key)) nestedSchemaMode = 'schema-map'
+        else if (schemaMode === 'schema'
+            && (jsonSchemaMapKeywords.has(key)
+                || (key === 'dependencies' && context.legacySchemaDependencies === true))) nestedSchemaMode = 'schema-map'
         else if (schemaMode === 'schema' && jsonSchemaArrayKeywords.has(key)) nestedSchemaMode = 'schema-array'
         else if (schemaMode === 'schema' && jsonSubschemaKeywords.has(key))
         {
             nestedSchemaMode = key === 'items' && Array.isArray(nested) ? 'schema-array' : 'schema'
         }
-        scanObjectKeys(nested, context, negated || schemaNegation, `${location}.${key}`, nestedSchemaMode)
+        scanObjectKeys(nested, context, schemaNegation ? !negated : negated, `${location}.${key}`, nestedSchemaMode)
     }
 }
 
@@ -349,6 +370,7 @@ function sourceAssignments(source, masked)
         const valueStart = match.indices[0][1]
         let valueEnd = valueStart
         let quote = null
+        let nesting = 0
         while (valueEnd < source.length)
         {
             const current = source[valueEnd]
@@ -369,7 +391,29 @@ function sourceAssignments(source, masked)
                 valueEnd += 1
                 continue
             }
-            if ((current === '/' && (next === '/' || next === '*')) || /[\n,;}]/u.test(current)) break
+            if (current === '(' || current === '[' || current === '{')
+            {
+                nesting += 1
+                valueEnd += 1
+                continue
+            }
+            if (current === ')' || current === ']' || current === '}')
+            {
+                if (nesting === 0) break
+                nesting -= 1
+                valueEnd += 1
+                continue
+            }
+            if (current === '/' && (next === '/' || next === '*')) break
+            if (current === '\n')
+            {
+                let previous = valueEnd - 1
+                while (previous >= valueStart && /[\t\r ]/u.test(source[previous])) previous -= 1
+                if (nesting === 0 && !/[+\\]/u.test(source[previous] ?? '')) break
+                valueEnd += 1
+                continue
+            }
+            if (nesting === 0 && /[,;}]/u.test(current)) break
             valueEnd += 1
         }
         assignments.push({
@@ -642,7 +686,9 @@ export function scanZeroLegacyGovernance(repositoryRoot = root)
                 const jsonSchemaDocument = file.endsWith('.schema.json')
                     && typeof document?.$schema === 'string'
                     && jsonSchemaDialectPattern.test(document.$schema)
-                scanObjectKeys(document, { ...context, jsonSchemaDocument })
+                const legacySchemaDependencies = jsonSchemaDocument
+                    && /\/draft-0[4-7]\/schema#?$/u.test(document.$schema)
+                scanObjectKeys(document, { ...context, jsonSchemaDocument, legacySchemaDependencies })
                 if (pathClasses.includes('package-scripts')) scanPackageScripts(document, context)
             }
             catch { /* Syntax belongs to the corresponding schema or package gate. */ }
@@ -889,7 +935,23 @@ export function buildFinalConsistencyReport({
     {
         fail('zero-legacy source root is not an absolute existing directory')
     }
-    const sourceRoot = path.resolve(admittedSourceRoot)
+    const sourceRoot = fs.realpathSync(admittedSourceRoot)
+    let gitTopLevel
+    try
+    {
+        gitTopLevel = fs.realpathSync(execFileSync('git', ['rev-parse', '--show-toplevel'], {
+            cwd: sourceRoot,
+            encoding: 'utf8'
+        }).trim())
+    }
+    catch (error)
+    {
+        fail(`zero-legacy source root cannot resolve git top-level: ${error.message}`)
+    }
+    if (sourceRoot !== gitTopLevel)
+    {
+        fail('zero-legacy source root must equal the git top-level')
+    }
     const sourceIdentityBeforeScan = sealSourceIdentity(sourceRoot)
     if (sourceIdentityBeforeScan.sourceCommit !== sourceCommit
         || normalizeDigest(sourceIdentityBeforeScan.worktreeFingerprint) !== sourceFingerprint)
