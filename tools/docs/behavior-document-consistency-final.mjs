@@ -104,6 +104,7 @@ const legacyStates = legacyStateParts.map((parts) => normalizeIdentifier(parts.j
 const scannerImplementationPath = 'tools/docs/behavior-document-consistency-final.mjs'
 const jsonSchemaDialectPattern = /^https?:\/\/json-schema\.org\/draft(?:-0[4-7]|\/(?:2019-09|2020-12))\/schema#?$/u
 const contentSchemaDialectPattern = /\/draft\/(?:2019-09|2020-12)\/schema#?$/u
+const jsonWithCommentsPathPattern = /(?:^|\/)(?:appsettings(?:\.[^/]+)?|tsconfig(?:\.[^/]+)?)\.json$|\.jsonc$/iu
 const jsonSchemaMapKeywords = new Set(['$defs', 'definitions', 'dependentSchemas', 'patternProperties', 'properties'])
 const jsonSchemaArrayKeywords = new Set(['allOf', 'anyOf', 'oneOf', 'prefixItems'])
 const jsonSubschemaKeywords = new Set([
@@ -117,6 +118,54 @@ const maximumValueTokenLength = 128
 function zeroLegacyFail(message)
 {
     throw new Error(`[zero-legacy-governance] ${message}`)
+}
+
+function stripJsonComments(source)
+{
+    let output = ''
+    let quote = false
+    let escaped = false
+    for (let index = 0; index < source.length; index += 1)
+    {
+        const current = source[index]
+        const next = source[index + 1]
+        if (quote)
+        {
+            output += current
+            if (escaped) escaped = false
+            else if (current === '\\') escaped = true
+            else if (current === '"') quote = false
+            continue
+        }
+        if (current === '"')
+        {
+            quote = true
+            output += current
+            continue
+        }
+        if (current === '/' && next === '/')
+        {
+            const terminator = findSourceLineTerminator(source, index + 2)
+            output += source.slice(index, terminator).replace(/[^\n\r\u2028\u2029]/gu, ' ')
+            index = terminator - 1
+            continue
+        }
+        if (current === '/' && next === '*')
+        {
+            const closing = source.indexOf('*/', index + 2)
+            if (closing < 0) throw new SyntaxError('unterminated JSON block comment')
+            output += source.slice(index, closing + 2).replace(/[^\n\r\u2028\u2029]/gu, ' ')
+            index = closing + 1
+            continue
+        }
+        output += current
+    }
+    return output
+}
+
+function parseMachineJson(source, file)
+{
+    return JSON.parse(jsonWithCommentsPathPattern.test(file) ? stripJsonComments(source) : source)
 }
 
 function pathClassesFor(file)
@@ -289,6 +338,21 @@ function scanIdentifier(identifier, valueText, context)
     scanValueResidue(identifier, typeof valueText === 'string' ? valueText : '', context)
 }
 
+function schemaResourceContext(value, context, schemaMode)
+{
+    if (schemaMode !== 'schema' || typeof value?.$schema !== 'string') return context
+    const dialect = value.$schema
+    if (!jsonSchemaDialectPattern.test(dialect))
+    {
+        return { ...context, currentContentSchema: false, oldDialectDependencies: false }
+    }
+    return {
+        ...context,
+        currentContentSchema: contentSchemaDialectPattern.test(dialect),
+        oldDialectDependencies: /\/draft-0[4-7]\/schema#?$/u.test(dialect)
+    }
+}
+
 function scanObjectKeys(value, context, negated = false, location = '$', schemaMode = context.jsonSchemaDocument === true ? 'schema' : 'value')
 {
     if (Array.isArray(value))
@@ -298,9 +362,10 @@ function scanObjectKeys(value, context, negated = false, location = '$', schemaM
         return
     }
     if (!value || typeof value !== 'object') return
+    const resourceContext = schemaResourceContext(value, context, schemaMode)
     for (const [key, nested] of Object.entries(value))
     {
-        if (!negated) scanIdentifier(key, nested, { ...context, location: `${location}.${key}` })
+        if (!negated) scanIdentifier(key, nested, { ...resourceContext, location: `${location}.${key}` })
         const schemaNegation = schemaMode === 'schema'
             && key === 'not'
             && nested != null
@@ -310,19 +375,42 @@ function scanObjectKeys(value, context, negated = false, location = '$', schemaM
         if (schemaMode === 'schema-map') nestedSchemaMode = 'schema'
         else if (schemaMode === 'schema'
             && (jsonSchemaMapKeywords.has(key)
-                || (key === 'dependencies' && context.oldDialectDependencies === true))) nestedSchemaMode = 'schema-map'
+                || (key === 'dependencies' && resourceContext.oldDialectDependencies === true))) nestedSchemaMode = 'schema-map'
         else if (schemaMode === 'schema' && jsonSchemaArrayKeywords.has(key)) nestedSchemaMode = 'schema-array'
         else if (schemaMode === 'schema'
             && (jsonSubschemaKeywords.has(key)
-                || (key === 'contentSchema' && context.currentContentSchema === true)))
+                || (key === 'contentSchema' && resourceContext.currentContentSchema === true)))
         {
             nestedSchemaMode = key === 'items' && Array.isArray(nested) ? 'schema-array' : 'schema'
         }
-        scanObjectKeys(nested, context, schemaNegation ? !negated : negated, `${location}.${key}`, nestedSchemaMode)
+        scanObjectKeys(nested, resourceContext, schemaNegation ? !negated : negated, `${location}.${key}`, nestedSchemaMode)
     }
 }
 
-function maskSourceLiteralsAndComments(source)
+function sourceLineTerminatorAt(source, index)
+{
+    if (source[index] === '\r' && source[index + 1] === '\n') return 2
+    return /[\n\r\u2028\u2029]/u.test(source[index] ?? '') ? 1 : 0
+}
+
+function findSourceLineTerminator(source, start)
+{
+    for (let index = start; index < source.length; index += 1)
+    {
+        if (sourceLineTerminatorAt(source, index) > 0) return index
+    }
+    return source.length
+}
+
+function startsHashComment(source, index, commentStyle)
+{
+    if (!commentStyle || source[index] !== '#') return false
+    if (commentStyle === 'hash') return true
+    if (index === 0 || /\s/u.test(source[index - 1])) return true
+    return commentStyle === 'shell' && /[;&|()]/u.test(source[index - 1])
+}
+
+function maskSourceLiteralsAndComments(source, commentStyle)
 {
     const masked = source.split('')
     for (let index = 0; index < source.length; index += 1)
@@ -330,8 +418,11 @@ function maskSourceLiteralsAndComments(source)
         let end = index
         if (source[index] === '/' && source[index + 1] === '/')
         {
-            end = source.indexOf('\n', index + 2)
-            if (end < 0) end = source.length
+            end = findSourceLineTerminator(source, index + 2)
+        }
+        else if (startsHashComment(source, index, commentStyle))
+        {
+            end = findSourceLineTerminator(source, index + 1)
         }
         else if (source[index] === '/' && source[index + 1] === '*')
         {
@@ -371,14 +462,14 @@ function maskSourceLiteralsAndComments(source)
         }
         for (let cursor = index; cursor < end; cursor += 1)
         {
-            if (masked[cursor] !== '\n' && masked[cursor] !== '\r') masked[cursor] = ' '
+            if (sourceLineTerminatorAt(source, cursor) === 0) masked[cursor] = ' '
         }
         index = end - 1
     }
     return masked.join('')
 }
 
-function nextSignificantSourceCharacter(source, start)
+function nextSignificantSourceCharacter(source, start, commentStyle)
 {
     let index = start
     while (index < source.length)
@@ -390,8 +481,14 @@ function nextSignificantSourceCharacter(source, start)
         }
         if (source[index] === '/' && source[index + 1] === '/')
         {
-            const newline = source.indexOf('\n', index + 2)
-            index = newline < 0 ? source.length : newline + 1
+            const terminator = findSourceLineTerminator(source, index + 2)
+            index = terminator + sourceLineTerminatorAt(source, terminator)
+            continue
+        }
+        if (startsHashComment(source, index, commentStyle))
+        {
+            const terminator = findSourceLineTerminator(source, index + 1)
+            index = terminator + sourceLineTerminatorAt(source, terminator)
             continue
         }
         if (source[index] === '/' && source[index + 1] === '*')
@@ -405,7 +502,7 @@ function nextSignificantSourceCharacter(source, start)
     return { character: '', index: source.length }
 }
 
-function readAssignmentValue(source, valueStart)
+function readAssignmentValue(source, valueStart, commentStyle)
 {
     let index = valueStart
     let valueText = ''
@@ -457,11 +554,22 @@ function readAssignmentValue(source, valueStart)
         }
         if (current === '/' && next === '/')
         {
-            const newline = source.indexOf('\n', index + 2)
-            const afterComment = nextSignificantSourceCharacter(source, newline < 0 ? source.length : newline + 1)
+            const terminator = findSourceLineTerminator(source, index + 2)
+            const nextLine = terminator + sourceLineTerminatorAt(source, terminator)
+            const afterComment = nextSignificantSourceCharacter(source, nextLine, commentStyle)
             if (nesting === 0 && previousSignificant() !== '+' && afterComment.character !== '+') break
             valueText += '\n'
-            index = newline < 0 ? source.length : newline + 1
+            index = nextLine
+            continue
+        }
+        if (startsHashComment(source, index, commentStyle))
+        {
+            const terminator = findSourceLineTerminator(source, index + 1)
+            const nextLine = terminator + sourceLineTerminatorAt(source, terminator)
+            const afterComment = nextSignificantSourceCharacter(source, nextLine, commentStyle)
+            if (nesting === 0 && previousSignificant() !== '+' && afterComment.character !== '+') break
+            valueText += '\n'
+            index = nextLine
             continue
         }
         if (current === '/' && next === '*')
@@ -472,13 +580,14 @@ function readAssignmentValue(source, valueStart)
             index = closing + 2
             continue
         }
-        if (current === '\n')
+        const terminatorLength = sourceLineTerminatorAt(source, index)
+        if (terminatorLength > 0)
         {
-            const afterNewline = nextSignificantSourceCharacter(source, index + 1)
+            const afterNewline = nextSignificantSourceCharacter(source, index + terminatorLength, commentStyle)
             if (nesting === 0 && previousSignificant() !== '+' && previousSignificant() !== '\\'
                 && afterNewline.character !== '+') break
-            valueText += current
-            index += 1
+            valueText += '\n'
+            index += terminatorLength
             continue
         }
         if (nesting === 0 && /[,;}]/u.test(current)) break
@@ -488,7 +597,7 @@ function readAssignmentValue(source, valueStart)
     return valueText
 }
 
-function sourceAssignments(source, masked)
+function sourceAssignments(source, masked, commentStyle)
 {
     const assignments = []
     const expression = /(?:^|[,;{([.\s])(?:["']([^"']+)["']|([A-Za-z][A-Za-z0-9_-]*))\s*\??\s*(?::|=(?!=))/dgmu
@@ -499,7 +608,7 @@ function sourceAssignments(source, masked)
         const valueStart = match.indices[0][1]
         assignments.push({
             identifier: source.slice(identifierIndex[0], identifierIndex[1]).replace(/^["']|["']$/gu, ''),
-            valueText: readAssignmentValue(source, valueStart),
+            valueText: readAssignmentValue(source, valueStart, commentStyle),
             index: match.index
         })
     }
@@ -527,7 +636,7 @@ function declaredIdentifiers(masked)
 function sourceInvocations(source, masked)
 {
     const invocations = []
-    const expression = /\b([A-Za-z][A-Za-z0-9_.-]*)\s*\(([^()\n]*)\)/dgmu
+    const expression = /\b([A-Za-z][A-Za-z0-9_.-]*)\s*\(([^()\n\r\u2028\u2029]*)\)/dgmu
     let match
     while ((match = expression.exec(masked)) !== null)
     {
@@ -549,7 +658,7 @@ function sourceInvocations(source, masked)
 function autoPropertyInitializers(masked)
 {
     const initializers = []
-    const expression = /\b([A-Za-z][A-Za-z0-9_-]*)\s*\{[\t ]*(?:(?:get|init|set)\s*;[\t ]*)+\}\s*=\s*([^;\n]+)/gmu
+    const expression = /\b([A-Za-z][A-Za-z0-9_-]*)\s*\{[\t ]*(?:(?:get|init|set)\s*;[\t ]*)+\}\s*=\s*([^;\n\r\u2028\u2029]+)/gmu
     let match
     while ((match = expression.exec(masked)) !== null)
     {
@@ -562,14 +671,19 @@ function autoPropertyInitializers(masked)
     return initializers
 }
 
-function exactScannerDeclarationRange(source, context)
+function exactScannerDeclarationRange(source, masked, context)
 {
     if (context.file !== scannerImplementationPath) return null
     const exportName = ['zero', 'Legacy', 'Scan', 'Schema'].join('')
+    const declarationPrefix = `export const ${exportName} = `
     const expectedDeclaration = `export const ${exportName} = '${zeroLegacyScanSchema}'`
-    const start = source.indexOf(expectedDeclaration)
-    if (start < 0 || source.indexOf(expectedDeclaration, start + 1) >= 0) return null
-    return { start, end: start + expectedDeclaration.length }
+    const candidates = []
+    for (let start = source.indexOf(expectedDeclaration); start >= 0; start = source.indexOf(expectedDeclaration, start + 1))
+    {
+        if (masked.slice(start, start + declarationPrefix.length) === declarationPrefix) candidates.push(start)
+    }
+    if (candidates.length !== 1) return null
+    return { start: candidates[0], end: candidates[0] + expectedDeclaration.length }
 }
 
 function scannerSchemaValue()
@@ -579,13 +693,26 @@ function scannerSchemaValue()
 
 function scanMachineSource(source, context, locationPrefix = 'source')
 {
-    const masked = maskSourceLiteralsAndComments(source)
-    const exactDeclaration = exactScannerDeclarationRange(source, context)
+    const commentStyle = /\.sh$/iu.test(context.file) || /^fence:(?:sh|shell):/u.test(locationPrefix)
+        ? 'shell'
+        : /\.ya?ml$/iu.test(context.file) || /^fence:(?:yaml|yml):/u.test(locationPrefix)
+            ? 'yaml'
+            : /\.ps1$/iu.test(context.file) || /^fence:(?:powershell|ps1|toml):/u.test(locationPrefix)
+                ? 'hash'
+                : null
+    const masked = maskSourceLiteralsAndComments(source, commentStyle)
+    const exactDeclaration = exactScannerDeclarationRange(source, masked, context)
     const isExactDeclaration = (index) => exactDeclaration !== null
         && index >= exactDeclaration.start
         && index < exactDeclaration.end
     const lineStarts = [0]
-    for (let index = source.indexOf('\n'); index >= 0; index = source.indexOf('\n', index + 1)) lineStarts.push(index + 1)
+    for (let index = 0; index < source.length; index += 1)
+    {
+        const terminatorLength = sourceLineTerminatorAt(source, index)
+        if (terminatorLength === 0) continue
+        lineStarts.push(index + terminatorLength)
+        index += terminatorLength - 1
+    }
     const lineAt = (target) => {
         let low = 0
         let high = lineStarts.length
@@ -597,7 +724,7 @@ function scanMachineSource(source, context, locationPrefix = 'source')
         }
         return low
     }
-    for (const assignment of sourceAssignments(source, masked))
+    for (const assignment of sourceAssignments(source, masked, commentStyle))
     {
         if (isExactDeclaration(assignment.index)) continue
         scanIdentifier(assignment.identifier, assignment.valueText, {
@@ -691,11 +818,6 @@ function walkFiles(repositoryRoot, relative, output, predicate = () => true)
     }
 }
 
-function isIgnoredOutputPath(file)
-{
-    return file.split('/').some((segment) => ignoredDirectoryNames.has(segment.toLowerCase()))
-}
-
 function trackedRepositoryFiles(repositoryRoot)
 {
     try
@@ -713,7 +835,6 @@ function trackedRepositoryFiles(repositoryRoot)
             .split('\0')
             .filter(Boolean)
             .map((file) => file.replaceAll(path.sep, '/'))
-            .filter((file) => !isIgnoredOutputPath(file))
             .filter((file) => {
                 try
                 {
@@ -780,22 +901,21 @@ export function scanZeroLegacyGovernance(repositoryRoot = root)
         pathClasses.forEach((pathClass) => { pathClassCounts[pathClass] += 1 })
         const absolute = path.join(repositoryRoot, file)
         const context = { file, findings, pathClasses, qualification: isQualificationPath(file) }
-        if (file.endsWith('.json'))
+        if (/\.jsonc?$/iu.test(file))
         {
             try
             {
-                const document = JSON.parse(fs.readFileSync(absolute, 'utf8'))
+                const document = parseMachineJson(fs.readFileSync(absolute, 'utf8'), file)
                 const jsonSchemaDocument = file.endsWith('.schema.json')
                     && typeof document?.$schema === 'string'
                     && jsonSchemaDialectPattern.test(document.$schema)
-                const oldDialectDependencies = jsonSchemaDocument
-                    && /\/draft-0[4-7]\/schema#?$/u.test(document.$schema)
-                const currentContentSchema = jsonSchemaDocument
-                    && contentSchemaDialectPattern.test(document.$schema)
-                scanObjectKeys(document, { ...context, currentContentSchema, jsonSchemaDocument, oldDialectDependencies })
+                scanObjectKeys(document, { ...context, jsonSchemaDocument })
                 if (pathClasses.includes('package-scripts')) scanPackageScripts(document, context)
             }
-            catch { /* Syntax belongs to the corresponding schema or package gate. */ }
+            catch
+            {
+                addFinding(findings, file, pathClasses, 'invalid-machine-json', '$')
+            }
         }
         if (pathClasses.includes('docs'))
         {

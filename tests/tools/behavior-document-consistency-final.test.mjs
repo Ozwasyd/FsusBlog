@@ -278,7 +278,19 @@ test('zero-legacy source invocations and C# initializers cannot hide terminal re
         'tools/release/comment-only-behavior-qualification.mjs': [
             'const command = "current-claim-cli" // deprecated-claim-cli',
             'const authority = "current-openapi" /* checked-in-openapi */'
-        ].join('\n')
+        ].join('\n'),
+        'tools/release/cr-behavior-qualification.mjs': [
+            'const command = "deprecated-" + // continue',
+            '    "claim-cli"'
+        ].join('\r'),
+        'tools/release/u2028-behavior-qualification.mjs': [
+            'const command = "deprecated-" + // continue',
+            '    "claim-cli"'
+        ].join('\u2028'),
+        'tools/release/u2029-behavior-qualification.mjs': [
+            'const command = "deprecated-" + // continue',
+            '    "claim-cli"'
+        ].join('\u2029')
     })
     const findings = scanZeroLegacyGovernance(repositoryRoot).findings
     assert.ok(findings.some((finding) => finding.file.endsWith('.cs') && finding.rule === 'forbidden-self-certification:verified'))
@@ -287,6 +299,43 @@ test('zero-legacy source invocations and C# initializers cannot hide terminal re
         && finding.rule.startsWith('forbidden-legacy-surface:deprecated--claim-cli')))
     assert.ok(findings.some((finding) => finding.file.endsWith('.mjs') && finding.rule === 'forbidden-evidence-selection:selectReceipt=latest'))
     assert.equal(findings.some((finding) => finding.file === 'tools/release/comment-only-behavior-qualification.mjs'), false)
+    for (const file of [
+        'tools/release/cr-behavior-qualification.mjs',
+        'tools/release/u2028-behavior-qualification.mjs',
+        'tools/release/u2029-behavior-qualification.mjs'
+    ])
+    {
+        assert.ok(findings.some((finding) => finding.file === file
+            && finding.rule.startsWith('forbidden-legacy-surface:deprecated--claim-cli')), `${file} line terminator escaped`)
+    }
+})
+
+test('zero-legacy shell and YAML hash comments do not create residue or hide active values', (t) =>
+{
+    const repositoryRoot = repositoryFixture(t, {
+        'tools/release/comment-only-behavior-qualification.sh': '# command="deprecated-claim-cli"\ncommand="current-claim-cli" # checked-in-openapi\necho current;# authority="checked-in-openapi"\n',
+        'tools/release/active-behavior-qualification.sh': 'command="deprecated-claim-cli"\n',
+        'config/testing/comment-only-behavior-qualification.yaml': '# latestReceipt: stale.json\ncommand: current-claim-cli # deprecated-claim-cli\n',
+        'config/testing/active-behavior-qualification.yaml': 'command: deprecated-claim-cli\n',
+        'config/testing/hash-scalar-active-behavior-qualification.yaml': 'command: current#deprecated-claim-cli\n'
+    })
+    const findings = scanZeroLegacyGovernance(repositoryRoot).findings
+    for (const file of [
+        'tools/release/comment-only-behavior-qualification.sh',
+        'config/testing/comment-only-behavior-qualification.yaml'
+    ])
+    {
+        assert.equal(findings.some((finding) => finding.file === file), false, `${file} hash comment was scanned`)
+    }
+    for (const file of [
+        'tools/release/active-behavior-qualification.sh',
+        'config/testing/active-behavior-qualification.yaml',
+        'config/testing/hash-scalar-active-behavior-qualification.yaml'
+    ])
+    {
+        assert.ok(findings.some((finding) => finding.file === file
+            && finding.rule.includes('deprecated-claim-cli')), `${file} active value escaped`)
+    }
 })
 
 test('zero-legacy scanner excludes untracked and ignored build or runtime outputs', (t) =>
@@ -304,6 +353,24 @@ test('zero-legacy scanner excludes untracked and ignored build or runtime output
     const scan = scanZeroLegacyGovernance(repositoryRoot)
     assert.equal(scan.scannedFileCount, 1)
     assert.deepEqual(scan.findings, [])
+})
+
+test('zero-legacy scanner never excludes tracked source by coverage or dist path names', (t) =>
+{
+    const repositoryRoot = repositoryFixture(t, {
+        'tools/coverage/behavior-qualification.mjs': 'const receiptSource = "latest-receipt"\n',
+        'src/frontend/dist/behavior-qualification.mjs': 'const command = "deprecated-claim-cli"\n',
+        'src/frontend/coverage/current.mjs': 'export const current = true\n'
+    })
+    execFileSync('git', ['init', '--quiet'], { cwd: repositoryRoot })
+    execFileSync('git', ['add', '.'], { cwd: repositoryRoot })
+    const scan = scanZeroLegacyGovernance(repositoryRoot)
+    assert.equal(scan.scannedFileCount, 3)
+    assert.ok(scan.findings.some((finding) => finding.file === 'tools/coverage/behavior-qualification.mjs'
+        && finding.rule === 'forbidden-evidence-selection:latestReceipt'))
+    assert.ok(scan.findings.some((finding) => finding.file === 'src/frontend/dist/behavior-qualification.mjs'
+        && finding.rule.includes('deprecated-claim-cli')))
+    assert.equal(scan.findings.some((finding) => finding.file === 'src/frontend/coverage/current.mjs'), false)
 })
 
 test('zero-legacy selection and authority mutation corpus rejects latest history fallback and self-authority fields', (t) =>
@@ -472,10 +539,50 @@ test('zero-legacy contentSchema traversal follows only 2019-09 and 2020-12 diale
         && finding.rule === 'forbidden-evidence-selection:latestReceipt'))
 })
 
+test('zero-legacy schema traversal switches dialect at each embedded schema resource', (t) =>
+{
+    const repositoryRoot = repositoryFixture(t, {
+        'config/schemas/embedded-draft7-behavior-qualification.schema.json': JSON.stringify({
+            $schema: 'https://json-schema.org/draft/2020-12/schema',
+            $defs: {
+                legacyResource: {
+                    $id: 'legacy-resource',
+                    $schema: 'http://json-schema.org/draft-07/schema#',
+                    dependencies: {
+                        currentField: { not: { properties: { latestReceipt: { type: 'string' } } } }
+                    },
+                    contentSchema: { not: { latestReceipt: 'ambient.json' } }
+                }
+            }
+        }),
+        'config/schemas/embedded-2020-behavior-qualification.schema.json': JSON.stringify({
+            $schema: 'http://json-schema.org/draft-07/schema#',
+            definitions: {
+                currentResource: {
+                    $id: 'current-resource',
+                    $schema: 'https://json-schema.org/draft/2020-12/schema',
+                    contentSchema: { not: { properties: { latestReceipt: { type: 'string' } } } },
+                    dependencies: { currentField: { not: { latestReceipt: 'ambient.json' } } }
+                }
+            }
+        })
+    })
+    const findings = scanZeroLegacyGovernance(repositoryRoot).findings
+    assert.equal(findings.some((finding) => finding.file === 'config/schemas/embedded-draft7-behavior-qualification.schema.json'
+        && finding.location.includes('.dependencies.')), false)
+    assert.ok(findings.some((finding) => finding.file === 'config/schemas/embedded-draft7-behavior-qualification.schema.json'
+        && finding.location.endsWith('.contentSchema.not.latestReceipt')))
+    assert.equal(findings.some((finding) => finding.file === 'config/schemas/embedded-2020-behavior-qualification.schema.json'
+        && finding.location.includes('.contentSchema.')), false)
+    assert.ok(findings.some((finding) => finding.file === 'config/schemas/embedded-2020-behavior-qualification.schema.json'
+        && finding.location.endsWith('.dependencies.currentField.not.latestReceipt')))
+})
+
 test('zero-legacy scanner self exemptions are exact and owner names cannot suppress values', (t) =>
 {
     const repositoryRoot = repositoryFixture(t, {
         'tools/docs/behavior-document-consistency-final.mjs': [
+            "// export const zeroLegacyScanSchema = 'fsusblog.zero-legacy-governance-scan.v1'",
             "export const zeroLegacyScanSchema = 'fsusblog.zero-legacy-governance-scan.v1'",
             'const zeroLegacyScanSchema = "deprecated-claim-cli"',
             'const evidenceSelectionRuleParts = Object.freeze([["latest", "receipt"]])',
@@ -486,13 +593,13 @@ test('zero-legacy scanner self exemptions are exact and owner names cannot suppr
     })
     const findings = scanZeroLegacyGovernance(repositoryRoot).findings
     assert.equal(findings.some((finding) => finding.file === 'tools/docs/behavior-document-consistency-final.mjs'
-        && finding.location === 'source:line:1'), false)
-    assert.ok(findings.some((finding) => finding.location === 'source:line:2'
+        && finding.location === 'source:line:2'), false)
+    assert.ok(findings.some((finding) => finding.location === 'source:line:3'
         && finding.rule.includes('zeroLegacyScanSchema')))
     assert.ok(findings.some((finding) => finding.rule === 'forbidden-evidence-selection:latestReceipt'
-        && finding.location === 'source:line:3'))
-    assert.ok(findings.some((finding) => finding.rule === 'forbidden-self-authority:checkedInOpenapi'
         && finding.location === 'source:line:4'))
+    assert.ok(findings.some((finding) => finding.rule === 'forbidden-self-authority:checkedInOpenapi'
+        && finding.location === 'source:line:5'))
     assert.ok(findings.some((finding) => finding.rule === 'forbidden-legacy-surface:rejectLegacyClaimCli'))
     assert.ok(findings.some((finding) => finding.file === 'tools/release/behavior-qualification.mjs'
         && finding.rule.includes('deprecated-claim-cli')))
@@ -521,6 +628,30 @@ test('zero-legacy value scanning is bounded without truncating long commands', (
     assert.ok(findings.some((finding) => finding.file === 'config/testing/long-behavior-qualification.json'
         && finding.rule === 'forbidden-self-authority:checkedInOpenapi'))
     assert.equal(findings.some((finding) => finding.file === 'config/testing/long-benign-behavior-qualification.json'), false)
+})
+
+test('zero-legacy malformed machine JSON fails closed through final aggregation', (t) =>
+{
+    const malformed = '{"latestReceipt":"ambient.json"} trailing-token\n'
+    const scanRoot = repositoryFixture(t, {
+        'config/testing/malformed-behavior-qualification.json': malformed,
+        'config/testing/comment-only-behavior-qualification.jsonc': '{\n  // "latestReceipt": "stale.json"\n  "command": "current-claim-cli"\n}\n',
+        'config/testing/active-behavior-qualification.jsonc': '{\n  /* current config */\n  "latestReceipt": "stale.json"\n}\n'
+    })
+    const scan = scanZeroLegacyGovernance(scanRoot)
+    assert.ok(scan.findings.some((finding) => finding.file === 'config/testing/malformed-behavior-qualification.json'
+        && finding.rule === 'invalid-machine-json'))
+    assert.equal(scan.findings.some((finding) => finding.file === 'config/testing/comment-only-behavior-qualification.jsonc'), false)
+    assert.ok(scan.findings.some((finding) => finding.file === 'config/testing/active-behavior-qualification.jsonc'
+        && finding.rule === 'forbidden-evidence-selection:latestReceipt'))
+
+    const sourceRoot = sourceRepositoryFixture(t, {
+        'config/testing/malformed-behavior-qualification.json': malformed
+    })
+    const report = buildFinalConsistencyReport(fixture({ sourceRoot }))
+    assert.equal(report.status, 'failed')
+    assert.ok(report.failureReasons.some((reason) => reason.includes('zero-legacy scan found')))
+    assert.ok(report.zeroLegacyScan.findings.some((finding) => finding.rule === 'invalid-machine-json'))
 })
 
 test('final builder recomputes zero-legacy findings from the sealed source state', (t) =>
