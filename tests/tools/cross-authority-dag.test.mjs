@@ -4,6 +4,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import { BehaviorId } from '../../tools/contracts/behavior-contract-catalog.mjs'
 import {
   analyzeAuthorityDag,
   assertAuthorityDag,
@@ -15,10 +16,10 @@ import {
 
 const root = path.resolve(import.meta.dirname, '../..')
 const analyzerPath = path.join(root, 'tools/contracts/cross-authority-dag.mjs')
-const behaviorId = 'browserless-production-correctness'
-const secondaryBehaviorId = 'release-final-aggregate-contract'
+const behaviorId = BehaviorId('browserless-production-correctness')
+const secondaryBehaviorId = BehaviorId('release-final-aggregate-contract')
 
-const node = (id, kind, authorityId, behaviorIds = [behaviorId]) => ({
+const node = (id, kind, authorityId, behaviorIds = [BehaviorId(behaviorId)]) => ({
   id,
   kind,
   authorityId,
@@ -161,7 +162,7 @@ test('every catalog behavior must remain closed through every authority layer', 
   assert.equal(receipt.status, 'failed')
   assert.equal(receipt.missingBehaviorLayers.length, Object.keys(authorityLayers).length - 1)
   assert.ok(receipt.missingBehaviorLayers.some(({ behaviorId, kind }) =>
-    behaviorId === secondaryBehaviorId && kind === 'release-finalizer'))
+    behaviorId === BehaviorId(secondaryBehaviorId) && kind === 'release-finalizer'))
   assert.ok(failureCodes(receipt).includes('missing-behavior-layer'))
   assert.throws(() => assertAuthorityDag(graph), /missing-behavior-layer/u)
 })
@@ -184,7 +185,7 @@ test('required predecessor edges are checked per behavior rather than by kind in
   assert.equal(receipt.status, 'failed')
   assert.ok(receipt.missingEdges.some(({ nodeId, behaviorId, predecessorKind }) =>
     nodeId === 'producer:test-b'
-    && behaviorId === secondaryBehaviorId
+    && behaviorId === BehaviorId(secondaryBehaviorId)
     && predecessorKind === 'fact-extractor'))
   assert.ok(failureCodes(receipt).includes('missing-predecessor'))
 })
@@ -267,7 +268,7 @@ test('mutation suite kills authority, kind, edge and behavior identity drift', (
     (graph) => { graph.nodes.find(({ id }) => id === 'producer:runtime').kind = 'test-evidence-producer' },
     (graph) => { graph.edges = graph.edges.filter(({ to }) => to !== 'finalizer:release') },
     (graph) => { graph.edges.find(({ to }) => to === 'producer:runtime').relation = 'supplies-post-runtime' },
-    (graph) => { graph.nodes.find(({ id }) => id === 'producer:runtime').behaviorIds = ['unknown-runtime-behavior'] },
+    (graph) => { graph.nodes.find(({ id }) => id === 'producer:runtime').behaviorIds = [BehaviorId(secondaryBehaviorId)] },
     (graph) => { graph.nodes.find(({ kind }) => kind === 'behavior-catalog').behaviorIds.push(secondaryBehaviorId) }
   ]
   for (const mutate of mutations)
@@ -288,7 +289,7 @@ test('canonical replay ignores input ordering but rejects semantic or receipt dr
   const reordered = {
     edges: [...graph.edges].reverse().map(({ relation, to, from }) => ({ relation, to, from })),
     nodes: [...graph.nodes].reverse().map(({ behaviorIds, authorityId, kind, id }) => ({
-      behaviorIds: [...behaviorIds].reverse(), authorityId, kind, id
+      behaviorIds: [...behaviorIds].reverse().map((behaviorId) => BehaviorId(behaviorId)), authorityId, kind, id
     })),
     canonicalSerialization: graph.canonicalSerialization,
     digestAlgorithm: graph.digestAlgorithm,

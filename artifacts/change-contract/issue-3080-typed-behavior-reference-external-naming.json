@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/contracts/behavior-contract-catalog.mjs",
+                "tools/contracts/cross-authority-dag.mjs"
+            ],
+            "reason": "preserve the canonical caller-visible BehaviorId symbol while binding dynamic behavior references to the registered catalog"
+        }
+    ]
+}

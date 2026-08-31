@@ -208,7 +208,7 @@ export function validateCommentPrivacyCredentialVaultSources(sources)
         'ops/gateway/production-openresty.conf'
     ])
     {
-        expectSource(cspFile, /require-trusted-types-for 'script'; trusted-types vue fsusblog fsusblog-spa-entry;/, 'production CSP enforces exact Vue, app, and fixed SPA entry Trusted Types policies');
+        expectSource(cspFile, /require-trusted-types-for 'script'; trusted-types vue fsusblog fsusblog-spa-entry fsusui-markdown-feature;/, 'production CSP enforces exact Vue, app, and fixed SPA entry Trusted Types policies');
         rejectSource(cspFile, /trusted-types\s+(?:\*|default)|allow-duplicates/, 'production CSP must not allow wildcard, default, or duplicate Trusted Types policies');
     }
 

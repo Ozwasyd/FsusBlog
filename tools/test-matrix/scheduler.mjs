@@ -30,6 +30,14 @@ import {
 import { availableMemoryBytes, availableMemoryGiB } from '../test/system-memory.mjs';
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Temporal replay validation is shared with the execution owner.
 import { verifyTemporalReplay } from '../test/temporal-context.mjs';
+import {
+    attachCurrentRunEvidenceHandoff,
+    parseCurrentRunEvidenceHandoffs,
+    resumeCurrentRunEvidenceCheckpoint
+// eslint-disable-next-line import-x/no-relative-parent-imports -- Producer terminal handoffs are scheduler checkpoint inputs.
+} from '../test/current-run-evidence-checkpoint.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler validates the canonical current-run locator registry.
+import { validateEvidenceLocatorRegistry } from '../test/evidence-location-contract.mjs';
 
 import {
     readAndValidateArtifactDigestTable,
@@ -4287,6 +4295,22 @@ async function runDagUnlocked(options)
     {
         throw new Error('wall clock start must be a valid timestamp that is not in the future');
     }
+    const evidenceContextPath = String(options.env?.FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT
+      ?? process.env.FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT ?? '').trim();
+    const currentRunEvidenceContext = evidenceContextPath
+        ? JSON.parse(fs.readFileSync(path.resolve(root, evidenceContextPath), 'utf8'))
+        : null;
+    if (currentRunEvidenceContext
+    && (currentRunEvidenceContext.schedulerRunId !== runId
+      || currentRunEvidenceContext.sourceCommit !== sourceState.commit
+      || currentRunEvidenceContext.worktreeFingerprint !== sourceState.worktreeFingerprint))
+    {
+        throw new Error('scheduler current-run evidence context does not match run/source identity');
+    }
+    const currentRunEvidenceRegistry = currentRunEvidenceContext
+        ? validateEvidenceLocatorRegistry(JSON.parse(fs.readFileSync(path.join(root,
+            'config/testing/evidence-locator-registry.json'), 'utf8')))
+        : null;
     const checkpoint = {
         schema: checkpointSchema,
         runId,
@@ -4352,6 +4376,10 @@ async function runDagUnlocked(options)
         resumeCandidates: resume ? resumeTierCandidates(previous, byId) : {},
         completedTiers: [],
         tiers: {},
+        ...(currentRunEvidenceContext ? {
+            currentRunEvidenceReferences: resumeCurrentRunEvidenceCheckpoint(resume ? previous : null,
+                currentRunEvidenceContext)
+        } : {}),
         failure: null,
         failurePoint: null,
         failures: []
@@ -5571,6 +5599,29 @@ async function runDagUnlocked(options)
         else if (staleOutputs)
         {
             reason = `fresh tier did not produce or update its owned generated evidence: ${ownedOutputs.join(', ')}`;
+        }
+
+        if (success && currentRunEvidenceContext)
+        {
+            try
+            {
+                const handoffs = parseCurrentRunEvidenceHandoffs(fs.readFileSync(logFile, 'utf8'));
+                for (const handoff of handoffs)
+                {
+                    const entry = currentRunEvidenceRegistry.entries.find((candidate) =>
+                        candidate.authorityId === handoff.authorityId);
+                    if (!entry) throw new Error(`producer terminal handoff authority is unregistered: ${handoff.authorityId}`);
+                    attachCurrentRunEvidenceHandoff({ checkpoint, context: currentRunEvidenceContext,
+                        entry, handoff, registry: currentRunEvidenceRegistry, repositoryRoot: root });
+                }
+            }
+            catch (error)
+            {
+                success = false;
+                reason = error.message;
+                executionResult.code = 1;
+                executionResult.error = error;
+            }
         }
 
         if (tier.residentLeaseProducer === true)

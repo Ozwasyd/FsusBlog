@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 import { locateCurrentRunEvidence, verifyCurrentRunEvidenceBinding } from './current-run-evidence-locator.mjs';
 import {
     createEvidenceParentReceipt,
+    EVIDENCE_TERMINAL_HANDOFF_PREFIX,
+    publishCurrentRunTerminalReceipt,
     releaseFinalDirectConsumerIds
 } from './current-run-evidence-publication.mjs';
 import { validateEvidenceLocatorRegistry } from './evidence-location-contract.mjs';
@@ -56,21 +58,9 @@ const parentEntry = registry.entries.find((entry) =>
 if (!parentEntry) throw new Error('release-final parent registry entry is missing');
 const receipt = createEvidenceParentReceipt({ context, parentAuthorityId: parentEntry.authorityId,
     producerId: parentEntry.producerId, childReferences: children });
-const output = path.resolve(option('--output'));
-if (fs.existsSync(output)) throw new Error('release-final parent already exists for this run attempt');
-const parent = path.dirname(output);
-if (!fs.existsSync(parent) || !fs.statSync(parent).isDirectory())
-{
-    throw new Error('release-final parent output directory must already exist');
-}
-const realParent = fs.realpathSync(parent);
-const owned = context.ownedRoots.map((root) => fs.realpathSync(path.resolve(repositoryRoot, root)));
-if (!owned.some((root) => realParent === root || realParent.startsWith(`${root}${path.sep}`)))
-{
-    throw new Error('release-final parent output escapes current-run owned roots');
-}
-const temporary = `${output}.prepared-${process.pid}`;
-fs.writeFileSync(temporary, `${JSON.stringify(receipt, null, 2)}\n`, { flag: 'wx' });
-fs.renameSync(temporary, output);
+const published = publishCurrentRunTerminalReceipt({ authorityId: parentEntry.authorityId, context,
+    outputPath: option('--output'), producerReceiptDigest: receipt.producerReceiptDigest,
+    receipt, repositoryRoot });
 process.stdout.write(`${JSON.stringify({ outputBindingKey: parentEntry.outputBindingKey,
     producerReceiptDigest: receipt.producerReceiptDigest })}\n`);
+process.stdout.write(`${EVIDENCE_TERMINAL_HANDOFF_PREFIX}${JSON.stringify(published.handoff)}\n`);

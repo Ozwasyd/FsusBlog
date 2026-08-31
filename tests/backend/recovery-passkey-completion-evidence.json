@@ -6,7 +6,7 @@
         "src/backend/Services/Security/RecoveryKeyService.cs",
         "src/backend/Services/Security/PasskeyService.cs",
         "src/backend/Entities/PasskeyCredential.cs",
-        "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs",
+        "src/migration/SchemaMigrationRegistry.cs",
         "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs"
     ],
     "testFiles": [

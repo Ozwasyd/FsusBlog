@@ -4,11 +4,11 @@ using System.Text.Json;
 
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
+using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
-using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Server.Tests.TestInfrastructure;

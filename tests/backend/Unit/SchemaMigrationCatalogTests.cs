@@ -1,10 +1,10 @@
 using System.Security.Cryptography;
 using System.Text;
 
+using FsusBlog.Migration.Catalogs;
+using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
-using FsusBlog.Server.Infrastructure.SchemaMigration.Catalogs;
-using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 
 namespace FsusBlog.Server.Tests.Unit;
 

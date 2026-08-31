@@ -40,8 +40,8 @@ The default branch rule should require these repository-security and quality che
 | `Change Contract / Change Contract` | Enforces the trusted-base PR title, linked issue, classification, evidence binding, release-note label, format history, and squash metadata contract. |
 | `Quality Gate / Production Summary` | Summarizes the full production-ci-gate DAG and fails when any required upstream job failed, skipped unexpectedly, or produced invalid release evidence. |
 | `Quality Gate / Validate Test Matrix` | Prevents drift between `tests/matrix.yml`, generated docs, and the GitHub Actions workflow. |
-| `Quality Gate / Fast Backend` | Covers deterministic backend unit, auth state-machine, concurrency, property, and golden tests. |
-| `Quality Gate / Fast Frontend Unit` | Covers frontend fast tests before broader browser gates. |
+| `Quality Gate / Fast Backend DAG` | Covers deterministic backend unit, auth state-machine, concurrency, property, and golden tests. |
+| `Quality Gate / Fast Frontend Unit DAG` | Covers frontend fast tests before broader browser gates. |
 | `Quality Gate / Fast Static Governance` | Covers static policy checks, API/AEDS governance, label governance, and repository workflow governance. |
 | `Quality Gate / Coverage Merge Threshold` | Keeps backend/frontend coverage evidence above the public-preview thresholds. |
 | `Quality Gate / Security Runtime` | Covers auth, MFA, PoW, CSRF/browser matrix, AEDS fuzz, and security runtime checks. |
@@ -53,19 +53,38 @@ The default branch rule should require these repository-security and quality che
 
 When GitHub branch protection cannot express the full `Quality Gate` dependency graph, requiring `Quality Gate / Production Summary` is the minimum safe branch rule because that job evaluates all required upstream jobs from the workflow's `needs` payload.
 
-The current private-repository plan returns HTTP 403 for both classic branch protection and repository rulesets. Until that external capability changes, `Change Contract` on a `master` push is a post-push audit rather than a preventive required check. Readiness and issue-closeout evidence must report that limitation explicitly and must not claim that the documented required-check set is enabled.
+The unique machine-readable required-check contract for governed dependency PRs is `config/dependencies/required-checks.json`. It maps each dependency group and update type (`major`, `minor`, `patch`, `digest`, `lockFileMaintenance`) to the exact GitHub check names above; it does not use a blanket “all CI” label and does not copy those names into Renovate configuration. Governance tests local-simulate default-branch protection, require bidirectional alignment with that contract, and treat `skipped`, `neutral`, `cancelled`, `timed_out`, and missing required checks as unsuccessful.
+
+`renovate.json5` enables GitHub platform auto-merge (`automergeType: "pr"`, `platformAutomerge: true`) for those five update types with no approval gate and no merge window. Local simulation is the merge gate: a PR may merge only when every catalog required check is `success`, the branch is up to date and conflict-free, and the PR is not draft. Draft, merge conflict, blocking labels, failed/skipped/neutral/missing checks, a stale default-branch base, a security bypass/direct push, or an outdated target version fail closed. After required checks have failed for 24 hours the simulator only adds `dependency-blocked` and does not close the PR, downgrade the target, or restore a previous version. No Renovate or bot branch-protection bypass is permitted.
+
+The current private-repository plan returns HTTP 403 for both classic branch protection and repository rulesets. Until that external capability changes, `Change Contract` on a `master` push is a post-push audit rather than a preventive required check. Readiness and issue-closeout evidence must report that limitation explicitly and must not claim that the documented required-check set is enabled. Local simulation of the required-checks contract is the merge gate for this inventory.
 
 ## Dependency And Supply-Chain Checks
 
-Dependabot version updates are intentionally not configured: the repository has no
-`.github/dependabot.yml`, so routine npm, NuGet, and GitHub Actions upgrades are
-batched by maintainers when needed instead of being opened as weekly bot pull
-requests. Repository settings must keep Dependabot alerts and Dependabot security
-updates enabled; security remediation pull requests are reviewed on their own risk
-and must not be treated as routine version-update noise.
+Repository-side routine dependency update authority is reserved exclusively for
+the official Mend Renovate GitHub App. The root `renovate.json5` is its candidate
+configuration; the exact managed surface and intentional path exclusions are registered in
+`config/dependencies/update-surface.json`. No self-hosted Renovate workflow, PAT,
+second update bot, or `.github/dependabot.yml` is permitted. Repository settings
+must keep Dependabot alerts and Dependabot security updates enabled.
 
-Every dependency change, whether submitted manually or by a security update, remains
-subject to Dependency Review, the denied-license policy, and the normal CI gates.
+The candidate config requests six-hour checks, stable exact/pinned major, minor,
+patch and digest updates, daily lock-file refreshes, and unscheduled vulnerability
+updates. It does not extend `config:recommended`, `:ignoreModulesAndTests`, or
+Renovate's default grouping presets, so real version fields under `tests/` stay
+visible; fixture and generated-evidence paths are ignored only when
+`update-surface.json` registers the exact path and reason. `fsusui-release-train`
+is a delegated manager for `config/testing/fsusui-baseline.json` and is still
+enumerated by `npm run deps:freshness`; it is not an ignore rule. Freshness is
+fail-closed and assigns each catalog item exactly one of `current`,
+`latest-target-pr`, or a dated exception in `config/dependencies/exceptions.json`.
+Updates remain
+reviewer-controlled and never automerged. The App
+installation, permissions, live Dependency Dashboard, and real update pull requests
+are `external-unverified`; local acceptance uses the official config validator,
+full dry-run, and `local-controlled-simulation` fixtures and does not claim those
+external effects occurred. Every dependency change remains subject to Dependency
+Review, the denied-license policy, and the normal CI gates.
 Dependency Review runs when pull requests change package locks, project files, or
 workflow files, blocks high-severity dependency changes, and denies the configured
 AGPL/GPL/LGPL license families.

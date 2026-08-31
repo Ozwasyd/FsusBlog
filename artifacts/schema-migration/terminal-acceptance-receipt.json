@@ -1,0 +1,48 @@
+{
+  "schema": "fsusblog.migration-terminal-acceptance.v1",
+  "sourceCommit": "cca8895fbd670f7c37bf1529e9b55ca4fd56550e",
+  "graph": {
+    "directions": {
+      "currentContractsFromServer": true,
+      "currentContractsFromMigration": true,
+      "serverToMigration": false,
+      "migrationToServer": false
+    },
+    "digest": "8766591f55c12ee74605e55a6423380114dd2c75824efe2284fc0a3e859c5746"
+  },
+  "currentSchemaAuthority": {
+    "exactOne": true,
+    "errors": []
+  },
+  "publish": {
+    "scanned": false,
+    "residue": 0
+  },
+  "providers": {
+    "postgresql": "independent-migration-tests",
+    "mysql": "independent-migration-tests",
+    "sqlite": "independent-migration-tests"
+  },
+  "mutation": {
+    "classes": [
+      "server-migration-reference",
+      "legacy-descriptor-import",
+      "reflection-or-di-alias",
+      "shared-legacy-column",
+      "migration-runtime-import",
+      "type-forwarder",
+      "dual-assembly-registration",
+      "old-schema-startup-write",
+      "publish-residue",
+      "second-current-schema-inventory"
+    ],
+    "status": "checked-by-static-and-mutation-tests"
+  },
+  "benchmark": {
+    "status": "not-evaluable",
+    "reason": "three-provider cold-readiness hosts were not started in this worktree; no fabricated 0% delta"
+  },
+  "warnings": [],
+  "warningsCount": 0,
+  "failures": []
+}
