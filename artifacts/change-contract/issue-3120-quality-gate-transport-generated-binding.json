@@ -1,0 +1,28 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        ".github/workflows/quality-gate.yml",
+        "tests/matrix.yml",
+        "tools/ci/check-flaky-evidence.mjs",
+        "tools/ci/check-job-summaries.mjs",
+        "tools/ci/prepare-quality-gate-evidence-transport.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "440bf70999a83ada0480bf7e80d397b5c0be040bbf1b49e568bd29e32c6891cd"
+        },
+        {
+            "path": "config/testing/current-run-evidence-location-acceptance.json",
+            "sha256": "5b8ac67f88e83bb3057b0c2d803b63e99328dcd89b52dc35eda0ec55ccf284a7"
+        },
+        {
+            "path": "config/testing/evidence-location-migration-ledger.json",
+            "sha256": "c6eb5a9d88cdd2ae71da494d20bfee80efd89d771ca3cd5d2a2655e461e7d4d1"
+        },
+        {
+            "path": "docs/testing.generated.md",
+            "sha256": "06bf3028eb2c0f01b7b94c94aa4b0d3b9cce291815ec67a9c076988964d2f200"
+        }
+    ]
+}

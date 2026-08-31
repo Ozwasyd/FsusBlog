@@ -161,6 +161,14 @@ jobs:
                   FSUSBLOG_PR_EVENT_NAME: ${{ github.event_name }}
                   FSUSBLOG_PR_BASE_REF: ${{ github.event.pull_request.base.sha || 'origin/master' }}
               run: ./tools/test.sh ci-tier pr-smart-gate-plan --no-deps
+            - name: Upload source-bound PR smart gate plan
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  if-no-files-found: error
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: .tmp/pr-plan.json
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
               if: always()
               with:
@@ -906,6 +914,10 @@ jobs:
                       .tmp/runtime/integration.json
                       .tmp/runtime-scenario-host/**
                       .tmp/scale/**
+                      .tmp/test-results/backend/integration/legacy-real-dump-membership.json
+                      .tmp/test-results/backend/legacy-20260517-real-dump/legacy-20260517-real-dump.trx
+                      .tmp/test-results/backend/legacy-20260517-real-dump/membership-plan.json
+                      .tmp/test-results/backend/legacy-20260517-real-dump/semantic-outcome.json
                       .tmp/release-evidence/rights-v3-test-matrix.json
                       .tmp/release-evidence/jobs/**
 
@@ -1128,6 +1140,7 @@ jobs:
                       .tmp/fuzz/**
                       .tmp/security/perception-character-v3/release-gate/**
                       .tmp/security/perception-v2/**
+                      .tmp/test-results/backend/perception-character-v3-redis-producer.json
                       .tmp/release-evidence/fuzz-seeds.json
                       .tmp/release-evidence/jobs/**
 
@@ -1495,8 +1508,11 @@ jobs:
         name: Release Evidence
         runs-on: ubuntu-latest
         needs:
+            - validate-matrix
             - plan-pr-risk
             - behavior-doc-static-admission
+            - behavior-evidence-pre-runtime
+            - production-build-artifacts
             - coverage-summary
             - fast-backend
             - frontend-build
@@ -1529,6 +1545,11 @@ jobs:
             - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
               with:
                   path: .tmp/downloaded-artifacts
+            - name: Download source-bound PR smart gate plan
+              uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp/quality-gate-plan
             - name: Download current integration scale producer
               uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
               with:
@@ -1539,6 +1560,35 @@ jobs:
                   FSUSBLOG_DATA_SCALE_PRODUCER_JOB: integration-runtime
             - run: ./tools/test.sh performance-evidence-summary --no-deps
             - run: ./tools/test.sh release-evidence --no-deps
+            - name: Upload exact release-evidence manifest
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              with:
+                  name: quality-gate-release-evidence-manifest
+                  if-no-files-found: error
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: .tmp/release-evidence/manifest.json
+            - name: Seal quality-gate evidence transport
+              if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.production_summary == 'true'
+              env:
+                  FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/quality-gate-plan/pr-plan.json
+                  FSUSBLOG_CI_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
+                  FSUSBLOG_CI_PRODUCTION_SOURCE_FINGERPRINT: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
+                  FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
+                  FSUSBLOG_QUALITY_GATE_ARTIFACT_DOWNLOAD_ROOT: .tmp/downloaded-artifacts
+                  FSUSBLOG_RELEASE_EVIDENCE_DIR: .tmp/release-evidence
+              run: node tools/ci/prepare-quality-gate-evidence-transport.mjs
+            - name: Upload sealed quality-gate evidence transport
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.production_summary == 'true'
+              with:
+                  name: quality-gate-evidence-transport
+                  if-no-files-found: error
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: |
+                      artifacts/current-run/transport-manifest.json
+                      artifacts/current-run/transport-archive.json
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
               if: always()
               with:
@@ -1606,12 +1656,36 @@ jobs:
             - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
               with:
                   path: .tmp/downloaded-artifacts
+            - name: Download source-bound PR smart gate plan
+              uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp/quality-gate-plan
+            - name: Download release-evidence manifest
+              uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-release-evidence-manifest
+                  path: .tmp/quality-gate-release-evidence
+            - name: Download sealed quality-gate evidence transport
+              uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-evidence-transport
+                  path: artifacts/current-run
+            - name: Verify and extract sealed quality-gate evidence transport
+              run: >-
+                  node tools/test/run-current-run-evidence-transport.mjs extract
+                  --manifest artifacts/current-run/transport-manifest.json
+                  --extract-root .
             - name: Check required job results
               env:
                   QUALITY_GATE_NEEDS_JSON: ${{ toJson(needs) }}
+                  FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/quality-gate-plan/pr-plan.json
                   FSUSBLOG_CI_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
                   FSUSBLOG_CI_PRODUCTION_SOURCE_FINGERPRINT: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
                   FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
+                  FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST: artifacts/current-run/transport-manifest.json
+                  FSUSBLOG_RELEASE_EVIDENCE_DIR: .tmp/quality-gate-release-evidence
+                  FSUSBLOG_RELEASE_EVIDENCE_MANIFEST: .tmp/quality-gate-release-evidence/manifest.json
               run: node tools/ci/summarize-quality-gate.mjs
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
               if: always()

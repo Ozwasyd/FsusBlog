@@ -25,6 +25,7 @@ const allowedFinalStatuses = new Set([
   'unstable-topology'
 ])
 const forbiddenLegacyRetryStatuses = new Set(['passed-after-retry', 'failed-after-retry'])
+export const FLAKY_EVIDENCE_COLLECTION_SCHEMA = 'fsusblog.ci.flaky-evidence-collection.v1'
 
 function hasValue(item, field) {
   return item[field] !== undefined && item[field] !== null && item[field] !== ''
@@ -217,9 +218,17 @@ function validateLegacy(item, file) {
   return errors
 }
 
-function validate(item, file) {
+export function validateFlakyEvidence(item, file) {
   if (item.schema !== 'fsusblog.ci.flaky.v1') return [`${file}: schema must be fsusblog.ci.flaky.v1`]
   return item.policyVersion === policyVersion ? validateV2(item, file) : validateLegacy(item, file)
+}
+
+export function createFlakyEvidenceCollection(documents) {
+  if (!Array.isArray(documents)) throw new Error('flaky evidence collection documents must be an array')
+  const errors = documents.flatMap((document, index) =>
+    validateFlakyEvidence(document, `evidence[${index}]`))
+  if (errors.length > 0) throw new Error(errors.join('; '))
+  return { schema: FLAKY_EVIDENCE_COLLECTION_SCHEMA, evidence: documents }
 }
 
 function isNonBlockingDiagnosticEvidence(item) {
@@ -266,7 +275,7 @@ function checkEvidence({ releaseFinal, files = listFlakyFiles() }) {
     if (item.schema !== 'fsusblog.ci.flaky.v1') continue
     count += 1
     const displayFile = path.relative(root, file)
-    errors.push(...validate(item, displayFile))
+    errors.push(...validateFlakyEvidence(item, displayFile))
     if (releaseFinal && !isNonBlockingDiagnosticEvidence(item) && !isSuccessful(item)) {
       errors.push(`${displayFile}: release-final rejects failing ${item.sourceEvidenceClass ?? item.evidenceClass ?? 'unclassified'} evidence (${item.finalStatus})`)
     }
@@ -373,5 +382,7 @@ function runSelfTest() {
   console.log('[flaky-evidence] self-test ok')
 }
 
-if (process.argv.includes('--self-test')) runSelfTest()
-else main()
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  if (process.argv.includes('--self-test')) runSelfTest()
+  else main()
+}

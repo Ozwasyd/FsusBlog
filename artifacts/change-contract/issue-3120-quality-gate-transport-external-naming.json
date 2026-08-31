@@ -1,0 +1,49 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/ci/check-flaky-evidence.mjs",
+                "tools/ci/check-job-summaries.mjs",
+                "tools/ci/prepare-quality-gate-evidence-transport.mjs"
+            ],
+            "reason": "preserve the caller-visible current-run, quality-gate, and release evidence environment keys at the process boundary"
+        },
+        {
+            "id": "github-actions-schema",
+            "paths": [
+                ".github/workflows/quality-gate.yml"
+            ],
+            "reason": "preserve GitHub Actions workflow keys and the externally visible named artifact transport contract"
+        },
+        {
+            "id": "release-locator-current-run-authority",
+            "paths": [
+                "config/testing/evidence-location-migration-ledger.json"
+            ],
+            "reason": "preserve the generated current-run locator IDs and external evidence-selection keys while refreshing the canonical migration ledger"
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json"
+            ],
+            "reason": "preserve the generated correctness producer JSON contract while binding the new matrix-owned transport producer and proof test"
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md"
+            ],
+            "reason": "preserve existing generated testing document identifiers while refreshing the matrix-owned evidence inventory"
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/current-run-evidence-location-acceptance.json"
+            ],
+            "reason": "preserve the generated current-run acceptance JSON field names while refreshing its source and scanner digests"
+        }
+    ]
+}
