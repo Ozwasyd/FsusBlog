@@ -2,7 +2,7 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
-import { createRequire } from 'node:module';
+import Module, { stripTypeScriptTypes } from 'node:module';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -12,16 +12,44 @@ import {
     buildReleaseFinalizerPlan,
     releaseFinalizerCommand
 } from './release-final-evidence-contract.mjs';
+import { verifyReleaseFinalSpawnSeal } from './release-final-spawn-seal.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const releaseFinalizerFile = path.join(root, releaseFinalizerCommand);
 const matrixFile = path.join(root, 'tests/matrix.yml');
-const executionTargetAuthorityFile = path.join(
-    root,
-    'tests/fixtures/test-matrix/release-final-execution-target-authority.json'
-);
+const executionAuthorityIndexPath = 'config/testing/release-final-execution-authority-index.json';
 const releaseFinalizerDecisionSchema = 'fsusblog.release-finalizer-spawn-decision.v1';
 const commandTargetInspectionCache = new Map();
+const repositoryIndexFileCache = new Map();
+const repositoryGitMetadataCache = new Map();
+const builtinAcornSource = process.binding('natives')['internal/deps/acorn/acorn/dist/acorn'];
+if (typeof builtinAcornSource !== 'string' || builtinAcornSource.length === 0)
+{
+    throw new Error('Node builtin Acorn source is unavailable');
+}
+const builtinAcornModule = new Module(path.join(root, '.release-final-builtin-acorn.cjs'));
+builtinAcornModule.filename = path.join(root, '.release-final-builtin-acorn.cjs');
+builtinAcornModule.paths = [];
+builtinAcornModule._compile(builtinAcornSource, builtinAcornModule.filename);
+const builtinAcorn = builtinAcornModule.exports;
+const builtinAmaroSource = process.binding('natives')['internal/deps/amaro/dist/index'];
+if (typeof builtinAmaroSource !== 'string' || builtinAmaroSource.length === 0)
+{
+    throw new Error('Node builtin Amaro source is unavailable');
+}
+const nodeParserIdentity = Object.freeze({
+    nodeVersion: process.version,
+    acorn: {
+        owner: 'node:internal/deps/acorn/acorn/dist/acorn',
+        version: builtinAcorn.version,
+        sourceDigest: digestBytes(builtinAcornSource)
+    },
+    amaro: {
+        owner: 'node:internal/deps/amaro/dist/index',
+        version: process.versions.amaro,
+        sourceDigest: digestBytes(builtinAmaroSource)
+    }
+});
 
 export const releaseFinalSealStates = Object.freeze([
     'accepted',
@@ -42,11 +70,18 @@ const allowedReleaseFinalizerLines = [
     /^NODE_VERSION="\$\{FSUSBLOG_RELEASE_FINAL_NODE_VERSION:-\}"$/u,
     /^if \[\[ -z "\$NODE_BIN" \|\| -z "\$NODE_REALPATH" \|\| -z "\$NODE_SHA256" \|\| -z "\$NODE_VERSION" \|\| ! -f "\$NODE_BIN" \|\| ! -x "\$NODE_BIN" \|\| -L "\$NODE_BIN" \]\]; then$/u,
     /^echo "release-final requires sealed Node toolchain identity" >&2$/u,
-    /^if \[\[ "\$NODE_BIN" != "\$NODE_REALPATH" \|\| "\$\(\$NODE_BIN --version\)" != "\$NODE_VERSION" \]\]; then$/u,
+    /^exec \{NODE_FD\}<"\$NODE_BIN"$/u,
+    /^NODE_FD_PATH="\/proc\/\$\$\/fd\/\$NODE_FD"$/u,
+    /^if \[\[ ! -e "\$NODE_FD_PATH" \]\]; then$/u,
+    /^echo "release-final cannot pin the sealed Node executable" >&2$/u,
+    /^mapfile -t actualNodeIdentity < <\($/u,
+    /^"\$NODE_FD_PATH" -e '.+' "\$NODE_FD_PATH"$/u,
+    /^if \[\[ "\$\{actualNodeIdentity\[0\]:-\}" != "\$NODE_REALPATH" \|\| "\$\{actualNodeIdentity\[1\]:-\}" != "\$NODE_SHA256" \|\| "\$\{actualNodeIdentity\[2\]:-\}" != "\$NODE_VERSION" \]\]; then$/u,
     /^echo "release-final Node toolchain identity drifted" >&2$/u,
+    /^releaseFinalSpawnSealDigest="\$\{FSUSBLOG_RELEASE_FINAL_SPAWN_SEAL_DIGEST:-\}"$/u,
     /^releaseFinalDecision="\$\{FSUSBLOG_RELEASE_FINAL_SPAWN_DECISION:-fsusblog\.release-finalizer-spawn-decision\.v1\|missing\|0\}"$/u,
     /^case "\$releaseFinalDecision" in$/u,
-    /^fsusblog\.release-finalizer-spawn-decision\.v1\\\|accepted\\\|1\)$/u,
+    /^fsusblog\.release-finalizer-spawn-decision\.v1\\\|accepted\\\|1\\\|"\$releaseFinalSpawnSealDigest"\)$/u,
     /^;;$/u,
     /^fsusblog\.release-finalizer-spawn-decision\.v1\\\|failed\\\|0\|fsusblog\.release-finalizer-spawn-decision\.v1\\\|missing\\\|0\|fsusblog\.release-finalizer-spawn-decision\.v1\\\|stale\\\|0\)$/u,
     /^echo "release-final seal rejected: \$releaseFinalDecision" >&2$/u,
@@ -70,14 +105,14 @@ const allowedReleaseFinalizerLines = [
     /^releaseFinalArgs\+=\(--current-run-context "\$FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT"\)$/u,
     /^releaseFinalArgs\+=\(--manifest-binding "\$FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH"\)$/u,
     /^releaseFinalArgs\+=\(--domain-binding "\$FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH"\)$/u,
-    /^"\$NODE_BIN" "\$ROOT_DIR\/tools\/release\/check-release-final\.mjs" "\$\{releaseFinalArgs\[@\]\}"$/u
+    /^exec "\$NODE_FD_PATH" "\$ROOT_DIR\/tools\/release\/check-release-final\.mjs" "\$\{releaseFinalArgs\[@\]\}"$/u
 ];
 
 // This source-owner invariant is intentionally independent of the generated execution-target
 // snapshot. Removing or reordering the seal/control-flow cannot be re-admitted by regenerating
 // the candidate-owned authority fixture.
 const requiredReleaseFinalizerDigest =
-    'sha256:78371f755dc64e9917c86b934ddada3c3657f3e5f038af0d7cecac67dad04f10';
+    'sha256:cff35b87471c1932ac0d3aba65cc3485c332fb1eaa1220985c47aea8ca19a7e7';
 
 const forbiddenFinalizerCapability =
     /(?:create-correctness|publish-release-final-evidence-parent|run-matrix-governance-once|check-job-summaries|check-flaky-|repository-governance-authority|check-release-evidence-manifest|(?:^|[\s/_.-])(?:producer|repair|parser|mutation|governance)(?:[\s/_.-]|$))/u;
@@ -383,6 +418,11 @@ function inspectRegularRepositoryFile(repositoryRoot, relativePath)
             );
             return { errors, resolvedPath: null };
         }
+        if (isTarget && stat.nlink !== 1)
+        {
+            errors.push(`${normalized} must have exactly one hard link`);
+            return { errors, resolvedPath: null };
+        }
         if (fs.realpathSync(current) !== current)
         {
             errors.push(`${normalized} path component ${segments.slice(0, index + 1).join('/')} has a nonliteral realpath`);
@@ -392,12 +432,75 @@ function inspectRegularRepositoryFile(repositoryRoot, relativePath)
     return { errors, resolvedPath: current };
 }
 
-function resolveExistingDependency(repositoryRoot, ownerPath, reference)
+function repositoryIndexBytes(repositoryRoot, relativePath)
 {
-    const normalizedReference = reference.replaceAll('\\', '/');
-    const candidate = ['tools/', 'tests/', 'src/'].some((prefix) => normalizedReference.startsWith(prefix))
-        ? normalizedReference
-        : path.posix.join(path.posix.dirname(ownerPath), normalizedReference);
+    const repositoryPath = fs.realpathSync(repositoryRoot);
+    let metadata = repositoryGitMetadataCache.get(repositoryPath);
+    if (!metadata)
+    {
+        try
+        {
+            const topLevel = execFileSync(
+                'git',
+                ['-C', repositoryRoot, 'rev-parse', '--show-toplevel'],
+                { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
+            ).trim();
+            const indexPath = execFileSync(
+                'git',
+                ['-C', repositoryRoot, 'rev-parse', '--git-path', 'index'],
+                { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
+            ).trim();
+            metadata = { topLevel, indexPath: path.resolve(repositoryRoot, indexPath) };
+        }
+        catch
+        {
+            metadata = { topLevel: null, indexPath: null };
+        }
+        repositoryGitMetadataCache.set(repositoryPath, metadata);
+    }
+    const { topLevel, indexPath } = metadata;
+    if (!topLevel)
+    {
+        return { indexedRepository: false, bytes: null };
+    }
+    if (fs.realpathSync(topLevel) !== fs.realpathSync(repositoryRoot))
+    {
+        return { indexedRepository: false, bytes: null };
+    }
+    let indexSignature = null;
+    try
+    {
+        const stat = fs.statSync(indexPath);
+        indexSignature = `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}`;
+    }
+    catch
+    {
+        indexSignature = '<missing-index>';
+    }
+    const cacheKey = `${fs.realpathSync(repositoryRoot)}\0${relativePath}\0${indexSignature}`;
+    if (repositoryIndexFileCache.has(cacheKey))
+    {
+        return { indexedRepository: true, bytes: repositoryIndexFileCache.get(cacheKey) };
+    }
+    try
+    {
+        const bytes = execFileSync(
+                'git',
+                ['-C', repositoryRoot, 'show', `:${relativePath}`],
+                { encoding: 'buffer', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024 }
+            );
+        repositoryIndexFileCache.set(cacheKey, bytes);
+        return { indexedRepository: true, bytes };
+    }
+    catch
+    {
+        repositoryIndexFileCache.set(cacheKey, null);
+        return { indexedRepository: true, bytes: null };
+    }
+}
+
+function existingDependencyVariant(repositoryRoot, candidate)
+{
     const normalized = path.posix.normalize(candidate);
     if (normalized === '..' || normalized.startsWith('../') || path.posix.isAbsolute(normalized))
     {
@@ -431,78 +534,590 @@ function resolveExistingDependency(repositoryRoot, ownerPath, reference)
     }) ?? null;
 }
 
-function nodeModuleDependencyReferences(repositoryRoot, ownerPath, source)
+function nearestPackageMetadata(repositoryRoot, ownerPath)
 {
-    const frontendRequire = createRequire(path.join(repositoryRoot, 'src/frontend/package.json'));
-    let parse;
+    let directory = path.posix.dirname(ownerPath);
+    while (directory !== '.' && directory !== '')
+    {
+        const packagePath = path.posix.join(directory, 'package.json');
+        try
+        {
+            const metadata = JSON.parse(fs.readFileSync(path.join(repositoryRoot, packagePath), 'utf8'));
+            return { directory, packagePath, metadata };
+        }
+        catch (error)
+        {
+            if (error.code !== 'ENOENT')
+            {
+                throw new Error(`${packagePath} is invalid: ${error.message}`);
+            }
+        }
+        const parent = path.posix.dirname(directory);
+        if (parent === directory)
+        {
+            break;
+        }
+        directory = parent;
+    }
     try
     {
-        ({ parse } = frontendRequire('@babel/parser'));
+        const metadata = JSON.parse(fs.readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8'));
+        return { directory: '.', packagePath: 'package.json', metadata };
     }
     catch (error)
     {
-        throw new Error(`@babel/parser is required for recursive Node module authority: ${error.message}`);
+        if (error.code !== 'ENOENT')
+        {
+            throw new Error(`package.json is invalid: ${error.message}`);
+        }
+        return null;
     }
-    const ast = parse(source, {
-        sourceType: 'unambiguous',
-        createImportExpressions: true,
-        errorRecovery: false,
-        plugins: ['typescript', 'jsx', 'importAttributes', 'topLevelAwait']
+}
+
+function packageMapTarget(mapping, wildcard, conditions)
+{
+    if (typeof mapping === 'string')
+    {
+        return wildcard === null ? mapping : mapping.replaceAll('*', wildcard);
+    }
+    if (Array.isArray(mapping))
+    {
+        throw new Error('package mapping arrays are outside the execution closure grammar');
+    }
+    if (mapping && typeof mapping === 'object')
+    {
+        for (const [condition, target] of Object.entries(mapping))
+        {
+            if (condition === 'default' || conditions.has(condition))
+            {
+                return packageMapTarget(target, wildcard, conditions);
+            }
+        }
+    }
+    return null;
+}
+
+function mappedPackageTarget(map, request, conditions)
+{
+    if (typeof map === 'string' || Array.isArray(map))
+    {
+        return request === '.' ? packageMapTarget(map, null, conditions) : null;
+    }
+    if (!map || typeof map !== 'object')
+    {
+        return null;
+    }
+    const keys = Object.keys(map);
+    if (request === '.' && keys.every((key) => !key.startsWith('.') && !key.startsWith('#')))
+    {
+        return packageMapTarget(map, null, conditions);
+    }
+    if (Object.hasOwn(map, request))
+    {
+        return packageMapTarget(map[request], null, conditions);
+    }
+    const match = keys
+        .filter((key) => key.includes('*'))
+        .map((key) =>
+        {
+            const [prefix, suffix] = key.split('*');
+            if (!request.startsWith(prefix) || !request.endsWith(suffix))
+            {
+                return null;
+            }
+            const wildcard = request.slice(prefix.length, request.length - suffix.length);
+            return { key, wildcard, specificity: prefix.length + suffix.length };
+        })
+        .filter(Boolean)
+        .sort((left, right) => right.specificity - left.specificity || right.key.length - left.key.length)[0];
+    return match ? packageMapTarget(map[match.key], match.wildcard, conditions) : null;
+}
+
+function resolveExistingDependencies(repositoryRoot, ownerPath, reference, referenceKind = 'import')
+{
+    let normalizedReference = reference.replaceAll('\\', '/');
+    if (/^\.\/(?:tools|tests|src)\//u.test(normalizedReference))
+    {
+        normalizedReference = normalizedReference.slice(2);
+    }
+    if (normalizedReference.startsWith('.tmp/'))
+    {
+        return [];
+    }
+    if (normalizedReference.includes('/node_modules/'))
+    {
+        const metadata = nearestPackageMetadata(repositoryRoot, ownerPath);
+        if (!metadata)
+        {
+            return [];
+        }
+        const lockPath = path.posix.join(metadata.directory, 'package-lock.json');
+        const authority = [metadata.packagePath];
+        if (fs.existsSync(path.join(repositoryRoot, lockPath)))
+        {
+            authority.push(lockPath);
+        }
+        return authority;
+    }
+    const repositoryRelativeTraversal = normalizedReference.match(/^(?:\.\.\/)+(tools|tests|src)\/(.+)$/u);
+    if (repositoryRelativeTraversal)
+    {
+        normalizedReference = `${repositoryRelativeTraversal[1]}/${repositoryRelativeTraversal[2]}`;
+    }
+    const packageMetadata = nearestPackageMetadata(repositoryRoot, ownerPath);
+    let candidates;
+    let packageAuthority = [];
+    if (normalizedReference.startsWith('#'))
+    {
+        if (!packageMetadata)
+        {
+            throw new Error(`${ownerPath} imports ${normalizedReference} without package imports authority`);
+        }
+        const target = mappedPackageTarget(
+            packageMetadata.metadata.imports,
+            normalizedReference,
+            new Set(['node', referenceKind, 'default'])
+        );
+        if (!target)
+        {
+            throw new Error(`${ownerPath} package import ${normalizedReference} is unresolved`);
+        }
+        if (!target.startsWith('./'))
+        {
+            return [];
+        }
+        candidates = [path.posix.join(packageMetadata.directory, target)];
+        packageAuthority = [packageMetadata.packagePath];
+    }
+    else if (
+        packageMetadata?.metadata.name
+        && (
+            normalizedReference === packageMetadata.metadata.name
+            || normalizedReference.startsWith(`${packageMetadata.metadata.name}/`)
+        )
+    )
+    {
+        const subpath = normalizedReference === packageMetadata.metadata.name
+            ? '.'
+            : `.${normalizedReference.slice(packageMetadata.metadata.name.length)}`;
+        const target = mappedPackageTarget(
+            packageMetadata.metadata.exports,
+            subpath,
+            new Set(['node', referenceKind, 'default'])
+        );
+        if (!target)
+        {
+            throw new Error(`${ownerPath} package self-reference ${normalizedReference} is unresolved`);
+        }
+        if (!target.startsWith('./'))
+        {
+            throw new Error(`${ownerPath} package self-reference ${normalizedReference} escapes its package`);
+        }
+        candidates = [path.posix.join(packageMetadata.directory, target)];
+        packageAuthority = [packageMetadata.packagePath];
+    }
+    else if (
+        normalizedReference.startsWith('.')
+        || ['tools/', 'tests/', 'src/'].some((prefix) => normalizedReference.startsWith(prefix))
+    )
+    {
+        candidates = [
+            ['tools/', 'tests/', 'src/'].some((prefix) => normalizedReference.startsWith(prefix))
+                ? normalizedReference
+                : path.posix.join(path.posix.dirname(ownerPath), normalizedReference)
+        ];
+    }
+    else
+    {
+        return [];
+    }
+    const packageRoot = packageMetadata ? path.posix.normalize(packageMetadata.directory) : null;
+    if (
+        packageAuthority.length > 0
+        && candidates.some((candidate) =>
+            packageRoot !== '.'
+            && path.posix.normalize(candidate) !== packageRoot
+            && !path.posix.normalize(candidate).startsWith(`${packageRoot}/`)
+        )
+    )
+    {
+        throw new Error(`${ownerPath} package mapping ${normalizedReference} escapes its package`);
+    }
+    const resolved = candidates.map((candidate) => existingDependencyVariant(
+        repositoryRoot,
+        candidate.replace(/[?#].*$/u, '')
+    ));
+    if (resolved.some((candidate) => candidate === null))
+    {
+        throw new Error(`${ownerPath} local dependency ${normalizedReference} is unresolved`);
+    }
+    return [...new Set([...packageAuthority, ...resolved])];
+}
+
+function nodeModuleDependencyReferences(repositoryRoot, ownerPath, source)
+{
+    if (ownerPath.endsWith('.tsx'))
+    {
+        throw new Error(`${ownerPath} TSX is outside the sealed Node parser grammar`);
+    }
+    const parseSource = /\.(?:ts|tsx)$/u.test(ownerPath)
+        ? stripTypeScriptTypes(source, { mode: 'transform' })
+        : source;
+    const packageMetadata = nearestPackageMetadata(repositoryRoot, ownerPath);
+    const sourceType = ownerPath.endsWith('.mjs') || packageMetadata?.metadata.type === 'module'
+        ? 'module'
+        : ownerPath.endsWith('.cjs') || packageMetadata?.metadata.type !== 'module'
+            ? 'script'
+            : 'module';
+    const ast = builtinAcorn.parse(parseSource, {
+        ecmaVersion: 'latest',
+        sourceType,
+        allowHashBang: true
     });
     const references = new Set();
+    const bindings = new Map();
+    const ambiguousBindings = new Set();
+    const reassignedBindings = new Set();
+    const callableBindings = new Map();
+    let requireIsShadowed = ast.body.some((node) =>
+        (
+            node.type === 'VariableDeclaration'
+            && node.declarations.some((declaration) =>
+                declaration.id?.type === 'Identifier' && declaration.id.name === 'require'
+            )
+        )
+        || (
+            node.type === 'FunctionDeclaration'
+            && node.id?.name === 'require'
+        )
+        || (
+            node.type === 'ImportDeclaration'
+            && node.specifiers.some((specifier) => specifier.local?.name === 'require')
+        )
+    );
+    const authorizedRuntimeModuleLoad = (node, kind) =>
+    {
+        const sourceDigest = digestBytes(source);
+        const expressionDigest = digestBytes(parseSource.slice(node.start, node.end));
+        let sourceIndex;
+        try
+        {
+            sourceIndex = JSON.parse(fs.readFileSync(
+                path.join(repositoryRoot, executionAuthorityIndexPath),
+                'utf8'
+            ));
+        }
+        catch
+        {
+            return { authorized: false, sourceDigest, expressionDigest };
+        }
+        const entry = sourceIndex.runtimeDynamicImports?.find((candidate) =>
+            candidate.owner === ownerPath
+            && candidate.sourceDigest === sourceDigest
+            && candidate.expressionDigest === expressionDigest
+            && candidate.kind === kind
+        ) ?? null;
+        return { authorized: Boolean(entry), entry, sourceDigest, expressionDigest };
+    };
     const literalValue = (node) => (
-        node?.type === 'StringLiteral' || node?.type === 'Literal'
+        node?.type === 'Literal'
             ? node.value
             : null
     );
-    const newUrlReference = (node) =>
+    const isImportMetaUrl = (node) => (
+        node?.type === 'MemberExpression'
+        && node.computed === false
+        && node.object?.type === 'MetaProperty'
+        && node.object.meta?.name === 'import'
+        && node.object.property?.name === 'meta'
+        && node.property?.type === 'Identifier'
+        && node.property.name === 'url'
+    );
+    const evaluate = (node, seen = new Set(), depth = 0) =>
     {
-        if (node?.type !== 'NewExpression' || node.callee?.type !== 'Identifier' || node.callee.name !== 'URL')
+        if (depth > 128)
         {
             return null;
         }
-        const [reference, base] = node.arguments ?? [];
-        const importMeta = base?.type === 'MemberExpression'
-            && base.object?.type === 'MetaProperty'
-            && base.object.meta?.name === 'import'
-            && base.object.property?.name === 'meta'
-            && base.property?.type === 'Identifier'
-            && base.property.name === 'url';
-        return importMeta ? literalValue(reference) : null;
+        const literal = literalValue(node);
+        if (typeof literal === 'string')
+        {
+            return literal;
+        }
+        if (node?.type === 'Identifier')
+        {
+            if (node.name === 'require' && !requireIsShadowed)
+            {
+                return { callable: 'require' };
+            }
+            if (callableBindings.has(node.name))
+            {
+                return { callable: callableBindings.get(node.name) };
+            }
+            if (
+                seen.has(node.name)
+                || !bindings.has(node.name)
+                || ambiguousBindings.has(node.name)
+                || reassignedBindings.has(node.name)
+            )
+            {
+                return null;
+            }
+            return evaluate(bindings.get(node.name), new Set([...seen, node.name]), depth + 1);
+        }
+        if (node?.type === 'TemplateLiteral')
+        {
+            let result = '';
+            for (const [index, quasi] of node.quasis.entries())
+            {
+                result += quasi.value.cooked ?? quasi.value.raw;
+                if (index < node.expressions.length)
+                {
+                    const expression = evaluate(node.expressions[index], seen, depth + 1);
+                    if (typeof expression !== 'string')
+                    {
+                        return null;
+                    }
+                    result += expression;
+                }
+            }
+            return result;
+        }
+        if (node?.type === 'BinaryExpression' && node.operator === '+')
+        {
+            const left = evaluate(node.left, seen, depth + 1);
+            const right = evaluate(node.right, seen, depth + 1);
+            return typeof left === 'string' && typeof right === 'string' ? left + right : null;
+        }
+        if (
+            node?.type === 'NewExpression'
+            && node.callee?.type === 'Identifier'
+            && node.callee.name === 'URL'
+            && isImportMetaUrl(node.arguments?.[1])
+        )
+        {
+            return evaluate(node.arguments[0], seen, depth + 1);
+        }
+        if (
+            node?.type === 'MemberExpression'
+            && node.computed === false
+            && node.property?.name === 'href'
+        )
+        {
+            return evaluate(node.object, seen, depth + 1);
+        }
+        if (node?.type === 'MemberExpression' && node.computed === false)
+        {
+            const object = evaluate(node.object, seen, depth + 1);
+            if (object?.callable === 'namespace:path')
+            {
+                return { callable: node.property?.name };
+            }
+            if (object?.callable === 'require' && node.property?.name === 'resolve')
+            {
+                return { callable: 'require.resolve' };
+            }
+        }
+        if (node?.type === 'CallExpression')
+        {
+            const callable = evaluate(node.callee, seen, depth + 1)?.callable;
+            const values = node.arguments.map((argument) => evaluate(argument, seen, depth + 1));
+            if (callable === 'pathToFileURL' && typeof values[0] === 'string')
+            {
+                return values[0];
+            }
+            if (callable === 'createRequire')
+            {
+                return { callable: 'require' };
+            }
+            if (callable === 'require.resolve' && typeof values[0] === 'string')
+            {
+                return values[0];
+            }
+            if (['join', 'resolve'].includes(callable) && values.every((value) => typeof value === 'string'))
+            {
+                return callable === 'join'
+                    ? path.posix.join(...values)
+                    : path.posix.normalize(path.posix.join(...values));
+            }
+            if (callable === 'dirname' && typeof values[0] === 'string')
+            {
+                return path.posix.dirname(values[0]);
+            }
+            if (callable === 'fileURLToPath' && isImportMetaUrl(node.arguments[0]))
+            {
+                return ownerPath;
+            }
+        }
+        if (
+            node?.type === 'CallExpression'
+            && node.callee?.type === 'MemberExpression'
+            && node.callee.computed === false
+            && node.callee.property?.name === 'join'
+            && node.callee.object?.type === 'ArrayExpression'
+        )
+        {
+            const separator = evaluate(node.arguments?.[0], seen, depth + 1) ?? ',';
+            const values = node.callee.object.elements.map((element) => evaluate(element, seen, depth + 1));
+            return typeof separator === 'string' && values.every((value) => typeof value === 'string')
+                ? values.join(separator)
+                : null;
+        }
+        return null;
     };
-    const visit = (node) =>
+    const bindingStack = [ast];
+    while (bindingStack.length > 0)
     {
+        const node = bindingStack.pop();
         if (!node || typeof node !== 'object')
         {
-            return;
+            continue;
+        }
+        if (node.type === 'VariableDeclaration')
+        {
+            for (const declaration of node.declarations)
+            {
+                if (declaration.id?.type !== 'Identifier')
+                {
+                    continue;
+                }
+                if (node.kind === 'const' && declaration.init)
+                {
+                    if (bindings.has(declaration.id.name))
+                    {
+                        ambiguousBindings.add(declaration.id.name);
+                    }
+                    else
+                    {
+                        bindings.set(declaration.id.name, declaration.init);
+                    }
+                }
+            }
+        }
+        if (
+            node.type === 'AssignmentExpression'
+            && node.left?.type === 'Identifier'
+        )
+        {
+            reassignedBindings.add(node.left.name);
+        }
+        if (node.type === 'UpdateExpression' && node.argument?.type === 'Identifier')
+        {
+            reassignedBindings.add(node.argument.name);
+        }
+        if (
+            node.type === 'ImportDeclaration'
+            && ['node:module', 'node:path', 'node:url'].includes(node.source?.value)
+        )
+        {
+            for (const specifier of node.specifiers)
+            {
+                if (specifier.type === 'ImportSpecifier')
+                {
+                    callableBindings.set(specifier.local.name, specifier.imported.name);
+                }
+                else if (
+                    node.source.value === 'node:path'
+                    && ['ImportDefaultSpecifier', 'ImportNamespaceSpecifier'].includes(specifier.type)
+                )
+                {
+                    callableBindings.set(specifier.local.name, 'namespace:path');
+                }
+            }
+        }
+        for (const value of Object.values(node))
+        {
+            if (Array.isArray(value))
+            {
+                bindingStack.push(...value);
+            }
+            else if (value && typeof value === 'object')
+            {
+                bindingStack.push(value);
+            }
+        }
+    }
+    if (bindings.has('require') && evaluate(bindings.get('require'))?.callable === 'require')
+    {
+        requireIsShadowed = false;
+    }
+    const visitStack = [ast];
+    while (visitStack.length > 0)
+    {
+        const node = visitStack.pop();
+        if (!node || typeof node !== 'object')
+        {
+            continue;
         }
         if (['ImportDeclaration', 'ExportNamedDeclaration', 'ExportAllDeclaration'].includes(node.type))
         {
             const reference = literalValue(node.source);
             if (typeof reference === 'string')
             {
-                references.add(reference);
+                references.add(JSON.stringify({ reference, kind: 'import' }));
             }
         }
         else if (node.type === 'ImportExpression')
         {
-            const reference = literalValue(node.source) ?? newUrlReference(node.source);
+            const reference = evaluate(node.source);
             if (typeof reference === 'string')
             {
-                references.add(reference);
+                references.add(JSON.stringify({ reference, kind: 'import' }));
+            }
+            else
+            {
+                const authority = authorizedRuntimeModuleLoad(node, 'runtime-module-path');
+                if (!authority.authorized)
+                {
+                    throw new Error(
+                        `${ownerPath} contains an unresolved dynamic import `
+                        + `source=${authority.sourceDigest} expression=${authority.expressionDigest}`
+                    );
+                }
+                for (const dependency of authority.entry.dependencies ?? [])
+                {
+                    if (typeof dependency !== 'string' || !dependency.trim())
+                    {
+                        throw new Error(`${ownerPath} has an invalid runtime import dependency authority`);
+                    }
+                    references.add(JSON.stringify({ reference: dependency, kind: 'import' }));
+                }
+            }
+        }
+        else if (
+            node.type === 'CallExpression'
+            && evaluate(node.callee)?.callable === 'require'
+        )
+        {
+            const reference = evaluate(node.arguments?.[0]);
+            if (typeof reference === 'string')
+            {
+                references.add(JSON.stringify({ reference, kind: 'require' }));
+            }
+            else
+            {
+                const authority = authorizedRuntimeModuleLoad(node, 'runtime-require-path');
+                if (!authority.authorized)
+                {
+                    throw new Error(
+                        `${ownerPath} contains an unresolved dynamic require `
+                        + `source=${authority.sourceDigest} expression=${authority.expressionDigest}`
+                    );
+                }
+                for (const dependency of authority.entry.dependencies ?? [])
+                {
+                    references.add(JSON.stringify({ reference: dependency, kind: 'require' }));
+                }
             }
         }
         else if (
             node.type === 'CallExpression'
             && node.callee?.type === 'Identifier'
             && node.callee.name === 'require'
+            && requireIsShadowed
         )
         {
-            const reference = literalValue(node.arguments?.[0]);
-            if (typeof reference === 'string')
-            {
-                references.add(reference);
-            }
+            throw new Error(`${ownerPath} shadows require in a code-bearing call position`);
         }
         for (const [key, value] of Object.entries(node))
         {
@@ -512,31 +1127,770 @@ function nodeModuleDependencyReferences(repositoryRoot, ownerPath, source)
             }
             if (Array.isArray(value))
             {
-                value.forEach(visit);
+                visitStack.push(...value);
             }
             else if (value && typeof value === 'object')
             {
-                visit(value);
+                visitStack.push(value);
             }
         }
+    }
+    return [...references].map((reference) => JSON.parse(reference));
+}
+
+function shellSourceWithoutHeredocs(source)
+{
+    const output = [];
+    let delimiter = null;
+    let stripTabs = false;
+    for (const line of source.split(/\r?\n/u))
+    {
+        if (delimiter !== null)
+        {
+            const candidate = stripTabs ? line.replace(/^\t+/u, '') : line;
+            if (candidate === delimiter)
+            {
+                delimiter = null;
+                stripTabs = false;
+            }
+            continue;
+        }
+        output.push(line);
+        const match = line.match(/<<(?<strip>-)?\s*['"]?(?<delimiter>[A-Za-z_][A-Za-z0-9_]*)['"]?/u);
+        if (match)
+        {
+            delimiter = match.groups.delimiter;
+            stripTabs = Boolean(match.groups.strip);
+        }
+    }
+    if (delimiter !== null)
+    {
+        throw new Error(`unterminated shell heredoc ${delimiter}`);
+    }
+    return output.join('\n').replaceAll('\\\n', ' ');
+}
+
+function shellCommands(source)
+{
+    const commands = [];
+    let command = [];
+    let word = '';
+    const contexts = [{ kind: 'root', quote: null, parenDepth: 0, escaped: false }];
+    const finishWord = () =>
+    {
+        if (word.length > 0)
+        {
+            command.push(word);
+            word = '';
+        }
     };
-    visit(ast);
-    return [...references];
+    const finishCommand = () =>
+    {
+        finishWord();
+        if (command.length > 0)
+        {
+            commands.push(command);
+            command = [];
+        }
+    };
+    const input = shellSourceWithoutHeredocs(source);
+    for (let index = 0; index < input.length; index += 1)
+    {
+        const character = input[index];
+        const next = input[index + 1];
+        const context = contexts.at(-1);
+        if (context.escaped)
+        {
+            word += `\\${character}`;
+            context.escaped = false;
+            continue;
+        }
+        if (context.quote === "'")
+        {
+            word += character;
+            if (character === "'")
+            {
+                context.quote = null;
+            }
+            continue;
+        }
+        if (context.quote === '"')
+        {
+            if (character === '\\')
+            {
+                context.escaped = true;
+                continue;
+            }
+            if (character === '"')
+            {
+                context.quote = null;
+                word += character;
+                continue;
+            }
+            if (character === '$' && next === '(')
+            {
+                const arithmetic = input[index + 2] === '(';
+                contexts.push({
+                    kind: arithmetic ? 'arithmetic' : 'substitution',
+                    quote: null,
+                    parenDepth: arithmetic ? 2 : 1,
+                    escaped: false
+                });
+                word += arithmetic ? '$((' : '$(';
+                index += arithmetic ? 2 : 1;
+                continue;
+            }
+            word += character;
+            continue;
+        }
+        if (character === '\\')
+        {
+            context.escaped = true;
+            continue;
+        }
+        if (character === '$' && next === '(')
+        {
+            const arithmetic = input[index + 2] === '(';
+            contexts.push({
+                kind: arithmetic ? 'arithmetic' : 'substitution',
+                quote: null,
+                parenDepth: arithmetic ? 2 : 1,
+                escaped: false
+            });
+            word += arithmetic ? '$((' : '$(';
+            index += arithmetic ? 2 : 1;
+            continue;
+        }
+        if (character === "'" || character === '"')
+        {
+            context.quote = character;
+            word += character;
+            continue;
+        }
+        if (
+            context.kind === 'root'
+            && character === '('
+            && /^[A-Za-z_][A-Za-z0-9_]*\+?=$/u.test(word)
+        )
+        {
+            contexts.push({ kind: 'array', quote: null, parenDepth: 1, escaped: false });
+            word += character;
+            continue;
+        }
+        if (context.kind !== 'root')
+        {
+            if (character === '(')
+            {
+                context.parenDepth += 1;
+            }
+            else if (character === ')')
+            {
+                context.parenDepth -= 1;
+                if (context.parenDepth === 0)
+                {
+                    contexts.pop();
+                }
+            }
+            word += character;
+            continue;
+        }
+        if (character === '#' && word.length === 0)
+        {
+            while (index < input.length && input[index] !== '\n')
+            {
+                index += 1;
+            }
+            finishCommand();
+            continue;
+        }
+        if (/\s/u.test(character))
+        {
+            finishWord();
+            if (character === '\n')
+            {
+                finishCommand();
+            }
+            continue;
+        }
+        if (';|&{}'.includes(character))
+        {
+            finishCommand();
+            if ((character === '&' || character === '|') && next === character)
+            {
+                index += 1;
+            }
+            continue;
+        }
+        if (character === '(' || character === ')')
+        {
+            finishCommand();
+            continue;
+        }
+        word += character;
+    }
+    if (contexts.length !== 1 || contexts[0].quote)
+    {
+        const context = contexts.at(-1);
+        throw new Error(`unterminated shell quote or command substitution kind=${context.kind}`);
+    }
+    finishCommand();
+    return commands;
+}
+
+function shellCommandSubstitutions(word)
+{
+    const substitutions = [];
+    for (let index = 0; index < word.length - 1; index += 1)
+    {
+        if (word[index] !== '$' || word[index + 1] !== '(')
+        {
+            continue;
+        }
+        const arithmetic = word[index + 2] === '(';
+        let depth = 1;
+        let quote = null;
+        let body = '';
+        if (arithmetic)
+        {
+            depth = 2;
+        }
+        index += arithmetic ? 3 : 2;
+        for (; index < word.length && depth > 0; index += 1)
+        {
+            const character = word[index];
+            if (quote)
+            {
+                body += character;
+                if (character === quote)
+                {
+                    quote = null;
+                }
+                continue;
+            }
+            if (character === "'" || character === '"')
+            {
+                quote = character;
+                body += character;
+            }
+            else if (character === '(')
+            {
+                depth += 1;
+                body += character;
+            }
+            else if (character === ')')
+            {
+                depth -= 1;
+                if (depth > 0)
+                {
+                    body += character;
+                }
+            }
+            else
+            {
+                body += character;
+            }
+        }
+        if (depth !== 0)
+        {
+            throw new Error('unterminated shell command substitution');
+        }
+        if (!arithmetic)
+        {
+            substitutions.push(body);
+        }
+        index -= 1;
+    }
+    return substitutions;
+}
+
+function shellKnownWord(rawWord, variables, ownerPath)
+{
+    let word = rawWord;
+    if (word.startsWith("'") && word.endsWith("'") && word.length >= 2)
+    {
+        return word.slice(1, -1);
+    }
+    const defaultExpansion = word.match(/^['"]?\$\{[A-Za-z_][A-Za-z0-9_]*:-([\s\S]+)\}['"]?$/u);
+    if (defaultExpansion)
+    {
+        return shellKnownWord(defaultExpansion[1], variables, ownerPath);
+    }
+    const canonicalCd = word.match(/^['"]?\$\(cd\s+(.+?)\s+&&\s+pwd\)['"]?$/su);
+    if (canonicalCd)
+    {
+        return shellKnownWord(canonicalCd[1], variables, ownerPath);
+    }
+    const sourceDirectory = word.match(
+        /^['"]?\$\(dirname\s+["']?\$\{BASH_SOURCE\[0\]\}["']?\)(?<suffix>\/[^"']+)?['"]?$/u
+    );
+    if (sourceDirectory)
+    {
+        return path.posix.normalize(path.posix.join(
+            path.posix.dirname(ownerPath),
+            sourceDirectory.groups.suffix ?? '.'
+        ));
+    }
+    const directoryIdentity = word.match(
+        /BASH_SOURCE\[0\]\}["']?\)(?<suffix>\/[^ "'&)]+)?["']?\s*&&\s*pwd/u
+    );
+    if (directoryIdentity && /pwd\)"?$/u.test(word))
+    {
+        return path.posix.normalize(path.posix.join(
+            path.posix.dirname(ownerPath),
+            directoryIdentity.groups.suffix ?? '.'
+        ));
+    }
+    if (/\$\(.*BASH_SOURCE\[0\].*\).*/u.test(word))
+    {
+        const suffix = word.match(/\)(?<suffix>\/[A-Za-z0-9_./-]+\.(?:sh|mjs|js|cjs|ts|tsx))(?:["']?)$/u)?.groups.suffix;
+        if (suffix)
+        {
+            return path.posix.join(path.posix.dirname(ownerPath), suffix);
+        }
+    }
+    word = word.replace(/^(['"])(.*)\1$/su, '$2');
+    word = word
+        .replaceAll('${ROOT_DIR}/', '')
+        .replaceAll('$ROOT_DIR/', '')
+        .replaceAll('${ROOT_DIR}', '')
+        .replaceAll('$ROOT_DIR', '');
+    word = word.replaceAll('${FSUSBLOG_NODE:-node}', 'node');
+    if (['$NODE_FD_PATH', '${NODE_FD_PATH}'].includes(word))
+    {
+        return 'node';
+    }
+    const exactExpansion = word.match(/^\$\{?(?<name>[A-Za-z_][A-Za-z0-9_]*)\}?$/u);
+    if (exactExpansion)
+    {
+        return variables.get(exactExpansion.groups.name) ?? null;
+    }
+    word = word.replace(/\$\{(?<name>[A-Za-z_][A-Za-z0-9_]*)\}/gu, (match, name) =>
+        typeof variables.get(name) === 'string' ? variables.get(name) : match
+    );
+    word = word.replace(/\$(?<name>[A-Za-z_][A-Za-z0-9_]*)/gu, (match, name) =>
+        typeof variables.get(name) === 'string' ? variables.get(name) : match
+    );
+    word = word.replaceAll('"', '').replaceAll("'", '').replace(/\\(.)/gu, '$1');
+    if (/[$`*?\[\]]/u.test(word))
+    {
+        return null;
+    }
+    return word;
+}
+
+function shellDependencyReferences(
+    repositoryRoot,
+    ownerPath,
+    source,
+    state = { visitedPackageScripts: new Set() }
+)
+{
+    const references = new Set();
+    const { visitedPackageScripts } = state;
+    const arrays = new Map();
+    for (const match of source.matchAll(
+        /(?:^|\n)\s*(?:local\s+-a\s+)?(?<name>[A-Za-z_][A-Za-z0-9_]*)=\(\s*\n(?<body>[\s\S]*?)\n\s*\)/gu
+    ))
+    {
+        arrays.set(match.groups.name, shellCommands(match.groups.body).flat());
+    }
+    const iterators = new Map();
+    for (const match of source.matchAll(
+        /for\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s+in\s+"?\$\{(?<array>[A-Za-z_][A-Za-z0-9_]*)\[@\]\}"?/gu
+    ))
+    {
+        iterators.set(match.groups.name, match.groups.array);
+    }
+    const forwardingFunctions = new Map([
+        ['Run', 0],
+        ['RunInClient', 0],
+        ['RunInClientMeasurement', 2],
+        ['RunSecurityStage', 1],
+        ['RunIntegrationStage', 1]
+    ]);
+    let currentDirectory = path.posix.dirname(ownerPath);
+    const variables = new Map([
+        ['ROOT_DIR', ''],
+        ['NODE_BIN', 'node'],
+        ['NODE_FD_PATH', 'node']
+    ]);
+    const forwardsArguments = (relativePath) =>
+    {
+        if (!relativePath.endsWith('.sh'))
+        {
+            return false;
+        }
+        const wrapperSource = fs.readFileSync(path.join(repositoryRoot, relativePath), 'utf8');
+        try
+        {
+            const isArguments = (word) =>
+                ['$@', '"$@"', "'$@'", '${@}', '"${@}"'].includes(word);
+            return shellCommands(wrapperSource).some((command) =>
+                isArguments(command[0])
+                || (command[0] === 'exec' && isArguments(command[1]))
+                || (path.posix.basename(command[0] ?? '') === 'flock' && isArguments(command.at(-1)))
+            );
+        }
+        catch (error)
+        {
+            throw new Error(`${relativePath} forwarding summary failed: ${error.message}`);
+        }
+    };
+    const add = (rawWord, position) =>
+    {
+        const known = shellKnownWord(rawWord, variables, ownerPath);
+        if (known === null)
+        {
+            throw new Error(`${ownerPath} contains unresolved ${position}: ${rawWord}`);
+        }
+        const resolutionOwner = known.startsWith('.')
+            ? path.posix.join(currentDirectory, '.shell-execution')
+            : ownerPath;
+        const resolved = resolveExistingDependencies(repositoryRoot, resolutionOwner, known, 'require');
+        for (const dependency of resolved)
+        {
+            if (dependency !== ownerPath)
+            {
+                references.add(dependency);
+            }
+        }
+        return known;
+    };
+    const dispatch = (words, expandArrays = true) =>
+    {
+        const expandedWords = (expandArrays ? words : []).flatMap((word) =>
+        {
+            const arrayExpansion = word.match(/^"?\$\{(?<name>[A-Za-z_][A-Za-z0-9_]*)\[@\]\}"?$/u);
+            return arrayExpansion && arrays.has(arrayExpansion.groups.name)
+                ? arrays.get(arrayExpansion.groups.name)
+                : [word];
+        });
+        if (!expandArrays)
+        {
+            expandedWords.push(...words);
+        }
+        const filtered = expandedWords.filter((word) =>
+            !['if', 'then', 'elif', 'else', 'do', 'done', 'fi'].includes(word)
+        );
+        if (['local', 'declare', 'readonly', 'export'].includes(filtered[0]))
+        {
+            filtered.shift();
+            while (filtered[0]?.startsWith('-'))
+            {
+                filtered.shift();
+            }
+        }
+        while (/^[A-Za-z_][A-Za-z0-9_]*=/u.test(filtered[0] ?? ''))
+        {
+            const assignment = filtered.shift();
+            const separator = assignment.indexOf('=');
+            const name = assignment.slice(0, separator);
+            const value = shellKnownWord(assignment.slice(separator + 1), variables, ownerPath);
+            if (value !== null)
+            {
+                variables.set(name, value);
+            }
+        }
+        if (filtered.length === 0)
+        {
+            return;
+        }
+        const executable = shellKnownWord(filtered[0], variables, ownerPath);
+        if (executable === null)
+        {
+            if (['exec', 'source', '.', 'bash', 'sh', 'node'].includes(filtered[0]))
+            {
+                throw new Error(`${ownerPath} contains unresolved executable ${filtered[0]}`);
+            }
+            return;
+        }
+        const basename = path.posix.basename(executable);
+        if (basename === 'source' || filtered[0] === '.')
+        {
+            if (!filtered[1])
+            {
+                throw new Error(`${ownerPath} source command is missing its dependency: ${JSON.stringify(filtered)}`);
+            }
+            add(filtered[1], 'source dependency');
+            return;
+        }
+        if (basename === 'exec')
+        {
+            const nested = filtered.slice(1).filter((word) => !/^\{[A-Za-z_][A-Za-z0-9_]*\}</u.test(word));
+            if (nested.length > 0)
+            {
+                dispatch(nested, false);
+            }
+            return;
+        }
+        if (['env', 'command', 'timeout', 'nice', 'setsid'].includes(basename))
+        {
+            let index = 1;
+            while (index < filtered.length && (/^-/u.test(filtered[index]) || /^\d+(?:\.\d+)?[smhd]?$/u.test(filtered[index])))
+            {
+                index += 1;
+            }
+            if (filtered[index])
+            {
+                dispatch(filtered.slice(index), false);
+            }
+            return;
+        }
+        if (basename === 'eval')
+        {
+            return;
+        }
+        if (basename === 'cd')
+        {
+            const directory = shellKnownWord(filtered[1] ?? '', variables, ownerPath);
+            if (directory === null)
+            {
+                return;
+            }
+            currentDirectory = path.posix.normalize(
+                ['tools/', 'tests/', 'src/'].some((prefix) => directory.startsWith(prefix))
+                    ? directory
+                    : path.posix.join(currentDirectory, directory)
+            );
+            return;
+        }
+        if (basename === 'find')
+        {
+            const execIndex = filtered.findIndex((word) => word === '-exec' || word === '-execdir');
+            if (execIndex >= 0)
+            {
+                const end = filtered.findIndex((word, index) => index > execIndex && ['\\;', '+'].includes(word));
+                dispatch(filtered.slice(execIndex + 1, end < 0 ? filtered.length : end), false);
+            }
+            return;
+        }
+        if (basename === 'xargs')
+        {
+            const nestedIndex = filtered.findIndex((word, index) => index > 0 && !word.startsWith('-'));
+            if (nestedIndex < 0)
+            {
+                return;
+            }
+            dispatch(filtered.slice(nestedIndex), false);
+            return;
+        }
+        if (basename === 'bash' || basename === 'sh')
+        {
+            const commandIndex = filtered.findIndex((word) => word === '-c');
+            if (commandIndex >= 0)
+            {
+                const command = shellKnownWord(filtered[commandIndex + 1] ?? '', variables, ownerPath);
+                if (command === null)
+                {
+                    throw new Error(`${ownerPath} contains a dynamic ${basename} -c payload`);
+                }
+                for (const commandWords of shellCommands(command))
+                {
+                    dispatch(commandWords, false);
+                }
+                return;
+            }
+            const script = filtered.slice(1).find((word) => !word.startsWith('-'));
+            if (script && script !== '-')
+            {
+                add(script, `${basename} script`);
+            }
+            return;
+        }
+        if (basename === 'node')
+        {
+            let testMode = false;
+            for (let index = 1; index < filtered.length; index += 1)
+            {
+                const argument = filtered[index];
+                if (['-e', '--eval', '-p', '--print', '-'].includes(argument))
+                {
+                    return;
+                }
+                if (argument === '--test')
+                {
+                    testMode = true;
+                    continue;
+                }
+                if (['--require', '--import', '--loader', '--experimental-loader'].includes(argument))
+                {
+                    add(filtered[index + 1] ?? '', `node ${argument} dependency`);
+                    index += 1;
+                    continue;
+                }
+                if (argument.startsWith('-'))
+                {
+                    continue;
+                }
+                if (/^(?:\d*)[<>]/u.test(argument))
+                {
+                    continue;
+                }
+                const iterator = [...iterators.entries()].find(([name]) =>
+                    argument.includes(`$${name}`) || argument.includes(`\${${name}}`)
+                );
+                if (iterator && arrays.has(iterator[1]))
+                {
+                    for (const value of arrays.get(iterator[1]))
+                    {
+                        add(value, testMode ? 'node test entrypoint' : 'node entrypoint');
+                    }
+                    if (!testMode)
+                    {
+                        return;
+                    }
+                    continue;
+                }
+                add(argument, testMode ? 'node test entrypoint' : 'node entrypoint');
+                if (!testMode)
+                {
+                    return;
+                }
+            }
+            return;
+        }
+        if (basename === 'npm' || basename === 'pnpm')
+        {
+            let packageDirectory = currentDirectory;
+            const prefixIndex = filtered.findIndex((word) => word === '--prefix' || word === '--dir');
+            if (prefixIndex >= 0)
+            {
+                const prefix = shellKnownWord(filtered[prefixIndex + 1] ?? '', variables, ownerPath);
+                if (prefix === null)
+                {
+                    throw new Error(`${ownerPath} contains a dynamic package-manager prefix`);
+                }
+                packageDirectory = path.posix.normalize(
+                    prefix.startsWith('tools/') || prefix.startsWith('tests/') || prefix.startsWith('src/')
+                        ? prefix
+                        : path.posix.join(path.posix.dirname(ownerPath), prefix)
+                );
+            }
+            const runIndex = filtered.findIndex((word) => word === 'run' || word === 'run-script');
+            if (runIndex < 0 || !filtered[runIndex + 1])
+            {
+                return;
+            }
+            let packagePath = path.posix.join(packageDirectory, 'package.json');
+            let packageFile = inspectRegularRepositoryFile(repositoryRoot, packagePath);
+            if (!packageFile.resolvedPath && ownerPath.startsWith('tools/'))
+            {
+                packageDirectory = 'src/frontend';
+                packagePath = 'src/frontend/package.json';
+                packageFile = inspectRegularRepositoryFile(repositoryRoot, packagePath);
+            }
+            if (!packageFile.resolvedPath)
+            {
+                throw new Error(`${ownerPath} package-manager authority is invalid: ${packageFile.errors.join('; ')}`);
+            }
+            references.add(packagePath);
+            const metadata = JSON.parse(fs.readFileSync(packageFile.resolvedPath, 'utf8'));
+            const scriptName = shellKnownWord(filtered[runIndex + 1], variables, ownerPath);
+            const scriptEntries = scriptName === null
+                ? Object.entries(metadata.scripts ?? {})
+                : [[scriptName, metadata.scripts?.[scriptName]]];
+            if (scriptEntries.some(([, packageScript]) => typeof packageScript !== 'string'))
+            {
+                throw new Error(`${packagePath} does not define script ${scriptName}`);
+            }
+            for (const [resolvedScriptName, packageScript] of scriptEntries)
+            {
+                const scriptKey = `${packagePath}\0${resolvedScriptName}`;
+                if (visitedPackageScripts.has(scriptKey))
+                {
+                    continue;
+                }
+                visitedPackageScripts.add(scriptKey);
+                for (const dependency of shellDependencyReferences(
+                    repositoryRoot,
+                    packagePath,
+                    packageScript,
+                    state
+                ))
+                {
+                    references.add(dependency);
+                }
+            }
+            return;
+        }
+        if (['printf', 'echo', 'test', '[', '[[', 'true', 'false'].includes(basename))
+        {
+            return;
+        }
+        if (filtered[0] === '\\.')
+        {
+            return;
+        }
+        const direct = resolveExistingDependencies(repositoryRoot, ownerPath, executable, 'require');
+        for (const dependency of direct)
+        {
+            if (dependency !== ownerPath)
+            {
+                references.add(dependency);
+            }
+        }
+        const directTarget = direct.find((dependency) => dependency === executable || dependency.endsWith(executable));
+        if (directTarget && forwardsArguments(directTarget) && filtered.length > 1)
+        {
+            dispatch(filtered.slice(1), false);
+        }
+        if (forwardingFunctions.has(executable) && filtered.length > 1)
+        {
+            dispatch(filtered.slice(1 + forwardingFunctions.get(executable)), false);
+        }
+    };
+    for (const words of shellCommands(source))
+    {
+        for (const word of words)
+        {
+            let substitutions;
+            try
+            {
+                substitutions = shellCommandSubstitutions(word);
+            }
+            catch (error)
+            {
+                throw new Error(`${ownerPath}: ${error.message}: ${word}`);
+            }
+            for (const substitution of substitutions)
+            {
+                if (/<<-?\s*['"]?[A-Za-z_][A-Za-z0-9_]*/u.test(substitution))
+                {
+                    continue;
+                }
+                const parentDirectory = currentDirectory;
+                for (const nested of shellCommands(substitution))
+                {
+                    dispatch(nested);
+                }
+                currentDirectory = parentDirectory;
+            }
+        }
+        dispatch(words);
+    }
+    return [...references].sort();
 }
 
 function localDependencyReferences(repositoryRoot, ownerPath, source)
 {
     const references = new Set();
-    const add = (reference) =>
+    const add = (reference, referenceKind = 'import') =>
     {
-        const resolved = resolveExistingDependency(repositoryRoot, ownerPath, reference);
-        if (resolved && resolved !== ownerPath)
+        for (const resolved of resolveExistingDependencies(repositoryRoot, ownerPath, reference, referenceKind))
         {
-            references.add(resolved);
+            if (resolved !== ownerPath)
+            {
+                references.add(resolved);
+            }
         }
     };
     if (/\.(?:mjs|js|cjs|ts|tsx)$/u.test(ownerPath))
     {
+        const packageMetadata = nearestPackageMetadata(repositoryRoot, ownerPath);
+        if (packageMetadata && packageMetadata.packagePath !== ownerPath)
+        {
+            references.add(packageMetadata.packagePath);
+        }
         let moduleReferences;
         try
         {
@@ -544,41 +1898,27 @@ function localDependencyReferences(repositoryRoot, ownerPath, source)
         }
         catch (error)
         {
-            // A syntax-invalid command target cannot execute any dependency. Its exact bytes
-            // remain sealed by the target digest; any repair changes that digest and forces
-            // a fresh semantic traversal before authority can be regenerated.
-            if (error.code === 'BABEL_PARSER_SYNTAX_ERROR')
-            {
-                moduleReferences = [];
-            }
-            else
-            {
-                throw new Error(`${ownerPath}: Node module AST parse failed: ${error.message}`);
-            }
+            throw new Error(`${ownerPath}: Node module AST parse failed: ${error.message}`, { cause: error });
         }
-        for (const reference of moduleReferences)
+        for (const { reference, kind } of moduleReferences)
         {
-            if (reference.startsWith('.') || ['tools/', 'tests/', 'src/'].some((prefix) => reference.startsWith(prefix)))
-            {
-                add(reference);
-            }
+            add(reference, kind);
         }
     }
     else if (ownerPath.endsWith('.sh'))
     {
-        const repositoryPaths = source.matchAll(
-            /(?:^|[^A-Za-z0-9_.-])(?<path>(?:tools|tests|src)\/[A-Za-z0-9_./-]+\.(?:sh|mjs|js|cjs|ts|tsx))/gmu
-        );
-        for (const match of repositoryPaths)
+        let shellReferences;
+        try
         {
-            add(match.groups.path);
+            shellReferences = shellDependencyReferences(repositoryRoot, ownerPath, source);
         }
-        const localFiles = source.matchAll(
-            /(?:^|[^A-Za-z0-9_./-])(?<path>[A-Za-z0-9_.-]+\.(?:sh|mjs|js|cjs))(?:$|[^A-Za-z0-9_./-])/gmu
-        );
-        for (const match of localFiles)
+        catch (error)
         {
-            add(match.groups.path);
+            throw new Error(`${ownerPath}: shell execution AST failed: ${error.message}`, { cause: error });
+        }
+        for (const dependency of shellReferences)
+        {
+            references.add(dependency);
         }
     }
     return [...references].sort();
@@ -588,12 +1928,15 @@ export function inspectReleaseFinalCommandTarget({ repositoryRoot = root, target
 {
     const cacheKey = `${path.resolve(repositoryRoot)}\0${target}`;
     const cached = commandTargetInspectionCache.get(cacheKey);
-    if (cached && cached.files.every(({ file, signature }) =>
+    if (cached && cached.files.every(({ file, relativePath, signature, indexDigest }) =>
     {
         try
         {
             const stat = fs.lstatSync(file);
-            return `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}` === signature;
+            const index = repositoryIndexBytes(repositoryRoot, relativePath);
+            const currentIndexDigest = index.bytes ? digestBytes(index.bytes) : null;
+            return `${stat.dev}:${stat.ino}:${stat.nlink}:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}` === signature
+                && currentIndexDigest === indexDigest;
         }
         catch
         {
@@ -620,11 +1963,24 @@ export function inspectReleaseFinalCommandTarget({ repositoryRoot = root, target
         }
         const source = fs.readFileSync(file.resolvedPath);
         const stat = fs.lstatSync(file.resolvedPath);
+        const index = repositoryIndexBytes(repositoryRoot, relativePath);
+        const contentDigest = digestBytes(source);
+        const indexDigest = index.bytes ? digestBytes(index.bytes) : null;
+        if (index.indexedRepository && !index.bytes)
+        {
+            errors.push(`${relativePath} is absent from the repository index`);
+        }
+        else if (index.indexedRepository && indexDigest !== contentDigest)
+        {
+            errors.push(`${relativePath} working-tree bytes differ from the repository index`);
+        }
         inspectedFiles.push({
             file: file.resolvedPath,
-            signature: `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}`
+            relativePath,
+            signature: `${stat.dev}:${stat.ino}:${stat.nlink}:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}`,
+            indexDigest
         });
-        inspected.set(relativePath, digestBytes(source));
+        inspected.set(relativePath, { contentDigest, indexDigest });
         const sourceText = source.toString('utf8');
         if (
             relativePath !== releaseFinalizerCommand
@@ -634,22 +1990,42 @@ export function inspectReleaseFinalCommandTarget({ repositoryRoot = root, target
         {
             errors.push(`${relativePath} contains an indirect release-final wrapper reference`);
         }
-        for (const dependency of localDependencyReferences(repositoryRoot, relativePath, sourceText))
+        let dependencies;
+        try
+        {
+            dependencies = localDependencyReferences(repositoryRoot, relativePath, sourceText);
+        }
+        catch (error)
+        {
+            errors.push(`${relativePath}: ${error.message}`);
+            return;
+        }
+        for (const dependency of dependencies)
         {
             visit(dependency);
         }
     };
     visit(target);
-    const contentDigest = inspected.get(target) ?? null;
+    const targetIdentity = inspected.get(target) ?? null;
+    const contentDigest = targetIdentity?.contentDigest ?? null;
+    const indexDigest = targetIdentity?.indexDigest ?? null;
     const dependencyClosure = [...inspected.entries()]
         .filter(([dependency]) => dependency !== target)
         .sort(([left], [right]) => left.localeCompare(right))
-        .map(([dependency, dependencyDigest]) => ({
+        .map(([dependency, dependencyIdentity]) => ({
             path: dependency,
-            contentDigest: dependencyDigest
+            contentDigest: dependencyIdentity.contentDigest,
+            indexDigest: dependencyIdentity.indexDigest
         }));
-    const result = { errors, target, contentDigest, dependencyClosure };
-    commandTargetInspectionCache.set(cacheKey, { files: inspectedFiles, result });
+    const result = { errors, target, contentDigest, indexDigest, dependencyClosure };
+    if (errors.length === 0 && inspectedFiles.length > 0)
+    {
+        commandTargetInspectionCache.set(cacheKey, { files: inspectedFiles, result });
+    }
+    else
+    {
+        commandTargetInspectionCache.delete(cacheKey);
+    }
     return structuredClone(result);
 }
 
@@ -684,30 +2060,83 @@ function buildExecutionTargetAuthority(tierExecutions, repositoryRoot = root)
             errors.push(...inspection.errors);
             for (const dependency of inspection.dependencyClosure)
             {
-                const existingDigest = closureFiles.get(dependency.path);
-                if (existingDigest && existingDigest !== dependency.contentDigest)
+                const existingIdentity = closureFiles.get(dependency.path);
+                if (
+                    existingIdentity
+                    && (
+                        existingIdentity.contentDigest !== dependency.contentDigest
+                        || existingIdentity.indexDigest !== dependency.indexDigest
+                    )
+                )
                 {
                     errors.push(`${dependency.path} produced conflicting dependency closure digests`);
                 }
-                closureFiles.set(dependency.path, dependency.contentDigest);
+                closureFiles.set(dependency.path, {
+                    contentDigest: dependency.contentDigest,
+                    indexDigest: dependency.indexDigest
+                });
             }
             return {
                 target,
                 owners: declarations.map(({ owner }) => owner).sort(),
                 declarations: declarations.sort((left, right) => left.owner.localeCompare(right.owner)),
                 contentDigest: inspection.contentDigest,
+                indexDigest: inspection.indexDigest,
                 dependencyClosure: inspection.dependencyClosure.map((dependency) => dependency.path)
             };
         });
+    let sourceIndex = null;
+    let sourceIndexBytes = null;
+    try
+    {
+        sourceIndexBytes = fs.readFileSync(path.join(repositoryRoot, executionAuthorityIndexPath));
+        sourceIndex = JSON.parse(sourceIndexBytes.toString('utf8'));
+    }
+    catch
+    {
+        errors.push('independent release-final execution authority index is missing or invalid');
+    }
+    const declarationProjection = targets.map(({ target, declarations }) => ({ target, declarations }));
+    if (sourceIndex)
+    {
+        if (
+            sourceIndex.schema !== 'fsusblog.release-final-execution-authority-index.v1'
+            || sourceIndex.matrix !== 'tests/matrix.yml'
+            || sourceIndex.authoritySchema !== 'fsusblog.release-final-execution-target-authority.v2'
+            || sourceIndex.producer
+                !== 'node tools/test-matrix/generate-release-final-execution-authority.mjs'
+        )
+        {
+            errors.push('independent release-final execution authority index metadata is invalid');
+        }
+        if (JSON.stringify(sourceIndex.nodeParserIdentity) !== JSON.stringify(nodeParserIdentity))
+        {
+            errors.push('independent release-final Node parser identity drifted');
+        }
+        if (sourceIndex.declarationsDigest !== digestBytes(JSON.stringify(declarationProjection)))
+        {
+            errors.push('independent release-final execution declaration index drifted');
+        }
+        if (sourceIndex.targetPathsDigest !== digestBytes(JSON.stringify(
+            targets.map(({ target }) => target)
+        )))
+        {
+            errors.push('independent release-final execution target-path index drifted');
+        }
+    }
     const authority = {
         schema: 'fsusblog.release-final-execution-target-authority.v2',
         source: 'tests/matrix.yml',
-        producer: 'node tools/test-matrix/release-final-static-boundary.mjs --write-authority',
+        sourceIndex: executionAuthorityIndexPath,
+        sourceIndexDigest: sourceIndexBytes ? digestBytes(sourceIndexBytes) : null,
+        producer: 'node tools/test-matrix/generate-release-final-execution-authority.mjs',
+        nodeParserIdentity,
         closureFiles: [...closureFiles.entries()]
             .sort(([left], [right]) => left.localeCompare(right))
-            .map(([dependencyPath, contentDigest]) => ({
+            .map(([dependencyPath, identity]) => ({
                 path: dependencyPath,
-                contentDigest
+                contentDigest: identity.contentDigest,
+                indexDigest: identity.indexDigest
             })),
         targets
     };
@@ -716,6 +2145,30 @@ function buildExecutionTargetAuthority(tierExecutions, repositoryRoot = root)
         digest: digestBytes(JSON.stringify(authority)),
         errors
     };
+}
+
+export function writeReleaseFinalExecutionAuthority(repositoryRoot = root)
+{
+    const matrix = parseMatrix(fs.readFileSync(path.join(repositoryRoot, 'tests/matrix.yml'), 'utf8'));
+    const tierExecutions = matrix.tiers.map((tier) => ({
+        tier,
+        execution: validateDeclarativeExecution(tier.command)
+    }));
+    const declarationErrors = tierExecutions
+        .filter(({ execution }) => execution.error)
+        .map(({ tier, execution }) => `${tier.id}: ${execution.error}`);
+    const targetAuthority = buildExecutionTargetAuthority(tierExecutions, repositoryRoot);
+    const errors = [...declarationErrors, ...targetAuthority.errors];
+    if (errors.length > 0)
+    {
+        throw new Error(errors.join('\n'));
+    }
+    const output = path.join(
+        repositoryRoot,
+        'tests/fixtures/test-matrix/release-final-execution-target-authority.json'
+    );
+    fs.mkdirSync(path.dirname(output), { recursive: true });
+    fs.writeFileSync(output, `${JSON.stringify(targetAuthority.authority, null, 4)}\n`);
 }
 
 function executionTargetAuthorityDifferences(expected, actual)
@@ -791,7 +2244,7 @@ function validateScriptSource(scriptSource)
     }
 
     const finalizerInvocations = lines.filter((line) => (
-        line.trim() === '"$NODE_BIN" "$ROOT_DIR/tools/release/check-release-final.mjs" "${releaseFinalArgs[@]}"'
+        line.trim() === 'exec "$NODE_FD_PATH" "$ROOT_DIR/tools/release/check-release-final.mjs" "${releaseFinalArgs[@]}"'
     ));
     if (finalizerInvocations.length !== 1)
     {
@@ -953,7 +2406,11 @@ export function validateRepositoryReleaseFinalStaticBoundary(repositoryRoot = ro
     }
 }
 
-export function buildReleaseFinalizerSpawnDecision({ sealState, boundaryErrors = [] })
+export function buildReleaseFinalizerSpawnDecision({
+    sealState,
+    boundaryErrors = [],
+    authorityDigest = null
+})
 {
     if (!releaseFinalSealStates.includes(sealState))
     {
@@ -968,6 +2425,10 @@ export function buildReleaseFinalizerSpawnDecision({ sealState, boundaryErrors =
     {
         failureReasons.unshift(`release-final seal state is ${sealState}`);
     }
+    if (sealState === 'accepted' && !/^sha256:[0-9a-f]{64}$/u.test(authorityDigest ?? ''))
+    {
+        failureReasons.push('release-final accepted seal authority digest is missing or invalid');
+    }
     const eligible = sealState === 'accepted' && failureReasons.length === 0;
     const schema = releaseFinalizerDecisionSchema;
     const spawnCount = eligible ? 1 : 0;
@@ -976,7 +2437,9 @@ export function buildReleaseFinalizerSpawnDecision({ sealState, boundaryErrors =
         sealState,
         eligible,
         spawnCount,
-        shellToken: `${schema}|${sealState}|${spawnCount}`,
+        shellToken: eligible
+            ? `${schema}|${sealState}|${spawnCount}|${authorityDigest}`
+            : `${schema}|${sealState}|${spawnCount}`,
         failureReasons
     };
 }
@@ -984,7 +2447,11 @@ export function buildReleaseFinalizerSpawnDecision({ sealState, boundaryErrors =
 export function applyReleaseFinalizerSpawnDecision(
     tier,
     environment,
-    { repositoryRoot = root } = {}
+    {
+        repositoryRoot = root,
+        spawnSeal = null,
+        spawnSealAuthority = null
+    } = {}
 )
 {
     const sealedEnvironment = { ...environment };
@@ -992,18 +2459,35 @@ export function applyReleaseFinalizerSpawnDecision(
     {
         return sealedEnvironment;
     }
-    const sealState = String(
-        sealedEnvironment.FSUSBLOG_RELEASE_FINAL_SEAL_STATE ?? ''
-    ).trim() || 'missing';
+    let sealState = 'missing';
     const pathBindings = [
         ['current-run context', sealedEnvironment.FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT],
         ['manifest binding', sealedEnvironment.FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH],
         ['domain binding', sealedEnvironment.FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH]
     ];
     const boundaryErrors = [];
+    if (String(sealedEnvironment.FSUSBLOG_RELEASE_FINAL_SEAL_STATE ?? '').trim())
+    {
+        boundaryErrors.push('ambient release-final seal state is forbidden');
+    }
     if (String(sealedEnvironment.FSUSBLOG_NODE ?? '').trim())
     {
         boundaryErrors.push('ambient FSUSBLOG_NODE override is forbidden');
+    }
+    let authorityDigest = null;
+    if (spawnSeal || spawnSealAuthority)
+    {
+        try
+        {
+            verifyReleaseFinalSpawnSeal(spawnSeal, spawnSealAuthority);
+            authorityDigest = spawnSeal.contentDigest;
+            sealState = 'accepted';
+        }
+        catch (error)
+        {
+            sealState = 'failed';
+            boundaryErrors.push(`release-final spawn seal verification failed: ${error.message}`);
+        }
     }
     for (const [name, value] of pathBindings)
     {
@@ -1037,8 +2521,14 @@ export function applyReleaseFinalizerSpawnDecision(
         boundaryErrors.push('scheduler Node toolchain identity is not a regular exact-version executable');
     }
     const nodeDigest = digestBytes(fs.readFileSync(nodeRealPath));
-    const decision = buildReleaseFinalizerSpawnDecision({ sealState, boundaryErrors });
+    const decision = buildReleaseFinalizerSpawnDecision({
+        sealState,
+        boundaryErrors,
+        authorityDigest
+    });
     sealedEnvironment.FSUSBLOG_RELEASE_FINAL_SPAWN_DECISION = decision.shellToken;
+    sealedEnvironment.FSUSBLOG_RELEASE_FINAL_SPAWN_SEAL_DIGEST = authorityDigest ?? '';
+    delete sealedEnvironment.FSUSBLOG_RELEASE_FINAL_SEAL_STATE;
     delete sealedEnvironment.FSUSBLOG_NODE;
     sealedEnvironment.FSUSBLOG_RELEASE_FINAL_NODE_BIN = nodeRealPath;
     sealedEnvironment.FSUSBLOG_RELEASE_FINAL_NODE_REALPATH = nodeRealPath;
@@ -1050,37 +2540,11 @@ export function applyReleaseFinalizerSpawnDecision(
 function main()
 {
     const mode = process.argv[2] ?? '--check';
-    if (!['--check', '--write-authority'].includes(mode) || process.argv.length > 3)
+    if (mode !== '--check' || process.argv.length > 3)
     {
-        throw new Error(
-            'usage: node tools/test-matrix/release-final-static-boundary.mjs '
-            + '[--check|--write-authority]'
-        );
+        throw new Error('usage: node tools/test-matrix/release-final-static-boundary.mjs --check');
     }
     const matrix = parseMatrix(fs.readFileSync(matrixFile, 'utf8'));
-    if (mode === '--write-authority')
-    {
-        const tierExecutions = matrix.tiers.map((tier) => ({
-            tier,
-            execution: validateDeclarativeExecution(tier.command)
-        }));
-        const declarationErrors = tierExecutions
-            .filter(({ execution }) => execution.error)
-            .map(({ tier, execution }) => `${tier.id}: ${execution.error}`);
-        const targetAuthority = buildExecutionTargetAuthority(tierExecutions);
-        const errors = [...declarationErrors, ...targetAuthority.errors];
-        if (errors.length > 0)
-        {
-            throw new Error(errors.join('\n'));
-        }
-        fs.mkdirSync(path.dirname(executionTargetAuthorityFile), { recursive: true });
-        fs.writeFileSync(
-            executionTargetAuthorityFile,
-            `${JSON.stringify(targetAuthority.authority, null, 4)}\n`
-        );
-        console.log('[release-final-static-boundary] wrote execution target authority');
-        return;
-    }
     const scriptSource = fs.readFileSync(releaseFinalizerFile, 'utf8');
     const errors = validateReleaseFinalStaticBoundary({ matrix, scriptSource });
     if (errors.length > 0)

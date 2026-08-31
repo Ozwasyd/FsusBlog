@@ -14,13 +14,23 @@ if [[ -z "$NODE_BIN" || -z "$NODE_REALPATH" || -z "$NODE_SHA256" || -z "$NODE_VE
     echo "release-final requires sealed Node toolchain identity" >&2
     exit 1
 fi
-if [[ "$NODE_BIN" != "$NODE_REALPATH" || "$($NODE_BIN --version)" != "$NODE_VERSION" ]]; then
+exec {NODE_FD}<"$NODE_BIN"
+NODE_FD_PATH="/proc/$$/fd/$NODE_FD"
+if [[ ! -e "$NODE_FD_PATH" ]]; then
+    echo "release-final cannot pin the sealed Node executable" >&2
+    exit 1
+fi
+mapfile -t actualNodeIdentity < <(
+    "$NODE_FD_PATH" -e 'const crypto = require("node:crypto"); const fs = require("node:fs"); const target = process.argv[1]; console.log(fs.realpathSync(target)); console.log(`sha256:${crypto.createHash("sha256").update(fs.readFileSync(target)).digest("hex")}`); console.log(process.version);' "$NODE_FD_PATH"
+)
+if [[ "${actualNodeIdentity[0]:-}" != "$NODE_REALPATH" || "${actualNodeIdentity[1]:-}" != "$NODE_SHA256" || "${actualNodeIdentity[2]:-}" != "$NODE_VERSION" ]]; then
     echo "release-final Node toolchain identity drifted" >&2
     exit 1
 fi
+releaseFinalSpawnSealDigest="${FSUSBLOG_RELEASE_FINAL_SPAWN_SEAL_DIGEST:-}"
 releaseFinalDecision="${FSUSBLOG_RELEASE_FINAL_SPAWN_DECISION:-fsusblog.release-finalizer-spawn-decision.v1|missing|0}"
 case "$releaseFinalDecision" in
-    fsusblog.release-finalizer-spawn-decision.v1\|accepted\|1)
+    fsusblog.release-finalizer-spawn-decision.v1\|accepted\|1\|"$releaseFinalSpawnSealDigest")
         ;;
     fsusblog.release-finalizer-spawn-decision.v1\|failed\|0|fsusblog.release-finalizer-spawn-decision.v1\|missing\|0|fsusblog.release-finalizer-spawn-decision.v1\|stale\|0)
         echo "release-final seal rejected: $releaseFinalDecision" >&2
@@ -49,4 +59,4 @@ fi
 releaseFinalArgs+=(--current-run-context "$FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT")
 releaseFinalArgs+=(--manifest-binding "$FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH")
 releaseFinalArgs+=(--domain-binding "$FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH")
-"$NODE_BIN" "$ROOT_DIR/tools/release/check-release-final.mjs" "${releaseFinalArgs[@]}"
+exec "$NODE_FD_PATH" "$ROOT_DIR/tools/release/check-release-final.mjs" "${releaseFinalArgs[@]}"

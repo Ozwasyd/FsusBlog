@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 import {
     chmodSync,
     copyFileSync,
+    linkSync,
     mkdtempSync,
     mkdirSync,
     readFileSync,
@@ -18,6 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs';
 import { runDag } from '../../tools/test-matrix/scheduler.mjs';
 import { validateEvidenceExecutionDeclaration } from '../../tools/test-matrix/projection-declaration.mjs';
+import { createReleaseFinalSpawnSeal } from '../../tools/test-matrix/release-final-spawn-seal.mjs';
 import {
     applyReleaseFinalizerSpawnDecision,
     buildReleaseFinalizerSpawnDecision,
@@ -29,6 +31,30 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const scriptSource = readFileSync(path.join(root, 'tools/test/lanes/release-final.sh'), 'utf8');
 const schedulerSource = readFileSync(path.join(root, 'tools/test-matrix/scheduler.mjs'), 'utf8');
 const matrix = parseMatrix(readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
+const digest = (character) => `sha256:${character.repeat(64)}`;
+const spawnSealAuthority = {
+    schedulerNonce: 'a'.repeat(64),
+    schedulerRunId: 'release-final-test-run',
+    schedulerCandidateIdentityDigest: digest('b'),
+    sourceState: { commit: 'c'.repeat(40), worktreeFingerprint: digest('d') },
+    context: {
+        contentDigest: digest('e'),
+        attemptId: 'attempt-1',
+        candidateIdentity: { id: 'candidate', digest: digest('f') },
+        buildIdentity: { id: 'build', digest: digest('0') }
+    },
+    evidenceBindings: [
+        {
+            authorityId: 'manifest', bindingDigest: digest('1'), inputDigest: digest('2'),
+            producerReceiptDigest: digest('3')
+        },
+        {
+            authorityId: 'domain', bindingDigest: digest('4'), inputDigest: digest('5'),
+            producerReceiptDigest: digest('6')
+        }
+    ]
+};
+const spawnSeal = createReleaseFinalSpawnSeal(spawnSealAuthority);
 
 test('release-final script and execution graph expose only the finalizer consumer', () =>
 {
@@ -59,12 +85,16 @@ test('missing, failed, and stale seals keep finalizer spawn count at zero', asyn
 
 test('accepted seal exposes one spawn only while the static boundary remains valid', () =>
 {
-    const accepted = buildReleaseFinalizerSpawnDecision({ sealState: 'accepted' });
+    const accepted = buildReleaseFinalizerSpawnDecision({
+        sealState: 'accepted',
+        authorityDigest: spawnSeal.contentDigest
+    });
     assert.equal(accepted.eligible, true);
     assert.equal(accepted.spawnCount, 1);
 
     const rejected = buildReleaseFinalizerSpawnDecision({
         sealState: 'accepted',
+        authorityDigest: spawnSeal.contentDigest,
         boundaryErrors: ['release-final contains a forbidden capability']
     });
     assert.equal(rejected.eligible, false);
@@ -79,15 +109,19 @@ test('scheduler environment applies the reusable decision before the production 
     );
     const fixture = path.join(root, 'tools/test/lanes/release-final.sh');
     const accepted = applyReleaseFinalizerSpawnDecision({ id: 'release-final' }, {
-        FSUSBLOG_RELEASE_FINAL_SEAL_STATE: 'accepted',
         FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT: fixture,
         FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH: fixture,
         FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH: fixture,
         FSUSBLOG_RELEASE_FINAL_SPAWN_DECISION: 'caller-forged-token'
+    }, {
+        spawnSeal,
+        spawnSealAuthority
     });
     assert.equal(
         accepted.FSUSBLOG_RELEASE_FINAL_SPAWN_DECISION,
-        buildReleaseFinalizerSpawnDecision({ sealState: 'accepted' }).shellToken
+        buildReleaseFinalizerSpawnDecision({
+            sealState: 'accepted', authorityDigest: spawnSeal.contentDigest
+        }).shellToken
     );
 
     const missing = applyReleaseFinalizerSpawnDecision({ id: 'release-final' }, {
@@ -97,13 +131,11 @@ test('scheduler environment applies the reusable decision before the production 
         FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH: fixture,
         FSUSBLOG_RELEASE_FINAL_SPAWN_DECISION: 'caller-forged-token'
     });
-    assert.equal(
-        missing.FSUSBLOG_RELEASE_FINAL_SPAWN_DECISION,
-        'fsusblog.release-finalizer-spawn-decision.v1|accepted|0'
-    );
+    assert.equal(missing.FSUSBLOG_RELEASE_FINAL_SPAWN_DECISION,
+        'fsusblog.release-finalizer-spawn-decision.v1|missing|0');
 
     const nonaccepted = applyReleaseFinalizerSpawnDecision({ id: 'release-final' }, {
-        FSUSBLOG_RELEASE_FINAL_SEAL_STATE: 'stale',
+        FSUSBLOG_RELEASE_FINAL_SEAL_STATE: 'accepted',
         FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT: fixture,
         FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH: fixture,
         FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH: fixture,
@@ -112,7 +144,21 @@ test('scheduler environment applies the reusable decision before the production 
     });
     assert.equal(
         nonaccepted.FSUSBLOG_RELEASE_FINAL_SPAWN_DECISION,
-        'fsusblog.release-finalizer-spawn-decision.v1|stale|0'
+        'fsusblog.release-finalizer-spawn-decision.v1|missing|0'
+    );
+    assert.equal(nonaccepted.FSUSBLOG_RELEASE_FINAL_SEAL_STATE, undefined);
+
+    const replayed = applyReleaseFinalizerSpawnDecision({ id: 'release-final' }, {
+        FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT: fixture,
+        FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH: fixture,
+        FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH: fixture
+    }, {
+        spawnSeal,
+        spawnSealAuthority: { ...spawnSealAuthority, schedulerNonce: '9'.repeat(64) }
+    });
+    assert.equal(
+        replayed.FSUSBLOG_RELEASE_FINAL_SPAWN_DECISION,
+        'fsusblog.release-finalizer-spawn-decision.v1|failed|0'
     );
 });
 
@@ -462,6 +508,172 @@ test('target inspection rejects file and parent symlinks plus indirect ordinary 
     }
 });
 
+test('target inspection rejects hardlinks and working-tree bytes that differ from the Git index', () =>
+{
+    const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), 'release-final-index-'));
+    const target = 'tools/entry.sh';
+    try
+    {
+        mkdirSync(path.join(fixtureRoot, 'tools'), { recursive: true });
+        writeFileSync(path.join(fixtureRoot, target), '#!/usr/bin/env bash\nexit 0\n');
+        linkSync(path.join(fixtureRoot, target), path.join(fixtureRoot, 'tools/entry-hardlink.sh'));
+        const hardlink = inspectReleaseFinalCommandTarget({ repositoryRoot: fixtureRoot, target });
+        assert.match(hardlink.errors.join('\n'), /must have exactly one hard link/u);
+
+        rmSync(path.join(fixtureRoot, 'tools/entry-hardlink.sh'));
+        for (const args of [
+            ['init'],
+            ['config', 'user.email', 'release-final@example.invalid'],
+            ['config', 'user.name', 'Release Final Test'],
+            ['add', target]
+        ])
+        {
+            const result = spawnSync('git', ['-C', fixtureRoot, ...args], { encoding: 'utf8' });
+            assert.equal(result.status, 0, result.stderr);
+        }
+        writeFileSync(path.join(fixtureRoot, target), '#!/usr/bin/env bash\nexit 7\n');
+        const indexDrift = inspectReleaseFinalCommandTarget({ repositoryRoot: fixtureRoot, target });
+        assert.match(indexDrift.errors.join('\n'), /working-tree bytes differ from the repository index/u);
+    }
+    finally
+    {
+        rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+});
+
+test('shell execution closure distinguishes code-bearing argv from data and fails closed on dynamic source', () =>
+{
+    const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), 'release-final-shell-ast-'));
+    try
+    {
+        mkdirSync(path.join(fixtureRoot, 'tools'), { recursive: true });
+        writeFileSync(path.join(fixtureRoot, 'tools/source.sh'), '#!/usr/bin/env bash\ntrue\n');
+        writeFileSync(path.join(fixtureRoot, 'tools/entry.mjs'), 'export const value = 1;\n');
+        writeFileSync(path.join(fixtureRoot, 'tools/data.mjs'), 'export const data = 1;\n');
+        writeFileSync(
+            path.join(fixtureRoot, 'tools/main.sh'),
+            '#!/usr/bin/env bash\n'
+                + 'ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"\n'
+                + 'source "$ROOT_DIR/tools/source.sh"\n'
+                + 'node "$ROOT_DIR/tools/entry.mjs"\n'
+                + 'printf "%s\\n" tools/data.mjs\n'
+        );
+        const inspected = inspectReleaseFinalCommandTarget({
+            repositoryRoot: fixtureRoot,
+            target: 'tools/main.sh'
+        });
+        assert.deepEqual(inspected.errors, []);
+        assert.deepEqual(
+            inspected.dependencyClosure.map(({ path: dependency }) => dependency),
+            ['tools/entry.mjs', 'tools/source.sh']
+        );
+
+        writeFileSync(path.join(fixtureRoot, 'tools/main.sh'), '#!/usr/bin/env bash\nsource "$UNKNOWN"\n');
+        const dynamicSource = inspectReleaseFinalCommandTarget({
+            repositoryRoot: fixtureRoot,
+            target: 'tools/main.sh'
+        });
+        assert.match(dynamicSource.errors.join('\n'), /unresolved source dependency/u);
+    }
+    finally
+    {
+        rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+});
+
+test('Node closure resolves immutable aliases, package imports, and conditional self exports', () =>
+{
+    const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), 'release-final-node-resolution-'));
+    try
+    {
+        mkdirSync(path.join(fixtureRoot, 'tools'), { recursive: true });
+        writeFileSync(path.join(fixtureRoot, 'tools/dep.cjs'), 'module.exports = {};\n');
+        writeFileSync(path.join(fixtureRoot, 'tools/self-import.mjs'), 'export const value = 1;\n');
+        writeFileSync(path.join(fixtureRoot, 'tools/self-require.cjs'), 'module.exports = {};\n');
+        writeFileSync(
+            path.join(fixtureRoot, 'tools/package.json'),
+            `${JSON.stringify({
+                name: 'fixture-package',
+                imports: { '#dep': { node: { require: './dep.cjs' }, default: './missing.cjs' } },
+                exports: {
+                    './self': { node: { import: './self-import.mjs', require: './self-require.cjs' } }
+                }
+            }, null, 4)}\n`
+        );
+        writeFileSync(
+            path.join(fixtureRoot, 'tools/main.cjs'),
+            "const load = require; const leaf = '#dep'; load(`${leaf}`); import('fixture-package/self');\n"
+        );
+        const inspected = inspectReleaseFinalCommandTarget({
+            repositoryRoot: fixtureRoot,
+            target: 'tools/main.cjs'
+        });
+        assert.deepEqual(inspected.errors, []);
+        assert.deepEqual(
+            inspected.dependencyClosure.map(({ path: dependency }) => dependency),
+            ['tools/dep.cjs', 'tools/package.json', 'tools/self-import.mjs']
+        );
+
+        writeFileSync(
+            path.join(fixtureRoot, 'tools/main.cjs'),
+            "let target = './dep.cjs'; target = './hidden.cjs'; import(target);\n"
+        );
+        const reassigned = inspectReleaseFinalCommandTarget({
+            repositoryRoot: fixtureRoot,
+            target: 'tools/main.cjs'
+        });
+        assert.match(reassigned.errors.join('\n'), /unresolved dynamic import/u);
+
+        writeFileSync(
+            path.join(fixtureRoot, 'tools/main.cjs'),
+            "const require = () => null; require('./dep.cjs');\n"
+        );
+        const shadowedRequire = inspectReleaseFinalCommandTarget({
+            repositoryRoot: fixtureRoot,
+            target: 'tools/main.cjs'
+        });
+        assert.match(shadowedRequire.errors.join('\n'), /shadows require/u);
+    }
+    finally
+    {
+        rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+});
+
+test('sealed Node parser transforms TypeScript and rejects TSX without an unbound parser', () =>
+{
+    const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), 'release-final-typescript-'));
+    try
+    {
+        mkdirSync(path.join(fixtureRoot, 'tools'), { recursive: true });
+        writeFileSync(path.join(fixtureRoot, 'tools/dep.mjs'), 'export const value = 1;\n');
+        writeFileSync(
+            path.join(fixtureRoot, 'tools/main.ts'),
+            "enum Mode { Active }\nconst target: string = './dep.mjs';\nimport(target);\n"
+        );
+        const typescript = inspectReleaseFinalCommandTarget({
+            repositoryRoot: fixtureRoot,
+            target: 'tools/main.ts'
+        });
+        assert.deepEqual(typescript.errors, []);
+        assert.deepEqual(
+            typescript.dependencyClosure.map(({ path: dependency }) => dependency),
+            ['tools/dep.mjs']
+        );
+
+        writeFileSync(path.join(fixtureRoot, 'tools/main.tsx'), 'export const view = <div />;\n');
+        const tsx = inspectReleaseFinalCommandTarget({
+            repositoryRoot: fixtureRoot,
+            target: 'tools/main.tsx'
+        });
+        assert.match(tsx.errors.join('\n'), /TSX is outside the sealed Node parser grammar/u);
+    }
+    finally
+    {
+        rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+});
+
 test('only explicit non-executing argv data and noncanonical basenames remain admitted', async (context) =>
 {
     const commands = [
@@ -540,15 +752,13 @@ test('Node AST closure binds actual build.mjs dynamic import(new URL(...)) depen
     const fsusuiRootPath = 'src/frontend/scripts/fsusui-root.mjs';
     try
     {
-        mkdirSync(path.join(fixtureRoot, 'tools/frontend'), { recursive: true });
-        mkdirSync(path.join(fixtureRoot, 'src/frontend/scripts'), { recursive: true });
-        copyFileSync(path.join(root, buildPath), path.join(fixtureRoot, buildPath));
-        copyFileSync(path.join(root, fsusuiRootPath), path.join(fixtureRoot, fsusuiRootPath));
-        symlinkSync(
-            path.join(root, 'src/frontend/node_modules'),
-            path.join(fixtureRoot, 'src/frontend/node_modules'),
-            'dir'
-        );
+        const actualClosure = inspectReleaseFinalCommandTarget({ repositoryRoot: root, target: buildPath });
+        assert.deepEqual(actualClosure.errors, []);
+        for (const dependency of [buildPath, ...actualClosure.dependencyClosure.map(({ path: file }) => file)])
+        {
+            mkdirSync(path.dirname(path.join(fixtureRoot, dependency)), { recursive: true });
+            copyFileSync(path.join(root, dependency), path.join(fixtureRoot, dependency));
+        }
         const before = inspectReleaseFinalCommandTarget({ repositoryRoot: fixtureRoot, target: buildPath });
         assert.deepEqual(before.errors, []);
         const beforeDependency = before.dependencyClosure.find(({ path: dependency }) => (

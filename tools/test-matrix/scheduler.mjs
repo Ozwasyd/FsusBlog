@@ -37,7 +37,12 @@ import {
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Producer terminal handoffs are scheduler checkpoint inputs.
 } from '../test/current-run-evidence-checkpoint.mjs';
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler validates the canonical current-run locator registry.
-import { validateEvidenceLocatorRegistry } from '../test/evidence-location-contract.mjs';
+import {
+    validateCurrentRunEvidenceContext,
+    validateEvidenceLocatorRegistry
+} from '../test/evidence-location-contract.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- Finalizer admission consumes exact current-run bindings.
+import { locateCurrentRunEvidence } from '../test/current-run-evidence-locator.mjs';
 
 import {
     readAndValidateArtifactDigestTable,
@@ -55,6 +60,7 @@ import {
     applyReleaseFinalizerSpawnDecision,
     validateRepositoryReleaseFinalStaticBoundary
 } from './release-final-static-boundary.mjs';
+import { createReleaseFinalSpawnSeal } from './release-final-spawn-seal.mjs';
 import { releaseReliabilityResourceConflict } from './release-reliability-scheduler-projection.mjs';
 import {
     createResidentLeaseHandoff,
@@ -4125,6 +4131,7 @@ async function runDagUnlocked(options)
     const runsRoot = resolveRealOrAncestralPath(options.runsRoot ?? path.join(root, '.tmp/test-runs'));
     const runId = safeRunId(options.runId ?? createRunId(options.targetTierId ?? 'matrix'));
     const runDirectory = path.join(runsRoot, runId);
+    const releaseFinalSchedulerNonce = crypto.randomBytes(32).toString('hex');
     const checkpointFile = path.join(runDirectory, 'checkpoint.json');
     const resourceGrantFile = path.join(runDirectory, 'resource-grants.json');
     const residentLeaseFile = path.join(runDirectory, 'resident-resource-leases.json');
@@ -4310,7 +4317,9 @@ async function runDagUnlocked(options)
     const evidenceContextPath = String(options.env?.FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT
       ?? process.env.FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT ?? '').trim();
     const currentRunEvidenceContext = evidenceContextPath
-        ? JSON.parse(fs.readFileSync(path.resolve(root, evidenceContextPath), 'utf8'))
+        ? validateCurrentRunEvidenceContext(
+            JSON.parse(fs.readFileSync(path.resolve(root, evidenceContextPath), 'utf8'))
+        )
         : null;
     if (currentRunEvidenceContext
     && (currentRunEvidenceContext.schedulerRunId !== runId
@@ -5232,8 +5241,54 @@ async function runDagUnlocked(options)
             FSUSBLOG_CGROUP_EFFECTIVE_MEMORY_MAX_BYTES: String(effectiveEnforcement.memoryMaxBytes),
             FSUSBLOG_CGROUP_EFFECTIVE_PIDS_MAX: String(effectiveEnforcement.pidsMax)
         };
+        let releaseFinalSpawnSeal = null;
+        let releaseFinalSpawnSealAuthority = null;
+        if (tier.id === 'release-final')
+        {
+            if (!currentRunEvidenceContext || !currentRunEvidenceRegistry)
+            {
+                throw new Error('release-final requires a validated current-run evidence context and registry');
+            }
+            const evidenceBindings = [
+                [
+                    'evidence-consumer.release.check-release-final',
+                    tierEnvironment.FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH
+                ],
+                [
+                    'evidence-consumer.release.release-final-domain-evidence',
+                    tierEnvironment.FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH
+                ]
+            ].map(([consumerId, explicitInput]) =>
+            {
+                const registryEntry = currentRunEvidenceRegistry.entries.find((entry) => (
+                    entry.consumerId === consumerId
+                ));
+                if (!registryEntry)
+                {
+                    throw new Error(`release-final evidence registry entry is missing: ${consumerId}`);
+                }
+                return locateCurrentRunEvidence({
+                    context: currentRunEvidenceContext,
+                    registry: currentRunEvidenceRegistry,
+                    registryEntry,
+                    repositoryRoot: root,
+                    explicitInputs: [String(explicitInput ?? '').trim()]
+                }).bindingReceipt;
+            });
+            releaseFinalSpawnSealAuthority = {
+                schedulerNonce: releaseFinalSchedulerNonce,
+                schedulerRunId: runId,
+                schedulerCandidateIdentityDigest: options.schedulerCandidateIdentityDigest,
+                sourceState,
+                context: currentRunEvidenceContext,
+                evidenceBindings
+            };
+            releaseFinalSpawnSeal = createReleaseFinalSpawnSeal(releaseFinalSpawnSealAuthority);
+        }
         tierEnvironment = applyReleaseFinalizerSpawnDecision(tier, tierEnvironment, {
-            repositoryRoot: root
+            repositoryRoot: root,
+            spawnSeal: releaseFinalSpawnSeal,
+            spawnSealAuthority: releaseFinalSpawnSealAuthority
         });
         const inputFingerprint = tierInputFingerprint(tier, root, {
             env: tierEnvironment,

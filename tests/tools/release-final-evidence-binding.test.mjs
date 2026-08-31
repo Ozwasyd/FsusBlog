@@ -1,6 +1,16 @@
 import assert from 'node:assert/strict';
-import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+    appendFileSync,
+    chmodSync,
+    copyFileSync,
+    mkdirSync,
+    mkdtempSync,
+    readFileSync,
+    rmSync,
+    writeFileSync
+} from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -9,6 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { buildReleaseFinalizerSpawnDecision } from '../../tools/test-matrix/release-final-static-boundary.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const digestFile = (file) => `sha256:${createHash('sha256').update(readFileSync(file)).digest('hex')}`;
 
 test('release-final script files do not contain recursive test or build producer invocations', () =>
 {
@@ -61,7 +72,7 @@ test('nonaccepted seals and nonexistent evidence fail before any checker child s
             FSUSBLOG_SPAWN_LOG: log,
             FSUSBLOG_RELEASE_FINAL_NODE_BIN: process.execPath,
             FSUSBLOG_RELEASE_FINAL_NODE_REALPATH: process.execPath,
-            FSUSBLOG_RELEASE_FINAL_NODE_SHA256: 'test-sealed-by-production-scheduler',
+            FSUSBLOG_RELEASE_FINAL_NODE_SHA256: digestFile(process.execPath),
             FSUSBLOG_RELEASE_FINAL_NODE_VERSION: process.version
         };
         const finalizerRoot = path.join(fixture, 'finalizer-root');
@@ -99,12 +110,16 @@ test('nonaccepted seals and nonexistent evidence fail before any checker child s
                 assert.equal(readFileSync(log, 'utf8'), '', `${sealState} must keep child spawn count at zero`);
             });
         }
-        const accepted = buildReleaseFinalizerSpawnDecision({ sealState: 'accepted' });
+        const accepted = buildReleaseFinalizerSpawnDecision({
+            sealState: 'accepted',
+            authorityDigest: `sha256:${'a'.repeat(64)}`
+        });
         await context.test('accepted ambient fake Node override', () =>
         {
             const result = execute({
                 FSUSBLOG_NODE: checkerNode,
                 FSUSBLOG_RELEASE_FINAL_SPAWN_DECISION: accepted.shellToken,
+                FSUSBLOG_RELEASE_FINAL_SPAWN_SEAL_DIGEST: `sha256:${'a'.repeat(64)}`,
                 FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT: contextFile,
                 FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH: manifestFile,
                 FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH: domainFile
@@ -112,6 +127,28 @@ test('nonaccepted seals and nonexistent evidence fail before any checker child s
             assert.notEqual(result.status, 0);
             assert.match(`${result.stdout}\n${result.stderr}`, /rejects ambient FSUSBLOG_NODE/u);
             assert.equal(readFileSync(log, 'utf8'), '', 'ambient fake Node must keep child spawn count at zero');
+        });
+        await context.test('accepted sealed Node bytes changed before exec', () =>
+        {
+            const changedNode = path.join(bin, 'changed-node');
+            copyFileSync(process.execPath, changedNode);
+            chmodSync(changedNode, 0o755);
+            const sealedDigest = digestFile(changedNode);
+            appendFileSync(changedNode, 'post-seal-mutation');
+            const result = execute({
+                FSUSBLOG_RELEASE_FINAL_NODE_BIN: changedNode,
+                FSUSBLOG_RELEASE_FINAL_NODE_REALPATH: changedNode,
+                FSUSBLOG_RELEASE_FINAL_NODE_SHA256: sealedDigest,
+                FSUSBLOG_RELEASE_FINAL_NODE_VERSION: process.version,
+                FSUSBLOG_RELEASE_FINAL_SPAWN_DECISION: accepted.shellToken,
+                FSUSBLOG_RELEASE_FINAL_SPAWN_SEAL_DIGEST: `sha256:${'a'.repeat(64)}`,
+                FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT: contextFile,
+                FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH: manifestFile,
+                FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH: domainFile
+            });
+            assert.notEqual(result.status, 0);
+            assert.match(`${result.stdout}\n${result.stderr}`, /Node toolchain identity drifted/u);
+            assert.equal(readFileSync(log, 'utf8'), '', 'changed sealed Node must not spawn the checker');
         });
         for (const [name, missingPath] of [
             ['context', contextFile],
@@ -135,6 +172,7 @@ test('nonaccepted seals and nonexistent evidence fail before any checker child s
                 ] = `${missingPath}.missing`;
                 const result = execute({
                     FSUSBLOG_RELEASE_FINAL_SPAWN_DECISION: accepted.shellToken,
+                    FSUSBLOG_RELEASE_FINAL_SPAWN_SEAL_DIGEST: `sha256:${'a'.repeat(64)}`,
                     ...paths
                 });
                 assert.notEqual(result.status, 0);

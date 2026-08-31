@@ -1,0 +1,276 @@
+{
+    "schema": "fsusblog.release-final-execution-authority-index.v1",
+    "matrix": "tests/matrix.yml",
+    "authoritySchema": "fsusblog.release-final-execution-target-authority.v2",
+    "nodeParserIdentity": {
+        "nodeVersion": "v24.18.0",
+        "acorn": {
+            "owner": "node:internal/deps/acorn/acorn/dist/acorn",
+            "version": "8.16.0",
+            "sourceDigest": "sha256:2261c5f0e4abe860e889dfc67081683a4ba4d27deb7f4cbc8ad06a1b7fdd510c"
+        },
+        "amaro": {
+            "owner": "node:internal/deps/amaro/dist/index",
+            "version": "1.1.9",
+            "sourceDigest": "sha256:b878f771a6e0aa2a134c000f4b139fc629f35fa6190d66eb0fc599ca1c9d6ce3"
+        }
+    },
+    "runtimeDynamicImports": [
+        {
+            "owner": "tests/frontend/checks/static/check-pospace-runtime-reachability.mjs",
+            "sourceDigest": "sha256:d4ca2e3f9465bbeb8c7db5ac62c788ef84bbfddf59f3c6a8108305d510a03b53",
+            "expressionDigest": "sha256:00d965aef049fdfaf126cec88c128b4b934f3be0c9fefcda76bee157063c4d19",
+            "kind": "runtime-require-path",
+            "dependencies": []
+        },
+        {
+            "owner": "tools/test/frontend-vitest-transform-cache.mjs",
+            "sourceDigest": "sha256:67a8097a24d0e47c4bf783381739f779b6ec07687f402d0a9a7d4f1ebc323f54",
+            "expressionDigest": "sha256:d33727b491de0006c351c4ce883d69efbcad8d96b35a4421d77723e1b1d3ec89",
+            "kind": "runtime-require-path",
+            "dependencies": []
+        },
+        {
+            "owner": "tools/test/write-rights-v3-integration-producer.mjs",
+            "sourceDigest": "sha256:6073535d00e5b026d2122b3dac54b383618d64bddbedcf10a93129e98d61971c",
+            "expressionDigest": "sha256:7eeed7b15dbdab326cc719628f7bb0051823b5ca3ab718af7a07ffe45719ceeb",
+            "kind": "runtime-module-path",
+            "dependencies": [
+                "tools/test-matrix/rights-v3-projection.mjs"
+            ]
+        },
+        {
+            "owner": "tools/test/runtime-scenario-host.mjs",
+            "sourceDigest": "sha256:a65bcfd9736de28fd7b20ac1c51952e5309add18b21732577a64d93ce03ccf47",
+            "expressionDigest": "sha256:7c8fe398cd82d5ea80560281e00f6154b09b15615233da0a8b56ac03f861e51b",
+            "kind": "runtime-module-path",
+            "dependencies": []
+        },
+        {
+            "owner": "tools/test/produce-integrity-proof-evidence.mjs",
+            "sourceDigest": "sha256:ee50511e2d91b391eb22a135f11089f4126ed6550c658fc964201942ef10a36c",
+            "expressionDigest": "sha256:59e6d7cefecd9f10cd1b5e83a9a2ed32741a30cc972b12ffccded49d7bd020d7",
+            "kind": "runtime-module-path",
+            "dependencies": [
+                "tools/test-matrix/integrity-proof-producer.mjs"
+            ]
+        },
+        {
+            "owner": "tools/test/check-frontend-test-layout.mjs",
+            "sourceDigest": "sha256:9890eaf1f4d0ef719999e58829dd2b0a6747737469fa76642e218cd064448d59",
+            "expressionDigest": "sha256:547d76ffeaf9f67fe4ddfd26646ad0eddd1a5d084dcac41c078aebfb5f7a5775",
+            "kind": "runtime-module-path",
+            "dependencies": []
+        },
+        {
+            "owner": "tools/frontend/bench-pow-wasm.mjs",
+            "sourceDigest": "sha256:53ca4f8912a9d66354420e1cb301acc0f8fa5661a5d2b0611fe1d491b36c8f20",
+            "expressionDigest": "sha256:98c1f30fcc931176e6c3b84553fbdf5a30b535ec70b92a60b525988d49bc47e1",
+            "kind": "runtime-module-path",
+            "dependencies": []
+        },
+        {
+            "owner": "tests/frontend/checks/wasm/check-image-codec-wasm-runtime.mjs",
+            "sourceDigest": "sha256:dee87cd110298a9317db11fde6a4956333b821e5cebc13470859a3d766ecdb7c",
+            "expressionDigest": "sha256:fe89c6dae94cf04c718b3f094441c18e3f16faad404c3a935cd6abbe3b621eca",
+            "kind": "runtime-module-path",
+            "dependencies": []
+        },
+        {
+            "owner": "tests/frontend/checks/static/check-test-execution-helpers.mjs",
+            "sourceDigest": "sha256:c771ba118fff1aa6419e00bf84faa027cd35ca333241d60f86f15683e0b5986e",
+            "expressionDigest": "sha256:a20e71ee78c7c56aa8320b1571be2b9072c50cb50f16a08ecd11b5131f8ea428",
+            "kind": "runtime-module-path",
+            "dependencies": []
+        },
+        {
+            "owner": "tests/frontend/checks/static/check-public-boot-production-output.mjs",
+            "sourceDigest": "sha256:2a371a2a0cf55f1645687c2924a8ed15e4e10d2f4f32635ba5a7ce64f17b736e",
+            "expressionDigest": "sha256:a06be77adea152d38071dfc1ff1e0d7edfc4ad92bacd6eabe54d8b3609567e1c",
+            "kind": "runtime-module-path",
+            "dependencies": [
+                "tools/frontend/build.mjs"
+            ]
+        },
+        {
+            "owner": "tests/frontend/checks/static/check-public-boot-production-output.mjs",
+            "sourceDigest": "sha256:2a371a2a0cf55f1645687c2924a8ed15e4e10d2f4f32635ba5a7ce64f17b736e",
+            "expressionDigest": "sha256:a76d4ad9173e3fb59625d1c0abb2eecddd495656ac616f9352c04e3fbb5f8ba7",
+            "kind": "runtime-module-path",
+            "dependencies": []
+        },
+        {
+            "owner": "tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs",
+            "sourceDigest": "sha256:6ae462b3c685b0e226f8288ef2942d6251edef46022bdfcf58058d1b3e0e5cb6",
+            "expressionDigest": "sha256:afcf373daa2aae75152b01b2a36211a021142d68677f0e9e78db1a33b168befc",
+            "kind": "runtime-module-path",
+            "dependencies": []
+        },
+        {
+            "owner": "tests/frontend/checks/public/check-public-clock-hydration-matrix.mjs",
+            "sourceDigest": "sha256:616c909534a078ebe74ed1003258085cff2f3a901cf34882ed9620307abb7ae9",
+            "expressionDigest": "sha256:afcf373daa2aae75152b01b2a36211a021142d68677f0e9e78db1a33b168befc",
+            "kind": "runtime-module-path",
+            "dependencies": []
+        },
+        {
+            "owner": "tests/frontend/checks/public/check-public-dom-diff-hydration.mjs",
+            "sourceDigest": "sha256:1bd34982ece8f5bd453fb8105fdb84869f4d0bcbd488cf0fc8a02e071e68ece7",
+            "expressionDigest": "sha256:afcf373daa2aae75152b01b2a36211a021142d68677f0e9e78db1a33b168befc",
+            "kind": "runtime-module-path",
+            "dependencies": []
+        },
+        {
+            "owner": "tests/frontend/checks/public/check-public-payload-fixture-matrix.mjs",
+            "sourceDigest": "sha256:04bcc4043d6eea3c8bd2510053941d1338223a887e74bc8c76462e70c4a83cf0",
+            "expressionDigest": "sha256:afcf373daa2aae75152b01b2a36211a021142d68677f0e9e78db1a33b168befc",
+            "kind": "runtime-module-path",
+            "dependencies": []
+        },
+        {
+            "owner": "tests/frontend/checks/public/check-public-refresh-hydration.mjs",
+            "sourceDigest": "sha256:b636ca1695c52864a306ea478cdab891df618ec6fbc296bad8ecd8d2fba2b47b",
+            "expressionDigest": "sha256:73a50f9b58d28bea5109f53e679014ac671d200280c25902e8ea8a3ba89dfa47",
+            "kind": "runtime-module-path",
+            "dependencies": []
+        },
+        {
+            "owner": "tests/frontend/checks/public/check-public-aot-contracts.mjs",
+            "sourceDigest": "sha256:54b65c9dc4b4d33386ab22cfa927fb999229803327de7fa6d12594710a7cfe89",
+            "expressionDigest": "sha256:d38164c3d6ee3779ea55ddc4f1073dedc7179c07fb05a86ec3eb070a18ffc2b5",
+            "kind": "runtime-module-path",
+            "dependencies": []
+        },
+        {
+            "owner": "tests/frontend/checks/security/run-production-xss-matrix.mjs",
+            "sourceDigest": "sha256:69a85f83f4108c66c2a079a6a3daef47b25c8babf146660bb146515f29b1df3d",
+            "expressionDigest": "sha256:ee2216b070eec8dd8458d021bcebb1d8dc4291ec9bdb1f7ff7998f0cf400fce9",
+            "kind": "runtime-module-path",
+            "dependencies": []
+        },
+        {
+            "owner": "tests/tools/support/esm-fixture-materializer-contracts.mjs",
+            "sourceDigest": "sha256:239695169a167e17fc833ea117680c33112e4aeb8d1af9a8304951aa05258420",
+            "expressionDigest": "sha256:ec58a925e48d29321a22b3361868a84014c0f98f028864401c4901e72032b95e",
+            "kind": "runtime-module-path",
+            "dependencies": []
+        },
+        {
+            "owner": "tests/frontend/checks/perf/check-aeds-decode-budget.mjs",
+            "sourceDigest": "sha256:fa94b68ec03fa7f49b983273b328cba876896293c9936b824a3b80bc02568803",
+            "expressionDigest": "sha256:6bcda93dac4d340f242c1dd1631811f66fe02c0a93ae0c036b3b610b969ad83f",
+            "kind": "runtime-module-path",
+            "dependencies": []
+        },
+        {
+            "owner": "tests/tools/browser-diagnostics.test.mjs",
+            "sourceDigest": "sha256:d525fac2667e8598b2c00bf5905ab5fca70b90710baa08975a7baa2add812584",
+            "expressionDigest": "sha256:deffbddebe5703e5d88231c4e7d7774de0465987d34ef81a927f2a318af5508f",
+            "kind": "runtime-module-path",
+            "dependencies": []
+        },
+        {
+            "owner": "tests/tools/test-matrix-scheduler.test.mjs",
+            "sourceDigest": "sha256:afb1f498837d8b5adeed642a24d7ce39d5c361d9c72d3233aa700597fbf1d19a",
+            "expressionDigest": "sha256:cd0f6f18cd48975d66d1397c07ba1992a1ba9d19de12ebcacf870df5020fbcf7",
+            "kind": "runtime-module-path",
+            "dependencies": []
+        },
+        {
+            "owner": "tests/frontend/support/auth-helpers.mjs",
+            "sourceDigest": "sha256:de7e543f8b915255829d458b0d5e0ef1c3f9a72972986beec5e9ad6493900e14",
+            "expressionDigest": "sha256:692197343e4c2a12f93213cb096cb462f9bae007f0c7911edab31668b2b85c2e",
+            "kind": "runtime-module-path",
+            "dependencies": []
+        },
+        {
+            "owner": "tools/fact-extractors/registry.mjs",
+            "sourceDigest": "sha256:c7540a6c8876add884bc14af8b064e29aaa9e3799455db0d85a0bbb873f4b4dc",
+            "expressionDigest": "sha256:0e0efc0a79ad2f28e031ffdeb179571a8c2fa6b4dd9abf8f714b3552c0578fc6",
+            "kind": "runtime-module-path",
+            "dependencies": [
+                "config/contracts/behavior-fact-extractors.json"
+            ]
+        },
+        {
+            "owner": "tests/frontend/checks/perf/markdown-preview-release-performance.mjs",
+            "sourceDigest": "sha256:d3b7f37db3e40d220eef1e279326720248526adee19f050d1c66b007eb9b69b6",
+            "expressionDigest": "sha256:d31120b870c1448b139136d1d8e0787ce534923dc5a89ee1d8ecde0c9b9cfe36",
+            "kind": "runtime-module-path",
+            "dependencies": []
+        },
+        {
+            "owner": "tools/test/produce-release-domain-receipt.mjs",
+            "sourceDigest": "sha256:ea5822c3b29a81e2ab6451e928c06808f9212c5bca279fec266af9b8591fef52",
+            "expressionDigest": "sha256:a75553fd50aec5a8f66c6bbf529aa58c6ee8f872b7661bef08f5209966423fea",
+            "kind": "runtime-module-path",
+            "dependencies": [
+                "tools/test-matrix/evidence-projection.mjs"
+            ]
+        },
+        {
+            "owner": "tools/test/produce-release-domain-receipt.mjs",
+            "sourceDigest": "sha256:ea5822c3b29a81e2ab6451e928c06808f9212c5bca279fec266af9b8591fef52",
+            "expressionDigest": "sha256:9abae10755b614554426c17a2709839992582d9f6ddd1935d84a28ca94cf6af0",
+            "kind": "runtime-module-path",
+            "dependencies": [
+                "tools/test-matrix/release-domain-evidence.mjs"
+            ]
+        },
+        {
+            "owner": "tools/security/run-wasm-fuzz.mjs",
+            "sourceDigest": "sha256:f3cb9c3017fa225fb21a07fe24b82aed315e29d344abcc1916e171f76bc65dc7",
+            "expressionDigest": "sha256:f055f840e94546dea1b8f9879fe3ef469684a796d9d009f61201292365a6cd5e",
+            "kind": "runtime-module-path",
+            "dependencies": []
+        },
+        {
+            "owner": "tools/test/project-evidence.mjs",
+            "sourceDigest": "sha256:f55079eab20f8a1346d8c60ae4ad2f93155365b979e503eb440c9aa33a11d7de",
+            "expressionDigest": "sha256:2d978ccf318a89ccc9caaf5dcd8783493329775bfcfb5f8bc6af735d36270792",
+            "kind": "runtime-module-path",
+            "dependencies": [
+                "tools/test-matrix/evidence-projection.mjs"
+            ]
+        },
+        {
+            "owner": "tools/test/project-evidence.mjs",
+            "sourceDigest": "sha256:f55079eab20f8a1346d8c60ae4ad2f93155365b979e503eb440c9aa33a11d7de",
+            "expressionDigest": "sha256:14a8a27dd17f1c64a696d49ba1c7d3ed5016d895a36ffef4d12f57eed36c3f4a",
+            "kind": "runtime-module-path",
+            "dependencies": [
+                "tools/test-matrix/content-addressed-evidence-store.mjs"
+            ]
+        },
+        {
+            "owner": "tools/test/project-evidence.mjs",
+            "sourceDigest": "sha256:f55079eab20f8a1346d8c60ae4ad2f93155365b979e503eb440c9aa33a11d7de",
+            "expressionDigest": "sha256:6befae9f66f6948aa015bd556c60361139616487998a2af088234872b1c80b92",
+            "kind": "runtime-module-path",
+            "dependencies": [
+                "tools/test-matrix/release-domain-evidence.mjs"
+            ]
+        },
+        {
+            "owner": "tools/test/write-release-domain-assertion-report.mjs",
+            "sourceDigest": "sha256:ee87dbeb0a1e6fa1e49d3036fdd2b362ee6a1acccf7c19d04246c85ae829f12b",
+            "expressionDigest": "sha256:a75553fd50aec5a8f66c6bbf529aa58c6ee8f872b7661bef08f5209966423fea",
+            "kind": "runtime-module-path",
+            "dependencies": [
+                "tools/test-matrix/evidence-projection.mjs"
+            ]
+        },
+        {
+            "owner": "tools/test/project-rights-v3-evidence.mjs",
+            "sourceDigest": "sha256:df0bb0006eaa9274a74eeacdbbf5d881c1129a6238395b8e7d6e5aac95e47ba7",
+            "expressionDigest": "sha256:7eeed7b15dbdab326cc719628f7bb0051823b5ca3ab718af7a07ffe45719ceeb",
+            "kind": "runtime-module-path",
+            "dependencies": [
+                "tools/test-matrix/rights-v3-projection.mjs"
+            ]
+        }
+    ],
+    "declarationsDigest": "sha256:121306e0eaabc50afac57324c1c237d90a45f8a8ebbaf1ac27adc1927c47328b",
+    "targetPathsDigest": "sha256:83093e2f4fb4e5694d326e890436ff842df2d7b6174a023675a5819531d9a803",
+    "producer": "node tools/test-matrix/generate-release-final-execution-authority.mjs"
+}
