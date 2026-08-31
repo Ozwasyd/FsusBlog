@@ -98,8 +98,14 @@ export function createPostRuntimeCandidateFixture(context, {
   const typedIdentity = observationSchema.properties?.sourceState?.properties?.runtimeId !== undefined
   const candidateContext = produceCandidateContext({
     preRuntimeReceipt: relative(preFile), runId, attemptId: 'attempt-0001',
-    candidate: typedIdentity && candidate.releaseId === undefined
-      ? { ...candidate, releaseId: `20260830123456-${commit.slice(0, 12)}` }
+    candidate: typedIdentity
+      ? {
+          ...candidate,
+          candidateId: `${runId}:candidate`, runtimeId: `${runId}:runtime`,
+          browserId: `${runId}:browser-contract`, fixtureId: `${runId}:fixture`,
+          rolloutId: `${runId}:rollout`,
+          releaseId: candidate.releaseId ?? `20260830123456-${commit.slice(0, 12)}`
+        }
       : candidate,
     repositoryRoot: root
   })

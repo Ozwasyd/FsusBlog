@@ -248,6 +248,7 @@ export function projectProbeRaw({ candidatePlan, probeReceipt, repositoryRoot = 
     ...observationEnvelopeAuthorityFields({ plan, candidatePlanRef: planInput.ref, repositoryRoot }),
     sourceReceiptRef: observationSourceReceipt({
       classId: probe.kind, plan, sourceState, upstreamRef: probeInput.ref,
+      upstreamSchema: probeInput.value.schema,
       canonicalRerunCommand, independentVerifyCommand, repositoryRoot
     }),
     canonicalRerunCommand,
