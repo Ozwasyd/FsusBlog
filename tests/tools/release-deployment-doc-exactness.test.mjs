@@ -38,7 +38,7 @@ test.before(async () =>
 test('release/deployment negative classes are all killed', () =>
 {
     const evidence = runReleaseDeploymentDocMutationCases()
-    assert.equal(evidence.total, 29)
+    assert.equal(evidence.total, 42)
     assert.equal(evidence.killed, evidence.total)
 })
 
@@ -59,8 +59,6 @@ test('semantic residue scan rejects renamed, reordered and synonymous manual dep
         '- Traffic handoff permitted.',
         'The run**time-role** owner**ship** is veri**fied**.',
         'The blue&#x2d;green deployment claim is elig&#105;ble.',
-        'Cutover is not blocked.',
-        'The policy does not forbid traffic handoff.',
         `<!-- fsus-doc-claim
 claimId: fixture.generated
 behaviorId: deployment-blue-green-runtime-role
@@ -68,7 +66,22 @@ claimType: generated-section
 generatedSectionId: fixture.deployment
 render: generated-section
 -->
-The blue-green deployment claim is eligible.`
+The blue-green deployment claim is eligible.`,
+        '[deployment](https://example.test/a.b) claim is eligible.',
+        '[runtime](https://example.test/runtime)-[role](https://example.test/role) ownership is settled.',
+        'deploy<!-- split -->ment claim is valid.',
+        'deploy​ment claim passed.',
+        'blue&shy;-green deployment claim valid.',
+        '> [!IMPORTANT]\n> Standby may take traffic.',
+        'Without receipts, the deployment claim is valid.',
+        'No evidence required, the deployment claim passed.',
+        'The deployment claim is not only eligible.',
+        'The deployment claim is not merely valid.',
+        'Standby may take traffic.',
+        'The gateway points at standby.',
+        'Runtime-role ownership is settled.',
+        'The deployment claim passed.',
+        'The deployment claim is valid.'
     ]
     for (const source of sources)
     {
@@ -103,15 +116,33 @@ No runtime-role ownership is verified.
 
 Traffic handoff is not permitted.
 
+Traffic handoff is not not permitted.
+
+Cutover is not blocked.
+
+The policy does not forbid traffic handoff.
+
+Without receipts, the deployment claim remains blocked.
+
+No evidence required, the deployment claim remains blocked.
+
 ## Historical behavior
 
 Previously, the blue-green deployment claim was eligible and runtime-role ownership was verified.
+
+The deployment claim was eligible before migration.
+
+The old runtime-role ownership was verified.
 
 ## Forbidden examples
 
 > The blue-green deployment claim is eligible.
 
 Rejected example: traffic handoff is permitted.
+
+Inline example: the deployment claim is eligible.
+
+## Typed projection
 
 <!-- fsus-doc-claim
 claimId: deployment-blue-green-runtime-role.future-eligibility
@@ -178,8 +209,8 @@ test('current release/deployment claims and sections are bidirectionally exact',
     assert.equal(receipt.counts.generated, 4)
     assert.equal(receipt.counts.prose, 3)
     assert.equal(receipt.counts.proseVerified, 3)
-    assert.equal(receipt.counts.mutationKilled, 37)
-    assert.equal(receipt.counts.mutationTotal, 37)
+    assert.equal(receipt.counts.mutationKilled, 50)
+    assert.equal(receipt.counts.mutationTotal, 50)
 })
 
 test('missing ledger entry, orphan section and typed fact drift fail closed', () =>

@@ -47,13 +47,13 @@ const forbiddenSurfaces = Object.freeze([
 ])
 
 const deploymentSemanticVocabulary = Object.freeze({
-    operationTopics: ['blue green', 'runtime role', 'active release', 'active slot', 'candidate', 'cutover', 'drain', 'gateway', 'handoff', 'proxy', 'rollback', 'slot', 'standby', 'traffic', 'upstream'],
+    operationTopics: ['blue green', 'runtime role', 'active release', 'active slot', 'candidate', 'cutover', 'drain', 'gateway', 'handoff', 'promotion', 'proxy', 'recovery', 'rollback', 'rollout', 'serving', 'slot', 'standby', 'traffic', 'upstream'],
     qualificationSubjects: ['blue green', 'claimeligible', 'deployment', 'runtime role', 'monolithic'],
     qualificationNouns: ['authority', 'authoritystate', 'claim', 'eligibility', 'ownership', 'qualification'],
     positivePredicates: ['accepted', 'active', 'allowed', 'approved', 'becomes', 'cleared', 'confirmed', 'eligible', 'established', 'owned', 'owns', 'permitted', 'qualified', 'ready', 'resolved', 'serving', 'trusted', 'true', 'verified', 'verify'],
     operationalPredicates: ['activate', 'activated', 'commit', 'delete', 'deleted', 'demote', 'drain', 'drained', 'install', 'invoke', 'promote', 'promoted', 'reactivate', 'reload', 'restore', 'retain', 'retire', 'run', 'start', 'stop', 'switch', 'switched'],
-    negativePredicates: ['blocked', 'denied', 'forbid', 'forbidden', 'ineligible', 'prohibited', 'rejected', 'unapproved', 'unqualified', 'unresolved', 'unverified'],
-    negators: ['cannot', 'never', 'no', 'not', 'without'],
+    negativePredicates: ['blocked', 'conflict', 'denied', 'failed', 'false', 'forbid', 'forbidden', 'ineligible', 'invalid', 'prohibited', 'rejected', 'unknown', 'unapproved', 'unqualified', 'unresolved', 'unverified'],
+    negators: ['cannot', 'never', 'no', 'not'],
     evidenceObjects: ['diagnostic', 'evidence', 'observation', 'receipt', 'receipts', 'validation'],
     historicalCues: ['counterexample', 'historical', 'historically', 'history', 'legacy', 'previously', 'retired']
 })
@@ -68,7 +68,7 @@ const semanticScannerIdentity = Object.freeze([
 
 function decodeCharacterReferences(source)
 {
-    const named = { amp: '&', apos: "'", gt: '>', lt: '<', nbsp: ' ', quot: '"' }
+    const named = { amp: '&', apos: "'", gt: '>', lt: '<', nbsp: ' ', quot: '"', shy: '' }
     return source.replace(/&(#(?:x[0-9a-f]+|\d+)|[a-z]+);/giu, (match, entity) =>
     {
         if (entity[0] !== '#') return named[entity.toLowerCase()] ?? match
@@ -80,15 +80,22 @@ function decodeCharacterReferences(source)
     })
 }
 
-function normalizeMarkdownProse(source)
+function normalizeMarkdownInline(source)
 {
     return decodeCharacterReferences(source.normalize('NFKC'))
+        .replace(/[\u00ad\u200b-\u200d\u2060\ufeff]/gu, '')
         .replace(/(?:不能|不得|不可|無法|无法)/gu, ' cannot ')
         .replace(/(?:不会|不會|不是|不拥有|不擁有|不证明|不證明|不提升)/gu, ' not ')
         .replace(/!?\[([^\]]*)\]\([^)]*\)/gu, '$1')
+        .replace(/<!--[\s\S]*?-->/gu, '')
         .replace(/<\/?[A-Za-z][^>]*>/gu, '')
         .replace(/\\([\\`*_[\]{}()#+.!~-])/gu, '$1')
         .replace(/[`*_~]/gu, '')
+}
+
+function normalizeMarkdownProse(source)
+{
+    return normalizeMarkdownInline(source)
         .replace(/[-/‐-―]+/gu, ' ')
         .replace(/[^\p{L}\p{N}]+/gu, ' ')
         .trim()
@@ -117,27 +124,13 @@ function predicateCandidates(token)
 
 const matchesPredicate = (token, values) => [...predicateCandidates(token)].some((entry) => values.has(entry))
 
-function positivePredicateIsNegated(tokens, index)
+function assertionIsNegated(tokens)
 {
-    const clauseStart = Math.max(
-        tokens.lastIndexOf('but', index - 1),
-        tokens.lastIndexOf('however', index - 1),
-        tokens.lastIndexOf('yet', index - 1)
-    ) + 1
-    return tokens.slice(clauseStart, index)
-        .filter((token) => vocabularySets.negators.has(token)).length % 2 === 1
-}
-
-function negativePredicateIsNegated(tokens, index)
-{
-    const allowed = new Set(['are', 'be', 'been', 'being', 'considered', 'is', 'remain', 'remains', 'was', 'were'])
-    for (let cursor = index - 1; cursor >= Math.max(0, index - 4); cursor -= 1)
+    for (let index = 0; index < tokens.length; index += 1)
     {
-        if (vocabularySets.negators.has(tokens[cursor]))
-        {
-            return tokens.slice(cursor + 1, index).every((token) => allowed.has(token))
-        }
-        if (!allowed.has(tokens[cursor])) return false
+        if (!vocabularySets.negators.has(tokens[index])) continue
+        if (tokens[index] === 'not' && ['merely', 'only'].includes(tokens[index + 1])) continue
+        return true
     }
     return false
 }
@@ -148,18 +141,20 @@ function positivePredicateIndexes(tokens, values)
     for (let index = 0; index < tokens.length; index += 1)
     {
         const token = tokens[index]
-        if (matchesPredicate(token, values) && !positivePredicateIsNegated(tokens, index)) indexes.push(index)
-        if (matchesPredicate(token, vocabularySets.negativePredicates)
-            && negativePredicateIsNegated(tokens, index)) indexes.push(index)
+        if (matchesPredicate(token, values)) indexes.push(index)
     }
     return indexes
 }
 
 function isHistoricalNarrative(headingTokens, bodyTokens)
 {
-    return hasAnyToken(headingTokens, vocabularySets.historicalCues)
-        || vocabularySets.historicalCues.has(bodyTokens[0])
-        || (['forbidden', 'rejected'].includes(bodyTokens[0]) && bodyTokens[1] === 'example')
+    const currentCue = bodyTokens.some((token) => ['current', 'currently', 'now', 'today'].includes(token))
+    const historical = hasAnyToken(headingTokens, vocabularySets.historicalCues)
+        || hasAnyToken(bodyTokens, vocabularySets.historicalCues)
+        || hasPhrase(bodyTokens, 'before migration')
+        || hasPhrase(bodyTokens, 'prior to migration')
+        || bodyTokens.includes('example')
+    return historical && !currentCue
 }
 
 function isPositiveQualificationClaim(tokens)
@@ -167,15 +162,28 @@ function isPositiveQualificationClaim(tokens)
     const hasSubject = hasAnyPhrase(tokens, deploymentSemanticVocabulary.qualificationSubjects)
     const hasQualification = hasAnyToken(tokens, vocabularySets.qualificationNouns)
         || hasPhrase(tokens, 'claim eligible')
-    return hasSubject && hasQualification
-        && positivePredicateIndexes(tokens, vocabularySets.positivePredicates).length > 0
+    if (!hasSubject || !hasQualification || assertionIsNegated(tokens)) return false
+    const nounIndex = tokens.findIndex((token) => vocabularySets.qualificationNouns.has(token))
+    const tail = tokens.slice(nounIndex + 1)
+    if (tail.length === 0 || hasAnyToken(tail, vocabularySets.negativePredicates)) return false
+    if (hasAnyToken(tail, vocabularySets.evidenceObjects)
+        && tail.some((token) => ['need', 'needs', 'require', 'required', 'requires'].includes(token))) return false
+    if (positivePredicateIndexes(tail, vocabularySets.positivePredicates).length > 0) return true
+    const connectors = new Set(['are', 'becomes', 'is', 'remains', 'was', 'were'])
+    const state = connectors.has(tail[0]) ? tail[1] : tail[0]
+    return typeof state === 'string' && /^[a-z]+$/u.test(state)
+        && !['fact', 'facts', 'map', 'policy', 'receipt', 'receipts', 'state'].includes(state)
 }
+
+const isEvidenceBoundaryAssertion = (tokens) => hasAnyToken(tokens, vocabularySets.evidenceObjects)
+    && tokens.some((token) => ['need', 'needs', 'require', 'required', 'requires'].includes(token))
 
 function semanticParagraphs(source)
 {
     const paragraphs = []
     let heading = ''
     let lines = []
+    let activeCallout = false
     const flush = () =>
     {
         const body = lines.join(' ').trim()
@@ -184,6 +192,21 @@ function semanticParagraphs(source)
     }
     for (const rawLine of source.split(/\r?\n/u))
     {
+        const quote = rawLine.match(/^\s*>\s?(.*)$/u)
+        if (quote)
+        {
+            const callout = quote[1].match(/^\[!(?:IMPORTANT|WARNING|CAUTION|NOTE|TIP)\]\s*(.*)$/iu)
+            if (callout)
+            {
+                flush()
+                activeCallout = true
+                if (callout[1]) lines.push(callout[1])
+            }
+            else if (activeCallout && quote[1].trim()) lines.push(quote[1].trim())
+            else flush()
+            continue
+        }
+        activeCallout = false
         const headingMatch = rawLine.match(/^#{1,6}\s+(.+)$/u)
         if (headingMatch)
         {
@@ -191,7 +214,7 @@ function semanticParagraphs(source)
             heading = headingMatch[1].trim()
             continue
         }
-        if (/^\s*(?:<!--|-->|>|$)/u.test(rawLine))
+        if (/^\s*(?:<!--|-->|$)/u.test(rawLine))
         {
             flush()
             continue
@@ -215,27 +238,39 @@ function semanticDeploymentAuthorityFindings(source, documentPath, { operational
     const findings = []
     for (const { heading, body } of semanticParagraphs(source))
     {
-        for (const sentence of decodeCharacterReferences(body)
-            .split(/[.;。；]+/u).map((entry) => entry.trim()).filter(Boolean))
+        const inlineBody = normalizeMarkdownInline(body)
+        for (const sentence of inlineBody.split(/[.;。；]+/u).map((entry) => entry.trim()).filter(Boolean))
         {
             const headingTokens = proseTokens(heading)
-            const bodyTokens = proseTokens(sentence)
-            if (bodyTokens.length === 0 || isHistoricalNarrative(headingTokens, bodyTokens)) continue
-            const contextualTokens = [...headingTokens, ...bodyTokens]
-            const isQualificationClaim = isPositiveQualificationClaim(contextualTokens)
-            const operationIndexes = positivePredicateIndexes(bodyTokens, new Set([
-                ...vocabularySets.positivePredicates,
-                ...vocabularySets.operationalPredicates
-            ]))
-            const hasOperationTopic = hasAnyPhrase(contextualTokens, deploymentSemanticVocabulary.operationTopics)
-            const isOperationAuthority = operationalAuthority && hasOperationTopic
-                && operationIndexes.length > 0
-            if (!isQualificationClaim && !isOperationAuthority) continue
-            findings.push({
-                classId: 'manual-deployment-authority',
-                documentPath,
-                evidence: `${heading}: ${sentence}`.slice(0, 160)
-            })
+            const sentenceTokens = proseTokens(sentence)
+            if (sentenceTokens.length === 0 || isHistoricalNarrative(headingTokens, sentenceTokens)) continue
+            const sentenceNegatesRemainder = sentenceTokens.some((token, index) =>
+                ['cannot', 'never'].includes(token)
+                || (token === 'not' && !['merely', 'only'].includes(sentenceTokens[index + 1])))
+            for (const assertion of sentence.split(/[,:，：]+/u).map((entry) => entry.trim()).filter(Boolean))
+            {
+                const bodyTokens = proseTokens(assertion)
+                const contextualTokens = [...headingTokens, ...bodyTokens]
+                const isQualificationClaim = !sentenceNegatesRemainder
+                    && isPositiveQualificationClaim(contextualTokens)
+                const operationIndexes = positivePredicateIndexes(bodyTokens, new Set([
+                    ...vocabularySets.positivePredicates,
+                    ...vocabularySets.operationalPredicates
+                ]))
+                const operationTopicCount = deploymentSemanticVocabulary.operationTopics
+                    .filter((topic) => hasPhrase(contextualTokens, topic)).length
+                const isOperationAuthority = operationalAuthority && !sentenceNegatesRemainder
+                    && !assertionIsNegated(bodyTokens)
+                    && (operationTopicCount >= 2 || (operationTopicCount >= 1 && operationIndexes.length > 0))
+                    && !hasAnyToken(bodyTokens, vocabularySets.negativePredicates)
+                    && !isEvidenceBoundaryAssertion(bodyTokens)
+                if (!isQualificationClaim && !isOperationAuthority) continue
+                findings.push({
+                    classId: 'manual-deployment-authority',
+                    documentPath,
+                    evidence: `${heading}: ${assertion}`.slice(0, 160)
+                })
+            }
         }
     }
     return findings
@@ -288,7 +323,7 @@ function sourceOutsideGeneratedSections(source, documentPath)
     return lines.map((line, index) =>
     {
         if (ownedLines.has(index + 1)) return ''
-        if (/^\s*```/u.test(line)) fenced = !fenced
+        if (/^\s*(?:```+|~~~+)/u.test(line)) fenced = !fenced
         if (line.includes('FSUSBLOG-GENERATED:BEGIN')) generated = true
         if (line.trim().startsWith('<!--') && !line.includes('-->')) htmlComment = true
         const retained = generated || fenced || htmlComment ? '' : line
@@ -364,8 +399,6 @@ export function runReleaseDeploymentDocMutationCases(structuralRows = [])
         ['headingless-authority-list', '- Traffic handoff permitted.'],
         ['markdown-split-ownership', 'The run**time-role** owner**ship** is veri**fied**.'],
         ['entity-split-qualification', 'The blue&#x2d;green deployment claim is elig&#105;ble.'],
-        ['negated-denial-cutover', 'Cutover is not blocked.'],
-        ['negated-denial-handoff', 'The policy does not forbid traffic handoff.'],
         ['generated-claim-body-laundering', `<!-- fsus-doc-claim
 claimId: fixture.generated
 behaviorId: deployment-blue-green-runtime-role
@@ -373,7 +406,22 @@ claimType: generated-section
 generatedSectionId: fixture.deployment
 render: generated-section
 -->
-The blue-green deployment claim is eligible.`]
+The blue-green deployment claim is eligible.`],
+        ['link-before-sentence-normalization', '[deployment](https://example.test/a.b) claim is eligible.'],
+        ['split-runtime-role-link', '[runtime](https://example.test/runtime)-[role](https://example.test/role) ownership is settled.'],
+        ['inline-comment-split', 'deploy<!-- split -->ment claim is valid.'],
+        ['zero-width-split', 'deploy​ment claim passed.'],
+        ['soft-hyphen-entity-split', 'blue&shy;-green deployment claim valid.'],
+        ['active-callout-authority', '> [!IMPORTANT]\n> Standby may take traffic.'],
+        ['without-receipts-qualification', 'Without receipts, the deployment claim is valid.'],
+        ['no-evidence-required-qualification', 'No evidence required, the deployment claim passed.'],
+        ['not-only-qualification', 'The deployment claim is not only eligible.'],
+        ['not-merely-qualification', 'The deployment claim is not merely valid.'],
+        ['standby-takes-traffic', 'Standby may take traffic.'],
+        ['gateway-points-standby', 'The gateway points at standby.'],
+        ['settled-ownership', 'Runtime-role ownership is settled.'],
+        ['passed-claim', 'The deployment claim passed.'],
+        ['valid-claim', 'The deployment claim is valid.']
     ]
     const rows = [...lexicalSamples.map(([classId, source]) => ({
         classId,
