@@ -16,8 +16,9 @@
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
+import { createRequire, isBuiltin } from 'node:module'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { digestValue, isPlainObject } from '../fact-extractors/lib/canonicalize.mjs'
 import { parseMatrix } from './parse-matrix.mjs'
@@ -29,6 +30,7 @@ export const observationEnvelopeSchema = 'fsusblog.post-runtime-observation-resu
 export const acceptedClaimsSchema = 'fsusblog.post-runtime-accepted-claims.v1'
 export const globalExactnessSchema = 'fsusblog.global-claim-exactness-terminal-receipt.v1'
 export const identityAuthoritySchema = 'fsusblog.post-runtime-identity-authority.v1'
+export const sourceReceiptSchema = 'fsusblog.post-runtime-source-receipt.v1'
 
 const observationEnvelopeSchemaRelative = 'config/schemas/post-runtime-observation-result.schema.json'
 const acceptedClaimsSchemaRelative = 'config/schemas/post-runtime-accepted-claims.schema.json'
@@ -45,7 +47,45 @@ const identityRoles = Object.freeze(['plan', 'attempt', 'fixture', 'profile'])
 const stableIdentityPattern = /^[a-z][a-z0-9-]{2,127}$/u
 const runIdentityPattern = /^(?!\.{1,2}$)[A-Za-z0-9_](?:[A-Za-z0-9_.-]{0,126}[A-Za-z0-9_])?$/u
 const attemptIdentityPattern = /^attempt-[0-9]{4}$/u
+const releaseIdentityPattern = /^[0-9]{14}-[a-f0-9]{12}$/u
 const readerFirewallEntry = 'tools/test-matrix/post-runtime-producer-registry.mjs'
+const acornDependencyParser = String.raw`
+const acorn = require('internal/deps/acorn/acorn/dist/acorn')
+let source = ''
+process.stdin.setEncoding('utf8')
+process.stdin.on('data', (chunk) => { source += chunk })
+process.stdin.on('end', () => {
+    const sourceType = process.argv[1]
+    const ast = acorn.parse(source, { ecmaVersion: 'latest', sourceType, allowHashBang: true })
+    const dependencies = []
+    const literal = (node) => node?.type === 'Literal' && typeof node.value === 'string'
+    const add = (kind, node) => {
+        if (!literal(node)) throw new Error('non-literal ' + kind + ' dependency')
+        dependencies.push({ kind, specifier: node.value })
+    }
+    const walk = (node) => {
+        if (!node || typeof node !== 'object') return
+        if (node.type === 'ImportDeclaration') add('import', node.source)
+        else if ((node.type === 'ExportNamedDeclaration' || node.type === 'ExportAllDeclaration') && node.source)
+            add('import', node.source)
+        else if (node.type === 'ImportExpression') add('import', node.source)
+        else if (node.type === 'CallExpression' && node.callee?.type === 'Identifier'
+            && node.callee.name === 'require')
+        {
+            if (node.arguments.length !== 1) throw new Error('require() must have exact-one argument')
+            add('require', node.arguments[0])
+        }
+        for (const [key, value] of Object.entries(node))
+        {
+            if (key === 'start' || key === 'end') continue
+            if (Array.isArray(value)) value.forEach(walk)
+            else walk(value)
+        }
+    }
+    walk(ast)
+    process.stdout.write(JSON.stringify(dependencies))
+})
+`
 
 const readJson = (repositoryRoot, relative) =>
     JSON.parse(fs.readFileSync(path.join(repositoryRoot, relative), 'utf8'))
@@ -89,7 +129,10 @@ export function canonicalRepositoryFile(repositoryRoot, relative, label)
     const absolute = path.resolve(lexicalRoot, relative)
     if (!absolute.startsWith(`${lexicalRoot}${path.sep}`)) fail(`${label} escapes the repository root`)
     const stat = fs.lstatSync(absolute)
-    if (!stat.isFile() || stat.isSymbolicLink()) fail(`${label} must be a regular non-symlink file`)
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1)
+    {
+        fail(`${label} must be a regular non-symlink single-link file`)
+    }
     const real = fs.realpathSync.native(absolute)
     const expectedReal = path.join(realRoot, ...relative.split('/'))
     if (real !== expectedReal || !real.startsWith(`${realRoot}${path.sep}`))
@@ -99,209 +142,162 @@ export function canonicalRepositoryFile(repositoryRoot, relative, label)
     return real
 }
 
-function trackedRepositoryFiles(repositoryRoot)
+function trackedRepositoryEntries(repositoryRoot)
 {
     const { lexicalRoot } = canonicalRepositoryRoot(repositoryRoot)
     let output
     try
     {
-        output = execFileSync('git', ['-C', lexicalRoot, 'ls-files', '-z'], {
+        execFileSync('git', ['-C', lexicalRoot, 'diff-index', '--cached', '--quiet', 'HEAD', '--'], {
+            encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']
+        })
+        output = execFileSync('git', ['-C', lexicalRoot, 'ls-files', '--stage', '-z'], {
             encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']
         })
     }
     catch (error)
     {
-        fail(`cannot enumerate tracked repository authorities: ${error.stderr?.trim() || error.message}`)
+        fail(`Git HEAD/index authority is not exact-clean: ${error.stderr?.trim() || error.message}`)
     }
-    return output.split('\0').filter(Boolean).map((entry) => entry.replaceAll('\\', '/'))
+    const entries = output.split('\0').filter(Boolean).map((record) =>
+    {
+        const separator = record.indexOf('\t')
+        const metadata = separator < 0 ? [] : record.slice(0, separator).split(' ')
+        if (metadata.length !== 3 || !/^[0-7]{6}$/u.test(metadata[0])
+            || !/^[a-f0-9]{40,64}$/u.test(metadata[1]) || !/^[0-3]$/u.test(metadata[2]))
+        {
+            fail('Git index contains an invalid tracked entry')
+        }
+        return {
+            mode: metadata[0],
+            oid: metadata[1],
+            stage: Number(metadata[2]),
+            path: record.slice(separator + 1).replaceAll('\\', '/')
+        }
+    })
+    if (entries.some((entry) => entry.stage !== 0)
+        || new Set(entries.map((entry) => entry.path)).size !== entries.length)
+    {
+        fail('Git index must contain exact-one stage-zero entry per tracked path')
+    }
+    return entries
 }
 
-function readStringLiteral(source, start, label)
+function readIndexBlobs(repositoryRoot, entries)
 {
-    const quote = source[start]
-    let value = ''
-    let index = start + 1
-    const simpleEscapes = new Map([
-        ['b', '\b'], ['f', '\f'], ['n', '\n'], ['r', '\r'], ['t', '\t'], ['v', '\v'],
-        ['0', '\0'], ['\\', '\\'], ['\'', '\''], ['"', '"']
-    ])
-    const readHex = (length, kind) =>
+    const objectIds = [...new Set(entries
+        .filter((entry) => entry.mode === '100644' || entry.mode === '100755' || entry.mode === '120000')
+        .map((entry) => entry.oid))]
+    const output = execFileSync('git', ['-C', repositoryRoot, 'cat-file', '--batch'], {
+        input: `${objectIds.join('\n')}\n`, maxBuffer: 256 * 1024 * 1024
+    })
+    const blobs = new Map()
+    let offset = 0
+    for (const requested of objectIds)
     {
-        const digits = source.slice(index, index + length)
-        if (!new RegExp(`^[a-fA-F0-9]{${length}}$`, 'u').test(digits))
+        const headerEnd = output.indexOf(0x0a, offset)
+        if (headerEnd < 0) fail(`Git index blob ${requested} has no batch header`)
+        const header = output.subarray(offset, headerEnd).toString('utf8').split(' ')
+        const size = Number(header[2])
+        if (header[0] !== requested || header[1] !== 'blob' || !Number.isSafeInteger(size) || size < 0)
         {
-            fail(`${label} contains an invalid ${kind} escape in a module string`)
+            fail(`Git index object ${requested} is not an exact blob`)
         }
-        index += length
-        return Number.parseInt(digits, 16)
+        const start = headerEnd + 1
+        const end = start + size
+        if (output[end] !== 0x0a) fail(`Git index blob ${requested} has an invalid batch boundary`)
+        blobs.set(requested, output.subarray(start, end))
+        offset = end + 1
     }
-    while (index < source.length)
-    {
-        const current = source[index]
-        if (current === quote) return { value, next: index + 1 }
-        if (current === '\n' || current === '\r') fail(`${label} contains a newline in a string literal`)
-        if (current !== '\\')
-        {
-            value += current
-            index += 1
-            continue
-        }
-        index += 1
-        const escaped = source[index]
-        if (escaped === undefined) break
-        if (escaped === '\n') { index += 1; continue }
-        if (escaped === '\r')
-        {
-            index += source[index + 1] === '\n' ? 2 : 1
-            continue
-        }
-        if (escaped === 'x')
-        {
-            index += 1
-            value += String.fromCharCode(readHex(2, 'hexadecimal'))
-            continue
-        }
-        if (escaped === 'u')
-        {
-            index += 1
-            if (source[index] === '{')
-            {
-                const end = source.indexOf('}', index + 1)
-                const digits = end < 0 ? '' : source.slice(index + 1, end)
-                if (!/^[a-fA-F0-9]{1,6}$/u.test(digits))
-                {
-                    fail(`${label} contains an invalid Unicode code-point escape in a module string`)
-                }
-                const codePoint = Number.parseInt(digits, 16)
-                if (codePoint > 0x10ffff) fail(`${label} contains an out-of-range Unicode escape`)
-                value += String.fromCodePoint(codePoint)
-                index = end + 1
-            }
-            else
-            {
-                value += String.fromCharCode(readHex(4, 'Unicode'))
-            }
-            continue
-        }
-        if (/[1-9]/u.test(escaped) || (escaped === '0' && /[0-9]/u.test(source[index + 1] ?? '')))
-        {
-            fail(`${label} contains a forbidden legacy numeric escape in a module string`)
-        }
-        value += simpleEscapes.get(escaped) ?? escaped
-        index += 1
-    }
-    fail(`${label} contains an unterminated string literal`)
+    if (offset !== output.length) fail('Git index blob batch has trailing data')
+    return blobs
 }
 
-function tokenizeModule(source, label)
+function gitObjectFormat(repositoryRoot)
 {
-    const tokens = []
-    let index = 0
-    const whitespace = /\s/u
-    const identifierStart = /[A-Za-z_$]/u
-    const identifierPart = /[A-Za-z0-9_$]/u
-    while (index < source.length)
-    {
-        const current = source[index]
-        if (whitespace.test(current)) { index += 1; continue }
-        if (current === '/' && source[index + 1] === '/')
-        {
-            index = source.indexOf('\n', index + 2)
-            if (index < 0) break
-            continue
-        }
-        if (current === '/' && source[index + 1] === '*')
-        {
-            const end = source.indexOf('*/', index + 2)
-            if (end < 0) fail(`${label} contains an unterminated block comment`)
-            index = end + 2
-            continue
-        }
-        if (current === '\'' || current === '"')
-        {
-            const literal = readStringLiteral(source, index, label)
-            tokens.push({ type: 'string', value: literal.value })
-            index = literal.next
-            continue
-        }
-        if (current === '`')
-        {
-            index += 1
-            let closed = false
-            while (index < source.length)
-            {
-                if (source[index] === '\\') index += 2
-                else if (source[index] === '`') { index += 1; closed = true; break }
-                else index += 1
-            }
-            if (!closed) fail(`${label} contains an unterminated template literal`)
-            tokens.push({ type: 'template', value: '' })
-            continue
-        }
-        if (identifierStart.test(current))
-        {
-            const start = index
-            index += 1
-            while (index < source.length && identifierPart.test(source[index])) index += 1
-            tokens.push({ type: 'identifier', value: source.slice(start, index) })
-            continue
-        }
-        tokens.push({ type: 'punctuation', value: current })
-        index += 1
-    }
-    return tokens
+    const algorithm = execFileSync('git', ['-C', repositoryRoot, 'rev-parse', '--show-object-format'], {
+        encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']
+    }).trim()
+    if (!['sha1', 'sha256'].includes(algorithm)) fail(`unsupported Git object format ${algorithm}`)
+    return algorithm
 }
 
-function staticModuleSpecifiers(source, label)
+function gitBlobOid(algorithm, bytes)
 {
-    const tokens = tokenizeModule(source, label)
-    const specifiers = []
-    for (let index = 0; index < tokens.length; index += 1)
-    {
-        const token = tokens[index]
-        if (token.type === 'identifier' && token.value === 'require'
-            && tokens[index + 1]?.value === '(')
-        {
-            if (tokens[index + 2]?.type !== 'string') fail(`${label} has a non-literal require()`)
-            specifiers.push(tokens[index + 2].value)
-            continue
-        }
-        if (token.type !== 'identifier' || !['import', 'export'].includes(token.value)) continue
-        if (token.value === 'import' && tokens[index + 1]?.value === '.') continue
-        if (token.value === 'import' && tokens[index + 1]?.value === '(')
-        {
-            if (tokens[index + 2]?.type !== 'string') fail(`${label} has a non-literal dynamic import`)
-            specifiers.push(tokens[index + 2].value)
-            continue
-        }
-        if (tokens[index + 1]?.type === 'string')
-        {
-            specifiers.push(tokens[index + 1].value)
-            continue
-        }
-        for (let cursor = index + 1; cursor < tokens.length && tokens[cursor].value !== ';'; cursor += 1)
-        {
-            if (tokens[cursor].value === 'from' && tokens[cursor + 1]?.type === 'string')
-            {
-                specifiers.push(tokens[cursor + 1].value)
-                break
-            }
-        }
-    }
-    return specifiers
+    return createHash(algorithm).update(`blob ${bytes.length}\0`).update(bytes).digest('hex')
 }
 
-function resolveLocalModule(repositoryRoot, importer, specifier)
+function assertIndexWorktreeIdentity(repositoryRoot, entry, expectedBytes, objectFormat)
 {
-    if (!specifier.startsWith('.')) return null
-    const base = path.posix.normalize(path.posix.join(path.posix.dirname(importer), specifier))
-    const candidates = [base, `${base}.mjs`, `${base}.js`, `${base}.cjs`, path.posix.join(base, 'index.mjs')]
-    const resolved = candidates.find((candidate) => fs.existsSync(path.join(repositoryRoot, candidate)))
-    if (!resolved || resolved === '..' || resolved.startsWith('../'))
+    const absolute = path.join(repositoryRoot, entry.path)
+    let actualBytes
+    if (entry.mode === '120000')
     {
-        fail(`reader import ${specifier} from ${importer} does not resolve inside the repository`)
+        const stat = fs.lstatSync(absolute)
+        if (!stat.isSymbolicLink()) fail(`tracked path ${entry.path} differs from its Git index file type`)
+        actualBytes = Buffer.from(fs.readlinkSync(absolute), 'utf8')
     }
-    return resolved
+    else
+    {
+        const canonical = canonicalRepositoryFile(repositoryRoot, entry.path, `tracked path ${entry.path}`)
+        actualBytes = fs.readFileSync(canonical)
+    }
+    if (!actualBytes.equals(expectedBytes) || gitBlobOid(objectFormat, actualBytes) !== entry.oid)
+    {
+        fail(`tracked path ${entry.path} worktree bytes do not exact-match the Git index blob`)
+    }
+}
+
+function parseExecutableDependencies(source, relative)
+{
+    const sourceType = relative.endsWith('.cjs') ? 'script' : 'module'
+    try
+    {
+        return JSON.parse(execFileSync(process.execPath, [
+            '--expose-internals', '--input-type=commonjs', '--eval', acornDependencyParser, sourceType
+        ], { input: source, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }))
+    }
+    catch (error)
+    {
+        fail(`cannot parse executable dependency AST for ${relative}: ${error.stderr?.trim() || error.message}`)
+    }
+}
+
+function resolveExecutableDependency(repositoryRoot, importer, dependency)
+{
+    const specifier = dependency.specifier
+    if (isBuiltin(specifier) || specifier.startsWith('node:')) return null
+    const importerAbsolute = path.join(repositoryRoot, importer)
+    let resolved
+    try
+    {
+        if (dependency.kind === 'require')
+        {
+            resolved = createRequire(pathToFileURL(importerAbsolute)).resolve(specifier)
+        }
+        else
+        {
+            const output = execFileSync(process.execPath, [
+                '--experimental-import-meta-resolve', '--input-type=module', '--eval',
+                'process.stdout.write(import.meta.resolve(process.argv[1], process.argv[2]))',
+                specifier, pathToFileURL(importerAbsolute).href
+            ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+            if (output.startsWith('node:') || isBuiltin(output)) return null
+            if (!output.startsWith('file:')) fail(`reader dependency ${specifier} resolves to unsupported ${output}`)
+            resolved = fileURLToPath(output)
+        }
+    }
+    catch (error)
+    {
+        fail(`reader dependency ${specifier} from ${importer} cannot be resolved by Node: ${error.stderr?.trim() || error.message}`)
+    }
+    const { realRoot } = canonicalRepositoryRoot(repositoryRoot)
+    const absolute = path.resolve(resolved)
+    if (!absolute.startsWith(`${realRoot}${path.sep}`))
+    {
+        fail(`reader dependency ${specifier} from ${importer} resolves outside the repository`)
+    }
+    return path.relative(realRoot, absolute).replaceAll(path.sep, '/')
 }
 
 export function validatePostRuntimeReaderFirewall(repositoryRoot = root, entry = readerFirewallEntry)
@@ -319,9 +315,10 @@ export function validatePostRuntimeReaderFirewall(repositoryRoot = root, entry =
             fail(`post-runtime reader import closure reaches forbidden Markdown/DocClaim module ${relative}`)
         }
         const absolute = canonicalRepositoryFile(repositoryRoot, relative, `reader module ${relative}`)
-        for (const specifier of staticModuleSpecifiers(fs.readFileSync(absolute, 'utf8'), relative))
+        const dependencies = parseExecutableDependencies(fs.readFileSync(absolute, 'utf8'), relative)
+        for (const dependency of dependencies)
         {
-            const resolved = resolveLocalModule(repositoryRoot, relative, specifier)
+            const resolved = resolveExecutableDependency(repositoryRoot, relative, dependency)
             if (resolved) pending.push(resolved)
         }
     }
@@ -343,30 +340,25 @@ export function validatePostRuntimeRepositoryAuthority(repositoryRoot = root, {
     {
         fail('post-runtime registry must have exact-one canonical configuration owner')
     }
-    const registryFiles = trackedRepositoryFiles(repositoryRoot)
-        .filter((relative) => relative.endsWith('.json'))
-        .filter((relative) =>
+    const trackedEntries = trackedRepositoryEntries(repositoryRoot)
+    const indexBlobs = readIndexBlobs(repositoryRoot, trackedEntries)
+    const objectFormat = gitObjectFormat(repositoryRoot)
+    const registryFiles = trackedEntries
+        .filter((entry) => indexBlobs.has(entry.oid))
+        .filter((entry) =>
         {
-            const absolute = path.join(repositoryRoot, relative)
-            const stat = fs.lstatSync(absolute)
-            if (stat.isSymbolicLink())
-            {
-                const real = fs.realpathSync.native(absolute)
-                const { realRoot } = canonicalRepositoryRoot(repositoryRoot)
-                if (!real.startsWith(`${realRoot}${path.sep}`))
-                {
-                    fail(`tracked JSON authority candidate ${relative} resolves outside the repository`)
-                }
-            }
+            const bytes = indexBlobs.get(entry.oid)
+            assertIndexWorktreeIdentity(repositoryRoot, entry, bytes, objectFormat)
             try
             {
-                return JSON.parse(fs.readFileSync(absolute, 'utf8'))?.schema === postRuntimeRegistrySchema
+                return JSON.parse(bytes.toString('utf8'))?.schema === postRuntimeRegistrySchema
             }
             catch
             {
                 return false
             }
         })
+        .map((entry) => entry.path)
         .sort()
     assertExactSet(registryFiles, [registryRelative], 'post-runtime registry authority paths')
     if (validateReaderFirewall) validatePostRuntimeReaderFirewall(repositoryRoot)
@@ -470,6 +462,14 @@ export function validatePostRuntimeReceiptSchemas(registry, {
     if (observationSchema.$defs?.identityAuthorityRef?.properties?.schema?.const !== identityAuthoritySchema)
     {
         fail('identity authority reference schema drifted')
+    }
+    assertExactSet(observationSchema.$defs?.sourceReceiptRef?.required,
+        ['path', 'fileDigest', 'contentDigest', 'schema', 'role'],
+        'source receipt reference fields')
+    if (observationSchema.$defs?.sourceReceiptRef?.properties?.schema?.const !== sourceReceiptSchema
+        || observationSchema.$defs?.sourceReceiptRef?.properties?.role?.const !== 'source')
+    {
+        fail('source receipt reference schema/role drifted')
     }
     assertExactSet(claimsSchema.required, [
         'schema', 'sourceState', 'producerId', 'toolVersion', 'registryDigest',
@@ -816,24 +816,25 @@ function validateTypedSourceState(sourceState, schema, repositoryRoot, producerI
         || !digestPattern.test(sourceState.worktreeFingerprint ?? '')
         || !runIdentityPattern.test(sourceState.runId ?? '')
         || !attemptIdentityPattern.test(sourceState.attemptId ?? '')
-        || !stableIdentityPattern.test(sourceState.fixtureId ?? '')
         || !stableIdentityPattern.test(sourceState.profileId ?? ''))
     {
         fail(`producer ${producerId} receipt source identity is invalid`)
     }
-    for (const digestField of ['buildIdentity', 'artifactDigest', 'runtimeIdentity', 'browserIdentity'])
+    for (const digestField of ['buildIdentity', 'artifactDigest'])
     {
         if (sourceState[digestField] !== undefined && !digestPattern.test(sourceState[digestField]))
         {
             fail(`producer ${producerId} receipt source identity ${digestField} is invalid`)
         }
     }
-    for (const stableField of ['candidateId', 'releaseId', 'rolloutId'])
+    if (sourceState.candidateId !== `${sourceState.runId}:candidate`
+        || sourceState.fixtureId !== `${sourceState.runId}:fixture`
+        || sourceState.runtimeId !== `${sourceState.runId}:runtime`
+        || sourceState.browserIdentity !== `${sourceState.runId}:browser-contract`
+        || sourceState.rolloutId !== `${sourceState.runId}:rollout`
+        || !releaseIdentityPattern.test(sourceState.releaseId ?? ''))
     {
-        if (sourceState[stableField] !== undefined && !stableIdentityPattern.test(sourceState[stableField]))
-        {
-            fail(`producer ${producerId} receipt source identity ${stableField} is invalid`)
-        }
+        fail(`producer ${producerId} receipt scoped candidate/runtime/browser/release identity is invalid`)
     }
     const profileCatalog = readJson(repositoryRoot, fixtureProfileCatalogRelative)
     if (!(profileCatalog.profiles ?? []).some((profile) => profile.id === sourceState.profileId))
@@ -908,6 +909,33 @@ function validateIdentityAuthorityRef(repositoryRoot, ref, expectedRole, sourceS
     }
 }
 
+function validateSourceReceiptRef(repositoryRoot, ref, sourceState, producer, producerId)
+{
+    assertExactKeys(ref, ['path', 'fileDigest', 'contentDigest', 'schema', 'role'],
+        `producer ${producerId} source receipt reference`)
+    if (ref.schema !== sourceReceiptSchema || ref.role !== 'source'
+        || !digestPattern.test(ref.fileDigest ?? '') || !digestPattern.test(ref.contentDigest ?? ''))
+    {
+        fail(`producer ${producerId} source receipt reference is invalid`)
+    }
+    const sourcePath = currentReceiptFile(repositoryRoot, ref.path, `producer ${producerId} source receipt`)
+    const bytes = fs.readFileSync(sourcePath)
+    const fileDigest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`
+    if (ref.fileDigest !== fileDigest) fail(`producer ${producerId} source receipt file digest mismatch`)
+    const sourceReceipt = JSON.parse(bytes.toString('utf8'))
+    assertExactKeys(sourceReceipt,
+        ['schema', 'role', 'producerId', 'toolVersion', 'sourceState', 'contentDigest'],
+        `producer ${producerId} source receipt`)
+    if (sourceReceipt.schema !== sourceReceiptSchema || sourceReceipt.role !== 'source'
+        || sourceReceipt.producerId !== producerId || sourceReceipt.toolVersion !== producer.toolVersion
+        || sourceReceipt.contentDigest !== receiptDigest(sourceReceipt)
+        || ref.contentDigest !== sourceReceipt.contentDigest
+        || digestValue(sourceReceipt.sourceState) !== digestValue(sourceState))
+    {
+        fail(`producer ${producerId} source receipt schema/producer/source identity mismatch`)
+    }
+}
+
 export function validateProducerReceiptAgainstRegistry({
     registry,
     producerId,
@@ -977,7 +1005,8 @@ export function validateProducerReceiptAgainstRegistry({
         ['fixtureAuthorityRef', 'fixture'],
         ['profileAuthorityRef', 'profile']
     ]
-    if (new Set(authorityRefs.map(([field]) => receipt[field]?.path)).size !== authorityRefs.length)
+    if (new Set([...authorityRefs.map(([field]) => receipt[field]?.path), receipt.sourceReceiptRef?.path]).size
+        !== authorityRefs.length + 1)
     {
         fail(`producer ${producerId} identity authorities must use independent paths`)
     }
@@ -985,17 +1014,7 @@ export function validateProducerReceiptAgainstRegistry({
     {
         validateIdentityAuthorityRef(repositoryRoot, receipt[field], role, identity, producerId)
     }
-    for (const field of ['sourceReceiptRef'])
-    {
-        assertExactKeys(receipt[field], ['path', 'fileDigest', 'contentDigest'],
-            `producer ${producerId} ${field}`)
-        if (typeof receipt[field].path !== 'string' || receipt[field].path.length === 0
-            || !digestPattern.test(receipt[field].fileDigest)
-            || !digestPattern.test(receipt[field].contentDigest))
-        {
-            fail(`producer ${producerId} ${field} is invalid`)
-        }
-    }
+    validateSourceReceiptRef(repositoryRoot, receipt.sourceReceiptRef, identity, producer, producerId)
     assertExactKeys(receipt.semanticFacts, definition.requiredSemanticFactFields,
         `producer ${producerId} ${classId} semantic facts`)
     if (Object.values(receipt.semanticFacts).some((value) => value === null || value === '')

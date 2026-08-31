@@ -17,6 +17,7 @@ import {
     postRuntimeRegistrySchema,
     requiredPostRuntimeBehaviors,
     root,
+    sourceReceiptSchema,
     validateAcceptedClaimsReceiptAgainstRegistry,
     validatePostRuntimeProducerRegistry,
     validatePostRuntimeReaderFirewall,
@@ -69,16 +70,26 @@ function producerReceipt(classId = 'route-response-error')
         worktreeFingerprint: digest('b'),
         buildIdentity: digest('c'),
         artifactDigest: digest('2'),
-        candidateId: 'candidate-1',
-        runtimeIdentity: digest('3'),
-        browserIdentity: digest('4'),
-        releaseId: 'release-1',
-        rolloutId: 'rollout-1',
+        candidateId: 'run-1:candidate',
+        runtimeId: 'run-1:runtime',
+        browserIdentity: 'run-1:browser-contract',
+        releaseId: '20260830123456-abcdef123456',
+        rolloutId: 'run-1:rollout',
         runId: 'run-1',
         attemptId: 'attempt-0001',
-        fixtureId: 'fixture-1',
+        fixtureId: 'run-1:fixture',
         profileId: 'acceptance-representative'
     }
+    const sourceReceipt = seal({
+        schema: sourceReceiptSchema,
+        role: 'source',
+        producerId: producer.producerId,
+        toolVersion: producer.toolVersion,
+        sourceState
+    })
+    const sourceReceiptRelative = '.tmp/current-run/source-receipt.json'
+    const sourceReceiptAbsolute = path.join(receiptRepositoryRoot, sourceReceiptRelative)
+    fs.writeFileSync(sourceReceiptAbsolute, `${JSON.stringify(sourceReceipt, null, 2)}\n`)
     const refs = {}
     for (const [field, role, identityField] of [
         ['candidatePlanRef', 'plan', 'runId'],
@@ -131,9 +142,11 @@ function producerReceipt(classId = 'route-response-error')
         semanticFacts,
         ...refs,
         sourceReceiptRef: {
-            path: '.tmp/current-run/source-receipt.json',
-            fileDigest: digest('f'),
-            contentDigest: digest('0')
+            path: sourceReceiptRelative,
+            fileDigest: `sha256:${createHash('sha256').update(fs.readFileSync(sourceReceiptAbsolute)).digest('hex')}`,
+            contentDigest: sourceReceipt.contentDigest,
+            schema: sourceReceiptSchema,
+            role: 'source'
         },
         canonicalRerunCommand: 'node tools/test-evidence/runtime-observation-probes.mjs route',
         independentVerifyCommand: 'node tools/test-evidence/runtime-observation-raw.mjs verify'
@@ -399,7 +412,7 @@ test('run, attempt, fixture and profile identities are typed and bind independen
         empty.sourceState[field] = ''
         assert.throws(
             () => validateProducerReceiptAgainstRegistry({ registry, producerId, receipt: seal(empty) }),
-            /source identity is invalid/u)
+            /source identity is invalid|scoped candidate\/runtime\/browser\/release identity is invalid/u)
     }
 
     const malformedAttempt = structuredClone(base)
@@ -408,12 +421,27 @@ test('run, attempt, fixture and profile identities are typed and bind independen
         () => validateProducerReceiptAgainstRegistry({ registry, producerId, receipt: seal(malformedAttempt) }),
         /source identity is invalid/u)
 
+    for (const [field, value] of [
+        ['releaseId', 'run-1:release'],
+        ['runtimeId', digest('3')],
+        ['browserIdentity', digest('4')],
+        ['candidateId', 'other-run:candidate'],
+        ['rolloutId', 'other-run:rollout']
+    ])
+    {
+        const invalid = structuredClone(base)
+        invalid.sourceState[field] = value
+        assert.throws(
+            () => validateProducerReceiptAgainstRegistry({ registry, producerId, receipt: seal(invalid) }),
+            /scoped candidate\/runtime\/browser\/release identity is invalid/u)
+    }
+
     const swappedIdentities = structuredClone(base)
     ;[swappedIdentities.sourceState.runId, swappedIdentities.sourceState.fixtureId] =
         [swappedIdentities.sourceState.fixtureId, swappedIdentities.sourceState.runId]
     assert.throws(
         () => validateProducerReceiptAgainstRegistry({ registry, producerId, receipt: seal(swappedIdentities) }),
-        /plan authority identity\/content mismatch/u)
+        /source identity is invalid/u)
 
     const swappedAuthorities = structuredClone(base)
     ;[swappedAuthorities.candidatePlanRef, swappedAuthorities.attemptAuthorityRef] =
@@ -421,6 +449,82 @@ test('run, attempt, fixture and profile identities are typed and bind independen
     assert.throws(
         () => validateProducerReceiptAgainstRegistry({ registry, producerId, receipt: seal(swappedAuthorities) }),
         /plan authority reference is invalid/u)
+})
+
+test('sourceReceiptRef replays exact current source, producer, schema and file identity', () =>
+{
+    const producerId = registry.producers[0].producerId
+    const base = producerReceipt()
+    const validate = (receipt) => validateProducerReceiptAgainstRegistry({
+        registry, producerId, receipt: seal(receipt)
+    })
+
+    const swapped = structuredClone(base)
+    swapped.sourceReceiptRef = structuredClone(base.candidatePlanRef)
+    assert.throws(() => validate(swapped), /identity authorities must use independent paths/u)
+
+    for (const invalidPath of [
+        path.join(receiptRepositoryRoot, '.tmp/current-run/source-receipt.json'),
+        '../source-receipt.json',
+        '.tmp/latest/source-receipt.json',
+        '.tmp/current-run/missing-source-receipt.json'
+    ])
+    {
+        const invalid = structuredClone(base)
+        invalid.sourceReceiptRef.path = invalidPath
+        assert.throws(
+            () => validate(invalid),
+            /canonical repository-relative path|explicit current-run JSON path|ENOENT/u)
+    }
+
+    const sourceAbsolute = path.join(receiptRepositoryRoot, base.sourceReceiptRef.path)
+    const symlinkRelative = '.tmp/current-run/source-receipt-link.json'
+    fs.rmSync(path.join(receiptRepositoryRoot, symlinkRelative), { force: true })
+    fs.symlinkSync(sourceAbsolute, path.join(receiptRepositoryRoot, symlinkRelative))
+    const symlink = structuredClone(base)
+    symlink.sourceReceiptRef.path = symlinkRelative
+    assert.throws(() => validate(symlink), /regular non-symlink single-link file/u)
+
+    const hardlinkRelative = '.tmp/current-run/source-receipt-hardlink.json'
+    fs.rmSync(path.join(receiptRepositoryRoot, hardlinkRelative), { force: true })
+    fs.linkSync(sourceAbsolute, path.join(receiptRepositoryRoot, hardlinkRelative))
+    const hardlink = structuredClone(base)
+    hardlink.sourceReceiptRef.path = hardlinkRelative
+    assert.throws(() => validate(hardlink), /single-link file/u)
+    fs.rmSync(path.join(receiptRepositoryRoot, hardlinkRelative))
+
+    const writeSource = (relative, mutate) =>
+    {
+        const document = JSON.parse(fs.readFileSync(sourceAbsolute, 'utf8'))
+        mutate(document)
+        const sealed = seal(document)
+        const absolute = path.join(receiptRepositoryRoot, relative)
+        fs.writeFileSync(absolute, `${JSON.stringify(sealed, null, 2)}\n`)
+        return {
+            path: relative,
+            fileDigest: `sha256:${createHash('sha256').update(fs.readFileSync(absolute)).digest('hex')}`,
+            contentDigest: sealed.contentDigest,
+            schema: sourceReceiptSchema,
+            role: 'source'
+        }
+    }
+    const stale = structuredClone(base)
+    stale.sourceReceiptRef = writeSource('.tmp/current-run/stale-source-receipt.json', (document) =>
+    {
+        document.sourceState.attemptId = 'attempt-0002'
+    })
+    assert.throws(() => validate(stale), /schema\/producer\/source identity mismatch/u)
+
+    const wrongProducer = structuredClone(base)
+    wrongProducer.sourceReceiptRef = writeSource('.tmp/current-run/wrong-producer-source-receipt.json', (document) =>
+    {
+        document.producerId = 'other-producer'
+    })
+    assert.throws(() => validate(wrongProducer), /schema\/producer\/source identity mismatch/u)
+
+    const wrongFileDigest = structuredClone(base)
+    wrongFileDigest.sourceReceiptRef.fileDigest = digest('9')
+    assert.throws(() => validate(wrongFileDigest), /source receipt file digest mismatch/u)
 })
 
 test('HTTP-only and stale registry/schema/evidenceClass receipts cannot qualify', () =>
@@ -470,6 +574,8 @@ test('production validator rejects a second registry and is wired into static go
         execFileSync('git', ['init', '--quiet'], { cwd: repositoryRoot })
         execFileSync('git', ['add', 'config/configuration-ownership.json',
             'config/testing/post-runtime-producer-registry.json'], { cwd: repositoryRoot })
+        execFileSync('git', ['-c', 'user.name=FsusBlog Test', '-c', 'user.email=test@fsus.invalid',
+            'commit', '--quiet', '-m', 'canonical authority'], { cwd: repositoryRoot })
         return repositoryRoot
     }
     const canonicalRoot = createRepository()
@@ -481,7 +587,9 @@ test('production validator rejects a second registry and is wired into static go
         'node_modules/second-post-runtime-registry.json',
         '.tmp/second-post-runtime-registry.json',
         'tmp/second-post-runtime-registry.json',
-        'tools/second-post-runtime-registry.generated.json'
+        'tools/second-post-runtime-registry.generated.json',
+        'tools/second-post-runtime-registry.JSON',
+        'tools/second-post-runtime-registry.registry'
     ])
     {
         const repositoryRoot = createRepository()
@@ -489,11 +597,46 @@ test('production validator rejects a second registry and is wired into static go
         fs.copyFileSync(path.join(root, 'config/testing/post-runtime-producer-registry.json'),
             path.join(repositoryRoot, roguePath))
         execFileSync('git', ['add', '--force', roguePath], { cwd: repositoryRoot })
+        execFileSync('git', ['-c', 'user.name=FsusBlog Test', '-c', 'user.email=test@fsus.invalid',
+            'commit', '--quiet', '-m', 'rogue authority'], { cwd: repositoryRoot })
         assert.throws(
             () => validatePostRuntimeRepositoryAuthority(repositoryRoot, { validateReaderFirewall: false }),
             /authority paths must exact-match/u,
             `tracked rogue registry at ${roguePath} must fail closed`)
     }
+
+    const stagedSplitRoot = createRepository()
+    fs.mkdirSync(path.join(stagedSplitRoot, 'tools'), { recursive: true })
+    fs.copyFileSync(path.join(root, 'config/testing/post-runtime-producer-registry.json'),
+        path.join(stagedSplitRoot, 'tools/staged.registry'))
+    execFileSync('git', ['add', 'tools/staged.registry'], { cwd: stagedSplitRoot })
+    fs.writeFileSync(path.join(stagedSplitRoot, 'tools/staged.registry'), '{"schema":"benign"}\n')
+    assert.throws(
+        () => validatePostRuntimeRepositoryAuthority(stagedSplitRoot, { validateReaderFirewall: false }),
+        /HEAD\/index authority is not exact-clean/u)
+
+    const worktreeSplitRoot = createRepository()
+    fs.mkdirSync(path.join(worktreeSplitRoot, 'tools'), { recursive: true })
+    fs.writeFileSync(path.join(worktreeSplitRoot, 'tools/worktree.registry'), '{"schema":"benign"}\n')
+    execFileSync('git', ['add', 'tools/worktree.registry'], { cwd: worktreeSplitRoot })
+    execFileSync('git', ['-c', 'user.name=FsusBlog Test', '-c', 'user.email=test@fsus.invalid',
+        'commit', '--quiet', '-m', 'benign index blob'], { cwd: worktreeSplitRoot })
+    fs.copyFileSync(path.join(root, 'config/testing/post-runtime-producer-registry.json'),
+        path.join(worktreeSplitRoot, 'tools/worktree.registry'))
+    assert.throws(
+        () => validatePostRuntimeRepositoryAuthority(worktreeSplitRoot, { validateReaderFirewall: false }),
+        /worktree bytes do not exact-match/u)
+
+    const hardlinkRoot = createRepository()
+    fs.mkdirSync(path.join(hardlinkRoot, 'tools'), { recursive: true })
+    fs.linkSync(path.join(hardlinkRoot, 'config/testing/post-runtime-producer-registry.json'),
+        path.join(hardlinkRoot, 'tools/hardlink.registry'))
+    execFileSync('git', ['add', 'tools/hardlink.registry'], { cwd: hardlinkRoot })
+    execFileSync('git', ['-c', 'user.name=FsusBlog Test', '-c', 'user.email=test@fsus.invalid',
+        'commit', '--quiet', '-m', 'hardlink authority'], { cwd: hardlinkRoot })
+    assert.throws(
+        () => validatePostRuntimeRepositoryAuthority(hardlinkRoot, { validateReaderFirewall: false }),
+        /single-link file/u)
 
     const staticLane = fs.readFileSync(path.join(root, 'tools/test/lanes/static-governance.sh'), 'utf8')
     assert.match(staticLane,
@@ -517,7 +660,7 @@ test('owner and command authorities reject symlinks and external realpaths', (co
     fs.symlinkSync(external, path.join(repositoryRoot, 'tools/owner.mjs'))
     assert.throws(
         () => canonicalRepositoryFile(repositoryRoot, 'tools/owner.mjs', 'producer owner'),
-        /regular non-symlink file/u)
+        /regular non-symlink single-link file/u)
 
     fs.symlinkSync(externalRoot, path.join(repositoryRoot, 'tools-link'))
     assert.throws(
@@ -540,6 +683,12 @@ test('reader firewall traverses imports and rejects transitive Markdown/DocClaim
         "export { claim } from '../docs/doc-claim.mjs'\n")
     fs.writeFileSync(path.join(repositoryRoot, 'tools/docs/doc-claim.mjs'),
         'export const claim = true\n')
+    fs.writeFileSync(path.join(repositoryRoot, 'package.json'), `${JSON.stringify({
+        name: 'post-runtime-reader-fixture',
+        type: 'module',
+        imports: { '#doc-reader': './tools/docs/doc-claim.mjs' },
+        exports: { './doc-reader': './tools/docs/doc-claim.mjs' }
+    }, null, 2)}\n`)
     assert.throws(
         () => validatePostRuntimeReaderFirewall(repositoryRoot, 'tools/test-matrix/entry.mjs'),
         /import closure reaches forbidden Markdown\/DocClaim module/u)
@@ -558,6 +707,20 @@ test('reader firewall traverses imports and rejects transitive Markdown/DocClaim
         () => validatePostRuntimeReaderFirewall(repositoryRoot, 'tools/test-matrix/escaped-hex-entry.mjs'),
         /import closure reaches forbidden Markdown\/DocClaim module/u)
 
+    for (const [name, specifier] of [
+        ['absolute-entry.mjs', path.join(repositoryRoot, 'tools/docs/doc-claim.mjs')],
+        ['imports-alias-entry.mjs', '#doc-reader'],
+        ['self-export-entry.mjs', 'post-runtime-reader-fixture/doc-reader']
+    ])
+    {
+        fs.writeFileSync(path.join(repositoryRoot, 'tools/test-matrix', name),
+            `import ${JSON.stringify(specifier)}\nexport const entry = true\n`)
+        execFileSync(process.execPath, [path.join(repositoryRoot, 'tools/test-matrix', name)])
+        assert.throws(
+            () => validatePostRuntimeReaderFirewall(repositoryRoot, `tools/test-matrix/${name}`),
+            /import closure reaches forbidden Markdown\/DocClaim module/u)
+    }
+
     fs.writeFileSync(path.join(repositoryRoot, 'tools/test-matrix/require-entry.mjs'),
         "import './middle.cjs'\nexport const entry = true\n")
     fs.writeFileSync(path.join(repositoryRoot, 'tools/test-matrix/middle.cjs'),
@@ -568,6 +731,29 @@ test('reader firewall traverses imports and rejects transitive Markdown/DocClaim
     assert.throws(
         () => validatePostRuntimeReaderFirewall(repositoryRoot, 'tools/test-matrix/require-entry.mjs'),
         /import closure reaches forbidden Markdown\/DocClaim module/u)
+
+    for (const [name, source] of [
+        ['template-middle.cjs', "module.exports = `${require('../docs/doc-claim.cjs').claim}`\n"],
+        ['escaped-require-middle.cjs', "module.exports = requ\\u0069re('../docs/doc-claim.cjs')\n"]
+    ])
+    {
+        const entry = name.replace('-middle.cjs', '-entry.mjs')
+        fs.writeFileSync(path.join(repositoryRoot, 'tools/test-matrix', name), source)
+        fs.writeFileSync(path.join(repositoryRoot, 'tools/test-matrix', entry),
+            `import './${name}'\nexport const entry = true\n`)
+        execFileSync(process.execPath, [path.join(repositoryRoot, 'tools/test-matrix', entry)])
+        assert.throws(
+            () => validatePostRuntimeReaderFirewall(repositoryRoot, `tools/test-matrix/${entry}`),
+            /import closure reaches forbidden Markdown\/DocClaim module/u)
+    }
+
+    fs.linkSync(path.join(repositoryRoot, 'tools/docs/doc-claim.mjs'),
+        path.join(repositoryRoot, 'tools/test-matrix/hardlink-entry.mjs'))
+    execFileSync(process.execPath, [path.join(repositoryRoot, 'tools/test-matrix/hardlink-entry.mjs')])
+    assert.throws(
+        () => validatePostRuntimeReaderFirewall(repositoryRoot, 'tools/test-matrix/hardlink-entry.mjs'),
+        /single-link file/u)
+    fs.rmSync(path.join(repositoryRoot, 'tools/test-matrix/hardlink-entry.mjs'))
 })
 
 test('re-sealed diagnostic, timeout, cancel and recovered mutations cannot qualify', () =>
