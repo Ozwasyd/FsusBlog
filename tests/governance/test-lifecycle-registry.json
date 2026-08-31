@@ -5599,6 +5599,28 @@
             "classifications": [
                 "runtime"
             ]
+        },
+        {
+            "file": "tests/tools/current-schema-bootstrap-integration.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/current-schema-bootstrap-integration.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/current-schema-materialization-receipt.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/current-schema-materialization-receipt.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
         }
     ]
 }
