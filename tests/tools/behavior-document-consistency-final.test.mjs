@@ -2,11 +2,23 @@ import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import test from 'node:test'
 
-import { digestCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs'
+import {
+    digestCatalog
+} from '../../tools/contracts/behavior-contract-catalog.mjs'
+import {
+    sealDocClaimVerificationReceipt,
+    sealGeneratedSectionCheckReceipt,
+    sealOwnerBindingReceipt
+} from '../../tools/contracts/behavior-graph-join.mjs'
+import { hostDeclarations } from '../../tools/docs/behavior-doc-minimal-contract-build.mjs'
 import {
     buildFinalConsistencyReport,
     validateFinalReport
 } from '../../tools/docs/behavior-document-consistency-final.mjs'
+import {
+    buildReceipt as buildFactObservationReceipt,
+    semanticDigestFromReceipt
+} from '../../tools/fact-extractors/receipt.mjs'
 
 const commit = 'a'.repeat(40)
 const fingerprint = 'b'.repeat(64)
@@ -22,6 +34,44 @@ const seal = (value, keepNull = false) => {
     const content = keepNull ? receipt : Object.fromEntries(Object.entries(receipt).filter(([key]) => key !== 'contentDigest'))
     receipt.contentDigest = `sha256:${hash(content)}`
     return receipt
+}
+const sealBare = (value, keepNull = false) => {
+    const receipt = { ...value, contentDigest: null }
+    const content = keepNull ? receipt : Object.fromEntries(Object.entries(receipt).filter(([key]) => key !== 'contentDigest'))
+    receipt.contentDigest = hash(content)
+    return receipt
+}
+
+function minimalBuildReceipt()
+{
+    return sealBare({
+        schema: 'fsusblog.behavior-doc-minimal-contract-build-receipt.v1',
+        runId,
+        sourceCommit: commit,
+        worktreeFingerprint: fingerprint,
+        toolchain: {
+            dotnet: '10.0.100',
+            configuration: 'Release',
+            targetFramework: 'net10.0'
+        },
+        buildKey: '1'.repeat(64),
+        buildRoot: `.tmp/behavior-doc-contract-builds/${'1'.repeat(64)}`,
+        sourceClosureDigests: [
+            { path: 'Directory.Build.props', digest: '2'.repeat(64) },
+            { path: 'Directory.Packages.props', digest: '3'.repeat(64) }
+        ],
+        artifacts: Object.fromEntries(Object.entries(hostDeclarations).map(([artifactId, declaration]) => [
+            artifactId,
+            {
+                project: declaration.project,
+                projectDigest: '4'.repeat(64),
+                path: `.tmp/behavior-doc-contract-builds/${'1'.repeat(64)}/${declaration.cacheFile}`,
+                artifactDigest: '5'.repeat(64)
+            }
+        ])),
+        status: 'ok',
+        failureReasons: []
+    }, true)
 }
 
 function fixture(overrides = {})
@@ -54,29 +104,123 @@ function fixture(overrides = {})
         }]
     }
     const catalogHash = digestCatalog(catalog)
-    const admission = seal({
+    const owner = sealOwnerBindingReceipt({
+        schema: 'fsusblog.behavior-owner-binding-receipt.v1',
+        catalogDigest: catalogHash,
+        worktreeDigest: fingerprint,
+        status: 'ok',
+        bindingCount: 2,
+        bindings: [
+            {
+                behaviorId: 'alpha-behavior', language: 'csharp',
+                sourcePath: 'src/alpha.cs', symbol: 'Alpha', bindingKind: 'attribute',
+                sourceDigest: '6'.repeat(64), catalogDigest: catalogHash,
+                worktreeDigest: fingerprint, status: 'ok'
+            },
+            {
+                behaviorId: 'runtime-behavior', language: 'csharp',
+                sourcePath: 'src/runtime.cs', symbol: 'Runtime', bindingKind: 'attribute',
+                sourceDigest: '7'.repeat(64), catalogDigest: catalogHash,
+                worktreeDigest: fingerprint, status: 'ok'
+            }
+        ],
+        errors: []
+    })
+    const fact = buildFactObservationReceipt({
+        extractorId: 'alpha-facts',
+        behaviorIds: ['alpha-behavior', 'runtime-behavior'],
+        sourceCommit: commit,
+        worktreeFingerprint: fingerprint,
+        buildIdentity: null,
+        extractorDigest: '8'.repeat(64),
+        registryDigest: '9'.repeat(64),
+        consumedInputDigests: [{ path: 'config/alpha.json', digest: 'a'.repeat(64) }],
+        observations: { alphaValue: true, runtimeValue: 'qualified' },
+        status: 'ok'
+    })
+    const claims = sealBare({
+        schema: 'fsusblog.doc-claim-parse-receipt.v1',
+        digestAlgorithm: 'sha256',
+        canonicalSerialization: 'json-utf8-v1',
+        behaviorCatalogDigest: catalogHash,
+        claims: [
+            {
+                declaration: {
+                    behaviorId: 'alpha-behavior', claimId: 'alpha.current',
+                    claimType: 'behavioral', factPath: 'alphaValue', render: 'scalar'
+                },
+                location: { documentPath: 'docs/alpha.md' }
+            },
+            {
+                declaration: {
+                    behaviorId: 'runtime-behavior', claimId: 'runtime.current',
+                    claimType: 'behavioral', factPath: 'runtimeValue', render: 'scalar'
+                },
+                location: { documentPath: 'docs/runtime.md' }
+            }
+        ]
+    })
+    const factObservationDigests = [{
+        extractorId: fact.extractorId,
+        contentDigest: fact.contentDigest
+    }]
+    const verification = sealDocClaimVerificationReceipt({
+        sourceCommit: commit,
+        worktreeFingerprint: fingerprint,
+        catalogDigest: catalogHash,
+        parseReceiptDigest: claims.contentDigest,
+        factObservationDigests,
+        results: claims.claims.map((claim) => ({
+            claimId: claim.declaration.claimId,
+            behaviorId: claim.declaration.behaviorId,
+            claimType: claim.declaration.claimType,
+            documentPath: claim.location.documentPath,
+            documentStatus: 'current',
+            factPath: claim.declaration.factPath,
+            status: 'verified',
+            reason: 'claim matches current fact observation'
+        })),
+        status: 'ok'
+    })
+    const generated = sealGeneratedSectionCheckReceipt({
+        sourceCommit: commit,
+        worktreeFingerprint: fingerprint,
+        catalogDigest: catalogHash,
+        sectionCatalogDigest: 'b'.repeat(64),
+        factObservationDigests,
+        sections: [],
+        status: 'ok'
+    })
+    const admission = sealBare({
         schema: 'fsusblog.behavior-doc-static-admission-receipt.v1',
         run: { id: runId },
         source: { commit, worktreeFingerprint: fingerprint },
         worktree: { root: '/repo' },
         toolchain: { node: 'v24', dotnet: '10', platform: 'linux', architecture: 'x64', directoryBuildPropsDigest: '1'.repeat(64) },
         authorityDigests: {
-            catalog: catalogHash, claim: '2'.repeat(64), extractorRegistry: '3'.repeat(64),
-            generatedSectionCatalog: '4'.repeat(64), generatedRenderer: '5'.repeat(64),
-            proseRenderer: '6'.repeat(64), mutationCatalog: '7'.repeat(64)
+            catalog: catalogHash, claim: claims.contentDigest, extractorRegistry: '9'.repeat(64),
+            generatedSectionCatalog: generated.sectionCatalogDigest, generatedRenderer: 'c'.repeat(64),
+            proseRenderer: 'd'.repeat(64), mutationCatalog: 'e'.repeat(64)
         },
-        implementationOwner: { status: 'ok', bindingCount: 1, contentDigest: '8'.repeat(64) },
-        factObservations: {},
-        minimalContractBuild: { contentDigest: '9'.repeat(64) },
-        generated: { status: 'ok' }, prose: { status: 'ok' }, mutationFixtures: { status: 'ok' },
+        implementationOwner: { status: 'ok', bindingCount: 2, contentDigest: owner.contentDigest },
+        factObservations: {
+            [fact.extractorId]: {
+                status: 'ok', extractorDigest: fact.extractorDigest,
+                semanticDigest: semanticDigestFromReceipt(fact), contentDigest: fact.contentDigest
+            }
+        },
+        minimalContractBuild: minimalBuildReceipt(),
+        generated: { status: 'ok', documentCount: 0, contentDigest: generated.contentDigest },
+        prose: { status: 'ok', verifiedClaimCount: 2, contentDigest: verification.contentDigest },
+        mutationFixtures: { status: 'ok', caseCount: 1, contentDigest: 'f'.repeat(64) },
         candidateSpawnCountBeforeReceipt: 0,
         status: 'ok', failureReasons: [], durationMs: 1
     }, true)
     const pre = seal({
         schema: 'fsusblog.behavior-evidence-pre-runtime-receipt.v1', scope: 'pre-runtime',
         runIdentity: runId, sourceIdentity: { commit, worktreeFingerprint: `sha256:${fingerprint}` },
-        buildIdentities: {}, registryDigest: `sha256:${'3'.repeat(64)}`,
-        catalogDigest: `sha256:${catalogHash}`, staticClaimVerificationDigest: `sha256:${'c'.repeat(64)}`,
+        buildIdentities: {}, registryDigest: `sha256:${'9'.repeat(64)}`,
+        catalogDigest: `sha256:${catalogHash}`, staticClaimVerificationDigest: `sha256:${verification.contentDigest}`,
         behaviorIds: ['alpha-behavior'], requiredTestKinds: { 'alpha-behavior': ['positive'] },
         observedTestKinds: { 'alpha-behavior': ['positive'] }, mutationStatus: {},
         runtimeCandidateSpawnCountBeforeReceipt: 0, status: 'ok', failureReasons: []
@@ -96,17 +240,6 @@ function fixture(overrides = {})
         missing: [], orphans: [], conflicts: [], releaseFinalSpawnCountBeforeReceipt: 0,
         status: 'ok', failureReasons: []
     })
-    const owner = seal({ status: 'ok', bindings: [
-        { behaviorId: 'alpha-behavior', sourcePath: 'src/alpha.cs' },
-        { behaviorId: 'runtime-behavior', sourcePath: 'src/runtime.cs' }
-    ] })
-    const fact = seal({ status: 'ok', extractorId: 'alpha-facts', behaviorIds: ['alpha-behavior', 'runtime-behavior'], sourceCommit: commit, worktreeFingerprint: fingerprint })
-    const claims = seal({ claims: [
-        { declaration: { behaviorId: 'alpha-behavior', claimId: 'alpha.current' } },
-        { declaration: { behaviorId: 'runtime-behavior', claimId: 'runtime.current' } }
-    ] })
-    const verification = seal({ status: 'ok' })
-    const generated = seal({ status: 'ok' })
     const migrationLedger = { schema: 'fixture', scopes: [{ scopeId: 'alpha', entries: [
         { behaviorId: 'alpha-behavior', documentPath: 'docs/alpha.md', claimIds: ['alpha.current'], generatedSectionIds: [] },
         { behaviorId: 'runtime-behavior', documentPath: 'docs/runtime.md', claimIds: ['runtime.current'], generatedSectionIds: [] }
@@ -133,6 +266,75 @@ test('final consistency report deterministically closes every behavior edge', ()
     assert.equal(report.behaviorNodes[1].status, 'ok')
     assert.equal(report.dagAudit.stronglyConnectedComponents.length, 0)
     assert.deepEqual(report.dagAudit.postRuntimeBinding.errors, [])
+})
+
+test('self-consistent substitute static component receipts cannot escape the admission seal', async (context) =>
+{
+    const cases = [
+        {
+            name: 'implementation owner from another scan',
+            mutate(input)
+            {
+                const owner = structuredClone(input.ownerReceipt)
+                owner.bindings[0].sourcePath = 'src/substitute.cs'
+                input.ownerReceipt = sealBare(Object.fromEntries(
+                    Object.entries(owner).filter(([key]) => key !== 'contentDigest')
+                ))
+            },
+            expected: /implementation owner receipt does not match static admission/u
+        },
+        {
+            name: 'fact receipt with another semantic observation',
+            mutate(input)
+            {
+                const fact = structuredClone(input.factObservationReceipts[0])
+                fact.observations.alphaValue = false
+                input.factObservationReceipts = [sealBare(Object.fromEntries(
+                    Object.entries(fact).filter(([key]) => key !== 'contentDigest')
+                ))]
+            },
+            expected: /content digest does not match static admission/u
+        },
+        {
+            name: 'DocClaim verification from another component bundle',
+            mutate(input)
+            {
+                const verification = structuredClone(input.docClaimVerificationReceipt)
+                verification.results[0].reason = 'substitute verification'
+                input.docClaimVerificationReceipt = sealBare(Object.fromEntries(
+                    Object.entries(verification).filter(([key]) => key !== 'contentDigest')
+                ))
+            },
+            expected: /DocClaim verification receipt does not match static admission/u
+        },
+        {
+            name: 'generated receipt from another component bundle',
+            mutate(input)
+            {
+                const generated = structuredClone(input.generatedSectionReceipt)
+                generated.sections.push({
+                    sectionId: 'substitute.section', behaviorId: 'alpha-behavior',
+                    documentPath: 'docs/substitute.md', factPath: 'alphaValue',
+                    status: 'ok', reason: 'substitute section'
+                })
+                input.generatedSectionReceipt = sealBare(Object.fromEntries(
+                    Object.entries(generated).filter(([key]) => key !== 'contentDigest')
+                ))
+            },
+            expected: /generated section receipt does not match static admission/u
+        }
+    ]
+    for (const scenario of cases)
+    {
+        await context.test(scenario.name, () =>
+        {
+            const input = fixture()
+            scenario.mutate(input)
+            const report = buildFinalConsistencyReport(input)
+            assert.equal(report.status, 'failed')
+            assert.match(report.failureReasons.join('\n'), scenario.expected)
+        })
+    }
 })
 
 test('post-runtime seal must bind the exact pre-runtime receipt and one observation per catalog behavior', async (context) =>
