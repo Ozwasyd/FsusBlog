@@ -3437,6 +3437,138 @@
             ]
         },
         {
+            "id": "current-schema-bootstrap",
+            "description": "A test-only pre-runtime producer materializes the sole canonical current schema into an exactly empty isolated PostgreSQL database before ordinary read-only Server startup.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "src/backend/Infrastructure/Testing/CurrentSchemaTestMaterializer.cs",
+                "src/backend/Infrastructure/Testing/CurrentSchemaTestMaterializationCandidateVerifier.cs",
+                "src/backend/Program.cs",
+                "tools/bootstrap-acceptance-env.sh",
+                "tools/test/lanes/current-schema-bootstrap-integration.sh",
+                "tests/backend/Unit/SchemaModelInspectorTests.cs",
+                "tests/tools/current-schema-bootstrap-integration.test.mjs",
+                "docs/database-migration.md"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Reject production or non-opted-in execution, non-loopback or mismatched service identity, a public schema containing relations or non-relation objects, noncanonical source or schema identity, and any materialization whose verifier does not pass before runtime admission.",
+            "minimumRequirement": "The committed lane must start a pinned isolated PostgreSQL service, bind its live container and database instance identity, materialize an exactly empty public schema from CurrentSchemaCanonicalAuthority, and prove the independent read-only candidate verifier and CurrentSchemaStartupVerifier accept it while production startup remains read-only.",
+            "tierIds": [
+                "current-schema-bootstrap-integration"
+            ]
+        },
+        {
+            "id": "current-schema-physical-exactness",
+            "description": "PostgreSQL current-schema observation exactly preserves owned column type modifiers, defaults, collation, identity sequences, index definitions and constraint semantics after explicit provider normalization.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "src/backend/Infrastructure/SchemaMigration/CurrentSchemaCanonicalModel.cs",
+                "src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs",
+                "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs",
+                "tests/backend/Unit/SchemaModelInspectorTests.cs",
+                "tools/test/lanes/current-schema-bootstrap-integration.sh"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Reject missing or extra schema objects and drift in physical type modifiers, defaults, collation, identity generation or sequence options, index direction, predicate, access method or null semantics, and constraint deferral, validation, referenced namespace, update, delete or match behavior.",
+            "minimumRequirement": "Focused semantic comparisons and the committed PostgreSQL lane must accept the exact canonical schema and reject independently mutated physical columns, indexes and constraints without raw digest equality or broad provider exceptions.",
+            "tierIds": [
+                "current-schema-bootstrap-integration"
+            ]
+        },
+        {
+            "id": "current-schema-receipt-lifecycle",
+            "description": "Current-schema qualification publishes prepared evidence before database commit and one immutable verified terminal plus runtime-ready receipt only after committed schema and live identity verification.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "src/backend/Infrastructure/Testing/CurrentSchemaTestMaterializer.cs",
+                "src/backend/Infrastructure/Testing/CurrentSchemaTestMaterializationCandidateVerifier.cs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
+                "tools/testing/fixture-catalog.mjs",
+                "tools/bootstrap-acceptance-env.sh",
+                "tools/test/lanes/homogeneous-two-node-fixture.sh",
+                "tools/test/lanes/current-schema-bootstrap-integration.sh",
+                "tests/tools/current-schema-materialization-receipt.test.mjs",
+                "tests/tools/current-schema-bootstrap-integration.test.mjs",
+                "tests/tools/fixture-catalog.test.mjs",
+                ".tmp/current-schema-bootstrap-integration/*/**"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Reject missing, prepared, stale, tampered or pre-existing terminal evidence, output aliases, source or service identity drift, publication failure without compensation, and every crash window that could leave a false verified receipt.",
+            "minimumRequirement": "Focused receipt tests and the committed PostgreSQL lane must cover prepared-process termination, post-commit publication failure with compensation, immutable verified publication, exact receipt revalidation and terminal runtime-ready binding; the final terminal must enforce the exact unique stage roster and SHA-bind the retained run evidence bundle for independent readback.",
+            "stageRoster": [
+                "partial-schema",
+                "composite-type",
+                "nonrelation-object",
+                "publication-fault",
+                "prepared-crash",
+                "positive",
+                "extra-default",
+                "index-direction",
+                "index-null-placement",
+                "index-predicate",
+                "index-access-method",
+                "index-operator-class",
+                "index-collation",
+                "index-include",
+                "index-nulls-not-distinct",
+                "type-precision",
+                "type-default-precision",
+                "column-collation",
+                "identity-generation-by-default",
+                "identity-generation-always",
+                "sequence-start",
+                "sequence-increment",
+                "sequence-minimum",
+                "sequence-maximum",
+                "sequence-cache",
+                "sequence-cycle",
+                "sequence-data-type",
+                "sequence-name",
+                "sequence-schema",
+                "sequence-ownership",
+                "constraint-deferrable",
+                "constraint-initially-deferred",
+                "constraint-validated",
+                "foreign-key-update-action",
+                "foreign-key-delete-action",
+                "foreign-key-match-type",
+                "foreign-key-referenced-schema",
+                "stale-envelope-cluster-swap"
+            ],
+            "allowedNotApplicableStages": [
+                "type-precision",
+                "type-default-precision",
+                "constraint-validated",
+                "foreign-key-update-action",
+                "foreign-key-delete-action",
+                "foreign-key-match-type",
+                "foreign-key-referenced-schema"
+            ],
+            "requiredRetainedEvidenceKinds": [
+                "stage-receipt",
+                "command-evidence",
+                "service-envelope",
+                "materializer-receipt",
+                "runtime-ready-receipt",
+                "raw-catalog-facts",
+                "command-log"
+            ],
+            "requiredRawCatalogFacts": [
+                "composite-type-after.facts",
+                "composite-type-before.facts",
+                "partial-schema-after.facts",
+                "partial-schema-before.facts",
+                "stale-envelope-after.facts",
+                "stale-envelope-before.facts"
+            ],
+            "tierIds": [
+                "current-schema-bootstrap-integration"
+            ]
+        },
+        {
             "id": "current-schema-canonical-authority",
             "description": "One recomputable provider-neutral current schema model drives runtime reflection, generated projection and migration-target adapters with sealed source/content identity and dialect-specific physical projections.",
             "owner": "ServerContractAgent",

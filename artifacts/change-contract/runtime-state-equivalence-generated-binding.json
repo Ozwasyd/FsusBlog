@@ -8,19 +8,27 @@
   "outputs": [
     {
       "path": "config/development/document-inventory.generated.json",
-      "sha256": "9c04fad84eabcaffaa824cb8ac528c899a395c123fd33f4b9bcc73feb35f3f28"
+      "sha256": "4e41ee06b6f2fda7dfa593b65c26fd1ad3e88712b0e2f9b8e0385e54352a615c"
+    },
+    {
+      "path": "config/testing/correctness-attempt-producers.json",
+      "sha256": "4aaa918f27d3cf277d32a12eb9759a1495853dc7c059d0e3fbf036e6a1c7b93d"
     },
     {
       "path": "config/testing/fixture-consumer-inventory.generated.json",
-      "sha256": "757ef741ec2684cc5ae7fb5267631923bba114a82a1e29c3632606c9ee5e9c92"
+      "sha256": "9a01ca774387148c25bb4f5dc9d1fe520c63712bebb7c169b54a944f6a7682e5"
     },
     {
       "path": "config/testing/fixture-profile-matrix.generated.json",
-      "sha256": "8548b7bd592f4af3c2975ea44f8f8990e3944b2aa2a50a388c48f87d2b808adc"
+      "sha256": "0207e63393cb6d0093d937b877a32cca8d4c23592a79edc24721d0bd7541eb33"
+    },
+    {
+      "path": "docs/index.md",
+      "sha256": "37230e482c33d0ef751773871262452fe94433f3c92101d0caa27ffa2fb63050"
     },
     {
       "path": "docs/testing.generated.md",
-      "sha256": "af2bb48124af9ffee8f965b10fb79be2c44ab963d072a0f560b967531b2b5ec1"
+      "sha256": "ebd47859cbe396c78ed98fcc49579be687002092345ebbad2e84575886ee0a31"
     }
   ]
 }

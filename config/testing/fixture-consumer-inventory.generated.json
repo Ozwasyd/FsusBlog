@@ -930,6 +930,21 @@
             "producerOwners": []
         },
         {
+            "consumerId": "matrix:current-schema-bootstrap-integration",
+            "executionClass": "runtime",
+            "source": "tools/test/lanes/current-schema-bootstrap-integration.sh",
+            "requiredBusinessFact": "none",
+            "implicitSource": "tests/matrix.yml tier current-schema-bootstrap-integration; command tools/test/lanes/current-schema-bootstrap-integration.sh",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "profileId": "none",
+            "profileIds": [
+                "none"
+            ],
+            "requiredCapabilities": [],
+            "requiredVariantIds": [],
+            "producerOwners": []
+        },
+        {
             "consumerId": "matrix:data-scale-m",
             "executionClass": "load",
             "source": "tools/test/lanes/data-scale.sh",

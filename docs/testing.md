@@ -1137,6 +1137,44 @@ Chromium/SW/GC binding；验证只接受 key 路径，不把 secret 写入 artif
 3. 复用同一套运行环境执行 `release`、`integration`、`security`、browserless `frontend-render-structure`、`resilience`、`load` 与 `backend-qps`。Acceptance、PoW/search/permission/zero-auth browser probe、visual、UX full/risk、cross-browser、geometry/motion/focus、browser performance/a11y/resilience 都不在 production correctness 中执行。
 4. 收集 release evidence 并运行 schema/semantic check；此处不使用 `--require-ok`。
 
+第 2 步的后端进程仍是只读 consumer。新的、完全隔离的 PostgreSQL 在
+`EnsurePostgres` 完成后，必须先由 `materialize-current-schema-test` 单次
+物化 canonical current schema，然后才能启动 `EnsureBackend` 或任何 runtime
+application。该 producer 只接受没有 relation、routine、standalone type/domain、
+operator、conversion、collation、extended-statistics 或 text-search object 的
+`public` schema，从唯一
+`CurrentSchemaCanonicalAuthority` 派生并封存五栏 identity；局部/旧 schema、
+non-`Test`、缺 opt-in、非 admitted service envelope 的 exact `127.0.0.1`
+host/port、非 exact `fsusblog` database/user、非 `public` search path、assembly
+source 不符或非 canonical run-derived receipt path 都在运行时启动前 fail
+closed。service envelope 必须绑定相同 run ID、通过 planned/actual exact
+admission，并在 materializer 前按 admitted container ID 重新观察完整 Docker
+identity；C# 在同一连接 transaction 内再 exact 比对 PostgreSQL
+`system_identifier`、database/user/server version 后才可执行 DDL。
+
+DDL 与 `CurrentSchemaStartupVerifier` 位于同一 transaction。commit 前只原子
+发布 `prepared`、qualification-ineligible staging receipt；commit 后才以
+no-overwrite 原子发布 `verified` terminal，所以 crash window 不会留下假的
+verified evidence。commit 后 publication 失败时，producer 保持 terminal
+absent，并 best-effort 补偿 schema 与清理 receipt；full run 不接受 nonzero
+exit，也不会在没有 fresh catalog observation 时宣称补偿成功。独立 consumer
+随后重算 self/file/assembly/catalog/envelope digest，核对 run/source/service/
+database/canonical identity，并发布唯一 run-bound
+`current-schema-runtime-ready` terminal；任何 missing、tampered、stale、prepared
+或既存 terminal 都 fail closed。该 consumer 必须调用 candidate assembly 的
+test-only read-only verification command，重新派生唯一 canonical authority 并
+观察 live PostgreSQL；本地协调修改 receipt 与 self-digest 不能成为 authority。
+fixture catalog 再将 runtime-ready terminal 精确封存为 runtime-topology admission，
+并在 runtime process spawn 前重新消费两者。`serve` 路径仍不做 DDL。
+
+`current-schema-bootstrap-integration` 是提交进仓库的 exclusive PostgreSQL lane，
+覆盖 empty-schema positive、partial/non-relation zero-write、prepared SIGKILL、
+post-commit publication compensation、stale container replacement，以及 default、
+physical type/collation/identity sequence、index 与 constraint drift。它保存
+partial 前后相同 query/order 的 raw catalog facts 与 SHA-256，并只接受正式
+runtime-ready binding 和 self-digested terminal；临时 container、network 与
+`/var/tmp` 只按本 run 的 exact identity 清理。
+
 Release rollout closeout 另外要求 `release-rollout.json` seal 15 stages 与 exactly six artifacts（public traffic、notification、asset compatibility、normal worker reconciliation、resource budget、fault injection），并要求 allowlisted `release-rollout-bundle/bundle-index.json` read-back。缺失、scheduled、hash drift 或 qualification ledger 冒充 normal 均保持 blocked。
 
 ```bash
