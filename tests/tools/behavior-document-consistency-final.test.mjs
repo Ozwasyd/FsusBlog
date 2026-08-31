@@ -1297,10 +1297,31 @@ test('zero-legacy scan and final report schema are deterministic and structurall
     const second = scanZeroLegacyGovernance(repositoryRoot)
     assert.deepEqual(first, second)
     assert.equal(validateZeroLegacyScan(first), first)
+    assert.throws(() => validateZeroLegacyScan({ ...first, unowned: true }), /scan shape is open/u)
     assert.throws(() => validateZeroLegacyScan({ ...first, scanRoots: first.scanRoots.slice(1) }), /roots are incomplete/u)
     assert.throws(() => validateZeroLegacyScan({ ...first, pathClassCounts: { production: 1 } }), /classes are incomplete/u)
 
+    const openFinding = structuredClone(first)
+    openFinding.findings[0].unowned = true
+    assert.throws(() => validateZeroLegacyScan(openFinding), /finding shape is invalid/u)
+
+    const duplicateFindingClass = structuredClone(first)
+    duplicateFindingClass.findings[0].pathClasses.push(duplicateFindingClass.findings[0].pathClasses[0])
+    assert.throws(() => validateZeroLegacyScan(duplicateFindingClass), /finding shape is invalid/u)
+
     const report = buildFinalConsistencyReport(fixture({ sourceRoot: sourceRepositoryFixture(t) }))
+    const forgedOk = structuredClone(report)
+    forgedOk.zeroLegacyScan.findings.push({
+        file: 'config/testing/forged.json',
+        pathClasses: ['config'],
+        rule: 'forged-residue',
+        location: '$'
+    })
+    forgedOk.contentDigest = `sha256:${hash(Object.fromEntries(
+        Object.entries(forgedOk).filter(([key]) => key !== 'contentDigest')
+    ))}`
+    assert.throws(() => validateFinalReport(forgedOk), /ok report has zero-legacy findings/u)
+
     const schema = JSON.parse(fs.readFileSync('config/schemas/behavior-document-consistency-final-report.schema.json', 'utf8'))
     assert.deepEqual(validateJsonSchema(report, schema), [])
     const openScan = structuredClone(report)

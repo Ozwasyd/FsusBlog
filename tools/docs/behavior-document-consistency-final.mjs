@@ -1539,6 +1539,13 @@ function decodeMachineText(content)
 
 export function validateZeroLegacyScan(scan)
 {
+    if (!scan || typeof scan !== 'object' || Array.isArray(scan)
+        || JSON.stringify(Object.keys(scan).sort()) !== JSON.stringify([
+            'findings', 'pathClassCounts', 'scanRoots', 'scannedFileCount', 'schema'
+        ]))
+    {
+        zeroLegacyFail('scan shape is open')
+    }
     if (scan?.schema !== zeroLegacyScanSchema) zeroLegacyFail('scan schema mismatch')
     if (JSON.stringify(scan.scanRoots) !== JSON.stringify(scanRoots)) zeroLegacyFail('scan roots are incomplete')
     const pathClassKeys = Object.keys(scan.pathClassCounts ?? {}).sort()
@@ -1549,7 +1556,9 @@ export function validateZeroLegacyScan(scan)
     for (const finding of scan.findings)
     {
         if (!finding || typeof finding.file !== 'string' || finding.file.length === 0
+            || JSON.stringify(Object.keys(finding).sort()) !== JSON.stringify(['file', 'location', 'pathClasses', 'rule'])
             || !Array.isArray(finding.pathClasses) || finding.pathClasses.length === 0
+            || new Set(finding.pathClasses).size !== finding.pathClasses.length
             || finding.pathClasses.some((entry) => !zeroLegacyRequiredPathClasses.includes(entry))
             || typeof finding.rule !== 'string' || finding.rule.length === 0
             || typeof finding.location !== 'string' || finding.location.length === 0)
@@ -1774,6 +1783,7 @@ export function validateFinalReport(report)
     if (report.contentDigest !== digest(withoutDigest(report))) fail('report contentDigest mismatch')
     if (!['ok', 'failed'].includes(report.status)) fail('report status is invalid')
     if (report.status === 'ok' && report.failureReasons.length > 0) fail('ok report has failures')
+    if (report.status === 'ok' && report.zeroLegacyScan.findings.length > 0) fail('ok report has zero-legacy findings')
     if (report.status === 'failed' && report.failureReasons.length === 0) fail('failed report lacks failures')
     return report
 }
