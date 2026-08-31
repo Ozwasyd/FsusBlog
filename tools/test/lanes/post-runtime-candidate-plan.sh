@@ -9,14 +9,15 @@ RELEASE_ID="${FSUSBLOG_RELEASE_ID:?FSUSBLOG_RELEASE_ID is required}"
 PRE_RUNTIME="${FSUSBLOG_BEHAVIOR_PRE_RUNTIME_RECEIPT:-$ROOT_DIR/.tmp/behavior-evidence-pre-runtime/receipt.json}"
 TERMINAL_CLAIMS="${FSUSBLOG_GLOBAL_CLAIM_EXACTNESS_RECEIPT:-$ROOT_DIR/.tmp/behavior-evidence-pre-runtime/global-claim-exactness.json}"
 BUILD_RECEIPT="${FSUSBLOG_CI_PRODUCTION_BUILD_RECEIPT:-$ROOT_DIR/.tmp/ci-production-build/receipt.json}"
-OUT_DIR="${FSUSBLOG_POST_RUNTIME_PLAN_DIR:-$ROOT_DIR/.tmp/post-runtime-plan/$RUN_ID}"
-RAW_DIR="${FSUSBLOG_POST_RUNTIME_RAW_DIR:-$ROOT_DIR/.tmp/post-runtime-raw/$RUN_ID}"
+CLAIMS_DIR="${FSUSBLOG_POST_RUNTIME_CLAIMS_DIR:-$ROOT_DIR/.tmp/post-runtime-plan/$RUN_ID}"
+OUT_DIR="${FSUSBLOG_POST_RUNTIME_PLAN_DIR:-$CLAIMS_DIR/$ATTEMPT_ID}"
+RAW_DIR="${FSUSBLOG_POST_RUNTIME_RAW_DIR:-$ROOT_DIR/.tmp/post-runtime-raw/$RUN_ID/$ATTEMPT_ID}"
 
-mkdir -p "$OUT_DIR"
+mkdir -p "$CLAIMS_DIR" "$OUT_DIR"
 
 "$NODE_BIN" "$ROOT_DIR/tools/fact-extractors/post-runtime/current-run.mjs" accepted-claims \
     --terminal "$TERMINAL_CLAIMS" \
-    --out "$OUT_DIR/accepted-claims.json"
+    --out "$CLAIMS_DIR/accepted-claims.json"
 
 "$NODE_BIN" "$ROOT_DIR/tools/fact-extractors/post-runtime/current-run.mjs" candidate-context \
     --pre-runtime "$PRE_RUNTIME" \
@@ -27,7 +28,7 @@ mkdir -p "$OUT_DIR"
 
 "$NODE_BIN" "$ROOT_DIR/tools/fact-extractors/post-runtime/current-run.mjs" candidate-plan \
     --pre-runtime "$PRE_RUNTIME" \
-    --accepted-claims "$OUT_DIR/accepted-claims.json" \
+    --accepted-claims "$CLAIMS_DIR/accepted-claims.json" \
     --build "$BUILD_RECEIPT" \
     --context "$OUT_DIR/candidate-context.json" \
     --observation "aot-spa-hydration=$RAW_DIR/aot-spa-hydration.json" \

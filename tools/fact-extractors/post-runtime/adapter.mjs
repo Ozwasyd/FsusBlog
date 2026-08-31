@@ -134,11 +134,19 @@ export function writeReceipt(output, receipt, repositoryRoot = defaultRoot)
     if (lstatSync(cursor).isSymbolicLink()) fail('output path must not contain symlinks')
   }
   const existing = lstatSync(absolute, { throwIfNoEntry: false })
-  if (existing && (!existing.isFile() || existing.isSymbolicLink()))
+  if (existing)
   {
-    fail('output must be a regular non-symlink current-run file')
+    fail('output must not overwrite an existing current-run record')
   }
-  writeFileSync(absolute, `${JSON.stringify(receipt, null, 2)}\n`)
+  try
+  {
+    writeFileSync(absolute, `${JSON.stringify(receipt, null, 2)}\n`, { flag: 'wx' })
+  }
+  catch (error)
+  {
+    if (error?.code === 'EEXIST') fail('output must not overwrite an existing current-run record')
+    throw error
+  }
   return path.relative(root, absolute).replaceAll(path.sep, '/')
 }
 
@@ -254,8 +262,22 @@ export function observationSourceReceipt({
     canonicalRerunCommand,
     independentVerifyCommand
   })
-  const output = `.tmp/post-runtime-source-receipts/${plan.candidate.runId}/${classId}.json`
-  writeReceipt(output, wrapper, repositoryRoot)
+  const output = `.tmp/post-runtime-source-receipts/${plan.candidate.runId}/${plan.candidate.attemptId}/${classId}.json`
+  const absoluteOutput = path.resolve(repositoryRoot, output)
+  const existing = lstatSync(absoluteOutput, { throwIfNoEntry: false })
+  if (existing)
+  {
+    const retained = explicitJson(output, `${classId} source receipt`, repositoryRoot).value
+    if (retained.contentDigest !== wrapper.contentDigest
+      || JSON.stringify(stable(retained)) !== JSON.stringify(stable(wrapper)))
+    {
+      fail(`${classId} source receipt attempt path already contains different evidence`)
+    }
+  }
+  else
+  {
+    writeReceipt(output, wrapper, repositoryRoot)
+  }
   const persisted = explicitJson(output, `${classId} source receipt`, repositoryRoot)
   return stable({
     path: persisted.relative,
@@ -828,7 +850,7 @@ export function produceObservationReceipt({ scope, candidatePlan, acceptedClaims
   })
 }
 
-export function runObservationCli({ argv, scope, defaultOutput, repositoryRoot = defaultRoot })
+export function runObservationCli({ argv, scope, repositoryRoot = defaultRoot })
 {
   const command = argv[0]
   const options = { classReceipts: [] }
@@ -853,6 +875,7 @@ export function runObservationCli({ argv, scope, defaultOutput, repositoryRoot =
     return actual
   }
   if (command !== 'produce') fail('command must be produce or verify')
-  writeReceipt(options.out ?? defaultOutput, produced, repositoryRoot)
+  if (!options.out) fail('observation production requires an explicit current-run output path')
+  writeReceipt(options.out, produced, repositoryRoot)
   return produced
 }

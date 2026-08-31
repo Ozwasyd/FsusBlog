@@ -15,8 +15,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   {
     runObservationCli({
       argv: process.argv.slice(2),
-      scope: 'application',
-      defaultOutput: '.tmp/post-runtime-observations/application-runtime.json'
+      scope: 'application'
     })
   }
   catch (error)

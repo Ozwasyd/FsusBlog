@@ -201,6 +201,8 @@ test('production correctness wires probes after current backend identity checks'
   assert.match(lane, /backend process belongs to another worktree/u)
   assert.match(lane, /Jwt__SecretKey=\*\|Jwt__KeyVersion=\*\|Jwt__Issuer=\*\|Jwt__Audience=\*/u)
   assert.doesNotMatch(lane, /env\s*>|printenv/u)
+  assert.match(lane, /runtime-observation-probes\/\$RUN_ID\/\$ATTEMPT_ID/u)
+  assert.doesNotMatch(lane, /rm -f "\$output"/u)
   const probeOffset = scheduler.indexOf('runtime-observation-probes.sh')
   const receiptOffset = scheduler.indexOf('create-correctness')
   assert.ok(probeOffset >= 0 && receiptOffset > probeOffset)

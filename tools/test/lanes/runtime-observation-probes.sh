@@ -11,7 +11,7 @@ BUILD_RECEIPT="${FSUSBLOG_CI_PRODUCTION_BUILD_RECEIPT:-$ROOT_DIR/.tmp/ci-product
 FIXTURE_RECEIPT="${FSUSBLOG_FIXTURE_PREPARE_RECEIPT:-$ROOT_DIR/.tmp/fixtures/$RUN_ID/prepare-state.json}"
 RUNTIME_DIR="${FSUSBLOG_ACCEPTANCE_RUNTIME_DIR:-$ROOT_DIR/.tmp/acceptance/$RUN_ID}"
 BACKEND_IDENTITY="${FSUSBLOG_BACKEND_PROCESS_IDENTITY:-$RUNTIME_DIR/backend.identity.json}"
-OUT_DIR="${FSUSBLOG_RUNTIME_OBSERVATION_PROBE_DIR:-$ROOT_DIR/.tmp/runtime-observation-probes/$RUN_ID}"
+OUT_DIR="${FSUSBLOG_RUNTIME_OBSERVATION_PROBE_DIR:-$ROOT_DIR/.tmp/runtime-observation-probes/$RUN_ID/$ATTEMPT_ID}"
 
 [[ -r "$BACKEND_IDENTITY" ]] || {
     printf '[runtime-observation-probes] backend identity is missing: %s\n' "$BACKEND_IDENTITY" >&2
@@ -61,7 +61,6 @@ mkdir -p "$OUT_DIR"
 
 for kind in route-response-error session-cookie-runtime cache-search-outbox-convergence; do
     output="$OUT_DIR/$kind.json"
-    rm -f "$output"
     "$NODE_BIN" "$ROOT_DIR/tools/test-evidence/runtime-observation-probes.mjs" probe \
         --kind "$kind" \
         --build "$BUILD_RECEIPT" \

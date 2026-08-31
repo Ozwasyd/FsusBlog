@@ -4,11 +4,13 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 NODE_BIN="${FSUSBLOG_NODE:-node}"
 RUN_ID="${FSUSBLOG_TEST_RUN_ID:?FSUSBLOG_TEST_RUN_ID is required}"
-PLAN_DIR="${FSUSBLOG_POST_RUNTIME_PLAN_DIR:-.tmp/post-runtime-plan/$RUN_ID}"
-RAW_DIR="${FSUSBLOG_POST_RUNTIME_RAW_DIR:-.tmp/post-runtime-raw/$RUN_ID}"
-OUT_DIR="${FSUSBLOG_POST_RUNTIME_OBSERVATION_DIR:-.tmp/post-runtime-observations/$RUN_ID}"
-SOURCE_DIR="${FSUSBLOG_POST_RUNTIME_SOURCE_DIR:-.tmp/post-runtime-sources/$RUN_ID}"
-PROBE_DIR="${FSUSBLOG_RUNTIME_OBSERVATION_PROBE_DIR:-.tmp/runtime-observation-probes/$RUN_ID}"
+ATTEMPT_ID="${FSUSBLOG_TEST_ATTEMPT_ID:-attempt-0001}"
+CLAIMS_DIR="${FSUSBLOG_POST_RUNTIME_CLAIMS_DIR:-.tmp/post-runtime-plan/$RUN_ID}"
+PLAN_DIR="${FSUSBLOG_POST_RUNTIME_PLAN_DIR:-$CLAIMS_DIR/$ATTEMPT_ID}"
+RAW_DIR="${FSUSBLOG_POST_RUNTIME_RAW_DIR:-.tmp/post-runtime-raw/$RUN_ID/$ATTEMPT_ID}"
+OUT_DIR="${FSUSBLOG_POST_RUNTIME_OBSERVATION_DIR:-.tmp/post-runtime-observations/$RUN_ID/$ATTEMPT_ID}"
+SOURCE_DIR="${FSUSBLOG_POST_RUNTIME_SOURCE_DIR:-.tmp/post-runtime-sources/$RUN_ID/$ATTEMPT_ID}"
+PROBE_DIR="${FSUSBLOG_RUNTIME_OBSERVATION_PROBE_DIR:-.tmp/runtime-observation-probes/$RUN_ID/$ATTEMPT_ID}"
 
 cd "$ROOT_DIR"
 
@@ -37,12 +39,13 @@ require_file()
 }
 
 PLAN_DIR="$(relative_path "$PLAN_DIR")"
+CLAIMS_DIR="$(relative_path "$CLAIMS_DIR")"
 RAW_DIR="$(relative_path "$RAW_DIR")"
 OUT_DIR="$(relative_path "$OUT_DIR")"
 SOURCE_DIR="$(relative_path "$SOURCE_DIR")"
 PROBE_DIR="$(relative_path "$PROBE_DIR")"
 PLAN="$(require_file "$PLAN_DIR/candidate-plan.json")"
-CLAIMS="$(require_file "$PLAN_DIR/accepted-claims.json")"
+CLAIMS="$(require_file "$CLAIMS_DIR/accepted-claims.json")"
 BROWSER="$(require_file "${FSUSBLOG_BROWSER_CONTRACT_RECEIPT:-.tmp/browser-contract/receipt.json}")"
 ROLLOUT_EVIDENCE="$(require_file "${FSUSBLOG_RELEASE_ROLLOUT_EVIDENCE:?FSUSBLOG_RELEASE_ROLLOUT_EVIDENCE is required}")"
 RUNTIME_ROLE_ADMISSION="$(require_file "${FSUSBLOG_RUNTIME_ROLE_STATIC_ADMISSION:-.tmp/behavior-doc-static-admission/receipt.json}")"
@@ -99,4 +102,4 @@ release_args=(--class-receipt "$OUT_DIR/classes/blue-green-containment.json" --c
 "$NODE_BIN" tools/fact-extractors/post-runtime/release-deployment.mjs produce --candidate-plan "$PLAN" --accepted-claims "$CLAIMS" "${release_args[@]}" --out "$OUT_DIR/release-deployment.json"
 "$NODE_BIN" tools/fact-extractors/post-runtime/release-deployment.mjs verify --candidate-plan "$PLAN" --accepted-claims "$CLAIMS" "${release_args[@]}" --receipt "$OUT_DIR/release-deployment.json"
 
-printf '[post-runtime-observation-producers] verified run=%s classes=7 scopes=2\n' "$RUN_ID"
+printf '[post-runtime-observation-producers] verified run=%s attempt=%s classes=7 scopes=2\n' "$RUN_ID" "$ATTEMPT_ID"
