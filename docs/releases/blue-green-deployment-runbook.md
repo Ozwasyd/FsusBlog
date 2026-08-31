@@ -1,7 +1,5 @@
 # Blue/Green deployment runbook
 
-This document projects the current typed deployment observation. It does not maintain a second slot, switch, rollback, cleanup or evidence map. A completed rollout requires release-bound execution receipts; the static projection below is not execution evidence.
-
 ## Local validation
 
 ```bash
@@ -9,7 +7,6 @@ node --test tests/tools/deployment-slots.test.mjs tests/tools/gateway-switch.tes
 node tools/run-test-matrix.mjs validate
 ```
 
-Local validation checks contracts and observations only. It does not start production slots, switch traffic or make a blocked claim eligible.
 ## Current production bundle ordering
 
 <!-- fsus-doc-claim

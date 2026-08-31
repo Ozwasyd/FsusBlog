@@ -1,10 +1,6 @@
 # 单体分布式架构边界
 
-本文件只投影 compiled runtime-role observation 中已表达的模式、职责组合与 ownership 状态。项目名、Dockerfile、Compose service、workflow 或部署截图不得用于推导角色事实；静态 observation 未表达的 process、container、service 与 separation 关系不会由正文补写。
-
 ## 运行模式
-
-运行模式的唯一权威是 compiled `RuntimeModeOptions` observation；模式集合、职责组合与 unsupported combinations 由下方 generated section 表达，正文不再维护手写模式表或第二份 role 映射。
 
 <!-- fsus-doc-claim
 claimId: deployment-blue-green-runtime-role.runtime-roles
@@ -26,21 +22,11 @@ render: key-value-table
 | unsupportedCombinations | {"static-role-empty":"runtime_static_roles_required","static-role-unknown":"runtime_static_role_invalid:unknown","unknown-mode":"runtime_mode_invalid:unsupported"} |
 <!-- FSUSBLOG-GENERATED:END deployment.runtime-roles -->
 
-`authorityState: conflict-unknown` 是 fail-closed 结果，不等价于已证明 monolithic topology。只有 typed authority 补齐并重新生成本节后，后继 release claim 才能消费新的关系结论。
-
-## Conformance diagnostic
-
-现有静态检查可发现 source layout 与 adapter boundary 漂移，但检查入口和文件名不拥有 runtime-role、co-residency 或 separation 事实。
-
-本地检查：
-
 ```bash
 node tools/governance/check-monolithic-distributed-architecture.mjs
 node --test tests/tools/monolithic-distributed-architecture.test.mjs
 node tools/run-test-matrix.mjs validate
 ```
-
-这些检查只提供 conformance diagnostics，不能把 `conflict-unknown` 提升为 verified deployment claim。
 ## Current execution classes
 
 <!-- fsus-doc-claim

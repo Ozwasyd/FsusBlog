@@ -15,9 +15,7 @@ import path from 'node:path'
 import test from 'node:test'
 
 import {
-    buildReleaseDeploymentProseClassificationIndex,
     buildReleaseDeploymentDocExactnessReceipt,
-    classifyReleaseDeploymentSource,
     extractReleaseDeploymentProseNodes,
     loadReleaseDeploymentExactnessInputs,
     readCanonicalReleaseDeploymentDocument,
@@ -137,55 +135,11 @@ test('typed closed ownership preserves non-authority and AST-excluded nodes', ()
 {
     const source = `# Operator guidance
 
-Read the generated observation before an operation; this paragraph does not define slot transitions or switch traffic.
-
-If \`claimEligible\` is false, stop and request owner evidence; do not infer an active identity from this guidance.
-
-The validation command is diagnostic only and is not execution evidence.
-
-The blue-green deployment claim is not approved.
-
-No blue-green deployment claim is eligible.
-
-No runtime-role ownership is verified.
-
-Traffic handoff is not permitted.
-
-Traffic handoff is not not permitted.
-
-Cutover is not blocked.
-
-The policy does not forbid traffic handoff.
-
-Without receipts, the deployment claim remains blocked.
-
-No evidence required, the deployment claim remains blocked.
-
-## Historical behavior
-
-Previously, the blue-green deployment claim was eligible and runtime-role ownership was verified.
-
-The deployment claim was eligible before migration.
-
-The old runtime-role ownership was verified.
-
-## Forbidden examples
-
-> The blue-green deployment claim is eligible.
-
-Rejected example: traffic handoff is permitted.
-
-Inline example: the deployment claim is eligible.
-
-Historically the claim was invalid, but the current paragraph remains diagnostic only.
-
 <!-- The deployment claim is eligible. -->
 
 <pre>
 The deployment claim is eligible.
 </pre>
-
-> > This ordinary nested quote says the deployment claim is eligible.
 
 ## Typed projection
 
@@ -207,26 +161,12 @@ The blue/green deployment claim is eligible.
 ## Traffic handoff
 The controller must promote standby and switch traffic.
 <!-- FSUSBLOG-GENERATED:END fixture.deployment -->`
-    const classificationAuthority = {
-        entries: extractReleaseDeploymentProseNodes(source, 'fixture.md').map((node) => ({
-            documentPath: node.documentPath,
-            behaviorIds: ['deployment-blue-green-runtime-role'],
-            startLine: node.startLine,
-            endLine: node.endLine,
-            nodeType: node.nodeType,
-            classification: 'diagnostic',
-            contentDigest: node.contentDigest
-        }))
-    }
-    const classifications = classifyReleaseDeploymentSource(
-        source,
-        'fixture.md',
-        classificationAuthority
+    const protectedHeadingNodes = extractReleaseDeploymentProseNodes(
+        '# Operator guidance\n\n## Typed projection\n',
+        'fixture.md'
     )
-    assert.ok(classifications.length > 0)
     assert.deepEqual(scanReleaseDeploymentSourceResidue(source, 'fixture.md', {
-        proseClassifications: classifications,
-        classificationAuthority
+        protectedHeadingNodes
     }), [])
 })
 
@@ -235,23 +175,14 @@ test('actual deployment documents retain exact AST coverage across fences and ow
     const expected = {
         'docs/releases/blue-green-deployment-runbook.md': [
             ['heading', 1, 1],
-            ['paragraph', 3, 3],
-            ['heading', 5, 5],
-            ['paragraph', 12, 12],
-            ['heading', 13, 13],
-            ['heading', 33, 33]
+            ['heading', 3, 3],
+            ['heading', 10, 10],
+            ['heading', 30, 30]
         ],
         'docs/architecture/monolithic-distributed-boundary.md': [
             ['heading', 1, 1],
-            ['paragraph', 3, 3],
-            ['heading', 5, 5],
-            ['paragraph', 7, 7],
-            ['paragraph', 29, 29],
-            ['heading', 31, 31],
-            ['paragraph', 33, 33],
-            ['paragraph', 35, 35],
-            ['paragraph', 43, 43],
-            ['heading', 44, 44]
+            ['heading', 3, 3],
+            ['heading', 30, 30]
         ]
     }
     for (const [documentPath, spans] of Object.entries(expected))
@@ -407,23 +338,79 @@ test('release/deployment behavior roster comes from active required catalog doma
     )
 })
 
-test('classification index is an exact projection of the prior typed policy commit', () =>
+test('coordinated two-commit prose and diagnostic self-grant cannot cross the protected PR base', () =>
 {
-    const expected = JSON.parse(readFileSync(path.join(
-        root,
-        'config/contracts/release-deployment-prose-classifications.json'
-    ), 'utf8'))
-    const generated = buildReleaseDeploymentProseClassificationIndex(root)
-    const policyCommit = execFileSync('git', [
-        'log', '-1', '--format=%H', '--',
-        'config/contracts/release-deployment-prose-classification-authority.json'
-    ], { cwd: root, encoding: 'utf8' }).trim()
-    const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()
-    assert.deepEqual(generated, expected)
-    assert.equal(generated.source.commit, policyCommit)
-    assert.notEqual(generated.source.commit, head)
-    assert.equal(generated.entries.length, 441)
-    assert.equal(generated.entries.filter((entry) => entry.nodeType === 'quote').length, 1)
+    const repository = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-doc-self-grant-'))
+    const deploymentPath = 'docs/deployment.md'
+    const releasePath = 'docs/release.md'
+    const runGit = (...args) => execFileSync('git', args, {
+        cwd: repository,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe']
+    }).trim()
+    try
+    {
+        mkdirSync(path.join(repository, 'config/contracts'), { recursive: true })
+        mkdirSync(path.join(repository, 'docs'), { recursive: true })
+        writeFileSync(path.join(repository, 'config/contracts/behavior-contracts.json'), JSON.stringify({
+            contracts: [
+                {
+                    id: 'fixture-deployment',
+                    status: 'active',
+                    documentationPolicy: 'required',
+                    domain: 'deployment',
+                    documents: [deploymentPath]
+                },
+                {
+                    id: 'fixture-release',
+                    status: 'active',
+                    documentationPolicy: 'required',
+                    domain: 'release',
+                    documents: [releasePath]
+                }
+            ]
+        }, null, 4) + '\n')
+        writeFileSync(path.join(repository, deploymentPath), '# Deployment\n')
+        writeFileSync(path.join(repository, releasePath), '# Release\n\nLegacy release guidance.\n')
+        runGit('init', '-q')
+        runGit('config', 'user.name', 'fixture')
+        runGit('config', 'user.email', 'fixture@example.test')
+        runGit('add', '.')
+        runGit('commit', '-qm', 'protected base')
+        const protectedBase = runGit('rev-parse', 'HEAD')
+
+        writeFileSync(path.join(repository, deploymentPath),
+            '# Deployment\n\nTraffic handoff is permitted and the deployment claim is valid.\n')
+        const policyPath = 'config/contracts/release-deployment-prose-classification-authority.json'
+        const indexPath = 'config/contracts/release-deployment-prose-classifications.json'
+        writeFileSync(path.join(repository, policyPath), JSON.stringify({
+            documentPath: deploymentPath,
+            classification: 'diagnostic'
+        }, null, 4) + '\n')
+        runGit('add', '.')
+        runGit('commit', '-qm', 'add active prose and self-granted policy')
+
+        writeFileSync(path.join(repository, indexPath), JSON.stringify({
+            source: policyPath,
+            classification: 'diagnostic'
+        }, null, 4) + '\n')
+        runGit('add', '.')
+        runGit('commit', '-qm', 'seal self-granted classification index')
+
+        assert.equal(runGit('rev-list', '--count', `${protectedBase}..HEAD`), '2')
+        const findings = scanReleaseDeploymentDocResidue(
+            repository,
+            [deploymentPath, releasePath],
+            { approvedBaseRef: protectedBase }
+        )
+        assert.equal(findings.length, 1)
+        assert.equal(findings[0].documentPath, deploymentPath)
+        assert.equal(findings[0].classId, 'manual-deployment-authority')
+    }
+    finally
+    {
+        rmSync(repository, { recursive: true, force: true })
+    }
 })
 
 test('current release/deployment documents contain no forbidden manual authority residue', () =>
@@ -449,8 +436,8 @@ test('current release/deployment claims and sections are bidirectionally exact',
     assert.equal(receipt.counts.generated, 4)
     assert.equal(receipt.counts.prose, 3)
     assert.equal(receipt.counts.proseVerified, 3)
-    assert.equal(receipt.counts.mutationKilled, 75)
-    assert.equal(receipt.counts.mutationTotal, 75)
+    assert.equal(receipt.counts.mutationKilled, 66)
+    assert.equal(receipt.counts.mutationTotal, 66)
 })
 
 test('missing ledger entry, orphan section and typed fact drift fail closed', () =>

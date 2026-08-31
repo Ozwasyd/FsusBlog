@@ -15,7 +15,6 @@ import { fileURLToPath } from 'node:url'
 
 import { digestValue } from '../fact-extractors/identity.mjs'
 import { readFactObservationReceipt } from '../fact-extractors/reader.mjs'
-import { validateJsonSchema } from '../test-matrix/schema-validator/validate.mjs'
 import {
     buildBehaviorDocExactnessReceipt,
     validateBehaviorDocExactnessReceipt
@@ -31,9 +30,8 @@ export const releaseDeploymentDomains = Object.freeze(['release', 'deployment'])
 export const releaseDeploymentExactnessSchema = 'fsusblog.release-deployment-doc-exactness-receipt.v1'
 
 const strictUtf8Decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: false })
-const readStrictUtf8 = (file, label = file) =>
+const decodeStrictUtf8 = (bytes, label) =>
 {
-    const bytes = readFileSync(file)
     if (bytes.subarray(0, 3).equals(Buffer.from([0xef, 0xbb, 0xbf])))
         throw new Error(`${label} must not contain a UTF-8 BOM`)
     let source
@@ -49,17 +47,12 @@ const readStrictUtf8 = (file, label = file) =>
     if (/[\t ]+$/mu.test(source)) throw new Error(`${label} must not contain trailing horizontal whitespace`)
     return source
 }
+const readStrictUtf8 = (file, label = file) => decodeStrictUtf8(readFileSync(file), label)
 const readJson = (repositoryRoot, relative) =>
     JSON.parse(readStrictUtf8(path.join(repositoryRoot, relative), relative))
 
-const proseClassificationSchema = 'fsusblog.release-deployment-prose-classifications.v2'
-const proseClassificationPath = 'config/contracts/release-deployment-prose-classifications.json'
-const proseClassificationAuthoritySchema = 'fsusblog.release-deployment-prose-classification-authority.v2'
-const proseClassificationAuthorityPath = 'config/contracts/release-deployment-prose-classification-authority.json'
 const markdownAstVersion = 'fsusblog.release-deployment-markdown-ast.v1'
-const proseClassificationKinds = Object.freeze(['diagnostic', 'example', 'history', 'non-authority'])
-const proseClassificationProducerId = 'release-deployment-prose-classification-index'
-const proseClassificationAuthorityProducerId = 'release-deployment-prose-classification-policy'
+const protectedProseOwnershipVersion = 'fsusblog.release-deployment-protected-prose-ownership.v1'
 
 const headingPattern = /^(#{1,6})\s+(.+?)\s*#*\s*$/u
 const fencePattern = /^\s*(`{3,}|~{3,})/u
@@ -69,8 +62,6 @@ const quotePattern = /^\s*>/u
 const htmlCommentPattern = /^\s*<!--/u
 const htmlPrePattern = /^\s*<pre(?:\s|>)/iu
 const indentedCodePattern = /^(?: {4}|\t)\S/u
-const proseNodeTypes = Object.freeze(['heading', 'paragraph', 'list', 'table', 'callout', 'quote'])
-
 const lineBody = (lines) => lines.join('\n').trimEnd()
 const nodeDigest = (node) => digestValue({
     astVersion: markdownAstVersion,
@@ -78,8 +69,7 @@ const nodeDigest = (node) => digestValue({
     headingPath: node.headingPath,
     body: node.body
 })
-const classificationKey = (entry) =>
-    `${entry.documentPath}\0${entry.startLine}\0${entry.endLine}\0${entry.nodeType}`
+const protectedNodeKey = (entry) => `${entry.nodeType}\0${entry.contentDigest}`
 
 function assertCanonicalRepositoryPath(relativePath, { docsOnly = false } = {})
 {
@@ -100,6 +90,45 @@ function git(repositoryRoot, args)
         encoding: 'utf8',
         stdio: ['ignore', 'pipe', 'pipe']
     }).trim()
+}
+
+export function resolveReleaseDeploymentProtectedBase(
+    repositoryRoot,
+    approvedBaseRef = process.env.FSUSBLOG_PR_BASE_REF || 'origin/master'
+)
+{
+    if (typeof approvedBaseRef !== 'string' || approvedBaseRef.length === 0
+        || approvedBaseRef.includes('\0') || approvedBaseRef.includes('\n'))
+        throw new Error('release/deployment protected base ref is invalid')
+    const commit = git(repositoryRoot, ['rev-parse', '--verify', `${approvedBaseRef}^{commit}`])
+    if (!/^[0-9a-f]{40}$/u.test(commit)) throw new Error('release/deployment protected base is not a commit')
+    try
+    {
+        git(repositoryRoot, ['merge-base', '--is-ancestor', commit, 'HEAD'])
+    }
+    catch
+    {
+        throw new Error('release/deployment protected base is not an ancestor of HEAD')
+    }
+    return commit
+}
+
+function readProtectedGitFile(repositoryRoot, commit, relativePath, { docsOnly = false } = {})
+{
+    assertCanonicalRepositoryPath(relativePath, { docsOnly })
+    if (!/^[0-9a-f]{40}$/u.test(commit)) throw new Error('invalid protected base commit')
+    const treeEntry = git(repositoryRoot, ['ls-tree', commit, '--', relativePath])
+        .match(/^(100644|100755) blob ([0-9a-f]{40,64})\t(.+)$/u)
+    if (!treeEntry || treeEntry[3] !== relativePath)
+        throw new Error(`${relativePath} has no regular blob at protected base ${commit}`)
+    const bytes = execFileSync('git', ['show', `${commit}:${relativePath}`], {
+        cwd: repositoryRoot,
+        stdio: ['ignore', 'pipe', 'pipe']
+    })
+    return {
+        blob: treeEntry[2],
+        source: decodeStrictUtf8(bytes, `${commit}:${relativePath}`)
+    }
 }
 
 function readCanonicalTrackedFile(repositoryRoot, relativePath, { docsOnly = false } = {})
@@ -343,229 +372,40 @@ export function extractReleaseDeploymentProseNodes(source, documentPath = 'inlin
     return parseReleaseDeploymentMarkdownAst(source, documentPath, { ownedSpans })
 }
 
-export function classifyReleaseDeploymentSource(
-    source,
-    documentPath = 'inline.md',
-    classificationAuthority
-)
-{
-    const authorityByKey = new Map((classificationAuthority?.entries ?? [])
-        .map((entry) => [classificationKey(entry), entry]))
-    return extractReleaseDeploymentProseNodes(source, documentPath).map((node) =>
-    {
-        const authority = authorityByKey.get(classificationKey(node))
-        if (!authority || authority.contentDigest !== node.contentDigest
-            || !proseClassificationKinds.includes(authority.classification))
-            throw new Error(`missing exact prose classification authority for ${classificationKey(node)}`)
-        return {
-            documentPath: node.documentPath,
-            ['behaviorIds']: [...authority.behaviorIds],
-            startLine: node.startLine,
-            endLine: node.endLine,
-            nodeType: node.nodeType,
-            classification: authority.classification,
-            contentDigest: node.contentDigest
-        }
-    })
-}
-
-function assertSealed(value, label)
-{
-    if (value?.contentDigest !== digestValue({ ...value, contentDigest: null }))
-        throw new Error(`${label} contentDigest mismatch`)
-}
-
-function validateClassificationEntries(entries, label)
-{
-    if (!Array.isArray(entries) || entries.length === 0) throw new Error(`${label} entries are empty`)
-    const keys = new Set()
-    for (const entry of entries)
-    {
-        assertCanonicalRepositoryPath(entry.documentPath, { docsOnly: true })
-        if (!Array.isArray(entry.behaviorIds) || entry.behaviorIds.length === 0
-            || new Set(entry.behaviorIds).size !== entry.behaviorIds.length
-            || entry.behaviorIds.some((id) => !/^[a-z][a-z0-9-]+$/u.test(id))
-            || JSON.stringify(entry.behaviorIds) !== JSON.stringify([...entry.behaviorIds].sort())
-            || !Number.isSafeInteger(entry.startLine) || !Number.isSafeInteger(entry.endLine)
-            || entry.startLine < 1 || entry.endLine < entry.startLine
-            || !proseNodeTypes.includes(entry.nodeType)
-            || !proseClassificationKinds.includes(entry.classification)
-            || !/^[0-9a-f]{64}$/u.test(entry.contentDigest))
-            throw new Error(`invalid ${label} entry`)
-        const key = classificationKey(entry)
-        if (keys.has(key)) throw new Error(`duplicate ${label} key ${key}`)
-        keys.add(key)
-    }
-    return keys
-}
-
-function selectedClassificationContracts(catalog)
-{
-    return catalog.contracts.filter((entry) => entry.status === 'active'
-        && entry.documentationPolicy === 'required'
-        && releaseDeploymentDomains.includes(entry.domain))
-}
-
-function validateProseClassificationAuthority(authority, catalog, repositoryRoot = root)
-{
-    const schemaPath = 'config/schemas/release-deployment-prose-classification-authority.schema.json'
-    const schema = JSON.parse(readCanonicalTrackedFile(repositoryRoot, schemaPath))
-    const schemaErrors = validateJsonSchema(authority, schema)
-    if (schemaErrors.length > 0) throw new Error(`invalid classification authority schema: ${schemaErrors.join('; ')}`)
-    if (authority.schema !== proseClassificationAuthoritySchema
-        || authority.producerId !== proseClassificationAuthorityProducerId
-        || authority.scopeId !== releaseDeploymentScopeId
-        || authority.index?.path !== proseClassificationPath
-        || authority.index?.producerId !== proseClassificationProducerId)
-        throw new Error('invalid release/deployment prose classification authority')
-    assertCanonicalRepositoryPath(authority.index.path)
-    assertSealed(authority, 'prose classification authority')
-    validateClassificationEntries(authority.entries, 'classification authority')
-    const selected = selectedClassificationContracts(catalog)
-    const expectedDocuments = [...new Set(selected.flatMap((entry) => entry.documents))].sort()
-    const actualDocuments = [...new Set(authority.entries.map((entry) => entry.documentPath))].sort()
-    if (JSON.stringify(expectedDocuments) !== JSON.stringify(actualDocuments))
-        throw new Error('classification authority document roster conflicts with BehaviorCatalog')
-    for (const entry of authority.entries)
-    {
-        const expectedBehaviorIds = selected.filter((contract) => contract.documents.includes(entry.documentPath))
-            .map((contract) => contract.id).sort()
-        if (JSON.stringify(expectedBehaviorIds) !== JSON.stringify(entry.behaviorIds))
-            throw new Error(`${entry.documentPath} per-node behavior roster conflicts with BehaviorCatalog`)
-    }
-    const trackedAuthority = JSON.parse(readCanonicalTrackedFile(
-        repositoryRoot,
-        proseClassificationAuthorityPath
-    ))
-    if (digestValue(trackedAuthority) !== digestValue(authority))
-        throw new Error('classification authority input differs from its tracked source')
-    return authority
-}
-
-function sourceBytesDigest(source)
-{
-    return `sha256:${createHash('sha256').update(source).digest('hex')}`
-}
-
-function validateProseClassificationRegistry(registry, authority, catalog, repositoryRoot = root)
-{
-    const schemaPath = 'config/schemas/release-deployment-prose-classifications.schema.json'
-    const schema = JSON.parse(readCanonicalTrackedFile(repositoryRoot, schemaPath))
-    const schemaErrors = validateJsonSchema(registry, schema)
-    if (schemaErrors.length > 0) throw new Error(`invalid prose classification schema: ${schemaErrors.join('; ')}`)
-    if (registry.schema !== proseClassificationSchema
-        || registry.producerId !== proseClassificationProducerId
-        || registry.scopeId !== releaseDeploymentScopeId
-        || registry.source?.path !== proseClassificationAuthorityPath
-        || registry.source?.producerId !== proseClassificationAuthorityProducerId)
-        throw new Error('invalid release/deployment prose classification registry')
-    assertCanonicalRepositoryPath(registry.source.path)
-    assertSealed(registry, 'prose classification index')
-    validateClassificationEntries(registry.entries, 'classification index')
-    const selected = selectedClassificationContracts(catalog)
-    const expectedDocuments = [...new Set(selected.flatMap((entry) => entry.documents))].sort()
-    const registryDocuments = [...new Set(registry.entries.map((entry) => entry.documentPath))].sort()
-    if (JSON.stringify(expectedDocuments) !== JSON.stringify(registryDocuments))
-        throw new Error('classification index contains missing or orphan documents')
-    const authorityByKey = new Map(authority.entries.map((entry) => [classificationKey(entry), entry]))
-    const registryByKey = new Map(registry.entries.map((entry) => [classificationKey(entry), entry]))
-    if (authorityByKey.size !== registryByKey.size)
-        throw new Error('classification authority/index cardinality differs')
-    for (const [key, authorityEntry] of authorityByKey)
-    {
-        const indexEntry = registryByKey.get(key)
-        if (!indexEntry || digestValue(indexEntry) !== digestValue(authorityEntry))
-            throw new Error(`classification authority/index drift at ${key}`)
-    }
-    const trackedRegistry = JSON.parse(readCanonicalTrackedFile(repositoryRoot, proseClassificationPath))
-    if (digestValue(trackedRegistry) !== digestValue(registry))
-        throw new Error('classification index input differs from its tracked artifact')
-    const authoritySource = readCanonicalTrackedFile(repositoryRoot, proseClassificationAuthorityPath)
-    if (!/^[0-9a-f]{40}$/u.test(registry.source.commit)
-        || registry.source.digest !== sourceBytesDigest(authoritySource))
-        throw new Error('classification index source identity is invalid')
-    const sourceCommit = git(repositoryRoot, ['log', '-1', '--format=%H', '--', proseClassificationAuthorityPath])
-    if (sourceCommit !== registry.source.commit
-        || git(repositoryRoot, ['merge-base', '--is-ancestor', sourceCommit, 'HEAD']) !== '')
-        throw new Error('classification index source commit is not the exact reachable policy revision')
-    const committedSource = execFileSync(
-        'git', ['show', `${sourceCommit}:${proseClassificationAuthorityPath}`],
-        { cwd: repositoryRoot, stdio: ['ignore', 'pipe', 'pipe'] }
-    )
-    if (sourceBytesDigest(committedSource) !== registry.source.digest)
-        throw new Error('classification index source digest does not match its bound commit')
-    return registry
-}
-
-export function buildReleaseDeploymentProseClassificationIndex(repositoryRoot = root)
-{
-    const catalog = readJson(repositoryRoot, 'config/contracts/behavior-contracts.json')
-    const authoritySource = readCanonicalTrackedFile(repositoryRoot, proseClassificationAuthorityPath)
-    const authority = validateProseClassificationAuthority(
-        JSON.parse(authoritySource),
-        catalog,
-        repositoryRoot
-    )
-    const sourceCommit = git(repositoryRoot, [
-        'log', '-1', '--format=%H', '--', proseClassificationAuthorityPath
-    ])
-    return seal({
-        schema: proseClassificationSchema,
-        producerId: proseClassificationProducerId,
-        scopeId: releaseDeploymentScopeId,
-        source: {
-            path: proseClassificationAuthorityPath,
-            producerId: proseClassificationAuthorityProducerId,
-            commit: sourceCommit,
-            digest: sourceBytesDigest(Buffer.from(authoritySource, 'utf8'))
-        },
-        entries: authority.entries.map((entry) => structuredClone(entry))
-    })
-}
-
-function scanClosedProseOwnership(source, documentPath, classifications, classificationAuthority)
+function scanClosedProseOwnership(source, documentPath, protectedHeadingNodes = [])
 {
     const nodes = extractReleaseDeploymentProseNodes(source, documentPath)
-    const entries = classifications.filter((entry) => entry.documentPath === documentPath)
-    const authorityByKey = new Map((classificationAuthority?.entries ?? [])
-        .filter((entry) => entry.documentPath === documentPath)
-        .map((entry) => [classificationKey(entry), entry]))
-    const byKey = new Map(entries.map((entry) => [classificationKey(entry), entry]))
+    const headingCounts = new Map()
+    for (const node of protectedHeadingNodes.filter((entry) => entry.nodeType === 'heading'))
+    {
+        const key = protectedNodeKey(node)
+        headingCounts.set(key, (headingCounts.get(key) ?? 0) + 1)
+    }
     const findings = []
     for (const node of nodes)
     {
-        const key = classificationKey(node)
-        const entry = byKey.get(key)
-        const authority = authorityByKey.get(key)
-        if (!entry || entry.contentDigest !== node.contentDigest
-            || !authority || digestValue(entry) !== digestValue(authority))
+        if (node.nodeType === 'heading')
         {
-            findings.push({
-                classId: 'manual-deployment-authority',
-                documentPath,
-                evidence: `${node.nodeType}:${node.startLine}-${node.endLine}`
-            })
+            const key = protectedNodeKey(node)
+            const remaining = headingCounts.get(key) ?? 0
+            if (remaining > 0)
+            {
+                headingCounts.set(key, remaining - 1)
+                continue
+            }
         }
-    }
-    const nodeKeys = new Set(nodes.map(classificationKey))
-    for (const entry of entries)
-    {
-        if (!nodeKeys.has(classificationKey(entry)))
-        {
-            findings.push({
-                classId: 'stale-prose-classification',
-                documentPath,
-                evidence: `${entry.nodeType}:${entry.startLine}-${entry.endLine}`
-            })
-        }
+        findings.push({
+            classId: 'manual-deployment-authority',
+            documentPath,
+            evidence: `${node.nodeType}:${node.startLine}-${node.endLine}`
+        })
     }
     return findings
 }
 
 const semanticScannerIdentity = Object.freeze([
     markdownAstVersion,
-    proseClassificationSchema,
-    ...proseClassificationKinds
+    protectedProseOwnershipVersion
 ])
 export function selectReleaseDeploymentBehaviorIds(catalog)
 {
@@ -589,30 +429,46 @@ function seal(value)
     return result
 }
 
-export function scanReleaseDeploymentDocResidue(repositoryRoot, documentPaths)
+export function scanReleaseDeploymentDocResidue(
+    repositoryRoot,
+    documentPaths,
+    { approvedBaseRef } = {}
+)
 {
     const findings = []
-    const catalog = readJson(repositoryRoot, 'config/contracts/behavior-contracts.json')
-    const authority = validateProseClassificationAuthority(
-        JSON.parse(readCanonicalTrackedFile(repositoryRoot, proseClassificationAuthorityPath)),
-        catalog,
-        repositoryRoot
-    )
-    const registry = validateProseClassificationRegistry(
-        JSON.parse(readCanonicalTrackedFile(repositoryRoot, proseClassificationPath)),
-        authority,
-        catalog,
-        repositoryRoot
-    )
-    for (const documentPath of [...new Set(documentPaths)].sort())
+    const protectedBase = resolveReleaseDeploymentProtectedBase(repositoryRoot, approvedBaseRef)
+    const protectedCatalog = JSON.parse(readProtectedGitFile(
+        repositoryRoot,
+        protectedBase,
+        'config/contracts/behavior-contracts.json'
+    ).source)
+    const selected = protectedCatalog.contracts.filter((entry) => entry.status === 'active'
+        && entry.documentationPolicy === 'required'
+        && releaseDeploymentDomains.includes(entry.domain))
+    const expectedDocuments = [...new Set(selected.flatMap((entry) => entry.documents))].sort()
+    const actualDocuments = [...new Set(documentPaths)].sort()
+    if (JSON.stringify(actualDocuments) !== JSON.stringify(expectedDocuments))
+        throw new Error('release/deployment document roster differs from the protected BehaviorCatalog')
+    for (const documentPath of actualDocuments)
     {
         assertCanonicalRepositoryPath(documentPath, { docsOnly: true })
+        const owners = selected.filter((entry) => entry.documents.includes(documentPath))
+        if (owners.length === 0) throw new Error(`${documentPath} is outside the release/deployment BehaviorCatalog roster`)
+        const currentSource = readCanonicalTrackedFile(repositoryRoot, documentPath, { docsOnly: true })
+        const protectedDocument = readProtectedGitFile(repositoryRoot, protectedBase, documentPath, {
+            docsOnly: true
+        })
+        const currentBlob = git(repositoryRoot, ['rev-parse', `HEAD:${documentPath}`])
+        if (currentBlob === protectedDocument.blob && owners.every((entry) => entry.domain !== 'deployment'))
+            continue
         findings.push(...scanReleaseDeploymentSourceResidue(
-            readCanonicalTrackedFile(repositoryRoot, documentPath, { docsOnly: true }),
+            currentSource,
             documentPath,
             {
-                proseClassifications: registry.entries,
-                classificationAuthority: authority
+                protectedHeadingNodes: extractReleaseDeploymentProseNodes(
+                    protectedDocument.source,
+                    documentPath
+                )
             }
         ))
     }
@@ -622,17 +478,10 @@ export function scanReleaseDeploymentDocResidue(repositoryRoot, documentPaths)
 export function scanReleaseDeploymentSourceResidue(
     source,
     documentPath = 'inline.md',
-    { proseClassifications = [], classificationAuthority = null } = {}
+    { protectedHeadingNodes = [] } = {}
 )
 {
-    const findings = []
-    findings.push(...scanClosedProseOwnership(
-        source,
-        documentPath,
-        proseClassifications,
-        classificationAuthority
-    ))
-    return findings
+    return scanClosedProseOwnership(source, documentPath, protectedHeadingNodes)
 }
 
 export function runReleaseDeploymentDocMutationCases(structuralRows = [])
@@ -762,17 +611,6 @@ export function loadReleaseDeploymentExactnessInputs(repositoryRoot, observation
     const lifecycle = readJson(repositoryRoot, 'config/development/document-lifecycle.json')
     const migrationLedger = readJson(repositoryRoot, 'config/contracts/document-claim-migration-ledger.json')
     const sectionCatalog = readJson(repositoryRoot, 'config/contracts/generated-fact-sections.json')
-    const proseClassificationAuthority = validateProseClassificationAuthority(
-        JSON.parse(readCanonicalTrackedFile(repositoryRoot, proseClassificationAuthorityPath)),
-        catalog,
-        repositoryRoot
-    )
-    const proseClassifications = validateProseClassificationRegistry(
-        JSON.parse(readCanonicalTrackedFile(repositoryRoot, proseClassificationPath)),
-        proseClassificationAuthority,
-        catalog,
-        repositoryRoot
-    )
     const claimReceipt = parseRepositoryClaims(repositoryRoot, { catalog })
     const receiptRaw = typeof observationReceipt === 'string'
         ? JSON.parse(readFileSync(observationReceipt, 'utf8'))
@@ -783,8 +621,6 @@ export function loadReleaseDeploymentExactnessInputs(repositoryRoot, observation
         lifecycle,
         migrationLedger,
         sectionCatalog,
-        proseClassifications,
-        proseClassificationAuthority,
         claimReceipt,
         receiptRaw,
         receipt
@@ -795,11 +631,13 @@ export function buildReleaseDeploymentDocExactnessReceipt({
     repositoryRoot = root,
     observationReceipt,
     sourceCommit,
-    worktreeFingerprint
+    worktreeFingerprint,
+    approvedBaseRef
 })
 {
     const inputs = loadReleaseDeploymentExactnessInputs(repositoryRoot, observationReceipt)
     const selectedIds = selectReleaseDeploymentBehaviorIds(inputs.catalog)
+    const protectedBase = resolveReleaseDeploymentProtectedBase(repositoryRoot, approvedBaseRef)
     const exactness = buildBehaviorDocExactnessReceipt({
         repositoryRoot,
         catalog: inputs.catalog,
@@ -813,17 +651,15 @@ export function buildReleaseDeploymentDocExactnessReceipt({
         worktreeFingerprint,
         scopeId: releaseDeploymentScopeId,
         scannerDigest: createHash('sha256')
-            .update([
-                ...semanticScannerIdentity,
-                digestValue(inputs.proseClassifications),
-                digestValue(inputs.proseClassificationAuthority)
-            ].join('\n'))
+            .update([...semanticScannerIdentity, protectedBase].join('\n'))
             .digest('hex')
     })
     const documentPaths = inputs.catalog.contracts
         .filter((entry) => selectedIds.includes(entry.id))
         .flatMap((entry) => entry.documents)
-    const residue = scanReleaseDeploymentDocResidue(repositoryRoot, documentPaths)
+    const residue = scanReleaseDeploymentDocResidue(repositoryRoot, documentPaths, {
+        approvedBaseRef: protectedBase
+    })
     const generatedDrifts = verifyReleaseDeploymentGeneratedSections(
         repositoryRoot,
         inputs.sectionCatalog,
@@ -865,87 +701,11 @@ export function buildReleaseDeploymentDocExactnessReceipt({
     const missingUnsupportedCombination = structuredClone(inputs.receipt)
     delete missingUnsupportedCombination.observations.facts['deployment.runtime-role-contract']
         .unsupportedCombinations['unknown-mode']
-    const registrySelfClassification = structuredClone(inputs.proseClassifications)
-    registrySelfClassification.entries[0].classification =
-        registrySelfClassification.entries[0].classification === 'diagnostic'
-            ? 'example'
-            : 'diagnostic'
-    registrySelfClassification.contentDigest = digestValue({
-        ...registrySelfClassification,
-        contentDigest: null
-    })
-    const registryExtraNode = structuredClone(inputs.proseClassifications)
-    registryExtraNode.entries.push({
-        ...registryExtraNode.entries[0],
-        startLine: 999998,
-        endLine: 999999,
-        contentDigest: '0'.repeat(64)
-    })
-    registryExtraNode.contentDigest = digestValue({ ...registryExtraNode, contentDigest: null })
-    const authorityBehaviorDrift = structuredClone(inputs.proseClassificationAuthority)
-    authorityBehaviorDrift.entries[0].behaviorIds[0] =
-        `${authorityBehaviorDrift.entries[0].behaviorIds[0]}-drift`
-    authorityBehaviorDrift.contentDigest = digestValue({ ...authorityBehaviorDrift, contentDigest: null })
-    const coordinatedSelfGrantAuthority = structuredClone(inputs.proseClassificationAuthority)
-    coordinatedSelfGrantAuthority.entries[0].classification =
-        coordinatedSelfGrantAuthority.entries[0].classification === 'diagnostic' ? 'example' : 'diagnostic'
-    coordinatedSelfGrantAuthority.contentDigest = digestValue({
-        ...coordinatedSelfGrantAuthority,
-        contentDigest: null
-    })
-    const coordinatedSelfGrantRegistry = structuredClone(inputs.proseClassifications)
-    coordinatedSelfGrantRegistry.entries[0].classification =
-        coordinatedSelfGrantAuthority.entries[0].classification
-    coordinatedSelfGrantRegistry.contentDigest = digestValue({
-        ...coordinatedSelfGrantRegistry,
-        contentDigest: null
-    })
-    const orphanRegistry = structuredClone(inputs.proseClassifications)
-    orphanRegistry.entries[0].documentPath = 'docs/orphan.md'
-    orphanRegistry.contentDigest = digestValue({ ...orphanRegistry, contentDigest: null })
-    const traversalAuthority = structuredClone(inputs.proseClassificationAuthority)
-    traversalAuthority.entries[0].documentPath = 'docs/../outside.md'
-    traversalAuthority.contentDigest = digestValue({ ...traversalAuthority, contentDigest: null })
-    const unicodeAliasAuthority = structuredClone(inputs.proseClassificationAuthority)
-    unicodeAliasAuthority.entries[0].documentPath = 'docs/rele\u0301ases/example.md'
-    unicodeAliasAuthority.contentDigest = digestValue({ ...unicodeAliasAuthority, contentDigest: null })
-    const caseAliasAuthority = structuredClone(inputs.proseClassificationAuthority)
-    caseAliasAuthority.entries[0].documentPath = 'Docs/testing.md'
-    caseAliasAuthority.contentDigest = digestValue({ ...caseAliasAuthority, contentDigest: null })
-    const reversedSpanAuthority = structuredClone(inputs.proseClassificationAuthority)
-    reversedSpanAuthority.entries[0].startLine = reversedSpanAuthority.entries[0].endLine + 1
-    reversedSpanAuthority.contentDigest = digestValue({ ...reversedSpanAuthority, contentDigest: null })
-    const duplicateAuthority = structuredClone(inputs.proseClassificationAuthority)
-    duplicateAuthority.entries.push(structuredClone(duplicateAuthority.entries[0]))
-    duplicateAuthority.contentDigest = digestValue({ ...duplicateAuthority, contentDigest: null })
-    const sourceCommitDriftRegistry = structuredClone(inputs.proseClassifications)
-    sourceCommitDriftRegistry.source.commit = '0'.repeat(40)
-    sourceCommitDriftRegistry.contentDigest = digestValue({
-        ...sourceCommitDriftRegistry,
-        contentDigest: null
-    })
-    const classificationAuthorityRejects = (authority, registry) =>
-    {
-        try
-        {
-            const validatedAuthority = validateProseClassificationAuthority(
-                authority,
-                inputs.catalog,
-                repositoryRoot
-            )
-            validateProseClassificationRegistry(
-                registry,
-                validatedAuthority,
-                inputs.catalog,
-                repositoryRoot
-            )
-            return false
-        }
-        catch
-        {
-            return true
-        }
-    }
+    const protectedHeadingSource = '# Protected heading\n'
+    const protectedHeadingNodes = extractReleaseDeploymentProseNodes(
+        protectedHeadingSource,
+        'docs/fixture.md'
+    )
     const structuralRows = [
         {
             classId: 'required-stage-evidence-omission',
@@ -1005,74 +765,22 @@ export function buildReleaseDeploymentDocExactnessReceipt({
             detector: 'behavior-catalog-doc-claim-roster-exactness'
         },
         {
-            classId: 'registry-self-selected-classification',
-            killed: classificationAuthorityRejects(
-                inputs.proseClassificationAuthority,
-                registrySelfClassification
-            ),
-            detector: 'independent-prose-classification-authority'
+            classId: 'protected-heading-renamed',
+            killed: scanReleaseDeploymentSourceResidue(
+                '# Renamed heading\n',
+                'docs/fixture.md',
+                { protectedHeadingNodes }
+            ).length === 1,
+            detector: 'protected-base-heading-identity'
         },
         {
-            classId: 'registry-extra-node-with-stale-authority',
-            killed: classificationAuthorityRejects(
-                inputs.proseClassificationAuthority,
-                registryExtraNode
-            ),
-            detector: 'independent-prose-classification-authority'
-        },
-        {
-            classId: 'classification-authority-behavior-roster-drift',
-            killed: classificationAuthorityRejects(
-                authorityBehaviorDrift,
-                inputs.proseClassifications
-            ),
-            detector: 'behavior-catalog-classification-authority-exactness'
-        },
-        {
-            classId: 'coordinated-registry-authority-self-grant',
-            killed: classificationAuthorityRejects(
-                coordinatedSelfGrantAuthority,
-                coordinatedSelfGrantRegistry
-            ),
-            detector: 'tracked-policy-source-identity'
-        },
-        {
-            classId: 'classification-index-orphan-document',
-            killed: classificationAuthorityRejects(inputs.proseClassificationAuthority, orphanRegistry),
-            detector: 'behavior-catalog-classification-document-roster'
-        },
-        {
-            classId: 'classification-authority-path-traversal',
-            killed: classificationAuthorityRejects(traversalAuthority, inputs.proseClassifications),
-            detector: 'canonical-repository-path'
-        },
-        {
-            classId: 'classification-authority-unicode-alias',
-            killed: classificationAuthorityRejects(unicodeAliasAuthority, inputs.proseClassifications),
-            detector: 'canonical-repository-path'
-        },
-        {
-            classId: 'classification-authority-case-alias',
-            killed: classificationAuthorityRejects(caseAliasAuthority, inputs.proseClassifications),
-            detector: 'canonical-repository-path'
-        },
-        {
-            classId: 'classification-authority-reversed-span',
-            killed: classificationAuthorityRejects(reversedSpanAuthority, inputs.proseClassifications),
-            detector: 'canonical-node-span'
-        },
-        {
-            classId: 'classification-authority-duplicate-key',
-            killed: classificationAuthorityRejects(duplicateAuthority, inputs.proseClassifications),
-            detector: 'canonical-node-key'
-        },
-        {
-            classId: 'classification-index-source-commit-drift',
-            killed: classificationAuthorityRejects(
-                inputs.proseClassificationAuthority,
-                sourceCommitDriftRegistry
-            ),
-            detector: 'tracked-policy-source-identity'
+            classId: 'protected-heading-active-prose-added',
+            killed: scanReleaseDeploymentSourceResidue(
+                `${protectedHeadingSource}\nTraffic handoff is permitted.\n`,
+                'docs/fixture.md',
+                { protectedHeadingNodes }
+            ).length === 1,
+            detector: 'closed-prose-ownership'
         }
     ]
     const mutationEvidence = runReleaseDeploymentDocMutationCases(structuralRows)
