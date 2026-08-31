@@ -2,7 +2,6 @@
   <div class="account-page">
     <FsusUiTaskPageHeader
       title="匿名账号治理"
-      description="管理匿名账号容器、凭据状态与封禁操作。"
       class="account-task-page-header"
     />
 

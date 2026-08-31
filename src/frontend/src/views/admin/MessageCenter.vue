@@ -2,7 +2,6 @@
   <section class="account-page admin-message-center">
     <FsusUiTaskPageHeader
       title="站内信中心"
-      description="面向管理员的会话收件箱，用于处理账号消息、状态流转与系统通知。"
       class="account-task-page-header"
       density="compact"
     />

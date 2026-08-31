@@ -14,7 +14,7 @@ const tagSchema = {
   entityLabel: '标签',
   pageClass: 'tag-manage-wrapper',
   pageTitle: '标签管理',
-  pageDescription: '维护文章标签与检索入口。',
+  pageDescription: '',
   summaryAriaLabel: '标签状态',
   summaryDescription: '删除前会检查引用关系。',
   listTitle: '标签列表',

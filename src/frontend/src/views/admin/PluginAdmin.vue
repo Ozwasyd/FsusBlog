@@ -2,7 +2,6 @@
   <div class="account-page plugin-admin-page account-motion-enter w-full">
     <FsusUiTaskPageHeader
       title="插件"
-      description="集中处理权限、运行状态、错误和节点加载差异。"
       class="account-task-page-header"
       density="compact"
     >

@@ -2,7 +2,6 @@
   <div class="account-page security-system-page account-motion-enter w-full">
     <FsusUiTaskPageHeader
       title="安全系统"
-      description="反爬虫、PoW 验证任务与统一安全风险信号在同一安全系统下并列治理。"
       class="account-task-page-header"
       density="compact"
     />

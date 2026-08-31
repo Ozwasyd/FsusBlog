@@ -261,27 +261,27 @@ export const identity = {
         },
         UserIdentityPasskeys: {
             title: 'Passkeys',
-            description: 'Anmeldegeräte.'
+            description: '',
         },
         UserIdentityRecoveryKey: {
             title: 'Recovery Key',
-            description: 'Kontowiederherstellungsnachweis.'
+            description: '',
         },
         UserIdentityAnonymous: {
             title: 'Anonyme Identität',
-            description: 'Anonyme Kommentare, öffentliche Beiträge, Site-Regeln.'
+            description: '',
         },
         UserIdentityPublicProfile: {
             title: 'Öffentliches Profil',
-            description: 'Öffentliche Identitätsinformationen.'
+            description: '',
         },
         UserIdentitySessions: {
             title: 'Gerätesitzungen',
-            description: 'Aktive Gerätesitzungen.'
+            description: '',
         },
         UserIdentityMfa: {
             title: 'Zwei-Faktor-Authentifizierung',
-            description: 'TOTP-Status.'
+            description: '',
         },
         UserIdentityCommentRecords: {
             title: 'Öffentliche Kommentaraufzeichnungen',

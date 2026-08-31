@@ -2,7 +2,7 @@
   <section class="account-page">
     <FsusUiTaskPageHeader
       title="公开评论记录"
-      description="查看、筛选和删除公开发送的评论。匿名评论不进入账号记录。"
+      description="匿名评论不进入账号记录。"
       class="account-task-page-header"
     />
 

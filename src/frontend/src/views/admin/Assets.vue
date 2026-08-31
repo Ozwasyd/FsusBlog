@@ -2,7 +2,6 @@
   <div class="account-page asset-library-page account-motion-enter w-full">
     <FsusUiTaskPageHeader
       title="资产库"
-      description="查看上传资产、引用计数与孤儿文件，清理动作需要明确确认。"
       class="account-task-page-header"
     />
 
