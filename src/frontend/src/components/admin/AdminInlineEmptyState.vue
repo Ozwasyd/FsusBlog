@@ -61,3 +61,19 @@ function hasActionContent(): boolean
     return hasRenderableContent(slots.actions?.() ?? []);
 }
 </script>
+
+<style scoped>
+.admin-inline-empty-state
+{
+    --fsus-admin-inline-empty-state-inset: var(--fsus-space-5);
+    padding: var(--fsus-admin-inline-empty-state-inset);
+}
+
+@media (width <= 639px)
+{
+    .admin-inline-empty-state
+    {
+        --fsus-admin-inline-empty-state-inset: var(--fsus-space-4);
+    }
+}
+</style>
