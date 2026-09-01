@@ -5,7 +5,7 @@ governance:
     retention:
         baseline: tests/test-retention-before.json
         replacementLedger: tests/test-retention-replacements.json
-        postBaselines: [tests/admin-inline-empty-state-retirement-baseline.json, tests/ci-local-matrix-retirement-baseline.json, tests/lightweight-acceptance-baseline.json, tests/moderation-regions-datalist-retirement-baseline.json, tests/public-aot-byte-shape-retirement-baseline.json, tests/public-article-reading-layout-retirement-baseline.json, tests/public-response-compression-retirement-baseline.json, tests/service-composition-registration-baseline.json, tests/test-asset-lifecycle-retirement-baseline.json, tests/test-governance-modernization-baseline.json, tests/timing-policy-retirement-baseline.json]
+        postBaselines: [tests/admin-inline-empty-state-retirement-baseline.json, tests/anonymous-nullifier-concurrency-retirement-baseline.json, tests/ci-local-matrix-retirement-baseline.json, tests/lightweight-acceptance-baseline.json, tests/moderation-regions-datalist-retirement-baseline.json, tests/public-aot-byte-shape-retirement-baseline.json, tests/public-article-reading-layout-retirement-baseline.json, tests/public-response-compression-retirement-baseline.json, tests/sensitive-endpoint-session-retirement-baseline.json, tests/service-composition-registration-baseline.json, tests/test-asset-lifecycle-retirement-baseline.json, tests/test-governance-modernization-baseline.json, tests/timing-policy-retirement-baseline.json, tests/upload-range-retirement-baseline.json]
         auditOutput: .tmp/release-evidence/test-retention-audit.json
         automaticDeletion: false
     sourceLocking:
@@ -3401,6 +3401,78 @@ tiers:
       triggerFiles: [tests/matrix.yml, tests/matrix.schema.json]
       triggerCoverage: [homogeneous-two-node-fixture]
       triggerReason: homogeneous multi-node fixture or topology contract changed
+
+    - id: current-schema-bootstrap-integration
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
+      owner: ServerContractAgent
+      command: tools/test/lanes/current-schema-bootstrap-integration.sh
+      executionDependsOn: [behavior-doc-static-admission]
+      services: [postgres]
+      runtimeMode: single
+      nodeCount: 1
+      artifactStorage: local
+      coordinationStore: none
+      clusterScenario: none
+      clusterBootstrap: none
+      clusterFixtures: []
+      parallelizable: false
+      serialReason: one source-bound backend build and one isolated PostgreSQL cluster are mutated across positive, crash-window, live-identity and physical-schema counterexamples
+      exclusiveResources: [docker-runtime, local-ports, database-writes, backend-build-output, current-schema-bootstrap-integration]
+      phase: 2
+      cost: high
+      resourceClass: database
+      cpuWeight: 2
+      memoryWeight: 3
+      minCpuUnits: 1
+      maxParallel: 1
+      requiresBootstrap: backend
+      selfBootstraps: true
+      requiresNode: true
+      requiresDotnet: true
+      requiresPlaywright: none
+      cacheProfile: full
+      timeoutMinutes: 30
+      shardable: false
+      defaultShards: 1
+      risk: critical
+      cadence: pr
+      requiredFor: production
+      coverage: [current-schema-bootstrap, current-schema-physical-exactness, current-schema-receipt-lifecycle]
+      artifacts: [.tmp/current-schema-bootstrap-integration/*/**]
+      evidence:
+          [
+              .tmp/current-schema-bootstrap-integration/*/**,
+              .tmp/current-schema-bootstrap-integration/*/terminal.json,
+              src/backend/Infrastructure/SchemaMigration/CurrentSchemaCanonicalModel.cs,
+              src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs,
+              src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs,
+              src/backend/Infrastructure/Testing/CurrentSchemaTestMaterializer.cs,
+              src/backend/Infrastructure/Testing/CurrentSchemaTestMaterializationCandidateVerifier.cs,
+              src/backend/Program.cs,
+              tests/backend/Unit/SchemaModelInspectorTests.cs,
+              tests/tools/current-schema-bootstrap-integration.test.mjs,
+              tests/tools/current-schema-materialization-receipt.test.mjs,
+              tests/tools/fixture-catalog.test.mjs,
+              tools/bootstrap-acceptance-env.sh,
+              tools/db/verify-current-schema-test-materialization-receipt.mjs,
+              tools/test/lanes/current-schema-bootstrap-integration.sh,
+              tools/test/lanes/homogeneous-two-node-fixture.sh,
+              tools/testing/fixture-catalog.mjs,
+              docs/database-migration.md,
+          ]
+      ciJob: integration-runtime
+      localOnly: false
+      nightlyOnly: false
+      smartGateMode: conditional
+      retentionClass: must-keep
+      triggerPaths: [src/backend/Infrastructure/SchemaMigration, src/backend/Infrastructure/Testing, tools/db, tools/test/execution-envelope-services.mjs, tools/test/lanes/current-schema-bootstrap-integration.sh]
+      triggerFiles: [config/testing/test-execution-service-catalog.json, src/backend/Program.cs, tests/tools/current-schema-bootstrap-integration.test.mjs, tests/tools/current-schema-materialization-receipt.test.mjs, tests/tools/fixture-catalog.test.mjs, tools/bootstrap-acceptance-env.sh, tools/test/lanes/homogeneous-two-node-fixture.sh, tools/testing/fixture-catalog.mjs, tests/matrix.yml]
+      triggerCoverage: [current-schema-bootstrap, current-schema-physical-exactness, current-schema-receipt-lifecycle]
+      triggerReason: current-schema materialization, PostgreSQL observation, verifier exactness, service identity, or terminal receipt lifecycle changed
 
     - id: integration
       executionClass: runtime
@@ -9479,7 +9551,10 @@ tiers:
       evidence:
           [
               tests/backend/Fixtures/backend-test-requirements.json,
+              tests/backend/Fixtures/backend-evidence-path-authority.generated.json,
               src/backend/Services/SearchIndexService.Dictionary.cs,
+              tools/test/backend-evidence-path-authority.mjs,
+              tools/test/generate-backend-evidence-path-authority.mjs,
               tests/backend/Unit/SearchIndexServiceTests.cs,
               tools/test/csharp-source-mask.mjs,
               tools/test/search-index-utf8-scalar-governance.mjs,
@@ -9487,6 +9562,7 @@ tiers:
               tests/backend/Unit/CoverageScriptContractTests.cs,
               tests/backend/Unit/TestInfrastructure/BackendTestPathsTests.cs,
               tests/tools/backend-trx-contract.test.mjs,
+              tests/tools/backend-production-evidence.test.mjs,
               tests/test-retention-replacements.json,
           ]
       ciJob: fast-static-governance

@@ -512,6 +512,8 @@ FIXTURE_RECEIPT_FILE=""
 FIXTURE_RECEIPT_DIGEST=""
 FIXTURE_RECEIPT_TERMINAL_STATUS=""
 ENVIRONMENT_READY_RECEIPT_FILE=""
+RUNTIME_TOPOLOGY_INPUT_FILE=""
+CURRENT_SCHEMA_CANDIDATE_ASSEMBLY=""
 if [[ "${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" == "1" ]]; then
     # A dedicated Browser Contract runtime is intentionally deterministic.  Do not
     # sample live CPU, memory, PID, or scheduler-grant state while bootstrapping it.
@@ -2064,6 +2066,7 @@ InvokeFixtureOrchestrator() {
         --run-id "${FSUSBLOG_TEST_RUN_ID:-}"
         --source-commit "${FSUSBLOG_TEST_SOURCE_COMMIT:?fixture orchestrator source commit is required}"
         --source-fingerprint "${FSUSBLOG_TEST_SOURCE_FINGERPRINT:?fixture orchestrator source fingerprint is required}"
+        --service-generation "sha256:${FSUSBLOG_FIXTURE_SERVICE_GENERATION:?fixture service generation is required}"
         --base-url "$DEBUG_BACKEND_URL"
         --debug-backend-url "$DEBUG_BACKEND_URL"
         --frontend-url "$DEBUG_FRONTEND_URL"
@@ -2206,6 +2209,16 @@ PublishEnvironmentReadyReceipt() {
         --plan "$FIXTURE_PROFILE_PLAN_FILE"
         --out "$ENVIRONMENT_READY_RECEIPT_FILE"
         --kind environment-ready
+        --admission "${FSUSBLOG_CURRENT_SCHEMA_RUNTIME_TOPOLOGY_ADMISSION_RECEIPT:?current schema runtime topology admission is required}"
+        --receipt-root "$TMP_DIR"
+        --run-id "${FSUSBLOG_TEST_RUN_ID:?environment-ready current schema run id is required}"
+        --source-commit "${FSUSBLOG_TEST_SOURCE_COMMIT:?environment-ready current schema source commit is required}"
+        --assembly "${CURRENT_SCHEMA_CANDIDATE_ASSEMBLY:?current schema candidate assembly is required}"
+        --service-catalog "$ROOT_DIR/config/testing/test-execution-service-catalog.json"
+        --service-envelope "$EXECUTION_SERVICE_ENVELOPE_FILE"
+        --profile-plan "$FIXTURE_PROFILE_PLAN_FILE"
+        --runtime-topology-input "$RUNTIME_TOPOLOGY_INPUT_FILE"
+        --environment-ready "$ENVIRONMENT_READY_RECEIPT_FILE"
     )
     if [[ -n "${FIXTURE_RECEIPT_FILE:-}" && -f "${FIXTURE_RECEIPT_FILE:-}" ]]; then
         readyArgs+=(--fixture-receipt "$FIXTURE_RECEIPT_FILE")
@@ -2213,8 +2226,58 @@ PublishEnvironmentReadyReceipt() {
     if [[ -n "${FIXTURE_RECEIPT_TERMINAL_STATUS:-}" ]]; then
         readyArgs+=(--fixture-receipt-terminal-status "$FIXTURE_RECEIPT_TERMINAL_STATUS")
     fi
-    "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/testing/fixture-catalog.mjs" "${readyArgs[@]}" >/dev/null
+    ConnectionStrings__DefaultConnection="${POSTGRES_CONNECTION};Search Path=public" \
+        "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/testing/fixture-catalog.mjs" "${readyArgs[@]}" >/dev/null
     Log "environment-ready receipt: ${ENVIRONMENT_READY_RECEIPT_FILE} fixtureTerminal=${FIXTURE_RECEIPT_TERMINAL_STATUS:-unknown}"
+}
+
+WriteRuntimeTopologyInput() {
+    RUNTIME_TOPOLOGY_INPUT_FILE="$TMP_DIR/runtime-topology-input.json"
+    jq -n \
+        --arg namespace "$FSUSBLOG_TEST_NAMESPACE" \
+        --arg backend "$DEBUG_BACKEND_URL" \
+        --arg frontend "$DEBUG_FRONTEND_URL" \
+        --arg preview "$RELEASE_PREVIEW_URL" \
+        --arg postgres "$POSTGRES_CONTAINER" \
+        --arg redis "$REDIS_CONTAINER" \
+        --arg profileId "$FIXTURE_PROFILE_ID" \
+        --arg profileSource "$FIXTURE_PROFILE_SOURCE" \
+        --arg catalogDigest "$FIXTURE_CATALOG_DIGEST" \
+        --arg capabilityDigest "$FIXTURE_CAPABILITY_DIGEST" \
+        --arg capabilityIds "$FIXTURE_CAPABILITY_IDS" \
+        --arg producerIds "$FIXTURE_PRODUCER_IDS" \
+        --arg mutationPolicy "$FIXTURE_MUTATION_POLICY" \
+        --arg executionRunId "${FSUSBLOG_TEST_RUN_ID:?fixture execution run id is required}" \
+        --arg sourceCommit "${FSUSBLOG_TEST_SOURCE_COMMIT:?fixture source commit is required}" \
+        --arg sourceFingerprint "${FSUSBLOG_TEST_SOURCE_FINGERPRINT:?fixture source fingerprint is required}" \
+        --arg serviceGeneration "sha256:${FSUSBLOG_FIXTURE_SERVICE_GENERATION:?fixture service generation is required}" \
+        --arg environmentReadyPath "$ENVIRONMENT_READY_RECEIPT_FILE" \
+        '{
+            namespace: $namespace,
+            backendUrl: $backend,
+            frontendUrl: $frontend,
+            previewUrl: $preview,
+            containers: {postgres: $postgres, redis: $redis},
+            environmentReadyReceiptPath: $environmentReadyPath,
+            fixtureExecutionIdentity: {
+                runId: $executionRunId,
+                namespace: $namespace,
+                source: {
+                    commit: $sourceCommit,
+                    worktreeFingerprint: $sourceFingerprint
+                },
+                serviceGeneration: $serviceGeneration
+            },
+            fixtureProfile: {
+                profileId: $profileId,
+                profileSource: $profileSource,
+                catalogDigest: $catalogDigest,
+                expandedCapabilityDigest: $capabilityDigest,
+                capabilityIds: (if $capabilityIds == "" then [] else ($capabilityIds | split(",")) end),
+                producerIds: (if $producerIds == "" then [] else ($producerIds | split(",")) end),
+                mutationPolicy: $mutationPolicy
+            }
+        }' >"$RUNTIME_TOPOLOGY_INPUT_FILE"
 }
 
 MANAGED_BACKEND_SHARED_DEBUG_BUILD_REQUIRED=0
@@ -2262,8 +2325,218 @@ EnsureManagedBackendSharedDebugBuild() {
     local laneSupport="$ROOT_DIR/tools/test/lanes/_lane-collect-support.sh"
     (
         source "$laneSupport"
-        FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug EnsureBackendFilteredBuild
+        FsusBlogCommitSha="${FSUSBLOG_TEST_SOURCE_COMMIT:?backend build source commit is required}" \
+            FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug \
+            EnsureBackendFilteredBuild
     )
+}
+
+CurrentSchemaRunDigest() {
+    local runId="$1"
+    {
+        if command -v sha256sum >/dev/null 2>&1; then
+            printf '%s' "$runId" | sha256sum | awk '{print $1}'
+        else
+            printf '%s' "$runId" | shasum -a 256 | awk '{print $1}'
+        fi
+    }
+}
+
+ResolveCurrentSchemaCandidateAssembly() {
+    local runtimeConfiguration="${1:?current schema runtime configuration is required}"
+    local buildRoot="${FSUSBLOG_PRODUCTION_BUILD_ROOT:-}"
+    local runId="${FSUSBLOG_TEST_RUN_ID:?current schema candidate run id is required}"
+    local candidateAssembly physicalAssembly physicalBuildRoot
+    CURRENT_SCHEMA_CANDIDATE_ASSEMBLY=""
+    [[ -n "$buildRoot" && "$buildRoot" == /* && ! -L "$buildRoot" ]] || {
+        Log 'current schema production build root must be an absolute non-symlink path'
+        return 2
+    }
+    physicalBuildRoot="$(realpath -e -- "$buildRoot")" || {
+        Log 'current schema production build root physical path is unavailable'
+        return 2
+    }
+    if [[ "$physicalBuildRoot" != "$buildRoot" \
+        || "$buildRoot" == "$ROOT_DIR" \
+        || "$buildRoot" != "$ROOT_DIR/"* ]]; then
+        Log 'current schema production build root is not a canonical repository consumer path'
+        return 2
+    fi
+    candidateAssembly="$buildRoot/dotnet/FsusBlog.Server/bin/$runtimeConfiguration/net10.0/FsusBlog.Server.dll"
+    if [[ "${FSUSBLOG_BACKEND_SERVER_DLL:-}" != "$candidateAssembly" ]]; then
+        Log 'current schema candidate assembly does not match the canonical production build layout'
+        return 2
+    fi
+    if [[ "$candidateAssembly" != /* || ! -f "$candidateAssembly" || -L "$candidateAssembly" ]]; then
+        Log 'current schema candidate assembly is missing or not a regular file'
+        return 2
+    fi
+    physicalAssembly="$(realpath -e -- "$candidateAssembly")" || {
+        Log 'current schema candidate assembly physical path is unavailable'
+        return 2
+    }
+    if [[ -n "${FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT:-}" ]]; then
+        local materializationEvidence
+        materializationEvidence="${FSUSBLOG_RELEASE_EVIDENCE_DIR:-$ROOT_DIR/.tmp/release-evidence}/jobs/ci-build-materialization-${NS_SLUG}.json"
+        if ! "${FSUSBLOG_NODE:-node}" --input-type=module - \
+            "$ROOT_DIR" \
+            "$FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT" \
+            "$materializationEvidence" \
+            "$runId" \
+            "$NS_SLUG" \
+            "$candidateAssembly" \
+            "${FSUSBLOG_TEST_SOURCE_COMMIT:?current schema candidate source commit is required}" \
+            "${FSUSBLOG_TEST_SOURCE_FINGERPRINT:?current schema candidate source fingerprint is required}" \
+            "${FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST:?current schema candidate receipt digest is required}" <<'NODE'
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+const [root, artifactRoot, evidenceFile, runId, consumerId, candidate, sourceCommit, sourceFingerprint, receiptDigest] = process.argv.slice(2);
+const { verifyProductionBuildConsumerMaterialization } = await import(pathToFileURL(
+    path.join(root, 'tools/ci/production-build-artifacts.mjs')
+).href);
+verifyProductionBuildConsumerMaterialization({
+    artifactRoot,
+    evidenceFile,
+    destinationRoot: root,
+    runId,
+    consumerId,
+    mappings: [{
+        name: 'backend-runtime',
+        destination: path.relative(root, path.dirname(candidate)).replaceAll(path.sep, '/')
+    }],
+    requiredCandidateFiles: [{
+        domain: 'backend-runtime',
+        artifact: 'FsusBlog.Server.dll',
+        candidate: path.relative(root, candidate).replaceAll(path.sep, '/')
+    }],
+    verification: {
+        expectedSourceState: { commit: sourceCommit, worktreeFingerprint: sourceFingerprint },
+        expectedReceiptDigest: receiptDigest,
+        repairReadOnlySeal: false
+    }
+});
+NODE
+        then
+            Log 'current schema CI candidate is not bound to the current verified consumer materialization'
+            return 2
+        fi
+    else
+        if ! "${FSUSBLOG_NODE:-node}" --input-type=module - \
+            "$ROOT_DIR" "$runId" "$buildRoot" "$candidateAssembly" <<'NODE'
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+const [root, runId, buildRoot, candidateAssembly] = process.argv.slice(2);
+const { productionBuildEnvironmentAssignments } = await import(pathToFileURL(
+    path.join(root, 'tools/test-matrix/production-build-layout.mjs')
+).href);
+const environment = Object.fromEntries(productionBuildEnvironmentAssignments({ root, runId }));
+if (environment.FSUSBLOG_PRODUCTION_BUILD_ROOT !== buildRoot
+    || environment.FSUSBLOG_BACKEND_SERVER_DLL !== candidateAssembly)
+{
+    throw new Error('candidate layout does not match the current production build run');
+}
+NODE
+        then
+            Log 'current schema candidate does not match the current production build run'
+            return 2
+        fi
+        if [[ "$physicalAssembly" != "$candidateAssembly" ]]; then
+            Log 'current schema candidate assembly path is not canonical'
+            return 2
+        fi
+    fi
+    CURRENT_SCHEMA_CANDIDATE_ASSEMBLY="$candidateAssembly"
+}
+
+MaterializeCurrentSchemaForTestRuntime() {
+    local runId="${FSUSBLOG_TEST_RUN_ID:?current schema materializer run id is required}"
+    local sourceCommit="${FSUSBLOG_TEST_SOURCE_COMMIT:?current schema materializer source commit is required}"
+    local runDigest
+    runDigest="$(CurrentSchemaRunDigest "$runId")"
+    local receiptFile="$TMP_DIR/current-schema-test-materialization-${runDigest}.json"
+    local runtimeReadyFile="$TMP_DIR/current-schema-runtime-ready-${runDigest}.json"
+    local runtimeTopologyAdmissionFile="$TMP_DIR/current-schema-runtime-topology-admission-${runDigest}.json"
+    local serviceCatalogFile="$ROOT_DIR/config/testing/test-execution-service-catalog.json"
+    local runtimeConfiguration="${FSUSBLOG_RUNTIME_CONFIGURATION:-Release}"
+    case "$runtimeConfiguration" in
+        Debug | Release) ;;
+        *)
+            Log 'current schema materializer requires Debug or Release runtime configuration'
+            return 2
+            ;;
+    esac
+    ResolveCurrentSchemaCandidateAssembly "$runtimeConfiguration"
+    "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/execution-envelope-services.mjs" \
+        --verify-envelope "$EXECUTION_SERVICE_ENVELOPE_FILE" \
+        --service-catalog "$serviceCatalogFile"
+    Log 'materializing canonical current schema before runtime application activation'
+    ASPNETCORE_ENVIRONMENT=Test \
+        FSUSBLOG_CURRENT_SCHEMA_TEST_MATERIALIZATION=1 \
+        FSUSBLOG_CURRENT_SCHEMA_TEST_RECEIPT_ROOT="$TMP_DIR" \
+        ConnectionStrings__DefaultConnection="${POSTGRES_CONNECTION};Search Path=public" \
+        ./tools/build-with-data-env.sh dotnet "$CURRENT_SCHEMA_CANDIDATE_ASSEMBLY" \
+            materialize-current-schema-test \
+            --run-id "$runId" \
+            --source-commit "$sourceCommit" \
+            --service-envelope "$EXECUTION_SERVICE_ENVELOPE_FILE" \
+            --service-catalog "$serviceCatalogFile"
+    ConnectionStrings__DefaultConnection="${POSTGRES_CONNECTION};Search Path=public" \
+        "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/db/verify-current-schema-test-materialization-receipt.mjs" \
+        --receipt-root "$TMP_DIR" \
+        --run-id "$runId" \
+        --source-commit "$sourceCommit" \
+        --assembly "$CURRENT_SCHEMA_CANDIDATE_ASSEMBLY" \
+        --service-catalog "$serviceCatalogFile" \
+        --service-envelope "$EXECUTION_SERVICE_ENVELOPE_FILE"
+    ConnectionStrings__DefaultConnection="${POSTGRES_CONNECTION};Search Path=public" \
+        "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/testing/fixture-catalog.mjs" \
+        write-current-schema-runtime-topology-admission \
+        --admission "$runtimeTopologyAdmissionFile" \
+        --receipt-root "$TMP_DIR" \
+        --run-id "$runId" \
+        --source-commit "$sourceCommit" \
+        --assembly "$CURRENT_SCHEMA_CANDIDATE_ASSEMBLY" \
+        --service-catalog "$serviceCatalogFile" \
+        --service-envelope "$EXECUTION_SERVICE_ENVELOPE_FILE" \
+        --profile-plan "$FIXTURE_PROFILE_PLAN_FILE" \
+        --runtime-topology-input "$RUNTIME_TOPOLOGY_INPUT_FILE" \
+        --environment-ready "$ENVIRONMENT_READY_RECEIPT_FILE" >/dev/null
+    export FSUSBLOG_CURRENT_SCHEMA_TEST_RUNTIME_READY_RECEIPT="$runtimeReadyFile"
+    export FSUSBLOG_CURRENT_SCHEMA_RUNTIME_TOPOLOGY_ADMISSION_RECEIPT="$runtimeTopologyAdmissionFile"
+    Log "current schema materialization receipt: $receiptFile runtimeReady=$runtimeReadyFile runtimeTopologyAdmission=$runtimeTopologyAdmissionFile"
+}
+
+RequireCurrentSchemaRuntimeReady() {
+    local runId="${FSUSBLOG_TEST_RUN_ID:?current schema runtime-ready run id is required}"
+    local sourceCommit="${FSUSBLOG_TEST_SOURCE_COMMIT:?current schema runtime-ready source commit is required}"
+    local runtimeConfiguration="${FSUSBLOG_RUNTIME_CONFIGURATION:-Release}"
+    local serviceCatalogFile="$ROOT_DIR/config/testing/test-execution-service-catalog.json"
+    local expectedRuntimeReadyFile="$TMP_DIR/current-schema-runtime-ready-$(CurrentSchemaRunDigest "$runId").json"
+    local expectedAdmissionFile="$TMP_DIR/current-schema-runtime-topology-admission-$(CurrentSchemaRunDigest "$runId").json"
+    if [[ "${FSUSBLOG_CURRENT_SCHEMA_TEST_RUNTIME_READY_RECEIPT:-}" != "$expectedRuntimeReadyFile" ]]; then
+        Log 'current schema runtime-ready receipt path is missing or not the canonical run-derived path'
+        return 2
+    fi
+    if [[ "${FSUSBLOG_CURRENT_SCHEMA_RUNTIME_TOPOLOGY_ADMISSION_RECEIPT:-}" != "$expectedAdmissionFile" ]]; then
+        Log 'current schema runtime topology admission path is missing or not the canonical run-derived path'
+        return 2
+    fi
+    ConnectionStrings__DefaultConnection="${POSTGRES_CONNECTION};Search Path=public" \
+        "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/testing/fixture-catalog.mjs" \
+        verify-current-schema-runtime-topology-admission \
+        --admission "$expectedAdmissionFile" \
+        --receipt-root "$TMP_DIR" \
+        --run-id "$runId" \
+        --source-commit "$sourceCommit" \
+        --assembly "${CURRENT_SCHEMA_CANDIDATE_ASSEMBLY:?current schema candidate assembly is required}" \
+        --service-catalog "$serviceCatalogFile" \
+        --service-envelope "$EXECUTION_SERVICE_ENVELOPE_FILE" \
+        --profile-plan "$FIXTURE_PROFILE_PLAN_FILE" \
+        --runtime-topology-input "$RUNTIME_TOPOLOGY_INPUT_FILE" \
+        --environment-ready "$ENVIRONMENT_READY_RECEIPT_FILE" >/dev/null
+    Log "current schema runtime topology admission reverified: $expectedAdmissionFile"
 }
 
 EnsureBackend() {
@@ -2712,6 +2985,9 @@ Main() {
         Log 'postgres and redis ready'
         return
     fi
+    WriteRuntimeTopologyInput
+    MaterializeCurrentSchemaForTestRuntime
+    RequireCurrentSchemaRuntimeReady
     if CiProductionHasDomain frontend-dist; then
         AllocateReadinessDeadline 'release bundle preparation'
         PrepareReleasePreviewBundle "$READINESS_DEADLINE_AT_MS"
@@ -2739,52 +3015,39 @@ Main() {
             "${RELEASE_PREVIEW_URL}/" \
             "$EXECUTION_DEADLINE_AT_MS"
     fi
+    RequireCurrentSchemaRuntimeReady
     PublishEnvironmentReadyReceipt
-    # Runtime topology inventory only (#1710). URLs/containers/generatedAt are NOT fixture
-    # completeness evidence — FixtureReceipt terminalStatus=verified is the sole authority.
-    jq -n \
-        --arg namespace "$FSUSBLOG_TEST_NAMESPACE" \
-        --arg backend "$DEBUG_BACKEND_URL" \
-        --arg frontend "$DEBUG_FRONTEND_URL" \
-        --arg preview "$RELEASE_PREVIEW_URL" \
-        --arg postgres "$POSTGRES_CONTAINER" \
-        --arg redis "$REDIS_CONTAINER" \
-        --arg profileId "$FIXTURE_PROFILE_ID" \
-        --arg profileSource "$FIXTURE_PROFILE_SOURCE" \
-        --arg catalogDigest "$FIXTURE_CATALOG_DIGEST" \
-        --arg capabilityDigest "$FIXTURE_CAPABILITY_DIGEST" \
-        --arg capabilityIds "$FIXTURE_CAPABILITY_IDS" \
-        --arg producerIds "$FIXTURE_PRODUCER_IDS" \
-        --arg mutationPolicy "$FIXTURE_MUTATION_POLICY" \
-        --arg fixtureReceiptPath "$FIXTURE_RECEIPT_FILE" \
-        --arg fixtureReceiptDigest "$FIXTURE_RECEIPT_DIGEST" \
-        --arg fixtureReceiptTerminalStatus "${FIXTURE_RECEIPT_TERMINAL_STATUS:-unknown}" \
-        --arg environmentReadyPath "$ENVIRONMENT_READY_RECEIPT_FILE" \
-        '{
-            schema: "fsusblog.acceptance-runtime-topology.v1",
-            authority: "runtime-topology-only",
-            notFixtureCompletenessEvidence: true,
-            namespace: $namespace,
-            backendUrl: $backend,
-            frontendUrl: $frontend,
-            previewUrl: $preview,
-            containers: {postgres: $postgres, redis: $redis},
-            fixtureProfile: {
-                profileId: $profileId,
-                profileSource: $profileSource,
-                catalogDigest: $catalogDigest,
-                expandedCapabilityDigest: $capabilityDigest,
-                capabilityIds: (if $capabilityIds == "" then [] else ($capabilityIds | split(",")) end),
-                producerIds: (if $producerIds == "" then [] else ($producerIds | split(",")) end),
-                mutationPolicy: $mutationPolicy,
-                fixtureReceiptPath: $fixtureReceiptPath,
-                fixtureReceiptDigest: $fixtureReceiptDigest,
-                fixtureReceiptTerminalStatus: $fixtureReceiptTerminalStatus,
-                environmentReadyReceiptPath: $environmentReadyPath
-            },
-            generatedAt: now | todate
-        }' \
-        >"$FIXTURE_DIR/runtime-topology.json"
+    # The pre-runtime admission already SHA-binds this immutable topology input;
+    # the terminal writer must consume the same bytes after runtime activation.
+    ConnectionStrings__DefaultConnection="${POSTGRES_CONNECTION};Search Path=public" \
+        "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/testing/fixture-catalog.mjs" \
+        write-acceptance-runtime-topology \
+        --input "$RUNTIME_TOPOLOGY_INPUT_FILE" \
+        --environment-ready "$ENVIRONMENT_READY_RECEIPT_FILE" \
+        --out "$FIXTURE_DIR/runtime-topology.json" \
+        --admission "$FSUSBLOG_CURRENT_SCHEMA_RUNTIME_TOPOLOGY_ADMISSION_RECEIPT" \
+        --receipt-root "$TMP_DIR" \
+        --run-id "$FSUSBLOG_TEST_RUN_ID" \
+        --source-commit "$FSUSBLOG_TEST_SOURCE_COMMIT" \
+        --assembly "${CURRENT_SCHEMA_CANDIDATE_ASSEMBLY:?current schema candidate assembly is required}" \
+        --service-catalog "$ROOT_DIR/config/testing/test-execution-service-catalog.json" \
+        --service-envelope "$EXECUTION_SERVICE_ENVELOPE_FILE" \
+        --profile-plan "$FIXTURE_PROFILE_PLAN_FILE" \
+        --runtime-topology-input "$RUNTIME_TOPOLOGY_INPUT_FILE" >/dev/null
+    ConnectionStrings__DefaultConnection="${POSTGRES_CONNECTION};Search Path=public" \
+        "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/testing/fixture-catalog.mjs" \
+        verify-current-schema-terminal-dag \
+        --admission "$FSUSBLOG_CURRENT_SCHEMA_RUNTIME_TOPOLOGY_ADMISSION_RECEIPT" \
+        --environment-ready "$ENVIRONMENT_READY_RECEIPT_FILE" \
+        --runtime-topology "$FIXTURE_DIR/runtime-topology.json" \
+        --receipt-root "$TMP_DIR" \
+        --run-id "$FSUSBLOG_TEST_RUN_ID" \
+        --source-commit "$FSUSBLOG_TEST_SOURCE_COMMIT" \
+        --assembly "${CURRENT_SCHEMA_CANDIDATE_ASSEMBLY:?current schema candidate assembly is required}" \
+        --service-catalog "$ROOT_DIR/config/testing/test-execution-service-catalog.json" \
+        --service-envelope "$EXECUTION_SERVICE_ENVELOPE_FILE" \
+        --profile-plan "$FIXTURE_PROFILE_PLAN_FILE" \
+        --runtime-topology-input "$RUNTIME_TOPOLOGY_INPUT_FILE" >/dev/null
     # Remove retired URL/container-only completeness manifest if present from older runs.
     rm -f "$FIXTURE_DIR/manifest.json"
     WaitForBinaryUrl 'seo probe' "$DEBUG_BACKEND_URL/api/binary/system/seo" "$EXECUTION_DEADLINE_AT_MS"

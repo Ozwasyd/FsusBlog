@@ -9,6 +9,8 @@ export const productionBuildReceiptSchema = 'fsusblog.ci-production-build-receip
 export const productionBuildVerificationSchema = 'fsusblog.ci-production-build-verification.v1';
 export const productionBuildMaterializationSchema = 'fsusblog.ci-production-build-materialization.v2';
 export const productionBuildLifecycleSchema = 'fsusblog.ci-production-build-lifecycle.v1';
+export const productionBuildConsumerMaterializationVerificationSchema =
+    'fsusblog.ci-production-build-consumer-materialization-verification.v1';
 
 const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -641,6 +643,266 @@ export function verifyProductionBuildReceipt({
         throw error;
     }
     return { receipt, evidence };
+}
+
+function readCanonicalRegularJson(file, label)
+{
+    const supplied = String(file ?? '').trim();
+    const absolute = path.resolve(supplied);
+    if (!supplied || supplied !== absolute)
+    {
+        throw new Error(`${label} path must be absolute and canonical`);
+    }
+    let stat;
+    try
+    {
+        stat = fs.lstatSync(absolute);
+    }
+    catch
+    {
+        throw new Error(`${label} is missing: ${absolute}`);
+    }
+    if (stat.isSymbolicLink() || !stat.isFile())
+    {
+        throw new Error(`${label} must be a regular non-symlink file: ${absolute}`);
+    }
+    if (fs.realpathSync(absolute) !== absolute)
+    {
+        throw new Error(`${label} path is not canonical: ${absolute}`);
+    }
+    try
+    {
+        return { absolute, document: JSON.parse(fs.readFileSync(absolute, 'utf8')) };
+    }
+    catch (error)
+    {
+        throw new Error(`${label} is not valid JSON: ${error.message}`);
+    }
+}
+
+function canonicalRelative(value, label)
+{
+    const relative = normalizeRelative(value, label);
+    if (path.posix.normalize(relative) !== relative)
+    {
+        throw new Error(`${label} path is not canonical: ${relative}`);
+    }
+    return relative;
+}
+
+function canonicalValueEquals(left, right)
+{
+    return JSON.stringify(canonicalize(left)) === JSON.stringify(canonicalize(right));
+}
+
+export function verifyProductionBuildConsumerMaterialization({
+    artifactRoot,
+    receiptFile = 'receipt.json',
+    evidenceFile,
+    destinationRoot,
+    runId,
+    consumerId,
+    mappings = [],
+    requiredCandidateFiles = [],
+    verification = {},
+    now = () => new Date()
+})
+{
+    const startedAtMs = Date.now();
+    const sourceRoot = path.resolve(artifactRoot);
+    const targetRoot = path.resolve(destinationRoot);
+    if (!fs.existsSync(targetRoot) || !fs.statSync(targetRoot).isDirectory()
+        || fs.realpathSync(targetRoot) !== targetRoot)
+    {
+        throw new Error('consumer materialization destination root must be an existing canonical directory');
+    }
+    const verified = verifyProductionBuildReceipt({
+        ...verification,
+        artifactRoot: sourceRoot,
+        receiptFile,
+        repairReadOnlySeal: false,
+        now
+    });
+    const receipt = verified.receipt;
+    const { absolute: materializationEvidenceFile, document: materializationEvidence } =
+        readCanonicalRegularJson(evidenceFile, 'consumer materialization evidence');
+    if (materializationEvidence.schema !== productionBuildMaterializationSchema
+        || materializationEvidence.status !== 'success')
+    {
+        throw new Error('consumer materialization evidence schema/status is invalid');
+    }
+    if (materializationEvidence.receiptContentDigest !== receipt.contentDigest
+        || materializationEvidence.digestAuthority !== receipt.digestTable?.authority
+        || Number(materializationEvidence.digestTraversalCount) !== Number(receipt.digestTable?.traversalCount))
+    {
+        throw new Error('consumer materialization evidence digest binding is invalid');
+    }
+    if (!canonicalValueEquals(materializationEvidence.sourceState, receipt.sourceState)
+        || !canonicalValueEquals(materializationEvidence.producer, receipt.producer))
+    {
+        throw new Error('consumer materialization evidence source binding is invalid');
+    }
+    if (!Array.isArray(materializationEvidence.errors) || materializationEvidence.errors.length !== 0)
+    {
+        throw new Error('consumer materialization evidence contains verification errors');
+    }
+
+    const leaseFile = consumerLeaseFile({ artifactRoot: sourceRoot, runId, consumerId });
+    const { document: lease } = readCanonicalRegularJson(leaseFile, 'consumer lease');
+    const expectedLeaseIdentity = {
+        schema: productionBuildLifecycleSchema,
+        artifactRoot: sourceRoot,
+        runId,
+        consumerId,
+        status: 'active'
+    };
+    if (!Object.entries(expectedLeaseIdentity).every(([key, value]) => lease?.[key] === value))
+    {
+        throw new Error('consumer lease is inactive or has the wrong artifactRoot/runId/consumerId');
+    }
+    const evidenceLease = materializationEvidence.consumerLease;
+    if (!Object.entries(expectedLeaseIdentity).every(([key, value]) => evidenceLease?.[key] === value)
+        || evidenceLease.startedAtMs !== lease.startedAtMs
+        || !Number.isFinite(Number(evidenceLease.refreshedAtMs))
+        || Number(evidenceLease.refreshedAtMs) > Number(lease.refreshedAtMs))
+    {
+        throw new Error('consumer materialization evidence lease binding is invalid');
+    }
+
+    const receiptDomains = new Map(receipt.domains.map(domain => [domain.name, domain]));
+    const receiptArtifacts = new Map(receipt.artifacts.map(artifact => [artifact.path, artifact]));
+    const domainEvidence = materializationEvidence.materialization?.domains;
+    if (!Array.isArray(domainEvidence) || !Array.isArray(materializationEvidence.materialized))
+    {
+        throw new Error('consumer materialization evidence domain inventory is missing');
+    }
+    if (!Array.isArray(mappings) || mappings.length === 0
+        || !Array.isArray(requiredCandidateFiles) || requiredCandidateFiles.length === 0)
+    {
+        throw new Error('consumer materialization verification requires mappings and candidate files');
+    }
+    const verifiedMappings = new Map();
+    for (const mapping of mappings)
+    {
+        const name = String(mapping?.name ?? '').trim();
+        const destination = canonicalRelative(mapping?.destination, `domain ${name || '<empty>'} destination`);
+        const identity = `${name}\0${destination}`;
+        if (verifiedMappings.has(identity))
+        {
+            throw new Error(`duplicate required read-only domain mapping: ${name}=${destination}`);
+        }
+        const domain = receiptDomains.get(name);
+        if (!domain || domain.consumerMode !== 'read-only')
+        {
+            throw new Error(`required production artifact domain is not read-only: ${name}`);
+        }
+        const records = receipt.artifacts.filter(item => item.path === domain.path || item.path.startsWith(`${domain.path}/`));
+        const expectedDomainEvidence = {
+            name,
+            destination,
+            method: 'reference',
+            bytes: records.reduce((sum, record) => sum + Number(record.size), 0),
+            fallbackReason: null
+        };
+        const matchingEvidence = domainEvidence.filter(item => item?.name === name && item?.destination === destination);
+        if (matchingEvidence.length !== 1 || !canonicalValueEquals(matchingEvidence[0], expectedDomainEvidence))
+        {
+            throw new Error(`read-only domain mapping evidence is not exact: ${name}=${destination}`);
+        }
+        const domainTarget = assertInside(targetRoot, destination, `domain ${name} destination`);
+        let targetStat;
+        try
+        {
+            targetStat = fs.lstatSync(domainTarget);
+        }
+        catch
+        {
+            throw new Error(`read-only domain destination is missing: ${destination}`);
+        }
+        if (!targetStat.isSymbolicLink())
+        {
+            throw new Error(`read-only domain destination is not a symlink or junction: ${destination}`);
+        }
+        const artifactDomain = assertInside(sourceRoot, domain.path, `domain ${name}`);
+        if (fs.realpathSync(domainTarget) !== fs.realpathSync(artifactDomain))
+        {
+            throw new Error(`read-only domain destination target mismatch: ${destination}`);
+        }
+        verifiedMappings.set(identity, { name, destination, domain });
+    }
+
+    const candidates = [];
+    for (const required of requiredCandidateFiles)
+    {
+        const name = String(required?.domain ?? '').trim();
+        const artifact = canonicalRelative(required?.artifact, `candidate ${name || '<empty>'} artifact`);
+        const candidate = canonicalRelative(required?.candidate, `candidate ${name || '<empty>'} destination`);
+        const matchingMappings = [...verifiedMappings.values()].filter(mapping => mapping.name === name
+            && path.posix.join(mapping.destination, artifact) === candidate);
+        if (matchingMappings.length !== 1)
+        {
+            throw new Error(`required candidate lexical mapping is not exact: ${candidate}`);
+        }
+        const mapping = matchingMappings[0];
+        const receiptPath = path.posix.join(mapping.domain.path, artifact);
+        const record = receiptArtifacts.get(receiptPath);
+        if (!record)
+        {
+            throw new Error(`required candidate is not an exact receipt artifact: ${receiptPath}`);
+        }
+        const candidatePath = assertInside(targetRoot, candidate, 'required candidate');
+        let candidateStat;
+        try
+        {
+            candidateStat = fs.lstatSync(candidatePath);
+        }
+        catch
+        {
+            throw new Error(`required candidate is missing: ${candidate}`);
+        }
+        if (candidateStat.isSymbolicLink() || !candidateStat.isFile())
+        {
+            throw new Error(`required candidate is not a regular non-symlink file: ${candidate}`);
+        }
+        const artifactPath = assertInside(sourceRoot, receiptPath, 'required receipt artifact');
+        const physicalPath = fs.realpathSync(candidatePath);
+        if (physicalPath !== fs.realpathSync(artifactPath))
+        {
+            throw new Error(`required candidate physical artifact mismatch: ${candidate}`);
+        }
+        if (materializationEvidence.materialized.filter(value => value === candidate).length !== 1)
+        {
+            throw new Error(`required candidate materialization evidence is not exact: ${candidate}`);
+        }
+        candidates.push({
+            domain: name,
+            artifact,
+            candidate,
+            receiptPath,
+            lexicalPath: candidatePath,
+            physicalPath,
+            size: record.size,
+            sha256: record.sha256
+        });
+    }
+
+    const evidence = {
+        schema: productionBuildConsumerMaterializationVerificationSchema,
+        status: 'success',
+        artifactRoot: sourceRoot,
+        destinationRoot: targetRoot,
+        evidenceFile: materializationEvidenceFile,
+        leaseFile,
+        runId,
+        consumerId,
+        receiptContentDigest: receipt.contentDigest,
+        sourceState: receipt.sourceState,
+        mappings: [...verifiedMappings.values()].map(({ name, destination }) => ({ name, destination })),
+        candidates,
+        verifiedAt: now().toISOString(),
+        durationMs: Date.now() - startedAtMs
+    };
+    return { receipt, evidence, lease, materializationEvidence, candidates };
 }
 
 function safeDestination(root, relative)
