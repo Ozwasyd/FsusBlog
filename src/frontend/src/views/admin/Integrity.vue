@@ -2,6 +2,7 @@
   <div class="account-page integrity-page account-motion-enter w-full">
     <FsusUiTaskPageHeader
       title="内容一致性"
+      description="检查内容关系、文件资产、账号状态与公开索引。"
       class="account-task-page-header"
       density="compact"
     />
