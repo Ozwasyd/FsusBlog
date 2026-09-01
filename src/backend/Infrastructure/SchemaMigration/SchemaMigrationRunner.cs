@@ -73,7 +73,6 @@ public sealed class CurrentSchemaStartupVerifier(
         "public_article_projection",
         "public_article_projection_backfill",
         "public_article_projection_shadow_mismatch",
-        "comment_moderation_event",
         "plugin_registry",
         "theme_registry",
         "theme_config",
@@ -90,6 +89,11 @@ public sealed class CurrentSchemaStartupVerifier(
         "authoring_canvas_edge",
         "authoring_canvas_receipt",
         "authoring_canvas_idempotency",
+        "article_asset_cleanup_queue",
+        "article_asset_reference",
+        "asset_library_article_ref",
+        "asset_library_item",
+        "sys_visit_log",
         "__fsus_schema_online_state",
         "__fsus_schema_backfill_progress"
     ];

@@ -12,6 +12,8 @@ StaticCurrentSchemaAuthority() {
     Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/current-schema-authority.test.mjs"
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/db/generate-migration-assembly-receipt.mjs"
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/db/check-migration-assembly-boundary.mjs"
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/db/check-schema-allowed-extra-tables.mjs"
+    Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/schema-allowed-extra-tables.test.mjs"
     Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/migration-assembly-boundary.test.mjs"
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/db/check-server-migration-cutover.mjs"
     Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/server-migration-cutover.test.mjs"
