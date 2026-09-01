@@ -120,7 +120,11 @@ public sealed class CurrentSchemaStartupVerifier(
         }
 
         string actualDigest = CurrentSchemaCanonicalAuthority.ComputeObservationDigest(actual.Tables);
-        IReadOnlyList<string> errors = SchemaModelComparer.Compare(expected, actual, s_allowedExtraTables);
+        IReadOnlyList<string> errors = SchemaModelComparer.Compare(
+            expected,
+            actual,
+            s_allowedExtraTables,
+            SchemaAllowedExtraLinkNames.Names);
         if (errors.Count > 0)
         {
             throw new CurrentSchemaMismatchException(

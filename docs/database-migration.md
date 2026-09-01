@@ -69,8 +69,43 @@ Server production no longer references `FsusBlog.Migration`. Startup loads the
 #2211 current schema projection through `CurrentSchemaStartupVerifier` and
 fail-closes on semantic schema mismatch before admission, with zero DDL or backfill. The
 online command host refuses descriptor execution from the Server process; the
-independent migration assembly remains the owner of legacy catalogs. An offline
-plan/apply/verify CLI is a separate change.
+independent migration assembly remains the owner of legacy catalogs.
+
+Schema DDL and backfill are applied by the offline migration host, an
+`Exe` entry point of `src/migration/FsusBlog.Migration.csproj`:
+
+```bash
+dotnet FsusBlog.Migration.dll migrate --phase expand|backfill-resume|contract \
+    [--id <migration-id>] --release-manifest <path> --env-file <path> \
+    [--evidence <path>] [--confirm-destructive] [--dry-run]
+```
+
+`tools/db/run-online-migrations.sh` wraps exactly this contract; pass the host
+assembly via `--server-dll` (deployment passes
+`--migration-server-dll` in `tools/deployment/release-rollout.sh`). Machine
+output follows the rollout gate contract: `status` is `ok` / `dry_run` /
+`paused` / `failed`, with `phase`, `migrationIds` and `codes`.
+
+The host applies only the `Expand`-classified descriptors of the curated
+register (`OnlineSchemaMigrationCatalog` in the Server); the register is
+exposed to the host as the generated
+`src/migration/OfflineMigrationCatalogEntries.generated.cs` (producer
+`tools/db/generate-offline-migration-catalog.mjs`, guarded by
+`tools/db/check-offline-migration-catalog-parity.mjs`). Server-side
+`CurrentSchemaStartupVerifier` compares the live schema against the CodeFirst
+entity projection only; migration-created indexes/constraints are exempted
+through the generated
+`src/backend/Infrastructure/SchemaMigration/SchemaAllowedExtraLinkNames.generated.cs`
+(producer `tools/db/generate-schema-allowed-extra-links.mjs`, guarded by
+`tools/db/check-schema-allowed-extra-links.mjs`), so a migrated database still
+passes the fail-closed admission check. Cold-start legacy
+descriptors fail closed with `schema_legacy_bootstrap_required` until the
+historical cold-start runner has marked them applied, and the `contract`
+phase requires porting the backup-evidence gate, so the host currently fails
+closed with `schema_offline_contract_not_supported` instead of executing
+destructive work unguarded. `backfill-resume` executes resumable handlers
+declared in the migration assembly (for example
+`AccountSubjectHashOnlineBackfillHandler`).
 
 `artifacts/schema-migration/migration-assembly-receipt.json` records the old/new
 project, assembly and namespace identities, every old/new source path and declared
