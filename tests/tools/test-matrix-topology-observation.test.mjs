@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, cpSync, existsSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -11,14 +12,18 @@ import {
 import { loadCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs'
 import { runExtractor, assertDeterministicSemanticDigest } from '../../tools/fact-extractors/runner.mjs'
 import { semanticDigestFromReceipt } from '../../tools/fact-extractors/receipt.mjs'
+import { sealSourceIdentity } from '../../tools/fact-extractors/identity.mjs'
 import {
   extract as extractTestMatrix,
   TEST_MATRIX_REQUIRED_FACT_KEYS,
   TEST_MATRIX_DECLARED_FACT_SOURCES,
   TEST_MATRIX_CONSUMER_INPUTS
 } from '../../tools/fact-extractors/test-matrix/extract.mjs'
+import { produceRuntimeRoleObservation } from '../../tools/contracts/lib/runtime-role-observation.mjs'
 
 const extractorId = 'test-matrix-fact-extractor'
+const runtimeRoleBuild = produceRuntimeRoleObservation({ repositoryRoot: root })
+const sourceIdentity = sealSourceIdentity(root)
 
 function registryExtractor()
 {
@@ -53,6 +58,29 @@ function fixtureRepository(options = {})
     'src/frontend/package.json',
     'tools/docs/generate-testing-docs.mjs',
     'tools/test-matrix/behavior-doc-static-admission-contract.mjs',
+    'tools/deployment/slot-lib.mjs',
+    'tools/deployment/release-rollout-lib.mjs',
+    'tools/storage/release-gc.mjs',
+    'config/testing/required-evidence-authority-ledger.json',
+    'config/testing/release-domain-assertion-dispositions.json',
+    'tools/test-matrix/release-final-evidence-contract.mjs',
+    'tools/test-matrix/required-evidence-catalog.mjs',
+    'tools/test-matrix/release-domain-ledger.mjs',
+    'tools/test-matrix/outcomes/release-finalizer-adapter.mjs',
+    'tools/test-matrix/outcomes/adapter-support.mjs',
+    'tools/test-matrix/outcomes/outcome-contract.mjs',
+    'config/testing/outcome-failure-taxonomy.json',
+    'config/testing/outcome-field-dispositions.json',
+    'tools/test/attempt-provenance.mjs',
+    'tools/ci/check-flaky-registry.mjs',
+    'tools/ci/check-job-summaries.mjs',
+    'tools/docs/behavior-document-consistency-final.mjs',
+    'tools/release/check-release-final.mjs',
+    'tools/test-matrix/behavior-evidence-post-runtime.mjs',
+    'tools/test-matrix/behavior-evidence-pre-runtime.mjs',
+    'tools/test-matrix/release-domain-projection-receipt.mjs',
+    'tools/test/run-native-tests.mjs',
+    'tools/test/verify-release-reliability-receipt.mjs',
     'tools/test/lanes'
   ])
   {
@@ -62,6 +90,7 @@ function fixtureRepository(options = {})
   {
     write(directory, 'tests/matrix.yml', options.matrixText)
   }
+  copy(directory, '.tmp/contracts/runtime-role/runtime-role-observation.json')
   return directory
 }
 
@@ -70,6 +99,9 @@ function extractFrom(repositoryRoot, extractorOverrides = {})
   const base = registryExtractor()
   return extractTestMatrix({
     repositoryRoot,
+    buildIdentity: runtimeRoleBuild.buildIdentity,
+    sourceCommit: sourceIdentity.sourceCommit,
+    worktreeFingerprint: sourceIdentity.worktreeFingerprint,
     extractor: {
       ...base,
       ...extractorOverrides,
@@ -182,10 +214,10 @@ test('test-matrix-fact-extractor is registered for browserless-production-correc
   const ownership = validateOwnershipAgainstBehaviorCatalog(registry, loadCatalog(), root)
   assert.equal(ownership.behaviorOwners.get('browserless-production-correctness'), extractorId)
   const extractor = registryExtractor()
-  assert.equal(extractor.kind, 'matrix-projection')
+  assert.equal(extractor.kind, 'compiled-assembly')
   assert.equal(extractor.entrypoint, 'tools/fact-extractors/test-matrix/extract.mjs')
-  assert.equal(extractor.hermeticPolicy, 'declared-inputs')
-  assert.equal(extractor.requiredBuildArtifact, null)
+  assert.equal(extractor.hermeticPolicy, 'exact-build-receipt')
+  assert.equal(extractor.requiredBuildArtifact, 'runtime-role-observation')
   for (const source of TEST_MATRIX_DECLARED_FACT_SOURCES)
   {
     assert.ok(extractor.consumedInputs.includes(source), `missing fact source ${source}`)
@@ -194,13 +226,13 @@ test('test-matrix-fact-extractor is registered for browserless-production-correc
   {
     assert.ok(extractor.consumedInputs.includes(consumer), `missing consumer input ${consumer}`)
   }
-  assert.equal(TEST_MATRIX_REQUIRED_FACT_KEYS.length, 15)
+  assert.equal(TEST_MATRIX_REQUIRED_FACT_KEYS.length, 18)
 })
 
 test('live matrix projects typed topology / release-final / production-fresh facts', async () =>
 {
-  const first = await runExtractor({ extractorId, repositoryRoot: root, useCache: false })
-  const second = await runExtractor({ extractorId, repositoryRoot: root, useCache: false })
+  const first = await runExtractor({ extractorId, repositoryRoot: root, useCache: false, buildIdentity: runtimeRoleBuild.buildIdentity })
+  const second = await runExtractor({ extractorId, repositoryRoot: root, useCache: false, buildIdentity: runtimeRoleBuild.buildIdentity })
   assert.equal(first.receipt.status, 'ok', first.receipt.failureReasons?.join('\n'))
   assertDeterministicSemanticDigest(first.receipt, second.receipt)
   const facts = first.receipt.observations.facts
@@ -218,7 +250,40 @@ test('live matrix projects typed topology / release-final / production-fresh fac
   assert.ok(!staticPredecessors.includes('backend-tests'))
   assert.ok(facts['test.static-governance.membership'].bundleMemberships.includes('production.frontend-tests'))
   assert.equal(facts['release-final.finalizer-authority'].commandEntrypoint, 'tools/test/lanes/release-final.sh')
+  assert.equal(facts['deployment.runtime-role-contract'].ownership.authorityState, 'conflict-unknown')
+  assert.deepEqual(Object.keys(facts['deployment.runtime-role-contract'].modes).sort(), ['adaptive', 'single', 'static-role'])
+  const blueGreen = facts['deployment.blue-green-contract']
+  assert.equal(blueGreen.switchState, 'switching')
+  assert.equal(blueGreen.rollbackRequiredState, 'rollback_required')
+  assert.match(blueGreen.stopActiveResult, /refusing to stop active slot blue/u)
+  assert.match(blueGreen.unknownIdentityResult, /active release identity does not match/u)
+  assert.equal(blueGreen.rolloutFailureState, 'recovery_required')
+  assert.equal(blueGreen.activeAssetAction, 'retain')
+  assert.ok(blueGreen.activeAssetReasons.includes('active'))
+  assert.equal(blueGreen.runtimeProtectionAuthorityState, 'observed-in-slot-state-machine-probe')
+  assert.equal(blueGreen.artifactProtectionAuthorityState, 'observed-in-release-gc-plan-probe')
+  assert.equal(blueGreen.schemaProtectionAuthorityState, 'not-expressed-by-current-authorities')
+  assert.equal(blueGreen.volumeProtectionAuthorityState, 'not-expressed-by-current-authorities')
+  assert.equal(blueGreen.claimEligible, false)
+  assert.equal(blueGreen.authorityState, 'conflict-unknown')
+  assert.deepEqual(Object.keys(blueGreen.authorityModules).sort(), ['releaseAssetsGc', 'rollout', 'slot'])
+  for (const authority of Object.values(blueGreen.authorityModules))
+  {
+    assert.match(authority.sourceDigest, /^[a-f0-9]{64}$/u)
+  }
   assert.equal(facts['release-final.output-schema'], 'fsusblog.release-final-test-evidence-binding.v1')
+  const releaseFinal = facts['release-final.aggregate-contract']
+  assert.equal(releaseFinal.inputCount, 21)
+  assert.deepEqual(releaseFinal.selectedTierIds, ['release-final'])
+  assert.equal(releaseFinal.artifactOnly, true)
+  assert.equal(releaseFinal.executesTestCommands, false)
+  assert.equal(releaseFinal.semanticAdapterContractProbe.completeMembershipStatus, 'success')
+  assert.equal(releaseFinal.semanticAdapterContractProbe.missingMembershipStatus, 'failed')
+  assert.ok(releaseFinal.semanticAdapterContractProbe.missingInputReasonKinds.includes('contract.missing-evidence'))
+  assert.equal(releaseFinal.currentRunBindingState, 'not-observed-by-static-authority-extractor')
+  assert.equal(releaseFinal.publishGateState, 'blocked-current-run-binding-unverified')
+  assert.equal(releaseFinal.claimEligible, false)
+  assert.equal(releaseFinal.authorityState, 'conflict-unknown')
   assert.ok(facts['release-final.required-input-schemas'].includes('fsusblog.release-final-evidence-inputs.v1'))
   assert.ok(facts['production-fresh.bundle-ordering'].bundleIds.includes('frontend-tests'))
   assert.ok(facts['production-fresh.bundle-ordering'].edges.some((edge) => edge.endsWith('->performance-evidence')))
@@ -242,7 +307,7 @@ test('1) static-governance follows BehaviorDoc admission with no backend predece
   assert.equal(result.status, 'ok', result.failureReasons?.join('\n'))
   const membership = result.observations.facts['test.static-governance.membership']
   const predecessors = membership.predecessors?.['static-governance'] ?? []
-  assert.deepEqual(predecessors, ['behavior-doc-static-admission'])
+  assert.deepEqual(predecessors, ['behavior-doc-static-admission', 'test-inventory'])
   assert.ok(!predecessors.includes('backend-unit'))
   // The physical frontend bundle is released only by the external static admission.
   assert.ok(membership.bundleMemberships.includes('production.frontend-tests'))
@@ -425,9 +490,46 @@ test('8) extractor refuses docs/testing as fact source', () =>
     }
     // Ensure the forbidden input file exists for the read attempt path.
     assert.ok(existsSync(path.join(directory, 'docs/testing.generated.md')))
-    const result = extractTestMatrix({ repositoryRoot: directory, extractor })
+    const result = extractTestMatrix({ repositoryRoot: directory, extractor, buildIdentity: runtimeRoleBuild.buildIdentity })
     assert.equal(result.status, 'failed')
     assert.ok(result.failureReasons.some((reason) => /docs\/testing|refuses/u.test(reason)))
+  }
+  finally
+  {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('runtime-role observation requires exact receipt and rejects semantic tamper', () =>
+{
+  const directory = fixtureRepository()
+  try
+  {
+    const extractor = registryExtractor()
+    const missingIdentity = extractTestMatrix({ repositoryRoot: directory, extractor })
+    assert.equal(missingIdentity.status, 'failed')
+    assert.match(missingIdentity.failureReasons.join('\n'), /exact runtime-role-observation buildIdentity/iu)
+
+    const artifact = path.join(directory, '.tmp/contracts/runtime-role/runtime-role-observation.json')
+    const observation = JSON.parse(readFileSync(artifact, 'utf8'))
+    observation.staticRoleCapabilities.web = ['tampered.capability']
+    const unsigned = {
+      schema: observation.schema,
+      modes: observation.modes,
+      staticRoleCapabilities: observation.staticRoleCapabilities,
+      unsupportedCombinations: observation.unsupportedCombinations,
+      ownership: observation.ownership
+    }
+    observation.observationDigest = createHash('sha256').update(JSON.stringify(unsigned)).digest('hex')
+    writeFileSync(artifact, `${JSON.stringify(observation, null, 2)}\n`)
+    const artifactDigest = createHash('sha256').update(readFileSync(artifact)).digest('hex')
+    const semanticTamper = extractTestMatrix({
+      repositoryRoot: directory,
+      extractor,
+      buildIdentity: { ...runtimeRoleBuild.buildIdentity, artifactDigest }
+    })
+    assert.equal(semanticTamper.status, 'failed')
+    assert.match(semanticTamper.failureReasons.join('\n'), /build receipt digest mismatch/iu)
   }
   finally
   {
@@ -501,10 +603,49 @@ test('reordering dependency edges changes topologyDigest', () =>
   }
 })
 
+test('release-final required-evidence ledger digest tamper fails closed', () =>
+{
+  const directory = fixtureRepository()
+  try
+  {
+    const relative = 'config/testing/required-evidence-authority-ledger.json'
+    const ledger = JSON.parse(readFileSync(path.join(directory, relative), 'utf8'))
+    ledger.entries[0].receiptSchema = 'fsusblog.ci.job-result.v1'
+    write(directory, relative, `${JSON.stringify(ledger, null, 2)}\n`)
+    const result = extractFrom(directory)
+    assert.equal(result.status, 'failed')
+    assert.ok(result.failureReasons.some((reason) => /contentDigest is stale or tampered/u.test(reason)))
+  }
+  finally
+  {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('release-final matrix membership drift from the exact ledger set fails closed', () =>
+{
+  const directory = fixtureRepository()
+  try
+  {
+    const matrixPath = path.join(directory, 'tests/matrix.yml')
+    const original = readFileSync(matrixPath, 'utf8')
+    const mutated = original.replace('              behavior-document-consistency-final,\n', '')
+    assert.notEqual(mutated, original)
+    writeFileSync(matrixPath, mutated)
+    const result = extractFrom(directory)
+    assert.equal(result.status, 'failed')
+    assert.ok(result.failureReasons.some((reason) => /missing canonical evidence inputs/u.test(reason)))
+  }
+  finally
+  {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
 test('semantic digest is stable across identical live runs', async () =>
 {
-  const first = await runExtractor({ extractorId, repositoryRoot: root, useCache: false })
-  const second = await runExtractor({ extractorId, repositoryRoot: root, useCache: false })
+  const first = await runExtractor({ extractorId, repositoryRoot: root, useCache: false, buildIdentity: runtimeRoleBuild.buildIdentity })
+  const second = await runExtractor({ extractorId, repositoryRoot: root, useCache: false, buildIdentity: runtimeRoleBuild.buildIdentity })
   assert.equal(first.receipt.status, 'ok')
   assert.equal(semanticDigestFromReceipt(first.receipt), semanticDigestFromReceipt(second.receipt))
 })

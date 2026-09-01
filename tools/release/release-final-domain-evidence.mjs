@@ -9,6 +9,12 @@ import {
 import {
     loadCanonicalReleaseFinalEvidenceInputs
 } from '../test-matrix/release-final-evidence-contract.mjs';
+import {
+    validatePostRuntimeReceipt
+} from '../test-matrix/behavior-evidence-post-runtime.mjs';
+import {
+    validateFinalReport
+} from '../docs/behavior-document-consistency-final.mjs';
 
 import { requirePublicPreviewReleaseEvidence } from './public-preview-release-evidence.mjs';
 import {
@@ -17,61 +23,55 @@ import {
 import { createReleaseFinalTestEvidenceBinding } from './test-evidence-receipts.mjs';
 
 export function createReleaseFinalDomainEvidence({
+    directEvidence,
+    locatorEvidence,
     manifest,
     repositoryRoot,
-    findReceiptFile,
     sha256Hex
 })
 {
-    const correctness = findReceiptFile(
-        'fsusblog.browserless-correctness-receipt.v1',
-        [
-            process.env.FSUSBLOG_CORRECTNESS_RECEIPT,
-            '.tmp/release-evidence/browserless-correctness-receipt.json'
-        ],
-        manifest.commitSha
-    );
-    if (!correctness)
+    const postRuntimeFile = directEvidence.behaviorPostRuntime.file;
+    const postRuntimeReceipt = directEvidence.behaviorPostRuntime.receipt;
+    validatePostRuntimeReceipt(postRuntimeReceipt);
+    if (postRuntimeReceipt.status !== 'ok')
     {
-        throw new Error('browserless correctness receipt is required');
+        throw new Error(`post-runtime behavior evidence is not qualified: ${postRuntimeReceipt.failureReasons.join('; ')}`);
+    }
+    if (postRuntimeReceipt.sourceIdentity?.commit !== manifest.commitSha)
+    {
+        throw new Error('post-runtime behavior evidence source commit mismatch');
+    }
+    const consistencyFinalFile = directEvidence.behaviorConsistency.file;
+    const consistencyFinalReport = directEvidence.behaviorConsistency.receipt;
+    validateFinalReport(consistencyFinalReport);
+    if (consistencyFinalReport.status !== 'ok'
+        || consistencyFinalReport.sourceIdentity?.commit !== manifest.commitSha
+        || consistencyFinalReport.receiptDigests?.postRuntime !== postRuntimeReceipt.contentDigest)
+    {
+        throw new Error('behavior/document final consistency report identity or qualification mismatch');
     }
 
-    const browserContract = findReceiptFile(
-        'fsusblog.browser-contract-receipt.v2',
-        [
-            process.env.FSUSBLOG_BROWSER_CONTRACT_RECEIPT,
-            '.tmp/browser-contract/receipt.json'
-        ],
-        manifest.commitSha,
-        { requireExactOne: true }
-    );
-    if (!browserContract)
+    const correctness = directEvidence.browserlessCorrectness;
+
+    const browserContract = directEvidence.browserContract;
+    if (postRuntimeReceipt.candidateIdentity?.browserContractDigest
+        !== browserContract.receipt.contentDigest)
     {
-        throw new Error(
-            'Browser Contract receipt is required; release-final fails closed without it'
-        );
+        throw new Error('post-runtime behavior evidence browser candidate mismatch');
     }
 
     const publicPreview = requirePublicPreviewReleaseEvidence({
         commitSha: manifest.commitSha,
         browserContractReceipt: browserContract.receipt,
-        findReceiptFile,
+        evidence: directEvidence.publicPreview,
         sha256Hex
     });
 
-    const build = findReceiptFile(
-        'fsusblog.ci-production-build-receipt.v1',
-        [
-            process.env.FSUSBLOG_PRODUCTION_BUILD_RECEIPT,
-            correctness.receipt.build?.receipt,
-            browserContract.receipt.buildBinding?.receipt,
-            '.tmp/ci-production-build/receipt.json'
-        ],
-        manifest.commitSha
-    );
-    if (!build)
+    const build = directEvidence.productionBuild;
+    if (postRuntimeReceipt.candidateIdentity?.buildReceiptDigest
+        !== build.receipt.contentDigest)
     {
-        throw new Error('immutable #1078 production build receipt is required');
+        throw new Error('post-runtime behavior evidence build candidate mismatch');
     }
     const canonicalInputs = loadCanonicalReleaseFinalEvidenceInputs().inputs;
     const releaseDomainLedger = readEvidenceDocument(path.join(
@@ -125,8 +125,13 @@ export function createReleaseFinalDomainEvidence({
             correctnessReceiptPath: correctness.file,
             browserContractReceipt: browserContract.receipt,
             browserContractReceiptPath: browserContract.file,
+            postRuntimeReceipt,
+            postRuntimeReceiptPath: postRuntimeFile,
+            consistencyFinalReport,
+            consistencyFinalReportPath: consistencyFinalFile,
             releaseDomainProjectionReceipts,
-            releaseReliabilityQualifiedReceipt
+            releaseReliabilityQualifiedReceipt,
+            locatorEvidence
         }),
         publicPreview
     };

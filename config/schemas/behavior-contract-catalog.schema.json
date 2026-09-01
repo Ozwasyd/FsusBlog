@@ -180,6 +180,18 @@
                         "pattern": "^docs/"
                     }
                 },
+                "evidenceStage": {
+                    "enum": ["pre-runtime", "post-runtime"]
+                },
+                "runtimeEvidence": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["producerTierId", "observationSchema"],
+                    "properties": {
+                        "producerTierId": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+                        "observationSchema": { "type": "string", "pattern": "^fsusblog\\.[a-z0-9.-]+\\.v[0-9]+$" }
+                    }
+                },
                 "mutationPolicy": {
                     "type": "object",
                     "additionalProperties": false,
@@ -206,6 +218,39 @@
                                 "none",
                                 "documented"
                             ]
+                        }
+                    }
+                },
+                "documentAuthorities": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["path", "owner", "anchor", "claimIds", "sectionIds", "proofIds"],
+                        "properties": {
+                            "path": { "type": "string", "pattern": "^docs/" },
+                            "owner": { "enum": ["backend", "frontend", "security", "release", "governance"] },
+                            "anchor": { "type": "string", "pattern": "^[a-z][a-z0-9.-]*$" },
+                            "claimIds": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+                            "sectionIds": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+                            "proofIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+                        }
+                    }
+                },
+                "crossDomainReferences": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["domain", "behaviorId", "documentPath", "factIds"],
+                        "properties": {
+                            "domain": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+                            "behaviorId": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+                            "documentPath": { "type": "string", "pattern": "^docs/" },
+                            "factIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
                         }
                     }
                 }

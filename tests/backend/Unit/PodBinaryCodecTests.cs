@@ -54,6 +54,38 @@ public class PodBinaryCodecTests
     }
 
     [Fact]
+    public void TaxonomyMetadataMutationRequest_RoundTrip_PreservesNameAndDescription()
+    {
+        var request = new TaxonomyMetadataMutationRequestCoreModel("分类 A", "  描述 😀  ");
+
+        byte[] encoded = PodBinaryCodec.EncodeTaxonomyMetadataMutationRequest(request);
+        bool ok = PodBinaryCodec.TryDecodeTaxonomyMetadataMutationRequest(
+            encoded,
+            out TaxonomyMetadataMutationRequestCoreModel decoded,
+            out bool isLegacy);
+
+        Assert.True(ok);
+        Assert.False(isLegacy);
+        Assert.Equal(request, decoded);
+    }
+
+    [Fact]
+    public void TaxonomyMetadataMutationRequest_LegacyNamePayload_DecodesWithoutDescription()
+    {
+        byte[] encoded = PodBinaryCodec.EncodeNameMutationRequest("legacy-name");
+
+        bool ok = PodBinaryCodec.TryDecodeTaxonomyMetadataMutationRequest(
+            encoded,
+            out TaxonomyMetadataMutationRequestCoreModel decoded,
+            out bool isLegacy);
+
+        Assert.True(ok);
+        Assert.True(isLegacy);
+        Assert.Equal("legacy-name", decoded.Name);
+        Assert.Null(decoded.Description);
+    }
+
+    [Fact]
     public void JsonPayload_RoundTrip_PreservesAuthoringDtoShape()
     {
         var request = new AuthoringPayload("Draft", 0, ["aeds", "authoring"]);
@@ -388,6 +420,18 @@ public class PodBinaryCodecTests
     public void NameMutationRequest_CorruptedBytes_ReturnsFalse()
     {
         bool ok = PodBinaryCodec.TryDecodeNameMutationRequest(new byte[2], out _);
+        Assert.False(ok);
+    }
+
+    [Fact]
+    public void TaxonomyMetadataMutationRequest_NonCanonicalDescriptionSlice_ReturnsFalse()
+    {
+        byte[] encoded = PodBinaryCodec.EncodeTaxonomyMetadataMutationRequest(
+            new TaxonomyMetadataMutationRequestCoreModel("category", "description"));
+        BinaryPrimitives.WriteInt32LittleEndian(encoded.AsSpan(128, sizeof(int)), 1);
+
+        bool ok = PodBinaryCodec.TryDecodeTaxonomyMetadataMutationRequest(encoded, out _, out _);
+
         Assert.False(ok);
     }
 

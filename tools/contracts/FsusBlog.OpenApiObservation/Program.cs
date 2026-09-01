@@ -1,10 +1,10 @@
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 using FsusBlog.OpenApiObservation;
+using FsusBlog.Shared.Contracts.Governance;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Filters;
@@ -88,7 +88,9 @@ internal static class OpenApiObservationHost
 
         AedsEndpointContractCatalog contracts = AedsEndpointContractCatalog.Load(contractsPath);
         IReadOnlyList<ObservedOperation> observed = ObserveEndpoints();
-        ObservationDocument document = ObservationMerger.Merge(observed, contracts);
+        ProtocolStateCatalog protocolStates = LoadProtocolStates(repositoryRoot);
+        ErrorAuthorityBinding errorAuthority = LoadErrorAuthority(repositoryRoot);
+        ObservationDocument document = ObservationMerger.Merge(observed, contracts, protocolStates, errorAuthority);
 
         string json = JsonSerializer.Serialize(document, s_json);
         string directory = Path.GetDirectoryName(Path.GetFullPath(outputPath))
@@ -190,6 +192,57 @@ internal static class OpenApiObservationHost
         {
             app.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
+    }
+
+    private static ProtocolStateCatalog LoadProtocolStates(string repositoryRoot)
+    {
+        string protocolPath = Path.Combine(repositoryRoot, "src", "shared", "Contracts", "Validation", "aeds-protocol.json");
+        JsonNode root = JsonNode.Parse(File.ReadAllText(protocolPath))
+            ?? throw new InvalidOperationException("AEDS protocol document is empty");
+        int version = root["header"]?["version"]?.GetValue<int>()
+            ?? throw new InvalidOperationException("AEDS protocol version is missing");
+        string[] frameNames = root["frameTypes"]?.AsArray()
+            .Select(node => node?["name"]?.GetValue<string>() ?? throw new InvalidOperationException("active frame name missing"))
+            .Where(name => !string.Equals(name, "Unknown", StringComparison.Ordinal))
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray()
+            ?? throw new InvalidOperationException("AEDS active frame catalog is missing");
+        string[] active = frameNames
+            .Where(name => !name.StartsWith("Reserved", StringComparison.Ordinal))
+            .ToArray();
+        string[] migrationOnly = frameNames
+            .Where(name => name.StartsWith("Reserved", StringComparison.Ordinal))
+            .ToArray();
+        int[] retired = root["retiredFrameValues"]?.AsArray()
+            .Select(node => node?["value"]?.GetValue<int>() ?? throw new InvalidOperationException("retired frame value missing"))
+            .OrderBy(value => value)
+            .ToArray()
+            ?? [];
+        if (active.Length == 0 || retired.Distinct().Count() != retired.Length)
+        {
+            throw new InvalidOperationException("AEDS active/retired protocol states are invalid");
+        }
+        return new ProtocolStateCatalog([version], active, retired, migrationOnly, true);
+    }
+
+    private static ErrorAuthorityBinding LoadErrorAuthority(string repositoryRoot)
+    {
+        string catalogPath = Path.Combine(repositoryRoot, "config", "contracts", "behavior-contracts.json");
+        byte[] bytes = File.ReadAllBytes(catalogPath);
+        JsonNode root = JsonNode.Parse(bytes)
+            ?? throw new InvalidOperationException("BehaviorCatalog is empty");
+        JsonNode? owner = root["contracts"]?.AsArray().SingleOrDefault(node =>
+            string.Equals(node?["id"]?.GetValue<string>(), "configuration-error-security-policy", StringComparison.Ordinal));
+        if (owner is null || !owner["documents"]!.AsArray().Any(node =>
+            string.Equals(node?.GetValue<string>(), "docs/api/schemas-and-errors.md", StringComparison.Ordinal)))
+        {
+            throw new InvalidOperationException("current error authority owner is missing or ambiguous");
+        }
+        return new ErrorAuthorityBinding(
+            "configuration-error-security-policy",
+            BehaviorContractCatalog.Digest,
+            "docs/api/schemas-and-errors.md",
+            ["facts.error-codes.domain.active", "facts.error-codes.transport-mapping"]);
     }
 
     private static WebApplication CreateApplication()

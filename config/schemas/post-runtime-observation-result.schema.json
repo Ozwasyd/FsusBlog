@@ -1,0 +1,184 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "fsusblog.post-runtime-observation-result-envelope.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "producerId",
+        "toolVersion",
+        "sourceState",
+        "executionClass",
+        "evidenceClass",
+        "qualificationEligible",
+        "planned",
+        "executed",
+        "outcome",
+        "recovered",
+        "modes",
+        "terminal",
+        "semanticFacts",
+        "candidatePlanRef",
+        "sourceReceiptRef",
+        "canonicalRerunCommand",
+        "independentVerifyCommand",
+        "contentDigest"
+    ],
+    "properties": {
+        "schema": {
+            "enum": [
+                "fsusblog.observation.route-response-error.v1",
+                "fsusblog.observation.aot-spa-hydration.v1",
+                "fsusblog.observation.cache-search-outbox.v1",
+                "fsusblog.observation.session-cookie-runtime.v1",
+                "fsusblog.browser-contract-receipt.v2",
+                "fsusblog.observation.release-identity-readiness.v1",
+                "fsusblog.observation.blue-green-containment.v1"
+            ]
+        },
+        "producerId": {
+            "$ref": "#/$defs/id"
+        },
+        "toolVersion": {
+            "$ref": "#/$defs/toolVersion"
+        },
+        "sourceState": {
+            "type": "object",
+            "minProperties": 1
+        },
+        "executionClass": {
+            "enum": [
+                "correctness",
+                "browser-contract",
+                "diagnostic"
+            ]
+        },
+        "evidenceClass": {
+            "enum": [
+                "correctness",
+                "browser-contract",
+                "diagnostic"
+            ]
+        },
+        "qualificationEligible": {
+            "type": "boolean"
+        },
+        "planned": {
+            "type": "boolean"
+        },
+        "executed": {
+            "type": "boolean"
+        },
+        "outcome": {
+            "enum": [
+                "passed",
+                "failed",
+                "timed-out",
+                "cancelled"
+            ]
+        },
+        "recovered": {
+            "type": "boolean"
+        },
+        "modes": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+                "enum": [
+                    "positive",
+                    "negative",
+                    "boundary",
+                    "failure"
+                ]
+            }
+        },
+        "terminal": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "timeout",
+                "cancelled",
+                "processTreeTerminated",
+                "priorAttemptDigest"
+            ],
+            "properties": {
+                "timeout": {
+                    "type": "boolean"
+                },
+                "cancelled": {
+                    "type": "boolean"
+                },
+                "processTreeTerminated": {
+                    "type": "boolean"
+                },
+                "priorAttemptDigest": {
+                    "oneOf": [
+                        {
+                            "$ref": "#/$defs/digest"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                }
+            }
+        },
+        "semanticFacts": {
+            "type": "object",
+            "minProperties": 1
+        },
+        "candidatePlanRef": {
+            "$ref": "#/$defs/receiptRef"
+        },
+        "sourceReceiptRef": {
+            "$ref": "#/$defs/receiptRef"
+        },
+        "canonicalRerunCommand": {
+            "type": "string",
+            "minLength": 1
+        },
+        "independentVerifyCommand": {
+            "type": "string",
+            "minLength": 1
+        },
+        "contentDigest": {
+            "$ref": "#/$defs/digest"
+        }
+    },
+    "$defs": {
+        "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "toolVersion": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*@[1-9][0-9]*$"
+        },
+        "digest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "receiptRef": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "path",
+                "fileDigest",
+                "contentDigest"
+            ],
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "fileDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "contentDigest": {
+                    "$ref": "#/$defs/digest"
+                }
+            }
+        }
+    }
+}

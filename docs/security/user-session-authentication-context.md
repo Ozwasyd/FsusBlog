@@ -10,73 +10,25 @@
 - Passkey 来源只保存内部 `passkey_credential` 行 ID；原始 credential ID 不进入 JWT、URL、日志、telemetry 或普通会话列表。
 - 所有认证与 step-up 时间均按 UTC 写入和比较。无效枚举、缺失认证时间、缺失当前 Session 或数据库/JWT Session 不一致时 fail closed。
 
-## 持久化字段
+## 字段与登录来源
 
-| 字段 | 值域或格式 | 语义 | 禁止用途 |
-| --- | --- | --- | --- |
-| `AuthenticationMethod` | `passkey`、`recovery_key`、`enrollment`、`other` | 初始登录或注册完成路径 | 不作为当前 step-up 证明 |
-| `AuthenticationStrength` | `webauthn_uv`、`mfa`、`recovery`、`legacy_verified`、`legacy_unverified` | 初始认证强度的稳定分类 | `legacy_verified` 不得解释为永久 MFA |
-| `AuthenticatedAtUtc` | UTC timestamp | 初始认证发生时间；refresh 后保持不变 | 不得改写为 refresh 时间 |
-| `AuthenticatedCredentialRowId` | nullable internal integer | 创建 Session 的 Passkey 内部行 ID | 不得作为公开 credential ID |
-| `LastStepUpAtUtc` | nullable UTC timestamp | 最近成功签发 step-up proof 的审计时间 | 不得代替 proof cache 的一次性状态 |
-| `LastStepUpMethod` | nullable stable method | 最近 step-up 方法的低基数审计分类 | 不得用于绕过 action/session 绑定 |
-| `DurationPolicy` | `browser_session`、`persistent_30d` | Cookie 与服务端 idle/absolute TTL 的选择 | 不得由客户端任意字符串扩展 |
-
-`RememberMe` 与 `MfaVerified` 可在兼容窗口保留为数据库投影，但所有新签发、refresh 和授权必须以认证上下文及一次性 proof 为准。
-
-## 登录来源映射
-
-| 流程 | Method | Strength | Credential row |
-| --- | --- | --- | --- |
-| Passkey 登录 | `passkey` | `webauthn_uv` | 成功 assertion 对应的内部行 ID |
-| 匿名账号首枚 Passkey enrollment 完成 | `enrollment` | `webauthn_uv` | 新插入凭据的内部行 ID |
-| TOTP/MFA 登录完成 | `other` | `mfa` | `null` |
-| Recovery Key 登录完成 | `recovery_key` | `recovery` | `null` |
-| 迁移期旧会话 | `other` | `legacy_verified` 或 `legacy_unverified` | `null` |
-
-不同 Passkey 可以为同一账号创建不同 Session。凭据内部行 ID 允许服务端在凭据删除、暂停或 counter risk 处置时精确定位相关 Session，但不能把 Passkey 等同账号，也不要求每个 Session 都绑定 Passkey。
+字段列表、认证方法、认证强度及它们的 current 关系由下方 generated sections 与 controlled prose claims 承载。本节只保留设计理由：Session 记录初始认证来源，敏感操作仍需要单独的 action-bound proof。
 
 ## JWT 与 Refresh
 
-普通账号 access JWT 可以携带以下粗粒度认证上下文：
+请求验证以服务端 active Session 为权威；JWT 不是一次性 proof 或 credential 秘密的保存处。精确保留字段与不保留字段见下方 generated refresh context。
 
-- `sid`：当前 Session ID，用于服务端权威 Session 回查；
-- `auth_method`：初始认证方法；
-- `auth_strength`：初始认证强度；
-- `auth_time`：初始认证时间的 Unix seconds；
-- `mfa`：从 `webauthn_uv`、`mfa` 或 `recovery` 派生的兼容位。
-
-JWT 不携带 `AuthenticatedCredentialRowId`、`LastStepUpAtUtc`、`LastStepUpMethod`、proof token 或 Refresh Token。请求验证仍以 PostgreSQL/Session cache 的 active Session 为权威；claim 与数据库 Session 不一致时拒绝。
-
-Refresh rotation 必须先验证 Session 的方法、强度、认证时间和持续时间策略，再原样保留 `auth_method`、`auth_strength` 与 `auth_time`。Refresh 只轮换 access/refresh token 并在 absolute deadline 内推进 idle deadline；它不得把 `LastStepUpAtUtc` 写入 JWT，不得因旧 `MfaVerified=true` 生成新 step-up，也不得延长或重建已消费/过期 proof。
+Refresh 的保留与禁止关系不在此手写，由下方 refresh generated section 与 directional claims 唯一承载。
 
 ## Action-bound step-up proof
 
-普通账号敏感操作继续使用现有 `X-Fsus-Mfa-Proof` 通道。proof 必须同时绑定：
+敏感操作使用 action-bound proof。精确 binding 集合与 consume-once 关系只由下方 generated section 和 directional claims 承载。
 
-```text
-accountId
-accountSubjectHash
-current sessionId
-action
-random 32-byte token
-expiry
-```
-
-服务端只保存上述绑定材料的哈希 identity；校验通过后原子 consume-once。缺少当前 `sid`、跨账号、跨 Session、跨 action、过期、复用或 token 不匹配均拒绝，且不得进入业务 handler。
-
-`Security:StepUp:FreshnessMinutes` 默认 `5`。服务在每次签发时读取配置，允许范围为 `1..15` 分钟；调用方请求的 TTL 更短时取更短值，不能通过更长调用方 TTL 绕过 freshness。`LastStepUpAtUtc` / `LastStepUpMethod` 只记录低基数审计事实，删除该记录不会恢复 proof，保留该记录也不会使 proof 再次有效。
+Step-up freshness 的精确配置键、默认值与范围由下方 generated section 唯一承载。审计投影不代替 proof cache 的一次性状态。
 
 ## Duration policy 与 Cookie
 
-`rememberMe` 只作为旧请求字段映射到明确策略：
-
-| 请求 | DurationPolicy | Cookie | 服务端 idle / absolute |
-| --- | --- | --- | --- |
-| `rememberMe=false` | `browser_session` | access、refresh、session Cookie 均不设置持久 `Expires`/`Max-Age` | 7 天 / 30 天上限；浏览器关闭后因 session Cookie 消失而不可继续使用 |
-| `rememberMe=true` | `persistent_30d` | access Cookie 到 access-token expiry；refresh/session Cookie 到当前 idle deadline | 30 天 / 90 天上限 |
-
-两种策略都保留 HttpOnly、SameSite、Secure/`__Host-` 与 path 边界。`browser_session` 的数据库行可以在清理窗口内继续存在，但浏览器关闭后不能靠服务端行重新构造缺失的 Cookie。Refresh 必须沿用 Session 已持久化的 `DurationPolicy`；无效或未知策略清 Cookie 并要求重新登录。
+Duration mode、Cookie 投影及 idle/absolute policy 的精确枚举和时长均由下方 generated sections 唯一承载；本节不保留手写兼容表。
 
 ## 会话列表隐私
 
@@ -90,41 +42,275 @@ expiry
 
 不得返回内部 `AuthenticatedCredentialRowId`、原始 WebAuthn credential ID、Refresh Token、JWT、proof、原始 IP、完整 User-Agent、精确认证器/设备指纹或可跨站关联的高熵标识。底层缺少凭据行或友好名称时显示稳定的低信息量 fallback，不得回退输出内部 ID。列表中的认证强度/MFA 展示不能成为授权决定；敏感操作仍重新验证当前 Session 并消费 action-bound proof。
 
-## Legacy migration
+## Migration 与验收边界
 
-`20260720-pre-user-session-authentication-context` 是 additive、事务性 pre-code-first migration：
+迁移期状态不是 current auth 枚举的兼容副本。详细迁移机制与运行验收由 database migration 文档和 executable tests 承载；本 current authority 不再手写迁移映射、精确时长或验收矩阵。
 
-1. 为 `sys_user_session` 增加认证方法、强度、认证时间、凭据来源、最近 step-up 与持续时间字段；
-2. 旧 `MfaVerified=true` 映射为 `other / legacy_verified`，false 映射为 `other / legacy_unverified`；
-3. 旧 `RememberMe=true` 映射为 `persistent_30d`，false 映射为 `browser_session`；
-4. 认证时间优先使用既有值，其次使用 Session 创建时间；
-5. 迁移后核心字段设为非空并提供保守默认值。
+## Current session duration modes
 
-`legacy_verified` 仅说明旧行曾记录 MFA 布尔值。迁移不会制造 credential 关联、fresh step-up 或新的认证时间，也不允许 refresh 把它提升为 `mfa`。无法形成有效认证上下文的 Session 在 refresh 时 fail closed，用户重新登录后得到原生上下文。
+<!-- fsus-doc-claim
+claimId: authentication-session-permission.duration-modes
+behaviorId: authentication-session-permission
+claimType: generated-section
+generatedSectionId: auth.session.duration-modes
+render: enum-set
+-->
 
-迁移窗口内不删除旧列。回退版本可以忽略新增列，但不得重新把 `MfaVerified` 当作长期敏感操作授权。
+<!-- FSUSBLOG-GENERATED:BEGIN auth.session.duration-modes -->
+- `browser_session`
+- `persistent_30d`
+<!-- FSUSBLOG-GENERATED:END auth.session.duration-modes -->
 
-## 风险与无需重启回退
+### Generated session, credential, MFA and step-up facts
 
-主要风险及控制如下：
+<!-- fsus-doc-claim
+claimId: authentication-session-permission.idle-expiry-policy
+behaviorId: authentication-session-permission
+claimType: generated-section
+generatedSectionId: auth.session.idle-expiry-policy
+render: key-value-table
+-->
 
-- **上下文漂移**：JWT 与数据库认证上下文不一致时拒绝并清理普通账号 Cookie，不猜测或降级。
-- **旧客户端 Cookie 语义**：旧持久 Cookie 不能在响应外原地变成 session Cookie；撤销受影响 Session 后要求重新登录，用新策略重写 Cookie。
-- **proof 窗口过宽**：通过 reload-capable 配置把 `Security:StepUp:FreshnessMinutes` 热更新为 `1`，使后续签发立即缩短；既有 proof 最多按原 5 分钟 TTL 自然过期。需要立即止血时撤销受影响 Session，使绑定该 Session 的请求无法通过认证；不需要重启，也不恢复 password fallback。
-- **凭据来源或列表投影异常**：隐藏友好名称/认证来源展示并保留服务端 Session 校验；不得输出内部 credential ID 作为 fallback。
-- **候选版本异常**：从流量入口摘除候选 slot、切回 last-known-good serving slot；保留 additive columns。随后撤销受影响 Session，不能通过恢复永久 `MfaVerified`、放宽 sid 校验或延长 proof 来回退。
-
-## 验收场景矩阵
-
-| 场景 | 必须验证 |
+<!-- FSUSBLOG-GENERATED:BEGIN auth.session.idle-expiry-policy -->
+| Key | Value |
 | --- | --- |
-| 匿名请求 | 未认证请求不能列出/refresh/revoke Session，也不能签发 user step-up proof；匿名 enrollment 完成只创建 `enrollment / webauthn_uv` browser Session |
-| 登录请求 | Passkey、TOTP、Recovery Key 分别写入正确来源；不同 Passkey 的内部行关联不同；browser/persistent Cookie 属性与 TTL 一致 |
-| Refresh | 保持初始 `auth_method`、`auth_strength`、`auth_time`，不延长 step-up；无效上下文或 sid/refresh 不匹配 fail closed |
-| 敏感操作 | proof 跨 account/session/action、过期和重放全部失败；默认 5 分钟和热更新后的 freshness 生效 |
-| Session list | 只显示粗粒度设备信息、登录来源、友好名称和 duration；无 credential ID、raw IP/token/JWT/proof/精确指纹 |
-| 凭据处置 | 删除或暂停凭据可按内部行 ID 定位相关 Session；不得误撤销同账号其他凭据创建的 Session |
-| admin 请求 | 独立 `admin_session`、admin Passkey 和 `admin-sensitive` proof 语义不被普通账号上下文替代 |
-| notification stream | Session 撤销继续只按账号发布低信息量事件，不携带 session/credential 标识；客户端回查服务端权威状态 |
-| binary | auth/session/MFA/Passkey 只走 AEDS；错误使用稳定低信息量类别，不增加公开 JSON fallback |
-| migration | legacy true/false 与 remember-me 行正确回填；迁移重复执行安全；旧行不会获得永久 step-up |
+| admin | 8 hours |
+| browser_session | 7 days |
+| persistent_30d | 30 days |
+<!-- FSUSBLOG-GENERATED:END auth.session.idle-expiry-policy -->
+
+<!-- fsus-doc-claim
+claimId: authentication-session-permission.absolute-expiry-policy
+behaviorId: authentication-session-permission
+claimType: generated-section
+generatedSectionId: auth.session.absolute-expiry-policy
+render: key-value-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN auth.session.absolute-expiry-policy -->
+| Key | Value |
+| --- | --- |
+| admin | 12 hours |
+| browser_session | 30 days |
+| persistent_30d | 90 days |
+<!-- FSUSBLOG-GENERATED:END auth.session.absolute-expiry-policy -->
+
+<!-- fsus-doc-claim
+claimId: authentication-session-permission.refresh-context-table
+behaviorId: authentication-session-permission
+claimType: generated-section
+generatedSectionId: auth.session.refresh-context
+render: key-value-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN auth.session.refresh-context -->
+| Key | Value |
+| --- | --- |
+| doesNotPreserve | ["access_token","last_step_up_at","last_step_up_method","refresh_token","step_up_proof"] |
+| mayUpdate | ["idle_expires_at","last_seen_at","refresh_generation","refresh_token_hash","session_mode"] |
+| preserves | ["auth_method","auth_strength","auth_time","authenticated_credential_row_id","duration_policy"] |
+<!-- FSUSBLOG-GENERATED:END auth.session.refresh-context -->
+
+<!-- fsus-doc-claim
+claimId: authentication-session-permission.step-up-freshness
+behaviorId: authentication-session-permission
+claimType: generated-section
+generatedSectionId: auth.step-up.freshness
+render: key-value-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN auth.step-up.freshness -->
+| Key | Value |
+| --- | --- |
+| configurationKey | Security:StepUp:FreshnessMinutes |
+| default | 5 minutes |
+| maximum | 15 minutes |
+| minimum | 1 minutes |
+<!-- FSUSBLOG-GENERATED:END auth.step-up.freshness -->
+
+<!-- fsus-doc-claim
+claimId: authentication-session-permission.step-up-binding-table
+behaviorId: authentication-session-permission
+claimType: generated-section
+generatedSectionId: auth.step-up.binding
+render: enum-set
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN auth.step-up.binding -->
+- `account`
+- `account_subject`
+- `action`
+- `expiry`
+- `session`
+- `token`
+<!-- FSUSBLOG-GENERATED:END auth.step-up.binding -->
+
+<!-- fsus-doc-claim
+claimId: authentication-session-permission.passkey-states
+behaviorId: authentication-session-permission
+claimType: generated-section
+generatedSectionId: auth.passkey.states
+render: key-value-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN auth.passkey.states -->
+| Key | Value |
+| --- | --- |
+| credentialPresence | ["absent","present"] |
+| enrollment | ["cancelled","completed","completing","expired","pending"] |
+<!-- FSUSBLOG-GENERATED:END auth.passkey.states -->
+
+<!-- fsus-doc-claim
+claimId: authentication-session-permission.mfa-states
+behaviorId: authentication-session-permission
+claimType: generated-section
+generatedSectionId: auth.mfa.states
+render: enum-set
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN auth.mfa.states -->
+- `disabled`
+- `enabled`
+- `pending_enrollment`
+<!-- FSUSBLOG-GENERATED:END auth.mfa.states -->
+
+<!-- fsus-doc-claim
+claimId: authentication-session-permission.recovery-states
+behaviorId: authentication-session-permission
+claimType: generated-section
+generatedSectionId: auth.recovery.states
+render: enum-set
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN auth.recovery.states -->
+- `active`
+- `revoked`
+- `used`
+<!-- FSUSBLOG-GENERATED:END auth.recovery.states -->
+
+<!-- fsus-doc-claim
+claimId: authentication-session-permission.credential-session-revocation
+behaviorId: authentication-session-permission
+claimType: generated-section
+generatedSectionId: auth.credential-session-revocation
+render: key-value-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN auth.credential-session-revocation -->
+| Key | Value |
+| --- | --- |
+| failureModes | ["admin_principal_disabled","authentication_context_mismatch","refresh_token_replay","session_absolute_expired","session_idle_expired","session_mismatch","session_revoked","step_up_proof_consumed","step_up_proof_invalid"] |
+| transitions | {"account_ban":{"effect":"refresh_reissues_restricted","from":"session_mode_normal","to":"session_mode_restricted"},"account_delete":{"effect":"mode_revoked","from":"sessions_active","to":"sessions_revoked"},"admin_principal_disable":{"effect":"login_and_step_up_denied","from":"principal_active","to":"principal_disabled"},"passkey_counter_risk":{"effect":"revoke_sessions_bound_to_credential","from":"credential_present","to":"credential_present"},"passkey_delete":{"effect":"revoke_sessions_bound_to_credential","from":"credential_present","to":"credential_absent"},"recovery_key_verify_with_session_revoke":{"effect":"optional_passkey_revoke","from":"sessions_active","to":"sessions_revoked"},"refresh_token_replay":{"effect":"compromise_refresh_family","from":"family_active","to":"family_revoked"},"session_logout_or_revoke":{"effect":"publish_revocation_snapshot","from":"session_active","to":"session_revoked"}} |
+<!-- FSUSBLOG-GENERATED:END auth.credential-session-revocation -->
+
+### Verified directional authentication relations
+
+<!-- fsus-doc-claim
+claimId: authentication-session-permission.relation.mfa-enabled-step-up-method
+behaviorId: authentication-session-permission
+claimType: binary-relation
+factPath: facts.authRelationClaims.mfaEnabledStepUpMethod
+render: relation-subject-predicate-object
+-->
+
+`auth.relation.mfa-enabled-step-up-method`：`auth.mfa.state.enabled` conditional `permits-proof-method` `auth.step-up.mfa-proof`；condition 为 `account is active and the requested credential mutation accepts the MFA proof method`，scope 为 `current-account`、`bound-session`、`declared-action`、`declared-subject`。
+
+<!-- fsus-doc-claim
+claimId: authentication-session-permission.relation.passkey-auth-strength
+behaviorId: authentication-session-permission
+claimType: binary-relation
+factPath: facts.authRelationClaims.passkeyAuthStrength
+render: relation-subject-predicate-object
+-->
+
+`auth.relation.passkey-auth-strength`：`auth.method.passkey` `results-in` `webauthn_uv`；condition 为 `successful user-verifying Passkey assertion`，scope 为 `current-account`、`bound-session`、`declared-action`、`declared-subject`。
+
+<!-- fsus-doc-claim
+claimId: authentication-session-permission.relation.passkey-is-not-totp
+behaviorId: authentication-session-permission
+claimType: binary-relation
+factPath: facts.authRelationClaims.passkeyIsNotTotp
+render: relation-subject-predicate-object
+-->
+
+`auth.relation.passkey-is-not-totp`：`auth.method.passkey` does not `is-equivalent-to` `auth.method.totp`；condition 为 `all authentication and step-up scopes`，scope 为 `current-account`、`bound-session`、`declared-action`、`declared-subject`。
+
+<!-- fsus-doc-claim
+claimId: authentication-session-permission.relation.recovery-auth-strength
+behaviorId: authentication-session-permission
+claimType: binary-relation
+factPath: facts.authRelationClaims.recoveryAuthStrength
+render: relation-subject-predicate-object
+-->
+
+`auth.relation.recovery-auth-strength`：`auth.method.recovery_key` `results-in` `auth.strength.recovery`；condition 为 `successful Recovery Key login completion`，scope 为 `current-account`、`bound-session`、`declared-action`、`declared-subject`。
+
+<!-- fsus-doc-claim
+claimId: authentication-session-permission.relation.recovery-does-not-mint-step-up
+behaviorId: authentication-session-permission
+claimType: binary-relation
+factPath: facts.authRelationClaims.recoveryDoesNotMintStepUp
+render: relation-subject-predicate-object
+-->
+
+`auth.relation.recovery-does-not-mint-step-up`：`auth.recovery.completion` does not `mints` `auth.step-up.proof`；condition 为 `successful Recovery Key login completion without a separate step-up flow`，scope 为 `current-account`、`bound-session`、`declared-action`、`declared-subject`。
+
+<!-- fsus-doc-claim
+claimId: authentication-session-permission.relation.step-up-binding
+behaviorId: authentication-session-permission
+claimType: binary-relation
+factPath: facts.authRelationClaims.stepUpBinding
+render: relation-subject-predicate-object
+-->
+
+`auth.relation.step-up-binding`：`auth.step-up.proof` `is-bound-to` `account+session+action+token+expiry`；condition 为 `proof validation and consumption`，scope 为 `current-account`、`bound-session`、`declared-action`、`declared-subject`。
+
+<!-- fsus-doc-claim
+claimId: authentication-session-permission.relation.step-up-consume-once
+behaviorId: authentication-session-permission
+claimType: binary-relation
+factPath: facts.authRelationClaims.stepUpConsumeOnce
+render: relation-subject-predicate-object
+-->
+
+`auth.relation.step-up-consume-once`：`auth.step-up.proof` `may-be-consumed` `exactly-once`；condition 为 `matching account, session, action, token, and unexpired proof`，scope 为 `current-account`、`bound-session`、`declared-action`、`declared-subject`。
+
+<!-- fsus-doc-claim
+claimId: authentication-session-permission.relation.refresh-preserves-auth-context
+behaviorId: authentication-session-permission
+claimType: binary-relation
+factPath: facts.authRelationClaims.refreshPreservesAuthContext
+render: relation-subject-predicate-object
+-->
+
+`auth.relation.refresh-preserves-auth-context`：`auth.refresh.rotation` `preserves` `auth_method+auth_strength+auth_time+duration_policy+authenticated_credential_row_id`；condition 为 `active session context passes fail-closed validation`，scope 为 `current-account`、`bound-session`、`declared-action`、`declared-subject`。
+
+<!-- fsus-doc-claim
+claimId: authentication-session-permission.relation.refresh-does-not-rebuild-step-up
+behaviorId: authentication-session-permission
+claimType: binary-relation
+factPath: facts.authRelationClaims.refreshDoesNotRebuildStepUp
+render: relation-subject-predicate-object
+-->
+
+`auth.relation.refresh-does-not-rebuild-step-up`：`auth.refresh.rotation` does not `rebuilds-or-extends` `auth.step-up.proof`；condition 为 `all refresh rotations`，scope 为 `current-account`、`bound-session`、`declared-action`、`declared-subject`。
+
+<!-- fsus-doc-claim
+claimId: authentication-session-permission.relation.passkey-delete-revokes-bound-sessions
+behaviorId: authentication-session-permission
+claimType: binary-relation
+factPath: facts.authRelationClaims.passkeyDeleteRevokesBoundSessions
+render: relation-subject-predicate-object
+-->
+
+`auth.relation.passkey-delete-revokes-bound-sessions`：`auth.passkey.credential-delete` `revokes` `sessions-bound-to-deleted-credential`；condition 为 `credential row is deleted successfully`，scope 为 `current-account`、`bound-session`、`declared-action`、`declared-subject`。
+
+<!-- fsus-doc-claim
+claimId: authentication-session-permission.relation.passkey-delete-does-not-revoke-unbound-sessions
+behaviorId: authentication-session-permission
+claimType: binary-relation
+factPath: facts.authRelationClaims.passkeyDeleteDoesNotRevokeUnboundSessions
+render: relation-subject-predicate-object
+-->
+
+`auth.relation.passkey-delete-does-not-revoke-unbound-sessions`：`auth.passkey.credential-delete` does not `revokes` `all-account-sessions`；condition 为 `credential row is deleted successfully`，scope 为 `current-account`、`bound-session`、`declared-action`、`declared-subject`。

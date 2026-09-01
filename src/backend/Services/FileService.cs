@@ -7,15 +7,20 @@ using System.Security.Cryptography;
 using System.Text;
 
 using FsusBlog.Core.Common;
+using FsusBlog.Server.Contracts.Assets;
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
-using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Shared.Contracts.Outputs;
+
+using Microsoft.Extensions.DependencyInjection;
+
+using SqlSugar;
 
 namespace FsusBlog.Server.Services;
 
@@ -50,12 +55,24 @@ public sealed partial class FileService : IFileService
     private readonly string _expirationIndexRootPath;
     private readonly string _uploadCommitRootPath;
     private readonly UploadSessionCleanupQueue? _cleanupQueue;
+    private readonly IServiceScopeFactory? _scopeFactory;
 
     private static readonly string[] s_allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".ico"];
     private static readonly string[] s_allowedFormats = ["jpg", "jpeg", "png", "gif", "webp", "ico"];
     private static readonly ConcurrentDictionary<string, SessionLockEntry> s_sessionLocks = new(StringComparer.Ordinal);
 
     public FileService(
+        ReleaseStoragePaths storagePaths,
+        ILogger<FileService> logger,
+        IServiceScopeFactory scopeFactory,
+        UploadSessionCleanupQueue? cleanupQueue = null)
+        : this(storagePaths, logger, cleanupQueue)
+    {
+        ArgumentNullException.ThrowIfNull(scopeFactory);
+        _scopeFactory = scopeFactory;
+    }
+
+    internal FileService(
         ReleaseStoragePaths storagePaths,
         ILogger<FileService> logger,
         UploadSessionCleanupQueue? cleanupQueue = null)
@@ -490,6 +507,7 @@ public sealed partial class FileService : IFileService
                 finalPath,
                 relativeUrl,
                 record.MimeType,
+                record.OwnerAdminPrincipalId,
                 assembled,
                 record.TargetFormat,
                 cancellationToken);
@@ -515,6 +533,7 @@ public sealed partial class FileService : IFileService
         string finalPath,
         string relativeUrl,
         string mimeType,
+        long ownerAdminPrincipalId,
         AssembledUploadFile assembled,
         string targetFormat,
         CancellationToken cancellationToken)
@@ -542,7 +561,35 @@ public sealed partial class FileService : IFileService
                     return Result<UploadCompleteDto>.Failure(ErrorCode.Conflict, "上传成品路径已被不同内容占用");
                 }
 
-                return concurrentCommit.Result;
+                if (!concurrentCommit.Result.IsSuccess)
+                {
+                    return concurrentCommit.Result;
+                }
+
+                Result concurrentLedger = await RegisterCommittedAssetAsync(
+                    uploadId,
+                    finalPath,
+                    relativeUrl,
+                    ownerAdminPrincipalId,
+                    assembled,
+                    targetFormat,
+                    cancellationToken);
+                return concurrentLedger.IsSuccess
+                    ? concurrentCommit.Result
+                    : Result<UploadCompleteDto>.Failure(concurrentLedger.Error);
+            }
+
+            Result committedLedger = await RegisterCommittedAssetAsync(
+                uploadId,
+                finalPath,
+                relativeUrl,
+                ownerAdminPrincipalId,
+                assembled,
+                targetFormat,
+                cancellationToken);
+            if (!committedLedger.IsSuccess)
+            {
+                return Result<UploadCompleteDto>.Failure(committedLedger.Error);
             }
 
             return Result<UploadCompleteDto>.Success(new UploadCompleteDto
@@ -567,6 +614,100 @@ public sealed partial class FileService : IFileService
         finally
         {
             TryDeleteFile(commitTempPath);
+        }
+    }
+
+    private async Task<Result> RegisterCommittedAssetAsync(
+        string uploadId,
+        string finalPath,
+        string relativeUrl,
+        long ownerAdminPrincipalId,
+        AssembledUploadFile assembled,
+        string targetFormat,
+        CancellationToken cancellationToken)
+    {
+        // Unit tests which exercise only the filesystem upload protocol use the
+        // internal constructor. Production DI always supplies a scope factory.
+        if (_scopeFactory is null)
+        {
+            return Result.Success();
+        }
+
+        if (!Guid.TryParseExact(uploadId, "N", out Guid assetId) || assetId == Guid.Empty)
+        {
+            return Result.Failure(ErrorCode.InfraFailure, "上传成品资产标识非法");
+        }
+
+        var codec = new PublicAssetUrlCodec();
+        if (!codec.TryGetStorageKey(relativeUrl, out AssetStorageKey storageKey))
+        {
+            return Result.Failure(ErrorCode.InfraFailure, "上传成品存储标识非法");
+        }
+
+        byte[] committedBytes = await File.ReadAllBytesAsync(finalPath, cancellationToken).ConfigureAwait(false);
+        if (!ContentAssetMediaInspector.TryInspect(
+                NormalizeExtension(targetFormat),
+                committedBytes,
+                out ContentAssetMediaMetadata media)
+            || !string.Equals(media.MediaType, MimeTypeForExtension(NormalizeExtension(targetFormat)), StringComparison.Ordinal))
+        {
+            return Result.Failure(ErrorCode.Validation, "上传成品图片尺寸无法可靠识别");
+        }
+
+        int width = media.Width;
+        int height = media.Height;
+        DateTime now = DateTime.UtcNow;
+        string extension = NormalizeExtension(targetFormat);
+        try
+        {
+            using IServiceScope scope = _scopeFactory.CreateScope();
+            ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
+            await db.Ado.ExecuteCommandAsync(
+                """
+                INSERT INTO content_asset (
+                    id, storage_class, storage_key, media_type, extension,
+                    byte_length, sha256, width, height,
+                    owner_admin_principal_id, state, created_at_utc, updated_at_utc)
+                VALUES (
+                    @AssetId, 'public', @StorageKey, @MediaType, @Extension,
+                    @ByteLength, @Sha256, @Width, @Height,
+                    @OwnerId, 'active', @Now, @Now)
+                ON CONFLICT (storage_key) DO NOTHING;
+                """,
+                new SugarParameter("@AssetId", assetId),
+                new SugarParameter("@StorageKey", storageKey.Value),
+                new SugarParameter("@MediaType", media.MediaType),
+                new SugarParameter("@Extension", extension),
+                new SugarParameter("@ByteLength", assembled.Length),
+                new SugarParameter("@Sha256", assembled.Sha256),
+                new SugarParameter("@Width", width),
+                new SugarParameter("@Height", height),
+                new SugarParameter("@OwnerId", ownerAdminPrincipalId),
+                new SugarParameter("@Now", now)).ConfigureAwait(false);
+
+            List<ContentAsset> matches = await db.Queryable<ContentAsset>()
+                .Where(asset => asset.StorageKey == storageKey.Value)
+                .ToListAsync(cancellationToken);
+            ContentAsset? persisted = matches.SingleOrDefault();
+            bool exactMatch = persisted is not null
+                && persisted.AssetId == assetId
+                && persisted.StorageClass == "public"
+                && persisted.MimeType == media.MediaType
+                && persisted.Extension == extension
+                && persisted.SizeBytes == assembled.Length
+                && string.Equals(persisted.Sha256, assembled.Sha256, StringComparison.OrdinalIgnoreCase)
+                && persisted.WidthPixels == width
+                && persisted.HeightPixels == height
+                && persisted.OwnerAdminPrincipalId == ownerAdminPrincipalId
+                && persisted.State == ContentAssetStates.Active;
+            return exactMatch
+                ? Result.Success()
+                : Result.Failure(ErrorCode.Conflict, "上传成品资产记录与已提交文件不一致");
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.LogError(exception, "Content asset ledger commit failed for {UploadId}", uploadId);
+            return Result.Failure(ErrorCode.InfraFailure, "上传成品资产记录提交失败");
         }
     }
 
@@ -765,58 +906,6 @@ public sealed partial class FileService : IFileService
 
         await DeleteSessionDirectoryAsync(normalizedUploadId);
         return Result<bool>.Success(true);
-    }
-
-    public Task<bool> DeleteImageAsync(string imageUrl)
-    {
-        if (string.IsNullOrEmpty(imageUrl))
-        {
-            return Task.FromResult(false);
-        }
-
-        if (!ArticleAssetUrlNormalizer.TryNormalize(imageUrl, out string normalizedUrl))
-        {
-            LogSecurityWarning(SanitizeLogPath(imageUrl));
-            return Task.FromResult(false);
-        }
-
-        string expectedPrefix = _cleanSubFolderWeb + "/";
-        if (!normalizedUrl.StartsWith(expectedPrefix, StringComparison.OrdinalIgnoreCase))
-        {
-            LogSecurityWarning(SanitizeLogPath(normalizedUrl));
-            return Task.FromResult(false);
-        }
-
-        string relativePath = normalizedUrl[expectedPrefix.Length..];
-        if (string.IsNullOrWhiteSpace(relativePath) || relativePath.Contains('\0', StringComparison.Ordinal))
-        {
-            return Task.FromResult(false);
-        }
-
-        string filePath = Path.GetFullPath(Path.Combine(_folderPath, relativePath.Replace('/', Path.DirectorySeparatorChar)));
-        if (!IsPathWithinDirectory(_sandboxAbsolutePath, filePath))
-        {
-            LogSecurityWarning(SanitizeLogPath(filePath));
-            return Task.FromResult(false);
-        }
-
-        return BoundaryExecutor.ExecuteValueAsync(
-            () =>
-            {
-                if (File.Exists(filePath))
-                {
-                    File.Delete(filePath);
-                    LogDeleteSuccess(filePath);
-                    return Task.FromResult(true);
-                }
-
-                LogFileNotFound(filePath);
-                return Task.FromResult(false);
-            },
-            _ => false,
-            _logger,
-            $"file-delete:{filePath}",
-            LogLevel.Error);
     }
 
     private static async Task<SessionLockLease> AcquireSessionLockAsync(string uploadId, CancellationToken cancellationToken)

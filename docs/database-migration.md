@@ -44,8 +44,8 @@ runner consumes this manifest order directly: all
 `PostCodeFirst` descriptors, which preserves the historical execution contract.
 
 Descriptor implementations live under
-`src/backend/Infrastructure/SchemaMigration/Definitions/`; release-range catalogs
-live under `src/backend/Infrastructure/SchemaMigration/Catalogs/`. To add a
+`src/migration/Definitions/`; release-range catalogs
+live under `src/migration/Catalogs/`. To add a
 migration, put its implementation in a focused definition type and register it once
 in the catalog whose range owns the ID. A version beyond the current range requires
 a new catalog, explicit phase-tail dependencies, and an explicit boundary gap. Do
@@ -54,6 +54,35 @@ reopen `SchemaMigrationRegistry.*.cs` partial files. `migration-doc-lint.mjs` an
 `SchemaMigrationCatalogTests.SourceLayout_PreventsLegacyRegistryDescriptorAggregation`
 enforce the one-definition/one-catalog rule without code generation or external
 tools.
+
+## Migration Assembly Boundary
+
+Legacy descriptors, version catalogs, checksum/history primitives, typed DDL
+providers and migration-owned conversion rows compile in the independent
+`src/migration/FsusBlog.Migration.csproj` project under the
+`FsusBlog.Migration` root namespace. That project targets `net10.0`, references
+only `FsusBlog.Shared`, and carries the SqlSugar provider abstraction required to
+build and test the PostgreSQL, MySQL and SQLite DDL adapters without loading the
+Server or a web host.
+
+Server production no longer references `FsusBlog.Migration`. Startup loads the
+#2211 current schema projection through `CurrentSchemaStartupVerifier` and
+fail-closes on digest mismatch before admission, with zero DDL or backfill. The
+online command host refuses descriptor execution from the Server process; the
+independent migration assembly remains the owner of legacy catalogs. An offline
+plan/apply/verify CLI is a separate change.
+
+`artifacts/schema-migration/migration-assembly-receipt.json` records the old/new
+project, assembly and namespace identities, every old/new source path and declared
+symbol, old/new SHA-256 digests, deleted Server paths, the aggregate content digest
+and actual independent build/test results bound to the migration source plus test
+input digest. The generated
+`artifacts/schema-migration/migration-assembly-binding.json` seals the receipt,
+source transition and verification result digests. `tools/db/check-migration-assembly-boundary.mjs` rejects reverse Server
+references, linked or duplicate sources, type forwarding/re-export namespaces,
+provider copies of the current schema model, shared legacy-only fields, web-hosted
+migration tests, graph cycles, dual registration, Server publish leakage, missing
+provider/build evidence and receipt or binding tampering.
 
 The PostgreSQL fixture exercises both an empty database and the representative
 20260517 historical schema twice. For each starting point, the normalized columns,
@@ -70,6 +99,32 @@ and changes the database default to a value containing quote characters. The fre
 fixture inserts a `sys_user` row after the second run while omitting these columns
 and requires `anonymous_account|basic|active`.
 
+## Canonical Current Schema
+
+`CurrentSchemaCanonicalAuthority` is the only current-schema materializer. It
+extracts the current `SugarTable`/`SugarColumn`/`SugarIndex` mapping, inherited
+public properties, nullability metadata, defaults, conversions and explicit
+current constraints into a provider-neutral semantic model. Duplicate owners,
+unknown property types, unsupported converters and incomplete constraints fail
+before a projection is accepted. Ignored, navigation and `NotMapped` members never
+enter the model.
+
+Runtime reflection, `CurrentSchemaProjection` and the migration target adapter are
+independent observations of that sealed model; none reads the migration catalog,
+Markdown, test fixtures or a running database to define the target. Their shared
+identity binds model, extractor and generator versions plus source and content
+SHA-256 digests. PostgreSQL, MySQL and SQLite projections retain this semantic
+identity while recording different physical type spellings. The independent
+verifier and cold-readiness comparison reject stale identities, content tampering
+and exact table, column, type, nullability, default, constraint or index drift.
+
+`tools/db/check-current-schema-authority.mjs` prevents a second production
+extractor, hand-written table inventory, fixture reconstruction or migration
+descriptor from becoming current authority. This boundary does not move migration
+descriptor SQL or make provider DDL a second current-schema mapping. The migration
+assembly extraction above changes compile ownership only; descriptor IDs,
+fingerprints, checksums, SQL and execution order remain stable.
+
 ## Plugin Registry
 
 `20260724-post-plugin-registry` additively creates `plugin_registry`. The table keeps
@@ -84,6 +139,18 @@ plugins. Rollback keeps the additive table while an N-1 application ignores it;
 operators disable affected plugins through the Registry lifecycle without restarting
 healthy nodes. Dropping the table is not a rollback path because it destroys package
 and lifecycle evidence.
+
+## Taxonomy Description Expand
+
+`20260829-post-taxonomy-descriptions` additively creates nullable
+`category.description` and `tag.description` columns as `varchar(500)`. Existing
+rows remain `NULL`; no backfill or description index is required. Values are stored
+as plain text, and the migration does not change the existing taxonomy name indexes,
+public count/projection tables, or CategoryList/TagList wire payloads.
+
+The descriptor is an online Expand with compatible-code rollback. An older release
+ignores both columns, so rollback leaves them in place rather than dropping stored
+descriptions.
 
 ## Zero-Downtime Migration Qualification
 
@@ -127,7 +194,7 @@ compatible retained release.
 The table below is the authoritative final-state inventory for legacy identity
 columns that are either removed from the physical schema or retained only for an
 explicit compatibility purpose. Keep it synchronized with
-`src/backend/Infrastructure/SchemaMigration/Definitions/`;
+`src/migration/Definitions/`;
 `tools/db/migration-doc-lint.mjs` fails when the definitions, catalogs, manifest,
 and this table diverge.
 
@@ -168,6 +235,16 @@ Before running this upgrade in production:
 2. Restore the backup or the legacy dump into an isolated PostgreSQL database.
 3. Run `tools/db/verify-legacy-upgrade-20260517.sh` with `FSUS_LEGACY_20260517_DUMP_GZ` pointing to the local dump file.
 4. Confirm the migration can run twice without duplicate rows in migration history, `article_body`, `article_view_seed`, `msg_conversation`, `msg_message`, or `msg_participant_state`.
+
+The real dump test is not a member of ordinary `Category=Integration` execution.
+Its only owner is the local-only `legacy-20260517-real-dump` producer. Before
+invoking the verifier, set `FSUS_LEGACY_20260517_DUMP_SHA256` to the SHA-256 of
+the decompressed custom dump and pin the local PostgreSQL image with
+`FSUS_SCHEMA_MIGRATION_POSTGRES_IMAGE` plus
+`FSUS_SCHEMA_MIGRATION_POSTGRES_IMAGE_ID`. The producer fails before execution
+when the enable flag, dump, source commit, or PostgreSQL image identity differs;
+after execution it accepts only the exact test's TRX row with restore, two
+migration runs, retained legacy counts, and postcondition evidence.
 
 The migration expands safe columns before CodeFirst synchronization:
 
@@ -260,6 +337,20 @@ The anonymous account schema keeps `sys_user` as its account container:
 Rollback is backup based for dropped `sys_user` columns. A no-restart degradation path is to temporarily stop user-side TOTP mutations at the edge or switch affected sensitive-action policy to require Passkey/Recovery Key step-up while preserving read-only account/session access; do not recreate `lastloginip` or write TOTP material back to `sys_user` in a live schema.
 
 When `FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1` is enabled, application code must not treat legacy `username/password` or `role=admin` as identity, credential, or authority sources for these rows, and must read TOTP material only from `user_mfa_profile`. The legacy identity columns are absent after the finalize migration; rollback is backup based by restoring a pre-finalizer dump into an isolated database.
+
+## Content AssetId Cutover
+
+`20260826-post-content-asset-id-cutover` 是 exclusive、transactional 的一次性 Contract migration。它在同一事务中建立 `content_asset`、`content_asset_reference` 与 `content_asset_cleanup_queue`，然后从 current article、draft、revision、旧引用记录与 public asset root 枚举完整资产集。每个文件必须现场重算 byte length、SHA-256、MIME/extension 和图片尺寸；文件缺失、无法识别的本地 URL/媒体或 storage-key/hash 冲突都会列出定位键并回滚整个 migration。
+
+`20260828-post-authoring-canvas-document` 是 additive、transactional 的
+Post-CodeFirst Expand migration。它建立 normalized private canvas document、
+node、frame membership、edge、receipt 与 idempotency tables；closed checks、
+owner/site index、document-scoped foreign keys 和 digest constraints 与
+[authoring canvas document boundary](architecture/authoring-canvas-document-boundary.md)
+一致。该 migration 不复制 article content，不建立 article/relation/property
+foreign key，也不导入 transient graph positions。
+
+文件名为 canonical N-format UUID 时复用该 `AssetId`；为既有资产兼容也接受 canonical D-format，其余文件分配新 ID。最终引用边只从当前 source 内容重建。旧 cleanup due/retry/error 状态会迁移到 AssetId queue，但最终仍有引用的资产会取消清理并回到 `active`。验证通过后迁移删除四张 URL-identity 旧表；运行时不双写、不建 view/trigger alias，也不在新表缺行时回扫旧结构。Rollback 只能从已验证的 pre-cutover backup/WAL 恢复到隔离环境；不得在 live schema 重建 URL-identity 表。
 
 ## Read Event Retirement
 

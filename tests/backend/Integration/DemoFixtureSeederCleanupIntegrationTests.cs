@@ -551,7 +551,7 @@ public sealed class DemoFixtureSeederCleanupIntegrationTests(PostgresSchemaMigra
             typeof(ArticleMutationOutboxEvent),
             typeof(ArticleMutationOutboxEdge),
             typeof(ArticleMutationCommand),
-            typeof(ArticleAssetReference),
+            typeof(ContentAssetReference),
             typeof(ArticlePublicTaxonomyProjection),
             typeof(ArticleViewSeed),
             typeof(ArticleCommentPolicy),

@@ -745,11 +745,9 @@ public sealed class SpaAssetManifestServiceTests
         {
             WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
             string descriptorPath = GetDescriptorPath(root);
-            string expectedRoot = Path.Combine(root, "local-unversioned");
             string shadowRoot = Path.Combine(root, "shadow-store", "local-unversioned");
             Directory.CreateDirectory(shadowRoot);
-            File.WriteAllText(descriptorPath, File.ReadAllText(descriptorPath).Replace(expectedRoot, shadowRoot, StringComparison.Ordinal));
-            ResealDescriptorDigest(root);
+            SetDescriptorValueAndReseal(descriptorPath, "assetRoot", shadowRoot);
 
             AssertReadinessFailure(root, "spa_manifest_asset_root_authority_mismatch");
         }
@@ -943,18 +941,17 @@ public sealed class SpaAssetManifestServiceTests
         {
             WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
             string descriptorPath = GetDescriptorPath(root);
-            File.WriteAllText(descriptorPath, File.ReadAllText(descriptorPath).Replace(
-                Path.Combine(root, "local-unversioned", ".vite", "manifest.json"),
-                Path.Combine(root, "outside-manifest.json"), StringComparison.Ordinal));
-            ResealDescriptorDigest(root);
+            SetDescriptorValueAndReseal(
+                descriptorPath,
+                "manifestPath",
+                Path.Combine(root, "outside-manifest.json"));
             AssertReadinessFailure(root, "spa_manifest_path_escaped_asset_root");
 
             WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
             string rootManifest = Path.Combine(root, "local-unversioned", ".vite", "manifest.json");
             string symlinkManifest = Path.Combine(root, "local-unversioned", ".vite", "linked-manifest.json");
             File.CreateSymbolicLink(symlinkManifest, rootManifest);
-            File.WriteAllText(descriptorPath, File.ReadAllText(descriptorPath).Replace(rootManifest, symlinkManifest, StringComparison.Ordinal));
-            ResealDescriptorDigest(root);
+            SetDescriptorValueAndReseal(descriptorPath, "manifestPath", symlinkManifest);
             AssertReadinessFailure(root, "spa_manifest_symlink_escaped_asset_root");
         }
         finally
@@ -2195,6 +2192,17 @@ public sealed class SpaAssetManifestServiceTests
     private static void ResealDescriptorDigest(string root)
     {
         ResealDescriptorDigestAt(GetDescriptorPath(root));
+    }
+
+    private static void SetDescriptorValueAndReseal(
+        string descriptorPath,
+        string propertyName,
+        string value)
+    {
+        JsonObject descriptor = JsonNode.Parse(File.ReadAllText(descriptorPath))!.AsObject();
+        descriptor[propertyName] = value;
+        File.WriteAllText(descriptorPath, descriptor.ToJsonString());
+        ResealDescriptorDigestAt(descriptorPath);
     }
 
     private static void ResealDescriptorDigestAt(string descriptorPath)

@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v3",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:ec50cde9878ab140d161d05daac583dc9e03595dbbd4a314d59da254802af538",
+    "policyDigest": "sha256:1db71251501ab4ad3bf24cba98baf99cf64aa4e2c3f83e509ef1b441953d9ef6",
     "documents": [
         {
             "path": "docs/active-release-fenced-commits.md",
@@ -350,6 +350,21 @@
             "supersedes": [],
             "supersededBy": null,
             "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/architecture/authoring-canvas-document-boundary.md",
+            "title": "Authoring canvas document boundary",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "backend",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                2482,
+                2484
+            ],
             "producer": null
         },
         {
@@ -964,7 +979,10 @@
             "sourceOfTruth": true,
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1977,
+                1978
+            ],
             "producer": null
         },
         {
@@ -1110,7 +1128,9 @@
             "sourceOfTruth": true,
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1979
+            ],
             "producer": null
         },
         {
@@ -2533,7 +2553,12 @@
             "sourceOfTruth": true,
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1923,
+                1977,
+                1978,
+                1979
+            ],
             "producer": null
         },
         {
@@ -2545,7 +2570,9 @@
             "sourceOfTruth": true,
             "supersedes": [],
             "supersededBy": null,
-            "relatedIssues": [],
+            "relatedIssues": [
+                1978
+            ],
             "producer": null
         },
         {
@@ -2680,7 +2707,9 @@
             "relatedIssues": [
                 1013,
                 1014,
-                1430
+                1430,
+                1977,
+                1978
             ],
             "producer": null
         },

@@ -2336,6 +2336,132 @@
             }
         },
         {
+            "producerId": "behavior-document-consistency-final",
+            "sourceKind": "matrix-tier",
+            "policyId": "correctness-hermetic-v1",
+            "evidenceClass": "correctness",
+            "executionClass": "coordination",
+            "allowedEnvironment": [
+                "PATH"
+            ],
+            "requiredServices": [],
+            "fieldApplicability": {
+                "platform": {
+                    "status": "required",
+                    "observerId": "platform-runtime",
+                    "notApplicableReason": null
+                },
+                "resources": {
+                    "status": "required",
+                    "observerId": "resource-limit-runtime",
+                    "notApplicableReason": null
+                },
+                "environment": {
+                    "status": "required",
+                    "observerId": "minimal-child-environment",
+                    "notApplicableReason": null
+                },
+                "toolchain": {
+                    "status": "required",
+                    "observerId": "executable-chain-identity",
+                    "notApplicableReason": null
+                },
+                "browserRendering": {
+                    "status": "not-applicable",
+                    "observerId": null,
+                    "notApplicableReason": "matrix-requires-playwright-none"
+                },
+                "services": {
+                    "status": "not-applicable",
+                    "observerId": null,
+                    "notApplicableReason": "matrix-declares-no-services-or-coordination-store"
+                },
+                "directories": {
+                    "status": "required",
+                    "observerId": "run-owned-directory-postflight",
+                    "notApplicableReason": null
+                },
+                "network": {
+                    "status": "required",
+                    "observerId": "sandbox-network-runtime",
+                    "notApplicableReason": null
+                },
+                "fontsLocale": {
+                    "status": "required",
+                    "observerId": "font-locale-runtime",
+                    "notApplicableReason": null
+                },
+                "identity": {
+                    "status": "required",
+                    "observerId": "planned-actual-envelope",
+                    "notApplicableReason": null
+                }
+            }
+        },
+        {
+            "producerId": "behavior-evidence-post-runtime",
+            "sourceKind": "matrix-tier",
+            "policyId": "correctness-hermetic-v1",
+            "evidenceClass": "correctness",
+            "executionClass": "coordination",
+            "allowedEnvironment": [
+                "PATH"
+            ],
+            "requiredServices": [],
+            "fieldApplicability": {
+                "platform": {
+                    "status": "required",
+                    "observerId": "platform-runtime",
+                    "notApplicableReason": null
+                },
+                "resources": {
+                    "status": "required",
+                    "observerId": "resource-limit-runtime",
+                    "notApplicableReason": null
+                },
+                "environment": {
+                    "status": "required",
+                    "observerId": "minimal-child-environment",
+                    "notApplicableReason": null
+                },
+                "toolchain": {
+                    "status": "required",
+                    "observerId": "executable-chain-identity",
+                    "notApplicableReason": null
+                },
+                "browserRendering": {
+                    "status": "not-applicable",
+                    "observerId": null,
+                    "notApplicableReason": "matrix-requires-playwright-none"
+                },
+                "services": {
+                    "status": "not-applicable",
+                    "observerId": null,
+                    "notApplicableReason": "matrix-declares-no-services-or-coordination-store"
+                },
+                "directories": {
+                    "status": "required",
+                    "observerId": "run-owned-directory-postflight",
+                    "notApplicableReason": null
+                },
+                "network": {
+                    "status": "required",
+                    "observerId": "sandbox-network-runtime",
+                    "notApplicableReason": null
+                },
+                "fontsLocale": {
+                    "status": "required",
+                    "observerId": "font-locale-runtime",
+                    "notApplicableReason": null
+                },
+                "identity": {
+                    "status": "required",
+                    "observerId": "planned-actual-envelope",
+                    "notApplicableReason": null
+                }
+            }
+        },
+        {
             "producerId": "behavior-evidence-pre-runtime",
             "sourceKind": "matrix-tier",
             "policyId": "correctness-hermetic-v1",
@@ -4866,6 +4992,70 @@
             "evidenceClass": "correctness",
             "executionClass": "coordination",
             "allowedEnvironment": [
+                "PATH"
+            ],
+            "requiredServices": [],
+            "fieldApplicability": {
+                "platform": {
+                    "status": "required",
+                    "observerId": "platform-runtime",
+                    "notApplicableReason": null
+                },
+                "resources": {
+                    "status": "required",
+                    "observerId": "resource-limit-runtime",
+                    "notApplicableReason": null
+                },
+                "environment": {
+                    "status": "required",
+                    "observerId": "minimal-child-environment",
+                    "notApplicableReason": null
+                },
+                "toolchain": {
+                    "status": "required",
+                    "observerId": "executable-chain-identity",
+                    "notApplicableReason": null
+                },
+                "browserRendering": {
+                    "status": "not-applicable",
+                    "observerId": null,
+                    "notApplicableReason": "matrix-requires-playwright-none"
+                },
+                "services": {
+                    "status": "not-applicable",
+                    "observerId": null,
+                    "notApplicableReason": "matrix-declares-no-services-or-coordination-store"
+                },
+                "directories": {
+                    "status": "required",
+                    "observerId": "run-owned-directory-postflight",
+                    "notApplicableReason": null
+                },
+                "network": {
+                    "status": "required",
+                    "observerId": "sandbox-network-runtime",
+                    "notApplicableReason": null
+                },
+                "fontsLocale": {
+                    "status": "required",
+                    "observerId": "font-locale-runtime",
+                    "notApplicableReason": null
+                },
+                "identity": {
+                    "status": "required",
+                    "observerId": "planned-actual-envelope",
+                    "notApplicableReason": null
+                }
+            }
+        },
+        {
+            "producerId": "legacy-20260517-real-dump",
+            "sourceKind": "matrix-tier",
+            "policyId": "correctness-hermetic-v1",
+            "evidenceClass": "correctness",
+            "executionClass": "runtime",
+            "allowedEnvironment": [
+                "DOTNET_ROOT",
                 "PATH"
             ],
             "requiredServices": [],
@@ -7984,6 +8174,7 @@
             "evidenceClass": "correctness",
             "executionClass": "static-governance",
             "allowedEnvironment": [
+                "DOTNET_ROOT",
                 "PATH"
             ],
             "requiredServices": [],

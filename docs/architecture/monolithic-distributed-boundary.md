@@ -12,11 +12,27 @@ FsusBlog 的架构定义是**单体分布式**（Homogeneous Binary, Heterogeneo
 
 ## 运行模式
 
-| 模式 | 同一程序的职责策略 | 热路径约束 |
-| --- | --- | --- |
-| `single` | 单实例拥有全部模块职责 | 不启用集群组件；调用保持进程内本地快路径 |
-| `static-role` | 运维配置同构实例的静态职责集合 | 未被分配的职责可经 port 选择远端 adapter |
-| `adaptive` | 同构实例根据成员、租约和负载动态承接职责 | 调度决策仍不能泄漏进领域模块 |
+运行模式的唯一权威是 compiled `RuntimeModeOptions` observation；模式集合、职责组合与 unsupported combinations 由下方 generated section 表达，正文不再维护手写模式表或第二份 role 映射。
+
+<!-- fsus-doc-claim
+claimId: deployment-blue-green-runtime-role.runtime-roles
+behaviorId: deployment-blue-green-runtime-role
+claimType: generated-section
+generatedSectionId: deployment.runtime-roles
+render: key-value-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN deployment.runtime-roles -->
+| Key | Value |
+| --- | --- |
+| artifactDigest | 2daec8debec316450e9c2f1f578755233b908077727302c5044f7eb4388197b1 |
+| modes | {"adaptive":{"adaptiveSchedulerEnabled":true,"clusterMembershipEnabled":true,"distributedInvalidationEnabled":true,"localInvocationOnly":true,"roleCombinationState":"optional-ignored","staticRoles":["none"]},"single":{"adaptiveSchedulerEnabled":false,"clusterMembershipEnabled":false,"distributedInvalidationEnabled":false,"localInvocationOnly":true,"roleCombinationState":"optional-ignored","staticRoles":["none"]},"static-role":{"adaptiveSchedulerEnabled":false,"clusterMembershipEnabled":true,"distributedInvalidationEnabled":true,"localInvocationOnly":true,"roleCombinationState":"explicit-required","staticRoles":["audit","content","maintenance","security","web"]}} |
+| observationDigest | e1eb2f48af35e82ee05e5733aa4bc3d2b5bb3f9309f2fd5a1463a94452027363 |
+| ownership | {"authorityState":"conflict-unknown","coResidency":"local-invocation-only","container":"not-expressed-by-runtime-authority","process":"not-expressed-by-runtime-authority","separation":"not-expressed-by-runtime-authority","service":"not-expressed-by-runtime-authority"} |
+| schema | fsusblog.runtime-role-observation.v1 |
+| staticRoleCapabilities | {"audit":["comment.audit"],"content":["media.processor","search.indexer"],"maintenance":["media.processor","scheduler.worker"],"security":["antispam.inference","comment.audit"],"web":["admin.ui","comment.api","search.query","web.api"]} |
+| unsupportedCombinations | {"static-role-empty":"runtime_static_roles_required","static-role-unknown":"runtime_static_role_invalid:unknown","unknown-mode":"runtime_mode_invalid:unsupported"} |
+<!-- FSUSBLOG-GENERATED:END deployment.runtime-roles -->
 
 三种模式使用同一套 FsusBlog 程序和同一发布物。远端依赖临时异常时，节点保留本地失效与权威数据回退，transport 自行重试，不需要切换业务发布物；若要完全关闭集群组件，必须把 `Runtime:Mode` 改回 `single` 并滚动重启，因为 hosted service 的 DI 组合在启动时确定。`single` 模式的本地 publisher 必须先于 Redis transport 注册分支，保证无远程热路径。
 
@@ -52,3 +68,20 @@ node tools/run-test-matrix.mjs validate
 - #115 多节点部署、观测与故障治理
 
 因此 capability 注册、职责调度、状态协调、透明调用和故障治理可以分别演进，但都必须服从一个程序、一个发布物、一个业务入口的边界。
+## Current execution classes
+
+<!-- fsus-doc-claim
+claimId: browserless-production-correctness.execution-classes
+behaviorId: browserless-production-correctness
+claimType: generated-section
+generatedSectionId: testing.execution-classes
+render: key-value-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN testing.execution-classes -->
+| Key | Value |
+| --- | --- |
+| byEvidenceClass | {"browser-contract":"correctness","correctness":"correctness","diagnostic":"diagnostic"} |
+| qualificationEligible | {"browser-contract":true,"correctness":true,"diagnostic":false} |
+| requires | {"browser-contract":["producerId","schedulerRunId","sourceIdentity"],"correctness":["producerId","schedulerRunId","sourceIdentity"]} |
+<!-- FSUSBLOG-GENERATED:END testing.execution-classes -->

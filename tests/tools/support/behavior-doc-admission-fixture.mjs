@@ -30,6 +30,9 @@ function minimalContractBuildReceipt(runId, source)
         sourceClosureDigests: [{
             path: 'Directory.Build.props',
             digest: 'e'.repeat(64)
+        }, {
+            path: 'Directory.Packages.props',
+            digest: 'f'.repeat(64)
         }],
         artifacts: Object.fromEntries(
             Object.entries(hostDeclarations).map(([artifactId, declaration]) => [

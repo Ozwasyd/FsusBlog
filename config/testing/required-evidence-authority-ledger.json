@@ -3,8 +3,58 @@
     "catalogSchema": "fsusblog.required-evidence-catalog.v1",
     "source": "tests/fixtures/test-matrix/release-final-evidence-inputs.json",
     "version": 1,
-    "contentDigest": "sha256:1d2cd3f367ce3deaa66028ea7c7e314dd8ec64d4a8384db1bf5847b247cf78f2",
+    "contentDigest": "sha256:f4b8b4116ff1b6fa8d942c0fbac16a4cda6ccde3ac73c2119148bb6b04b30a57",
     "entries": [
+        {
+            "authorityId": "behavior-document-consistency-final",
+            "producerTierIds": [
+                "behavior-document-consistency-final"
+            ],
+            "canonicalOwner": "behavior-document-consistency-final",
+            "receiptSchema": "fsusblog.behavior-document-consistency-final-report.v1",
+            "locatorBindingKey": "current-run.behavior-document-consistency-final",
+            "requiredTestIds": [],
+            "requiredCoverageIds": [],
+            "requiredArtifactIds": [],
+            "requiredIdentityFields": [
+                "namespace",
+                "runId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "allowDiagnostic": false,
+            "localProducerCommand": "bash tools/test/bundles/behavior-document-consistency-final.sh",
+            "exactness": "artifact-set-exact",
+            "outputBindingKey": "release-final.behavior-document-consistency-final",
+            "producerVerifier": "tools/docs/behavior-document-consistency-final.mjs",
+            "contentDigest": "sha256:7c544f17a933e22e747d1e88799e0c96ad34b65c0608e4ed97683c9cd481faec",
+            "producerDigest": "sha256:e7d4f7189847646de9049cec640194c10ef0e663061df933c58ef749daf19d37"
+        },
+        {
+            "authorityId": "behavior-evidence-post-runtime",
+            "producerTierIds": [
+                "behavior-evidence-post-runtime"
+            ],
+            "canonicalOwner": "behavior-evidence-post-runtime",
+            "receiptSchema": "fsusblog.behavior-evidence-post-runtime-receipt.v1",
+            "locatorBindingKey": "current-run.behavior-evidence-post-runtime",
+            "requiredTestIds": [],
+            "requiredCoverageIds": [],
+            "requiredArtifactIds": [],
+            "requiredIdentityFields": [
+                "namespace",
+                "runId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "allowDiagnostic": false,
+            "localProducerCommand": "bash tools/test/bundles/behavior-evidence-post-runtime.sh",
+            "exactness": "artifact-set-exact",
+            "outputBindingKey": "release-final.behavior-evidence-post-runtime",
+            "producerVerifier": "tools/test-matrix/behavior-evidence-post-runtime.mjs",
+            "contentDigest": "sha256:602afb4bc74b97d403e3341a94418368d58ea3e157a344cd25c9be70e9627e93",
+            "producerDigest": "sha256:017c5b17a4bdef2a6dc5b97a6b6d730a21441473a1d25f8604fc67a4d03fcf2e"
+        },
         {
             "authorityId": "behavior-evidence-pre-runtime",
             "producerTierIds": [

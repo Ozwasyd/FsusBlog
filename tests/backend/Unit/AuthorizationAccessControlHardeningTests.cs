@@ -341,21 +341,14 @@ public sealed class AuthorizationAccessControlHardeningTests
     }
 
     [Fact]
-    public void FileDeletePath_UsesCanonicalPrefixAndRejectsWindowsSeparators()
+    public void FileDeleteEndpoint_AcceptsAssetIdWithoutPathNormalizer()
     {
-        Assert.Equal(
-            "/uploads/illustration/",
-            GetPrivateConstant<string>(typeof(BinaryEndpoints), "CanonicalIllustrationUploadPrefix"));
-        MethodInfo normalize = typeof(BinaryEndpoints).GetMethod(
-            "TryNormalizeImageDeletePath",
-            BindingFlags.Static | BindingFlags.NonPublic)!;
-
-        AssertNormalized(normalize, "/uploads/illustration/example.webp", "/uploads/illustration/example.webp");
-        AssertNormalized(normalize, "https://example.test/uploads/illustration/example.webp", "/uploads/illustration/example.webp");
-        AssertRejected(normalize, "/uploads/illustration\\example.webp");
-        AssertRejected(normalize, "/uploads/illustration/example:alternate.webp");
-        AssertRejected(normalize, "/uploads/avatar/example.webp");
-        AssertRejected(normalize, "/uploads/illustration/../secret.txt");
+        string source = BackendTestPaths.ReadAllTextFromRoot(
+            "src", "backend", "Modules", "Endpoints", "Binary", "BinaryEndpoints.Files.cs");
+        Assert.Contains("AssetId.TryParse", source, StringComparison.Ordinal);
+        Assert.Contains("IAssetStore assetStore", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Path.", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("TryNormalize", source, StringComparison.Ordinal);
     }
 
     [Fact]

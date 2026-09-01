@@ -1,0 +1,184 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsus.blog/schemas/evidence-locator-registry.schema.json",
+    "title": "Evidence locator registry",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "version",
+        "entries",
+        "contentDigest"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.evidence-locator-registry.v1"
+        },
+        "version": {
+            "const": 1
+        },
+        "entries": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/entry"
+            }
+        },
+        "contentDigest": {
+            "$ref": "#/$defs/digest"
+        }
+    },
+    "$defs": {
+        "digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "entry": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "consumerId",
+                "authorityId",
+                "producerId",
+                "receiptSchema",
+                "locatorMode",
+                "requiredIdentityFields",
+                "requiredDigestFields",
+                "expectedCardinality",
+                "allowedRoots",
+                "publicationMode",
+                "producerSource",
+                "producerCallsite",
+                "producerBindingClass",
+                "producerExecutable",
+                "producerCommand",
+                "outputBindingKey",
+                "handoffBindingKey",
+                "checkpointCommand"
+            ],
+            "properties": {
+                "consumerId": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "authorityId": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "producerId": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "receiptSchema": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "locatorMode": {
+                    "enum": [
+                        "explicit-run-path",
+                        "content-addressed-reference"
+                    ]
+                },
+                "requiredIdentityFields": {
+                    "type": "array",
+                    "minItems": 6,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "requiredDigestFields": {
+                    "type": "array",
+                    "minItems": 2,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "expectedCardinality": {
+                    "const": "exact-one"
+                },
+                "allowedRoots": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "producerCommand": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "producerExecutable": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "producerSource": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "producerCallsite": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "producerBindingClass": {
+                    "enum": [
+                        "cli",
+                        "library-caller",
+                        "workflow"
+                    ]
+                },
+                "publicationMode": {
+                    "enum": [
+                        "embedded",
+                        "hooked",
+                        "parent"
+                    ]
+                },
+                "outputBindingKey": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "handoffBindingKey": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "payloadBindingKey": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "checkpointCommand": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            },
+            "allOf": [
+                {
+                    "if": {
+                        "properties": {
+                            "publicationMode": {
+                                "const": "hooked"
+                            }
+                        },
+                        "required": [
+                            "publicationMode"
+                        ]
+                    },
+                    "then": {
+                        "required": [
+                            "payloadBindingKey"
+                        ],
+                        "properties": {
+                            "receiptSchema": {
+                                "const": "fsusblog.current-run-evidence-reference.v1"
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}

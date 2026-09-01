@@ -2,9 +2,9 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 
+using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
-using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;

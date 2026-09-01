@@ -33,3 +33,39 @@ Focused validation covers v2 codec/factory, migration catalog, consecutive relea
 dotnet test tests/backend/FsusBlog.Server.Tests.csproj --filter 'FullyQualifiedName~ArticleMutationOutbox'
 dotnet test tests/backend/FsusBlog.Server.Tests.csproj --filter 'FullyQualifiedName~ArticleMutationVersionedOutboxIntegrationTests|FullyQualifiedName~PublicArticleProjectionOutbox_CriticalFailureRetriesWithoutRepeatingCompletedEdges'
 ```
+## Current outbox event types
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.event-types
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.article.outbox-events
+render: enum-set
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN content.article.outbox-events -->
+- `category-updated`
+- `created`
+- `deleted`
+- `permanently-deleted`
+- `responsibility-updated`
+- `restored`
+- `rights-proof-updated`
+- `scheduled-published`
+- `tag-updated`
+- `trash-cleared`
+- `updated`
+<!-- FSUSBLOG-GENERATED:END content.article.outbox-events -->
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.outbox-terminal-states
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.article.outbox-terminal-states
+render: enum-set
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN content.article.outbox-terminal-states -->
+- `completed`
+- `failed`
+- `skipped`
+<!-- FSUSBLOG-GENERATED:END content.article.outbox-terminal-states -->

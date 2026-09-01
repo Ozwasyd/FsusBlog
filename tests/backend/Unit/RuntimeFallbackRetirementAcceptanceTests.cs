@@ -163,7 +163,7 @@ public sealed class RuntimeFallbackRetirementAcceptanceTests
             static descriptor => descriptor.MigrationId == "20260709-post-clear-legacy-public-artifacts");
         Assert.Contains(migration.Steps, static step => step is ClearLegacyPublicArtifactsStep);
 
-        string runner = RuntimeMetadataInspection.DescribeMethods(typeof(SchemaMigrationRunner), "ExecuteStepAsync");
+        string runner = RuntimeMetadataInspection.DescribeMethods(typeof(CurrentSchemaStartupVerifier), "ExecuteStepAsync");
         string actionMethod = RuntimeMetadataInspection.DescribeMethods(
             typeof(AdminArtifactOperations),
             nameof(AdminArtifactOperations.RunCacheActionAsync));

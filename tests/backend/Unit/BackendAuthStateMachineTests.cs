@@ -33,13 +33,11 @@ public sealed class BackendAuthStateMachineTests
         state = Apply(state, AuthEvent.RequireMfa);
 
         Assert.Equal(AuthState.MfaRequired, state);
-        Assert.False(CanAccessSensitiveEndpoint(state));
 
         state = Apply(state, AuthEvent.VerifyTotp);
         state = Apply(state, AuthEvent.CompleteLogin);
 
         Assert.Equal(AuthState.Authenticated, state);
-        Assert.True(CanAccessSensitiveEndpoint(state));
     }
 
     [Fact]
@@ -52,37 +50,10 @@ public sealed class BackendAuthStateMachineTests
         Assert.Throws<InvalidOperationException>(() => Apply(AuthState.Expired, AuthEvent.Refresh));
     }
 
-    [Theory]
-    [InlineData(AccountState.Active, true)]
-    [InlineData(AccountState.Banned, false)]
-    [InlineData(AccountState.Deleted, false)]
-    public void BannedAndDeletedUsers_HaveNoWriteBoundary(AccountState accountState, bool expectedCanWrite)
-    {
-        Assert.Equal(expectedCanWrite, CanWrite(accountState));
-    }
-
-    [Theory]
-    [InlineData(AuthState.Authenticated, true)]
-    [InlineData(AuthState.Refreshed, true)]
-    [InlineData(AuthState.MfaRequired, false)]
-    [InlineData(AuthState.Revoked, false)]
-    [InlineData(AuthState.LoggedOut, false)]
-    [InlineData(AuthState.Expired, false)]
-    public void SensitiveEndpointAccess_IsBoundToLiveFullSession(AuthState state, bool expected)
-    {
-        Assert.Equal(expected, CanAccessSensitiveEndpoint(state));
-    }
-
     private static AuthState Apply(AuthState state, AuthEvent authEvent)
         => s_transitions.TryGetValue((state, authEvent), out AuthState next)
             ? next
             : throw new InvalidOperationException($"Illegal auth transition: {state} -> {authEvent}");
-
-    private static bool CanAccessSensitiveEndpoint(AuthState state)
-        => state is AuthState.Authenticated or AuthState.Refreshed;
-
-    private static bool CanWrite(AccountState state)
-        => state == AccountState.Active;
 
     public enum AuthState
     {
@@ -111,12 +82,5 @@ public sealed class BackendAuthStateMachineTests
         Logout,
         Revoke,
         Expire
-    }
-
-    public enum AccountState
-    {
-        Active,
-        Banned,
-        Deleted
     }
 }

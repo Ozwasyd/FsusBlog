@@ -73,9 +73,12 @@ public sealed partial class PerceptionCharacterV3Tests
     [Trait("Fixture", "LocalRedis")]
     public async Task ArtifactPoolBurnSurvivesCancellationProcessInterruptionAndAmbiguousReply()
     {
-        string? connectionString = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_REDIS");
-        if (string.IsNullOrWhiteSpace(connectionString))
-            return;
+        string connectionString = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_REDIS")
+            ?? throw new InvalidOperationException("FSUSBLOG_TEST_REDIS environment variable is not set.");
+        Assert.False(string.IsNullOrWhiteSpace(connectionString), "FSUSBLOG_TEST_REDIS must not be empty.");
+        string redisPrefixRoot = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_REDIS_PREFIX")
+            ?? throw new InvalidOperationException("FSUSBLOG_TEST_REDIS_PREFIX environment variable is not set.");
+        Assert.False(string.IsNullOrWhiteSpace(redisPrefixRoot), "FSUSBLOG_TEST_REDIS_PREFIX must not be empty.");
         string poolRoot = Path.Combine(Path.GetTempPath(), "fsusblog-v3-pool-" + Guid.CreateVersion7().ToString("N"));
         string generation = "runtime-test-generation";
         byte[] key = RandomNumberGenerator.GetBytes(32);
@@ -83,7 +86,7 @@ public sealed partial class PerceptionCharacterV3Tests
         {
             await GeneratePoolAsync(poolRoot, generation, key);
             await using ConnectionMultiplexer redis = await ConnectionMultiplexer.ConnectAsync(connectionString);
-            string redisPrefix = "test:perception-v3-pool:" + Guid.CreateVersion7().ToString("N") + ":";
+            string redisPrefix = redisPrefixRoot + "artifact-burn:";
             var keyScope = new TestRuntimeKeyScope(redisPrefix);
             await using var redisCleanup = new RedisPrefixCleanup(redis, redisPrefix);
             var options = new PerceptionCharacterV3ArtifactPoolOptions

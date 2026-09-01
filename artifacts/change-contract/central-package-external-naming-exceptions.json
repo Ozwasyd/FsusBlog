@@ -1,0 +1,50 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/governance/repository-governance-authorities.json",
+                "config/testing/content-addressed-build-cache.json",
+                "config/testing/correctness-attempt-producers.json",
+                "tests/backend/packages.lock.json",
+                "tests/fixtures/governance/central-package-management.json"
+            ],
+            "reason": "preserve serialized governance, cache, lock and fixture keys while moving NuGet versions to their central authority"
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md"
+            ],
+            "reason": "preserve generated testing documentation identifiers while registering the central package governance owner"
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/docs/behavior-doc-minimal-contract-build.mjs",
+                "tools/governance/check-central-package-management.mjs",
+                "tools/test-matrix/scheduler.mjs"
+            ],
+            "reason": "preserve process environment spellings while updating only build-input and governance ownership"
+        },
+        {
+            "id": "acceptance-secret-runtime-environment",
+            "paths": [
+                "tools/bootstrap-acceptance-env.sh"
+            ],
+            "reason": "preserve the caller-visible acceptance environment contract while adding the central package authority to its build-input hash"
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/security/check-supply-chain-audit.sh",
+                "tools/test/ensure-benchmark-release-build.sh",
+                "tools/test/lanes/_suite-support.sh",
+                "tools/test/lanes/production-build-artifacts.sh",
+                "tools/test/lanes/static-governance.sh"
+            ],
+            "reason": "preserve caller-visible shell environment spellings while adding the central package authority to existing build and test inputs"
+        }
+    ]
+}

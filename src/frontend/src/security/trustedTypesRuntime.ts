@@ -30,11 +30,6 @@ const NON_EXECUTABLE_SCRIPT_TYPES = new Set([
     'application/ld+json',
     'application/octet-stream'
 ]);
-const MARKDOWN_FEATURE_OUTPUT_KINDS = new Set([
-    'code-highlight',
-    'latex',
-    'mermaid'
-]);
 let appPolicy: TrustedTypePolicyLike | null = null;
 let policyCreationAttempted = false;
 
@@ -42,23 +37,6 @@ export function toTrustedMarkdownHtml(safeHtml: MarkdownSafeHtml): object
 {
     const policy = getAppPolicy();
     return (policy?.createHTML(safeHtml) ?? safeHtml);
-}
-
-type MarkdownFeatureOutputForTrustedParsing = Readonly<{
-    kind: 'code-highlight' | 'latex' | 'mermaid';
-    payload: string;
-}>;
-
-export function toTrustedMarkdownFeatureHtml(
-    output: MarkdownFeatureOutputForTrustedParsing
-): object
-{
-    if (!MARKDOWN_FEATURE_OUTPUT_KINDS.has(output?.kind) || typeof output?.payload !== 'string')
-    {
-        throw new Error('markdown_feature_output_invalid');
-    }
-    const policy = getAppPolicy();
-    return (policy?.createHTML(output.payload) ?? output.payload);
 }
 
 export function setNonExecutableScriptText(script: HTMLScriptElement, value: string): void

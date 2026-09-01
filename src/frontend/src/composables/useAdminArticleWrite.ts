@@ -872,6 +872,9 @@ export function useAdminArticleWrite()
     let serverDraftRetryTimer: ReturnType<typeof window.setTimeout> | null = null;
     let suppressDraftSave = true;
     let serverDraftSaveToken = 0;
+    let draftSaveInFlightIdentity: string | null = null;
+    let acceptedPrepublishIdentity: string | null = null;
+    let active = true;
     let activeRecoveryClientRevision: string | null = null;
     let authoritativeArticleSourceHash: string | null = null;
     let authoritativeServerDraftSourceHash: string | null = null;
@@ -940,6 +943,26 @@ export function useAdminArticleWrite()
         rights: { ...snapshot.rights },
         expectedServerRevision: snapshot.serverRevision
     });
+
+    const buildDraftSemanticIdentity = (snapshot: ArticleDraftSnapshot): string => JSON.stringify({
+        draftKey: draftKey.value,
+        articleId: snapshot.sourceArticleId,
+        baseRevisionId: snapshot.baseRevisionId,
+        title: snapshot.title,
+        content: snapshot.content,
+        summary: snapshot.summary,
+        coverImageUrl: snapshot.coverImageUrl,
+        categoryId: snapshot.categoryId ?? 0,
+        tagIds: snapshot.tagIds,
+        status: snapshot.status,
+        scheduledPublishAt: snapshot.scheduledPublishAt,
+        rights: snapshot.rights,
+        expectedServerRevision: snapshot.serverRevision
+    });
+
+    const currentPrepublishIdentity = (): string => buildDraftSemanticIdentity(
+        buildDraftSnapshot('', 'server')
+    );
 
     const articlePreviewGeneration = useArticlePreviewGeneration({
         target: privatePreview,
@@ -1204,13 +1227,27 @@ export function useAdminArticleWrite()
         const clientRevision = activeRecoveryClientRevision ?? createArticleRecoveryClientRevision();
         activeRecoveryClientRevision = clientRevision;
         const snapshot = buildDraftSnapshot(clientRevision);
+        const identity = buildDraftSemanticIdentity(snapshot);
+        if (draftSaveInFlightIdentity === identity)
+        {
+            return;
+        }
+        draftSaveInFlightIdentity = identity;
         draftSavedAt.value = snapshot.savedAt;
         draftStatusText.value = '正在保存服务端草稿…';
         void queueArticleRecoveryWrite(snapshot.content, snapshot.clientRevision, {
             articleId: snapshot.sourceArticleId,
             baseRevisionId: snapshot.baseRevisionId,
             serverRevision: snapshot.serverRevision
-        }).then(result => saveServerDraftSnapshot(snapshot, result.record));
+        })
+            .then(result => saveServerDraftSnapshot(snapshot, result.record))
+            .finally(() =>
+            {
+                if (draftSaveInFlightIdentity === identity)
+                {
+                    draftSaveInFlightIdentity = null;
+                }
+            });
     };
 
     const scheduleDraftSave = (): void =>
@@ -1872,6 +1909,13 @@ export function useAdminArticleWrite()
 
     const refreshPrepublishCheck = async (warningOverrideReason?: string): Promise<boolean> =>
     {
+        if (seoChecking.value)
+        {
+            return false;
+        }
+
+        const requestIdentity = currentPrepublishIdentity();
+        acceptedPrepublishIdentity = null;
         seoChecking.value = true;
         taskFeedback.begin('正在运行发布前检查', warningOverrideReason ? '包含 warning override 审计理由' : '检查 SEO 与发布阻断项', 'article-prepublish');
         try
@@ -1885,8 +1929,11 @@ export function useAdminArticleWrite()
                     warningOverrideReason: nonEmptyTextOrNull(warningOverrideReason?.trim())
                 };
                 const result = await checkArticlePrepublish(request, buildSignalConfig(signal));
-                if (signal.aborted)
+                if (signal.aborted || requestIdentity !== currentPrepublishIdentity())
                 {
+                    acceptedPrepublishIdentity = null;
+                    seoStatusText.value = '草稿已变化，请重新运行发布前检查';
+                    canPublish = false;
                     return;
                 }
 
@@ -1895,6 +1942,7 @@ export function useAdminArticleWrite()
                 const warningCount = issues.filter((issue) => issue.severity.toLowerCase() === 'warning').length;
                 seoIssues.value = issues;
                 canPublish = result.canPublish && errorCount === 0;
+                acceptedPrepublishIdentity = canPublish ? requestIdentity : null;
                 seoStatusText.value = errorCount > 0
                     ? `发现 ${errorCount} 个发布阻断项`
                     : warningCount > 0
@@ -1913,6 +1961,7 @@ export function useAdminArticleWrite()
         }
         catch (error: unknown)
         {
+            acceptedPrepublishIdentity = null;
             if (!isAbortError(error))
             {
                 taskFeedback.fail('发布前检查失败', error, '发布前检查失败，请稍后重试', 'article-prepublish');
@@ -1929,6 +1978,17 @@ export function useAdminArticleWrite()
 
     const confirmPrepublishWarningOverride = async (): Promise<boolean> =>
     {
+        if (articleForm.status !== ArticlePublishStatus.Published && articleForm.status !== ArticlePublishStatus.Scheduled)
+        {
+            return true;
+        }
+
+        if (acceptedPrepublishIdentity !== currentPrepublishIdentity())
+        {
+            showWarningToast('草稿已变化，请重新运行发布前检查', '草稿已变化，请重新运行发布前检查');
+            return false;
+        }
+
         if (!prepublishWarningsNeedOverride.value)
         {
             return true;
@@ -2340,8 +2400,16 @@ export function useAdminArticleWrite()
 
     const submitForm = async () =>
     {
-        if (!validatePublishState())
+        if (submitting.value || !validatePublishState())
         {
+            return;
+        }
+        if (
+            (articleForm.status === ArticlePublishStatus.Published || articleForm.status === ArticlePublishStatus.Scheduled)
+            && acceptedPrepublishIdentity !== currentPrepublishIdentity()
+        )
+        {
+            showWarningToast('草稿已变化，请重新运行发布前检查', '草稿已变化，请重新运行发布前检查');
             return;
         }
 
@@ -2380,6 +2448,10 @@ export function useAdminArticleWrite()
                         throw new Error('article_base_revision_required');
                     }
                     const result = await updateArticle(articleId.value, articlePayload, config);
+                    if (signal.aborted || !active)
+                    {
+                        return;
+                    }
                     currentRevisionId.value = String(result.revisionId);
                     currentRevisionNo.value = result.revisionNo;
                     targetArticleId = articleId.value;
@@ -2387,6 +2459,10 @@ export function useAdminArticleWrite()
                 else
                 {
                     const result = await createArticle(articlePayload, config);
+                    if (signal.aborted || !active)
+                    {
+                        return;
+                    }
                     const createdId = Number(result?.articleId ?? result?.id);
                     currentRevisionId.value = String(result.revisionId);
                     currentRevisionNo.value = result.revisionNo;
@@ -2406,6 +2482,10 @@ export function useAdminArticleWrite()
 
                 suppressDraftSave = true;
                 await clearDraftAfterSubmit();
+                if (signal.aborted || !active)
+                {
+                    return;
+                }
                 articleForm.content = '';
                 await router.push('/user/manage/article/list');
             });
@@ -2655,6 +2735,7 @@ export function useAdminArticleWrite()
 
     onUnmounted(() =>
     {
+        active = false;
         suppressDraftSave = true;
         unsubscribeArticleRecoveryCoordination?.();
         unsubscribeArticleRecoveryCoordination = null;
@@ -2691,6 +2772,7 @@ export function useAdminArticleWrite()
         submitConfirmContent,
         requiresLeaveConfirm,
         pendingDraft,
+        draftConflictText,
         draftStatusText: recoveryAwareDraftStatusText,
         pendingDraftSourceLabel,
         pendingDraftDescription,

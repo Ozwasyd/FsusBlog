@@ -4,8 +4,6 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
 const frontendRequire = createRequire(resolve(repoRoot, 'src/frontend/package.json'));
-const sinkCandidatePattern = /(?:innerHTML|outerHTML|insertAdjacentHTML|createContextualFragment|parseFromString|srcdoc|srcDoc|v-html|\bdocument\s*(?:\.\s*write(?:ln)?\b|\[\s*['"]write(?:ln)?['"]\s*\]))/u;
-const destructuredDocumentWritePattern = /\{[^}\n]*\bwrite(?:ln)?\b[^}\n]*\}\s*=\s*(?:window\.)?document/u;
 
 let ts;
 let compileTemplate;
@@ -19,19 +17,6 @@ function loadParsers()
     }
     ts = frontendRequire('typescript')
     ;({ compileTemplate, parse: parseSfc } = frontendRequire('@vue/compiler-sfc'));
-}
-
-function mayContainHtmlSink(source)
-{
-    if (sinkCandidatePattern.test(source))
-    {
-        return true;
-    }
-    if (source.indexOf('document') < 0 || source.indexOf('write') < 0)
-    {
-        return false;
-    }
-    return destructuredDocumentWritePattern.test(source);
 }
 
 const htmlWriteProperties = new Map([
@@ -53,17 +38,71 @@ const renderPropSinks = new Map([
     ['srcDoc', 'render-srcdoc-prop']
 ]);
 
+const vueBoundSinks = new Map([
+    ['innerHTML', 'vue-innerHTML'],
+    ['innerhtml', 'vue-innerHTML'],
+    ['outerHTML', 'vue-outerHTML'],
+    ['outerhtml', 'vue-outerHTML'],
+    ['srcdoc', 'vue-srcdoc'],
+    ['srcDoc', 'vue-srcdoc']
+]);
+
+const sinkReplacements = new Map([
+    ['vue-v-html', 'Vue text interpolation ({{ value }}) or FsusUI MarkdownRenderer'],
+    ['vue-srcdoc', 'a structured Vue view; never iframe srcdoc'],
+    ['vue-innerHTML', 'Vue text interpolation or FsusUI MarkdownRenderer'],
+    ['vue-outerHTML', 'createElement and replaceChild, or FsusUI MarkdownRenderer'],
+    ['dom-innerHTML-write', 'textContent, createElement, or FsusUI MarkdownRenderer'],
+    ['dom-outerHTML-write', 'createElement and replaceChild'],
+    ['dom-srcdoc-write', 'a structured Vue view; never iframe srcdoc'],
+    ['dom-insertAdjacentHTML', 'createElement, append, or FsusUI MarkdownRenderer'],
+    ['dom-createContextualFragment', 'createElement and textContent'],
+    ['dom-document-write', 'createElement and textContent'],
+    ['dom-setAttribute-srcdoc', 'a structured Vue view; never iframe srcdoc'],
+    ['domparser-text-html', 'JSON, Markdown source, or FsusUI MarkdownRenderer'],
+    ['render-innerHTML-prop', 'text children or FsusUI MarkdownRenderer'],
+    ['render-outerHTML-prop', 'createElement and replaceChild'],
+    ['render-srcdoc-prop', 'a structured Vue view; never iframe srcdoc'],
+    ['jsx-innerHTML-prop', 'JSX text children or FsusUI MarkdownRenderer'],
+    ['jsx-outerHTML-prop', 'createElement and replaceChild'],
+    ['jsx-srcdoc-prop', 'a structured Vue view; never iframe srcdoc'],
+    ['typescript-parse-error', 'valid TypeScript/JavaScript; parse failures fail closed'],
+    ['vue-template-parse-error', 'a valid Vue template; parse failures fail closed'],
+    ['vue-sfc-parse-error', 'a valid Vue SFC; parse failures fail closed']
+]);
+
+function foldedString(node)
+{
+    if (!node)
+    {
+        return null;
+    }
+    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node))
+    {
+        return node.text;
+    }
+    if (ts.isParenthesizedExpression(node))
+    {
+        return foldedString(node.expression);
+    }
+    if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken)
+    {
+        const left = foldedString(node.left);
+        const right = foldedString(node.right);
+        return left === null || right === null ? null : `${left}${right}`;
+    }
+    return null;
+}
+
 function propertyName(node)
 {
     if (ts.isPropertyAccessExpression(node))
     {
         return node.name.text;
     }
-    if (ts.isElementAccessExpression(node)
-    && node.argumentExpression
-    && (ts.isStringLiteral(node.argumentExpression) || ts.isNoSubstitutionTemplateLiteral(node.argumentExpression)))
+    if (ts.isElementAccessExpression(node) && node.argumentExpression)
     {
-        return node.argumentExpression.text;
+        return foldedString(node.argumentExpression);
     }
     return null;
 }
@@ -78,10 +117,9 @@ function declaredPropertyName(node)
     {
         return node.text;
     }
-    if (ts.isComputedPropertyName(node)
-    && (ts.isStringLiteral(node.expression) || ts.isNoSubstitutionTemplateLiteral(node.expression)))
+    if (ts.isComputedPropertyName(node))
     {
-        return node.expression.text;
+        return foldedString(node.expression);
     }
     return null;
 }
@@ -352,25 +390,12 @@ function analyzeVueTemplate(source, template, filePath, diagnostics)
         {
             for (const prop of node.props)
             {
-                if (prop.type === 7 && prop.name === 'html')
+                const sink = vueTemplatePropSink(prop);
+                if (sink)
                 {
                     diagnostics.push({
                         filePath,
-                        sink: 'vue-v-html',
-                        ...lineAndColumn(source, template.loc.start.offset + prop.loc.start.offset)
-                    });
-                }
-                const isBoundSrcdoc = prop.type === 7
-          && prop.name === 'bind'
-          && prop.arg?.type === 4
-          && prop.arg.isStatic
-          && prop.arg.content.toLowerCase() === 'srcdoc';
-                const isStaticSrcdoc = prop.type === 6 && prop.name.toLowerCase() === 'srcdoc';
-                if (isBoundSrcdoc || isStaticSrcdoc)
-                {
-                    diagnostics.push({
-                        filePath,
-                        sink: 'vue-srcdoc',
+                        sink,
                         ...lineAndColumn(source, template.loc.start.offset + prop.loc.start.offset)
                     });
                 }
@@ -389,16 +414,33 @@ function analyzeVueTemplate(source, template, filePath, diagnostics)
     visit(result.ast);
 }
 
+function vueTemplatePropSink(prop)
+{
+    if (prop.type === 7 && prop.name === 'html')
+    {
+        return 'vue-v-html';
+    }
+    const staticName = prop.type === 6 ? prop.name : null;
+    const boundName = prop.type === 7
+        && prop.name === 'bind'
+        && prop.arg?.type === 4
+        && prop.arg.isStatic
+        ? prop.arg.content
+        : null;
+    const name = staticName ?? boundName;
+    return name ? vueBoundSinks.get(name) ?? vueBoundSinks.get(name.toLowerCase()) ?? null : null;
+}
+
+export function formatHtmlSinkDiagnostic(diagnostic)
+{
+    const replacement = diagnostic.replacement
+        ?? sinkReplacements.get(diagnostic.sink)
+        ?? 'Vue text interpolation, textContent, createElement, or FsusUI MarkdownRenderer';
+    return `${diagnostic.filePath}:${diagnostic.line}:${diagnostic.column}: forbidden HTML sink ${diagnostic.sink}; replace with ${replacement}`;
+}
+
 export function analyzeHtmlSinks(source, { filePath = 'input.ts' } = {})
 {
-    // This lexical gate only avoids parser startup for files that cannot spell a
-    // governed sink. Every candidate is still accepted or rejected exclusively
-    // by the TypeScript/Vue AST rules below.
-    if (!mayContainHtmlSink(source))
-    {
-        return [];
-    }
-
     loadParsers();
     const diagnostics = [];
     if (!filePath.toLowerCase().endsWith('.vue'))

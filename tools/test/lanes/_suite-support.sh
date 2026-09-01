@@ -9,6 +9,7 @@ fi
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 CLIENT_DIR="$ROOT_DIR/src/frontend"
 SERVER_TEST_PROJ="$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj"
+MIGRATION_TEST_PROJ="$ROOT_DIR/tests/migration/FsusBlog.Migration.Tests.csproj"
 BUILD_ENV_RUNNER="$ROOT_DIR/tools/build-with-data-env.sh"
 export FSUSBLOG_REPO_ROOT="${FSUSBLOG_REPO_ROOT:-$ROOT_DIR}"
 COVERAGE_ROOT="${FSUSBLOG_COVERAGE_ROOT:-$ROOT_DIR/.tmp/coverage}"
@@ -39,7 +40,7 @@ DEBUG_BACKEND_URL="${FSUSBLOG_DEBUG_BACKEND_URL:-http://127.0.0.1:7568}"
 RELEASE_PREVIEW_URL="${FSUSBLOG_RELEASE_PREVIEW_URL:-http://127.0.0.1:8080}"
 DOTNET_BUILD_SHARED_ARGS=(/p:UseSharedCompilation=true /p:NuGetAudit=false)
 DOTNET_BUILD_PARALLEL_ARGS=()
-BACKEND_ORDINARY_TEST_FILTER="${FSUSBLOG_BACKEND_ORDINARY_TEST_FILTER:-Category!=Integration&Category!=ApiIntegration&Category!=Concurrency&Category!=Performance&Category!=Property&Category!=GoldenContract&Category!=SecurityStateMachine}"
+BACKEND_ORDINARY_TEST_FILTER="${FSUSBLOG_BACKEND_ORDINARY_TEST_FILTER:-Category!=Integration&Category!=ApiIntegration&Category!=Concurrency&Category!=Performance&Category!=Property&Category!=GoldenContract&Category!=SecurityStateMachine&Fixture!=LocalRedis}"
 
 DefaultPlaywrightWorkers() {
     if [[ "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
@@ -1055,6 +1056,10 @@ RunBackendUnitLane() {
             return "$status"
         fi
     fi
+    Run "$BUILD_ENV_RUNNER" dotnet test "$MIGRATION_TEST_PROJ" \
+        -c "$(BackendTestConfiguration)" \
+        --nologo \
+        "${DOTNET_BUILD_SHARED_ARGS[@]}"
     WriteBackendSplitSummary backend-unit "${FSUSBLOG_TEST_SELECTION:-full}"
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/produce-integrity-proof-evidence.mjs" \
         --catalog "$ROOT_DIR/tests/fixtures/evidence-projection/integrity-proof-verification.json" \
@@ -1143,6 +1148,7 @@ EnsureBackendFilteredBuild() {
         # without turning those runtime writes into duplicate build producers.
         fingerprint="$(TestInputFingerprint \
             --path Directory.Build.props \
+            --path Directory.Packages.props \
             --path FsusBlog.slnx \
             --path tools/build-with-data-env.sh \
             --path tools/test/lanes/_suite-support.sh \
@@ -1155,6 +1161,7 @@ EnsureBackendFilteredBuild() {
         # source scan as the conservative fallback.
         fingerprint="$(TestInputFingerprint \
             --path Directory.Build.props \
+            --path Directory.Packages.props \
             --path FsusBlog.slnx \
             --path src/backend \
             --path src/core \
@@ -1359,14 +1366,6 @@ RunBackendTestGovernanceOnly() {
     WriteBackendSplitSummary backend-test-governance governance
 }
 
-RunBackendPerfOnly() {
-    local trxLane="${1:-backend-perf}"
-    RunBackendPerfGovernanceOnly
-    RunBackendPerfNativeP99Only "$trxLane"
-    RunBackendPerfReadinessBuildOnly
-    WriteBackendSplitSummary backend-perf native-p99-and-benchmark-project-release-build
-}
-
 RunBackendPerfGovernanceOnly() {
     local -a failures=()
     RunBackendTestGovernanceCheckOnce || failures+=(backend-test-governance)
@@ -1380,9 +1379,39 @@ RunBackendPerfGovernanceOnly() {
 
 RunBackendPerfNativeP99Only() {
     local trxLane="${1:-backend-perf}"
-    FSUSBLOG_RUN_PERFORMANCE_TESTS=1 RunBackendDotnetFilterOnly \
+    local evidenceRoot="$ROOT_DIR/.tmp/backend-perf/native-p99"
+    local preflightFile="$evidenceRoot/preflight.json"
+    local evidenceFile="$evidenceRoot/measurement.json"
+    local summaryFile="$evidenceRoot/summary.json"
+    local trxFile
+    local testStatus=0
+    trxFile="$(BackendTrxFile "$trxLane")"
+
+    EnsureBackendFilteredBuild
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/native-p99-producer-contract.mjs" prepare \
+        --root "$ROOT_DIR" \
+        --preflight "$preflightFile" \
+        --evidence "$evidenceFile" \
+        --summary "$summaryFile" \
+        --trx "$trxFile"
+    export FSUSBLOG_NATIVE_P99_EVIDENCE_PATH="$evidenceFile"
+    if RunBackendDotnetFilterOnly \
         "FullyQualifiedName=FsusBlog.Server.Tests.Unit.NativeGroth16ZkProofBackendTests.MclGroth16VerifierLibrary_VerifyP99StaysInsideNativeBudget" \
-        "$trxLane"
+        "$trxLane"; then
+        testStatus=0
+    else
+        testStatus=$?
+    fi
+    if ! Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/native-p99-producer-contract.mjs" verify \
+        --root "$ROOT_DIR" \
+        --preflight "$preflightFile" \
+        --evidence "$evidenceFile" \
+        --summary "$summaryFile" \
+        --trx "$trxFile" \
+        --test-exit-code "$testStatus"; then
+        return 1
+    fi
+    return "$testStatus"
 }
 
 RunBackendPerfReadinessBuildOnly() {
@@ -1744,7 +1773,10 @@ EndLegacyRuntimeScenarioObservation() {
 RunIntegrationOnly() {
     Log "tier=integration | debug runtime validation, requires frontend=3000 backend=5000"
     if [[ "${FSUSBLOG_SKIP_BACKEND_INTEGRATION_TESTS:-0}" != "1" ]]; then
-        RunBackendDotnetFilterOnly "Category=Integration" integration
+        Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/legacy-real-dump-contract.mjs" \
+            plan --producer integration \
+            --out "$ROOT_DIR/.tmp/test-results/backend/integration/legacy-real-dump-membership.json"
+        RunBackendDotnetFilterOnly "Category=Integration&Fixture!=Legacy20260517RealDump" integration
         Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/write-rights-v3-integration-producer.mjs"
     fi
     RequireDebugStack

@@ -11,6 +11,7 @@ import {
 import { FsusUiDataList } from '../../../src/frontend/src/fsusui/dataList'
 import { FsusUiPublicShell } from '../../../src/frontend/src/fsusui/publicShell'
 import { FsusUiTaskPageHeader } from '../../../src/frontend/src/fsusui/taskPageHeader'
+import type { MarkdownSafeHtml } from '@ozwasyd/element-plus/markdown-runtime'
 
 import type { Component } from 'vue'
 
@@ -36,12 +37,16 @@ const dataListRows: DataListRow[] = [{ id: 'global', name: 'Global' }]
 const dataListKey: DataListRowKey = 'global'
 const publicShellMobileNavMode: PublicShellMobileNavMode = 'menu'
 
+// @ts-expect-error FsusUI owns the only constructor for committed Markdown HTML.
+const plainMarkdownHtml: MarkdownSafeHtml = '<p>untrusted</p>'
+
 export const fsusUiLocalExportContract = {
   dataListColumns,
   dataListComponents,
   dataListKey,
   dataListRows,
   publicShellMobileNavMode,
+  plainMarkdownHtml,
 }
 
 export type { LocalTypePreservingAdapterContract }

@@ -1579,8 +1579,13 @@ export function createReleaseFinalTestEvidenceBinding({
     correctnessReceiptPath,
     browserContractReceipt,
     browserContractReceiptPath,
+    postRuntimeReceipt,
+    postRuntimeReceiptPath,
+    consistencyFinalReport,
+    consistencyFinalReportPath,
     releaseDomainProjectionReceipts,
     releaseReliabilityQualifiedReceipt,
+    locatorEvidence = null,
     now = () => new Date()
 })
 {
@@ -1639,11 +1644,24 @@ export function createReleaseFinalTestEvidenceBinding({
                 fileDigest: sha256File(browserContractReceiptPath),
                 contentDigest: browserContractReceipt.contentDigest
             },
+            behaviorPostRuntime: {
+                schema: postRuntimeReceipt.schema,
+                path: String(postRuntimeReceiptPath).replaceAll(path.sep, '/'),
+                fileDigest: sha256File(postRuntimeReceiptPath),
+                contentDigest: postRuntimeReceipt.contentDigest
+            },
+            behaviorConsistencyFinal: {
+                schema: consistencyFinalReport.schema,
+                path: String(consistencyFinalReportPath).replaceAll(path.sep, '/'),
+                fileDigest: sha256File(consistencyFinalReportPath),
+                contentDigest: consistencyFinalReport.contentDigest
+            },
             releaseReliability: structuredClone(
                 releaseReliabilityQualifiedReceipt
             ),
             releaseDomains
         },
+        locatorEvidence: locatorEvidence ? structuredClone(locatorEvidence) : null,
         generatedAt: now().toISOString()
     });
 }
@@ -1672,7 +1690,7 @@ export function validateReleaseFinalTestEvidenceBinding(binding)
     {
         errors.push('release-final binding source/build identity mismatch');
     }
-    for (const key of ['correctness', 'browserContract'])
+    for (const key of ['correctness', 'browserContract', 'behaviorPostRuntime', 'behaviorConsistencyFinal'])
     {
         if (!isDigest(binding?.receipts?.[key]?.fileDigest))
         {
@@ -1682,6 +1700,16 @@ export function validateReleaseFinalTestEvidenceBinding(binding)
         {
             errors.push(`release-final binding ${key} content digest is invalid`);
         }
+    }
+    if (binding?.receipts?.behaviorPostRuntime?.schema
+        !== 'fsusblog.behavior-evidence-post-runtime-receipt.v1')
+    {
+        errors.push('release-final binding behaviorPostRuntime schema is invalid');
+    }
+    if (binding?.receipts?.behaviorConsistencyFinal?.schema
+        !== 'fsusblog.behavior-document-consistency-final-report.v1')
+    {
+        errors.push('release-final binding behaviorConsistencyFinal schema is invalid');
     }
     errors.push(...validateReleaseReliabilityQualifiedBinding(
         binding?.receipts?.releaseReliability,
@@ -1696,6 +1724,21 @@ export function validateReleaseFinalTestEvidenceBinding(binding)
     errors.push(...validateReleaseDomainProjectionBindings(
         binding?.receipts?.releaseDomains
     ));
+    if (binding?.locatorEvidence !== null)
+    {
+        if (!isDigest(binding?.locatorEvidence?.manifestInputDigest)
+            || !isDigest(binding?.locatorEvidence?.manifestBindingReceipt?.bindingDigest)
+            || !isDigest(binding?.locatorEvidence?.directParentBindingReceipt?.bindingDigest))
+        {
+            errors.push('release-final locator evidence digests are invalid');
+        }
+        const directDigests = binding?.locatorEvidence?.directInputDigests;
+        if (!directDigests || Object.keys(directDigests).length !== 6
+            || Object.values(directDigests).some((digest) => !isDigest(digest)))
+        {
+            errors.push('release-final locator direct input digests are incomplete');
+        }
+    }
     return errors;
 }
 

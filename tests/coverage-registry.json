@@ -244,6 +244,63 @@
             ]
         },
         {
+            "id": "media-negative-corpus",
+            "description": "A single closed media negative corpus derives eight isolated one-fault cases from verified positive bytes without creating positive AssetIds, public indexes, scale assets, AOT successes, retries, unsafe path I/O, or dangerous bitmap allocation.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "config/testing/media-negative-corpus-plan.json",
+                "config/schemas/media-negative-corpus-plan.schema.json",
+                "tools/test-fixtures/media-negative-corpus.mjs",
+                "tests/tools/media-negative-corpus.test.mjs",
+                "docs/testing.md"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Static governance rejects missing or duplicate cases, non-unique conditions or reasons, unverified positive receipts, multi-fault mutation, negative-in-positive contamination, retries, root escape, huge allocation, receipt or bytes tamper, and positive-root drift.",
+            "minimumRequirement": "All eight classes must produce stable closed decode/store/materialization/HTTP/fallback results, one attempt, one independent fault, source-bound receipts, safe bounded bytes, isolated storage and unchanged positive evidence across reruns.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
+            "id": "media-positive-generator",
+            "description": "Deterministic offline JPEG, PNG, SVG, and WebP fixtures are independently decoded and materialized only through run-owned canonical AssetId storage with sealed receipts and bounded resources.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "config/testing/media-shape-catalog.json",
+                "tools/test-fixtures/canonical-media-asset-store.mjs",
+                "tools/test-fixtures/media-positive-generator.mjs",
+                "tests/tools/media-positive-generator.test.mjs",
+                "docs/testing.md"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Generation rejects non-positive shapes, declaration or byte drift, unsafe storage refs, stale ledgers, cross-run cleanup, ambient codecs, remote fetches, fake formats, default images, direct public writes and second generators.",
+            "minimumRequirement": "All positive catalog shapes must yield real independently verified bytes or explicit no-cover; 0, 1, 1000 and bounded-large runs must remain deterministic, content-bound, idempotent and run-isolated.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
+            "id": "media-shape-catalog",
+            "description": "One closed content-addressed MediaShapeCatalog owns real format, MIME, extension, magic, dimension, aspect, alpha, orientation, validity and consumer-applicability contracts without becoming an asset ledger.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "config/testing/media-shape-catalog.json",
+                "config/schemas/media-shape-catalog.schema.json",
+                "tools/test-fixtures/media-shape-catalog.mjs",
+                "tests/tools/media-shape-catalog.test.mjs",
+                "docs/testing.md"
+            ],
+            "assertionType": "static",
+            "failClosedRule": "Static governance rejects a second media list, incomplete format/aspect/positive/negative matrix, MIME or extension guessing, missing codec fact ownership, fake WebP, default-cover authority, path or URL storage, multi-fault negative evidence, consumer pollution and digest tamper.",
+            "minimumRequirement": "The catalog must exactly cover JPEG landscape and oriented portrait, WebP landscape and square, PNG alpha and opaque, safe SVG, small and bounded large raster, no-cover, all six aspects, all ten consumer classes and eight unique negative faults.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
             "id": "test-temporal-authority",
             "description": "Qualification temporal context separates business wall clock, monotonic measurement clock, and artifact metadata, binds child/backend/PostgreSQL/browser actual observations to producer output receipts, and fail-closes incomplete wall-clock closure.",
             "owner": "ServerContractAgent",
@@ -822,8 +879,8 @@
             ]
         },
         {
-            "id": "backend-property-protocol-cache-upload",
-            "description": "Backend Property Protocol Cache Upload is covered by unit/property tests that exercise the named behavior.",
+            "id": "backend-property-protocol-cache",
+            "description": "Backend protocol and cache properties are covered by unit/property tests that exercise the named behavior.",
             "owner": "ServerContractAgent",
             "risk": "high",
             "evidencePaths": [
@@ -834,6 +891,21 @@
             "minimumRequirement": "The referenced unit or property test evidence must execute assertions for this behavior, not merely prove that a source file exists.",
             "tierIds": [
                 "backend-property"
+            ]
+        },
+        {
+            "id": "backend-upload-range-completion",
+            "description": "Real FileService upload sessions expose exact uploaded-part ranges and lowest-gap hints, preserve them across retries and restart, reject incomplete completion without terminal side effects, and finalize a complete upload exactly once.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "tests/backend/Unit/FileServiceTests.cs"
+            ],
+            "assertionType": "unit",
+            "failClosedRule": "Reject unsorted, overlapping or duplicate ranges, a next-part hint other than the lowest missing part, incomplete finalization side effects, lost checkpoint state or duplicate completed results.",
+            "minimumRequirement": "The backend unit lane must drive FileService session initialization, real part uploads, part-map and status reads, incomplete completion, restart recovery and successful completion through public service methods.",
+            "tierIds": [
+                "backend-unit"
             ]
         },
         {
@@ -950,7 +1022,8 @@
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
-                "tests/backend/Fixtures/backend-test-requirements.json"
+                "tests/backend/Fixtures/backend-test-requirements.json",
+                "tests/tools/backend-test-governance-cpm.test.mjs"
             ],
             "assertionType": "static",
             "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
@@ -990,6 +1063,23 @@
             "assertionType": "perf",
             "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
             "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
+            "tierIds": [
+                "backend-perf"
+            ]
+        },
+        {
+            "id": "native-groth16-p99",
+            "description": "The atomic native Groth16 verifier P99 producer executes its exact test member once and retains verified per-sample evidence.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                ".tmp/backend-perf/native-p99/preflight.json",
+                ".tmp/backend-perf/native-p99/measurement.json",
+                ".tmp/backend-perf/native-p99/summary.json"
+            ],
+            "assertionType": "perf",
+            "failClosedRule": "The producer rejects source, Release test assembly, native MCL library, verifying-key fixture, measurement isolation, TRX membership, sample count, Verified outcome, p99, or threshold drift.",
+            "minimumRequirement": "Ordinary unit plans keep the member not-selected; backend-perf records planned to executed outcome for exactly one test with one warmup, 32 verified samples, and p99 no greater than 50ms.",
             "tierIds": [
                 "backend-perf"
             ]
@@ -1425,6 +1515,21 @@
             "tierIds": [
                 "frontend-unit-shard",
                 "coverage-frontend"
+            ]
+        },
+        {
+            "id": "frontend-image-upload-runtime",
+            "description": "The real image upload composable and options panel prove ordered compression, hashing, session recovery, missing-part upload, completion, abort cleanup and late-response isolation through API and storage postconditions.",
+            "owner": "InteropGlueAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+            ],
+            "assertionType": "unit",
+            "failClosedRule": "Reject completion before every required part acknowledgement, stale session or token reuse, incomplete abort cleanup, or a late response that revives an abandoned attempt.",
+            "minimumRequirement": "Executable composable tests must cover fresh success, retry exhaustion, missing-part resume, stale or tampered recovery, abort success, failure and no-active behavior, late acknowledgement isolation, and mounted panel action wiring.",
+            "tierIds": [
+                "frontend-unit-shard"
             ]
         },
         {
@@ -1927,7 +2032,12 @@
                 "security/matrices/privacy-zk-comment.yml",
                 "tools/security/check-security-matrices.mjs",
                 "tools/test/lanes/privacy-zk-comment-matrix.sh",
-                "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
+                "tests/backend/Unit/AnonymousCommentTicketEndpointFilterTests.cs",
+                "tests/backend/Unit/AnonymousCommentTicketRedisConcurrencyTests.cs",
+                "tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs",
+                "tests/backend/Unit/CommentMutationOutboxAnonymousPostgresTests.cs",
+                "tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs",
+                "tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs",
                 "tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts",
                 "tests/frontend/unit/privacy/commentPrivacyWorkerClient.test.ts",
                 "tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts",
@@ -2850,7 +2960,7 @@
         },
         {
             "id": "test-retention-classification",
-            "description": "Test retention classification is covered by a static audit that maps test files to must-keep, conditional, review-candidate, or obsolete-candidate classes.",
+            "description": "Test retention classification is covered by a case-level static audit over canonical inventory, oracle/quality facts and catalog ownership; test replacement is an atomic plan, verify, apply and rollback transaction.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
@@ -2863,8 +2973,8 @@
                 "tests/tools/security-worker-admission.test.mjs"
             ],
             "assertionType": "static",
-            "failClosedRule": "matrix-validate requires both the tracked before snapshot and current retention audit to be declared by static-governance; final authority rejects a missing source binding, undeclared test/assertion loss, catalog loss, a producer runId that differs from the production checkpoint, or an audit generated before checkpoint completion.",
-            "minimumRequirement": "The before snapshot must bind commit/worktree fingerprint and preserve test/assertion/tier/coverage/timing/failure plus matrix artifact, release evidence, requirement catalog, three-scope coverage, and critical mutation identity; the current audit must preserve or explicitly replace those dimensions.",
+            "failClosedRule": "matrix-validate requires both the tracked before snapshot and current case-level retention audit to be declared by static-governance; final authority rejects unresolved or failed quality, missing source binding, undeclared test/assertion loss, partial catalog updates, incompatible replacement dimensions, duplicate transactions, failed apply verification, or an audit generated before checkpoint completion.",
+            "minimumRequirement": "The before snapshot must bind commit/worktree fingerprint and preserve test/assertion/tier/coverage/timing/failure plus matrix artifact, release evidence, requirement catalog, three-scope coverage, and critical mutation identity; every deletion, rename, merge, parameterization, split or support move must atomically preserve or explicitly retire each case and assertion with rollback on any verification failure.",
             "tierIds": [
                 "static-governance"
             ]
@@ -2886,15 +2996,15 @@
         },
         {
             "id": "test-quality-lint",
-            "description": "Test Quality Lint is covered by runtime artifacts that exercise the named behavior.",
+            "description": "Canonical case-level test quality is derived from adapter-resolved symbols, AST/control-flow facts and a closed versioned policy after the isolated multi-framework adversarial conformance corpus passes.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
                 ".tmp/release-evidence/test-quality-summary.json"
             ],
             "assertionType": "static",
-            "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-            "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
+            "failClosedRule": "The producer must run conformance first and then reject unresolved symbols, unknown assertion APIs, zero-outcome cases, early exits, test-to-test calls, discoverable workers, weak oracles, undeclared dynamic cases, stale bindings, non-exact waivers and any tampered case/count/first-failure projection.",
+            "minimumRequirement": "The sealed fsusblog.test-quality.v2 artifact must cover every canonical inventory case exactly once, bind inventory/adapters/oracle/policy/conformance digests, preserve exact source spans and be independently recomputable without retry overwrite.",
             "tierIds": [
                 "test-quality-lint"
             ]
@@ -3327,6 +3437,56 @@
             ]
         },
         {
+            "id": "current-schema-canonical-authority",
+            "description": "One recomputable provider-neutral current schema model drives runtime reflection, generated projection and migration-target adapters with sealed source/content identity and dialect-specific physical projections.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "src/backend/Infrastructure/SchemaMigration/CurrentSchemaCanonicalModel.cs",
+                "src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs",
+                "tests/backend/Unit/SchemaModelInspectorTests.cs",
+                "tools/db/check-current-schema-authority.mjs",
+                "tests/tools/current-schema-authority.test.mjs",
+                "docs/database-migration.md",
+                "docs/online-database-migration.md"
+            ],
+            "assertionType": "contract",
+            "failClosedRule": "Reject inherited or attributed mapping loss, ignored-member admission, unknown types or converters, duplicate owners, semantic/default/constraint/index drift, provider-dialect confusion, stale projection identity, benchmark identity mismatch, tampering, migration-catalog authority, fixture reconstruction, hand-written inventory or a second generator.",
+            "minimumRequirement": "Focused unit and static mutation tests independently recompute runtime, generated and migration-target projections from one sealed canonical input, compare PostgreSQL/MySQL/SQLite physical spellings without changing semantic identity, and enter readiness warmup plus sampling only after exact equivalence.",
+            "tierIds": [
+                "backend-unit",
+                "static-governance"
+            ]
+        },
+        {
+            "id": "migration-assembly-boundary",
+            "description": "Legacy schema descriptors, catalogs, checksum/history execution, typed provider DDL and migration-only row conversion live in one independently buildable FsusBlog.Migration assembly without Server or web-host dependencies.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "src/migration/FsusBlog.Migration.csproj",
+                "src/migration/SchemaMigrationPrimitives.cs",
+                "src/migration/SchemaMigrationDdlPrimitives.cs",
+                "src/migration/SchemaMigrationExecution.cs",
+                "src/migration/SchemaMigrationManifest.cs",
+                "tests/migration/FsusBlog.Migration.Tests.csproj",
+                "tests/migration/MigrationAssemblyBoundaryTests.cs",
+                "tools/db/generate-migration-assembly-receipt.mjs",
+                "tools/db/check-migration-assembly-boundary.mjs",
+                "tests/tools/migration-assembly-boundary.test.mjs",
+                "artifacts/schema-migration/migration-assembly-receipt.json",
+                "artifacts/schema-migration/migration-assembly-binding.json",
+                "docs/database-migration.md"
+            ],
+            "assertionType": "contract",
+            "failClosedRule": "Reject Server, web-host, business-service or reverse graph dependencies; linked duplicates, type forwarders, compatibility namespaces, provider current-schema copies, shared legacy fields, old Server source ownership, missing provider registration, descriptor digest drift, or receipt symbol/content tamper.",
+            "minimumRequirement": "The assembly and its direct test project must build without the Server; PostgreSQL, MySQL and SQLite provider semantics plus the exact descriptor plan digest must pass, and static mutation tests must cover every forbidden re-entry and identity-tamper class.",
+            "tierIds": [
+                "backend-unit",
+                "static-governance"
+            ]
+        },
+        {
             "id": "backend-online-schema-migration-protocol",
             "description": "Online schema changes follow classified Expand, resumable Backfill and gated Contract phases while every destructive step carries a source-bound rollback-window proof.",
             "owner": "ServerContractAgent",
@@ -3346,7 +3506,7 @@
                 "tests/tools/schema-compatibility-coordinate.test.mjs",
                 "tools/release/schema-compatibility-coordinate.mjs",
                 "tests/tools/destructive-migration-proof.test.mjs",
-                "src/backend/Infrastructure/SchemaMigration/DestructiveMigrationProofs.cs",
+                "src/migration/DestructiveMigrationProofs.cs",
                 "docs/schema-migrations/destructive-rollback-window-proofs.json",
                 "docs/schema-migrations/destructive-rollback-window.md",
                 "tests/backend/online-schema-migration-evidence.json"
@@ -3391,10 +3551,10 @@
             "owner": "ServerContractAgent",
             "risk": "high",
             "evidencePaths": [
-                "src/backend/Infrastructure/SchemaMigration/SchemaMigrationPrimitives.cs",
-                "src/backend/Infrastructure/SchemaMigration/SchemaMigrationDdlPrimitives.cs",
-                "tests/backend/Unit/SchemaMigrationDdlPrimitivesTests.cs",
-                "tests/backend/Fixtures/schema-ddl-provider-snapshots.json",
+                "src/migration/SchemaMigrationPrimitives.cs",
+                "src/migration/SchemaMigrationDdlPrimitives.cs",
+                "tests/migration/SchemaMigrationDdlPrimitivesTests.cs",
+                "tests/migration/schema-ddl-provider-snapshots.json",
                 "docs/schema-migrations/typed-ddl-primitives.json"
             ],
             "assertionType": "unit",
@@ -4444,6 +4604,45 @@
             ]
         },
         {
+            "id": "behavior-document-consistency-final",
+            "description": "The final deterministic Behavior/document gate aggregates sealed catalog, owner, fact, test, document, mutation and pre/post-runtime authorities, audits legacy residue and DAG cycles, and emits one recomputable report.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "tools/docs/behavior-document-consistency-final.mjs",
+                "tools/test/bundles/behavior-document-consistency-final.sh",
+                "config/schemas/behavior-document-consistency-final-report.schema.json",
+                "tests/tools/behavior-document-consistency-final.test.mjs",
+                "tests/matrix.yml"
+            ],
+            "assertionType": "static",
+            "failClosedRule": "Reject any missing or tampered sealed authority, cross-run/source/worktree/build/candidate identity, incomplete per-behavior edge, migration-ledger mismatch, survived required mutation, spawn-before-receipt count, active legacy self-attestation field, dependency SCC or duplicate summary authority.",
+            "minimumRequirement": "The report must be derivable from sealed inputs, cover every active release behavior owner-to-fact-to-test-to-doc-to-mutation/runtime edge, contain all authority and receipt digests, and remain a mandatory release-final evidence input without parsing or repairing producers inside release-final.",
+            "tierIds": [
+                "behavior-document-consistency-final"
+            ]
+        },
+        {
+            "id": "behavior-evidence-post-runtime",
+            "description": "One candidate-bound seal joins the verified pre-runtime BehaviorGraph receipt with current-run production correctness and Browser Contract observations before release-final may start.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "tools/test-matrix/behavior-evidence-post-runtime.mjs",
+                "tools/test/bundles/behavior-evidence-post-runtime.sh",
+                "tools/release/release-final-domain-evidence.mjs",
+                "config/schemas/behavior-evidence-post-runtime-receipt.schema.json",
+                "tests/tools/behavior-evidence-post-runtime.test.mjs",
+                "tests/matrix.yml"
+            ],
+            "assertionType": "static",
+            "failClosedRule": "Reject missing, duplicate, diagnostic, stale, cross-run, cross-source, cross-build or cross-candidate observations; release-final cannot search downloaded/latest receipts or start before this seal succeeds.",
+            "minimumRequirement": "The unique post-runtime tier must consume exact configured pre-runtime, correctness and Browser Contract receipts, bind their run/source/worktree/build/candidate identities, publish releaseFinalSpawnCountBeforeReceipt=0, and be a canonical release-final evidence input.",
+            "tierIds": [
+                "behavior-evidence-post-runtime"
+            ]
+        },
+        {
             "id": "document-lifecycle-governance",
             "description": "Every docs file has explicit status, owner, issue and supersession metadata; current authority, semantic naming, generated producers, links and path migrations are fail-closed.",
             "owner": "ServerContractAgent",
@@ -4583,6 +4782,47 @@
             ]
         },
         {
+            "id": "evidence-location-governance",
+            "description": "Every repository evidence-location selection pattern has a stable scanner rule and exactly one identity-bound migration disposition, while current-run consumers have one registered explicit-path or content-addressed authority.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "config/testing/current-run-evidence-context.schema.json",
+                "config/testing/evidence-locator-registry.schema.json",
+                "config/testing/evidence-locator-registry.json",
+                "config/testing/evidence-location-migration-ledger.schema.json",
+                "config/testing/evidence-location-migration-ledger.json",
+                "tools/test/evidence-location-contract.mjs",
+                "tools/test/evidence-location-scanner.mjs",
+                "tools/test/generate-evidence-location-governance.mjs",
+                "tools/test/current-run-evidence-publication.mjs",
+                "tools/test/current-run-evidence-checkpoint.mjs",
+                "tools/test/run-current-run-evidence-producer.mjs",
+                "tools/test/current-run-evidence-producer-hook.mjs",
+                "tools/test/current-run-evidence-producer-hook.bash",
+                "tools/test/publish-current-run-evidence-reference.mjs",
+                "tools/test/publish-release-final-evidence-parent.mjs",
+                "tools/test/attach-current-run-evidence-checkpoint.mjs",
+                "tools/test/current-run-evidence-transport.mjs",
+                "tools/test/run-current-run-evidence-transport.mjs",
+                "tests/tools/evidence-location-contract.test.mjs",
+                "tests/tools/evidence-location-governance.test.mjs",
+                "tests/tools/current-run-evidence-publication.test.mjs",
+                "tests/tools/current-run-evidence-scheduler.test.mjs",
+                "tests/tools/current-run-evidence-transport.test.mjs",
+                "tests/tools/current-run-evidence-locator-negative-matrix.test.mjs",
+                "tools/test/generate-current-run-evidence-location-acceptance.mjs",
+                "config/testing/current-run-evidence-location-acceptance.json",
+                "docs/testing.md"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Reject missing, duplicate, orphan, unclassified, wildcard-suppressed or newly discovered location findings; duplicate consumer authorities; mutable latest, timestamp, directory, fallback, age or TTL locator policy; producer failure, cancellation, missing output, stale attempt or identity; multiple final references; non-finalized publication journals; parent payload copies; unbound downloaded artifacts; transport digest, mapping or origin mismatch; and any content or receipt digest drift.",
+            "minimumRequirement": "Static governance must scan tracked JS, TS, C#, shell, workflow and config consumers, prove exact location and rule coverage for every finding, retain all three disposition classes, give every authority exact producer/output/checkpoint bindings, publish terminal current-run content-addressed references, bind downloaded artifacts only through an exact transport manifest, and verify checkpoint and parent propagation using refs and digests only.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
             "id": "release-evidence-classification-governance",
             "description": "Historical reports, static contracts, fixtures, fresh run output, and release closeout evidence have distinct canonical owners; only an identity-bound, fully sealed bundle that passes require-ok may produce a small immutable-storage index.",
             "owner": "ServerContractAgent",
@@ -4674,7 +4914,7 @@
         },
         {
             "id": "perception-character-v3-breaking-release",
-            "description": "Breaking PerceptionCharacterV3 release is independently verified against deterministic visual/audio corpus budgets, one-time encrypted pool issuance, retired-format rejection, real Redis cutover idempotency and pool-path resource ratios.",
+            "description": "Breaking PerceptionCharacterV3 release is independently verified against deterministic visual/audio corpus budgets, one-time encrypted pool issuance, retired-format rejection, real Redis cutover idempotency, pool-path resource ratios and exact-per-test LocalRedis device/state linearizability cases.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
@@ -4683,11 +4923,13 @@
                 ".tmp/security/perception-character-v3/release-gate/perception-character-v3-benchmark-report.json",
                 ".tmp/security/perception-character-v3/release-gate/perception-character-v3-migration-receipt.json",
                 ".tmp/security/perception-character-v3/release-gate/implementation-verification-receipt.json",
-                ".tmp/security/perception-character-v3/release-gate/independent-review-receipt.json"
+                ".tmp/security/perception-character-v3/release-gate/independent-review-receipt.json",
+                ".tmp/test-results/backend/perception-character-v3-redis-producer.json",
+                "tests/backend/Unit/PerceptionCharacterV3Tests.cs"
             ],
             "assertionType": "integration",
-            "failClosedRule": "Reject undersized, duplicate, biased, over-budget or baseline-readable corpus; stored-DEFLATE visual output; old formats; corrupt or wrong-key pools; repeat leases; non-idempotent cutover; insufficient CPU/allocation ratios; pre-admission allocation or leases; sensitive evidence; receipt digest drift; and any high or critical independent finding.",
-            "minimumRequirement": "One clean-checkout physical gate must generate at least 10000 visual and 2000 audio artifacts, execute the pool benchmark and real Redis cutover twice, bind exact commands and evidence hashes to one full commit and release target, and emit convergent implementation and independent-review receipts without duplicating corpus or benchmark work.",
+            "failClosedRule": "Reject undersized, duplicate, biased, over-budget or baseline-readable corpus; stored-DEFLATE visual output; old formats; corrupt or wrong-key pools; repeat leases; non-idempotent cutover; missing, duplicate, partial, failed or cross-run LocalRedis test/case evidence; absent Lua execution or prefix cleanup; insufficient CPU/allocation ratios; pre-admission allocation or leases; sensitive evidence; receipt digest drift; and any high or critical independent finding.",
+            "minimumRequirement": "One clean-checkout physical gate must generate at least 10000 visual and 2000 audio artifacts, execute the pool benchmark and real Redis cutover twice, execute each planned canonical LocalRedis test exactly once with the complete source-bound case inventory and verified isolated-prefix cleanup, bind exact commands and evidence hashes to one full commit and release target, and emit convergent implementation and independent-review receipts without duplicating corpus, benchmark or Redis fixture work.",
             "tierIds": [
                 "perception-character-v3-release-gate"
             ]
@@ -4790,11 +5032,13 @@
                 "tools/contracts/FsusBlog.ContentLifecycleObservation/Program.cs",
                 "tools/fact-extractors/content-lifecycle/extract.mjs",
                 "tools/contracts/lib/content-lifecycle-observation.mjs",
-                "tests/tools/content-lifecycle-observation.test.mjs"
+                "tests/tools/content-lifecycle-observation.test.mjs",
+                "tools/docs/content-doc-exactness.mjs",
+                "tests/tools/content-doc-exactness.test.mjs"
             ],
             "assertionType": "contract",
-            "failClosedRule": "Observation must fail when entity/policy/projection diverge, public/admin visibility collapse, required/optional outbox edges overlap, producer/dispatcher consumer sets diverge, max-depth loses units/boundaries, privacy forbidden fields leave the formal contract, or docs/yaml expected tables are treated as authority.",
-            "minimumRequirement": "Focused tests cover added outbox required edge, removed transition, public reader/Hidden conflict, max-depth change, privacy forbidden field addition, restore publication semantics, producer/dispatcher edge mismatch, and refusal to read test expected transition tables.",
+            "failClosedRule": "Observation and document exactness must fail when entity/policy/projection diverge, public/admin visibility collapse, required/optional outbox edges overlap, producer/dispatcher consumer sets diverge, max-depth loses units/boundaries, privacy forbidden fields leave the formal contract, docs/yaml expected tables become authority, or a re-sealed terminal receipt disagrees with independently reread components.",
+            "minimumRequirement": "Focused tests cover added outbox required edge, removed transition, public reader/Hidden conflict, max-depth change, privacy forbidden field addition, scheduled/rollback/restore/delete causal coordinates, deleted-root descendants, producer/dispatcher edge mismatch, the closed exactness mutation roster, independent terminal recomputation, and refusal to read test expected transition tables.",
             "tierIds": [
                 "static-governance"
             ]
@@ -4827,6 +5071,25 @@
             "minimumRequirement": "The complete FsusUI test-only corpus runs in Chromium, Firefox and WebKit against one real Release frontend, Kestrel and PostgreSQL runtime within the six minute median budget.",
             "tierIds": [
                 "production-xss-release"
+            ]
+        },
+        {
+            "id": "backend-legacy-20260517-real-dump",
+            "description": "The private 20260517 PostgreSQL custom dump is restored once, migrated twice, and checked against retained legacy counts and current postconditions by one dedicated producer.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                ".tmp/test-results/backend/legacy-20260517-real-dump/semantic-outcome.json",
+                "tests/backend/Integration/SchemaMigrationIntegrationTests.cs",
+                "tools/test/legacy-real-dump-contract.mjs",
+                "tools/test/run-legacy-real-dump-producer.mjs",
+                "tests/tools/legacy-real-dump-producer.test.mjs"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Reject missing enablement, dump path or digest, unreadable or mismatched dump bytes, source or PostgreSQL image drift, restore or migration failure, a non-exact test selection, or Passed TRX without restore, two migrations, legacy counts and postcondition evidence.",
+            "minimumRequirement": "The ordinary integration plan records the canonical test ID as not-selected; the dedicated producer alone records planned to executed to passed or failed and binds the source SHA, dump SHA-256, PostgreSQL image ID, server version and exact TRX result.",
+            "tierIds": [
+                "legacy-20260517-real-dump"
             ]
         }
     ]

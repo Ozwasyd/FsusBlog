@@ -33,7 +33,7 @@ describe('tag API', () => {
   })
 
   it('createTag sends binary mutation frame', async () => {
-    await createTag('vue')
+    await createTag({ name: 'vue', description: '  Vue tag 😀  ' })
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryRoute: { operationId: 'binary_post_tag' },
       frameType: FrameType.MutationId,
@@ -43,6 +43,10 @@ describe('tag API', () => {
         body: expect.any(ArrayBuffer)
       })
     }))
+    expect(readTaxonomyMetadataRequestBody()).toEqual({
+      name: 'vue',
+      description: '  Vue tag 😀  '
+    })
   })
 
   it('updateTag sends binary mutation frame', async () => {
@@ -96,7 +100,7 @@ describe('category API', () => {
   })
 
   it('updateCategory sends binary mutation frame', async () => {
-    await updateCategory(2, 'Science')
+    await updateCategory(2, { name: 'Science', description: null })
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryRoute: { operationId: 'binary_put_category_id_int', params: { id: 2 } },
       requestOptions: expect.objectContaining({
@@ -105,6 +109,10 @@ describe('category API', () => {
         body: expect.any(ArrayBuffer)
       })
     }))
+    expect(readTaxonomyMetadataRequestBody()).toEqual({
+      name: 'Science',
+      description: null
+    })
   })
 
   it('deleteCategory sends binary delete request', async () => {
@@ -118,3 +126,23 @@ describe('category API', () => {
     }))
   })
 })
+
+function readTaxonomyMetadataRequestBody(): { name: string; description: string | null } {
+  const call = mockBinary.mock.calls.at(-1)?.[0]
+  const body = call?.requestOptions?.body
+  expect(body).toBeInstanceOf(ArrayBuffer)
+  const frame = new Uint8Array(body as ArrayBuffer)
+  const payload = frame.subarray(16)
+  expect(payload.byteLength).toBeGreaterThanOrEqual(140)
+  const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+  const decoder = new TextDecoder()
+  const nameEnd = payload.subarray(0, 128).indexOf(0)
+  const name = decoder.decode(payload.subarray(0, nameEnd < 0 ? 128 : nameEnd))
+  const descriptionOffset = view.getInt32(128, true)
+  const descriptionLength = view.getInt32(132, true)
+  const blobLength = view.getInt32(136, true)
+  expect(descriptionOffset).toBe(0)
+  expect(descriptionLength).toBe(blobLength)
+  const description = decoder.decode(payload.subarray(140, 140 + blobLength))
+  return { name, description: description.length === 0 ? null : description }
+}

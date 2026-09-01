@@ -5,6 +5,11 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
+import {
+  EVIDENCE_TRANSPORT_MANIFEST_ENV,
+  listTransportedArchiveFiles
+} from '../test/current-run-evidence-transport.mjs'
+
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const policyVersion = 'fsusblog-flaky-execution-v2'
 const retryableFailureKind = 'browser-process-crash'
@@ -20,16 +25,6 @@ const allowedFinalStatuses = new Set([
   'unstable-topology'
 ])
 const forbiddenLegacyRetryStatuses = new Set(['passed-after-retry', 'failed-after-retry'])
-
-function findFiles(dir, predicate, results = []) {
-  if (!fs.existsSync(dir)) return results
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const file = path.join(dir, entry.name)
-    if (entry.isDirectory()) findFiles(file, predicate, results)
-    else if (predicate(file)) results.push(file)
-  }
-  return results
-}
 
 function hasValue(item, field) {
   return item[field] !== undefined && item[field] !== null && item[field] !== ''
@@ -236,8 +231,28 @@ function isSuccessful(item) {
   return item.finalStatus === 'success' || item.finalStatus === 'diagnostic-passed-after-infra-retry'
 }
 
-function checkEvidence({ releaseFinal, roots }) {
-  const files = roots.flatMap((searchRoot) => findFiles(searchRoot, (file) => file.endsWith('.json') && file.includes(`${path.sep}flaky${path.sep}`)))
+function listFlakyFiles() {
+  const transport = String(process.env[EVIDENCE_TRANSPORT_MANIFEST_ENV] ?? '').trim()
+  if (transport) {
+    return listTransportedArchiveFiles({
+      repositoryRoot: root,
+      transportManifestPath: transport,
+      authorityId: 'evidence-consumer.ci.check-flaky-evidence.current-run'
+    })
+  }
+  const explicit = String(process.env.FSUSBLOG_FLAKY_EVIDENCE_FILES ?? '').trim()
+  if (explicit) {
+    return JSON.parse(explicit).map((file) => path.resolve(root, file))
+  }
+  const localDir = path.join(path.resolve(process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR
+    ?? path.join(root, '.tmp/release-evidence')), 'flaky')
+  if (!fs.existsSync(localDir)) return []
+  return fs.readdirSync(localDir)
+    .filter((name) => name.endsWith('.json'))
+    .map((name) => path.join(localDir, name))
+}
+
+function checkEvidence({ releaseFinal, files = listFlakyFiles() }) {
   const errors = []
   let count = 0
   for (const file of files) {
@@ -259,18 +274,9 @@ function checkEvidence({ releaseFinal, roots }) {
   return { count, errors }
 }
 
-function defaultRoots() {
-  return [
-    path.join(path.resolve(process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR
-      ?? path.join(root, '.tmp/release-evidence')), 'flaky'),
-    path.join(root, '.tmp/downloaded-artifacts')
-  ]
-}
-
 function main() {
   const { count, errors } = checkEvidence({
-    releaseFinal: process.argv.includes('--release-final'),
-    roots: defaultRoots()
+    releaseFinal: process.argv.includes('--release-final')
   })
   if (errors.length > 0) {
     for (const error of errors) console.error(`[flaky-evidence] ${error}`)
@@ -327,7 +333,7 @@ function runSelfTest() {
   fs.mkdirSync(flakyDir, { recursive: true })
   try {
     fs.writeFileSync(path.join(flakyDir, 'diagnostic.json'), `${JSON.stringify(fixtureEvidence())}\n`)
-    const diagnostic = checkEvidence({ releaseFinal: true, roots: [tmp] })
+    const diagnostic = checkEvidence({ releaseFinal: true, files: [path.join(flakyDir, 'diagnostic.json')] })
     if (diagnostic.errors.length > 0) throw new Error(`diagnostic recovery did not validate: ${diagnostic.errors.join('; ')}`)
 
     fs.writeFileSync(path.join(flakyDir, 'contract.json'), `${JSON.stringify(fixtureEvidence({
@@ -340,7 +346,7 @@ function runSelfTest() {
       finalStatus: 'failed-no-retry',
       attempts: [fixtureAttempt(1, { failureKind: 'browser-disconnect' })]
     }))}\n`)
-    const contract = checkEvidence({ releaseFinal: true, roots: [tmp] })
+    const contract = checkEvidence({ releaseFinal: true, files: [path.join(flakyDir, 'diagnostic.json'), path.join(flakyDir, 'contract.json')] })
     if (!contract.errors.some((error) => error.includes('release-final rejects failing browser-contract evidence'))) {
       throw new Error('Browser Contract infra failure did not fail closed')
     }
@@ -357,7 +363,7 @@ function runSelfTest() {
       finalStatus: 'passed-after-retry',
       generatedAt: '2025-01-01T00:00:00.000Z'
     })}\n`)
-    const legacy = checkEvidence({ releaseFinal: false, roots: [tmp] })
+    const legacy = checkEvidence({ releaseFinal: false, files: [path.join(flakyDir, 'diagnostic.json'), path.join(flakyDir, 'legacy.json')] })
     if (!legacy.errors.some((error) => error.includes('legacy generic retry evidence is forbidden'))) {
       throw new Error('legacy generic passed-after-retry evidence was accepted')
     }

@@ -62,19 +62,21 @@ function parseArgs(argv)
     return options;
 }
 
-function downloadedArtifactDirectories(root)
+function resolveSourceFile(root, source)
 {
-    const downloadedRoot = path.join(root, '.tmp/downloaded-artifacts');
-    return fs.existsSync(downloadedRoot)
-        ? fs.readdirSync(downloadedRoot, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => path.join(downloadedRoot, entry.name))
-      .sort()
-        : [];
-}
-
-function resolveSourceFile(root, source, artifactDirectories)
-{
+    const transport = String(process.env.FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST ?? '').trim();
+    if (transport)
+    {
+        const manifest = JSON.parse(fs.readFileSync(path.resolve(root, transport), 'utf8'));
+        const matches = (manifest.objects ?? [])
+            .flatMap((object) => object.archiveEntries ?? [])
+            .map((entry) => path.resolve(root, entry.extractedPath))
+            .filter((candidate) => path.basename(candidate) === path.basename(source.path));
+        if (matches.length === 1) return matches[0];
+        if (matches.length > 1) throw new Error(`ambiguous ${source.id} performance evidence in transport manifest`);
+        if (source.missingAsBlocked) return null;
+        throw new Error(`missing ${source.id} performance evidence: ${source.path}`);
+    }
     const direct = path.resolve(root, source.path);
     if (!direct.startsWith(`${root}${path.sep}`))
     {
@@ -84,30 +86,16 @@ function resolveSourceFile(root, source, artifactDirectories)
     {
         return direct;
     }
-
-    const artifactRelativePaths = [...new Set([source.path, source.path.replace(/^\.tmp\//u, '')])];
-    const matches = artifactDirectories
-        .flatMap((directory) => artifactRelativePaths.map((relativePath) => path.join(directory, relativePath)))
-        .filter((candidate) => fs.existsSync(candidate))
-        .sort();
-    if (matches.length === 0 && source.missingAsBlocked)
+    if (source.missingAsBlocked)
     {
         return null;
     }
-    if (matches.length === 0)
-    {
-        throw new Error(`missing ${source.id} performance evidence: ${source.path}`);
-    }
-    if (matches.length > 1)
-    {
-        throw new Error(`ambiguous ${source.id} performance evidence in downloaded artifacts`);
-    }
-    return matches[0];
+    throw new Error(`missing ${source.id} performance evidence: ${source.path}`);
 }
 
-async function readSummary(root, source, artifactDirectories)
+async function readSummary(root, source)
 {
-    const absolute = resolveSourceFile(root, source, artifactDirectories);
+    const absolute = resolveSourceFile(root, source);
     if (absolute === null)
     {
         return {
@@ -186,7 +174,7 @@ export function resolvePerformanceEvidenceWorkers({
     return Math.min(sourceCount, resolveManifestWorkers(runtime));
 }
 
-async function readAllSummaries(root, sources, artifactDirectories)
+async function readAllSummaries(root, sources)
 {
     const entries = new Array(sources.length);
     const failures = [];
@@ -200,7 +188,7 @@ async function readAllSummaries(root, sources, artifactDirectories)
             nextIndex += 1;
             try
             {
-                entries[index] = await readSummary(root, sources[index], artifactDirectories);
+                entries[index] = await readSummary(root, sources[index]);
             }
             catch (error)
             {
@@ -260,7 +248,7 @@ export async function aggregatePerformanceEvidence(rootValue = repositoryRoot)
 {
     const root = path.resolve(rootValue);
     const sources = currentPerformanceEvidenceSources(root);
-    const entries = await readAllSummaries(root, sources, downloadedArtifactDirectories(root));
+    const entries = await readAllSummaries(root, sources);
     const summary = {
         schema: 'fsusblog.performance-evidence-summary.v1',
         status: aggregateStatus(entries),

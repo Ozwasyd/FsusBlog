@@ -385,19 +385,6 @@ WebAuthn Level 3 Signal API 是浏览器侧 best-effort 副作用，不属于账
 
 后台控制面身份独立于 `sys_user`，只使用 admin principal / session / passkey 表。首次 root admin bootstrap 必须带 `X-Fsus-Admin-Bootstrap-Token`，该 token 只从 `FSUSBLOG_ADMIN_BOOTSTRAP_TOKEN` 或 `Admin:BootstrapToken` 读取；存在 active root admin 后 bootstrap 端点固定拒绝。`X-Fsus-Admin-Handle` 只在 bootstrap begin 指定后台 handle，不写入匿名账号。所有后台控制面端点必须校验 `identity_kind=admin_principal` 与具体 `admin_permission` claim，不得接受 legacy `sys_user.role=admin`。
 
-| 方法 | 路径 | 请求 / 响应 frame | 权限 |
-| ------ | ------ | ------------------- | ------ |
-| POST | `/api/binary/auth/admin/bootstrap/passkey/begin` | 响应 `PasskeyRegisterBegin` | 匿名 + bootstrap token |
-| POST | `/api/binary/auth/admin/bootstrap/passkey/complete` | 请求 `PasskeyRegisterCompleteRequest`，响应 `EmptySuccess` | 匿名 + bootstrap token |
-| POST | `/api/binary/auth/admin/login/passkey/begin` | 响应 `PasskeyLoginBegin` | 匿名 |
-| POST | `/api/binary/auth/admin/login/passkey/complete` | 请求 `PasskeyLoginCompleteRequest`，响应 `EmptySuccess` | 匿名 |
-| POST | `/api/binary/auth/admin/step-up/passkey/begin` | 响应 `PasskeyLoginBegin` | admin principal + `admin.manage` |
-| POST | `/api/binary/auth/admin/step-up/passkey/complete` | 请求 `PasskeyLoginCompleteRequest`，响应 `MfaChallengeResult` | admin principal + `admin.manage` |
-| GET | `/api/binary/auth/admin/me` | 响应 `AdminPrincipalSnapshot` | admin principal + `admin.manage` |
-| POST | `/api/binary/auth/admin/logout` | 响应 `EmptySuccess` | admin principal + `admin.manage` |
-| GET | `/api/binary/auth/admin/sessions` | 响应 `AdminSessionList` | admin principal + `admin.manage` |
-| POST | `/api/binary/auth/admin/sessions/{sessionId}/revoke` | 响应 `EmptySuccess` | admin principal + `admin.manage` |
-| POST | `/api/binary/auth/admin/sessions/revoke-others` | 响应 `EmptySuccess` | admin principal + `admin.manage` |
 
 admin 登录只接受 Passkey/Security Key assertion。成功会写入独立 `AdminAccessToken` / `AdminSessionId` Cookie；生产读取只接受 `__Host-AdminAccessToken` / `__Host-AdminSessionId`，未前缀 admin Cookie 只在清理路径删除，不作为认证 fallback。JWT 必须包含 `identity_kind=admin_principal`、`admin_id`、`admin_sid` 与多值 `admin_permission` claim，不得签发 `ClaimTypes.Role` / `role=admin` 兼容 claim，也不得把 role claim 作为后台授权来源。请求期认证必须按 `admin_sid` 回查 `admin_session` 并校验 principal active、session 未撤销、idle/absolute 未过期、`AccessTokenHash` 与当前 token 匹配、session principal id 与 `admin_id` 一致；失败返回未认证/未授权并删除 admin session cookies，成功时只通过 row-version、旧 token hash 和旧过期时间谓词更新 `LastSeenAtUtc`，stale 更新按 session conflict 处理。`GET /api/binary/auth/admin/me` 从已验证的 admin principal claims 生成 `AdminPrincipalSnapshot`，用于前端从 HttpOnly Cookie 恢复 independent admin workspace，不得退回 legacy `sys_user.role=admin`。admin-sensitive step-up 只接受 `/api/binary/auth/admin/step-up/passkey/begin|complete` 的管理员 Passkey 再认证，不读取普通 `sys_user` MFA 状态，也不接受普通用户 MFA proof。
 
@@ -965,16 +952,10 @@ Submit 同样受 `read_proof` 专用限流保护。限流 key 是 path + 一分�
 
 公开 `CategoryList` / `TagList` 的 `articleCount` 只统计公开可见文章，不能作为后台删除判断。管理端 taxonomy 读取必须使用 `/api/binary/author/taxonomy/categories` 与 `/api/binary/author/taxonomy/tags`，返回真实阻断引用：
 
-管理端分类和标签写入均使用 binary mutation path。创建成功响应 `MutationId`，编辑器可用返回的 `id` 立即选中新建分类或关联新建标签，不能只依赖刷新列表后按名称猜测；更新和删除成功响应 `EmptySuccess`：
+管理端分类和标签写入均使用 binary mutation path。`CategoryWriteRequest(33)` 与 `TagWriteRequest(34)` 的当前 payload 是 136-byte `TaxonomyMetadataMutationRequestPod`（`Utf8Fixed128 Name` + `Utf8SliceRef Description`），后接标准 `int32 blobByteLength` 与 UTF-8 description blob。description 持久化前 trim，空白归一化为 `NULL`，超过 500 个 Unicode scalar value 的请求在数据库修改前返回 validation error。迁移期后端同时接受精确 128-byte legacy `NameMutationRequestPod`：legacy create 写 `Description = NULL`，legacy update 只更新名称并保留已有 description。新格式 update 同时替换名称与 description。该 description 不进入 `CategoryList`、`TagList`、文章 taxonomy projection 或文章列表契约。
 
-| 方法 | 路径 | 请求 frame | 响应 frame |
-| ------ | ------ | ------------ | ------------ |
-| POST | `/api/binary/category` | `CategoryWriteRequest` | `MutationId` |
-| PUT | `/api/binary/category/{id}` | `CategoryWriteRequest` | `EmptySuccess` |
-| DELETE | `/api/binary/category/{id}` | — | `EmptySuccess` |
-| POST | `/api/binary/tag` | `TagWriteRequest` | `MutationId` |
-| PUT | `/api/binary/tag/{id}` | `TagWriteRequest` | `EmptySuccess` |
-| DELETE | `/api/binary/tag/{id}` | — | `EmptySuccess` |
+创建成功响应 `MutationId`，编辑器可用返回的 `id` 立即选中新建分类或关联新建标签，不能只依赖刷新列表后按名称猜测；更新和删除成功响应 `EmptySuccess`：
+
 
 上述六个 admin mutation 只有在 PublicHot `required-taxonomy` dirty generation 已持久化且 typed delivery receipt 允许成功后才返回成功。bounded channel 已满时，持久化的 `persisted-dirty` receipt 仍授权成功并由 full rebuild 恢复；delivery result 为 `cancelled`、`closed` 或 `failed` 时返回 HTTP `500` + AEDS `ApiError(Code=InfraFailure)`，不得返回 `MutationId` / `EmptySuccess`。该失败可能发生在 taxonomy 数据库写入已经提交之后，不表示事务回滚。客户端必须先重读 `/api/binary/author/taxonomy/categories` 或 `/api/binary/author/taxonomy/tags` 再决定是否重试，尤其不能盲目重放 create。运维恢复 Redis 后按 [PublicHot recovery runbook](../architecture/public-aot-runtime-state-boundary.md#recovery-runbook) 触发或等待 full rebuild。
 
@@ -2025,16 +2006,6 @@ X-Fsus-Pow-Answer: <nonce 值>
 
 公开分发端点只暴露 `published` 且到达发布时间的文章；`draft`、`scheduled`、`archived`、`deleted` 不得出现在 feed、sitemap、related-reading、搜索索引或 PublicAOT 公开缓存中。
 
-| 方法 | 路径 | 响应 | 说明 |
-| ------ | ------ | ------ | ------ |
-| GET | `/feed/rss.xml` | `application/rss+xml` | RSS 2.0，包含 title、canonical URL、summary、author、published/update time、cover enclosure |
-| GET | `/api/Article/rss` | `application/rss+xml` | 历史兼容路径，内容等同 `/feed/rss.xml` |
-| GET | `/feed/atom.xml` | `application/atom+xml` | Atom feed |
-| GET | `/feed/feed.json` | `application/feed+json` | JSON Feed 1.1 |
-| GET | `/sitemap.xml` | `application/xml` | 首页、文章、归档、关于、隐私政策、用户守则、版权声明、分类、标签；排除登录、用户、admin |
-| GET | `/sitemap/{page}.xml` | `application/xml` | 仅当根 sitemap 达到容量边界并输出 index 时提供对应子 urlset；无效页返回 404 |
-| GET | `/robots.txt` | `text/plain` | 声明 sitemap，并拒绝私有路由 |
-| GET | `/api/binary/article/{articleId}/related.aeds` | `AedsFrameType.ArticleRelatedReading` | 基于分类、标签、全文关键词和发布时间的公开延伸阅读 |
 
 feed、sitemap 与 robots 响应使用 `Cache-Control: public, max-age=60, stale-while-revalidate=300` 并挂载 OutputCache ArticleList/Seo tag；端点不按正文手写 ETag，也不在请求线程解析 `If-None-Match`。RSS channel 的 copyright 来源于合规配置；`robots.txt` 明确禁止 `/api/`、`/user`、`/admin`、搜索索引二进制与 patch 目录，同时保留 `/api/public/`、`/feed/`、`/sitemap.xml` 与公开路由可抓取。
 
@@ -2056,10 +2027,6 @@ urlset 每页上限为 45,000，超过后根 `/sitemap.xml` 改为 sitemap index
 
 订阅表单使用 AEDS，不保存明文 email；服务端只写入由 `Subscription:EmailHashPepper` 派生的 `HMAC-SHA256(normalizedEmail)` keyed lookup identifier、`hash_version` 与归一化 channel。该值仅用于本部署内去重/查找，不是明文 email，也不是跨环境或跨系统稳定身份标识；旧裸 `SHA256(normalizedEmail)` 只允许在迁移期作为一次性匹配来源并在下一次写入时升级到当前 HMAC。公开退订必须额外携带一次性 `X-Fsus-Subscription-Proof`，proof 由服务内部签发并可交给受控外部投递域发送，绑定 keyed email hash 与 channel；当前公开 API 不提供明文 email 查询或无 proof 退订入口。
 
-| 方法 | 路径 | 请求帧 | 响应帧 | 说明 |
-| ------ | ------ | -------- | -------- | ------ |
-| POST | `/api/binary/subscriptions` | `SiteSubscriptionRequest` | `SiteSubscriptionResponse` | 启用订阅，响应只包含 `subscribed=true` 与归一化 channel |
-| DELETE | `/api/binary/subscriptions` | `SiteSubscriptionRequest` + `X-Fsus-Subscription-Proof` | `SiteSubscriptionResponse` | 退订；缺失、重放、过期或绑定不匹配返回 428 + `ApiError` frame，DB 不更新 |
 
 `SiteSubscriptionRequest` payload 是 `SiteSubscriptionRequestPod`：fixed UTF-8 `Email(256)` + `Channel(32)`。`SiteSubscriptionResponse` payload 是 `SiteSubscriptionResponsePod`：`subscribed:byte`、`unsubscribed:byte`、reserved、fixed UTF-8 `Channel(32)`。非法 email 返回 HTTP 400 + `ApiError` frame，响应不得回显明文 email。退订 proof 不进入 AEDS payload，cache key 只使用 proof token hash，不包含原始 email；DELETE 先按绑定的 `email_hash` + `channel` 非消费校验 proof，只有 `site_subscription` 更新成功后才提交一次性消费，DB 失败或请求取消时 proof 保持可重试。
 
@@ -2087,15 +2054,8 @@ urlset 每页上限为 45,000，超过后根 `/sitemap.xml` 改为 sitemap index
 
 ### 文章生命周期
 
-`Article.Status` 的服务端枚举为：
-
-| 值 | 语义 |
-| ---- | ------ |
-| `Draft` | 草稿，不进入公开读链 |
-| `Scheduled` | 首次定时发布候选，到点后由 worker 转为 `Published` |
-| `Published` | 公开可读 |
-| `Archived` | 归档隐藏，不进入公开分发 |
-| `Deleted` | 逻辑删除，保留原有回收站语义 |
+`Article.Status` 的 exact set 由 [`design.md`](design.md) 的 generated section 拥有；
+本文件只保留下方由同一 observation 生成的 allowed/forbidden transition projections。
 
 `CreateArticleRequest` 与 `UpdateArticleRequest` 支持 `status`、`scheduledPublishAt`、`rights` 和独立 `resetRights`。rights 省略表示 `preserve`，完整 payload 表示 `replace`，`resetRights=true` 且 rights 省略表示 `reset`；reset 与 replacement payload 同时出现返回 `Validation/details=article_rights_reset_payload_conflict`，replace 缺少完整 payload 返回 `article_rights_payload_required`，未知 mutation 返回 `article_rights_mutation_invalid`。create 的 preserve/reset 使用仓库默认值；普通 update 的 preserve 保留当前有效策略；revision rollback 不接受 rights mutation，而是复制源 revision 的不可变 rights snapshot，缺失时返回 `Validation/details=article_revision_package_incomplete`；内容 import 没有 rights 时按 create preserve 绑定默认值。公开读路径必须检查 `IsDeleted=false`、`Status=Published` 和有效 `current_publication_id`，并沿 publication 绑定的 revision/rights/responsibility 读取。首次定时发布仍检查 `ScheduledPublishAt<=now`；已发布文章的未来更新记录在 `pending_publication_at`，不会提前替换当前 publication，worker 直接使用目标 revision 已绑定的 rights snapshot。
 
@@ -2148,18 +2108,6 @@ Rollback request frame `ArticleRevisionRollbackRequest(213)` 的 payload 是 AED
 
 服务端在同一 PostgreSQL 事务中执行 base revision CAS、复制源 revision 的正文/分类/标签、复制源 rights 与 responsibility 到新 snapshot 绑定、创建新 revision/release，并写只引用新坐标的 mutation outbox。新 revision 持久化 `rollback_source_revision_id`、执行 admin principal 与 `rollback_reason`；源 revision/publication 永不更新或重新启用。base 冲突返回 `409 article_revision_conflict`，缺少完整历史绑定返回 `Validation/details=article_revision_package_incomplete`，非法目标与原因分别返回 `article_rollback_status_invalid`、`article_rollback_reason_invalid`；所有失败分支均不得留下 revision、snapshot、release、公开 artifact 或 outbox。Draft/Archived release 是不可变非公开坐标，只有 Published rollback 进入公开读取；AOT/search/feed/binary cache 与 notification stream 只消费新 outbox 坐标。
 
-| 方法 | 路径 | 说明 |
-| ------ | ------ | ------ |
-| POST | `/api/binary/author/drafts` | 保存服务端草稿；payload 包含 `expectedServerRevision`、`baseRevisionId`、`status`、`scheduledPublishAt` 与完整 `rights`。新建用 `null`，已有草稿必须精确匹配；成功原子递增 `serverRevision`，相同 client/content 重试不重复递增 |
-| GET | `/api/binary/author/drafts/{draftKey}` | 读取服务端草稿；不存在时返回 `success=true,data=null`，存在时原样返回 `serverRevision`、`baseRevisionId`、`updatedAt`、`clientRevision`、发布状态与 `rights` |
-| DELETE | `/api/binary/author/drafts/{draftKey}?expectedServerRevision={revision}` | 按服务端版本条件丢弃草稿；stale 版本返回 `409 draft_conflict` 且不删除，成功后编辑器按 identity/article scope 清除未确认正文 journal |
-| POST | `/api/binary/author/preview` | admin-only 私有预览，输出规范化结构数据、source identity 与发布前 issues，不含 HTML，不写 PublicAOT cache |
-| POST | `/api/binary/author/prepublish-check` | 发布前检查标题、SEO 描述、封面 URL、Markdown 结构、链接、图片 alt 与危险 HTML |
-| GET | `/api/binary/author/articles/{articleId}/revisions` | 最近 50 条修订摘要；actor 字段为 `createdByAdminPrincipalId`，rollback revision 额外返回源 revision 与原因 |
-| GET | `/api/binary/author/articles/{articleId}/revisions/{revisionId}` | 可读历史版本包：正文/分类/标签 metadata、rights snapshot、responsibility snapshot、关联 release、rollback provenance 与 `packageComplete` |
-| GET | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/responsibility` | `ArticleResponsibilityHistory(228)`；按版本倒序返回该 revision 的 append-only 责任快照历史与 previous 指针 |
-| POST | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/rollback` | request frame `ArticleRevisionRollbackRequest(213)`；基于完整历史包创建新 revision/release；必须携带 `X-Fsus-Mfa-Proof` |
-| PUT | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/responsibility` | 携带 `expectedVersion` CAS 并只追加快照；成功返回 snapshot/version/previous/publication 坐标，冲突返回 `409 article_responsibility_version_conflict` |
 
 草稿 `draft_conflict` 使用 HTTP 409 `ApiError(251)`；`details` 是有界 JSON `{currentServerRevision,currentUpdatedAt,titleSummary}`，不包含正文、摘要、封面、分类标签、rights、article revision 或任何身份材料。双标签页、乱序自动保存和 stale discard 都走同一失败面；客户端不得自动重放冲突 mutation。普通网络失败可用原 `clientRevision + expectedServerRevision` 重试，服务端用内容一致性识别已成功但响应丢失的幂等重试。
 | POST | `/api/binary/author/articles/{articleId}/assets/reindex` | 从正文和封面重建资产引用 |
@@ -2293,7 +2241,7 @@ Notification deployment drill 请求固定为 `{releaseId,slot,generation,drillI
 
 编辑器侧栏必须基于当前表单和 `SeoConfigContract.baseUrl` 实时给出搜索/分享预览：标题、description、canonical URL、OG image 与当前公开路由 slug。提交 `Published` 或 `Scheduled` 前必须调用 `/api/binary/author/prepublish-check`；`severity=error` 阻断提交，`severity=warning` 必须在确认发布弹窗中要求作者填写 `warningOverrideReason` 后才能跳过，服务端写入 `prepublish-warning-override` 审计事件。检查项覆盖标题/摘要/封面、危险 HTML 标签和事件属性、Markdown 未闭合代码块、超大/密集 Markdown 结构、正文图片 alt text、空链接、不安全协议、私有站内路径以及 `/article|category|tag/{id}` 格式错误。当前真实公开文章路由仍以 `/article/{id}` 为准，新文章在落库前只显示 draft-preview slug，不新增持久化 slug 字段。
 
-`AssetLibraryItemResponse` 暴露 `id`、`url`、`altText`、`sourceArticleId`、`referenceCount`、`sha256`、`updatedAt`。重建资产索引会扫描所有文章正文中的 Markdown 图片和文章封面，只接受 `/uploads/illustration/*` 图片 URL；正文图片的 alt text 写入资产库，封面作为可复用资产参与引用计数。仍被正文或封面引用的资产 `referenceCount > 0`，失去引用的资产先保留为 `referenceCount=0` 供作者审计，只有 `DELETE /api/binary/author/assets/orphans` 会删除这些孤儿资产库行；该清理不删除上传文件本体。物理删除文件必须走 `/api/binary/file/delete`，并由管理 UI 通过二次确认区分“仅移除配置/索引”和“删除服务器文件”。
+`AssetLibraryItemResponse` 暴露 `id`、`url`、`altText`、`sourceArticleId`、`referenceCount`、`sha256`、`updatedAt`；其中 `id` 是 canonical UUID `AssetId`，`url` 只是 `PublicAssetUrlCodec` 从 `storage_key` 生成的展示边界。资产列表只聚合 `content_asset` 与 `content_asset_reference`，不扫描 Markdown、不运行 DDL，也不维护第二份引用计数。`DELETE /api/binary/author/assets/orphans` 将零引用资产标记为 `pending_delete` 并放入 24 小时延迟清理队列；宽限期恢复引用会取消清理。`DELETE /api/binary/file/delete` 的 AEDS string payload 必须是 `AssetId`；被 article、draft 或 revision 引用时返回 conflict，endpoint 不接受 URL/路径且不构造物理路径。
 
 `AuditLogListResponse` 返回 `items`、`total`、`page`、`pageSize`、`nextCursor` 和 `runtime`。列表查询参数包括 `source`、`type`、`actor`、`action`、`targetType`、`targetId`、`outcome`、`severity`、`fromUtc`、`toUtc`、`cursor`；`actor` 会匹配 actor id/type/role，target 可按 type 和 id 分别过滤。`page/pageSize/total` 保留给旧 UI 兼容和显示估算，真实翻页使用 `occurredAtUtc + id` keyset cursor：首屏不传 `cursor`，下一页传上次响应的 `nextCursor`，服务端按 `occurred_at_utc DESC, id DESC` 查询。`/audit/summary` 对归一化过滤条件使用短 TTL cache，避免每次刷新都重新执行 total/source/action/outcome/severity 多路聚合。`AuditLogItemResponse` 暴露 `source/type/action/outcome/severity/isHighValue`、`actorType/actorId/actorRole`、`targetType/targetId`、`reasonCode`、`eventInfo`、trace/path/method、`ipHash/userAgentHash/sessionIdHash/deviceFingerprintHash` 和 `chainId/prevHash/recordHash/recordMac`。`AuditLogDetailResponse` 额外返回 `contextJson` 与 `tamperEvidenceValid`；`AuditTamperVerifyResponse` 校验当前记录 hash/mac，并按 `chainId` 查询前一条记录，要求当前 `prevHash` 等于前驱 `recordHash`，首条记录则要求不存在前驱。所有审计查询端点位于 admin-only `/api/binary/author/audit/**`，并会写入 `admin.audit.queried` 审计事件。
 
@@ -2421,12 +2369,6 @@ origin fail closed without changing assignment or fencing state.
 
 插件管理只注册于独立 admin principal 的 authoring surface：
 
-| Method | Path | Request frame | Response frame |
-| --- | --- | --- | --- |
-| `GET` | `/api/binary/author/plugins` | none | `PluginAdminSnapshot` (233) |
-| `GET` | `/api/binary/author/plugins/{pluginId}` | none | `PluginAdminSnapshot` (233) |
-| `POST` | `/api/binary/author/plugins/install` | `PluginPackageInstallRequest` (232) | `PluginAdminSnapshot` (233) |
-| `POST` | `/api/binary/author/plugins/{pluginId}/actions` | `PluginAdminMutationRequest` (234) | `PluginAdminSnapshot` (233) |
 
 安装 request payload 是未经文本转码的完整 `.fspkg` bytes，受 package reader 的
 32 MiB、entry count、path、checksum、signature 和 manifest 约束；还必须携带
@@ -2441,3 +2383,245 @@ origin fail closed without changing assignment or fencing state.
 计划、当前 grant、Hook 元数据、有界执行指标/日志/错误和逐节点状态；不得返回 package
 bytes、signature、未裁剪 manifest 或异常 message。非当前节点未提交运行态时必须返回
 `not-reported`，不能伪装为 healthy/loaded/cluster-consistent。
+
+## Current cache policy catalog
+
+### Current AEDS version
+
+<!-- fsus-doc-claim
+claimId: binary-api-aeds-contract.aeds-version
+behaviorId: binary-api-aeds-contract
+claimType: generated-section
+generatedSectionId: api.aeds-version
+render: scalar
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN api.aeds-version -->
+2
+<!-- FSUSBLOG-GENERATED:END api.aeds-version -->
+
+### Current article transitions
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.article-transitions
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.article.allowed-transitions
+render: transition-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN content.article.allowed-transitions -->
+| From | To | Guard |
+| --- | --- | --- |
+| Archived | Archived | Create |
+| Archived | Archived | Rollback |
+| Archived | Archived | Update |
+| Archived | Draft | Rollback |
+| Archived | Draft | Update |
+| Archived | Published | Rollback |
+| Archived | Published | Update |
+| Archived | Scheduled | Update |
+| Deleted | Published | Restore |
+| Draft | Archived | Rollback |
+| Draft | Archived | Update |
+| Draft | Draft | Create |
+| Draft | Draft | Rollback |
+| Draft | Draft | Update |
+| Draft | Published | Rollback |
+| Draft | Published | Update |
+| Draft | Scheduled | Update |
+| Published | Archived | Rollback |
+| Published | Archived | Update |
+| Published | Draft | Rollback |
+| Published | Draft | Update |
+| Published | Published | Create |
+| Published | Published | Rollback |
+| Published | Published | ScheduledPublish |
+| Published | Published | Update |
+| Published | Scheduled | Update |
+| Scheduled | Archived | Rollback |
+| Scheduled | Archived | Update |
+| Scheduled | Draft | Rollback |
+| Scheduled | Draft | Update |
+| Scheduled | Published | Rollback |
+| Scheduled | Published | ScheduledPublish |
+| Scheduled | Published | Update |
+| Scheduled | Scheduled | Create |
+| Scheduled | Scheduled | Update |
+<!-- FSUSBLOG-GENERATED:END content.article.allowed-transitions -->
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.article-forbidden-transitions
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.article.forbidden-transitions
+render: transition-table
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN content.article.forbidden-transitions -->
+| From | To | Guard |
+| --- | --- | --- |
+| Archived | Archived | article_status_transition_invalid |
+| Archived | Archived | article_status_transition_invalid |
+| Archived | Deleted | article_deleted_requires_delete_flow |
+| Archived | Deleted | article_deleted_requires_delete_flow |
+| Archived | Deleted | article_deleted_requires_delete_flow |
+| Archived | Deleted | article_deleted_requires_delete_flow |
+| Archived | Deleted | article_deleted_requires_delete_flow |
+| Archived | Draft | article_status_transition_invalid |
+| Archived | Draft | article_status_transition_invalid |
+| Archived | Draft | article_status_transition_invalid |
+| Archived | Published | article_status_transition_invalid |
+| Archived | Published | article_status_transition_invalid |
+| Archived | Published | article_status_transition_invalid |
+| Archived | Scheduled | article_status_transition_invalid |
+| Archived | Scheduled | article_status_transition_invalid |
+| Archived | Scheduled | article_status_transition_invalid |
+| Archived | Scheduled | article_status_transition_invalid |
+| Deleted | Archived | article_status_transition_invalid |
+| Deleted | Archived | article_status_transition_invalid |
+| Deleted | Archived | article_status_transition_invalid |
+| Deleted | Archived | article_status_transition_invalid |
+| Deleted | Archived | article_status_transition_invalid |
+| Deleted | Deleted | article_deleted_requires_delete_flow |
+| Deleted | Deleted | article_deleted_requires_delete_flow |
+| Deleted | Deleted | article_deleted_requires_delete_flow |
+| Deleted | Deleted | article_deleted_requires_delete_flow |
+| Deleted | Deleted | article_deleted_requires_delete_flow |
+| Deleted | Draft | article_status_transition_invalid |
+| Deleted | Draft | article_status_transition_invalid |
+| Deleted | Draft | article_status_transition_invalid |
+| Deleted | Draft | article_status_transition_invalid |
+| Deleted | Draft | article_status_transition_invalid |
+| Deleted | Published | article_status_transition_invalid |
+| Deleted | Published | article_status_transition_invalid |
+| Deleted | Published | article_status_transition_invalid |
+| Deleted | Published | article_status_transition_invalid |
+| Deleted | Scheduled | article_status_transition_invalid |
+| Deleted | Scheduled | article_status_transition_invalid |
+| Deleted | Scheduled | article_status_transition_invalid |
+| Deleted | Scheduled | article_status_transition_invalid |
+| Deleted | Scheduled | article_status_transition_invalid |
+| Draft | Archived | article_status_transition_invalid |
+| Draft | Archived | article_status_transition_invalid |
+| Draft | Archived | article_status_transition_invalid |
+| Draft | Deleted | article_deleted_requires_delete_flow |
+| Draft | Deleted | article_deleted_requires_delete_flow |
+| Draft | Deleted | article_deleted_requires_delete_flow |
+| Draft | Deleted | article_deleted_requires_delete_flow |
+| Draft | Deleted | article_deleted_requires_delete_flow |
+| Draft | Draft | article_status_transition_invalid |
+| Draft | Draft | article_status_transition_invalid |
+| Draft | Published | article_status_transition_invalid |
+| Draft | Published | article_status_transition_invalid |
+| Draft | Published | article_status_transition_invalid |
+| Draft | Scheduled | article_status_transition_invalid |
+| Draft | Scheduled | article_status_transition_invalid |
+| Draft | Scheduled | article_status_transition_invalid |
+| Draft | Scheduled | article_status_transition_invalid |
+| Published | Archived | article_status_transition_invalid |
+| Published | Archived | article_status_transition_invalid |
+| Published | Archived | article_status_transition_invalid |
+| Published | Deleted | article_deleted_requires_delete_flow |
+| Published | Deleted | article_deleted_requires_delete_flow |
+| Published | Deleted | article_deleted_requires_delete_flow |
+| Published | Deleted | article_deleted_requires_delete_flow |
+| Published | Deleted | article_deleted_requires_delete_flow |
+| Published | Draft | article_status_transition_invalid |
+| Published | Draft | article_status_transition_invalid |
+| Published | Draft | article_status_transition_invalid |
+| Published | Published | article_status_transition_invalid |
+| Published | Scheduled | article_status_transition_invalid |
+| Published | Scheduled | article_status_transition_invalid |
+| Published | Scheduled | article_status_transition_invalid |
+| Published | Scheduled | article_status_transition_invalid |
+| Scheduled | Archived | article_status_transition_invalid |
+| Scheduled | Archived | article_status_transition_invalid |
+| Scheduled | Archived | article_status_transition_invalid |
+| Scheduled | Deleted | article_deleted_requires_delete_flow |
+| Scheduled | Deleted | article_deleted_requires_delete_flow |
+| Scheduled | Deleted | article_deleted_requires_delete_flow |
+| Scheduled | Deleted | article_deleted_requires_delete_flow |
+| Scheduled | Deleted | article_deleted_requires_delete_flow |
+| Scheduled | Draft | article_status_transition_invalid |
+| Scheduled | Draft | article_status_transition_invalid |
+| Scheduled | Draft | article_status_transition_invalid |
+| Scheduled | Published | article_status_transition_invalid |
+| Scheduled | Published | article_status_transition_invalid |
+| Scheduled | Scheduled | article_status_transition_invalid |
+| Scheduled | Scheduled | article_status_transition_invalid |
+| Scheduled | Scheduled | article_status_transition_invalid |
+<!-- FSUSBLOG-GENERATED:END content.article.forbidden-transitions -->
+
+<!-- fsus-doc-claim
+claimId: configuration-error-security-policy.cache-policies
+behaviorId: configuration-error-security-policy
+claimType: generated-section
+generatedSectionId: api.security-cache-policies
+render: key-value-table
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN api.security-cache-policies -->
+| Key | Value |
+| --- | --- |
+| AccountSnapshot | {"class":"security-critical","domain":"sec","id":"AccountSnapshot","l1Ttl":{"unit":"seconds","value":30},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"account-snapshot","securityCritical":true} |
+| AccountSnapshotVersion | {"class":"security-critical","domain":"sec","id":"AccountSnapshotVersion","l1Ttl":{"unit":"minutes","value":5},"l2Ttl":{"unit":"days","value":7},"negativeTtl":{"state":"null"},"resource":"account-snapshot-version","securityCritical":true} |
+| AdminStats | {"class":"admin","domain":"admin","id":"AdminStats","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"stats","securityCritical":false} |
+| AdminStatsFrame | {"class":"admin","domain":"admin","id":"AdminStatsFrame","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"stats-frame","securityCritical":false} |
+| AdminStatsOverview | {"class":"admin","domain":"admin","id":"AdminStatsOverview","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"stats-overview","securityCritical":false} |
+| AdminStatsRecentComments | {"class":"admin","domain":"admin","id":"AdminStatsRecentComments","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"minutes","value":5},"negativeTtl":{"state":"null"},"resource":"stats-recent-comments","securityCritical":false} |
+| AdminStatsRegions | {"class":"admin","domain":"admin","id":"AdminStatsRegions","l1Ttl":{"unit":"minutes","value":5},"l2Ttl":{"unit":"minutes","value":30},"negativeTtl":{"state":"null"},"resource":"stats-regions","securityCritical":false} |
+| AnonymousCommentPolicyVersion | {"class":"security-critical","domain":"sec","id":"AnonymousCommentPolicyVersion","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"days","value":7},"negativeTtl":{"state":"null"},"resource":"anonymous-comment-policy-version","securityCritical":true} |
+| AnonymousCommentTicket | {"class":"security-critical","domain":"sec","id":"AnonymousCommentTicket","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":2},"negativeTtl":{"state":"null"},"resource":"anonymous-comment-ticket","securityCritical":true} |
+| ArticleDetail | {"class":"blog","domain":"blog","id":"ArticleDetail","l1Ttl":{"unit":"minutes","value":5},"l2Ttl":{"unit":"hours","value":1},"negativeTtl":{"unit":"minutes","value":5},"resource":"article-detail","securityCritical":false} |
+| ArticleDetailFrame | {"class":"blog","domain":"blog","id":"ArticleDetailFrame","l1Ttl":{"unit":"minutes","value":5},"l2Ttl":{"unit":"hours","value":1},"negativeTtl":{"state":"null"},"resource":"article-detail-frame","securityCritical":false} |
+| ArticleHot | {"class":"blog","domain":"blog","id":"ArticleHot","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"article-hot","securityCritical":false} |
+| ArticleHotFrame | {"class":"blog","domain":"blog","id":"ArticleHotFrame","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"article-hot-frame","securityCritical":false} |
+| ArticleList | {"class":"blog","domain":"blog","id":"ArticleList","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"article-list","securityCritical":false} |
+| ArticleListCount | {"class":"blog","domain":"blog","id":"ArticleListCount","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"minutes","value":30},"negativeTtl":{"state":"null"},"resource":"article-list-count","securityCritical":false} |
+| ArticleListFrame | {"class":"blog","domain":"blog","id":"ArticleListFrame","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"article-list-frame","securityCritical":false} |
+| ArticleListVersion | {"class":"blog","domain":"blog","id":"ArticleListVersion","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"days","value":7},"negativeTtl":{"state":"null"},"resource":"article-list-version","securityCritical":false} |
+| ArticleRss | {"class":"blog","domain":"blog","id":"ArticleRss","l1Ttl":{"unit":"minutes","value":3},"l2Ttl":{"unit":"minutes","value":30},"negativeTtl":{"state":"null"},"resource":"article-rss","securityCritical":false} |
+| ArticleSearch | {"class":"blog","domain":"blog","id":"ArticleSearch","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"article-search","securityCritical":false} |
+| ArticleSearchVersion | {"class":"blog","domain":"blog","id":"ArticleSearchVersion","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"days","value":7},"negativeTtl":{"state":"null"},"resource":"article-search-version","securityCritical":false} |
+| ArticleViewLock | {"class":"security-critical","domain":"sec","id":"ArticleViewLock","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"hours","value":1},"negativeTtl":{"state":"null"},"resource":"article-view-lock","securityCritical":true} |
+| BackgroundWorkerLease | {"class":"runtime","domain":"runtime","id":"BackgroundWorkerLease","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"seconds","value":30},"negativeTtl":{"state":"null"},"resource":"worker-lease","securityCritical":false} |
+| CategoryFrame | {"class":"blog","domain":"blog","id":"CategoryFrame","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"category-frame","securityCritical":false} |
+| CommentCursor | {"class":"blog","domain":"blog","id":"CommentCursor","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"minutes","value":5},"negativeTtl":{"state":"null"},"resource":"comment-cursor","securityCritical":false} |
+| CommentCursorFrame | {"class":"blog","domain":"blog","id":"CommentCursorFrame","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"minutes","value":5},"negativeTtl":{"state":"null"},"resource":"comment-cursor-frame","securityCritical":false} |
+| CommentCursorVersion | {"class":"blog","domain":"blog","id":"CommentCursorVersion","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"days","value":7},"negativeTtl":{"state":"null"},"resource":"comment-cursor-version","securityCritical":false} |
+| HumanReadProof | {"class":"security-critical","domain":"sec","id":"HumanReadProof","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"days","value":1},"negativeTtl":{"state":"null"},"resource":"human-read-proof","securityCritical":true} |
+| MessageUnread | {"class":"msg","domain":"msg","id":"MessageUnread","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"days","value":3},"negativeTtl":{"state":"null"},"resource":"unread","securityCritical":false} |
+| NotificationStreamDrillNonce | {"class":"security-critical","domain":"sec","id":"NotificationStreamDrillNonce","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":1},"negativeTtl":{"state":"null"},"resource":"notification-drill-nonce","securityCritical":true} |
+| PublicAotBackfillLease | {"class":"public","domain":"public","id":"PublicAotBackfillLease","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"seconds","value":30},"negativeTtl":{"state":"null"},"resource":"aot-backfill-lease","securityCritical":false} |
+| PublicAotDocument | {"class":"public","domain":"public","id":"PublicAotDocument","l1Ttl":{"unit":"minutes","value":30},"l2Ttl":{"unit":"days","value":30},"negativeTtl":{"state":"null"},"resource":"aot-doc","securityCritical":false} |
+| PublicAotRegistry | {"class":"public","domain":"public","id":"PublicAotRegistry","l1Ttl":{"unit":"minutes","value":5},"l2Ttl":{"unit":"days","value":30},"negativeTtl":{"state":"null"},"resource":"aot-registry","securityCritical":false} |
+| RelatedReading | {"class":"blog","domain":"blog","id":"RelatedReading","l1Ttl":{"unit":"minutes","value":5},"l2Ttl":{"unit":"minutes","value":30},"negativeTtl":{"state":"null"},"resource":"related-reading","securityCritical":false} |
+| SecurityBlacklistUser | {"class":"security-critical","domain":"sec","id":"SecurityBlacklistUser","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"infinite","value":-1},"negativeTtl":{"state":"null"},"resource":"blacklist-user","securityCritical":true} |
+| SecurityBlockedUser | {"class":"security-critical","domain":"sec","id":"SecurityBlockedUser","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"minutes","value":20},"negativeTtl":{"state":"null"},"resource":"blocked-user","securityCritical":true} |
+| SecurityChallengeEnvelope | {"class":"security-critical","domain":"sec","id":"SecurityChallengeEnvelope","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":5},"negativeTtl":{"state":"null"},"resource":"challenge-envelope","securityCritical":true} |
+| SecurityChallengeProof | {"class":"security-critical","domain":"sec","id":"SecurityChallengeProof","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":5},"negativeTtl":{"state":"null"},"resource":"challenge-proof","securityCritical":true} |
+| SecurityChallengeVerifyRateLimit | {"class":"security-critical","domain":"sec","id":"SecurityChallengeVerifyRateLimit","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":2},"negativeTtl":{"state":"null"},"resource":"challenge-verify-rate","securityCritical":true} |
+| SecurityMfaChallenge | {"class":"security-critical","domain":"sec","id":"SecurityMfaChallenge","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"mfa-challenge","securityCritical":true} |
+| SecurityMfaProof | {"class":"security-critical","domain":"sec","id":"SecurityMfaProof","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"mfa-proof","securityCritical":true} |
+| SecurityPasskeyAuthChallenge | {"class":"security-critical","domain":"sec","id":"SecurityPasskeyAuthChallenge","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":5},"negativeTtl":{"state":"null"},"resource":"pk-auth","securityCritical":true} |
+| SecurityPasskeyRegChallenge | {"class":"security-critical","domain":"sec","id":"SecurityPasskeyRegChallenge","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":5},"negativeTtl":{"state":"null"},"resource":"pk-reg","securityCritical":true} |
+| SecurityPerceptionChallenge | {"class":"security-critical","domain":"sec","id":"SecurityPerceptionChallenge","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":5},"negativeTtl":{"state":"null"},"resource":"perception-challenge","securityCritical":true} |
+| SecurityPoSpaceChallenge | {"class":"security-critical","domain":"sec","id":"SecurityPoSpaceChallenge","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":5},"negativeTtl":{"state":"null"},"resource":"pospace-challenge","securityCritical":true} |
+| SecurityPowProof | {"class":"security-critical","domain":"sec","id":"SecurityPowProof","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":5},"negativeTtl":{"state":"null"},"resource":"pow-proof","securityCritical":true} |
+| SecurityPowRisk | {"class":"security-critical","domain":"sec","id":"SecurityPowRisk","l1Ttl":{"unit":"seconds","value":10},"l2Ttl":{"unit":"minutes","value":2},"negativeTtl":{"state":"null"},"resource":"pow-risk","securityCritical":true} |
+| SecurityRecoveryKeyAttempt | {"class":"security-critical","domain":"sec","id":"SecurityRecoveryKeyAttempt","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"rk-attempt","securityCritical":true} |
+| SecurityRecoveryKeySession | {"class":"security-critical","domain":"sec","id":"SecurityRecoveryKeySession","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"rk-session","securityCritical":true} |
+| SecurityUserSessionValidation | {"class":"security-critical","domain":"sec","id":"SecurityUserSessionValidation","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":2},"negativeTtl":{"state":"null"},"resource":"user-session-validation","securityCritical":true} |
+| SiteSubscriptionUnsubscribeProof | {"class":"security-critical","domain":"sec","id":"SiteSubscriptionUnsubscribeProof","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":15},"negativeTtl":{"state":"null"},"resource":"site-subscription-unsubscribe-proof","securityCritical":true} |
+| SystemCompliance | {"class":"sys","domain":"sys","id":"SystemCompliance","l1Ttl":{"unit":"minutes","value":10},"l2Ttl":{"unit":"days","value":1},"negativeTtl":{"state":"null"},"resource":"compliance","securityCritical":false} |
+| SystemPage | {"class":"sys","domain":"sys","id":"SystemPage","l1Ttl":{"unit":"minutes","value":10},"l2Ttl":{"unit":"days","value":1},"negativeTtl":{"unit":"minutes","value":2},"resource":"page","securityCritical":false} |
+| SystemSeo | {"class":"sys","domain":"sys","id":"SystemSeo","l1Ttl":{"unit":"minutes","value":10},"l2Ttl":{"unit":"days","value":1},"negativeTtl":{"state":"null"},"resource":"seo","securityCritical":false} |
+| TagFrame | {"class":"blog","domain":"blog","id":"TagFrame","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"tag-frame","securityCritical":false} |
+| TaxonomyFrameVersion | {"class":"blog","domain":"blog","id":"TaxonomyFrameVersion","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"days","value":7},"negativeTtl":{"state":"null"},"resource":"taxonomy-frame-version","securityCritical":false} |
+| TopArticles | {"class":"blog","domain":"blog","id":"TopArticles","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"hours","value":2},"negativeTtl":{"state":"null"},"resource":"top-articles","securityCritical":false} |
+| TopArticlesFrame | {"class":"blog","domain":"blog","id":"TopArticlesFrame","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"hours","value":2},"negativeTtl":{"state":"null"},"resource":"top-articles-frame","securityCritical":false} |
+| UserCommentCursor | {"class":"blog","domain":"blog","id":"UserCommentCursor","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"minutes","value":5},"negativeTtl":{"state":"null"},"resource":"user-comment-cursor","securityCritical":false} |
+| UserCommentCursorFrame | {"class":"blog","domain":"blog","id":"UserCommentCursorFrame","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"minutes","value":5},"negativeTtl":{"state":"null"},"resource":"user-comment-cursor-frame","securityCritical":false} |
+| UserCommentCursorVersion | {"class":"blog","domain":"blog","id":"UserCommentCursorVersion","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"days","value":7},"negativeTtl":{"state":"null"},"resource":"user-comment-cursor-version","securityCritical":false} |
+| VisitLock | {"class":"security-critical","domain":"sec","id":"VisitLock","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":30},"negativeTtl":{"state":"null"},"resource":"visit-lock","securityCritical":true} |
+<!-- FSUSBLOG-GENERATED:END api.security-cache-policies -->

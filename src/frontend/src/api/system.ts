@@ -131,7 +131,7 @@ export const refreshPageData = (slug: string, config?: ApiRequestConfig) =>
  * 删除文件
  * 删除请求必须携带 PoW 证明。
  */
-export const deleteImage = (url: string, config?: ApiRequestConfig) =>
+export const deleteImage = (assetId: string, config?: ApiRequestConfig) =>
   requestBinaryOnly<null>({
     binaryRoute: { operationId: 'binary_delete_file_delete' },
     frameType: FrameType.EmptySuccess,
@@ -139,7 +139,7 @@ export const deleteImage = (url: string, config?: ApiRequestConfig) =>
     requestOptions: {
       method: 'DELETE',
       requiresPow: true,
-      body: encodeAedsFrame(FrameType.FileDeleteRequest, encodeStringMutationRequest(url))
+      body: encodeAedsFrame(FrameType.FileDeleteRequest, encodeStringMutationRequest(assetId))
     }
   })
 

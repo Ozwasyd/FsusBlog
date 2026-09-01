@@ -7,6 +7,10 @@ import {
     computeAuditReceiptContentDigest,
     validateAuditReceipt
 } from '../../tools/test-fixtures/producers/audit-producer.mjs';
+import {
+    createAuditRecordsPort,
+    createDefaultProducerPorts
+} from '../../tools/test-fixtures/producers/catalog-ports.mjs';
 
 function context(capabilities)
 {
@@ -62,6 +66,20 @@ function receiptFor(plan, overrides = {})
     receipt.contentDigest = computeAuditReceiptContentDigest(receipt);
     return receipt;
 }
+
+test('audit records port is exported once through the default producer registry', () =>
+{
+    const port = createAuditRecordsPort();
+    const defaultAuditPorts = createDefaultProducerPorts()
+        .filter((candidate) => candidate.id === 'audit-records');
+
+    assert.equal(port.id, 'audit-records');
+    assert.equal(port.strategy, 'transaction-fixture');
+    assert.deepEqual(defaultAuditPorts.map((candidate) => candidate.id), ['audit-records']);
+    assert.equal(typeof port.prepare, 'function');
+    assert.equal(typeof port.verify, 'function');
+    assert.equal(typeof port.cleanup, 'function');
+});
 
 test('audit plan is exact, UTC-bound and rejects empty mixing', () =>
 {

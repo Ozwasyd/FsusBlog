@@ -75,7 +75,7 @@ public sealed class ContentAssetContractTests
 
         Uri url = codec.ToPublicUrl(record, baseUri);
 
-        Assert.Equal("https://cdn.example.test/content-assets/images/hero.png", url.ToString());
+        Assert.Equal("https://cdn.example.test/uploads/images/hero.png", url.ToString());
         Assert.True(codec.TryGetStorageKey(url, baseUri, out AssetStorageKey storageKey));
         Assert.Equal(record.StorageKey, storageKey);
     }
@@ -88,7 +88,7 @@ public sealed class ContentAssetContractTests
     [InlineData("https://cdn.example.test/content-assets/images/hero.png#fragment")]
     [InlineData("https://user@cdn.example.test/content-assets/images/hero.png")]
     [InlineData("https://evil.example.test/content-assets/images/hero.png")]
-    [InlineData("https://cdn.example.test/uploads/images/hero.png")]
+    [InlineData("https://cdn.example.test/content-assets/images/hero.png")]
     [InlineData("https://cdn.example.test/content-assets/../secret")]
     [InlineData("https://cdn.example.test/content-assets/%2e%2e/secret")]
     [InlineData("https://cdn.example.test/content-assets/")]
@@ -104,6 +104,47 @@ public sealed class ContentAssetContractTests
     {
         var codec = new PublicAssetUrlCodec();
         Assert.Throws<ArgumentException>(() => codec.ToPublicUrl(ValidRecord(), new Uri("file:///tmp/assets")));
+    }
+
+    [Fact]
+    public void PublicAssetUrlCodec_StringBoundaryRejectsAbsoluteUrlsRegardlessOfHost()
+    {
+        var codec = new PublicAssetUrlCodec();
+
+        Assert.False(codec.TryGetStorageKey(
+            "https://evil.example.test/uploads/images/hero.png",
+            out _));
+        Assert.False(codec.TryGetStorageKey(
+            "https://cdn.example.test/uploads/images/hero.png",
+            out _));
+        Assert.True(codec.TryGetStorageKey("/uploads/images/hero.png", out AssetStorageKey storageKey));
+        Assert.Equal("images/hero.png", storageKey.Value);
+    }
+
+    [Fact]
+    public void ContentAssetMediaInspector_ReadsEveryRuntimeUploadFormatFromCompleteBytes()
+    {
+        foreach ((string extension, byte[] bytes, string mediaType, int width, int height) in new[]
+        {
+            (".png", CreatePng(17, 19), "image/png", 17, 19),
+            (".gif", CreateGif(23, 29), "image/gif", 23, 29),
+            (".jpg", CreateJpegWithLateSof(31, 37), "image/jpeg", 31, 37),
+            (".webp", CreateVp8xWebp(41, 43), "image/webp", 41, 43),
+            (".ico", CreateIco(47, 53), "image/x-icon", 47, 53)
+        })
+        {
+            Assert.True(ContentAssetMediaInspector.TryInspect(extension, bytes, out ContentAssetMediaMetadata metadata));
+            Assert.Equal(mediaType, metadata.MediaType);
+            Assert.Equal(width, metadata.Width);
+            Assert.Equal(height, metadata.Height);
+        }
+    }
+
+    [Fact]
+    public void ContentAssetMediaInspector_RejectsImageWithoutReliableDimensions()
+    {
+        Assert.False(ContentAssetMediaInspector.TryInspect(".png", [137, 80, 78, 71, 13, 10, 26, 10], out _));
+        Assert.False(ContentAssetMediaInspector.TryInspect(".ico", [0, 0, 1, 0, 1, 0], out _));
     }
 
     [Fact]
@@ -206,6 +247,8 @@ public sealed class ContentAssetContractTests
             ContentAssetSchemaValidator.Validate(ValidRecord());
             ContentAssetSchemaValidator.Validate(ValidRecord() with
             {
+                MimeType = "application/pdf",
+                Extension = ".pdf",
                 Sha256 = null,
                 WidthPixels = null,
                 HeightPixels = null
@@ -216,18 +259,18 @@ public sealed class ContentAssetContractTests
     }
 
     [Fact]
-    public void EntityValidation_RejectsInvalidAssetIdStateAndReferenceFields()
+    public void EntityValidation_RejectsEmptyAssetIdStateAndReferenceFields()
     {
         Assert.Throws<ArgumentException>(() => ContentAssetSchemaValidator.Validate(
-            new ContentAsset { AssetId = "/assets/not-a-uuid" }));
+            new ContentAsset { AssetId = Guid.Empty }));
         Assert.Throws<ArgumentException>(() => ContentAssetSchemaValidator.Validate(
-            new ContentAsset { AssetId = CanonicalUuid, StorageKey = "images/hero.png", State = "archived" }));
+            new ContentAsset { AssetId = Guid.Parse(CanonicalUuid), StorageKey = "images/hero.png", State = "archived" }));
         Assert.Throws<ArgumentException>(() => ContentAssetSchemaValidator.Validate(
-            new ContentAssetReference { AssetId = CanonicalUuid, SourceKind = "video", SourceKey = "article/1" }));
+            new ContentAssetReference { AssetId = Guid.Parse(CanonicalUuid), SourceKind = "video", SourceKey = "article/1" }));
         Assert.Throws<ArgumentException>(() => ContentAssetSchemaValidator.Validate(
-            new ContentAssetReference { AssetId = CanonicalUuid, SourceKind = ContentAssetSourceKinds.Article, SourceKey = "" }));
+            new ContentAssetReference { AssetId = Guid.Parse(CanonicalUuid), SourceKind = ContentAssetSourceKinds.Article, SourceKey = "" }));
         Assert.Throws<ArgumentException>(() => ContentAssetSchemaValidator.Validate(
-            new ContentAssetCleanupQueueItem { AssetId = CanonicalUuid, AttemptCount = -1 }));
+            new ContentAssetCleanupQueueItem { AssetId = Guid.Parse(CanonicalUuid), AttemptCount = -1 }));
     }
 
     [Fact]
@@ -237,22 +280,26 @@ public sealed class ContentAssetContractTests
         {
             ContentAssetSchemaValidator.Validate(new ContentAsset
             {
-                AssetId = CanonicalUuid,
+                AssetId = Guid.Parse(CanonicalUuid),
+                StorageClass = "public",
                 StorageKey = "images/hero.png",
                 MimeType = "image/png",
+                Extension = ".png",
                 SizeBytes = 10,
-                State = ContentAssetStates.Ready
+                WidthPixels = 1,
+                HeightPixels = 1,
+                State = ContentAssetStates.Active
             });
             ContentAssetSchemaValidator.Validate(new ContentAssetReference
             {
-                AssetId = CanonicalUuid,
+                AssetId = Guid.Parse(CanonicalUuid),
                 SourceKind = ContentAssetSourceKinds.Article,
                 SourceKey = "article/1",
                 ReferenceCount = 1
             });
             ContentAssetSchemaValidator.Validate(new ContentAssetCleanupQueueItem
             {
-                AssetId = CanonicalUuid,
+                AssetId = Guid.Parse(CanonicalUuid),
                 NotBeforeUtc = DateTime.UtcNow.AddMinutes(5),
                 AttemptCount = 0
             });
@@ -281,6 +328,11 @@ public sealed class ContentAssetContractTests
         Exception? error = Record.Exception(ContentAssetSchemaValidator.ValidateSchema);
 
         Assert.Null(error);
+        Assert.Equal(typeof(Guid), typeof(ContentAsset).GetProperty(nameof(ContentAsset.AssetId))!.PropertyType);
+        SugarColumn contentAssetId = typeof(ContentAsset).GetProperty(nameof(ContentAsset.AssetId))!
+            .GetCustomAttribute<SugarColumn>(inherit: false)!;
+        Assert.Equal("id", contentAssetId.ColumnName);
+        Assert.Equal("uuid", contentAssetId.ColumnDataType);
     }
 
     [Fact]
@@ -362,15 +414,83 @@ public sealed class ContentAssetContractTests
     private static AssetRecord ValidRecord()
         => new(
             AssetId.Parse(CanonicalUuid),
+            "public",
             AssetStorageKey.Parse("images/hero.png"),
             "image/png",
+            ".png",
             4096,
             "3f3b2e7a1d2e4f8a9c5b6a7b8c9d0e1f3f3b2e7a1d2e4f8a9c5b6a7b8c9d0e1f",
             800,
             600,
-            ContentAssetState.Ready,
+            null,
+            ContentAssetState.Active,
             s_utcNow,
             s_utcNow);
+
+    private static byte[] CreatePng(int width, int height)
+    {
+        var bytes = new byte[24];
+        new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }.CopyTo(bytes, 0);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(bytes.AsSpan(16, 4), width);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(bytes.AsSpan(20, 4), height);
+        return bytes;
+    }
+
+    private static byte[] CreateGif(ushort width, ushort height)
+    {
+        var bytes = new byte[10];
+        "GIF89a"u8.CopyTo(bytes);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(6, 2), width);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(8, 2), height);
+        return bytes;
+    }
+
+    private static byte[] CreateJpegWithLateSof(ushort width, ushort height)
+    {
+        var bytes = new byte[534];
+        bytes[0] = 0xff;
+        bytes[1] = 0xd8;
+        bytes[2] = 0xff;
+        bytes[3] = 0xe0;
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16BigEndian(bytes.AsSpan(4, 2), 520);
+        bytes[524] = 0xff;
+        bytes[525] = 0xc0;
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16BigEndian(bytes.AsSpan(526, 2), 7);
+        bytes[528] = 8;
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16BigEndian(bytes.AsSpan(529, 2), height);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16BigEndian(bytes.AsSpan(531, 2), width);
+        return bytes;
+    }
+
+    private static byte[] CreateVp8xWebp(int width, int height)
+    {
+        var bytes = new byte[30];
+        "RIFF"u8.CopyTo(bytes);
+        "WEBP"u8.CopyTo(bytes.AsSpan(8));
+        "VP8X"u8.CopyTo(bytes.AsSpan(12));
+        int encodedWidth = width - 1;
+        int encodedHeight = height - 1;
+        bytes[24] = (byte)encodedWidth;
+        bytes[25] = (byte)(encodedWidth >> 8);
+        bytes[26] = (byte)(encodedWidth >> 16);
+        bytes[27] = (byte)encodedHeight;
+        bytes[28] = (byte)(encodedHeight >> 8);
+        bytes[29] = (byte)(encodedHeight >> 16);
+        return bytes;
+    }
+
+    private static byte[] CreateIco(byte width, byte height)
+    {
+        var bytes = new byte[23];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(2, 2), 1);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(4, 2), 1);
+        bytes[6] = width;
+        bytes[7] = height;
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(14, 4), 1);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(18, 4), 22);
+        bytes[22] = 1;
+        return bytes;
+    }
 
     private static AssetReference ValidReference()
         => new(
@@ -378,6 +498,8 @@ public sealed class ContentAssetContractTests
             ContentAssetSourceKinds.Article,
             "article/1",
             1,
+            1,
+            "hero",
             s_utcNow);
 
     private static string[] GetPrimaryKeyColumns(Type entityType)

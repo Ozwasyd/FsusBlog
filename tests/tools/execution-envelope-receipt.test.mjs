@@ -115,6 +115,15 @@ function envelope(phase, overrides = {})
     });
 }
 
+function resealEnvelope(value, mutate)
+{
+    const envelopeValue = structuredClone(value);
+    mutate(envelopeValue);
+    delete envelopeValue.envelopeDigest;
+    envelopeValue.envelopeDigest = executionEnvelopeDigest(envelopeValue);
+    return envelopeValue;
+}
+
 function browserFragment()
 {
     const base = {
@@ -186,7 +195,9 @@ test('exact planned and actual envelope seals one independently verifiable recei
     assert.equal(receipt.mismatchPaths.length, 0);
     assert.doesNotMatch(JSON.stringify(receipt), /plaintext-secret-value/u);
     assert.equal(receipt.plan.notApplicableFields.browserName,
-        'browser-rendering-not-applicable');
+        applicability.fieldApplicability.browserRendering.notApplicableReason);
+    assert.equal(receipt.plan.notApplicableFields.containerRuntime,
+        applicability.fieldApplicability.services.notApplicableReason);
 });
 
 test('mismatch, fragment tamper, and cross-run splice fail with a location', () =>
@@ -226,19 +237,34 @@ test('required observer absence and diagnostic fragment injection fail closed', 
             admission: 'planned-actual-exact'
         }
     }), /diagnostic fragment/u);
+    assert.throws(() => envelope('planned', { browser: browserFragment() }),
+        /not-applicable observer is present/u);
 });
 
 test('managed browser plan, actual binary, and rendering observation enter aggregate identity', () =>
 {
-    const browserApplicability = structuredClone(applicability);
-    browserApplicability.fieldApplicability.browserRendering = {
-        status: 'required',
-        observerId: 'browser-rendering-runtime',
-        notApplicableReason: null
+    const browserApplicability = resolveExecutionEnvelopeProducer('browser-contract', catalog);
+    const browserIdentity = { ...identity, producerId: browserApplicability.producerId };
+    const browserEnvironment = {
+        ...environment,
+        environment: {
+            ...environment.environment,
+            producerAllowlist: browserApplicability.allowedEnvironment
+        }
     };
     const browser = browserFragment();
-    const plan = envelope('planned', { applicability: browserApplicability, browser });
-    const actual = envelope('actual', { applicability: browserApplicability, browser });
+    const plan = envelope('planned', {
+        applicability: browserApplicability,
+        identity: browserIdentity,
+        environment: browserEnvironment,
+        browser
+    });
+    const actual = envelope('actual', {
+        applicability: browserApplicability,
+        identity: browserIdentity,
+        environment: browserEnvironment,
+        browser
+    });
     const receipt = sealExecutionEnvelopeReceipt({ plan, actual });
     assert.equal(verifyExecutionEnvelopeReceipt(receipt).envelopeDigest,
         plan.envelopeDigest);
@@ -290,7 +316,59 @@ test('unsupported schema and self-digest drift fail independently', () =>
         actual: envelope('actual')
     }));
     receipt.plan.schema = 'fsusblog.test-execution-envelope.v0';
-    assert.throws(() => verifyExecutionEnvelopeReceipt(receipt), /plan integrity/u);
+    assert.throws(() => verifyExecutionEnvelopeReceipt(receipt), /schema validation failed/u);
+});
+
+test('self-consistent receipts cannot omit a current schema field', () =>
+{
+    const plan = resealEnvelope(envelope('planned'), (value) =>
+    {
+        delete value.cpuCount;
+    });
+    const actual = resealEnvelope(envelope('actual'), (value) =>
+    {
+        delete value.cpuCount;
+    });
+    const receipt = sealExecutionEnvelopeReceipt({ plan, actual });
+    assert.equal(receipt.verdict, 'pass');
+    assert.throws(() => verifyExecutionEnvelopeReceipt(receipt),
+        /schema validation failed.*cpuCount/u);
+});
+
+test('reissued envelopes cannot replace the current policy, catalog, or schema identity', () =>
+{
+    for (const field of ['policyDigest', 'catalogDigest', 'schemaIdentity'])
+    {
+        const replacement = `sha256:${'0'.repeat(64)}`;
+        const plan = resealEnvelope(envelope('planned'), (value) =>
+        {
+            value[field] = replacement;
+        });
+        const actual = resealEnvelope(envelope('actual'), (value) =>
+        {
+            value[field] = replacement;
+        });
+        const receipt = sealExecutionEnvelopeReceipt({ plan, actual });
+        assert.equal(receipt.verdict, 'pass');
+        assert.throws(() => verifyExecutionEnvelopeReceipt(receipt),
+            /current contract identity mismatch/u);
+    }
+});
+
+test('reissued envelopes cannot omit a required structured fragment', () =>
+{
+    const plan = resealEnvelope(envelope('planned'), (value) =>
+    {
+        delete value.fragmentDigests.network;
+    });
+    const actual = resealEnvelope(envelope('actual'), (value) =>
+    {
+        delete value.fragmentDigests.network;
+    });
+    const receipt = sealExecutionEnvelopeReceipt({ plan, actual });
+    assert.equal(receipt.verdict, 'pass');
+    assert.throws(() => verifyExecutionEnvelopeReceipt(receipt),
+        /fragment set is incomplete/u);
 });
 
 test('independent file verifier rejects a plan from another attempt', () =>

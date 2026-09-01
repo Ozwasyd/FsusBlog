@@ -8,8 +8,9 @@
         "schema",
         "runIdentity",
         "sourceIdentity",
-        "buildIdentity",
+        "buildIdentities",
         "catalogDigest",
+        "registryDigest",
         "extractorDigests",
         "rendererDigests",
         "inputDigests",
@@ -74,33 +75,20 @@
                 }
             }
         },
-        "buildIdentity": {
-            "type": [
-                "object",
-                "null"
-            ],
-            "additionalProperties": false,
-            "required": [
-                "artifactId",
-                "receiptDigest",
-                "artifactDigest"
-            ],
-            "properties": {
-                "artifactId": {
-                    "type": "string",
-                    "minLength": 1
-                },
-                "receiptDigest": {
-                    "type": "string",
-                    "pattern": "^[a-f0-9]{64}$"
-                },
-                "artifactDigest": {
-                    "type": "string",
-                    "pattern": "^[a-f0-9]{64}$"
-                }
+        "buildIdentities": {
+            "type": "object",
+            "propertyNames": {
+                "pattern": "^[a-z][a-z0-9-]*$"
+            },
+            "additionalProperties": {
+                "$ref": "#/$defs/buildIdentity"
             }
         },
         "catalogDigest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+        },
+        "registryDigest": {
             "type": "string",
             "pattern": "^[a-f0-9]{64}$"
         },
@@ -285,6 +273,29 @@
         }
     },
     "$defs": {
+        "buildIdentity": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "artifactId",
+                "receiptDigest",
+                "artifactDigest"
+            ],
+            "properties": {
+                "artifactId": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "receiptDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "artifactDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                }
+            }
+        },
         "behaviorNode": {
             "type": "object",
             "additionalProperties": false,

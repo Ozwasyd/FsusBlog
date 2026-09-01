@@ -25,7 +25,8 @@ import { digestValue as receiptDigestValue, sealMutationEvidenceReceipt } from '
 import {
     deriveBehaviorMutationOwners,
     loadBehaviorMutationOwnerCatalog,
-    loadFactExtractorRegistry
+    loadFactExtractorRegistry,
+    validateBehaviorMutationOwnerCatalog
 } from '../../tools/test-matrix/behavior-mutation-owner.mjs';
 import {
     canonicalProducerCommand,
@@ -106,6 +107,35 @@ if (sharedOwnerClosureResult.errors.length > 0)
     throw new Error(`owner closure fixture: ${sharedOwnerClosureResult.errors.join('; ')}`);
 }
 const sharedOwnerClosure = sharedOwnerClosureResult.closure;
+
+const EXPECTED_MUTATION_OWNER_FILES = Object.freeze({
+    'authentication-session-permission': [
+        'src/backend/Entities/UserSessionAuthenticationContext.cs',
+        'src/backend/Infrastructure/Auth/AdminPermissions.cs',
+        'src/backend/Infrastructure/Auth/AuthCookieService.cs',
+        'src/backend/Infrastructure/Helpers/JwtHelper.cs',
+        'src/backend/Services/Security/AdminPrincipalService.cs',
+        'src/backend/Services/Security/MfaChallengeService.cs',
+        'src/backend/Services/Security/PasskeyService.cs',
+        'src/backend/Services/Security/RecoveryKeyService.cs',
+        'src/backend/Services/Security/UserSecurityStepUpService.cs',
+        'src/backend/Services/UserLoginWorkflowService.cs',
+        'src/backend/Services/UserSessionCommandService.cs'
+    ],
+    'configuration-error-security-policy': [
+        'src/backend/Entities/AnonymousCommentPolicy.cs',
+        'src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs',
+        'src/backend/Infrastructure/Cache/CachePolicyRegistry.cs',
+        'src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs',
+        'src/backend/Models/Security/SecurityAdminModels.cs',
+        'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.SecurityChallenge.cs',
+        'src/backend/Services/Security/RedisPowService.cs',
+        'src/backend/Services/Security/SecurityAdminPolicyService.cs',
+        'src/backend/Services/Security/SecurityChallengeOrchestrator.cs',
+        'src/backend/Services/Security/SecurityChallengeVerifyRateLimiter.cs',
+        'src/core/Common/ErrorCode.cs'
+    ]
+});
 
 function ownerReceiptFixture()
 {
@@ -629,6 +659,78 @@ function matrixFixture({ manualOnly = false, cadence = 'pr', requiredFor = 'prod
     ].join('\n');
 }
 
+test('mutation-owner catalog has an exact disjoint C# source closure for required security behaviors', () =>
+{
+    const bindingsByBehavior = new Map();
+    const ownerBySource = new Map();
+    for (const binding of sharedOwnerClosure.bindings)
+    {
+        if (!bindingsByBehavior.has(binding.behaviorId))
+        {
+            bindingsByBehavior.set(binding.behaviorId, []);
+        }
+        bindingsByBehavior.get(binding.behaviorId).push(binding.sourcePath);
+        assert.equal(ownerBySource.has(binding.sourcePath), false, `duplicate mutation owner for ${binding.sourcePath}`);
+        ownerBySource.set(binding.sourcePath, binding.behaviorId);
+    }
+
+    for (const [behaviorId, expectedSources] of Object.entries(EXPECTED_MUTATION_OWNER_FILES))
+    {
+        assert.deepEqual(
+            [...(bindingsByBehavior.get(behaviorId) ?? [])].sort(),
+            [...expectedSources].sort(),
+            `${behaviorId} mutation-owner source closure drifted`
+        );
+    }
+    for (const behaviorId of REQUIRED_BEHAVIORS)
+    {
+        assert.ok((bindingsByBehavior.get(behaviorId) ?? []).length > 0, `${behaviorId} must select C# mutants`);
+    }
+});
+
+test('mutation-owner catalog rejects every missing security owner and shared-source ambiguity', () =>
+{
+    const ownerCatalog = loadBehaviorMutationOwnerCatalog(root);
+    const factExtractorRegistry = loadFactExtractorRegistry(root);
+    for (const [behaviorId, sources] of Object.entries(EXPECTED_MUTATION_OWNER_FILES))
+    {
+        for (const sourcePath of sources)
+        {
+            const mutated = structuredClone(ownerCatalog);
+            const entry = mutated.behaviors.find((candidate) => candidate.behaviorId === behaviorId);
+            entry.sourceFiles = entry.sourceFiles.filter((candidate) => candidate !== sourcePath);
+            const result = validateBehaviorMutationOwnerCatalog({
+                behaviorCatalog: sharedCatalog,
+                factExtractorRegistry,
+                ownerCatalog: mutated,
+                repositoryRoot: root
+            });
+            assert.equal(result.ok, false, `removing ${sourcePath} must fail closed`);
+            assert.ok(
+                result.errors.some((error) => error.includes(sourcePath)),
+                `${sourcePath} removal must produce a source-specific error:\n${result.errors.join('\n')}`
+            );
+        }
+    }
+
+    const ambiguous = structuredClone(ownerCatalog);
+    ambiguous.behaviors
+        .find((entry) => entry.behaviorId === 'configuration-error-security-policy')
+        .sourceFiles.push('src/backend/Services/Security/PasskeyService.cs');
+    const ambiguousResult = validateBehaviorMutationOwnerCatalog({
+        behaviorCatalog: sharedCatalog,
+        factExtractorRegistry,
+        ownerCatalog: ambiguous,
+        repositoryRoot: root
+    });
+    assert.equal(ambiguousResult.ok, false);
+    assert.ok(
+        ambiguousResult.errors.some((error) => error.includes('shared by multiple behaviors')
+            && error.includes('src/backend/Services/Security/PasskeyService.cs')),
+        ambiguousResult.errors.join('\n')
+    );
+});
+
 test('behavior mutation qualification: producer + verifier seal and accept a complete release fixture', () =>
 {
     const fixture = buildMutationFixture({ name: 'release-ok', scope: 'release' });
@@ -780,6 +882,11 @@ test('changed-only docs/binding/catalog change triggers the full required closur
             selection.behaviors.map((behavior) => behavior.behaviorId).sort(),
             [...REQUIRED_BEHAVIORS].sort()
         );
+        assert.equal(selection.implementationOwnerClosureDigest, sharedOwnerClosure.contentDigest);
+        for (const behavior of selection.behaviors)
+        {
+            assert.ok(behavior.mutateFiles.length > 0, `${behavior.behaviorId} must select C# mutate files`);
+        }
     }
     const unrelated = selectChangedCriticalMutation({ ...common, changedPaths: ['docs/architecture.md'] });
     assert.equal(unrelated.status, 'empty');

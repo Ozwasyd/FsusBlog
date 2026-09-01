@@ -397,7 +397,7 @@ const confirmDeleteAsset = async (asset: AssetLibraryItemResponse): Promise<void
 
   processing.value = true
   try {
-    await deleteImage(asset.url)
+    await deleteImage(asset.id)
     toast.success('服务器文件已删除')
     await loadAssets()
   } catch (error) {

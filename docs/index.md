@@ -34,6 +34,7 @@
 - [Versioned article mutation outbox](architecture/article-mutation-outbox-versioning.md)
 - [Article mutation side-effect boundaries](architecture/article-mutation-side-effect-boundaries.md)
 - [Article revision concurrency](architecture/article-revision-concurrency.md)
+- [Authoring canvas document boundary](architecture/authoring-canvas-document-boundary.md)
 - [Comment attribution and privacy boundary](architecture/comment-attribution-privacy-boundary.md)
 - [Comment command boundary](architecture/comment-command-boundary.md)
 - [Comment moderation and visibility boundary](architecture/comment-moderation-visibility-boundary.md)

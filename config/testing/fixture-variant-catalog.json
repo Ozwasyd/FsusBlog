@@ -233,7 +233,8 @@
             "id": "unknown-audit-action",
             "value": "unknown audit action",
             "allowedValidityClasses": [
-                "migration-legacy"
+                "migration-legacy",
+                "negative-invalid"
             ],
             "allowedProfiles": [],
             "profileScope": "unbound-retired",
@@ -244,7 +245,8 @@
             "id": "unverified-local-fallback-object",
             "value": "unverified local fallback object",
             "allowedValidityClasses": [
-                "migration-legacy"
+                "migration-legacy",
+                "negative-invalid"
             ],
             "allowedProfiles": [],
             "profileScope": "unbound-retired",

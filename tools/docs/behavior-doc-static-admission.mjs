@@ -57,6 +57,7 @@ import {
     scanDocClaimGovernance,
     validateDocClaimSchemaContract
 } from './doc-claim.mjs';
+import { validateRepositoryMigrationLedger } from './check-document-claim-migration-ledger.mjs';
 import {
     loadCatalog as loadGeneratedSectionCatalog
 } from './generated-fact-sections/catalog.mjs';
@@ -331,6 +332,21 @@ function writeReceipt(file, receipt)
     fs.renameSync(temporary, file);
 }
 
+export function writeFactObservationReceipts(componentsDirectory, observationReceipts)
+{
+    for (const observationReceipt of observationReceipts)
+    {
+        writeReceipt(
+            path.join(
+                componentsDirectory,
+                'fact-observations',
+                `${observationReceipt.extractorId}.json`
+            ),
+            observationReceipt
+        );
+    }
+}
+
 export async function runBehaviorDocStaticAdmission({
     repositoryRoot = root,
     runId = process.env.FSUSBLOG_TEST_RUN_ID || `local-${process.pid}`,
@@ -401,6 +417,7 @@ export async function runBehaviorDocStaticAdmission({
             throw new Error(`DocClaim governance failed: ${claimViolations[0].message}`);
         }
         const claimReceipt = parseRepositoryClaims(repositoryRoot);
+        validateRepositoryMigrationLedger(repositoryRoot);
         base.authorityDigests = authorityDigests(repositoryRoot, catalog, claimReceipt);
 
         const owner = formatOwnerBindingReport(scanBehaviorOwnerBindings({
@@ -461,6 +478,11 @@ export async function runBehaviorDocStaticAdmission({
                 contentDigest: result.receipt.contentDigest
             };
         }
+        // Preserve successful current-source observations before downstream
+        // generated-section admission. A drift failure must retain the exact
+        // receipts required by the canonical generator without weakening the
+        // admission result or discovering a different/latest observation.
+        writeFactObservationReceipts(componentsDirectory, observationReceipts);
 
         const generatedGovernance = scanGeneratedFactSectionGovernance(repositoryRoot);
         if (generatedGovernance.length > 0)
@@ -514,14 +536,15 @@ export async function runBehaviorDocStaticAdmission({
         {
             throw new Error(`prose verification failed: ${proseResult.diagnostics[0]?.message}`);
         }
+        const proseClaims = claimReceipt.claims
+            .filter((claim) => claim.declaration.claimType !== 'generated-section');
         const proseReceipt = sealDocClaimVerificationReceipt({
             sourceCommit: sourceIdentity.sourceCommit,
             worktreeFingerprint: sourceIdentity.worktreeFingerprint,
             catalogDigest: digestCatalog(catalog),
             parseReceiptDigest: claimReceipt.contentDigest,
             factObservationDigests,
-            results: claimReceipt.claims
-                .filter((claim) => claim.declaration.claimType !== 'generated-section')
+            results: proseClaims
                 .map((claim) => ({
                     claimId: claim.declaration.claimId,
                     behaviorId: BehaviorId(claim.declaration.behaviorId),
@@ -537,7 +560,7 @@ export async function runBehaviorDocStaticAdmission({
         });
         base.prose = {
             status: 'ok',
-            verifiedClaimCount: claimReceipt.claims.length,
+            verifiedClaimCount: proseClaims.length,
             contentDigest: proseReceipt.contentDigest
         };
 
@@ -558,17 +581,6 @@ export async function runBehaviorDocStaticAdmission({
         writeReceipt(path.join(componentsDirectory, 'doc-claim-parse.json'), claimReceipt);
         writeReceipt(path.join(componentsDirectory, 'doc-claim-verification.json'), proseReceipt);
         writeReceipt(path.join(componentsDirectory, 'generated-section-check.json'), generatedReceipt);
-        for (const observationReceipt of observationReceipts)
-        {
-            writeReceipt(
-                path.join(
-                    componentsDirectory,
-                    'fact-observations',
-                    `${observationReceipt.extractorId}.json`
-                ),
-                observationReceipt
-            );
-        }
 
         base.status = 'ok';
     }

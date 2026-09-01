@@ -1,8 +1,8 @@
 using System.IO.Compression;
 using System.Text;
 
+using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
-using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 using FsusBlog.Server.Infrastructure.Themes;
 using FsusBlog.Server.Tests.TestInfrastructure;
 

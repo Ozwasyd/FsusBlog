@@ -584,6 +584,7 @@ FSUSBLOG_TEST_CLUSTER_BOOTSTRAP=${FSUSBLOG_TEST_CLUSTER_BOOTSTRAP:-none}
 FSUSBLOG_TEST_CLUSTER_FIXTURES=${FSUSBLOG_TEST_CLUSTER_FIXTURES:-}
 FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME=${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}
 FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID=${FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID:-}
+FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET=${FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET:-}
 FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET=${FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET:-}
 ConnectionStrings__DefaultConnection=$POSTGRES_CONNECTION
 ConnectionStrings__Redis=$REDIS_CONNECTION
@@ -1648,7 +1649,7 @@ HashBackendInputs() {
             (
                 cd "$ROOT_DIR"
                 {
-                    for file in Directory.Build.props Directory.Build.targets; do
+                    for file in Directory.Build.props Directory.Packages.props Directory.Build.targets; do
                         if [[ -f "$file" ]]; then
                             printf '%s\0' "$file"
                         fi
@@ -2102,6 +2103,7 @@ InvokeFixtureOrchestrator() {
         export FSUSBLOG_PG_CONTAINER="$POSTGRES_CONTAINER"
         export FSUSBLOG_REDIS_CONTAINER="$REDIS_CONTAINER"
         export FSUSBLOG_REDIS_CONTAINER_NAME="$REDIS_CONTAINER"
+        export FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET="$LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET"
         export FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET="$LOCAL_AUTH_FIXTURE_SECRET"
         if [[ -n "${FSUSBLOG_TEMPORAL_CONTEXT_FILE:-}" ]]; then
             unset FSUSBLOG_TEMPORAL_CONTEXT_JSON

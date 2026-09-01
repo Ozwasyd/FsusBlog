@@ -386,6 +386,8 @@ tiers:
               tests/coverage-registry.json,
               config/testing/fixture-capability-catalog.json,
               config/testing/fixture-consumer-inventory.generated.json,
+              config/testing/media-negative-corpus-plan.json,
+              config/testing/media-shape-catalog.json,
               config/testing/fixture-producer-registry.json,
               config/testing/fixture-profile-catalog.json,
               config/testing/content-field-contracts.generated.json,
@@ -426,6 +428,8 @@ tiers:
               src/backend/Services/Articles/ArticlePublicationValidator.cs,
               src/backend/Models/Dtos/CommentDto.cs,
               src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs,
+              config/schemas/media-negative-corpus-plan.schema.json,
+              config/schemas/media-shape-catalog.schema.json,
               tests/tools,
               tests/frontend,
               src/frontend/package.json,
@@ -439,6 +443,10 @@ tiers:
               tools/testing/content-shape-catalog.mjs,
               tools/testing/generate-fixture-catalog-artifacts.mjs,
               tools/test-fixtures/content-shape-generator.mjs,
+              tools/test-fixtures/media-negative-corpus.mjs,
+              tools/test-fixtures/canonical-media-asset-store.mjs,
+              tools/test-fixtures/media-positive-generator.mjs,
+              tools/test-fixtures/media-shape-catalog.mjs,
               tools/test-matrix,
               tools/testing/generate-test-execution-envelope-applicability.mjs,
               tools/test/bundles,
@@ -534,6 +542,7 @@ tiers:
       cacheInputs:
           [
               Directory.Build.props,
+              Directory.Packages.props,
               FsusBlog.slnx,
               config/contracts/behavior-contracts.json,
               config/contracts/behavior-fact-extractors.json,
@@ -654,6 +663,17 @@ tiers:
               config/schemas/behavior-test-evidence.schema.json,
               src/shared/Contracts/Governance/BehaviorTestKind.cs,
               src/shared/Contracts/Governance/CoversBehaviorAttribute.cs,
+              tests/backend/Integration/UserSessionSensitiveEndpointIntegrationTests.cs,
+              tests/backend/Unit/BinaryTransportHotPathContractTests.cs,
+              tests/backend/Unit/CommentMutationOutboxPostgresTests.cs,
+              tests/backend/Unit/ProductionStartupValidatorTests.cs,
+              tests/backend/Unit/UserSessionJwtAuthenticationTests.cs,
+              tests/tools/code-intent.test.mjs,
+              tests/tools/document-lifecycle.test.mjs,
+              tests/tools/release-reliability-receipt.test.mjs,
+              tests/tools/test-asset-audit.test.mjs,
+              tests/tools/test-matrix-topology.test.mjs,
+              tests/tools/zero-downtime-rehearsal.test.mjs,
               tools/contracts/behavior-test.mjs,
               tools/contracts/behavior-test-binding.mjs,
               tools/test-observations,
@@ -743,6 +763,123 @@ tiers:
       smartGateMode: always
       retentionClass: must-keep
       triggerReason: every runtime/browser/production/release candidate requires a source-bound BehaviorGraph pre-runtime evidence receipt joining static admission, current-run test evidence, and per-behavior mutation evidence before any candidate can start
+
+    - id: behavior-evidence-post-runtime
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
+      owner: ServerContractAgent
+      qualificationEligible: true
+      command: bash tools/test/bundles/behavior-evidence-post-runtime.sh
+      outputReceiptSchema: fsusblog.behavior-evidence-post-runtime-receipt.v1
+      executionDependsOn:
+          [behavior-evidence-pre-runtime, browser-contract, production-correctness]
+      requiresEvidenceFrom:
+          [behavior-evidence-pre-runtime, browser-contract, production-correctness]
+      services: []
+      parallelizable: false
+      exclusiveResources: [behavior-evidence-post-runtime]
+      phase: 5
+      cost: low
+      resourceClass: io
+      cpuWeight: 1
+      memoryWeight: 1
+      minCpuUnits: 1
+      maxParallel: 1
+      requiresBootstrap: none
+      requiresNode: true
+      requiresDotnet: false
+      requiresPlaywright: none
+      evidenceClass: correctness
+      cacheProfile: none
+      timeoutMinutes: 5
+      shardable: false
+      defaultShards: 1
+      risk: critical
+      cadence: release-manual
+      requiredFor: release-final
+      coverage: [behavior-evidence-post-runtime]
+      artifacts: [.tmp/behavior-evidence-post-runtime/receipt.json]
+      evidence:
+          [
+              .tmp/behavior-evidence-post-runtime/receipt.json,
+              .tmp/behavior-evidence-pre-runtime/receipt.json,
+              .tmp/browser-contract/receipt.json,
+              .tmp/release-evidence/browserless-correctness-receipt.json,
+              config/contracts/behavior-contracts.json,
+              config/schemas/behavior-evidence-post-runtime-receipt.schema.json,
+              tools/release/release-final-domain-evidence.mjs,
+              tools/test-matrix/behavior-evidence-post-runtime.mjs,
+              tools/test/bundles/behavior-evidence-post-runtime.sh,
+              tests/tools/behavior-evidence-post-runtime.test.mjs,
+              tests/matrix.yml,
+          ]
+      ciJob: release-final
+      localOnly: false
+      nightlyOnly: false
+      manualOnly: true
+      retentionClass: must-keep
+      triggerReason: release-final requires one current-run source/build/candidate-bound join of the verified pre-runtime graph with correctness and browser observations
+
+    - id: behavior-document-consistency-final
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
+      owner: ServerContractAgent
+      qualificationEligible: true
+      command: bash tools/test/bundles/behavior-document-consistency-final.sh
+      outputReceiptSchema: fsusblog.behavior-document-consistency-final-report.v1
+      executionDependsOn: [behavior-evidence-post-runtime]
+      requiresEvidenceFrom:
+          [behavior-doc-static-admission, behavior-evidence-pre-runtime, behavior-evidence-post-runtime]
+      services: []
+      parallelizable: false
+      exclusiveResources: [behavior-document-consistency-final]
+      phase: 5
+      cost: low
+      resourceClass: io
+      cpuWeight: 1
+      memoryWeight: 1
+      minCpuUnits: 1
+      maxParallel: 1
+      requiresBootstrap: none
+      requiresNode: true
+      requiresDotnet: false
+      requiresPlaywright: none
+      evidenceClass: correctness
+      cacheProfile: none
+      timeoutMinutes: 5
+      shardable: false
+      defaultShards: 1
+      risk: critical
+      cadence: release-manual
+      requiredFor: release-final
+      coverage: [behavior-document-consistency-final]
+      artifacts: [.tmp/behavior-document-consistency-final/report.json]
+      evidence:
+          [
+              .tmp/behavior-document-consistency-final/report.json,
+              .tmp/behavior-doc-static-admission,
+              .tmp/behavior-evidence-pre-runtime/receipt.json,
+              .tmp/behavior-evidence-post-runtime/receipt.json,
+              config/contracts/behavior-contracts.json,
+              config/contracts/document-claim-migration-ledger.json,
+              config/schemas/behavior-document-consistency-final-report.schema.json,
+              tools/docs/behavior-document-consistency-final.mjs,
+              tools/test/bundles/behavior-document-consistency-final.sh,
+              tests/tools/behavior-document-consistency-final.test.mjs,
+              tests/matrix.yml,
+          ]
+      ciJob: release-final
+      localOnly: false
+      nightlyOnly: false
+      manualOnly: true
+      retentionClass: must-keep
+      triggerReason: the final deterministic gate aggregates sealed owner/fact/test/doc/mutation/pre/post authorities, rejects legacy residue and DAG cycles, and emits one recomputable report without repairing producers
 
     - id: pr-smart-gate-plan
       executionClass: coordination
@@ -902,6 +1039,7 @@ tiers:
       triggerPaths:
           [
               Directory.Build.props,
+              Directory.Packages.props,
               FsusBlog.slnx,
               global.json,
               src/backend/**,
@@ -1038,6 +1176,7 @@ tiers:
       requiredFor: fast
       coverage:
           - frontend-unit
+          - frontend-image-upload-runtime
           - frontend-public-shell-sticky-geometry
           - frontend-public-home-editorial
           - frontend-public-content-driven-covers
@@ -1061,6 +1200,7 @@ tiers:
           - .tmp/frontend/timings/frontend-unit-shard.json
           - .tmp/test-results/evidence-producers/frontend-unit-shard
           - .tmp/test-results/release-domain-assertions/frontend-unit-shard
+          - tests/frontend/unit/composables/useImageUploadRuntime.test.ts
           - src/frontend/src/components/public/usePublicStickyGeometry.ts
           - tests/frontend/unit/components/usePublicStickyGeometry.test.ts
           - tests/public-shell-sticky-geometry-evidence.json
@@ -1151,7 +1291,11 @@ tiers:
               src/frontend/vitest.perf.config.ts,
               src/frontend/src,
               tests/frontend/property,
-              tests/frontend/model,
+              tests/frontend/unit/composables/useAuthLogin.test.ts,
+              tests/frontend/unit/composables/useAdminArticleWrite.authoringGates.test.ts,
+              tests/frontend/unit/composables/useAdminSettingsPage.test.ts,
+              tests/frontend/unit/composables/useAccountMessagesInbox.draftIsolation.test.ts,
+              tests/frontend/unit/composables/useImageUploadRuntime.test.ts,
               tests/frontend/benchmarks,
               tools/test/lanes/frontend-property-model-perf.sh,
               tools/test/lanes,
@@ -1428,12 +1572,15 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               benchmarks/core,
               src/backend,
               src/core,
+              src/migration,
               src/shared,
               tests/backend,
+              tests/migration,
               tests/performance/backend-hotpath-budgets.json,
               tests/tools/backend-benchmark-regression.test.mjs,
               tools/check-backend-test-governance.mjs,
@@ -1489,11 +1636,14 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend,
               src/core,
+              src/migration,
               src/shared,
               tests/backend,
+              tests/migration,
               tests/tools/backend-production-shards.test.mjs,
               tools/test/backend-platform-selection.mjs,
               tools/test/run-backend-production-shards.mjs,
@@ -1514,11 +1664,14 @@ tiers:
       requiredFor: fast
       coverage:
           - backend-unit
+          - backend-upload-range-completion
           - blue-green-slot-orchestration
           - backend-runtime-fallback-retirement-a3
           - backend-physical-account-subject-retirement
           - deployment-runtime-lifecycle
           - backend-online-schema-migration-protocol
+          - current-schema-canonical-authority
+          - migration-assembly-boundary
           - backend-typed-schema-ddl-providers
           - blue-green-release-storage-lifecycle
           - atomic-idempotent-upload-commit
@@ -1581,6 +1734,13 @@ tiers:
           - src/backend/Services/SearchIndexService.Dictionary.cs
           - src/backend/Properties/AssemblyInfo.cs
           - tests/backend/FsusBlog.Server.Tests.csproj
+          - tests/migration/FsusBlog.Migration.Tests.csproj
+          - tests/migration/MigrationAssemblyBoundaryTests.cs
+          - src/migration/FsusBlog.Migration.csproj
+          - src/migration/SchemaMigrationPrimitives.cs
+          - src/migration/SchemaMigrationDdlPrimitives.cs
+          - src/migration/SchemaMigrationExecution.cs
+          - src/migration/SchemaMigrationManifest.cs
           - tests/backend/Unit/SearchIndexServiceTests.cs
           - tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs
           - tests/backend/Unit/UserSecurityStepUpServiceTests.cs
@@ -1590,6 +1750,7 @@ tiers:
           - tests/backend/legacy-identity-retirement-evidence.json
           - docs/security.md
           - docs/database-migration.md
+          - docs/online-database-migration.md
           - docs/architecture.md
           - docs/anonymous-identity-smoke-flow.md
           - tests/backend/Unit/DeploymentRuntimeStateTests.cs
@@ -1598,17 +1759,20 @@ tiers:
           - src/backend/Infrastructure/NotificationStream/NotificationStreamConnectionManager.cs
           - src/backend/Infrastructure/NotificationStream/NotificationStreamFrame.cs
           - tests/backend/Unit/OnlineSchemaMigrationPolicyTests.cs
+          - src/backend/Infrastructure/SchemaMigration/CurrentSchemaCanonicalModel.cs
+          - src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs
+          - tests/backend/Unit/SchemaModelInspectorTests.cs
           - tests/backend/Unit/OnlineSchemaMigrationCompatibilityTests.cs
           - tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs
           - tests/backend/Unit/SchemaCompatibilityCoordinateTests.cs
           - tests/backend/Unit/DestructiveMigrationProofTests.cs
-          - src/backend/Infrastructure/SchemaMigration/DestructiveMigrationProofs.cs
+          - src/migration/DestructiveMigrationProofs.cs
           - docs/schema-migrations/destructive-rollback-window-proofs.json
           - tests/backend/Unit/ProductionHealthTests.cs
-          - src/backend/Infrastructure/SchemaMigration/SchemaMigrationPrimitives.cs
-          - src/backend/Infrastructure/SchemaMigration/SchemaMigrationDdlPrimitives.cs
-          - tests/backend/Unit/SchemaMigrationDdlPrimitivesTests.cs
-          - tests/backend/Fixtures/schema-ddl-provider-snapshots.json
+          - src/migration/SchemaMigrationPrimitives.cs
+          - src/migration/SchemaMigrationDdlPrimitives.cs
+          - tests/migration/SchemaMigrationDdlPrimitivesTests.cs
+          - tests/migration/schema-ddl-provider-snapshots.json
           - tests/backend/Unit/ReleaseStorageLifecycleTests.cs
           - tests/backend/Unit/PublicAotFileShellCacheTests.cs
           - tests/backend/Helpers/TestInfrastructure/PublicAotCrashWorkerProgram.cs
@@ -1737,6 +1901,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend/Infrastructure/Distributed,
               src/backend/Infrastructure/PublicAot/PublicAotBackfillLease.cs,
@@ -2027,6 +2192,9 @@ tiers:
           - test-retention-classification
           - test-asset-audit-reconciliation
           - node-governance-policy-convergence
+          - media-negative-corpus
+          - media-positive-generator
+          - media-shape-catalog
           - test-temporal-authority
           - integrity-proof-docs-consistency
           - immutable-release-identity
@@ -2042,6 +2210,7 @@ tiers:
           - appsettings-authority-governance
           - zk-artifact-lifecycle-ownership
           - release-evidence-classification-governance
+          - evidence-location-governance
           - security-domain-structure-governance
           - configuration-layout-governance
           - operations-layout-governance
@@ -2054,6 +2223,8 @@ tiers:
           - dead-code-audit-governance
           - deployment-runtime-lifecycle
           - backend-online-schema-migration-protocol
+          - current-schema-canonical-authority
+          - migration-assembly-boundary
           - public-representation-coordinate-closed-loop
           - backend-typed-schema-ddl-providers
           - blue-green-release-storage-lifecycle
@@ -2123,6 +2294,17 @@ tiers:
           - tools/test/governance-suite-plan.mjs
           - tools/test/run-governance-suites.mjs
           - tests/tools/governance-suite-plan.test.mjs
+          - config/testing/media-negative-corpus-plan.json
+          - config/schemas/media-negative-corpus-plan.schema.json
+          - tools/test-fixtures/media-negative-corpus.mjs
+          - tests/tools/media-negative-corpus.test.mjs
+          - tools/test-fixtures/canonical-media-asset-store.mjs
+          - tools/test-fixtures/media-positive-generator.mjs
+          - tests/tools/media-positive-generator.test.mjs
+          - config/testing/media-shape-catalog.json
+          - config/schemas/media-shape-catalog.schema.json
+          - tools/test-fixtures/media-shape-catalog.mjs
+          - tests/tools/media-shape-catalog.test.mjs
           - config/testing/temporal-policy.json
           - config/testing/temporal-context.schema.json
           - config/testing/temporal-callsite-dispositions.json
@@ -2200,6 +2382,16 @@ tiers:
           - src/backend/Infrastructure/Operations/ReleaseIdContract.Generated.cs
           - src/backend/Infrastructure/Operations/ReleaseId.cs
           - src/backend/Infrastructure/SchemaMigration/SchemaCompatibilityCoordinate.cs
+          - src/backend/Infrastructure/SchemaMigration/CurrentSchemaCanonicalModel.cs
+          - src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs
+          - tests/backend/Unit/SchemaModelInspectorTests.cs
+          - tools/db/check-current-schema-authority.mjs
+          - tests/tools/current-schema-authority.test.mjs
+          - tools/db/generate-migration-assembly-receipt.mjs
+          - tools/db/check-migration-assembly-boundary.mjs
+          - tests/tools/migration-assembly-boundary.test.mjs
+          - artifacts/schema-migration/migration-assembly-receipt.json
+          - artifacts/schema-migration/migration-assembly-binding.json
           - src/shared/Contracts/Validation/schema-compatibility-coordinate.json
           - src/frontend/src/generated/releaseIdContract.ts
           - src/frontend/public/generated/release-id-contract.js
@@ -2309,12 +2501,27 @@ tiers:
           - docs/testing/issue-1174-csharp-entrypoint-ownership.md
           - .editorconfig
           - Directory.Build.props
+          - Directory.Packages.props
           - .git-blame-ignore-revs
           - config/development/csharp-style-policy.json
           - config/development/csharp-style-baseline.json
           - tools/dotnet/check-csharp-style.mjs
           - tests/tools/csharp-style.test.mjs
           - docs/development/csharp-style-enforcement.md
+          - tools/governance/check-central-package-management.mjs
+          - tests/fixtures/governance/central-package-management.json
+          - config/dependencies/required-checks.json
+          - config/dependencies/required-checks.schema.json
+          - tools/governance/dependency-required-checks.mjs
+          - tools/governance/validate-dependency-required-checks.mjs
+          - tools/governance/check-dependency-required-checks.mjs
+          - tests/fixtures/governance/dependency-required-checks.json
+          - tests/tools/dependency-required-checks.test.mjs
+          - renovate.json5
+          - tools/governance/dependency-automerge.mjs
+          - tools/governance/check-dependency-automerge.mjs
+          - tests/fixtures/governance/dependency-automerge.json
+          - tests/tools/dependency-automerge.test.mjs
           - .gitattributes
           - tools/style/line-ending-invariant.mjs
           - tests/tools/line-endings.test.mjs
@@ -2381,6 +2588,32 @@ tiers:
           - tools/operations/evidence-classification.mjs
           - tools/operations/seal-release-evidence-bundle.mjs
           - tests/tools/release-evidence-model.test.mjs
+          - config/testing/current-run-evidence-context.schema.json
+          - config/testing/evidence-locator-registry.schema.json
+          - config/testing/evidence-locator-registry.json
+          - config/testing/evidence-location-migration-ledger.schema.json
+          - config/testing/evidence-location-migration-ledger.json
+          - tools/test/evidence-location-contract.mjs
+          - tools/test/evidence-location-scanner.mjs
+          - tools/test/generate-evidence-location-governance.mjs
+          - tools/test/current-run-evidence-publication.mjs
+          - tools/test/current-run-evidence-checkpoint.mjs
+          - tools/test/run-current-run-evidence-producer.mjs
+          - tools/test/current-run-evidence-producer-hook.mjs
+          - tools/test/current-run-evidence-producer-hook.bash
+          - tools/test/publish-current-run-evidence-reference.mjs
+          - tools/test/publish-release-final-evidence-parent.mjs
+          - tools/test/attach-current-run-evidence-checkpoint.mjs
+          - tools/test/current-run-evidence-transport.mjs
+          - tools/test/run-current-run-evidence-transport.mjs
+          - tests/tools/evidence-location-contract.test.mjs
+          - tests/tools/evidence-location-governance.test.mjs
+          - tests/tools/current-run-evidence-publication.test.mjs
+          - tests/tools/current-run-evidence-scheduler.test.mjs
+          - tests/tools/current-run-evidence-transport.test.mjs
+          - tests/tools/current-run-evidence-locator-negative-matrix.test.mjs
+          - tools/test/generate-current-run-evidence-location-acceptance.mjs
+          - config/testing/current-run-evidence-location-acceptance.json
           - security/evidence-contracts/release-bundle-storage.json
           - security/matrices/privacy-zk-comment.yml
           - tests/fixtures/evidence/anonymous-eligibility-anonymity-set.json
@@ -2586,6 +2819,8 @@ tiers:
           - tools/fact-extractors/content-lifecycle/extract.mjs
           - tools/contracts/lib/content-lifecycle-observation.mjs
           - tests/tools/content-lifecycle-observation.test.mjs
+          - tools/docs/content-doc-exactness.mjs
+          - tests/tools/content-doc-exactness.test.mjs
       ciJob: fast-static-governance
       localOnly: false
       nightlyOnly: false
@@ -2780,6 +3015,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend,
               src/core,
@@ -3218,11 +3454,13 @@ tiers:
               .tmp/acceptance/*.log,
               .tmp/runtime/integration.json,
               .tmp/runtime-scenario-host/**,
+              .tmp/test-results/backend/integration/legacy-real-dump-membership.json,
           ]
       evidence:
           - .tmp/acceptance/*.log
           - .tmp/runtime/integration.json
           - .tmp/runtime-scenario-host/**
+          - .tmp/test-results/backend/integration/legacy-real-dump-membership.json
           - config/testing/runtime-scenario-catalog.json
           - docs/testing/runtime-scenario-host.md
           - tests/backend/runtime-fallback-evidence.json
@@ -3276,6 +3514,82 @@ tiers:
           ]
       triggerCoverage: [runtime-contract-smoke]
       triggerReason: backend runtime, API contract, auth, cache, DB, or runtime smoke inputs changed
+
+    - id: legacy-20260517-real-dump
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
+      owner: ServerContractAgent
+      command: node tools/test/run-legacy-real-dump-producer.mjs
+      outputReceiptSchema: fsusblog.legacy-20260517-real-dump-outcome.v1
+      executionDependsOn: [behavior-doc-static-admission]
+      services: []
+      parallelizable: false
+      exclusiveResources: [database-writes]
+      phase: 2
+      cost: high
+      resourceClass: database
+      cpuWeight: 1
+      memoryWeight: 2
+      minCpuUnits: 1
+      maxParallel: 1
+      requiresBootstrap: none
+      requiresNode: true
+      requiresDotnet: true
+      requiresPlaywright: none
+      cacheProfile: none
+      timeoutMinutes: 30
+      shardable: false
+      defaultShards: 1
+      risk: critical
+      cadence: release-manual
+      manualOnly: true
+      requiredFor: none
+      coverage: [backend-legacy-20260517-real-dump]
+      artifacts:
+          [
+              .tmp/test-results/backend/legacy-20260517-real-dump/membership-plan.json,
+              .tmp/test-results/backend/legacy-20260517-real-dump/legacy-20260517-real-dump.trx,
+              .tmp/test-results/backend/legacy-20260517-real-dump/semantic-outcome.json,
+          ]
+      evidence:
+          [
+              .tmp/test-results/backend/legacy-20260517-real-dump/semantic-outcome.json,
+              tests/backend/Integration/SchemaMigrationIntegrationTests.cs,
+              tools/test/legacy-real-dump-contract.mjs,
+              tools/test/run-legacy-real-dump-producer.mjs,
+              tests/tools/legacy-real-dump-producer.test.mjs,
+              docs/database-migration.md,
+              docs/operations.md,
+              docs/testing.md,
+          ]
+      ciJob: integration-runtime
+      localOnly: true
+      nightlyOnly: false
+      smartGateMode: conditional
+      retentionClass: must-keep
+      triggerPaths:
+          [
+              src/backend/Infrastructure/SchemaMigration,
+              tests/backend/Integration/SchemaMigrationIntegrationTests.cs,
+              tests/backend/Fixtures/PostgresSchemaMigrationFixture.cs,
+              tools/db/verify-legacy-upgrade-20260517.sh,
+              tools/test/legacy-real-dump-contract.mjs,
+              tools/test/run-legacy-real-dump-producer.mjs,
+          ]
+      triggerFiles:
+          [
+              tests/matrix.yml,
+              tests/coverage-registry.json,
+              tests/backend/Fixtures/backend-test-requirements.json,
+              docs/database-migration.md,
+              docs/operations.md,
+              docs/testing.md,
+          ]
+      triggerCoverage: [backend-legacy-20260517-real-dump]
+      triggerReason: real 20260517 dump producer, migration path, or identity evidence contract changed
 
     - id: ci
       executionClass: coordination
@@ -5621,6 +5935,7 @@ tiers:
       cacheInputs:
           [
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               benchmarks/core,
               src/backend,
@@ -5697,6 +6012,7 @@ tiers:
       cacheInputs:
           [
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               benchmarks/core,
               src/backend,
@@ -6210,6 +6526,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               benchmarks/core,
               src/backend,
@@ -6222,6 +6539,7 @@ tiers:
               tools/test/ensure-benchmark-release-build.sh,
               tools/test-matrix/dotnet-build-server-cleanup.mjs,
               tools/test/run-with-dotnet-release-build-lock.sh,
+              tools/test/native-p99-producer-contract.mjs,
               tools/test/lanes/perf-regression.sh,
               tools/test/lanes,
           ]
@@ -6236,16 +6554,22 @@ tiers:
       risk: high
       cadence: pr
       requiredFor: production
-      coverage: [benchmarkdotnet-readiness]
+      coverage: [benchmarkdotnet-readiness, native-groth16-p99]
       artifacts:
           [
               .tmp/backend-perf,
               .tmp/backend-perf/measurement-noise.json,
+              .tmp/backend-perf/native-p99/preflight.json,
+              .tmp/backend-perf/native-p99/measurement.json,
+              .tmp/backend-perf/native-p99/summary.json,
           ]
       evidence:
           [
               .tmp/backend-perf/summary.json,
               .tmp/backend-perf/measurement-noise.json,
+              .tmp/backend-perf/native-p99/preflight.json,
+              .tmp/backend-perf/native-p99/measurement.json,
+              .tmp/backend-perf/native-p99/summary.json,
           ]
       ciJob: perf-regression
       localOnly: false
@@ -6273,6 +6597,7 @@ tiers:
       cacheInputs:
           [
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               benchmarks/core,
               src/backend,
@@ -6887,7 +7212,12 @@ tiers:
               tools/security/comment-privacy-build-contract.mjs,
               src/frontend/wasm/build.sh,
               docs/zk/trusted-setup-ceremony.md,
-              tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs,
+              tests/backend/Unit/AnonymousCommentTicketEndpointFilterTests.cs,
+              tests/backend/Unit/AnonymousCommentTicketRedisConcurrencyTests.cs,
+              tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs,
+              tests/backend/Unit/CommentMutationOutboxAnonymousPostgresTests.cs,
+              tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs,
+              tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs,
               tests/backend/Unit/ActorResolverBehaviorTests.cs,
               tests/backend/Unit/AnonymousCommentPolicyTests.cs,
               tests/backend/Unit/AnonymousIdentitySerializationTests.cs,
@@ -6998,6 +7328,15 @@ tiers:
       cpuWeight: 8
       memoryWeight: 3
       minCpuUnits: 4
+      cacheInputs:
+          [
+              tests/backend/Unit/PerceptionCharacterV3ArtifactPoolTests.cs,
+              tests/backend/Unit/PerceptionCharacterV3Tests.cs,
+              tests/tools/perception-character-v3-redis-fixture.test.mjs,
+              tools/test/lanes/perception-character-v3-release-gate.sh,
+              tools/test/perception-character-v3-redis-fixture.sh,
+              tools/test/perception-redis-producer.mjs,
+          ]
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: true
@@ -7010,7 +7349,11 @@ tiers:
       cadence: push
       requiredFor: production
       coverage: [perception-character-v3-breaking-release]
-      artifacts: [.tmp/security/perception-character-v3/release-gate]
+      artifacts:
+          [
+              .tmp/security/perception-character-v3/release-gate,
+              .tmp/test-results/backend/perception-character-v3-redis-producer.json,
+          ]
       evidence:
           [
               .tmp/security/perception-character-v3/release-gate/gate-summary.json,
@@ -7019,6 +7362,12 @@ tiers:
               .tmp/security/perception-character-v3/release-gate/perception-character-v3-migration-receipt.json,
               .tmp/security/perception-character-v3/release-gate/implementation-verification-receipt.json,
               .tmp/security/perception-character-v3/release-gate/independent-review-receipt.json,
+              .tmp/test-results/backend/perception-character-v3-redis-producer.json,
+              tests/backend/Unit/PerceptionCharacterV3ArtifactPoolTests.cs,
+              tests/backend/Unit/PerceptionCharacterV3Tests.cs,
+              tests/tools/perception-character-v3-redis-fixture.test.mjs,
+              tools/test/perception-character-v3-redis-fixture.sh,
+              tools/test/perception-redis-producer.mjs,
           ]
       ciJob: security-static-fuzz
       localOnly: false
@@ -8256,7 +8605,7 @@ tiers:
       minCpuUnits: 1
       requiresBootstrap: none
       requiresNode: true
-      requiresDotnet: false
+      requiresDotnet: true
       requiresPlaywright: none
       cacheProfile: frontend
       timeoutMinutes: 10
@@ -8269,12 +8618,18 @@ tiers:
       artifacts:
           [
               .tmp/release-evidence/test-quality-summary.json,
+              .tmp/release-evidence/test-quality-summary.generated.md,
+              .tmp/release-evidence/test-oracle-facts.json,
+              .tmp/release-evidence/test-quality-conformance.json,
               .tmp/test-results/evidence-producers/test-quality-lint,
               .tmp/test-results/release-domain-assertions/test-quality-lint,
           ]
       evidence:
           [
               .tmp/release-evidence/test-quality-summary.json,
+              .tmp/release-evidence/test-quality-summary.generated.md,
+              .tmp/release-evidence/test-oracle-facts.json,
+              .tmp/release-evidence/test-quality-conformance.json,
               .tmp/test-results/evidence-producers/test-quality-lint,
               .tmp/test-results/release-domain-assertions/test-quality-lint,
           ]
@@ -8394,6 +8749,8 @@ tiers:
       executionDependsOn: []
       requiresEvidenceFrom:
           [
+              behavior-document-consistency-final,
+              behavior-evidence-post-runtime,
               behavior-evidence-pre-runtime,
               browser-contract,
               coverage-gate-strict,
@@ -8712,6 +9069,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend,
               src/core,
@@ -8789,6 +9147,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend,
               src/core,
@@ -8874,6 +9233,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend,
               src/core,
@@ -8917,6 +9277,9 @@ tiers:
           - .tmp/backend-concurrency/summary.json
           - tests/backend/Unit/FileServiceTests.cs
           - tests/backend/Fixtures/backend-test-requirements.json
+          - tests/backend/Unit/AnonymousCommentTicketRedisConcurrencyTests.cs
+          - tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs
+          - tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs
           - tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs
           - tests/backend/Unit/SubscriptionEndpointsContractTests.cs
           - tests/backend/Integration/DemoFixtureSeederCleanupIntegrationTests.cs
@@ -8971,6 +9334,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend,
               src/core,
@@ -8992,7 +9356,7 @@ tiers:
       risk: high
       cadence: pr
       requiredFor: fast
-      coverage: [backend-property-protocol-cache-upload]
+      coverage: [backend-property-protocol-cache]
       artifacts:
           [
               .tmp/backend-property,
@@ -9032,6 +9396,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend,
               src/core,
@@ -9118,6 +9483,7 @@ tiers:
               tests/backend/Unit/SearchIndexServiceTests.cs,
               tools/test/csharp-source-mask.mjs,
               tools/test/search-index-utf8-scalar-governance.mjs,
+              tests/tools/backend-test-governance-cpm.test.mjs,
               tests/backend/Unit/CoverageScriptContractTests.cs,
               tests/backend/Unit/TestInfrastructure/BackendTestPathsTests.cs,
               tests/tools/backend-trx-contract.test.mjs,

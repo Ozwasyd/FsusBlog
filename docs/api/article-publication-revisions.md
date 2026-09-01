@@ -16,41 +16,9 @@
 
 所有写入经 `ArticlePublicationTransitionWriter` 收口：
 
-普通创建/更新的状态矩阵如下；`✓` 表示允许，`—` 表示拒绝。`Deleted → Published`
-仅代表专用 restore 操作，普通 update 不得使用该边。
-
-| 源状态 ↓ / 目标状态 → | `Draft` | `Scheduled` | `Published` | `Archived` | `Deleted` |
-|---|---:|---:|---:|---:|---:|
-| `Draft` | ✓ | ✓ | ✓ | ✓ | — |
-| `Scheduled` | ✓ | ✓ | ✓ | ✓ | — |
-| `Published` | ✓ | ✓ | ✓ | ✓ | — |
-| `Archived` | ✓ | ✓ | ✓ | ✓ | — |
-| `Deleted` | — | — | restore only | — | — |
-
-`Scheduled` 必须携带严格晚于服务端当前 UTC 时间的 `scheduledPublishAt`；其它目标状态
-不得携带该字段。未定义枚举、缺失/过期计划时间、非法转换和直接写 `Deleted` 都返回
-`ErrorCode.Validation`，并分别在 error `details` 中返回稳定代码
-`article_status_undefined`、`article_scheduled_at_required`、
-`article_scheduled_at_must_be_future`、`article_status_transition_invalid`、
-`article_deleted_requires_delete_flow`（非定时状态附带时间使用
-`article_scheduled_at_not_allowed`）。
-
-| 操作 | 后台状态 | 公开坐标 |
-|---|---|---|
-| 立即发布 | `Published` | 新建发布记录并原子切换 |
-| 首次定时发布 | `Scheduled` | 暂无发布记录，到点后新建 |
-| 已发布文章定时更新 | `Published` + `pending_publication_at` | 到点前保留旧发布记录，到点后切换 |
-| 归档 | `Archived` | 保留历史发布记录，不再公开 |
-| 恢复 | `Published` | 新建恢复发布记录 |
-| 修订回滚到草稿 | `Draft` | 基于完整历史包新建修订和非公开发布记录，转换类型为 `rollback` |
-| 修订回滚并发布 | `Published` | 基于完整历史包新建修订和公开发布记录，转换类型为 `rollback` |
-| 修订回滚并归档 | `Archived` | 基于完整历史包新建修订和非公开发布记录，转换类型为 `rollback` |
-
-操作约束在同一策略内叠加：rollback 只允许显式选择 `Draft`、`Published` 或
-`Archived`，不得隐式默认或进入 `Scheduled`；restore 只允许
-`Deleted → Published`；worker 只允许到期的 `Scheduled → Published` 或带 pending
-publication 的 `Published → Published`。writer 在持有文章行锁后复核源状态，不能由
-请求端或 worker 自报状态绕过。
+Allowed/forbidden transition tables 由 [`contracts.md`](contracts.md) 的 generated
+sections 拥有；scheduled、rollback、restore 与 delete 的坐标关系由本文件和相邻
+current authority 中的 generated sections/受控 prose claims 拥有。
 
 ## 历史版本包与回滚
 
@@ -95,3 +63,108 @@ outbox 事件同时在列和 payload 中保存精确坐标；消费者只处理�
 需要降级时，先停止定时发布 worker 和 outbox 消费（保留待处理事件），再将应用流量
 切回兼容旧列的代码并暂时隐藏回滚入口；数据库新增列和索引保持不删除。恢复新代码后重新启动 worker，
 按事件内精确坐标继续投影，不需要重启 PostgreSQL 或 Redis。
+## Current publication coordinates
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.publication-coordinates
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.article.publication-coordinates
+render: enum-set
+-->
+
+<!-- FSUSBLOG-GENERATED:BEGIN content.article.publication-coordinates -->
+- `publicationId`
+- `publicationNo`
+- `responsibilitySnapshotId`
+- `responsibilityVersion`
+- `revisionId`
+- `revisionNo`
+- `rightsSnapshotId`
+<!-- FSUSBLOG-GENERATED:END content.article.publication-coordinates -->
+
+## 受控 publication 因果事实
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.scheduled-boundary
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.article.scheduled-boundary
+render: key-value-table
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN content.article.scheduled-boundary -->
+| Key | Value |
+| --- | --- |
+| nonScheduledScheduledAt | forbidden |
+| scheduledPublishAt | {"boundary":"exclusive","relationToUtcNow":"strictly-after","required":true,"unit":"utc-instant"} |
+| status | Scheduled |
+<!-- FSUSBLOG-GENERATED:END content.article.scheduled-boundary -->
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.restore-semantics
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.article.restore-semantics
+render: key-value-table
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN content.article.restore-semantics -->
+| Key | Value |
+| --- | --- |
+| createsPublication | true |
+| operation | Restore |
+| revivesOldPublicationPointer | false |
+| source | Deleted |
+| target | Published |
+<!-- FSUSBLOG-GENERATED:END content.article.restore-semantics -->
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.responsibility
+behaviorId: article-comment-lifecycle-outbox
+claimType: generated-section
+generatedSectionId: content.article.responsibility
+render: key-value-table
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN content.article.responsibility -->
+| Key | Value |
+| --- | --- |
+| publicProjection | article_responsibility_snapshot without admin-actor fields |
+| requiredCoordinateWhenPresent | responsibilitySnapshotId |
+| snapshotOptionalOnNonPublish | true |
+| versionField | responsibilityVersion |
+<!-- FSUSBLOG-GENERATED:END content.article.responsibility -->
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.scheduled-pre-due
+behaviorId: article-comment-lifecycle-outbox
+claimType: binary-relation
+factPath: facts.article.scheduled.preDueCurrent
+render: relation-subject-predicate-object
+-->
+scheduled transition before due preserves old current publication coordinate when an article already has a current publication and pendingPublicationAt is still in the future。
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.scheduled-due
+behaviorId: article-comment-lifecycle-outbox
+claimType: binary-relation
+factPath: facts.article.scheduled.dueTransition
+render: relation-subject-predicate-object
+-->
+scheduled due transition creates new publication coordinate and switches current pointer without creating another revision when scheduledPublishAt or pendingPublicationAt is at or before the worker current time。
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.scheduled-stale
+behaviorId: article-comment-lifecycle-outbox
+claimType: binary-relation
+factPath: facts.article.scheduled.replaceCancelStale
+render: relation-subject-predicate-object
+-->
+replacement cancellation or stale schedule does-not-switch current publication pointer before a due row is successfully claimed when the due predicate no longer matches or the row loses the FOR UPDATE SKIP LOCKED claim。
+
+<!-- fsus-doc-claim
+claimId: article-comment-lifecycle-outbox.restore-causal
+behaviorId: article-comment-lifecycle-outbox
+claimType: binary-relation
+factPath: facts.article.restore.causal
+render: relation-subject-predicate-object
+-->
+restore creates new publication coordinate without reviving the old publication or creating a new revision when a soft-deleted article is restored from its existing current revision。

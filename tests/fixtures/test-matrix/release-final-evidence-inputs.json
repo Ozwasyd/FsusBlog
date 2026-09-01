@@ -2,6 +2,8 @@
   "schema": "fsusblog.release-final-evidence-inputs.v1",
   "targetTier": "release-final",
   "inputs": [
+    "behavior-document-consistency-final",
+    "behavior-evidence-post-runtime",
     "behavior-evidence-pre-runtime",
     "browser-contract",
     "coverage-gate-strict",
