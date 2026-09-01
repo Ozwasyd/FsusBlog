@@ -14,7 +14,7 @@ const categorySchema = {
   entityLabel: '分类',
   pageClass: 'category-manage-wrapper',
   pageTitle: '分类管理',
-  pageDescription: '维护文章分类与归档入口。',
+  pageDescription: '',
   summaryAriaLabel: '分类概况',
   summaryDescription: '删除前会检查引用关系。',
   listTitle: '分类列表',

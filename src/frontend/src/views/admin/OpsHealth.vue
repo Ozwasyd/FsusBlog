@@ -2,7 +2,6 @@
     <div class="account-page ops-health-page account-motion-enter w-full">
         <FsusUiTaskPageHeader
             title="服务与后台状态"
-            description="先处理异常，再按需查看正常服务与运行证据。"
             class="account-task-page-header"
             density="compact"
         />

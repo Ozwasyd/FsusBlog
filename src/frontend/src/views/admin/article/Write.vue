@@ -826,6 +826,7 @@ const {
     articleRightsExcerptMax,
     rules,
     validateBeforeSubmit,
+    formRef,
     saveDraftNow,
     handleUploadImg,
     handleCoverUpload,
@@ -1034,7 +1035,8 @@ const requestSubmit = async (): Promise<void> =>
     }
 
     await nextTick();
-    focusFirstArticleValidationError();
+    const firstErrorField = formRef.value?.fields.find((field) => field.validateState === 'error');
+    focusFirstArticleValidationError(firstErrorField?.$el);
 };
 
 const insertAssetIntoEditor = (asset: AssetLibraryItemResponse): void =>
