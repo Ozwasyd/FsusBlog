@@ -411,6 +411,33 @@ public sealed class PublicAotDocumentServiceTests
     }
 
     [Fact]
+    public async Task BuildSeoHeadModelAsync_RegeneratedFilterHead_ObservesUpdatedTaxonomyDescription()
+    {
+        string oldDescription = "old category notes about caching.";
+        string newDescription = "fresh category notes about taxonomy SEO.";
+        string expectedOld = ImageHelper.StripMarkdown(oldDescription, 160);
+        string expectedNew = ImageHelper.StripMarkdown(newDescription, 160);
+        Assert.NotEqual(expectedOld, expectedNew);
+
+        await WithServiceAsync(async service =>
+        {
+            Result<PublicSeoHeadModel> stale = await service.BuildSeoHeadModelAsync(CreateFilterEntry(
+                PublicRouteIdentity.BuildCategoryRouteKey(7),
+                "后端",
+                oldDescription));
+            Result<PublicSeoHeadModel> regenerated = await service.BuildSeoHeadModelAsync(CreateFilterEntry(
+                PublicRouteIdentity.BuildCategoryRouteKey(7),
+                "后端",
+                newDescription));
+
+            Assert.True(stale.IsSuccess, stale.Error.Message);
+            Assert.True(regenerated.IsSuccess, regenerated.Error.Message);
+            AssertSeoDescription(stale.Value!, expectedOld);
+            AssertSeoDescription(regenerated.Value!, expectedNew);
+        });
+    }
+
+    [Fact]
     public async Task BuildSeoHeadModelAsync_TagFilterWithDescription_UsesSummarizedTaxonomyText()
     {
         await AssertFilterDescriptionAsync(

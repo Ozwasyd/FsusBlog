@@ -988,16 +988,20 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             .ExecuteCommandAsync();
         await sqlSugar.Insertable(new ArticleTag { ArticleId = articleId, TagId = tagId }).ExecuteCommandAsync();
 
-        Assert.Equal(1, await BinaryEndpoints.UpdateCategoryAndEnqueueProjectionAsync(
-            sqlSugar,
-            categoryId,
-            "projection-category-after",
-            CancellationToken.None));
-        Assert.Equal(1, await BinaryEndpoints.UpdateTagAndEnqueueProjectionAsync(
-            sqlSugar,
-            tagId,
-            "projection-tag-after",
-            CancellationToken.None));
+        Assert.Equal(
+            BinaryEndpoints.TaxonomyUpdateOutcome.Updated,
+            (await BinaryEndpoints.UpdateCategoryAndEnqueueProjectionAsync(
+                sqlSugar,
+                categoryId,
+                "projection-category-after",
+                CancellationToken.None)).Outcome);
+        Assert.Equal(
+            BinaryEndpoints.TaxonomyUpdateOutcome.Updated,
+            (await BinaryEndpoints.UpdateTagAndEnqueueProjectionAsync(
+                sqlSugar,
+                tagId,
+                "projection-tag-after",
+                CancellationToken.None)).Outcome);
         TagUrlAlias persistedTagAlias = await sqlSugar.Queryable<TagUrlAlias>()
             .Where(alias => alias.TagId == tagId)
             .SingleAsync();
@@ -1008,6 +1012,71 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
                 && (item.EventType == "category-updated" || item.EventType == "tag-updated"))
             .CountAsync();
         Assert.Equal(2, taxonomyOutboxRows);
+
+        Assert.True(BinaryEndpoints.TryNormalizeTaxonomyDescription("  description only  ", out string? descriptionOnly));
+        BinaryEndpoints.TaxonomyUpdateApplyResult categoryDescriptionOnly =
+            await BinaryEndpoints.UpdateCategoryAndEnqueueProjectionAsync(
+                sqlSugar,
+                categoryId,
+                "projection-category-after",
+                descriptionOnly,
+                preserveDescription: false,
+                CancellationToken.None);
+        BinaryEndpoints.TaxonomyUpdateApplyResult tagDescriptionOnly =
+            await BinaryEndpoints.UpdateTagAndEnqueueProjectionAsync(
+                sqlSugar,
+                tagId,
+                "projection-tag-after",
+                descriptionOnly,
+                preserveDescription: false,
+                CancellationToken.None);
+        Assert.Equal(BinaryEndpoints.TaxonomyUpdateOutcome.Updated, categoryDescriptionOnly.Outcome);
+        Assert.False(categoryDescriptionOnly.NameChanged);
+        Assert.True(categoryDescriptionOnly.DescriptionChanged);
+        Assert.Equal(BinaryEndpoints.TaxonomyUpdateOutcome.Updated, tagDescriptionOnly.Outcome);
+        Assert.False(tagDescriptionOnly.NameChanged);
+        Assert.True(tagDescriptionOnly.DescriptionChanged);
+        Assert.Equal(2, await sqlSugar.Queryable<ArticleMutationOutboxEvent>()
+            .Where(item => item.AggregateId == articleId
+                && (item.EventType == "category-updated" || item.EventType == "tag-updated"))
+            .CountAsync());
+        Assert.Equal(1, await sqlSugar.Queryable<TagUrlAlias>().Where(alias => alias.TagId == tagId).CountAsync());
+        Assert.Equal(
+            "description only",
+            await sqlSugar.Queryable<Category>().Where(item => item.Id == categoryId).Select(item => item.Description).SingleAsync());
+        Assert.Equal(
+            "description only",
+            await sqlSugar.Queryable<Tag>().Where(item => item.Id == tagId).Select(item => item.Description).SingleAsync());
+
+        BinaryEndpoints.TaxonomyUpdateApplyResult categoryNoOp =
+            await BinaryEndpoints.UpdateCategoryAndEnqueueProjectionAsync(
+                sqlSugar,
+                categoryId,
+                "projection-category-after",
+                descriptionOnly,
+                preserveDescription: false,
+                CancellationToken.None);
+        Assert.Equal(BinaryEndpoints.TaxonomyUpdateOutcome.NoOp, categoryNoOp.Outcome);
+        Assert.Equal(2, await sqlSugar.Queryable<ArticleMutationOutboxEvent>()
+            .Where(item => item.AggregateId == articleId
+                && (item.EventType == "category-updated" || item.EventType == "tag-updated"))
+            .CountAsync());
+
+        BinaryEndpoints.TaxonomyUpdateApplyResult categoryRenameWithDescription =
+            await BinaryEndpoints.UpdateCategoryAndEnqueueProjectionAsync(
+                sqlSugar,
+                categoryId,
+                "projection-category-renamed-again",
+                "rename and description",
+                preserveDescription: false,
+                CancellationToken.None);
+        Assert.Equal(BinaryEndpoints.TaxonomyUpdateOutcome.Updated, categoryRenameWithDescription.Outcome);
+        Assert.True(categoryRenameWithDescription.NameChanged);
+        Assert.True(categoryRenameWithDescription.DescriptionChanged);
+        Assert.Equal(3, await sqlSugar.Queryable<ArticleMutationOutboxEvent>()
+            .Where(item => item.AggregateId == articleId
+                && (item.EventType == "category-updated" || item.EventType == "tag-updated"))
+            .CountAsync());
 
         IWebHostEnvironment environment = Substitute.For<IWebHostEnvironment>();
         environment.ContentRootPath.Returns(Path.GetTempPath());
