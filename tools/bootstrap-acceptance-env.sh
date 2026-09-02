@@ -2233,6 +2233,10 @@ PublishEnvironmentReadyReceipt() {
 
 WriteRuntimeTopologyInput() {
     RUNTIME_TOPOLOGY_INPUT_FILE="$TMP_DIR/runtime-topology-input.json"
+    # The runtime topology verifier requires a sha256:-prefixed fingerprint,
+    # while the runtime process identities keep the raw snapshot digest; the
+    # same source env feeds both, so normalize here like serviceGeneration.
+    local sourceFingerprint="${FSUSBLOG_TEST_SOURCE_FINGERPRINT#sha256:}"
     jq -n \
         --arg namespace "$FSUSBLOG_TEST_NAMESPACE" \
         --arg backend "$DEBUG_BACKEND_URL" \
@@ -2249,7 +2253,7 @@ WriteRuntimeTopologyInput() {
         --arg mutationPolicy "$FIXTURE_MUTATION_POLICY" \
         --arg executionRunId "${FSUSBLOG_TEST_RUN_ID:?fixture execution run id is required}" \
         --arg sourceCommit "${FSUSBLOG_TEST_SOURCE_COMMIT:?fixture source commit is required}" \
-        --arg sourceFingerprint "${FSUSBLOG_TEST_SOURCE_FINGERPRINT:?fixture source fingerprint is required}" \
+        --arg sourceFingerprint "sha256:${sourceFingerprint:?fixture source fingerprint is required}" \
         --arg serviceGeneration "sha256:${FSUSBLOG_FIXTURE_SERVICE_GENERATION:?fixture service generation is required}" \
         --arg environmentReadyPath "$ENVIRONMENT_READY_RECEIPT_FILE" \
         '{
@@ -2342,6 +2346,12 @@ CurrentSchemaRunDigest() {
     }
 }
 
+# GNU realpath -e and BSD realpath disagree on flags; node's fs.realpath is the
+# portable canonical path and fails when a path component is missing.
+CanonicalRealPath() {
+    "${FSUSBLOG_NODE:-node}" -e 'process.stdout.write(require("node:fs").realpathSync(process.argv[1]))' "$1"
+}
+
 ResolveCurrentSchemaCandidateAssembly() {
     local runtimeConfiguration="${1:?current schema runtime configuration is required}"
     local buildRoot="${FSUSBLOG_PRODUCTION_BUILD_ROOT:-}"
@@ -2352,7 +2362,7 @@ ResolveCurrentSchemaCandidateAssembly() {
         Log 'current schema production build root must be an absolute non-symlink path'
         return 2
     }
-    physicalBuildRoot="$(realpath -e -- "$buildRoot")" || {
+    physicalBuildRoot="$(CanonicalRealPath "$buildRoot")" || {
         Log 'current schema production build root physical path is unavailable'
         return 2
     }
@@ -2371,7 +2381,7 @@ ResolveCurrentSchemaCandidateAssembly() {
         Log 'current schema candidate assembly is missing or not a regular file'
         return 2
     fi
-    physicalAssembly="$(realpath -e -- "$candidateAssembly")" || {
+    physicalAssembly="$(CanonicalRealPath "$candidateAssembly")" || {
         Log 'current schema candidate assembly physical path is unavailable'
         return 2
     }
