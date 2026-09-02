@@ -573,7 +573,7 @@ tooling contract，不进入 AEDS runtime API，也不能被公开客户端或�
 
 统一 SEO 与品牌资产来自同一个 `SeoConfig` AEDS frame，不新增 `/system/brand` 并行主端点。`/api/binary/system/seo` 同时承载基础 SEO、OpenGraph 预览图、favicon/browser icon、Apple Touch Icon、PWA manifest 名称/图标/theme/background、公开站点 logo/wordmark、后台 logo/折叠图标和登录 logo/icon。保存后必须通过 SEO 配置失效链路刷新 HTML head、动态 `manifest.webmanifest`、Public AOT shell、公开 shell hydration、后台与登录页品牌展示；旧配置缺失新增字段时按默认静态路径或空值补齐。资产 URL 只接受站内绝对路径或 `http/https` 绝对 URL，不接受 `javascript:`、`data:` 或协议相对 URL。设置页可以把上传结果按 `ogImage`、`brandLogo`、`faviconSet` 目标语义回填到字段；favicon/PWA 图标组从 PNG/JPG/WebP 源图生成 ICO 与多尺寸 PNG，不引入新的品牌配置端点，也不做栅格图到 SVG 的自动矢量化。
 
-公开 head 不输出 `meta keywords`；历史 `keywords` wire/storage 字段仅用于旧配置兼容，不能作为发布门禁或排名优化信号。description 必须来自当前页面真实内容：文章优先摘要，无摘要时先把 Markdown 转为纯文本再按 Unicode、entity 与句子边界收敛；归档、分类、标签和固定静态页使用各自稳定且可见语义，不回退成同一段站点描述。JSON-LD 的全局实体只有一个 `WebSite`，普通页使用 `WebPage`，归档/分类/标签使用 `CollectionPage`，文章使用 `BlogPosting`。结构化数据用于帮助机器理解页面并取得展示资格，不是排名分数，也不保证富结果。
+公开 head 不输出 `meta keywords`；历史 `keywords` wire/storage 字段仅用于旧配置兼容，不能作为发布门禁或排名优化信号。description 必须来自当前页面真实内容：文章优先摘要，无摘要时先把 Markdown 转为纯文本再按 Unicode、entity 与句子边界收敛；分类和标签若存在 taxonomy `filter.description`，则把该纯文本送入同一套 `Summarize` / 160 字符摘要路径并写入 meta、Open Graph、Twitter 与 JSON-LD，缺失时保留现有分类/标签生成回退，不新增 `SeoDescription` 或 `MetaDescription`；归档和固定静态页使用各自稳定且可见语义，不回退成同一段站点描述。JSON-LD 的全局实体只有一个 `WebSite`，普通页使用 `WebPage`，归档/分类/标签使用 `CollectionPage`，文章使用 `BlogPosting`。结构化数据用于帮助机器理解页面并取得展示资格，不是排名分数，也不保证富结果。
 
 文章时间只使用内容投影：`datePublished` 是实际首次公开时间，`dateModified` 是 `article_body.updated_at` 的实质正文修改时间。可见文本、Microdata、JSON-LD、Feed 与 sitemap 必须共享这两个来源；正文时间不晚于发布时间时不重复展示“更新于”。评论、浏览量、模板和 footer 变化不得推进 `dateModified`。合法文章封面优先成为同一绝对 `og:image`、`twitter:image` 与 `BlogPosting.image`，缺失或协议/格式无效时回退站点社交图片。
 
