@@ -411,9 +411,10 @@ export async function openAuditedPage(browser: Browser, storageState?: StorageSt
 export async function openThemedAuditedPage(
   browser: Browser,
   themeMode: ThemeMode = 'light',
-  storageState?: StorageState
+  storageState?: StorageState,
+  disableServiceWorker = false
 ): Promise<AuditedPageSession> {
-  const auditedContext = await openThemedAuditedContext(browser, themeMode, storageState)
+  const auditedContext = await openThemedAuditedContext(browser, themeMode, storageState, disableServiceWorker)
   const pageSession = await auditedContext.newPage()
   return {
     page: pageSession.page,

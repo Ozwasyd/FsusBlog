@@ -92,6 +92,10 @@ const backendWebRoot = resolve(process.env.FSUSBLOG_BACKEND_WEBROOT || join(clie
 const stableSpaEntryName = 'fsus-spa-entry.js';
 const stablePublicBootKernelName = 'fsus-public-boot-kernel.js';
 const managedDistEntries = ['.vite', 'assets', 'dist', 'favicon.svg', 'generated', 'index.html', 'server', 'sw.js', 'vite.svg', 'wasm'];
+// Static `public/` entries the release preview serves itself (vite.config.ts
+// proxy exclusions). The run-bound build disables Vite's publicDir copy, so
+// sync-run-bound-public-assets must re-assemble them into the shared dist root.
+const runBoundPublicAssets = ['favicon', 'fixtures', 'generated', 'manifest.webmanifest', 'public-shell-emergency.css', 'social', 'sw.js'];
 const fsusUiMarkdownRuntimeAssets = [
     'markdown_simd.js',
     'markdown_simd.wasm',
@@ -504,9 +508,18 @@ async function syncRunBoundPublicAssets()
         return;
     }
     await mkdir(distRoot, { recursive: true });
+    for (const entryName of runBoundPublicAssets)
+    {
+        const sourcePath = join(publicRoot, entryName);
+        if (!(await pathExists(sourcePath)))
+        {
+            throw new Error(`run-bound public asset missing: ${sourcePath}`);
+        }
+        await cp(sourcePath, join(distRoot, entryName), { recursive: true, force: true });
+    }
     await rm(join(distRoot, 'wasm'), { recursive: true, force: true });
     await cp(frontendWasmRoot, join(distRoot, 'wasm'), { recursive: true, force: true });
-    log(`assembled run-bound WASM assets into ${distRoot}`);
+    log(`assembled run-bound public assets into ${distRoot}`);
 }
 
 async function pathExists(path)
@@ -690,9 +703,13 @@ export function createFrontendBuildStages(generatedArgs, generatedAction, {
             id: 'sync-run-bound-public-assets',
             command: ['internal', 'sync-run-bound-public-assets'],
             dependsOn: ['ensure-wasm', 'vite-build'],
-            consumedInputs: [stageFrontendWasmRoot, join(stageDistRoot, 'index.html')],
-            producedArtifacts: runBound ? [join(stageDistRoot, 'wasm')] : [],
-            ownedOutputs: runBound ? [join(stageDistRoot, 'wasm')] : [],
+            consumedInputs: [stageFrontendWasmRoot, stagePublicRoot, join(stageDistRoot, 'index.html')],
+            producedArtifacts: runBound
+                ? [...runBoundPublicAssets.map((entryName) => join(stageDistRoot, entryName)), join(stageDistRoot, 'wasm')]
+                : [],
+            ownedOutputs: runBound
+                ? [...runBoundPublicAssets.map((entryName) => join(stageDistRoot, entryName)), join(stageDistRoot, 'wasm')]
+                : [],
             resources: buildStageResources(1, 1, 0.5, ['frontend-dist-wasm']),
             estimatedDurationMs: 5_000,
             toolchain: { executable: 'node:fs/promises' }
