@@ -18,7 +18,7 @@ LOCK_DIR="$ROOT_DIR/.tmp/locks/public-preview-docs.lock"
 LOCK_TOOL="$ROOT_DIR/tools/docs/public-preview-writer-transaction.mjs"
 ENV_FILE="$ROOT_DIR/.tmp/env/$NAMESPACE.env"
 SOURCE_COMMIT="$(git -C "$ROOT_DIR" rev-parse HEAD)"
-mapfile -t SOURCE_STATE < <(node --input-type=module - "$ROOT_DIR" "$MODE" <<'NODE'
+SOURCE_FINGERPRINT="$(node --input-type=module - "$ROOT_DIR" "$MODE" <<'NODE'
 import { pathToFileURL } from 'node:url'
 const root = process.argv[2]
 const { snapshotGitWorktree } = await import(pathToFileURL(`${root}/tools/test-matrix/scheduler.mjs`).href)
@@ -29,8 +29,7 @@ if (process.argv[3] !== 'manual' && Object.keys(snapshot.entries).length > 0) {
 }
 process.stdout.write(`${snapshot.fingerprint}\n`)
 NODE
-)
-SOURCE_FINGERPRINT="${SOURCE_STATE[0]:-}"
+)"
 [[ "$SOURCE_FINGERPRINT" =~ ^[a-f0-9]{64}$ ]] || {
     printf '[public-preview-capture] could not resolve a clean checkout fingerprint\n' >&2
     exit 1
@@ -88,8 +87,9 @@ export FSUSBLOG_PUBLIC_PREVIEW_WRITER_PID="$$"
 export FSUSBLOG_REPOSITORY_ROOT="$ROOT_DIR"
 export FSUSBLOG_PLAYWRIGHT_MANAGED_ONLY=1
 export FSUSBLOG_PHYSICAL_BUNDLE_ID=standalone
-export FSUSBLOG_STEP_ID=bootstrap
-mapfile -t SEALED_FIXTURE_ENV < <(node --input-type=module - "$ROOT_DIR" <<'NODE'
+while IFS= read -r assignment; do
+    [[ -n "$assignment" ]] && export "$assignment"
+done < <(node --input-type=module - "$ROOT_DIR" <<'NODE'
 import { pathToFileURL } from 'node:url'
 const root = process.argv[2]
 const { loadTestMatrix } = await import(pathToFileURL(`${root}/tools/test-matrix/command-groups.mjs`).href)
@@ -111,9 +111,6 @@ for (const [key, value] of Object.entries(environment).sort(([left], [right]) =>
 }
 NODE
 )
-for assignment in "${SEALED_FIXTURE_ENV[@]}"; do
-    export "$assignment"
-done
 # The canonical bootstrap materializes the current schema from the candidate
 # assembly inside the production build layout. Screenshot capture runs the
 # release runtime (the preview readers target the immutable release preview),

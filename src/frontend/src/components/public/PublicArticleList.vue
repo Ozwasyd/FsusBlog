@@ -144,7 +144,7 @@ const props = withDefaults(defineProps<{
     showPagination: boolean;
 }>(), {
     spaNavigation: false,
-    showReadCta: true,
+    showReadCta: false,
     presentation: 'default'
 });
 

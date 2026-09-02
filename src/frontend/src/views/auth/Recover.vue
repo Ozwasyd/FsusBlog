@@ -1,212 +1,224 @@
 <template>
-  <div class="auth-page-content w-full max-w-md">
-    <section class="w-full max-w-md" aria-labelledby="recover-title">
-      <header class="mb-6">
-        <h1
-          id="recover-title"
-          class="text-2xl font-bold leading-tight tracking-normal text-[var(--fsusblog-text-primary)] sm:text-3xl"
-        >
-          {{ copy.title }}
-        </h1>
-        <p
-          class="mt-4 max-w-sm text-sm font-normal leading-7 text-[var(--fsusblog-text-secondary)]"
-        >
-          {{ copy.description }}
-        </p>
-      </header>
-
-      <form class="space-y-6" novalidate @submit.prevent>
+    <div class="auth-page-content w-full max-w-md">
         <section
-          aria-labelledby="recovery-key-title"
-          class="space-y-4 rounded-[var(--fsus-radius-panel)] border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)] p-5"
+            class="w-full max-w-md"
+            aria-labelledby="recover-title"
         >
-          <div>
-            <h2
-              id="recovery-key-title"
-              class="text-sm font-medium text-[var(--fsusblog-text-primary)]"
-            >
-              {{ copy.sectionTitle }}
-            </h2>
-            <p class="mt-2 text-xs leading-6 text-[var(--fsusblog-text-muted)]">
-              {{ copy.sectionHint }}
-            </p>
-          </div>
+            <header class="mb-6">
+                <h1
+                    id="recover-title"
+                    class="text-2xl font-bold leading-tight tracking-normal text-[var(--fsusblog-text-primary)] sm:text-3xl"
+                >
+                    {{ copy.title }}
+                </h1>
+                <p class="mt-4 max-w-sm text-sm font-normal leading-7 text-[var(--fsusblog-text-secondary)]">
+                    {{ copy.description }}
+                </p>
+            </header>
 
-          <div class="relative group">
-            <label
-              for="recovery-key"
-              class="mb-2 block text-xs font-medium text-[var(--fsusblog-text-secondary)]"
+            <form
+                class="space-y-6"
+                novalidate
+                @submit.prevent
             >
-              {{ copy.keyLabel }}
-            </label>
-            <el-input
-              id="recovery-key"
-              v-model="recoveryKeyInput"
-              name="recoveryKey"
-              :csp-safe="true"
-              type="textarea"
-              :rows="3"
-              :placeholder="copy.keyPlaceholder"
-              autocomplete="off"
-              aria-required="true"
-              :aria-invalid="Boolean(recoveryKeyError)"
-              aria-describedby="recovery-key-help recovery-key-error"
-              :disabled="recoveryKeyLoading"
-            />
-            <p
-              id="recovery-key-help"
-              class="mt-2 text-xs leading-6 text-[var(--fsusblog-text-muted)]"
-            >
-              {{ copy.keyHelp }}
-            </p>
-          </div>
+                <section
+                    aria-labelledby="recovery-key-title"
+                    class="space-y-4"
+                >
+                    <div>
+                        <h2
+                            id="recovery-key-title"
+                            class="text-sm font-medium text-[var(--fsusblog-text-primary)]"
+                        >
+                            {{ copy.sectionTitle }}
+                        </h2>
+                        <p class="mt-2 text-xs leading-6 text-[var(--fsusblog-text-muted)]">
+                            {{ copy.sectionHint }}
+                        </p>
+                    </div>
 
-          <el-checkbox
-            id="revoke-recovery-passkeys"
-            v-model="recoveryRevokePasskeys"
-            :disabled="recoveryKeyLoading"
-          >
-            {{ copy.revokePasskeys }}
-          </el-checkbox>
+                    <div class="relative group">
+                        <label
+                            for="recovery-key"
+                            class="mb-2 block text-xs font-medium text-[var(--fsusblog-text-secondary)]"
+                        >
+                            {{ copy.keyLabel }}
+                        </label>
+                        <ElInput
+                            id="recovery-key"
+                            v-model="recoveryKeyInput"
+                            name="recoveryKey"
+                            :csp-safe="true"
+                            type="textarea"
+                            :rows="3"
+                            :placeholder="copy.keyPlaceholder"
+                            autocomplete="off"
+                            aria-required="true"
+                            :aria-invalid="Boolean(recoveryKeyError)"
+                            aria-describedby="recovery-key-help recovery-key-error"
+                            :disabled="recoveryKeyLoading"
+                        />
+                        <p
+                            id="recovery-key-help"
+                            class="mt-2 text-xs leading-6 text-[var(--fsusblog-text-muted)]"
+                        >
+                            {{ copy.keyHelp }}
+                        </p>
+                    </div>
 
-          <div
-            v-if="recoveryKeyError"
-            id="recovery-key-error"
-            role="alert"
-            aria-live="polite"
-            class="rounded-[var(--fsus-radius-control)] border border-[var(--fsusblog-color-error-border)] bg-[var(--fsusblog-color-error-bg)] px-4 py-3 text-sm font-medium text-[var(--fsusblog-color-error)]"
-          >
-            {{ recoveryKeyError }}
-          </div>
+                    <ElCheckbox
+                        id="revoke-recovery-passkeys"
+                        v-model="recoveryRevokePasskeys"
+                        :disabled="recoveryKeyLoading"
+                    >
+                        {{ copy.revokePasskeys }}
+                    </ElCheckbox>
 
-          <div
-            v-if="recoverySessionToken"
-            role="status"
-            aria-live="polite"
-            class="rounded-[var(--fsus-radius-control)] border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg-soft)] px-4 py-3 text-xs leading-6 text-[var(--fsusblog-text-secondary)]"
-          >
-            {{ sessionReadyText }}
-          </div>
+                    <div
+                        v-if="recoveryKeyError"
+                        id="recovery-key-error"
+                        role="alert"
+                        aria-live="polite"
+                        class="rounded-[var(--fsus-radius-control)] border border-[var(--fsusblog-color-error-border)] bg-[var(--fsusblog-color-error-bg)] px-4 py-3 text-sm font-medium text-[var(--fsusblog-color-error)]"
+                    >
+                        {{ recoveryKeyError }}
+                    </div>
 
-          <div class="grid gap-3 pt-1">
-            <el-button
-              type="primary"
-              :disabled="!canVerifyRecoveryKey"
-              :loading="recoveryKeyLoading"
-              @click="handleRecoveryKeyVerify"
-            >
-              {{ copy.verifyCta }}
-            </el-button>
-            <el-button
-              v-if="recoverySessionToken"
-              :disabled="recoveryKeyLoading"
-              @click="recoveryPasskeyVisible = true"
-            >
-              {{ copy.bindNewPasskeyCta }}
-            </el-button>
-          </div>
+                    <div
+                        v-if="recoverySessionToken"
+                        role="status"
+                        aria-live="polite"
+                        class="rounded-[var(--fsus-radius-control)] border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg-soft)] px-4 py-3 text-xs leading-6 text-[var(--fsusblog-text-secondary)]"
+                    >
+                        {{ sessionReadyText }}
+                    </div>
+
+                    <div class="grid gap-3 pt-1">
+                        <ElButton
+                            type="primary"
+                            :disabled="!canVerifyRecoveryKey"
+                            :loading="recoveryKeyLoading"
+                            @click="handleRecoveryKeyVerify"
+                        >
+                            {{ copy.verifyCta }}
+                        </ElButton>
+                        <ElButton
+                            v-if="recoverySessionToken"
+                            :disabled="recoveryKeyLoading"
+                            @click="recoveryPasskeyVisible = true"
+                        >
+                            {{ copy.bindNewPasskeyCta }}
+                        </ElButton>
+                    </div>
+                </section>
+            </form>
+
+            <footer class="mt-10 flex items-center justify-between border-t border-[var(--fsusblog-panel-border)] pt-6">
+                <RouterLink
+                    to="/login"
+                    class="rounded-[var(--fsus-radius-control)] px-1 py-2 text-sm font-medium text-[var(--fsusblog-text-muted)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none"
+                    :class="focusRingClass"
+                >
+                    {{ copy.returnLoginLink }}
+                </RouterLink>
+                <RouterLink
+                    to="/"
+                    class="rounded-[var(--fsus-radius-control)] px-1 py-2 text-sm font-medium text-[var(--fsusblog-text-muted)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none"
+                    :class="focusRingClass"
+                >
+                    {{ copy.cancelLink }}
+                </RouterLink>
+            </footer>
         </section>
-      </form>
 
-      <footer
-        class="mt-10 flex items-center justify-between border-t border-[var(--fsusblog-panel-border)] pt-6"
-      >
-        <router-link
-          to="/login"
-          class="rounded-[var(--fsus-radius-control)] px-1 py-2 text-sm font-medium text-[var(--fsusblog-text-muted)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none"
-          :class="focusRingClass"
-        >
-          {{ copy.returnLoginLink }}
-        </router-link>
-        <router-link
-          to="/"
-          class="rounded-[var(--fsus-radius-control)] px-1 py-2 text-sm font-medium text-[var(--fsusblog-text-muted)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none"
-          :class="focusRingClass"
-        >
-          {{ copy.cancelLink }}
-        </router-link>
-      </footer>
-    </section>
-
-    <PasskeyRegisterModal
-      v-model:visible="recoveryPasskeyVisible"
-      :recovery-session-token="recoverySessionToken"
-      @success="handleRecoveryPasskeyRegistered"
-    />
-  </div>
+        <PasskeyRegisterModal
+            v-model:visible="recoveryPasskeyVisible"
+            :recovery-session-token="recoverySessionToken"
+            @success="handleRecoveryPasskeyRegistered"
+        />
+    </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { verifyRecoveryKey } from '@/api/auth'
-import PasskeyRegisterModal from '@/components/ui/PasskeyRegisterModal.vue'
-import { themeTokens } from '@/ui-tokens/themeTokens'
-import { toAppError } from '@/utils/appError'
-import { useI18nText } from '@/composables/useI18nText'
-import { useRiskChallengeCommand } from '@/composables/useRiskChallengeCommand'
-import { fixedRiskChallengeContext, riskChallengeRoutes } from '@/security/risk-challenge-routes'
+import { computed, ref } from 'vue';
 
-const { messages } = useI18nText()
-const copy = computed(() => messages.value.auth.recover)
-const focusRingClass = themeTokens.focusRing
-const recoveryKeyInput = ref('')
-const recoveryRevokePasskeys = ref(true)
-const recoveryKeyLoading = ref(false)
-const recoveryKeyError = ref('')
-const recoverySessionToken = ref('')
-const recoverySessionExpiresAt = ref('')
-const recoveryPasskeyVisible = ref(false)
-const recoveryRiskChallenge = useRiskChallengeCommand()
+import { verifyRecoveryKey } from '@/api/auth';
+import PasskeyRegisterModal from '@/components/ui/PasskeyRegisterModal.vue';
+import { useI18nText } from '@/composables/useI18nText';
+import { useRiskChallengeCommand } from '@/composables/useRiskChallengeCommand';
+import { fixedRiskChallengeContext, riskChallengeRoutes } from '@/security/risk-challenge-routes';
+import { themeTokens } from '@/ui-tokens/themeTokens';
+import { toAppError } from '@/utils/appError';
+
+const { messages } = useI18nText();
+const copy = computed(() => messages.value.auth.recover);
+const focusRingClass = themeTokens.focusRing;
+const recoveryKeyInput = ref('');
+const recoveryRevokePasskeys = ref(true);
+const recoveryKeyLoading = ref(false);
+const recoveryKeyError = ref('');
+const recoverySessionToken = ref('');
+const recoverySessionExpiresAt = ref('');
+const recoveryPasskeyVisible = ref(false);
+const recoveryRiskChallenge = useRiskChallengeCommand();
 
 const sessionReadyText = computed(() =>
-  copy.sessionReadyHint.replace('{expiresAt}', recoverySessionExpiresAt.value)
-)
+    copy.value.sessionReadyHint.replace('{expiresAt}', recoverySessionExpiresAt.value)
+);
 
 const canVerifyRecoveryKey = computed(
-  () =>
-    recoveryKeyInput.value.trim().length > 0 &&
-    !recoveryKeyLoading.value,
-)
+    () =>
+        recoveryKeyInput.value.trim().length > 0 &&
+        !recoveryKeyLoading.value
+);
 
-const handleRecoveryKeyVerify = async (): Promise<void> => {
-  if (!canVerifyRecoveryKey.value) {
-    return
-  }
-
-  recoveryKeyLoading.value = true
-  recoveryKeyError.value = ''
-  recoverySessionToken.value = ''
-  recoverySessionExpiresAt.value = ''
-
-  try {
-    const request = {
-      recoveryKey: recoveryKeyInput.value.trim(),
-      revokeSessions: true,
-      revokePasskeys: recoveryRevokePasskeys.value,
+const handleRecoveryKeyVerify = async (): Promise<void> =>
+{
+    if (!canVerifyRecoveryKey.value)
+    {
+        return;
     }
-    const mutationIdentity = globalThis.crypto?.randomUUID?.() ?? `recovery-${Date.now()}`
-    const response = await recoveryRiskChallenge.run(
-      fixedRiskChallengeContext(riskChallengeRoutes.recoveryKeyVerify, { surface: 'recovery' }),
-      { kind: 'mutation_with_identity', mutationIdentity },
-      async (proof) => await verifyRecoveryKey(request, { riskChallengeProof: proof })
-    )
-    recoveryKeyInput.value = ''
-    recoverySessionToken.value = response.recoverySessionToken
-    recoverySessionExpiresAt.value = new Date(
-      response.expiresAt,
-    ).toLocaleString()
-  } catch (error) {
-    recoveryKeyError.value =
-      toAppError(error, copy.verifyFailedFallback).message ||
-      copy.verifyFailedFallback
-  } finally {
-    recoveryKeyLoading.value = false
-  }
-}
 
-const handleRecoveryPasskeyRegistered = (): void => {
-  recoveryPasskeyVisible.value = false
-  recoverySessionToken.value = ''
-  recoverySessionExpiresAt.value = ''
-}
+    recoveryKeyLoading.value = true;
+    recoveryKeyError.value = '';
+    recoverySessionToken.value = '';
+    recoverySessionExpiresAt.value = '';
+
+    try
+    {
+        const request = {
+            recoveryKey: recoveryKeyInput.value.trim(),
+            revokeSessions: true,
+            revokePasskeys: recoveryRevokePasskeys.value
+        };
+        const mutationIdentity = globalThis.crypto?.randomUUID?.() ?? `recovery-${Date.now()}`;
+        const response = await recoveryRiskChallenge.run(
+            fixedRiskChallengeContext(riskChallengeRoutes.recoveryKeyVerify, { surface: 'recovery' }),
+            { kind: 'mutation_with_identity', mutationIdentity },
+            async (proof) => await verifyRecoveryKey(request, { riskChallengeProof: proof })
+        );
+        recoveryKeyInput.value = '';
+        recoverySessionToken.value = response.recoverySessionToken;
+        recoverySessionExpiresAt.value = new Date(
+            response.expiresAt
+        ).toLocaleString();
+    }
+    catch (error)
+    {
+        recoveryKeyError.value =
+            toAppError(error, copy.value.verifyFailedFallback).message ||
+            copy.value.verifyFailedFallback;
+    }
+    finally
+    {
+        recoveryKeyLoading.value = false;
+    }
+};
+
+const handleRecoveryPasskeyRegistered = (): void =>
+{
+    recoveryPasskeyVisible.value = false;
+    recoverySessionToken.value = '';
+    recoverySessionExpiresAt.value = '';
+};
 </script>
