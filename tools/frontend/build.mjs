@@ -598,7 +598,7 @@ export function createFrontendBuildStages(generatedArgs, generatedAction, {
             consumedInputs: ['src/shared/Contracts/Outputs/PublicPageContracts.cs'],
             producedArtifacts: ['src/public-renderers/generated/publicPageManifest.ts'],
             ownedOutputs: ['src/public-renderers/generated/publicPageManifest.ts'],
-            resources: buildStageResources(1, 1, 0.25, ['generated-public-page-manifest']),
+            resources: buildStageResources(1, 1, 0.05, ['generated-public-page-manifest']),
             estimatedDurationMs: 2_000,
             toolchain: { executable: process.execPath }
         },
@@ -609,7 +609,7 @@ export function createFrontendBuildStages(generatedArgs, generatedAction, {
             consumedInputs: ['src/assets/public-shell-foundation.css'],
             producedArtifacts: ['public/public-shell-emergency.css'],
             ownedOutputs: ['public/public-shell-emergency.css'],
-            resources: buildStageResources(1, 1, 0.25, ['generated-public-shell-emergency']),
+            resources: buildStageResources(1, 1, 0.05, ['generated-public-shell-emergency']),
             estimatedDurationMs: 2_000,
             toolchain: { executable: process.execPath }
         },
@@ -632,7 +632,7 @@ export function createFrontendBuildStages(generatedArgs, generatedAction, {
                     join(stageFrontendWasmRoot, 'aeds-runtime-manifest.json'),
                     join(stageFrontendWasmRoot, 'wasm-build-receipt.json')
                 ],
-            resources: buildStageResources(3, 2, 0.75, ['frontend-wasm-output']),
+            resources: buildStageResources(3, 2, 0.05, ['frontend-wasm-output']),
             estimatedDurationMs: 45_000,
             toolchain: { executable: process.execPath }
         },
@@ -643,7 +643,7 @@ export function createFrontendBuildStages(generatedArgs, generatedAction, {
             consumedInputs: ['src'],
             producedArtifacts: [],
             ownedOutputs: [],
-            resources: buildStageResources(2, 2, 0.75),
+            resources: buildStageResources(2, 2, 0.05),
             estimatedDurationMs: 35_000,
             toolchain: { executable: stageVueTscBin }
         },
@@ -670,7 +670,7 @@ export function createFrontendBuildStages(generatedArgs, generatedAction, {
                 join(stageDistAssetsDir, stablePublicBootKernelName)
             ],
             ownedOutputs: [join(stageDistRoot, 'index.html'), join(stageDistRoot, 'assets')],
-            resources: buildStageResources(4, 4, 1.5, ['frontend-dist-client']),
+            resources: buildStageResources(4, 4, 0.05, ['frontend-dist-client']),
             estimatedDurationMs: 50_000,
             toolchain: { executable: stageViteBin }
         },
@@ -695,7 +695,7 @@ export function createFrontendBuildStages(generatedArgs, generatedAction, {
                 )
             ],
             ownedOutputs: [join(stageDistRoot, 'server')],
-            resources: buildStageResources(3, 3, 1, ['frontend-dist-server']),
+            resources: buildStageResources(3, 3, 0.05, ['frontend-dist-server']),
             estimatedDurationMs: 25_000,
             toolchain: { executable: process.execPath }
         },
@@ -710,7 +710,7 @@ export function createFrontendBuildStages(generatedArgs, generatedAction, {
             ownedOutputs: runBound
                 ? [...runBoundPublicAssets.map((entryName) => join(stageDistRoot, entryName)), join(stageDistRoot, 'wasm')]
                 : [],
-            resources: buildStageResources(1, 1, 0.5, ['frontend-dist-wasm']),
+            resources: buildStageResources(1, 1, 0.05, ['frontend-dist-wasm']),
             estimatedDurationMs: 5_000,
             toolchain: { executable: 'node:fs/promises' }
         },
@@ -721,7 +721,7 @@ export function createFrontendBuildStages(generatedArgs, generatedAction, {
             consumedInputs: [markdownRuntimeSource],
             producedArtifacts: fsusUiMarkdownRuntimeAssets.map((fileName) => join(stageDistRoot, 'dist', fileName)),
             ownedOutputs: [join(stageDistRoot, 'dist')],
-            resources: buildStageResources(1, 1, 0.25, ['frontend-dist-markdown']),
+            resources: buildStageResources(1, 1, 0.05, ['frontend-dist-markdown']),
             estimatedDurationMs: 2_000,
             toolchain: { executable: 'node:fs/promises' }
         },
@@ -732,7 +732,7 @@ export function createFrontendBuildStages(generatedArgs, generatedAction, {
             consumedInputs: [stageDistRoot],
             producedArtifacts: syncBackend ? [stageBackendWebRoot] : [],
             ownedOutputs: syncBackend ? [stageBackendWebRoot] : [],
-            resources: buildStageResources(1, 1, 0.5, ['backend-wwwroot']),
+            resources: buildStageResources(1, 1, 0.05, ['backend-wwwroot']),
             estimatedDurationMs: 6_000,
             toolchain: { executable: 'node:fs/promises' }
         }

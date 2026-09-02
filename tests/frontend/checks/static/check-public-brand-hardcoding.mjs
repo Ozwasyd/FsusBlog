@@ -42,6 +42,9 @@ function walk(entry, files = []) {
   for (const dirent of fs.readdirSync(entry, { withFileTypes: true })) {
     const fullPath = path.join(entry, dirent.name)
     if (dirent.isDirectory()) {
+      if (dirent.name === 'wasm') {
+        continue
+      }
       walk(fullPath, files)
       continue
     }

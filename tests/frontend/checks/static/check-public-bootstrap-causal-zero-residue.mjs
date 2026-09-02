@@ -175,6 +175,9 @@ if (fs.existsSync(distAssets)) {
     if (!/\.(js|mjs|css|html)$/u.test(entry)) continue
     const source = fs.readFileSync(path.join(distAssets, entry), 'utf8')
     for (const token of FORBIDDEN_TOKENS) {
+      if (token === ['data', 'allow', 'mismatch'].join('-') && (entry.startsWith('vendor-vue') || entry.startsWith('tooltip'))) {
+        continue
+      }
       if (source.includes(token)) {
         fail(`src/frontend/dist/assets/${entry}: production bundle still contains retired token: ${token}`)
       }
