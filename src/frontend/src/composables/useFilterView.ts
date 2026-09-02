@@ -180,7 +180,7 @@ export function useFilterView() {
     setPageTotal(Number(filterBootstrap.total) || 0)
     currentPage.value = Math.max(1, Number(filterBootstrap.pageIndex) || 1)
     currentName.value = filterBootstrap.filterName?.trim() || currentName.value
-    description.value = normalizeFilterDescription(filterBootstrap.description) ?? description.value
+    description.value = normalizeFilterDescription(filterBootstrap.description)
     if (Number(filterBootstrap.filterId) > 0) {
       filterId.value = Number(filterBootstrap.filterId)
     }
@@ -426,7 +426,7 @@ export function useFilterView() {
       articleItems.value = bootstrapItems
       setPageTotal(Number(filterBootstrap.total) || 0)
       currentName.value = filterBootstrap.filterName?.trim() || currentName.value
-      description.value = normalizeFilterDescription(filterBootstrap.description) ?? description.value
+      description.value = normalizeFilterDescription(filterBootstrap.description)
       if (Number(filterBootstrap.filterId) > 0) {
         filterId.value = Number(filterBootstrap.filterId)
       }
