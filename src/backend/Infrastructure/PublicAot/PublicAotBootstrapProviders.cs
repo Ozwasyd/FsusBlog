@@ -689,34 +689,8 @@ public sealed class PublicAotFilterBootstrapProvider(
         return new FilterIdentity(parsed.FilterType, parsed.FilterKey, parsed.FilterId, parsed.FilterName, parsed.CategoryId, parsed.TagId, true);
     }
 
-    private async Task<int?> ResolveTagIdByNameAsync(string tagName, CancellationToken cancellationToken)
-    {
-        string normalizedName = PublicTagUrlIdentity.NormalizeDisplayName(tagName);
-        string lookupKey = PublicTagUrlIdentity.NormalizeLookupKey(normalizedName);
-        List<Tag> tags = await db.Queryable<Tag>().ToListAsync(cancellationToken);
-        int[] normalizedMatches = tags
-            .Where(tag => string.Equals(PublicTagUrlIdentity.NormalizeLookupKey(tag.Name), lookupKey, StringComparison.Ordinal))
-            .Select(tag => tag.Id)
-            .Where(static id => id > 0)
-            .Distinct()
-            .Take(2)
-            .ToArray();
-        if (normalizedMatches.Length == 1)
-        {
-            return normalizedMatches[0];
-        }
-
-        if (normalizedMatches.Length > 1)
-        {
-            return null;
-        }
-
-        return await db.Queryable<TagUrlAlias>()
-            .Where(alias => alias.NormalizedName == lookupKey)
-            .InnerJoin<Tag>((alias, tag) => alias.TagId == tag.Id)
-            .Select((alias, tag) => (int?)tag.Id)
-            .FirstAsync(cancellationToken);
-    }
+    private Task<int?> ResolveTagIdByNameAsync(string tagName, CancellationToken cancellationToken)
+        => PublicTagUrlIdentity.ResolveCanonicalTagIdAsync(db, tagName, cancellationToken);
 
     private static string ResolveFilterTitle(FilterIdentity identity)
         => identity.FilterType switch
