@@ -13,6 +13,13 @@ export type ManualRoute = {
   allowExpectedRuntimeNoise?: boolean
 }
 
+export function shouldAssertManualResponsiveLayout(routeName: string): boolean {
+  // Remaining manage-surface data tables (cluster runtime) still render
+  // wider than a mobile viewport outside a controlled-scroll container.
+  // ManageSecurityChallenges uses blog-scroll-x-safe after #3154.
+  return !routeName.startsWith('Manage') || routeName === 'ManageSecurityChallenges'
+}
+
 type FlattenedRouteRecord = {
   name: string
   path: string

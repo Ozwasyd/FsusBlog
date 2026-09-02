@@ -5,9 +5,9 @@
             :description="`构建清单 ${capabilityManifestVersion}；能力状态不包含设备、身份或 Proof 数据。`"
             id="security-challenge-capabilities-title"
         >
-            <div class="overflow-x-auto border-y border-[var(--fsusblog-panel-border)]">
+            <div class="blog-scroll-x-safe security-challenges-table-scroll border-y border-[var(--fsusblog-panel-border)]">
                 <table
-                    class="w-full min-w-full md:min-w-[58rem] text-left text-[12px]"
+                    class="w-full min-w-0 md:min-w-[58rem] text-left text-[12px]"
                     data-test="challenge-capability-matrix"
                 >
                     <thead class="text-[11px] uppercase text-[var(--fsusblog-text-muted)]">
@@ -72,8 +72,8 @@
                 <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
                     <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">验证任务类型</div>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full min-w-full md:min-w-[42rem] text-left text-[12px]">
+                <div class="blog-scroll-x-safe security-challenges-table-scroll">
+                    <table class="w-full min-w-full md:min-w-[42rem] text-left text-[12px]" data-test="challenge-kind-breakdown">
                         <thead class="text-[11px] uppercase text-[var(--fsusblog-text-muted)]">
                             <tr class="border-b border-[var(--fsusblog-panel-border)]">
                                 <th class="px-5 py-3">类型</th>
@@ -275,3 +275,14 @@ onMounted(() =>
     void loadMetrics();
 });
 </script>
+
+<style scoped>
+.security-challenges-table-scroll
+{
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+</style>
