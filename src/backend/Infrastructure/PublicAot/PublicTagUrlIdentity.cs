@@ -6,6 +6,8 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
 
+internal readonly record struct CanonicalTagIdentity(int? TagId, string? Description);
+
 internal static class PublicTagUrlIdentity
 {
     internal static string NormalizeDisplayName(string value)
@@ -61,36 +63,50 @@ internal static class PublicTagUrlIdentity
         ISqlSugarClient db,
         string name,
         CancellationToken cancellationToken)
+        => (await ResolveCanonicalTagIdentityAsync(db, name, cancellationToken)).TagId;
+
+    internal static async Task<CanonicalTagIdentity> ResolveCanonicalTagIdentityAsync(
+        ISqlSugarClient db,
+        string name,
+        CancellationToken cancellationToken)
     {
         string normalizedName = NormalizeDisplayName(name);
         if (normalizedName.Length == 0)
         {
-            return null;
+            return new CanonicalTagIdentity(null, null);
         }
 
         string lookupKey = NormalizeLookupKey(normalizedName);
         List<Tag> tags = await db.Queryable<Tag>().ToListAsync(cancellationToken);
-        int[] normalizedMatches = tags
-            .Where(tag => string.Equals(NormalizeLookupKey(tag.Name), lookupKey, StringComparison.Ordinal))
-            .Select(tag => tag.Id)
-            .Where(static id => id > 0)
-            .Distinct()
+        Tag[] normalizedMatches = tags
+            .Where(tag => tag.Id > 0
+                && string.Equals(NormalizeLookupKey(tag.Name), lookupKey, StringComparison.Ordinal))
+            .DistinctBy(static tag => tag.Id)
             .Take(2)
             .ToArray();
         if (normalizedMatches.Length == 1)
         {
-            return normalizedMatches[0];
+            Tag match = normalizedMatches[0];
+            return new CanonicalTagIdentity(match.Id, match.Description);
         }
 
         if (normalizedMatches.Length > 1)
         {
-            return null;
+            return new CanonicalTagIdentity(null, null);
         }
 
-        return await db.Queryable<TagUrlAlias>()
+        Tag? aliasMatch = await db.Queryable<TagUrlAlias>()
             .Where(alias => alias.NormalizedName == lookupKey)
             .InnerJoin<Tag>((alias, tag) => alias.TagId == tag.Id)
-            .Select((alias, tag) => (int?)tag.Id)
+            .Select((alias, tag) => new Tag
+            {
+                Id = tag.Id,
+                Name = tag.Name,
+                Description = tag.Description
+            })
             .FirstAsync(cancellationToken);
+        return aliasMatch is null
+            ? new CanonicalTagIdentity(null, null)
+            : new CanonicalTagIdentity(aliasMatch.Id, aliasMatch.Description);
     }
 }
