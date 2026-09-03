@@ -1,17 +1,21 @@
 #!/usr/bin/env node
 // Guards the single-source-of-truth relationship between the canonical
-// SugarTable entities, the migration catalog definitions, and the schema
-// verifier's allowedExtraTables allowlist.
+// SugarTable entities, the migration catalog definitions, the schema
+// verifier's allowedExtraTables allowlist, and the required PostCodeFirst
+// rollup EnsureTable catalog owned by the Server.
 //
 // The server runtime must not reference the migration assembly (see
 // check-migration-assembly-boundary.mjs), so s_allowedExtraTables is the
-// server-side register of tables that exist outside the canonical entity
-// set (migration-created runtime tables, schema state rows, statistics).
-// Two drift modes must stay impossible:
-//   1. a SugarTable entity also listed in allowedExtraTables (dead entry —
-//      the verifier already sees the entity in the expected model);
-//   2. a migration-created table without any entity, missing from the
-//      allowlist (the verifier would reject it as a branded extra table).
+// server-side register of tables that MAY exist outside the canonical entity
+// set. Visit-log and author-analytics rollup tables are required extras:
+// they must exist, they are not CodeFirst entities, and they must not remain
+// on the optional allowlist. Two original drift modes plus rollup drift
+// must stay impossible:
+//   1. a SugarTable entity also listed as allowed or required extra;
+//   2. a migration-created table without any entity, missing from both the
+//      optional allowlist and the required rollup catalog;
+//   3. required rollup CREATE TABLE SQL that does not match the PostCodeFirst
+//      EnsureTable steps it claims to align with.
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,6 +26,10 @@ const root = resolve(
     : dirname(fileURLToPath(import.meta.url)), argRootIndex >= 0 ? '' : '../..'
 );
 const failures = [];
+const rollupMethodNames = [
+    'BuildVisitLogStatsRollupMigration',
+    'BuildAuthorAnalyticsRollupMigration'
+];
 
 function fail(message) {
     failures.push(message);
@@ -56,6 +64,38 @@ function sourceFilesRecursive(dir, suffix) {
     return files;
 }
 
+function rel(file) {
+    return file.slice(root.length + 1).replaceAll('\\', '/');
+}
+
+function normalizeSql(sql) {
+    return sql
+        .replaceAll('\r\n', '\n')
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+        .join('\n');
+}
+
+function extractNamedRawSql(source) {
+    const tables = new Map();
+    const pattern = /(?:new\s+EnsureTableStep|new)\(\s*"([a-z_0-9]+)"\s*,\s*"""(.*?)"""\s*\)/gsu;
+    for (const match of source.matchAll(pattern)) {
+        tables.set(match[1], normalizeSql(match[2]));
+    }
+    return tables;
+}
+
+function extractMethodBody(source, methodName) {
+    const signature = `internal static ISchemaMigrationDescriptor ${methodName}`;
+    const start = source.indexOf(signature);
+    if (start < 0) {
+        return null;
+    }
+    const next = source.indexOf('internal static ISchemaMigrationDescriptor', start + signature.length);
+    return next < 0 ? source.slice(start) : source.slice(start, next);
+}
+
 // 1. All canonical entity table names (SugarTable attribute).
 const entityTables = new Set();
 for (const file of sourceFilesRecursive(join(root, 'src/backend'), '.cs')) {
@@ -67,33 +107,63 @@ for (const file of sourceFilesRecursive(join(root, 'src/backend'), '.cs')) {
 
 // 2. All migration-created table names (CREATE TABLE / CREATE TABLE IF NOT EXISTS).
 const migrationTables = new Set();
-for (const file of collectFileNames(join(root, 'src/migration/Definitions'), '.cs')) {
+const definitionFiles = collectFileNames(join(root, 'src/migration/Definitions'), '.cs');
+for (const file of definitionFiles) {
     const src = readFileSync(file, 'utf8');
     for (const match of src.matchAll(/CREATE TABLE(?: IF NOT EXISTS)?\s+([a-z_0-9]+)/gu)) {
         migrationTables.add(match[1]);
     }
 }
 
-// 3. The verifier allowlist.
+// 3. The verifier optional allowlist.
 const runnerPath = join(
     root,
     'src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs'
 );
-const runnerSrc = readFileSync(runnerPath, 'utf8');
+const runnerSrc = existsSync(runnerPath) ? readFileSync(runnerPath, 'utf8') : '';
 const allowedStart = runnerSrc.indexOf('s_allowedExtraTables =');
 const allowedEnd = runnerSrc.indexOf('];', allowedStart);
 if (allowedStart < 0 || allowedEnd < 0) {
     fail('SchemaMigrationRunner.cs: s_allowedExtraTables block not found');
-    process.exitCode = 1;
-    for (const issue of failures) process.stderr.write(`[schema-allowed-extra-tables] ${issue}\n`);
-    process.exit(1);
 }
 const allowedTables = new Set();
-for (const match of runnerSrc.slice(allowedStart, allowedEnd).matchAll(/"([a-z_0-9]+)"/gu)) {
-    allowedTables.add(match[1]);
+if (allowedStart >= 0 && allowedEnd >= 0) {
+    for (const match of runnerSrc.slice(allowedStart, allowedEnd).matchAll(/"([a-z_0-9]+)"/gu)) {
+        allowedTables.add(match[1]);
+    }
 }
 
-// Invariant 1: no dead entries (entity table also listed as allowed).
+// 4. Required PostCodeFirst rollup EnsureTable catalog owned by the Server.
+const rollupPath = join(
+    root,
+    'src/backend/Infrastructure/SchemaMigration/CurrentSchemaRuntimeRollupTables.cs'
+);
+if (!existsSync(rollupPath)) {
+    fail('CurrentSchemaRuntimeRollupTables.cs: required rollup catalog is missing');
+}
+const rollupSrc = existsSync(rollupPath) ? readFileSync(rollupPath, 'utf8') : '';
+const requiredSql = extractNamedRawSql(rollupSrc);
+const requiredTables = new Set(requiredSql.keys());
+
+const migrationRollupSql = new Map();
+for (const file of definitionFiles) {
+    const src = readFileSync(file, 'utf8');
+    for (const methodName of rollupMethodNames) {
+        const body = extractMethodBody(src, methodName);
+        if (body == null) {
+            continue;
+        }
+        for (const [tableName, sql] of extractNamedRawSql(body)) {
+            migrationRollupSql.set(tableName, sql);
+        }
+    }
+}
+
+if (migrationRollupSql.size === 0) {
+    fail('PostCodeFirst rollup EnsureTable methods were not found in migration definitions');
+}
+
+// Invariant 1: no dead entries (entity table also listed as allowed or required).
 for (const table of allowedTables) {
     if (entityTables.has(table)) {
         fail(
@@ -102,20 +172,52 @@ for (const table of allowedTables) {
         );
     }
 }
-
-// Invariant 2: no missing migration tables (migration-created, no entity,
-// but absent from the allowlist).
-for (const table of migrationTables) {
-    if (!entityTables.has(table) && !allowedTables.has(table)) {
+for (const table of requiredTables) {
+    if (entityTables.has(table)) {
         fail(
-            `${rel(runnerPath)}: migration-created table "${table}" has no SugarTable entity and `
-            + 'is not listed in s_allowedExtraTables; the verifier would reject it as an extra table'
+            `${rel(rollupPath)}: "${table}" is a SugarTable entity; it must not be a required extra table`
+        );
+    }
+    if (allowedTables.has(table)) {
+        fail(
+            `${rel(runnerPath)}: "${table}" is a required rollup table; it must not remain in `
+            + 's_allowedExtraTables (the verifier must require it, not only allow it)'
         );
     }
 }
 
-function rel(file) {
-    return file.slice(root.length + 1).replaceAll('\\', '/');
+// Invariant 2: no missing migration tables (migration-created, no entity,
+// absent from both the optional allowlist and the required rollup catalog).
+for (const table of migrationTables) {
+    if (!entityTables.has(table) && !allowedTables.has(table) && !requiredTables.has(table)) {
+        fail(
+            `${rel(runnerPath)}: migration-created table "${table}" has no SugarTable entity and `
+            + 'is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; '
+            + 'the verifier would reject it as an extra table'
+        );
+    }
+}
+
+// Invariant 3: required rollup catalog matches the two PostCodeFirst EnsureTable sets.
+for (const table of requiredTables) {
+    if (!migrationRollupSql.has(table)) {
+        fail(
+            `${rel(rollupPath)}: "${table}" is not created by the PostCodeFirst rollup EnsureTable methods`
+        );
+        continue;
+    }
+    if (requiredSql.get(table) !== migrationRollupSql.get(table)) {
+        fail(
+            `${rel(rollupPath)}: CREATE TABLE SQL for "${table}" does not match the PostCodeFirst EnsureTable step`
+        );
+    }
+}
+for (const table of migrationRollupSql.keys()) {
+    if (!requiredTables.has(table)) {
+        fail(
+            `${rel(rollupPath)}: PostCodeFirst rollup table "${table}" is missing from the required catalog`
+        );
+    }
 }
 
 if (failures.length > 0) {
@@ -123,6 +225,7 @@ if (failures.length > 0) {
     process.exitCode = 1;
 } else {
     process.stdout.write(
-        `[schema-allowed-extra-tables] ok entities=${entityTables.size} migration=${migrationTables.size} allowed=${allowedTables.size}\n`
+        `[schema-allowed-extra-tables] ok entities=${entityTables.size} migration=${migrationTables.size} `
+        + `allowed=${allowedTables.size} required=${requiredTables.size}\n`
     );
 }

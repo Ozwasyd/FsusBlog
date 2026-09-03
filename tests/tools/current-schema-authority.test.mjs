@@ -75,6 +75,7 @@ test('test current schema materializer remains explicit, canonical and pre-runti
   assert.match(materializer, /ValidateAssemblySourceCommit\(options\.SourceCommit\)/u)
   assert.match(materializer, /ValidateServiceEnvelope\([\s\S]*options\.RunId/u)
   assert.match(materializer, /BeginTranAsync\(\)[\s\S]*InitTables\([\s\S]*verifier\.RunAsync[\s\S]*AtomicWrite\(preparedOutputPath[\s\S]*CommitTranAsync\(\)[\s\S]*AtomicWrite\(resolvedOutputPath/u)
+  assert.match(materializer, /InitTables\([\s\S]*CurrentSchemaRuntimeRollupTables\.ApplyEnsureTableStepsAsync[\s\S]*verifier\.RunAsync/u)
   assert.match(materializer, /RollbackTranAsync\(\)/u)
   assert.match(materializer, /File\.Move\(temporaryPath, fullPath, overwrite: false\)/u)
 
