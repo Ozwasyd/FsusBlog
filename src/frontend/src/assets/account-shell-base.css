@@ -231,10 +231,6 @@
 
     .account-main-scroll
  {
-        max-height: calc(var(--fsus-viewport-block-size) - var(--fsusblog-account-header-height) - var(--fsus-space-8) - var(--fsus-space-8));
-        overflow-y: auto;
-        overscroll-behavior: contain;
-        scrollbar-gutter: stable;
         padding-bottom: var(--fsus-space-8);
     }
 }

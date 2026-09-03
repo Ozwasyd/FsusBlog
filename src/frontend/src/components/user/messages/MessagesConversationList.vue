@@ -273,9 +273,10 @@ defineExpose({
 .messages-header
  {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
+    gap: 0.75rem 1rem;
 }
 
 .messages-header-title
@@ -285,18 +286,23 @@ defineExpose({
     font-size: 1.125rem;
     font-weight: 700;
     letter-spacing: 0;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .messages-filter
  {
-    width: 10rem;
+    width: auto;
+    min-width: 6.5rem;
+    max-width: 10rem;
 }
 
 .messages-header-actions
  {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.5rem 0.75rem;
     min-width: 0;
 }
 
