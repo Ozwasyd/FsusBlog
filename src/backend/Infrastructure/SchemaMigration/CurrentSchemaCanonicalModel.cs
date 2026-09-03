@@ -909,7 +909,8 @@ public static class SchemaModelComparer
         SchemaModelSnapshot expected,
         SchemaModelSnapshot actual,
         IReadOnlyCollection<string>? allowedExtraTables = null,
-        IReadOnlySet<string>? allowedExtraLinks = null)
+        IReadOnlySet<string>? allowedExtraLinks = null,
+        IReadOnlyCollection<string>? requiredExtraTables = null)
     {
         var errors = new List<string>();
         foreach ((string tableName, SchemaTableModel expectedTable) in expected.Tables.OrderBy(static table => table.Key, StringComparer.Ordinal))
@@ -929,6 +930,24 @@ public static class SchemaModelComparer
 
         HashSet<string> allowed = allowedExtraTables?.Select(CurrentSchemaCanonicalAuthority.NormalizeIdentifier).ToHashSet(StringComparer.Ordinal)
             ?? [];
+        IEnumerable<string> requiredNames = requiredExtraTables is null
+            ? []
+            : requiredExtraTables
+                .Select(CurrentSchemaCanonicalAuthority.NormalizeIdentifier)
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal);
+        foreach (string tableName in requiredNames)
+        {
+            allowed.Add(tableName);
+            if (expected.Tables.ContainsKey(tableName))
+            {
+                continue;
+            }
+            if (!actual.Tables.ContainsKey(tableName))
+            {
+                errors.Add($"missing required extra table {tableName}");
+            }
+        }
         foreach (string tableName in actual.Tables.Keys.Except(expected.Tables.Keys, StringComparer.Ordinal).Except(allowed, StringComparer.Ordinal).Order(StringComparer.Ordinal))
         {
             errors.Add($"extra table {tableName} owner={Describe(actual.Tables[tableName].Owner)}");

@@ -304,6 +304,8 @@ public static class CurrentSchemaTestMaterializer
             await EnsurePublicSchemaIsExactlyEmptyAsync(db, cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             db.CodeFirst.InitTables(entityTypes.ToArray());
+            await CurrentSchemaRuntimeRollupTables.ApplyEnsureTableStepsAsync(db, cancellationToken)
+                .ConfigureAwait(false);
 
             var verifier = new CurrentSchemaStartupVerifier(db, inspector);
             await verifier.RunAsync(cancellationToken).ConfigureAwait(false);

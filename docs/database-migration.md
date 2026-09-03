@@ -98,7 +98,14 @@ through the generated
 `src/backend/Infrastructure/SchemaMigration/SchemaAllowedExtraLinkNames.generated.cs`
 (producer `tools/db/generate-schema-allowed-extra-links.mjs`, guarded by
 `tools/db/check-schema-allowed-extra-links.mjs`), so a migrated database still
-passes the fail-closed admission check. Cold-start legacy
+passes the fail-closed admission check. Visit-log and author-analytics rollup
+tables created by PostCodeFirst `EnsureTable` steps
+(`daily_read_stats`, `region_read_stats`, `event_type_read_stats`,
+`author_daily_read_stats` and sibling author rollups) are required extras:
+they are not CodeFirst entities, they must exist, and they are not optional
+`s_allowedExtraTables` members. The Server catalog
+`CurrentSchemaRuntimeRollupTables` owns the same CREATE TABLE SQL; the extra-tables
+checker binds it to those two descriptors. Cold-start legacy
 descriptors fail closed with `schema_legacy_bootstrap_required` until the
 historical cold-start runner has marked them applied, and the `contract`
 phase requires porting the backup-evidence gate, so the host currently fails
@@ -183,8 +190,11 @@ DDL. It accepts only a `public` schema with no relation, routine, standalone typ
 domain, operator, conversion, collation, extended-statistics or text-search object,
 derives entity types and the
 five-field identity through the sole
-`CurrentSchemaCanonicalAuthority`, materializes those entity types once, then runs
-`CurrentSchemaStartupVerifier`. A partial or stale schema fails before any write.
+`CurrentSchemaCanonicalAuthority`, materializes those entity types once, applies
+the PostCodeFirst visit-log and author-analytics rollup `EnsureTable` SQL from
+`CurrentSchemaRuntimeRollupTables` (without referencing the migration assembly),
+then runs `CurrentSchemaStartupVerifier`. Missing rollup tables fail closed instead
+of remaining optional extras. A partial or stale schema fails before any write.
 DDL and verification remain inside one PostgreSQL transaction. Before commit the
 producer atomically publishes only a `prepared`, qualification-ineligible staging
 receipt; after commit it atomically publishes the no-overwrite `verified` receipt.

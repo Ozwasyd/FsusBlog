@@ -58,16 +58,7 @@ public sealed class CurrentSchemaStartupVerifier(
     private static readonly string[] s_allowedExtraTables =
     [
         HistoryTableName,
-        "daily_read_stats",
-        "region_read_stats",
-        "event_type_read_stats",
         "article_view_projection_watermark",
-        "author_daily_read_stats",
-        "author_route_stats",
-        "author_rum_stats",
-        "author_rum_page_type_stats",
-        "author_rum_aot_source_stats",
-        "author_aot_stats",
         "sys_deployment_fence",
         "sys_fenced_commit",
         "public_article_projection",
@@ -124,7 +115,8 @@ public sealed class CurrentSchemaStartupVerifier(
             expected,
             actual,
             s_allowedExtraTables,
-            SchemaAllowedExtraLinkNames.Names);
+            SchemaAllowedExtraLinkNames.Names,
+            CurrentSchemaRuntimeRollupTables.TableNames);
         if (errors.Count > 0)
         {
             throw new CurrentSchemaMismatchException(
