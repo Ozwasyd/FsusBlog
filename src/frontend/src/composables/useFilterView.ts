@@ -2,9 +2,9 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { ApiRequestConfig } from '@/api/requestConfig'
 import { getArticles, type ArticleListItemResponse, type PageResponse } from '@/api/article'
+import { getCategoryExactMetadata } from '@/api/category'
+import { getTagExactMetadata, getTagExactMetadataByName } from '@/api/tag'
 import { toBootstrapArticleListItem } from '@/bootstrap/publicAotBootstrap'
-import { getCategories, type CategoryItem } from '@/api/category'
-import { getTags, type TagItem } from '@/api/tag'
 import { usePow } from '@/composables/usePow'
 import { useAbortableTask } from '@/composables/useAbortableTask'
 import { usePublicPageLifecycle } from '@/composables/usePublicPageLifecycle'
@@ -14,6 +14,7 @@ import { consumePublicPageSeed } from '@/public-renderers/pageSeed'
 import { matchesCategoryFilter, matchesTagFilter, removeArticlePreview, upsertArticlePreview } from '@/services/notificationStreamArticlePatch'
 import type { ArticleUpdatePayload, NotificationStreamArticleRenderPatch } from '@/services/notificationStreamTypes'
 import { useNotificationStreamStore } from '@/store/notificationStream'
+import { AppErrorCode, isAppError } from '@/utils/appError'
 import { isAbortError } from '@/utils/errors'
 import type { ArticleListCardViewContract } from '@/view-contracts/articleList'
 import { createStableArticleCardMapper } from '@/view-contracts/articleListStableCache'
@@ -28,11 +29,11 @@ import {
 import { buildPublicPaginationHref, buildPublicTagHref, resolvePublicFilterIdentity } from '@/public-renderers/publicRouteIdentity'
 import { PUBLIC_FILTER_ROUTE_NAMES } from '@/public-renderers/publicRouteRegistry'
 
-type NamedMeta = Pick<CategoryItem, 'id' | 'name'> | Pick<TagItem, 'id' | 'name'>
 type ResolvedFilterTarget = Readonly<{
   valid: boolean
   filterId: number
   currentName: string
+  currentDescription: string | null
   isInvalidTarget: boolean
 }>
 
@@ -63,7 +64,7 @@ export function useFilterView() {
   const filterId = ref<number>(0)
   const filterValue = ref('')
   const currentName = ref('')
-  const description = ref<string | null>(seededDescription)
+  const currentDescription = ref<string | null>(seededDescription)
   const invalidTarget = ref(false)
   const articleItems = ref<ArticleListItemResponse[]>([])
   const loadingMeta = ref(true)
@@ -146,7 +147,7 @@ export function useFilterView() {
       filterId.value = 0
       filterValue.value = ''
       currentName.value = route.query.q ? `“${route.query.q}”` : '全站搜索'
-      description.value = null
+      currentDescription.value = null
       invalidTarget.value = false
       loadingMeta.value = false
       const rawSort = String(route.query.sort || '').trim().toLowerCase()
@@ -162,7 +163,7 @@ export function useFilterView() {
 
     const bootstrapMeta = resolveBootstrapFilterMeta()
     currentName.value = bootstrapMeta?.filterName || bootstrapMeta?.title || ''
-    description.value = bootstrapMeta?.description ?? null
+    currentDescription.value = bootstrapMeta?.description ?? null
     invalidTarget.value = Boolean(bootstrapMeta?.isInvalidTarget)
       || (filterType.value === PUBLIC_FILTER_TYPE.category && filterId.value <= 0)
     loadingMeta.value = !(currentName.value || invalidTarget.value)
@@ -180,7 +181,7 @@ export function useFilterView() {
     setPageTotal(Number(filterBootstrap.total) || 0)
     currentPage.value = Math.max(1, Number(filterBootstrap.pageIndex) || 1)
     currentName.value = filterBootstrap.filterName?.trim() || currentName.value
-    description.value = normalizeFilterDescription(filterBootstrap.description)
+    currentDescription.value = normalizeFilterDescription(filterBootstrap.description)
     if (Number(filterBootstrap.filterId) > 0) {
       filterId.value = Number(filterBootstrap.filterId)
     }
@@ -209,6 +210,38 @@ export function useFilterView() {
     markCurrentRouteFailed(route)
   }
 
+  const createInvalidTarget = (
+    bootstrapMeta: ReturnType<typeof resolveBootstrapFilterMeta>
+  ): ResolvedFilterTarget => ({
+    valid: false,
+    filterId: 0,
+    currentName: bootstrapMeta?.title
+      || (filterType.value === PUBLIC_FILTER_TYPE.category ? '未发现分类' : '未发现标签'),
+    currentDescription: null,
+    isInvalidTarget: true
+  })
+
+  const isTaxonomyNotFound = (error: unknown): boolean => {
+    if (!isAppError(error)) {
+      return false
+    }
+
+    return error.code === AppErrorCode.NotFound || error.status === 404
+  }
+
+  const resolveExactTaxonomyMetadata = async (signal: AbortSignal) => {
+    const requestConfig = buildSignalConfig(signal)
+    if (filterType.value === PUBLIC_FILTER_TYPE.category) {
+      return getCategoryExactMetadata(filterId.value, requestConfig)
+    }
+
+    if (filterId.value > 0) {
+      return getTagExactMetadata(filterId.value, requestConfig)
+    }
+
+    return getTagExactMetadataByName(filterValue.value.trim(), requestConfig)
+  }
+
   const resolveCurrentTarget = async (signal: AbortSignal): Promise<ResolvedFilterTarget> => {
     const bootstrapMeta = resolveBootstrapFilterMeta()
     if (filterType.value === PUBLIC_FILTER_TYPE.search) {
@@ -216,17 +249,21 @@ export function useFilterView() {
         valid: true,
         filterId: 0,
         currentName: route.query.q ? `“${route.query.q}”` : '全站搜索',
+        currentDescription: null,
         isInvalidTarget: false
       }
     }
 
     if (filterType.value === PUBLIC_FILTER_TYPE.category && filterId.value <= 0) {
-      return {
-        valid: false,
-        filterId: 0,
-        currentName: bootstrapMeta?.title || '未发现分类',
-        isInvalidTarget: true
-      }
+      return createInvalidTarget(bootstrapMeta)
+    }
+
+    if (
+      filterType.value === PUBLIC_FILTER_TYPE.tag
+      && filterId.value <= 0
+      && filterValue.value.trim().length === 0
+    ) {
+      return createInvalidTarget(bootstrapMeta)
     }
 
     if (bootstrapMeta?.filterName && !bootstrapMeta.isInvalidTarget && filterId.value > 0) {
@@ -234,38 +271,38 @@ export function useFilterView() {
         valid: true,
         filterId: filterId.value,
         currentName: bootstrapMeta.filterName,
+        currentDescription: bootstrapMeta.description,
         isInvalidTarget: false
       }
     }
 
     loadingMeta.value = true
-    const fetchFn = filterType.value === PUBLIC_FILTER_TYPE.category ? getCategories : getTags
-    const list = await fetchFn(buildSignalConfig(signal))
-    const match = filterType.value === PUBLIC_FILTER_TYPE.category
-      ? (list as NamedMeta[]).find((item) => item.id === filterId.value)
-      : (list as NamedMeta[]).find((item) => item.id === filterId.value || item.name === filterValue.value)
-
-    if (!match) {
+    try {
+      const metadata = await resolveExactTaxonomyMetadata(signal)
       return {
-        valid: false,
-        filterId: 0,
-        currentName: bootstrapMeta?.title
-          || (filterType.value === PUBLIC_FILTER_TYPE.category ? '未发现分类' : '未发现标签'),
-        isInvalidTarget: true
+        valid: true,
+        filterId: metadata.id,
+        currentName: metadata.name,
+        currentDescription: normalizeFilterDescription(metadata.description),
+        isInvalidTarget: false
       }
-    }
+    } catch (error: unknown) {
+      if (isAbortError(error)) {
+        throw error
+      }
 
-    return {
-      valid: true,
-      filterId: match.id,
-      currentName: match.name,
-      isInvalidTarget: false
+      if (isTaxonomyNotFound(error)) {
+        return createInvalidTarget(bootstrapMeta)
+      }
+
+      throw error
     }
   }
 
   const loadMetaName = async (signal: AbortSignal): Promise<void> => {
     if (filterType.value === PUBLIC_FILTER_TYPE.search) {
       currentName.value = route.query.q ? `“${route.query.q}”` : '全站搜索'
+      currentDescription.value = null
       invalidTarget.value = false
       loadingMeta.value = false
       return
@@ -276,6 +313,7 @@ export function useFilterView() {
       if (lifecycle.isActive() && !signal.aborted) {
         filterId.value = resolved.filterId
         currentName.value = resolved.currentName
+        currentDescription.value = resolved.currentDescription
         invalidTarget.value = resolved.isInvalidTarget
         if (resolved.valid
           && resolved.filterId > 0
@@ -293,6 +331,7 @@ export function useFilterView() {
         currentName.value = bootstrapMeta?.filterName
           || bootstrapMeta?.title
           || (filterType.value === PUBLIC_FILTER_TYPE.tag ? '标签不可用' : '分类不可用')
+        currentDescription.value = bootstrapMeta?.description ?? null
         invalidTarget.value = Boolean(bootstrapMeta?.isInvalidTarget)
       }
     } finally {
@@ -403,12 +442,12 @@ export function useFilterView() {
     currentPage.value = parsePageQuery(route.query.page)
     if (filterType.value === PUBLIC_FILTER_TYPE.search) {
       currentName.value = route.query.q ? `“${route.query.q}”` : '全站搜索'
-      description.value = null
+      currentDescription.value = null
       invalidTarget.value = false
     } else {
       const bootstrapMeta = resolveBootstrapFilterMeta()
       currentName.value = bootstrapMeta?.filterName || bootstrapMeta?.title || ''
-      description.value = bootstrapMeta?.description ?? null
+      currentDescription.value = bootstrapMeta?.description ?? null
       invalidTarget.value = Boolean(bootstrapMeta?.isInvalidTarget)
         || (filterType.value === PUBLIC_FILTER_TYPE.category && filterId.value <= 0)
       loadingMeta.value = !(currentName.value || invalidTarget.value)
@@ -426,7 +465,7 @@ export function useFilterView() {
       articleItems.value = bootstrapItems
       setPageTotal(Number(filterBootstrap.total) || 0)
       currentName.value = filterBootstrap.filterName?.trim() || currentName.value
-      description.value = normalizeFilterDescription(filterBootstrap.description)
+      currentDescription.value = normalizeFilterDescription(filterBootstrap.description)
       if (Number(filterBootstrap.filterId) > 0) {
         filterId.value = Number(filterBootstrap.filterId)
       }
@@ -667,7 +706,7 @@ export function useFilterView() {
         filterType: filterType.value,
         labelText: labelText.value,
         currentName: currentName.value,
-        description: description.value,
+        description: currentDescription.value,
         loadingMeta: loadingMeta.value,
         loadingArticles: loadingArticles.value,
         isPowCalculating: powProvider.isCalculating.value,

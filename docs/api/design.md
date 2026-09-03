@@ -557,7 +557,7 @@ tooling contract，不进入 AEDS runtime API，也不能被公开客户端或�
 
 ## AOT 公开页约定
 
-公开页（首页、文章详情、分类、标签、归档、关于、隐私政策、用户守则、版权声明）优先从 AOT 卷命中静态 HTML + AEDS payload。Bundle 格式遵循 [`PublicAotShellEntryContract`](contracts.md#aot-公开页契约)；SPA 接管后由 hydration 层用同一份 Bundle 数据初始化状态，无需二次网络请求。
+公开页（首页、文章详情、分类、标签、归档、关于、隐私政策、用户守则、版权声明）优先从 AOT 卷命中静态 HTML + AEDS payload。Bundle 格式遵循 [`PublicAotShellEntryContract`](contracts.md#aot-公开页契约)；SPA 接管后由 hydration 层用同一份 Bundle 数据初始化状态，无需二次网络请求。 无可用 public Filter seed 的 SPA 导航由 `useFilterView` 对当前目标发起一次 `TaxonomyExactMetadata` 精确读取（分类 id、标签 id、或标签名/alias），不再用 `CategoryList`/`TagList` 解析单个 Filter 目标；有效 seed 已含 taxonomy 元数据时不追加该请求。Search 不调用 taxonomy 元数据端点。文章列表仍走 `getArticles`/`searchIndex`。
 
 每个公开 HTML 请求在 renderer、backfill 和 cache key 之前由纯 `ILocaleResolver` 一次解析：有效 `fsusblog.locale` cookie > `Accept-Language` 中 q 最高且受 catalog 支持的 range > `zh-CN`。resolver 只消费共享 locale catalog，不查询账户、数据库或网络画像。canonical locale 原子绑定 SSR bundle/visible copy、payload `renderLocale`、document lang/dir、`Content-Language`、OpenGraph/Intl 与 Public AOT/PublicHotRead key；缺失或任一不一致拒绝发布。缓存只允许十个 canonical locale 分区，原始 header 和用户 identity 不进入 key。成功 HTML 声明 `Vary: Accept-Language, Cookie`；携带其它 cookie 的请求仍退出 L0。
 
