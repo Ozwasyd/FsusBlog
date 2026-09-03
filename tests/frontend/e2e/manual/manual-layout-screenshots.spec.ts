@@ -32,6 +32,7 @@ import {
   buildManualRoutesFromRouteRecords,
   filterManualScreenshotItems,
   parseManualScreenshotFilter,
+  shouldAssertManualResponsiveLayout,
   type ManualRoute,
   type ManualRouteScope,
   type ManualRouteStorage
@@ -214,11 +215,7 @@ async function captureRouteScreenshot(page: Page, route: ManualRoute, viewport: 
   await assertManualThemeReadable(page, theme, route.name)
   await assertThemeModeToggleStyled(page, route.name)
   await assertContentDrivenCoverContract(page, route, viewport, theme)
-  // Several manage-surface data tables (security challenges, cluster runtime)
-  // render wider than a mobile viewport outside any controlled-scroll
-  // container (tracked in #3154); the remaining layout contract still runs.
-  const layoutAuditRoute = !route.name.startsWith('Manage')
-  if (strictLayoutAudit && layoutAuditRoute) {
+  if (strictLayoutAudit && shouldAssertManualResponsiveLayout(route.name)) {
     await assertResponsiveLayoutContract(page, `${route.name} ${viewport.name} ${theme}`)
   }
   await freezeUiForScreenshot(page)
