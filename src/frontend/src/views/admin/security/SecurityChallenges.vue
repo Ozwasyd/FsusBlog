@@ -7,17 +7,17 @@
         >
             <div class="blog-scroll-x-safe security-challenges-table-scroll border-y border-[var(--fsusblog-panel-border)]">
                 <table
-                    class="w-full min-w-0 md:min-w-[58rem] text-left text-[12px]"
+                    class="w-full min-w-[52rem] md:min-w-[58rem] text-left text-[12px]"
                     data-test="challenge-capability-matrix"
                 >
                     <thead class="text-[11px] uppercase text-[var(--fsusblog-text-muted)]">
                         <tr class="border-b border-[var(--fsusblog-panel-border)]">
-                            <th class="px-5 py-3">类型</th>
-                            <th class="px-5 py-3">契约可表达</th>
-                            <th class="px-5 py-3">当前客户端可执行</th>
-                            <th class="px-5 py-3">策略可启用 / 模式</th>
-                            <th class="px-5 py-3">Provider</th>
-                            <th class="px-5 py-3">业务表面</th>
+                            <th class="px-5 py-3 whitespace-nowrap">类型</th>
+                            <th class="px-5 py-3 whitespace-nowrap">契约可表达</th>
+                            <th class="px-5 py-3 whitespace-nowrap">当前客户端可执行</th>
+                            <th class="px-5 py-3 whitespace-nowrap">策略可启用 / 模式</th>
+                            <th class="px-5 py-3 whitespace-nowrap">Provider</th>
+                            <th class="px-5 py-3 whitespace-nowrap">业务表面</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -26,21 +26,21 @@
                             :key="row.wireName"
                             class="border-b border-[var(--fsusblog-panel-border)]"
                         >
-                            <td class="px-5 py-3 font-bold text-[var(--fsusblog-text-primary)]">{{ row.wireName }}</td>
+                            <td class="px-5 py-3 whitespace-nowrap font-bold text-[var(--fsusblog-text-primary)]">{{ row.wireName }}</td>
                             <td
-                                class="px-5 py-3"
+                                class="px-5 py-3 whitespace-nowrap"
                                 :data-test="`capability-contract-${row.wireName}`"
                             >{{ row.contractLabel }}</td>
                             <td
-                                class="px-5 py-3"
+                                class="px-5 py-3 whitespace-nowrap"
                                 :data-test="`capability-client-${row.wireName}`"
                             >{{ row.clientExecutionLabel }}</td>
                             <td
-                                class="px-5 py-3"
+                                class="px-5 py-3 whitespace-nowrap"
                                 :data-test="`capability-policy-${row.wireName}`"
                             >{{ row.policyLabel }}</td>
-                            <td class="px-5 py-3">{{ statusLabel(row.providerAvailable) }}</td>
-                            <td class="px-5 py-3">{{ row.surfaces }}</td>
+                            <td class="px-5 py-3 whitespace-nowrap">{{ statusLabel(row.providerAvailable) }}</td>
+                            <td class="px-5 py-3 whitespace-nowrap">{{ row.surfaces }}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -73,14 +73,17 @@
                     <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">验证任务类型</div>
                 </div>
                 <div class="blog-scroll-x-safe security-challenges-table-scroll">
-                    <table class="w-full min-w-full md:min-w-[42rem] text-left text-[12px]" data-test="challenge-kind-breakdown">
+                    <table
+                        class="w-full min-w-[34rem] md:min-w-[42rem] text-left text-[12px]"
+                        data-test="challenge-kind-breakdown"
+                    >
                         <thead class="text-[11px] uppercase text-[var(--fsusblog-text-muted)]">
                             <tr class="border-b border-[var(--fsusblog-panel-border)]">
-                                <th class="px-5 py-3">类型</th>
-                                <th class="px-5 py-3">发起</th>
-                                <th class="px-5 py-3">提交</th>
-                                <th class="px-5 py-3">通过率</th>
-                                <th class="px-5 py-3">失败率</th>
+                                <th class="px-5 py-3 whitespace-nowrap">类型</th>
+                                <th class="px-5 py-3 whitespace-nowrap">发起</th>
+                                <th class="px-5 py-3 whitespace-nowrap">提交</th>
+                                <th class="px-5 py-3 whitespace-nowrap">通过率</th>
+                                <th class="px-5 py-3 whitespace-nowrap">失败率</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -89,11 +92,11 @@
                                 :key="row.kind"
                                 class="border-b border-[var(--fsusblog-panel-border)]"
                             >
-                                <td class="px-5 py-3 font-bold text-[var(--fsusblog-text-primary)]">{{ row.kind }}</td>
-                                <td class="px-5 py-3 tabular-nums">{{ row.totalIssued }}</td>
-                                <td class="px-5 py-3 tabular-nums">{{ row.totalAttempts }}</td>
-                                <td class="px-5 py-3 tabular-nums">{{ formatPercent(row.successRate) }}</td>
-                                <td class="px-5 py-3 tabular-nums">{{ formatPercent(row.failureRate) }}</td>
+                                <td class="px-5 py-3 whitespace-nowrap font-bold text-[var(--fsusblog-text-primary)]">{{ row.kind }}</td>
+                                <td class="px-5 py-3 whitespace-nowrap tabular-nums">{{ row.totalIssued }}</td>
+                                <td class="px-5 py-3 whitespace-nowrap tabular-nums">{{ row.totalAttempts }}</td>
+                                <td class="px-5 py-3 whitespace-nowrap tabular-nums">{{ formatPercent(row.successRate) }}</td>
+                                <td class="px-5 py-3 whitespace-nowrap tabular-nums">{{ formatPercent(row.failureRate) }}</td>
                             </tr>
                             <tr v-if="kindBreakdown.length === 0">
                                 <td
