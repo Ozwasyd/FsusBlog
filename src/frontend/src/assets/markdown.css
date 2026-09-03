@@ -4,8 +4,8 @@
   color: var(--fsusblog-reading-text);
   font-size: 1rem;
   line-height: 1.8;
-  letter-spacing: normal;
-  text-align: left;
+  letter-spacing: 0.015em;
+  text-align: justify;
   font-weight: 400;
   word-break: break-word;
   overflow-wrap: break-word;
@@ -30,14 +30,15 @@
 .markdown-body p {
   margin-top: 0;
   margin-bottom: 0.6em;
+  text-indent: 2em;
 }
 
 /* FsusUI's renderer applies task-surface paragraph defaults directly to
    .markdown-renderer__text. Restore the FsusBlog editorial reading contract
    at the consumer boundary without changing the shared component defaults. */
 .markdown-body .markdown-renderer__text {
-  letter-spacing: normal;
-  text-align: left;
+  letter-spacing: 0.015em;
+  text-align: justify;
 }
 
 .markdown-body p:empty {
