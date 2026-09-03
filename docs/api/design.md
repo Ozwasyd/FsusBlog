@@ -749,6 +749,8 @@ SEO 预览是作者工作台内的发布前质量门，不是新路由模型：�
 
 管理端分类/标签列表不得复用公开 `CategoryList` / `TagList` 的公开文章计数。作者工作台必须读取 `/api/binary/author/taxonomy/categories` 与 `/api/binary/author/taxonomy/tags`，用所有非删除状态或所有 `ArticleTag` 关联形成 `totalBlockingArticleCount` 与 `canDelete`，这样草稿、定时、归档和已删除关联不会被公开计数隐藏。标签删除采用严格锁定语义：只要仍有关联文章就拒绝删除，不静默移除文章上的标签关系。
 
+分类与标签的创建/更新走同一套 `AdminTaxonomyManageView` / `useAdminTaxonomyManage` 对话框，发送 `TaxonomyMetadataMutationRequest`（`name` + 可选 `description`）。描述是可选纯文本：空白提交为 `null`，超过 500 个 Unicode 标量值由客户端与 #2851 服务端同时拒绝，不引入 Markdown/HTML 编辑器。编辑对话框打开时通过 #2852 的 exact Category/Tag metadata 读取当前描述，不得把 Description 放进管理端列表或公开 `CategoryList` / `TagList`；加载完成前该次编辑不可提交，加载失败保持不可提交并走现有管理端错误提示，避免把未解析描述静默写成 `null`。成功保存后再打开依赖 #2857 的 exact-metadata 失效，而不是列表缓存。
+
 ### 资产库
 
 代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringUseCasePorts.cs`](../../src/backend/Services/Authoring/AuthoringUseCasePorts.cs)、[`useImageUploadRuntime.ts`](../../src/frontend/src/composables/useImageUploadRuntime.ts)。
