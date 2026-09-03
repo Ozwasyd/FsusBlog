@@ -162,6 +162,7 @@ function sanitizeFilename(value: string): string {
 
 async function captureRouteScreenshot(page: Page, route: ManualRoute, viewport: ManualViewport, theme: ThemeMode): Promise<void> {
   await page.setViewportSize(viewport.size)
+  await page.emulateMedia({ colorScheme: theme === 'dark' ? 'dark' : 'light' })
   await page.goto(route.path, { waitUntil: 'domcontentloaded' })
   // Edge-boundary routes (NotFound) intentionally serve the fail-closed 404
   // status page without the #app root, so the standard readiness and app-root
