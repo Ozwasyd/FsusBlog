@@ -2814,6 +2814,11 @@ export async function freezeUiForScreenshot(page: Page): Promise<void> {
       #fsus-related-reading {
         display: none !important;
       }
+
+      .el-message,
+      .el-notification {
+        display: none !important;
+      }
     `)
 }
 
