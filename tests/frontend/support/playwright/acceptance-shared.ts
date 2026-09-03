@@ -431,7 +431,10 @@ export async function openThemedAuditedContext(
   testSession?: string
 ): Promise<ThemedAuditedContext> {
   const context = await browser.newContext(withAcceptanceContextOptions(
-    storageState ? { storageState } : undefined,
+    {
+      colorScheme: themeMode === 'dark' ? 'dark' : 'light',
+      ...(storageState ? { storageState } : {})
+    },
     testSession
   ))
   await context.addInitScript((options: {

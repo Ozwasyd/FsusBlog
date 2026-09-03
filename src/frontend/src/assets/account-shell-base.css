@@ -46,6 +46,16 @@
     outline: none;
 }
 
+.account-site-header
+ {
+    --el-site-header-max-width: var(--fsusblog-container-workbench);
+}
+
+.account-site-header__inner
+ {
+    width: min(100%, var(--fsusblog-container-workbench));
+}
+
 .account-site-header__actions .account-header-link,
 .account-site-header__actions .account-header-theme-action > button,
 .account-site-header__actions .locale-selector__trigger
