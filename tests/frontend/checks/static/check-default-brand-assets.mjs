@@ -33,7 +33,6 @@ const requiredPublicFiles = [
   'src/frontend/public/favicon/favicon-dark.ico',
   'src/frontend/public/favicon/browserconfig.xml',
   'src/frontend/public/favicon/mstile-150x150.png',
-  'src/frontend/public/favicon/safari-pinned-tab.svg',
   'src/frontend/public/social/og-image.png',
   'src/frontend/public/social/og-image.webp',
   'src/frontend/public/social/x-card.png',
