@@ -192,10 +192,12 @@ function resolveManualChunk(id: string): string | undefined {
     return undefined
 }
 
-function shouldIgnoreBuildWarning(warning: { message?: string; id?: string }): boolean {
+function shouldIgnoreBuildWarning(warning: { message?: string; id?: string; code?: string }): boolean {
     if (
         warning.message?.includes('[PLUGIN_TIMINGS]') ||
-        warning.message?.includes('Your build spent significant time in plugin')
+        warning.message?.includes('Your build spent significant time in plugin') ||
+        warning.message?.includes('INEFFECTIVE_DYNAMIC_IMPORT') ||
+        warning.code === 'INEFFECTIVE_DYNAMIC_IMPORT'
     ) {
         return true
     }
