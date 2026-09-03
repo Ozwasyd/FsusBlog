@@ -253,7 +253,7 @@ const validPayloadByDecoder = new Map<string, () => Uint8Array>([
   ['mapMutationIdFromPayload', zeroPayload(8)]
 ])
 
-const EXPECTED_REGISTRATION_SHA256 = '7067eddf9fb1d007eb7ca463c80f40174e3255d7c6cbe42d48688f7cb72b7550'
+const EXPECTED_REGISTRATION_SHA256 = 'e529c8f4a5dc137d4aafe9d867023ea366f45038fadefaf0b4eab4f89521e511'
 
 function registrationFingerprint(
   registrations: ReadonlyArray<readonly [FrameType, (payload: Uint8Array) => unknown]>
@@ -307,7 +307,7 @@ describe('decodeBinaryFramePayload', () => {
 
   it('builds one authoritative decoder registration per supported frame', () => {
     const frameTypes = binaryFrameDecoderRegistrations.map(([frameType]) => frameType)
-    expect(binaryFrameDecoderRegistrations).toHaveLength(135)
+    expect(binaryFrameDecoderRegistrations).toHaveLength(136)
     expect(registrationFingerprint(binaryFrameDecoderRegistrations))
       .toBe(EXPECTED_REGISTRATION_SHA256)
     expect(new Set(frameTypes).size).toBe(frameTypes.length)
