@@ -30,6 +30,9 @@ const requiredPublicFiles = [
   'src/frontend/public/favicon/pwa-192x192.png',
   'src/frontend/public/favicon/pwa-512x512.png',
   'src/frontend/public/favicon/maskable-icon-512x512.png',
+  'src/frontend/public/favicon/favicon-dark.ico',
+  'src/frontend/public/favicon/browserconfig.xml',
+  'src/frontend/public/favicon/mstile-150x150.png',
   'src/frontend/public/favicon/safari-pinned-tab.svg',
   'src/frontend/public/social/og-image.png',
   'src/frontend/public/social/og-image.webp',
@@ -112,7 +115,10 @@ for (const iconPath of [
 const indexHtml = readRepoFile('src/frontend/index.html')
 for (const expected of [
   `href="${brandDefaults.faviconSvgUrl}"`,
-  'rel="manifest" href="/manifest.webmanifest"'
+  'rel="manifest" href="/manifest.webmanifest"',
+  'type="image/x-icon" media="(prefers-color-scheme: dark)" href="/favicon/favicon-dark.ico"',
+  'rel="apple-touch-icon" sizes="180x180" href="/favicon/apple-touch-icon.png"',
+  'name="msapplication-config" content="/favicon/browserconfig.xml"'
 ]) {
   if (!indexHtml.includes(expected)) {
     fail(`index.html must include ${expected}`)
