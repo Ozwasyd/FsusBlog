@@ -86,7 +86,7 @@
 </template>
 
 <script setup lang="ts">
-import { ElMarkdownEditor, type MarkdownEditorCommand as FsusUiMarkdownEditorCommand, type MarkdownEditorMode as FsusUiMarkdownEditorMode, type MarkdownEditorSelection as FsusUiMarkdownEditorSelection } from '@ozwasyd/element-plus';
+import { ElMarkdownEditor, type MarkdownEditorCommand as FsusUiMarkdownEditorCommand, type MarkdownEditorMode as FsusUiMarkdownEditorMode } from '@ozwasyd/element-plus';
 import { computed, nextTick, ref, watch } from 'vue';
 
 import {
@@ -249,10 +249,14 @@ function toFsusUiCommand(command: MarkdownEditorCommand): FsusUiMarkdownEditorCo
     return {
         key: command.key,
         label: command.label,
+        description: command.ariaLabel,
         group: command.group,
         shortcut: normalizeShortcut(command.shortcut),
-        title: command.ariaLabel ?? command.label,
-        run: (context) =>
+        title: command.label,
+        run: (context: {
+            selection: { start: number; end: number; direction?: 'forward' | 'backward' | 'none'; };
+            value: string;
+        }) =>
         {
             const selection = context.selection;
             const result = executeMarkdownEditorCommand(command.key as BlogCommandKey, {
@@ -643,37 +647,30 @@ defineExpose({
  {
     .markdown-text-editor__status
  {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        align-items: center;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
     }
 
     .markdown-text-editor__status-group
  {
+        display: flex;
+        width: 100%;
         align-items: flex-start;
         justify-content: flex-start;
         flex-wrap: wrap;
-    }
-
-    .markdown-text-editor__status-group--primary
- {
-        grid-column: 1;
-        grid-row: 1;
+        gap: 0.375rem 0.5rem;
     }
 
     .markdown-text-editor__status-group--metrics
  {
-        grid-column: 2;
-        grid-row: 1;
-        align-items: flex-start;
-        justify-content: flex-end;
+        justify-content: flex-start;
         flex-wrap: wrap;
     }
 
     .markdown-text-editor__status-group--secondary
  {
-        grid-column: 1 / -1;
-        grid-row: 2;
         align-items: flex-start;
         justify-content: flex-start;
         flex-flow: row wrap;
