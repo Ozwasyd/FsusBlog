@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
+    existsSync,
     mkdirSync,
     mkdtempSync,
     readFileSync,
@@ -496,6 +497,79 @@ test('frontend style governance baseline updates reject equal-count violation id
     });
 });
 
+test('frontend style correction authority binds the malformed repository entry to the canonical rescan', () =>
+{
+    const relativePath = 'tests/frontend/checks/public/check-public-header-material.mjs';
+    const source = readFileSync(path.join(root, relativePath));
+    const baseline = JSON.parse(readFileSync(path.join(root, sourcePolicy.baseline), 'utf8'));
+    const authority = JSON.parse(readFileSync(
+        path.join(root, 'config/development/frontend-style-baseline-corrections.json'),
+        'utf8'
+    ));
+    const authoritySchema = JSON.parse(readFileSync(
+        path.join(root, 'config/schemas/frontend-style-baseline-corrections.schema.json'),
+        'utf8'
+    ));
+    const malformed = baseline.files.find(({ path: file }) => file === relativePath);
+    const correction = authority.corrections.find(({ path: file }) => file === relativePath);
+
+    assert.ok(malformed);
+    assert.ok(correction);
+    assert.equal(authoritySchema.properties.schema.const, authority.schema);
+    assert.deepEqual(authoritySchema.required, ['schema', 'reviewIssue', 'corrections']);
+    assert.deepEqual(authoritySchema.properties.corrections.items.required, Object.keys(correction));
+    assert.equal(authority.reviewIssue, 3126);
+    assert.equal(authority.corrections.length, 1);
+    assert.equal(createHash('sha256').update(source).digest('hex'), correction.sourceSha256);
+    assert.deepEqual({
+        sourceSha256: malformed.sourceSha256,
+        violationCount: malformed.violationCount,
+        violationDigest: malformed.violationDigest,
+        rules: malformed.rules
+    }, {
+        sourceSha256: correction.sourceSha256,
+        violationCount: correction.previousViolationCount,
+        violationDigest: correction.previousViolationDigest,
+        rules: correction.previousRules
+    });
+    assert.equal(malformed.violationCount, 75);
+    assert.equal(Object.values(malformed.rules).reduce((sum, count) => sum + count, 0), 785);
+
+    const rescanned = runChecker(root, [
+        '--mode', 'strict-full',
+        '--file', relativePath
+    ]);
+    const diagnosticPrefix = `[frontend-style] ${relativePath}:`;
+    const diagnostics = output(rescanned).split(/\r?\n/u)
+        .filter((line) => line.startsWith(diagnosticPrefix))
+        .map((line) =>
+        {
+            const match = line.slice(diagnosticPrefix.length).match(/^(\d+):(\d+) ([^/]+)\/([^:]+): (.+)$/u);
+            assert.ok(match, line);
+            const [, lineNumber, column, tool, rule, message] = match;
+            return {
+                id: `${tool}:${rule}:${relativePath}:${lineNumber}:${column}:${createHash('sha256').update(message).digest('hex').slice(0, 16)}`,
+                rule: `${tool}/${rule}`
+            };
+        });
+    const correctedRules = {};
+    for (const diagnostic of diagnostics)
+    {
+        correctedRules[diagnostic.rule] = (correctedRules[diagnostic.rule] ?? 0) + 1;
+    }
+    assert.deepEqual({
+        violationCount: diagnostics.length,
+        violationDigest: createHash('sha256').update(diagnostics.map(({ id }) => id).sort().join('\n')).digest('hex'),
+        rules: Object.fromEntries(Object.entries(correctedRules).sort(([left], [right]) => left.localeCompare(right)))
+    }, {
+        violationCount: correction.correctedViolationCount,
+        violationDigest: correction.correctedViolationDigest,
+        rules: correction.correctedRules
+    });
+    assert.equal(correction.correctedViolationCount, 75);
+    assert.equal(Object.values(correction.correctedRules).reduce((sum, count) => sum + count, 0), 75);
+});
+
 test('frontend style governance accepts only an exact pre-existing malformed baseline correction', () =>
 {
     withFixture((fixtureRoot) =>
@@ -572,6 +646,7 @@ test('frontend style governance accepts only an exact pre-existing malformed bas
         expectGit(['add', '.']);
         expectGit(['commit', '-qm', 'test: establish reviewed malformed baseline correction']);
         expectGit(['update-ref', 'refs/remotes/origin/master', 'HEAD']);
+        const reviewedAuthorityCommit = git(['rev-parse', 'HEAD']).stdout.trim();
 
         const unreviewed = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
         assert.notEqual(unreviewed.status, 0);
@@ -583,6 +658,13 @@ test('frontend style governance accepts only an exact pre-existing malformed bas
             '--update-baseline',
             '--reviewed-baseline-correction', correctionPath
         ];
+        rmSync(baselinePath);
+        const initialBaselineMisuse = runChecker(fixtureRoot, reviewedArgs);
+        assert.notEqual(initialBaselineMisuse.status, 0);
+        assert.match(output(initialBaselineMisuse), /must exactly match rejected paths/u);
+        assert.equal(existsSync(baselinePath), false);
+        writeFileSync(baselinePath, malformedBytes);
+
         const reviewed = runChecker(fixtureRoot, reviewedArgs);
         assert.equal(reviewed.status, 0, output(reviewed));
         const repaired = JSON.parse(readFileSync(baselinePath, 'utf8'));
@@ -590,6 +672,16 @@ test('frontend style governance accepts only an exact pre-existing malformed bas
         const reused = runChecker(fixtureRoot, reviewedArgs);
         assert.notEqual(reused.status, 0);
         assert.match(output(reused), /must exactly match rejected paths/u);
+
+        expectGit(['add', sourcePolicy.baseline]);
+        expectGit(['commit', '-qm', 'test: consume reviewed malformed baseline correction']);
+        expectGit(['update-ref', 'refs/remotes/origin/master', 'HEAD']);
+        writeFileSync(baselinePath, malformedBytes);
+        const revertedAfterConsumption = runChecker(fixtureRoot, reviewedArgs);
+        assert.notEqual(revertedAfterConsumption.status, 0);
+        assert.match(output(revertedAfterConsumption), /stale or not an exact malformed-aggregate repair/u);
+        assert.equal(readFileSync(baselinePath, 'utf8'), malformedBytes);
+        expectGit(['update-ref', 'refs/remotes/origin/master', reviewedAuthorityCommit]);
 
         writeFileSync(baselinePath, malformedBytes);
         writeCorrection({ ...correction, reviewIssue: 3127 });
@@ -634,17 +726,54 @@ test('frontend style governance accepts only an exact pre-existing malformed bas
         assert.equal(readFileSync(baselinePath, 'utf8'), malformedBytes);
 
         const mutations = [
-            ['source digest', (document) => { document.corrections[0].sourceSha256 = '1'.repeat(64); }],
-            ['previous count', (document) => { document.corrections[0].previousViolationCount += 1; }],
-            ['previous digest', (document) => { document.corrections[0].previousViolationDigest = '2'.repeat(64); }],
-            ['previous rule sum', (document) => { document.corrections[0].previousRules['eslint/malformed-historical-aggregate'] = 2; }],
-            ['corrected count', (document) => { document.corrections[0].correctedViolationCount += 1; }],
-            ['corrected digest', (document) => { document.corrections[0].correctedViolationDigest = '3'.repeat(64); }],
-            ['corrected rules', (document) => { document.corrections[0].correctedRules['eslint/unexpected-rule'] = 1; }],
-            ['path', (document) => { document.corrections[0].path = 'tools/legacy/other-tool.mjs'; }],
-            ['extra entry', (document) => { document.corrections.push({ ...document.corrections[0], path: 'tools/legacy/extra-tool.mjs' }); }],
-            ['missing entry', (document) => { document.corrections = []; }],
-            ['terminal condition', (document) => { document.corrections[0].terminalCondition = 'source-content-change'; }]
+            ['source digest', (document) =>
+            {
+                document.corrections[0].sourceSha256 = '1'.repeat(64);
+            }],
+            ['previous count', (document) =>
+            {
+                document.corrections[0].previousViolationCount += 1;
+            }],
+            ['previous digest', (document) =>
+            {
+                document.corrections[0].previousViolationDigest = '2'.repeat(64);
+            }],
+            ['previous rule sum', (document) =>
+            {
+                document.corrections[0].previousRules['eslint/malformed-historical-aggregate'] = 2;
+            }],
+            ['corrected count', (document) =>
+            {
+                document.corrections[0].correctedViolationCount += 1;
+            }],
+            ['corrected digest', (document) =>
+            {
+                document.corrections[0].correctedViolationDigest = '3'.repeat(64);
+            }],
+            ['corrected rules', (document) =>
+            {
+                document.corrections[0].correctedRules['eslint/unexpected-rule'] = 1;
+            }],
+            ['path', (document) =>
+            {
+                document.corrections[0].path = 'tools/legacy/other-tool.mjs';
+            }],
+            ['extra entry', (document) =>
+            {
+                document.corrections.push({ ...document.corrections[0], path: 'tools/legacy/extra-tool.mjs' });
+            }],
+            ['duplicate entry', (document) =>
+            {
+                document.corrections.push(structuredClone(document.corrections[0]));
+            }],
+            ['missing entry', (document) =>
+            {
+                document.corrections = [];
+            }],
+            ['terminal condition', (document) =>
+            {
+                document.corrections[0].terminalCondition = 'source-content-change';
+            }]
         ];
         for (const [name, mutate] of mutations)
         {

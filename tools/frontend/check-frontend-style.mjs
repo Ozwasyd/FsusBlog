@@ -568,6 +568,10 @@ function validateReviewedBaselineCorrections(correctionPath, rejections)
     const document = readJson(absolute, relative);
     const candidateBytes = fs.existsSync(absolute) ? fs.readFileSync(absolute, 'utf8') : null;
     const authority = command(['git', 'show', `${reviewedBaselineAuthorityRef}:${relative}`], { allowFailure: true });
+    const baselineAuthority = command(
+        ['git', 'show', `${reviewedBaselineAuthorityRef}:${policy.baseline}`],
+        { allowFailure: true }
+    );
     if (candidateBytes === null || authority.status !== 0 || authority.stdout !== candidateBytes)
     {
         fail(`reviewed frontend style baseline correction must already exist unchanged at ${reviewedBaselineAuthorityRef}: ${relative}`);
@@ -580,6 +584,29 @@ function validateReviewedBaselineCorrections(correctionPath, rejections)
         || document.corrections.length === 0)
     {
         fail(`reviewed frontend style baseline correction is not a closed ${baselineCorrectionSchema} document`);
+        return;
+    }
+    let baselineAuthorityDocument;
+    try
+    {
+        baselineAuthorityDocument = baselineAuthority.status === 0
+            ? JSON.parse(baselineAuthority.stdout)
+            : null;
+    }
+    catch
+    {
+        baselineAuthorityDocument = null;
+    }
+    if (baselineAuthorityDocument?.schema !== baselineSchema
+        || !Array.isArray(baselineAuthorityDocument.files))
+    {
+        fail(`reviewed frontend style baseline correction requires a valid baseline at ${reviewedBaselineAuthorityRef}`);
+        return;
+    }
+    const authorityBaselineByPath = new Map(baselineAuthorityDocument.files.map((entry) => [entry.path, entry]));
+    if (authorityBaselineByPath.size !== baselineAuthorityDocument.files.length)
+    {
+        fail(`reviewed frontend style baseline correction requires unique baseline paths at ${reviewedBaselineAuthorityRef}`);
         return;
     }
     const corrections = new Map();
@@ -625,6 +652,20 @@ function validateReviewedBaselineCorrections(correctionPath, rejections)
         }
         const previousRules = normalizedRules(entry.previousRules);
         const correctedRules = normalizedRules(entry.correctedRules);
+        const authorityPrior = authorityBaselineByPath.get(entry.path);
+        const authorityRules = normalizedRules(authorityPrior?.rules);
+        const authorityPriorMatches = exactObjectKeys(authorityPrior, [
+            'path',
+            'sourceSha256',
+            'violationCount',
+            'violationDigest',
+            'rules'
+        ])
+            && authorityPrior.sourceSha256 === rejection.prior.sourceSha256
+            && authorityPrior.violationCount === rejection.prior.violationCount
+            && authorityPrior.violationDigest === rejection.prior.violationDigest
+            && authorityRules
+            && JSON.stringify(authorityRules) === JSON.stringify(normalizedRules(rejection.prior.rules));
         const previousMatches = previousRules
             && entry.sourceSha256 === rejection.prior.sourceSha256
             && entry.previousViolationCount === rejection.prior.violationCount
@@ -641,7 +682,7 @@ function validateReviewedBaselineCorrections(correctionPath, rejections)
             && entry.previousViolationDigest !== entry.correctedViolationDigest
             && ruleCount(previousRules) !== entry.previousViolationCount
             && ruleCount(correctedRules) === entry.correctedViolationCount;
-        if (!previousMatches || !correctedMatches || !exactMalformedAggregateRepair)
+        if (!authorityPriorMatches || !previousMatches || !correctedMatches || !exactMalformedAggregateRepair)
         {
             fail(`reviewed frontend style baseline correction is stale or not an exact malformed-aggregate repair for ${entry.path}`);
         }
@@ -724,6 +765,11 @@ function writeBaseline(violations, selectedFiles, args)
     const sourceByDestination = new Map((pathMigration?.renames ?? []).map(({ from, to }) => [to, from]));
     const identityMigrationFiles = new Set();
     let files = [...currentByPath.values()].sort((left, right) => compareOrdinal(left.path, right.path));
+    if (!fs.existsSync(target) && args.reviewedBaselineCorrection)
+    {
+        validateReviewedBaselineCorrections(args.reviewedBaselineCorrection, []);
+        return;
+    }
     if (fs.existsSync(target))
     {
         const previous = readJson(target, policy.baseline);
