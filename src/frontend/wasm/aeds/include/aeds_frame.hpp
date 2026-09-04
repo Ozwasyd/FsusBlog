@@ -274,6 +274,7 @@ enum class FrameType : std::uint16_t
     EmptySuccess = 240,
     MutationId = 241,
     UserLocalePreferenceUpdateRequest = 242,
+    TaxonomyExactMetadata = 243,
     ApiError = 251,
 };
 
@@ -534,6 +535,7 @@ enum class FrameType : std::uint16_t
         case FrameType::EmptySuccess:
         case FrameType::MutationId:
         case FrameType::UserLocalePreferenceUpdateRequest:
+        case FrameType::TaxonomyExactMetadata:
         case FrameType::ApiError:
             return true;
         default:

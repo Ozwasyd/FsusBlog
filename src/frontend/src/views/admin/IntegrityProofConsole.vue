@@ -2,7 +2,6 @@
   <div class="account-page integrity-proof-console account-motion-enter w-full">
     <FsusUiTaskPageHeader
       title="Integrity Proof"
-      description="查看发布证明、签名、透明日志、checkpoint 与 key 状态。"
       class="account-task-page-header"
       density="compact"
     />

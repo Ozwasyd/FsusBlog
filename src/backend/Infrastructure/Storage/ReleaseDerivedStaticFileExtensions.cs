@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.StaticFiles;
-using Microsoft.Extensions.FileProviders;
 
 namespace FsusBlog.Server.Infrastructure.Storage;
 
@@ -25,7 +24,7 @@ public static class ReleaseDerivedStaticFileExtensions
         return app.UseStaticFiles(new StaticFileOptions
         {
             RequestPath = RequestPath,
-            FileProvider = new PhysicalFileProvider(normalizedRoot),
+            FileProvider = new ReleaseDerivedSearchPointerFileProvider(normalizedRoot),
             ContentTypeProvider = contentTypes,
             ServeUnknownFileTypes = false,
             OnPrepareResponse = context =>

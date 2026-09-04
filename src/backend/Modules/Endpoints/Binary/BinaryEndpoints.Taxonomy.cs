@@ -114,10 +114,29 @@ public static partial class BinaryEndpoints
         .WithRiskAction(RiskActionNames.PublicRead, "taxonomy.tag")
         .AddEndpointFilter<RiskAwarePublicReadFilter>();
 
+        group.MapGet("/category/{id:int}.aeds", ReadCategoryExactMetadataAsync)
+        .AllowAnonymous()
+        .RequireRateLimiting("public_read")
+        .WithRiskAction(RiskActionNames.PublicRead, "taxonomy.category")
+        .AddEndpointFilter<RiskAwarePublicReadFilter>();
+
+        group.MapGet("/tag/by-name.aeds", ReadTagExactMetadataByNameAsync)
+        .AllowAnonymous()
+        .RequireRateLimiting("public_read")
+        .WithRiskAction(RiskActionNames.PublicRead, "taxonomy.tag")
+        .AddEndpointFilter<RiskAwarePublicReadFilter>();
+
+        group.MapGet("/tag/{id:int}.aeds", ReadTagExactMetadataAsync)
+        .AllowAnonymous()
+        .RequireRateLimiting("public_read")
+        .WithRiskAction(RiskActionNames.PublicRead, "taxonomy.tag")
+        .AddEndpointFilter<RiskAwarePublicReadFilter>();
+
         group.MapPost("/category", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             ISqlSugarClient db,
             IHttpCacheInvalidator httpCacheInvalidator,
+            ICacheInvalidationStore cacheInvalidation,
             ITaxonomyCountProjectionService taxonomyProjection,
             PublicHotArtifactUpdateQueue publicHotUpdates,
             IAedsEncoder aeds,
@@ -162,6 +181,7 @@ public static partial class BinaryEndpoints
                 new KeyValuePair<string, object?>("AuditAction", "category.create"),
                 new KeyValuePair<string, object?>("CategoryName", trimmedName));
             await taxonomyProjection.BumpFrameVersionAsync("taxonomy-category-created", CancellationToken.None);
+            await cacheInvalidation.RemoveAsync(CachePolicyId.TaxonomyExactMetadataFrame, TaxonomyExactMetadataCache.ForCategory(newId), CancellationToken.None);
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList);
             PublicHotArtifactEnqueueResult delivery = await publicHotUpdates.EnqueueAsync(
                 PublicHotArtifactDeliveryClass.RequiredTaxonomy,
@@ -182,8 +202,10 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             ISqlSugarClient db,
             IHttpCacheInvalidator httpCacheInvalidator,
+            ICacheInvalidationStore cacheInvalidation,
             ITaxonomyCountProjectionService taxonomyProjection,
             PublicHotArtifactUpdateQueue publicHotUpdates,
+            IPublicAotInvalidationService publicAotInvalidation,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
@@ -216,16 +238,21 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, $"该分类名称“{trimmedName}”已被其他分类占用"), aeds);
             }
 
-            int updateCount = await UpdateCategoryAndEnqueueProjectionAsync(
+            TaxonomyUpdateApplyResult apply = await UpdateCategoryAndEnqueueProjectionAsync(
                 db,
                 id,
                 trimmedName,
                 normalizedDescription,
                 preserveDescription: request.IsLegacy,
                 cancellationToken);
-            if (updateCount <= 0)
+            if (apply.Outcome == TaxonomyUpdateOutcome.NotFound)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "操作失败：未找到对应的分类记录"), aeds);
+            }
+
+            if (apply.Outcome == TaxonomyUpdateOutcome.NoOp)
+            {
+                return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
             }
 
             using var _ = AuditLogScope.Push(
@@ -234,16 +261,27 @@ public static partial class BinaryEndpoints
                 new KeyValuePair<string, object?>("AuditAction", "category.update"),
                 new KeyValuePair<string, object?>("CategoryId", id),
                 new KeyValuePair<string, object?>("CategoryName", trimmedName));
-            await taxonomyProjection.BumpFrameVersionAsync("taxonomy-category-updated", CancellationToken.None);
-            await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList);
-            PublicHotArtifactEnqueueResult delivery = await publicHotUpdates.EnqueueAsync(
-                PublicHotArtifactDeliveryClass.RequiredTaxonomy,
-                null,
+            await DispatchTaxonomyUpdateSideEffectsAsync(
+                apply,
+                id,
+                isCategory: true,
+                httpCacheInvalidator,
+                cacheInvalidation,
+                taxonomyProjection,
+                publicAotInvalidation,
                 "taxonomy-category-updated",
-                cancellationToken: CancellationToken.None);
-            if (!IsRequiredTaxonomyDeliveryDurable(delivery))
+                CancellationToken.None);
+            if (apply.NameChanged)
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "分类已更新，但 PublicHot 重建交付未确认"), aeds);
+                PublicHotArtifactEnqueueResult delivery = await publicHotUpdates.EnqueueAsync(
+                    PublicHotArtifactDeliveryClass.RequiredTaxonomy,
+                    null,
+                    "taxonomy-category-updated",
+                    cancellationToken: CancellationToken.None);
+                if (!IsRequiredTaxonomyDeliveryDurable(delivery))
+                {
+                    return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "分类已更新，但 PublicHot 重建交付未确认"), aeds);
+                }
             }
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
@@ -254,6 +292,7 @@ public static partial class BinaryEndpoints
             int id,
             ISqlSugarClient db,
             IHttpCacheInvalidator httpCacheInvalidator,
+            ICacheInvalidationStore cacheInvalidation,
             ITaxonomyCountProjectionService taxonomyProjection,
             PublicHotArtifactUpdateQueue publicHotUpdates,
             CancellationToken cancellationToken,
@@ -277,6 +316,7 @@ public static partial class BinaryEndpoints
                 new KeyValuePair<string, object?>("AuditAction", "category.delete"),
                 new KeyValuePair<string, object?>("CategoryId", id));
             await taxonomyProjection.BumpFrameVersionAsync("taxonomy-category-deleted", CancellationToken.None);
+            await cacheInvalidation.RemoveAsync(CachePolicyId.TaxonomyExactMetadataFrame, TaxonomyExactMetadataCache.ForCategory(id), CancellationToken.None);
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList);
             PublicHotArtifactEnqueueResult delivery = await publicHotUpdates.EnqueueAsync(
                 PublicHotArtifactDeliveryClass.RequiredTaxonomy,
@@ -296,6 +336,7 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             ISqlSugarClient db,
             IHttpCacheInvalidator httpCacheInvalidator,
+            ICacheInvalidationStore cacheInvalidation,
             ITaxonomyCountProjectionService taxonomyProjection,
             PublicHotArtifactUpdateQueue publicHotUpdates,
             IAedsEncoder aeds,
@@ -341,6 +382,7 @@ public static partial class BinaryEndpoints
                 new KeyValuePair<string, object?>("AuditAction", "tag.create"),
                 new KeyValuePair<string, object?>("TagName", trimmedName));
             await taxonomyProjection.BumpFrameVersionAsync("taxonomy-tag-created", CancellationToken.None);
+            await cacheInvalidation.RemoveAsync(CachePolicyId.TaxonomyExactMetadataFrame, TaxonomyExactMetadataCache.ForTag(newId), CancellationToken.None);
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Tag, CacheTag.ArticleList);
             PublicHotArtifactEnqueueResult delivery = await publicHotUpdates.EnqueueAsync(
                 PublicHotArtifactDeliveryClass.RequiredTaxonomy,
@@ -361,8 +403,10 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             ISqlSugarClient db,
             IHttpCacheInvalidator httpCacheInvalidator,
+            ICacheInvalidationStore cacheInvalidation,
             ITaxonomyCountProjectionService taxonomyProjection,
             PublicHotArtifactUpdateQueue publicHotUpdates,
+            IPublicAotInvalidationService publicAotInvalidation,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
@@ -396,16 +440,21 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, $"标签名称 [{trimmedName}] 已被其他记录占用"), aeds);
             }
 
-            int updateCount = await UpdateTagAndEnqueueProjectionAsync(
+            TaxonomyUpdateApplyResult apply = await UpdateTagAndEnqueueProjectionAsync(
                 db,
                 id,
                 trimmedName,
                 normalizedDescription,
                 preserveDescription: request.IsLegacy,
                 cancellationToken);
-            if (updateCount <= 0)
+            if (apply.Outcome == TaxonomyUpdateOutcome.NotFound)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "目标标签不存在"), aeds);
+            }
+
+            if (apply.Outcome == TaxonomyUpdateOutcome.NoOp)
+            {
+                return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
             }
 
             using var _ = AuditLogScope.Push(
@@ -414,16 +463,27 @@ public static partial class BinaryEndpoints
                 new KeyValuePair<string, object?>("AuditAction", "tag.update"),
                 new KeyValuePair<string, object?>("TagId", id),
                 new KeyValuePair<string, object?>("TagName", trimmedName));
-            await taxonomyProjection.BumpFrameVersionAsync("taxonomy-tag-updated", CancellationToken.None);
-            await httpCacheInvalidator.InvalidateAsync(CacheTag.Tag, CacheTag.ArticleList);
-            PublicHotArtifactEnqueueResult delivery = await publicHotUpdates.EnqueueAsync(
-                PublicHotArtifactDeliveryClass.RequiredTaxonomy,
-                null,
+            await DispatchTaxonomyUpdateSideEffectsAsync(
+                apply,
+                id,
+                isCategory: false,
+                httpCacheInvalidator,
+                cacheInvalidation,
+                taxonomyProjection,
+                publicAotInvalidation,
                 "taxonomy-tag-updated",
-                cancellationToken: CancellationToken.None);
-            if (!IsRequiredTaxonomyDeliveryDurable(delivery))
+                CancellationToken.None);
+            if (apply.NameChanged)
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "标签已更新，但 PublicHot 重建交付未确认"), aeds);
+                PublicHotArtifactEnqueueResult delivery = await publicHotUpdates.EnqueueAsync(
+                    PublicHotArtifactDeliveryClass.RequiredTaxonomy,
+                    null,
+                    "taxonomy-tag-updated",
+                    cancellationToken: CancellationToken.None);
+                if (!IsRequiredTaxonomyDeliveryDurable(delivery))
+                {
+                    return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "标签已更新，但 PublicHot 重建交付未确认"), aeds);
+                }
             }
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
@@ -434,6 +494,7 @@ public static partial class BinaryEndpoints
             int id,
             ISqlSugarClient db,
             IHttpCacheInvalidator httpCacheInvalidator,
+            ICacheInvalidationStore cacheInvalidation,
             ITaxonomyCountProjectionService taxonomyProjection,
             PublicHotArtifactUpdateQueue publicHotUpdates,
             CancellationToken cancellationToken,
@@ -456,6 +517,7 @@ public static partial class BinaryEndpoints
                 new KeyValuePair<string, object?>("AuditAction", "tag.delete"),
                 new KeyValuePair<string, object?>("TagId", id));
             await taxonomyProjection.BumpFrameVersionAsync("taxonomy-tag-deleted", CancellationToken.None);
+            await cacheInvalidation.RemoveAsync(CachePolicyId.TaxonomyExactMetadataFrame, TaxonomyExactMetadataCache.ForTag(id), CancellationToken.None);
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Tag, CacheTag.ArticleList);
             PublicHotArtifactEnqueueResult delivery = await publicHotUpdates.EnqueueAsync(
                 PublicHotArtifactDeliveryClass.RequiredTaxonomy,
@@ -470,6 +532,142 @@ public static partial class BinaryEndpoints
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
         .AddEndpointFilterWithMetadata<RequiresPowFilter>();
+    }
+
+
+    internal static async Task<IResult> ReadCategoryExactMetadataAsync(
+        int id,
+        ISqlSugarClient db,
+        IOwnedFrameCache ownedFrameCache,
+        IAedsEncoder aeds,
+        CancellationToken cancellationToken = default)
+    {
+        if (id <= 0)
+        {
+            return TaxonomyExactMetadataNotFound(aeds, "分类不存在");
+        }
+
+        return await ReadTaxonomyExactMetadataAsync(
+            TaxonomyExactMetadataCache.ForCategory(id),
+            () => LoadCategoryExactMetadataAsync(db, id, cancellationToken),
+            ownedFrameCache,
+            aeds,
+            "分类不存在",
+            cancellationToken);
+    }
+
+    internal static async Task<IResult> ReadTagExactMetadataAsync(
+        int id,
+        ISqlSugarClient db,
+        IOwnedFrameCache ownedFrameCache,
+        IAedsEncoder aeds,
+        CancellationToken cancellationToken = default)
+    {
+        if (id <= 0)
+        {
+            return TaxonomyExactMetadataNotFound(aeds, "标签不存在");
+        }
+
+        return await ReadTaxonomyExactMetadataAsync(
+            TaxonomyExactMetadataCache.ForTag(id),
+            () => LoadTagExactMetadataAsync(db, id, cancellationToken),
+            ownedFrameCache,
+            aeds,
+            "标签不存在",
+            cancellationToken);
+    }
+
+    internal static async Task<IResult> ReadTagExactMetadataByNameAsync(
+        string? name,
+        ISqlSugarClient db,
+        IOwnedFrameCache ownedFrameCache,
+        IAedsEncoder aeds,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return TaxonomyExactMetadataNotFound(aeds, "标签不存在");
+        }
+
+        int? tagId = await PublicTagUrlIdentity.ResolveCanonicalTagIdAsync(db, name, cancellationToken);
+        if (tagId is not > 0)
+        {
+            return TaxonomyExactMetadataNotFound(aeds, "标签不存在");
+        }
+
+        return await ReadTagExactMetadataAsync(tagId.Value, db, ownedFrameCache, aeds, cancellationToken);
+    }
+
+    internal static async Task<IResult> ReadTaxonomyExactMetadataAsync(
+        string identity,
+        Func<Task<TaxonomyExactMetadataCoreModel?>> load,
+        IOwnedFrameCache ownedFrameCache,
+        IAedsEncoder aeds,
+        string notFoundMessage,
+        CancellationToken cancellationToken = default)
+    {
+        OwnedFrameCacheReadResult frame = await ownedFrameCache.TryGetOwnedFrameAsync(
+            CachePolicyId.TaxonomyExactMetadataFrame,
+            identity,
+            AedsFrameType.TaxonomyExactMetadata,
+            cancellationToken);
+        if (frame.Hit && frame.Lease is not null)
+        {
+            return BinaryResults.PreencodedFrame(frame.Lease);
+        }
+
+        TaxonomyExactMetadataCoreModel? metadata = await load();
+        if (metadata is null)
+        {
+            return TaxonomyExactMetadataNotFound(aeds, notFoundMessage);
+        }
+
+        TaxonomyExactMetadataCoreModel value = metadata.Value;
+        OwnedAedsFrame ownedFrame = BuildCachedFrame(
+            AedsFrameType.TaxonomyExactMetadata,
+            writer => PodBinaryCodec.WriteTaxonomyExactMetadata(value, writer));
+        return await StoreAndReturnOwnedFrameAsync(
+            ownedFrameCache,
+            CachePolicyId.TaxonomyExactMetadataFrame,
+            identity,
+            ownedFrame,
+            TimeSpan.FromMinutes(10),
+            cancellationToken);
+    }
+
+    internal static IResult TaxonomyExactMetadataNotFound(IAedsEncoder aeds, string message)
+        => BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, message), aeds);
+
+    private static async Task<TaxonomyExactMetadataCoreModel?> LoadCategoryExactMetadataAsync(
+        ISqlSugarClient db,
+        int id,
+        CancellationToken cancellationToken)
+    {
+        Category? category = await db.Queryable<Category>()
+            .Where(item => item.Id == id)
+            .FirstAsync(cancellationToken);
+        if (category is null)
+        {
+            return null;
+        }
+
+        return new TaxonomyExactMetadataCoreModel(category.Id, category.Name ?? string.Empty, category.Description);
+    }
+
+    private static async Task<TaxonomyExactMetadataCoreModel?> LoadTagExactMetadataAsync(
+        ISqlSugarClient db,
+        int id,
+        CancellationToken cancellationToken)
+    {
+        Tag? tag = await db.Queryable<Tag>()
+            .Where(item => item.Id == id)
+            .FirstAsync(cancellationToken);
+        if (tag is null)
+        {
+            return null;
+        }
+
+        return new TaxonomyExactMetadataCoreModel(tag.Id, tag.Name ?? string.Empty, tag.Description);
     }
 
     internal static async Task<IResult> ReadCategoryAsync(
@@ -611,7 +809,7 @@ public static partial class BinaryEndpoints
             Description = description
         }).ExecuteReturnIdentityAsync(cancellationToken);
 
-    internal static async Task<int> UpdateCategoryAndEnqueueProjectionAsync(
+    internal static async Task<TaxonomyUpdateApplyResult> UpdateCategoryAndEnqueueProjectionAsync(
         ISqlSugarClient db,
         int categoryId,
         string name,
@@ -624,7 +822,7 @@ public static partial class BinaryEndpoints
             preserveDescription: true,
             cancellationToken);
 
-    internal static async Task<int> UpdateCategoryAndEnqueueProjectionAsync(
+    internal static async Task<TaxonomyUpdateApplyResult> UpdateCategoryAndEnqueueProjectionAsync(
         ISqlSugarClient db,
         int categoryId,
         string name,
@@ -632,15 +830,49 @@ public static partial class BinaryEndpoints
         bool preserveDescription,
         CancellationToken cancellationToken)
     {
-        int updated = 0;
+        TaxonomyUpdateApplyResult result = new(TaxonomyUpdateOutcome.NotFound, false, false);
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
+            Category? current = await db.Queryable<Category>()
+                .Where(category => category.Id == categoryId)
+                .FirstAsync(cancellationToken);
+            if (current is null)
+            {
+                result = new(TaxonomyUpdateOutcome.NotFound, false, false);
+                return;
+            }
+
+            TaxonomyFieldChange change = ClassifyTaxonomyFieldChange(
+                current.Name ?? string.Empty,
+                current.Description,
+                name,
+                description,
+                preserveDescription,
+                treatNameAsTag: false);
+            if (change.IsNoOp)
+            {
+                result = new(TaxonomyUpdateOutcome.NoOp, false, false);
+                return;
+            }
+
+            if (!change.NameChanged)
+            {
+                int descriptionUpdated = await db.Updateable<Category>()
+                    .SetColumns(category => category.Description == description)
+                    .Where(category => category.Id == categoryId)
+                    .ExecuteCommandAsync(cancellationToken);
+                result = descriptionUpdated > 0
+                    ? new(TaxonomyUpdateOutcome.Updated, false, true)
+                    : new(TaxonomyUpdateOutcome.NotFound, false, false);
+                return;
+            }
+
             List<int> affectedArticleIds = await db.Queryable<Article>()
                 .ClearFilter()
                 .Where(article => article.CategoryId == categoryId)
                 .Select(article => article.Id)
                 .ToListAsync(cancellationToken);
-            updated = preserveDescription
+            int updated = preserveDescription
                 ? await db.Updateable<Category>()
                     .SetColumns(category => category.Name == name)
                     .Where(category => category.Id == categoryId)
@@ -653,24 +885,28 @@ public static partial class BinaryEndpoints
                     })
                     .Where(category => category.Id == categoryId)
                     .ExecuteCommandAsync(cancellationToken);
-            if (updated > 0)
+            if (updated <= 0)
             {
-                await InsertTaxonomyProjectionOutboxAsync(
-                    db,
-                    affectedArticleIds,
-                    ArticleMutationEventTypes.CategoryUpdated,
-                    cancellationToken);
+                result = new(TaxonomyUpdateOutcome.NotFound, false, false);
+                return;
             }
+
+            await InsertTaxonomyProjectionOutboxAsync(
+                db,
+                affectedArticleIds,
+                ArticleMutationEventTypes.CategoryUpdated,
+                cancellationToken);
+            result = new(TaxonomyUpdateOutcome.Updated, true, change.DescriptionChanged);
         });
         if (!transaction.IsSuccess)
         {
             throw new InvalidOperationException($"category projection transaction failed: {transaction.ErrorMessage}");
         }
 
-        return updated;
+        return result;
     }
 
-    internal static async Task<int> UpdateTagAndEnqueueProjectionAsync(
+    internal static async Task<TaxonomyUpdateApplyResult> UpdateTagAndEnqueueProjectionAsync(
         ISqlSugarClient db,
         int tagId,
         string name,
@@ -683,7 +919,7 @@ public static partial class BinaryEndpoints
             preserveDescription: true,
             cancellationToken);
 
-    internal static async Task<int> UpdateTagAndEnqueueProjectionAsync(
+    internal static async Task<TaxonomyUpdateApplyResult> UpdateTagAndEnqueueProjectionAsync(
         ISqlSugarClient db,
         int tagId,
         string name,
@@ -691,7 +927,7 @@ public static partial class BinaryEndpoints
         bool preserveDescription,
         CancellationToken cancellationToken)
     {
-        int updated = 0;
+        TaxonomyUpdateApplyResult result = new(TaxonomyUpdateOutcome.NotFound, false, false);
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
             Tag? currentTag = await db.Queryable<Tag>()
@@ -699,6 +935,32 @@ public static partial class BinaryEndpoints
                 .FirstAsync(cancellationToken);
             if (currentTag is null)
             {
+                result = new(TaxonomyUpdateOutcome.NotFound, false, false);
+                return;
+            }
+
+            TaxonomyFieldChange change = ClassifyTaxonomyFieldChange(
+                currentTag.Name ?? string.Empty,
+                currentTag.Description,
+                name,
+                description,
+                preserveDescription,
+                treatNameAsTag: true);
+            if (change.IsNoOp)
+            {
+                result = new(TaxonomyUpdateOutcome.NoOp, false, false);
+                return;
+            }
+
+            if (!change.NameChanged)
+            {
+                int descriptionUpdated = await db.Updateable<Tag>()
+                    .SetColumns(tag => tag.Description == description)
+                    .Where(tag => tag.Id == tagId)
+                    .ExecuteCommandAsync(cancellationToken);
+                result = descriptionUpdated > 0
+                    ? new(TaxonomyUpdateOutcome.Updated, false, true)
+                    : new(TaxonomyUpdateOutcome.NotFound, false, false);
                 return;
             }
 
@@ -706,7 +968,7 @@ public static partial class BinaryEndpoints
                 .Where(link => link.TagId == tagId)
                 .Select(link => link.ArticleId)
                 .ToListAsync(cancellationToken);
-            string normalizedOldName = PublicTagUrlIdentity.NormalizeDisplayName(currentTag.Name);
+            string normalizedOldName = PublicTagUrlIdentity.NormalizeDisplayName(currentTag.Name ?? string.Empty);
             string normalizedNewName = PublicTagUrlIdentity.NormalizeDisplayName(name);
             string oldLookupKey = PublicTagUrlIdentity.NormalizeLookupKey(normalizedOldName);
             string newLookupKey = PublicTagUrlIdentity.NormalizeLookupKey(normalizedNewName);
@@ -746,7 +1008,7 @@ public static partial class BinaryEndpoints
                 }
             }
 
-            updated = preserveDescription
+            int updated = preserveDescription
                 ? await db.Updateable<Tag>()
                     .SetColumns(tag => tag.Name == normalizedNewName)
                     .Where(tag => tag.Id == tagId)
@@ -759,21 +1021,25 @@ public static partial class BinaryEndpoints
                     })
                     .Where(tag => tag.Id == tagId)
                     .ExecuteCommandAsync(cancellationToken);
-            if (updated > 0)
+            if (updated <= 0)
             {
-                await InsertTaxonomyProjectionOutboxAsync(
-                    db,
-                    affectedArticleIds,
-                    ArticleMutationEventTypes.TagUpdated,
-                    cancellationToken);
+                result = new(TaxonomyUpdateOutcome.NotFound, false, false);
+                return;
             }
+
+            await InsertTaxonomyProjectionOutboxAsync(
+                db,
+                affectedArticleIds,
+                ArticleMutationEventTypes.TagUpdated,
+                cancellationToken);
+            result = new(TaxonomyUpdateOutcome.Updated, true, change.DescriptionChanged);
         });
         if (!transaction.IsSuccess)
         {
             throw new InvalidOperationException($"tag projection transaction failed: {transaction.ErrorMessage}");
         }
 
-        return updated;
+        return result;
     }
 
     internal static async Task<bool> IsTagUrlNameReservedAsync(
@@ -833,6 +1099,70 @@ public static partial class BinaryEndpoints
         return inserted;
     }
 
+    internal static TaxonomyFieldChange ClassifyTaxonomyFieldChange(
+        string persistedName,
+        string? persistedDescription,
+        string incomingName,
+        string? incomingDescription,
+        bool preserveDescription,
+        bool treatNameAsTag)
+    {
+        string normalizedPersistedName = treatNameAsTag
+            ? PublicTagUrlIdentity.NormalizeDisplayName(persistedName)
+            : persistedName.Trim();
+        bool nameChanged = !string.Equals(normalizedPersistedName, incomingName, StringComparison.Ordinal);
+        if (preserveDescription)
+        {
+            return new TaxonomyFieldChange(nameChanged, false);
+        }
+
+        _ = TryNormalizeTaxonomyDescription(persistedDescription, out string? normalizedPersistedDescription);
+        bool descriptionChanged = !string.Equals(
+            normalizedPersistedDescription,
+            incomingDescription,
+            StringComparison.Ordinal);
+        return new TaxonomyFieldChange(nameChanged, descriptionChanged);
+    }
+
+    internal static async Task DispatchTaxonomyUpdateSideEffectsAsync(
+        TaxonomyUpdateApplyResult apply,
+        int id,
+        bool isCategory,
+        IHttpCacheInvalidator httpCacheInvalidator,
+        ICacheInvalidationStore cacheInvalidation,
+        ITaxonomyCountProjectionService taxonomyProjection,
+        IPublicAotInvalidationService publicAotInvalidation,
+        string bumpReason,
+        CancellationToken cancellationToken)
+    {
+        if (apply.Outcome != TaxonomyUpdateOutcome.Updated)
+        {
+            return;
+        }
+
+        string exactIdentity = isCategory
+            ? TaxonomyExactMetadataCache.ForCategory(id)
+            : TaxonomyExactMetadataCache.ForTag(id);
+        await cacheInvalidation.RemoveAsync(
+            CachePolicyId.TaxonomyExactMetadataFrame,
+            exactIdentity,
+            cancellationToken);
+
+        if (apply.NameChanged)
+        {
+            await taxonomyProjection.BumpFrameVersionAsync(bumpReason, cancellationToken);
+            await httpCacheInvalidator.InvalidateAsync(
+                isCategory ? CacheTag.Category : CacheTag.Tag,
+                CacheTag.ArticleList);
+            return;
+        }
+
+        string filterRouteKey = isCategory
+            ? PublicRouteIdentity.BuildCategoryRouteKey(id)
+            : PublicRouteIdentity.BuildTagIdRouteKey(id);
+        await publicAotInvalidation.InvalidateFilterRouteFamilyAsync(filterRouteKey, cancellationToken);
+    }
+
     internal static bool IsRequiredTaxonomyDeliveryDurable(PublicHotArtifactEnqueueResult receipt)
         => receipt.Status switch
         {
@@ -844,6 +1174,29 @@ public static partial class BinaryEndpoints
             PublicHotArtifactDeliveryStatus.Failed => false,
             _ => false
         };
+
+
+    internal readonly record struct TaxonomyFieldChange(bool NameChanged, bool DescriptionChanged)
+    {
+        public bool IsNoOp => !NameChanged && !DescriptionChanged;
+
+        public bool IsDescriptionOnly => DescriptionChanged && !NameChanged;
+    }
+
+    internal readonly record struct TaxonomyUpdateApplyResult(
+        TaxonomyUpdateOutcome Outcome,
+        bool NameChanged,
+        bool DescriptionChanged)
+    {
+        public bool IsDescriptionOnly => DescriptionChanged && !NameChanged;
+    }
+
+    internal enum TaxonomyUpdateOutcome
+    {
+        NotFound,
+        NoOp,
+        Updated
+    }
 
     private readonly record struct TaxonomyMetadataMutationPayload(
         bool IsSuccess,

@@ -18,6 +18,17 @@ vi.mock('@/utils/errorPresentation', () => ({
   showErrorToast: vi.fn()
 }))
 
+vi.mock('@/fsusui', () => ({
+  FsusUiSettingsSection: {
+    name: 'FsusUiSettingsSection',
+    template: '<section><slot name="actions" /><slot /></section>'
+  }
+}))
+
+vi.mock('@/fsusui/icons', () => ({
+  Refresh: { name: 'Refresh', template: '<span />' }
+}))
+
 describe('SecurityChallenges capability readiness', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -71,5 +82,32 @@ describe('SecurityChallenges capability readiness', () => {
     expect(wrapper.find('[data-test="capability-client-perceptionLocalizationV2"]').text()).toBe('UI')
     expect(wrapper.find('[data-test="capability-policy-perceptionLocalizationV2"]').text()).toBe('可启用（UI）；模式：observe')
     expect(wrapper.find('[data-test="capability-contract-unknown"]').text()).toBe('不可表达')
+  })
+
+  it('keeps contract tables inside a controlled horizontal scroll container', async () => {
+    const wrapper = mount(SecurityChallenges, {
+      global: {
+        stubs: {
+          FsusUiSettingsSection: {
+            template: '<section><slot name="actions" /><slot /></section>'
+          },
+          AdminStatusMatrix: true,
+          ElButton: { template: '<button><slot /></button>' },
+          ElTag: { template: '<span><slot /></span>' }
+        }
+      }
+    })
+    await flushPromises()
+
+    const capabilityMatrix = wrapper.get('[data-test="challenge-capability-matrix"]')
+    const capabilityScroll = capabilityMatrix.element.closest('.blog-scroll-x-safe')
+    expect(capabilityScroll).not.toBeNull()
+    expect(capabilityScroll?.classList.contains('security-challenges-table-scroll')).toBe(true)
+    expect(capabilityMatrix.find('thead').element.closest('.blog-scroll-x-safe')).toBe(capabilityScroll)
+    expect(capabilityMatrix.find('tr').element.closest('.blog-scroll-x-safe')).toBe(capabilityScroll)
+
+    const kindBreakdown = wrapper.get('[data-test="challenge-kind-breakdown"]')
+    expect(kindBreakdown.element.closest('.blog-scroll-x-safe')).not.toBeNull()
+    expect(wrapper.findAll('.overflow-x-auto').length).toBe(0)
   })
 })
