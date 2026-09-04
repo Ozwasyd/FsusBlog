@@ -199,6 +199,16 @@ function commitFixture(repository, message) {
     return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repository, encoding: 'utf8' }).trim()
 }
 
+function commitTreeFixture(repository, tree, parents, message) {
+    return execFileSync('git', [
+        'commit-tree',
+        tree,
+        ...parents.flatMap((parent) => ['-p', parent]),
+        '-m',
+        message
+    ], { cwd: repository, encoding: 'utf8' }).trim()
+}
+
 function postMergeRepairBody() {
     return pullRequestBody({
         type: 'fix',
@@ -216,8 +226,12 @@ function createPostMergeRepairFixture({
     outputMode = 'canonical',
     mutateManifest = null,
     changeSource = false,
+    changeGenerator = false,
+    changeCandidateGenerator = false,
     laterSourceChange = false,
-    baselineOutputStale = false
+    baselineOutputStale = false,
+    postSourceOwnedRoundTrip = false,
+    sourceRevisionMode = 'single'
 } = {}) {
     const repository = mkdtempSync(join(tmpdir(), 'fsusblog-post-merge-generated-repair-'))
     execFileSync('git', ['init', '-q', '-b', 'master'], { cwd: repository })
@@ -241,22 +255,163 @@ writeFileSync(output, \`generated:\${readFileSync('tests/matrix.yml', 'utf8')}\`
     )
     commitFixture(repository, 'fixture baseline')
 
-    execFileSync('git', ['checkout', '-qb', 'feature'], { cwd: repository })
-    writeRepositoryFile(repository, 'tests/matrix.yml', 'expected\n')
-    const sourceCommit = commitFixture(repository, 'fixture omitted generated source')
-    execFileSync('git', ['checkout', '-q', 'master'], { cwd: repository })
-    execFileSync('git', [
-        'merge',
-        '--no-ff',
-        '-qm',
-        'Merge pull request #2973 from fixture/generated-source',
-        'feature'
-    ], { cwd: repository })
-    const mergeCommit = execFileSync(
-        'git',
-        ['rev-parse', 'HEAD'],
-        { cwd: repository, encoding: 'utf8' }
-    ).trim()
+    let sourceCommit
+    let mergeCommit
+    if (sourceRevisionMode === 'single') {
+        execFileSync('git', ['checkout', '-qb', 'feature'], { cwd: repository })
+        writeRepositoryFile(repository, 'tests/matrix.yml', 'expected\n')
+        sourceCommit = commitFixture(repository, 'fixture omitted generated source')
+        execFileSync('git', ['checkout', '-q', 'master'], { cwd: repository })
+        execFileSync('git', [
+            'merge',
+            '--no-ff',
+            '-qm',
+            'Merge pull request #2973 from fixture/generated-source',
+            'feature'
+        ], { cwd: repository })
+        mergeCommit = execFileSync(
+            'git',
+            ['rev-parse', 'HEAD'],
+            { cwd: repository, encoding: 'utf8' }
+        ).trim()
+    } else {
+        const baseline = execFileSync(
+            'git',
+            ['rev-parse', 'HEAD'],
+            { cwd: repository, encoding: 'utf8' }
+        ).trim()
+        execFileSync('git', ['checkout', '-qb', 'feature'], { cwd: repository })
+        writeRepositoryFile(repository, 'tests/matrix.yml', 'feature\n')
+        execFileSync('node', [
+            'tools/docs/generate-testing-docs.mjs',
+            '--out',
+            'docs/testing.generated.md'
+        ], { cwd: repository })
+        const replayParent = commitFixture(repository, 'fixture canonical replay parent')
+
+        execFileSync('git', ['checkout', '-q', 'master'], { cwd: repository })
+        writeRepositoryFile(repository, 'tests/matrix.yml', 'base-side\n')
+        writeRepositoryFile(repository, 'docs/testing.generated.md', 'generated:feature\n')
+        const pullRequestBase = commitFixture(repository, 'fixture exact pull request base')
+
+        execFileSync('git', ['checkout', '-q', 'feature'], { cwd: repository })
+        writeRepositoryFile(repository, 'tests/matrix.yml', 'expected\n')
+        if (changeGenerator) {
+            writeRepositoryFile(repository, 'tools/docs/generate-testing-docs.mjs', `${readFileSync(
+                join(repository, 'tools/docs/generate-testing-docs.mjs'),
+                'utf8'
+            )}\n// changed inside the source merge\n`)
+        }
+        execFileSync('git', ['add', '.'], { cwd: repository })
+        const sourceTree = execFileSync(
+            'git',
+            ['write-tree'],
+            { cwd: repository, encoding: 'utf8' }
+        ).trim()
+        const sourceParents = sourceRevisionMode === 'reversed'
+            ? [pullRequestBase, replayParent]
+            : sourceRevisionMode === 'wrong-parent'
+                ? [replayParent, baseline]
+                : sourceRevisionMode === 'multi-parent'
+                    ? [replayParent, pullRequestBase, baseline]
+                    : [replayParent, pullRequestBase]
+        sourceCommit = commitTreeFixture(
+            repository,
+            sourceTree,
+            sourceParents,
+            'fixture two-parent source revision'
+        )
+        execFileSync('git', [
+            'update-ref',
+            'refs/heads/feature',
+            sourceCommit,
+            replayParent
+        ], { cwd: repository })
+        if (sourceRevisionMode === 'side-parent') {
+            const primaryCommit = commitTreeFixture(
+                repository,
+                sourceTree,
+                [replayParent],
+                'fixture primary branch source revision'
+            )
+            const sideParentMerge = commitTreeFixture(
+                repository,
+                sourceTree,
+                [primaryCommit, sourceCommit],
+                'fixture source revision hidden on a side parent'
+            )
+            execFileSync('git', [
+                'update-ref',
+                'refs/heads/feature',
+                sideParentMerge,
+                sourceCommit
+            ], { cwd: repository })
+        }
+        if (sourceRevisionMode === 'ambiguous') {
+            writeRepositoryFile(repository, 'tests/matrix.yml', 'ambiguous-side-change\n')
+            execFileSync('git', ['add', 'tests/matrix.yml'], { cwd: repository })
+            const ambiguousTree = execFileSync(
+                'git',
+                ['write-tree'],
+                { cwd: repository, encoding: 'utf8' }
+            ).trim()
+            const ambiguousSourceCommit = commitTreeFixture(
+                repository,
+                ambiguousTree,
+                [sourceCommit],
+                'fixture ambiguous side-parent source change'
+            )
+            writeRepositoryFile(repository, 'tests/matrix.yml', 'expected\n')
+            execFileSync('git', ['add', 'tests/matrix.yml'], { cwd: repository })
+            const ambiguousMerge = commitTreeFixture(
+                repository,
+                sourceTree,
+                [sourceCommit, ambiguousSourceCommit],
+                'fixture merge preserving first-parent source bytes'
+            )
+            execFileSync('git', [
+                'update-ref',
+                'refs/heads/feature',
+                ambiguousMerge,
+                sourceCommit
+            ], { cwd: repository })
+        }
+        if (postSourceOwnedRoundTrip) {
+            writeRepositoryFile(repository, 'docs/testing.generated.md', 'transient output\n')
+            writeRepositoryFile(repository, 'tools/docs/generate-testing-docs.mjs', `${readFileSync(
+                join(repository, 'tools/docs/generate-testing-docs.mjs'),
+                'utf8'
+            )}\n// transient generator change\n`)
+            commitFixture(repository, 'fixture transient owned change')
+            writeRepositoryFile(repository, 'docs/testing.generated.md', 'generated:feature\n')
+            const generator = readFileSync(
+                join(repository, 'tools/docs/generate-testing-docs.mjs'),
+                'utf8'
+            ).replace('\n// transient generator change\n', '')
+            writeRepositoryFile(repository, 'tools/docs/generate-testing-docs.mjs', generator)
+            commitFixture(repository, 'fixture restore owned change')
+        }
+        writeRepositoryFile(repository, 'feature-followup.txt', 'outer head\n')
+        const pullRequestHead = commitFixture(repository, 'fixture exact pull request head')
+        const mergeTree = execFileSync(
+            'git',
+            ['rev-parse', `${pullRequestHead}^{tree}`],
+            { cwd: repository, encoding: 'utf8' }
+        ).trim()
+        mergeCommit = commitTreeFixture(
+            repository,
+            mergeTree,
+            [pullRequestBase, pullRequestHead],
+            'fix(governance): merge generated source (#2973)'
+        )
+        execFileSync('git', [
+            'update-ref',
+            'refs/heads/master',
+            mergeCommit,
+            pullRequestBase
+        ], { cwd: repository })
+        execFileSync('git', ['checkout', '-q', 'master'], { cwd: repository })
+    }
     if (laterSourceChange) {
         writeRepositoryFile(repository, 'tests/matrix.yml', 'later\n')
         commitFixture(repository, 'fixture superseding source change')
@@ -279,6 +434,12 @@ writeFileSync(output, \`generated:\${readFileSync('tests/matrix.yml', 'utf8')}\`
         writeRepositoryFile(repository, 'docs/testing.generated.md', 'tampered\n')
     }
     if (changeSource) writeRepositoryFile(repository, 'tests/matrix.yml', 'candidate-source-change\n')
+    if (changeCandidateGenerator) {
+        writeRepositoryFile(repository, 'tools/docs/generate-testing-docs.mjs', `${readFileSync(
+            join(repository, 'tools/docs/generate-testing-docs.mjs'),
+            'utf8'
+        )}\n// changed by the repair candidate\n`)
+    }
 
     const canonicalCurrent = createHash('sha256').update('generated:expected\n').digest('hex')
     const manifest = {
@@ -494,6 +655,20 @@ test('registry is the unique ordered type/scope source consumed by commitlint', 
         repairSchema.properties.schema.const,
         changeContract.evidenceSchemas.postMergeGeneratedOutputRepair
     )
+    assert.deepEqual(changeContract.generatedOutputRepairProducers[1], {
+        id: 'backend-evidence-path-authority',
+        source: 'tests/matrix.yml',
+        generator: 'tools/test/generate-backend-evidence-path-authority.mjs',
+        command: 'node tools/test/generate-backend-evidence-path-authority.mjs --write',
+        executable: 'node',
+        arguments: [
+            'tools/test/generate-backend-evidence-path-authority.mjs',
+            '--write'
+        ],
+        outputs: [
+            'tests/backend/Fixtures/backend-evidence-path-authority.generated.json'
+        ]
+    })
     const namingRepairSchema = JSON.parse(readFileSync(
         resolve(root, 'config/schemas/post-merge-external-naming-evidence-repair.schema.json'),
         'utf8'
@@ -503,7 +678,8 @@ test('registry is the unique ordered type/scope source consumed by commitlint', 
         changeContract.evidenceSchemas.postMergeExternalNamingEvidenceRepair
     )
     assert.deepEqual(changeContract.generatedOutputRepairProducers.map((entry) => entry.id), [
-        'testing-docs'
+        'testing-docs',
+        'backend-evidence-path-authority'
     ])
 })
 
@@ -928,11 +1104,128 @@ test('post-merge generated repair binds exact history and isolated canonical rep
     assert.deepEqual(validatePostMergeRepairFixture(repair), [])
 })
 
-test('post-merge generated repair rejects a source revision superseded at the current base', () => {
-    const repair = createPostMergeRepairFixture({ laterSourceChange: true })
+test('post-merge generated repair accepts the exact two-parent source revision inside the named pull request', () => {
+    const repair = createPostMergeRepairFixture({ sourceRevisionMode: 'merge' })
+    assert.deepEqual(validatePostMergeRepairFixture(repair), [])
+})
+
+test('post-merge generated repair rejects reversed, wrong, and multi-parent source revisions', () => {
+    const reversed = createPostMergeRepairFixture({ sourceRevisionMode: 'reversed' })
+    const reversedErrors = validatePostMergeRepairFixture(reversed)
+    assert.ok(reversedErrors.some(
+        (error) => error.includes('second parent must exactly match the merged pull request base')
+    ))
+    assert.ok(reversedErrors.some(
+        (error) => error.includes('first parent must be the pull request replay parent')
+    ))
+
+    const wrongParent = createPostMergeRepairFixture({ sourceRevisionMode: 'wrong-parent' })
+    assert.ok(validatePostMergeRepairFixture(wrongParent).some(
+        (error) => error.includes('second parent must exactly match the merged pull request base')
+    ))
+
+    const multiParent = createPostMergeRepairFixture({ sourceRevisionMode: 'multi-parent' })
+    assert.ok(validatePostMergeRepairFixture(multiParent).some(
+        (error) => error.includes('must have one parent or an exact two-parent in-PR merge')
+    ))
+})
+
+test('post-merge generated repair rejects side-parent and ambiguous current source histories', () => {
+    const sideParent = createPostMergeRepairFixture({ sourceRevisionMode: 'side-parent' })
+    assert.ok(validatePostMergeRepairFixture(sideParent).some(
+        (error) => error.includes('must be on the exact first-parent chain')
+    ))
+
+    const ambiguous = createPostMergeRepairFixture({ sourceRevisionMode: 'ambiguous' })
+    assert.ok(validatePostMergeRepairFixture(ambiguous).some(
+        (error) => error.includes('must be the unique current last trusted source revision')
+    ))
+})
+
+test('post-merge generated repair rejects arbitrary outer identity and generator changes in a source merge', () => {
+    const arbitraryOuter = createPostMergeRepairFixture({
+        sourceRevisionMode: 'merge',
+        mutateManifest: (manifest) => {
+            manifest.mergedPullRequest += 1
+        }
+    })
+    assert.ok(validatePostMergeRepairFixture(arbitraryOuter).some(
+        (error) => error.includes('mergedPullRequest must match the exact merge commit message')
+    ))
+
+    const changedGenerator = createPostMergeRepairFixture({
+        sourceRevisionMode: 'merge',
+        changeGenerator: true
+    })
+    assert.ok(validatePostMergeRepairFixture(changedGenerator).some(
+        (error) => error.includes('generator changed or its current digest is stale')
+    ))
+
+    const ownedRoundTrip = createPostMergeRepairFixture({
+        sourceRevisionMode: 'merge',
+        postSourceOwnedRoundTrip: true
+    })
+    assert.ok(validatePostMergeRepairFixture(ownedRoundTrip).some(
+        (error) => error.includes('outer pull request must not change the trusted generator or outputs after sourceCommit')
+    ))
+})
+
+test('post-merge generated repair rejects a candidate-side trusted generator mutation', () => {
+    const repair = createPostMergeRepairFixture({
+        sourceRevisionMode: 'merge',
+        changeCandidateGenerator: true
+    })
     assert.ok(validatePostMergeRepairFixture(repair).some(
+        (error) => error.includes('generator changed or its current digest is stale')
+    ))
+})
+
+test('post-merge generated repair rejects a source revision superseded at the current base', () => {
+    const singleParent = createPostMergeRepairFixture({ laterSourceChange: true })
+    assert.ok(validatePostMergeRepairFixture(singleParent).some(
         (error) => error.includes('sourceCommit must remain the current base owner')
     ))
+
+    const mergedSource = createPostMergeRepairFixture({
+        sourceRevisionMode: 'merge',
+        laterSourceChange: true
+    })
+    assert.ok(validatePostMergeRepairFixture(mergedSource).some(
+        (error) => error.includes('sourceCommit must remain the current base owner')
+    ))
+})
+
+test('post-merge generated repair ignores replacement refs across history and replay validation', () => {
+    for (const revisionField of ['sourceCommit', 'mergeCommit']) {
+        const repair = createPostMergeRepairFixture({ sourceRevisionMode: 'merge' })
+        const replacement = execFileSync(
+            'git',
+            ['rev-list', '--max-parents=0', 'HEAD'],
+            { cwd: repair.repository, encoding: 'utf8' }
+        ).trim()
+        const original = repair.manifest[revisionField]
+        execFileSync('git', ['replace', original, replacement], { cwd: repair.repository })
+        const replacementAwareParents = execFileSync(
+            'git',
+            ['rev-list', '--parents', '--max-count=1', original],
+            { cwd: repair.repository, encoding: 'utf8' }
+        ).trim().split(/\s+/u).slice(1)
+        const exactParents = execFileSync(
+            'git',
+            ['rev-list', '--parents', '--max-count=1', original],
+            {
+                cwd: repair.repository,
+                encoding: 'utf8',
+                env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' }
+            }
+        ).trim().split(/\s+/u).slice(1)
+        assert.notDeepEqual(
+            replacementAwareParents,
+            exactParents,
+            revisionField
+        )
+        assert.deepEqual(validatePostMergeRepairFixture(repair), [], revisionField)
+    }
 })
 
 test('post-merge generated repair rejects drift that predates the bound source revision', () => {
@@ -973,7 +1266,7 @@ test('post-merge generated repair rejects arbitrary history and extra outputs', 
         }
     })
     assert.ok(validatePostMergeRepairFixture(arbitrary).some(
-        (error) => error.includes('sourceCommit must have exactly one parent')
+        (error) => error.includes('must have one parent or an exact two-parent in-PR merge')
     ))
 
     const extra = createPostMergeRepairFixture({
