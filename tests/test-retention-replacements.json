@@ -11956,6 +11956,22 @@
                 "xunit:tests/backend/Unit/ClaimsAndApiResponseTests.cs#FsusBlog.Server.Tests.Unit.ClaimsPrincipalExtensionsTests.GetUserId_MalformedClaim_ReturnsZero#case-0001"
             ],
             "reason": "The three-space malformed NameIdentifier Fact becomes the stable whitespace row of the sole malformed-claim Theory while retaining the real ClaimsPrincipal, production GetUserId call and exact zero assertion."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.StripMarkdown_EmptyContent_ReturnsEmpty#case-0000",
+            "path": "tests/backend/Unit/ImageHelperTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.StripMarkdown_BlankContent_ReturnsEmpty#case-0000"
+            ],
+            "reason": "The empty-string StripMarkdown Fact becomes the stable empty row of the sole blank-content Theory while retaining the production StripMarkdown call, maxLength 100 and exact empty-string result."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.StripMarkdown_WhitespaceContent_ReturnsEmpty#case-0000",
+            "path": "tests/backend/Unit/ImageHelperTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.StripMarkdown_BlankContent_ReturnsEmpty#case-0001"
+            ],
+            "reason": "The three-space StripMarkdown Fact becomes the stable spaces row of the sole blank-content Theory while retaining the production StripMarkdown call, maxLength 100 and exact empty-string result."
         }
     ],
     "assertionReplacements": [
