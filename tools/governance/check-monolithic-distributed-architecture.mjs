@@ -56,6 +56,51 @@ function trackedFiles(root, errors)
     return result.stdout.split('\0').map(normalize).filter(Boolean).sort();
 }
 
+function xmlWithoutComments(source)
+{
+    return String(source).replace(/<!--[\s\S]*?-->/gu, '');
+}
+
+function xmlStartTagAttributes(source, elementName)
+{
+    const expression = new RegExp(`<\\s*${elementName}\\b(?<attributes>[^<>]*?)(?:\\/\\s*)?>`, 'giu');
+    return [...source.matchAll(expression)].map((match) => match.groups?.attributes ?? '');
+}
+
+function xmlAttribute(attributes, name)
+{
+    const expression = new RegExp(
+        `(?:^|\\s)${name}\\s*=\\s*(?:"(?<double>[^"]*)"|'(?<single>[^']*)')`,
+        'iu'
+    );
+    const match = expression.exec(attributes);
+    return match?.groups?.double ?? match?.groups?.single ?? null;
+}
+
+function inspectExecutableProject(source)
+{
+    const xml = xmlWithoutComments(source);
+    const sdkReferences = [
+        ...xmlStartTagAttributes(xml, 'Project').map((attributes) => xmlAttribute(attributes, 'Sdk')),
+        ...xmlStartTagAttributes(xml, 'Sdk').map((attributes) => xmlAttribute(attributes, 'Name'))
+    ].filter((value) => value !== null);
+    const sdkNames = sdkReferences.flatMap((value) => value
+        .split(';')
+        .map((entry) => entry.trim().split('/', 1)[0].toLowerCase())
+        .filter(Boolean));
+    const webSdk = sdkNames.includes('microsoft.net.sdk.web');
+
+    const outputTypes = [...xml.matchAll(
+        /<\s*OutputType\b[^<>]*>(?<value>[^<>]*)<\s*\/\s*OutputType\s*>/giu
+    )].map((match) => (match.groups?.value ?? '').trim());
+    const outputTypeTagCount = [...xml.matchAll(/<\s*OutputType\b/giu)].length;
+    const executableOutputType = outputTypes.some((value) => /^(?:Exe|WinExe)$/iu.test(value));
+    const indeterminate = outputTypeTagCount !== outputTypes.length
+        || outputTypes.some((value) => value !== '' && !/^(?:Library|Exe|WinExe)$/iu.test(value))
+        || sdkReferences.some((value) => /[$@%]\(/u.test(value));
+    return { executable: webSdk || executableOutputType || indeterminate, executableOutputType, indeterminate, webSdk };
+}
+
 function validatePolicy(policy)
 {
     const errors = [];
@@ -128,12 +173,18 @@ function validateProjectTopology(root, files, policy, errors)
 {
     const projects = files.filter((file) => file.startsWith('src/') && file.endsWith('.csproj'));
     const projectSources = new Map(projects.map((file) => [file, read(root, file, errors)]));
-    const entrypoints = projects.filter((file) =>
+    const projectInspections = new Map(projects.map((file) => [
+        file,
+        inspectExecutableProject(projectSources.get(file) ?? '')
+    ]));
+    for (const [project, inspection] of projectInspections)
     {
-        const source = projectSources.get(file) ?? '';
-        return /<Project\s+Sdk="Microsoft\.NET\.Sdk\.Web"/u.test(source)
-      || /<OutputType>\s*(?:Exe|WinExe)\s*<\/OutputType>/u.test(source);
-    });
+        if (inspection.indeterminate)
+        {
+            errors.push(`executable project classification is indeterminate: ${project}`);
+        }
+    }
+    const entrypoints = projects.filter((file) => projectInspections.get(file)?.executable === true);
     const classifications = object(policy.executableProjectClassifications);
     const classifiedProjects = Object.keys(classifications).map(normalize).sort();
     for (const project of entrypoints.filter((file) => !Object.hasOwn(classifications, file)))
@@ -146,12 +197,12 @@ function validateProjectTopology(root, files, policy, errors)
     }
     for (const project of entrypoints.filter((file) => classifications[file] === 'non-business-tool'))
     {
-        const source = projectSources.get(project) ?? '';
-        if (/<Project\s+Sdk="Microsoft\.NET\.Sdk\.Web"/u.test(source))
+        const inspection = projectInspections.get(project);
+        if (inspection?.webSdk)
         {
             errors.push(`non-business tool must not use the Web SDK: ${project}`);
         }
-        if (!/<OutputType>\s*(?:Exe|WinExe)\s*<\/OutputType>/u.test(source))
+        if (!inspection?.executableOutputType)
         {
             errors.push(`non-business tool must declare an executable OutputType: ${project}`);
         }

@@ -129,6 +129,43 @@ test('rejects a second business entrypoint and application Dockerfile', () =>
     assert.ok(errors.some((error) => error.includes('exactly one application Dockerfile')));
 });
 
+test('rejects a second business entrypoint declared by a single-quoted Web SDK attribute', () =>
+{
+    const { root } = createFixture();
+    write(root, 'src/comments/SingleQuoted.Service.csproj', "<Project Sdk='Microsoft.NET.Sdk.Web' />\n");
+    const errors = checkFixture(root).errors;
+    assert.ok(errors.some((error) => error.includes('has no architecture classification: src/comments/SingleQuoted.Service.csproj')));
+    assert.ok(errors.some((error) => error.includes('exactly one business entrypoint')));
+});
+
+test('rejects a second business entrypoint declared by a child Web SDK element', () =>
+{
+    const { root } = createFixture();
+    write(root, 'src/comments/ChildSdk.Service.csproj', `
+<Project>
+  <Sdk Name="Microsoft.NET.Sdk.Web" />
+</Project>
+`);
+    const errors = checkFixture(root).errors;
+    assert.ok(errors.some((error) => error.includes('has no architecture classification: src/comments/ChildSdk.Service.csproj')));
+    assert.ok(errors.some((error) => error.includes('exactly one business entrypoint')));
+});
+
+test('rejects an unclassified executable whose OutputType carries a condition', () =>
+{
+    const { root } = createFixture();
+    write(root, 'src/tools/ConditionalTool.csproj', `
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType Condition="'$(Configuration)' == 'Debug'">Exe</OutputType>
+  </PropertyGroup>
+</Project>
+`);
+    const errors = checkFixture(root).errors;
+    assert.ok(errors.some((error) => error.includes('has no architecture classification: src/tools/ConditionalTool.csproj')));
+    assert.ok(errors.some((error) => error.includes('exactly one business entrypoint')));
+});
+
 test('does not treat an unclassified executable project as a non-business tool', () =>
 {
     const { root } = createFixture();
