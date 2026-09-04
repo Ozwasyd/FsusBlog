@@ -150,7 +150,11 @@ public sealed class ContentAssetDeleteEndpointIntegrationTests(PostgresSchemaMig
                 CreatedAtUtc = DateTime.UtcNow,
                 UpdatedAtUtc = DateTime.UtcNow
             }).ExecuteCommand();
-            var store = new LocalContentAssetStore(db, paths, NullLogger<LocalContentAssetStore>.Instance);
+            var store = new LocalContentAssetStore(
+                db,
+                paths,
+                Substitute.For<IPrivateAssetStore>(),
+                NullLogger<LocalContentAssetStore>.Instance);
             var aeds = new AedsEncoder();
             DefaultHttpContext context = CreateContext(assetId.ToString());
 

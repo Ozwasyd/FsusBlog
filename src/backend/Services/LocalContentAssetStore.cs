@@ -10,6 +10,7 @@ namespace FsusBlog.Server.Services;
 public sealed class LocalContentAssetStore(
     ISqlSugarClient db,
     ReleaseStoragePaths storagePaths,
+    IPrivateAssetStore privateAssetStore,
     ILogger<LocalContentAssetStore> logger) : IAssetStore
 {
     private readonly string _publicRoot = Path.GetFullPath(storagePaths.PublicAssetRoot);
@@ -44,20 +45,30 @@ public sealed class LocalContentAssetStore(
                 return;
             }
 
-            if (!string.Equals(asset.StorageClass, "public", StringComparison.Ordinal)
-                || !AssetStorageKey.TryParse(asset.StorageKey, out AssetStorageKey storageKey))
+            if (!AssetStorageKey.TryParse(asset.StorageKey, out AssetStorageKey storageKey))
             {
                 throw new InvalidOperationException($"content_asset_storage_record_invalid:{asset.AssetId}");
             }
 
-            if (!TryResolveStoragePath(_publicRoot, storageKey.Value, out string candidate))
+            if (string.Equals(asset.StorageClass, "private", StringComparison.Ordinal))
             {
-                throw new InvalidOperationException($"content_asset_storage_escape:{asset.AssetId}");
+                await privateAssetStore.DeleteAsync(assetId, cancellationToken).ConfigureAwait(false);
             }
-
-            if (File.Exists(candidate))
+            else if (string.Equals(asset.StorageClass, "public", StringComparison.Ordinal))
             {
-                File.Delete(candidate);
+                if (!TryResolveStoragePath(_publicRoot, storageKey.Value, out string candidate))
+                {
+                    throw new InvalidOperationException($"content_asset_storage_escape:{asset.AssetId}");
+                }
+
+                if (File.Exists(candidate))
+                {
+                    File.Delete(candidate);
+                }
+            }
+            else
+            {
+                throw new InvalidOperationException($"content_asset_storage_record_invalid:{asset.AssetId}");
             }
 
             await db.Deleteable<ContentAssetCleanupQueueItem>()
@@ -119,4 +130,5 @@ public sealed class LocalContentAssetStore(
             return false;
         }
     }
+
 }
